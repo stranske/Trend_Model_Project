@@ -1,0 +1,6 @@
+end_date: 2008-06
+leverage_cost: 0.0025
+sample_size: 25
+selection_mode: manual
+start_date: 2005-07
+target_volatility: 0.1
