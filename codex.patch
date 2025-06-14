@@ -1,27 +1,78 @@
  (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
-diff --git a/tests/test_analysis.py b/tests/test_analysis.py
-new file mode 100644
-index 0000000000000000000000000000000000000000..22a692738008d5da439885129b24fcd6abbcb685
---- /dev/null
-+++ b/tests/test_analysis.py
-@@ -0,0 +1,17 @@
-+import importlib.util
-+import pathlib
-+import pytest
+diff --git a/README.md b/README.md
+index a1f8037531ee9b733b1a6ba5a81b40298d90e29c..bcd55efba5932c436eaf805784eb2eb51b26b362 100644
+--- a/README.md
++++ b/README.md
+@@ -1,33 +1,67 @@
+ # Trend Model Project
+ 
+-This repository contains experiments and utilities for analyzing volatility-adjusted trend portfolios. The Jupyter notebooks demonstrate how to load hedge fund data, apply trend-following rules, and export the results.
++This repository contains Jupyter notebooks and utilities for exploring volatility-adjusted trend-following portfolios. The notebooks walk through loading hedge fund return data, applying scaling rules, and generating performance statistics.
+ 
+ ## Notebooks
+ 
+ - `Vol_Adj_Trend_Analysis1.2.TrEx.ipynb` – an earlier version of the analysis.
+ - `Vol_Adj_Trend_Analysis1.3.TrEx.ipynb` – the current main notebook showing the full workflow.
+ - Additional historical notebooks can be found under `notebooks/old` and `Old/`.
+ 
+ ## Setup
+ 
+ 1. Install the required Python packages:
+    ```bash
+    pip install -r requirements.txt
+    ```
+ 2. Launch Jupyter Lab or Jupyter Notebook:
+    ```bash
+    jupyter lab
+    # or
+    jupyter notebook
+    ```
+-3. Open `Vol_Adj_Trend_Analysis1.3.TrEx.ipynb` and run the cells in order.
++3. Open `Vol_Adj_Trend_Analysis1.3.TrEx.ipynb` and run the cells to load helper functions.
 +
-+# Dynamically load the cleanup module from its file path
-+module_path = pathlib.Path(__file__).resolve().parents[1] / 'Old' / 'Vol_Adj_Trend_Analysis_Cleanup.py'
-+spec = importlib.util.spec_from_file_location('cleanup', module_path)
-+cleanup = importlib.util.module_from_spec(spec)
-+spec.loader.exec_module(cleanup)
++## Usage
 +
++Within the notebook the function `run_analysis` performs the core calculations. After loading your own CSV data into a DataFrame, call it with your parameters:
 +
-+def test_run_analysis_returns_none():
-+    assert cleanup.run_analysis(None, None, None, None, None, None, None) is None
++```python
++results = run_analysis(
++    df,
++    selected=my_funds,
++    w_vec=None,
++    w_dict=None,
++    rf_col='RF',
++    in_start='2005-07',
++    in_end='2008-07',
++    out_start='2008-08',
++    out_end='2010-12',
++    target_vol=0.15,
++    monthly_cost=0.002,
++    indices_list=['SP500']
++)
++```
 +
++To save the output, build a dictionary of DataFrames and pass it to `export_to_excel`:
 +
-+def test_prepare_weights_missing():
-+    assert not hasattr(cleanup, 'prepare_weights')
++```python
++data = {
++    "summary": summary_df,
++    "in_sample": in_sample_df,
++    "out_sample": out_sample_df,
++}
++export_to_excel(data, "analysis.xlsx")
++```
++
++The resulting workbook will contain each DataFrame on a separate sheet.
+ 
+ ## Applying patches
+ 
+ Some updates are provided as patch files. Apply them from the repository root with:
+ 
+ ```bash
+ git apply -p1 <patchfile>
+ ```
+ 
+ Replace `<patchfile>` with the patch you want to apply (for example `codex.patch`).
  
 EOF
 )
