@@ -1,154 +1,37 @@
  (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
-diff --git a/.gitignore b/.gitignore
-index 872bb477591fbe6380f4503eae3f9ef0c28e5316..0968940b19cd66564ac546faed00a9f9fbfc48ea 100644
---- a/.gitignore
-+++ b/.gitignore
-@@ -1,10 +1,11 @@
- # Byte-compiled / optimized / DLL files
- __pycache__/
-+*.pyc
- *.py[cod]
+diff --git a/README.md b/README.md
+index 07e18cfdc300c90221de2cf3e882686fb281da06..3b8364e5f34940d544d9edcb07ab4701e4f63027 100644
+--- a/README.md
++++ b/README.md
+@@ -1,21 +1,24 @@
+ # Trend Model Project
  
- # Jupyter Notebook checkpoints
- .ipynb_checkpoints/
- *.jupyterlab-workspace
+ This repository contains experiments and utilities for analyzing volatility-adjusted trend portfolios. The main focus is the Jupyter notebook `Vol_Adj_Trend_Analysis1.3.TrEx.ipynb`, which demonstrates how to load hedge fund data, apply trend-following rules, and export results.
  
- # macOS metadata
- .DS_Store
-diff --git a/__pycache__/Vol_Adj_Trend_Analysis_Cleanup.cpython-312.pyc b/__pycache__/Vol_Adj_Trend_Analysis_Cleanup.cpython-312.pyc
-deleted file mode 100644
-index c26611a21bf8f78706585e8cde35fc5976b99d18..0000000000000000000000000000000000000000
-GIT binary patch
-literal 0
-HcmV?d00001
-
-literal 12203
-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
-
+ ## Structure
+ 
+ - `notebooks/`: Jupyter notebooks for exploration and analysis.
+ - `Old/`: Archived notebooks and other historical artifacts.
+ 
+ ## Running the notebook
+ 
+-1. Install the required Python packages. The analysis relies on pandas, numpy, xlsxwriter, ipyfilechooser and ipywidgets.
+-2. Launch JupyterLab or Jupyter Notebook:
++1. Install the required Python packages. The analysis relies on pandas, numpy, xlsxwriter, ipyfilechooser and ipywidgets:
+    ```bash
+-   jupyter lab
+-   Install the required Python packages using pip:
+    pip install -r requirements.txt
+    ```
++2. Launch Jupyter Lab or Jupyter Notebook:
++   ```bash
++   jupyter lab
++   # or
++   jupyter notebook
++   ```
+ 3. Open `Vol_Adj_Trend_Analysis1.3.TrEx.ipynb` and execute the cells in order.
+ 
+ The notebook generates an output Excel file showing in-sample and out-of-sample statistics for the selected funds.
  
 EOF
 )
