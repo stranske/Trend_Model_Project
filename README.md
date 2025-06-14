@@ -1,15 +1,16 @@
 # Trend Model Project
 
-This repository contains experiments and utilities for analyzing volatility-adjusted trend portfolios. The main focus is the Jupyter notebook `Vol_Adj_Trend_Analysis1.3.TrEx.ipynb`, which demonstrates how to load hedge fund data, apply trend-following rules, and export results.
+This repository contains experiments and utilities for analyzing volatility-adjusted trend portfolios. The Jupyter notebooks demonstrate how to load hedge fund data, apply trend-following rules, and export the results.
 
-## Structure
+## Notebooks
 
-- `notebooks/`: Jupyter notebooks for exploration and analysis.
-- `Old/`: Archived notebooks and other historical artifacts.
+- `Vol_Adj_Trend_Analysis1.2.TrEx.ipynb` – an earlier version of the analysis.
+- `Vol_Adj_Trend_Analysis1.3.TrEx.ipynb` – the current main notebook showing the full workflow.
+- Additional historical notebooks can be found under `notebooks/old` and `Old/`.
 
-## Running the notebook
+## Setup
 
-1. Install the required Python packages. The analysis relies on pandas, numpy, xlsxwriter, ipyfilechooser and ipywidgets:
+1. Install the required Python packages:
    ```bash
    pip install -r requirements.txt
    ```
@@ -19,6 +20,14 @@ This repository contains experiments and utilities for analyzing volatility-adju
    # or
    jupyter notebook
    ```
-3. Open `Vol_Adj_Trend_Analysis1.3.TrEx.ipynb` and execute the cells in order.
+3. Open `Vol_Adj_Trend_Analysis1.3.TrEx.ipynb` and run the cells in order.
 
-The notebook generates an output Excel file showing in-sample and out-of-sample statistics for the selected funds.
+## Applying patches
+
+Some updates are provided as patch files. Apply them from the repository root with:
+
+```bash
+git apply -p1 <patchfile>
+```
+
+Replace `<patchfile>` with the patch you want to apply (for example `codex.patch`).
