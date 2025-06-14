@@ -1,10 +1,12 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
+.pytest_cache/
 *.pyc
 *.py[cod]
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
+.jupyter/
 *.jupyterlab-workspace
 
 # macOS metadata
