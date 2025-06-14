@@ -1,78 +1,79 @@
  (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
-diff --git a/README.md b/README.md
-index a1f8037531ee9b733b1a6ba5a81b40298d90e29c..bcd55efba5932c436eaf805784eb2eb51b26b362 100644
---- a/README.md
-+++ b/README.md
-@@ -1,33 +1,67 @@
- # Trend Model Project
- 
--This repository contains experiments and utilities for analyzing volatility-adjusted trend portfolios. The Jupyter notebooks demonstrate how to load hedge fund data, apply trend-following rules, and export the results.
-+This repository contains Jupyter notebooks and utilities for exploring volatility-adjusted trend-following portfolios. The notebooks walk through loading hedge fund return data, applying scaling rules, and generating performance statistics.
- 
- ## Notebooks
- 
- - `Vol_Adj_Trend_Analysis1.2.TrEx.ipynb` – an earlier version of the analysis.
- - `Vol_Adj_Trend_Analysis1.3.TrEx.ipynb` – the current main notebook showing the full workflow.
- - Additional historical notebooks can be found under `notebooks/old` and `Old/`.
- 
- ## Setup
- 
- 1. Install the required Python packages:
-    ```bash
-    pip install -r requirements.txt
-    ```
- 2. Launch Jupyter Lab or Jupyter Notebook:
-    ```bash
-    jupyter lab
-    # or
-    jupyter notebook
-    ```
--3. Open `Vol_Adj_Trend_Analysis1.3.TrEx.ipynb` and run the cells in order.
-+3. Open `Vol_Adj_Trend_Analysis1.3.TrEx.ipynb` and run the cells to load helper functions.
+diff --git a/__init__.py b/__init__.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/data_utils.py b/data_utils.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..7ddd3f420ad36f4edd862bcfe26ed8749a07a5c1
+--- /dev/null
++++ b/data_utils.py
+@@ -0,0 +1,44 @@
++import logging
++from typing import Optional
++import pandas as pd
 +
-+## Usage
++logger = logging.getLogger(__name__)
 +
-+Within the notebook the function `run_analysis` performs the core calculations. After loading your own CSV data into a DataFrame, call it with your parameters:
 +
-+```python
-+results = run_analysis(
-+    df,
-+    selected=my_funds,
-+    w_vec=None,
-+    w_dict=None,
-+    rf_col='RF',
-+    in_start='2005-07',
-+    in_end='2008-07',
-+    out_start='2008-08',
-+    out_end='2010-12',
-+    target_vol=0.15,
-+    monthly_cost=0.002,
-+    indices_list=['SP500']
-+)
-+```
++def load_csv(path: str) -> Optional[pd.DataFrame]:
++    """Load a CSV expecting a 'Date' column.
 +
-+To save the output, build a dictionary of DataFrames and pass it to `export_to_excel`:
++    Parameters
++    ----------
++    path : str
++        Path to the CSV file.
 +
-+```python
-+data = {
-+    "summary": summary_df,
-+    "in_sample": in_sample_df,
-+    "out_sample": out_sample_df,
-+}
-+export_to_excel(data, "analysis.xlsx")
-+```
++    Returns
++    -------
++    pandas.DataFrame or None
++        The loaded DataFrame if successful, otherwise ``None``.
++    """
++    try:
++        df = pd.read_csv(path, parse_dates=["Date"])
++    except FileNotFoundError:
++        logger.error(f"File not found: {path}")
++        return None
++    except pd.errors.EmptyDataError:
++        logger.error(f"No data in file: {path}")
++        return None
++    except pd.errors.ParserError as e:
++        logger.error(f"Parsing error in {path}: {e}")
++        return None
++    except ValueError as e:
++        # Raised when parse_dates references a missing column
++        logger.error(f"Missing 'Date' column in {path}")
++        return None
 +
-+The resulting workbook will contain each DataFrame on a separate sheet.
- 
- ## Applying patches
- 
- Some updates are provided as patch files. Apply them from the repository root with:
- 
- ```bash
- git apply -p1 <patchfile>
- ```
- 
- Replace `<patchfile>` with the patch you want to apply (for example `codex.patch`).
++    if "Date" not in df.columns:
++        logger.error(f"Validation failed ({path}): missing 'Date' column")
++        return None
++
++    if df["Date"].isnull().any():
++        logger.warning(f"Null values found in 'Date' column of {path}")
++
++    return df
+diff --git a/tests/test_refactor.py b/tests/test_refactor.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..d2f916f44b661788ca6f5cfb4881cfda4ed30603
+--- /dev/null
++++ b/tests/test_refactor.py
+@@ -0,0 +1,16 @@
++import sys
++import pathlib
++import pandas as pd
++
++# Ensure repository root is on the path
++sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
++from data_utils import load_csv
++
++
++def test_load_csv_missing_date(tmp_path):
++    data = pd.DataFrame({'A': [1, 2, 3]})
++    csv_path = tmp_path / "nodate.csv"
++    data.to_csv(csv_path, index=False)
++
++    result = load_csv(str(csv_path))
++    assert result is None
  
 EOF
 )
