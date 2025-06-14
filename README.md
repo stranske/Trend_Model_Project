@@ -14,6 +14,9 @@ This repository contains experiments and utilities for analyzing volatility-adju
    ```bash
    pip install -r requirements.txt
    ```
+   The `requirements.txt` file lists common data analysis libraries
+   including `pandas`, `numpy`, `matplotlib`, `ipywidgets`, and
+   `xlsxwriter`.
 2. Launch Jupyter Lab or Jupyter Notebook:
    ```bash
    jupyter lab
