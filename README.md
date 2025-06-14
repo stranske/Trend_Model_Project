@@ -9,10 +9,12 @@ This repository contains experiments and utilities for analyzing volatility-adju
 
 ## Running the notebook
 
-1. Install the required Python packages. The analysis relies on pandas, numpy, xlsxwriter, and ipywidgets.
+1. Install the required Python packages. The analysis relies on pandas, numpy, xlsxwriter, ipyfilechooser and ipywidgets.
 2. Launch JupyterLab or Jupyter Notebook:
    ```bash
    jupyter lab
+   Install the required Python packages using pip:
+   pip install -r requirements.txt
    ```
 3. Open `Vol_Adj_Trend_Analysis1.3.TrEx.ipynb` and execute the cells in order.
 
