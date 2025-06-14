@@ -1,78 +1,68 @@
  (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
-diff --git a/README.md b/README.md
-index a1f8037531ee9b733b1a6ba5a81b40298d90e29c..bcd55efba5932c436eaf805784eb2eb51b26b362 100644
---- a/README.md
-+++ b/README.md
-@@ -1,33 +1,67 @@
- # Trend Model Project
- 
--This repository contains experiments and utilities for analyzing volatility-adjusted trend portfolios. The Jupyter notebooks demonstrate how to load hedge fund data, apply trend-following rules, and export the results.
-+This repository contains Jupyter notebooks and utilities for exploring volatility-adjusted trend-following portfolios. The notebooks walk through loading hedge fund return data, applying scaling rules, and generating performance statistics.
- 
- ## Notebooks
- 
- - `Vol_Adj_Trend_Analysis1.2.TrEx.ipynb` – an earlier version of the analysis.
- - `Vol_Adj_Trend_Analysis1.3.TrEx.ipynb` – the current main notebook showing the full workflow.
- - Additional historical notebooks can be found under `notebooks/old` and `Old/`.
- 
- ## Setup
- 
- 1. Install the required Python packages:
-    ```bash
-    pip install -r requirements.txt
-    ```
- 2. Launch Jupyter Lab or Jupyter Notebook:
-    ```bash
-    jupyter lab
-    # or
-    jupyter notebook
-    ```
--3. Open `Vol_Adj_Trend_Analysis1.3.TrEx.ipynb` and run the cells in order.
-+3. Open `Vol_Adj_Trend_Analysis1.3.TrEx.ipynb` and run the cells to load helper functions.
-+
-+## Usage
-+
-+Within the notebook the function `run_analysis` performs the core calculations. After loading your own CSV data into a DataFrame, call it with your parameters:
-+
-+```python
-+results = run_analysis(
-+    df,
-+    selected=my_funds,
-+    w_vec=None,
-+    w_dict=None,
-+    rf_col='RF',
-+    in_start='2005-07',
-+    in_end='2008-07',
-+    out_start='2008-08',
-+    out_end='2010-12',
-+    target_vol=0.15,
-+    monthly_cost=0.002,
-+    indices_list=['SP500']
-+)
-+```
-+
-+To save the output, build a dictionary of DataFrames and pass it to `export_to_excel`:
-+
-+```python
-+data = {
-+    "summary": summary_df,
-+    "in_sample": in_sample_df,
-+    "out_sample": out_sample_df,
+diff --git a/Vol_Adj_Trend_Analysis1.3.TrEx.ipynb b/Vol_Adj_Trend_Analysis1.3.TrEx.ipynb
+index 4fb5d9d4e03f7fdd6f055fe247ecf7e0c1a76d0a..a7da777924f241e393957565431d88d7ea4f95e2 100644
+--- a/Vol_Adj_Trend_Analysis1.3.TrEx.ipynb
++++ b/Vol_Adj_Trend_Analysis1.3.TrEx.ipynb
+@@ -993,57 +993,49 @@
+     "    fund_table, total_lbl,\n",
+     "    widgets.HTML(\"<hr>\"),\n",
+     "    run_btn,\n",
+     "    run_out\n",
+     "]))\n"
+    ]
+   },
+   {
+    "cell_type": "code",
+    "execution_count": null,
+    "id": "d599f6a9-8055-42be-abf1-fd2ab3efee44",
+    "metadata": {},
+    "outputs": [],
+    "source": [
+     "# 1. Run the cell that defines load_csv and call it\n",
+     "dt = load_csv(\"/Users/teacher/Library/CloudStorage/Dropbox/Learning/Code/Trend Modeling Project/hedge_fund_returns_with_indexes.csv\")\n",
+     "\n",
+     "# 2. Capture all original fields (Date + fund columns)\n",
+     "col_list = dt.columns.tolist()\n",
+     "print(col_list)\n",
+     "\n",
+     "# 3.  (Optional)  Save to CSV for your spec\n",
+     "import pandas as pd\n",
+     "pd.DataFrame({\"ColumnName\": col_list}).to_csv(\"variable_spec.csv\", index=False)\n"
+    ]
+-  },
+-  {
+-   "cell_type": "code",
+-   "execution_count": null,
+-   "id": "48c282dc-8a97-4a3f-9832-a6000bf5f285",
+-   "metadata": {},
+-   "outputs": [],
+-   "source": []
+   }
+  ],
+  "metadata": {
+   "kernelspec": {
+    "display_name": "Python (base)",
+    "language": "python",
+    "name": "base"
+   },
+   "language_info": {
+    "codemirror_mode": {
+     "name": "ipython",
+     "version": 3
+    },
+    "file_extension": ".py",
+    "mimetype": "text/x-python",
+    "name": "python",
+    "nbconvert_exporter": "python",
+    "pygments_lexer": "ipython3",
+    "version": "3.12.2"
+   }
+  },
+  "nbformat": 4,
+  "nbformat_minor": 5
+-}
+\ No newline at end of file
 +}
-+export_to_excel(data, "analysis.xlsx")
-+```
-+
-+The resulting workbook will contain each DataFrame on a separate sheet.
- 
- ## Applying patches
- 
- Some updates are provided as patch files. Apply them from the repository root with:
- 
- ```bash
- git apply -p1 <patchfile>
- ```
- 
- Replace `<patchfile>` with the patch you want to apply (for example `codex.patch`).
  
 EOF
 )
