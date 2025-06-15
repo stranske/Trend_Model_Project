@@ -1,3 +1,4 @@
+# agents.md
 ## Mission
 Complete and maintain **Phase 1** of the Vol‑Adjusted Trend Analysis project.  
 _No feature work for later phases yet: the current mandate is **refactor, harden, document, and validate** what already exists._
@@ -103,11 +104,3 @@ CI green; code coverage ≥ 90 %.
 Changelog entry in CHANGELOG.md with date & semver bump (v0.1.0 → v0.2.0).
 
 README quick‑start reflects final CLI invocation.
-
-
-
-
-
-
-
-
