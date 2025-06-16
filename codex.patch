@@ -1,420 +1,287 @@
  (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
-diff --git a/Vol_Adj_Trend_Analysis1.4.TrEx.ipynb b/Vol_Adj_Trend_Analysis1.4.TrEx.ipynb
-index 517101b4949c05e70d488b2f24eb9793880db27f..df7c407190598c4a8845675f1ca734d9c3bb5931 100644
---- a/Vol_Adj_Trend_Analysis1.4.TrEx.ipynb
-+++ b/Vol_Adj_Trend_Analysis1.4.TrEx.ipynb
-@@ -15,50 +15,51 @@
-     "5. Export\n",
-     "6. Widget /UI\n",
-     "7. Output in-sample and out-of-sample results to Excel with formatting."
-    ]
-   },
-   {
-    "cell_type": "code",
-    "execution_count": 1,
-    "id": "30ea203f",
-    "metadata": {
-     "tags": []
-    },
-    "outputs": [],
-    "source": [
-     "# ===============================================================\n",
-     "#      VOL-ADJ TREND ANALYSIS  –  SINGLE-FILE VERSION\n",
-     "# ===============================================================\n",
-     "\n",
-     "# ───────────────────────────────────────────────────────────────\n",
-     "#  0 · IMPORTS  (all in one place)\n",
-     "# ───────────────────────────────────────────────────────────────\n",
-     "import pandas as pd\n",
-     "import numpy as np\n",
-     "from dataclasses import dataclass, field\n",
-     "from collections import namedtuple\n",
-+    "import inspect\n",
-     "import xlsxwriter\n",
-     "import logging\n",
-     "from io import BytesIO\n",
-     "import ipywidgets as widgets\n",
-     "from IPython.display import display, clear_output\n",
-     "from ipyfilechooser import FileChooser\n",
-     "from typing import List, Dict, Optional, Callable\n",
-     "\n",
-     "logging.getLogger().setLevel(logging.ERROR)\n",
-     "\n",
-     "# ───────────────────────────────────────────────────────────────\n",
-     "#  1 · Class Configurations\n",
-     "# ───────────────────────────────────────────────────────────────\n",
-     "@dataclass\n",
-     "class FundSelectionConfig:\n",
-     "    max_missing_months:         int = 3\n",
-     "    max_consecutive_month_gap:  int = 6\n",
-     "    implausible_value_limit: float  = 1\n",
-     "    outlier_threshold: float = 0.5\n",
-     "    zero_return_threshold: float = 0.2\n",
-     "    enforce_monotonic_index: bool = True\n",
-     "    allow_duplicate_dates: bool = False\n",
-     "    max_missing_ratio: float      = 0.05\n",
-     "    max_drawdown: float           = 0.3\n",
-     "    min_volatility: float         = 0.05\n",
-@@ -426,163 +427,159 @@
-    "metadata": {},
-    "outputs": [],
-    "source": [
-     "# ===============================================================\n",
-     "# 4 · CORE STATS  +  RUN_ANALYSIS  (helpers included, weight fix)\n",
-     "# ===============================================================\n",
-     "\n",
-     "M_PER_YEAR = 12           # constant used across helpers\n",
-     "\n",
-     "# ---------- helpers --------------------------------------------\n",
-     "def _ensure_dt(df: pd.DataFrame) -> pd.DataFrame:\n",
-     "    \"\"\"Return a copy whose Date column is datetime64[ns].\"\"\"\n",
-     "    if pd.api.types.is_datetime64_any_dtype(df[\"Date\"]):\n",
-     "        return df\n",
-     "    df = df.copy()\n",
-     "    df[\"Date\"] = pd.to_datetime(df[\"Date\"], errors=\"coerce\")\n",
-     "    df.dropna(subset=[\"Date\"], inplace=True)\n",
-     "    return df\n",
-     "\n",
-     "# 3. Metric function definitions\n",
-     "# === Metric Function Definitions with flexible annualization ===\n",
-     "@register_metric(\"AnnualReturn\")\n",
-     "def compute_annual_return(\n",
-     "    returns: pd.Series,\n",
-     "    periods_per_year: int = 252,\n",
--    "    **kwargs\n",
-     ") -> float:\n",
-     "    \"\"\"\n",
-     "    Geometric annualized return based on periods_per_year.\n",
-     "    \"\"\"\n",
-     "    r = returns.dropna()\n",
-     "    if r.empty:\n",
-     "        return np.nan\n",
-     "    total_growth = (1 + r).prod()\n",
-     "    n_periods = len(r)\n",
-     "    return total_growth ** (periods_per_year / n_periods) - 1\n",
-     "\n",
-     "@register_metric(\"Volatility\")\n",
-     "def compute_volatility(\n",
-     "    returns: pd.Series,\n",
-     "    periods_per_year: int = 252,\n",
--    "    **kwargs\n",
-     ") -> float:\n",
-     "    \"\"\"\n",
-     "    Annualized standard deviation of returns with flexible scaling.\n",
-     "    \"\"\"\n",
-     "    r = returns.dropna()\n",
-     "    if r.empty:\n",
-     "        return 0.0\n",
-     "    return r.std(ddof=0) * np.sqrt(periods_per_year)\n",
-     "\n",
-     "@register_metric(\"Sharpe\")\n",
-     "def compute_sharpe(\n",
-     "    returns: pd.Series,\n",
-     "    risk_free: float = 0.0,\n",
-     "    periods_per_year: int = 252,\n",
--    "    **kwargs\n",
-     ") -> float:\n",
-     "    \"\"\"\n",
-     "    Sharpe ratio using flexible annualized return and volatility.\n",
-     "    \"\"\"\n",
-     "    vol = compute_volatility(returns, periods_per_year=periods_per_year)\n",
-     "    if vol == 0:\n",
-     "        return np.nan\n",
-     "    ann_ret = compute_annual_return(returns, periods_per_year=periods_per_year)\n",
-     "    return (ann_ret - risk_free) / vol\n",
-     "\n",
-     "@register_metric(\"Sortino\")\n",
-     "def compute_sortino(\n",
-     "    returns: pd.Series,\n",
-     "    risk_free: float = 0.0,\n",
-     "    periods_per_year: int = 252,\n",
--    "    **kwargs\n",
-     ") -> float:\n",
-     "    \"\"\"\n",
-     "    Sortino ratio using flexible annualized return and downside deviation.\n",
-     "    \"\"\"\n",
-     "    r = returns.dropna()\n",
-     "    if r.empty:\n",
-     "        return np.nan\n",
-     "    ann_ret = compute_annual_return(returns, periods_per_year=periods_per_year)\n",
-     "    # Define per-period risk-free rate\n",
-     "    period_rf = risk_free / periods_per_year\n",
-     "    excess = r - period_rf\n",
-     "    downside = excess[excess < 0]\n",
-     "    if downside.empty:\n",
-     "        return np.nan\n",
-     "    down_dev = np.sqrt((downside ** 2).mean()) * np.sqrt(periods_per_year)\n",
-     "    if down_dev == 0:\n",
-     "        return np.nan\n",
-     "    return (ann_ret - risk_free) / down_dev\n",
-     "\n",
-     "@register_metric(\"MaxDrawdown\")\n",
-     "def compute_max_drawdown(\n",
-     "    returns: pd.Series,\n",
--    "    **kwargs\n",
-     ") -> float:\n",
-     "    \"\"\"\n",
-     "    Maximum drawdown (peak-to-trough) of cumulative returns.\n",
-     "    \"\"\"\n",
-     "    r = returns.dropna()\n",
-     "    if r.empty:\n",
-     "        return 0.0\n",
-     "    cum = (1 + r).cumprod()\n",
-     "    peak = cum.cummax()\n",
-     "    drawdown = (cum / peak) - 1\n",
-     "    return float(drawdown.min())\n",
-     "\n",
-     "# Alias for backward compatibility\n",
-     "_ann_vol = compute_volatility\n",
-     "\n",
-     "# === Aggregator with Centralized Error Handling ===\n",
-     "\n",
-     "def _stats(\n",
-     "    returns: pd.Series,\n",
-     "    cfg: RiskStatsConfig,\n",
-     "    **metric_kwargs\n",
-     ") -> namedtuple:\n",
-     "    \"\"\"\n",
-     "    Run each metric in cfg.metrics_to_run, returning a namedtuple of values.\n",
-     "    Uses cfg.periods_per_year for annualization.\n",
-     "    Centralized try/except ensures one failing metric doesn’t break the batch.\n",
-     "    \"\"\"\n",
-     "    Stat = namedtuple(\"Stat\", cfg.metrics_to_run)\n",
-     "    values: list[float] = []\n",
-     "    for name in cfg.metrics_to_run:\n",
-     "        fn = METRIC_REGISTRY.get(name)\n",
-     "        if fn is None:\n",
-     "            logging.error(\"Metric '%s' not registered\", name)\n",
-     "            values.append(np.nan)\n",
-     "            continue\n",
-     "        try:\n",
-     "            params = {\n",
-     "                \"risk_free\": cfg.risk_free,\n",
-     "                \"periods_per_year\": cfg.periods_per_year,\n",
-     "                **metric_kwargs\n",
-     "            }\n",
--    "            val = fn(returns, **params)\n",
-+    "            valid = {k: v for k, v in params.items() if k in inspect.signature(fn).parameters}\n",
-+    "            val = fn(returns, **valid)\n",
-     "        except ZeroDivisionError:\n",
-     "            logging.warning(\"%s: division by zero, setting NaN\", name)\n",
-     "            val = np.nan\n",
-     "        except (ValueError, TypeError) as e:\n",
-     "            logging.warning(\"%s: invalid input (%s), setting NaN\", name, e)\n",
-     "            val = np.nan\n",
-     "        except Exception as e:\n",
-     "            logging.error(\"%s: unexpected error (%s), setting NaN\", name, e)\n",
-     "            val = np.nan\n",
-     "        values.append(val)\n",
-     "    return Stat(*values)\n",
-     "\n",
-     "# ---------- main ------------------------------------------------\n",
-     "def run_analysis(\n",
-     "    df,\n",
-     "    selected,\n",
-     "    w_vec,\n",
-     "    w_dict,\n",
-     "    rf_col,\n",
-     "    in_start,\n",
-     "    in_end,\n",
-     "    out_start,\n",
-     "    out_end,\n",
-     "    target_vol,\n",
-     "    monthly_cost,\n",
-@@ -748,71 +745,56 @@
-    ]
-   },
-   {
-    "cell_type": "markdown",
-    "id": "86794206",
-    "metadata": {},
-    "source": [
-     "### Using This Notebook\n",
-     "1. Run all cells.\n",
-     "2. Call `demo_run()` in a new cell to see a quick example with dummy data.\n",
-     "3. To use your own data, load it into a DataFrame (make sure it has a 'Date' column and decimal returns in other columns), then call `run_analysis()` and `export_to_excel()`.\n",
-     "4. For interactive selection, do:\n",
-     "   ```python\n",
-     "   display(ui_inputs)\n",
-     "   ```\n",
-     "   Then wire the `apply_button` to a callback function that reads the widget values and runs `run_analysis()`.\n",
-     "5. For custom weights, call:\n",
-     "   ```python\n",
-     "   my_weights = get_custom_weights(selected_funds)\n",
-     "   ```\n",
-     "   Then pass `my_weights` into your logic.\n"
-    ]
-   },
-   {
-    "cell_type": "code",
--   "execution_count": 6,
-+   "execution_count": null,
-    "id": "687e0d59-d17a-41c8-b991-1d91d29a22d1",
-    "metadata": {
-     "outputId": "795bb6da-96a0-42e2-c760-7d516fd82610"
-    },
--   "outputs": [
--    {
--     "data": {
--      "application/vnd.jupyter.widget-view+json": {
--       "model_id": "6d5e3c6116774f11be0034a9d4507f54",
--       "version_major": 2,
--       "version_minor": 0
--      },
--      "text/plain": [
--       "VBox(children=(HTML(value='<h4>1. Load data</h4>'), ToggleButtons(description='Source:', options=(('Local', 'l…"
--      ]
--     },
--     "metadata": {},
--     "output_type": "display_data"
--    }
--   ],
-+   "outputs": [],
-    "source": [
-     "# ===============================================================\n",
-     "#            STREAMLINED ANALYSIS UI  (phase-2 clean)\n",
-     "# ===============================================================\n",
-     "\n",
-     "# ---------- session store ----------\n",
-     "session = {\"df\": None, \"rf\": None, \"sel\": None, \"cweights\": None}\n",
-     "\n",
-     "# ---------- 1 · DATA LOAD ----------\n",
-     "src = widgets.ToggleButtons(\n",
-     "    options=[(\"Local\", \"local\"), (\"URL\", \"url\")],\n",
-     "    description=\"Source:\"\n",
-     ")\n",
-     "\n",
-     "chooser = FileChooser()\n",
-     "url_box = widgets.Text(placeholder=\"https://…/file.csv\", layout={\"width\":\"70%\"})\n",
-     "load_btn = widgets.Button(description=\"Load CSV\", button_style=\"success\")\n",
-     "load_out = widgets.Output()\n",
-     "\n",
-     "def _toggle_src(c):\n",
-     "    chooser.layout.display = \"block\" if c[\"new\"]==\"local\" else \"none\"\n",
-     "    url_box.layout.display  = \"block\" if c[\"new\"]==\"url\"   else \"none\"\n",
-     "src.observe(_toggle_src, names=\"value\"); _toggle_src({\"new\":src.value})\n",
-     "\n",
-     "def _load(_):\n",
-diff --git a/config/defaults.yml b/config/defaults.yml
+diff --git a/tests/test_analysis.py b/tests/test_analysis.py
+index 22a692738008d5da439885129b24fcd6abbcb685..8ac6d08be177ccf0af13cf575c784dcd31be4984 100644
+--- a/tests/test_analysis.py
++++ b/tests/test_analysis.py
+@@ -1,17 +1,28 @@
+ import importlib.util
+ import pathlib
+-import pytest
++import sys
+ 
+-# Dynamically load the cleanup module from its file path
+-module_path = pathlib.Path(__file__).resolve().parents[1] / 'Old' / 'Vol_Adj_Trend_Analysis_Cleanup.py'
+-spec = importlib.util.spec_from_file_location('cleanup', module_path)
++if "ipyfilechooser" not in sys.modules:
++    stub = type(sys)("ipyfilechooser")
++    stub.FileChooser = object
++    sys.modules["ipyfilechooser"] = stub
++
++module_path = (
++    pathlib.Path(__file__).resolve().parents[1]
++    / "Old"
++    / "Vol_Adj_Trend_Analysis_Cleanup.py"
++)
++spec = importlib.util.spec_from_file_location("cleanup", module_path)
+ cleanup = importlib.util.module_from_spec(spec)
++assert spec.loader is not None
+ spec.loader.exec_module(cleanup)
+ 
+ 
+ def test_run_analysis_returns_none():
+-    assert cleanup.run_analysis(None, None, None, None, None, None, None) is None
++    assert (
++        cleanup.run_analysis(None, None, None, None, None, None, None) is None
++    )
+ 
+ 
+ def test_prepare_weights_missing():
+-    assert not hasattr(cleanup, 'prepare_weights')
++    assert not hasattr(cleanup, "prepare_weights")
+diff --git a/tests/test_metrics.py b/tests/test_metrics.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..8e2ddc6352a5c5b3b361b43c27fc1ab707fd8b09
+index 0000000000000000000000000000000000000000..7d425d6fa90854be0907bf8e64356e96fdfe717a
 --- /dev/null
-+++ b/config/defaults.yml
-@@ -0,0 +1,114 @@
-+# ======================================================================
-+# Vol-Adjusted Trend Analysis — Phase-1 master config
-+# ======================================================================
-+version: "0.1.0"                 # bump when the schema changes
++++ b/tests/test_metrics.py
+@@ -0,0 +1,45 @@
++import sys
++import pathlib
 +
-+# ----------------------------------------------------------------------
-+# 1. DATA INGESTION
-+# ----------------------------------------------------------------------
-+data:
-+  managers_glob:      "data/raw/managers/*.csv"
-+  indices_glob:       "data/raw/indices/*.csv"
-+  date_column:        "Date"          # ISO-8601 expected
-+  price_column:       "Adj_Close"     # or "NAV", etc.
-+  frequency:          "D"             # D | W | M
-+  timezone:           "UTC"           # for parsing
-+  currency:           "USD"
-+  nan_policy:         "ffill"         # drop | ffill | bfill | both
-+  lookback_required:  756             # minimum obs (≈3 yrs daily)
++sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
++from trend_analysis import metrics
 +
-+# ----------------------------------------------------------------------
-+# 2. PRE-PROCESSING OPTIONS
-+# ----------------------------------------------------------------------
-+preprocessing:
-+  de_duplicate:       true
-+  winsorise:
-+    enabled:          true
-+    limits:           [0.01, 0.99]    # two-sided
-+  log_prices:         false           # turn on if prices span decades
-+  holiday_calendar:   "NYSE"          # forward fill non-trading days
-+  resample:
-+    target:           "D"             # keep None to skip
-+    method:           "last"          # last | mean | sum | pad
-+    business_only:    true
++import pandas as pd
++import numpy as np
 +
-+# ----------------------------------------------------------------------
-+# 3. VOLATILITY ADJUSTMENT
-+# ----------------------------------------------------------------------
-+vol_adjust:
-+  enabled:            true
-+  target_vol:         0.10            # annualised (10%)
-+  window:
-+    length:           63             # rolling window (≈3 months)
-+    decay:            "ewma"          # ewma | simple
-+    lambda:           0.94           # EWMA decay
-+  floor_vol:          0.04            # avoid 100× leverage
 +
-+# ----------------------------------------------------------------------
-+# 4. IN-SAMPLE / OUT-OF-SAMPLE SPLIT
-+# ----------------------------------------------------------------------
-+sample_split:
-+  method:             "date"          # date | ratio
-+  date:               "2017-12-31"    # ignored if method=ratio
-+  ratio:              0.70            # ignored if method=date
-+  rolling_walk:       false           # future-phase feature flag
-+  folds:              5               # for CV, if rolling_walk=true
++def test_annualize_return_series():
++    s = pd.Series([0.02, -0.01, 0.03])
++    result = metrics.annualize_return(s)
++    expected = (1 + s).prod() ** (12 / len(s)) - 1
++    assert np.isclose(result, expected)
 +
-+# ----------------------------------------------------------------------
-+# 5. PORTFOLIO CONSTRUCTION
-+# ----------------------------------------------------------------------
-+portfolio:
-+  selection_mode:     "all"           # all | random | manual
-+  random_seed:        42
-+  random_n:           10              # num managers if random
-+  manual_list:        []              # filled when selection_mode=manual
-+  weighting_scheme:   "equal"         # equal | vol_inverse | custom
-+  rebalance_freq:     "M"             # M | Q | A | None
-+  leverage_cap:       2.0             # max gross exposure
 +
-+# ----------------------------------------------------------------------
-+# 6. PERFORMANCE METRICS
-+# ----------------------------------------------------------------------
-+metrics:
-+  rf_rate_annual:     0.02            # flat rf or link to series
-+  use_continuous:     false           # geometric (default) vs. log
-+  alpha_reference:    "SP500TR"       # ticker in indices_glob
-+  compute:
-+    - CAGR
-+    - Volatility
-+    - Sharpe
-+    - Sortino
-+    - Max_Drawdown
-+    - Calmar
-+    - Hit_Rate
-+    - Skew
-+  bootstrap_ci:
-+    enabled:          true
-+    n_iter:           2000
-+    ci_level:         0.95
++def test_annualize_volatility_dataframe():
++    df = pd.DataFrame({"a": [0.01, 0.02, 0.03, -0.01]})
++    res = metrics.annualize_volatility(df)
++    expected = df.std(ddof=1) * np.sqrt(12)
++    assert np.allclose(res.values, expected.values)
 +
-+# ----------------------------------------------------------------------
-+# 7. EXPORT OPTIONS
-+# ----------------------------------------------------------------------
-+export:
-+  directory:          "results/"
-+  formats:            ["xlsx", "csv", "json"]
-+  excel:
-+    autofit_columns:  true
-+    number_format:    "0.00%"
-+    conditional_bands:
-+      enabled:        true
-+      palette:        "RdYlGn"
-+  include_raw_returns: true
-+  include_vol_adj:     true
-+  include_figures:     false           # Phase-2
 +
-+# ----------------------------------------------------------------------
-+# 8. LOGGING & EXECUTION
-+# ----------------------------------------------------------------------
-+run:
-+  log_level:          "INFO"          # DEBUG | INFO | WARNING | ERROR
-+  log_file:           "logs/phase1.log"
-+  n_jobs:             -1              # ‑1 ⇒ all CPUs
-+  cache_dir:          ".cache/"
-+  deterministic:      true            # sets NumPy & pandas options
++def test_sharpe_ratio_simple():
++    r = pd.Series([0.02, 0.03, -0.01])
++    rf = pd.Series([0.01, 0.01, 0.01])
++    res = metrics.sharpe_ratio(r, rf)
++    ex = r - rf
++    expected = metrics.annualize_return(ex) / metrics.annualize_volatility(ex)
++    assert np.isclose(res, expected, equal_nan=True)
++
++
++def test_sortino_ratio_no_downside():
++    r = pd.Series([0.05, 0.04])
++    rf = pd.Series([0.01, 0.01])
++    assert np.isnan(metrics.sortino_ratio(r, rf))
++
++
++def test_max_drawdown_dataframe():
++    df = pd.DataFrame({"a": [0.1, -0.05, 0.02, -0.02]})
++    result = metrics.max_drawdown(df)
++    wealth = (1 + df["a"]).cumprod()
++    expected = (1 - wealth / wealth.cummax()).max()
++    assert np.isclose(result["a"], expected)
+diff --git a/trend_analysis/__init__.py b/trend_analysis/__init__.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..e64edd8bce631f04e0f24881b6987264c2552946
+--- /dev/null
++++ b/trend_analysis/__init__.py
+@@ -0,0 +1,5 @@
++"""Trend analysis package."""
++
++from . import metrics
++
++__all__ = ["metrics"]
+diff --git a/trend_analysis/metrics.py b/trend_analysis/metrics.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..31beefe4cf22006c2f1bf5c6921e13bf3884931a
+--- /dev/null
++++ b/trend_analysis/metrics.py
+@@ -0,0 +1,176 @@
++"""Core performance metrics used across the project."""
++
++from __future__ import annotations
++
++import numpy as np
++import pandas as pd
++from pandas import DataFrame, Series
++
++
++def _validate_input(obj: Series | DataFrame) -> None:
++    if not isinstance(obj, (Series, DataFrame)):
++        raise TypeError("Input must be pandas Series or DataFrame")
++
++
++def _apply(  # helper to handle Series/DataFrame uniformly
++    obj: Series | DataFrame, func, axis: int
++) -> Series | float:
++    if isinstance(obj, Series):
++        return func(obj.dropna())
++    return obj.apply(lambda col: func(col.dropna()), axis=axis)
++
++
++def annualize_return(
++    returns: Series | DataFrame, periods_per_year: int = 12, axis: int = 0
++) -> Series | float:
++    """Geometric annualised return.
++
++    Parameters
++    ----------
++    returns : pandas.Series or pandas.DataFrame
++        Periodic returns in decimal form.
++    periods_per_year : int, default 12
++        Number of compounding periods per year.
++    axis : int, default 0
++        Axis along which to calculate for DataFrames.
++
++    Returns
++    -------
++    pandas.Series or float
++        Annualised return(s).
++
++    Example
++    -------
++    >>> import pandas as pd
++    >>> s = pd.Series([0.02, -0.01, 0.03])
++    >>> annualize_return(s)
++    0.236090...  # doctest: +ELLIPSIS
++    """
++    _validate_input(returns)
++
++    def _calc(x: Series) -> float:
++        if x.empty:
++            return np.nan
++        growth = (1 + x).prod()
++        n = len(x)
++        if growth <= 0:
++            return -1.0
++        return growth ** (periods_per_year / n) - 1
++
++    return _apply(returns, _calc, axis)
++
++
++def annualize_volatility(
++    returns: Series | DataFrame, periods_per_year: int = 12, axis: int = 0
++) -> Series | float:
++    """Annualised volatility of returns."""
++    _validate_input(returns)
++
++    def _calc(x: Series) -> float:
++        if len(x) <= 1:
++            return np.nan
++        return x.std(ddof=1) * np.sqrt(periods_per_year)
++
++    return _apply(returns, _calc, axis)
++
++
++def sharpe_ratio(
++    returns: Series | DataFrame,
++    rf: Series | DataFrame,
++    periods_per_year: int = 12,
++    axis: int = 0,
++) -> Series | float:
++    """Annualised Sharpe ratio."""
++    _validate_input(returns)
++    _validate_input(rf)
++
++    def _calc(r: Series, rf_s: Series) -> float:
++        df = pd.DataFrame({"r": r, "rf": rf_s}).dropna()
++        if len(df) < 2:
++            return np.nan
++        excess = df["r"] - df["rf"]
++        ann_excess_ret = annualize_return(excess, periods_per_year)
++        ann_excess_vol = annualize_volatility(excess, periods_per_year)
++        if ann_excess_vol == 0 or np.isnan(ann_excess_vol):
++            return np.nan
++        return ann_excess_ret / ann_excess_vol
++
++    if isinstance(returns, Series) and isinstance(rf, Series):
++        return _calc(returns, rf)
++
++    if isinstance(returns, DataFrame) and isinstance(rf, Series):
++        rf = DataFrame({c: rf for c in returns.columns})
++
++    if isinstance(returns, Series) and isinstance(rf, DataFrame):
++        returns = DataFrame({c: returns for c in rf.columns})
++
++    if isinstance(returns, DataFrame) and isinstance(rf, DataFrame):
++        return DataFrame(
++            {col: _calc(returns[col], rf[col]) for col in returns.columns}
++        ).squeeze(axis=1)
++
++    raise TypeError(
++        "returns and rf must be Series or DataFrame of compatible shape"
++    )
++
++
++def sortino_ratio(
++    returns: Series | DataFrame,
++    rf: Series | DataFrame,
++    periods_per_year: int = 12,
++    axis: int = 0,
++) -> Series | float:
++    """Annualised Sortino ratio."""
++    _validate_input(returns)
++    _validate_input(rf)
++
++    def _calc(r: Series, rf_s: Series) -> float:
++        df = pd.DataFrame({"r": r, "rf": rf_s}).dropna()
++        if len(df) < 2:
++            return np.nan
++        excess = df["r"] - df["rf"]
++        growth = (1 + excess).prod()
++        ann_ret = (
++            growth ** (periods_per_year / len(excess)) - 1
++            if growth > 0
++            else np.nan
++        )
++        downside = excess[excess < 0]
++        if downside.empty:
++            return np.nan
++        down_vol = downside.std(ddof=1) * np.sqrt(periods_per_year)
++        if down_vol == 0 or np.isnan(down_vol):
++            return np.nan
++        return ann_ret / down_vol
++
++    if isinstance(returns, Series) and isinstance(rf, Series):
++        return _calc(returns, rf)
++
++    if isinstance(returns, DataFrame) and isinstance(rf, Series):
++        rf = DataFrame({c: rf for c in returns.columns})
++
++    if isinstance(returns, Series) and isinstance(rf, DataFrame):
++        returns = DataFrame({c: returns for c in rf.columns})
++
++    if isinstance(returns, DataFrame) and isinstance(rf, DataFrame):
++        return DataFrame(
++            {col: _calc(returns[col], rf[col]) for col in returns.columns}
++        ).squeeze(axis=1)
++
++    raise TypeError(
++        "returns and rf must be Series or DataFrame of compatible shape"
++    )
++
++
++def max_drawdown(returns: Series | DataFrame, axis: int = 0) -> Series | float:
++    """Maximum drawdown of cumulative returns."""
++    _validate_input(returns)
++
++    def _calc(x: Series) -> float:
++        if x.empty:
++            return np.nan
++        wealth = (1 + x).cumprod()
++        dd = 1 - wealth / wealth.cummax()
++        return dd.max()
++
++    return _apply(returns, _calc, axis)
  
 EOF
 )
