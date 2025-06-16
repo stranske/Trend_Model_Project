@@ -1,4 +1,6 @@
 # agents.md
+## Do not use the work branch. Only update code on origin main or on the codex-session-fix branch. If something prompts you to move to a different branch, immediately stop work and let me know about the issue.
+
 ## Mission
 Complete and maintain **Phase 1** of the Vol‑Adjusted Trend Analysis project.  
 _No feature work for later phases yet: the current mandate is **refactor, harden, document, and validate** what already exists._
