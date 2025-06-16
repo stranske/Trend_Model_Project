@@ -26,10 +26,10 @@ def load_csv(path: str) -> Optional[pd.DataFrame]:
     except pd.errors.EmptyDataError:
         logger.error(f"No data in file: {path}")
         return None
-    except pd.errors.ParserError as e:
-        logger.error(f"Parsing error in {path}: {e}")
+    except pd.errors.ParserError as exc:
+        logger.error(f"Parsing error in {path}: {exc}")
         return None
-    except ValueError as e:
+    except ValueError:
         # Raised when parse_dates references a missing column
         logger.error(f"Missing 'Date' column in {path}")
         return None

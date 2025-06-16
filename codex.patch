@@ -1,287 +1,399 @@
  (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
-diff --git a/tests/test_analysis.py b/tests/test_analysis.py
-index 22a692738008d5da439885129b24fcd6abbcb685..8ac6d08be177ccf0af13cf575c784dcd31be4984 100644
---- a/tests/test_analysis.py
-+++ b/tests/test_analysis.py
-@@ -1,17 +1,28 @@
- import importlib.util
- import pathlib
--import pytest
-+import sys
+diff --git a/data_utils.py b/data_utils.py
+index 7ddd3f420ad36f4edd862bcfe26ed8749a07a5c1..bf8e44649dfbab1d1aa902827ce23b20d051355e 100644
+--- a/data_utils.py
++++ b/data_utils.py
+@@ -4,41 +4,41 @@ import pandas as pd
  
--# Dynamically load the cleanup module from its file path
--module_path = pathlib.Path(__file__).resolve().parents[1] / 'Old' / 'Vol_Adj_Trend_Analysis_Cleanup.py'
--spec = importlib.util.spec_from_file_location('cleanup', module_path)
-+if "ipyfilechooser" not in sys.modules:
-+    stub = type(sys)("ipyfilechooser")
-+    stub.FileChooser = object
-+    sys.modules["ipyfilechooser"] = stub
-+
-+module_path = (
-+    pathlib.Path(__file__).resolve().parents[1]
-+    / "Old"
-+    / "Vol_Adj_Trend_Analysis_Cleanup.py"
-+)
-+spec = importlib.util.spec_from_file_location("cleanup", module_path)
- cleanup = importlib.util.module_from_spec(spec)
-+assert spec.loader is not None
- spec.loader.exec_module(cleanup)
+ logger = logging.getLogger(__name__)
  
  
- def test_run_analysis_returns_none():
--    assert cleanup.run_analysis(None, None, None, None, None, None, None) is None
-+    assert (
-+        cleanup.run_analysis(None, None, None, None, None, None, None) is None
-+    )
+ def load_csv(path: str) -> Optional[pd.DataFrame]:
+     """Load a CSV expecting a 'Date' column.
  
+     Parameters
+     ----------
+     path : str
+         Path to the CSV file.
  
- def test_prepare_weights_missing():
--    assert not hasattr(cleanup, 'prepare_weights')
-+    assert not hasattr(cleanup, "prepare_weights")
-diff --git a/tests/test_metrics.py b/tests/test_metrics.py
+     Returns
+     -------
+     pandas.DataFrame or None
+         The loaded DataFrame if successful, otherwise ``None``.
+     """
+     try:
+         df = pd.read_csv(path, parse_dates=["Date"])
+     except FileNotFoundError:
+         logger.error(f"File not found: {path}")
+         return None
+     except pd.errors.EmptyDataError:
+         logger.error(f"No data in file: {path}")
+         return None
+-    except pd.errors.ParserError as e:
+-        logger.error(f"Parsing error in {path}: {e}")
++    except pd.errors.ParserError as exc:
++        logger.error(f"Parsing error in {path}: {exc}")
+         return None
+-    except ValueError as e:
++    except ValueError:
+         # Raised when parse_dates references a missing column
+         logger.error(f"Missing 'Date' column in {path}")
+         return None
+ 
+     if "Date" not in df.columns:
+         logger.error(f"Validation failed ({path}): missing 'Date' column")
+         return None
+ 
+     if df["Date"].isnull().any():
+         logger.warning(f"Null values found in 'Date' column of {path}")
+ 
+     return df
+diff --git a/pyproject.toml b/pyproject.toml
 new file mode 100644
-index 0000000000000000000000000000000000000000..7d425d6fa90854be0907bf8e64356e96fdfe717a
+index 0000000000000000000000000000000000000000..46a9afb1ca45e568b88860da87aa790dd7c933b0
 --- /dev/null
-+++ b/tests/test_metrics.py
-@@ -0,0 +1,45 @@
-+import sys
-+import pathlib
++++ b/pyproject.toml
+@@ -0,0 +1,9 @@
++[tool.black]
++line-length = 88
 +
-+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-+from trend_analysis import metrics
++[tool.ruff]
++exclude = ["Old/*", "notebooks/*", "*.ipynb"]
++line-length = 88
 +
-+import pandas as pd
-+import numpy as np
-+
-+
-+def test_annualize_return_series():
-+    s = pd.Series([0.02, -0.01, 0.03])
-+    result = metrics.annualize_return(s)
-+    expected = (1 + s).prod() ** (12 / len(s)) - 1
-+    assert np.isclose(result, expected)
-+
-+
-+def test_annualize_volatility_dataframe():
-+    df = pd.DataFrame({"a": [0.01, 0.02, 0.03, -0.01]})
-+    res = metrics.annualize_volatility(df)
-+    expected = df.std(ddof=1) * np.sqrt(12)
-+    assert np.allclose(res.values, expected.values)
-+
-+
-+def test_sharpe_ratio_simple():
-+    r = pd.Series([0.02, 0.03, -0.01])
-+    rf = pd.Series([0.01, 0.01, 0.01])
-+    res = metrics.sharpe_ratio(r, rf)
-+    ex = r - rf
-+    expected = metrics.annualize_return(ex) / metrics.annualize_volatility(ex)
-+    assert np.isclose(res, expected, equal_nan=True)
-+
-+
-+def test_sortino_ratio_no_downside():
-+    r = pd.Series([0.05, 0.04])
-+    rf = pd.Series([0.01, 0.01])
-+    assert np.isnan(metrics.sortino_ratio(r, rf))
-+
-+
-+def test_max_drawdown_dataframe():
-+    df = pd.DataFrame({"a": [0.1, -0.05, 0.02, -0.02]})
-+    result = metrics.max_drawdown(df)
-+    wealth = (1 + df["a"]).cumprod()
-+    expected = (1 - wealth / wealth.cummax()).max()
-+    assert np.isclose(result["a"], expected)
-diff --git a/trend_analysis/__init__.py b/trend_analysis/__init__.py
++[tool.mypy]
++ignore_missing_imports = true
+diff --git a/run_analysis.py b/run_analysis.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..e64edd8bce631f04e0f24881b6987264c2552946
+index 0000000000000000000000000000000000000000..19542a6764ee1b2a36eba13a24d0aa5dcbeb4071
 --- /dev/null
-+++ b/trend_analysis/__init__.py
-@@ -0,0 +1,5 @@
-+"""Trend analysis package."""
-+
-+from . import metrics
-+
-+__all__ = ["metrics"]
-diff --git a/trend_analysis/metrics.py b/trend_analysis/metrics.py
-new file mode 100644
-index 0000000000000000000000000000000000000000..31beefe4cf22006c2f1bf5c6921e13bf3884931a
---- /dev/null
-+++ b/trend_analysis/metrics.py
-@@ -0,0 +1,176 @@
-+"""Core performance metrics used across the project."""
++++ b/run_analysis.py
+@@ -0,0 +1,231 @@
++"""Core analysis functions for the trend model project."""
 +
 +from __future__ import annotations
 +
++from dataclasses import dataclass
++from typing import Dict, Optional
 +import numpy as np
 +import pandas as pd
-+from pandas import DataFrame, Series
 +
 +
-+def _validate_input(obj: Series | DataFrame) -> None:
-+    if not isinstance(obj, (Series, DataFrame)):
-+        raise TypeError("Input must be pandas Series or DataFrame")
++@dataclass
++class Stats:
++    """Container for performance metrics."""
++
++    cagr: float
++    vol: float
++    sharpe: float
++    sortino: float
++    max_drawdown: float
 +
 +
-+def _apply(  # helper to handle Series/DataFrame uniformly
-+    obj: Series | DataFrame, func, axis: int
-+) -> Series | float:
-+    if isinstance(obj, Series):
-+        return func(obj.dropna())
-+    return obj.apply(lambda col: func(col.dropna()), axis=axis)
++def annualize_return(series: pd.Series, periods_per_year: int = 12) -> float:
++    """Annualised compounded return for a series of periodic returns."""
++    if series.empty:
++        return float("nan")
++    compounded = (1 + series).prod() ** (periods_per_year / len(series)) - 1
++    return float(compounded)
 +
 +
-+def annualize_return(
-+    returns: Series | DataFrame, periods_per_year: int = 12, axis: int = 0
-+) -> Series | float:
-+    """Geometric annualised return.
-+
-+    Parameters
-+    ----------
-+    returns : pandas.Series or pandas.DataFrame
-+        Periodic returns in decimal form.
-+    periods_per_year : int, default 12
-+        Number of compounding periods per year.
-+    axis : int, default 0
-+        Axis along which to calculate for DataFrames.
-+
-+    Returns
-+    -------
-+    pandas.Series or float
-+        Annualised return(s).
-+
-+    Example
-+    -------
-+    >>> import pandas as pd
-+    >>> s = pd.Series([0.02, -0.01, 0.03])
-+    >>> annualize_return(s)
-+    0.236090...  # doctest: +ELLIPSIS
-+    """
-+    _validate_input(returns)
-+
-+    def _calc(x: Series) -> float:
-+        if x.empty:
-+            return np.nan
-+        growth = (1 + x).prod()
-+        n = len(x)
-+        if growth <= 0:
-+            return -1.0
-+        return growth ** (periods_per_year / n) - 1
-+
-+    return _apply(returns, _calc, axis)
-+
-+
-+def annualize_volatility(
-+    returns: Series | DataFrame, periods_per_year: int = 12, axis: int = 0
-+) -> Series | float:
-+    """Annualised volatility of returns."""
-+    _validate_input(returns)
-+
-+    def _calc(x: Series) -> float:
-+        if len(x) <= 1:
-+            return np.nan
-+        return x.std(ddof=1) * np.sqrt(periods_per_year)
-+
-+    return _apply(returns, _calc, axis)
++def annualize_volatility(series: pd.Series, periods_per_year: int = 12) -> float:
++    """Annualised volatility."""
++    if series.empty:
++        return float("nan")
++    return float(series.std(ddof=0) * np.sqrt(periods_per_year))
 +
 +
 +def sharpe_ratio(
-+    returns: Series | DataFrame,
-+    rf: Series | DataFrame,
-+    periods_per_year: int = 12,
-+    axis: int = 0,
-+) -> Series | float:
++    returns: pd.Series, rf: pd.Series, periods_per_year: int = 12
++) -> float:
 +    """Annualised Sharpe ratio."""
-+    _validate_input(returns)
-+    _validate_input(rf)
-+
-+    def _calc(r: Series, rf_s: Series) -> float:
-+        df = pd.DataFrame({"r": r, "rf": rf_s}).dropna()
-+        if len(df) < 2:
-+            return np.nan
-+        excess = df["r"] - df["rf"]
-+        ann_excess_ret = annualize_return(excess, periods_per_year)
-+        ann_excess_vol = annualize_volatility(excess, periods_per_year)
-+        if ann_excess_vol == 0 or np.isnan(ann_excess_vol):
-+            return np.nan
-+        return ann_excess_ret / ann_excess_vol
-+
-+    if isinstance(returns, Series) and isinstance(rf, Series):
-+        return _calc(returns, rf)
-+
-+    if isinstance(returns, DataFrame) and isinstance(rf, Series):
-+        rf = DataFrame({c: rf for c in returns.columns})
-+
-+    if isinstance(returns, Series) and isinstance(rf, DataFrame):
-+        returns = DataFrame({c: returns for c in rf.columns})
-+
-+    if isinstance(returns, DataFrame) and isinstance(rf, DataFrame):
-+        return DataFrame(
-+            {col: _calc(returns[col], rf[col]) for col in returns.columns}
-+        ).squeeze(axis=1)
-+
-+    raise TypeError(
-+        "returns and rf must be Series or DataFrame of compatible shape"
-+    )
++    if returns.empty:
++        return float("nan")
++    excess = returns - rf.reindex_like(returns)
++    if excess.std(ddof=0) == 0:
++        return float("nan")
++    return float(excess.mean() / excess.std(ddof=0) * np.sqrt(periods_per_year))
 +
 +
 +def sortino_ratio(
-+    returns: Series | DataFrame,
-+    rf: Series | DataFrame,
-+    periods_per_year: int = 12,
-+    axis: int = 0,
-+) -> Series | float:
++    returns: pd.Series, rf: pd.Series, periods_per_year: int = 12
++) -> float:
 +    """Annualised Sortino ratio."""
-+    _validate_input(returns)
-+    _validate_input(rf)
++    if returns.empty:
++        return float("nan")
++    excess = returns - rf.reindex_like(returns)
++    downside = np.minimum(excess, 0)
++    downside_vol = np.sqrt((downside**2).mean()) * np.sqrt(periods_per_year)
++    if downside_vol == 0:
++        return float("nan")
++    return float(excess.mean() / downside_vol)
 +
-+    def _calc(r: Series, rf_s: Series) -> float:
-+        df = pd.DataFrame({"r": r, "rf": rf_s}).dropna()
-+        if len(df) < 2:
-+            return np.nan
-+        excess = df["r"] - df["rf"]
-+        growth = (1 + excess).prod()
-+        ann_ret = (
-+            growth ** (periods_per_year / len(excess)) - 1
-+            if growth > 0
-+            else np.nan
++
++def max_drawdown(returns: pd.Series) -> float:
++    """Maximum drawdown of a return series."""
++    if returns.empty:
++        return float("nan")
++    cumulative = (1 + returns).cumprod()
++    running_max = cumulative.cummax()
++    drawdowns = cumulative / running_max - 1
++    return float(drawdowns.min())
++
++
++def calc_portfolio_returns(weights: np.ndarray, returns_df: pd.DataFrame) -> pd.Series:
++    """Calculate weighted portfolio returns."""
++    return returns_df.mul(weights, axis=1).sum(axis=1)
++
++
++def _compute_stats(df: pd.DataFrame, rf: pd.Series) -> Dict[str, Stats]:
++    stats = {}
++    for col in df:
++        stats[col] = Stats(
++            cagr=annualize_return(df[col]),
++            vol=annualize_volatility(df[col]),
++            sharpe=sharpe_ratio(df[col], rf),
++            sortino=sortino_ratio(df[col], rf),
++            max_drawdown=max_drawdown(df[col]),
 +        )
-+        downside = excess[excess < 0]
-+        if downside.empty:
-+            return np.nan
-+        down_vol = downside.std(ddof=1) * np.sqrt(periods_per_year)
-+        if down_vol == 0 or np.isnan(down_vol):
-+            return np.nan
-+        return ann_ret / down_vol
++    return stats
 +
-+    if isinstance(returns, Series) and isinstance(rf, Series):
-+        return _calc(returns, rf)
 +
-+    if isinstance(returns, DataFrame) and isinstance(rf, Series):
-+        rf = DataFrame({c: rf for c in returns.columns})
++def run_analysis(
++    df: pd.DataFrame,
++    in_start: str,
++    in_end: str,
++    out_start: str,
++    out_end: str,
++    target_vol: float,
++    monthly_cost: float,
++    selection_mode: str = "all",
++    random_n: int = 8,
++    custom_weights: Optional[Dict[str, float]] = None,
++    seed: int = 42,
++) -> Optional[Dict[str, object]]:
++    """Run the trend-following analysis on ``df``.
 +
-+    if isinstance(returns, Series) and isinstance(rf, DataFrame):
-+        returns = DataFrame({c: returns for c in rf.columns})
++    Parameters
++    ----------
++    df:
++        DataFrame with a ``Date`` column and return columns.
++    in_start, in_end, out_start, out_end:
++        Analysis date range in ``YYYY-MM`` format.
++    target_vol:
++        Target annualised volatility for scaling returns.
++    monthly_cost:
++        Cost deducted from scaled returns each period.
++    selection_mode:
++        ``"all"`` to use every fund or ``"random"`` for a random subset.
++    random_n:
++        Number of funds if ``selection_mode='random'``.
++    custom_weights:
++        Optional mapping of fund → weight percentage for the user portfolio.
++    seed:
++        Random seed when sampling funds.
 +
-+    if isinstance(returns, DataFrame) and isinstance(rf, DataFrame):
-+        return DataFrame(
-+            {col: _calc(returns[col], rf[col]) for col in returns.columns}
-+        ).squeeze(axis=1)
++    Returns
++    -------
++    dict or None
++        Analysis results dictionary, or ``None`` if no funds are selected.
 +
-+    raise TypeError(
-+        "returns and rf must be Series or DataFrame of compatible shape"
++    Example
++    -------
++    >>> df = pd.DataFrame({"Date": pd.date_range("2020-01-31", periods=3, freq="M"),
++    ...                    "RF": 0.0, "A": 0.01, "B": 0.02})
++    >>> run_analysis(df, "2020-01", "2020-02", "2020-03", "2020-03", 0.1, 0.0)
++    {'selected_funds': ['A', 'B'], ...}
++    """
++    if df is None:
++        return None
++
++    date_col = "Date"
++    if date_col not in df.columns:
++        raise ValueError("DataFrame must contain a 'Date' column")
++
++    df = df.copy()
++    if not np.issubdtype(df[date_col].dtype, np.datetime64):
++        df[date_col] = pd.to_datetime(df[date_col])
++    df.sort_values(date_col, inplace=True)
++
++    def _parse_month(s: str) -> pd.Timestamp:
++        return pd.to_datetime(f"{s}-01") + pd.offsets.MonthEnd(0)
++
++    in_sdate, in_edate = _parse_month(in_start), _parse_month(in_end)
++    out_sdate, out_edate = _parse_month(out_start), _parse_month(out_end)
++
++    in_df = df[(df[date_col] >= in_sdate) & (df[date_col] <= in_edate)]
++    out_df = df[(df[date_col] >= out_sdate) & (df[date_col] <= out_edate)]
++
++    if in_df.empty or out_df.empty:
++        return None
++
++    ret_cols = [c for c in df.columns if c != date_col]
++    rf_col = min(ret_cols, key=lambda c: df[c].std())
++    fund_cols = [c for c in ret_cols if c != rf_col]
++
++    if selection_mode == "random" and len(fund_cols) > random_n:
++        rng = np.random.default_rng(seed)
++        fund_cols = rng.choice(fund_cols, size=random_n, replace=False).tolist()
++
++    if not fund_cols:
++        return None
++
++    vols = in_df[fund_cols].std() * np.sqrt(12)
++    scale_factors = (
++        pd.Series(target_vol / vols, index=fund_cols)
++        .replace([np.inf, -np.inf], 1.0)
++        .fillna(1.0)
 +    )
 +
++    in_scaled = in_df[fund_cols].mul(scale_factors, axis=1) - monthly_cost
++    out_scaled = out_df[fund_cols].mul(scale_factors, axis=1) - monthly_cost
++    in_scaled = in_scaled.clip(lower=-1.0)
++    out_scaled = out_scaled.clip(lower=-1.0)
 +
-+def max_drawdown(returns: Series | DataFrame, axis: int = 0) -> Series | float:
-+    """Maximum drawdown of cumulative returns."""
-+    _validate_input(returns)
++    rf_in = in_df[rf_col]
++    rf_out = out_df[rf_col]
 +
-+    def _calc(x: Series) -> float:
-+        if x.empty:
-+            return np.nan
-+        wealth = (1 + x).cumprod()
-+        dd = 1 - wealth / wealth.cummax()
-+        return dd.max()
++    in_stats = _compute_stats(in_scaled, rf_in)
++    out_stats = _compute_stats(out_scaled, rf_out)
++    out_stats_raw = _compute_stats(out_df[fund_cols], rf_out)
 +
-+    return _apply(returns, _calc, axis)
++    ew_weights = np.repeat(1.0 / len(fund_cols), len(fund_cols))
++    ew_w_dict = {c: w for c, w in zip(fund_cols, ew_weights)}
++    in_ew = calc_portfolio_returns(ew_weights, in_scaled)
++    out_ew = calc_portfolio_returns(ew_weights, out_scaled)
++    out_ew_raw = calc_portfolio_returns(ew_weights, out_df[fund_cols])
++
++    in_ew_stats = _compute_stats(pd.DataFrame({"ew": in_ew}), rf_in)["ew"]
++    out_ew_stats = _compute_stats(pd.DataFrame({"ew": out_ew}), rf_out)["ew"]
++    out_ew_stats_raw = _compute_stats(pd.DataFrame({"ew": out_ew_raw}), rf_out)["ew"]
++
++    if custom_weights is None:
++        custom_weights = {c: 100 / len(fund_cols) for c in fund_cols}
++    user_w = np.array([custom_weights.get(c, 0) / 100 for c in fund_cols])
++    user_w_dict = {c: w for c, w in zip(fund_cols, user_w)}
++
++    in_user = calc_portfolio_returns(user_w, in_scaled)
++    out_user = calc_portfolio_returns(user_w, out_scaled)
++    out_user_raw = calc_portfolio_returns(user_w, out_df[fund_cols])
++
++    in_user_stats = _compute_stats(pd.DataFrame({"user": in_user}), rf_in)["user"]
++    out_user_stats = _compute_stats(pd.DataFrame({"user": out_user}), rf_out)["user"]
++    out_user_stats_raw = _compute_stats(pd.DataFrame({"user": out_user_raw}), rf_out)[
++        "user"
++    ]
++
++    return {
++        "selected_funds": fund_cols,
++        "in_sample_scaled": in_scaled,
++        "out_sample_scaled": out_scaled,
++        "in_sample_stats": in_stats,
++        "out_sample_stats": out_stats,
++        "out_sample_stats_raw": out_stats_raw,
++        "in_ew_stats": in_ew_stats,
++        "out_ew_stats": out_ew_stats,
++        "out_ew_stats_raw": out_ew_stats_raw,
++        "in_user_stats": in_user_stats,
++        "out_user_stats": out_user_stats,
++        "out_user_stats_raw": out_user_stats_raw,
++        "ew_weights": ew_w_dict,
++        "fund_weights": user_w_dict,
++    }
+diff --git a/tests/test_analysis.py b/tests/test_analysis.py
+deleted file mode 100644
+index 22a692738008d5da439885129b24fcd6abbcb685..0000000000000000000000000000000000000000
+--- a/tests/test_analysis.py
++++ /dev/null
+@@ -1,17 +0,0 @@
+-import importlib.util
+-import pathlib
+-import pytest
+-
+-# Dynamically load the cleanup module from its file path
+-module_path = pathlib.Path(__file__).resolve().parents[1] / 'Old' / 'Vol_Adj_Trend_Analysis_Cleanup.py'
+-spec = importlib.util.spec_from_file_location('cleanup', module_path)
+-cleanup = importlib.util.module_from_spec(spec)
+-spec.loader.exec_module(cleanup)
+-
+-
+-def test_run_analysis_returns_none():
+-    assert cleanup.run_analysis(None, None, None, None, None, None, None) is None
+-
+-
+-def test_prepare_weights_missing():
+-    assert not hasattr(cleanup, 'prepare_weights')
+diff --git a/tests/test_run_analysis.py b/tests/test_run_analysis.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..78da503b2c75fe317691ea4825e957706c5e6e52
+--- /dev/null
++++ b/tests/test_run_analysis.py
+@@ -0,0 +1,65 @@
++import pandas as pd
++import numpy as np
++from run_analysis import (
++    run_analysis,
++    Stats,
++    annualize_return,
++    annualize_volatility,
++    sharpe_ratio,
++    sortino_ratio,
++    max_drawdown,
++    calc_portfolio_returns,
++)
++
++
++def make_df():
++    dates = pd.date_range("2020-01-31", periods=6, freq="M")
++    data = {
++        "Date": dates,
++        "RF": 0.0,
++        "A": [0.02, 0.03, -0.01, 0.04, 0.02, 0.01],
++        "B": [0.01, 0.02, -0.02, 0.03, 0.02, 0.0],
++    }
++    return pd.DataFrame(data)
++
++
++def test_metrics_roundtrip():
++    df = make_df()
++    series = df["A"]
++    rf = df["RF"]
++    r = annualize_return(series)
++    v = annualize_volatility(series)
++    s = sharpe_ratio(series, rf)
++    so = sortino_ratio(series, rf)
++    mdd = max_drawdown(series)
++    port = calc_portfolio_returns(np.array([0.5, 0.5]), df[["A", "B"]])
++    assert isinstance(r, float) and isinstance(v, float)
++    assert isinstance(s, float) and isinstance(so, float)
++    assert isinstance(mdd, float)
++    assert port.shape[0] == series.shape[0]
++
++
++def test_run_analysis_basic():
++    df = make_df()
++    res = run_analysis(df, "2020-01", "2020-03", "2020-04", "2020-06", 0.1, 0.0)
++    assert res is not None
++    assert set(res["selected_funds"]) == {"A", "B"}
++    assert "in_sample_stats" in res
++    assert isinstance(res["in_ew_stats"], Stats)
++
++
++def test_run_analysis_random_selection():
++    df = make_df()
++    res = run_analysis(
++        df,
++        "2020-01",
++        "2020-03",
++        "2020-04",
++        "2020-06",
++        0.1,
++        0.0,
++        selection_mode="random",
++        random_n=1,
++        seed=1,
++    )
++    assert len(res["selected_funds"]) == 1
  
 EOF
 )
