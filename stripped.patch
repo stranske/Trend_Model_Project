@@ -1,4 +1,3 @@
- (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
 diff --git a/README.md b/README.md
 index 5be1805e33b61b2a91ba033f0667a6e294e16c59..f9e72466e5ecaafa97e897b695d4865b719d2a5f 100644
 --- a/README.md
@@ -126,5 +125,3 @@ index ade54f9d2ac28387f368160c03e4071000f30951..00000000000000000000000000000000
 -)
 \ No newline at end of file
  
-EOF
-)
