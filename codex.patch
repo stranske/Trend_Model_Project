@@ -1,79 +1,204 @@
  (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
-diff --git a/__init__.py b/__init__.py
+diff --git a/tests/test_analysis.py b/tests/test_analysis.py
+index 22a692738008d5da439885129b24fcd6abbcb685..cccd4692316b48eb3838eabe2d8cf85d0cd0c6b5 100644
+--- a/tests/test_analysis.py
++++ b/tests/test_analysis.py
+@@ -1,17 +1,75 @@
+-import importlib.util
+-import pathlib
++import sys, pathlib
++
++sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
++import numpy as np
++import pandas as pd
+ import pytest
+ 
+-# Dynamically load the cleanup module from its file path
+-module_path = pathlib.Path(__file__).resolve().parents[1] / 'Old' / 'Vol_Adj_Trend_Analysis_Cleanup.py'
+-spec = importlib.util.spec_from_file_location('cleanup', module_path)
+-cleanup = importlib.util.module_from_spec(spec)
+-spec.loader.exec_module(cleanup)
++from trend_analysis.analyze import run_analysis
++
++
++def make_df() -> pd.DataFrame:
++    dates = pd.date_range("2020-01-31", periods=4, freq="M")
++    return pd.DataFrame(
++        {
++            "Date": dates,
++            "FundA": [0.01, 0.02, 0.03, 0.04],
++            "FundB": [0.02, -0.01, 0.01, 0.03],
++            "RF": [0.001, 0.001, 0.001, 0.001],
++        }
++    )
++
++
++def test_run_analysis_basic():
++    df = make_df()
++    res = run_analysis(
++        df,
++        ["FundA", "FundB"],
++        None,
++        None,
++        "RF",
++        "2020-01-31",
++        "2020-02-29",
++        "2020-03-31",
++        "2020-04-30",
++    )
++    assert res["selected_funds"] == ["FundA", "FundB"]
++    assert res["fund_weights"] == {"FundA": 0.5, "FundB": 0.5}
++    assert pytest.approx(res["in_sample_mean"]["FundA"]) == 0.015
++    assert pytest.approx(res["in_sample_mean"]["FundB"]) == 0.005
++    assert pytest.approx(res["out_sample_mean"]["FundA"]) == 0.035
++    assert pytest.approx(res["out_sample_mean"]["FundB"]) == 0.02
+ 
+ 
+-def test_run_analysis_returns_none():
+-    assert cleanup.run_analysis(None, None, None, None, None, None, None) is None
++def test_run_analysis_custom_weights():
++    df = make_df()
++    res = run_analysis(
++        df,
++        ["FundA", "FundB"],
++        None,
++        {"FundA": 0.7, "FundB": 0.3},
++        "RF",
++        "2020-01-31",
++        "2020-02-29",
++        "2020-03-31",
++        "2020-04-30",
++    )
++    assert res["fund_weights"] == {"FundA": 0.7, "FundB": 0.3}
+ 
+ 
+-def test_prepare_weights_missing():
+-    assert not hasattr(cleanup, 'prepare_weights')
++def test_run_analysis_drop_nan():
++    df = make_df()
++    df.loc[1, "FundB"] = np.nan
++    res = run_analysis(
++        df,
++        ["FundA", "FundB"],
++        None,
++        None,
++        "RF",
++        "2020-01-31",
++        "2020-02-29",
++        "2020-03-31",
++        "2020-04-30",
++    )
++    assert res["selected_funds"] == ["FundA"]
++    assert "FundB" in res["dropped"]
+diff --git a/tests/test_refactor.py b/tests/test_refactor.py
+index d2f916f44b661788ca6f5cfb4881cfda4ed30603..4d8f8e31567435a3e77258dd43f3d50724bbbd78 100644
+--- a/tests/test_refactor.py
++++ b/tests/test_refactor.py
+@@ -1,16 +1,16 @@
+ import sys
+ import pathlib
+ import pandas as pd
+ 
+ # Ensure repository root is on the path
+ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+ from data_utils import load_csv
+ 
+ 
+ def test_load_csv_missing_date(tmp_path):
+-    data = pd.DataFrame({'A': [1, 2, 3]})
++    data = pd.DataFrame({"A": [1, 2, 3]})
+     csv_path = tmp_path / "nodate.csv"
+     data.to_csv(csv_path, index=False)
+ 
+     result = load_csv(str(csv_path))
+     assert result is None
+diff --git a/__init__.py b/trend_analysis/__init__.py
+similarity index 100%
+rename from __init__.py
+rename to trend_analysis/__init__.py
+diff --git a/trend_analysis/analyze.py b/trend_analysis/analyze.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
-diff --git a/data_utils.py b/data_utils.py
-new file mode 100644
-index 0000000000000000000000000000000000000000..7ddd3f420ad36f4edd862bcfe26ed8749a07a5c1
+index 0000000000000000000000000000000000000000..9af347620c4a5bebfe5834e73a35620edcd4bab8
 --- /dev/null
-+++ b/data_utils.py
-@@ -0,0 +1,44 @@
-+import logging
-+from typing import Optional
++++ b/trend_analysis/analyze.py
+@@ -0,0 +1,77 @@
++from __future__ import annotations
++
++from typing import Dict, List, Optional
++
++import numpy as np
 +import pandas as pd
 +
-+logger = logging.getLogger(__name__)
 +
-+
-+def load_csv(path: str) -> Optional[pd.DataFrame]:
-+    """Load a CSV expecting a 'Date' column.
++def run_analysis(
++    df: pd.DataFrame,
++    selected: List[str],
++    w_vec: Optional[np.ndarray],
++    w_dict: Optional[Dict[str, float]],
++    rf_col: str,
++    in_start: str,
++    in_end: str,
++    out_start: str,
++    out_end: str,
++    target_vol: float = 1.0,
++    monthly_cost: float = 0.0,
++    indices_list: Optional[List[str]] = None,
++) -> Dict[str, object]:
++    """Simple analysis on a return DataFrame.
 +
 +    Parameters
 +    ----------
-+    path : str
-+        Path to the CSV file.
++    df : pandas.DataFrame
++        DataFrame containing a ``'Date'`` column and fund return columns.
++    selected : list[str]
++        Columns to include in the analysis.
++    w_vec : numpy.ndarray or None
++        Optional weight vector (unused).
++    w_dict : dict[str, float] or None
++        Optional dictionary of weights. If ``None`` equal weights are used.
++    rf_col : str
++        Name of the risk-free column (unused).
++    in_start, in_end, out_start, out_end : str
++        Date boundaries for the in-sample and out-of-sample windows.
++    target_vol : float, default 1.0
++        Unused placeholder for compatibility.
++    monthly_cost : float, default 0.0
++        Unused placeholder for compatibility.
++    indices_list : list[str] or None
++        Optional index columns (unused).
 +
 +    Returns
 +    -------
-+    pandas.DataFrame or None
-+        The loaded DataFrame if successful, otherwise ``None``.
++    dict
++        Dictionary with selected funds, weights, mean returns and dropped funds.
 +    """
-+    try:
-+        df = pd.read_csv(path, parse_dates=["Date"])
-+    except FileNotFoundError:
-+        logger.error(f"File not found: {path}")
-+        return None
-+    except pd.errors.EmptyDataError:
-+        logger.error(f"No data in file: {path}")
-+        return None
-+    except pd.errors.ParserError as e:
-+        logger.error(f"Parsing error in {path}: {e}")
-+        return None
-+    except ValueError as e:
-+        # Raised when parse_dates references a missing column
-+        logger.error(f"Missing 'Date' column in {path}")
-+        return None
++    df = df.copy()
++    df["Date"] = pd.to_datetime(df["Date"])
 +
-+    if "Date" not in df.columns:
-+        logger.error(f"Validation failed ({path}): missing 'Date' column")
-+        return None
++    in_mask = df["Date"].between(pd.to_datetime(in_start), pd.to_datetime(in_end))
++    out_mask = df["Date"].between(pd.to_datetime(out_start), pd.to_datetime(out_end))
 +
-+    if df["Date"].isnull().any():
-+        logger.warning(f"Null values found in 'Date' column of {path}")
++    in_sample = df.loc[in_mask, selected]
++    out_sample = df.loc[out_mask, selected]
 +
-+    return df
-diff --git a/tests/test_refactor.py b/tests/test_refactor.py
-new file mode 100644
-index 0000000000000000000000000000000000000000..d2f916f44b661788ca6f5cfb4881cfda4ed30603
---- /dev/null
-+++ b/tests/test_refactor.py
-@@ -0,0 +1,16 @@
-+import sys
-+import pathlib
-+import pandas as pd
++    good = [
++        c
++        for c in selected
++        if not in_sample[c].isna().any() and not out_sample[c].isna().any()
++    ]
++    dropped = list(set(selected) - set(good))
++    selected = good
 +
-+# Ensure repository root is on the path
-+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-+from data_utils import load_csv
-+
-+
-+def test_load_csv_missing_date(tmp_path):
-+    data = pd.DataFrame({'A': [1, 2, 3]})
-+    csv_path = tmp_path / "nodate.csv"
-+    data.to_csv(csv_path, index=False)
-+
-+    result = load_csv(str(csv_path))
-+    assert result is None
++    if w_dict is None:
++        w_dict = {f: 1 / len(selected) for f in selected} if selected else {}
++    result: Dict[str, object] = {
++        "selected_funds": selected,
++        "fund_weights": w_dict,
++        "in_sample_mean": {f: float(in_sample[f].mean()) for f in selected},
++        "out_sample_mean": {f: float(out_sample[f].mean()) for f in selected},
++        "dropped": dropped,
++    }
++    return result
  
 EOF
 )
