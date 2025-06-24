@@ -1,8 +1,5 @@
-import sys
-import pathlib
 import pandas as pd
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 from trend_analysis.export import export_data
 
 
