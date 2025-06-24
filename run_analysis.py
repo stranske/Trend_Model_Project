@@ -4,8 +4,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Dict, Optional
+
 import numpy as np
 import pandas as pd
+
+from trend_analysis.metrics import (
+    annualize_return,
+    annualize_volatility,
+    sharpe_ratio,
+    sortino_ratio,
+    max_drawdown,
+)
 
 
 @dataclass
@@ -17,58 +26,6 @@ class Stats:
     sharpe: float
     sortino: float
     max_drawdown: float
-
-
-def annualize_return(series: pd.Series, periods_per_year: int = 12) -> float:
-    """Annualised compounded return for a series of periodic returns."""
-    if series.empty:
-        return float("nan")
-    compounded = (1 + series).prod() ** (periods_per_year / len(series)) - 1
-    return float(compounded)
-
-
-def annualize_volatility(series: pd.Series, periods_per_year: int = 12) -> float:
-    """Annualised volatility."""
-    if series.empty:
-        return float("nan")
-    return float(series.std(ddof=0) * np.sqrt(periods_per_year))
-
-
-def sharpe_ratio(
-    returns: pd.Series, rf: pd.Series, periods_per_year: int = 12
-) -> float:
-    """Annualised Sharpe ratio."""
-    if returns.empty:
-        return float("nan")
-    excess = returns - rf.reindex_like(returns)
-    if excess.std(ddof=0) == 0:
-        return float("nan")
-    return float(excess.mean() / excess.std(ddof=0) * np.sqrt(periods_per_year))
-
-
-def sortino_ratio(
-    returns: pd.Series, rf: pd.Series, periods_per_year: int = 12
-) -> float:
-    """Annualised Sortino ratio."""
-    if returns.empty:
-        return float("nan")
-    excess = returns - rf.reindex_like(returns)
-    downside = np.minimum(excess, 0)
-    downside_vol = np.sqrt((downside**2).mean()) * np.sqrt(periods_per_year)
-    if downside_vol == 0:
-        return float("nan")
-    return float(excess.mean() / downside_vol)
-
-
-def max_drawdown(returns: pd.Series) -> float:
-    """Maximum drawdown of a return series."""
-    if returns.empty:
-        return float("nan")
-    cumulative = (1 + returns).cumprod()
-    running_max = cumulative.cummax()
-    drawdowns = cumulative / running_max - 1
-    return float(drawdowns.min())
-
 
 def calc_portfolio_returns(weights: np.ndarray, returns_df: pd.DataFrame) -> pd.Series:
     """Calculate weighted portfolio returns."""
