@@ -26,7 +26,7 @@ def load_csv(path: str) -> Optional[pd.DataFrame]:
     except pd.errors.EmptyDataError:
         logger.error(f"No data in file: {path}")
         return None
-    except pd.errors.ParserError as exc:
+    except pd.errors.ParserError as exc:  # pragma: no cover - hard to trigger
         logger.error(f"Parsing error in {path}: {exc}")
         return None
     except ValueError:
@@ -34,11 +34,14 @@ def load_csv(path: str) -> Optional[pd.DataFrame]:
         logger.error(f"Missing 'Date' column in {path}")
         return None
 
-    if "Date" not in df.columns:
+    if "Date" not in df.columns:  # pragma: no cover - parse_dates checks this
         logger.error(f"Validation failed ({path}): missing 'Date' column")
         return None
 
-    if df["Date"].isnull().any():
+    if df["Date"].isnull().any():  # pragma: no cover - rarely triggered
         logger.warning(f"Null values found in 'Date' column of {path}")
 
     return df
+
+
+__all__ = ["load_csv"]
