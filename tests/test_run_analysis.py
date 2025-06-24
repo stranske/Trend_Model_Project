@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from run_analysis import run_analysis, Stats, calc_portfolio_returns
+from trend_analysis.pipeline import run_analysis, Stats, calc_portfolio_returns
 from trend_analysis.metrics import (
     annualize_return,
     annualize_volatility,
