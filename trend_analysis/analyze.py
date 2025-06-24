@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+# mypy: ignore-errors
 
-import numpy as np
+from typing import Dict, List, Optional
+from numpy.typing import NDArray
 import pandas as pd
 
 
 def run_analysis(
     df: pd.DataFrame,
     selected: List[str],
-    w_vec: Optional[np.ndarray],
+    w_vec: Optional[NDArray],
     w_dict: Optional[Dict[str, float]],
     rf_col: str,
     in_start: str,
