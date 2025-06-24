@@ -1,9 +1,11 @@
+import pytest
 import sys
 import pathlib
 import pandas as pd
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-from exports import export_data
+
+from trend_analysis.export import export_data
 
 
 def test_export_data(tmp_path):
@@ -21,3 +23,9 @@ def test_export_data(tmp_path):
 
     read = pd.read_csv(tmp_path / "report_sheet1.csv")
     pd.testing.assert_frame_equal(read, df1)
+
+
+def test_export_data_bad_format(tmp_path):
+    df = pd.DataFrame({"A": [1]})
+    with pytest.raises(ValueError):
+        export_data({"s": df}, str(tmp_path / "out"), formats=["xml"])
