@@ -33,3 +33,12 @@ def test_load_custom(tmp_path):
     cfg = config.load(str(path))
     assert cfg.version == "99"
 
+
+def test_env_var_override(tmp_path, monkeypatch):
+    cfg_file = tmp_path / "env.yml"
+    _write_cfg(cfg_file, "42")
+    monkeypatch.setenv("TREND_CFG", str(cfg_file))
+    cfg = config.load()
+    assert cfg.version == "42"
+    monkeypatch.delenv("TREND_CFG", raising=False)
+
