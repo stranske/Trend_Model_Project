@@ -1,5 +1,4 @@
 import pandas as pd
-from pathlib import Path
 
 from trend_analysis import data as data_mod
 
