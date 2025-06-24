@@ -7,3 +7,6 @@ ipywidgets
 xlsxwriter
 pydantic>=2
 openpyxl
+
+PyYAML
+pytest-cov
