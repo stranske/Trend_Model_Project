@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
+import os
 
 import yaml
 from pydantic import BaseModel
@@ -27,8 +28,16 @@ DEFAULTS = Path(__file__).resolve().parents[1] / "config" / "defaults.yml"
 
 
 def load(path: str | Path | None = None) -> Config:
-    """Load configuration from ``path`` or ``DEFAULTS``."""
-    cfg_path: Path = Path(path) if path is not None else DEFAULTS
+    """Load configuration from ``path`` or ``DEFAULTS``.
+
+    If ``path`` is ``None``, the ``TREND_CFG`` environment variable is
+    consulted before falling back to ``DEFAULTS``.
+    """
+    if path is None:
+        env = os.environ.get("TREND_CFG")
+        cfg_path = Path(env) if env else DEFAULTS
+    else:
+        cfg_path = Path(path)
     with cfg_path.open("r", encoding="utf-8") as fh:
         data = yaml.safe_load(fh)
         if not isinstance(data, dict):
