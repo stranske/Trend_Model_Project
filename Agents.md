@@ -54,7 +54,7 @@ No circular imports. pipeline.py orchestrates; nothing imports it.
 
 Tests
 
-Add fixtures that load a 5‑instrument × 24‑month parquet slice stored under tests/data/.
+NOTE: Test fixtures must be text-serialised (CSV/JSON); no binary formats in PRs.
 
 Require 100 % branch coverage on trend_analysis/* via pytest‑cov in CI.
 
