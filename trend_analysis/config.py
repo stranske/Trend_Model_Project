@@ -23,14 +23,16 @@ class Config(BaseModel):
     run: dict[str, Any]
 
 
-def load(path: str | None = None) -> Config:
-    """Load configuration from ``path`` or default ``config/defaults.yml``."""
-    if path is None:
-        path = Path(__file__).resolve().parents[1] / "config" / "defaults.yml"
-    else:
-        path = Path(path)
-    with open(path, "r", encoding="utf-8") as fh:
+DEFAULTS = Path(__file__).resolve().parents[1] / "config" / "defaults.yml"
+
+
+def load(path: str | Path | None = None) -> Config:
+    """Load configuration from ``path`` or ``DEFAULTS``."""
+    cfg_path: Path = Path(path) if path is not None else DEFAULTS
+    with cfg_path.open("r", encoding="utf-8") as fh:
         data = yaml.safe_load(fh)
+        if not isinstance(data, dict):
+            raise TypeError("Config file must contain a mapping")
     return Config(**data)
 
 

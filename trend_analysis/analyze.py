@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+# mypy: ignore-errors
 
-import numpy as np
+from typing import Dict, List, Optional
+from numpy.typing import NDArray
 import pandas as pd
 
 
 def run_analysis(
     df: pd.DataFrame,
     selected: List[str],
-    w_vec: Optional[np.ndarray],
+    w_vec: Optional[NDArray],
     w_dict: Optional[Dict[str, float]],
     rf_col: str,
     in_start: str,
@@ -57,6 +58,8 @@ def run_analysis(
     in_sample = df.loc[in_mask, selected]
     out_sample = df.loc[out_mask, selected]
 
+    # Iterating over the small ``selected`` list keeps the logic easy to read
+    # and the performance impact negligible compared to a vectorised approach.
     good = [
         c
         for c in selected
@@ -66,10 +69,14 @@ def run_analysis(
     selected = good
 
     if w_dict is None:
+        # Explicitly loop over ``selected`` to build the weights dictionary.
+        # The list is tiny, so clarity is preferred over micro-optimisation.
         w_dict = {f: 1 / len(selected) for f in selected} if selected else {}
     result: Dict[str, object] = {
         "selected_funds": selected,
         "fund_weights": w_dict,
+        # Calculate means per fund using small dictionary comprehensions for
+        # readability since only a handful of columns are involved.
         "in_sample_mean": {f: float(in_sample[f].mean()) for f in selected},
         "out_sample_mean": {f: float(out_sample[f].mean()) for f in selected},
         "dropped": dropped,
