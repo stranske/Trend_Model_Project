@@ -1,5 +1,5 @@
 """Trend analysis package."""
 
-from . import metrics
+from . import metrics, config
 
-__all__ = ["metrics"]
+__all__ = ["metrics", "config"]
