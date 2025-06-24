@@ -1,4 +1,4 @@
-"""
+"""  # pragma: no cover - placeholder module
 YOU ARE CODEX.  EXTEND THE VOL_ADJ_TREND_ANALYSIS PROJECT AS FOLLOWS
 --------------------------------------------------------------------
 
@@ -80,6 +80,8 @@ output:
 • MaxDrawdown is currently the only “smaller‑is‑better” metric; the
   ASCENDING_METRICS set remains {"MaxDrawdown"} until further notice.
 • Config format stays YAML.
+
+"""
 
 
 

@@ -9,5 +9,3 @@ pydantic>=2
 openpyxl
 PyYAML
 pytest-cov
-codex/add-dependencies-to-requirements.txt
-main
