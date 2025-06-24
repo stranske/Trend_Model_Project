@@ -1,34 +1,79 @@
 # agents.md
 ## Mission
-**Phase 1 hardening, not feature creep.**  
-Your job is to **converge the scattered modules into a single, test‑covered, vectorised pipeline** that can be called from one CLI entry‑point. No touching notebooks labelled “…old”.
+Converge the scattered modules into one fully‑test‑covered, vectorised pipeline that can be invoked from a single CLI entry‑point.
+Never touch notebooks living under any directory whose name ends in old/.
 
 ---
 
-## Repo Truth Table
-| Layer | Canonical module | Anything else is **deprecated** |
-|-------|------------------|---------------------------------|
-| Data ingest & cleaning | `data_utils.py` | ad‑hoc helpers in notebooks, `run_analysis.py`, etc. |
-| Portfolio & metrics | `trend_analysis/metrics.py` (vectorised) | hand‑rolled loops inside `run_analysis.py` |
-| Export | `trend_analysis/export.py` (to be created) | export snippets inside notebooks or main script |
-| Orchestration | `run_analysis.py` **only** | any _copy_ of an orchestration loop elsewhere |
-| Config | `config/defaults.yml` loaded through `trend_analysis.config` | literal constants inside code, flags in notebooks |
+## | Layer / concern                      | **Canonical location**                                                     | Everything else is **deprecated**                         |
+| ------------------------------------ | -------------------------------------------------------------------------- | --------------------------------------------------------- |
+| **Data ingest & cleaning**           | `trend_analysis/data.py` <br> (alias exported as `trend_analysis.data`)    | `data_utils.py`, helper code in notebooks or `scripts/`   |
+| **Portfolio logic & metrics**        | `trend_analysis/metrics.py` (vectorised)                                   | loops inside `run_analysis.py`, ad‑hoc calcs in notebooks |
+| **Export / I/O**                     | `trend_analysis/export.py`                                                 | the root‑level `exports.py`, snippets inside notebooks    |
+| **Domain kernels (fast primitives)** | `trend_analysis/core/` package                                             | stand‑alone modules under the top‑level `core/` directory |
+| **Pipeline orchestration**           | `trend_analysis/pipeline.py` (pure)                                        | any duplicated control flow elsewhere                     |
+| **CLI entry‑point**                  | `run_analysis.py` **only** (thin wrapper around `trend_analysis.cli:main`) | bespoke `scripts/*.py` entry points                       |
+| **Config**                           | `config/defaults.yml` loaded through `trend_analysis.config.load()`        | hard‑coded constants, magic numbers in notebooks          |
+| **Tests**                            | `tests/` (pytest; 100 % branch‑aware coverage gate)                        |    —                                                      |
+One concern → one module.
+Replacements must delete or comment‑out whatever they obsolete in the same PR.
 
-> **MUST**: Delete or comment‑out superseded functions **in the same PR** that introduces their replacement. One source of truth per concern.
+Immediate Refactor Tasks
+Flatten duplications
 
----
+Rename data_utils.py → trend_analysis/data.py, adjust imports, delete the original.
 
-## Concrete Refactor Goals
+Migrate the contents of the top‑level exports.py into trend_analysis/export.py; keep only a re‑export stub for one minor release.
 
-### 1  Imports & Dependency Hygiene
-* Top‑level heavy imports (`numpy`, `pandas`, `scipy`) are fine **per module**.  
-  Micro‑optimising “import once” is premature; readability wins.
-* **MUST NOT**: circular imports. `run_analysis.py` may *call* but never *import* from notebooks.
+Turn the stray core/ directory into an importable sub‑package:
+core/indicator.py → trend_analysis/core/indicator.py, etc.
 
-### 2  Config Resolution
-* Add `trend_analysis/config.py` that:
-  ```python
-  from pydantic import BaseModel
-  class Config(BaseModel):
-      # fields mirrored from defaults.yml…
-  def load(path: str | None = None) -> Config: ...
+Single pipeline
+
+Implement trend_analysis/pipeline.py exposing a pure function
+run(config: Config) -> pd.DataFrame.
+
+run_analysis.py should parse CLI args, build a Config, pass it to pipeline.run, then handle pretty printing / file output only.
+
+Config resolution
+
+# trend_analysis/config.py
+from pydantic import BaseModel
+class Config(BaseModel):
+    defaults: str = Path(__file__).with_name("..").joinpath("config/defaults.yml")
+    # ...other validated fields...
+def load(path: str | None = None) -> Config: ...
+
+Env‑var override: TREND_CFG=/path/to/override.yml run_analysis ...
+
+Dependency hygiene
+
+Heavy imports (numpy, pandas, scipy) at top of each module are fine.
+
+No circular imports. pipeline.py orchestrates; nothing imports it.
+
+Tests
+
+Add fixtures that load a 5‑instrument × 24‑month parquet slice stored under tests/data/.
+
+Require 100 % branch coverage on trend_analysis/* via pytest‑cov in CI.
+
+Conventions & Guard‑rails
+Vectorise first.
+Falling back to for‑loops requires a comment justifying why vectorisation is impossible or harmful.
+
+Public API (exported in __all__) uses US‑English snake‑case; private helpers are prefixed with _.
+
+Notebook hygiene: any new exploratory notebook must start with the header
+# 🔬 scratchpad – may be deleted at any time.
+
+CI (GitHub Actions) stages to add:
+
+lint  (ruff + black –‑check)
+
+type‑check (mypy, strict)
+
+test (pytest ‑‑cov trend_analysis ‑‑cov‑branch)
+
+build‑wheel (tags only)
+
