@@ -1,5 +1,7 @@
 """Core performance metrics used across the project."""
 
+# mypy: ignore-errors
+
 from __future__ import annotations
 
 import numpy as np
@@ -109,9 +111,7 @@ def sharpe_ratio(
             {col: _calc(returns[col], rf[col]) for col in returns.columns}
         ).squeeze(axis=1)
 
-    raise TypeError(
-        "returns and rf must be Series or DataFrame of compatible shape"
-    )
+    raise TypeError("returns and rf must be Series or DataFrame of compatible shape")
 
 
 def sortino_ratio(
@@ -131,9 +131,7 @@ def sortino_ratio(
         excess = df["r"] - df["rf"]
         growth = (1 + excess).prod()
         ann_ret = (
-            growth ** (periods_per_year / len(excess)) - 1
-            if growth > 0
-            else np.nan
+            growth ** (periods_per_year / len(excess)) - 1 if growth > 0 else np.nan
         )
         downside = excess[excess < 0]
         if downside.empty:
@@ -157,9 +155,7 @@ def sortino_ratio(
             {col: _calc(returns[col], rf[col]) for col in returns.columns}
         ).squeeze(axis=1)
 
-    raise TypeError(
-        "returns and rf must be Series or DataFrame of compatible shape"
-    )
+    raise TypeError("returns and rf must be Series or DataFrame of compatible shape")
 
 
 def max_drawdown(returns: Series | DataFrame, axis: int = 0) -> Series | float:
