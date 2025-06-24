@@ -1,6 +1,5 @@
 import json
 from pathlib import Path
-import pytest
 
 from trend_analysis import cli
 from trend_analysis import config
