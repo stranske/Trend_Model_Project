@@ -13,7 +13,9 @@ Formatter = Callable[[pd.DataFrame], pd.DataFrame]
 FORMATTERS_EXCEL: dict[str, Callable[[Any, Any], None]] = {}
 
 
-def register_formatter_excel(category: str) -> Callable[[Callable[[Any, Any], None]], Callable[[Any, Any], None]]:
+def register_formatter_excel(
+    category: str,
+) -> Callable[[Callable[[Any, Any], None]], Callable[[Any, Any], None]]:
     """Register an Excel formatter under ``category``."""
 
     def decorator(fn: Callable[[Any, Any], None]) -> Callable[[Any, Any], None]:
@@ -21,6 +23,11 @@ def register_formatter_excel(category: str) -> Callable[[Callable[[Any, Any], No
         return fn
 
     return decorator
+
+
+def reset_formatters_excel() -> None:
+    """Clear all registered Excel formatters."""
+    FORMATTERS_EXCEL.clear()
 
 
 def make_summary_formatter(
@@ -100,16 +107,28 @@ def export_to_excel(
     data: Mapping[str, pd.DataFrame],
     output_path: str,
     formatter: Formatter | None = None,
+    default_sheet_formatter: Callable[[Any, Any], None] | None = None,
 ) -> None:
-    """Export dataframes to an Excel workbook."""
+    """Export dataframes to an Excel workbook.
+
+    Each key in ``data`` becomes a sheet.  After writing a sheet, a
+    formatter function is looked up in :data:`FORMATTERS_EXCEL` by sheet name
+    and applied.  If absent, ``default_sheet_formatter`` is used if provided.
+    The ``formatter`` argument still allows per-frame transformations before
+    writing.
+    """
     path = Path(output_path)
     _ensure_dir(path)
-    with pd.ExcelWriter(path) as writer:
+    with pd.ExcelWriter(path, engine="xlsxwriter") as writer:
         # We must iterate over the mapping of DataFrames so each becomes its own
         # sheet. A vectorised approach would obscure the intent here.
         for sheet, df in data.items():
             formatted = _apply_format(df, formatter)
             formatted.to_excel(writer, sheet_name=sheet, index=False)
+            ws = writer.sheets[sheet]
+            fmt = FORMATTERS_EXCEL.get(sheet, default_sheet_formatter)
+            if fmt:
+                fmt(ws, writer.book)
 
 
 def export_to_csv(
@@ -169,6 +188,7 @@ def export_data(
 __all__ = [
     "FORMATTERS_EXCEL",
     "register_formatter_excel",
+    "reset_formatters_excel",
     "make_summary_formatter",
     "export_to_excel",
     "export_to_csv",
