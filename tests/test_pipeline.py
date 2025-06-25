@@ -14,7 +14,12 @@ def make_cfg(tmp_path, df):
         "data": {"csv_path": str(csv)},
         "preprocessing": {},
         "vol_adjust": {"target_vol": 1.0},
-        "sample_split": {"in_start": "2020-01", "in_end": "2020-03", "out_start": "2020-04", "out_end": "2020-06"},
+        "sample_split": {
+            "in_start": "2020-01",
+            "in_end": "2020-03",
+            "out_start": "2020-04",
+            "out_end": "2020-06",
+        },
         "portfolio": {},
         "metrics": {},
         "export": {},
@@ -24,12 +29,14 @@ def make_cfg(tmp_path, df):
 
 
 def make_df():
-    dates = pd.date_range("2020-01-31", periods=6, freq="M")
-    return pd.DataFrame({
-        "Date": dates,
-        "RF": 0.0,
-        "A": [0.02, 0.01, 0.03, 0.04, 0.02, 0.01],
-    })
+    dates = pd.date_range("2020-01-31", periods=6, freq="ME")
+    return pd.DataFrame(
+        {
+            "Date": dates,
+            "RF": 0.0,
+            "A": [0.02, 0.01, 0.03, 0.04, 0.02, 0.01],
+        }
+    )
 
 
 def test_run_returns_dataframe(tmp_path):
@@ -40,7 +47,9 @@ def test_run_returns_dataframe(tmp_path):
 
 
 def test_run_returns_empty_when_no_funds(tmp_path, monkeypatch):
-    df = pd.DataFrame({"Date": pd.date_range("2020-01-31", periods=1, freq="M"), "RF": 0.0})
+    df = pd.DataFrame(
+        {"Date": pd.date_range("2020-01-31", periods=1, freq="ME"), "RF": 0.0}
+    )
     cfg = make_cfg(tmp_path, df)
     result = pipeline.run(cfg)
     assert result.empty
@@ -65,7 +74,9 @@ def test_env_override(tmp_path, monkeypatch):
 
 
 def test_run_analysis_none():
-    res = pipeline.run_analysis(None, "2020-01", "2020-03", "2020-04", "2020-06", 1.0, 0.0)
+    res = pipeline.run_analysis(
+        None, "2020-01", "2020-03", "2020-04", "2020-06", 1.0, 0.0
+    )
     assert res is None
 
 
@@ -78,13 +89,19 @@ def test_run_analysis_missing_date():
 def test_run_analysis_string_dates():
     df = make_df()
     df["Date"] = df["Date"].astype(str)
-    res = pipeline.run_analysis(df, "2020-01", "2020-03", "2020-04", "2020-06", 1.0, 0.0)
+    res = pipeline.run_analysis(
+        df, "2020-01", "2020-03", "2020-04", "2020-06", 1.0, 0.0
+    )
     assert res is not None
 
 
 def test_run_analysis_no_funds():
-    df = pd.DataFrame({"Date": pd.date_range("2020-01-31", periods=3, freq="M"), "RF": 0.0})
-    res = pipeline.run_analysis(df, "2020-01", "2020-02", "2020-03", "2020-03", 1.0, 0.0)
+    df = pd.DataFrame(
+        {"Date": pd.date_range("2020-01-31", periods=3, freq="ME"), "RF": 0.0}
+    )
+    res = pipeline.run_analysis(
+        df, "2020-01", "2020-02", "2020-03", "2020-03", 1.0, 0.0
+    )
     assert res is None
 
 

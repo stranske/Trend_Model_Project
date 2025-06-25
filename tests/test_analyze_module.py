@@ -4,13 +4,15 @@ from trend_analysis import analyze
 
 
 def _make_df():
-    dates = pd.date_range("2020-01-31", periods=6, freq="M")
-    return pd.DataFrame({
-        "Date": dates,
-        "A": [np.nan, 0.02, 0.03, 0.03, 0.02, 0.01],
-        "B": [0.02, 0.01, 0.02, 0.01, 0.03, 0.02],
-        "RF": 0.0,
-    })
+    dates = pd.date_range("2020-01-31", periods=6, freq="ME")
+    return pd.DataFrame(
+        {
+            "Date": dates,
+            "A": [np.nan, 0.02, 0.03, 0.03, 0.02, 0.01],
+            "B": [0.02, 0.01, 0.02, 0.01, 0.03, 0.02],
+            "RF": 0.0,
+        }
+    )
 
 
 def test_run_analysis_drop_and_weights():
@@ -44,5 +46,3 @@ def test_run_analysis_custom_weights():
         "2020-06",
     )
     assert res["fund_weights"] == {"A": 0.2, "B": 0.8}
-
-
