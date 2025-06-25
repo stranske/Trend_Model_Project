@@ -10,13 +10,13 @@ This repository contains experiments and utilities for analyzing volatility-adju
 
 ## Setup
 
-1. Install the required Python packages:
+1. Create a virtual environment and install the required packages:
    ```bash
-   pip install -r requirements.txt
+   ./scripts/setup_env.sh
    ```
-   The `requirements.txt` file lists common data analysis libraries
-   including `pandas`, `numpy`, `matplotlib`, `ipywidgets`, and
-   `xlsxwriter`.
+   This bootstraps a `.venv` directory and installs everything from
+   `requirements.txt`, which includes `pandas`, `numpy`, `matplotlib`,
+   `ipywidgets` and `xlsxwriter`.
 2. Launch Jupyter Lab or Jupyter Notebook:
    ```bash
    jupyter lab
