@@ -37,15 +37,17 @@ Replace `<patchfile>` with the patch you want to apply (for example `codex.patch
 
 ## Command-line usage
 
-You can also run the analysis pipeline directly from the command line.  Invoke
+You can also run the analysis pipeline directly from the command line. Invoke
 the entry point with an optional configuration file:
 
 ```bash
-python run_analysis.py path/to/config.yml
+python run_analysis.py -c path/to/config.yml
 ```
 
-Omitting the argument defaults to `config/defaults.yml`.  The configuration file
-location can also be overridden via the `TREND_CFG` environment variable:
+The configuration file **must** define `data.csv_path` pointing to your CSV
+data. If ``-c`` is omitted, ``run_analysis`` loads
+`config/defaults.yml`, or the path set via the ``TREND_CFG`` environment
+variable:
 
 ```bash
 TREND_CFG=custom.yml python run_analysis.py
