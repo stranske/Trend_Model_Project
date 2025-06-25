@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
+import inspect
 
 import pandas as pd
 
@@ -119,11 +120,19 @@ def export_to_excel(
     """
     path = Path(output_path)
     _ensure_dir(path)
+
+    df_formatter = formatter
+    if formatter and default_sheet_formatter is None:
+        params = list(inspect.signature(formatter).parameters)
+        if len(params) != 1:
+            default_sheet_formatter = formatter  # backward compat
+            df_formatter = None
+
     with pd.ExcelWriter(path, engine="xlsxwriter") as writer:
         # We must iterate over the mapping of DataFrames so each becomes its own
         # sheet. A vectorised approach would obscure the intent here.
         for sheet, df in data.items():
-            formatted = _apply_format(df, formatter)
+            formatted = _apply_format(df, df_formatter)
             formatted.to_excel(writer, sheet_name=sheet, index=False)
             ws = writer.sheets[sheet]
             fmt = FORMATTERS_EXCEL.get(sheet, default_sheet_formatter)

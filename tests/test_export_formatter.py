@@ -42,7 +42,9 @@ def test_make_summary_formatter_registers_and_runs():
         "in_sample_stats": {"fund": (5, 5, 5, 5, 5)},
         "out_sample_stats": {"fund": (6, 6, 6, 6, 6)},
         "fund_weights": {"fund": 0.5},
-        "index_stats": {"idx": {"in_sample": (7, 7, 7, 7, 7), "out_sample": (8, 8, 8, 8, 8)}},
+        "index_stats": {
+            "idx": {"in_sample": (7, 7, 7, 7, 7), "out_sample": (8, 8, 8, 8, 8)}
+        },
     }
     fmt = make_summary_formatter(res, "a", "b", "c", "d")
     assert "summary" in FORMATTERS_EXCEL
@@ -69,3 +71,22 @@ def test_export_to_excel_invokes_formatter(tmp_path):
     read = pd.read_excel(out, sheet_name="sheet")
     assert "B" in read.columns
     assert read.loc[0, "B"] == 2
+
+
+def test_export_to_excel_backward_compat_sheet_formatter(tmp_path):
+    df = pd.DataFrame({"A": [1]})
+    res = {
+        "in_ew_stats": (0, 0, 0, 0, 0),
+        "out_ew_stats": (0, 0, 0, 0, 0),
+        "in_user_stats": (0, 0, 0, 0, 0),
+        "out_user_stats": (0, 0, 0, 0, 0),
+        "in_sample_stats": {},
+        "out_sample_stats": {},
+        "fund_weights": {},
+        "index_stats": {},
+    }
+
+    sheet_formatter = make_summary_formatter(res, "a", "b", "c", "d")
+    out = tmp_path / "out.xlsx"
+    export_to_excel({"summary": df}, str(out), formatter=sheet_formatter)
+    assert out.exists()
