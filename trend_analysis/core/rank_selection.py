@@ -3,7 +3,6 @@
 This module implements the `rank` selection mode described in Agents.md. Funds can be kept using `top_n`, `top_pct` or `threshold` rules and scored by metrics registered in `METRIC_REGISTRY`. Metrics listed in `ASCENDING_METRICS` are treated as smaller-is-better.
 """
 
-
 # =============================================================================
 #  Runtime imports and dataclasses
 # =============================================================================
@@ -314,11 +313,93 @@ def build_ui():
 
     out_fmt = widgets.Dropdown(options=["excel", "csv", "json"], description="Output:")
 
-    # … callbacks wire visibility & final run_action that reads widgets
-    # and assembles rank_kwargs / config dict, then calls run_analysis()
-    # >>> IMPLEMENT wiring logic here
+    # --------------------------------------------------------------
+    #  Callbacks and execution wiring
+    # --------------------------------------------------------------
 
-    ui = widgets.VBox([mode_dd, vol_ck, use_rank_ck, next_btn_1])
+    blended_box = widgets.VBox([m1_dd, w1_sl, m2_dd, w2_sl, m3_dd, w3_sl])
+    blended_box.layout.display = "none"
+
+    rank_box = widgets.VBox(
+        [incl_dd, metric_dd, topn_int, pct_flt, thresh_f, blended_box]
+    )
+    rank_box.layout.display = "none"
+
+    run_btn = widgets.Button(description="Run")
+    output = widgets.Output()
+
+    def _update_rank_vis(*_):
+        show = mode_dd.value == "rank" or use_rank_ck.value
+        rank_box.layout.display = "flex" if show else "none"
+        _update_blended_vis()
+
+    def _update_blended_vis(*_):
+        show = metric_dd.value == "blended" and (
+            mode_dd.value == "rank" or use_rank_ck.value
+        )
+        blended_box.layout.display = "flex" if show else "none"
+
+    mode_dd.observe(_update_rank_vis, "value")
+    use_rank_ck.observe(_update_rank_vis, "value")
+    metric_dd.observe(_update_blended_vis, "value")
+
+    def _run_action(_btn):
+        rank_kwargs = None
+        if mode_dd.value == "rank" or use_rank_ck.value:
+            rank_kwargs = {
+                "inclusion_approach": incl_dd.value,
+                "score_by": metric_dd.value,
+            }
+            if incl_dd.value == "top_n":
+                rank_kwargs["n"] = int(topn_int.value)
+            elif incl_dd.value == "top_pct":
+                rank_kwargs["pct"] = float(pct_flt.value)
+            elif incl_dd.value == "threshold":
+                rank_kwargs["threshold"] = float(thresh_f.value)
+            if metric_dd.value == "blended":
+                rank_kwargs["blended_weights"] = {
+                    m1_dd.value: w1_sl.value,
+                    m2_dd.value: w2_sl.value,
+                    m3_dd.value: w3_sl.value,
+                }
+
+        with output:
+            output.clear_output()
+            try:
+                from pathlib import Path
+                from .. import pipeline
+
+                csv = (
+                    Path(__file__).resolve().parents[1]
+                    / "hedge_fund_returns_with_indexes.csv"
+                )
+                df = pd.read_csv(csv, parse_dates=["Date"])
+                dates = df["Date"].dt.to_period("M")
+                start = dates.min()
+                res = pipeline.run_analysis(
+                    df,
+                    str(start),
+                    str(start + 2),
+                    str(start + 3),
+                    str(start + 5),
+                    0.1,
+                    0.0,
+                    selection_mode=mode_dd.value,
+                    rank_kwargs=rank_kwargs,
+                )
+                if res is None:
+                    print("No results")
+                else:
+                    print("Selected funds:", res["selected_funds"])
+            except Exception as exc:
+                print("Error:", exc)
+
+    run_btn.on_click(_run_action)
+
+    ui = widgets.VBox(
+        [mode_dd, vol_ck, use_rank_ck, next_btn_1, rank_box, out_fmt, run_btn, output]
+    )
+    _update_rank_vis()
     return ui
 
 
