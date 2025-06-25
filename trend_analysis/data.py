@@ -42,3 +42,21 @@ def load_csv(path: str) -> Optional[pd.DataFrame]:
         logger.warning(f"Null values found in 'Date' column of {path}")
 
     return df
+
+
+def identify_risk_free_fund(df: pd.DataFrame) -> Optional[str]:
+    """Return the column with the lowest standard deviation.
+
+    Columns named 'Date' or non-numeric dtypes are ignored. ``None`` is
+    returned when no suitable columns are found.
+    """
+
+    num_cols = [c for c in df.select_dtypes("number").columns if c != "Date"]
+    if not num_cols:
+        return None
+    rf = df[num_cols].std(skipna=True).idxmin()
+    logger.info("Risk-free column: %s", rf)
+    return rf
+
+
+__all__ = ["load_csv", "identify_risk_free_fund"]
