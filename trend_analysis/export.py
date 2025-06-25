@@ -3,11 +3,87 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Callable, Iterable, Mapping
+from typing import Any, Callable, Iterable, Mapping
 
 import pandas as pd
 
 Formatter = Callable[[pd.DataFrame], pd.DataFrame]
+
+
+FORMATTERS_EXCEL: dict[str, Callable[[Any, Any], None]] = {}
+
+
+def register_formatter_excel(category: str) -> Callable[[Callable[[Any, Any], None]], Callable[[Any, Any], None]]:
+    """Register an Excel formatter under ``category``."""
+
+    def decorator(fn: Callable[[Any, Any], None]) -> Callable[[Any, Any], None]:
+        FORMATTERS_EXCEL[category] = fn
+        return fn
+
+    return decorator
+
+
+def make_summary_formatter(
+    res: Mapping[str, Any],
+    in_start: str,
+    in_end: str,
+    out_start: str,
+    out_end: str,
+) -> Callable[[Any, Any], None]:
+    """Return a formatter function for the 'summary' Excel sheet."""
+
+    @register_formatter_excel("summary")
+    def fmt_summary(ws, wb) -> None:
+        bold = wb.add_format({"bold": True})
+        int0 = wb.add_format({"num_format": "0"})
+        num2 = wb.add_format({"num_format": "0.00"})
+        red = wb.add_format({"num_format": "0.00", "font_color": "red"})
+
+        safe = lambda v: "" if (pd.isna(v) or not pd.notna(v)) else v
+        pct = lambda t: [t[0] * 100, t[1] * 100, t[2], t[3], t[4] * 100]
+
+        ws.write_row(0, 0, ["Vol-Adj Trend Analysis"], bold)
+        ws.write_row(1, 0, [f"In:  {in_start} → {in_end}"], bold)
+        ws.write_row(2, 0, [f"Out: {out_start} → {out_end}"], bold)
+
+        row = 5
+        for label, ins, outs in [
+            ("Equal Weight", res["in_ew_stats"], res["out_ew_stats"]),
+            ("User Weight", res["in_user_stats"], res["out_user_stats"]),
+        ]:
+            ws.write(row, 0, label, bold)
+            ws.write(row, 1, safe(""))
+            vals = pct(tuple(ins)) + pct(tuple(outs))
+            fmts = ([num2] * 4 + [red]) * 2
+            for col, (v, fmt) in enumerate(zip(vals, fmts), start=2):
+                ws.write(row, col, safe(v), fmt)
+            row += 1
+
+        row += 1
+        for fund, stat_in in res["in_sample_stats"].items():
+            stat_out = res["out_sample_stats"][fund]
+            ws.write(row, 0, fund, bold)
+            wt = res["fund_weights"][fund]
+            ws.write(row, 1, safe(wt * 100), int0)
+            vals = pct(tuple(stat_in)) + pct(tuple(stat_out))
+            fmts = ([num2] * 4 + [red]) * 2
+            for col, (v, fmt) in enumerate(zip(vals, fmts), start=2):
+                ws.write(row, col, safe(v), fmt)
+            row += 1
+
+        row += 1
+        for idx, pair in res.get("index_stats", {}).items():
+            in_idx = pair["in_sample"]
+            out_idx = pair["out_sample"]
+            ws.write(row, 0, idx, bold)
+            ws.write(row, 1, safe(""))
+            vals = pct(tuple(in_idx)) + pct(tuple(out_idx))
+            fmts = ([num2] * 4 + [red]) * 2
+            for col, (v, fmt) in enumerate(zip(vals, fmts), start=2):
+                ws.write(row, col, safe(v), fmt)
+            row += 1
+
+    return fmt_summary
 
 
 def _ensure_dir(path: Path) -> None:
@@ -91,6 +167,8 @@ def export_data(
 
 
 __all__ = [
+    "register_formatter_excel",
+    "make_summary_formatter",
     "export_to_excel",
     "export_to_csv",
     "export_to_json",
