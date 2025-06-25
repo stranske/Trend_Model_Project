@@ -167,6 +167,7 @@ def export_data(
 
 
 __all__ = [
+    "FORMATTERS_EXCEL",
     "register_formatter_excel",
     "make_summary_formatter",
     "export_to_excel",
