@@ -15,6 +15,7 @@ from .metrics import (
     sortino_ratio,
     max_drawdown,
 )
+from .core.rank_selection import rank_select_funds, RiskStatsConfig
 
 
 @dataclass
@@ -57,6 +58,7 @@ def _run_analysis(
     selection_mode: str = "all",
     random_n: int = 8,
     custom_weights: Optional[Dict[str, float]] = None,
+    rank_kwargs: Optional[Dict[str, object]] = None,
     seed: int = 42,
 ) -> Optional[Dict[str, object]]:
     if df is None:
@@ -90,6 +92,11 @@ def _run_analysis(
     if selection_mode == "random" and len(fund_cols) > random_n:
         rng = np.random.default_rng(seed)
         fund_cols = rng.choice(fund_cols, size=random_n, replace=False).tolist()
+    elif selection_mode == "rank":
+        mask = (df[date_col] >= in_sdate) & (df[date_col] <= in_edate)
+        sub = df.loc[mask, fund_cols]
+        stats_cfg = RiskStatsConfig(risk_free=0.0)
+        fund_cols = rank_select_funds(sub, stats_cfg, **(rank_kwargs or {}))
 
     if not fund_cols:
         return None
@@ -165,6 +172,7 @@ def run_analysis(
     selection_mode: str = "all",
     random_n: int = 8,
     custom_weights: Optional[Dict[str, float]] = None,
+    rank_kwargs: Optional[Dict[str, object]] = None,
     seed: int = 42,
 ) -> Optional[Dict[str, object]]:
     """Backward-compatible wrapper around ``_run_analysis``."""
@@ -179,6 +187,7 @@ def run_analysis(
         selection_mode,
         random_n,
         custom_weights,
+        rank_kwargs,
         seed,
     )
 
@@ -205,6 +214,7 @@ def run(cfg: Config) -> pd.DataFrame:
         selection_mode=cfg.portfolio.get("selection_mode", "all"),
         random_n=cfg.portfolio.get("random_n", 8),
         custom_weights=cfg.portfolio.get("custom_weights"),
+        rank_kwargs=cfg.portfolio.get("rank"),
         seed=cfg.portfolio.get("random_seed", 42),
     )
     if res is None:
