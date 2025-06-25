@@ -19,7 +19,17 @@ def load_csv(path: str) -> Optional[pd.DataFrame]:
         The loaded DataFrame if successful, otherwise ``None``.
     """
     try:
-        df = pd.read_csv(path, parse_dates=["Date"])
+        df = pd.read_csv(path)
+        if "Date" in df.columns:
+            try:
+                df["Date"] = pd.to_datetime(df["Date"], format="%m/%d/%y")
+            except ValueError:
+                df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+                if df["Date"].isnull().any():
+                    logger.warning(
+                        "Could not parse all dates in %s using mm/dd/yy format",
+                        path,
+                    )
     except FileNotFoundError:
         logger.error(f"File not found: {path}")
         return None
@@ -28,10 +38,6 @@ def load_csv(path: str) -> Optional[pd.DataFrame]:
         return None
     except pd.errors.ParserError as exc:
         logger.error(f"Parsing error in {path}: {exc}")
-        return None
-    except ValueError:
-        # Raised when parse_dates references a missing column
-        logger.error(f"Missing 'Date' column in {path}")
         return None
 
     if "Date" not in df.columns:
