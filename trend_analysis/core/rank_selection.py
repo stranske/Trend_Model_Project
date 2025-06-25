@@ -70,9 +70,6 @@ rank:
     MaxDrawdown: 0.2
 output:
   format: excel                 # csv | excel | json
-"""
-
-"""
 🔄 2025‑06‑15 UPDATE — PHASE‑1 ENHANCEMENTS
 ------------------------------------------
 • Blended ranking **must** use *z‑scores* (mean‑0, stdev‑1) before the
@@ -80,7 +77,6 @@ output:
 • MaxDrawdown is currently the only “smaller‑is‑better” metric; the
   ASCENDING_METRICS set remains {"MaxDrawdown"} until further notice.
 • Config format stays YAML.
-
 """
 
 
