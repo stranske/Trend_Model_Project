@@ -41,7 +41,7 @@ You can also run the analysis pipeline directly from the command line. Invoke
 the entry point with an optional configuration file:
 
 ```bash
-python run_analysis.py -c path/to/config.yml
+python -m trend_analysis.run_analysis -c path/to/config.yml
 ```
 
 The configuration file **must** define `data.csv_path` pointing to your CSV
@@ -50,5 +50,5 @@ data. If ``-c`` is omitted, ``run_analysis`` loads
 variable:
 
 ```bash
-TREND_CFG=custom.yml python run_analysis.py
+TREND_CFG=custom.yml python -m trend_analysis.run_analysis
 ```
