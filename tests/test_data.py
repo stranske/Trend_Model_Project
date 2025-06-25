@@ -52,17 +52,17 @@ def test_load_csv_null_dates(tmp_path):
 
 
 def test_identify_risk_free_fund_basic():
-    dates = pd.date_range("2020-01-31", periods=3, freq="M")
-    df = pd.DataFrame({
-        "Date": dates,
-        "A": [0.02, 0.01, 0.03],
-        "B": [0.01, 0.01, 0.01],
-    })
+    dates = pd.date_range("2020-01-31", periods=3, freq="ME")
+    df = pd.DataFrame(
+        {
+            "Date": dates,
+            "A": [0.02, 0.01, 0.03],
+            "B": [0.01, 0.01, 0.01],
+        }
+    )
     assert data_mod.identify_risk_free_fund(df) == "B"
 
 
 def test_identify_risk_free_fund_no_numeric():
     df = pd.DataFrame({"Date": ["2020-01-01"], "A": ["x"]})
     assert data_mod.identify_risk_free_fund(df) is None
-
-
