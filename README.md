@@ -5,7 +5,7 @@ This repository contains experiments and utilities for analyzing volatility-adju
 ## Notebooks
 
 - `Vol_Adj_Trend_Analysis1.2.TrEx.ipynb` – an earlier version of the analysis.
-- `Vol_Adj_Trend_Analysis1.3.TrEx.ipynb` – the current main notebook showing the full workflow.
+- `Vol_Adj_Trend_Analysis1.4.TrEx.ipynb` – the current main notebook showing the full workflow.
 - Additional historical notebooks can be found under `notebooks/old` and `Old/`.
 
 ## Setup
@@ -23,7 +23,7 @@ This repository contains experiments and utilities for analyzing volatility-adju
    # or
    jupyter notebook
    ```
-3. Open `Vol_Adj_Trend_Analysis1.3.TrEx.ipynb` and run the cells in order.
+3. Open `Vol_Adj_Trend_Analysis1.4.TrEx.ipynb` and run the cells in order.
 
 ## Applying patches
 
