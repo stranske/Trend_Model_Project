@@ -4,6 +4,8 @@ import argparse
 
 from pathlib import Path
 
+from typing import cast
+
 from trend_analysis.config import load
 from trend_analysis import pipeline, export
 
@@ -31,10 +33,10 @@ def main(argv: list[str] | None = None) -> int:
             split = cfg.sample_split
             text = export.format_summary_text(
                 res,
-                split.get("in_start"),
-                split.get("in_end"),
-                split.get("out_start"),
-                split.get("out_end"),
+                cast(str, split.get("in_start")),
+                cast(str, split.get("in_end")),
+                cast(str, split.get("out_start")),
+                cast(str, split.get("out_end")),
             )
             print(text)
             export_cfg = cfg.export

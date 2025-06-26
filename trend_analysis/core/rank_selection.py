@@ -571,12 +571,15 @@ def build_ui() -> widgets.VBox:
                         out_end.value,
                     )
                     print(text)
-                    data = {
-                        "in_sample": res["in_sample_scaled"],
-                        "out_sample": res["out_sample_scaled"],
-                    }
+                    empty_df = pd.DataFrame()
+                    data = {"summary": empty_df}
                     prefix = f"IS_{in_start.value}_OS_{out_start.value}"
-                    export.export_data(data, prefix, formats=[out_fmt.value])
+                    export.export_data(
+                        data,
+                        prefix,
+                        formats=[out_fmt.value],
+                        formatter=cast(Any, sheet_formatter),
+                    )
             except Exception as exc:
                 print("Error:", exc)
 
