@@ -80,3 +80,10 @@ Once the dependencies are installed, run the tests with coverage enabled:
 ```bash
 pytest --cov trend_analysis --cov-branch
 ```
+
+Alternatively, you can use the helper script which installs the requirements
+and then executes the test suite in one step:
+
+```bash
+./scripts/run_tests.sh
+```
