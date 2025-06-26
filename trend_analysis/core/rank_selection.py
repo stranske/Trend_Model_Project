@@ -340,7 +340,7 @@ def build_ui() -> widgets.VBox:
         rank_unlocked = not rank_unlocked
         next_btn_1.layout.display = "none"
         _update_rank_vis()
-        _update_manual_vis()
+        _update_manual()
 
     def _update_rank_vis(*_: Any) -> None:
         show = rank_unlocked and (mode_dd.value == "rank" or use_rank_ck.value)
@@ -375,14 +375,16 @@ def build_ui() -> widgets.VBox:
             rows = []
             for f in funds:
                 chk = widgets.Checkbox(value=True, description=f)
-                wt = widgets.FloatText(value=100 / len(funds), layout=widgets.Layout(width="80px"))
+                wt = widgets.FloatText(
+                    value=100 / len(funds), layout=widgets.Layout(width="80px")
+                )
                 manual_checks.append(chk)
                 manual_weights.append(wt)
                 rows.append(widgets.HBox([chk, wt]))
             manual_box.children = rows
             manual_box.layout.display = "flex"
         except Exception:
-            manual_box.children = [widgets.Label("Failed to load data")] 
+            manual_box.children = [widgets.Label("Failed to load data")]
             manual_box.layout.display = "flex"
 
     def _update_inclusion_fields(*_: Any) -> None:
@@ -396,7 +398,6 @@ def build_ui() -> widgets.VBox:
     metric_dd.observe(_update_blended_vis, "value")
     incl_dd.observe(_update_inclusion_fields, "value")
     mode_dd.observe(_update_manual, "value")
-
 
     def _run_action(_btn: widgets.Button) -> None:
         rank_kwargs: dict[str, Any] | None = None
