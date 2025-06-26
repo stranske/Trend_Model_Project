@@ -108,6 +108,7 @@ def test_export_to_excel_backward_compat_sheet_formatter(tmp_path):
     export_to_excel({"summary": df}, str(out), formatter=sheet_formatter)
     assert out.exists()
 
+
 def test_format_summary_text_no_index_stats():
     res = {
         "in_ew_stats": (1, 1, 1, 1, 1),

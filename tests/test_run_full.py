@@ -41,6 +41,7 @@ def test_run_full_matches_run(tmp_path):
     stats = detailed["out_sample_stats"]
     assert set(summary.index) == set(stats.keys())
 
+
 def test_run_full_missing_csv_key(tmp_path):
     cfg = Config(
         version="1",

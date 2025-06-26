@@ -568,7 +568,8 @@ def build_ui() -> widgets.VBox:
                         "in_sample": res["in_sample_scaled"],
                         "out_sample": res["out_sample_scaled"],
                     }
-                    export.export_data(data, "ui_report", formats=[out_fmt.value])
+                    prefix = f"IS_{in_start.value}_OS_{out_start.value}"
+                    export.export_data(data, prefix, formats=[out_fmt.value])
             except Exception as exc:
                 print("Error:", exc)
 
