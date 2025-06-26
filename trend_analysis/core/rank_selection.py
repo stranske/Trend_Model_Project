@@ -442,15 +442,8 @@ def build_ui() -> widgets.VBox:
                 dates = df["Date"].dt.to_period("M")
                 start = dates.min()
 
-                custom_weights: dict[str, float] | None = None
                 mode = mode_dd.value
                 if mode_dd.value == "manual":
-                    mode = "manual"
-                    custom_weights = {
-                        fund: wt.value
-                        for fund, (ck, wt) in manual_controls.items()
-                        if ck.value
-                    }
                     if not custom_weights:
                         print("No funds selected")
                         return
