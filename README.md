@@ -53,6 +53,14 @@ variable:
 TREND_CFG=custom.yml python -m trend_analysis.run_analysis
 ```
 
+
+## Ranking-based selection
+
+`portfolio.selection_mode` supports a new `rank` value for picking funds by
+performance metrics. The defaults for this mode live under `portfolio.rank` in
+`config/defaults.yml`. Metrics can be combined using z-scored weights so they
+are comparable across scales.
+
 ## Testing
 
 Install the project dependencies before running the test suite. This can be done using the setup script:

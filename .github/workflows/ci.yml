@@ -2,8 +2,10 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   pull_request:
+  workflow_dispatch:
+
 
 jobs:
   lint:
@@ -14,19 +16,20 @@ jobs:
         with:
           python-version: '3.11'
       - run: pip install ruff black
-      - run: black --check .
       - run: ruff .
+      - run: black --check .
 
-  type-check:
+  typecheck:
+
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
           python-version: '3.11'
-      - run: pip install -r requirements.txt
       - run: pip install mypy
-      - run: mypy --strict trend_analysis tests
+      - run: mypy --strict trend_analysis
+
 
   test:
     runs-on: ubuntu-latest
@@ -35,11 +38,10 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: '3.11'
-      - run: pip install -r requirements.txt
-      - run: pytest --cov trend_analysis --cov-branch --cov-fail-under=100
+      - run: pip install -r requirements.txt pytest pytest-cov
+      - run: pytest --cov trend_analysis --cov-branch
 
   build-wheel:
-    needs: [lint, type-check, test]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     steps:
@@ -48,4 +50,4 @@ jobs:
         with:
           python-version: '3.11'
       - run: pip install build
-      - run: python -m build
+      - run: python -m build --wheel

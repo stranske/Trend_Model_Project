@@ -35,6 +35,8 @@ def calc_portfolio_returns(weights: np.ndarray, returns_df: pd.DataFrame) -> pd.
 
 
 def _compute_stats(df: pd.DataFrame, rf: pd.Series) -> Dict[str, Stats]:
+    # Metrics expect 1D Series; iterating keeps the logic simple for a handful
+    # of columns and avoids reshaping into higher-dimensional arrays.
     stats = {}
     for col in df:
         stats[col] = Stats(
