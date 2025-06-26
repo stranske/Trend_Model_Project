@@ -98,6 +98,3 @@ def test_max_drawdown():
     assert isinstance(metrics.max_drawdown(df), pd.Series)
     empty = pd.Series([], dtype=float)
     assert np.isnan(metrics.max_drawdown(empty))
-
-
-

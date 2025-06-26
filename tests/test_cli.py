@@ -38,4 +38,3 @@ def test_cli_default_json(capsys):
     loaded = json.loads(out)
     assert rc == 0
     assert loaded["version"] == config.load().version
-

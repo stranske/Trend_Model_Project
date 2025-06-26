@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 from .config import load
+
 
 def main(argv: list[str] | None = None) -> int:
     """Simple command-line interface for loading configuration."""
@@ -17,6 +17,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print(cfg.model_dump_json())
     return 0
+
 
 if __name__ == "__main__":  # pragma: no cover - manual invocation
     raise SystemExit(main())

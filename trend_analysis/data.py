@@ -62,7 +62,7 @@ def identify_risk_free_fund(df: pd.DataFrame) -> Optional[str]:
         return None
     rf = df[num_cols].std(skipna=True).idxmin()
     logger.info("Risk-free column: %s", rf)
-    return rf
+    return str(rf)
 
 
 __all__ = ["load_csv", "identify_risk_free_fund"]
