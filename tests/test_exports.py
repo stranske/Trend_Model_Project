@@ -29,6 +29,14 @@ def test_export_data(tmp_path):
     pd.testing.assert_frame_equal(read, df1)
 
 
+def test_export_data_excel_alias(tmp_path):
+    df = pd.DataFrame({"A": [1]})
+    data = {"sheet": df}
+    out = tmp_path / "alias"
+    export_data(data, str(out), formats=["excel"])
+    assert (tmp_path / "alias.xlsx").exists()
+
+
 def test_export_to_excel_formatters(tmp_path):
     reset_formatters_excel()
 

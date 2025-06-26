@@ -182,6 +182,8 @@ EXPORTERS: dict[
     str, Callable[[Mapping[str, pd.DataFrame], str, Formatter | None], None]
 ] = {
     "xlsx": export_to_excel,
+    # ``excel`` is kept for backward compatibility with older configs/UI
+    "excel": export_to_excel,
     "csv": export_to_csv,
     "json": export_to_json,
 }
@@ -195,10 +197,12 @@ def export_data(
 ) -> None:
     """Export ``data`` to the specified ``formats``."""
     for fmt in formats:
-        exporter = EXPORTERS.get(fmt)
+        fmt_norm = fmt.lower()
+        fmt_norm = "xlsx" if fmt_norm == "excel" else fmt_norm
+        exporter = EXPORTERS.get(fmt_norm)
         if exporter is None:
             raise ValueError(f"Unsupported format: {fmt}")
-        path = str(Path(output_path).with_suffix(f".{fmt}"))
+        path = str(Path(output_path).with_suffix(f".{fmt_norm}"))
         exporter(data, path, formatter)
 
 
