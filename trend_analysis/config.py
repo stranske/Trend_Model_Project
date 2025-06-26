@@ -10,7 +10,7 @@ import yaml  # type: ignore[import-untyped]
 from pydantic import BaseModel
 
 
-class Config(BaseModel):  # type: ignore[misc]
+class Config(BaseModel):
     """Typed access to the YAML configuration."""
 
     version: str
