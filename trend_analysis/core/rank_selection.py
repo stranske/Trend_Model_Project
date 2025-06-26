@@ -350,10 +350,16 @@ def build_ui():
         )
         blended_box.layout.display = "flex" if show else "none"
 
+    def _update_inclusion_fields(*_):
+        topn_int.layout.display = "flex" if incl_dd.value == "top_n" else "none"
+        pct_flt.layout.display = "flex" if incl_dd.value == "top_pct" else "none"
+        thresh_f.layout.display = "flex" if incl_dd.value == "threshold" else "none"
+
     next_btn_1.on_click(_next_action)
     mode_dd.observe(_update_rank_vis, "value")
     use_rank_ck.observe(_update_rank_vis, "value")
     metric_dd.observe(_update_blended_vis, "value")
+    incl_dd.observe(_update_inclusion_fields, "value")
 
     def _run_action(_btn):
         rank_kwargs = None
@@ -412,6 +418,7 @@ def build_ui():
         [mode_dd, vol_ck, use_rank_ck, next_btn_1, rank_box, out_fmt, run_btn, output]
     )
     _update_rank_vis()
+    _update_inclusion_fields()
     return ui
 
 
