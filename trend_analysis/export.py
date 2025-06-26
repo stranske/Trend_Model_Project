@@ -66,7 +66,7 @@ def make_summary_formatter(
         ]:
             ws.write(row, 0, label, bold)
             ws.write(row, 1, safe(""))
-            vals = pct(tuple(ins)) + pct(tuple(outs))
+            vals = pct(ins) + pct(outs)
             fmts = ([num2] * 4 + [red]) * 2
             for col, (v, fmt) in enumerate(zip(vals, fmts), start=2):
                 ws.write(row, col, safe(v), fmt)
@@ -78,7 +78,7 @@ def make_summary_formatter(
             ws.write(row, 0, fund, bold)
             wt = res["fund_weights"][fund]
             ws.write(row, 1, safe(wt * 100), int0)
-            vals = pct(tuple(stat_in)) + pct(tuple(stat_out))
+            vals = pct(stat_in) + pct(stat_out)
             fmts = ([num2] * 4 + [red]) * 2
             for col, (v, fmt) in enumerate(zip(vals, fmts), start=2):
                 ws.write(row, col, safe(v), fmt)
@@ -90,13 +90,94 @@ def make_summary_formatter(
             out_idx = pair["out_sample"]
             ws.write(row, 0, idx, bold)
             ws.write(row, 1, safe(""))
-            vals = pct(tuple(in_idx)) + pct(tuple(out_idx))
+            vals = pct(in_idx) + pct(out_idx)
             fmts = ([num2] * 4 + [red]) * 2
             for col, (v, fmt) in enumerate(zip(vals, fmts), start=2):
                 ws.write(row, col, safe(v), fmt)
             row += 1
 
     return fmt_summary
+
+
+def format_summary_text(
+    res: Mapping[str, Any],
+    in_start: str,
+    in_end: str,
+    out_start: str,
+    out_end: str,
+) -> str:
+    """Return a plain-text summary table similar to the Excel output."""
+
+    def safe(val: float | str | None) -> str:
+        if pd.isna(val) or not pd.notna(val):
+            return ""
+        if isinstance(val, (int, float)):
+            return f"{val:.2f}"
+        return cast(str, val)
+
+    def to_tuple(obj: Any) -> tuple[float, float, float, float, float]:
+        if isinstance(obj, tuple):
+            return cast(tuple[float, float, float, float, float], obj)
+        return (
+            cast(float, obj.cagr),
+            cast(float, obj.vol),
+            cast(float, obj.sharpe),
+            cast(float, obj.sortino),
+            cast(float, obj.max_drawdown),
+        )
+
+    def pct(t: Any) -> list[float]:
+        a = to_tuple(t)
+        return [a[0] * 100, a[1] * 100, a[2], a[3], a[4] * 100]
+
+    columns = [
+        "Name",
+        "Weight",
+        "IS CAGR",
+        "IS Vol",
+        "IS Sharpe",
+        "IS Sortino",
+        "IS MaxDD",
+        "OS CAGR",
+        "OS Vol",
+        "OS Sharpe",
+        "OS Sortino",
+        "OS MaxDD",
+    ]
+
+    rows: list[list[str | float | None]] = []
+
+    for label, ins, outs in [
+        ("Equal Weight", res["in_ew_stats"], res["out_ew_stats"]),
+        ("User Weight", res["in_user_stats"], res["out_user_stats"]),
+    ]:
+        vals = pct(ins) + pct(outs)
+        rows.append([label, None, *vals])
+
+    rows.append([None] * len(columns))
+
+    for fund, stat_in in res["in_sample_stats"].items():
+        stat_out = res["out_sample_stats"][fund]
+        weight = res["fund_weights"][fund] * 100
+        vals = pct(stat_in) + pct(stat_out)
+        rows.append([fund, weight, *vals])
+
+    if res.get("index_stats"):
+        rows.append([None] * len(columns))
+        for idx, pair in res["index_stats"].items():
+            vals = pct(pair["in_sample"]) + pct(pair["out_sample"])
+            rows.append([idx, None, *vals])
+
+    df = pd.DataFrame(rows, columns=columns)
+    df_formatted = df.map(safe)
+    header = [
+        "Vol-Adj Trend Analysis",
+        f"In:  {in_start} → {in_end}",
+        f"Out: {out_start} → {out_end}",
+        "",
+        df_formatted.to_string(index=False),
+    ]
+    return "\n".join(header)
 
 
 def _ensure_dir(path: Path) -> None:
@@ -211,6 +292,7 @@ __all__ = [
     "register_formatter_excel",
     "reset_formatters_excel",
     "make_summary_formatter",
+    "format_summary_text",
     "export_to_excel",
     "export_to_csv",
     "export_to_json",

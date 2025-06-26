@@ -8,6 +8,7 @@ from trend_analysis.export import (
     make_summary_formatter,
     export_to_excel,
     FORMATTERS_EXCEL,
+    format_summary_text,
 )
 
 
@@ -52,6 +53,22 @@ def test_make_summary_formatter_registers_and_runs():
     wb = DummyWB()
     fmt(ws, wb)
     assert ws.rows[0][2][0] == "Vol-Adj Trend Analysis"
+
+
+def test_format_summary_text_basic():
+    res = {
+        "in_ew_stats": (1, 1, 1, 1, 1),
+        "out_ew_stats": (2, 2, 2, 2, 2),
+        "in_user_stats": (3, 3, 3, 3, 3),
+        "out_user_stats": (4, 4, 4, 4, 4),
+        "in_sample_stats": {"fund": (5, 5, 5, 5, 5)},
+        "out_sample_stats": {"fund": (6, 6, 6, 6, 6)},
+        "fund_weights": {"fund": 0.5},
+        "index_stats": {},
+    }
+    text = format_summary_text(res, "a", "b", "c", "d")
+    assert "Vol-Adj Trend Analysis" in text
+    assert "fund" in text
 
 
 def test_export_to_excel_invokes_formatter(tmp_path):

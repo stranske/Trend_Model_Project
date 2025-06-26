@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 
 from trend_analysis.config import load
-from trend_analysis import pipeline
+from trend_analysis import pipeline, export
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -22,12 +22,19 @@ def main(argv: list[str] | None = None) -> int:
         result = pipeline.run_full(cfg)
         print(result if result else "No results")
     else:
-        result = pipeline.run(cfg)
-        if result.empty:
+        res = pipeline.run_full(cfg)
+        if not res:
             print("No results")
         else:
-            # Show fund names (index) and column headers for clarity
-            print(result.to_string())
+            split = cfg.sample_split
+            text = export.format_summary_text(
+                res,
+                split.get("in_start"),
+                split.get("in_end"),
+                split.get("out_start"),
+                split.get("out_end"),
+            )
+            print(text)
     return 0
 
 
