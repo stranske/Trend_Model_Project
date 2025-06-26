@@ -243,4 +243,34 @@ def run(cfg: Config) -> pd.DataFrame:
     return pd.DataFrame({k: vars(v) for k, v in stats.items()}).T
 
 
-__all__ = ["Stats", "calc_portfolio_returns", "run_analysis", "run"]
+def run_full(cfg: Config) -> dict[str, object]:
+    """Return the full analysis results based on ``cfg``."""
+    csv_path = cfg.data.get("csv_path")
+    if csv_path is None:
+        raise KeyError("cfg.data['csv_path'] must be provided")
+
+    df = load_csv(csv_path)
+    if df is None:
+        raise FileNotFoundError(csv_path)
+
+    split = cfg.sample_split
+    res = _run_analysis(
+        df,
+        cast(str, split.get("in_start")),
+        cast(str, split.get("in_end")),
+        cast(str, split.get("out_start")),
+        cast(str, split.get("out_end")),
+        cfg.vol_adjust.get("target_vol", 1.0),
+        cfg.run.get("monthly_cost", 0.0),
+        selection_mode=cfg.portfolio.get("selection_mode", "all"),
+        random_n=cfg.portfolio.get("random_n", 8),
+        custom_weights=cfg.portfolio.get("custom_weights"),
+        rank_kwargs=cfg.portfolio.get("rank"),
+        manual_funds=cfg.portfolio.get("manual_list"),
+        indices_list=cfg.portfolio.get("indices_list"),
+        seed=cfg.portfolio.get("random_seed", 42),
+    )
+    return {} if res is None else res
+
+
+__all__ = ["Stats", "calc_portfolio_returns", "run_analysis", "run", "run_full"]

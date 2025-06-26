@@ -10,15 +10,24 @@ def main(argv: list[str] | None = None) -> int:
     """CLI entry point for the trend analysis pipeline."""
     parser = argparse.ArgumentParser(prog="trend-analysis")
     parser.add_argument("-c", "--config", help="Path to YAML config")
+    parser.add_argument(
+        "--detailed",
+        action="store_true",
+        help="Print comprehensive result dictionary",
+    )
     args = parser.parse_args(argv)
 
     cfg = load(args.config)
-    result = pipeline.run(cfg)
-    if result.empty:
-        print("No results")
+    if args.detailed:
+        result = pipeline.run_full(cfg)
+        print(result if result else "No results")
     else:
-        # Show fund names (index) and column headers for clarity
-        print(result.to_string())
+        result = pipeline.run(cfg)
+        if result.empty:
+            print("No results")
+        else:
+            # Show fund names (index) and column headers for clarity
+            print(result.to_string())
     return 0
 
 
