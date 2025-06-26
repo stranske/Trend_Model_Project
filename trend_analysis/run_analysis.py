@@ -17,7 +17,8 @@ def main(argv: list[str] | None = None) -> int:
     if result.empty:
         print("No results")
     else:
-        print(result.to_string(index=False))
+        # Show fund names (index) and column headers for clarity
+        print(result.to_string())
     return 0
 
 
