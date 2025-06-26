@@ -1,6 +1,7 @@
 import logging
 from typing import Optional
 import pandas as pd
+from pandas.api.types import is_datetime64_any_dtype
 
 logger = logging.getLogger(__name__)
 
@@ -65,4 +66,14 @@ def identify_risk_free_fund(df: pd.DataFrame) -> Optional[str]:
     return str(rf)
 
 
-__all__ = ["load_csv", "identify_risk_free_fund"]
+def ensure_datetime(df: pd.DataFrame, column: str = "Date") -> pd.DataFrame:
+    """Coerce ``column`` to datetime if needed."""
+    if column in df.columns and not is_datetime64_any_dtype(df[column]):
+        try:
+            df[column] = pd.to_datetime(df[column], format="%m/%d/%y")
+        except Exception:
+            df[column] = pd.to_datetime(df[column], errors="coerce")
+    return df
+
+
+__all__ = ["load_csv", "identify_risk_free_fund", "ensure_datetime"]
