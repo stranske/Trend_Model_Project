@@ -325,7 +325,11 @@ def build_ui() -> widgets.VBox:
                     if not file_up.value:
                         print("Upload a CSV")
                         return
-                    item = next(iter(file_up.value.values()))
+                    # ipywidgets 7.x returns a dict; 8.x returns a tuple
+                    if isinstance(file_up.value, dict):
+                        item = next(iter(file_up.value.values()))
+                    else:
+                        item = file_up.value[0]
                     df = pd.read_csv(io.BytesIO(item["content"]))
                 else:
                     path = csv_path.value.strip()
@@ -353,6 +357,7 @@ def build_ui() -> widgets.VBox:
             except Exception as exc:
                 session["df"] = None
                 print("Error:", exc)
+
     load_btn.on_click(_load_action)
 
     def _source_toggle(*_: Any) -> None:
