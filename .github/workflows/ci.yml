@@ -6,6 +6,7 @@ on:
   pull_request:
   workflow_dispatch:
 
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -19,6 +20,7 @@ jobs:
       - run: black --check .
 
   typecheck:
+
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -27,6 +29,7 @@ jobs:
           python-version: '3.11'
       - run: pip install mypy
       - run: mypy --strict trend_analysis
+
 
   test:
     runs-on: ubuntu-latest
