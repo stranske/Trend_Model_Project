@@ -157,7 +157,9 @@ def export_to_csv(
     # Looping over the ``data`` dictionary ensures each frame gets its own file.
     for name, df in data.items():
         formatted = _apply_format(df, formatter)
-        formatted.to_csv(prefix.with_name(f"{prefix.stem}_{name}.csv"), index=False)
+        formatted.to_csv(
+            prefix.with_name(f"{prefix.stem}_{name}.csv"), index=False, header=True
+        )
 
 
 def export_to_json(

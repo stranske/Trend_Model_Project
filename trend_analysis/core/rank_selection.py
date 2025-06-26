@@ -324,6 +324,11 @@ def build_ui() -> widgets.VBox:
     )
     rank_box.layout.display = "none"
 
+    manual_box = widgets.VBox()
+    manual_box.layout.display = "none"
+    manual_controls: dict[str, tuple[widgets.Checkbox, widgets.BoundedFloatText]] = {}
+    manual_built = False
+
     # track whether the user progressed past the first step
     rank_unlocked = False
 
@@ -335,11 +340,13 @@ def build_ui() -> widgets.VBox:
         rank_unlocked = not rank_unlocked
         next_btn_1.layout.display = "none"
         _update_rank_vis()
+        _update_manual_vis()
 
     def _update_rank_vis(*_: Any) -> None:
         show = rank_unlocked and (mode_dd.value == "rank" or use_rank_ck.value)
         rank_box.layout.display = "flex" if show else "none"
         _update_blended_vis()
+        _update_manual_vis()
 
     def _update_blended_vis(*_: Any) -> None:
         show = (
@@ -348,6 +355,73 @@ def build_ui() -> widgets.VBox:
             and (mode_dd.value == "rank" or use_rank_ck.value)
         )
         blended_box.layout.display = "flex" if show else "none"
+
+    def _build_manual_ui() -> None:
+        nonlocal manual_built
+        manual_controls.clear()
+        try:
+            from pathlib import Path
+            from .. import pipeline
+
+            csv = (
+                Path(__file__).resolve().parents[1]
+                / "hedge_fund_returns_with_indexes.csv"
+            )
+            df = pd.read_csv(csv, parse_dates=["Date"])
+            dates = df["Date"].dt.to_period("M")
+            start = dates.min()
+            res = pipeline.run_analysis(
+                df,
+                str(start),
+                str(start + 2),
+                str(start + 3),
+                str(start + 5),
+                0.1,
+                0.0,
+            )
+            if res is None:
+                manual_box.children = [widgets.HTML("No data available")]
+                return
+            funds = cast(list[str], res["selected_funds"])
+            stats = cast(dict[str, Any], res["in_sample_stats"])
+            header = widgets.HBox(
+                [
+                    widgets.HTML("<b>Fund</b>"),
+                    widgets.HTML("<b>Use?</b>"),
+                    widgets.HTML("<b>Weight</b>"),
+                    widgets.HTML("<b>Sharpe</b>"),
+                ]
+            )
+            rows: list[widgets.HBox] = [header]
+            for f in funds:
+                ck = widgets.Checkbox(value=True)
+                wt = widgets.BoundedFloatText(
+                    value=100 / len(funds),
+                    min=0,
+                    max=100,
+                    step=1.0,
+                    layout=widgets.Layout(width="80px"),
+                )
+                row = widgets.HBox(
+                    [
+                        widgets.Label(f),
+                        ck,
+                        wt,
+                        widgets.Label(f"{stats[f].sharpe:.2f}"),
+                    ]
+                )
+                manual_controls[f] = (ck, wt)
+                rows.append(row)
+            manual_box.children = rows
+            manual_built = True
+        except Exception as exc:  # pragma: no cover - UI only
+            manual_box.children = [widgets.HTML(f"Error: {exc}")]
+
+    def _update_manual_vis(*_: Any) -> None:
+        show = rank_unlocked and mode_dd.value == "manual"
+        manual_box.layout.display = "flex" if show else "none"
+        if show and not manual_built:
+            _build_manual_ui()
 
     def _update_inclusion_fields(*_: Any) -> None:
         topn_int.layout.display = "flex" if incl_dd.value == "top_n" else "none"
@@ -359,6 +433,7 @@ def build_ui() -> widgets.VBox:
     use_rank_ck.observe(_update_rank_vis, "value")
     metric_dd.observe(_update_blended_vis, "value")
     incl_dd.observe(_update_inclusion_fields, "value")
+    mode_dd.observe(_update_manual_vis, "value")
 
     def _run_action(_btn: widgets.Button) -> None:
         rank_kwargs: dict[str, Any] | None = None
@@ -384,7 +459,7 @@ def build_ui() -> widgets.VBox:
             output.clear_output()
             try:
                 from pathlib import Path
-                from .. import pipeline
+                from .. import pipeline, export
 
                 csv = (
                     Path(__file__).resolve().parents[1]
@@ -393,6 +468,20 @@ def build_ui() -> widgets.VBox:
                 df = pd.read_csv(csv, parse_dates=["Date"])
                 dates = df["Date"].dt.to_period("M")
                 start = dates.min()
+
+                custom_weights: dict[str, float] | None = None
+                mode = mode_dd.value
+                if mode_dd.value == "manual":
+                    mode = "manual"
+                    custom_weights = {
+                        fund: wt.value
+                        for fund, (ck, wt) in manual_controls.items()
+                        if ck.value
+                    }
+                    if not custom_weights:
+                        print("No funds selected")
+                        return
+
                 res = pipeline.run_analysis(
                     df,
                     str(start),
@@ -401,23 +490,45 @@ def build_ui() -> widgets.VBox:
                     str(start + 5),
                     0.1,
                     0.0,
-                    selection_mode=mode_dd.value,
+                    selection_mode=mode,
+                    custom_weights=custom_weights,
                     rank_kwargs=rank_kwargs,
                 )
                 if res is None:
                     print("No results")
-                else:
-                    print("Selected funds:", res["selected_funds"])
-            except Exception as exc:
+                    return
+
+                export.export_data(
+                    {
+                        "in_sample": res["in_sample_scaled"],
+                        "out_sample": res["out_sample_scaled"],
+                    },
+                    "ui_results",
+                    formats=[out_fmt.value],
+                )
+                print(f"Exported to ui_results.{out_fmt.value}")
+                print("Selected funds:", res["selected_funds"])
+            except Exception as exc:  # pragma: no cover - UI only
                 print("Error:", exc)
 
     run_btn.on_click(_run_action)
 
     ui = widgets.VBox(
-        [mode_dd, vol_ck, use_rank_ck, next_btn_1, rank_box, out_fmt, run_btn, output]
+        [
+            mode_dd,
+            vol_ck,
+            use_rank_ck,
+            next_btn_1,
+            rank_box,
+            manual_box,
+            out_fmt,
+            run_btn,
+            output,
+        ]
     )
     _update_rank_vis()
     _update_inclusion_fields()
+    _update_manual_vis()
     return ui
 
 
