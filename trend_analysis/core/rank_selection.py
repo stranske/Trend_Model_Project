@@ -325,20 +325,32 @@ def build_ui():
     )
     rank_box.layout.display = "none"
 
+    # track whether the user progressed past the first step
+    rank_unlocked = False
+
     run_btn = widgets.Button(description="Run")
     output = widgets.Output()
 
+    def _next_action(_):
+        nonlocal rank_unlocked
+        rank_unlocked = not rank_unlocked
+        next_btn_1.layout.display = "none"
+        _update_rank_vis()
+
     def _update_rank_vis(*_):
-        show = mode_dd.value == "rank" or use_rank_ck.value
+        show = rank_unlocked and (mode_dd.value == "rank" or use_rank_ck.value)
         rank_box.layout.display = "flex" if show else "none"
         _update_blended_vis()
 
     def _update_blended_vis(*_):
-        show = metric_dd.value == "blended" and (
-            mode_dd.value == "rank" or use_rank_ck.value
+        show = (
+            rank_unlocked
+            and metric_dd.value == "blended"
+            and (mode_dd.value == "rank" or use_rank_ck.value)
         )
         blended_box.layout.display = "flex" if show else "none"
 
+    next_btn_1.on_click(_next_action)
     mode_dd.observe(_update_rank_vis, "value")
     use_rank_ck.observe(_update_rank_vis, "value")
     metric_dd.observe(_update_blended_vis, "value")
