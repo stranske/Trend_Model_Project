@@ -14,9 +14,9 @@ This repository contains experiments and utilities for analyzing volatility-adju
    ```bash
    ./scripts/setup_env.sh
    ```
-   This bootstraps a `.venv` directory and installs everything from
-   `requirements.txt`, which includes `pandas`, `numpy`, `matplotlib`,
-   `ipywidgets` and `xlsxwriter`.
+  This bootstraps a `.venv` directory and installs everything from
+  `requirements.txt`, which includes `pandas`, `numpy`, `matplotlib`,
+  `ipywidgets`, `PyYAML` and `xlsxwriter`.
 2. Launch Jupyter Lab or Jupyter Notebook:
    ```bash
    jupyter lab
@@ -63,7 +63,7 @@ are comparable across scales.
 
 ## Testing
 
-Install the project dependencies before running the test suite. This can be done using the setup script, which
+Install the project dependencies (such as `pandas`, `numpy` and `PyYAML`) before running the test suite. This can be done using the setup script, which
 creates a virtual environment and installs everything from `requirements.txt`
 (including `pytest`):
 
