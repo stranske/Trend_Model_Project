@@ -556,6 +556,13 @@ def build_ui() -> widgets.VBox:
                 if res is None:
                     print("No results")
                 else:
+                    sheet_formatter = export.make_summary_formatter(
+                        res,
+                        in_start.value,
+                        in_end.value,
+                        out_start.value,
+                        out_end.value,
+                    )
                     text = export.format_summary_text(
                         res,
                         in_start.value,
