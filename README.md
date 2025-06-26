@@ -52,3 +52,23 @@ variable:
 ```bash
 TREND_CFG=custom.yml python -m trend_analysis.run_analysis
 ```
+
+## Testing
+
+Install the project dependencies before running the test suite. This can be done using the setup script:
+
+```bash
+./scripts/setup_env.sh
+```
+
+or by installing directly with pip:
+
+```bash
+pip install -r requirements.txt
+```
+
+Once the dependencies are installed, run the tests with coverage enabled:
+
+```bash
+pytest --cov trend_analysis --cov-branch
+```
