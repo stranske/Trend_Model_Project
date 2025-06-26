@@ -555,17 +555,20 @@ def build_ui() -> widgets.VBox:
                 )
                 if res is None:
                     print("No results")
-
                 else:
-                    print("Selected funds:", res["selected_funds"])
-                    from .. import export
-
+                    text = export.format_summary_text(
+                        res,
+                        in_start.value,
+                        in_end.value,
+                        out_start.value,
+                        out_end.value,
+                    )
+                    print(text)
                     data = {
                         "in_sample": res["in_sample_scaled"],
                         "out_sample": res["out_sample_scaled"],
                     }
                     export.export_data(data, "ui_report", formats=[out_fmt.value])
-                    print("Exported", out_fmt.value)
             except Exception as exc:
                 print("Error:", exc)
 
