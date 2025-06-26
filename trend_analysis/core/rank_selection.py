@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 import ipywidgets as widgets
 from .. import metrics as _metrics
+from ..data import load_csv, identify_risk_free_fund
 
 
 @dataclass
@@ -280,13 +281,53 @@ def select_funds(
 
 
 def build_ui() -> widgets.VBox:
+    # -------------------- Step 1: data source & periods --------------------
+    csv_path = widgets.Text(description="CSV Path:")
+    load_btn = widgets.Button(description="Load CSV", button_style="success")
+    load_out = widgets.Output()
+
+    in_start = widgets.Text(description="In Start:")
+    in_end = widgets.Text(description="In End:")
+    out_start = widgets.Text(description="Out Start:")
+    out_end = widgets.Text(description="Out End:")
+
+    session: dict[str, Any] = {"df": None, "rf": None}
+    step1_box = widgets.VBox(
+        [csv_path, load_btn, load_out, in_start, in_end, out_start, out_end]
+    )
+
+    def _load_action(_btn: widgets.Button) -> None:
+        with load_out:
+            load_out.clear_output()
+            try:
+                path = csv_path.value.strip()
+                if not path:
+                    print("Enter CSV path")
+                    return
+                df = load_csv(path)
+                if df is None:
+                    print("Failed to load")
+                    return
+                session["df"] = df
+                rf = identify_risk_free_fund(df) or "RF"
+                session["rf"] = rf
+                dates = df["Date"].dt.to_period("M")
+                in_start.value = str(dates.min())
+                in_end.value = str(dates.min() + 2)
+                out_start.value = str(dates.min() + 3)
+                out_end.value = str(dates.min() + 5)
+                print(f"Loaded {len(df):,} rows")
+            except Exception as exc:
+                session["df"] = None
+                print("Error:", exc)
+    load_btn.on_click(_load_action)
+
+    # -------------------- Step 2: selection & ranking ----------------------
     mode_dd = widgets.Dropdown(
         options=["all", "random", "manual", "rank"], description="Mode:"
     )
     vol_ck = widgets.Checkbox(value=True, description="Vol‑adjust?")
-    use_rank_ck = widgets.Checkbox(
-        value=False, description="Apply ranking within mode?"
-    )
+    use_rank_ck = widgets.Checkbox(value=False, description="Apply ranking?")
     next_btn_1 = widgets.Button(description="Next")
 
     # step‑2 widgets
@@ -337,13 +378,22 @@ def build_ui() -> widgets.VBox:
 
     def _next_action(_: Any) -> None:
         nonlocal rank_unlocked
+        if session["df"] is None:
+            with load_out:
+                load_out.clear_output()
+                print("Load data first")
+            return
         rank_unlocked = not rank_unlocked
         next_btn_1.layout.display = "none"
         _update_rank_vis()
         _update_manual()
 
     def _update_rank_vis(*_: Any) -> None:
-        show = rank_unlocked and (mode_dd.value == "rank" or use_rank_ck.value)
+        show = (
+            rank_unlocked
+            and session["df"] is not None
+            and (mode_dd.value == "rank" or use_rank_ck.value)
+        )
         rank_box.layout.display = "flex" if show else "none"
         _update_blended_vis()
         _update_manual()
@@ -360,32 +410,27 @@ def build_ui() -> widgets.VBox:
         if mode_dd.value != "manual" or not rank_unlocked:
             manual_box.layout.display = "none"
             return
-        try:
-            from pathlib import Path
+        df = session.get("df")
+        if df is None:
+            manual_box.children = [widgets.Label("Load data first")]
+            manual_box.layout.display = "flex"
+            return
 
-            csv = (
-                Path(__file__).resolve().parents[1]
-                / "hedge_fund_returns_with_indexes.csv"
+        rf = session.get("rf", "RF")
+        funds = [c for c in df.columns if c not in {"Date", rf}]
+        manual_checks.clear()
+        manual_weights.clear()
+        rows = []
+        for f in funds:
+            chk = widgets.Checkbox(value=True, description=f)
+            wt = widgets.FloatText(
+                value=100 / len(funds), layout=widgets.Layout(width="80px")
             )
-            df = pd.read_csv(csv, parse_dates=["Date"])
-
-            funds = [c for c in df.columns if c not in {"Date", "RF"}]
-            manual_checks.clear()
-            manual_weights.clear()
-            rows = []
-            for f in funds:
-                chk = widgets.Checkbox(value=True, description=f)
-                wt = widgets.FloatText(
-                    value=100 / len(funds), layout=widgets.Layout(width="80px")
-                )
-                manual_checks.append(chk)
-                manual_weights.append(wt)
-                rows.append(widgets.HBox([chk, wt]))
-            manual_box.children = rows
-            manual_box.layout.display = "flex"
-        except Exception:
-            manual_box.children = [widgets.Label("Failed to load data")]
-            manual_box.layout.display = "flex"
+            manual_checks.append(chk)
+            manual_weights.append(wt)
+            rows.append(widgets.HBox([chk, wt]))
+        manual_box.children = rows
+        manual_box.layout.display = "flex"
 
     def _update_inclusion_fields(*_: Any) -> None:
         topn_int.layout.display = "flex" if incl_dd.value == "top_n" else "none"
@@ -432,29 +477,24 @@ def build_ui() -> widgets.VBox:
         with output:
             output.clear_output()
             try:
-                from pathlib import Path
                 from .. import pipeline, export
 
-                csv = (
-                    Path(__file__).resolve().parents[1]
-                    / "hedge_fund_returns_with_indexes.csv"
-                )
-                df = pd.read_csv(csv, parse_dates=["Date"])
-                dates = df["Date"].dt.to_period("M")
-                start = dates.min()
+                df = session.get("df")
+                if df is None:
+                    print("Load data first")
+                    return
 
                 mode = mode_dd.value
-                if mode_dd.value == "manual":
-                    if not custom_weights:
-                        print("No funds selected")
-                        return
+                if mode_dd.value == "manual" and not custom_weights:
+                    print("No funds selected")
+                    return
 
                 res = pipeline.run_analysis(
                     df,
-                    str(start),
-                    str(start + 2),
-                    str(start + 3),
-                    str(start + 5),
+                    in_start.value,
+                    in_end.value,
+                    out_start.value,
+                    out_end.value,
                     0.1,
                     0.0,
                     selection_mode=mode,
@@ -482,6 +522,7 @@ def build_ui() -> widgets.VBox:
 
     ui = widgets.VBox(
         [
+            step1_box,
             mode_dd,
             vol_ck,
             use_rank_ck,
