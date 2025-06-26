@@ -63,13 +63,15 @@ are comparable across scales.
 
 ## Testing
 
-Install the project dependencies before running the test suite. This can be done using the setup script:
+Install the project dependencies before running the test suite. This can be done using the setup script, which
+creates a virtual environment and installs everything from `requirements.txt`
+(including `pytest`):
 
 ```bash
 ./scripts/setup_env.sh
 ```
 
-or by installing directly with pip:
+or by installing directly with pip (Python 3.11+ recommended):
 
 ```bash
 pip install -r requirements.txt
