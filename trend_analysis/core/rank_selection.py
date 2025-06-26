@@ -556,6 +556,13 @@ def build_ui() -> widgets.VBox:
                 if res is None:
                     print("No results")
                 else:
+                    sheet_formatter = export.make_summary_formatter(
+                        res,
+                        in_start.value,
+                        in_end.value,
+                        out_start.value,
+                        out_end.value,
+                    )
                     text = export.format_summary_text(
                         res,
                         in_start.value,
@@ -564,11 +571,12 @@ def build_ui() -> widgets.VBox:
                         out_end.value,
                     )
                     print(text)
-                    data = {
-                        "in_sample": res["in_sample_scaled"],
-                        "out_sample": res["out_sample_scaled"],
-                    }
-                    export.export_data(data, "ui_report", formats=[out_fmt.value])
+                    export.export_data(
+                        {"summary": pd.DataFrame()},
+                        "ui_report",
+                        formats=[out_fmt.value],
+                        formatter=sheet_formatter,
+                    )
             except Exception as exc:
                 print("Error:", exc)
 
