@@ -107,3 +107,34 @@ def test_export_to_excel_backward_compat_sheet_formatter(tmp_path):
     out = tmp_path / "out.xlsx"
     export_to_excel({"summary": df}, str(out), formatter=sheet_formatter)
     assert out.exists()
+
+def test_format_summary_text_no_index_stats():
+    res = {
+        "in_ew_stats": (1, 1, 1, 1, 1),
+        "out_ew_stats": (2, 2, 2, 2, 2),
+        "in_user_stats": (3, 3, 3, 3, 3),
+        "out_user_stats": (4, 4, 4, 4, 4),
+        "in_sample_stats": {"fund": (5, 5, 5, 5, 5)},
+        "out_sample_stats": {"fund": (6, 6, 6, 6, 6)},
+        "fund_weights": {"fund": 0.5},
+    }
+    text = format_summary_text(res, "a", "b", "c", "d")
+    assert "fund" in text
+
+
+def test_make_summary_formatter_handles_nan(tmp_path):
+    res = {
+        "in_ew_stats": (1, 1, 1, 1, float("nan")),
+        "out_ew_stats": (2, 2, 2, 2, 2),
+        "in_user_stats": (3, 3, 3, 3, 3),
+        "out_user_stats": (4, 4, 4, 4, 4),
+        "in_sample_stats": {"fund": (5, 5, float("nan"), 5, 5)},
+        "out_sample_stats": {"fund": (6, 6, 6, 6, 6)},
+        "fund_weights": {"fund": 0.5},
+        "index_stats": {},
+    }
+    fmt = make_summary_formatter(res, "a", "b", "c", "d")
+    ws = DummyWS()
+    wb = DummyWB()
+    fmt(ws, wb)
+    assert ws.rows[0][2][0] == "Vol-Adj Trend Analysis"
