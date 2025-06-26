@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, cast
+import io
 
 import numpy as np
 import pandas as pd
@@ -282,7 +283,13 @@ def select_funds(
 
 def build_ui() -> widgets.VBox:
     # -------------------- Step 1: data source & periods --------------------
-    csv_path = widgets.Text(description="CSV Path:")
+    source_tb = widgets.ToggleButtons(
+        options=["Path/URL", "Browse"],
+        description="Source:",
+    )
+    csv_path = widgets.Text(description="CSV or URL:")
+    file_up = widgets.FileUpload(accept=".csv", multiple=False)
+    file_up.layout.display = "none"
     load_btn = widgets.Button(description="Load CSV", button_style="success")
     load_out = widgets.Output()
 
@@ -292,19 +299,43 @@ def build_ui() -> widgets.VBox:
     out_end = widgets.Text(description="Out End:")
 
     session: dict[str, Any] = {"df": None, "rf": None}
+    idx_select = widgets.SelectMultiple(options=[], description="Indices:")
+    idx_select.layout.display = "none"
     step1_box = widgets.VBox(
-        [csv_path, load_btn, load_out, in_start, in_end, out_start, out_end]
+        [
+            source_tb,
+            csv_path,
+            file_up,
+            load_btn,
+            load_out,
+            idx_select,
+            in_start,
+            in_end,
+            out_start,
+            out_end,
+        ]
     )
 
     def _load_action(_btn: widgets.Button) -> None:
         with load_out:
             load_out.clear_output()
             try:
-                path = csv_path.value.strip()
-                if not path:
-                    print("Enter CSV path")
-                    return
-                df = load_csv(path)
+                df: pd.DataFrame | None = None
+                if source_tb.value == "Browse":
+                    if not file_up.value:
+                        print("Upload a CSV")
+                        return
+                    item = next(iter(file_up.value.values()))
+                    df = pd.read_csv(io.BytesIO(item["content"]))
+                else:
+                    path = csv_path.value.strip()
+                    if not path:
+                        print("Enter CSV path or URL")
+                        return
+                    if path.startswith("http://") or path.startswith("https://"):
+                        df = pd.read_csv(path)
+                    else:
+                        df = load_csv(path)
                 if df is None:
                     print("Failed to load")
                     return
@@ -316,11 +347,24 @@ def build_ui() -> widgets.VBox:
                 in_end.value = str(dates.min() + 2)
                 out_start.value = str(dates.min() + 3)
                 out_end.value = str(dates.min() + 5)
+                idx_select.options = [c for c in df.columns if c not in {"Date", rf}]
+                idx_select.layout.display = "flex"
                 print(f"Loaded {len(df):,} rows")
             except Exception as exc:
                 session["df"] = None
                 print("Error:", exc)
     load_btn.on_click(_load_action)
+
+    def _source_toggle(*_: Any) -> None:
+        if source_tb.value == "Browse":
+            file_up.layout.display = "flex"
+            csv_path.layout.display = "none"
+        else:
+            file_up.layout.display = "none"
+            csv_path.layout.display = "flex"
+
+    source_tb.observe(_source_toggle, "value")
+    _source_toggle()
 
     # -------------------- Step 2: selection & ranking ----------------------
     mode_dd = widgets.Dropdown(
@@ -501,6 +545,7 @@ def build_ui() -> widgets.VBox:
                     custom_weights=custom_weights,
                     rank_kwargs=rank_kwargs,
                     manual_funds=manual_funds,
+                    indices_list=list(idx_select.value),
                 )
                 if res is None:
                     print("No results")
