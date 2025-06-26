@@ -66,3 +66,15 @@ def test_identify_risk_free_fund_basic():
 def test_identify_risk_free_fund_no_numeric():
     df = pd.DataFrame({"Date": ["2020-01-01"], "A": ["x"]})
     assert data_mod.identify_risk_free_fund(df) is None
+
+
+def test_ensure_datetime_coerces():
+    df = pd.DataFrame({"Date": ["2020-01-01"], "A": [1]})
+    out = data_mod.ensure_datetime(df)
+    assert pd.api.types.is_datetime64_any_dtype(out["Date"])
+
+
+def test_ensure_datetime_missing_column():
+    df = pd.DataFrame({"X": [1]})
+    out = data_mod.ensure_datetime(df)
+    assert "X" in out.columns and "Date" not in out.columns

@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 import ipywidgets as widgets
 from .. import metrics as _metrics
-from ..data import load_csv, identify_risk_free_fund
+from ..data import load_csv, identify_risk_free_fund, ensure_datetime
 
 
 @dataclass
@@ -343,6 +343,7 @@ def build_ui() -> widgets.VBox:
                 if df is None:
                     print("Failed to load")
                     return
+                df = ensure_datetime(df)
                 session["df"] = df
                 rf = identify_risk_free_fund(df) or "RF"
                 session["rf"] = rf
