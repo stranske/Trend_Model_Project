@@ -159,4 +159,3 @@ type‑check (mypy, strict)
 test (pytest ‑‑cov trend_analysis ‑‑cov‑branch)
 
 build‑wheel (tags only)
-
