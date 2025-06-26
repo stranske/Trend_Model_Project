@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import argparse
 
-import pandas as pd
-
 from trend_analysis.config import load
 from trend_analysis import pipeline
 

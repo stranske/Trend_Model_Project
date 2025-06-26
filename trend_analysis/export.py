@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Callable, Iterable, Mapping
+from typing import Any, Callable, Iterable, Mapping, cast
 import inspect
 
 import pandas as pd
@@ -41,14 +41,19 @@ def make_summary_formatter(
     """Return a formatter function for the 'summary' Excel sheet."""
 
     @register_formatter_excel("summary")
-    def fmt_summary(ws, wb) -> None:
+    def fmt_summary(ws: Any, wb: Any) -> None:
         bold = wb.add_format({"bold": True})
         int0 = wb.add_format({"num_format": "0"})
         num2 = wb.add_format({"num_format": "0.00"})
         red = wb.add_format({"num_format": "0.00", "font_color": "red"})
 
-        safe = lambda v: "" if (pd.isna(v) or not pd.notna(v)) else v
-        pct = lambda t: [t[0] * 100, t[1] * 100, t[2], t[3], t[4] * 100]
+        def safe(v: float | str | None) -> str | float:
+            if pd.isna(v) or not pd.notna(v):
+                return ""
+            return cast(str | float, v)
+
+        def pct(t: tuple[float, float, float, float, float]) -> list[float]:
+            return [t[0] * 100, t[1] * 100, t[2], t[3], t[4] * 100]
 
         ws.write_row(0, 0, ["Vol-Adj Trend Analysis"], bold)
         ws.write_row(1, 0, [f"In:  {in_start} → {in_end}"], bold)
@@ -125,7 +130,8 @@ def export_to_excel(
     if formatter and default_sheet_formatter is None:
         params = list(inspect.signature(formatter).parameters)
         if len(params) != 1:
-            default_sheet_formatter = formatter  # backward compat
+            default_sheet_formatter = cast(Callable[[Any, Any], None], formatter)
+            # backward compat
             df_formatter = None
 
     with pd.ExcelWriter(path, engine="xlsxwriter") as writer:

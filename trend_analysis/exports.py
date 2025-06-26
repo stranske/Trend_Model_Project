@@ -1,6 +1,8 @@
 """Temporary re-export of ``trend_analysis.export`` for backward compatibility."""
 
-from trend_analysis.export import *  # noqa: F401,F403
+# ruff: noqa: F401, F403, F405
+
+from trend_analysis.export import *  # noqa: F401,F403,F405
 
 __all__ = [
     "register_formatter_excel",
