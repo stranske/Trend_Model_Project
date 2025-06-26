@@ -340,6 +340,7 @@ def build_ui() -> widgets.VBox:
         rank_unlocked = not rank_unlocked
         next_btn_1.layout.display = "none"
         _update_rank_vis()
+        _update_manual_vis()
 
     def _update_rank_vis(*_: Any) -> None:
         show = rank_unlocked and (mode_dd.value == "rank" or use_rank_ck.value)
@@ -367,6 +368,7 @@ def build_ui() -> widgets.VBox:
                 / "hedge_fund_returns_with_indexes.csv"
             )
             df = pd.read_csv(csv, parse_dates=["Date"])
+
             funds = [c for c in df.columns if c not in {"Date", "RF"}]
             manual_checks.clear()
             manual_weights.clear()
@@ -394,6 +396,7 @@ def build_ui() -> widgets.VBox:
     metric_dd.observe(_update_blended_vis, "value")
     incl_dd.observe(_update_inclusion_fields, "value")
     mode_dd.observe(_update_manual, "value")
+
 
     def _run_action(_btn: widgets.Button) -> None:
         rank_kwargs: dict[str, Any] | None = None
@@ -429,7 +432,7 @@ def build_ui() -> widgets.VBox:
             output.clear_output()
             try:
                 from pathlib import Path
-                from .. import pipeline
+                from .. import pipeline, export
 
                 csv = (
                     Path(__file__).resolve().parents[1]
@@ -438,6 +441,20 @@ def build_ui() -> widgets.VBox:
                 df = pd.read_csv(csv, parse_dates=["Date"])
                 dates = df["Date"].dt.to_period("M")
                 start = dates.min()
+
+                custom_weights: dict[str, float] | None = None
+                mode = mode_dd.value
+                if mode_dd.value == "manual":
+                    mode = "manual"
+                    custom_weights = {
+                        fund: wt.value
+                        for fund, (ck, wt) in manual_controls.items()
+                        if ck.value
+                    }
+                    if not custom_weights:
+                        print("No funds selected")
+                        return
+
                 res = pipeline.run_analysis(
                     df,
                     str(start),
@@ -446,13 +463,15 @@ def build_ui() -> widgets.VBox:
                     str(start + 5),
                     0.1,
                     0.0,
-                    selection_mode=mode_dd.value,
+                    selection_mode=mode,
+                    custom_weights=custom_weights,
                     rank_kwargs=rank_kwargs,
                     custom_weights=custom_weights,
                     manual_funds=manual_funds,
                 )
                 if res is None:
                     print("No results")
+
                 else:
                     print("Selected funds:", res["selected_funds"])
                     from .. import export
@@ -483,7 +502,9 @@ def build_ui() -> widgets.VBox:
     )
     _update_rank_vis()
     _update_inclusion_fields()
+
     _update_manual()
+
     return ui
 
 
