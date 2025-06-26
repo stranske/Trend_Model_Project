@@ -62,6 +62,7 @@ def _run_analysis(
     custom_weights: Optional[Dict[str, float]] = None,
     rank_kwargs: Optional[Dict[str, Any]] = None,
     manual_funds: Optional[list[str]] = None,
+    indices_list: Optional[list[str]] = None,
     seed: int = 42,
 ) -> Optional[Dict[str, object]]:
     if df is None:
@@ -89,6 +90,11 @@ def _run_analysis(
         return None
 
     ret_cols = [c for c in df.columns if c != date_col]
+    if indices_list:
+        idx_set = set(indices_list)
+        ret_cols = [c for c in ret_cols if c not in idx_set]
+    else:
+        indices_list = []
     rf_col = min(ret_cols, key=lambda c: df[c].std())
     fund_cols = [c for c in ret_cols if c != rf_col]
 
@@ -165,6 +171,7 @@ def _run_analysis(
         "out_user_stats_raw": out_user_stats_raw,
         "ew_weights": ew_w_dict,
         "fund_weights": user_w_dict,
+        "indices_list": indices_list,
     }
 
 
@@ -181,6 +188,7 @@ def run_analysis(
     custom_weights: Optional[Dict[str, float]] = None,
     rank_kwargs: Optional[Dict[str, Any]] = None,
     manual_funds: Optional[list[str]] = None,
+    indices_list: Optional[list[str]] = None,
     seed: int = 42,
 ) -> Optional[Dict[str, object]]:
     """Backward-compatible wrapper around ``_run_analysis``."""
@@ -197,6 +205,7 @@ def run_analysis(
         custom_weights,
         rank_kwargs,
         manual_funds,
+        indices_list,
         seed,
     )
 
@@ -225,6 +234,7 @@ def run(cfg: Config) -> pd.DataFrame:
         custom_weights=cfg.portfolio.get("custom_weights"),
         rank_kwargs=cfg.portfolio.get("rank"),
         manual_funds=cfg.portfolio.get("manual_list"),
+        indices_list=cfg.portfolio.get("indices_list"),
         seed=cfg.portfolio.get("random_seed", 42),
     )
     if res is None:
