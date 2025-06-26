@@ -19,7 +19,9 @@ def test_rank_select_funds_top_n():
     df = make_df()
     in_df = df.loc[df.index[:3], ["A", "B"]]
     cfg = rs.RiskStatsConfig(risk_free=0.0)
-    selected = rs.rank_select_funds(in_df, cfg, inclusion_approach="top_n", n=1, score_by="AnnualReturn")
+    selected = rs.rank_select_funds(
+        in_df, cfg, inclusion_approach="top_n", n=1, score_by="AnnualReturn"
+    )
     assert selected == ["A"]
 
 

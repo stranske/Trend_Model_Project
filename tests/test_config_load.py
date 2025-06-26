@@ -41,4 +41,3 @@ def test_env_var_override(tmp_path, monkeypatch):
     cfg = config.load()
     assert cfg.version == "42"
     monkeypatch.delenv("TREND_CFG", raising=False)
-

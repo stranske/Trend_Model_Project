@@ -7,4 +7,3 @@ def test_load_non_mapping(tmp_path):
     cfg_file.write_text("- a\n- b\n")
     with pytest.raises(TypeError):
         config.load(cfg_file)
-
