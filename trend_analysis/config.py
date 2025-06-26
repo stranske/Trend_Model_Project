@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 import os
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 from pydantic import BaseModel
 
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Any, Dict, Optional, cast
 
 import numpy as np
 import pandas as pd
@@ -60,7 +60,7 @@ def _run_analysis(
     selection_mode: str = "all",
     random_n: int = 8,
     custom_weights: Optional[Dict[str, float]] = None,
-    rank_kwargs: Optional[Dict[str, object]] = None,
+    rank_kwargs: Optional[Dict[str, Any]] = None,
     seed: int = 42,
 ) -> Optional[Dict[str, object]]:
     if df is None:
@@ -143,7 +143,9 @@ def _run_analysis(
 
     in_user_stats = _compute_stats(pd.DataFrame({"user": in_user}), rf_in)["user"]
     out_user_stats = _compute_stats(pd.DataFrame({"user": out_user}), rf_out)["user"]
-    out_user_stats_raw = _compute_stats(pd.DataFrame({"user": out_user_raw}), rf_out)["user"]
+    out_user_stats_raw = _compute_stats(pd.DataFrame({"user": out_user_raw}), rf_out)[
+        "user"
+    ]
 
     return {
         "selected_funds": fund_cols,
@@ -174,7 +176,7 @@ def run_analysis(
     selection_mode: str = "all",
     random_n: int = 8,
     custom_weights: Optional[Dict[str, float]] = None,
-    rank_kwargs: Optional[Dict[str, object]] = None,
+    rank_kwargs: Optional[Dict[str, Any]] = None,
     seed: int = 42,
 ) -> Optional[Dict[str, object]]:
     """Backward-compatible wrapper around ``_run_analysis``."""
@@ -207,10 +209,10 @@ def run(cfg: Config) -> pd.DataFrame:
     split = cfg.sample_split
     res = _run_analysis(
         df,
-        split.get("in_start"),
-        split.get("in_end"),
-        split.get("out_start"),
-        split.get("out_end"),
+        cast(str, split.get("in_start")),
+        cast(str, split.get("in_end")),
+        cast(str, split.get("out_start")),
+        cast(str, split.get("out_end")),
         cfg.vol_adjust.get("target_vol", 1.0),
         cfg.run.get("monthly_cost", 0.0),
         selection_mode=cfg.portfolio.get("selection_mode", "all"),
@@ -221,7 +223,7 @@ def run(cfg: Config) -> pd.DataFrame:
     )
     if res is None:
         return pd.DataFrame()
-    stats = res["out_sample_stats"]
+    stats = cast(dict[str, Stats], res["out_sample_stats"])
     return pd.DataFrame({k: vars(v) for k, v in stats.items()}).T
 
 

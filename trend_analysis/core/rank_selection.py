@@ -9,11 +9,12 @@ This module implements the `rank` selection mode described in Agents.md. Funds c
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List
+from typing import Any, Callable, Dict, List, cast
 
 import numpy as np
 import pandas as pd
 import ipywidgets as widgets
+from .. import metrics as _metrics
 
 
 @dataclass
@@ -100,8 +101,6 @@ def _quality_filter(
 
 
 # Register basic metrics from the public ``metrics`` module
-from .. import metrics as _metrics
-
 register_metric("AnnualReturn")(
     lambda s, *, periods_per_year=12, risk_free=0.0: _metrics.annualize_return(
         s, periods_per_year=periods_per_year
@@ -207,19 +206,19 @@ def rank_select_funds(
     if inclusion_approach == "top_n":
         if n is None:
             raise ValueError("top_n requires parameter n")
-        return scores.head(n).index.tolist()
+        return cast(list[str], scores.head(n).index.tolist())
 
     if inclusion_approach == "top_pct":
         if pct is None or not 0 < pct <= 1:
             raise ValueError("top_pct requires 0 < pct ≤ 1")
         k = max(1, int(round(len(scores) * pct)))
-        return scores.head(k).index.tolist()
+        return cast(list[str], scores.head(k).index.tolist())
 
     if inclusion_approach == "threshold":
         if threshold is None:
             raise ValueError("threshold approach requires a threshold value")
         mask = scores <= threshold if ascending else scores >= threshold
-        return scores[mask].index.tolist()
+        return cast(list[str], scores[mask].index.tolist())
 
     raise ValueError(f"Unknown inclusion_approach '{inclusion_approach}'")
 
@@ -240,7 +239,7 @@ def select_funds(
     cfg: FundSelectionConfig,
     selection_mode: str = "all",
     random_n: int | None = None,
-    rank_kwargs: dict | None = None,
+    rank_kwargs: dict[str, Any] | None = None,
 ) -> list[str]:
     """
     Extended to honour 'rank' mode.  Existing modes unchanged.
@@ -280,7 +279,7 @@ def select_funds(
 # ===============================================================
 
 
-def build_ui():
+def build_ui() -> widgets.VBox:
     mode_dd = widgets.Dropdown(
         options=["all", "random", "manual", "rank"], description="Mode:"
     )
@@ -331,18 +330,18 @@ def build_ui():
     run_btn = widgets.Button(description="Run")
     output = widgets.Output()
 
-    def _next_action(_):
+    def _next_action(_: Any) -> None:
         nonlocal rank_unlocked
         rank_unlocked = not rank_unlocked
         next_btn_1.layout.display = "none"
         _update_rank_vis()
 
-    def _update_rank_vis(*_):
+    def _update_rank_vis(*_: Any) -> None:
         show = rank_unlocked and (mode_dd.value == "rank" or use_rank_ck.value)
         rank_box.layout.display = "flex" if show else "none"
         _update_blended_vis()
 
-    def _update_blended_vis(*_):
+    def _update_blended_vis(*_: Any) -> None:
         show = (
             rank_unlocked
             and metric_dd.value == "blended"
@@ -350,7 +349,7 @@ def build_ui():
         )
         blended_box.layout.display = "flex" if show else "none"
 
-    def _update_inclusion_fields(*_):
+    def _update_inclusion_fields(*_: Any) -> None:
         topn_int.layout.display = "flex" if incl_dd.value == "top_n" else "none"
         pct_flt.layout.display = "flex" if incl_dd.value == "top_pct" else "none"
         thresh_f.layout.display = "flex" if incl_dd.value == "threshold" else "none"
@@ -361,8 +360,8 @@ def build_ui():
     metric_dd.observe(_update_blended_vis, "value")
     incl_dd.observe(_update_inclusion_fields, "value")
 
-    def _run_action(_btn):
-        rank_kwargs = None
+    def _run_action(_btn: widgets.Button) -> None:
+        rank_kwargs: dict[str, Any] | None = None
         if mode_dd.value == "rank" or use_rank_ck.value:
             rank_kwargs = {
                 "inclusion_approach": incl_dd.value,
