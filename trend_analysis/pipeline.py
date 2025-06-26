@@ -99,6 +99,10 @@ def _run_analysis(
         sub = df.loc[mask, fund_cols]
         stats_cfg = RiskStatsConfig(risk_free=0.0)
         fund_cols = rank_select_funds(sub, stats_cfg, **(rank_kwargs or {}))
+    elif selection_mode == "manual":
+        if custom_weights is None:
+            raise ValueError("custom_weights must be provided for manual mode")
+        fund_cols = [c for c in fund_cols if c in custom_weights]
 
     if not fund_cols:
         return None
