@@ -466,7 +466,6 @@ def build_ui() -> widgets.VBox:
                     selection_mode=mode,
                     custom_weights=custom_weights,
                     rank_kwargs=rank_kwargs,
-                    custom_weights=custom_weights,
                     manual_funds=manual_funds,
                 )
                 if res is None:
