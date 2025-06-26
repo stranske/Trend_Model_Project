@@ -61,6 +61,7 @@ def _run_analysis(
     random_n: int = 8,
     custom_weights: Optional[Dict[str, float]] = None,
     rank_kwargs: Optional[Dict[str, Any]] = None,
+    manual_funds: Optional[list[str]] = None,
     seed: int = 42,
 ) -> Optional[Dict[str, object]]:
     if df is None:
@@ -99,6 +100,8 @@ def _run_analysis(
         sub = df.loc[mask, fund_cols]
         stats_cfg = RiskStatsConfig(risk_free=0.0)
         fund_cols = rank_select_funds(sub, stats_cfg, **(rank_kwargs or {}))
+    elif selection_mode == "manual" and manual_funds:
+        fund_cols = [c for c in fund_cols if c in manual_funds]
 
     if not fund_cols:
         return None
@@ -177,6 +180,7 @@ def run_analysis(
     random_n: int = 8,
     custom_weights: Optional[Dict[str, float]] = None,
     rank_kwargs: Optional[Dict[str, Any]] = None,
+    manual_funds: Optional[list[str]] = None,
     seed: int = 42,
 ) -> Optional[Dict[str, object]]:
     """Backward-compatible wrapper around ``_run_analysis``."""
@@ -192,6 +196,7 @@ def run_analysis(
         random_n,
         custom_weights,
         rank_kwargs,
+        manual_funds,
         seed,
     )
 
@@ -219,6 +224,7 @@ def run(cfg: Config) -> pd.DataFrame:
         random_n=cfg.portfolio.get("random_n", 8),
         custom_weights=cfg.portfolio.get("custom_weights"),
         rank_kwargs=cfg.portfolio.get("rank"),
+        manual_funds=cfg.portfolio.get("manual_list"),
         seed=cfg.portfolio.get("random_seed", 42),
     )
     if res is None:

@@ -324,6 +324,11 @@ def build_ui() -> widgets.VBox:
     )
     rank_box.layout.display = "none"
 
+    manual_box = widgets.VBox()
+    manual_box.layout.display = "none"
+    manual_checks: list[widgets.Checkbox] = []
+    manual_weights: list[widgets.FloatText] = []
+
     # track whether the user progressed past the first step
     rank_unlocked = False
 
@@ -340,6 +345,7 @@ def build_ui() -> widgets.VBox:
         show = rank_unlocked and (mode_dd.value == "rank" or use_rank_ck.value)
         rank_box.layout.display = "flex" if show else "none"
         _update_blended_vis()
+        _update_manual()
 
     def _update_blended_vis(*_: Any) -> None:
         show = (
@@ -348,6 +354,34 @@ def build_ui() -> widgets.VBox:
             and (mode_dd.value == "rank" or use_rank_ck.value)
         )
         blended_box.layout.display = "flex" if show else "none"
+
+    def _update_manual(*_: Any) -> None:
+        if mode_dd.value != "manual" or not rank_unlocked:
+            manual_box.layout.display = "none"
+            return
+        try:
+            from pathlib import Path
+
+            csv = (
+                Path(__file__).resolve().parents[1]
+                / "hedge_fund_returns_with_indexes.csv"
+            )
+            df = pd.read_csv(csv, parse_dates=["Date"])
+            funds = [c for c in df.columns if c not in {"Date", "RF"}]
+            manual_checks.clear()
+            manual_weights.clear()
+            rows = []
+            for f in funds:
+                chk = widgets.Checkbox(value=True, description=f)
+                wt = widgets.FloatText(value=100 / len(funds), layout=widgets.Layout(width="80px"))
+                manual_checks.append(chk)
+                manual_weights.append(wt)
+                rows.append(widgets.HBox([chk, wt]))
+            manual_box.children = rows
+            manual_box.layout.display = "flex"
+        except Exception:
+            manual_box.children = [widgets.Label("Failed to load data")] 
+            manual_box.layout.display = "flex"
 
     def _update_inclusion_fields(*_: Any) -> None:
         topn_int.layout.display = "flex" if incl_dd.value == "top_n" else "none"
@@ -359,6 +393,7 @@ def build_ui() -> widgets.VBox:
     use_rank_ck.observe(_update_rank_vis, "value")
     metric_dd.observe(_update_blended_vis, "value")
     incl_dd.observe(_update_inclusion_fields, "value")
+    mode_dd.observe(_update_manual, "value")
 
     def _run_action(_btn: widgets.Button) -> None:
         rank_kwargs: dict[str, Any] | None = None
@@ -379,6 +414,16 @@ def build_ui() -> widgets.VBox:
                     m2_dd.value: w2_sl.value,
                     m3_dd.value: w3_sl.value,
                 }
+
+        manual_funds: list[str] | None = None
+        custom_weights: dict[str, float] | None = None
+        if mode_dd.value == "manual":
+            manual_funds = []
+            custom_weights = {}
+            for chk, wt in zip(manual_checks, manual_weights):
+                if chk.value:
+                    manual_funds.append(chk.description)
+                    custom_weights[chk.description] = float(wt.value)
 
         with output:
             output.clear_output()
@@ -403,21 +448,42 @@ def build_ui() -> widgets.VBox:
                     0.0,
                     selection_mode=mode_dd.value,
                     rank_kwargs=rank_kwargs,
+                    custom_weights=custom_weights,
+                    manual_funds=manual_funds,
                 )
                 if res is None:
                     print("No results")
                 else:
                     print("Selected funds:", res["selected_funds"])
+                    from .. import export
+
+                    data = {
+                        "in_sample": res["in_sample_scaled"],
+                        "out_sample": res["out_sample_scaled"],
+                    }
+                    export.export_data(data, "ui_report", formats=[out_fmt.value])
+                    print("Exported", out_fmt.value)
             except Exception as exc:
                 print("Error:", exc)
 
     run_btn.on_click(_run_action)
 
     ui = widgets.VBox(
-        [mode_dd, vol_ck, use_rank_ck, next_btn_1, rank_box, out_fmt, run_btn, output]
+        [
+            mode_dd,
+            vol_ck,
+            use_rank_ck,
+            next_btn_1,
+            rank_box,
+            manual_box,
+            out_fmt,
+            run_btn,
+            output,
+        ]
     )
     _update_rank_vis()
     _update_inclusion_fields()
+    _update_manual()
     return ui
 
 
