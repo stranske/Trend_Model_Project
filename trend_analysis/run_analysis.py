@@ -8,6 +8,7 @@ from typing import cast
 
 from trend_analysis.config import load
 from trend_analysis import pipeline, export
+import pandas as pd
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -22,9 +23,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     cfg = load(args.config)
+    metrics_df = pipeline.run(cfg)
     if args.detailed:
-        result = pipeline.run_full(cfg)
-        print(result if result else "No results")
+        if metrics_df.empty:
+            print("No results")
+        else:
+            print(metrics_df.to_string())
     else:
         res = pipeline.run_full(cfg)
         if not res:
@@ -43,12 +47,32 @@ def main(argv: list[str] | None = None) -> int:
             out_dir = export_cfg.get("directory")
             out_formats = export_cfg.get("formats")
             if out_dir and out_formats:
-                data = {
-                    "in_sample": res["in_sample_scaled"],
-                    "out_sample": res["out_sample_scaled"],
-                }
-                prefix = Path(out_dir) / "analysis"
-                export.export_data(data, str(prefix), formats=out_formats)
+                data = {"metrics": metrics_df}
+                if any(f.lower() in {"excel", "xlsx"} for f in out_formats):
+                    sheet_formatter = export.make_summary_formatter(
+                        res,
+                        cast(str, split.get("in_start")),
+                        cast(str, split.get("in_end")),
+                        cast(str, split.get("out_start")),
+                        cast(str, split.get("out_end")),
+                    )
+                    data["summary"] = pd.DataFrame()
+                    export.export_to_excel(
+                        data,
+                        str(Path(out_dir) / "analysis.xlsx"),
+                        default_sheet_formatter=sheet_formatter,
+                    )
+                    other = [
+                        f for f in out_formats if f.lower() not in {"excel", "xlsx"}
+                    ]
+                    if other:
+                        export.export_data(
+                            data, str(Path(out_dir) / "analysis"), formats=other
+                        )
+                else:
+                    export.export_data(
+                        data, str(Path(out_dir) / "analysis"), formats=out_formats
+                    )
     return 0
 
 
