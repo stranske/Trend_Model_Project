@@ -25,7 +25,7 @@ def test_export_data(tmp_path):
     assert (tmp_path / "report_sheet1.json").exists()
     assert (tmp_path / "report_sheet2.json").exists()
 
-    read = pd.read_csv(tmp_path / "report_sheet1.csv")
+    read = pd.read_csv(tmp_path / "report_sheet1.csv", index_col=0)
     pd.testing.assert_frame_equal(read, df1)
 
 
