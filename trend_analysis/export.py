@@ -52,8 +52,20 @@ def make_summary_formatter(
                 return ""
             return cast(str | float, v)
 
-        def pct(t: tuple[float, float, float, float, float]) -> list[float]:
-            return [t[0] * 100, t[1] * 100, t[2], t[3], t[4] * 100]
+        def to_tuple(obj: Any) -> tuple[float, float, float, float, float]:
+            if isinstance(obj, tuple):
+                return cast(tuple[float, float, float, float, float], obj)
+            return (
+                cast(float, obj.cagr),
+                cast(float, obj.vol),
+                cast(float, obj.sharpe),
+                cast(float, obj.sortino),
+                cast(float, obj.max_drawdown),
+            )
+
+        def pct(t: Any) -> list[float]:
+            tup = to_tuple(t)
+            return [tup[0] * 100, tup[1] * 100, tup[2], tup[3], tup[4] * 100]
 
         ws.write_row(0, 0, ["Vol-Adj Trend Analysis"], bold)
         ws.write_row(1, 0, [f"In:  {in_start} → {in_end}"], bold)

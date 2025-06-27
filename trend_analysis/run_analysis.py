@@ -46,6 +46,9 @@ def main(argv: list[str] | None = None) -> int:
             export_cfg = cfg.export
             out_dir = export_cfg.get("directory")
             out_formats = export_cfg.get("formats")
+            if not out_dir and not out_formats:
+                out_dir = "outputs"
+                out_formats = ["excel"]
             if out_dir and out_formats:
                 data = {"metrics": metrics_df}
                 if any(f.lower() in {"excel", "xlsx"} for f in out_formats):
