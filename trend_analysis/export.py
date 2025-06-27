@@ -251,7 +251,9 @@ def export_to_csv(
     for name, df in data.items():
         formatted = _apply_format(df, formatter)
         formatted.to_csv(
-            prefix.with_name(f"{prefix.stem}_{name}.csv"), index=False, header=True
+            prefix.with_name(f"{prefix.stem}_{name}.csv"),
+            index=True,
+            header=True,
         )
 
 
