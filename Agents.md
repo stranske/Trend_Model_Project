@@ -88,6 +88,51 @@ Never touch notebooks living under any directory whose name ends in old/.
 
 ---
 
+### 2025-06-27 UPDATE — RISK-METRICS EXPORT (SERIOUSLY, LEAVE THIS IN)
+
+Codex removed the pretty reporting layer once; it shall not happen again.  
+Follow these guard-rails whenever you touch export logic.
+
+1. **Call the canonical exporters**  
+   After `pipeline.run()` completes, pipe the returned `Mapping[str, pd.DataFrame]`
+   into **exactly one** of  
+   `trend_analysis.export.export_to_excel | export_to_csv | export_to_json`.
+
+2. **Sheet / file keys**  
+
+3. **Excel format contract**  
+* Generate the summary sheet formatter via
+  `trend_analysis.export.make_summary_formatter(...)`.
+* Register any other sheet formatter with `@register_formatter_excel`
+  so `export_to_excel` auto-hooks it.
+* Required cosmetics:  
+  - bold title row,  
+  - `0.00%` for CAGR & Vol,  
+  - `0.00` for Sharpe & Sortino,  
+  - red numerals for MaxDD,  
+  - freeze panes on header,  
+  - auto-filter,  
+  - column width = `max(len(header)) + 2`.
+
+4. **Column order = law**  
+Tests must fail if this order mutates.
+
+5. **Config switches**  
+`output.format` = `excel | csv | json`  
+`output.path`   = prefix used by exporter (Excel auto-appends `.xlsx`).
+
+6. **Tests**  
+* In-memory smoke test: write to `BytesIO`, assert two sheets and cell
+  `A1 == "Vol-Adj Trend Analysis"`.
+* Regression test: `assert list(df.columns) == EXPECTED_COLUMNS`.
+
+7. **Back-compat**  
+Silent config = drop the fully formatted Excel workbook into `outputs/`
+exactly as v1.0 did. Breaking that throws `ExportError`.
+
+> 🛡️  If you rip out these formatters again, CI will chaperone you with a failing gate and a stern commit message.
+
+
 ## | Layer / concern                      | **Canonical location**                                                     | Everything else is **deprecated**                         |
 | ------------------------------------ | -------------------------------------------------------------------------- | --------------------------------------------------------- |
 | **Data ingest & cleaning**           | `trend_analysis/data.py` <br> (alias exported as `trend_analysis.data`)    | `data_utils.py`, helper code in notebooks or `scripts/`   |
