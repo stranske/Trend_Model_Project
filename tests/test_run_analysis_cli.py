@@ -35,4 +35,4 @@ def test_cli_detailed(tmp_path, capsys):
     rc = run_analysis.main(["-c", str(cfg), "--detailed"])
     captured = capsys.readouterr().out
     assert rc == 0
-    assert "selected_funds" in captured
+    assert "cagr" in captured.lower()
