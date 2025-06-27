@@ -401,7 +401,8 @@ def build_ui() -> widgets.VBox:
     m3_dd = widgets.Dropdown(options=list(METRIC_REGISTRY), description="M3")
     w3_sl = widgets.FloatSlider(value=0.34, min=0, max=1.0, step=0.01)
 
-    out_fmt = widgets.Dropdown(options=["excel", "csv", "json"], description="Output:")
+    # The UI now always exports to Excel to avoid exposing raw data formats
+    out_fmt_value = "excel"
 
     # --------------------------------------------------------------
     #  Callbacks and execution wiring
@@ -563,21 +564,14 @@ def build_ui() -> widgets.VBox:
                         out_start.value,
                         out_end.value,
                     )
-                    text = export.format_summary_text(
-                        res,
-                        in_start.value,
-                        in_end.value,
-                        out_start.value,
-                        out_end.value,
-                    )
-                    print(text)
+                    # Skip printing raw text; rely on Excel output
                     empty_df = pd.DataFrame()
                     data = {"summary": empty_df}
                     prefix = f"IS_{in_start.value}_OS_{out_start.value}"
                     export.export_data(
                         data,
                         prefix,
-                        formats=[out_fmt.value],
+                        formats=[out_fmt_value],
                         formatter=cast(Any, sheet_formatter),
                     )
             except Exception as exc:
@@ -594,7 +588,6 @@ def build_ui() -> widgets.VBox:
             next_btn_1,
             rank_box,
             manual_box,
-            out_fmt,
             run_btn,
             output,
         ]
