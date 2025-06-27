@@ -571,7 +571,11 @@ def build_ui() -> widgets.VBox:
                         out_end.value,
                     )
                     print(text)
-                    data = {"summary": pd.DataFrame()}
+                    data = {
+                        "summary": pd.DataFrame(),
+                        "in_sample": res["in_sample_scaled"],
+                        "out_sample": res["out_sample_scaled"],
+                    }
                     prefix = f"IS_{in_start.value}_OS_{out_start.value}"
                     export.export_data(
                         data,
