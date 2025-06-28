@@ -1,206 +1,55 @@
 # agents.md
-"""
-YOU ARE CODEX.  EXTEND THE VOL_ADJ_TREND_ANALYSIS PROJECT AS FOLLOWS
---------------------------------------------------------------------
+YOU ARE CODEX.  VOL_ADJ_TREND_ANALYSIS – AUTHORITATIVE GUIDE
+============================================================
 
-High‑level goal
-~~~~~~~~~~~~~~~
-Add a **performance‑based manager‑selection mode** that works alongside the
-existing 'all', 'random', and 'manual' modes.  Make the pipeline fully
-config‑driven and keep everything vectorised.
+State of the union
+------------------
+✅ **Phase 1 is COMPLETE and passing CI (tests, 100 % coverage, ruff/black/mypy).**  
+   *The code under this section is **frozen** — touch only to fix a red build.*
 
-Functional spec
-~~~~~~~~~~~~~~~
-1.  New selection mode keyword:  `rank`.
-    • Works on the *in‑sample* window **after** the usual data‑quality filters.  
-    • Supported inclusion approaches:
-         - `'top_n'`       – keep the N best funds.
-         - `'top_pct'`     – keep the top P percent.  
-         - `'threshold'`   – keep funds whose score ≥ user threshold
-           (this is the “useful extra” beyond N and percentile).
+* Rank‑based manager‑selection, blended z‑score logic, ASCENDING_METRICS guard.
+* Risk‑metrics export layer with two‑sheet smoke test & column‑order regression.
+* Canonical‑locations refactor; `pipeline.run(cfg)` is pure.
 
-2.  Rank criteria (`score_by`):
-    • Any single metric registered in `METRIC_REGISTRY`
-      (e.g. 'Sharpe', 'AnnualReturn', 'MaxDrawdown', …).  
-    • Special value `'blended'` that combines up to three metrics with
-      user‑supplied *positive* weights (weights will be normalised to 1.0).
+------------------------------------------------------------------------
+PHASE‑1 CODE – READ‑ONLY UNLESS TESTS FAIL
+------------------------------------------------------------------------
 
-3.  Direction‑of‑merit:
-    • Metrics where “larger is better”  → rank descending.
-    • Metrics where “smaller is better” (currently **only** MaxDrawdown)  
-      → rank ascending.  Future metrics can extend `ASCENDING_METRICS`.
+(Full Phase‑1 spec retained here for reference ‑‑ snip ‑‑)
 
-4.  Config file (YAML) drives everything – sample below.
+------------------------------------------------------------------------
+PHASE‑2 – ***YOU ARE HERE***   Build the scaffolding ONLY
+------------------------------------------------------------------------
 
-5.  UI flow (ipywidgets, no external deps):
-    Step 1  – Mode (‘all’, ‘random’, ‘manual’, **‘rank’**),
-               checkboxes for “vol‑adj” and “use ranking”.  
-    Step 2  – If mode == 'rank' **or** user ticked “use ranking”
-               → reveal controls for `inclusion_approach`,
-               `score_by`, `N / Pct / Threshold`, and (if blended)
-               three sliders for weights + metric pickers.  
-    Step 3  – If mode == 'manual'  
-               → display an interactive DataFrame of the IS scores so the
-               user can override selection and set weights.
-    Step 4  – Output format picker (csv / xlsx / json) then fire
-               `run_analysis()` and `export_to_*`.
+Directory tree to create (exact spelling):
 
-6.  No broken changes:
-    • Default behaviour (config absent) must be identical to current build.
-    • All heavy computation stays in NumPy / pandas vector land.
-
-7.  Unit‑test hooks:
-    • New pure functions must be import‑safe and testable without widgets.
-      (e.g. `rank_select_funds()`).
-
-Sample YAML
-~~~~~~~~~~~
-selection:
-  mode: rank               # all | random | manual | rank
-  random_n: 12             # only if mode == random
-  use_vol_adjust: true
-rank:
-  inclusion_approach: top_n     # top_n | top_pct | threshold
-  n: 8                          # for top_n
-  pct: 0.10                     # for top_pct  (decimal, not %)
-  threshold: 1.5                # ignored unless approach == threshold
-  score_by: blended             # Sharpe | AnnualReturn | … | blended
-  blended_weights:
-    Sharpe: 0.5
-    AnnualReturn: 0.3
-    MaxDrawdown: 0.2
-output:
-  format: excel                 # csv | excel | json
-"""
-
-"""
-🔄 2025‑06‑15 UPDATE — PHASE‑1 ENHANCEMENTS
-------------------------------------------
-• Blended ranking **must** use *z‑scores* (mean‑0, stdev‑1) before the
-  weighted sum so metrics on different scales are commensurable.
-• MaxDrawdown is currently the only “smaller‑is‑better” metric; the
-  ASCENDING_METRICS set remains {"MaxDrawdown"} until further notice.
-• Config format stays YAML.
-"""# agents.md
-## Mission
-Converge the scattered modules into one fully‑test‑covered, vectorised pipeline that can be invoked from a single CLI entry‑point.
-Never touch notebooks living under any directory whose name ends in old/.
-
----
-
-### 2025-06-27 UPDATE — RISK-METRICS EXPORT (SERIOUSLY, LEAVE THIS IN)
-
-Codex removed the pretty reporting layer once; it shall not happen again.  
-Follow these guard-rails whenever you touch export logic.
-
-1. **Call the canonical exporters**  
-   After `pipeline.run()` completes, pipe the returned `Mapping[str, pd.DataFrame]`
-   into **exactly one** of  
-   `trend_analysis.export.export_to_excel | export_to_csv | export_to_json`.
-
-2. **Sheet / file keys**  
-
-3. **Excel format contract**  
-* Generate the summary sheet formatter via
-  `trend_analysis.export.make_summary_formatter(...)`.
-* Register any other sheet formatter with `@register_formatter_excel`
-  so `export_to_excel` auto-hooks it.
-* Required cosmetics:  
-  - bold title row,  
-  - `0.00%` for CAGR & Vol,  
-  - `0.00` for Sharpe & Sortino,  
-  - red numerals for MaxDD,  
-  - freeze panes on header,  
-  - auto-filter,  
-  - column width = `max(len(header)) + 2`.
-
-4. **Column order = law**  
-Tests must fail if this order mutates.
-
-5. **Config switches**  
-`output.format` = `excel | csv | json`  
-`output.path`   = prefix used by exporter (Excel auto-appends `.xlsx`).
-
-6. **Tests**  
-* In-memory smoke test: write to `BytesIO`, assert two sheets and cell
-  `A1 == "Vol-Adj Trend Analysis"`.
-* Regression test: `assert list(df.columns) == EXPECTED_COLUMNS`.
-
-7. **Back-compat**  
-Silent config = drop the fully formatted Excel workbook into `outputs/`
-exactly as v1.0 did. Breaking that throws `ExportError`.
-
-> 🛡️  If you rip out these formatters again, CI will chaperone you with a failing gate and a stern commit message.
+trend_analysis/
+├── pipeline.py # expose single_period_run (was _run_analysis)
+├── multi_period/
+│ ├── init.py
+│ ├── engine.py # stub with raise NotImplementedError
+│ ├── scheduler.py # stub
+│ └── replacer.py # stub
+├── gui/
+│ └── app.py # empty Streamlit placeholder
+config/
+defaults.yml # extend with: multi_period:, jobs:, checkpoint_dir:, random_seed:
 
 
-## | Layer / concern                      | **Canonical location**                                                     | Everything else is **deprecated**                         |
-| ------------------------------------ | -------------------------------------------------------------------------- | --------------------------------------------------------- |
-| **Data ingest & cleaning**           | `trend_analysis/data.py` <br> (alias exported as `trend_analysis.data`)    | `data_utils.py`, helper code in notebooks or `scripts/`   |
-| **Portfolio logic & metrics**        | `trend_analysis/metrics.py` (vectorised)                                   | loops inside `run_analysis.py`, ad‑hoc calcs in notebooks |
-| **Export / I/O**                     | `trend_analysis/export.py`                                                 | the root‑level `exports.py`, snippets inside notebooks    |
-| **Domain kernels (fast primitives)** | `trend_analysis/core/` package                                             | stand‑alone modules under the top‑level `core/` directory |
-| **Pipeline orchestration**           | `trend_analysis/pipeline.py` (pure)                                        | any duplicated control flow elsewhere                     |
-| **CLI entry‑point**                  | `run_analysis.py` **only** (thin wrapper around `trend_analysis.cli:main`) | bespoke `scripts/*.py` entry points                       |
-| **Config**                           | `config/defaults.yml` loaded through `trend_analysis.config.load()`        | hard‑coded constants, magic numbers in notebooks          |
-| **Tests**                            | `tests/` (pytest; 100 % branch‑aware coverage gate)                        |    —                                                      |
-One concern → one module.
-Replacements must delete or comment‑out whatever they obsolete in the same PR.
+### Rename task
+* Inside `trend_analysis/pipeline.py` rename `def _run_analysis(...)`
+  **→** `def single_period_run(...)` and update all internal calls.
 
-Immediate Refactor Tasks
-Flatten duplications
+### New YAML keys (place‑holders only)
 
-Rename data_utils.py → trend_analysis/data.py, adjust imports, delete the original.
+```yaml
+multi_period:
+  frequency: "M"      # M | Q | A
+  start: "2000-01-01"
+  end:   "2025-06-30"
+  oos_window: 252     # trading days
+  triggers: {}
+jobs: 1
+checkpoint_dir: null
+random_seed: 42
 
-Migrate the contents of the top‑level exports.py into trend_analysis/export.py; keep only a re‑export stub for one minor release.
-
-Turn the stray core/ directory into an importable sub‑package:
-core/indicator.py → trend_analysis/core/indicator.py, etc.
-
-Single pipeline
-
-Implement trend_analysis/pipeline.py exposing a pure function
-run(config: Config) -> pd.DataFrame.
-
-run_analysis.py should parse CLI args, build a Config, pass it to pipeline.run, then handle pretty printing / file output only.
-
-Config resolution
-
-# trend_analysis/config.py
-from pydantic import BaseModel
-class Config(BaseModel):
-    defaults: str = Path(__file__).with_name("..").joinpath("config/defaults.yml")
-    # ...other validated fields...
-def load(path: str | None = None) -> Config: ...
-
-Env‑var override: TREND_CFG=/path/to/override.yml run_analysis ...
-
-Dependency hygiene
-
-Heavy imports (numpy, pandas, scipy) at top of each module are fine.
-
-No circular imports. pipeline.py orchestrates; nothing imports it.
-
-Tests
-
-NOTE: Test fixtures must be text-serialised (CSV/JSON); no binary formats in PRs.
-
-Require 100 % branch coverage on trend_analysis/* via pytest‑cov in CI.
-
-Conventions & Guard‑rails
-Vectorise first.
-Falling back to for‑loops requires a comment justifying why vectorisation is impossible or harmful.
-
-Public API (exported in __all__) uses US‑English snake‑case; private helpers are prefixed with _.
-
-Notebook hygiene: any new exploratory notebook must start with the header
-# 🔬 scratchpad – may be deleted at any time.
-
-CI (GitHub Actions) stages to add:
-
-lint  (ruff + black –‑check)
-
-type‑check (mypy, strict)
-
-test (pytest ‑‑cov trend_analysis ‑‑cov‑branch)
-
-build‑wheel (tags only)
