@@ -16,7 +16,7 @@ Period = Tuple[pd.Timestamp, pd.Timestamp, pd.Timestamp, pd.Timestamp]
 FREQ_MAP = {"M": "M", "Q": "Q", "A": "Y"}
 
 
-def generate_periods(cfg: dict[str, object]) -> List[Period]:
+def generate_periods(cfg: dict[str, Any]) -> List[Period]:
     """
     Returns a list of PeriodTuple driven by `cfg.multi_period`.
 
