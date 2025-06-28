@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, cast
+from ..export import Formatter
 import io
 
 import numpy as np
@@ -623,7 +624,7 @@ def build_ui() -> widgets.VBox:
                         data,
                         prefix,
                         formats=[out_fmt.value],
-                        formatter=sheet_formatter,
+                        formatter=cast(Formatter, sheet_formatter),
                     )
             except Exception as exc:
                 print("Error:", exc)
