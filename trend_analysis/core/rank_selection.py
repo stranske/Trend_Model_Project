@@ -376,6 +376,8 @@ def build_ui() -> widgets.VBox:
     mode_dd = widgets.Dropdown(
         options=["all", "random", "manual", "rank"], description="Mode:"
     )
+    random_n_int = widgets.BoundedIntText(value=8, min=1, description="Random N:")
+    random_n_int.layout.display = "none"
     vol_ck = widgets.Checkbox(value=True, description="Vol‑adjust?")
     use_rank_ck = widgets.Checkbox(value=False, description="Apply ranking?")
     next_btn_1 = widgets.Button(description="Next")
@@ -415,6 +417,10 @@ def build_ui() -> widgets.VBox:
     )
     rank_box.layout.display = "none"
 
+    def _update_random_vis(*_: Any) -> None:
+        show = rank_unlocked and mode_dd.value == "random"
+        random_n_int.layout.display = "flex" if show else "none"
+
     manual_box = widgets.VBox()
     manual_box.layout.display = "none"
     manual_checks: list[widgets.Checkbox] = []
@@ -436,6 +442,7 @@ def build_ui() -> widgets.VBox:
         rank_unlocked = not rank_unlocked
         next_btn_1.layout.display = "none"
         _update_rank_vis()
+        _update_random_vis()
         _update_manual()
 
     def _update_rank_vis(*_: Any) -> None:
@@ -489,6 +496,7 @@ def build_ui() -> widgets.VBox:
 
     next_btn_1.on_click(_next_action)
     mode_dd.observe(_update_rank_vis, "value")
+    mode_dd.observe(_update_random_vis, "value")
     use_rank_ck.observe(_update_rank_vis, "value")
     metric_dd.observe(_update_blended_vis, "value")
     incl_dd.observe(_update_inclusion_fields, "value")
@@ -548,6 +556,7 @@ def build_ui() -> widgets.VBox:
                     0.1,
                     0.0,
                     selection_mode=mode,
+                    random_n=int(random_n_int.value),
                     custom_weights=custom_weights,
                     rank_kwargs=rank_kwargs,
                     manual_funds=manual_funds,
@@ -592,6 +601,7 @@ def build_ui() -> widgets.VBox:
         [
             step1_box,
             mode_dd,
+            random_n_int,
             vol_ck,
             use_rank_ck,
             next_btn_1,
@@ -604,6 +614,8 @@ def build_ui() -> widgets.VBox:
     )
     _update_rank_vis()
     _update_inclusion_fields()
+
+    _update_random_vis()
 
     _update_manual()
 
