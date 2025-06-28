@@ -379,6 +379,10 @@ def build_ui() -> widgets.VBox:
     random_n_int = widgets.BoundedIntText(value=8, min=1, description="Random N:")
     random_n_int.layout.display = "none"
     vol_ck = widgets.Checkbox(value=True, description="Vol‑adjust?")
+    target_vol = widgets.BoundedFloatText(
+        value=0.10, min=0.0, max=10.0, step=0.01, description="Target Vol:"
+    )
+    target_vol.layout.display = "none"
     use_rank_ck = widgets.Checkbox(value=False, description="Apply ranking?")
     next_btn_1 = widgets.Button(description="Next")
 
@@ -420,6 +424,9 @@ def build_ui() -> widgets.VBox:
     def _update_random_vis(*_: Any) -> None:
         show = rank_unlocked and mode_dd.value == "random"
         random_n_int.layout.display = "flex" if show else "none"
+
+    def _update_target_vol(*_: Any) -> None:
+        target_vol.layout.display = "flex" if vol_ck.value else "none"
 
     manual_box = widgets.VBox()
     manual_box.layout.display = "none"
@@ -474,7 +481,25 @@ def build_ui() -> widgets.VBox:
             return
 
         rf = session.get("rf", "RF")
-        funds = [c for c in df.columns if c not in {"Date", rf}]
+        date_col = "Date"
+        funds_all = [c for c in df.columns if c not in {date_col, rf}]
+        try:
+
+            def _to_dt(s: str) -> pd.Timestamp:
+                return pd.to_datetime(f"{s}-01") + pd.offsets.MonthEnd(0)
+
+            in_start_dt = _to_dt(in_start.value)
+            in_end_dt = _to_dt(in_end.value)
+            out_start_dt = _to_dt(out_start.value)
+            out_end_dt = _to_dt(out_end.value)
+
+            in_df = df[(df[date_col] >= in_start_dt) & (df[date_col] <= in_end_dt)]
+            out_df = df[(df[date_col] >= out_start_dt) & (df[date_col] <= out_end_dt)]
+            in_ok = ~in_df[funds_all].isna().any()
+            out_ok = ~out_df[funds_all].isna().any()
+            funds = [c for c in funds_all if in_ok[c] and out_ok[c]]
+        except Exception:
+            funds = funds_all
         manual_checks.clear()
         manual_weights.clear()
         rows = []
@@ -501,6 +526,7 @@ def build_ui() -> widgets.VBox:
     metric_dd.observe(_update_blended_vis, "value")
     incl_dd.observe(_update_inclusion_fields, "value")
     mode_dd.observe(_update_manual, "value")
+    vol_ck.observe(_update_target_vol, "value")
 
     def _run_action(_btn: widgets.Button) -> None:
         rank_kwargs: dict[str, Any] | None = None
@@ -553,7 +579,7 @@ def build_ui() -> widgets.VBox:
                     in_end.value,
                     out_start.value,
                     out_end.value,
-                    0.1,
+                    target_vol.value if vol_ck.value else 1.0,
                     0.0,
                     selection_mode=mode,
                     random_n=int(random_n_int.value),
@@ -580,11 +606,7 @@ def build_ui() -> widgets.VBox:
                         out_end.value,
                     )
                     print(text)
-                    data = {
-                        "summary": pd.DataFrame(),
-                        "in_sample": res["in_sample_scaled"],
-                        "out_sample": res["out_sample_scaled"],
-                    }
+                    data = {"summary": pd.DataFrame()}
                     prefix = f"IS_{in_start.value}_OS_{out_start.value}"
                     export.export_data(
                         data,
@@ -603,6 +625,7 @@ def build_ui() -> widgets.VBox:
             mode_dd,
             random_n_int,
             vol_ck,
+            target_vol,
             use_rank_ck,
             next_btn_1,
             rank_box,
@@ -618,6 +641,7 @@ def build_ui() -> widgets.VBox:
     _update_random_vis()
 
     _update_manual()
+    _update_target_vol()
 
     return ui
 
