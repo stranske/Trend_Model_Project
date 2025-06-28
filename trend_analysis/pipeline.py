@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING, cast
 
 import numpy as np
 import pandas as pd
+from numpy.typing import NDArray
+from typing import Any
 
 from .data import load_csv
 from .metrics import (
@@ -33,7 +35,9 @@ class _Stats:
     max_drawdown: float
 
 
-def calc_portfolio_returns(weights: np.ndarray, returns_df: pd.DataFrame) -> pd.Series:
+def calc_portfolio_returns(
+    weights: NDArray[Any], returns_df: pd.DataFrame
+) -> pd.Series:
     """Calculate weighted portfolio returns."""
     return returns_df.mul(weights, axis=1).sum(axis=1)
 
@@ -53,7 +57,7 @@ def _compute_stats(df: pd.DataFrame, rf: pd.Series) -> dict[str, _Stats]:
     return stats
 
 
-def _run_analysis(
+def single_period_run(
     df: pd.DataFrame,
     in_start: str,
     in_end: str,
@@ -226,8 +230,8 @@ def run_analysis(
     indices_list: list[str] | None = None,
     seed: int = 42,
 ) -> dict[str, object] | None:
-    """Backward-compatible wrapper around ``_run_analysis``."""
-    return _run_analysis(
+    """Backward-compatible wrapper around ``single_period_run``."""
+    return single_period_run(
         df,
         in_start,
         in_end,
@@ -256,7 +260,7 @@ def run(cfg: Config) -> pd.DataFrame:
         raise FileNotFoundError(csv_path)
 
     split = cfg.sample_split
-    res = _run_analysis(
+    res = single_period_run(
         df,
         cast(str, split.get("in_start")),
         cast(str, split.get("in_end")),
@@ -289,7 +293,7 @@ def run_full(cfg: Config) -> dict[str, object]:
         raise FileNotFoundError(csv_path)
 
     split = cfg.sample_split
-    res = _run_analysis(
+    res = single_period_run(
         df,
         cast(str, split.get("in_start")),
         cast(str, split.get("in_end")),
