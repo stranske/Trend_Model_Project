@@ -70,6 +70,21 @@ def make_summary_formatter(
         ws.write_row(0, 0, ["Vol-Adj Trend Analysis"], bold)
         ws.write_row(1, 0, [f"In:  {in_start} → {in_end}"], bold)
         ws.write_row(2, 0, [f"Out: {out_start} → {out_end}"], bold)
+        headers = [
+            "Name",
+            "Weight",
+            "IS CAGR",
+            "IS Vol",
+            "IS Sharpe",
+            "IS Sortino",
+            "IS MaxDD",
+            "OS CAGR",
+            "OS Vol",
+            "OS Sharpe",
+            "OS Sortino",
+            "OS MaxDD",
+        ]
+        ws.write_row(4, 0, headers, bold)
 
         row = 5
         for label, ins, outs in [

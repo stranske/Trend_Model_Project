@@ -83,8 +83,12 @@ def _run_analysis(
     in_sdate, in_edate = _parse_month(in_start), _parse_month(in_end)
     out_sdate, out_edate = _parse_month(out_start), _parse_month(out_end)
 
-    in_df = df[(df[date_col] >= in_sdate) & (df[date_col] <= in_edate)]
-    out_df = df[(df[date_col] >= out_sdate) & (df[date_col] <= out_edate)]
+    in_df = df[(df[date_col] >= in_sdate) & (df[date_col] <= in_edate)].set_index(
+        date_col
+    )
+    out_df = df[(df[date_col] >= out_sdate) & (df[date_col] <= out_edate)].set_index(
+        date_col
+    )
 
     if in_df.empty or out_df.empty:
         return None
@@ -97,6 +101,18 @@ def _run_analysis(
         indices_list = []
     rf_col = min(ret_cols, key=lambda c: df[c].std())
     fund_cols = [c for c in ret_cols if c != rf_col]
+
+    # determine which index columns have complete data
+    valid_indices: list[str] = []
+    if indices_list:
+        idx_in_ok = ~in_df[indices_list].isna().any()
+        idx_out_ok = ~out_df[indices_list].isna().any()
+        valid_indices = [c for c in indices_list if idx_in_ok[c] and idx_out_ok[c]]
+
+    # keep only funds with complete data in both windows
+    in_ok = ~in_df[fund_cols].isna().any()
+    out_ok = ~out_df[fund_cols].isna().any()
+    fund_cols = [c for c in fund_cols if in_ok[c] and out_ok[c]]
 
     if selection_mode == "random" and len(fund_cols) > random_n:
         rng = np.random.default_rng(seed)
@@ -156,6 +172,13 @@ def _run_analysis(
         "user"
     ]
 
+    index_stats: dict[str, dict[str, Stats]] = {}
+    for idx in valid_indices:
+        index_stats[idx] = {
+            "in_sample": _compute_stats(pd.DataFrame({idx: in_df[idx]}), rf_in)[idx],
+            "out_sample": _compute_stats(pd.DataFrame({idx: out_df[idx]}), rf_out)[idx],
+        }
+
     return {
         "selected_funds": fund_cols,
         "in_sample_scaled": in_scaled,
@@ -171,7 +194,8 @@ def _run_analysis(
         "out_user_stats_raw": out_user_stats_raw,
         "ew_weights": ew_w_dict,
         "fund_weights": user_w_dict,
-        "indices_list": indices_list,
+        "indices_list": valid_indices,
+        "index_stats": index_stats,
     }
 
 
