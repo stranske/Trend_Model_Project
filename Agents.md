@@ -25,15 +25,59 @@ Copy
 ## Tasks for this agent
 
 ### T1 `trend_analysis/multi_period/replacer.py`
-Implement class **`Rebalancer`**
+## Task #1 – Implement `multi_period/replacer.py::Rebalancer`
 
-* `__init__(self, cfg)`
-* `apply_triggers(prev_weights, score_frame) -> pd.Series`
-  * Enforce min/max funds from `cfg.multi_period`.
-  * Apply σ‑trigger logic:
-      * z‑score < −σ for N consecutive periods → mark for removal
-      * z‑score > +σ this period & portfolio below max_funds → consider addition
-  * Preserve prev weights unless traded; renormalise to 1.00.
+### Context
+* `prev_weights`: `pd.Series` indexed by `fund_id`, weights from **previous** period (summing to 1.0).  
+* `score_frame`: `pd.DataFrame` returned by `single_period_run`; must contain columns:  
+  * `zscore` (performance z‑score vs. peer mean)  
+  * `rank`   (1 = best)  
+* Config path: `cfg["multi_period"]`.
+
+### Requirements
+1. **Constructor**
+   ```python
+   def __init__(self, cfg):
+       self.cfg = cfg
+       mp = cfg["multi_period"]
+       self.min_funds = mp["min_funds"]
+       self.max_funds = mp["max_funds"]
+       self.triggers = mp["triggers"]      # dict as per defaults.yml
+       self.anchors  = mp["weight_curve"]["anchors"]
+
+2.apply_triggers(prev_weights, score_frame) → pd.Series
+Identify removals
+For each fund in prev_weights whose zscore < −σ, accumulate a strike.
+Maintain an in‑memory self._strike_table (fund → consecutive_low_count).
+Remove the fund if it hits its configured strike threshold (σ & periods).
+Identify additions
+Funds not in the portfolio whose zscore > +σ and portfolio size < max → eligible candidates.
+Sort candidates by rank and add until max_funds reached.
+Reweighting logic
+Start with prev_weights for surviving funds.
+For each holding, compute a multiplier via linear interpolation of anchors on rank percentile.
+Multiply weights by those multipliers.
+Assign equal weight to any new entrants.
+Renormalise the final series to sum to 1.0.
+
+Edge cases
+If removals push holdings below min_funds, stop removing and issue a warnings.warn().
+If prev_weights is empty (first period), return equal weights for the top‑ranked funds up to min_funds.
+
+Random seed
+Use np.random.default_rng(cfg["random_seed"]) for tie‑break orders when ranks equal.
+
+Docstrings & typing
+Follow existing style (numpy‑style docstrings).
+Unit tests (to live in tests/test_replacer.py)
+Test removal after consecutive lows.
+Test addition when high z‑score and room in portfolio.
+Test weight normalisation within 1e‑9 tolerance.
+
+Constraints
+Only Pandas, NumPy, and Python standard lib.
+Must pass ruff and black --check.
+No global state except the strike table inside the Rebalancer instance.
 
 ### T2 `trend_analysis/multi_period/engine.py`
 Implement `run(cfg) -> Dict[str, SingleRunResult]`:
