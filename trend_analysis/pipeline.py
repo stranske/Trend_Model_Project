@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, cast
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 import pandas as pd
 
-from .config import Config
 from .data import load_csv
 from .metrics import (
     annualize_return,
@@ -15,11 +14,16 @@ from .metrics import (
     sortino_ratio,
     max_drawdown,
 )
-from .core.rank_selection import rank_select_funds, RiskStatsConfig
+
+if TYPE_CHECKING:  # pragma: no cover - for static type checking only
+    from .config import Config
+
+del TYPE_CHECKING
+del annotations
 
 
 @dataclass
-class Stats:
+class _Stats:
     """Container for performance metrics."""
 
     cagr: float
@@ -34,12 +38,12 @@ def calc_portfolio_returns(weights: np.ndarray, returns_df: pd.DataFrame) -> pd.
     return returns_df.mul(weights, axis=1).sum(axis=1)
 
 
-def _compute_stats(df: pd.DataFrame, rf: pd.Series) -> Dict[str, Stats]:
+def _compute_stats(df: pd.DataFrame, rf: pd.Series) -> dict[str, _Stats]:
     # Metrics expect 1D Series; iterating keeps the logic simple for a handful
     # of columns and avoids reshaping into higher-dimensional arrays.
     stats = {}
     for col in df:
-        stats[col] = Stats(
+        stats[col] = _Stats(
             cagr=annualize_return(df[col]),
             vol=annualize_volatility(df[col]),
             sharpe=sharpe_ratio(df[col], rf),
@@ -59,12 +63,14 @@ def _run_analysis(
     monthly_cost: float,
     selection_mode: str = "all",
     random_n: int = 8,
-    custom_weights: Optional[Dict[str, float]] = None,
-    rank_kwargs: Optional[Dict[str, Any]] = None,
-    manual_funds: Optional[list[str]] = None,
-    indices_list: Optional[list[str]] = None,
+    custom_weights: dict[str, float] | None = None,
+    rank_kwargs: dict[str, object] | None = None,
+    manual_funds: list[str] | None = None,
+    indices_list: list[str] | None = None,
     seed: int = 42,
-) -> Optional[Dict[str, object]]:
+) -> dict[str, object] | None:
+    from .core.rank_selection import RiskStatsConfig, rank_select_funds
+
     if df is None:
         return None
 
@@ -123,7 +129,7 @@ def _run_analysis(
         mask = (df[date_col] >= in_sdate) & (df[date_col] <= in_edate)
         sub = df.loc[mask, fund_cols]
         stats_cfg = RiskStatsConfig(risk_free=0.0)
-        fund_cols = rank_select_funds(sub, stats_cfg, **(rank_kwargs or {}))
+        fund_cols = rank_select_funds(sub, stats_cfg, **(rank_kwargs or {}))  # type: ignore[arg-type]
     elif selection_mode == "manual":
         if manual_funds:  # pragma: no cover - rarely hit
             fund_cols = [c for c in fund_cols if c in manual_funds]
@@ -177,7 +183,7 @@ def _run_analysis(
         "user"
     ]
 
-    index_stats: dict[str, dict[str, Stats]] = {}
+    index_stats: dict[str, dict[str, _Stats]] = {}
     for idx in valid_indices:  # pragma: no cover - rarely used
         index_stats[idx] = {
             "in_sample": _compute_stats(pd.DataFrame({idx: in_df[idx]}), rf_in)[idx],
@@ -214,12 +220,12 @@ def run_analysis(
     monthly_cost: float,
     selection_mode: str = "all",
     random_n: int = 8,
-    custom_weights: Optional[Dict[str, float]] = None,
-    rank_kwargs: Optional[Dict[str, Any]] = None,
-    manual_funds: Optional[list[str]] = None,
-    indices_list: Optional[list[str]] = None,
+    custom_weights: dict[str, float] | None = None,
+    rank_kwargs: dict[str, object] | None = None,
+    manual_funds: list[str] | None = None,
+    indices_list: list[str] | None = None,
     seed: int = 42,
-) -> Optional[Dict[str, object]]:
+) -> dict[str, object] | None:
     """Backward-compatible wrapper around ``_run_analysis``."""
     return _run_analysis(
         df,
@@ -268,7 +274,7 @@ def run(cfg: Config) -> pd.DataFrame:
     )
     if res is None:
         return pd.DataFrame()
-    stats = cast(dict[str, Stats], res["out_sample_stats"])
+    stats = cast(dict[str, _Stats], res["out_sample_stats"])
     return pd.DataFrame({k: vars(v) for k, v in stats.items()}).T
 
 
@@ -302,4 +308,15 @@ def run_full(cfg: Config) -> dict[str, object]:
     return {} if res is None else res
 
 
+Stats = _Stats
+
 __all__ = ["Stats", "calc_portfolio_returns", "run_analysis", "run", "run_full"]
+
+
+def __getattr__(name: str) -> object:
+    if name == "Stats":
+        return _Stats
+    raise AttributeError(name)
+
+
+del Stats
