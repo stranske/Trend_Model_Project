@@ -123,3 +123,26 @@ multi_period:
 jobs: 1
 checkpoint_dir: null
 random_seed: 42
+
+# ---------------------------------------------------------------------------
+# Phase‑2 multi‑period defaults
+# ---------------------------------------------------------------------------
+multi_period:
+  frequency: "A"          # M | Q | A  (Monthly, Quarterly, Annual)
+  in_sample_len: 3        # rolling windows
+  out_sample_len: 1
+  start: "1990-01"
+  end:   "2024-12"
+  triggers:
+    sigma1: {sigma: 1, periods: 2}
+    sigma2: {sigma: 2, periods: 1}
+  min_funds: 10
+  max_funds: 25
+  weight_curve:
+    anchors:              # [rank‑percentile, multiplier]
+      - [0,   1.20]
+      - [50,  1.00]
+      - [100, 0.80]
+checkpoint_dir: "outputs/checkpoints/"
+jobs: -1                  # -1 = use all logical cores
+random_seed: 42

@@ -1,55 +1,61 @@
-# agents.md
-YOU ARE CODEX.  VOL_ADJ_TREND_ANALYSIS – AUTHORITATIVE GUIDE
-============================================================
+# Trend Model Project — Phase 2 Autogen Spec
 
-State of the union
-------------------
-✅ **Phase 1 is COMPLETE and passing CI (tests, 100 % coverage, ruff/black/mypy).**  
-   *The code under this section is **frozen** — touch only to fix a red build.*
+Welcome, code‑gen agent!  
+The scaffolding you see in the repo is intentional.  
+**Fill only the TODO markers below.**
 
-* Rank‑based manager‑selection, blended z‑score logic, ASCENDING_METRICS guard.
-* Risk‑metrics export layer with two‑sheet smoke test & column‑order regression.
-* Canonical‑locations refactor; `pipeline.run(cfg)` is pure.
+---
 
-------------------------------------------------------------------------
-PHASE‑1 CODE – READ‑ONLY UNLESS TESTS FAIL
-------------------------------------------------------------------------
-
-(Full Phase‑1 spec retained here for reference ‑‑ snip ‑‑)
-
-------------------------------------------------------------------------
-PHASE‑2 – ***YOU ARE HERE***   Build the scaffolding ONLY
-------------------------------------------------------------------------
-
-Directory tree to create (exact spelling):
+## Repository map (relevant pieces)
 
 trend_analysis/
-├── pipeline.py # expose single_period_run (was _run_analysis)
-├── multi_period/
-│ ├── init.py
-│ ├── engine.py # stub with raise NotImplementedError
-│ ├── scheduler.py # stub
-│ └── replacer.py # stub
-├── gui/
-│ └── app.py # empty Streamlit placeholder
-config/
-defaults.yml # extend with: multi_period:, jobs:, checkpoint_dir:, random_seed:
+pipeline.py # contains single_period_run(data, cfg, ...)
+multi_period/
+engine.py # ← implement run(cfg)
+scheduler.py # complete
+replacer.py # ← implement Rebalancer
+gui/app.py # streamlit placeholder
+config/defaults.yml # config schema
 
+markdown
+Copy
 
-### Rename task
-* Inside `trend_analysis/pipeline.py` rename `def _run_analysis(...)`
-  **→** `def single_period_run(...)` and update all internal calls.
+---
 
-### New YAML keys (place‑holders only)
+## Tasks for this agent
 
-```yaml
-multi_period:
-  frequency: "M"      # M | Q | A
-  start: "2000-01-01"
-  end:   "2025-06-30"
-  oos_window: 252     # trading days
-  triggers: {}
-jobs: 1
-checkpoint_dir: null
-random_seed: 42
+### T1 `trend_analysis/multi_period/replacer.py`
+Implement class **`Rebalancer`**
 
+* `__init__(self, cfg)`
+* `apply_triggers(prev_weights, score_frame) -> pd.Series`
+  * Enforce min/max funds from `cfg.multi_period`.
+  * Apply σ‑trigger logic:
+      * z‑score < −σ for N consecutive periods → mark for removal
+      * z‑score > +σ this period & portfolio below max_funds → consider addition
+  * Preserve prev weights unless traded; renormalise to 1.00.
+
+### T2 `trend_analysis/multi_period/engine.py`
+Implement `run(cfg) -> Dict[str, SingleRunResult]`:
+
+1. Generate schedule via `generate_periods(cfg)`.
+2. Loop chronologically:
+   * For first period, start equal‑weighted.
+   * Call `single_period_run`.
+   * Pass its `score_frame` + `prev_weights` to `Rebalancer.apply_triggers`.
+   * Save checkpoint Parquet in `cfg.checkpoint_dir`.
+3. Accumulate per‑period results + summary frame.
+4. Return `{"periods": results_dict, "summary": summary_df}`.
+
+### T3 Extend `tests/`
+* Unit tests for `Rebalancer.apply_triggers`.
+* Integration test: 3‑period × 5‑fund dummy → `engine.run(cfg)` returns summary.
+
+---
+
+## Constraints
+* Code must pass `ruff` & `black`.
+* Only use numpy, pandas, joblib, streamlit.
+* Keep functions pure; use `cfg.random_seed` for reproducibility.
+
+Happy coding! 🚀
