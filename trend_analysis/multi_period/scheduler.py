@@ -1,6 +1,7 @@
 """
 Generate (in‑sample, out‑sample) period tuples for the multi‑period engine.
 """
+
 from __future__ import annotations
 
 from collections import namedtuple
