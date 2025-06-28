@@ -5,17 +5,18 @@ Generate (in‑sample, out‑sample) period tuples for the multi‑period engine
 from __future__ import annotations
 
 from collections import namedtuple
-from typing import List
+from typing import List, Tuple, Dict, Any
 import pandas as pd
 
 PeriodTuple = namedtuple(
     "PeriodTuple",
     ["in_start", "in_end", "out_start", "out_end"],
 )
+Period = Tuple[pd.Timestamp, pd.Timestamp, pd.Timestamp, pd.Timestamp]
 FREQ_MAP = {"M": "M", "Q": "Q", "A": "Y"}
 
 
-def generate_periods(cfg) -> List[PeriodTuple]:
+def generate_periods(cfg: dict[str, object]) -> List[Period]:
     """
     Returns a list of PeriodTuple driven by `cfg.multi_period`.
 
