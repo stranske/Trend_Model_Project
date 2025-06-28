@@ -4,6 +4,7 @@ from trend_analysis.multi_period.scheduler import generate_periods
 
 CFG = yaml.safe_load(Path("config/defaults.yml").read_text())
 
+
 def test_scheduler_generates_periods():
     periods = generate_periods(CFG)
     assert periods, "Scheduler returned empty list"
