@@ -122,8 +122,11 @@ def _run_analysis(
         sub = df.loc[mask, fund_cols]
         stats_cfg = RiskStatsConfig(risk_free=0.0)
         fund_cols = rank_select_funds(sub, stats_cfg, **(rank_kwargs or {}))
-    elif selection_mode == "manual" and manual_funds:
-        fund_cols = [c for c in fund_cols if c in manual_funds]
+    elif selection_mode == "manual":
+        if manual_funds:
+            fund_cols = [c for c in fund_cols if c in manual_funds]
+        else:
+            fund_cols = []
 
     if not fund_cols:
         return None
