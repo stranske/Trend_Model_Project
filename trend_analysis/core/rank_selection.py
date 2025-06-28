@@ -9,7 +9,7 @@ This module implements the `rank` selection mode described in Agents.md. Funds c
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, cast, Tuple
+from typing import Any, Callable, Dict, List, cast
 from ..export import Formatter
 import io
 
