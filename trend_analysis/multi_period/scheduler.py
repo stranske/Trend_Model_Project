@@ -5,18 +5,17 @@ Generate (in‑sample, out‑sample) period tuples for the multi‑period engine
 from __future__ import annotations
 
 from collections import namedtuple
-from typing import List, Tuple, Dict, Any
+from typing import List, Tuple, Any, Dict, cast
 import pandas as pd
 
 PeriodTuple = namedtuple(
     "PeriodTuple",
     ["in_start", "in_end", "out_start", "out_end"],
 )
-Period = Tuple[pd.Timestamp, pd.Timestamp, pd.Timestamp, pd.Timestamp]
 FREQ_MAP = {"M": "M", "Q": "Q", "A": "Y"}
 
 
-def generate_periods(cfg: dict[str, Any]) -> List[Period]:
+def generate_periods(cfg: dict[str, Any]) -> List[PeriodTuple]:
     """
     Returns a list of PeriodTuple driven by `cfg.multi_period`.
 
@@ -26,7 +25,7 @@ def generate_periods(cfg: dict[str, Any]) -> List[Period]:
     • Generation stops when the end of the next OOS window
       would run past cfg.multi_period.end.
     """
-    mp = cfg["multi_period"]
+    mp: Dict[str, Any] = cast(Dict[str, Any], cfg["multi_period"])
     freq = FREQ_MAP[mp["frequency"]]
     in_len = int(mp["in_sample_len"])
     out_len = int(mp["out_sample_len"])
@@ -34,7 +33,7 @@ def generate_periods(cfg: dict[str, Any]) -> List[Period]:
     start = pd.Period(mp["start"], freq)
     last = pd.Period(mp["end"], freq)
 
-    periods: list[PeriodTuple] = []
+    periods: List[PeriodTuple] = []
     in_start = start
 
     while True:
@@ -54,4 +53,4 @@ def generate_periods(cfg: dict[str, Any]) -> List[Period]:
         )
         in_start = in_start + out_len  # jump ahead
 
-    return periods
+        return periods
