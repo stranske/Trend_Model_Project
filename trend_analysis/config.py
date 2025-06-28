@@ -9,7 +9,7 @@ import os
 import yaml  # type: ignore[import-untyped]
 
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover - mypy only
 
     class BaseModel:
         """Minimal subset of :class:`pydantic.BaseModel` for type checking."""
