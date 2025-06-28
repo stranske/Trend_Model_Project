@@ -123,7 +123,9 @@ register_metric("Sortino")(
         s, pd.Series(risk_free, index=s.index), periods_per_year
     )
 )
-register_metric("MaxDrawdown")(_metrics.max_drawdown)
+register_metric("MaxDrawdown")(
+    lambda s, *, periods_per_year=12, risk_free=0.0: _metrics.max_drawdown(s)
+)
 
 # ===============================================================
 #  NEW: RANK‑BASED FUND SELECTION
@@ -504,10 +506,8 @@ def build_ui() -> widgets.VBox:
         manual_weights.clear()
         rows = []
         for f in funds:
-            chk = widgets.Checkbox(value=True, description=f)
-            wt = widgets.FloatText(
-                value=100 / len(funds), layout=widgets.Layout(width="80px")
-            )
+            chk = widgets.Checkbox(value=False, description=f)
+            wt = widgets.FloatText(value=0.0, layout=widgets.Layout(width="80px"))
             manual_checks.append(chk)
             manual_weights.append(wt)
             rows.append(widgets.HBox([chk, wt]))
