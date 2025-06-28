@@ -79,63 +79,6 @@ def fill_short_gaps_with_zero(series):
     return out
 
 # --- 5. Annualized Metrics ---
-def annualize_return(m_returns):
-    """
-    Geometric annual return from monthly returns (decimal).
-    """
-    vals = m_returns.dropna()
-    if vals.empty:
-        return np.nan
-    growth = (1 + vals).prod()
-    months = len(vals)
-    return (growth ** (12.0 / months)) - 1 if growth > 0 else -1.0
-
-def annualize_volatility(m_returns):
-    """
-    Annualized volatility = std(monthly) * sqrt(12).
-    """
-    vals = m_returns.dropna()
-    return vals.std() * np.sqrt(12) if len(vals) > 1 else np.nan
-
-def sharpe_ratio(m_returns, rf_series):
-    """
-    Annualized Sharpe = ann_excess_return / ann_excess_volatility.
-    """
-    df = pd.DataFrame({'r': m_returns, 'rf': rf_series}).dropna()
-    if len(df) < 2:
-        return np.nan
-    excess = df['r'] - df['rf']
-    growth = (1 + excess).prod()
-    months = len(excess)
-    ann_ret = (growth ** (12.0 / months)) - 1 if growth > 0 else np.nan
-    ann_vol = excess.std() * np.sqrt(12)
-    return ann_ret / ann_vol if ann_vol > 0 else np.nan
-
-def sortino_ratio(m_returns, rf_series):
-    """
-    Annualized Sortino = ann_excess_return / downside_stdev.
-    """
-    df = pd.DataFrame({'r': m_returns, 'rf': rf_series}).dropna()
-    if len(df) < 2:
-        return np.nan
-    excess = df['r'] - df['rf']
-    growth = (1 + excess).prod()
-    months = len(excess)
-    ann_ret = (growth ** (12.0 / months)) - 1 if growth > 0 else np.nan
-    downs = excess[excess < 0]
-    down_stdev = downs.std() * np.sqrt(12) if not downs.empty else np.inf
-    return ann_ret / down_stdev
-
-def max_drawdown(m_returns):
-    """
-    Maximum drawdown from monthly returns.
-    """
-    vals = m_returns.dropna()
-    if vals.empty:
-        return np.nan
-    wealth = (1 + vals).cumprod()
-    dd = 1 - wealth / wealth.cummax()
-    return dd.max()
 
 # Shared column specs
 COLUMN_SPECS = [
@@ -183,10 +126,13 @@ def get_custom_weights(selected_funds):
     return weights
 
 # --- 8. run_analysis ---
-def run_analysis(df, in_start, in_end, out_start, out_end, target_vol, monthly_cost,
-                 selection_mode='all', random_n=8, custom_weights=None):
-    # (full implementation as in your canvas)
-    pass
+# The original ``run_analysis`` implementation has been superseded by
+# ``trend_analysis.pipeline.run_analysis``. Keeping a stub for backward
+# reference only.
+def run_analysis(*args, **kwargs):
+    raise NotImplementedError(
+        "Deprecated. Use trend_analysis.pipeline.run_analysis instead."
+    )
 
 # --- 9. Export Helpers ---
 def build_formats(wb):
