@@ -211,6 +211,7 @@ def single_period_run(
         "fund_weights": user_w_dict,
         "indices_list": valid_indices,
         "index_stats": index_stats,
+        "score_frame": pd.DataFrame(index=fund_cols),
     }
 
 
