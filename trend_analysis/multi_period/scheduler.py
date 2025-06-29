@@ -10,9 +10,7 @@ from typing import Any, Dict, List, cast
 import pandas as pd
 
 # ----------------------------------------------------------------------
-PeriodTuple = namedtuple(
-    "PeriodTuple", ["in_start", "in_end", "out_start", "out_end"]
-)
+PeriodTuple = namedtuple("PeriodTuple", ["in_start", "in_end", "out_start", "out_end"])
 
 FREQ_MAP = {"M": "M", "Q": "Q", "A": "Y"}
 
@@ -21,8 +19,8 @@ def generate_periods(cfg: Dict[str, Any]) -> List[PeriodTuple]:
     """
     Return a list of PeriodTuple driven by ``cfg["multi_period"]``.
 
-    • Clock jumps forward by the out‑of‑sample window length  
-    • In‑sample length = ``in_sample_len`` windows  
+    • Clock jumps forward by the out‑of‑sample window length
+    • In‑sample length = ``in_sample_len`` windows
     • Generation stops when the next OOS window would exceed ``end``.
     """
     mp = cast(Dict[str, Any], cfg.get("multi_period", {}))

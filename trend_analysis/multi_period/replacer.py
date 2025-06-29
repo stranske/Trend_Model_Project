@@ -15,9 +15,9 @@ from typing import Any, Dict
 import pandas as pd
 
 
-_LOW_Z = -1.0        # removal trigger
-_LOW_STRIKES = 2     # consecutive strikes required
-_HIGH_Z = 1.0        # addition trigger
+_LOW_Z = -1.0  # removal trigger
+_LOW_STRIKES = 2  # consecutive strikes required
+_HIGH_Z = 1.0  # addition trigger
 
 
 class Rebalancer:  # pylint: disable=too-few-public-methods
