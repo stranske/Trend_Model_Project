@@ -1,5 +1,7 @@
-"""
-Generate (in‑sample, out‑sample) period tuples for the multi‑period engine.
+"""Generate (in-sample, out-sample) period tuples for the multi-period engine.
+
+Uses the new pandas offset aliases ``ME``/``QE``/``YE`` for month-, quarter-,
+and year-end periods.
 """
 
 from __future__ import annotations
@@ -12,7 +14,14 @@ import pandas as pd
 # ----------------------------------------------------------------------
 PeriodTuple = namedtuple("PeriodTuple", ["in_start", "in_end", "out_start", "out_end"])
 
-FREQ_MAP = {"M": "M", "Q": "Q", "A": "Y"}
+FREQ_MAP = {
+    "M": "ME",
+    "ME": "ME",
+    "Q": "QE",
+    "QE": "QE",
+    "A": "YE",
+    "YE": "YE",
+}
 
 
 def generate_periods(cfg: Dict[str, Any]) -> List[PeriodTuple]:
@@ -25,12 +34,13 @@ def generate_periods(cfg: Dict[str, Any]) -> List[PeriodTuple]:
     """
     mp = cast(Dict[str, Any], cfg.get("multi_period", {}))
 
-    freq = FREQ_MAP[str(mp["frequency"])]
+    freq_alias = FREQ_MAP[str(mp["frequency"])]
+    offset = pd.tseries.frequencies.to_offset(freq_alias)
     in_len = int(mp["in_sample_len"])
     out_len = int(mp["out_sample_len"])
 
-    start = pd.Period(str(mp["start"]), freq)
-    last = pd.Period(str(mp["end"]), freq)
+    start = pd.Period(str(mp["start"]), offset)
+    last = pd.Period(str(mp["end"]), offset)
 
     periods: List[PeriodTuple] = []
     in_start = start
