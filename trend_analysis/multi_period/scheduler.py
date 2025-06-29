@@ -5,35 +5,34 @@ Generate (in‑sample, out‑sample) period tuples for the multi‑period engine
 from __future__ import annotations
 
 from collections import namedtuple
-from typing import List
+from typing import Any, Dict, List, cast
+
 import pandas as pd
 
-PeriodTuple = namedtuple(
-    "PeriodTuple",
-    ["in_start", "in_end", "out_start", "out_end"],
-)
+# ----------------------------------------------------------------------
+PeriodTuple = namedtuple("PeriodTuple", ["in_start", "in_end", "out_start", "out_end"])
+
 FREQ_MAP = {"M": "M", "Q": "Q", "A": "Y"}
 
 
-def generate_periods(cfg) -> List[PeriodTuple]:
+def generate_periods(cfg: Dict[str, Any]) -> List[PeriodTuple]:
     """
-    Returns a list of PeriodTuple driven by `cfg.multi_period`.
+    Return a list of PeriodTuple driven by ``cfg["multi_period"]``.
 
-    • Clock jumps forward by the *out‑of‑sample* window length.
-    • In‑sample length = cfg.multi_period.in_sample_len windows.
-    • Frequency ∈ {'M','Q','A'}.
-    • Generation stops when the end of the next OOS window
-      would run past cfg.multi_period.end.
+    • Clock jumps forward by the out‑of‑sample window length
+    • In‑sample length = ``in_sample_len`` windows
+    • Generation stops when the next OOS window would exceed ``end``.
     """
-    mp = cfg["multi_period"]
-    freq = FREQ_MAP[mp["frequency"]]
+    mp = cast(Dict[str, Any], cfg.get("multi_period", {}))
+
+    freq = FREQ_MAP[str(mp["frequency"])]
     in_len = int(mp["in_sample_len"])
     out_len = int(mp["out_sample_len"])
 
-    start = pd.Period(mp["start"], freq)
-    last = pd.Period(mp["end"], freq)
+    start = pd.Period(str(mp["start"]), freq)
+    last = pd.Period(str(mp["end"]), freq)
 
-    periods: list[PeriodTuple] = []
+    periods: List[PeriodTuple] = []
     in_start = start
 
     while True:
@@ -51,6 +50,6 @@ def generate_periods(cfg) -> List[PeriodTuple]:
                 out_end=str(out_end.end_time.date()),
             )
         )
-        in_start = in_start + out_len  # jump ahead
+        in_start += out_len  # jump ahead by OOS length
 
     return periods
