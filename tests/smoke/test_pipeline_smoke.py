@@ -3,7 +3,7 @@ from trend_analysis.pipeline import single_period_run
 
 toy = pd.DataFrame(
     {
-        "Date": pd.date_range("2020-01-31", periods=6, freq="M"),
+        "Date": pd.date_range("2020-01-31", periods=6, freq="ME"),
         "FundA": [0.02, -0.01, 0.03, 0.02, -0.01, 0.04],
         "FundB": [0.01, 0.01, 0.00, 0.02, 0.01, 0.03],
         "FundC": [0.00, 0.02, -0.02, 0.03, 0.02, 0.01],
