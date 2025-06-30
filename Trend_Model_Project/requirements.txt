@@ -1,0 +1,12 @@
+pandas
+numpy
+matplotlib
+
+ipyfilechooser
+ipywidgets
+xlsxwriter
+pydantic>=2
+openpyxl
+PyYAML
+pytest-cov
+pytest
