@@ -1,11 +1,10 @@
-"""
-Rolling multi‑period driver – to be filled by the code‑gen agent.
-"""
+"""Multi‑period engine stub (Phase‑2 scaffolding)."""
 
 from __future__ import annotations
-from typing import Dict, Any
+
+from typing import Any, Dict
 
 
 def run(cfg: Dict[str, Any]) -> Dict[str, object]:  # noqa: D401
-    """Phase-2 engine stub – will iterate periods in later steps."""
+    """Return an empty result for now; will iterate periods later."""
     return {}
