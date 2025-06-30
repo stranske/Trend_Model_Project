@@ -1,9 +1,0 @@
-#!/bin/sh
-
-# Pre-commit hook to strip output from Jupyter notebooks
-
-FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.ipynb$')
-for file in $FILES; do
-    python3 tools/strip_output.py "$file"
-    git add "$file"
-done
