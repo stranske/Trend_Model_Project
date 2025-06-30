@@ -6,6 +6,8 @@ Rules implemented:
 * Two consecutive z‑scores < ‑1.0  →  drop the fund
 * Any un‑held fund with z‑score > +1.0  →  add the fund
 * Surviving funds are re‑weighted equally
+Phase‑2 placeholder: echoes the incoming weights so the rest of the
+pipeline keeps running.  Real strike / replacement logic comes later.
 """
 
 from __future__ import annotations

@@ -1,0 +1,9 @@
+[tool.black]
+line-length = 88
+
+[tool.ruff]
+exclude = ["Old/*", "notebooks/*", "*.ipynb"]
+line-length = 88
+
+[tool.mypy]
+plugins = ["pydantic.mypy"]

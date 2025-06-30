@@ -1,0 +1,124 @@
+# ======================================================================
+# Vol-Adjusted Trend Analysis — Phase-1 master config
+# ======================================================================
+version: "0.1.0"                 # bump when the schema changes
+
+# ----------------------------------------------------------------------
+# 1. DATA INGESTION
+# ----------------------------------------------------------------------
+data:
+  managers_glob:      "data/raw/managers/*.csv"
+  indices_glob:       "data/raw/indices/*.csv"
+  date_column:        "Date"          # ISO-8601 expected
+  price_column:       "Adj_Close"     # or "NAV", etc.
+  frequency:          "D"             # D | W | M
+  timezone:           "UTC"           # for parsing
+  currency:           "USD"
+  nan_policy:         "ffill"         # drop | ffill | bfill | both
+  lookback_required:  756             # minimum obs (≈3 yrs daily)
+
+# ----------------------------------------------------------------------
+# 2. PRE-PROCESSING OPTIONS
+# ----------------------------------------------------------------------
+preprocessing:
+  de_duplicate:       true
+  winsorise:
+    enabled:          true
+    limits:           [0.01, 0.99]    # two-sided
+  log_prices:         false           # turn on if prices span decades
+  holiday_calendar:   "NYSE"          # forward fill non-trading days
+  resample:
+    target:           "D"             # keep None to skip
+    method:           "last"          # last | mean | sum | pad
+    business_only:    true
+
+# ----------------------------------------------------------------------
+# 3. VOLATILITY ADJUSTMENT
+# ----------------------------------------------------------------------
+vol_adjust:
+  enabled:            true
+  target_vol:         0.10            # annualised (10%)
+  window:
+    length:           63             # rolling window (≈3 months)
+    decay:            "ewma"          # ewma | simple
+    lambda:           0.94           # EWMA decay
+  floor_vol:          0.04            # avoid 100× leverage
+
+# ----------------------------------------------------------------------
+# 4. IN-SAMPLE / OUT-OF-SAMPLE SPLIT
+# ----------------------------------------------------------------------
+sample_split:
+  method:             "date"          # date | ratio
+  date:               "2017-12-31"    # ignored if method=ratio
+  ratio:              0.70            # ignored if method=date
+  rolling_walk:       false           # future-phase feature flag
+  folds:              5               # for CV, if rolling_walk=true
+
+# ----------------------------------------------------------------------
+# 5. PORTFOLIO CONSTRUCTION
+# ----------------------------------------------------------------------
+portfolio:
+  selection_mode:     "all"           # all | random | manual
+  random_seed:        42
+  random_n:           10              # num managers if random
+  manual_list:        []              # filled when selection_mode=manual
+  weighting_scheme:   "equal"         # equal | vol_inverse | custom
+  rebalance_freq:     "M"             # M | Q | A | None
+  leverage_cap:       2.0             # max gross exposure
+  rank:
+    inclusion_approach: top_n     # top_n | top_pct | threshold
+    n: 8                          # for top_n
+    pct: 0.10                     # for top_pct (decimal, not %)
+    threshold: 1.5                # ignored unless approach == threshold
+    score_by: blended             # Sharpe | AnnualReturn | … | blended
+    blended_weights:
+      Sharpe: 0.5
+      AnnualReturn: 0.3
+      MaxDrawdown: 0.2
+
+# ----------------------------------------------------------------------
+# 6. PERFORMANCE METRICS
+# ----------------------------------------------------------------------
+metrics:
+  rf_rate_annual:     0.02            # flat rf or link to series
+  use_continuous:     false           # geometric (default) vs. log
+  alpha_reference:    "SP500TR"       # ticker in indices_glob
+  compute:
+    - CAGR
+    - Volatility
+    - Sharpe
+    - Sortino
+    - Max_Drawdown
+    - Calmar
+    - Hit_Rate
+    - Skew
+  bootstrap_ci:
+    enabled:          true
+    n_iter:           2000
+    ci_level:         0.95
+
+# ----------------------------------------------------------------------
+# 7. EXPORT OPTIONS
+# ----------------------------------------------------------------------
+export:
+  directory:          "results/"
+  formats:            ["xlsx", "csv", "json"]
+  excel:
+    autofit_columns:  true
+    number_format:    "0.00%"
+    conditional_bands:
+      enabled:        true
+      palette:        "RdYlGn"
+  include_raw_returns: true
+  include_vol_adj:     true
+  include_figures:     false           # Phase-2
+
+# ----------------------------------------------------------------------
+# 8. LOGGING & EXECUTION
+# ----------------------------------------------------------------------
+run:
+  log_level:          "INFO"          # DEBUG | INFO | WARNING | ERROR
+  log_file:           "logs/phase1.log"
+  n_jobs:             -1              # ‑1 ⇒ all CPUs
+  cache_dir:          ".cache/"
+  deterministic:      true            # sets NumPy & pandas options
