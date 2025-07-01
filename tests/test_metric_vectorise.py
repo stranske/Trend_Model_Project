@@ -10,7 +10,6 @@ def _dummy_returns():
     data = np.random.default_rng(0).normal(0.01, 0.02, size=(24, 4))
     return pd.DataFrame(data, index=rng, columns=list("ABCD"))
 
-
 def test_annual_return_vectorised_equals_legacy():
     prices = _dummy_returns()
     new = M.annualize_return(prices)
