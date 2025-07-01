@@ -62,12 +62,13 @@ def _apply_transform(
 
     raise ValueError(f"unknown transform mode '{mode}'")
 
+
 def rank_select_funds(
     in_sample_df: pd.DataFrame,
     stats_cfg: RiskStatsConfig,
     *,
     inclusion_approach: str = "top_n",
-    transform: str = "raw",          # NEW
+    transform: str = "raw",  # NEW
     zscore_window: int | None = None,
     rank_pct: float | None = None,
     n: int | None = None,
@@ -112,6 +113,7 @@ def rank_select_funds(
         return cast(list[str], scores[mask].index.tolist())
 
     raise ValueError(f"Unknown inclusion_approach '{inclusion_approach}'")
+
 
 @dataclass
 class FundSelectionConfig:
@@ -246,6 +248,7 @@ def _compute_metric_series(
         risk_free=stats_cfg.risk_free,
         axis=0,
     )
+
 
 def _zscore(series: pd.Series) -> pd.Series:
     """Return z‑scores (mean 0, stdev 1).  Gracefully handles zero σ."""
