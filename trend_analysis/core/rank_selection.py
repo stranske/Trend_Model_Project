@@ -200,12 +200,12 @@ def _quality_filter(
 
 # Register basic metrics from the public ``metrics`` module
 register_metric("AnnualReturn")(
-    lambda s, *, periods_per_year=12, risk_free=0.0: _metrics.annualize_return(
+    lambda s, *, periods_per_year=12, risk_free=0.0: _metrics._metrics.annual_return(
         s, periods_per_year=periods_per_year
     )
 )
 register_metric("Volatility")(
-    lambda s, *, periods_per_year=12, risk_free=0.0: _metrics.annualize_volatility(
+    lambda s, *, periods_per_year=12, risk_free=0.0: _metrics.volatility(
         s, periods_per_year=periods_per_year
     )
 )
@@ -221,6 +221,11 @@ register_metric("Sortino")(
 )
 register_metric("MaxDrawdown")(
     lambda s, *, periods_per_year=12, risk_free=0.0: _metrics.max_drawdown(s)
+)
+register_metric("InformationRatio")(
+    lambda s, *, periods_per_year=12, risk_free=0.0: _metrics.information_ratio(
+        s, pd.Series(risk_free, index=s.index), periods_per_year
+    )
 )
 
 # ===============================================================

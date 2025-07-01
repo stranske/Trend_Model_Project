@@ -90,7 +90,7 @@ metrics:
     - volatility
     - sharpe_ratio
     - sortino_ratio
-    - info_ratio
+    - information_ratio
     - max_drawdown
   compute:
     - CAGR

@@ -41,7 +41,7 @@ def _apply(  # helper to handle Series/DataFrame uniformly
 # Vectorised annualised total return
 # -------------------------------------------------------------------
 @register_metric("annual_return")
-def annualize_return(
+def annual_return(
     returns: Union[pd.Series, pd.DataFrame],
     periods_per_year: int = 12,
     axis: int = 0,
@@ -198,7 +198,7 @@ def max_drawdown(
     return float(mdd) if isinstance(prices, pd.Series) else mdd.astype(float)
 
 
-@register_metric("info_ratio")
+@register_metric("information_ratio")
 def information_ratio(
     returns: pd.Series | pd.DataFrame,
     benchmark: pd.Series | pd.DataFrame | None = None,
