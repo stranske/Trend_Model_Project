@@ -3,25 +3,10 @@
 # mypy: ignore-errors
 
 from __future__ import annotations
+
 import numpy as np
 import pandas as pd
 from pandas import DataFrame, Series
-from typing import Callable, Union
-
-# -------------------------------------------------------------------
-_METRIC_REGISTRY: dict[str, Callable[..., pd.Series]] = {}
-
-
-def register_metric(name: str):
-    def deco(func):
-        _METRIC_REGISTRY[name] = func
-        return func
-
-    return deco
-
-
-def available_metrics() -> list[str]:
-    return list(_METRIC_REGISTRY)
 
 
 def _validate_input(obj: Series | DataFrame) -> None:
@@ -37,48 +22,33 @@ def _apply(  # helper to handle Series/DataFrame uniformly
     return obj.apply(lambda col: func(col.dropna()), axis=axis)
 
 
-# -------------------------------------------------------------------
-# Vectorised annualised total return
-# -------------------------------------------------------------------
-@register_metric("annual_return")
 def annualize_return(
-    returns: Union[pd.Series, pd.DataFrame],
-    periods_per_year: int = 12,
-    axis: int = 0,
-) -> Union[float, pd.Series, np.floating, pd.Series]:
+    returns: Series | DataFrame, periods_per_year: int = 12, axis: int = 0
+) -> Series | float:
+    """Geometric annualised return.
+
+    Parameters
+    ----------
+    returns : pandas.Series or pandas.DataFrame
+        Periodic returns in decimal form.
+    periods_per_year : int, default 12
+        Number of compounding periods per year.
+    axis : int, default 0
+        Axis along which to calculate for DataFrames.
+
+    Returns
+    -------
+    pandas.Series or float
+        Annualised return(s).
+
+    Example
+    -------
+    >>> import pandas as pd
+    >>> s = pd.Series([0.02, -0.01, 0.03])
+    >>> annualize_return(s)
+    0.236090...  # doctest: +ELLIPSIS
     """
-    Annualise periodic *returns*.
-
-    ▸ If `returns` is a Series  →  scalar float
-    ▸ If `returns` is a DataFrame → Series indexed by column
-    Returns `np.nan` for empty input (legacy behaviour).
-    """
-
-    # -- 1. type guard (legacy tests expect TypeError) --------------
-    if not isinstance(returns, (pd.Series, pd.DataFrame)):
-        raise TypeError("annualize_return expects a pandas Series or DataFrame")
-
-    # -- 2. empty input --------------------------------------------
-    if returns.empty:
-        if isinstance(returns, pd.Series):
-            return np.nan
-        return pd.Series(
-            np.nan, index=returns.columns, name="annual_return", dtype=float
-        )
-
-    # -- 3. compound total return ----------------------------------
-    # (1 + r1)·(1 + r2)… − 1   (broadcasts across columns automatically)
-    compounded = (1 + returns).prod()
-
-    # -- 4. annualisation factor -----------------------------------
-    n_periods = returns.shape[0]
-    ann_factor = periods_per_year / n_periods
-
-    # -- 5. annualised return --------------------------------------
-    ann_ret = compounded**ann_factor - 1
-
-    # -- 6. preserve legacy output type ----------------------------
-    return float(ann_ret) if isinstance(returns, pd.Series) else ann_ret.astype(float)
+    _validate_input(returns)
 
     def _calc(x: Series) -> float:
         if x.empty:
