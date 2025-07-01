@@ -11,6 +11,7 @@ from typing import Callable, Union
 # -------------------------------------------------------------------
 _METRIC_REGISTRY: dict[str, Callable[..., pd.Series]] = {}
 
+
 def register_metric(name: str):
     def deco(func):
         _METRIC_REGISTRY[name] = func
@@ -18,20 +19,10 @@ def register_metric(name: str):
 
     return deco
 
-def available_metrics() -> list[str]:
-    return list(_METRIC_REGISTRY)
-from typing import Callable, Union
-# -------------------------------------------------------------------
-_METRIC_REGISTRY: dict[str, Callable[..., pd.Series]] = {}
-
-def register_metric(name: str):
-    def deco(func):
-        _METRIC_REGISTRY[name] = func
-        return func
-    return deco
 
 def available_metrics() -> list[str]:
     return list(_METRIC_REGISTRY)
+
 
 def _validate_input(obj: Series | DataFrame) -> None:
     if not isinstance(obj, (Series, DataFrame)):
@@ -52,12 +43,13 @@ def _apply(  # helper to handle Series/DataFrame uniformly
 def annualize_return(
     returns: Union[pd.Series, pd.DataFrame],
     periods_per_year: int = 12,
+    axis: int = 0,
 ) -> Union[float, pd.Series, np.floating, pd.Series]:
     """
     Annualise periodic *returns*.
 
-    ▸ If `returns` is a Series  →  scalar float  
-    ▸ If `returns` is a DataFrame → Series indexed by column  
+    ▸ If `returns` is a Series  →  scalar float
+    ▸ If `returns` is a DataFrame → Series indexed by column
     Returns `np.nan` for empty input (legacy behaviour).
     """
 
@@ -82,13 +74,10 @@ def annualize_return(
     ann_factor = periods_per_year / n_periods
 
     # -- 5. annualised return --------------------------------------
-    ann_ret = compounded ** ann_factor - 1
+    ann_ret = compounded**ann_factor - 1
 
     # -- 6. preserve legacy output type ----------------------------
     return float(ann_ret) if isinstance(returns, pd.Series) else ann_ret.astype(float)
-
-
-
 
     def _calc(x: Series) -> float:
         if x.empty:
