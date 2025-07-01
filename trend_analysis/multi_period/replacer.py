@@ -1,33 +1,34 @@
-"""
-Very small “strike / replace” helper required by tests/test_replacer.py.
+"""Rebalance portfolio weights over multiple periods.
 
-Rules implemented:
-
-* Two consecutive z‑scores < ‑1.0  →  drop the fund
-* Any un‑held fund with z‑score > +1.0  →  add the fund
-* Surviving funds are re‑weighted equally
-Phase‑2 placeholder: echoes the incoming weights so the rest of the
-pipeline keeps running.  Real strike / replacement logic comes later.
+The :class:`Rebalancer` applies simple removal and addition rules based on
+performance ``z``-scores.  It keeps track of consecutive low ``z`` events for
+each fund and removes holdings when configured strike thresholds are met.  New
+funds with sufficiently high ``z``-scores may be introduced, and surviving
+holdings are reweighted according to a rank based weight curve.
 """
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any, Dict, Iterable
 
 import pandas as pd
-
-
-_LOW_Z = -1.0  # removal trigger
-_LOW_STRIKES = 2  # consecutive strikes required
-_HIGH_Z = 1.0  # addition trigger
+import numpy as np
 
 
 class Rebalancer:  # pylint: disable=too-few-public-methods
-    """Stub implementation that fulfils the Phase‑2 unit tests."""
+    """Apply removal and addition triggers to portfolio weights."""
 
-    def __init__(self, cfg: Dict[str, Any] | None = None) -> None:
-        self.cfg = cfg or {}
-        self._strikes: dict[str, int] = {}
+    def __init__(self, cfg: Dict[str, Any]) -> None:
+        """Store configuration and initialise state."""
+
+        self.cfg = cfg
+        mp = cfg["multi_period"]
+        self.min_funds = int(mp["min_funds"])
+        self.max_funds = int(mp["max_funds"])
+        self.triggers = mp.get("triggers", {})
+        self.anchors = mp["weight_curve"]["anchors"]
+        self._strike_table: dict[str, dict[str, int]] = {}
+        self._rng = np.random.default_rng(cfg.get("random_seed"))
 
     # ------------------------------------------------------------------
     def apply_triggers(
@@ -35,47 +36,93 @@ class Rebalancer:  # pylint: disable=too-few-public-methods
         prev_weights: Dict[str, float] | pd.Series,
         score_frame: pd.DataFrame,
     ) -> pd.Series:
+        """Return weights for the next period after applying triggers.
+
+        Parameters
+        ----------
+        prev_weights : dict or pandas.Series
+            Portfolio weights from the previous period indexed by ``fund_id``.
+        score_frame : pandas.DataFrame
+            Result of ``single_period_run`` with ``zscore`` and ``rank`` columns.
+
+        Returns
+        -------
+        pandas.Series
+            New weights normalised to one.
         """
-        Return next‑period weights after applying the two simple rules
-        required by the unit tests.
-        """
+
         prev_w = (
             prev_weights.copy()
             if isinstance(prev_weights, pd.Series)
             else pd.Series(prev_weights, dtype=float)
         )
 
-        # --- 1) update strike counts & decide removals -----------------
-        zscores = (
-            score_frame["zscore"]
-            if "zscore" in score_frame.columns
-            else score_frame.iloc[:, 0]
-        )
-        to_drop: list[str] = []
+        zscores = score_frame["zscore"]
+        ranks = score_frame["rank"]
 
+        if prev_w.empty:
+            top = ranks.nsmallest(self.min_funds).index
+            eq = 1.0 / len(top)
+            self._strike_table = {f: {k: 0 for k in self.triggers} for f in top}
+            return pd.Series(eq, index=top, dtype=float)
+
+        # ensure strike table entries exist
         for f in prev_w.index:
-            z = zscores.get(f, 0.0)
-            if z < _LOW_Z:
-                self._strikes[f] = self._strikes.get(f, 0) + 1
-            else:
-                self._strikes[f] = 0
+            self._strike_table.setdefault(f, {k: 0 for k in self.triggers})
 
-            if self._strikes[f] >= _LOW_STRIKES:
+        to_drop: list[str] = []
+        for f in list(prev_w.index):
+            z = float(zscores.get(f, 0.0))
+            remove = False
+            for name, trig in self.triggers.items():
+                sigma = float(trig["sigma"])
+                periods = int(trig["periods"])
+                if z < -sigma:
+                    self._strike_table[f][name] += 1
+                else:
+                    self._strike_table[f][name] = 0
+                if self._strike_table[f][name] >= periods:
+                    remove = True
+            if remove:
                 to_drop.append(f)
 
+        # respect minimum fund constraint
+        max_drops = len(prev_w) - self.min_funds
+        if max_drops < len(to_drop):
+            import warnings
+
+            warnings.warn("Minimum fund limit reached; dropping truncated")
+            to_drop = to_drop[: max_drops if max_drops > 0 else 0]
+
         for f in to_drop:
-            prev_w.drop(labels=f, inplace=True, errors="ignore")
-            self._strikes.pop(f, None)
+            prev_w.drop(f, inplace=True)
+            self._strike_table.pop(f, None)
 
-        # --- 2) add hot sidelined funds --------------------------------
-        for f, z in zscores.items():
-            if f not in prev_w and z > _HIGH_Z:
-                prev_w[f] = 0.0  # placeholder
+        # --------------------------------------------------------------
+        # Additions
+        available = self.max_funds - len(prev_w)
+        if available > 0 and not zscores.empty:
+            sigma_add = min(float(t["sigma"]) for t in self.triggers.values())
+            mask = (~score_frame.index.isin(prev_w.index)) & (zscores > sigma_add)
+            if mask.any():
+                cand = score_frame.loc[mask, ["rank"]].copy()
+                cand["rnd"] = self._rng.random(len(cand))
+                cand.sort_values(["rank", "rnd"], inplace=True)
+                for f in cand.index[:available]:
+                    prev_w[f] = 1.0
+                    self._strike_table[f] = {k: 0 for k in self.triggers}
 
-        # --- 3) equal‑weight the survivors -----------------------------
         if prev_w.empty:
-            return prev_w  # edge case
+            return prev_w
 
-        eq = 1.0 / len(prev_w)
-        prev_w[:] = eq
+        # --------------------------------------------------------------
+        # Apply weight curve to surviving holdings
+        x, y = zip(*sorted(self.anchors))
+        r_pct = 100 * (ranks.loc[prev_w.index] - 1) / max(len(ranks) - 1, 1)
+        multipliers = pd.Series(np.interp(r_pct, x, y), index=prev_w.index)
+        prev_w = prev_w.mul(multipliers, axis=0)
+
+        # weights for new entrants are already set to 1.0 -> leave as is
+
+        prev_w = prev_w / prev_w.sum()
         return prev_w
