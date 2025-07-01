@@ -11,6 +11,7 @@ from typing import Callable, Union
 # -------------------------------------------------------------------
 _METRIC_REGISTRY: dict[str, Callable[..., pd.Series]] = {}
 
+
 def register_metric(name: str):
     def deco(func):
         _METRIC_REGISTRY[name] = func
@@ -18,12 +19,15 @@ def register_metric(name: str):
 
     return deco
 
+
 def available_metrics() -> list[str]:
     return list(_METRIC_REGISTRY)
+
 
 def _validate_input(obj: Series | DataFrame) -> None:
     if not isinstance(obj, (Series, DataFrame)):
         raise TypeError("Input must be pandas Series or DataFrame")
+
 
 def _apply(  # helper to handle Series/DataFrame uniformly
     obj: Series | DataFrame, func, axis: int
@@ -31,6 +35,7 @@ def _apply(  # helper to handle Series/DataFrame uniformly
     if isinstance(obj, Series):
         return func(obj.dropna())
     return obj.apply(lambda col: func(col.dropna()), axis=axis)
+
 
 # -------------------------------------------------------------------
 # Vectorised annualised total return
@@ -86,6 +91,7 @@ def annualize_return(
 
     return _apply(returns, _calc, axis)
 
+
 @register_metric("volatility")
 def volatility(
     returns: pd.Series | pd.DataFrame,
@@ -97,18 +103,22 @@ def volatility(
         raise TypeError("volatility expects a pandas Series or DataFrame")
 
     if returns.empty:
-        return np.nan if isinstance(returns, pd.Series) \
-                      else pd.Series(np.nan, index=returns.columns, name="volatility")
+        return (
+            np.nan
+            if isinstance(returns, pd.Series)
+            else pd.Series(np.nan, index=returns.columns, name="volatility")
+        )
 
     # population std (ddof=0) then annualise
     sigma = returns.std(ddof=0) * np.sqrt(periods_per_year)
     return float(sigma) if isinstance(returns, pd.Series) else sigma.astype(float)
 
+
 @register_metric("sharpe_ratio")
 def sharpe_ratio(
     returns: pd.Series | pd.DataFrame,
     periods_per_year: int = 12,
-    risk_free: float = 0.0,           # annual risk‑free rate
+    risk_free: float = 0.0,  # annual risk‑free rate
 ) -> float | pd.Series | np.nan:
     """Annualised Sharpe ratio (excess return ÷ σ)."""
 
@@ -116,8 +126,11 @@ def sharpe_ratio(
         raise TypeError("sharpe_ratio expects a pandas Series or DataFrame")
 
     if returns.empty:
-        return np.nan if isinstance(returns, pd.Series) \
-                      else pd.Series(np.nan, index=returns.columns, name="sharpe_ratio")
+        return (
+            np.nan
+            if isinstance(returns, pd.Series)
+            else pd.Series(np.nan, index=returns.columns, name="sharpe_ratio")
+        )
 
     # convert annual rf to per‑period
     rf_per_period = risk_free / periods_per_year
@@ -129,11 +142,12 @@ def sharpe_ratio(
     sharpe = mean_excess / sigma * np.sqrt(periods_per_year)
     return float(sharpe) if isinstance(returns, pd.Series) else sharpe.astype(float)
 
+
 @register_metric("sortino_ratio")
 def sortino_ratio(
     returns: pd.Series | pd.DataFrame,
     periods_per_year: int = 12,
-    target: float = 0.0,        # minimum acceptable return per *period*
+    target: float = 0.0,  # minimum acceptable return per *period*
 ) -> float | pd.Series | np.nan:
     """
     Annualised Sortino ratio:  (mean excess) / (downside σ) * √T
@@ -156,10 +170,11 @@ def sortino_ratio(
 
     # 3. Mean excess & downside std
     mean_excess = excess.mean()
-    downside_std = np.sqrt((downside ** 2).mean())
+    downside_std = np.sqrt((downside**2).mean())
 
     sortino = mean_excess / downside_std * np.sqrt(periods_per_year)
     return float(sortino) if isinstance(returns, pd.Series) else sortino.astype(float)
+
 
 @register_metric("max_drawdown")
 def max_drawdown(
@@ -171,13 +186,17 @@ def max_drawdown(
         raise TypeError("max_drawdown expects a pandas Series or DataFrame")
 
     if prices.empty:
-        return np.nan if isinstance(prices, pd.Series) \
-                      else pd.Series(np.nan, index=prices.columns, name="max_drawdown")
+        return (
+            np.nan
+            if isinstance(prices, pd.Series)
+            else pd.Series(np.nan, index=prices.columns, name="max_drawdown")
+        )
 
     running_max = prices.ffill().cummax()
     draw = (prices / running_max) - 1.0
-    mdd = draw.min()                     # Series or scalar, depending on input
+    mdd = draw.min()  # Series or scalar, depending on input
     return float(mdd) if isinstance(prices, pd.Series) else mdd.astype(float)
+
 
 @register_metric("info_ratio")
 def information_ratio(
@@ -210,7 +229,7 @@ def information_ratio(
     # --- Active return & tracking error ----------------------------------
     active = returns - benchmark
     ann_active_ret = active.mean() * periods_per_year
-    tracking_err  = active.std(ddof=0) * np.sqrt(periods_per_year)
+    tracking_err = active.std(ddof=0) * np.sqrt(periods_per_year)
 
     info = ann_active_ret / tracking_err
     return float(info) if isinstance(returns, pd.Series) else info.astype(float)
