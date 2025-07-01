@@ -11,7 +11,6 @@ from typing import Callable, Union
 # -------------------------------------------------------------------
 _METRIC_REGISTRY: dict[str, Callable[..., pd.Series]] = {}
 
-
 def register_metric(name: str):
     def deco(func):
         _METRIC_REGISTRY[name] = func
@@ -19,10 +18,8 @@ def register_metric(name: str):
 
     return deco
 
-
 def available_metrics() -> list[str]:
     return list(_METRIC_REGISTRY)
-
 
 def _validate_input(obj: Series | DataFrame) -> None:
     if not isinstance(obj, (Series, DataFrame)):
@@ -34,7 +31,6 @@ def _apply(  # helper to handle Series/DataFrame uniformly
     if isinstance(obj, Series):
         return func(obj.dropna())
     return obj.apply(lambda col: func(col.dropna()), axis=axis)
-
 
 # -------------------------------------------------------------------
 # Vectorised annualised total return
