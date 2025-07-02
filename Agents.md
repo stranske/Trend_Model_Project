@@ -204,3 +204,30 @@ type‑check (mypy, strict)
 test (pytest ‑‑cov trend_analysis ‑‑cov‑branch)
 
 build‑wheel (tags only)
+
+##NEW
+
+### ✨ Task: Integrate `information_ratio` end‑to‑end  (#metrics‑IR)
+
+**Motivation**  
+Phase‑1 now includes a vectorised `information_ratio` metric.  
+It is fully unit‑tested but not yet surfaced in the CLI / Excel export or
+multi‑benchmark workflows.
+
+---
+
+#### 1.  Pipeline / Statistics
+
+* [ ] Extend `_Stats` dataclass with `information_ratio: float`.
+* [ ] In `_compute_stats()` compute `information_ratio(df[col], rf_series)`.
+* [ ] Ensure `out_stats_df` includes the new field.
+
+#### 2.  Multi‑benchmark support
+
+* [ ] Accept `benchmarks:` mapping in YAML cfg, e.g.
+
+```yaml
+benchmarks:
+  spx: SPX
+  tsx: TSX
+
