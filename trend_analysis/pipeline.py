@@ -13,7 +13,7 @@ from .metrics import (
     sharpe_ratio,
     sortino_ratio,
     max_drawdown,
-    )
+)
 
 if TYPE_CHECKING:  # pragma: no cover - for static type checking only
     from .config import Config
@@ -44,11 +44,11 @@ def _compute_stats(df: pd.DataFrame, rf: pd.Series) -> dict[str, _Stats]:
     stats = {}
     for col in df:
         stats[col] = _Stats(
-            cagr=annual_return(df[col]),
-            vol=volatility(df[col]),
-            sharpe=sharpe_ratio(df[col], rf),
-            sortino=sortino_ratio(df[col], rf),
-            max_drawdown=max_drawdown(df[col])
+            cagr=float(annual_return(df[col])),
+            vol=float(volatility(df[col])),
+            sharpe=float(sharpe_ratio(df[col], rf)),
+            sortino=float(sortino_ratio(df[col], rf)),
+            max_drawdown=float(max_drawdown(df[col])),
         )
     return stats
 
