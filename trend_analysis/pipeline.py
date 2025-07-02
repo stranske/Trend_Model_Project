@@ -13,8 +13,7 @@ from .metrics import (
     sharpe_ratio,
     sortino_ratio,
     max_drawdown,
-    information_ratio
-)
+    )
 
 if TYPE_CHECKING:  # pragma: no cover - for static type checking only
     from .config import Config
@@ -49,8 +48,7 @@ def _compute_stats(df: pd.DataFrame, rf: pd.Series) -> dict[str, _Stats]:
             vol=volatility(df[col]),
             sharpe=sharpe_ratio(df[col], rf),
             sortino=sortino_ratio(df[col], rf),
-            max_drawdown=max_drawdown(df[col]),
-            information_ratio=information_ratio(df[col], rf),
+            max_drawdown=max_drawdown(df[col])
         )
     return stats
 

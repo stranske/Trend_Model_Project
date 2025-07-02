@@ -17,6 +17,7 @@ import ipywidgets as widgets
 from .. import metrics as _metrics
 from ..data import load_csv, identify_risk_free_fund, ensure_datetime
 
+DEFAULT_METRIC = "annual_return"
 
 # ──────────────────────────────────────────────────────────────────
 # Metric transformer: raw | rank | percentile | zscore
@@ -149,6 +150,7 @@ class RiskStatsConfig:
             "Sharpe",
             "Sortino",
             "MaxDrawdown",
+            "InformationRatio"
         ]
     )
     risk_free: float = 0.0
@@ -200,32 +202,44 @@ def _quality_filter(
 
 # Register basic metrics from the public ``metrics`` module
 register_metric("AnnualReturn")(
-    lambda s, *, periods_per_year=12, risk_free=0.0: _metrics._metrics.annual_return(
-        s, periods_per_year=periods_per_year
-    )
+    lambda s, *, periods_per_year=12, **k:
+        _metrics.annual_return(s, periods_per_year=periods_per_year)
 )
+
 register_metric("Volatility")(
-    lambda s, *, periods_per_year=12, risk_free=0.0: _metrics.volatility(
-        s, periods_per_year=periods_per_year
-    )
+    lambda s, *, periods_per_year=12, **k:
+        _metrics.volatility(s, periods_per_year=periods_per_year)
 )
+
 register_metric("Sharpe")(
-    lambda s, *, periods_per_year=12, risk_free=0.0: _metrics.sharpe_ratio(
-        s, pd.Series(risk_free, index=s.index), periods_per_year
-    )
+    lambda s, *, periods_per_year=12, risk_free=0.0:
+        _metrics.sharpe_ratio(
+            s,
+            periods_per_year=periods_per_year,
+            risk_free=risk_free,
+        )
 )
+
 register_metric("Sortino")(
-    lambda s, *, periods_per_year=12, risk_free=0.0: _metrics.sortino_ratio(
-        s, pd.Series(risk_free, index=s.index), periods_per_year
-    )
+    lambda s, *, periods_per_year=12, target=0.0, **k:
+        _metrics.sortino_ratio(
+            s,
+            periods_per_year=periods_per_year,
+            target=target,
+        )
 )
+
 register_metric("MaxDrawdown")(
-    lambda s, *, periods_per_year=12, risk_free=0.0: _metrics.max_drawdown(s)
+    lambda s, **k: _metrics.max_drawdown(s)
 )
+
 register_metric("InformationRatio")(
-    lambda s, *, periods_per_year=12, risk_free=0.0: _metrics.information_ratio(
-        s, pd.Series(risk_free, index=s.index), periods_per_year
-    )
+    lambda s, *, periods_per_year=12, benchmark=None, **k:
+        _metrics.information_ratio(
+            s,
+            benchmark=benchmark if benchmark is not None else pd.Series(0, index=s.index),
+            periods_per_year=periods_per_year,
+        )
 )
 
 # ===============================================================
@@ -233,7 +247,7 @@ register_metric("InformationRatio")(
 # ===============================================================
 
 ASCENDING_METRICS = {"MaxDrawdown"}  # smaller is better
-DEFAULT_METRIC = "Sharpe"
+DEFAULT_METRIC = "annual_return"
 
 
 def _compute_metric_series(
