@@ -46,6 +46,21 @@ class Config(BaseModel):
     export: dict[str, Any]
     run: dict[str, Any]
 
+    def __init__(self, **data: Any) -> None:  # pragma: no cover - simple assign
+        """Populate attributes from ``data`` regardless of ``BaseModel``."""
+        super().__init__(**data)
+        for key, value in data.items():
+            setattr(self, key, value)
+
+    def model_dump_json(self) -> str:  # pragma: no cover - trivial
+        import json
+
+        return json.dumps(self.__dict__)
+
+    # Provide a lightweight ``dict`` representation for tests.
+    def model_dump(self) -> dict[str, Any]:  # pragma: no cover - trivial
+        return dict(self.__dict__)
+
 
 DEFAULTS = Path(__file__).resolve().parents[1] / "config" / "defaults.yml"
 
