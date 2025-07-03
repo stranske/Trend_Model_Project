@@ -57,6 +57,13 @@ def single_period_run(
         Inclusive period in ``YYYY-MM`` format.
     stats_cfg : RiskStatsConfig | None
         Metric configuration; defaults to ``RiskStatsConfig()``.
+
+    Returns
+    -------
+    pd.DataFrame
+        Table of metric values (index = fund code).  The frame is pure
+        and carries ``insample_len`` and ``period`` metadata so callers
+        can reason about the analysed window.
     """
     from .core.rank_selection import RiskStatsConfig, _compute_metric_series
 
