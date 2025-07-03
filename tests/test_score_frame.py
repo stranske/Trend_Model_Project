@@ -1,3 +1,4 @@
+import pytest
 import pandas as pd
 from pathlib import Path
 from trend_analysis.pipeline import single_period_run
@@ -29,3 +30,22 @@ def test_column_order_respects_config():
     cfg = RiskStatsConfig(metrics_to_run=["Volatility", "AnnualReturn"])
     sf = single_period_run(df, "2020-01", "2020-03", stats_cfg=cfg)
     assert sf.columns.tolist() == cfg.metrics_to_run
+
+def test_single_period_run_string_dates():
+    df = make_df()[["Date", "A", "B"]]
+    df["Date"] = df["Date"].astype(str)
+    sf = single_period_run(df, "2020-01", "2020-03")
+    assert sf.attrs["insample_len"] == 3
+
+
+def test_single_period_run_missing_date():
+    df = make_df()[["A", "B"]]
+    with pytest.raises(ValueError):
+        single_period_run(df, "2020-01", "2020-03")
+
+
+def test_single_period_run_no_metrics():
+    df = make_df()[["Date", "A"]]
+    cfg = RiskStatsConfig(metrics_to_run=[])
+    with pytest.raises(ValueError):
+        single_period_run(df, "2020-01", "2020-03", stats_cfg=cfg)

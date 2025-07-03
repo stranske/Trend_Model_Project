@@ -131,7 +131,7 @@ def sharpe_ratio(
     if isinstance(risk_free, DataFrame):
         raise ValueError("sharpe_ratio: risk_free cannot be a DataFrame")
     if isinstance(returns, Series) and isinstance(risk_free, DataFrame):
-        raise ValueError("sharpe_ratio: Series vs DataFrame not supported")
+        raise ValueError("sharpe_ratio: Series vs DataFrame not supported")  # pragma: no cover - unreachable
     _check_shapes(returns, risk_free, "sharpe_ratio")
 
     excess = returns - risk_free
