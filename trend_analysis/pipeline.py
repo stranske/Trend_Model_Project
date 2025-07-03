@@ -70,6 +70,7 @@ def _run_analysis(
     rank_kwargs: dict[str, object] | None = None,
     manual_funds: list[str] | None = None,
     indices_list: list[str] | None = None,
+    benchmarks: dict[str, str] | None = None,
     seed: int = 42,
 ) -> dict[str, object] | None:
     from .core.rank_selection import RiskStatsConfig, rank_select_funds
@@ -193,6 +194,30 @@ def _run_analysis(
             "out_sample": _compute_stats(pd.DataFrame({idx: out_df[idx]}), rf_out)[idx],
         }
 
+    benchmark_stats: dict[str, dict[str, _Stats]] = {}
+    benchmark_ir: dict[str, dict[str, float]] = {}
+    if benchmarks:
+        for label, col in benchmarks.items():
+            if col not in in_df.columns or col not in out_df.columns:
+                continue
+            benchmark_stats[label] = {
+                "in_sample": _compute_stats(pd.DataFrame({label: in_df[col]}), rf_in)[
+                    label
+                ],
+                "out_sample": _compute_stats(
+                    pd.DataFrame({label: out_df[col]}), rf_out
+                )[label],
+            }
+            ir_series = information_ratio(out_scaled[fund_cols], out_df[col])
+            ir_dict = (
+                ir_series.to_dict()
+                if isinstance(ir_series, pd.Series)
+                else {fund_cols[0]: float(ir_series)}
+            )
+            ir_dict["equal_weight"] = float(information_ratio(out_ew_raw, out_df[col]))
+            ir_dict["user_weight"] = float(information_ratio(out_user_raw, out_df[col]))
+            benchmark_ir[label] = ir_dict
+
     return {
         "selected_funds": fund_cols,
         "in_sample_scaled": in_scaled,
@@ -210,6 +235,8 @@ def _run_analysis(
         "fund_weights": user_w_dict,
         "indices_list": valid_indices,
         "index_stats": index_stats,
+        "benchmark_stats": benchmark_stats,
+        "benchmark_ir": benchmark_ir,
     }
 
 
@@ -227,6 +254,7 @@ def run_analysis(
     rank_kwargs: dict[str, object] | None = None,
     manual_funds: list[str] | None = None,
     indices_list: list[str] | None = None,
+    benchmarks: dict[str, str] | None = None,
     seed: int = 42,
 ) -> dict[str, object] | None:
     """Backward-compatible wrapper around ``_run_analysis``."""
@@ -244,6 +272,7 @@ def run_analysis(
         rank_kwargs,
         manual_funds,
         indices_list,
+        benchmarks,
         seed,
     )
 
@@ -273,12 +302,25 @@ def run(cfg: Config) -> pd.DataFrame:
         rank_kwargs=cfg.portfolio.get("rank"),
         manual_funds=cfg.portfolio.get("manual_list"),
         indices_list=cfg.portfolio.get("indices_list"),
+        benchmarks=cfg.benchmarks,
         seed=cfg.portfolio.get("random_seed", 42),
     )
     if res is None:
         return pd.DataFrame()
     stats = cast(dict[str, _Stats], res["out_sample_stats"])
-    return pd.DataFrame({k: vars(v) for k, v in stats.items()}).T
+    df = pd.DataFrame({k: vars(v) for k, v in stats.items()}).T
+    for label, ir_map in cast(
+        dict[str, dict[str, float]], res.get("benchmark_ir", {})
+    ).items():
+        col = f"ir_{label}"
+        df[col] = pd.Series(
+            {
+                k: v
+                for k, v in ir_map.items()
+                if k not in {"equal_weight", "user_weight"}
+            }
+        )
+    return df
 
 
 def run_full(cfg: Config) -> dict[str, object]:
@@ -306,6 +348,7 @@ def run_full(cfg: Config) -> dict[str, object]:
         rank_kwargs=cfg.portfolio.get("rank"),
         manual_funds=cfg.portfolio.get("manual_list"),
         indices_list=cfg.portfolio.get("indices_list"),
+        benchmarks=cfg.benchmarks,
         seed=cfg.portfolio.get("random_seed", 42),
     )
     return {} if res is None else res

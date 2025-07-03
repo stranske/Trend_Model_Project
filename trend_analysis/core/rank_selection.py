@@ -377,6 +377,8 @@ def build_ui() -> widgets.VBox:
     session: dict[str, Any] = {"df": None, "rf": None}
     idx_select = widgets.SelectMultiple(options=[], description="Indices:")
     idx_select.layout.display = "none"
+    bench_select = widgets.SelectMultiple(options=[], description="Benchmarks:")
+    bench_select.layout.display = "none"
     step1_box = widgets.VBox(
         [
             source_tb,
@@ -385,6 +387,7 @@ def build_ui() -> widgets.VBox:
             load_btn,
             load_out,
             idx_select,
+            bench_select,
             in_start,
             in_end,
             out_start,
@@ -430,6 +433,8 @@ def build_ui() -> widgets.VBox:
                 out_end.value = str(dates.min() + 5)
                 idx_select.options = [c for c in df.columns if c not in {"Date", rf}]
                 idx_select.layout.display = "flex"
+                bench_select.options = [c for c in df.columns if c not in {"Date"}]
+                bench_select.layout.display = "flex"
                 print(f"Loaded {len(df):,} rows")
             except Exception as exc:
                 session["df"] = None
@@ -672,6 +677,7 @@ def build_ui() -> widgets.VBox:
                     rank_kwargs=rank_kwargs,
                     manual_funds=manual_funds,
                     indices_list=list(idx_select.value),
+                    benchmarks={b: b for b in bench_select.value},
                 )
                 if res is None:
                     print("No results")

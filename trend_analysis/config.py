@@ -42,6 +42,7 @@ class Config(BaseModel):
     vol_adjust: dict[str, Any]
     sample_split: dict[str, Any]
     portfolio: dict[str, Any]
+    benchmarks: dict[str, str] = {}
     metrics: dict[str, Any]
     export: dict[str, Any]
     run: dict[str, Any]
