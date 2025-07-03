@@ -37,6 +37,7 @@ def test_single_period_run_string_dates():
     df["Date"] = df["Date"].astype(str)
     sf = single_period_run(df, "2020-01", "2020-03")
     assert sf.attrs["insample_len"] == 3
+    assert sf.attrs["period"] == ("2020-01", "2020-03")
 
 
 def test_single_period_run_missing_date():
