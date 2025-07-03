@@ -187,36 +187,35 @@ def _run_analysis(
         "user"
     ]
 
-    index_stats: dict[str, dict[str, _Stats]] = {}
-    for idx in valid_indices:  # pragma: no cover - rarely used
-        index_stats[idx] = {
-            "in_sample": _compute_stats(pd.DataFrame({idx: in_df[idx]}), rf_in)[idx],
-            "out_sample": _compute_stats(pd.DataFrame({idx: out_df[idx]}), rf_out)[idx],
-        }
-
     benchmark_stats: dict[str, dict[str, _Stats]] = {}
     benchmark_ir: dict[str, dict[str, float]] = {}
+    all_benchmarks: dict[str, str] = {}
     if benchmarks:
-        for label, col in benchmarks.items():
-            if col not in in_df.columns or col not in out_df.columns:
-                continue
-            benchmark_stats[label] = {
-                "in_sample": _compute_stats(pd.DataFrame({label: in_df[col]}), rf_in)[
-                    label
-                ],
-                "out_sample": _compute_stats(
-                    pd.DataFrame({label: out_df[col]}), rf_out
-                )[label],
-            }
-            ir_series = information_ratio(out_scaled[fund_cols], out_df[col])
-            ir_dict = (
-                ir_series.to_dict()
-                if isinstance(ir_series, pd.Series)
-                else {fund_cols[0]: float(ir_series)}
-            )
-            ir_dict["equal_weight"] = float(information_ratio(out_ew_raw, out_df[col]))
-            ir_dict["user_weight"] = float(information_ratio(out_user_raw, out_df[col]))
-            benchmark_ir[label] = ir_dict
+        all_benchmarks.update(benchmarks)
+    for idx in valid_indices:
+        if idx not in all_benchmarks:
+            all_benchmarks[idx] = idx
+
+    for label, col in all_benchmarks.items():
+        if col not in in_df.columns or col not in out_df.columns:
+            continue
+        benchmark_stats[label] = {
+            "in_sample": _compute_stats(pd.DataFrame({label: in_df[col]}), rf_in)[
+                label
+            ],
+            "out_sample": _compute_stats(pd.DataFrame({label: out_df[col]}), rf_out)[
+                label
+            ],
+        }
+        ir_series = information_ratio(out_scaled[fund_cols], out_df[col])
+        ir_dict = (
+            ir_series.to_dict()
+            if isinstance(ir_series, pd.Series)
+            else {fund_cols[0]: float(ir_series)}
+        )
+        ir_dict["equal_weight"] = float(information_ratio(out_ew_raw, out_df[col]))
+        ir_dict["user_weight"] = float(information_ratio(out_user_raw, out_df[col]))
+        benchmark_ir[label] = ir_dict
 
     return {
         "selected_funds": fund_cols,
@@ -233,8 +232,6 @@ def _run_analysis(
         "out_user_stats_raw": out_user_stats_raw,
         "ew_weights": ew_w_dict,
         "fund_weights": user_w_dict,
-        "indices_list": valid_indices,
-        "index_stats": index_stats,
         "benchmark_stats": benchmark_stats,
         "benchmark_ir": benchmark_ir,
     }
