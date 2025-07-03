@@ -92,6 +92,15 @@ When set, additional `OS IR <label>` columns are appended to the metrics output
 and summary Excel sheet. These values measure risk‑adjusted performance versus
 the chosen benchmarks.
 
+## Score frame
+
+`trend_analysis.pipeline.single_period_run()` returns a **score frame** – a
+DataFrame indexed by fund code with one column per metric listed in
+`RiskStatsConfig.metrics_to_run`. The frame also carries `insample_len` and
+`period` metadata. `run_analysis()` places this table in the result dictionary
+under the key `"score_frame"` so callers can inspect the raw metric values
+before any ranking or weighting takes place.
+
 ## Testing
 
 Install the project dependencies (such as `pandas`, `numpy` and `PyYAML`) before running the test suite. This can be done using the setup script, which
