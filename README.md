@@ -76,6 +76,22 @@ The actual ranking logic is implemented in
 `trend_analysis/core/rank_selection.py` and wired into the pipeline via
 `trend_analysis/pipeline.py`.
 
+## Information ratio & benchmarks
+
+The pipeline also calculates each portfolio's **information ratio** relative to
+one or more benchmarks. The YAML configuration accepts a `benchmarks` mapping
+of labels to column names:
+
+```yaml
+benchmarks:
+  spx: SPX
+  tsx: TSX
+```
+
+When set, additional `OS IR <label>` columns are appended to the metrics output
+and summary Excel sheet. These values measure risk‑adjusted performance versus
+the chosen benchmarks.
+
 ## Testing
 
 Install the project dependencies (such as `pandas`, `numpy` and `PyYAML`) before running the test suite. This can be done using the setup script, which
