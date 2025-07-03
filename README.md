@@ -101,6 +101,17 @@ DataFrame indexed by fund code with one column per metric listed in
 under the key `"score_frame"` so callers can inspect the raw metric values
 before any ranking or weighting takes place.
 
+Example:
+```python
+import pandas as pd
+from trend_analysis.pipeline import single_period_run
+
+df = pd.read_csv("my_returns.csv")
+sf = single_period_run(df, "2021-01", "2021-03")
+print(sf)
+```
+
+
 ## Testing
 
 Install the project dependencies (such as `pandas`, `numpy` and `PyYAML`) before running the test suite. This can be done using the setup script, which
