@@ -104,11 +104,16 @@ before any ranking or weighting takes place.
 Example:
 ```python
 import pandas as pd
-from trend_analysis.pipeline import single_period_run
+from trend_analysis.pipeline import single_period_run, run_analysis
 
 df = pd.read_csv("my_returns.csv")
 sf = single_period_run(df, "2021-01", "2021-03")
 print(sf)
+
+# Alternatively, call ``run_analysis`` and grab the same table
+res = run_analysis(df, "2021-01", "2021-03", "2021-04", "2021-06", 1.0, 0.0)
+score_frame = res["score_frame"]
+print(score_frame)
 ```
 
 
