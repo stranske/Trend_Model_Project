@@ -231,5 +231,49 @@ benchmarks:
   spx: SPX
   tsx: TSX
 
+### 2025‑07‑03 UPDATE — STEP 4: surface a real `score_frame`
+
+* **Add** `single_period_run()` to **`trend_analysis/pipeline.py`**  
+  * **Signature**  
+    ```python
+    def single_period_run(
+        df: pd.DataFrame,
+        start: str,
+        end: str,
+        *,
+        stats_cfg: "RiskStatsConfig" | None = None
+    ) -> pd.DataFrame:
+        ...
+    ```
+  * **Behaviour**
+    1. Slice *df* to `[start, end]` (inclusive) and drop the Date column into the index.  
+    2. For every metric listed in `stats_cfg.metrics_to_run` **call the public registry** (`core.rank_selection._compute_metric_series`) to obtain a vectorised series.  
+    3. **Concatenate** those series column‑wise into **`score_frame`** (`index = fund code`, `columns = metric names`, dtype `float64`).  
+    4. Attach metadata  
+       ```python
+       score_frame.attrs["insample_len"] = len(window)        # number of bars
+       score_frame.attrs["period"] = (start, end)             # optional helper
+       ```
+    5. Return `score_frame` – *no side effects, no I/O*.
+
+* **Update callers**
+  * `pipeline._run_analysis()` should call `single_period_run()` once, stash the resulting frame in the returned dict under key `"score_frame"`, but **must not** change existing outputs or CLI flags.
+  * Existing metrics‑export logic stays exactly as is.
+
+* **Tests**
+  1. **Golden‑master**: compare the new `score_frame` against a pre‑generated CSV fixture for a small sample set.  
+  2. **Metadata**: `assert sf.attrs["insample_len"] == expected_len`.  
+  3. **Column order** equals the order of `stats_cfg.metrics_to_run`; failing this should raise.
+
+* **Performance / style guard‑rails**
+  * Remain fully vectorised—no per‑fund Python loops.
+  * Keep `single_period_run()` *pure* (no global writes, no prints).
+  * Do **not** introduce extra dependencies; stick to `numpy` + `pandas`.
+
+> Once the test suite passes with the new `score_frame`, proceed to steps 5‑7 (Selector & Weighting classes).
+
+
+
+
 ```
 
