@@ -142,3 +142,24 @@ def test_make_summary_formatter_handles_nan(tmp_path):
     wb = DummyWB()
     fmt(ws, wb)
     assert ws.rows[0][2][0] == "Vol-Adj Trend Analysis"
+
+
+def test_make_summary_formatter_with_benchmarks():
+    FORMATTERS_EXCEL.clear()
+    res = {
+        "in_ew_stats": (1, 1, 1, 1, 1, 1),
+        "out_ew_stats": (2, 2, 2, 2, 2, 2),
+        "in_user_stats": (3, 3, 3, 3, 3, 3),
+        "out_user_stats": (4, 4, 4, 4, 4, 4),
+        "in_sample_stats": {"fund": (5, 5, 5, 5, 5, 5)},
+        "out_sample_stats": {"fund": (6, 6, 6, 6, 6, 6)},
+        "fund_weights": {"fund": 1.0},
+        "index_stats": {},
+        "benchmark_ir": {"spx": {"fund": 0.1, "equal_weight": 0.2, "user_weight": 0.3}},
+    }
+    fmt = make_summary_formatter(res, "a", "b", "c", "d")
+    ws = DummyWS()
+    wb = DummyWB()
+    fmt(ws, wb)
+    header = next(r for r in ws.rows if r[0] == 4)[2]
+    assert "OS IR spx" in header

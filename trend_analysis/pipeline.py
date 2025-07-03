@@ -201,11 +201,22 @@ def _run_analysis(
             if col not in in_df.columns or col not in out_df.columns:
                 continue
             benchmark_stats[label] = {
-                "in_sample": _compute_stats(pd.DataFrame({label: in_df[col]}), rf_in)[label],
-                "out_sample": _compute_stats(pd.DataFrame({label: out_df[col]}), rf_out)[label],
+                "in_sample": _compute_stats(pd.DataFrame({label: in_df[col]}), rf_in)[
+                    label
+                ],
+                "out_sample": _compute_stats(
+                    pd.DataFrame({label: out_df[col]}), rf_out
+                )[label],
             }
             ir_series = information_ratio(out_scaled[fund_cols], out_df[col])
-            benchmark_ir[label] = ir_series.to_dict() if isinstance(ir_series, pd.Series) else {fund_cols[0]: float(ir_series)}
+            ir_dict = (
+                ir_series.to_dict()
+                if isinstance(ir_series, pd.Series)
+                else {fund_cols[0]: float(ir_series)}
+            )
+            ir_dict["equal_weight"] = float(information_ratio(out_ew_raw, out_df[col]))
+            ir_dict["user_weight"] = float(information_ratio(out_user_raw, out_df[col]))
+            benchmark_ir[label] = ir_dict
 
     return {
         "selected_funds": fund_cols,
@@ -297,7 +308,19 @@ def run(cfg: Config) -> pd.DataFrame:
     if res is None:
         return pd.DataFrame()
     stats = cast(dict[str, _Stats], res["out_sample_stats"])
-    return pd.DataFrame({k: vars(v) for k, v in stats.items()}).T
+    df = pd.DataFrame({k: vars(v) for k, v in stats.items()}).T
+    for label, ir_map in cast(
+        dict[str, dict[str, float]], res.get("benchmark_ir", {})
+    ).items():
+        col = f"ir_{label}"
+        df[col] = pd.Series(
+            {
+                k: v
+                for k, v in ir_map.items()
+                if k not in {"equal_weight", "user_weight"}
+            }
+        )
+    return df
 
 
 def run_full(cfg: Config) -> dict[str, object]:

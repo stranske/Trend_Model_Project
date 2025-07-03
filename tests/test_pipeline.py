@@ -53,6 +53,15 @@ def test_run_returns_dataframe(tmp_path):
     }
 
 
+def test_run_with_benchmarks(tmp_path):
+    df = make_df()
+    df["SPX"] = 0.01
+    cfg = make_cfg(tmp_path, df)
+    cfg.benchmarks = {"spx": "SPX"}
+    out = pipeline.run(cfg)
+    assert "ir_spx" in out.columns
+
+
 def test_run_returns_empty_when_no_funds(tmp_path, monkeypatch):
     df = pd.DataFrame(
         {"Date": pd.date_range("2020-01-31", periods=1, freq="ME"), "RF": 0.0}
