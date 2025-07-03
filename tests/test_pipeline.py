@@ -43,7 +43,14 @@ def test_run_returns_dataframe(tmp_path):
     cfg = make_cfg(tmp_path, make_df())
     out = pipeline.run(cfg)
     assert not out.empty
-    assert set(out.columns) == {"cagr", "vol", "sharpe", "sortino", "max_drawdown"}
+    assert set(out.columns) == {
+        "cagr",
+        "vol",
+        "sharpe",
+        "sortino",
+        "information_ratio",
+        "max_drawdown",
+    }
 
 
 def test_run_returns_empty_when_no_funds(tmp_path, monkeypatch):

@@ -36,15 +36,18 @@ class DummyWB:
 def test_make_summary_formatter_registers_and_runs():
     FORMATTERS_EXCEL.clear()
     res = {
-        "in_ew_stats": (1, 1, 1, 1, 1),
-        "out_ew_stats": (2, 2, 2, 2, 2),
-        "in_user_stats": (3, 3, 3, 3, 3),
-        "out_user_stats": (4, 4, 4, 4, 4),
-        "in_sample_stats": {"fund": (5, 5, 5, 5, 5)},
-        "out_sample_stats": {"fund": (6, 6, 6, 6, 6)},
+        "in_ew_stats": (1, 1, 1, 1, 1, 1),
+        "out_ew_stats": (2, 2, 2, 2, 2, 2),
+        "in_user_stats": (3, 3, 3, 3, 3, 3),
+        "out_user_stats": (4, 4, 4, 4, 4, 4),
+        "in_sample_stats": {"fund": (5, 5, 5, 5, 5, 5)},
+        "out_sample_stats": {"fund": (6, 6, 6, 6, 6, 6)},
         "fund_weights": {"fund": 0.5},
         "index_stats": {
-            "idx": {"in_sample": (7, 7, 7, 7, 7), "out_sample": (8, 8, 8, 8, 8)}
+            "idx": {
+                "in_sample": (7, 7, 7, 7, 7, 7),
+                "out_sample": (8, 8, 8, 8, 8, 8),
+            }
         },
     }
     fmt = make_summary_formatter(res, "a", "b", "c", "d")
@@ -57,12 +60,12 @@ def test_make_summary_formatter_registers_and_runs():
 
 def test_format_summary_text_basic():
     res = {
-        "in_ew_stats": (1, 1, 1, 1, 1),
-        "out_ew_stats": (2, 2, 2, 2, 2),
-        "in_user_stats": (3, 3, 3, 3, 3),
-        "out_user_stats": (4, 4, 4, 4, 4),
-        "in_sample_stats": {"fund": (5, 5, 5, 5, 5)},
-        "out_sample_stats": {"fund": (6, 6, 6, 6, 6)},
+        "in_ew_stats": (1, 1, 1, 1, 1, 1),
+        "out_ew_stats": (2, 2, 2, 2, 2, 2),
+        "in_user_stats": (3, 3, 3, 3, 3, 3),
+        "out_user_stats": (4, 4, 4, 4, 4, 4),
+        "in_sample_stats": {"fund": (5, 5, 5, 5, 5, 5)},
+        "out_sample_stats": {"fund": (6, 6, 6, 6, 6, 6)},
         "fund_weights": {"fund": 0.5},
         "index_stats": {},
     }
@@ -93,10 +96,10 @@ def test_export_to_excel_invokes_formatter(tmp_path):
 def test_export_to_excel_backward_compat_sheet_formatter(tmp_path):
     df = pd.DataFrame({"A": [1]})
     res = {
-        "in_ew_stats": (0, 0, 0, 0, 0),
-        "out_ew_stats": (0, 0, 0, 0, 0),
-        "in_user_stats": (0, 0, 0, 0, 0),
-        "out_user_stats": (0, 0, 0, 0, 0),
+        "in_ew_stats": (0, 0, 0, 0, 0, 0),
+        "out_ew_stats": (0, 0, 0, 0, 0, 0),
+        "in_user_stats": (0, 0, 0, 0, 0, 0),
+        "out_user_stats": (0, 0, 0, 0, 0, 0),
         "in_sample_stats": {},
         "out_sample_stats": {},
         "fund_weights": {},
@@ -111,12 +114,12 @@ def test_export_to_excel_backward_compat_sheet_formatter(tmp_path):
 
 def test_format_summary_text_no_index_stats():
     res = {
-        "in_ew_stats": (1, 1, 1, 1, 1),
-        "out_ew_stats": (2, 2, 2, 2, 2),
-        "in_user_stats": (3, 3, 3, 3, 3),
-        "out_user_stats": (4, 4, 4, 4, 4),
-        "in_sample_stats": {"fund": (5, 5, 5, 5, 5)},
-        "out_sample_stats": {"fund": (6, 6, 6, 6, 6)},
+        "in_ew_stats": (1, 1, 1, 1, 1, 1),
+        "out_ew_stats": (2, 2, 2, 2, 2, 2),
+        "in_user_stats": (3, 3, 3, 3, 3, 3),
+        "out_user_stats": (4, 4, 4, 4, 4, 4),
+        "in_sample_stats": {"fund": (5, 5, 5, 5, 5, 5)},
+        "out_sample_stats": {"fund": (6, 6, 6, 6, 6, 6)},
         "fund_weights": {"fund": 0.5},
     }
     text = format_summary_text(res, "a", "b", "c", "d")
@@ -125,12 +128,12 @@ def test_format_summary_text_no_index_stats():
 
 def test_make_summary_formatter_handles_nan(tmp_path):
     res = {
-        "in_ew_stats": (1, 1, 1, 1, float("nan")),
-        "out_ew_stats": (2, 2, 2, 2, 2),
-        "in_user_stats": (3, 3, 3, 3, 3),
-        "out_user_stats": (4, 4, 4, 4, 4),
-        "in_sample_stats": {"fund": (5, 5, float("nan"), 5, 5)},
-        "out_sample_stats": {"fund": (6, 6, 6, 6, 6)},
+        "in_ew_stats": (1, 1, 1, 1, 1, float("nan")),
+        "out_ew_stats": (2, 2, 2, 2, 2, 2),
+        "in_user_stats": (3, 3, 3, 3, 3, 3),
+        "out_user_stats": (4, 4, 4, 4, 4, 4),
+        "in_sample_stats": {"fund": (5, 5, 5, float("nan"), 5, 5)},
+        "out_sample_stats": {"fund": (6, 6, 6, 6, 6, 6)},
         "fund_weights": {"fund": 0.5},
         "index_stats": {},
     }

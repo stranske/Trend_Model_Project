@@ -13,6 +13,7 @@ from .metrics import (
     sharpe_ratio,
     sortino_ratio,
     max_drawdown,
+    information_ratio,
 )
 
 if TYPE_CHECKING:  # pragma: no cover - for static type checking only
@@ -31,6 +32,7 @@ class _Stats:
     sharpe: float
     sortino: float
     max_drawdown: float
+    information_ratio: float
 
 
 def calc_portfolio_returns(weights: np.ndarray, returns_df: pd.DataFrame) -> pd.Series:
@@ -49,6 +51,7 @@ def _compute_stats(df: pd.DataFrame, rf: pd.Series) -> dict[str, _Stats]:
             sharpe=float(sharpe_ratio(df[col], rf)),
             sortino=float(sortino_ratio(df[col], rf)),
             max_drawdown=float(max_drawdown(df[col])),
+            information_ratio=float(information_ratio(df[col], rf)),
         )
     return stats
 
