@@ -31,6 +31,7 @@ def test_column_order_respects_config():
     sf = single_period_run(df, "2020-01", "2020-03", stats_cfg=cfg)
     assert sf.columns.tolist() == cfg.metrics_to_run
 
+
 def test_single_period_run_string_dates():
     df = make_df()[["Date", "A", "B"]]
     df["Date"] = df["Date"].astype(str)

@@ -4,12 +4,14 @@ from trend_analysis.pipeline import run_analysis
 
 def make_df():
     dates = pd.date_range("2020-01-31", periods=6, freq="ME")
-    return pd.DataFrame({
-        "Date": dates,
-        "RF": 0.0,
-        "A": 0.01,
-        "SPX": 0.02,
-    })
+    return pd.DataFrame(
+        {
+            "Date": dates,
+            "RF": 0.0,
+            "A": 0.01,
+            "SPX": 0.02,
+        }
+    )
 
 
 def test_indices_promoted_to_benchmarks():
@@ -40,6 +42,7 @@ def test_missing_benchmark_column_ignored():
         benchmarks={"foo": "FOO"},
     )
     assert "foo" not in res["benchmark_ir"]
+
 
 def test_indices_already_in_benchmarks():
     df = make_df()
