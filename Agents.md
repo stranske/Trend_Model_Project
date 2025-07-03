@@ -33,16 +33,16 @@ Functional spec
 4.  Config file (YAML) drives everything – sample below.
 
 5.  UI flow (ipywidgets, no external deps):
-    Step 1  – Mode (‘all’, ‘random’, ‘manual’, **‘rank’**),
+    Step 1  – Mode (‘all’, ‘random’, ‘manual’, **‘rank’**),
                checkboxes for “vol‑adj” and “use ranking”.  
-    Step 2  – If mode == 'rank' **or** user ticked “use ranking”
+    Step 2  – If mode == 'rank' **or** user ticked “use ranking”
                → reveal controls for `inclusion_approach`,
                `score_by`, `N / Pct / Threshold`, and (if blended)
                three sliders for weights + metric pickers.  
-    Step 3  – If mode == 'manual'  
+    Step 3  – If mode == 'manual'  
                → display an interactive DataFrame of the IS scores so the
                user can override selection and set weights.
-    Step 4  – Output format picker (csv / xlsx / json) then fire
+    Step 4  – Output format picker (csv / xlsx / json) then fire
                `run_analysis()` and `export_to_*`.
 
 6.  No broken changes:
@@ -74,7 +74,7 @@ output:
 """
 
 """
-🔄 2025‑06‑15 UPDATE — PHASE‑1 ENHANCEMENTS
+🔄 2025‑06‑15 UPDATE — PHASE‑1 ENHANCEMENTS
 ------------------------------------------
 • Blended ranking **must** use *z‑scores* (mean‑0, stdev‑1) before the
   weighted sum so metrics on different scales are commensurable.
@@ -135,14 +135,14 @@ exactly as v1.0 did. Breaking that throws `ExportError`.
 
 ## | Layer / concern                      | **Canonical location**                                                     | Everything else is **deprecated**                         |
 | ------------------------------------ | -------------------------------------------------------------------------- | --------------------------------------------------------- |
-| **Data ingest & cleaning**           | `trend_analysis/data.py` <br> (alias exported as `trend_analysis.data`)    | `data_utils.py`, helper code in notebooks or `scripts/`   |
+| **Data ingest & cleaning**           | `trend_analysis/data.py` <br> (alias exported as `trend_analysis.data`)    | `data_utils.py`, helper code in notebooks or `scripts/`   |
 | **Portfolio logic & metrics**        | `trend_analysis/metrics.py` (vectorised)                                   | loops inside `run_analysis.py`, ad‑hoc calcs in notebooks |
 | **Export / I/O**                     | `trend_analysis/export.py`                                                 | the root‑level `exports.py`, snippets inside notebooks    |
 | **Domain kernels (fast primitives)** | `trend_analysis/core/` package                                             | stand‑alone modules under the top‑level `core/` directory |
 | **Pipeline orchestration**           | `trend_analysis/pipeline.py` (pure)                                        | any duplicated control flow elsewhere                     |
 | **CLI entry‑point**                  | `run_analysis.py` **only** (thin wrapper around `trend_analysis.cli:main`) | bespoke `scripts/*.py` entry points                       |
 | **Config**                           | `config/defaults.yml` loaded through `trend_analysis.config.load()`        | hard‑coded constants, magic numbers in notebooks          |
-| **Tests**                            | `tests/` (pytest; 100 % branch‑aware coverage gate)                        |    —                                                      |
+| **Tests**                            | `tests/` (pytest; 100 % branch‑aware coverage gate)                        |    —                                                      |
 One concern → one module.
 Replacements must delete or comment‑out whatever they obsolete in the same PR.
 
@@ -193,21 +193,21 @@ Falling back to for‑loops requires a comment justifying why vectorisation is i
 Public API (exported in __all__) uses US‑English snake‑case; private helpers are prefixed with _.
 
 Notebook hygiene: any new exploratory notebook must start with the header
-# 🔬 scratchpad – may be deleted at any time.
+# 🔬 scratchpad – may be deleted at any time.
 
 CI (GitHub Actions) stages to add:
 
-lint  (ruff + black –‑check)
+lint  (ruff + black –‑check)
 
-type‑check (mypy, strict)
+type‑check (mypy, strict)
 
-test (pytest ‑‑cov trend_analysis ‑‑cov‑branch)
+test (pytest ‑‑cov trend_analysis ‑‑cov‑branch)
 
 build‑wheel (tags only)
 
 ##NEW
 
-### ✨ Task: Integrate `information_ratio` end‑to‑end  (#metrics‑IR)
+### ✨ Task: Integrate `information_ratio` end‑to‑end  (#metrics‑IR)
 
 **Motivation**  
 Phase‑1 now includes a vectorised `information_ratio` metric.  
@@ -218,13 +218,13 @@ multi‑benchmark workflows.
 
 #### 1.  Pipeline / Statistics
 
-* [ ] Extend `_Stats` dataclass with `information_ratio: float`.
-* [ ] In `_compute_stats()` compute `information_ratio(df[col], rf_series)`.
-* [ ] Ensure `out_stats_df` includes the new field.
+* [x] Extend `_Stats` dataclass with `information_ratio: float`.
+* [x] In `_compute_stats()` compute `information_ratio(df[col], rf_series)`.
+* [x] Ensure `out_stats_df` includes the new field.
 
 #### 2.  Multi‑benchmark support
 
-* [ ] Accept `benchmarks:` mapping in YAML cfg, e.g.
+* [x] Accept `benchmarks:` mapping in YAML cfg, e.g.
 
 ```yaml
 benchmarks:
