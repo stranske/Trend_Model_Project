@@ -31,8 +31,8 @@ class _Stats:
     vol: float
     sharpe: float
     sortino: float
-    max_drawdown: float
     information_ratio: float
+    max_drawdown: float
 
 
 def calc_portfolio_returns(weights: np.ndarray, returns_df: pd.DataFrame) -> pd.Series:
