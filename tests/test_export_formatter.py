@@ -43,12 +43,6 @@ def test_make_summary_formatter_registers_and_runs():
         "in_sample_stats": {"fund": (5, 5, 5, 5, 5, 5)},
         "out_sample_stats": {"fund": (6, 6, 6, 6, 6, 6)},
         "fund_weights": {"fund": 0.5},
-        "index_stats": {
-            "idx": {
-                "in_sample": (7, 7, 7, 7, 7, 7),
-                "out_sample": (8, 8, 8, 8, 8, 8),
-            }
-        },
     }
     fmt = make_summary_formatter(res, "a", "b", "c", "d")
     assert "summary" in FORMATTERS_EXCEL
@@ -67,7 +61,6 @@ def test_format_summary_text_basic():
         "in_sample_stats": {"fund": (5, 5, 5, 5, 5, 5)},
         "out_sample_stats": {"fund": (6, 6, 6, 6, 6, 6)},
         "fund_weights": {"fund": 0.5},
-        "index_stats": {},
     }
     text = format_summary_text(res, "a", "b", "c", "d")
     assert "Vol-Adj Trend Analysis" in text
@@ -103,7 +96,6 @@ def test_export_to_excel_backward_compat_sheet_formatter(tmp_path):
         "in_sample_stats": {},
         "out_sample_stats": {},
         "fund_weights": {},
-        "index_stats": {},
     }
 
     sheet_formatter = make_summary_formatter(res, "a", "b", "c", "d")
@@ -135,7 +127,6 @@ def test_make_summary_formatter_handles_nan(tmp_path):
         "in_sample_stats": {"fund": (5, 5, 5, float("nan"), 5, 5)},
         "out_sample_stats": {"fund": (6, 6, 6, 6, 6, 6)},
         "fund_weights": {"fund": 0.5},
-        "index_stats": {},
     }
     fmt = make_summary_formatter(res, "a", "b", "c", "d")
     ws = DummyWS()
@@ -154,7 +145,6 @@ def test_make_summary_formatter_with_benchmarks():
         "in_sample_stats": {"fund": (5, 5, 5, 5, 5, 5)},
         "out_sample_stats": {"fund": (6, 6, 6, 6, 6, 6)},
         "fund_weights": {"fund": 1.0},
-        "index_stats": {},
         "benchmark_ir": {"spx": {"fund": 0.1, "equal_weight": 0.2, "user_weight": 0.3}},
     }
     fmt = make_summary_formatter(res, "a", "b", "c", "d")

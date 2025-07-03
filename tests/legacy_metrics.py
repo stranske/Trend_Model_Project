@@ -7,6 +7,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 from pandas import DataFrame, Series
+from trend_analysis.metrics import information_ratio
 
 
 def _validate_input(obj: Series | DataFrame) -> None:
@@ -171,5 +172,6 @@ def max_drawdown(returns: Series | DataFrame, axis: int = 0) -> Series | float:
 
     return _apply(returns, _calc, axis)
 
-annualize_return  = annual_return
+
+annualize_return = annual_return
 information_ratio = info_ratio = information_ratio

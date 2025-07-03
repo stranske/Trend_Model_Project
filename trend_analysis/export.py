@@ -136,16 +136,6 @@ def make_summary_formatter(
             row += 1
 
         row += 1
-        for idx, pair in res.get("index_stats", {}).items():
-            in_idx = pair["in_sample"]
-            out_idx = pair["out_sample"]
-            ws.write(row, 0, idx, bold)
-            ws.write(row, 1, safe(""))
-            vals = pct(in_idx) + pct(out_idx)
-            fmts = ([num2] * 5 + [red]) * 2
-            for col, (v, fmt) in enumerate(zip(vals, fmts), start=2):
-                ws.write(row, col, safe(v), fmt)
-            row += 1
 
     return fmt_summary
 
@@ -232,13 +222,6 @@ def format_summary_text(
         ]
         vals.extend(extra)
         rows.append([fund, weight, *vals])
-
-    if res.get("index_stats"):
-        rows.append([None] * len(columns))  # pragma: no cover - optional branch
-        for idx, pair in res["index_stats"].items():  # pragma: no cover
-            vals = pct(pair["in_sample"]) + pct(pair["out_sample"])  # pragma: no cover
-            vals.extend([float("nan")] * len(bench_labels))
-            rows.append([idx, None, *vals])  # pragma: no cover
 
     df = pd.DataFrame(rows, columns=columns)
     df_formatted = df.map(safe)
