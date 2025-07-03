@@ -63,6 +63,7 @@ def test_run_analysis_random_selection():
     )
     assert len(res["selected_funds"]) == 1
 
+
 def test_run_analysis_returns_score_frame():
     df = make_df()
     res = run_analysis(df, "2020-01", "2020-03", "2020-04", "2020-06", 0.1, 0.0)
