@@ -18,9 +18,9 @@ from .metrics import (
 
 if TYPE_CHECKING:  # pragma: no cover - for static type checking only
     from .config import Config
+    from .core.rank_selection import RiskStatsConfig
 
 del TYPE_CHECKING
-del annotations
 
 
 @dataclass
@@ -45,7 +45,7 @@ def single_period_run(
     start: str,
     end: str,
     *,
-    stats_cfg: "RiskStatsConfig" | None = None,
+    stats_cfg: RiskStatsConfig | None = None,
 ) -> pd.DataFrame:
     """Return a score frame of metrics for a single period.
 
@@ -195,7 +195,9 @@ def _run_analysis(
         return None
 
     stats_cfg = RiskStatsConfig(risk_free=0.0)
-    score_frame = single_period_run(df[[date_col] + fund_cols], in_start, in_end, stats_cfg=stats_cfg)
+    score_frame = single_period_run(
+        df[[date_col] + fund_cols], in_start, in_end, stats_cfg=stats_cfg
+    )
 
     vols = in_df[fund_cols].std() * np.sqrt(12)
     scale_factors = (
