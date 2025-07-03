@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from trend_analysis import analyze
+from trend_analysis import pipeline
 
 
 def _make_df():
@@ -17,16 +17,14 @@ def _make_df():
 
 def test_run_analysis_drop_and_weights():
     df = _make_df()
-    res = analyze.run_analysis(
+    res = pipeline.run_analysis(
         df,
-        ["A", "B"],
-        None,
-        None,
-        "RF",
         "2020-01",
         "2020-03",
         "2020-04",
         "2020-06",
+        1.0,
+        0.0,
     )
     assert res["selected_funds"] == ["B"]
     assert res["fund_weights"]["B"] == 1.0
@@ -34,15 +32,14 @@ def test_run_analysis_drop_and_weights():
 
 def test_run_analysis_custom_weights():
     df = _make_df()
-    res = analyze.run_analysis(
+    res = pipeline.run_analysis(
         df,
-        ["A", "B"],
-        None,
-        {"A": 0.2, "B": 0.8},
-        "RF",
         "2020-01",
         "2020-03",
         "2020-04",
         "2020-06",
+        1.0,
+        0.0,
+        custom_weights={"A": 20, "B": 80},
     )
-    assert res["fund_weights"] == {"A": 0.2, "B": 0.8}
+    assert res["fund_weights"] == {"B": 0.8}
