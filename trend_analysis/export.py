@@ -52,20 +52,28 @@ def make_summary_formatter(
                 return ""
             return cast(str | float, v)
 
-        def to_tuple(obj: Any) -> tuple[float, float, float, float, float]:
+        def to_tuple(obj: Any) -> tuple[float, float, float, float, float, float]:
             if isinstance(obj, tuple):
-                return cast(tuple[float, float, float, float, float], obj)
+                return cast(tuple[float, float, float, float, float, float], obj)
             return (
                 cast(float, obj.cagr),
                 cast(float, obj.vol),
                 cast(float, obj.sharpe),
                 cast(float, obj.sortino),
+                cast(float, obj.information_ratio),
                 cast(float, obj.max_drawdown),
             )
 
         def pct(t: Any) -> list[float]:
             tup = to_tuple(t)
-            return [tup[0] * 100, tup[1] * 100, tup[2], tup[3], tup[4] * 100]
+            return [
+                tup[0] * 100,
+                tup[1] * 100,
+                tup[2],
+                tup[3],
+                tup[4],
+                tup[5] * 100,
+            ]
 
         ws.write_row(0, 0, ["Vol-Adj Trend Analysis"], bold)
         ws.write_row(1, 0, [f"In:  {in_start} → {in_end}"], bold)
@@ -77,11 +85,13 @@ def make_summary_formatter(
             "IS Vol",
             "IS Sharpe",
             "IS Sortino",
+            "IS IR",
             "IS MaxDD",
             "OS CAGR",
             "OS Vol",
             "OS Sharpe",
             "OS Sortino",
+            "OS IR",
             "OS MaxDD",
         ]
         ws.write_row(4, 0, headers, bold)
@@ -94,7 +104,7 @@ def make_summary_formatter(
             ws.write(row, 0, label, bold)
             ws.write(row, 1, safe(""))
             vals = pct(ins) + pct(outs)
-            fmts = ([num2] * 4 + [red]) * 2
+            fmts = ([num2] * 5 + [red]) * 2
             for col, (v, fmt) in enumerate(zip(vals, fmts), start=2):
                 ws.write(row, col, safe(v), fmt)
             row += 1
@@ -106,7 +116,7 @@ def make_summary_formatter(
             wt = res["fund_weights"][fund]
             ws.write(row, 1, safe(wt * 100), int0)
             vals = pct(stat_in) + pct(stat_out)
-            fmts = ([num2] * 4 + [red]) * 2
+            fmts = ([num2] * 5 + [red]) * 2
             for col, (v, fmt) in enumerate(zip(vals, fmts), start=2):
                 ws.write(row, col, safe(v), fmt)
             row += 1
@@ -118,7 +128,7 @@ def make_summary_formatter(
             ws.write(row, 0, idx, bold)
             ws.write(row, 1, safe(""))
             vals = pct(in_idx) + pct(out_idx)
-            fmts = ([num2] * 4 + [red]) * 2
+            fmts = ([num2] * 5 + [red]) * 2
             for col, (v, fmt) in enumerate(zip(vals, fmts), start=2):
                 ws.write(row, col, safe(v), fmt)
             row += 1
@@ -142,20 +152,21 @@ def format_summary_text(
             return f"{val:.2f}"
         return cast(str, val)
 
-    def to_tuple(obj: Any) -> tuple[float, float, float, float, float]:
+    def to_tuple(obj: Any) -> tuple[float, float, float, float, float, float]:
         if isinstance(obj, tuple):
-            return cast(tuple[float, float, float, float, float], obj)
+            return cast(tuple[float, float, float, float, float, float], obj)
         return (
             cast(float, obj.cagr),
             cast(float, obj.vol),
             cast(float, obj.sharpe),
             cast(float, obj.sortino),
+            cast(float, obj.information_ratio),
             cast(float, obj.max_drawdown),
         )
 
     def pct(t: Any) -> list[float]:
         a = to_tuple(t)
-        return [a[0] * 100, a[1] * 100, a[2], a[3], a[4] * 100]
+        return [a[0] * 100, a[1] * 100, a[2], a[3], a[4], a[5] * 100]
 
     columns = [
         "Name",
@@ -164,11 +175,13 @@ def format_summary_text(
         "IS Vol",
         "IS Sharpe",
         "IS Sortino",
+        "IS IR",
         "IS MaxDD",
         "OS CAGR",
         "OS Vol",
         "OS Sharpe",
         "OS Sortino",
+        "OS IR",
         "OS MaxDD",
     ]
 
