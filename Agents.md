@@ -99,6 +99,36 @@ Implement `run(cfg) -> Dict[str, SingleRunResult]`:
 
 ## Constraints
 * Code must pass `ruff` & `black`.
+
+* ## Phase 2 – Rebalancer plug‑ins  (2025‑07‑03)
+
+### Step 5 Selector classes
+| Class | Purpose | Core kwargs |
+|-------|---------|-------------|
+| `RankSelector` | Replicates Phase‑1 “top‑N / pct / threshold” logic as a reusable object. | `score_frame`, `n`, `pct`, `threshold` |
+| `ZScoreSelector` | Keeps funds whose trailing‑window z‑score exceeds `±threshold`; accepts `direction` (+1/‑1). | `score_frame`, `threshold`, `direction`, `window` |
+
+Each selector **returns** `(selected_df, audit_log_df)` so the UI and tests can display exactly *why* each fund was kept or dropped.
+
+---
+
+### Step 6 Weighting classes
+| Class | Allocation logic | YAML example |
+|-------|------------------|--------------|
+| `EqualWeight` | 1 / N across `selected`; bps‑rounded. | `portfolio.weighting: {name: equal}` |
+| `ScorePropSimple` | Weight ∝ positive score. | `portfolio.weighting: {name: score_prop}` |
+| `ScorePropBayesian` | Shrinks extreme scores toward the cross‑sectional mean (`tau`). | `portfolio.weighting: {name: score_prop_bayes, params: {tau: 0.25}}` |
+
+---
+
+### Step 7 Engine wiring
+
+```python
+for date in schedule:
+    sel_df, log = selector.select(score_frames[date])
+    w = weighting.weight(sel_df)
+    portfolio.rebalance(date, w)
+
 * Only use numpy, pandas, joblib, streamlit.
 * Keep functions pure; use `cfg.random_seed` for reproducibility.
 
