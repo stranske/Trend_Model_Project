@@ -72,3 +72,14 @@ def test_run_full_missing_file(tmp_path):
     )
     with pytest.raises(FileNotFoundError):
         run_full(cfg)
+
+
+def test_run_full_with_benchmarks(tmp_path):
+    df = make_df()
+    df["SPX"] = 0.02
+    cfg = make_cfg(tmp_path, df)
+    cfg.benchmarks = {"spx": "SPX"}
+    res = run_full(cfg)
+    assert "spx" in res["benchmark_ir"]
+    assert "equal_weight" in res["benchmark_ir"]["spx"]
+    assert "A" in res["benchmark_ir"]["spx"]
