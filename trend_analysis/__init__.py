@@ -1,6 +1,6 @@
 """Trend analysis package."""
 
-from . import metrics, config, data, pipeline, export
+from . import metrics, config, data, pipeline, export, selector, weighting
 from .data import load_csv, identify_risk_free_fund
 from .export import (
     register_formatter_excel,
@@ -18,6 +18,8 @@ __all__ = [
     "data",
     "pipeline",
     "export",
+    "selector",
+    "weighting",
     "load_csv",
     "identify_risk_free_fund",
     "register_formatter_excel",

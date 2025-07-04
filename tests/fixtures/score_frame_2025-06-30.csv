@@ -1,0 +1,4 @@
+,AnnualReturn,Volatility,Sharpe,Sortino,InformationRatio,MaxDrawdown
+A,0.15,0.10,1.5,2.0,1.2,0.10
+B,0.10,0.12,0.8,1.0,0.5,0.20
+C,0.05,0.08,-0.2,-0.5,-0.3,0.30
