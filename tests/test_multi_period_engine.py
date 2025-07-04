@@ -7,11 +7,13 @@ from trend_analysis.multi_period import run as run_mp
 
 def make_df():
     dates = pd.date_range("1990-01-31", periods=12, freq="ME")
-    return pd.DataFrame({
-        "Date": dates,
-        "A": 0.01,
-        "B": 0.02,
-    })
+    return pd.DataFrame(
+        {
+            "Date": dates,
+            "A": 0.01,
+            "B": 0.02,
+        }
+    )
 
 
 def test_multi_period_run_returns_results():
