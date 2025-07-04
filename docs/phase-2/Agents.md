@@ -306,14 +306,12 @@ for date in schedule:
     candidates  = selector.select(score_frames[date])
     weights     = weighting.weight(candidates)
     portfolio.rebalance(date, weights)
-
-
+```
 Step 8 – Config schema delta
-yaml
-Copy
-Edit
+
+```yaml
 metrics:
-  registry: [annual_return, downside_deviation, sharpe_ratio]  # Phase‑1 already
+  registry: [annual_return, downside_deviation, sharpe_ratio]
 
 portfolio:
   selector:
@@ -324,25 +322,25 @@ portfolio:
     name: score_prop_bayes
     params:
       shrink_tau: 0.25
+```
 
 Step 9 – Unit‑test skeletons
-bash
-Copy
-Edit
+
+```
 tests/
 └─ test_selector_weighting.py
-   ├─ fixtures/score_frame_2025‑06‑30.pkl
+   ├─ fixtures/score_frame_2025‑06‑30.csv
    ├─ test_rank_selector()
    ├─ test_zscore_selector_edge()
    ├─ test_equal_weighting_sum_to_one()
    └─ test_bayesian_shrinkage_monotonic()
+```
+
 Golden‑master strategy identical to Phase‑1 metrics: pickle one known score_frame
 and compare selector/weighting outputs bit‑for‑bit (tolerances < 1e‑9).
 
 Step 10 – Docs housekeeping
+
 Phase‑1 docs stay at docs/phase-1/Agents.md.
 Phase‑2 docs live in docs/phase-2/Agents.md (this file).
-Cross‑link at the top:
-
-```
-
+Cross‑link at the top.
