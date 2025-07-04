@@ -273,7 +273,75 @@ benchmarks:
 > Once the test suite passes with the new `score_frame`, proceed to steps 5‑7 (Selector & Weighting classes).
 
 
+### Step 5 – Selector classes
 
+| Class | Purpose | Key Inputs |
+| ----- | ------- | ---------- |
+| `RankSelector` | Pure rank‑based inclusion identical to Phase 1 behaviour, but exposed as a plug‑in. | `score_frame`, `top_n`, `rank_column` |
+| `ZScoreSelector` | Filters candidates whose z‑score > `threshold`; supports negative screening by passing `direction=-1`. | `score_frame`, `threshold`, `direction` |
+
+Both selectors must return **two** DataFrames:  
+1. `selected` – rows kept for the rebalancing date  
+2. `log` – diagnostic table (candidate, metric, reason) used by UI & tests.
+
+---
+
+### Step 6 – Weighting classes
+
+| Class (inherits `BaseWeighting`) | Logic | YAML Config Stub |
+| --- | --- | --- |
+| `EqualWeight` | 1/N allocation across `selected`; rounds to nearest bps to avoid float dust. | `portfolio.weighting: {method: equal}` |
+| `ScorePropSimple` | Weight ∝ positive score; rescales to 100 %. | `portfolio.weighting: {method: score_prop}` |
+| `ScorePropBayesian` | Same, but shrinks extreme scores toward the cross‑sectional mean using a conjugate‑normal update. | `portfolio.weighting: {method: score_prop_bayes, shrink_tau: 0.25}` |
+
+---
+
+### Step 7 – Engine wiring
+
+Minimal loop in `multi_period/engine.py`:
+
+```python
+for date in schedule:
+    candidates  = selector.select(score_frames[date])
+    weights     = weighting.weight(candidates)
+    portfolio.rebalance(date, weights)
+
+
+Step 8 – Config schema delta
+yaml
+Copy
+Edit
+metrics:
+  registry: [annual_return, downside_deviation, sharpe_ratio]  # Phase‑1 already
+
+portfolio:
+  selector:
+    name: zscore            # or 'rank'
+    params:
+      threshold: 1.0        # σ
+  weighting:
+    name: score_prop_bayes
+    params:
+      shrink_tau: 0.25
+
+Step 9 – Unit‑test skeletons
+bash
+Copy
+Edit
+tests/
+└─ test_selector_weighting.py
+   ├─ fixtures/score_frame_2025‑06‑30.pkl
+   ├─ test_rank_selector()
+   ├─ test_zscore_selector_edge()
+   ├─ test_equal_weighting_sum_to_one()
+   └─ test_bayesian_shrinkage_monotonic()
+Golden‑master strategy identical to Phase‑1 metrics: pickle one known score_frame
+and compare selector/weighting outputs bit‑for‑bit (tolerances < 1e‑9).
+
+Step 10 – Docs housekeeping
+Phase‑1 docs stay at docs/phase-1/Agents.md.
+Phase‑2 docs live in docs/phase-2/Agents.md (this file).
+Cross‑link at the top:
 
 ```
 
