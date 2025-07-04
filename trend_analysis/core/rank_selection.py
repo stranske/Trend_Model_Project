@@ -527,6 +527,7 @@ def build_ui() -> widgets.VBox:
 
     manual_box = widgets.VBox()
     manual_box.layout.display = "none"
+    manual_scores_html = widgets.HTML()
     manual_checks: list[widgets.Checkbox] = []
     manual_weights: list[widgets.FloatText] = []
     manual_total_lbl = widgets.Label("Total weight: 0 %")
@@ -598,6 +599,20 @@ def build_ui() -> widgets.VBox:
             funds = [c for c in funds_all if in_ok[c] and out_ok[c]]
         except Exception:
             funds = funds_all
+
+        # compute score frame for display
+        try:
+            from .. import pipeline
+
+            sf = pipeline.single_period_run(
+                df[[date_col] + funds],
+                in_start.value,
+                in_end.value,
+            )
+            manual_scores_html.value = sf.to_html(float_format="%.4f")
+        except Exception:
+            manual_scores_html.value = ""
+
         manual_checks.clear()
         manual_weights.clear()
 
@@ -616,7 +631,7 @@ def build_ui() -> widgets.VBox:
             manual_checks.append(chk)
             manual_weights.append(wt)
             rows.append(widgets.HBox([chk, wt]))
-        manual_box.children = rows + [manual_total_lbl]
+        manual_box.children = [manual_scores_html] + rows + [manual_total_lbl]
         manual_box.layout.display = "flex"
         _update_total()
 
