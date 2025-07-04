@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Dict, List
+from dataclasses import dataclass, field
+from typing import Dict, List, Mapping, Protocol
 
 import pandas as pd
 
@@ -10,6 +11,50 @@ from ..config import Config
 from ..data import load_csv
 from ..pipeline import _run_analysis
 from .scheduler import generate_periods
+from ..weighting import BaseWeighting
+
+
+@dataclass
+class Portfolio:
+    """Minimal container for weight history."""
+
+    history: Dict[str, pd.Series] = field(default_factory=dict)
+
+    def rebalance(
+        self, date: str | pd.Timestamp, weights: pd.DataFrame | pd.Series
+    ) -> None:
+        """Store weights for the given date."""
+        if isinstance(weights, pd.DataFrame):
+            if "weight" in weights.columns:
+                series = weights["weight"]
+            else:
+                series = weights.squeeze()
+        else:
+            series = weights
+        self.history[str(pd.to_datetime(date).date())] = series.astype(float)
+
+
+class SelectorProtocol(Protocol):
+    """Minimal interface required of selectors."""
+
+    def select(
+        self, score_frame: pd.DataFrame
+    ) -> tuple[pd.DataFrame, pd.DataFrame]: ...
+
+
+def run_schedule(
+    score_frames: Mapping[str, pd.DataFrame],
+    selector: SelectorProtocol,
+    weighting: BaseWeighting,
+) -> Portfolio:
+    """Apply selection and weighting across ``score_frames``."""
+
+    pf = Portfolio()
+    for date in sorted(score_frames):
+        selected, _ = selector.select(score_frames[date])
+        weights = weighting.weight(selected)
+        pf.rebalance(date, weights)
+    return pf
 
 
 def run(cfg: Config, df: pd.DataFrame | None = None) -> List[Dict[str, object]]:

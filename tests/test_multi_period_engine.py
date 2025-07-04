@@ -2,7 +2,9 @@ import pandas as pd
 import yaml
 from pathlib import Path
 from trend_analysis.config import Config
-from trend_analysis.multi_period import run as run_mp
+from trend_analysis.multi_period import run as run_mp, run_schedule, Portfolio
+from trend_analysis.selector import RankSelector
+from trend_analysis.weighting import EqualWeight
 
 
 def make_df():
@@ -30,3 +32,14 @@ def test_multi_period_run_returns_results():
     out = run_mp(cfg, df)
     assert isinstance(out, list)
     assert out, "no period results returned"
+
+
+def test_run_schedule_generates_weight_history():
+    sf = pd.read_csv(Path("tests/fixtures/score_frame_2025-06-30.csv"), index_col=0)
+    frames = {"2025-06-30": sf, "2025-07-31": sf}
+    selector = RankSelector(top_n=1, rank_column="Sharpe")
+    weighting = EqualWeight()
+    portfolio = run_schedule(frames, selector, weighting)
+    assert isinstance(portfolio, Portfolio)
+    assert list(portfolio.history.keys()) == ["2025-06-30", "2025-07-31"]
+    assert list(portfolio.history["2025-06-30"].index) == ["A"]
