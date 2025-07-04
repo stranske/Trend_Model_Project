@@ -20,18 +20,22 @@ class RankSelector:
         ranked = scores.rank(ascending=ascending, method="first")
         selected_idx = ranked.nsmallest(self.top_n).index
         selected = score_frame.loc[selected_idx].copy()
-        log = pd.DataFrame({
-            "candidate": score_frame.index,
-            "metric": self.rank_column,
-            "reason": ranked
-        }).set_index("candidate")
+        log = pd.DataFrame(
+            {
+                "candidate": score_frame.index,
+                "metric": self.rank_column,
+                "reason": ranked,
+            }
+        ).set_index("candidate")
         return selected, log
 
 
 class ZScoreSelector:
     """Filter by z-score threshold."""
 
-    def __init__(self, threshold: float, *, direction: int = 1, column: str = "Sharpe") -> None:
+    def __init__(
+        self, threshold: float, *, direction: int = 1, column: str = "Sharpe"
+    ) -> None:
         self.threshold = threshold
         self.direction = 1 if direction >= 0 else -1
         self.column = column
@@ -45,9 +49,7 @@ class ZScoreSelector:
         z = (scores - mu) / (sigma if sigma else 1.0)
         mask = z * self.direction > self.threshold
         selected = score_frame.loc[mask].copy()
-        log = pd.DataFrame({
-            "candidate": score_frame.index,
-            "metric": self.column,
-            "reason": z
-        }).set_index("candidate")
+        log = pd.DataFrame(
+            {"candidate": score_frame.index, "metric": self.column, "reason": z}
+        ).set_index("candidate")
         return selected, log
