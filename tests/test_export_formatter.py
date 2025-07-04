@@ -16,12 +16,24 @@ class DummyWS:
     def __init__(self):
         self.rows = []
         self.cells = []
+        self.columns = []
+        self.frozen = None
+        self.autofilter_args = None
 
     def write_row(self, row, col, data, fmt=None):
         self.rows.append((row, col, list(data), fmt))
 
     def write(self, row, col, data, fmt=None):
         self.cells.append((row, col, data, fmt))
+
+    def set_column(self, c1, c2, width):
+        self.columns.append((c1, c2, width))
+
+    def freeze_panes(self, row, col):
+        self.frozen = (row, col)
+
+    def autofilter(self, fr, fc, lr, lc):
+        self.autofilter_args = (fr, fc, lr, lc)
 
 
 class DummyWB:
@@ -153,3 +165,22 @@ def test_make_summary_formatter_with_benchmarks():
     fmt(ws, wb)
     header = next(r for r in ws.rows if r[0] == 4)[2]
     assert "OS IR spx" in header
+
+
+def test_make_summary_formatter_contract():
+    res = {
+        "in_ew_stats": (1, 1, 1, 1, 1, 1),
+        "out_ew_stats": (2, 2, 2, 2, 2, 2),
+        "in_user_stats": (3, 3, 3, 3, 3, 3),
+        "out_user_stats": (4, 4, 4, 4, 4, 4),
+        "in_sample_stats": {"fund": (5, 5, 5, 5, 5, 5)},
+        "out_sample_stats": {"fund": (6, 6, 6, 6, 6, 6)},
+        "fund_weights": {"fund": 1.0},
+    }
+    fmt = make_summary_formatter(res, "a", "b", "c", "d")
+    ws = DummyWS()
+    wb = DummyWB()
+    fmt(ws, wb)
+    assert ws.frozen == (5, 0)
+    assert ws.autofilter_args[0] == 4
+    assert ws.columns[0][2] == len("Name") + 2
