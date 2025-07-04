@@ -39,7 +39,7 @@ def _build_step0(store: ParamStore) -> widgets.Widget:
     upload = widgets.FileUpload(accept=".yml", multiple=False)
     template = widgets.Dropdown(options=list_builtin_cfgs(), description="Template")
     try:
-        from ipydatagrid import DataGrid  # type: ignore
+        from ipydatagrid import DataGrid
 
         grid = DataGrid([], disabled=False)
     except Exception:  # pragma: no cover - optional dep
@@ -50,7 +50,7 @@ def _build_step0(store: ParamStore) -> widgets.Widget:
 
     def refresh_grid() -> None:
         if hasattr(grid, "data"):
-            with grid.hold_trait_notifications():  # type: ignore[attr-defined]
+            with grid.hold_trait_notifications():
                 grid.data = [store.cfg]
 
     def on_upload(change: dict[str, Any]) -> None:
