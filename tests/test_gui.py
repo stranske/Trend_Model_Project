@@ -1,0 +1,42 @@
+import asyncio
+from types import SimpleNamespace
+import yaml
+import importlib
+
+import trend_analysis.gui as gui
+
+
+def test_paramstore_roundtrip(tmp_path):
+    cfg = {"a": 1}
+    path = tmp_path / "s.yml"
+    path.write_text(yaml.safe_dump(cfg))
+    store = gui.ParamStore.from_yaml(path)
+    assert store.cfg == cfg
+    assert store.to_dict() == cfg
+
+
+def test_debounce():
+    calls = []
+
+    @gui.debounce(10)
+    async def foo(x):
+        calls.append(x)
+
+    async def run():
+        await asyncio.gather(foo(1), foo(2))
+        await asyncio.sleep(0.02)
+
+    asyncio.run(run())
+    assert calls == [2]
+
+
+def test_plugin_discovery(monkeypatch):
+    dummy = type("Dummy", (), {})
+    eps = [SimpleNamespace(load=lambda: dummy)]
+
+    monkeypatch.setattr(importlib.metadata, "entry_points", lambda group=None: eps)
+    gui.plugins._PLUGIN_REGISTRY.clear()
+
+    gui.discover_plugins()
+
+    assert dummy in list(gui.iter_plugins())
