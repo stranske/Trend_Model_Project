@@ -64,4 +64,3 @@ def test_output_alias(tmp_path):
     assert cfg.export["formats"] == ["csv"]
     assert cfg.export["directory"] == str(tmp_path)
     assert cfg.export["filename"] == "res"
-
