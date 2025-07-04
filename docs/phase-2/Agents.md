@@ -75,6 +75,93 @@ output:
 """
 
 """
+<!-- INSERT JUST AFTER THE MAIN TITLE, BEFORE STEP 1 -->
+<!-- STEP 0 START -->
+### Step 0 – Config Loader & Editor  📝
+
+| Purpose | Controls | Behaviour |
+|---------|----------|-----------|
+| **Load existing config** | `FileUpload(accept=".yml")` | Parse YAML → populate `ParamStore` → refresh downstream widgets. |
+| **Template picker** | `Dropdown(options=list_builtin_cfgs())` | Selecting a template triggers the same refresh. |
+| **Grid editor** | If **ipydatagrid** present: render editable grid of the current YAML.  Else show a disabled grid stub plus a warning banner. | Edits propagate to `ParamStore` in real time via the `on_cell_change` event; invalid edits revert and flash red. |
+| **Save/Download** | “💾 Save config” button → writes YAML to disk; “⬇️ Download” → triggers browser download. | Uses `yaml.safe_dump(param_store.to_dict())`. |
+
+> *Rationale*: power users often arrive with a ready config; making this the very first step short‑circuits half the clicks.
+
+<!-- STEP 0 END -->
+
+<!-- … existing Steps 1‑10 remain unchanged … -->
+
+<!-- locate STEP 11 and replace its body with the following … -->
+
+### Step 11 – GUI implementation (ipywidgets ± ipydatagrid)  🚀
+
+> **Scope additions since v2**: Config‑first flow, true grid editing, `ParamStore`, debounce wrapper, state persistence, dark‑mode toggle, plug‑in registry.
+
+| GUI Step | Mandatory Controls | Behaviour | Pure‑function hooks |
+|----------|-------------------|-----------|---------------------|
+| **0 – Config I/O** | See **Step 0** table above. | Valid edits update `ParamStore`; invalid edits rollback with toast. | `build_config_dict()` |
+| **1 – Mode & global flags** | unchanged | unchanged | – |
+| **2 – Ranking options** | unchanged | **New**: metric/weight sliders wrapped in 300 ms debounce decorator. | `rank_select_funds()` |
+| **3 – Manual override** | **Primary**: `ipydatagrid.DataGrid` (editable include/weight columns).  <br>**Fallback**: previous SelectMultiple layout + warning. | Grid emits `cell_edited`; keeps weights numeric & ≥0. | – |
+| **4 – Output & run** | + “🌗 Theme:” `ToggleButtons(["system","light","dark"])` | Dark‑mode switch toggles a CSS variable on the root DOM node. | – |
+| **Status / logs** | unchanged | unchanged | – |
+
+**ParamStore dataclass**
+
+```python
+@dataclass
+class ParamStore:
+    """Mutable GUI state shared across view layers."""
+    cfg: dict[str, Any] = field(default_factory=dict)
+    theme: str = "system"          # light | dark
+    dirty: bool = False            # unsaved edits flag
+
+    def to_dict(self) -> dict[str, Any]:
+        return self.cfg
+
+    @classmethod
+    def from_yaml(cls, path: Path) -> "ParamStore":
+        return cls(cfg=yaml.safe_load(path.read_text()))
+
+All widget callbacks accept (change, *, store: ParamStore) and mutate store
+only; pipeline ingest path is run(build_config_from_store(store)).
+Debounce helper
+def debounce(wait_ms: int = 300):
+    def decorator(fn):
+        last_call = 0
+        async def wrapper(*args, **kwargs):
+            nonlocal last_call
+            last_call = time.time()
+            await asyncio.sleep(wait_ms / 1000)
+            if time.time() - last_call >= wait_ms / 1000:
+                return fn(*args, **kwargs)
+        return wrapper
+    return decorator
+
+State persistence
+
+On successful Run, call
+yaml.safe_dump(store.to_dict(), Path.home()/".trend_gui_state.yml").
+
+On GUI launch, attempt to load the file; if malformed, ignore with a warning.
+
+Plug‑in registry
+for ep in importlib.metadata.entry_points(group="trend_analysis.gui_plugins"):
+    plugin_cls = ep.load()
+    register_plugin(plugin_cls)       # adds controls dynamically
+for ep in importlib.metadata.entry_points(group="trend_analysis.gui_plugins"):
+    plugin_cls = ep.load()
+    register_plugin(plugin_cls)       # adds controls dynamically
+
+Tests must assert that enumerating plug‑ins requires no widget edits.
+
+<!-- STEP 11 END -->
+
+
+
+
+
 🔄 2025‑06‑15 UPDATE — PHASE‑1 ENHANCEMENTS
 ------------------------------------------
 • Blended ranking **must** use *z‑scores* (mean‑0, stdev‑1) before the
@@ -344,3 +431,5 @@ Step 10 – Docs housekeeping
 Phase‑1 docs stay at docs/phase-1/Agents.md.
 Phase‑2 docs live in docs/phase-2/Agents.md (this file).
 Cross‑link at the top.
+
+
