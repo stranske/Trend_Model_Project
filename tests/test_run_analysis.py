@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from trend_analysis.pipeline import run_analysis, Stats, calc_portfolio_returns
+from trend_analysis.core.rank_selection import RiskStatsConfig
 from trend_analysis.metrics import (
     annualize_return,
     annualize_volatility,
@@ -61,3 +62,13 @@ def test_run_analysis_random_selection():
         seed=1,
     )
     assert len(res["selected_funds"]) == 1
+
+
+def test_run_analysis_returns_score_frame():
+    df = make_df()
+    res = run_analysis(df, "2020-01", "2020-03", "2020-04", "2020-06", 0.1, 0.0)
+    sf = res.get("score_frame")
+    assert isinstance(sf, pd.DataFrame)
+    cfg = RiskStatsConfig()
+    assert sf.columns.tolist() == cfg.metrics_to_run
+    assert sf.attrs["insample_len"] == 3

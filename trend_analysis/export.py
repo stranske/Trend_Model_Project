@@ -52,24 +52,33 @@ def make_summary_formatter(
                 return ""
             return cast(str | float, v)
 
-        def to_tuple(obj: Any) -> tuple[float, float, float, float, float]:
+        def to_tuple(obj: Any) -> tuple[float, float, float, float, float, float]:
             if isinstance(obj, tuple):
-                return cast(tuple[float, float, float, float, float], obj)
+                return cast(tuple[float, float, float, float, float, float], obj)
             return (
                 cast(float, obj.cagr),
                 cast(float, obj.vol),
                 cast(float, obj.sharpe),
                 cast(float, obj.sortino),
+                cast(float, obj.information_ratio),
                 cast(float, obj.max_drawdown),
             )
 
         def pct(t: Any) -> list[float]:
             tup = to_tuple(t)
-            return [tup[0] * 100, tup[1] * 100, tup[2], tup[3], tup[4] * 100]
+            return [
+                tup[0] * 100,
+                tup[1] * 100,
+                tup[2],
+                tup[3],
+                tup[4],
+                tup[5] * 100,
+            ]
 
         ws.write_row(0, 0, ["Vol-Adj Trend Analysis"], bold)
         ws.write_row(1, 0, [f"In:  {in_start} → {in_end}"], bold)
         ws.write_row(2, 0, [f"Out: {out_start} → {out_end}"], bold)
+        bench_labels = list(res.get("benchmark_ir", {}))
         headers = [
             "Name",
             "Weight",
@@ -77,13 +86,16 @@ def make_summary_formatter(
             "IS Vol",
             "IS Sharpe",
             "IS Sortino",
+            "IS IR",
             "IS MaxDD",
             "OS CAGR",
             "OS Vol",
             "OS Sharpe",
             "OS Sortino",
-            "OS MaxDD",
+            "OS IR",
         ]
+        headers.extend([f"OS IR {b}" for b in bench_labels])
+        headers.append("OS MaxDD")
         ws.write_row(4, 0, headers, bold)
 
         row = 5
@@ -94,7 +106,14 @@ def make_summary_formatter(
             ws.write(row, 0, label, bold)
             ws.write(row, 1, safe(""))
             vals = pct(ins) + pct(outs)
-            fmts = ([num2] * 4 + [red]) * 2
+            extra = [
+                res.get("benchmark_ir", {})
+                .get(b, {})
+                .get("equal_weight" if label == "Equal Weight" else "user_weight", "")
+                for b in bench_labels
+            ]
+            fmts = ([num2] * 5 + [red]) * 2 + [num2] * len(bench_labels)
+            vals.extend(extra)
             for col, (v, fmt) in enumerate(zip(vals, fmts), start=2):
                 ws.write(row, col, safe(v), fmt)
             row += 1
@@ -106,22 +125,17 @@ def make_summary_formatter(
             wt = res["fund_weights"][fund]
             ws.write(row, 1, safe(wt * 100), int0)
             vals = pct(stat_in) + pct(stat_out)
-            fmts = ([num2] * 4 + [red]) * 2
+            extra = [
+                res.get("benchmark_ir", {}).get(b, {}).get(fund, "")
+                for b in bench_labels
+            ]
+            fmts = ([num2] * 5 + [red]) * 2 + [num2] * len(bench_labels)
+            vals.extend(extra)
             for col, (v, fmt) in enumerate(zip(vals, fmts), start=2):
                 ws.write(row, col, safe(v), fmt)
             row += 1
 
         row += 1
-        for idx, pair in res.get("index_stats", {}).items():
-            in_idx = pair["in_sample"]
-            out_idx = pair["out_sample"]
-            ws.write(row, 0, idx, bold)
-            ws.write(row, 1, safe(""))
-            vals = pct(in_idx) + pct(out_idx)
-            fmts = ([num2] * 4 + [red]) * 2
-            for col, (v, fmt) in enumerate(zip(vals, fmts), start=2):
-                ws.write(row, col, safe(v), fmt)
-            row += 1
 
     return fmt_summary
 
@@ -142,21 +156,23 @@ def format_summary_text(
             return f"{val:.2f}"
         return cast(str, val)
 
-    def to_tuple(obj: Any) -> tuple[float, float, float, float, float]:
+    def to_tuple(obj: Any) -> tuple[float, float, float, float, float, float]:
         if isinstance(obj, tuple):
-            return cast(tuple[float, float, float, float, float], obj)
+            return cast(tuple[float, float, float, float, float, float], obj)
         return (
             cast(float, obj.cagr),
             cast(float, obj.vol),
             cast(float, obj.sharpe),
             cast(float, obj.sortino),
+            cast(float, obj.information_ratio),
             cast(float, obj.max_drawdown),
         )
 
     def pct(t: Any) -> list[float]:
         a = to_tuple(t)
-        return [a[0] * 100, a[1] * 100, a[2], a[3], a[4] * 100]
+        return [a[0] * 100, a[1] * 100, a[2], a[3], a[4], a[5] * 100]
 
+    bench_labels = list(res.get("benchmark_ir", {}))
     columns = [
         "Name",
         "Weight",
@@ -164,13 +180,16 @@ def format_summary_text(
         "IS Vol",
         "IS Sharpe",
         "IS Sortino",
+        "IS IR",
         "IS MaxDD",
         "OS CAGR",
         "OS Vol",
         "OS Sharpe",
         "OS Sortino",
-        "OS MaxDD",
+        "OS IR",
     ]
+    columns.extend([f"OS IR {b}" for b in bench_labels])
+    columns.append("OS MaxDD")
 
     rows: list[list[str | float | None]] = []
 
@@ -179,6 +198,16 @@ def format_summary_text(
         ("User Weight", res["in_user_stats"], res["out_user_stats"]),
     ]:
         vals = pct(ins) + pct(outs)
+        extra = [
+            res.get("benchmark_ir", {})
+            .get(b, {})
+            .get(
+                "equal_weight" if label == "Equal Weight" else "user_weight",
+                float("nan"),
+            )
+            for b in bench_labels
+        ]
+        vals.extend(extra)
         rows.append([label, None, *vals])
 
     rows.append([None] * len(columns))
@@ -187,13 +216,12 @@ def format_summary_text(
         stat_out = res["out_sample_stats"][fund]
         weight = res["fund_weights"][fund] * 100
         vals = pct(stat_in) + pct(stat_out)
+        extra = [
+            res.get("benchmark_ir", {}).get(b, {}).get(fund, float("nan"))
+            for b in bench_labels
+        ]
+        vals.extend(extra)
         rows.append([fund, weight, *vals])
-
-    if res.get("index_stats"):
-        rows.append([None] * len(columns))  # pragma: no cover - optional branch
-        for idx, pair in res["index_stats"].items():  # pragma: no cover
-            vals = pct(pair["in_sample"]) + pct(pair["out_sample"])  # pragma: no cover
-            rows.append([idx, None, *vals])  # pragma: no cover
 
     df = pd.DataFrame(rows, columns=columns)
     df_formatted = df.map(safe)

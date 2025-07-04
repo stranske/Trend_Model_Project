@@ -7,17 +7,114 @@ This module implements the `rank` selection mode described in Agents.md. Funds c
 #  Runtime imports and dataclasses
 # =============================================================================
 from __future__ import annotations
-
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, cast
 from ..export import Formatter
 import io
-
 import numpy as np
 import pandas as pd
 import ipywidgets as widgets
 from .. import metrics as _metrics
 from ..data import load_csv, identify_risk_free_fund, ensure_datetime
+
+DEFAULT_METRIC = "annual_return"
+
+
+# ──────────────────────────────────────────────────────────────────
+# Metric transformer: raw | rank | percentile | zscore
+# ──────────────────────────────────────────────────────────────────
+def _apply_transform(
+    series: pd.Series,
+    *,
+    mode: str = "raw",
+    window: int | None = None,
+    rank_pct: float | None = None,
+    ddof: int = 0,
+) -> pd.Series:
+    """
+    Return a transformed copy of *series* without mutating the original.
+
+    Parameters
+    ----------
+    mode      : 'raw' | 'rank' | 'percentile' | 'zscore'
+    window    : trailing periods for z‑score (ignored otherwise)
+    rank_pct  : top‑X% mask when mode == 'percentile'
+    ddof      : degrees of freedom for std in z‑score
+    """
+    if mode == "raw":
+        return series
+
+    if mode == "rank":
+        return series.rank(ascending=False, pct=False)
+
+    if mode == "percentile":
+        if rank_pct is None:
+            raise ValueError("rank_pct must be set for percentile transform")
+        k = max(int(round(len(series) * rank_pct)), 1)
+        mask = series.rank(ascending=False, pct=False) <= k
+        return series.where(mask, np.nan)
+
+    if mode == "zscore":
+        if window is None or window > len(series):
+            window = len(series)
+        recent = series.iloc[-window:]
+        mu = recent.mean()
+        sigma = recent.std(ddof=ddof)
+        return (series - mu) / sigma
+
+    raise ValueError(f"unknown transform mode '{mode}'")
+
+
+def rank_select_funds(
+    in_sample_df: pd.DataFrame,
+    stats_cfg: RiskStatsConfig,
+    *,
+    inclusion_approach: str = "top_n",
+    transform: str = "raw",  # NEW
+    zscore_window: int | None = None,
+    rank_pct: float | None = None,
+    n: int | None = None,
+    pct: float | None = None,
+    threshold: float | None = None,
+    score_by: str = DEFAULT_METRIC,
+    blended_weights: dict[str, float] | None = None,
+) -> list[str]:
+    """
+    Central routine – returns the **ordered** list of selected funds.
+    """
+    if score_by == "blended":
+        scores = blended_score(in_sample_df, blended_weights or {}, stats_cfg)
+    else:
+        scores = _compute_metric_series(in_sample_df, score_by, stats_cfg)
+
+    scores = _apply_transform(
+        scores,
+        mode=transform,
+        window=zscore_window,
+        rank_pct=rank_pct,
+    )
+
+    ascending = score_by in ASCENDING_METRICS
+    scores = scores.sort_values(ascending=ascending)
+
+    if inclusion_approach == "top_n":
+        if n is None:
+            raise ValueError("top_n requires parameter n")
+        return cast(list[str], scores.head(n).index.tolist())
+
+    if inclusion_approach == "top_pct":
+        if pct is None or not 0 < pct <= 1:
+            raise ValueError("top_pct requires 0 < pct ≤ 1")
+        k = max(1, int(round(len(scores) * pct)))
+        return cast(list[str], scores.head(k).index.tolist())
+
+    if inclusion_approach == "threshold":
+        if threshold is None:
+            raise ValueError("threshold approach requires a threshold value")
+        mask = scores <= threshold if ascending else scores >= threshold
+        return cast(list[str], scores[mask].index.tolist())
+
+    raise ValueError(f"Unknown inclusion_approach '{inclusion_approach}'")
 
 
 @dataclass
@@ -54,21 +151,27 @@ class RiskStatsConfig:
             "Sharpe",
             "Sortino",
             "MaxDrawdown",
+            "InformationRatio",
         ]
     )
     risk_free: float = 0.0
     periods_per_year: int = 12
 
 
-METRIC_REGISTRY: Dict[str, Callable[..., float]] = {}
+METRIC_REGISTRY: Dict[str, Callable[..., float | pd.Series | np.floating]] = {}
 
 
 def register_metric(
     name: str,
-) -> Callable[[Callable[..., float]], Callable[..., float]]:
+) -> Callable[
+    [Callable[..., float | pd.Series | np.floating]],
+    Callable[..., float | pd.Series | np.floating],
+]:
     """Register ``fn`` under ``name`` in :data:`METRIC_REGISTRY`."""
 
-    def decorator(fn: Callable[..., float]) -> Callable[..., float]:
+    def decorator(
+        fn: Callable[..., float | pd.Series | np.floating],
+    ) -> Callable[..., float | pd.Series | np.floating]:
         METRIC_REGISTRY[name] = fn
         return fn
 
@@ -105,27 +208,41 @@ def _quality_filter(
 
 # Register basic metrics from the public ``metrics`` module
 register_metric("AnnualReturn")(
-    lambda s, *, periods_per_year=12, risk_free=0.0: _metrics.annualize_return(
+    lambda s, *, periods_per_year=12, **k: _metrics.annual_return(
         s, periods_per_year=periods_per_year
     )
 )
+
 register_metric("Volatility")(
-    lambda s, *, periods_per_year=12, risk_free=0.0: _metrics.annualize_volatility(
+    lambda s, *, periods_per_year=12, **k: _metrics.volatility(
         s, periods_per_year=periods_per_year
     )
 )
+
 register_metric("Sharpe")(
     lambda s, *, periods_per_year=12, risk_free=0.0: _metrics.sharpe_ratio(
-        s, pd.Series(risk_free, index=s.index), periods_per_year
+        s,
+        periods_per_year=periods_per_year,
+        risk_free=risk_free,
     )
 )
+
 register_metric("Sortino")(
-    lambda s, *, periods_per_year=12, risk_free=0.0: _metrics.sortino_ratio(
-        s, pd.Series(risk_free, index=s.index), periods_per_year
+    lambda s, *, periods_per_year=12, target=0.0, **k: _metrics.sortino_ratio(
+        s,
+        periods_per_year=periods_per_year,
+        target=target,
     )
 )
-register_metric("MaxDrawdown")(
-    lambda s, *, periods_per_year=12, risk_free=0.0: _metrics.max_drawdown(s)
+
+register_metric("MaxDrawdown")(lambda s, **k: _metrics.max_drawdown(s))
+
+register_metric("InformationRatio")(
+    lambda s, *, periods_per_year=12, benchmark=None, **k: _metrics.information_ratio(
+        s,
+        benchmark=benchmark if benchmark is not None else pd.Series(0, index=s.index),
+        periods_per_year=periods_per_year,
+    )
 )
 
 # ===============================================================
@@ -133,7 +250,7 @@ register_metric("MaxDrawdown")(
 # ===============================================================
 
 ASCENDING_METRICS = {"MaxDrawdown"}  # smaller is better
-DEFAULT_METRIC = "Sharpe"
+DEFAULT_METRIC = "annual_return"
 
 
 def _compute_metric_series(
@@ -155,9 +272,6 @@ def _compute_metric_series(
     )
 
 
-# ---------------------------------------------------------------
-#  Replace previous blended_score with z‑score version
-# ---------------------------------------------------------------
 def _zscore(series: pd.Series) -> pd.Series:
     """Return z‑scores (mean 0, stdev 1).  Gracefully handles zero σ."""
     μ, σ = series.mean(), series.std(ddof=0)
@@ -185,47 +299,6 @@ def blended_score(
             z *= -1
         combo += w * z
     return combo
-
-
-def rank_select_funds(
-    in_sample_df: pd.DataFrame,
-    stats_cfg: RiskStatsConfig,
-    inclusion_approach: str = "top_n",
-    n: int | None = None,
-    pct: float | None = None,
-    threshold: float | None = None,
-    score_by: str = DEFAULT_METRIC,
-    blended_weights: dict[str, float] | None = None,
-) -> list[str]:
-    """
-    Central routine – returns the **ordered** list of selected funds.
-    """
-    if score_by == "blended":
-        scores = blended_score(in_sample_df, blended_weights or {}, stats_cfg)
-    else:
-        scores = _compute_metric_series(in_sample_df, score_by, stats_cfg)
-
-    ascending = score_by in ASCENDING_METRICS
-    scores = scores.sort_values(ascending=ascending)
-
-    if inclusion_approach == "top_n":
-        if n is None:
-            raise ValueError("top_n requires parameter n")
-        return cast(list[str], scores.head(n).index.tolist())
-
-    if inclusion_approach == "top_pct":
-        if pct is None or not 0 < pct <= 1:
-            raise ValueError("top_pct requires 0 < pct ≤ 1")
-        k = max(1, int(round(len(scores) * pct)))
-        return cast(list[str], scores.head(k).index.tolist())
-
-    if inclusion_approach == "threshold":
-        if threshold is None:
-            raise ValueError("threshold approach requires a threshold value")
-        mask = scores <= threshold if ascending else scores >= threshold
-        return cast(list[str], scores[mask].index.tolist())
-
-    raise ValueError(f"Unknown inclusion_approach '{inclusion_approach}'")
 
 
 # ===============================================================
@@ -304,6 +377,8 @@ def build_ui() -> widgets.VBox:
     session: dict[str, Any] = {"df": None, "rf": None}
     idx_select = widgets.SelectMultiple(options=[], description="Indices:")
     idx_select.layout.display = "none"
+    bench_select = widgets.SelectMultiple(options=[], description="Benchmarks:")
+    bench_select.layout.display = "none"
     step1_box = widgets.VBox(
         [
             source_tb,
@@ -312,6 +387,7 @@ def build_ui() -> widgets.VBox:
             load_btn,
             load_out,
             idx_select,
+            bench_select,
             in_start,
             in_end,
             out_start,
@@ -357,6 +433,8 @@ def build_ui() -> widgets.VBox:
                 out_end.value = str(dates.min() + 5)
                 idx_select.options = [c for c in df.columns if c not in {"Date", rf}]
                 idx_select.layout.display = "flex"
+                bench_select.options = [c for c in df.columns if c not in {"Date"}]
+                bench_select.layout.display = "flex"
                 print(f"Loaded {len(df):,} rows")
             except Exception as exc:
                 session["df"] = None
@@ -599,6 +677,7 @@ def build_ui() -> widgets.VBox:
                     rank_kwargs=rank_kwargs,
                     manual_funds=manual_funds,
                     indices_list=list(idx_select.value),
+                    benchmarks={b: b for b in bench_select.value},
                 )
                 if res is None:
                     print("No results")
