@@ -10,18 +10,19 @@ from typing import Any
 
 from .data import load_csv
 from .metrics import (
-    annualize_return,
-    annualize_volatility,
+    annual_return,
+    volatility,
     sharpe_ratio,
     sortino_ratio,
     max_drawdown,
+    information_ratio,
 )
 
 if TYPE_CHECKING:  # pragma: no cover - for static type checking only
     from .config import Config
+    from .core.rank_selection import RiskStatsConfig
 
 del TYPE_CHECKING
-del annotations
 
 
 @dataclass
@@ -32,6 +33,7 @@ class _Stats:
     vol: float
     sharpe: float
     sortino: float
+    information_ratio: float
     max_drawdown: float
 
 
@@ -42,17 +44,76 @@ def calc_portfolio_returns(
     return returns_df.mul(weights, axis=1).sum(axis=1)
 
 
+def single_period_run(
+    df: pd.DataFrame,
+    start: str,
+    end: str,
+    *,
+    stats_cfg: RiskStatsConfig | None = None,
+) -> pd.DataFrame:
+    """Return a score frame of metrics for a single period.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Input returns data with a ``Date`` column.
+    start, end : str
+        Inclusive period in ``YYYY-MM`` format.
+    stats_cfg : RiskStatsConfig | None
+        Metric configuration; defaults to ``RiskStatsConfig()``.
+
+    Returns
+    -------
+    pd.DataFrame
+        Table of metric values (index = fund code).  The frame is pure
+        and carries ``insample_len`` and ``period`` metadata so callers
+        can reason about the analysed window.
+    """
+    from .core.rank_selection import RiskStatsConfig, _compute_metric_series
+
+    if stats_cfg is None:
+        stats_cfg = RiskStatsConfig()
+
+    if "Date" not in df.columns:
+        raise ValueError("DataFrame must contain a 'Date' column")
+
+    df = df.copy()
+    if not np.issubdtype(df["Date"].dtype, np.datetime64):
+        df["Date"] = pd.to_datetime(df["Date"])
+
+    def _parse_month(s: str) -> pd.Timestamp:
+        return pd.to_datetime(f"{s}-01") + pd.offsets.MonthEnd(0)
+
+    sdate, edate = _parse_month(start), _parse_month(end)
+    window = df[(df["Date"] >= sdate) & (df["Date"] <= edate)].set_index("Date")
+
+    metrics = stats_cfg.metrics_to_run
+    if not metrics:
+        raise ValueError("stats_cfg.metrics_to_run must not be empty")
+
+    parts = [
+        _compute_metric_series(window.dropna(axis=1, how="all"), m, stats_cfg)
+        for m in metrics
+    ]
+    score_frame = pd.concat(parts, axis=1)
+    score_frame.columns = metrics
+    score_frame.attrs["insample_len"] = len(window)
+    score_frame.attrs["period"] = (start, end)
+    return score_frame.astype(float)
+
+
 def _compute_stats(df: pd.DataFrame, rf: pd.Series) -> dict[str, _Stats]:
     # Metrics expect 1D Series; iterating keeps the logic simple for a handful
     # of columns and avoids reshaping into higher-dimensional arrays.
     stats = {}
     for col in df:
         stats[col] = _Stats(
-            cagr=annualize_return(df[col]),
-            vol=annualize_volatility(df[col]),
-            sharpe=sharpe_ratio(df[col], rf),
-            sortino=sortino_ratio(df[col], rf),
-            max_drawdown=max_drawdown(df[col]),
+            cagr=float(annual_return(df[col])),
+            vol=float(volatility(df[col])),
+            sharpe=float(sharpe_ratio(df[col], rf)),
+            sortino=float(sortino_ratio(df[col], rf)),
+            max_drawdown=float(max_drawdown(df[col])),
+            information_ratio=float(information_ratio(df[col], rf)),
         )
     return stats
 
@@ -71,6 +132,7 @@ def single_period_run(
     rank_kwargs: dict[str, object] | None = None,
     manual_funds: list[str] | None = None,
     indices_list: list[str] | None = None,
+    benchmarks: dict[str, str] | None = None,
     seed: int = 42,
 ) -> dict[str, object] | None:
     from .core.rank_selection import RiskStatsConfig, rank_select_funds
@@ -143,6 +205,11 @@ def single_period_run(
     if not fund_cols:
         return None
 
+    stats_cfg = RiskStatsConfig(risk_free=0.0)
+    score_frame = single_period_run(
+        df[[date_col] + fund_cols], in_start, in_end, stats_cfg=stats_cfg
+    )
+
     vols = in_df[fund_cols].std() * np.sqrt(12)
     scale_factors = (
         pd.Series(target_vol / vols, index=fund_cols)
@@ -187,12 +254,35 @@ def single_period_run(
         "user"
     ]
 
-    index_stats: dict[str, dict[str, _Stats]] = {}
-    for idx in valid_indices:  # pragma: no cover - rarely used
-        index_stats[idx] = {
-            "in_sample": _compute_stats(pd.DataFrame({idx: in_df[idx]}), rf_in)[idx],
-            "out_sample": _compute_stats(pd.DataFrame({idx: out_df[idx]}), rf_out)[idx],
+    benchmark_stats: dict[str, dict[str, _Stats]] = {}
+    benchmark_ir: dict[str, dict[str, float]] = {}
+    all_benchmarks: dict[str, str] = {}
+    if benchmarks:
+        all_benchmarks.update(benchmarks)
+    for idx in valid_indices:
+        if idx not in all_benchmarks:
+            all_benchmarks[idx] = idx
+
+    for label, col in all_benchmarks.items():
+        if col not in in_df.columns or col not in out_df.columns:
+            continue
+        benchmark_stats[label] = {
+            "in_sample": _compute_stats(pd.DataFrame({label: in_df[col]}), rf_in)[
+                label
+            ],
+            "out_sample": _compute_stats(pd.DataFrame({label: out_df[col]}), rf_out)[
+                label
+            ],
         }
+        ir_series = information_ratio(out_scaled[fund_cols], out_df[col])
+        ir_dict = (
+            ir_series.to_dict()
+            if isinstance(ir_series, pd.Series)
+            else {fund_cols[0]: float(ir_series)}
+        )
+        ir_dict["equal_weight"] = float(information_ratio(out_ew_raw, out_df[col]))
+        ir_dict["user_weight"] = float(information_ratio(out_user_raw, out_df[col]))
+        benchmark_ir[label] = ir_dict
 
     return {
         "selected_funds": fund_cols,
@@ -209,8 +299,9 @@ def single_period_run(
         "out_user_stats_raw": out_user_stats_raw,
         "ew_weights": ew_w_dict,
         "fund_weights": user_w_dict,
-        "indices_list": valid_indices,
-        "index_stats": index_stats,
+        "benchmark_stats": benchmark_stats,
+        "benchmark_ir": benchmark_ir,
+        "score_frame": score_frame,
     }
 
 
@@ -228,6 +319,7 @@ def run_analysis(
     rank_kwargs: dict[str, object] | None = None,
     manual_funds: list[str] | None = None,
     indices_list: list[str] | None = None,
+    benchmarks: dict[str, str] | None = None,
     seed: int = 42,
 ) -> dict[str, object] | None:
     """Backward-compatible wrapper around ``single_period_run``."""
@@ -245,6 +337,7 @@ def run_analysis(
         rank_kwargs,
         manual_funds,
         indices_list,
+        benchmarks,
         seed,
     )
 
@@ -274,12 +367,25 @@ def run(cfg: Config) -> pd.DataFrame:
         rank_kwargs=cfg.portfolio.get("rank"),
         manual_funds=cfg.portfolio.get("manual_list"),
         indices_list=cfg.portfolio.get("indices_list"),
+        benchmarks=cfg.benchmarks,
         seed=cfg.portfolio.get("random_seed", 42),
     )
     if res is None:
         return pd.DataFrame()
     stats = cast(dict[str, _Stats], res["out_sample_stats"])
-    return pd.DataFrame({k: vars(v) for k, v in stats.items()}).T
+    df = pd.DataFrame({k: vars(v) for k, v in stats.items()}).T
+    for label, ir_map in cast(
+        dict[str, dict[str, float]], res.get("benchmark_ir", {})
+    ).items():
+        col = f"ir_{label}"
+        df[col] = pd.Series(
+            {
+                k: v
+                for k, v in ir_map.items()
+                if k not in {"equal_weight", "user_weight"}
+            }
+        )
+    return df
 
 
 def run_full(cfg: Config) -> dict[str, object]:
@@ -307,6 +413,7 @@ def run_full(cfg: Config) -> dict[str, object]:
         rank_kwargs=cfg.portfolio.get("rank"),
         manual_funds=cfg.portfolio.get("manual_list"),
         indices_list=cfg.portfolio.get("indices_list"),
+        benchmarks=cfg.benchmarks,
         seed=cfg.portfolio.get("random_seed", 42),
     )
     return {} if res is None else res
@@ -314,7 +421,14 @@ def run_full(cfg: Config) -> dict[str, object]:
 
 Stats = _Stats
 
-__all__ = ["Stats", "calc_portfolio_returns", "run_analysis", "run", "run_full"]
+__all__ = [
+    "Stats",
+    "calc_portfolio_returns",
+    "single_period_run",
+    "run_analysis",
+    "run",
+    "run_full",
+]
 
 
 def __getattr__(name: str) -> object:

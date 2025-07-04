@@ -17,6 +17,8 @@ import ipywidgets as widgets
 from .. import metrics as _metrics
 from ..data import load_csv, identify_risk_free_fund, ensure_datetime
 
+DEFAULT_METRIC = "annual_return"
+
 
 # ──────────────────────────────────────────────────────────────────
 # Metric transformer: raw | rank | percentile | zscore
@@ -149,21 +151,27 @@ class RiskStatsConfig:
             "Sharpe",
             "Sortino",
             "MaxDrawdown",
+            "InformationRatio",
         ]
     )
     risk_free: float = 0.0
     periods_per_year: int = 12
 
 
-METRIC_REGISTRY: Dict[str, Callable[..., float]] = {}
+METRIC_REGISTRY: Dict[str, Callable[..., float | pd.Series | np.floating]] = {}
 
 
 def register_metric(
     name: str,
-) -> Callable[[Callable[..., float]], Callable[..., float]]:
+) -> Callable[
+    [Callable[..., float | pd.Series | np.floating]],
+    Callable[..., float | pd.Series | np.floating],
+]:
     """Register ``fn`` under ``name`` in :data:`METRIC_REGISTRY`."""
 
-    def decorator(fn: Callable[..., float]) -> Callable[..., float]:
+    def decorator(
+        fn: Callable[..., float | pd.Series | np.floating],
+    ) -> Callable[..., float | pd.Series | np.floating]:
         METRIC_REGISTRY[name] = fn
         return fn
 
@@ -200,27 +208,41 @@ def _quality_filter(
 
 # Register basic metrics from the public ``metrics`` module
 register_metric("AnnualReturn")(
-    lambda s, *, periods_per_year=12, risk_free=0.0: _metrics.annualize_return(
+    lambda s, *, periods_per_year=12, **k: _metrics.annual_return(
         s, periods_per_year=periods_per_year
     )
 )
+
 register_metric("Volatility")(
-    lambda s, *, periods_per_year=12, risk_free=0.0: _metrics.annualize_volatility(
+    lambda s, *, periods_per_year=12, **k: _metrics.volatility(
         s, periods_per_year=periods_per_year
     )
 )
+
 register_metric("Sharpe")(
     lambda s, *, periods_per_year=12, risk_free=0.0: _metrics.sharpe_ratio(
-        s, pd.Series(risk_free, index=s.index), periods_per_year
+        s,
+        periods_per_year=periods_per_year,
+        risk_free=risk_free,
     )
 )
+
 register_metric("Sortino")(
-    lambda s, *, periods_per_year=12, risk_free=0.0: _metrics.sortino_ratio(
-        s, pd.Series(risk_free, index=s.index), periods_per_year
+    lambda s, *, periods_per_year=12, target=0.0, **k: _metrics.sortino_ratio(
+        s,
+        periods_per_year=periods_per_year,
+        target=target,
     )
 )
-register_metric("MaxDrawdown")(
-    lambda s, *, periods_per_year=12, risk_free=0.0: _metrics.max_drawdown(s)
+
+register_metric("MaxDrawdown")(lambda s, **k: _metrics.max_drawdown(s))
+
+register_metric("InformationRatio")(
+    lambda s, *, periods_per_year=12, benchmark=None, **k: _metrics.information_ratio(
+        s,
+        benchmark=benchmark if benchmark is not None else pd.Series(0, index=s.index),
+        periods_per_year=periods_per_year,
+    )
 )
 
 # ===============================================================
@@ -228,7 +250,7 @@ register_metric("MaxDrawdown")(
 # ===============================================================
 
 ASCENDING_METRICS = {"MaxDrawdown"}  # smaller is better
-DEFAULT_METRIC = "Sharpe"
+DEFAULT_METRIC = "annual_return"
 
 
 def _compute_metric_series(
@@ -355,6 +377,8 @@ def build_ui() -> widgets.VBox:
     session: dict[str, Any] = {"df": None, "rf": None}
     idx_select = widgets.SelectMultiple(options=[], description="Indices:")
     idx_select.layout.display = "none"
+    bench_select = widgets.SelectMultiple(options=[], description="Benchmarks:")
+    bench_select.layout.display = "none"
     step1_box = widgets.VBox(
         [
             source_tb,
@@ -363,6 +387,7 @@ def build_ui() -> widgets.VBox:
             load_btn,
             load_out,
             idx_select,
+            bench_select,
             in_start,
             in_end,
             out_start,
@@ -408,6 +433,8 @@ def build_ui() -> widgets.VBox:
                 out_end.value = str(dates.min() + 5)
                 idx_select.options = [c for c in df.columns if c not in {"Date", rf}]
                 idx_select.layout.display = "flex"
+                bench_select.options = [c for c in df.columns if c not in {"Date"}]
+                bench_select.layout.display = "flex"
                 print(f"Loaded {len(df):,} rows")
             except Exception as exc:
                 session["df"] = None
@@ -650,6 +677,7 @@ def build_ui() -> widgets.VBox:
                     rank_kwargs=rank_kwargs,
                     manual_funds=manual_funds,
                     indices_list=list(idx_select.value),
+                    benchmarks={b: b for b in bench_select.value},
                 )
                 if res is None:
                     print("No results")

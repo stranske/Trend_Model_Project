@@ -7,6 +7,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 from pandas import DataFrame, Series
+from trend_analysis.metrics import information_ratio
 
 
 def _validate_input(obj: Series | DataFrame) -> None:
@@ -22,7 +23,7 @@ def _apply(  # helper to handle Series/DataFrame uniformly
     return obj.apply(lambda col: func(col.dropna()), axis=axis)
 
 
-def annualize_return(
+def annual_return(
     returns: Series | DataFrame, periods_per_year: int = 12, axis: int = 0
 ) -> Series | float:
     """Geometric annualised return.
@@ -45,7 +46,7 @@ def annualize_return(
     -------
     >>> import pandas as pd
     >>> s = pd.Series([0.02, -0.01, 0.03])
-    >>> annualize_return(s)
+    >>> annual_return(s)
     0.236090...  # doctest: +ELLIPSIS
     """
     _validate_input(returns)
@@ -62,7 +63,7 @@ def annualize_return(
     return _apply(returns, _calc, axis)
 
 
-def annualize_volatility(
+def volatility(
     returns: Series | DataFrame, periods_per_year: int = 12, axis: int = 0
 ) -> Series | float:
     """Annualised volatility of returns."""
@@ -91,8 +92,8 @@ def sharpe_ratio(
         if len(df) < 2:
             return np.nan
         excess = df["r"] - df["rf"]
-        ann_excess_ret = annualize_return(excess, periods_per_year)
-        ann_excess_vol = annualize_volatility(excess, periods_per_year)
+        ann_excess_ret = annual_return(excess, periods_per_year)
+        ann_excess_vol = volatility(excess, periods_per_year)
         if ann_excess_vol == 0 or np.isnan(ann_excess_vol):
             return np.nan
         return ann_excess_ret / ann_excess_vol
@@ -170,3 +171,7 @@ def max_drawdown(returns: Series | DataFrame, axis: int = 0) -> Series | float:
         return dd.max()
 
     return _apply(returns, _calc, axis)
+
+
+annualize_return = annual_return
+information_ratio = info_ratio = information_ratio

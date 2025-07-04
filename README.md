@@ -76,6 +76,47 @@ The actual ranking logic is implemented in
 `trend_analysis/core/rank_selection.py` and wired into the pipeline via
 `trend_analysis/pipeline.py`.
 
+## Information ratio & benchmarks
+
+The pipeline also calculates each portfolio's **information ratio** relative to
+one or more benchmarks. The YAML configuration accepts a `benchmarks` mapping
+of labels to column names:
+
+```yaml
+benchmarks:
+  spx: SPX
+  tsx: TSX
+```
+
+When set, additional `OS IR <label>` columns are appended to the metrics output
+and summary Excel sheet. These values measure risk‑adjusted performance versus
+the chosen benchmarks.
+
+## Score frame
+
+`trend_analysis.pipeline.single_period_run()` returns a **score frame** – a
+DataFrame indexed by fund code with one column per metric listed in
+`RiskStatsConfig.metrics_to_run`. The frame also carries `insample_len` and
+`period` metadata. `run_analysis()` places this table in the result dictionary
+under the key `"score_frame"` so callers can inspect the raw metric values
+before any ranking or weighting takes place.
+
+Example:
+```python
+import pandas as pd
+from trend_analysis.pipeline import single_period_run, run_analysis
+
+df = pd.read_csv("my_returns.csv")
+sf = single_period_run(df, "2021-01", "2021-03")
+print(sf)
+
+# Alternatively, call ``run_analysis`` and grab the same table
+res = run_analysis(df, "2021-01", "2021-03", "2021-04", "2021-06", 1.0, 0.0)
+score_frame = res["score_frame"]
+print(score_frame)
+```
+
+
 ## Testing
 
 Install the project dependencies (such as `pandas`, `numpy` and `PyYAML`) before running the test suite. This can be done using the setup script, which

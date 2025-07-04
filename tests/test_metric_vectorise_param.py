@@ -1,4 +1,6 @@
-import numpy as np, pandas as pd, pytest
+import numpy as np
+import pandas as pd
+import pytest
 import trend_analysis.metrics as M
 import tests.legacy_metrics as L
 

@@ -72,6 +72,14 @@ portfolio:
       AnnualReturn: 0.3
       MaxDrawdown: 0.2
 # ----------------------------------------------------------------------
+# BENCHMARKS
+# ----------------------------------------------------------------------
+benchmarks:
+  # Example mapping from label to column name
+  spx: SPX
+  tsx: TSX
+
+# ----------------------------------------------------------------------
 # 6. PERFORMANCE METRICS
 # ----------------------------------------------------------------------
 metrics:
@@ -84,7 +92,7 @@ metrics:
     - volatility
     - sharpe_ratio
     - sortino_ratio
-    - info_ratio
+    - information_ratio
     - max_drawdown
   compute:
     - CAGR

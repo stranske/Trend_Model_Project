@@ -1,5 +1,7 @@
-import numpy as np, pandas as pd
+import numpy as np
+import pandas as pd
 from trend_analysis.core.rank_selection import _apply_transform
+
 
 def test_apply_transform_zscore():
     s = pd.Series([0.1, 0.2, 0.0, 0.3], index=list("ABCD"))
