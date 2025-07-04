@@ -432,4 +432,135 @@ Phase‑1 docs stay at docs/phase-1/Agents.md.
 Phase‑2 docs live in docs/phase-2/Agents.md (this file).
 Cross‑link at the top.
 
+<!-- STEP 12 START -->
+---
+
+## Step 12 – Adaptive Bayesian Cross‑Period Weighting  🎯
+
+> **Problem**  
+> Current weighting schemes (`equal`, `score_prop_*`) “reset” every rebalance;
+> persistent skill is ignored.  
+> **Solution** — `AdaptiveBayesWeighting`: a conjugate‑normal, exponentially
+> decayed posterior that tilts capital toward managers with *sustained*
+> high scores while letting laggards mean‑revert.
+
+### 12.1  Class contract
+
+```python
+class AdaptiveBayesWeighting(BaseWeighting):
+    """State‑ful, cross‑period Bayesian re‑weighting.
+
+    Posterior mean := capital share per fund.
+    Posterior τ     := confidence (inverse variance) updated via scores.
+    """
+
+    def __init__(
+        self,
+        *,
+        half_life: int = 90,          # days – exponential decay of τ
+        obs_sigma: float = 0.25,      # σ of score observation noise
+        max_w: float | None = 0.20,   # optional hard cap on any single fund
+        prior_mean: Literal["equal"] | ndarray = "equal",
+        prior_tau: float = 1.0,
+    ):
+        ...
+
+    def update(
+        self,
+        scores: pd.Series,            # index = fund, float64
+        days: int                     # # calendar days since last rebalance
+    ) -> None:
+        """Bayes‑update posteriors in‑place (no return)."""
+
+    def weight(self, candidates: pd.DataFrame) -> pd.Series:
+        """Return weights **for this period**, sum == 1.0, respects `max_w`."""
+
+12.2  Engine wiring
+selector   = build_selector(cfg)          # unchanged
+weighting  = build_weighting(cfg)         # may be AdaptiveBayesWeighting
+
+for date, sf in score_frames.items():
+    selected = selector.select(sf)[0]     # DataFrame
+    weights  = weighting.weight(selected) # uses *current* posterior
+    portfolio.rebalance(date, weights)
+
+    # --- NEW: feed realised scores back in ---
+    weighting.update(
+        scores = sf.loc[weights.index, cfg.rank_column],
+        days   = (date - prev_date).days
+    )
+    prev_date = date
+
+12.3  Config schema delta
+portfolio:
+  weighting:
+    name: adaptive_bayes           # new
+    params:
+      half_life: 90                # int days
+      obs_sigma: 0.25              # score σ
+      max_w: 0.20                  # clip (optional)
+      prior_tau: 1.0               # prior precision
+
+Back‑compat: absence of these keys defaults to score_prop_simple.
+
+12.4  GUI additions
+Weighting method dropdown now enumerates via the plug‑in registry and
+auto‑discovers AdaptiveBayesWeighting.
+
+If chosen, reveal controls:
+
+half_life → IntSlider(30‑365)
+
+obs_sigma → FloatSlider(0‑1)
+
+max_w     → FloatSlider(0‑0.5)
+
+prior_tau → FloatSlider(0‑5)
+
+All four controls inherit the 300 ms debounce wrapper.
+
+12.5  State & reset rules
+Posterior state lives inside the weighting instance only.
+
+Loading a new YAML (Step 0) or clicking “↻ Reset” in the GUI rebuilds
+the weighting object → posteriors reset.
+
+Periodic state can be serialised alongside ~/.trend_gui_state.yml
+using pickle under the key adaptive_bayes_posteriors; safe to ignore
+if absent.
+
+12.6  Tests (new tests/test_adaptive_bayes.py)
+Drift toward winners
+Simulate three periods; fund A top‑scores each time.
+assert weights_A_3 > weights_A_2 > weights_A_1.
+
+Sum‑to‑one
+numpy.testing.assert_allclose(weights.sum(), 1.0, rtol=1e‑12).
+
+Clip respects max_w
+Force outlier posterior, assert weights.max() <= max_w + 1e‑9.
+
+Half‑life zero → simple weighting
+With half_life = 0, compare against ScorePropSimple.
+
+12.7  Open parameters for Phase 2 sign‑off
+Parameter	Default	Rationale	Can be tuned later?
+half_life	90 d	echo typical quarterly review cycle	✅
+obs_sigma	0.25	reasonable dispersion of z‑scores	✅
+max_w	20 %	avoid concentration risk	✅
+prior_tau	1.0	uninformative prior	✅
+
+
+---
+
+**Next steps**
+
+* Implement the `AdaptiveBayesWeighting` class and unit tests.
+* Extend GUI weight‑method dropdown via the existing plug‑in registry.
+* Confirm the chosen default parameters or adjust in the table above.
+
+After this patch lands, the persistent‑success mechanic will be fully
+spec‑locked and ready for coding.
+
+
 
