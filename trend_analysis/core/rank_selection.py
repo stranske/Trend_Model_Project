@@ -8,7 +8,7 @@ This module implements the `rank` selection mode described in Agents.md. Funds c
 # =============================================================================
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, cast
+from typing import Any, Callable, Dict, List, Iterable, cast
 from ..export import Formatter
 import io
 import numpy as np
@@ -159,6 +159,22 @@ class RiskStatsConfig:
 
 
 METRIC_REGISTRY: Dict[str, Callable[..., float | pd.Series | np.floating]] = {}
+
+# Map snake_case config names to the canonical registry keys.
+_METRIC_ALIASES: dict[str, str] = {
+    "annual_return": "AnnualReturn",
+    "volatility": "Volatility",
+    "sharpe_ratio": "Sharpe",
+    "sortino_ratio": "Sortino",
+    "max_drawdown": "MaxDrawdown",
+    "information_ratio": "InformationRatio",
+}
+
+
+def canonical_metric_list(names: Iterable[str]) -> list[str]:
+    """Return registry keys normalised from ``names``."""
+
+    return [_METRIC_ALIASES.get(n, n) for n in names]
 
 
 def register_metric(
@@ -751,4 +767,5 @@ __all__ = [
     "rank_select_funds",
     "select_funds",
     "build_ui",
+    "canonical_metric_list",
 ]
