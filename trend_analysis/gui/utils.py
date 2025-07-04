@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+from pathlib import Path
 from collections.abc import Callable
 from typing import Any
 
@@ -33,4 +34,10 @@ def debounce(wait_ms: int = 300) -> Callable[[Callable[..., Any]], Callable[...,
     return decorator
 
 
-__all__ = ["debounce"]
+def list_builtin_cfgs() -> list[str]:
+    """Return names of built-in YAML configs bundled with the package."""
+    cfg_dir = Path(__file__).resolve().parents[2] / "config"
+    return sorted(p.stem for p in cfg_dir.glob("*.yml"))
+
+
+__all__ = ["debounce", "list_builtin_cfgs"]
