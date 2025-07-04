@@ -12,7 +12,7 @@ def debounce(wait_ms: int = 300) -> Callable[[Callable[..., Any]], Callable[...,
     def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
         last_call = 0.0
 
-        handle: asyncio.Task | None = None
+        handle: asyncio.Task[Any] | None = None
 
         async def fire(args: Any, kwargs: Any) -> None:
             await asyncio.sleep(wait_ms / 1000)

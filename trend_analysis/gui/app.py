@@ -4,6 +4,7 @@ from pathlib import Path
 import warnings
 import yaml
 import ipywidgets as widgets
+from typing import Any
 
 from .store import ParamStore
 from .plugins import discover_plugins
@@ -47,7 +48,7 @@ def launch() -> widgets.Widget:
         description="Theme",
     )
 
-    def on_mode(change: dict) -> None:
+    def on_mode(change: dict[str, Any]) -> None:
         store.cfg["mode"] = change["new"]
         store.dirty = True
 

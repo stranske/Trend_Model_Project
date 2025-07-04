@@ -28,6 +28,7 @@ jobs:
         with:
           python-version: '3.11'
       - run: pip install mypy
+      - run: pip install types-PyYAML
       - run: mypy --strict trend_analysis
 
 

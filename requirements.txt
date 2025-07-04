@@ -8,5 +8,6 @@ xlsxwriter
 pydantic>=2
 openpyxl
 PyYAML
+types-PyYAML
 pytest-cov
 pytest
