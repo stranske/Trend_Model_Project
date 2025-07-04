@@ -134,6 +134,7 @@ def _run_analysis(
     indices_list: list[str] | None = None,
     benchmarks: dict[str, str] | None = None,
     seed: int = 42,
+    stats_cfg: "RiskStatsConfig" | None = None,
 ) -> dict[str, object] | None:
     from .core.rank_selection import RiskStatsConfig, rank_select_funds
 
@@ -188,13 +189,15 @@ def _run_analysis(
     out_ok = ~out_df[fund_cols].isna().any()
     fund_cols = [c for c in fund_cols if in_ok[c] and out_ok[c]]
 
+    if stats_cfg is None:
+        stats_cfg = RiskStatsConfig(risk_free=0.0)
+
     if selection_mode == "random" and len(fund_cols) > random_n:
         rng = np.random.default_rng(seed)
         fund_cols = rng.choice(fund_cols, size=random_n, replace=False).tolist()
     elif selection_mode == "rank":
         mask = (df[date_col] >= in_sdate) & (df[date_col] <= in_edate)
         sub = df.loc[mask, fund_cols]
-        stats_cfg = RiskStatsConfig(risk_free=0.0)
         fund_cols = rank_select_funds(sub, stats_cfg, **(rank_kwargs or {}))  # type: ignore[arg-type]
     elif selection_mode == "manual":
         if manual_funds:  # pragma: no cover - rarely hit
@@ -204,8 +207,6 @@ def _run_analysis(
 
     if not fund_cols:
         return None
-
-    stats_cfg = RiskStatsConfig(risk_free=0.0)
     score_frame = single_period_run(
         df[[date_col] + fund_cols], in_start, in_end, stats_cfg=stats_cfg
     )
@@ -321,6 +322,7 @@ def run_analysis(
     indices_list: list[str] | None = None,
     benchmarks: dict[str, str] | None = None,
     seed: int = 42,
+    stats_cfg: "RiskStatsConfig" | None = None,
 ) -> dict[str, object] | None:
     """Backward-compatible wrapper around ``_run_analysis``."""
     return _run_analysis(
@@ -339,6 +341,7 @@ def run_analysis(
         indices_list,
         benchmarks,
         seed,
+        stats_cfg=stats_cfg,
     )
 
 
@@ -353,6 +356,16 @@ def run(cfg: Config) -> pd.DataFrame:
         raise FileNotFoundError(csv_path)
 
     split = cfg.sample_split
+    metrics_list = cfg.metrics.get("registry")
+    stats_cfg = None
+    if metrics_list:
+        from .core.rank_selection import RiskStatsConfig, canonical_metric_list
+
+        stats_cfg = RiskStatsConfig(
+            metrics_to_run=canonical_metric_list(metrics_list),
+            risk_free=0.0,
+        )
+
     res = _run_analysis(
         df,
         cast(str, split.get("in_start")),
@@ -369,6 +382,7 @@ def run(cfg: Config) -> pd.DataFrame:
         indices_list=cfg.portfolio.get("indices_list"),
         benchmarks=cfg.benchmarks,
         seed=cfg.portfolio.get("random_seed", 42),
+        stats_cfg=stats_cfg,
     )
     if res is None:
         return pd.DataFrame()
@@ -399,6 +413,16 @@ def run_full(cfg: Config) -> dict[str, object]:
         raise FileNotFoundError(csv_path)
 
     split = cfg.sample_split
+    metrics_list = cfg.metrics.get("registry")
+    stats_cfg = None
+    if metrics_list:
+        from .core.rank_selection import RiskStatsConfig, canonical_metric_list
+
+        stats_cfg = RiskStatsConfig(
+            metrics_to_run=canonical_metric_list(metrics_list),
+            risk_free=0.0,
+        )
+
     res = _run_analysis(
         df,
         cast(str, split.get("in_start")),
@@ -415,6 +439,7 @@ def run_full(cfg: Config) -> dict[str, object]:
         indices_list=cfg.portfolio.get("indices_list"),
         benchmarks=cfg.benchmarks,
         seed=cfg.portfolio.get("random_seed", 42),
+        stats_cfg=stats_cfg,
     )
     return {} if res is None else res
 

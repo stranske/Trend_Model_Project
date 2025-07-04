@@ -83,3 +83,12 @@ def test_run_full_with_benchmarks(tmp_path):
     assert "spx" in res["benchmark_ir"]
     assert "equal_weight" in res["benchmark_ir"]["spx"]
     assert "A" in res["benchmark_ir"]["spx"]
+
+
+def test_run_full_respects_metric_registry(tmp_path):
+    df = make_df()
+    cfg = make_cfg(tmp_path, df)
+    cfg.metrics = {"registry": ["sharpe_ratio", "volatility"]}
+    res = run_full(cfg)
+    sf = res["score_frame"]
+    assert sf.columns.tolist() == ["Sharpe", "Volatility"]
