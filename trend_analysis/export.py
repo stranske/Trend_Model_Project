@@ -45,6 +45,7 @@ def make_summary_formatter(
         bold = wb.add_format({"bold": True})
         int0 = wb.add_format({"num_format": "0"})
         num2 = wb.add_format({"num_format": "0.00"})
+        pct2 = wb.add_format({"num_format": "0.00%"})
         red = wb.add_format({"num_format": "0.00", "font_color": "red"})
 
         def safe(v: float | str | None) -> str | float:
@@ -97,6 +98,17 @@ def make_summary_formatter(
         headers.extend([f"OS IR {b}" for b in bench_labels])
         headers.append("OS MaxDD")
         ws.write_row(4, 0, headers, bold)
+        for idx, h in enumerate(headers):
+            ws.set_column(idx, idx, len(h) + 2)
+        ws.freeze_panes(5, 0)
+        numeric_fmts: list[Any] = []
+        for h in headers[2:]:
+            if "MaxDD" in h:
+                numeric_fmts.append(red)
+            elif "CAGR" in h or "Vol" in h:
+                numeric_fmts.append(pct2)
+            else:
+                numeric_fmts.append(num2)
 
         row = 5
         for label, ins, outs in [
@@ -112,7 +124,7 @@ def make_summary_formatter(
                 .get("equal_weight" if label == "Equal Weight" else "user_weight", "")
                 for b in bench_labels
             ]
-            fmts = ([num2] * 5 + [red]) * 2 + [num2] * len(bench_labels)
+            fmts = numeric_fmts
             vals.extend(extra)
             for col, (v, fmt) in enumerate(zip(vals, fmts), start=2):
                 ws.write(row, col, safe(v), fmt)
@@ -129,13 +141,14 @@ def make_summary_formatter(
                 res.get("benchmark_ir", {}).get(b, {}).get(fund, "")
                 for b in bench_labels
             ]
-            fmts = ([num2] * 5 + [red]) * 2 + [num2] * len(bench_labels)
+            fmts = numeric_fmts
             vals.extend(extra)
             for col, (v, fmt) in enumerate(zip(vals, fmts), start=2):
                 ws.write(row, col, safe(v), fmt)
             row += 1
 
         row += 1
+        ws.autofilter(4, 0, row - 1, len(headers) - 1)
 
     return fmt_summary
 
