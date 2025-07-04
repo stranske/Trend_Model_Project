@@ -1,5 +1,5 @@
 import pandas as pd
-from trend_analysis.pipeline import single_period_run
+from trend_analysis.pipeline import run_analysis
 
 toy = pd.DataFrame(
     {
@@ -13,14 +13,14 @@ toy = pd.DataFrame(
 
 def test_single_period_smoke() -> None:
     """Fast contract check: returns non-empty dict with score_frame key."""
-    res = single_period_run(
+    res = run_analysis(
         toy,
-        in_start="2020-01",
-        in_end="2020-03",
-        out_start="2020-04",
-        out_end="2020-06",
-        target_vol=0.10,
-        monthly_cost=0.0,
+        "2020-01",
+        "2020-03",
+        "2020-04",
+        "2020-06",
+        0.10,
+        0.0,
         selection_mode="all",
     )
     assert res is not None
