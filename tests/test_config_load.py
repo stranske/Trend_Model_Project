@@ -1,3 +1,4 @@
+# Unit tests for config.load
 from pathlib import Path
 
 from trend_analysis import config
