@@ -40,3 +40,17 @@ def test_plugin_discovery(monkeypatch):
     gui.discover_plugins()
 
     assert dummy in list(gui.iter_plugins())
+
+
+def test_list_builtin_cfgs():
+    cfgs = gui.list_builtin_cfgs()
+    assert "defaults" in cfgs
+
+
+def test_state_persistence(tmp_path, monkeypatch):
+    path = tmp_path / "state.yml"
+    monkeypatch.setattr(gui.app, "STATE_FILE", path)
+    store = gui.ParamStore(cfg={"x": 1})
+    gui.save_state(store)
+    loaded = gui.load_state()
+    assert loaded.cfg == {"x": 1}
