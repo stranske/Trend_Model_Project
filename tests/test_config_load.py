@@ -41,3 +41,26 @@ def test_env_var_override(tmp_path, monkeypatch):
     cfg = config.load()
     assert cfg.version == "42"
     monkeypatch.delenv("TREND_CFG", raising=False)
+
+
+def test_output_alias(tmp_path):
+    cfg_file = tmp_path / "alias.yml"
+    cfg_file.write_text(
+        "\n".join(
+            [
+                "version: '1'",
+                "data: {}",
+                "preprocessing: {}",
+                "vol_adjust: {}",
+                "sample_split: {}",
+                "portfolio: {}",
+                "metrics: {}",
+                "output: {format: csv, path: '" + str(tmp_path / "res") + "'}",
+                "run: {}",
+            ]
+        )
+    )
+    cfg = config.load(str(cfg_file))
+    assert cfg.export["formats"] == ["csv"]
+    assert cfg.export["directory"] == str(tmp_path)
+    assert cfg.export["filename"] == "res"

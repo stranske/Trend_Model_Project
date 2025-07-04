@@ -46,6 +46,7 @@ def main(argv: list[str] | None = None) -> int:
             export_cfg = cfg.export
             out_dir = export_cfg.get("directory")
             out_formats = export_cfg.get("formats")
+            filename = export_cfg.get("filename", "analysis")
             if not out_dir and not out_formats:
                 out_dir = "outputs"  # pragma: no cover - defaults
                 out_formats = ["excel"]
@@ -64,7 +65,7 @@ def main(argv: list[str] | None = None) -> int:
                     data["summary"] = pd.DataFrame()
                     export.export_to_excel(
                         data,
-                        str(Path(out_dir) / "analysis.xlsx"),
+                        str(Path(out_dir) / f"{filename}.xlsx"),
                         default_sheet_formatter=sheet_formatter,
                     )
                     other = [
@@ -72,11 +73,11 @@ def main(argv: list[str] | None = None) -> int:
                     ]
                     if other:
                         export.export_data(
-                            data, str(Path(out_dir) / "analysis"), formats=other
+                            data, str(Path(out_dir) / filename), formats=other
                         )  # pragma: no cover - file I/O
                 else:
                     export.export_data(
-                        data, str(Path(out_dir) / "analysis"), formats=out_formats
+                        data, str(Path(out_dir) / filename), formats=out_formats
                     )  # pragma: no cover - file I/O
     return 0
 
