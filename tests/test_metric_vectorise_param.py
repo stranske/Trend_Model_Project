@@ -28,7 +28,7 @@ CASES = [
     ("sharpe_ratio", _dummy_returns, {"risk_free": 0.0}),
     ("max_drawdown", _dummy_prices, {}),
     ("sortino_ratio", _dummy_returns, {"target": 0.0}),
-    ("information_ratio", _dummy_returns, {}),
+    ("info_ratio", _dummy_returns, {"benchmark": _dummy_returns().mean(axis=1)}),
 ]
 
 
