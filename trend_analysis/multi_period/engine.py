@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Mapping
+from typing import Dict, List, Mapping, Protocol
 
 import pandas as pd
 
@@ -11,6 +11,7 @@ from ..config import Config
 from ..data import load_csv
 from ..pipeline import _run_analysis
 from .scheduler import generate_periods
+from ..weighting import BaseWeighting
 
 
 @dataclass
@@ -19,7 +20,9 @@ class Portfolio:
 
     history: Dict[str, pd.Series] = field(default_factory=dict)
 
-    def rebalance(self, date: str | pd.Timestamp, weights: pd.DataFrame | pd.Series) -> None:
+    def rebalance(
+        self, date: str | pd.Timestamp, weights: pd.DataFrame | pd.Series
+    ) -> None:
         """Store weights for the given date."""
         if isinstance(weights, pd.DataFrame):
             if "weight" in weights.columns:
@@ -31,10 +34,18 @@ class Portfolio:
         self.history[str(pd.to_datetime(date).date())] = series.astype(float)
 
 
+class SelectorProtocol(Protocol):
+    """Minimal interface required of selectors."""
+
+    def select(
+        self, score_frame: pd.DataFrame
+    ) -> tuple[pd.DataFrame, pd.DataFrame]: ...
+
+
 def run_schedule(
     score_frames: Mapping[str, pd.DataFrame],
-    selector: object,
-    weighting: "BaseWeighting",
+    selector: SelectorProtocol,
+    weighting: BaseWeighting,
 ) -> Portfolio:
     """Apply selection and weighting across ``score_frames``."""
 
