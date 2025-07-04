@@ -45,6 +45,7 @@ class Config(BaseModel):
     benchmarks: dict[str, str] = {}
     metrics: dict[str, Any]
     export: dict[str, Any]
+    output: dict[str, Any] | None = None
     run: dict[str, Any]
     multi_period: dict[str, Any] | None = None
     jobs: int | None = None
@@ -85,6 +86,19 @@ def load(path: str | Path | None = None) -> Config:
         data = yaml.safe_load(fh)
         if not isinstance(data, dict):
             raise TypeError("Config file must contain a mapping")
+
+    out_cfg = data.pop("output", None)
+    if isinstance(out_cfg, dict):
+        export_cfg = data.setdefault("export", {})
+        fmt = out_cfg.get("format")
+        if fmt:
+            export_cfg["formats"] = [fmt] if isinstance(fmt, str) else list(fmt)
+        path_val = out_cfg.get("path")
+        if path_val:
+            p = Path(path_val)
+            export_cfg.setdefault("directory", str(p.parent) if p.parent else ".")
+            export_cfg.setdefault("filename", p.name)
+
     return Config(**data)
 
 
