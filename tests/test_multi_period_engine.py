@@ -4,7 +4,7 @@ from pathlib import Path
 from trend_analysis.config import Config
 from trend_analysis.multi_period import run as run_mp, run_schedule, Portfolio
 from trend_analysis.selector import RankSelector
-from trend_analysis.weighting import EqualWeight
+from trend_analysis.weighting import EqualWeight, AdaptiveBayesWeighting
 
 
 def make_df():
@@ -39,7 +39,18 @@ def test_run_schedule_generates_weight_history():
     frames = {"2025-06-30": sf, "2025-07-31": sf}
     selector = RankSelector(top_n=1, rank_column="Sharpe")
     weighting = EqualWeight()
-    portfolio = run_schedule(frames, selector, weighting)
+    portfolio = run_schedule(frames, selector, weighting, rank_column="Sharpe")
     assert isinstance(portfolio, Portfolio)
     assert list(portfolio.history.keys()) == ["2025-06-30", "2025-07-31"]
     assert list(portfolio.history["2025-06-30"].index) == ["A"]
+
+
+def test_run_schedule_updates_weighting():
+    sf = pd.read_csv(Path("tests/fixtures/score_frame_2025-06-30.csv"), index_col=0)
+    frames = {"2025-06-30": sf, "2025-07-31": sf}
+    selector = RankSelector(top_n=2, rank_column="Sharpe")
+    weighting = AdaptiveBayesWeighting(max_w=None)
+    portfolio = run_schedule(frames, selector, weighting, rank_column="Sharpe")
+    w1 = portfolio.history["2025-06-30"]
+    w2 = portfolio.history["2025-07-31"]
+    assert w2.loc["A"] > w1.loc["A"]
