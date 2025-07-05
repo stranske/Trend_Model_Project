@@ -50,11 +50,14 @@ def test_list_builtin_cfgs():
 
 def test_state_persistence(tmp_path, monkeypatch):
     path = tmp_path / "state.yml"
+    pkl = path.with_suffix(".pkl")
     monkeypatch.setattr(gui.app, "STATE_FILE", path)
-    store = gui.ParamStore(cfg={"x": 1})
+    monkeypatch.setattr(gui.app, "WEIGHT_STATE_FILE", pkl)
+    store = gui.ParamStore(cfg={"x": 1}, weight_state={"a": 1.0})
     gui.save_state(store)
     loaded = gui.load_state()
     assert loaded.cfg == {"x": 1}
+    assert loaded.weight_state == {"a": 1.0}
 
 
 def test_build_config_from_store():
@@ -82,3 +85,16 @@ def test_manual_override_fallback(monkeypatch):
     widget = gui.app._build_manual_override(store)
     assert isinstance(widget, VBox)
     assert isinstance(widget.children[0], Label)
+
+
+def test_reset_weight_state(tmp_path, monkeypatch):
+    path = tmp_path / "state.yml"
+    pkl = path.with_suffix(".pkl")
+    monkeypatch.setattr(gui.app, "STATE_FILE", path)
+    monkeypatch.setattr(gui.app, "WEIGHT_STATE_FILE", pkl)
+    store = gui.ParamStore(cfg={}, weight_state={"a": 1})
+    gui.save_state(store)
+    assert pkl.exists()
+    gui.reset_weight_state(store)
+    assert store.weight_state is None
+    assert not pkl.exists()

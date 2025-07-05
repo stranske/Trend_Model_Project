@@ -14,6 +14,7 @@ class ParamStore:
     cfg: dict[str, Any] = field(default_factory=dict)
     theme: str = "system"
     dirty: bool = False
+    weight_state: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return self.cfg

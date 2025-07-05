@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import warnings
 import yaml
+import pickle
 import ipywidgets as widgets
 from IPython.display import Javascript, display, FileLink
 from typing import Any, cast
@@ -16,21 +17,39 @@ from ..config import Config
 from .. import pipeline, export, weighting
 
 STATE_FILE = Path.home() / ".trend_gui_state.yml"
+WEIGHT_STATE_FILE = STATE_FILE.with_suffix(".pkl")
 
 
 def load_state() -> ParamStore:
     """Load persisted GUI state from ``STATE_FILE`` if possible."""
+    store = ParamStore()
     try:
         if STATE_FILE.exists():
-            return ParamStore.from_yaml(STATE_FILE)
+            store = ParamStore.from_yaml(STATE_FILE)
     except Exception as exc:  # pragma: no cover - malformed file
         warnings.warn(f"Failed to load state: {exc}")
-    return ParamStore()
+    try:
+        if WEIGHT_STATE_FILE.exists():
+            with WEIGHT_STATE_FILE.open("rb") as fh:
+                store.weight_state = pickle.load(fh)
+    except Exception as exc:  # pragma: no cover - malformed file
+        warnings.warn(f"Failed to load weight state: {exc}")
+    return store
 
 
 def save_state(store: ParamStore) -> None:
     """Persist ``store`` to ``STATE_FILE``."""
     STATE_FILE.write_text(yaml.safe_dump(store.to_dict()))
+    if store.weight_state is not None:
+        with WEIGHT_STATE_FILE.open("wb") as fh:
+            pickle.dump(store.weight_state, fh)
+
+
+def reset_weight_state(store: ParamStore) -> None:
+    """Clear in-memory and persisted weighting state."""
+    store.weight_state = None
+    if WEIGHT_STATE_FILE.exists():  # pragma: no cover - file may not exist
+        WEIGHT_STATE_FILE.unlink()
 
 
 def build_config_dict(store: ParamStore) -> dict[str, object]:
@@ -88,6 +107,7 @@ def _build_step0(store: ParamStore) -> widgets.Widget:
             item = next(iter(upload.value.values()))
             store.cfg = yaml.safe_load(item["content"].decode("utf-8"))
             store.dirty = True
+            reset_weight_state(store)
             refresh_grid()
 
     def on_template(change: dict[str, Any]) -> None:
@@ -96,6 +116,7 @@ def _build_step0(store: ParamStore) -> widgets.Widget:
         path = cfg_dir / f"{name}.yml"
         store.cfg = yaml.safe_load(path.read_text())
         store.dirty = True
+        reset_weight_state(store)
         refresh_grid()
 
     def on_save(_: Any) -> None:
@@ -398,6 +419,7 @@ def launch() -> widgets.Widget:
         description="Format",
     )
     run_btn = widgets.Button(description="Run")
+    reset_btn = widgets.Button(description="↻ Reset")
 
     def on_theme(change: dict[str, Any]) -> None:
         store.theme = change["new"]
@@ -462,6 +484,7 @@ def launch() -> widgets.Widget:
     use_ranking.observe(on_rank, names="value")
     fmt_dd.observe(on_fmt, names="value")
     run_btn.on_click(on_run)
+    reset_btn.on_click(lambda _: reset_weight_state(store))
 
     rank_box = _build_rank_options(store)
     manual_box = _build_manual_override(store)
@@ -491,6 +514,7 @@ def launch() -> widgets.Widget:
             weight_box,
             fmt_dd,
             theme,
+            reset_btn,
             run_btn,
         ]
     )
@@ -503,4 +527,5 @@ __all__ = [
     "build_config_from_store",
     "load_state",
     "save_state",
+    "reset_weight_state",
 ]

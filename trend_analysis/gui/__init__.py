@@ -4,6 +4,7 @@ from .app import (
     launch,
     load_state,
     save_state,
+    reset_weight_state,
     build_config_dict,
     build_config_from_store,
 )
@@ -15,6 +16,7 @@ __all__ = [
     "launch",
     "load_state",
     "save_state",
+    "reset_weight_state",
     "build_config_dict",
     "build_config_from_store",
     "register_plugin",
