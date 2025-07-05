@@ -61,3 +61,93 @@ class ScorePropBayesian(BaseWeighting):
             return EqualWeight().weight(selected)
         w = shrunk / shrunk.sum()
         return pd.DataFrame({"weight": w}, index=selected.index)
+
+
+class AdaptiveBayesWeighting(BaseWeighting):
+    """State-ful Bayesian weighting with exponential decay."""
+
+    def __init__(
+        self,
+        *,
+        half_life: int = 90,
+        obs_sigma: float = 0.25,
+        max_w: float | None = 0.20,
+        prior_mean: str | np.ndarray = "equal",
+        prior_tau: float = 1.0,
+    ) -> None:
+        self.half_life = int(half_life)
+        self.obs_tau = 1.0 / float(obs_sigma) ** 2
+        self.max_w = None if max_w is None else float(max_w)
+        self.prior_mean = prior_mean
+        self.prior_tau = float(prior_tau)
+        self.mean: pd.Series | None = None
+        self.tau: pd.Series | None = None
+
+    def _ensure_index(self, index: pd.Index) -> None:
+        if self.mean is None:
+            if isinstance(self.prior_mean, str) and self.prior_mean == "equal":
+                m = np.repeat(1.0 / len(index), len(index))
+            else:
+                arr = np.asarray(self.prior_mean, dtype=float)
+                if arr.shape[0] != len(index):
+                    raise ValueError("prior_mean length mismatch")
+                m = arr
+            self.mean = pd.Series(m, index=index, dtype=float)
+            self.tau = pd.Series(self.prior_tau, index=index, dtype=float)
+        else:
+            assert self.tau is not None
+            for col in index:
+                if col not in self.mean.index:
+                    self.mean[col] = 1.0 / len(index)
+                    self.tau[col] = self.prior_tau
+
+    def update(self, scores: pd.Series, days: int) -> None:
+        """Update posterior means and precisions with ``scores``."""
+
+        self._ensure_index(scores.index)
+        assert self.mean is not None and self.tau is not None  # for mypy
+
+        if self.half_life > 0:
+            decay = 0.5 ** (days / self.half_life)
+            self.tau *= decay
+        else:
+            self.tau[:] = 0.0
+
+        tau_old = self.tau.loc[scores.index]
+        tau_new = tau_old + self.obs_tau
+        m_old = self.mean.loc[scores.index]
+        m_new = (m_old * tau_old + self.obs_tau * scores.astype(float)) / tau_new
+        self.mean.loc[scores.index] = m_new
+        self.tau.loc[scores.index] = tau_new
+
+    def weight(self, candidates: pd.DataFrame) -> pd.DataFrame:
+        if len(candidates.index) == 0:
+            return pd.DataFrame(columns=["weight"])
+        self._ensure_index(candidates.index)
+        assert self.mean is not None
+        w = self.mean.reindex(candidates.index).fillna(0.0).clip(lower=0.0)
+        if w.sum() == 0:
+            w[:] = 1.0 / len(w)
+        else:
+            w /= w.sum()
+        if self.max_w is not None:
+            cap = self.max_w
+            w = w.clip(upper=cap)
+            total = w.sum()
+            if total < 1.0:
+                deficit = 1.0 - total
+                room = w[w < cap]
+                if not room.empty:
+                    w.loc[room.index] += deficit / len(room)
+                else:
+                    w /= total
+        return pd.DataFrame({"weight": w}, index=candidates.index)
+
+
+__all__ = [
+    "BaseWeighting",
+    "EqualWeight",
+    "ScorePropSimple",
+    "ScorePropBayesian",
+    "AdaptiveBayesWeighting",
+]

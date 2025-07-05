@@ -10,10 +10,10 @@ import pandas as pd
 
 from pathlib import Path
 from .store import ParamStore
-from .plugins import discover_plugins
+from .plugins import discover_plugins, iter_plugins
 from .utils import list_builtin_cfgs, debounce
 from ..config import Config
-from .. import pipeline, export
+from .. import pipeline, export, weighting
 
 STATE_FILE = Path.home() / ".trend_gui_state.yml"
 
@@ -234,6 +234,79 @@ def _build_manual_override(store: ParamStore) -> widgets.Widget:
     return box
 
 
+def _build_weighting_options(store: ParamStore) -> widgets.Widget:
+    """Return weighting method dropdown and param sliders."""
+    weight_cfg = store.cfg.setdefault("portfolio", {}).setdefault(
+        "weighting", {"name": "equal", "params": {}}
+    )
+    options = {
+        "equal": weighting.EqualWeight,
+        "score_prop": weighting.ScorePropSimple,
+        "score_prop_bayes": weighting.ScorePropBayesian,
+        "adaptive_bayes": weighting.AdaptiveBayesWeighting,
+    }
+    for plugin in iter_plugins():
+        name = plugin.__name__.lower()
+        options[name] = plugin
+
+    method_dd = widgets.Dropdown(
+        options=list(options),
+        value=weight_cfg.get("name", "equal"),
+        description="Weighting",
+    )
+    params = weight_cfg.setdefault("params", {})
+    hl = widgets.IntSlider(
+        value=params.get("half_life", 90), min=30, max=365, description="half_life"
+    )
+    os_sl = widgets.FloatSlider(
+        value=params.get("obs_sigma", 0.25),
+        min=0.0,
+        max=1.0,
+        step=0.01,
+        description="obs_sigma",
+    )
+    mw_sl = widgets.FloatSlider(
+        value=params.get("max_w", 0.20),
+        min=0.0,
+        max=0.5,
+        step=0.01,
+        description="max_w",
+    )
+    pt_sl = widgets.FloatSlider(
+        value=params.get("prior_tau", 1.0),
+        min=0.0,
+        max=5.0,
+        step=0.1,
+        description="prior_tau",
+    )
+    adv_box = widgets.VBox([hl, os_sl, mw_sl, pt_sl])
+
+    def _store_weight(_: Any = None) -> None:
+        weight_cfg["name"] = method_dd.value
+        params["half_life"] = int(hl.value)
+        params["obs_sigma"] = float(os_sl.value)
+        params["max_w"] = float(mw_sl.value)
+        params["prior_tau"] = float(pt_sl.value)
+        store.dirty = True
+
+    method_dd.observe(_store_weight, names="value")
+
+    @debounce(300)
+    def _on_param(_: Any) -> None:
+        _store_weight()
+
+    for wdg in (hl, os_sl, mw_sl, pt_sl):
+        wdg.observe(_on_param, names="value")
+
+    def _toggle_adv(change: dict[str, Any]) -> None:
+        adv_box.layout.display = "flex" if change["new"] == "adaptive_bayes" else "none"
+
+    method_dd.observe(_toggle_adv, names="value")
+    _toggle_adv({"new": method_dd.value})
+
+    return widgets.VBox([method_dd, adv_box])
+
+
 def launch() -> widgets.Widget:
     """Return the root widget for the Trend Model GUI."""
     store = load_state()
@@ -332,6 +405,7 @@ def launch() -> widgets.Widget:
 
     rank_box = _build_rank_options(store)
     manual_box = _build_manual_override(store)
+    weight_box = _build_weighting_options(store)
 
     def _toggle_boxes(change: dict[str, Any]) -> None:
         mode_val = change["new"] if isinstance(change, dict) else mode.value
@@ -354,6 +428,7 @@ def launch() -> widgets.Widget:
             use_ranking,
             rank_box,
             manual_box,
+            weight_box,
             fmt_dd,
             theme,
             run_btn,
