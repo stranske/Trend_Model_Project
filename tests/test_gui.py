@@ -73,6 +73,7 @@ def test_build_config_from_store():
     out = gui.build_config_from_store(store)
     assert out.data["csv_path"] == "foo.csv"
 
+
 def test_manual_override_fallback(monkeypatch):
     monkeypatch.setitem(sys.modules, "ipydatagrid", None)
     from ipywidgets import VBox, Label

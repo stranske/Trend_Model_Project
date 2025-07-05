@@ -284,7 +284,9 @@ def _build_manual_override(store: ParamStore) -> widgets.Widget:
 
         select.observe(_on_select, names="value")
         for wdg in weight_boxes:
-            wdg.observe(lambda ch, fund=wdg.description: _on_weight(ch, fund), names="value")
+            wdg.observe(
+                lambda ch, fund=wdg.description: _on_weight(ch, fund), names="value"
+            )
 
         box = widgets.VBox([warn, select] + weight_boxes)
 
