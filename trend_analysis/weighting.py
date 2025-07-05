@@ -95,6 +95,7 @@ class AdaptiveBayesWeighting(BaseWeighting):
             self.mean = pd.Series(m, index=index, dtype=float)
             self.tau = pd.Series(self.prior_tau, index=index, dtype=float)
         else:
+            assert self.tau is not None
             for col in index:
                 if col not in self.mean.index:
                     self.mean[col] = 1.0 / len(index)

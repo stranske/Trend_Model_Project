@@ -236,8 +236,8 @@ def _build_manual_override(store: ParamStore) -> widgets.Widget:
 
 def _build_weighting_options(store: ParamStore) -> widgets.Widget:
     """Return weighting method dropdown and param sliders."""
-    weight_cfg = (
-        store.cfg.setdefault("portfolio", {}).setdefault("weighting", {"name": "equal", "params": {}})
+    weight_cfg = store.cfg.setdefault("portfolio", {}).setdefault(
+        "weighting", {"name": "equal", "params": {}}
     )
     options = {
         "equal": weighting.EqualWeight,
@@ -249,12 +249,36 @@ def _build_weighting_options(store: ParamStore) -> widgets.Widget:
         name = plugin.__name__.lower()
         options[name] = plugin
 
-    method_dd = widgets.Dropdown(options=list(options), value=weight_cfg.get("name", "equal"), description="Weighting")
+    method_dd = widgets.Dropdown(
+        options=list(options),
+        value=weight_cfg.get("name", "equal"),
+        description="Weighting",
+    )
     params = weight_cfg.setdefault("params", {})
-    hl = widgets.IntSlider(value=params.get("half_life", 90), min=30, max=365, description="half_life")
-    os_sl = widgets.FloatSlider(value=params.get("obs_sigma", 0.25), min=0.0, max=1.0, step=0.01, description="obs_sigma")
-    mw_sl = widgets.FloatSlider(value=params.get("max_w", 0.20), min=0.0, max=0.5, step=0.01, description="max_w")
-    pt_sl = widgets.FloatSlider(value=params.get("prior_tau", 1.0), min=0.0, max=5.0, step=0.1, description="prior_tau")
+    hl = widgets.IntSlider(
+        value=params.get("half_life", 90), min=30, max=365, description="half_life"
+    )
+    os_sl = widgets.FloatSlider(
+        value=params.get("obs_sigma", 0.25),
+        min=0.0,
+        max=1.0,
+        step=0.01,
+        description="obs_sigma",
+    )
+    mw_sl = widgets.FloatSlider(
+        value=params.get("max_w", 0.20),
+        min=0.0,
+        max=0.5,
+        step=0.01,
+        description="max_w",
+    )
+    pt_sl = widgets.FloatSlider(
+        value=params.get("prior_tau", 1.0),
+        min=0.0,
+        max=5.0,
+        step=0.1,
+        description="prior_tau",
+    )
     adv_box = widgets.VBox([hl, os_sl, mw_sl, pt_sl])
 
     def _store_weight(_: Any = None) -> None:
