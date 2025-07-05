@@ -11,7 +11,7 @@ import pandas as pd
 from pathlib import Path
 from .store import ParamStore
 from .plugins import discover_plugins
-from .utils import list_builtin_cfgs
+from .utils import list_builtin_cfgs, debounce
 from ..config import Config
 from .. import pipeline, export
 
@@ -117,6 +117,123 @@ def _build_step0(store: ParamStore) -> widgets.Widget:
     )
 
 
+def _build_rank_options(store: ParamStore) -> widgets.Widget:
+    """Return widgets for ranking configuration (Step 2)."""
+    from ..core.rank_selection import METRIC_REGISTRY
+
+    rank_cfg = store.cfg.setdefault("rank", {})
+
+    incl_dd = widgets.Dropdown(
+        options=["top_n", "top_pct", "threshold"],
+        value=rank_cfg.get("inclusion_approach", "top_n"),
+        description="Approach",
+    )
+    metric_dd = widgets.Dropdown(
+        options=list(METRIC_REGISTRY) + ["blended"],
+        value=rank_cfg.get("score_by", "Sharpe"),
+        description="Score By",
+    )
+    n_int = widgets.BoundedIntText(value=rank_cfg.get("n", 8), min=1, description="N")
+    pct_flt = widgets.BoundedFloatText(
+        value=rank_cfg.get("pct", 0.10),
+        min=0.01,
+        max=1.0,
+        step=0.01,
+        description="Pct",
+    )
+    thresh_f = widgets.FloatText(
+        value=rank_cfg.get("threshold", 1.0), description="Threshold"
+    )
+
+    try:
+        weights = rank_cfg.get("blended_weights", {})
+        items = list(METRIC_REGISTRY)
+        m1_dd = widgets.Dropdown(options=items, value=items[0], description="M1")
+        w1_sl = widgets.FloatSlider(
+            value=weights.get(items[0], 0.33), min=0, max=1, step=0.01
+        )
+        m2_dd = widgets.Dropdown(
+            options=items,
+            value=items[1] if len(items) > 1 else items[0],
+            description="M2",
+        )
+        w2_sl = widgets.FloatSlider(
+            value=weights.get(items[1] if len(items) > 1 else items[0], 0.33),
+            min=0,
+            max=1,
+            step=0.01,
+        )
+        m3_dd = widgets.Dropdown(
+            options=items,
+            value=items[2] if len(items) > 2 else items[0],
+            description="M3",
+        )
+        w3_sl = widgets.FloatSlider(
+            value=weights.get(items[2] if len(items) > 2 else items[0], 0.34),
+            min=0,
+            max=1,
+            step=0.01,
+        )
+        blended_box = widgets.VBox([m1_dd, w1_sl, m2_dd, w2_sl, m3_dd, w3_sl])
+    except Exception:  # pragma: no cover - never raised
+        blended_box = widgets.VBox()
+
+    def _store_rank(_: Any = None) -> None:
+        rank_cfg["inclusion_approach"] = incl_dd.value
+        rank_cfg["score_by"] = metric_dd.value
+        rank_cfg["n"] = int(n_int.value)
+        rank_cfg["pct"] = float(pct_flt.value)
+        rank_cfg["threshold"] = float(thresh_f.value)
+        rank_cfg["blended_weights"] = {
+            m1_dd.value: w1_sl.value,
+            m2_dd.value: w2_sl.value,
+            m3_dd.value: w3_sl.value,
+        }
+        store.dirty = True
+
+    incl_dd.observe(_store_rank, names="value")
+    metric_dd.observe(_store_rank, names="value")
+    n_int.observe(_store_rank, names="value")
+    pct_flt.observe(_store_rank, names="value")
+    thresh_f.observe(_store_rank, names="value")
+
+    @debounce(300)
+    def _on_blend(_: Any) -> None:
+        _store_rank()
+
+    m1_dd.observe(_on_blend, names="value")
+    w1_sl.observe(_on_blend, names="value")
+    m2_dd.observe(_on_blend, names="value")
+    w2_sl.observe(_on_blend, names="value")
+    m3_dd.observe(_on_blend, names="value")
+    w3_sl.observe(_on_blend, names="value")
+
+    metric_dd.observe(
+        lambda change: blended_box.layout.__setattr__(
+            "display", "flex" if change["new"] == "blended" else "none"
+        ),
+        names="value",
+    )
+    blended_box.layout.display = "none" if metric_dd.value != "blended" else "flex"
+
+    return widgets.VBox([incl_dd, metric_dd, n_int, pct_flt, thresh_f, blended_box])
+
+
+def _build_manual_override(store: ParamStore) -> widgets.Widget:
+    """Return manual-selection grid or fallback."""
+    try:
+        from ipydatagrid import DataGrid
+
+        df = pd.DataFrame(columns=["Include", "Weight"])
+        grid = DataGrid(df, editable=True)
+        box = widgets.VBox([grid])
+    except Exception:  # pragma: no cover - optional dep
+        warn = widgets.Label("ipydatagrid not installed")
+        box = widgets.VBox([warn])
+    box.layout.display = "none"
+    return box
+
+
 def launch() -> widgets.Widget:
     """Return the root widget for the Trend Model GUI."""
     store = load_state()
@@ -213,10 +330,34 @@ def launch() -> widgets.Widget:
     fmt_dd.observe(on_fmt, names="value")
     run_btn.on_click(on_run)
 
+    rank_box = _build_rank_options(store)
+    manual_box = _build_manual_override(store)
+
+    def _toggle_boxes(change: dict[str, Any]) -> None:
+        mode_val = change["new"] if isinstance(change, dict) else mode.value
+        rank_box.layout.display = (
+            "flex" if mode_val == "rank" or use_ranking.value else "none"
+        )
+        manual_box.layout.display = "flex" if mode_val == "manual" else "none"
+
+    mode.observe(_toggle_boxes, names="value")
+    use_ranking.observe(_toggle_boxes, names="value")
+    _toggle_boxes({"new": mode.value})
+
     step0 = _build_step0(store)
 
     container = widgets.VBox(
-        [step0, mode, vol_adj, use_ranking, fmt_dd, theme, run_btn]
+        [
+            step0,
+            mode,
+            vol_adj,
+            use_ranking,
+            rank_box,
+            manual_box,
+            fmt_dd,
+            theme,
+            run_btn,
+        ]
     )
     return container
 
