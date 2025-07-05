@@ -2,6 +2,9 @@
 
 This repository contains experiments and utilities for analyzing volatility-adjusted trend portfolios. The Jupyter notebooks demonstrate how to load hedge fund data, apply trend-following rules, and export the results.
 
+For a beginner-friendly overview, see [docs/UserGuide.md](docs/UserGuide.md).
+
+
 ## Notebooks
 
 - `Vol_Adj_Trend_Analysis1.2.TrEx.ipynb` – an earlier version of the analysis.
