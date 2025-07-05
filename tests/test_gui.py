@@ -54,3 +54,20 @@ def test_state_persistence(tmp_path, monkeypatch):
     gui.save_state(store)
     loaded = gui.load_state()
     assert loaded.cfg == {"x": 1}
+
+
+def test_build_config_from_store():
+    cfg = {
+        "version": "1",
+        "data": {"csv_path": "foo.csv"},
+        "preprocessing": {},
+        "vol_adjust": {},
+        "sample_split": {},
+        "portfolio": {},
+        "metrics": {},
+        "export": {},
+        "run": {},
+    }
+    store = gui.ParamStore(cfg=cfg)
+    out = gui.build_config_from_store(store)
+    assert out.data["csv_path"] == "foo.csv"

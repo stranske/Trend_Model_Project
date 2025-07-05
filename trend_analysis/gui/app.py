@@ -1,16 +1,19 @@
 from __future__ import annotations
 
-from pathlib import Path
 import asyncio
 import warnings
 import yaml
 import ipywidgets as widgets
 from IPython.display import Javascript, display, FileLink
 from typing import Any, cast
+import pandas as pd
 
+from pathlib import Path
 from .store import ParamStore
 from .plugins import discover_plugins
 from .utils import list_builtin_cfgs
+from ..config import Config
+from .. import pipeline, export
 
 STATE_FILE = Path.home() / ".trend_gui_state.yml"
 
@@ -35,6 +38,11 @@ def build_config_dict(store: ParamStore) -> dict[str, object]:
     return dict(store.cfg)
 
 
+def build_config_from_store(store: ParamStore) -> Config:
+    """Convert ``store`` into a :class:`Config` object."""
+    return Config(**build_config_dict(store))
+
+
 def _build_step0(store: ParamStore) -> widgets.Widget:
     """Return widgets for Step 0 (config loader/editor)."""
 
@@ -42,7 +50,6 @@ def _build_step0(store: ParamStore) -> widgets.Widget:
     template = widgets.Dropdown(options=list_builtin_cfgs(), description="Template")
     try:
         from ipydatagrid import DataGrid
-        import pandas as pd
 
         grid_df = pd.DataFrame(list(store.cfg.items()), columns=["Key", "Value"])
         grid = DataGrid(grid_df, editable=True)
@@ -120,11 +127,27 @@ def launch() -> widgets.Widget:
         value=store.cfg.get("mode", "all"),
         description="Mode",
     )
+    vol_adj = widgets.Checkbox(
+        value=store.cfg.get("use_vol_adjust", False),
+        description="Vol-Adj",
+        indent=False,
+    )
+    use_ranking = widgets.Checkbox(
+        value=store.cfg.get("use_ranking", False),
+        description="Use Ranking",
+        indent=False,
+    )
     theme = widgets.ToggleButtons(
         options=["system", "light", "dark"],
         value=store.theme,
         description="Theme",
     )
+    fmt_dd = widgets.Dropdown(
+        options=["excel", "csv", "json"],
+        value=store.cfg.get("output", {}).get("format", "excel"),
+        description="Format",
+    )
+    run_btn = widgets.Button(description="Run")
 
     def on_theme(change: dict[str, Any]) -> None:
         store.theme = change["new"]
@@ -142,10 +165,66 @@ def launch() -> widgets.Widget:
 
     mode.observe(on_mode, names="value")
 
+    def on_vol(change: dict[str, Any]) -> None:
+        store.cfg["use_vol_adjust"] = bool(change["new"])
+        store.dirty = True
+
+    def on_rank(change: dict[str, Any]) -> None:
+        store.cfg["use_ranking"] = bool(change["new"])
+        store.dirty = True
+
+    def on_fmt(change: dict[str, Any]) -> None:
+        out = store.cfg.setdefault("output", {})
+        out["format"] = change["new"]
+        store.dirty = True
+
+    def on_run(_: Any) -> None:
+        cfg = build_config_from_store(store)
+        metrics = pipeline.run(cfg)
+        if metrics.empty:
+            return
+        out = cfg.output or {}
+        fmt = out.get("format", "excel").lower()
+        path = out.get("path", "gui_output")
+        data = {"metrics": metrics}
+        if fmt in {"excel", "xlsx"}:
+            res = pipeline.run_full(cfg)
+            split = cfg.sample_split
+            sheet_fmt = export.make_summary_formatter(
+                res,
+                str(split.get("in_start", "")),
+                str(split.get("in_end", "")),
+                str(split.get("out_start", "")),
+                str(split.get("out_end", "")),
+            )
+            data["summary"] = pd.DataFrame()
+            export.export_to_excel(
+                data,
+                str(Path(path).with_suffix(".xlsx")),
+                default_sheet_formatter=sheet_fmt,
+            )
+        elif fmt in export.EXPORTERS:
+            export.EXPORTERS[fmt](data, path, None)
+        save_state(store)
+        store.dirty = False
+
+    vol_adj.observe(on_vol, names="value")
+    use_ranking.observe(on_rank, names="value")
+    fmt_dd.observe(on_fmt, names="value")
+    run_btn.on_click(on_run)
+
     step0 = _build_step0(store)
 
-    container = widgets.VBox([step0, mode, theme])
+    container = widgets.VBox(
+        [step0, mode, vol_adj, use_ranking, fmt_dd, theme, run_btn]
+    )
     return container
 
 
-__all__ = ["launch", "build_config_dict", "load_state", "save_state"]
+__all__ = [
+    "launch",
+    "build_config_dict",
+    "build_config_from_store",
+    "load_state",
+    "save_state",
+]
