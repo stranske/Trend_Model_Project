@@ -116,6 +116,18 @@ score_frame = res["score_frame"]
 print(score_frame)
 ```
 
+## Interactive GUI
+
+An interactive configuration GUI is bundled with the project. Launch it within Jupyter by running:
+
+```python
+from trend_analysis.gui import launch
+launch()
+```
+
+The widget reloads the last saved settings from ~/.trend_gui_state.yml and persists new changes after a successful run. Installing the optional ipydatagrid package unlocks spreadsheet-style YAML editing; otherwise the GUI falls back to simpler controls.
+
+
 
 ## Testing
 
