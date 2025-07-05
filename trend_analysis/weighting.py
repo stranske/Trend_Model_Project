@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
+from typing import Any
+
 import pandas as pd
 import numpy as np
 
@@ -142,6 +145,20 @@ class AdaptiveBayesWeighting(BaseWeighting):
                 else:
                     w /= total
         return pd.DataFrame({"weight": w}, index=candidates.index)
+
+    def get_state(self) -> dict[str, Any]:
+        """Return a serialisable representation of the posterior state."""
+        return {
+            "mean": None if self.mean is None else self.mean.to_dict(),
+            "tau": None if self.tau is None else self.tau.to_dict(),
+        }
+
+    def set_state(self, state: Mapping[str, Any]) -> None:
+        """Load posterior state from ``state``."""
+        mean = state.get("mean")
+        tau = state.get("tau")
+        self.mean = None if mean is None else pd.Series(mean, dtype=float)
+        self.tau = None if tau is None else pd.Series(tau, dtype=float)
 
 
 __all__ = [

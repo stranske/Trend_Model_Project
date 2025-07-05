@@ -41,3 +41,13 @@ def test_half_life_zero_equals_simple():
     out = w.weight(df)["weight"]
     exp = ScorePropSimple("Sharpe").weight(df)["weight"]
     assert_allclose(out.values, exp.values)
+
+
+def test_state_roundtrip():
+    w = AdaptiveBayesWeighting(max_w=None)
+    df = pd.DataFrame(index=["A", "B"])
+    w.update(pd.Series({"A": 1.0, "B": 0.5}), 30)
+    state = w.get_state()
+    w2 = AdaptiveBayesWeighting(max_w=None)
+    w2.set_state(state)
+    assert_allclose(w.weight(df)["weight"].values, w2.weight(df)["weight"].values)
