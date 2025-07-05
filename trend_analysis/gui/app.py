@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
+import asyncio
 import warnings
 import yaml
 import ipywidgets as widgets
-from typing import Any
+from IPython.display import Javascript, display, FileLink
+from typing import Any, cast
 
 from .store import ParamStore
 from .plugins import discover_plugins
@@ -40,8 +42,29 @@ def _build_step0(store: ParamStore) -> widgets.Widget:
     template = widgets.Dropdown(options=list_builtin_cfgs(), description="Template")
     try:
         from ipydatagrid import DataGrid
+        import pandas as pd
 
-        grid = DataGrid([], disabled=False)
+        grid_df = pd.DataFrame(list(store.cfg.items()), columns=["Key", "Value"])
+        grid = DataGrid(grid_df, editable=True)
+
+        def on_cell_change(event: dict[str, Any]) -> None:
+            if event.get("column") != 1:  # value column only
+                return
+            key = grid_df.iloc[event["row"], 0]
+            old = grid_df.iloc[event["row"], 1]
+            new = event["new"]
+            try:
+                store.cfg[key] = yaml.safe_load(new)
+                grid_df.iloc[event["row"], 1] = new
+                store.dirty = True
+            except Exception:
+                grid_df.iloc[event["row"], 1] = old
+                grid.layout.border = "2px solid red"
+                asyncio.get_event_loop().call_later(
+                    1.0, lambda: setattr(grid.layout, "border", "")
+                )
+
+        grid.on("cell_edited", on_cell_change)
     except Exception:  # pragma: no cover - optional dep
         grid = widgets.Label("ipydatagrid not installed")
 
@@ -72,9 +95,15 @@ def _build_step0(store: ParamStore) -> widgets.Widget:
         save_state(store)
         store.dirty = False
 
+    def on_download(_: Any) -> None:
+        path = STATE_FILE.with_name("config_download.yml")
+        path.write_text(yaml.safe_dump(store.to_dict()))
+        cast(Any, display)(cast(Any, FileLink)(path))
+
     upload.observe(on_upload, names="value")
     template.observe(on_template, names="value")
     save_btn.on_click(on_save)
+    download_btn.on_click(on_download)
 
     return widgets.VBox(
         [template, upload, grid, widgets.HBox([save_btn, download_btn])]
@@ -100,6 +129,10 @@ def launch() -> widgets.Widget:
     def on_theme(change: dict[str, Any]) -> None:
         store.theme = change["new"]
         store.dirty = True
+        js = cast(Any, Javascript)(
+            f"document.documentElement.style.setProperty('--trend-theme', '{change['new']}');"
+        )
+        cast(Any, display)(js)
 
     theme.observe(on_theme, names="value")
 
