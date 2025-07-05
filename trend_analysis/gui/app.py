@@ -238,20 +238,23 @@ def _build_manual_override(store: ParamStore) -> widgets.Widget:
         def _on_edit(event: dict[str, Any]) -> None:
             fund = df.loc[event["row"], "Fund"]
             if event.get("column") == 1:  # Include
-                val = bool(event.get("new"))
-                if val and fund not in manual:
+                include_val = bool(event.get("new"))
+                if include_val and fund not in manual:
                     manual.append(fund)
-                elif not val and fund in manual:
+                elif not include_val and fund in manual:
                     manual.remove(fund)
             elif event.get("column") == 2:  # Weight
-                try:
-                    val = float(event.get("new"))
-                    if val < 0:
-                        raise ValueError
-                except Exception:
+                new_val = event.get("new")
+                if new_val is None:
                     return
-                weights[fund] = val
-                df.loc[event["row"], "Weight"] = val
+                try:
+                    weight_val = float(new_val)
+                    if weight_val < 0:
+                        raise ValueError
+                except (TypeError, ValueError):
+                    return
+                weights[fund] = weight_val
+                df.loc[event["row"], "Weight"] = weight_val
             store.dirty = True
 
         grid.on("cell_edited", _on_edit)
