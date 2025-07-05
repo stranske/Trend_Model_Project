@@ -545,14 +545,12 @@ prior_tau	1.0	uninformative prior	✅
 
 ---
 
-**Next steps**
+**Status**
 
-* Implement the `AdaptiveBayesWeighting` class and unit tests.
-* Extend GUI weight‑method dropdown via the existing plug‑in registry.
-* Confirm the chosen default parameters or adjust in the table above.
-
-After this patch lands, the persistent‑success mechanic will be fully
-spec‑locked and ready for coding.
+The `AdaptiveBayesWeighting` implementation and accompanying unit tests are
+now merged. The GUI enumerates all weighting plug‑ins automatically and the
+defaults listed above match the shipped configuration. Persistent skill can
+therefore be modelled out‑of‑the‑box.
 
 
 
