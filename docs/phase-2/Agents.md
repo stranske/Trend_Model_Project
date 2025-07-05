@@ -111,6 +111,7 @@ class ParamStore:
     cfg: dict[str, Any] = field(default_factory=dict)
     theme: str = "system"          # light | dark
     dirty: bool = False            # unsaved edits flag
+    weight_state: dict[str, Any] | None = None  # AdaptiveBayes posterior
 
     def to_dict(self) -> dict[str, Any]:
         return self.cfg
@@ -138,6 +139,9 @@ State persistence
 
 On successful Run, call
 yaml.safe_dump(store.to_dict(), Path.home()/".trend_gui_state.yml").
+
+If ``store.weight_state`` is not ``None`` also pickle it to
+``~/.trend_gui_state.pkl`` as ``{"adaptive_bayes_posteriors": store.weight_state}``.
 
 On GUI launch, attempt to load the file; if malformed, ignore with a warning.
 
