@@ -192,10 +192,10 @@ def launch() -> widgets.Widget:
             split = cfg.sample_split
             sheet_fmt = export.make_summary_formatter(
                 res,
-                split.get("in_start"),
-                split.get("in_end"),
-                split.get("out_start"),
-                split.get("out_end"),
+                str(split.get("in_start", "")),
+                str(split.get("in_end", "")),
+                str(split.get("out_start", "")),
+                str(split.get("out_end", "")),
             )
             data["summary"] = pd.DataFrame()
             export.export_to_excel(
