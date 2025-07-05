@@ -34,6 +34,19 @@ Functional spec
 4.  Config file (YAML) drives everything – sample below.
 
 5.  UI flow (ipywidgets, no external deps):
+<!-- STEP 0 START -->
+### Step 0 – Config Loader & Editor  📝
+
+| Purpose | Controls | Behaviour |
+|---------|----------|-----------|
+| **Load existing config** | `FileUpload(accept=".yml")` | Parse YAML → populate `ParamStore` → refresh downstream widgets. |
+| **Template picker** | `Dropdown(options=list_builtin_cfgs())` | Selecting a template triggers the same refresh. |
+| **Grid editor** | If **ipydatagrid** present: render editable grid of the current YAML.  Else show a disabled grid stub plus a warning banner. | Edits propagate to `ParamStore` in real time via the `on_cell_change` event; invalid edits revert and flash red. |
+| **Save/Download** | “💾 Save config” button → writes YAML to disk; “⬇️ Download” → triggers browser download. | Uses `yaml.safe_dump(param_store.to_dict())`. |
+
+> *Rationale*: power users often arrive with a ready config; making this the very first step short‑circuits half the clicks.
+
+<!-- STEP 0 END -->
     Step 1  – Mode (‘all’, ‘random’, ‘manual’, **‘rank’**),
                checkboxes for “vol‑adj” and “use ranking”.  
     Step 2  – If mode == 'rank' **or** user ticked “use ranking”
@@ -72,24 +85,6 @@ rank:
     MaxDrawdown: 0.2
 output:
   format: excel                 # csv | excel | json
-"""
-
-"""
-<!-- INSERT JUST AFTER THE MAIN TITLE, BEFORE STEP 1 -->
-<!-- STEP 0 START -->
-### Step 0 – Config Loader & Editor  📝
-
-| Purpose | Controls | Behaviour |
-|---------|----------|-----------|
-| **Load existing config** | `FileUpload(accept=".yml")` | Parse YAML → populate `ParamStore` → refresh downstream widgets. |
-| **Template picker** | `Dropdown(options=list_builtin_cfgs())` | Selecting a template triggers the same refresh. |
-| **Grid editor** | If **ipydatagrid** present: render editable grid of the current YAML.  Else show a disabled grid stub plus a warning banner. | Edits propagate to `ParamStore` in real time via the `on_cell_change` event; invalid edits revert and flash red. |
-| **Save/Download** | “💾 Save config” button → writes YAML to disk; “⬇️ Download” → triggers browser download. | Uses `yaml.safe_dump(param_store.to_dict())`. |
-
-> *Rationale*: power users often arrive with a ready config; making this the very first step short‑circuits half the clicks.
-
-<!-- STEP 0 END -->
-
 <!-- … existing Steps 1‑10 remain unchanged … -->
 
 <!-- locate STEP 11 and replace its body with the following … -->
@@ -147,9 +142,6 @@ yaml.safe_dump(store.to_dict(), Path.home()/".trend_gui_state.yml").
 On GUI launch, attempt to load the file; if malformed, ignore with a warning.
 
 Plug‑in registry
-for ep in importlib.metadata.entry_points(group="trend_analysis.gui_plugins"):
-    plugin_cls = ep.load()
-    register_plugin(plugin_cls)       # adds controls dynamically
 for ep in importlib.metadata.entry_points(group="trend_analysis.gui_plugins"):
     plugin_cls = ep.load()
     register_plugin(plugin_cls)       # adds controls dynamically
