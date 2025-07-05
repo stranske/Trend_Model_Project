@@ -102,7 +102,7 @@ def _build_step0(store: ParamStore) -> widgets.Widget:
             with grid.hold_trait_notifications():
                 grid.data = [store.cfg]
 
-    def on_upload(change: dict[str, Any]) -> None:
+    def on_upload(change: dict[str, Any], *, store: ParamStore) -> None:
         if change["new"]:
             item = next(iter(upload.value.values()))
             store.cfg = yaml.safe_load(item["content"].decode("utf-8"))
@@ -110,7 +110,7 @@ def _build_step0(store: ParamStore) -> widgets.Widget:
             reset_weight_state(store)
             refresh_grid()
 
-    def on_template(change: dict[str, Any]) -> None:
+    def on_template(change: dict[str, Any], *, store: ParamStore) -> None:
         name = change["new"]
         cfg_dir = Path(__file__).resolve().parents[2] / "config"
         path = cfg_dir / f"{name}.yml"
@@ -119,19 +119,21 @@ def _build_step0(store: ParamStore) -> widgets.Widget:
         reset_weight_state(store)
         refresh_grid()
 
-    def on_save(_: Any) -> None:
+    def on_save(_: Any, *, store: ParamStore) -> None:
         save_state(store)
         store.dirty = False
 
-    def on_download(_: Any) -> None:
+    def on_download(_: Any, *, store: ParamStore) -> None:
         path = STATE_FILE.with_name("config_download.yml")
         path.write_text(yaml.safe_dump(store.to_dict()))
         cast(Any, display)(cast(Any, FileLink)(path))
 
-    upload.observe(on_upload, names="value")
-    template.observe(on_template, names="value")
-    save_btn.on_click(on_save)
-    download_btn.on_click(on_download)
+    upload.observe(lambda ch, store=store: on_upload(ch, store=store), names="value")
+    template.observe(
+        lambda ch, store=store: on_template(ch, store=store), names="value"
+    )
+    save_btn.on_click(lambda btn, store=store: on_save(btn, store=store))
+    download_btn.on_click(lambda btn, store=store: on_download(btn, store=store))
 
     return widgets.VBox(
         [template, upload, grid, widgets.HBox([save_btn, download_btn])]
@@ -199,7 +201,7 @@ def _build_rank_options(store: ParamStore) -> widgets.Widget:
     except Exception:  # pragma: no cover - never raised
         blended_box = widgets.VBox()
 
-    def _store_rank(_: Any = None) -> None:
+    def _store_rank(_: Any = None, *, store: ParamStore) -> None:
         rank_cfg["inclusion_approach"] = incl_dd.value
         rank_cfg["score_by"] = metric_dd.value
         rank_cfg["n"] = int(n_int.value)
@@ -212,22 +214,26 @@ def _build_rank_options(store: ParamStore) -> widgets.Widget:
         }
         store.dirty = True
 
-    incl_dd.observe(_store_rank, names="value")
-    metric_dd.observe(_store_rank, names="value")
-    n_int.observe(_store_rank, names="value")
-    pct_flt.observe(_store_rank, names="value")
-    thresh_f.observe(_store_rank, names="value")
+    incl_dd.observe(lambda ch, store=store: _store_rank(ch, store=store), names="value")
+    metric_dd.observe(
+        lambda ch, store=store: _store_rank(ch, store=store), names="value"
+    )
+    n_int.observe(lambda ch, store=store: _store_rank(ch, store=store), names="value")
+    pct_flt.observe(lambda ch, store=store: _store_rank(ch, store=store), names="value")
+    thresh_f.observe(
+        lambda ch, store=store: _store_rank(ch, store=store), names="value"
+    )
 
     @debounce(300)
-    def _on_blend(_: Any) -> None:
-        _store_rank()
+    def _on_blend(_: Any, *, store: ParamStore) -> None:
+        _store_rank(store=store)
 
-    m1_dd.observe(_on_blend, names="value")
-    w1_sl.observe(_on_blend, names="value")
-    m2_dd.observe(_on_blend, names="value")
-    w2_sl.observe(_on_blend, names="value")
-    m3_dd.observe(_on_blend, names="value")
-    w3_sl.observe(_on_blend, names="value")
+    m1_dd.observe(lambda ch, store=store: _on_blend(ch, store=store), names="value")
+    w1_sl.observe(lambda ch, store=store: _on_blend(ch, store=store), names="value")
+    m2_dd.observe(lambda ch, store=store: _on_blend(ch, store=store), names="value")
+    w2_sl.observe(lambda ch, store=store: _on_blend(ch, store=store), names="value")
+    m3_dd.observe(lambda ch, store=store: _on_blend(ch, store=store), names="value")
+    w3_sl.observe(lambda ch, store=store: _on_blend(ch, store=store), names="value")
 
     metric_dd.observe(
         lambda change: blended_box.layout.__setattr__(
@@ -256,7 +262,7 @@ def _build_manual_override(store: ParamStore) -> widgets.Widget:
         df = pd.DataFrame(rows, columns=["Fund", "Include", "Weight"])
         grid = DataGrid(df, editable=True)
 
-        def _on_edit(event: dict[str, Any]) -> None:
+        def _on_edit(event: dict[str, Any], *, store: ParamStore) -> None:
             fund = df.loc[event["row"], "Fund"]
             if event.get("column") == 1:  # Include
                 include_val = bool(event.get("new"))
@@ -278,7 +284,7 @@ def _build_manual_override(store: ParamStore) -> widgets.Widget:
                 df.loc[event["row"], "Weight"] = weight_val
             store.dirty = True
 
-        grid.on("cell_edited", _on_edit)
+        grid.on("cell_edited", lambda ev, store=store: _on_edit(ev, store=store))
         box = widgets.VBox([grid])
     except Exception:  # pragma: no cover - optional dep
         opts = sorted(set(manual) | set(weights))
@@ -289,11 +295,11 @@ def _build_manual_override(store: ParamStore) -> widgets.Widget:
             for f in opts
         ]
 
-        def _on_select(change: dict[str, Any]) -> None:
+        def _on_select(change: dict[str, Any], *, store: ParamStore) -> None:
             manual[:] = list(change["new"])
             store.dirty = True
 
-        def _on_weight(change: dict[str, Any], fund: str) -> None:
+        def _on_weight(change: dict[str, Any], fund: str, *, store: ParamStore) -> None:
             try:
                 val = float(change["new"])
                 if val < 0:
@@ -303,10 +309,15 @@ def _build_manual_override(store: ParamStore) -> widgets.Widget:
             weights[fund] = val
             store.dirty = True
 
-        select.observe(_on_select, names="value")
+        select.observe(
+            lambda ch, store=store: _on_select(ch, store=store), names="value"
+        )
         for wdg in weight_boxes:
             wdg.observe(
-                lambda ch, fund=wdg.description: _on_weight(ch, fund), names="value"
+                lambda ch, fund=wdg.description, store=store: _on_weight(
+                    ch, fund, store=store
+                ),
+                names="value",
             )
 
         box = widgets.VBox([warn, select] + weight_boxes)
@@ -362,7 +373,7 @@ def _build_weighting_options(store: ParamStore) -> widgets.Widget:
     )
     adv_box = widgets.VBox([hl, os_sl, mw_sl, pt_sl])
 
-    def _store_weight(_: Any = None) -> None:
+    def _store_weight(_: Any = None, *, store: ParamStore) -> None:
         weight_cfg["name"] = method_dd.value
         params["half_life"] = int(hl.value)
         params["obs_sigma"] = float(os_sl.value)
@@ -370,14 +381,16 @@ def _build_weighting_options(store: ParamStore) -> widgets.Widget:
         params["prior_tau"] = float(pt_sl.value)
         store.dirty = True
 
-    method_dd.observe(_store_weight, names="value")
+    method_dd.observe(
+        lambda ch, store=store: _store_weight(ch, store=store), names="value"
+    )
 
     @debounce(300)
-    def _on_param(_: Any) -> None:
-        _store_weight()
+    def _on_param(_: Any, *, store: ParamStore) -> None:
+        _store_weight(store=store)
 
     for wdg in (hl, os_sl, mw_sl, pt_sl):
-        wdg.observe(_on_param, names="value")
+        wdg.observe(lambda ch, store=store: _on_param(ch, store=store), names="value")
 
     def _toggle_adv(change: dict[str, Any]) -> None:
         adv_box.layout.display = "flex" if change["new"] == "adaptive_bayes" else "none"
@@ -421,7 +434,7 @@ def launch() -> widgets.Widget:
     run_btn = widgets.Button(description="Run")
     reset_btn = widgets.Button(description="↻ Reset")
 
-    def on_theme(change: dict[str, Any]) -> None:
+    def on_theme(change: dict[str, Any], *, store: ParamStore) -> None:
         store.theme = change["new"]
         store.dirty = True
         js = cast(Any, Javascript)(
@@ -429,28 +442,28 @@ def launch() -> widgets.Widget:
         )
         cast(Any, display)(js)
 
-    theme.observe(on_theme, names="value")
+    theme.observe(lambda ch, store=store: on_theme(ch, store=store), names="value")
 
-    def on_mode(change: dict[str, Any]) -> None:
+    def on_mode(change: dict[str, Any], *, store: ParamStore) -> None:
         store.cfg["mode"] = change["new"]
         store.dirty = True
 
-    mode.observe(on_mode, names="value")
+    mode.observe(lambda ch, store=store: on_mode(ch, store=store), names="value")
 
-    def on_vol(change: dict[str, Any]) -> None:
+    def on_vol(change: dict[str, Any], *, store: ParamStore) -> None:
         store.cfg["use_vol_adjust"] = bool(change["new"])
         store.dirty = True
 
-    def on_rank(change: dict[str, Any]) -> None:
+    def on_rank(change: dict[str, Any], *, store: ParamStore) -> None:
         store.cfg["use_ranking"] = bool(change["new"])
         store.dirty = True
 
-    def on_fmt(change: dict[str, Any]) -> None:
+    def on_fmt(change: dict[str, Any], *, store: ParamStore) -> None:
         out = store.cfg.setdefault("output", {})
         out["format"] = change["new"]
         store.dirty = True
 
-    def on_run(_: Any) -> None:
+    def on_run(_: Any, *, store: ParamStore) -> None:
         cfg = build_config_from_store(store)
         metrics = pipeline.run(cfg)
         if metrics.empty:
@@ -480,26 +493,28 @@ def launch() -> widgets.Widget:
         save_state(store)
         store.dirty = False
 
-    vol_adj.observe(on_vol, names="value")
-    use_ranking.observe(on_rank, names="value")
-    fmt_dd.observe(on_fmt, names="value")
-    run_btn.on_click(on_run)
+    vol_adj.observe(lambda ch, store=store: on_vol(ch, store=store), names="value")
+    use_ranking.observe(lambda ch, store=store: on_rank(ch, store=store), names="value")
+    fmt_dd.observe(lambda ch, store=store: on_fmt(ch, store=store), names="value")
+    run_btn.on_click(lambda btn, store=store: on_run(btn, store=store))
     reset_btn.on_click(lambda _: reset_weight_state(store))
 
     rank_box = _build_rank_options(store)
     manual_box = _build_manual_override(store)
     weight_box = _build_weighting_options(store)
 
-    def _toggle_boxes(change: dict[str, Any]) -> None:
+    def _toggle_boxes(change: dict[str, Any], *, store: ParamStore) -> None:
         mode_val = change["new"] if isinstance(change, dict) else mode.value
         rank_box.layout.display = (
             "flex" if mode_val == "rank" or use_ranking.value else "none"
         )
         manual_box.layout.display = "flex" if mode_val == "manual" else "none"
 
-    mode.observe(_toggle_boxes, names="value")
-    use_ranking.observe(_toggle_boxes, names="value")
-    _toggle_boxes({"new": mode.value})
+    mode.observe(lambda ch, store=store: _toggle_boxes(ch, store=store), names="value")
+    use_ranking.observe(
+        lambda ch, store=store: _toggle_boxes(ch, store=store), names="value"
+    )
+    _toggle_boxes({"new": mode.value}, store=store)
 
     step0 = _build_step0(store)
 
