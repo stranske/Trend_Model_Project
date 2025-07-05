@@ -3,6 +3,7 @@ from types import SimpleNamespace
 import yaml
 import importlib
 
+import sys
 import trend_analysis.gui as gui
 
 
@@ -71,3 +72,13 @@ def test_build_config_from_store():
     store = gui.ParamStore(cfg=cfg)
     out = gui.build_config_from_store(store)
     assert out.data["csv_path"] == "foo.csv"
+
+
+def test_manual_override_fallback(monkeypatch):
+    monkeypatch.setitem(sys.modules, "ipydatagrid", None)
+    from ipywidgets import VBox, Label
+
+    store = gui.ParamStore(cfg={})
+    widget = gui.app._build_manual_override(store)
+    assert isinstance(widget, VBox)
+    assert isinstance(widget.children[0], Label)
