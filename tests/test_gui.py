@@ -55,6 +55,7 @@ def test_state_persistence(tmp_path, monkeypatch):
     monkeypatch.setattr(gui.app, "WEIGHT_STATE_FILE", pkl)
     store = gui.ParamStore(cfg={"x": 1}, weight_state={"a": 1.0})
     gui.save_state(store)
+    assert pkl.exists()
     loaded = gui.load_state()
     assert loaded.cfg == {"x": 1}
     assert loaded.weight_state == {"a": 1.0}

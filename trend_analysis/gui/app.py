@@ -31,7 +31,11 @@ def load_state() -> ParamStore:
     try:
         if WEIGHT_STATE_FILE.exists():
             with WEIGHT_STATE_FILE.open("rb") as fh:
-                store.weight_state = pickle.load(fh)
+                data = pickle.load(fh)
+            if isinstance(data, dict) and "adaptive_bayes_posteriors" in data:
+                store.weight_state = data["adaptive_bayes_posteriors"]
+            else:  # back-compat with old format
+                store.weight_state = data
     except Exception as exc:  # pragma: no cover - malformed file
         warnings.warn(f"Failed to load weight state: {exc}")
     return store
@@ -42,7 +46,7 @@ def save_state(store: ParamStore) -> None:
     STATE_FILE.write_text(yaml.safe_dump(store.to_dict()))
     if store.weight_state is not None:
         with WEIGHT_STATE_FILE.open("wb") as fh:
-            pickle.dump(store.weight_state, fh)
+            pickle.dump({"adaptive_bayes_posteriors": store.weight_state}, fh)
 
 
 def reset_weight_state(store: ParamStore) -> None:
