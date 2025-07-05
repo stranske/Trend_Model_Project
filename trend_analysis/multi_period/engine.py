@@ -72,7 +72,7 @@ def run_schedule(
                 days = (pd.to_datetime(date) - prev_date).days
             s = sf.loc[weights.index, col]
             try:
-                weighting.update(s, days)  # type: ignore[attr-defined]
+                weighting.update(s, days)
             except Exception:  # pragma: no cover - defensive
                 pass
         prev_date = pd.to_datetime(date)
