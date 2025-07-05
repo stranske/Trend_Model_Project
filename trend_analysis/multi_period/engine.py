@@ -46,14 +46,37 @@ def run_schedule(
     score_frames: Mapping[str, pd.DataFrame],
     selector: SelectorProtocol,
     weighting: BaseWeighting,
+    *,
+    rank_column: str | None = None,
 ) -> Portfolio:
     """Apply selection and weighting across ``score_frames``."""
 
     pf = Portfolio()
+    prev_date: pd.Timestamp | None = None
+    col = (
+        rank_column
+        or getattr(selector, "rank_column", None)
+        or getattr(selector, "column", None)
+    )
+
     for date in sorted(score_frames):
-        selected, _ = selector.select(score_frames[date])
+        sf = score_frames[date]
+        selected, _ = selector.select(sf)
         weights = weighting.weight(selected)
         pf.rebalance(date, weights)
+
+        if hasattr(weighting, "update") and col and col in sf.columns:
+            if prev_date is None:
+                days = 0
+            else:
+                days = (pd.to_datetime(date) - prev_date).days
+            s = sf.loc[weights.index, col]
+            try:
+                weighting.update(s, days)
+            except Exception:  # pragma: no cover - defensive
+                pass
+        prev_date = pd.to_datetime(date)
+
     return pf
 
 
