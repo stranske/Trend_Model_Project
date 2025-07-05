@@ -6,7 +6,7 @@ import warnings
 import yaml
 import ipywidgets as widgets
 from IPython.display import Javascript, display, FileLink
-from typing import Any
+from typing import Any, cast
 
 from .store import ParamStore
 from .plugins import discover_plugins
@@ -98,7 +98,7 @@ def _build_step0(store: ParamStore) -> widgets.Widget:
     def on_download(_: Any) -> None:
         path = STATE_FILE.with_name("config_download.yml")
         path.write_text(yaml.safe_dump(store.to_dict()))
-        display(FileLink(path))  # type: ignore[no-untyped-call]
+        cast(Any, display)(cast(Any, FileLink)(path))
 
     upload.observe(on_upload, names="value")
     template.observe(on_template, names="value")
@@ -129,10 +129,10 @@ def launch() -> widgets.Widget:
     def on_theme(change: dict[str, Any]) -> None:
         store.theme = change["new"]
         store.dirty = True
-        js = Javascript(
+        js = cast(Any, Javascript)(
             f"document.documentElement.style.setProperty('--trend-theme', '{change['new']}');"
-        )  # type: ignore[no-untyped-call]
-        display(js)  # type: ignore[no-untyped-call]
+        )
+        cast(Any, display)(js)
 
     theme.observe(on_theme, names="value")
 
