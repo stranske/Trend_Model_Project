@@ -221,15 +221,70 @@ def _build_rank_options(store: ParamStore) -> widgets.Widget:
 
 def _build_manual_override(store: ParamStore) -> widgets.Widget:
     """Return manual-selection grid or fallback."""
+    port = store.cfg.setdefault("portfolio", {})
+    weights = port.setdefault("custom_weights", {})
+    manual = port.setdefault("manual_list", list(weights))
+
     try:
         from ipydatagrid import DataGrid
 
-        df = pd.DataFrame(columns=["Include", "Weight"])
+        rows = [
+            {"Fund": f, "Include": f in manual, "Weight": float(weights.get(f, 0))}
+            for f in sorted(set(manual) | set(weights))
+        ]
+        df = pd.DataFrame(rows, columns=["Fund", "Include", "Weight"])
         grid = DataGrid(df, editable=True)
+
+        def _on_edit(event: dict[str, Any]) -> None:
+            fund = df.loc[event["row"], "Fund"]
+            if event.get("column") == 1:  # Include
+                val = bool(event.get("new"))
+                if val and fund not in manual:
+                    manual.append(fund)
+                elif not val and fund in manual:
+                    manual.remove(fund)
+            elif event.get("column") == 2:  # Weight
+                try:
+                    val = float(event.get("new"))
+                    if val < 0:
+                        raise ValueError
+                except Exception:
+                    return
+                weights[fund] = val
+                df.loc[event["row"], "Weight"] = val
+            store.dirty = True
+
+        grid.on("cell_edited", _on_edit)
         box = widgets.VBox([grid])
     except Exception:  # pragma: no cover - optional dep
+        opts = sorted(set(manual) | set(weights))
         warn = widgets.Label("ipydatagrid not installed")
-        box = widgets.VBox([warn])
+        select = widgets.SelectMultiple(options=opts, value=tuple(manual))
+        weight_boxes = [
+            widgets.FloatText(value=float(weights.get(f, 0)), description=f)
+            for f in opts
+        ]
+
+        def _on_select(change: dict[str, Any]) -> None:
+            manual[:] = list(change["new"])
+            store.dirty = True
+
+        def _on_weight(change: dict[str, Any], fund: str) -> None:
+            try:
+                val = float(change["new"])
+                if val < 0:
+                    raise ValueError
+            except Exception:
+                return
+            weights[fund] = val
+            store.dirty = True
+
+        select.observe(_on_select, names="value")
+        for wdg in weight_boxes:
+            wdg.observe(lambda ch, fund=wdg.description: _on_weight(ch, fund), names="value")
+
+        box = widgets.VBox([warn, select] + weight_boxes)
+
     box.layout.display = "none"
     return box
 
