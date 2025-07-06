@@ -1,0 +1,27 @@
+# .github/workflows/demo.yml
+name: Demo pipeline
+
+on:
+  workflow_dispatch:        # run on demand
+  push:
+    branches: [ chore/demo‑pipeline ]
+
+jobs:
+  demo:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write        # allow committing artifacts back
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+        cache: "pip"
+    - run: scripts/setup_env.sh
+    - run: python scripts/generate_demo.py
+    - run: python -m trend_analysis.run_analysis -c config/demo.yml
+    - uses: actions/upload-artifact@v4
+      with:
+        name: demo‑exports
+        path: demo/exports/*
