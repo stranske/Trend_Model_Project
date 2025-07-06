@@ -3,6 +3,14 @@
 YOU ARE CODEX.  EXTEND THE VOL_ADJ_TREND_ANALYSIS PROJECT AS FOLLOWS
 --------------------------------------------------------------------
 
+## Demo pipeline (maintenance / CI)
+
+1. **Bootstrap environment**
+
+   ```bash
+   ./scripts/setup_env.sh
+
+
 High‑level goal
 ~~~~~~~~~~~~~~~
 Add a **performance‑based manager‑selection mode** that works alongside the
