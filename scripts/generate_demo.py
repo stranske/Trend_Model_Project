@@ -2,6 +2,7 @@
 Generate a 10‑year monthly return series for 20
 fake managers and dump to CSV + XLSX.
 """
+
 import numpy as np, pandas as pd, os, datetime as dt
 
 OUT_DIR = "demo"
