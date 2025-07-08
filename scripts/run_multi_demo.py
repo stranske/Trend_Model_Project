@@ -18,11 +18,11 @@ print(f"Generated {num_periods} period results")
 if num_periods <= 1:
     raise SystemExit("Multi-period demo produced insufficient results")
 
-# Build mapping of {period_end: score_frame} for run_schedule
-frames = {res["period"][1]: res["score_frame"] for res in results}
+score_frames = {r["period"][3]: r["score_frame"] for r in results}
 selector = RankSelector(top_n=3, rank_column="Sharpe")
 weighting = AdaptiveBayesWeighting(max_w=None)
-portfolio = run_schedule(frames, selector, weighting, rank_column="Sharpe")
+portfolio = run_schedule(score_frames, selector, weighting, rank_column="Sharpe")
+print(f"Weight history generated for {len(portfolio.history)} periods")
 if len(portfolio.history) != num_periods:
-    raise SystemExit("Weight history length mismatch")
-print("Generated weight history for all periods")
+    raise SystemExit("Weight schedule did not cover all periods")
+
