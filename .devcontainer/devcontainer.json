@@ -1,0 +1,8 @@
+{
+  "name": "analysis‑env",
+  "image": "mcr.microsoft.com/devcontainers/python:3.11",
+  "postCreateCommand": "./scripts/setup_env.sh",
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  }
+}

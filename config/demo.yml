@@ -3,7 +3,7 @@ version: 1                      # whatever your defaults.yml uses
 
 data:
   path: demo/demo_returns.csv   # <– written by generate_demo.py
-  frequency: M                  # monthly data
+  frequency: ME                  # monthly data
 
 preprocessing:
   steps: []                     # none for a synthetic demo
@@ -31,3 +31,4 @@ export:
 
 run:
   seed: 42                      # makes demo deterministic
+
