@@ -32,6 +32,7 @@ def test_multi_period_run_returns_results():
     out = run_mp(cfg, df)
     assert isinstance(out, list)
     assert out, "no period results returned"
+    assert len(out) > 1, "Multi-period run produced only a single period"
 
 
 def test_run_schedule_generates_weight_history():

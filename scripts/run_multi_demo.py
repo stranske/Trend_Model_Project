@@ -25,4 +25,3 @@ portfolio = run_schedule(score_frames, selector, weighting, rank_column="Sharpe"
 print(f"Weight history generated for {len(portfolio.history)} periods")
 if len(portfolio.history) != num_periods:
     raise SystemExit("Weight schedule did not cover all periods")
-
