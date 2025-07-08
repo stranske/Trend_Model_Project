@@ -1,7 +1,33 @@
-# config/demo.yml
-data_path: demo/demo_returns.csv
-output_dir: demo/exports
-export_format: [csv, xlsx, json]   # must match Agents.md conventions
-ranking_mode:
-  type: trend
-  lookback_months: 36
+# config/demo.yml  – minimal but schema-complete
+version: 1                      # whatever your defaults.yml uses
+
+data:
+  path: demo/demo_returns.csv   # <– written by generate_demo.py
+  frequency: ME                  # monthly data
+
+preprocessing:
+  steps: []                     # none for a synthetic demo
+
+vol_adjust:
+  enabled: false                # keep it off for speed
+
+sample_split:
+  in_sample_years: 8
+  out_sample_years: 2
+
+portfolio:
+  selector:
+    type: trend                 # or 'rank', 'zscore', etc.
+    lookback_months: 36
+  weighting:
+    type: equal                 # simplest weighting
+
+metrics:
+  enabled: false                # skip extra calc for demo
+
+export:
+  output_dir: demo/exports      # creates dir if missing
+  formats: [csv, xlsx, json]
+
+run:
+  seed: 42                      # makes demo deterministic
