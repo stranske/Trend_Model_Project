@@ -1,5 +1,5 @@
 # config/demo.yml  – minimal but schema-complete
-version: 1                      # whatever your defaults.yml uses
+version: "1"                      # whatever your defaults.yml uses
 
 data:
   path: demo/demo_returns.csv   # <– written by generate_demo.py
