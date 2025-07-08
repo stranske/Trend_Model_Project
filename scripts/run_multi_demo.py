@@ -1,5 +1,11 @@
 #!/usr/bin/env python
-"""Run the multi-period demo using the generated data."""
+"""Run the multi-period demo using the generated data.
+
+This script exercises the Phase‑2 multi-period engine by running
+``multi_period.run`` to obtain a collection of ``score_frame`` objects and then
+feeding them through ``run_schedule`` with a selector and weighting scheme.
+"""
+
 from trend_analysis.config import load
 from trend_analysis.multi_period import run as run_mp, run_schedule
 from trend_analysis.selector import RankSelector
@@ -19,3 +25,4 @@ portfolio = run_schedule(score_frames, selector, weighting, rank_column="Sharpe"
 print(f"Weight history generated for {len(portfolio.history)} periods")
 if len(portfolio.history) != num_periods:
     raise SystemExit("Weight schedule did not cover all periods")
+
