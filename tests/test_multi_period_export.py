@@ -9,6 +9,7 @@ from trend_analysis.export import (
     summary_frame_from_result,
     combined_summary_result,
     export_multi_period_metrics,
+    export_phase1_workbook,
     period_frames_from_results,
 )
 
@@ -108,3 +109,18 @@ def test_export_multi_period_metrics_excel(tmp_path):
     assert "summary" in book.sheet_names
     df_read = pd.read_excel(path, sheet_name=first_period, header=None)
     assert "Vol-Adj Trend Analysis" in df_read.iloc[0, 0]
+
+
+def test_export_phase1_workbook(tmp_path):
+    df = make_df()
+    cfg = make_cfg()
+    results = run_mp(cfg, df)
+    out = tmp_path / "res.xlsx"
+    export_phase1_workbook(results, str(out))
+    assert out.exists()
+    first_period = str(results[0]["period"][3])
+    second_period = str(results[1]["period"][3])
+    book = pd.ExcelFile(out)
+    assert first_period in book.sheet_names
+    assert second_period in book.sheet_names
+    assert "summary" in book.sheet_names
