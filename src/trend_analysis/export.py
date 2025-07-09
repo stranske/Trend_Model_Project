@@ -211,7 +211,8 @@ def format_summary_text(
         a = to_tuple(t)
         return [a[0] * 100, a[1] * 100, a[2], a[3], a[4], a[5] * 100]
 
-    bench_labels = list(res.get("benchmark_ir", {}))
+    bench_map = cast(Mapping[str, Mapping[str, float]], res.get("benchmark_ir", {}))
+    bench_labels = list(bench_map)
     columns = [
         "Name",
         "Weight",
@@ -406,6 +407,76 @@ def metrics_from_result(res: Mapping[str, object]) -> pd.DataFrame:
     return df
 
 
+def summary_frame_from_result(res: Mapping[str, object]) -> pd.DataFrame:
+    """Return a DataFrame mirroring the Phase-1 summary table."""
+
+    from .pipeline import _Stats  # lazy import to avoid cycle
+
+    def to_tuple(obj: Any) -> tuple[float, float, float, float, float, float]:
+        if isinstance(obj, tuple):
+            return cast(tuple[float, float, float, float, float, float], obj)
+        s = cast(_Stats, obj)
+        return (
+            float(s.cagr),
+            float(s.vol),
+            float(s.sharpe),
+            float(s.sortino),
+            float(s.information_ratio),
+            float(s.max_drawdown),
+        )
+
+    def pct(t: Any) -> list[float]:
+        a = to_tuple(t)
+        return [a[0] * 100, a[1] * 100, a[2], a[3], a[4], a[5] * 100]
+
+    bench_map = cast(Mapping[str, Mapping[str, float]], res.get("benchmark_ir", {}))
+    bench_labels = list(bench_map)
+    columns = [
+        "Name",
+        "Weight",
+        "IS CAGR",
+        "IS Vol",
+        "IS Sharpe",
+        "IS Sortino",
+        "IS IR",
+        "IS MaxDD",
+        "OS CAGR",
+        "OS Vol",
+        "OS Sharpe",
+        "OS Sortino",
+        "OS IR",
+    ]
+    columns.extend([f"OS IR {b}" for b in bench_labels])
+    columns.append("OS MaxDD")
+
+    rows: list[list[Any]] = []
+
+    for label, ins, outs in [
+        ("Equal Weight", res["in_ew_stats"], res["out_ew_stats"]),
+        ("User Weight", res["in_user_stats"], res["out_user_stats"]),
+    ]:
+        vals = pct(ins) + pct(outs)
+        extra = [
+            bench_map.get(b, {}).get(
+                "equal_weight" if label == "Equal Weight" else "user_weight",
+                pd.NA,
+            )
+            for b in bench_labels
+        ]
+        rows.append([label, pd.NA, *vals, *extra])
+
+    rows.append([pd.NA] * len(columns))
+
+    for fund, stat_in in cast(Mapping[str, _Stats], res["in_sample_stats"]).items():
+        stat_out = cast(Mapping[str, _Stats], res["out_sample_stats"])[fund]
+        weight = cast(Mapping[str, float], res["fund_weights"])[fund] * 100
+        vals = pct(stat_in) + pct(stat_out)
+        extra = [bench_map.get(b, {}).get(fund, pd.NA) for b in bench_labels]
+        rows.append([fund, weight, *vals, *extra])
+
+    return pd.DataFrame(rows, columns=columns)
+
+
 def export_multi_period_metrics(
     results: Iterable[Mapping[str, object]],
     output_path: str,
@@ -414,12 +485,13 @@ def export_multi_period_metrics(
 ) -> None:
     """Export per-period metrics using the canonical exporters."""
 
-    data: dict[str, pd.DataFrame] = {}
+    excel_formats = [f for f in formats if f.lower() in {"excel", "xlsx"}]
+    other_formats = [f for f in formats if f.lower() not in {"excel", "xlsx"}]
+    excel_data: dict[str, pd.DataFrame] = {}
+    other_data: dict[str, pd.DataFrame] = {}
     reset_formatters_excel()
-    want_excel = any(f.lower() in {"excel", "xlsx"} for f in formats)
 
     for idx, res in enumerate(results, start=1):
-        df = metrics_from_result(res)
         period = res.get("period")
         if isinstance(period, (list, tuple)) and len(period) >= 4:
             in_s, in_e, out_s, out_e = map(str, period[:4])
@@ -427,11 +499,18 @@ def export_multi_period_metrics(
         else:
             in_s = in_e = out_s = out_e = ""
             sheet = f"period_{idx}"
-        data[sheet] = df
-        if want_excel:
+
+        if excel_formats:
+            excel_data[sheet] = pd.DataFrame()
             make_period_formatter(sheet, res, in_s, in_e, out_s, out_e)
 
-    export_data(data, output_path, formats=formats)
+        if other_formats:
+            other_data[sheet] = summary_frame_from_result(res)
+
+    if excel_formats:
+        export_data(excel_data, output_path, formats=excel_formats)
+    if other_formats:
+        export_data(other_data, output_path, formats=other_formats)
 
 
 def export_data(
@@ -464,5 +543,6 @@ __all__ = [
     "export_to_txt",
     "export_data",
     "metrics_from_result",
+    "summary_frame_from_result",
     "export_multi_period_metrics",
 ]

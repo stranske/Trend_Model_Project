@@ -400,3 +400,10 @@ The original design goal is that each back‑test period should produce an Excel
 worksheet indistinguishable from the Phase‑1 summary.  CSV and JSON exports must
 likewise emit one file per period.  This behaviour has yet to be fully realised
 in code and tests.
+
+### 2025‑07‑11 UPDATE — PER‑PERIOD SUMMARY TABLES
+
+Implement helpers so every multi‑period run yields one workbook tab (or file)
+per period containing the full Phase‑1 style summary table.  Excel sheets are
+formatted via ``make_period_formatter`` while CSV/JSON outputs receive the same
+rows using ``summary_frame_from_result``.
