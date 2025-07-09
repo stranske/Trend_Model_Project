@@ -54,6 +54,7 @@ def main(argv: list[str] | None = None) -> int:
             results,
             str(Path(out_dir) / filename),
             formats=out_formats,
+            include_metrics=True,
         )  # pragma: no cover - file I/O
 
     # Prepare export

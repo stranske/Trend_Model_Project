@@ -429,3 +429,7 @@ that calls ``export.export_multi_period_metrics``.
 ### 2025-07-20 UPDATE — MULTI-PERIOD OUTPUT SPEC
 
 The pending export work shall produce an Excel workbook with one worksheet per period and a final `summary` sheet. Each tab uses the exact Phase‑ style summary table via `make_period_formatter`. CSV and JSON exports mirror this by writing one file per period plus a `_summary` file. A new helper `period_frames_from_results()` converts a sequence of result dictionaries into the mapping consumed by `export_multi_period_metrics`.
+
+### 2025-08-01 UPDATE — PER-PERIOD METRICS WORKBOOK
+
+Phase‑2 back-tests shall emit an Excel workbook with one tab per period formatted identically to the Phase‑1 summary sheet. CSV and JSON outputs produce one file per period in the same table form. In addition, a `summary` tab (and `_summary` file) aggregates portfolio returns across all periods using the identical layout. Implementation is underway in `export.export_multi_period_metrics`.
