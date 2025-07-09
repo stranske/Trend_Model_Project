@@ -12,6 +12,7 @@ from ..data import load_csv
 from ..pipeline import _run_analysis
 from .scheduler import generate_periods
 from ..weighting import BaseWeighting
+from .replacer import Rebalancer
 
 
 @dataclass
@@ -48,11 +49,13 @@ def run_schedule(
     weighting: BaseWeighting,
     *,
     rank_column: str | None = None,
+    rebalancer: "Rebalancer | None" = None,
 ) -> Portfolio:
     """Apply selection and weighting across ``score_frames``."""
 
     pf = Portfolio()
     prev_date: pd.Timestamp | None = None
+    prev_weights: pd.Series | None = None
     col = (
         rank_column
         or getattr(selector, "rank_column", None)
@@ -63,6 +66,13 @@ def run_schedule(
         sf = score_frames[date]
         selected, _ = selector.select(sf)
         weights = weighting.weight(selected)
+        if rebalancer is not None:
+            if prev_weights is None:
+                prev_weights = weights.squeeze()
+            prev_weights = rebalancer.apply_triggers(prev_weights, sf)
+            weights = prev_weights.to_frame("weight")
+        else:
+            prev_weights = weights.squeeze()
         pf.rebalance(date, weights)
 
         if hasattr(weighting, "update") and col and col in sf.columns:

@@ -12,6 +12,7 @@ from trend_analysis.multi_period import (
     run_schedule,
     scheduler,
 )
+from trend_analysis.multi_period.replacer import Rebalancer
 from trend_analysis.selector import RankSelector
 from trend_analysis.weighting import AdaptiveBayesWeighting
 
@@ -35,7 +36,14 @@ if result_periods != sched_tuples:
 score_frames = {r["period"][3]: r["score_frame"] for r in results}
 selector = RankSelector(top_n=3, rank_column="Sharpe")
 weighting = AdaptiveBayesWeighting(max_w=None)
-portfolio = run_schedule(score_frames, selector, weighting, rank_column="Sharpe")
+rebalancer = Rebalancer(cfg.model_dump())
+portfolio = run_schedule(
+    score_frames,
+    selector,
+    weighting,
+    rank_column="Sharpe",
+    rebalancer=rebalancer,
+)
 print(f"Weight history generated for {len(portfolio.history)} periods")
 if len(portfolio.history) != num_periods:
     raise SystemExit("Weight schedule did not cover all periods")
