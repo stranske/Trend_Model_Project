@@ -450,3 +450,13 @@ CSV and JSON exports now consolidate all period tables into **one** file named
 `*_periods.*` with an accompanying `*_summary.*` file holding the aggregated
 portfolio returns.  Raw metrics, when requested, follow the same pattern under
 `metrics.*` and `metrics_summary.*`.
+
+### 2025-08-30 UPDATE — PER-PERIOD PHASE‑1 WORKBOOK
+
+Implementation work continues to realise the original goal: multi‑period runs
+should emit an Excel workbook with **one tab per period** using the exact
+Phase‑1 summary layout.  A final `summary` sheet aggregates portfolio returns
+across all periods in the same format.  CSV and JSON outputs mirror this by
+bundling all period tables into a single `*_periods.*` file alongside a
+`*_summary.*` file.  Helper `export_phase1_workbook()` now begins the build
+out of this feature.

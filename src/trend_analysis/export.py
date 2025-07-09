@@ -581,6 +581,51 @@ def workbook_frames_from_results(
     return frames
 
 
+def export_phase1_workbook(
+    results: Iterable[Mapping[str, object]],
+    output_path: str,
+) -> None:
+    """Export a Phase-1 style workbook for ``results``.
+
+    Each period becomes its own sheet and a final ``summary`` sheet aggregates
+    portfolio returns across all periods using the same formatting.
+    """
+
+    results_list = list(results)
+    frames = {}
+    reset_formatters_excel()
+
+    for idx, res in enumerate(results_list, start=1):
+        period = res.get("period")
+        if isinstance(period, (list, tuple)) and len(period) >= 4:
+            in_s, in_e, out_s, out_e = map(str, period[:4])
+            sheet = str(period[3])
+        else:
+            in_s = in_e = out_s = out_e = ""
+            sheet = f"period_{idx}"
+        frames[sheet] = summary_frame_from_result(res)
+        make_period_formatter(sheet, res, in_s, in_e, out_s, out_e)
+
+    if results_list:
+        summary = combined_summary_result(results_list)
+        frames["summary"] = summary_frame_from_result(summary)
+        first = results_list[0].get("period")
+        last = results_list[-1].get("period")
+        if isinstance(first, (list, tuple)) and isinstance(last, (list, tuple)):
+            make_period_formatter(
+                "summary",
+                summary,
+                str(first[0]),
+                str(first[1]),
+                str(last[2]),
+                str(last[3]),
+            )
+        else:
+            make_period_formatter("summary", summary, "", "", "", "")
+
+    export_to_excel(frames, output_path)
+
+
 def export_multi_period_metrics(
     results: Iterable[Mapping[str, object]],
     output_path: str,
@@ -720,5 +765,6 @@ __all__ = [
     "summary_frame_from_result",
     "period_frames_from_results",
     "workbook_frames_from_results",
+    "export_phase1_workbook",
     "export_multi_period_metrics",
 ]
