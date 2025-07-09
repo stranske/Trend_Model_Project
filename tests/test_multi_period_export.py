@@ -7,6 +7,7 @@ from trend_analysis.multi_period import run as run_mp
 from trend_analysis.export import (
     metrics_from_result,
     summary_frame_from_result,
+    combined_summary_result,
     export_multi_period_metrics,
 )
 
@@ -55,6 +56,16 @@ def test_summary_frame_from_result_basic():
     assert df_sum.iloc[0, 0] == "Equal Weight"
 
 
+def test_combined_summary_result_basic():
+    df = make_df()
+    cfg = make_cfg()
+    results = run_mp(cfg, df)
+    summary = combined_summary_result(results)
+    df_sum = summary_frame_from_result(summary)
+    assert "OS MaxDD" in df_sum.columns
+    assert df_sum.iloc[0, 0] == "Equal Weight"
+
+
 def test_export_multi_period_metrics(tmp_path):
     df = make_df()
     cfg = make_cfg()
@@ -65,7 +76,8 @@ def test_export_multi_period_metrics(tmp_path):
     second_period = results[1]["period"][3]
     p1 = out.with_name(f"{out.stem}_{first_period}.csv")
     p2 = out.with_name(f"{out.stem}_{second_period}.csv")
-    assert p1.exists() and p2.exists()
+    summ = out.with_name(f"{out.stem}_summary.csv")
+    assert p1.exists() and p2.exists() and summ.exists()
     df_read = pd.read_csv(p1, index_col=0)
     assert "Name" in df_read.columns
     assert df_read.iloc[0, 0] == "Equal Weight"
@@ -84,5 +96,6 @@ def test_export_multi_period_metrics_excel(tmp_path):
     book = pd.ExcelFile(path)
     assert first_period in book.sheet_names
     assert second_period in book.sheet_names
+    assert "summary" in book.sheet_names
     df_read = pd.read_excel(path, sheet_name=first_period, header=None)
     assert "Vol-Adj Trend Analysis" in df_read.iloc[0, 0]
