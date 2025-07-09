@@ -28,10 +28,7 @@ if num_periods <= 1:
 
 # check that the generated periods line up with the scheduler output
 result_periods = [r["period"] for r in results]
-sched_tuples = [
-    (p.in_start, p.in_end, p.out_start, p.out_end)
-    for p in periods
-]
+sched_tuples = [(p.in_start, p.in_end, p.out_start, p.out_end) for p in periods]
 if result_periods != sched_tuples:
     raise SystemExit("Period sequence mismatch")
 
