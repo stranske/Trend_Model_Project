@@ -84,13 +84,10 @@ def test_export_multi_period_metrics(tmp_path):
     results = run_mp(cfg, df)
     out = tmp_path / "res"
     export_multi_period_metrics(results, str(out), formats=["csv"])
-    first_period = results[0]["period"][3]
-    second_period = results[1]["period"][3]
-    p1 = out.with_name(f"{out.stem}_{first_period}.csv")
-    p2 = out.with_name(f"{out.stem}_{second_period}.csv")
+    periods_path = out.with_name(f"{out.stem}_periods.csv")
     summ = out.with_name(f"{out.stem}_summary.csv")
-    assert p1.exists() and p2.exists() and summ.exists()
-    df_read = pd.read_csv(p1, index_col=0)
+    assert periods_path.exists() and summ.exists()
+    df_read = pd.read_csv(periods_path, index_col=0)
     assert "Name" in df_read.columns
     assert df_read.iloc[0, 0] == "Equal Weight"
 
