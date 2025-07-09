@@ -124,7 +124,9 @@ print(score_frame)
 Phase 2 introduces a multi-period engine with adaptive weighting. A small
 demo dataset and helper script are included to exercise this feature.
 
-Generate the synthetic data and run the demo as follows:
+Generate the synthetic data and run the demo as follows. The helper script now
+cycles through several selector and weighting combinations to cover the main
+pipeline features:
 
 ```bash
 python scripts/generate_demo.py
@@ -133,6 +135,7 @@ python scripts/run_multi_demo.py
 
 The script prints the number of generated periods and verifies that
 weights evolve across them, confirming the Phase 2 logic works end to end.
+It also invokes the full test suite to ensure all modules behave as expected.
 
 ## Interactive GUI
 

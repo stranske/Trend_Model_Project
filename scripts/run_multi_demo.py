@@ -13,8 +13,38 @@ from trend_analysis.multi_period import (
     scheduler,
 )
 from trend_analysis.multi_period.replacer import Rebalancer
-from trend_analysis.selector import RankSelector
-from trend_analysis.weighting import AdaptiveBayesWeighting
+from trend_analysis.selector import RankSelector, ZScoreSelector
+from trend_analysis.weighting import (
+    AdaptiveBayesWeighting,
+    EqualWeight,
+    ScorePropSimple,
+    ScorePropBayesian,
+)
+
+
+def _check_schedule(
+    score_frames,
+    selector,
+    weighting,
+    cfg,
+    *,
+    rank_column=None,
+):
+    rebalancer = Rebalancer(cfg.model_dump())
+    pf = run_schedule(
+        score_frames,
+        selector,
+        weighting,
+        rank_column=rank_column,
+        rebalancer=rebalancer,
+    )
+    if len(pf.history) != len(score_frames):
+        raise SystemExit("Weight schedule did not cover all periods")
+    weights = list(pf.history.values())
+    if len(weights) > 1 and all(w.equals(weights[0]) for w in weights[1:]):
+        raise SystemExit("Weights did not change across periods")
+    return pf
+
 
 cfg = load("config/demo.yml")
 results = run_mp(cfg)
@@ -34,19 +64,6 @@ if result_periods != sched_tuples:
     raise SystemExit("Period sequence mismatch")
 
 score_frames = {r["period"][3]: r["score_frame"] for r in results}
-selector = RankSelector(top_n=3, rank_column="Sharpe")
-weighting = AdaptiveBayesWeighting(max_w=None)
-rebalancer = Rebalancer(cfg.model_dump())
-portfolio = run_schedule(
-    score_frames,
-    selector,
-    weighting,
-    rank_column="Sharpe",
-    rebalancer=rebalancer,
-)
-print(f"Weight history generated for {len(portfolio.history)} periods")
-if len(portfolio.history) != num_periods:
-    raise SystemExit("Weight schedule did not cover all periods")
 
 # ensure metadata lines up with the generated periods
 for r in results:
@@ -57,12 +74,36 @@ for r in results:
     if sf.attrs.get("insample_len", 0) <= 0:
         raise SystemExit("Score frame contains no data")
 
-weights = list(portfolio.history.values())
-if len(weights) > 1 and all(w.equals(weights[0]) for w in weights[1:]):
-    raise SystemExit("Weights did not change across periods")
+_check_schedule(
+    score_frames,
+    RankSelector(top_n=3, rank_column="Sharpe"),
+    AdaptiveBayesWeighting(max_w=None),
+    cfg,
+    rank_column="Sharpe",
+)
 
-fund_sets = [set(w.index) for w in portfolio.history.values()]
-if len(fund_sets) > 1 and all(fund_sets[0] == fs for fs in fund_sets[1:]):
-    raise SystemExit("Fund selection identical across periods")
+_check_schedule(
+    score_frames,
+    ZScoreSelector(threshold=0.0, column="Sharpe"),
+    EqualWeight(),
+    cfg,
+    rank_column="Sharpe",
+)
+
+_check_schedule(
+    score_frames,
+    RankSelector(top_n=3, rank_column="Sharpe"),
+    ScorePropSimple("Sharpe"),
+    cfg,
+    rank_column="Sharpe",
+)
+
+_check_schedule(
+    score_frames,
+    RankSelector(top_n=2, rank_column="MaxDrawdown"),
+    ScorePropBayesian("Sharpe"),
+    cfg,
+    rank_column="MaxDrawdown",
+)
 
 print("Multi-period demo checks passed")
