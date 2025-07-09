@@ -568,6 +568,19 @@ def period_frames_from_results(
     return frames
 
 
+def workbook_frames_from_results(
+    results: Iterable[Mapping[str, object]],
+) -> Mapping[str, pd.DataFrame]:
+    """Return per-period frames plus a combined summary frame."""
+
+    results_list = list(results)
+    frames = period_frames_from_results(results_list)
+    if results_list:
+        summary = combined_summary_result(results_list)
+        frames["summary"] = summary_frame_from_result(summary)
+    return frames
+
+
 def export_multi_period_metrics(
     results: Iterable[Mapping[str, object]],
     output_path: str,
@@ -598,6 +611,23 @@ def export_multi_period_metrics(
     reset_formatters_excel()
 
     results_list = list(results)
+
+    if other_formats:
+        other_data.update(workbook_frames_from_results(results_list))
+        if include_metrics:
+            for idx, res in enumerate(results_list, start=1):
+                period = res.get("period")
+                sheet = (
+                    str(period[3])
+                    if isinstance(period, (list, tuple)) and len(period) >= 4
+                    else f"period_{idx}"
+                )
+                other_data[f"metrics_{sheet}"] = metrics_from_result(res)
+            if results_list:
+                other_data["metrics_summary"] = metrics_from_result(
+                    combined_summary_result(results_list)
+                )
+
     for idx, res in enumerate(results_list, start=1):
         period = res.get("period")
         if isinstance(period, (list, tuple)) and len(period) >= 4:
@@ -612,11 +642,6 @@ def export_multi_period_metrics(
             make_period_formatter(sheet, res, in_s, in_e, out_s, out_e)
             if include_metrics:
                 excel_data[f"metrics_{sheet}"] = metrics_from_result(res)
-
-        if other_formats:
-            other_data[sheet] = summary_frame_from_result(res)
-            if include_metrics:
-                other_data[f"metrics_{sheet}"] = metrics_from_result(res)
 
     if results_list:
         summary = combined_summary_result(results_list)
@@ -638,10 +663,6 @@ def export_multi_period_metrics(
             if include_metrics:
                 excel_data["metrics_summary"] = metrics_from_result(summary)
 
-        if other_formats:
-            other_data["summary"] = summary_frame_from_result(summary)
-            if include_metrics:
-                other_data["metrics_summary"] = metrics_from_result(summary)
 
     if excel_formats:
         export_data(excel_data, output_path, formats=excel_formats)
@@ -682,5 +703,6 @@ __all__ = [
     "combined_summary_result",
     "summary_frame_from_result",
     "period_frames_from_results",
+    "workbook_frames_from_results",
     "export_multi_period_metrics",
 ]
