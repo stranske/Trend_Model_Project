@@ -553,8 +553,23 @@ def export_multi_period_metrics(
     output_path: str,
     *,
     formats: Iterable[str] = ("xlsx",),
+    include_metrics: bool = False,
 ) -> None:
-    """Export per-period metrics using the canonical exporters."""
+    """Export per-period metrics using the canonical exporters.
+
+    Parameters
+    ----------
+    results:
+        Sequence of result dictionaries as produced by
+        :func:`multi_period.engine.run`.
+    output_path:
+        File path prefix for the exported artefacts.
+    formats:
+        Output formats understood by :func:`export_data`.
+    include_metrics:
+        If ``True`` also emit the raw metrics frame for each period,
+        mirroring the single-period "metrics" sheet.
+    """
 
     excel_formats = [f for f in formats if f.lower() in {"excel", "xlsx"}]
     other_formats = [f for f in formats if f.lower() not in {"excel", "xlsx"}]
@@ -575,9 +590,13 @@ def export_multi_period_metrics(
         if excel_formats:
             excel_data[sheet] = pd.DataFrame()
             make_period_formatter(sheet, res, in_s, in_e, out_s, out_e)
+            if include_metrics:
+                excel_data[f"metrics_{sheet}"] = metrics_from_result(res)
 
         if other_formats:
             other_data[sheet] = summary_frame_from_result(res)
+            if include_metrics:
+                other_data[f"metrics_{sheet}"] = metrics_from_result(res)
 
     if results_list:
         summary = combined_summary_result(results_list)
@@ -596,9 +615,13 @@ def export_multi_period_metrics(
                 )
             else:
                 make_period_formatter("summary", summary, "", "", "", "")
+            if include_metrics:
+                excel_data["metrics_summary"] = metrics_from_result(summary)
 
         if other_formats:
             other_data["summary"] = summary_frame_from_result(summary)
+            if include_metrics:
+                other_data["metrics_summary"] = metrics_from_result(summary)
 
     if excel_formats:
         export_data(excel_data, output_path, formats=excel_formats)
