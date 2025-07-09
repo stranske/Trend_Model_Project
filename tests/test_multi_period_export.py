@@ -55,3 +55,20 @@ def test_export_multi_period_metrics(tmp_path):
     assert p1.exists() and p2.exists()
     df_read = pd.read_csv(p1)
     assert "cagr" in df_read.columns
+
+
+def test_export_multi_period_metrics_excel(tmp_path):
+    df = make_df()
+    cfg = make_cfg()
+    results = run_mp(cfg, df)
+    out = tmp_path / "res"
+    export_multi_period_metrics(results, str(out), formats=["xlsx"])
+    path = out.with_suffix(".xlsx")
+    assert path.exists()
+    first_period = str(results[0]["period"][3])
+    second_period = str(results[1]["period"][3])
+    book = pd.ExcelFile(path)
+    assert first_period in book.sheet_names
+    assert second_period in book.sheet_names
+    df_read = pd.read_excel(path, sheet_name=first_period, header=None)
+    assert "Vol-Adj Trend Analysis" in df_read.iloc[0, 0]
