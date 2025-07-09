@@ -113,7 +113,14 @@ print("Multi-period demo checks passed")
 
 # Run the CLI entry point to verify it behaves correctly
 subprocess.run(
-    [sys.executable, "-m", "trend_analysis.run_analysis", "-c", "config/demo.yml", "--detailed"],
+    [
+        sys.executable,
+        "-m",
+        "trend_analysis.run_analysis",
+        "-c",
+        "config/demo.yml",
+        "--detailed",
+    ],
     check=True,
 )
 
