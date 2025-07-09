@@ -19,6 +19,10 @@ jobs:
         python-version: "3.11"
         cache: "pip"
     - run: scripts/setup_env.sh
+    - name: Install trend_analysis in editable mode
+      run: |
+        source .venv/bin/activate
+        pip install -e .
     - run: |
         source .venv/bin/activate
         python scripts/generate_demo.py
