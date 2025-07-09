@@ -7,14 +7,21 @@ feeding them through ``run_schedule`` with a selector and weighting scheme.
 """
 
 from trend_analysis.config import load
-from trend_analysis.multi_period import run as run_mp, run_schedule
+from trend_analysis.multi_period import (
+    run as run_mp,
+    run_schedule,
+    scheduler,
+)
 from trend_analysis.selector import RankSelector
 from trend_analysis.weighting import AdaptiveBayesWeighting
 
 cfg = load("config/demo.yml")
 results = run_mp(cfg)
 num_periods = len(results)
-print(f"Generated {num_periods} period results")
+expected_periods = len(scheduler.generate_periods(cfg.model_dump()))
+print(f"Generated {num_periods} period results (expected {expected_periods})")
+if num_periods != expected_periods:
+    raise SystemExit("Multi-period demo produced an unexpected number of periods")
 if num_periods <= 1:
     raise SystemExit("Multi-period demo produced insufficient results")
 
