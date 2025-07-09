@@ -9,6 +9,7 @@ from trend_analysis.export import (
     summary_frame_from_result,
     combined_summary_result,
     export_multi_period_metrics,
+    period_frames_from_results,
 )
 
 
@@ -64,6 +65,17 @@ def test_combined_summary_result_basic():
     df_sum = summary_frame_from_result(summary)
     assert "OS MaxDD" in df_sum.columns
     assert df_sum.iloc[0, 0] == "Equal Weight"
+
+
+def test_period_frames_from_results_basic():
+    df = make_df()
+    cfg = make_cfg()
+    results = run_mp(cfg, df)
+    frames = period_frames_from_results(results)
+    assert len(frames) == len(results)
+    key = str(results[0]["period"][3])
+    assert key in frames
+    assert "OS MaxDD" in frames[key].columns
 
 
 def test_export_multi_period_metrics(tmp_path):

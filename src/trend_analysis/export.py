@@ -552,6 +552,22 @@ def combined_summary_result(
     }
 
 
+def period_frames_from_results(
+    results: Iterable[Mapping[str, object]],
+) -> Mapping[str, pd.DataFrame]:
+    """Return a mapping of sheet names to summary frames for each period."""
+
+    frames: dict[str, pd.DataFrame] = {}
+    for idx, res in enumerate(results, start=1):
+        period = res.get("period")
+        if isinstance(period, (list, tuple)) and len(period) >= 4:
+            sheet = str(period[3])
+        else:
+            sheet = f"period_{idx}"
+        frames[sheet] = summary_frame_from_result(res)
+    return frames
+
+
 def export_multi_period_metrics(
     results: Iterable[Mapping[str, object]],
     output_path: str,
@@ -642,5 +658,6 @@ __all__ = [
     "metrics_from_result",
     "combined_summary_result",
     "summary_frame_from_result",
+    "period_frames_from_results",
     "export_multi_period_metrics",
 ]
