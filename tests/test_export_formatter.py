@@ -2,9 +2,10 @@ import sys
 import pathlib
 import pandas as pd
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))  # noqa: E402
 
-from trend_analysis.export import (
+from trend_analysis.export import (  # noqa: E402
     make_summary_formatter,
     export_to_excel,
     FORMATTERS_EXCEL,
