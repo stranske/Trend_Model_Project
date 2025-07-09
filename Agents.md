@@ -407,3 +407,11 @@ Implement helpers so every multi‑period run yields one workbook tab (or file)
 per period containing the full Phase‑1 style summary table.  Excel sheets are
 formatted via ``make_period_formatter`` while CSV/JSON outputs receive the same
 rows using ``summary_frame_from_result``.
+
+### 2025‑07‑12 UPDATE — COMBINED SUMMARY SHEET
+
+Multi‑period exports must also include a ``summary`` sheet aggregating portfolio
+performance across all periods.  The sheet uses the **same** format as the
+per‑period tabs and is generated via ``make_period_formatter`` on a result
+dictionary produced by ``combined_summary_result(results)``.  CSV/JSON formats
+write a ``_summary`` file derived from ``summary_frame_from_result``.

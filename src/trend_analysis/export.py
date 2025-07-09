@@ -7,6 +7,7 @@ from typing import Any, Callable, Iterable, Mapping, cast
 import inspect
 
 import pandas as pd
+import numpy as np
 
 Formatter = Callable[[pd.DataFrame], pd.DataFrame]
 
@@ -477,6 +478,68 @@ def summary_frame_from_result(res: Mapping[str, object]) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=columns)
 
 
+def combined_summary_result(results: Iterable[Mapping[str, object]]) -> Mapping[str, object]:
+    """Return an aggregated result dict across all periods."""
+
+    from collections import defaultdict
+
+    from .pipeline import _compute_stats, calc_portfolio_returns
+
+    fund_in: dict[str, list[pd.Series]] = defaultdict(list)
+    fund_out: dict[str, list[pd.Series]] = defaultdict(list)
+    ew_in_series: list[pd.Series] = []
+    ew_out_series: list[pd.Series] = []
+    user_in_series: list[pd.Series] = []
+    user_out_series: list[pd.Series] = []
+    weight_sum: dict[str, float] = defaultdict(float)
+    periods = 0
+
+    for res in results:
+        in_df = cast(pd.DataFrame, res.get("in_sample_scaled"))
+        out_df = cast(pd.DataFrame, res.get("out_sample_scaled"))
+        ew_w = [cast(float, res.get("ew_weights", {}).get(c, 0.0)) for c in in_df.columns]
+        user_w = [cast(float, res.get("fund_weights", {}).get(c, 0.0)) for c in in_df.columns]
+        ew_in_series.append(calc_portfolio_returns(np.array(ew_w), in_df))
+        ew_out_series.append(calc_portfolio_returns(np.array(ew_w), out_df))
+        user_in_series.append(calc_portfolio_returns(np.array(user_w), in_df))
+        user_out_series.append(calc_portfolio_returns(np.array(user_w), out_df))
+        for c in in_df.columns:
+            fund_in[c].append(in_df[c])
+            weight_sum[c] += cast(float, res.get("fund_weights", {}).get(c, 0.0))
+        for c in out_df.columns:
+            fund_out[c].append(out_df[c])
+        periods += 1
+
+    rf_in = pd.Series(0.0, index=pd.concat(ew_in_series).index)
+    rf_out = pd.Series(0.0, index=pd.concat(ew_out_series).index)
+    in_ew_stats = _compute_stats(pd.DataFrame({"ew": pd.concat(ew_in_series)}), rf_in)["ew"]
+    out_ew_stats = _compute_stats(pd.DataFrame({"ew": pd.concat(ew_out_series)}), rf_out)["ew"]
+    in_user_stats = _compute_stats(pd.DataFrame({"user": pd.concat(user_in_series)}), rf_in)["user"]
+    out_user_stats = _compute_stats(pd.DataFrame({"user": pd.concat(user_out_series)}), rf_out)["user"]
+
+    in_stats = {
+        f: _compute_stats(pd.DataFrame({f: pd.concat(s)}), rf_in)[f]
+        for f, s in fund_in.items()
+    }
+    out_stats = {
+        f: _compute_stats(pd.DataFrame({f: pd.concat(s)}), rf_out)[f]
+        for f, s in fund_out.items()
+    }
+
+    fund_weights = {f: weight_sum[f] / periods for f in weight_sum}
+
+    return {
+        "in_ew_stats": in_ew_stats,
+        "out_ew_stats": out_ew_stats,
+        "in_user_stats": in_user_stats,
+        "out_user_stats": out_user_stats,
+        "in_sample_stats": in_stats,
+        "out_sample_stats": out_stats,
+        "fund_weights": fund_weights,
+        "benchmark_ir": {},
+    }
+
+
 def export_multi_period_metrics(
     results: Iterable[Mapping[str, object]],
     output_path: str,
@@ -491,7 +554,8 @@ def export_multi_period_metrics(
     other_data: dict[str, pd.DataFrame] = {}
     reset_formatters_excel()
 
-    for idx, res in enumerate(results, start=1):
+    results_list = list(results)
+    for idx, res in enumerate(results_list, start=1):
         period = res.get("period")
         if isinstance(period, (list, tuple)) and len(period) >= 4:
             in_s, in_e, out_s, out_e = map(str, period[:4])
@@ -506,6 +570,27 @@ def export_multi_period_metrics(
 
         if other_formats:
             other_data[sheet] = summary_frame_from_result(res)
+
+    if results_list:
+        summary = combined_summary_result(results_list)
+        if excel_formats:
+            excel_data["summary"] = pd.DataFrame()
+            first = results_list[0].get("period")
+            last = results_list[-1].get("period")
+            if isinstance(first, (list, tuple)) and isinstance(last, (list, tuple)):
+                make_period_formatter(
+                    "summary",
+                    summary,
+                    str(first[0]),
+                    str(first[1]),
+                    str(last[2]),
+                    str(last[3]),
+                )
+            else:
+                make_period_formatter("summary", summary, "", "", "", "")
+
+        if other_formats:
+            other_data["summary"] = summary_frame_from_result(summary)
 
     if excel_formats:
         export_data(excel_data, output_path, formats=excel_formats)
@@ -543,6 +628,7 @@ __all__ = [
     "export_to_txt",
     "export_data",
     "metrics_from_result",
+    "combined_summary_result",
     "summary_frame_from_result",
     "export_multi_period_metrics",
 ]
