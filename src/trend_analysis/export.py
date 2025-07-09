@@ -458,7 +458,9 @@ def summary_frame_from_result(res: Mapping[str, object]) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=columns)
 
 
-def combined_summary_result(results: Iterable[Mapping[str, object]]) -> Mapping[str, object]:
+def combined_summary_result(
+    results: Iterable[Mapping[str, object]],
+) -> Mapping[str, object]:
     """Return an aggregated result dict across all periods."""
 
     from collections import defaultdict
@@ -477,25 +479,35 @@ def combined_summary_result(results: Iterable[Mapping[str, object]]) -> Mapping[
     for res in results:
         in_df = cast(pd.DataFrame, res.get("in_sample_scaled"))
         out_df = cast(pd.DataFrame, res.get("out_sample_scaled"))
-        ew_w = [cast(float, res.get("ew_weights", {}).get(c, 0.0)) for c in in_df.columns]
-        user_w = [cast(float, res.get("fund_weights", {}).get(c, 0.0)) for c in in_df.columns]
+        ew_map = cast(Mapping[str, float], res.get("ew_weights", {}))
+        fund_map = cast(Mapping[str, float], res.get("fund_weights", {}))
+        ew_w = [ew_map.get(c, 0.0) for c in in_df.columns]
+        user_w = [fund_map.get(c, 0.0) for c in in_df.columns]
         ew_in_series.append(calc_portfolio_returns(np.array(ew_w), in_df))
         ew_out_series.append(calc_portfolio_returns(np.array(ew_w), out_df))
         user_in_series.append(calc_portfolio_returns(np.array(user_w), in_df))
         user_out_series.append(calc_portfolio_returns(np.array(user_w), out_df))
         for c in in_df.columns:
             fund_in[c].append(in_df[c])
-            weight_sum[c] += cast(float, res.get("fund_weights", {}).get(c, 0.0))
+            weight_sum[c] += fund_map.get(c, 0.0)
         for c in out_df.columns:
             fund_out[c].append(out_df[c])
         periods += 1
 
     rf_in = pd.Series(0.0, index=pd.concat(ew_in_series).index)
     rf_out = pd.Series(0.0, index=pd.concat(ew_out_series).index)
-    in_ew_stats = _compute_stats(pd.DataFrame({"ew": pd.concat(ew_in_series)}), rf_in)["ew"]
-    out_ew_stats = _compute_stats(pd.DataFrame({"ew": pd.concat(ew_out_series)}), rf_out)["ew"]
-    in_user_stats = _compute_stats(pd.DataFrame({"user": pd.concat(user_in_series)}), rf_in)["user"]
-    out_user_stats = _compute_stats(pd.DataFrame({"user": pd.concat(user_out_series)}), rf_out)["user"]
+    in_ew_stats = _compute_stats(pd.DataFrame({"ew": pd.concat(ew_in_series)}), rf_in)[
+        "ew"
+    ]
+    out_ew_stats = _compute_stats(
+        pd.DataFrame({"ew": pd.concat(ew_out_series)}), rf_out
+    )["ew"]
+    in_user_stats = _compute_stats(
+        pd.DataFrame({"user": pd.concat(user_in_series)}), rf_in
+    )["user"]
+    out_user_stats = _compute_stats(
+        pd.DataFrame({"user": pd.concat(user_out_series)}), rf_out
+    )["user"]
 
     in_stats = {
         f: _compute_stats(pd.DataFrame({f: pd.concat(s)}), rf_in)[f]
