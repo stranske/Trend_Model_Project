@@ -636,9 +636,9 @@ def export_multi_period_metrics(
     reset_formatters_excel()
 
     results_list = list(results)
+    frames = workbook_frames_from_results(results_list) if results_list else {}
 
     if other_formats:
-        frames = workbook_frames_from_results(results_list)
         period_frames = [(k, v) for k, v in frames.items() if k != "summary"]
         combined = (
             pd.concat(
@@ -670,25 +670,23 @@ def export_multi_period_metrics(
                     combined_summary_result(results_list)
                 )
 
-    for idx, res in enumerate(results_list, start=1):
-        period = res.get("period")
-        if isinstance(period, (list, tuple)) and len(period) >= 4:
-            in_s, in_e, out_s, out_e = map(str, period[:4])
-            sheet = str(out_e)
-        else:
-            in_s = in_e = out_s = out_e = ""
-            sheet = f"period_{idx}"
+    if excel_formats:
+        excel_data.update({k: v for k, v in frames.items()})
 
-        if excel_formats:
-            excel_data[sheet] = pd.DataFrame()
+        for idx, res in enumerate(results_list, start=1):
+            period = res.get("period")
+            if isinstance(period, (list, tuple)) and len(period) >= 4:
+                in_s, in_e, out_s, out_e = map(str, period[:4])
+                sheet = str(period[3])
+            else:
+                in_s = in_e = out_s = out_e = ""
+                sheet = f"period_{idx}"
             make_period_formatter(sheet, res, in_s, in_e, out_s, out_e)
             if include_metrics:
                 excel_data[f"metrics_{sheet}"] = metrics_from_result(res)
 
-    if results_list:
-        summary = combined_summary_result(results_list)
-        if excel_formats:
-            excel_data["summary"] = pd.DataFrame()
+        if results_list and "summary" in frames:
+            summary = combined_summary_result(results_list)
             first = results_list[0].get("period")
             last = results_list[-1].get("period")
             if isinstance(first, (list, tuple)) and isinstance(last, (list, tuple)):
