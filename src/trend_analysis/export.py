@@ -534,7 +534,7 @@ def combined_summary_result(
 
 def period_frames_from_results(
     results: Iterable[Mapping[str, object]],
-) -> Mapping[str, pd.DataFrame]:
+) -> dict[str, pd.DataFrame]:
     """Return a mapping of sheet names to summary frames for each period."""
 
     frames: dict[str, pd.DataFrame] = {}
@@ -550,7 +550,7 @@ def period_frames_from_results(
 
 def workbook_frames_from_results(
     results: Iterable[Mapping[str, object]],
-) -> Mapping[str, pd.DataFrame]:
+) -> dict[str, pd.DataFrame]:
     """Return per-period frames plus a combined summary frame."""
 
     results_list = list(results)
@@ -595,10 +595,14 @@ def export_multi_period_metrics(
     if other_formats:
         frames = workbook_frames_from_results(results_list)
         period_frames = [(k, v) for k, v in frames.items() if k != "summary"]
-        combined = pd.concat(
-            [df.assign(Period=name) for name, df in period_frames],
-            ignore_index=True,
-        ) if period_frames else pd.DataFrame()
+        combined = (
+            pd.concat(
+                [df.assign(Period=name) for name, df in period_frames],
+                ignore_index=True,
+            )
+            if period_frames
+            else pd.DataFrame()
+        )
         other_data["periods"] = combined
         if "summary" in frames:
             other_data["summary"] = frames["summary"]
@@ -655,7 +659,6 @@ def export_multi_period_metrics(
                 make_period_formatter("summary", summary, "", "", "", "")
             if include_metrics:
                 excel_data["metrics_summary"] = metrics_from_result(summary)
-
 
     if excel_formats:
         export_data(excel_data, output_path, formats=excel_formats)
