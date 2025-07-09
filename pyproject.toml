@@ -1,3 +1,18 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trend-analysis"
+version = "0.1.0"
+description = "Volatility-adjusted trend analysis package"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+
+[tool.setuptools.packages.find]
+where = ["trend_analysis"]
+
 [tool.black]
 extend-exclude = '(notebooks|Old|.*\.ipynb)'
 
@@ -8,4 +23,3 @@ extend-exclude = ["notebooks", "Old", "*.ipynb"]
 python_version = "3.11"
 strict = true
 ignore_missing_imports = true
-
