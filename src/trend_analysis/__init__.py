@@ -10,6 +10,8 @@ from .export import (
     export_to_csv,
     export_to_json,
     export_data,
+    metrics_from_result,
+    export_multi_period_metrics,
 )
 # Expose multi-period CLI
 from . import run_multi_analysis
@@ -32,4 +34,6 @@ __all__ = [
     "export_to_json",
     "export_data",
     "run_multi_analysis",
+    "metrics_from_result",
+    "export_multi_period_metrics",
 ]
