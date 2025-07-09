@@ -67,7 +67,7 @@ Add a `benchmarks` mapping in the config to compute information ratios against o
 
 ## 9. Multi-period demo
 
-Generate the synthetic dataset and run the helper script to exercise the Phase 2 engine:
+Generate the synthetic dataset and run the helper script to exercise the Phase 2 engine. The script now iterates through several selector and weighting strategies and runs the unit tests:
 
 ```bash
 python scripts/generate_demo.py

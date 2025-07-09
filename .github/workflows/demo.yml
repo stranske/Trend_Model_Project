@@ -20,8 +20,9 @@ jobs:
         cache: "pip"
     - run: scripts/setup_env.sh
     - run: python scripts/generate_demo.py
-    - run: python -m trend_analysis.run_analysis -c config/demo.yml
+    - run: python -m trend_analysis.run_analysis -c config/demo.yml --detailed
     - run: python scripts/run_multi_demo.py
+    - run: ./scripts/run_tests.sh
     - uses: actions/upload-artifact@v4
       with:
         name: demo‑exports
