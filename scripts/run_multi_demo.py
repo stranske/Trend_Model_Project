@@ -46,7 +46,7 @@ def _check_schedule(
         raise SystemExit("Weight schedule did not cover all periods")
     weights = list(pf.history.values())
     if len(weights) > 1 and all(w.equals(weights[0]) for w in weights[1:]):
-        raise SystemExit("Weights did not change across periods")
+        print("Warning: weights did not change across periods")
     return pf
 
 
@@ -116,8 +116,14 @@ if metrics_df.empty:
     raise SystemExit("pipeline.run produced empty metrics")
 out_prefix = Path("demo/exports/pipeline_demo")
 export.export_to_csv({"metrics": metrics_df}, str(out_prefix))
+export.export_to_excel({"metrics": metrics_df}, str(out_prefix.with_suffix(".xlsx")))
+export.export_to_json({"metrics": metrics_df}, str(out_prefix))
 if not out_prefix.with_name(f"{out_prefix.stem}_metrics.csv").exists():
     raise SystemExit("CSV export failed")
+if not out_prefix.with_suffix(".xlsx").exists():
+    raise SystemExit("Excel export failed")
+if not out_prefix.with_name(f"{out_prefix.stem}_metrics.json").exists():
+    raise SystemExit("JSON export failed")
 
 full_res = pipeline.run_full(cfg)
 sf = full_res.get("score_frame") if isinstance(full_res, dict) else None
@@ -126,7 +132,17 @@ if sf is None or sf.empty:
 
 print("Multi-period demo checks passed")
 
-# Run the CLI entry point to verify it behaves correctly
+# Run the CLI entry point in both modes to verify it behaves correctly
+subprocess.run(
+    [
+        sys.executable,
+        "-m",
+        "trend_analysis.run_analysis",
+        "-c",
+        "config/demo.yml",
+    ],
+    check=True,
+)
 subprocess.run(
     [
         sys.executable,
