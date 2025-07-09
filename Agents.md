@@ -400,3 +400,12 @@ The pending export work shall produce an Excel workbook with one worksheet per p
 ### 2025-08-01 UPDATE — PER-PERIOD METRICS WORKBOOK
 
 Phase‑2 back-tests shall emit an Excel workbook with one tab per period formatted identically to the Phase‑1 summary sheet. CSV and JSON outputs produce one file per period in the same table form. In addition, a `summary` tab (and `_summary` file) aggregates portfolio returns across all periods using the identical layout. Implementation is underway in `export.export_multi_period_metrics`.
+
+### 2025-08-10 UPDATE — MULTI-PERIOD PHASE‑1 METRICS EXPORT
+
+Finalise the design goal that each period of a rolling back‑test mirrors the
+Phase‑1 metrics sheet. The exporter shall generate a workbook with one tab per
+period and a `summary` tab combining portfolio returns. CSV and JSON formats
+receive one file per period plus a `_summary` file. Implementation has started in
+`export.workbook_frames_from_results` and the updated
+`export.export_multi_period_metrics` helper.
