@@ -2,22 +2,24 @@
 
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import Dict, List, TYPE_CHECKING, cast, Any
 
 import pandas as pd
 import numpy as np
 
 from ..data import load_csv
 from ..pipeline import (
-    single_period_run,
+    _run_analysis_period,
     _compute_stats,
     calc_portfolio_returns,
 )
 from .scheduler import generate_periods
-from .replacer import Rebalancer  # to be implemented
+
+if TYPE_CHECKING:  # pragma: no cover - for static type checking only
+    from ..config import Config
 
 
-def run(cfg) -> Dict[str, object]:  # noqa: D401
+def run(cfg: "Config") -> Dict[str, object]:  # noqa: D401
     """Run multiple periods and aggregate the results."""
 
     csv_path = cfg.data.get("csv_path")
@@ -28,11 +30,11 @@ def run(cfg) -> Dict[str, object]:  # noqa: D401
     if df is None:
         raise FileNotFoundError(csv_path)
 
-    periods = generate_periods(cfg)
+    periods = generate_periods(cfg.model_dump())
     results: List[Dict[str, object]] = []
 
     for p in periods:
-        res = single_period_run(
+        res = _run_analysis_period(
             df,
             p.in_start,
             p.in_end,
@@ -74,8 +76,12 @@ def run(cfg) -> Dict[str, object]:  # noqa: D401
     user_returns = []
     for r in results:
         out_df = r["out_sample_scaled"]
-        ew_w = np.fromiter(r["ew_weights"].values(), dtype=float)
-        user_w = np.fromiter(r["fund_weights"].values(), dtype=float)
+        ew_w = np.array(
+            list(cast(dict[str, float], r["ew_weights"]).values()), dtype=float
+        )
+        user_w = np.array(
+            list(cast(dict[str, float], r["fund_weights"]).values()), dtype=float
+        )
         ew_returns.append(calc_portfolio_returns(ew_w, out_df))
         user_returns.append(calc_portfolio_returns(user_w, out_df))
     ew_series = pd.concat(ew_returns)
