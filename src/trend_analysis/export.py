@@ -613,8 +613,17 @@ def export_multi_period_metrics(
     results_list = list(results)
 
     if other_formats:
-        other_data.update(workbook_frames_from_results(results_list))
+        frames = workbook_frames_from_results(results_list)
+        period_frames = [(k, v) for k, v in frames.items() if k != "summary"]
+        combined = pd.concat(
+            [df.assign(Period=name) for name, df in period_frames],
+            ignore_index=True,
+        ) if period_frames else pd.DataFrame()
+        other_data["periods"] = combined
+        if "summary" in frames:
+            other_data["summary"] = frames["summary"]
         if include_metrics:
+            metrics_frames: list[pd.DataFrame] = []
             for idx, res in enumerate(results_list, start=1):
                 period = res.get("period")
                 sheet = (
@@ -622,7 +631,11 @@ def export_multi_period_metrics(
                     if isinstance(period, (list, tuple)) and len(period) >= 4
                     else f"period_{idx}"
                 )
-                other_data[f"metrics_{sheet}"] = metrics_from_result(res)
+                metrics = metrics_from_result(res)
+                metrics.insert(0, "Period", sheet)
+                metrics_frames.append(metrics)
+            if metrics_frames:
+                other_data["metrics"] = pd.concat(metrics_frames, ignore_index=True)
             if results_list:
                 other_data["metrics_summary"] = metrics_from_result(
                     combined_summary_result(results_list)
