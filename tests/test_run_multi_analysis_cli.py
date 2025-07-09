@@ -40,3 +40,16 @@ def test_multi_cli_exports_files(tmp_path):
     assert rc == 0
     files = list(out_dir.glob("analysis_*.csv"))
     assert files, "no output files"
+
+
+def test_multi_cli_exports_files_with_sample_split(tmp_path):
+    csv = tmp_path / "data.csv"
+    _make_df().to_csv(csv, index=False)
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    cfg = tmp_path / "cfg.yml"
+    _write_cfg(cfg, csv, out_dir)
+    rc = run_multi_analysis.main(["-c", str(cfg)])
+    assert rc == 0
+    files = list(out_dir.glob("analysis_*.csv"))
+    assert files, "no output files"
