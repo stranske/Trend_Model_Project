@@ -12,6 +12,7 @@ from .export import (
     export_data,
     metrics_from_result,
     combined_summary_result,
+    export_phase1_multi_metrics,
     export_multi_period_metrics,
 )
 
@@ -34,5 +35,6 @@ __all__ = [
     "export_data",
     "metrics_from_result",
     "combined_summary_result",
+    "export_phase1_multi_metrics",
     "export_multi_period_metrics",
 ]

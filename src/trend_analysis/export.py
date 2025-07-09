@@ -606,6 +606,64 @@ def export_phase1_workbook(
     export_to_excel(frames, output_path)
 
 
+def export_phase1_multi_metrics(
+    results: Iterable[Mapping[str, object]],
+    output_path: str,
+    *,
+    formats: Iterable[str] = ("xlsx",),
+    include_metrics: bool = False,
+) -> None:
+    """Export Phase-1 style metrics for multiple periods.
+
+    Excel workbooks contain one sheet per period plus a ``summary`` sheet.
+    CSV and JSON outputs consolidate all period tables into a single
+    ``*_periods.*`` file alongside a ``*_summary.*`` file.
+    """
+
+    results_list = list(results)
+    excel_formats = [f for f in formats if f.lower() in {"excel", "xlsx"}]
+    other_formats = [f for f in formats if f.lower() not in {"excel", "xlsx"}]
+
+    if excel_formats:
+        path = str(Path(output_path).with_suffix(".xlsx"))
+        export_phase1_workbook(results_list, path)
+
+    if other_formats:
+        other_data: dict[str, pd.DataFrame] = {}
+        frames = period_frames_from_results(results_list)
+        period_frames = list(frames.items())
+        combined = (
+            pd.concat(
+                [df.assign(Period=name) for name, df in period_frames],
+                ignore_index=True,
+            )
+            if period_frames
+            else pd.DataFrame()
+        )
+        other_data["periods"] = combined
+        if results_list:
+            summary = combined_summary_result(results_list)
+            other_data["summary"] = summary_frame_from_result(summary)
+            if include_metrics:
+                other_data["metrics_summary"] = metrics_from_result(summary)
+        if include_metrics:
+            metrics_frames: list[pd.DataFrame] = []
+            for idx, res in enumerate(results_list, start=1):
+                period = res.get("period")
+                sheet = (
+                    str(period[3])
+                    if isinstance(period, (list, tuple)) and len(period) >= 4
+                    else f"period_{idx}"
+                )
+                metrics = metrics_from_result(res)
+                metrics.insert(0, "Period", sheet)
+                metrics_frames.append(metrics)
+            if metrics_frames:
+                other_data["metrics"] = pd.concat(metrics_frames, ignore_index=True)
+
+        export_data(other_data, output_path, formats=other_formats)
+
+
 def export_multi_period_metrics(
     results: Iterable[Mapping[str, object]],
     output_path: str,
@@ -743,5 +801,6 @@ __all__ = [
     "period_frames_from_results",
     "workbook_frames_from_results",
     "export_phase1_workbook",
+    "export_phase1_multi_metrics",
     "export_multi_period_metrics",
 ]
