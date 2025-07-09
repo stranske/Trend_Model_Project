@@ -4,7 +4,11 @@ from pathlib import Path
 
 from trend_analysis.config import Config
 from trend_analysis.multi_period import run as run_mp
-from trend_analysis.export import metrics_from_result, export_multi_period_metrics
+from trend_analysis.export import (
+    metrics_from_result,
+    summary_frame_from_result,
+    export_multi_period_metrics,
+)
 
 
 def make_df():
@@ -42,6 +46,15 @@ def test_metrics_from_result_basic():
     assert not df_metrics.empty
 
 
+def test_summary_frame_from_result_basic():
+    df = make_df()
+    cfg = make_cfg()
+    results = run_mp(cfg, df)
+    df_sum = summary_frame_from_result(results[0])
+    assert "OS MaxDD" in df_sum.columns
+    assert df_sum.iloc[0, 0] == "Equal Weight"
+
+
 def test_export_multi_period_metrics(tmp_path):
     df = make_df()
     cfg = make_cfg()
@@ -53,8 +66,9 @@ def test_export_multi_period_metrics(tmp_path):
     p1 = out.with_name(f"{out.stem}_{first_period}.csv")
     p2 = out.with_name(f"{out.stem}_{second_period}.csv")
     assert p1.exists() and p2.exists()
-    df_read = pd.read_csv(p1)
-    assert "cagr" in df_read.columns
+    df_read = pd.read_csv(p1, index_col=0)
+    assert "Name" in df_read.columns
+    assert df_read.iloc[0, 0] == "Equal Weight"
 
 
 def test_export_multi_period_metrics_excel(tmp_path):
