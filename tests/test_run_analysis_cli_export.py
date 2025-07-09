@@ -36,4 +36,4 @@ def test_cli_exports_files(tmp_path):
     _write_cfg(cfg, csv, out_dir)
     rc = run_analysis.main(["-c", str(cfg)])
     assert rc == 0
-    assert (out_dir / "analysis_metrics.csv").exists()
+    assert (out_dir / "analysis.csv").exists()

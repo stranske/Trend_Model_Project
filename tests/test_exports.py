@@ -20,13 +20,15 @@ def test_export_data(tmp_path):
     export_data(data, str(out), formats=["xlsx", "csv", "json"])
 
     assert (tmp_path / "report.xlsx").exists()
-    assert (tmp_path / "report_sheet1.csv").exists()
-    assert (tmp_path / "report_sheet2.csv").exists()
-    assert (tmp_path / "report_sheet1.json").exists()
-    assert (tmp_path / "report_sheet2.json").exists()
+    assert (tmp_path / "report.csv").exists()
+    assert (tmp_path / "report.json").exists()
 
-    read = pd.read_csv(tmp_path / "report_sheet1.csv", index_col=0)
-    pd.testing.assert_frame_equal(read, df1)
+    read = pd.read_csv(tmp_path / "report.csv")
+    df1_read = (
+        read[read["sheet"] == "sheet1"].drop(columns="sheet").dropna(axis=1, how="all")
+    )
+    df1_read.reset_index(drop=True, inplace=True)
+    pd.testing.assert_frame_equal(df1_read, df1.astype(float))
 
 
 def test_export_data_excel_alias(tmp_path):

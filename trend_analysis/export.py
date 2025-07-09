@@ -7,6 +7,7 @@ from typing import Any, Callable, Iterable, Mapping, cast
 import inspect
 
 import pandas as pd
+import json
 
 Formatter = Callable[[pd.DataFrame], pd.DataFrame]
 
@@ -287,17 +288,17 @@ def export_to_csv(
     output_path: str,
     formatter: Formatter | None = None,
 ) -> None:
-    """Export each dataframe to an individual CSV file using ``output_path`` as prefix."""
-    prefix = Path(output_path)
-    _ensure_dir(prefix)
-    # Looping over the ``data`` dictionary ensures each frame gets its own file.
+    """Export all dataframes to a **single** CSV file."""
+    path = Path(output_path)
+    _ensure_dir(path)
+    frames: list[pd.DataFrame] = []
     for name, df in data.items():
         formatted = _apply_format(df, formatter)
-        formatted.to_csv(
-            prefix.with_name(f"{prefix.stem}_{name}.csv"),
-            index=True,
-            header=True,
-        )
+        df_copy = formatted.copy()
+        df_copy.insert(0, "sheet", name)
+        frames.append(df_copy)
+    combined = pd.concat(frames, ignore_index=True)
+    combined.to_csv(path, index=False)
 
 
 def export_to_json(
@@ -305,15 +306,14 @@ def export_to_json(
     output_path: str,
     formatter: Formatter | None = None,
 ) -> None:
-    """Export each dataframe to an individual JSON file using ``output_path`` as prefix."""
-    prefix = Path(output_path)
-    _ensure_dir(prefix)
-    # Iterate over the mapping so each DataFrame is written to its own JSON file.
-    for name, df in data.items():
-        formatted = _apply_format(df, formatter)
-        formatted.to_json(
-            prefix.with_name(f"{prefix.stem}_{name}.json"), orient="records", indent=2
-        )
+    """Export all dataframes to a single JSON file."""
+    path = Path(output_path)
+    _ensure_dir(path)
+    obj = {
+        name: _apply_format(df, formatter).to_dict(orient="records")
+        for name, df in data.items()
+    }
+    path.write_text(json.dumps(obj, indent=2))
 
 
 EXPORTERS: dict[
