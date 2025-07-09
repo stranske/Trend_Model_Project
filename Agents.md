@@ -427,3 +427,12 @@ across all periods in the same format.  CSV and JSON outputs mirror this by
 bundling all period tables into a single `*_periods.*` file alongside a
 `*_summary.*` file.  Helper `export_phase1_workbook()` now begins the build
 out of this feature.
+
+### 2025-09-05 UPDATE — PHASE‑1 MULTI-PERIOD OUTPUT
+
+The design intent remains unchanged: a rolling back‑test should deliver an
+Excel workbook with one tab per period plus a final `summary` tab combining
+portfolio results across all periods. CSV and JSON formats must consolidate the
+same tables into a single `*_periods.*` file and a companion `*_summary.*`
+file. Work continues in `export_phase1_workbook()` and the revised
+`export_multi_period_metrics` function.
