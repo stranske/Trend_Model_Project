@@ -65,7 +65,18 @@ Add a `benchmarks` mapping in the config to compute information ratios against o
 
 `run_analysis()` returns a dictionary containing a `score_frame` DataFrame with one column per metric and attributes describing the analysed period. Advanced users can examine this table to build custom selection logic.
 
-## 9. Further help
+## 9. Multi-period demo
+
+Generate the synthetic dataset and run the helper script to exercise the Phase 2 engine:
+
+```bash
+python scripts/generate_demo.py
+python scripts/run_multi_demo.py
+```
+
+The script ensures multiple periods are processed and that adaptive weights evolve over time.
+
+## 10. Further help
 
 See `README.md` for a short overview of the repository structure and the example notebooks for end‑to‑end demonstrations.
 
