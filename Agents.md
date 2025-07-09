@@ -409,3 +409,11 @@ period and a `summary` tab combining portfolio returns. CSV and JSON formats
 receive one file per period plus a `_summary` file. Implementation has started in
 `export.workbook_frames_from_results` and the updated
 `export.export_multi_period_metrics` helper.
+
+### 2025-08-20 UPDATE — CONSOLIDATED CSV/JSON OUTPUT
+
+The design goal remains one Excel worksheet per period plus a `summary` tab.
+CSV and JSON exports now consolidate all period tables into **one** file named
+`*_periods.*` with an accompanying `*_summary.*` file holding the aggregated
+portfolio returns.  Raw metrics, when requested, follow the same pattern under
+`metrics.*` and `metrics_summary.*`.
