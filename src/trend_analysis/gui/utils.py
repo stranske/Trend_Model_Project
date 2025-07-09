@@ -36,7 +36,7 @@ def debounce(wait_ms: int = 300) -> Callable[[Callable[..., Any]], Callable[...,
 
 def list_builtin_cfgs() -> list[str]:
     """Return names of built-in YAML configs bundled with the package."""
-    cfg_dir = Path(__file__).resolve().parents[2] / "config"
+    cfg_dir = Path(__file__).resolve().parents[3] / "config"
     return sorted(p.stem for p in cfg_dir.glob("*.yml"))
 
 
