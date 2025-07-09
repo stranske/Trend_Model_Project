@@ -352,3 +352,11 @@ Step 10 – Docs housekeeping
 Phase‑1 docs stay at docs/phase-1/Agents.md.
 Phase‑2 docs live in docs/phase-2/Agents.md (this file).
 Cross‑link at the top.
+
+### 2025‑07‑04 UPDATE — MULTI-PERIOD METRICS EXPORT
+
+Phase‑2 introduces a rolling back‑tester.  The intent is that metrics from each
+period mirror the Phase‑1 Excel output.  The export helpers must therefore
+collect the per‑period metric tables and emit one worksheet per period in the
+workbook.  CSV and JSON exports should likewise produce one file per period
+using the existing :func:`export.export_data` helpers.

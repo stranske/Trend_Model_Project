@@ -340,6 +340,47 @@ EXPORTERS: dict[
 }
 
 
+def metrics_from_result(res: Mapping[str, object]) -> pd.DataFrame:
+    """Return a metrics DataFrame identical to :func:`pipeline.run` output."""
+    from .pipeline import _Stats  # lazy import to avoid cycle
+
+    stats = cast(Mapping[str, _Stats], res.get("out_sample_stats", {}))
+    df = pd.DataFrame({k: vars(v) for k, v in stats.items()}).T
+    for label, ir_map in cast(
+        Mapping[str, Mapping[str, float]], res.get("benchmark_ir", {})
+    ).items():
+        col = f"ir_{label}"
+        df[col] = pd.Series(
+            {
+                k: v
+                for k, v in ir_map.items()
+                if k not in {"equal_weight", "user_weight"}
+            }
+        )
+    return df
+
+
+def export_multi_period_metrics(
+    results: Iterable[Mapping[str, object]],
+    output_path: str,
+    *,
+    formats: Iterable[str] = ("xlsx",),
+) -> None:
+    """Export per-period metrics using the canonical exporters."""
+
+    data: dict[str, pd.DataFrame] = {}
+    for idx, res in enumerate(results, start=1):
+        df = metrics_from_result(res)
+        period = res.get("period")
+        if isinstance(period, (list, tuple)) and len(period) >= 4:
+            sheet = str(period[3])
+        else:
+            sheet = f"period_{idx}"
+        data[sheet] = df
+
+    export_data(data, output_path, formats=formats)
+
+
 def export_data(
     data: Mapping[str, pd.DataFrame],
     output_path: str,
@@ -367,4 +408,6 @@ __all__ = [
     "export_to_csv",
     "export_to_json",
     "export_data",
+    "metrics_from_result",
+    "export_multi_period_metrics",
 ]
