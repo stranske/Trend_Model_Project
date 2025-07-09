@@ -25,6 +25,20 @@ portfolio = run_schedule(score_frames, selector, weighting, rank_column="Sharpe"
 print(f"Weight history generated for {len(portfolio.history)} periods")
 if len(portfolio.history) != num_periods:
     raise SystemExit("Weight schedule did not cover all periods")
+
+# ensure metadata lines up with the generated periods
+for r in results:
+    sf = r["score_frame"]
+    p = r["period"]
+    if sf.attrs.get("period") != (p[0][:7], p[1][:7]):
+        raise SystemExit("Score frame period metadata mismatch")
+    if sf.attrs.get("insample_len", 0) <= 0:
+        raise SystemExit("Score frame contains no data")
+
 weights = list(portfolio.history.values())
 if len(weights) > 1 and all(w.equals(weights[0]) for w in weights[1:]):
     raise SystemExit("Weights did not change across periods")
+
+fund_sets = [set(sf.index) for sf in score_frames.values()]
+if len(fund_sets) > 1 and all(fund_sets[0] == fs for fs in fund_sets[1:]):
+    raise SystemExit("Fund selection identical across periods")
