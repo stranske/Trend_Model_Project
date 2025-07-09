@@ -7,6 +7,9 @@ feeding them through ``run_schedule`` with a selector and weighting scheme.
 """
 
 from trend_analysis.config import load
+import subprocess
+import sys
+from pathlib import Path
 from trend_analysis.multi_period import (
     run as run_mp,
     run_schedule,
@@ -107,3 +110,13 @@ _check_schedule(
 )
 
 print("Multi-period demo checks passed")
+
+# Run the CLI entry point to verify it behaves correctly
+subprocess.run(
+    [sys.executable, "-m", "trend_analysis.run_analysis", "-c", "config/demo.yml", "--detailed"],
+    check=True,
+)
+
+# Execute the full test suite to cover the entire code base
+run_tests = Path(__file__).resolve().with_name("run_tests.sh")
+subprocess.run([str(run_tests)], check=True)
