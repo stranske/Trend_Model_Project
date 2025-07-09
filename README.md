@@ -135,7 +135,9 @@ python scripts/run_multi_demo.py
 
 The script prints the number of generated periods and verifies that
 weights evolve across them, confirming the Phase 2 logic works end to end.
-It also invokes the full test suite to ensure all modules behave as expected.
+It now also exercises the single-period pipeline functions and checks that the
+export helpers produce a CSV file. Finally, it invokes the full test suite to
+ensure all modules behave as expected.
 
 ## Interactive GUI
 

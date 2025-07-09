@@ -10,6 +10,7 @@ from trend_analysis.config import load
 import subprocess
 import sys
 from pathlib import Path
+from trend_analysis import pipeline, export
 from trend_analysis.multi_period import (
     run as run_mp,
     run_schedule,
@@ -108,6 +109,20 @@ _check_schedule(
     cfg,
     rank_column="MaxDrawdown",
 )
+
+# Exercise the single-period pipeline and export helpers
+metrics_df = pipeline.run(cfg)
+if metrics_df.empty:
+    raise SystemExit("pipeline.run produced empty metrics")
+out_prefix = Path("demo/exports/pipeline_demo")
+export.export_to_csv({"metrics": metrics_df}, str(out_prefix))
+if not out_prefix.with_name(f"{out_prefix.stem}_metrics.csv").exists():
+    raise SystemExit("CSV export failed")
+
+full_res = pipeline.run_full(cfg)
+sf = full_res.get("score_frame") if isinstance(full_res, dict) else None
+if sf is None or sf.empty:
+    raise SystemExit("pipeline.run_full missing score_frame")
 
 print("Multi-period demo checks passed")
 
