@@ -119,6 +119,21 @@ score_frame = res["score_frame"]
 print(score_frame)
 ```
 
+## Multi-period demo
+
+Phase 2 introduces a multi-period engine with adaptive weighting. A small
+demo dataset and helper script are included to exercise this feature.
+
+Generate the synthetic data and run the demo as follows:
+
+```bash
+python scripts/generate_demo.py
+python scripts/run_multi_demo.py
+```
+
+The script prints the number of generated periods and verifies that
+weights evolve across them, confirming the Phase 2 logic works end to end.
+
 ## Interactive GUI
 
 An interactive configuration GUI is bundled with the project. Launch it within Jupyter by running:
