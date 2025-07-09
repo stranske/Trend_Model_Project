@@ -360,3 +360,10 @@ period mirror the Phase‑1 Excel output.  The export helpers must therefore
 collect the per‑period metric tables and emit one worksheet per period in the
 workbook.  CSV and JSON exports should likewise produce one file per period
 using the existing :func:`export.export_data` helpers.
+
+### 2025‑07‑10 UPDATE — PER-PERIOD WORKBOOK DETAIL
+
+The original design goal is that each back‑test period should produce an Excel
+worksheet indistinguishable from the Phase‑1 summary.  CSV and JSON exports must
+likewise emit one file per period.  This behaviour has yet to be fully realised
+in code and tests.

@@ -31,16 +31,15 @@ def reset_formatters_excel() -> None:
     FORMATTERS_EXCEL.clear()
 
 
-def make_summary_formatter(
+def _build_summary_formatter(
     res: Mapping[str, Any],
     in_start: str,
     in_end: str,
     out_start: str,
     out_end: str,
 ) -> Callable[[Any, Any], None]:
-    """Return a formatter function for the 'summary' Excel sheet."""
+    """Return a formatter function for a summary sheet."""
 
-    @register_formatter_excel("summary")
     def fmt_summary(ws: Any, wb: Any) -> None:
         bold = wb.add_format({"bold": True})
         int0 = wb.add_format({"num_format": "0"})
@@ -151,6 +150,33 @@ def make_summary_formatter(
         ws.autofilter(4, 0, row - 1, len(headers) - 1)
 
     return fmt_summary
+
+
+def make_summary_formatter(
+    res: Mapping[str, Any],
+    in_start: str,
+    in_end: str,
+    out_start: str,
+    out_end: str,
+) -> Callable[[Any, Any], None]:
+    """Return and register a formatter for the ``summary`` sheet."""
+
+    fmt = _build_summary_formatter(res, in_start, in_end, out_start, out_end)
+    return register_formatter_excel("summary")(fmt)
+
+
+def make_period_formatter(
+    sheet: str,
+    res: Mapping[str, Any],
+    in_start: str,
+    in_end: str,
+    out_start: str,
+    out_end: str,
+) -> Callable[[Any, Any], None]:
+    """Return and register a formatter for a per-period sheet."""
+
+    fmt = _build_summary_formatter(res, in_start, in_end, out_start, out_end)
+    return register_formatter_excel(sheet)(fmt)
 
 
 def format_summary_text(
@@ -369,14 +395,21 @@ def export_multi_period_metrics(
     """Export per-period metrics using the canonical exporters."""
 
     data: dict[str, pd.DataFrame] = {}
+    reset_formatters_excel()
+    want_excel = any(f.lower() in {"excel", "xlsx"} for f in formats)
+
     for idx, res in enumerate(results, start=1):
         df = metrics_from_result(res)
         period = res.get("period")
         if isinstance(period, (list, tuple)) and len(period) >= 4:
-            sheet = str(period[3])
+            in_s, in_e, out_s, out_e = map(str, period[:4])
+            sheet = str(out_e)
         else:
+            in_s = in_e = out_s = out_e = ""
             sheet = f"period_{idx}"
         data[sheet] = df
+        if want_excel:
+            make_period_formatter(sheet, res, in_s, in_e, out_s, out_e)
 
     export_data(data, output_path, formats=formats)
 
@@ -403,6 +436,7 @@ __all__ = [
     "register_formatter_excel",
     "reset_formatters_excel",
     "make_summary_formatter",
+    "make_period_formatter",
     "format_summary_text",
     "export_to_excel",
     "export_to_csv",
