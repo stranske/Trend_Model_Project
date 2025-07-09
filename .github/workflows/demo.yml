@@ -19,9 +19,15 @@ jobs:
         python-version: "3.11"
         cache: "pip"
     - run: scripts/setup_env.sh
-    - run: python scripts/generate_demo.py
-    - run: python -m trend_analysis.run_analysis -c config/demo.yml --detailed
-    - run: python scripts/run_multi_demo.py
+    - run: |
+        source .venv/bin/activate
+        python scripts/generate_demo.py
+    - run: |
+        source .venv/bin/activate
+        python -m trend_analysis.run_analysis -c config/demo.yml --detailed
+    - run: |
+        source .venv/bin/activate
+        python scripts/run_multi_demo.py
     - uses: actions/upload-artifact@v4
       with:
         name: demo‑exports
