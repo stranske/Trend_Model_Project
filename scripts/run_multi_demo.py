@@ -39,6 +39,8 @@ weights = list(portfolio.history.values())
 if len(weights) > 1 and all(w.equals(weights[0]) for w in weights[1:]):
     raise SystemExit("Weights did not change across periods")
 
-fund_sets = [set(sf.index) for sf in score_frames.values()]
+fund_sets = [set(w.index) for w in portfolio.history.values()]
 if len(fund_sets) > 1 and all(fund_sets[0] == fs for fs in fund_sets[1:]):
     raise SystemExit("Fund selection identical across periods")
+
+print("Multi-period demo checks passed")
