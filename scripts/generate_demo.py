@@ -16,10 +16,12 @@ periods = 120  # 10 years * 12 months
 dates = pd.date_range(start, periods=periods, freq="M")
 
 rng = np.random.default_rng(42)
-data = {
-    f"Mgr_{i:02d}": rng.normal(loc=0.006, scale=0.04, size=periods)
-    for i in range(1, 21)
-}
+data = {}
+for i in range(1, 21):
+    base = rng.normal(loc=0.006, scale=0.04, size=periods)
+    drift = rng.normal(scale=0.002, size=periods).cumsum()
+    data[f"Mgr_{i:02d}"] = base + drift
+
 df = pd.DataFrame(data, index=dates)
 df.index.name = "Date"
 
