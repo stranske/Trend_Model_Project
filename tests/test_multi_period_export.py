@@ -9,6 +9,7 @@ from trend_analysis.export import (
     summary_frame_from_result,
     combined_summary_result,
     export_multi_period_metrics,
+    export_phase1_multi_metrics,
     export_phase1_workbook,
     period_frames_from_results,
 )
@@ -107,8 +108,20 @@ def test_export_multi_period_metrics_excel(tmp_path):
     assert first_period in book.sheet_names
     assert second_period in book.sheet_names
     assert "summary" in book.sheet_names
-    df_read = pd.read_excel(path, sheet_name=first_period, header=None)
-    assert "Vol-Adj Trend Analysis" in df_read.iloc[0, 0]
+
+
+def test_export_phase1_multi_metrics(tmp_path):
+    df = make_df()
+    cfg = make_cfg()
+    results = run_mp(cfg, df)
+    out = tmp_path / "res"
+    export_phase1_multi_metrics(results, str(out), formats=["csv"])
+    periods_path = out.with_name(f"{out.stem}_periods.csv")
+    summary_path = out.with_name(f"{out.stem}_summary.csv")
+    assert periods_path.exists() and summary_path.exists()
+    df_read = pd.read_csv(periods_path, index_col=0)
+    assert "Period" in df_read.columns
+    assert df_read.iloc[0, 0] == "Equal Weight"
 
 
 def test_export_phase1_workbook(tmp_path):

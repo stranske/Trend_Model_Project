@@ -12,6 +12,7 @@ from .export import (
     export_data,
     metrics_from_result,
     combined_summary_result,
+    export_phase1_multi_metrics,
     export_multi_period_metrics,
 )
 # Expose multi-period CLI
@@ -37,5 +38,6 @@ __all__ = [
     "run_multi_analysis",
     "metrics_from_result",
     "combined_summary_result",
+    "export_phase1_multi_metrics",
     "export_multi_period_metrics",
 ]

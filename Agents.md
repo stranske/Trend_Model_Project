@@ -469,3 +469,12 @@ portfolio results across all periods. CSV and JSON formats must consolidate the
 same tables into a single `*_periods.*` file and a companion `*_summary.*`
 file. Work continues in `export_phase1_workbook()` and the revised
 `export_multi_period_metrics` function.
+
+### 2025-09-15 UPDATE — PHASE‑1 METRICS GOAL
+
+The original requirement is still outstanding: metrics from each period of a
+multi-period run should appear in an Excel workbook with one sheet per period
+using the **exact** Phase‑1 formatting, plus a `summary` sheet combining the
+portfolio across periods. CSV and JSON outputs must present the same tables as
+a single `*_periods.*` file with a matching `*_summary.*` file. Implementation
+has begun but is not yet complete.
