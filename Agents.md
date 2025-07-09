@@ -415,3 +415,13 @@ performance across all periods.  The sheet uses the **same** format as the
 per‑period tabs and is generated via ``make_period_formatter`` on a result
 dictionary produced by ``combined_summary_result(results)``.  CSV/JSON formats
 write a ``_summary`` file derived from ``summary_frame_from_result``.
+
+### 2025‑07‑13 UPDATE — MULTI‑PERIOD EXPORT ROADMAP
+
+The backlog still includes emitting a Phase‑1 style workbook with **one tab per
+period** for multi‑period runs.  CSV and JSON outputs must create one file per
+period using the same summary table produced by
+``summary_frame_from_result``.  A ``summary`` sheet/file aggregates portfolio
+returns across all periods, formatted identically to each individual period
+sheet.  Work is in progress to expose this via a new ``run_multi_analysis`` CLI
+that calls ``export.export_multi_period_metrics``.
