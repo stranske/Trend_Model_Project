@@ -18,12 +18,22 @@ from trend_analysis.weighting import AdaptiveBayesWeighting
 cfg = load("config/demo.yml")
 results = run_mp(cfg)
 num_periods = len(results)
-expected_periods = len(scheduler.generate_periods(cfg.model_dump()))
+periods = scheduler.generate_periods(cfg.model_dump())
+expected_periods = len(periods)
 print(f"Generated {num_periods} period results (expected {expected_periods})")
 if num_periods != expected_periods:
     raise SystemExit("Multi-period demo produced an unexpected number of periods")
 if num_periods <= 1:
     raise SystemExit("Multi-period demo produced insufficient results")
+
+# check that the generated periods line up with the scheduler output
+result_periods = [r["period"] for r in results]
+sched_tuples = [
+    (p.in_start, p.in_end, p.out_start, p.out_end)
+    for p in periods
+]
+if result_periods != sched_tuples:
+    raise SystemExit("Period sequence mismatch")
 
 score_frames = {r["period"][3]: r["score_frame"] for r in results}
 selector = RankSelector(top_n=3, rank_column="Sharpe")
