@@ -68,7 +68,7 @@ class Config(BaseModel):
         return dict(self.__dict__)
 
 
-DEFAULTS = Path(__file__).resolve().parents[1] / "config" / "defaults.yml"
+DEFAULTS = Path(__file__).resolve().parents[2] / "config" / "defaults.yml"
 
 
 def load(path: str | Path | None = None) -> Config:

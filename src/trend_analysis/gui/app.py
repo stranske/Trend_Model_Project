@@ -116,7 +116,7 @@ def _build_step0(store: ParamStore) -> widgets.Widget:
 
     def on_template(change: dict[str, Any], *, store: ParamStore) -> None:
         name = change["new"]
-        cfg_dir = Path(__file__).resolve().parents[2] / "config"
+        cfg_dir = Path(__file__).resolve().parents[3] / "config"
         path = cfg_dir / f"{name}.yml"
         store.cfg = yaml.safe_load(path.read_text())
         store.dirty = True

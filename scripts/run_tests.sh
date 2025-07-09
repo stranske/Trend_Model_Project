@@ -4,4 +4,4 @@
 set -euo pipefail
 
 pip install -r requirements.txt pytest
-pytest --cov trend_analysis --cov-branch "$@"
+PYTHONPATH="./src" pytest --cov trend_analysis --cov-branch "$@"
