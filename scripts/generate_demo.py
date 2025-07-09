@@ -19,8 +19,10 @@ rng = np.random.default_rng(42)
 data = {}
 for i in range(1, 21):
     base = rng.normal(loc=0.006, scale=0.04, size=periods)
+    slope = rng.normal(scale=0.0005)
+    trend = slope * np.arange(periods)
     drift = rng.normal(scale=0.002, size=periods).cumsum()
-    data[f"Mgr_{i:02d}"] = base + drift
+    data[f"Mgr_{i:02d}"] = base + trend + drift
 
 df = pd.DataFrame(data, index=dates)
 df.index.name = "Date"
