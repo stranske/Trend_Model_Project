@@ -47,6 +47,7 @@ class Config(BaseModel):
     export: dict[str, Any]
     run: dict[str, Any]
     multi_period: dict[str, Any] | None = None
+    jobs: dict[str, Any] | None = None
 
     def __init__(self, **data: Any) -> None:  # pragma: no cover - simple assign
         """Populate attributes from ``data`` regardless of ``BaseModel``."""

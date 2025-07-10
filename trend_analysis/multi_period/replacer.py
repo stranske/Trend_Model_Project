@@ -2,6 +2,7 @@
 Apply ranking triggers, enforce min/max constraints, and adjust weights.
 (The real implementation will be generated later.)
 """
+
 from __future__ import annotations
 
 from typing import Mapping

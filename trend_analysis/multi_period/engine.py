@@ -90,9 +90,7 @@ def run(cfg: "Config") -> Dict[str, object]:  # noqa: D401
     summary = {
         "stats": stats,
         "ew": _compute_stats(pd.DataFrame({"ew": ew_series}), rf_series)["ew"],
-        "user": _compute_stats(pd.DataFrame({"user": user_series}), rf_series)[
-            "user"
-        ],
+        "user": _compute_stats(pd.DataFrame({"user": user_series}), rf_series)["user"],
     }
 
     return {"periods": results, "summary": summary}
