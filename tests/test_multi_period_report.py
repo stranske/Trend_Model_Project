@@ -38,8 +38,9 @@ def test_build_frames_has_summary(tmp_path: Path) -> None:
     res = run(cfg)
     frames = build_frames(res)
     assert "summary" in frames
-    assert frames["summary"].shape[0] == len(res["summary"]["stats"])  # type: ignore[index]
-    assert any(k.startswith("period_") for k in frames)
+    period_key = next(k for k in frames if k.startswith("period_"))
+    assert frames["summary"].columns.tolist() == frames[period_key].columns.tolist()
+    assert frames["summary"].iloc[0, 0] == "Equal Weight"
 
 
 def test_export_multi_period_outputs(tmp_path: Path) -> None:
