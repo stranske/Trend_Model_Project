@@ -17,6 +17,7 @@ def _write_cfg(path: Path, csv: Path, out_dir: Path) -> None:
                 "metrics: {}",
                 f"export: {{directory: '{out_dir}', formats: ['csv']}}",
                 "run: {}",
+                "jobs: {}",
             ]
         )
     )
