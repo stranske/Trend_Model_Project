@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, TYPE_CHECKING, cast, Any
+from typing import Dict, List, TYPE_CHECKING, cast
 
 import pandas as pd
 import numpy as np
