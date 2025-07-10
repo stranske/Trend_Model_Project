@@ -61,7 +61,10 @@ def _result_to_frame(res: Mapping[str, Any]) -> pd.DataFrame:
         extra = [
             res.get("benchmark_ir", {})
             .get(b, {})
-            .get("equal_weight" if label == "Equal Weight" else "user_weight", float("nan"))
+            .get(
+                "equal_weight" if label == "Equal Weight" else "user_weight",
+                float("nan"),
+            )
             for b in bench_labels
         ]
         vals.extend(extra)
