@@ -7,7 +7,7 @@ from typing import Any, Mapping, Dict, Iterable
 
 import pandas as pd
 
-from ..export import export_to_excel, export_data
+from ..export import export_to_excel, export_data, make_summary_formatter
 
 
 def _result_to_frame(res: Mapping[str, Any]) -> pd.DataFrame:
@@ -45,8 +45,26 @@ def export_multi_period(
     """Export multi-period results using the canonical exporters."""
     frames = build_frames(res)
     path = Path(out_dir)
+
+    periods = res.get("periods", [])
+    sheet_fmt = None
+    if periods:
+        first = periods[0]["period"]
+        last = periods[-1]["period"]
+        sheet_fmt = make_summary_formatter(
+            res.get("summary", {}),
+            first.in_start,
+            first.in_end,
+            last.out_start,
+            last.out_end,
+        )
+
     if any(f.lower() in {"excel", "xlsx"} for f in formats):
-        export_to_excel(frames, str(path / "analysis.xlsx"))
+        export_to_excel(
+            frames,
+            str(path / "analysis.xlsx"),
+            default_sheet_formatter=sheet_fmt,
+        )
         other = [f for f in formats if f.lower() not in {"excel", "xlsx"}]
         if other:
             export_data(frames, str(path / "analysis"), formats=other)

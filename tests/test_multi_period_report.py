@@ -4,7 +4,7 @@ import pandas as pd
 
 from trend_analysis.config import Config
 from trend_analysis.multi_period.engine import run
-from trend_analysis.multi_period.report import build_frames
+from trend_analysis.multi_period.report import build_frames, export_multi_period
 
 
 def make_cfg(tmp_path: Path) -> Config:
@@ -38,5 +38,22 @@ def test_build_frames_has_summary(tmp_path: Path) -> None:
     res = run(cfg)
     frames = build_frames(res)
     assert "summary" in frames
-    assert frames["summary"].shape[0] == len(res["summary"]["stats"])
+    assert frames["summary"].shape[0] == len(res["summary"]["stats"])  # type: ignore[index]
     assert any(k.startswith("period_") for k in frames)
+
+
+def test_export_multi_period_outputs(tmp_path: Path) -> None:
+    cfg = make_cfg(tmp_path)
+    res = run(cfg)
+    out = tmp_path / "out"
+    export_multi_period(res, str(out), formats=["excel", "csv"])
+    xlsx = out / "analysis.xlsx"
+    csv = out / "analysis.csv"
+    assert xlsx.exists()
+    assert csv.exists()
+    expected = {f"period_{i}" for i in range(1, len(res["periods"]) + 1)}  # type: ignore[arg-type]
+    expected.add("summary")
+    with pd.ExcelFile(xlsx) as xf:
+        assert set(xf.sheet_names) == expected
+    data = pd.read_csv(csv)
+    assert set(data["sheet"]) == expected
