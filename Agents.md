@@ -279,10 +279,10 @@ benchmarks:
 
 ### 2025-07-10 UPDATE — multi-period exports
 
-Phase 2 rolls periods sequentially. Each period should produce the same
-metrics table as Phase 1, but **all periods** go into one workbook. Excel
-exports must create a tab per period plus a final *summary* tab that shows
-combined portfolio performance using the identical column layout. CSV and JSON
-exports merge all sheets into a single file (with a ``sheet`` column or key)
-instead of multiple files.
+Phase 2 rolls periods sequentially. Each period should output the same metrics
+table **and formatting** as Phase 1, but all periods share one workbook.
+Excel exports must create a tab per period plus a final *summary* tab that
+shows combined portfolio performance using the identical column layout.
+CSV and JSON exports merge all sheets into a single file (with a ``sheet``
+column or key) instead of multiple files.
 
