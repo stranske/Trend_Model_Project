@@ -286,3 +286,11 @@ shows combined portfolio performance using the identical column layout.
 CSV and JSON exports merge all sheets into a single file (with a ``sheet``
 column or key) instead of multiple files.
 
+### 2025-07-16 UPDATE — multi-period workbook goal
+
+Phase 2's exporter must preserve the Phase 1 table layout for every period.
+All periods write to one workbook: ``period_1``, ``period_2`` … plus a
+``summary`` sheet showing combined portfolio results in the very same format.
+CSV and JSON outputs follow suit by collapsing all sheets into a single file
+with either a ``sheet`` column or key.
+
