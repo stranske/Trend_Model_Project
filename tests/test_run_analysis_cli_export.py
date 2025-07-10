@@ -17,6 +17,7 @@ def _write_cfg(path: Path, csv: Path, out_dir: Path) -> None:
                 "metrics: {}",
                 f"export: {{directory: '{out_dir}', formats: ['csv']}}",
                 "run: {}",
+                "jobs: {}",
             ]
         )
     )
@@ -36,4 +37,4 @@ def test_cli_exports_files(tmp_path):
     _write_cfg(cfg, csv, out_dir)
     rc = run_analysis.main(["-c", str(cfg)])
     assert rc == 0
-    assert (out_dir / "analysis_metrics.csv").exists()
+    assert (out_dir / "analysis.csv").exists()

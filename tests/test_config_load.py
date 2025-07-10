@@ -16,6 +16,7 @@ def _write_cfg(path: Path, version: str) -> None:
                 "metrics: {}",
                 "export: {}",
                 "run: {}",
+                "jobs: {}",
             ]
         )
     )

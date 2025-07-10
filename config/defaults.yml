@@ -137,7 +137,7 @@ multi_period:
   end: "2025-06-30"
   oos_window: 252
   triggers: {}
-jobs: 1
+jobs: {}
 checkpoint_dir: null
 random_seed: 42
 
@@ -161,5 +161,5 @@ multi_period:
       - [50,  1.00]
       - [100, 0.80]
 checkpoint_dir: "outputs/checkpoints/"
-jobs: -1                  # -1 = use all logical cores
+jobs: {}
 random_seed: 42
