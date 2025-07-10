@@ -33,13 +33,16 @@ def run(cfg: "Config") -> Dict[str, object]:  # noqa: D401
     periods = generate_periods(cfg.model_dump())
     results: List[Dict[str, object]] = []
 
+    def _month(s: str) -> str:
+        return str(pd.Period(s).strftime("%Y-%m"))
+
     for p in periods:
         res = _run_analysis_period(
             df,
-            p.in_start,
-            p.in_end,
-            p.out_start,
-            p.out_end,
+            _month(p.in_start),
+            _month(p.in_end),
+            _month(p.out_start),
+            _month(p.out_end),
             cfg.vol_adjust.get("target_vol", 1.0),
             cfg.run.get("monthly_cost", 0.0),
             selection_mode=cfg.portfolio.get("selection_mode", "all"),
