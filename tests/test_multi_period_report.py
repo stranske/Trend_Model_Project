@@ -10,7 +10,9 @@ from trend_analysis.multi_period.report import build_frames
 def make_cfg(tmp_path: Path) -> Config:
     csv = tmp_path / "data.csv"
     dates = pd.date_range("2020-01-31", periods=6, freq="ME")
-    pd.DataFrame({"Date": dates, "RF": 0.0, "A": 0.01, "B": 0.02}).to_csv(csv, index=False)
+    pd.DataFrame({"Date": dates, "RF": 0.0, "A": 0.01, "B": 0.02}).to_csv(
+        csv, index=False
+    )
     return Config(
         version="1",
         data={"csv_path": str(csv)},
@@ -38,4 +40,3 @@ def test_build_frames_has_summary(tmp_path: Path) -> None:
     assert "summary" in frames
     assert frames["summary"].shape[0] == len(res["summary"]["stats"])
     assert any(k.startswith("period_") for k in frames)
-
