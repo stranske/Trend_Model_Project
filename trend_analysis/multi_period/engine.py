@@ -64,36 +64,69 @@ def run(cfg: "Config") -> Dict[str, object]:  # noqa: D401
     # Concatenate returns for overall summary metrics
     out_frames = [r["out_sample_scaled"] for r in results]
     combined_out = pd.concat(out_frames)
+    in_frames = [r["in_sample_scaled"] for r in results]
+    combined_in = pd.concat(in_frames)
 
     ret_cols = [c for c in df.columns if c != "Date"]
     rf_col = min(ret_cols, key=lambda c: df[c].std())
-    rf_segments = []
+
+    rf_out_segments = []
+    rf_in_segments = []
     for p in periods:
-        mask = (df["Date"] >= p.out_start) & (df["Date"] <= p.out_end)
-        rf_segments.append(df.loc[mask, rf_col])
-    rf_series = pd.concat(rf_segments)
+        mask_out = (df["Date"] >= p.out_start) & (df["Date"] <= p.out_end)
+        seg_out = df.loc[mask_out, ["Date", rf_col]].set_index("Date")[rf_col]
+        rf_out_segments.append(seg_out)
+        mask_in = (df["Date"] >= p.in_start) & (df["Date"] <= p.in_end)
+        seg_in = df.loc[mask_in, ["Date", rf_col]].set_index("Date")[rf_col]
+        rf_in_segments.append(seg_in)
 
-    stats = _compute_stats(combined_out, rf_series)
+    rf_out_series = pd.concat(rf_out_segments)
+    rf_in_series = pd.concat(rf_in_segments)
 
-    ew_returns = []
-    user_returns = []
+    out_stats = _compute_stats(combined_out, rf_out_series)
+    in_stats = _compute_stats(combined_in, rf_in_series)
+
+    ew_returns_out = []
+    ew_returns_in = []
+    user_returns_out = []
+    user_returns_in = []
     for r in results:
         out_df = r["out_sample_scaled"]
+        in_df = r["in_sample_scaled"]
         ew_w = np.array(
             list(cast(dict[str, float], r["ew_weights"]).values()), dtype=float
         )
         user_w = np.array(
             list(cast(dict[str, float], r["fund_weights"]).values()), dtype=float
         )
-        ew_returns.append(calc_portfolio_returns(ew_w, out_df))
-        user_returns.append(calc_portfolio_returns(user_w, out_df))
-    ew_series = pd.concat(ew_returns)
-    user_series = pd.concat(user_returns)
+        ew_returns_out.append(calc_portfolio_returns(ew_w, out_df))
+        user_returns_out.append(calc_portfolio_returns(user_w, out_df))
+        ew_returns_in.append(calc_portfolio_returns(ew_w, in_df))
+        user_returns_in.append(calc_portfolio_returns(user_w, in_df))
+
+    ew_series_out = pd.concat(ew_returns_out)
+    user_series_out = pd.concat(user_returns_out)
+    ew_series_in = pd.concat(ew_returns_in)
+    user_series_in = pd.concat(user_returns_in)
 
     summary = {
-        "stats": stats,
-        "ew": _compute_stats(pd.DataFrame({"ew": ew_series}), rf_series)["ew"],
-        "user": _compute_stats(pd.DataFrame({"user": user_series}), rf_series)["user"],
+        "stats": out_stats,
+        "in_sample_stats": in_stats,
+        "out_sample_stats": out_stats,
+        "in_ew_stats": _compute_stats(pd.DataFrame({"ew": ew_series_in}), rf_in_series)[
+            "ew"
+        ],
+        "out_ew_stats": _compute_stats(
+            pd.DataFrame({"ew": ew_series_out}), rf_out_series
+        )["ew"],
+        "in_user_stats": _compute_stats(
+            pd.DataFrame({"user": user_series_in}), rf_in_series
+        )["user"],
+        "out_user_stats": _compute_stats(
+            pd.DataFrame({"user": user_series_out}), rf_out_series
+        )["user"],
+        "fund_weights": results[-1]["fund_weights"],
+        "benchmark_ir": {},
     }
 
     return {"periods": results, "summary": summary}
