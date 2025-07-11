@@ -13,6 +13,7 @@ from .export import (
     metrics_from_result,
     combined_summary_result,
     flat_frames_from_results,
+    export_phase1_workbook,
     export_phase1_multi_metrics,
     export_multi_period_metrics,
 )
@@ -37,6 +38,7 @@ __all__ = [
     "metrics_from_result",
     "combined_summary_result",
     "flat_frames_from_results",
+    "export_phase1_workbook",
     "export_phase1_multi_metrics",
     "export_multi_period_metrics",
 ]
