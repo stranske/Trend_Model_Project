@@ -561,6 +561,24 @@ def workbook_frames_from_results(
     return frames
 
 
+def flat_frames_from_results(
+    results: Iterable[Mapping[str, object]],
+) -> dict[str, pd.DataFrame]:
+    """Return consolidated period and summary frames for CSV/JSON export."""
+
+    frames = workbook_frames_from_results(list(results))
+    period_frames = [(k, v) for k, v in frames.items() if k != "summary"]
+    combined = (
+        pd.concat([df.assign(Period=name) for name, df in period_frames], ignore_index=True)
+        if period_frames
+        else pd.DataFrame()
+    )
+    out: dict[str, pd.DataFrame] = {"periods": combined}
+    if "summary" in frames:
+        out["summary"] = frames["summary"]
+    return out
+
+
 def export_phase1_workbook(
     results: Iterable[Mapping[str, object]],
     output_path: str,
@@ -627,24 +645,11 @@ def export_phase1_multi_metrics(
         export_phase1_workbook(results_list, path)
 
     if other_formats:
-        other_data: dict[str, pd.DataFrame] = {}
-        frames = workbook_frames_from_results(results_list)
-        period_frames = [(k, v) for k, v in frames.items() if k != "summary"]
-        combined = (
-            pd.concat(
-                [df.assign(Period=name) for name, df in period_frames],
-                ignore_index=True,
+        other_data = flat_frames_from_results(results_list)
+        if "summary" in other_data and include_metrics:
+            other_data["metrics_summary"] = metrics_from_result(
+                combined_summary_result(results_list)
             )
-            if period_frames
-            else pd.DataFrame()
-        )
-        other_data["periods"] = combined
-        if "summary" in frames:
-            other_data["summary"] = frames["summary"]
-            if include_metrics:
-                other_data["metrics_summary"] = metrics_from_result(
-                    combined_summary_result(results_list)
-                )
         if include_metrics:
             metrics_frames: list[pd.DataFrame] = []
             for idx, res in enumerate(results_list, start=1):
@@ -696,18 +701,7 @@ def export_multi_period_metrics(
     frames = workbook_frames_from_results(results_list) if results_list else {}
 
     if other_formats:
-        period_frames = [(k, v) for k, v in frames.items() if k != "summary"]
-        combined = (
-            pd.concat(
-                [df.assign(Period=name) for name, df in period_frames],
-                ignore_index=True,
-            )
-            if period_frames
-            else pd.DataFrame()
-        )
-        other_data["periods"] = combined
-        if "summary" in frames:
-            other_data["summary"] = frames["summary"]
+        other_data.update(flat_frames_from_results(results_list))
         if include_metrics:
             metrics_frames: list[pd.DataFrame] = []
             for idx, res in enumerate(results_list, start=1):
@@ -799,6 +793,7 @@ __all__ = [
     "summary_frame_from_result",
     "period_frames_from_results",
     "workbook_frames_from_results",
+    "flat_frames_from_results",
     "export_phase1_workbook",
     "export_phase1_multi_metrics",
     "export_multi_period_metrics",
