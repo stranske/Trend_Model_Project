@@ -581,7 +581,11 @@ def flat_frames_from_results(
         df = df.copy()
         df.insert(0, "Period", name)
         combined_frames.append(df)
-    combined = pd.concat(combined_frames, ignore_index=True) if combined_frames else pd.DataFrame()
+    combined = (
+        pd.concat(combined_frames, ignore_index=True)
+        if combined_frames
+        else pd.DataFrame()
+    )
     out: dict[str, pd.DataFrame] = {"periods": combined}
     if "summary" in frames:
         out["summary"] = frames["summary"]
