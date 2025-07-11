@@ -472,3 +472,8 @@ The export layer must emit a Phase-1 style workbook with one sheet per period an
 ### 2025-10-20 UPDATE — PHASE-1 WORKBOOK TARGET
 
 Multi-period exports shall produce an Excel workbook with one sheet per period plus a final `summary` sheet combining portfolio returns. Formatting and columns must match the Phase-1 output. CSV and JSON formats consolidate all period tables into a single `*_periods.*` file with a corresponding `*_summary.*` file. Development now adds `flat_frames_from_results()` to build these consolidated tables for the exporters.
+
+### 2025-10-31 UPDATE — MULTI-PERIOD PHASE-1 EXPORT DESIGN
+
+The Phase-1 metrics export shall produce one Excel worksheet per period using the exact same formatting as the single-period report. A final `summary` tab aggregates portfolio performance across all periods in the identical layout. CSV and JSON exports consolidate all period tables into a single `*_periods.*` file and place the combined results in a matching `*_summary.*` file. Implementation starts in `export_phase1_workbook()` and `export_phase1_multi_metrics()` which build their frames via `workbook_frames_from_results()`.
+

@@ -532,6 +532,13 @@ def combined_summary_result(
     }
 
 
+def combined_summary_frame(results: Iterable[Mapping[str, object]]) -> pd.DataFrame:
+    """Return the summary frame across all ``results``."""
+
+    summary = combined_summary_result(results)
+    return summary_frame_from_result(summary)
+
+
 def period_frames_from_results(
     results: Iterable[Mapping[str, object]],
 ) -> dict[str, pd.DataFrame]:
@@ -792,6 +799,7 @@ __all__ = [
     "export_data",
     "metrics_from_result",
     "combined_summary_result",
+    "combined_summary_frame",
     "summary_frame_from_result",
     "period_frames_from_results",
     "workbook_frames_from_results",
