@@ -569,7 +569,9 @@ def flat_frames_from_results(
     frames = workbook_frames_from_results(list(results))
     period_frames = [(k, v) for k, v in frames.items() if k != "summary"]
     combined = (
-        pd.concat([df.assign(Period=name) for name, df in period_frames], ignore_index=True)
+        pd.concat(
+            [df.assign(Period=name) for name, df in period_frames], ignore_index=True
+        )
         if period_frames
         else pd.DataFrame()
     )
