@@ -203,3 +203,14 @@ def test_export_phase1_workbook_content(tmp_path):
     df_summary = book["summary"]
     assert list(df_first.columns) == list(df_summary.columns)
     assert df_summary.iloc[0, 0] == "Equal Weight"
+
+
+def test_export_phase1_workbook_order(tmp_path):
+    df = make_df()
+    cfg = make_cfg()
+    results = run_mp(cfg, df)
+    out = tmp_path / "res.xlsx"
+    export_phase1_workbook(results, str(out))
+    book = pd.ExcelFile(out)
+    expected = [str(r["period"][3]) for r in results] + ["summary"]
+    assert book.sheet_names == expected

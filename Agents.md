@@ -20,34 +20,34 @@ config‑driven and keep everything vectorised.
 Functional spec
 ~~~~~~~~~~~~~~~
 1.  New selection mode keyword:  `rank`.
-    • Works on the *in‑sample* window **after** the usual data‑quality filters.  
+    • Works on the *in‑sample* window **after** the usual data‑quality filters.
     • Supported inclusion approaches:
          - `'top_n'`       – keep the N best funds.
-         - `'top_pct'`     – keep the top P percent.  
+         - `'top_pct'`     – keep the top P percent.
          - `'threshold'`   – keep funds whose score ≥ user threshold
            (this is the “useful extra” beyond N and percentile).
 
 2.  Rank criteria (`score_by`):
     • Any single metric registered in `METRIC_REGISTRY`
-      (e.g. 'Sharpe', 'AnnualReturn', 'MaxDrawdown', …).  
+      (e.g. 'Sharpe', 'AnnualReturn', 'MaxDrawdown', …).
     • Special value `'blended'` that combines up to three metrics with
       user‑supplied *positive* weights (weights will be normalised to 1.0).
 
 3.  Direction‑of‑merit:
     • Metrics where “larger is better”  → rank descending.
-    • Metrics where “smaller is better” (currently **only** MaxDrawdown)  
+    • Metrics where “smaller is better” (currently **only** MaxDrawdown)
       → rank ascending.  Future metrics can extend `ASCENDING_METRICS`.
 
 4.  Config file (YAML) drives everything – sample below.
 
 5.  UI flow (ipywidgets, no external deps):
     Step 1  – Mode (‘all’, ‘random’, ‘manual’, **‘rank’**),
-               checkboxes for “vol‑adj” and “use ranking”.  
+               checkboxes for “vol‑adj” and “use ranking”.
     Step 2  – If mode == 'rank' **or** user ticked “use ranking”
                → reveal controls for `inclusion_approach`,
                `score_by`, `N / Pct / Threshold`, and (if blended)
-               three sliders for weights + metric pickers.  
-    Step 3  – If mode == 'manual'  
+               three sliders for weights + metric pickers.
+    Step 3  – If mode == 'manual'
                → display an interactive DataFrame of the IS scores so the
                user can override selection and set weights.
     Step 4  – Output format picker (csv / xlsx / json) then fire
@@ -98,43 +98,43 @@ Never touch notebooks living under any directory whose name ends in old/.
 
 ### 2025-06-27 UPDATE — RISK-METRICS EXPORT (SERIOUSLY, LEAVE THIS IN)
 
-Codex removed the pretty reporting layer once; it shall not happen again.  
+Codex removed the pretty reporting layer once; it shall not happen again.
 Follow these guard-rails whenever you touch export logic.
 
-1. **Call the canonical exporters**  
+1. **Call the canonical exporters**
    After `pipeline.run()` completes, pipe the returned `Mapping[str, pd.DataFrame]`
-   into **exactly one** of  
+   into **exactly one** of
    `trend_analysis.export.export_to_excel | export_to_csv | export_to_json`.
 
-2. **Sheet / file keys**  
+2. **Sheet / file keys**
 
-3. **Excel format contract**  
+3. **Excel format contract**
 * Generate the summary sheet formatter via
   `trend_analysis.export.make_summary_formatter(...)`.
 * Register any other sheet formatter with `@register_formatter_excel`
   so `export_to_excel` auto-hooks it.
-* Required cosmetics:  
-  - bold title row,  
-  - `0.00%` for CAGR & Vol,  
-  - `0.00` for Sharpe & Sortino,  
-  - red numerals for MaxDD,  
-  - freeze panes on header,  
-  - auto-filter,  
+* Required cosmetics:
+  - bold title row,
+  - `0.00%` for CAGR & Vol,
+  - `0.00` for Sharpe & Sortino,
+  - red numerals for MaxDD,
+  - freeze panes on header,
+  - auto-filter,
   - column width = `max(len(header)) + 2`.
 
-4. **Column order = law**  
+4. **Column order = law**
 Tests must fail if this order mutates.
 
-5. **Config switches**  
-`output.format` = `excel | csv | json`  
+5. **Config switches**
+`output.format` = `excel | csv | json`
 `output.path`   = prefix used by exporter (Excel auto-appends `.xlsx`).
 
-6. **Tests**  
+6. **Tests**
 * In-memory smoke test: write to `BytesIO`, assert two sheets and cell
   `A1 == "Vol-Adj Trend Analysis"`.
 * Regression test: `assert list(df.columns) == EXPECTED_COLUMNS`.
 
-7. **Back-compat**  
+7. **Back-compat**
 Silent config = drop the fully formatted Excel workbook into `outputs/`
 exactly as v1.0 did. Breaking that throws `ExportError`.
 
@@ -217,8 +217,8 @@ build‑wheel (tags only)
 
 ### ✨ Task: Integrate `information_ratio` end‑to‑end  (#metrics‑IR)
 
-**Motivation**  
-Phase‑1 now includes a vectorised `information_ratio` metric.  
+**Motivation**
+Phase‑1 now includes a vectorised `information_ratio` metric.
 It is fully unit‑tested but not yet surfaced in the CLI / Excel export or
 multi‑benchmark workflows.
 
@@ -241,8 +241,8 @@ benchmarks:
 
 ### 2025‑07‑03 UPDATE — STEP 4: surface a real `score_frame`
 
-* **Add** `single_period_run()` to **`trend_analysis/pipeline.py`**  
-  * **Signature**  
+* **Add** `single_period_run()` to **`trend_analysis/pipeline.py`**
+  * **Signature**
     ```python
     def single_period_run(
         df: pd.DataFrame,
@@ -254,10 +254,10 @@ benchmarks:
         ...
     ```
   * **Behaviour**
-    1. Slice *df* to `[start, end]` (inclusive) and drop the Date column into the index.  
-    2. For every metric listed in `stats_cfg.metrics_to_run` **call the public registry** (`core.rank_selection._compute_metric_series`) to obtain a vectorised series.  
-    3. **Concatenate** those series column‑wise into **`score_frame`** (`index = fund code`, `columns = metric names`, dtype `float64`).  
-    4. Attach metadata  
+    1. Slice *df* to `[start, end]` (inclusive) and drop the Date column into the index.
+    2. For every metric listed in `stats_cfg.metrics_to_run` **call the public registry** (`core.rank_selection._compute_metric_series`) to obtain a vectorised series.
+    3. **Concatenate** those series column‑wise into **`score_frame`** (`index = fund code`, `columns = metric names`, dtype `float64`).
+    4. Attach metadata
        ```python
        score_frame.attrs["insample_len"] = len(window)        # number of bars
        score_frame.attrs["period"] = (start, end)             # optional helper
@@ -269,8 +269,8 @@ benchmarks:
   * Existing metrics‑export logic stays exactly as is.
 
 * **Tests**
-  1. **Golden‑master**: compare the new `score_frame` against a pre‑generated CSV fixture for a small sample set.  
-  2. **Metadata**: `assert sf.attrs["insample_len"] == expected_len`.  
+  1. **Golden‑master**: compare the new `score_frame` against a pre‑generated CSV fixture for a small sample set.
+  2. **Metadata**: `assert sf.attrs["insample_len"] == expected_len`.
   3. **Column order** equals the order of `stats_cfg.metrics_to_run`; failing this should raise.
 
 * **Performance / style guard‑rails**
@@ -288,8 +288,8 @@ benchmarks:
 | `RankSelector` | Pure rank‑based inclusion identical to Phase 1 behaviour, but exposed as a plug‑in. | `score_frame`, `top_n`, `rank_column` |
 | `ZScoreSelector` | Filters candidates whose z‑score > `threshold`; supports negative screening by passing `direction=-1`. | `score_frame`, `threshold`, `direction` |
 
-Both selectors must return **two** DataFrames:  
-1. `selected` – rows kept for the rebalancing date  
+Both selectors must return **two** DataFrames:
+1. `selected` – rows kept for the rebalancing date
 2. `log` – diagnostic table (candidate, metric, reason) used by UI & tests.
 
 ---
@@ -485,3 +485,13 @@ The outstanding goal is unchanged: each multi-period run should yield a Phase‑
 
 The original Phase‑1 metrics layout shall extend to multi‑period runs. The exporter must generate an Excel workbook with one tab per period and a final `summary` tab aggregating portfolio returns in the **exact** same column order and formatting. CSV and JSON outputs deliver the period tables in a single `*_periods.*` file and the combined returns in a matching `*_summary.*` file. Implementation has begun in the export helpers; keep working toward full CLI integration and parity across formats.
 
+
+### 2025-12-01 UPDATE — PHASE-1 MULTI-PERIOD OUTPUT SPEC
+
+The original design has not yet been fully realised. Each rolling run should
+produce an Excel workbook with one sheet per period, formatted exactly like the
+Phase-1 summary table. A final `summary` sheet must combine portfolio returns
+with the same columns and formatting. CSV and JSON exports shall mirror this by
+bundling all period tables into a single `<prefix>_periods.*` file together with
+`<prefix>_summary.*` for the aggregated results. Implementation work continues in
+`export_phase1_workbook()` and `export_phase1_multi_metrics()`.
