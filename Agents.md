@@ -464,3 +464,7 @@ bundle all period tables into a single `*_periods.*` file with a companion
 uses the same helper to emit a single ``*_periods.*`` file plus a matching
 ``*_summary.*`` for CSV/JSON users. Development continues to keep these
 outputs identical to the single-period workbook.
+
+### 2025-10-12 UPDATE — MULTI-PERIOD PHASE-1 METRICS GOAL
+
+The export layer must emit a Phase-1 style workbook with one sheet per period and a final `summary` sheet combining portfolio returns. Each sheet uses `make_period_formatter` so formatting matches the single-period output. CSV and JSON outputs consolidate these tables into a single `*_periods.*` file with a companion `*_summary.*` file. Implementation now begins in `export_phase1_workbook()` and `export_phase1_multi_metrics()` to realise this design.

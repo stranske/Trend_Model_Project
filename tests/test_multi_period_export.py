@@ -138,6 +138,22 @@ def test_export_phase1_multi_metrics(tmp_path):
     assert df_read.iloc[0, 0] == "Equal Weight"
 
 
+def test_export_phase1_multi_metrics_json(tmp_path):
+    df = make_df()
+    cfg = make_cfg()
+    results = run_mp(cfg, df)
+    out = tmp_path / "res"
+    export_phase1_multi_metrics(results, str(out), formats=["json"])
+    periods_path = out.with_name(f"{out.stem}_periods.json")
+    summary_path = out.with_name(f"{out.stem}_summary.json")
+    assert periods_path.exists() and summary_path.exists()
+    files = list(tmp_path.glob("*.json"))
+    assert {periods_path, summary_path} == set(files)
+    df_read = pd.read_json(periods_path)
+    assert "Period" in df_read.columns
+    assert df_read.loc[0, "Name"] == "Equal Weight"
+
+
 def test_export_phase1_workbook(tmp_path):
     df = make_df()
     cfg = make_cfg()
