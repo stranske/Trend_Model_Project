@@ -41,6 +41,23 @@ def main(argv: list[str] | None = None) -> int:
             print(text)
             print()
 
+        summary = export.combined_summary_result(results)
+        first_period = cast(
+            tuple[str, str, str, str], results[0].get("period", ("", "", "", ""))
+        )
+        last_period = cast(
+            tuple[str, str, str, str], results[-1].get("period", ("", "", "", ""))
+        )
+        sum_text = export.format_summary_text(
+            summary,
+            first_period[0],
+            first_period[1],
+            last_period[2],
+            last_period[3],
+        )
+        print("Combined Summary")
+        print(sum_text)
+
     export_cfg = cfg.export
     out_dir = export_cfg.get("directory")
     out_formats = export_cfg.get("formats")
