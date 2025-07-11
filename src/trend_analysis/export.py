@@ -572,8 +572,8 @@ def export_phase1_workbook(
     """
 
     results_list = list(results)
-    frames = {}
     reset_formatters_excel()
+    frames = workbook_frames_from_results(results_list)
 
     for idx, res in enumerate(results_list, start=1):
         period = res.get("period")
@@ -583,12 +583,10 @@ def export_phase1_workbook(
         else:
             in_s = in_e = out_s = out_e = ""
             sheet = f"period_{idx}"
-        frames[sheet] = summary_frame_from_result(res)
         make_period_formatter(sheet, res, in_s, in_e, out_s, out_e)
 
-    if results_list:
+    if results_list and "summary" in frames:
         summary = combined_summary_result(results_list)
-        frames["summary"] = summary_frame_from_result(summary)
         first = results_list[0].get("period")
         last = results_list[-1].get("period")
         if isinstance(first, (list, tuple)) and isinstance(last, (list, tuple)):
@@ -630,8 +628,8 @@ def export_phase1_multi_metrics(
 
     if other_formats:
         other_data: dict[str, pd.DataFrame] = {}
-        frames = period_frames_from_results(results_list)
-        period_frames = list(frames.items())
+        frames = workbook_frames_from_results(results_list)
+        period_frames = [(k, v) for k, v in frames.items() if k != "summary"]
         combined = (
             pd.concat(
                 [df.assign(Period=name) for name, df in period_frames],
@@ -641,11 +639,12 @@ def export_phase1_multi_metrics(
             else pd.DataFrame()
         )
         other_data["periods"] = combined
-        if results_list:
-            summary = combined_summary_result(results_list)
-            other_data["summary"] = summary_frame_from_result(summary)
+        if "summary" in frames:
+            other_data["summary"] = frames["summary"]
             if include_metrics:
-                other_data["metrics_summary"] = metrics_from_result(summary)
+                other_data["metrics_summary"] = metrics_from_result(
+                    combined_summary_result(results_list)
+                )
         if include_metrics:
             metrics_frames: list[pd.DataFrame] = []
             for idx, res in enumerate(results_list, start=1):

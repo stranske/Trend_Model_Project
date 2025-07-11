@@ -455,3 +455,12 @@ formatters as the original single-period export. CSV and JSON outputs will
 bundle all period tables into a single `*_periods.*` file with a companion
 `*_summary.*` file. The new helpers `export_phase1_workbook()` and
 `export_phase1_multi_metrics()` begin this implementation.
+
+### 2025-10-05 UPDATE — MULTI-PERIOD PHASE-1 EXPORT PROGRESS
+
+`export_phase1_workbook()` now builds its sheet mapping via
+`workbook_frames_from_results()` so each period tab and the combined
+`summary` tab share the exact Phase‑1 layout. `export_phase1_multi_metrics()`
+uses the same helper to emit a single ``*_periods.*`` file plus a matching
+``*_summary.*`` for CSV/JSON users. Development continues to keep these
+outputs identical to the single-period workbook.
