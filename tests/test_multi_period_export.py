@@ -123,9 +123,9 @@ def test_export_multi_period_metrics(tmp_path):
     periods_path = out.with_name(f"{out.stem}_periods.csv")
     summ = out.with_name(f"{out.stem}_summary.csv")
     assert periods_path.exists() and summ.exists()
-    df_read = pd.read_csv(periods_path, index_col=0)
-    assert "Name" in df_read.columns
-    assert df_read.iloc[0, 0] == "Equal Weight"
+    df_read = pd.read_csv(periods_path)
+    assert list(df_read.columns)[0] == "Period"
+    assert df_read.iloc[0, 1] == "Equal Weight"
 
 
 def test_export_multi_period_metrics_excel(tmp_path):
@@ -155,9 +155,9 @@ def test_export_phase1_multi_metrics(tmp_path):
     assert periods_path.exists() and summary_path.exists()
     files = list(tmp_path.glob("*.csv"))
     assert {periods_path, summary_path} == set(files)
-    df_read = pd.read_csv(periods_path, index_col=0)
-    assert "Period" in df_read.columns
-    assert df_read.iloc[0, 0] == "Equal Weight"
+    df_read = pd.read_csv(periods_path)
+    assert list(df_read.columns)[0] == "Period"
+    assert df_read.iloc[0, 1] == "Equal Weight"
 
 
 def test_export_phase1_multi_metrics_json(tmp_path):
@@ -172,7 +172,7 @@ def test_export_phase1_multi_metrics_json(tmp_path):
     files = list(tmp_path.glob("*.json"))
     assert {periods_path, summary_path} == set(files)
     df_read = pd.read_json(periods_path)
-    assert "Period" in df_read.columns
+    assert list(df_read.columns)[0] == "Period"
     assert df_read.loc[0, "Name"] == "Equal Weight"
 
 

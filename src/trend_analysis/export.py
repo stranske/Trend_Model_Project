@@ -337,7 +337,7 @@ def export_to_csv(
         formatted = _apply_format(df, formatter)
         formatted.to_csv(
             prefix.with_name(f"{prefix.stem}_{name}.csv"),
-            index=True,
+            index=False,
             header=True,
         )
 
@@ -576,13 +576,12 @@ def flat_frames_from_results(
 
     frames = workbook_frames_from_results(list(results))
     period_frames = [(k, v) for k, v in frames.items() if k != "summary"]
-    combined = (
-        pd.concat(
-            [df.assign(Period=name) for name, df in period_frames], ignore_index=True
-        )
-        if period_frames
-        else pd.DataFrame()
-    )
+    combined_frames = []
+    for name, df in period_frames:
+        df = df.copy()
+        df.insert(0, "Period", name)
+        combined_frames.append(df)
+    combined = pd.concat(combined_frames, ignore_index=True) if combined_frames else pd.DataFrame()
     out: dict[str, pd.DataFrame] = {"periods": combined}
     if "summary" in frames:
         out["summary"] = frames["summary"]
