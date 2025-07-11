@@ -49,7 +49,7 @@ def main(argv: list[str] | None = None) -> int:
         out_dir = "outputs"  # pragma: no cover - defaults
         out_formats = ["excel"]
     if out_dir and out_formats:
-        export.export_multi_period_metrics(
+        export.export_phase1_multi_metrics(
             results,
             str(Path(out_dir) / filename),
             formats=out_formats,

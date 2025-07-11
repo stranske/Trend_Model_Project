@@ -445,3 +445,13 @@ using the **exact** Phase‑1 formatting, plus a `summary` sheet combining the
 portfolio across periods. CSV and JSON outputs must present the same tables as
 a single `*_periods.*` file with a matching `*_summary.*` file. Implementation
 has begun but is not yet complete.
+
+### 2025-09-30 UPDATE — MULTI-PERIOD WORKBOOK TARGET
+
+Development continues on the export layer. The goal remains to emit a Phase‑1
+style workbook with **one sheet per period** and a final `summary` sheet
+combining portfolio returns across all periods. Each sheet must apply the same
+formatters as the original single-period export. CSV and JSON outputs will
+bundle all period tables into a single `*_periods.*` file with a companion
+`*_summary.*` file. The new helpers `export_phase1_workbook()` and
+`export_phase1_multi_metrics()` begin this implementation.
