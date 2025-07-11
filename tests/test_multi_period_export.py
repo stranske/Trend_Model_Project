@@ -8,6 +8,7 @@ from trend_analysis.export import (
     metrics_from_result,
     summary_frame_from_result,
     combined_summary_result,
+    combined_summary_frame,
     export_multi_period_metrics,
     export_phase1_multi_metrics,
     export_phase1_workbook,
@@ -69,6 +70,15 @@ def test_combined_summary_result_basic():
     df_sum = summary_frame_from_result(summary)
     assert "OS MaxDD" in df_sum.columns
     assert df_sum.iloc[0, 0] == "Equal Weight"
+
+
+def test_combined_summary_frame(tmp_path):
+    df = make_df()
+    cfg = make_cfg()
+    results = run_mp(cfg, df)
+    frame = combined_summary_frame(results)
+    other = summary_frame_from_result(combined_summary_result(results))
+    pd.testing.assert_frame_equal(frame, other)
 
 
 def test_period_frames_from_results_basic():
@@ -179,3 +189,17 @@ def test_export_phase1_workbook(tmp_path):
     assert first_period in book.sheet_names
     assert second_period in book.sheet_names
     assert "summary" in book.sheet_names
+
+
+def test_export_phase1_workbook_content(tmp_path):
+    df = make_df()
+    cfg = make_cfg()
+    results = run_mp(cfg, df)
+    out = tmp_path / "res.xlsx"
+    export_phase1_workbook(results, str(out))
+    book = pd.read_excel(out, sheet_name=None, skiprows=4)
+    first_period = str(results[0]["period"][3])
+    df_first = book[first_period]
+    df_summary = book["summary"]
+    assert list(df_first.columns) == list(df_summary.columns)
+    assert df_summary.iloc[0, 0] == "Equal Weight"
