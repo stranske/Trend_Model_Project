@@ -495,3 +495,13 @@ with the same columns and formatting. CSV and JSON exports shall mirror this by
 bundling all period tables into a single `<prefix>_periods.*` file together with
 `<prefix>_summary.*` for the aggregated results. Implementation work continues in
 `export_phase1_workbook()` and `export_phase1_multi_metrics()`.
+
+### 2025-12-08 UPDATE — MULTI-PERIOD PHASE-1 EXPORT INITIATIVE
+
+The long-standing objective is for rolling runs to emit a Phase‑1 style
+workbook with **one tab per period** and a final `summary` sheet combining
+portfolio returns.  Each sheet must share the identical columns and
+formatting.  CSV and JSON outputs should deliver a single `<prefix>_periods.*`
+file plus `<prefix>_summary.*` to aggregate the results.  Implementation work
+begins in `export_phase1_workbook()` and `flat_frames_from_results()` to shape
+these consolidated tables.
