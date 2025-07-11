@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, cast
+from collections import OrderedDict
 import inspect
 
 import pandas as pd
@@ -541,10 +542,10 @@ def combined_summary_frame(results: Iterable[Mapping[str, object]]) -> pd.DataFr
 
 def period_frames_from_results(
     results: Iterable[Mapping[str, object]],
-) -> dict[str, pd.DataFrame]:
+) -> "OrderedDict[str, pd.DataFrame]":
     """Return a mapping of sheet names to summary frames for each period."""
 
-    frames: dict[str, pd.DataFrame] = {}
+    frames: "OrderedDict[str, pd.DataFrame]" = OrderedDict()
     for idx, res in enumerate(results, start=1):
         period = res.get("period")
         if isinstance(period, (list, tuple)) and len(period) >= 4:
@@ -557,7 +558,7 @@ def period_frames_from_results(
 
 def workbook_frames_from_results(
     results: Iterable[Mapping[str, object]],
-) -> dict[str, pd.DataFrame]:
+) -> "OrderedDict[str, pd.DataFrame]":
     """Return per-period frames plus a combined summary frame."""
 
     results_list = list(results)
