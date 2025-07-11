@@ -12,6 +12,7 @@ from trend_analysis.export import (
     export_phase1_multi_metrics,
     export_phase1_workbook,
     period_frames_from_results,
+    workbook_frames_from_results,
 )
 
 
@@ -80,6 +81,17 @@ def test_period_frames_from_results_basic():
     assert "OS MaxDD" in frames[key].columns
 
 
+def test_workbook_frames_from_results_basic():
+    df = make_df()
+    cfg = make_cfg()
+    results = run_mp(cfg, df)
+    frames = workbook_frames_from_results(results)
+    first = str(results[0]["period"][3])
+    assert "summary" in frames
+    assert first in frames
+    assert list(frames[first].columns) == list(frames["summary"].columns)
+
+
 def test_export_multi_period_metrics(tmp_path):
     df = make_df()
     cfg = make_cfg()
@@ -119,6 +131,8 @@ def test_export_phase1_multi_metrics(tmp_path):
     periods_path = out.with_name(f"{out.stem}_periods.csv")
     summary_path = out.with_name(f"{out.stem}_summary.csv")
     assert periods_path.exists() and summary_path.exists()
+    files = list(tmp_path.glob("*.csv"))
+    assert {periods_path, summary_path} == set(files)
     df_read = pd.read_csv(periods_path, index_col=0)
     assert "Period" in df_read.columns
     assert df_read.iloc[0, 0] == "Equal Weight"
