@@ -515,3 +515,7 @@ periods in the same layout. CSV and JSON outputs should consolidate all period
 tables into a single `<prefix>_periods.*` file with a matching
 `<prefix>_summary.*` file. Implementation continues in
 `export_phase1_workbook()` and `export_phase1_multi_metrics()`.
+
+### 2025-12-22 UPDATE — PHASE-1 EXPORT ROADMAP
+
+Implementation is ongoing to deliver a multi-period Excel workbook with one sheet per period and a final `summary` sheet of combined portfolio returns. Each sheet must use the exact Phase‑1 formatting. CSV and JSON exports shall output a single `<prefix>_periods.*` file and a companion `<prefix>_summary.*` file. Work continues in `export_phase1_workbook()` and `export_phase1_multi_metrics()`.

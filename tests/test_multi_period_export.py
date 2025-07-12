@@ -216,6 +216,18 @@ def test_export_phase1_workbook_order(tmp_path):
     assert book.sheet_names == expected
 
 
+def test_export_phase1_workbook_metrics(tmp_path):
+    df = make_df()
+    cfg = make_cfg()
+    results = run_mp(cfg, df)
+    out = tmp_path / "res.xlsx"
+    export_phase1_workbook(results, str(out), include_metrics=True)
+    book = pd.ExcelFile(out)
+    first_period = str(results[0]["period"][3])
+    assert f"metrics_{first_period}" in book.sheet_names
+    assert "metrics_summary" in book.sheet_names
+
+
 def test_export_phase1_multi_metrics_excel(tmp_path):
     df = make_df()
     cfg = make_cfg()

@@ -595,16 +595,33 @@ def flat_frames_from_results(
 def export_phase1_workbook(
     results: Iterable[Mapping[str, object]],
     output_path: str,
+    *,
+    include_metrics: bool = False,
 ) -> None:
     """Export a Phase-1 style workbook for ``results``.
 
     Each period becomes its own sheet and a final ``summary`` sheet aggregates
-    portfolio returns across all periods using the same formatting.
+    portfolio returns across all periods using the same formatting. When
+    ``include_metrics`` is ``True`` the raw metrics for each period and the
+    combined summary are added as separate sheets.
     """
 
     results_list = list(results)
     reset_formatters_excel()
     frames = workbook_frames_from_results(results_list)
+    if include_metrics:
+        metrics_frames: dict[str, pd.DataFrame] = {}
+        for idx, res in enumerate(results_list, start=1):
+            period = res.get("period")
+            sheet = (
+                str(period[3])
+                if isinstance(period, (list, tuple)) and len(period) >= 4
+                else f"period_{idx}"
+            )
+            metrics_frames[f"metrics_{sheet}"] = metrics_from_result(res)
+        if results_list and "summary" in frames:
+            summary = combined_summary_result(results_list)
+            metrics_frames["metrics_summary"] = metrics_from_result(summary)
 
     for idx, res in enumerate(results_list, start=1):
         period = res.get("period")
@@ -632,6 +649,9 @@ def export_phase1_workbook(
         else:
             make_period_formatter("summary", summary, "", "", "", "")
 
+    if include_metrics:
+        frames.update(metrics_frames)
+
     export_to_excel(frames, output_path)
 
 
@@ -655,7 +675,7 @@ def export_phase1_multi_metrics(
 
     if excel_formats:
         path = str(Path(output_path).with_suffix(".xlsx"))
-        export_phase1_workbook(results_list, path)
+        export_phase1_workbook(results_list, path, include_metrics=include_metrics)
 
     if other_formats:
         other_data = flat_frames_from_results(results_list)
