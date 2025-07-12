@@ -18,13 +18,15 @@ def test_export_data(tmp_path):
     df2 = pd.DataFrame({"B": [3, 4]})
     data = {"sheet1": df1, "sheet2": df2}
     out = tmp_path / "report"
-    export_data(data, str(out), formats=["xlsx", "csv", "json"])
+    export_data(data, str(out), formats=["xlsx", "csv", "json", "txt"])
 
     assert (tmp_path / "report.xlsx").exists()
     assert (tmp_path / "report_sheet1.csv").exists()
     assert (tmp_path / "report_sheet2.csv").exists()
     assert (tmp_path / "report_sheet1.json").exists()
     assert (tmp_path / "report_sheet2.json").exists()
+    assert (tmp_path / "report_sheet1.txt").exists()
+    assert (tmp_path / "report_sheet2.txt").exists()
 
     read = pd.read_csv(tmp_path / "report_sheet1.csv", index_col=0)
     pd.testing.assert_frame_equal(read, df1)
