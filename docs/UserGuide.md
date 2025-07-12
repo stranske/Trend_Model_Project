@@ -77,7 +77,26 @@ python scripts/run_multi_demo.py
 
 `run_multi_demo.py` calls ``export.export_data`` so CSV, Excel, JSON **and TXT** reports are produced in one go. It also runs the full test suite, ensuring multiple periods are processed and that adaptive weights evolve over time.
 
-## 10. Further help
+## 10. Demo pipeline (maintenance / CI)
+
+Whenever the exporter or pipeline behaviour changes, re-run the demo steps below
+and adjust `config/demo.yml` or `scripts/run_multi_demo.py` so the demo
+exercises every new code path.
+
+1. **Bootstrap the environment**
+   ```bash
+   ./scripts/setup_env.sh
+   ```
+2. **Generate the demo dataset**
+   ```bash
+   python scripts/generate_demo.py
+   ```
+3. **Run the full demo pipeline and export checks**
+   ```bash
+   python scripts/run_multi_demo.py
+   ```
+
+## 11. Further help
 
 See `README.md` for a short overview of the repository structure and the example notebooks for end‑to‑end demonstrations.
 
