@@ -67,14 +67,15 @@ Add a `benchmarks` mapping in the config to compute information ratios against o
 
 ## 9. Multi-period demo
 
-Generate the synthetic dataset and run the helper script to exercise the Phase 2 engine. The script now iterates through several selector and weighting strategies and runs the unit tests:
+Generate the synthetic dataset and run the helper script to exercise the Phase 2 engine. The demo now starts by bootstrapping a clean environment and then cycles through several selector and weighting strategies while exporting results in multiple formats:
 
 ```bash
+./scripts/setup_env.sh
 python scripts/generate_demo.py
 python scripts/run_multi_demo.py
 ```
 
-The script ensures multiple periods are processed and that adaptive weights evolve over time.
+`run_multi_demo.py` calls ``export.export_data`` so CSV, Excel, JSON **and TXT** reports are produced in one go. It also runs the full test suite, ensuring multiple periods are processed and that adaptive weights evolve over time.
 
 ## 10. Further help
 
