@@ -67,7 +67,7 @@ Add a `benchmarks` mapping in the config to compute information ratios against o
 
 ## 9. Multi-period demo
 
-Generate the synthetic dataset and run the helper script to exercise the Phase 2 engine. The demo now starts by bootstrapping a clean environment and then cycles through several selector and weighting strategies while exporting results in multiple formats:
+Generate the synthetic dataset and run the helper script to exercise the Phase 2 engine. The demo now starts by bootstrapping a clean environment and then cycles through several selector and weighting strategies while exporting results in multiple formats. `config/demo.yml` enables the rank-based selector and registers an `SPX` benchmark so information ratios are computed:
 
 ```bash
 ./scripts/setup_env.sh

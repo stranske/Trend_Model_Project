@@ -18,14 +18,31 @@ sample_split:
   out_end:   2024-12
 
 portfolio:
+  selection_mode: rank
+  rank:
+    inclusion_approach: top_n
+    n: 5
+    score_by: Sharpe
   selector:
-    type: trend
-    lookback_months: 36
+    name: rank
+    params:
+      top_n: 5
+      rank_column: Sharpe
   weighting:
-    type: equal
+    name: equal
+    params: {}
+
+benchmarks:
+  spx: SPX
 
 metrics:
-  enabled: false
+  registry:
+    - annual_return
+    - volatility
+    - sharpe_ratio
+    - sortino_ratio
+    - information_ratio
+    - max_drawdown
 
 export:
   output_dir: demo/exports
