@@ -118,7 +118,7 @@ out_prefix = Path("demo/exports/pipeline_demo")
 export.export_data(
     {"metrics": metrics_df},
     str(out_prefix),
-    formats=["xlsx", "csv", "json"],
+    formats=["xlsx", "csv", "json", "txt"],
 )
 if not out_prefix.with_suffix(".xlsx").exists():
     raise SystemExit("Excel export failed")
@@ -126,6 +126,8 @@ if not out_prefix.with_name(f"{out_prefix.stem}_metrics.csv").exists():
     raise SystemExit("CSV export failed")
 if not out_prefix.with_name(f"{out_prefix.stem}_metrics.json").exists():
     raise SystemExit("JSON export failed")
+if not out_prefix.with_name(f"{out_prefix.stem}_metrics.txt").exists():
+    raise SystemExit("TXT export failed")
 
 full_res = pipeline.run_full(cfg)
 sf = full_res.get("score_frame") if isinstance(full_res, dict) else None

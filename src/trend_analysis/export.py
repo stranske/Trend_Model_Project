@@ -329,6 +329,21 @@ def export_to_json(
         )
 
 
+def export_to_txt(
+    data: Mapping[str, pd.DataFrame],
+    output_path: str,
+    formatter: Formatter | None = None,
+) -> None:
+    """Export each dataframe to a plain text file using ``output_path`` as prefix."""
+    prefix = Path(output_path)
+    _ensure_dir(prefix)
+    for name, df in data.items():
+        formatted = _apply_format(df, formatter)
+        prefix.with_name(f"{prefix.stem}_{name}.txt").write_text(
+            formatted.to_string(index=False)
+        )
+
+
 EXPORTERS: dict[
     str, Callable[[Mapping[str, pd.DataFrame], str, Formatter | None], None]
 ] = {
@@ -337,6 +352,7 @@ EXPORTERS: dict[
     "excel": export_to_excel,
     "csv": export_to_csv,
     "json": export_to_json,
+    "txt": export_to_txt,
 }
 
 
@@ -366,5 +382,6 @@ __all__ = [
     "export_to_excel",
     "export_to_csv",
     "export_to_json",
+    "export_to_txt",
     "export_data",
 ]

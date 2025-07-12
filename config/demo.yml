@@ -29,7 +29,7 @@ metrics:
 
 export:
   output_dir: demo/exports
-  formats: [csv, xlsx, json]
+  formats: [csv, xlsx, json, txt]
 
 run:
   seed: 42                      # makes demo deterministic
