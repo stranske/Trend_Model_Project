@@ -505,3 +505,13 @@ formatting.  CSV and JSON outputs should deliver a single `<prefix>_periods.*`
 file plus `<prefix>_summary.*` to aggregate the results.  Implementation work
 begins in `export_phase1_workbook()` and `flat_frames_from_results()` to shape
 these consolidated tables.
+
+### 2025-12-15 UPDATE — PHASE-1 MULTI-PERIOD WORKBOOK GOAL
+
+The original requirement remains: metrics from each period must be exported as
+an Excel workbook with **one sheet per period** using the exact Phase‑1 summary
+formatting. A final `summary` sheet combines portfolio returns across all
+periods in the same layout. CSV and JSON outputs should consolidate all period
+tables into a single `<prefix>_periods.*` file with a matching
+`<prefix>_summary.*` file. Implementation continues in
+`export_phase1_workbook()` and `export_phase1_multi_metrics()`.
