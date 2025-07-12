@@ -115,13 +115,15 @@ metrics_df = pipeline.run(cfg)
 if metrics_df.empty:
     raise SystemExit("pipeline.run produced empty metrics")
 out_prefix = Path("demo/exports/pipeline_demo")
-export.export_to_csv({"metrics": metrics_df}, str(out_prefix))
-export.export_to_excel({"metrics": metrics_df}, str(out_prefix.with_suffix(".xlsx")))
-export.export_to_json({"metrics": metrics_df}, str(out_prefix))
-if not out_prefix.with_name(f"{out_prefix.stem}_metrics.csv").exists():
-    raise SystemExit("CSV export failed")
+export.export_data(
+    {"metrics": metrics_df},
+    str(out_prefix),
+    formats=["xlsx", "csv", "json"],
+)
 if not out_prefix.with_suffix(".xlsx").exists():
     raise SystemExit("Excel export failed")
+if not out_prefix.with_name(f"{out_prefix.stem}_metrics.csv").exists():
+    raise SystemExit("CSV export failed")
 if not out_prefix.with_name(f"{out_prefix.stem}_metrics.json").exists():
     raise SystemExit("JSON export failed")
 

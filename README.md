@@ -135,10 +135,11 @@ python scripts/run_multi_demo.py
 
 The script prints the number of generated periods and verifies that
 weights evolve across them, confirming the Phase 2 logic works end to end.
-It now also exercises the single-period pipeline functions and checks that the
-export helpers produce CSV, Excel and JSON files. The CLI entry point runs in
-both default and ``--detailed`` modes. Finally, the script invokes the full test
-suite to ensure all modules behave as expected.
+It now also exercises the single-period pipeline functions. Results are exported
+via ``export.export_data`` so CSV, Excel and JSON reports are produced in one
+go. The CLI entry point runs in both default and ``--detailed`` modes.
+Finally, the script invokes the full test suite to ensure all modules behave as
+expected.
 
 ## Interactive GUI
 
