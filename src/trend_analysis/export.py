@@ -638,8 +638,7 @@ def export_phase1_workbook(
         first = results_list[0].get("period")
         last = results_list[-1].get("period")
         if isinstance(first, (list, tuple)) and isinstance(last, (list, tuple)):
-            make_period_formatter(
-                "summary",
+            make_summary_formatter(
                 summary,
                 str(first[0]),
                 str(first[1]),
@@ -647,7 +646,7 @@ def export_phase1_workbook(
                 str(last[3]),
             )
         else:
-            make_period_formatter("summary", summary, "", "", "", "")
+            make_summary_formatter(summary, "", "", "", "")
 
     if include_metrics:
         frames.update(metrics_frames)
@@ -774,8 +773,7 @@ def export_multi_period_metrics(
             first = results_list[0].get("period")
             last = results_list[-1].get("period")
             if isinstance(first, (list, tuple)) and isinstance(last, (list, tuple)):
-                make_period_formatter(
-                    "summary",
+                make_summary_formatter(
                     summary,
                     str(first[0]),
                     str(first[1]),
@@ -783,7 +781,7 @@ def export_multi_period_metrics(
                     str(last[3]),
                 )
             else:
-                make_period_formatter("summary", summary, "", "", "", "")
+                make_summary_formatter(summary, "", "", "", "")
             if include_metrics:
                 excel_data["metrics_summary"] = metrics_from_result(summary)
 
