@@ -214,3 +214,22 @@ def test_export_phase1_workbook_order(tmp_path):
     book = pd.ExcelFile(out)
     expected = [str(r["period"][3]) for r in results] + ["summary"]
     assert book.sheet_names == expected
+
+
+def test_export_phase1_multi_metrics_excel(tmp_path):
+    df = make_df()
+    cfg = make_cfg()
+    results = run_mp(cfg, df)
+    out = tmp_path / "res"
+    export_phase1_multi_metrics(results, str(out), formats=["xlsx"])
+    path = out.with_suffix(".xlsx")
+    assert path.exists()
+    first_period = str(results[0]["period"][3])
+    second_period = str(results[1]["period"][3])
+    book = pd.ExcelFile(path)
+    assert first_period in book.sheet_names
+    assert second_period in book.sheet_names
+    assert "summary" in book.sheet_names
+    df_first = pd.read_excel(path, sheet_name=first_period, skiprows=4)
+    df_summary = pd.read_excel(path, sheet_name="summary", skiprows=4)
+    assert list(df_first.columns) == list(df_summary.columns)
