@@ -142,6 +142,19 @@ go. The CLI entry point runs in both default and ``--detailed`` modes.
 Finally, the script invokes the full test suite to ensure all modules behave as
 expected.
 
+## Demo maintenance
+
+Whenever exporter options or pipeline behaviour changes, keep the example
+pipeline in sync by running the demo steps below. Update
+`config/demo.yml` and `scripts/run_multi_demo.py` so the demo exercises every
+new code path.
+
+```bash
+./scripts/setup_env.sh
+python scripts/generate_demo.py
+python scripts/run_multi_demo.py
+```
+
 ## Interactive GUI
 
 An interactive configuration GUI is bundled with the project. Launch it within Jupyter by running:
