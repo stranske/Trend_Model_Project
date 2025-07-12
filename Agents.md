@@ -17,11 +17,15 @@ YOU ARE CODEX.  EXTEND THE VOL_ADJ_TREND_ANALYSIS PROJECT AS FOLLOWS
    python scripts/generate_demo.py
    ```
 
-3. **Run full demo pipeline**
+3. **Run full demo pipeline and export checks**
 
    ```bash
    python scripts/run_multi_demo.py
    ```
+
+   The script must invoke `export.export_data()` with the demo results so CSV,
+   Excel and JSON outputs are generated in one call.  Update it whenever new
+   exporter functionality is added.
 
 4. **Keep demo config current**
    - Update `config/demo.yml` and demo scripts whenever export or pipeline
