@@ -122,7 +122,9 @@ print(score_frame)
 ## Multi-period demo
 
 Phase 2 introduces a multi-period engine with adaptive weighting. A small
-demo dataset and helper script are included to exercise this feature.
+demo dataset and helper script are included to exercise this feature. The
+`config/demo.yml` file now enables the rank-based selection mode and adds an
+`SPX` benchmark so information ratios and multi-format exports are covered.
 
 Generate the synthetic data and run the demo as follows. The helper script now
 cycles through several selector and weighting combinations to cover the main
