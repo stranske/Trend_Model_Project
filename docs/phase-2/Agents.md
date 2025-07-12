@@ -556,5 +556,30 @@ now merged. The GUI enumerates all weighting plug‑ins automatically and the
 defaults listed above match the shipped configuration. Persistent skill can
 therefore be modelled out‑of‑the‑box.
 
+## Demo pipeline (maintenance / CI)
+
+Keep the demo scripts in sync with exporter and pipeline changes. Whenever a new
+feature lands, run the sequence below and update `config/demo.yml` or
+`scripts/run_multi_demo.py` so the demo exercises every code path.
+
+1. **Bootstrap the environment**
+   ```bash
+   ./scripts/setup_env.sh
+   ```
+2. **Generate the demo dataset**
+   ```bash
+   python scripts/generate_demo.py
+   ```
+3. **Run the full demo pipeline and export checks**
+   ```bash
+   python scripts/run_multi_demo.py
+   ```
+   The script must call `export.export_data()` so CSV, Excel and JSON outputs are
+   produced in one go. Extend the script and config whenever new exporter options
+   are introduced.
+4. **Keep demo config current**
+   - Update `config/demo.yml` and demo scripts whenever export or pipeline
+     behaviour changes so the demo covers all features.
+
 
 
