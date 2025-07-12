@@ -69,6 +69,13 @@ if result_periods != sched_tuples:
 
 score_frames = {r["period"][3]: r["score_frame"] for r in results}
 
+# export all score frames in one go so Excel, CSV, JSON and TXT versions are
+# produced for CI. Each period becomes a separate sheet/file.
+mp_prefix = Path("demo/exports/multi_period_scores")
+export.export_data(score_frames, str(mp_prefix), formats=["xlsx", "csv", "json", "txt"])
+if not mp_prefix.with_suffix(".xlsx").exists():
+    raise SystemExit("Multi-period score frame export failed")
+
 # ensure metadata lines up with the generated periods
 for r in results:
     sf = r["score_frame"]
