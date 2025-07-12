@@ -9,7 +9,23 @@ YOU ARE CODEX.  EXTEND THE VOL_ADJ_TREND_ANALYSIS PROJECT AS FOLLOWS
 
    ```bash
    ./scripts/setup_env.sh
+   ```
 
+2. **Generate demo dataset**
+
+   ```bash
+   python scripts/generate_demo.py
+   ```
+
+3. **Run full demo pipeline**
+
+   ```bash
+   python scripts/run_multi_demo.py
+   ```
+
+4. **Keep demo config current**
+   - Update `config/demo.yml` and demo scripts whenever export or pipeline
+     behaviour changes so that the demo exercises all features.
 
 High‑level goal
 ~~~~~~~~~~~~~~~
