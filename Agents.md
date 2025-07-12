@@ -27,6 +27,11 @@ YOU ARE CODEX.  EXTEND THE VOL_ADJ_TREND_ANALYSIS PROJECT AS FOLLOWS
    Excel and JSON outputs are generated in one call.  Update it whenever new
    exporter functionality is added.
 
+   When exporter features evolve (e.g. additional formats or option flags),
+   extend both `run_multi_demo.py` and `config/demo.yml` so the demo pipeline
+   exercises every new code path. This keeps CI in lock‑step with the live
+   exporter behaviour.
+
 4. **Keep demo config current**
    - Update `config/demo.yml` and demo scripts whenever export or pipeline
      behaviour changes so that the demo exercises all features.
