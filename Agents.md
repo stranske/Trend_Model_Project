@@ -528,3 +528,12 @@ tab must aggregate portfolio returns in the very same layout.  CSV and JSON
 exports must bundle the per-period tables into one `<prefix>_periods.*` file
 with a matching `<prefix>_summary.*` companion file.  Implementation will finish
 linking these helpers into the public CLI.
+
+### 2026-01-15 UPDATE — WORKBOOK DATA HELPER
+
+Phase‑1 metrics should export one sheet per period plus a summary tab.  CSV and
+JSON outputs must consolidate all periods into a single file.  A new helper
+`phase1_workbook_data()` starts this implementation by returning the ordered
+sheet mapping for a multi‑period workbook, optionally including raw metrics per
+period and for the combined summary.  `export_phase1_workbook()` now builds its
+workbook from this mapping.
