@@ -151,6 +151,9 @@ functionality. Whenever either changes, run the sequence below and update
 `config/demo.yml` or `scripts/run_multi_demo.py` so the demo covers every
 code path.
 
+See **[docs/DemoMaintenance.md](docs/DemoMaintenance.md)** for a concise
+checklist of these steps.
+
 1. **Bootstrap the environment**
    ```bash
    ./scripts/setup_env.sh
