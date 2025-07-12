@@ -12,6 +12,7 @@ from trend_analysis.export import (
     export_multi_period_metrics,
     export_phase1_multi_metrics,
     export_phase1_workbook,
+    phase1_workbook_data,
     period_frames_from_results,
     workbook_frames_from_results,
     flat_frames_from_results,
@@ -101,6 +102,16 @@ def test_workbook_frames_from_results_basic():
     assert "summary" in frames
     assert first in frames
     assert list(frames[first].columns) == list(frames["summary"].columns)
+
+
+def test_phase1_workbook_data(tmp_path):
+    df = make_df()
+    cfg = make_cfg()
+    results = run_mp(cfg, df)
+    frames = phase1_workbook_data(results, include_metrics=True)
+    first = str(results[0]["period"][3])
+    assert f"metrics_{first}" in frames
+    assert "summary" in frames
 
 
 def test_flat_frames_from_results_basic():

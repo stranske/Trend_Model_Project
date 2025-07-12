@@ -569,6 +569,52 @@ def workbook_frames_from_results(
     return frames
 
 
+def phase1_workbook_data(
+    results: Iterable[Mapping[str, object]],
+    *,
+    include_metrics: bool = False,
+) -> "OrderedDict[str, pd.DataFrame]":
+    """Return sheet data for a Phase‑1 style multi‑period workbook.
+
+    Parameters
+    ----------
+    results:
+        Iterable of result dictionaries as produced by
+        :func:`multi_period.engine.run`.
+    include_metrics:
+        If ``True`` also return the raw metrics for each period and the
+        combined summary.
+
+    Returns
+    -------
+    OrderedDict[str, pd.DataFrame]
+        Mapping of sheet names to data frames suitable for
+        :func:`export_to_excel`.
+    """
+
+    results_list = list(results)
+    frames = workbook_frames_from_results(results_list)
+
+    if include_metrics:
+        metrics_frames: "OrderedDict[str, pd.DataFrame]" = OrderedDict()
+        for idx, res in enumerate(results_list, start=1):
+            period = res.get("period")
+            sheet = (
+                str(period[3])
+                if isinstance(period, (list, tuple)) and len(period) >= 4
+                else f"period_{idx}"
+            )
+            metrics_frames[f"metrics_{sheet}"] = metrics_from_result(res)
+
+        if results_list and "summary" in frames:
+            summary = combined_summary_result(results_list)
+            metrics_frames["metrics_summary"] = metrics_from_result(summary)
+
+        frames.update(metrics_frames)
+
+    return frames
+
+
 def flat_frames_from_results(
     results: Iterable[Mapping[str, object]],
 ) -> dict[str, pd.DataFrame]:
@@ -608,20 +654,7 @@ def export_phase1_workbook(
 
     results_list = list(results)
     reset_formatters_excel()
-    frames = workbook_frames_from_results(results_list)
-    if include_metrics:
-        metrics_frames: dict[str, pd.DataFrame] = {}
-        for idx, res in enumerate(results_list, start=1):
-            period = res.get("period")
-            sheet = (
-                str(period[3])
-                if isinstance(period, (list, tuple)) and len(period) >= 4
-                else f"period_{idx}"
-            )
-            metrics_frames[f"metrics_{sheet}"] = metrics_from_result(res)
-        if results_list and "summary" in frames:
-            summary = combined_summary_result(results_list)
-            metrics_frames["metrics_summary"] = metrics_from_result(summary)
+    frames = phase1_workbook_data(results_list, include_metrics=include_metrics)
 
     for idx, res in enumerate(results_list, start=1):
         period = res.get("period")
@@ -647,9 +680,6 @@ def export_phase1_workbook(
             )
         else:
             make_summary_formatter(summary, "", "", "", "")
-
-    if include_metrics:
-        frames.update(metrics_frames)
 
     export_to_excel(frames, output_path)
 
@@ -825,6 +855,7 @@ __all__ = [
     "summary_frame_from_result",
     "period_frames_from_results",
     "workbook_frames_from_results",
+    "phase1_workbook_data",
     "flat_frames_from_results",
     "export_phase1_workbook",
     "export_phase1_multi_metrics",
