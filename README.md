@@ -142,18 +142,25 @@ go. The CLI entry point runs in both default and ``--detailed`` modes.
 Finally, the script invokes the full test suite to ensure all modules behave as
 expected.
 
-## Demo maintenance
+## Demo pipeline (maintenance / CI)
 
-Whenever exporter options or pipeline behaviour changes, keep the example
-pipeline in sync by running the demo steps below. Update
-`config/demo.yml` and `scripts/run_multi_demo.py` so the demo exercises every
-new code path.
+Keep the demo scripts in lock‑step with the exporter and pipeline
+functionality. Whenever either changes, run the sequence below and update
+`config/demo.yml` or `scripts/run_multi_demo.py` so the demo covers every
+code path.
 
-```bash
-./scripts/setup_env.sh
-python scripts/generate_demo.py
-python scripts/run_multi_demo.py
-```
+1. **Bootstrap the environment**
+   ```bash
+   ./scripts/setup_env.sh
+   ```
+2. **Generate the demo dataset**
+   ```bash
+   python scripts/generate_demo.py
+   ```
+3. **Run the full demo pipeline and export checks**
+   ```bash
+   python scripts/run_multi_demo.py
+   ```
 
 ## Interactive GUI
 
