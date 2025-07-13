@@ -259,13 +259,21 @@ if not zscore_ids:
     raise SystemExit("zscore selection produced no funds")
 
 abw = AdaptiveBayesWeighting(max_w=None)
-_check_schedule(
+pf_abw = _check_schedule(
     score_frames,
     RankSelector(top_n=3, rank_column="Sharpe"),
     abw,
     cfg,
     rank_column="Sharpe",
 )
+abw_prefix = Path("demo/exports/abw_weights")
+export.export_data(
+    {"weights": pd.DataFrame(pf_abw.history).T},
+    str(abw_prefix),
+    formats=["xlsx", "csv", "json", "txt"],
+)
+if not abw_prefix.with_suffix(".xlsx").exists():
+    raise SystemExit("ABW weight export failed")
 state = abw.get_state()
 abw2 = AdaptiveBayesWeighting(max_w=None)
 abw2.set_state(state)
