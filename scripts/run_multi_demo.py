@@ -19,7 +19,7 @@ from trend_analysis.multi_period import (
 )
 from trend_analysis.multi_period.replacer import Rebalancer
 from trend_analysis.selector import RankSelector, ZScoreSelector
-from trend_analysis.data import load_csv
+from trend_analysis.data import load_csv, identify_risk_free_fund, ensure_datetime
 from trend_analysis.core.rank_selection import rank_select_funds, RiskStatsConfig
 from trend_analysis.weighting import (
     AdaptiveBayesWeighting,
@@ -115,6 +115,10 @@ for r in results:
 df_full = load_csv(cfg.data["csv_path"])
 if df_full is None:
     raise SystemExit("Failed to load demo CSV")
+df_full = ensure_datetime(df_full)
+rf_col = identify_risk_free_fund(df_full)
+if rf_col is None:
+    raise SystemExit("identify_risk_free_fund failed")
 mask = df_full["Date"].between(cfg.sample_split["in_start"], cfg.sample_split["in_end"])
 window = df_full.loc[mask].drop(columns=["Date"])
 rs_cfg = RiskStatsConfig()
@@ -136,14 +140,40 @@ threshold_ids = rank_select_funds(
 )
 if not threshold_ids:
     raise SystemExit("threshold selection produced no funds")
+blended_ids = rank_select_funds(
+    window,
+    rs_cfg,
+    inclusion_approach="top_n",
+    n=3,
+    score_by="blended",
+    blended_weights={"Sharpe": 0.6, "AnnualReturn": 0.3, "MaxDrawdown": 0.1},
+)
+if not blended_ids:
+    raise SystemExit("blended selection produced no funds")
+zscore_ids = rank_select_funds(
+    window,
+    rs_cfg,
+    inclusion_approach="top_n",
+    n=2,
+    score_by="Sharpe",
+    transform="zscore",
+)
+if not zscore_ids:
+    raise SystemExit("zscore selection produced no funds")
 
+abw = AdaptiveBayesWeighting(max_w=None)
 _check_schedule(
     score_frames,
     RankSelector(top_n=3, rank_column="Sharpe"),
-    AdaptiveBayesWeighting(max_w=None),
+    abw,
     cfg,
     rank_column="Sharpe",
 )
+state = abw.get_state()
+abw2 = AdaptiveBayesWeighting(max_w=None)
+abw2.set_state(state)
+if abw2.get_state() != state:
+    raise SystemExit("AdaptiveBayesWeighting state mismatch")
 
 _check_schedule(
     score_frames,
@@ -219,6 +249,22 @@ if "Vol-Adj Trend Analysis" not in text:
     raise SystemExit("Text summary missing header")
 if not summary_prefix.with_suffix(".xlsx").exists():
     raise SystemExit("Summary Excel not created")
+
+# Exercise formatter registry helpers
+export.reset_formatters_excel()
+
+
+@export.register_formatter_excel("dummy")
+def _demo_fmt(ws, wb):
+    ws.write(0, 0, "demo")
+
+
+dummy_prefix = Path("demo/exports/dummy")
+export.export_to_excel(
+    {"dummy": pd.DataFrame({"A": [1, 2]})}, str(dummy_prefix.with_suffix(".xlsx"))
+)
+if not dummy_prefix.with_suffix(".xlsx").exists():
+    raise SystemExit("Custom Excel export failed")
 
 _check_gui("config/demo.yml")
 _check_cli("config/demo.yml")
