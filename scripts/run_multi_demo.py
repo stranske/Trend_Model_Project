@@ -6,10 +6,11 @@ This script exercises the Phase‑2 multi-period engine by running
 feeding them through ``run_schedule`` with a selector and weighting scheme.
 """
 
-from trend_analysis.config import load
+from trend_analysis.config import load, Config
 import subprocess
 import sys
 from pathlib import Path
+import os
 import pandas as pd
 from trend_analysis import pipeline, export, gui, cli
 from trend_analysis.multi_period import (
@@ -66,6 +67,33 @@ def _check_gui(cfg_path: str) -> None:
         raise SystemExit("list_builtin_cfgs returned no configs")
 
 
+
+def _check_selection_modes(cfg: Config) -> None:
+    """Verify legacy selection modes still operate."""
+    base = cfg.model_dump()
+    for mode in ("all", "random", "manual"):
+        cfg_copy = Config(**base)
+        cfg_copy.portfolio["selection_mode"] = mode
+        if mode == "random":
+            cfg_copy.portfolio["random_n"] = 4
+        if mode == "manual":
+            cfg_copy.portfolio["manual_list"] = ["Mgr_01", "Mgr_02"]
+        res = pipeline.run_full(cfg_copy)
+        sel = res.get("selected_funds")
+        if not sel:
+            raise SystemExit(f"{mode} mode produced no funds")
+
+
+def _check_cli_env(cfg_path: str) -> None:
+    """Invoke the CLI using the TREND_CFG environment variable."""
+    env = os.environ.copy()
+    env["TREND_CFG"] = cfg_path
+    subprocess.run(
+        [sys.executable, "-m", "trend_analysis.run_analysis", "--detailed"],
+        check=True,
+        env=env,
+    )
+
 def _check_cli(cfg_path: str) -> None:
     """Exercise the simple CLI wrapper."""
     rc = cli.main(["--version", "-c", cfg_path])
@@ -74,6 +102,7 @@ def _check_cli(cfg_path: str) -> None:
     rc = cli.main(["-c", cfg_path])
     if rc != 0:
         raise SystemExit("CLI default run failed")
+
 
 
 cfg = load("config/demo.yml")
@@ -137,13 +166,19 @@ threshold_ids = rank_select_funds(
 if not threshold_ids:
     raise SystemExit("threshold selection produced no funds")
 
+ab_w = AdaptiveBayesWeighting(max_w=None)
 _check_schedule(
     score_frames,
     RankSelector(top_n=3, rank_column="Sharpe"),
-    AdaptiveBayesWeighting(max_w=None),
+    ab_w,
     cfg,
     rank_column="Sharpe",
 )
+state = ab_w.get_state()
+ab_w_clone = AdaptiveBayesWeighting(max_w=None)
+ab_w_clone.set_state(state)
+if ab_w_clone.get_state() != state:
+    raise SystemExit("AdaptiveBayesWeighting state roundtrip failed")
 
 _check_schedule(
     score_frames,
@@ -221,7 +256,9 @@ if not summary_prefix.with_suffix(".xlsx").exists():
     raise SystemExit("Summary Excel not created")
 
 _check_gui("config/demo.yml")
-_check_cli("config/demo.yml")
+_check_selection_modes(cfg)
+_check_cli_env("config/demo.yml")
+
 
 print("Multi-period demo checks passed")
 
