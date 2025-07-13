@@ -63,8 +63,10 @@ def _check_gui(cfg_path: str) -> None:
         raise SystemExit("GUI state roundtrip failed")
     gui.reset_weight_state(loaded)
     gui.discover_plugins()
+
     class _DummyPlugin:
         pass
+
     gui.register_plugin(_DummyPlugin)
     if _DummyPlugin not in list(gui.iter_plugins()):
         raise SystemExit("Plugin registration failed")
