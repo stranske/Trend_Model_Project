@@ -95,6 +95,10 @@ exercises every new code path.
    ```bash
    python scripts/run_multi_demo.py
    ```
+4. **Run the test suite**
+   ```bash
+   ./scripts/run_tests.sh
+   ```
 
 ## 11. Further help
 
