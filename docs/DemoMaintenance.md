@@ -14,7 +14,7 @@ This document summarises the steps required to keep the demo pipeline in sync wi
    ```bash
    python scripts/run_multi_demo.py
    ```
-   The script calls `export.export_data()` so CSV, Excel, JSON and TXT outputs are produced in one go. Extend the script and `config/demo.yml` whenever new exporter options are introduced.
+   The script calls `export.export_data()` so CSV, Excel, JSON and TXT outputs are produced in one go. Extend the script and `config/demo.yml` whenever new exporter options are introduced. It also verifies the CLI wrappers behave correctly.
 4. **Run the test suite**
    ```bash
    ./scripts/run_tests.sh
