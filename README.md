@@ -140,9 +140,10 @@ The script prints the number of generated periods and verifies that
 weights evolve across them, confirming the Phase 2 logic works end to end.
 It now exports each period's score frame alongside the single-period metrics
 using ``export.export_data`` so CSV, Excel, JSON **and TXT** files are produced in one
-call. The CLI entry point runs in both default and ``--detailed`` modes.
-Finally, the script invokes the full test suite to ensure all modules behave as
-expected.
+call. The demo also exercises the ``all``, ``random`` and ``manual`` selection modes,
+verifies AdaptiveBayesWeighting state persistence and runs the CLI via both the ``-c``
+flag and the ``TREND_CFG`` environment variable. Finally, the script invokes the
+full test suite so every module is covered.
 
 ## Demo pipeline (maintenance / CI)
 
