@@ -67,7 +67,6 @@ def _check_gui(cfg_path: str) -> None:
         raise SystemExit("list_builtin_cfgs returned no configs")
 
 
-
 def _check_selection_modes(cfg: Config) -> None:
     """Verify legacy selection modes still operate."""
     base = cfg.model_dump()
@@ -94,6 +93,7 @@ def _check_cli_env(cfg_path: str) -> None:
         env=env,
     )
 
+
 def _check_cli(cfg_path: str) -> None:
     """Exercise the simple CLI wrapper."""
     rc = cli.main(["--version", "-c", cfg_path])
@@ -103,6 +103,44 @@ def _check_cli(cfg_path: str) -> None:
     if rc != 0:
         raise SystemExit("CLI default run failed")
 
+
+def _check_misc(cfg_path: str, cfg: Config, results) -> None:
+    """Exercise smaller utility modules."""
+    from trend_analysis import metrics
+    import asyncio
+
+    if "annual_return" not in metrics.available_metrics():
+        raise SystemExit("Metrics registry incomplete")
+
+    # scheduler.generate_periods should agree with the results length
+    periods = scheduler.generate_periods(cfg.model_dump())
+    if len(periods) != len(results):
+        raise SystemExit("Scheduler period count mismatch")
+
+    store = gui.ParamStore.from_yaml(Path(cfg_path))
+    if gui.build_config_from_store(store).version != cfg.version:
+        raise SystemExit("Config build roundtrip failed")
+
+    called: list[int] = []
+
+    @gui.debounce(50)
+    async def ping(val: int) -> None:
+        called.append(val)
+
+    async def drive() -> None:
+        await ping(1)
+        await ping(2)
+        await asyncio.sleep(0.1)
+
+    asyncio.run(drive())
+    if called != [2]:
+        raise SystemExit("debounce failed")
+
+    os.environ["TREND_CFG"] = cfg_path
+    cfg_env = load(None)
+    os.environ.pop("TREND_CFG", None)
+    if cfg_env.version != cfg.version:
+        raise SystemExit("TREND_CFG not honoured")
 
 
 cfg = load("config/demo.yml")
@@ -298,6 +336,7 @@ if not dummy_prefix.with_suffix(".xlsx").exists():
 _check_gui("config/demo.yml")
 _check_selection_modes(cfg)
 _check_cli_env("config/demo.yml")
+_check_misc("config/demo.yml", cfg, results)
 
 
 print("Multi-period demo checks passed")
