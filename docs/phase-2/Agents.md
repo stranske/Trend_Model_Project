@@ -577,7 +577,11 @@ feature lands, run the sequence below and update `config/demo.yml` or
    The script must call `export.export_data()` so CSV, Excel and JSON outputs are
    produced in one go. Extend the script and config whenever new exporter options
    are introduced.
-4. **Keep demo config current**
+4. **Run the test suite**
+   ```bash
+   ./scripts/run_tests.sh
+   ```
+5. **Keep demo config current**
    - Update `config/demo.yml` and demo scripts whenever export or pipeline
      behaviour changes so the demo covers all features.
 

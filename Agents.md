@@ -32,7 +32,12 @@ YOU ARE CODEX.  EXTEND THE VOL_ADJ_TREND_ANALYSIS PROJECT AS FOLLOWS
    exercises every new code path. This keeps CI in lock‑step with the live
    exporter behaviour.
 
-4. **Keep demo config current**
+4. **Run the test suite**
+   ```bash
+   ./scripts/run_tests.sh
+   ```
+
+5. **Keep demo config current**
    - Update `config/demo.yml` and demo scripts whenever export or pipeline
      behaviour changes so that the demo exercises all features.
 
