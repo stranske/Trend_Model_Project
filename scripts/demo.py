@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from __future__ import annotations
-
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 import os
+from typing import Any, Dict
 
 import pandas as pd
 import yaml
@@ -44,7 +43,7 @@ def make_config(csv: Path) -> Config:
     )
 
 
-def main(out_dir: str | Path | None = None) -> None:
+def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
     root = Path(__file__).resolve().parents[1]
     csv = root / "hedge_fund_returns_with_indexes.csv"
     cfg = make_config(csv)
@@ -53,10 +52,10 @@ def main(out_dir: str | Path | None = None) -> None:
     with NamedTemporaryFile("w", suffix=".yml", delete=False) as fh:
         yaml.safe_dump(cfg.model_dump(), fh)
         cfg_file = fh.name
-    cli.main(["-c", cfg_file, "--version"])
+    cli_rc = cli.main(["-c", cfg_file, "--version"])
 
     # run via the pipeline and CLI entry point
-    run_analysis.main(["-c", cfg_file])
+    run_rc = run_analysis.main(["-c", cfg_file])
 
     df = pd.read_csv(csv)
     score_frame = pipeline.single_period_run(
@@ -66,8 +65,11 @@ def main(out_dir: str | Path | None = None) -> None:
     metrics_df = pipeline.run(cfg)
 
     # multi-period components
-    generate_periods(cfg.model_dump())
-    run_multi(cfg.model_dump())
+    cfg_dict = cfg.model_dump()
+    if hasattr(cfg, "multi_period"):
+        cfg_dict["multi_period"] = getattr(cfg, "multi_period")
+    periods = generate_periods(cfg_dict)
+    mp_res = run_multi(cfg_dict)
 
     out_dir_path = Path(out_dir) if out_dir else root / "demo_outputs"
     out_dir_path.mkdir(exist_ok=True)
@@ -89,6 +91,17 @@ def main(out_dir: str | Path | None = None) -> None:
     print(metrics_df.head())
     print(score_frame.head())
     os.remove(cfg_file)
+
+    return {
+        "cli_rc": cli_rc,
+        "run_rc": run_rc,
+        "score_frame": score_frame,
+        "full_res": full_res,
+        "metrics_df": metrics_df,
+        "periods": periods,
+        "mp_res": mp_res,
+        "out_dir": out_dir_path,
+    }
 
 
 if __name__ == "__main__":
