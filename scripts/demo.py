@@ -49,7 +49,9 @@ def main() -> None:
     )
 
     data = {"metrics": metrics_df, "summary": pd.DataFrame()}
-    export.export_to_excel(data, str(out_dir / "analysis.xlsx"), default_sheet_formatter=sheet_fmt)
+    export.export_to_excel(
+        data, str(out_dir / "analysis.xlsx"), default_sheet_formatter=sheet_fmt
+    )
     export.export_data(data, str(out_dir / "analysis"), formats=["csv", "json"])
 
     print(metrics_df.head())
