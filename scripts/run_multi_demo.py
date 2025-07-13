@@ -11,7 +11,7 @@ import subprocess
 import sys
 from pathlib import Path
 import pandas as pd
-from trend_analysis import pipeline, export, gui
+from trend_analysis import pipeline, export, gui, cli
 from trend_analysis.multi_period import (
     run as run_mp,
     run_schedule,
@@ -64,6 +64,16 @@ def _check_gui(cfg_path: str) -> None:
     gui.discover_plugins()
     if not gui.list_builtin_cfgs():
         raise SystemExit("list_builtin_cfgs returned no configs")
+
+
+def _check_cli(cfg_path: str) -> None:
+    """Exercise the simple CLI wrapper."""
+    rc = cli.main(["--version", "-c", cfg_path])
+    if rc != 0:
+        raise SystemExit("CLI --version failed")
+    rc = cli.main(["-c", cfg_path])
+    if rc != 0:
+        raise SystemExit("CLI default run failed")
 
 
 cfg = load("config/demo.yml")
@@ -211,6 +221,7 @@ if not summary_prefix.with_suffix(".xlsx").exists():
     raise SystemExit("Summary Excel not created")
 
 _check_gui("config/demo.yml")
+_check_cli("config/demo.yml")
 
 print("Multi-period demo checks passed")
 
