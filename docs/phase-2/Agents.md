@@ -560,7 +560,8 @@ therefore be modelled out‑of‑the‑box.
 
 Keep the demo scripts in sync with exporter and pipeline changes. Whenever a new
 feature lands, run the sequence below and update `config/demo.yml` or
-`scripts/run_multi_demo.py` so the demo exercises every code path.
+`scripts/run_multi_demo.py` so the demo exercises every code path. See
+[../DemoMaintenance.md](../DemoMaintenance.md) for a concise checklist.
 
 1. **Bootstrap the environment**
    ```bash
