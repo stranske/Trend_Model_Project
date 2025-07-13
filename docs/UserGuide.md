@@ -76,6 +76,7 @@ python scripts/run_multi_demo.py
 ```
 
 `run_multi_demo.py` calls ``export.export_data`` so CSV, Excel, JSON **and TXT** reports are produced in one go. It also runs the full test suite, ensuring multiple periods are processed and that adaptive weights evolve over time.
+The script exercises the CLI wrappers as part of these checks.
 
 ## 10. Demo pipeline (maintenance / CI)
 

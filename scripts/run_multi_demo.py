@@ -366,6 +366,7 @@ if not dummy_prefix.with_suffix(".xlsx").exists():
 _check_gui("config/demo.yml")
 _check_selection_modes(cfg)
 _check_cli_env("config/demo.yml")
+_check_cli("config/demo.yml")
 _check_misc("config/demo.yml", cfg, results)
 
 
