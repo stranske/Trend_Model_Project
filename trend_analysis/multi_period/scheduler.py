@@ -17,7 +17,9 @@ FREQ_MAP = {"M": "M", "Q": "Q", "A": "Y"}
 
 def generate_periods(cfg: Mapping[str, Any]) -> List[PeriodTuple]:
     """
-    Returns a list of PeriodTuple driven by `cfg.multi_period`.
+    Returns a list of PeriodTuple driven by ``cfg.multi_period``.
+
+    If ``cfg`` lacks a ``multi_period`` section an empty list is returned.
 
     • Clock jumps forward by the *out‑of‑sample* window length.
     • In‑sample length = cfg.multi_period.in_sample_len windows.
@@ -25,7 +27,9 @@ def generate_periods(cfg: Mapping[str, Any]) -> List[PeriodTuple]:
     • Generation stops when the end of the next OOS window
       would run past cfg.multi_period.end.
     """
-    mp = cfg["multi_period"]
+    mp = cfg.get("multi_period")
+    if mp is None:
+        return []
     freq = FREQ_MAP[mp["frequency"]]
     in_len = int(mp["in_sample_len"])
     out_len = int(mp["out_sample_len"])
