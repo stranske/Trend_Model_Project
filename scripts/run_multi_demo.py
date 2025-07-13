@@ -67,7 +67,6 @@ def _check_gui(cfg_path: str) -> None:
         raise SystemExit("list_builtin_cfgs returned no configs")
 
 
-
 def _check_selection_modes(cfg: Config) -> None:
     """Verify legacy selection modes still operate."""
     base = cfg.model_dump()
@@ -93,6 +92,7 @@ def _check_cli_env(cfg_path: str) -> None:
         check=True,
         env=env,
     )
+
 
 def _check_cli(cfg_path: str) -> None:
     """Exercise the simple CLI wrapper."""
@@ -141,7 +141,6 @@ def _check_misc(cfg_path: str, cfg: Config, results) -> None:
     os.environ.pop("TREND_CFG", None)
     if cfg_env.version != cfg.version:
         raise SystemExit("TREND_CFG not honoured")
-
 
 
 cfg = load("config/demo.yml")
