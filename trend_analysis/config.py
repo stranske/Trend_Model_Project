@@ -47,6 +47,8 @@ class Config(BaseModel):
     export: dict[str, Any]
     run: dict[str, Any]
 
+    model_config = {"extra": "allow"}
+
     def __init__(self, **data: Any) -> None:  # pragma: no cover - simple assign
         """Populate attributes from ``data`` regardless of ``BaseModel``."""
         super().__init__(**data)
