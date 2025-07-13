@@ -15,6 +15,11 @@ This document summarises the steps required to keep the demo pipeline in sync wi
    python scripts/run_multi_demo.py
    ```
    The script calls `export.export_data()` so CSV, Excel, JSON and TXT outputs are produced in one go. Extend the script and `config/demo.yml` whenever new exporter options are introduced.
-4. **Keep demo config current**
+4. **Run the test suite**
+   ```bash
+   ./scripts/run_tests.sh
+   ```
+   Ensure all unit tests pass after modifying the demo pipeline.
+5. **Keep demo config current**
    - Update `config/demo.yml` and demo scripts whenever export or pipeline behaviour changes so the demo exercises every code path.
 

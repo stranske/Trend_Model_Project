@@ -18,6 +18,8 @@ from trend_analysis.multi_period import (
 )
 from trend_analysis.multi_period.replacer import Rebalancer
 from trend_analysis.selector import RankSelector, ZScoreSelector
+from trend_analysis.data import load_csv
+from trend_analysis.core.rank_selection import rank_select_funds, RiskStatsConfig
 from trend_analysis.weighting import (
     AdaptiveBayesWeighting,
     EqualWeight,
@@ -84,6 +86,32 @@ for r in results:
         raise SystemExit("Score frame period metadata mismatch")
     if sf.attrs.get("insample_len", 0) <= 0:
         raise SystemExit("Score frame contains no data")
+
+# Exercise rank_select_funds via the additional inclusion approaches
+df_full = load_csv(cfg.data["csv_path"])
+if df_full is None:
+    raise SystemExit("Failed to load demo CSV")
+mask = df_full["Date"].between(cfg.sample_split["in_start"], cfg.sample_split["in_end"])
+window = df_full.loc[mask]
+rs_cfg = RiskStatsConfig()
+top_pct_ids = rank_select_funds(
+    window,
+    rs_cfg,
+    inclusion_approach="top_pct",
+    pct=0.2,
+    score_by="Sharpe",
+)
+if not top_pct_ids:
+    raise SystemExit("top_pct selection produced no funds")
+threshold_ids = rank_select_funds(
+    window,
+    rs_cfg,
+    inclusion_approach="threshold",
+    threshold=0.0,
+    score_by="Sharpe",
+)
+if not threshold_ids:
+    raise SystemExit("threshold selection produced no funds")
 
 _check_schedule(
     score_frames,
