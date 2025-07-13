@@ -142,7 +142,9 @@ It now exports each period's score frame alongside the single-period metrics
 using ``export.export_data`` so CSV, Excel, JSON **and TXT** files are produced in one call.
 The demo also exercises the ``all``, ``random`` and ``manual`` selection modes,
 and now calls ``single_period_run`` together with ``calc_portfolio_returns`` to validate
-the pipeline helpers. It verifies AdaptiveBayesWeighting state persistence and runs the CLI via both the ``-c``
+the pipeline helpers. The wrapper ``pipeline.run_analysis`` is also invoked, and
+extra calls to ``rank_select_funds`` use the ``percentile`` and ``rank`` transforms so all
+scoring options are covered. It verifies AdaptiveBayesWeighting state persistence and runs the CLI via both the ``-c``
 flag and the ``TREND_CFG`` environment variable. Finally, the script invokes the
 full test suite so every module is covered.
 
