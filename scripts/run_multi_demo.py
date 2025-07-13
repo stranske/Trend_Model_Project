@@ -12,6 +12,7 @@ import sys
 from pathlib import Path
 import os
 import pandas as pd
+import numpy as np
 from trend_analysis import pipeline, export, gui, cli
 from trend_analysis.multi_period import (
     run as run_mp,
@@ -148,6 +149,26 @@ def _check_misc(cfg_path: str, cfg: Config, results) -> None:
     os.environ.pop("TREND_CFG", None)
     if cfg_env.version != cfg.version:
         raise SystemExit("TREND_CFG not honoured")
+
+    df_demo = load_csv(cfg.data["csv_path"])
+    df_demo = ensure_datetime(df_demo)
+    sf_single = pipeline.single_period_run(
+        df_demo[["Date", "Mgr_01", "Mgr_02"]],
+        str(cfg.sample_split["in_start"]),
+        str(cfg.sample_split["in_end"]),
+    )
+    if sf_single.attrs.get("period") != (
+        str(cfg.sample_split["in_start"]),
+        str(cfg.sample_split["in_end"]),
+    ):
+        raise SystemExit("single_period_run metadata mismatch")
+
+    pr = pipeline.calc_portfolio_returns(
+        np.array([0.5, 0.5]),
+        df_demo[["Mgr_01", "Mgr_02"]].iloc[:4],
+    )
+    if len(pr) != 4:
+        raise SystemExit("calc_portfolio_returns length mismatch")
 
 
 cfg = load("config/demo.yml")

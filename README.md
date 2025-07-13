@@ -139,9 +139,10 @@ python scripts/run_multi_demo.py
 The script prints the number of generated periods and verifies that
 weights evolve across them, confirming the Phase 2 logic works end to end.
 It now exports each period's score frame alongside the single-period metrics
-using ``export.export_data`` so CSV, Excel, JSON **and TXT** files are produced in one
-call. The demo also exercises the ``all``, ``random`` and ``manual`` selection modes,
-verifies AdaptiveBayesWeighting state persistence and runs the CLI via both the ``-c``
+using ``export.export_data`` so CSV, Excel, JSON **and TXT** files are produced in one call.
+The demo also exercises the ``all``, ``random`` and ``manual`` selection modes,
+and now calls ``single_period_run`` together with ``calc_portfolio_returns`` to validate
+the pipeline helpers. It verifies AdaptiveBayesWeighting state persistence and runs the CLI via both the ``-c``
 flag and the ``TREND_CFG`` environment variable. Finally, the script invokes the
 full test suite so every module is covered.
 
