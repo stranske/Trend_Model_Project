@@ -91,9 +91,7 @@ for r in results:
 df_full = load_csv(cfg.data["csv_path"])
 if df_full is None:
     raise SystemExit("Failed to load demo CSV")
-mask = df_full["Date"].between(
-    cfg.sample_split["in_start"], cfg.sample_split["in_end"]
-)
+mask = df_full["Date"].between(cfg.sample_split["in_start"], cfg.sample_split["in_end"])
 window = df_full.loc[mask].drop(columns=["Date"])
 rs_cfg = RiskStatsConfig()
 top_pct_ids = rank_select_funds(
