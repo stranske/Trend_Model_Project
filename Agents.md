@@ -41,6 +41,9 @@ YOU ARE CODEX.  EXTEND THE VOL_ADJ_TREND_ANALYSIS PROJECT AS FOLLOWS
    - Update `config/demo.yml` and demo scripts whenever export or pipeline
      behaviour changes so that the demo exercises all features.
 
+See **[docs/DemoMaintenance.md](docs/DemoMaintenance.md)** for a concise
+checklist of these steps.
+
 High‑level goal
 ~~~~~~~~~~~~~~~
 Add a **performance‑based manager‑selection mode** that works alongside the
