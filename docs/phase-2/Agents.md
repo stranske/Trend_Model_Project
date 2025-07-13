@@ -574,9 +574,9 @@ feature lands, run the sequence below and update `config/demo.yml` or
    ```bash
    python scripts/run_multi_demo.py
    ```
-   The script must call `export.export_data()` so CSV, Excel and JSON outputs are
-   produced in one go. Extend the script and config whenever new exporter options
-   are introduced.
+   The script must call `export.export_data()` so CSV, Excel, JSON **and TXT**
+   outputs are produced in one go. Extend the script and config whenever new
+   exporter options are introduced.
 4. **Run the test suite**
    ```bash
    ./scripts/run_tests.sh

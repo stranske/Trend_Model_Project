@@ -24,8 +24,8 @@ YOU ARE CODEX.  EXTEND THE VOL_ADJ_TREND_ANALYSIS PROJECT AS FOLLOWS
    ```
 
    The script must invoke `export.export_data()` with the demo results so CSV,
-   Excel and JSON outputs are generated in one call.  Update it whenever new
-   exporter functionality is added.
+   Excel, JSON **and TXT** outputs are generated in one call.  Update it
+   whenever new exporter functionality is added.
 
    When exporter features evolve (e.g. additional formats or option flags),
    extend both `run_multi_demo.py` and `config/demo.yml` so the demo pipeline
