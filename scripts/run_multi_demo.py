@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 import os
 import pandas as pd
-from trend_analysis import pipeline, export, gui
+from trend_analysis import pipeline, export, gui, cli
 from trend_analysis.multi_period import (
     run as run_mp,
     run_schedule,
@@ -67,6 +67,7 @@ def _check_gui(cfg_path: str) -> None:
         raise SystemExit("list_builtin_cfgs returned no configs")
 
 
+
 def _check_selection_modes(cfg: Config) -> None:
     """Verify legacy selection modes still operate."""
     base = cfg.model_dump()
@@ -92,6 +93,16 @@ def _check_cli_env(cfg_path: str) -> None:
         check=True,
         env=env,
     )
+
+def _check_cli(cfg_path: str) -> None:
+    """Exercise the simple CLI wrapper."""
+    rc = cli.main(["--version", "-c", cfg_path])
+    if rc != 0:
+        raise SystemExit("CLI --version failed")
+    rc = cli.main(["-c", cfg_path])
+    if rc != 0:
+        raise SystemExit("CLI default run failed")
+
 
 
 cfg = load("config/demo.yml")
@@ -247,6 +258,7 @@ if not summary_prefix.with_suffix(".xlsx").exists():
 _check_gui("config/demo.yml")
 _check_selection_modes(cfg)
 _check_cli_env("config/demo.yml")
+
 
 print("Multi-period demo checks passed")
 
