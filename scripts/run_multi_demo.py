@@ -10,7 +10,8 @@ from trend_analysis.config import load
 import subprocess
 import sys
 from pathlib import Path
-from trend_analysis import pipeline, export
+import pandas as pd
+from trend_analysis import pipeline, export, gui
 from trend_analysis.multi_period import (
     run as run_mp,
     run_schedule,
@@ -50,6 +51,19 @@ def _check_schedule(
     if len(weights) > 1 and all(w.equals(weights[0]) for w in weights[1:]):
         print("Warning: weights did not change across periods")
     return pf
+
+
+def _check_gui(cfg_path: str) -> None:
+    """Exercise basic GUI helpers."""
+    store = gui.ParamStore.from_yaml(Path(cfg_path))
+    gui.save_state(store)
+    loaded = gui.load_state()
+    if loaded.cfg != store.cfg:
+        raise SystemExit("GUI state roundtrip failed")
+    gui.reset_weight_state(loaded)
+    gui.discover_plugins()
+    if not gui.list_builtin_cfgs():
+        raise SystemExit("list_builtin_cfgs returned no configs")
 
 
 cfg = load("config/demo.yml")
@@ -168,6 +182,35 @@ full_res = pipeline.run_full(cfg)
 sf = full_res.get("score_frame") if isinstance(full_res, dict) else None
 if sf is None or sf.empty:
     raise SystemExit("pipeline.run_full missing score_frame")
+
+# Export a formatted summary workbook and text summary
+split = cfg.sample_split
+sheet_fmt = export.make_summary_formatter(
+    full_res,
+    str(split.get("in_start")),
+    str(split.get("in_end")),
+    str(split.get("out_start")),
+    str(split.get("out_end")),
+)
+summary_prefix = Path("demo/exports/summary_demo")
+export.export_to_excel(
+    {"metrics": metrics_df, "summary": pd.DataFrame()},
+    str(summary_prefix.with_suffix(".xlsx")),
+    default_sheet_formatter=sheet_fmt,
+)
+text = export.format_summary_text(
+    full_res,
+    str(split.get("in_start")),
+    str(split.get("in_end")),
+    str(split.get("out_start")),
+    str(split.get("out_end")),
+)
+if "Vol-Adj Trend Analysis" not in text:
+    raise SystemExit("Text summary missing header")
+if not summary_prefix.with_suffix(".xlsx").exists():
+    raise SystemExit("Summary Excel not created")
+
+_check_gui("config/demo.yml")
 
 print("Multi-period demo checks passed")
 
