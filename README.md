@@ -166,6 +166,10 @@ checklist of these steps.
    ```bash
    python scripts/run_multi_demo.py
    ```
+4. **Run the test suite**
+   ```bash
+   ./scripts/run_tests.sh
+   ```
 
 ## Interactive GUI
 
