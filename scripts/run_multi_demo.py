@@ -63,8 +63,15 @@ def _check_gui(cfg_path: str) -> None:
         raise SystemExit("GUI state roundtrip failed")
     gui.reset_weight_state(loaded)
     gui.discover_plugins()
-    if not gui.list_builtin_cfgs():
-        raise SystemExit("list_builtin_cfgs returned no configs")
+
+    class _DummyPlugin:
+        pass
+
+    gui.register_plugin(_DummyPlugin)
+    if _DummyPlugin not in list(gui.iter_plugins()):
+        raise SystemExit("Plugin registration failed")
+    if "demo" not in gui.list_builtin_cfgs():
+        raise SystemExit("list_builtin_cfgs missing demo.yml")
 
 
 def _check_selection_modes(cfg: Config) -> None:
@@ -144,6 +151,8 @@ def _check_misc(cfg_path: str, cfg: Config, results) -> None:
 
 
 cfg = load("config/demo.yml")
+if cfg.export.get("filename") != "alias_demo.csv":
+    raise SystemExit("Output alias not parsed")
 results = run_mp(cfg)
 num_periods = len(results)
 periods = scheduler.generate_periods(cfg.model_dump())

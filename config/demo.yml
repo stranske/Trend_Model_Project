@@ -48,6 +48,10 @@ export:
   output_dir: demo/exports
   formats: [csv, xlsx, json, txt]
 
+output:
+  format: csv
+  path: demo/exports/alias_demo.csv
+
 run:
   seed: 42                      # makes demo deterministic
 
