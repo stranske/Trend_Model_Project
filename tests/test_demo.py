@@ -34,10 +34,21 @@ def test_demo_runs(tmp_path, capsys):
         c: 1 / len(res["score_frame"].columns) for c in res["score_frame"].columns
     }
     assert res["rb_weights"] == expected_wts
+    assert res["rb_cfg"] == {"triggers": {"sigma1": {"sigma": 1, "periods": 2}}}
     assert len(res["mp_history"]) == len(res["periods"])
     assert res["mp_history"][-1] == expected_wts
+    assert res["mp_index"] == [
+        f"{p.in_start[:7]}_{p.out_end[:7]}" for p in res["periods"]
+    ]
     assert res["nb_clean"] is True
     assert isinstance(res["mp_history_df"], pd.DataFrame)
     assert res["mp_history_df"].shape[0] == len(res["periods"])
+    assert res["mp_history_df"].index.tolist() == res["mp_index"]
+    assert res["mp_history_df"].to_dict("records") == res["mp_history"]
+    assert res["mp_history_df"].columns.tolist() == res["score_frame"].columns.tolist()
+    assert res["mp_res"] == {
+        "periods": res["periods"],
+        "n_periods": len(res["periods"]),
+    }
     assert isinstance(res["analysis_res"], dict)
     assert res["analysis_res"]["selected_funds"]
