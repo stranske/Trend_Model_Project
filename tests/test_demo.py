@@ -1,8 +1,23 @@
 import pandas as pd
 import scripts.demo as demo
+from trend_analysis.core import rank_selection as rs
 
 
 def test_demo_runs(tmp_path, capsys):
+    df = pd.read_csv("hedge_fund_returns_with_indexes.csv")
+    df["Date"] = pd.to_datetime(df["Date"])
+    mask = df["Date"].between(
+        pd.Period("2012-01", "M").to_timestamp("M"),
+        pd.Period("2012-06", "M").to_timestamp("M"),
+    )
+    funds = [c for c in df.columns if c not in {"Date", "Risk-Free Rate"}]
+    expected_rank = rs.rank_select_funds(
+        df.loc[mask, funds],
+        rs.RiskStatsConfig(risk_free=0.0),
+        inclusion_approach="top_n",
+        n=1,
+        score_by="AnnualReturn",
+    )
     res = demo.main(out_dir=tmp_path)
     captured = capsys.readouterr().out
     assert "Vol-Adj Trend Analysis" in captured
@@ -12,6 +27,8 @@ def test_demo_runs(tmp_path, capsys):
     assert "Multi-period final weights:" in captured
     assert "Multi-period weight history:" in captured
     assert "Analysis selected:" in captured
+    assert "Top fund by ranking:" in captured
+    assert "Multi-period selections:" in captured
     assert (tmp_path / "analysis.xlsx").exists()
     assert (tmp_path / "analysis_metrics.csv").exists()
     assert (tmp_path / "analysis_metrics.json").exists()
@@ -60,3 +77,8 @@ def test_demo_runs(tmp_path, capsys):
     assert isinstance(res["analysis_res"], dict)
     assert isinstance(res["analysis_res"].get("score_frame"), pd.DataFrame)
     assert res["analysis_res"]["selected_funds"]
+    assert res["ranked"]
+    assert res["mp_selected"]
+    assert len(res["mp_selected"]) == len(res["periods"])
+    assert all(res["mp_selected"])
+    assert res["ranked"] == expected_rank

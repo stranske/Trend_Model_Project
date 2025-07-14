@@ -20,6 +20,7 @@ from trend_analysis import (
     data,
     metrics,
 )
+from trend_analysis.core import rank_selection as rs
 from trend_analysis.multi_period.scheduler import generate_periods
 from trend_analysis.multi_period.engine import run as run_multi
 from trend_analysis.multi_period.replacer import Rebalancer
@@ -103,6 +104,19 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
         selection_mode=cfg.portfolio.get("selection_mode", "all"),
         rank_kwargs=cfg.portfolio.get("rank"),
     )
+    # illustrate direct use of the ranking helper
+    mask = df["Date"].between(
+        pd.Period(cfg.sample_split["in_start"], "M").to_timestamp("M"),
+        pd.Period(cfg.sample_split["in_end"], "M").to_timestamp("M"),
+    )
+    fund_cols = [c for c in df.columns if c not in {"Date", rf_col}]
+    ranked = rs.rank_select_funds(
+        df.loc[mask, fund_cols],
+        rs.RiskStatsConfig(risk_free=0.0),
+        inclusion_approach="top_n",
+        n=1,
+        score_by="AnnualReturn",
+    )
     # Demonstrate the rebalancer with a simple trigger configuration.
     rb_cfg = {"triggers": {"sigma1": {"sigma": 1, "periods": 2}}}
     rb = Rebalancer(rb_cfg)
@@ -117,11 +131,24 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
     mp_res = run_multi(cfg_dict)
 
     mp_history = []
+    mp_selected = []
     mp_weights = init_wt.copy()
     for p in periods:
         mp_sf = pipeline.single_period_run(df, p.in_start[:7], p.in_end[:7])
         mp_weights = rb.apply_triggers(mp_weights, mp_sf)
         mp_history.append(mp_weights.copy())
+        res_p = pipeline.run_analysis(
+            df,
+            p.in_start[:7],
+            p.in_end[:7],
+            p.out_start[:7],
+            p.out_end[:7],
+            cfg.vol_adjust.get("target_vol", 1.0),
+            cfg.run.get("monthly_cost", 0.0),
+            selection_mode=cfg.portfolio.get("selection_mode", "all"),
+            rank_kwargs=cfg.portfolio.get("rank"),
+        )
+        mp_selected.append(res_p.get("selected_funds"))
 
     mp_history_df = pd.DataFrame(
         mp_history, index=[f"{p.in_start[:7]}_{p.out_end[:7]}" for p in periods]
@@ -168,11 +195,13 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
     print(metrics_df.head())
     print(score_frame.head())
     print("Analysis selected:", analysis_res.get("selected_funds"))
+    print("Top fund by ranking:", ranked)
     print("Generated periods:", len(periods))
     print("Multi-period run count:", mp_res.get("n_periods"))
     print("Rebalanced weights:", rb_weights.to_dict())
     print("Multi-period final weights:", mp_weights.to_dict())
     print("Multi-period weight history:\n", mp_history_df)
+    print("Multi-period selections:", mp_selected)
     os.remove(cfg_file)
 
     return {
@@ -193,9 +222,11 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
         "rb_weights": rb_weights.to_dict(),
         "rb_cfg": rb_cfg,
         "mp_history": [w.to_dict() for w in mp_history],
+        "mp_selected": mp_selected,
         "mp_history_df": mp_history_df,
         "mp_index": mp_history_df.index.tolist(),
         "mp_weights": mp_weights.to_dict(),
+        "ranked": ranked,
         "loaded_version": loaded_cfg.version,
         "nb_clean": nb_clean,
     }
