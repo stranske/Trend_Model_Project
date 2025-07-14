@@ -26,6 +26,7 @@ def test_demo_runs(tmp_path, capsys):
     assert "Rebalanced weights:" in captured
     assert "Multi-period final weights:" in captured
     assert "Multi-period weight history:" in captured
+    assert "Multi-period score frame count:" in captured
     assert "Analysis selected:" in captured
     assert "Top fund by ranking:" in captured
     assert "Multi-period selections:" in captured
@@ -79,6 +80,8 @@ def test_demo_runs(tmp_path, capsys):
     assert res["analysis_res"]["selected_funds"]
     assert res["ranked"]
     assert res["mp_selected"]
+    assert len(res["mp_results"]) == len(res["periods"])
+    assert len(res["mp_score_frames"]) == len(res["periods"])
     assert len(res["mp_selected"]) == len(res["periods"])
     assert all(res["mp_selected"])
     assert res["ranked"] == expected_rank

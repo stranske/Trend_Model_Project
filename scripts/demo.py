@@ -67,6 +67,9 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
     csv = root / "hedge_fund_returns_with_indexes.csv"
     cfg = make_config(csv)
 
+    export.reset_formatters_excel()
+    export.register_formatter_excel("metrics")(_fmt_metrics)
+
     # demonstrate the lightweight CLI
     with NamedTemporaryFile("w", suffix=".yml", delete=False) as fh:
         yaml.safe_dump(cfg.model_dump(), fh)
@@ -132,11 +135,14 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
 
     mp_history = []
     mp_selected = []
+    mp_score_frames = []
+    mp_results = []
     mp_weights = init_wt.copy()
     for p in periods:
         mp_sf = pipeline.single_period_run(df, p.in_start[:7], p.in_end[:7])
         mp_weights = rb.apply_triggers(mp_weights, mp_sf)
         mp_history.append(mp_weights.copy())
+        mp_score_frames.append(mp_sf)
         res_p = pipeline.run_analysis(
             df,
             p.in_start[:7],
@@ -149,6 +155,7 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
             rank_kwargs=cfg.portfolio.get("rank"),
         )
         mp_selected.append(res_p.get("selected_funds"))
+        mp_results.append(res_p)
 
     mp_history_df = pd.DataFrame(
         mp_history, index=[f"{p.in_start[:7]}_{p.out_end[:7]}" for p in periods]
@@ -201,6 +208,7 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
     print("Rebalanced weights:", rb_weights.to_dict())
     print("Multi-period final weights:", mp_weights.to_dict())
     print("Multi-period weight history:\n", mp_history_df)
+    print("Multi-period score frame count:", len(mp_score_frames))
     print("Multi-period selections:", mp_selected)
     os.remove(cfg_file)
 
@@ -223,6 +231,8 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
         "rb_cfg": rb_cfg,
         "mp_history": [w.to_dict() for w in mp_history],
         "mp_selected": mp_selected,
+        "mp_results": mp_results,
+        "mp_score_frames": mp_score_frames,
         "mp_history_df": mp_history_df,
         "mp_index": mp_history_df.index.tolist(),
         "mp_weights": mp_weights.to_dict(),
