@@ -6,6 +6,8 @@ def test_demo_runs(tmp_path, capsys):
     res = demo.main(out_dir=tmp_path)
     captured = capsys.readouterr().out
     assert "Vol-Adj Trend Analysis" in captured
+    assert "Generated periods:" in captured
+    assert "Rebalanced weights:" in captured
     assert (tmp_path / "analysis.xlsx").exists()
     assert (tmp_path / "analysis_metrics.csv").exists()
     assert (tmp_path / "analysis_metrics.json").exists()
@@ -21,5 +23,8 @@ def test_demo_runs(tmp_path, capsys):
     assert "Vol-Adj Trend Analysis" in res["summary_text"]
     assert "annual_return" in res["available"]
     assert res["loaded_version"] == "1"
-    assert set(res["rb_weights"]) == set(res["score_frame"].columns)
+    expected_wts = {
+        c: 1 / len(res["score_frame"].columns) for c in res["score_frame"].columns
+    }
+    assert res["rb_weights"] == expected_wts
     assert res["nb_clean"] is True
