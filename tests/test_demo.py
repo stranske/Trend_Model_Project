@@ -46,9 +46,11 @@ def test_demo_runs(tmp_path, capsys):
     assert res["mp_history_df"].index.tolist() == res["mp_index"]
     assert res["mp_history_df"].to_dict("records") == res["mp_history"]
     assert res["mp_history_df"].columns.tolist() == res["score_frame"].columns.tolist()
+    assert res["mp_weights"] == expected_wts
     assert res["mp_res"] == {
         "periods": res["periods"],
         "n_periods": len(res["periods"]),
     }
     assert isinstance(res["analysis_res"], dict)
+    assert isinstance(res["analysis_res"].get("score_frame"), pd.DataFrame)
     assert res["analysis_res"]["selected_funds"]
