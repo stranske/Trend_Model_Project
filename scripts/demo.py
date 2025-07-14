@@ -105,6 +105,13 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
     periods = generate_periods(cfg_dict)
     mp_res = run_multi(cfg_dict)
 
+    mp_history = []
+    mp_weights = init_wt.copy()
+    for p in periods:
+        mp_sf = pipeline.single_period_run(df, p.in_start[:7], p.in_end[:7])
+        mp_weights = rb.apply_triggers(mp_weights, mp_sf)
+        mp_history.append(mp_weights.copy())
+
     out_dir_path = Path(out_dir) if out_dir else root / "demo_outputs"
     out_dir_path.mkdir(exist_ok=True)
 
@@ -144,6 +151,7 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
     print("Generated periods:", len(periods))
     print("Multi-period run count:", mp_res.get("n_periods"))
     print("Rebalanced weights:", rb_weights.to_dict())
+    print("Multi-period final weights:", mp_weights.to_dict())
     os.remove(cfg_file)
 
     return {
@@ -161,6 +169,7 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
         "summary_text": text_summary,
         "available": available,
         "rb_weights": rb_weights.to_dict(),
+        "mp_history": [w.to_dict() for w in mp_history],
         "loaded_version": loaded_cfg.version,
         "nb_clean": nb_clean,
     }
