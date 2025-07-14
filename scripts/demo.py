@@ -92,7 +92,9 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
     )
     full_res = pipeline.run_full(cfg)
     metrics_df = pipeline.run(cfg)
-    rb = Rebalancer({})
+    # Demonstrate the rebalancer with a simple trigger configuration.
+    rb_cfg = {"triggers": {"sigma1": {"sigma": 1, "periods": 2}}}
+    rb = Rebalancer(rb_cfg)
     init_wt = pd.Series(1 / len(score_frame.columns), index=score_frame.columns)
     rb_weights = rb.apply_triggers(init_wt, score_frame)
 
@@ -139,6 +141,8 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
     print("Available metrics:", available)
     print(metrics_df.head())
     print(score_frame.head())
+    print("Generated periods:", len(periods))
+    print("Rebalanced weights:", rb_weights.to_dict())
     os.remove(cfg_file)
 
     return {
