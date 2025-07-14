@@ -13,7 +13,7 @@ from pathlib import Path
 import os
 import pandas as pd
 import numpy as np
-from trend_analysis import pipeline, export, gui, cli
+from trend_analysis import pipeline, export, gui, cli, metrics, run_analysis
 from trend_analysis.multi_period import (
     run as run_mp,
     run_schedule,
@@ -171,6 +171,33 @@ def _check_misc(cfg_path: str, cfg: Config, results) -> None:
         raise SystemExit("calc_portfolio_returns length mismatch")
 
 
+def _check_rebalancer_logic() -> None:
+    """Verify Rebalancer triggers drop and add events."""
+    reb = Rebalancer({})
+    prev = pd.Series({"A": 0.5, "B": 0.5})
+    sf1 = pd.DataFrame({"zscore": [0.0, -1.1]}, index=["A", "B"])
+    w1 = reb.apply_triggers(prev, sf1)
+    sf2 = pd.DataFrame({"zscore": [0.0, -1.2]}, index=["A", "B"])
+    w2 = reb.apply_triggers(w1, sf2)
+    sf3 = pd.DataFrame({"zscore": [0.0, 1.2]}, index=["A", "C"])
+    w3 = reb.apply_triggers(w2, sf3)
+    if "B" in w3.index or "C" not in w3.index or not np.isclose(w3.sum(), 1.0):
+        raise SystemExit("Rebalancer logic failed")
+
+
+def _check_load_csv_error() -> None:
+    """Ensure ``load_csv`` returns ``None`` for missing files."""
+    if load_csv("_no_such_file_.csv") is not None:
+        raise SystemExit("load_csv error handling failed")
+
+
+def _check_metrics_basic() -> None:
+    """Run a couple of metrics on a short series."""
+    s = pd.Series([0.0, 0.01, -0.02])
+    if not isinstance(metrics.sharpe_ratio(s), float):
+        raise SystemExit("metrics.sharpe_ratio failed")
+
+
 cfg = load("config/demo.yml")
 if cfg.export.get("filename") != "alias_demo.csv":
     raise SystemExit("Output alias not parsed")
@@ -183,6 +210,12 @@ if num_periods != expected_periods:
     raise SystemExit("Multi-period demo produced an unexpected number of periods")
 if num_periods <= 1:
     raise SystemExit("Multi-period demo produced insufficient results")
+
+# Ensure run_mp works with a pre-loaded DataFrame
+df_pre = load_csv(cfg.data["csv_path"])
+results_pre = run_mp(cfg, df_pre)
+if len(results_pre) != num_periods:
+    raise SystemExit("Preloaded DataFrame run mismatch")
 
 # check that the generated periods line up with the scheduler output
 result_periods = [r["period"] for r in results]
@@ -416,6 +449,15 @@ _check_selection_modes(cfg)
 _check_cli_env("config/demo.yml")
 _check_cli("config/demo.yml")
 _check_misc("config/demo.yml", cfg, results)
+_check_rebalancer_logic()
+_check_load_csv_error()
+_check_metrics_basic()
+
+# run_analysis.main directly
+if run_analysis.main(["-c", "config/demo.yml"]) != 0:
+    raise SystemExit("run_analysis.main failed")
+if run_analysis.main(["-c", "config/demo.yml", "--detailed"]) != 0:
+    raise SystemExit("run_analysis.main detailed failed")
 
 
 print("Multi-period demo checks passed")
