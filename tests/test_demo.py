@@ -15,3 +15,6 @@ def test_demo_runs(tmp_path, capsys):
     assert isinstance(res["score_frame"], pd.DataFrame)
     assert res["periods"]
     assert res["mp_res"] == {}
+    assert res["rf_col"] == "Risk-Free Rate"
+    assert "Vol-Adj Trend Analysis" in res["summary_text"]
+    assert "annual_return" in res["available"]
