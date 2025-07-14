@@ -11,9 +11,12 @@ def test_demo_runs(tmp_path, capsys):
     assert "Rebalanced weights:" in captured
     assert "Multi-period final weights:" in captured
     assert "Multi-period weight history:" in captured
+    assert "Analysis selected:" in captured
     assert (tmp_path / "analysis.xlsx").exists()
     assert (tmp_path / "analysis_metrics.csv").exists()
     assert (tmp_path / "analysis_metrics.json").exists()
+    assert (tmp_path / "analysis_history.csv").exists()
+    assert (tmp_path / "analysis_history.json").exists()
     assert res["cli_rc"] == 0
     assert res["cli_json_rc"] == 0
     assert res["run_rc"] == 0
@@ -36,3 +39,5 @@ def test_demo_runs(tmp_path, capsys):
     assert res["nb_clean"] is True
     assert isinstance(res["mp_history_df"], pd.DataFrame)
     assert res["mp_history_df"].shape[0] == len(res["periods"])
+    assert isinstance(res["analysis_res"], dict)
+    assert res["analysis_res"]["selected_funds"]
