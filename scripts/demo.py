@@ -92,6 +92,17 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
     )
     full_res = pipeline.run_full(cfg)
     metrics_df = pipeline.run(cfg)
+    analysis_res = pipeline.run_analysis(
+        df,
+        cfg.sample_split["in_start"],
+        cfg.sample_split["in_end"],
+        cfg.sample_split["out_start"],
+        cfg.sample_split["out_end"],
+        cfg.vol_adjust.get("target_vol", 1.0),
+        cfg.run.get("monthly_cost", 0.0),
+        selection_mode=cfg.portfolio.get("selection_mode", "all"),
+        rank_kwargs=cfg.portfolio.get("rank"),
+    )
     # Demonstrate the rebalancer with a simple trigger configuration.
     rb_cfg = {"triggers": {"sigma1": {"sigma": 1, "periods": 2}}}
     rb = Rebalancer(rb_cfg)
@@ -141,7 +152,11 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
         cfg.sample_split["out_end"],
     )
 
-    frames = {"metrics": metrics_df, "summary": pd.DataFrame()}
+    frames = {
+        "metrics": metrics_df,
+        "summary": pd.DataFrame(),
+        "history": mp_history_df,
+    }
     export.export_to_excel(
         frames, str(out_dir_path / "analysis.xlsx"), default_sheet_formatter=sheet_fmt
     )
@@ -152,6 +167,7 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
     print("Available metrics:", available)
     print(metrics_df.head())
     print(score_frame.head())
+    print("Analysis selected:", analysis_res.get("selected_funds"))
     print("Generated periods:", len(periods))
     print("Multi-period run count:", mp_res.get("n_periods"))
     print("Rebalanced weights:", rb_weights.to_dict())
@@ -167,6 +183,7 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
         "score_frame": score_frame,
         "full_res": full_res,
         "metrics_df": metrics_df,
+        "analysis_res": analysis_res,
         "periods": periods,
         "mp_res": mp_res,
         "out_dir": out_dir_path,
