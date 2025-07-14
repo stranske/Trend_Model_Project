@@ -24,6 +24,10 @@ def test_demo_runs(tmp_path, capsys):
     assert not res["metrics_df"].empty
     assert isinstance(res["score_frame"], pd.DataFrame)
     assert res["periods"]
+    assert len(res["periods"]) == 10
+    first = res["periods"][0]
+    assert first.in_start == "2012-01-01"
+    assert first.out_end == "2012-03-31"
     assert res["mp_res"]["n_periods"] == len(res["periods"])
     assert res["mp_res"]["periods"] == res["periods"]
     assert res["rf_col"] == "Risk-Free Rate"
@@ -37,6 +41,8 @@ def test_demo_runs(tmp_path, capsys):
     assert res["rb_cfg"] == {"triggers": {"sigma1": {"sigma": 1, "periods": 2}}}
     assert len(res["mp_history"]) == len(res["periods"])
     assert res["mp_history"][-1] == expected_wts
+    for w in res["mp_history"]:
+        assert w == expected_wts
     assert res["mp_index"] == [
         f"{p.in_start[:7]}_{p.out_end[:7]}" for p in res["periods"]
     ]
