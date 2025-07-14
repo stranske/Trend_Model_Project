@@ -7,6 +7,7 @@ def test_demo_runs(tmp_path, capsys):
     captured = capsys.readouterr().out
     assert "Vol-Adj Trend Analysis" in captured
     assert "Generated periods:" in captured
+    assert "Multi-period run count:" in captured
     assert "Rebalanced weights:" in captured
     assert (tmp_path / "analysis.xlsx").exists()
     assert (tmp_path / "analysis_metrics.csv").exists()
@@ -18,7 +19,8 @@ def test_demo_runs(tmp_path, capsys):
     assert not res["metrics_df"].empty
     assert isinstance(res["score_frame"], pd.DataFrame)
     assert res["periods"]
-    assert res["mp_res"] == {}
+    assert res["mp_res"]["n_periods"] == len(res["periods"])
+    assert res["mp_res"]["periods"] == res["periods"]
     assert res["rf_col"] == "Risk-Free Rate"
     assert "Vol-Adj Trend Analysis" in res["summary_text"]
     assert "annual_return" in res["available"]
