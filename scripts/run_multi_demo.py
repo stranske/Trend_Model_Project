@@ -258,6 +258,29 @@ zscore_ids = rank_select_funds(
 if not zscore_ids:
     raise SystemExit("zscore selection produced no funds")
 
+percentile_ids = rank_select_funds(
+    window,
+    rs_cfg,
+    inclusion_approach="top_pct",
+    pct=0.3,
+    score_by="Sharpe",
+    transform="percentile",
+    rank_pct=0.5,
+)
+if not percentile_ids:
+    raise SystemExit("percentile transform produced no funds")
+
+rank_ids = rank_select_funds(
+    window,
+    rs_cfg,
+    inclusion_approach="top_n",
+    n=3,
+    score_by="Sharpe",
+    transform="rank",
+)
+if not rank_ids:
+    raise SystemExit("rank transform produced no funds")
+
 abw = AdaptiveBayesWeighting(max_w=None)
 pf_abw = _check_schedule(
     score_frames,
@@ -327,6 +350,23 @@ full_res = pipeline.run_full(cfg)
 sf = full_res.get("score_frame") if isinstance(full_res, dict) else None
 if sf is None or sf.empty:
     raise SystemExit("pipeline.run_full missing score_frame")
+
+# Reuse the sample split for the convenience wrapper
+split = cfg.sample_split
+# Exercise the convenience wrapper around ``_run_analysis``
+analysis_res = pipeline.run_analysis(
+    df_full,
+    str(split.get("in_start")),
+    str(split.get("in_end")),
+    str(split.get("out_start")),
+    str(split.get("out_end")),
+    cfg.vol_adjust.get("target_vol", 1.0),
+    getattr(cfg, "run", {}).get("monthly_cost", 0.0),
+    selection_mode="rank",
+    rank_kwargs={"n": 5, "score_by": "Sharpe", "inclusion_approach": "top_n"},
+)
+if analysis_res is None or analysis_res.get("score_frame") is None:
+    raise SystemExit("pipeline.run_analysis failed")
 
 # Export a formatted summary workbook and text summary
 split = cfg.sample_split
