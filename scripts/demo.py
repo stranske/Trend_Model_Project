@@ -108,9 +108,7 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
     mp_history = []
     mp_weights = init_wt.copy()
     for p in periods:
-        mp_sf = pipeline.single_period_run(
-            df, p.in_start[:7], p.in_end[:7]
-        )
+        mp_sf = pipeline.single_period_run(df, p.in_start[:7], p.in_end[:7])
         mp_weights = rb.apply_triggers(mp_weights, mp_sf)
         mp_history.append(mp_weights.copy())
 
