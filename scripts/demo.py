@@ -112,6 +112,10 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
         mp_weights = rb.apply_triggers(mp_weights, mp_sf)
         mp_history.append(mp_weights.copy())
 
+    mp_history_df = pd.DataFrame(
+        mp_history, index=[f"{p.in_start[:7]}_{p.out_end[:7]}" for p in periods]
+    )
+
     out_dir_path = Path(out_dir) if out_dir else root / "demo_outputs"
     out_dir_path.mkdir(exist_ok=True)
 
@@ -152,6 +156,7 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
     print("Multi-period run count:", mp_res.get("n_periods"))
     print("Rebalanced weights:", rb_weights.to_dict())
     print("Multi-period final weights:", mp_weights.to_dict())
+    print("Multi-period weight history:\n", mp_history_df)
     os.remove(cfg_file)
 
     return {
@@ -170,6 +175,7 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
         "available": available,
         "rb_weights": rb_weights.to_dict(),
         "mp_history": [w.to_dict() for w in mp_history],
+        "mp_history_df": mp_history_df,
         "loaded_version": loaded_cfg.version,
         "nb_clean": nb_clean,
     }
