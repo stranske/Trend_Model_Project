@@ -351,6 +351,8 @@ sf = full_res.get("score_frame") if isinstance(full_res, dict) else None
 if sf is None or sf.empty:
     raise SystemExit("pipeline.run_full missing score_frame")
 
+# Reuse the sample split for the convenience wrapper
+split = cfg.sample_split
 # Exercise the convenience wrapper around ``_run_analysis``
 analysis_res = pipeline.run_analysis(
     df_full,
@@ -359,7 +361,7 @@ analysis_res = pipeline.run_analysis(
     str(split.get("out_start")),
     str(split.get("out_end")),
     cfg.vol_adjust.get("target_vol", 1.0),
-    cfg.run.get("monthly_cost", 0.0),
+    getattr(cfg, "run", {}).get("monthly_cost", 0.0),
     selection_mode="rank",
     rank_kwargs={"n": 5, "score_by": "Sharpe", "inclusion_approach": "top_n"},
 )
