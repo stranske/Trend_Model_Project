@@ -142,6 +142,7 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
     print(metrics_df.head())
     print(score_frame.head())
     print("Generated periods:", len(periods))
+    print("Multi-period run count:", mp_res.get("n_periods"))
     print("Rebalanced weights:", rb_weights.to_dict())
     os.remove(cfg_file)
 
