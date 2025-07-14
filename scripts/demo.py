@@ -9,9 +9,22 @@ import pandas as pd
 import yaml
 
 from trend_analysis.config import Config
-from trend_analysis import pipeline, export, run_analysis, cli
+from trend_analysis import (
+    pipeline,
+    export,
+    run_analysis,
+    cli,
+    data,
+    metrics,
+)
 from trend_analysis.multi_period.scheduler import generate_periods
 from trend_analysis.multi_period.engine import run as run_multi
+
+
+@export.register_formatter_excel("metrics")
+def _fmt_metrics(ws, wb) -> None:
+    """Simple metrics sheet formatting for the demo."""
+    ws.freeze_panes(1, 0)
 
 
 def make_config(csv: Path) -> Config:
@@ -58,6 +71,10 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
     run_rc = run_analysis.main(["-c", cfg_file])
 
     df = pd.read_csv(csv)
+    rf_col = data.identify_risk_free_fund(df)
+    df = data.ensure_datetime(df, "Date")
+    available = metrics.available_metrics()
+
     score_frame = pipeline.single_period_run(
         df, cfg.sample_split["in_start"], cfg.sample_split["in_end"]
     )
@@ -81,13 +98,23 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
         cfg.sample_split["out_start"],
         cfg.sample_split["out_end"],
     )
-
-    data = {"metrics": metrics_df, "summary": pd.DataFrame()}
-    export.export_to_excel(
-        data, str(out_dir_path / "analysis.xlsx"), default_sheet_formatter=sheet_fmt
+    text_summary = export.format_summary_text(
+        full_res,
+        cfg.sample_split["in_start"],
+        cfg.sample_split["in_end"],
+        cfg.sample_split["out_start"],
+        cfg.sample_split["out_end"],
     )
-    export.export_data(data, str(out_dir_path / "analysis"), formats=["csv", "json"])
 
+    frames = {"metrics": metrics_df, "summary": pd.DataFrame()}
+    export.export_to_excel(
+        frames, str(out_dir_path / "analysis.xlsx"), default_sheet_formatter=sheet_fmt
+    )
+    export.export_data(frames, str(out_dir_path / "analysis"), formats=["csv", "json"])
+
+    print(text_summary)
+    print("Risk-free column:", rf_col)
+    print("Available metrics:", available)
     print(metrics_df.head())
     print(score_frame.head())
     os.remove(cfg_file)
@@ -101,6 +128,9 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
         "periods": periods,
         "mp_res": mp_res,
         "out_dir": out_dir_path,
+        "rf_col": rf_col,
+        "summary_text": text_summary,
+        "available": available,
     }
 
 
