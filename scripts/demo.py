@@ -3,12 +3,15 @@ from __future__ import annotations
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 import os
+import shutil
 from typing import Any, Dict
+
+import nbformat
 
 import pandas as pd
 import yaml
 
-from trend_analysis.config import Config
+from trend_analysis.config import Config, load as load_config
 from trend_analysis import (
     pipeline,
     export,
@@ -19,6 +22,8 @@ from trend_analysis import (
 )
 from trend_analysis.multi_period.scheduler import generate_periods
 from trend_analysis.multi_period.engine import run as run_multi
+from trend_analysis.multi_period.replacer import Rebalancer
+from tools import strip_output
 
 
 @export.register_formatter_excel("metrics")
@@ -66,11 +71,18 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
         yaml.safe_dump(cfg.model_dump(), fh)
         cfg_file = fh.name
     cli_rc = cli.main(["-c", cfg_file, "--version"])
+    cli_json_rc = cli.main(["-c", cfg_file])
+    detailed_rc = run_analysis.main(["-c", cfg_file, "--detailed"])
+    os.environ["TREND_CFG"] = cfg_file
+    loaded_cfg = load_config()
+    os.environ.pop("TREND_CFG", None)
 
     # run via the pipeline and CLI entry point
     run_rc = run_analysis.main(["-c", cfg_file])
 
-    df = pd.read_csv(csv)
+    df = data.load_csv(str(csv))
+    if df is None:
+        df = pd.DataFrame()
     rf_col = data.identify_risk_free_fund(df)
     df = data.ensure_datetime(df, "Date")
     available = metrics.available_metrics()
@@ -80,6 +92,9 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
     )
     full_res = pipeline.run_full(cfg)
     metrics_df = pipeline.run(cfg)
+    rb = Rebalancer({})
+    init_wt = pd.Series(1 / len(score_frame.columns), index=score_frame.columns)
+    rb_weights = rb.apply_triggers(init_wt, score_frame)
 
     # multi-period components
     cfg_dict = cfg.model_dump()
@@ -90,6 +105,13 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
 
     out_dir_path = Path(out_dir) if out_dir else root / "demo_outputs"
     out_dir_path.mkdir(exist_ok=True)
+
+    nb_src = root / "Vol_Adj_Trend_Analysis1.5.TrEx.ipynb"
+    nb_copy = out_dir_path / "tmp_nb.ipynb"
+    shutil.copy(nb_src, nb_copy)
+    strip_output.strip_output(str(nb_copy))
+    nb = nbformat.read(nb_copy, as_version=nbformat.NO_CONVERT)
+    nb_clean = all(not c.get("outputs") for c in nb.cells)
 
     sheet_fmt = export.make_summary_formatter(
         full_res,
@@ -121,7 +143,9 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
 
     return {
         "cli_rc": cli_rc,
+        "cli_json_rc": cli_json_rc,
         "run_rc": run_rc,
+        "detailed_rc": detailed_rc,
         "score_frame": score_frame,
         "full_res": full_res,
         "metrics_df": metrics_df,
@@ -131,6 +155,9 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
         "rf_col": rf_col,
         "summary_text": text_summary,
         "available": available,
+        "rb_weights": rb_weights.to_dict(),
+        "loaded_version": loaded_cfg.version,
+        "nb_clean": nb_clean,
     }
 
 

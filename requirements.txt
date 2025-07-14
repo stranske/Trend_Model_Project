@@ -10,3 +10,4 @@ openpyxl
 PyYAML
 pytest-cov
 pytest
+nbformat
