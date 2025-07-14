@@ -112,7 +112,9 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
         mp_weights = rb.apply_triggers(mp_weights, mp_sf)
         mp_history.append(mp_weights.copy())
 
-    mp_history_df = pd.DataFrame(mp_history, index=[f"{p.in_start[:7]}_{p.out_end[:7]}" for p in periods])
+    mp_history_df = pd.DataFrame(
+        mp_history, index=[f"{p.in_start[:7]}_{p.out_end[:7]}" for p in periods]
+    )
 
     out_dir_path = Path(out_dir) if out_dir else root / "demo_outputs"
     out_dir_path.mkdir(exist_ok=True)
