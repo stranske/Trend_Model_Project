@@ -195,6 +195,7 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
         "mp_history": [w.to_dict() for w in mp_history],
         "mp_history_df": mp_history_df,
         "mp_index": mp_history_df.index.tolist(),
+        "mp_weights": mp_weights.to_dict(),
         "loaded_version": loaded_cfg.version,
         "nb_clean": nb_clean,
     }
