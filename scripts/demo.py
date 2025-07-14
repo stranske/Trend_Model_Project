@@ -191,8 +191,10 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
         "summary_text": text_summary,
         "available": available,
         "rb_weights": rb_weights.to_dict(),
+        "rb_cfg": rb_cfg,
         "mp_history": [w.to_dict() for w in mp_history],
         "mp_history_df": mp_history_df,
+        "mp_index": mp_history_df.index.tolist(),
         "loaded_version": loaded_cfg.version,
         "nb_clean": nb_clean,
     }
