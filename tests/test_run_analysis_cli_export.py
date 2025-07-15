@@ -12,7 +12,8 @@ def _write_cfg(path: Path, csv: Path, out_dir: Path) -> None:
                 f"data: {{csv_path: '{csv}'}}",
                 "preprocessing: {}",
                 "vol_adjust: {target_vol: 1.0}",
-                "sample_split: {in_start: '2020-01', in_end: '2020-03', out_start: '2020-04', out_end: '2020-06'}",
+                "sample_split: {in_start: '2020-01', in_end: '2020-03', "
+                "out_start: '2020-04', out_end: '2020-06'}",
                 "portfolio: {}",
                 "metrics: {}",
                 f"export: {{directory: '{out_dir}', formats: ['csv']}}",

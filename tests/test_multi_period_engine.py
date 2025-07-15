@@ -1,5 +1,5 @@
 import pandas as pd
-import yaml
+import yaml  # type: ignore[import-untyped]
 from pathlib import Path
 from trend_analysis.config import Config
 from trend_analysis.multi_period import run as run_mp, run_schedule, Portfolio
