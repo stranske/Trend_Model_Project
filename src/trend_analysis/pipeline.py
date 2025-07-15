@@ -198,7 +198,11 @@ def _run_analysis(
     elif selection_mode == "rank":
         mask = (df[date_col] >= in_sdate) & (df[date_col] <= in_edate)
         sub = df.loc[mask, fund_cols]
-        fund_cols = rank_select_funds(sub, stats_cfg, **(rank_kwargs or {}))  # type: ignore[arg-type]
+        fund_cols = rank_select_funds(
+            sub,
+            stats_cfg,
+            **(rank_kwargs or {}),  # type: ignore[arg-type]
+        )
     elif selection_mode == "manual":
         if manual_funds:  # pragma: no cover - rarely hit
             fund_cols = [c for c in fund_cols if c in manual_funds]

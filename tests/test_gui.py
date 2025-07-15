@@ -1,6 +1,6 @@
 import asyncio
 from types import SimpleNamespace
-import yaml
+import yaml  # type: ignore[import-untyped]
 import importlib
 
 import sys

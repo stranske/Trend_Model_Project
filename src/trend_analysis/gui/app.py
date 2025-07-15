@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import warnings
-import yaml
+import yaml  # type: ignore[import-untyped]
 import pickle
 import ipywidgets as widgets
 from IPython.display import Javascript, display, FileLink
@@ -441,8 +441,15 @@ def launch() -> widgets.Widget:
     def on_theme(change: dict[str, Any], *, store: ParamStore) -> None:
         store.theme = change["new"]
         store.dirty = True
-        js = cast(Any, Javascript)(
-            f"document.documentElement.style.setProperty('--trend-theme', '{change['new']}');"
+        theme_val = change["new"]
+        # apply theme directly in one concise call
+        # apply theme update in multiple lines to avoid line length
+        js = cast(
+            Any,
+            Javascript(
+                f"document.documentElement.style.setProperty("
+                f"'--trend-theme','{theme_val}')"
+            ),
         )
         cast(Any, display)(js)
 
