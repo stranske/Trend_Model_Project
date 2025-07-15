@@ -14,13 +14,19 @@ license = {text = "MIT"}
 where = ["src"]
 
 [tool.black]
-extend-exclude = '(notebooks|Old|.*\.ipynb)'
+extend-exclude = '''
+/(
+    Old
+  | notebooks/old
+  | .*\.ipynb
+)/
+'''
 
 [tool.ruff]
-extend-exclude = ["notebooks", "Old", "*.ipynb"]
+extend-exclude = ["notebooks/old", "Old", "*.ipynb"]
 
 [tool.mypy]
 python_version = "3.11"
 strict = true
 ignore_missing_imports = true
-warn_unused_ignores = false
+exclude = "^(Old/|notebooks/old/)"

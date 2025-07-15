@@ -47,7 +47,8 @@ echo "🔍 Running pre-commit validation..."
 
 # Check if we're in the right directory
 if [[ ! -f "scripts/validate_fast.sh" ]]; then
-    echo "⚠️  Validation script not found, skipping pre-commit checks"
+    echo "
+    Validation script not found, skipping pre-commit checks"
     exit 0
 fi
 

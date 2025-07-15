@@ -47,7 +47,8 @@ if [[ "$CHANGED_ONLY" == true ]]; then
     ALL_FILES=$(echo -e "$PYTHON_FILES\n$UNSTAGED_FILES" | sort -u | grep -v '^$' || true)
     
     if [[ -z "$ALL_FILES" ]]; then
-        echo -e "${GREEN}✓ No Python files changed (excluding old folders) - nothing to check${NC}"
+        echo -e "${GREEN}
+    No Python files changed (excluding old folders) - nothing to check${NC}"
         exit 0
     fi
     
