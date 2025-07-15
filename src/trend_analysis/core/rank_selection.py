@@ -1,9 +1,9 @@
 """Rank-based fund selection utilities.
 
-This module implements the `rank` selection mode described in Agents.md. Funds can be
-kept using `top_n`, `top_pct` or `threshold` rules and scored by metrics registered in
-`METRIC_REGISTRY`. Metrics listed in `ASCENDING_METRICS` are treated as smaller-is-
-better.
+This module implements the `rank` selection mode described in Agents.md.
+Funds can be kept using `top_n`, `top_pct` or `threshold` rules and scored
+by metrics registered in `METRIC_REGISTRY`. Metrics listed in
+`ASCENDING_METRICS` are treated as smaller-is-better.
 """
 
 # =============================================================================

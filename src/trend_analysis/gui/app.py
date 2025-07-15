@@ -466,13 +466,10 @@ def launch() -> widgets.Widget:
         store.theme = change["new"]
         store.dirty = True
         theme_val = change["new"]
-        # apply theme directly in one concise call
-        # apply theme update in multiple lines to avoid line length
-        js = Javascript(  # type: ignore[no-untyped-call]
-            f"document.documentElement.style.setProperty("
-            f"'--trend-theme','{theme_val}')"
+        js = Javascript(
+            f"document.documentElement.style.setProperty(' --trend-theme','{theme_val}')"
         )
-        cast(Any, display)(js)
+        display(js)
 
     theme.observe(lambda ch, store=store: on_theme(ch, store=store), names="value")
 

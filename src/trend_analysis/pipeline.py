@@ -199,9 +199,7 @@ def _run_analysis(
         mask = (df[date_col] >= in_sdate) & (df[date_col] <= in_edate)
         sub = df.loc[mask, fund_cols]
         fund_cols = rank_select_funds(
-            sub,
-            stats_cfg,
-            **(rank_kwargs or {}),  # type: ignore[arg-type]
+            sub, stats_cfg, **(rank_kwargs or {})  # type: ignore[arg-type]
         )
     elif selection_mode == "manual":
         if manual_funds:  # pragma: no cover - rarely hit
@@ -285,8 +283,8 @@ def _run_analysis(
             if isinstance(ir_series, pd.Series)
             else {fund_cols[0]: float(ir_series)}
         )
-        ir_dict["equal_weight"] = float(information_ratio(out_ew_raw, out_df[col]))
-        ir_dict["user_weight"] = float(information_ratio(out_user_raw, out_df[col]))
+        ir_dict["equal_weight"] = information_ratio(out_ew_raw, out_df[col])
+        ir_dict["user_weight"] = information_ratio(out_user_raw, out_df[col])
         benchmark_ir[label] = ir_dict
 
     return {
@@ -448,10 +446,11 @@ def run_full(cfg: Config) -> dict[str, object]:
     return {} if res is None else res
 
 
+# Export alias for backward compatibility
 Stats = _Stats
 
 __all__ = [
-    "Stats",
+    "Stats",  # noqa: F822
     "calc_portfolio_returns",
     "single_period_run",
     "run_analysis",

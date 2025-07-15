@@ -328,9 +328,8 @@ def export_to_csv(
     output_path: str,
     formatter: Formatter | None = None,
 ) -> None:
-    """Export each DataFrame to an individual CSV file
-    using ``output_path`` as prefix.
-    """
+    """Export each dataframe to an individual CSV file using ``output_path``
+    as prefix."""
     prefix = Path(output_path)
     _ensure_dir(prefix)
     # Looping over the ``data`` dictionary ensures each frame gets its own file.
