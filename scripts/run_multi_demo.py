@@ -78,6 +78,7 @@ def _check_gui(cfg_path: str) -> None:
         raise SystemExit("list_builtin_cfgs missing demo.yml")
     from trend_analysis.core.rank_selection import build_ui
     import ipywidgets as widgets
+
     ui = build_ui()
     if not isinstance(ui, widgets.Widget):
         raise SystemExit("build_ui did not return a Widget")
@@ -188,6 +189,7 @@ def _check_misc(cfg_path: str, cfg: Config, results) -> None:
     metrics._METRIC_REGISTRY.pop("dummy_metric", None)
 
     from trend_analysis.core import rank_selection as rs
+
     clist = rs.canonical_metric_list(["sharpe_ratio", "max_drawdown"])
     if clist != ["Sharpe", "MaxDrawdown"]:
         raise SystemExit("canonical_metric_list failed")
