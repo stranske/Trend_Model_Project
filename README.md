@@ -147,6 +147,8 @@ extra calls to ``rank_select_funds`` use the ``percentile`` and ``rank`` transfo
 scoring options are covered. It verifies AdaptiveBayesWeighting state persistence and runs the CLI via both the ``-c``
 flag and the ``TREND_CFG`` environment variable. Finally, the script invokes the
 full test suite so every module is covered.
+It now also calls ``run_multi_analysis.main`` with a temporary config to verify
+the dedicated multi-period CLI works and produces CSV output.
 
 ## Demo pipeline (maintenance / CI)
 

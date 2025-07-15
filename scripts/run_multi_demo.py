@@ -13,7 +13,16 @@ from pathlib import Path
 import os
 import pandas as pd
 import numpy as np
-from trend_analysis import pipeline, export, gui, cli, metrics, run_analysis
+import yaml
+from trend_analysis import (
+    pipeline,
+    export,
+    gui,
+    cli,
+    metrics,
+    run_analysis,
+    run_multi_analysis,
+)
 from trend_analysis.multi_period import (
     run as run_mp,
     run_schedule,
@@ -482,6 +491,21 @@ if run_analysis.main(["-c", "config/demo.yml"]) != 0:
     raise SystemExit("run_analysis.main failed")
 if run_analysis.main(["-c", "config/demo.yml", "--detailed"]) != 0:
     raise SystemExit("run_analysis.main detailed failed")
+
+# Run the multi-period CLI using a temporary config file
+cli_cfg = Path("demo/exports/mp_cli_cfg.yml")
+cli_out = Path("demo/exports/mp_cli")
+data = cfg.model_dump()
+data.setdefault("export", {})["directory"] = str(cli_out)
+data["export"]["formats"] = ["csv"]
+with cli_cfg.open("w", encoding="utf-8") as fh:
+    yaml.safe_dump(data, fh)
+rc = run_multi_analysis.main(["-c", str(cli_cfg)])
+if rc != 0:
+    raise SystemExit("run_multi_analysis CLI failed")
+if not list(cli_out.glob("*.csv")):
+    raise SystemExit("run_multi_analysis CLI produced no output")
+cli_cfg.unlink()
 
 
 print("Multi-period demo checks passed")
