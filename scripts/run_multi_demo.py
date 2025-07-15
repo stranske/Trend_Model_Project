@@ -52,6 +52,9 @@ def _check_schedule(
     weights = list(pf.history.values())
     if len(weights) > 1 and all(w.equals(weights[0]) for w in weights[1:]):
         print("Warning: weights did not change across periods")
+    if hasattr(weighting, "mean") and hasattr(weighting, "tau"):
+        if getattr(weighting, "mean") is None or getattr(weighting, "tau") is None:
+            raise SystemExit("Weighting state not updated")
     return pf
 
 
@@ -73,6 +76,11 @@ def _check_gui(cfg_path: str) -> None:
         raise SystemExit("Plugin registration failed")
     if "demo" not in gui.list_builtin_cfgs():
         raise SystemExit("list_builtin_cfgs missing demo.yml")
+    from trend_analysis.core.rank_selection import build_ui
+    import ipywidgets as widgets
+    ui = build_ui()
+    if not isinstance(ui, widgets.Widget):
+        raise SystemExit("build_ui did not return a Widget")
 
 
 def _check_selection_modes(cfg: Config) -> None:
@@ -169,6 +177,20 @@ def _check_misc(cfg_path: str, cfg: Config, results) -> None:
     )
     if len(pr) != 4:
         raise SystemExit("calc_portfolio_returns length mismatch")
+
+    # dynamic metric registration
+    @metrics.register_metric("dummy_metric")
+    def _dummy(series):
+        return float(series.mean())
+
+    if "dummy_metric" not in metrics.available_metrics():
+        raise SystemExit("Metric registration failed")
+    metrics._METRIC_REGISTRY.pop("dummy_metric", None)
+
+    from trend_analysis.core import rank_selection as rs
+    clist = rs.canonical_metric_list(["sharpe_ratio", "max_drawdown"])
+    if clist != ["Sharpe", "MaxDrawdown"]:
+        raise SystemExit("canonical_metric_list failed")
 
 
 def _check_rebalancer_logic() -> None:
