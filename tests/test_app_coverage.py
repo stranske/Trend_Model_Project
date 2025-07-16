@@ -1,9 +1,10 @@
 """Tests for the GUI app module to improve coverage."""
 
+import sys
 import tempfile
 import yaml
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, ANY
 from trend_analysis.gui.app import (
     load_state,
     save_state,
@@ -99,10 +100,10 @@ class TestBuildStep0:
         assert result is not None
         mock_widgets.VBox.assert_called_once()
 
-    @patch("trend_analysis.gui.app.widgets")
+    @patch.dict(sys.modules, {"ipydatagrid": Mock(DataGrid=Mock())})
     @patch("trend_analysis.gui.app.list_builtin_cfgs")
-    @patch("trend_analysis.gui.app.pd.DataFrame")
-    def test_build_step0_with_datagrid(self, mock_df, mock_list_cfgs, mock_widgets):
+    @patch("trend_analysis.gui.app.widgets")
+    def test_build_step0_with_datagrid(self, mock_widgets, mock_list_cfgs):
         """Test _build_step0 with DataGrid available."""
         mock_list_cfgs.return_value = ["demo"]
         mock_widgets.FileUpload.return_value = Mock()
@@ -112,17 +113,14 @@ class TestBuildStep0:
         mock_widgets.HBox.return_value = Mock()
 
         # Mock DataGrid availability
-        mock_datagrid = Mock()
         mock_datagrid_instance = Mock()
         mock_datagrid_instance.on = Mock()  # Add the missing 'on' method
-        mock_datagrid.return_value = mock_datagrid_instance
+        sys.modules["ipydatagrid"].DataGrid.return_value = mock_datagrid_instance
 
-        with patch("trend_analysis.gui.app.DataGrid", mock_datagrid):
-            store = ParamStore()
-            result = _build_step0(store)
-
-            assert result is not None
-            mock_widgets.VBox.assert_called_once()
+        store = ParamStore()
+        result = _build_step0(store)
+        assert result is not None
+        mock_datagrid_instance.on.assert_called()
 
     @patch("trend_analysis.gui.app.widgets")
     @patch("trend_analysis.gui.app.list_builtin_cfgs")
@@ -239,6 +237,7 @@ class TestLaunchApp:
         mock_plugin = Mock()
         mock_plugin.name = "test_plugin"
         mock_plugin.ui_builder = Mock(return_value=Mock())
+        mock_plugin.__name__ = "test_plugin"  # Add the missing __name__ attribute
 
         with patch("trend_analysis.gui.app.iter_plugins", return_value=[mock_plugin]):
             mock_widgets.VBox.return_value = Mock()
@@ -342,28 +341,28 @@ class TestErrorHandling:
                         assert isinstance(store, ParamStore)
                         mock_warn.assert_called()
 
+    @patch.dict(sys.modules, {"ipydatagrid": Mock(DataGrid=Mock())})
+    @patch("trend_analysis.gui.app.list_builtin_cfgs")
     @patch("trend_analysis.gui.app.widgets")
-    def test_datagrid_cell_change_error(self, mock_widgets):
+    def test_datagrid_cell_change_error(self, mock_widgets, mock_list_cfgs):
         """Test DataGrid cell change error handling."""
-        mock_list_cfgs = Mock(return_value=["demo"])
+        mock_list_cfgs.return_value = ["demo"]
+        mock_widgets.FileUpload.return_value = Mock()
+        mock_widgets.Dropdown.return_value = Mock()
+        mock_widgets.Button.return_value = Mock()
+        mock_widgets.VBox.return_value = Mock()
+        mock_widgets.HBox.return_value = Mock()
 
-        with patch("trend_analysis.gui.app.list_builtin_cfgs", mock_list_cfgs):
-            with patch("trend_analysis.gui.app.DataGrid") as mock_datagrid:
-                mock_grid = Mock()
-                mock_grid.on = Mock()  # Add the missing 'on' method
-                mock_datagrid.return_value = mock_grid
+        # Mock DataGrid availability
+        mock_datagrid_instance = Mock()
+        mock_datagrid_instance.on = Mock()  # Add the missing 'on' method
+        sys.modules["ipydatagrid"].DataGrid.return_value = mock_datagrid_instance
 
-                mock_widgets.FileUpload.return_value = Mock()
-                mock_widgets.Dropdown.return_value = Mock()
-                mock_widgets.Button.return_value = Mock()
-                mock_widgets.VBox.return_value = Mock()
-                mock_widgets.HBox.return_value = Mock()
+        store = ParamStore()
+        _build_step0(store)
 
-                store = ParamStore()
-                _build_step0(store)
-
-                # Verify on method was called (for cell_edited event)
-                mock_grid.on.assert_called()
+        # Verify on method was called (for cell_edited event)
+        mock_datagrid_instance.on.assert_called_with("cell_edited", ANY)
 
     @patch("trend_analysis.gui.app.widgets")
     @patch("trend_analysis.gui.app.asyncio")
