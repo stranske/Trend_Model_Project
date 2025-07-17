@@ -117,7 +117,7 @@ class TestBuildStep0:
         mock_datagrid_instance = Mock()
         mock_datagrid_instance.on = Mock()  # Add the missing 'on' method
         mock_datagrid_class = Mock(return_value=mock_datagrid_instance)
-        
+
         with patch("trend_analysis.gui.app.DataGrid", mock_datagrid_class):
             store = ParamStore()
             result = _build_step0(store)
