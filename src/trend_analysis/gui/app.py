@@ -20,6 +20,7 @@ from .. import pipeline, export, weighting
 # Try to import DataGrid at module level for test patching
 try:
     from ipydatagrid import DataGrid
+
     HAS_DATAGRID = True
 except ImportError:
     DataGrid = None
@@ -269,12 +270,14 @@ def _build_manual_override(store: ParamStore) -> widgets.Widget:
 
     # Check dynamically if ipydatagrid is available
     datagrid_available = False
-    DynamicDataGrid = None
     try:
         # Check if ipydatagrid module is available and not None
         if sys.modules.get("ipydatagrid") is not None:
             from ipydatagrid import DataGrid as DynamicDataGrid
+
             datagrid_available = True
+        else:
+            DynamicDataGrid = None
     except (ImportError, AttributeError):
         datagrid_available = False
 
@@ -366,7 +369,7 @@ def _build_weighting_options(store: ParamStore) -> widgets.Widget:
         "adaptive_bayes": weighting.AdaptiveBayesWeighting,
     }
     for plugin in iter_plugins():
-        name = getattr(plugin, '__name__', str(plugin)).lower()
+        name = getattr(plugin, "__name__", str(plugin)).lower()
         options[name] = plugin
 
     method_dd = widgets.Dropdown(

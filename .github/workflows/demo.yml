@@ -19,19 +19,24 @@ jobs:
         python-version: "3.11"
         cache: "pip"
     - run: scripts/setup_env.sh
+      working-directory: ${{ github.workspace }}
     - name: Install trend_analysis in editable mode
       run: |
         source .venv/bin/activate
         pip install -e .
+      working-directory: ${{ github.workspace }}
     - run: |
         source .venv/bin/activate
         python scripts/generate_demo.py
+      working-directory: ${{ github.workspace }}
     - run: |
         source .venv/bin/activate
         python -m trend_analysis.run_analysis -c config/demo.yml --detailed
+      working-directory: ${{ github.workspace }}
     - run: |
         source .venv/bin/activate
         python scripts/run_multi_demo.py
+      working-directory: ${{ github.workspace }}
     - uses: actions/upload-artifact@v4
       with:
         name: demo‑exports

@@ -289,7 +289,12 @@ class TestUtilityFunctions:
         # Mock path resolution
         mock_config_path = Mock()
         mock_config_path.read_text.return_value = "key: value"
-        mock_path.return_value.resolve.return_value.parents = [Mock(), Mock(), Mock(), Mock()]
+        mock_path.return_value.resolve.return_value.parents = [
+            Mock(),
+            Mock(),
+            Mock(),
+            Mock(),
+        ]
         mock_path.return_value.resolve.return_value.parents[3] = Mock()
         mock_path.return_value.resolve.return_value.parents[3].__truediv__ = Mock(
             return_value=mock_config_path
