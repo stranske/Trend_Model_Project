@@ -102,15 +102,22 @@ def rank_select_funds(
         rank_pct=rank_pct,
     )
     # Selection logic based on inclusion_approach
-    if inclusion_approach == "top_n" and n is not None:
+    if inclusion_approach == "top_n":
+        if n is None:
+            raise ValueError("top_n requires parameter n")
         return cast(list[str], scores.head(n).index.tolist())
-    elif inclusion_approach == "top_pct" and pct is not None:
+    elif inclusion_approach == "top_pct":
+        if pct is None or not 0 < pct <= 1:
+            raise ValueError("top_pct requires 0 < pct <= 1")
         k = int(len(scores) * pct)
         return cast(list[str], scores.head(k).index.tolist())
-    elif inclusion_approach == "threshold" and threshold is not None:
+    elif inclusion_approach == "threshold":
+        if threshold is None:
+            raise ValueError("threshold approach requires parameter threshold")
         mask = scores >= threshold
         return cast(list[str], scores[mask].index.tolist())
-    return []  # Ensure function always returns a list
+    else:
+        raise ValueError("Unknown inclusion_approach")
 
 
 def some_function_missing_annotation(
