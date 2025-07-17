@@ -101,6 +101,7 @@ class TestBuildStep0:
         mock_widgets.VBox.assert_called_once()
 
     @patch.dict(sys.modules, {"ipydatagrid": Mock(DataGrid=Mock())})
+    @patch("trend_analysis.gui.app.HAS_DATAGRID", True)
     @patch("trend_analysis.gui.app.list_builtin_cfgs")
     @patch("trend_analysis.gui.app.widgets")
     def test_build_step0_with_datagrid(self, mock_widgets, mock_list_cfgs):
@@ -115,12 +116,13 @@ class TestBuildStep0:
         # Mock DataGrid availability
         mock_datagrid_instance = Mock()
         mock_datagrid_instance.on = Mock()  # Add the missing 'on' method
-        sys.modules["ipydatagrid"].DataGrid.return_value = mock_datagrid_instance
+        mock_datagrid_class = Mock(return_value=mock_datagrid_instance)
 
-        store = ParamStore()
-        result = _build_step0(store)
-        assert result is not None
-        mock_datagrid_instance.on.assert_called()
+        with patch("trend_analysis.gui.app.DataGrid", mock_datagrid_class):
+            store = ParamStore()
+            result = _build_step0(store)
+            assert result is not None
+            mock_datagrid_instance.on.assert_called()
 
     @patch("trend_analysis.gui.app.widgets")
     @patch("trend_analysis.gui.app.list_builtin_cfgs")
@@ -289,7 +291,12 @@ class TestUtilityFunctions:
         # Mock path resolution
         mock_config_path = Mock()
         mock_config_path.read_text.return_value = "key: value"
-        mock_path.return_value.resolve.return_value.parents = [Mock(), Mock(), Mock(), Mock()]
+        mock_path.return_value.resolve.return_value.parents = [
+            Mock(),
+            Mock(),
+            Mock(),
+            Mock(),
+        ]
         mock_path.return_value.resolve.return_value.parents[3] = Mock()
         mock_path.return_value.resolve.return_value.parents[3].__truediv__ = Mock(
             return_value=mock_config_path
@@ -342,6 +349,7 @@ class TestErrorHandling:
                         mock_warn.assert_called()
 
     @patch.dict(sys.modules, {"ipydatagrid": Mock(DataGrid=Mock())})
+    @patch("trend_analysis.gui.app.HAS_DATAGRID", True)
     @patch("trend_analysis.gui.app.list_builtin_cfgs")
     @patch("trend_analysis.gui.app.widgets")
     def test_datagrid_cell_change_error(self, mock_widgets, mock_list_cfgs):
@@ -356,13 +364,14 @@ class TestErrorHandling:
         # Mock DataGrid availability
         mock_datagrid_instance = Mock()
         mock_datagrid_instance.on = Mock()  # Add the missing 'on' method
-        sys.modules["ipydatagrid"].DataGrid.return_value = mock_datagrid_instance
+        mock_datagrid_class = Mock(return_value=mock_datagrid_instance)
 
-        store = ParamStore()
-        _build_step0(store)
+        with patch("trend_analysis.gui.app.DataGrid", mock_datagrid_class):
+            store = ParamStore()
+            _build_step0(store)
 
-        # Verify on method was called (for cell_edited event)
-        mock_datagrid_instance.on.assert_called_with("cell_edited", ANY)
+            # Verify on method was called (for cell_edited event)
+            mock_datagrid_instance.on.assert_called_with("cell_edited", ANY)
 
     @patch("trend_analysis.gui.app.widgets")
     @patch("trend_analysis.gui.app.asyncio")

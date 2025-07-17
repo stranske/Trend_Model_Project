@@ -58,10 +58,10 @@ def main(argv: list[str] | None = None) -> int:
         )  # pragma: no cover - file I/O
 
     # Prepare export
-    export_cfg = getattr(cfg, 'export', {}) or {}
-    out_dir = export_cfg.get('directory')
-    formats = export_cfg.get('formats', [])
-    filename = export_cfg.get('filename', 'analysis')
+    export_cfg = getattr(cfg, "export", {}) or {}
+    out_dir = export_cfg.get("directory")
+    formats = export_cfg.get("formats", [])
+    filename = export_cfg.get("filename", "analysis")
 
     if not out_dir or not formats:
         return 0
@@ -72,7 +72,7 @@ def main(argv: list[str] | None = None) -> int:
     # Write each period result to CSV if requested
     for i, res in enumerate(results):
         df = pd.DataFrame([res])
-        if any(fmt.lower() == 'csv' for fmt in formats):
+        if any(fmt.lower() == "csv" for fmt in formats):
             df.to_csv(out_path / f"{filename}_{i}.csv", index=False)
 
     return 0

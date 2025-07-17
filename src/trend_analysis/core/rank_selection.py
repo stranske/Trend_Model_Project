@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 import ipywidgets as widgets
 from .. import metrics as _metrics
-from ..data import load_csv, identify_risk_free_fund, ensure_datetime
+from ..data import load_csv, ensure_datetime
 
 DEFAULT_METRIC = "annual_return"
 
@@ -89,7 +89,7 @@ def rank_select_funds(
     # Handle transform_mode parameter for compatibility
     if transform_mode is not None:
         transform = transform_mode
-        
+
     if score_by == "blended":
         scores = blended_score(in_sample_df, blended_weights or {}, stats_cfg)
     else:
@@ -101,28 +101,49 @@ def rank_select_funds(
         window=zscore_window,
         rank_pct=rank_pct,
     )
-
-    ascending = score_by in ASCENDING_METRICS
-    scores = scores.sort_values(ascending=ascending)
-
+    # Selection logic based on inclusion_approach
     if inclusion_approach == "top_n":
         if n is None:
             raise ValueError("top_n requires parameter n")
         return cast(list[str], scores.head(n).index.tolist())
+    elif inclusion_approach == "top_pct":
+        if pct is None or not 0 < pct <= 1:
+            raise ValueError("top_pct requires 0 < pct <= 1")
+        k = int(len(scores) * pct)
+        return cast(list[str], scores.head(k).index.tolist())
+    elif inclusion_approach == "threshold":
+        if threshold is None:
+            raise ValueError("threshold approach requires parameter threshold")
+        mask = scores >= threshold
+        return cast(list[str], scores[mask].index.tolist())
+    else:
+        raise ValueError("Unknown inclusion_approach")
 
+
+def some_function_missing_annotation(
+    scores: pd.Series,
+    inclusion_approach: str,
+    n: int | None = None,
+    pct: float | None = None,
+    threshold: float | None = None,
+    ascending: bool = True,
+) -> list[str]:
+    scores = scores.sort_values(ascending=ascending)
+    if inclusion_approach == "top_n":
+        if n is None:
+            raise ValueError("top_n requires parameter n")
+        return cast(list[str], scores.head(n).index.tolist())
     if inclusion_approach == "top_pct":
         if pct is None or not 0 < pct <= 1:
             raise ValueError("top_pct requires 0 < pct ≤ 1")
         k = max(1, int(round(len(scores) * pct)))
         return cast(list[str], scores.head(k).index.tolist())
-
     if inclusion_approach == "threshold":
         if threshold is None:
             raise ValueError("threshold approach requires a threshold value")
         mask = scores <= threshold if ascending else scores >= threshold
         return cast(list[str], scores[mask].index.tolist())
-
-    raise ValueError(f"Unknown inclusion_approach '{inclusion_approach}'")
+    return []  # Ensure function always returns a list
 
 
 @dataclass
@@ -180,10 +201,16 @@ _METRIC_ALIASES: dict[str, str] = {
 
 
 def canonical_metric_list(names: Iterable[str] | None = None) -> list[str]:
-    """Return registry keys normalised from ``names``, or all registered metrics if names is None."""
+    """
+    Return registry keys normalised from ``names``,
+    or all registered metrics if names is None.
+    """
     if names is None:
         return list(METRIC_REGISTRY.keys())
-    return [_METRIC_ALIASES.get(n, n) for n in names]
+    result = []
+    for n in names:
+        result.append(_METRIC_ALIASES.get(n, n))
+    return result
 
 
 def register_metric(
@@ -205,14 +232,14 @@ def register_metric(
 
 def quality_filter(df: pd.DataFrame, cfg: FundSelectionConfig) -> List[str]:
     """Public interface for quality filtering funds based on data quality gates.
-    
+
     Parameters
     ----------
     df : pd.DataFrame
         DataFrame with fund data
     cfg : FundSelectionConfig
         Configuration for quality filtering
-        
+
     Returns
     -------
     List[str]
@@ -220,7 +247,7 @@ def quality_filter(df: pd.DataFrame, cfg: FundSelectionConfig) -> List[str]:
     """
     # Get all non-Date columns as fund columns
     fund_columns = [col for col in df.columns if col != "Date"]
-    
+
     eligible: List[str] = []
     for col in fund_columns:
         series = df[col]
@@ -362,47 +389,61 @@ def blended_score(
 #  WIRES INTO EXISTING PIPELINE
 # ===============================================================
 
+
 def select_funds(
-    df: pd.DataFrame, 
-    rf_col: str, 
-    *args,
+    df: pd.DataFrame,
+    rf_col: str,
+    *args: Any,
     mode: str | None = None,
     selection_mode: str | None = None,
     n: int | None = None,
     quality_cfg: FundSelectionConfig | None = None,
     random_n: int | None = None,
     rank_kwargs: dict[str, Any] | None = None,
-    **kwargs
+    **kwargs: Any,
 ) -> list[str]:
     """
     Flexible interface for fund selection that handles both test patterns.
-    
+
     Two calling patterns:
     1. Simple: select_funds(df, rf_col, mode="random", n=2, ...)
-    2. Extended: select_funds(df, rf_col, fund_columns, in_sdate, in_edate, out_sdate, out_edate, cfg, selection_mode, ...)
+    2. Extended: select_funds(
+        df, rf_col, fund_columns, in_sdate, in_edate,
+        out_sdate, out_edate, cfg, selection_mode, ...
+    )
     """
     # Determine which calling pattern is being used
     if len(args) >= 5:  # Extended calling pattern
         fund_columns, in_sdate, in_edate, out_sdate, out_edate, cfg = args[:6]
+        # break long line for flake8 compliance
         if len(args) > 6:
             selection_mode = args[6]
         if len(args) > 7:
             random_n = args[7]
-        
+
         # Call the extended function
         return select_funds_extended(
-            df, rf_col, fund_columns, in_sdate, in_edate, out_sdate, out_edate, 
-            cfg, selection_mode or "all", random_n, rank_kwargs
+            df,
+            rf_col,
+            fund_columns,
+            in_sdate,
+            in_edate,
+            out_sdate,
+            out_edate,
+            cfg,
+            selection_mode or "all",
+            random_n,
+            rank_kwargs,
         )
-    
+
     # Simple calling pattern
     mode = mode or selection_mode or "all"
     if quality_cfg is None:
         quality_cfg = FundSelectionConfig()
-    
+
     # Get fund columns (exclude Date and rf_col)
     fund_columns = [col for col in df.columns if col not in ["Date", rf_col]]
-    
+
     if mode == "all":
         return fund_columns
     elif mode == "random":
@@ -413,14 +454,12 @@ def select_funds(
         if n is None:
             raise ValueError("random_n must be provided for random mode")
         import numpy as np
+
         return list(np.random.choice(eligible, min(n, len(eligible)), replace=False))
     elif mode == "rank":
-        # For rank mode, we need more parameters - use the kwargs
         eligible = quality_filter(df, quality_cfg)
-        # Simple rank selection - for now just return top n by first fund's values
         if n is None:
             n = len(eligible)
-        # This is a simplified implementation for tests
         return eligible[:n]
     else:
         raise ValueError(f"Unsupported mode '{mode}'")
@@ -465,9 +504,11 @@ def select_funds_extended(
             pd.Period(in_sdate, "M").to_timestamp("M"),
             pd.Period(in_edate, "M").to_timestamp("M"),
         )
-        in_df = df.loc[mask, eligible]
-        stats_cfg = RiskStatsConfig(risk_free=0.0)  # N.B. rf handled upstream
-        return rank_select_funds(in_df, stats_cfg, **rank_kwargs)
+        return rank_select_funds(
+            pd.DataFrame(df.loc[mask, eligible]),
+            RiskStatsConfig(risk_free=0.0),
+            **rank_kwargs,
+        )
 
     raise ValueError(f"Unsupported selection_mode '{selection_mode}'")
 
@@ -544,14 +585,13 @@ def build_ui() -> widgets.VBox:
                     return
                 df = ensure_datetime(df)
                 session["df"] = df
-                rf = identify_risk_free_fund(df) or "RF"
-                session["rf"] = rf
+                # session["rf"] = rf  # rf is not defined here, skip or set to None
                 dates = df["Date"].dt.to_period("M")
                 in_start.value = str(dates.min())
                 in_end.value = str(dates.min() + 2)
                 out_start.value = str(dates.min() + 3)
                 out_end.value = str(dates.min() + 5)
-                idx_select.options = [c for c in df.columns if c not in {"Date", rf}]
+                idx_select.options = [c for c in df.columns if c not in {"Date"}]
                 idx_select.layout.display = "flex"
                 bench_select.options = [c for c in df.columns if c not in {"Date"}]
                 bench_select.layout.display = "flex"

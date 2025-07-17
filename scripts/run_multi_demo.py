@@ -32,6 +32,7 @@ from trend_analysis.multi_period.replacer import Rebalancer
 from trend_analysis.selector import RankSelector, ZScoreSelector
 from trend_analysis.data import load_csv, identify_risk_free_fund, ensure_datetime
 from trend_analysis.core.rank_selection import rank_select_funds, RiskStatsConfig
+from trend_analysis.core import rank_selection as rs
 from trend_analysis.weighting import (
     AdaptiveBayesWeighting,
     EqualWeight,
@@ -197,11 +198,20 @@ def _check_misc(cfg_path: str, cfg: Config, results) -> None:
         raise SystemExit("Metric registration failed")
     metrics._METRIC_REGISTRY.pop("dummy_metric", None)
 
-    from trend_analysis.core import rank_selection as rs
-
     clist = rs.canonical_metric_list(["sharpe_ratio", "max_drawdown"])
     if clist != ["Sharpe", "MaxDrawdown"]:
         raise SystemExit("canonical_metric_list failed")
+
+    # direct calls to helper functions for coverage
+    series = pd.Series([1.0, 2.0, 3.0])
+    ranked = rs._apply_transform(series, mode="rank")
+    if ranked.iloc[0] != 3:
+        raise SystemExit("_apply_transform failed")
+
+    df_tmp = pd.DataFrame({"A": [0.01, 0.02], "B": [0.02, 0.03]})
+    scores = rs._compute_metric_series(df_tmp, "AnnualReturn", RiskStatsConfig())
+    if len(scores) != 2:
+        raise SystemExit("_compute_metric_series failed")
 
 
 def _check_rebalancer_logic() -> None:
@@ -346,6 +356,33 @@ rank_ids = rank_select_funds(
 )
 if not rank_ids:
     raise SystemExit("rank transform produced no funds")
+
+# quality_filter and select_funds interfaces
+qcfg = rs.FundSelectionConfig(max_missing_ratio=0.5)
+eligible = rs.quality_filter(df_full, qcfg)
+if not eligible or not set(eligible).issubset(df_full.columns):
+    raise SystemExit("quality_filter failed")
+
+simple_sel = rs.select_funds(df_full, rf_col, mode="random", n=2)
+if len(simple_sel) != 2:
+    raise SystemExit("select_funds simple mode failed")
+
+cols = [c for c in df_full.columns if c not in {"Date", rf_col}]
+ext_sel = rs.select_funds(
+    df_full,
+    rf_col,
+    cols,
+    str(cfg.sample_split["in_start"]),
+    str(cfg.sample_split["in_end"]),
+    str(cfg.sample_split["out_start"]),
+    str(cfg.sample_split["out_end"]),
+    qcfg,
+    "rank",
+    2,
+    {"inclusion_approach": "top_n", "n": 2, "score_by": "Sharpe"},
+)
+if len(ext_sel) != 2:
+    raise SystemExit("select_funds extended mode failed")
 
 abw = AdaptiveBayesWeighting(max_w=None)
 pf_abw = _check_schedule(
