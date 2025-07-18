@@ -22,4 +22,3 @@ This document summarises the steps required to keep the demo pipeline in sync wi
    Ensure all unit tests pass after modifying the demo pipeline.
 5. **Keep demo config current**
    - Update `config/demo.yml` and demo scripts whenever export or pipeline behaviour changes so the demo exercises every code path.
-
