@@ -284,6 +284,34 @@ for r in results:
     if sf.attrs.get("insample_len", 0) <= 0:
         raise SystemExit("Score frame contains no data")
 
+# Exercise multi-period export helpers
+frames = export.workbook_frames_from_results(results)
+if "summary" not in frames:
+    raise SystemExit("workbook_frames_from_results missing summary")
+phase1_prefix = Path("demo/exports/phase1_multi")
+export.export_phase1_multi_metrics(
+    results,
+    str(phase1_prefix),
+    formats=["xlsx", "csv", "json"],
+    include_metrics=True,
+)
+if not phase1_prefix.with_suffix(".xlsx").exists():
+    raise SystemExit("Phase1 multi metrics export failed")
+mpm_prefix = Path("demo/exports/multi_period_metrics")
+export.export_multi_period_metrics(
+    results,
+    str(mpm_prefix),
+    formats=["xlsx", "csv", "json", "txt"],
+    include_metrics=True,
+)
+if not mpm_prefix.with_suffix(".xlsx").exists():
+    raise SystemExit("Multi-period metrics export failed")
+summary = export.combined_summary_result(results)
+summary_frame = export.summary_frame_from_result(summary)
+metrics_frame = export.metrics_from_result(summary)
+if summary_frame.empty or metrics_frame.empty:
+    raise SystemExit("Summary export helpers failed")
+
 # Exercise rank_select_funds via the additional inclusion approaches
 df_full = load_csv(cfg.data["csv_path"])
 if df_full is None:
