@@ -252,12 +252,12 @@ def _check_notebook_utils() -> None:
         return
     tmp = Path("demo/exports/strip_tmp.ipynb")
     shutil.copy(src, tmp)
-    subprocess.run([sys.executable, "tools/strip_output.py", str(tmp)], check=True)
+    subprocess.run([sys.executable, "tools/strip_output.py", str(tmp)], check=True)  # type: ignore[misc]
     data = tmp.read_text(encoding="utf-8")
     if '"outputs": []' not in data:
         raise SystemExit("strip_output failed")
     tmp.unlink()
-    subprocess.run(["sh", "tools/pre-commit"], check=True)
+    subprocess.run(["sh", "tools/pre-commit"], check=True)  # type: ignore[misc]
 
 
 cfg = load("config/demo.yml")
