@@ -129,6 +129,9 @@ def _check_cli(cfg_path: str) -> None:
     rc = cli.main(["-c", cfg_path])
     if rc != 0:
         raise SystemExit("CLI default run failed")
+    rc = cli.main([])
+    if rc != 0:
+        raise SystemExit("CLI default config failed")
 
 
 def _check_misc(cfg_path: str, cfg: Config, results) -> None:
@@ -297,6 +300,10 @@ export.export_phase1_multi_metrics(
 )
 if not phase1_prefix.with_suffix(".xlsx").exists():
     raise SystemExit("Phase1 multi metrics export failed")
+if not phase1_prefix.with_name(f"{phase1_prefix.stem}_periods.csv").exists():
+    raise SystemExit("Phase1 multi metrics CSV missing")
+if not phase1_prefix.with_name(f"{phase1_prefix.stem}_periods.json").exists():
+    raise SystemExit("Phase1 multi metrics JSON missing")
 mpm_prefix = Path("demo/exports/multi_period_metrics")
 export.export_multi_period_metrics(
     results,
@@ -306,6 +313,21 @@ export.export_multi_period_metrics(
 )
 if not mpm_prefix.with_suffix(".xlsx").exists():
     raise SystemExit("Multi-period metrics export failed")
+if not mpm_prefix.with_name(f"{mpm_prefix.stem}_periods.csv").exists():
+    raise SystemExit("Multi-period metrics CSV missing")
+if not mpm_prefix.with_name(f"{mpm_prefix.stem}_periods.json").exists():
+    raise SystemExit("Multi-period metrics JSON missing")
+if not mpm_prefix.with_name(f"{mpm_prefix.stem}_periods.txt").exists():
+    raise SystemExit("Multi-period metrics TXT missing")
+wb_direct = Path("demo/exports/phase1_direct.xlsx")
+export.export_phase1_workbook(results, str(wb_direct))
+if not wb_direct.exists():
+    raise SystemExit("export_phase1_workbook failed")
+pf_frames = export.period_frames_from_results(results)
+if len(pf_frames) != len(results):
+    raise SystemExit("period_frames_from_results count mismatch")
+if "summary" in pf_frames:
+    raise SystemExit("period_frames_from_results should not include summary")
 summary = export.combined_summary_result(results)
 summary_frame = export.summary_frame_from_result(summary)
 metrics_frame = export.metrics_from_result(summary)
@@ -498,6 +520,18 @@ analysis_res = pipeline.run_analysis(
 )
 if analysis_res is None or analysis_res.get("score_frame") is None:
     raise SystemExit("pipeline.run_analysis failed")
+analysis_idx = pipeline.run_analysis(
+    df_full,
+    str(split.get("in_start")),
+    str(split.get("in_end")),
+    str(split.get("out_start")),
+    str(split.get("out_end")),
+    cfg.vol_adjust.get("target_vol", 1.0),
+    getattr(cfg, "run", {}).get("monthly_cost", 0.0),
+    indices_list=["Mgr_01", "Mgr_02"],
+)
+if analysis_idx is None or not analysis_idx.get("benchmark_stats"):
+    raise SystemExit("pipeline.run_analysis with indices_list failed")
 
 # Export a formatted summary workbook and text summary
 split = cfg.sample_split
@@ -570,6 +604,9 @@ if rc != 0:
     raise SystemExit("run_multi_analysis CLI failed")
 if not list(cli_out.glob("*.csv")):
     raise SystemExit("run_multi_analysis CLI produced no output")
+rc = run_multi_analysis.main(["-c", str(cli_cfg), "--detailed"])
+if rc != 0:
+    raise SystemExit("run_multi_analysis CLI detailed failed")
 cli_cfg.unlink()
 
 
@@ -591,6 +628,17 @@ subprocess.run(
         sys.executable,
         "-m",
         "trend_analysis.run_analysis",
+        "-c",
+        "config/demo.yml",
+        "--detailed",
+    ],
+    check=True,
+)
+subprocess.run(
+    [
+        sys.executable,
+        "-m",
+        "trend_analysis.run_multi_analysis",
         "-c",
         "config/demo.yml",
         "--detailed",
