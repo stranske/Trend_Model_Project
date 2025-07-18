@@ -11,6 +11,7 @@ import subprocess
 import sys
 from pathlib import Path
 import os
+import shutil
 import pandas as pd
 import numpy as np
 import yaml
@@ -244,6 +245,21 @@ def _check_metrics_basic() -> None:
         raise SystemExit("metrics.sharpe_ratio failed")
 
 
+def _check_notebook_utils() -> None:
+    """Exercise notebook helper scripts."""
+    src = Path("Vol_Adj_Trend_Analysis1.5.TrEx.ipynb")
+    if not src.exists():
+        return
+    tmp = Path("demo/exports/strip_tmp.ipynb")
+    shutil.copy(src, tmp)
+    subprocess.run([sys.executable, "tools/strip_output.py", str(tmp)], check=True)
+    data = tmp.read_text(encoding="utf-8")
+    if "\"outputs\": []" not in data:
+        raise SystemExit("strip_output failed")
+    tmp.unlink()
+    subprocess.run(["sh", "tools/pre-commit"], check=True)
+
+
 cfg = load("config/demo.yml")
 if cfg.export.get("filename") != "alias_demo.csv":
     raise SystemExit("Output alias not parsed")
@@ -429,7 +445,7 @@ ext_sel = rs.select_funds(
     qcfg,
     "rank",
     2,
-    {"inclusion_approach": "top_n", "n": 2, "score_by": "Sharpe"},
+    rank_kwargs={"inclusion_approach": "top_n", "n": 2, "score_by": "Sharpe"},
 )
 if len(ext_sel) != 2:
     raise SystemExit("select_funds extended mode failed")
@@ -584,6 +600,7 @@ _check_misc("config/demo.yml", cfg, results)
 _check_rebalancer_logic()
 _check_load_csv_error()
 _check_metrics_basic()
+_check_notebook_utils()
 
 # run_analysis.main directly
 if run_analysis.main(["-c", "config/demo.yml"]) != 0:
