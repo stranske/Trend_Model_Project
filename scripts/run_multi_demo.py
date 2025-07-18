@@ -14,7 +14,7 @@ import os
 import shutil
 import pandas as pd
 import numpy as np
-import yaml
+import yaml  # type: ignore[import-untyped]
 from trend_analysis import (
     pipeline,
     export,
@@ -254,7 +254,7 @@ def _check_notebook_utils() -> None:
     shutil.copy(src, tmp)
     subprocess.run([sys.executable, "tools/strip_output.py", str(tmp)], check=True)
     data = tmp.read_text(encoding="utf-8")
-    if "\"outputs\": []" not in data:
+    if '"outputs": []' not in data:
         raise SystemExit("strip_output failed")
     tmp.unlink()
     subprocess.run(["sh", "tools/pre-commit"], check=True)

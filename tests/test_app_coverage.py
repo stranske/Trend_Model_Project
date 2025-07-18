@@ -2,7 +2,7 @@
 
 import sys
 import tempfile
-import yaml
+import yaml  # type: ignore[import-untyped]
 from pathlib import Path
 from unittest.mock import Mock, patch, ANY
 from trend_analysis.gui.app import (
