@@ -253,6 +253,11 @@ def _check_misc(cfg_path: str, cfg: Config, results) -> None:
     if len(scores) != 2:
         raise SystemExit("_compute_metric_series failed")
 
+    # verify pipeline alias handling
+    stats_cls = getattr(pipeline, "Stats")
+    if stats_cls is not pipeline._Stats:
+        raise SystemExit("pipeline.Stats alias failed")
+
 
 def _check_rebalancer_logic() -> None:
     """Verify Rebalancer triggers drop and add events."""
@@ -520,6 +525,16 @@ qcfg = rs.FundSelectionConfig(max_missing_ratio=0.5)
 eligible = rs.quality_filter(df_full, qcfg)
 if not eligible or not set(eligible).issubset(df_full.columns):
     raise SystemExit("quality_filter failed")
+
+filtered = rs._quality_filter(
+    df_full,
+    [c for c in df_full.columns if c not in {"Date", rf_col}],
+    str(cfg.sample_split["in_start"]),
+    str(cfg.sample_split["out_end"]),
+    qcfg,
+)
+if not filtered:
+    raise SystemExit("_quality_filter returned no funds")
 
 simple_sel = rs.select_funds(df_full, rf_col, mode="random", n=2)
 if len(simple_sel) != 2:
