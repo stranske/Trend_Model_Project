@@ -54,6 +54,8 @@ output:
 
 run:
   seed: 42                      # makes demo deterministic
+  jobs: 1
+  checkpoint_dir: demo/checkpoints
 
 multi_period:
   frequency: M                  # monthly periods

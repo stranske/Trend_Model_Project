@@ -206,6 +206,8 @@ def _check_misc(cfg_path: str, cfg: Config, results) -> None:
     os.environ.pop("TREND_CFG", None)
     if cfg_env.version != cfg.version:
         raise SystemExit("TREND_CFG not honoured")
+    if cfg_env.jobs != 1 or cfg_env.checkpoint_dir != "demo/checkpoints":
+        raise SystemExit("Config optional fields not parsed")
 
     df_demo = load_csv(cfg.data["csv_path"])
     df_demo = ensure_datetime(df_demo)
@@ -502,6 +504,17 @@ rank_ids = rank_select_funds(
 if not rank_ids:
     raise SystemExit("rank transform produced no funds")
 
+# cover helper with missing type annotations
+scores = rs._compute_metric_series(window, "Sharpe", rs_cfg)
+extra_ids = rs.some_function_missing_annotation(
+    scores,
+    "top_n",
+    n=2,
+    ascending=False,
+)
+if len(extra_ids) != 2:
+    raise SystemExit("some_function_missing_annotation failed")
+
 # quality_filter and select_funds interfaces
 qcfg = rs.FundSelectionConfig(max_missing_ratio=0.5)
 eligible = rs.quality_filter(df_full, qcfg)
@@ -686,10 +699,11 @@ export.export_data(
     formats=["xlsx", "csv", "json", "txt"],
     formatter=_double,
 )
-if not fmt_prefix.with_suffix(".csv").exists():
+csv_file = fmt_prefix.with_name(f"{fmt_prefix.stem}_tbl.csv")
+if not csv_file.exists():
     raise SystemExit("Formatted CSV not created")
-chk = pd.read_csv(fmt_prefix.with_suffix(".csv"))
-if chk.iloc[0, 0] != 2:
+chk = pd.read_csv(csv_file, index_col=0)
+if chk["A"].iloc[0] != 2:
     raise SystemExit("Formatter did not apply")
 
 _check_gui("config/demo.yml")
