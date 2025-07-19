@@ -381,6 +381,11 @@ results_prefix = Path("demo/exports/workbook_frames")
 export.export_data(frames, str(results_prefix), formats=["xlsx", "csv", "json", "txt"])
 if not results_prefix.with_suffix(".xlsx").exists():
     raise SystemExit("Workbook frame export failed")
+csv_files = list(results_prefix.parent.glob(f"{results_prefix.stem}_*.csv"))
+json_files = list(results_prefix.parent.glob(f"{results_prefix.stem}_*.json"))
+txt_files = list(results_prefix.parent.glob(f"{results_prefix.stem}_*.txt"))
+if not csv_files or not json_files or not txt_files:
+    raise SystemExit("Workbook frame CSV/JSON/TXT missing")
 phase1_prefix = Path("demo/exports/phase1_multi")
 export.export_phase1_multi_metrics(
     results,
@@ -425,14 +430,20 @@ if not mpm_prefix.with_name(f"{mpm_prefix.stem}_summary.csv").exists():
     raise SystemExit("Multi-period metrics summary CSV missing")
 if not mpm_prefix.with_name(f"{mpm_prefix.stem}_summary.json").exists():
     raise SystemExit("Multi-period metrics summary JSON missing")
+if not mpm_prefix.with_name(f"{mpm_prefix.stem}_summary.txt").exists():
+    raise SystemExit("Multi-period metrics summary TXT missing")
 if not mpm_prefix.with_name(f"{mpm_prefix.stem}_metrics.csv").exists():
     raise SystemExit("Multi-period metrics metrics CSV missing")
 if not mpm_prefix.with_name(f"{mpm_prefix.stem}_metrics.json").exists():
     raise SystemExit("Multi-period metrics metrics JSON missing")
+if not mpm_prefix.with_name(f"{mpm_prefix.stem}_metrics.txt").exists():
+    raise SystemExit("Multi-period metrics metrics TXT missing")
 if not mpm_prefix.with_name(f"{mpm_prefix.stem}_metrics_summary.csv").exists():
     raise SystemExit("Multi-period metrics metrics summary CSV missing")
 if not mpm_prefix.with_name(f"{mpm_prefix.stem}_metrics_summary.json").exists():
     raise SystemExit("Multi-period metrics metrics summary JSON missing")
+if not mpm_prefix.with_name(f"{mpm_prefix.stem}_metrics_summary.txt").exists():
+    raise SystemExit("Multi-period metrics metrics summary TXT missing")
 wb_direct = Path("demo/exports/phase1_direct.xlsx")
 export.export_phase1_workbook(results, str(wb_direct))
 if not wb_direct.exists():
@@ -590,6 +601,9 @@ export.export_data(
 )
 if not abw_prefix.with_suffix(".xlsx").exists():
     raise SystemExit("ABW weight export failed")
+for ext in ("csv", "json", "txt"):
+    if not abw_prefix.with_name(f"{abw_prefix.stem}_weights.{ext}").exists():
+        raise SystemExit(f"ABW weight {ext} missing")
 state = abw.get_state()
 abw2 = AdaptiveBayesWeighting(max_w=None)
 abw2.set_state(state)

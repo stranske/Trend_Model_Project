@@ -57,6 +57,9 @@ run:
   jobs: 1
   checkpoint_dir: demo/checkpoints
 
+jobs: 1
+checkpoint_dir: demo/checkpoints
+
 multi_period:
   frequency: M                  # monthly periods
   in_sample_len: 36             # 3 years in-sample
