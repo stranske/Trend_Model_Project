@@ -477,11 +477,26 @@ if len(pf_frames) != len(results):
     raise SystemExit("period_frames_from_results count mismatch")
 if "summary" in pf_frames:
     raise SystemExit("period_frames_from_results should not include summary")
+pf_prefix = Path("demo/exports/period_frames")
+export.export_data(pf_frames, str(pf_prefix), formats=["xlsx", "csv", "json", "txt"])
+if not pf_prefix.with_suffix(".xlsx").exists():
+    raise SystemExit("period frame Excel missing")
+created = list(pf_prefix.parent.glob(f"{pf_prefix.stem}_*.csv"))
+if not created:
+    raise SystemExit("period frame CSV/JSON/TXT missing")
 summary = export.combined_summary_result(results)
 summary_frame = export.summary_frame_from_result(summary)
 metrics_frame = export.metrics_from_result(summary)
 if summary_frame.empty or metrics_frame.empty:
     raise SystemExit("Summary export helpers failed")
+summ_prefix = Path("demo/exports/summary_frames")
+export.export_data(
+    {"summary": summary_frame, "metrics": metrics_frame},
+    str(summ_prefix),
+    formats=["xlsx", "csv", "json", "txt"],
+)
+if not summ_prefix.with_suffix(".xlsx").exists():
+    raise SystemExit("summary frame Excel missing")
 
 # Exercise rank_select_funds via the additional inclusion approaches
 df_full = load_csv(cfg.data["csv_path"])
