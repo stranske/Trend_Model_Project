@@ -721,6 +721,33 @@ chk = pd.read_csv(csv_file, index_col=0)
 if chk["A"].iloc[0] != 2:
     raise SystemExit("Formatter did not apply")
 
+# Exercise individual exporters and the period formatter helper
+indiv_prefix = Path("demo/exports/indiv")
+export.export_to_csv({"metrics": metrics_df}, str(indiv_prefix))
+export.export_to_json({"metrics": metrics_df}, str(indiv_prefix))
+export.export_to_txt({"metrics": metrics_df}, str(indiv_prefix))
+for ext in ("csv", "json", "txt"):
+    if not indiv_prefix.with_name(f"{indiv_prefix.stem}_metrics.{ext}").exists():
+        raise SystemExit(f"export_to_{ext} failed")
+
+extra_prefix = Path("demo/exports/extra_period.xlsx")
+export.reset_formatters_excel()
+export.make_period_formatter(
+    "extra",
+    results[0],
+    str(results[0]["period"][0]),
+    str(results[0]["period"][1]),
+    str(results[0]["period"][2]),
+    str(results[0]["period"][3]),
+)
+export.export_to_excel(
+    {"extra": export.summary_frame_from_result(results[0])},
+    str(extra_prefix),
+)
+wb_extra = openpyxl.load_workbook(extra_prefix)
+if wb_extra["extra"]["A1"].value != "Vol-Adj Trend Analysis":
+    raise SystemExit("make_period_formatter formatting failed")
+
 _check_gui("config/demo.yml")
 _check_selection_modes(cfg)
 _check_cli_env("config/demo.yml")
