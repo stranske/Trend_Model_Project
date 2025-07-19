@@ -94,6 +94,18 @@ def _check_gui(cfg_path: str) -> None:
     if not isinstance(ui, widgets.Widget):
         raise SystemExit("build_ui did not return a Widget")
 
+    # exercise weight state persistence
+    store.weight_state = {"dummy": [1, 2, 3]}
+    gui.save_state(store)
+    loaded_ws = gui.load_state()
+    if loaded_ws.weight_state != store.weight_state:
+        raise SystemExit("weight_state roundtrip failed")
+
+    # verify launch() returns a Widget
+    app = gui.launch()
+    if not isinstance(app, widgets.Widget):
+        raise SystemExit("launch() did not return a Widget")
+
 
 def _check_selection_modes(cfg: Config) -> None:
     """Verify legacy selection modes still operate."""
@@ -117,6 +129,17 @@ def _check_cli_env(cfg_path: str) -> None:
     env["TREND_CFG"] = cfg_path
     subprocess.run(
         [sys.executable, "-m", "trend_analysis.run_analysis", "--detailed"],
+        check=True,
+        env=env,
+    )
+
+
+def _check_cli_env_multi(cfg_path: str) -> None:
+    """Invoke the multi-period CLI using the TREND_CFG variable."""
+    env = os.environ.copy()
+    env["TREND_CFG"] = cfg_path
+    subprocess.run(
+        [sys.executable, "-m", "trend_analysis.run_multi_analysis", "--detailed"],
         check=True,
         env=env,
     )
@@ -595,6 +618,7 @@ if not dummy_prefix.with_suffix(".xlsx").exists():
 _check_gui("config/demo.yml")
 _check_selection_modes(cfg)
 _check_cli_env("config/demo.yml")
+_check_cli_env_multi("config/demo.yml")
 _check_cli("config/demo.yml")
 _check_misc("config/demo.yml", cfg, results)
 _check_rebalancer_logic()
