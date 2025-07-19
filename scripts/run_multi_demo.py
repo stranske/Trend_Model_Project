@@ -15,6 +15,7 @@ import shutil
 import pandas as pd
 import numpy as np
 import yaml  # type: ignore[import-untyped]
+import openpyxl
 from trend_analysis import (
     pipeline,
     export,
@@ -369,6 +370,18 @@ if not phase1_prefix.with_name(f"{phase1_prefix.stem}_periods.csv").exists():
     raise SystemExit("Phase1 multi metrics CSV missing")
 if not phase1_prefix.with_name(f"{phase1_prefix.stem}_periods.json").exists():
     raise SystemExit("Phase1 multi metrics JSON missing")
+if not phase1_prefix.with_name(f"{phase1_prefix.stem}_summary.csv").exists():
+    raise SystemExit("Phase1 multi metrics summary CSV missing")
+if not phase1_prefix.with_name(f"{phase1_prefix.stem}_summary.json").exists():
+    raise SystemExit("Phase1 multi metrics summary JSON missing")
+if not phase1_prefix.with_name(f"{phase1_prefix.stem}_metrics.csv").exists():
+    raise SystemExit("Phase1 multi metrics metrics CSV missing")
+if not phase1_prefix.with_name(f"{phase1_prefix.stem}_metrics.json").exists():
+    raise SystemExit("Phase1 multi metrics metrics JSON missing")
+if not phase1_prefix.with_name(f"{phase1_prefix.stem}_metrics_summary.csv").exists():
+    raise SystemExit("Phase1 multi metrics metrics summary CSV missing")
+if not phase1_prefix.with_name(f"{phase1_prefix.stem}_metrics_summary.json").exists():
+    raise SystemExit("Phase1 multi metrics metrics summary JSON missing")
 mpm_prefix = Path("demo/exports/multi_period_metrics")
 export.export_multi_period_metrics(
     results,
@@ -384,10 +397,27 @@ if not mpm_prefix.with_name(f"{mpm_prefix.stem}_periods.json").exists():
     raise SystemExit("Multi-period metrics JSON missing")
 if not mpm_prefix.with_name(f"{mpm_prefix.stem}_periods.txt").exists():
     raise SystemExit("Multi-period metrics TXT missing")
+if not mpm_prefix.with_name(f"{mpm_prefix.stem}_summary.csv").exists():
+    raise SystemExit("Multi-period metrics summary CSV missing")
+if not mpm_prefix.with_name(f"{mpm_prefix.stem}_summary.json").exists():
+    raise SystemExit("Multi-period metrics summary JSON missing")
+if not mpm_prefix.with_name(f"{mpm_prefix.stem}_metrics.csv").exists():
+    raise SystemExit("Multi-period metrics metrics CSV missing")
+if not mpm_prefix.with_name(f"{mpm_prefix.stem}_metrics.json").exists():
+    raise SystemExit("Multi-period metrics metrics JSON missing")
+if not mpm_prefix.with_name(f"{mpm_prefix.stem}_metrics_summary.csv").exists():
+    raise SystemExit("Multi-period metrics metrics summary CSV missing")
+if not mpm_prefix.with_name(f"{mpm_prefix.stem}_metrics_summary.json").exists():
+    raise SystemExit("Multi-period metrics metrics summary JSON missing")
 wb_direct = Path("demo/exports/phase1_direct.xlsx")
 export.export_phase1_workbook(results, str(wb_direct))
 if not wb_direct.exists():
     raise SystemExit("export_phase1_workbook failed")
+wb = openpyxl.load_workbook(wb_direct)
+expected_sheets = {str(r["period"][3]) for r in results}
+expected_sheets.add("summary")
+if set(wb.sheetnames) != expected_sheets:
+    raise SystemExit("phase1 workbook sheets mismatch")
 pf_frames = export.period_frames_from_results(results)
 if len(pf_frames) != len(results):
     raise SystemExit("period_frames_from_results count mismatch")
