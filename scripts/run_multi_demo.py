@@ -671,6 +671,27 @@ export.export_to_excel(
 if not dummy_prefix.with_suffix(".xlsx").exists():
     raise SystemExit("Custom Excel export failed")
 
+# Exercise export_data with a formatter to cover formatting hooks
+fmt_prefix = Path("demo/exports/formatted_demo")
+df_fmt = pd.DataFrame({"A": [1, 2], "B": [3, 4]})
+
+
+def _double(df: pd.DataFrame) -> pd.DataFrame:
+    return df * 2
+
+
+export.export_data(
+    {"tbl": df_fmt},
+    str(fmt_prefix),
+    formats=["xlsx", "csv", "json", "txt"],
+    formatter=_double,
+)
+if not fmt_prefix.with_suffix(".csv").exists():
+    raise SystemExit("Formatted CSV not created")
+chk = pd.read_csv(fmt_prefix.with_suffix(".csv"))
+if chk.iloc[0, 0] != 2:
+    raise SystemExit("Formatter did not apply")
+
 _check_gui("config/demo.yml")
 _check_selection_modes(cfg)
 _check_cli_env("config/demo.yml")

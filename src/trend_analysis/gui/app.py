@@ -469,11 +469,11 @@ def launch() -> widgets.Widget:
         store.theme = change["new"]
         store.dirty = True
         theme_val = change["new"]
-        js: Javascript = Javascript(  # type: ignore[no-untyped-call]
+        js: Javascript = Javascript(
             f"document.documentElement.style.setProperty("
             f"' --trend-theme','{theme_val}')"
         )
-        display(js)  # type: ignore[no-untyped-call]
+        display(js)
 
     theme.observe(lambda ch, store=store: on_theme(ch, store=store), names="value")
 
