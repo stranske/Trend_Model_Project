@@ -262,10 +262,22 @@ def _check_load_csv_error() -> None:
 
 
 def _check_metrics_basic() -> None:
-    """Run a couple of metrics on a short series."""
+    """Run basic metrics on a short series."""
     s = pd.Series([0.0, 0.01, -0.02])
+    bench = pd.Series([0.0, 0.005, -0.01])
+
+    if not isinstance(metrics.annual_return(s), float):
+        raise SystemExit("metrics.annual_return failed")
+    if not isinstance(metrics.volatility(s), float):
+        raise SystemExit("metrics.volatility failed")
     if not isinstance(metrics.sharpe_ratio(s), float):
         raise SystemExit("metrics.sharpe_ratio failed")
+    if not isinstance(metrics.sortino_ratio(s), float):
+        raise SystemExit("metrics.sortino_ratio failed")
+    if not isinstance(metrics.information_ratio(s, bench), float):
+        raise SystemExit("metrics.information_ratio failed")
+    if not isinstance(metrics.max_drawdown(s), float):
+        raise SystemExit("metrics.max_drawdown failed")
 
 
 def _check_notebook_utils() -> None:
@@ -330,6 +342,10 @@ for r in results:
 frames = export.workbook_frames_from_results(results)
 if "summary" not in frames:
     raise SystemExit("workbook_frames_from_results missing summary")
+results_prefix = Path("demo/exports/workbook_frames")
+export.export_data(frames, str(results_prefix), formats=["xlsx", "csv", "json", "txt"])
+if not results_prefix.with_suffix(".xlsx").exists():
+    raise SystemExit("Workbook frame export failed")
 phase1_prefix = Path("demo/exports/phase1_multi")
 export.export_phase1_multi_metrics(
     results,
