@@ -143,6 +143,11 @@ def _check_cli_env(cfg_path: str) -> None:
         check=True,
         env=env,
     )
+    os.environ["TREND_CFG"] = cfg_path
+    rc = run_analysis.main([])
+    os.environ.pop("TREND_CFG", None)
+    if rc != 0:
+        raise SystemExit("run_analysis.main env failed")
 
 
 def _check_cli_env_multi(cfg_path: str) -> None:
@@ -154,6 +159,11 @@ def _check_cli_env_multi(cfg_path: str) -> None:
         check=True,
         env=env,
     )
+    os.environ["TREND_CFG"] = cfg_path
+    rc = run_multi_analysis.main([])
+    os.environ.pop("TREND_CFG", None)
+    if rc != 0:
+        raise SystemExit("run_multi_analysis.main env failed")
 
 
 def _check_cli(cfg_path: str) -> None:
@@ -296,6 +306,13 @@ def _check_metrics_basic() -> None:
         raise SystemExit("metrics.information_ratio failed")
     if not isinstance(metrics.max_drawdown(s), float):
         raise SystemExit("metrics.max_drawdown failed")
+    # legacy aliases
+    if metrics.annualize_return(s) != metrics.annual_return(s):
+        raise SystemExit("annualize_return mismatch")
+    if metrics.annualize_volatility(s) != metrics.volatility(s):
+        raise SystemExit("annualize_volatility mismatch")
+    if metrics.info_ratio(s, bench) != metrics.information_ratio(s, bench):
+        raise SystemExit("info_ratio mismatch")
 
 
 def _check_notebook_utils() -> None:
