@@ -88,11 +88,21 @@ def _check_gui(cfg_path: str) -> None:
     if "demo" not in gui.list_builtin_cfgs():
         raise SystemExit("list_builtin_cfgs missing demo.yml")
     from trend_analysis.core.rank_selection import build_ui
+    from trend_analysis.gui import app as gui_app
     import ipywidgets as widgets
 
     ui = build_ui()
     if not isinstance(ui, widgets.Widget):
         raise SystemExit("build_ui did not return a Widget")
+
+    # exercise more GUI construction helpers
+    man = gui_app._build_manual_override(store)  # type: ignore[attr-defined]
+    weight = gui_app._build_weighting_options(store)  # type: ignore[attr-defined]
+    step0 = gui_app._build_step0(store)  # type: ignore[attr-defined]
+    rank = gui_app._build_rank_options(store)  # type: ignore[attr-defined]
+    for widget in (man, weight, step0, rank):
+        if not isinstance(widget, widgets.Widget):
+            raise SystemExit("GUI builder did not return a Widget")
 
     # exercise weight state persistence
     store.weight_state = {"dummy": [1, 2, 3]}
