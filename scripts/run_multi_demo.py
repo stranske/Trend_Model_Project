@@ -675,8 +675,10 @@ if not dummy_prefix.with_suffix(".xlsx").exists():
 fmt_prefix = Path("demo/exports/formatted_demo")
 df_fmt = pd.DataFrame({"A": [1, 2], "B": [3, 4]})
 
+
 def _double(df: pd.DataFrame) -> pd.DataFrame:
     return df * 2
+
 
 export.export_data(
     {"tbl": df_fmt},
