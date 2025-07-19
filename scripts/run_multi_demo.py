@@ -315,6 +315,25 @@ def _check_metrics_basic() -> None:
         raise SystemExit("info_ratio mismatch")
 
 
+def _check_builtin_metric_aliases() -> None:
+    """Ensure legacy metrics are accessible via builtins."""
+    import builtins
+    import importlib
+
+    legacy = importlib.import_module("tests.legacy_metrics")
+    s = pd.Series([0.0, 0.02, -0.01])
+
+    if not hasattr(builtins, "annualize_return"):
+        raise SystemExit("builtins missing annualize_return")
+    if not hasattr(builtins, "annualize_volatility"):
+        raise SystemExit("builtins missing annualize_volatility")
+
+    if builtins.annualize_return(s) != legacy.annualize_return(s):
+        raise SystemExit("builtins annualize_return mismatch")
+    if builtins.annualize_volatility(s) != legacy.annualize_volatility(s):
+        raise SystemExit("builtins annualize_volatility mismatch")
+
+
 def _check_notebook_utils() -> None:
     """Exercise notebook helper scripts."""
     src = Path("Vol_Adj_Trend_Analysis1.5.TrEx.ipynb")
@@ -788,6 +807,7 @@ _check_misc("config/demo.yml", cfg, results)
 _check_rebalancer_logic()
 _check_load_csv_error()
 _check_metrics_basic()
+_check_builtin_metric_aliases()
 _check_notebook_utils()
 
 # run_analysis.main directly
