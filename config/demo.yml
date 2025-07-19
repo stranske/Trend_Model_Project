@@ -45,7 +45,7 @@ metrics:
     - max_drawdown
 
 export:
-  output_dir: demo/exports
+  directory: demo/exports
   formats: [csv, xlsx, json, txt]
 
 output:
