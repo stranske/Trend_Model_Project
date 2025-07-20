@@ -1107,6 +1107,24 @@ analysis_idx = pipeline.run_analysis(
 if analysis_idx is None or not analysis_idx.get("benchmark_stats"):
     raise SystemExit("pipeline.run_analysis with indices_list failed")
 
+# Verify custom_weights behaviour using a direct _run_analysis call
+cw_res = pipeline._run_analysis(
+    df_full[["Date", "Mgr_01", "Mgr_02"]],
+    str(split.get("in_start")),
+    str(split.get("in_end")),
+    str(split.get("out_start")),
+    str(split.get("out_end")),
+    cfg.vol_adjust.get("target_vol", 1.0),
+    getattr(cfg, "run", {}).get("monthly_cost", 0.0),
+    selection_mode="all",
+    custom_weights={"Mgr_01": 60, "Mgr_02": 40},
+)
+fw = cw_res.get("fund_weights", {})
+expected = {"Mgr_01": 0.6, "Mgr_02": 0.4}
+for key, val in expected.items():
+    if key in fw and not np.isclose(fw[key], val, atol=1e-6):
+        raise SystemExit("custom_weights not applied")
+
 # Export a formatted summary workbook and text summary
 split = cfg.sample_split
 sheet_fmt = export.make_summary_formatter(
