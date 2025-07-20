@@ -16,6 +16,7 @@ import pandas as pd
 import numpy as np
 import yaml  # type: ignore[import-untyped]
 import openpyxl
+import copy
 from trend_analysis import (
     pipeline,
     export,
@@ -453,6 +454,15 @@ def _check_selector_errors() -> None:
         raise SystemExit("ZScoreSelector missing-column check failed")
 
 
+def _check_zscore_direction() -> None:
+    """Verify ``direction`` parameter handles negative thresholds."""
+    df = pd.DataFrame({"metric": [0.0, 1.0, 2.0]}, index=["A", "B", "C"])
+    sel = ZScoreSelector(0.0, direction=-1, column="metric")
+    selected, _ = sel.select(df)
+    if selected.index.tolist() != ["A"]:
+        raise SystemExit("ZScoreSelector direction handling failed")
+
+
 def _check_weighting_errors() -> None:
     """Ensure weighting classes validate input columns."""
     df = pd.DataFrame({"metric": [0.1, 0.2]}, index=["A", "B"])
@@ -467,7 +477,7 @@ def _check_weighting_errors() -> None:
 
 def _check_engine_error(cfg: Config) -> None:
     """Ensure ``run_mp`` raises ``FileNotFoundError`` when data is missing."""
-    bad = cfg.model_dump()
+    bad = copy.deepcopy(cfg.model_dump())
     bad["data"]["csv_path"] = "_missing.csv"
     try:
         run_mp(Config(**bad))
@@ -1198,6 +1208,12 @@ if not csv_file.exists():
 chk = pd.read_csv(csv_file, index_col=0)
 if chk["A"].iloc[0] != 2:
     raise SystemExit("Formatter did not apply")
+txt_file = fmt_prefix.with_name(f"{fmt_prefix.stem}_tbl.txt")
+if not txt_file.exists():
+    raise SystemExit("Formatted TXT not created")
+txt_lines = txt_file.read_text().splitlines()
+if len(txt_lines) < 2 or not txt_lines[1].strip().startswith("2"):
+    raise SystemExit("TXT formatter did not apply")
 
 # Exercise individual exporters and the period formatter helper
 indiv_prefix = Path("demo/exports/indiv")
@@ -1246,6 +1262,7 @@ _check_load_csv_error()
 _check_metrics_basic()
 _check_builtin_metric_aliases()
 _check_selector_errors()
+_check_zscore_direction()
 _check_weighting_errors()
 _check_core_helpers()
 _check_engine_error(cfg)
@@ -1308,15 +1325,18 @@ if not pkg_path.exists():
 # Exercise package-level exporter helpers
 pkg_csv = pkg_path.with_suffix(".csv")
 ta.export_to_csv({"pkg": pd.DataFrame({"A": [1]})}, str(pkg_csv))
-if not pkg_csv.exists():
+expected_csv = pkg_csv.with_name(f"{pkg_csv.stem}_pkg.csv")
+if not expected_csv.exists():
     raise SystemExit("Package export_to_csv failed")
 pkg_json = pkg_path.with_suffix(".json")
 ta.export_to_json({"pkg": pd.DataFrame({"A": [1]})}, str(pkg_json))
-if not pkg_json.exists():
+expected_json = pkg_json.with_name(f"{pkg_json.stem}_pkg.json")
+if not expected_json.exists():
     raise SystemExit("Package export_to_json failed")
 pkg_data = pkg_path.with_name("pkg_data")
 ta.export_data({"pkg": pd.DataFrame({"A": [1]})}, str(pkg_data), formats=["txt"])
-if not pkg_data.with_suffix(".txt").exists():
+expected_txt = pkg_data.with_name(f"{pkg_data.stem}_pkg.txt")
+if not expected_txt.exists():
     raise SystemExit("Package export_data failed")
 pkg_phase1 = pkg_path.with_name("pkg_phase1")
 ta.export_phase1_multi_metrics(results, str(pkg_phase1), formats=["csv"])
