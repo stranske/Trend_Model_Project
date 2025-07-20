@@ -82,6 +82,8 @@ def _check_gui(cfg_path: str) -> None:
     if loaded.cfg != store.cfg:
         raise SystemExit("GUI state roundtrip failed")
     gui.reset_weight_state(loaded)
+    if store.to_dict() != store.cfg:
+        raise SystemExit("ParamStore.to_dict mismatch")
     gui.discover_plugins()
     cfg_dict = gui.build_config_dict(store)
     cfg_obj = gui.build_config_from_store(store)
@@ -319,6 +321,9 @@ def _check_metrics_basic() -> None:
     s = pd.Series([0.0, 0.01, -0.02])
     bench = pd.Series([0.0, 0.005, -0.01])
 
+    df = pd.DataFrame({"A": s, "B": s * 1.1})
+    bench_df = pd.DataFrame({"A": bench, "B": bench * 1.2})
+
     if not isinstance(metrics.annual_return(s), float):
         raise SystemExit("metrics.annual_return failed")
     if not isinstance(metrics.volatility(s), float):
@@ -331,6 +336,18 @@ def _check_metrics_basic() -> None:
         raise SystemExit("metrics.information_ratio failed")
     if not isinstance(metrics.max_drawdown(s), float):
         raise SystemExit("metrics.max_drawdown failed")
+    if not isinstance(metrics.annual_return(df).iloc[0], float):
+        raise SystemExit("DataFrame metric annual_return failed")
+    if not isinstance(metrics.volatility(df).iloc[0], float):
+        raise SystemExit("DataFrame metric volatility failed")
+    if not isinstance(metrics.sharpe_ratio(df, bench_df).iloc[0], float):
+        raise SystemExit("DataFrame metric sharpe_ratio failed")
+    if not isinstance(metrics.sortino_ratio(df).iloc[0], float):
+        raise SystemExit("DataFrame metric sortino_ratio failed")
+    if not isinstance(metrics.information_ratio(df, bench_df).iloc[0], float):
+        raise SystemExit("DataFrame metric information_ratio failed")
+    if not isinstance(metrics.max_drawdown(df).iloc[0], float):
+        raise SystemExit("DataFrame metric max_drawdown failed")
     # legacy aliases
     if metrics.annualize_return(s) != metrics.annual_return(s):
         raise SystemExit("annualize_return mismatch")
@@ -417,6 +434,15 @@ def _check_core_helpers() -> None:
     periods = scheduler.generate_periods(alias_cfg)
     if not periods or not periods[0].in_start.startswith("2019"):
         raise SystemExit("generate_periods alias handling failed")
+
+    df = pd.DataFrame({"A": [0.1, 0.2, 0.3], "B": [0.2, 0.1, 0.4]})
+    bs = rs.blended_score(
+        df,
+        {"Sharpe": 0.6, "AnnualReturn": 0.4},
+        RiskStatsConfig(),
+    )
+    if not isinstance(bs, pd.Series) or len(bs) != 2:
+        raise SystemExit("blended_score failed")
 
 
 def _check_notebook_utils() -> None:
