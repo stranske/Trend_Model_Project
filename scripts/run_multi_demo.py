@@ -505,6 +505,19 @@ def _check_core_helpers() -> None:
     if not periods or not periods[0].in_start.startswith("2019"):
         raise SystemExit("generate_periods alias handling failed")
 
+    year_cfg = {
+        "multi_period": {
+            "frequency": "YE",
+            "in_sample_len": 1,
+            "out_sample_len": 1,
+            "start": "2018-01",
+            "end": "2024-12",
+        }
+    }
+    year_periods = scheduler.generate_periods(year_cfg)
+    if not year_periods or not year_periods[0].in_start.startswith("2018"):
+        raise SystemExit("generate_periods YE handling failed")
+
     df = pd.DataFrame({"A": [0.1, 0.2, 0.3], "B": [0.2, 0.1, 0.4]})
     bs = rs.blended_score(
         df,
