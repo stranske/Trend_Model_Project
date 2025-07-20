@@ -464,6 +464,12 @@ def _check_core_helpers() -> None:
     else:  # pragma: no cover - should not happen
         raise SystemExit("_apply_transform invalid mode")
 
+    # verify ddof and window handling
+    series = pd.Series([1.0, 2.0, 3.0])
+    transformed = rs._apply_transform(series, mode="zscore", window=2, ddof=1)
+    if not np.isclose(transformed.iloc[-1], 0.70710678, atol=1e-6):
+        raise SystemExit("_apply_transform ddof/window failed")
+
     try:
         rs._compute_metric_series(df, "NoSuch", RiskStatsConfig())
     except ValueError:
@@ -752,6 +758,18 @@ zscore_ids = rank_select_funds(
 )
 if not zscore_ids:
     raise SystemExit("zscore selection produced no funds")
+
+zwin_ids = rank_select_funds(
+    window,
+    rs_cfg,
+    inclusion_approach="top_n",
+    n=2,
+    score_by="Sharpe",
+    transform="zscore",
+    zscore_window=5,
+)
+if not zwin_ids:
+    raise SystemExit("zscore window selection produced no funds")
 
 percentile_ids = rank_select_funds(
     window,

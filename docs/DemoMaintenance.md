@@ -32,6 +32,8 @@ enabled and disabled to ensure all code paths are exercised.
 It now verifies metric functions with DataFrame input, exercises
 ``ParamStore.to_dict`` and runs the multi-period engine using a pre-loaded
 DataFrame to cover the optional argument.
+It also tests ``zscore_window`` and ``ddof`` behaviour via ``_apply_transform``
+so advanced ranking options remain covered.
 4. **Run the test suite**
    ```bash
    ./scripts/run_tests.sh
