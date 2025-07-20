@@ -1078,6 +1078,8 @@ _check_schedule(
 metrics_df = pipeline.run(cfg)
 if metrics_df.empty:
     raise SystemExit("pipeline.run produced empty metrics")
+if "ir_spx" not in metrics_df.columns:
+    raise SystemExit("pipeline.run missing ir_spx column")
 out_prefix = Path("demo/exports/pipeline_demo")
 export.export_data(
     {"metrics": metrics_df},
@@ -1097,6 +1099,9 @@ full_res = pipeline.run_full(cfg)
 sf = full_res.get("score_frame") if isinstance(full_res, dict) else None
 if sf is None or sf.empty:
     raise SystemExit("pipeline.run_full missing score_frame")
+b_ir = full_res.get("benchmark_ir", {}) if isinstance(full_res, dict) else {}
+if "spx" not in b_ir or "equal_weight" not in b_ir.get("spx", {}):
+    raise SystemExit("pipeline.run_full benchmark_ir missing")
 
 # Reuse the sample split for the convenience wrapper
 split = cfg.sample_split
