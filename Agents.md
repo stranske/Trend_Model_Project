@@ -239,6 +239,7 @@ Notebook hygiene: any new exploratory notebook must start with the header
 CI (GitHub Actions) stages to add:
 
 lint  (ruff + black –‑check)
+- Always run `black` on changed files before committing so lint passes.
 
 type‑check (mypy, strict)
 

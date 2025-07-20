@@ -375,10 +375,9 @@ def _check_builtin_metric_aliases() -> None:
 
     if builtins.annualize_return(s) != legacy.annualize_return(s):
         raise SystemExit("builtins annualize_return mismatch")
-    if (
-        builtins.annualize_volatility(s)
-        != legacy.annualize_volatility(s)  # type: ignore[attr-defined]
-    ):
+    if builtins.annualize_volatility(s) != legacy.annualize_volatility(
+        s
+    ):  # type: ignore[attr-defined]
         raise SystemExit("builtins annualize_volatility mismatch")
 
 
@@ -794,7 +793,7 @@ maxdd_ids = rank_select_funds(
     rs_cfg,
     inclusion_approach="top_n",
     n=2,
-    score_by="max_drawdown",
+    score_by="MaxDrawdown",
 )
 if not maxdd_ids:
     raise SystemExit("max_drawdown selection produced no funds")
