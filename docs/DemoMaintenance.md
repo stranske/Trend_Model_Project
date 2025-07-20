@@ -29,6 +29,9 @@ It now verifies the Excel formatter registry via ``reset_formatters_excel`` and
 ``register_formatter_excel`` so custom formatting hooks remain functional.
 It additionally calls the multi-period exporters with ``include_metrics`` both
 enabled and disabled to ensure all code paths are exercised.
+It now verifies metric functions with DataFrame input, exercises
+``ParamStore.to_dict`` and runs the multi-period engine using a pre-loaded
+DataFrame to cover the optional argument.
 4. **Run the test suite**
    ```bash
    ./scripts/run_tests.sh
