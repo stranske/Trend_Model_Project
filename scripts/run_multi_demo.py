@@ -79,6 +79,12 @@ def _check_gui(cfg_path: str) -> None:
         raise SystemExit("GUI state roundtrip failed")
     gui.reset_weight_state(loaded)
     gui.discover_plugins()
+    cfg_dict = gui.build_config_dict(store)
+    cfg_obj = gui.build_config_from_store(store)
+    dumped = cfg_obj.model_dump()
+    for k, v in cfg_dict.items():
+        if dumped.get(k) != v:
+            raise SystemExit("build_config_from_store mismatch")
 
     class _DummyPlugin:
         pass
@@ -698,6 +704,21 @@ ext_sel = rs.select_funds(
 )
 if len(ext_sel) != 2:
     raise SystemExit("select_funds extended mode failed")
+
+ext_sel_direct = rs.select_funds_extended(
+    df_full,
+    rf_col,
+    cols,
+    str(cfg.sample_split["in_start"]),
+    str(cfg.sample_split["in_end"]),
+    str(cfg.sample_split["out_start"]),
+    str(cfg.sample_split["out_end"]),
+    qcfg,
+    selection_mode="rank",
+    rank_kwargs={"inclusion_approach": "top_n", "n": 2, "score_by": "Sharpe"},
+)
+if len(ext_sel_direct) != 2:
+    raise SystemExit("select_funds_extended direct call failed")
 
 abw = AdaptiveBayesWeighting(max_w=None)
 pf_abw = _check_schedule(
