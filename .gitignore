@@ -16,3 +16,6 @@ __pycache__/
 .coverage
 outputs/
 .venv/
+
+# demo output
+demo/*.xlsx
