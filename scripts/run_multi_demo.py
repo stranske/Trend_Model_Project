@@ -383,6 +383,35 @@ def _check_weighting_errors() -> None:
         raise SystemExit(f"{cls.__name__} missing-column check failed")
 
 
+def _check_core_helpers() -> None:
+    """Exercise low-level helpers not hit elsewhere."""
+
+    const = pd.Series([0.0, 0.0, 0.0])
+    z = rs._zscore(const)
+    if not np.allclose(z, 0.0):
+        raise SystemExit("_zscore constant input failed")
+
+    try:
+        BaseWeighting().weight(pd.DataFrame())
+    except NotImplementedError:
+        pass
+    else:  # pragma: no cover - should not happen
+        raise SystemExit("BaseWeighting.weight did not raise")
+
+    alias_cfg = {
+        "multi_period": {
+            "frequency": "QE",
+            "in_sample_len": 4,
+            "out_sample_len": 1,
+            "start": "2019-01",
+            "end": "2020-12",
+        }
+    }
+    periods = scheduler.generate_periods(alias_cfg)
+    if not periods or not periods[0].in_start.startswith("2019"):
+        raise SystemExit("generate_periods alias handling failed")
+
+
 def _check_notebook_utils() -> None:
     """Exercise notebook helper scripts."""
     src = Path("Vol_Adj_Trend_Analysis1.5.TrEx.ipynb")
@@ -945,6 +974,7 @@ _check_metrics_basic()
 _check_builtin_metric_aliases()
 _check_selector_errors()
 _check_weighting_errors()
+_check_core_helpers()
 _check_notebook_utils()
 
 # ------------------------------------------------------------
