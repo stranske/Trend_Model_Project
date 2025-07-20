@@ -38,6 +38,7 @@ from trend_analysis.core.rank_selection import rank_select_funds, RiskStatsConfi
 from trend_analysis.core import rank_selection as rs
 from trend_analysis.weighting import (
     AdaptiveBayesWeighting,
+    BaseWeighting,
     EqualWeight,
     ScorePropSimple,
     ScorePropBayesian,
