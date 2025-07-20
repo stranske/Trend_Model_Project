@@ -53,6 +53,8 @@ def _check_demo_data(cfg: Config) -> pd.DataFrame:
     if df is None:
         raise SystemExit("Failed to load demo CSV")
     df = ensure_datetime(df)
+    if not df["Date"].is_monotonic_increasing:
+        raise SystemExit("Demo dataset not sorted by date")
     if df.shape != (120, 21):
         raise SystemExit("Demo dataset shape mismatch")
     if df["Date"].isnull().any():
@@ -60,6 +62,16 @@ def _check_demo_data(cfg: Config) -> pd.DataFrame:
     mgr_cols = [c for c in df.columns if c != "Date"]
     if len(mgr_cols) != 20:
         raise SystemExit("Demo dataset manager count mismatch")
+    first = df["Date"].iloc[0]
+    last = df["Date"].iloc[-1]
+    if last != first + pd.DateOffset(months=119):
+        raise SystemExit("Demo dataset date range mismatch")
+    xlsx_path = Path(cfg.data["csv_path"]).with_suffix(".xlsx")
+    if not xlsx_path.exists():
+        raise SystemExit("Demo Excel file missing")
+    df_xlsx = pd.read_excel(xlsx_path)
+    if df_xlsx.shape != df.shape:
+        raise SystemExit("Demo Excel shape mismatch")
     return df
 
 
