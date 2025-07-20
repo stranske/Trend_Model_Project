@@ -447,7 +447,7 @@ phase1_prefix = Path("demo/exports/phase1_multi")
 export.export_phase1_multi_metrics(
     results,
     str(phase1_prefix),
-    formats=["xlsx", "csv", "json"],
+    formats=["xlsx", "csv", "json", "txt"],
     include_metrics=True,
 )
 if not phase1_prefix.with_suffix(".xlsx").exists():
@@ -460,6 +460,10 @@ if not phase1_prefix.with_name(f"{phase1_prefix.stem}_summary.csv").exists():
     raise SystemExit("Phase1 multi metrics summary CSV missing")
 if not phase1_prefix.with_name(f"{phase1_prefix.stem}_summary.json").exists():
     raise SystemExit("Phase1 multi metrics summary JSON missing")
+if not phase1_prefix.with_name(f"{phase1_prefix.stem}_periods.txt").exists():
+    raise SystemExit("Phase1 multi metrics TXT missing")
+if not phase1_prefix.with_name(f"{phase1_prefix.stem}_summary.txt").exists():
+    raise SystemExit("Phase1 multi metrics summary TXT missing")
 if not phase1_prefix.with_name(f"{phase1_prefix.stem}_metrics.csv").exists():
     raise SystemExit("Phase1 multi metrics metrics CSV missing")
 if not phase1_prefix.with_name(f"{phase1_prefix.stem}_metrics.json").exists():
@@ -468,6 +472,8 @@ if not phase1_prefix.with_name(f"{phase1_prefix.stem}_metrics_summary.csv").exis
     raise SystemExit("Phase1 multi metrics metrics summary CSV missing")
 if not phase1_prefix.with_name(f"{phase1_prefix.stem}_metrics_summary.json").exists():
     raise SystemExit("Phase1 multi metrics metrics summary JSON missing")
+if not phase1_prefix.with_name(f"{phase1_prefix.stem}_metrics_summary.txt").exists():
+    raise SystemExit("Phase1 multi metrics metrics summary TXT missing")
 mpm_prefix = Path("demo/exports/multi_period_metrics")
 export.export_multi_period_metrics(
     results,
@@ -1039,6 +1045,30 @@ subprocess.run(
         "--detailed",
     ],
     check=True,
+)
+
+subprocess.run(
+    [
+        sys.executable,
+        "-m",
+        "trend_analysis.cli",
+        "--version",
+        "-c",
+        "config/demo.yml",
+    ],
+    check=True,
+)
+
+env = os.environ.copy()
+env["TREND_CFG"] = "config/demo.yml"
+subprocess.run(
+    [
+        sys.executable,
+        "-m",
+        "trend_analysis.cli",
+    ],
+    check=True,
+    env=env,
 )
 
 # Execute the full test suite to cover the entire code base
