@@ -28,6 +28,9 @@ portfolio:
     params:
       top_n: 5
       rank_column: Sharpe
+  custom_weights:
+    Mgr_01: 60
+    Mgr_02: 40
   weighting:
     name: equal
     params: {}
