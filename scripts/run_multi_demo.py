@@ -25,6 +25,7 @@ from trend_analysis import (
     run_analysis,
     run_multi_analysis,
 )
+import trend_analysis as ta
 from trend_analysis.multi_period import (
     run as run_mp,
     run_schedule,
@@ -960,6 +961,22 @@ def _check_config_errors() -> None:
 # Execute additional error handling checks
 _check_export_errors()
 _check_config_errors()
+
+# Verify top-level package exports
+pkg_cfg = ta.config.load("config/demo.yml")
+pkg_df = ta.load_csv(pkg_cfg.data["csv_path"])
+if ta.identify_risk_free_fund(pkg_df) is None:
+    raise SystemExit("Package export check failed")
+ta.reset_formatters_excel()
+
+@ta.register_formatter_excel("pkg")
+def _pkg_fmt(ws, _wb):
+    ws.write(0, 0, "pkg")
+
+pkg_path = Path("demo/exports/pkg.xlsx")
+ta.export_to_excel({"pkg": pd.DataFrame({"A": [1]})}, str(pkg_path))
+if not pkg_path.exists():
+    raise SystemExit("Package export_to_excel failed")
 
 # run_analysis.main directly
 if run_analysis.main(["-c", "config/demo.yml"]) != 0:
