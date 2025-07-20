@@ -969,9 +969,11 @@ if ta.identify_risk_free_fund(pkg_df) is None:
     raise SystemExit("Package export check failed")
 ta.reset_formatters_excel()
 
+
 @ta.register_formatter_excel("pkg")
 def _pkg_fmt(ws, _wb):
     ws.write(0, 0, "pkg")
+
 
 pkg_path = Path("demo/exports/pkg.xlsx")
 ta.export_to_excel({"pkg": pd.DataFrame({"A": [1]})}, str(pkg_path))
