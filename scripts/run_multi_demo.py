@@ -31,6 +31,7 @@ from trend_analysis.multi_period import (
     run_schedule,
     scheduler,
 )
+from trend_analysis.multi_period.engine import Portfolio, SelectorProtocol
 from trend_analysis.multi_period.replacer import Rebalancer
 from trend_analysis.selector import RankSelector, ZScoreSelector
 from trend_analysis.data import load_csv, identify_risk_free_fund, ensure_datetime
@@ -43,16 +44,17 @@ from trend_analysis.weighting import (
     ScorePropSimple,
     ScorePropBayesian,
 )
+from typing import Mapping, Sequence, Any
 
 
 def _check_schedule(
-    score_frames,
-    selector,
-    weighting,
-    cfg,
+    score_frames: Mapping[str, pd.DataFrame],
+    selector: SelectorProtocol,
+    weighting: BaseWeighting,
+    cfg: Config,
     *,
-    rank_column=None,
-):
+    rank_column: str | None = None,
+) -> Portfolio:
     rebalancer = Rebalancer(cfg.model_dump())
     pf = run_schedule(
         score_frames,
@@ -105,10 +107,10 @@ def _check_gui(cfg_path: str) -> None:
         raise SystemExit("build_ui did not return a Widget")
 
     # exercise more GUI construction helpers
-    man = gui_app._build_manual_override(store)  # type: ignore[attr-defined]
-    weight = gui_app._build_weighting_options(store)  # type: ignore[attr-defined]
-    step0 = gui_app._build_step0(store)  # type: ignore[attr-defined]
-    rank = gui_app._build_rank_options(store)  # type: ignore[attr-defined]
+    man = gui_app._build_manual_override(store)
+    weight = gui_app._build_weighting_options(store)
+    step0 = gui_app._build_step0(store)
+    rank = gui_app._build_rank_options(store)
     for widget in (man, weight, step0, rank):
         if not isinstance(widget, widgets.Widget):
             raise SystemExit("GUI builder did not return a Widget")
@@ -187,7 +189,11 @@ def _check_cli(cfg_path: str) -> None:
         raise SystemExit("CLI default config failed")
 
 
-def _check_misc(cfg_path: str, cfg: Config, results) -> None:
+def _check_misc(
+    cfg_path: str,
+    cfg: Config,
+    results: Sequence[dict[str, Any]],
+) -> None:
     """Exercise smaller utility modules."""
     from trend_analysis import metrics
     import asyncio
@@ -206,7 +212,7 @@ def _check_misc(cfg_path: str, cfg: Config, results) -> None:
 
     called: list[int] = []
 
-    @gui.debounce(50)
+    @gui.debounce(50)  # type: ignore[misc]
     async def ping(val: int) -> None:
         called.append(val)
 
@@ -248,8 +254,8 @@ def _check_misc(cfg_path: str, cfg: Config, results) -> None:
         raise SystemExit("calc_portfolio_returns length mismatch")
 
     # dynamic metric registration
-    @metrics.register_metric("dummy_metric")
-    def _dummy(series):
+    @metrics.register_metric("dummy_metric")  # type: ignore[misc]
+    def _dummy(series: pd.Series) -> float:
         return float(series.mean())
 
     if "dummy_metric" not in metrics.available_metrics():
@@ -349,7 +355,7 @@ def _check_builtin_metric_aliases() -> None:
 
     if builtins.annualize_return(s) != legacy.annualize_return(s):
         raise SystemExit("builtins annualize_return mismatch")
-    if builtins.annualize_volatility(s) != legacy.annualize_volatility(s):
+    if builtins.annualize_volatility(s) != legacy.annualize_volatility(s):  # type: ignore[attr-defined]
         raise SystemExit("builtins annualize_volatility mismatch")
 
 
@@ -420,12 +426,12 @@ def _check_notebook_utils() -> None:
         return
     tmp = Path("demo/exports/strip_tmp.ipynb")
     shutil.copy(src, tmp)
-    subprocess.run([sys.executable, "tools/strip_output.py", str(tmp)], check=True)  # type: ignore
+    subprocess.run([sys.executable, "tools/strip_output.py", str(tmp)], check=True)
     data = tmp.read_text(encoding="utf-8")
     if '"outputs": []' not in data:
         raise SystemExit("strip_output failed")
     tmp.unlink()
-    subprocess.run(["sh", "tools/pre-commit"], check=True)  # type: ignore
+    subprocess.run(["sh", "tools/pre-commit"], check=True)
 
 
 cfg = load("config/demo.yml")
@@ -681,6 +687,17 @@ alias_ids = rank_select_funds(
 if not alias_ids:
     raise SystemExit("transform_mode alias failed")
 
+# verify ranking with the InformationRatio metric works
+ir_ids = rank_select_funds(
+    window,
+    rs_cfg,
+    inclusion_approach="top_n",
+    n=2,
+    score_by="InformationRatio",
+)
+if not ir_ids:
+    raise SystemExit("information_ratio selection produced no funds")
+
 df_tmp = pd.DataFrame({"Time": ["2020-01-01", "2020-02-01"], "Val": [0.0, 0.1]})
 dt_tmp = ensure_datetime(df_tmp, "Time")
 if not pd.api.types.is_datetime64_any_dtype(dt_tmp["Time"]):
@@ -901,8 +918,11 @@ if not summary_prefix.with_suffix(".xlsx").exists():
 export.reset_formatters_excel()
 
 
-@export.register_formatter_excel("dummy")
-def _demo_fmt(ws, wb):
+@export.register_formatter_excel("dummy")  # type: ignore[misc]
+def _demo_fmt(
+    ws: openpyxl.worksheet.worksheet.Worksheet,
+    wb: openpyxl.Workbook,
+) -> None:
     ws.write(0, 0, "demo")
 
 
@@ -1019,8 +1039,11 @@ if ta.identify_risk_free_fund(pkg_df) is None:
 ta.reset_formatters_excel()
 
 
-@ta.register_formatter_excel("pkg")
-def _pkg_fmt(ws, _wb):
+@ta.register_formatter_excel("pkg")  # type: ignore[misc]
+def _pkg_fmt(
+    ws: openpyxl.worksheet.worksheet.Worksheet,
+    _wb: openpyxl.Workbook,
+) -> None:
     ws.write(0, 0, "pkg")
 
 
