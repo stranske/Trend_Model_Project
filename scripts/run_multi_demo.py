@@ -124,7 +124,6 @@ def _check_gui(cfg_path: str) -> None:
         raise SystemExit("launch() did not return a Widget")
 
 
-
 def _check_selection_modes(cfg: Config) -> None:
     """Verify legacy selection modes still operate."""
     base = cfg.model_dump()
