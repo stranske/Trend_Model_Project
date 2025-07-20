@@ -342,9 +342,25 @@ def _check_rebalancer_logic() -> None:
 
 
 def _check_load_csv_error() -> None:
-    """Ensure ``load_csv`` returns ``None`` for missing files."""
+    """Ensure ``load_csv`` gracefully handles invalid input."""
     if load_csv("_no_such_file_.csv") is not None:
         raise SystemExit("load_csv error handling failed")
+
+    tmp_no_date = Path("demo/exports/no_date.csv")
+    tmp_no_date.write_text("A,B\n1,2\n", encoding="utf-8")
+    try:
+        if load_csv(str(tmp_no_date)) is not None:
+            raise SystemExit("load_csv Date-missing check failed")
+    finally:
+        tmp_no_date.unlink(missing_ok=True)
+
+    tmp_bad = Path("demo/exports/bad.csv")
+    tmp_bad.write_text('"a","b"\n1,"2', encoding="utf-8")
+    try:
+        if load_csv(str(tmp_bad)) is not None:
+            raise SystemExit("load_csv parser error check failed")
+    finally:
+        tmp_bad.unlink(missing_ok=True)
 
 
 def _check_metrics_basic() -> None:
@@ -438,6 +454,18 @@ def _check_weighting_errors() -> None:
         except KeyError:
             continue
         raise SystemExit(f"{cls.__name__} missing-column check failed")
+
+
+def _check_engine_error(cfg: Config) -> None:
+    """Ensure ``run_mp`` raises ``FileNotFoundError`` when data is missing."""
+    bad = cfg.model_dump()
+    bad["data"]["csv_path"] = "_missing.csv"
+    try:
+        run_mp(Config(**bad))
+    except FileNotFoundError:
+        pass
+    else:  # pragma: no cover - should not happen
+        raise SystemExit("run_mp missing-file check failed")
 
 
 def _check_core_helpers() -> None:
@@ -1179,6 +1207,7 @@ _check_builtin_metric_aliases()
 _check_selector_errors()
 _check_weighting_errors()
 _check_core_helpers()
+_check_engine_error(cfg)
 _check_notebook_utils()
 
 # ------------------------------------------------------------
