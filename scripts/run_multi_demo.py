@@ -928,6 +928,38 @@ _check_selector_errors()
 _check_weighting_errors()
 _check_notebook_utils()
 
+# ------------------------------------------------------------
+# Additional error handling checks
+
+
+def _check_export_errors() -> None:
+    """Ensure exporter functions validate input."""
+    df = pd.DataFrame({"A": [1]})
+    try:
+        export.export_data({"A": df}, "demo/exports/bad", formats=["foo"])
+    except ValueError:
+        pass
+    else:  # pragma: no cover - should not happen
+        raise SystemExit("export_data did not reject unknown format")
+
+
+def _check_config_errors() -> None:
+    """Verify config loader rejects invalid YAML."""
+    tmp = Path("demo/exports/invalid.yml")
+    tmp.write_text("- a\n- b\n", encoding="utf-8")
+    try:
+        load(str(tmp))
+    except TypeError:
+        pass
+    else:  # pragma: no cover - should not happen
+        raise SystemExit("config.load accepted non-mapping YAML")
+    finally:
+        tmp.unlink(missing_ok=True)
+
+# Execute additional error handling checks
+_check_export_errors()
+_check_config_errors()
+
 # run_analysis.main directly
 if run_analysis.main(["-c", "config/demo.yml"]) != 0:
     raise SystemExit("run_analysis.main failed")
