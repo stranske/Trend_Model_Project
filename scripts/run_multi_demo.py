@@ -375,7 +375,9 @@ def _check_builtin_metric_aliases() -> None:
 
     if builtins.annualize_return(s) != legacy.annualize_return(s):
         raise SystemExit("builtins annualize_return mismatch")
-    if builtins.annualize_volatility(s) != legacy.annualize_volatility(s):  # type: ignore[attr-defined]
+    if builtins.annualize_volatility(s) != legacy.annualize_volatility(
+        s
+    ):  # type: ignore[attr-defined]
         raise SystemExit("builtins annualize_volatility mismatch")
 
 
@@ -446,6 +448,28 @@ def _check_core_helpers() -> None:
     )
     if not isinstance(bs, pd.Series) or len(bs) != 2:
         raise SystemExit("blended_score failed")
+
+    # error handling branches
+    try:
+        rs.blended_score(df, {}, RiskStatsConfig())
+    except ValueError:
+        pass
+    else:  # pragma: no cover - should not happen
+        raise SystemExit("blended_score accepted empty weights")
+
+    try:
+        rs._apply_transform(pd.Series([1, 2]), mode="bogus")
+    except ValueError:
+        pass
+    else:  # pragma: no cover - should not happen
+        raise SystemExit("_apply_transform invalid mode")
+
+    try:
+        rs._compute_metric_series(df, "NoSuch", RiskStatsConfig())
+    except ValueError:
+        pass
+    else:  # pragma: no cover - should not happen
+        raise SystemExit("_compute_metric_series failed to reject unknown metric")
 
 
 def _check_notebook_utils() -> None:
@@ -769,7 +793,7 @@ maxdd_ids = rank_select_funds(
     rs_cfg,
     inclusion_approach="top_n",
     n=2,
-    score_by="max_drawdown",
+    score_by="MaxDrawdown",
 )
 if not maxdd_ids:
     raise SystemExit("max_drawdown selection produced no funds")
@@ -819,6 +843,22 @@ extra_ids = rs.some_function_missing_annotation(
 )
 if len(extra_ids) != 2:
     raise SystemExit("some_function_missing_annotation failed")
+pct_ids = rs.some_function_missing_annotation(
+    scores,
+    "top_pct",
+    pct=0.5,
+    ascending=False,
+)
+if not pct_ids:
+    raise SystemExit("some_function_missing_annotation top_pct failed")
+thr_ids = rs.some_function_missing_annotation(
+    scores,
+    "threshold",
+    threshold=0.0,
+    ascending=False,
+)
+if not thr_ids:
+    raise SystemExit("some_function_missing_annotation threshold failed")
 
 # quality_filter and select_funds interfaces
 qcfg = rs.FundSelectionConfig(max_missing_ratio=0.5)
