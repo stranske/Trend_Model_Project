@@ -35,6 +35,8 @@ DataFrame to cover the optional argument.
 It also tests ``zscore_window`` and ``ddof`` behaviour via ``_apply_transform``
 so advanced ranking options remain covered.
 It now confirms the generated demo dataset contains 10 years of monthly data across 20 managers so ``generate_demo.py`` stays reliable.
+It additionally verifies an Excel copy is produced and that the dates span
+exactly 120 consecutive months.
 4. **Run the test suite**
    ```bash
    ./scripts/run_tests.sh
