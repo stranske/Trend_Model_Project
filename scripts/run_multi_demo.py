@@ -327,6 +327,15 @@ def _check_config_dump(cfg: Config) -> None:
         raise SystemExit("Config model_dump roundtrip failed")
 
 
+def _check_default_load() -> None:
+    """Ensure ``load(None)`` falls back to ``defaults.yml``."""
+    os.environ.pop("TREND_CFG", None)
+    cfg_def = load(None)
+    cfg_ref = load("config/defaults.yml")
+    if cfg_def.version != cfg_ref.version:
+        raise SystemExit("Config default load mismatch")
+
+
 def _check_rebalancer_logic() -> None:
     """Verify Rebalancer triggers drop and add events."""
     reb = Rebalancer({})
@@ -387,7 +396,7 @@ def _check_metrics_basic() -> None:
         raise SystemExit("DataFrame metric annual_return failed")
     if not isinstance(metrics.volatility(df).iloc[0], float):
         raise SystemExit("DataFrame metric volatility failed")
-    if not isinstance(metrics.sharpe_ratio(df, bench_df).iloc[0], float):
+    if not isinstance(metrics.sharpe_ratio(df).iloc[0], float):
         raise SystemExit("DataFrame metric sharpe_ratio failed")
     if not isinstance(metrics.sortino_ratio(df).iloc[0], float):
         raise SystemExit("DataFrame metric sortino_ratio failed")
@@ -1200,6 +1209,7 @@ _check_cli_env_multi("config/demo.yml")
 _check_cli("config/demo.yml")
 _check_misc("config/demo.yml", cfg, results)
 _check_config_dump(cfg)
+_check_default_load()
 _check_rebalancer_logic()
 _check_load_csv_error()
 _check_metrics_basic()
