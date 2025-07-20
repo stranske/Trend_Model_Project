@@ -503,7 +503,9 @@ metrics_prefix = Path("demo/exports/period_metrics")
 period_metrics = {
     str(res["period"][3]): export.metrics_from_result(res) for res in results
 }
-export.export_data(period_metrics, str(metrics_prefix), formats=["xlsx", "csv", "json", "txt"])
+export.export_data(
+    period_metrics, str(metrics_prefix), formats=["xlsx", "csv", "json", "txt"]
+)
 if not metrics_prefix.with_suffix(".xlsx").exists():
     raise SystemExit("period metrics Excel missing")
 created = list(metrics_prefix.parent.glob(f"{metrics_prefix.stem}_*.csv"))
