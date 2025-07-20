@@ -47,6 +47,22 @@ from trend_analysis.weighting import (
 from typing import Mapping, Sequence, Any
 
 
+def _check_demo_data(cfg: Config) -> pd.DataFrame:
+    """Validate the generated demo CSV and return the DataFrame."""
+    df = load_csv(cfg.data["csv_path"])
+    if df is None:
+        raise SystemExit("Failed to load demo CSV")
+    df = ensure_datetime(df)
+    if df.shape != (120, 21):
+        raise SystemExit("Demo dataset shape mismatch")
+    if df["Date"].isnull().any():
+        raise SystemExit("Demo dataset contains invalid dates")
+    mgr_cols = [c for c in df.columns if c != "Date"]
+    if len(mgr_cols) != 20:
+        raise SystemExit("Demo dataset manager count mismatch")
+    return df
+
+
 def _check_schedule(
     score_frames: Mapping[str, pd.DataFrame],
     selector: SelectorProtocol,
@@ -494,6 +510,7 @@ def _check_notebook_utils() -> None:
 
 
 cfg = load("config/demo.yml")
+demo_df = _check_demo_data(cfg)
 if cfg.export.get("filename") != "alias_demo.csv":
     raise SystemExit("Output alias not parsed")
 results = run_mp(cfg)
@@ -506,8 +523,7 @@ if num_periods != expected_periods:
 if num_periods <= 1:
     raise SystemExit("Multi-period demo produced insufficient results")
 
-# Ensure run_mp works with a pre-loaded DataFrame
-df_pre = load_csv(cfg.data["csv_path"])
+df_pre = demo_df
 results_pre = run_mp(cfg, df_pre)
 if len(results_pre) != num_periods:
     raise SystemExit("Preloaded DataFrame run mismatch")
@@ -710,10 +726,7 @@ if not created:
     raise SystemExit("period metrics CSV/JSON/TXT missing")
 
 # Exercise rank_select_funds via the additional inclusion approaches
-df_full = load_csv(cfg.data["csv_path"])
-if df_full is None:
-    raise SystemExit("Failed to load demo CSV")
-df_full = ensure_datetime(df_full)
+df_full = demo_df
 rf_col = identify_risk_free_fund(df_full)
 if rf_col is None:
     raise SystemExit("identify_risk_free_fund failed")
