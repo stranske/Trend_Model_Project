@@ -23,7 +23,8 @@ checks the Jupyter notebook utilities.
 It now validates configuration round-tripping via ``model_dump`` and
 ``model_dump_json``.
 It further exercises core utilities like ``_zscore`` and the base weighting
-stub to ensure low-level helpers behave correctly.
+stub to ensure low-level helpers behave correctly. The demo now also selects
+funds using ``information_ratio`` so the new metric is tested end-to-end.
 4. **Run the test suite**
    ```bash
    ./scripts/run_tests.sh
