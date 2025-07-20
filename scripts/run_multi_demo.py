@@ -276,6 +276,17 @@ def _check_misc(cfg_path: str, cfg: Config, results) -> None:
         raise SystemExit("pipeline.Stats alias failed")
 
 
+def _check_config_dump(cfg: Config) -> None:
+    """Verify ``Config`` serialisation helpers."""
+    data = cfg.model_dump()
+    dumped = cfg.model_dump_json()
+    if not isinstance(dumped, str) or "version" not in dumped:
+        raise SystemExit("model_dump_json output invalid")
+    cfg2 = Config(**data)
+    if cfg2.version != cfg.version:
+        raise SystemExit("Config model_dump roundtrip failed")
+
+
 def _check_rebalancer_logic() -> None:
     """Verify Rebalancer triggers drop and add events."""
     reb = Rebalancer({})
@@ -927,6 +938,7 @@ _check_cli_env("config/demo.yml")
 _check_cli_env_multi("config/demo.yml")
 _check_cli("config/demo.yml")
 _check_misc("config/demo.yml", cfg, results)
+_check_config_dump(cfg)
 _check_rebalancer_logic()
 _check_load_csv_error()
 _check_metrics_basic()
