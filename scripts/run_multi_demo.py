@@ -98,8 +98,11 @@ def _check_gui(cfg_path: str) -> None:
     gui.register_plugin(_DummyPlugin)
     if _DummyPlugin not in list(gui.iter_plugins()):
         raise SystemExit("Plugin registration failed")
-    if "demo" not in gui.list_builtin_cfgs():
+    builtin_cfgs = gui.list_builtin_cfgs()
+    if "demo" not in builtin_cfgs:
         raise SystemExit("list_builtin_cfgs missing demo.yml")
+    if "defaults" not in builtin_cfgs:
+        raise SystemExit("list_builtin_cfgs missing defaults.yml")
     from trend_analysis.core.rank_selection import build_ui
     from trend_analysis.gui import app as gui_app
     import ipywidgets as widgets
@@ -759,6 +762,17 @@ alias_ids = rank_select_funds(
 )
 if not alias_ids:
     raise SystemExit("transform_mode alias failed")
+
+# verify ranking works with an ascending metric alias
+maxdd_ids = rank_select_funds(
+    window,
+    rs_cfg,
+    inclusion_approach="top_n",
+    n=2,
+    score_by="max_drawdown",
+)
+if not maxdd_ids:
+    raise SystemExit("max_drawdown selection produced no funds")
 
 # verify ranking with the InformationRatio metric works
 ir_ids = rank_select_funds(
