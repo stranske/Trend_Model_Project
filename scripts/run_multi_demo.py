@@ -554,6 +554,41 @@ if not mpm_prefix.with_name(f"{mpm_prefix.stem}_metrics_summary.json").exists():
     raise SystemExit("Multi-period metrics metrics summary JSON missing")
 if not mpm_prefix.with_name(f"{mpm_prefix.stem}_metrics_summary.txt").exists():
     raise SystemExit("Multi-period metrics metrics summary TXT missing")
+
+# Verify exporters also handle the no-metrics case
+phase1_nom_prefix = Path("demo/exports/phase1_multi_nom")
+export.export_phase1_multi_metrics(
+    results,
+    str(phase1_nom_prefix),
+    formats=["xlsx", "csv", "json", "txt"],
+    include_metrics=False,
+)
+if not phase1_nom_prefix.with_suffix(".xlsx").exists():
+    raise SystemExit("Phase1 multi metrics nometrics Excel missing")
+for ext in ("csv", "json", "txt"):
+    if not phase1_nom_prefix.with_name(
+        f"{phase1_nom_prefix.stem}_periods.{ext}"
+    ).exists():
+        raise SystemExit(f"Phase1 multi metrics nometrics {ext} missing")
+    if not phase1_nom_prefix.with_name(
+        f"{phase1_nom_prefix.stem}_summary.{ext}"
+    ).exists():
+        raise SystemExit(f"Phase1 multi metrics nometrics summary {ext} missing")
+
+mpm_nom_prefix = Path("demo/exports/multi_period_nometrics")
+export.export_multi_period_metrics(
+    results,
+    str(mpm_nom_prefix),
+    formats=["xlsx", "csv", "json", "txt"],
+    include_metrics=False,
+)
+if not mpm_nom_prefix.with_suffix(".xlsx").exists():
+    raise SystemExit("Multi-period metrics nometrics export failed")
+for ext in ("csv", "json", "txt"):
+    if not mpm_nom_prefix.with_name(f"{mpm_nom_prefix.stem}_periods.{ext}").exists():
+        raise SystemExit(f"Multi-period metrics nometrics {ext} missing")
+    if not mpm_nom_prefix.with_name(f"{mpm_nom_prefix.stem}_summary.{ext}").exists():
+        raise SystemExit(f"Multi-period metrics nometrics summary {ext} missing")
 wb_direct = Path("demo/exports/phase1_direct.xlsx")
 export.export_phase1_workbook(results, str(wb_direct))
 if not wb_direct.exists():
