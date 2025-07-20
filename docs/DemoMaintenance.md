@@ -25,6 +25,8 @@ It now validates configuration round-tripping via ``model_dump`` and
 It further exercises core utilities like ``_zscore`` and the base weighting
 stub to ensure low-level helpers behave correctly. The demo now also selects
 funds using ``information_ratio`` so the new metric is tested end-to-end.
+It now verifies the Excel formatter registry via ``reset_formatters_excel`` and
+``register_formatter_excel`` so custom formatting hooks remain functional.
 4. **Run the test suite**
    ```bash
    ./scripts/run_tests.sh
