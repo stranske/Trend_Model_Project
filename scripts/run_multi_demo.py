@@ -1264,6 +1264,31 @@ ta.export_to_excel({"pkg": pd.DataFrame({"A": [1]})}, str(pkg_path))
 if not pkg_path.exists():
     raise SystemExit("Package export_to_excel failed")
 
+# Exercise package-level exporter helpers
+pkg_csv = pkg_path.with_suffix(".csv")
+ta.export_to_csv({"pkg": pd.DataFrame({"A": [1]})}, str(pkg_csv))
+if not pkg_csv.exists():
+    raise SystemExit("Package export_to_csv failed")
+pkg_json = pkg_path.with_suffix(".json")
+ta.export_to_json({"pkg": pd.DataFrame({"A": [1]})}, str(pkg_json))
+if not pkg_json.exists():
+    raise SystemExit("Package export_to_json failed")
+pkg_data = pkg_path.with_name("pkg_data")
+ta.export_data({"pkg": pd.DataFrame({"A": [1]})}, str(pkg_data), formats=["txt"])
+if not pkg_data.with_suffix(".txt").exists():
+    raise SystemExit("Package export_data failed")
+pkg_phase1 = pkg_path.with_name("pkg_phase1")
+ta.export_phase1_multi_metrics(results, str(pkg_phase1), formats=["csv"])
+if not pkg_phase1.with_name(f"{pkg_phase1.stem}_periods.csv").exists():
+    raise SystemExit("Package export_phase1_multi_metrics failed")
+pkg_multi = pkg_path.with_name("pkg_multi")
+ta.export_multi_period_metrics(results, str(pkg_multi), formats=["json"])
+if not pkg_multi.with_name(f"{pkg_multi.stem}_periods.json").exists():
+    raise SystemExit("Package export_multi_period_metrics failed")
+summary_pkg = ta.combined_summary_result(results)
+if ta.metrics_from_result(summary_pkg).empty:
+    raise SystemExit("Package metrics_from_result failed")
+
 # run_analysis.main directly
 if run_analysis.main(["-c", "config/demo.yml"]) != 0:
     raise SystemExit("run_analysis.main failed")
