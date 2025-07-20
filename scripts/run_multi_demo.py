@@ -434,6 +434,16 @@ def _check_builtin_metric_aliases() -> None:
     ):  # type: ignore[attr-defined]
         raise SystemExit("builtins annualize_volatility mismatch")
 
+    # additional alias checks
+    import trend_analysis.metrics as m
+
+    if m.info_ratio(s, s) != m.information_ratio(s, s):
+        raise SystemExit("info_ratio alias mismatch")
+    if m.annualize_sharpe_ratio(s) != m.sharpe_ratio(s):
+        raise SystemExit("annualize_sharpe_ratio alias mismatch")
+    if m.annualize_sortino_ratio(s) != m.sortino_ratio(s):
+        raise SystemExit("annualize_sortino_ratio alias mismatch")
+
 
 def _check_selector_errors() -> None:
     """Ensure selectors raise ``KeyError`` for missing columns."""
