@@ -927,6 +927,7 @@ def _demo_fmt(
 ) -> None:
     ws.write(0, 0, "demo")
 
+
 if "dummy" not in export.FORMATTERS_EXCEL:
     raise SystemExit("Formatter registration failed")
 
