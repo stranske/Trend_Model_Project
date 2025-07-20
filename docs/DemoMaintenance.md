@@ -20,6 +20,8 @@ via a single call to `export.export_data` to validate all exporters. Extend the
 script and `config/demo.yml` whenever new exporter options are introduced. It
 also exercises the multi-period export helpers, verifies the CLI wrappers and
 checks the Jupyter notebook utilities.
+It now validates configuration round-tripping via ``model_dump`` and
+``model_dump_json``.
 4. **Run the test suite**
    ```bash
    ./scripts/run_tests.sh
