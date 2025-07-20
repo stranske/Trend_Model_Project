@@ -616,6 +616,41 @@ rank_ids = rank_select_funds(
 if not rank_ids:
     raise SystemExit("rank transform produced no funds")
 
+alias_ids = rank_select_funds(
+    window,
+    rs_cfg,
+    inclusion_approach="top_n",
+    n=2,
+    score_by="Sharpe",
+    transform_mode="zscore",
+)
+if not alias_ids:
+    raise SystemExit("transform_mode alias failed")
+
+df_tmp = pd.DataFrame({"Time": ["2020-01-01", "2020-02-01"], "Val": [0.0, 0.1]})
+dt_tmp = ensure_datetime(df_tmp, "Time")
+if not pd.api.types.is_datetime64_any_dtype(dt_tmp["Time"]):
+    raise SystemExit("ensure_datetime custom column failed")
+ew_df = EqualWeight().weight(
+    pd.DataFrame({"metric": [1.0, 2.0, 3.0]}, index=["A", "B", "C"])
+)
+if not np.isclose(ew_df["weight"].sum(), 1.0, atol=1e-4):
+    raise SystemExit("EqualWeight weight sum mismatch")
+
+direct_res = pipeline._run_analysis(
+    df_full,
+    str(cfg.sample_split["in_start"]),
+    str(cfg.sample_split["in_end"]),
+    str(cfg.sample_split["out_start"]),
+    str(cfg.sample_split["out_end"]),
+    cfg.vol_adjust.get("target_vol", 1.0),
+    getattr(cfg, "run", {}).get("monthly_cost", 0.0),
+    selection_mode="rank",
+    rank_kwargs={"inclusion_approach": "top_n", "n": 2, "score_by": "Sharpe"},
+)
+if direct_res is None or "score_frame" not in direct_res:
+    raise SystemExit("_run_analysis direct call failed")
+
 # cover helper with missing type annotations
 scores = rs._compute_metric_series(window, "Sharpe", rs_cfg)
 extra_ids = rs.some_function_missing_annotation(
