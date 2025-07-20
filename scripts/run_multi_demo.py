@@ -56,12 +56,12 @@ def _check_demo_data(cfg: Config) -> pd.DataFrame:
     df = ensure_datetime(df)
     if not df["Date"].is_monotonic_increasing:
         raise SystemExit("Demo dataset not sorted by date")
-    if df.shape != (120, 21):
+    if df.shape != (120, 22):
         raise SystemExit("Demo dataset shape mismatch")
     if df["Date"].isnull().any():
         raise SystemExit("Demo dataset contains invalid dates")
     mgr_cols = [c for c in df.columns if c != "Date"]
-    if len(mgr_cols) != 20:
+    if len(mgr_cols) != 21:
         raise SystemExit("Demo dataset manager count mismatch")
     first = df["Date"].iloc[0]
     last = df["Date"].iloc[-1]
@@ -437,7 +437,11 @@ def _check_builtin_metric_aliases() -> None:
     # additional alias checks
     import trend_analysis.metrics as m
 
-    if m.info_ratio(s, s) != m.information_ratio(s, s):
+    ir1 = m.info_ratio(s, s)
+    ir2 = m.information_ratio(s, s)
+    if pd.isna(ir1) and pd.isna(ir2):
+        pass
+    elif ir1 != ir2:
         raise SystemExit("info_ratio alias mismatch")
     if m.annualize_sharpe_ratio(s) != m.sharpe_ratio(s):
         raise SystemExit("annualize_sharpe_ratio alias mismatch")
@@ -1315,6 +1319,28 @@ def _check_config_errors() -> None:
 # Execute additional error handling checks
 _check_export_errors()
 _check_config_errors()
+
+
+def _check_package_exports() -> None:
+    """Validate ``trend_analysis.__all__`` exposes key modules."""
+    expected = {
+        "metrics",
+        "config",
+        "data",
+        "pipeline",
+        "export",
+        "selector",
+        "weighting",
+        "run_multi_analysis",
+    }
+    missing = expected - set(ta.__all__)
+    if missing:
+        raise SystemExit(f"Package __all__ missing: {missing}")
+    for name in expected:
+        getattr(ta, name)
+
+
+_check_package_exports()
 
 # Verify top-level package exports
 pkg_cfg = ta.config.load("config/demo.yml")

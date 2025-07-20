@@ -24,6 +24,10 @@ for i in range(1, 21):
     drift = rng.normal(scale=0.002, size=periods).cumsum()
     data[f"Mgr_{i:02d}"] = base + trend + drift
 
+# Add a simple market index so benchmark logic can run
+spx = rng.normal(loc=0.005, scale=0.03, size=periods)
+data["SPX"] = spx
+
 df = pd.DataFrame(data, index=dates)
 df.index.name = "Date"
 
