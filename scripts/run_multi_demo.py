@@ -566,9 +566,13 @@ export.export_phase1_multi_metrics(
 if not phase1_nom_prefix.with_suffix(".xlsx").exists():
     raise SystemExit("Phase1 multi metrics nometrics Excel missing")
 for ext in ("csv", "json", "txt"):
-    if not phase1_nom_prefix.with_name(f"{phase1_nom_prefix.stem}_periods.{ext}").exists():
+    if not phase1_nom_prefix.with_name(
+        f"{phase1_nom_prefix.stem}_periods.{ext}"
+    ).exists():
         raise SystemExit(f"Phase1 multi metrics nometrics {ext} missing")
-    if not phase1_nom_prefix.with_name(f"{phase1_nom_prefix.stem}_summary.{ext}").exists():
+    if not phase1_nom_prefix.with_name(
+        f"{phase1_nom_prefix.stem}_summary.{ext}"
+    ).exists():
         raise SystemExit(f"Phase1 multi metrics nometrics summary {ext} missing")
 
 mpm_nom_prefix = Path("demo/exports/multi_period_nometrics")
