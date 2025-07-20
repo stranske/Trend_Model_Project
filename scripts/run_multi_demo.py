@@ -334,6 +334,37 @@ def _check_builtin_metric_aliases() -> None:
         raise SystemExit("builtins annualize_volatility mismatch")
 
 
+def _check_selector_errors() -> None:
+    """Ensure selectors raise ``KeyError`` for missing columns."""
+    df = pd.DataFrame({"A": [1, 2, 3]})
+
+    try:
+        RankSelector(1, "B").select(df)
+    except KeyError:
+        pass
+    else:
+        raise SystemExit("RankSelector missing-column check failed")
+
+    try:
+        ZScoreSelector(0.0).select(df)
+    except KeyError:
+        pass
+    else:
+        raise SystemExit("ZScoreSelector missing-column check failed")
+
+
+def _check_weighting_errors() -> None:
+    """Ensure weighting classes validate input columns."""
+    df = pd.DataFrame({"metric": [0.1, 0.2]}, index=["A", "B"])
+
+    for cls in (ScorePropSimple, ScorePropBayesian):
+        try:
+            cls("other").weight(df)
+        except KeyError:
+            continue
+        raise SystemExit(f"{cls.__name__} missing-column check failed")
+
+
 def _check_notebook_utils() -> None:
     """Exercise notebook helper scripts."""
     src = Path("Vol_Adj_Trend_Analysis1.5.TrEx.ipynb")
@@ -837,6 +868,8 @@ _check_rebalancer_logic()
 _check_load_csv_error()
 _check_metrics_basic()
 _check_builtin_metric_aliases()
+_check_selector_errors()
+_check_weighting_errors()
 _check_notebook_utils()
 
 # run_analysis.main directly
