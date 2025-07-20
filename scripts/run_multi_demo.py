@@ -555,6 +555,15 @@ if not mpm_prefix.with_name(f"{mpm_prefix.stem}_metrics_summary.json").exists():
 if not mpm_prefix.with_name(f"{mpm_prefix.stem}_metrics_summary.txt").exists():
     raise SystemExit("Multi-period metrics metrics summary TXT missing")
 
+wb_mpm = openpyxl.load_workbook(mpm_prefix.with_suffix(".xlsx"))
+expected = {str(r["period"][3]) for r in results}
+expected.add("summary")
+metric_tabs = {f"metrics_{s}" for s in expected if s != "summary"}
+metric_tabs.add("metrics_summary")
+all_tabs = expected.union(metric_tabs)
+if not all_tabs.issubset(set(wb_mpm.sheetnames)):
+    raise SystemExit("Multi-period metrics workbook sheets mismatch")
+
 # Verify exporters also handle the no-metrics case
 phase1_nom_prefix = Path("demo/exports/phase1_multi_nom")
 export.export_phase1_multi_metrics(
@@ -589,6 +598,9 @@ for ext in ("csv", "json", "txt"):
         raise SystemExit(f"Multi-period metrics nometrics {ext} missing")
     if not mpm_nom_prefix.with_name(f"{mpm_nom_prefix.stem}_summary.{ext}").exists():
         raise SystemExit(f"Multi-period metrics nometrics summary {ext} missing")
+wb_nom = openpyxl.load_workbook(mpm_nom_prefix.with_suffix(".xlsx"))
+if any(name.startswith("metrics_") for name in wb_nom.sheetnames):
+    raise SystemExit("Nometrics workbook contains metrics sheets")
 wb_direct = Path("demo/exports/phase1_direct.xlsx")
 export.export_phase1_workbook(results, str(wb_direct))
 if not wb_direct.exists():
