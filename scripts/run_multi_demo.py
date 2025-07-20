@@ -916,6 +916,8 @@ if not summary_prefix.with_suffix(".xlsx").exists():
 
 # Exercise formatter registry helpers
 export.reset_formatters_excel()
+if export.FORMATTERS_EXCEL:
+    raise SystemExit("Formatter registry not cleared")
 
 
 @export.register_formatter_excel("dummy")  # type: ignore[misc]
@@ -924,6 +926,10 @@ def _demo_fmt(
     wb: openpyxl.Workbook,
 ) -> None:
     ws.write(0, 0, "demo")
+
+
+if "dummy" not in export.FORMATTERS_EXCEL:
+    raise SystemExit("Formatter registration failed")
 
 
 dummy_prefix = Path("demo/exports/dummy")
@@ -966,6 +972,8 @@ for ext in ("csv", "json", "txt"):
 
 extra_prefix = Path("demo/exports/extra_period.xlsx")
 export.reset_formatters_excel()
+if export.FORMATTERS_EXCEL:
+    raise SystemExit("Formatter registry not cleared before period formatter")
 export.make_period_formatter(
     "extra",
     results[0],
@@ -974,6 +982,8 @@ export.make_period_formatter(
     str(results[0]["period"][2]),
     str(results[0]["period"][3]),
 )
+if "extra" not in export.FORMATTERS_EXCEL:
+    raise SystemExit("make_period_formatter did not register formatter")
 export.export_to_excel(
     {"extra": export.summary_frame_from_result(results[0])},
     str(extra_prefix),
@@ -981,6 +991,9 @@ export.export_to_excel(
 wb_extra = openpyxl.load_workbook(extra_prefix)
 if wb_extra["extra"]["A1"].value != "Vol-Adj Trend Analysis":
     raise SystemExit("make_period_formatter formatting failed")
+export.reset_formatters_excel()
+if export.FORMATTERS_EXCEL:
+    raise SystemExit("Formatter registry not cleared after export")
 
 _check_gui("config/demo.yml")
 _check_selection_modes(cfg)
