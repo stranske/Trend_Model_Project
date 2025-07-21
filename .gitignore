@@ -19,3 +19,9 @@ outputs/
 
 # demo output
 demo/*.xlsx
+demo/*.json
+demo/*.txt
+demo/exports/
+
+# keep the sample dataset under version control
+!demo/demo_returns.csv
