@@ -580,6 +580,22 @@ def _check_core_helpers() -> None:
         raise SystemExit("_compute_metric_series failed to reject unknown metric")
 
 
+def _check_abw_halflife() -> None:
+    """Verify ``AdaptiveBayesWeighting`` handles ``half_life=0``."""
+
+    abw = AdaptiveBayesWeighting(half_life=0, max_w=None)
+    scores = pd.Series({"A": 0.1, "B": 0.2})
+    abw.update(scores, 30)
+    if abw.tau is None or not np.allclose(abw.tau.values, abw.obs_tau):
+        raise SystemExit("ABW half_life=0 update failed")
+    abw.update(pd.Series({"A": 0.3, "B": 0.4}), 30)
+    if abw.tau is None or not np.allclose(abw.tau.values, abw.obs_tau):
+        raise SystemExit("ABW half_life=0 second update failed")
+    w = abw.weight(scores.to_frame("z"))
+    if not np.isclose(w["weight"].sum(), 1.0):
+        raise SystemExit("ABW weight sum mismatch")
+
+
 def _check_notebook_utils() -> None:
     """Exercise notebook helper scripts."""
     src = Path("Vol_Adj_Trend_Analysis1.5.TrEx.ipynb")
@@ -1284,6 +1300,7 @@ _check_selector_errors()
 _check_zscore_direction()
 _check_weighting_errors()
 _check_core_helpers()
+_check_abw_halflife()
 _check_engine_error(cfg)
 _check_notebook_utils()
 
