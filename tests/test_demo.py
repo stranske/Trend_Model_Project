@@ -85,9 +85,12 @@ def test_demo_runs(tmp_path, capsys):
     assert res["score_frame"].attrs["insample_len"] == 6
     assert res["score_frame"].attrs["period"] == ("2012-01", "2012-06")
     assert "information_ratio" in res["metrics_df"].columns
+    assert "ir_eq60" in res["metrics_df"].columns
     df_csv = pd.read_csv(tmp_path / "analysis_metrics.csv", index_col=0)
     assert df_csv.columns.tolist() == res["metrics_df"].columns.tolist()
     import openpyxl
 
     wb = openpyxl.load_workbook(tmp_path / "analysis.xlsx")
     assert set(wb.sheetnames) == {"metrics", "summary", "history"}
+    assert "eq60" in res["full_res"]["benchmark_ir"]
+    assert "equal_weight" in res["full_res"]["benchmark_ir"]["eq60"]

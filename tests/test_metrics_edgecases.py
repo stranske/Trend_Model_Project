@@ -31,3 +31,11 @@ def test_information_ratio_edge_cases():
     bench = pd.DataFrame({"m": [0.01, 0.01]})
     ir = metrics.information_ratio(df, bench)
     assert isinstance(ir, pd.Series) and set(ir.index) == {"a", "b"}
+
+
+def test_information_ratio_default_and_scalar():
+    df = pd.DataFrame({"a": [0.02, 0.03], "b": [0.01, 0.02]})
+    ir_none = metrics.information_ratio(df)
+    assert isinstance(ir_none, pd.Series)
+    ir_scalar = metrics.information_ratio(df, benchmark=0.0)
+    assert isinstance(ir_scalar, pd.Series)
