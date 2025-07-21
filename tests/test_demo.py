@@ -92,5 +92,16 @@ def test_demo_runs(tmp_path, capsys):
 
     wb = openpyxl.load_workbook(tmp_path / "analysis.xlsx")
     assert set(wb.sheetnames) == {"metrics", "summary", "history"}
+    summary_headers = [c.value for c in wb["summary"][5]]
+    assert "OS IR eq60" in summary_headers
     assert "eq60" in res["full_res"]["benchmark_ir"]
     assert "equal_weight" in res["full_res"]["benchmark_ir"]["eq60"]
+
+    df_json = pd.read_json(tmp_path / "analysis_metrics.json")
+    pd.testing.assert_frame_equal(df_json, res["metrics_df"].reset_index(drop=True))
+    hist_csv = pd.read_csv(tmp_path / "analysis_history.csv", index_col=0)
+    pd.testing.assert_frame_equal(hist_csv, res["mp_history_df"])
+    hist_json = pd.read_json(tmp_path / "analysis_history.json")
+    pd.testing.assert_frame_equal(
+        hist_json, res["mp_history_df"].reset_index(drop=True)
+    )
