@@ -569,8 +569,9 @@ feature lands, run the sequence below and update `config/demo.yml` or
    ```
 2. **Generate the demo dataset**
    ```bash
-   python scripts/generate_demo.py
+   python scripts/generate_demo.py [--no-xlsx]
    ```
+   The optional flag skips the Excel copy when binary artefacts are not needed.
 3. **Run the full demo pipeline and export checks**
    ```bash
    python scripts/run_multi_demo.py

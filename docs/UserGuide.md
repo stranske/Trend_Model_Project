@@ -71,9 +71,11 @@ Generate the synthetic dataset and run the helper script to exercise the Phase 
 
 ```bash
 ./scripts/setup_env.sh
-python scripts/generate_demo.py
+python scripts/generate_demo.py [--no-xlsx]
 python scripts/run_multi_demo.py
 ```
+Use `--no-xlsx` to skip generating the Excel workbook if binary files should be
+avoided.
 
 `run_multi_demo.py` calls ``export.export_data`` so CSV, Excel, JSON **and TXT** reports are produced in one go. It also runs the full test suite, ensuring multiple periods are processed and that adaptive weights evolve over time.
 The script exercises the CLI wrappers as part of these checks.
