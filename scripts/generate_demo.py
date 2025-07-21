@@ -13,6 +13,7 @@ import pandas as pd
 OUT_DIR = "demo"
 os.makedirs(OUT_DIR, exist_ok=True)
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate demo return series.")
     parser.add_argument(
