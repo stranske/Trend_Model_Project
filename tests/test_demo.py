@@ -88,5 +88,6 @@ def test_demo_runs(tmp_path, capsys):
     df_csv = pd.read_csv(tmp_path / "analysis_metrics.csv", index_col=0)
     assert df_csv.columns.tolist() == res["metrics_df"].columns.tolist()
     import openpyxl
+
     wb = openpyxl.load_workbook(tmp_path / "analysis.xlsx")
     assert set(wb.sheetnames) == {"metrics", "summary", "history"}
