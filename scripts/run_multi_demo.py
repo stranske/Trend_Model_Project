@@ -162,6 +162,66 @@ def _check_gui(cfg_path: str) -> None:
         raise SystemExit("launch() did not return a Widget")
 
 
+def _check_datagrid_override() -> None:
+    """Exercise DataGrid path in manual override builder."""
+
+    import types
+    import sys
+    from trend_analysis.gui import app as gui_app
+    import ipywidgets as widgets
+
+    mod = types.ModuleType("ipydatagrid")
+
+    class DummyGrid:
+        def __init__(self, *a: object, **k: object) -> None:
+            pass
+
+    mod.DataGrid = DummyGrid
+    sys.modules["ipydatagrid"] = mod
+    try:
+        store = gui.ParamStore()
+        widget = gui_app._build_manual_override(store)
+        if not isinstance(widget, widgets.Widget):
+            raise SystemExit("DataGrid override path failed")
+    finally:
+        sys.modules.pop("ipydatagrid", None)
+
+
+def _check_plugin_discovery() -> None:
+    """Validate discover_plugins registers entry points."""
+
+    import types
+    import sys
+    import importlib.metadata as md
+    from trend_analysis.gui import plugins
+
+    dummy_mod = types.ModuleType("demo_plugin")
+
+    class DemoPlugin:
+        pass
+
+    dummy_mod.DemoPlugin = DemoPlugin
+    sys.modules["demo_plugin"] = dummy_mod
+    ep = md.EntryPoint("demo", "demo_plugin:DemoPlugin", "trend_analysis.gui_plugins")
+    orig = md.entry_points
+
+    def fake(group: str | None = None) -> list[md.EntryPoint]:
+        if group == "trend_analysis.gui_plugins":
+            return [ep]
+        return []
+
+    md.entry_points = fake  # type: ignore[assignment]
+    try:
+        plugins._PLUGIN_REGISTRY.clear()
+        gui.discover_plugins()
+        if DemoPlugin not in list(gui.iter_plugins()):
+            raise SystemExit("Plugin discovery failed")
+    finally:
+        md.entry_points = orig  # type: ignore[assignment]
+        sys.modules.pop("demo_plugin", None)
+        plugins._PLUGIN_REGISTRY.clear()
+
+
 def _check_selection_modes(cfg: Config) -> None:
     """Verify legacy selection modes still operate."""
     base = cfg.model_dump()
@@ -487,6 +547,27 @@ def _check_weighting_errors() -> None:
         except KeyError:
             continue
         raise SystemExit(f"{cls.__name__} missing-column check failed")
+
+
+def _check_weighting_zero_sum() -> None:
+    """Verify weighting fallbacks when scores sum to zero."""
+
+    df_neg = pd.DataFrame({"Sharpe": [-1.0, -2.0]}, index=["A", "B"])
+    out_simple = ScorePropSimple().weight(df_neg)
+    if not np.allclose(out_simple["weight"], [0.5, 0.5]):
+        raise SystemExit("ScorePropSimple zero-sum fallback failed")
+    out_bayes = ScorePropBayesian().weight(df_neg)
+    if not np.allclose(out_bayes["weight"], [0.5, 0.5]):
+        raise SystemExit("ScorePropBayesian zero-sum fallback failed")
+
+
+def _check_equal_weight_empty() -> None:
+    """Ensure EqualWeight handles empty DataFrames."""
+
+    empty = pd.DataFrame(columns=["Sharpe"])
+    out = EqualWeight().weight(empty)
+    if not out.empty:
+        raise SystemExit("EqualWeight empty DataFrame not handled")
 
 
 def _check_engine_error(cfg: Config) -> None:
@@ -1285,6 +1366,8 @@ if export.FORMATTERS_EXCEL:
     raise SystemExit("Formatter registry not cleared after export")
 
 _check_gui("config/demo.yml")
+_check_datagrid_override()
+_check_plugin_discovery()
 _check_selection_modes(cfg)
 _check_cli_env("config/demo.yml")
 _check_cli_env_multi("config/demo.yml")
@@ -1299,6 +1382,8 @@ _check_builtin_metric_aliases()
 _check_selector_errors()
 _check_zscore_direction()
 _check_weighting_errors()
+_check_weighting_zero_sum()
+_check_equal_weight_empty()
 _check_core_helpers()
 _check_abw_halflife()
 _check_engine_error(cfg)
