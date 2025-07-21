@@ -10,3 +10,7 @@ def test_scheduler_generates_periods():
     assert periods, "Scheduler returned empty list"
     first = periods[0]
     assert first.in_start < first.out_start, "Period tuple ordering incorrect"
+
+
+def test_scheduler_missing_section():
+    assert generate_periods({}) == []

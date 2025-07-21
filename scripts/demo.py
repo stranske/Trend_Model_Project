@@ -49,6 +49,7 @@ def make_config(csv: Path) -> Config:
             "selection_mode": "rank",
             "rank": {"inclusion_approach": "top_n", "n": 3, "score_by": "AnnualReturn"},
         },
+        benchmarks={"eq60": "EqualWeight_60"},
         metrics={},
         export={},
         run={},
