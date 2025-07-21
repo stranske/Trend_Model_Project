@@ -132,9 +132,10 @@ pipeline features:
 
 ```bash
 ./scripts/setup_env.sh
-python scripts/generate_demo.py
+python scripts/generate_demo.py [--no-xlsx]
 python scripts/run_multi_demo.py
 ```
+Use `--no-xlsx` to skip the Excel workbook when large files are undesired.
 
 The script prints the number of generated periods and verifies that
 weights evolve across them, confirming the Phase 2 logic works end to end.
@@ -167,8 +168,9 @@ checklist of these steps.
    ```
 2. **Generate the demo dataset**
    ```bash
-   python scripts/generate_demo.py
+   python scripts/generate_demo.py [--no-xlsx]
    ```
+   Pass `--no-xlsx` to avoid creating the Excel copy.
 3. **Run the full demo pipeline and export checks**
    ```bash
    python scripts/run_multi_demo.py

@@ -8,8 +8,9 @@ This document summarises the steps required to keep the demo pipeline in sync wi
    ```
 2. **Generate the demo dataset**
    ```bash
-   python scripts/generate_demo.py
+   python scripts/generate_demo.py [--no-xlsx]
    ```
+   Use `--no-xlsx` to skip the Excel file when binary artefacts are unwanted.
 3. **Run the full demo pipeline and export checks**
    ```bash
 python scripts/run_multi_demo.py
