@@ -172,9 +172,9 @@ def _check_datagrid_override() -> None:
 
     mod = types.ModuleType("ipydatagrid")
 
-    class DummyGrid:
+    class DummyGrid(widgets.Widget):
         def __init__(self, *a: object, **k: object) -> None:
-            pass
+            super().__init__()
 
     mod.DataGrid = DummyGrid
     sys.modules["ipydatagrid"] = mod
@@ -1443,6 +1443,75 @@ def _check_package_exports() -> None:
 
 
 _check_package_exports()
+
+
+def _check_module_exports() -> None:
+    """Ensure module-level ``__all__`` lists are intact."""
+
+    expected_map = {
+        "config": {"Config", "load"},
+        "data": {"load_csv", "identify_risk_free_fund", "ensure_datetime"},
+        "export": {
+            "FORMATTERS_EXCEL",
+            "register_formatter_excel",
+            "reset_formatters_excel",
+            "make_summary_formatter",
+            "make_period_formatter",
+            "format_summary_text",
+            "export_to_excel",
+            "export_to_csv",
+            "export_to_json",
+            "export_to_txt",
+            "export_data",
+            "metrics_from_result",
+            "combined_summary_result",
+            "summary_frame_from_result",
+            "period_frames_from_results",
+            "workbook_frames_from_results",
+            "export_phase1_workbook",
+            "export_phase1_multi_metrics",
+            "export_multi_period_metrics",
+        },
+        "weighting": {
+            "BaseWeighting",
+            "EqualWeight",
+            "ScorePropSimple",
+            "ScorePropBayesian",
+            "AdaptiveBayesWeighting",
+        },
+        "pipeline": {
+            "Stats",
+            "calc_portfolio_returns",
+            "single_period_run",
+            "run_analysis",
+            "run",
+            "run_full",
+        },
+        "multi_period": {"run", "Portfolio", "run_schedule"},
+        "gui": {
+            "launch",
+            "load_state",
+            "save_state",
+            "reset_weight_state",
+            "build_config_dict",
+            "build_config_from_store",
+            "register_plugin",
+            "iter_plugins",
+            "discover_plugins",
+            "ParamStore",
+            "debounce",
+            "list_builtin_cfgs",
+        },
+    }
+
+    for name, expected in expected_map.items():
+        module = getattr(ta, name)
+        actual = set(getattr(module, "__all__", []))
+        if actual != expected:
+            raise SystemExit(f"{name} __all__ mismatch")
+
+
+_check_module_exports()
 
 
 def _check_cli_help() -> None:
