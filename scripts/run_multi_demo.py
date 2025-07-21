@@ -1342,6 +1342,31 @@ def _check_package_exports() -> None:
 
 _check_package_exports()
 
+
+def _check_cli_help() -> None:
+    """Ensure the CLI entry points print help and exit cleanly."""
+    subprocess.run(
+        [sys.executable, "-m", "trend_analysis.run_analysis", "--help"],
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    subprocess.run(
+        [sys.executable, "-m", "trend_analysis.run_multi_analysis", "--help"],
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    subprocess.run(
+        [sys.executable, "-m", "trend_analysis.cli", "--help"],
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+
+_check_cli_help()
+
 # Verify top-level package exports
 pkg_cfg = ta.config.load("config/demo.yml")
 pkg_df = ta.load_csv(pkg_cfg.data["csv_path"])
