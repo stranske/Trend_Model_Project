@@ -18,6 +18,22 @@ def test_demo_runs(tmp_path, capsys):
         n=1,
         score_by="AnnualReturn",
     )
+    expected_blended = rs.rank_select_funds(
+        df.loc[mask, funds],
+        rs.RiskStatsConfig(risk_free=0.0),
+        inclusion_approach="top_n",
+        n=1,
+        score_by="blended",
+        blended_weights={"Sharpe": 0.5, "AnnualReturn": 0.3, "MaxDrawdown": 0.2},
+    )
+    expected_zscore = rs.rank_select_funds(
+        df.loc[mask, funds],
+        rs.RiskStatsConfig(risk_free=0.0),
+        inclusion_approach="top_n",
+        n=1,
+        score_by="AnnualReturn",
+        transform="zscore",
+    )
     res = demo.main(out_dir=tmp_path)
     captured = capsys.readouterr().out
     assert "Vol-Adj Trend Analysis" in captured
@@ -28,6 +44,8 @@ def test_demo_runs(tmp_path, capsys):
     assert "Multi-period weight history:" in captured
     assert "Analysis selected:" in captured
     assert "Top fund by ranking:" in captured
+    assert "Top fund by blended ranking:" in captured
+    assert "Top fund by z-score ranking:" in captured
     assert "Multi-period selections:" in captured
     assert (tmp_path / "analysis.xlsx").exists()
     assert (tmp_path / "analysis_metrics.csv").exists()
@@ -78,10 +96,14 @@ def test_demo_runs(tmp_path, capsys):
     assert isinstance(res["analysis_res"].get("score_frame"), pd.DataFrame)
     assert res["analysis_res"]["selected_funds"]
     assert res["ranked"]
+    assert res["ranked_blended"]
+    assert res["ranked_zscore"]
     assert res["mp_selected"]
     assert len(res["mp_selected"]) == len(res["periods"])
     assert all(res["mp_selected"])
     assert res["ranked"] == expected_rank
+    assert res["ranked_blended"] == expected_blended
+    assert res["ranked_zscore"] == expected_zscore
     assert res["score_frame"].attrs["insample_len"] == 6
     assert res["score_frame"].attrs["period"] == ("2012-01", "2012-06")
     assert "information_ratio" in res["metrics_df"].columns
