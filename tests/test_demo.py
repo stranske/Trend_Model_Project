@@ -1,4 +1,5 @@
 import pandas as pd
+from ipywidgets import Widget
 import scripts.demo as demo
 from trend_analysis.core import rank_selection as rs
 
@@ -47,6 +48,7 @@ def test_demo_runs(tmp_path, capsys):
     assert "Top fund by blended ranking:" in captured
     assert "Top fund by z-score ranking:" in captured
     assert "Multi-period selections:" in captured
+    assert "UI object built:" in captured
     assert (tmp_path / "analysis.xlsx").exists()
     assert (tmp_path / "analysis_metrics.csv").exists()
     assert (tmp_path / "analysis_metrics.json").exists()
@@ -108,6 +110,7 @@ def test_demo_runs(tmp_path, capsys):
     assert res["score_frame"].attrs["period"] == ("2012-01", "2012-06")
     assert "information_ratio" in res["metrics_df"].columns
     assert "ir_eq60" in res["metrics_df"].columns
+    assert "ir_quant" in res["metrics_df"].columns
     df_csv = pd.read_csv(tmp_path / "analysis_metrics.csv", index_col=0)
     assert df_csv.columns.tolist() == res["metrics_df"].columns.tolist()
     import openpyxl
@@ -116,7 +119,9 @@ def test_demo_runs(tmp_path, capsys):
     assert set(wb.sheetnames) == {"metrics", "summary", "history"}
     summary_headers = [c.value for c in wb["summary"][5]]
     assert "OS IR eq60" in summary_headers
+    assert "OS IR quant" in summary_headers
     assert "eq60" in res["full_res"]["benchmark_ir"]
+    assert "quant" in res["full_res"]["benchmark_ir"]
     assert "equal_weight" in res["full_res"]["benchmark_ir"]["eq60"]
 
     df_json = pd.read_json(tmp_path / "analysis_metrics.json")
@@ -127,3 +132,4 @@ def test_demo_runs(tmp_path, capsys):
     pd.testing.assert_frame_equal(
         hist_json, res["mp_history_df"].reset_index(drop=True)
     )
+    assert isinstance(res["ui_obj"], Widget)

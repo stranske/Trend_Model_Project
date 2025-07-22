@@ -49,7 +49,7 @@ def make_config(csv: Path) -> Config:
             "selection_mode": "rank",
             "rank": {"inclusion_approach": "top_n", "n": 3, "score_by": "AnnualReturn"},
         },
-        benchmarks={"eq60": "EqualWeight_60"},
+        benchmarks={"eq60": "EqualWeight_60", "quant": "Quantum Capital"},
         metrics={},
         export={},
         run={},
@@ -134,6 +134,7 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
         score_by="AnnualReturn",
         transform="zscore",
     )
+    ui_obj = rs.build_ui()
     # Demonstrate the rebalancer with a simple trigger configuration.
     rb_cfg = {"triggers": {"sigma1": {"sigma": 1, "periods": 2}}}
     rb = Rebalancer(rb_cfg)
@@ -221,6 +222,7 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
     print("Multi-period final weights:", mp_weights.to_dict())
     print("Multi-period weight history:\n", mp_history_df)
     print("Multi-period selections:", mp_selected)
+    print("UI object built:", type(ui_obj).__name__)
     os.remove(cfg_file)
 
     return {
@@ -250,6 +252,7 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
         "ranked_zscore": ranked_zscore,
         "loaded_version": loaded_cfg.version,
         "nb_clean": nb_clean,
+        "ui_obj": ui_obj,
     }
 
 
