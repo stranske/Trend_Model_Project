@@ -597,11 +597,11 @@ def _check_abw_edge_cases() -> None:
     else:  # pragma: no cover - should not happen
         raise SystemExit("prior_mean length mismatch not detected")
 
-    # half_life=0 should zero out tau during updates
+    # half_life=0 should leave tau equal to obs_tau after updates
     abw = AdaptiveBayesWeighting(max_w=None, half_life=0)
     abw.update(pd.Series({"A": 0.1}), days=30)
-    if abw.tau is None or not (abw.tau == 0).all():
-        raise SystemExit("half_life=0 did not zero tau")
+    if abw.tau is None or not np.allclose(abw.tau.values, abw.obs_tau):
+        raise SystemExit("half_life=0 did not produce obs_tau")
     # expand state when a new fund appears
     abw.update(pd.Series({"A": 0.2, "B": 0.3}), days=30)
     if "B" not in abw.mean.index:
@@ -1120,6 +1120,16 @@ thr_ids = rs.some_function_missing_annotation(
 )
 if not thr_ids:
     raise SystemExit("some_function_missing_annotation threshold failed")
+
+# also cover the ascending=True branch for completeness
+asc_ids = rs.some_function_missing_annotation(
+    scores,
+    "threshold",
+    threshold=scores.max(),
+    ascending=True,
+)
+if not asc_ids:
+    raise SystemExit("some_function_missing_annotation ascending branch failed")
 
 # quality_filter and select_funds interfaces
 qcfg = rs.FundSelectionConfig(max_missing_ratio=0.5)
