@@ -484,6 +484,13 @@ def _check_load_csv_error() -> None:
         tmp_bad.unlink(missing_ok=True)
 
 
+def _check_identify_rf_none() -> None:
+    """Ensure ``identify_risk_free_fund`` handles non-numeric data."""
+    df = pd.DataFrame({"Date": ["2020-01-01"], "A": ["x"]})
+    if identify_risk_free_fund(df) is not None:
+        raise SystemExit("identify_risk_free_fund should return None")
+
+
 def _check_metrics_basic() -> None:
     """Run basic metrics on a short series."""
     s = pd.Series([0.0, 0.01, -0.02])
@@ -1596,6 +1603,7 @@ _check_default_load()
 _check_rebalancer_logic()
 _check_portfolio()
 _check_load_csv_error()
+_check_identify_rf_none()
 _check_metrics_basic()
 _check_builtin_metric_aliases()
 _check_metric_helpers()
@@ -1715,10 +1723,25 @@ def _check_empty_export_helpers() -> None:
         raise SystemExit("export_multi_period_metrics empty CSV missing")
 
 
+def _check_export_misc() -> None:
+    """Exercise helper utilities in :mod:`export`."""
+    tmp = Path("demo/exports/tmp/subdir/test.csv")
+    if tmp.parent.exists():
+        shutil.rmtree(tmp.parent)
+    export._ensure_dir(tmp)
+    if not tmp.parent.exists():
+        raise SystemExit("_ensure_dir failed")
+    df = pd.DataFrame({"A": [1, 2]})
+    out = export._apply_format(df, lambda d: d + 1)
+    if out.iloc[0, 0] != 2:
+        raise SystemExit("_apply_format failed")
+
+
 # Execute additional error handling checks
 _check_export_errors()
 _check_config_errors()
 _check_empty_export_helpers()
+_check_export_misc()
 _check_run_analysis_errors(cfg)
 
 
