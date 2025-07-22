@@ -700,6 +700,20 @@ def _check_core_helpers() -> None:
         raise SystemExit("_compute_metric_series failed to reject unknown metric")
 
 
+def _check_rank_metric_registration() -> None:
+    """Ensure ``rank_selection.register_metric`` works end-to-end."""
+
+    @rs.register_metric("DemoAvg")  # type: ignore[misc]
+    def _demo_avg(series: pd.Series, **_: object) -> float:
+        return float(series.mean())
+
+    df = pd.DataFrame({"A": [0.1, 0.2, 0.3]})
+    scores = rs._compute_metric_series(df, "DemoAvg", RiskStatsConfig())
+    if not np.isclose(scores["A"], 0.2, atol=1e-9):
+        raise SystemExit("register_metric failed")
+    rs.METRIC_REGISTRY.pop("DemoAvg", None)
+
+
 def _check_constants() -> None:
     """Validate key constant values to catch accidental changes."""
 
@@ -1478,6 +1492,7 @@ _check_weighting_zero_sum()
 _check_equal_weight_empty()
 _check_abw_edge_cases()
 _check_core_helpers()
+_check_rank_metric_registration()
 _check_abw_halflife()
 _check_stats_dataclass()
 _check_constants()
