@@ -147,7 +147,9 @@ the pipeline helpers. The wrapper ``pipeline.run_analysis`` is also invoked, and
 extra calls to ``rank_select_funds`` use the ``percentile`` and ``rank`` transforms so all
 scoring options are covered. The demo now checks ``quality_filter`` and the dual calling
 patterns of ``select_funds``. It verifies AdaptiveBayesWeighting state persistence and runs the CLI via both the ``-c``
-flag and the ``TREND_CFG`` environment variable. Finally, the script invokes the
+flag and the ``TREND_CFG`` environment variable. Additional checks cover edge
+cases of ``AdaptiveBayesWeighting`` such as zero half-life behaviour and
+invalid ``prior_mean`` lengths. Finally, the script invokes the
 full test suite so every module is covered.
 It now also calls ``run_multi_analysis.main`` with a temporary config to verify
 the dedicated multi-period CLI works and produces CSV output.
