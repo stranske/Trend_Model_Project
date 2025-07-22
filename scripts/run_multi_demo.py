@@ -159,6 +159,8 @@ def _check_gui(cfg_path: str) -> None:
         raise SystemExit("list_builtin_cfgs missing demo.yml")
     if "defaults" not in builtin_cfgs:
         raise SystemExit("list_builtin_cfgs missing defaults.yml")
+    if builtin_cfgs != sorted(builtin_cfgs):
+        raise SystemExit("list_builtin_cfgs not sorted")
     from trend_analysis.core.rank_selection import build_ui
     from trend_analysis.gui import app as gui_app
     import ipywidgets as widgets
@@ -321,6 +323,10 @@ def _check_misc(
 
     if "annual_return" not in metrics.available_metrics():
         raise SystemExit("Metrics registry incomplete")
+
+    all_metrics = rs.canonical_metric_list()
+    if "Sharpe" not in all_metrics or "AnnualReturn" not in all_metrics:
+        raise SystemExit("canonical_metric_list default list incorrect")
 
     # scheduler.generate_periods should agree with the results length
     periods = scheduler.generate_periods(cfg.model_dump())
@@ -1015,6 +1021,15 @@ if not metrics_prefix.with_suffix(".xlsx").exists():
 created = list(metrics_prefix.parent.glob(f"{metrics_prefix.stem}_*.csv"))
 if not created:
     raise SystemExit("period metrics CSV/JSON/TXT missing")
+
+# Verify case-insensitive exporter dispatch
+mixed_prefix = Path("demo/exports/mixed_case")
+export.export_data(frames, str(mixed_prefix), formats=["CSV", "Excel", "Json", "TXT"])
+if not mixed_prefix.with_suffix(".xlsx").exists():
+    raise SystemExit("Mixed-case Excel export failed")
+for ext in ("csv", "json", "txt"):
+    if not list(mixed_prefix.parent.glob(f"{mixed_prefix.stem}_*.{ext}")):
+        raise SystemExit(f"Mixed-case {ext} export missing")
 
 # Exercise rank_select_funds via the additional inclusion approaches
 df_full = demo_df
