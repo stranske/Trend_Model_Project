@@ -411,6 +411,21 @@ def _check_rebalancer_logic() -> None:
         raise SystemExit("Rebalancer logic failed")
 
 
+def _check_portfolio() -> None:
+    """Ensure ``Portfolio.rebalance`` records weight history."""
+
+    pf = Portfolio()
+    pf.rebalance(
+        "2020-01-31",
+        pd.DataFrame({"weight": [0.6, 0.4]}, index=["A", "B"]),
+    )
+    pf.rebalance("2020-02-29", pd.Series({"A": 0.5, "B": 0.5}))
+    if len(pf.history) != 2:
+        raise SystemExit("Portfolio history length mismatch")
+    if not np.isclose(pf.history["2020-02-29"]["A"], 0.5):
+        raise SystemExit("Portfolio rebalance values incorrect")
+
+
 def _check_load_csv_error() -> None:
     """Ensure ``load_csv`` gracefully handles invalid input."""
     if load_csv("_no_such_file_.csv") is not None:
@@ -1408,6 +1423,7 @@ _check_misc("config/demo.yml", cfg, results)
 _check_config_dump(cfg)
 _check_default_load()
 _check_rebalancer_logic()
+_check_portfolio()
 _check_load_csv_error()
 _check_metrics_basic()
 _check_builtin_metric_aliases()
