@@ -1737,11 +1737,43 @@ def _check_export_misc() -> None:
         raise SystemExit("_apply_format failed")
 
 
+def _check_export_content() -> None:
+    """Ensure text/CSV/JSON exporters actually write data."""
+
+    prefix = Path("demo/exports/content_test")
+    df = pd.DataFrame({"A": [1, 2], "B": [3, 4]})
+    export.export_data({"tbl": df}, str(prefix), formats=["csv", "json", "txt"])
+    for ext in ("csv", "json", "txt"):
+        path = prefix.with_name(f"{prefix.stem}_tbl.{ext}")
+        if not path.exists():
+            raise SystemExit(f"{ext} export missing")
+        data = path.read_text().strip()
+        if "A" not in data:
+            raise SystemExit(f"{ext} export content corrupt")
+
+
+def _check_run_full_outputs(cfg: Config) -> None:
+    """Validate keys returned by ``pipeline.run_full``."""
+
+    res = pipeline.run_full(cfg)
+    required = {
+        "selected_funds",
+        "score_frame",
+        "benchmark_ir",
+        "in_sample_scaled",
+    }
+    missing = required - set(res)
+    if missing:
+        raise SystemExit(f"run_full missing keys: {missing}")
+
+
 # Execute additional error handling checks
 _check_export_errors()
 _check_config_errors()
 _check_empty_export_helpers()
 _check_export_misc()
+_check_export_content()
+_check_run_full_outputs(cfg)
 _check_run_analysis_errors(cfg)
 
 
