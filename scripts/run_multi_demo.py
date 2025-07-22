@@ -1389,6 +1389,36 @@ _check_abw_halflife()
 _check_engine_error(cfg)
 _check_notebook_utils()
 
+def _check_run_analysis_errors(cfg: Config) -> None:
+    """Exercise error-handling branches in ``_run_analysis``."""
+
+    res = pipeline._run_analysis(
+        None,
+        str(cfg.sample_split["in_start"]),
+        str(cfg.sample_split["in_end"]),
+        str(cfg.sample_split["out_start"]),
+        str(cfg.sample_split["out_end"]),
+        cfg.vol_adjust.get("target_vol", 1.0),
+        getattr(cfg, "run", {}).get("monthly_cost", 0.0),
+    )
+    if res is not None:
+        raise SystemExit("_run_analysis did not return None on missing df")
+
+    try:
+        pipeline._run_analysis(
+            pd.DataFrame({"A": [0.1, 0.2]}),
+            str(cfg.sample_split["in_start"]),
+            str(cfg.sample_split["in_end"]),
+            str(cfg.sample_split["out_start"]),
+            str(cfg.sample_split["out_end"]),
+            cfg.vol_adjust.get("target_vol", 1.0),
+            getattr(cfg, "run", {}).get("monthly_cost", 0.0),
+        )
+    except ValueError:
+        pass
+    else:
+        raise SystemExit("_run_analysis accepted DataFrame without Date column")
+
 # ------------------------------------------------------------
 # Additional error handling checks
 
@@ -1418,9 +1448,49 @@ def _check_config_errors() -> None:
         tmp.unlink(missing_ok=True)
 
 
+def _check_empty_export_helpers() -> None:
+    """Ensure export helpers cope with empty result lists."""
+
+    empty: list[dict[str, object]] = []
+    pf_frames = export.period_frames_from_results(empty)
+    if pf_frames:
+        raise SystemExit("period_frames_from_results non-empty for empty input")
+    wb_frames = export.workbook_frames_from_results(empty)
+    if wb_frames:
+        raise SystemExit("workbook_frames_from_results non-empty for empty input")
+    path_phase1 = Path("demo/exports/empty_phase1.xlsx")
+    export.export_phase1_workbook(empty, str(path_phase1))
+    if not path_phase1.exists():
+        raise SystemExit("export_phase1_workbook empty failed")
+    path_phase1_multi = Path("demo/exports/empty_phase1_multi")
+    export.export_phase1_multi_metrics(
+        empty,
+        str(path_phase1_multi),
+        formats=["xlsx", "csv", "json", "txt"],
+        include_metrics=True,
+    )
+    if not path_phase1_multi.with_suffix(".xlsx").exists():
+        raise SystemExit("export_phase1_multi_metrics empty Excel missing")
+    if not path_phase1_multi.with_name(f"{path_phase1_multi.stem}_periods.csv").exists():
+        raise SystemExit("export_phase1_multi_metrics empty CSV missing")
+    path_multi = Path("demo/exports/empty_multi")
+    export.export_multi_period_metrics(
+        empty,
+        str(path_multi),
+        formats=["xlsx", "csv", "json", "txt"],
+        include_metrics=True,
+    )
+    if not path_multi.with_suffix(".xlsx").exists():
+        raise SystemExit("export_multi_period_metrics empty Excel missing")
+    if not path_multi.with_name(f"{path_multi.stem}_periods.csv").exists():
+        raise SystemExit("export_multi_period_metrics empty CSV missing")
+
+
 # Execute additional error handling checks
 _check_export_errors()
 _check_config_errors()
+_check_empty_export_helpers()
+_check_run_analysis_errors(cfg)
 
 
 def _check_package_exports() -> None:
