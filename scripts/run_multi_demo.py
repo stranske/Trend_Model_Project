@@ -49,6 +49,19 @@ from trend_analysis.weighting import (
 from typing import Mapping, Sequence, Any
 
 
+def _check_generate_demo() -> None:
+    """Run generate_demo.py in both modes."""
+    csv = Path("demo/demo_returns.csv")
+    xlsx = csv.with_suffix(".xlsx")
+    csv.unlink(missing_ok=True)
+    xlsx.unlink(missing_ok=True)
+    subprocess.run([sys.executable, "scripts/generate_demo.py", "--no-xlsx"], check=True)
+    if not csv.exists() or xlsx.exists():
+        raise SystemExit("generate_demo --no-xlsx failed")
+    subprocess.run([sys.executable, "scripts/generate_demo.py"], check=True)
+    if not xlsx.exists():
+        raise SystemExit("generate_demo missing Excel")
+
 def _check_demo_data(cfg: Config) -> pd.DataFrame:
     """Validate the generated demo CSV and return the DataFrame."""
     df = load_csv(cfg.data["csv_path"])
@@ -768,6 +781,8 @@ def _check_notebook_utils() -> None:
         raise SystemExit("strip_output failed")
     tmp.unlink()
     subprocess.run(["sh", "tools/pre-commit"], check=True)
+
+_check_generate_demo()
 
 
 cfg = load("config/demo.yml")
