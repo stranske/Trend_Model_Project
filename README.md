@@ -153,6 +153,9 @@ invalid ``prior_mean`` lengths. Finally, the script invokes the
 full test suite so every module is covered.
 It now also calls ``run_multi_analysis.main`` with a temporary config to verify
 the dedicated multi-period CLI works and produces CSV output.
+The demo also validates the ``Portfolio`` container by rebalancing
+weights from both DataFrame and Series inputs so history tracking remains
+tested.
 
 ## Demo pipeline (maintenance / CI)
 
