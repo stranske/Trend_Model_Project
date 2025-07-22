@@ -570,6 +570,29 @@ def _check_equal_weight_empty() -> None:
         raise SystemExit("EqualWeight empty DataFrame not handled")
 
 
+def _check_abw_edge_cases() -> None:
+    """Exercise AdaptiveBayesWeighting edge conditions."""
+
+    # mismatched prior_mean length should raise
+    try:
+        abw_bad = AdaptiveBayesWeighting(prior_mean=np.array([0.5]))
+        abw_bad._ensure_index(pd.Index(["A", "B"]))
+    except ValueError:
+        pass
+    else:  # pragma: no cover - should not happen
+        raise SystemExit("prior_mean length mismatch not detected")
+
+    # half_life=0 should zero out tau during updates
+    abw = AdaptiveBayesWeighting(max_w=None, half_life=0)
+    abw.update(pd.Series({"A": 0.1}), days=30)
+    if abw.tau is None or not (abw.tau == 0).all():
+        raise SystemExit("half_life=0 did not zero tau")
+    # expand state when a new fund appears
+    abw.update(pd.Series({"A": 0.2, "B": 0.3}), days=30)
+    if "B" not in abw.mean.index:
+        raise SystemExit("ABW did not add new fund")
+
+
 def _check_engine_error(cfg: Config) -> None:
     """Ensure ``run_mp`` raises ``FileNotFoundError`` when data is missing."""
     bad = copy.deepcopy(cfg.model_dump())
@@ -1393,6 +1416,7 @@ _check_zscore_direction()
 _check_weighting_errors()
 _check_weighting_zero_sum()
 _check_equal_weight_empty()
+_check_abw_edge_cases()
 _check_core_helpers()
 _check_abw_halflife()
 _check_constants()
