@@ -17,6 +17,7 @@ import numpy as np
 import yaml  # type: ignore[import-untyped]
 import openpyxl
 import copy
+from dataclasses import fields
 from trend_analysis import (
     pipeline,
     export,
@@ -724,6 +725,22 @@ def _check_abw_halflife() -> None:
         raise SystemExit("ABW weight sum mismatch")
 
 
+def _check_stats_dataclass() -> None:
+    """Ensure the ``_Stats`` dataclass exposes all expected fields."""
+
+    expected = {
+        "cagr",
+        "vol",
+        "sharpe",
+        "sortino",
+        "information_ratio",
+        "max_drawdown",
+    }
+    actual = {f.name for f in fields(pipeline._Stats)}
+    if actual != expected:
+        raise SystemExit("_Stats fields mismatch")
+
+
 def _check_notebook_utils() -> None:
     """Exercise notebook helper scripts."""
     src = Path("Vol_Adj_Trend_Analysis1.5.TrEx.ipynb")
@@ -1238,6 +1255,17 @@ if metrics_df.empty:
     raise SystemExit("pipeline.run produced empty metrics")
 if "ir_spx" not in metrics_df.columns:
     raise SystemExit("pipeline.run missing ir_spx column")
+expected_cols = {
+    "cagr",
+    "vol",
+    "sharpe",
+    "sortino",
+    "information_ratio",
+    "max_drawdown",
+    "ir_spx",
+}
+if set(metrics_df.columns) != expected_cols:
+    raise SystemExit("pipeline.run column mismatch")
 out_prefix = Path("demo/exports/pipeline_demo")
 export.export_data(
     {"metrics": metrics_df},
@@ -1260,6 +1288,12 @@ if sf is None or sf.empty:
 b_ir = full_res.get("benchmark_ir", {}) if isinstance(full_res, dict) else {}
 if "spx" not in b_ir or "equal_weight" not in b_ir.get("spx", {}):
     raise SystemExit("pipeline.run_full benchmark_ir missing")
+stats_map = full_res.get("out_sample_stats", {}) if isinstance(full_res, dict) else {}
+if not stats_map:
+    raise SystemExit("pipeline.run_full out_sample_stats missing")
+for obj in stats_map.values():
+    if not hasattr(obj, "information_ratio"):
+        raise SystemExit("_Stats missing information_ratio")
 
 # Reuse the sample split for the convenience wrapper
 split = cfg.sample_split
@@ -1445,6 +1479,7 @@ _check_equal_weight_empty()
 _check_abw_edge_cases()
 _check_core_helpers()
 _check_abw_halflife()
+_check_stats_dataclass()
 _check_constants()
 _check_engine_error(cfg)
 _check_notebook_utils()
