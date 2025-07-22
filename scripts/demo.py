@@ -118,6 +118,22 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
         n=1,
         score_by="AnnualReturn",
     )
+    ranked_blended = rs.rank_select_funds(
+        df.loc[mask, fund_cols],
+        rs.RiskStatsConfig(risk_free=0.0),
+        inclusion_approach="top_n",
+        n=1,
+        score_by="blended",
+        blended_weights={"Sharpe": 0.5, "AnnualReturn": 0.3, "MaxDrawdown": 0.2},
+    )
+    ranked_zscore = rs.rank_select_funds(
+        df.loc[mask, fund_cols],
+        rs.RiskStatsConfig(risk_free=0.0),
+        inclusion_approach="top_n",
+        n=1,
+        score_by="AnnualReturn",
+        transform="zscore",
+    )
     # Demonstrate the rebalancer with a simple trigger configuration.
     rb_cfg = {"triggers": {"sigma1": {"sigma": 1, "periods": 2}}}
     rb = Rebalancer(rb_cfg)
@@ -197,6 +213,8 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
     print(score_frame.head())
     print("Analysis selected:", analysis_res.get("selected_funds"))
     print("Top fund by ranking:", ranked)
+    print("Top fund by blended ranking:", ranked_blended)
+    print("Top fund by z-score ranking:", ranked_zscore)
     print("Generated periods:", len(periods))
     print("Multi-period run count:", mp_res.get("n_periods"))
     print("Rebalanced weights:", rb_weights.to_dict())
@@ -228,6 +246,8 @@ def main(out_dir: str | Path | None = None) -> Dict[str, Any]:
         "mp_index": mp_history_df.index.tolist(),
         "mp_weights": mp_weights.to_dict(),
         "ranked": ranked,
+        "ranked_blended": ranked_blended,
+        "ranked_zscore": ranked_zscore,
         "loaded_version": loaded_cfg.version,
         "nb_clean": nb_clean,
     }
