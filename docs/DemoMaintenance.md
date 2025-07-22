@@ -37,6 +37,8 @@ It also tests ``zscore_window`` and ``ddof`` behaviour via ``_apply_transform``
 so advanced ranking options remain covered.
 It now confirms the ``_Stats`` dataclass includes the ``information_ratio``
 field so metric expansions are checked end-to-end.
+It now registers a custom metric via ``rank_selection.register_metric`` so
+the metric extension hooks stay validated.
 It now confirms the generated demo dataset contains 10 years of monthly data across 20 managers so ``generate_demo.py`` stays reliable.
 It additionally verifies an Excel copy is produced and that the dates span
 exactly 120 consecutive months.
