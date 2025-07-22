@@ -16,6 +16,7 @@ import pandas as pd
 import numpy as np
 import yaml  # type: ignore[import-untyped]
 import openpyxl
+import warnings
 import copy
 import importlib
 from dataclasses import fields
@@ -555,6 +556,33 @@ def _check_builtin_metric_aliases() -> None:
         raise SystemExit("annualize_sharpe_ratio alias mismatch")
     if m.annualize_sortino_ratio(s) != m.sortino_ratio(s):
         raise SystemExit("annualize_sortino_ratio alias mismatch")
+
+
+def _check_metric_helpers() -> None:
+    """Exercise internal metric helper functions."""
+
+    ser = pd.Series([0.1, 0.2, -0.1])
+    df = pd.DataFrame({"A": ser, "B": ser})
+
+    if not np.isnan(metrics._empty_like(ser, "foo")):
+        raise SystemExit("_empty_like Series mismatch")
+    empty_df = metrics._empty_like(df, "bar")
+    if not isinstance(empty_df, pd.Series) or empty_df.name != "bar" or not empty_df.isna().all():
+        raise SystemExit("_empty_like DataFrame mismatch")
+
+    try:
+        metrics._validate_input([1, 2, 3])  # type: ignore[arg-type]
+    except TypeError:
+        pass
+    else:
+        raise SystemExit("_validate_input failed")
+
+    try:
+        metrics._check_shapes(ser, df, "demo")
+    except ValueError:
+        pass
+    else:
+        raise SystemExit("_check_shapes did not raise")
 
 
 def _check_selector_errors() -> None:
@@ -1530,6 +1558,7 @@ _check_portfolio()
 _check_load_csv_error()
 _check_metrics_basic()
 _check_builtin_metric_aliases()
+_check_metric_helpers()
 _check_selector_errors()
 _check_zscore_direction()
 _check_weighting_errors()
