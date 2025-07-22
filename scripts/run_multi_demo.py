@@ -661,6 +661,15 @@ def _check_core_helpers() -> None:
         raise SystemExit("_compute_metric_series failed to reject unknown metric")
 
 
+def _check_constants() -> None:
+    """Validate key constant values to catch accidental changes."""
+
+    if rs.ASCENDING_METRICS != {"MaxDrawdown"}:
+        raise SystemExit("ASCENDING_METRICS unexpected contents")
+    if rs.DEFAULT_METRIC != "AnnualReturn":
+        raise SystemExit("DEFAULT_METRIC unexpected value")
+
+
 def _check_abw_halflife() -> None:
     """Verify ``AdaptiveBayesWeighting`` handles ``half_life=0``."""
 
@@ -1386,6 +1395,7 @@ _check_weighting_zero_sum()
 _check_equal_weight_empty()
 _check_core_helpers()
 _check_abw_halflife()
+_check_constants()
 _check_engine_error(cfg)
 _check_notebook_utils()
 
