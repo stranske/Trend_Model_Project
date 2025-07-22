@@ -1683,6 +1683,17 @@ def _check_config_errors() -> None:
         tmp.unlink(missing_ok=True)
 
 
+def _check_config_missing() -> None:
+    """Ensure ``config.load`` raises when the file is absent."""
+
+    try:
+        load("_no_such_config.yml")
+    except FileNotFoundError:
+        pass
+    else:  # pragma: no cover - should not happen
+        raise SystemExit("config.load missing-file check failed")
+
+
 def _check_empty_export_helpers() -> None:
     """Ensure export helpers cope with empty result lists."""
 
@@ -1770,6 +1781,7 @@ def _check_run_full_outputs(cfg: Config) -> None:
 # Execute additional error handling checks
 _check_export_errors()
 _check_config_errors()
+_check_config_missing()
 _check_empty_export_helpers()
 _check_export_misc()
 _check_export_content()
