@@ -1399,6 +1399,7 @@ _check_constants()
 _check_engine_error(cfg)
 _check_notebook_utils()
 
+
 def _check_run_analysis_errors(cfg: Config) -> None:
     """Exercise error-handling branches in ``_run_analysis``."""
 
@@ -1428,6 +1429,7 @@ def _check_run_analysis_errors(cfg: Config) -> None:
         pass
     else:
         raise SystemExit("_run_analysis accepted DataFrame without Date column")
+
 
 # ------------------------------------------------------------
 # Additional error handling checks
@@ -1481,7 +1483,9 @@ def _check_empty_export_helpers() -> None:
     )
     if not path_phase1_multi.with_suffix(".xlsx").exists():
         raise SystemExit("export_phase1_multi_metrics empty Excel missing")
-    if not path_phase1_multi.with_name(f"{path_phase1_multi.stem}_periods.csv").exists():
+    if not path_phase1_multi.with_name(
+        f"{path_phase1_multi.stem}_periods.csv"
+    ).exists():
         raise SystemExit("export_phase1_multi_metrics empty CSV missing")
     path_multi = Path("demo/exports/empty_multi")
     export.export_multi_period_metrics(
