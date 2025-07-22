@@ -16,7 +16,6 @@ import pandas as pd
 import numpy as np
 import yaml  # type: ignore[import-untyped]
 import openpyxl
-import warnings
 import copy
 import importlib
 from dataclasses import fields
@@ -57,7 +56,9 @@ def _check_generate_demo() -> None:
     xlsx = csv.with_suffix(".xlsx")
     csv.unlink(missing_ok=True)
     xlsx.unlink(missing_ok=True)
-    subprocess.run([sys.executable, "scripts/generate_demo.py", "--no-xlsx"], check=True)
+    subprocess.run(
+        [sys.executable, "scripts/generate_demo.py", "--no-xlsx"], check=True
+    )
     if not csv.exists() or xlsx.exists():
         raise SystemExit("generate_demo --no-xlsx failed")
     subprocess.run([sys.executable, "scripts/generate_demo.py"], check=True)
@@ -75,6 +76,7 @@ def _check_generate_demo_help() -> None:
     )
     if "Generate demo return series" not in proc.stdout:
         raise SystemExit("generate_demo --help missing text")
+
 
 def _check_demo_data(cfg: Config) -> pd.DataFrame:
     """Validate the generated demo CSV and return the DataFrame."""
@@ -567,7 +569,11 @@ def _check_metric_helpers() -> None:
     if not np.isnan(metrics._empty_like(ser, "foo")):
         raise SystemExit("_empty_like Series mismatch")
     empty_df = metrics._empty_like(df, "bar")
-    if not isinstance(empty_df, pd.Series) or empty_df.name != "bar" or not empty_df.isna().all():
+    if (
+        not isinstance(empty_df, pd.Series)
+        or empty_df.name != "bar"
+        or not empty_df.isna().all()
+    ):
         raise SystemExit("_empty_like DataFrame mismatch")
 
     try:
@@ -760,6 +766,39 @@ def _check_core_helpers() -> None:
         raise SystemExit("_compute_metric_series failed to reject unknown metric")
 
 
+def _check_scheduler_extra() -> None:
+    """Exercise additional scheduler edge cases."""
+
+    month_cfg = {
+        "multi_period": {
+            "frequency": "M",
+            "in_sample_len": 2,
+            "out_sample_len": 1,
+            "start": "2020-01",
+            "end": "2020-06",
+        }
+    }
+    months = scheduler.generate_periods(month_cfg)
+    if not months or not months[0].in_start.startswith("2020"):
+        raise SystemExit("generate_periods M alias failed")
+
+    bad_cfg = {
+        "multi_period": {
+            "frequency": "BAD",
+            "in_sample_len": 1,
+            "out_sample_len": 1,
+            "start": "2020-01",
+            "end": "2020-12",
+        }
+    }
+    try:
+        scheduler.generate_periods(bad_cfg)
+    except KeyError:
+        pass
+    else:  # pragma: no cover - should not happen
+        raise SystemExit("generate_periods invalid frequency not raised")
+
+
 def _check_rank_metric_registration() -> None:
     """Ensure ``rank_selection.register_metric`` works end-to-end."""
 
@@ -828,6 +867,7 @@ def _check_notebook_utils() -> None:
         raise SystemExit("strip_output failed")
     tmp.unlink()
     subprocess.run(["sh", "tools/pre-commit"], check=True)
+
 
 _check_generate_demo()
 
@@ -1566,6 +1606,7 @@ _check_weighting_zero_sum()
 _check_equal_weight_empty()
 _check_abw_edge_cases()
 _check_core_helpers()
+_check_scheduler_extra()
 _check_rank_metric_registration()
 _check_abw_halflife()
 _check_stats_dataclass()
