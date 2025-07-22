@@ -17,6 +17,7 @@ import numpy as np
 import yaml  # type: ignore[import-untyped]
 import openpyxl
 import copy
+import importlib
 from dataclasses import fields
 from trend_analysis import (
     pipeline,
@@ -61,6 +62,18 @@ def _check_generate_demo() -> None:
     subprocess.run([sys.executable, "scripts/generate_demo.py"], check=True)
     if not xlsx.exists():
         raise SystemExit("generate_demo missing Excel")
+
+
+def _check_generate_demo_help() -> None:
+    """Ensure the dataset generator prints usage information."""
+    proc = subprocess.run(
+        [sys.executable, "scripts/generate_demo.py", "--help"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    if "Generate demo return series" not in proc.stdout:
+        raise SystemExit("generate_demo --help missing text")
 
 def _check_demo_data(cfg: Config) -> pd.DataFrame:
     """Validate the generated demo CSV and return the DataFrame."""
@@ -783,6 +796,8 @@ def _check_notebook_utils() -> None:
     subprocess.run(["sh", "tools/pre-commit"], check=True)
 
 _check_generate_demo()
+
+_check_generate_demo_help()
 
 
 cfg = load("config/demo.yml")
@@ -1701,10 +1716,24 @@ def _check_module_exports() -> None:
             "debounce",
             "list_builtin_cfgs",
         },
+        "core.rank_selection": {
+            "FundSelectionConfig",
+            "RiskStatsConfig",
+            "register_metric",
+            "METRIC_REGISTRY",
+            "blended_score",
+            "rank_select_funds",
+            "select_funds",
+            "build_ui",
+            "canonical_metric_list",
+        },
     }
 
     for name, expected in expected_map.items():
-        module = getattr(ta, name)
+        if "." in name:
+            module = importlib.import_module(f"trend_analysis.{name}")
+        else:
+            module = getattr(ta, name)
         actual = set(getattr(module, "__all__", []))
         if actual != expected:
             raise SystemExit(f"{name} __all__ mismatch")
