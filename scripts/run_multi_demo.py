@@ -19,6 +19,12 @@ import openpyxl
 import copy
 import importlib
 from dataclasses import fields
+import asyncio
+import types
+import builtins
+import importlib.metadata as md
+from ipywidgets import widgets  # type: ignore[import-untyped]
+from trend_analysis import metrics as m
 from trend_analysis import (
     pipeline,
     export,
@@ -204,11 +210,11 @@ def _check_datagrid_override() -> None:
 
     mod = types.ModuleType("ipydatagrid")
 
-    class DummyGrid(widgets.Widget):
+    class DummyGrid(widgets.Widget):  # type: ignore[misc]
         def __init__(self, *a: object, **k: object) -> None:
             super().__init__()
 
-    mod.DataGrid = DummyGrid
+    mod.DataGrid = DummyGrid  # type: ignore[attr-defined]
     sys.modules["ipydatagrid"] = mod
     try:
         store = gui.ParamStore()
@@ -232,7 +238,7 @@ def _check_plugin_discovery() -> None:
     class DemoPlugin:
         pass
 
-    dummy_mod.DemoPlugin = DemoPlugin
+    dummy_mod.DemoPlugin = DemoPlugin  # type: ignore[attr-defined]
     sys.modules["demo_plugin"] = dummy_mod
     ep = md.EntryPoint("demo", "demo_plugin:DemoPlugin", "trend_analysis.gui_plugins")
     orig = md.entry_points
@@ -547,9 +553,9 @@ def _check_builtin_metric_aliases() -> None:
 
     if builtins.annualize_return(s) != legacy.annualize_return(s):
         raise SystemExit("builtins annualize_return mismatch")
-    if builtins.annualize_volatility(s) != legacy.annualize_volatility(
+    if builtins.annualize_volatility(s) != legacy.annualize_volatility(  # type: ignore[attr-defined]
         s
-    ):  # type: ignore[attr-defined]
+    ):
         raise SystemExit("builtins annualize_volatility mismatch")
 
     # additional alias checks

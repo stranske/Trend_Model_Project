@@ -27,6 +27,7 @@ src/trend_analysis/multi_period/engine.py
 src/trend_analysis/multi_period/replacer.py
 src/trend_analysis/multi_period/scheduler.py
 tests/test_adaptive_bayes.py
+tests/test_app_coverage.py
 tests/test_cli.py
 tests/test_config.py
 tests/test_config_errors.py
@@ -37,6 +38,8 @@ tests/test_export_errors.py
 tests/test_export_formatter.py
 tests/test_exports.py
 tests/test_gui.py
+tests/test_gui_app_extended.py
+tests/test_gui_app_simple.py
 tests/test_metric_vectorise.py
 tests/test_metric_vectorise_param.py
 tests/test_metrics.py
@@ -48,6 +51,8 @@ tests/test_multi_period_stub.py
 tests/test_pipeline.py
 tests/test_pipeline_indices.py
 tests/test_rank_selection.py
+tests/test_rank_selection_coverage.py
+tests/test_rank_selection_extended.py
 tests/test_rank_transform.py
 tests/test_replacer.py
 tests/test_run_analysis.py

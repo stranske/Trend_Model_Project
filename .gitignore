@@ -25,3 +25,7 @@ demo/exports/
 
 # keep the sample dataset under version control
 !demo/demo_returns.csv
+
+# Virtual Environment
+venv/
+activate_venv.sh
