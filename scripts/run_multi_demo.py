@@ -2052,6 +2052,10 @@ subprocess.run(
     env=env,
 )
 
+# Run the validation helpers to ensure they remain functional
+quick_check = Path(__file__).resolve().with_name("quick_check.sh")
+subprocess.run(["bash", str(quick_check)], check=True)
+
 # Execute the full test suite to cover the entire code base
 run_tests = Path(__file__).resolve().with_name("run_tests.sh")
 subprocess.run([str(run_tests)], check=True)
