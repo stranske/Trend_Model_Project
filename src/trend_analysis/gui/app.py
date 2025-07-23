@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import sys
 import warnings
-import yaml
+import yaml  # type: ignore[import-untyped]
 import pickle
 import ipywidgets as widgets
 from IPython.display import Javascript, display, FileLink
