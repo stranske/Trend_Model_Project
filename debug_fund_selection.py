@@ -53,7 +53,7 @@ def debug_fund_selection():
     print(f"Return columns: {ret_cols}")
     
     # Identify risk-free fund
-    rf_col = identify_risk_free_fund(df)
+    rf_col = identify_risk_free_fund(df[ret_cols])
     print(f"Risk-free column identified: {rf_col}")
     
     # Get fund columns (excluding risk-free)
