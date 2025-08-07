@@ -101,8 +101,18 @@ def rank_select_funds(
         ascending=ascending,
     )
 
-    sort_ascending = True if transform == "rank" else ascending
-    scores = scores.sort_values(ascending=sort_ascending)
+    if transform == "rank":
+        scores = scores.rank(ascending=ascending, pct=False).sort_values(
+            ascending=ascending
+        )
+    else:
+        scores = _apply_transform(
+            scores,
+            mode=transform,
+            window=zscore_window,
+            rank_pct=rank_pct,
+            ascending=ascending,
+        ).sort_values(ascending=ascending)
 
     if inclusion_approach == "top_n":
         if n is None:
