@@ -50,7 +50,8 @@ def debug_fund_selection():
     print(f"In-sample data shape: {in_df.shape}")
 
     # Identify return columns (this is the key part!)
-    ret_cols = [c for c in df.columns if c != date_col]
+    # Only include numeric columns, and exclude the date column
+    ret_cols = [c for c in df.select_dtypes(include=[np.number]).columns if c != date_col]
     print(f"Return columns found: {len(ret_cols)}")
     print(f"Return columns: {ret_cols}")
 
