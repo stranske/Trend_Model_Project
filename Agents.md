@@ -562,3 +562,92 @@ JSON outputs must consolidate all periods into a single file.  A new helper
 sheet mapping for a multi‑period workbook, optionally including raw metrics per
 period and for the combined summary.  `export_phase1_workbook()` now builds its
 workbook from this mapping.
+
+## Fund Selection Debugging Protocol
+
+### Problem Context
+When debugging multi-period portfolio analysis where the same managers are selected every period despite changing performance rankings, follow this systematic approach.
+
+### Debugging Workflow
+
+1. **Environment Setup**
+   - Ensure virtual environment is activated: `source venv/bin/activate`
+   - Verify all dependencies installed: `pip install -r requirements.txt && pip install -e .`
+   - Confirm working on correct branch (use `chore/demo-pipeline` for debugging)
+
+2. **Data Completeness Analysis**
+   ```python
+   # Run the debug script to check data availability
+   python debug_fund_selection.py
+   ```
+
+This script will reveal:
+
+- How many managers are in the original dataset
+- Which managers get filtered out due to missing data in in-sample periods
+- Which managers get filtered out due to missing data in out-of-sample periods
+- Final available manager pool for selection
+- Actual ranking results for available managers
+
+Expected Issues to Check
+
+- Data Gap Issue: Only 8 managers have complete data across all periods
+- Ranking Bug: Selection logic not sorting by performance metrics
+- Configuration Issue: Wrong parameters passed to rank_select_funds
+- Period Definition: Incorrect date parsing or period boundaries
+
+Workflow Compliance
+
+- DO NOT make ad-hoc changes to core modules from demo branch
+- DO document findings clearly before proposing fixes
+- DO follow the phase2-dev → chore/demo-pipeline workflow for fixes
+- DO NOT merge anything with main branch
+
+Core Module Fix Process
+If debugging reveals bugs in core selection logic:
+
+- Document the Issue
+  - Specific function with the bug (e.g., rank_select_funds)
+  - Expected vs actual behavior
+  - Root cause analysis
+  - Test case demonstrating the problem
+- Implement Fix on phase2-dev
+
+Common Pitfalls to Avoid
+
+- DON'T assume the ranking algorithm is wrong without checking data completeness first
+- DON'T make changes to core modules without switching to phase2-dev
+- DON'T run analysis commands that take more than 2-3 minutes without progress updates
+- DON'T ignore the virtual environment setup - module imports will fail
+- DO trace through the actual data filtering pipeline step by step
+
+## Development Workflow
+
+### Multi-Period Analysis Debugging
+
+When debugging multi-period issues:
+
+1. **Start with data completeness check** - Most "selection not changing" issues are due to insufficient data for additional managers
+2. **Use the debug_fund_selection.py script** - Provides systematic analysis of the selection pipeline
+3. **Check both in-sample AND out-of-sample data requirements** - Both periods must have complete data for a manager to be eligible
+4. **Verify configuration parameters** - Ensure rank_select_funds is getting correct inclusion_approach, n, score_by parameters
+
+Example debug workflow:
+```bash
+# 1. Run systematic debugging
+python debug_fund_selection.py
+
+# 2. If data issue found: investigate data generation
+# 3. If logic issue found: follow core fix workflow
+# 4. If config issue found: update configuration files
+```
+
+## Code Quality Guidelines
+
+### Debugging Script Standards
+
+- Debugging scripts should be self-contained and clearly document their purpose
+- Include comprehensive output showing each step of the analysis
+- Distinguish between data issues vs. logic bugs vs. configuration problems
+- Provide clear conclusions and next steps based on findings
+- Follow the same code quality standards as production code
