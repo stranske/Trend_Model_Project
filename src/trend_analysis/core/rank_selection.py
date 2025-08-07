@@ -321,7 +321,18 @@ def blended_score(
     """
     if not weights:
         raise ValueError("blended_score requires non‑empty weights dict")
-    w_norm = {k: v / sum(weights.values()) for k, v in weights.items()}
+    # Normalize metric names using _METRIC_ALIASES
+    canonical_weights = {}
+    for k, v in weights.items():
+        canonical = _metrics._METRIC_ALIASES.get(k, k)
+        if canonical in canonical_weights:
+            canonical_weights[canonical] += v
+        else:
+            canonical_weights[canonical] = v
+    total = sum(canonical_weights.values())
+    if total == 0:
+        raise ValueError("Sum of weights must not be zero")
+    w_norm = {k: v / total for k, v in canonical_weights.items()}
 
     combo = pd.Series(0.0, index=in_sample_df.columns)
     for metric, w in w_norm.items():
