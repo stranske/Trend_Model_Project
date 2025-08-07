@@ -651,3 +651,22 @@ python debug_fund_selection.py
 - Distinguish between data issues vs. logic bugs vs. configuration problems
 - Provide clear conclusions and next steps based on findings
 - Follow the same code quality standards as production code
+
+### Rank Selection Bug Fix Protocol
+
+**Problem**: The `rank_select_funds` function in `src/trend_analysis/core/rank_selection.py` selects funds by DataFrame column order instead of by performance ranking.
+
+**Root Cause**: The function calls `scores.head(n)` without sorting the scores first, so it returns the first N funds in the original DataFrame order rather than the top N performers.
+
+**Workflow**:
+1. Switch to `phase2-dev` branch
+2. Fix the core ranking logic
+3. Add comprehensive tests
+4. Commit and push to `phase2-dev`
+5. Switch back to `chore/demo-pipeline` and merge the fix
+
+**Critical Requirements**:
+- DO NOT modify core modules from the demo branch
+- All core fixes must be done on `phase2-dev`
+- Ensure virtual environment is active before making changes
+- Test both ascending (MaxDrawdown) and descending (Sharpe) metrics
