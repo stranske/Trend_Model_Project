@@ -1,4 +1,4 @@
-# agents.md
+# Agents.md
 """
 YOU ARE CODEX.  EXTEND THE VOL_ADJ_TREND_ANALYSIS PROJECT AS FOLLOWS
 --------------------------------------------------------------------

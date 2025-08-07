@@ -101,10 +101,8 @@ def rank_select_funds(
         ascending=ascending,
     )
 
-    if transform == "rank":
-        scores = scores.sort_values(ascending=ascending)
-    else:
-        scores = scores.sort_values(ascending=ascending)
+    sort_ascending = True if transform == "rank" else ascending
+    scores = scores.sort_values(ascending=sort_ascending)
 
     if inclusion_approach == "top_n":
         if n is None:
