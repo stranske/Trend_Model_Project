@@ -95,7 +95,7 @@ def rank_select_funds(
 
     if transform == "rank":
         scores = scores.rank(ascending=ascending, pct=False).sort_values(
-            ascending=True
+            ascending=ascending
         )
     else:
         scores = _apply_transform(
