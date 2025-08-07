@@ -30,6 +30,7 @@ def _apply_transform(
     window: int | None = None,
     rank_pct: float | None = None,
     ddof: int = 0,
+    ascending: bool = False,
 ) -> pd.Series:
     """
     Return a transformed copy of *series* without mutating the original.
@@ -40,18 +41,19 @@ def _apply_transform(
     window    : trailing periods for z‑score (ignored otherwise)
     rank_pct  : top‑X% mask when mode == 'percentile'
     ddof      : degrees of freedom for std in z‑score
+    ascending : whether smaller values are better
     """
     if mode == "raw":
         return series
 
     if mode == "rank":
-        return series.rank(ascending=False, pct=False)
+        return series.rank(ascending=ascending, pct=False)
 
     if mode == "percentile":
         if rank_pct is None:
             raise ValueError("rank_pct must be set for percentile transform")
         k = max(int(round(len(series) * rank_pct)), 1)
-        mask = series.rank(ascending=False, pct=False) <= k
+        mask = series.rank(ascending=ascending, pct=False) <= k
         return series.where(mask, np.nan)
 
     if mode == "zscore":
@@ -84,18 +86,23 @@ def rank_select_funds(
     """
     if score_by == "blended":
         scores = blended_score(in_sample_df, blended_weights or {}, stats_cfg)
+        metric_name = None
+        ascending = False
     else:
-        scores = _compute_metric_series(in_sample_df, score_by, stats_cfg)
+        metric_name = _METRIC_ALIASES.get(score_by, score_by)
+        scores = _compute_metric_series(in_sample_df, metric_name, stats_cfg)
+        ascending = metric_name in ASCENDING_METRICS
 
-    scores = _apply_transform(
-        scores,
-        mode=transform,
-        window=zscore_window,
-        rank_pct=rank_pct,
-    )
-
-    ascending = score_by in ASCENDING_METRICS
-    scores = scores.sort_values(ascending=ascending)
+    if transform == "rank":
+        scores = scores.rank(ascending=ascending, pct=False).sort_values(ascending=True)
+    else:
+        scores = _apply_transform(
+            scores,
+            mode=transform,
+            window=zscore_window,
+            rank_pct=rank_pct,
+            ascending=ascending,
+        ).sort_values(ascending=ascending)
 
     if inclusion_approach == "top_n":
         if n is None:
@@ -304,7 +311,10 @@ def blended_score(
     """
     if not weights:
         raise ValueError("blended_score requires non‑empty weights dict")
-    w_norm = {k: v / sum(weights.values()) for k, v in weights.items()}
+    w_norm = {
+        _METRIC_ALIASES.get(k, k): v / sum(weights.values())
+        for k, v in weights.items()
+    }
 
     combo = pd.Series(0.0, index=in_sample_df.columns)
     for metric, w in w_norm.items():
