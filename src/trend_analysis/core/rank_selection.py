@@ -30,7 +30,6 @@ def _apply_transform(
     window: int | None = None,
     rank_pct: float | None = None,
     ddof: int = 0,
-    ascending: bool = False,
 ) -> pd.Series:
     """
     Return a transformed copy of *series* without mutating the original.
@@ -41,19 +40,18 @@ def _apply_transform(
     window    : trailing periods for z‑score (ignored otherwise)
     rank_pct  : top‑X% mask when mode == 'percentile'
     ddof      : degrees of freedom for std in z‑score
-    ascending : whether smaller values are better
     """
     if mode == "raw":
         return series
 
     if mode == "rank":
-        return series.rank(ascending=ascending, pct=False)
+        return series.rank(ascending=False, pct=False)
 
     if mode == "percentile":
         if rank_pct is None:
             raise ValueError("rank_pct must be set for percentile transform")
         k = max(int(round(len(series) * rank_pct)), 1)
-        mask = series.rank(ascending=ascending, pct=False) <= k
+        mask = series.rank(ascending=False, pct=False) <= k
         return series.where(mask, np.nan)
 
     if mode == "zscore":
@@ -68,52 +66,54 @@ def _apply_transform(
 
 
 def rank_select_funds(
-    in_sample_df: pd.DataFrame,
-    stats_cfg: RiskStatsConfig,
+    df: pd.DataFrame,
+    cfg: RiskStatsConfig,
     *,
     inclusion_approach: str = "top_n",
-    transform: str = "raw",  # NEW
-    zscore_window: int | None = None,
-    rank_pct: float | None = None,
     n: int | None = None,
     pct: float | None = None,
     threshold: float | None = None,
     score_by: str = DEFAULT_METRIC,
     blended_weights: dict[str, float] | None = None,
+    transform: str = "raw",
+    transform_mode: str | None = None,
+    zscore_window: int | None = None,
+    zscore_ddof: int = 1,
+    rank_pct: float = 0.5,
 ) -> list[str]:
-    """
-    Central routine – returns the **ordered** list of selected funds.
-    """
-    if score_by == "blended":
-        scores = blended_score(in_sample_df, blended_weights or {}, stats_cfg)
-        metric_name = None
-        ascending = False
-    else:
-        metric_name = _METRIC_ALIASES.get(score_by, score_by)
-        scores = _compute_metric_series(in_sample_df, metric_name, stats_cfg)
-        ascending = metric_name in ASCENDING_METRICS
+    """Select funds based on ranking by a specified metric."""
 
+    # Handle transform_mode alias
+    if transform_mode is not None:
+        transform = transform_mode
+
+    metric_name = _METRIC_ALIASES.get(score_by, score_by)
+
+    # Compute metric scores
+    if metric_name == "blended":
+        if blended_weights is None:
+            raise ValueError("blended score requires blended_weights parameter")
+        scores = blended_score(df, blended_weights, cfg)
+    else:
+        scores = _compute_metric_series(df, metric_name, cfg)
+
+    # Apply transform
     scores = _apply_transform(
         scores,
         mode=transform,
         window=zscore_window,
+        ddof=zscore_ddof,
         rank_pct=rank_pct,
-        ascending=ascending,
     )
 
+    # FIX: Sort scores before selection (this was missing!)
+    ascending = metric_name in ["MaxDrawdown", "Volatility"]  # metrics where lower is better
     if transform == "rank":
-        scores = scores.rank(ascending=ascending, pct=False).sort_values(
-            ascending=ascending
-        )
+        scores = scores.sort_values()  # rank 1 = best
     else:
-        scores = _apply_transform(
-            scores,
-            mode=transform,
-            window=zscore_window,
-            rank_pct=rank_pct,
-            ascending=ascending,
-        ).sort_values(ascending=ascending)
+        scores = scores.sort_values(ascending=ascending)
 
+    # Apply inclusion approach
     if inclusion_approach == "top_n":
         if n is None:
             raise ValueError("top_n requires parameter n")
@@ -321,10 +321,7 @@ def blended_score(
     """
     if not weights:
         raise ValueError("blended_score requires non‑empty weights dict")
-    w_norm = {
-        _METRIC_ALIASES.get(k, k): v / sum(weights.values())
-        for k, v in weights.items()
-    }
+    w_norm = {k: v / sum(weights.values()) for k, v in weights.items()}
 
     combo = pd.Series(0.0, index=in_sample_df.columns)
     for metric, w in w_norm.items():
