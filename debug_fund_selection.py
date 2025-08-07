@@ -38,7 +38,8 @@ def debug_fund_selection():
 
     in_sdate = _parse_month(in_start)
     in_edate = _parse_month(in_end)
-
+    in_sdate = parse_month(in_start)
+    in_edate = parse_month(in_end)
     print(f"\nAnalyzing period: {in_sdate} to {in_edate}")
 
     # Filter data for in-sample period
