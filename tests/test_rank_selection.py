@@ -25,6 +25,35 @@ def test_rank_select_funds_top_n():
     assert selected == ["A"]
 
 
+def test_rank_transform_sorts_best_first():
+    df = make_df()
+    in_df = df.loc[df.index[:3], ["A", "B"]]
+    cfg = rs.RiskStatsConfig(risk_free=0.0)
+    selected = rs.rank_select_funds(
+        in_df,
+        cfg,
+        inclusion_approach="top_n",
+        n=1,
+        score_by="AnnualReturn",
+        transform="rank",
+    )
+    assert selected == ["A"]
+
+
+def test_metric_alias_handled():
+    df = make_df()
+    in_df = df.loc[df.index[:3], ["A", "B"]]
+    cfg = rs.RiskStatsConfig(risk_free=0.0)
+    selected = rs.rank_select_funds(
+        in_df,
+        cfg,
+        inclusion_approach="top_n",
+        n=1,
+        score_by="annual_return",
+    )
+    assert selected == ["A"]
+
+
 def test_run_analysis_rank_mode():
     df = make_df()
     res = run_analysis(
