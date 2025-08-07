@@ -102,7 +102,7 @@ def rank_select_funds(
     )
 
     if transform == "rank":
-        scores = scores.sort_values(ascending=True)
+        scores = scores.sort_values(ascending=ascending)
     else:
         scores = scores.sort_values(ascending=ascending)
 
