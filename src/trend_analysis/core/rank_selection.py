@@ -93,16 +93,18 @@ def rank_select_funds(
         scores = _compute_metric_series(in_sample_df, metric_name, stats_cfg)
         ascending = metric_name in ASCENDING_METRICS
 
+    scores = _apply_transform(
+        scores,
+        mode=transform,
+        window=zscore_window,
+        rank_pct=rank_pct,
+        ascending=ascending,
+    )
+
     if transform == "rank":
-        scores = scores.rank(ascending=ascending, pct=False).sort_values(ascending=True)
+        scores = scores.sort_values(ascending=ascending)
     else:
-        scores = _apply_transform(
-            scores,
-            mode=transform,
-            window=zscore_window,
-            rank_pct=rank_pct,
-            ascending=ascending,
-        ).sort_values(ascending=ascending)
+        scores = scores.sort_values(ascending=ascending)
 
     if inclusion_approach == "top_n":
         if n is None:

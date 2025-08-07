@@ -5,6 +5,7 @@ Debug the fund selection process - why are only Mgr_01-08 being considered?
 
 import pandas as pd
 import numpy as np
+from pathlib import Path
 from trend_analysis.config import load
 from trend_analysis.data import load_csv, identify_risk_free_fund
 from trend_analysis.core.rank_selection import rank_select_funds, RiskStatsConfig
@@ -37,7 +38,8 @@ def debug_fund_selection():
 
     in_sdate = _parse_month(in_start)
     in_edate = _parse_month(in_end)
-
+    in_sdate = parse_month(in_start)
+    in_edate = parse_month(in_end)
     print(f"\nAnalyzing period: {in_sdate} to {in_edate}")
 
     # Filter data for in-sample period
@@ -48,7 +50,7 @@ def debug_fund_selection():
     print(f"In-sample data shape: {in_df.shape}")
 
     # Identify return columns (this is the key part!)
-    ret_cols = [c for c in df.columns if c != date_col]
+    ret_cols = [c for c in df.select_dtypes(include=[np.number]).columns if c != date_col]
     print(f"Return columns found: {len(ret_cols)}")
     print(f"Return columns: {ret_cols}")
 
@@ -126,7 +128,7 @@ def debug_fund_selection():
     if len(final_fund_cols) > 0:
         # Create the in-sample window for ranking
         mask = (df[date_col] >= in_sdate) & (df[date_col] <= in_edate)
-        sub = df.loc[mask, final_fund_cols]
+        sub = filter_by_date_range(df, date_col, in_sdate, in_edate, columns=final_fund_cols, set_index=False)
 
         print(f"Ranking data shape: {sub.shape}")
         print(f"Ranking period: {sub.index.min()} to {sub.index.max()}")
