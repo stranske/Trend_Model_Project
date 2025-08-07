@@ -107,7 +107,7 @@ def rank_select_funds(
     )
 
     # FIX: Sort scores before selection (this was missing!)
-    ascending = metric_name in ["MaxDrawdown", "Volatility"]  # metrics where lower is better
+    ascending = metric_name in ASCENDING_METRICS  # metrics where lower is better
     if transform == "rank":
         scores = scores.sort_values()  # rank 1 = best
     else:
