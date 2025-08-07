@@ -129,7 +129,7 @@ def debug_fund_selection():
     if len(final_fund_cols) > 0:
         # Create the in-sample window for ranking
         mask = (df[date_col] >= in_sdate) & (df[date_col] <= in_edate)
-        sub = df.loc[mask, final_fund_cols]
+        sub = filter_by_date_range(df, date_col, in_sdate, in_edate, columns=final_fund_cols, set_index=False)
 
         print(f"Ranking data shape: {sub.shape}")
         print(f"Ranking period: {sub.index.min()} to {sub.index.max()}")
