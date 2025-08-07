@@ -322,9 +322,9 @@ def blended_score(
     if not weights:
         raise ValueError("blended_score requires non‑empty weights dict")
     # Normalize metric names using _METRIC_ALIASES
-    canonical_weights = {}
+    canonical_weights: dict[str, float] = {}
     for k, v in weights.items():
-        canonical = _metrics._METRIC_ALIASES.get(k, k)
+        canonical = _METRIC_ALIASES.get(k, k)
         if canonical in canonical_weights:
             canonical_weights[canonical] += v
         else:
