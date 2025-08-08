@@ -159,7 +159,9 @@ def main() -> int:
                 holdings.add(name)
                 entries.append(name)
                 if immediate:
-                    entry_reasons[name] = f"hard_entry_z>={rule.z_entry_hard:.1f} (z={zf:.2f})"
+                    entry_reasons[name] = (
+                        f"hard_entry_z>={rule.z_entry_hard:.1f} (z={zf:.2f})"
+                    )
                 else:
                     entry_reasons[name] = (
                         f"soft_entry_{rule.soft_strikes}x z>={rule.z_entry_soft:.1f}"
@@ -176,8 +178,15 @@ def main() -> int:
                 "max_z": float(z_series.max(skipna=True)),
                 "count_z<=-1.0": int((z_series <= -1.0).sum()),
                 "count_z>=+1.0": int((z_series >= +1.0).sum()),
-                "bottom_names": ",".join(z_series.sort_values().head(3).index.astype(str).tolist()),
-                "top_names": ",".join(z_series.sort_values(ascending=False).head(3).index.astype(str).tolist()),
+                "bottom_names": ",".join(
+                    z_series.sort_values().head(3).index.astype(str).tolist()
+                ),
+                "top_names": ",".join(
+                    z_series.sort_values(ascending=False)
+                    .head(3)
+                    .index.astype(str)
+                    .tolist()
+                ),
             }
         )
 

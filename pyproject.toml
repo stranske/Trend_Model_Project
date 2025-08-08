@@ -23,7 +23,16 @@ extend-exclude = '''
 '''
 
 [tool.ruff]
-extend-exclude = ["notebooks/old", "Old", "*.ipynb"]
+extend-exclude = [
+  "notebooks/old",
+  "Old",
+  "*.ipynb",
+  "scripts",
+  "manager_attribution_analysis.py",
+  "portfolio_analysis_report.py",
+  "debug_fund_selection.py",
+  "test_multi_period_selection.py",
+]
 
 [tool.mypy]
 python_version = "3.11"

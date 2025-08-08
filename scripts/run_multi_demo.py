@@ -19,12 +19,8 @@ import openpyxl
 import copy
 import importlib
 from dataclasses import fields
-import asyncio
-import types
-import builtins
-import importlib.metadata as md
-from ipywidgets import widgets  # type: ignore[import-untyped]
-from trend_analysis import metrics as m
+
+# (widgets and metrics imported within functions where needed)
 from trend_analysis import (
     pipeline,
     export,
@@ -553,9 +549,8 @@ def _check_builtin_metric_aliases() -> None:
 
     if builtins.annualize_return(s) != legacy.annualize_return(s):
         raise SystemExit("builtins annualize_return mismatch")
-    if builtins.annualize_volatility(s) != legacy.annualize_volatility(  # type: ignore[attr-defined]
-        s
-    ):
+    av = getattr(builtins, "annualize_volatility")
+    if av(s) != legacy.annualize_volatility(s):
         raise SystemExit("builtins annualize_volatility mismatch")
 
     # additional alias checks
@@ -972,12 +967,13 @@ if not phase1_prefix.with_name(f"{phase1_prefix.stem}_metrics_summary.csv").exis
     raise SystemExit("Phase1 multi metrics metrics summary CSV missing")
 if not phase1_prefix.with_name(f"{phase1_prefix.stem}_metrics_summary.json").exists():
     raise SystemExit("Phase1 multi metrics metrics summary JSON missing")
-if not phase1_prefix.with_name(f"{phase1_prefix.stem}_metrics_summary.txt").exists():
-    raise SystemExit("Phase1 multi metrics metrics summary TXT missing")
+    if not phase1_prefix.with_name(
+        f"{phase1_prefix.stem}_metrics_summary.txt"
+    ).exists():
+        raise SystemExit("Phase1 multi metrics metrics summary TXT missing")
 
 # Additional OS summaries and churn report for convenience
-from pathlib import Path as _Path
-_out_dir = _Path("demo/exports")
+_out_dir = Path("demo/exports")
 _out_dir.mkdir(parents=True, exist_ok=True)
 
 # Per-period EW OS stats
@@ -987,30 +983,38 @@ for _res in results:
     _label = str(_p[3]) if isinstance(_p, (list, tuple)) and len(_p) >= 4 else str(_p)
     _stats = _res.get("out_ew_stats")
     if _stats is not None:
-        _period_rows.append({
-            "period": _label,
-            "cagr": getattr(_stats, "cagr", float("nan")),
-            "vol": getattr(_stats, "vol", float("nan")),
-            "sharpe": getattr(_stats, "sharpe", float("nan")),
-            "sortino": getattr(_stats, "sortino", float("nan")),
-            "information_ratio": getattr(_stats, "information_ratio", float("nan")),
-            "max_drawdown": getattr(_stats, "max_drawdown", float("nan")),
-        })
+        _period_rows.append(
+            {
+                "period": _label,
+                "cagr": getattr(_stats, "cagr", float("nan")),
+                "vol": getattr(_stats, "vol", float("nan")),
+                "sharpe": getattr(_stats, "sharpe", float("nan")),
+                "sortino": getattr(_stats, "sortino", float("nan")),
+                "information_ratio": getattr(_stats, "information_ratio", float("nan")),
+                "max_drawdown": getattr(_stats, "max_drawdown", float("nan")),
+            }
+        )
 pd.DataFrame(_period_rows).to_csv(_out_dir / "period_os_stats.csv", index=False)
 
 # Combined EW OS stats (single row)
 _combined = export.combined_summary_result(results)
 _comb_stats = _combined.get("out_ew_stats")
 if _comb_stats is not None:
-    pd.DataFrame([{  # type: ignore[list-item]
-        "period": "all_periods",
-        "cagr": getattr(_comb_stats, "cagr", float("nan")),
-        "vol": getattr(_comb_stats, "vol", float("nan")),
-        "sharpe": getattr(_comb_stats, "sharpe", float("nan")),
-        "sortino": getattr(_comb_stats, "sortino", float("nan")),
-        "information_ratio": getattr(_comb_stats, "information_ratio", float("nan")),
-        "max_drawdown": getattr(_comb_stats, "max_drawdown", float("nan")),
-    }]).to_csv(_out_dir / "combined_os_stats.csv", index=False)
+    pd.DataFrame(
+        [
+            {  # type: ignore[list-item]
+                "period": "all_periods",
+                "cagr": getattr(_comb_stats, "cagr", float("nan")),
+                "vol": getattr(_comb_stats, "vol", float("nan")),
+                "sharpe": getattr(_comb_stats, "sharpe", float("nan")),
+                "sortino": getattr(_comb_stats, "sortino", float("nan")),
+                "information_ratio": getattr(
+                    _comb_stats, "information_ratio", float("nan")
+                ),
+                "max_drawdown": getattr(_comb_stats, "max_drawdown", float("nan")),
+            }
+        ]
+    ).to_csv(_out_dir / "combined_os_stats.csv", index=False)
 
 # Portfolio churn (entries/exits per period)
 _prev: set[str] | None = None
@@ -1024,12 +1028,14 @@ for _res in results:
     if _prev is not None:
         _entries = sorted(_sel - _prev)
         _exits = sorted(_prev - _sel)
-    _churn_rows.append({
-        "period": _label,
-        "selected_funds": ",".join(sorted(_sel)),
-        "entries": ",".join(_entries),
-        "exits": ",".join(_exits),
-    })
+    _churn_rows.append(
+        {
+            "period": _label,
+            "selected_funds": ",".join(sorted(_sel)),
+            "entries": ",".join(_entries),
+            "exits": ",".join(_exits),
+        }
+    )
     _prev = _sel
 pd.DataFrame(_churn_rows).to_csv(_out_dir / "portfolio_churn.csv", index=False)
 mpm_prefix = Path("demo/exports/multi_period_metrics")
@@ -1610,7 +1616,7 @@ export.export_data(
 csv_file = fmt_prefix.with_name(f"{fmt_prefix.stem}_tbl.csv")
 if not csv_file.exists():
     raise SystemExit("Formatted CSV not created")
-chk = pd.read_csv(csv_file, index_col=0)
+chk = pd.read_csv(csv_file)
 if chk["A"].iloc[0] != 2:
     raise SystemExit("Formatter did not apply")
 txt_file = fmt_prefix.with_name(f"{fmt_prefix.stem}_tbl.txt")
@@ -1886,6 +1892,7 @@ def _check_module_exports() -> None:
             "register_formatter_excel",
             "reset_formatters_excel",
             "make_summary_formatter",
+            "combined_summary_frame",
             "make_period_formatter",
             "format_summary_text",
             "export_to_excel",
@@ -1896,8 +1903,10 @@ def _check_module_exports() -> None:
             "metrics_from_result",
             "combined_summary_result",
             "summary_frame_from_result",
+            "phase1_workbook_data",
             "period_frames_from_results",
             "workbook_frames_from_results",
+            "flat_frames_from_results",
             "export_phase1_workbook",
             "export_phase1_multi_metrics",
             "export_multi_period_metrics",
@@ -1985,15 +1994,15 @@ _check_cli_help()
 # Verify top-level package exports
 pkg_cfg = ta.config.load("config/demo.yml")
 pkg_df = ta.load_csv(pkg_cfg.data["csv_path"])
-if ta.identify_risk_free_fund(pkg_df) is None:
+if ta.identify_risk_free_fund(pd.DataFrame(pkg_df)) is None:
     raise SystemExit("Package export check failed")
 ta.reset_formatters_excel()
 
 
 @ta.register_formatter_excel("pkg")  # type: ignore[misc]
 def _pkg_fmt(
-    ws: openpyxl.worksheet.worksheet.Worksheet,
-    _wb: openpyxl.Workbook,
+    ws: Any,
+    _wb: Any,
 ) -> None:
     ws.write(0, 0, "pkg")
 

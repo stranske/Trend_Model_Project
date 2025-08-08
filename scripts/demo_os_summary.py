@@ -12,7 +12,7 @@ Outputs are written under demo/exports/:
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 import pandas as pd
 
 from trend_analysis.config import load
@@ -61,12 +61,14 @@ def main() -> None:
         if prev_set is not None:
             entries = sorted(sel - prev_set)
             exits = sorted(prev_set - sel)
-        churn_rows.append({
-            "period": label,
-            "selected_funds": ",".join(sorted(sel)),
-            "entries": ",".join(entries),
-            "exits": ",".join(exits),
-        })
+        churn_rows.append(
+            {
+                "period": label,
+                "selected_funds": ",".join(sorted(sel)),
+                "entries": ",".join(entries),
+                "exits": ",".join(exits),
+            }
+        )
         prev_set = sel
 
     out_dir = Path("demo/exports")

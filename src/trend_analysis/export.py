@@ -532,13 +532,14 @@ def combined_summary_result(
     # Compute per-fund stats with risk-free series aligned to each fund's
     # concatenated return index to avoid shape mismatches when a fund is
     # not present in every period.
-    in_stats: dict[str, _Stats] = {}
+    # Use a broad type to avoid import cycles and undefined-name issues during linting.
+    in_stats: dict[str, Any] = {}
     for f, series_list in fund_in.items():
         joined = pd.concat(series_list)
         rf = pd.Series(0.0, index=joined.index)
         in_stats[f] = _compute_stats(pd.DataFrame({f: joined}), rf)[f]
 
-    out_stats: dict[str, _Stats] = {}
+    out_stats: dict[str, Any] = {}
     for f, series_list in fund_out.items():
         joined = pd.concat(series_list)
         rf = pd.Series(0.0, index=joined.index)
