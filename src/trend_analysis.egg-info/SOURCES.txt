@@ -53,6 +53,7 @@ tests/test_pipeline_indices.py
 tests/test_rank_selection.py
 tests/test_rank_selection_coverage.py
 tests/test_rank_selection_extended.py
+tests/test_rank_selection_fix.py
 tests/test_rank_transform.py
 tests/test_replacer.py
 tests/test_run_analysis.py

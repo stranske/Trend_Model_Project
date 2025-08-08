@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import sys
 import warnings
-import yaml  # type: ignore[import-untyped]
+import yaml
 import pickle
 import ipywidgets as widgets
 from IPython.display import Javascript, display, FileLink
@@ -469,11 +469,11 @@ def launch() -> widgets.Widget:
         store.theme = change["new"]
         store.dirty = True
         theme_val = change["new"]
-        js: Javascript = Javascript(
+        js = cast(Any, Javascript)(
             f"document.documentElement.style.setProperty("  # noqa: W503
             f"' --trend-theme','{theme_val}')"
         )
-        display(js)
+        cast(Any, display)(js)
 
     theme.observe(lambda ch, store=store: on_theme(ch, store=store), names="value")
 
