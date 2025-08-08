@@ -69,36 +69,43 @@ def _apply_transform(
 
 
 def rank_select_funds(
-    in_sample_df: pd.DataFrame,
-    stats_cfg: RiskStatsConfig,
+    df: pd.DataFrame,
+    cfg: RiskStatsConfig,
     *,
     inclusion_approach: str = "top_n",
-    transform: str = "raw",  # NEW
-    transform_mode: str | None = None,  # Alternative parameter name for compatibility
-    zscore_window: int | None = None,
-    rank_pct: float | None = None,
     n: int | None = None,
     pct: float | None = None,
     threshold: float | None = None,
     score_by: str = DEFAULT_METRIC,
     blended_weights: dict[str, float] | None = None,
+    transform: str = "raw",
+    transform_mode: str | None = None,
+    zscore_window: int | None = None,
+    zscore_ddof: int = 1,
+    rank_pct: float = 0.5,
 ) -> list[str]:
-    """
-    Central routine – returns the **ordered** list of selected funds.
-    """
-    # Handle transform_mode parameter for compatibility
+    """Select funds based on ranking by a specified metric."""
+
+    # Handle transform_mode alias
     if transform_mode is not None:
         transform = transform_mode
 
-    if score_by == "blended":
-        scores = blended_score(in_sample_df, blended_weights or {}, stats_cfg)
-    else:
-        scores = _compute_metric_series(in_sample_df, score_by, stats_cfg)
+    metric_name = _METRIC_ALIASES.get(score_by, score_by)
 
+    # Compute metric scores
+    if metric_name == "blended":
+        if blended_weights is None:
+            raise ValueError("blended score requires blended_weights parameter")
+        scores = blended_score(df, blended_weights, cfg)
+    else:
+        scores = _compute_metric_series(df, metric_name, cfg)
+
+    # Apply transform
     scores = _apply_transform(
         scores,
         mode=transform,
         window=zscore_window,
+        ddof=zscore_ddof,
         rank_pct=rank_pct,
     )
     # Determine sort order:
@@ -108,13 +115,13 @@ def rank_select_funds(
     if transform == "rank":
         ascending = True
     else:
-        ascending = score_by in ASCENDING_METRICS
+        ascending = metric_name in ASCENDING_METRICS
 
     # Drop NaNs (e.g., from percentile masking) before sorting
     scores = scores.dropna()
     scores = scores.sort_values(ascending=ascending)
 
-    # Selection logic based on inclusion_approach
+    # Apply inclusion approach
     if inclusion_approach == "top_n":
         if n is None:
             raise ValueError("top_n requires parameter n")
@@ -387,7 +394,18 @@ def blended_score(
     """
     if not weights:
         raise ValueError("blended_score requires non‑empty weights dict")
-    w_norm = {k: v / sum(weights.values()) for k, v in weights.items()}
+    # Normalize metric names using _METRIC_ALIASES
+    canonical_weights: dict[str, float] = {}
+    for k, v in weights.items():
+        canonical = _METRIC_ALIASES.get(k, k)
+        if canonical in canonical_weights:
+            canonical_weights[canonical] += v
+        else:
+            canonical_weights[canonical] = v
+    total = sum(canonical_weights.values())
+    if total == 0:
+        raise ValueError("Sum of weights must not be zero")
+    w_norm = {k: v / total for k, v in canonical_weights.items()}
 
     combo = pd.Series(0.0, index=in_sample_df.columns)
     for metric, w in w_norm.items():

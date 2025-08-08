@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-import pandas as pd
 from typing import cast
 
-from trend_analysis import export
 from trend_analysis.config import load
+from trend_analysis import export
 from trend_analysis.multi_period import run as run_mp
 
 
@@ -42,6 +41,22 @@ def main(argv: list[str] | None = None) -> int:
             print(text)
             print()
 
+        summary = export.combined_summary_result(results)
+        first_period = cast(
+            tuple[str, str, str, str], results[0].get("period", ("", "", "", ""))
+        )
+        last_period = cast(
+            tuple[str, str, str, str], results[-1].get("period", ("", "", "", ""))
+        )
+        sum_text = export.format_summary_text(
+            summary,
+            first_period[0],
+            first_period[1],
+            last_period[2],
+            last_period[3],
+        )
+        print("Combined Summary")
+        print(sum_text)
     export_cfg = cfg.export
     out_dir = export_cfg.get("directory")
     out_formats = export_cfg.get("formats")
@@ -50,31 +65,12 @@ def main(argv: list[str] | None = None) -> int:
         out_dir = "outputs"  # pragma: no cover - defaults
         out_formats = ["excel"]
     if out_dir and out_formats:
-        export.export_multi_period_metrics(
+        export.export_phase1_multi_metrics(
             results,
             str(Path(out_dir) / filename),
             formats=out_formats,
             include_metrics=True,
         )  # pragma: no cover - file I/O
-
-    # Prepare export
-    export_cfg = getattr(cfg, "export", {}) or {}
-    out_dir = export_cfg.get("directory")
-    formats = export_cfg.get("formats", [])
-    filename = export_cfg.get("filename", "analysis")
-
-    if not out_dir or not formats:
-        return 0
-
-    out_path = Path(out_dir)
-    out_path.mkdir(parents=True, exist_ok=True)
-
-    # Write each period result to CSV if requested
-    for i, res in enumerate(results):
-        df = pd.DataFrame([res])
-        if any(fmt.lower() == "csv" for fmt in formats):
-            df.to_csv(out_path / f"{filename}_{i}.csv", index=False)
-
     return 0
 
 

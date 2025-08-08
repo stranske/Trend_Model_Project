@@ -28,7 +28,7 @@ def test_export_data(tmp_path):
     assert (tmp_path / "report_sheet1.txt").exists()
     assert (tmp_path / "report_sheet2.txt").exists()
 
-    read = pd.read_csv(tmp_path / "report_sheet1.csv", index_col=0)
+    read = pd.read_csv(tmp_path / "report_sheet1.csv")
     pd.testing.assert_frame_equal(read, df1)
 
 
