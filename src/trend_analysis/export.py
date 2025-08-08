@@ -528,14 +528,20 @@ def combined_summary_result(
         pd.DataFrame({"user": pd.concat(user_out_series)}), rf_out
     )["user"]
 
-    in_stats = {
-        f: _compute_stats(pd.DataFrame({f: pd.concat(s)}), rf_in)[f]
-        for f, s in fund_in.items()
-    }
-    out_stats = {
-        f: _compute_stats(pd.DataFrame({f: pd.concat(s)}), rf_out)[f]
-        for f, s in fund_out.items()
-    }
+    # Compute per-fund stats with risk-free series aligned to each fund's
+    # concatenated return index to avoid shape mismatches when a fund is
+    # not present in every period.
+    in_stats: dict[str, _Stats] = {}
+    for f, series_list in fund_in.items():
+        joined = pd.concat(series_list)
+        rf = pd.Series(0.0, index=joined.index)
+        in_stats[f] = _compute_stats(pd.DataFrame({f: joined}), rf)[f]
+
+    out_stats: dict[str, _Stats] = {}
+    for f, series_list in fund_out.items():
+        joined = pd.concat(series_list)
+        rf = pd.Series(0.0, index=joined.index)
+        out_stats[f] = _compute_stats(pd.DataFrame({f: joined}), rf)[f]
 
     fund_weights = {f: weight_sum[f] / periods for f in weight_sum}
 

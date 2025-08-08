@@ -101,6 +101,19 @@ def rank_select_funds(
         window=zscore_window,
         rank_pct=rank_pct,
     )
+    # Determine sort order:
+    # - transform == 'rank' produces 1=best so ascending True
+    # - for metrics where smaller is better, sort ascending
+    # - otherwise sort descending (larger is better)
+    if transform == "rank":
+        ascending = True
+    else:
+        ascending = score_by in ASCENDING_METRICS
+
+    # Drop NaNs (e.g., from percentile masking) before sorting
+    scores = scores.dropna()
+    scores = scores.sort_values(ascending=ascending)
+
     # Selection logic based on inclusion_approach
     if inclusion_approach == "top_n":
         if n is None:
@@ -109,12 +122,14 @@ def rank_select_funds(
     elif inclusion_approach == "top_pct":
         if pct is None or not 0 < pct <= 1:
             raise ValueError("top_pct requires 0 < pct <= 1")
-        k = int(len(scores) * pct)
+        k = max(1, int(round(len(scores) * pct)))
         return cast(list[str], scores.head(k).index.tolist())
     elif inclusion_approach == "threshold":
         if threshold is None:
             raise ValueError("threshold approach requires parameter threshold")
-        mask = scores >= threshold
+        # For ascending=True (smaller is better), keep scores <= threshold
+        # else keep scores >= threshold
+        mask = scores <= threshold if ascending else scores >= threshold
         return cast(list[str], scores[mask].index.tolist())
     else:
         raise ValueError("Unknown inclusion_approach")

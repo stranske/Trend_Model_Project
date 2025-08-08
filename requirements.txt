@@ -11,3 +11,4 @@ PyYAML
 types-PyYAML
 pytest-cov
 pytest
+nbformat

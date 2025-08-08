@@ -974,6 +974,64 @@ if not phase1_prefix.with_name(f"{phase1_prefix.stem}_metrics_summary.json").exi
     raise SystemExit("Phase1 multi metrics metrics summary JSON missing")
 if not phase1_prefix.with_name(f"{phase1_prefix.stem}_metrics_summary.txt").exists():
     raise SystemExit("Phase1 multi metrics metrics summary TXT missing")
+
+# Additional OS summaries and churn report for convenience
+from pathlib import Path as _Path
+_out_dir = _Path("demo/exports")
+_out_dir.mkdir(parents=True, exist_ok=True)
+
+# Per-period EW OS stats
+_period_rows = []
+for _res in results:
+    _p = _res.get("period")
+    _label = str(_p[3]) if isinstance(_p, (list, tuple)) and len(_p) >= 4 else str(_p)
+    _stats = _res.get("out_ew_stats")
+    if _stats is not None:
+        _period_rows.append({
+            "period": _label,
+            "cagr": getattr(_stats, "cagr", float("nan")),
+            "vol": getattr(_stats, "vol", float("nan")),
+            "sharpe": getattr(_stats, "sharpe", float("nan")),
+            "sortino": getattr(_stats, "sortino", float("nan")),
+            "information_ratio": getattr(_stats, "information_ratio", float("nan")),
+            "max_drawdown": getattr(_stats, "max_drawdown", float("nan")),
+        })
+pd.DataFrame(_period_rows).to_csv(_out_dir / "period_os_stats.csv", index=False)
+
+# Combined EW OS stats (single row)
+_combined = export.combined_summary_result(results)
+_comb_stats = _combined.get("out_ew_stats")
+if _comb_stats is not None:
+    pd.DataFrame([{  # type: ignore[list-item]
+        "period": "all_periods",
+        "cagr": getattr(_comb_stats, "cagr", float("nan")),
+        "vol": getattr(_comb_stats, "vol", float("nan")),
+        "sharpe": getattr(_comb_stats, "sharpe", float("nan")),
+        "sortino": getattr(_comb_stats, "sortino", float("nan")),
+        "information_ratio": getattr(_comb_stats, "information_ratio", float("nan")),
+        "max_drawdown": getattr(_comb_stats, "max_drawdown", float("nan")),
+    }]).to_csv(_out_dir / "combined_os_stats.csv", index=False)
+
+# Portfolio churn (entries/exits per period)
+_prev: set[str] | None = None
+_churn_rows = []
+for _res in results:
+    _p = _res.get("period")
+    _label = str(_p[3]) if isinstance(_p, (list, tuple)) and len(_p) >= 4 else str(_p)
+    _sel = set(_res.get("selected_funds", []))
+    _entries: list[str] = []
+    _exits: list[str] = []
+    if _prev is not None:
+        _entries = sorted(_sel - _prev)
+        _exits = sorted(_prev - _sel)
+    _churn_rows.append({
+        "period": _label,
+        "selected_funds": ",".join(sorted(_sel)),
+        "entries": ",".join(_entries),
+        "exits": ",".join(_exits),
+    })
+    _prev = _sel
+pd.DataFrame(_churn_rows).to_csv(_out_dir / "portfolio_churn.csv", index=False)
 mpm_prefix = Path("demo/exports/multi_period_metrics")
 export.export_multi_period_metrics(
     results,
