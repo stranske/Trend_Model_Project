@@ -57,7 +57,6 @@ def main(argv: list[str] | None = None) -> int:
         )
         print("Combined Summary")
         print(sum_text)
-
     export_cfg = cfg.export
     out_dir = export_cfg.get("directory")
     out_formats = export_cfg.get("formats")
@@ -72,7 +71,6 @@ def main(argv: list[str] | None = None) -> int:
             formats=out_formats,
             include_metrics=True,
         )  # pragma: no cover - file I/O
-
     return 0
 
 

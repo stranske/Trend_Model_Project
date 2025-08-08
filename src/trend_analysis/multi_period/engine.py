@@ -128,7 +128,7 @@ def run(cfg: Config, df: pd.DataFrame | None = None) -> List[Dict[str, object]]:
             pt.out_start[:7],
             pt.out_end[:7],
             cfg.vol_adjust.get("target_vol", 1.0),
-            cfg.run.get("monthly_cost", 0.0),
+            getattr(cfg, "run", {}).get("monthly_cost", 0.0),
             selection_mode=cfg.portfolio.get("selection_mode", "all"),
             random_n=cfg.portfolio.get("random_n", 8),
             custom_weights=cfg.portfolio.get("custom_weights"),

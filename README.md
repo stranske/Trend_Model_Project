@@ -122,24 +122,68 @@ print(score_frame)
 ## Multi-period demo
 
 Phase 2 introduces a multi-period engine with adaptive weighting. A small
-demo dataset and helper script are included to exercise this feature.
+demo dataset and helper script are included to exercise this feature. The
+`config/demo.yml` file now enables the rank-based selection mode and adds an
+`SPX` benchmark so information ratios and multi-format exports are covered.
 
 Generate the synthetic data and run the demo as follows. The helper script now
 cycles through several selector and weighting combinations to cover the main
 pipeline features:
 
 ```bash
-python scripts/generate_demo.py
+./scripts/setup_env.sh
+python scripts/generate_demo.py [--no-xlsx]
 python scripts/run_multi_demo.py
 ```
+Use `--no-xlsx` to skip the Excel workbook when large files are undesired.
 
 The script prints the number of generated periods and verifies that
 weights evolve across them, confirming the Phase 2 logic works end to end.
-It now also exercises the single-period pipeline functions. Results are exported
-via ``export.export_data`` so CSV, Excel and JSON reports are produced in one
-go. The CLI entry point runs in both default and ``--detailed`` modes.
-Finally, the script invokes the full test suite to ensure all modules behave as
-expected.
+It now exports each period's score frame alongside the single-period metrics
+using ``export.export_data`` so CSV, Excel, JSON **and TXT** files are produced in one call.
+The demo also exercises the ``all``, ``random`` and ``manual`` selection modes,
+and now calls ``single_period_run`` together with ``calc_portfolio_returns`` to validate
+the pipeline helpers. The wrapper ``pipeline.run_analysis`` is also invoked, and
+extra calls to ``rank_select_funds`` use the ``percentile`` and ``rank`` transforms so all
+scoring options are covered. The demo now checks ``quality_filter`` and the dual calling
+patterns of ``select_funds``. It verifies AdaptiveBayesWeighting state persistence and runs the CLI via both the ``-c``
+flag and the ``TREND_CFG`` environment variable. Additional checks cover edge
+cases of ``AdaptiveBayesWeighting`` such as zero half-life behaviour and
+invalid ``prior_mean`` lengths. Finally, the script invokes the
+full test suite so every module is covered.
+It now also calls ``run_multi_analysis.main`` with a temporary config to verify
+the dedicated multi-period CLI works and produces CSV output.
+The demo also validates the ``Portfolio`` container by rebalancing
+weights from both DataFrame and Series inputs so history tracking remains
+tested.
+
+## Demo pipeline (maintenance / CI)
+
+Keep the demo scripts in lock‑step with the exporter and pipeline
+functionality. Whenever either changes, run the sequence below and update
+`config/demo.yml` or `scripts/run_multi_demo.py` so the demo covers every
+code path.
+
+See **[docs/DemoMaintenance.md](docs/DemoMaintenance.md)** for a concise
+checklist of these steps.
+
+1. **Bootstrap the environment**
+   ```bash
+   ./scripts/setup_env.sh
+   ```
+2. **Generate the demo dataset**
+   ```bash
+   python scripts/generate_demo.py [--no-xlsx]
+   ```
+   Pass `--no-xlsx` to avoid creating the Excel copy.
+3. **Run the full demo pipeline and export checks**
+   ```bash
+   python scripts/run_multi_demo.py
+   ```
+4. **Run the test suite**
+   ```bash
+   ./scripts/run_tests.sh
+   ```
 
 ## Interactive GUI
 

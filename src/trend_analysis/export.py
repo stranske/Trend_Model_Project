@@ -329,7 +329,8 @@ def export_to_csv(
     output_path: str,
     formatter: Formatter | None = None,
 ) -> None:
-    """Export each dataframe to an individual CSV file using ``output_path`` as prefix."""
+    """Export each dataframe to an individual CSV file using ``output_path``
+    as prefix."""
     prefix = Path(output_path)
     _ensure_dir(prefix)
     # Looping over the ``data`` dictionary ensures each frame gets its own file.
@@ -347,7 +348,9 @@ def export_to_json(
     output_path: str,
     formatter: Formatter | None = None,
 ) -> None:
-    """Export each dataframe to an individual JSON file using ``output_path`` as prefix."""
+    """Export each DataFrame to an individual JSON file
+    using ``output_path`` as prefix.
+    """
     prefix = Path(output_path)
     _ensure_dir(prefix)
     # Iterate over the mapping so each DataFrame is written to its own JSON file.
@@ -355,6 +358,21 @@ def export_to_json(
         formatted = _apply_format(df, formatter)
         formatted.to_json(
             prefix.with_name(f"{prefix.stem}_{name}.json"), orient="records", indent=2
+        )
+
+
+def export_to_txt(
+    data: Mapping[str, pd.DataFrame],
+    output_path: str,
+    formatter: Formatter | None = None,
+) -> None:
+    """Export each dataframe to a plain text file using ``output_path`` as prefix."""
+    prefix = Path(output_path)
+    _ensure_dir(prefix)
+    for name, df in data.items():
+        formatted = _apply_format(df, formatter)
+        prefix.with_name(f"{prefix.stem}_{name}.txt").write_text(
+            formatted.to_string(index=False)
         )
 
 
@@ -366,6 +384,7 @@ EXPORTERS: dict[
     "excel": export_to_excel,
     "csv": export_to_csv,
     "json": export_to_json,
+    "txt": export_to_txt,
 }
 
 
@@ -510,14 +529,21 @@ def combined_summary_result(
         pd.DataFrame({"user": pd.concat(user_out_series)}), rf_out
     )["user"]
 
-    in_stats = {
-        f: _compute_stats(pd.DataFrame({f: pd.concat(s)}), rf_in)[f]
-        for f, s in fund_in.items()
-    }
-    out_stats = {
-        f: _compute_stats(pd.DataFrame({f: pd.concat(s)}), rf_out)[f]
-        for f, s in fund_out.items()
-    }
+    # Compute per-fund stats with risk-free series aligned to each fund's
+    # concatenated return index to avoid shape mismatches when a fund is
+    # not present in every period.
+    # Use a broad type to avoid import cycles and undefined-name issues during linting.
+    in_stats: dict[str, Any] = {}
+    for f, series_list in fund_in.items():
+        joined = pd.concat(series_list)
+        rf = pd.Series(0.0, index=joined.index)
+        in_stats[f] = _compute_stats(pd.DataFrame({f: joined}), rf)[f]
+
+    out_stats: dict[str, Any] = {}
+    for f, series_list in fund_out.items():
+        joined = pd.concat(series_list)
+        rf = pd.Series(0.0, index=joined.index)
+        out_stats[f] = _compute_stats(pd.DataFrame({f: joined}), rf)[f]
 
     fund_weights = {f: weight_sum[f] / periods for f in weight_sum}
 
@@ -647,15 +673,14 @@ def export_phase1_workbook(
     """Export a Phase-1 style workbook for ``results``.
 
     Each period becomes its own sheet and a final ``summary`` sheet aggregates
-    portfolio returns across all periods using the same formatting. When
-    ``include_metrics`` is ``True`` the raw metrics for each period and the
-    combined summary are added as separate sheets.
+    portfolio returns across all periods using the same formatting.
     """
 
     results_list = list(results)
     reset_formatters_excel()
     frames = phase1_workbook_data(results_list, include_metrics=include_metrics)
 
+    # Register the period sheet formatters
     for idx, res in enumerate(results_list, start=1):
         period = res.get("period")
         if isinstance(period, (list, tuple)) and len(period) >= 4:
@@ -666,6 +691,7 @@ def export_phase1_workbook(
             sheet = f"period_{idx}"
         make_period_formatter(sheet, res, in_s, in_e, out_s, out_e)
 
+    # Register the summary formatter if applicable
     if results_list and "summary" in frames:
         summary = combined_summary_result(results_list)
         first = results_list[0].get("period")
@@ -815,7 +841,6 @@ def export_multi_period_metrics(
             if include_metrics:
                 excel_data["metrics_summary"] = metrics_from_result(summary)
 
-    if excel_formats:
         export_data(excel_data, output_path, formats=excel_formats)
     if other_formats:
         export_data(other_data, output_path, formats=other_formats)
@@ -848,6 +873,7 @@ __all__ = [
     "export_to_excel",
     "export_to_csv",
     "export_to_json",
+    "export_to_txt",
     "export_data",
     "metrics_from_result",
     "combined_summary_result",

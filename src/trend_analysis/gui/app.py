@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import sys
 import warnings
 import yaml
 import pickle
@@ -15,6 +16,15 @@ from .plugins import discover_plugins, iter_plugins
 from .utils import list_builtin_cfgs, debounce
 from ..config import Config
 from .. import pipeline, export, weighting
+
+# Try to import DataGrid at module level for test patching
+try:
+    from ipydatagrid import DataGrid
+
+    HAS_DATAGRID = True
+except ImportError:
+    DataGrid = None
+    HAS_DATAGRID = False
 
 STATE_FILE = Path.home() / ".trend_gui_state.yml"
 WEIGHT_STATE_FILE = STATE_FILE.with_suffix(".pkl")
@@ -71,9 +81,7 @@ def _build_step0(store: ParamStore) -> widgets.Widget:
 
     upload = widgets.FileUpload(accept=".yml", multiple=False)
     template = widgets.Dropdown(options=list_builtin_cfgs(), description="Template")
-    try:
-        from ipydatagrid import DataGrid
-
+    if HAS_DATAGRID and DataGrid is not None:
         grid_df = pd.DataFrame(list(store.cfg.items()), columns=["Key", "Value"])
         grid = DataGrid(grid_df, editable=True)
 
@@ -94,8 +102,12 @@ def _build_step0(store: ParamStore) -> widgets.Widget:
                     1.0, lambda: setattr(grid.layout, "border", "")
                 )
 
-        grid.on("cell_edited", on_cell_change)
-    except Exception:  # pragma: no cover - optional dep
+        try:
+            grid.on("cell_edited", on_cell_change)
+        except AttributeError:
+            # Handle case where DataGrid doesn't have expected API
+            pass
+    else:  # pragma: no cover - optional dep
         grid = widgets.Label("ipydatagrid not installed")
 
     save_btn = widgets.Button(description="💾 Save config")
@@ -256,15 +268,26 @@ def _build_manual_override(store: ParamStore) -> widgets.Widget:
     weights = port.setdefault("custom_weights", {})
     manual = port.setdefault("manual_list", list(weights))
 
+    # Check dynamically if ipydatagrid is available
+    datagrid_available = False
     try:
-        from ipydatagrid import DataGrid
+        # Check if ipydatagrid module is available and not None
+        if sys.modules.get("ipydatagrid") is not None:
+            from ipydatagrid import DataGrid as DynamicDataGrid
 
+            datagrid_available = True
+        else:
+            DynamicDataGrid = None
+    except (ImportError, AttributeError):
+        datagrid_available = False
+
+    if datagrid_available and DynamicDataGrid is not None:
         rows = [
             {"Fund": f, "Include": f in manual, "Weight": float(weights.get(f, 0))}
             for f in sorted(set(manual) | set(weights))
         ]
         df = pd.DataFrame(rows, columns=["Fund", "Include", "Weight"])
-        grid = DataGrid(df, editable=True)
+        grid = DynamicDataGrid(df, editable=True)
 
         def _on_edit(event: dict[str, Any], *, store: ParamStore) -> None:
             fund = df.loc[event["row"], "Fund"]
@@ -288,9 +311,13 @@ def _build_manual_override(store: ParamStore) -> widgets.Widget:
                 df.loc[event["row"], "Weight"] = weight_val
             store.dirty = True
 
-        grid.on("cell_edited", lambda ev, store=store: _on_edit(ev, store=store))
+        try:
+            grid.on("cell_edited", lambda ev, store=store: _on_edit(ev, store=store))
+        except AttributeError:
+            # Handle case where DataGrid doesn't have expected API
+            pass
         box = widgets.VBox([grid])
-    except Exception:  # pragma: no cover - optional dep
+    else:  # pragma: no cover - optional dep
         opts = sorted(set(manual) | set(weights))
         warn = widgets.Label("ipydatagrid not installed")
         select = widgets.SelectMultiple(options=opts, value=tuple(manual))
@@ -342,7 +369,7 @@ def _build_weighting_options(store: ParamStore) -> widgets.Widget:
         "adaptive_bayes": weighting.AdaptiveBayesWeighting,
     }
     for plugin in iter_plugins():
-        name = plugin.__name__.lower()
+        name = getattr(plugin, "__name__", str(plugin)).lower()
         options[name] = plugin
 
     method_dd = widgets.Dropdown(
@@ -441,8 +468,10 @@ def launch() -> widgets.Widget:
     def on_theme(change: dict[str, Any], *, store: ParamStore) -> None:
         store.theme = change["new"]
         store.dirty = True
+        theme_val = change["new"]
         js = cast(Any, Javascript)(
-            f"document.documentElement.style.setProperty('--trend-theme', '{change['new']}');"
+            f"document.documentElement.style.setProperty("  # noqa: W503
+            f"' --trend-theme','{theme_val}')"
         )
         cast(Any, display)(js)
 

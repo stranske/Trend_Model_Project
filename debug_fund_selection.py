@@ -5,7 +5,6 @@ Debug the fund selection process - why are only Mgr_01-08 being considered?
 
 import pandas as pd
 import numpy as np
-from pathlib import Path
 from trend_analysis.config import load
 from trend_analysis.data import load_csv, identify_risk_free_fund
 from trend_analysis.core.rank_selection import rank_select_funds, RiskStatsConfig
@@ -14,9 +13,9 @@ from trend_analysis.core.rank_selection import rank_select_funds, RiskStatsConfi
 def debug_fund_selection():
     """Debug why only first 8 managers are being selected."""
 
-    print("="*70)
+    print("=" * 70)
     print("DEBUGGING FUND SELECTION PROCESS")
-    print("="*70)
+    print("=" * 70)
 
     # Load data
     cfg = load("config/portfolio_test.yml")
@@ -38,19 +37,21 @@ def debug_fund_selection():
 
     in_sdate = _parse_month(in_start)
     in_edate = _parse_month(in_end)
-    in_sdate = parse_month(in_start)
-    in_edate = parse_month(in_end)
     print(f"\nAnalyzing period: {in_sdate} to {in_edate}")
 
     # Filter data for in-sample period
     date_col = "Date"
     df[date_col] = pd.to_datetime(df[date_col])
 
-    in_df = df[(df[date_col] >= in_sdate) & (df[date_col] <= in_edate)].set_index(date_col)
+    in_df = df[(df[date_col] >= in_sdate) & (df[date_col] <= in_edate)].set_index(
+        date_col
+    )
     print(f"In-sample data shape: {in_df.shape}")
 
     # Identify return columns (this is the key part!)
-    ret_cols = [c for c in df.select_dtypes(include=[np.number]).columns if c != date_col]
+    ret_cols = [
+        c for c in df.select_dtypes(include=[np.number]).columns if c != date_col
+    ]
     print(f"Return columns found: {len(ret_cols)}")
     print(f"Return columns: {ret_cols}")
 
@@ -73,7 +74,6 @@ def debug_fund_selection():
         pct = (missing / total) * 100 if total > 0 else 0
         status = "OK" if in_ok[col] else "MISSING DATA"
         print(f"  {col}: {missing}/{total} missing ({pct:.1f}%) - {status}")
-
     # This is the critical filter that might be removing funds
     valid_fund_cols = [c for c in fund_cols if in_ok[c]]
     print(f"\nValid fund columns after missing data filter: {len(valid_fund_cols)}")
@@ -89,9 +89,10 @@ def debug_fund_selection():
     out_sdate = _parse_month(out_start)
     out_edate = _parse_month(out_end)
 
-    out_df = df[(df[date_col] >= out_sdate) & (df[date_col] <= out_edate)].set_index(date_col)
+    out_df = df[(df[date_col] >= out_sdate) & (df[date_col] <= out_edate)].set_index(
+        date_col
+    )
     print(f"\nOut-sample data shape: {out_df.shape}")
-
     out_ok = ~out_df[fund_cols].isna().any()
     print("Out-sample missing data check:")
     for col in fund_cols:
@@ -100,7 +101,6 @@ def debug_fund_selection():
         pct = (missing / total) * 100 if total > 0 else 0
         status = "OK" if out_ok[col] else "MISSING DATA"
         print(f"  {col}: {missing}/{total} missing ({pct:.1f}%) - {status}")
-
     # Final filter: both in-sample AND out-sample must be complete
     final_fund_cols = [c for c in fund_cols if in_ok[c] and out_ok[c]]
     print(f"\nFinal fund columns after both filters: {len(final_fund_cols)}")
@@ -123,22 +123,23 @@ def debug_fund_selection():
     # Now test the ranking selection
     print("\n" + "=" * 50)
     print("TESTING RANKING SELECTION")
-    print("="*50)
+    print("=" * 50)
 
     if len(final_fund_cols) > 0:
         # Create the in-sample window for ranking
-        mask = (df[date_col] >= in_sdate) & (df[date_col] <= in_edate)
-        sub = filter_by_date_range(df, date_col, in_sdate, in_edate, columns=final_fund_cols, set_index=False)
+        sub = df.loc[
+            (df[date_col] >= in_sdate) & (df[date_col] <= in_edate),
+            [date_col, *final_fund_cols],
+        ].set_index(date_col)
 
         print(f"Ranking data shape: {sub.shape}")
-        print(f"Ranking period: {sub.index.min()} to {sub.index.max()}")
+        print(f"Ranking period: {in_sdate} to {in_edate}")
 
         # Test rank selection with our config
         rank_kwargs = cfg.portfolio.get("rank", {})
         print(f"Rank kwargs: {rank_kwargs}")
 
         stats_cfg = RiskStatsConfig(risk_free=0.0)
-
         # This is the actual selection call
         selected = rank_select_funds(sub, stats_cfg, **rank_kwargs)
         print(f"Selected funds: {selected}")
@@ -153,15 +154,18 @@ def debug_fund_selection():
                 sharpe = excess_returns.mean() / excess_returns.std() * np.sqrt(12)
                 selected_status = "SELECTED" if col in selected else "not selected"
                 print(f"  {col}: {sharpe:6.2f} Sharpe - {selected_status}")
+    else:
+        print("No valid funds available for ranking.")
 
     print("\n" + "=" * 70)
     print("CONCLUSION")
     print("=" * 70)
-
     if len(final_fund_cols) == 8:
         print("❌ PROBLEM IDENTIFIED: Only 8 funds have complete data!")
         print("   The other 12 managers have missing data in some periods.")
-        print("   This explains why selection doesn't change - there are no alternatives!")
+        print(
+            "   This explains why selection doesn't change - there are no alternatives!"
+        )
     elif len(final_fund_cols) > 8:
         print("✅ Data issue ruled out - multiple funds available")
         print("   The problem is likely in the ranking/selection logic")

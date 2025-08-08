@@ -24,17 +24,25 @@ YOU ARE CODEX.  EXTEND THE VOL_ADJ_TREND_ANALYSIS PROJECT AS FOLLOWS
    ```
 
    The script must invoke `export.export_data()` with the demo results so CSV,
-   Excel and JSON outputs are generated in one call.  Update it whenever new
-   exporter functionality is added.
+   Excel, JSON **and TXT** outputs are generated in one call.  Update it
+   whenever new exporter functionality is added.
 
    When exporter features evolve (e.g. additional formats or option flags),
    extend both `run_multi_demo.py` and `config/demo.yml` so the demo pipeline
    exercises every new code path. This keeps CI in lock‑step with the live
    exporter behaviour.
 
-4. **Keep demo config current**
+4. **Run the test suite**
+   ```bash
+   ./scripts/run_tests.sh
+   ```
+
+5. **Keep demo config current**
    - Update `config/demo.yml` and demo scripts whenever export or pipeline
      behaviour changes so that the demo exercises all features.
+
+See **[docs/DemoMaintenance.md](docs/DemoMaintenance.md)** for a concise
+checklist of these steps.
 
 High‑level goal
 ~~~~~~~~~~~~~~~
@@ -231,6 +239,7 @@ Notebook hygiene: any new exploratory notebook must start with the header
 CI (GitHub Actions) stages to add:
 
 lint  (ruff + black –‑check)
+- Always run `black` on changed files before committing so lint passes.
 
 type‑check (mypy, strict)
 
@@ -369,7 +378,7 @@ tests/
    └─ test_bayesian_shrinkage_monotonic()
 ```
 
-Golden‑master strategy identical to Phase‑1 metrics: pickle one known score_frame
+ 
 and compare selector/weighting outputs bit‑for‑bit (tolerances < 1e‑9).
 
 Step 10 – Docs housekeeping
@@ -470,6 +479,7 @@ using the **exact** Phase‑1 formatting, plus a `summary` sheet combining the
 portfolio across periods. CSV and JSON outputs must present the same tables as
 a single `*_periods.*` file with a matching `*_summary.*` file. Implementation
 has begun but is not yet complete.
+
 
 ### 2025-09-30 UPDATE — MULTI-PERIOD WORKBOOK TARGET
 
@@ -583,8 +593,8 @@ When debugging multi-period portfolio analysis where the same managers are selec
 
 This script will reveal:
 
-- How many managers are in the original dataset
 - Which managers get filtered out due to missing data in in-sample periods
+ 
 - Which managers get filtered out due to missing data in out-of-sample periods
 - Final available manager pool for selection
 - Actual ranking results for available managers
@@ -670,3 +680,4 @@ python debug_fund_selection.py
 - All core fixes must be done on `phase2-dev`
 - Ensure virtual environment is active before making changes
 - Test both ascending (MaxDrawdown) and descending (Sharpe) metrics
+

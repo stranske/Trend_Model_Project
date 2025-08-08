@@ -67,16 +67,43 @@ Add a `benchmarks` mapping in the config to compute information ratios against o
 
 ## 9. Multi-period demo
 
-Generate the synthetic dataset and run the helper script to exercise the Phase 2 engine. The script now iterates through several selector and weighting strategies and runs the unit tests:
+Generate the synthetic dataset and run the helper script to exercise the Phase 2 engine. The demo now starts by bootstrapping a clean environment and then cycles through several selector and weighting strategies while exporting results in multiple formats. `config/demo.yml` enables the rank-based selector and registers an `SPX` benchmark so information ratios are computed:
 
 ```bash
-python scripts/generate_demo.py
+./scripts/setup_env.sh
+python scripts/generate_demo.py [--no-xlsx]
 python scripts/run_multi_demo.py
 ```
+Use `--no-xlsx` to skip generating the Excel workbook if binary files should be
+avoided.
 
-The script ensures multiple periods are processed and that adaptive weights evolve over time.
+`run_multi_demo.py` calls ``export.export_data`` so CSV, Excel, JSON **and TXT** reports are produced in one go. It also runs the full test suite, ensuring multiple periods are processed and that adaptive weights evolve over time.
+The script exercises the CLI wrappers as part of these checks.
 
-## 10. Further help
+## 10. Demo pipeline (maintenance / CI)
+
+Whenever the exporter or pipeline behaviour changes, re-run the demo steps below
+and adjust `config/demo.yml` or `scripts/run_multi_demo.py` so the demo
+exercises every new code path.
+
+1. **Bootstrap the environment**
+   ```bash
+   ./scripts/setup_env.sh
+   ```
+2. **Generate the demo dataset**
+   ```bash
+   python scripts/generate_demo.py
+   ```
+3. **Run the full demo pipeline and export checks**
+   ```bash
+   python scripts/run_multi_demo.py
+   ```
+4. **Run the test suite**
+   ```bash
+   ./scripts/run_tests.sh
+   ```
+
+## 11. Further help
 
 See `README.md` for a short overview of the repository structure and the example notebooks for end‑to‑end demonstrations.
 

@@ -1,0 +1,64 @@
+# Portfolio test configuration: July 2005 to June 2025
+version: "1"
+
+data:
+  csv_path: demo/extended_returns.csv
+  frequency: ME  # monthly data
+
+preprocessing:
+  steps: []
+
+vol_adjust:
+  enabled: true
+  target_vol: 0.12  # 12% annual volatility target
+
+sample_split:
+  in_start: 2005-07    # Start of in-sample period
+  in_end:   2017-12    # End of in-sample (12.5 years for model training)
+  out_start: 2018-01   # Start of out-of-sample testing
+  out_end:   2025-06   # End of out-of-sample (7.5 years for validation)
+
+portfolio:
+  selection_mode: rank
+  rank:
+    inclusion_approach: top_n
+    n: 8                # Select top 8 managers
+    score_by: Sharpe    # Based on Sharpe ratio
+  selector:
+    name: rank
+    params:
+      top_n: 8
+      rank_column: Sharpe
+  weighting:
+    name: score_prop_bayes  # Use Bayesian score-proportional weighting
+    params:
+      shrink_tau: 0.25
+
+benchmarks:
+  spx: SPX
+
+metrics:
+  registry:
+    - annual_return
+    - volatility 
+    - sharpe_ratio
+    - sortino_ratio
+    - information_ratio
+    - max_drawdown
+
+export:
+  directory: demo/portfolio_test_results
+  formats: [xlsx, csv, json]
+  filename: portfolio_test_2005_2025.csv
+
+run:
+  seed: 42
+  jobs: 1
+
+# Multi-period analysis configuration
+multi_period:
+  frequency: A        # Annual rebalancing
+  in_sample_len: 3    # 3 years in-sample window
+  out_sample_len: 1   # 1 year out-of-sample 
+  start: 2008-01      # Start multi-period analysis in 2008
+  end: 2025-06        # End in June 2025
