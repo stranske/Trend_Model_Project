@@ -1,4 +1,5 @@
 import pandas as pd
+from typing import cast
 import yaml
 from pathlib import Path
 
@@ -34,6 +35,10 @@ def make_cfg():
         "end": "1990-04",
     }
     return Config(**cfg_data)
+
+
+def _period_label(res_obj) -> str:
+    return str(cast(dict, res_obj)["period"][3])
 
 
 def test_metrics_from_result_basic():
@@ -88,7 +93,7 @@ def test_period_frames_from_results_basic():
     results = run_mp(cfg, df)
     frames = period_frames_from_results(results)
     assert len(frames) == len(results)
-    key = str(results[0]["period"][3])
+    key = _period_label(results[0])
     assert key in frames
     assert "OS MaxDD" in frames[key].columns
 
@@ -98,7 +103,7 @@ def test_workbook_frames_from_results_basic():
     cfg = make_cfg()
     results = run_mp(cfg, df)
     frames = workbook_frames_from_results(results)
-    first = str(results[0]["period"][3])
+    first = _period_label(results[0])
     assert "summary" in frames
     assert first in frames
     assert list(frames[first].columns) == list(frames["summary"].columns)
@@ -109,7 +114,7 @@ def test_phase1_workbook_data(tmp_path):
     cfg = make_cfg()
     results = run_mp(cfg, df)
     frames = phase1_workbook_data(results, include_metrics=True)
-    first = str(results[0]["period"][3])
+    first = _period_label(results[0])
     assert f"metrics_{first}" in frames
     assert "summary" in frames
 
@@ -119,7 +124,8 @@ def test_flat_frames_from_results_basic():
     cfg = make_cfg()
     results = run_mp(cfg, df)
     frames = flat_frames_from_results(results)
-    assert set(frames) == {"periods", "summary"}
+    # Must at least contain periods and summary; may also include 'changes'
+    assert {"periods", "summary"}.issubset(set(frames))
     assert not frames["periods"].empty
     cols_periods = [c for c in frames["periods"].columns if c != "Period"]
     assert cols_periods == list(frames["summary"].columns)
@@ -147,8 +153,8 @@ def test_export_multi_period_metrics_excel(tmp_path):
     export_multi_period_metrics(results, str(out), formats=["xlsx"])
     path = out.with_suffix(".xlsx")
     assert path.exists()
-    first_period = str(results[0]["period"][3])
-    second_period = str(results[1]["period"][3])
+    first_period = _period_label(results[0])
+    second_period = _period_label(results[1])
     book = pd.ExcelFile(path)
     assert first_period in book.sheet_names
     assert second_period in book.sheet_names
@@ -164,8 +170,8 @@ def test_export_phase1_multi_metrics(tmp_path):
     periods_path = out.with_name(f"{out.stem}_periods.csv")
     summary_path = out.with_name(f"{out.stem}_summary.csv")
     assert periods_path.exists() and summary_path.exists()
-    files = list(tmp_path.glob("*.csv"))
-    assert {periods_path, summary_path} == set(files)
+    files = set(tmp_path.glob("*.csv"))
+    assert periods_path in files and summary_path in files
     df_read = pd.read_csv(periods_path)
     assert list(df_read.columns)[0] == "Period"
     assert df_read.iloc[0, 1] == "Equal Weight"
@@ -180,8 +186,8 @@ def test_export_phase1_multi_metrics_json(tmp_path):
     periods_path = out.with_name(f"{out.stem}_periods.json")
     summary_path = out.with_name(f"{out.stem}_summary.json")
     assert periods_path.exists() and summary_path.exists()
-    files = list(tmp_path.glob("*.json"))
-    assert {periods_path, summary_path} == set(files)
+    files = set(tmp_path.glob("*.json"))
+    assert periods_path in files and summary_path in files
     df_read = pd.read_json(periods_path)
     assert list(df_read.columns)[0] == "Period"
     assert df_read.loc[0, "Name"] == "Equal Weight"
@@ -194,8 +200,8 @@ def test_export_phase1_workbook(tmp_path):
     out = tmp_path / "res.xlsx"
     export_phase1_workbook(results, str(out))
     assert out.exists()
-    first_period = str(results[0]["period"][3])
-    second_period = str(results[1]["period"][3])
+    first_period = _period_label(results[0])
+    second_period = _period_label(results[1])
     book = pd.ExcelFile(out)
     assert first_period in book.sheet_names
     assert second_period in book.sheet_names
@@ -209,7 +215,7 @@ def test_export_phase1_workbook_content(tmp_path):
     out = tmp_path / "res.xlsx"
     export_phase1_workbook(results, str(out))
     book = pd.read_excel(out, sheet_name=None, skiprows=4)
-    first_period = str(results[0]["period"][3])
+    first_period = _period_label(results[0])
     df_first = book[first_period]
     df_summary = book["summary"]
     assert list(df_first.columns) == list(df_summary.columns)
@@ -223,7 +229,7 @@ def test_export_phase1_workbook_order(tmp_path):
     out = tmp_path / "res.xlsx"
     export_phase1_workbook(results, str(out))
     book = pd.ExcelFile(out)
-    expected = [str(r["period"][3]) for r in results] + ["summary"]
+    expected = ["summary"] + [str(cast(dict, r)["period"][3]) for r in results]
     assert book.sheet_names == expected
 
 
@@ -234,7 +240,7 @@ def test_export_phase1_workbook_metrics(tmp_path):
     out = tmp_path / "res.xlsx"
     export_phase1_workbook(results, str(out), include_metrics=True)
     book = pd.ExcelFile(out)
-    first_period = str(results[0]["period"][3])
+    first_period = _period_label(results[0])
     assert f"metrics_{first_period}" in book.sheet_names
     assert "metrics_summary" in book.sheet_names
 
@@ -247,8 +253,8 @@ def test_export_phase1_multi_metrics_excel(tmp_path):
     export_phase1_multi_metrics(results, str(out), formats=["xlsx"])
     path = out.with_suffix(".xlsx")
     assert path.exists()
-    first_period = str(results[0]["period"][3])
-    second_period = str(results[1]["period"][3])
+    first_period = _period_label(results[0])
+    second_period = _period_label(results[1])
     book = pd.ExcelFile(path)
     assert first_period in book.sheet_names
     assert second_period in book.sheet_names

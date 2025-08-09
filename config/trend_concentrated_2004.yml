@@ -1,0 +1,85 @@
+# Trend concentrated universe backtest starting in March 2004
+version: "1"
+
+data:
+  csv_path: "Trend Concentrated Universe Data.csv"  # path to Concentrated Universe dataset in repo root
+  frequency: ME  # monthly data (month-end)
+  na_as_zero:
+    enabled: true
+    max_missing_per_window: 1
+    max_consecutive_gap: 1
+
+preprocessing:
+  steps: []
+
+vol_adjust:
+  enabled: true
+  target_vol: 0.25  # 25% annual volatility target (was 12%)
+
+# Single-period sample_split kept for completeness; multi_period is used
+sample_split:
+  in_start: 2004-01
+  in_end:   2016-12
+  out_start: 2017-01
+  out_end:   2025-06
+
+portfolio:
+  selection_mode: rank
+  rank:
+    inclusion_approach: top_n
+    n: 8
+    score_by: Sharpe
+    limit_one_per_firm: true
+  selector:
+    name: rank
+    params:
+      top_n: 8
+      rank_column: Sharpe
+  weighting:
+    name: score_prop_bayes
+    params:
+      shrink_tau: 0.25
+  policy: threshold_hold
+  threshold_hold:
+    metric: Sharpe
+    z_exit_soft: -1.0
+    z_exit_hard: -1.5
+    z_entry_soft: 1.0
+    z_entry_hard: 2.5
+    soft_strikes: 2
+  entry_soft_strikes: 3
+  entry_eligible_strikes: 2
+  target_n: 8
+  # Treat these columns as indices/benchmarks (excluded from fund selection)
+  indices_list:
+    - Efficient Capital Best Trend 15v
+    - Abrdn MOSERS Trend
+    - HFRXSDV Base
+    - SG Trend Index
+
+benchmarks: {}
+
+metrics:
+  registry:
+    - annual_return
+    - volatility
+    - sharpe_ratio
+    - sortino_ratio
+    - information_ratio
+    - max_drawdown
+
+export:
+  directory: results/trend_concentrated_2004_03
+  formats: [xlsx, csv, json, txt]
+  filename: trend_concentrated_2004_03
+
+run:
+  seed: 42
+  jobs: 1
+
+multi_period:
+  frequency: M        # Monthly stepping
+  in_sample_len: 36   # 36-month IS
+  out_sample_len: 12  # 12-month OOS
+  start: 2004-03
+  end:   2025-06

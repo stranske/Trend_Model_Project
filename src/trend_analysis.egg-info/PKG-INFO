@@ -140,6 +140,8 @@ pipeline features:
 
 ```bash
 ./scripts/setup_env.sh
+
+Troubleshooting: If your VS Code terminal exits with code 1 unexpectedly, it may be because a script was sourced that enabled strict bash options (set -e/pipefail) in your interactive shell. Our setup script is now safe to source, but as a rule prefer executing it: `./scripts/setup_env.sh`. If you ever source a script that sets strict modes, start a new terminal to reset the shell state.
 python scripts/generate_demo.py [--no-xlsx]
 python scripts/run_multi_demo.py
 ```

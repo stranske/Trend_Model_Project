@@ -31,6 +31,25 @@ def load_csv(path: str) -> Optional[pd.DataFrame]:
                         "Could not parse all dates in %s using mm/dd/yy format",
                         path,
                     )
+        # Coerce non-Date columns to numeric when they look like strings
+        # (e.g., "0.56%", "1,234", or parentheses for negatives).
+        for col in df.columns:
+            if col == "Date":
+                continue
+            if not pd.api.types.is_numeric_dtype(df[col]):
+                s = df[col].astype(str).str.strip()
+                # Detect if this column contains percentage values
+                has_percent = s.str.contains("%", na=False).any()
+                # Normalize common formats: remove commas, convert (x) to -x, drop %
+                s = s.str.replace(",", "", regex=False)
+                s = s.str.replace(r"^\((.*)\)$", r"-\1", regex=True)
+                s = s.str.replace("%", "", regex=False)
+                s = pd.to_numeric(s, errors="coerce")
+                if has_percent:
+                    s = s / 100.0
+                # If conversion produced some numbers, adopt it
+                if pd.api.types.is_numeric_dtype(s):
+                    df[col] = s
     except FileNotFoundError:
         logger.error(f"File not found: {path}")
         return None

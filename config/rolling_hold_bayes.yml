@@ -1,0 +1,58 @@
+version: "0.1.0"
+
+data:
+  csv_path: "hedge_fund_returns_with_indexes.csv"
+
+preprocessing: {}
+vol_adjust:
+  enabled: true
+  target_vol: 0.10
+
+sample_split: {}
+
+portfolio:
+  selection_mode: rank
+  rank:
+    inclusion_approach: top_n
+    n: 8
+    score_by: Sharpe
+  selector:
+    name: rank
+    params: {}
+  weighting:
+    name: score_prop_bayes
+    params:
+      shrink_tau: 0.25
+  policy: threshold_hold
+  threshold_hold:
+    metric: Sharpe
+    z_exit_soft: -1.0
+    z_exit_hard: -1.5
+    z_entry_soft: 1.0
+    z_entry_hard: 1.5
+    soft_strikes: 2
+    weighting: score_prop_bayes
+
+benchmarks: {}
+
+metrics:
+  registry:
+    - annual_return
+    - volatility
+    - sharpe_ratio
+    - sortino_ratio
+    - max_drawdown
+
+export:
+  directory: "results/rolling_hold_bayes"
+  formats: ["csv", "json"]
+
+run:
+  monthly_cost: 0.0
+
+multi_period:
+  frequency: "M"
+  in_sample_len: 36
+  out_sample_len: 12
+  start: "2005-07"
+  end:   "2025-06"
