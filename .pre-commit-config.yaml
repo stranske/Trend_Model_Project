@@ -20,24 +20,20 @@ repos:
       - id: end-of-file-fixer
         files: '\\.(py|pyi|toml|ya?ml)$'
       - id: check-yaml
-        exclude: '^config/defaults\.yml$'
       - id: check-added-large-files
 
-# Python formatting with Black (uses pyproject.toml)
   - repo: https://github.com/psf/black
     rev: 24.8.0
     hooks:
       - id: black
         language_version: python3
 
-# Ruff for linting and autocorrect of simple issues
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.6.3
     hooks:
       - id: ruff
         args: ["--fix"]
 
-# Strip outputs from committed notebooks
   - repo: local
     hooks:
       - id: strip-notebook-outputs
