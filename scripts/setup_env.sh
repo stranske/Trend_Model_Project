@@ -14,6 +14,9 @@ if (return 0 2>/dev/null); then
 		source "$ENV_DIR/bin/activate"
 		pip install --upgrade pip
 		pip install -r requirements.txt
+		pip install pre-commit black ruff mypy
+		# Install pre-commit hooks
+		pre-commit install --install-hooks || true
 	)
 	# Now activate in the current shell so the user can keep working
 	# shellcheck disable=SC1091
@@ -33,5 +36,9 @@ source "$ENV_DIR/bin/activate"
 
 pip install --upgrade pip
 pip install -r requirements.txt
+pip install pre-commit black ruff mypy
+
+# Install pre-commit hooks so formatting runs locally before commits
+pre-commit install --install-hooks || true
 
 echo "Environment setup complete. Activate later with 'source $ENV_DIR/bin/activate'."
