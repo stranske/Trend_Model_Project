@@ -1,0 +1,24 @@
+import pandas as pd
+import numpy as np
+from trend_portfolio_app.sim_runner import Simulator
+from trend_portfolio_app.policy_engine import PolicyConfig, MetricSpec
+
+
+def test_simulator_smoke():
+    idx = pd.period_range(start="2019-01", end="2020-12", freq="M").to_timestamp("M")
+    df = pd.DataFrame(
+        {
+            "A": np.random.normal(0.01, 0.05, len(idx)),
+            "B": np.random.normal(0.01, 0.05, len(idx)),
+            "SPX": np.random.normal(0.005, 0.04, len(idx)),
+        },
+        index=idx,
+    )
+    sim = Simulator(df, benchmark_col="SPX")
+    policy = PolicyConfig(
+        top_k=1, bottom_k=0, min_track_months=6, metrics=[MetricSpec("sharpe", 1.0)]
+    )
+    res = sim.run(
+        start=idx[6], end=idx[-2], freq="monthly", lookback_months=6, policy=policy
+    )
+    assert len(res.portfolio) > 0
