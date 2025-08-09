@@ -106,9 +106,17 @@ def run_schedule(
                 days = 0
             else:
                 days = (pd.to_datetime(date) - prev_date).days
-            s = sf.loc[weights.index, col]
+            # Align score series to current weight index without raising on
+            # missing labels (managers may drop out between periods).
+            try:
+                aligned = sf.reindex(weights.index)
+                s = aligned[col].dropna()
+            except Exception:  # pragma: no cover - ultra-defensive
+                # Fallback to intersection-only selection if something odd occurs
+                common = sf.index.intersection(weights.index)
+                s = sf.loc[common, col]
             update_fn = getattr(weighting, "update", None)
-            if callable(update_fn):
+            if callable(update_fn) and not s.empty:
                 try:
                     update_fn(s, days)
                 except Exception:  # pragma: no cover - defensive
