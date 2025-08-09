@@ -14,6 +14,7 @@ src/trend_analysis/weighting.py
 src/trend_analysis.egg-info/PKG-INFO
 src/trend_analysis.egg-info/SOURCES.txt
 src/trend_analysis.egg-info/dependency_links.txt
+src/trend_analysis.egg-info/requires.txt
 src/trend_analysis.egg-info/top_level.txt
 src/trend_analysis/core/__init__.py
 src/trend_analysis/core/rank_selection.py
@@ -26,6 +27,14 @@ src/trend_analysis/multi_period/__init__.py
 src/trend_analysis/multi_period/engine.py
 src/trend_analysis/multi_period/replacer.py
 src/trend_analysis/multi_period/scheduler.py
+src/trend_portfolio_app/__init__.py
+src/trend_portfolio_app/data_schema.py
+src/trend_portfolio_app/event_log.py
+src/trend_portfolio_app/io_utils.py
+src/trend_portfolio_app/metrics_extra.py
+src/trend_portfolio_app/policy_engine.py
+src/trend_portfolio_app/sim_runner.py
+src/trend_portfolio_app/monte_carlo/engine.py
 tests/test_adaptive_bayes.py
 tests/test_app_coverage.py
 tests/test_cli.py
@@ -48,6 +57,7 @@ tests/test_metrics_extra.py
 tests/test_multi_period_engine.py
 tests/test_multi_period_export.py
 tests/test_multi_period_stub.py
+tests/test_na_as_zero_policy.py
 tests/test_pipeline.py
 tests/test_pipeline_indices.py
 tests/test_rank_selection.py
@@ -64,4 +74,5 @@ tests/test_run_full.py
 tests/test_run_multi_analysis_cli.py
 tests/test_score_frame.py
 tests/test_selector_weighting.py
+tests/test_threshold_policy.py
 tests/test_weighting_edges.py

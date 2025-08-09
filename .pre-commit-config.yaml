@@ -1,21 +1,44 @@
 # See https://pre-commit.com for more information
 # See https://pre-commit.com/hooks.html for more hooks
+exclude: |
+  (?x)(
+    ^Old/|
+    ^notebooks/old/|
+    ^demo/portfolio_test_results/|
+    ^results/|
+    ^outputs/|
+    ^src/trend_analysis\.egg-info/|
+    \.ipynb_checkpoints/
+  )
+
 repos:
--   repo: https://github.com/pre-commit/pre-commit-hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v3.2.0
     hooks:
-    -   id: trailing-whitespace
-    -   id: end-of-file-fixer
-    -   id: check-yaml
-    -   id: check-added-large-files
--   repo: https://github.com/pycqa/flake8
-    rev: 7.3.0
+      - id: trailing-whitespace
+        files: '\\.(py|pyi|toml|ya?ml)$'
+      - id: end-of-file-fixer
+        files: '\\.(py|pyi|toml|ya?ml)$'
+      - id: check-yaml
+      - id: check-added-large-files
+
+  - repo: https://github.com/psf/black
+    rev: 24.8.0
     hooks:
-    -   id: flake8
-        args:
-          - --max-line-length=120
-          - --extend-ignore=F401,E501,F821
-        exclude: >
-          ( ^Old/|
-            ^notebooks/|
-            ^tests/legacy_metrics\.py )
+      - id: black
+        language_version: python3
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.3
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+
+  - repo: local
+    hooks:
+      - id: strip-notebook-outputs
+        name: Strip Jupyter notebook outputs
+        entry: python3 tools/strip_output.py
+        language: system
+        files: '\\.ipynb$'
+        pass_filenames: true

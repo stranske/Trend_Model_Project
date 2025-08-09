@@ -5,6 +5,8 @@ Summary: Volatility-adjusted trend analysis package
 License: MIT
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
+Provides-Extra: app
+Requires-Dist: streamlit>=1.30; extra == "app"
 
 # Trend Model Project
 

@@ -12,6 +12,10 @@ license = {text = "MIT"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+include = ["trend_analysis*", "trend_portfolio_app*"]
+
+[project.optional-dependencies]
+app = ["streamlit>=1.30"]
 
 [tool.black]
 extend-exclude = '''
