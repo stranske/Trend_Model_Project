@@ -195,7 +195,7 @@ class Simulator:
                     if len(w)
                     else pd.Series(0.0, index=[])
                 )
-                port_r = float((r_next * (w if len(w) else 0)).sum()) if len(w) else 0.0
+                port_r = float((r_next * w).sum())
             else:
                 port_r = np.nan
             portfolio_returns.append((next_month, port_r))
