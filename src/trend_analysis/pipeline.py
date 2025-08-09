@@ -190,7 +190,7 @@ def _run_analysis(
     def _max_consecutive_nans(s: pd.Series) -> int:
         is_na = s.isna().astype(int)
         # count consecutive runs
-        runs = (is_na.groupby((is_na != is_na.shift()).cumsum()).cumsum() * is_na)
+        runs = is_na.groupby((is_na != is_na.shift()).cumsum()).cumsum() * is_na
         return int(runs.max() if not runs.empty else 0)
 
     na_cfg = getattr(stats_cfg, "na_as_zero_cfg", None)

@@ -64,6 +64,7 @@ def _build_summary_formatter(
                 cast(float, obj.information_ratio),
                 cast(float, obj.max_drawdown),
             )
+
         # Metrics list in raw units expected by cell formatters.
         # CAGR/Vol/MaxDD are fractions (0..1) to be rendered with % format.
         def metrics_list(t: Any) -> list[float]:
@@ -154,7 +155,7 @@ def _build_summary_formatter(
 
         ws.autofilter(4, 0, row - 1, len(headers) - 1)
 
-    # Optional: append a Manager Changes section after the main table.
+        # Optional: append a Manager Changes section after the main table.
         changes = cast(list[Mapping[str, Any]] | None, res.get("manager_changes"))
         if changes:
             row += 2
@@ -164,8 +165,12 @@ def _build_summary_formatter(
             # Prefer a canonical subset if present.
             preferred = ["Period", "action", "manager", "firm", "reason", "detail"]
             keys = list({k for rec in changes for k in rec.keys()})
-            ordered = [k for k in preferred if k in keys] + [k for k in keys if k not in preferred]
-            ws.write_row(row, 0, [k.capitalize() if k != "Period" else k for k in ordered], bold)
+            ordered = [k for k in preferred if k in keys] + [
+                k for k in keys if k not in preferred
+            ]
+            ws.write_row(
+                row, 0, [k.capitalize() if k != "Period" else k for k in ordered], bold
+            )
             # Set reasonable widths
             for idx, k in enumerate(ordered):
                 width = 12 if k in {"Period", "action", "firm"} else 24
@@ -658,7 +663,9 @@ def manager_contrib_table(
 
     rows: list[dict[str, Any]] = []
     for fund, months in months_held.items():
-        concat = pd.concat(series_map[fund]) if series_map[fund] else pd.Series(dtype=float)
+        concat = (
+            pd.concat(series_map[fund]) if series_map[fund] else pd.Series(dtype=float)
+        )
         n = int(concat.shape[0])
         if n > 0:
             s_float = concat.astype(float)
@@ -677,11 +684,15 @@ def manager_contrib_table(
         )
 
     if not rows:
-        return pd.DataFrame(columns=["Manager", "Years", "OOS CAGR", "Contribution Share"])
+        return pd.DataFrame(
+            columns=["Manager", "Years", "OOS CAGR", "Contribution Share"]
+        )
 
     df = pd.DataFrame(rows)
     # Order by contribution share descending, then by manager name
-    df.sort_values(["Contribution Share", "Manager"], ascending=[False, True], inplace=True)
+    df.sort_values(
+        ["Contribution Share", "Manager"], ascending=[False, True], inplace=True
+    )
     df.reset_index(drop=True, inplace=True)
     return df
 
@@ -798,9 +809,13 @@ def flat_frames_from_results(
     for res in results_list:
         period = res.get("period")
         period_label = (
-            str(period[3]) if isinstance(period, (list, tuple)) and len(period) >= 4 else ""
+            str(period[3])
+            if isinstance(period, (list, tuple)) and len(period) >= 4
+            else ""
         )
-        for ev in cast(list[Mapping[str, Any]] | None, res.get("manager_changes")) or []:
+        for ev in (
+            cast(list[Mapping[str, Any]] | None, res.get("manager_changes")) or []
+        ):
             row: dict[str, Any] = {"Period": period_label}
             for k in ["action", "manager", "firm", "reason", "detail"]:
                 val = ev.get(k) if isinstance(ev, Mapping) else None
@@ -854,7 +869,10 @@ def export_phase1_workbook(
                     if isinstance(period, (list, tuple)) and len(period) >= 4
                     else ""
                 )
-                for ev in cast(list[Mapping[str, Any]] | None, res.get("manager_changes")) or []:
+                for ev in (
+                    cast(list[Mapping[str, Any]] | None, res.get("manager_changes"))
+                    or []
+                ):
                     row: dict[str, Any] = {"Period": period_label}
                     for k in ["action", "manager", "firm", "reason", "detail"]:
                         val = ev.get(k) if isinstance(ev, Mapping) else None

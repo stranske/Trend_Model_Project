@@ -31,20 +31,15 @@ class Rebalancer:  # pylint: disable=too-few-public-methods
         self._entry_strikes: dict[str, int] = {}
         # Read thresholds from config if available (backward compatible)
         th = (
-            self.cfg.get("portfolio", {})
-            .get("threshold_hold", {})
+            self.cfg.get("portfolio", {}).get("threshold_hold", {})
             if isinstance(self.cfg, dict)
             else {}
         )
         # Soft/hard exits and entries; default to legacy constants
         self.low_z_soft = float(th.get("z_exit_soft", _LOW_Z))
-        self.low_z_hard = (
-            float(th["z_exit_hard"]) if "z_exit_hard" in th else None
-        )
+        self.low_z_hard = float(th["z_exit_hard"]) if "z_exit_hard" in th else None
         self.high_z_soft = float(th.get("z_entry_soft", _HIGH_Z))
-        self.high_z_hard = (
-            float(th["z_entry_hard"]) if "z_entry_hard" in th else None
-        )
+        self.high_z_hard = float(th["z_entry_hard"]) if "z_entry_hard" in th else None
         self.soft_strikes = int(th.get("soft_strikes", _LOW_STRIKES))
         # Soft entry requires consecutive z >= z_entry_soft periods
         self.entry_soft_strikes = int(th.get("entry_soft_strikes", 1))
@@ -140,7 +135,11 @@ class Rebalancer:  # pylint: disable=too-few-public-methods
                 eligible_cands.append((f_str, float(z)))
 
         # Add in priority order: hard > auto > eligible (all capacity-limited)
-        for bucket in (hard_cands, sorted(auto_cands, key=lambda x: x[1], reverse=True), sorted(eligible_cands, key=lambda x: x[1], reverse=True)):
+        for bucket in (
+            hard_cands,
+            sorted(auto_cands, key=lambda x: x[1], reverse=True),
+            sorted(eligible_cands, key=lambda x: x[1], reverse=True),
+        ):
             for f_str, _z in bucket:
                 if f_str in prev_w:
                     continue

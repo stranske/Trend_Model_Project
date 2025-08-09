@@ -26,7 +26,12 @@ from ..config import Config
 from ..data import load_csv
 from ..pipeline import _run_analysis
 from .scheduler import generate_periods
-from ..weighting import BaseWeighting, EqualWeight, ScorePropBayesian, AdaptiveBayesWeighting
+from ..weighting import (
+    BaseWeighting,
+    EqualWeight,
+    ScorePropBayesian,
+    AdaptiveBayesWeighting,
+)
 from ..core.rank_selection import ASCENDING_METRICS
 from .replacer import Rebalancer
 
@@ -192,8 +197,12 @@ def run(cfg: Config, df: pd.DataFrame | None = None) -> List[Dict[str, object]]:
         sub.sort_values(date_col, inplace=True)
         in_sdate, in_edate = _parse_month(in_start), _parse_month(in_end)
         out_sdate, out_edate = _parse_month(out_start), _parse_month(out_end)
-        in_df = sub[(sub[date_col] >= in_sdate) & (sub[date_col] <= in_edate)].set_index(date_col)
-        out_df = sub[(sub[date_col] >= out_sdate) & (sub[date_col] <= out_edate)].set_index(date_col)
+        in_df = sub[
+            (sub[date_col] >= in_sdate) & (sub[date_col] <= in_edate)
+        ].set_index(date_col)
+        out_df = sub[
+            (sub[date_col] >= out_sdate) & (sub[date_col] <= out_edate)
+        ].set_index(date_col)
         if in_df.empty or out_df.empty:
             return in_df, out_df, [], ""
         ret_cols = [c for c in sub.columns if c != date_col]
@@ -210,9 +219,7 @@ def run(cfg: Config, df: pd.DataFrame | None = None) -> List[Dict[str, object]]:
         fund_cols = [c for c in fund_cols if in_ok[c] and out_ok[c]]
         return in_df, out_df, fund_cols, rf_col
 
-    def _score_frame(
-        in_df: pd.DataFrame, funds: list[str]
-    ) -> pd.DataFrame:
+    def _score_frame(in_df: pd.DataFrame, funds: list[str]) -> pd.DataFrame:
         # Compute metrics frame for the in-sample window (vectorised)
         from ..core.rank_selection import RiskStatsConfig, _compute_metric_series
 
@@ -226,9 +233,7 @@ def run(cfg: Config, df: pd.DataFrame | None = None) -> List[Dict[str, object]]:
             "InformationRatio",
             "MaxDrawdown",
         ]
-        parts = [
-            _compute_metric_series(in_df[funds], m, stats_cfg) for m in metrics
-        ]
+        parts = [_compute_metric_series(in_df[funds], m, stats_cfg) for m in metrics]
         sf = pd.concat(parts, axis=1)
         sf.columns = [
             "CAGR",
@@ -257,7 +262,12 @@ def run(cfg: Config, df: pd.DataFrame | None = None) -> List[Dict[str, object]]:
 
     th_cfg = cast(dict[str, Any], cfg.portfolio.get("threshold_hold", {}))
     target_n = int(th_cfg.get("target_n", cfg.portfolio.get("random_n", 8)))
-    seed_metric = cast(str, (cfg.portfolio.get("selector", {}) or {}).get("params", {}).get("rank_column", "Sharpe"))
+    seed_metric = cast(
+        str,
+        (cfg.portfolio.get("selector", {}) or {})
+        .get("params", {})
+        .get("rank_column", "Sharpe"),
+    )
     selector = RankSelector(top_n=target_n, rank_column=seed_metric)
 
     # Portfolio constraints
@@ -283,7 +293,9 @@ def run(cfg: Config, df: pd.DataFrame | None = None) -> List[Dict[str, object]]:
     if w_name in {"equal", "ew"}:
         weighting: BaseWeighting = EqualWeight()
     elif w_name in {"score_prop_bayes", "bayes", "score_bayes"}:
-        weighting = ScorePropBayesian(column=w_column, shrink_tau=float(w_params.get("shrink_tau", 0.25)))
+        weighting = ScorePropBayesian(
+            column=w_column, shrink_tau=float(w_params.get("shrink_tau", 0.25))
+        )
     elif w_name in {"adaptive_bayes", "adaptive"}:
         weighting = AdaptiveBayesWeighting(
             half_life=int(w_params.get("half_life", 90)),
@@ -305,16 +317,21 @@ def run(cfg: Config, df: pd.DataFrame | None = None) -> List[Dict[str, object]]:
     def _firm(name: str) -> str:
         return str(name).split()[0] if isinstance(name, str) and name else str(name)
 
-    def _dedupe_one_per_firm(sf: pd.DataFrame, holdings: list[str], metric: str) -> list[str]:
+    def _dedupe_one_per_firm(
+        sf: pd.DataFrame, holdings: list[str], metric: str
+    ) -> list[str]:
         if not holdings:
             return holdings
         col = metric if metric in sf.columns else "Sharpe"
         ascending = col in ASCENDING_METRICS
         # sort candidates by metric (and zscore as tiebreaker) best-first
-        tmp = sf.loc[[h for h in holdings if h in sf.index], [col, "zscore" if "zscore" in sf.columns else col]].copy()
+        tmp = sf.loc[
+            [h for h in holdings if h in sf.index],
+            [col, "zscore" if "zscore" in sf.columns else col],
+        ].copy()
         if "zscore" not in tmp.columns:
             tmp["zscore"] = 0.0
-        tmp["_firm"] = [ _firm(ix) for ix in tmp.index ]
+        tmp["_firm"] = [_firm(ix) for ix in tmp.index]
         tmp.sort_values([col, "zscore"], ascending=[ascending, False], inplace=True)
         seen: set[str] = set()
         deduped: list[str] = []
@@ -361,7 +378,9 @@ def run(cfg: Config, df: pd.DataFrame | None = None) -> List[Dict[str, object]]:
                 room_sum = room.sum()
                 if room_sum > 0:
                     add = (room / room_sum) * deficit
-                    floored.loc[receivers.index] = (receivers + add).clip(upper=max_w_bound)
+                    floored.loc[receivers.index] = (receivers + add).clip(
+                        upper=max_w_bound
+                    )
         # One more clamp to be safe
         floored = floored.clip(lower=min_w_bound, upper=max_w_bound)
         # Final small normalise if tiny drift remains, distribute to those with room
@@ -374,7 +393,9 @@ def run(cfg: Config, df: pd.DataFrame | None = None) -> List[Dict[str, object]]:
                     share = (donors - min_w_bound).clip(lower=0.0)
                     sh = share.sum()
                     if sh > 0:
-                        floored.loc[donors.index] = (donors - (share / sh) * excess).clip(lower=min_w_bound)
+                        floored.loc[donors.index] = (
+                            donors - (share / sh) * excess
+                        ).clip(lower=min_w_bound)
             else:
                 deficit = 1.0 - total
                 receivers = floored[~(floored >= max_w_bound - 1e-12)]
@@ -382,7 +403,9 @@ def run(cfg: Config, df: pd.DataFrame | None = None) -> List[Dict[str, object]]:
                     room = (max_w_bound - receivers).clip(lower=0.0)
                     rm = room.sum()
                     if rm > 0:
-                        floored.loc[receivers.index] = (receivers + (room / rm) * deficit).clip(upper=max_w_bound)
+                        floored.loc[receivers.index] = (
+                            receivers + (room / rm) * deficit
+                        ).clip(upper=max_w_bound)
         return floored
 
     for pt in periods:
@@ -408,7 +431,11 @@ def run(cfg: Config, df: pd.DataFrame | None = None) -> List[Dict[str, object]]:
             holdings = _dedupe_one_per_firm(sf, holdings, metric)
             # Enforce max funds on seed by zscore desc (seed only)
             if len(holdings) > max_funds:
-                zsorted = sf.loc[holdings].sort_values("zscore", ascending=False).index.tolist()
+                zsorted = (
+                    sf.loc[holdings]
+                    .sort_values("zscore", ascending=False)
+                    .index.tolist()
+                )
                 keep: list[str] = []
                 seen: set[str] = set()
                 for f in zsorted:
@@ -424,13 +451,15 @@ def run(cfg: Config, df: pd.DataFrame | None = None) -> List[Dict[str, object]]:
             prev_weights = weights_df["weight"].astype(float)
             # Log seed additions
             for f in holdings:
-                events.append({
-                    "action": "added",
-                    "manager": f,
-                    "firm": _firm(f),
-                    "reason": "seed",
-                    "detail": "initial portfolio seed",
-                })
+                events.append(
+                    {
+                        "action": "added",
+                        "manager": f,
+                        "firm": _firm(f),
+                        "reason": "seed",
+                        "detail": "initial portfolio seed",
+                    }
+                )
         else:
             # Use rebalancer to update holdings; then apply Bayesian weights
             # Capture holdings prior to rebalancer
@@ -445,46 +474,64 @@ def run(cfg: Config, df: pd.DataFrame | None = None) -> List[Dict[str, object]]:
             dropped_reb = before_reb - after_reb
             for f in sorted(dropped_reb):
                 try:
-                    val = pd.to_numeric(sf.loc[f, "zscore"], errors="coerce") if f in sf.index else pd.NA
+                    val = (
+                        pd.to_numeric(sf.loc[f, "zscore"], errors="coerce")
+                        if f in sf.index
+                        else pd.NA
+                    )
                     z = float(val) if pd.notna(val) else float("nan")
                 except Exception:
                     z = float("nan")
                 reason = "z_exit" if (pd.notna(z) and z < z_exit_soft) else "rebalance"
-                events.append({
-                    "action": "dropped",
-                    "manager": f,
-                    "firm": _firm(f),
-                    "reason": reason,
-                    "detail": f"zscore={z:.3f}",
-                })
+                events.append(
+                    {
+                        "action": "dropped",
+                        "manager": f,
+                        "firm": _firm(f),
+                        "reason": reason,
+                        "detail": f"zscore={z:.3f}",
+                    }
+                )
             added_reb = after_reb - before_reb
             for f in sorted(added_reb):
                 try:
-                    val = pd.to_numeric(sf.loc[f, "zscore"], errors="coerce") if f in sf.index else pd.NA
+                    val = (
+                        pd.to_numeric(sf.loc[f, "zscore"], errors="coerce")
+                        if f in sf.index
+                        else pd.NA
+                    )
                     z = float(val) if pd.notna(val) else float("nan")
                 except Exception:
                     z = float("nan")
-                reason = "z_entry" if (pd.notna(z) and z > z_entry_soft - 1e-12) else "rebalance"
-                events.append({
-                    "action": "added",
-                    "manager": f,
-                    "firm": _firm(f),
-                    "reason": reason,
-                    "detail": f"zscore={z:.3f}",
-                })
+                reason = (
+                    "z_entry"
+                    if (pd.notna(z) and z > z_entry_soft - 1e-12)
+                    else "rebalance"
+                )
+                events.append(
+                    {
+                        "action": "added",
+                        "manager": f,
+                        "firm": _firm(f),
+                        "reason": reason,
+                        "detail": f"zscore={z:.3f}",
+                    }
+                )
             # Enforce one-per-firm
             before_dedupe = set(holdings)
             holdings = _dedupe_one_per_firm(sf, holdings, metric)
             after_dedupe = set(holdings)
             dropped_dup = before_dedupe - after_dedupe
             for f in sorted(dropped_dup):
-                events.append({
-                    "action": "dropped",
-                    "manager": f,
-                    "firm": _firm(f),
-                    "reason": "one_per_firm",
-                    "detail": "duplicate firm pruned",
-                })
+                events.append(
+                    {
+                        "action": "dropped",
+                        "manager": f,
+                        "firm": _firm(f),
+                        "reason": "one_per_firm",
+                        "detail": "duplicate firm pruned",
+                    }
+                )
             # Do not auto-remove just because we're above max_funds.
             # We still respect max_funds when seeding and when adding new funds elsewhere.
             if len(holdings) == 0:  # guard: reseed if empty
@@ -492,13 +539,15 @@ def run(cfg: Config, df: pd.DataFrame | None = None) -> List[Dict[str, object]]:
                 holdings = list(selected.index)
                 holdings = _dedupe_one_per_firm(sf, holdings, metric)
                 for f in holdings:
-                    events.append({
-                        "action": "added",
-                        "manager": f,
-                        "firm": _firm(f),
-                        "reason": "reseat",
-                        "detail": "reseeding empty portfolio",
-                    })
+                    events.append(
+                        {
+                            "action": "added",
+                            "manager": f,
+                            "firm": _firm(f),
+                            "reason": "reseat",
+                            "detail": "reseeding empty portfolio",
+                        }
+                    )
             weights_df = weighting.weight(sf.loc[holdings])
             prev_weights = weights_df["weight"].astype(float)
 
@@ -521,20 +570,24 @@ def run(cfg: Config, df: pd.DataFrame | None = None) -> List[Dict[str, object]]:
             holdings = [h for h in holdings if h not in to_remove]
             for f in to_remove:
                 # Log low-weight drop
-                events.append({
-                    "action": "dropped",
-                    "manager": f,
-                    "firm": _firm(f),
-                    "reason": "low_weight_strikes",
-                    "detail": f"below min {min_w_bound:.2%} for {low_min_strikes_req} periods",
-                })
+                events.append(
+                    {
+                        "action": "dropped",
+                        "manager": f,
+                        "firm": _firm(f),
+                        "reason": "low_weight_strikes",
+                        "detail": f"below min {min_w_bound:.2%} for {low_min_strikes_req} periods",
+                    }
+                )
                 low_weight_strikes.pop(f, None)
             # Fill to target/min(len(sf), max_funds)
             need = max(0, min(max_funds, target_n) - len(holdings))
             if need > 0:
                 candidates = [c for c in sf.index if c not in holdings]
                 add_from = (
-                    sf.loc[candidates].sort_values("zscore", ascending=False).index.tolist()
+                    sf.loc[candidates]
+                    .sort_values("zscore", ascending=False)
+                    .index.tolist()
                 )
                 for f in add_from:
                     if len(holdings) >= min(max_funds, target_n):
@@ -542,13 +595,15 @@ def run(cfg: Config, df: pd.DataFrame | None = None) -> List[Dict[str, object]]:
                     if _firm(f) in {_firm(x) for x in holdings}:
                         continue
                     holdings.append(f)
-                    events.append({
-                        "action": "added",
-                        "manager": f,
-                        "firm": _firm(f),
-                        "reason": "replacement",
-                        "detail": "filled from highest zscore sidelined",
-                    })
+                    events.append(
+                        {
+                            "action": "added",
+                            "manager": f,
+                            "firm": _firm(f),
+                            "reason": "replacement",
+                            "detail": "filled from highest zscore sidelined",
+                        }
+                    )
             if holdings:
                 weights_df = weighting.weight(sf.loc[holdings])
                 nat_w = weights_df["weight"].astype(float)
@@ -559,7 +614,9 @@ def run(cfg: Config, df: pd.DataFrame | None = None) -> List[Dict[str, object]]:
         prev_weights = bounded_w
 
         # Prepare custom weights mapping in percent for _run_analysis
-        custom: dict[str, float] = {str(k): float(v) * 100.0 for k, v in prev_weights.items()}
+        custom: dict[str, float] = {
+            str(k): float(v) * 100.0 for k, v in prev_weights.items()
+        }
 
         res = _run_analysis(
             df,

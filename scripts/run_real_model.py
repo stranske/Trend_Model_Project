@@ -58,7 +58,9 @@ def main(cfg_path: str = "config/long_backtest.yml") -> int:
     top_n = int(rank_cfg.get("n", 8))
     rank_col = str(rank_cfg.get("score_by", "Sharpe"))
     selector = RankSelector(top_n=top_n, rank_column=rank_col)
-    shrink_tau = float(cfg.portfolio.get("weighting", {}).get("params", {}).get("shrink_tau", 0.25))
+    shrink_tau = float(
+        cfg.portfolio.get("weighting", {}).get("params", {}).get("shrink_tau", 0.25)
+    )
     weighting = ScorePropBayesian(column=rank_col, shrink_tau=shrink_tau)
 
     # Generate the hire/fire schedule and weights
@@ -105,7 +107,9 @@ def main(cfg_path: str = "config/long_backtest.yml") -> int:
         cagr = annual_return(portfolio)
         vol = volatility(portfolio)
         sr = sharpe_ratio(portfolio, rf)
-        print(f"OOS CAGR: {float(cagr)*100:.2f}%  Vol: {float(vol)*100:.2f}%  Sharpe: {float(sr):.2f}")
+        print(
+            f"OOS CAGR: {float(cagr)*100:.2f}%  Vol: {float(vol)*100:.2f}%  Sharpe: {float(sr):.2f}"
+        )
         print(f"Weights: {weights_path}")
         print(f"OOS returns: {port_path}")
     else:
