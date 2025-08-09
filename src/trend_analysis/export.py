@@ -44,10 +44,9 @@ def _build_summary_formatter(
 
     def fmt_summary(ws: Any, wb: Any) -> None:
         bold = wb.add_format({"bold": True})
-        int0 = wb.add_format({"num_format": "0"})
         num2 = wb.add_format({"num_format": "0.00"})
         pct2 = wb.add_format({"num_format": "0.00%"})
-        red = wb.add_format({"num_format": "0.00", "font_color": "red"})
+        pct2_red = wb.add_format({"num_format": "0.00%", "font_color": "red"})
 
         def safe(v: float | str | None) -> str | float:
             if pd.isna(v) or not pd.notna(v):
@@ -66,16 +65,11 @@ def _build_summary_formatter(
                 cast(float, obj.max_drawdown),
             )
 
-        def pct(t: Any) -> list[float]:
+        # Metrics list in raw units expected by cell formatters.
+        # CAGR/Vol/MaxDD are fractions (0..1) to be rendered with % format.
+        def metrics_list(t: Any) -> list[float]:
             tup = to_tuple(t)
-            return [
-                tup[0] * 100,
-                tup[1] * 100,
-                tup[2],
-                tup[3],
-                tup[4],
-                tup[5] * 100,
-            ]
+            return [tup[0], tup[1], tup[2], tup[3], tup[4], tup[5]]
 
         ws.write_row(0, 0, ["Vol-Adj Trend Analysis"], bold)
         ws.write_row(1, 0, [f"In:  {in_start} → {in_end}"], bold)
@@ -105,7 +99,7 @@ def _build_summary_formatter(
         numeric_fmts: list[Any] = []
         for h in headers[2:]:
             if "MaxDD" in h:
-                numeric_fmts.append(red)
+                numeric_fmts.append(pct2_red)
             elif "CAGR" in h or "Vol" in h:
                 numeric_fmts.append(pct2)
             else:
@@ -118,7 +112,11 @@ def _build_summary_formatter(
         ]:
             ws.write(row, 0, label, bold)
             ws.write(row, 1, safe(""))
-            vals = pct(ins) + pct(outs)
+            ins_vals = metrics_list(ins)
+            outs_vals = metrics_list(outs)
+            # Defer OS MaxDD to the final column after benchmark IRs
+            os_maxdd = outs_vals[-1]
+            vals = ins_vals + outs_vals[:-1]
             extra = [
                 res.get("benchmark_ir", {})
                 .get(b, {})
@@ -127,29 +125,90 @@ def _build_summary_formatter(
             ]
             fmts = numeric_fmts
             vals.extend(extra)
+            vals.append(os_maxdd)
             for col, (v, fmt) in enumerate(zip(vals, fmts), start=2):
                 ws.write(row, col, safe(v), fmt)
             row += 1
 
-        row += 1
+        # Start fund rows immediately after the aggregate rows (no spacer),
+        # so the first fund appears on row 8 (1-based indexing).
         for fund, stat_in in res["in_sample_stats"].items():
             stat_out = res["out_sample_stats"][fund]
             ws.write(row, 0, fund, bold)
             wt = res["fund_weights"][fund]
-            ws.write(row, 1, safe(wt * 100), int0)
-            vals = pct(stat_in) + pct(stat_out)
+            # Write weights as fractions with percent formatting
+            ws.write(row, 1, safe(wt), pct2)
+            ins_vals = metrics_list(stat_in)
+            outs_vals = metrics_list(stat_out)
+            os_maxdd = outs_vals[-1]
+            vals = ins_vals + outs_vals[:-1]
             extra = [
                 res.get("benchmark_ir", {}).get(b, {}).get(fund, "")
                 for b in bench_labels
             ]
             fmts = numeric_fmts
             vals.extend(extra)
+            vals.append(os_maxdd)
             for col, (v, fmt) in enumerate(zip(vals, fmts), start=2):
                 ws.write(row, col, safe(v), fmt)
             row += 1
 
-        row += 1
         ws.autofilter(4, 0, row - 1, len(headers) - 1)
+
+        # Optional: append a Manager Changes section after the main table.
+        changes = cast(list[Mapping[str, Any]] | None, res.get("manager_changes"))
+        if changes:
+            row += 2
+            ws.write_row(row, 0, ["Manager Changes"], bold)
+            row += 1
+            # Determine available columns from the first record and keep a stable order
+            # Prefer a canonical subset if present.
+            preferred = ["Period", "action", "manager", "firm", "reason", "detail"]
+            keys = list({k for rec in changes for k in rec.keys()})
+            ordered = [k for k in preferred if k in keys] + [
+                k for k in keys if k not in preferred
+            ]
+            ws.write_row(
+                row, 0, [k.capitalize() if k != "Period" else k for k in ordered], bold
+            )
+            # Set reasonable widths
+            for idx, k in enumerate(ordered):
+                width = 12 if k in {"Period", "action", "firm"} else 24
+                ws.set_column(idx, idx, width)
+            row += 1
+            for rec in changes:
+                vals = [rec.get(k, "") for k in ordered]
+                for col, v in enumerate(vals):
+                    ws.write(row, col, v)
+                row += 1
+
+        # Optional: append a Manager Participation & Contribution section
+        contrib = res.get("manager_contrib")
+        if contrib is not None:
+            # Accept either a DataFrame-like (records) or a list of dicts
+            # Normalize to a list of dict rows with expected keys
+            rows: list[dict[str, Any]]
+            if isinstance(contrib, pd.DataFrame):
+                rows = cast(pd.DataFrame, contrib).to_dict(orient="records")
+            else:
+                rows = cast(list[dict[str, Any]], contrib)
+            if rows:
+                row += 2
+                ws.write_row(row, 0, ["Manager Participation & Contribution"], bold)
+                row += 1
+                headers = ["Manager", "Years", "OOS CAGR", "Contribution Share"]
+                ws.write_row(row, 0, headers, bold)
+                # Set column widths and number formats
+                ws.set_column(0, 0, 30)  # Manager
+                ws.set_column(1, 1, 10)  # Years
+                ws.set_column(2, 3, 18)  # Rates
+                row += 1
+                for rec in rows:
+                    ws.write(row, 0, rec.get("Manager", ""))
+                    ws.write(row, 1, rec.get("Years", ""), num2)
+                    ws.write(row, 2, rec.get("OOS CAGR", ""), pct2)
+                    ws.write(row, 3, rec.get("Contribution Share", ""), pct2)
+                    row += 1
 
     return fmt_summary
 
@@ -313,15 +372,20 @@ def export_to_excel(
             df_formatter = None
 
     with pd.ExcelWriter(path, engine="xlsxwriter") as writer:
-        # We must iterate over the mapping of DataFrames so each becomes its own
-        # sheet. A vectorised approach would obscure the intent here.
+        # Iterate over frames and either let a registered sheet formatter
+        # render the entire sheet (preferred), or fall back to writing the
+        # DataFrame directly when no formatter is available.
         for sheet, df in data.items():
-            formatted = _apply_format(df, df_formatter)
-            formatted.to_excel(writer, sheet_name=sheet, index=False)
-            ws = writer.sheets[sheet]
             fmt = FORMATTERS_EXCEL.get(sheet, default_sheet_formatter)
-            if fmt:
+            if fmt is not None:
+                # Create an empty worksheet and delegate full rendering
+                book_any = cast(Any, writer.book)
+                ws = book_any.add_worksheet(sheet)
+                writer.sheets[sheet] = ws
                 fmt(ws, writer.book)
+            else:
+                formatted = _apply_format(df, df_formatter)
+                formatted.to_excel(writer, sheet_name=sheet, index=False)
 
 
 def export_to_csv(
@@ -559,6 +623,80 @@ def combined_summary_result(
     }
 
 
+def manager_contrib_table(
+    results: Iterable[Mapping[str, object]],
+) -> pd.DataFrame:
+    """Compute per-manager participation and contribution across periods.
+
+    Returns a DataFrame with columns:
+      - Manager: fund/manager name
+      - Years: total years in portfolio (months with positive weight / 12)
+      - OOS CAGR: annualized return of the manager while held
+      - Contribution Share: share of total portfolio return contributed
+    """
+
+    from collections import defaultdict
+
+    months_held: dict[str, int] = defaultdict(int)
+    series_map: dict[str, list[pd.Series]] = defaultdict(list)
+    contrib_sum: dict[str, float] = defaultdict(float)
+    total_contrib = 0.0
+
+    for res in results:
+        out_df = cast(pd.DataFrame | None, res.get("out_sample_scaled"))
+        if out_df is None or out_df.empty:
+            continue
+        weights = cast(Mapping[str, float], res.get("fund_weights", {}))
+        # Consider only managers present with positive weight in this period
+        for fund in out_df.columns:
+            w = float(weights.get(fund, 0.0))
+            if w <= 0.0:
+                continue
+            s = out_df[fund].dropna()
+            if s.empty:
+                continue
+            months_held[fund] += int(s.shape[0])
+            series_map[fund].append(s)
+            c = float((s * w).sum())
+            contrib_sum[fund] += c
+            total_contrib += c
+
+    rows: list[dict[str, Any]] = []
+    for fund, months in months_held.items():
+        concat = (
+            pd.concat(series_map[fund]) if series_map[fund] else pd.Series(dtype=float)
+        )
+        n = int(concat.shape[0])
+        if n > 0:
+            s_float = concat.astype(float)
+            gross = float(np.prod(1.0 + s_float.to_numpy(dtype=float)))
+            cagr = float(gross ** (12.0 / n) - 1.0)
+        else:
+            cagr = float("nan")
+        share = (contrib_sum[fund] / total_contrib) if total_contrib != 0.0 else 0.0
+        rows.append(
+            {
+                "Manager": fund,
+                "Years": months / 12.0,
+                "OOS CAGR": cagr,
+                "Contribution Share": share,
+            }
+        )
+
+    if not rows:
+        return pd.DataFrame(
+            columns=["Manager", "Years", "OOS CAGR", "Contribution Share"]
+        )
+
+    df = pd.DataFrame(rows)
+    # Order by contribution share descending, then by manager name
+    df.sort_values(
+        ["Contribution Share", "Manager"], ascending=[False, True], inplace=True
+    )
+    df.reset_index(drop=True, inplace=True)
+    return df
+
+
 def combined_summary_frame(results: Iterable[Mapping[str, object]]) -> pd.DataFrame:
     """Return the summary frame across all ``results``."""
 
@@ -646,7 +784,8 @@ def flat_frames_from_results(
 ) -> dict[str, pd.DataFrame]:
     """Return consolidated period and summary frames for CSV/JSON export."""
 
-    frames = workbook_frames_from_results(list(results))
+    results_list = list(results)
+    frames = workbook_frames_from_results(results_list)
     period_frames = [(k, v) for k, v in frames.items() if k != "summary"]
     combined_frames = []
     for name, df in period_frames:
@@ -661,6 +800,29 @@ def flat_frames_from_results(
     out: dict[str, pd.DataFrame] = {"periods": combined}
     if "summary" in frames:
         out["summary"] = frames["summary"]
+        contrib_df = manager_contrib_table(results_list)
+        if not contrib_df.empty:
+            out["manager_contrib"] = contrib_df
+
+    # Also emit a combined manager changes frame if available
+    changes_rows: list[dict[str, Any]] = []
+    for res in results_list:
+        period = res.get("period")
+        period_label = (
+            str(period[3])
+            if isinstance(period, (list, tuple)) and len(period) >= 4
+            else ""
+        )
+        for ev in (
+            cast(list[Mapping[str, Any]] | None, res.get("manager_changes")) or []
+        ):
+            row: dict[str, Any] = {"Period": period_label}
+            for k in ["action", "manager", "firm", "reason", "detail"]:
+                val = ev.get(k) if isinstance(ev, Mapping) else None
+                row[k] = val if val is not None else ""
+            changes_rows.append(row)
+    if changes_rows:
+        out["changes"] = pd.DataFrame(changes_rows)
     return out
 
 
@@ -694,18 +856,53 @@ def export_phase1_workbook(
     # Register the summary formatter if applicable
     if results_list and "summary" in frames:
         summary = combined_summary_result(results_list)
+        contrib_df = manager_contrib_table(results_list)
         first = results_list[0].get("period")
         last = results_list[-1].get("period")
         if isinstance(first, (list, tuple)) and isinstance(last, (list, tuple)):
+            # Aggregate manager changes across periods with Period labels
+            changes_rows: list[dict[str, Any]] = []
+            for res in results_list:
+                period = res.get("period")
+                period_label = (
+                    str(period[3])
+                    if isinstance(period, (list, tuple)) and len(period) >= 4
+                    else ""
+                )
+                for ev in (
+                    cast(list[Mapping[str, Any]] | None, res.get("manager_changes"))
+                    or []
+                ):
+                    row: dict[str, Any] = {"Period": period_label}
+                    for k in ["action", "manager", "firm", "reason", "detail"]:
+                        val = ev.get(k) if isinstance(ev, Mapping) else None
+                        row[k] = val if val is not None else ""
+                    changes_rows.append(row)
+            summary_ext = dict(summary)
+            if changes_rows:
+                summary_ext["manager_changes"] = changes_rows
+            if not contrib_df.empty:
+                summary_ext["manager_contrib"] = contrib_df
             make_summary_formatter(
-                summary,
+                summary_ext,
                 str(first[0]),
                 str(first[1]),
                 str(last[2]),
                 str(last[3]),
             )
         else:
-            make_summary_formatter(summary, "", "", "", "")
+            summary_ext = dict(summary)
+            if not contrib_df.empty:
+                summary_ext["manager_contrib"] = contrib_df
+            make_summary_formatter(summary_ext, "", "", "", "")
+    # Reorder sheets to place summary first if present
+    if "summary" in frames:
+        ordered: "OrderedDict[str, pd.DataFrame]" = OrderedDict()
+        ordered["summary"] = frames["summary"]
+        for k, v in frames.items():
+            if k != "summary":
+                ordered[k] = v
+        frames = ordered
 
     export_to_excel(frames, output_path)
 
@@ -826,20 +1023,35 @@ def export_multi_period_metrics(
 
         if results_list and "summary" in frames:
             summary = combined_summary_result(results_list)
+            contrib_df = manager_contrib_table(results_list)
             first = results_list[0].get("period")
             last = results_list[-1].get("period")
             if isinstance(first, (list, tuple)) and isinstance(last, (list, tuple)):
+                summary_ext = dict(summary)
+                if not contrib_df.empty:
+                    summary_ext["manager_contrib"] = contrib_df
                 make_summary_formatter(
-                    summary,
+                    summary_ext,
                     str(first[0]),
                     str(first[1]),
                     str(last[2]),
                     str(last[3]),
                 )
             else:
-                make_summary_formatter(summary, "", "", "", "")
+                summary_ext = dict(summary)
+                if not contrib_df.empty:
+                    summary_ext["manager_contrib"] = contrib_df
+                make_summary_formatter(summary_ext, "", "", "", "")
             if include_metrics:
                 excel_data["metrics_summary"] = metrics_from_result(summary)
+        # Reorder sheets to place summary first if present
+        if "summary" in excel_data:
+            ordered: "OrderedDict[str, pd.DataFrame]" = OrderedDict()
+            ordered["summary"] = excel_data["summary"]
+            for k, v in excel_data.items():
+                if k != "summary":
+                    ordered[k] = v
+            excel_data = ordered
 
         export_data(excel_data, output_path, formats=excel_formats)
     if other_formats:

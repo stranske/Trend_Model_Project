@@ -11,6 +11,7 @@ by metrics registered in `METRIC_REGISTRY`. Metrics listed in
 # =============================================================================
 from __future__ import annotations
 from dataclasses import dataclass, field
+import re
 from typing import Any, Callable, Dict, List, Iterable, cast
 from ..export import Formatter
 import io
@@ -63,6 +64,11 @@ def _apply_transform(
         recent = series.iloc[-window:]
         mu = recent.mean()
         sigma = recent.std(ddof=ddof)
+        # If variance is zero or std is non-finite, z-scores are undefined.
+        # Return zeros to keep candidates available for ranking rather than
+        # producing NaNs that get dropped upstream.
+        if not np.isfinite(sigma) or sigma == 0:
+            return pd.Series(0.0, index=series.index, dtype=float)
         return (series - mu) / sigma
 
     raise ValueError(f"unknown transform mode '{mode}'")
@@ -83,6 +89,7 @@ def rank_select_funds(
     zscore_window: int | None = None,
     zscore_ddof: int = 1,
     rank_pct: float = 0.5,
+    limit_one_per_firm: bool = True,
 ) -> list[str]:
     """Select funds based on ranking by a specified metric."""
 
@@ -121,23 +128,75 @@ def rank_select_funds(
     scores = scores.dropna()
     scores = scores.sort_values(ascending=ascending)
 
+    def _firm_key(name: str) -> str:
+        # Normalize and derive a grouping key intended to capture the firm.
+        # Heuristic:
+        #  - tokenize on non-letters
+        #  - if the first token seems like a brand/acronym (ALL CAPS or short), use it
+        #  - otherwise use the first two tokens
+        tokens = [t for t in re.split(r"[^A-Za-z]+", str(name)) if t]
+        if not tokens:
+            return str(name).strip().lower()
+        t0 = tokens[0]
+        if t0.isupper() or len(t0) <= 3:
+            return t0.lower()
+        # Include second token when available to distinguish generic first words
+        return (t0 + (" " + tokens[1] if len(tokens) > 1 else "")).lower()
+
+    def _dedupe_by_firm(cands: list[str], k: int | None = None) -> list[str]:
+        """Best-effort one-per-firm selection preserving order.
+
+        If ``k`` is provided and unique firms are insufficient to reach ``k``,
+        backfill with remaining candidates (even if from the same firm) to
+        satisfy the requested count. When ``k`` is ``None`` (e.g., threshold),
+        only uniqueness is enforced.
+        """
+        if not limit_one_per_firm:
+            return cands if k is None else cands[:k]
+
+        chosen: list[str] = []
+        seen: set[str] = set()
+
+        # First pass: enforce uniqueness by firm
+        for name in cands:
+            fk = _firm_key(name)
+            if fk in seen:
+                continue
+            seen.add(fk)
+            chosen.append(name)
+            if k is not None and len(chosen) >= k:
+                break
+
+        # If we have a target count and didn't reach it, backfill
+        if k is not None and len(chosen) < k:
+            for name in cands:
+                if name in chosen:
+                    continue
+                chosen.append(name)
+                if len(chosen) >= k:
+                    break
+        return chosen
+
     # Apply inclusion approach
     if inclusion_approach == "top_n":
         if n is None:
             raise ValueError("top_n requires parameter n")
-        return cast(list[str], scores.head(n).index.tolist())
+        ordered = cast(list[str], scores.index.tolist())
+        return _dedupe_by_firm(ordered, k=n)
     elif inclusion_approach == "top_pct":
         if pct is None or not 0 < pct <= 1:
             raise ValueError("top_pct requires 0 < pct <= 1")
         k = max(1, int(round(len(scores) * pct)))
-        return cast(list[str], scores.head(k).index.tolist())
+        ordered = cast(list[str], scores.index.tolist())
+        return _dedupe_by_firm(ordered, k=k)
     elif inclusion_approach == "threshold":
         if threshold is None:
             raise ValueError("threshold approach requires parameter threshold")
         # For ascending=True (smaller is better), keep scores <= threshold
         # else keep scores >= threshold
         mask = scores <= threshold if ascending else scores >= threshold
-        return cast(list[str], scores[mask].index.tolist())
+        ordered = cast(list[str], scores[mask].index.tolist())
+        return _dedupe_by_firm(ordered)
     else:
         raise ValueError("Unknown inclusion_approach")
 
