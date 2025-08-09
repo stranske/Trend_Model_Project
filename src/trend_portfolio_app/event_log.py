@@ -10,7 +10,7 @@ class Event:
     action: str
     manager: str
     reason: str
-    details: Dict[str, Any] | None = None
+    details: Optional[Dict[str, Any]] = None
 
 
 class EventLog:
