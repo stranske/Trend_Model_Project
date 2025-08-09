@@ -88,7 +88,7 @@ class SimResult:
         }
         if self.benchmark is not None:
             ex = self.portfolio - self.benchmark.reindex_like(self.portfolio).fillna(0)
-            ir = ex.mean() * 12 / (ex.std(ddof=0) * np.sqrt(12) + 1e-12)
+            ir = ex.mean() * 12 / (ex.std(ddof=0) * np.sqrt(12) + EPS)
             out["information_ratio"] = float(ir)
         return out
 
