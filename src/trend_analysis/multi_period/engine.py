@@ -142,9 +142,9 @@ def run(cfg: Config, df: pd.DataFrame | None = None) -> List[Dict[str, object]]:
             raise FileNotFoundError(csv_path)
 
     # If policy is not threshold-hold, use the Phase‑1 style per-period runs.
-    if str(cfg.portfolio.get("policy", "")).lower() != "threshold_hold":
+    if str(cfg.portfolio.get("policy", "").lower()) != "threshold_hold":
         periods = generate_periods(cfg.model_dump())
-        results: List[Dict[str, object]] = []
+        out_results: List[Dict[str, object]] = []
         for pt in periods:
             res = _run_analysis(
                 df,
@@ -172,8 +172,8 @@ def run(cfg: Config, df: pd.DataFrame | None = None) -> List[Dict[str, object]]:
                 pt.out_start,
                 pt.out_end,
             )
-            results.append(res)
-        return results
+            out_results.append(res)
+        return out_results
 
     # Threshold-hold path with Bayesian weighting
     periods = generate_periods(cfg.model_dump())
@@ -266,7 +266,14 @@ def run(cfg: Config, df: pd.DataFrame | None = None) -> List[Dict[str, object]]:
     min_w_bound = float(constraints.get("min_weight", 0.05))  # decimal
     max_w_bound = float(constraints.get("max_weight", 0.18))  # decimal
     # consecutive below-min to replace
-    low_min_strikes_req = int(th_cfg.get("min_weight_strikes", 2))
+    # Prefer constraints for this rule (it’s a weight constraint),
+    # but keep backward‑compat by falling back to threshold_hold if present.
+    low_min_strikes_req = int(
+        constraints.get(
+            "min_weight_strikes",
+            th_cfg.get("min_weight_strikes", 2),
+        )
+    )
 
     w_cfg = cast(dict[str, Any], cfg.portfolio.get("weighting", {}))
     w_name = str(w_cfg.get("name", "equal")).lower()
@@ -293,7 +300,6 @@ def run(cfg: Config, df: pd.DataFrame | None = None) -> List[Dict[str, object]]:
     # --- main loop ------------------------------------------------------
     results: List[Dict[str, object]] = []
     prev_weights: pd.Series | None = None
-    prev_holdings: set[str] | None = None
     low_weight_strikes: dict[str, int] = {}
 
     def _firm(name: str) -> str:
@@ -324,7 +330,6 @@ def run(cfg: Config, df: pd.DataFrame | None = None) -> List[Dict[str, object]]:
         if w.empty:
             return w
         w = w.clip(lower=0.0)
-        n = len(w)
         # Step 1: cap at max
         capped = w.clip(upper=max_w_bound)
         # Step 2: floor at min
@@ -335,7 +340,6 @@ def run(cfg: Config, df: pd.DataFrame | None = None) -> List[Dict[str, object]]:
         # Helper masks
         at_min = floored <= (min_w_bound + 1e-12)
         at_max = floored >= (max_w_bound - 1e-12)
-        free_mask = ~(at_min | at_max)
 
         if total > 1.0 + 1e-12:
             # Need to reduce 'excess' from those above min (prefer free > min)
@@ -587,7 +591,6 @@ def run(cfg: Config, df: pd.DataFrame | None = None) -> List[Dict[str, object]]:
         res["manager_changes"] = events
         results.append(res)
 
-        # Update prev_holdings for next iteration
-        prev_holdings = set(prev_weights.index) if prev_weights is not None else None
+    # Update complete for this period; next loop will use prev_weights
 
     return results

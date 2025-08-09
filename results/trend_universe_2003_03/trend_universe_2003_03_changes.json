@@ -1,0 +1,386 @@
+[
+  {
+    "Period":"2007-02-28",
+    "action":"added",
+    "manager":"Fulcrum Multi Asset Trend Fund",
+    "firm":"Fulcrum",
+    "reason":"seed",
+    "detail":"initial portfolio seed"
+  },
+  {
+    "Period":"2007-02-28",
+    "action":"added",
+    "manager":"Lynx Fund",
+    "firm":"Lynx",
+    "reason":"seed",
+    "detail":"initial portfolio seed"
+  },
+  {
+    "Period":"2007-02-28",
+    "action":"added",
+    "manager":"FORT Global Contrarian Program",
+    "firm":"FORT",
+    "reason":"seed",
+    "detail":"initial portfolio seed"
+  },
+  {
+    "Period":"2007-02-28",
+    "action":"added",
+    "manager":"Campbell Managed Futures Portfolio",
+    "firm":"Campbell",
+    "reason":"seed",
+    "detail":"initial portfolio seed"
+  },
+  {
+    "Period":"2007-02-28",
+    "action":"added",
+    "manager":"Kaiser Global Diversified Program",
+    "firm":"Kaiser",
+    "reason":"seed",
+    "detail":"initial portfolio seed"
+  },
+  {
+    "Period":"2007-02-28",
+    "action":"added",
+    "manager":"Boronia Diversified Program",
+    "firm":"Boronia",
+    "reason":"seed",
+    "detail":"initial portfolio seed"
+  },
+  {
+    "Period":"2007-02-28",
+    "action":"added",
+    "manager":"ETC Evolution Strategy",
+    "firm":"ETC",
+    "reason":"seed",
+    "detail":"initial portfolio seed"
+  },
+  {
+    "Period":"2007-02-28",
+    "action":"added",
+    "manager":"The Winton Fund",
+    "firm":"The",
+    "reason":"seed",
+    "detail":"initial portfolio seed"
+  },
+  {
+    "Period":"2009-02-28",
+    "action":"dropped",
+    "manager":"Campbell Managed Futures Portfolio",
+    "firm":"Campbell",
+    "reason":"z_exit",
+    "detail":"zscore=-1.788"
+  },
+  {
+    "Period":"2009-02-28",
+    "action":"added",
+    "manager":"Quantica Managed Futures Program",
+    "firm":"Quantica",
+    "reason":"z_entry",
+    "detail":"zscore=1.005"
+  },
+  {
+    "Period":"2009-02-28",
+    "action":"added",
+    "manager":"Systematica BlueTrend",
+    "firm":"Systematica",
+    "reason":"z_entry",
+    "detail":"zscore=1.451"
+  },
+  {
+    "Period":"2010-02-28",
+    "action":"dropped",
+    "manager":"FORT Global Contrarian Program",
+    "firm":"FORT",
+    "reason":"z_exit",
+    "detail":"zscore=-1.574"
+  },
+  {
+    "Period":"2010-02-28",
+    "action":"added",
+    "manager":"RGN Diversified Program",
+    "firm":"RGN",
+    "reason":"z_entry",
+    "detail":"zscore=1.531"
+  },
+  {
+    "Period":"2012-02-29",
+    "action":"dropped",
+    "manager":"RGN Diversified Program",
+    "firm":"RGN",
+    "reason":"z_exit",
+    "detail":"zscore=-1.595"
+  },
+  {
+    "Period":"2012-02-29",
+    "action":"added",
+    "manager":"Auspice Diversified Trust",
+    "firm":"Auspice",
+    "reason":"z_entry",
+    "detail":"zscore=1.539"
+  },
+  {
+    "Period":"2012-02-29",
+    "action":"added",
+    "manager":"Drury Diversified Trend-Following Program",
+    "firm":"Drury",
+    "reason":"z_entry",
+    "detail":"zscore=1.373"
+  },
+  {
+    "Period":"2014-02-28",
+    "action":"dropped",
+    "manager":"Boronia Diversified Program",
+    "firm":"Boronia",
+    "reason":"low_weight_strikes",
+    "detail":"below min 5.00% for 2 periods"
+  },
+  {
+    "Period":"2014-02-28",
+    "action":"dropped",
+    "manager":"Drury Diversified Trend-Following Program",
+    "firm":"Drury",
+    "reason":"low_weight_strikes",
+    "detail":"below min 5.00% for 2 periods"
+  },
+  {
+    "Period":"2015-02-28",
+    "action":"added",
+    "manager":"AHL Evolution",
+    "firm":"AHL",
+    "reason":"z_entry",
+    "detail":"zscore=2.198"
+  },
+  {
+    "Period":"2015-02-28",
+    "action":"added",
+    "manager":"Higher Moment Capital Aurora Fund",
+    "firm":"Higher",
+    "reason":"z_entry",
+    "detail":"zscore=1.822"
+  },
+  {
+    "Period":"2015-02-28",
+    "action":"dropped",
+    "manager":"Auspice Diversified Trust",
+    "firm":"Auspice",
+    "reason":"low_weight_strikes",
+    "detail":"below min 5.00% for 2 periods"
+  },
+  {
+    "Period":"2016-02-29",
+    "action":"dropped",
+    "manager":"Fulcrum Multi Asset Trend Fund",
+    "firm":"Fulcrum",
+    "reason":"z_exit",
+    "detail":"zscore=-1.670"
+  },
+  {
+    "Period":"2016-02-29",
+    "action":"added",
+    "manager":"AHL Dimension",
+    "firm":"AHL",
+    "reason":"z_entry",
+    "detail":"zscore=1.412"
+  },
+  {
+    "Period":"2016-02-29",
+    "action":"added",
+    "manager":"AlphaSimplex Managed Futures Strategy",
+    "firm":"AlphaSimplex",
+    "reason":"z_entry",
+    "detail":"zscore=1.298"
+  },
+  {
+    "Period":"2016-02-29",
+    "action":"dropped",
+    "manager":"AHL Dimension",
+    "firm":"AHL",
+    "reason":"one_per_firm",
+    "detail":"duplicate firm pruned"
+  },
+  {
+    "Period":"2017-02-28",
+    "action":"added",
+    "manager":"Millburn Commodity Program",
+    "firm":"Millburn",
+    "reason":"z_entry",
+    "detail":"zscore=2.680"
+  },
+  {
+    "Period":"2018-02-28",
+    "action":"dropped",
+    "manager":"Systematica BlueTrend",
+    "firm":"Systematica",
+    "reason":"z_exit",
+    "detail":"zscore=-1.260"
+  },
+  {
+    "Period":"2018-02-28",
+    "action":"added",
+    "manager":"John Street Vantage Strategy",
+    "firm":"John",
+    "reason":"z_entry",
+    "detail":"zscore=2.628"
+  },
+  {
+    "Period":"2019-02-28",
+    "action":"dropped",
+    "manager":"Higher Moment Capital Aurora Fund",
+    "firm":"Higher",
+    "reason":"rebalance",
+    "detail":"zscore=nan"
+  },
+  {
+    "Period":"2019-02-28",
+    "action":"dropped",
+    "manager":"ETC Evolution Strategy",
+    "firm":"ETC",
+    "reason":"low_weight_strikes",
+    "detail":"below min 5.00% for 2 periods"
+  },
+  {
+    "Period":"2020-02-29",
+    "action":"dropped",
+    "manager":"AlphaSimplex Managed Futures Strategy",
+    "firm":"AlphaSimplex",
+    "reason":"z_exit",
+    "detail":"zscore=-1.176"
+  },
+  {
+    "Period":"2020-02-29",
+    "action":"added",
+    "manager":"Dormouse Density",
+    "firm":"Dormouse",
+    "reason":"z_entry",
+    "detail":"zscore=2.139"
+  },
+  {
+    "Period":"2020-02-29",
+    "action":"added",
+    "manager":"John Street Systematic Strategy",
+    "firm":"John",
+    "reason":"z_entry",
+    "detail":"zscore=1.328"
+  },
+  {
+    "Period":"2020-02-29",
+    "action":"added",
+    "manager":"Systematica Alternative Markets",
+    "firm":"Systematica",
+    "reason":"z_entry",
+    "detail":"zscore=1.690"
+  },
+  {
+    "Period":"2020-02-29",
+    "action":"dropped",
+    "manager":"John Street Vantage Strategy",
+    "firm":"John",
+    "reason":"one_per_firm",
+    "detail":"duplicate firm pruned"
+  },
+  {
+    "Period":"2020-02-29",
+    "action":"dropped",
+    "manager":"The Winton Fund",
+    "firm":"The",
+    "reason":"low_weight_strikes",
+    "detail":"below min 5.00% for 2 periods"
+  },
+  {
+    "Period":"2020-02-29",
+    "action":"dropped",
+    "manager":"Lynx Fund",
+    "firm":"Lynx",
+    "reason":"low_weight_strikes",
+    "detail":"below min 5.00% for 2 periods"
+  },
+  {
+    "Period":"2020-02-29",
+    "action":"added",
+    "manager":"FORT Global Contrarian Program",
+    "firm":"FORT",
+    "reason":"replacement",
+    "detail":"filled from highest zscore sidelined"
+  },
+  {
+    "Period":"2021-02-28",
+    "action":"added",
+    "manager":"Gresham ACAR Strategy",
+    "firm":"Gresham",
+    "reason":"z_entry",
+    "detail":"zscore=1.162"
+  },
+  {
+    "Period":"2021-02-28",
+    "action":"added",
+    "manager":"John Street Vantage Strategy",
+    "firm":"John",
+    "reason":"z_entry",
+    "detail":"zscore=1.179"
+  },
+  {
+    "Period":"2021-02-28",
+    "action":"dropped",
+    "manager":"John Street Vantage Strategy",
+    "firm":"John",
+    "reason":"one_per_firm",
+    "detail":"duplicate firm pruned"
+  },
+  {
+    "Period":"2022-02-28",
+    "action":"added",
+    "manager":"Global Tactical Allocation Program (GTAP)",
+    "firm":"Global",
+    "reason":"z_entry",
+    "detail":"zscore=1.895"
+  },
+  {
+    "Period":"2023-02-28",
+    "action":"dropped",
+    "manager":"FORT Global Contrarian Program",
+    "firm":"FORT",
+    "reason":"z_exit",
+    "detail":"zscore=-1.966"
+  },
+  {
+    "Period":"2023-02-28",
+    "action":"added",
+    "manager":"Welton Trend",
+    "firm":"Welton",
+    "reason":"z_entry",
+    "detail":"zscore=1.824"
+  },
+  {
+    "Period":"2024-02-29",
+    "action":"dropped",
+    "manager":"Dormouse Density",
+    "firm":"Dormouse",
+    "reason":"z_exit",
+    "detail":"zscore=-1.570"
+  },
+  {
+    "Period":"2024-02-29",
+    "action":"added",
+    "manager":"Florin Court Capital Fund",
+    "firm":"Florin",
+    "reason":"z_entry",
+    "detail":"zscore=1.266"
+  },
+  {
+    "Period":"2025-02-28",
+    "action":"dropped",
+    "manager":"Millburn Commodity Program",
+    "firm":"Millburn",
+    "reason":"rebalance",
+    "detail":"zscore=nan"
+  },
+  {
+    "Period":"2025-02-28",
+    "action":"dropped",
+    "manager":"Kaiser Global Diversified Program",
+    "firm":"Kaiser",
+    "reason":"low_weight_strikes",
+    "detail":"below min 5.00% for 2 periods"
+  }
+]

@@ -1,0 +1,48 @@
+Period,action,manager,firm,reason,detail
+2008-02-29,added,Fulcrum Multi Asset Trend Fund,Fulcrum,seed,initial portfolio seed
+2008-02-29,added,Kaiser Global Diversified Program,Kaiser,seed,initial portfolio seed
+2008-02-29,added,The Winton Fund,The,seed,initial portfolio seed
+2008-02-29,added,Transtrend Diversified Trend Program,Transtrend,seed,initial portfolio seed
+2008-02-29,added,ETC Evolution Strategy,ETC,seed,initial portfolio seed
+2008-02-29,added,Campbell Managed Futures Portfolio,Campbell,seed,initial portfolio seed
+2008-02-29,added,Lynx Fund,Lynx,seed,initial portfolio seed
+2008-02-29,added,Winton Diversified Macro,Winton,seed,initial portfolio seed
+2009-02-28,dropped,Campbell Managed Futures Portfolio,Campbell,z_exit,zscore=-1.536
+2009-02-28,added,Systematica BlueTrend,Systematica,z_entry,zscore=1.281
+2012-02-29,added,Auspice Diversified Trust,Auspice,z_entry,zscore=1.414
+2012-02-29,added,Drury Diversified Trend-Following Program,Drury,z_entry,zscore=1.236
+2014-02-28,dropped,Drury Diversified Trend-Following Program,Drury,low_weight_strikes,below min 5.00% for 2 periods
+2015-02-28,dropped,Auspice Diversified Trust,Auspice,z_exit,zscore=-1.787
+2015-02-28,added,FORT Global Trend Program,FORT,z_entry,zscore=2.192
+2015-02-28,added,Quantica Managed Futures Program,Quantica,z_entry,zscore=1.290
+2016-02-29,dropped,Fulcrum Multi Asset Trend Fund,Fulcrum,z_exit,zscore=-2.161
+2016-02-29,added,AlphaSimplex Managed Futures Strategy,AlphaSimplex,z_entry,zscore=1.559
+2018-02-28,dropped,ETC Evolution Strategy,ETC,z_exit,zscore=-1.373
+2018-02-28,dropped,Systematica BlueTrend,Systematica,z_exit,zscore=-1.264
+2018-02-28,added,CFM ISTrends Program,CFM,z_entry,zscore=1.539
+2018-02-28,added,HYDRA Platform Metori Global Trend Cell,HYDRA,z_entry,zscore=1.704
+2019-02-28,dropped,Lynx Fund,Lynx,z_exit,zscore=-1.711
+2020-02-29,dropped,AlphaSimplex Managed Futures Strategy,AlphaSimplex,z_exit,zscore=-1.245
+2020-02-29,added,Man AHL Trend Alternative,Man,z_entry,zscore=1.536
+2020-02-29,added,Revolution Mosaic Institutional Program,Revolution,z_entry,zscore=1.623
+2020-02-29,dropped,The Winton Fund,The,low_weight_strikes,below min 5.00% for 2 periods
+2020-02-29,dropped,Transtrend Diversified Trend Program,Transtrend,low_weight_strikes,below min 5.00% for 2 periods
+2020-02-29,dropped,CFM ISTrends Program,CFM,low_weight_strikes,below min 5.00% for 2 periods
+2020-02-29,added,ETC Evolution Strategy,ETC,replacement,filled from highest zscore sidelined
+2021-02-28,added,Florin Court Capital Fund,Florin,z_entry,zscore=1.029
+2021-02-28,added,Trend Plus Strategy (PGIM),Trend,z_entry,zscore=1.523
+2022-02-28,dropped,Winton Diversified Macro,Winton,z_exit,zscore=-1.830
+2022-02-28,added,Episteme Trend,Episteme,z_entry,zscore=2.078
+2023-02-28,dropped,ETC Evolution Strategy,ETC,z_exit,zscore=-1.760
+2023-02-28,added,Welton Trend,Welton,z_entry,zscore=2.093
+2024-02-29,dropped,FORT Global Trend Program,FORT,z_exit,zscore=-3.015
+2024-02-29,dropped,Kaiser Global Diversified Program,Kaiser,z_exit,zscore=-1.896
+2024-02-29,dropped,Man AHL Trend Alternative,Man,z_exit,zscore=-1.072
+2024-02-29,dropped,Revolution Mosaic Institutional Program,Revolution,rebalance,zscore=nan
+2024-02-29,added,Mulvaney Global Markets Fund,Mulvaney,z_entry,zscore=1.307
+2024-02-29,added,SMN Diversified Futures Fund,SMN,z_entry,zscore=1.468
+2024-02-29,added,SPQI Select Trading Program,SPQI,z_entry,zscore=1.004
+2025-02-28,dropped,Quantica Managed Futures Program,Quantica,z_exit,zscore=-1.128
+2025-02-28,dropped,Trend Plus Strategy (PGIM),Trend,rebalance,zscore=nan
+2025-02-28,added,The Winton Fund,The,z_entry,zscore=1.831
+2025-02-28,added,Winton Diversified Macro,Winton,z_entry,zscore=1.597

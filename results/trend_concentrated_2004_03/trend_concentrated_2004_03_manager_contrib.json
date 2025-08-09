@@ -1,0 +1,152 @@
+[
+  {
+    "Manager":"The Winton Fund",
+    "Years":12.5833333333,
+    "OOS CAGR":0.1252294929,
+    "Contribution Share":0.1188272988
+  },
+  {
+    "Manager":"Kaiser Global Diversified Program",
+    "Years":15.5833333333,
+    "OOS CAGR":0.1096566836,
+    "Contribution Share":0.1175965744
+  },
+  {
+    "Manager":"Quantica Managed Futures Program",
+    "Years":9.75,
+    "OOS CAGR":0.1093850993,
+    "Contribution Share":0.0871266479
+  },
+  {
+    "Manager":"Fulcrum Multi Asset Trend Fund",
+    "Years":7.8333333333,
+    "OOS CAGR":0.1416056803,
+    "Contribution Share":0.0794389151
+  },
+  {
+    "Manager":"Winton Diversified Macro",
+    "Years":14.5833333333,
+    "OOS CAGR":0.0619710995,
+    "Contribution Share":0.0784171364
+  },
+  {
+    "Manager":"ETC Evolution Strategy",
+    "Years":12.75,
+    "OOS CAGR":0.0673733089,
+    "Contribution Share":0.0707182485
+  },
+  {
+    "Manager":"HYDRA Platform Metori Global Trend Cell",
+    "Years":7.8333333333,
+    "OOS CAGR":0.1652883345,
+    "Contribution Share":0.0674101496
+  },
+  {
+    "Manager":"Transtrend Diversified Trend Program",
+    "Years":11.5833333333,
+    "OOS CAGR":0.0924095653,
+    "Contribution Share":0.0671852037
+  },
+  {
+    "Manager":"Lynx Fund",
+    "Years":10.5833333333,
+    "OOS CAGR":0.1028000155,
+    "Contribution Share":0.0647760384
+  },
+  {
+    "Manager":"Trend Plus Strategy (PGIM)",
+    "Years":4.0,
+    "OOS CAGR":0.2106834749,
+    "Contribution Share":0.0629167641
+  },
+  {
+    "Manager":"Systematica BlueTrend",
+    "Years":8.75,
+    "OOS CAGR":0.0523039784,
+    "Contribution Share":0.0560827867
+  },
+  {
+    "Manager":"Mulvaney Global Markets Fund",
+    "Years":2.0,
+    "OOS CAGR":0.3424126445,
+    "Contribution Share":0.0479842458
+  },
+  {
+    "Manager":"FORT Global Trend Program",
+    "Years":8.75,
+    "OOS CAGR":0.0470687548,
+    "Contribution Share":0.0458160553
+  },
+  {
+    "Manager":"Man AHL Trend Alternative",
+    "Years":4.0,
+    "OOS CAGR":0.1551841831,
+    "Contribution Share":0.0452185062
+  },
+  {
+    "Manager":"Revolution Mosaic Institutional Program",
+    "Years":4.0,
+    "OOS CAGR":0.0916576635,
+    "Contribution Share":0.0305872159
+  },
+  {
+    "Manager":"Florin Court Capital Fund",
+    "Years":5.0,
+    "OOS CAGR":0.1008462515,
+    "Contribution Share":0.0280743615
+  },
+  {
+    "Manager":"Episteme Trend",
+    "Years":4.0,
+    "OOS CAGR":-0.015612262,
+    "Contribution Share":0.0111065043
+  },
+  {
+    "Manager":"Welton Trend",
+    "Years":3.0,
+    "OOS CAGR":-0.0494288673,
+    "Contribution Share":0.0077419777
+  },
+  {
+    "Manager":"SPQI Select Trading Program",
+    "Years":2.0,
+    "OOS CAGR":-0.01521825,
+    "Contribution Share":0.003317256
+  },
+  {
+    "Manager":"CFM ISTrends Program",
+    "Years":1.8333333333,
+    "OOS CAGR":-0.078918474,
+    "Contribution Share":-0.0007641971
+  },
+  {
+    "Manager":"Campbell Managed Futures Portfolio",
+    "Years":1.0,
+    "OOS CAGR":-0.1683072936,
+    "Contribution Share":-0.0047377242
+  },
+  {
+    "Manager":"SMN Diversified Futures Fund",
+    "Years":2.0,
+    "OOS CAGR":-0.0775998355,
+    "Contribution Share":-0.0083036753
+  },
+  {
+    "Manager":"Drury Diversified Trend-Following Program",
+    "Years":1.9166666667,
+    "OOS CAGR":-0.1776366829,
+    "Contribution Share":-0.016308889
+  },
+  {
+    "Manager":"Auspice Diversified Trust",
+    "Years":2.8333333333,
+    "OOS CAGR":-0.1810253356,
+    "Contribution Share":-0.0228253526
+  },
+  {
+    "Manager":"AlphaSimplex Managed Futures Strategy",
+    "Years":3.75,
+    "OOS CAGR":-0.1686949685,
+    "Contribution Share":-0.0374020483
+  }
+]

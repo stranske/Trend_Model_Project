@@ -184,10 +184,36 @@ def _run_analysis(
             c for c in indices_list if idx_in_ok[c] and idx_out_ok[c]
         ]  # pragma: no cover
 
-    # keep only funds with complete data in both windows
-    in_ok = ~in_df[fund_cols].isna().any()
-    out_ok = ~out_df[fund_cols].isna().any()
-    fund_cols = [c for c in fund_cols if in_ok[c] and out_ok[c]]
+    # keep only funds that satisfy missing-data policy in both windows
+    # default is strict completeness; optionally allow small gaps if
+    # stats_cfg carries an `na_as_zero_cfg` with tolerances.
+    def _max_consecutive_nans(s: pd.Series) -> int:
+        is_na = s.isna().astype(int)
+        # count consecutive runs
+        runs = (is_na.groupby((is_na != is_na.shift()).cumsum()).cumsum() * is_na)
+        return int(runs.max() if not runs.empty else 0)
+
+    na_cfg = getattr(stats_cfg, "na_as_zero_cfg", None)
+    if na_cfg and bool(na_cfg.get("enabled", False)):
+        max_missing = int(na_cfg.get("max_missing_per_window", 0))
+        max_gap = int(na_cfg.get("max_consecutive_gap", 0))
+
+        def _ok_window(window: pd.DataFrame, col: str) -> bool:
+            s = window[col]
+            missing = int(s.isna().sum())
+            if missing == 0:
+                return True
+            if missing > max_missing:
+                return False
+            return _max_consecutive_nans(s) <= max_gap
+
+        fund_cols = [
+            c for c in fund_cols if _ok_window(in_df, c) and _ok_window(out_df, c)
+        ]
+    else:
+        in_ok = ~in_df[fund_cols].isna().any()
+        out_ok = ~out_df[fund_cols].isna().any()
+        fund_cols = [c for c in fund_cols if in_ok[c] and out_ok[c]]
 
     if stats_cfg is None:
         stats_cfg = RiskStatsConfig(risk_free=0.0)

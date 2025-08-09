@@ -184,7 +184,7 @@ def _build_summary_formatter(
             # Normalize to a list of dict rows with expected keys
             rows: list[dict[str, Any]]
             if isinstance(contrib, pd.DataFrame):
-                rows = cast(pd.DataFrame, contrib).to_dict(orient="records")  # type: ignore[assignment]
+                rows = cast(pd.DataFrame, contrib).to_dict(orient="records")
             else:
                 rows = cast(list[dict[str, Any]], contrib)
             if rows:
