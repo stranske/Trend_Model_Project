@@ -10,7 +10,7 @@ def total_return(r: pd.Series) -> float:
 
 
 def annualized_return(r: pd.Series, idx: pd.DatetimeIndex) -> float:
-    n_years = max((idx[-1] - idx[0]).days / 365.25, 1e-9)
+    n_years = max((idx[-1] - idx[0]).days / 365.25, EPS)
     return (1 + total_return(r)) ** (1 / n_years) - 1
 
 
