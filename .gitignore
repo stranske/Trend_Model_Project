@@ -29,3 +29,11 @@ demo/exports/
 # Virtual Environment
 venv/
 activate_venv.sh
+
+# build/analysis artifacts
+results/
+*_tmp*.xlsx
+*.xlsx
+*.csv
+*.json
+*.txt
