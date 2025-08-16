@@ -182,6 +182,7 @@ git status
 ```bash
 source .venv/bin/activate
 python scripts/generate_demo.py
+# Run the main analysis command (see "Common Commands" section above)
 PYTHONPATH="./src" python -m trend_analysis.run_analysis -c config/demo.yml
 # Verify output shows fund analysis with metrics like CAGR, Sharpe ratio, etc.
 ```
