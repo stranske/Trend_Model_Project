@@ -214,7 +214,13 @@ with tabs[0]:
                 st.session_state.config_dict = _merge_update(
                     st.session_state.config_dict, data
                 )
-                st.success("Applied")
+                if _validate_config_dict(data):
+                    st.session_state.config_dict = _merge_update(
+                        st.session_state.config_dict, data
+                    )
+                    st.success("Applied")
+                else:
+                    st.error("YAML structure or types are invalid. Please check your configuration.")
             else:
                 st.error("YAML must be a mapping")
         except Exception as exc:
