@@ -1638,7 +1638,17 @@ with tabs[8]:
         try:
             cfg_obj = _build_cfg(cfg_dict)
         except Exception as exc:
-            st.error(f"Invalid configuration: {exc}")
+        except ValueError as ve:
+            st.error(f"Configuration error: {ve}\n\n"
+                     "Hint: Check for missing or invalid values in your configuration. "
+                     "Refer to the documentation for required fields.")
+            st.stop()
+        except Exception as exc:
+            st.error(
+                f"Unexpected error during configuration validation: {type(exc).__name__}: {exc}\n\n"
+                "Hint: Please review your configuration for errors. If the problem persists, "
+                "check the YAML format and required fields."
+            )
             st.stop()
         else:
             cfg_obj = cfg_obj  # type: ignore[assignment]
