@@ -1,5 +1,8 @@
-# .github/workflows/demo.yml
-name: Demo pipeline
+# Archived workflow (moved from .github/workflows/demo.yml on 2025-08-16)
+name: Demo pipeline (Archived)
+
+# This workflow is archived and kept for reference. It is not active because
+# GitHub Actions only runs workflows under .github/workflows at repo root.
 
 on:
   workflow_dispatch:        # run on demand
@@ -37,6 +40,12 @@ jobs:
         source .venv/bin/activate
         python scripts/run_multi_demo.py
       working-directory: ${{ github.workspace }}
+    # Note: Running Streamlit in CI isn't necessary for artifact generation and can hang.
+    # Kept here only for historical reference.
+    # - run: |
+    #     source .venv/bin/activate
+    #     python -m streamlit run src/trend_portfolio_app/app.py --server.headless true
+    #   working-directory: ${{ github.workspace }}
     - uses: actions/upload-artifact@v4
       with:
         name: demo‑exports

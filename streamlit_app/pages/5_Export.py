@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 from trend_portfolio_app.io_utils import export_bundle
 

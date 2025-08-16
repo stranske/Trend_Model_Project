@@ -12,3 +12,5 @@ types-PyYAML
 pytest-cov
 pytest
 nbformat
+streamlit>=1.30
+streamlit-sortables
