@@ -211,3 +211,7 @@ class Simulator:
             event_log=event_log,
             benchmark=bench,
         )
+
+
+# Small epsilon to avoid divide-by-zero in IR calculations
+EPS = 1e-12
