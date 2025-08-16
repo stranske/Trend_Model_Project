@@ -178,7 +178,7 @@ ls -la src/trend_analysis/ tests/ scripts/ config/
 git status
 ```
 
-### Scenario 1: CLI Trend Analysis
+### Scenario 3: CLI Trend Analysis
 ```bash
 source .venv/bin/activate
 python scripts/generate_demo.py
