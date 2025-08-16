@@ -192,7 +192,10 @@ PYTHONPATH="./src" python -m trend_analysis.run_analysis -c config/demo.yml
 ./scripts/run_streamlit.sh --server.headless true &
 # Wait 5 seconds for startup
 curl -f http://localhost:8501 || echo "Streamlit not responding"
-# Kill background process: pkill -f streamlit
+./scripts/run_streamlit.sh --server.headless true & STREAMLIT_PID=$!
+# Wait 5 seconds for startup
+curl -f http://localhost:8501 || echo "Streamlit not responding"
+# Kill background process: kill $STREAMLIT_PID
 ```
 
 ### Scenario 3: Complete Development Workflow
