@@ -199,6 +199,25 @@ launch()
 The widget reloads the last saved settings from ~/.trend_gui_state.yml and persists new changes after a successful run. Installing the optional ipydatagrid package unlocks spreadsheet-style YAML editing; otherwise the GUI falls back to simpler controls.
 
 
+## Streamlit App (MVP)
+
+An interactive Streamlit app lets you upload data, configure a simulation, run, and export results.
+
+- Entry point: `streamlit_app/app.py`
+- Pages: Upload → Configure → Run → Results → Export
+
+Run it locally:
+
+```bash
+./scripts/setup_env.sh
+./scripts/run_streamlit.sh
+```
+
+Tips
+- You can load the included demo dataset from the Upload page.
+- The Upload page accepts CSV and Excel files; it validates a Date column and monthly frequency.
+- The Results page shows equity and drawdown charts and lets you export a bundle (ZIP) of key outputs.
+
 
 ## Testing
 
