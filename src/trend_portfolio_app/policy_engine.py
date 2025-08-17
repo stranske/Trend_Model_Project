@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Any
 from collections import defaultdict
 import numpy as np
 import pandas as pd
@@ -31,6 +31,13 @@ class PolicyConfig:
     # When 0, disabled. Bucket mapping is manager->bucket label.
     diversification_max_per_bucket: int = 0
     diversification_buckets: Dict[str, str] = field(default_factory=dict)
+    # Competing rule sets (ordered). Empty => default behavior (threshold_hold).
+    add_rules: List[str] = field(default_factory=list)
+    drop_rules: List[str] = field(default_factory=list)
+    # Sticky rank window parameters and CI level (simple placeholder gate)
+    sticky_add_x: int = 1
+    sticky_drop_y: int = 1
+    ci_level: float = 0.0
     metrics: List[MetricSpec] = field(default_factory=list)
 
     def dict(self):
@@ -45,6 +52,11 @@ class PolicyConfig:
             "turnover_budget_max_changes": self.turnover_budget_max_changes,
             "diversification_max_per_bucket": self.diversification_max_per_bucket,
             "diversification_buckets": self.diversification_buckets,
+            "add_rules": list(self.add_rules),
+            "drop_rules": list(self.drop_rules),
+            "sticky_add_x": self.sticky_add_x,
+            "sticky_drop_y": self.sticky_drop_y,
+            "ci_level": self.ci_level,
             "metrics": [vars(m) for m in self.metrics],
         }
 
@@ -103,6 +115,7 @@ def decide_hires_fires(
     cooldowns: CooldownBook,
     eligible_since: Dict[str, int],
     tenure: Dict[str, int] | None = None,
+    rule_state: Dict[str, Any] | None = None,
 ) -> Dict[str, List[Tuple[str, str]]]:
     eligible = [
         m
@@ -115,11 +128,38 @@ def decide_hires_fires(
     rs = rank_scores(sf, {m.name: m.weight for m in policy.metrics}, directions)
     sf["_score"] = rs
     sf = sf.sort_values("_score", ascending=False)
+    # Prepare rule gates
+    add_rules = policy.add_rules or ["threshold_hold"]
+    drop_rules = policy.drop_rules or ["sticky_rank_window", "threshold_hold"]
+    add_streak = (rule_state or {}).get("add_streak", {})
+    drop_streak = (rule_state or {}).get("drop_streak", {})
+
+    def allow_add(name: str) -> bool:
+        for r in add_rules:
+            if r == "sticky_rank_window" and int(policy.sticky_add_x) > 1:
+                if int(add_streak.get(name, 0)) < int(policy.sticky_add_x):
+                    return False
+            if r == "confidence_interval" and float(policy.ci_level) > 0:
+                # Placeholder: require non-negative composite score
+                score_val = float(sf["_score"].astype(float).get(name, 0.0))
+                if score_val < 0.0:
+                    return False
+            # threshold_hold imposes no extra gate beyond being a candidate
+        return True
+
+    def allow_drop(name: str) -> bool:
+        for r in drop_rules:
+            if r == "sticky_rank_window" and int(policy.sticky_drop_y) > 1:
+                if int(drop_streak.get(name, 0)) < int(policy.sticky_drop_y):
+                    return False
+            # threshold_hold: handled by bottom_k membership
+        return True
+
     to_fire: List[Tuple[str, str]] = []
     if policy.bottom_k > 0:
         bottom = list(sf.tail(policy.bottom_k).index)
         for m in bottom:
-            if m in current:
+            if m in current and allow_drop(m):
                 # Enforce min-tenure guard if configured
                 if policy.min_tenure_n > 0 and tenure is not None:
                     if int(tenure.get(m, 0)) < int(policy.min_tenure_n):
@@ -150,15 +190,17 @@ def decide_hires_fires(
             b = bucket_of(m)
             if counts[b] >= policy.diversification_max_per_bucket:
                 continue
-            hires.append((m, "top_k"))
-            next_active.append(m)
-            counts[b] += 1
+            if allow_add(m):
+                hires.append((m, "top_k"))
+                next_active.append(m)
+                counts[b] += 1
     else:
         for m in candidates:
             if len(hires) >= policy.top_k or len(next_active) >= policy.max_active:
                 break
-            hires.append((m, "top_k"))
-            next_active.append(m)
+            if allow_add(m):
+                hires.append((m, "top_k"))
+                next_active.append(m)
     # Apply turnover budget across hires and fires if enabled
     if policy.turnover_budget_max_changes and (
         len(hires) + len(to_fire) > policy.turnover_budget_max_changes
