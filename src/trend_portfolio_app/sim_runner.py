@@ -231,7 +231,7 @@ class Simulator:
             # Update tenure counters after deciding holdings
             # Increment for currently active; reset for those not active
             current_set = set(active)
-            for m in tenure:
+            for m in list(tenure.keys()):
                 if m in current_set:
                     tenure[m] = tenure.get(m, 0) + 1
                 else:
@@ -331,7 +331,6 @@ def _apply_rebalance_pipeline(
     # Track gross to preserve unless a full rebalance happens
     gross_prev = float(max(pw.sum(), 0.0))
     since_last = int(rb_state.get("since_last_reb", 0))
-    full_rebalanced = False
 
     for name in strategies:
         if name == "periodic_rebalance":
@@ -340,7 +339,6 @@ def _apply_rebalance_pipeline(
             if interval <= 1 or since_last + 1 >= interval:
                 work = tw.copy()
                 since_last = 0
-                full_rebalanced = True
             else:
                 # Skip rebalancing this period
                 since_last += 1
@@ -365,28 +363,16 @@ def _apply_rebalance_pipeline(
         elif name == "turnover_cap":
             cfg = params.get("turnover_cap", {})
             max_to = float(cfg.get("max_turnover", 0.20))
-            priority = str(cfg.get("priority", "largest_gap"))
-            candidate = tw.copy() if full_rebalanced else work.copy()
-            gap = (candidate - work).abs().sort_values(ascending=False)
-            if gap.sum() <= max_to + 1e-9:
+            # Always aim towards target weights, allocate limited turnover
+            candidate = tw.copy()
+            d = candidate - work
+            total_gap = float(d.abs().sum())
+            if total_gap <= max_to + 1e-9:
                 work = candidate
             else:
-                # Allocate turnover budget starting with largest gaps
-                remaining = max_to
-                alloc = work.copy()
-                order = gap.index.tolist()
-                if priority == "largest_gap":
-                    pass  # already sorted
-                for k in order:
-                    cand_v = float(candidate.get(k, 0.0))
-                    alloc_v = float(alloc.get(k, 0.0))
-                    need = float(cand_v - alloc_v)
-                    step = float(np.sign(need) * min(abs(need), remaining))
-                    if remaining <= 1e-12:
-                        break
-                    alloc[k] = float(alloc_v + step)
-                    remaining -= abs(step)
-                work = _cap_and_norm(alloc, gross=gross_prev)
+                # Move a fraction alpha towards target so L1 turnover equals max_to
+                alpha = float(max_to / total_gap) if total_gap > 0 else 0.0
+                work = work + alpha * d
         elif name == "vol_target_rebalance":
             cfg = params.get("vol_target_rebalance", {})
             target_vol = float(cfg.get("target", 0.10))
