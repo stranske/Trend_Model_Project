@@ -178,7 +178,7 @@ def decide_hires_fires(
             if not np.isnan(prio):
                 moves.append((prio, "fire", m, reason))
         moves.sort(key=lambda x: x[0], reverse=True)
-        kept = moves[: int(policy.turnover_budget_max_changes)]
+        kept = moves[:policy.turnover_budget_max_changes]
         kept_hires = [(m, r) for _, k, m, r in kept if k == "hire"]
         kept_fires = [(m, r) for _, k, m, r in kept if k == "fire"]
         hires = kept_hires
