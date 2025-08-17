@@ -141,7 +141,7 @@ def decide_hires_fires(
                     return False
             if r == "confidence_interval" and float(policy.ci_level) > 0:
                 # Placeholder: require non-negative composite score
-                score_val = float(sf["_score"].astype(float).get(name, 0.0))
+                score_val = float(sf["_score"].get(name, 0.0))
                 if score_val < 0.0:
                     return False
             # threshold_hold imposes no extra gate beyond being a candidate
