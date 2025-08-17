@@ -18,6 +18,25 @@ with c2:
     st.subheader("Drawdown")
     st.line_chart(res.drawdown_curve())
 
+st.subheader("Weights")
+try:
+    # Build weights history into a table: index = dates, columns = managers
+    w_df = None
+    if hasattr(res, "weights") and isinstance(res.weights, dict) and res.weights:
+        w_df = (
+            (  # type: ignore[assignment]
+                __import__("pandas").DataFrame({d: s for d, s in res.weights.items()})
+            )
+            .T.sort_index()
+            .fillna(0.0)
+        )
+    if w_df is not None and not w_df.empty:
+        st.area_chart(w_df)
+    else:
+        st.caption("No weights recorded.")
+except Exception as _:
+    st.caption("Weights view unavailable.")
+
 st.subheader("Event log")
 st.dataframe(res.event_log_df().tail(200))
 
