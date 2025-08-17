@@ -34,7 +34,7 @@ try:
         st.area_chart(w_df)
     else:
         st.caption("No weights recorded.")
-except Exception as _:
+except (KeyError, ValueError, TypeError, AttributeError, ImportError) as _:
     st.caption("Weights view unavailable.")
 
 st.subheader("Event log")
