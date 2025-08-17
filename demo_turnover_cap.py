@@ -175,7 +175,7 @@ def demo_multi_period_integration():
     print(f"\nPortfolio Evolution:")
     for period, weights in portfolio.history.items():
         non_zero = weights[weights > 0.001]  # Show only significant positions
-        clean_dict = {k: round(float(v), 3) for k, v in non_zero.items()}
+        clean_dict = {k: round(v, 3) for k, v in non_zero.items()}
         print(f"{period}: {clean_dict}")
 
 
