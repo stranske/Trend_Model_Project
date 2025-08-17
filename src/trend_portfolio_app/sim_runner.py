@@ -145,7 +145,7 @@ class Simulator:
             m: 0 for m in self.df.columns if m != self.benchmark_col
         }
 
-        portfolio_returns: List[Tuple[pd.Timestamp, float]] = []
+        portfolio_returns: List[Tuple[Any, float]] = []
         # Rebalance state: track timing and risk stats
         rb_cfg: Dict[str, Any] = dict(rebalance or {})
         rb_cfg.setdefault("bayesian_only", True)
