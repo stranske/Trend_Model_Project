@@ -55,3 +55,41 @@ def test_run_schedule_updates_weighting():
     w1 = portfolio.history["2025-06-30"]
     w2 = portfolio.history["2025-07-31"]
     assert w2.loc["A"] > w1.loc["A"]
+
+
+def test_run_schedule_with_price_frames():
+    """Test that run_schedule accepts price_frames parameter and handles it correctly."""
+    sf = pd.read_csv(Path("tests/fixtures/score_frame_2025-06-30.csv"), index_col=0)
+    frames = {"2025-06-30": sf, "2025-07-31": sf}
+    selector = RankSelector(top_n=1, rank_column="Sharpe")
+    weighting = EqualWeight()
+    
+    # Create mock price frames (returns data)
+    price_frames = {
+        "2025-06-30": pd.Series([0.02, -0.01, 0.005], index=["A", "B", "C"]),
+        "2025-07-31": pd.Series([0.01, 0.015, -0.005], index=["A", "B", "C"])
+    }
+    
+    # Test that price_frames parameter is accepted without error
+    portfolio = run_schedule(
+        frames, 
+        selector, 
+        weighting, 
+        rank_column="Sharpe", 
+        price_frames=price_frames
+    )
+    
+    assert isinstance(portfolio, Portfolio)
+    assert list(portfolio.history.keys()) == ["2025-06-30", "2025-07-31"]
+    
+    # Test with None (backward compatibility)
+    portfolio_none = run_schedule(
+        frames, 
+        selector, 
+        weighting, 
+        rank_column="Sharpe", 
+        price_frames=None
+    )
+    
+    assert isinstance(portfolio_none, Portfolio)
+    assert list(portfolio_none.history.keys()) == ["2025-06-30", "2025-07-31"]

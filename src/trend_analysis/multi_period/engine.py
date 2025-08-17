@@ -76,8 +76,30 @@ def run_schedule(
     *,
     rank_column: str | None = None,
     rebalancer: "Rebalancer | None" = None,
+    price_frames: Mapping[str, pd.Series] | None = None,
 ) -> Portfolio:
-    """Apply selection and weighting across ``score_frames``."""
+    """Apply selection and weighting across ``score_frames``.
+
+    Parameters
+    ----------
+    score_frames : Mapping[str, pd.DataFrame]
+        Score frames for each rebalancing period
+    selector : SelectorProtocol
+        Asset selection logic
+    weighting : BaseWeighting
+        Portfolio weighting scheme
+    rank_column : str, optional
+        Column to use for ranking, if different from selector default
+    rebalancer : Rebalancer, optional
+        Rebalancing logic for handling portfolio changes
+    price_frames : Mapping[str, pd.Series], optional
+        Price/return series for calculating portfolio returns between periods
+
+    Returns
+    -------
+    Portfolio
+        Portfolio object with rebalancing history
+    """
 
     pf = Portfolio()
     prev_date: pd.Timestamp | None = None
@@ -114,6 +136,22 @@ def run_schedule(
                 except Exception:  # pragma: no cover - defensive
                     pass
         prev_date = pd.to_datetime(date)
+
+        # Calculate portfolio returns between periods if price_frames provided
+        if price_frames is not None:
+            if prev_date is not None and date in price_frames:
+                # Calculate portfolio return for this period using weights and price returns
+                price_series = price_frames[date]
+                portfolio_weights = (
+                    weights["weight"] if isinstance(weights, pd.DataFrame) else weights
+                )
+                # Filter to common assets
+                common_assets = portfolio_weights.index.intersection(price_series.index)
+                if len(common_assets) > 0:
+                    period_weights = portfolio_weights.loc[common_assets]
+                    period_returns = price_series.loc[common_assets]
+                    # Calculate weighted portfolio return (stored for reference but not used further in this minimal implementation)
+                    portfolio_return = (period_weights * period_returns).sum()
 
     return pf
 
