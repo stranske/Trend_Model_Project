@@ -22,6 +22,10 @@ class PolicyConfig:
     # Optional guard: once added, must be held at least this many periods
     # before eligible for removal. When 0, disabled.
     min_tenure_n: int = 0
+    # Optional: cap total selection changes (hires + fires) per period.
+    # When 0, disabled. UI/config default may be >0, engine default keeps
+    # backward-compat as no-op unless explicitly set.
+    turnover_budget_max_changes: int = 0
     metrics: List[MetricSpec] = field(default_factory=list)
 
     def dict(self):
@@ -33,6 +37,7 @@ class PolicyConfig:
             "max_active": self.max_active,
             "max_weight": self.max_weight,
             "min_tenure_n": self.min_tenure_n,
+            "turnover_budget_max_changes": self.turnover_budget_max_changes,
             "metrics": [vars(m) for m in self.metrics],
         }
 
@@ -124,4 +129,28 @@ def decide_hires_fires(
         if len(next_active) >= policy.max_active:
             break
         next_active.append(m)
+    # Apply turnover budget across hires and fires if enabled
+    if policy.turnover_budget_max_changes and (
+        len(hires) + len(to_fire) > policy.turnover_budget_max_changes
+    ):
+        s = sf["_score"].astype(float)
+        moves: List[Tuple[float, str, str, str]] = (
+            []
+        )  # (priority, kind, manager, reason)
+        for m, reason in hires:
+            # Higher-scored hires have higher priority
+            prio = float(s.get(m, np.nan))
+            if not np.isnan(prio):
+                moves.append((prio, "hire", m, reason))
+        for m, reason in to_fire:
+            # Lower-scored fires have higher priority ⇒ use negative score
+            prio = float(-s.get(m, np.nan))
+            if not np.isnan(prio):
+                moves.append((prio, "fire", m, reason))
+        moves.sort(key=lambda x: x[0], reverse=True)
+        kept = moves[: int(policy.turnover_budget_max_changes)]
+        kept_hires = [(m, r) for _, k, m, r in kept if k == "hire"]
+        kept_fires = [(m, r) for _, k, m, r in kept if k == "fire"]
+        hires = kept_hires
+        to_fire = kept_fires
     return {"hire": hires, "fire": to_fire}
