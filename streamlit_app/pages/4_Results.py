@@ -25,7 +25,7 @@ try:
     if hasattr(res, "weights") and isinstance(res.weights, dict) and res.weights:
         w_df = (
             (  # type: ignore[assignment]
-                __import__("pandas").DataFrame({d: s for d, s in res.weights.items()})
+                pd.DataFrame({d: s for d, s in res.weights.items()})
             )
             .T.sort_index()
             .fillna(0.0)
