@@ -79,6 +79,18 @@ portfolio:
     name: score_prop_bayes
     params:
       shrink_tau: 0.25
+  # Non-Bayesian rebalancing strategies (Phase 1)
+  rebalance:
+    bayesian_only: true                # true = use only Bayesian weighting; false = compose with strategies below
+    strategies:                        # applied in sequence when bayesian_only=false
+      - drift_band                     # rebalance when weights drift outside bands
+    params:
+      drift_band:
+        band_pct: 0.03                 # maximum allowed drift as absolute percentage (3%)
+        min_trade: 0.005               # minimum trade size as absolute weight (0.5%)
+        mode: partial                  # partial = trade excess drift only; full = rebalance to exact target
+      periodic_rebalance:
+        interval: 1                    # rebalance every N periods (1 = every period)
 # ----------------------------------------------------------------------
 # BENCHMARKS
 # ----------------------------------------------------------------------

@@ -1,0 +1,71 @@
+# Demo configuration with rebalancing strategies enabled
+version: "1"
+
+data:
+  csv_path: demo/demo_returns.csv
+  frequency: ME
+
+preprocessing:
+  steps: []
+
+vol_adjust:
+  enabled: false
+
+sample_split:
+  in_start: 2015-01
+  in_end:   2022-12
+  out_start: 2023-01
+  out_end:   2024-12
+
+portfolio:
+  selection_mode: rank
+  rank:
+    inclusion_approach: top_n
+    n: 3
+    score_by: Sharpe
+  selector:
+    name: rank
+    params:
+      top_n: 3
+      rank_column: Sharpe
+  weighting:
+    name: equal
+    params: {}
+  # Test rebalancing strategies
+  rebalance:
+    bayesian_only: false
+    strategies:
+      - drift_band
+    params:
+      drift_band:
+        band_pct: 0.05
+        min_trade: 0.01
+        mode: partial
+
+benchmarks:
+  spx: SPX
+
+metrics:
+  registry:
+    - annual_return
+    - volatility
+    - sharpe_ratio
+    - sortino_ratio
+    - information_ratio
+    - max_drawdown
+
+export:
+  directory: demo/exports
+  formats: [csv, xlsx, json, txt]
+
+output:
+  format: csv
+  path: demo/exports/rebalance_demo.csv
+
+run:
+  seed: 42
+  jobs: 1
+  checkpoint_dir: demo/checkpoints
+
+jobs: 1
+checkpoint_dir: demo/checkpoints
