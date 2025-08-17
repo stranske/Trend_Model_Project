@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [ main ]
+    branches: ["${{ github.default_branch }}"]
 
 jobs:
   test:
