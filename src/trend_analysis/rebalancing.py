@@ -11,6 +11,9 @@ from typing import Dict, Any, Optional, Tuple, List
 import pandas as pd
 import numpy as np
 
+# Small epsilon value for turnover comparisons to handle numerical precision
+TURNOVER_EPSILON = 1e-10
+
 
 class RebalancingStrategy(ABC):
     """Base class for rebalancing strategies."""
@@ -130,14 +133,14 @@ class TurnoverCapStrategy(RebalancingStrategy):
         executed_trades = pd.Series(0.0, index=trades.index)
 
         for asset, desired_trade, priority in trade_items:
-            if remaining_turnover <= 1e-10:  # Use small epsilon
+            if remaining_turnover <= TURNOVER_EPSILON:  # Check if remaining turnover is negligible
                 break
 
             # Scale trade to fit remaining budget
             trade_size = abs(desired_trade)
             if (
-                trade_size <= remaining_turnover + 1e-10
-            ):  # Allow small numerical tolerance
+                trade_size <= remaining_turnover + TURNOVER_EPSILON
+            ):  # Allow for numerical precision tolerance
                 # Execute full trade
                 executed_trades[asset] = desired_trade
                 remaining_turnover -= trade_size
@@ -324,7 +327,6 @@ def apply_rebalancing_strategies(
 
     return weights, total_cost
 
-
 __all__ = [
     "RebalancingStrategy",
     "TurnoverCapStrategy",
@@ -334,3 +336,4 @@ __all__ = [
     "create_rebalancing_strategy",
     "apply_rebalancing_strategies",
 ]
+
