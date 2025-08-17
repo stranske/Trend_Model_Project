@@ -134,7 +134,12 @@ class TurnoverCapStrategy(RebalancingStrategy):
                 
             # Scale trade to fit remaining budget
             trade_size = abs(desired_trade)
-            if trade_size <= remaining_turnover + 1e-10:  # Allow small numerical tolerance
+            if remaining_turnover <= TURNOVER_EPSILON:  # Use financial precision epsilon
+                break
+                
+            # Scale trade to fit remaining budget
+            trade_size = abs(desired_trade)
+            if trade_size <= remaining_turnover + TURNOVER_EPSILON:  # Allow small numerical tolerance
                 # Execute full trade
                 executed_trades[asset] = desired_trade
                 remaining_turnover -= trade_size
