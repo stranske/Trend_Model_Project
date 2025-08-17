@@ -35,7 +35,17 @@ with col1:
         data=csv_buf.getvalue(),
         file_name="portfolio_returns.csv",
         mime="text/csv",
-    )
+    if hasattr(res, "portfolio"):
+        csv_buf = io.StringIO()
+        res.portfolio.to_csv(csv_buf, header=["return"])
+        st.download_button(
+            label="Portfolio returns (CSV)",
+            data=csv_buf.getvalue(),
+            file_name="portfolio_returns.csv",
+            mime="text/csv",
+        )
+    else:
+        st.error("Simulation result does not contain a portfolio for download.")
 with col2:
     ev_csv = io.StringIO()
     res.event_log_df().to_csv(ev_csv)
