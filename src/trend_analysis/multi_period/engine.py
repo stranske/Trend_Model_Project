@@ -34,6 +34,7 @@ from ..weighting import (
 )
 from ..core.rank_selection import ASCENDING_METRICS
 from .replacer import Rebalancer
+from ..rebalancing import RebalancingStrategiesManager, create_rebalancing_strategy
 
 
 @dataclass
@@ -76,12 +77,14 @@ def run_schedule(
     *,
     rank_column: str | None = None,
     rebalancer: "Rebalancer | None" = None,
+    rebalancing_strategies: RebalancingStrategiesManager | None = None,
 ) -> Portfolio:
     """Apply selection and weighting across ``score_frames``."""
 
     pf = Portfolio()
     prev_date: pd.Timestamp | None = None
     prev_weights: pd.Series | None = None
+    prev_returns: float | None = None
     col = (
         rank_column
         or getattr(selector, "rank_column", None)
@@ -92,6 +95,8 @@ def run_schedule(
         sf = score_frames[date]
         selected, _ = selector.select(sf)
         weights = weighting.weight(selected)
+        
+        # Apply fund selection/replacement via existing rebalancer
         if rebalancer is not None:
             if prev_weights is None:
                 prev_weights = weights["weight"].astype(float)
@@ -99,7 +104,28 @@ def run_schedule(
             weights = prev_weights.to_frame("weight")
         else:
             prev_weights = weights["weight"].astype(float)
+            
+        # Apply rebalancing strategies (volatility targeting, drawdown guard, etc.)
+        if rebalancing_strategies is not None:
+            weight_series = weights["weight"] if isinstance(weights, pd.DataFrame) else weights
+            adjusted_weights = rebalancing_strategies.apply_all(
+                weight_series,
+                current_returns=prev_returns
+            )
+            weights = adjusted_weights.to_frame("weight")
+            prev_weights = adjusted_weights
+        
         pf.rebalance(date, weights)
+        
+        # Calculate portfolio returns for next period (for rebalancing strategies)
+        if len(pf.history) >= 2:
+            dates_sorted = sorted(pf.history.keys())
+            if len(dates_sorted) >= 2:
+                # Get previous weights for return calculation
+                prev_portfolio_weights = pf.history[dates_sorted[-2]]
+                # This is a simplified return calculation - in practice would need price data
+                # For now, we'll use a placeholder approach
+                prev_returns = 0.0  # Would need actual return calculation here
 
         if col and col in sf.columns:
             if prev_date is None:
@@ -308,6 +334,25 @@ def run(cfg: Config, df: pd.DataFrame | None = None) -> List[Dict[str, object]]:
         weighting = EqualWeight()
 
     rebalancer = Rebalancer(cfg.model_dump())
+    
+    # Configure rebalancing strategies (vol targeting, drawdown guard, etc.)
+    rebalancing_manager = None
+    rb_cfg = cfg.portfolio.get("rebalance", {})
+    if rb_cfg:
+        strategies_list = rb_cfg.get("strategies", [])
+        rb_params = rb_cfg.get("params", {})
+        
+        if strategies_list:
+            rebalancing_manager = RebalancingStrategiesManager()
+            for strategy_name in strategies_list:
+                if strategy_name in rb_params:
+                    strategy_params = rb_params[strategy_name]
+                    try:
+                        strategy = create_rebalancing_strategy(strategy_name, strategy_params)
+                        rebalancing_manager.add_strategy(strategy)
+                    except ValueError:
+                        # Skip unknown strategies
+                        continue
 
     # --- main loop ------------------------------------------------------
     results: List[Dict[str, object]] = []
@@ -612,6 +657,21 @@ def run(cfg: Config, df: pd.DataFrame | None = None) -> List[Dict[str, object]]:
         # Apply weight bounds and renormalise
         bounded_w = _apply_weight_bounds(prev_weights)
         prev_weights = bounded_w
+        
+        # Apply rebalancing strategies (vol targeting, drawdown guard, etc.)
+        if rebalancing_manager is not None:
+            # Calculate portfolio return from previous period if available
+            portfolio_return = 0.0  # Simplified - would need actual return calculation
+            if len(results) > 0:
+                # This would typically require calculating returns from price data
+                # For now, use a placeholder approach
+                portfolio_return = 0.0
+                
+            adjusted_weights = rebalancing_manager.apply_all(
+                prev_weights,
+                current_returns=portfolio_return
+            )
+            prev_weights = adjusted_weights
 
         # Prepare custom weights mapping in percent for _run_analysis
         custom: dict[str, float] = {

@@ -1,0 +1,19 @@
+# Configuration example for rebalancing strategies
+portfolio:
+  policy: "threshold_hold"
+  rebalance:
+    strategies:
+      - vol_target_rebalance
+      - drawdown_guard
+    params:
+      vol_target_rebalance:
+        target: 0.12          # Target 12% annualized volatility
+        window: 6             # 6-period rolling window for vol estimation
+        estimator: "simple"   # Use simple historical volatility
+        lev_min: 0.5          # Minimum 50% leverage
+        lev_max: 2.0          # Maximum 200% leverage
+      drawdown_guard:
+        dd_window: 12         # 12-period window for drawdown calculation
+        dd_threshold: 0.15    # Trigger guard at 15% drawdown
+        guard_multiplier: 0.4 # Reduce exposure to 40% when in guard mode
+        recover_threshold: 0.08 # Exit guard when drawdown recovers to 8%
