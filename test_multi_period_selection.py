@@ -212,8 +212,16 @@ def test_multi_period_selection():
         print("⚠️  ISSUES DETECTED IN MULTI-PERIOD SELECTION PROCESS")
     print("=" * 70)
 
-    return results, period_selections
+    # Minimal assertions to validate behavior without returning values
+    assert isinstance(results, list) and len(results) >= 1
+    # At least one period should have a score_frame
+    assert any(r.get("score_frame") is not None for r in results)
+    # Each result should include a period with four entries (IS start/end, OOS start/end)
+    assert all(
+        isinstance(r.get("period"), (list, tuple)) and len(r["period"]) == 4
+        for r in results
+    )
 
 
 if __name__ == "__main__":
-    results, selections = test_multi_period_selection()
+    test_multi_period_selection()
