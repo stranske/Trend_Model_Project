@@ -52,7 +52,9 @@ def load_and_validate_file(file_like) -> Tuple[pd.DataFrame, SchemaMeta]:
             df = pd.read_excel(buf)
         else:
             df = pd.read_csv(file_like)
-    finally:
+    except Exception:
+        raise
+    else:
         try:
             file_like.seek(0)
         except Exception:
