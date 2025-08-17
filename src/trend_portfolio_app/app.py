@@ -214,13 +214,7 @@ with tabs[0]:
                 st.session_state.config_dict = _merge_update(
                     st.session_state.config_dict, data
                 )
-                if _validate_config_dict(data):
-                    st.session_state.config_dict = _merge_update(
-                        st.session_state.config_dict, data
-                    )
-                    st.success("Applied")
-                else:
-                    st.error("YAML structure or types are invalid. Please check your configuration.")
+                st.success("Applied")
             else:
                 st.error("YAML must be a mapping")
         except Exception as exc:
@@ -1637,11 +1631,12 @@ with tabs[8]:
         # Ensure CSV exists (we won't validate path here, pipeline will raise)
         try:
             cfg_obj = _build_cfg(cfg_dict)
-        except Exception as exc:
         except ValueError as ve:
-            st.error(f"Configuration error: {ve}\n\n"
-                     "Hint: Check for missing or invalid values in your configuration. "
-                     "Refer to the documentation for required fields.")
+            st.error(
+                f"Configuration error: {ve}\n\n"
+                "Hint: Check for missing or invalid values in your configuration. "
+                "Refer to the documentation for required fields."
+            )
             st.stop()
         except Exception as exc:
             st.error(
