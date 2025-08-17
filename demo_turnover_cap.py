@@ -227,7 +227,7 @@ def demo_edge_cases():
     new_weights, cost = strategy.apply(current, target)
     print(f"Current funds: {list(current.index)}")
     print(f"Target funds: {list(target.index)}")
-    print(f"Final allocation: {dict((k, round(float(v), 3)) for k, v in new_weights[new_weights > 0.001].items())}")
+    print(f"Final allocation: {dict((k, round(v, 3)) for k, v in new_weights[new_weights > 0.001].items())}")
     
     # Case 2: Zero turnover needed
     print(f"\nCase 2: No rebalancing needed")
