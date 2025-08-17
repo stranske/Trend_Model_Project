@@ -19,6 +19,9 @@ class PolicyConfig:
     min_track_months: int = 24
     max_active: int = 100
     max_weight: float = 0.10
+    # Optional guard: once added, must be held at least this many periods
+    # before eligible for removal. When 0, disabled.
+    min_tenure_n: int = 0
     metrics: List[MetricSpec] = field(default_factory=list)
 
     def dict(self):
@@ -29,6 +32,7 @@ class PolicyConfig:
             "min_track_months": self.min_track_months,
             "max_active": self.max_active,
             "max_weight": self.max_weight,
+            "min_tenure_n": self.min_tenure_n,
             "metrics": [vars(m) for m in self.metrics],
         }
 
@@ -63,7 +67,7 @@ def rank_scores(
     metric_weights: Dict[str, float],
     metric_directions: Dict[str, int],
 ) -> pd.Series:
-    parts = []
+    parts: List[pd.Series] = []
     for m, w in metric_weights.items():
         if m not in score_frame.columns:
             continue
@@ -72,8 +76,10 @@ def rank_scores(
         parts.append(s)
     if not parts:
         return pd.Series(index=score_frame.index, dtype=float)
-    total = sum(parts)
-    return total
+    total = parts[0].copy()
+    for s in parts[1:]:
+        total = total.add(s, fill_value=0.0)
+    return total.astype(float)
 
 
 def decide_hires_fires(
@@ -84,6 +90,7 @@ def decide_hires_fires(
     directions: Dict[str, int],
     cooldowns: CooldownBook,
     eligible_since: Dict[str, int],
+    tenure: Dict[str, int] | None = None,
 ) -> Dict[str, List[Tuple[str, str]]]:
     eligible = [
         m
@@ -96,11 +103,15 @@ def decide_hires_fires(
     rs = rank_scores(sf, {m.name: m.weight for m in policy.metrics}, directions)
     sf["_score"] = rs
     sf = sf.sort_values("_score", ascending=False)
-    to_fire = []
+    to_fire: List[Tuple[str, str]] = []
     if policy.bottom_k > 0:
         bottom = list(sf.tail(policy.bottom_k).index)
         for m in bottom:
             if m in current:
+                # Enforce min-tenure guard if configured
+                if policy.min_tenure_n > 0 and tenure is not None:
+                    if int(tenure.get(m, 0)) < int(policy.min_tenure_n):
+                        continue
                 to_fire.append((m, "bottom_k"))
     candidates = [
         m for m in list(sf.index) if m not in current and not cooldowns.in_cooldown(m)
