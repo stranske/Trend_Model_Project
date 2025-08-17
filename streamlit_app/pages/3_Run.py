@@ -21,9 +21,10 @@ results = sim.run(
     freq=cfg["freq"],
     lookback_months=cfg["lookback_months"],
     policy=policy,
-    progress_cb=lambda i, n: progress.progress(
-        int(100 * i / n), text=f"Running period {i}/{n}"
-    ),
+    rebalance=cfg.get("rebalance", {}),
+    progress_cb=lambda i, n: (
+        progress.progress(int(100 * i / n), text=f"Running period {i}/{n}") and None
+    progress_cb=lambda i, n: progress.progress(int(100 * i / n), text=f"Running period {i}/{n}"),
 )
 
 st.session_state["sim_results"] = results

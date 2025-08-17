@@ -71,6 +71,8 @@ st.session_state["sim_config"] = {
     "benchmark": None if benchmark == "<none>" else benchmark,
     "cash_rate": float(cash_rate),
     "policy": policy.dict(),
+    # Minimal rebalance config; UI for detailed strategies lives in the main app
+    "rebalance": {"bayesian_only": True, "strategies": ["drift_band"], "params": {}},
 }
 
 st.success("Configuration saved. Proceed to Run.")
