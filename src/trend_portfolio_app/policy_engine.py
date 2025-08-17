@@ -1,6 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import List, Dict, Tuple
+from collections import defaultdict
 import numpy as np
 import pandas as pd
 
@@ -26,6 +27,10 @@ class PolicyConfig:
     # When 0, disabled. UI/config default may be >0, engine default keeps
     # backward-compat as no-op unless explicitly set.
     turnover_budget_max_changes: int = 0
+    # Optional diversification guard: cap number of holdings per bucket.
+    # When 0, disabled. Bucket mapping is manager->bucket label.
+    diversification_max_per_bucket: int = 0
+    diversification_buckets: Dict[str, str] = field(default_factory=dict)
     metrics: List[MetricSpec] = field(default_factory=list)
 
     def dict(self):
@@ -38,6 +43,8 @@ class PolicyConfig:
             "max_weight": self.max_weight,
             "min_tenure_n": self.min_tenure_n,
             "turnover_budget_max_changes": self.turnover_budget_max_changes,
+            "diversification_max_per_bucket": self.diversification_max_per_bucket,
+            "diversification_buckets": self.diversification_buckets,
             "metrics": [vars(m) for m in self.metrics],
         }
 
@@ -121,14 +128,37 @@ def decide_hires_fires(
     candidates = [
         m for m in list(sf.index) if m not in current and not cooldowns.in_cooldown(m)
     ]
-    hires = []
-    for m in candidates[: policy.top_k]:
-        hires.append((m, "top_k"))
+    hires: List[Tuple[str, str]] = []
     next_active = list(set(current) - {x for x, _ in to_fire})
-    for m, _ in hires:
-        if len(next_active) >= policy.max_active:
-            break
-        next_active.append(m)
+    # Diversification-aware hiring: enforce per-bucket caps if configured
+    if (
+        policy.diversification_max_per_bucket
+        and policy.diversification_max_per_bucket > 0
+    ):
+        bucket_map = policy.diversification_buckets or {}
+
+        def bucket_of(x: str) -> str:
+            # Graceful handling for unknowns: treat as singleton bucket by name
+            return bucket_map.get(x, x)
+
+        counts = defaultdict(int)
+        for m in next_active:
+            counts[bucket_of(m)] += 1
+        for m in candidates:
+            if len(hires) >= policy.top_k or len(next_active) >= policy.max_active:
+                break
+            b = bucket_of(m)
+            if counts[b] >= policy.diversification_max_per_bucket:
+                continue
+            hires.append((m, "top_k"))
+            next_active.append(m)
+            counts[b] += 1
+    else:
+        for m in candidates:
+            if len(hires) >= policy.top_k or len(next_active) >= policy.max_active:
+                break
+            hires.append((m, "top_k"))
+            next_active.append(m)
     # Apply turnover budget across hires and fires if enabled
     if policy.turnover_budget_max_changes and (
         len(hires) + len(to_fire) > policy.turnover_budget_max_changes
