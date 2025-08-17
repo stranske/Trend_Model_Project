@@ -211,7 +211,7 @@ class Simulator:
                 w_target = pd.Series(1.0 / len(active), index=active, dtype=float)
                 if policy.max_weight < 1.0:
                     w_target = w_target.clip(upper=policy.max_weight)
-                    w_target = w_target / max(w_target.sum(), 1e-12)
+                    w_target = w_target / max(w_target.sum(), EPS)
             else:
                 w_target = pd.Series(dtype=float)
 
