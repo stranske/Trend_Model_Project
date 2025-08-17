@@ -24,7 +24,7 @@ results = sim.run(
     rebalance=cfg.get("rebalance", {}),
     progress_cb=lambda i, n: (
         progress.progress(int(100 * i / n), text=f"Running period {i}/{n}") and None
-    ),
+    progress_cb=lambda i, n: progress.progress(int(100 * i / n), text=f"Running period {i}/{n}"),
 )
 
 st.session_state["sim_results"] = results
