@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Callable, Optional, Dict, List, Any
+from typing import Callable, Optional, Dict, List, Any, cast
 import importlib
 import pandas as pd
 import numpy as np
@@ -45,14 +45,19 @@ def compute_score_frame(
     insample_end: pd.Timestamp,
     rf_annual: float = 0.0,
 ) -> pd.DataFrame:
-    if HAS_TA and hasattr(ta_pipeline, "single_period_run"):
-        try:
-            sf = ta_pipeline.single_period_run(
-                panel, insample_start.strftime("%Y-%m"), insample_end.strftime("%Y-%m")
-            )
-            return sf
-        except Exception:
-            pass
+    if HAS_TA:
+        fn = getattr(ta_pipeline, "single_period_run", None)
+        if callable(fn):
+            try:
+                sf = fn(
+                    panel,
+                    insample_start.strftime("%Y-%m"),
+                    insample_end.strftime("%Y-%m"),
+                )
+                # Ensure consistent DataFrame type for downstream
+                return cast(pd.DataFrame, sf)
+            except Exception:
+                pass
     return compute_score_frame_local(
         panel.loc[insample_start:insample_end], rf_annual=rf_annual
     )
@@ -134,6 +139,10 @@ class Simulator:
         eligible_since: Dict[str, int] = {
             m: 0 for m in self.df.columns if m != self.benchmark_col
         }
+        # Track how many consecutive periods each active manager has been held
+        tenure: Dict[str, int] = {
+            m: 0 for m in self.df.columns if m != self.benchmark_col
+        }
 
         portfolio_returns = []
 
@@ -163,7 +172,14 @@ class Simulator:
                     directions[m] = +1
 
             decisions = decide_hires_fires(
-                d, score_frame, active, policy, directions, cooldowns, eligible_since
+                d,
+                score_frame,
+                active,
+                policy,
+                directions,
+                cooldowns,
+                eligible_since,
+                tenure,
             )
             for m, reason in decisions["fire"]:
                 if m in active:
@@ -175,6 +191,7 @@ class Simulator:
             for m, reason in decisions["hire"]:
                 if m not in active:
                     active.append(m)
+                    tenure[m] = 0  # reset tenure on (re)hire
                     event_log.append(
                         Event(date=d, action="hire", manager=m, reason=reason)
                     )
@@ -187,15 +204,24 @@ class Simulator:
             else:
                 w = pd.Series(dtype=float)
             weights_by_date[d] = w
+            # Update tenure counters after deciding holdings
+            # Increment for currently active; reset for those not active
+            current_set = set(active)
+            for m in tenure:
+                if m in current_set:
+                    tenure[m] = tenure.get(m, 0) + 1
+                else:
+                    tenure[m] = 0
 
             next_month = d + pd.offsets.MonthEnd(1)
             if next_month in self.df.index:
-                r_next = (
-                    self.df.loc[next_month, w.index].fillna(0.0)
-                    if len(w)
-                    else pd.Series(0.0, index=[])
-                )
-                port_r = float((r_next * w).sum())
+                if len(w):
+                    row = self.df.loc[next_month]
+                    r_next = row.reindex(w.index).astype(float).fillna(0.0)
+                    weights_vec = w.astype(float).reindex(r_next.index).fillna(0.0)
+                    port_r = float(np.dot(r_next.to_numpy(), weights_vec.to_numpy()))
+                else:
+                    port_r = 0.0
             else:
                 port_r = np.nan
             portfolio_returns.append((next_month, port_r))
