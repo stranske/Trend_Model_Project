@@ -24,6 +24,7 @@ if os.path.exists(demo_path_csv) or os.path.exists(demo_path_xlsx):
             def _load_demo(p: str):
                 with open(p, "rb") as f:
                     return load_and_validate_file(f)
+
             df, meta = _load_demo(path)
             st.session_state["returns_df"] = df
             st.session_state["schema_meta"] = meta
