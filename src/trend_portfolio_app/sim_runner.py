@@ -324,7 +324,7 @@ def _apply_rebalance_pipeline(
             out = out.clip(upper=float(policy.max_weight))
         total = float(out.sum())
         target_sum = float(gross if gross is not None else (1.0 if len(out) else 0.0))
-        if total > EPS and target_sum > 0.0:
+        if total > EPS and target_sum > EPS:
             out = out * (target_sum / total)
         return out
 
