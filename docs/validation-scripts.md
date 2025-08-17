@@ -72,3 +72,40 @@ These scripts help validate Codex commits before merging them into the main deve
 
 - `0`: All validations passed
 - `1`: Some validations failed
+
+## CI Integration
+
+### Manual Workflow Triggering
+
+The CI workflow can be manually triggered from the GitHub interface or via the GitHub CLI without requiring new commits:
+
+**Via GitHub UI:**
+1. Navigate to **Actions** tab in the repository
+2. Select the **CI** workflow
+3. Click **Run workflow** button
+4. Choose the branch (defaults to main)
+5. Click **Run workflow** to trigger
+
+**Via GitHub CLI:**
+```bash
+# Trigger on default branch (main)
+gh workflow run ci.yml
+
+# Trigger on specific branch  
+gh workflow run ci.yml --ref branch-name
+```
+
+**Via GitHub API:**
+```bash
+curl -X POST \
+  -H "Accept: application/vnd.github.v3+json" \
+  -H "Authorization: token YOUR_TOKEN" \
+  https://api.github.com/repos/stranske/Trend_Model_Project/actions/workflows/ci.yml/dispatches \
+  -d '{"ref":"main"}'
+```
+
+This is useful for:
+- Re-running CI after infrastructure changes
+- Validating changes without additional commits
+- Testing CI workflow modifications
+- Re-triggering failed runs due to transient issues
