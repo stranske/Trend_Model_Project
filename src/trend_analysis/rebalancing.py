@@ -11,22 +11,22 @@ from typing import Dict, Any, Optional, Tuple, List
 import pandas as pd
 import numpy as np
 
+# Small epsilon value for turnover comparisons to handle numerical precision
+TURNOVER_EPSILON = 1e-10
+
 
 class RebalancingStrategy(ABC):
     """Base class for rebalancing strategies."""
-    
+
     def __init__(self, params: Dict[str, Any] | None = None):
         self.params = params or {}
-    
+
     @abstractmethod
     def apply(
-        self, 
-        current_weights: pd.Series, 
-        target_weights: pd.Series,
-        **kwargs
+        self, current_weights: pd.Series, target_weights: pd.Series, **kwargs
     ) -> Tuple[pd.Series, float]:
         """Apply the rebalancing strategy.
-        
+
         Parameters
         ----------
         current_weights : pd.Series
@@ -35,7 +35,7 @@ class RebalancingStrategy(ABC):
             Target portfolio weights
         **kwargs
             Additional context (scores, prices, etc.)
-            
+
         Returns
         -------
         tuple[pd.Series, float]
@@ -46,38 +46,38 @@ class RebalancingStrategy(ABC):
 
 class TurnoverCapStrategy(RebalancingStrategy):
     """Turnover cap rebalancing strategy.
-    
+
     Limits the total turnover (sum of absolute trades) per rebalancing period
     and applies optional transaction costs. Prioritizes trades by either
     largest gap or best score delta.
     """
-    
+
     def __init__(self, params: Dict[str, Any] | None = None):
         super().__init__(params)
         self.max_turnover = float(self.params.get("max_turnover", 0.2))
         self.cost_bps = int(self.params.get("cost_bps", 10))
         self.priority = str(self.params.get("priority", "largest_gap"))
-    
+
     def apply(
-        self, 
-        current_weights: pd.Series, 
+        self,
+        current_weights: pd.Series,
         target_weights: pd.Series,
         scores: Optional[pd.Series] = None,
-        **kwargs
+        **kwargs,
     ) -> Tuple[pd.Series, float]:
         """Apply turnover cap with trade prioritization and cost modeling.
-        
+
         Parameters
         ----------
         current_weights : pd.Series
             Current portfolio weights
         target_weights : pd.Series
-            Target portfolio weights  
+            Target portfolio weights
         scores : pd.Series, optional
             Asset scores for priority calculation (when priority='best_score_delta')
         **kwargs
             Additional context
-            
+
         Returns
         -------
         tuple[pd.Series, float]
@@ -87,11 +87,11 @@ class TurnoverCapStrategy(RebalancingStrategy):
         all_assets = current_weights.index.union(target_weights.index)
         current = current_weights.reindex(all_assets, fill_value=0.0)
         target = target_weights.reindex(all_assets, fill_value=0.0)
-        
+
         # Calculate desired trades
         trades = target - current
         total_desired_turnover = trades.abs().sum()
-        
+
         # If within turnover limit, execute all trades
         if total_desired_turnover <= self.max_turnover:
             actual_turnover = total_desired_turnover
@@ -101,40 +101,46 @@ class TurnoverCapStrategy(RebalancingStrategy):
             new_weights, actual_turnover = self._apply_turnover_cap(
                 current, target, trades, scores
             )
-        
+
         # Apply transaction costs
         cost = self._calculate_cost(actual_turnover)
-        
+
         return new_weights, cost
-    
+
     def _apply_turnover_cap(
-        self, 
-        current: pd.Series, 
-        target: pd.Series, 
+        self,
+        current: pd.Series,
+        target: pd.Series,
         trades: pd.Series,
-        scores: Optional[pd.Series] = None
+        scores: Optional[pd.Series] = None,
     ) -> Tuple[pd.Series, float]:
         """Apply turnover cap with prioritized trade allocation."""
-        
+
         # Calculate trade priorities
         priorities = self._calculate_priorities(current, target, trades, scores)
-        
+
         # Sort trades by priority (highest first)
-        trade_items = [(asset, trade, priority) for asset, trade, priority in 
-                      zip(trades.index, trades.values, priorities.values)]
+        trade_items = [
+            (asset, trade, priority)
+            for asset, trade, priority in zip(
+                trades.index, trades.values, priorities.values
+            )
+        ]
         trade_items.sort(key=lambda x: x[2], reverse=True)
-        
+
         # Allocate turnover budget by priority
         remaining_turnover = self.max_turnover
         executed_trades = pd.Series(0.0, index=trades.index)
-        
+
         for asset, desired_trade, priority in trade_items:
-            if remaining_turnover <= 1e-10:  # Use small epsilon
+            if remaining_turnover <= TURNOVER_EPSILON:  # Use small epsilon
                 break
-                
+
             # Scale trade to fit remaining budget
             trade_size = abs(desired_trade)
-            if trade_size <= remaining_turnover + 1e-10:  # Allow small numerical tolerance
+            if (
+                trade_size <= remaining_turnover + TURNOVER_EPSILON
+            ):  # Allow small numerical tolerance
                 # Execute full trade
                 executed_trades[asset] = desired_trade
                 remaining_turnover -= trade_size
@@ -144,30 +150,30 @@ class TurnoverCapStrategy(RebalancingStrategy):
                     scale_factor = remaining_turnover / trade_size
                     executed_trades[asset] = desired_trade * scale_factor
                     remaining_turnover = 0
-        
+
         # Apply executed trades
         new_weights = current + executed_trades
-        
+
         # Ensure weights are non-negative
         new_weights = new_weights.clip(lower=0.0)
-        
+
         actual_turnover = executed_trades.abs().sum()
-        
+
         return new_weights, actual_turnover
-    
+
     def _calculate_priorities(
-        self, 
-        current: pd.Series, 
-        target: pd.Series, 
+        self,
+        current: pd.Series,
+        target: pd.Series,
         trades: pd.Series,
-        scores: Optional[pd.Series] = None
+        scores: Optional[pd.Series] = None,
     ) -> pd.Series:
         """Calculate trade priorities based on configured priority method."""
-        
+
         if self.priority == "largest_gap":
             # Prioritize by absolute size of the trade
             priorities = trades.abs()
-            
+
         elif self.priority == "best_score_delta":
             if scores is None:
                 # Fall back to largest_gap if no scores provided
@@ -183,9 +189,9 @@ class TurnoverCapStrategy(RebalancingStrategy):
         else:
             # Default to largest_gap
             priorities = trades.abs()
-            
+
         return priorities
-    
+
     def _calculate_cost(self, turnover: float) -> float:
         """Calculate transaction cost based on turnover and cost basis points."""
         return turnover * (self.cost_bps / 10000.0)
@@ -193,21 +199,18 @@ class TurnoverCapStrategy(RebalancingStrategy):
 
 class PeriodicRebalanceStrategy(RebalancingStrategy):
     """Periodic rebalance strategy - rebalance every N periods."""
-    
+
     def __init__(self, params: Dict[str, Any] | None = None):
         super().__init__(params)
         self.interval = int(self.params.get("interval", 1))
         self._period_count = 0
-    
+
     def apply(
-        self, 
-        current_weights: pd.Series, 
-        target_weights: pd.Series,
-        **kwargs
+        self, current_weights: pd.Series, target_weights: pd.Series, **kwargs
     ) -> Tuple[pd.Series, float]:
         """Apply periodic rebalancing."""
         self._period_count += 1
-        
+
         if self._period_count >= self.interval:
             # Time to rebalance
             self._period_count = 0
@@ -219,35 +222,32 @@ class PeriodicRebalanceStrategy(RebalancingStrategy):
             # Keep current weights
             new_weights = current_weights.copy()
             cost = 0.0
-            
+
         return new_weights, cost
 
 
 class DriftBandStrategy(RebalancingStrategy):
     """Drift band rebalancing strategy - rebalance when weights drift beyond bands."""
-    
+
     def __init__(self, params: Dict[str, Any] | None = None):
         super().__init__(params)
         self.band_pct = float(self.params.get("band_pct", 0.03))
         self.min_trade = float(self.params.get("min_trade", 0.005))
         self.mode = str(self.params.get("mode", "partial"))
-    
+
     def apply(
-        self, 
-        current_weights: pd.Series, 
-        target_weights: pd.Series,
-        **kwargs
+        self, current_weights: pd.Series, target_weights: pd.Series, **kwargs
     ) -> Tuple[pd.Series, float]:
         """Apply drift band rebalancing."""
         # Align indices
         all_assets = current_weights.index.union(target_weights.index)
         current = current_weights.reindex(all_assets, fill_value=0.0)
         target = target_weights.reindex(all_assets, fill_value=0.0)
-        
+
         # Calculate drift from target
         drift = (current - target).abs()
         needs_rebalance = drift > self.band_pct
-        
+
         if needs_rebalance.any():
             if self.mode == "full":
                 # Full rebalance when any asset drifts
@@ -262,7 +262,7 @@ class DriftBandStrategy(RebalancingStrategy):
                 new_weights[rebalance_assets] = target[rebalance_assets]
         else:
             new_weights = current.copy()
-        
+
         # No transaction costs in basic implementation
         cost = 0.0
         return new_weights, cost
@@ -271,16 +271,20 @@ class DriftBandStrategy(RebalancingStrategy):
 # Registry of available strategies
 REBALANCING_STRATEGIES = {
     "turnover_cap": TurnoverCapStrategy,
-    "periodic_rebalance": PeriodicRebalanceStrategy, 
+    "periodic_rebalance": PeriodicRebalanceStrategy,
     "drift_band": DriftBandStrategy,
 }
 
 
-def create_rebalancing_strategy(name: str, params: Dict[str, Any] | None = None) -> RebalancingStrategy:
+def create_rebalancing_strategy(
+    name: str, params: Dict[str, Any] | None = None
+) -> RebalancingStrategy:
     """Create a rebalancing strategy by name."""
     if name not in REBALANCING_STRATEGIES:
-        raise ValueError(f"Unknown rebalancing strategy: {name}. Available: {list(REBALANCING_STRATEGIES.keys())}")
-    
+        raise ValueError(
+            f"Unknown rebalancing strategy: {name}. Available: {list(REBALANCING_STRATEGIES.keys())}"
+        )
+
     strategy_cls = REBALANCING_STRATEGIES[name]
     return strategy_cls(params)
 
@@ -290,10 +294,10 @@ def apply_rebalancing_strategies(
     strategy_params: Dict[str, Dict[str, Any]],
     current_weights: pd.Series,
     target_weights: pd.Series,
-    **kwargs
+    **kwargs,
 ) -> Tuple[pd.Series, float]:
     """Apply multiple rebalancing strategies in sequence.
-    
+
     Parameters
     ----------
     strategies : list[str]
@@ -306,7 +310,7 @@ def apply_rebalancing_strategies(
         Target portfolio weights
     **kwargs
         Additional context for strategies
-        
+
     Returns
     -------
     tuple[pd.Series, float]
@@ -314,11 +318,11 @@ def apply_rebalancing_strategies(
     """
     weights = current_weights.copy()
     total_cost = 0.0
-    
+
     for strategy_name in strategies:
         params = strategy_params.get(strategy_name, {})
         strategy = create_rebalancing_strategy(strategy_name, params)
         weights, cost = strategy.apply(weights, target_weights, **kwargs)
         total_cost += cost
-    
+
     return weights, total_cost
