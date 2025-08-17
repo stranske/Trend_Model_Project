@@ -126,7 +126,28 @@ def run_schedule(
                 # This is a simplified return calculation - in practice would need price data
                 # For now, we'll use a placeholder approach
                 prev_returns = 0.0  # Would need actual return calculation here
-
+                # Calculate portfolio return using price data if available
+                if price_frames is not None:
+                    prev_date_str = dates_sorted[-2]
+                    curr_date_str = dates_sorted[-1]
+                    prev_prices = price_frames.get(prev_date_str)
+                    curr_prices = price_frames.get(curr_date_str)
+                    if prev_prices is not None and curr_prices is not None:
+                        # Align weights and prices
+                        common_assets = prev_portfolio_weights.index.intersection(prev_prices.index).intersection(curr_prices.index)
+                        if len(common_assets) > 0:
+                            prev_w = prev_portfolio_weights.loc[common_assets]
+                            prev_p = prev_prices.loc[common_assets]
+                            curr_p = curr_prices.loc[common_assets]
+                            # Calculate weighted return
+                            returns = (curr_p - prev_p) / prev_p
+                            prev_returns = float((returns * prev_w).sum())
+                        else:
+                            prev_returns = 0.0
+                    else:
+                        prev_returns = 0.0
+                else:
+                    prev_returns = 0.0  # Fallback if no price data
         if col and col in sf.columns:
             if prev_date is None:
                 days = 0
