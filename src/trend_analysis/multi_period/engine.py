@@ -82,7 +82,7 @@ def run_schedule(
     rebalance_params: Dict[str, Dict[str, Any]] | None = None,
 ) -> Portfolio:
     """Apply selection and weighting across ``score_frames``.
-    
+
     Parameters
     ----------
     score_frames : Mapping[str, pd.DataFrame]
@@ -99,7 +99,7 @@ def run_schedule(
         List of rebalancing strategy names to apply
     rebalance_params : dict, optional
         Parameters for each rebalancing strategy
-        
+
     Returns
     -------
     Portfolio
@@ -120,37 +120,39 @@ def run_schedule(
         sf = score_frames[date]
         selected, _ = selector.select(sf)
         target_weights = weighting.weight(selected)
-        
+
         # Apply legacy rebalancer (threshold-hold system) if configured
         if rebalancer is not None:
             if prev_weights is None:
                 prev_weights = target_weights["weight"].astype(float)
             prev_weights = rebalancer.apply_triggers(cast(pd.Series, prev_weights), sf)
             target_weights = prev_weights.to_frame("weight")
-        
+
         # Apply rebalancing strategies if configured
         if rebalance_strategies and rebalance_params:
-            current_weights = prev_weights if prev_weights is not None else pd.Series(dtype=float)
+            current_weights = (
+                prev_weights if prev_weights is not None else pd.Series(dtype=float)
+            )
             target_weight_series = target_weights["weight"].astype(float)
-            
+
             # Get scores for priority-based strategies
             scores = sf.get(col) if col and col in sf.columns else None
-            
+
             final_weights, cost = apply_rebalancing_strategies(
                 rebalance_strategies,
                 rebalance_params,
                 current_weights,
                 target_weight_series,
-                scores=scores
+                scores=scores,
             )
-            
+
             total_rebalance_costs += cost
             weights = final_weights.to_frame("weight")
             prev_weights = final_weights
         else:
             weights = target_weights
             prev_weights = target_weights["weight"].astype(float)
-            
+
         pf.rebalance(date, weights)
 
         if col and col in sf.columns:
