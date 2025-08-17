@@ -28,6 +28,7 @@ src/trend_analysis/multi_period/engine.py
 src/trend_analysis/multi_period/replacer.py
 src/trend_analysis/multi_period/scheduler.py
 src/trend_portfolio_app/__init__.py
+src/trend_portfolio_app/app.py
 src/trend_portfolio_app/data_schema.py
 src/trend_portfolio_app/event_log.py
 src/trend_portfolio_app/io_utils.py
@@ -66,6 +67,7 @@ tests/test_rank_selection_extended.py
 tests/test_rank_selection_fix.py
 tests/test_rank_transform.py
 tests/test_replacer.py
+tests/test_rf_handling.py
 tests/test_run_analysis.py
 tests/test_run_analysis_cli.py
 tests/test_run_analysis_cli_default.py
@@ -74,5 +76,6 @@ tests/test_run_full.py
 tests/test_run_multi_analysis_cli.py
 tests/test_score_frame.py
 tests/test_selector_weighting.py
+tests/test_streamlit_app_import.py
 tests/test_threshold_policy.py
 tests/test_weighting_edges.py
