@@ -687,7 +687,13 @@ def run(cfg: Config, df: pd.DataFrame | None = None) -> List[Dict[str, object]]:
                 # This would typically require calculating returns from price data
                 # For now, use a placeholder approach
                 portfolio_return = 0.0
-                
+            portfolio_return = 0.0
+            if len(results) > 0:
+                # Attempt to extract actual portfolio return from previous period's results
+                prev_result = results[-1]
+                # Try common keys for portfolio return; fallback to zero if not found
+                portfolio_return = prev_result.get("portfolio_return", prev_result.get("return", 0.0))
+            
             adjusted_weights = rebalancing_manager.apply_all(
                 prev_weights,
                 current_returns=portfolio_return
