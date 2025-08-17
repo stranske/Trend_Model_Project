@@ -35,7 +35,7 @@ def test_simulator_min_tenure_integration():
         policy=policy,
     )
 
-    # Expect first hire to be A; and C (worst) should not be fired until tenure reaches threshold when it gets hired later.
+    # Expected behavior: A should be hired first due to best performance. C (worst) should not be fired until it has been held for at least min_tenure_n periods after being hired.
     # Since top_k=1 and max_active=2, initially A should be the only active.
     first_weights = res.weights[res.dates[0]]
     assert "A" in first_weights.index
