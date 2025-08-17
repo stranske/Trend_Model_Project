@@ -417,5 +417,5 @@ def _apply_rebalance_pipeline(
 
     rb_state["since_last_reb"] = since_last
     # Final sanity: drop tiny weights
-    work = work.where(work.abs() > 1e-9, other=0.0)
+    work = work.where(work.abs() > EPS, other=0.0)
     return work
