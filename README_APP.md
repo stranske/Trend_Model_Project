@@ -22,9 +22,24 @@ Place the `src/` and `streamlit_app/` folders at the root of your repo (next to 
 streamlit run streamlit_app/app.py
 ```
 
+Or use the repo launcher which ensures the venv and extras are present:
+
+```bash
+scripts/run_streamlit.sh
+```
+
 ## Integration with your pipeline
 - If available, the code calls `trend_analysis.pipeline.single_period_run(...)` to compute the score frame.
 - If import fails, it falls back to a local metrics implementation so the app still runs.
 
 ## Monte Carlo
 Skeletons for multi-path generation and feature sweeps live under `src/trend_portfolio_app/monte_carlo/`.
+
+## MVP Acceptance (Issue #367)
+- Load: CSV with `Date` column; basic validation via data schema.
+- Configure: YAML-like options exposed through UI; choose dates/freq/policy.
+- Run: Single and multi-period using existing modules where available.
+- View: Metrics tables and key charts (equity, drawdown, weights where applicable).
+- Export: Zip bundle with returns, events, summary, and a config snapshot.
+
+Matches CLI outputs within normal tolerance; avoids blocking exceptions in demo flow.

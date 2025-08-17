@@ -1,4 +1,6 @@
 import streamlit as st
+import io
+import json
 
 st.title("Results")
 
@@ -20,4 +22,43 @@ st.subheader("Event log")
 st.dataframe(res.event_log_df().tail(200))
 
 st.subheader("Summary")
-st.json(res.summary())
+summary = res.summary()
+st.json(summary)
+
+st.subheader("Downloads")
+col1, col2, col3 = st.columns(3)
+with col1:
+    csv_buf = io.StringIO()
+    res.portfolio.to_csv(csv_buf, header=["return"])  # type: ignore[attr-defined]
+    st.download_button(
+        label="Portfolio returns (CSV)",
+        data=csv_buf.getvalue(),
+        file_name="portfolio_returns.csv",
+        mime="text/csv",
+    if hasattr(res, "portfolio"):
+        csv_buf = io.StringIO()
+        res.portfolio.to_csv(csv_buf, header=["return"])
+        st.download_button(
+            label="Portfolio returns (CSV)",
+            data=csv_buf.getvalue(),
+            file_name="portfolio_returns.csv",
+            mime="text/csv",
+        )
+    else:
+        st.error("Simulation result does not contain a portfolio for download.")
+with col2:
+    ev_csv = io.StringIO()
+    res.event_log_df().to_csv(ev_csv)
+    st.download_button(
+        label="Event log (CSV)",
+        data=ev_csv.getvalue(),
+        file_name="event_log.csv",
+        mime="text/csv",
+    )
+with col3:
+    st.download_button(
+        label="Summary (JSON)",
+        data=json.dumps(summary, indent=2),
+        file_name="summary.json",
+        mime="application/json",
+    )
