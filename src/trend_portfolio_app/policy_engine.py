@@ -129,7 +129,7 @@ def decide_hires_fires(
     sf["_score"] = rs
     sf = sf.sort_values("_score", ascending=False)
     # Prepare rule gates
-    add_rules = policy.add_rules or ["threshold_hold"]
+    add_rules = policy.add_rules or ["sticky_rank_window", "threshold_hold"]
     drop_rules = policy.drop_rules or ["sticky_rank_window", "threshold_hold"]
     add_streak = (rule_state or {}).get("add_streak", {})
     drop_streak = (rule_state or {}).get("drop_streak", {})
