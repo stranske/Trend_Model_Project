@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Callable, Optional, Dict, List, Any, cast
+from typing import Callable, Optional, Dict, List, Any, cast, Tuple
 import importlib
 import pandas as pd
 import numpy as np
@@ -129,6 +129,7 @@ class Simulator:
         freq: str,
         lookback_months: int,
         policy: PolicyConfig,
+        rebalance: Optional[Dict[str, Any]] = None,
         progress_cb: Optional[Callable[[int, int], None]] = None,
     ) -> SimResult:
         review_dates = self._gen_review_dates(start, end, freq)
@@ -144,7 +145,16 @@ class Simulator:
             m: 0 for m in self.df.columns if m != self.benchmark_col
         }
 
-        portfolio_returns = []
+        portfolio_returns: List[Tuple[Any, float]] = []
+        # Rebalance state: track timing and risk stats
+        rb_cfg: Dict[str, Any] = dict(rebalance or {})
+        rb_cfg.setdefault("bayesian_only", True)
+        rb_state: Dict[str, Any] = {
+            "since_last_reb": 0,
+            "equity_curve": [],  # list of equity values up to current period
+        }
+
+        prev_w: pd.Series = pd.Series(dtype=float)
 
         for i, d in enumerate(review_dates):
             if progress_cb:
@@ -196,18 +206,32 @@ class Simulator:
                         Event(date=d, action="hire", manager=m, reason=reason)
                     )
 
+            # Target weights (from selection/weighting stage). For now, equal-weight.
             if active:
-                w = pd.Series(1.0 / len(active), index=active)
+                w_target = pd.Series(1.0 / len(active), index=active, dtype=float)
                 if policy.max_weight < 1.0:
-                    w = w.clip(upper=policy.max_weight)
-                    w = w / w.sum()
+                    w_target = w_target.clip(upper=policy.max_weight)
+                    w_target = w_target / max(w_target.sum(), EPS)
             else:
-                w = pd.Series(dtype=float)
-            weights_by_date[d] = w
+                w_target = pd.Series(dtype=float)
+
+            # Realize target via rebalancing pipeline
+            w_realized = _apply_rebalance_pipeline(
+                prev_weights=prev_w,
+                target_weights=w_target,
+                date=d,
+                rb_cfg=rb_cfg,
+                rb_state=rb_state,
+                policy=policy,
+            )
+
+            # Persist
+            weights_by_date[d] = w_realized
+            prev_w = w_realized
             # Update tenure counters after deciding holdings
             # Increment for currently active; reset for those not active
             current_set = set(active)
-            for m in tenure:
+            for m in list(tenure.keys()):
                 if m in current_set:
                     tenure[m] = tenure.get(m, 0) + 1
                 else:
@@ -215,16 +239,26 @@ class Simulator:
 
             next_month = d + pd.offsets.MonthEnd(1)
             if next_month in self.df.index:
-                if len(w):
+                if len(prev_w):
                     row = self.df.loc[next_month]
-                    r_next = row.reindex(w.index).astype(float).fillna(0.0)
-                    weights_vec = w.astype(float).reindex(r_next.index).fillna(0.0)
+                    r_next = row.reindex(prev_w.index).astype(float).fillna(0.0)
+                    weights_vec = prev_w.astype(float).reindex(r_next.index).fillna(0.0)
                     port_r = float(np.dot(r_next.to_numpy(), weights_vec.to_numpy()))
                 else:
                     port_r = 0.0
             else:
                 port_r = np.nan
             portfolio_returns.append((next_month, port_r))
+
+            # Update equity curve for drawdown/vol in rb_state
+            try:
+                if not np.isnan(port_r):
+                    ec = rb_state.get("equity_curve", [])
+                    last = ec[-1] if ec else 1.0
+                    ec.append(last * (1.0 + float(port_r)))
+                    rb_state["equity_curve"] = ec
+            except Exception:
+                pass
 
             cooldowns.tick()
 
@@ -241,3 +275,147 @@ class Simulator:
 
 # Small epsilon to avoid divide-by-zero in IR calculations
 EPS = 1e-12
+
+
+def _apply_rebalance_pipeline(
+    *,
+    prev_weights: pd.Series,
+    target_weights: pd.Series,
+    date: pd.Timestamp,
+    rb_cfg: Dict[str, Any],
+    rb_state: Dict[str, Any],
+    policy: PolicyConfig,
+) -> pd.Series:
+    """Apply rebalancing strategies in order to realize target weights.
+
+    Contract:
+    - Inputs: prev_weights (current holdings), target_weights (desired), date, rb_cfg (dict), rb_state (mutable), policy.
+    - Output: realized weights Series, index is union of prev/target; NaNs treated as 0.
+    - Side effects: updates rb_state keys such as since_last_reb and risk stats.
+    """
+    # Normalize inputs
+    pw = prev_weights.astype(float).copy()
+    tw = target_weights.astype(float).copy()
+    pw = pw[pw != 0.0]
+    tw = tw[tw != 0.0]
+    all_idx = list(dict.fromkeys(list(pw.index) + list(tw.index)))
+    pw = pw.reindex(all_idx).fillna(0.0)
+    tw = tw.reindex(all_idx).fillna(0.0)
+
+    # If bayesian_only toggle: pass-through target
+    if bool(rb_cfg.get("bayesian_only", True)):
+        rb_state["since_last_reb"] = 0
+        return tw
+    # If no previous holdings, adopt target immediately
+    if pw.empty:
+        rb_state["since_last_reb"] = 0
+        return tw
+
+    # Strategy order and params
+    strategies: List[str] = list(rb_cfg.get("strategies", ["drift_band"]))
+    params: Dict[str, Any] = dict(rb_cfg.get("params", {}))
+
+    work = pw.copy()
+
+    # Helper to cap weights and normalise
+    def _cap_and_norm(s: pd.Series, gross: Optional[float] = None) -> pd.Series:
+        out = s.clip(lower=0.0)
+        if policy.max_weight < 1.0 and policy.max_weight > 0.0:
+            out = out.clip(upper=float(policy.max_weight))
+        total = float(out.sum())
+        target_sum = float(gross if gross is not None else (1.0 if len(out) else 0.0))
+        if total > EPS and target_sum > EPS:
+            out = out * (target_sum / total)
+        return out
+
+    # Track gross to preserve unless a full rebalance happens
+    gross_prev = float(max(pw.sum(), 0.0))
+    since_last = int(rb_state.get("since_last_reb", 0))
+
+    for name in strategies:
+        if name == "periodic_rebalance":
+            cfg = params.get("periodic_rebalance", {})
+            interval = int(cfg.get("interval", 1))
+            if interval <= 1 or since_last + 1 >= interval:
+                work = tw.copy()
+                since_last = 0
+            else:
+                # Skip rebalancing this period
+                since_last += 1
+        elif name == "drift_band":
+            cfg = params.get("drift_band", {})
+            band = float(cfg.get("band_pct", 0.03))
+            min_trade = float(cfg.get("min_trade", 0.005))
+            mode = str(cfg.get("mode", "partial"))
+            delta = tw - work
+            adjust = pd.Series(0.0, index=delta.index)
+            for k, dv in delta.items():
+                if abs(dv) <= band:
+                    continue
+                if mode == "partial":
+                    # Move halfway back into band boundary
+                    step = np.sign(dv) * max(abs(dv) - band, 0.0)
+                else:  # full
+                    step = dv
+                if abs(step) >= min_trade:
+                    adjust[k] = step
+            work = _cap_and_norm(work + adjust, gross=gross_prev)
+        elif name == "turnover_cap":
+            cfg = params.get("turnover_cap", {})
+            max_to = float(cfg.get("max_turnover", 0.20))
+            # Always aim towards target weights, allocate limited turnover
+            candidate = tw.copy()
+            d = candidate - work
+            total_gap = float(d.abs().sum())
+            if total_gap <= max_to + 1e-9:
+                work = candidate
+            else:
+                # Move a fraction alpha towards target so L1 turnover equals max_to
+                alpha = float(max_to / total_gap) if total_gap > 0 else 0.0
+                work = work + alpha * d
+        elif name == "vol_target_rebalance":
+            cfg = params.get("vol_target_rebalance", {})
+            target_vol = float(cfg.get("target", 0.10))
+            lev_min = float(cfg.get("lev_min", 0.5))
+            lev_max = float(cfg.get("lev_max", 1.5))
+            window = int(cfg.get("window", 6))
+            # Estimate realized vol from rb_state equity_curve
+            ec: List[float] = list(rb_state.get("equity_curve", []))
+            if len(ec) >= window + 1:
+                # Compute past window simple returns from equity
+                rets = pd.Series(np.diff(ec[-(window + 1) :]) / ec[-(window + 1) : -1])
+                vol = float(rets.std(ddof=0)) * np.sqrt(12)
+                if vol > 0:
+                    lev = float(np.clip(target_vol / vol, lev_min, lev_max))
+                    work = work * lev
+        elif name == "drawdown_guard":
+            cfg = params.get("drawdown_guard", {})
+            dd_win = int(cfg.get("dd_window", 12))
+            dd_th = float(cfg.get("dd_threshold", 0.10))
+            guard_mult = float(cfg.get("guard_multiplier", 0.5))
+            recover = float(cfg.get("recover_threshold", 0.05))
+            ec: List[float] = list(rb_state.get("equity_curve", []))
+            guard_on = bool(rb_state.get("guard_on", False))
+            dd = 0.0
+            if len(ec) >= 1:
+                # Use trailing window if available
+                sub = ec[-dd_win:] if len(ec) >= dd_win else ec
+                peak = max(sub)
+                cur = sub[-1]
+                if peak > 0:
+                    dd = (cur / peak) - 1.0
+            if (not guard_on and dd <= -dd_th) or (guard_on and dd <= -recover):
+                guard_on = True
+            elif guard_on and dd >= -recover:
+                guard_on = False
+            rb_state["guard_on"] = guard_on
+            if guard_on:
+                work = work * guard_mult
+        else:
+            # Unknown strategy: skip (forward-compat)
+            continue
+
+    rb_state["since_last_reb"] = since_last
+    # Final sanity: drop tiny weights
+    work = work.where(work.abs() > EPS, other=0.0)
+    return work
