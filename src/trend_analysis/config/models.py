@@ -63,12 +63,31 @@ class PresetConfig(SimpleBaseModel):
 class ColumnMapping(SimpleBaseModel):
     """Column mapping configuration for uploaded data."""
 
-    date_column: str
-    return_columns: List[str]
-    benchmark_column: str | None
-    risk_free_column: str | None
-    column_display_names: Dict[str, str]
-    column_tickers: Dict[str, str]
+    def __init__(
+        self,
+        date_column: str = "",
+        return_columns: List[str] = None,
+        benchmark_column: str | None = None,
+        risk_free_column: str | None = None,
+        column_display_names: Dict[str, str] = None,
+        column_tickers: Dict[str, str] = None,
+        **kwargs: Any
+    ) -> None:
+        if return_columns is None:
+            return_columns = []
+        if column_display_names is None:
+            column_display_names = {}
+        if column_tickers is None:
+            column_tickers = {}
+        super().__init__(
+            date_column=date_column,
+            return_columns=return_columns,
+            benchmark_column=benchmark_column,
+            risk_free_column=risk_free_column,
+            column_display_names=column_display_names,
+            column_tickers=column_tickers,
+            **kwargs
+        )
 
     def _get_defaults(self) -> Dict[str, Any]:
         return {
