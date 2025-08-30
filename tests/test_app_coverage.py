@@ -194,25 +194,21 @@ class TestBuildStep0:
 
         store = ParamStore()
         
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
-            f.write("invalid: yaml: content: {")  # Invalid YAML
-            f.flush()
+        with patch("trend_analysis.gui.app.reset_weight_state"), \
+             patch("warnings.warn") as mock_warn, \
+             patch("pathlib.Path.read_text", return_value="invalid: yaml: content: {"):
+            _build_step0(store)
             
-            with patch("trend_analysis.gui.app.reset_weight_state"), \
-                 patch("warnings.warn") as mock_warn, \
-                 patch("pathlib.Path.read_text", return_value="invalid: yaml: content: {"):
-                _build_step0(store)
-                
-                # Simulate template dropdown change with invalid YAML
-                template_callback = mock_dropdown.observe.call_args[0][0]
-                change_event = {"new": "invalid_template"}
-                
-                template_callback(change_event, store=store)
-                
-                # Verify warning was issued for invalid YAML
-                mock_warn.assert_called()
-                warning_msg = str(mock_warn.call_args[0][0])
-                assert "Invalid YAML in template config" in warning_msg
+            # Simulate template dropdown change with invalid YAML
+            template_callback = mock_dropdown.observe.call_args[0][0]
+            change_event = {"new": "invalid_template"}
+            
+            template_callback(change_event, store=store)
+            
+            # Verify warning was issued for invalid YAML
+            mock_warn.assert_called()
+            warning_msg = str(mock_warn.call_args[0][0])
+            assert "Invalid YAML in template config" in warning_msg
 
     @patch("trend_analysis.gui.app.widgets")
     @patch("trend_analysis.gui.app.list_builtin_cfgs")
