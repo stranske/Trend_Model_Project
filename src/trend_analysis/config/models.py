@@ -31,7 +31,17 @@ class SimpleBaseModel:
 
 class PresetConfig(SimpleBaseModel):
     """Configuration preset with validation."""
-
+    def _get_defaults(self) -> Dict[str, Any]:
+        return {
+            "data": {},
+            "preprocessing": {},
+            "vol_adjust": {},
+            "sample_split": {},
+            "portfolio": {},
+            "metrics": {},
+            "export": {},
+            "run": {},
+        }
     name: str
     description: str
     data: Dict[str, Any]
@@ -43,15 +53,6 @@ class PresetConfig(SimpleBaseModel):
     export: Dict[str, Any]
     run: Dict[str, Any]
 
-            "data": {},
-            "preprocessing": {},
-            "vol_adjust": {},
-            "sample_split": {},
-            "portfolio": {},
-            "metrics": {},
-            "export": {},
-            "run": {},
-        }
 
     def _validate(self) -> None:
         """Validate preset configuration."""
