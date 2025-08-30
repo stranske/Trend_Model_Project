@@ -49,6 +49,20 @@ source .venv/bin/activate
 pip install -e .
 ```
 
+### Docker
+
+Pull a prebuilt image and launch the Streamlit app:
+
+```bash
+docker run -p 8501:8501 ghcr.io/<org>/trend-model:latest
+```
+
+This starts the app on http://localhost:8501. Override the command to access the CLI:
+
+```bash
+docker run --rm ghcr.io/<org>/trend-model:latest trend-model run --help
+```
+
 ## Setup
 
 1. Create a virtual environment and install the required packages:
