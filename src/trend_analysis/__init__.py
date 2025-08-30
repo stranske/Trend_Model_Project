@@ -1,5 +1,7 @@
 """Trend analysis package."""
 
+import importlib.metadata
+
 from . import metrics, config, data, pipeline, export, selector, weighting
 from .data import load_csv, identify_risk_free_fund
 from .export import (
@@ -23,6 +25,13 @@ from .export import (
 
 # Expose multi-period CLI
 from . import run_multi_analysis
+
+# Get version from package metadata
+try:
+    __version__ = importlib.metadata.version("trend-analysis")
+except importlib.metadata.PackageNotFoundError:
+    # Fallback version for development
+    __version__ = "0.1.0-dev"
 
 __all__ = [
     "metrics",
@@ -51,4 +60,5 @@ __all__ = [
     "export_phase1_multi_metrics",
     "export_multi_period_metrics",
     "run_multi_analysis",
+    "__version__",
 ]

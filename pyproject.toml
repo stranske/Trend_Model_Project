@@ -9,6 +9,40 @@ description = "Volatility-adjusted trend analysis package"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
+authors = [
+    {name = "Trend Analysis Contributors"}
+]
+maintainers = [
+    {name = "Trend Analysis Contributors"}
+]
+keywords = ["finance", "trend-analysis", "volatility", "portfolio", "analysis"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Topic :: Office/Business :: Financial :: Investment",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "pandas",
+    "numpy", 
+    "PyYAML",
+    "xlsxwriter",
+    "openpyxl",
+    "pydantic>=2",
+]
+
+[project.urls]
+Homepage = "https://github.com/stranske/Trend_Model_Project"
+Repository = "https://github.com/stranske/Trend_Model_Project"
+Issues = "https://github.com/stranske/Trend_Model_Project/issues"
+Documentation = "https://github.com/stranske/Trend_Model_Project#readme"
+
+[project.scripts]
+trend-analysis = "trend_analysis.run_analysis:main"
+trend-multi-analysis = "trend_analysis.run_multi_analysis:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
