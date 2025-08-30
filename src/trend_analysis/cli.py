@@ -7,7 +7,7 @@ from pathlib import Path
 import pandas as pd
 
 from . import export, pipeline
-from .config.models import load
+from .config import load_config
 
 
 APP_PATH = Path(__file__).resolve().parents[2] / "streamlit_app" / "app.py"
@@ -32,7 +32,7 @@ def main(argv: list[str] | None = None) -> int:
         return result.returncode
 
     if args.command == "run":
-        cfg = load(args.config)
+        cfg = load_config(args.config)
         cfg.data["csv_path"] = args.input
 
         metrics_df = pipeline.run(cfg)
