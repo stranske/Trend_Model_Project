@@ -30,8 +30,10 @@ class SimpleBaseModel:
         """Validate the configuration."""
         pass
 
+
 class PresetConfig(SimpleBaseModel):
     """Configuration preset with validation."""
+
     def _get_defaults(self) -> Dict[str, Any]:
         return {
             "data": {},
@@ -43,6 +45,7 @@ class PresetConfig(SimpleBaseModel):
             "export": {},
             "run": {},
         }
+
     name: str
     description: str
     data: Dict[str, Any]
@@ -53,7 +56,6 @@ class PresetConfig(SimpleBaseModel):
     metrics: Dict[str, Any]
     export: Dict[str, Any]
     run: Dict[str, Any]
-
 
     def _validate(self) -> None:
         """Validate preset configuration."""
@@ -72,7 +74,7 @@ class ColumnMapping(SimpleBaseModel):
         risk_free_column: str | None = None,
         column_display_names: Dict[str, str] = None,
         column_tickers: Dict[str, str] = None,
-        **kwargs: Any
+        **kwargs: Any,
     ) -> None:
         if return_columns is None:
             return_columns = []
@@ -87,7 +89,7 @@ class ColumnMapping(SimpleBaseModel):
             risk_free_column=risk_free_column,
             column_display_names=column_display_names,
             column_tickers=column_tickers,
-            **kwargs
+            **kwargs,
         )
 
     def _get_defaults(self) -> Dict[str, Any]:
@@ -175,6 +177,7 @@ if TYPE_CHECKING:  # pragma: no cover - mypy only
 
     class BaseModel:
         """Minimal subset of :class:`pydantic.BaseModel` for type checking."""
+
         pass
 
 else:  # pragma: no cover - fallback when pydantic isn't installed during CI
@@ -184,6 +187,7 @@ else:  # pragma: no cover - fallback when pydantic isn't installed during CI
 
         class BaseModel:
             """Runtime stub used when ``pydantic`` is unavailable."""
+
             pass
 
 
@@ -222,32 +226,32 @@ class Config(BaseModel):
         return dict(self.__dict__)
 
 
-def _find_config_directory() -> Path:
+def find_config_directory() -> Path:
     """Find config directory by searching up from current file.
-    
+
     This provides a more robust alternative to hardcoded parent navigation.
     Searches for a 'config' directory starting from the current file location
     and working up the directory tree, but skips the config package directory itself.
-    
+
     Returns:
         Path to the config directory
-        
+
     Raises:
         FileNotFoundError: If config directory cannot be found
     """
     current = Path(__file__).resolve()
     current_config_package = current.parent  # Skip the config package directory itself
-    
+
     # Search up the directory tree for a config directory
     for parent in current.parents:
         # Skip the config package directory itself
         if parent == current_config_package:
             continue
-            
+
         config_dir = parent / "config"
         if config_dir.is_dir() and (config_dir / "defaults.yml").exists():
             return config_dir
-    
+
     # Fallback: search all parent directories for a "config" directory with "defaults.yml"
     for parent in current.parents:
         config_dir = parent / "config"
@@ -259,7 +263,7 @@ def _find_config_directory() -> Path:
     )
 
 
-DEFAULTS = _find_config_directory() / "defaults.yml"
+DEFAULTS = find_config_directory() / "defaults.yml"
 
 
 def load(path: str | Path | None = None) -> Config:
@@ -296,10 +300,11 @@ def load(path: str | Path | None = None) -> Config:
 __all__ = [
     "PresetConfig",
     "ColumnMapping",
-    "ConfigurationState", 
+    "ConfigurationState",
     "load_preset",
     "list_available_presets",
     "Config",
     "load",
     "DEFAULTS",
+    "find_config_directory",
 ]

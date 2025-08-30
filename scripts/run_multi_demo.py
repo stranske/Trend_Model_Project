@@ -1885,7 +1885,17 @@ def _check_module_exports() -> None:
     """Ensure module-level ``__all__`` lists are intact."""
 
     expected_map = {
-        "config": {"Config", "load"},
+        "config": {
+            "Config", 
+            "load",
+            "DEFAULTS",
+            "find_config_directory",
+            "PresetConfig",
+            "ColumnMapping", 
+            "ConfigurationState",
+            "load_preset",
+            "list_available_presets",
+        },
         "data": {"load_csv", "identify_risk_free_fund", "ensure_datetime"},
         "export": {
             "FORMATTERS_EXCEL",

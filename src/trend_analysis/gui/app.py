@@ -15,37 +15,10 @@ from .store import ParamStore
 from .plugins import discover_plugins, iter_plugins
 
 
-# Use _find_config_directory from utils instead of local duplicate
+# Use find_config_directory from utils instead of local duplicate
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-from .utils import list_builtin_cfgs, debounce, _find_config_directory
+from .utils import list_builtin_cfgs, debounce, find_config_directory
 from ..config import Config
 from .. import pipeline, export, weighting
 
@@ -160,7 +133,7 @@ def _build_step0(store: ParamStore) -> widgets.Widget:
 
     def on_template(change: dict[str, Any], *, store: ParamStore) -> None:
         name = change["new"]
-        cfg_dir = _find_config_directory()
+        cfg_dir = find_config_directory()
         path = cfg_dir / f"{name}.yml"
         store.cfg = yaml.safe_load(path.read_text())
         store.dirty = True
