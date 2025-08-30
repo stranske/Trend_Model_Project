@@ -2,7 +2,7 @@
 
 import importlib.metadata
 
-from . import metrics, config, data, pipeline, export, selector, weighting
+from . import api, metrics, config, data, pipeline, export, selector, weighting
 from .data import load_csv, identify_risk_free_fund
 from .export import (
     register_formatter_excel,
@@ -39,6 +39,7 @@ __all__ = [
     "config",
     "data",
     "pipeline",
+    "api",
     "export",
     "selector",
     "weighting",

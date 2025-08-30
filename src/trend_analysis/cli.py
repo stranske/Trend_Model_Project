@@ -7,7 +7,9 @@ from pathlib import Path
 import pandas as pd
 
 from . import export, pipeline
+from .api import run_simulation
 from .config import load_config
+from .data import load_csv
 
 
 APP_PATH = Path(__file__).resolve().parents[2] / "streamlit_app" / "app.py"
@@ -33,10 +35,16 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "run":
         cfg = load_config(args.config)
-        cfg.data["csv_path"] = args.input
-
-        metrics_df = pipeline.run(cfg)
-        res = pipeline.run_full(cfg)
+        df = load_csv(args.input)
+        split = cfg.sample_split
+        required_keys = {"in_start", "in_end", "out_start", "out_end"}
+        if required_keys.issubset(split):
+            result = run_simulation(cfg, df)
+            metrics_df = result.metrics
+            res = result.details
+        else:  # pragma: no cover - legacy fallback
+            metrics_df = pipeline.run(cfg)
+            res = pipeline.run_full(cfg)
         if not res:
             print("No results")
             return 0

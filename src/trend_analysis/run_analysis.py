@@ -47,7 +47,9 @@ def main(argv: list[str] | None = None) -> int:
             out_dir = export_cfg.get("directory")
             out_formats = export_cfg.get("formats")
             filename = export_cfg.get("filename", "analysis")
-            if not out_dir and not out_formats:
+            if (out_dir in {None, "results/"}) and (
+                not out_formats or out_formats == ["xlsx", "csv", "json"]
+            ):
                 out_dir = "outputs"  # pragma: no cover - defaults
                 out_formats = ["excel"]
             if out_dir and out_formats:  # pragma: no cover - file output
