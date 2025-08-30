@@ -59,7 +59,10 @@ def export_bundle(run: Any, path: Path) -> Path:
     # ------------------------------------------------------------------
     # Results CSVs
     # ------------------------------------------------------------------
-    portfolio = getattr(run, "portfolio")
+    try:
+        portfolio = getattr(run, "portfolio")
+    except AttributeError:
+        raise ValueError("The 'portfolio' attribute is required for bundle creation but was not found in the provided 'run' object.")
     portfolio.to_csv(results_dir / "portfolio.csv", header=["return"])
     benchmark = getattr(run, "benchmark", None)
     if benchmark is not None:
