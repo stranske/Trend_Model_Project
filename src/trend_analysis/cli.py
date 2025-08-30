@@ -7,7 +7,7 @@ from pathlib import Path
 import pandas as pd
 
 from . import export, pipeline
-from .config import load
+from .config.models import load
 
 
 APP_PATH = Path(__file__).resolve().parents[2] / "streamlit_app" / "app.py"
