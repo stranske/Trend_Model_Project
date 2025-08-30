@@ -8,6 +8,10 @@ from trend_analysis.config import load
 from trend_analysis import export
 from trend_analysis.multi_period import run as run_mp
 
+# Default export configuration constants
+DEFAULT_OUTPUT_DIRECTORY = "outputs"
+DEFAULT_OUTPUT_FORMATS = ["excel"]
+
 
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point for multi-period analysis."""
@@ -62,8 +66,8 @@ def main(argv: list[str] | None = None) -> int:
     out_formats = export_cfg.get("formats")
     filename = export_cfg.get("filename", "analysis")
     if not out_dir and not out_formats:
-        out_dir = "outputs"  # pragma: no cover - defaults
-        out_formats = ["excel"]
+        out_dir = DEFAULT_OUTPUT_DIRECTORY  # pragma: no cover - defaults
+        out_formats = DEFAULT_OUTPUT_FORMATS
     if out_dir and out_formats:
         export.export_phase1_multi_metrics(
             results,
