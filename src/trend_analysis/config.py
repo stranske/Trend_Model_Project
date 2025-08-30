@@ -102,4 +102,7 @@ def load(path: str | Path | None = None) -> Config:
     return Config(**data)
 
 
-__all__ = ["Config", "load"]
+__all__ = [
+    "Config",
+    "load",
+]

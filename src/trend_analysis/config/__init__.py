@@ -1,8 +1,28 @@
 """Configuration package initialization."""
 
-from .models import Config, load
+# The config package needs to expose the main Config and load from config.py 
+# We import using importlib to avoid circular import issues
 
-# Import new model classes
+import importlib.util
+import sys
+from pathlib import Path
+
+def _import_config_module():
+    """Import config.py module avoiding circular imports."""
+    config_path = Path(__file__).parent / "../config.py"
+    config_path = config_path.resolve()
+    
+    spec = importlib.util.spec_from_file_location("config_module", config_path)
+    if spec is None or spec.loader is None:
+        raise ImportError("Could not load config module")
+    config_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(config_module)
+    return config_module
+
+_config_mod = _import_config_module()
+Config = _config_mod.Config  
+load = _config_mod.load
+
 from .models import (
     PresetConfig,
     ColumnMapping,
@@ -13,7 +33,7 @@ from .models import (
 
 __all__ = [
     "Config",
-    "load",  # Original config items
+    "load", 
     "PresetConfig",
     "ColumnMapping",
     "ConfigurationState",

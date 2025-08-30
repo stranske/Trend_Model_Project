@@ -14,3 +14,35 @@ def test_load_defaults():
         data = yaml.safe_load(fh) or {}
     assert cfg.version == data.get("version")
     assert "data" in cfg.model_dump()
+
+
+def test_default_constants():
+    """Test that default constants are defined in run modules and have expected values."""
+    # Import the modules that use the constants
+    import sys
+    from pathlib import Path
+    
+    # Add src to path to import modules directly  
+    src_path = str(Path(__file__).resolve().parents[1] / "src")
+    if src_path not in sys.path:
+        sys.path.insert(0, src_path)
+    
+    from trend_analysis import run_analysis, run_multi_analysis
+    
+    # Check run_analysis constants
+    assert hasattr(run_analysis, 'DEFAULT_OUTPUT_DIRECTORY')
+    assert hasattr(run_analysis, 'DEFAULT_OUTPUT_FORMATS')
+    assert run_analysis.DEFAULT_OUTPUT_DIRECTORY == "outputs"
+    assert run_analysis.DEFAULT_OUTPUT_FORMATS == ["excel"]
+    
+    # Check run_multi_analysis constants
+    assert hasattr(run_multi_analysis, 'DEFAULT_OUTPUT_DIRECTORY')
+    assert hasattr(run_multi_analysis, 'DEFAULT_OUTPUT_FORMATS')
+    assert run_multi_analysis.DEFAULT_OUTPUT_DIRECTORY == "outputs"
+    assert run_multi_analysis.DEFAULT_OUTPUT_FORMATS == ["excel"]
+    
+    # Verify they are the correct types
+    assert isinstance(run_analysis.DEFAULT_OUTPUT_DIRECTORY, str)
+    assert isinstance(run_analysis.DEFAULT_OUTPUT_FORMATS, list)
+    assert len(run_analysis.DEFAULT_OUTPUT_FORMATS) == 1
+    assert run_analysis.DEFAULT_OUTPUT_FORMATS[0] == "excel"
