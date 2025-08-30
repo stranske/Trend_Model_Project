@@ -23,7 +23,11 @@ validate_streamlit_setup() {
     
     # Sanitize and validate APP_PATH to prevent path traversal
     local resolved_path
-    resolved_path="$(realpath "$app_path" 2>/dev/null || echo "$app_path")"
+    resolved_path="$(realpath "$app_path" 2>/dev/null)"
+    if [[ -z "$resolved_path" ]]; then
+        echo "ERROR: Failed to resolve APP_PATH with realpath." >&2
+        return 1
+    fi
     if [[ "$resolved_path" != "$ROOT_DIR"/src/trend_portfolio_app/app.py ]]; then
         echo "ERROR: APP_PATH security validation failed." >&2
         echo "Expected: $ROOT_DIR/src/trend_portfolio_app/app.py" >&2
