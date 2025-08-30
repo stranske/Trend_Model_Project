@@ -16,16 +16,15 @@ def test_load_defaults():
     assert "data" in cfg.model_dump()
 
 
-def test_default_constants():
+def test_default_constants(monkeypatch):
     """Test that default constants are defined in run modules and have expected values."""
     # Import the modules that use the constants
     import sys
     from pathlib import Path
     
-    # Add src to path to import modules directly  
+    # Add src to path to import modules directly using monkeypatch
     src_path = str(Path(__file__).resolve().parents[1] / "src")
-    if src_path not in sys.path:
-        sys.path.insert(0, src_path)
+    monkeypatch.syspath_prepend(src_path)
     
     from trend_analysis import run_analysis, run_multi_analysis
     
