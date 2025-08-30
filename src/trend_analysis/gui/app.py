@@ -15,37 +15,37 @@ from .store import ParamStore
 from .plugins import discover_plugins, iter_plugins
 
 
-def _find_config_directory() -> Path:
-    """Find config directory by searching up from current file.
-    
-    This provides a more robust alternative to hardcoded parent navigation.
-    Searches for a 'config' directory starting from the current file location
-    and working up the directory tree.
-    
-    Returns:
-        Path to the config directory
-        
-    Raises:
-        FileNotFoundError: If config directory cannot be found
-    """
-    current = Path(__file__).resolve()
-    
-    # Search up the directory tree for a config directory
-    for parent in current.parents:
-        config_dir = parent / "config"
-        if config_dir.is_dir() and (config_dir / "defaults.yml").exists():
-            return config_dir
-    
-    # Fallback to the original hardcoded path for backward compatibility
-    fallback_config = current.parents[3] / "config"
-    if fallback_config.is_dir():
-        return fallback_config
-    
-    raise FileNotFoundError(
-        f"Could not find 'config' directory with defaults.yml in any parent of {current}. "
-        "Please ensure the config directory exists in the project structure."
-    )
-from .utils import list_builtin_cfgs, debounce
+# Use _find_config_directory from utils instead of local duplicate
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+from .utils import list_builtin_cfgs, debounce, _find_config_directory
 from ..config import Config
 from .. import pipeline, export, weighting
 
