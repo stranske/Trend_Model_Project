@@ -32,6 +32,7 @@ dependencies = [
     "xlsxwriter",
     "openpyxl",
     "pydantic>=2",
+    "hypothesis",
 ]
 
 [project.urls]
