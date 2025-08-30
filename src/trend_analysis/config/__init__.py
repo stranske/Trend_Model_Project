@@ -1,8 +1,6 @@
 """Configuration package initialization."""
 
-from .models import Config, load
-
-# Import new model classes
+# Re-export commonly used configuration models and helpers
 from .models import (
     PresetConfig,
     ColumnMapping,
@@ -12,8 +10,6 @@ from .models import (
 )
 
 __all__ = [
-    "Config",
-    "load",  # Original config items
     "PresetConfig",
     "ColumnMapping",
     "ConfigurationState",
