@@ -28,9 +28,11 @@ validate_streamlit_setup() {
         echo "ERROR: Failed to resolve APP_PATH with realpath." >&2
         return 1
     fi
-    if [[ "$resolved_path" != "$ROOT_DIR"/src/trend_portfolio_app/app.py ]]; then
+    local expected_path
+    expected_path="$(realpath "$ROOT_DIR/src/trend_portfolio_app/app.py" 2>/dev/null || echo "$ROOT_DIR/src/trend_portfolio_app/app.py")"
+    if [[ "$resolved_path" != "$expected_path" ]]; then
         echo "ERROR: APP_PATH security validation failed." >&2
-        echo "Expected: $ROOT_DIR/src/trend_portfolio_app/app.py" >&2
+        echo "Expected: $expected_path" >&2
         echo "Resolved: $resolved_path" >&2
         return 1
     fi
