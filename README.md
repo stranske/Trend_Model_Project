@@ -11,6 +11,34 @@ For a beginner-friendly overview, see [docs/UserGuide.md](docs/UserGuide.md).
 - `Vol_Adj_Trend_Analysis1.4.TrEx.ipynb` – the current main notebook showing the full workflow.
 - Additional historical notebooks can be found under `notebooks/old` and `Old/`.
 
+## Installation
+
+### From PyPI (Recommended)
+
+Install the latest stable release from PyPI:
+
+```bash
+pip install trend-analysis
+```
+
+This provides CLI commands:
+```bash
+trend-analysis --help
+trend-multi-analysis --help
+```
+
+### From Source
+
+For development or to use the latest features:
+
+```bash
+git clone https://github.com/stranske/Trend_Model_Project.git
+cd Trend_Model_Project
+./scripts/setup_env.sh
+source .venv/bin/activate
+pip install -e .
+```
+
 ## Setup
 
 1. Create a virtual environment and install the required packages:
@@ -218,6 +246,31 @@ Tips
 - The Upload page accepts CSV and Excel files; it validates a Date column and monthly frequency.
 - The Results page shows equity and drawdown charts and lets you export a bundle (ZIP) of key outputs.
 
+
+## Releases
+
+This project uses automated releases to PyPI with semantic versioning.
+
+### For Users
+- Install latest stable version: `pip install trend-analysis`
+- View releases: [GitHub Releases](https://github.com/stranske/Trend_Model_Project/releases)
+- Package on PyPI: [trend-analysis](https://pypi.org/project/trend-analysis/)
+
+### For Maintainers
+Create releases by pushing version tags:
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The automated workflow will:
+- Build distribution packages (wheel + source)
+- Test installation 
+- Generate changelog from conventional commits
+- Publish to PyPI
+- Create GitHub release with changelog
+
+For detailed release process documentation, see [docs/release-process.md](docs/release-process.md).
 
 ## Testing
 
