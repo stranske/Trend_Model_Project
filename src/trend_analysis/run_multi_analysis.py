@@ -4,9 +4,9 @@ import argparse
 from pathlib import Path
 from typing import cast
 
-from trend_analysis.config import load
-from trend_analysis import export
-from trend_analysis.multi_period import run as run_mp
+from .config import load
+from . import export
+from .multi_period import run as run_mp
 
 
 def main(argv: list[str] | None = None) -> int:

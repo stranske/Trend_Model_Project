@@ -3,6 +3,7 @@
 from __future__ import annotations
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Union
+import os
 import yaml
 
 
@@ -10,75 +11,84 @@ import yaml
 class SimpleBaseModel:
     """Simple base model for configuration validation."""
 
-    def __init__(self, **data):
-        # Set defaults first
-        for field_name, default_value in self._get_defaults().items():
-            setattr(self, field_name, default_value)
-
-        # Then set provided data
-        for key, value in data.items():
+    def __init__(self, **kwargs: Any) -> None:
+        """Initialize with validation."""
+        defaults = self._get_defaults()
+        for key, value in defaults.items():
             setattr(self, key, value)
 
-        # Run validation
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
         self._validate()
 
     def _get_defaults(self) -> Dict[str, Any]:
-        """Override in subclasses to provide defaults."""
+        """Get default values for this model."""
         return {}
 
     def _validate(self) -> None:
-        """Override in subclasses to add validation."""
+        """Validate the configuration."""
         pass
-
-    def dict(self) -> dict:
-        """Return dictionary representation."""
-        return {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
-
 
 class PresetConfig(SimpleBaseModel):
     """Configuration preset with validation."""
-
     def _get_defaults(self) -> Dict[str, Any]:
         return {
-            "name": "",
-            "description": "",
-            "lookback_months": 36,
-            "rebalance_frequency": "monthly",
-            "min_track_months": 24,
-            "selection_count": 10,
-            "risk_target": 0.10,
-            "metrics": {},
-            "portfolio": {},
+            "data": {},
+            "preprocessing": {},
             "vol_adjust": {},
             "sample_split": {},
+            "portfolio": {},
+            "metrics": {},
+            "export": {},
+            "run": {},
         }
+    name: str
+    description: str
+    data: Dict[str, Any]
+    preprocessing: Dict[str, Any]
+    vol_adjust: Dict[str, Any]
+    sample_split: Dict[str, Any]
+    portfolio: Dict[str, Any]
+    metrics: Dict[str, Any]
+    export: Dict[str, Any]
+    run: Dict[str, Any]
+
 
     def _validate(self) -> None:
         """Validate preset configuration."""
-        # Validate metrics weights
-        if self.metrics:
-            total = sum(self.metrics.values())
-            if abs(total - 1.0) > 0.01:
-                raise ValueError(f"Metric weights must sum to 1.0, got {total}")
-
-        # Validate positive integers
-        for field in ["selection_count", "lookback_months", "min_track_months"]:
-            value = getattr(self, field, 0)
-            if value <= 0:
-                raise ValueError(f"{field} must be a positive integer")
-
-        # Validate risk target
-        if not 0.01 <= self.risk_target <= 0.50:
-            raise ValueError("Risk target must be between 1% and 50%")
-
-        # Validate rebalance frequency
-        valid_frequencies = {"monthly", "quarterly", "annually"}
-        if self.rebalance_frequency not in valid_frequencies:
-            raise ValueError(f"Rebalance frequency must be one of: {valid_frequencies}")
+        if not self.name or not self.name.strip():
+            raise ValueError("Preset name must be specified")
 
 
 class ColumnMapping(SimpleBaseModel):
     """Column mapping configuration for uploaded data."""
+
+    def __init__(
+        self,
+        date_column: str = "",
+        return_columns: List[str] = None,
+        benchmark_column: str | None = None,
+        risk_free_column: str | None = None,
+        column_display_names: Dict[str, str] = None,
+        column_tickers: Dict[str, str] = None,
+        **kwargs: Any
+    ) -> None:
+        if return_columns is None:
+            return_columns = []
+        if column_display_names is None:
+            column_display_names = {}
+        if column_tickers is None:
+            column_tickers = {}
+        super().__init__(
+            date_column=date_column,
+            return_columns=return_columns,
+            benchmark_column=benchmark_column,
+            risk_free_column=risk_free_column,
+            column_display_names=column_display_names,
+            column_tickers=column_tickers,
+            **kwargs
+        )
 
     def _get_defaults(self) -> Dict[str, Any]:
         return {
@@ -102,84 +112,194 @@ class ColumnMapping(SimpleBaseModel):
 class ConfigurationState(SimpleBaseModel):
     """Complete configuration state for the Streamlit app."""
 
+    preset_name: str
+    column_mapping: ColumnMapping | None
+    config_dict: Dict[str, Any]
+    uploaded_data: Any
+    analysis_results: Any
+
     def _get_defaults(self) -> Dict[str, Any]:
         return {
-            "preset_name": None,
-            "preset_config": None,
+            "preset_name": "",
             "column_mapping": None,
-            "custom_overrides": {},
-            "validation_errors": [],
-            "is_valid": False,
+            "config_dict": {},
+            "uploaded_data": None,
+            "analysis_results": None,
         }
 
-    def to_trend_config(self) -> Dict[str, Any]:
-        """Convert to trend analysis configuration format."""
-        if not self.preset_config:
-            raise ValueError("No preset configuration loaded")
-
-        # Start with preset config
-        config = {
-            "lookback_months": self.preset_config.lookback_months,
-            "rebalance_frequency": self.preset_config.rebalance_frequency,
-            "min_track_months": self.preset_config.min_track_months,
-            "selection_count": self.preset_config.selection_count,
-            "risk_target": self.preset_config.risk_target,
-            "metrics": self.preset_config.metrics,
-            "portfolio": self.preset_config.portfolio,
-            "vol_adjust": self.preset_config.vol_adjust,
-            "sample_split": self.preset_config.sample_split,
-        }
-
-        # Apply custom overrides
-        for key, value in self.custom_overrides.items():
-            config[key] = value
-
-        # Add column mapping if available
-        if self.column_mapping:
-            config["column_mapping"] = self.column_mapping.dict()
-
-        return config
+    def _validate(self) -> None:
+        """Validate configuration state."""
+        pass
 
 
 def load_preset(preset_name: str) -> PresetConfig:
     """Load a preset configuration from file."""
-    preset_path = (
-        Path(__file__).parent.parent.parent.parent
-        / "config"
-        / "presets"
-        / f"{preset_name.lower()}.yml"
-    )
+    # Find the config directory relative to this file
+    config_dir = Path(__file__).parent.parent.parent.parent.parent / "config"
+    preset_file = config_dir / f"{preset_name}.yml"
 
-    if not preset_path.exists():
-        raise FileNotFoundError(f"Preset '{preset_name}' not found at {preset_path}")
+    if not preset_file.exists():
+        raise FileNotFoundError(f"Preset file not found: {preset_file}")
 
-    with preset_path.open("r", encoding="utf-8") as f:
-        data = yaml.safe_load(f)
+    with preset_file.open("r", encoding="utf-8") as fh:
+        data = yaml.safe_load(fh)
+        if not isinstance(data, dict):
+            raise TypeError("Preset file must contain a mapping")
 
-    if not isinstance(data, dict):
-        raise ValueError(f"Invalid preset format in {preset_path}")
-
+    data["name"] = preset_name
     return PresetConfig(**data)
 
 
 def list_available_presets() -> List[str]:
     """List all available preset names."""
-    presets_dir = Path(__file__).parent.parent.parent.parent / "config" / "presets"
+    config_dir = Path(__file__).parent.parent.parent.parent.parent / "config"
 
-    if not presets_dir.exists():
+    if not config_dir.exists():
         return []
 
     presets = []
-    for preset_file in presets_dir.glob("*.yml"):
-        presets.append(preset_file.stem.title())
+    for yml_file in config_dir.glob("*.yml"):
+        if yml_file.name not in ["defaults.yml"]:  # Exclude defaults
+            presets.append(yml_file.stem)
 
     return sorted(presets)
+
+
+# Add TYPE_CHECKING and BaseModel compatibility for pydantic-free environments
+try:
+    from typing import TYPE_CHECKING
+except ImportError:
+    TYPE_CHECKING = False
+
+if TYPE_CHECKING:  # pragma: no cover - mypy only
+
+    class BaseModel:
+        """Minimal subset of :class:`pydantic.BaseModel` for type checking."""
+        pass
+
+else:  # pragma: no cover - fallback when pydantic isn't installed during CI
+    try:  # pragma: no cover - runtime import
+        from pydantic import BaseModel as BaseModel
+    except Exception:  # pragma: no cover - simplified stub
+
+        class BaseModel:
+            """Runtime stub used when ``pydantic`` is unavailable."""
+            pass
+
+
+class Config(BaseModel):
+    """Typed access to the YAML configuration."""
+
+    version: str
+    data: dict[str, Any]
+    preprocessing: dict[str, Any]
+    vol_adjust: dict[str, Any]
+    sample_split: dict[str, Any]
+    portfolio: dict[str, Any]
+    benchmarks: dict[str, str] = {}
+    metrics: dict[str, Any]
+    export: dict[str, Any]
+    output: dict[str, Any] | None = None
+    run: dict[str, Any]
+    multi_period: dict[str, Any] | None = None
+    jobs: int | None = None
+    checkpoint_dir: str | None = None
+    random_seed: int | None = None
+
+    def __init__(self, **data: Any) -> None:  # pragma: no cover - simple assign
+        """Populate attributes from ``data`` regardless of ``BaseModel``."""
+        super().__init__(**data)
+        for key, value in data.items():
+            setattr(self, key, value)
+
+    def model_dump_json(self) -> str:  # pragma: no cover - trivial
+        import json
+
+        return json.dumps(self.__dict__)
+
+    # Provide a lightweight ``dict`` representation for tests.
+    def model_dump(self) -> dict[str, Any]:  # pragma: no cover - trivial
+        return dict(self.__dict__)
+
+
+def _find_config_directory() -> Path:
+    """Find config directory by searching up from current file.
+    
+    This provides a more robust alternative to hardcoded parent navigation.
+    Searches for a 'config' directory starting from the current file location
+    and working up the directory tree, but skips the config package directory itself.
+    
+    Returns:
+        Path to the config directory
+        
+    Raises:
+        FileNotFoundError: If config directory cannot be found
+    """
+    current = Path(__file__).resolve()
+    current_config_package = current.parent  # Skip the config package directory itself
+    
+    # Search up the directory tree for a config directory
+    for parent in current.parents:
+        # Skip the config package directory itself
+        if parent == current_config_package:
+            continue
+            
+        config_dir = parent / "config"
+        if config_dir.is_dir() and (config_dir / "defaults.yml").exists():
+            return config_dir
+    
+    # Fallback: search all parent directories for a "config" directory with "defaults.yml"
+    for parent in current.parents:
+        config_dir = parent / "config"
+        if config_dir.is_dir() and (config_dir / "defaults.yml").exists():
+            return config_dir
+    raise FileNotFoundError(
+        f"Could not find 'config' directory with defaults.yml in any parent of {current}. "
+        "Please ensure the config directory exists in the project structure."
+    )
+
+
+DEFAULTS = _find_config_directory() / "defaults.yml"
+
+
+def load(path: str | Path | None = None) -> Config:
+    """Load configuration from ``path`` or ``DEFAULTS``.
+
+    If ``path`` is ``None``, the ``TREND_CFG`` environment variable is
+    consulted before falling back to ``DEFAULTS``.
+    """
+    if path is None:
+        env = os.environ.get("TREND_CFG")
+        cfg_path = Path(env) if env else DEFAULTS
+    else:
+        cfg_path = Path(path)
+    with cfg_path.open("r", encoding="utf-8") as fh:
+        data = yaml.safe_load(fh)
+        if not isinstance(data, dict):
+            raise TypeError("Config file must contain a mapping")
+
+    out_cfg = data.pop("output", None)
+    if isinstance(out_cfg, dict):
+        export_cfg = data.setdefault("export", {})
+        fmt = out_cfg.get("format")
+        if fmt:
+            export_cfg["formats"] = [fmt] if isinstance(fmt, str) else list(fmt)
+        path_val = out_cfg.get("path")
+        if path_val:
+            p = Path(path_val)
+            export_cfg.setdefault("directory", str(p.parent) if p.parent else ".")
+            export_cfg.setdefault("filename", p.name)
+
+    return Config(**data)
 
 
 __all__ = [
     "PresetConfig",
     "ColumnMapping",
-    "ConfigurationState",
+    "ConfigurationState", 
     "load_preset",
     "list_available_presets",
+    "Config",
+    "load",
+    "DEFAULTS",
 ]
