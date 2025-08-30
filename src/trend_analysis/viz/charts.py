@@ -57,7 +57,7 @@ def rolling_information_ratio(
 
     excess = returns - bench
     mean = excess.rolling(window).mean()
-    std = excess.rolling(window).std(ddof=0)
+    std = excess.rolling(window).std(ddof=1)
     ir = mean / std.replace(0.0, pd.NA)
     return ir.to_frame("rolling_ir")
 
