@@ -92,8 +92,8 @@ trend-model run -c path/to/config.yml -i returns.csv
 ```
 
 The configuration file **must** define `data.csv_path`, which is overridden by
-the ``-i`` option above. If ``-c`` is omitted, the defaults from
-`config/defaults.yml` or the ``TREND_CFG`` environment variable are used.
+the ``-i`` option above. The `-c` option is **required**; you must specify a configuration file.
+If you wish to use the default configuration, provide `config/defaults.yml` as the argument to `-c`, or set the ``TREND_CFG`` environment variable to point to your desired config file.
 
 
 ## Ranking-based selection
