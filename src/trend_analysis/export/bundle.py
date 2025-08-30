@@ -28,10 +28,13 @@ def _sha256_file(path: Path) -> str:
 def _git_hash() -> str:
     try:
         return (
-            subprocess.check_output(["git", "rev-parse", "HEAD"], encoding="utf-8")
+            subprocess.check_output(
+                ["git", "rev-parse", "HEAD"], encoding="utf-8", shell=False
+            )
             .strip()
         )
-    except Exception:
+    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        # Handle cases where git command fails or is not found
         return ""
 
 
