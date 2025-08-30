@@ -1,6 +1,6 @@
 """Configuration package initialization."""
 
-from .models import Config, load
+from .models import Config, load, DEFAULTS, _find_config_directory
 
 # Import new model classes
 from .models import (
@@ -14,6 +14,8 @@ from .models import (
 __all__ = [
     "Config",
     "load",  # Original config items
+    "DEFAULTS",
+    "_find_config_directory",  # Internal helper for testing
     "PresetConfig",
     "ColumnMapping",
     "ConfigurationState",
