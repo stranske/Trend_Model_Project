@@ -1458,22 +1458,24 @@ full_res = pipeline.run_full(cfg)
 if not isinstance(full_res, dict):
     raise SystemExit("pipeline.run_full did not return a dict")
 
-# Extract metrics DataFrame from full results (equivalent to pipeline.run)  
-stats = full_res.get("out_sample_stats", {})
-if not stats:
-    raise SystemExit("pipeline.run_full out_sample_stats missing")
+# Extract metrics DataFrame from full results using helper to avoid code duplication
+def extract_metrics_df(full_res):
+    stats = full_res.get("out_sample_stats", {})
+    if not stats:
+        raise SystemExit("pipeline.run_full out_sample_stats missing")
+    metrics_df = pd.DataFrame({k: vars(v) for k, v in stats.items()}).T
+    for label, ir_map in full_res.get("benchmark_ir", {}).items():
+        col = f"ir_{label}"
+        metrics_df[col] = pd.Series(
+            {
+                k: v
+                for k, v in ir_map.items()
+                if k not in {"equal_weight", "user_weight"}
+            }
+        )
+    return metrics_df
 
-# Convert _Stats objects to DataFrame (same logic as pipeline.run)
-metrics_df = pd.DataFrame({k: vars(v) for k, v in stats.items()}).T
-for label, ir_map in full_res.get("benchmark_ir", {}).items():
-    col = f"ir_{label}"
-    metrics_df[col] = pd.Series(
-        {
-            k: v
-            for k, v in ir_map.items()
-            if k not in {"equal_weight", "user_weight"}
-        }
-    )
+metrics_df = extract_metrics_df(full_res)
 
 if metrics_df.empty:
     raise SystemExit("pipeline.run_full produced empty metrics")
