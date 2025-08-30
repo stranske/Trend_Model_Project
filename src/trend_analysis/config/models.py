@@ -276,8 +276,8 @@ def load_config(src: str | Path | dict[str, Any] | None = None) -> Config:
         path_val = out_cfg.get("path")
         if path_val:
             p = Path(path_val)
-            export_cfg["directory"] = str(p.parent) if p.parent else "."
-            export_cfg["filename"] = p.name
+            export_cfg.setdefault("directory", str(p.parent) if p.parent else ".")
+            export_cfg.setdefault("filename", p.name)
 
     return Config.model_validate(data)
 
