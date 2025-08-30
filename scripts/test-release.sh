@@ -33,7 +33,7 @@ fi
 
 # Update version in pyproject.toml
 echo -e "${BLUE}Updating version in pyproject.toml...${NC}"
-sed -i.bak "s/version = \".*\"/version = \"${VERSION}\"/" pyproject.toml
+sed -i .bak "s/version = \".*\"/version = \"${VERSION}\"/" pyproject.toml
 echo "Version updated to: ${VERSION}"
 
 # Build packages
