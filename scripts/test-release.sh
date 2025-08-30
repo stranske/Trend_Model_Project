@@ -27,7 +27,7 @@ fi
 
 # Install build dependencies if needed
 echo -e "${BLUE}Installing build dependencies...${NC}"
-if ! command -v python -m build &> /dev/null; then
+if ! python -c 'import build' &> /dev/null; then
     pip install build twine
 fi
 
