@@ -2,29 +2,29 @@
 
 from __future__ import annotations
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Union
+from typing import Dict, List, Any
 import yaml
 
 
 # Simple BaseModel that works without pydantic
 class SimpleBaseModel:
     """Simple base model for configuration validation."""
-    
+
     def __init__(self, **kwargs: Any) -> None:
         """Initialize with validation."""
         defaults = self._get_defaults()
         for key, value in defaults.items():
             setattr(self, key, value)
-        
+
         for key, value in kwargs.items():
             setattr(self, key, value)
-        
+
         self._validate()
-    
+
     def _get_defaults(self) -> Dict[str, Any]:
         """Get default values for this model."""
         return {}
-    
+
     def _validate(self) -> None:
         """Validate the configuration."""
         pass
@@ -32,7 +32,18 @@ class SimpleBaseModel:
 
 class PresetConfig(SimpleBaseModel):
     """Configuration preset with validation."""
-    
+
+    name: str
+    description: str
+    data: Dict[str, Any]
+    preprocessing: Dict[str, Any]
+    vol_adjust: Dict[str, Any]
+    sample_split: Dict[str, Any]
+    portfolio: Dict[str, Any]
+    metrics: Dict[str, Any]
+    export: Dict[str, Any]
+    run: Dict[str, Any]
+
     def _get_defaults(self) -> Dict[str, Any]:
         return {
             "name": "",
@@ -46,7 +57,7 @@ class PresetConfig(SimpleBaseModel):
             "export": {},
             "run": {},
         }
-    
+
     def _validate(self) -> None:
         """Validate preset configuration."""
         if not self.name or not self.name.strip():
@@ -55,6 +66,13 @@ class PresetConfig(SimpleBaseModel):
 
 class ColumnMapping(SimpleBaseModel):
     """Column mapping configuration for uploaded data."""
+
+    date_column: str
+    return_columns: List[str]
+    benchmark_column: str | None
+    risk_free_column: str | None
+    column_display_names: Dict[str, str]
+    column_tickers: Dict[str, str]
 
     def _get_defaults(self) -> Dict[str, Any]:
         return {
@@ -77,7 +95,13 @@ class ColumnMapping(SimpleBaseModel):
 
 class ConfigurationState(SimpleBaseModel):
     """Complete configuration state for the Streamlit app."""
-    
+
+    preset_name: str
+    column_mapping: ColumnMapping | None
+    config_dict: Dict[str, Any]
+    uploaded_data: Any
+    analysis_results: Any
+
     def _get_defaults(self) -> Dict[str, Any]:
         return {
             "preset_name": "",
@@ -86,7 +110,7 @@ class ConfigurationState(SimpleBaseModel):
             "uploaded_data": None,
             "analysis_results": None,
         }
-    
+
     def _validate(self) -> None:
         """Validate configuration state."""
         pass
@@ -97,15 +121,15 @@ def load_preset(preset_name: str) -> PresetConfig:
     # Find the config directory relative to this file
     config_dir = Path(__file__).parent.parent.parent.parent.parent / "config"
     preset_file = config_dir / f"{preset_name}.yml"
-    
+
     if not preset_file.exists():
         raise FileNotFoundError(f"Preset file not found: {preset_file}")
-    
+
     with preset_file.open("r", encoding="utf-8") as fh:
         data = yaml.safe_load(fh)
         if not isinstance(data, dict):
             raise TypeError("Preset file must contain a mapping")
-    
+
     data["name"] = preset_name
     return PresetConfig(**data)
 
@@ -113,21 +137,21 @@ def load_preset(preset_name: str) -> PresetConfig:
 def list_available_presets() -> List[str]:
     """List all available preset names."""
     config_dir = Path(__file__).parent.parent.parent.parent.parent / "config"
-    
+
     if not config_dir.exists():
         return []
-    
+
     presets = []
     for yml_file in config_dir.glob("*.yml"):
         if yml_file.name not in ["defaults.yml"]:  # Exclude defaults
             presets.append(yml_file.stem)
-    
+
     return sorted(presets)
 
 
 __all__ = [
     "PresetConfig",
-    "ColumnMapping", 
+    "ColumnMapping",
     "ConfigurationState",
     "load_preset",
     "list_available_presets",
