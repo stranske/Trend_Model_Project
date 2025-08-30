@@ -1,25 +1,25 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, Optional, Dict, List, Any, cast, Tuple
-import importlib
 import pandas as pd
 import numpy as np
+
+from trend_analysis.pipeline import single_period_run
+from trend_analysis.core.rank_selection import RiskStatsConfig
 
 from .policy_engine import PolicyConfig, CooldownBook, decide_hires_fires
 from .event_log import Event, EventLog
 from .metrics_extra import AVAILABLE_METRICS
 
-try:
-    ta_pipeline = importlib.import_module("trend_analysis.pipeline")
-    HAS_TA = True
-except Exception:
-    HAS_TA = False
-    ta_pipeline = None
-
 
 def compute_score_frame_local(
     panel: pd.DataFrame, rf_annual: float = 0.0
 ) -> pd.DataFrame:
+    """Fallback local computation of score frame metrics.
+    
+    This is used as a defensive fallback when the main trend_analysis.pipeline.single_period_run
+    fails due to data format issues. It computes a subset of metrics using local implementations.
+    """
     idx = panel.index
     out = {}
     for col in panel.columns:
@@ -45,22 +45,52 @@ def compute_score_frame(
     insample_end: pd.Timestamp,
     rf_annual: float = 0.0,
 ) -> pd.DataFrame:
-    if HAS_TA:
-        fn = getattr(ta_pipeline, "single_period_run", None)
-        if callable(fn):
-            try:
-                sf = fn(
-                    panel,
-                    insample_start.strftime("%Y-%m"),
-                    insample_end.strftime("%Y-%m"),
+    """Compute score frame using trend_analysis pipeline.
+
+    Parameters
+    ----------
+    panel : pd.DataFrame
+        Returns data with Date column
+    insample_start : pd.Timestamp
+        Start of in-sample period
+    insample_end : pd.Timestamp
+        End of in-sample period
+    rf_annual : float
+        Risk-free rate (annual)
+
+    Returns
+    -------
+    pd.DataFrame
+        Score frame with fund metrics
+    """
+    try:
+        # Convert panel to format expected by single_period_run
+        if "Date" not in panel.columns:
+            # If panel is already indexed by date, reset index to add Date column
+            panel_with_date = panel.reset_index()
+            if panel_with_date.columns[0] != "Date":
+                panel_with_date = panel_with_date.rename(
+                    columns={panel_with_date.columns[0]: "Date"}
                 )
-                # Ensure consistent DataFrame type for downstream
-                return cast(pd.DataFrame, sf)
-            except Exception:
-                pass
-    return compute_score_frame_local(
-        panel.loc[insample_start:insample_end], rf_annual=rf_annual
-    )
+        else:
+            panel_with_date = panel
+
+        # Use RiskStatsConfig to match expected interface
+        stats_cfg = RiskStatsConfig(risk_free=rf_annual)
+
+        sf = single_period_run(
+            panel_with_date,
+            insample_start.strftime("%Y-%m"),
+            insample_end.strftime("%Y-%m"),
+            stats_cfg=stats_cfg,
+        )
+        return cast(pd.DataFrame, sf)
+    except Exception:
+        # Defensive fallback: if single_period_run fails due to data format issues,
+        # fall back to local computation. This provides robustness for edge cases.
+        return compute_score_frame_local(
+            panel.loc[insample_start:insample_end], rf_annual=rf_annual
+        )
 
 
 @dataclass

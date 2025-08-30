@@ -1458,6 +1458,7 @@ full_res = pipeline.run_full(cfg)
 if not isinstance(full_res, dict):
     raise SystemExit("pipeline.run_full did not return a dict")
 
+
 # Extract metrics DataFrame from full results using helper to avoid code duplication
 def extract_metrics_df(full_res):
     stats = full_res.get("out_sample_stats", {})
@@ -1474,6 +1475,7 @@ def extract_metrics_df(full_res):
             }
         )
     return metrics_df
+
 
 metrics_df = extract_metrics_df(full_res)
 
