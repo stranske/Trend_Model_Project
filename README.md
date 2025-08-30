@@ -49,6 +49,17 @@ source .venv/bin/activate
 pip install -e .
 ```
 
+#### Optional Dependencies
+
+The project includes optional dependency groups for additional features:
+
+- **`[app]`**: Web application dependencies (includes Streamlit for the web interface)
+  ```bash
+  pip install -e ".[app]"
+  ```
+
+These optional dependencies are defined in `pyproject.toml` and can be installed as needed for specific use cases.
+
 ## Setup
 
 1. Create a virtual environment and install the required packages:
