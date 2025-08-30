@@ -102,4 +102,3 @@ st.download_button(
     file_name="summary.csv",
     mime="text/csv",
 )
-

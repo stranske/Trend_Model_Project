@@ -11,6 +11,7 @@ PyYAML
 types-PyYAML
 pytest-cov
 pytest
+hypothesis
 nbformat
 streamlit>=1.30
 streamlit-sortables

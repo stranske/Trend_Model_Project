@@ -147,6 +147,134 @@ class TestBuildStep0:
             # Verify upload observer was set
             mock_upload.observe.assert_called()
 
+    @patch("trend_analysis.gui.app.widgets")
+    @patch("trend_analysis.gui.app.list_builtin_cfgs")
+    def test_template_error_handling_missing_file(self, mock_list_cfgs, mock_widgets):
+        """Test template loading with missing file."""
+        mock_list_cfgs.return_value = ["missing_template"]
+        
+        mock_dropdown = Mock()
+        mock_widgets.FileUpload.return_value = Mock()
+        mock_widgets.Dropdown.return_value = mock_dropdown
+        mock_widgets.Label.return_value = Mock()
+        mock_widgets.Button.return_value = Mock()
+        mock_widgets.VBox.return_value = Mock()
+        mock_widgets.HBox.return_value = Mock()
+
+        store = ParamStore()
+        
+        with patch("trend_analysis.gui.app.reset_weight_state"), \
+             patch("warnings.warn") as mock_warn:
+            _build_step0(store)
+            
+            # Simulate template dropdown change with missing file
+            template_callback = mock_dropdown.observe.call_args[0][0]
+            change_event = {"new": "missing_template"}
+            
+            template_callback(change_event, store=store)
+            
+            # Verify warning was issued for missing file
+            mock_warn.assert_called()
+            warning_msg = str(mock_warn.call_args[0][0])
+            assert "Template config file not found" in warning_msg
+
+    @patch("trend_analysis.gui.app.widgets")
+    @patch("trend_analysis.gui.app.list_builtin_cfgs")
+    def test_template_error_handling_invalid_yaml(self, mock_list_cfgs, mock_widgets):
+        """Test template loading with invalid YAML."""
+        mock_list_cfgs.return_value = ["invalid_template"]
+        
+        mock_dropdown = Mock()
+        mock_widgets.FileUpload.return_value = Mock()
+        mock_widgets.Dropdown.return_value = mock_dropdown
+        mock_widgets.Label.return_value = Mock()
+        mock_widgets.Button.return_value = Mock()
+        mock_widgets.VBox.return_value = Mock()
+        mock_widgets.HBox.return_value = Mock()
+
+        store = ParamStore()
+        
+        with patch("trend_analysis.gui.app.reset_weight_state"), \
+             patch("warnings.warn") as mock_warn, \
+             patch("pathlib.Path.read_text", return_value="invalid: yaml: content: {"):
+            _build_step0(store)
+            
+            # Simulate template dropdown change with invalid YAML
+            template_callback = mock_dropdown.observe.call_args[0][0]
+            change_event = {"new": "invalid_template"}
+            
+            template_callback(change_event, store=store)
+            
+            # Verify warning was issued for invalid YAML
+            mock_warn.assert_called()
+            warning_msg = str(mock_warn.call_args[0][0])
+            assert "Invalid YAML in template config" in warning_msg
+
+    @patch("trend_analysis.gui.app.widgets")
+    @patch("trend_analysis.gui.app.list_builtin_cfgs")
+    def test_template_error_handling_permission_error(self, mock_list_cfgs, mock_widgets):
+        """Test template loading with permission error."""
+        mock_list_cfgs.return_value = ["permission_template"]
+        
+        mock_dropdown = Mock()
+        mock_widgets.FileUpload.return_value = Mock()
+        mock_widgets.Dropdown.return_value = mock_dropdown
+        mock_widgets.Label.return_value = Mock()
+        mock_widgets.Button.return_value = Mock()
+        mock_widgets.VBox.return_value = Mock()
+        mock_widgets.HBox.return_value = Mock()
+
+        store = ParamStore()
+        
+        with patch("trend_analysis.gui.app.reset_weight_state"), \
+             patch("warnings.warn") as mock_warn, \
+             patch("pathlib.Path.read_text", side_effect=PermissionError("Permission denied")):
+            _build_step0(store)
+            
+            # Simulate template dropdown change with permission error
+            template_callback = mock_dropdown.observe.call_args[0][0]
+            change_event = {"new": "permission_template"}
+            
+            template_callback(change_event, store=store)
+            
+            # Verify warning was issued for permission error
+            mock_warn.assert_called()
+            warning_msg = str(mock_warn.call_args[0][0])
+            assert "Permission denied reading template config" in warning_msg
+
+    @patch("trend_analysis.gui.app.widgets")
+    @patch("trend_analysis.gui.app.list_builtin_cfgs")
+    def test_template_loading_success(self, mock_list_cfgs, mock_widgets):
+        """Test successful template loading doesn't crash."""
+        mock_list_cfgs.return_value = ["demo"]  # Use actual existing template
+        
+        mock_dropdown = Mock()
+        mock_widgets.FileUpload.return_value = Mock()
+        mock_widgets.Dropdown.return_value = mock_dropdown
+        mock_widgets.Label.return_value = Mock()
+        mock_widgets.Button.return_value = Mock()
+        mock_widgets.VBox.return_value = Mock()
+        mock_widgets.HBox.return_value = Mock()
+
+        store = ParamStore()
+        
+        with patch("trend_analysis.gui.app.reset_weight_state"):
+            _build_step0(store)
+            
+            # Simulate template dropdown change with existing template
+            template_callback = mock_dropdown.observe.call_args[0][0]
+            change_event = {"new": "demo"}
+            
+            # This should not crash - the function should handle any errors gracefully
+            try:
+                template_callback(change_event, store=store)
+                # If it doesn't crash, the error handling works
+                success = True
+            except Exception:
+                success = False
+            
+            assert success, "Template loading should handle errors gracefully"
+
 
 class TestBuildRankOptions:
     """Test the _build_rank_options function."""

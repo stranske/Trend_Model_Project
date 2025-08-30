@@ -5,8 +5,7 @@ import time
 from pathlib import Path
 from collections.abc import Callable
 from typing import Any
-
-
+from trend_analysis.config.models import _find_config_directory
 def debounce(wait_ms: int = 300) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Return a decorator that debounces async callbacks."""
 
@@ -36,7 +35,7 @@ def debounce(wait_ms: int = 300) -> Callable[[Callable[..., Any]], Callable[...,
 
 def list_builtin_cfgs() -> list[str]:
     """Return names of built-in YAML configs bundled with the package."""
-    cfg_dir = Path(__file__).resolve().parents[3] / "config"
+    cfg_dir = _find_config_directory()
     return sorted(p.stem for p in cfg_dir.glob("*.yml"))
 
 

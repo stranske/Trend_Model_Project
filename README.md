@@ -18,13 +18,23 @@ For a beginner-friendly overview, see [docs/UserGuide.md](docs/UserGuide.md).
 Install the latest stable release from PyPI:
 
 ```bash
-pip install trend-analysis
+pip install trend-model
 ```
 
-This provides CLI commands:
+This provides the ``trend-model`` command with both GUI and pipeline modes:
+
 ```bash
-trend-analysis --help
-trend-multi-analysis --help
+trend-model run --help
+trend-model gui
+```
+
+### Via ``pipx``
+
+For an isolated installation without activating a virtual environment:
+
+```bash
+pipx install trend-model
+trend-model gui
 ```
 
 ### From Source
@@ -74,27 +84,16 @@ Replace `<patchfile>` with the patch you want to apply (for example `codex.patch
 
 ## Command-line usage
 
-You can also run the analysis pipeline directly from the command line. Invoke
-the entry point with an optional configuration file:
+The ``trend-model`` command wraps the pipeline and GUI. To run the analysis
+from a CSV file and YAML configuration:
 
 ```bash
-python -m trend_analysis.run_analysis -c path/to/config.yml
+trend-model run -c path/to/config.yml -i returns.csv
 ```
-This command invokes `main()` in `trend_analysis/run_analysis.py`.  That
-script loads the configuration via `trend_analysis.config.load()` and
-then runs the pipeline defined in `trend_analysis/pipeline.py`.
 
-The configuration file **must** define `data.csv_path` pointing to your CSV
-data. If ``-c`` is omitted, ``run_analysis`` loads
-`config/defaults.yml`, or the path set via the ``TREND_CFG`` environment
-variable:
-
-```bash
-TREND_CFG=custom.yml python -m trend_analysis.run_analysis
-```
-Here the environment variable ``TREND_CFG`` points the loader in
-``trend_analysis.config`` to your custom YAML file, ensuring the same
-``main()`` function from `run_analysis.py` uses your overrides.
+The configuration file **must** define `data.csv_path`, which is overridden by
+the ``-i`` option above. The `-c` option is **required**; you must specify a configuration file.
+If you wish to use the default configuration, provide `config/defaults.yml` as the argument to `-c`, or set the ``TREND_CFG`` environment variable to point to your desired config file.
 
 
 ## Ranking-based selection
