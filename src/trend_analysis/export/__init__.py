@@ -10,6 +10,8 @@ import inspect
 import pandas as pd
 import numpy as np
 
+from .bundle import export_bundle
+
 Formatter = Callable[[pd.DataFrame], pd.DataFrame]
 
 
@@ -454,7 +456,7 @@ EXPORTERS: dict[
 
 def metrics_from_result(res: Mapping[str, object]) -> pd.DataFrame:
     """Return a metrics DataFrame identical to :func:`pipeline.run` output."""
-    from .pipeline import _Stats  # lazy import to avoid cycle
+    from ..pipeline import _Stats  # lazy import to avoid cycle
 
     stats = cast(Mapping[str, _Stats], res.get("out_sample_stats", {}))
     df = pd.DataFrame({k: vars(v) for k, v in stats.items()}).T
@@ -475,7 +477,7 @@ def metrics_from_result(res: Mapping[str, object]) -> pd.DataFrame:
 def summary_frame_from_result(res: Mapping[str, object]) -> pd.DataFrame:
     """Return a DataFrame mirroring the Phase-1 summary table."""
 
-    from .pipeline import _Stats  # lazy import to avoid cycle
+    from ..pipeline import _Stats  # lazy import to avoid cycle
 
     def to_tuple(obj: Any) -> tuple[float, float, float, float, float, float]:
         if isinstance(obj, tuple):
@@ -549,7 +551,7 @@ def combined_summary_result(
 
     from collections import defaultdict
 
-    from .pipeline import _compute_stats, calc_portfolio_returns
+    from ..pipeline import _compute_stats, calc_portfolio_returns
 
     fund_in: dict[str, list[pd.Series]] = defaultdict(list)
     fund_out: dict[str, list[pd.Series]] = defaultdict(list)
@@ -1098,4 +1100,5 @@ __all__ = [
     "export_phase1_workbook",
     "export_phase1_multi_metrics",
     "export_multi_period_metrics",
+    "export_bundle",
 ]

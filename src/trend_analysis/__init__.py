@@ -21,6 +21,7 @@ from .export import (
     export_phase1_workbook,
     export_phase1_multi_metrics,
     export_multi_period_metrics,
+    export_bundle,
 )
 
 # Expose multi-period CLI
@@ -59,6 +60,7 @@ __all__ = [
     "export_phase1_workbook",
     "export_phase1_multi_metrics",
     "export_multi_period_metrics",
+    "export_bundle",
     "run_multi_analysis",
     "__version__",
 ]
