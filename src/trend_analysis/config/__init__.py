@@ -1,15 +1,6 @@
 """Configuration package initialization."""
 
-# Import the original config items first to maintain compatibility
-try:
-    from .. import config as _parent_config
-
-    Config = _parent_config.Config
-    load = _parent_config.load
-except ImportError:
-    # Fallback if parent config not available
-    Config = None
-    load = None
+from .models import Config, load
 
 # Import new model classes
 from .models import (
