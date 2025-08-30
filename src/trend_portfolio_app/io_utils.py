@@ -74,19 +74,19 @@ def export_bundle(results, config_dict) -> str:
     return zip_path
 
 
-def cleanup_bundle_file(cleanup_key: str) -> None:
+def cleanup_bundle_file(file_path: str) -> None:
     """
     Manually clean up a bundle file created by export_bundle.
     
     Args:
-        cleanup_key: The cleanup key returned by export_bundle
+        file_path: The path to the bundle file returned by export_bundle.
     """
     global _TEMP_FILES_TO_CLEANUP
     try:
-        if os.path.exists(cleanup_key):
-            os.remove(cleanup_key)
-        if cleanup_key in _TEMP_FILES_TO_CLEANUP:
-            _TEMP_FILES_TO_CLEANUP.remove(cleanup_key)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        if file_path in _TEMP_FILES_TO_CLEANUP:
+            _TEMP_FILES_TO_CLEANUP.remove(file_path)
     except Exception:
         # Silently ignore cleanup errors
         pass
