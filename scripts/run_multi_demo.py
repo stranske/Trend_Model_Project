@@ -1453,12 +1453,34 @@ _check_schedule(
     rank_column="MaxDrawdown",
 )
 
-# Exercise the single-period pipeline and export helpers
-metrics_df = pipeline.run(cfg)
+# Exercise the single-period pipeline and export helpers - using run_full to avoid redundant computation
+full_res = pipeline.run_full(cfg)
+if not isinstance(full_res, dict):
+    raise SystemExit("pipeline.run_full did not return a dict")
+
+# Extract metrics DataFrame from full results using helper to avoid code duplication
+def extract_metrics_df(full_res):
+    stats = full_res.get("out_sample_stats", {})
+    if not stats:
+        raise SystemExit("pipeline.run_full out_sample_stats missing")
+    metrics_df = pd.DataFrame({k: vars(v) for k, v in stats.items()}).T
+    for label, ir_map in full_res.get("benchmark_ir", {}).items():
+        col = f"ir_{label}"
+        metrics_df[col] = pd.Series(
+            {
+                k: v
+                for k, v in ir_map.items()
+                if k not in {"equal_weight", "user_weight"}
+            }
+        )
+    return metrics_df
+
+metrics_df = extract_metrics_df(full_res)
+
 if metrics_df.empty:
-    raise SystemExit("pipeline.run produced empty metrics")
+    raise SystemExit("pipeline.run_full produced empty metrics")
 if "ir_spx" not in metrics_df.columns:
-    raise SystemExit("pipeline.run missing ir_spx column")
+    raise SystemExit("pipeline.run_full missing ir_spx column")
 expected_cols = {
     "cagr",
     "vol",
@@ -1469,7 +1491,7 @@ expected_cols = {
     "ir_spx",
 }
 if set(metrics_df.columns) != expected_cols:
-    raise SystemExit("pipeline.run column mismatch")
+    raise SystemExit("pipeline.run_full column mismatch")
 out_prefix = Path("demo/exports/pipeline_demo")
 export.export_data(
     {"metrics": metrics_df},
@@ -1485,17 +1507,14 @@ if not out_prefix.with_name(f"{out_prefix.stem}_metrics.json").exists():
 if not out_prefix.with_name(f"{out_prefix.stem}_metrics.txt").exists():
     raise SystemExit("TXT export failed")
 
-full_res = pipeline.run_full(cfg)
-sf = full_res.get("score_frame") if isinstance(full_res, dict) else None
+# Additional validation of full_res content (stats already validated above)
+sf = full_res.get("score_frame")
 if sf is None or sf.empty:
     raise SystemExit("pipeline.run_full missing score_frame")
-b_ir = full_res.get("benchmark_ir", {}) if isinstance(full_res, dict) else {}
+b_ir = full_res.get("benchmark_ir", {})
 if "spx" not in b_ir or "equal_weight" not in b_ir.get("spx", {}):
     raise SystemExit("pipeline.run_full benchmark_ir missing")
-stats_map = full_res.get("out_sample_stats", {}) if isinstance(full_res, dict) else {}
-if not stats_map:
-    raise SystemExit("pipeline.run_full out_sample_stats missing")
-for obj in stats_map.values():
+for obj in stats.values():
     if not hasattr(obj, "information_ratio"):
         raise SystemExit("_Stats missing information_ratio")
 
