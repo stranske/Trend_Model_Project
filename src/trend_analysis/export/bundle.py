@@ -74,7 +74,7 @@ def export_bundle(run: Any, path: Path) -> Path:
     # ------------------------------------------------------------------
     # Charts PNGs
     # ------------------------------------------------------------------
-    eq = (1 + pd.Series(portfolio).fillna(0)).cumprod()
+    eq = (1 + portfolio.fillna(0)).cumprod()
     fig, ax = plt.subplots()
     eq.plot(ax=ax)
     ax.set_title("Equity Curve")
