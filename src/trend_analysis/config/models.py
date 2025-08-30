@@ -29,7 +29,6 @@ class SimpleBaseModel:
         """Validate the configuration."""
         pass
 
-
 class PresetConfig(SimpleBaseModel):
     """Configuration preset with validation."""
 
@@ -44,10 +43,6 @@ class PresetConfig(SimpleBaseModel):
     export: Dict[str, Any]
     run: Dict[str, Any]
 
-    def _get_defaults(self) -> Dict[str, Any]:
-        return {
-            "name": "",
-            "description": "",
             "data": {},
             "preprocessing": {},
             "vol_adjust": {},
