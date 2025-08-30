@@ -36,17 +36,17 @@ else:  # pragma: no cover - fallback when pydantic isn't installed during CI
 class Config(BaseModel):
     """Typed access to the YAML configuration."""
 
-    version: str
-    data: dict[str, Any]
-    preprocessing: dict[str, Any]
-    vol_adjust: dict[str, Any]
-    sample_split: dict[str, Any]
-    portfolio: dict[str, Any]
+    version: str = "0.1.0"
+    data: dict[str, Any] = {}
+    preprocessing: dict[str, Any] = {}
+    vol_adjust: dict[str, Any] = {}
+    sample_split: dict[str, Any] = {}
+    portfolio: dict[str, Any] = {}
     benchmarks: dict[str, str] = {}
-    metrics: dict[str, Any]
-    export: dict[str, Any]
+    metrics: dict[str, Any] = {}
+    export: dict[str, Any] = {}
     output: dict[str, Any] | None = None
-    run: dict[str, Any]
+    run: dict[str, Any] = {}
     multi_period: dict[str, Any] | None = None
     jobs: int | None = None
     checkpoint_dir: str | None = None

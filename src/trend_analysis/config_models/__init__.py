@@ -1,8 +1,10 @@
 """Configuration package initialization."""
 
-from .models import Config, load
+# Note: Config and load are imported from the parent config.py module
+# This creates a naming conflict that needs architectural resolution
+# For now, we don't re-export Config and load to avoid circular imports
 
-# Import new model classes
+# Import new model classes from this package
 from .models import (
     PresetConfig,
     ColumnMapping,
@@ -12,10 +14,8 @@ from .models import (
 )
 
 __all__ = [
-    "Config",
-    "load",  # Original config items
     "PresetConfig",
-    "ColumnMapping",
+    "ColumnMapping", 
     "ConfigurationState",
     "load_preset",
     "list_available_presets",
