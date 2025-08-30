@@ -16,13 +16,13 @@ cfg = st.session_state["sim_config"]
 def _generate_cache_key(results, config_dict) -> str:
     """Generate a cache key for the results and config."""
     # Create a hash from the portfolio data and config to detect changes
-    portfolio_hash = hashlib.md5(
+    portfolio_hash = hashlib.sha256(
         results.portfolio.to_csv().encode('utf-8')
-    ).hexdigest()[:8]
+    ).hexdigest()[:16]
     
-    config_hash = hashlib.md5(
+    config_hash = hashlib.sha256(
         str(sorted(config_dict.items())).encode('utf-8')
-    ).hexdigest()[:8]
+    ).hexdigest()[:16]
     
     return f"export_bundle_{portfolio_hash}_{config_hash}"
 
