@@ -248,11 +248,11 @@ def _find_config_directory() -> Path:
         if config_dir.is_dir() and (config_dir / "defaults.yml").exists():
             return config_dir
     
-    # Fallback to the original hardcoded path for backward compatibility
-    fallback_config = current.parents[3] / "config"  # Updated to parents[3] for new structure
-    if fallback_config.is_dir():
-        return fallback_config
-    
+    # Fallback: search all parent directories for a "config" directory with "defaults.yml"
+    for parent in current.parents:
+        config_dir = parent / "config"
+        if config_dir.is_dir() and (config_dir / "defaults.yml").exists():
+            return config_dir
     raise FileNotFoundError(
         f"Could not find 'config' directory with defaults.yml in any parent of {current}. "
         "Please ensure the config directory exists in the project structure."
