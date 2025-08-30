@@ -1,7 +1,6 @@
 """Configuration package initialization."""
 
-# Import original config items from legacy module
-from .legacy import Config, load, DEFAULTS
+from .models import Config, load, DEFAULTS, _find_config_directory
 
 # Import new model classes
 from .models import (
@@ -14,8 +13,9 @@ from .models import (
 
 __all__ = [
     "Config",
-    "load",
-    "DEFAULTS",  # Original config items
+    "load",  # Original config items
+    "DEFAULTS",
+    "_find_config_directory",  # Internal helper for testing
     "PresetConfig",
     "ColumnMapping",
     "ConfigurationState",
