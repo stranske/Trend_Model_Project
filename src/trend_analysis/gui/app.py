@@ -9,11 +9,12 @@ import ipywidgets as widgets
 from IPython.display import Javascript, display, FileLink
 from typing import Any, cast
 import pandas as pd
+import os
 
 from pathlib import Path
 from .store import ParamStore
 from .plugins import discover_plugins, iter_plugins
-from .utils import list_builtin_cfgs, debounce
+from .utils import list_builtin_cfgs, debounce, find_project_root
 from ..config import Config
 from .. import pipeline, export, weighting
 
@@ -128,7 +129,12 @@ def _build_step0(store: ParamStore) -> widgets.Widget:
 
     def on_template(change: dict[str, Any], *, store: ParamStore) -> None:
         name = change["new"]
-        cfg_dir = Path(__file__).resolve().parents[3] / "config"
+        try:
+            project_root = find_project_root()
+            cfg_dir = project_root / "config"
+        except FileNotFoundError:
+            # Fallback to original hardcoded path if root detection fails
+            cfg_dir = Path(__file__).resolve().parents[3] / "config"
         path = cfg_dir / f"{name}.yml"
         store.cfg = yaml.safe_load(path.read_text())
         store.dirty = True
