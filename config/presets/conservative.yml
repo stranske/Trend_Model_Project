@@ -1,0 +1,37 @@
+# Conservative preset configuration
+# Lower risk tolerance, longer lookback periods, fewer holdings
+name: "Conservative"
+description: "Low risk profile with stable selection criteria"
+
+# Extended lookback for stability
+lookback_months: 60
+rebalance_frequency: "quarterly"  # Less frequent rebalancing
+min_track_months: 36
+
+# Conservative selection
+selection_count: 5  # Fewer holdings for simplicity
+risk_target: 0.08  # Lower target volatility (8%)
+
+# Risk-focused metrics with higher weights on stability
+metrics:
+  sharpe_ratio: 0.4
+  max_drawdown: 0.3
+  volatility: 0.2
+  return_ann: 0.1
+
+# Conservative portfolio construction
+portfolio:
+  max_weight: 0.25  # Higher concentration allowed for conservative picks
+  cooldown_months: 6  # Longer cooldown to avoid frequent changes
+  
+# Volatility adjustment settings
+vol_adjust:
+  enabled: true
+  target_vol: 0.08
+  window:
+    length: 126  # Longer window for stability
+    
+# Sample split preferences
+sample_split:
+  method: "date"
+  date: "2018-12-31"  # More recent split for conservative approach

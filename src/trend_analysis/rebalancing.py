@@ -133,7 +133,9 @@ class TurnoverCapStrategy(RebalancingStrategy):
         executed_trades = pd.Series(0.0, index=trades.index)
 
         for asset, desired_trade, priority in trade_items:
-            if remaining_turnover <= TURNOVER_EPSILON:  # Check if remaining turnover is negligible
+            if (
+                remaining_turnover <= TURNOVER_EPSILON
+            ):  # Check if remaining turnover is negligible
                 break
 
             # Scale trade to fit remaining budget
@@ -327,6 +329,7 @@ def apply_rebalancing_strategies(
 
     return weights, total_cost
 
+
 __all__ = [
     "RebalancingStrategy",
     "TurnoverCapStrategy",
@@ -336,4 +339,3 @@ __all__ = [
     "create_rebalancing_strategy",
     "apply_rebalancing_strategies",
 ]
-
