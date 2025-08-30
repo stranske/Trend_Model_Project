@@ -1,0 +1,37 @@
+# Aggressive preset configuration
+# Higher risk tolerance with performance-focused selection  
+name: "Aggressive"
+description: "High risk-return profile for performance-oriented users"
+
+# Shorter lookback for responsiveness
+lookback_months: 24
+rebalance_frequency: "monthly"  # Frequent rebalancing for agility  
+min_track_months: 18
+
+# Aggressive selection
+selection_count: 15  # Higher diversification for opportunity capture
+risk_target: 0.15  # Higher target volatility (15%)
+
+# Performance-focused metrics
+metrics:
+  return_ann: 0.4  # Heavy weight on returns
+  sharpe_ratio: 0.3
+  max_drawdown: 0.15  # Lower concern for drawdowns
+  volatility: 0.15
+
+# Aggressive portfolio construction
+portfolio:
+  max_weight: 0.10  # Lower max weight for diversification
+  cooldown_months: 1  # Minimal cooldown for agility
+  
+# Higher volatility tolerance
+vol_adjust:
+  enabled: true
+  target_vol: 0.15
+  window:
+    length: 42  # Shorter window for responsiveness
+    
+# Earlier sample split for more out-of-sample data
+sample_split:
+  method: "date"  
+  date: "2016-12-31"  # Earlier split for more testing
