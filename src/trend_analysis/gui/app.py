@@ -11,6 +11,11 @@ from typing import Any, cast
 import pandas as pd
 
 from pathlib import Path
+
+# Define CONFIG_DIR constant for maintainable path resolution
+# Navigate from src/trend_analysis/gui/app.py to config/ directory
+CONFIG_DIR = Path(__file__).resolve().parent.parent.parent.parent / "config"
+
 from .store import ParamStore
 from .plugins import discover_plugins, iter_plugins
 from .utils import list_builtin_cfgs, debounce
@@ -128,8 +133,7 @@ def _build_step0(store: ParamStore) -> widgets.Widget:
 
     def on_template(change: dict[str, Any], *, store: ParamStore) -> None:
         name = change["new"]
-        cfg_dir = Path(__file__).resolve().parents[3] / "config"
-        path = cfg_dir / f"{name}.yml"
+        path = CONFIG_DIR / f"{name}.yml"
         store.cfg = yaml.safe_load(path.read_text())
         store.dirty = True
         reset_weight_state(store)

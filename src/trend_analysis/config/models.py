@@ -6,6 +6,11 @@ from typing import Dict, List, Any, Optional, Union
 import yaml
 
 
+# Define CONFIG_DIR constant for maintainable path resolution
+# Navigate from src/trend_analysis/config/models.py to config/ directory  
+CONFIG_DIR = Path(__file__).resolve().parent.parent.parent.parent / "config"
+
+
 # Simple BaseModel that works without pydantic
 class SimpleBaseModel:
     """Simple base model for configuration validation."""
@@ -143,12 +148,7 @@ class ConfigurationState(SimpleBaseModel):
 
 def load_preset(preset_name: str) -> PresetConfig:
     """Load a preset configuration from file."""
-    preset_path = (
-        Path(__file__).parent.parent.parent.parent
-        / "config"
-        / "presets"
-        / f"{preset_name.lower()}.yml"
-    )
+    preset_path = CONFIG_DIR / "presets" / f"{preset_name.lower()}.yml"
 
     if not preset_path.exists():
         raise FileNotFoundError(f"Preset '{preset_name}' not found at {preset_path}")
@@ -164,7 +164,7 @@ def load_preset(preset_name: str) -> PresetConfig:
 
 def list_available_presets() -> List[str]:
     """List all available preset names."""
-    presets_dir = Path(__file__).parent.parent.parent.parent / "config" / "presets"
+    presets_dir = CONFIG_DIR / "presets"
 
     if not presets_dir.exists():
         return []

@@ -6,6 +6,10 @@ from pathlib import Path
 from collections.abc import Callable
 from typing import Any
 
+# Define CONFIG_DIR constant for maintainable path resolution
+# Navigate from src/trend_analysis/gui/utils.py to config/ directory
+CONFIG_DIR = Path(__file__).resolve().parent.parent.parent.parent / "config"
+
 
 def debounce(wait_ms: int = 300) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Return a decorator that debounces async callbacks."""
@@ -36,8 +40,7 @@ def debounce(wait_ms: int = 300) -> Callable[[Callable[..., Any]], Callable[...,
 
 def list_builtin_cfgs() -> list[str]:
     """Return names of built-in YAML configs bundled with the package."""
-    cfg_dir = Path(__file__).resolve().parents[3] / "config"
-    return sorted(p.stem for p in cfg_dir.glob("*.yml"))
+    return sorted(p.stem for p in CONFIG_DIR.glob("*.yml"))
 
 
 __all__ = ["debounce", "list_builtin_cfgs"]

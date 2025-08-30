@@ -1,8 +1,9 @@
 """Configuration package initialization."""
 
-from .models import Config, load
+# Import the original Config and load from the renamed module
+from ..config_core import Config, load
 
-# Import new model classes
+# Import new model classes from models
 from .models import (
     PresetConfig,
     ColumnMapping,

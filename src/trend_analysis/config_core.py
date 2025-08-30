@@ -68,7 +68,10 @@ class Config(BaseModel):
         return dict(self.__dict__)
 
 
-DEFAULTS = Path(__file__).resolve().parents[2] / "config" / "defaults.yml"
+# Define CONFIG_DIR constant for maintainable path resolution
+# Navigate from src/trend_analysis/config_core.py to config/defaults.yml
+CONFIG_DIR = Path(__file__).resolve().parent.parent.parent / "config"
+DEFAULTS = CONFIG_DIR / "defaults.yml"
 
 
 def load(path: str | Path | None = None) -> Config:
