@@ -266,7 +266,7 @@ def load_config(src: str | Path | dict[str, Any] | None = None) -> Config:
         else:  # pragma: no cover - defensive
             raise TypeError("src must be path or mapping")
         data = _deep_update(_read_yaml(DEFAULTS), user_data)
-        if "export" in user_data and not user_data["export"]:
+        if "export" in user_data and user_data["export"] == {}:
             data["export"] = {}
 
     out_cfg = data.pop("output", None)
