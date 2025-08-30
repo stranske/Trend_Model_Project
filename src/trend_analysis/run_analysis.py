@@ -6,8 +6,8 @@ from pathlib import Path
 
 from typing import cast
 
-from trend_analysis.config import load
-from trend_analysis import pipeline, export
+from .config import load
+from . import pipeline, export
 import pandas as pd
 
 
