@@ -58,31 +58,30 @@ def main(argv: list[str] | None = None) -> int:
         if not out_dir and not out_formats:
             out_dir = "outputs"
             out_formats = ["excel"]
-        if out_dir and out_formats:
-            data = {"metrics": metrics_df}
-            if any(f.lower() in {"excel", "xlsx"} for f in out_formats):
-                sheet_formatter = export.make_summary_formatter(
-                    res,
-                    str(split.get("in_start")),
-                    str(split.get("in_end")),
-                    str(split.get("out_start")),
-                    str(split.get("out_end")),
-                )
-                data["summary"] = pd.DataFrame()
-                export.export_to_excel(
-                    data,
-                    str(Path(out_dir) / f"{filename}.xlsx"),
-                    default_sheet_formatter=sheet_formatter,
-                )
-                other = [f for f in out_formats if f.lower() not in {"excel", "xlsx"}]
-                if other:
-                    export.export_data(
-                        data, str(Path(out_dir) / filename), formats=other
-                    )
-            else:
+        data = {"metrics": metrics_df}
+        if any(f.lower() in {"excel", "xlsx"} for f in out_formats):
+            sheet_formatter = export.make_summary_formatter(
+                res,
+                str(split.get("in_start")),
+                str(split.get("in_end")),
+                str(split.get("out_start")),
+                str(split.get("out_end")),
+            )
+            data["summary"] = pd.DataFrame()
+            export.export_to_excel(
+                data,
+                str(Path(out_dir) / f"{filename}.xlsx"),
+                default_sheet_formatter=sheet_formatter,
+            )
+            other = [f for f in out_formats if f.lower() not in {"excel", "xlsx"}]
+            if other:
                 export.export_data(
-                    data, str(Path(out_dir) / filename), formats=out_formats
+                    data, str(Path(out_dir) / filename), formats=other
                 )
+        else:
+            export.export_data(
+                data, str(Path(out_dir) / filename), formats=out_formats
+            )
         return 0
 
 if __name__ == "__main__":  # pragma: no cover - manual invocation
