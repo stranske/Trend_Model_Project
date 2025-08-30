@@ -8,6 +8,7 @@ from .models import (
     load_preset,
     list_available_presets,
 )
+from .legacy import load, Config, DEFAULTS
 
 __all__ = [
     "PresetConfig",
@@ -15,4 +16,7 @@ __all__ = [
     "ConfigurationState",
     "load_preset",
     "list_available_presets",
+    "load",
+    "Config",
+    "DEFAULTS",
 ]

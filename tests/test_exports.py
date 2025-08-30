@@ -1,10 +1,6 @@
-import sys
-import pathlib
 import pandas as pd
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))  # noqa: E402
-from trend_analysis.export import (  # noqa: E402
+from trend_analysis.export import (
     export_data,
     export_to_excel,
     register_formatter_excel,
