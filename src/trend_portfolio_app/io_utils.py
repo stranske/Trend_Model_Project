@@ -33,13 +33,13 @@ atexit.register(_cleanup_temp_files)
 def export_bundle(results, config_dict) -> str:
     """
     Export analysis results as a ZIP bundle using temporary files.
-    
+
     Returns:
         Path to the created ZIP file. The file will be automatically cleaned up
         on process exit, or can be manually cleaned up using cleanup_bundle_file().
     """
     ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    
+
     # Create temporary directory for bundle contents
     with tempfile.TemporaryDirectory(prefix=f"trend_app_run_{ts}_") as temp_dir:
         # Write bundle files to temporary directory
@@ -52,11 +52,11 @@ def export_bundle(results, config_dict) -> str:
             json.dump(results.summary(), f, indent=2)
         with open(os.path.join(temp_dir, "config.json"), "w", encoding="utf-8") as f:
             json.dump(config_dict, f, indent=2, default=str)
-        
+
         # Create temporary ZIP file
         zip_fd, zip_path = tempfile.mkstemp(suffix=f"_trend_bundle_{ts}.zip")
         try:
-            with os.fdopen(zip_fd, 'wb') as zip_file:
+            with os.fdopen(zip_fd, "wb") as zip_file:
                 with zipfile.ZipFile(zip_file, "w", zipfile.ZIP_DEFLATED) as z:
                     for root, _, files in os.walk(temp_dir):
                         for name in files:
@@ -67,17 +67,17 @@ def export_bundle(results, config_dict) -> str:
             if os.path.exists(zip_path):
                 os.remove(zip_path)
             raise
-    
+
     # Register ZIP file for cleanup on exit
     _TEMP_FILES_TO_CLEANUP.append(zip_path)
-    
+
     return zip_path
 
 
 def cleanup_bundle_file(file_path: str) -> None:
     """
     Manually clean up a bundle file created by export_bundle.
-    
+
     Args:
         file_path: The path to the bundle file returned by export_bundle.
     """
