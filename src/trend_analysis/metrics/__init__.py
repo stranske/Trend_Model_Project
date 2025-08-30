@@ -293,3 +293,6 @@ sys.modules.setdefault("tests.legacy_metrics", _legacy)
 
 setattr(_bi, "annualize_return", annualize_return)
 setattr(_bi, "annualize_volatility", annualize_volatility)
+
+# Public submodule to expose summary helpers
+from . import summary  # noqa: F401
