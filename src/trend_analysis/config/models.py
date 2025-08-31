@@ -46,18 +46,20 @@ def _find_config_directory() -> Path:
 class Config(BaseModel):
     """Typed access to the YAML configuration."""
 
-    version: str
-    data: dict[str, Any]
-    preprocessing: dict[str, Any]
-    vol_adjust: dict[str, Any]
-    sample_split: dict[str, Any]
-    portfolio: dict[str, Any]
-    benchmarks: dict[str, str] = {}
-    metrics: dict[str, Any]
-    export: dict[str, Any]
-    output: dict[str, Any] | None = None
-    run: dict[str, Any]
-    multi_period: dict[str, Any] | None = None
+    model_config = ConfigDict(extra="ignore")
+
+    version: StrictStr = ""
+    data: Mapping[str, Any] = Field(default_factory=dict)
+    preprocessing: Mapping[str, Any] = Field(default_factory=dict)
+    vol_adjust: Mapping[str, Any] = Field(default_factory=dict)
+    sample_split: Mapping[str, Any] = Field(default_factory=dict)
+    portfolio: Mapping[str, Any] = Field(default_factory=dict)
+    benchmarks: Mapping[str, StrictStr] = Field(default_factory=dict)
+    metrics: Mapping[str, Any] = Field(default_factory=dict)
+    export: Mapping[str, Any] = Field(default_factory=dict)
+    output: Mapping[str, Any] | None = None
+    run: Mapping[str, Any] = Field(default_factory=dict)
+    multi_period: Mapping[str, Any] | None = None
     jobs: int | None = None
     checkpoint_dir: str | None = None
     random_seed: int | None = None
