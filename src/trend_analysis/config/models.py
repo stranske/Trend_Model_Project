@@ -243,9 +243,17 @@ DEFAULTS = Path(__file__).resolve().parents[3] / "config" / "defaults.yml"
 
 def load(path: str | Path | dict | None = None) -> Config:
     """
-    If ``path`` is ``None``, the ``TREND_CFG`` environment variable is
-    consulted before falling back to ``DEFAULTS``.
-    If ``path`` is a dict, it is used directly as configuration data.
+    Load configuration data from a file, environment variable, or dictionary.
+
+    Args:
+        path (str | Path | dict | None): The source of configuration data.
+            - If ``None``, the ``TREND_CFG`` environment variable is
+              consulted before falling back to ``DEFAULTS``.
+            - If a ``dict``, it is used directly as configuration data.
+            - If a ``str`` or ``Path``, it is interpreted as a file path to load.
+
+    Returns:
+        Config: The loaded configuration object.
     """
     if isinstance(path, dict):
         data = path.copy()
