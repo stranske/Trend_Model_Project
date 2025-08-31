@@ -49,19 +49,17 @@ source .venv/bin/activate
 pip install -e .
 ```
 
-### Docker
+#### Optional Dependencies
 
-Pull a prebuilt image and launch the Streamlit app:
+The project includes optional dependency groups for additional features:
 
-```bash
-docker run -p 8501:8501 ghcr.io/<org>/trend-model:latest
-```
+- **`[app]`**: Web application dependencies (includes Streamlit for the web interface)
+  ```bash
+  pip install -e ".[app]"
+  ```
 
-This starts the app on http://localhost:8501. Override the command to access the CLI:
+These optional dependencies are defined in `pyproject.toml` and can be installed as needed for specific use cases.
 
-```bash
-docker run --rm ghcr.io/<org>/trend-model:latest trend-model run --help
-```
 
 ## Setup
 
