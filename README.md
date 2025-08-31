@@ -60,6 +60,7 @@ The project includes optional dependency groups for additional features:
 
 These optional dependencies are defined in `pyproject.toml` and can be installed as needed for specific use cases.
 
+
 ## Setup
 
 1. Create a virtual environment and install the required packages:

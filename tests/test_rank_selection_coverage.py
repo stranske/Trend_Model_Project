@@ -3,7 +3,7 @@
 import pytest
 import pandas as pd
 import numpy as np
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, MagicMock, patch
 from trend_analysis.core.rank_selection import (
     _quality_filter,
     blended_score,
@@ -13,6 +13,13 @@ from trend_analysis.core.rank_selection import (
     RiskStatsConfig,
     DEFAULT_METRIC,
 )
+
+
+def _cm_mock() -> MagicMock:
+    m = MagicMock()
+    m.__enter__.return_value = m
+    m.__exit__.return_value = None
+    return m
 
 
 class TestQualityFilter:
@@ -253,7 +260,7 @@ class TestBuildUI:
         mock_widgets.HTML.return_value = Mock()
         mock_widgets.SelectMultiple.return_value = Mock()
         mock_widgets.Button.return_value = Mock()
-        mock_widgets.Output.return_value = Mock()
+        mock_widgets.Output.return_value = _cm_mock()
 
         result = build_ui()
         assert result == mock_vbox
@@ -267,7 +274,7 @@ class TestBuildUI:
         mock_widgets.HTML.return_value = Mock()
         mock_widgets.SelectMultiple.return_value = Mock()
         mock_widgets.Button.return_value = Mock()
-        mock_widgets.Output.return_value = Mock()
+        mock_widgets.Output.return_value = _cm_mock()
 
         build_ui()
 
