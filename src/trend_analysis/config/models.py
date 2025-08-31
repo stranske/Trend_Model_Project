@@ -3,27 +3,13 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Dict, List
 
 import yaml
 
 
-from pydantic import Field, ConfigDict, StrictStr
-
-try:  # pragma: no cover - runtime import
-    from pydantic import BaseModel
-except Exception:  # pragma: no cover - simplified stub when pydantic is missing
-
-    class BaseModel:  # type: ignore[dead-code, attr-defined]
-        """Runtime stub used when ``pydantic`` is unavailable."""
-
-        def __init__(self, **data: Any) -> None:  # pragma: no cover - trivial
-            pass
-
-        def model_dump_json(self) -> str:  # pragma: no cover - trivial
-            return "{}"
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 
 def _find_config_directory() -> Path:
@@ -47,53 +33,47 @@ class Config(BaseModel):
     """Typed access to the YAML configuration."""
 
     model_config = ConfigDict(extra="ignore")
-    version: StrictStr = ""
-    data: Mapping[str, Any] = Field(default_factory=dict)
-    preprocessing: Mapping[str, Any] = Field(default_factory=dict)
-    vol_adjust: Mapping[str, Any] = Field(default_factory=dict)
-    sample_split: Mapping[str, Any] = Field(default_factory=dict)
-    portfolio: Mapping[str, Any] = Field(default_factory=dict)
-    benchmarks: Mapping[str, StrictStr] = Field(default_factory=dict)
-    metrics: Mapping[str, Any] = Field(default_factory=dict)
-    export: Mapping[str, Any] = Field(default_factory=dict)
-    output: Mapping[str, Any] | None = None
-    run: Mapping[str, Any] = Field(default_factory=dict)
-    multi_period: Mapping[str, Any] | None = None
+    version: str = ""
+    data: dict[str, Any] = Field(default_factory=dict)
+    preprocessing: dict[str, Any] = Field(default_factory=dict)
+    vol_adjust: dict[str, Any] = Field(default_factory=dict)
+    sample_split: dict[str, Any] = Field(default_factory=dict)
+    portfolio: dict[str, Any] = Field(default_factory=dict)
+    benchmarks: dict[str, str] = Field(default_factory=dict)
+    metrics: dict[str, Any] = Field(default_factory=dict)
+    export: dict[str, Any] = Field(default_factory=dict)
+    output: dict[str, Any] | None = None
+    run: dict[str, Any] = Field(default_factory=dict)
+    multi_period: dict[str, Any] | None = None
     jobs: int | None = None
     checkpoint_dir: str | None = None
     random_seed: int | None = None
 
-    def __init__(self, **data: Any):
-        """
-        Initialize a Config instance with enhanced validation.
-
-        Parameters
-        ----------
-        **data : Any
-            Keyword arguments corresponding to configuration fields.
-
-        Validation
-        ----------
-        - Ensures "version" is a string if provided.
-        - Ensures mapping sections ("data", "preprocessing", "vol_adjust", "sample_split",
-          "portfolio", "metrics", "export", "run") are dictionaries if provided.
-        - Raises TypeError if validation fails.
-        """
-        # Validate "version" is a string
-        if "version" in data and not isinstance(data["version"], str):
+    @field_validator("version", mode="before")
+    @classmethod
+    def _ensure_version_str(cls, v: Any) -> str | Any:
+        if v is not None and not isinstance(v, str):
             raise TypeError("version must be a string")
-        # Validate mapping sections
-        dict_sections = [
-            "data", "preprocessing", "vol_adjust", "sample_split", "portfolio",
-            "metrics", "export", "run"
-        ]
-        for section in dict_sections:
-            if section in data and not isinstance(data[section], dict):
-                raise TypeError(f"{section} must be a dictionary")
-        super().__init__(**data)
-        for key, value in data.items():
-            setattr(self, key, value)
-            
+        return v
+
+    @field_validator(
+        "data",
+        "preprocessing",
+        "vol_adjust",
+        "sample_split",
+        "portfolio",
+        "metrics",
+        "export",
+        "run",
+        mode="before",
+    )
+    @classmethod
+    def _ensure_dict(cls, v: Any, info: ValidationInfo) -> dict[str, Any] | Any:
+        if not isinstance(v, dict):
+            raise TypeError(f"{info.field_name} must be a dictionary")
+        return v
+
+
 # Simple BaseModel that works without pydantic
 class SimpleBaseModel:
     """Simple base model for configuration validation."""
@@ -219,6 +199,8 @@ class ConfigurationState(SimpleBaseModel):
     def _validate(self) -> None:
         """Validate configuration state."""
         pass
+
+
 def load_preset(preset_name: str) -> PresetConfig:
     """Load a preset configuration from file."""
     # Find the config directory relative to this file
