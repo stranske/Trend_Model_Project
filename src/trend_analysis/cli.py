@@ -9,6 +9,7 @@ import pandas as pd
 from . import export, pipeline
 from .api import run_simulation
 from .data import load_csv
+from .config import load_config
 
 
 APP_PATH = Path(__file__).resolve().parents[2] / "streamlit_app" / "app.py"
