@@ -61,7 +61,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--check", action="store_true", help="Print environment info and exit"
     )
-    sub = parser.add_subparsers(dest="command")
+    sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("gui", help="Launch Streamlit interface")
 
