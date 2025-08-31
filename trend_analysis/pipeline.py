@@ -135,10 +135,7 @@ def _run_analysis(
     benchmarks: dict[str, str] | None = None,
     seed: int = 42,
 ) -> dict[str, object] | None:
-    """Internal helper powering ``run_analysis`` and ``run``.
-
-    Performs the heavy lifting for a single in/out-sample period and
-    attaches the score frame produced by :func:`single_period_run`.
+    attaches the score frame produced by :func:`_run_analysis`.
     """
     from .core.rank_selection import RiskStatsConfig, rank_select_funds
 
