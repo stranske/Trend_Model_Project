@@ -1,8 +1,8 @@
 """Tests for constants module and their usage."""
 
-import pandas as pd
 from pathlib import Path
 
+import pandas as pd
 from trend_analysis import run_analysis, run_multi_analysis, cli
 from trend_analysis.constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 
