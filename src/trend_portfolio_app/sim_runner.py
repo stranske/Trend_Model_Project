@@ -1,6 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, Optional, Dict, List, Any, cast, Tuple
+
 import pandas as pd
 import numpy as np
 
@@ -32,7 +33,7 @@ def compute_score_frame_local(
                 else:
                     val = spec["fn"](r, idx)
                 col_metrics[name] = val
-            except Exception:
+                logger.warning("Failed to compute metric '%s' for column '%s': %s", name, col, e)
                 col_metrics[name] = np.nan
         out[col] = col_metrics
     df = pd.DataFrame(out).T
@@ -287,8 +288,8 @@ class Simulator:
                     last = ec[-1] if ec else 1.0
                     ec.append(last * (1.0 + float(port_r)))
                     rb_state["equity_curve"] = ec
-            except Exception:
-                pass
+            except (ValueError, TypeError, ArithmeticError, IndexError) as e:
+                logger.warning("Failed to update equity curve at %s: %s", d, e)
 
             cooldowns.tick()
 

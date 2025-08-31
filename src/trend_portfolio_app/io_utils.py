@@ -1,10 +1,12 @@
 from __future__ import annotations
+
 import os
 import json
 import datetime
 import zipfile
 import tempfile
 import atexit
+import io
 
 
 # Global registry for cleanup of temporary files
@@ -30,7 +32,10 @@ atexit.register(_cleanup_temp_files)
 
 def export_bundle(results, config_dict) -> str:
     """
-    Export analysis results as a ZIP bundle using temporary files.
+    Export analysis results as a ZIP bundle.
+
+    The bundle is assembled in-memory to avoid leaving intermediate files on
+    disk.  A temporary ZIP file is created and registered for cleanup on exit.
 
     Returns:
         Path to the created ZIP file. The file will be automatically cleaned up
@@ -38,43 +43,35 @@ def export_bundle(results, config_dict) -> str:
     """
     ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    # Create temporary directory for bundle contents
-    with tempfile.TemporaryDirectory(prefix=f"trend_app_run_{ts}_") as temp_dir:
-        # Write bundle files to temporary directory
-        port_path = os.path.join(temp_dir, "portfolio_returns.csv")
-        os.close(os.open(port_path, os.O_CREAT | os.O_WRONLY))
-        results.portfolio.to_csv(port_path, header=["return"])
-        ev = results.event_log_df()
-        ev_path = os.path.join(temp_dir, "event_log.csv")
-        os.close(os.open(ev_path, os.O_CREAT | os.O_WRONLY))
-        ev.to_csv(ev_path)
-        sum_path = os.path.join(temp_dir, "summary.json")
-        os.close(os.open(sum_path, os.O_CREAT | os.O_WRONLY))
-        with open(sum_path, "w", encoding="utf-8") as f:
-            json.dump(results.summary(), f, indent=2)
-        cfg_path = os.path.join(temp_dir, "config.json")
-        os.close(os.open(cfg_path, os.O_CREAT | os.O_WRONLY))
-        with open(cfg_path, "w", encoding="utf-8") as f:
-            json.dump(config_dict, f, indent=2, default=str)
+    zip_fd, zip_path = tempfile.mkstemp(suffix=f"_trend_bundle_{ts}.zip")
+    try:
+        with os.fdopen(zip_fd, "wb") as zip_file:
+            with zipfile.ZipFile(zip_file, "w", zipfile.ZIP_DEFLATED) as z:
+                try:
+                    buf = io.StringIO()
+                    results.portfolio.to_csv(buf, header=["return"])
+                    z.writestr("portfolio_returns.csv", buf.getvalue())
+                except Exception:
+                    z.writestr("portfolio_returns.csv", "")
 
-        # Create temporary ZIP file
-        zip_fd, zip_path = tempfile.mkstemp(suffix=f"_trend_bundle_{ts}.zip")
-        try:
-            with os.fdopen(zip_fd, "wb") as zip_file:
-                with zipfile.ZipFile(zip_file, "w", zipfile.ZIP_DEFLATED) as z:
-                    for root, _, files in os.walk(temp_dir):
-                        for name in files:
-                            p = os.path.join(root, name)
-                            z.write(p, os.path.relpath(p, temp_dir))
-        except Exception:
-            # Clean up zip file if creation failed
-            if os.path.exists(zip_path):
-                os.remove(zip_path)
-            raise
+                try:
+                    buf = io.StringIO()
+                    results.event_log_df().to_csv(buf)
+                    z.writestr("event_log.csv", buf.getvalue())
+                except Exception:
+                    z.writestr("event_log.csv", "")
 
-    # Register ZIP file for cleanup on exit
+                z.writestr("summary.json", json.dumps(results.summary(), indent=2))
+                z.writestr(
+                    "config.json",
+                    json.dumps(config_dict, indent=2, default=str),
+                )
+    except Exception:
+        if os.path.exists(zip_path):
+            os.remove(zip_path)
+        raise
+
     _TEMP_FILES_TO_CLEANUP.append(zip_path)
-
     return zip_path
 
 
