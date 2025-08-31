@@ -64,8 +64,18 @@ class Config(BaseModel):
     checkpoint_dir: str | None = None
     random_seed: int | None = None
 
-    def __init__(self, **data: Any) -> None:  # pragma: no cover - simple assign
-        """Populate attributes from ``data`` regardless of ``BaseModel``."""
+    def __init__(self, **data: Any) -> None:
+    # Validate "version" is a string
+        if "version" in data and not isinstance(data["version"], str):
+            raise TypeError("version must be a string")
+        # Validate mapping sections
+        dict_sections = [
+            "data", "preprocessing", "vol_adjust", "sample_split", "portfolio",
+            "metrics", "export", "run"
+        ]
+        for section in dict_sections:
+            if section in data and not isinstance(data[section], dict):
+                raise TypeError(f"{section} must be a dictionary")
         super().__init__(**data)
         for key, value in data.items():
             setattr(self, key, value)
