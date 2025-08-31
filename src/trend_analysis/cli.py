@@ -11,6 +11,7 @@ from .config import load_config
 from .api import run_simulation
 from .data import load_csv
 from .config import load_config
+from .constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 
 
 APP_PATH = Path(__file__).resolve().parents[2] / "streamlit_app" / "app.py"
@@ -110,8 +111,8 @@ def main(argv: list[str] | None = None) -> int:
         out_formats = export_cfg.get("formats")
         filename = export_cfg.get("filename", "analysis")
         if not out_dir and not out_formats:
-            out_dir = "outputs"
-            out_formats = ["excel"]
+            out_dir = DEFAULT_OUTPUT_DIRECTORY
+            out_formats = DEFAULT_OUTPUT_FORMATS
         if out_dir and out_formats:
             data = {"metrics": metrics_df}
             if any(f.lower() in {"excel", "xlsx"} for f in out_formats):
