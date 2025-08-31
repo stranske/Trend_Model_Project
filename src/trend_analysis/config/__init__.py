@@ -9,7 +9,6 @@ from .models import (
     list_available_presets,
     Config,
     load,
-    load_config,
     DEFAULTS,
     _find_config_directory,
 )
@@ -22,7 +21,6 @@ __all__ = [
     "list_available_presets",
     "Config",
     "load",
-    "load_config",
     "DEFAULTS",
     "_find_config_directory",
 ]
