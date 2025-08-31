@@ -118,6 +118,17 @@ class SimpleBaseModel:
 class PresetConfig(SimpleBaseModel):
     """Configuration preset with validation."""
 
+    name: str
+    description: str
+    data: Dict[str, Any]
+    preprocessing: Dict[str, Any]
+    vol_adjust: Dict[str, Any]
+    sample_split: Dict[str, Any]
+    portfolio: Dict[str, Any]
+    metrics: Dict[str, Any]
+    export: Dict[str, Any]
+    run: Dict[str, Any]
+
     def _get_defaults(self) -> Dict[str, Any]:
         return {
             "data": {},
@@ -129,17 +140,6 @@ class PresetConfig(SimpleBaseModel):
             "export": {},
             "run": {},
         }
-
-    name: str
-    description: str
-    data: Dict[str, Any]
-    preprocessing: Dict[str, Any]
-    vol_adjust: Dict[str, Any]
-    sample_split: Dict[str, Any]
-    portfolio: Dict[str, Any]
-    metrics: Dict[str, Any]
-    export: Dict[str, Any]
-    run: Dict[str, Any]
 
     def _validate(self) -> None:
         """Validate preset configuration."""
@@ -217,7 +217,7 @@ class ConfigurationState(SimpleBaseModel):
         """Validate configuration state."""
         pass
 
-      
+
 def load_preset(preset_name: str) -> PresetConfig:
     """Load a preset configuration from file."""
     # Find the config directory relative to this file
