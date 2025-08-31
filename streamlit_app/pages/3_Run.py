@@ -16,16 +16,15 @@ sim = Simulator(df, benchmark_col=cfg["benchmark"], cash_rate_annual=cfg["cash_r
 progress = st.progress(0, "Running simulation...")
 
 results = sim.run(
-    start=cfg["start"],
-    end=cfg["end"],
+    start=cfg.get("start", df.index.min()),
+    end=cfg.get("end", df.index.max()),
     freq=cfg["freq"],
     lookback_months=cfg["lookback_months"],
     policy=policy,
     rebalance=cfg.get("rebalance", {}),
-    progress_cb=lambda i, n: (
-        progress.progress(int(100 * i / n), text=f"Running period {i}/{n}") and None
     progress_cb=lambda i, n: progress.progress(int(100 * i / n), text=f"Running period {i}/{n}"),
 )
+
 
 st.session_state["sim_results"] = results
 st.success("Done.")
