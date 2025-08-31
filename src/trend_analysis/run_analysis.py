@@ -10,6 +10,10 @@ from .config import load
 from . import pipeline, export
 import pandas as pd
 
+# Default export configuration constants
+DEFAULT_OUTPUT_DIRECTORY = "outputs"
+DEFAULT_OUTPUT_FORMATS = ["excel"]
+
 
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point for the trend analysis pipeline."""
@@ -47,11 +51,9 @@ def main(argv: list[str] | None = None) -> int:
             out_dir = export_cfg.get("directory")
             out_formats = export_cfg.get("formats")
             filename = export_cfg.get("filename", "analysis")
-            if (out_dir in {None, "results/"}) and (
-                not out_formats or out_formats == ["xlsx", "csv", "json"]
-            ):
-                out_dir = "outputs"  # pragma: no cover - defaults
-                out_formats = ["excel"]
+            if not out_dir and not out_formats:
+                out_dir = DEFAULT_OUTPUT_DIRECTORY  # pragma: no cover - defaults
+                out_formats = DEFAULT_OUTPUT_FORMATS
             if out_dir and out_formats:  # pragma: no cover - file output
                 data = {"metrics": metrics_df}
                 if any(

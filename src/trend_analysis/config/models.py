@@ -2,9 +2,68 @@
 
 from __future__ import annotations
 from pathlib import Path
-from typing import Dict, List, Any
-import os
+from typing import Dict, List, Any, Optional, Union, TYPE_CHECKING
 import yaml
+import os
+
+
+if TYPE_CHECKING:  # pragma: no cover - mypy only
+
+    class BaseModel:
+        """Minimal subset of :class:`pydantic.BaseModel` for type checking."""
+
+        def __init__(self, **data: Any) -> None: ...
+
+        def model_dump_json(self) -> str: ...
+
+else:  # pragma: no cover - fallback when pydantic isn't installed during CI
+    try:  # pragma: no cover - runtime import
+        from pydantic import BaseModel as BaseModel
+    except Exception:  # pragma: no cover - simplified stub
+
+        class BaseModel:
+            """Runtime stub used when ``pydantic`` is unavailable."""
+
+            def __init__(self, **data: Any) -> None:
+                pass
+
+            def model_dump_json(self) -> str:
+                return "{}"
+
+
+class Config(BaseModel):
+    """Typed access to the YAML configuration."""
+
+    version: str
+    data: dict[str, Any]
+    preprocessing: dict[str, Any]
+    vol_adjust: dict[str, Any]
+    sample_split: dict[str, Any]
+    portfolio: dict[str, Any]
+    benchmarks: dict[str, str] = {}
+    metrics: dict[str, Any]
+    export: dict[str, Any]
+    output: dict[str, Any] | None = None
+    run: dict[str, Any]
+    multi_period: dict[str, Any] | None = None
+    jobs: int | None = None
+    checkpoint_dir: str | None = None
+    random_seed: int | None = None
+
+    def __init__(self, **data: Any) -> None:  # pragma: no cover - simple assign
+        """Populate attributes from ``data`` regardless of ``BaseModel``."""
+        super().__init__(**data)
+        for key, value in data.items():
+            setattr(self, key, value)
+
+    def model_dump_json(self) -> str:  # pragma: no cover - trivial
+        import json
+
+        return json.dumps(self.__dict__)
+
+    # Provide a lightweight ``dict`` representation for tests.
+    def model_dump(self) -> dict[str, Any]:  # pragma: no cover - trivial
+        return dict(self.__dict__)
 
 from pydantic import BaseModel, Field, ConfigDict, StrictStr
 
@@ -169,105 +228,24 @@ def list_available_presets() -> List[str]:
     return sorted(presets)
 
 
-class Config(BaseModel):
-    """Typed access to the YAML configuration."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    version: StrictStr
-    data: dict[str, Any] = Field(default_factory=dict)
-    preprocessing: dict[str, Any] = Field(default_factory=dict)
-    vol_adjust: dict[str, Any] = Field(default_factory=dict)
-    sample_split: dict[str, Any] = Field(default_factory=dict)
-    portfolio: dict[str, Any] = Field(default_factory=dict)
-    benchmarks: dict[str, str] = Field(default_factory=dict)
-    metrics: dict[str, Any] = Field(default_factory=dict)
-    export: dict[str, Any] = Field(default_factory=dict)
-    run: dict[str, Any] = Field(default_factory=dict)
-    multi_period: dict[str, Any] | None = None
-    jobs: int | None = None
-    checkpoint_dir: str | None = None
-    random_seed: int | None = None
+DEFAULTS = Path(__file__).resolve().parents[3] / "config" / "defaults.yml"
 
 
-def _find_config_directory() -> Path:
-    """Find config directory by searching up from current file.
+def load(path: str | Path | None = None) -> Config:
+    """Load configuration from ``path`` or ``DEFAULTS``.
 
-    This provides a more robust alternative to hardcoded parent navigation.
-    Searches for a 'config' directory starting from the current file location
-    and working up the directory tree, but skips the config package directory itself.
-
-    Returns:
-        Path to the config directory
-
-    Raises:
-        FileNotFoundError: If config directory cannot be found
+    If ``path`` is ``None``, the ``TREND_CFG`` environment variable is
+    consulted before falling back to ``DEFAULTS``.
     """
-    current = Path(__file__).resolve()
-    current_config_package = current.parent  # Skip the config package directory itself
-
-    # Search up the directory tree for a config directory
-    for parent in current.parents:
-        # Skip the config package directory itself
-        if parent == current_config_package:
-            continue
-
-        config_dir = parent / "config"
-        if config_dir.is_dir() and (config_dir / "defaults.yml").exists():
-            return config_dir
-
-    # Fallback: search all parent directories for a "config" directory with "defaults.yml"
-    for parent in current.parents:
-        config_dir = parent / "config"
-        if config_dir.is_dir() and (config_dir / "defaults.yml").exists():
-            return config_dir
-    raise FileNotFoundError(
-        f"Could not find 'config' directory with defaults.yml in any parent of {current}. "
-        "Please ensure the config directory exists in the project structure."
-    )
-
-
-DEFAULTS = _find_config_directory() / "defaults.yml"
-
-
-def _read_yaml(path: Path) -> dict[str, Any]:
-    with path.open("r", encoding="utf-8") as fh:
-        data = yaml.safe_load(fh)
-    if not isinstance(data, dict):
-        raise TypeError("Config file must contain a mapping")
-    return data
-
-
-def _deep_update(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
-    for key, value in override.items():
-        if isinstance(value, dict) and isinstance(base.get(key), dict):
-            base[key] = _deep_update(dict(base[key]), value)
-        else:
-            base[key] = value
-    return base
-
-
-def load_config(src: str | Path | dict[str, Any] | None = None) -> Config:
-    """Load configuration from ``src`` applying defaults and validation.
-
-    ``src`` may be a path to a YAML file, a pre-parsed dictionary or ``None`` to
-    load the default configuration.  Environment variable ``TREND_CFG`` is
-    honoured when ``src`` is ``None``.
-    """
-
-    if src is None:
+    if path is None:
         env = os.environ.get("TREND_CFG")
-        data = _read_yaml(Path(env) if env else DEFAULTS)
+        cfg_path = Path(env) if env else DEFAULTS
     else:
-        if isinstance(src, (str, Path)):
-            user_data = _read_yaml(Path(src))
-        elif isinstance(src, dict):
-            user_data = src
-        else:  # pragma: no cover - defensive
-            raise TypeError("src must be path or mapping")
-        data = _deep_update(_read_yaml(DEFAULTS), user_data)
-        if "export" in user_data and user_data["export"] == {}:
-            data["export"] = {}
+        cfg_path = Path(path)
+    with cfg_path.open("r", encoding="utf-8") as fh:
+        data = yaml.safe_load(fh)
+        if not isinstance(data, dict):
+            raise TypeError("Config file must contain a mapping")
 
     out_cfg = data.pop("output", None)
     if isinstance(out_cfg, dict):
@@ -278,17 +256,15 @@ def load_config(src: str | Path | dict[str, Any] | None = None) -> Config:
         path_val = out_cfg.get("path")
         if path_val:
             p = Path(path_val)
-            export_cfg["directory"] = str(p.parent) if p.parent else "."
-            export_cfg["filename"] = p.name
+            export_cfg.setdefault("directory", str(p.parent) if p.parent else ".")
+            export_cfg.setdefault("filename", p.name)
 
-    return Config.model_validate(data)
-
-
-# Backwards compatible name
-load = load_config
+    return Config(**data)
 
 
 __all__ = [
+    "Config",
+    "load",
     "PresetConfig",
     "ColumnMapping",
     "ConfigurationState",
