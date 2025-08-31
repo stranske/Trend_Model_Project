@@ -1,5 +1,6 @@
 """Tests for the GUI app module to improve coverage."""
 
+import os
 import sys
 import tempfile
 import yaml  # type: ignore[import-untyped]
@@ -31,22 +32,34 @@ class TestLoadSaveState:
             test_data = {"test_key": "test_value"}
             yaml.safe_dump(test_data, f)
             f.flush()
+            temp_file_path = f.name
 
-            with patch("trend_analysis.gui.app.STATE_FILE", Path(f.name)):
+        try:
+            with patch("trend_analysis.gui.app.STATE_FILE", Path(temp_file_path)):
                 store = load_state()
                 assert isinstance(store, ParamStore)
+        finally:
+            # Clean up the temporary file
+            if os.path.exists(temp_file_path):
+                os.unlink(temp_file_path)
 
     def test_load_state_malformed_file(self):
         """Test loading state from malformed file."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
             f.write("invalid: yaml: content: {")
             f.flush()
+            temp_file_path = f.name
 
-            with patch("trend_analysis.gui.app.STATE_FILE", Path(f.name)):
+        try:
+            with patch("trend_analysis.gui.app.STATE_FILE", Path(temp_file_path)):
                 with patch("warnings.warn") as mock_warn:
                     store = load_state()
                     assert isinstance(store, ParamStore)
                     mock_warn.assert_called()
+        finally:
+            # Clean up the temporary file
+            if os.path.exists(temp_file_path):
+                os.unlink(temp_file_path)
 
     def test_save_state(self):
         """Test saving state to file."""
@@ -338,15 +351,23 @@ class TestErrorHandling:
         with tempfile.NamedTemporaryFile(mode="wb", suffix=".pkl", delete=False) as f:
             f.write(b"corrupted pickle data")
             f.flush()
+            temp_file_path = f.name
 
+        try:
             with patch("trend_analysis.gui.app.STATE_FILE") as mock_state_file:
-                with patch("trend_analysis.gui.app.WEIGHT_STATE_FILE", Path(f.name)):
+                with patch(
+                    "trend_analysis.gui.app.WEIGHT_STATE_FILE", Path(temp_file_path)
+                ):
                     mock_state_file.exists.return_value = False
 
                     with patch("warnings.warn") as mock_warn:
                         store = load_state()
                         assert isinstance(store, ParamStore)
                         mock_warn.assert_called()
+        finally:
+            # Clean up the temporary file
+            if os.path.exists(temp_file_path):
+                os.unlink(temp_file_path)
 
     @patch.dict(sys.modules, {"ipydatagrid": Mock(DataGrid=Mock())})
     @patch("trend_analysis.gui.app.HAS_DATAGRID", True)
