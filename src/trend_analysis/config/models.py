@@ -65,6 +65,7 @@ class Config(BaseModel):
     def model_dump(self) -> dict[str, Any]:  # pragma: no cover - trivial
         return dict(self.__dict__)
 
+
 from pydantic import BaseModel, Field, ConfigDict, StrictStr
 
 
@@ -262,6 +263,15 @@ def load(path: str | Path | None = None) -> Config:
     return Config(**data)
 
 
+def _find_config_directory() -> Path:
+    """Find the config directory relative to this module."""
+    return Path(__file__).resolve().parents[3] / "config"
+
+
+# Alias for backward compatibility
+load_config = load
+
+
 __all__ = [
     "Config",
     "load",
@@ -274,4 +284,5 @@ __all__ = [
     "load_config",
     "load",
     "DEFAULTS",
+    "_find_config_directory",
 ]

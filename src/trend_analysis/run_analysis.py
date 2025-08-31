@@ -8,11 +8,8 @@ from typing import cast
 
 from .config import load
 from . import pipeline, export
+from .constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 import pandas as pd
-
-# Default export configuration constants
-DEFAULT_OUTPUT_DIRECTORY = "outputs"
-DEFAULT_OUTPUT_FORMATS = ["excel"]
 
 
 def main(argv: list[str] | None = None) -> int:
