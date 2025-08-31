@@ -1,10 +1,12 @@
 """Configuration models for Streamlit Configure page validation."""
 
 from __future__ import annotations
+
+import os
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Dict, List
 
-import os
 import yaml
 
 
@@ -25,20 +27,20 @@ except Exception:  # pragma: no cover - simplified stub when pydantic is missing
 
 
 def _find_config_directory() -> Path:
-    """Locate the project's ``config`` directory.
+    """Locate the project's configuration directory.
 
-    Starting from this file's location, walk up the directory hierarchy and
-    look for a sibling ``config`` directory containing ``defaults.yml``.
-    The first match is returned.  A :class:`FileNotFoundError` is raised if no
-    suitable directory is found.
+    Starting from this file's location, walk up the directory tree until a
+    ``config`` directory containing ``defaults.yml`` is found. If no suitable
+    directory is discovered, a :class:`FileNotFoundError` is raised.
     """
 
-    current_file = Path(__file__).resolve()
-    for parent in current_file.parents:
+    current = Path(__file__).resolve()
+    for parent in current.parents:
         candidate = parent / "config"
         if candidate.is_dir() and (candidate / "defaults.yml").exists():
             return candidate
-    raise FileNotFoundError("Could not find 'config' directory with defaults.yml")
+
+    raise FileNotFoundError("Could not find 'config' directory")
 
 
 class Config(BaseModel):
@@ -201,24 +203,6 @@ class ConfigurationState(SimpleBaseModel):
     def _validate(self) -> None:
         """Validate configuration state."""
         pass
-
-
-def _find_config_directory() -> Path:
-    """Locate the project's configuration directory.
-
-    Starting from this file's location, walk up the directory tree until a
-    ``config`` directory containing ``defaults.yml`` is found. If no suitable
-    directory is discovered, a :class:`FileNotFoundError` is raised.
-    """
-    current = Path(__file__).resolve()
-    for parent in current.parents:
-        candidate = parent / "config"
-        if candidate.is_dir() and (candidate / "defaults.yml").exists():
-            return candidate
-
-    raise FileNotFoundError("Could not find 'config' directory")
-
-
 def load_preset(preset_name: str) -> PresetConfig:
     """Load a preset configuration from file."""
     # Find the config directory relative to this file
@@ -253,15 +237,6 @@ def list_available_presets() -> List[str]:
 
 
 DEFAULTS = Path(__file__).resolve().parents[3] / "config" / "defaults.yml"
-
-
-def load_config(cfg: dict[str, Any] | str | Path) -> Config:
-    """Load configuration from a mapping or file path."""
-    if isinstance(cfg, (str, Path)):
-        return load(cfg)
-    if isinstance(cfg, dict):
-        return Config(**cfg)
-    raise TypeError("cfg must be a mapping or path")
 
 
 def load(path: str | Path | None = None) -> Config:
