@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Dict, List
 
 import yaml
 
 
-from pydantic import Field, ConfigDict, StrictStr
+from pydantic import Field, ConfigDict, field_validator
 
 try:  # pragma: no cover - runtime import
     from pydantic import BaseModel
@@ -46,7 +45,13 @@ def _find_config_directory() -> Path:
 class Config(BaseModel):
     """Typed access to the YAML configuration."""
 
-    version: str
+    model_config = ConfigDict(extra="ignore")
+
+    version: str = Field(
+        ...,
+        description="Configuration schema version (required for validation)",
+        min_length=1,
+    )
     data: dict[str, Any]
     preprocessing: dict[str, Any]
     vol_adjust: dict[str, Any]
@@ -61,6 +66,17 @@ class Config(BaseModel):
     jobs: int | None = None
     checkpoint_dir: str | None = None
     random_seed: int | None = None
+
+    @field_validator("version")
+    @classmethod
+    def validate_version_not_empty(cls, v: str) -> str:
+        """Ensure version is not empty or whitespace-only."""
+        if not v.strip():
+            raise ValueError(
+                "Version field cannot be empty - "
+                "configuration files must specify their version"
+            )
+        return v
 
     def __init__(self, **data: Any) -> None:  # pragma: no cover - simple assign
         """Populate attributes from ``data`` regardless of ``BaseModel``."""
@@ -203,6 +219,8 @@ class ConfigurationState(SimpleBaseModel):
     def _validate(self) -> None:
         """Validate configuration state."""
         pass
+
+
 def load_preset(preset_name: str) -> PresetConfig:
     """Load a preset configuration from file."""
     # Find the config directory relative to this file
