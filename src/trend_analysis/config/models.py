@@ -74,7 +74,7 @@ class Config(BaseModel):
 
     if _HAS_PYDANTIC:
         model_config = ConfigDict(extra="ignore")
-        version: str = ""
+        version: str = Field(min_length=1)
         data: dict[str, Any] = Field(default_factory=dict)
         preprocessing: dict[str, Any] = Field(default_factory=dict)
         vol_adjust: dict[str, Any] = Field(default_factory=dict)
@@ -95,6 +95,14 @@ class Config(BaseModel):
         def _ensure_version_str(cls, v: Any) -> str:
             if v is not None and not isinstance(v, str):
                 raise TypeError("version must be a string")
+            return v
+
+        @field_validator("version")
+        @classmethod
+        def _version_not_blank(cls, v: str) -> str:
+            """Reject whitespace-only version strings with a clear message."""
+            if v is None or not str(v).strip():
+                raise ValueError("Version field cannot be empty")
             return v
 
         @field_validator(
