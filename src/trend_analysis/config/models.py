@@ -51,14 +51,14 @@ class Config(BaseModel):
         description="Configuration schema version (required for validation)",
         min_length=1,
     )
-    data: dict[str, Any]
-    preprocessing: dict[str, Any]
-    vol_adjust: dict[str, Any]
-    sample_split: dict[str, Any]
-    portfolio: dict[str, Any]
+    data: dict[str, Any] = Field(default_factory=dict)
+    preprocessing: dict[str, Any] = Field(default_factory=dict)
+    vol_adjust: dict[str, Any] = Field(default_factory=dict)
+    sample_split: dict[str, Any] = Field(default_factory=dict)
+    portfolio: dict[str, Any] = Field(default_factory=dict)
     benchmarks: dict[str, str] = {}
-    metrics: dict[str, Any]
-    export: dict[str, Any]
+    metrics: dict[str, Any] = Field(default_factory=dict)
+    export: dict[str, Any] = Field(default_factory=dict)
     output: dict[str, Any] | None = None
     run: dict[str, Any] = Field(default_factory=dict)
     multi_period: dict[str, Any] | None = None
