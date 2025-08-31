@@ -217,7 +217,7 @@ class ConfigurationState(SimpleBaseModel):
         """Validate configuration state."""
         pass
 
-      
+
 def load_preset(preset_name: str) -> PresetConfig:
     """Load a preset configuration from file."""
     # Find the config directory relative to this file
