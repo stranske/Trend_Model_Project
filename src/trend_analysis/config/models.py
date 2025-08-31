@@ -72,103 +72,54 @@ def _find_config_directory() -> Path:
 class Config(BaseModel):
     """Typed access to the YAML configuration."""
 
-    if _HAS_PYDANTIC:
-        model_config = ConfigDict(extra="ignore")
-        version: str = Field(min_length=1)
-        data: dict[str, Any] = Field(default_factory=dict)
-        preprocessing: dict[str, Any] = Field(default_factory=dict)
-        vol_adjust: dict[str, Any] = Field(default_factory=dict)
-        sample_split: dict[str, Any] = Field(default_factory=dict)
-        portfolio: dict[str, Any] = Field(default_factory=dict)
-        benchmarks: dict[str, str] = Field(default_factory=dict)
-        metrics: dict[str, Any] = Field(default_factory=dict)
-        export: dict[str, Any] = Field(default_factory=dict)
-        output: dict[str, Any] | None = None
-        run: dict[str, Any] = Field(default_factory=dict)
-        multi_period: dict[str, Any] | None = None
-        jobs: int | None = None
-        checkpoint_dir: str | None = None
-        random_seed: int | None = None
+    model_config = ConfigDict(extra="ignore")
+    version: str
+    data: dict[str, Any] = Field(default_factory=dict)
+    preprocessing: dict[str, Any] = Field(default_factory=dict)
+    vol_adjust: dict[str, Any] = Field(default_factory=dict)
+    sample_split: dict[str, Any] = Field(default_factory=dict)
+    portfolio: dict[str, Any] = Field(default_factory=dict)
+    benchmarks: dict[str, str] = Field(default_factory=dict)
+    metrics: dict[str, Any] = Field(default_factory=dict)
+    export: dict[str, Any] = Field(default_factory=dict)
+    output: dict[str, Any] | None = None
+    run: dict[str, Any] = Field(default_factory=dict)
+    multi_period: dict[str, Any] | None = None
+    jobs: int | None = None
+    checkpoint_dir: str | None = None
+    random_seed: int | None = None
 
-        @field_validator("version", mode="before")
-        @classmethod
-        def _ensure_version_str(cls, v: Any) -> str:
-            if v is not None and not isinstance(v, str):
-                raise TypeError("version must be a string")
-            return v
+    @field_validator("version", mode="before")
+    @classmethod
+    def _ensure_version_str(cls, v: Any) -> str:
+        """Ensure ``version`` is always a string.
 
-        @field_validator("version")
-        @classmethod
-        def _version_not_blank(cls, v: str) -> str:
-            """Reject whitespace-only version strings with a clear message."""
-            if v is None or not str(v).strip():
-                raise ValueError("Version field cannot be empty")
-            return v
+        ``pydantic`` will attempt to coerce values after this "before" validator
+        runs. To provide a clearer error for callers we explicitly reject all
+        non-string inputs *including* ``None`` and raise ``TypeError``. This
+        matches the expectations of the property-based tests which verify that
+        any non-string value results in a ``TypeError``.
+        """
+        if not isinstance(v, str):
+            raise TypeError("version must be a string")
+        return v
 
-        @field_validator(
-            "data",
-            "preprocessing",
-            "vol_adjust",
-            "sample_split",
-            "portfolio",
-            "metrics",
-            "export",
-            "run",
-            mode="before",
-        )
-        @classmethod
-        def _ensure_dict(cls, v: Any, info: ValidationInfo) -> dict[str, Any]:
-            if not isinstance(v, dict):
-                raise TypeError(f"{info.field_name} must be a dictionary")
-            return v
-
-    else:
-        # Fallback initialization when pydantic is not available
-        def __init__(self, **kwargs):
-            # Set defaults
-            self.version = kwargs.get("version", "")
-            self.data = kwargs.get("data", {})
-            self.preprocessing = kwargs.get("preprocessing", {})
-            self.vol_adjust = kwargs.get("vol_adjust", {})
-            self.sample_split = kwargs.get("sample_split", {})
-            self.portfolio = kwargs.get("portfolio", {})
-            self.benchmarks = kwargs.get("benchmarks", {})
-            self.metrics = kwargs.get("metrics", {})
-            self.export = kwargs.get("export", {})
-            self.output = kwargs.get("output", None)
-            self.run = kwargs.get("run", {})
-            self.multi_period = kwargs.get("multi_period", None)
-            self.jobs = kwargs.get("jobs", None)
-            self.checkpoint_dir = kwargs.get("checkpoint_dir", None)
-            self.random_seed = kwargs.get("random_seed", None)
-
-            # Set any additional attributes
-            for key, value in kwargs.items():
-                if not hasattr(self, key):
-                    setattr(self, key, value)
-
-            # Basic validation
-            self._validate()
-
-        def _validate(self):
-            """Basic validation when pydantic is not available."""
-            if self.version is not None and not isinstance(self.version, str):
-                raise TypeError("version must be a string")
-
-            dict_fields = [
-                "data",
-                "preprocessing",
-                "vol_adjust",
-                "sample_split",
-                "portfolio",
-                "metrics",
-                "export",
-                "run",
-            ]
-            for field_name in dict_fields:
-                value = getattr(self, field_name)
-                if not isinstance(value, dict):
-                    raise TypeError(f"{field_name} must be a dictionary")
+    @field_validator(
+        "data",
+        "preprocessing",
+        "vol_adjust",
+        "sample_split",
+        "portfolio",
+        "metrics",
+        "export",
+        "run",
+        mode="before",
+    )
+    @classmethod
+    def _ensure_dict(cls, v: Any, info: ValidationInfo) -> dict[str, Any]:
+        if not isinstance(v, dict):
+            raise TypeError(f"{info.field_name} must be a dictionary")
+        return v
 
 
 # Simple BaseModel that works without pydantic
