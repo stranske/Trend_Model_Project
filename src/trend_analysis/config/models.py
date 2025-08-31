@@ -68,7 +68,7 @@ class Config(BaseModel):
         mode="before",
     )
     @classmethod
-    def _ensure_dict(cls, v: Any, info: ValidationInfo) -> dict[str, Any] | Any:
+    def _ensure_dict(cls, v: Any, info: ValidationInfo) -> dict[str, Any]:
         if not isinstance(v, dict):
             raise TypeError(f"{info.field_name} must be a dictionary")
         return v
