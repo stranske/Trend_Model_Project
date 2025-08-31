@@ -34,7 +34,7 @@ class Config(BaseModel):
     """Typed access to the YAML configuration."""
 
     model_config = ConfigDict(extra="ignore")
-    version: str = ""
+    version: str
     data: dict[str, Any] = Field(default_factory=dict)
     preprocessing: dict[str, Any] = Field(default_factory=dict)
     vol_adjust: dict[str, Any] = Field(default_factory=dict)
@@ -53,7 +53,15 @@ class Config(BaseModel):
     @field_validator("version", mode="before")
     @classmethod
     def _ensure_version_str(cls, v: Any) -> str:
-        if v is not None and not isinstance(v, str):
+        """Ensure ``version`` is always a string.
+
+        ``pydantic`` will attempt to coerce values after this "before" validator
+        runs. To provide a clearer error for callers we explicitly reject all
+        non-string inputs *including* ``None`` and raise ``TypeError``. This
+        matches the expectations of the property-based tests which verify that
+        any non-string value results in a ``TypeError``.
+        """
+        if not isinstance(v, str):
             raise TypeError("version must be a string")
         return v
 
