@@ -1,0 +1,4 @@
+# file: /home/runner/work/Trend_Model_Project/Trend_Model_Project/src/trend_analysis/run_multi_analysis.py
+# hypothesis_version: 6.138.8
+
+['--config', '--detailed', '-c', 'Combined Summary', 'No results', 'Path to YAML config', '__main__', 'analysis', 'directory', 'excel', 'filename', 'formats', 'outputs', 'period', 'store_true', 'trend-analysis-multi']

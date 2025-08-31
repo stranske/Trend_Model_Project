@@ -1,0 +1,4 @@
+# file: /home/runner/work/Trend_Model_Project/Trend_Model_Project/src/trend_analysis/viz/charts.py
+# hypothesis_version: 6.138.8
+
+[0.0, 1.0, 'drawdown', 'equity', 'rolling_ir', 'turnover']

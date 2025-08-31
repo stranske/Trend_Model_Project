@@ -1,0 +1,4 @@
+# file: /home/runner/work/Trend_Model_Project/Trend_Model_Project/src/trend_analysis/pipeline.py
+# hypothesis_version: 6.138.8
+
+[-1.0, 0.0, 1.0, 100, 'Date', 'RiskStatsConfig', 'Stats', 'all', 'benchmark_ir', 'benchmark_stats', 'csv_path', 'custom_weights', 'enabled', 'equal_weight', 'ew', 'ew_weights', 'fund_weights', 'in_end', 'in_ew_stats', 'in_sample', 'in_sample_scaled', 'in_sample_stats', 'in_start', 'in_user_stats', 'indices_list', 'insample_len', 'manual', 'manual_list', 'max_consecutive_gap', 'monthly_cost', 'na_as_zero_cfg', 'out_end', 'out_ew_stats', 'out_ew_stats_raw', 'out_sample', 'out_sample_scaled', 'out_sample_stats', 'out_sample_stats_raw', 'out_start', 'out_user_stats', 'out_user_stats_raw', 'period', 'random', 'random_n', 'random_seed', 'rank', 'registry', 'run', 'run_analysis', 'run_full', 'score_frame', 'selected_funds', 'selection_mode', 'single_period_run', 'target_vol', 'user', 'user_weight']

@@ -1,0 +1,4 @@
+# file: /home/runner/work/Trend_Model_Project/Trend_Model_Project/src/trend_analysis/metrics/__init__.py
+# hypothesis_version: 6.138.8
+
+[0.0, 'P', 'R', 'annual_return', 'annualize_return', 'annualize_volatility', 'benchmark', 'info_', 'info_ratio', 'information_', 'information_ratio', 'max_drawdown', 'metric', 'sharpe_ratio', 'sortino_ratio', 'tests.legacy_metrics', 'volatility']

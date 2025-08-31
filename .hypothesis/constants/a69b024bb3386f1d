@@ -1,0 +1,4 @@
+# file: /home/runner/work/Trend_Model_Project/Trend_Model_Project/src/trend_analysis/data.py
+# hypothesis_version: 6.138.8
+
+[100.0, '%', '%m/%d/%y', ',', '-\\1', 'Date', 'Risk-free column: %s', '^\\((.*)\\)$', 'coerce', 'ensure_datetime', 'load_csv', 'number']

@@ -1,0 +1,4 @@
+# file: /home/runner/work/Trend_Model_Project/Trend_Model_Project/src/trend_analysis/cli.py
+# hypothesis_version: 6.138.8
+
+['--config', '--input', '-c', '-i', 'No results', 'Path to YAML config', 'Path to returns CSV', '__main__', 'analysis', 'app.py', 'command', 'directory', 'excel', 'filename', 'formats', 'gui', 'in_end', 'in_start', 'metrics', 'out_end', 'out_start', 'outputs', 'run', 'streamlit', 'streamlit_app', 'summary', 'trend-model', 'xlsx']

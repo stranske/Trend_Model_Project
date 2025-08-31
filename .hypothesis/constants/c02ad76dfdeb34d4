@@ -1,0 +1,4 @@
+# file: /home/runner/work/Trend_Model_Project/Trend_Model_Project/src/trend_portfolio_app/io_utils.py
+# hypothesis_version: 6.138.8
+
+['%Y%m%d_%H%M%S', 'config.json', 'event_log.csv', 'return', 'summary.json', 'w', 'wb']

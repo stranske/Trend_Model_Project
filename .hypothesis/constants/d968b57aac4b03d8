@@ -1,0 +1,4 @@
+# file: /home/runner/work/Trend_Model_Project/Trend_Model_Project/src/trend_analysis/metrics/summary.py
+# hypothesis_version: 6.138.8
+
+[0.0, 'CAGR', 'hit_rate', 'index', 'information_ratio', 'max_drawdown', 'sharpe', 'summary_table', 'turnover', 'value', 'vol']

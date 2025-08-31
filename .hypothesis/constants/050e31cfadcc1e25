@@ -1,0 +1,4 @@
+# file: /home/runner/work/Trend_Model_Project/Trend_Model_Project/src/trend_portfolio_app/policy_engine.py
+# hypothesis_version: 6.138.8
+
+[0.0, 0.1, 1.0, 100, '_score', 'add_rules', 'add_streak', 'bottom_k', 'ci_level', 'confidence_interval', 'cooldown_months', 'drop_rules', 'drop_streak', 'fire', 'hire', 'max_active', 'max_weight', 'metrics', 'min_tenure_n', 'min_track_months', 'sticky_add_x', 'sticky_drop_y', 'sticky_rank_window', 'threshold_hold', 'top_k']

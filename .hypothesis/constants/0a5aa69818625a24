@@ -1,0 +1,4 @@
+# file: /home/runner/work/Trend_Model_Project/Trend_Model_Project/src/trend_analysis/weighting.py
+# hypothesis_version: 6.138.8
+
+[0.0, 0.2, 0.25, 0.5, 1.0, 10000, 'BaseWeighting', 'EqualWeight', 'ScorePropBayesian', 'ScorePropSimple', 'Sharpe', 'equal', 'mean', 'tau', 'weight']

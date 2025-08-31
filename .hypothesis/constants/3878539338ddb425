@@ -1,0 +1,4 @@
+# file: /home/runner/work/Trend_Model_Project/Trend_Model_Project/src/trend_portfolio_app/metrics_extra.py
+# hypothesis_version: 6.138.8
+
+[0.0, 1e-12, 1.0, 365.25, 100, 'dd_duration', 'drawdown', 'fn', 'higher_is_better', 'hit_rate', 'return_ann', 'sharpe', 'sortino', 'ulcer', 'vol']

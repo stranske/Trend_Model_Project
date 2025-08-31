@@ -1,0 +1,4 @@
+# file: /home/runner/work/Trend_Model_Project/Trend_Model_Project/src/trend_portfolio_app/sim_runner.py
+# hypothesis_version: 6.138.8
+
+[0.0, 1e-12, 1e-09, 0.005, 0.03, 0.05, 0.1, 0.2, 0.5, 1.0, 1.5, '%Y-%m', 'M', 'Q', 'ann_return_approx', 'band_pct', 'bayesian_only', 'dd_duration', 'dd_threshold', 'dd_window', 'drawdown', 'drawdown_guard', 'drift_band', 'equity_curve', 'fire', 'fn', 'guard_multiplier', 'guard_on', 'hire', 'ignore', 'information_ratio', 'interval', 'lev_max', 'lev_min', 'max_drawdown', 'max_turnover', 'min_trade', 'mode', 'params', 'partial', 'periodic_rebalance', 'q', 'recover_threshold', 'sharpe', 'since_last_reb', 'single_period_run', 'sortino', 'strategies', 'target', 'total_return', 'turnover_cap', 'ulcer', 'vol', 'vol_target_rebalance', 'window']

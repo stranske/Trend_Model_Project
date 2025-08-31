@@ -1,0 +1,4 @@
+# file: /home/runner/work/Trend_Model_Project/Trend_Model_Project/src/trend_analysis/api.py
+# hypothesis_version: 6.138.8
+
+[0.0, 1.0, 'all', 'benchmark_ir', 'custom_weights', 'equal_weight', 'in_end', 'in_start', 'indices_list', 'manual_list', 'monthly_cost', 'out_end', 'out_sample_stats', 'out_start', 'random_n', 'random_seed', 'rank', 'registry', 'run', 'run_simulation end', 'run_simulation start', 'selection_mode', 'target_vol', 'user_weight']

@@ -1,0 +1,4 @@
+# file: /home/runner/work/Trend_Model_Project/Trend_Model_Project/src/trend_analysis/multi_period/scheduler.py
+# hypothesis_version: 6.138.8
+
+['A', 'M', 'ME', 'PeriodTuple', 'Q', 'QE', 'YE', 'end', 'frequency', 'in_end', 'in_sample_len', 'in_start', 'multi_period', 'out_end', 'out_sample_len', 'out_start', 'start']

@@ -1,0 +1,4 @@
+# file: /home/runner/work/Trend_Model_Project/Trend_Model_Project/src/trend_portfolio_app/data_schema.py
+# hypothesis_version: 6.138.8
+
+['.xls', '.xlsx', 'AGG', 'BENCH', 'BOND', 'Date', 'IDX', 'INDEX', 'M', 'S&P', 'SP-500', 'SP500', 'SPX', 'TSX', 'all', 'coerce', 'name']

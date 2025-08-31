@@ -1,0 +1,4 @@
+# file: /home/runner/work/Trend_Model_Project/Trend_Model_Project/src/trend_analysis/multi_period/replacer.py
+# hypothesis_version: 6.138.8
+
+[-1.0, 0.0, 1e-09, 1.0, 'bayes', 'constraints', 'entry_soft_strikes', 'equal', 'ignore', 'max_funds', 'params', 'portfolio', 'score_bayes', 'score_prop_bayes', 'soft_strikes', 'threshold_hold', 'weighting', 'z_entry_hard', 'z_entry_soft', 'z_exit_hard', 'z_exit_soft', 'zscore']

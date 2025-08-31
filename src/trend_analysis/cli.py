@@ -9,7 +9,7 @@ import pandas as pd
 from . import export, pipeline
 from .api import run_simulation
 from .data import load_csv
-from .config import load_config
+from .config import load
 
 
 APP_PATH = Path(__file__).resolve().parents[2] / "streamlit_app" / "app.py"
@@ -34,7 +34,7 @@ def main(argv: list[str] | None = None) -> int:
         return result.returncode
 
     if args.command == "run":
-        cfg = load_config(args.config)
+        cfg = load(args.config)
         df = load_csv(args.input)
         split = cfg.sample_split
         required_keys = {"in_start", "in_end", "out_start", "out_end"}

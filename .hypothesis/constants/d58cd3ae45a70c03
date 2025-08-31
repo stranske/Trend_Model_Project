@@ -1,0 +1,4 @@
+# file: /home/runner/work/Trend_Model_Project/Trend_Model_Project/src/trend_analysis/export/bundle.py
+# hypothesis_version: 6.138.8
+
+[8192, '0', 'Agg', 'Drawdown', 'Equity Curve', 'HEAD', 'README.txt', 'Z', 'benchmark', 'benchmark.csv', 'charts', 'config', 'created', 'drawdown.png', 'equity_curve.png', 'git', 'git_hash', 'input_path', 'input_sha256', 'portfolio', 'portfolio.csv', 'python', 'rb', 'receipt', 'results', 'return', 'rev-parse', 'run_meta.json', 'seed', 'summary', 'summary.xlsx', 'total_return', 'trend-analysis', 'trend_analysis', 'utf-8', 'versions', 'w', 'weights', 'weights.csv']

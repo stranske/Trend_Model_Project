@@ -28,10 +28,10 @@ invalid_values = st.one_of(
 @given(field=st.sampled_from(_DICT_SECTIONS), val=invalid_values)
 def test_sections_require_mappings(field, val):
     with pytest.raises(ValidationError):
-        config.load_config({field: val})
+        config.load({field: val})
 
 
 @given(val=invalid_values)
 def test_version_must_be_string(val):
     with pytest.raises(ValidationError):
-        config.load_config({"version": val})
+        config.load({"version": val})
