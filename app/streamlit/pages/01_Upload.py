@@ -33,9 +33,11 @@ except ImportError:
     # Fallback to local import
     import importlib.util
 
+    import os
+    state_path = os.path.join(os.path.dirname(__file__), "..", "state.py")
     spec = importlib.util.spec_from_file_location(
         "state",
-        "/home/runner/work/Trend_Model_Project/Trend_Model_Project/app/streamlit/state.py",
+        os.path.abspath(state_path),
     )
     state_module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(state_module)
