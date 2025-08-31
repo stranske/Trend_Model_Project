@@ -35,6 +35,7 @@ def compute_score_frame_local(
                 else:
                     val = spec["fn"](r, idx)
                 col_metrics[name] = val
+            except Exception as e:
                 logger.warning("Failed to compute metric '%s' for column '%s': %s", name, col, e)
                 col_metrics[name] = np.nan
         out[col] = col_metrics
