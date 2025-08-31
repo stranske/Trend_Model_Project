@@ -8,7 +8,6 @@ import pandas as pd
 
 from . import export, pipeline
 from .api import run_simulation
-from .config import load_config
 from .data import load_csv
 
 
