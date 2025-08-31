@@ -49,17 +49,16 @@ source .venv/bin/activate
 pip install -e .
 ```
 
-#### Optional Dependencies
+If package installation fails due to network issues, the CLI is still available via:
 
-The project includes optional dependency groups for additional features:
+```bash
+# Use the development wrapper script
+./scripts/trend-model run --help
+./scripts/trend-model gui
 
-- **`[app]`**: Web application dependencies (includes Streamlit for the web interface)
-  ```bash
-  pip install -e ".[app]"
-  ```
-
-These optional dependencies are defined in `pyproject.toml` and can be installed as needed for specific use cases.
-
+# Or run the module directly  
+PYTHONPATH="./src" python -m trend_analysis.cli run --help
+```
 
 ## Setup
 
@@ -100,7 +99,11 @@ The ``trend-model`` command wraps the pipeline and GUI. To run the analysis
 from a CSV file and YAML configuration:
 
 ```bash
+# If package is installed
 trend-model run -c path/to/config.yml -i returns.csv
+
+# During development (always works)
+./scripts/trend-model run -c path/to/config.yml -i returns.csv
 ```
 
 The configuration file **must** define `data.csv_path`, which is overridden by
