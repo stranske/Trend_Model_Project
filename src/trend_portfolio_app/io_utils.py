@@ -70,11 +70,8 @@ def export_bundle(results, config_dict) -> str:
             json.dump(config_dict, f, indent=2, default=str)
 
         # Create temporary ZIP file
-        with tempfile.NamedTemporaryFile(
-            suffix=f"_trend_bundle_{ts}.zip", delete=False
-        ) as temp_zip:
-            zip_path = temp_zip.name
-
+        fd, zip_path = tempfile.mkstemp(suffix=f"_trend_bundle_{ts}.zip")
+        os.close(fd)
         # Write ZIP content
         try:
             with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
