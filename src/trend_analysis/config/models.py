@@ -241,21 +241,27 @@ def list_available_presets() -> List[str]:
 DEFAULTS = Path(__file__).resolve().parents[3] / "config" / "defaults.yml"
 
 
-def load(path: str | Path | None = None) -> Config:
-    """Load configuration from ``path`` or ``DEFAULTS``.
-
+def load(path=None):
+    """
     If ``path`` is ``None``, the ``TREND_CFG`` environment variable is
     consulted before falling back to ``DEFAULTS``.
+    If ``path`` is a dict, it is used directly as configuration data.
     """
-    if path is None:
+    if isinstance(path, dict):
+        data = path.copy()
+    elif path is None:
         env = os.environ.get("TREND_CFG")
         cfg_path = Path(env) if env else DEFAULTS
+        with cfg_path.open("r", encoding="utf-8") as fh:
+            data = yaml.safe_load(fh)
+            if not isinstance(data, dict):
+                raise TypeError("Config file must contain a mapping")
     else:
         cfg_path = Path(path)
-    with cfg_path.open("r", encoding="utf-8") as fh:
-        data = yaml.safe_load(fh)
-        if not isinstance(data, dict):
-            raise TypeError("Config file must contain a mapping")
+        with cfg_path.open("r", encoding="utf-8") as fh:
+            data = yaml.safe_load(fh)
+            if not isinstance(data, dict):
+                raise TypeError("Config file must contain a mapping")
 
     out_cfg = data.pop("output", None)
     if isinstance(out_cfg, dict):
