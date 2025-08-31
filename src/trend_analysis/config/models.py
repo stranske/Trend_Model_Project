@@ -47,7 +47,6 @@ class Config(BaseModel):
     """Typed access to the YAML configuration."""
 
     model_config = ConfigDict(extra="ignore")
-
     version: StrictStr = ""
     data: Mapping[str, Any] = Field(default_factory=dict)
     preprocessing: Mapping[str, Any] = Field(default_factory=dict)
@@ -64,22 +63,37 @@ class Config(BaseModel):
     checkpoint_dir: str | None = None
     random_seed: int | None = None
 
-    def __init__(self, **data: Any) -> None:  # pragma: no cover - simple assign
-        """Populate attributes from ``data`` regardless of ``BaseModel``."""
+    def __init__(self, **data: Any):
+        """
+        Initialize a Config instance with enhanced validation.
+
+        Parameters
+        ----------
+        **data : Any
+            Keyword arguments corresponding to configuration fields.
+
+        Validation
+        ----------
+        - Ensures "version" is a string if provided.
+        - Ensures mapping sections ("data", "preprocessing", "vol_adjust", "sample_split",
+          "portfolio", "metrics", "export", "run") are dictionaries if provided.
+        - Raises TypeError if validation fails.
+        """
+        # Validate "version" is a string
+        if "version" in data and not isinstance(data["version"], str):
+            raise TypeError("version must be a string")
+        # Validate mapping sections
+        dict_sections = [
+            "data", "preprocessing", "vol_adjust", "sample_split", "portfolio",
+            "metrics", "export", "run"
+        ]
+        for section in dict_sections:
+            if section in data and not isinstance(data[section], dict):
+                raise TypeError(f"{section} must be a dictionary")
         super().__init__(**data)
         for key, value in data.items():
             setattr(self, key, value)
-
-    def model_dump_json(self) -> str:  # pragma: no cover - trivial
-        import json
-
-        return json.dumps(self.__dict__)
-
-    # Provide a lightweight ``dict`` representation for tests.
-    def model_dump(self) -> dict[str, Any]:  # pragma: no cover - trivial
-        return dict(self.__dict__)
-
-
+            
 # Simple BaseModel that works without pydantic
 class SimpleBaseModel:
     """Simple base model for configuration validation."""
