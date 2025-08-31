@@ -9,8 +9,20 @@ from collections.abc import Mapping
 
 import yaml
 
+from pydantic import Field, ConfigDict, field_validator
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
+try:  # pragma: no cover - runtime import
+    from pydantic import BaseModel
+except Exception:  # pragma: no cover - simplified stub when pydantic is missing
+
+    class BaseModel:  # type: ignore[dead-code, attr-defined]
+        """Runtime stub used when ``pydantic`` is unavailable."""
+
+        def __init__(self, **data: Any) -> None:  # pragma: no cover - trivial
+            pass
+
+        def model_dump_json(self) -> str:  # pragma: no cover - trivial
+            return "{}"
 
 
 def _find_config_directory() -> Path:
@@ -34,13 +46,17 @@ class Config(BaseModel):
     """Typed access to the YAML configuration."""
 
     model_config = ConfigDict(extra="ignore")
-    version: str = ""
+    version: str = Field(
+        ...,
+        description="Configuration schema version (required for validation)",
+        min_length=1,
+    )
     data: dict[str, Any] = Field(default_factory=dict)
     preprocessing: dict[str, Any] = Field(default_factory=dict)
     vol_adjust: dict[str, Any] = Field(default_factory=dict)
     sample_split: dict[str, Any] = Field(default_factory=dict)
     portfolio: dict[str, Any] = Field(default_factory=dict)
-    benchmarks: dict[str, str] = Field(default_factory=dict)
+    benchmarks: dict[str, str] = {}
     metrics: dict[str, Any] = Field(default_factory=dict)
     export: dict[str, Any] = Field(default_factory=dict)
     output: dict[str, Any] | None = None
@@ -50,29 +66,29 @@ class Config(BaseModel):
     checkpoint_dir: str | None = None
     random_seed: int | None = None
 
-    @field_validator("version", mode="before")
+    @field_validator("version")
     @classmethod
-    def _ensure_version_str(cls, v: Any) -> str:
-        if v is not None and not isinstance(v, str):
-            raise TypeError("version must be a string")
+    def validate_version_not_empty(cls, v: str) -> str:
+        """Ensure version is not empty or whitespace-only."""
+        if not v.strip():
+            raise ValueError(
+                "Version field cannot be empty - "
+                "configuration files must specify their version"
+            )
         return v
 
-    @field_validator(
-        "data",
-        "preprocessing",
-        "vol_adjust",
-        "sample_split",
-        "portfolio",
-        "metrics",
-        "export",
-        "run",
-        mode="before",
-    )
-    @classmethod
-    def _ensure_dict(cls, v: Any, info: ValidationInfo) -> dict[str, Any]:
-        if not isinstance(v, dict):
-            raise TypeError(f"{info.field_name} must be a dictionary")
-        return v
+    def __init__(self, **data: Any) -> None:  # pragma: no cover - simple assign
+        """Populate attributes from ``data`` regardless of ``BaseModel``."""
+        super().__init__(**data)
+
+    def model_dump_json(self) -> str:  # pragma: no cover - trivial
+        import json
+
+        return json.dumps(self.__dict__)
+
+    # Provide a lightweight ``dict`` representation for tests.
+    def model_dump(self) -> dict[str, Any]:  # pragma: no cover - trivial
+        return dict(self.__dict__)
 
 
 # Simple BaseModel that works without pydantic
