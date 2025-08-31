@@ -1,12 +1,7 @@
-import sys
-import pathlib
+import pandas as pd
+import numpy as np
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))  # noqa: E402
-from trend_analysis import metrics  # noqa: E402
-
-import pandas as pd  # noqa: E402
-import numpy as np  # noqa: E402
+from trend_analysis import metrics
 
 
 def test_annualize_return_series():

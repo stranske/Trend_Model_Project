@@ -1,6 +1,8 @@
+import pandas as pd
 import streamlit as st
-from trend_portfolio_app.sim_runner import Simulator
-from trend_portfolio_app.policy_engine import PolicyConfig
+
+from trend_analysis.api import run_simulation
+from trend_analysis.config import Config
 
 st.title("Run")
 
@@ -10,23 +12,34 @@ if "returns_df" not in st.session_state or "sim_config" not in st.session_state:
 
 df = st.session_state["returns_df"]
 cfg = st.session_state["sim_config"]
-policy = PolicyConfig(**cfg["policy"])
 
-sim = Simulator(df, benchmark_col=cfg["benchmark"], cash_rate_annual=cfg["cash_rate"])
+# Ensure 'Date' column exists for the pipeline
+returns = df.reset_index().rename(columns={df.index.name or "index": "Date"})
+
 progress = st.progress(0, "Running simulation...")
+lookback = cfg.get("lookback_months", 0)
+start = cfg["start"]
+end = cfg["end"]
 
-results = sim.run(
-    start=cfg["start"],
-    end=cfg["end"],
-    freq=cfg["freq"],
-    lookback_months=cfg["lookback_months"],
-    policy=policy,
-    rebalance=cfg.get("rebalance", {}),
-    progress_cb=lambda i, n: (
-        progress.progress(int(100 * i / n), text=f"Running period {i}/{n}") and None
-    progress_cb=lambda i, n: progress.progress(int(100 * i / n), text=f"Running period {i}/{n}"),
+config = Config(
+    version="1",
+    data={},
+    preprocessing={},
+    vol_adjust={"target_vol": cfg.get("risk_target", 1.0)},
+    sample_split={
+        "in_start": (start - pd.DateOffset(months=lookback)).strftime("%Y-%m"),
+        "in_end": (start - pd.DateOffset(months=1)).strftime("%Y-%m"),
+        "out_start": start.strftime("%Y-%m"),
+        "out_end": end.strftime("%Y-%m"),
+    },
+    portfolio={},
+    metrics={},
+    export={},
+    run={},
 )
 
-st.session_state["sim_results"] = results
+result = run_simulation(config, returns)
+progress.progress(100)
+st.session_state["sim_results"] = result
 st.success("Done.")
-st.write("Summary:", results.summary())
+st.write("Summary:", result.metrics)

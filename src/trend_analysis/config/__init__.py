@@ -1,22 +1,28 @@
 """Configuration package initialization."""
 
-from .models import Config, load
-
-# Import new model classes
+# Re-export commonly used configuration models and helpers
 from .models import (
     PresetConfig,
     ColumnMapping,
     ConfigurationState,
     load_preset,
     list_available_presets,
+    load_config,
+    Config,
+    load,
+    load_config,
+    DEFAULTS,
+    _find_config_directory,
 )
+# Removed import from .legacy as all symbols are available from .models
 
 __all__ = [
-    "Config",
-    "load",  # Original config items
     "PresetConfig",
     "ColumnMapping",
     "ConfigurationState",
     "load_preset",
     "list_available_presets",
+    "load",
+    "Config",
+    "DEFAULTS",
 ]

@@ -6,8 +6,9 @@ from pathlib import Path
 
 from typing import cast
 
-from trend_analysis.config import load
-from trend_analysis import pipeline, export
+from .config import load
+from . import pipeline, export
+from .constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 import pandas as pd
 
 
@@ -48,8 +49,8 @@ def main(argv: list[str] | None = None) -> int:
             out_formats = export_cfg.get("formats")
             filename = export_cfg.get("filename", "analysis")
             if not out_dir and not out_formats:
-                out_dir = "outputs"  # pragma: no cover - defaults
-                out_formats = ["excel"]
+                out_dir = DEFAULT_OUTPUT_DIRECTORY  # pragma: no cover - defaults
+                out_formats = DEFAULT_OUTPUT_FORMATS
             if out_dir and out_formats:  # pragma: no cover - file output
                 data = {"metrics": metrics_df}
                 if any(

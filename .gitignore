@@ -16,6 +16,7 @@ __pycache__/
 .coverage
 outputs/
 .venv/
+.hypothesis/
 
 # demo output
 demo/*.xlsx
