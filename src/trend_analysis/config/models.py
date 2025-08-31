@@ -2,33 +2,40 @@
 
 from __future__ import annotations
 from pathlib import Path
-from typing import Dict, List, Any, TYPE_CHECKING
-import yaml
+from typing import Any, Dict, List
+
 import os
+import yaml
+
+try:  # pragma: no cover - runtime import
+    from pydantic import BaseModel
+except Exception:  # pragma: no cover - simplified stub when pydantic is missing
+
+    class BaseModel:  # type: ignore[dead-code, attr-defined]
+        """Runtime stub used when ``pydantic`` is unavailable."""
+
+        def __init__(self, **data: Any) -> None:  # pragma: no cover - trivial
+            pass
+
+        def model_dump_json(self) -> str:  # pragma: no cover - trivial
+            return "{}"
 
 
-if TYPE_CHECKING:  # pragma: no cover - mypy only
+def _find_config_directory() -> Path:
+    """Locate the project's ``config`` directory.
 
-    class BaseModel:
-        """Minimal subset of :class:`pydantic.BaseModel` for type checking."""
+    Starting from this file's location, walk up the directory hierarchy and
+    look for a sibling ``config`` directory containing ``defaults.yml``.
+    The first match is returned.  A :class:`FileNotFoundError` is raised if no
+    suitable directory is found.
+    """
 
-        def __init__(self, **data: Any) -> None: ...
-
-        def model_dump_json(self) -> str: ...
-
-else:  # pragma: no cover - fallback when pydantic isn't installed during CI
-    try:  # pragma: no cover - runtime import
-        from pydantic import BaseModel as BaseModel
-    except Exception:  # pragma: no cover - simplified stub
-
-        class BaseModel:
-            """Runtime stub used when ``pydantic`` is unavailable."""
-
-            def __init__(self, **data: Any) -> None:
-                pass
-
-            def model_dump_json(self) -> str:
-                return "{}"
+    current_file = Path(__file__).resolve()
+    for parent in current_file.parents:
+        candidate = parent / "config"
+        if candidate.is_dir() and (candidate / "defaults.yml").exists():
+            return candidate
+    raise FileNotFoundError("Could not find 'config' directory with defaults.yml")
 
 
 class Config(BaseModel):
@@ -285,6 +292,16 @@ def load(path: str | Path | None = None) -> Config:
     return Config(**data)
 
 
+def load_config(cfg: dict[str, Any] | str | Path) -> Config:
+    """Load ``Config`` from a mapping or YAML file path."""
+
+    if isinstance(cfg, (str, Path)):
+        return load(cfg)
+    if isinstance(cfg, dict):
+        return Config(**cfg)
+    raise TypeError("Config must be mapping or path")
+
+
 __all__ = [
     "Config",
     "load",
@@ -293,7 +310,9 @@ __all__ = [
     "ConfigurationState",
     "load_preset",
     "list_available_presets",
+    "Config",
+    "load",
     "load_config",
-    "_find_config_directory",
     "DEFAULTS",
+    "_find_config_directory",
 ]

@@ -7,6 +7,7 @@ from pathlib import Path
 import pandas as pd
 
 from . import export, pipeline
+from .config import load_config
 from .api import run_simulation
 from .data import load_csv
 from .config import load_config
