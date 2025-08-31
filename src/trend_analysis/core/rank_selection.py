@@ -13,6 +13,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import re
 from typing import Any, Callable, Dict, List, Iterable, cast
+
+# Compiled regex pattern for better performance when processing large files
+_FIRM_NAME_TOKENIZER = re.compile(r"[^A-Za-z]+")
 from ..export import Formatter
 import io
 import numpy as np
@@ -134,7 +137,7 @@ def rank_select_funds(
         #  - tokenize on non-letters
         #  - if the first token seems like a brand/acronym (ALL CAPS or short), use it
         #  - otherwise use the first two tokens
-        tokens = [t for t in re.split(r"[^A-Za-z]+", str(name)) if t]
+        tokens = [t for t in _FIRM_NAME_TOKENIZER.split(str(name)) if t]
         if not tokens:
             return str(name).strip().lower()
         t0 = tokens[0]
