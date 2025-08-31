@@ -74,7 +74,7 @@ class Config(BaseModel):
 
     if _HAS_PYDANTIC:
         model_config = ConfigDict(extra="ignore")
-        version: str = Field("", min_length=1)
+        version: str = Field(min_length=1)
         data: dict[str, Any] = Field(default_factory=dict)
         preprocessing: dict[str, Any] = Field(default_factory=dict)
         vol_adjust: dict[str, Any] = Field(default_factory=dict)
