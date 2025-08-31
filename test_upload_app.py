@@ -4,9 +4,10 @@ import streamlit as st
 import sys
 import os
 
-# Add paths for our modules
-sys.path.append('/home/runner/work/Trend_Model_Project/Trend_Model_Project/src')
-sys.path.append('/home/runner/work/Trend_Model_Project/Trend_Model_Project/app')
+# Add paths for our modules using relative paths
+base_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.join(base_dir, '..', 'src'))
+sys.path.append(os.path.join(base_dir, '..', 'app'))
 
 st.set_page_config(
     page_title="Trend Analysis Upload Test", 
