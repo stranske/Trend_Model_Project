@@ -1,12 +1,12 @@
 from __future__ import annotations
+
 import os
 import json
 import datetime
 import zipfile
 import tempfile
-import shutil
 import atexit
-from typing import Tuple
+import io
 
 
 # Global registry for cleanup of temporary files
@@ -32,7 +32,10 @@ atexit.register(_cleanup_temp_files)
 
 def export_bundle(results, config_dict) -> str:
     """
-    Export analysis results as a ZIP bundle using temporary files.
+    Export analysis results as a ZIP bundle.
+
+    The bundle is assembled in-memory to avoid leaving intermediate files on
+    disk.  A temporary ZIP file is created and registered for cleanup on exit.
 
     Returns:
         Path to the created ZIP file. The file will be automatically cleaned up
@@ -72,9 +75,7 @@ def export_bundle(results, config_dict) -> str:
                 os.remove(zip_path)
             raise
 
-    # Register ZIP file for cleanup on exit
     _TEMP_FILES_TO_CLEANUP.append(zip_path)
-
     return zip_path
 
 
