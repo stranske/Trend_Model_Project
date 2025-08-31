@@ -237,19 +237,11 @@ def list_available_presets() -> List[str]:
 DEFAULTS = Path(__file__).resolve().parents[3] / "config" / "defaults.yml"
 
 
-def load(path: str | Path | dict | None = None) -> Config:
+def load(path=None):
     """
-    Load configuration data from a file, environment variable, or dictionary.
-
-    Args:
-        path (str | Path | dict | None): The source of configuration data.
-            - If ``None``, the ``TREND_CFG`` environment variable is
-              consulted before falling back to ``DEFAULTS``.
-            - If a ``dict``, it is used directly as configuration data.
-            - If a ``str`` or ``Path``, it is interpreted as a file path to load.
-
-    Returns:
-        Config: The loaded configuration object.
+    If ``path`` is ``None``, the ``TREND_CFG`` environment variable is
+    consulted before falling back to ``DEFAULTS``.
+    If ``path`` is a dict, it is used directly as configuration data.
     """
     if isinstance(path, dict):
         data = path.copy()
