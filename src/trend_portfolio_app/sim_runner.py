@@ -59,9 +59,13 @@ def compute_score_frame(
                 )
                 # Ensure consistent DataFrame type for downstream
                 return cast(pd.DataFrame, sf)
-            except (ValueError, TypeError, ImportError, AttributeError) as e:
+            except (ImportError, AttributeError) as e:
                 logger.warning(
-                    "External scoring function failed, falling back to local: %s", e
+                    "External scoring function unavailable or misconfigured (ImportError/AttributeError): %s. Falling back to local implementation.", e
+                )
+            except (ValueError, TypeError) as e:
+                logger.warning(
+                    "External scoring function failed due to invalid parameters or data (ValueError/TypeError): %s. Falling back to local implementation.", e
                 )
     return compute_score_frame_local(
         panel.loc[insample_start:insample_end], rf_annual=rf_annual
