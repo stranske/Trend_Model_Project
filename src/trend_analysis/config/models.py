@@ -152,7 +152,7 @@ class Config(BaseModel):
 
         def _validate(self):
             """Basic validation when pydantic is not available."""
-            if self.version is not None and not isinstance(self.version, str):
+            if not isinstance(self.version, str) or not self.version.strip():
                 raise TypeError("version must be a string")
 
             dict_fields = [
