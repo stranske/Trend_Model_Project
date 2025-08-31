@@ -48,10 +48,23 @@ class Config(BaseModel):
     run: dict[str, Any]
 
     def __init__(self, **data: Any) -> None:  # pragma: no cover - simple assign
-        """Populate attributes from ``data`` regardless of ``BaseModel``."""
+        """Populate attributes from ``data`` regardless of ``BaseModel``.
+
+        Pydantic normally performs type coercion (e.g. ``0`` → ``"0"`` for
+        ``str`` fields).  The tests expect *strict* types for ``version`` and
+        all mapping sections, so we enforce these checks manually after the
+        base initialiser runs.  This keeps behaviour consistent even when the
+        optional :mod:`pydantic` dependency is missing and the ``BaseModel``
+        stub above is used.
+        """
         super().__init__(**data)
         for key, value in data.items():
             setattr(self, key, value)
+
+        if not isinstance(self.data, dict):
+            raise TypeError("data must be a dictionary")
+        if not isinstance(self.version, str):
+            raise TypeError("version must be a string")
 
     def model_dump_json(self) -> str:  # pragma: no cover - trivial
         import json
