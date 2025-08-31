@@ -91,9 +91,6 @@ class Config(BaseModel):
         return dict(self.__dict__)
 
 
-from pydantic import BaseModel, Field, ConfigDict, StrictStr
-
-
 # Simple BaseModel that works without pydantic
 class SimpleBaseModel:
     """Simple base model for configuration validation."""
