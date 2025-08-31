@@ -5,7 +5,8 @@ import time
 from pathlib import Path
 from collections.abc import Callable
 from typing import Any
-from trend_analysis.config.models import _find_config_directory
+# Use a relative import to avoid potential circular dependencies
+from ..config.models import _find_config_directory
 def debounce(wait_ms: int = 300) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Return a decorator that debounces async callbacks."""
 

@@ -1,12 +1,13 @@
-from __future__ import annotations
-
 import argparse
+import platform
 import subprocess
+from importlib import metadata
 from pathlib import Path
 
 import pandas as pd
 
 from . import export, pipeline
+from .config import load_config
 from .api import run_simulation
 from .data import load_csv
 from .config import load_config
@@ -14,13 +15,55 @@ from .constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 
 
 APP_PATH = Path(__file__).resolve().parents[2] / "streamlit_app" / "app.py"
+LOCK_PATH = Path(__file__).resolve().parents[2] / "requirements.lock"
+
+
+def check_environment(lock_path: Path | None = None) -> int:
+    """Print Python and package versions, reporting mismatches."""
+
+    lock_file = lock_path or LOCK_PATH
+    print(f"Python {platform.python_version()}")
+    if not lock_file.exists():
+        print(f"Lock file not found: {lock_file}")
+        return 1
+
+    mismatches: list[tuple[str, str | None, str]] = []
+    for line in lock_file.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "==" not in line:
+            continue
+        name, expected = line.split("==", 1)
+        name = name.strip()
+        expected = expected.split()[0]
+        try:
+            installed = metadata.version(name)
+        except metadata.PackageNotFoundError:
+            installed = None
+        line_out = f"{name} {installed or 'not installed'} (expected {expected})"
+        print(line_out)
+        if installed != expected:
+            mismatches.append((name, installed, expected))
+
+    if mismatches:
+        print("Mismatches detected:")
+        for name, installed, expected in mismatches:
+            print(f"- {name}: installed {installed or 'none'}, expected {expected}")
+        return 1
+
+    print("All packages match lockfile.")
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
     """Entry point for the ``trend-model`` command."""
 
     parser = argparse.ArgumentParser(prog="trend-model")
-    sub = parser.add_subparsers(dest="command", required=True)
+    parser.add_argument(
+        "--check", action="store_true", help="Print environment info and exit"
+    )
+    sub = parser.add_subparsers(dest="command")
 
     sub.add_parser("gui", help="Launch Streamlit interface")
 
@@ -29,6 +72,9 @@ def main(argv: list[str] | None = None) -> int:
     run_p.add_argument("-i", "--input", required=True, help="Path to returns CSV")
 
     args = parser.parse_args(argv)
+
+    if args.check:
+        return check_environment()
 
     if args.command == "gui":
         result = subprocess.run(["streamlit", "run", str(APP_PATH)])
