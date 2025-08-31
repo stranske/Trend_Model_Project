@@ -64,8 +64,22 @@ class Config(BaseModel):
     checkpoint_dir: str | None = None
     random_seed: int | None = None
 
-    def __init__(self, **data: Any) -> None:
-    # Validate "version" is a string
+        """
+        Initialize a Config instance with enhanced validation.
+
+        Parameters
+        ----------
+        **data : Any
+            Keyword arguments corresponding to configuration fields.
+
+        Validation
+        ----------
+        - Ensures "version" is a string if provided.
+        - Ensures mapping sections ("data", "preprocessing", "vol_adjust", "sample_split",
+          "portfolio", "metrics", "export", "run") are dictionaries if provided.
+        - Raises TypeError if validation fails.
+        """
+        # Validate "version" is a string
         if "version" in data and not isinstance(data["version"], str):
             raise TypeError("version must be a string")
         # Validate mapping sections
