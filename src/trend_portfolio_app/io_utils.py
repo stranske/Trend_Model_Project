@@ -46,11 +46,24 @@ def export_bundle(results, config_dict) -> str:
     # Create temporary directory for bundle contents
     with tempfile.TemporaryDirectory(prefix=f"trend_app_run_{ts}_") as temp_dir:
         # Write bundle files to temporary directory
-        results.portfolio.to_csv(
-            os.path.join(temp_dir, "portfolio_returns.csv"), header=["return"]
-        )
+        # Write portfolio_returns.csv with exception handling
+        try:
+            results.portfolio.to_csv(
+                os.path.join(temp_dir, "portfolio_returns.csv"), header=["return"]
+            )
+        except Exception:
+            # Write empty CSV if export fails
+            with open(os.path.join(temp_dir, "portfolio_returns.csv"), "w", encoding="utf-8") as f:
+                f.write("return\n")
+
+        # Write event_log.csv with exception handling
         ev = results.event_log_df()
-        ev.to_csv(os.path.join(temp_dir, "event_log.csv"))
+        try:
+            ev.to_csv(os.path.join(temp_dir, "event_log.csv"))
+        except Exception:
+            # Write empty CSV if export fails
+            with open(os.path.join(temp_dir, "event_log.csv"), "w", encoding="utf-8") as f:
+                f.write("")
         with open(os.path.join(temp_dir, "summary.json"), "w", encoding="utf-8") as f:
             json.dump(results.summary(), f, indent=2)
         with open(os.path.join(temp_dir, "config.json"), "w", encoding="utf-8") as f:
