@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Development wrapper for trend-model CLI
+# Makes 'trend-model' command available without requiring package installation
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+# Set PYTHONPATH to include the src directory
+export PYTHONPATH="${PROJECT_ROOT}/src:${PYTHONPATH}"
+
+# Activate virtual environment if it exists
+if [ -f "${PROJECT_ROOT}/.venv/bin/activate" ]; then
+    source "${PROJECT_ROOT}/.venv/bin/activate"
+fi
+
+# Run the CLI module with all arguments passed through
+exec python -m trend_analysis.cli "$@"

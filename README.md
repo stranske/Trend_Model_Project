@@ -49,6 +49,17 @@ source .venv/bin/activate
 pip install -e .
 ```
 
+If package installation fails due to network issues, the CLI is still available via:
+
+```bash
+# Use the development wrapper script
+./scripts/trend-model run --help
+./scripts/trend-model gui
+
+# Or run the module directly  
+PYTHONPATH="./src" python -m trend_analysis.cli run --help
+```
+
 ## Setup
 
 1. Create a virtual environment and install the required packages:
@@ -88,7 +99,11 @@ The ``trend-model`` command wraps the pipeline and GUI. To run the analysis
 from a CSV file and YAML configuration:
 
 ```bash
+# If package is installed
 trend-model run -c path/to/config.yml -i returns.csv
+
+# During development (always works)
+./scripts/trend-model run -c path/to/config.yml -i returns.csv
 ```
 
 The configuration file **must** define `data.csv_path`, which is overridden by
