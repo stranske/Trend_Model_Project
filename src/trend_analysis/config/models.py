@@ -65,6 +65,7 @@ class Config(BaseModel):
     def model_dump(self) -> dict[str, Any]:  # pragma: no cover - trivial
         return dict(self.__dict__)
 
+
 from pydantic import BaseModel, Field, ConfigDict, StrictStr
 
 
