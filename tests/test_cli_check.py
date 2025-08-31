@@ -7,7 +7,9 @@ from pathlib import Path
 import pandas as pd
 
 PKG_PATH = Path(__file__).resolve().parents[1] / "src" / "trend_analysis"
-sys.path.insert(0, str(PKG_PATH.parent))
+pkg = types.ModuleType("trend_analysis")
+pkg.__path__ = [str(PKG_PATH)]
+sys.modules.setdefault("trend_analysis", pkg)
 cli = importlib.import_module("trend_analysis.cli")
 
 
