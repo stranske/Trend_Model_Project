@@ -24,8 +24,7 @@ def _normalize_lockfile_content(content: str) -> str:
             # Use regex to detect comment lines that likely contain variable content
 
             # First check for uv command patterns and normalize them
-                r"^#\s*uv pip compile.*-o\s+\S+", line
-            ):  # Command with output file
+            if re.search(r"^#\s*uv pip compile.*-o\s+\S+", line):  # Command with output file
                 # Replace with normalized version
                 normalized_lines.append(
                     "#    uv pip compile pyproject.toml -o requirements.lock"
