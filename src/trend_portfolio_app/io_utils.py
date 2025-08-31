@@ -54,14 +54,18 @@ def export_bundle(results, config_dict) -> str:
             json.dump(config_dict, f, indent=2, default=str)
 
         # Create temporary ZIP file
-        zip_fd, zip_path = tempfile.mkstemp(suffix=f"_trend_bundle_{ts}.zip")
+        with tempfile.NamedTemporaryFile(
+            suffix=f"_trend_bundle_{ts}.zip", delete=False
+        ) as temp_zip:
+            zip_path = temp_zip.name
+
+        # Write ZIP content
         try:
-            with os.fdopen(zip_fd, "wb") as zip_file:
-                with zipfile.ZipFile(zip_file, "w", zipfile.ZIP_DEFLATED) as z:
-                    for root, _, files in os.walk(temp_dir):
-                        for name in files:
-                            p = os.path.join(root, name)
-                            z.write(p, os.path.relpath(p, temp_dir))
+            with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
+                for root, _, files in os.walk(temp_dir):
+                    for name in files:
+                        p = os.path.join(root, name)
+                        z.write(p, os.path.relpath(p, temp_dir))
         except Exception:
             # Clean up zip file if creation failed
             if os.path.exists(zip_path):
