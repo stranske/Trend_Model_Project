@@ -4,7 +4,8 @@ import pytest
 import pandas as pd
 from unittest.mock import Mock, patch
 import sys
-sys.path.append('/home/runner/work/Trend_Model_Project/Trend_Model_Project/app')
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'app')))
 
 import streamlit.state as state_module
 
