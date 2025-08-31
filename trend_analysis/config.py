@@ -21,6 +21,7 @@ if TYPE_CHECKING:  # pragma: no cover - mypy only
 else:  # pragma: no cover - fallback when pydantic isn't installed during CI
     try:  # pragma: no cover - runtime import
         from pydantic import BaseModel as BaseModel
+        from pydantic import field_validator
     except Exception:  # pragma: no cover - simplified stub
 
         class BaseModel:
@@ -31,6 +32,14 @@ else:  # pragma: no cover - fallback when pydantic isn't installed during CI
 
             def model_dump_json(self) -> str:
                 return "{}"
+
+        def field_validator(*args, **kwargs):  # type: ignore[misc]
+            """No-op field validator used in the absence of ``pydantic``."""
+
+            def decorator(func):
+                return func
+
+            return decorator
 
 
 class Config(BaseModel):
@@ -46,6 +55,14 @@ class Config(BaseModel):
     metrics: dict[str, Any]
     export: dict[str, Any]
     run: dict[str, Any]
+
+    @field_validator("version")
+    @classmethod
+    def _version_not_blank(cls, v: str) -> str:
+        """Reject empty or whitespace-only version strings."""
+        if not v or not v.strip():
+            raise ValueError("version must not be empty or whitespace")
+        return v
 
     def __init__(self, **data: Any) -> None:  # pragma: no cover - simple assign
         """Populate attributes from ``data`` regardless of ``BaseModel``."""
