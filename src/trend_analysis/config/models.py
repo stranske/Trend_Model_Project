@@ -270,11 +270,6 @@ def load(path: str | Path | None = None) -> Config:
     return Config(**data)
 
 
-def _find_config_directory() -> Path:
-    """Find the config directory relative to this module."""
-    return Path(__file__).resolve().parents[3] / "config"
-
-
 # Alias for backward compatibility
 load_config = load
 
