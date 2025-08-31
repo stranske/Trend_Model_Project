@@ -25,4 +25,3 @@ def test_summary_table_snapshot() -> None:
     assert out.loc["sharpe", "value"] == pytest.approx(0.28544636)
     assert out.loc["turnover", "value"] == pytest.approx(0.2)
     assert out.loc["hit_rate", "value"] == pytest.approx(2 / 3)
-

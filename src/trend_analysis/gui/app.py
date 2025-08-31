@@ -13,7 +13,39 @@ import pandas as pd
 from pathlib import Path
 from .store import ParamStore
 from .plugins import discover_plugins, iter_plugins
-from .utils import list_builtin_cfgs, debounce
+
+
+# Use _find_config_directory from utils instead of local duplicate
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+from .utils import list_builtin_cfgs, debounce, _find_config_directory
 from ..config import Config
 from .. import pipeline, export, weighting
 
@@ -128,12 +160,22 @@ def _build_step0(store: ParamStore) -> widgets.Widget:
 
     def on_template(change: dict[str, Any], *, store: ParamStore) -> None:
         name = change["new"]
-        cfg_dir = Path(__file__).resolve().parents[3] / "config"
+        cfg_dir = _find_config_directory()
         path = cfg_dir / f"{name}.yml"
-        store.cfg = yaml.safe_load(path.read_text())
-        store.dirty = True
-        reset_weight_state(store)
-        refresh_grid()
+        try:
+            content = path.read_text()
+            store.cfg = yaml.safe_load(content)
+            store.dirty = True
+            reset_weight_state(store)
+            refresh_grid()
+        except FileNotFoundError:
+            warnings.warn(f"Template config file not found: {path}")
+        except PermissionError:
+            warnings.warn(f"Permission denied reading template config: {path}")
+        except yaml.YAMLError as exc:
+            warnings.warn(f"Invalid YAML in template config {path}: {exc}")
+        except Exception as exc:
+            warnings.warn(f"Failed to load template config {path}: {exc}")
 
     def on_save(_: Any, *, store: ParamStore) -> None:
         save_state(store)
