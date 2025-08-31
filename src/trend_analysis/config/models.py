@@ -5,9 +5,9 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from typing import Any, Dict, List
+from collections.abc import Mapping
 
 import yaml
-
 
 from pydantic import Field, ConfigDict, field_validator
 
@@ -46,7 +46,6 @@ class Config(BaseModel):
     """Typed access to the YAML configuration."""
 
     model_config = ConfigDict(extra="ignore")
-
     version: str = Field(
         ...,
         description="Configuration schema version (required for validation)",
@@ -61,7 +60,7 @@ class Config(BaseModel):
     metrics: dict[str, Any]
     export: dict[str, Any]
     output: dict[str, Any] | None = None
-    run: dict[str, Any]
+    run: dict[str, Any] = Field(default_factory=dict)
     multi_period: dict[str, Any] | None = None
     jobs: int | None = None
     checkpoint_dir: str | None = None
@@ -220,7 +219,7 @@ class ConfigurationState(SimpleBaseModel):
         """Validate configuration state."""
         pass
 
-
+      
 def load_preset(preset_name: str) -> PresetConfig:
     """Load a preset configuration from file."""
     # Find the config directory relative to this file
@@ -257,21 +256,36 @@ def list_available_presets() -> List[str]:
 DEFAULTS = Path(__file__).resolve().parents[3] / "config" / "defaults.yml"
 
 
+def load_config(cfg: Mapping[str, Any] | str | Path) -> Config:
+    """Load configuration from a mapping or file path."""
+    if isinstance(cfg, (str, Path)):
+        return load(cfg)
+    if isinstance(cfg, Mapping):
+        return Config(**cfg)
+    raise TypeError("cfg must be a mapping or path")
+
+
 def load(path: str | Path | None = None) -> Config:
     """Load configuration from ``path`` or ``DEFAULTS``.
-
     If ``path`` is ``None``, the ``TREND_CFG`` environment variable is
     consulted before falling back to ``DEFAULTS``.
+    If ``path`` is a dict, it is used directly as configuration data.
     """
-    if path is None:
+    if isinstance(path, dict):
+        data = path.copy()
+    elif path is None:
         env = os.environ.get("TREND_CFG")
         cfg_path = Path(env) if env else DEFAULTS
+        with cfg_path.open("r", encoding="utf-8") as fh:
+            data = yaml.safe_load(fh)
+            if not isinstance(data, dict):
+                raise TypeError("Config file must contain a mapping")
     else:
         cfg_path = Path(path)
-    with cfg_path.open("r", encoding="utf-8") as fh:
-        data = yaml.safe_load(fh)
-        if not isinstance(data, dict):
-            raise TypeError("Config file must contain a mapping")
+        with cfg_path.open("r", encoding="utf-8") as fh:
+            data = yaml.safe_load(fh)
+            if not isinstance(data, dict):
+                raise TypeError("Config file must contain a mapping")
 
     out_cfg = data.pop("output", None)
     if isinstance(out_cfg, dict):
@@ -288,10 +302,6 @@ def load(path: str | Path | None = None) -> Config:
     return Config(**data)
 
 
-# Alias for backward compatibility
-load_config = load
-
-
 __all__ = [
     "Config",
     "load",
@@ -300,8 +310,6 @@ __all__ = [
     "ConfigurationState",
     "load_preset",
     "list_available_presets",
-    "Config",
-    "load",
     "load_config",
     "DEFAULTS",
     "_find_config_directory",
