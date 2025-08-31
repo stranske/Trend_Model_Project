@@ -21,4 +21,3 @@ __all__ = [
     "turnover_series",
     "weights_heatmap_data",
 ]
-

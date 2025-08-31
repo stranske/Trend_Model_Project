@@ -27,10 +27,9 @@ def _sha256_file(path: Path) -> str:
 
 def _git_hash() -> str:
     try:
-        return (
-            subprocess.check_output(["git", "rev-parse", "HEAD"], encoding="utf-8")
-            .strip()
-        )
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], encoding="utf-8"
+        ).strip()
     except Exception:
         return ""
 
@@ -62,7 +61,9 @@ def export_bundle(run: Any, path: Path) -> Path:
     try:
         portfolio = getattr(run, "portfolio")
     except AttributeError:
-        raise ValueError("The 'portfolio' attribute is required for bundle creation but was not found in the provided 'run' object.")
+        raise ValueError(
+            "The 'portfolio' attribute is required for bundle creation but was not found in the provided 'run' object."
+        )
     portfolio.to_csv(results_dir / "portfolio.csv", header=["return"])
     benchmark = getattr(run, "benchmark", None)
     if benchmark is not None:
