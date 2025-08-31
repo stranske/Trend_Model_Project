@@ -80,8 +80,6 @@ class Config(BaseModel):
     def __init__(self, **data: Any) -> None:  # pragma: no cover - simple assign
         """Populate attributes from ``data`` regardless of ``BaseModel``."""
         super().__init__(**data)
-        for key, value in data.items():
-            setattr(self, key, value)
 
     def model_dump_json(self) -> str:  # pragma: no cover - trivial
         import json
