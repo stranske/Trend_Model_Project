@@ -13,52 +13,51 @@ def test_export_bundle_creates_temp_files():
     # Create a mock results object with required methods
     mock_results = mock.MagicMock()
 
-    # Patch 'open' so no real files are created
-    with mock.patch("builtins.open", mock.mock_open()) as mock_file:
-        # Mock the portfolio to return CSV data
-        def mock_to_csv(path, header=None):
+    # Mock the portfolio to return CSV data (without mocking file operations)
+    def mock_to_csv(path, header=None):
+        # Create a small CSV for testing
+        with open(path, "w") as f:
+            f.write("portfolio_data\n1.0\n2.0\n")
+
+    mock_results.portfolio.to_csv = mock_to_csv
+
+    # Mock event log
+    def mock_event_log():
+        log_mock = mock.MagicMock()
+
+        def mock_log_to_csv(path):
             with open(path, "w") as f:
-                f.write("portfolio_data\n1.0\n2.0\n")
+                f.write("event,value\nstart,1\nend,2\n")
 
-        mock_results.portfolio.to_csv = mock_to_csv
+        log_mock.to_csv = mock_log_to_csv
+        return log_mock
 
-        # Mock event log
-        def mock_event_log():
-            log_mock = mock.MagicMock()
+    mock_results.event_log_df = mock_event_log
+    mock_results.summary.return_value = {"test": "data"}
 
-            def mock_log_to_csv(path):
-                with open(path, "w") as f:
-                    f.write("event,value\nstart,1\nend,2\n")
+    config_dict = {"setting": "value"}
 
-            log_mock.to_csv = mock_log_to_csv
-            return log_mock
+    # Call export_bundle
+    zip_path = io_utils.export_bundle(mock_results, config_dict)
 
-        mock_results.event_log_df = mock_event_log
-        mock_results.summary.return_value = {"test": "data"}
+    # Verify the ZIP file was created
+    assert os.path.exists(zip_path)
+    assert zip_path.endswith(".zip")
 
-        config_dict = {"setting": "value"}
+    # Verify it's a valid ZIP file
+    with zipfile.ZipFile(zip_path, "r") as z:
+        files_in_zip = z.namelist()
+        # Should contain the expected files
+        assert "portfolio_returns.csv" in files_in_zip
+        assert "event_log.csv" in files_in_zip
+        assert "summary.json" in files_in_zip
+        assert "config.json" in files_in_zip
 
-        # Call export_bundle
-        zip_path = io_utils.export_bundle(mock_results, config_dict)
+    # Cleanup
+    io_utils.cleanup_bundle_file(zip_path)
 
-        # Verify the ZIP file was created
-        assert os.path.exists(zip_path)
-        assert zip_path.endswith(".zip")
-
-        # Verify it's a valid ZIP file
-        with zipfile.ZipFile(zip_path, "r") as z:
-            files_in_zip = z.namelist()
-            # Should contain the expected files
-            assert "portfolio_returns.csv" in files_in_zip
-            assert "event_log.csv" in files_in_zip
-            assert "summary.json" in files_in_zip
-            assert "config.json" in files_in_zip
-
-        # Cleanup
-        io_utils.cleanup_bundle_file(zip_path)
-
-        # Verify file was removed
-        assert not os.path.exists(zip_path)
+    # Verify file was removed
+    assert not os.path.exists(zip_path)
 
 
 def test_cleanup_bundle_file():
