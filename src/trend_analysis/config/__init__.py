@@ -14,6 +14,7 @@ from .models import (
     DEFAULTS,
     _find_config_directory,
 )
+# Removed import from .legacy as all symbols are available from .models
 
 __all__ = [
     "PresetConfig",
@@ -21,10 +22,7 @@ __all__ = [
     "ConfigurationState",
     "load_preset",
     "list_available_presets",
-    "load_config",
-    "Config",
     "load",
-    "load_config",
+    "Config",
     "DEFAULTS",
-    "_find_config_directory",
 ]

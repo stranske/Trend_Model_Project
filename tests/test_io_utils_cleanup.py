@@ -1,16 +1,11 @@
 """Test the io_utils cleanup functionality."""
 
-import sys
-import pathlib
 import os
 import tempfile
 import zipfile
 from unittest import mock
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))
-
-from trend_portfolio_app import io_utils  # noqa: E402
+from trend_portfolio_app import io_utils
 
 
 def test_export_bundle_creates_temp_files():
