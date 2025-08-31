@@ -201,7 +201,7 @@ class ConfigurationState(SimpleBaseModel):
         """Validate configuration state."""
         pass
 
-
+      
 def load_preset(preset_name: str) -> PresetConfig:
     """Load a preset configuration from file."""
     # Find the config directory relative to this file
@@ -238,8 +238,17 @@ def list_available_presets() -> List[str]:
 DEFAULTS = Path(__file__).resolve().parents[3] / "config" / "defaults.yml"
 
 
-def load(path: str | Path | dict | None = None):
-    """
+def load_config(cfg: Mapping[str, Any] | str | Path) -> Config:
+    """Load configuration from a mapping or file path."""
+    if isinstance(cfg, (str, Path)):
+        return load(cfg)
+    if isinstance(cfg, Mapping):
+        return Config(**cfg)
+    raise TypeError("cfg must be a mapping or path")
+
+
+def load(path: str | Path | None = None) -> Config:
+    """Load configuration from ``path`` or ``DEFAULTS``.
     If ``path`` is ``None``, the ``TREND_CFG`` environment variable is
     consulted before falling back to ``DEFAULTS``.
     If ``path`` is a dict, it is used directly as configuration data.
@@ -275,10 +284,6 @@ def load(path: str | Path | dict | None = None):
     return Config(**data)
 
 
-# Alias for backward compatibility
-load_config = load
-
-
 __all__ = [
     "Config",
     "load",
@@ -287,8 +292,6 @@ __all__ = [
     "ConfigurationState",
     "load_preset",
     "list_available_presets",
-    "Config",
-    "load",
     "load_config",
     "DEFAULTS",
     "_find_config_directory",
