@@ -10,6 +10,7 @@ from . import export, pipeline
 from .config import load_config
 from .api import run_simulation
 from .data import load_csv
+from .config import load_config
 
 
 APP_PATH = Path(__file__).resolve().parents[2] / "streamlit_app" / "app.py"
