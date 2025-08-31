@@ -1,51 +1,65 @@
 """Configuration models for Streamlit Configure page validation."""
 
 from __future__ import annotations
-from pathlib import Path
-from typing import Dict, List, Any, TYPE_CHECKING
-import yaml
+
 import os
+from collections.abc import Mapping
+from pathlib import Path
+from typing import Any, Dict, List
+
+import yaml
 
 
-if TYPE_CHECKING:  # pragma: no cover - mypy only
+from pydantic import Field, ConfigDict, StrictStr
 
-    class BaseModel:
-        """Minimal subset of :class:`pydantic.BaseModel` for type checking."""
+try:  # pragma: no cover - runtime import
+    from pydantic import BaseModel
+except Exception:  # pragma: no cover - simplified stub when pydantic is missing
 
-        def __init__(self, **data: Any) -> None: ...
+    class BaseModel:  # type: ignore[dead-code, attr-defined]
+        """Runtime stub used when ``pydantic`` is unavailable."""
 
-        def model_dump_json(self) -> str: ...
+        def __init__(self, **data: Any) -> None:  # pragma: no cover - trivial
+            pass
 
-else:  # pragma: no cover - fallback when pydantic isn't installed during CI
-    try:  # pragma: no cover - runtime import
-        from pydantic import BaseModel as BaseModel
-    except Exception:  # pragma: no cover - simplified stub
+        def model_dump_json(self) -> str:  # pragma: no cover - trivial
+            return "{}"
 
-        class BaseModel:
-            """Runtime stub used when ``pydantic`` is unavailable."""
 
-            def __init__(self, **data: Any) -> None:
-                pass
+def _find_config_directory() -> Path:
+    """Locate the project's configuration directory.
 
-            def model_dump_json(self) -> str:
-                return "{}"
+    Starting from this file's location, walk up the directory tree until a
+    ``config`` directory containing ``defaults.yml`` is found. If no suitable
+    directory is discovered, a :class:`FileNotFoundError` is raised.
+    """
+
+    current = Path(__file__).resolve()
+    for parent in current.parents:
+        candidate = parent / "config"
+        if candidate.is_dir() and (candidate / "defaults.yml").exists():
+            return candidate
+
+    raise FileNotFoundError("Could not find 'config' directory")
 
 
 class Config(BaseModel):
     """Typed access to the YAML configuration."""
 
-    version: str
-    data: dict[str, Any]
-    preprocessing: dict[str, Any]
-    vol_adjust: dict[str, Any]
-    sample_split: dict[str, Any]
-    portfolio: dict[str, Any]
-    benchmarks: dict[str, str] = {}
-    metrics: dict[str, Any]
-    export: dict[str, Any]
-    output: dict[str, Any] | None = None
-    run: dict[str, Any]
-    multi_period: dict[str, Any] | None = None
+    model_config = ConfigDict(extra="ignore")
+
+    version: StrictStr = ""
+    data: Mapping[str, Any] = Field(default_factory=dict)
+    preprocessing: Mapping[str, Any] = Field(default_factory=dict)
+    vol_adjust: Mapping[str, Any] = Field(default_factory=dict)
+    sample_split: Mapping[str, Any] = Field(default_factory=dict)
+    portfolio: Mapping[str, Any] = Field(default_factory=dict)
+    benchmarks: Mapping[str, StrictStr] = Field(default_factory=dict)
+    metrics: Mapping[str, Any] = Field(default_factory=dict)
+    export: Mapping[str, Any] = Field(default_factory=dict)
+    output: Mapping[str, Any] | None = None
+    run: Mapping[str, Any] = Field(default_factory=dict)
+    multi_period: Mapping[str, Any] | None = None
     jobs: int | None = None
     checkpoint_dir: str | None = None
     random_seed: int | None = None
@@ -191,24 +205,6 @@ class ConfigurationState(SimpleBaseModel):
     def _validate(self) -> None:
         """Validate configuration state."""
         pass
-
-
-def _find_config_directory() -> Path:
-    """Locate the project's configuration directory.
-
-    Starting from this file's location, walk up the directory tree until a
-    ``config`` directory containing ``defaults.yml`` is found. If no suitable
-    directory is discovered, a :class:`FileNotFoundError` is raised.
-    """
-    current = Path(__file__).resolve()
-    for parent in current.parents:
-        candidate = parent / "config"
-        if candidate.is_dir() and (candidate / "defaults.yml").exists():
-            return candidate
-
-    raise FileNotFoundError("Could not find 'config' directory")
-
-
 def load_preset(preset_name: str) -> PresetConfig:
     """Load a preset configuration from file."""
     # Find the config directory relative to this file
@@ -246,11 +242,6 @@ DEFAULTS = Path(__file__).resolve().parents[3] / "config" / "defaults.yml"
 
 
 
-
-
-def load(path: str | Path | dict[str, Any] | None = None) -> Config:
-    """Load configuration from ``path``, ``data`` dict, or ``DEFAULTS``.
-
     If ``path`` is ``None``, the ``TREND_CFG`` environment variable is
     consulted before falling back to ``DEFAULTS``.
     If ``path`` is a dict, it is used directly as configuration data.
@@ -284,6 +275,10 @@ def load(path: str | Path | dict[str, Any] | None = None) -> Config:
             export_cfg.setdefault("filename", p.name)
 
     return Config(**data)
+
+
+# Alias for backward compatibility
+load_config = load
 
 
 __all__ = [

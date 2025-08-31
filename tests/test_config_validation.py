@@ -2,7 +2,6 @@ import sys
 import pathlib
 import pytest
 from hypothesis import given, strategies as st
-from pydantic import ValidationError
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))  # noqa: E402
