@@ -9,20 +9,47 @@ from collections.abc import Mapping
 
 import yaml
 
-from pydantic import Field, ConfigDict, field_validator
+# Conditional pydantic imports with fallback stubs
+try:
+    from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
-try:  # pragma: no cover - runtime import
-    from pydantic import BaseModel
-except Exception:  # pragma: no cover - simplified stub when pydantic is missing
+    _HAS_PYDANTIC = True
+except ImportError:
+    # Fallback stubs when pydantic is not available
+    _HAS_PYDANTIC = False
 
-    class BaseModel:  # type: ignore[dead-code, attr-defined]
-        """Runtime stub used when ``pydantic`` is unavailable."""
+    class BaseModel:
+        """Fallback BaseModel stub when pydantic is unavailable."""
 
-        def __init__(self, **data: Any) -> None:  # pragma: no cover - trivial
+        def __init__(self, **kwargs):
+            for key, value in kwargs.items():
+                setattr(self, key, value)
+
+    class ConfigDict:
+        """Fallback ConfigDict stub."""
+
+        def __init__(self, **kwargs):
             pass
 
-        def model_dump_json(self) -> str:  # pragma: no cover - trivial
-            return "{}"
+    def Field(default=None, default_factory=None, **kwargs):
+        """Fallback Field function."""
+        if default_factory is not None:
+            return default_factory()
+        return default
+
+    class ValidationInfo:
+        """Fallback ValidationInfo stub."""
+
+        def __init__(self, field_name=None):
+            self.field_name = field_name
+
+    def field_validator(*args, **kwargs):
+        """Fallback field_validator decorator."""
+
+        def decorator(func):
+            return func
+
+        return decorator
 
 
 def _find_config_directory() -> Path:
@@ -45,50 +72,95 @@ def _find_config_directory() -> Path:
 class Config(BaseModel):
     """Typed access to the YAML configuration."""
 
-    model_config = ConfigDict(extra="ignore")
-    version: str = Field(
-        ...,
-        description="Configuration schema version (required for validation)",
-        min_length=1,
-    )
-    data: dict[str, Any] = Field(default_factory=dict)
-    preprocessing: dict[str, Any] = Field(default_factory=dict)
-    vol_adjust: dict[str, Any] = Field(default_factory=dict)
-    sample_split: dict[str, Any] = Field(default_factory=dict)
-    portfolio: dict[str, Any] = Field(default_factory=dict)
-    benchmarks: dict[str, str] = {}
-    metrics: dict[str, Any] = Field(default_factory=dict)
-    export: dict[str, Any] = Field(default_factory=dict)
-    output: dict[str, Any] | None = None
-    run: dict[str, Any] = Field(default_factory=dict)
-    multi_period: dict[str, Any] | None = None
-    jobs: int | None = None
-    checkpoint_dir: str | None = None
-    random_seed: int | None = None
+    if _HAS_PYDANTIC:
+        model_config = ConfigDict(extra="ignore")
+        version: str = ""
+        data: dict[str, Any] = Field(default_factory=dict)
+        preprocessing: dict[str, Any] = Field(default_factory=dict)
+        vol_adjust: dict[str, Any] = Field(default_factory=dict)
+        sample_split: dict[str, Any] = Field(default_factory=dict)
+        portfolio: dict[str, Any] = Field(default_factory=dict)
+        benchmarks: dict[str, str] = Field(default_factory=dict)
+        metrics: dict[str, Any] = Field(default_factory=dict)
+        export: dict[str, Any] = Field(default_factory=dict)
+        output: dict[str, Any] | None = None
+        run: dict[str, Any] = Field(default_factory=dict)
+        multi_period: dict[str, Any] | None = None
+        jobs: int | None = None
+        checkpoint_dir: str | None = None
+        random_seed: int | None = None
 
-    @field_validator("version")
-    @classmethod
-    def validate_version_not_empty(cls, v: str) -> str:
-        """Ensure version is not empty or whitespace-only."""
-        if not v.strip():
-            raise ValueError(
-                "Version field cannot be empty - "
-                "configuration files must specify their version"
-            )
-        return v
+        @field_validator("version", mode="before")
+        @classmethod
+        def _ensure_version_str(cls, v: Any) -> str:
+            if v is not None and not isinstance(v, str):
+                raise TypeError("version must be a string")
+            return v
 
-    def __init__(self, **data: Any) -> None:  # pragma: no cover - simple assign
-        """Populate attributes from ``data`` regardless of ``BaseModel``."""
-        super().__init__(**data)
+        @field_validator(
+            "data",
+            "preprocessing",
+            "vol_adjust",
+            "sample_split",
+            "portfolio",
+            "metrics",
+            "export",
+            "run",
+            mode="before",
+        )
+        @classmethod
+        def _ensure_dict(cls, v: Any, info: ValidationInfo) -> dict[str, Any]:
+            if not isinstance(v, dict):
+                raise TypeError(f"{info.field_name} must be a dictionary")
+            return v
 
-    def model_dump_json(self) -> str:  # pragma: no cover - trivial
-        import json
+    else:
+        # Fallback initialization when pydantic is not available
+        def __init__(self, **kwargs):
+            # Set defaults
+            self.version = kwargs.get("version", "")
+            self.data = kwargs.get("data", {})
+            self.preprocessing = kwargs.get("preprocessing", {})
+            self.vol_adjust = kwargs.get("vol_adjust", {})
+            self.sample_split = kwargs.get("sample_split", {})
+            self.portfolio = kwargs.get("portfolio", {})
+            self.benchmarks = kwargs.get("benchmarks", {})
+            self.metrics = kwargs.get("metrics", {})
+            self.export = kwargs.get("export", {})
+            self.output = kwargs.get("output", None)
+            self.run = kwargs.get("run", {})
+            self.multi_period = kwargs.get("multi_period", None)
+            self.jobs = kwargs.get("jobs", None)
+            self.checkpoint_dir = kwargs.get("checkpoint_dir", None)
+            self.random_seed = kwargs.get("random_seed", None)
 
-        return json.dumps(self.__dict__)
+            # Set any additional attributes
+            for key, value in kwargs.items():
+                if not hasattr(self, key):
+                    setattr(self, key, value)
 
-    # Provide a lightweight ``dict`` representation for tests.
-    def model_dump(self) -> dict[str, Any]:  # pragma: no cover - trivial
-        return dict(self.__dict__)
+            # Basic validation
+            self._validate()
+
+        def _validate(self):
+            """Basic validation when pydantic is not available."""
+            if self.version is not None and not isinstance(self.version, str):
+                raise TypeError("version must be a string")
+
+            dict_fields = [
+                "data",
+                "preprocessing",
+                "vol_adjust",
+                "sample_split",
+                "portfolio",
+                "metrics",
+                "export",
+                "run",
+            ]
+            for field_name in dict_fields:
+                value = getattr(self, field_name)
+                if not isinstance(value, dict):
+                    raise TypeError(f"{field_name} must be a dictionary")
 
 
 # Simple BaseModel that works without pydantic
@@ -217,7 +289,7 @@ class ConfigurationState(SimpleBaseModel):
         """Validate configuration state."""
         pass
 
-      
+
 def load_preset(preset_name: str) -> PresetConfig:
     """Load a preset configuration from file."""
     # Find the config directory relative to this file
