@@ -51,7 +51,7 @@ class Config(BaseModel):
 
     @field_validator("version", mode="before")
     @classmethod
-    def _ensure_version_str(cls, v: Any) -> str | Any:
+    def _ensure_version_str(cls, v: Any) -> str:
         if v is not None and not isinstance(v, str):
             raise TypeError("version must be a string")
         return v
