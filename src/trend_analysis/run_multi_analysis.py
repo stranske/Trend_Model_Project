@@ -7,10 +7,7 @@ from typing import cast
 from .config import load
 from . import export
 from .multi_period import run as run_mp
-
-# Default export configuration constants
-DEFAULT_OUTPUT_DIRECTORY = "outputs"
-DEFAULT_OUTPUT_FORMATS = ["excel"]
+from .constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 
 
 def main(argv: list[str] | None = None) -> int:

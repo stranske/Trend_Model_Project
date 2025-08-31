@@ -4,7 +4,7 @@ import sys
 import tempfile
 import yaml  # type: ignore[import-untyped]
 from pathlib import Path
-from unittest.mock import Mock, patch, ANY
+from unittest.mock import Mock, MagicMock, patch, ANY
 from trend_analysis.gui.app import (
     load_state,
     save_state,
@@ -12,6 +12,13 @@ from trend_analysis.gui.app import (
     _build_rank_options,
     launch,
 )
+
+
+def _cm_mock() -> MagicMock:
+    m = MagicMock()
+    m.__enter__.return_value = m
+    m.__exit__.return_value = None
+    return m
 from trend_analysis.gui.store import ParamStore
 
 
@@ -318,7 +325,7 @@ class TestLaunch:
         mock_widgets.VBox.return_value = Mock()
         mock_widgets.HTML.return_value = Mock()
         mock_widgets.Button.return_value = Mock()
-        mock_widgets.Output.return_value = Mock()
+        mock_widgets.Output.return_value = _cm_mock()
 
         result = launch()
 
@@ -332,7 +339,7 @@ class TestLaunch:
         mock_upload.value = {}
         mock_widgets.FileUpload.return_value = mock_upload
         mock_widgets.Button.return_value = Mock()
-        mock_widgets.Output.return_value = Mock()
+        mock_widgets.Output.return_value = _cm_mock()
         mock_widgets.VBox.return_value = Mock()
 
         launch()
@@ -355,7 +362,7 @@ class TestLaunchApp:
         mock_widgets.VBox.return_value = Mock()
         mock_widgets.HTML.return_value = Mock()
         mock_widgets.Button.return_value = Mock()
-        mock_widgets.Output.return_value = Mock()
+        mock_widgets.Output.return_value = _cm_mock()
 
         with patch("trend_analysis.gui.app._build_step0") as mock_step0:
             with patch("trend_analysis.gui.app._build_rank_options") as mock_rank:
@@ -384,7 +391,7 @@ class TestLaunchApp:
             mock_widgets.VBox.return_value = Mock()
             mock_widgets.HTML.return_value = Mock()
             mock_widgets.Button.return_value = Mock()
-            mock_widgets.Output.return_value = Mock()
+            mock_widgets.Output.return_value = _cm_mock()
 
             with patch("trend_analysis.gui.app._build_step0") as mock_step0:
                 with patch("trend_analysis.gui.app._build_rank_options") as mock_rank:
@@ -407,7 +414,7 @@ class TestUtilityFunctions:
         mock_upload.value = {"test.csv": {"content": b"invalid,csv,data"}}
         mock_widgets.FileUpload.return_value = mock_upload
         mock_widgets.Button.return_value = Mock()
-        mock_widgets.Output.return_value = Mock()
+        mock_widgets.Output.return_value = _cm_mock()
         mock_widgets.VBox.return_value = Mock()
 
         store = ParamStore()

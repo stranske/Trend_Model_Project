@@ -1,60 +1,85 @@
 """Configuration models for Streamlit Configure page validation."""
 
 from __future__ import annotations
-from pathlib import Path
-from typing import Dict, List, Any, Optional, Union, TYPE_CHECKING
-import yaml
+
 import os
+from pathlib import Path
+from typing import Any, Dict, List
+from collections.abc import Mapping
+
+import yaml
+
+from pydantic import Field, ConfigDict, field_validator
+
+try:  # pragma: no cover - runtime import
+    from pydantic import BaseModel
+except Exception:  # pragma: no cover - simplified stub when pydantic is missing
+
+    class BaseModel:  # type: ignore[dead-code, attr-defined]
+        """Runtime stub used when ``pydantic`` is unavailable."""
+
+        def __init__(self, **data: Any) -> None:  # pragma: no cover - trivial
+            pass
+
+        def model_dump_json(self) -> str:  # pragma: no cover - trivial
+            return "{}"
 
 
-if TYPE_CHECKING:  # pragma: no cover - mypy only
+def _find_config_directory() -> Path:
+    """Locate the project's configuration directory.
 
-    class BaseModel:
-        """Minimal subset of :class:`pydantic.BaseModel` for type checking."""
+    Starting from this file's location, walk up the directory tree until a
+    ``config`` directory containing ``defaults.yml`` is found. If no suitable
+    directory is discovered, a :class:`FileNotFoundError` is raised.
+    """
 
-        def __init__(self, **data: Any) -> None: ...
+    current = Path(__file__).resolve()
+    for parent in current.parents:
+        candidate = parent / "config"
+        if candidate.is_dir() and (candidate / "defaults.yml").exists():
+            return candidate
 
-        def model_dump_json(self) -> str: ...
-
-else:  # pragma: no cover - fallback when pydantic isn't installed during CI
-    try:  # pragma: no cover - runtime import
-        from pydantic import BaseModel as BaseModel
-    except Exception:  # pragma: no cover - simplified stub
-
-        class BaseModel:
-            """Runtime stub used when ``pydantic`` is unavailable."""
-
-            def __init__(self, **data: Any) -> None:
-                pass
-
-            def model_dump_json(self) -> str:
-                return "{}"
+    raise FileNotFoundError("Could not find 'config' directory")
 
 
 class Config(BaseModel):
     """Typed access to the YAML configuration."""
 
-    version: str
-    data: dict[str, Any]
-    preprocessing: dict[str, Any]
-    vol_adjust: dict[str, Any]
-    sample_split: dict[str, Any]
-    portfolio: dict[str, Any]
+    model_config = ConfigDict(extra="ignore")
+    version: str = Field(
+        ...,
+        description="Configuration schema version (required for validation)",
+        min_length=1,
+    )
+    data: dict[str, Any] = Field(default_factory=dict)
+    preprocessing: dict[str, Any] = Field(default_factory=dict)
+    vol_adjust: dict[str, Any] = Field(default_factory=dict)
+    sample_split: dict[str, Any] = Field(default_factory=dict)
+    portfolio: dict[str, Any] = Field(default_factory=dict)
     benchmarks: dict[str, str] = {}
-    metrics: dict[str, Any]
-    export: dict[str, Any]
+    metrics: dict[str, Any] = Field(default_factory=dict)
+    export: dict[str, Any] = Field(default_factory=dict)
     output: dict[str, Any] | None = None
-    run: dict[str, Any]
+    run: dict[str, Any] = Field(default_factory=dict)
     multi_period: dict[str, Any] | None = None
     jobs: int | None = None
     checkpoint_dir: str | None = None
     random_seed: int | None = None
 
+    @field_validator("version")
+    @classmethod
+    def validate_version_not_empty(cls, v: str) -> str:
+        """Ensure version is not empty or whitespace-only."""
+        if not v.strip():
+            raise ValueError(
+                "Version field cannot be empty - "
+                "configuration files must specify their version"
+            )
+        return v
+
     def __init__(self, **data: Any) -> None:  # pragma: no cover - simple assign
         """Populate attributes from ``data`` regardless of ``BaseModel``."""
         super().__init__(**data)
-        for key, value in data.items():
-            setattr(self, key, value)
 
     def model_dump_json(self) -> str:  # pragma: no cover - trivial
         import json
@@ -195,11 +220,11 @@ class ConfigurationState(SimpleBaseModel):
         """Validate configuration state."""
         pass
 
-
+      
 def load_preset(preset_name: str) -> PresetConfig:
     """Load a preset configuration from file."""
     # Find the config directory relative to this file
-    config_dir = Path(__file__).parent.parent.parent.parent.parent / "config"
+    config_dir = _find_config_directory()
     preset_file = config_dir / f"{preset_name}.yml"
 
     if not preset_file.exists():
@@ -216,7 +241,7 @@ def load_preset(preset_name: str) -> PresetConfig:
 
 def list_available_presets() -> List[str]:
     """List all available preset names."""
-    config_dir = Path(__file__).parent.parent.parent.parent.parent / "config"
+    config_dir = _find_config_directory()
 
     if not config_dir.exists():
         return []
@@ -232,21 +257,36 @@ def list_available_presets() -> List[str]:
 DEFAULTS = Path(__file__).resolve().parents[3] / "config" / "defaults.yml"
 
 
+def load_config(cfg: Mapping[str, Any] | str | Path) -> Config:
+    """Load configuration from a mapping or file path."""
+    if isinstance(cfg, (str, Path)):
+        return load(cfg)
+    if isinstance(cfg, Mapping):
+        return Config(**cfg)
+    raise TypeError("cfg must be a mapping or path")
+
+
 def load(path: str | Path | None = None) -> Config:
     """Load configuration from ``path`` or ``DEFAULTS``.
-
     If ``path`` is ``None``, the ``TREND_CFG`` environment variable is
     consulted before falling back to ``DEFAULTS``.
+    If ``path`` is a dict, it is used directly as configuration data.
     """
-    if path is None:
+    if isinstance(path, dict):
+        data = path.copy()
+    elif path is None:
         env = os.environ.get("TREND_CFG")
         cfg_path = Path(env) if env else DEFAULTS
+        with cfg_path.open("r", encoding="utf-8") as fh:
+            data = yaml.safe_load(fh)
+            if not isinstance(data, dict):
+                raise TypeError("Config file must contain a mapping")
     else:
         cfg_path = Path(path)
-    with cfg_path.open("r", encoding="utf-8") as fh:
-        data = yaml.safe_load(fh)
-        if not isinstance(data, dict):
-            raise TypeError("Config file must contain a mapping")
+        with cfg_path.open("r", encoding="utf-8") as fh:
+            data = yaml.safe_load(fh)
+            if not isinstance(data, dict):
+                raise TypeError("Config file must contain a mapping")
 
     out_cfg = data.pop("output", None)
     if isinstance(out_cfg, dict):
@@ -271,8 +311,7 @@ __all__ = [
     "ConfigurationState",
     "load_preset",
     "list_available_presets",
-    "Config",
     "load_config",
-    "load",
     "DEFAULTS",
+    "_find_config_directory",
 ]

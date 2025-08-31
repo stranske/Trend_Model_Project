@@ -65,3 +65,55 @@ def test_output_alias(tmp_path):
     assert cfg.export["formats"] == ["csv"]
     assert cfg.export["directory"] == str(tmp_path)
     assert cfg.export["filename"] == "res"
+
+
+def test_empty_version_rejected(tmp_path):
+    """Test that empty version field is rejected with proper validation."""
+    cfg_file = tmp_path / "empty_version.yml"
+    cfg_file.write_text(
+        "\n".join(
+            [
+                'version: ""',
+                "data: {}",
+                "preprocessing: {}",
+                "vol_adjust: {}",
+                "sample_split: {}",
+                "portfolio: {}",
+                "metrics: {}",
+                "export: {}",
+                "run: {}",
+            ]
+        )
+    )
+    import pytest
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError) as exc_info:
+        config.load(str(cfg_file))
+    assert "String should have at least 1 character" in str(exc_info.value)
+
+
+def test_whitespace_version_rejected(tmp_path):
+    """Test that whitespace-only version field is rejected with clear error."""
+    cfg_file = tmp_path / "whitespace_version.yml"
+    cfg_file.write_text(
+        "\n".join(
+            [
+                'version: "   "',
+                "data: {}",
+                "preprocessing: {}",
+                "vol_adjust: {}",
+                "sample_split: {}",
+                "portfolio: {}",
+                "metrics: {}",
+                "export: {}",
+                "run: {}",
+            ]
+        )
+    )
+    import pytest
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError) as exc_info:
+        config.load(str(cfg_file))
+    assert "Version field cannot be empty" in str(exc_info.value)
