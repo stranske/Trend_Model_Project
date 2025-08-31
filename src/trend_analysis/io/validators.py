@@ -182,9 +182,10 @@ def load_and_validate_upload(file_like) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     df["Date"] = pd.to_datetime(df["Date"])
     df = df.set_index("Date").sort_index()
 
-    # Normalize to month-end timestamps
+    # Normalize to period-end timestamps using detected frequency
     idx = pd.to_datetime(df.index)
-    df.index = pd.PeriodIndex(idx, freq="M").to_timestamp("M")
+    freq = validation.frequency if validation.frequency is not None else "M"
+    df.index = pd.PeriodIndex(idx, freq=freq).to_timestamp(freq)
     df = df.dropna(axis=1, how="all")
 
     # Convert to numeric
