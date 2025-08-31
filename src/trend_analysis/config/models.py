@@ -9,6 +9,9 @@ from typing import Any, Dict, List
 
 import yaml
 
+
+from pydantic import Field, ConfigDict, StrictStr
+
 try:  # pragma: no cover - runtime import
     from pydantic import BaseModel
 except Exception:  # pragma: no cover - simplified stub when pydantic is missing
@@ -267,34 +270,13 @@ def load(path: str | Path | None = None) -> Config:
     return Config(**data)
 
 
-def load_config(cfg: Mapping[str, Any] | str | Path) -> Config:
-    """Load ``Config`` from a mapping or YAML file path."""
+def _find_config_directory() -> Path:
+    """Find the config directory relative to this module."""
+    return Path(__file__).resolve().parents[3] / "config"
 
-    if isinstance(cfg, Mapping):
-        required_sections = {
-            "data",
-            "preprocessing",
-            "vol_adjust",
-            "sample_split",
-            "portfolio",
-            "metrics",
-            "export",
-            "run",
-        }
 
-        if "version" in cfg and not isinstance(cfg["version"], str):
-            raise TypeError("version must be a string")
-
-        for section in required_sections:
-            if section in cfg and not isinstance(cfg[section], Mapping):
-                raise TypeError(f"{section} must be a mapping")
-
-        return Config(**cfg)
-
-    if isinstance(cfg, (str, Path)):
-        return load(cfg)
-
-    raise TypeError("Config must be a mapping or path")
+# Alias for backward compatibility
+load_config = load
 
 
 __all__ = [
