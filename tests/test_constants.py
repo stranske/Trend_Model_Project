@@ -16,8 +16,8 @@ def test_constants_exist():
 def test_constants_are_used_in_run_analysis():
     """Test that run_analysis uses the constants."""
     # Check that the constants are imported and available in the module
-    assert hasattr(run_analysis, 'DEFAULT_OUTPUT_DIRECTORY')
-    assert hasattr(run_analysis, 'DEFAULT_OUTPUT_FORMATS')
+    assert hasattr(run_analysis, "DEFAULT_OUTPUT_DIRECTORY")
+    assert hasattr(run_analysis, "DEFAULT_OUTPUT_FORMATS")
     assert run_analysis.DEFAULT_OUTPUT_DIRECTORY == DEFAULT_OUTPUT_DIRECTORY
     assert run_analysis.DEFAULT_OUTPUT_FORMATS == DEFAULT_OUTPUT_FORMATS
 
@@ -25,8 +25,8 @@ def test_constants_are_used_in_run_analysis():
 def test_constants_are_used_in_run_multi_analysis():
     """Test that run_multi_analysis uses the constants."""
     # Check that the constants are imported and available in the module
-    assert hasattr(run_multi_analysis, 'DEFAULT_OUTPUT_DIRECTORY')
-    assert hasattr(run_multi_analysis, 'DEFAULT_OUTPUT_FORMATS')
+    assert hasattr(run_multi_analysis, "DEFAULT_OUTPUT_DIRECTORY")
+    assert hasattr(run_multi_analysis, "DEFAULT_OUTPUT_FORMATS")
     assert run_multi_analysis.DEFAULT_OUTPUT_DIRECTORY == DEFAULT_OUTPUT_DIRECTORY
     assert run_multi_analysis.DEFAULT_OUTPUT_FORMATS == DEFAULT_OUTPUT_FORMATS
 
@@ -34,8 +34,8 @@ def test_constants_are_used_in_run_multi_analysis():
 def test_constants_are_used_in_cli():
     """Test that cli uses the constants."""
     # Check that the constants are imported and available in the module
-    assert hasattr(cli, 'DEFAULT_OUTPUT_DIRECTORY')
-    assert hasattr(cli, 'DEFAULT_OUTPUT_FORMATS')
+    assert hasattr(cli, "DEFAULT_OUTPUT_DIRECTORY")
+    assert hasattr(cli, "DEFAULT_OUTPUT_FORMATS")
     assert cli.DEFAULT_OUTPUT_DIRECTORY == DEFAULT_OUTPUT_DIRECTORY
     assert cli.DEFAULT_OUTPUT_FORMATS == DEFAULT_OUTPUT_FORMATS
 
@@ -73,10 +73,10 @@ def test_constants_default_behavior_unchanged(tmp_path, monkeypatch):
     cfg = tmp_path / "cfg.yml"
     _write_cfg(cfg, csv)
     monkeypatch.chdir(tmp_path)
-    
+
     # Run analysis with empty export config (should use constants for defaults)
     rc = run_analysis.main(["-c", str(cfg)])
     assert rc == 0
-    
+
     # Check that the default output directory and file are created
     assert (tmp_path / DEFAULT_OUTPUT_DIRECTORY / "analysis.xlsx").exists()

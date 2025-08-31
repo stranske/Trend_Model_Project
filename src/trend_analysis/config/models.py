@@ -9,8 +9,47 @@ from collections.abc import Mapping
 
 import yaml
 
+# Conditional pydantic imports with fallback stubs
+try:
+    from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
+    _HAS_PYDANTIC = True
+except ImportError:
+    # Fallback stubs when pydantic is not available
+    _HAS_PYDANTIC = False
+
+    class BaseModel:
+        """Fallback BaseModel stub when pydantic is unavailable."""
+
+        def __init__(self, **kwargs):
+            for key, value in kwargs.items():
+                setattr(self, key, value)
+
+    class ConfigDict:
+        """Fallback ConfigDict stub."""
+
+        def __init__(self, **kwargs):
+            pass
+
+    def Field(default=None, default_factory=None, **kwargs):
+        """Fallback Field function."""
+        if default_factory is not None:
+            return default_factory()
+        return default
+
+    class ValidationInfo:
+        """Fallback ValidationInfo stub."""
+
+        def __init__(self, field_name=None):
+            self.field_name = field_name
+
+    def field_validator(*args, **kwargs):
+        """Fallback field_validator decorator."""
+
+        def decorator(func):
+            return func
+
+        return decorator
 
 
 def _find_config_directory() -> Path:
@@ -209,7 +248,7 @@ class ConfigurationState(SimpleBaseModel):
         """Validate configuration state."""
         pass
 
-      
+
 def load_preset(preset_name: str) -> PresetConfig:
     """Load a preset configuration from file."""
     # Find the config directory relative to this file
