@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from typing import Any
-import os
 import random
 import sys
 
@@ -44,7 +43,8 @@ def run_simulation(config: Config, returns: pd.DataFrame) -> RunResult:
     logger.info("run_simulation start")
 
     seed = getattr(config, "seed", 42)
-    os.environ["PYTHONHASHSEED"] = str(seed)
+    # Set random seeds for deterministic behavior
+    # Note: PYTHONHASHSEED must be set before Python starts, so we don't set it here
     random.seed(seed)
     np.random.seed(seed)
 
