@@ -192,8 +192,7 @@ def load_and_validate_upload(file_like) -> Tuple[pd.DataFrame, Dict[str, Any]]:
 
     # Normalize to period-end timestamps using detected frequency
     idx = pd.to_datetime(df.index)
-    freq_key = (validation.frequency or "").lower()
-    freq = FREQ_ALIAS_MAP.get(freq_key, "M")
+    freq = FREQ_ALIAS_MAP.get(freq_key, "ME")
     df.index = pd.PeriodIndex(idx, freq=freq).to_timestamp(freq)
     df = df.dropna(axis=1, how="all")
 
