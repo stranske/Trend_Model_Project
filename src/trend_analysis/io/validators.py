@@ -12,7 +12,7 @@ import numpy as np
 FREQUENCY_MAP = {
     "daily": "D",
     "weekly": "W",
-    "monthly": "M",  # Month (legacy format for PeriodIndex)
+    "monthly": "ME",  # Month (legacy format for PeriodIndex)
     "quarterly": "Q",  # Quarter (legacy format for PeriodIndex)
     "annual": "Y",  # Year (avoiding deprecated 'A')
 }
@@ -193,7 +193,7 @@ def load_and_validate_upload(file_like) -> Tuple[pd.DataFrame, Dict[str, Any]]:
 
     # Normalize to period-end timestamps using detected frequency
     idx = pd.to_datetime(df.index)
-    freq_alias = FREQUENCY_MAP.get(validation.frequency or "", "M")
+    freq_alias = FREQUENCY_MAP.get(validation.frequency or "", "ME")
     df.index = pd.PeriodIndex(idx, freq=freq_alias).to_timestamp(freq_alias)
     df = df.dropna(axis=1, how="all")
 
