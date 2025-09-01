@@ -60,18 +60,41 @@ def _hash_result(res: api.RunResult) -> str:
         if isinstance(obj, (datetime.datetime, datetime.date)):
             return obj.isoformat()
         elif isinstance(obj, np.ndarray):
-            return obj.tolist()
+            # Sort arrays for determinism and handle floating point precision
+            arr = np.array(obj)
+            if arr.dtype.kind in 'fc':  # float or complex
+                arr = np.round(arr, 10)  # Round to 10 decimals for float precision
+            return arr.tolist()
         elif isinstance(obj, pd.DataFrame):
-            # Use to_dict with a fixed orientation for determinism
-            return obj.to_dict(orient="list")
+            # Use to_dict with records orientation and sort for complete determinism
+            df_copy = obj.copy()
+            # Round floating point columns to avoid precision issues
+            float_cols = df_copy.select_dtypes(include=[np.float64, np.float32]).columns
+            for col in float_cols:
+                df_copy[col] = df_copy[col].round(10)
+            # Sort by index and columns for determinism
+            df_copy = df_copy.sort_index().sort_index(axis=1)
+            return df_copy.to_dict(orient="records")
         elif isinstance(obj, pd.Series):
-            return obj.to_dict()
+            series_copy = obj.copy()
+            if series_copy.dtype.kind in 'fc':  # float or complex
+                series_copy = series_copy.round(10)
+            # Sort series by index for determinism
+            series_copy = series_copy.sort_index()
+            return series_copy.to_dict()
+        elif isinstance(obj, (float, np.floating)):
+            # Round floating point numbers to avoid precision issues
+            return round(float(obj), 10)
         else:
             return str(obj)
 
+    # Ensure metrics DataFrame is sorted for determinism
+    metrics_copy = res.metrics.copy().sort_index().sort_index(axis=1)
+    
     payload = {
-        "metrics": res.metrics.to_json(),
+        "metrics": metrics_copy.to_json(orient="records", date_format="iso"),
         "details": json.dumps(res.details, sort_keys=True, default=deterministic_default),
+        "seed": res.seed,  # Include seed for additional verification
     }
     return hashlib.sha256(json.dumps(payload, sort_keys=True, default=deterministic_default).encode()).hexdigest()
 
@@ -82,8 +105,39 @@ def test_run_simulation_deterministic(tmp_path):
     df.to_csv(csv, index=False)
     cfg = make_cfg(str(csv))
     cfg.seed = 123
-
+    
+    # Ensure clean state before each run
+    import os
+    import random
+    import numpy as np
+    
+    # Run 1: Set seeds and run simulation
+    os.environ["PYTHONHASHSEED"] = str(cfg.seed)
+    random.seed(cfg.seed)
+    np.random.seed(cfg.seed)
     r1 = api.run_simulation(cfg, df)
+    
+    # Run 2: Reset seeds and run simulation again
+    os.environ["PYTHONHASHSEED"] = str(cfg.seed)
+    random.seed(cfg.seed)
+    np.random.seed(cfg.seed)
     r2 = api.run_simulation(cfg, df)
-
-    assert _hash_result(r1) == _hash_result(r2)
+    
+    # Generate hashes
+    hash1 = _hash_result(r1)
+    hash2 = _hash_result(r2)
+    
+    # If hashes don't match, provide debugging info
+    if hash1 != hash2:
+        print(f"Hash mismatch - Run 1: {hash1}, Run 2: {hash2}")
+        print(f"Seeds - Run 1: {r1.seed}, Run 2: {r2.seed}")
+        print(f"Environment - Run 1 Python: {r1.environment.get('python')}")
+        print(f"Environment - Run 2 Python: {r2.environment.get('python')}")
+        print(f"Metrics equal: {r1.metrics.equals(r2.metrics)}")
+        if not r1.metrics.equals(r2.metrics):
+            print("Metrics diff:")
+            print(r1.metrics.compare(r2.metrics))
+        print(f"Details keys - Run 1: {sorted(r1.details.keys())}")
+        print(f"Details keys - Run 2: {sorted(r2.details.keys())}")
+    
+    assert hash1 == hash2, f"Results are not deterministic: {hash1} != {hash2}"

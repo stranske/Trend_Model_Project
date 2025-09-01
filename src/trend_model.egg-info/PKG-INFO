@@ -27,19 +27,20 @@ Requires-Dist: xlsxwriter
 Requires-Dist: openpyxl
 Requires-Dist: pydantic>=2
 Requires-Dist: hypothesis
+Requires-Dist: matplotlib
+Requires-Dist: ipywidgets
 Provides-Extra: app
 Requires-Dist: streamlit>=1.30; extra == "app"
 Requires-Dist: streamlit-sortables; extra == "app"
 Provides-Extra: notebooks
-Requires-Dist: matplotlib; extra == "notebooks"
 Requires-Dist: ipyfilechooser; extra == "notebooks"
-Requires-Dist: ipywidgets; extra == "notebooks"
 Requires-Dist: nbformat; extra == "notebooks"
 Provides-Extra: dev
 Requires-Dist: pre-commit>=3.2.0; extra == "dev"
 Requires-Dist: black==24.8.0; extra == "dev"
 Requires-Dist: ruff==0.6.3; extra == "dev"
 Requires-Dist: mypy>=1.0.0; extra == "dev"
+Requires-Dist: flake8; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: types-PyYAML; extra == "dev"
