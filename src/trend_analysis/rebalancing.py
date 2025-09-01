@@ -283,8 +283,7 @@ class VolTargetRebalanceStrategy(Rebalancer):
 
             if realized_vol > 0:
                 # Calculate leverage factor to achieve target vol
-                lev_factor = np.clip(
-                    self.target_vol / realized_vol, self.lev_min, self.lev_max
+                    self.target / realized_vol, self.lev_min, self.lev_max
                 )
                 new_weights = target * lev_factor
             else:
