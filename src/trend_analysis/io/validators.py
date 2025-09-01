@@ -11,8 +11,8 @@ import numpy as np
 FREQUENCY_MAP = {
     "daily": "D",
     "weekly": "W",
-    "monthly": "ME",  # Month (legacy format for PeriodIndex)
-    "quarterly": "Q",  # Quarter (legacy format for PeriodIndex)
+    "monthly": "ME",  # Month-end (current recommended pandas frequency code)
+    "quarterly": "Q",  # Quarter-end (current recommended pandas frequency code)
     "annual": "Y",  # Year (avoiding deprecated 'A')
 }
 
