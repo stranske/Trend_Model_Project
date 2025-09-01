@@ -12,6 +12,34 @@ from .metrics_extra import AVAILABLE_METRICS
 
 logger = logging.getLogger(__name__)
 
+
+def ensure_date_column(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Ensure DataFrame contains a properly formatted 'Date' column.
+
+    Args:
+        df: Input DataFrame to validate
+
+    Returns:
+        DataFrame with validated 'Date' column
+
+    Raises:
+        ValueError: If DataFrame lacks a 'Date' column that can be converted
+    """
+    if df is None:
+        raise ValueError("DataFrame is None")
+
+    if "Date" not in df.columns:
+        raise ValueError("DataFrame must contain a 'Date' column.")
+
+    try:
+        df = df.copy()
+        df["Date"] = pd.to_datetime(df["Date"], errors="raise")
+        return df
+    except (ValueError, TypeError) as e:
+        raise ValueError(f"Date column contains invalid date values: {e}") from e
+
+
 try:
     ta_pipeline = importlib.import_module("trend_analysis.pipeline")
     HAS_TA = True
@@ -51,12 +79,15 @@ def compute_score_frame(
     insample_end: pd.Timestamp,
     rf_annual: float = 0.0,
 ) -> pd.DataFrame:
-    if HAS_TA:
+    # Only try external function if DataFrame has a Date column
+    if HAS_TA and "Date" in panel.columns:
         fn = getattr(ta_pipeline, "single_period_run", None)
         if callable(fn):
             try:
+                # Ensure Date column is properly formatted
+                validated_panel = ensure_date_column(panel)
                 sf = fn(
-                    panel,
+                    validated_panel,
                     insample_start.strftime("%Y-%m"),
                     insample_end.strftime("%Y-%m"),
                 )

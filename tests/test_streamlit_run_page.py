@@ -30,8 +30,19 @@ def create_mock_streamlit():
     mock_st.info = Mock()
     mock_st.progress = Mock()
     mock_st.empty = Mock()
-    mock_st.container = Mock()
-    mock_st.expander = Mock()
+
+    # Make container support context manager protocol
+    mock_container = Mock()
+    mock_container.__enter__ = Mock(return_value=mock_container)
+    mock_container.__exit__ = Mock(return_value=None)
+    mock_st.container = Mock(return_value=mock_container)
+
+    # Make expander support context manager protocol
+    mock_expander = Mock()
+    mock_expander.__enter__ = Mock(return_value=mock_expander)
+    mock_expander.__exit__ = Mock(return_value=None)
+    mock_st.expander = Mock(return_value=mock_expander)
+
     mock_st.code = Mock()
     mock_st.rerun = Mock()
 
@@ -121,8 +132,7 @@ class TestErrorFormatting:
 
             error = ValueError("Date column not found")
             result = run_page.format_error_message(error)
-            assert "Date column" in result
-            assert "properly formatted dates" in result
+            assert "Your dataset must include a 'Date' column" in result
 
     def test_format_error_message_generic(self):
         """Test formatting of generic errors."""
@@ -429,11 +439,7 @@ class TestAnalysisIntegration:
             }
 
             with patch.object(run_page.st, "session_state", session_state):
-                # Mock streamlit UI elements
-                with patch.object(run_page.st, "container", return_value=Mock()):
-                    with patch.object(run_page.st, "progress", return_value=Mock()):
-                        with patch.object(run_page.st, "empty", return_value=Mock()):
-                            result = run_page.run_analysis_with_progress()
+                result = run_page.run_analysis_with_progress()
 
                 assert result is not None
                 assert isinstance(result, RunResult)
@@ -467,14 +473,8 @@ class TestAnalysisIntegration:
             }
 
             with patch.object(run_page.st, "session_state", session_state):
-                with patch.object(run_page.st, "container", return_value=Mock()):
-                    with patch.object(run_page.st, "progress", return_value=Mock()):
-                        with patch.object(run_page.st, "empty", return_value=Mock()):
-                            with patch.object(run_page.st, "error") as mock_error:
-                                with patch.object(
-                                    run_page.st, "expander", return_value=Mock()
-                                ):
-                                    result = run_page.run_analysis_with_progress()
+                with patch.object(run_page.st, "error") as mock_error:
+                    result = run_page.run_analysis_with_progress()
 
                 assert result is None
                 mock_error.assert_called()
