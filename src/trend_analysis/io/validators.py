@@ -194,7 +194,7 @@ def load_and_validate_upload(file_like) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     idx = pd.to_datetime(df.index)
     # Map human-friendly frequency labels (e.g. "monthly") to pandas codes
     freq_key = (validation.frequency or "").lower()
-    freq = FREQ_ALIAS_MAP.get(freq_key, "M")
+    freq = FREQ_ALIAS_MAP.get(freq_key, "ME")
     df.index = pd.PeriodIndex(idx, freq=freq).to_timestamp(freq)
     df = df.dropna(axis=1, how="all")
 
