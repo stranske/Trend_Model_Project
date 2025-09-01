@@ -1,13 +1,15 @@
 import importlib.util
 from types import SimpleNamespace
+import pathlib
 
 import pandas as pd
 import streamlit as st
 
 
 def load_run_module():
+    run_py_path = pathlib.Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Run.py"
     spec = importlib.util.spec_from_file_location(
-        "run_page", "streamlit_app/pages/3_Run.py"
+        "run_page", str(run_py_path)
     )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
