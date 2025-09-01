@@ -2,7 +2,7 @@ import pandas as pd
 
 
 def _mini_df():
-    dates = pd.date_range("2020-01-31", periods=6, freq="ME")
+    dates = pd.date_range("2020-01-31", periods=6, freq="M")
     # Two simple funds with different vol, plus an explicit RF series
     return pd.DataFrame(
         {
@@ -66,7 +66,7 @@ def test_pipeline_constant_rf_via_stats_cfg_executes():
 
 def test_identify_risk_free_name_heuristics():
     # Named RF candidate should be preferred over other numerics
-    dates = pd.date_range("2021-01-31", periods=4, freq="ME")
+    dates = pd.date_range("2021-01-31", periods=4, freq="M")
     df = pd.DataFrame(
         {
             "Date": dates,
@@ -81,7 +81,7 @@ def test_identify_risk_free_name_heuristics():
 
 
 def test_identify_risk_free_name_aliases_case_insensitive():
-    dates = pd.date_range("2021-01-31", periods=3, freq="ME")
+    dates = pd.date_range("2021-01-31", periods=3, freq="M")
     df = pd.DataFrame(
         {
             "Date": dates,

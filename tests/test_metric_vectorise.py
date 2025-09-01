@@ -5,7 +5,7 @@ import tests.legacy_metrics as L
 
 
 def _dummy_returns():
-    rng = pd.date_range("2020-01-31", periods=24, freq="ME")
+    rng = pd.date_range("2020-01-31", periods=24, freq="M")
     # 24 months × 4 funds of small returns
     data = np.random.default_rng(0).normal(0.01, 0.02, size=(24, 4))
     return pd.DataFrame(data, index=rng, columns=list("ABCD"))

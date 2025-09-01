@@ -8,7 +8,7 @@ from trend_analysis.weighting import EqualWeight, AdaptiveBayesWeighting
 
 
 def make_df():
-    dates = pd.date_range("1990-01-31", periods=12, freq="ME")
+    dates = pd.date_range("1990-01-31", periods=12, freq="M")
     return pd.DataFrame(
         {
             "Date": dates,
@@ -88,7 +88,7 @@ def test_run_with_price_frames_provided():
     cfg = Config(**cfg_data)
 
     # Create sample price_frames with returns data (similar to make_df format)
-    dates = pd.date_range("1990-01-31", periods=6, freq="ME")
+    dates = pd.date_range("1990-01-31", periods=6, freq="M")
     price_frames = {
         "1990-01": pd.DataFrame(
             {

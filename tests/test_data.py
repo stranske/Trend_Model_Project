@@ -52,7 +52,7 @@ def test_load_csv_null_dates(tmp_path):
 
 
 def test_identify_risk_free_fund_basic():
-    dates = pd.date_range("2020-01-31", periods=3, freq="ME")
+    dates = pd.date_range("2020-01-31", periods=3, freq="M")
     df = pd.DataFrame(
         {
             "Date": dates,

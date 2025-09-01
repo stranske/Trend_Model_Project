@@ -12,7 +12,7 @@ from trend_analysis.metrics import (
 
 
 def make_df():
-    dates = pd.date_range("2020-01-31", periods=6, freq="ME")
+    dates = pd.date_range("2020-01-31", periods=6, freq="M")
     data = {
         "Date": dates,
         "RF": 0.0,

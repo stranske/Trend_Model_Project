@@ -8,7 +8,7 @@ from trend_analysis.core import rank_selection as rs
 
 def make_extended_df():
     """Create a more comprehensive test DataFrame."""
-    dates = pd.date_range("2020-01-31", periods=12, freq="ME")
+    dates = pd.date_range("2020-01-31", periods=12, freq="M")
     np.random.seed(42)
     return pd.DataFrame(
         {

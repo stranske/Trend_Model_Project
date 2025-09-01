@@ -3,7 +3,7 @@ version: "1"
 
 data:
   csv_path: "Trend Concentrated Universe Data.csv"  # path to Concentrated Universe dataset in repo root
-  frequency: ME  # monthly data (month-end)
+  frequency: M  # monthly data (month-end)
   na_as_zero:
     enabled: true
     max_missing_per_window: 1

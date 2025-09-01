@@ -284,7 +284,7 @@ def create_rebalancing_strategy(
     """Create a rebalancing strategy by name."""
     if name not in REBALANCING_STRATEGIES:
         raise ValueError(
-            f"Unknown rebalancing strategy: {name}. Available: {list(REBALANCING_STRATEGIES.keys())}"
+            f"Unknown plugin: {name}. Available: {list(REBALANCING_STRATEGIES.keys())}"
         )
 
     strategy_cls = REBALANCING_STRATEGIES[name]

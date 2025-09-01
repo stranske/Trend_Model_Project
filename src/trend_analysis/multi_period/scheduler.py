@@ -1,7 +1,8 @@
 """Generate (in-sample, out-sample) period tuples for the multi-period engine.
 
-Uses the new pandas offset aliases ``ME``/``QE``/``YE`` for month-, quarter-,
-and year-end periods.
+Uses standard pandas offset aliases ``M``/``Q``/``A`` for month-, quarter-,
+and year-end periods. Legacy aliases like ``ME`` are mapped to ``M`` for
+backward compatibility.
 """
 
 from __future__ import annotations
@@ -16,24 +17,24 @@ PeriodTuple = namedtuple("PeriodTuple", ["in_start", "in_end", "out_start", "out
 
 FREQ_MAP = {
     # Standard codes + deprecated mappings
-    "M": "ME",
-    "ME": "ME",
-    "Q": "QE",
-    "QE": "QE",
-    "A": "YE",
-    "YE": "YE",
+    "M": "M",
+    "ME": "M",
+    "Q": "Q",
+    "QE": "Q",
+    "A": "A",
+    "YE": "A",
     # User-friendly names (all case variations)
-    "monthly": "ME",
-    "MONTHLY": "ME",
-    "Monthly": "ME",
-    "quarterly": "QE",
-    "QUARTERLY": "QE",
-    "Quarterly": "QE",
-    "annual": "YE",
-    "ANNUAL": "YE",
-    "annually": "YE",
-    "ANNUALLY": "YE",
-    "Annually": "YE",
+    "monthly": "M",
+    "MONTHLY": "M",
+    "Monthly": "M",
+    "quarterly": "Q",
+    "QUARTERLY": "Q",
+    "Quarterly": "Q",
+    "annual": "A",
+    "ANNUAL": "A",
+    "annually": "A",
+    "ANNUALLY": "A",
+    "Annually": "A",
 }
 
 

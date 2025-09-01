@@ -200,7 +200,7 @@ class TestRebalancingIntegration:
 
     def test_unknown_strategy_raises_error(self):
         """Test error on unknown strategy."""
-        with pytest.raises(ValueError, match="Unknown rebalancing strategy"):
+        with pytest.raises(ValueError, match="Unknown plugin:"):
             create_rebalancing_strategy("unknown_strategy")
 
     def test_multiple_strategies_sequence(self):

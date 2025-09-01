@@ -21,7 +21,7 @@ from trend_analysis.export import (
 
 
 def make_df():
-    dates = pd.date_range("1990-01-31", periods=12, freq="ME")
+    dates = pd.date_range("1990-01-31", periods=12, freq="M")
     return pd.DataFrame({"Date": dates, "A": 0.01, "B": 0.02})
 
 

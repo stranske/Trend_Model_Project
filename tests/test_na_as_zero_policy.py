@@ -6,7 +6,7 @@ from trend_analysis.core.rank_selection import RiskStatsConfig, canonical_metric
 
 
 def make_df():
-    dates = pd.date_range("2020-01-31", periods=12, freq="ME")
+    dates = pd.date_range("2020-01-31", periods=12, freq="M")
     df = pd.DataFrame(
         {
             "Date": dates,

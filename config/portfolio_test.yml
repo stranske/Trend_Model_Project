@@ -3,7 +3,7 @@ version: "1"
 
 data:
   csv_path: demo/extended_returns.csv
-  frequency: ME  # monthly data
+  frequency: M  # monthly data
 
 preprocessing:
   steps: []

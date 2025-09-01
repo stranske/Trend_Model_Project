@@ -16,7 +16,7 @@ def main() -> None:
     # Generate data from July 2005 to June 2025 (20 years = 240 months)
     start = dt.date(2005, 7, 1)
     periods = 240  # 20 years * 12 months
-    dates = pd.date_range(start, periods=periods, freq="ME")
+    dates = pd.date_range(start, periods=periods, freq="M")
 
     rng = np.random.default_rng(42)
     data = {}

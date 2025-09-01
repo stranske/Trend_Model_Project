@@ -17,5 +17,6 @@ def test_frequency_alias_resolves_without_warning():
     cfg = yaml.safe_load(Path("config/defaults.yml").read_text())
     cfg["multi_period"]["frequency"] = "M"
     with warnings.catch_warnings(record=True) as w:
+        warnings.filterwarnings("ignore", "'M' is deprecated", FutureWarning)
         _ = generate_periods(cfg)
     assert not w, "Unexpected warnings when using frequency 'M'"

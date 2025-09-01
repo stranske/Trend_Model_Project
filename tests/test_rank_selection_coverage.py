@@ -37,7 +37,7 @@ class TestQualityFilter:
 
     def test_quality_filter_insufficient_data(self):
         """Test quality filter when funds don't meet minimum requirements."""
-        dates = pd.date_range("2020-01-31", periods=3, freq="ME")
+        dates = pd.date_range("2020-01-31", periods=3, freq="M")
         df = pd.DataFrame(
             {
                 "Date": dates,
@@ -54,7 +54,7 @@ class TestQualityFilter:
 
     def test_quality_filter_all_funds_pass(self):
         """Test quality filter when all funds pass requirements."""
-        dates = pd.date_range("2020-01-31", periods=12, freq="ME")
+        dates = pd.date_range("2020-01-31", periods=12, freq="M")
         df = pd.DataFrame(
             {
                 "Date": dates,
@@ -71,7 +71,7 @@ class TestQualityFilter:
 
     def test_quality_filter_edge_date_boundaries(self):
         """Test quality filter with edge case date boundaries."""
-        dates = pd.date_range("2020-01-31", periods=6, freq="ME")
+        dates = pd.date_range("2020-01-31", periods=6, freq="M")
         df = pd.DataFrame(
             {
                 "Date": dates,
@@ -92,7 +92,7 @@ class TestBlendedScore:
 
     def test_blended_score_single_metric(self):
         """Test blended score with a single metric."""
-        dates = pd.date_range("2020-01-31", periods=12, freq="ME")
+        dates = pd.date_range("2020-01-31", periods=12, freq="M")
         df = pd.DataFrame(
             {
                 "A": np.random.randn(12) * 0.01 + 0.005,
@@ -112,7 +112,7 @@ class TestBlendedScore:
 
     def test_blended_score_multiple_metrics(self):
         """Test blended score with multiple metrics."""
-        dates = pd.date_range("2020-01-31", periods=24, freq="ME")
+        dates = pd.date_range("2020-01-31", periods=24, freq="M")
         df = pd.DataFrame(
             {
                 "A": np.random.randn(24) * 0.02 + 0.008,
@@ -132,7 +132,7 @@ class TestBlendedScore:
 
     def test_blended_score_empty_weights(self):
         """Test blended score with empty weights raises error."""
-        dates = pd.date_range("2020-01-31", periods=12, freq="ME")
+        dates = pd.date_range("2020-01-31", periods=12, freq="M")
         df = pd.DataFrame(
             {"A": np.random.randn(12) * 0.01, "B": np.random.randn(12) * 0.01},
             index=dates,
@@ -148,7 +148,7 @@ class TestBlendedScore:
 
     def test_blended_score_weight_normalization(self):
         """Test that weights are properly normalized."""
-        dates = pd.date_range("2020-01-31", periods=12, freq="ME")
+        dates = pd.date_range("2020-01-31", periods=12, freq="M")
         df = pd.DataFrame({"A": [0.01] * 12, "B": [0.02] * 12}, index=dates)
 
         # Test with weights that don't sum to 1
@@ -168,7 +168,7 @@ class TestSelectFunds:
 
     def setup_method(self):
         """Setup test data."""
-        dates = pd.date_range("2020-01-31", periods=24, freq="ME")
+        dates = pd.date_range("2020-01-31", periods=24, freq="M")
         self.df = pd.DataFrame(
             {
                 "Date": dates,
@@ -312,7 +312,7 @@ class TestMetricComputation:
     def test_compute_metric_series_edge_cases(self):
         """Test _compute_metric_series with edge case data."""
         # This tests the private function indirectly through blended_score
-        dates = pd.date_range("2020-01-31", periods=12, freq="ME")
+        dates = pd.date_range("2020-01-31", periods=12, freq="M")
 
         # Test with constant returns
         df = pd.DataFrame({"A": [0.01] * 12, "B": [0.02] * 12}, index=dates)
@@ -326,7 +326,7 @@ class TestMetricComputation:
 
     def test_zscore_computation(self):
         """Test z-score computation through blended_score."""
-        dates = pd.date_range("2020-01-31", periods=12, freq="ME")
+        dates = pd.date_range("2020-01-31", periods=12, freq="M")
 
         # Create data where one fund clearly outperforms
         df = pd.DataFrame(

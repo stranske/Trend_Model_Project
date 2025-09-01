@@ -24,7 +24,7 @@ def _write_cfg(path: Path, csv: Path) -> None:
 
 
 def _make_df():
-    dates = pd.date_range("2020-01-31", periods=6, freq="ME")
+    dates = pd.date_range("2020-01-31", periods=6, freq="M")
     return pd.DataFrame({"Date": dates, "RF": 0.0, "A": 0.01})
 
 

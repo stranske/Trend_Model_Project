@@ -10,7 +10,7 @@ _cols = list("ABCD")
 
 
 def _dummy_returns():
-    dates = pd.date_range("2021-01-31", periods=_periods, freq="ME")
+    dates = pd.date_range("2021-01-31", periods=_periods, freq="M")
     return pd.DataFrame(
         _rng.normal(0.01, 0.02, size=(_periods, len(_cols))), index=dates, columns=_cols
     )

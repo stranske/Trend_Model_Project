@@ -1,6 +1,5 @@
-import importlib.util
-from types import SimpleNamespace
 import pathlib
+import importlib.util
 
 import pandas as pd
 import streamlit as st
@@ -36,18 +35,18 @@ def test_run_button_disabled_without_acceptance(monkeypatch):
         module, "show_disclaimer", lambda: st.session_state.get("disclaimer_accepted", False)
     )
 
-    disabled = SimpleNamespace(value=None)
+    state = {}
 
     def fake_button(label, disabled=False):
-        disabled.value = disabled
+        state["disabled"] = disabled
         return False
 
     monkeypatch.setattr(st, "button", fake_button)
 
     setup_session_state(accepted=False)
     module.main()
-    assert disabled.value is True
+    assert state["disabled"] is True
 
     setup_session_state(accepted=True)
     module.main()
-    assert disabled.value is False
+    assert state["disabled"] is False

@@ -4,7 +4,7 @@ from trend_analysis.pipeline import run_analysis
 
 
 def make_df():
-    dates = pd.date_range("2020-01-31", periods=6, freq="ME")
+    dates = pd.date_range("2020-01-31", periods=6, freq="M")
     return pd.DataFrame(
         {
             "Date": dates,

@@ -29,7 +29,7 @@ def make_cfg(tmp_path, df):
 
 
 def make_df():
-    dates = pd.date_range("2020-01-31", periods=6, freq="ME")
+    dates = pd.date_range("2020-01-31", periods=6, freq="M")
     return pd.DataFrame(
         {
             "Date": dates,
@@ -64,7 +64,7 @@ def test_run_with_benchmarks(tmp_path):
 
 def test_run_returns_empty_when_no_funds(tmp_path, monkeypatch):
     df = pd.DataFrame(
-        {"Date": pd.date_range("2020-01-31", periods=1, freq="ME"), "RF": 0.0}
+        {"Date": pd.date_range("2020-01-31", periods=1, freq="M"), "RF": 0.0}
     )
     cfg = make_cfg(tmp_path, df)
     result = pipeline.run(cfg)
@@ -113,7 +113,7 @@ def test_run_analysis_string_dates():
 
 def test_run_analysis_no_funds():
     df = pd.DataFrame(
-        {"Date": pd.date_range("2020-01-31", periods=3, freq="ME"), "RF": 0.0}
+        {"Date": pd.date_range("2020-01-31", periods=3, freq="M"), "RF": 0.0}
     )
     res = pipeline.run_analysis(
         df, "2020-01", "2020-02", "2020-03", "2020-03", 1.0, 0.0
