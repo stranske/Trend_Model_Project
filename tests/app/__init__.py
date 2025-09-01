@@ -1,0 +1,1 @@
+# Test package for trend portfolio application tests
