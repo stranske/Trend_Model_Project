@@ -2,7 +2,6 @@
 
 import pytest
 import pandas as pd
-import numpy as np
 from trend_analysis.rebalancing import (
     TurnoverCapStrategy,
     create_rebalancing_strategy,
@@ -72,7 +71,6 @@ class TestTurnoverCapStrategy:
 
         # A has largest gap (0.3), should get priority
         # If we have 0.1 budget and A needs 0.3, A gets 0.1/0.3 = 1/3 of its trade
-        expected_A = 0.4 - 0.3 * (0.1 / 0.3)  # Should move by 0.1 toward target
         assert abs(new_weights["A"] - 0.3) < 1e-6
         assert new_weights["B"] == 0.3  # No change
         assert new_weights["C"] == 0.3  # No change
@@ -200,7 +198,7 @@ class TestRebalancingIntegration:
 
     def test_unknown_strategy_raises_error(self):
         """Test error on unknown strategy."""
-        with pytest.raises(ValueError, match="Unknown rebalancing strategy"):
+        with pytest.raises(ValueError, match="Unknown plugin"):
             create_rebalancing_strategy("unknown_strategy")
 
     def test_multiple_strategies_sequence(self):

@@ -19,6 +19,8 @@ from pandas import DataFrame, Series
 # Registry helper                                                             #
 ###############################################################################
 _METRIC_REGISTRY: dict[str, Callable[..., float | pd.Series | np.floating]] = {}
+# Public alias for external access
+METRIC_REGISTRY = _METRIC_REGISTRY
 
 
 P = ParamSpec("P")
@@ -145,6 +147,10 @@ def sharpe_ratio(
 
     sr = ann_ret / sigma
     return float(sr) if isinstance(returns, Series) else sr
+
+
+# Backwards-compatible short name
+_METRIC_REGISTRY["sharpe"] = sharpe_ratio
 
 
 ###############################################################################
@@ -295,4 +301,4 @@ setattr(_bi, "annualize_return", annualize_return)
 setattr(_bi, "annualize_volatility", annualize_volatility)
 
 # Public submodule to expose summary helpers
-from . import summary  # noqa: F401
+from . import summary  # noqa: E402,F401
