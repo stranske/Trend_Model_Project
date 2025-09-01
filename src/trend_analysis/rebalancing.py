@@ -270,11 +270,113 @@ class DriftBandStrategy(RebalancingStrategy):
         return new_weights, cost
 
 
+class VolTargetRebalanceStrategy(RebalancingStrategy):
+    """Volatility target rebalancing strategy - scale positions to maintain target volatility."""
+
+    def __init__(self, params: Dict[str, Any] | None = None):
+        super().__init__(params)
+        self.target_vol = float(self.params.get("target", 0.10))
+        self.lev_min = float(self.params.get("lev_min", 0.5))
+        self.lev_max = float(self.params.get("lev_max", 1.5))
+        self.window = int(self.params.get("window", 6))
+
+    def apply(
+        self, current_weights: pd.Series, target_weights: pd.Series, **kwargs
+    ) -> Tuple[pd.Series, float]:
+        """Apply volatility targeting by scaling positions."""
+        # Align indices
+        all_assets = current_weights.index.union(target_weights.index)
+        current = current_weights.reindex(all_assets, fill_value=0.0)
+        target = target_weights.reindex(all_assets, fill_value=0.0)
+        
+        # Get equity curve from kwargs (maintained by rb_state)
+        equity_curve = kwargs.get("equity_curve", [])
+        
+        if len(equity_curve) >= self.window + 1:
+            # Compute realized volatility from past returns
+            returns = pd.Series(
+                np.diff(equity_curve[-(self.window + 1):]) / 
+                equity_curve[-(self.window + 1):-1]
+            )
+            realized_vol = float(returns.std(ddof=0)) * np.sqrt(12)  # Annualized
+            
+            if realized_vol > 0:
+                # Calculate leverage factor to achieve target vol
+                lev_factor = np.clip(self.target_vol / realized_vol, self.lev_min, self.lev_max)
+                new_weights = target * lev_factor
+            else:
+                new_weights = target.copy()
+        else:
+            # Not enough history, use target weights as-is
+            new_weights = target.copy()
+        
+        # No transaction costs in basic implementation
+        cost = 0.0
+        return new_weights, cost
+
+
+class DrawdownGuardStrategy(RebalancingStrategy):
+    """Drawdown guard strategy - reduce exposure during drawdown periods."""
+
+    def __init__(self, params: Dict[str, Any] | None = None):
+        super().__init__(params)
+        self.dd_window = int(self.params.get("dd_window", 12))
+        self.dd_threshold = float(self.params.get("dd_threshold", 0.10))
+        self.guard_multiplier = float(self.params.get("guard_multiplier", 0.5))
+        self.recover_threshold = float(self.params.get("recover_threshold", 0.05))
+        self._guard_on = False
+
+    def apply(
+        self, current_weights: pd.Series, target_weights: pd.Series, **kwargs
+    ) -> Tuple[pd.Series, float]:
+        """Apply drawdown protection by scaling positions."""
+        # Align indices
+        all_assets = current_weights.index.union(target_weights.index)
+        current = current_weights.reindex(all_assets, fill_value=0.0)
+        target = target_weights.reindex(all_assets, fill_value=0.0)
+        
+        # Get equity curve and guard state from kwargs
+        equity_curve = kwargs.get("equity_curve", [])
+        if "rb_state" in kwargs and "guard_on" in kwargs["rb_state"]:
+            self._guard_on = kwargs["rb_state"]["guard_on"]
+        # else, keep self._guard_on as is
+        drawdown = 0.0
+        if len(equity_curve) >= 1:
+            # Calculate drawdown over the specified window
+            window_data = equity_curve[-self.dd_window:] if len(equity_curve) >= self.dd_window else equity_curve
+            peak = max(window_data)
+            current_value = window_data[-1]
+            if peak > 0:
+                drawdown = (current_value / peak) - 1.0
+        
+        # Update guard state
+        if not self._guard_on and drawdown <= -self.dd_threshold:
+            self._guard_on = True
+        elif self._guard_on and drawdown >= -self.recover_threshold:
+            self._guard_on = False
+        
+        # Store updated guard state back to kwargs (for state tracking)
+        if "rb_state" in kwargs:
+            kwargs["rb_state"]["guard_on"] = self._guard_on
+        
+        # Apply guard multiplier if guard is on
+        if self._guard_on:
+            new_weights = target * self.guard_multiplier
+        else:
+            new_weights = target.copy()
+        
+        # No transaction costs in basic implementation
+        cost = 0.0
+        return new_weights, cost
+
+
 # Registry of available strategies
 REBALANCING_STRATEGIES = {
     "turnover_cap": TurnoverCapStrategy,
     "periodic_rebalance": PeriodicRebalanceStrategy,
     "drift_band": DriftBandStrategy,
+    "vol_target_rebalance": VolTargetRebalanceStrategy,
+    "drawdown_guard": DrawdownGuardStrategy,
 }
 
 
@@ -335,6 +437,8 @@ __all__ = [
     "TurnoverCapStrategy",
     "PeriodicRebalanceStrategy",
     "DriftBandStrategy",
+    "VolTargetRebalanceStrategy",
+    "DrawdownGuardStrategy",
     "REBALANCING_STRATEGIES",
     "create_rebalancing_strategy",
     "apply_rebalancing_strategies",

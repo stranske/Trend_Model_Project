@@ -228,7 +228,9 @@ def run(
         # Use an outer join to ensure all dates and columns are included, handling missing data gracefully
         combined_frames = [frame.copy() for frame in price_frames.values()]
         if combined_frames:
-            df = pd.concat(combined_frames, axis=0, join='outer', ignore_index=True, sort=True)
+            df = pd.concat(
+                combined_frames, axis=0, join="outer", ignore_index=True, sort=True
+            )
             # Sort by Date to ensure proper ordering
             df = df.sort_values("Date").reset_index(drop=True)
             # Remove any duplicates that might have been created during concatenation
