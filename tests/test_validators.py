@@ -179,11 +179,11 @@ class TestFrequencyMap:
         expected_mappings = {
             "daily": "D",
             "weekly": "W",
-            "monthly": "M",
+            "monthly": "M",  # For PeriodIndex (pandas >=2.2)
             "quarterly": "Q",
-            "annual": "Y"
+            "annual": "Y",
         }
-        
+
         for human_readable, pandas_code in expected_mappings.items():
             assert human_readable in FREQUENCY_MAP
             assert FREQUENCY_MAP[human_readable] == pandas_code
@@ -192,19 +192,34 @@ class TestFrequencyMap:
         """Test that load_and_validate_upload properly uses FREQUENCY_MAP."""
         # Create monthly test data
         dates = pd.date_range("2023-01-31", "2023-12-31", freq="ME")
-        df = pd.DataFrame({
-            "Date": dates,
-            "Fund_A": [0.01, 0.02, -0.01, 0.015, 0.0, 0.01, 0.008, -0.005, 0.02, 0.01, -0.01, 0.005]
-        })
-        
+        df = pd.DataFrame(
+            {
+                "Date": dates,
+                "Fund_A": [
+                    0.01,
+                    0.02,
+                    -0.01,
+                    0.015,
+                    0.0,
+                    0.01,
+                    0.008,
+                    -0.005,
+                    0.02,
+                    0.01,
+                    -0.01,
+                    0.005,
+                ],
+            }
+        )
+
         # Convert to CSV buffer
         csv_buffer = io.StringIO()
         df.to_csv(csv_buffer, index=False)
         csv_buffer.seek(0)
-        
+
         # Process the file - should use FREQUENCY_MAP["monthly"] = "M"
         result_df, meta = load_and_validate_upload(csv_buffer)
-        
+
         # Verify it worked without error and detected monthly frequency
         assert meta["frequency"] == "monthly"
         assert isinstance(result_df.index, pd.DatetimeIndex)
