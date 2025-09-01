@@ -1,0 +1,35 @@
+#!/bin/bash
+# Reproducible Trend Analysis Launcher
+# 
+# This script ensures PYTHONHASHSEED is set before Python starts,
+# which is required for consistent hash randomization across runs.
+# Setting PYTHONHASHSEED after Python has started has no effect.
+
+set -euo pipefail
+
+# Get script directory for relative paths
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+
+# Set hash seed for reproducible results
+export PYTHONHASHSEED=0
+
+# Activate virtual environment if it exists
+if [[ -f "$ROOT_DIR/.venv/bin/activate" ]]; then
+    # shellcheck source=/dev/null
+    source "$ROOT_DIR/.venv/bin/activate"
+fi
+
+# Set PYTHONPATH to include the src directory
+export PYTHONPATH="${PYTHONPATH:-}:$ROOT_DIR/src"
+
+# Default to trend analysis if no module specified
+MODULE="${1:-trend_analysis.run_analysis}"
+
+# Shift past module name if provided
+if [[ "$MODULE" =~ ^trend_analysis\. ]]; then
+    shift || true
+fi
+
+# Execute Python with the specified module and remaining arguments
+exec python -m "$MODULE" "$@"
