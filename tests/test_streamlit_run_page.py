@@ -2,8 +2,8 @@
 
 import pytest
 import pandas as pd
-from datetime import date, datetime
-from unittest.mock import Mock, patch, MagicMock
+from datetime import date
+from unittest.mock import Mock, patch
 import sys
 from pathlib import Path
 
@@ -16,8 +16,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "app" / "streamlit" / "pag
 # Mock streamlit before importing our module
 sys.modules["streamlit"] = Mock()
 
-from trend_analysis.api import RunResult
-from trend_analysis.config import Config
+from trend_analysis.api import RunResult  # noqa: E402
+from trend_analysis.config import Config  # noqa: E402
 
 
 def create_mock_streamlit():

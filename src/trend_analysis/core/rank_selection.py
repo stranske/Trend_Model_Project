@@ -11,18 +11,20 @@ by metrics registered in `METRIC_REGISTRY`. Metrics listed in
 # =============================================================================
 from __future__ import annotations
 from dataclasses import dataclass, field
+import io
 import re
 from typing import Any, Callable, Dict, List, Iterable, cast
 
-# Compiled regex pattern for better performance when processing large files
-_FIRM_NAME_TOKENIZER = re.compile(r"[^A-Za-z]+")
-from ..export import Formatter
-import io
+import ipywidgets as widgets
 import numpy as np
 import pandas as pd
-import ipywidgets as widgets
+
 from .. import metrics as _metrics
 from ..data import load_csv, ensure_datetime
+from ..export import Formatter
+
+# Compiled regex pattern for better performance when processing large files
+_FIRM_NAME_TOKENIZER = re.compile(r"[^A-Za-z]+")
 
 DEFAULT_METRIC = "annual_return"
 

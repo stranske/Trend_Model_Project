@@ -30,7 +30,7 @@ def _git_hash() -> str:
         return subprocess.check_output(
             ["git", "rev-parse", "HEAD"], encoding="utf-8", shell=False
         ).strip()
-    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+    except (subprocess.CalledProcessError, FileNotFoundError):
         # Handle cases where git command fails or is not found
         return ""
 

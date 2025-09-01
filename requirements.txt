@@ -5,3 +5,5 @@ pydantic>=2
 openpyxl
 PyYAML
 hypothesis
+matplotlib
+ipywidgets

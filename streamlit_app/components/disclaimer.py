@@ -4,13 +4,14 @@ import streamlit as st
 import os
 
 LICENSE_URL = os.environ.get(
-    "LICENSE_URL",
-    "https://github.com/stranske/Trend_Model_Project/blob/main/LICENSE"
+    "LICENSE_URL", "https://github.com/stranske/Trend_Model_Project/blob/main/LICENSE"
 )
 SECURITY_URL = os.environ.get(
     "SECURITY_URL",
-    "https://github.com/stranske/Trend_Model_Project/blob/main/SECURITY.md"
+    "https://github.com/stranske/Trend_Model_Project/blob/main/SECURITY.md",
 )
+
+
 def show_disclaimer() -> bool:
     """Render the disclaimer modal and return acceptance state.
 

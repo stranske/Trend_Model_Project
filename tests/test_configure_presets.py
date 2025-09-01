@@ -1,9 +1,7 @@
 """Tests for the enhanced Configure page functionality."""
 
-import pytest
 from pathlib import Path
 import yaml
-from unittest.mock import Mock, patch
 
 
 class TestPresetLoading:
@@ -135,7 +133,6 @@ class TestColumnMapping:
 
 if __name__ == "__main__":
     # Run the tests directly
-    import unittest
 
     class TestRunner:
         def run_all_tests(self):

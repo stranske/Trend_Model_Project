@@ -2,7 +2,6 @@
 
 import pytest
 import pandas as pd
-import numpy as np
 from trend_analysis.rebalancing import (
     VolTargetRebalanceStrategy,
     DrawdownGuardStrategy,
@@ -41,12 +40,9 @@ class TestVolTargetRebalanceStrategy:
 
     def test_vol_scaling_within_bounds(self):
         """Test volatility scaling respects leverage bounds."""
-        strategy = VolTargetRebalanceStrategy({
-            "target": 0.10,
-            "window": 6,
-            "lev_min": 0.5,
-            "lev_max": 1.5
-        })
+        strategy = VolTargetRebalanceStrategy(
+            {"target": 0.10, "window": 6, "lev_min": 0.5, "lev_max": 1.5}
+        )
         current = pd.Series([0.5, 0.5], index=["A", "B"])
         target = pd.Series([0.5, 0.5], index=["A", "B"])
 
@@ -64,12 +60,9 @@ class TestVolTargetRebalanceStrategy:
 
     def test_low_vol_scaling_up(self):
         """Test scaling up when realized volatility is low."""
-        strategy = VolTargetRebalanceStrategy({
-            "target": 0.10,
-            "window": 6,
-            "lev_min": 0.5,
-            "lev_max": 2.0
-        })
+        strategy = VolTargetRebalanceStrategy(
+            {"target": 0.10, "window": 6, "lev_min": 0.5, "lev_max": 2.0}
+        )
         current = pd.Series([0.5, 0.5], index=["A", "B"])
         target = pd.Series([0.5, 0.5], index=["A", "B"])
 
@@ -117,17 +110,18 @@ class TestDrawdownGuardStrategy:
 
     def test_no_drawdown_passthrough(self):
         """Test behavior when no significant drawdown exists."""
-        strategy = DrawdownGuardStrategy({
-            "dd_threshold": 0.10,
-            "guard_multiplier": 0.5
-        })
+        strategy = DrawdownGuardStrategy(
+            {"dd_threshold": 0.10, "guard_multiplier": 0.5}
+        )
         current = pd.Series([0.5, 0.5], index=["A", "B"])
         target = pd.Series([0.6, 0.4], index=["A", "B"])
 
         # Positive trending equity curve
         equity_curve = [1.0, 1.02, 1.05, 1.03, 1.08, 1.10]
         rb_state = {}
-        result, cost = strategy.apply(current, target, equity_curve=equity_curve, rb_state=rb_state)
+        result, cost = strategy.apply(
+            current, target, equity_curve=equity_curve, rb_state=rb_state
+        )
 
         # Should pass through target weights unchanged
         pd.testing.assert_series_equal(result, target)
@@ -136,18 +130,18 @@ class TestDrawdownGuardStrategy:
 
     def test_drawdown_triggers_guard(self):
         """Test that significant drawdown triggers the guard."""
-        strategy = DrawdownGuardStrategy({
-            "dd_threshold": 0.10,
-            "guard_multiplier": 0.5,
-            "dd_window": 5
-        })
+        strategy = DrawdownGuardStrategy(
+            {"dd_threshold": 0.10, "guard_multiplier": 0.5, "dd_window": 5}
+        )
         current = pd.Series([0.6, 0.4], index=["A", "B"])
         target = pd.Series([0.6, 0.4], index=["A", "B"])
 
         # Equity curve with >10% drawdown
         equity_curve = [1.0, 1.02, 0.98, 0.95, 0.90, 0.88]
         rb_state = {}
-        result, cost = strategy.apply(current, target, equity_curve=equity_curve, rb_state=rb_state)
+        result, cost = strategy.apply(
+            current, target, equity_curve=equity_curve, rb_state=rb_state
+        )
 
         # Should apply guard multiplier
         expected = target * 0.5
@@ -157,11 +151,9 @@ class TestDrawdownGuardStrategy:
 
     def test_guard_recovery_turns_off(self):
         """Test that guard turns off when drawdown recovers."""
-        strategy = DrawdownGuardStrategy({
-            "dd_threshold": 0.10,
-            "guard_multiplier": 0.5,
-            "recover_threshold": 0.05
-        })
+        strategy = DrawdownGuardStrategy(
+            {"dd_threshold": 0.10, "guard_multiplier": 0.5, "recover_threshold": 0.05}
+        )
         current = pd.Series([0.5, 0.5], index=["A", "B"])
         target = pd.Series([0.5, 0.5], index=["A", "B"])
 
@@ -171,7 +163,9 @@ class TestDrawdownGuardStrategy:
         # Equity curve that has recovered (only -3% drawdown)
         equity_curve = [1.0, 1.05, 1.10, 1.08, 1.07, 1.07]
         rb_state = {"guard_on": True}
-        result, cost = strategy.apply(current, target, equity_curve=equity_curve, rb_state=rb_state)
+        result, cost = strategy.apply(
+            current, target, equity_curve=equity_curve, rb_state=rb_state
+        )
 
         # Should turn off guard and pass through target
         pd.testing.assert_series_equal(result, target)
@@ -180,11 +174,9 @@ class TestDrawdownGuardStrategy:
 
     def test_guard_persistence_during_dd(self):
         """Test that guard stays on during continued drawdown."""
-        strategy = DrawdownGuardStrategy({
-            "dd_threshold": 0.10,
-            "guard_multiplier": 0.3,
-            "recover_threshold": 0.05
-        })
+        strategy = DrawdownGuardStrategy(
+            {"dd_threshold": 0.10, "guard_multiplier": 0.3, "recover_threshold": 0.05}
+        )
         current = pd.Series([0.4, 0.6], index=["A", "B"])
         target = pd.Series([0.4, 0.6], index=["A", "B"])
 
@@ -192,7 +184,9 @@ class TestDrawdownGuardStrategy:
         strategy._guard_on = True
         equity_curve = [1.0, 1.05, 0.95, 0.90, 0.85, 0.82]  # Worsening DD
         rb_state = {"guard_on": True}
-        result, cost = strategy.apply(current, target, equity_curve=equity_curve, rb_state=rb_state)
+        result, cost = strategy.apply(
+            current, target, equity_curve=equity_curve, rb_state=rb_state
+        )
 
         # Should keep guard on and apply multiplier
         expected = target * 0.3
@@ -206,10 +200,10 @@ class TestDrawdownGuardStrategy:
             "dd_threshold": 0.15,
             "guard_multiplier": 0.4,
             "recover_threshold": 0.08,
-            "dd_window": 8
+            "dd_window": 8,
         }
         strategy = create_rebalancing_strategy("drawdown_guard", params)
-        
+
         assert isinstance(strategy, DrawdownGuardStrategy)
         assert strategy.dd_threshold == 0.15
         assert strategy.guard_multiplier == 0.4
@@ -224,7 +218,9 @@ class TestDrawdownGuardStrategy:
 
         equity_curve = []
         rb_state = {}
-        result, cost = strategy.apply(current, target, equity_curve=equity_curve, rb_state=rb_state)
+        result, cost = strategy.apply(
+            current, target, equity_curve=equity_curve, rb_state=rb_state
+        )
 
         # Should pass through target when no curve provided
         pd.testing.assert_series_equal(result, target)
@@ -239,7 +235,7 @@ class TestStrategyIntegration:
         """Test creation via factory."""
         params = {"target": 0.08, "lev_min": 0.3, "lev_max": 2.5, "window": 12}
         strategy = create_rebalancing_strategy("vol_target_rebalance", params)
-        
+
         assert isinstance(strategy, VolTargetRebalanceStrategy)
         assert strategy.target_vol == 0.08
         assert strategy.lev_min == 0.3
@@ -249,10 +245,12 @@ class TestStrategyIntegration:
     def test_strategy_registry_includes_new_strategies(self):
         """Test that new strategies are in the registry."""
         from trend_analysis.rebalancing import REBALANCING_STRATEGIES
-        
+
         assert "vol_target_rebalance" in REBALANCING_STRATEGIES
         assert "drawdown_guard" in REBALANCING_STRATEGIES
-        assert REBALANCING_STRATEGIES["vol_target_rebalance"] is VolTargetRebalanceStrategy
+        assert (
+            REBALANCING_STRATEGIES["vol_target_rebalance"] is VolTargetRebalanceStrategy
+        )
         assert REBALANCING_STRATEGIES["drawdown_guard"] is DrawdownGuardStrategy
 
     def test_unknown_strategy_raises_error(self):

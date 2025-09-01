@@ -44,7 +44,7 @@ try:
             presets.append(preset_file.stem.title())
         return sorted(presets)
 
-except ImportError as e:
+except ImportError:
     # Ultimate fallback
     def load_preset_direct(name: str) -> dict:
         return {}
@@ -445,10 +445,10 @@ def main():
     preset_config = render_preset_selection()
     st.divider()
 
-    column_mapping = render_column_mapping(df)
+    render_column_mapping(df)
     st.divider()
 
-    parameter_overrides = render_parameter_forms(preset_config)
+    render_parameter_forms(preset_config)
     st.divider()
 
     # Configuration summary and validation

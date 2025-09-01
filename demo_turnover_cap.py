@@ -11,14 +11,12 @@ Usage:
 
 import pandas as pd
 import numpy as np
-from typing import Dict, Any
 
 # Import the rebalancing functionality
 from src.trend_analysis.rebalancing import (
     TurnoverCapStrategy,
-    apply_rebalancing_strategies,
 )
-from src.trend_analysis.multi_period.engine import run_schedule, Portfolio
+from src.trend_analysis.multi_period.engine import run_schedule
 from src.trend_analysis.selector import RankSelector
 from src.trend_analysis.weighting import EqualWeight
 
@@ -53,7 +51,7 @@ def demo_basic_turnover_cap():
     desired_trades = target_weights - current_weights
     desired_turnover = desired_trades.abs().sum()
 
-    print(f"\nDesired trades:")
+    print("\nDesired trades:")
     print(desired_trades.to_string())
     print(f"\nTotal desired turnover: {desired_turnover:.1%} (exceeds 15% cap)")
 
@@ -62,7 +60,7 @@ def demo_basic_turnover_cap():
     actual_trades = new_weights - current_weights
     actual_turnover = actual_trades.abs().sum()
 
-    print(f"\nAfter Turnover Cap Applied:")
+    print("\nAfter Turnover Cap Applied:")
     print(f"Actual turnover: {actual_turnover:.1%} (respects 15% cap)")
     print(f"Transaction cost: ${cost * 10000:.2f} per $10,000 invested")
     print("\nFinal Portfolio Weights:")
@@ -175,7 +173,7 @@ def demo_multi_period_integration():
         rebalance_params=rebalance_params,
     )
 
-    print(f"\nMulti-period simulation completed:")
+    print("\nMulti-period simulation completed:")
     print(f"Periods simulated: {len(portfolio.history)}")
     print(f"Total transaction costs: {portfolio.total_rebalance_costs:.4f}")
     print(
@@ -183,7 +181,7 @@ def demo_multi_period_integration():
     )
 
     # Show portfolio evolution
-    print(f"\nPortfolio Evolution:")
+    print("\nPortfolio Evolution:")
     for period, weights in portfolio.history.items():
         non_zero = weights[weights > 0.001]  # Show only significant positions
         clean_dict = {k: round(v, 3) for k, v in non_zero.items()}
@@ -243,7 +241,7 @@ def demo_edge_cases():
     )
 
     # Case 2: Zero turnover needed
-    print(f"\nCase 2: No rebalancing needed")
+    print("\nCase 2: No rebalancing needed")
     current = pd.Series([0.4, 0.6], index=["FUND_X", "FUND_Y"])
     target = current.copy()  # Same as current
 
@@ -253,7 +251,7 @@ def demo_edge_cases():
     print(f"Cost: {cost:.6f}")
 
     # Case 3: Very small turnover cap
-    print(f"\nCase 3: Very restrictive turnover cap (1%)")
+    print("\nCase 3: Very restrictive turnover cap (1%)")
     strategy_restrictive = TurnoverCapStrategy(
         {
             "max_turnover": 0.01,  # Very small cap
@@ -267,7 +265,7 @@ def demo_edge_cases():
 
     new_weights, cost = strategy_restrictive.apply(current, target)
     actual_trades = new_weights - current
-    print(f"Desired change: FUND_1 +50%, FUND_2 -50%")
+    print("Desired change: FUND_1 +50%, FUND_2 -50%")
     print(
         f"Actual change: FUND_1 +{actual_trades['FUND_1']:.1%}, FUND_2 {actual_trades['FUND_2']:.1%}"
     )
@@ -303,20 +301,20 @@ if __name__ == "__main__":
             "✅ Portfolio under-investment when turnover limits prevent full rebalancing"
         )
 
-        print(f"\nThe turnover_cap strategy is production-ready and fully integrated")
-        print(f"with the existing Trend Model Project infrastructure.")
+        print("\nThe turnover_cap strategy is production-ready and fully integrated")
+        print("with the existing Trend Model Project infrastructure.")
 
-        print(f"\nExample Configuration for Multi-Period Engine:")
-        print(f"rebalance_strategies = ['turnover_cap']")
-        print(f"rebalance_params = {{")
-        print(f"    'turnover_cap': {{")
-        print(f"        'max_turnover': 0.15,        # 15% max turnover per period")
-        print(f"        'cost_bps': 25,              # 25 bps transaction costs")
+        print("\nExample Configuration for Multi-Period Engine:")
+        print("rebalance_strategies = ['turnover_cap']")
+        print("rebalance_params = {")
+        print("    'turnover_cap': {")
+        print("        'max_turnover': 0.15,        # 15% max turnover per period")
+        print("        'cost_bps': 25,              # 25 bps transaction costs")
         print(
-            f"        'priority': 'best_score_delta' # Priority by score-weighted benefit"
+            "        'priority': 'best_score_delta' # Priority by score-weighted benefit"
         )
-        print(f"    }}")
-        print(f"}}")
+        print("    }")
+        print("}")
 
     except Exception as e:
         print(f"\nDemo failed with error: {e}")
