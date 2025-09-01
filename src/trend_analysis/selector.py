@@ -3,9 +3,11 @@ from __future__ import annotations
 import pandas as pd
 
 from .core.rank_selection import ASCENDING_METRICS
+from .plugins import Selector, selector_registry, create_selector
 
 
-class RankSelector:
+@selector_registry.register("rank")
+class RankSelector(Selector):
     """Select top N funds based on a metric column."""
 
     def __init__(self, top_n: int, rank_column: str) -> None:
@@ -30,7 +32,8 @@ class RankSelector:
         return selected, log
 
 
-class ZScoreSelector:
+@selector_registry.register("zscore")
+class ZScoreSelector(Selector):
     """Filter by z-score threshold."""
 
     def __init__(
@@ -53,3 +56,16 @@ class ZScoreSelector:
             {"candidate": score_frame.index, "metric": self.column, "reason": z}
         ).set_index("candidate")
         return selected, log
+
+
+def create_selector_by_name(name: str, **params) -> Selector:
+    """Factory helper for creating selectors via the plugin registry."""
+    return create_selector(name, **params)
+
+
+__all__ = [
+    "RankSelector",
+    "ZScoreSelector",
+    "create_selector_by_name",
+    "selector_registry",
+]

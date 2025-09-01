@@ -1,50 +1,28 @@
 """Portfolio rebalancing strategies implementation.
 
-This module provides various rebalancing strategies that control how target weights
-are realized into actual trades and positions, including turnover constraints and
-transaction cost modeling.
+This module provides various rebalancing strategies that control how target
+weights are realised into actual trades and positions, including turnover
+constraints and transaction cost modelling.  Strategies are exposed via a
+simple plugin registry so they can be selected by name in configuration files.
 """
 
 from __future__ import annotations
-from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, Tuple, List
-import pandas as pd
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
+import pandas as pd
+
+from .plugins import Rebalancer, rebalancer_registry, create_rebalancer
+
+# Backwards compatibility name
+RebalancingStrategy = Rebalancer
 
 # Small epsilon value for turnover comparisons to handle numerical precision
 TURNOVER_EPSILON = 1e-10
 
 
-class RebalancingStrategy(ABC):
-    """Base class for rebalancing strategies."""
-
-    def __init__(self, params: Dict[str, Any] | None = None):
-        self.params = params or {}
-
-    @abstractmethod
-    def apply(
-        self, current_weights: pd.Series, target_weights: pd.Series, **kwargs
-    ) -> Tuple[pd.Series, float]:
-        """Apply the rebalancing strategy.
-
-        Parameters
-        ----------
-        current_weights : pd.Series
-            Current portfolio weights
-        target_weights : pd.Series
-            Target portfolio weights
-        **kwargs
-            Additional context (scores, prices, etc.)
-
-        Returns
-        -------
-        tuple[pd.Series, float]
-            New weights after rebalancing and total cost incurred
-        """
-        pass
-
-
-class TurnoverCapStrategy(RebalancingStrategy):
+@rebalancer_registry.register("turnover_cap")
+class TurnoverCapStrategy(Rebalancer):
     """Turnover cap rebalancing strategy.
 
     Limits the total turnover (sum of absolute trades) per rebalancing period
@@ -199,7 +177,8 @@ class TurnoverCapStrategy(RebalancingStrategy):
         return turnover * (self.cost_bps / 10000.0)
 
 
-class PeriodicRebalanceStrategy(RebalancingStrategy):
+@rebalancer_registry.register("periodic_rebalance")
+class PeriodicRebalanceStrategy(Rebalancer):
     """Periodic rebalance strategy - rebalance every N periods."""
 
     def __init__(self, params: Dict[str, Any] | None = None):
@@ -228,7 +207,8 @@ class PeriodicRebalanceStrategy(RebalancingStrategy):
         return new_weights, cost
 
 
-class DriftBandStrategy(RebalancingStrategy):
+@rebalancer_registry.register("drift_band")
+class DriftBandStrategy(Rebalancer):
     """Drift band rebalancing strategy - rebalance when weights drift beyond bands."""
 
     def __init__(self, params: Dict[str, Any] | None = None):
@@ -270,15 +250,16 @@ class DriftBandStrategy(RebalancingStrategy):
         return new_weights, cost
 
 
-class VolTargetRebalanceStrategy(RebalancingStrategy):
-    """Volatility target rebalancing strategy - scale positions to maintain target volatility."""
+@rebalancer_registry.register("vol_target_rebalance")
+class VolTargetRebalanceStrategy(Rebalancer):
+    """Scale weights to hit a target volatility based on recent equity curve."""
 
-    def __init__(self, params: Dict[str, Any] | None = None):
+    def __init__(self, params: Dict[str, Any] | None = None) -> None:
         super().__init__(params)
-        self.target_vol = float(self.params.get("target", 0.10))
+        self.target = float(self.params.get("target", 0.10))
+        self.window = int(self.params.get("window", 6))
         self.lev_min = float(self.params.get("lev_min", 0.5))
         self.lev_max = float(self.params.get("lev_max", 1.5))
-        self.window = int(self.params.get("window", 6))
 
     def apply(
         self, current_weights: pd.Series, target_weights: pd.Series, **kwargs
@@ -317,16 +298,16 @@ class VolTargetRebalanceStrategy(RebalancingStrategy):
         return new_weights, cost
 
 
-class DrawdownGuardStrategy(RebalancingStrategy):
-    """Drawdown guard strategy - reduce exposure during drawdown periods."""
+@rebalancer_registry.register("drawdown_guard")
+class DrawdownGuardStrategy(Rebalancer):
+    """Reduce exposure when portfolio experiences a drawdown."""
 
-    def __init__(self, params: Dict[str, Any] | None = None):
+    def __init__(self, params: Dict[str, Any] | None = None) -> None:
         super().__init__(params)
         self.dd_window = int(self.params.get("dd_window", 12))
         self.dd_threshold = float(self.params.get("dd_threshold", 0.10))
         self.guard_multiplier = float(self.params.get("guard_multiplier", 0.5))
         self.recover_threshold = float(self.params.get("recover_threshold", 0.05))
-        self._guard_on = False
 
     def apply(
         self, current_weights: pd.Series, target_weights: pd.Series, **kwargs
@@ -377,26 +358,11 @@ class DrawdownGuardStrategy(RebalancingStrategy):
 
 
 # Registry of available strategies
-REBALANCING_STRATEGIES = {
-    "turnover_cap": TurnoverCapStrategy,
-    "periodic_rebalance": PeriodicRebalanceStrategy,
-    "drift_band": DriftBandStrategy,
-    "vol_target_rebalance": VolTargetRebalanceStrategy,
-    "drawdown_guard": DrawdownGuardStrategy,
-}
-
-
 def create_rebalancing_strategy(
     name: str, params: Dict[str, Any] | None = None
-) -> RebalancingStrategy:
-    """Create a rebalancing strategy by name."""
-    if name not in REBALANCING_STRATEGIES:
-        raise ValueError(
-            f"Unknown rebalancing strategy: {name}. Available: {list(REBALANCING_STRATEGIES.keys())}"
-        )
-
-    strategy_cls = REBALANCING_STRATEGIES[name]
-    return strategy_cls(params)
+) -> Rebalancer:
+    """Create a rebalancing strategy by name using the plugin registry."""
+    return create_rebalancer(name, params)
 
 
 def apply_rebalancing_strategies(
@@ -445,7 +411,7 @@ __all__ = [
     "DriftBandStrategy",
     "VolTargetRebalanceStrategy",
     "DrawdownGuardStrategy",
-    "REBALANCING_STRATEGIES",
     "create_rebalancing_strategy",
     "apply_rebalancing_strategies",
+    "rebalancer_registry",
 ]
