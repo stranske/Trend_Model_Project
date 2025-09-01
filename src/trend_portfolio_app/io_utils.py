@@ -43,33 +43,47 @@ def export_bundle(results, config_dict) -> str:
     """
     ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    zip_fd, zip_path = tempfile.mkstemp(suffix=f"_trend_bundle_{ts}.zip")
-    try:
-        with os.fdopen(zip_fd, "wb") as zip_file:
-            with zipfile.ZipFile(zip_file, "w", zipfile.ZIP_DEFLATED) as z:
-                try:
-                    buf = io.StringIO()
-                    results.portfolio.to_csv(buf, header=["return"])
-                    z.writestr("portfolio_returns.csv", buf.getvalue())
-                except Exception:
-                    z.writestr("portfolio_returns.csv", "")
+    # Create temporary directory for bundle contents
+    with tempfile.TemporaryDirectory(prefix=f"trend_app_run_{ts}_") as temp_dir:
+        # Write bundle files to temporary directory
+        # Write portfolio_returns.csv with exception handling
+        try:
+            results.portfolio.to_csv(
+                os.path.join(temp_dir, "portfolio_returns.csv"), header=["return"]
+            )
+        except Exception:
+            # Write empty CSV if export fails
+            with open(os.path.join(temp_dir, "portfolio_returns.csv"), "w", encoding="utf-8") as f:
+                f.write("return\n")
 
-                try:
-                    buf = io.StringIO()
-                    results.event_log_df().to_csv(buf)
-                    z.writestr("event_log.csv", buf.getvalue())
-                except Exception:
-                    z.writestr("event_log.csv", "")
+        # Write event_log.csv with exception handling
+        ev = results.event_log_df()
+        try:
+            ev.to_csv(os.path.join(temp_dir, "event_log.csv"))
+        except Exception:
+            # Write empty CSV if export fails
+            with open(os.path.join(temp_dir, "event_log.csv"), "w", encoding="utf-8") as f:
+                f.write("")
+        with open(os.path.join(temp_dir, "summary.json"), "w", encoding="utf-8") as f:
+            json.dump(results.summary(), f, indent=2)
+        with open(os.path.join(temp_dir, "config.json"), "w", encoding="utf-8") as f:
+            json.dump(config_dict, f, indent=2, default=str)
 
-                z.writestr("summary.json", json.dumps(results.summary(), indent=2))
-                z.writestr(
-                    "config.json",
-                    json.dumps(config_dict, indent=2, default=str),
-                )
-    except Exception:
-        if os.path.exists(zip_path):
-            os.remove(zip_path)
-        raise
+        # Create temporary ZIP file
+        fd, zip_path = tempfile.mkstemp(suffix=f"_trend_bundle_{ts}.zip")
+        os.close(fd)
+        # Write ZIP content
+        try:
+            with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
+                for root, _, files in os.walk(temp_dir):
+                    for name in files:
+                        p = os.path.join(root, name)
+                        z.write(p, os.path.relpath(p, temp_dir))
+        except Exception:
+            # Clean up zip file if creation failed
+            if os.path.exists(zip_path):
+                os.remove(zip_path)
+            raise
 
     _TEMP_FILES_TO_CLEANUP.append(zip_path)
     return zip_path

@@ -1,3 +1,34 @@
+Metadata-Version: 2.4
+Name: trend-model
+Version: 0.1.0
+Summary: Volatility-adjusted trend analysis package
+Author: Trend Analysis Contributors
+Maintainer: Trend Analysis Contributors
+License: MIT
+Project-URL: Homepage, https://github.com/stranske/Trend_Model_Project
+Project-URL: Repository, https://github.com/stranske/Trend_Model_Project
+Project-URL: Issues, https://github.com/stranske/Trend_Model_Project/issues
+Project-URL: Documentation, https://github.com/stranske/Trend_Model_Project#readme
+Keywords: finance,trend-analysis,volatility,portfolio,analysis
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Financial and Insurance Industry
+Classifier: Topic :: Office/Business :: Financial :: Investment
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: pandas
+Requires-Dist: numpy
+Requires-Dist: PyYAML
+Requires-Dist: xlsxwriter
+Requires-Dist: openpyxl
+Requires-Dist: pydantic>=2
+Requires-Dist: hypothesis
+Provides-Extra: app
+Requires-Dist: streamlit>=1.30; extra == "app"
+
 # Trend Model Project
 
 This repository contains experiments and utilities for analyzing volatility-adjusted trend portfolios. The Jupyter notebooks demonstrate how to load hedge fund data, apply trend-following rules, and export the results.

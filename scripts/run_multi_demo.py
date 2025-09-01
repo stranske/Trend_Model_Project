@@ -59,11 +59,11 @@ def _check_generate_demo() -> None:
     csv.unlink(missing_ok=True)
     xlsx.unlink(missing_ok=True)
     subprocess.run(
-        [sys.executable, "scripts/generate_demo.py", "--no-xlsx"], check=True
+        [sys.executable, "scripts/generate_demo.py", "--no-xlsx"], check=True, shell=False
     )
     if not csv.exists() or xlsx.exists():
         raise SystemExit("generate_demo --no-xlsx failed")
-    subprocess.run([sys.executable, "scripts/generate_demo.py"], check=True)
+    subprocess.run([sys.executable, "scripts/generate_demo.py"], check=True, shell=False)
     if not xlsx.exists():
         raise SystemExit("generate_demo missing Excel")
 
@@ -75,6 +75,7 @@ def _check_generate_demo_help() -> None:
         check=True,
         capture_output=True,
         text=True,
+        shell=False,
     )
     if "Generate demo return series" not in proc.stdout:
         raise SystemExit("generate_demo --help missing text")
@@ -280,6 +281,7 @@ def _check_cli_env(cfg_path: str) -> None:
         [sys.executable, "-m", "trend_analysis.run_analysis", "--detailed"],
         check=True,
         env=env,
+        shell=False,
     )
     os.environ["TREND_CFG"] = cfg_path
     rc = run_analysis.main([])
@@ -296,6 +298,7 @@ def _check_cli_env_multi(cfg_path: str) -> None:
         [sys.executable, "-m", "trend_analysis.run_multi_analysis", "--detailed"],
         check=True,
         env=env,
+        shell=False,
     )
     os.environ["TREND_CFG"] = cfg_path
     rc = run_multi_analysis.main([])
@@ -869,12 +872,12 @@ def _check_notebook_utils() -> None:
         return
     tmp = Path("demo/exports/strip_tmp.ipynb")
     shutil.copy(src, tmp)
-    subprocess.run([sys.executable, "tools/strip_output.py", str(tmp)], check=True)
+    subprocess.run([sys.executable, "tools/strip_output.py", str(tmp)], check=True, shell=False)
     data = tmp.read_text(encoding="utf-8")
     if '"outputs": []' not in data:
         raise SystemExit("strip_output failed")
     tmp.unlink()
-    subprocess.run(["sh", "tools/pre-commit"], check=True)
+    subprocess.run(["sh", "tools/pre-commit"], check=True, shell=False)
 
 
 _check_generate_demo()
@@ -1995,18 +1998,21 @@ def _check_cli_help() -> None:
         check=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        shell=False,
     )
     subprocess.run(
         [sys.executable, "-m", "trend_analysis.run_multi_analysis", "--help"],
         check=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        shell=False,
     )
     subprocess.run(
         [sys.executable, "-m", "trend_analysis.cli", "--help"],
         check=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        shell=False,
     )
 
 
@@ -2098,6 +2104,7 @@ subprocess.run(
         "config/demo.yml",
     ],
     check=True,
+    shell=False,
 )
 subprocess.run(
     [
@@ -2109,6 +2116,7 @@ subprocess.run(
         "--detailed",
     ],
     check=True,
+    shell=False,
 )
 subprocess.run(
     [
@@ -2120,6 +2128,7 @@ subprocess.run(
         "--detailed",
     ],
     check=True,
+    shell=False,
 )
 
 subprocess.run(
@@ -2132,6 +2141,7 @@ subprocess.run(
         "config/demo.yml",
     ],
     check=True,
+    shell=False,
 )
 
 env = os.environ.copy()
@@ -2144,12 +2154,13 @@ subprocess.run(
     ],
     check=True,
     env=env,
+    shell=False,
 )
 
 # Run the validation helpers to ensure they remain functional
 quick_check = Path(__file__).resolve().with_name("quick_check.sh")
-subprocess.run(["bash", str(quick_check)], check=True)
+subprocess.run(["bash", str(quick_check)], check=True, shell=False)
 
 # Execute the full test suite to cover the entire code base
 run_tests = Path(__file__).resolve().with_name("run_tests.sh")
-subprocess.run([str(run_tests)], check=True)
+subprocess.run([str(run_tests)], check=True, shell=False)

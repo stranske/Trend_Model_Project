@@ -69,6 +69,18 @@ def _find_config_directory() -> Path:
     raise FileNotFoundError("Could not find 'config' directory")
 
 
+def _validate_version_value(v: Any) -> str:
+    """Validate the ``version`` field for both pydantic and fallback modes."""
+    if not isinstance(v, str):
+        raise TypeError("version must be a string")
+    if len(v) == 0:
+        # Match pydantic's wording for empty strings
+        raise ValueError("String should have at least 1 character")
+    if not v.strip():
+        raise ValueError("Version field cannot be empty")
+    return v
+
+
 class Config(BaseModel):
     """Typed access to the YAML configuration."""
 
@@ -96,14 +108,7 @@ class Config(BaseModel):
     @field_validator("version", mode="before")
     @classmethod
     def _ensure_version_str(cls, v: Any) -> str:
-        """Ensure ``version`` is always a string.
-
-        ``pydantic`` will attempt to coerce values after this "before" validator
-        runs. To provide a clearer error for callers we explicitly reject all
-        non-string inputs *including* ``None`` and raise ``TypeError``. This
-        matches the expectations of the property-based tests which verify that
-        any non-string value results in a ``TypeError``.
-        """
+        """Ensure ``version`` is always a string."""
         if not isinstance(v, str):
             raise TypeError("version must be a string")
         return v
