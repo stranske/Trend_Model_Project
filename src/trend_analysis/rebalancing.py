@@ -1,50 +1,28 @@
 """Portfolio rebalancing strategies implementation.
 
-This module provides various rebalancing strategies that control how target weights
-are realized into actual trades and positions, including turnover constraints and
-transaction cost modeling.
+This module provides various rebalancing strategies that control how target
+weights are realised into actual trades and positions, including turnover
+constraints and transaction cost modelling.  Strategies are exposed via a
+simple plugin registry so they can be selected by name in configuration files.
 """
 
 from __future__ import annotations
-from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, Tuple, List
-import pandas as pd
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
+import pandas as pd
+
+from .plugins import Rebalancer, rebalancer_registry, create_rebalancer
+
+# Backwards compatibility name
+RebalancingStrategy = Rebalancer
 
 # Small epsilon value for turnover comparisons to handle numerical precision
 TURNOVER_EPSILON = 1e-10
 
 
-class RebalancingStrategy(ABC):
-    """Base class for rebalancing strategies."""
-
-    def __init__(self, params: Dict[str, Any] | None = None):
-        self.params = params or {}
-
-    @abstractmethod
-    def apply(
-        self, current_weights: pd.Series, target_weights: pd.Series, **kwargs
-    ) -> Tuple[pd.Series, float]:
-        """Apply the rebalancing strategy.
-
-        Parameters
-        ----------
-        current_weights : pd.Series
-            Current portfolio weights
-        target_weights : pd.Series
-            Target portfolio weights
-        **kwargs
-            Additional context (scores, prices, etc.)
-
-        Returns
-        -------
-        tuple[pd.Series, float]
-            New weights after rebalancing and total cost incurred
-        """
-        pass
-
-
-class TurnoverCapStrategy(RebalancingStrategy):
+@rebalancer_registry.register("turnover_cap")
+class TurnoverCapStrategy(Rebalancer):
     """Turnover cap rebalancing strategy.
 
     Limits the total turnover (sum of absolute trades) per rebalancing period
@@ -199,7 +177,8 @@ class TurnoverCapStrategy(RebalancingStrategy):
         return turnover * (self.cost_bps / 10000.0)
 
 
-class PeriodicRebalanceStrategy(RebalancingStrategy):
+@rebalancer_registry.register("periodic_rebalance")
+class PeriodicRebalanceStrategy(Rebalancer):
     """Periodic rebalance strategy - rebalance every N periods."""
 
     def __init__(self, params: Dict[str, Any] | None = None):
@@ -228,7 +207,8 @@ class PeriodicRebalanceStrategy(RebalancingStrategy):
         return new_weights, cost
 
 
-class DriftBandStrategy(RebalancingStrategy):
+@rebalancer_registry.register("drift_band")
+class DriftBandStrategy(Rebalancer):
     """Drift band rebalancing strategy - rebalance when weights drift beyond bands."""
 
     def __init__(self, params: Dict[str, Any] | None = None):
@@ -270,127 +250,76 @@ class DriftBandStrategy(RebalancingStrategy):
         return new_weights, cost
 
 
-class VolTargetRebalanceStrategy(RebalancingStrategy):
-    """Volatility target rebalancing strategy - scale positions to maintain target volatility."""
+@rebalancer_registry.register("vol_target_rebalance")
+class VolTargetRebalanceStrategy(Rebalancer):
+    """Scale weights to hit a target volatility based on recent equity curve."""
 
-    def __init__(self, params: Dict[str, Any] | None = None):
+    def __init__(self, params: Dict[str, Any] | None = None) -> None:
         super().__init__(params)
-        self.target_vol = float(self.params.get("target", 0.10))
+        self.target = float(self.params.get("target", 0.10))
+        self.window = int(self.params.get("window", 6))
         self.lev_min = float(self.params.get("lev_min", 0.5))
         self.lev_max = float(self.params.get("lev_max", 1.5))
-        self.window = int(self.params.get("window", 6))
 
     def apply(
         self, current_weights: pd.Series, target_weights: pd.Series, **kwargs
     ) -> Tuple[pd.Series, float]:
-        """Apply volatility targeting by scaling positions."""
-        # Align indices
-        all_assets = current_weights.index.union(target_weights.index)
-        current = current_weights.reindex(all_assets, fill_value=0.0)
-        target = target_weights.reindex(all_assets, fill_value=0.0)
-        
-        # Get equity curve from kwargs (maintained by rb_state)
-        equity_curve = kwargs.get("equity_curve", [])
-        
-        if len(equity_curve) >= self.window + 1:
-            # Compute realized volatility from past returns
-            returns = pd.Series(
-                np.diff(equity_curve[-(self.window + 1):]) / 
-                equity_curve[-(self.window + 1):-1]
+        ec: List[float] = list(kwargs.get("equity_curve", []))
+        lev = 1.0
+        if len(ec) >= self.window + 1:
+            rets = pd.Series(
+                np.diff(ec[-(self.window + 1) :]) / ec[-(self.window + 1) : -1]
             )
-            realized_vol = float(returns.std(ddof=0)) * np.sqrt(12)  # Annualized
-            
-            if realized_vol > 0:
-                # Calculate leverage factor to achieve target vol
-                lev_factor = np.clip(self.target_vol / realized_vol, self.lev_min, self.lev_max)
-                new_weights = target * lev_factor
-            else:
-                new_weights = target.copy()
-        else:
-            # Not enough history, use target weights as-is
-            new_weights = target.copy()
-        
-        # No transaction costs in basic implementation
-        cost = 0.0
-        return new_weights, cost
+            vol = float(rets.std(ddof=0)) * np.sqrt(12)
+            if vol > 0:
+                lev = float(np.clip(self.target / vol, self.lev_min, self.lev_max))
+        return current_weights * lev, 0.0
 
 
-class DrawdownGuardStrategy(RebalancingStrategy):
-    """Drawdown guard strategy - reduce exposure during drawdown periods."""
+@rebalancer_registry.register("drawdown_guard")
+class DrawdownGuardStrategy(Rebalancer):
+    """Reduce exposure when portfolio experiences a drawdown."""
 
-    def __init__(self, params: Dict[str, Any] | None = None):
+    def __init__(self, params: Dict[str, Any] | None = None) -> None:
         super().__init__(params)
         self.dd_window = int(self.params.get("dd_window", 12))
         self.dd_threshold = float(self.params.get("dd_threshold", 0.10))
         self.guard_multiplier = float(self.params.get("guard_multiplier", 0.5))
         self.recover_threshold = float(self.params.get("recover_threshold", 0.05))
-        self._guard_on = False
 
     def apply(
         self, current_weights: pd.Series, target_weights: pd.Series, **kwargs
     ) -> Tuple[pd.Series, float]:
-        """Apply drawdown protection by scaling positions."""
-        # Align indices
-        all_assets = current_weights.index.union(target_weights.index)
-        current = current_weights.reindex(all_assets, fill_value=0.0)
-        target = target_weights.reindex(all_assets, fill_value=0.0)
-        
-        # Get equity curve and guard state from kwargs
-        equity_curve = kwargs.get("equity_curve", [])
-        if "rb_state" in kwargs and "guard_on" in kwargs["rb_state"]:
-            self._guard_on = kwargs["rb_state"]["guard_on"]
-        # else, keep self._guard_on as is
-        drawdown = 0.0
-        if len(equity_curve) >= 1:
-            # Calculate drawdown over the specified window
-            window_data = equity_curve[-self.dd_window:] if len(equity_curve) >= self.dd_window else equity_curve
-            peak = max(window_data)
-            current_value = window_data[-1]
+        state = kwargs.get("state")
+        if state is None:
+            state = kwargs
+        ec: List[float] = list(state.get("equity_curve", []))
+        guard_on = bool(state.get("guard_on", False))
+        dd = 0.0
+        if ec:
+            sub = ec[-self.dd_window :] if len(ec) >= self.dd_window else ec
+            peak = max(sub)
+            cur = sub[-1]
             if peak > 0:
-                drawdown = (current_value / peak) - 1.0
-        
-        # Update guard state
-        if not self._guard_on and drawdown <= -self.dd_threshold:
-            self._guard_on = True
-        elif self._guard_on and drawdown >= -self.recover_threshold:
-            self._guard_on = False
-        
-        # Store updated guard state back to kwargs (for state tracking)
-        if "rb_state" in kwargs:
-            kwargs["rb_state"]["guard_on"] = self._guard_on
-        
-        # Apply guard multiplier if guard is on
-        if self._guard_on:
-            new_weights = target * self.guard_multiplier
-        else:
-            new_weights = target.copy()
-        
-        # No transaction costs in basic implementation
-        cost = 0.0
-        return new_weights, cost
+                dd = (cur / peak) - 1.0
+        if (not guard_on and dd <= -self.dd_threshold) or (
+            guard_on and dd <= -self.recover_threshold
+        ):
+            guard_on = True
+        elif guard_on and dd >= -self.recover_threshold:
+            guard_on = False
+        state["guard_on"] = guard_on
+        return (
+            current_weights * self.guard_multiplier if guard_on else current_weights
+        ), 0.0
 
 
 # Registry of available strategies
-REBALANCING_STRATEGIES = {
-    "turnover_cap": TurnoverCapStrategy,
-    "periodic_rebalance": PeriodicRebalanceStrategy,
-    "drift_band": DriftBandStrategy,
-    "vol_target_rebalance": VolTargetRebalanceStrategy,
-    "drawdown_guard": DrawdownGuardStrategy,
-}
-
-
 def create_rebalancing_strategy(
     name: str, params: Dict[str, Any] | None = None
-) -> RebalancingStrategy:
-    """Create a rebalancing strategy by name."""
-    if name not in REBALANCING_STRATEGIES:
-        raise ValueError(
-            f"Unknown rebalancing strategy: {name}. Available: {list(REBALANCING_STRATEGIES.keys())}"
-        )
-
-    strategy_cls = REBALANCING_STRATEGIES[name]
-    return strategy_cls(params)
+) -> Rebalancer:
+    """Create a rebalancing strategy by name using the plugin registry."""
+    return create_rebalancer(name, params)
 
 
 def apply_rebalancing_strategies(
@@ -439,7 +368,7 @@ __all__ = [
     "DriftBandStrategy",
     "VolTargetRebalanceStrategy",
     "DrawdownGuardStrategy",
-    "REBALANCING_STRATEGIES",
     "create_rebalancing_strategy",
     "apply_rebalancing_strategies",
+    "rebalancer_registry",
 ]
