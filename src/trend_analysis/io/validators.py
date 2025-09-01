@@ -11,7 +11,7 @@ import numpy as np
 FREQ_ALIAS_MAP = {
     "daily": "D",
     "weekly": "W",
-    "monthly": "M",
+    "monthly": "ME",
     "quarterly": "Q",
     "annual": "A",
 }
