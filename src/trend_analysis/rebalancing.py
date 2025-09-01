@@ -288,28 +288,30 @@ class VolTargetRebalanceStrategy(RebalancingStrategy):
         all_assets = current_weights.index.union(target_weights.index)
         current = current_weights.reindex(all_assets, fill_value=0.0)
         target = target_weights.reindex(all_assets, fill_value=0.0)
-        
+
         # Get equity curve from kwargs (maintained by rb_state)
         equity_curve = kwargs.get("equity_curve", [])
-        
+
         if len(equity_curve) >= self.window + 1:
             # Compute realized volatility from past returns
             returns = pd.Series(
-                np.diff(equity_curve[-(self.window + 1):]) / 
-                equity_curve[-(self.window + 1):-1]
+                np.diff(equity_curve[-(self.window + 1) :])
+                / equity_curve[-(self.window + 1) : -1]
             )
             realized_vol = float(returns.std(ddof=0)) * np.sqrt(12)  # Annualized
-            
+
             if realized_vol > 0:
                 # Calculate leverage factor to achieve target vol
-                lev_factor = np.clip(self.target_vol / realized_vol, self.lev_min, self.lev_max)
+                lev_factor = np.clip(
+                    self.target_vol / realized_vol, self.lev_min, self.lev_max
+                )
                 new_weights = target * lev_factor
             else:
                 new_weights = target.copy()
         else:
             # Not enough history, use target weights as-is
             new_weights = target.copy()
-        
+
         # No transaction costs in basic implementation
         cost = 0.0
         return new_weights, cost
@@ -334,7 +336,7 @@ class DrawdownGuardStrategy(RebalancingStrategy):
         all_assets = current_weights.index.union(target_weights.index)
         current = current_weights.reindex(all_assets, fill_value=0.0)
         target = target_weights.reindex(all_assets, fill_value=0.0)
-        
+
         # Get equity curve and guard state from kwargs
         equity_curve = kwargs.get("equity_curve", [])
         if "rb_state" in kwargs and "guard_on" in kwargs["rb_state"]:
@@ -343,28 +345,32 @@ class DrawdownGuardStrategy(RebalancingStrategy):
         drawdown = 0.0
         if len(equity_curve) >= 1:
             # Calculate drawdown over the specified window
-            window_data = equity_curve[-self.dd_window:] if len(equity_curve) >= self.dd_window else equity_curve
+            window_data = (
+                equity_curve[-self.dd_window :]
+                if len(equity_curve) >= self.dd_window
+                else equity_curve
+            )
             peak = max(window_data)
             current_value = window_data[-1]
             if peak > 0:
                 drawdown = (current_value / peak) - 1.0
-        
+
         # Update guard state
         if not self._guard_on and drawdown <= -self.dd_threshold:
             self._guard_on = True
         elif self._guard_on and drawdown >= -self.recover_threshold:
             self._guard_on = False
-        
+
         # Store updated guard state back to kwargs (for state tracking)
         if "rb_state" in kwargs:
             kwargs["rb_state"]["guard_on"] = self._guard_on
-        
+
         # Apply guard multiplier if guard is on
         if self._guard_on:
             new_weights = target * self.guard_multiplier
         else:
             new_weights = target.copy()
-        
+
         # No transaction costs in basic implementation
         cost = 0.0
         return new_weights, cost

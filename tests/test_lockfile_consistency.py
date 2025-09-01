@@ -25,9 +25,7 @@ def _normalize_lockfile_content(content: str) -> str:
 
             # First check for uv command patterns and normalize them
             # Command with output file
-            if re.search(
-                r"^#\s*uv pip compile.*-o\s+\S+", line
-            ):
+            if re.search(r"^#\s*uv pip compile.*-o\s+\S+", line):
                 # Replace with normalized version
                 normalized_lines.append(
                     "#    uv pip compile pyproject.toml -o requirements.lock"

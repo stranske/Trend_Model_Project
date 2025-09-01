@@ -9,6 +9,7 @@ from src.trend_analysis.io.validators import (
     detect_frequency,
     load_and_validate_upload,
     create_sample_template,
+    FREQUENCY_MAP,
 )
 
 
@@ -163,3 +164,48 @@ class TestCreateSampleTemplate:
         numeric_cols = [col for col in df.columns if col != "Date"]
         for col in numeric_cols:
             assert pd.api.types.is_numeric_dtype(df[col])
+
+
+class TestFrequencyMap:
+    """Test the module-level FREQUENCY_MAP constant."""
+
+    def test_frequency_map_exists(self):
+        """Test that FREQUENCY_MAP is defined and contains expected mappings."""
+        assert isinstance(FREQUENCY_MAP, dict)
+        assert len(FREQUENCY_MAP) > 0
+
+    def test_frequency_map_mappings(self):
+        """Test that FREQUENCY_MAP contains the expected frequency mappings."""
+        expected_mappings = {
+            "daily": "D",
+            "weekly": "W",
+            "monthly": "M",
+            "quarterly": "Q",
+            "annual": "Y"
+        }
+        
+        for human_readable, pandas_code in expected_mappings.items():
+            assert human_readable in FREQUENCY_MAP
+            assert FREQUENCY_MAP[human_readable] == pandas_code
+
+    def test_load_and_validate_uses_frequency_map(self):
+        """Test that load_and_validate_upload properly uses FREQUENCY_MAP."""
+        # Create monthly test data
+        dates = pd.date_range("2023-01-31", "2023-12-31", freq="ME")
+        df = pd.DataFrame({
+            "Date": dates,
+            "Fund_A": [0.01, 0.02, -0.01, 0.015, 0.0, 0.01, 0.008, -0.005, 0.02, 0.01, -0.01, 0.005]
+        })
+        
+        # Convert to CSV buffer
+        csv_buffer = io.StringIO()
+        df.to_csv(csv_buffer, index=False)
+        csv_buffer.seek(0)
+        
+        # Process the file - should use FREQUENCY_MAP["monthly"] = "M"
+        result_df, meta = load_and_validate_upload(csv_buffer)
+        
+        # Verify it worked without error and detected monthly frequency
+        assert meta["frequency"] == "monthly"
+        assert isinstance(result_df.index, pd.DatetimeIndex)
+        assert len(result_df) == len(dates)
