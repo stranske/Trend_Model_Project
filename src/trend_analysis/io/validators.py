@@ -182,6 +182,7 @@ def load_and_validate_upload(file_like) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     df = df.set_index("Date").sort_index()
 
     # Normalize to period-end timestamps using detected frequency
+    # Use PeriodIndex.to_timestamp(how='end') to ensure end-of-period alignment
     idx = pd.to_datetime(df.index)
     freq_map = {
         "daily": "D",
@@ -190,8 +191,14 @@ def load_and_validate_upload(file_like) -> Tuple[pd.DataFrame, Dict[str, Any]]:
         "quarterly": "Q",
         "annual": "A",
     }
-    freq_alias = freq_map.get(validation.frequency or "", "M")
-    df.index = pd.PeriodIndex(idx, freq=freq_alias).to_timestamp(freq_alias)
+    period_freq = freq_map.get(validation.frequency or "", "M")
+    try:
+        # Convert to Periods then to end-of-period timestamps
+        pi = idx.to_period(period_freq)
+        df.index = pi.to_timestamp(how="end")
+    except Exception:
+        # Fallback: keep as datetime index sorted
+        df.index = idx
     df = df.dropna(axis=1, how="all")
 
     # Convert to numeric
