@@ -337,8 +337,9 @@ class DrawdownGuardStrategy(RebalancingStrategy):
         
         # Get equity curve and guard state from kwargs
         equity_curve = kwargs.get("equity_curve", [])
-        self._guard_on = kwargs.get("guard_on", self._guard_on)
-        
+        if "rb_state" in kwargs and "guard_on" in kwargs["rb_state"]:
+            self._guard_on = kwargs["rb_state"]["guard_on"]
+        # else, keep self._guard_on as is
         drawdown = 0.0
         if len(equity_curve) >= 1:
             # Calculate drawdown over the specified window
