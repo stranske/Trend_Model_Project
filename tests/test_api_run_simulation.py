@@ -1,4 +1,7 @@
 import pandas as pd
+import json
+import hashlib
+
 from trend_analysis.config import Config
 from trend_analysis import api, pipeline
 
@@ -45,3 +48,26 @@ def test_run_simulation_matches_pipeline(tmp_path):
         result.details["score_frame"], expected_details["score_frame"]
     )
     pd.testing.assert_frame_equal(result.metrics, expected_metrics)
+    assert result.seed == cfg.seed
+    assert "python" in result.environment
+
+
+def _hash_result(res: api.RunResult) -> str:
+    payload = {
+        "metrics": res.metrics.to_json(),
+        "details": json.dumps(res.details, sort_keys=True, default=str),
+    }
+    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+
+
+def test_run_simulation_deterministic(tmp_path):
+    df = make_df()
+    csv = tmp_path / "data.csv"
+    df.to_csv(csv, index=False)
+    cfg = make_cfg(str(csv))
+    cfg.seed = 123
+
+    r1 = api.run_simulation(cfg, df)
+    r2 = api.run_simulation(cfg, df)
+
+    assert _hash_result(r1) == _hash_result(r2)
