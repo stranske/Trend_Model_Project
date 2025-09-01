@@ -36,7 +36,9 @@ def compute_score_frame_local(
                     val = spec["fn"](r, idx)
                 col_metrics[name] = val
             except Exception as e:
-                logger.warning("Failed to compute metric '%s' for column '%s': %s", name, col, e)
+                logger.warning(
+                    "Failed to compute metric '%s' for column '%s': %s", name, col, e
+                )
                 col_metrics[name] = np.nan
         out[col] = col_metrics
     df = pd.DataFrame(out).T
@@ -62,11 +64,13 @@ def compute_score_frame(
                 return cast(pd.DataFrame, sf)
             except (ImportError, AttributeError) as e:
                 logger.warning(
-                    "External scoring function unavailable or misconfigured (ImportError/AttributeError): %s. Falling back to local implementation.", e
+                    "External scoring function unavailable or misconfigured (ImportError/AttributeError): %s. Falling back to local implementation.",
+                    e,
                 )
             except (ValueError, TypeError) as e:
                 logger.warning(
-                    "External scoring function failed due to invalid parameters or data (ValueError/TypeError): %s. Falling back to local implementation.", e
+                    "External scoring function failed due to invalid parameters or data (ValueError/TypeError): %s. Falling back to local implementation.",
+                    e,
                 )
     return compute_score_frame_local(
         panel.loc[insample_start:insample_end], rf_annual=rf_annual

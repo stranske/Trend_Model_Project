@@ -174,7 +174,11 @@ def run_schedule(
     return pf
 
 
-def run(cfg: Config, df: pd.DataFrame | None = None) -> List[Dict[str, object]]:
+def run(
+    cfg: Config,
+    df: pd.DataFrame | None = None,
+    price_frames: dict[str, pd.DataFrame] | None = None,
+) -> List[Dict[str, object]]:
     """Run the multi‑period back‑test.
 
     Parameters
@@ -185,6 +189,10 @@ def run(cfg: Config, df: pd.DataFrame | None = None) -> List[Dict[str, object]]:
     df : pd.DataFrame, optional
         Pre-loaded returns data.  If ``None`` the CSV pointed to by
         ``cfg.data['csv_path']`` is loaded via :func:`load_csv`.
+    price_frames : dict[str, pd.DataFrame], optional
+        Pre-computed price data frames by date/period. If provided, used instead
+        of building from returns data. If ``None``, data is built from returns
+        or loaded from CSV as usual.
 
     Returns
     -------
@@ -193,6 +201,40 @@ def run(cfg: Config, df: pd.DataFrame | None = None) -> List[Dict[str, object]]:
         full output of ``_run_analysis`` augmented with a ``period`` key
         for reference.
     """
+
+    # Validate price_frames parameter
+    if price_frames is not None:
+        if not isinstance(price_frames, dict):
+            raise TypeError("price_frames must be a dict[str, pd.DataFrame] or None")
+        for date_key, frame in price_frames.items():
+            if not isinstance(frame, pd.DataFrame):
+                raise TypeError(
+                    f"price_frames['{date_key}'] must be a pandas DataFrame"
+                )
+            required_columns = ["Date"]
+            missing_columns = [
+                col for col in required_columns if col not in frame.columns
+            ]
+            if missing_columns:
+                raise ValueError(
+                    f"price_frames['{date_key}'] is missing required columns: {missing_columns}. "
+                    f"Required columns are: {required_columns}. "
+                    f"Available columns are: {list(frame.columns)}"
+                )
+
+    # If price_frames is provided, use it to build df
+    if price_frames is not None:
+        # Robustly combine all price frames into a single DataFrame by aligning on 'Date'
+        # Use an outer join to ensure all dates and columns are included, handling missing data gracefully
+        combined_frames = [frame.copy() for frame in price_frames.values()]
+        if combined_frames:
+            df = pd.concat(combined_frames, axis=0, join='outer', ignore_index=True, sort=True)
+            # Sort by Date to ensure proper ordering
+            df = df.sort_values("Date").reset_index(drop=True)
+            # Remove any duplicates that might have been created during concatenation
+            df = df.drop_duplicates(subset=["Date"], keep="last").reset_index(drop=True)
+        else:
+            raise ValueError("price_frames is empty - no data to process")
 
     if df is None:
         csv_path = cfg.data.get("csv_path")

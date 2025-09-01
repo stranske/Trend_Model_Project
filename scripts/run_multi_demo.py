@@ -59,11 +59,15 @@ def _check_generate_demo() -> None:
     csv.unlink(missing_ok=True)
     xlsx.unlink(missing_ok=True)
     subprocess.run(
-        [sys.executable, "scripts/generate_demo.py", "--no-xlsx"], check=True, shell=False
+        [sys.executable, "scripts/generate_demo.py", "--no-xlsx"],
+        check=True,
+        shell=False,
     )
     if not csv.exists() or xlsx.exists():
         raise SystemExit("generate_demo --no-xlsx failed")
-    subprocess.run([sys.executable, "scripts/generate_demo.py"], check=True, shell=False)
+    subprocess.run(
+        [sys.executable, "scripts/generate_demo.py"], check=True, shell=False
+    )
     if not xlsx.exists():
         raise SystemExit("generate_demo missing Excel")
 
@@ -872,7 +876,9 @@ def _check_notebook_utils() -> None:
         return
     tmp = Path("demo/exports/strip_tmp.ipynb")
     shutil.copy(src, tmp)
-    subprocess.run([sys.executable, "tools/strip_output.py", str(tmp)], check=True, shell=False)
+    subprocess.run(
+        [sys.executable, "tools/strip_output.py", str(tmp)], check=True, shell=False
+    )
     data = tmp.read_text(encoding="utf-8")
     if '"outputs": []' not in data:
         raise SystemExit("strip_output failed")

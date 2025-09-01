@@ -15,12 +15,25 @@ import pandas as pd
 PeriodTuple = namedtuple("PeriodTuple", ["in_start", "in_end", "out_start", "out_end"])
 
 FREQ_MAP = {
+    # Standard codes + deprecated mappings
     "M": "ME",
     "ME": "ME",
     "Q": "QE",
     "QE": "QE",
     "A": "YE",
     "YE": "YE",
+    # User-friendly names (all case variations)
+    "monthly": "ME",
+    "MONTHLY": "ME",
+    "Monthly": "ME",
+    "quarterly": "QE",
+    "QUARTERLY": "QE",
+    "Quarterly": "QE",
+    "annual": "YE",
+    "ANNUAL": "YE",
+    "annually": "YE",
+    "ANNUALLY": "YE",
+    "Annually": "YE",
 }
 
 
