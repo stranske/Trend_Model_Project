@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 from collections.abc import Mapping
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 # Conditional pydantic imports with fallback stubs
 try:

@@ -21,35 +21,39 @@ from trend_analysis.config import Config
 def demo_data():
     """Create demo data for testing."""
     demo_path = Path(__file__).parent.parent / "demo" / "demo_returns.csv"
-    
+
     # Try to generate demo data, but handle failures gracefully
     try:
         # Ensure demo directory exists and is writable
         demo_dir = demo_path.parent
         demo_dir.mkdir(exist_ok=True)
-        
+
         # If file exists, ensure it's writable
         if demo_path.exists():
             demo_path.chmod(0o644)
-        
-        # Try to generate demo data
+
+        # Try to generate demo data - DO NOT use check=True to avoid raising on failure
         result = subprocess.run(
             ["python", "scripts/generate_demo.py"],
             cwd=Path(__file__).parent.parent,
             capture_output=True,
             text=True,
+            # Explicitly ensure we don't raise on subprocess failure
+            check=False,
         )
-        
-        # Check if generation was successful
+
+        # Check if generation was successful - do not exit or raise on failure
         if result.returncode != 0:
             print(f"Demo generation failed with exit code {result.returncode}")
             print(f"STDERR: {result.stderr}")
             print("Using fallback demo data instead")
-    
+            # DO NOT raise or exit here - fallback is acceptable
+
     except Exception as e:
         print(f"Demo generation failed with exception: {e}")
         print("Using fallback demo data instead")
-    
+        # DO NOT re-raise or exit here - fallback is acceptable
+
     # Try to load the generated demo data
     if demo_path.exists():
         try:
@@ -57,7 +61,8 @@ def demo_data():
         except Exception as e:
             print(f"Failed to load generated demo data: {e}")
             print("Using fallback demo data instead")
-    
+            # DO NOT raise or exit here - fallback will be used
+
     # Fallback: create minimal demo data
     dates = pd.date_range("2020-01-31", periods=24, freq="ME")
     return pd.DataFrame(
@@ -382,23 +387,27 @@ if __name__ == "__main__":
         # Ensure demo directory exists and is writable
         demo_dir = Path("demo")
         demo_dir.mkdir(exist_ok=True)
-        
-        # Try to generate demo data
+
+        # Try to generate demo data - explicitly set check=False
         result = subprocess.run(
-            ["python", "scripts/generate_demo.py"], 
-            capture_output=True, 
-            text=True
+            ["python", "scripts/generate_demo.py"],
+            capture_output=True,
+            text=True,
+            # Ensure subprocess failure doesn't cause this script to exit
+            check=False,
         )
-        
+
         if result.returncode == 0:
             print("✅ Demo data generation test passed")
         else:
             print(f"⚠️  Demo data generation failed (exit code {result.returncode})")
             print(f"STDERR: {result.stderr}")
             print("This is acceptable - tests will use fallback data")
+            # DO NOT exit or raise here - fallback data is acceptable
     except Exception as e:
         print(f"⚠️  Demo data generation failed with exception: {e}")
         print("This is acceptable - tests will use fallback data")
+        # DO NOT re-raise or exit here - fallback is acceptable
 
     # Test 2: Check Run page exists
     run_page_path = Path("app/streamlit/pages/03_Run.py")

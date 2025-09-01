@@ -404,10 +404,10 @@ class TestAnalysisIntegration:
         """Test successful analysis run."""
         # Create mock result
         mock_result = RunResult(
-            metrics=pd.DataFrame({"metric": [1.0, 2.0]}), 
+            metrics=pd.DataFrame({"metric": [1.0, 2.0]}),
             details={"test": "data"},
             seed=42,
-            environment={"test_env": True}
+            environment={"test_env": True},
         )
         mock_run_simulation.return_value = mock_result
 
@@ -434,8 +434,12 @@ class TestAnalysisIntegration:
             with patch.object(run_page.st, "session_state", session_state):
                 # Mock streamlit UI elements
                 with patch.object(run_page.st, "container", return_value=MagicMock()):
-                    with patch.object(run_page.st, "progress", return_value=MagicMock()):
-                        with patch.object(run_page.st, "empty", return_value=MagicMock()):
+                    with patch.object(
+                        run_page.st, "progress", return_value=MagicMock()
+                    ):
+                        with patch.object(
+                            run_page.st, "empty", return_value=MagicMock()
+                        ):
                             result = run_page.run_analysis_with_progress()
 
                 assert result is not None
@@ -471,8 +475,12 @@ class TestAnalysisIntegration:
 
             with patch.object(run_page.st, "session_state", session_state):
                 with patch.object(run_page.st, "container", return_value=MagicMock()):
-                    with patch.object(run_page.st, "progress", return_value=MagicMock()):
-                        with patch.object(run_page.st, "empty", return_value=MagicMock()):
+                    with patch.object(
+                        run_page.st, "progress", return_value=MagicMock()
+                    ):
+                        with patch.object(
+                            run_page.st, "empty", return_value=MagicMock()
+                        ):
                             with patch.object(run_page.st, "error") as mock_error:
                                 with patch.object(
                                     run_page.st, "expander", return_value=MagicMock()

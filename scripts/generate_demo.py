@@ -48,14 +48,14 @@ def main() -> None:
 
     csv_path = f"{OUT_DIR}/demo_returns.csv"
     xlsx_path = f"{OUT_DIR}/demo_returns.xlsx"
-    
+
     try:
         # Ensure files are writable if they exist
         if os.path.exists(csv_path):
             os.chmod(csv_path, 0o644)
         if os.path.exists(xlsx_path):
             os.chmod(xlsx_path, 0o644)
-            
+
         df.to_csv(csv_path)
         if not args.no_xlsx:
             df.to_excel(xlsx_path)
