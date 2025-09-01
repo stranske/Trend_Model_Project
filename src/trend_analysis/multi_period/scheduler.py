@@ -1,7 +1,7 @@
 """Generate (in-sample, out-sample) period tuples for the multi-period engine.
 
-Uses pandas offset aliases ``ME``/``Q``/``A`` for month-, quarter-, and
-year-end periods. Legacy aliases like ``M`` are mapped to ``ME`` for
+Uses pandas offset aliases: ``ME`` for month-end, ``Q`` for quarter-end, and
+``A`` for annual/year-end periods. Legacy aliases like ``M`` are mapped to ``ME`` for
 backward compatibility.
 """
 
