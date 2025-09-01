@@ -78,7 +78,7 @@ run:
   jobs: 1
 
 multi_period:
-  frequency: M        # Monthly stepping
+  frequency: ME       # Monthly stepping
   in_sample_len: 36   # 36-month IS
   out_sample_len: 12  # 12-month OOS
   start: 2003-03

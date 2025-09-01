@@ -36,18 +36,18 @@ def test_run_button_disabled_without_acceptance(monkeypatch):
         module, "show_disclaimer", lambda: st.session_state.get("disclaimer_accepted", False)
     )
 
-    disabled = SimpleNamespace(value=None)
+    disabled_flag = SimpleNamespace(value=None)
 
     def fake_button(label, disabled=False):
-        disabled.value = disabled
+        disabled_flag.value = disabled
         return False
 
     monkeypatch.setattr(st, "button", fake_button)
 
     setup_session_state(accepted=False)
     module.main()
-    assert disabled.value is True
+    assert disabled_flag.value is True
 
     setup_session_state(accepted=True)
     module.main()
-    assert disabled.value is False
+    assert disabled_flag.value is False

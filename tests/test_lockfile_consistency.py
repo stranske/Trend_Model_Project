@@ -24,13 +24,12 @@ def _normalize_lockfile_content(content: str) -> str:
             # Use regex to detect comment lines that likely contain variable content
 
             # First check for uv command patterns and normalize them
-            r"^#\s*uv pip compile.*-o\s+\S+", line
-        ):  # Command with output file
+            if re.match(r"^#\s*uv pip compile", line):
                 # Replace with normalized version
-            normalized_lines.append(
-                "#    uv pip compile pyproject.toml -o requirements.lock"
-            )
-            continue
+                normalized_lines.append(
+                    "#    uv pip compile pyproject.toml -o requirements.lock"
+                )
+                continue
 
             # Then check for date/time patterns in comments
             # Match dates in various formats, but avoid matching dates in dependency versions
