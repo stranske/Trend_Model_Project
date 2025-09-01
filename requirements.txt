@@ -21,3 +21,4 @@ pre-commit
 black
 ruff
 mypy
+pytest-cov

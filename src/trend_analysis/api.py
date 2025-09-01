@@ -3,7 +3,11 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from typing import Any
+import os
+import random
+import sys
 
+import numpy as np
 import pandas as pd
 
 from .config import Config
@@ -18,6 +22,8 @@ class RunResult:
 
     metrics: pd.DataFrame
     details: dict[str, Any]
+    seed: int
+    environment: dict[str, Any]
 
 
 def run_simulation(config: Config, returns: pd.DataFrame) -> RunResult:
@@ -36,6 +42,11 @@ def run_simulation(config: Config, returns: pd.DataFrame) -> RunResult:
         Structured results with the summary metrics and detailed payload.
     """
     logger.info("run_simulation start")
+
+    seed = getattr(config, "seed", 42)
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    random.seed(seed)
+    np.random.seed(seed)
 
     split = config.sample_split
     metrics_list = config.metrics.get("registry")
@@ -63,12 +74,17 @@ def run_simulation(config: Config, returns: pd.DataFrame) -> RunResult:
         manual_funds=config.portfolio.get("manual_list"),
         indices_list=config.portfolio.get("indices_list"),
         benchmarks=config.benchmarks,
-        seed=config.portfolio.get("random_seed", 42),
+        seed=seed,
         stats_cfg=stats_cfg,
     )
     if res is None:
         logger.warning("run_simulation produced no result")
-        return RunResult(pd.DataFrame(), {})
+        env = {
+            "python": sys.version.split()[0],
+            "numpy": np.__version__,
+            "pandas": pd.__version__,
+        }
+        return RunResult(pd.DataFrame(), {}, seed, env)
 
     stats = res["out_sample_stats"]
     metrics_df = pd.DataFrame({k: vars(v) for k, v in stats.items()}).T
@@ -82,5 +98,11 @@ def run_simulation(config: Config, returns: pd.DataFrame) -> RunResult:
             }
         )
 
+    env = {
+        "python": sys.version.split()[0],
+        "numpy": np.__version__,
+        "pandas": pd.__version__,
+    }
+
     logger.info("run_simulation end")
-    return RunResult(metrics=metrics_df, details=res)
+    return RunResult(metrics=metrics_df, details=res, seed=seed, environment=env)
