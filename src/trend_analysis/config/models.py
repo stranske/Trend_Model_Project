@@ -122,7 +122,10 @@ class Config(BaseModel):
         # Perform minimal validation in the ``__init__`` method to keep
         # behaviour consistent with the pydantic-backed model.
         def __init__(self, **kwargs: Any) -> None:  # type: ignore[override]
-            _validate_version_value(kwargs.get("version"))
+            version_value = kwargs.get("version")
+            if version_value is None:
+                raise ValueError("version field is required")
+            _validate_version_value(version_value)
             super().__init__(**kwargs)
 
     @field_validator(
