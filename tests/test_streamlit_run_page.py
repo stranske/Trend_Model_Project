@@ -3,7 +3,7 @@
 import pytest
 import pandas as pd
 from datetime import date
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, MagicMock, patch
 import sys
 from pathlib import Path
 
@@ -29,9 +29,9 @@ def create_mock_streamlit():
     mock_st.success = Mock()
     mock_st.info = Mock()
     mock_st.progress = Mock()
-    mock_st.empty = Mock()
-    mock_st.container = Mock()
-    mock_st.expander = Mock()
+    mock_st.empty = MagicMock()  # Context manager
+    mock_st.container = MagicMock()  # Context manager
+    mock_st.expander = MagicMock()  # Context manager
     mock_st.code = Mock()
     mock_st.rerun = Mock()
 
@@ -404,7 +404,10 @@ class TestAnalysisIntegration:
         """Test successful analysis run."""
         # Create mock result
         mock_result = RunResult(
-            metrics=pd.DataFrame({"metric": [1.0, 2.0]}), details={"test": "data"}
+            metrics=pd.DataFrame({"metric": [1.0, 2.0]}), 
+            details={"test": "data"},
+            seed=42,
+            environment={"test_env": True}
         )
         mock_run_simulation.return_value = mock_result
 
@@ -430,9 +433,9 @@ class TestAnalysisIntegration:
 
             with patch.object(run_page.st, "session_state", session_state):
                 # Mock streamlit UI elements
-                with patch.object(run_page.st, "container", return_value=Mock()):
-                    with patch.object(run_page.st, "progress", return_value=Mock()):
-                        with patch.object(run_page.st, "empty", return_value=Mock()):
+                with patch.object(run_page.st, "container", return_value=MagicMock()):
+                    with patch.object(run_page.st, "progress", return_value=MagicMock()):
+                        with patch.object(run_page.st, "empty", return_value=MagicMock()):
                             result = run_page.run_analysis_with_progress()
 
                 assert result is not None
@@ -467,12 +470,12 @@ class TestAnalysisIntegration:
             }
 
             with patch.object(run_page.st, "session_state", session_state):
-                with patch.object(run_page.st, "container", return_value=Mock()):
-                    with patch.object(run_page.st, "progress", return_value=Mock()):
-                        with patch.object(run_page.st, "empty", return_value=Mock()):
+                with patch.object(run_page.st, "container", return_value=MagicMock()):
+                    with patch.object(run_page.st, "progress", return_value=MagicMock()):
+                        with patch.object(run_page.st, "empty", return_value=MagicMock()):
                             with patch.object(run_page.st, "error") as mock_error:
                                 with patch.object(
-                                    run_page.st, "expander", return_value=Mock()
+                                    run_page.st, "expander", return_value=MagicMock()
                                 ):
                                     result = run_page.run_analysis_with_progress()
 
