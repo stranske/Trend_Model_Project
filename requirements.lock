@@ -6,7 +6,7 @@ attrs==25.3.0
     # via hypothesis
 et-xmlfile==2.0.0
     # via openpyxl
-hypothesis==6.138.8
+hypothesis==6.138.13
     # via trend-model (pyproject.toml)
 numpy==2.3.2
     # via
