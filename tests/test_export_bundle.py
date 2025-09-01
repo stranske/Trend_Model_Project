@@ -49,7 +49,7 @@ def test_export_bundle(tmp_path):
             meta = json.load(f)
     assert meta["config"] == {"foo": 1}
     assert meta["seed"] == 42
-    assert "python" in meta["versions"]
+    assert "python" in meta["environment"]
     assert len(meta.get("git_hash", "")) >= 7
     assert meta["input_sha256"] is not None
     assert "created" in meta["receipt"]

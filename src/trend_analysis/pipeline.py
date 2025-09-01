@@ -409,7 +409,7 @@ def run(cfg: Config) -> pd.DataFrame:
         manual_funds=cfg.portfolio.get("manual_list"),
         indices_list=cfg.portfolio.get("indices_list"),
         benchmarks=cfg.benchmarks,
-        seed=cfg.portfolio.get("random_seed", 42),
+        seed=getattr(cfg, "seed", 42),
         stats_cfg=stats_cfg,
     )
     if res is None:
@@ -466,7 +466,7 @@ def run_full(cfg: Config) -> dict[str, object]:
         manual_funds=cfg.portfolio.get("manual_list"),
         indices_list=cfg.portfolio.get("indices_list"),
         benchmarks=cfg.benchmarks,
-        seed=cfg.portfolio.get("random_seed", 42),
+        seed=getattr(cfg, "seed", 42),
         stats_cfg=stats_cfg,
     )
     return {} if res is None else res
