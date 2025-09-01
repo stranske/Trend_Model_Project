@@ -103,7 +103,11 @@ exercises every new code path.
    ./scripts/run_tests.sh
    ```
 
-## 11. Further help
+## 11. Reproducibility and Testing
+
+For reproducible results across different runs and environments, see [ReproducibilityGuide.md](ReproducibilityGuide.md). This is especially important when using random selection modes or when running tests.
+
+## 12. Further help
 
 See `README.md` for a short overview of the repository structure and the example notebooks for end‑to‑end demonstrations.
 

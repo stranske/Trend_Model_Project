@@ -10,4 +10,10 @@ ipywidgets
 nbformat
 streamlit>=1.30
 streamlit-sortables
+
+# Development tools
+pre-commit
+black
+ruff
+mypy
 pytest-cov
