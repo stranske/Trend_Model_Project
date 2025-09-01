@@ -121,7 +121,7 @@ class TestErrorFormatting:
 
             error = ValueError("Date column not found")
             result = run_page.format_error_message(error)
-            assert "Date column" in result
+            assert "'Date' column" in result
             assert "properly formatted dates" in result
 
     def test_format_error_message_generic(self):
