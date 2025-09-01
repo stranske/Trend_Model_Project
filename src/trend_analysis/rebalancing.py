@@ -1,8 +1,8 @@
 """Portfolio rebalancing strategies implementation.
 
 This module provides various rebalancing strategies that control how target
-weights are realised into actual trades and positions, including turnover
-constraints and transaction cost modelling.  Strategies are exposed via a
+weights are realized into actual trades and positions, including turnover
+constraints and transaction cost modeling.  Strategies are exposed via a
 simple plugin registry so they can be selected by name in configuration files.
 """
 
