@@ -8,6 +8,14 @@ import pandas as pd
 from datetime import datetime
 import numpy as np
 
+FREQ_ALIAS_MAP = {
+    "daily": "D",
+    "weekly": "W",
+    "monthly": "M",
+    "quarterly": "Q",
+    "annual": "A",
+}
+
 
 class ValidationResult:
     """Result of schema validation with detailed feedback."""
@@ -184,7 +192,9 @@ def load_and_validate_upload(file_like) -> Tuple[pd.DataFrame, Dict[str, Any]]:
 
     # Normalize to period-end timestamps using detected frequency
     idx = pd.to_datetime(df.index)
-    freq = validation.frequency if validation.frequency is not None else "ME"
+    # Map human-friendly frequency labels (e.g. "monthly") to pandas codes
+    freq_key = (validation.frequency or "").lower()
+    freq = FREQ_ALIAS_MAP.get(freq_key, "M")
     df.index = pd.PeriodIndex(idx, freq=freq).to_timestamp(freq)
     df = df.dropna(axis=1, how="all")
 

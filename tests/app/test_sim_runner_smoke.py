@@ -19,6 +19,6 @@ def test_simulator_smoke():
         top_k=1, bottom_k=0, min_track_months=6, metrics=[MetricSpec("sharpe", 1.0)]
     )
     res = sim.run(
-        start=idx[6], end=idx[-2], freq="monthly", lookback_months=6, policy=policy
+        start=idx[6], end=idx[-2], freq="M", lookback_months=6, policy=policy
     )
     assert len(res.portfolio) > 0
