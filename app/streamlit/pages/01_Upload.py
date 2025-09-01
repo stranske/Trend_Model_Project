@@ -34,6 +34,7 @@ except ImportError:
     import importlib.util
 
     import os
+
     state_path = os.path.join(os.path.dirname(__file__), "..", "state.py")
     spec = importlib.util.spec_from_file_location(
         "state",
