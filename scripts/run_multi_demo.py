@@ -458,7 +458,6 @@ def _check_rebalancer_logic() -> None:
 
 def _check_portfolio() -> None:
     """Ensure ``Portfolio.rebalance`` records weight history."""
-
     pf = Portfolio()
     pf.rebalance(
         "2020-01-31",
@@ -1525,7 +1524,9 @@ if sf is None or sf.empty:
 b_ir = full_res.get("benchmark_ir", {})
 if "spx" not in b_ir or "equal_weight" not in b_ir.get("spx", {}):
     raise SystemExit("pipeline.run_full benchmark_ir missing")
-for obj in stats.values():
+_oss = full_res.get("out_sample_stats", {})
+_oss = _oss if isinstance(_oss, dict) else {}
+for obj in _oss.values():
     if not hasattr(obj, "information_ratio"):
         raise SystemExit("_Stats missing information_ratio")
 

@@ -28,7 +28,7 @@ class PluginRegistry(Generic[T]):
 
         return decorator
 
-    def create(self, name: str, *args, **kwargs) -> T:
+    def create(self, name: str, *args: Any, **kwargs: Any) -> T:
         """Instantiate the plugin registered under ``name``."""
         try:
             cls = self._plugins[name]

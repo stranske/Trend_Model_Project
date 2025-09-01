@@ -57,6 +57,7 @@ def _hash_result(res: api.RunResult) -> str:
         import datetime
         import numpy as np
         import pandas as pd
+
         if isinstance(obj, (datetime.datetime, datetime.date)):
             return obj.isoformat()
         elif isinstance(obj, np.ndarray):
@@ -71,9 +72,13 @@ def _hash_result(res: api.RunResult) -> str:
 
     payload = {
         "metrics": res.metrics.to_json(),
-        "details": json.dumps(res.details, sort_keys=True, default=deterministic_default),
+        "details": json.dumps(
+            res.details, sort_keys=True, default=deterministic_default
+        ),
     }
-    return hashlib.sha256(json.dumps(payload, sort_keys=True, default=deterministic_default).encode()).hexdigest()
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, default=deterministic_default).encode()
+    ).hexdigest()
 
 
 def test_run_simulation_deterministic(tmp_path):

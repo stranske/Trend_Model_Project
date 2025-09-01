@@ -71,7 +71,7 @@ run:
   jobs: 1
 
 multi_period:
-  frequency: M        # Monthly stepping; windows measured in months
+  frequency: ME       # Monthly stepping; windows measured in months
   in_sample_len: 36   # 36-month in-sample window
   out_sample_len: 12  # 12-month out-of-sample window
   start: 2005-07      # First IS: 2005-07..2008-06 → OOS: 2008-07..2009-06

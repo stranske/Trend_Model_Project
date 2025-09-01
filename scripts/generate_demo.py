@@ -25,7 +25,7 @@ def main() -> None:
 
     start = dt.date.today().replace(year=dt.date.today().year - 10, day=1)
     periods = 120  # 10 years * 12 months
-    # Use month-end frequency; 'M' is deprecated in pandas in favor of 'ME'
+    # Use month-end frequency; pandas accepts 'ME' as an alias
     dates = pd.date_range(start, periods=periods, freq="ME")
 
     rng = np.random.default_rng(42)
