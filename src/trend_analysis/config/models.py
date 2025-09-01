@@ -134,16 +134,13 @@ class Config(BaseModel):
             if not v.strip():
                 raise ValueError("Version field cannot be empty")
 
-            for name in (
-                "data",
-                "preprocessing",
-                "vol_adjust",
-                "sample_split",
-                "portfolio",
-                "metrics",
-                "export",
-                "run",
-            ):
+            # Dynamically find all attributes whose default value is a dict
+            dict_field_names = [
+                name
+                for name, value in type(self).__dict__.items()
+                if isinstance(value, dict)
+            ]
+            for name in dict_field_names:
                 val = getattr(self, name, {})
                 if not isinstance(val, dict):
                     raise TypeError(f"{name} must be a dictionary")
