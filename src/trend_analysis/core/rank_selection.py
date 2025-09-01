@@ -280,6 +280,7 @@ _METRIC_ALIASES: dict[str, str] = {
     "annual_return": "AnnualReturn",
     "volatility": "Volatility",
     "sharpe_ratio": "Sharpe",
+    "sharpe": "Sharpe",  # Add lowercase sharpe alias
     "sortino_ratio": "Sortino",
     "max_drawdown": "MaxDrawdown",
     "information_ratio": "InformationRatio",
