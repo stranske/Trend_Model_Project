@@ -122,8 +122,14 @@ class Config(BaseModel):
         return v
 
     if not _HAS_PYDANTIC:
-        def __init__(self, **kwargs: Any) -> None:  # pragma: no cover - simple fallback
-            """Fallback validation when pydantic is not available."""
+        # When pydantic is not installed the validators above will not run.
+        # Perform minimal validation in the ``__init__`` method to keep
+        # behaviour consistent with the pydantic-backed model.
+        def __init__(self, **kwargs: Any) -> None:  # type: ignore[override]
+            version_value = kwargs.get("version")
+            if version_value is None:
+                raise ValueError("version field is required")
+            _validate_version_value(version_value)
             super().__init__(**kwargs)
 
             v = getattr(self, "version", None)

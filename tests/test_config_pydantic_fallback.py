@@ -110,3 +110,39 @@ def test_load_function_works_without_pydantic():
         cfg = load()
         assert hasattr(cfg, "version")
         assert hasattr(cfg, "data")
+
+
+def test_missing_version_validation_consistency():
+    """Test that missing version validation is consistent between modes."""
+    # Test with pydantic
+    from trend_analysis.config.models import Config
+
+    with pytest.raises(Exception):
+        Config(data={})
+
+    # Test without pydantic
+    original_import = builtins.__import__
+
+    def mock_import(name, *args, **kwargs):
+        if name == "pydantic" or name.startswith("pydantic."):
+            raise ImportError("No module named 'pydantic'")
+        return original_import(name, *args, **kwargs)
+
+    with mock.patch("builtins.__import__", side_effect=mock_import):
+        # Clear any existing imports
+        modules_to_clear = [
+            "trend_analysis.config.models",
+            "trend_analysis.config",
+        ]
+        for module in modules_to_clear:
+            if module in sys.modules:
+                del sys.modules[module]
+
+        from trend_analysis.config.models import Config
+
+        with pytest.raises(ValueError, match="version field is required"):
+            Config(data={})
+
+        # Also test explicit None
+        with pytest.raises(ValueError, match="version field is required"):
+            Config(version=None, data={})
