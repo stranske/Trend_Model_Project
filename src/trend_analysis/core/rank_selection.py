@@ -397,6 +397,15 @@ register_metric("Sharpe")(
     )
 )
 
+# Register lowercase 'sharpe' for compatibility
+register_metric("sharpe")(
+    lambda s, *, periods_per_year=12, risk_free=0.0: _metrics.sharpe_ratio(
+        s,
+        periods_per_year=periods_per_year,
+        risk_free=risk_free,
+    )
+)
+
 register_metric("Sortino")(
     lambda s, *, periods_per_year=12, target=0.0, **k: _metrics.sortino_ratio(
         s,

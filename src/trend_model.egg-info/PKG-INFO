@@ -158,6 +158,19 @@ The configuration file **must** define `data.csv_path`, which is overridden by
 the ``-i`` option above. The `-c` option is **required**; you must specify a configuration file.
 If you wish to use the default configuration, provide `config/defaults.yml` as the argument to `-c`, or set the ``TREND_CFG`` environment variable to point to your desired config file.
 
+## Reproducible Results
+
+For consistent, reproducible results across different runs, use the reproducible launcher:
+
+```bash
+# Ensures PYTHONHASHSEED is set before Python starts
+./scripts/trend-reproducible trend_analysis.run_analysis -c config/demo.yml
+```
+
+This is important because setting `PYTHONHASHSEED` after the Python interpreter has started has no effect. The environment variable must be set before Python starts to control hash randomization.
+
+For more details on reproducibility and random seeding, see [docs/ReproducibilityGuide.md](docs/ReproducibilityGuide.md).
+
 
 ## Ranking-based selection
 
