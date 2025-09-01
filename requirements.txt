@@ -1,17 +1,7 @@
 pandas
 numpy
-matplotlib
-
-ipyfilechooser
-ipywidgets
 xlsxwriter
 pydantic>=2
 openpyxl
 PyYAML
-types-PyYAML
-pytest-cov
-pytest
 hypothesis
-nbformat
-streamlit>=1.30
-streamlit-sortables

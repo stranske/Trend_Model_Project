@@ -51,7 +51,25 @@ where = ["src"]
 include = ["trend_analysis*", "trend_portfolio_app*"]
 
 [project.optional-dependencies]
-app = ["streamlit>=1.30"]
+app = [
+    "streamlit>=1.30",
+    "streamlit-sortables",
+]
+notebooks = [
+    "matplotlib", 
+    "ipyfilechooser",
+    "ipywidgets",
+    "nbformat",
+]
+dev = [
+    "pre-commit>=3.2.0",
+    "black==24.8.0",
+    "ruff==0.6.3", 
+    "mypy>=1.0.0",
+    "pytest",
+    "pytest-cov",
+    "types-PyYAML",
+]
 
 [tool.black]
 extend-exclude = '''
