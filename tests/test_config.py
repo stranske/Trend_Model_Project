@@ -1,11 +1,6 @@
-import sys
-import pathlib
 import yaml  # type: ignore[import-untyped]
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))  # noqa: E402
-
-from trend_analysis import config  # noqa: E402
+from trend_analysis import config
 
 
 def test_load_defaults():

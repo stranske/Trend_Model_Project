@@ -69,98 +69,104 @@ def _find_config_directory() -> Path:
     raise FileNotFoundError("Could not find 'config' directory")
 
 
+def _validate_version_value(v: Any) -> str:
+    """Validate the ``version`` field for both pydantic and fallback modes."""
+    if not isinstance(v, str):
+        raise TypeError("version must be a string")
+    if len(v) == 0:
+        # Match pydantic's wording for empty strings
+        raise ValueError("String should have at least 1 character")
+    if not v.strip():
+        raise ValueError("Version field cannot be empty")
+    return v
+
+
 class Config(BaseModel):
     """Typed access to the YAML configuration."""
 
-    if _HAS_PYDANTIC:
-        model_config = ConfigDict(extra="ignore")
-        version: str = ""
-        data: dict[str, Any] = Field(default_factory=dict)
-        preprocessing: dict[str, Any] = Field(default_factory=dict)
-        vol_adjust: dict[str, Any] = Field(default_factory=dict)
-        sample_split: dict[str, Any] = Field(default_factory=dict)
-        portfolio: dict[str, Any] = Field(default_factory=dict)
-        benchmarks: dict[str, str] = Field(default_factory=dict)
-        metrics: dict[str, Any] = Field(default_factory=dict)
-        export: dict[str, Any] = Field(default_factory=dict)
-        output: dict[str, Any] | None = None
-        run: dict[str, Any] = Field(default_factory=dict)
-        multi_period: dict[str, Any] | None = None
-        jobs: int | None = None
-        checkpoint_dir: str | None = None
-        random_seed: int | None = None
+    model_config = ConfigDict(extra="ignore")
+    # ``version`` must be a non-empty string. ``min_length`` handles the empty
+    # string case and produces the standard pydantic error message
+    # "String should have at least 1 character". A separate validator below
+    # ensures the field isn't composed solely of whitespace.
+    version: str = Field(min_length=1)
+    data: dict[str, Any] = Field(default_factory=dict)
+    preprocessing: dict[str, Any] = Field(default_factory=dict)
+    vol_adjust: dict[str, Any] = Field(default_factory=dict)
+    sample_split: dict[str, Any] = Field(default_factory=dict)
+    portfolio: dict[str, Any] = Field(default_factory=dict)
+    benchmarks: dict[str, str] = Field(default_factory=dict)
+    metrics: dict[str, Any] = Field(default_factory=dict)
+    export: dict[str, Any] = Field(default_factory=dict)
+    output: dict[str, Any] | None = None
+    run: dict[str, Any] = Field(default_factory=dict)
+    multi_period: dict[str, Any] | None = None
+    jobs: int | None = None
+    checkpoint_dir: str | None = None
+    random_seed: int | None = None
 
-        @field_validator("version", mode="before")
-        @classmethod
-        def _ensure_version_str(cls, v: Any) -> str:
-            if v is not None and not isinstance(v, str):
+    @field_validator("version", mode="before")
+    @classmethod
+    def _ensure_version_str(cls, v: Any) -> str:
+        """Ensure ``version`` is always a string."""
+        if not isinstance(v, str):
+            raise TypeError("version must be a string")
+        return v
+
+    @field_validator("version")
+    @classmethod
+    def _ensure_version_not_whitespace(cls, v: str) -> str:
+        """Reject strings that consist only of whitespace."""
+        if not v.strip():
+            raise ValueError("Version field cannot be empty")
+        return v
+
+    if not _HAS_PYDANTIC:
+        # When pydantic is not installed the validators above will not run.
+        # Perform minimal validation in the ``__init__`` method to keep
+        # behaviour consistent with the pydantic-backed model.
+        def __init__(self, **kwargs: Any) -> None:  # type: ignore[override]
+            version_value = kwargs.get("version")
+            if version_value is None:
+                raise ValueError("version field is required")
+            _validate_version_value(version_value)
+            super().__init__(**kwargs)
+
+            v = getattr(self, "version", None)
+            if not isinstance(v, str):
                 raise TypeError("version must be a string")
-            return v
+            if len(v) == 0:
+                raise ValueError("String should have at least 1 character")
+            if not v.strip():
+                raise ValueError("Version field cannot be empty")
 
-        @field_validator(
-            "data",
-            "preprocessing",
-            "vol_adjust",
-            "sample_split",
-            "portfolio",
-            "metrics",
-            "export",
-            "run",
-            mode="before",
-        )
-        @classmethod
-        def _ensure_dict(cls, v: Any, info: ValidationInfo) -> dict[str, Any]:
-            if not isinstance(v, dict):
-                raise TypeError(f"{info.field_name} must be a dictionary")
-            return v
-
-    else:
-        # Fallback initialization when pydantic is not available
-        def __init__(self, **kwargs):
-            # Set defaults
-            self.version = kwargs.get("version", "")
-            self.data = kwargs.get("data", {})
-            self.preprocessing = kwargs.get("preprocessing", {})
-            self.vol_adjust = kwargs.get("vol_adjust", {})
-            self.sample_split = kwargs.get("sample_split", {})
-            self.portfolio = kwargs.get("portfolio", {})
-            self.benchmarks = kwargs.get("benchmarks", {})
-            self.metrics = kwargs.get("metrics", {})
-            self.export = kwargs.get("export", {})
-            self.output = kwargs.get("output", None)
-            self.run = kwargs.get("run", {})
-            self.multi_period = kwargs.get("multi_period", None)
-            self.jobs = kwargs.get("jobs", None)
-            self.checkpoint_dir = kwargs.get("checkpoint_dir", None)
-            self.random_seed = kwargs.get("random_seed", None)
-
-            # Set any additional attributes
-            for key, value in kwargs.items():
-                if not hasattr(self, key):
-                    setattr(self, key, value)
-
-            # Basic validation
-            self._validate()
-
-        def _validate(self):
-            """Basic validation when pydantic is not available."""
-            if self.version is not None and not isinstance(self.version, str):
-                raise TypeError("version must be a string")
-
-            dict_fields = [
-                "data",
-                "preprocessing",
-                "vol_adjust",
-                "sample_split",
-                "portfolio",
-                "metrics",
-                "export",
-                "run",
+            # Dynamically find all attributes whose default value is a dict
+            dict_field_names = [
+                name
+                for name, value in type(self).__dict__.items()
+                if isinstance(value, dict)
             ]
-            for field_name in dict_fields:
-                value = getattr(self, field_name)
-                if not isinstance(value, dict):
-                    raise TypeError(f"{field_name} must be a dictionary")
+            for name in dict_field_names:
+                val = getattr(self, name, {})
+                if not isinstance(val, dict):
+                    raise TypeError(f"{name} must be a dictionary")
+
+    @field_validator(
+        "data",
+        "preprocessing",
+        "vol_adjust",
+        "sample_split",
+        "portfolio",
+        "metrics",
+        "export",
+        "run",
+        mode="before",
+    )
+    @classmethod
+    def _ensure_dict(cls, v: Any, info: ValidationInfo) -> dict[str, Any]:
+        if not isinstance(v, dict):
+            raise TypeError(f"{info.field_name} must be a dictionary")
+        return v
 
 
 # Simple BaseModel that works without pydantic
@@ -190,6 +196,17 @@ class SimpleBaseModel:
 class PresetConfig(SimpleBaseModel):
     """Configuration preset with validation."""
 
+    name: str
+    description: str
+    data: Dict[str, Any]
+    preprocessing: Dict[str, Any]
+    vol_adjust: Dict[str, Any]
+    sample_split: Dict[str, Any]
+    portfolio: Dict[str, Any]
+    metrics: Dict[str, Any]
+    export: Dict[str, Any]
+    run: Dict[str, Any]
+
     def _get_defaults(self) -> Dict[str, Any]:
         return {
             "data": {},
@@ -201,17 +218,6 @@ class PresetConfig(SimpleBaseModel):
             "export": {},
             "run": {},
         }
-
-    name: str
-    description: str
-    data: Dict[str, Any]
-    preprocessing: Dict[str, Any]
-    vol_adjust: Dict[str, Any]
-    sample_split: Dict[str, Any]
-    portfolio: Dict[str, Any]
-    metrics: Dict[str, Any]
-    export: Dict[str, Any]
-    run: Dict[str, Any]
 
     def _validate(self) -> None:
         """Validate preset configuration."""

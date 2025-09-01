@@ -23,14 +23,19 @@ invalid_values = st.one_of(
     st.integers(), st.floats(), st.booleans(), st.lists(st.integers())
 )
 
+_BASE_CFG = {"version": "1", "data": {}}
+
 
 @given(field=st.sampled_from(_DICT_SECTIONS), val=invalid_values)
 def test_sections_require_mappings(field, val):
+    cfg = _BASE_CFG.copy()
+    cfg[field] = val
     with pytest.raises(TypeError):
-        config.load_config({field: val})
+        config.load_config(cfg)
 
 
 @given(val=invalid_values)
 def test_version_must_be_string(val):
+    cfg = {"version": val, "data": {}}
     with pytest.raises(TypeError):
-        config.load_config({"version": val})
+        config.load_config(cfg)

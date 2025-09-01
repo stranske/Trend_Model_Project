@@ -7,7 +7,7 @@ from trend_analysis.metrics import summary
 def test_summary_table_snapshot() -> None:
     returns = pd.Series(
         [0.01, -0.02, 0.015],
-        index=pd.date_range("2020-01-31", periods=3, freq="M"),
+        index=pd.date_range("2020-01-31", periods=3, freq="ME"),
     )
     weights = {
         returns.index[0]: pd.Series({"A": 0.6, "B": 0.4}),

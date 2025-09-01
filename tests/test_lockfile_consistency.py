@@ -57,7 +57,6 @@ def _normalize_lockfile_content(content: str) -> str:
 
 
 def test_lockfile_up_to_date():
-    """Test that the requirements.lock file is up-to-date with pyproject.toml."""
     result = subprocess.run(
         ["uv", "pip", "compile", "pyproject.toml"],
         capture_output=True,

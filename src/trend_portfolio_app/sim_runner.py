@@ -2,12 +2,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, Optional, Dict, List, Any, cast, Tuple
 import importlib
+import logging
 import pandas as pd
 import numpy as np
 
 from .policy_engine import PolicyConfig, CooldownBook, decide_hires_fires
 from .event_log import Event, EventLog
 from .metrics_extra import AVAILABLE_METRICS
+
+logger = logging.getLogger(__name__)
 
 try:
     ta_pipeline = importlib.import_module("trend_analysis.pipeline")
@@ -32,7 +35,10 @@ def compute_score_frame_local(
                 else:
                     val = spec["fn"](r, idx)
                 col_metrics[name] = val
-            except Exception:
+            except Exception as e:
+                logger.warning(
+                    "Failed to compute metric '%s' for column '%s': %s", name, col, e
+                )
                 col_metrics[name] = np.nan
         out[col] = col_metrics
     df = pd.DataFrame(out).T
@@ -56,8 +62,16 @@ def compute_score_frame(
                 )
                 # Ensure consistent DataFrame type for downstream
                 return cast(pd.DataFrame, sf)
-            except Exception:
-                pass
+            except (ImportError, AttributeError) as e:
+                logger.warning(
+                    "External scoring function unavailable or misconfigured (ImportError/AttributeError): %s. Falling back to local implementation.",
+                    e,
+                )
+            except (ValueError, TypeError) as e:
+                logger.warning(
+                    "External scoring function failed due to invalid parameters or data (ValueError/TypeError): %s. Falling back to local implementation.",
+                    e,
+                )
     return compute_score_frame_local(
         panel.loc[insample_start:insample_end], rf_annual=rf_annual
     )
@@ -257,8 +271,8 @@ class Simulator:
                     last = ec[-1] if ec else 1.0
                     ec.append(last * (1.0 + float(port_r)))
                     rb_state["equity_curve"] = ec
-            except Exception:
-                pass
+            except (ValueError, TypeError, ArithmeticError, IndexError) as e:
+                logger.warning("Failed to update equity curve at %s: %s", d, e)
 
             cooldowns.tick()
 
