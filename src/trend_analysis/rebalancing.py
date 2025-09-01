@@ -362,7 +362,18 @@ def create_rebalancing_strategy(
     name: str, params: Dict[str, Any] | None = None
 ) -> Rebalancer:
     """Create a rebalancing strategy by name using the plugin registry."""
-    return create_rebalancer(name, params)
+    try:
+        return create_rebalancer(name, params)
+    except ValueError as e:
+        if "Unknown plugin:" in str(e):
+            # Convert generic plugin error to rebalancing-specific error message
+            from .plugins import rebalancer_registry
+
+            available = rebalancer_registry.available()
+            raise ValueError(
+                f"Unknown rebalancing strategy: {name}. Available: {available}"
+            ) from e
+        raise
 
 
 def apply_rebalancing_strategies(
