@@ -85,6 +85,10 @@ class Config(BaseModel):
     """Typed access to the YAML configuration."""
 
     model_config = ConfigDict(extra="ignore")
+    # ``version`` must be a non-empty string. ``min_length`` handles the empty
+    # string case and produces the standard pydantic error message
+    # "String should have at least 1 character". A separate validator below
+    # ensures the field isn't composed solely of whitespace.
     version: str = Field(min_length=1)
     data: dict[str, Any] = Field(default_factory=dict)
     preprocessing: dict[str, Any] = Field(default_factory=dict)
@@ -111,19 +115,35 @@ class Config(BaseModel):
 
     @field_validator("version")
     @classmethod
-    def _ensure_version_not_blank(cls, v: str) -> str:
-        """Reject purely whitespace version values."""
+    def _ensure_version_not_whitespace(cls, v: str) -> str:
+        """Reject strings that consist only of whitespace."""
         if not v.strip():
             raise ValueError("Version field cannot be empty")
         return v
 
     if not _HAS_PYDANTIC:
-        # When pydantic is not installed the validators above will not run.
-        # Perform minimal validation in the ``__init__`` method to keep
-        # behaviour consistent with the pydantic-backed model.
-        def __init__(self, **kwargs: Any) -> None:  # type: ignore[override]
-            _validate_version_value(kwargs.get("version"))
+        def __init__(self, **kwargs: Any) -> None:  # pragma: no cover - simple fallback
+            """Fallback validation when pydantic is not available."""
             super().__init__(**kwargs)
+
+            v = getattr(self, "version", None)
+            if not isinstance(v, str):
+                raise TypeError("version must be a string")
+            if len(v) == 0:
+                raise ValueError("String should have at least 1 character")
+            if not v.strip():
+                raise ValueError("Version field cannot be empty")
+
+            # Dynamically find all attributes whose default value is a dict
+            dict_field_names = [
+                name
+                for name, value in type(self).__dict__.items()
+                if isinstance(value, dict)
+            ]
+            for name in dict_field_names:
+                val = getattr(self, name, {})
+                if not isinstance(val, dict):
+                    raise TypeError(f"{name} must be a dictionary")
 
     @field_validator(
         "data",
