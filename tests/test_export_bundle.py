@@ -28,7 +28,7 @@ def test_export_bundle(tmp_path):
     input_path = _write_input(tmp_path)
     run = DummyRun(
         portfolio=pd.Series(
-            [0.01, -0.02], index=pd.date_range("2020-01", periods=2, freq="M")
+            [0.01, -0.02], index=pd.date_range("2020-01", periods=2, freq="ME")
         ),
         config={"foo": 1},
         seed=42,

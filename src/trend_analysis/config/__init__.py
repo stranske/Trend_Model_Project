@@ -14,6 +14,7 @@ from .models import (
     DEFAULTS,
     _find_config_directory,
 )
+
 # Removed import from .legacy as all symbols are available from .models
 
 __all__ = [

@@ -38,3 +38,6 @@ results/
 *.csv
 *.json
 *.txt
+
+# Python package build artifacts
+*.egg-info/
