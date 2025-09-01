@@ -9,8 +9,9 @@ from datetime import datetime
 from typing import Optional, Dict, Any
 from io import StringIO
 from pathlib import Path
+
 # Add src to path for imports
-sys.path.append(str(Path(__file__).parent.parent.parent / 'src'))
+sys.path.append(str(Path(__file__).parent.parent.parent / "src"))
 
 from trend_analysis.api import run_simulation, RunResult
 from trend_analysis.config import Config
