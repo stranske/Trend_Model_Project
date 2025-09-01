@@ -4,9 +4,9 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, date
 import sys
-
+from pathlib import Path
 # Add src to path for imports
-sys.path.append("/home/runner/work/Trend_Model_Project/Trend_Model_Project/src")
+sys.path.append(str(Path(__file__).parent.parent.parent / 'src'))
 
 
 def initialize_config_state():
