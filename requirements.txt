@@ -7,3 +7,7 @@ PyYAML
 hypothesis
 matplotlib
 ipywidgets
+nbformat
+streamlit>=1.30
+streamlit-sortables
+pytest-cov

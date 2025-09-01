@@ -104,21 +104,21 @@ def export_bundle(run: Any, path: Path) -> Path:
     # ------------------------------------------------------------------
     # Metadata manifest
     # ------------------------------------------------------------------
-    meta = {
-        "config": getattr(run, "config", {}),
-        "seed": getattr(run, "seed", None),
-        "versions": {
-            "python": sys.version.split()[0],
-        },
-        "git_hash": _git_hash(),
-        "receipt": {"created": _dt.datetime.utcnow().isoformat() + "Z"},
-    }
+    env = getattr(run, "environment", {"python": sys.version.split()[0]})
     try:
         import importlib.metadata as _ilmd
 
-        meta["versions"]["trend_analysis"] = _ilmd.version("trend-analysis")
+        env.setdefault("trend_analysis", _ilmd.version("trend-analysis"))
     except Exception:
-        meta["versions"]["trend_analysis"] = "0"
+        env.setdefault("trend_analysis", "0")
+
+    meta = {
+        "config": getattr(run, "config", {}),
+        "seed": getattr(run, "seed", None),
+        "environment": env,
+        "git_hash": _git_hash(),
+        "receipt": {"created": _dt.datetime.utcnow().isoformat() + "Z"},
+    }
 
     input_path = Path(getattr(run, "input_path", ""))
     if input_path and input_path.exists():

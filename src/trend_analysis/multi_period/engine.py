@@ -266,7 +266,7 @@ def run(
                 manual_funds=cfg.portfolio.get("manual_list"),
                 indices_list=cfg.portfolio.get("indices_list"),
                 benchmarks=cfg.benchmarks,
-                seed=cfg.portfolio.get("random_seed", 42),
+                seed=getattr(cfg, "seed", 42),
             )
             if res is None:
                 continue
@@ -733,7 +733,7 @@ def run(
             manual_funds=holdings,
             indices_list=cfg.portfolio.get("indices_list"),
             benchmarks=cfg.benchmarks,
-            seed=cfg.portfolio.get("random_seed", 42),
+            seed=getattr(cfg, "seed", 42),
         )
         if res is None:
             continue
