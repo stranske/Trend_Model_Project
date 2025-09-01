@@ -3,11 +3,7 @@
 import pytest
 import pandas as pd
 from unittest.mock import Mock, patch
-import sys
-import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'app')))
-
-import streamlit.state as state_module
+from app.streamlit import state as state_module
 
 
 class TestSessionState:
@@ -16,7 +12,7 @@ class TestSessionState:
     def test_initialize_session_state(self):
         """Test session state initialization."""
         mock_state = {}
-        with patch('streamlit.state.st.session_state', mock_state):
+        with patch.object(state_module.st, 'session_state', mock_state, create=True):
             state_module.initialize_session_state()
             
             # Check default values are set
@@ -37,7 +33,7 @@ class TestSessionState:
             "upload_status": "success"
         }
         
-        with patch('streamlit.state.st.session_state', mock_state):
+        with patch.object(state_module.st, 'session_state', mock_state, create=True):
             state_module.clear_upload_data()
             
             # Check data is cleared
@@ -53,7 +49,7 @@ class TestSessionState:
         meta = {"test": "metadata"}
         mock_state = {}
         
-        with patch('streamlit.state.st.session_state', mock_state):
+        with patch.object(state_module.st, 'session_state', mock_state, create=True):
             state_module.store_validated_data(df, meta)
             
             assert mock_state["returns_df"].equals(df)
@@ -66,7 +62,7 @@ class TestSessionState:
         meta = {"test": "metadata"}
         mock_state = {"returns_df": df, "schema_meta": meta}
         
-        with patch('streamlit.state.st.session_state', mock_state):
+        with patch.object(state_module.st, 'session_state', mock_state, create=True):
             retrieved_df, retrieved_meta = state_module.get_uploaded_data()
             
             assert retrieved_df.equals(df)
@@ -83,12 +79,12 @@ class TestSessionState:
             "schema_meta": meta, 
             "upload_status": "success"
         }
-        with patch('streamlit.state.st.session_state', mock_state):
+        with patch.object(state_module.st, 'session_state', mock_state, create=True):
             assert state_module.has_valid_upload() is True
         
         # Test with missing data
         mock_state = {"upload_status": "success"}
-        with patch('streamlit.state.st.session_state', mock_state):
+        with patch.object(state_module.st, 'session_state', mock_state, create=True):
             assert state_module.has_valid_upload() is False
         
         # Test with failed status
@@ -97,7 +93,7 @@ class TestSessionState:
             "schema_meta": meta, 
             "upload_status": "error"
         }
-        with patch('streamlit.state.st.session_state', mock_state):
+        with patch.object(state_module.st, 'session_state', mock_state, create=True):
             assert state_module.has_valid_upload() is False
     
     def test_get_upload_summary(self):
@@ -109,7 +105,7 @@ class TestSessionState:
         
         # Test with valid data
         mock_state = {"returns_df": df, "schema_meta": meta}
-        with patch('streamlit.state.st.session_state', mock_state):
+        with patch.object(state_module.st, 'session_state', mock_state, create=True):
             summary = state_module.get_upload_summary()
             assert "10 rows × 2 columns" in summary
             assert "Frequency: monthly" in summary
@@ -117,6 +113,6 @@ class TestSessionState:
         
         # Test with no data
         mock_state = {}
-        with patch('streamlit.state.st.session_state', mock_state):
+        with patch.object(state_module.st, 'session_state', mock_state, create=True):
             summary = state_module.get_upload_summary()
             assert summary == "No data uploaded"
