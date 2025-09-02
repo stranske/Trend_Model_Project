@@ -72,6 +72,8 @@ def _apply_group_caps(
             raise ConstraintViolation("Group caps sum to less than 100%")
 
     for group, cap in group_caps.items():
+        members = group_series[group_series == group].index
+        members = members.intersection(w.index)
         if members.empty:
             continue
         grp_weight = w.loc[members].sum()

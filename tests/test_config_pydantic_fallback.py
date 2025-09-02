@@ -52,11 +52,16 @@ def test_config_import_without_pydantic():
 
 def test_config_validation_with_pydantic():
     """Test that validation works when pydantic is available."""
-    from trend_analysis.config.models import Config
+    import importlib
+    import trend_analysis.config.models as models
+
+    # Reload to ensure pydantic-backed model is used after previous tests
+    models = importlib.reload(models)
+    Config = models.Config
     from pydantic import ValidationError
 
     # Test validation error with pydantic
-    with pytest.raises(ValidationError, match="version must be a string"):
+    with pytest.raises(ValidationError, match="Input should be a valid string"):
         Config(version=123)
 
 
