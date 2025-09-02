@@ -137,7 +137,7 @@ class Simulator:
     ) -> List[pd.Timestamp]:
         dates = pd.period_range(start=start, end=end, freq="M").to_timestamp(how="end")
         if freq.startswith("q"):
-            dates = dates[dates.to_period("Q").to_timestamp("Q") == dates]
+            dates = dates[dates.to_period("Q").to_timestamp(how="end") == dates]
         return list(dates)
 
     def run(
