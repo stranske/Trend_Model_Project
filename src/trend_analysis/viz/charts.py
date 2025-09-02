@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from typing import Mapping
 
+import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
 import pandas as pd
+
+from ..metrics import rolling as rolling_metrics
 
 
 def _weights_to_frame(
@@ -22,50 +26,75 @@ def _weights_to_frame(
     return pd.DataFrame({d: s for d, s in weights.items()}).T.sort_index().fillna(0.0)
 
 
-def equity_curve(returns: pd.Series) -> pd.DataFrame:
-    """Return equity curve DataFrame from periodic returns."""
+def equity_curve(returns: pd.Series) -> tuple[Figure, pd.DataFrame]:
+    """Return equity curve figure and DataFrame from periodic returns."""
 
-    curve = (1.0 + returns.fillna(0.0)).cumprod()
-    return curve.to_frame("equity")
+    curve = (1.0 + returns.fillna(0.0)).cumprod().to_frame("equity")
+    fig, ax = plt.subplots()
+    curve.plot(ax=ax)
+    ax.set_ylabel("Equity")
+    fig.tight_layout()
+    return fig, curve
 
 
-def drawdown_curve(returns: pd.Series) -> pd.DataFrame:
-    """Return drawdown series derived from ``returns``."""
+def drawdown_curve(returns: pd.Series) -> tuple[Figure, pd.DataFrame]:
+    """Return drawdown figure and DataFrame derived from ``returns``."""
 
     curve = (1.0 + returns.fillna(0.0)).cumprod()
     dd = curve / curve.cummax() - 1.0
-    return dd.to_frame("drawdown")
+    dd_df = dd.to_frame("drawdown")
+    fig, ax = plt.subplots()
+    dd_df.plot(ax=ax)
+    ax.set_ylabel("Drawdown")
+    fig.tight_layout()
+    return fig, dd_df
 
 
 def rolling_information_ratio(
     returns: pd.Series,
     benchmark: pd.Series | float | None = None,
     window: int = 12,
-) -> pd.DataFrame:
+) -> tuple[Figure, pd.DataFrame]:
     """Rolling information ratio over ``window`` periods."""
 
-    if benchmark is None:
-        bench = pd.Series(0.0, index=returns.index)
-    elif isinstance(benchmark, pd.Series):
-        bench = benchmark.reindex_like(returns).fillna(0.0)
-    else:
-        bench = pd.Series(float(benchmark), index=returns.index)
-
-    excess = returns - bench
-    mean = excess.rolling(window).mean()
-    std = excess.rolling(window).std(ddof=1)
-    ir = mean / std.replace(0.0, pd.NA)
-    return ir.to_frame("rolling_ir")
+    ir_series = rolling_metrics.rolling_information_ratio(returns, benchmark, window)
+    ir_df = ir_series.to_frame("rolling_ir")
+    fig, ax = plt.subplots()
+    ir_df.plot(ax=ax)
+    ax.set_ylabel("Rolling IR")
+    fig.tight_layout()
+    return fig, ir_df
 
 
 def turnover_series(
     weights: Mapping[pd.Timestamp, pd.Series] | pd.DataFrame,
-) -> pd.DataFrame:
-    """Compute turnover series from weights history."""
+) -> tuple[Figure, pd.DataFrame]:
+    """Compute turnover figure and DataFrame from weights history."""
 
     w_df = _weights_to_frame(weights)
-    to = w_df.diff().abs().sum(axis=1)
-    return to.to_frame("turnover")
+    to = w_df.diff().abs().sum(axis=1).to_frame("turnover")
+    fig, ax = plt.subplots()
+    to.plot(ax=ax)
+    ax.set_ylabel("Turnover")
+    fig.tight_layout()
+    return fig, to
+
+
+def weights_heatmap(
+    weights: Mapping[pd.Timestamp, pd.Series] | pd.DataFrame,
+) -> tuple[Figure, pd.DataFrame]:
+    """Return heatmap figure and DataFrame of portfolio weights."""
+
+    w_df = _weights_to_frame(weights)
+    fig, ax = plt.subplots()
+    cax = ax.imshow(w_df.T.values, aspect="auto", interpolation="none", origin="lower")
+    ax.set_yticks(range(len(w_df.columns)))
+    ax.set_yticklabels(w_df.columns)
+    ax.set_xticks(range(len(w_df.index)))
+    ax.set_xticklabels([d.strftime("%Y-%m-%d") for d in w_df.index], rotation=90)
+    fig.colorbar(cax, ax=ax, label="Weight")
+    fig.tight_layout()
+    return fig, w_df
 
 
 def weights_heatmap_data(
@@ -85,4 +114,4 @@ def weights_heatmap_data(
         for missing values and sorted chronologically.
     """
 
-    return _weights_to_frame(weights)
+    return weights_heatmap(weights)[1]

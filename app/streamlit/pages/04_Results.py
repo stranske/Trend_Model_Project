@@ -69,32 +69,67 @@ weights = getattr(res, "weights", {})
 # ---------------------------------------------------------------------------
 c1, c2 = st.columns(2)
 with c1:
-    ec_df = charts.equity_curve(returns)
-    _create_line_chart_with_download(
-        ec_df, "Equity curve", "Equity curve (CSV)", "equity_curve.csv"
+    st.subheader("Equity curve")
+    fig, ec_df = charts.equity_curve(returns)
+    st.pyplot(fig)
+    buf = io.StringIO()
+    ec_df.to_csv(buf)
+    st.download_button(
+        "Equity curve (CSV)",
+        data=buf.getvalue(),
+        file_name="equity_curve.csv",
+        mime="text/csv",
     )
 with c2:
-    dd_df = charts.drawdown_curve(returns)
-    _create_line_chart_with_download(
-        dd_df, "Drawdown", "Drawdown (CSV)", "drawdown_curve.csv"
+    st.subheader("Drawdown")
+    fig, dd_df = charts.drawdown_curve(returns)
+    st.pyplot(fig)
+    buf = io.StringIO()
+    dd_df.to_csv(buf)
+    st.download_button(
+        "Drawdown (CSV)",
+        data=buf.getvalue(),
+        file_name="drawdown_curve.csv",
+        mime="text/csv",
     )
 
 c3, c4 = st.columns(2)
 with c3:
-    ir_df = charts.rolling_information_ratio(returns, benchmark)
-    _create_line_chart_with_download(
-        ir_df, "Rolling info ratio", "Rolling IR (CSV)", "rolling_ir.csv"
+    st.subheader("Rolling info ratio")
+    fig, ir_df = charts.rolling_information_ratio(returns, benchmark)
+    st.pyplot(fig)
+    buf = io.StringIO()
+    ir_df.to_csv(buf)
+    st.download_button(
+        "Rolling IR (CSV)",
+        data=buf.getvalue(),
+        file_name="rolling_ir.csv",
+        mime="text/csv",
     )
 with c4:
-    to_df = charts.turnover_series(weights)
-    _create_line_chart_with_download(
-        to_df, "Turnover", "Turnover (CSV)", "turnover.csv"
+    st.subheader("Turnover")
+    fig, to_df = charts.turnover_series(weights)
+    st.pyplot(fig)
+    buf = io.StringIO()
+    to_df.to_csv(buf)
+    st.download_button(
+        "Turnover (CSV)",
+        data=buf.getvalue(),
+        file_name="turnover.csv",
+        mime="text/csv",
     )
 
 st.subheader("Portfolio weights")
-w_df = charts.weights_heatmap_data(weights)
-st.dataframe(w_df.style.background_gradient(cmap="viridis"))
-_create_csv_download_button(w_df, "Weights (CSV)", "weights.csv")
+fig, w_df = charts.weights_heatmap(weights)
+st.pyplot(fig)
+buf = io.StringIO()
+w_df.to_csv(buf)
+st.download_button(
+    "Weights (CSV)",
+    data=buf.getvalue(),
+    file_name="weights.csv",
+    mime="text/csv",
+)
 
 # ---------------------------------------------------------------------------
 # Summary table

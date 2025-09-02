@@ -284,13 +284,11 @@ class TestBuildStep0:
 
         store = ParamStore()
 
-        # Create a mock callback function that properly handles context managers
-        def safe_template_callback(change_event, *, store):
-            """Mock template callback that avoids filesystem access."""
-            name = change_event["new"]
-            # Simulate successful config loading
-            store.cfg = {"test": "value", "mode": "rank", "loaded_template": name}
-            store.dirty = True
+        with (
+            patch("trend_analysis.gui.app.reset_weight_state"),
+            patch("io.open", mock_open(read_data="version: '1'")),
+        ):
+            _build_step0(store)
 
         with (
             patch("trend_analysis.gui.app.reset_weight_state"),

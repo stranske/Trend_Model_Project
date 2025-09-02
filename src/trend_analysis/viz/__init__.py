@@ -11,6 +11,7 @@ from .charts import (
     drawdown_curve,
     rolling_information_ratio,
     turnover_series,
+    weights_heatmap,
     weights_heatmap_data,
 )
 
@@ -19,5 +20,6 @@ __all__ = [
     "drawdown_curve",
     "rolling_information_ratio",
     "turnover_series",
+    "weights_heatmap",
     "weights_heatmap_data",
 ]

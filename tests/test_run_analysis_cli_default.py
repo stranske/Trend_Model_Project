@@ -5,15 +5,6 @@ from trend_analysis import run_analysis
 
 
 def _write_cfg(path: Path, csv: Path, out_dir: Path) -> None:
-    """Write a minimal config file for the CLI test.
-
-    The default behaviour of ``run_analysis`` is to emit output files to a
-    directory named ``outputs`` in the current working directory.  On CI this
-    can lead to permission errors when the repository root is read-only.  By
-    explicitly writing the output to a temporary directory provided by the
-    ``tmp_path`` fixture we ensure the test always has write access.
-    """
-
     path.write_text(
         "\n".join(
             [
@@ -25,7 +16,7 @@ def _write_cfg(path: Path, csv: Path, out_dir: Path) -> None:
                 "out_start: '2020-04', out_end: '2020-06'}",
                 "portfolio: {}",
                 "metrics: {}",
-                f"export: {{directory: '{out_dir}', formats: []}}",
+                f"export: {{directory: '{out_dir}', formats: ['csv']}}",
                 "run: {}",
             ]
         )
@@ -41,13 +32,7 @@ def test_cli_default_output(tmp_path, capsys):
     csv = tmp_path / "data.csv"
     _make_df().to_csv(csv, index=False)
     cfg = tmp_path / "cfg.yml"
-
-    # Use a dedicated output directory within ``tmp_path`` to guarantee
-    # writable permissions and isolate test artefacts.
-    out_dir = tmp_path / "output"
-    out_dir.mkdir()
-    _write_cfg(cfg, csv, out_dir)
-
+    _write_cfg(cfg, csv, tmp_path)
     rc = run_analysis.main(["-c", str(cfg)])
     captured = capsys.readouterr().out
     assert rc == 0

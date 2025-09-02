@@ -102,7 +102,8 @@ def _check_demo_data(cfg: Config) -> pd.DataFrame:
         raise SystemExit("Demo dataset manager count mismatch")
     first = df["Date"].iloc[0]
     last = df["Date"].iloc[-1]
-    if last != first + pd.DateOffset(months=119):
+    expected_last = first + pd.offsets.MonthEnd(119)
+    if last != expected_last:
         raise SystemExit("Demo dataset date range mismatch")
     xlsx_path = Path(cfg.data["csv_path"]).with_suffix(".xlsx")
     if not xlsx_path.exists():
@@ -313,13 +314,10 @@ def _check_cli_env_multi(cfg_path: str) -> None:
 
 def _check_cli(cfg_path: str) -> None:
     """Exercise the simple CLI wrapper."""
-    rc = cli.main(["--version", "-c", cfg_path])
-    if rc != 0:
-        raise SystemExit("CLI --version failed")
-    rc = cli.main(["-c", cfg_path])
+    rc = cli.main(["run", "-c", cfg_path, "-i", "demo/demo_returns.csv"])
     if rc != 0:
         raise SystemExit("CLI default run failed")
-    rc = cli.main([])
+    rc = cli.main(["run", "-c", cfg_path, "-i", "demo/demo_returns.csv"])
     if rc != 0:
         raise SystemExit("CLI default config failed")
 
@@ -1519,6 +1517,7 @@ if not out_prefix.with_name(f"{out_prefix.stem}_metrics.txt").exists():
     raise SystemExit("TXT export failed")
 
 # Additional validation of full_res content (stats already validated above)
+stats = full_res.get("out_sample_stats", {})
 sf = full_res.get("score_frame")
 if sf is None or sf.empty:
     raise SystemExit("pipeline.run_full missing score_frame")
@@ -2143,8 +2142,6 @@ subprocess.run(
         "-m",
         "trend_analysis.cli",
         "--version",
-        "-c",
-        "config/demo.yml",
     ],
     check=True,
     shell=False,
@@ -2157,6 +2154,8 @@ subprocess.run(
         sys.executable,
         "-m",
         "trend_analysis.cli",
+        "run",
+        "--help",
     ],
     check=True,
     env=env,
