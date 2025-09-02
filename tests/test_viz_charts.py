@@ -1,7 +1,6 @@
 """Tests for visualization chart functions - simplified version."""
 
 import pandas as pd
-import pytest
 
 from trend_analysis.viz import charts
 

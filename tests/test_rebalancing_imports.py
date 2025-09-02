@@ -1,7 +1,5 @@
 """Test rebalancing module imports to prevent regression."""
 
-import pytest
-
 
 def test_apply_rebalancing_strategies_import():
     """Test that apply_rebalancing_strategies can be imported from rebalancing module."""
@@ -13,7 +11,6 @@ def test_apply_rebalancing_strategies_import():
 def test_multi_period_engine_imports_rebalancing():
     """Test that multi_period engine can import apply_rebalancing_strategies."""
     # This is the exact import that was reported to fail
-    from trend_analysis.multi_period.engine import run
 
     # Verify the function is available in the engine module namespace
     import trend_analysis.multi_period.engine as engine

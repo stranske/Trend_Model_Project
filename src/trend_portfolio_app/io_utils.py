@@ -6,7 +6,6 @@ import datetime
 import zipfile
 import tempfile
 import atexit
-import io
 
 
 # Global registry for cleanup of temporary files
@@ -15,7 +14,6 @@ _TEMP_FILES_TO_CLEANUP: list[str] = []
 
 def _cleanup_temp_files() -> None:
     """Clean up all registered temporary files on exit."""
-    global _TEMP_FILES_TO_CLEANUP
     for file_path in _TEMP_FILES_TO_CLEANUP:
         try:
             if os.path.exists(file_path):
@@ -100,7 +98,6 @@ def cleanup_bundle_file(file_path: str) -> None:
     Args:
         file_path: The path to the bundle file returned by export_bundle.
     """
-    global _TEMP_FILES_TO_CLEANUP
     try:
         if os.path.exists(file_path):
             os.remove(file_path)

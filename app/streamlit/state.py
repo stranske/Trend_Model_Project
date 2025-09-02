@@ -1,7 +1,7 @@
 """Session state management for Streamlit app."""
 
 import streamlit as st
-from typing import Any, Optional
+from typing import Optional
 import pandas as pd
 
 

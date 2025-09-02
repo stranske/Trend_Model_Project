@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import time
-from pathlib import Path
 from collections.abc import Callable
 from typing import Any
 from trend_analysis.config.models import _find_config_directory

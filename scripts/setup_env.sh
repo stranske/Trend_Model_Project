@@ -14,6 +14,7 @@ if (return 0 2>/dev/null); then
 		source "$ENV_DIR/bin/activate"
 		pip install --upgrade pip
 		pip install -r requirements.txt
+		pip install -e ".[dev]"
 		
 		# Try to install the package in editable mode for CLI access
 		pip install -e . || echo "Warning: Package installation failed, CLI available via scripts/trend-model"
@@ -43,6 +44,7 @@ source "$ENV_DIR/bin/activate"
 
 pip install --upgrade pip
 pip install -r requirements.txt
+pip install -e ".[dev]"
 
 # Try to install the package in editable mode for CLI access
 pip install -e . || echo "Warning: Package installation failed, CLI available via scripts/trend-model"

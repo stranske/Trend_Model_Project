@@ -2,7 +2,6 @@
 
 import pytest
 import pandas as pd
-import numpy as np
 from trend_analysis.rebalancing import (
     VolTargetRebalanceStrategy,
     DrawdownGuardStrategy,
@@ -256,5 +255,5 @@ class TestStrategyIntegration:
 
     def test_unknown_strategy_raises_error(self):
         """Test that unknown strategy names raise appropriate error."""
-        with pytest.raises(ValueError, match="Unknown rebalancing strategy"):
+        with pytest.raises(ValueError, match="Unknown plugin"):
             create_rebalancing_strategy("nonexistent_strategy")
