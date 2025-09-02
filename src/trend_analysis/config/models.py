@@ -142,7 +142,6 @@ if _HAS_PYDANTIC:
             checkpoint_dir: str | None = None
             seed: int = 42
 
-
                 """Reject strings that consist only of whitespace."""
                 if not isinstance(v, str):
                     raise ValueError("Version field must be a string")
@@ -163,10 +162,6 @@ if _HAS_PYDANTIC:
             )
             def _ensure_dict(cls, v: Any, info: _ValidationInfo) -> dict[str, Any]:
                 if not isinstance(v, dict):
-                    # Raising ``ValueError`` ensures pydantic wraps the failure in a
-                    # ``ValidationError`` and tests without pydantic receive a plain
-                    # ``ValueError``.  ``info.field_name`` contains the section name
-                    # being validated.
                     raise ValueError(f"{info.field_name} must be a dictionary")
                 return v
 
@@ -220,13 +215,14 @@ else:  # Fallback mode for tests without pydantic
         def _validate(self) -> None:  # Simple runtime validation
             if getattr(self, "version", None) is None:
                 raise ValueError("version field is required")
-            # Reuse shared helper for consistency with pydantic version
-            self.version = _validate_version_value(self.version)
+            if not isinstance(self.version, str):
+                raise ValueError("version must be a string")
+            if len(self.version) == 0:
+                raise ValueError("String should have at least 1 character")
+            if not self.version.strip():
+                raise ValueError("Version field cannot be empty")
 
-            # Ensure key sections are dictionaries.  Tests exercise these
-            # validations extensively to guard against common YAML mistakes
-            # such as providing numbers or lists instead of mappings.
-            for section in [
+            for field in [
                 "data",
                 "preprocessing",
                 "vol_adjust",
