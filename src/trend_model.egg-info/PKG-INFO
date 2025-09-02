@@ -29,6 +29,7 @@ Requires-Dist: pydantic>=2
 Requires-Dist: hypothesis
 Requires-Dist: matplotlib
 Requires-Dist: ipywidgets
+Requires-Dist: scipy
 Provides-Extra: app
 Requires-Dist: streamlit>=1.30; extra == "app"
 Requires-Dist: streamlit-sortables; extra == "app"
