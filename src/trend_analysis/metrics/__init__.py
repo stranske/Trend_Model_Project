@@ -304,3 +304,4 @@ setattr(_bi, "annualize_volatility", annualize_volatility)
 from . import summary  # noqa: E402,F401
 from . import rolling  # noqa: E402,F401
 from . import turnover  # noqa: E402,F401
+from . import attribution  # noqa: E402,F401
