@@ -79,7 +79,7 @@ def test_weights_heatmap_data_from_dict():
         dates[2]: pd.Series({"A": 0.5, "B": 0.5}),
     }
 
-    result = charts.weights_heatmap_data(weights)
+    result = charts.weights_heatmap(weights)
 
     assert isinstance(result, pd.DataFrame)
     assert set(result.columns) == {"A", "B"}
