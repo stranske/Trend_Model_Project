@@ -10,7 +10,6 @@ import os
 from unittest import mock
 
 
-
 def create_mock_results():
     """Create a mock results object for testing."""
     mock_results = mock.MagicMock()

@@ -16,4 +16,6 @@ def test_annual_return_vectorised_equals_legacy():
     prices = _dummy_returns()
     new = M.annualize_return(prices)
     old = L.annualize_return(prices)
-    pd.testing.assert_series_equal(new, old, rtol=NUMERICAL_TOLERANCE_HIGH, atol=NUMERICAL_TOLERANCE_HIGH)
+    pd.testing.assert_series_equal(
+        new, old, rtol=NUMERICAL_TOLERANCE_HIGH, atol=NUMERICAL_TOLERANCE_HIGH
+    )

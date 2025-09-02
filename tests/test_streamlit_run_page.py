@@ -39,7 +39,7 @@ def create_mock_streamlit():
     mock_st.info = MagicMock()
     mock_st.empty = MagicMock()
     mock_st.container = _ctx_mock()
-    mock_st.expander = _ctx_mock()
+    mock_st.expander = _ctx_mock()v
     mock_st.code = MagicMock()
     mock_st.rerun = MagicMock()
 
