@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import Any
 import json
 import datetime as _dt
-import hashlib
 import os
 import zipfile
 import subprocess
@@ -15,13 +14,11 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-
-def _sha256_file(path: Path) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(8192), b""):
-            h.update(chunk)
-    return h.hexdigest()
+from trend_analysis.util.hash import (
+    sha256_config,
+    sha256_file,
+    sha256_text,
+)
 
 
 def _git_hash() -> str:
@@ -60,6 +57,16 @@ def export_bundle(run: Any, path: Path) -> Path:
         results_dir.mkdir(exist_ok=True)
         charts_dir.mkdir(exist_ok=True)
 
+        # Pre-compute hashes and run identifier --------------------------------
+        config = getattr(run, "config", {})
+        seed = getattr(run, "seed", None)
+
+        input_path = Path(getattr(run, "input_path", ""))
+        input_sha256 = sha256_file(input_path) if input_path and input_path.exists() else None
+        config_sha256 = sha256_config(config)
+        run_id_src = "|".join(filter(None, [input_sha256, config_sha256, str(seed) if seed is not None else ""]))
+        run_id = sha256_text(run_id_src)
+
         # ------------------------------------------------------------------
         # Results CSVs
         # ------------------------------------------------------------------
@@ -69,15 +76,19 @@ def export_bundle(run: Any, path: Path) -> Path:
             raise ValueError(
                 "The 'portfolio' attribute is required for bundle creation but was not found in the provided 'run' object."
             )
-        portfolio.to_csv(results_dir / "portfolio.csv", header=["return"])
+        with open(results_dir / "portfolio.csv", "w", encoding="utf-8") as f:
+            f.write(f"# run_id: {run_id}\n")
+            portfolio.to_csv(f, header=["return"])
         benchmark = getattr(run, "benchmark", None)
         if benchmark is not None:
-            pd.Series(benchmark).to_csv(
-                results_dir / "benchmark.csv", header=["return"]
-            )
+            with open(results_dir / "benchmark.csv", "w", encoding="utf-8") as f:
+                f.write(f"# run_id: {run_id}\n")
+                pd.Series(benchmark).to_csv(f, header=["return"])
         weights = getattr(run, "weights", None)
         if weights is not None:
-            pd.DataFrame(weights).to_csv(results_dir / "weights.csv")
+            with open(results_dir / "weights.csv", "w", encoding="utf-8") as f:
+                f.write(f"# run_id: {run_id}\n")
+                pd.DataFrame(weights).to_csv(f)
 
         # ------------------------------------------------------------------
         # Charts PNGs
@@ -86,14 +97,14 @@ def export_bundle(run: Any, path: Path) -> Path:
         fig, ax = plt.subplots()
         eq.plot(ax=ax)
         ax.set_title("Equity Curve")
-        fig.savefig(charts_dir / "equity_curve.png")
+        fig.savefig(charts_dir / "equity_curve.png", metadata={"run_id": run_id})
         plt.close(fig)
 
         dd = eq / eq.cummax() - 1
         fig, ax = plt.subplots()
         dd.plot(ax=ax)
         ax.set_title("Drawdown")
-        fig.savefig(charts_dir / "drawdown.png")
+        fig.savefig(charts_dir / "drawdown.png", metadata={"run_id": run_id})
         plt.close(fig)
 
         # ------------------------------------------------------------------
@@ -105,7 +116,9 @@ def export_bundle(run: Any, path: Path) -> Path:
             summary = summ_fn()
         else:
             summary = {"total_return": float(portfolio.sum())}
-        pd.DataFrame([summary]).to_excel(bundle_dir / "summary.xlsx", index=False)
+        pd.DataFrame([{"run_id": run_id, **summary}]).to_excel(
+            bundle_dir / "summary.xlsx", index=False
+        )
 
         # ------------------------------------------------------------------
         # Metadata manifest
@@ -119,21 +132,31 @@ def export_bundle(run: Any, path: Path) -> Path:
             env.setdefault("trend_analysis", "0")
 
         meta = {
-            "config": getattr(run, "config", {}),
-            "seed": getattr(run, "seed", None),
+            "run_id": run_id,
+            "config": config,
+            "config_sha256": config_sha256,
+            "seed": seed,
             "environment": env,
             "git_hash": _git_hash(),
             "receipt": {"created": _dt.datetime.utcnow().isoformat() + "Z"},
+            "input_sha256": input_sha256,
         }
-
-        input_path = Path(getattr(run, "input_path", ""))
-        if input_path and input_path.exists():
-            meta["input_sha256"] = _sha256_file(input_path)
-        else:
-            meta["input_sha256"] = None
 
         with open(bundle_dir / "run_meta.json", "w", encoding="utf-8") as f:
             json.dump(meta, f, indent=2)
+
+        # ------------------------------------------------------------------
+        # Receipt
+        # ------------------------------------------------------------------
+        receipt_lines = [
+            f"run_id: {run_id}",
+            f"input_sha256: {input_sha256}",
+            f"config_sha256: {config_sha256}",
+        ]
+        if seed is not None:
+            receipt_lines.append(f"seed: {seed}")
+        receipt_lines.append(f"git_hash: {meta['git_hash']}")
+        (bundle_dir / "receipt.txt").write_text("\n".join(receipt_lines) + "\n", encoding="utf-8")
 
         # ------------------------------------------------------------------
         # README
