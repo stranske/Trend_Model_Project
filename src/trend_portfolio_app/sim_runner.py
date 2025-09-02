@@ -56,6 +56,11 @@ def compute_score_frame(
     if "Date" not in panel.columns:
         raise ValueError("DataFrame must contain a 'Date' column")
 
+    # Normalise the Date column so external helpers that expect month-end
+    # timestamps at midnight include the period in their filtering logic.
+    panel = panel.copy()
+    panel["Date"] = pd.to_datetime(panel["Date"]).dt.normalize()
+
     if HAS_TA:
         fn = getattr(ta_pipeline, "single_period_run", None)
         if callable(fn):
@@ -81,8 +86,9 @@ def compute_score_frame(
                     " Falling back to local implementation.",
                     e,
                 )
+    local_panel = panel.set_index("Date")
     return compute_score_frame_local(
-        panel.loc[insample_start:insample_end].drop(columns=["Date"], errors="ignore"),
+        local_panel.loc[insample_start:insample_end],
         rf_annual=rf_annual,
     )
 
@@ -188,8 +194,7 @@ class Simulator:
                 eligible_since[m] += 1
 
             insample_end = d
-            insample_start = (d - pd.offsets.MonthEnd(lookback_months)).to_pydatetime()
-            insample_start = pd.Timestamp(insample_start).normalize()
+            insample_start = (d - pd.offsets.MonthEnd(lookback_months)).normalize()
 
             panel = self.df.drop(columns=[self.benchmark_col], errors="ignore")
 
