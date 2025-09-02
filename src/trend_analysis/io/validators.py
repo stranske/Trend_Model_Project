@@ -21,14 +21,15 @@ FREQ_ALIAS_MAP: Dict[str, str] = {
     "annual": "A",
 }
 
-# Legacy aliases translated to canonical pandas ``PeriodIndex`` codes.
+# Translate legacy alias codes to the canonical pandas codes expected by
+# ``pd.PeriodIndex``.
 PANDAS_FREQ_MAP: Dict[str, str] = {
-    "ME": "M",  # month-end -> monthly
-    "QE": "Q",  # quarter-end -> quarterly
-    "A": "Y",  # annual -> yearly
+    "ME": "M",  # Month-end to Month for PeriodIndex compatibility
+    "QE": "Q",  # Quarter-end to Quarter
+    "A": "Y",  # Annual to Year
 }
 
-# Public mapping of human readable labels directly to pandas codes.
+# Public mapping of human‑readable labels to canonical pandas frequency codes.
 FREQUENCY_MAP: Dict[str, str] = {
     human: PANDAS_FREQ_MAP.get(alias, alias) for human, alias in FREQ_ALIAS_MAP.items()
 }

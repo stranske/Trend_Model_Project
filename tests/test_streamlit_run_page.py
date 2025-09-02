@@ -3,7 +3,8 @@
 import pytest
 import pandas as pd
 from datetime import date
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import patch, MagicMock
+
 import sys
 from pathlib import Path
 
@@ -12,6 +13,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 # Import the functions we want to test
 sys.path.insert(0, str(Path(__file__).parent.parent / "app" / "streamlit" / "pages"))
+
+# Mock external dependencies before importing our module
+sys.modules["streamlit"] = MagicMock()
+sys.modules["matplotlib"] = MagicMock()
+sys.modules["matplotlib.pyplot"] = MagicMock()
 
 from trend_analysis.api import RunResult  # noqa: E402
 
