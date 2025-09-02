@@ -269,7 +269,15 @@ class TestBuildStep0:
         mock_dropdown = Mock()
         mock_widgets.FileUpload.return_value = Mock()
         mock_widgets.Dropdown.return_value = mock_dropdown
-        mock_widgets.Label.return_value = Mock()
+
+        # Label widget is used as the grid when ipydatagrid isn't available.
+        # The grid's ``hold_trait_notifications`` method is used as a context
+        # manager inside ``refresh_grid`` so we need the mock to implement the
+        # context manager protocol to avoid warnings.
+        mock_label = Mock()
+        mock_label.hold_trait_notifications.return_value = _cm_mock()
+        mock_widgets.Label.return_value = mock_label
+
         mock_widgets.Button.return_value = Mock()
         mock_widgets.VBox.return_value = Mock()
         mock_widgets.HBox.return_value = Mock()
