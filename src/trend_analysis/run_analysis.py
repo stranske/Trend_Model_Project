@@ -7,8 +7,9 @@ from pathlib import Path
 from typing import cast
 
 from .config import load
-from . import pipeline, export
+from . import api, export
 from .constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
+from .data import load_csv
 import pandas as pd
 
 
@@ -24,20 +25,31 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     cfg = load(args.config)
-    metrics_df = pipeline.run(cfg)
+
+    # Load CSV data from config
+    csv_path = cfg.data.get("csv_path")
+    if csv_path is None:
+        raise KeyError("cfg.data['csv_path'] must be provided")
+
+    df = load_csv(csv_path)
+    if df is None:
+        raise FileNotFoundError(csv_path)
+
+    # Use unified API instead of direct pipeline calls
+    result = api.run_simulation(cfg, df)
+
     if args.detailed:
-        if metrics_df.empty:
+        if result.metrics.empty:
             print("No results")  # pragma: no cover - trivial branch
         else:
-            print(metrics_df.to_string())  # pragma: no cover - human output
+            print(result.metrics.to_string())  # pragma: no cover - human output
     else:
-        res = pipeline.run_full(cfg)
-        if not res:
+        if not result.details:
             print("No results")  # pragma: no cover - trivial branch
         else:
             split = cfg.sample_split
             text = export.format_summary_text(
-                res,
+                result.details,
                 cast(str, split.get("in_start")),
                 cast(str, split.get("in_end")),
                 cast(str, split.get("out_start")),
@@ -52,12 +64,12 @@ def main(argv: list[str] | None = None) -> int:
                 out_dir = DEFAULT_OUTPUT_DIRECTORY  # pragma: no cover - defaults
                 out_formats = DEFAULT_OUTPUT_FORMATS
             if out_dir and out_formats:  # pragma: no cover - file output
-                data = {"metrics": metrics_df}
+                data = {"metrics": result.metrics}
                 if any(
                     f.lower() in {"excel", "xlsx"} for f in out_formats
                 ):  # pragma: no cover - file I/O
                     sheet_formatter = export.make_summary_formatter(
-                        res,
+                        result.details,
                         cast(str, split.get("in_start")),
                         cast(str, split.get("in_end")),
                         cast(str, split.get("out_start")),

@@ -8,7 +8,7 @@ import pandas as pd
 import streamlit as st
 import yaml  # type: ignore[import-untyped]
 
-from trend_analysis import pipeline
+from trend_analysis import api
 from trend_analysis.multi_period import run as run_multi
 from trend_analysis.config import DEFAULTS as DEFAULT_CFG_PATH, Config
 from trend_analysis.data import load_csv as ta_load_csv, identify_risk_free_fund
@@ -1651,7 +1651,21 @@ with tabs[8]:
     if go_single and cfg_obj is not None:
         with st.spinner("Running single-period analysis..."):
             try:
-                out_df = pipeline.run(cfg_obj)
+                # Load CSV data from config
+                csv_path = cfg_obj.data.get("csv_path")
+                if csv_path is None:
+                    st.error("CSV path must be provided in configuration")
+                    st.stop()
+
+                df = ta_load_csv(csv_path)
+                if df is None:
+                    st.error(f"Failed to load CSV file: {csv_path}")
+                    st.stop()
+
+                # Use unified API instead of direct pipeline call
+                result = api.run_simulation(cfg_obj, df)
+                out_df = result.metrics
+
                 disp = _summarise_run_df(out_df)
                 st.success(f"Completed. {len(disp)} rows.")
                 st.dataframe(disp, use_container_width=True)
