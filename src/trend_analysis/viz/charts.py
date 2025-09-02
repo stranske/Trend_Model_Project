@@ -91,8 +91,6 @@ def turnover_series(
     """Compute turnover figure and DataFrame from weights history."""
 
     w_df = _weights_to_frame(weights)
-    if w_df.empty:
-        raise ValueError("weights cannot be empty")
     to = w_df.diff().abs().sum(axis=1).to_frame("turnover")
     fig, ax = plt.subplots()
     to.plot(ax=ax)
