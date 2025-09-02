@@ -9,10 +9,36 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any, Dict, List, cast
+from typing import Any, Dict, List, cast, ClassVar
 from collections.abc import Mapping
 
 import yaml
+
+if TYPE_CHECKING:
+    # Define Config type alias for static type checking
+    from typing_extensions import Protocol
+
+    class ConfigProtocol(Protocol):
+        """Type protocol for Config class that works in both Pydantic and fallback modes."""
+
+        version: str
+        data: dict[str, Any]
+        preprocessing: dict[str, Any]
+        vol_adjust: dict[str, Any]
+        sample_split: dict[str, Any]
+        portfolio: dict[str, Any]
+        benchmarks: dict[str, str]
+        metrics: dict[str, Any]
+        export: dict[str, Any]
+        output: dict[str, Any] | None
+        run: dict[str, Any]
+        multi_period: dict[str, Any] | None
+        jobs: int | None
+        checkpoint_dir: str | None
+        seed: int
+
+    # Type alias for Config that works with both implementations
+    ConfigType = ConfigProtocol
 
 # Pydantic import (optional in tests)
 # Use temporary underscored names within the branch, then export public names
@@ -113,11 +139,41 @@ if _HAS_PYDANTIC:
     _cached = getattr(_bi, "_TREND_CONFIG_CLASS", None)
 
     if _cached is not None:
-        Config = _cached  # type: ignore[assignment]
+        Config = _cached
     else:
 
-        class Config(BaseModel):  # type: ignore[valid-type,misc]
+        class Config(BaseModel):  # type: ignore[misc]
             """Typed access to the YAML configuration (Pydantic mode)."""
+
+            # Field lists as class constants to prevent maintenance burden
+            REQUIRED_DICT_FIELDS: ClassVar[List[str]] = [
+                "data",
+                "preprocessing",
+                "vol_adjust",
+                "sample_split",
+                "portfolio",
+                "metrics",
+                "export",
+                "run",
+            ]
+
+            ALL_FIELDS: ClassVar[List[str]] = [
+                "version",
+                "data",
+                "preprocessing",
+                "vol_adjust",
+                "sample_split",
+                "portfolio",
+                "benchmarks",
+                "metrics",
+                "export",
+                "output",
+                "run",
+                "multi_period",
+                "jobs",
+                "checkpoint_dir",
+                "seed",
+            ]
 
             # Use a plain dict for model_config to avoid type-checker issues when
             # Pydantic is not installed (tests toggle availability).
@@ -142,20 +198,13 @@ if _HAS_PYDANTIC:
             checkpoint_dir: str | None = None
             seed: int = 42
 
-            @field_validator("version", mode="before")
-            def _version_not_whitespace(cls, v: Any) -> str:
+            @field_validator("version")
+            def _validate_version(cls, v: Any) -> str:
                 """Reject strings that consist only of whitespace."""
                 return _validate_version_value(v)
 
             @field_validator(
-                "data",
-                "preprocessing",
-                "vol_adjust",
-                "sample_split",
-                "portfolio",
-                "metrics",
-                "export",
-                "run",
+                *REQUIRED_DICT_FIELDS,
                 mode="before",
             )
             def _ensure_dict(cls, v: Any, info: _ValidationInfo) -> dict[str, Any]:
@@ -174,6 +223,36 @@ else:  # Fallback mode for tests without pydantic
 
     class Config(SimpleBaseModel):  # type: ignore[no-redef]
         """Simplified Config for environments without Pydantic."""
+
+        # Field lists as class constants to prevent maintenance burden
+        REQUIRED_DICT_FIELDS: ClassVar[List[str]] = [
+            "data",
+            "preprocessing",
+            "vol_adjust",
+            "sample_split",
+            "portfolio",
+            "metrics",
+            "export",
+            "run",
+        ]
+
+        ALL_FIELDS: ClassVar[List[str]] = [
+            "version",
+            "data",
+            "preprocessing",
+            "vol_adjust",
+            "sample_split",
+            "portfolio",
+            "benchmarks",
+            "metrics",
+            "export",
+            "output",
+            "run",
+            "multi_period",
+            "jobs",
+            "checkpoint_dir",
+            "seed",
+        ]
 
         # Attribute declarations for linters/type-checkers
         version: str
@@ -238,26 +317,7 @@ else:  # Fallback mode for tests without pydantic
 
         # Provide a similar API surface to pydantic for callers
         def model_dump(self) -> Dict[str, Any]:
-            return {
-                k: getattr(self, k)
-                for k in [
-                    "version",
-                    "data",
-                    "preprocessing",
-                    "vol_adjust",
-                    "sample_split",
-                    "portfolio",
-                    "benchmarks",
-                    "metrics",
-                    "export",
-                    "output",
-                    "run",
-                    "multi_period",
-                    "jobs",
-                    "checkpoint_dir",
-                    "seed",
-                ]
-            }
+            return {k: getattr(self, k) for k in self.ALL_FIELDS}
 
     # Keep package-level alias in sync when using fallback
     import sys as _sys
@@ -269,6 +329,18 @@ else:  # Fallback mode for tests without pydantic
 
 class PresetConfig(SimpleBaseModel):
     """Configuration preset with validation."""
+
+    # Field lists as class constants to prevent maintenance burden
+    PRESET_DICT_FIELDS: ClassVar[List[str]] = [
+        "data",
+        "preprocessing",
+        "vol_adjust",
+        "sample_split",
+        "portfolio",
+        "metrics",
+        "export",
+        "run",
+    ]
 
     name: str
     description: str
@@ -282,16 +354,7 @@ class PresetConfig(SimpleBaseModel):
     run: Dict[str, Any]
 
     def _get_defaults(self) -> Dict[str, Any]:
-        return {
-            "data": {},
-            "preprocessing": {},
-            "vol_adjust": {},
-            "sample_split": {},
-            "portfolio": {},
-            "metrics": {},
-            "export": {},
-            "run": {},
-        }
+        return {field: {} for field in self.PRESET_DICT_FIELDS}
 
     def _validate(self) -> None:
         """Validate preset configuration."""
@@ -414,16 +477,16 @@ def list_available_presets() -> List[str]:
 DEFAULTS = Path(__file__).resolve().parents[3] / "config" / "defaults.yml"
 
 
-def load_config(cfg: Mapping[str, Any] | str | Path) -> Config:
+def load_config(cfg: Mapping[str, Any] | str | Path) -> ConfigType:
     """Load configuration from a mapping or file path."""
     if isinstance(cfg, (str, Path)):
         return load(cfg)
     if isinstance(cfg, Mapping):
-        return Config(**cfg)
+        return cast("ConfigType", Config(**cfg))
     raise TypeError("cfg must be a mapping or path")
 
 
-def load(path: str | Path | None = None) -> Config:
+def load(path: str | Path | None = None) -> ConfigType:
     """Load configuration from ``path`` or ``DEFAULTS``.
     If ``path`` is ``None``, the ``TREND_CFG`` environment variable is
     consulted before falling back to ``DEFAULTS``.
@@ -457,7 +520,7 @@ def load(path: str | Path | None = None) -> Config:
             export_cfg.setdefault("directory", str(p.parent) if p.parent else ".")
             export_cfg.setdefault("filename", p.name)
 
-    return Config(**data)
+    return cast("ConfigType", Config(**data))
 
 
 __all__ = [
