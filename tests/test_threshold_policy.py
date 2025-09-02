@@ -52,7 +52,10 @@ def test_rebalancer_thresholds_and_strikes():
     w2 = pf.history[sorted(pf.history)[1]]
     assert set(w2.index) == {"B", "C"}
     # Equal weight for survivors
-    assert abs(w2.loc["B"] - 0.5) < NUMERICAL_TOLERANCE_MEDIUM and abs(w2.loc["C"] - 0.5) < NUMERICAL_TOLERANCE_MEDIUM
+    assert (
+        abs(w2.loc["B"] - 0.5) < NUMERICAL_TOLERANCE_MEDIUM
+        and abs(w2.loc["C"] - 0.5) < NUMERICAL_TOLERANCE_MEDIUM
+    )
 
 
 def test_rebalancer_bayesian_weighting_option():

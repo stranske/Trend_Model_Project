@@ -41,6 +41,7 @@ FREQUENCY_MAP: Dict[str, str] = {
     for key, alias in FREQ_ALIAS_MAP.items()
 }
 
+
 class ValidationResult:
     """Result of schema validation with detailed feedback."""
 

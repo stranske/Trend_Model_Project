@@ -299,8 +299,20 @@ else:  # Fallback mode for tests without pydantic
             if not self.version.strip():
                 raise ValueError("Version field cannot be empty")
 
-            for _field in self.REQUIRED_DICT_FIELDS:
-                if not isinstance(getattr(self, _field), dict):
+            for _field in [
+                "data",
+                "preprocessing",
+                "vol_adjust",
+                "sample_split",
+                "portfolio",
+                "metrics",
+                "export",
+                "run",
+            ]:
+                value = getattr(self, _field, None)
+                if value is None:
+                    raise ValueError(f"{_field} section is required")
+                if not isinstance(value, dict):
                     raise ValueError(f"{_field} must be a dictionary")
 
         # Provide a similar API surface to pydantic for callers
