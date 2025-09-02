@@ -11,9 +11,11 @@ WORKDIR /app
 # Copy requirements first for better Docker layer caching
 COPY requirements.txt pyproject.toml ./
 
+# Ensure build tools are available
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
+
 # Install Python dependencies with retry logic for network issues
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir --timeout=300 --retries=3 -r requirements.txt \
+RUN pip install --no-cache-dir --timeout=300 --retries=3 -r requirements.txt \
     && pip install --no-cache-dir pytest
 
 # Copy source code and essential files
