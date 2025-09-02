@@ -20,6 +20,7 @@ FREQ_ALIAS_MAP: Dict[str, str] = {
     "annual": "A",  # mapped to ``Y``
 }
 
+
 class ValidationResult:
     """Result of schema validation with detailed feedback."""
 

@@ -42,10 +42,21 @@ def test_vectorised_metric_matches_legacy(name, data_fn, kw):
     new_series = vec_fn(data, **kw)
     old_series = leg_fn(data, **kw)
 
-    pd.testing.assert_series_equal(new_series, old_series, rtol=NUMERICAL_TOLERANCE_HIGH, atol=NUMERICAL_TOLERANCE_HIGH)
+    pd.testing.assert_series_equal(
+        new_series,
+        old_series,
+        rtol=NUMERICAL_TOLERANCE_HIGH,
+        atol=NUMERICAL_TOLERANCE_HIGH,
+    )
 
     # also test Series input → scalar
     one_col = data[_cols[0]]
     new_scalar = vec_fn(one_col, **kw)
     old_scalar = leg_fn(one_col, **kw)
-    assert np.isclose(new_scalar, old_scalar, rtol=NUMERICAL_TOLERANCE_HIGH, atol=NUMERICAL_TOLERANCE_HIGH, equal_nan=True)
+    assert np.isclose(
+        new_scalar,
+        old_scalar,
+        rtol=NUMERICAL_TOLERANCE_HIGH,
+        atol=NUMERICAL_TOLERANCE_HIGH,
+        equal_nan=True,
+    )
