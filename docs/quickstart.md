@@ -57,15 +57,22 @@ Visit **http://localhost:8501** when the app starts.
 
 ## 📊 Using the Analysis Tool
 
-### Quick Start with Demo Data
-The easiest way to see how the tool works:
+The analysis tool has a simple step-by-step workflow:
 
-1. **Leave the default settings** - the app comes pre-loaded with demo data
-2. **Choose a preset** (see options below)
-3. **Click "Run Analysis"** 
-4. **View your results** in 30-60 seconds
+![Main Interface](https://github.com/user-attachments/assets/276458a5-7f78-4e06-bf9c-738aef239611)
 
-### Choose Your Analysis Style
+### Step 1: Upload Your Data
+
+![Upload Interface](https://github.com/user-attachments/assets/440c3e0c-b0a6-468d-916e-4bb92e036442)
+
+The easiest way to get started:
+
+1. **Click "Load demo data"** - uses the included 10-year synthetic dataset
+2. **Or upload your CSV** - drag and drop or browse for your own data
+
+### Step 2: Choose Your Analysis Style
+
+![Configure with Presets](https://github.com/user-attachments/assets/a919ee74-a644-48f7-a1ec-0ecdef5a9f2b)
 
 The tool includes three ready-made presets designed for different risk preferences:
 
@@ -87,9 +94,14 @@ The tool includes three ready-made presets designed for different risk preferenc
 - **Target volatility**: 15% (higher risk)
 - **Rebalancing**: Monthly with fast response to changes
 
-### Understanding Your Results
+### Step 3: Run Your Analysis
+1. **Select your preset** from the dropdown (Conservative, Balanced, or Aggressive)
+2. **Save configuration** - click the "💾 Save Configuration" button  
+3. **Navigate to Run** - click the "Run" tab in the sidebar
+4. **Wait 30-60 seconds** for the analysis to complete
 
-The analysis provides:
+### Step 4: View Your Results
+Navigate to the "Results" tab to see:
 
 **Portfolio Performance**
 - Total return over the selected time period
@@ -107,8 +119,8 @@ The analysis provides:
 - Individual fund performance during selection period
 - Portfolio weights assigned to each fund
 
-### Export Your Results
-Click **"Download Results Bundle"** to get:
+### Step 5: Export Your Results
+Navigate to the "Export" tab and click **"Download Results Bundle"** to get:
 - `portfolio_returns.csv` - Your portfolio performance data
 - `summary.json` - Key metrics and statistics  
 - `config.json` - Exact settings used for this analysis
