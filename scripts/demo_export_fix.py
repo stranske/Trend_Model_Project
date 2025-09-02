@@ -9,8 +9,6 @@ Run this to see the improvements in temporary file handling.
 import os
 from unittest import mock
 
-# Add src to path then import (ignore E402 due to path setup for demo script)
-from trend_portfolio_app.io_utils import export_bundle, _TEMP_FILES_TO_CLEANUP
 
 
 def create_mock_results():
@@ -135,7 +133,7 @@ if __name__ == "__main__":
     print("\n💻 Optional manual cleanup demo:")
     print("  (Files will be auto-cleaned on exit anyway)")
 
-    from trend_portfolio_app.io_utils import cleanup_bundle_file
+    from trend_analysis.io import cleanup_bundle_file
 
     for i, bundle in enumerate(bundles[:1]):  # Just clean one as demo
         print(f"  🧹 Cleaning bundle {i+1}...")

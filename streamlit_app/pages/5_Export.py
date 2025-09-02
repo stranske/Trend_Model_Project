@@ -1,7 +1,7 @@
 import os
 import hashlib
 import streamlit as st
-from trend_portfolio_app.io_utils import export_bundle
+from trend_analysis.io import export_bundle
 
 st.title("Export")
 
