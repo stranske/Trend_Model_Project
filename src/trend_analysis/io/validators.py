@@ -220,8 +220,7 @@ def load_and_validate_upload(file_like: Any) -> Tuple[pd.DataFrame, Dict[str, An
     # ``Period`` codes using ``FREQUENCY_MAP``.  Default to monthly if detection
     # failed so downstream code still receives a valid index.
     freq_key = (validation.frequency or "").lower()
-    freq_alias = FREQ_ALIAS_MAP.get(freq_key, "ME")
-    pandas_freq = PANDAS_FREQ_MAP.get(freq_alias, freq_alias)
+    pandas_freq = FREQUENCY_MAP.get(freq_key, "M")
     df.index = pd.PeriodIndex(idx, freq=pandas_freq).to_timestamp(how="end")
     df = df.dropna(axis=1, how="all")
 
