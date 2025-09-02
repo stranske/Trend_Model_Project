@@ -7,7 +7,6 @@ from pathlib import Path
 import pandas as pd
 
 from . import export, pipeline
-from .config import load_config
 from .api import run_simulation
 from .data import load_csv
 from .config import load_config
@@ -77,18 +76,19 @@ def main(argv: list[str] | None = None) -> int:
         return check_environment()
 
     if args.command == "gui":
-        result = subprocess.run(["streamlit", "run", str(APP_PATH)])
-        return result.returncode
+        proc = subprocess.run(["streamlit", "run", str(APP_PATH)])
+        return proc.returncode
 
     if args.command == "run":
         cfg = load_config(args.config)
         df = load_csv(args.input)
+        assert df is not None  # narrow type for type-checkers
         split = cfg.sample_split
         required_keys = {"in_start", "in_end", "out_start", "out_end"}
         if required_keys.issubset(split):
-            result = run_simulation(cfg, df)
-            metrics_df = result.metrics
-            res = result.details
+            run_result = run_simulation(cfg, df)
+            metrics_df = run_result.metrics
+            res = run_result.details
         else:  # pragma: no cover - legacy fallback
             metrics_df = pipeline.run(cfg)
             res = pipeline.run_full(cfg)

@@ -86,9 +86,15 @@ def run_simulation(config: Config, returns: pd.DataFrame) -> RunResult:
         }
         return RunResult(pd.DataFrame(), {}, seed, env)
 
-    stats = res["out_sample_stats"]
-    metrics_df = pd.DataFrame({k: vars(v) for k, v in stats.items()}).T
-    for label, ir_map in res.get("benchmark_ir", {}).items():
+    stats_obj = res["out_sample_stats"]
+    if isinstance(stats_obj, dict):
+        stats_items = list(stats_obj.items())
+    else:
+        stats_items = list(getattr(stats_obj, "items", lambda: [])())
+    metrics_df = pd.DataFrame({k: vars(v) for k, v in stats_items}).T
+    bench_ir_obj = res.get("benchmark_ir", {})
+    bench_ir_items = bench_ir_obj.items() if isinstance(bench_ir_obj, dict) else []
+    for label, ir_map in bench_ir_items:
         col = f"ir_{label}"
         metrics_df[col] = pd.Series(
             {

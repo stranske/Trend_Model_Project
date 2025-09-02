@@ -1,19 +1,16 @@
-"""Test rebalancing module imports to prevent regression."""
-
-import pytest
+"""Verify rebalancing imports remain stable and callable."""
 
 
 def test_apply_rebalancing_strategies_import():
-    """Test that apply_rebalancing_strategies can be imported from rebalancing module."""
+    """Import apply_rebalancing_strategies from rebalancing module."""
     from trend_analysis.rebalancing import apply_rebalancing_strategies
 
     assert callable(apply_rebalancing_strategies)
 
 
 def test_multi_period_engine_imports_rebalancing():
-    """Test that multi_period engine can import apply_rebalancing_strategies."""
+    """Ensure multi_period.engine exposes apply_rebalancing_strategies."""
     # This is the exact import that was reported to fail
-    from trend_analysis.multi_period.engine import run
 
     # Verify the function is available in the engine module namespace
     import trend_analysis.multi_period.engine as engine
@@ -23,7 +20,7 @@ def test_multi_period_engine_imports_rebalancing():
 
 
 def test_rebalancing_module_exports():
-    """Test that all expected functions are exported from rebalancing module."""
+    """Check expected functions are exported from rebalancing module."""
     import trend_analysis.rebalancing as reb
 
     # Check that __all__ is defined and includes our function

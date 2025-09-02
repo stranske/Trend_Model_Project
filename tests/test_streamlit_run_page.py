@@ -2,8 +2,8 @@
 
 import pytest
 import pandas as pd
-from datetime import date, datetime
-from unittest.mock import Mock, patch, MagicMock
+from datetime import date
+from unittest.mock import Mock, patch
 import sys
 from pathlib import Path
 
@@ -16,8 +16,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "app" / "streamlit" / "pag
 # Mock streamlit before importing our module
 sys.modules["streamlit"] = Mock()
 
-from trend_analysis.api import RunResult
-from trend_analysis.config import Config
+from trend_analysis.api import RunResult  # noqa: E402
+from trend_analysis.config import Config  # noqa: E402
 
 
 def create_mock_streamlit():
@@ -96,6 +96,7 @@ class TestErrorFormatting:
                 / "pages"
                 / "03_Run.py",
             )
+            assert spec is not None and spec.loader is not None
             run_page = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(run_page)
 
@@ -116,6 +117,7 @@ class TestErrorFormatting:
                 / "pages"
                 / "03_Run.py",
             )
+            assert spec is not None and spec.loader is not None
             run_page = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(run_page)
 
@@ -137,6 +139,7 @@ class TestErrorFormatting:
                 / "pages"
                 / "03_Run.py",
             )
+            assert spec is not None and spec.loader is not None
             run_page = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(run_page)
 
@@ -162,6 +165,7 @@ class TestConfigCreation:
                 / "pages"
                 / "03_Run.py",
             )
+            assert spec is not None and spec.loader is not None
             run_page = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(run_page)
 
@@ -189,6 +193,7 @@ class TestConfigCreation:
                 / "pages"
                 / "03_Run.py",
             )
+            assert spec is not None and spec.loader is not None
             run_page = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(run_page)
 
@@ -209,6 +214,7 @@ class TestConfigCreation:
                 / "pages"
                 / "03_Run.py",
             )
+            assert spec is not None and spec.loader is not None
             run_page = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(run_page)
 
@@ -236,6 +242,7 @@ class TestDataPreparation:
                 / "pages"
                 / "03_Run.py",
             )
+            assert spec is not None and spec.loader is not None
             run_page = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(run_page)
 
@@ -261,6 +268,7 @@ class TestDataPreparation:
                 / "pages"
                 / "03_Run.py",
             )
+            assert spec is not None and spec.loader is not None
             run_page = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(run_page)
 
@@ -281,6 +289,7 @@ class TestDataPreparation:
                 / "pages"
                 / "03_Run.py",
             )
+            assert spec is not None and spec.loader is not None
             run_page = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(run_page)
 
@@ -311,6 +320,7 @@ class TestLogHandler:
                 / "pages"
                 / "03_Run.py",
             )
+            assert spec is not None and spec.loader is not None
             run_page = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(run_page)
 
@@ -333,6 +343,7 @@ class TestLogHandler:
                 / "pages"
                 / "03_Run.py",
             )
+            assert spec is not None and spec.loader is not None
             run_page = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(run_page)
 
@@ -371,6 +382,7 @@ class TestLogHandler:
                 / "pages"
                 / "03_Run.py",
             )
+            assert spec is not None and spec.loader is not None
             run_page = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(run_page)
 
@@ -404,7 +416,10 @@ class TestAnalysisIntegration:
         """Test successful analysis run."""
         # Create mock result
         mock_result = RunResult(
-            metrics=pd.DataFrame({"metric": [1.0, 2.0]}), details={"test": "data"}
+            metrics=pd.DataFrame({"metric": [1.0, 2.0]}),
+            details={"test": "data"},
+            seed=42,
+            environment={"python": "3"},
         )
         mock_run_simulation.return_value = mock_result
 
@@ -419,6 +434,7 @@ class TestAnalysisIntegration:
                 / "pages"
                 / "03_Run.py",
             )
+            assert spec is not None and spec.loader is not None
             run_page = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(run_page)
 
@@ -458,6 +474,7 @@ class TestAnalysisIntegration:
                 / "pages"
                 / "03_Run.py",
             )
+            assert spec is not None and spec.loader is not None
             run_page = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(run_page)
 
@@ -489,12 +506,13 @@ def test_smoke_test_imports():
             "run_page",
             Path(__file__).parent.parent / "app" / "streamlit" / "pages" / "03_Run.py",
         )
-        run_page = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(run_page)
+    assert spec is not None and spec.loader is not None
+    run_page = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(run_page)
 
-        # Check that key functions are available
-        assert hasattr(run_page, "format_error_message")
-        assert hasattr(run_page, "create_config_from_session_state")
-        assert hasattr(run_page, "prepare_returns_data")
-        assert hasattr(run_page, "run_analysis_with_progress")
-        assert hasattr(run_page, "StreamlitLogHandler")
+    # Check that key functions are available
+    assert hasattr(run_page, "format_error_message")
+    assert hasattr(run_page, "create_config_from_session_state")
+    assert hasattr(run_page, "prepare_returns_data")
+    assert hasattr(run_page, "run_analysis_with_progress")
+    assert hasattr(run_page, "StreamlitLogHandler")

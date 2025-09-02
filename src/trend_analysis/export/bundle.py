@@ -14,7 +14,7 @@ import pandas as pd
 import matplotlib
 
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt  # noqa: E402
 
 
 def _sha256_file(path: Path) -> str:
@@ -63,7 +63,7 @@ def export_bundle(run: Any, path: Path) -> Path:
         portfolio = getattr(run, "portfolio")
     except AttributeError:
         raise ValueError(
-            "The 'portfolio' attribute is required for bundle creation but was not found in the provided 'run' object."
+            "Bundle creation requires a 'portfolio' attribute on the run object"
         )
     portfolio.to_csv(results_dir / "portfolio.csv", header=["return"])
     benchmark = getattr(run, "benchmark", None)

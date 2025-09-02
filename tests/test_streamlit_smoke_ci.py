@@ -13,8 +13,8 @@ import sys
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from trend_analysis.api import run_simulation
-from trend_analysis.config import Config
+from trend_analysis.api import run_simulation  # noqa: E402
+from trend_analysis.config import Config  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -285,7 +285,8 @@ def test_end_to_end_analysis_simulation(demo_data, demo_config):
     assert not demo_data.empty
     assert "Date" in demo_data.columns
     print(
-        f"✅ Demo data validated: {len(demo_data)} rows, {len(demo_data.columns)} columns"
+        "✅ Demo data validated: "
+        f"{len(demo_data)} rows, {len(demo_data.columns)} columns"
     )
 
     # Step 2: Run analysis
@@ -335,6 +336,7 @@ def test_run_page_imports_successfully():
     sys.modules["streamlit"] = Mock()
 
     spec = importlib.util.spec_from_file_location("run_page", run_page_path)
+    assert spec is not None and spec.loader is not None
     run_page = importlib.util.module_from_spec(spec)
 
     # Should not raise any import errors
@@ -369,6 +371,7 @@ if __name__ == "__main__":
 
     sys.modules["streamlit"] = Mock()
     spec = importlib.util.spec_from_file_location("run_page", run_page_path)
+    assert spec is not None and spec.loader is not None
     run_page = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(run_page)
     print("✅ Run page import test passed")

@@ -8,9 +8,11 @@ not cause spurious failures.
 from __future__ import annotations
 
 import re
+import shutil
 import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+import pytest
 
 
 def _normalize_lockfile_content(content: str) -> str:
@@ -37,6 +39,7 @@ def _normalize_lockfile_content(content: str) -> str:
     return "\n".join(lines) + ("\n" if lines else "")
 
 
+@pytest.mark.skipif(shutil.which("uv") is None, reason="uv CLI not installed")
 def test_lockfile_up_to_date() -> None:
     """Compare compiled dependencies with the committed lockfile."""
 
@@ -52,9 +55,10 @@ def test_lockfile_up_to_date() -> None:
     assert lock_path.exists(), "requirements.lock file not found"
     existing = _normalize_lockfile_content(lock_path.read_text())
 
-    assert (
-        compiled == existing
-    ), "requirements.lock is out of date. Run 'uv pip compile pyproject.toml -o requirements.lock' to update it."
+    assert compiled == existing, (
+        "requirements.lock is out of date. Run "
+        "'uv pip compile pyproject.toml -o requirements.lock' to update it."
+    )
 
 
 def test_normalize_lockfile_content() -> None:

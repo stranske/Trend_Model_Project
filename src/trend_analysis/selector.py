@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 import pandas as pd
 
 from .core.rank_selection import ASCENDING_METRICS
@@ -58,7 +60,7 @@ class ZScoreSelector(Selector):
         return selected, log
 
 
-def create_selector_by_name(name: str, **params) -> Selector:
+def create_selector_by_name(name: str, **params: Any) -> Selector:
     """Factory helper for creating selectors via the plugin registry."""
     return create_selector(name, **params)
 

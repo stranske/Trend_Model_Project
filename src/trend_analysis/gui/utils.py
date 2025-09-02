@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import time
-from pathlib import Path
 from collections.abc import Callable
 from typing import Any
 from trend_analysis.config.models import _find_config_directory
@@ -41,4 +40,4 @@ def list_builtin_cfgs() -> list[str]:
     return sorted(p.stem for p in cfg_dir.glob("*.yml"))
 
 
-__all__ = ["debounce", "list_builtin_cfgs"]
+__all__ = ["debounce", "list_builtin_cfgs", "_find_config_directory"]

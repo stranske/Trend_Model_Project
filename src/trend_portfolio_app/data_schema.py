@@ -1,12 +1,12 @@
 from __future__ import annotations
 import io
-from typing import Tuple, List
+from typing import Tuple, List, Dict, Any, IO
 import pandas as pd
 
 DATE_COL = "Date"
 
 
-class SchemaMeta(dict):
+class SchemaMeta(Dict[str, Any]):
     pass
 
 
@@ -32,12 +32,12 @@ def _validate_df(df: pd.DataFrame) -> Tuple[pd.DataFrame, SchemaMeta]:
     return df, meta
 
 
-def load_and_validate_csv(file_like) -> Tuple[pd.DataFrame, SchemaMeta]:
+def load_and_validate_csv(file_like: IO[Any]) -> Tuple[pd.DataFrame, SchemaMeta]:
     df = pd.read_csv(file_like)
     return _validate_df(df)
 
 
-def load_and_validate_file(file_like) -> Tuple[pd.DataFrame, SchemaMeta]:
+def load_and_validate_file(file_like: IO[Any]) -> Tuple[pd.DataFrame, SchemaMeta]:
     """Load CSV or Excel from an UploadedFile or file-like, then validate.
 
     Prefers file extension on the object (``.name``) to decide parser.

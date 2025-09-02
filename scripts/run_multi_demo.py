@@ -1461,7 +1461,8 @@ _check_schedule(
     rank_column="MaxDrawdown",
 )
 
-# Exercise the single-period pipeline and export helpers - using run_full to avoid redundant computation
+# Exercise the single-period pipeline and export helpers - using run_full
+# to avoid redundant computation
 full_res = pipeline.run_full(cfg)
 if not isinstance(full_res, dict):
     raise SystemExit("pipeline.run_full did not return a dict")

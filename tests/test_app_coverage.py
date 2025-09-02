@@ -5,6 +5,7 @@ import tempfile
 import yaml  # type: ignore[import-untyped]
 from pathlib import Path
 from unittest.mock import Mock, MagicMock, patch, ANY
+from trend_analysis.gui.store import ParamStore
 from trend_analysis.gui.app import (
     load_state,
     save_state,
@@ -19,9 +20,6 @@ def _cm_mock() -> MagicMock:
     m.__enter__.return_value = m
     m.__exit__.return_value = None
     return m
-
-
-from trend_analysis.gui.store import ParamStore
 
 
 class TestLoadSaveState:

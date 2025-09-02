@@ -217,23 +217,30 @@ def run(
             ]
             if missing_columns:
                 raise ValueError(
-                    f"price_frames['{date_key}'] is missing required columns: {missing_columns}. "
-                    f"Required columns are: {required_columns}. "
-                    f"Available columns are: {list(frame.columns)}"
+                    (
+                        f"price_frames['{date_key}'] is missing required columns:"
+                        f" {missing_columns}. Required: {required_columns}. "
+                        f"Available: {list(frame.columns)}"
+                    )
                 )
 
     # If price_frames is provided, use it to build df
     if price_frames is not None:
-        # Robustly combine all price frames into a single DataFrame by aligning on 'Date'
-        # Use an outer join to ensure all dates and columns are included, handling missing data gracefully
+        # Robustly combine all price frames into a single DataFrame by aligning
+        # on 'Date'. Use an outer join to include all dates and columns, and
+        # handle missing data gracefully.
         combined_frames = [frame.copy() for frame in price_frames.values()]
         if combined_frames:
             df = pd.concat(
-                combined_frames, axis=0, join="outer", ignore_index=True, sort=True
+                combined_frames,
+                axis=0,
+                join="outer",
+                ignore_index=True,
+                sort=True,
             )
             # Sort by Date to ensure proper ordering
             df = df.sort_values("Date").reset_index(drop=True)
-            # Remove any duplicates that might have been created during concatenation
+            # Remove any duplicates created during concatenation
             df = df.drop_duplicates(subset=["Date"], keep="last").reset_index(drop=True)
         else:
             raise ValueError("price_frames is empty - no data to process")
@@ -324,7 +331,8 @@ def run(
         from ..core.rank_selection import RiskStatsConfig, _compute_metric_series
 
         stats_cfg = RiskStatsConfig(risk_free=0.0)
-        # Using the canonical metrics names as produced by single_period_run/_compute_metric_series
+        # Using canonical metrics as produced by
+        # single_period_run/_compute_metric_series
         metrics = [
             "AnnualReturn",
             "Volatility",
@@ -358,7 +366,7 @@ def run(
         return out
 
     # Build selector and weighting
-    from ..selector import RankSelector
+    from ..selector import create_selector_by_name
 
     th_cfg = cast(dict[str, Any], cfg.portfolio.get("threshold_hold", {}))
     target_n = int(th_cfg.get("target_n", cfg.portfolio.get("random_n", 8)))
@@ -368,7 +376,7 @@ def run(
         .get("params", {})
         .get("rank_column", "Sharpe"),
     )
-    selector = RankSelector(top_n=target_n, rank_column=seed_metric)
+    selector = create_selector_by_name("rank", top_n=target_n, rank_column=seed_metric)
 
     # Portfolio constraints
     constraints = cast(dict[str, Any], cfg.portfolio.get("constraints", {}))
@@ -632,8 +640,8 @@ def run(
                         "detail": "duplicate firm pruned",
                     }
                 )
-            # Do not auto-remove just because we're above max_funds.
-            # We still respect max_funds when seeding and when adding new funds elsewhere.
+            # Do not auto-remove just because we're above max_funds. We still
+            # respect max_funds when seeding and when adding new funds elsewhere.
             if len(holdings) == 0:  # guard: reseed if empty
                 selected, _ = selector.select(sf)
                 holdings = list(selected.index)
@@ -676,7 +684,10 @@ def run(
                         "manager": f,
                         "firm": _firm(f),
                         "reason": "low_weight_strikes",
-                        "detail": f"below min {min_w_bound:.2%} for {low_min_strikes_req} periods",
+                        "detail": (
+                            f"below min {min_w_bound:.2%} for"
+                            f" {low_min_strikes_req} periods"
+                        ),
                     }
                 )
                 low_weight_strikes.pop(f, None)

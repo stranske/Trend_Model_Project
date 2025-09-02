@@ -43,7 +43,8 @@ class Rebalancer:  # pylint: disable=too-few-public-methods
         self.soft_strikes = int(th.get("soft_strikes", _LOW_STRIKES))
         # Soft entry requires consecutive z >= z_entry_soft periods
         self.entry_soft_strikes = int(th.get("entry_soft_strikes", 1))
-        # Eligible after this many consecutive soft-threshold periods; default one less than auto
+        # Eligible after this many consecutive soft-threshold periods;
+        # default one less than auto
         self.entry_eligible_strikes = int(
             th.get("entry_eligible_strikes", max(1, self.entry_soft_strikes - 1))
         )
@@ -151,10 +152,12 @@ class Rebalancer:  # pylint: disable=too-few-public-methods
         # --- 3) weight the survivors ----------------------------------
         if prev_w.empty:
             return prev_w  # edge case
-        # If configured to use bayesian weighting, compute simple score-proportional
-        # weights using the provided zscores (acts as a proxy for the real bayes in tests).
+        # If configured to use bayesian weighting, compute simple
+        # score-proportional weights using the provided zscores (acts as a
+        # proxy for the real bayes in tests).
         if self.weighting_name in {"score_prop_bayes", "bayes", "score_bayes"}:
-            # zscores might be missing for some held funds (shouldn't in tests). Fallback to 0.
+            # zscores might be missing for some held funds (shouldn't in tests).
+            # Fallback to 0.
             z = score_frame.get("zscore")
             if z is None:
                 eq = 1.0 / len(prev_w)

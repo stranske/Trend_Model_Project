@@ -59,7 +59,10 @@ class Rebalancer(Plugin):
 
     @abstractmethod
     def apply(
-        self, current_weights: pd.Series, target_weights: pd.Series, **kwargs
+        self,
+        current_weights: pd.Series,
+        target_weights: pd.Series,
+        **kwargs: Any,
     ) -> tuple[pd.Series, float]:
         """Return new weights and total cost for the rebalance."""
 

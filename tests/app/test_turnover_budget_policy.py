@@ -9,7 +9,8 @@ from trend_portfolio_app.policy_engine import (
 
 
 def test_turnover_budget_limits_changes():
-    # Scores rank: A > B > C > D. Current holds C and D, bottom_k=2 => C,D slated to fire.
+    # Scores rank: A > B > C > D. Current holds C and D, bottom_k=2 =>
+    # C,D slated to fire.
     sf = pd.DataFrame(
         {
             "sharpe": [4.0, 3.0, 2.0, 1.0],
@@ -41,10 +42,12 @@ def test_turnover_budget_limits_changes():
         tenure=None,
     )
 
-    # With a budget of 2 moves total, ensure only 2 combined hires/fires are returned.
+    # With a budget of 2 moves total, ensure only 2 combined hires/fires
+    # are returned.
     assert len(decisions["hire"]) + len(decisions["fire"]) == 2
 
-    # Priority order by score gap should prefer hiring A, then B over firing (since A,B have
-    # highest scores; fires are prioritized by most negative score, but hires outrank due to higher prio).
+    # Priority order by score gap should prefer hiring A, then B over
+    # firing (since A,B have highest scores; fires are prioritized by most
+    # negative score, but hires outrank due to higher priority).
     hired = [m for m, _ in decisions["hire"]]
     assert "A" in hired

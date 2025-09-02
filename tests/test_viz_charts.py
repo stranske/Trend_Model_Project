@@ -1,7 +1,6 @@
 """Tests for visualization chart functions - simplified version."""
 
 import pandas as pd
-import pytest
 
 from trend_analysis.viz import charts
 
@@ -178,13 +177,17 @@ def test_basic_functionality_integration():
 
     # This might fail due to version issues, so make it optional
     try:
-        to_result = charts.turnover_series(weights)
+        from typing import cast
+
+        to_result = charts.turnover_series(cast(dict, weights))
         assert to_result.shape == (4, 1)
         assert list(to_result.columns) == ["turnover"]
     except Exception:
         # Skip if there are version compatibility issues
         pass
 
-    w_result = charts.weights_heatmap_data(weights)
+    from typing import cast
+
+    w_result = charts.weights_heatmap_data(cast(dict, weights))
     assert w_result.shape == (4, 1)  # 4 dates, 1 fund
     assert list(w_result.columns) == ["FUND_A"]

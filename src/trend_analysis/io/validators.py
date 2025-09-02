@@ -93,8 +93,8 @@ def detect_frequency(df: pd.DataFrame) -> str:
 
 def validate_returns_schema(df: pd.DataFrame) -> ValidationResult:
     """Validate that a DataFrame conforms to the expected returns schema."""
-    issues = []
-    warnings = []
+    issues: List[str] = []
+    warnings: List[str] = []
 
     # Check for Date column
     if "Date" not in df.columns:
@@ -124,7 +124,10 @@ def validate_returns_schema(df: pd.DataFrame) -> ValidationResult:
                 numeric_issues.append(f"Column '{col}' contains no valid numeric data")
             elif non_null_count < len(df) * 0.5:
                 warnings.append(
-                    f"Column '{col}' has >50% missing values ({non_null_count}/{len(df)} valid)"
+                    (
+                        f"Column '{col}' has >50% missing values "
+                        f"({non_null_count}/{len(df)} valid)"
+                    )
                 )
         except Exception:
             numeric_issues.append(f"Column '{col}' cannot be converted to numeric")
@@ -136,9 +139,10 @@ def validate_returns_schema(df: pd.DataFrame) -> ValidationResult:
     # Check for duplicates
     if df["Date"].duplicated().any():
         dup_dates = df[df["Date"].duplicated()]["Date"].tolist()
-        issues.append(
-            f"Duplicate dates found: {dup_dates[:5]}{'...' if len(dup_dates) > 5 else ''}"
-        )
+        msg = "Duplicate dates found: " + str(dup_dates[:5])
+        if len(dup_dates) > 5:
+            msg += "..."
+        issues.append(msg)
 
     # Create a temporary DataFrame for frequency detection
     temp_df = df.copy()
@@ -154,14 +158,17 @@ def validate_returns_schema(df: pd.DataFrame) -> ValidationResult:
     # Additional checks
     if len(temp_df) < 12:
         warnings.append(
-            f"Dataset is quite small ({len(temp_df)} periods) - consider more data for robust analysis"
+            (
+                f"Dataset is quite small ({len(temp_df)} periods) - "
+                "consider more data for robust analysis"
+            )
         )
 
     is_valid = len(issues) == 0
     return ValidationResult(is_valid, issues, warnings, frequency, date_range)
 
 
-def load_and_validate_upload(file_like) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+def load_and_validate_upload(file_like: Any) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """Load and validate an uploaded file with enhanced validation."""
     # Determine file type
     name = getattr(file_like, "name", "").lower()
@@ -226,7 +233,7 @@ def create_sample_template() -> pd.DataFrame:
     # Generate some sample return data
     np.random.seed(42)  # For reproducible sample data
     n_funds = 5
-    sample_data = {
+    sample_data: Dict[str, Any] = {
         "Date": dates,
     }
 

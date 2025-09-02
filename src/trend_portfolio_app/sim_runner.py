@@ -17,7 +17,7 @@ try:
     HAS_TA = True
 except Exception:
     HAS_TA = False
-    ta_pipeline = None
+    ta_pipeline = None  # type: ignore[assignment]
 
 
 def compute_score_frame_local(
@@ -64,12 +64,16 @@ def compute_score_frame(
                 return cast(pd.DataFrame, sf)
             except (ImportError, AttributeError) as e:
                 logger.warning(
-                    "External scoring function unavailable or misconfigured (ImportError/AttributeError): %s. Falling back to local implementation.",
+                    "External scoring function unavailable or misconfigured"
+                    " (ImportError/AttributeError): %s. Falling back to"
+                    " local implementation.",
                     e,
                 )
             except (ValueError, TypeError) as e:
                 logger.warning(
-                    "External scoring function failed due to invalid parameters or data (ValueError/TypeError): %s. Falling back to local implementation.",
+                    "External scoring function failed due to invalid"
+                    " parameters or data (ValueError/TypeError): %s."
+                    " Falling back to local implementation.",
                     e,
                 )
     return compute_score_frame_local(
@@ -303,7 +307,8 @@ def _apply_rebalance_pipeline(
     """Apply rebalancing strategies in order to realize target weights.
 
     Contract:
-    - Inputs: prev_weights (current holdings), target_weights (desired), date, rb_cfg (dict), rb_state (mutable), policy.
+        - Inputs: prev_weights (current holdings), target_weights (desired), date,
+            rb_cfg (dict), rb_state (mutable), policy.
     - Output: realized weights Series, index is union of prev/target; NaNs treated as 0.
     - Side effects: updates rb_state keys such as since_last_reb and risk stats.
     """
@@ -408,12 +413,12 @@ def _apply_rebalance_pipeline(
             dd_th = float(cfg.get("dd_threshold", 0.10))
             guard_mult = float(cfg.get("guard_multiplier", 0.5))
             recover = float(cfg.get("recover_threshold", 0.05))
-            ec: List[float] = list(rb_state.get("equity_curve", []))
+            eq_curve: List[float] = list(rb_state.get("equity_curve", []))
             guard_on = bool(rb_state.get("guard_on", False))
             dd = 0.0
-            if len(ec) >= 1:
+            if len(eq_curve) >= 1:
                 # Use trailing window if available
-                sub = ec[-dd_win:] if len(ec) >= dd_win else ec
+                sub = eq_curve[-dd_win:] if len(eq_curve) >= dd_win else eq_curve
                 peak = max(sub)
                 cur = sub[-1]
                 if peak > 0:

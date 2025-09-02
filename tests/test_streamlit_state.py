@@ -1,8 +1,7 @@
 """Tests for Streamlit state management."""
 
-import pytest
 import pandas as pd
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 from app.streamlit import state as state_module
 
 
@@ -52,7 +51,7 @@ class TestSessionState:
         with patch.object(state_module.st, "session_state", mock_state, create=True):
             state_module.store_validated_data(df, meta)
 
-            assert mock_state["returns_df"].equals(df)
+            assert mock_state["returns_df"].equals(df)  # type: ignore[attr-defined]
             assert mock_state["schema_meta"] == meta
             assert mock_state["upload_status"] == "success"
 
@@ -65,7 +64,7 @@ class TestSessionState:
         with patch.object(state_module.st, "session_state", mock_state, create=True):
             retrieved_df, retrieved_meta = state_module.get_uploaded_data()
 
-            assert retrieved_df.equals(df)
+            assert retrieved_df.equals(df)  # type: ignore[attr-defined]
             assert retrieved_meta == meta
 
     def test_has_valid_upload(self):
