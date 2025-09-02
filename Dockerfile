@@ -18,16 +18,13 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 RUN pip install --no-cache-dir --timeout=300 --retries=3 -r requirements.txt \
     && pip install --no-cache-dir pytest
 
-# Copy source code and essential files
-COPY src/ ./src/
-COPY config/ ./config/
-COPY scripts/ ./scripts/
-COPY README.md LICENSE ./
+# Copy the rest of the project including tests and docs
+COPY . .
 
 # Install build dependencies and the package in development mode for CLI access
 # Ensure build dependencies are available and handle editable install gracefully
 RUN pip install --no-cache-dir setuptools>=61 wheel build && \
-    (pip install --no-cache-dir -e .[app] && echo "Package installed successfully with [app] extra") || \
+    (pip install --no-cache-dir -v -e .[app] && echo "Package installed successfully with [app] extra") || \
     (echo "Warning: Editable install with [app] extra failed. Falling back to individual package install." && \
      pip install --no-cache-dir streamlit>=1.30 streamlit-sortables && \
      pip install --no-cache-dir -e . && echo "Package installed in editable mode without [app] extra")
