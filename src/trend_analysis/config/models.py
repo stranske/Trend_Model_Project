@@ -142,6 +142,13 @@ if _HAS_PYDANTIC:
             checkpoint_dir: str | None = None
             seed: int = 42
 
+            @field_validator("version", mode="before")
+            def _ensure_version_str(cls, v: Any) -> str:
+                """Ensure ``version`` is always a string."""
+                if not isinstance(v, str):
+                    raise ValueError("version must be a string")
+                return v
+
             @field_validator("version")
             def _ensure_version_not_whitespace(cls, v: str) -> str:
                 """Reject strings that consist only of whitespace."""
