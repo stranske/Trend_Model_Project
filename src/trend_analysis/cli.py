@@ -62,7 +62,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--check", action="store_true", help="Print environment info and exit"
     )
-    sub = parser.add_subparsers(dest="command", required=True)
+    sub = parser.add_subparsers(dest="command", required=False)
 
     sub.add_parser("gui", help="Launch Streamlit interface")
 
@@ -139,8 +139,12 @@ def main(argv: list[str] | None = None) -> int:
                 )
         return 0
 
-    parser.print_help()
-    return 1
+    # If no command and no --check, show help
+    if args.command is None:
+        parser.print_help()
+        return 1
+
+    # This shouldn't be reached, but keep as fallback
 
 
 if __name__ == "__main__":  # pragma: no cover - manual invocation
