@@ -104,7 +104,7 @@ def _validate_version_value(v: Any) -> str:
 
 if _HAS_PYDANTIC:
     # Cache class identity across re-imports to keep isinstance checks stable
-    import builtins as _bi  # type: ignore
+    import builtins as _bi
 
     _cached = getattr(_bi, "_TREND_CONFIG_CLASS", None)
 
