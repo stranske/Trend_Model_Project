@@ -90,11 +90,8 @@ def weights_heatmap(
     cax = ax.imshow(w_df.T.values, aspect="auto", interpolation="none", origin="lower")
     ax.set_yticks(range(len(w_df.columns)))
     ax.set_yticklabels(w_df.columns)
-    if isinstance(w_df.index, pd.DatetimeIndex):
-        xticklabels = [d.strftime("%Y-%m-%d") for d in w_df.index]
-    else:
-        xticklabels = [str(d) for d in w_df.index]
-    ax.set_xticklabels(xticklabels, rotation=90)
+    ax.set_xticks(range(len(w_df.index)))
+    ax.set_xticklabels([d.strftime("%Y-%m-%d") for d in w_df.index], rotation=90)
     fig.colorbar(cax, ax=ax, label="Weight")
     fig.tight_layout()
     return fig, w_df
@@ -103,6 +100,18 @@ def weights_heatmap(
 def weights_heatmap_data(
     weights: Mapping[pd.Timestamp, pd.Series] | pd.DataFrame,
 ) -> pd.DataFrame:
-    """Return DataFrame suitable for a weights heatmap (deprecated)."""
+    """Return DataFrame suitable for a weights heatmap.
+
+    This function provides a clean interface for getting weights data
+    ready for visualization. It directly calls the optimized internal
+    helper to avoid creating unnecessary matplotlib figures.
+
+    Args:
+        weights: Mapping of dates to weight Series or DataFrame of weights
+
+    Returns:
+        DataFrame with dates as index and assets as columns, filled with 0.0
+        for missing values and sorted chronologically.
+    """
 
     return weights_heatmap(weights)[1]

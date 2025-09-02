@@ -708,10 +708,10 @@ def combined_summary_frame(results: Iterable[Mapping[str, object]]) -> pd.DataFr
 
 def period_frames_from_results(
     results: Iterable[Mapping[str, object]],
-) -> "OrderedDict[str, pd.DataFrame]":
+) -> OrderedDict[str, pd.DataFrame]:
     """Return a mapping of sheet names to summary frames for each period."""
 
-    frames: "OrderedDict[str, pd.DataFrame]" = OrderedDict()
+    frames: OrderedDict[str, pd.DataFrame] = OrderedDict()
     for idx, res in enumerate(results, start=1):
         period = res.get("period")
         if isinstance(period, (list, tuple)) and len(period) >= 4:
@@ -724,7 +724,7 @@ def period_frames_from_results(
 
 def workbook_frames_from_results(
     results: Iterable[Mapping[str, object]],
-) -> "OrderedDict[str, pd.DataFrame]":
+) -> OrderedDict[str, pd.DataFrame]:
     """Return per-period frames plus a combined summary frame."""
 
     results_list = list(results)
@@ -739,7 +739,7 @@ def phase1_workbook_data(
     results: Iterable[Mapping[str, object]],
     *,
     include_metrics: bool = False,
-) -> "OrderedDict[str, pd.DataFrame]":
+) -> OrderedDict[str, pd.DataFrame]:
     """Return sheet data for a Phase‑1 style multi‑period workbook.
 
     Parameters
@@ -762,7 +762,7 @@ def phase1_workbook_data(
     frames = workbook_frames_from_results(results_list)
 
     if include_metrics:
-        metrics_frames: "OrderedDict[str, pd.DataFrame]" = OrderedDict()
+        metrics_frames: OrderedDict[str, pd.DataFrame] = OrderedDict()
         for idx, res in enumerate(results_list, start=1):
             period = res.get("period")
             sheet = (
@@ -899,7 +899,7 @@ def export_phase1_workbook(
             make_summary_formatter(summary_ext, "", "", "", "")
     # Reorder sheets to place summary first if present
     if "summary" in frames:
-        ordered: "OrderedDict[str, pd.DataFrame]" = OrderedDict()
+        ordered: OrderedDict[str, pd.DataFrame] = OrderedDict()
         ordered["summary"] = frames["summary"]
         for k, v in frames.items():
             if k != "summary":
@@ -1048,7 +1048,7 @@ def export_multi_period_metrics(
                 excel_data["metrics_summary"] = metrics_from_result(summary)
         # Reorder sheets to place summary first if present
         if "summary" in excel_data:
-            ordered: "OrderedDict[str, pd.DataFrame]" = OrderedDict()
+            ordered: OrderedDict[str, pd.DataFrame] = OrderedDict()
             ordered["summary"] = excel_data["summary"]
             for k, v in excel_data.items():
                 if k != "summary":

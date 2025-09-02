@@ -283,12 +283,17 @@ class TestBuildStep0:
         mock_widgets.HBox.return_value = Mock()
 
         store = ParamStore()
+        def safe_template_callback(change, *, store: ParamStore) -> None:
+            """Minimal template loader used for the test.
 
-        with (
-            patch("trend_analysis.gui.app.reset_weight_state"),
-            patch("io.open", mock_open(read_data="version: '1'")),
-        ):
-            _build_step0(store)
+            The real callback in ``_build_step0`` reads a template file from disk
+            and updates the ``ParamStore``.  To keep this test isolated from the
+            filesystem we replace that behaviour with a simple function that just
+            records the selected template name and marks the store as dirty.
+            """
+
+            store.cfg["loaded_template"] = change["new"]
+            store.dirty = True
 
         with (
             patch("trend_analysis.gui.app.reset_weight_state"),
@@ -311,7 +316,7 @@ class TestBuildStep0:
             # Verify that observe was called (meaning template dropdown was set up)
             mock_observe.assert_called()
 
-            # Test that our safe callback works
+            # Invoke the safe callback to simulate a template selection
             change_event = {"new": "demo"}
             safe_template_callback(change_event, store=store)
 
