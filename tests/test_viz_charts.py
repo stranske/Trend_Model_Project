@@ -1,7 +1,6 @@
 """Tests for visualization chart functions - simplified version."""
 
 import pandas as pd
-from matplotlib.figure import Figure
 
 from trend_analysis.viz import charts
 
@@ -10,9 +9,8 @@ def test_equity_curve_basic():
     """Test equity curve computation with clean data."""
     returns = pd.Series([0.01, -0.02, 0.015])
 
-    fig, result = charts.equity_curve(returns)
+    result = charts.equity_curve(returns)
 
-    assert isinstance(fig, Figure)
     assert isinstance(result, pd.DataFrame)
     assert list(result.columns) == ["equity"]
     assert len(result) == len(returns)
@@ -28,9 +26,8 @@ def test_drawdown_curve_basic():
     """Test drawdown curve computation."""
     returns = pd.Series([0.01, -0.02, 0.015])
 
-    fig, result = charts.drawdown_curve(returns)
+    result = charts.drawdown_curve(returns)
 
-    assert isinstance(fig, Figure)
     assert isinstance(result, pd.DataFrame)
     assert list(result.columns) == ["drawdown"]
     assert len(result) == len(returns)
@@ -48,9 +45,8 @@ def test_rolling_information_ratio_default_benchmark():
         index=pd.date_range("2020-01-31", periods=5, freq="ME"),
     )
 
-    fig, result = charts.rolling_information_ratio(returns, window=3)
+    result = charts.rolling_information_ratio(returns, window=3)
 
-    assert isinstance(fig, Figure)
     assert isinstance(result, pd.DataFrame)
     assert list(result.columns) == ["rolling_ir"]
     assert len(result) == len(returns)
@@ -67,9 +63,8 @@ def test_rolling_information_ratio_scalar_benchmark():
     returns = pd.Series([0.01, -0.02, 0.015, 0.005, 0.02])
     benchmark = 0.005
 
-    fig, result = charts.rolling_information_ratio(returns, benchmark, window=2)
+    result = charts.rolling_information_ratio(returns, benchmark, window=2)
 
-    assert isinstance(fig, Figure)
     assert isinstance(result, pd.DataFrame)
     assert list(result.columns) == ["rolling_ir"]
     assert len(result) == len(returns)
@@ -84,9 +79,8 @@ def test_weights_heatmap_data_from_dict():
         dates[2]: pd.Series({"A": 0.5, "B": 0.5}),
     }
 
-    fig, result = charts.weights_heatmap(weights)
+    result = charts.weights_heatmap_data(weights)
 
-    assert isinstance(fig, Figure)
     assert isinstance(result, pd.DataFrame)
     assert set(result.columns) == {"A", "B"}
     assert len(result) == len(dates)
@@ -104,9 +98,8 @@ def test_weights_heatmap_data_from_dataframe():
     dates = pd.date_range("2020-01-31", periods=3, freq="ME")
     weights_df = pd.DataFrame({"A": [0.6, 0.7, 0.5], "B": [0.4, 0.3, 0.5]}, index=dates)
 
-    fig, result = charts.weights_heatmap(weights_df)
+    result = charts.weights_heatmap_data(weights_df)
 
-    assert isinstance(fig, Figure)
     assert isinstance(result, pd.DataFrame)
     # Should have the expected structure
     assert set(result.columns) == {"A", "B"}
@@ -143,15 +136,13 @@ def test_empty_data_handling():
     empty_returns = pd.Series([], dtype=float)
 
     # Equity curve with empty data
-    fig, result = charts.equity_curve(empty_returns)
-    assert isinstance(fig, Figure)
+    result = charts.equity_curve(empty_returns)
     assert isinstance(result, pd.DataFrame)
     assert list(result.columns) == ["equity"]
     assert len(result) == 0
 
     # Drawdown curve with empty data
-    fig, result = charts.drawdown_curve(empty_returns)
-    assert isinstance(fig, Figure)
+    result = charts.drawdown_curve(empty_returns)
     assert isinstance(result, pd.DataFrame)
     assert list(result.columns) == ["drawdown"]
     assert len(result) == 0
@@ -172,32 +163,31 @@ def test_basic_functionality_integration():
     }
 
     # Test that all functions return expected DataFrame structure
-    fig, eq_result = charts.equity_curve(returns)
+    eq_result = charts.equity_curve(returns)
     assert eq_result.shape == (4, 1)
     assert list(eq_result.columns) == ["equity"]
-    assert isinstance(fig, Figure)
 
-    fig, dd_result = charts.drawdown_curve(returns)
+    dd_result = charts.drawdown_curve(returns)
     assert dd_result.shape == (4, 1)
     assert list(dd_result.columns) == ["drawdown"]
-    assert isinstance(fig, Figure)
 
-    fig, ir_result = charts.rolling_information_ratio(returns, window=2)
+    ir_result = charts.rolling_information_ratio(returns, window=2)
     assert ir_result.shape == (4, 1)
     assert list(ir_result.columns) == ["rolling_ir"]
-    assert isinstance(fig, Figure)
 
     # This might fail due to version issues, so make it optional
     try:
-        fig, to_result = charts.turnover_series(weights)
+        from typing import cast
+
+        to_result = charts.turnover_series(cast(dict, weights))
         assert to_result.shape == (4, 1)
         assert list(to_result.columns) == ["turnover"]
-        assert isinstance(fig, Figure)
     except Exception:
         # Skip if there are version compatibility issues
         pass
 
-    fig, w_result = charts.weights_heatmap(weights)
-    assert isinstance(fig, Figure)
+    from typing import cast
+
+    w_result = charts.weights_heatmap_data(cast(dict, weights))
     assert w_result.shape == (4, 1)  # 4 dates, 1 fund
     assert list(w_result.columns) == ["FUND_A"]
