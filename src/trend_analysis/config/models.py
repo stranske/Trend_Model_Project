@@ -165,7 +165,6 @@ class Config(BaseModel):
     @classmethod
     def _ensure_dict(cls, v: Any, info: ValidationInfo) -> dict[str, Any]:
         if not isinstance(v, dict):
-            from pydantic import ValidationError
             raise ValueError(f"{info.field_name} must be a dictionary")
         return v
 
