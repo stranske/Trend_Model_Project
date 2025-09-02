@@ -22,12 +22,25 @@ def _weights_to_frame(
     """
 
     if isinstance(weights, pd.DataFrame):
+        if weights.empty:
+            raise ValueError("weights cannot be empty")
         return weights.sort_index().fillna(0.0)
-    return pd.DataFrame({d: s for d, s in weights.items()}).T.sort_index().fillna(0.0)
+
+    if not weights:
+        raise ValueError("weights cannot be empty")
+
+    return (
+        pd.DataFrame({d: s for d, s in weights.items()})
+        .T.sort_index()
+        .fillna(0.0)
+    )
 
 
 def equity_curve(returns: pd.Series) -> tuple[Figure, pd.DataFrame]:
     """Return equity curve figure and DataFrame from periodic returns."""
+
+    if returns.empty:
+        raise ValueError("returns cannot be empty")
 
     curve = (1.0 + returns.fillna(0.0)).cumprod().to_frame("equity")
     fig, ax = plt.subplots()
@@ -39,6 +52,9 @@ def equity_curve(returns: pd.Series) -> tuple[Figure, pd.DataFrame]:
 
 def drawdown_curve(returns: pd.Series) -> tuple[Figure, pd.DataFrame]:
     """Return drawdown figure and DataFrame derived from ``returns``."""
+
+    if returns.empty:
+        raise ValueError("returns cannot be empty")
 
     curve = (1.0 + returns.fillna(0.0)).cumprod()
     dd = curve / curve.cummax() - 1.0
@@ -56,6 +72,9 @@ def rolling_information_ratio(
     window: int = 12,
 ) -> tuple[Figure, pd.DataFrame]:
     """Rolling information ratio over ``window`` periods."""
+
+    if returns.empty:
+        raise ValueError("returns cannot be empty")
 
     ir_series = rolling_metrics.rolling_information_ratio(returns, benchmark, window)
     ir_df = ir_series.to_frame("rolling_ir")
@@ -114,4 +133,5 @@ def weights_heatmap_data(
         for missing values and sorted chronologically.
     """
 
+    # Delegate to ``weights_heatmap`` for validation and conversion.
     return weights_heatmap(weights)[1]
