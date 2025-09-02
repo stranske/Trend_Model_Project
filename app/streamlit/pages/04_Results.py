@@ -27,8 +27,8 @@ weights = getattr(res, "weights", {})
 c1, c2 = st.columns(2)
 with c1:
     st.subheader("Equity curve")
-    ec_df = charts.equity_curve(returns)
-    st.line_chart(ec_df)
+    fig, ec_df = charts.equity_curve(returns)
+    st.pyplot(fig)
     buf = io.StringIO()
     ec_df.to_csv(buf)
     st.download_button(
@@ -39,8 +39,8 @@ with c1:
     )
 with c2:
     st.subheader("Drawdown")
-    dd_df = charts.drawdown_curve(returns)
-    st.line_chart(dd_df)
+    fig, dd_df = charts.drawdown_curve(returns)
+    st.pyplot(fig)
     buf = io.StringIO()
     dd_df.to_csv(buf)
     st.download_button(
@@ -53,8 +53,8 @@ with c2:
 c3, c4 = st.columns(2)
 with c3:
     st.subheader("Rolling info ratio")
-    ir_df = charts.rolling_information_ratio(returns, benchmark)
-    st.line_chart(ir_df)
+    fig, ir_df = charts.rolling_information_ratio(returns, benchmark)
+    st.pyplot(fig)
     buf = io.StringIO()
     ir_df.to_csv(buf)
     st.download_button(
@@ -65,8 +65,8 @@ with c3:
     )
 with c4:
     st.subheader("Turnover")
-    to_df = charts.turnover_series(weights)
-    st.line_chart(to_df)
+    fig, to_df = charts.turnover_series(weights)
+    st.pyplot(fig)
     buf = io.StringIO()
     to_df.to_csv(buf)
     st.download_button(
@@ -77,8 +77,8 @@ with c4:
     )
 
 st.subheader("Portfolio weights")
-w_df = charts.weights_heatmap_data(weights)
-st.dataframe(w_df.style.background_gradient(cmap="viridis"))
+fig, w_df = charts.weights_heatmap(weights)
+st.pyplot(fig)
 buf = io.StringIO()
 w_df.to_csv(buf)
 st.download_button(

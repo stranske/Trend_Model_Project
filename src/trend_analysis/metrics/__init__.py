@@ -302,3 +302,4 @@ setattr(_bi, "annualize_volatility", annualize_volatility)
 
 # Public submodule to expose summary helpers
 from . import summary  # noqa: E402,F401
+from . import rolling  # noqa: E402,F401
