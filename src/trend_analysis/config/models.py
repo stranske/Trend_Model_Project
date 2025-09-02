@@ -142,6 +142,7 @@ if _HAS_PYDANTIC:
             checkpoint_dir: str | None = None
             seed: int = 42
 
+
                 """Reject strings that consist only of whitespace."""
                 if not isinstance(v, str):
                     raise ValueError("Version field must be a string")
