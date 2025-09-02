@@ -117,7 +117,12 @@ def walk_forward(
         reg = regimes.reindex(metrics_df.index)
         by_regime = oos_df.groupby(reg.loc[oos_df.index]).agg(agg)
 
-    return WalkForwardResult(splits=splits, full=full_metrics, oos=oos_metrics, by_regime=by_regime)
+    return WalkForwardResult(
+        splits=splits,
+        full=full_metrics,
+        oos=oos_metrics,
+        by_regime=by_regime,
+    )
 
 
 __all__ = ["walk_forward", "Split", "WalkForwardResult"]
