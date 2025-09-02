@@ -14,10 +14,10 @@ class Event:
 
 
 class EventLog:
-    def __init__(self):
+    def __init__(self) -> None:
         self.events: List[Event] = []
 
-    def append(self, e: Event):
+    def append(self, e: Event) -> None:
         self.events.append(e)
 
     def to_frame(self) -> pd.DataFrame:
