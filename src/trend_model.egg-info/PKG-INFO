@@ -1,4 +1,4 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.1
 Name: trend-model
 Version: 0.1.0
 Summary: Volatility-adjusted trend analysis package
@@ -44,7 +44,6 @@ Requires-Dist: flake8; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: types-PyYAML; extra == "dev"
-Dynamic: license-file
 
 # Trend Model Project
 
