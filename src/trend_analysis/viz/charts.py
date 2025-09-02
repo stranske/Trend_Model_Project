@@ -22,12 +22,25 @@ def _weights_to_frame(
     """
 
     if isinstance(weights, pd.DataFrame):
+        if weights.empty:
+            raise ValueError("weights cannot be empty")
         return weights.sort_index().fillna(0.0)
-    return pd.DataFrame({d: s for d, s in weights.items()}).T.sort_index().fillna(0.0)
+
+    if not weights:
+        raise ValueError("weights cannot be empty")
+
+    return (
+        pd.DataFrame({d: s for d, s in weights.items()})
+        .T.sort_index()
+        .fillna(0.0)
+    )
 
 
 def equity_curve(returns: pd.Series) -> tuple[Figure, pd.DataFrame]:
     """Return equity curve figure and DataFrame from periodic returns."""
+
+    if returns.empty:
+        raise ValueError("returns cannot be empty")
 
     curve = (1.0 + returns.fillna(0.0)).cumprod().to_frame("equity")
     fig, ax = plt.subplots()
@@ -39,6 +52,9 @@ def equity_curve(returns: pd.Series) -> tuple[Figure, pd.DataFrame]:
 
 def drawdown_curve(returns: pd.Series) -> tuple[Figure, pd.DataFrame]:
     """Return drawdown figure and DataFrame derived from ``returns``."""
+
+    if returns.empty:
+        raise ValueError("returns cannot be empty")
 
     curve = (1.0 + returns.fillna(0.0)).cumprod()
     dd = curve / curve.cummax() - 1.0
@@ -57,6 +73,9 @@ def rolling_information_ratio(
 ) -> tuple[Figure, pd.DataFrame]:
     """Rolling information ratio over ``window`` periods."""
 
+    if returns.empty:
+        raise ValueError("returns cannot be empty")
+
     ir_series = rolling_metrics.rolling_information_ratio(returns, benchmark, window)
     ir_df = ir_series.to_frame("rolling_ir")
     fig, ax = plt.subplots()
@@ -72,6 +91,8 @@ def turnover_series(
     """Compute turnover figure and DataFrame from weights history."""
 
     w_df = _weights_to_frame(weights)
+    if w_df.empty:
+        raise ValueError("weights cannot be empty")
     to = w_df.diff().abs().sum(axis=1).to_frame("turnover")
     fig, ax = plt.subplots()
     to.plot(ax=ax)
@@ -86,6 +107,8 @@ def weights_heatmap(
     """Return heatmap figure and DataFrame of portfolio weights."""
 
     w_df = _weights_to_frame(weights)
+    if w_df.empty:
+        raise ValueError("weights cannot be empty")
     fig, ax = plt.subplots()
     cax = ax.imshow(w_df.T.values, aspect="auto", interpolation="none", origin="lower")
     ax.set_yticks(range(len(w_df.columns)))
@@ -114,4 +137,5 @@ def weights_heatmap_data(
         for missing values and sorted chronologically.
     """
 
+    # Delegate to ``weights_heatmap`` for validation and conversion.
     return weights_heatmap(weights)[1]

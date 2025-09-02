@@ -3,7 +3,7 @@
 import pytest
 import pandas as pd
 from datetime import date
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import patch, MagicMock
 import sys
 from pathlib import Path
 
@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).parent.parent / "app" / "streamlit" / "pages"))
 
 # Mock external dependencies before importing our module
-sys.modules["streamlit"] = Mock()
+sys.modules["streamlit"] = MagicMock()
 sys.modules["matplotlib"] = MagicMock()
 sys.modules["matplotlib.pyplot"] = MagicMock()
 
@@ -39,7 +39,7 @@ def create_mock_streamlit():
     mock_st.info = MagicMock()
     mock_st.empty = MagicMock()
     mock_st.container = _ctx_mock()
-    mock_st.expander = _ctx_mock()v
+    mock_st.expander = _ctx_mock()
     mock_st.code = MagicMock()
     mock_st.rerun = MagicMock()
 
@@ -455,8 +455,12 @@ class TestAnalysisIntegration:
             with patch.object(run_page.st, "session_state", session_state):
                 # Mock streamlit UI elements
                 with patch.object(run_page.st, "container", return_value=_ctx_mock()):
-                    with patch.object(run_page.st, "progress", return_value=_ctx_mock()):
-                        with patch.object(run_page.st, "empty", return_value=_ctx_mock()):
+                    with patch.object(
+                        run_page.st, "progress", return_value=_ctx_mock()
+                    ):
+                        with patch.object(
+                            run_page.st, "empty", return_value=_ctx_mock()
+                        ):
                             result = run_page.run_analysis_with_progress()
 
                 assert result is not None
@@ -493,8 +497,12 @@ class TestAnalysisIntegration:
 
             with patch.object(run_page.st, "session_state", session_state):
                 with patch.object(run_page.st, "container", return_value=_ctx_mock()):
-                    with patch.object(run_page.st, "progress", return_value=_ctx_mock()):
-                        with patch.object(run_page.st, "empty", return_value=_ctx_mock()):
+                    with patch.object(
+                        run_page.st, "progress", return_value=_ctx_mock()
+                    ):
+                        with patch.object(
+                            run_page.st, "empty", return_value=_ctx_mock()
+                        ):
                             with patch.object(run_page.st, "error") as mock_error:
                                 with patch.object(
                                     run_page.st, "expander", return_value=_ctx_mock()

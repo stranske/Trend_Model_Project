@@ -101,6 +101,9 @@ class TestBuildStep0:
         mock_widgets.Button.return_value = Mock()
         mock_widgets.VBox.return_value = Mock()
         mock_widgets.HBox.return_value = Mock()
+        mock_output = Mock(spec=["hold_trait_notifications"])
+        mock_output.hold_trait_notifications.return_value = _cm_mock()
+        mock_widgets.Output.return_value = mock_output
 
         store = ParamStore()
         result = _build_step0(store)
@@ -168,6 +171,9 @@ class TestBuildStep0:
         mock_widgets.Button.return_value = Mock()
         mock_widgets.VBox.return_value = Mock()
         mock_widgets.HBox.return_value = Mock()
+        mock_output = Mock(spec=["hold_trait_notifications"])
+        mock_output.hold_trait_notifications.return_value = _cm_mock()
+        mock_widgets.Output.return_value = mock_output
 
         store = ParamStore()
 
@@ -277,22 +283,26 @@ class TestBuildStep0:
 
         store = ParamStore()
 
-        with patch("trend_analysis.gui.app.reset_weight_state"):
-            _build_step0(store)
+        with patch("trend_analysis.gui.app.reset_weight_state", lambda store: None):
+            with patch("pathlib.Path.read_text", return_value="foo: bar"):
+                _build_step0(store)
 
-            # Simulate template dropdown change with existing template
-            template_callback = mock_dropdown.observe.call_args[0][0]
-            change_event = {"new": "demo"}
+                # Simulate template dropdown change with existing template
+                template_callback = mock_dropdown.observe.call_args[0][0]
+                change_event = {"new": "demo"}
 
-            # This should not crash - the function should handle any errors gracefully
-            try:
-                template_callback(change_event, store=store)
-                # If it doesn't crash, the error handling works
-                success = True
-            except Exception:
-                success = False
+                import warnings
 
-            assert success, "Template loading should handle errors gracefully"
+                # This should not crash - the function should handle any errors gracefully
+                try:
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore")
+                        template_callback(change_event, store=store)
+                    success = True
+                except Exception:
+                    success = False
+
+                assert success, "Template loading should handle errors gracefully"
 
 
 class TestBuildRankOptions:

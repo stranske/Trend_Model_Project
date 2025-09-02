@@ -142,24 +142,26 @@ def test_weights_to_frame_helper_basic():
 
 
 def test_empty_data_handling():
-    """Test handling of empty data."""
+    """Chart helpers should reject empty inputs."""
+    import pytest
+
     empty_returns = pd.Series([], dtype=float)
 
-    # Equity curve with empty data
-    result = charts.equity_curve(empty_returns)
-    if isinstance(result, tuple):
-        _, result = result
-    assert isinstance(result, pd.DataFrame)
-    assert list(result.columns) == ["equity"]
-    assert len(result) == 0
+    with pytest.raises(ValueError):
+        charts.equity_curve(empty_returns)
 
-    # Drawdown curve with empty data
-    result = charts.drawdown_curve(empty_returns)
-    if isinstance(result, tuple):
-        _, result = result
-    assert isinstance(result, pd.DataFrame)
-    assert list(result.columns) == ["drawdown"]
-    assert len(result) == 0
+    with pytest.raises(ValueError):
+        charts.drawdown_curve(empty_returns)
+
+    with pytest.raises(ValueError):
+        charts.rolling_information_ratio(empty_returns)
+
+    empty_weights: dict[pd.Timestamp, pd.Series] = {}
+    with pytest.raises(ValueError):
+        charts.turnover_series(empty_weights)
+
+    with pytest.raises(ValueError):
+        charts.weights_heatmap(empty_weights)
 
 
 def test_basic_functionality_integration():
