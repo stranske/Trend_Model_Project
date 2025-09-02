@@ -2,9 +2,11 @@ import json
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
+
 import pandas as pd
 
 from trend_analysis.export.bundle import export_bundle
+from trend_analysis.util.hash import sha256_config, sha256_file, sha256_text
 
 
 def _write_input(tmp_path: Path) -> Path:
@@ -45,11 +47,41 @@ def test_export_bundle(tmp_path):
         assert "summary.xlsx" in names
         assert "run_meta.json" in names
         assert "README.txt" in names
+        assert "receipt.txt" in names
         with z.open("run_meta.json") as f:
             meta = json.load(f)
+        receipt = z.read("receipt.txt").decode("utf-8")
+
+    input_sha = sha256_file(input_path)
+    cfg_sha = sha256_config({"foo": 1})
+    expected_run_id = sha256_text("|".join([input_sha, cfg_sha, str(42)]))
+
     assert meta["config"] == {"foo": 1}
     assert meta["seed"] == 42
+    assert meta["config_sha256"] == cfg_sha
+    assert meta["run_id"] == expected_run_id
     assert "python" in meta["environment"]
     assert len(meta.get("git_hash", "")) >= 7
-    assert meta["input_sha256"] is not None
+    assert meta["input_sha256"] == input_sha
     assert "created" in meta["receipt"]
+    assert f"run_id: {expected_run_id}" in receipt
+
+
+def test_receipt_deterministic(tmp_path):
+    input_path = _write_input(tmp_path)
+    run = DummyRun(
+        portfolio=pd.Series(
+            [0.01, -0.02], index=pd.date_range("2020-01", periods=2, freq="ME")
+        ),
+        config={"foo": 1},
+        seed=42,
+        input_path=input_path,
+    )
+    out1 = tmp_path / "bundle1.zip"
+    out2 = tmp_path / "bundle2.zip"
+    export_bundle(run, out1)
+    export_bundle(run, out2)
+    with zipfile.ZipFile(out1) as z1, zipfile.ZipFile(out2) as z2:
+        r1 = z1.read("receipt.txt")
+        r2 = z2.read("receipt.txt")
+    assert r1 == r2
