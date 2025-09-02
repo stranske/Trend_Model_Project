@@ -18,6 +18,13 @@ FREQ_ALIAS_MAP = {
 # Map modern frequency codes (e.g., 'ME' for month-end) to legacy pandas period codes ('M' for month-end)
 PANDAS_FREQ_MAP = {"ME": "M"}
 
+# Legacy mapping exposed for backwards compatibility with older code and tests
+# that expect pandas' period codes (e.g. "M" for month-end).
+FREQUENCY_MAP = {
+    human: ("Y" if alias == "A" else PANDAS_FREQ_MAP.get(alias, alias))
+    for human, alias in FREQ_ALIAS_MAP.items()
+}
+
 
 class ValidationResult:
     """Result of schema validation with detailed feedback."""
@@ -206,7 +213,7 @@ def load_and_validate_upload(file_like: Any) -> Tuple[pd.DataFrame, Dict[str, An
     freq_key = (validation.frequency or "").lower()
     freq_alias = FREQ_ALIAS_MAP.get(freq_key, "ME")
     pandas_freq = PANDAS_FREQ_MAP.get(freq_alias, freq_alias)
-    df.index = pd.PeriodIndex(idx, freq=pandas_freq).to_timestamp(how='end')
+    df.index = pd.PeriodIndex(idx, freq=pandas_freq).to_timestamp(how="end")
     df = df.dropna(axis=1, how="all")
 
     # Convert to numeric

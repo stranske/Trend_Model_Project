@@ -67,8 +67,17 @@ class Rebalancer(Plugin):
         """Return new weights and total cost for the rebalance."""
 
 
+class WeightEngine(Plugin):
+    """Base class for risk-based weight engine plugins."""
+
+    @abstractmethod
+    def weight(self, cov: pd.DataFrame) -> pd.Series:
+        """Return portfolio weights given a covariance matrix."""
+
+
 selector_registry: PluginRegistry[Selector] = PluginRegistry()
 rebalancer_registry: PluginRegistry[Rebalancer] = PluginRegistry()
+weight_engine_registry: PluginRegistry[WeightEngine] = PluginRegistry()
 
 
 def create_selector(name: str, **params: Any) -> Selector:
@@ -81,6 +90,19 @@ def create_rebalancer(name: str, params: Dict[str, Any] | None = None) -> Rebala
     return rebalancer_registry.create(name, params or {})
 
 
+def create_weight_engine(name: str, **params: Any) -> WeightEngine:
+    """Instantiate a weight engine plugin by ``name``."""
+    return weight_engine_registry.create(name, **params)
+
+
+# Import built-in weight engine modules so that they register with the plugin registry
+from ..weights import (  # noqa: E402,F401
+    risk_parity as _risk_parity,
+    equal_risk_contribution as _equal_risk_contribution,
+    hierarchical_risk_parity as _hierarchical_risk_parity,
+)
+
+
 __all__ = [
     "Plugin",
     "PluginRegistry",
@@ -88,6 +110,9 @@ __all__ = [
     "Rebalancer",
     "selector_registry",
     "rebalancer_registry",
+    "WeightEngine",
+    "weight_engine_registry",
     "create_selector",
     "create_rebalancer",
+    "create_weight_engine",
 ]
