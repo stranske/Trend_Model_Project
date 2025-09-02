@@ -433,7 +433,7 @@ __all__ = [
 def get_rebalancing_strategies():
     """Get available rebalancing strategy names and classes."""
     return {
-        name: rebalancer_registry._plugins[name] 
+        name: rebalancer_registry._plugins[name]
         for name in rebalancer_registry.available()
     }
 

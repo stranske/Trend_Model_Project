@@ -51,6 +51,7 @@ def _normalize_lockfile_content(content: str) -> str:
 import pytest
 import shutil
 
+
 def test_lockfile_up_to_date() -> None:
     """Compare compiled dependencies with the committed lockfile."""
 
