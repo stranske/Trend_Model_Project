@@ -44,7 +44,6 @@ def run_simulation(config: Config, returns: pd.DataFrame) -> RunResult:
     logger.info("run_simulation start")
 
     seed = getattr(config, "seed", 42)
-    os.environ["PYTHONHASHSEED"] = str(seed)
     random.seed(seed)
     np.random.seed(seed)
 
