@@ -283,6 +283,7 @@ class TestBuildStep0:
         mock_widgets.HBox.return_value = Mock()
 
         store = ParamStore()
+
         def safe_template_callback(change, *, store: ParamStore) -> None:
             """Minimal template loader used for the test.
 
