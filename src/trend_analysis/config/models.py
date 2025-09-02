@@ -163,7 +163,7 @@ if _HAS_PYDANTIC:
                 "run",
                 mode="before",
             )
-            def _ensure_dict(cls, v: Any, info: Any) -> dict[str, Any]:
+            def _ensure_dict(cls, v: Any, info: _ValidationInfo) -> dict[str, Any]:
                 if not isinstance(v, dict):
                     raise TypeError(f"{info.field_name} must be a dictionary")
                 return v
