@@ -4,7 +4,8 @@
 This demo simulates a portfolio with the following rules:
 
 - Initial selection: top N managers by in-sample Sharpe.
-- Evaluation cadence: rolling 36-month in-sample window (like the demo), stepping yearly.
+- Evaluation cadence: rolling 36-month in-sample window (like the demo),
+  stepping yearly.
 - Exit rules (on each period using the current 36m window, z = Sharpe z-score):
   - Immediate exit if z <= -1.5 in the current window, OR
   - Exit if the manager has accumulated 2 windows with z <= -1.0 ("two strikes").
@@ -31,8 +32,7 @@ import math
 import pandas as pd
 
 from trend_analysis.config import load, Config
-from trend_analysis.data import load_csv, ensure_datetime
-from trend_analysis.multi_period import run as run_mp, scheduler
+from trend_analysis.multi_period import run as run_mp
 
 
 @dataclass
@@ -208,9 +208,11 @@ def main() -> int:
     pd.DataFrame(churn_rows).to_csv(out_dir / "churn_schedule.csv", index=False)
     pd.DataFrame(zsum_rows).to_csv(out_dir / "z_summary.csv", index=False)
 
-    print(
-        f"Wrote {len(churn_rows)} periods to {out_dir}/churn_schedule.csv and z_summary.csv"
+    msg = (
+        f"Wrote {len(churn_rows)} periods to {out_dir}/churn_schedule.csv "
+        "and z_summary.csv"
     )
+    print(msg)
     return 0
 
 

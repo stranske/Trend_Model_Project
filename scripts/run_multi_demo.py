@@ -102,8 +102,7 @@ def _check_demo_data(cfg: Config) -> pd.DataFrame:
         raise SystemExit("Demo dataset manager count mismatch")
     first = df["Date"].iloc[0]
     last = df["Date"].iloc[-1]
-    expected_last = first + pd.offsets.MonthEnd(119)
-    if last != expected_last:
+    if last != first + pd.DateOffset(months=119):
         raise SystemExit("Demo dataset date range mismatch")
     xlsx_path = Path(cfg.data["csv_path"]).with_suffix(".xlsx")
     if not xlsx_path.exists():
@@ -314,10 +313,13 @@ def _check_cli_env_multi(cfg_path: str) -> None:
 
 def _check_cli(cfg_path: str) -> None:
     """Exercise the simple CLI wrapper."""
-    rc = cli.main(["run", "-c", cfg_path, "-i", "demo/demo_returns.csv"])
+    rc = cli.main(["--version"])
+    if rc != 0:
+        raise SystemExit("CLI --version failed")
+    rc = cli.main(["-c", cfg_path])
     if rc != 0:
         raise SystemExit("CLI default run failed")
-    rc = cli.main(["run", "-c", cfg_path, "-i", "demo/demo_returns.csv"])
+    rc = cli.main([])
     if rc != 0:
         raise SystemExit("CLI default config failed")
 
@@ -456,7 +458,6 @@ def _check_rebalancer_logic() -> None:
 
 def _check_portfolio() -> None:
     """Ensure ``Portfolio.rebalance`` records weight history."""
-
     pf = Portfolio()
     pf.rebalance(
         "2020-01-31",
@@ -1460,7 +1461,8 @@ _check_schedule(
     rank_column="MaxDrawdown",
 )
 
-# Exercise the single-period pipeline and export helpers - using run_full to avoid redundant computation
+# Exercise the single-period pipeline and export helpers - using run_full
+# to avoid redundant computation
 full_res = pipeline.run_full(cfg)
 if not isinstance(full_res, dict):
     raise SystemExit("pipeline.run_full did not return a dict")
@@ -1517,14 +1519,15 @@ if not out_prefix.with_name(f"{out_prefix.stem}_metrics.txt").exists():
     raise SystemExit("TXT export failed")
 
 # Additional validation of full_res content (stats already validated above)
-stats = full_res.get("out_sample_stats", {})
 sf = full_res.get("score_frame")
 if sf is None or sf.empty:
     raise SystemExit("pipeline.run_full missing score_frame")
 b_ir = full_res.get("benchmark_ir", {})
 if "spx" not in b_ir or "equal_weight" not in b_ir.get("spx", {}):
     raise SystemExit("pipeline.run_full benchmark_ir missing")
-for obj in stats.values():
+_oss = full_res.get("out_sample_stats", {})
+_oss = _oss if isinstance(_oss, dict) else {}
+for obj in _oss.values():
     if not hasattr(obj, "information_ratio"):
         raise SystemExit("_Stats missing information_ratio")
 
@@ -2142,6 +2145,8 @@ subprocess.run(
         "-m",
         "trend_analysis.cli",
         "--version",
+        "-c",
+        "config/demo.yml",
     ],
     check=True,
     shell=False,
@@ -2154,8 +2159,6 @@ subprocess.run(
         sys.executable,
         "-m",
         "trend_analysis.cli",
-        "run",
-        "--help",
     ],
     check=True,
     env=env,

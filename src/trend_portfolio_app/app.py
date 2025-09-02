@@ -6,9 +6,9 @@ from typing import Any, Dict, List
 
 import pandas as pd
 import streamlit as st
-import yaml  # type: ignore[import-untyped]
+import yaml
 
-from trend_analysis import api
+from trend_analysis import pipeline
 from trend_analysis.multi_period import run as run_multi
 from trend_analysis.config import DEFAULTS as DEFAULT_CFG_PATH, Config
 from trend_analysis.data import load_csv as ta_load_csv, identify_risk_free_fund
@@ -16,9 +16,9 @@ from trend_analysis.core.rank_selection import METRIC_REGISTRY
 
 # Optional drag-and-drop support (falls back gracefully if not installed)
 try:  # streamlit-sortables by okld
-    from streamlit_sortables import sort_items as _st_sort_items  # type: ignore
+    from streamlit_sortables import sort_items as _st_sort_items
 except Exception:  # pragma: no cover - optional UI nicety
-    _st_sort_items = None  # type: ignore
+    _st_sort_items = None
 
 
 # ---- small helpers -----------------------------------------------------
@@ -45,7 +45,7 @@ def _merge_update(base: Dict[str, Any], updates: Dict[str, Any]) -> Dict[str, An
     out = dict(base)
     for k, v in updates.items():
         if isinstance(v, dict) and isinstance(out.get(k), dict):
-            out[k] = _merge_update(out[k], v)  # type: ignore[arg-type]
+            out[k] = _merge_update(out[k], v)
         else:
             out[k] = v
     return out
@@ -125,15 +125,8 @@ with st.sidebar:
             try:
                 data = yaml.safe_load(uploaded.getvalue())
                 if isinstance(data, dict):
-                    merged_data = _merge_update(_read_defaults(), data)
-                    # Validate the config using the Config model
-                    try:
-                        Config(**merged_data)  # Just validate, don't store the result
-                        # Convert back to dict for compatibility with existing UI code
-                        st.session_state.config_dict = merged_data
-                        st.success("Config imported and validated")
-                    except Exception as validation_exc:
-                        st.error(f"Config validation failed: {validation_exc}")
+                    st.session_state.config_dict = _merge_update(_read_defaults(), data)
+                    st.success("Config imported")
                 else:
                     st.error("Uploaded YAML must be a mapping")
             except Exception as exc:
@@ -178,8 +171,9 @@ with st.sidebar:
             options=policy_options,
             index=idx,
             help=(
-                "Portfolio update rule: threshold_hold (implemented). Others are previews: "
-                "periodic_rebalance, drift_band, turnover_cap, drawdown_guard, vol_target_rebalance."
+                "Portfolio update rule: threshold_hold (implemented). Others are"
+                " previews: periodic_rebalance, drift_band, turnover_cap,"
+                " drawdown_guard, vol_target_rebalance."
             ),
         )
 
@@ -309,7 +303,9 @@ with tabs[1]:
         help="How to treat missing values during ingestion.",
     )
     st.caption(
-        "NaN policies: drop = remove rows with any NaN; ffill = forward‑fill last valid value; bfill = back‑fill next valid value; both = ffill then bfill to fill gaps."
+        "NaN policies: drop = remove rows with any NaN; ffill = forward‑fill last"
+        " valid value; bfill = back‑fill next valid value; both = ffill then"
+        " bfill to fill gaps."
     )
 
     st.markdown("---")
@@ -324,7 +320,12 @@ with tabs[1]:
         ),
         horizontal=True,
         key="data._rf_source_choice",
-        help="Prefer a series from your dataset. We'll auto‑detect using typical RF names (RF, Risk Free, T‑Bill, Cash) and, if none match, the very low‑volatility set (bottom decile) before falling back to the absolute lowest vol. Use a constant only if no series is available.",
+        help=(
+            "Prefer a series from your dataset. We'll auto‑detect using typical RF"
+            " names (RF, Risk Free, T‑Bill, Cash) and, if none match, the very"
+            " low‑volatility set (bottom decile) before falling back to the"
+            " absolute lowest vol. Use a constant only if no series is available."
+        ),
     )
 
     # Load CSV once to provide choices
@@ -350,7 +351,8 @@ with tabs[1]:
             st.session_state.config_dict["data"]["rf_column"] = auto_rf
         else:
             st.warning(
-                "Could not detect a numeric RF series from the CSV—falling back to constant rate."
+                "Could not detect a numeric RF series from the CSV—falling back"
+                " to constant rate."
             )
             st.session_state.config_dict["data"].pop("rf_column", None)
             st.session_state.config_dict["data"]["rf_use_constant"] = True
@@ -396,7 +398,9 @@ with tabs[1]:
         )
 
     st.caption(
-        "Data tab: point to your CSV(s) and set parsing rules. For RF, we auto‑detect by name (RF/Risk‑free/T‑Bill/Cash) and only then by very low volatility to avoid illiquid private marks looking ‘low‑vol’."
+        "Data tab: point to your CSV(s) and set parsing rules. For RF, we auto‑"
+        "detect by name (RF/Risk‑free/T‑Bill/Cash) and only then by very low"
+        " volatility to avoid illiquid private marks looking ‘low‑vol’."
     )
 
     # Manager/Index column selection from the loaded CSV (optional)
@@ -416,7 +420,10 @@ with tabs[1]:
             default=st.session_state.config_dict.get("data", {}).get(
                 "manager_columns", []
             ),
-            help="Select one or more manager return columns. Leave empty to include all.",
+            help=(
+                "Select one or more manager return columns. Leave empty to"
+                " include all."
+            ),
         )
         sel_idx = st.multiselect(
             "Index columns",
@@ -424,7 +431,10 @@ with tabs[1]:
             default=st.session_state.config_dict.get("data", {}).get(
                 "indices_columns", []
             ),
-            help="Select benchmark/index series for metrics and alpha. Leave empty to skip.",
+            help=(
+                "Select benchmark/index series for metrics and alpha. Leave"
+                " empty to skip."
+            ),
         )
         st.session_state.config_dict["data"]["manager_columns"] = sel_man
         st.session_state.config_dict["data"]["indices_columns"] = sel_idx
@@ -502,7 +512,10 @@ with tabs[3]:
         "Enable vol adjust",
         value=bool(va.get("enabled", True)),
         key="vol_adjust.enabled",
-        help="Turn on to normalise each fund to the same annual volatility (fairer comparisons).",
+        help=(
+            "Turn on to normalise each fund to the same annual volatility"
+            " (fairer comparisons)."
+        ),
     )
     st.number_input(
         "Target vol (annual)",
@@ -523,14 +536,20 @@ with tabs[3]:
         value=months_default,
         step=1,
         key="vol_adjust.window._months",
-        help="How far back to measure volatility (calendar months, ~21 trading days each). Common: 3 months ≈ 63 days.",
+        help=(
+            "How far back to measure volatility (calendar months, ~21 trading"
+            " days each). Common: 3 months ≈ 63 days."
+        ),
     )
     st.selectbox(
         "Decay",
         ["ewma", "simple"],
         index=["ewma", "simple"].index(str(win.get("decay", "ewma"))),
         key="vol_adjust.window.decay",
-        help="EWMA weights recent moves more; simple gives equal weight to the whole window.",
+        help=(
+            "EWMA weights recent moves more; simple gives equal weight to the"
+            " whole window."
+        ),
     )
     st.number_input(
         "EWMA lambda",
@@ -539,7 +558,9 @@ with tabs[3]:
         value=float(win.get("lambda", 0.94)),
         step=0.001,
         key="vol_adjust.window.lambda",
-        help="Only used for EWMA. Higher values react more slowly (longer memory).",
+        help=(
+            "Only used for EWMA. Higher values react more slowly (longer" " memory)."
+        ),
     )
     st.number_input(
         "Floor vol",
@@ -548,10 +569,13 @@ with tabs[3]:
         value=float(va.get("floor_vol", 0.04)),
         step=0.005,
         key="vol_adjust.floor_vol",
-        help="Minimum volatility used to avoid extreme scaling when σ is very small.",
+        help=(
+            "Minimum volatility used to avoid extreme scaling when σ is very" " small."
+        ),
     )
     st.info(
-        "Set a target, pick how to estimate volatility, and apply a floor so leverage doesn’t explode when volatility is tiny."
+        "Set a target, pick how to estimate volatility, and apply a floor so"
+        " leverage doesn’t explode when volatility is tiny."
     )
 
 # Single Period tab (harmonized labels)
@@ -582,7 +606,10 @@ with tabs[4]:
         "Rolling walk (CV)",
         value=bool(s.get("rolling_walk", False)),
         key="sample_split.rolling_walk",
-        help="If enabled, trains on a rolling window and tests on the next period repeatedly (like cross‑validation over time).",
+        help=(
+            "If enabled, trains on a rolling window and tests on the next"
+            " period repeatedly (like cross‑validation over time)."
+        ),
     )
     st.number_input(
         "Folds (if rolling)",
@@ -615,7 +642,8 @@ with tabs[4]:
         key="sample_split.out_end",
     )
     st.info(
-        "Single Period defines one training window and one test window. Multi‑Period runs a schedule of such windows over time."
+        "Single Period defines one training window and one test window."
+        " Multi‑Period runs a schedule of such windows over time."
     )
 
 # Portfolio tab (subset of common controls)
@@ -628,7 +656,10 @@ with tabs[5]:
             str(p.get("selection_mode", "all"))
         ),
         key="portfolio.selection_mode",
-        help="How to choose funds: all = include all; random = pick N at random; manual = pick by names; rank = pick by metric ranking.",
+        help=(
+            "How to choose funds: all = include all; random = pick N at"
+            " random; manual = pick by names; rank = pick by metric ranking."
+        ),
     )
     st.number_input(
         "Random N",
@@ -657,7 +688,10 @@ with tabs[5]:
             str(rank.get("inclusion_approach", "top_n"))
         ),
         key="portfolio.rank.inclusion_approach",
-        help="How to include funds based on metric scores: top N, top percentage, or threshold value.",
+        help=(
+            "How to include funds based on metric scores: top N, top"
+            " percentage, or threshold value."
+        ),
     )
     st.number_input(
         "Rank n",
@@ -707,7 +741,11 @@ with tabs[5]:
             str(w.get("name", "equal"))
         ),
         key="portfolio.weighting.name",
-        help="How to set portfolio weights: equal = simple average; score_prop_bayes = proportional to scores with shrinkage; adaptive_bayes = stateful adaptive scheme.",
+        help=(
+            "How to set portfolio weights: equal = simple average;"
+            " score_prop_bayes = proportional to scores with shrinkage;"
+            " adaptive_bayes = stateful adaptive scheme."
+        ),
     )
     w_params = w.setdefault("params", {})
     # Default to existing value or a common metric
@@ -720,7 +758,9 @@ with tabs[5]:
             (
                 metric_options.index(default_metric)
                 if default_metric in metric_options
-                else metric_options.index("Sharpe") if "Sharpe" in metric_options else 0
+                else (
+                    metric_options.index("Sharpe") if "Sharpe" in metric_options else 0
+                )
             ),
         ),
         key="portfolio.weighting.params.column",
@@ -830,7 +870,7 @@ with tabs[5]:
         options=element_options,
         default=sel_cfg.get("elements", []),
         key="portfolio.selection_policy.elements",
-        help="Composable guards that apply before add/drop decisions.",
+        help=("Composable guards that apply before add/drop decisions."),
     )
     # Per-element params
     sp_params = sel_cfg.setdefault("params", {})
@@ -842,7 +882,10 @@ with tabs[5]:
             value=int(sp_params.get("min_tenure", {}).get("n", 3)),
             step=1,
             key="portfolio.selection_policy.params.min_tenure.n",
-            help="Once added, must be held at least this many periods before eligible for removal.",
+            help=(
+                "Once added, must be held at least this many periods before"
+                " eligible for removal."
+            ),
         )
     if "turnover_budget_selection" in chosen_elements:
         st.number_input(
@@ -853,7 +896,10 @@ with tabs[5]:
                 sp_params.get("turnover_budget_selection", {}).get("max_changes", 2)
             ),
             step=1,
-            key="portfolio.selection_policy.params.turnover_budget_selection.max_changes",
+            key=(
+                "portfolio.selection_policy.params.turnover_budget_selection."
+                "max_changes"
+            ),
             help="Limit the number of adds/removes each period.",
         )
     if "diversification_guard" in chosen_elements:
@@ -866,7 +912,10 @@ with tabs[5]:
             ),
             height=120,
             key="portfolio.selection_policy.params.diversification_guard.buckets_text",
-            help="Scaffold: define name→bucket lines to enforce per-bucket caps in a later phase.",
+            help=(
+                "Scaffold: define name→bucket lines to enforce per-bucket"
+                " caps in a later phase."
+            ),
         )
         st.number_input(
             "Max per bucket",
@@ -876,7 +925,10 @@ with tabs[5]:
                 sp_params.get("diversification_guard", {}).get("max_per_bucket", 2)
             ),
             step=1,
-            key="portfolio.selection_policy.params.diversification_guard.max_per_bucket",
+            key=(
+                "portfolio.selection_policy.params.diversification_guard."
+                "max_per_bucket"
+            ),
             help="Placeholder cap; enforcement to be implemented later.",
         )
     if "drawdown_kickout" in chosen_elements:
@@ -889,7 +941,10 @@ with tabs[5]:
             ),
             step=0.01,
             key="portfolio.selection_policy.params.drawdown_kickout.dd_threshold",
-            help="Remove a fund if its trailing drawdown exceeds this level (to be implemented).",
+            help=(
+                "Remove a fund if its trailing drawdown exceeds this level"
+                " (to be implemented)."
+            ),
         )
         st.number_input(
             "Cooldown (periods)",
@@ -911,7 +966,9 @@ with tabs[5]:
     with c1:
         st.caption("Add rules (priority order)")
         if _st_sort_items is not None and add_rules:
-            new_add = _st_sort_items(items=list(add_rules), direction="vertical", key="sel.add.sort")  # type: ignore
+            new_add = _st_sort_items(
+                items=list(add_rules), direction="vertical", key="sel.add.sort"
+            )
             if isinstance(new_add, list) and new_add != add_rules:
                 add_rules = new_add
                 st.session_state.config_dict["portfolio"].setdefault(
@@ -963,7 +1020,9 @@ with tabs[5]:
     with c2:
         st.caption("Drop rules (priority order)")
         if _st_sort_items is not None and drop_rules:
-            new_drop = _st_sort_items(items=list(drop_rules), direction="vertical", key="sel.drop.sort")  # type: ignore
+            new_drop = _st_sort_items(
+                items=list(drop_rules), direction="vertical", key="sel.drop.sort"
+            )
             if isinstance(new_drop, list) and new_drop != drop_rules:
                 drop_rules = new_drop
                 st.session_state.config_dict["portfolio"].setdefault(
@@ -1009,7 +1068,10 @@ with tabs[5]:
         "Use Bayesian‑only rebalancing",
         value=bool(rb_cfg.get("bayesian_only", True)),
         key="portfolio.rebalance.bayesian_only",
-        help="If on, rebalancing is driven by the selected Bayesian weighting method only.",
+        help=(
+            "If on, rebalancing is driven by the selected Bayesian weighting"
+            " method only."
+        ),
     )
     if bayes_only:
         # Nudge weighting to a Bayesian method by default
@@ -1019,7 +1081,8 @@ with tabs[5]:
         ):
             p.setdefault("weighting", {})["name"] = "adaptive_bayes"
         st.caption(
-            "Bayesian-only: pick between score_prop_bayes and adaptive_bayes in the Weighting section above."
+            "Bayesian-only: pick between score_prop_bayes and adaptive_bayes"
+            " in the Weighting section above."
         )
     else:
         # Choose and order non-Bayesian strategies
@@ -1032,11 +1095,16 @@ with tabs[5]:
         ]
         chosen = rb_cfg.get("strategies", ["drift_band"]) or ["drift_band"]
         st.caption(
-            "Select and order how target weights are realized into trades and positions."
+            "Select and order how target weights are realized into trades and"
+            " positions."
         )
         # Order editor
         if _st_sort_items is not None and chosen:
-            new_order = _st_sort_items(items=list(dict.fromkeys([c for c in chosen if c in strategy_options])), direction="vertical", key="rb.strats.sort")  # type: ignore
+            new_order = _st_sort_items(
+                items=list(dict.fromkeys([c for c in chosen if c in strategy_options])),
+                direction="vertical",
+                key="rb.strats.sort",
+            )
             if isinstance(new_order, list) and new_order and new_order != chosen:
                 st.session_state.config_dict["portfolio"].setdefault("rebalance", {})[
                     "strategies"
@@ -1269,7 +1337,8 @@ with tabs[6]:
     reg = m.setdefault("registry", ["annual_return", "volatility", "sharpe_ratio"])
     st.write("Registry:", ", ".join(str(x) for x in reg))
     st.caption(
-        "Metrics registry defines which statistics are computed per fund during scoring."
+        "Metrics registry defines which statistics are computed per fund"
+        " during scoring."
     )
 
 # Multi-Period tab
@@ -1318,7 +1387,9 @@ with tabs[7]:
     # Drag-and-drop reorder (optional)
     if _st_sort_items is not None and trig:
         current_order = list(trig.keys())
-        new_order = _st_sort_items(items=current_order, direction="vertical", key="mp.triggers.sort")  # type: ignore
+        new_order = _st_sort_items(
+            items=current_order, direction="vertical", key="mp.triggers.sort"
+        )
         if isinstance(new_order, list) and new_order and new_order != current_order:
             trig = {k: trig[k] for k in new_order if k in trig}
             st.session_state.config_dict["multi_period"]["triggers"] = trig
@@ -1451,7 +1522,8 @@ with tabs[7]:
                 st.rerun()
 
     st.info(
-        "Inline edit triggers, drag to reorder (if enabled), duplicate, rename, or delete."
+        "Inline edit triggers, drag to reorder (if enabled), duplicate,"
+        " rename, or delete."
     )
     # Weight curve anchors
     wc = mp_cfg.setdefault(
@@ -1460,15 +1532,23 @@ with tabs[7]:
     anchors = wc.get("anchors", []) or []
     st.caption("Weight curve anchors [percentile, multiplier]")
     st.markdown(
-        "Anchors map performance percentiles to weight multipliers. Example: [0,1.2] gives a 1.2× boost to the worst performers; [100,0.8] caps the best at 0.8×. The curve between anchors is interpolated."
+        "Anchors map performance percentiles to weight multipliers."
+        " Example: [0,1.2] gives a 1.2× boost to the worst performers;"
+        " [100,0.8] caps the best at 0.8×. The curve between anchors is"
+        " interpolated."
     )
     # Drag-and-drop reorder (optional)
     if _st_sort_items is not None and anchors:
-        labels = [
-            f"{i}: {int(a[0]) if isinstance(a, (list, tuple)) and len(a)>0 else 0} | {float(a[1]) if isinstance(a, (list, tuple)) and len(a)>1 else 1.0}"
-            for i, a in enumerate(anchors)
-        ]
-        new_labels = _st_sort_items(items=labels, direction="vertical", key="mp.anchors.sort")  # type: ignore
+
+        def _fmt_anchor(i: int, a: list[float] | tuple[float, ...]) -> str:
+            left = int(a[0]) if isinstance(a, (list, tuple)) and len(a) > 0 else 0
+            right = float(a[1]) if isinstance(a, (list, tuple)) and len(a) > 1 else 1.0
+            return f"{i}: {left} | {right}"
+
+        labels = [_fmt_anchor(i, a) for i, a in enumerate(anchors)]
+        new_labels = _st_sort_items(
+            items=labels, direction="vertical", key="mp.anchors.sort"
+        )
         if isinstance(new_labels, list) and new_labels and new_labels != labels:
             try:
                 new_indices = []
@@ -1594,7 +1674,8 @@ with tabs[7]:
             st.session_state.config_dict["multi_period"]["weight_curve"] = wc
 
     st.info(
-        "Inline edit anchors, drag to reorder (if enabled), duplicate, or delete. Anchors map percentiles to multipliers."
+        "Inline edit anchors, drag to reorder (if enabled), duplicate, or"
+        " delete. Anchors map percentiles to multipliers."
     )
 
 # Run tab
@@ -1618,7 +1699,7 @@ with tabs[8]:
             for p in parts[:-1]:
                 if p not in cur or not isinstance(cur[p], dict):
                     cur[p] = {}
-                cur = cur[p]  # type: ignore[assignment]
+                cur = cur[p]
             cur[parts[-1]] = value
 
         prefixes = ("data.", "sample_split.", "portfolio.", "metrics.", "multi_period.")
@@ -1638,44 +1719,29 @@ with tabs[8]:
         # Ensure CSV exists (we won't validate path here, pipeline will raise)
         try:
             cfg_obj = _build_cfg(cfg_dict)
+        except ValueError as ve:
+            st.error(
+                f"Configuration error: {ve}\n\n"
+                "Hint: Check for missing or invalid values in your configuration. "
+                "Refer to the documentation for required fields."
+            )
+            st.stop()
         except Exception as exc:
-            # Handle both ValidationError (when pydantic is available) and ValueError (fallback)
-            error_msg = str(exc)
-            if "validation error" in error_msg.lower() or isinstance(exc, ValueError):
-                st.error(
-                    f"Configuration validation failed: {error_msg}\n\n"
-                    "Hint: Check your YAML for typos. Common issues:\n"
-                    "• version must be a string (use quotes: version: '1.0')\n"
-                    "• data, preprocessing, etc. must be dictionaries {}\n"
-                    "• Check for missing or extra commas, quotes, indentation"
-                )
-            else:
-                st.error(
-                    f"Unexpected error during configuration: {type(exc).__name__}: {exc}\n\n"
-                    "Hint: Please review your configuration format."
-                )
+            st.error(
+                f"Unexpected error during configuration validation:"
+                f" {type(exc).__name__}: {exc}\n\n"
+                "Hint: Please review your configuration for errors. If the"
+                " problem persists, check the YAML format and required"
+                " fields."
+            )
             st.stop()
         else:
-            cfg_obj = cfg_obj  # type: ignore[assignment]
+            cfg_obj = cfg_obj
 
     if go_single and cfg_obj is not None:
         with st.spinner("Running single-period analysis..."):
             try:
-                # Load CSV data from config
-                csv_path = cfg_obj.data.get("csv_path")
-                if csv_path is None:
-                    st.error("CSV path must be provided in configuration")
-                    st.stop()
-
-                df = ta_load_csv(csv_path)
-                if df is None:
-                    st.error(f"Failed to load CSV file: {csv_path}")
-                    st.stop()
-
-                # Use unified API instead of direct pipeline call
-                result = api.run_simulation(cfg_obj, df)
-                out_df = result.metrics
-
+                out_df = pipeline.run(cfg_obj)
                 disp = _summarise_run_df(out_df)
                 st.success(f"Completed. {len(disp)} rows.")
                 st.dataframe(disp, use_container_width=True)
@@ -1721,5 +1787,6 @@ with tabs[8]:
                 st.exception(exc)
 
 st.caption(
-    "Tip: Edit YAML for full control. Use the tabs for quick tweaks. Save your config from the sidebar."
+    "Tip: Edit YAML for full control. Use the tabs for quick tweaks. Save"
+    " your config from the sidebar."
 )

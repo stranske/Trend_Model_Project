@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from typing import Any
+import os
 import random
 import sys
 
@@ -40,24 +41,13 @@ def run_simulation(config: Config, returns: pd.DataFrame) -> RunResult:
     RunResult
         Structured results with the summary metrics and detailed payload.
     """
+    logger.info("run_simulation start")
+
     seed = getattr(config, "seed", 42)
-    split = config.sample_split
-
-    logger.info(
-        "run_simulation start",
-        extra={
-            "config_version": config.version,
-            "seed": seed,
-            "in_period": f"{split.get('in_start')} → {split.get('in_end')}",
-            "out_period": f"{split.get('out_start')} → {split.get('out_end')}",
-            "data_shape": returns.shape if returns is not None else None,
-        },
-    )
-
-    # Set random seeds for deterministic behavior
-    # Note: PYTHONHASHSEED must be set before Python starts, so we don't set it here
     random.seed(seed)
     np.random.seed(seed)
+
+    split = config.sample_split
     metrics_list = config.metrics.get("registry")
     stats_cfg = None
     if metrics_list:
@@ -95,9 +85,15 @@ def run_simulation(config: Config, returns: pd.DataFrame) -> RunResult:
         }
         return RunResult(pd.DataFrame(), {}, seed, env)
 
-    stats = res["out_sample_stats"]
-    metrics_df = pd.DataFrame({k: vars(v) for k, v in stats.items()}).T
-    for label, ir_map in res.get("benchmark_ir", {}).items():
+    stats_obj = res["out_sample_stats"]
+    if isinstance(stats_obj, dict):
+        stats_items = list(stats_obj.items())
+    else:
+        stats_items = list(getattr(stats_obj, "items", lambda: [])())
+    metrics_df = pd.DataFrame({k: vars(v) for k, v in stats_items}).T
+    bench_ir_obj = res.get("benchmark_ir", {})
+    bench_ir_items = bench_ir_obj.items() if isinstance(bench_ir_obj, dict) else []
+    for label, ir_map in bench_ir_items:
         col = f"ir_{label}"
         metrics_df[col] = pd.Series(
             {
@@ -113,12 +109,5 @@ def run_simulation(config: Config, returns: pd.DataFrame) -> RunResult:
         "pandas": pd.__version__,
     }
 
-    logger.info(
-        "run_simulation end",
-        extra={
-            "metrics_count": len(metrics_df) if not metrics_df.empty else 0,
-            "benchmark_count": len(res.get("benchmark_ir", {})),
-            "seed": seed,
-        },
-    )
+    logger.info("run_simulation end")
     return RunResult(metrics=metrics_df, details=res, seed=seed, environment=env)
