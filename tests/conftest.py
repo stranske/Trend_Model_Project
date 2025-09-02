@@ -1,6 +1,27 @@
-# pytest conftest.py - configuration automatically handled via PYTHONPATH
-#
-# NOTE: Dependencies like NumPy may attempt to set PYTHONHASHSEED during test execution
-# via monkeypatch.setenv('PYTHONHASHSEED', '0'). This has no effect since PYTHONHASHSEED
-# must be set before the Python interpreter starts. For reproducible hash behavior,
-# set PYTHONHASHSEED=0 in the environment before running Python/pytest.
+"""Pytest configuration.
+
+This project historically relied on callers configuring ``PYTHONPATH`` so that
+the ``src`` directory is importable.  Some environments (notably minimal CI
+containers) invoke ``pytest`` without performing an editable install which
+results in ``ModuleNotFoundError`` during collection.  To keep the tests
+import‑safe we ensure the repository's ``src`` directory is on ``sys.path``
+before any tests run.
+
+The file also documents a quirk with dependencies like NumPy attempting to set
+``PYTHONHASHSEED`` during test execution.  This has no effect because the
+environment variable must be specified before the Python interpreter starts. To
+reproduce hash behaviour set ``PYTHONHASHSEED=0`` in the environment prior to
+running ``pytest``.
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+
+# --- Ensure local ``src`` packages are importable ---------------------------------------
+ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
