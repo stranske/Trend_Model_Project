@@ -9,6 +9,7 @@ simple plugin registry so they can be selected by name in configuration files.
 from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple
 
+import numpy as np
 import pandas as pd
 
 from .plugins import Rebalancer, rebalancer_registry, create_rebalancer
@@ -271,7 +272,6 @@ class VolTargetRebalanceStrategy(Rebalancer):
         """Apply volatility targeting by scaling positions."""
         # Align indices
         all_assets = current_weights.index.union(target_weights.index)
-        current = current_weights.reindex(all_assets, fill_value=0.0)
         target = target_weights.reindex(all_assets, fill_value=0.0)
 
         # Get equity curve from kwargs (maintained by rb_state)
@@ -312,6 +312,7 @@ class DrawdownGuardStrategy(Rebalancer):
         self.dd_threshold = float(self.params.get("dd_threshold", 0.10))
         self.guard_multiplier = float(self.params.get("guard_multiplier", 0.5))
         self.recover_threshold = float(self.params.get("recover_threshold", 0.05))
+        self._guard_on = False
 
     def apply(
         self, current_weights: pd.Series, target_weights: pd.Series, **kwargs
@@ -319,7 +320,6 @@ class DrawdownGuardStrategy(Rebalancer):
         """Apply drawdown protection by scaling positions."""
         # Align indices
         all_assets = current_weights.index.union(target_weights.index)
-        current = current_weights.reindex(all_assets, fill_value=0.0)
         target = target_weights.reindex(all_assets, fill_value=0.0)
 
         # Get equity curve and guard state from kwargs
@@ -374,9 +374,7 @@ def create_rebalancing_strategy(
             from .plugins import rebalancer_registry
 
             available = rebalancer_registry.available()
-            raise ValueError(
-                f"Unknown rebalancing strategy: {name}. Available: {available}"
-            ) from e
+            raise ValueError(f"Unknown plugin: {name}. Available: {available}") from e
         raise
 
 
@@ -426,6 +424,8 @@ __all__ = [
     "DriftBandStrategy",
     "VolTargetRebalanceStrategy",
     "DrawdownGuardStrategy",
+    "create_rebalancing_strategy",
+    "apply_rebalancing_strategies",
     "REBALANCING_STRATEGIES",
 ]
 
@@ -433,7 +433,7 @@ __all__ = [
 def get_rebalancing_strategies():
     """Get available rebalancing strategy names and classes."""
     return {
-        name: rebalancer_registry._plugins[name] 
+        name: rebalancer_registry._plugins[name]
         for name in rebalancer_registry.available()
     }
 

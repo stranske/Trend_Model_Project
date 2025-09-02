@@ -19,13 +19,13 @@ def load_run_module():
 
 class MockSessionState(dict):
     """A mock session state that behaves like both a dict and streamlit's session_state."""
-    
+
     def clear(self):
         super().clear()
-    
+
     def get(self, key, default=None):
         return super().get(key, default)
-    
+
     def __contains__(self, key):
         return super().__contains__(key)
 
@@ -33,10 +33,10 @@ class MockSessionState(dict):
 def setup_session_state(accepted: bool):
     # Create a proper mock session state
     session_dict = MockSessionState()
-    
+
     # Replace st.session_state with our mock
     st.session_state = session_dict
-    
+
     st.session_state.clear()
     st.session_state["returns_df"] = pd.DataFrame(
         {"A": [0.1]}, index=pd.to_datetime(["2020-01-31"])
@@ -55,7 +55,7 @@ def test_run_button_disabled_without_acceptance(monkeypatch):
 
     # Create an isolated session state to avoid pollution from other tests
     isolated_session_state = MockSessionState()
-    
+
     # Bypass UI in disclaimer component
     monkeypatch.setattr(
         module,
@@ -69,7 +69,7 @@ def test_run_button_disabled_without_acceptance(monkeypatch):
         flag.value = bool(disabled)
         return False
 
-    # Mock streamlit in the loaded module to prevent pollution 
+    # Mock streamlit in the loaded module to prevent pollution
     mock_st = MagicMock()
     mock_st.session_state = isolated_session_state
     mock_st.button = fake_button
@@ -80,7 +80,7 @@ def test_run_button_disabled_without_acceptance(monkeypatch):
     mock_st.checkbox = MagicMock()
     mock_st.markdown = MagicMock()
     mock_st.rerun = MagicMock()
-    
+
     # Replace the module's st reference directly
     monkeypatch.setattr(module, "st", mock_st)
 
@@ -96,7 +96,7 @@ def test_run_button_disabled_without_acceptance(monkeypatch):
         "risk_target": 1.0,
     }
     isolated_session_state["disclaimer_accepted"] = False
-    
+
     module.main()
     assert flag.value is True
 
