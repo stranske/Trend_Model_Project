@@ -173,10 +173,10 @@ PYTHONPATH="./src" python -m trend_analysis.run_analysis -c config/demo.yml
 The tool includes preset configurations you can use directly:
 ```bash
 # Conservative analysis  
-PYTHONPATH="./src" python -m trend_analysis.run_analysis -c config/presets/conservative.yml
+PYTHONPATH="./src" python -m trend_analysis.run_analysis -c config/conservative.yml
 
 # Aggressive analysis
-PYTHONPATH="./src" python -m trend_analysis.run_analysis -c config/presets/aggressive.yml
+PYTHONPATH="./src" python -m trend_analysis.run_analysis -c config/aggressive.yml
 ```
 
 ---
