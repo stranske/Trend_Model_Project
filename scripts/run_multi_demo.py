@@ -313,7 +313,7 @@ def _check_cli_env_multi(cfg_path: str) -> None:
 
 def _check_cli(cfg_path: str) -> None:
     """Exercise the simple CLI wrapper."""
-    rc = cli.main(["--version", "-c", cfg_path])
+    rc = cli.main(["--version"])
     if rc != 0:
         raise SystemExit("CLI --version failed")
     rc = cli.main(["-c", cfg_path])
