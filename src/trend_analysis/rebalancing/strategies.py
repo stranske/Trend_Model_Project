@@ -1,0 +1,381 @@
+"""Portfolio rebalancing strategies implementation.
+
+This module provides various rebalancing strategies that control how target
+weights are realised into actual trades and positions, including turnover
+constraints and transaction cost modelling.  Strategies are exposed via a
+simple plugin registry so they can be selected by name in configuration files.
+"""
+
+from __future__ import annotations
+from typing import Any, Dict, List, Optional, Tuple
+
+import numpy as np
+import pandas as pd
+
+from ..plugins import Rebalancer, rebalancer_registry, create_rebalancer
+
+# Backwards compatibility name
+RebalancingStrategy = Rebalancer
+
+# Small epsilon value for turnover comparisons to handle numerical precision
+TURNOVER_EPSILON = 1e-10
+
+
+@rebalancer_registry.register("turnover_cap")
+class TurnoverCapStrategy(Rebalancer):
+    """Turnover cap rebalancing strategy.
+
+    Limits the total turnover (sum of absolute trades) per rebalancing period
+    and applies optional transaction costs. Prioritizes trades by either
+    largest gap or best score delta.
+    """
+
+    def __init__(self, params: Dict[str, Any] | None = None):
+        super().__init__(params)
+        self.max_turnover = float(self.params.get("max_turnover", 0.2))
+        self.cost_bps = int(self.params.get("cost_bps", 10))
+        self.priority = str(self.params.get("priority", "largest_gap"))
+
+    def apply(
+        self,
+        current_weights: pd.Series,
+        target_weights: pd.Series,
+        scores: Optional[pd.Series] = None,
+        **kwargs: Any,
+    ) -> Tuple[pd.Series, float]:
+        """Apply turnover cap with trade prioritization and cost modeling.
+
+        Parameters
+        ----------
+        current_weights : pd.Series
+            Current portfolio weights
+        target_weights : pd.Series
+            Target portfolio weights
+        scores : pd.Series, optional
+            Asset scores for priority calculation (when priority='best_score_delta')
+        **kwargs
+            Additional context
+
+        Returns
+        -------
+        tuple[pd.Series, float]
+            New weights after turnover cap and total transaction cost
+        """
+        # Align indices
+        all_assets = current_weights.index.union(target_weights.index)
+        current = current_weights.reindex(all_assets, fill_value=0.0)
+        target = target_weights.reindex(all_assets, fill_value=0.0)
+
+        # Calculate desired trades
+        trades = target - current
+        total_desired_turnover = trades.abs().sum()
+
+        # If within turnover limit, execute all trades
+        if total_desired_turnover <= self.max_turnover:
+            actual_turnover = total_desired_turnover
+            new_weights = target.copy()
+        else:
+            # Need to scale trades to respect turnover cap
+            new_weights, actual_turnover = self._apply_turnover_cap(
+                current, target, trades, scores
+            )
+
+        # Apply transaction costs
+        cost = self._calculate_cost(actual_turnover)
+
+        return new_weights, cost
+
+    def _apply_turnover_cap(
+        self,
+        current: pd.Series,
+        target: pd.Series,
+        trades: pd.Series,
+        scores: Optional[pd.Series] = None,
+    ) -> Tuple[pd.Series, float]:
+        """Apply turnover cap with prioritized trade allocation."""
+
+        # Calculate trade priorities
+        priorities = self._calculate_priorities(current, target, trades, scores)
+
+        # Sort trades by priority (highest first)
+        trade_items = [
+            (asset, trade, priority)
+            for asset, trade, priority in zip(
+                trades.index, trades.values, priorities.values
+            )
+        ]
+        trade_items.sort(key=lambda x: x[2], reverse=True)
+
+        # Allocate turnover budget by priority
+        remaining_turnover = self.max_turnover
+        executed_trades = pd.Series(0.0, index=trades.index)
+
+        for asset, desired_trade, priority in trade_items:
+            if (
+                remaining_turnover <= TURNOVER_EPSILON
+            ):  # Check if remaining turnover is negligible
+                break
+
+            # Scale trade to fit remaining budget
+            trade_size = abs(desired_trade)
+            if (
+                trade_size <= remaining_turnover + TURNOVER_EPSILON
+            ):  # Allow for numerical precision tolerance
+                # Execute full trade
+                executed_trades[asset] = desired_trade
+                remaining_turnover -= trade_size
+            else:
+                # Execute partial trade within remaining budget
+                if desired_trade != 0:
+                    scale_factor = remaining_turnover / trade_size
+                    executed_trades[asset] = desired_trade * scale_factor
+                    remaining_turnover = 0
+
+        # Apply executed trades
+        new_weights = current + executed_trades
+
+        # Ensure weights are non-negative
+        new_weights = new_weights.clip(lower=0.0)
+
+        actual_turnover = executed_trades.abs().sum()
+
+        return new_weights, actual_turnover
+
+    def _calculate_priorities(
+        self,
+        current: pd.Series,
+        target: pd.Series,
+        trades: pd.Series,
+        scores: Optional[pd.Series] = None,
+    ) -> pd.Series:
+        """Calculate trade priorities based on configured priority method."""
+
+        if self.priority == "largest_gap":
+            # Prioritize by absolute size of the trade
+            priorities = trades.abs()
+
+        elif self.priority == "best_score_delta":
+            if scores is None:
+                # Fall back to largest_gap if no scores provided
+                priorities = trades.abs()
+            else:
+                # Prioritize by score-weighted trade benefit
+                # For positions we're increasing, use positive score
+                # For positions we're decreasing, use negative score
+                # (higher priority for dropping low-scored assets)
+                scores_aligned = scores.reindex(trades.index, fill_value=0.0)
+                priorities = trades * scores_aligned
+                # Take absolute value to ensure highest absolute priority wins
+                priorities = priorities.abs()
+        else:
+            # Default to largest_gap
+            priorities = trades.abs()
+
+        return priorities
+
+    def _calculate_cost(self, turnover: float) -> float:
+        """Calculate transaction cost based on turnover and cost basis points."""
+        return turnover * (self.cost_bps / 10000.0)
+
+
+@rebalancer_registry.register("periodic_rebalance")
+class PeriodicRebalanceStrategy(Rebalancer):
+    """Periodic rebalance strategy - rebalance every N periods."""
+
+    def __init__(self, params: Dict[str, Any] | None = None):
+        super().__init__(params)
+        self.interval = int(self.params.get("interval", 1))
+        self._period_count = 0
+
+    def apply(
+        self, current_weights: pd.Series, target_weights: pd.Series, **kwargs: Any
+    ) -> Tuple[pd.Series, float]:
+        """Apply periodic rebalancing."""
+        self._period_count += 1
+
+        if self._period_count >= self.interval:
+            # Time to rebalance
+            self._period_count = 0
+            all_assets = current_weights.index.union(target_weights.index)
+            new_weights = target_weights.reindex(all_assets, fill_value=0.0)
+            # No transaction costs in basic implementation
+            cost = 0.0
+        else:
+            # Keep current weights
+            new_weights = current_weights.copy()
+            cost = 0.0
+
+        return new_weights, cost
+
+
+@rebalancer_registry.register("drift_band")
+class DriftBandStrategy(Rebalancer):
+    """Drift band rebalancing strategy - rebalance when weights drift beyond bands."""
+
+    def __init__(self, params: Dict[str, Any] | None = None):
+        super().__init__(params)
+        self.band_pct = float(self.params.get("band_pct", 0.03))
+        self.min_trade = float(self.params.get("min_trade", 0.005))
+        self.mode = str(self.params.get("mode", "partial"))
+
+    def apply(
+        self, current_weights: pd.Series, target_weights: pd.Series, **kwargs: Any
+    ) -> Tuple[pd.Series, float]:
+        """Apply drift band rebalancing."""
+        # Align indices
+        all_assets = current_weights.index.union(target_weights.index)
+        current = current_weights.reindex(all_assets, fill_value=0.0)
+        target = target_weights.reindex(all_assets, fill_value=0.0)
+
+        # Calculate drift from target
+        drift = (current - target).abs()
+        needs_rebalance = drift > self.band_pct
+
+        if needs_rebalance.any():
+            if self.mode == "full":
+                # Full rebalance when any asset drifts
+                new_weights = target.copy()
+            else:  # partial
+                # Only rebalance assets that have drifted
+                new_weights = current.copy()
+                trades = target - current
+                # Only execute trades above minimum size
+                significant_trades = trades.abs() > self.min_trade
+                rebalance_assets = needs_rebalance & significant_trades
+                new_weights[rebalance_assets] = target[rebalance_assets]
+        else:
+            new_weights = current.copy()
+
+        # No transaction costs in basic implementation
+        cost = 0.0
+        return new_weights, cost
+
+
+@rebalancer_registry.register("vol_target_rebalance")
+class VolTargetRebalanceStrategy(Rebalancer):
+    """Scale weights to hit a target volatility based on recent equity curve."""
+
+    def __init__(self, params: Dict[str, Any] | None = None) -> None:
+        super().__init__(params)
+        self.target = float(self.params.get("target", 0.10))
+        self.window = int(self.params.get("window", 6))
+        self.lev_min = float(self.params.get("lev_min", 0.5))
+        self.lev_max = float(self.params.get("lev_max", 1.5))
+
+    def apply(
+        self, current_weights: pd.Series, target_weights: pd.Series, **kwargs: Any
+    ) -> Tuple[pd.Series, float]:
+        ec: List[float] = list(kwargs.get("equity_curve", []))
+        lev = 1.0
+        if len(ec) >= self.window + 1:
+            rets = pd.Series(
+                np.diff(ec[-(self.window + 1) :]) / ec[-(self.window + 1) : -1]
+            )
+            vol = float(rets.std(ddof=0)) * np.sqrt(12)
+            if vol > 0:
+                lev = float(np.clip(self.target / vol, self.lev_min, self.lev_max))
+        # Scale target weights by leverage; pass through target when no equity curve
+        return target_weights * lev, 0.0
+
+
+@rebalancer_registry.register("drawdown_guard")
+class DrawdownGuardStrategy(Rebalancer):
+    """Reduce exposure when portfolio experiences a drawdown."""
+
+    def __init__(self, params: Dict[str, Any] | None = None) -> None:
+        super().__init__(params)
+        self.dd_window = int(self.params.get("dd_window", 12))
+        self.dd_threshold = float(self.params.get("dd_threshold", 0.10))
+        self.guard_multiplier = float(self.params.get("guard_multiplier", 0.5))
+        self.recover_threshold = float(self.params.get("recover_threshold", 0.05))
+
+    def apply(
+        self, current_weights: pd.Series, target_weights: pd.Series, **kwargs: Any
+    ) -> Tuple[pd.Series, float]:
+        # Prefer explicit rb_state dict if provided, else fallback to generic state, else a local dict
+        rb_state_obj = kwargs.get("rb_state", kwargs.get("state"))
+        rb_state: Dict[str, Any] = (
+            rb_state_obj if isinstance(rb_state_obj, dict) else {}
+        )
+        # Equity curve can be passed either directly or via state
+        ec_in: Any = kwargs.get("equity_curve", rb_state.get("equity_curve", []))
+        ec: List[float] = list(ec_in)
+        guard_on = bool(rb_state.get("guard_on", False))
+        dd = 0.0
+        if ec:
+            sub = ec[-self.dd_window :] if len(ec) >= self.dd_window else ec
+            peak = max(sub)
+            cur = sub[-1]
+            if peak > 0:
+                dd = (cur / peak) - 1.0
+        if (not guard_on and dd <= -self.dd_threshold) or (
+            guard_on and dd <= -self.recover_threshold
+        ):
+            guard_on = True
+        elif guard_on and dd >= -self.recover_threshold:
+            guard_on = False
+        # Persist state back
+        rb_state["guard_on"] = guard_on
+        # Apply guard by scaling target weights; otherwise pass through target weights
+        scaled = target_weights * self.guard_multiplier if guard_on else target_weights
+        return scaled, 0.0
+
+
+# Registry of available strategies
+def create_rebalancing_strategy(
+    name: str, params: Dict[str, Any] | None = None
+) -> Rebalancer:
+    """Create a rebalancing strategy by name using the plugin registry."""
+    return create_rebalancer(name, params)
+
+
+def apply_rebalancing_strategies(
+    strategies: List[str],
+    strategy_params: Dict[str, Dict[str, Any]],
+    current_weights: pd.Series,
+    target_weights: pd.Series,
+    **kwargs: Any,
+) -> Tuple[pd.Series, float]:
+    """Apply multiple rebalancing strategies in sequence.
+
+    Parameters
+    ----------
+    strategies : list[str]
+        List of strategy names to apply in order
+    strategy_params : dict
+        Parameters for each strategy
+    current_weights : pd.Series
+        Current portfolio weights
+    target_weights : pd.Series
+        Target portfolio weights
+    **kwargs
+        Additional context for strategies
+
+    Returns
+    -------
+    tuple[pd.Series, float]
+        Final weights after all strategies and total cost
+    """
+    weights = current_weights.copy()
+    total_cost = 0.0
+
+    for strategy_name in strategies:
+        params = strategy_params.get(strategy_name, {})
+        strategy = create_rebalancing_strategy(strategy_name, params)
+        weights, cost = strategy.apply(weights, target_weights, **kwargs)
+        total_cost += cost
+
+    return weights, total_cost
+
+
+__all__ = [
+    "RebalancingStrategy",
+    "TurnoverCapStrategy",
+    "PeriodicRebalanceStrategy",
+    "DriftBandStrategy",
+    "VolTargetRebalanceStrategy",
+    "DrawdownGuardStrategy",
+    "create_rebalancing_strategy",
+    "apply_rebalancing_strategies",
+    "rebalancer_registry",
+]

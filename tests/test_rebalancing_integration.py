@@ -1,4 +1,4 @@
-"""Tests for rebalancing integration with multi-period engine."""
+"""Integration tests for rebalancing within the multi-period engine."""
 
 import pandas as pd
 import pytest
@@ -86,7 +86,7 @@ def test_run_schedule_with_multiple_strategies():
 
 
 def test_run_schedule_without_rebalancing():
-    """Test that run_schedule works without rebalancing strategies (backward compatibility)."""
+    """Run without rebalancing strategies (backward compatible)."""
     dates = ["2020-01", "2020-02"]
     assets = ["A", "B"]
 
