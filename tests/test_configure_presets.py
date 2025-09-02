@@ -1,7 +1,7 @@
 """Tests for the enhanced Configure page functionality."""
 
 from pathlib import Path
-import yaml  # type: ignore[import-untyped]
+import yaml
 
 
 class TestPresetLoading:
