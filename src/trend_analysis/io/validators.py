@@ -7,32 +7,26 @@ from typing import Tuple, List, Dict, Any, Optional
 import pandas as pd
 import numpy as np
 
-# Map human readable frequency labels to pandas `Period` codes.  These codes
-# can be fed directly to ``pd.PeriodIndex`` when normalising timestamps.
-#
-# The project previously used an indirection layer where monthly data mapped to
-# ``"ME"`` and was then converted to ``"M"`` for ``PeriodIndex``.  This extra
-# aliasing made it harder for downstream code (and tests) to reason about the
-# supported frequencies.  The new ``FREQUENCY_MAP`` exposes the final period
-# codes up front and is the single source of truth for frequency handling.
-FREQUENCY_MAP: Dict[str, str] = {
+# Map human readable frequency labels to legacy alias codes.  Earlier versions
+# of the project used indirections like ``"ME"`` (month‑end) which were then
+# converted to pandas ``PeriodIndex`` codes such as ``"M"``.  ``FREQ_ALIAS_MAP``
+# retains those aliases for backwards compatibility while ``FREQUENCY_MAP``
+# exposes the canonical pandas codes used throughout the codebase.
+FREQ_ALIAS_MAP: Dict[str, str] = {
     "daily": "D",
     "weekly": "W",
-    # ``M`` is the canonical month‑end frequency used by ``PeriodIndex``
-    "monthly": "M",
-    "quarterly": "Q",
-    # ``Y`` works for year‑end periods across pandas versions
-    "annual": "Y",
+    "monthly": "ME",
+    "quarterly": "QE",
+    "annual": "A",
 }
 
-# Map modern frequency codes (e.g., 'ME' for month-end) to legacy pandas period codes ('M' for month-end)
-PANDAS_FREQ_MAP = {"ME": "M"}
+# Translate legacy alias codes to the canonical pandas codes expected by
+# ``pd.PeriodIndex``.
+PANDAS_FREQ_MAP: Dict[str, str] = {"ME": "M", "QE": "Q", "A": "Y"}
 
-# Legacy mapping exposed for backwards compatibility with older code and tests
-# that expect pandas' period codes (e.g. "M" for month-end).
-FREQUENCY_MAP = {
-    human: ("Y" if alias == "A" else PANDAS_FREQ_MAP.get(alias, alias))
-    for human, alias in FREQ_ALIAS_MAP.items()
+# Public mapping of human‑readable labels to canonical pandas frequency codes.
+FREQUENCY_MAP: Dict[str, str] = {
+    human: PANDAS_FREQ_MAP.get(alias, alias) for human, alias in FREQ_ALIAS_MAP.items()
 }
 
 
@@ -223,8 +217,7 @@ def load_and_validate_upload(file_like: Any) -> Tuple[pd.DataFrame, Dict[str, An
     # ``Period`` codes using ``FREQUENCY_MAP``.  Default to monthly if detection
     # failed so downstream code still receives a valid index.
     freq_key = (validation.frequency or "").lower()
-    freq_alias = FREQ_ALIAS_MAP.get(freq_key, "ME")
-    pandas_freq = PANDAS_FREQ_MAP.get(freq_alias, freq_alias)
+    pandas_freq = FREQUENCY_MAP.get(freq_key, "M")
     df.index = pd.PeriodIndex(idx, freq=pandas_freq).to_timestamp(how="end")
     df = df.dropna(axis=1, how="all")
 
