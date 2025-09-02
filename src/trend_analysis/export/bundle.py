@@ -172,8 +172,7 @@ To reproduce these results:
 For more information about the Trend Analysis Project, visit:
 https://github.com/stranske/Trend_Model_Project
 
-Bundle created by Trend Analysis v{env.get('trend_analysis', 'unknown')}
-Git commit: {meta.get('git_hash', 'unavailable')[:8]}
+Git commit: {(meta.get('git_hash', 'unavailable') or 'unavailable')[:8]}
 """
             )
 
