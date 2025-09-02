@@ -2,7 +2,7 @@
 
 # validate_fast.sh - Intelligent fast validation for Codex commits
 # Automatically detects what type of validation is needed based on changes
-# Usage: ./scripts/validate_fast.sh [--full] [--fix] [--verbose] [--commit-range=HEAD~1] [--profile]
+# Usage: ./scripts/validate_fast.sh [--full] [--fix] [--verbose] [--profile] [--commit-range=HEAD~1]
 
 set -e
 
