@@ -5,6 +5,7 @@ import pandas as pd
 import subprocess
 import tempfile
 import sys
+import yaml
 from pathlib import Path
 
 from trend_analysis.config import Config
@@ -48,19 +49,28 @@ def make_test_config(csv_path: str) -> Config:
     )
 
 
+def _write_config(cfg_path: Path, config: Config) -> None:
+    """Write Config object to YAML file."""
+    config_dict = config.model_dump()
+    with open(cfg_path, "w", encoding="utf-8") as f:
+        yaml.safe_dump(config_dict, f, default_flow_style=False, sort_keys=False)
+
+
 def test_cli_api_golden_master():
     """Test that CLI and API produce identical outputs for same inputs."""
     # Create temporary test data
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = Path(tmp_dir)
         csv_file = tmp_path / "test_data.csv"
+        config_file = tmp_path / "test_config.yml"
 
         # Write test data
         df = make_test_data()
         df.to_csv(csv_file, index=False)
 
-        # Create config
+        # Create and write config
         cfg = make_test_config(str(csv_file))
+        _write_config(config_file, cfg)
 
         # Test API output
         api_result = api.run_simulation(cfg, df)
@@ -72,7 +82,7 @@ def test_cli_api_golden_master():
                 "-m",
                 "trend_analysis.run_analysis",
                 "-c",
-                str(csv_file).replace(".csv", "_config.yml"),
+                str(config_file),
                 "--detailed",
             ],
             cwd=Path(__file__).parent.parent,
