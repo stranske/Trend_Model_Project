@@ -1,0 +1,95 @@
+# Git and version control
+.git/
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+.env/
+venv/
+env/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Documentation build
+docs/_build/
+docs/build/
+
+# Testing and coverage
+.coverage
+.pytest_cache/
+.tox/
+htmlcov/
+.cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Development and temporary files
+*.log
+*.tmp
+temp/
+tmp/
+Old/
+notebooks/old/
+
+# Docker
+docker-compose.override.yml
+.dockerignore
+Dockerfile.dev
+
+# CI/CD
+.github/
+
+# Local configuration
+.env.local
+.env.*.local
+
+# Demo and test data (keep only essential demo files)
+hedge_fund_returns_with_indexes.csv
+Trend\ Universe\ Data.csv
+Portfolio_Test_Results_Summary.md
+TESTING_SUMMARY.md
+test_upload_app.py
+test_multi_period_selection.py
+
+# Keep only essential demo files for container
+# demo/ folder is needed for runtime
+
+# Test scripts
+test_docker.sh

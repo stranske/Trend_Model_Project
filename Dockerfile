@@ -4,25 +4,42 @@ FROM python:3.11-slim
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
-RUN useradd -m appuser
+RUN useradd -m -u 1001 appuser
 
 WORKDIR /app
 
-# Install Python dependencies
-COPY requirements.txt .
+# Copy requirements first for better Docker layer caching
+COPY requirements.txt pyproject.toml ./
+
+# Install Python dependencies with retry logic for network issues
 RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt
+    && pip install --no-cache-dir --timeout=300 --retries=3 -r requirements.txt \
+    && pip install --no-cache-dir pytest
 
-RUN pip install pytest
+# Copy source code and essential files
+COPY src/ ./src/
+COPY config/ ./config/
+COPY scripts/ ./scripts/
+COPY README.md LICENSE ./
 
-# Copy project
-COPY . .
-RUN pip install --no-cache-dir -e .[app]
+# Install the package in development mode for CLI access
+RUN pip install --no-cache-dir -e .[app] || \
+    (echo "Warning: Package installation failed. CLI may have limited functionality." && \
+     pip install --no-cache-dir streamlit streamlit-sortables)
 
+# Create demo data directory and ensure proper permissions
+RUN mkdir -p demo && \
+    chown -R appuser:appuser /app
+
+# Switch to non-root user
 USER appuser
 
+# Expose Streamlit port
 EXPOSE 8501
 
-HEALTHCHECK CMD curl --fail http://localhost:8501/_stcore/health || exit 1
+# Healthcheck for Streamlit app
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl --fail http://localhost:8501/_stcore/health || exit 1
 
-CMD ["streamlit", "run", "streamlit_app/app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+# Default command runs the main Streamlit app
+CMD ["streamlit", "run", "src/trend_portfolio_app/app.py", "--server.port=8501", "--server.address=0.0.0.0"]
