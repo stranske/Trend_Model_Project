@@ -98,7 +98,7 @@ def annual_return(
     if returns.empty:
         return _empty_like(returns, "annual_return")
 
-    n_periods = max(int(returns.shape[0]), 1)
+    n_periods = max(returns.shape[0], 1)
     if isinstance(returns, Series):
         prod_val = (1 + returns).prod()
         # Use numpy.asarray(...).item() to obtain a native Python scalar
