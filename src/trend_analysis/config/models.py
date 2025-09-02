@@ -122,11 +122,11 @@ if _HAS_PYDANTIC:
             # Use a plain dict for model_config to avoid type-checker issues when
             # Pydantic is not installed (tests toggle availability).
             model_config = {"extra": "ignore"}
-            # ``version`` must be a non-empty string. ``min_length`` handles the empty
-            # string case and produces the standard pydantic error message
-            # "String should have at least 1 character". A separate validator below
-            # ensures the field isn't composed solely of whitespace.
-            version: str = Field(min_length=1)
+            # ``version`` must be a non-empty string. Using ``StrictStr`` ensures
+            # Pydantic rejects non-string inputs with its standard error message
+            # "Input should be a valid string". ``min_length`` handles the empty
+            # string case, while a validator below rejects whitespace-only values.
+            version: _pyd.StrictStr = Field(min_length=1)  # type: ignore[valid-type]
             data: dict[str, Any] = Field(default_factory=dict)
             preprocessing: dict[str, Any] = Field(default_factory=dict)
             vol_adjust: dict[str, Any] = Field(default_factory=dict)
@@ -142,6 +142,8 @@ if _HAS_PYDANTIC:
             checkpoint_dir: str | None = None
             seed: int = 42
 
+            @field_validator("version")
+            def _ensure_version_not_whitespace(cls, v: str) -> str:
                 """Reject strings that consist only of whitespace."""
                 if not isinstance(v, str):
                     raise ValueError("Version field must be a string")
@@ -222,7 +224,7 @@ else:  # Fallback mode for tests without pydantic
             if not self.version.strip():
                 raise ValueError("Version field cannot be empty")
 
-            for field in [
+            for _field in [
                 "data",
                 "preprocessing",
                 "vol_adjust",
@@ -232,11 +234,8 @@ else:  # Fallback mode for tests without pydantic
                 "export",
                 "run",
             ]:
-                value = getattr(self, section, None)
-                if value is None:
-                    raise ValueError(f"{section} section is required")
-                if not isinstance(value, dict):
-                    raise ValueError(f"{section} must be a dictionary")
+                if not isinstance(getattr(self, _field), dict):
+                    raise ValueError(f"{_field} must be a dictionary")
 
         # Provide a similar API surface to pydantic for callers
         def model_dump(self) -> Dict[str, Any]:
