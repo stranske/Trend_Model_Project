@@ -80,6 +80,10 @@ portfolio:
     name: score_prop_bayes
     params:
       shrink_tau: 0.25
+  constraints:
+    long_only: true
+    max_weight: 0.25
+    group_caps: {}
 # ----------------------------------------------------------------------
 # BENCHMARKS
 # ----------------------------------------------------------------------
