@@ -16,12 +16,19 @@ def test_summary_table_snapshot() -> None:
     }
     bench = pd.Series(0.0, index=returns.index)
 
-    out = summary.summary_table(returns, weights, benchmark=bench, periods_per_year=12)
+    out = summary.summary_table(
+        returns,
+        weights,
+        benchmark=bench,
+        periods_per_year=12,
+        transaction_cost_bps=25,
+    )
 
-    assert out.loc["CAGR", "value"] == pytest.approx(0.01871797)
-    assert out.loc["vol", "value"] == pytest.approx(0.06557438)
-    assert out.loc["max_drawdown", "value"] == pytest.approx(0.02)
-    assert out.loc["information_ratio", "value"] == pytest.approx(0.30499714)
-    assert out.loc["sharpe", "value"] == pytest.approx(0.28544636)
+    assert out.loc["CAGR", "value"] == pytest.approx(0.012639995599)
+    assert out.loc["vol", "value"] == pytest.approx(0.065368187982)
+    assert out.loc["max_drawdown", "value"] == pytest.approx(0.0205)
+    assert out.loc["information_ratio", "value"] == pytest.approx(0.214171456060)
+    assert out.loc["sharpe", "value"] == pytest.approx(0.193366161568)
     assert out.loc["turnover", "value"] == pytest.approx(0.2)
+    assert out.loc["cost_impact", "value"] == pytest.approx(0.0005)
     assert out.loc["hit_rate", "value"] == pytest.approx(2 / 3)

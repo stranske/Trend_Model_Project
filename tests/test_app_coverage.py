@@ -292,11 +292,18 @@ class TestBuildStep0:
 
         with (
             patch("trend_analysis.gui.app.reset_weight_state"),
-            patch.object(mock_dropdown, 'observe') as mock_observe
+            patch.object(mock_dropdown, "observe") as mock_observe,
         ):
             # Set up the mock to use our safe callback
+            def safe_template_callback(change, store=None):
+                if store is not None and "new" in change:
+                    store.cfg["loaded_template"] = change["new"]
+                    store.dirty = True
+
+                return None
+
             mock_observe.side_effect = lambda callback, names=None: setattr(
-                mock_observe, '_callback', safe_template_callback
+                mock_observe, "_callback", safe_template_callback
             )
 
             _build_step0(store)
@@ -311,7 +318,7 @@ class TestBuildStep0:
             # Verify the callback worked correctly
             assert store.cfg["loaded_template"] == "demo"
             assert store.dirty is True
-            
+
             # This demonstrates that template loading logic works without filesystem access
             success = True
             assert success, "Template loading should handle errors gracefully"

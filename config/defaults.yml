@@ -59,6 +59,8 @@ portfolio:
   weighting_scheme: "equal" # equal | vol_inverse | custom
   rebalance_freq: "M" # M | Q | A | None
   leverage_cap: 2.0 # max gross exposure
+  transaction_cost_bps: 0       # linear cost per unit turnover
+  max_turnover: 1.0             # optional turnover cap (1.0 = no cap)
   rank:
     inclusion_approach: top_n     # top_n | top_pct | threshold
     n: 10                         # for top_n
