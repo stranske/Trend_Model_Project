@@ -76,6 +76,10 @@ def test_run_button_disabled_without_acceptance(monkeypatch):
     mock_st.title = MagicMock()
     mock_st.error = MagicMock()
     mock_st.stop = MagicMock()
+    mock_st.modal = MagicMock()  # Context manager
+    mock_st.checkbox = MagicMock()
+    mock_st.markdown = MagicMock()
+    mock_st.rerun = MagicMock()
     
     # Replace the module's st reference directly
     monkeypatch.setattr(module, "st", mock_st)
