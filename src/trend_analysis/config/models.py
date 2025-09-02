@@ -142,17 +142,9 @@ if _HAS_PYDANTIC:
             checkpoint_dir: str | None = None
             seed: int = 42
 
-            @field_validator("version", mode="before")
-            def _ensure_version_str(cls, v: Any) -> str:
-                """Ensure ``version`` is always a string."""
-                if not isinstance(v, str):
-                    raise ValueError("version must be a string")
-                return v
-
-
-            @field_validator("version")
-            def _ensure_version_not_whitespace(cls, v: str) -> str:
                 """Reject strings that consist only of whitespace."""
+                if not isinstance(v, str):
+                    raise ValueError("Version field must be a string")
                 if not v.strip():
                     raise ValueError("Version field cannot be empty")
                 return v
@@ -240,9 +232,11 @@ else:  # Fallback mode for tests without pydantic
                 "export",
                 "run",
             ]:
-                value = getattr(self, field, None)
-                if not isinstance(value, Mapping):
-                    raise ValueError(f"{field} must be a dictionary")
+                value = getattr(self, section, None)
+                if value is None:
+                    raise ValueError(f"{section} section is required")
+                if not isinstance(value, dict):
+                    raise ValueError(f"{section} must be a dictionary")
 
         # Provide a similar API surface to pydantic for callers
         def model_dump(self) -> Dict[str, Any]:
