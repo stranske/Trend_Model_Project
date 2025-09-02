@@ -52,7 +52,13 @@ def _build_summary_formatter(
         pct2_red = wb.add_format({"num_format": "0.00%", "font_color": "red"})
 
         def safe(v: float | str | None) -> str | float:
-            if pd.isna(v) or not pd.notna(v):
+            if v is None:
+                return ""
+            if isinstance(v, float):
+                if math.isnan(v):
+                    return ""
+                return v
+            if pd.isna(v):
                 return ""
             return v if isinstance(v, (int, float, str)) else ""
 
