@@ -48,6 +48,8 @@ Dynamic: license-file
 
 # Trend Model Project
 
+> **🚀 New User?** → **[Quick Start Guide](docs/quickstart.md)** — Get your first analysis running in under 10 minutes!
+
 This repository contains experiments and utilities for analyzing volatility-adjusted trend portfolios. The Jupyter notebooks demonstrate how to load hedge fund data, apply trend-following rules, and export the results.
 
 For a beginner-friendly overview, see [docs/UserGuide.md](docs/UserGuide.md).
