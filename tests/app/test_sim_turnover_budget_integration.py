@@ -6,7 +6,7 @@ from trend_portfolio_app.policy_engine import PolicyConfig, MetricSpec
 
 def test_simulator_turnover_budget_integration():
     # Construct a simple panel where we would, without budget, fire worst and hire best two.
-    dates = pd.period_range("2020-01", "2020-05", freq="M").to_timestamp("M")
+    dates = pd.period_range("2020-01", "2020-05", freq="M").to_timestamp(how="end")
     data = pd.DataFrame(
         {
             "A": [0.05, 0.05, 0.05, 0.05, 0.05],
@@ -16,6 +16,7 @@ def test_simulator_turnover_budget_integration():
         },
         index=dates,
     )
+    data["Date"] = dates
     sim = Simulator(data)
 
     policy = PolicyConfig(
