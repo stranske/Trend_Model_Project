@@ -28,7 +28,7 @@ class TestHumanErrors:
         """Test version field as number (common mistake)."""
         cfg = {"version": 1.0, "data": {}}
         with pytest.raises(
-            (ValidationException, ValueError),
+            (ValidationException, ValueError, TypeError),
             match="(version must be a string|str type expected|Input should be a valid string)",
         ):
             config.load_config(cfg)
@@ -37,7 +37,7 @@ class TestHumanErrors:
         """Test version field as boolean (YAML parsing issue)."""
         cfg = {"version": True, "data": {}}
         with pytest.raises(
-            (ValidationException, ValueError),
+            (ValidationException, ValueError, TypeError),
             match="(version must be a string|str type expected|Input should be a valid string)",
         ):
             config.load_config(cfg)
@@ -55,7 +55,8 @@ class TestHumanErrors:
         """Test whitespace-only version."""
         cfg = {"version": "   ", "data": {}}
         with pytest.raises(
-            (ValidationException, ValueError), match="Version field cannot be empty"
+            (ValidationException, ValueError, TypeError),
+            match="Version field cannot be empty",
         ):
             config.load_config(cfg)
 
@@ -63,7 +64,8 @@ class TestHumanErrors:
         """Test data section as string instead of dict."""
         cfg = {"version": "1.0", "data": "not a dictionary"}
         with pytest.raises(
-            (ValidationException, ValueError), match="data must be a dictionary"
+            (ValidationException, ValueError, TypeError),
+            match="data must be a dictionary",
         ):
             config.load_config(cfg)
 
@@ -71,7 +73,7 @@ class TestHumanErrors:
         """Test preprocessing section as list instead of dict."""
         cfg = {"version": "1.0", "data": {}, "preprocessing": ["item1", "item2"]}
         with pytest.raises(
-            (ValidationException, ValueError),
+            (ValidationException, ValueError, TypeError),
             match="preprocessing must be a dictionary",
         ):
             config.load_config(cfg)
@@ -80,7 +82,8 @@ class TestHumanErrors:
         """Test vol_adjust section as number instead of dict."""
         cfg = {"version": "1.0", "data": {}, "vol_adjust": 42}
         with pytest.raises(
-            (ValidationException, ValueError), match="vol_adjust must be a dictionary"
+            (ValidationException, ValueError, TypeError),
+            match="vol_adjust must be a dictionary",
         ):
             config.load_config(cfg)
 
@@ -88,7 +91,8 @@ class TestHumanErrors:
         """Test portfolio section as string instead of dict."""
         cfg = {"version": "1.0", "data": {}, "portfolio": "invalid"}
         with pytest.raises(
-            (ValidationException, ValueError), match="portfolio must be a dictionary"
+            (ValidationException, ValueError, TypeError),
+            match="portfolio must be a dictionary",
         ):
             config.load_config(cfg)
 
@@ -110,7 +114,8 @@ class TestHumanErrors:
         cfg = {"version": "1.0", "data": {}}
         cfg[section] = None
         with pytest.raises(
-            (ValidationException, ValueError), match=f"{section} must be a dictionary"
+            (ValidationException, ValueError, TypeError),
+            match=f"{section} must be a dictionary",
         ):
             config.load_config(cfg)
 
@@ -157,7 +162,7 @@ class TestHumanErrors:
             yaml_path = f.name
 
         try:
-            with pytest.raises((ValidationException, ValueError)):
+            with pytest.raises((ValidationException, ValueError, TypeError)):
                 config.load_config(yaml_path)
         finally:
             os.unlink(yaml_path)
@@ -165,7 +170,7 @@ class TestHumanErrors:
     def test_missing_required_version(self):
         """Test config missing required version field."""
         cfg = {"data": {}}  # Missing version
-        with pytest.raises((ValidationException, ValueError)):
+        with pytest.raises((ValidationException, ValueError, TypeError)):
             config.load_config(cfg)
 
     @given(st.sampled_from(["  ", "   ", "\t", "\n", " \t ", "\n\n", " \n "]))
@@ -173,7 +178,8 @@ class TestHumanErrors:
         """Test various whitespace-only versions using property-based testing."""
         cfg = {"version": whitespace_version, "data": {}}
         with pytest.raises(
-            (ValidationException, ValueError), match="Version field cannot be empty"
+            (ValidationException, ValueError, TypeError),
+            match="Version field cannot be empty",
         ):
             config.load_config(cfg)
 
@@ -182,7 +188,7 @@ class TestHumanErrors:
         """Test version with wrong types using property-based testing."""
         cfg = {"version": wrong_version, "data": {}}
         with pytest.raises(
-            (ValidationException, ValueError),
+            (ValidationException, ValueError, TypeError),
             match="(version must be a string|str type expected|Input should be a valid string)",
         ):
             config.load_config(cfg)

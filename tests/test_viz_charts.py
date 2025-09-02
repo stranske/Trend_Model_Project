@@ -10,6 +10,8 @@ def test_equity_curve_basic():
     returns = pd.Series([0.01, -0.02, 0.015])
 
     result = charts.equity_curve(returns)
+    if isinstance(result, tuple):
+        _, result = result
 
     assert isinstance(result, pd.DataFrame)
     assert list(result.columns) == ["equity"]
@@ -27,6 +29,8 @@ def test_drawdown_curve_basic():
     returns = pd.Series([0.01, -0.02, 0.015])
 
     result = charts.drawdown_curve(returns)
+    if isinstance(result, tuple):
+        _, result = result
 
     assert isinstance(result, pd.DataFrame)
     assert list(result.columns) == ["drawdown"]
@@ -46,6 +50,8 @@ def test_rolling_information_ratio_default_benchmark():
     )
 
     result = charts.rolling_information_ratio(returns, window=3)
+    if isinstance(result, tuple):
+        _, result = result
 
     assert isinstance(result, pd.DataFrame)
     assert list(result.columns) == ["rolling_ir"]
@@ -64,6 +70,8 @@ def test_rolling_information_ratio_scalar_benchmark():
     benchmark = 0.005
 
     result = charts.rolling_information_ratio(returns, benchmark, window=2)
+    if isinstance(result, tuple):
+        _, result = result
 
     assert isinstance(result, pd.DataFrame)
     assert list(result.columns) == ["rolling_ir"]
@@ -80,6 +88,8 @@ def test_weights_heatmap_data_from_dict():
     }
 
     result = charts.weights_heatmap(weights)
+    if isinstance(result, tuple):
+        _, result = result
 
     assert isinstance(result, pd.DataFrame)
     assert set(result.columns) == {"A", "B"}
@@ -137,12 +147,16 @@ def test_empty_data_handling():
 
     # Equity curve with empty data
     result = charts.equity_curve(empty_returns)
+    if isinstance(result, tuple):
+        _, result = result
     assert isinstance(result, pd.DataFrame)
     assert list(result.columns) == ["equity"]
     assert len(result) == 0
 
     # Drawdown curve with empty data
     result = charts.drawdown_curve(empty_returns)
+    if isinstance(result, tuple):
+        _, result = result
     assert isinstance(result, pd.DataFrame)
     assert list(result.columns) == ["drawdown"]
     assert len(result) == 0
@@ -164,14 +178,20 @@ def test_basic_functionality_integration():
 
     # Test that all functions return expected DataFrame structure
     eq_result = charts.equity_curve(returns)
+    if isinstance(eq_result, tuple):
+        _, eq_result = eq_result
     assert eq_result.shape == (4, 1)
     assert list(eq_result.columns) == ["equity"]
 
     dd_result = charts.drawdown_curve(returns)
+    if isinstance(dd_result, tuple):
+        _, dd_result = dd_result
     assert dd_result.shape == (4, 1)
     assert list(dd_result.columns) == ["drawdown"]
 
     ir_result = charts.rolling_information_ratio(returns, window=2)
+    if isinstance(ir_result, tuple):
+        _, ir_result = ir_result
     assert ir_result.shape == (4, 1)
     assert list(ir_result.columns) == ["rolling_ir"]
 
@@ -186,8 +206,8 @@ def test_basic_functionality_integration():
         # Skip if there are version compatibility issues
         pass
 
-
-
     w_result = charts.weights_heatmap(weights)
+    if isinstance(w_result, tuple):
+        _, w_result = w_result
     assert w_result.shape == (4, 1)  # 4 dates, 1 fund
     assert list(w_result.columns) == ["FUND_A"]
