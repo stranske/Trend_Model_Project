@@ -17,7 +17,7 @@ try:
     HAS_TA = True
 except Exception:
     HAS_TA = False
-    ta_pipeline = None  # type: ignore[assignment]
+    ta_pipeline = None
 
 
 def compute_score_frame_local(
