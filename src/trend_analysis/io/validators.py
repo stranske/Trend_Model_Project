@@ -26,19 +26,7 @@ PANDAS_FREQ_MAP: Dict[str, str] = {"ME": "M", "QE": "Q", "A": "Y"}
 
 # Public mapping of human‑readable labels to canonical pandas frequency codes.
 FREQUENCY_MAP: Dict[str, str] = {
-    human: PANDAS_FREQ_MAP.get(alias, alias) for human, alias in FREQ_ALIAS_MAP.items()
-}
-
-# Normalize frequency aliases to pandas Period codes
-PANDAS_FREQ_MAP: Dict[str, str] = {
-    "ME": "M",  # Month-end to Month for PeriodIndex compatibility
-    "A": "Y",   # Annual to Year
-}
-
-# Final frequency map for use throughout the codebase
-FREQUENCY_MAP: Dict[str, str] = {
-    key: PANDAS_FREQ_MAP.get(alias, alias)
-    for key, alias in FREQ_ALIAS_MAP.items()
+    key: PANDAS_FREQ_MAP.get(alias, alias) for key, alias in FREQ_ALIAS_MAP.items()
 }
 
 

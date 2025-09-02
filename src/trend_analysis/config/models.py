@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any, Dict, List, cast, ClassVar
+from typing import Any, Dict, List, cast, ClassVar, TYPE_CHECKING
 from collections.abc import Mapping
 
 import yaml
