@@ -6,7 +6,7 @@ from trend_portfolio_app.policy_engine import PolicyConfig, MetricSpec
 
 def test_simulator_diversification_guard_integration():
     # Two funds per bucket; ensure we don't exceed cap per review
-    dates = pd.period_range("2020-01", "2020-05", freq="M").to_timestamp("M")
+    dates = pd.period_range("2020-01", "2020-05", freq="M").to_timestamp(how="end")
     data = pd.DataFrame(
         {
             "A1": [0.05, 0.05, 0.05, 0.05, 0.05],
@@ -16,6 +16,7 @@ def test_simulator_diversification_guard_integration():
         },
         index=dates,
     )
+    data["Date"] = dates
     sim = Simulator(data)
     policy = PolicyConfig(
         top_k=3,

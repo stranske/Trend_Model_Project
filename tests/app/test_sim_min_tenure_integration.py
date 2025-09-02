@@ -6,7 +6,7 @@ from trend_portfolio_app.policy_engine import PolicyConfig, MetricSpec
 
 def test_simulator_min_tenure_integration():
     # Build a small dataset with clear ranking: A best, B mid, C worst
-    dates = pd.period_range("2020-01", "2020-06", freq="M").to_timestamp("M")
+    dates = pd.period_range("2020-01", "2020-06", freq="M").to_timestamp(how="end")
     data = pd.DataFrame(
         {
             "A": [0.05, 0.05, 0.05, 0.05, 0.05, -0.10],
@@ -15,6 +15,7 @@ def test_simulator_min_tenure_integration():
         },
         index=dates,
     )
+    data["Date"] = dates
 
     sim = Simulator(data)
     policy = PolicyConfig(

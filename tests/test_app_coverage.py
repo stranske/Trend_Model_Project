@@ -4,7 +4,8 @@ import sys
 import tempfile
 import yaml  # type: ignore[import-untyped]
 from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch, ANY, mock_open
+from unittest.mock import Mock, MagicMock, patch, ANY
+from trend_analysis.gui.store import ParamStore
 from trend_analysis.gui.app import (
     load_state,
     save_state,
@@ -12,7 +13,6 @@ from trend_analysis.gui.app import (
     _build_rank_options,
     launch,
 )
-from trend_analysis.gui.store import ParamStore
 
 
 def _cm_mock() -> MagicMock:
@@ -29,6 +29,7 @@ class TestLoadSaveState:
         """Test loading state when no file exists."""
         with patch("trend_analysis.gui.app.STATE_FILE") as mock_file:
             mock_file.exists.return_value = False
+            mock_file.open.return_value = _cm_mock()
             store = load_state()
             assert isinstance(store, ParamStore)
 
@@ -269,64 +270,28 @@ class TestBuildStep0:
         mock_dropdown = Mock()
         mock_widgets.FileUpload.return_value = Mock()
         mock_widgets.Dropdown.return_value = mock_dropdown
-
-        # Label widget is used as the grid when ipydatagrid isn't available.
-        # The grid's ``hold_trait_notifications`` method is used as a context
-        # manager inside ``refresh_grid`` so we need the mock to implement the
-        # context manager protocol to avoid warnings.
-        mock_label = Mock()
-        mock_label.hold_trait_notifications.return_value = _cm_mock()
-        mock_widgets.Label.return_value = mock_label
-
+        mock_widgets.Label.return_value = Mock()
         mock_widgets.Button.return_value = Mock()
         mock_widgets.VBox.return_value = Mock()
         mock_widgets.HBox.return_value = Mock()
 
         store = ParamStore()
 
-        def safe_template_callback(change, *, store: ParamStore) -> None:
-            """Minimal template loader used for the test.
-
-            The real callback in ``_build_step0`` reads a template file from disk
-            and updates the ``ParamStore``.  To keep this test isolated from the
-            filesystem we replace that behaviour with a simple function that just
-            records the selected template name and marks the store as dirty.
-            """
-
-            store.cfg["loaded_template"] = change["new"]
-            store.dirty = True
-
-        with (
-            patch("trend_analysis.gui.app.reset_weight_state"),
-            patch.object(mock_dropdown, "observe") as mock_observe,
-        ):
-            # Set up the mock to use our safe callback
-            def safe_template_callback(change, store=None):
-                if store is not None and "new" in change:
-                    store.cfg["loaded_template"] = change["new"]
-                    store.dirty = True
-
-                return None
-
-            mock_observe.side_effect = lambda callback, names=None: setattr(
-                mock_observe, "_callback", safe_template_callback
-            )
-
+        with patch("trend_analysis.gui.app.reset_weight_state"):
             _build_step0(store)
 
-            # Verify that observe was called (meaning template dropdown was set up)
-            mock_observe.assert_called()
-
-            # Invoke the safe callback to simulate a template selection
+            # Simulate template dropdown change with existing template
+            template_callback = mock_dropdown.observe.call_args[0][0]
             change_event = {"new": "demo"}
-            safe_template_callback(change_event, store=store)
 
-            # Verify the callback worked correctly
-            assert store.cfg["loaded_template"] == "demo"
-            assert store.dirty is True
+            # This should not crash - the function should handle any errors gracefully
+            try:
+                template_callback(change_event, store=store)
+                # If it doesn't crash, the error handling works
+                success = True
+            except Exception:
+                success = False
 
-            # This demonstrates that template loading logic works without filesystem access
-            success = True
             assert success, "Template loading should handle errors gracefully"
 
 

@@ -1,3 +1,5 @@
+"""Input/Output utilities for trend analysis."""
+
 from __future__ import annotations
 
 import os
@@ -6,19 +8,10 @@ import datetime
 import zipfile
 import tempfile
 import atexit
-from typing import Any, Dict, Protocol
 
 
 # Global registry for cleanup of temporary files
 _TEMP_FILES_TO_CLEANUP: list[str] = []
-
-
-class _HasPortfolioAndLog(Protocol):
-    portfolio: Any
-
-    def event_log_df(self) -> Any: ...
-
-    def summary(self) -> Dict[str, Any]: ...
 
 
 def _cleanup_temp_files() -> None:
@@ -37,7 +30,7 @@ def _cleanup_temp_files() -> None:
 atexit.register(_cleanup_temp_files)
 
 
-def export_bundle(results: _HasPortfolioAndLog, config_dict: Dict[str, Any]) -> str:
+def export_bundle(results, config_dict) -> str:
     """
     Export analysis results as a ZIP bundle.
 

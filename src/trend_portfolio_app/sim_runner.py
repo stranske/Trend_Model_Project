@@ -9,37 +9,8 @@ import numpy as np
 from .policy_engine import PolicyConfig, CooldownBook, decide_hires_fires
 from .event_log import Event, EventLog
 from .metrics_extra import AVAILABLE_METRICS
-from trend_analysis.constants import NUMERICAL_TOLERANCE_HIGH
 
 logger = logging.getLogger(__name__)
-
-
-def ensure_date_column(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Ensure DataFrame contains a properly formatted 'Date' column.
-
-    Args:
-        df: Input DataFrame to validate
-
-    Returns:
-        DataFrame with validated 'Date' column
-
-    Raises:
-        ValueError: If DataFrame lacks a 'Date' column that can be converted
-    """
-    if df is None:
-        raise ValueError("DataFrame is None")
-
-    if "Date" not in df.columns:
-        raise ValueError("DataFrame must contain a 'Date' column.")
-
-    try:
-        df = df.copy()
-        df["Date"] = pd.to_datetime(df["Date"], errors="raise")
-        return df
-    except (ValueError, TypeError) as e:
-        raise ValueError(f"Date column contains invalid date values: {e}") from e
-
 
 try:
     ta_pipeline = importlib.import_module("trend_analysis.pipeline")
@@ -55,6 +26,8 @@ def compute_score_frame_local(
     idx = panel.index
     out = {}
     for col in panel.columns:
+        if col == "Date":
+            continue
         r = panel[col].dropna()
         col_metrics = {}
         for name, spec in AVAILABLE_METRICS.items():
@@ -80,15 +53,15 @@ def compute_score_frame(
     insample_end: pd.Timestamp,
     rf_annual: float = 0.0,
 ) -> pd.DataFrame:
-    # Only try external function if DataFrame has a Date column
-    if HAS_TA and "Date" in panel.columns:
+    if "Date" not in panel.columns:
+        raise ValueError("DataFrame must contain a 'Date' column")
+
+    if HAS_TA:
         fn = getattr(ta_pipeline, "single_period_run", None)
         if callable(fn):
             try:
-                # Ensure Date column is properly formatted
-                validated_panel = ensure_date_column(panel)
                 sf = fn(
-                    validated_panel,
+                    panel,
                     insample_start.strftime("%Y-%m"),
                     insample_end.strftime("%Y-%m"),
                 )
@@ -96,16 +69,21 @@ def compute_score_frame(
                 return cast(pd.DataFrame, sf)
             except (ImportError, AttributeError) as e:
                 logger.warning(
-                    "External scoring function unavailable or misconfigured (ImportError/AttributeError): %s. Falling back to local implementation.",
+                    "External scoring function unavailable or misconfigured"
+                    " (ImportError/AttributeError): %s. Falling back to"
+                    " local implementation.",
                     e,
                 )
             except (ValueError, TypeError) as e:
                 logger.warning(
-                    "External scoring function failed due to invalid parameters or data (ValueError/TypeError): %s. Falling back to local implementation.",
+                    "External scoring function failed due to invalid"
+                    " parameters or data (ValueError/TypeError): %s."
+                    " Falling back to local implementation.",
                     e,
                 )
     return compute_score_frame_local(
-        panel.loc[insample_start:insample_end], rf_annual=rf_annual
+        panel.loc[insample_start:insample_end].drop(columns=["Date"], errors="ignore"),
+        rf_annual=rf_annual,
     )
 
 
@@ -163,9 +141,9 @@ class Simulator:
     def _gen_review_dates(
         self, start: pd.Timestamp, end: pd.Timestamp, freq: str
     ) -> List[pd.Timestamp]:
-        dates = pd.period_range(start=start, end=end, freq="M").to_timestamp()
+        dates = pd.period_range(start=start, end=end, freq="M").to_timestamp(how="end")
         if freq.startswith("q"):
-            dates = dates[dates.to_period("Q").to_timestamp() == dates]
+            dates = dates[dates.to_period("Q").to_timestamp(how="end") == dates]
         return list(dates)
 
     def run(
@@ -319,8 +297,8 @@ class Simulator:
         )
 
 
-# Use shared numerical tolerance constant to avoid divide-by-zero in IR calculations
-EPS = NUMERICAL_TOLERANCE_HIGH
+# Small epsilon to avoid divide-by-zero in IR calculations
+EPS = 1e-12
 
 
 def _apply_rebalance_pipeline(
@@ -335,7 +313,8 @@ def _apply_rebalance_pipeline(
     """Apply rebalancing strategies in order to realize target weights.
 
     Contract:
-    - Inputs: prev_weights (current holdings), target_weights (desired), date, rb_cfg (dict), rb_state (mutable), policy.
+        - Inputs: prev_weights (current holdings), target_weights (desired), date,
+            rb_cfg (dict), rb_state (mutable), policy.
     - Output: realized weights Series, index is union of prev/target; NaNs treated as 0.
     - Side effects: updates rb_state keys such as since_last_reb and risk stats.
     """
@@ -440,12 +419,12 @@ def _apply_rebalance_pipeline(
             dd_th = float(cfg.get("dd_threshold", 0.10))
             guard_mult = float(cfg.get("guard_multiplier", 0.5))
             recover = float(cfg.get("recover_threshold", 0.05))
-            ec: List[float] = list(rb_state.get("equity_curve", []))
+            eq_curve: List[float] = list(rb_state.get("equity_curve", []))
             guard_on = bool(rb_state.get("guard_on", False))
             dd = 0.0
-            if len(ec) >= 1:
+            if len(eq_curve) >= 1:
                 # Use trailing window if available
-                sub = ec[-dd_win:] if len(ec) >= dd_win else ec
+                sub = eq_curve[-dd_win:] if len(eq_curve) >= dd_win else eq_curve
                 peak = max(sub)
                 cur = sub[-1]
                 if peak > 0:

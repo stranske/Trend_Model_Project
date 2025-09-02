@@ -12,7 +12,7 @@ class ReturnModelConfig:
 
 
 class ReturnModel:
-    def fit(self, panel: pd.DataFrame):
+    def fit(self, panel: pd.DataFrame) -> None:
         raise NotImplementedError
 
     def sample(self, n_periods: int, n_paths: int) -> np.ndarray:
@@ -25,7 +25,7 @@ class BlockBootstrapModel(ReturnModel):
         self.panel = None
         self.rng = np.random.default_rng(cfg.seed)
 
-    def fit(self, panel: pd.DataFrame):
+    def fit(self, panel: pd.DataFrame) -> None:
         self.panel = panel.dropna(how="all")
 
     def sample(self, n_periods: int, n_paths: int) -> np.ndarray:

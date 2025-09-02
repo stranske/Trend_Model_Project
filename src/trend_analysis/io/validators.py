@@ -7,14 +7,22 @@ from typing import Tuple, List, Dict, Any, Optional
 import pandas as pd
 import numpy as np
 
-# Module-level constant mapping human-readable frequency names to pandas Period frequency codes
-# For PeriodIndex usage (pandas >=2.2 requires 'M' not 'ME' for periods)
-FREQUENCY_MAP = {
+# Map human readable frequency labels to pandas `Period` codes.  These codes
+# can be fed directly to ``pd.PeriodIndex`` when normalising timestamps.
+#
+# The project previously used an indirection layer where monthly data mapped to
+# ``"ME"`` and was then converted to ``"M"`` for ``PeriodIndex``.  This extra
+# aliasing made it harder for downstream code (and tests) to reason about the
+# supported frequencies.  The new ``FREQUENCY_MAP`` exposes the final period
+# codes up front and is the single source of truth for frequency handling.
+FREQUENCY_MAP: Dict[str, str] = {
     "daily": "D",
     "weekly": "W",
-    "monthly": "M",  # Month period (for PeriodIndex)
-    "quarterly": "Q",  # Quarter period
-    "annual": "Y",  # Year period
+    # ``M`` is the canonical month‑end frequency used by ``PeriodIndex``
+    "monthly": "M",
+    "quarterly": "Q",
+    # ``Y`` works for year‑end periods across pandas versions
+    "annual": "Y",
 }
 
 
@@ -92,8 +100,8 @@ def detect_frequency(df: pd.DataFrame) -> str:
 
 def validate_returns_schema(df: pd.DataFrame) -> ValidationResult:
     """Validate that a DataFrame conforms to the expected returns schema."""
-    issues = []
-    warnings = []
+    issues: List[str] = []
+    warnings: List[str] = []
 
     # Check for Date column
     if "Date" not in df.columns:
@@ -123,7 +131,10 @@ def validate_returns_schema(df: pd.DataFrame) -> ValidationResult:
                 numeric_issues.append(f"Column '{col}' contains no valid numeric data")
             elif non_null_count < len(df) * 0.5:
                 warnings.append(
-                    f"Column '{col}' has >50% missing values ({non_null_count}/{len(df)} valid)"
+                    (
+                        f"Column '{col}' has >50% missing values "
+                        f"({non_null_count}/{len(df)} valid)"
+                    )
                 )
         except Exception:
             numeric_issues.append(f"Column '{col}' cannot be converted to numeric")
@@ -135,9 +146,10 @@ def validate_returns_schema(df: pd.DataFrame) -> ValidationResult:
     # Check for duplicates
     if df["Date"].duplicated().any():
         dup_dates = df[df["Date"].duplicated()]["Date"].tolist()
-        issues.append(
-            f"Duplicate dates found: {dup_dates[:5]}{'...' if len(dup_dates) > 5 else ''}"
-        )
+        msg = "Duplicate dates found: " + str(dup_dates[:5])
+        if len(dup_dates) > 5:
+            msg += "..."
+        issues.append(msg)
 
     # Create a temporary DataFrame for frequency detection
     temp_df = df.copy()
@@ -153,14 +165,17 @@ def validate_returns_schema(df: pd.DataFrame) -> ValidationResult:
     # Additional checks
     if len(temp_df) < 12:
         warnings.append(
-            f"Dataset is quite small ({len(temp_df)} periods) - consider more data for robust analysis"
+            (
+                f"Dataset is quite small ({len(temp_df)} periods) - "
+                "consider more data for robust analysis"
+            )
         )
 
     is_valid = len(issues) == 0
     return ValidationResult(is_valid, issues, warnings, frequency, date_range)
 
 
-def load_and_validate_upload(file_like) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+def load_and_validate_upload(file_like: Any) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """Load and validate an uploaded file with enhanced validation."""
     # Determine file type
     name = getattr(file_like, "name", "").lower()
@@ -192,9 +207,14 @@ def load_and_validate_upload(file_like) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     df = df.set_index("Date").sort_index()
 
     # Normalize to period-end timestamps using detected frequency
+    # Use PeriodIndex.to_timestamp(how='end') to ensure end-of-period alignment
     idx = pd.to_datetime(df.index)
-    freq_alias = FREQUENCY_MAP.get(validation.frequency or "", "M")
-    df.index = pd.PeriodIndex(idx, freq=freq_alias).to_timestamp(how="end")
+    # Map human-friendly frequency labels (e.g. ``"monthly"``) to pandas
+    # ``Period`` codes using ``FREQUENCY_MAP``.  Default to monthly if detection
+    # failed so downstream code still receives a valid index.
+    freq_key = (validation.frequency or "").lower()
+    pandas_freq = FREQUENCY_MAP.get(freq_key, "M")
+    df.index = pd.PeriodIndex(idx, freq=pandas_freq).to_timestamp(how="end")
     df = df.dropna(axis=1, how="all")
 
     # Convert to numeric
@@ -221,7 +241,7 @@ def create_sample_template() -> pd.DataFrame:
     # Generate some sample return data
     np.random.seed(42)  # For reproducible sample data
     n_funds = 5
-    sample_data = {
+    sample_data: Dict[str, Any] = {
         "Date": dates,
     }
 
