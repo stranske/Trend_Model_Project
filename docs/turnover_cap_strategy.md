@@ -161,7 +161,7 @@ PYTHONPATH=./src python demo_turnover_cap.py
 
 The Turnover Cap Rebalancing Strategy is **production-ready** and fully integrated with the Trend Model Project infrastructure:
 
-- ✅ **Complete Implementation** in `src/trend_analysis/rebalancing.py`
+- ✅ **Complete Implementation** in `src/trend_analysis/rebalancing/strategies.py`
 - ✅ **Multi-Period Integration** in `src/trend_analysis/multi_period/engine.py`
 - ✅ **Comprehensive Testing** with 15 dedicated tests
 - ✅ **Full Documentation** with working examples
