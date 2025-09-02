@@ -50,7 +50,9 @@ def test_regex_performance_through_rank_select():
     execution_time = end_time - start_time
 
     print(
-        f"Optimized performance: {execution_time:.4f}s for {iterations} iterations with {len(fund_names)} funds"
+        "Optimized performance: "
+        f"{execution_time:.4f}s for {iterations} iterations with "
+        f"{len(fund_names)} funds"
     )
 
     # Performance should be reasonable - the optimization should provide fast execution

@@ -40,7 +40,7 @@ class PolicyConfig:
     ci_level: float = 0.0
     metrics: List[MetricSpec] = field(default_factory=list)
 
-    def dict(self):
+    def dict(self) -> Dict[str, Any]:
         return {
             "top_k": self.top_k,
             "bottom_k": self.bottom_k,
@@ -62,16 +62,16 @@ class PolicyConfig:
 
 
 class CooldownBook:
-    def __init__(self):
+    def __init__(self) -> None:
         self.map: Dict[str, int] = {}
 
-    def tick(self):
+    def tick(self) -> None:
         for k in list(self.map.keys()):
             self.map[k] = max(0, self.map[k] - 1)
             if self.map[k] == 0:
                 del self.map[k]
 
-    def set(self, key: str, months: int):
+    def set(self, key: str, months: int) -> None:
         self.map[key] = months
 
     def in_cooldown(self, key: str) -> bool:
@@ -181,7 +181,7 @@ def decide_hires_fires(
             # Graceful handling for unknowns: treat as singleton bucket by name
             return bucket_map.get(x, x)
 
-        counts = defaultdict(int)
+        counts: Dict[str, int] = defaultdict(int)
         for m in next_active:
             counts[bucket_of(m)] += 1
         for m in candidates:

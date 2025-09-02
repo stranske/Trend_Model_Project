@@ -44,6 +44,7 @@ numpy==2.3.2
     #   contourpy
     #   matplotlib
     #   pandas
+    #   scipy
 openpyxl==3.1.5
     # via trend-model (pyproject.toml)
 packaging==25.0
@@ -79,6 +80,8 @@ python-dateutil==2.9.0.post0
 pytz==2025.2
     # via pandas
 pyyaml==6.0.2
+    # via trend-model (pyproject.toml)
+scipy==1.16.1
     # via trend-model (pyproject.toml)
 six==1.17.0
     # via python-dateutil

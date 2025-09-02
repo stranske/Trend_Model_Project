@@ -11,14 +11,7 @@ import numpy as np
 import pandas as pd
 
 OUT_DIR = "demo"
-# Ensure demo directory exists with proper permissions
 os.makedirs(OUT_DIR, exist_ok=True)
-# Set permissions to ensure write access
-try:
-    os.chmod(OUT_DIR, 0o755)
-except (OSError, PermissionError):
-    # Silently continue if we can't set permissions
-    pass
 
 
 def main() -> None:
@@ -32,7 +25,7 @@ def main() -> None:
 
     start = dt.date.today().replace(year=dt.date.today().year - 10, day=1)
     periods = 120  # 10 years * 12 months
-    # Use month-end frequency; 'M' is deprecated in pandas in favor of 'ME'
+    # Use month-end frequency; pandas accepts 'ME' as an alias
     dates = pd.date_range(start, periods=periods, freq="ME")
 
     rng = np.random.default_rng(42)
@@ -53,27 +46,12 @@ def main() -> None:
 
     csv_path = f"{OUT_DIR}/demo_returns.csv"
     xlsx_path = f"{OUT_DIR}/demo_returns.xlsx"
-
-    try:
-        # Ensure files are writable if they exist
-        if os.path.exists(csv_path):
-            os.chmod(csv_path, 0o644)
-        if os.path.exists(xlsx_path):
-            os.chmod(xlsx_path, 0o644)
-
-        df.to_csv(csv_path)
-        if not args.no_xlsx:
-            df.to_excel(xlsx_path)
-            print(f"Wrote {csv_path} and {xlsx_path}")
-        else:
-            print(f"Wrote {csv_path}")
-    except PermissionError as e:
-        print(f"Permission error writing to {csv_path}: {e}")
-        print("Make sure the demo/ directory and files are writable")
-        raise
-    except Exception as e:
-        print(f"Error writing demo files: {e}")
-        raise
+    df.to_csv(csv_path)
+    if not args.no_xlsx:
+        df.to_excel(xlsx_path)
+        print(f"Wrote {csv_path} and {xlsx_path}")
+    else:
+        print(f"Wrote {csv_path}")
 
 
 if __name__ == "__main__":

@@ -1,17 +1,13 @@
 #!/usr/bin/env python3
+# ruff: noqa=E402
 """
 Demo script showing the before/after behavior of the export bundle fix.
 
 Run this to see the improvements in temporary file handling.
 """
 
-import sys
 import os
-import tempfile
-import time
-
-# Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+from unittest import mock
 
 from trend_analysis.io import export_bundle, _TEMP_FILES_TO_CLEANUP
 from unittest import mock

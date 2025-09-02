@@ -36,6 +36,7 @@ dependencies = [
     "hypothesis",
     "matplotlib",
     "ipywidgets",
+    "scipy",
 ]
 
 [project.urls]
