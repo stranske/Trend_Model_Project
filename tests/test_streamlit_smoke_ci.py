@@ -13,66 +13,35 @@ import sys
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from trend_analysis.api import run_simulation
-from trend_analysis.config import Config
+from trend_analysis.api import run_simulation  # noqa: E402
+from trend_analysis.config import Config  # noqa: E402
 
 
 @pytest.fixture(scope="module")
 def demo_data():
     """Create demo data for testing."""
-    demo_path = Path(__file__).parent.parent / "demo" / "demo_returns.csv"
-
-    # Try to generate demo data, but handle failures gracefully
-    try:
-        # Ensure demo directory exists and is writable
-        demo_dir = demo_path.parent
-        demo_dir.mkdir(exist_ok=True)
-
-        # If file exists, ensure it's writable
-        if demo_path.exists():
-            demo_path.chmod(0o644)
-
-        # Try to generate demo data - DO NOT use check=True to avoid raising on failure
-        result = subprocess.run(
-            ["python", "scripts/generate_demo.py"],
-            cwd=Path(__file__).parent.parent,
-            capture_output=True,
-            text=True,
-            # Explicitly ensure we don't raise on subprocess failure
-            check=False,
-        )
-
-        # Check if generation was successful - do not exit or raise on failure
-        if result.returncode != 0:
-            print(f"Demo generation failed with exit code {result.returncode}")
-            print(f"STDERR: {result.stderr}")
-            print("Using fallback demo data instead")
-            # DO NOT raise or exit here - fallback is acceptable
-
-    except Exception as e:
-        print(f"Demo generation failed with exception: {e}")
-        print("Using fallback demo data instead")
-        # DO NOT re-raise or exit here - fallback is acceptable
-
-    # Try to load the generated demo data
-    if demo_path.exists():
-        try:
-            return pd.read_csv(demo_path)
-        except Exception as e:
-            print(f"Failed to load generated demo data: {e}")
-            print("Using fallback demo data instead")
-            # DO NOT raise or exit here - fallback will be used
-
-    # Fallback: create minimal demo data
-    dates = pd.date_range("2020-01-31", periods=24, freq="ME")
-    return pd.DataFrame(
-        {
-            "Date": dates,
-            "Asset_A": [0.01, -0.02, 0.03, 0.01, 0.02, -0.01] * 4,
-            "Asset_B": [0.02, -0.01, 0.02, -0.01, 0.03, 0.01] * 4,
-            "RF": [0.0] * 24,
-        }
+    # Generate demo data
+    subprocess.run(
+        ["python", "scripts/generate_demo.py"],
+        cwd=Path(__file__).parent.parent,
+        check=True,
     )
+
+    # Load the generated demo data
+    demo_path = Path(__file__).parent.parent / "demo" / "demo_returns.csv"
+    if demo_path.exists():
+        return pd.read_csv(demo_path)
+    else:
+        # Fallback: create minimal demo data
+        dates = pd.date_range("2020-01-31", periods=24, freq="ME")
+        return pd.DataFrame(
+            {
+                "Date": dates,
+                "Asset_A": [0.01, -0.02, 0.03, 0.01, 0.02, -0.01] * 4,
+                "Asset_B": [0.02, -0.01, 0.02, -0.01, 0.03, 0.01] * 4,
+                "RF": [0.0] * 24,
+            }
+        )
 
 
 @pytest.fixture(scope="module")
@@ -316,7 +285,8 @@ def test_end_to_end_analysis_simulation(demo_data, demo_config):
     assert not demo_data.empty
     assert "Date" in demo_data.columns
     print(
-        f"✅ Demo data validated: {len(demo_data)} rows, {len(demo_data.columns)} columns"
+        "✅ Demo data validated: "
+        f"{len(demo_data)} rows, {len(demo_data.columns)} columns"
     )
 
     # Step 2: Run analysis
@@ -366,6 +336,7 @@ def test_run_page_imports_successfully():
     sys.modules["streamlit"] = Mock()
 
     spec = importlib.util.spec_from_file_location("run_page", run_page_path)
+    assert spec is not None and spec.loader is not None
     run_page = importlib.util.module_from_spec(spec)
 
     # Should not raise any import errors
@@ -383,31 +354,8 @@ if __name__ == "__main__":
     print("Running Streamlit app smoke tests...")
 
     # Test 1: Generate and validate demo data
-    try:
-        # Ensure demo directory exists and is writable
-        demo_dir = Path("demo")
-        demo_dir.mkdir(exist_ok=True)
-
-        # Try to generate demo data - explicitly set check=False
-        result = subprocess.run(
-            ["python", "scripts/generate_demo.py"],
-            capture_output=True,
-            text=True,
-            # Ensure subprocess failure doesn't cause this script to exit
-            check=False,
-        )
-
-        if result.returncode == 0:
-            print("✅ Demo data generation test passed")
-        else:
-            print(f"⚠️  Demo data generation failed (exit code {result.returncode})")
-            print(f"STDERR: {result.stderr}")
-            print("This is acceptable - tests will use fallback data")
-            # DO NOT exit or raise here - fallback data is acceptable
-    except Exception as e:
-        print(f"⚠️  Demo data generation failed with exception: {e}")
-        print("This is acceptable - tests will use fallback data")
-        # DO NOT re-raise or exit here - fallback is acceptable
+    subprocess.run(["python", "scripts/generate_demo.py"], check=True)
+    print("✅ Demo data generation test passed")
 
     # Test 2: Check Run page exists
     run_page_path = Path("app/streamlit/pages/03_Run.py")
@@ -423,6 +371,7 @@ if __name__ == "__main__":
 
     sys.modules["streamlit"] = Mock()
     spec = importlib.util.spec_from_file_location("run_page", run_page_path)
+    assert spec is not None and spec.loader is not None
     run_page = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(run_page)
     print("✅ Run page import test passed")
