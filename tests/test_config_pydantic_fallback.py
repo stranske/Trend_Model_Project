@@ -61,9 +61,10 @@ def test_config_validation_with_pydantic():
     from pydantic import ValidationError
 
     # Test validation error with pydantic
+    # Pydantic's error message changed across versions; accept either form
     with pytest.raises(
         (ValidationError, TypeError),
-        match="(Input should be a valid string|version must be a string)",
+        match=r"(Input should be a valid string|version must be a string)",
     ):
         Config(version=123)
 
