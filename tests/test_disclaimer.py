@@ -53,11 +53,14 @@ def setup_session_state(accepted: bool):
 def test_run_button_disabled_without_acceptance(monkeypatch):
     module = load_run_module()
 
+    # Create an isolated session state to avoid pollution from other tests
+    isolated_session_state = MockSessionState()
+    
     # Bypass UI in disclaimer component
     monkeypatch.setattr(
         module,
         "show_disclaimer",
-        lambda: st.session_state.get("disclaimer_accepted", False),
+        lambda: isolated_session_state.get("disclaimer_accepted", False),
     )
 
     flag = SimpleNamespace(value=None)
@@ -66,12 +69,34 @@ def test_run_button_disabled_without_acceptance(monkeypatch):
         flag.value = bool(disabled)
         return False
 
-    monkeypatch.setattr(st, "button", fake_button)
+    # Mock streamlit in the loaded module to prevent pollution 
+    mock_st = MagicMock()
+    mock_st.session_state = isolated_session_state
+    mock_st.button = fake_button
+    mock_st.title = MagicMock()
+    mock_st.error = MagicMock()
+    mock_st.stop = MagicMock()
+    
+    # Replace the module's st reference directly
+    monkeypatch.setattr(module, "st", mock_st)
 
-    setup_session_state(accepted=False)
+    # First test: disclaimer NOT accepted
+    isolated_session_state.clear()
+    isolated_session_state["returns_df"] = pd.DataFrame(
+        {"A": [0.1]}, index=pd.to_datetime(["2020-01-31"])
+    )
+    isolated_session_state["sim_config"] = {
+        "start": pd.Timestamp("2020-01-31"),
+        "end": pd.Timestamp("2020-01-31"),
+        "lookback_months": 0,
+        "risk_target": 1.0,
+    }
+    isolated_session_state["disclaimer_accepted"] = False
+    
     module.main()
     assert flag.value is True
 
-    setup_session_state(accepted=True)
+    # Second test: disclaimer accepted
+    isolated_session_state["disclaimer_accepted"] = True
     module.main()
     assert flag.value is False
