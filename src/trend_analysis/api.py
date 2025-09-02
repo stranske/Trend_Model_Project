@@ -42,15 +42,18 @@ def run_simulation(config: Config, returns: pd.DataFrame) -> RunResult:
     """
     seed = getattr(config, "seed", 42)
     split = config.sample_split
-    
-    logger.info("run_simulation start", extra={
-        "config_version": config.version,
-        "seed": seed,
-        "in_period": f"{split.get('in_start')} → {split.get('in_end')}",
-        "out_period": f"{split.get('out_start')} → {split.get('out_end')}",
-        "data_shape": returns.shape if returns is not None else None,
-    })
-    
+
+    logger.info(
+        "run_simulation start",
+        extra={
+            "config_version": config.version,
+            "seed": seed,
+            "in_period": f"{split.get('in_start')} → {split.get('in_end')}",
+            "out_period": f"{split.get('out_start')} → {split.get('out_end')}",
+            "data_shape": returns.shape if returns is not None else None,
+        },
+    )
+
     # Set random seeds for deterministic behavior
     # Note: PYTHONHASHSEED must be set before Python starts, so we don't set it here
     random.seed(seed)
@@ -110,9 +113,12 @@ def run_simulation(config: Config, returns: pd.DataFrame) -> RunResult:
         "pandas": pd.__version__,
     }
 
-    logger.info("run_simulation end", extra={
-        "metrics_count": len(metrics_df) if not metrics_df.empty else 0,
-        "benchmark_count": len(res.get("benchmark_ir", {})),
-        "seed": seed,
-    })
+    logger.info(
+        "run_simulation end",
+        extra={
+            "metrics_count": len(metrics_df) if not metrics_df.empty else 0,
+            "benchmark_count": len(res.get("benchmark_ir", {})),
+            "seed": seed,
+        },
+    )
     return RunResult(metrics=metrics_df, details=res, seed=seed, environment=env)

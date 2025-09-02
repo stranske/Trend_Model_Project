@@ -44,7 +44,7 @@ python -c "from src.trend_analysis.io.validators import load_and_validate_upload
 ```
 
 ## Screenshots Available
-- Upload interface: https://github.com/user-attachments/assets/d02a7d95-808a-4704-b279-5b3f67fdb1d5
-- Template section: https://github.com/user-attachments/assets/2972a4c3-5b9d-484c-853a-1d924f86693e
+- Upload interface: ![Upload Interface](assets/screenshots/upload-interface.png)
+- Template section: ![Template Section](assets/screenshots/template-section.png)
 
 All acceptance criteria from issue #412 have been met and validated.

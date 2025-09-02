@@ -5,6 +5,7 @@ consistent across the project.  It deliberately avoids any project
 specific dependencies so it can be imported from light‑weight contexts
 like test helpers or build scripts.
 """
+
 from __future__ import annotations
 
 from pathlib import Path

@@ -151,7 +151,14 @@ if [[ "$FAST_MODE" == false ]]; then
     fi
 
     echo ""
-    if ! run_validation "Unit tests" "pytest tests/ -v --tb=short" ""; then
+    # Use conditional verbosity for pytest based on VERBOSE_MODE
+    if [[ "$VERBOSE_MODE" == true ]]; then
+        PYTEST_VERBOSITY="-v --tb=short"
+    else
+        PYTEST_VERBOSITY="-q"
+    fi
+    
+    if ! run_validation "Unit tests" "pytest tests/ $PYTEST_VERBOSITY" ""; then
         VALIDATION_SUCCESS=false
         FAILED_CHECKS+=("Unit tests")
     fi

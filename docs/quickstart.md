@@ -62,139 +62,86 @@ The analysis tool has a simple step-by-step workflow:
 ![Main Interface](https://github.com/user-attachments/assets/276458a5-7f78-4e06-bf9c-738aef239611)
 
 ### Step 1: Upload Your Data
-
-![Upload Interface](https://github.com/user-attachments/assets/440c3e0c-b0a6-468d-916e-4bb92e036442)
-
-The easiest way to get started:
-
-1. **Click "Load demo data"** - uses the included 10-year synthetic dataset
-2. **Or upload your CSV** - drag and drop or browse for your own data
+- Click the file uploader and select your CSV file
+- The first column should be dates, followed by fund return columns
+- Data should cover at least 24 months for meaningful analysis
 
 ### Step 2: Choose Your Analysis Style
+Three preset strategies are available:
 
-![Configure with Presets](https://github.com/user-attachments/assets/a919ee74-a644-48f7-a1ec-0ecdef5a9f2b)
-
-The tool includes three ready-made presets designed for different risk preferences:
-
-#### 🛡️ **Conservative**
-- **Best for**: Risk-averse investors, retirement planning
-- **Strategy**: Longer 60-month lookback, fewer (5) holdings, stability-focused metrics
-- **Target volatility**: 8% (lower risk)
-- **Rebalancing**: Quarterly (less frequent changes)
-
-#### ⚖️ **Balanced** 
-- **Best for**: Most users looking for steady growth
-- **Strategy**: 36-month lookback, moderate (10) holdings, balanced risk-return
-- **Target volatility**: 10% (moderate risk)
-- **Rebalancing**: Monthly (standard frequency)
-
-#### 🚀 **Aggressive**
-- **Best for**: Performance-focused investors, growth portfolios
-- **Strategy**: Shorter 24-month lookback, more (15) holdings, return-focused
-- **Target volatility**: 15% (higher risk)
-- **Rebalancing**: Monthly with fast response to changes
+- **Conservative**: Low turnover, stable selections
+- **Balanced**: Moderate turnover, balanced approach
+- **Aggressive**: High turnover, dynamic selections
 
 ### Step 3: Run Your Analysis
-1. **Select your preset** from the dropdown (Conservative, Balanced, or Aggressive)
-2. **Save configuration** - click the "💾 Save Configuration" button  
-3. **Navigate to Run** - click the "Run" tab in the sidebar
-4. **Wait 30-60 seconds** for the analysis to complete
+- Click "Run Analysis" to start the computation
+- Progress bars will show the analysis status
+- Results appear in real-time as calculations complete
 
 ### Step 4: View Your Results
-Navigate to the "Results" tab to see:
-
-**Portfolio Performance**
-- Total return over the selected time period
-- Month-by-month portfolio returns
-- Comparison to market benchmarks
-
-**Risk Metrics**
-- **Sharpe Ratio**: Return per unit of risk (higher is better)
-- **Maximum Drawdown**: Largest peak-to-trough decline
-- **Volatility**: Portfolio risk level
-- **Information Ratio**: Performance vs. benchmark
-
-**Fund Selection Details**
-- Which specific funds were chosen and why
-- Individual fund performance during selection period
-- Portfolio weights assigned to each fund
+The results dashboard shows:
+- **Performance Charts**: Visual performance over time
+- **Key Metrics**: Sharpe ratios, returns, volatility measures
+- **Fund Rankings**: Which funds were selected and when
+- **Risk Analysis**: Drawdowns and risk-adjusted returns
 
 ### Step 5: Export Your Results
-Navigate to the "Export" tab and click **"Download Results Bundle"** to get:
-- `portfolio_returns.csv` - Your portfolio performance data
-- `summary.json` - Key metrics and statistics  
-- `config.json` - Exact settings used for this analysis
-- `event_log.csv` - Detailed selection and rebalancing history
+- Download results as Excel, CSV, or JSON formats
+- Export charts as high-resolution images
+- Save configurations for future runs
 
 ---
 
 ## 📁 Using Your Own Data
 
 ### Data Format Requirements
-Your CSV file should have this structure:
 
+
+**Example CSV:**
 ```csv
-Date,Fund_A,Fund_B,Fund_C,Market_Index
-2020-01-31,0.02,-0.01,0.03,0.015
-2020-02-28,-0.03,0.025,-0.01,-0.08
-2020-03-31,0.01,0.015,0.02,0.12
-```
-
-**Requirements:**
-- **Date column**: First column with dates (YYYY-MM-DD format preferred)
-- **Return columns**: Monthly returns as decimals (0.02 = 2% return)
-- **Minimum data**: At least 36 months recommended for reliable analysis
-- **Frequency**: Monthly data works best
-
+Date,FUND_A,FUND_B,FUND_C
+2021-01-31,0.02,0.015,0.018
+2021-02-28,0.01,0.012,0.017
+2021-03-31,-0.005,0.02,0.013
 ### Uploading Your Data
-1. **Click "Upload CSV"** in the sidebar
-2. **Select your file** from your computer
-3. **Map columns**: Tell the app which column contains dates
-4. **Proceed with analysis** using any of the three presets
+1. Prepare your CSV with the format above
+2. Use the "Upload" section in the sidebar
+3. Map columns if auto-detection fails
+4. Verify data preview looks correct
+5. Proceed to configuration
 
 ### Sample Datasets Included
-- `demo/demo_returns.csv` - 10 years of synthetic fund data with 20 managers
-- `demo/extended_returns.csv` - 20 years of data including market crisis periods
-- Ready to use with all three presets
+The app includes demo datasets to get started:
+- **Basic Demo**: Simple 8-fund universe
+- **Extended Demo**: Larger fund universe with benchmarks
+- **Historical Example**: Real market data examples
 
 ---
 
 ## 💻 Command Line Usage (Advanced)
 
-**Best for:** Users who want to automate analysis or integrate with scripts.
+For users comfortable with the command line:
 
-### Basic Command Line Run
 ```bash
-# Use demo data with balanced preset
+# Activate environment
+source .venv/bin/activate
+
+# Run analysis with config
 PYTHONPATH="./src" python -m trend_analysis.run_analysis -c config/demo.yml
-```
 
-### Using Different Presets
-The tool includes preset configurations you can use directly:
-```bash
-# Conservative analysis  
-PYTHONPATH="./src" python -m trend_analysis.run_analysis -c config/conservative.yml
-
-# Aggressive analysis
-PYTHONPATH="./src" python -m trend_analysis.run_analysis -c config/aggressive.yml
+# Generate demo data
+python scripts/generate_demo.py
 ```
 
 ---
 
 ## 🔧 Customization
 
-### Modifying Presets
-After selecting a preset in the web interface:
-1. **Adjust time periods**: Change in-sample/out-of-sample split dates
-2. **Modify fund selection**: Change the number of funds to select
-3. **Update risk parameters**: Adjust target volatility levels
-4. **Change metrics**: Weight different performance measures
-
-### Saving Custom Settings
-1. **Configure your preferences** in the web interface
-2. **Download the configuration** as a YAML file
-3. **Reuse the configuration** by uploading it later
-4. **Share configurations** with your team
+Advanced users can modify:
+- **Configuration files** in the `config/` directory
+- **Selection strategies** via custom weighting methods
+- **Export formats** and output destinations
+- **Risk parameters** and volatility targets
 
 ---
 
@@ -256,14 +203,16 @@ After selecting a preset in the web interface:
 
 ## ✅ 10-Minute Success Checklist
 
-After following this guide, you should have:
-- [ ] **Application running** (Docker or local installation)
-- [ ] **Demo data loaded** or your own data uploaded
-- [ ] **Preset selected** (Conservative, Balanced, or Aggressive)  
+- [ ] **Docker installed and running** (or Python environment set up)
+- [ ] **App launched** at http://localhost:8501
+- [ ] **Demo data uploaded** or your own CSV prepared
+- [ ] **Preset selected** (start with Conservative)
 - [ ] **Analysis completed** with results displayed
-- [ ] **Key metrics understood** (Sharpe ratio, returns, drawdown)
-- [ ] **Results exported** for further analysis
+- [ ] **Results exported** in your preferred format
 
-**🎊 Congratulations!** You've completed your first volatility-adjusted trend analysis.
-
-The tool has analyzed historical fund performance, selected the best performers based on your chosen criteria, and constructed an optimized portfolio. You now have quantitative insights into fund selection and portfolio construction that typically require expensive institutional tools.
+**🎉 Congratulations!** You've successfully run your first trend analysis.  
+ 
+👉 To **upload your own data**, see the [UserGuide.md](UserGuide.md#data-upload) for step-by-step instructions.  
+👉 To **explore different settings and presets**, check the [config/](../config/) folder and the [UserGuide.md](UserGuide.md#customization) for details on customizing your analysis.  
+ 
+Unlock the full potential of the system by trying out these customization options!

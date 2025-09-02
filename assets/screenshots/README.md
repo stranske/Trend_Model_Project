@@ -1,12 +1,13 @@
 # Screenshot Placeholders
 
-This directory contains screenshots for the quickstart guide.
+This directory contains screenshots for the quickstart guide and documentation.
 
 ## Screenshots Needed:
 
-1. **upload-process.png** - Shows the file upload interface and column mapping
-2. **preset-selection.png** - Shows the three preset options (Conservative, Balanced, Aggressive)  
-3. **results-dashboard.png** - Shows the analysis results with charts and metrics
+1. **upload-interface.png** - Shows the file upload interface and column mapping
+2. **template-section.png** - Shows the template download section 
+3. **preset-selection.png** - Shows the three preset options (Conservative, Balanced, Aggressive)  
+4. **results-dashboard.png** - Shows the analysis results with charts and metrics
 
 ## Creating Screenshots:
 
@@ -19,10 +20,15 @@ To create these screenshots:
 
 ## Workflow to Screenshot:
 
-### Upload Process (upload-process.png):
+### Upload Interface (upload-interface.png):
 - Main page with file uploader
-- CSV file selected
-- Column mapping interface showing date and fund columns
+- Drag-and-drop interface visible
+- Upload button and file selection dialog
+
+### Template Section (template-section.png):  
+- Template download section expanded
+- Sample data preview visible
+- Download button for CSV template
 
 ### Preset Selection (preset-selection.png):  
 - Configuration page with preset dropdown
