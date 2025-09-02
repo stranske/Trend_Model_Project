@@ -142,6 +142,14 @@ if _HAS_PYDANTIC:
             checkpoint_dir: str | None = None
             seed: int = 42
 
+            @field_validator("version", mode="before")
+            def _ensure_version_str(cls, v: Any) -> str:
+                """Ensure ``version`` is always a string."""
+                if not isinstance(v, str):
+                    raise ValueError("version must be a string")
+                return v
+
+
             @field_validator("version")
             def _ensure_version_not_whitespace(cls, v: str) -> str:
                 """Reject strings that consist only of whitespace."""
@@ -162,10 +170,6 @@ if _HAS_PYDANTIC:
             )
             def _ensure_dict(cls, v: Any, info: _ValidationInfo) -> dict[str, Any]:
                 if not isinstance(v, dict):
-                    # Raising ``ValueError`` ensures pydantic wraps the failure in a
-                    # ``ValidationError`` and tests without pydantic receive a plain
-                    # ``ValueError``.  ``info.field_name`` contains the section name
-                    # being validated.
                     raise ValueError(f"{info.field_name} must be a dictionary")
                 return v
 
@@ -219,13 +223,14 @@ else:  # Fallback mode for tests without pydantic
         def _validate(self) -> None:  # Simple runtime validation
             if getattr(self, "version", None) is None:
                 raise ValueError("version field is required")
-            # Reuse shared helper for consistency with pydantic version
-            self.version = _validate_version_value(self.version)
+            if not isinstance(self.version, str):
+                raise ValueError("version must be a string")
+            if len(self.version) == 0:
+                raise ValueError("String should have at least 1 character")
+            if not self.version.strip():
+                raise ValueError("Version field cannot be empty")
 
-            # Ensure key sections are dictionaries.  Tests exercise these
-            # validations extensively to guard against common YAML mistakes
-            # such as providing numbers or lists instead of mappings.
-            for section in [
+            for field in [
                 "data",
                 "preprocessing",
                 "vol_adjust",
@@ -235,9 +240,9 @@ else:  # Fallback mode for tests without pydantic
                 "export",
                 "run",
             ]:
-                value = getattr(self, section)
-                if not isinstance(value, dict):
-                    raise ValueError(f"{section} must be a dictionary")
+                value = getattr(self, field, None)
+                if not isinstance(value, Mapping):
+                    raise ValueError(f"{field} must be a dictionary")
 
         # Provide a similar API surface to pydantic for callers
         def model_dump(self) -> Dict[str, Any]:
