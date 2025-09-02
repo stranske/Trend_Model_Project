@@ -10,6 +10,49 @@ from trend_analysis.viz import charts
 from trend_analysis.metrics import summary
 
 
+def _create_line_chart_with_download(
+    data_df: "pd.DataFrame", chart_title: str, button_label: str, filename: str
+) -> None:
+    """Create a line chart with CSV download functionality.
+    
+    Args:
+        data_df: DataFrame containing the chart data
+        chart_title: Title to display above the chart
+        button_label: Label for the download button
+        filename: Name of the CSV file for download
+    """
+    st.subheader(chart_title)
+    st.line_chart(data_df)
+    buf = io.StringIO()
+    data_df.to_csv(buf)
+    st.download_button(
+        button_label,
+        data=buf.getvalue(),
+        file_name=filename,
+        mime="text/csv",
+    )
+
+
+def _create_csv_download_button(
+    data_df: "pd.DataFrame", button_label: str, filename: str
+) -> None:
+    """Create a CSV download button for data.
+    
+    Args:
+        data_df: DataFrame containing the data
+        button_label: Label for the download button  
+        filename: Name of the CSV file for download
+    """
+    buf = io.StringIO()
+    data_df.to_csv(buf)
+    st.download_button(
+        button_label,
+        data=buf.getvalue(),
+        file_name=filename,
+        mime="text/csv",
+    )
+
+
 st.title("Results")
 
 if "sim_results" not in st.session_state:
@@ -26,67 +69,32 @@ weights = getattr(res, "weights", {})
 # ---------------------------------------------------------------------------
 c1, c2 = st.columns(2)
 with c1:
-    st.subheader("Equity curve")
     ec_df = charts.equity_curve(returns)
-    st.line_chart(ec_df)
-    buf = io.StringIO()
-    ec_df.to_csv(buf)
-    st.download_button(
-        "Equity curve (CSV)",
-        data=buf.getvalue(),
-        file_name="equity_curve.csv",
-        mime="text/csv",
+    _create_line_chart_with_download(
+        ec_df, "Equity curve", "Equity curve (CSV)", "equity_curve.csv"
     )
 with c2:
-    st.subheader("Drawdown")
     dd_df = charts.drawdown_curve(returns)
-    st.line_chart(dd_df)
-    buf = io.StringIO()
-    dd_df.to_csv(buf)
-    st.download_button(
-        "Drawdown (CSV)",
-        data=buf.getvalue(),
-        file_name="drawdown_curve.csv",
-        mime="text/csv",
+    _create_line_chart_with_download(
+        dd_df, "Drawdown", "Drawdown (CSV)", "drawdown_curve.csv"
     )
 
 c3, c4 = st.columns(2)
 with c3:
-    st.subheader("Rolling info ratio")
     ir_df = charts.rolling_information_ratio(returns, benchmark)
-    st.line_chart(ir_df)
-    buf = io.StringIO()
-    ir_df.to_csv(buf)
-    st.download_button(
-        "Rolling IR (CSV)",
-        data=buf.getvalue(),
-        file_name="rolling_ir.csv",
-        mime="text/csv",
+    _create_line_chart_with_download(
+        ir_df, "Rolling info ratio", "Rolling IR (CSV)", "rolling_ir.csv"
     )
 with c4:
-    st.subheader("Turnover")
     to_df = charts.turnover_series(weights)
-    st.line_chart(to_df)
-    buf = io.StringIO()
-    to_df.to_csv(buf)
-    st.download_button(
-        "Turnover (CSV)",
-        data=buf.getvalue(),
-        file_name="turnover.csv",
-        mime="text/csv",
+    _create_line_chart_with_download(
+        to_df, "Turnover", "Turnover (CSV)", "turnover.csv"
     )
 
 st.subheader("Portfolio weights")
 w_df = charts.weights_heatmap_data(weights)
 st.dataframe(w_df.style.background_gradient(cmap="viridis"))
-buf = io.StringIO()
-w_df.to_csv(buf)
-st.download_button(
-    "Weights (CSV)",
-    data=buf.getvalue(),
-    file_name="weights.csv",
-    mime="text/csv",
-)
+_create_csv_download_button(w_df, "Weights (CSV)", "weights.csv")
 
 # ---------------------------------------------------------------------------
 # Summary table
@@ -94,11 +102,4 @@ st.download_button(
 st.subheader("Summary")
 sum_df = summary.summary_table(returns, weights, benchmark)
 st.table(sum_df)
-buf = io.StringIO()
-sum_df.to_csv(buf)
-st.download_button(
-    "Summary (CSV)",
-    data=buf.getvalue(),
-    file_name="summary.csv",
-    mime="text/csv",
-)
+_create_csv_download_button(sum_df, "Summary (CSV)", "summary.csv")
