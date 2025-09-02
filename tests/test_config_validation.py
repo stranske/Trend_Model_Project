@@ -11,6 +11,7 @@ from trend_analysis import config  # noqa: E402
 # Try to import ValidationError, fallback to ValueError for environments without pydantic
 try:
     from pydantic import ValidationError
+
     ValidationException = ValidationError
 except ImportError:
     ValidationException = ValueError

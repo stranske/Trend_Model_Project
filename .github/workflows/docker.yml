@@ -5,6 +5,12 @@ on:
     branches: [ phase-2-dev ]
   pull_request:
   workflow_dispatch:
+    inputs:
+      debug_build:
+        description: 'Enable verbose test output for debugging'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   build:
@@ -27,6 +33,13 @@ jobs:
         run: docker build -t ghcr.io/${{ github.repository_owner }}/trend-model:latest .
       - name: Run test suite
         run: |
-          docker run --rm ghcr.io/${{ github.repository_owner }}/trend-model:latest pytest -q
+          # Use verbose output only for debug builds, quiet mode for production
+          if [ "${{ github.event.inputs.debug_build }}" = "true" ]; then
+            echo "Running tests with verbose output for debugging..."
+            docker run --rm ghcr.io/${{ github.repository_owner }}/trend-model:latest pytest -v --tb=short
+          else
+            echo "Running tests with quiet output for production build..."
+            docker run --rm ghcr.io/${{ github.repository_owner }}/trend-model:latest pytest -q
+          fi
       - name: Push image
         run: docker push ghcr.io/${{ github.repository_owner }}/trend-model:latest

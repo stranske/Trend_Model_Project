@@ -2,7 +2,7 @@
 
 # validate_fast.sh - Intelligent fast validation for Codex commits
 # Automatically detects what type of validation is needed based on changes
-# Usage: ./scripts/validate_fast.sh [--full] [--fix] [--commit-range=HEAD~1] [--profile]
+# Usage: ./scripts/validate_fast.sh [--full] [--fix] [--verbose] [--profile] [--commit-range=HEAD~1]
 
 set -e
 
@@ -18,6 +18,7 @@ NC='\033[0m'
 # Configuration
 FULL_CHECK=false
 FIX_MODE=false
+VERBOSE_MODE=false
 COMMIT_RANGE="HEAD~1"
 PROFILE_MODE=false
 START_TIME=$(date +%s)
@@ -30,6 +31,9 @@ for arg in "$@"; do
             ;;
         --fix)
             FIX_MODE=true
+            ;;
+        --verbose)
+            VERBOSE_MODE=true
             ;;
         --commit-range=*)
             COMMIT_RANGE="${arg#*=}"
@@ -220,7 +224,14 @@ case "$VALIDATION_STRATEGY" in
         
         # Quick test (only if test files changed)
         if [[ $TOTAL_TEST -gt 0 ]]; then
-            if ! run_fast_check "Quick tests" "pytest $TEST_FILES -v --tb=short -x" ""; then
+            # Use conditional verbosity for pytest
+            if [[ "$VERBOSE_MODE" == true ]]; then
+                PYTEST_VERBOSITY="-v --tb=short -x"
+            else
+                PYTEST_VERBOSITY="-q -x"
+            fi
+            
+            if ! run_fast_check "Quick tests" "pytest $TEST_FILES $PYTEST_VERBOSITY" ""; then
                 VALIDATION_SUCCESS=false
                 FAILED_CHECKS+=("Quick tests")
             fi
@@ -242,7 +253,14 @@ case "$VALIDATION_STRATEGY" in
             FAILED_CHECKS+=("Type checking")
         fi
         
-        if ! run_fast_check "All tests" "pytest tests/ -v --tb=short" ""; then
+        # Use conditional verbosity for pytest
+        if [[ "$VERBOSE_MODE" == true ]]; then
+            PYTEST_VERBOSITY="-v --tb=short"
+        else
+            PYTEST_VERBOSITY="-q"
+        fi
+        
+        if ! run_fast_check "All tests" "pytest tests/ $PYTEST_VERBOSITY" ""; then
             VALIDATION_SUCCESS=false
             FAILED_CHECKS+=("All tests")
         fi
