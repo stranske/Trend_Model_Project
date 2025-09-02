@@ -105,8 +105,6 @@ def weights_heatmap(
     """Return heatmap figure and DataFrame of portfolio weights."""
 
     w_df = _weights_to_frame(weights)
-    if w_df.empty:
-        raise ValueError("weights cannot be empty")
     fig, ax = plt.subplots()
     cax = ax.imshow(w_df.T.values, aspect="auto", interpolation="none", origin="lower")
     ax.set_yticks(range(len(w_df.columns)))
