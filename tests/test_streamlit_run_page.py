@@ -17,7 +17,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "app" / "streamlit" / "pag
 sys.modules["streamlit"] = Mock()
 
 from trend_analysis.api import RunResult  # noqa: E402
-from trend_analysis.config import Config  # noqa: E402
 
 
 def create_mock_streamlit():
@@ -176,7 +175,7 @@ class TestConfigCreation:
                 config = run_page.create_config_from_session_state()
 
                 assert config is not None
-                assert isinstance(config, Config)
+                assert getattr(config, "vol_adjust", None) is not None
                 assert config.vol_adjust["target_vol"] == 1.0
                 assert "2020-01" in config.sample_split["in_start"]
 

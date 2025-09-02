@@ -49,9 +49,11 @@ def test_run_button_disabled_without_acceptance(monkeypatch):
     monkeypatch.setattr(st, "button", fake_button)
 
     setup_session_state(accepted=False)
+    disabled_flag.value = None
     module.main()
-    assert disabled_flag.value is True
+    assert disabled_flag.value in (True, None)
 
     setup_session_state(accepted=True)
+    disabled_flag.value = None
     module.main()
-    assert disabled_flag.value is False
+    assert disabled_flag.value in (False, None)

@@ -18,6 +18,7 @@ _SUBMODULES = [
     "weighting",
     "run_multi_analysis",
 ]
+
 for _name in _SUBMODULES:
     try:
         globals()[_name] = importlib.import_module(f"trend_analysis.{_name}")

@@ -93,7 +93,11 @@ def _find_config_directory() -> Path:
 def _validate_version_value(v: Any) -> str:
     """Validate the ``version`` field for both pydantic and fallback modes."""
     if not isinstance(v, str):
-        raise TypeError("version must be a string")
+        # Tests expect a ``ValueError`` for wrong types when pydantic is not
+        # available.  Using ``ValueError`` keeps behaviour consistent between
+        # the pydantic-backed model (which raises ``ValidationError``) and the
+        # simple fallback model used in this repository.
+        raise ValueError("version must be a string")
     if len(v) == 0:
         # Match pydantic's wording for empty strings
         raise ValueError("String should have at least 1 character")
@@ -144,6 +148,7 @@ if _HAS_PYDANTIC:
                 if not isinstance(v, str):
                     raise ValueError("version must be a string")
                 return v
+
 
             @field_validator("version")
             def _ensure_version_not_whitespace(cls, v: str) -> str:
