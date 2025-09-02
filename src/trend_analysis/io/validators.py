@@ -29,7 +29,6 @@ FREQUENCY_MAP: Dict[str, str] = {
     human: PANDAS_FREQ_MAP.get(alias, alias) for human, alias in FREQ_ALIAS_MAP.items()
 }
 
-
 class ValidationResult:
     """Result of schema validation with detailed feedback."""
 
@@ -214,7 +213,7 @@ def load_and_validate_upload(file_like: Any) -> Tuple[pd.DataFrame, Dict[str, An
     # Use PeriodIndex.to_timestamp(how='end') to ensure end-of-period alignment
     idx = pd.to_datetime(df.index)
     # Map human-friendly frequency labels (e.g. ``"monthly"``) to pandas
-    # ``Period`` codes using ``FREQUENCY_MAP``.  Default to monthly if detection
+    # ``Period`` codes using ``FREQUENCY_MAP``. Default to monthly if detection
     # failed so downstream code still receives a valid index.
     freq_key = (validation.frequency or "").lower()
     pandas_freq = FREQUENCY_MAP.get(freq_key, "M")
