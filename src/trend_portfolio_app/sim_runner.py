@@ -13,7 +13,7 @@ from .metrics_extra import AVAILABLE_METRICS
 logger = logging.getLogger(__name__)
 
 try:
-    ta_pipeline = importlib.import_module("trend_analysis.pipeline")
+    ta_pipeline: Any = importlib.import_module("trend_analysis.pipeline")
     HAS_TA = True
 except Exception:
     HAS_TA = False

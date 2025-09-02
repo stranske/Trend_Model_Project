@@ -2,6 +2,7 @@
 
 import importlib
 import importlib.metadata
+from typing import Any
 
 # Attempt to import submodules.  Some of them pull in optional heavy
 # dependencies (e.g. ``matplotlib``).  Missing extras shouldn't prevent
@@ -29,8 +30,23 @@ for _name in _SUBMODULES:
         # Optional dependency for this submodule is missing; skip exposing it.
         pass
 
+# Forward declarations for static type checkers; actual values are assigned
+# dynamically above via importlib. This avoids mypy complaints about names
+# listed in __all__ not being present in the module at type-check time.
+metrics: Any
+config: Any
+data: Any
+pipeline: Any
+export: Any
+selector: Any
+weighting: Any
+run_multi_analysis: Any
+api: Any
+
 if "data" in globals():
-    from .data import load_csv, identify_risk_free_fund  # type: ignore  # Conditional import: 'data' submodule may not always be present due to optional dependencies.
+    # Conditional import: 'data' submodule may not always be present
+    # due to optional dependencies.
+    from .data import load_csv, identify_risk_free_fund
 
 if "export" in globals():
     from .export import (

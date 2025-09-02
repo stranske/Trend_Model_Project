@@ -16,13 +16,17 @@ import yaml
 
 # Pydantic import (optional in tests)
 # Use temporary underscored names within the branch, then export public names
+# Provide explicit annotations so static type checkers accept reassignment
+# across the try/except fallback paths.
+_BaseModel: Any
+_ValidationInfo: Any
 try:  # pragma: no cover - exercised via tests toggling availability
     import pydantic as _pyd
 
-    _BaseModel = _pyd.BaseModel
-    _Field = _pyd.Field
-    _ValidationInfo = _pyd.ValidationInfo
-    _field_validator = _pyd.field_validator
+    _BaseModel = cast(Any, _pyd.BaseModel)
+    _Field = cast(Any, _pyd.Field)
+    _ValidationInfo = cast(Any, _pyd.ValidationInfo)
+    _field_validator = cast(Any, _pyd.field_validator)
 
     _HAS_PYDANTIC = True
 except ImportError:  # pragma: no cover
@@ -111,70 +115,70 @@ if _HAS_PYDANTIC:
     import builtins as _bi
 
     _cached = getattr(_bi, "_TREND_CONFIG_CLASS", None)
+    PydanticConfigBase = cast(Any, BaseModel if _cached is None else _cached)
 
-    if _cached is not None:
-        Config = _cached  # type: ignore[assignment]
-    else:
+    # Provide a typed decorator wrapper to satisfy mypy in strict mode
+    from typing import Callable, TypeVar
 
-        class Config(BaseModel):  # type: ignore[valid-type,misc]
-            """Typed access to the YAML configuration (Pydantic mode)."""
+    F = TypeVar("F")
 
-            # Use a plain dict for model_config to avoid type-checker issues when
-            # Pydantic is not installed (tests toggle availability).
-            model_config = {"extra": "ignore"}
-            # ``version`` must be a non-empty string. ``min_length`` handles the empty
-            # string case and produces the standard pydantic error message
-            # "String should have at least 1 character". A separate validator below
-            # ensures the field isn't composed solely of whitespace.
-            version: str = Field(min_length=1)
-            data: dict[str, Any] = Field(default_factory=dict)
-            preprocessing: dict[str, Any] = Field(default_factory=dict)
-            vol_adjust: dict[str, Any] = Field(default_factory=dict)
-            sample_split: dict[str, Any] = Field(default_factory=dict)
-            portfolio: dict[str, Any] = Field(default_factory=dict)
-            benchmarks: dict[str, str] = Field(default_factory=dict)
-            metrics: dict[str, Any] = Field(default_factory=dict)
-            export: dict[str, Any] = Field(default_factory=dict)
-            output: dict[str, Any] | None = None
-            run: dict[str, Any] = Field(default_factory=dict)
-            multi_period: dict[str, Any] | None = None
-            jobs: int | None = None
-            checkpoint_dir: str | None = None
-            seed: int = 42
+    def _fv_typed(*args: Any, **kwargs: Any) -> Callable[[F], F]:
+        return cast(Callable[[F], F], field_validator(*args, **kwargs))
 
-                """Reject strings that consist only of whitespace."""
-                if not isinstance(v, str):
-                    raise ValueError("Version field must be a string")
-                if not v.strip():
-                    raise ValueError("Version field cannot be empty")
-                return v
+    class _PydanticConfigImpl(PydanticConfigBase):  # type: ignore[misc, valid-type]
+        """Typed access to the YAML configuration (Pydantic mode)."""
 
-            @field_validator(
-                "data",
-                "preprocessing",
-                "vol_adjust",
-                "sample_split",
-                "portfolio",
-                "metrics",
-                "export",
-                "run",
-                mode="before",
-            )
-            def _ensure_dict(cls, v: Any, info: _ValidationInfo) -> dict[str, Any]:
-                if not isinstance(v, dict):
-                    raise ValueError(f"{info.field_name} must be a dictionary")
-                return v
+        # Use a plain dict for model_config to avoid type-checker issues when
+        # Pydantic is not installed (tests toggle availability).
+        model_config = {"extra": "ignore"}
+        # ``version`` must be a non-empty string. ``min_length`` handles the empty
+        # string case and produces the standard pydantic error message
+        # "String should have at least 1 character". A separate validator below
+        # ensures the field isn't composed solely of whitespace.
+        version: str = Field(min_length=1)
+        data: dict[str, Any] = Field(default_factory=dict)
+        preprocessing: dict[str, Any] = Field(default_factory=dict)
+        vol_adjust: dict[str, Any] = Field(default_factory=dict)
+        sample_split: dict[str, Any] = Field(default_factory=dict)
+        portfolio: dict[str, Any] = Field(default_factory=dict)
+        benchmarks: dict[str, str] = Field(default_factory=dict)
+        metrics: dict[str, Any] = Field(default_factory=dict)
+        export: dict[str, Any] = Field(default_factory=dict)
+        output: dict[str, Any] | None = None
+        run: dict[str, Any] = Field(default_factory=dict)
+        multi_period: dict[str, Any] | None = None
+        jobs: int | None = None
+        checkpoint_dir: str | None = None
+        seed: int = 42
 
-        setattr(_bi, "_TREND_CONFIG_CLASS", Config)
-        # Keep package-level alias in sync for consistent isinstance checks
-        import sys as _sys
+        @_fv_typed("version", mode="before")
+        def _validate_version(cls, v: Any) -> str:  # noqa: N805 - pydantic validator
+            """Reject strings that consist only of whitespace."""
+            return _validate_version_value(v)
 
-        _pkg = _sys.modules.get("trend_analysis.config")
-        if _pkg is not None:  # pragma: no cover
-            setattr(_pkg, "Config", Config)
+        @_fv_typed(
+            "data",
+            "preprocessing",
+            "vol_adjust",
+            "sample_split",
+            "portfolio",
+            "metrics",
+            "export",
+            "run",
+            mode="before",
+        )
+        def _ensure_dict(cls, v: Any, info: Any) -> dict[str, Any]:
+            if not isinstance(v, dict):
+                raise ValueError(f"{info.field_name} must be a dictionary")
+            return v
+
+    # Only cache when creating a fresh class
+    if _cached is None:
+        setattr(_bi, "_TREND_CONFIG_CLASS", _PydanticConfigImpl)
+
 else:  # Fallback mode for tests without pydantic
 
-    class Config(SimpleBaseModel):  # type: ignore[no-redef]
+    class _FallbackConfig(SimpleBaseModel):
         """Simplified Config for environments without Pydantic."""
 
         # Attribute declarations for linters/type-checkers
@@ -232,11 +236,11 @@ else:  # Fallback mode for tests without pydantic
                 "export",
                 "run",
             ]:
-                value = getattr(self, section, None)
+                value = getattr(self, field, None)
                 if value is None:
-                    raise ValueError(f"{section} section is required")
+                    raise ValueError(f"{field} section is required")
                 if not isinstance(value, dict):
-                    raise ValueError(f"{section} must be a dictionary")
+                    raise ValueError(f"{field} must be a dictionary")
 
         # Provide a similar API surface to pydantic for callers
         def model_dump(self) -> Dict[str, Any]:
@@ -261,12 +265,13 @@ else:  # Fallback mode for tests without pydantic
                 ]
             }
 
-    # Keep package-level alias in sync when using fallback
-    import sys as _sys
+    # Fallback does not modify package attributes at runtime
 
-    _pkg = _sys.modules.get("trend_analysis.config")
-    if _pkg is not None:  # pragma: no cover
-        setattr(_pkg, "Config", Config)
+# Public alias selected at runtime for callers
+if _HAS_PYDANTIC:
+    Config = cast(Any, globals().get("_PydanticConfigImpl"))
+else:
+    Config = cast(Any, globals().get("_FallbackConfig"))
 
 
 class PresetConfig(SimpleBaseModel):
@@ -416,7 +421,7 @@ def list_available_presets() -> List[str]:
 DEFAULTS = Path(__file__).resolve().parents[3] / "config" / "defaults.yml"
 
 
-def load_config(cfg: Mapping[str, Any] | str | Path) -> Config:
+def load_config(cfg: Mapping[str, Any] | str | Path) -> Any:
     """Load configuration from a mapping or file path."""
     if isinstance(cfg, (str, Path)):
         return load(cfg)
@@ -425,7 +430,7 @@ def load_config(cfg: Mapping[str, Any] | str | Path) -> Config:
     raise TypeError("cfg must be a mapping or path")
 
 
-def load(path: str | Path | None = None) -> Config:
+def load(path: str | Path | None = None) -> Any:
     """Load configuration from ``path`` or ``DEFAULTS``.
     If ``path`` is ``None``, the ``TREND_CFG`` environment variable is
     consulted before falling back to ``DEFAULTS``.

@@ -9,11 +9,12 @@ from ..plugins import WeightEngine, weight_engine_registry
 
 
 def _cov_to_corr(cov: pd.DataFrame) -> pd.DataFrame:
-    std = np.sqrt(np.diag(cov))
-    corr = cov / np.outer(std, std)
-    corr = pd.DataFrame(corr, index=cov.index, columns=cov.columns)
-    np.fill_diagonal(corr.values, 1.0)
-    return corr
+    std: np.ndarray = np.sqrt(np.diag(cov))
+    # Construct the outer product as a DataFrame to preserve types for mypy
+    denom = pd.DataFrame(np.outer(std, std), index=cov.index, columns=cov.columns)
+    corr_df: pd.DataFrame = cov / denom
+    np.fill_diagonal(corr_df.values, 1.0)
+    return corr_df
 
 
 @weight_engine_registry.register("hrp")
@@ -26,8 +27,9 @@ class HierarchicalRiskParity(WeightEngine):
         if not cov.index.equals(cov.columns):
             raise ValueError("Covariance matrix must be square with matching labels")
         corr = _cov_to_corr(cov)
-        dist = np.sqrt(0.5 * (1 - corr))
-        condensed = squareform(dist.values, checks=False)
+        # Compute distance matrix as numpy array for typing clarity
+        dist_arr: np.ndarray = np.sqrt(0.5 * (1.0 - corr.values))
+        condensed: np.ndarray = squareform(dist_arr, checks=False)
         link = linkage(condensed, method="single")
         sort_ix = corr.index[leaves_list(link)]
         cov_sorted = cov.loc[sort_ix, sort_ix]

@@ -75,7 +75,7 @@ def main(argv: list[str] | None = None) -> int:
     # This allows --check to work without requiring a subcommand
     if argv is None:
         argv = sys.argv[1:]
-    
+
     if "--check" in argv:
         # Parse just to get the check flag, ignore subcommand requirement
         temp_parser = argparse.ArgumentParser(prog="trend-model", add_help=False)
@@ -83,7 +83,7 @@ def main(argv: list[str] | None = None) -> int:
         check_args, _ = temp_parser.parse_known_args(argv)
         if check_args.check:
             return check_environment()
-    
+
     args = parser.parse_args(argv)
 
     if args.check:
@@ -148,13 +148,14 @@ def main(argv: list[str] | None = None) -> int:
                     export.export_data(
                         data, str(Path(out_dir) / filename), formats=other
                     )
-            else:
-                export.export_data(
-                    data, str(Path(out_dir) / filename), formats=out_formats
-                )
+                else:
+                    export.export_data(
+                        data, str(Path(out_dir) / filename), formats=out_formats
+                    )
         return 0
 
     # This shouldn't be reached with required=True.
+    return 0
 
 
 if __name__ == "__main__":  # pragma: no cover - manual invocation

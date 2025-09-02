@@ -22,7 +22,8 @@ class ReturnModel:
 class BlockBootstrapModel(ReturnModel):
     def __init__(self, cfg: ReturnModelConfig):
         self.cfg = cfg
-        self.panel = None
+        # Panel of returns used for sampling
+        self.panel: pd.DataFrame | None = None
         self.rng = np.random.default_rng(cfg.seed)
 
     def fit(self, panel: pd.DataFrame) -> None:

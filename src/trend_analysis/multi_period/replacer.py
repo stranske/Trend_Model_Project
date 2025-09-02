@@ -6,8 +6,8 @@ Rules implemented:
 * Two consecutive z‑scores < ‑1.0  →  drop the fund
 * Any un‑held fund with z‑score > +1.0  →  add the fund
 * Surviving funds are re‑weighted equally
-Phase‑2 placeholder: echoes the incoming weights so the rest of the
-pipeline keeps running.  Real strike / replacement logic comes later.
+Phase‑2 placeholder: echoes the incoming weights so the rest of the pipeline
+keeps running. Real strike / replacement logic comes later.
 """
 
 from __future__ import annotations
@@ -151,10 +151,12 @@ class Rebalancer:  # pylint: disable=too-few-public-methods
         # --- 3) weight the survivors ----------------------------------
         if prev_w.empty:
             return prev_w  # edge case
-        # If configured to use bayesian weighting, compute simple score-proportional
-        # weights using the provided zscores (acts as a proxy for the real bayes in tests).
+        # If configured to use bayesian weighting, compute simple
+        # score-proportional weights using the provided zscores (acts as a
+        # proxy for the real bayes in tests).
         if self.weighting_name in {"score_prop_bayes", "bayes", "score_bayes"}:
-            # zscores might be missing for some held funds (shouldn't in tests). Fallback to 0.
+            # zscores might be missing for some held funds (shouldn't in tests).
+            # Fallback to 0.
             z = score_frame.get("zscore")
             if z is None:
                 eq = 1.0 / len(prev_w)

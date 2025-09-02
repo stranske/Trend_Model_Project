@@ -46,7 +46,8 @@ def load_csv(path: str) -> Optional[pd.DataFrame]:
                 s = s.str.replace("%", "", regex=False)
                 s = pd.to_numeric(s, errors="coerce")
                 if has_percent:
-                    s = s / 100.0
+                    # Use pandas-aware operation to satisfy type checkers
+                    s = getattr(s, "multiply")(0.01)
                 # If conversion produced some numbers, adopt it
                 if pd.api.types.is_numeric_dtype(s):
                     df[col] = s

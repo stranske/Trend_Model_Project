@@ -58,7 +58,7 @@ class ZScoreSelector(Selector):
         return selected, log
 
 
-def create_selector_by_name(name: str, **params) -> Selector:
+def create_selector_by_name(name: str, **params: object) -> Selector:
     """Factory helper for creating selectors via the plugin registry."""
     return create_selector(name, **params)
 

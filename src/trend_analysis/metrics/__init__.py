@@ -7,7 +7,7 @@ Legacy *annualize_* wrappers are kept for back-compat with the test-suite.
 
 from __future__ import annotations
 
-from typing import Callable, TypeVar, ParamSpec
+from typing import Callable, cast
 import sys
 import types
 import builtins as _bi
@@ -23,14 +23,17 @@ _METRIC_REGISTRY: dict[str, Callable[..., float | pd.Series | np.floating]] = {}
 METRIC_REGISTRY = _METRIC_REGISTRY
 
 
-P = ParamSpec("P")
-R = TypeVar("R")
-
-
-def register_metric(name: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
+def register_metric(
+    name: str,
+) -> Callable[
+    [Callable[..., float | pd.Series | np.floating]],
+    Callable[..., float | pd.Series | np.floating],
+]:
     """Decorator that adds the function to the public registry."""
 
-    def _deco(fn: Callable[P, R]) -> Callable[P, R]:
+    def _deco(
+        fn: Callable[..., float | pd.Series | np.floating]
+    ) -> Callable[..., float | pd.Series | np.floating]:
         _METRIC_REGISTRY[name] = fn
         return fn
 
@@ -95,12 +98,27 @@ def annual_return(
     if returns.empty:
         return _empty_like(returns, "annual_return")
 
-    compounded = (1 + returns).prod()
-    n_periods = returns.shape[0]
-    ann_factor = periods_per_year / n_periods
-    out = compounded**ann_factor - 1
-
-    return float(out) if isinstance(returns, Series) else out.astype(float)
+    n_periods = max(int(returns.shape[0]), 1)
+    if isinstance(returns, Series):
+        prod_val = (1 + returns).prod()
+        # Use numpy.asarray(...).item() to obtain a native Python scalar
+        compounded_scalar = np.asarray(prod_val).item()
+        compounded = float(compounded_scalar)
+        # If total growth is non-positive, legacy semantics return -1.0
+        if compounded <= 0:
+            return -1.0
+        out = compounded ** (periods_per_year / n_periods) - 1.0
+        return float(out)
+    else:
+        compounded_df = (1 + returns).prod()
+        k = periods_per_year / n_periods
+        res = pd.Series(index=returns.columns, dtype=float)
+        mask = compounded_df <= 0
+        if mask.any():
+            res[mask] = -1.0
+        if (~mask).any():
+            res[~mask] = compounded_df[~mask] ** k - 1.0
+        return res.astype(float)
 
 
 ###############################################################################
@@ -142,11 +160,22 @@ def sharpe_ratio(
     ann_ret = annual_return(excess, periods_per_year)
     sigma = volatility(excess, periods_per_year)
 
-    if sigma.equals(0) if isinstance(sigma, Series) else sigma == 0:
+    if (sigma == 0).all() if isinstance(sigma, Series) else sigma == 0:
         return _empty_like(returns, "sharpe_ratio")
 
-    sr = ann_ret / sigma
-    return float(sr) if isinstance(returns, Series) else sr
+    if isinstance(ann_ret, Series) and isinstance(sigma, Series):
+        return ann_ret / sigma
+    elif isinstance(ann_ret, Series) and not isinstance(sigma, Series):
+        sigma_f = float(cast(float | int | np.floating, sigma))
+        return ann_ret / sigma_f
+    elif not isinstance(ann_ret, Series) and isinstance(sigma, Series):
+        ann_f = float(cast(float | int | np.floating, ann_ret))
+        return pd.Series(ann_f, index=sigma.index) / sigma
+    else:
+        # Both are scalars at this point
+        assert not isinstance(ann_ret, Series)
+        assert not isinstance(sigma, Series)
+        return float(ann_ret) / float(sigma)
 
 
 # Backwards-compatible short name
@@ -176,7 +205,7 @@ def sortino_ratio(
     downside_std = np.sqrt((downside**2).mean())
 
     if (
-        downside_std.equals(0)
+        (downside_std == 0).all()
         if isinstance(downside_std, Series)
         else downside_std == 0
     ):
@@ -208,7 +237,7 @@ def max_drawdown(returns: pd.Series | pd.DataFrame) -> float | pd.Series | np.fl
         )
 
     def _one(col: pd.Series) -> float:
-        wealth = (1 + col).cumprod()
+        wealth: pd.Series = (1 + col).cumprod()
         draw = 1 - wealth / wealth.cummax()
         return float(draw.max())  # positive number
 
@@ -234,10 +263,11 @@ def information_ratio(
 
     # --- scalar → broadcast -------------------------------------------------
     if np.isscalar(benchmark):
+        bval = float(cast(float | int | np.floating, benchmark))
         benchmark = (
-            pd.Series(benchmark, index=returns.index, name="benchmark")
+            pd.Series(bval, index=returns.index, name="benchmark")
             if isinstance(returns, Series)
-            else pd.DataFrame(benchmark, index=returns.index, columns=returns.columns)
+            else pd.DataFrame(bval, index=returns.index, columns=returns.columns)
         )
 
     # --- Series → duplicate across all columns -----------------------------
@@ -262,11 +292,22 @@ def information_ratio(
     ann_act = active.mean() * periods_per_year
     tr_error = active.std(ddof=1) * np.sqrt(periods_per_year)
 
-    if tr_error.equals(0) if isinstance(tr_error, Series) else tr_error == 0:
+    if (tr_error == 0).all() if isinstance(tr_error, Series) else tr_error == 0:
         return _empty_like(returns, "information_ratio")
 
-    ir = ann_act / tr_error
-    return float(ir) if isinstance(returns, Series) else ir
+    if isinstance(ann_act, Series) and isinstance(tr_error, Series):
+        return ann_act / tr_error
+    elif isinstance(ann_act, Series) and not isinstance(tr_error, Series):
+        te_f = float(cast(float | int | np.floating, tr_error))
+        return ann_act / te_f
+    elif not isinstance(ann_act, Series) and isinstance(tr_error, Series):
+        ann_f = float(cast(float | int | np.floating, ann_act))
+        return pd.Series(ann_f, index=tr_error.index) / tr_error
+    else:
+        # Both are scalars here
+        assert not isinstance(ann_act, Series)
+        assert not isinstance(tr_error, Series)
+        return float(ann_act) / float(tr_error)
 
 
 # ------------------------------------------------------------------ #
