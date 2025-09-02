@@ -373,7 +373,15 @@ def export_to_excel(
             # backward compat
             df_formatter = None
 
-    with pd.ExcelWriter(path, engine="xlsxwriter") as writer:
+    try:
+        writer = pd.ExcelWriter(path, engine="xlsxwriter")
+    except ModuleNotFoundError:
+        # ``xlsxwriter`` is an optional dependency.  Fall back to the default
+        # engine (typically ``openpyxl``) when it is unavailable so callers can
+        # still export workbooks without installing the extra package.
+        writer = pd.ExcelWriter(path)
+
+    with writer:
         # Iterate over frames and either let a registered sheet formatter
         # render the entire sheet (preferred), or fall back to writing the
         # DataFrame directly when no formatter is available.
