@@ -95,12 +95,14 @@ The results dashboard shows:
 ## 📁 Using Your Own Data
 
 ### Data Format Requirements
-Your CSV file should have:
-- **First column**: Dates (YYYY-MM-DD format recommended)
-- **Additional columns**: Fund returns in decimal format (0.05 = 5%)
-- **Minimum period**: 24 months of data
-- **No missing data**: Fill gaps or remove incomplete funds
 
+
+**Example CSV:**
+```csv
+Date,FUND_A,FUND_B,FUND_C
+2021-01-31,0.02,0.015,0.018
+2021-02-28,0.01,0.012,0.017
+2021-03-31,-0.005,0.02,0.013
 ### Uploading Your Data
 1. Prepare your CSV with the format above
 2. Use the "Upload" section in the sidebar
