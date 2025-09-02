@@ -35,6 +35,17 @@ Get a shell inside the container for development:
 docker run -it --rm ghcr.io/stranske/trend-model:latest bash
 ```
 
+### Option 4: Docker Compose (App + API)
+
+Bring up the Streamlit app and a minimal API server with one command:
+
+```bash
+docker compose up app
+```
+
+This uses the included `docker-compose.yml` which also mounts `./data` into the
+container at `/app/data` for local files.
+
 ## Working with Your Data
 
 To analyze your own data, mount a local directory containing your CSV files:
