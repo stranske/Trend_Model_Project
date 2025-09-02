@@ -105,6 +105,9 @@ docker stop trend-test && docker rm trend-test
 
 # Test CLI functionality
 docker run --rm ghcr.io/stranske/trend-model:latest trend-analysis --help
+
+# Comprehensive test suite (requires test_docker.sh)
+./test_docker.sh
 ```
 
 ## Troubleshooting

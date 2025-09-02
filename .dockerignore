@@ -90,3 +90,6 @@ test_multi_period_selection.py
 
 # Keep only essential demo files for container
 # demo/ folder is needed for runtime
+
+# Test scripts
+test_docker.sh
