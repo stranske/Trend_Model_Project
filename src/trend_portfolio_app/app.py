@@ -125,8 +125,15 @@ with st.sidebar:
             try:
                 data = yaml.safe_load(uploaded.getvalue())
                 if isinstance(data, dict):
-                    st.session_state.config_dict = _merge_update(_read_defaults(), data)
-                    st.success("Config imported")
+                    merged_data = _merge_update(_read_defaults(), data)
+                    # Validate the config using the Config model
+                    try:
+                        validated_config = Config(**merged_data)
+                        # Convert back to dict for compatibility with existing UI code
+                        st.session_state.config_dict = merged_data
+                        st.success("Config imported and validated")
+                    except Exception as validation_exc:
+                        st.error(f"Config validation failed: {validation_exc}")
                 else:
                     st.error("Uploaded YAML must be a mapping")
             except Exception as exc:
@@ -1631,19 +1638,22 @@ with tabs[8]:
         # Ensure CSV exists (we won't validate path here, pipeline will raise)
         try:
             cfg_obj = _build_cfg(cfg_dict)
-        except ValueError as ve:
-            st.error(
-                f"Configuration error: {ve}\n\n"
-                "Hint: Check for missing or invalid values in your configuration. "
-                "Refer to the documentation for required fields."
-            )
-            st.stop()
         except Exception as exc:
-            st.error(
-                f"Unexpected error during configuration validation: {type(exc).__name__}: {exc}\n\n"
-                "Hint: Please review your configuration for errors. If the problem persists, "
-                "check the YAML format and required fields."
-            )
+            # Handle both ValidationError (when pydantic is available) and ValueError (fallback)
+            error_msg = str(exc)
+            if "validation error" in error_msg.lower() or isinstance(exc, ValueError):
+                st.error(
+                    f"Configuration validation failed: {error_msg}\n\n"
+                    "Hint: Check your YAML for typos. Common issues:\n"
+                    "• version must be a string (use quotes: version: '1.0')\n"
+                    "• data, preprocessing, etc. must be dictionaries {}\n"
+                    "• Check for missing or extra commas, quotes, indentation"
+                )
+            else:
+                st.error(
+                    f"Unexpected error during configuration: {type(exc).__name__}: {exc}\n\n"
+                    "Hint: Please review your configuration format."
+                )
             st.stop()
         else:
             cfg_obj = cfg_obj  # type: ignore[assignment]
