@@ -13,11 +13,22 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 # Import the functions we want to test
 sys.path.insert(0, str(Path(__file__).parent.parent / "app" / "streamlit" / "pages"))
 
+# Save original streamlit module if it exists
+_original_streamlit = sys.modules.get("streamlit")
+
 # Mock streamlit before importing our module
 sys.modules["streamlit"] = Mock()
 
 from trend_analysis.api import RunResult  # noqa: E402
 from trend_analysis.config import Config  # noqa: E402
+
+
+def cleanup_streamlit_mock():
+    """Restore original streamlit module."""
+    if _original_streamlit is not None:
+        sys.modules["streamlit"] = _original_streamlit
+    elif "streamlit" in sys.modules:
+        del sys.modules["streamlit"]
 
 
 def create_mock_streamlit():

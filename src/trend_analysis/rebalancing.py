@@ -261,6 +261,11 @@ class VolTargetRebalanceStrategy(Rebalancer):
         self.lev_min = float(self.params.get("lev_min", 0.5))
         self.lev_max = float(self.params.get("lev_max", 1.5))
 
+    @property
+    def target_vol(self) -> float:
+        """Target volatility (alias for target)."""
+        return self.target
+
     def apply(
         self, current_weights: pd.Series, target_weights: pd.Series, **kwargs
     ) -> Tuple[pd.Series, float]:
@@ -273,7 +278,13 @@ class VolTargetRebalanceStrategy(Rebalancer):
             vol = float(rets.std(ddof=0)) * np.sqrt(12)
             if vol > 0:
                 lev = float(np.clip(self.target / vol, self.lev_min, self.lev_max))
-        return current_weights * lev, 0.0
+                return current_weights * lev, 0.0
+            else:
+                # Zero volatility - pass through target weights
+                return target_weights.copy(), 0.0
+        else:
+            # No history or insufficient history - pass through target weights
+            return target_weights.copy(), 0.0
 
 
 @rebalancer_registry.register("drawdown_guard")
@@ -290,27 +301,35 @@ class DrawdownGuardStrategy(Rebalancer):
     def apply(
         self, current_weights: pd.Series, target_weights: pd.Series, **kwargs
     ) -> Tuple[pd.Series, float]:
-        state = kwargs.get("state")
-        if state is None:
-            state = kwargs
-        ec: List[float] = list(state.get("equity_curve", []))
-        guard_on = bool(state.get("guard_on", False))
+        # Get rb_state for storing guard state
+        rb_state = kwargs.get("rb_state", {})
+        
+        # Get equity curve from kwargs directly or from rb_state
+        ec: List[float] = list(kwargs.get("equity_curve", rb_state.get("equity_curve", [])))
+        guard_on = bool(rb_state.get("guard_on", False))
+        
+        # If no equity curve, pass through target weights
+        if not ec:
+            return target_weights.copy(), 0.0
+            
         dd = 0.0
-        if ec:
-            sub = ec[-self.dd_window :] if len(ec) >= self.dd_window else ec
-            peak = max(sub)
-            cur = sub[-1]
-            if peak > 0:
-                dd = (cur / peak) - 1.0
+        sub = ec[-self.dd_window :] if len(ec) >= self.dd_window else ec
+        peak = max(sub)
+        cur = sub[-1]
+        if peak > 0:
+            dd = (cur / peak) - 1.0
         if (not guard_on and dd <= -self.dd_threshold) or (
             guard_on and dd <= -self.recover_threshold
         ):
             guard_on = True
         elif guard_on and dd >= -self.recover_threshold:
             guard_on = False
-        state["guard_on"] = guard_on
+        
+        # Update rb_state
+        rb_state["guard_on"] = guard_on
+        
         return (
-            current_weights * self.guard_multiplier if guard_on else current_weights
+            current_weights * self.guard_multiplier if guard_on else target_weights
         ), 0.0
 
 
@@ -371,4 +390,17 @@ __all__ = [
     "create_rebalancing_strategy",
     "apply_rebalancing_strategies",
     "rebalancer_registry",
+    "REBALANCING_STRATEGIES",
 ]
+
+
+def get_rebalancing_strategies():
+    """Get available rebalancing strategy names and classes."""
+    return {
+        name: rebalancer_registry._plugins[name] 
+        for name in rebalancer_registry.available()
+    }
+
+
+# Backwards compatibility - provide access to registered strategies
+REBALANCING_STRATEGIES = get_rebalancing_strategies()

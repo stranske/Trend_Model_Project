@@ -1,6 +1,7 @@
 import importlib.util
 from types import SimpleNamespace
 import pathlib
+from unittest.mock import MagicMock
 
 import pandas as pd
 import streamlit as st
@@ -16,7 +17,26 @@ def load_run_module():
     return module
 
 
+class MockSessionState(dict):
+    """A mock session state that behaves like both a dict and streamlit's session_state."""
+    
+    def clear(self):
+        super().clear()
+    
+    def get(self, key, default=None):
+        return super().get(key, default)
+    
+    def __contains__(self, key):
+        return super().__contains__(key)
+
+
 def setup_session_state(accepted: bool):
+    # Create a proper mock session state
+    session_dict = MockSessionState()
+    
+    # Replace st.session_state with our mock
+    st.session_state = session_dict
+    
     st.session_state.clear()
     st.session_state["returns_df"] = pd.DataFrame(
         {"A": [0.1]}, index=pd.to_datetime(["2020-01-31"])
