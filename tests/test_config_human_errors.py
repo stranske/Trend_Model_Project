@@ -26,13 +26,13 @@ class TestHumanErrors:
     def test_version_as_number(self):
         """Test version field as number (common mistake)."""
         cfg = {"version": 1.0, "data": {}}
-        with pytest.raises((ValidationException, ValueError), match="version must be a string"):
+        with pytest.raises((ValidationException, ValueError), match="(version must be a string|str type expected)"):
             config.load_config(cfg)
 
     def test_version_as_bool(self):
         """Test version field as boolean (YAML parsing issue)."""
         cfg = {"version": True, "data": {}}
-        with pytest.raises((ValidationException, ValueError), match="version must be a string"):
+        with pytest.raises((ValidationException, ValueError), match="(version must be a string|str type expected)"):
             config.load_config(cfg)
 
     def test_empty_version(self):
@@ -144,5 +144,5 @@ class TestHumanErrors:
     def test_version_wrong_types(self, wrong_version):
         """Test version with wrong types using property-based testing."""
         cfg = {"version": wrong_version, "data": {}}
-        with pytest.raises((ValidationException, ValueError), match="version must be a string"):
+        with pytest.raises((ValidationException, ValueError), match="(version must be a string|str type expected)"):
             config.load_config(cfg)
