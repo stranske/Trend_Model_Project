@@ -142,7 +142,7 @@ if _HAS_PYDANTIC:
             def _ensure_version_str(cls, v: Any) -> str:
                 """Ensure ``version`` is always a string."""
                 if not isinstance(v, str):
-                    raise TypeError("version must be a string")
+                    raise ValueError("version must be a string")
                 return v
 
             @field_validator("version")
@@ -165,7 +165,7 @@ if _HAS_PYDANTIC:
             )
             def _ensure_dict(cls, v: Any, info: _ValidationInfo) -> dict[str, Any]:
                 if not isinstance(v, dict):
-                    raise TypeError(f"{info.field_name} must be a dictionary")
+                    raise ValueError(f"{info.field_name} must be a dictionary")
                 return v
 
         setattr(_bi, "_TREND_CONFIG_CLASS", Config)
@@ -219,11 +219,24 @@ else:  # Fallback mode for tests without pydantic
             if getattr(self, "version", None) is None:
                 raise ValueError("version field is required")
             if not isinstance(self.version, str):
-                raise TypeError("version must be a string")
+                raise ValueError("version must be a string")
             if len(self.version) == 0:
                 raise ValueError("String should have at least 1 character")
             if not self.version.strip():
                 raise ValueError("Version field cannot be empty")
+
+            for _field in [
+                "data",
+                "preprocessing",
+                "vol_adjust",
+                "sample_split",
+                "portfolio",
+                "metrics",
+                "export",
+                "run",
+            ]:
+                if not isinstance(getattr(self, _field), dict):
+                    raise ValueError(f"{_field} must be a dictionary")
 
         # Provide a similar API surface to pydantic for callers
         def model_dump(self) -> Dict[str, Any]:
