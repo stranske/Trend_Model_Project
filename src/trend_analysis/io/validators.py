@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import io
 from typing import Tuple, List, Dict, Any, Optional
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 
 # Map human readable frequency labels to legacy alias codes.  Earlier versions
 # of the project used indirections like ``"ME"`` (month‑end) which were then
@@ -22,23 +23,15 @@ FREQ_ALIAS_MAP: Dict[str, str] = {
 
 # Translate legacy alias codes to the canonical pandas codes expected by
 # ``pd.PeriodIndex``.
-PANDAS_FREQ_MAP: Dict[str, str] = {"ME": "M", "QE": "Q", "A": "Y"}
+PANDAS_FREQ_MAP: Dict[str, str] = {
+    "ME": "M",  # Month-end to Month for PeriodIndex compatibility
+    "QE": "Q",  # Quarter-end to Quarter
+    "A": "Y",  # Annual to Year
+}
 
 # Public mapping of human‑readable labels to canonical pandas frequency codes.
 FREQUENCY_MAP: Dict[str, str] = {
     human: PANDAS_FREQ_MAP.get(alias, alias) for human, alias in FREQ_ALIAS_MAP.items()
-}
-
-# Normalize frequency aliases to pandas Period codes
-PANDAS_FREQ_MAP: Dict[str, str] = {
-    "ME": "M",  # Month-end to Month for PeriodIndex compatibility
-    "A": "Y",   # Annual to Year
-}
-
-# Final frequency map for use throughout the codebase
-FREQUENCY_MAP: Dict[str, str] = {
-    key: PANDAS_FREQ_MAP.get(alias, alias)
-    for key, alias in FREQ_ALIAS_MAP.items()
 }
 
 
