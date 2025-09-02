@@ -9,8 +9,6 @@ Run this to see the improvements in temporary file handling.
 import os
 from unittest import mock
 
-from trend_analysis.io import export_bundle, _TEMP_FILES_TO_CLEANUP
-from unittest import mock
 
 
 def create_mock_results():
