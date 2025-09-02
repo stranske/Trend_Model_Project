@@ -43,3 +43,16 @@ def test_infeasible_group_caps():
     }
     with pytest.raises(ConstraintViolation):
         apply_constraints(w, constraints)
+
+
+def test_empty_group_handling():
+    """Test that groups with no members are handled correctly."""
+    w = pd.Series([0.5, 0.5], index=["a", "b"])
+    constraints = {
+        "group_caps": {"existing": 1.0, "nonexistent": 0.2},  # nonexistent group
+        "groups": {"a": "existing", "b": "existing"},
+    }
+    out = apply_constraints(w, constraints)
+    assert np.isclose(out.sum(), 1.0)
+    # Both assets should be in "existing" group, no constraint needed since cap is 1.0
+    assert out.loc["a"] + out.loc["b"] <= 1.0 + 1e-12
