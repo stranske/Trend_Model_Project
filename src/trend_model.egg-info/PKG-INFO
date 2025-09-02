@@ -108,6 +108,22 @@ If package installation fails due to network issues, the CLI is still available 
 PYTHONPATH="./src" python -m trend_analysis.cli run --help
 ```
 
+### Docker (Zero-Setup)
+
+For the fastest setup with zero local dependencies:
+
+```bash
+# Run the web interface
+docker run -p 8501:8501 ghcr.io/stranske/trend-model:latest
+
+# Use the CLI
+docker run --rm ghcr.io/stranske/trend-model:latest trend-analysis --help
+```
+
+Then visit http://localhost:8501 for the interactive web interface.
+
+📖 **See [DOCKER_QUICKSTART.md](DOCKER_QUICKSTART.md) for complete Docker usage guide.**
+
 ## Setup
 
 1. Create a virtual environment and install the required packages:
