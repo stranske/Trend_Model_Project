@@ -71,6 +71,18 @@ def turnover_series(
 def weights_heatmap_data(
     weights: Mapping[pd.Timestamp, pd.Series] | pd.DataFrame,
 ) -> pd.DataFrame:
-    """Return DataFrame suitable for a weights heatmap."""
+    """Return DataFrame suitable for a weights heatmap.
+
+    This function provides a clean interface for getting weights data
+    ready for visualization. It directly calls the optimized internal
+    helper to avoid creating unnecessary matplotlib figures.
+
+    Args:
+        weights: Mapping of dates to weight Series or DataFrame of weights
+
+    Returns:
+        DataFrame with dates as index and assets as columns, filled with 0.0
+        for missing values and sorted chronologically.
+    """
 
     return _weights_to_frame(weights)
