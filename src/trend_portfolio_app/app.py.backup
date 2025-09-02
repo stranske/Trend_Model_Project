@@ -128,7 +128,7 @@ with st.sidebar:
                     merged_data = _merge_update(_read_defaults(), data)
                     # Validate the config using the Config model
                     try:
-                        Config(**merged_data)  # Just validate, don't store the result
+                        validated_config = Config(**merged_data)
                         # Convert back to dict for compatibility with existing UI code
                         st.session_state.config_dict = merged_data
                         st.success("Config imported and validated")
