@@ -7,12 +7,22 @@ from typing import Tuple, List, Dict, Any, Optional
 import pandas as pd
 import numpy as np
 
-FREQ_ALIAS_MAP = {
+# Map human readable frequency labels to pandas `Period` codes.  These codes
+# can be fed directly to ``pd.PeriodIndex`` when normalising timestamps.
+#
+# The project previously used an indirection layer where monthly data mapped to
+# ``"ME"`` and was then converted to ``"M"`` for ``PeriodIndex``.  This extra
+# aliasing made it harder for downstream code (and tests) to reason about the
+# supported frequencies.  The new ``FREQUENCY_MAP`` exposes the final period
+# codes up front and is the single source of truth for frequency handling.
+FREQUENCY_MAP: Dict[str, str] = {
     "daily": "D",
     "weekly": "W",
-    "monthly": "ME",
+    # ``M`` is the canonical month‑end frequency used by ``PeriodIndex``
+    "monthly": "M",
     "quarterly": "Q",
-    "annual": "A",
+    # ``Y`` works for year‑end periods across pandas versions
+    "annual": "Y",
 }
 
 # Map modern frequency codes (e.g., 'ME' for month-end) to legacy pandas period codes ('M' for month-end)
@@ -209,7 +219,9 @@ def load_and_validate_upload(file_like: Any) -> Tuple[pd.DataFrame, Dict[str, An
     # Normalize to period-end timestamps using detected frequency
     # Use PeriodIndex.to_timestamp(how='end') to ensure end-of-period alignment
     idx = pd.to_datetime(df.index)
-    # Map human-friendly frequency labels (e.g. "monthly") to pandas codes
+    # Map human-friendly frequency labels (e.g. ``"monthly"``) to pandas
+    # ``Period`` codes using ``FREQUENCY_MAP``.  Default to monthly if detection
+    # failed so downstream code still receives a valid index.
     freq_key = (validation.frequency or "").lower()
     freq_alias = FREQ_ALIAS_MAP.get(freq_key, "ME")
     pandas_freq = PANDAS_FREQ_MAP.get(freq_alias, freq_alias)

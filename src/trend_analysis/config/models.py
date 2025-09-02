@@ -93,7 +93,11 @@ def _find_config_directory() -> Path:
 def _validate_version_value(v: Any) -> str:
     """Validate the ``version`` field for both pydantic and fallback modes."""
     if not isinstance(v, str):
-        raise TypeError("version must be a string")
+        # Tests expect a ``ValueError`` for wrong types when pydantic is not
+        # available.  Using ``ValueError`` keeps behaviour consistent between
+        # the pydantic-backed model (which raises ``ValidationError``) and the
+        # simple fallback model used in this repository.
+        raise ValueError("version must be a string")
     if len(v) == 0:
         # Match pydantic's wording for empty strings
         raise ValueError("String should have at least 1 character")
@@ -138,13 +142,6 @@ if _HAS_PYDANTIC:
             checkpoint_dir: str | None = None
             seed: int = 42
 
-            @field_validator("version", mode="before")
-            def _ensure_version_str(cls, v: Any) -> str:
-                """Ensure ``version`` is always a string."""
-                if not isinstance(v, str):
-                    raise TypeError("version must be a string")
-                return v
-
             @field_validator("version")
             def _ensure_version_not_whitespace(cls, v: str) -> str:
                 """Reject strings that consist only of whitespace."""
@@ -165,7 +162,11 @@ if _HAS_PYDANTIC:
             )
             def _ensure_dict(cls, v: Any, info: _ValidationInfo) -> dict[str, Any]:
                 if not isinstance(v, dict):
-                    raise TypeError(f"{info.field_name} must be a dictionary")
+                    # Raising ``ValueError`` ensures pydantic wraps the failure in a
+                    # ``ValidationError`` and tests without pydantic receive a plain
+                    # ``ValueError``.  ``info.field_name`` contains the section name
+                    # being validated.
+                    raise ValueError(f"{info.field_name} must be a dictionary")
                 return v
 
         setattr(_bi, "_TREND_CONFIG_CLASS", Config)
@@ -218,12 +219,25 @@ else:  # Fallback mode for tests without pydantic
         def _validate(self) -> None:  # Simple runtime validation
             if getattr(self, "version", None) is None:
                 raise ValueError("version field is required")
-            if not isinstance(self.version, str):
-                raise TypeError("version must be a string")
-            if len(self.version) == 0:
-                raise ValueError("String should have at least 1 character")
-            if not self.version.strip():
-                raise ValueError("Version field cannot be empty")
+            # Reuse shared helper for consistency with pydantic version
+            self.version = _validate_version_value(self.version)
+
+            # Ensure key sections are dictionaries.  Tests exercise these
+            # validations extensively to guard against common YAML mistakes
+            # such as providing numbers or lists instead of mappings.
+            for section in [
+                "data",
+                "preprocessing",
+                "vol_adjust",
+                "sample_split",
+                "portfolio",
+                "metrics",
+                "export",
+                "run",
+            ]:
+                value = getattr(self, section)
+                if not isinstance(value, dict):
+                    raise ValueError(f"{section} must be a dictionary")
 
         # Provide a similar API surface to pydantic for callers
         def model_dump(self) -> Dict[str, Any]:
