@@ -18,6 +18,9 @@ _SUBMODULES = [
     "weighting",
     "run_multi_analysis",
 ]
+for _name in _SUBMODULES:
+    try:
+        globals()[_name] = importlib.import_module(f"trend_analysis.{_name}")
     except ModuleNotFoundError as e:
         # Only suppress if the missing module is NOT the submodule itself
         if e.name == f"trend_analysis.{_name}":
