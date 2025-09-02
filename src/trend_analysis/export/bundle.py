@@ -1,5 +1,4 @@
 import tempfile
-import shutil
 from pathlib import Path
 from typing import Any
 import json
@@ -31,8 +30,11 @@ def _git_hash() -> str:
             ["git", "rev-parse", "HEAD"], encoding="utf-8", shell=False
         ).strip()
     except (subprocess.CalledProcessError, FileNotFoundError):
-        # Handle cases where git command fails or is not found
-        return ""
+        # Ensure a non-empty fallback so callers always receive at least a
+        # short hash.  This prevents downstream checks from failing when the
+        # repository metadata isn't available (e.g. in a zipped release
+        # environment where the ``.git`` directory is absent).
+        return "unknown"
 
 
 def export_bundle(run: Any, path: Path) -> Path:

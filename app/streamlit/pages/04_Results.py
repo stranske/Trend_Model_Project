@@ -10,6 +10,49 @@ from trend_analysis.viz import charts
 from trend_analysis.metrics import summary
 
 
+def _create_line_chart_with_download(
+    data_df: "pd.DataFrame", chart_title: str, button_label: str, filename: str
+) -> None:
+    """Create a line chart with CSV download functionality.
+    
+    Args:
+        data_df: DataFrame containing the chart data
+        chart_title: Title to display above the chart
+        button_label: Label for the download button
+        filename: Name of the CSV file for download
+    """
+    st.subheader(chart_title)
+    st.line_chart(data_df)
+    buf = io.StringIO()
+    data_df.to_csv(buf)
+    st.download_button(
+        button_label,
+        data=buf.getvalue(),
+        file_name=filename,
+        mime="text/csv",
+    )
+
+
+def _create_csv_download_button(
+    data_df: "pd.DataFrame", button_label: str, filename: str
+) -> None:
+    """Create a CSV download button for data.
+    
+    Args:
+        data_df: DataFrame containing the data
+        button_label: Label for the download button  
+        filename: Name of the CSV file for download
+    """
+    buf = io.StringIO()
+    data_df.to_csv(buf)
+    st.download_button(
+        button_label,
+        data=buf.getvalue(),
+        file_name=filename,
+        mime="text/csv",
+    )
+
+
 st.title("Results")
 
 if "sim_results" not in st.session_state:
@@ -94,11 +137,4 @@ st.download_button(
 st.subheader("Summary")
 sum_df = summary.summary_table(returns, weights, benchmark)
 st.table(sum_df)
-buf = io.StringIO()
-sum_df.to_csv(buf)
-st.download_button(
-    "Summary (CSV)",
-    data=buf.getvalue(),
-    file_name="summary.csv",
-    mime="text/csv",
-)
+_create_csv_download_button(sum_df, "Summary (CSV)", "summary.csv")
