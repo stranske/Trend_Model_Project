@@ -235,7 +235,9 @@ else:  # Fallback mode for tests without pydantic
                 "export",
                 "run",
             ]:
-                value = getattr(self, section)
+                value = getattr(self, section, None)
+                if value is None:
+                    raise ValueError(f"{section} section is required")
                 if not isinstance(value, dict):
                     raise ValueError(f"{section} must be a dictionary")
 
