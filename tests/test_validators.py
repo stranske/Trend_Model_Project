@@ -3,7 +3,7 @@
 import pytest
 import pandas as pd
 import io
-from src.trend_analysis.io.validators import (
+from trend_analysis.io.validators import (
     ValidationResult,
     validate_returns_schema,
     detect_frequency,

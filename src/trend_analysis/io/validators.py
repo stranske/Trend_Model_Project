@@ -20,6 +20,24 @@ FREQ_ALIAS_MAP: Dict[str, str] = {
     "annual": "A",  # mapped to ``Y``
 }
 
+# Map the aliases above to canonical pandas ``Period`` frequency codes.  This
+# allows us to expose a stable public mapping while retaining backwards
+# compatible aliases internally.
+PANDAS_FREQ_MAP: Dict[str, str] = {
+    "D": "D",
+    "W": "W",
+    "ME": "M",  # month-end alias normalised to monthly
+    "Q": "Q",
+    "A": "Y",  # annual alias normalised to yearly
+}
+
+# Public mapping from human-readable frequency labels to pandas ``Period``
+# codes used throughout the codebase and tests.
+FREQUENCY_MAP: Dict[str, str] = {
+    human: PANDAS_FREQ_MAP[alias] for human, alias in FREQ_ALIAS_MAP.items()
+}
+
+
 class ValidationResult:
     """Result of schema validation with detailed feedback."""
 

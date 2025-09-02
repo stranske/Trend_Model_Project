@@ -220,7 +220,7 @@ else:  # Fallback mode for tests without pydantic
             if not self.version.strip():
                 raise ValueError("Version field cannot be empty")
 
-            for _field in [
+            for field in [
                 "data",
                 "preprocessing",
                 "vol_adjust",
