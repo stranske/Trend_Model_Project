@@ -26,7 +26,7 @@ for _name in _SUBMODULES:
         pass
 
 if "data" in globals():
-    from .data import load_csv, identify_risk_free_fund  # type: ignore
+    from .data import load_csv, identify_risk_free_fund  # type: ignore  # Conditional import: 'data' submodule may not always be present due to optional dependencies.
 
 if "export" in globals():
     from .export import (
