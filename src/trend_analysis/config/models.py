@@ -307,9 +307,9 @@ else:  # Fallback mode for tests without pydantic
 
 # Public alias selected at runtime for callers
 if _HAS_PYDANTIC:
-    Config = cast(Any, globals().get("_PydanticConfigImpl"))
+    Config = cast(Any, _PydanticConfigImpl)
 else:
-    Config = cast(Any, globals().get("_FallbackConfig"))
+    Config = cast(Any, _FallbackConfig)
 
 
 class PresetConfig(SimpleBaseModel):
