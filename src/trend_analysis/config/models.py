@@ -142,9 +142,9 @@ if _HAS_PYDANTIC:
             checkpoint_dir: str | None = None
             seed: int = 42
 
-            @field_validator("version")
-            def _ensure_version_not_whitespace(cls, v: str) -> str:
                 """Reject strings that consist only of whitespace."""
+                if not isinstance(v, str):
+                    raise ValueError("Version field must be a string")
                 if not v.strip():
                     raise ValueError("Version field cannot be empty")
                 return v
