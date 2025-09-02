@@ -26,6 +26,8 @@ def compute_score_frame_local(
     idx = panel.index
     out = {}
     for col in panel.columns:
+        if col == "Date":
+            continue
         r = panel[col].dropna()
         col_metrics = {}
         for name, spec in AVAILABLE_METRICS.items():
@@ -51,6 +53,9 @@ def compute_score_frame(
     insample_end: pd.Timestamp,
     rf_annual: float = 0.0,
 ) -> pd.DataFrame:
+    if "Date" not in panel.columns:
+        raise ValueError("DataFrame must contain a 'Date' column")
+
     if HAS_TA:
         fn = getattr(ta_pipeline, "single_period_run", None)
         if callable(fn):
@@ -77,7 +82,8 @@ def compute_score_frame(
                     e,
                 )
     return compute_score_frame_local(
-        panel.loc[insample_start:insample_end], rf_annual=rf_annual
+        panel.loc[insample_start:insample_end].drop(columns=["Date"], errors="ignore"),
+        rf_annual=rf_annual,
     )
 
 
