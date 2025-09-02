@@ -64,7 +64,7 @@ def export_bundle(run: Any, path: Path) -> Path:
         input_path = Path(getattr(run, "input_path", ""))
         input_sha256 = sha256_file(input_path) if input_path and input_path.exists() else None
         config_sha256 = sha256_config(config)
-        run_id_src = "|".join(filter(None, [input_sha256, config_sha256, str(seed)]))
+        run_id_src = "|".join(filter(None, [input_sha256, config_sha256, str(seed) if seed is not None else ""]))
         run_id = sha256_text(run_id_src)
 
         # ------------------------------------------------------------------
