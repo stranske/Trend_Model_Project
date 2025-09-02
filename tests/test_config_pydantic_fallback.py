@@ -56,7 +56,7 @@ def test_config_validation_with_pydantic():
     from pydantic import ValidationError
 
     # Test validation error with pydantic
-    with pytest.raises(ValidationError, match="str type expected"):
+    with pytest.raises(ValidationError, match="version must be a string"):
         Config(version=123)
 
 

@@ -107,16 +107,14 @@ class Config(BaseModel):
 
     @field_validator("version", mode="before")
     @classmethod
-    def _ensure_version_str(cls, v: Any) -> str:
-        """Ensure ``version`` is always a string."""
+    def _validate_version_type_and_value(cls, v: Any) -> str:
+        """Validate version field type and value."""
+        if v is None:
+            raise ValueError("version field is required")
         if not isinstance(v, str):
             raise ValueError("version must be a string")
-        return v
-
-    @field_validator("version")
-    @classmethod
-    def _ensure_version_not_whitespace(cls, v: str) -> str:
-        """Reject strings that consist only of whitespace."""
+        if len(v) == 0:
+            raise ValueError("String should have at least 1 character")
         if not v.strip():
             raise ValueError("Version field cannot be empty")
         return v
