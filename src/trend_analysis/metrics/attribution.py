@@ -24,6 +24,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from trend_analysis.constants import NUMERICAL_TOLERANCE_MEDIUM
+
 __all__ = [
     "compute_contributions",
     "export_contributions",
@@ -35,7 +37,7 @@ def compute_contributions(
     signal_pnls: pd.DataFrame,
     rebalancing_pnl: pd.Series,
     *,
-    tolerance: float = 1e-9,
+    tolerance: float = NUMERICAL_TOLERANCE_MEDIUM,
 ) -> pd.DataFrame:
     """Return a contribution table for signals and rebalancing.
 

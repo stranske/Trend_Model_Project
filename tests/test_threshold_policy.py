@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 
+from trend_analysis.constants import NUMERICAL_TOLERANCE_MEDIUM
 from trend_analysis.multi_period.engine import run_schedule
 from trend_analysis.multi_period.replacer import Rebalancer
 from trend_analysis.selector import RankSelector
@@ -51,7 +52,7 @@ def test_rebalancer_thresholds_and_strikes():
     w2 = pf.history[sorted(pf.history)[1]]
     assert set(w2.index) == {"B", "C"}
     # Equal weight for survivors
-    assert abs(w2.loc["B"] - 0.5) < 1e-9 and abs(w2.loc["C"] - 0.5) < 1e-9
+    assert abs(w2.loc["B"] - 0.5) < NUMERICAL_TOLERANCE_MEDIUM and abs(w2.loc["C"] - 0.5) < NUMERICAL_TOLERANCE_MEDIUM
 
 
 def test_rebalancer_bayesian_weighting_option():

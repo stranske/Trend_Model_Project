@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from ..constants import NUMERICAL_TOLERANCE_HIGH
 from ..plugins import WeightEngine, weight_engine_registry
 
 
@@ -30,7 +31,7 @@ class EqualRiskContribution(WeightEngine):
             if np.max(np.abs(rc - target)) < self.tol:
                 break
             # Guard against division by zero in rc
-            safe_rc = np.where(rc == 0, 1e-12, rc)
+            safe_rc = np.where(rc == 0, NUMERICAL_TOLERANCE_HIGH, rc)
             w *= target / safe_rc
             w = np.clip(w, 0, None)
             w /= w.sum()

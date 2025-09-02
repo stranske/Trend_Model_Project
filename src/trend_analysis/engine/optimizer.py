@@ -5,6 +5,8 @@ from typing import Mapping, Any
 
 import pandas as pd
 
+from trend_analysis.constants import NUMERICAL_TOLERANCE_HIGH
+
 
 class ConstraintViolation(Exception):
     """Raised when a set of constraints is infeasible."""
@@ -40,16 +42,16 @@ def _apply_cap(w: pd.Series, cap: float) -> pd.Series:
     if cap <= 0:
         raise ConstraintViolation("max_weight must be positive")
     # Feasibility check
-    if cap * len(w) < 1 - 1e-12:
+    if cap * len(w) < 1 - NUMERICAL_TOLERANCE_HIGH:
         raise ConstraintViolation("max_weight too small for number of assets")
 
     w = w.copy()
     while True:
         excess = (w - cap).clip(lower=0)
-        if excess.sum() <= 1e-12:
+        if excess.sum() <= NUMERICAL_TOLERANCE_HIGH:
             break
         w = w.clip(upper=cap)
-        room_mask = w < cap - 1e-12
+        room_mask = w < cap - NUMERICAL_TOLERANCE_HIGH
         w = _redistribute(w, room_mask, excess.sum())
     return w
 
@@ -68,7 +70,7 @@ def _apply_group_caps(
     all_groups = set(group_series.loc[w.index].values)
     if all_groups.issubset(group_caps.keys()):
         total_cap = sum(group_caps[g] for g in all_groups)
-        if total_cap < 1 - 1e-12:
+        if total_cap < 1 - NUMERICAL_TOLERANCE_HIGH:
             raise ConstraintViolation("Group caps sum to less than 100%")
 
     for group, cap in group_caps.items():
@@ -76,7 +78,7 @@ def _apply_group_caps(
         if members.empty:
             continue
         grp_weight = w.loc[members].sum()
-        if grp_weight <= cap + 1e-12:
+        if grp_weight <= cap + NUMERICAL_TOLERANCE_HIGH:
             continue
         excess = grp_weight - cap
         scale = cap / grp_weight
