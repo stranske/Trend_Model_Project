@@ -208,4 +208,9 @@ Advanced users can modify:
 - [ ] **Analysis completed** with results displayed
 - [ ] **Results exported** in your preferred format
 
-**🎉 Congratulations!** You've successfully run your first trend analysis. Now explore different settings and upload your own data to unlock the full potential of the system.
+**🎉 Congratulations!** You've successfully run your first trend analysis.  
+ 
+👉 To **upload your own data**, see the [UserGuide.md](UserGuide.md#data-upload) for step-by-step instructions.  
+👉 To **explore different settings and presets**, check the [config/](../config/) folder and the [UserGuide.md](UserGuide.md#customization) for details on customizing your analysis.  
+ 
+Unlock the full potential of the system by trying out these customization options!
