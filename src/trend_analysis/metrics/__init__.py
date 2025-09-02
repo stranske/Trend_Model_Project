@@ -32,7 +32,7 @@ def register_metric(
     """Decorator that adds the function to the public registry."""
 
     def _deco(
-        fn: Callable[..., float | pd.Series | np.floating]
+        fn: Callable[..., float | pd.Series | np.floating],
     ) -> Callable[..., float | pd.Series | np.floating]:
         _METRIC_REGISTRY[name] = fn
         return fn
@@ -160,22 +160,15 @@ def sharpe_ratio(
     ann_ret = annual_return(excess, periods_per_year)
     sigma = volatility(excess, periods_per_year)
 
-    if (sigma == 0).all() if isinstance(sigma, Series) else sigma == 0:
-        return _empty_like(returns, "sharpe_ratio")
-
-    if isinstance(ann_ret, Series) and isinstance(sigma, Series):
-        return ann_ret / sigma
-    elif isinstance(ann_ret, Series) and not isinstance(sigma, Series):
-        sigma_f = float(cast(float | int | np.floating, sigma))
-        return ann_ret / sigma_f
-    elif not isinstance(ann_ret, Series) and isinstance(sigma, Series):
-        ann_f = float(cast(float | int | np.floating, ann_ret))
-        return pd.Series(ann_f, index=sigma.index) / sigma
+    if isinstance(sigma, Series):
+        if (sigma == 0).all():
+            return _empty_like(returns, "sharpe_ratio")
     else:
-        # Both are scalars at this point
-        assert not isinstance(ann_ret, Series)
-        assert not isinstance(sigma, Series)
-        return float(ann_ret) / float(sigma)
+        if sigma == 0:
+            return _empty_like(returns, "sharpe_ratio")
+
+    sr = ann_ret / sigma
+    return float(sr) if isinstance(returns, Series) else sr
 
 
 # Backwards-compatible short name
@@ -292,22 +285,15 @@ def information_ratio(
     ann_act = active.mean() * periods_per_year
     tr_error = active.std(ddof=1) * np.sqrt(periods_per_year)
 
-    if (tr_error == 0).all() if isinstance(tr_error, Series) else tr_error == 0:
-        return _empty_like(returns, "information_ratio")
-
-    if isinstance(ann_act, Series) and isinstance(tr_error, Series):
-        return ann_act / tr_error
-    elif isinstance(ann_act, Series) and not isinstance(tr_error, Series):
-        te_f = float(cast(float | int | np.floating, tr_error))
-        return ann_act / te_f
-    elif not isinstance(ann_act, Series) and isinstance(tr_error, Series):
-        ann_f = float(cast(float | int | np.floating, ann_act))
-        return pd.Series(ann_f, index=tr_error.index) / tr_error
+    if isinstance(tr_error, Series):
+        if (tr_error == 0).all():
+            return _empty_like(returns, "information_ratio")
     else:
-        # Both are scalars here
-        assert not isinstance(ann_act, Series)
-        assert not isinstance(tr_error, Series)
-        return float(ann_act) / float(tr_error)
+        if tr_error == 0:
+            return _empty_like(returns, "information_ratio")
+
+    ir = ann_act / tr_error
+    return float(ir) if isinstance(returns, Series) else ir
 
 
 # ------------------------------------------------------------------ #
