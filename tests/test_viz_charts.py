@@ -186,8 +186,8 @@ def test_basic_functionality_integration():
         # Skip if there are version compatibility issues
         pass
 
-    from typing import cast
 
-    w_result = charts.weights_heatmap_data(cast(dict, weights))
+
+    w_result = charts.weights_heatmap(weights)
     assert w_result.shape == (4, 1)  # 4 dates, 1 fund
     assert list(w_result.columns) == ["FUND_A"]
