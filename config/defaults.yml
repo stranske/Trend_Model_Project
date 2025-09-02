@@ -56,7 +56,7 @@ portfolio:
   selection_mode: "all" # all | random | manual
   random_n: 10 # num managers if random
   manual_list: [] # filled when selection_mode=manual
-  weighting_scheme: "equal" # equal | vol_inverse | custom
+  weighting_scheme: "equal" # equal | risk_parity | hrp | erc | custom
   rebalance_freq: "M" # M | Q | A | None
   leverage_cap: 2.0 # max gross exposure
   transaction_cost_bps: 0       # linear cost per unit turnover

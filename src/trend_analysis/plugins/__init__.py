@@ -64,8 +64,17 @@ class Rebalancer(Plugin):
         """Return new weights and total cost for the rebalance."""
 
 
+class WeightEngine(Plugin):
+    """Base class for risk-based weighting engines."""
+
+    @abstractmethod
+    def weight(self, cov: pd.DataFrame) -> pd.Series:
+        """Return portfolio weights from a covariance matrix."""
+
+
 selector_registry: PluginRegistry[Selector] = PluginRegistry()
 rebalancer_registry: PluginRegistry[Rebalancer] = PluginRegistry()
+weight_engine_registry: PluginRegistry[WeightEngine] = PluginRegistry()
 
 
 def create_selector(name: str, **params: Any) -> Selector:
@@ -76,3 +85,13 @@ def create_selector(name: str, **params: Any) -> Selector:
 def create_rebalancer(name: str, params: Dict[str, Any] | None = None) -> Rebalancer:
     """Instantiate a rebalancer plugin by ``name``."""
     return rebalancer_registry.create(name, params or {})
+
+
+def create_weight_engine(name: str, **params: Any) -> WeightEngine:
+    """Instantiate a weight engine plugin by ``name``."""
+    if not weight_engine_registry.available():
+        import importlib
+
+        # Lazily import the weights package so its registrations run
+        importlib.import_module("trend_analysis.weights")
+    return weight_engine_registry.create(name, **params)

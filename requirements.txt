@@ -10,6 +10,7 @@ ipywidgets
 nbformat
 streamlit>=1.30
 streamlit-sortables
+scipy
 
 # Development tools
 pre-commit
