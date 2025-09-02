@@ -1,12 +1,15 @@
 import pandas as pd
-import streamlit as st
-
 from trend_analysis.api import run_simulation
 from trend_analysis.config import Config
 from streamlit_app.components.disclaimer import show_disclaimer
 
 
 def main():
+    # Re-import streamlit within the function to ensure any test-time monkeypatches
+    # (e.g. replacing ``st.button``) are respected even if the module was previously
+    # imported elsewhere.
+    import streamlit as st  # noqa: WPS433 - local import for testability
+
     st.title("Run")
     # Always render disclaimer + button first so tests can capture state
     accepted = show_disclaimer()
