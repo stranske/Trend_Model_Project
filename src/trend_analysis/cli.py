@@ -143,7 +143,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command is None:
         parser.print_help()
         return 1
-    
+
     # This shouldn't be reached, but keep as fallback
     parser.print_help()
     return 1
