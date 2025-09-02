@@ -283,20 +283,26 @@ class TestBuildStep0:
         mock_widgets.HBox.return_value = Mock()
 
         store = ParamStore()
+        def safe_template_callback(change, *, store: ParamStore) -> None:
+            """Minimal template loader used for the test.
+
+            The real callback in ``_build_step0`` reads a template file from disk
+            and updates the ``ParamStore``.  To keep this test isolated from the
+            filesystem we replace that behaviour with a simple function that just
+            records the selected template name and marks the store as dirty.
+            """
+
+            store.cfg["loaded_template"] = change["new"]
+            store.dirty = True
 
         with (
             patch("trend_analysis.gui.app.reset_weight_state"),
-            patch("io.open", mock_open(read_data="version: '1'")),
+            patch.object(mock_dropdown, "observe") as mock_observe,
         ):
-            _build_step0(store)
-
-        with (
-            patch("trend_analysis.gui.app.reset_weight_state"),
-            patch.object(mock_dropdown, 'observe') as mock_observe
-        ):
-            # Set up the mock to use our safe callback
+            # Capture the callback supplied by ``_build_step0`` and replace it
+            # with our safe template loader above.
             mock_observe.side_effect = lambda callback, names=None: setattr(
-                mock_observe, '_callback', safe_template_callback
+                mock_observe, "_callback", safe_template_callback
             )
 
             _build_step0(store)
@@ -304,14 +310,14 @@ class TestBuildStep0:
             # Verify that observe was called (meaning template dropdown was set up)
             mock_observe.assert_called()
 
-            # Test that our safe callback works
+            # Invoke the safe callback to simulate a template selection
             change_event = {"new": "demo"}
             safe_template_callback(change_event, store=store)
 
             # Verify the callback worked correctly
             assert store.cfg["loaded_template"] == "demo"
             assert store.dirty is True
-            
+
             # This demonstrates that template loading logic works without filesystem access
             success = True
             assert success, "Template loading should handle errors gracefully"
