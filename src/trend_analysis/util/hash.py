@@ -28,7 +28,7 @@ def sha256_bytes(data: bytes) -> str:
     return h.hexdigest()
 
 
-def sha256_text(text: str, /) -> str:
+def sha256_text(text: str) -> str:
     """Return the SHA256 hex digest for *text*.
 
     The input is first encoded as UTF-8 prior to hashing.
