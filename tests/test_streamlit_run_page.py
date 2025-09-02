@@ -3,7 +3,7 @@
 import pytest
 import pandas as pd
 from datetime import date
-from unittest.mock import Mock, patch
+from unittest.mock import patch, MagicMock
 import sys
 from pathlib import Path
 
@@ -13,31 +13,35 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 # Import the functions we want to test
 sys.path.insert(0, str(Path(__file__).parent.parent / "app" / "streamlit" / "pages"))
 
-# Mock streamlit before importing our module
-sys.modules["streamlit"] = Mock()
-
 from trend_analysis.api import RunResult  # noqa: E402
+
+
+def _ctx_mock() -> MagicMock:
+    """Return a MagicMock that supports context management."""
+    m = MagicMock()
+    m.__enter__.return_value = m
+    m.__exit__.return_value = None
+    return m
 
 
 def create_mock_streamlit():
     """Create a mock streamlit module for testing."""
-    mock_st = Mock()
+    mock_st = MagicMock()
     mock_st.session_state = {}
-    mock_st.error = Mock()
-    mock_st.warning = Mock()
-    mock_st.success = Mock()
-    mock_st.info = Mock()
-    mock_st.progress = Mock()
-    mock_st.empty = Mock()
-    mock_st.container = Mock()
-    mock_st.expander = Mock()
-    mock_st.code = Mock()
-    mock_st.rerun = Mock()
+    mock_st.error = MagicMock()
+    mock_st.warning = MagicMock()
+    mock_st.success = MagicMock()
+    mock_st.info = MagicMock()
+    mock_st.empty = MagicMock(return_value=_ctx_mock())
+    mock_st.container = MagicMock(return_value=_ctx_mock())
+    mock_st.expander = MagicMock(return_value=_ctx_mock())
+    mock_st.code = MagicMock()
+    mock_st.rerun = MagicMock()
 
-    # Make progress return a mock object
-    progress_mock = Mock()
-    progress_mock.progress = Mock()
-    mock_st.progress.return_value = progress_mock
+    # Make progress return a context-aware mock object
+    progress_mock = _ctx_mock()
+    progress_mock.progress = MagicMock()
+    mock_st.progress = MagicMock(return_value=progress_mock)
 
     return mock_st
 
@@ -445,9 +449,9 @@ class TestAnalysisIntegration:
 
             with patch.object(run_page.st, "session_state", session_state):
                 # Mock streamlit UI elements
-                with patch.object(run_page.st, "container", return_value=Mock()):
-                    with patch.object(run_page.st, "progress", return_value=Mock()):
-                        with patch.object(run_page.st, "empty", return_value=Mock()):
+                with patch.object(run_page.st, "container", return_value=_ctx_mock()):
+                    with patch.object(run_page.st, "progress", return_value=_ctx_mock()):
+                        with patch.object(run_page.st, "empty", return_value=_ctx_mock()):
                             result = run_page.run_analysis_with_progress()
 
                 assert result is not None
@@ -483,12 +487,12 @@ class TestAnalysisIntegration:
             }
 
             with patch.object(run_page.st, "session_state", session_state):
-                with patch.object(run_page.st, "container", return_value=Mock()):
-                    with patch.object(run_page.st, "progress", return_value=Mock()):
-                        with patch.object(run_page.st, "empty", return_value=Mock()):
+                with patch.object(run_page.st, "container", return_value=_ctx_mock()):
+                    with patch.object(run_page.st, "progress", return_value=_ctx_mock()):
+                        with patch.object(run_page.st, "empty", return_value=_ctx_mock()):
                             with patch.object(run_page.st, "error") as mock_error:
                                 with patch.object(
-                                    run_page.st, "expander", return_value=Mock()
+                                    run_page.st, "expander", return_value=_ctx_mock()
                                 ):
                                     result = run_page.run_analysis_with_progress()
 
