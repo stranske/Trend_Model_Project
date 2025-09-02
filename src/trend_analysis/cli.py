@@ -1,6 +1,7 @@
 import argparse
 import platform
 import subprocess
+import sys
 from importlib import metadata
 from pathlib import Path
 
@@ -62,7 +63,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--check", action="store_true", help="Print environment info and exit"
     )
-    sub = parser.add_subparsers(dest="command", required=False)
+    sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("gui", help="Launch Streamlit interface")
 
@@ -70,6 +71,19 @@ def main(argv: list[str] | None = None) -> int:
     run_p.add_argument("-c", "--config", required=True, help="Path to YAML config")
     run_p.add_argument("-i", "--input", required=True, help="Path to returns CSV")
 
+    # Handle --check flag before parsing subcommands
+    # This allows --check to work without requiring a subcommand
+    if argv is None:
+        argv = sys.argv[1:]
+    
+    if "--check" in argv:
+        # Parse just to get the check flag, ignore subcommand requirement
+        temp_parser = argparse.ArgumentParser(prog="trend-model", add_help=False)
+        temp_parser.add_argument("--check", action="store_true")
+        check_args, _ = temp_parser.parse_known_args(argv)
+        if check_args.check:
+            return check_environment()
+    
     args = parser.parse_args(argv)
 
     if args.check:
@@ -139,12 +153,9 @@ def main(argv: list[str] | None = None) -> int:
                 )
         return 0
 
-    # If no command and no --check, show help
-    if args.command is None:
-        parser.print_help()
-        return 1
-
-    # This shouldn't be reached, but keep as fallback
+    # This shouldn't be reached with required=True, but keep as fallback
+    parser.print_help()
+    return 1
 
 
 if __name__ == "__main__":  # pragma: no cover - manual invocation
