@@ -7,30 +7,27 @@ from typing import Tuple, List, Dict, Any, Optional
 import pandas as pd
 import numpy as np
 
-# Map human readable frequency labels to pandas `Period` codes.  These codes
-# can be fed directly to ``pd.PeriodIndex`` when normalising timestamps.
-#
-# The project previously used an indirection layer where monthly data mapped to
-# ``"ME"`` and was then converted to ``"M"`` for ``PeriodIndex``.  This extra
-# aliasing made it harder for downstream code (and tests) to reason about the
-# supported frequencies.  The new ``FREQUENCY_MAP`` exposes the final period
-# codes up front and is the single source of truth for frequency handling.
-FREQUENCY_MAP: Dict[str, str] = {
+# Map human readable frequency labels to short aliases.  These aliases are
+# subsequently normalised to the final pandas ``Period`` codes via
+# ``PANDAS_FREQ_MAP``.  Keeping the alias stage allows us to retain backwards
+# compatibility (e.g. ``"ME"`` for month-end) while exposing the canonical codes
+# through ``FREQUENCY_MAP`` for use throughout the codebase.
+FREQ_ALIAS_MAP: Dict[str, str] = {
     "daily": "D",
     "weekly": "W",
-    # ``M`` is the canonical month‑end frequency used by ``PeriodIndex``
-    "monthly": "M",
+    "monthly": "ME",  # mapped to ``M`` via ``PANDAS_FREQ_MAP``
     "quarterly": "Q",
-    # ``Y`` works for year‑end periods across pandas versions
-    "annual": "Y",
+    "annual": "A",  # mapped to ``Y``
 }
 
-# Map modern frequency codes (e.g., 'ME' for month-end) to legacy pandas period codes ('M' for month-end)
+# Map modern frequency codes (e.g., ``"ME"`` for month-end) to the legacy
+# pandas ``Period`` codes (``"M"`` for month-end).  This keeps legacy data and
+# newer code paths interoperable.
 PANDAS_FREQ_MAP = {"ME": "M"}
 
-# Legacy mapping exposed for backwards compatibility with older code and tests
-# that expect pandas' period codes (e.g. "M" for month-end).
-FREQUENCY_MAP = {
+# Final mapping exposed to consumers.  Each human-readable label resolves to the
+# canonical pandas period code used when constructing ``PeriodIndex`` objects.
+FREQUENCY_MAP: Dict[str, str] = {
     human: ("Y" if alias == "A" else PANDAS_FREQ_MAP.get(alias, alias))
     for human, alias in FREQ_ALIAS_MAP.items()
 }
