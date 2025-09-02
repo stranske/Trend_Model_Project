@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any, Dict, List, cast, ClassVar
+from typing import Any, Dict, List, cast, ClassVar, TYPE_CHECKING
 from collections.abc import Mapping
 
 import yaml
@@ -299,7 +299,7 @@ else:  # Fallback mode for tests without pydantic
             if not self.version.strip():
                 raise ValueError("Version field cannot be empty")
 
-            for _field in [
+            for field in [
                 "data",
                 "preprocessing",
                 "vol_adjust",
@@ -309,11 +309,11 @@ else:  # Fallback mode for tests without pydantic
                 "export",
                 "run",
             ]:
-                value = getattr(self, _field, None)
+                value = getattr(self, field, None)
                 if value is None:
-                    raise ValueError(f"{_field} section is required")
+                    raise ValueError(f"{field} section is required")
                 if not isinstance(value, dict):
-                    raise ValueError(f"{_field} must be a dictionary")
+                    raise ValueError(f"{field} must be a dictionary")
 
         # Provide a similar API surface to pydantic for callers
         def model_dump(self) -> Dict[str, Any]:
