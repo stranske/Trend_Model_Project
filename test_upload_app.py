@@ -30,10 +30,10 @@ This is a test environment for the new upload page functionality.
 
 # Import and run the upload page
 try:
-    from streamlit.pages.pages_01_Upload import main as upload_main
-
-    st.markdown("---")
-    upload_main()
+    # Note: streamlit_app/pages/1_Upload.py doesn't have a main function
+    # It's a streamlit page that runs directly, so we'll skip this import
+    # and use the fallback implementation instead
+    raise ImportError("Streamlit page doesn't have a main function")
 
 except ImportError as e:
     st.error(f"Import error: {e}")

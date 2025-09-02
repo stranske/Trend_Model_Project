@@ -11,9 +11,14 @@ import numpy as np
 import pandas as pd
 
 OUT_DIR = "demo"
+# Ensure demo directory exists with proper permissions
 os.makedirs(OUT_DIR, exist_ok=True)
-# Ensure the directory is writable
-os.chmod(OUT_DIR, 0o755)
+# Set permissions to ensure write access
+try:
+    os.chmod(OUT_DIR, 0o755)
+except (OSError, PermissionError):
+    # Silently continue if we can't set permissions
+    pass
 
 
 def main() -> None:

@@ -255,5 +255,5 @@ class TestStrategyIntegration:
 
     def test_unknown_strategy_raises_error(self):
         """Test that unknown strategy names raise appropriate error."""
-        with pytest.raises(ValueError, match="Unknown plugin"):
+        with pytest.raises(ValueError, match="Unknown rebalancing strategy"):
             create_rebalancing_strategy("nonexistent_strategy")

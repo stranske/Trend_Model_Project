@@ -40,9 +40,20 @@ def create_mock_streamlit():
     mock_st.success = Mock()
     mock_st.info = Mock()
     mock_st.progress = Mock()
-    mock_st.empty = MagicMock()  # Context manager
-    mock_st.container = MagicMock()  # Context manager
-    mock_st.expander = MagicMock()  # Context manager
+    mock_st.empty = Mock()
+
+    # Make container support context manager protocol
+    mock_container = Mock()
+    mock_container.__enter__ = Mock(return_value=mock_container)
+    mock_container.__exit__ = Mock(return_value=None)
+    mock_st.container = Mock(return_value=mock_container)
+
+    # Make expander support context manager protocol
+    mock_expander = Mock()
+    mock_expander.__enter__ = Mock(return_value=mock_expander)
+    mock_expander.__exit__ = Mock(return_value=None)
+    mock_st.expander = Mock(return_value=mock_expander)
+
     mock_st.code = Mock()
     mock_st.rerun = Mock()
 

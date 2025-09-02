@@ -7,6 +7,16 @@ from typing import Tuple, List, Dict, Any, Optional
 import pandas as pd
 import numpy as np
 
+# Module-level constant mapping human-readable frequency names to pandas Period frequency codes
+# For PeriodIndex usage (pandas >=2.2 requires 'M' not 'ME' for periods)
+FREQUENCY_MAP = {
+    "daily": "D",
+    "weekly": "W",
+    "monthly": "M",  # Month period (for PeriodIndex)
+    "quarterly": "Q",  # Quarter period
+    "annual": "Y",  # Year period
+}
+
 
 class ValidationResult:
     """Result of schema validation with detailed feedback."""
@@ -183,15 +193,8 @@ def load_and_validate_upload(file_like) -> Tuple[pd.DataFrame, Dict[str, Any]]:
 
     # Normalize to period-end timestamps using detected frequency
     idx = pd.to_datetime(df.index)
-    freq_map = {
-        "daily": "D",
-        "weekly": "W",
-        "monthly": "M",
-        "quarterly": "Q",
-        "annual": "A",
-    }
-    freq_alias = freq_map.get(validation.frequency or "", "M")
-    df.index = pd.PeriodIndex(idx, freq=freq_alias).to_timestamp(freq_alias)
+    freq_alias = FREQUENCY_MAP.get(validation.frequency or "", "M")
+    df.index = pd.PeriodIndex(idx, freq=freq_alias).to_timestamp(how="end")
     df = df.dropna(axis=1, how="all")
 
     # Convert to numeric
