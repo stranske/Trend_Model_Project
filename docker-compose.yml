@@ -1,0 +1,15 @@
+version: "3.9"
+services:
+  app:
+    image: ghcr.io/stranske/trend-model:latest
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./data:/app/data
+  api:
+    image: ghcr.io/stranske/trend-model:latest
+    command: python -m trend_analysis.api_server
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
