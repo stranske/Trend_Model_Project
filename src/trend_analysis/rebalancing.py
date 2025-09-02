@@ -1,15 +1,14 @@
 """Portfolio rebalancing strategies implementation.
 
 This module provides various rebalancing strategies that control how target
-weights are realised into actual trades and positions, including turnover
-constraints and transaction cost modelling.  Strategies are exposed via a
+weights are realized into actual trades and positions, including turnover
+constraints and transaction cost modeling.  Strategies are exposed via a
 simple plugin registry so they can be selected by name in configuration files.
 """
 
 from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple
 
-import numpy as np
 import pandas as pd
 
 from .plugins import Rebalancer, rebalancer_registry, create_rebalancer
@@ -387,9 +386,6 @@ __all__ = [
     "DriftBandStrategy",
     "VolTargetRebalanceStrategy",
     "DrawdownGuardStrategy",
-    "create_rebalancing_strategy",
-    "apply_rebalancing_strategies",
-    "rebalancer_registry",
     "REBALANCING_STRATEGIES",
 ]
 
