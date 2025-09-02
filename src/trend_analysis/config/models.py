@@ -14,6 +14,32 @@ from collections.abc import Mapping
 
 import yaml
 
+if TYPE_CHECKING:
+    # Define Config type alias for static type checking
+    from typing_extensions import Protocol
+
+    class ConfigProtocol(Protocol):
+        """Type protocol for Config class that works in both Pydantic and fallback modes."""
+
+        version: str
+        data: dict[str, Any]
+        preprocessing: dict[str, Any]
+        vol_adjust: dict[str, Any]
+        sample_split: dict[str, Any]
+        portfolio: dict[str, Any]
+        benchmarks: dict[str, str]
+        metrics: dict[str, Any]
+        export: dict[str, Any]
+        output: dict[str, Any] | None
+        run: dict[str, Any]
+        multi_period: dict[str, Any] | None
+        jobs: int | None
+        checkpoint_dir: str | None
+        seed: int
+
+    # Type alias for Config that works with both implementations
+    ConfigType = ConfigProtocol
+
 # Pydantic import (optional in tests)
 # Use temporary underscored names within the branch, then export public names
 try:  # pragma: no cover - exercised via tests toggling availability
@@ -113,10 +139,10 @@ if _HAS_PYDANTIC:
     _cached = getattr(_bi, "_TREND_CONFIG_CLASS", None)
 
     if _cached is not None:
-        Config = _cached  # type: ignore[assignment]
+        Config = _cached
     else:
 
-        class Config(BaseModel):  # type: ignore[valid-type,misc]
+        class Config(BaseModel):  # type: ignore[misc]
             """Typed access to the YAML configuration (Pydantic mode)."""
 
             # Field lists as class constants to prevent maintenance burden
@@ -173,13 +199,9 @@ if _HAS_PYDANTIC:
             seed: int = 42
 
             @field_validator("version")
-            def _ensure_version_not_whitespace(cls, v: str) -> str:
+            def _validate_version(cls, v: Any) -> str:
                 """Reject strings that consist only of whitespace."""
-                if not isinstance(v, str):
-                    raise ValueError("Version field must be a string")
-                if not v.strip():
-                    raise ValueError("Version field cannot be empty")
-                return v
+                return _validate_version_value(v)
 
             @field_validator(
                 *REQUIRED_DICT_FIELDS,
@@ -443,16 +465,16 @@ def list_available_presets() -> List[str]:
 DEFAULTS = Path(__file__).resolve().parents[3] / "config" / "defaults.yml"
 
 
-def load_config(cfg: Mapping[str, Any] | str | Path) -> Config:
+def load_config(cfg: Mapping[str, Any] | str | Path) -> ConfigType:
     """Load configuration from a mapping or file path."""
     if isinstance(cfg, (str, Path)):
         return load(cfg)
     if isinstance(cfg, Mapping):
-        return Config(**cfg)
+        return cast("ConfigType", Config(**cfg))
     raise TypeError("cfg must be a mapping or path")
 
 
-def load(path: str | Path | None = None) -> Config:
+def load(path: str | Path | None = None) -> ConfigType:
     """Load configuration from ``path`` or ``DEFAULTS``.
     If ``path`` is ``None``, the ``TREND_CFG`` environment variable is
     consulted before falling back to ``DEFAULTS``.
@@ -486,7 +508,7 @@ def load(path: str | Path | None = None) -> Config:
             export_cfg.setdefault("directory", str(p.parent) if p.parent else ".")
             export_cfg.setdefault("filename", p.name)
 
-    return Config(**data)
+    return cast("ConfigType", Config(**data))
 
 
 __all__ = [
