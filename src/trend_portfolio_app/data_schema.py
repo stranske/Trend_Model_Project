@@ -17,7 +17,7 @@ def _validate_df(df: pd.DataFrame) -> Tuple[pd.DataFrame, SchemaMeta]:
     df = df.set_index(DATE_COL).sort_index()
     # Normalize to month-end timestamps
     idx = pd.to_datetime(df.index)
-    df.index = pd.PeriodIndex(idx, freq="M").to_timestamp("M")
+    df.index = pd.PeriodIndex(idx, freq="M").to_timestamp("M", how="end")
     df = df.dropna(axis=1, how="all")
     if df.shape[1] == 0:
         raise ValueError("No return columns found after dropping empty columns.")
