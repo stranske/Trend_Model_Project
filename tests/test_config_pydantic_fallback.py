@@ -52,10 +52,17 @@ def test_config_import_without_pydantic():
 
 def test_config_validation_with_pydantic():
     """Test that validation works when pydantic is available."""
+    # Reload config module to ensure _HAS_PYDANTIC reflects current environment
+    for module in [
+        "trend_analysis.config.models",
+        "trend_analysis.config",
+    ]:
+        if module in sys.modules:
+            del sys.modules[module]
+
     from trend_analysis.config.models import Config
     from pydantic import ValidationError
 
-    # Test validation error with pydantic
     with pytest.raises(ValidationError, match="version must be a string"):
         Config(version=123)
 
