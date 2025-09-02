@@ -13,6 +13,7 @@ from typing import Any, Dict, List, cast, ClassVar
 from collections.abc import Mapping
 
 import yaml
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     # Define Config type alias for static type checking
@@ -309,11 +310,11 @@ else:  # Fallback mode for tests without pydantic
                 "export",
                 "run",
             ]:
-                value = getattr(self, _field, None)
+                value = getattr(self, field, None)
                 if value is None:
-                    raise ValueError(f"{_field} section is required")
+                    raise ValueError(f"{field} section is required")
                 if not isinstance(value, dict):
-                    raise ValueError(f"{_field} must be a dictionary")
+                    raise ValueError(f"{field} must be a dictionary")
 
         # Provide a similar API surface to pydantic for callers
         def model_dump(self) -> Dict[str, Any]:

@@ -3,15 +3,16 @@
 from __future__ import annotations
 
 import io
-from typing import Tuple, List, Dict, Any, Optional
-import pandas as pd
-import numpy as np
+from typing import Any, Dict, List, Optional, Tuple
 
-# Map human readable frequency labels to legacy alias codes.  Earlier versions
-# of the project used indirections like ``"ME"`` (month‑end) which were then
-# converted to pandas ``PeriodIndex`` codes such as ``"M"``.  ``FREQ_ALIAS_MAP``
-# retains those aliases for backwards compatibility while ``FREQUENCY_MAP``
-# exposes the canonical pandas codes used throughout the codebase.
+import numpy as np
+import pandas as pd
+
+# ---------------------------------------------------------------------------
+# Frequency mappings
+# ---------------------------------------------------------------------------
+
+# Human readable labels mapped to legacy alias codes used in older configs.
 FREQ_ALIAS_MAP: Dict[str, str] = {
     "daily": "D",
     "weekly": "W",
@@ -20,25 +21,16 @@ FREQ_ALIAS_MAP: Dict[str, str] = {
     "annual": "A",
 }
 
-# Translate legacy alias codes to the canonical pandas codes expected by
-# ``pd.PeriodIndex``.
-PANDAS_FREQ_MAP: Dict[str, str] = {"ME": "M", "QE": "Q", "A": "Y"}
+# Legacy aliases translated to canonical pandas ``PeriodIndex`` codes.
+PANDAS_FREQ_MAP: Dict[str, str] = {
+    "ME": "M",  # month-end -> monthly
+    "QE": "Q",  # quarter-end -> quarterly
+    "A": "Y",  # annual -> yearly
+}
 
-# Public mapping of human‑readable labels to canonical pandas frequency codes.
+# Public mapping of human readable labels directly to pandas codes.
 FREQUENCY_MAP: Dict[str, str] = {
     human: PANDAS_FREQ_MAP.get(alias, alias) for human, alias in FREQ_ALIAS_MAP.items()
-}
-
-# Normalize frequency aliases to pandas Period codes
-PANDAS_FREQ_MAP: Dict[str, str] = {
-    "ME": "M",  # Month-end to Month for PeriodIndex compatibility
-    "A": "Y",   # Annual to Year
-}
-
-# Final frequency map for use throughout the codebase
-FREQUENCY_MAP: Dict[str, str] = {
-    key: PANDAS_FREQ_MAP.get(alias, alias)
-    for key, alias in FREQ_ALIAS_MAP.items()
 }
 
 
