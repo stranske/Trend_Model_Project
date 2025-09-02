@@ -53,9 +53,10 @@ def test_config_import_without_pydantic():
 def test_config_validation_with_pydantic():
     """Test that validation works when pydantic is available."""
     from trend_analysis.config.models import Config
+    from pydantic import ValidationError
 
     # Test validation error with pydantic
-    with pytest.raises(TypeError, match="version must be a string"):
+    with pytest.raises(ValidationError, match="version must be a string"):
         Config(version=123)
 
 
@@ -81,7 +82,7 @@ def test_config_validation_without_pydantic():
         from trend_analysis.config.models import Config
 
         # Test validation error without pydantic
-        with pytest.raises(TypeError, match="version must be a string"):
+        with pytest.raises(ValueError, match="version must be a string"):
             Config(version=123)
 
 

@@ -8,6 +8,13 @@ sys.path.insert(0, str(ROOT / "src"))  # noqa: E402
 
 from trend_analysis import config  # noqa: E402
 
+# Try to import ValidationError, fallback to ValueError for environments without pydantic
+try:
+    from pydantic import ValidationError
+    ValidationException = ValidationError
+except ImportError:
+    ValidationException = ValueError
+
 _DICT_SECTIONS = [
     "data",
     "preprocessing",
@@ -30,12 +37,12 @@ _BASE_CFG = {"version": "1", "data": {}}
 def test_sections_require_mappings(field, val):
     cfg = _BASE_CFG.copy()
     cfg[field] = val
-    with pytest.raises(TypeError):
+    with pytest.raises((ValidationException, ValueError)):
         config.load_config(cfg)
 
 
 @given(val=invalid_values)
 def test_version_must_be_string(val):
     cfg = {"version": val, "data": {}}
-    with pytest.raises(TypeError):
+    with pytest.raises((ValidationException, ValueError)):
         config.load_config(cfg)
