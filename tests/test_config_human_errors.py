@@ -29,7 +29,7 @@ class TestHumanErrors:
         cfg = {"version": 1.0, "data": {}}
         with pytest.raises(
             (ValidationException, ValueError),
-            match="(version must be a string|str type expected)",
+            match="(version must be a string|str type expected|Input should be a valid string)",
         ):
             config.load_config(cfg)
 
@@ -38,7 +38,7 @@ class TestHumanErrors:
         cfg = {"version": True, "data": {}}
         with pytest.raises(
             (ValidationException, ValueError),
-            match="(version must be a string|str type expected)",
+            match="(version must be a string|str type expected|Input should be a valid string)",
         ):
             config.load_config(cfg)
 
@@ -183,6 +183,6 @@ class TestHumanErrors:
         cfg = {"version": wrong_version, "data": {}}
         with pytest.raises(
             (ValidationException, ValueError),
-            match="(version must be a string|str type expected)",
+            match="(version must be a string|str type expected|Input should be a valid string)",
         ):
             config.load_config(cfg)

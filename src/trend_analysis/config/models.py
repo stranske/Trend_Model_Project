@@ -105,16 +105,10 @@ class Config(BaseModel):
     checkpoint_dir: str | None = None
     seed: int = 42
 
-    @field_validator("version", mode="before")
+    @field_validator("version")
     @classmethod
-    def _validate_version_type_and_value(cls, v: Any) -> str:
-        """Validate version field type and value."""
-        if v is None:
-            raise ValueError("version field is required")
-        if not isinstance(v, str):
-            raise ValueError("version must be a string")
-        if len(v) == 0:
-            raise ValueError("String should have at least 1 character")
+    def _validate_version_not_empty(cls, v: str) -> str:
+        """Ensure the version string is not empty or whitespace."""
         if not v.strip():
             raise ValueError("Version field cannot be empty")
         return v
@@ -129,14 +123,6 @@ class Config(BaseModel):
                 raise ValueError("version field is required")
             _validate_version_value(version_value)
             super().__init__(**kwargs)
-
-            v = getattr(self, "version", None)
-            if not isinstance(v, str):
-                raise ValueError("version must be a string")
-            if len(v) == 0:
-                raise ValueError("String should have at least 1 character")
-            if not v.strip():
-                raise ValueError("Version field cannot be empty")
 
             # Dynamically find all attributes whose default value is a dict
             dict_field_names = [
