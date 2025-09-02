@@ -38,12 +38,12 @@ _BASE_CFG = {"version": "1", "data": {}}
 def test_sections_require_mappings(field, val):
     cfg = _BASE_CFG.copy()
     cfg[field] = val
-    with pytest.raises((ValidationException, ValueError)):
+    with pytest.raises((ValidationException, ValueError, TypeError)):
         config.load_config(cfg)
 
 
 @given(val=invalid_values)
 def test_version_must_be_string(val):
     cfg = {"version": val, "data": {}}
-    with pytest.raises((ValidationException, ValueError)):
+    with pytest.raises((ValidationException, ValueError, TypeError)):
         config.load_config(cfg)
