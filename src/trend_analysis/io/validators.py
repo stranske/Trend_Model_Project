@@ -15,7 +15,7 @@ FREQ_ALIAS_MAP = {
     "annual": "A",
 }
 
-# pandas uses 'M' internally for month-end; map legacy codes accordingly
+# Map modern frequency codes (e.g., 'ME' for month-end) to legacy pandas period codes ('M' for month-end)
 PANDAS_FREQ_MAP = {"ME": "M"}
 
 
