@@ -7,17 +7,26 @@ from typing import Tuple, List, Dict, Any, Optional
 import pandas as pd
 import numpy as np
 
-# Map human readable frequency labels to short aliases.  These aliases are
-# subsequently normalised to the final pandas ``Period`` codes via
-# ``PANDAS_FREQ_MAP``.  Keeping the alias stage allows us to retain backwards
-# compatibility (e.g. ``"ME"`` for month-end) while exposing the canonical codes
-# through ``FREQUENCY_MAP`` for use throughout the codebase.
+# Map human readable frequency labels to legacy alias codes.  Earlier versions
+# of the project used indirections like ``"ME"`` (month‑end) which were then
+# converted to pandas ``PeriodIndex`` codes such as ``"M"``.  ``FREQ_ALIAS_MAP``
+# retains those aliases for backwards compatibility while ``FREQUENCY_MAP``
+# exposes the canonical pandas codes used throughout the codebase.
 FREQ_ALIAS_MAP: Dict[str, str] = {
     "daily": "D",
     "weekly": "W",
-    "monthly": "ME",  # mapped to ``M`` via ``PANDAS_FREQ_MAP``
-    "quarterly": "Q",
-    "annual": "A",  # mapped to ``Y``
+    "monthly": "ME",
+    "quarterly": "QE",
+    "annual": "A",
+}
+
+# Translate legacy alias codes to the canonical pandas codes expected by
+# ``pd.PeriodIndex``.
+PANDAS_FREQ_MAP: Dict[str, str] = {"ME": "M", "QE": "Q", "A": "Y"}
+
+# Public mapping of human‑readable labels to canonical pandas frequency codes.
+FREQUENCY_MAP: Dict[str, str] = {
+    human: PANDAS_FREQ_MAP.get(alias, alias) for human, alias in FREQ_ALIAS_MAP.items()
 }
 
 # Normalize frequency aliases to pandas Period codes

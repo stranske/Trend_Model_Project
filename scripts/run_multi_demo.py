@@ -102,7 +102,8 @@ def _check_demo_data(cfg: Config) -> pd.DataFrame:
         raise SystemExit("Demo dataset manager count mismatch")
     first = df["Date"].iloc[0]
     last = df["Date"].iloc[-1]
-    if last != first + pd.DateOffset(months=119):
+    expected_last = first + pd.offsets.MonthEnd(119)
+    if last != expected_last:
         raise SystemExit("Demo dataset date range mismatch")
     xlsx_path = Path(cfg.data["csv_path"]).with_suffix(".xlsx")
     if not xlsx_path.exists():
@@ -311,17 +312,14 @@ def _check_cli_env_multi(cfg_path: str) -> None:
         raise SystemExit("run_multi_analysis.main env failed")
 
 
-def _check_cli(cfg_path: str) -> None:
+def _check_cli(cfg_path: str, csv_path: str) -> None:
     """Exercise the simple CLI wrapper."""
-    rc = cli.main(["--version"])
+    rc = cli.main(["--check"])
     if rc != 0:
-        raise SystemExit("CLI --version failed")
-    rc = cli.main(["-c", cfg_path])
+        raise SystemExit("CLI --check failed")
+    rc = cli.main(["run", "-c", cfg_path, "-i", csv_path])
     if rc != 0:
-        raise SystemExit("CLI default run failed")
-    rc = cli.main([])
-    if rc != 0:
-        raise SystemExit("CLI default config failed")
+        raise SystemExit("CLI run failed")
 
 
 def _check_misc(
@@ -1698,7 +1696,7 @@ _check_plugin_discovery()
 _check_selection_modes(cfg)
 _check_cli_env("config/demo.yml")
 _check_cli_env_multi("config/demo.yml")
-_check_cli("config/demo.yml")
+_check_cli("config/demo.yml", cfg.data["csv_path"])
 _check_misc("config/demo.yml", cfg, results)
 _check_config_dump(cfg)
 _check_default_load()
@@ -1917,7 +1915,18 @@ def _check_module_exports() -> None:
     """Ensure module-level ``__all__`` lists are intact."""
 
     expected_map = {
-        "config": {"Config", "load"},
+        "config": {
+            "PresetConfig",
+            "ColumnMapping",
+            "ConfigurationState",
+            "load_preset",
+            "list_available_presets",
+            "load",
+            "load_config",
+            "Config",
+            "DEFAULTS",
+            "_find_config_directory",
+        },
         "data": {"load_csv", "identify_risk_free_fund", "ensure_datetime"},
         "export": {
             "FORMATTERS_EXCEL",
@@ -1942,6 +1951,7 @@ def _check_module_exports() -> None:
             "export_phase1_workbook",
             "export_phase1_multi_metrics",
             "export_multi_period_metrics",
+            "export_bundle",
         },
         "weighting": {
             "BaseWeighting",
@@ -2140,14 +2150,7 @@ subprocess.run(
 )
 
 subprocess.run(
-    [
-        sys.executable,
-        "-m",
-        "trend_analysis.cli",
-        "--version",
-        "-c",
-        "config/demo.yml",
-    ],
+    ["scripts/trend-model", "--check", "run", "-c", "config/demo.yml"],
     check=True,
     shell=False,
 )
@@ -2155,11 +2158,7 @@ subprocess.run(
 env = os.environ.copy()
 env["TREND_CFG"] = "config/demo.yml"
 subprocess.run(
-    [
-        sys.executable,
-        "-m",
-        "trend_analysis.cli",
-    ],
+    ["scripts/trend-model", "--check", "run"],
     check=True,
     env=env,
     shell=False,
