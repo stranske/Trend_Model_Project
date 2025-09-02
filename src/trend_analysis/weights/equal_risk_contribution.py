@@ -29,7 +29,9 @@ class EqualRiskContribution(WeightEngine):
             target = port_var / n
             if np.max(np.abs(rc - target)) < self.tol:
                 break
-            w *= target / rc
+            # Guard against division by zero in rc
+            safe_rc = np.where(rc == 0, 1e-12, rc)
+            w *= target / safe_rc
             w = np.clip(w, 0, None)
             w /= w.sum()
         return pd.Series(w, index=cov.index)
