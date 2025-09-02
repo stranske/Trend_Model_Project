@@ -4,7 +4,7 @@ import sys
 import tempfile
 import yaml  # type: ignore[import-untyped]
 from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch, ANY
+from unittest.mock import Mock, MagicMock, patch, ANY, mock_open
 from trend_analysis.gui.app import (
     load_state,
     save_state,
@@ -276,7 +276,10 @@ class TestBuildStep0:
 
         store = ParamStore()
 
-        with patch("trend_analysis.gui.app.reset_weight_state"):
+        with (
+            patch("trend_analysis.gui.app.reset_weight_state"),
+            patch("io.open", mock_open(read_data="version: '1'")),
+        ):
             _build_step0(store)
 
             # Simulate template dropdown change with existing template

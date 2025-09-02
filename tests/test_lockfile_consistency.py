@@ -35,9 +35,7 @@ def _normalize_lockfile_content(content: str) -> str:
             # Command with output file
             if re.search(r"^#\s*uv pip compile.*-o\s+\S+", line):
                 # Replace with normalized version
-                lines.append(
-                    "#    uv pip compile pyproject.toml -o requirements.lock"
-                )
+                lines.append("#    uv pip compile pyproject.toml -o requirements.lock")
                 continue
             if re.match(r"^#\s*uv pip compile.*", stripped):
                 lines.append("#    uv pip compile pyproject.toml -o requirements.lock")
