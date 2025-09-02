@@ -93,7 +93,11 @@ def _find_config_directory() -> Path:
 def _validate_version_value(v: Any) -> str:
     """Validate the ``version`` field for both pydantic and fallback modes."""
     if not isinstance(v, str):
-        raise TypeError("version must be a string")
+        # Tests expect a ``ValueError`` for wrong types when pydantic is not
+        # available.  Using ``ValueError`` keeps behaviour consistent between
+        # the pydantic-backed model (which raises ``ValidationError``) and the
+        # simple fallback model used in this repository.
+        raise ValueError("version must be a string")
     if len(v) == 0:
         # Match pydantic's wording for empty strings
         raise ValueError("String should have at least 1 character")
@@ -118,11 +122,11 @@ if _HAS_PYDANTIC:
             # Use a plain dict for model_config to avoid type-checker issues when
             # Pydantic is not installed (tests toggle availability).
             model_config = {"extra": "ignore"}
-            # ``version`` must be a non-empty string. ``min_length`` handles the empty
-            # string case and produces the standard pydantic error message
-            # "String should have at least 1 character". A separate validator below
-            # ensures the field isn't composed solely of whitespace.
-            version: str = Field(min_length=1)
+            # ``version`` must be a non-empty string. Using ``StrictStr`` ensures
+            # Pydantic rejects non-string inputs with its standard error message
+            # "Input should be a valid string". ``min_length`` handles the empty
+            # string case, while a validator below rejects whitespace-only values.
+            version: _pyd.StrictStr = Field(min_length=1)  # type: ignore[valid-type]
             data: dict[str, Any] = Field(default_factory=dict)
             preprocessing: dict[str, Any] = Field(default_factory=dict)
             vol_adjust: dict[str, Any] = Field(default_factory=dict)
@@ -148,6 +152,8 @@ if _HAS_PYDANTIC:
             @field_validator("version")
             def _ensure_version_not_whitespace(cls, v: str) -> str:
                 """Reject strings that consist only of whitespace."""
+                if not isinstance(v, str):
+                    raise ValueError("Version field must be a string")
                 if not v.strip():
                     raise ValueError("Version field cannot be empty")
                 return v
