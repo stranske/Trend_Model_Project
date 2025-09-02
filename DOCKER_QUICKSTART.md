@@ -179,7 +179,7 @@ docker run --rm -v $(pwd):/workspace ghcr.io/stranske/trend-model:latest \
 
 # Start Jupyter notebook server instead
 docker run -p 8888:8888 ghcr.io/stranske/trend-model:latest \
-  jupyter notebook --ip=0.0.0.0 --port=8888 --no-browser --allow-root
+  jupyter notebook --ip=0.0.0.0 --port=8888 --no-browser
 ```
 
 ## Support
