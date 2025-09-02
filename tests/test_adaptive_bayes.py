@@ -1,5 +1,6 @@
 import pandas as pd
 from numpy.testing import assert_allclose
+from trend_analysis.constants import NUMERICAL_TOLERANCE_HIGH, NUMERICAL_TOLERANCE_MEDIUM
 from trend_analysis.weighting import AdaptiveBayesWeighting, ScorePropSimple
 
 
@@ -22,7 +23,7 @@ def test_sum_to_one():
     w = AdaptiveBayesWeighting(max_w=None)
     df = pd.DataFrame(index=["A", "B"])
     weights = w.weight(df)
-    assert_allclose(weights["weight"].sum(), 1.0, rtol=1e-12)
+    assert_allclose(weights["weight"].sum(), 1.0, rtol=NUMERICAL_TOLERANCE_HIGH)
 
 
 def test_clip_respects_max_w():
@@ -30,7 +31,7 @@ def test_clip_respects_max_w():
     df = pd.DataFrame(index=["A", "B"])
     w.update(pd.Series({"A": 10.0, "B": -5.0}), 30)
     out = w.weight(df)
-    assert out["weight"].max() <= 0.6 + 1e-9
+    assert out["weight"].max() <= 0.6 + NUMERICAL_TOLERANCE_MEDIUM
 
 
 def test_half_life_zero_equals_simple():

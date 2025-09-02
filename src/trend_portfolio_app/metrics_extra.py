@@ -1,8 +1,10 @@
 from __future__ import annotations
 import numpy as np
 import pandas as pd
+from trend_analysis.constants import NUMERICAL_TOLERANCE_HIGH
 
-EPS = 1e-12
+# Use shared numerical tolerance constant
+EPS = NUMERICAL_TOLERANCE_HIGH
 
 
 def total_return(r: pd.Series) -> float:

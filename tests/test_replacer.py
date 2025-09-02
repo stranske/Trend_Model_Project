@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from trend_analysis.constants import NUMERICAL_TOLERANCE_MEDIUM
 from trend_analysis.multi_period.replacer import Rebalancer
 
 
@@ -49,4 +50,4 @@ def test_weights_normalised():
     prev = pd.Series({"A": 0.5, "B": 0.5})
     sf = make_score(0.0, -0.5, 1.5)
     out = reb.apply_triggers(prev, sf)
-    assert np.isclose(out.sum(), 1.0, atol=1e-9)
+    assert np.isclose(out.sum(), 1.0, atol=NUMERICAL_TOLERANCE_MEDIUM)

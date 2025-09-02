@@ -23,6 +23,7 @@ from typing import Dict, List, Mapping, Protocol, Any, cast
 import pandas as pd
 
 from ..config import Config
+from ..constants import NUMERICAL_TOLERANCE_HIGH
 from ..data import load_csv
 from ..pipeline import _run_analysis
 from .scheduler import generate_periods
@@ -488,10 +489,10 @@ def run(
         # Step 3: adjust to sum to 1.0 without violating bounds
         total = floored.sum()
         # Helper masks
-        at_min = floored <= (min_w_bound + 1e-12)
-        at_max = floored >= (max_w_bound - 1e-12)
+        at_min = floored <= (min_w_bound + NUMERICAL_TOLERANCE_HIGH)
+        at_max = floored >= (max_w_bound - NUMERICAL_TOLERANCE_HIGH)
 
-        if total > 1.0 + 1e-12:
+        if total > 1.0 + NUMERICAL_TOLERANCE_HIGH:
             # Need to reduce 'excess' from those above min (prefer free > min)
             excess = total - 1.0
             donors = floored[~at_min]
@@ -502,7 +503,7 @@ def run(
                 if avail_sum > 0:
                     cut = (avail / avail_sum) * excess
                     floored.loc[donors.index] = (donors - cut).clip(lower=min_w_bound)
-        elif total < 1.0 - 1e-12:
+        elif total < 1.0 - NUMERICAL_TOLERANCE_HIGH:
             # Need to distribute deficit to those below max (prefer free < max)
             deficit = 1.0 - total
             receivers = floored[~at_max]
@@ -521,7 +522,7 @@ def run(
         if abs(total - 1.0) > 1e-9:
             if total > 1.0:
                 excess = total - 1.0
-                donors = floored[~(floored <= min_w_bound + 1e-12)]
+                donors = floored[~(floored <= min_w_bound + NUMERICAL_TOLERANCE_HIGH)]
                 if not donors.empty:
                     share = (donors - min_w_bound).clip(lower=0.0)
                     sh = share.sum()
@@ -531,7 +532,7 @@ def run(
                         ).clip(lower=min_w_bound)
             else:
                 deficit = 1.0 - total
-                receivers = floored[~(floored >= max_w_bound - 1e-12)]
+                receivers = floored[~(floored >= max_w_bound - NUMERICAL_TOLERANCE_HIGH)]
                 if not receivers.empty:
                     room = (max_w_bound - receivers).clip(lower=0.0)
                     rm = room.sum()
@@ -638,7 +639,7 @@ def run(
                     z = float("nan")
                 reason = (
                     "z_entry"
-                    if (pd.notna(z) and z > z_entry_soft - 1e-12)
+                    if (pd.notna(z) and z > z_entry_soft - NUMERICAL_TOLERANCE_HIGH)
                     else "rebalance"
                 )
                 events.append(

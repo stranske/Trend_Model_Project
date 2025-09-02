@@ -4,13 +4,30 @@ from pathlib import Path
 
 import pandas as pd
 from trend_analysis import run_analysis, run_multi_analysis, cli
-from trend_analysis.constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
+from trend_analysis.constants import (
+    DEFAULT_OUTPUT_DIRECTORY, 
+    DEFAULT_OUTPUT_FORMATS,
+    NUMERICAL_TOLERANCE_HIGH,
+    NUMERICAL_TOLERANCE_MEDIUM,
+    NUMERICAL_TOLERANCE_LOW,
+)
 
 
 def test_constants_exist():
     """Test that constants are properly defined."""
     assert DEFAULT_OUTPUT_DIRECTORY == "outputs"
     assert DEFAULT_OUTPUT_FORMATS == ["excel"]
+    
+    # Test numerical tolerance constants
+    assert NUMERICAL_TOLERANCE_HIGH == 1e-12
+    assert NUMERICAL_TOLERANCE_MEDIUM == 1e-9  
+    assert NUMERICAL_TOLERANCE_LOW == 1e-6
+
+
+def test_numerical_tolerance_constants_hierarchy():
+    """Test that tolerance constants maintain the expected hierarchy."""
+    assert NUMERICAL_TOLERANCE_HIGH < NUMERICAL_TOLERANCE_MEDIUM
+    assert NUMERICAL_TOLERANCE_MEDIUM < NUMERICAL_TOLERANCE_LOW
 
 
 def test_constants_are_used_in_run_analysis():
@@ -80,3 +97,18 @@ def test_constants_default_behavior_unchanged(tmp_path, monkeypatch):
 
     # Check that the default output directory and file are created
     assert (tmp_path / DEFAULT_OUTPUT_DIRECTORY / "analysis.xlsx").exists()
+
+
+def test_numerical_tolerance_constants_in_use():
+    """Test that numerical tolerance constants are being imported in key modules."""
+    # Test that the constants can be imported from specific modules that use them
+    from trend_analysis.engine.optimizer import NUMERICAL_TOLERANCE_HIGH as opt_tol
+    from trend_analysis.constants import NUMERICAL_TOLERANCE_HIGH as const_tol
+    
+    # Verify they are the same constant
+    assert opt_tol is const_tol
+    assert opt_tol == 1e-12
+    
+    # Test a few other modules
+    from trend_analysis.multi_period.engine import NUMERICAL_TOLERANCE_HIGH as engine_tol
+    assert engine_tol is const_tol

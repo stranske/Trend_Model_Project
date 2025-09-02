@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from trend_analysis.constants import NUMERICAL_TOLERANCE_HIGH
 from trend_analysis.engine.optimizer import (
     apply_constraints,
     ConstraintViolation,
@@ -13,7 +14,7 @@ def test_long_only_and_max_weight():
     out = apply_constraints(w, {"long_only": True, "max_weight": 0.55})
     assert (out >= 0).all()
     assert np.isclose(out.sum(), 1.0)
-    assert (out <= 0.55 + 1e-12).all()
+    assert (out <= 0.55 + NUMERICAL_TOLERANCE_HIGH).all()
 
 
 def test_group_caps():
@@ -26,7 +27,7 @@ def test_group_caps():
     }
     out = apply_constraints(w, constraints)
     assert np.isclose(out.sum(), 1.0)
-    assert out.loc["a"] + out.loc["b"] <= 0.5 + 1e-12
+    assert out.loc["a"] + out.loc["b"] <= 0.5 + NUMERICAL_TOLERANCE_HIGH
 
 
 def test_infeasible_max_weight():
@@ -55,4 +56,4 @@ def test_empty_group_handling():
     out = apply_constraints(w, constraints)
     assert np.isclose(out.sum(), 1.0)
     # Both assets should be in "existing" group, no constraint needed since cap is 1.0
-    assert out.loc["a"] + out.loc["b"] <= 1.0 + 1e-12
+    assert out.loc["a"] + out.loc["b"] <= 1.0 + NUMERICAL_TOLERANCE_HIGH

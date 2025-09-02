@@ -9,6 +9,7 @@ import numpy as np
 from .policy_engine import PolicyConfig, CooldownBook, decide_hires_fires
 from .event_log import Event, EventLog
 from .metrics_extra import AVAILABLE_METRICS
+from trend_analysis.constants import NUMERICAL_TOLERANCE_HIGH
 
 logger = logging.getLogger(__name__)
 
@@ -318,8 +319,8 @@ class Simulator:
         )
 
 
-# Small epsilon to avoid divide-by-zero in IR calculations
-EPS = 1e-12
+# Use shared numerical tolerance constant to avoid divide-by-zero in IR calculations
+EPS = NUMERICAL_TOLERANCE_HIGH
 
 
 def _apply_rebalance_pipeline(
