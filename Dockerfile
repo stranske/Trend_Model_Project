@@ -24,10 +24,13 @@ COPY config/ ./config/
 COPY scripts/ ./scripts/
 COPY README.md LICENSE ./
 
-# Install the package in development mode for CLI access
-RUN pip install --no-cache-dir -e .[app] || \
-    (echo "Warning: Package installation failed. CLI may have limited functionality." && \
-     pip install --no-cache-dir streamlit streamlit-sortables)
+# Install build dependencies and the package in development mode for CLI access
+# Ensure build dependencies are available and handle editable install gracefully
+RUN pip install --no-cache-dir setuptools>=61 wheel build && \
+    (pip install --no-cache-dir -e .[app] && echo "Package installed successfully with [app] extra") || \
+    (echo "Warning: Editable install with [app] extra failed. Falling back to individual package install." && \
+     pip install --no-cache-dir streamlit>=1.30 streamlit-sortables && \
+     pip install --no-cache-dir -e . && echo "Package installed in editable mode without [app] extra")
 
 # Create demo data directory and ensure proper permissions
 RUN mkdir -p demo && \
