@@ -1,8 +1,6 @@
 """Tests for robust config path discovery functionality."""
 
-import os
 import tempfile
-import shutil
 from pathlib import Path
 from unittest import mock
 

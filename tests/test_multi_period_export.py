@@ -1,6 +1,6 @@
 import pandas as pd
 from typing import cast
-import yaml
+import yaml  # type: ignore[import-untyped]
 from pathlib import Path
 
 from trend_analysis.config import Config

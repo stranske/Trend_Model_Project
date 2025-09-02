@@ -5,6 +5,7 @@ from typing import Any, Callable, Dict, Generic, List, Type, TypeVar
 
 import pandas as pd
 
+
 T = TypeVar("T", bound="Plugin")
 
 

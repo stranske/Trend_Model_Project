@@ -3,8 +3,6 @@
 import streamlit as st
 import pandas as pd
 import os
-from io import StringIO
-from typing import Optional
 
 # Import our custom modules
 import sys
@@ -17,7 +15,6 @@ from trend_analysis.io.validators import (
     validate_returns_schema,
     create_sample_template,
 )
-from streamlit import state as st_state
 
 # Import state management functions
 try:
@@ -33,13 +30,13 @@ except ImportError:
     # Fallback to local import
     import importlib.util
 
-    import os
-
     state_path = os.path.join(os.path.dirname(__file__), "..", "state.py")
     spec = importlib.util.spec_from_file_location(
         "state",
         os.path.abspath(state_path),
     )
+    if spec is None or spec.loader is None:
+        raise ImportError("Could not load state module")
     state_module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(state_module)
 

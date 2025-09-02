@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 from collections.abc import Mapping
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 # Conditional pydantic imports with fallback stubs
 try:
@@ -103,7 +103,7 @@ class Config(BaseModel):
     multi_period: dict[str, Any] | None = None
     jobs: int | None = None
     checkpoint_dir: str | None = None
-    random_seed: int | None = None
+    seed: int = 42
 
     @field_validator("version", mode="before")
     @classmethod

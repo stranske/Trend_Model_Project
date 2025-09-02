@@ -2,8 +2,8 @@
 
 import pytest
 import pandas as pd
-from datetime import date, datetime
-from unittest.mock import Mock, patch, MagicMock
+from datetime import date
+from unittest.mock import Mock, MagicMock, patch
 import sys
 from pathlib import Path
 
@@ -13,11 +13,22 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 # Import the functions we want to test
 sys.path.insert(0, str(Path(__file__).parent.parent / "app" / "streamlit" / "pages"))
 
+# Save original streamlit module if it exists
+_original_streamlit = sys.modules.get("streamlit")
+
 # Mock streamlit before importing our module
 sys.modules["streamlit"] = Mock()
 
-from trend_analysis.api import RunResult
-from trend_analysis.config import Config
+from trend_analysis.api import RunResult  # noqa: E402
+from trend_analysis.config import Config  # noqa: E402
+
+
+def cleanup_streamlit_mock():
+    """Restore original streamlit module."""
+    if _original_streamlit is not None:
+        sys.modules["streamlit"] = _original_streamlit
+    elif "streamlit" in sys.modules:
+        del sys.modules["streamlit"]
 
 
 def create_mock_streamlit():
@@ -29,9 +40,9 @@ def create_mock_streamlit():
     mock_st.success = Mock()
     mock_st.info = Mock()
     mock_st.progress = Mock()
-    mock_st.empty = Mock()
-    mock_st.container = Mock()
-    mock_st.expander = Mock()
+    mock_st.empty = MagicMock()  # Context manager
+    mock_st.container = MagicMock()  # Context manager
+    mock_st.expander = MagicMock()  # Context manager
     mock_st.code = Mock()
     mock_st.rerun = Mock()
 
@@ -121,7 +132,7 @@ class TestErrorFormatting:
 
             error = ValueError("Date column not found")
             result = run_page.format_error_message(error)
-            assert "Date column" in result
+            assert "'Date' column" in result
             assert "properly formatted dates" in result
 
     def test_format_error_message_generic(self):
@@ -404,7 +415,10 @@ class TestAnalysisIntegration:
         """Test successful analysis run."""
         # Create mock result
         mock_result = RunResult(
-            metrics=pd.DataFrame({"metric": [1.0, 2.0]}), details={"test": "data"}
+            metrics=pd.DataFrame({"metric": [1.0, 2.0]}),
+            details={"test": "data"},
+            seed=42,
+            environment={"test_env": True},
         )
         mock_run_simulation.return_value = mock_result
 
@@ -430,9 +444,13 @@ class TestAnalysisIntegration:
 
             with patch.object(run_page.st, "session_state", session_state):
                 # Mock streamlit UI elements
-                with patch.object(run_page.st, "container", return_value=Mock()):
-                    with patch.object(run_page.st, "progress", return_value=Mock()):
-                        with patch.object(run_page.st, "empty", return_value=Mock()):
+                with patch.object(run_page.st, "container", return_value=MagicMock()):
+                    with patch.object(
+                        run_page.st, "progress", return_value=MagicMock()
+                    ):
+                        with patch.object(
+                            run_page.st, "empty", return_value=MagicMock()
+                        ):
                             result = run_page.run_analysis_with_progress()
 
                 assert result is not None
@@ -467,12 +485,16 @@ class TestAnalysisIntegration:
             }
 
             with patch.object(run_page.st, "session_state", session_state):
-                with patch.object(run_page.st, "container", return_value=Mock()):
-                    with patch.object(run_page.st, "progress", return_value=Mock()):
-                        with patch.object(run_page.st, "empty", return_value=Mock()):
+                with patch.object(run_page.st, "container", return_value=MagicMock()):
+                    with patch.object(
+                        run_page.st, "progress", return_value=MagicMock()
+                    ):
+                        with patch.object(
+                            run_page.st, "empty", return_value=MagicMock()
+                        ):
                             with patch.object(run_page.st, "error") as mock_error:
                                 with patch.object(
-                                    run_page.st, "expander", return_value=Mock()
+                                    run_page.st, "expander", return_value=MagicMock()
                                 ):
                                     result = run_page.run_analysis_with_progress()
 
