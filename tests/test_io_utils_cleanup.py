@@ -5,7 +5,7 @@ import tempfile
 import zipfile
 from unittest import mock
 
-from trend_portfolio_app import io_utils
+from trend_analysis.io import utils as io_utils
 
 
 def test_export_bundle_creates_temp_files():

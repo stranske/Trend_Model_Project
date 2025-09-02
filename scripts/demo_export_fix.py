@@ -13,7 +13,7 @@ import time
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from trend_portfolio_app.io_utils import export_bundle, _TEMP_FILES_TO_CLEANUP
+from trend_analysis.io import export_bundle, _TEMP_FILES_TO_CLEANUP
 from unittest import mock
 
 
@@ -139,7 +139,7 @@ if __name__ == "__main__":
     print("\n💻 Optional manual cleanup demo:")
     print("  (Files will be auto-cleaned on exit anyway)")
 
-    from trend_portfolio_app.io_utils import cleanup_bundle_file
+    from trend_analysis.io import cleanup_bundle_file
 
     for i, bundle in enumerate(bundles[:1]):  # Just clean one as demo
         print(f"  🧹 Cleaning bundle {i+1}...")
