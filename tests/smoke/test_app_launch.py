@@ -8,11 +8,17 @@ import pytest
 
 pytestmark = pytest.mark.smoke
 
-APP_PATH = (
-    Path(__file__).resolve().parents[2] / "src" / "trend_portfolio_app" / "app.py"
-)
+def find_project_root(start_path: Path, marker_files=("pyproject.toml", "setup.py", ".git")) -> Path:
+    """Search upwards from start_path for a directory containing one of the marker files."""
+    current = start_path.resolve()
+    for parent in [current] + list(current.parents):
+        for marker in marker_files:
+            if (parent / marker).exists():
+                return parent
+    raise FileNotFoundError(f"Could not find project root with markers {marker_files}")
 
-
+PROJECT_ROOT = find_project_root(Path(__file__))
+APP_PATH = PROJECT_ROOT / "src" / "trend_portfolio_app" / "app.py"
 def test_app_starts_headlessly():
     env = os.environ.copy()
     env["STREAMLIT_SERVER_HEADLESS"] = "true"
