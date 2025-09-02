@@ -31,7 +31,8 @@ def summary_table(
     mdd = max_drawdown(returns)
     ir = information_ratio(returns, bench, periods_per_year=periods_per_year)
     sharpe = sharpe_ratio(returns, risk_free=0.0, periods_per_year=periods_per_year)
-    turn = float(turnover_series(weights).mean())
+    _, turn_df = turnover_series(weights)
+    turn = float(turn_df["turnover"].mean())
     hit_rate = float((returns > 0).mean())
 
     data = {

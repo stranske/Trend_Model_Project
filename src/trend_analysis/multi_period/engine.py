@@ -160,7 +160,7 @@ def run_schedule(
                 days = 0
             else:
                 days = (pd.to_datetime(date) - prev_date).days
-            s = sf.loc[weights.index, col]
+            s = sf.reindex(weights.index)[col].dropna()
             update_fn = getattr(weighting, "update", None)
             if callable(update_fn):
                 try:
