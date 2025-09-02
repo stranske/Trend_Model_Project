@@ -29,6 +29,7 @@ class TestLoadSaveState:
         """Test loading state when no file exists."""
         with patch("trend_analysis.gui.app.STATE_FILE") as mock_file:
             mock_file.exists.return_value = False
+            mock_file.open.return_value = _cm_mock()
             store = load_state()
             assert isinstance(store, ParamStore)
 
