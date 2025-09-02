@@ -299,8 +299,14 @@ class TestBuildStep0:
             patch("trend_analysis.gui.app.reset_weight_state"),
             patch.object(mock_dropdown, "observe") as mock_observe,
         ):
-            # Capture the callback supplied by ``_build_step0`` and replace it
-            # with our safe template loader above.
+            # Set up the mock to use our safe callback
+            def safe_template_callback(change, store=None):
+                if store is not None and "new" in change:
+                    store.cfg["loaded_template"] = change["new"]
+                    store.dirty = True
+
+                return None
+
             mock_observe.side_effect = lambda callback, names=None: setattr(
                 mock_observe, "_callback", safe_template_callback
             )

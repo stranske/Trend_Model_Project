@@ -34,6 +34,8 @@ portfolio:
   weighting:
     name: equal
     params: {}
+  transaction_cost_bps: 25
+  max_turnover: 0.2
 
 benchmarks:
   spx: SPX

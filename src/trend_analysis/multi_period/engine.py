@@ -39,15 +39,21 @@ from ..rebalancing import apply_rebalancing_strategies
 
 @dataclass
 class Portfolio:
-    """Minimal container for weight history."""
+    """Minimal container for weight, turnover and cost history."""
 
     history: Dict[str, pd.Series] = field(default_factory=dict)
+    turnover: Dict[str, float] = field(default_factory=dict)
+    costs: Dict[str, float] = field(default_factory=dict)
     total_rebalance_costs: float = 0.0
 
     def rebalance(
-        self, date: str | pd.Timestamp, weights: pd.DataFrame | pd.Series
+        self,
+        date: str | pd.Timestamp,
+        weights: pd.DataFrame | pd.Series,
+        turnover: float = 0.0,
+        cost: float = 0.0,
     ) -> None:
-        """Store weights for the given date."""
+        """Store weights and trading activity for the given date."""
         # Normalise to a pandas Series of floats for storage
         if isinstance(weights, pd.DataFrame):
             if "weight" in weights.columns:
@@ -60,7 +66,11 @@ class Portfolio:
         else:
             # Attempt to build a Series from a mapping-like object
             series = pd.Series(weights)
-        self.history[str(pd.to_datetime(date).date())] = series.astype(float)
+        key = str(pd.to_datetime(date).date())
+        self.history[key] = series.astype(float)
+        self.turnover[key] = float(turnover)
+        self.costs[key] = float(cost)
+        self.total_rebalance_costs += float(cost)
 
 
 class SelectorProtocol(Protocol):
@@ -109,7 +119,6 @@ def run_schedule(
     pf = Portfolio()
     prev_date: pd.Timestamp | None = None
     prev_weights: pd.Series | None = None
-    total_rebalance_costs = 0.0
     col = (
         rank_column
         or getattr(selector, "rank_column", None)
@@ -146,14 +155,40 @@ def run_schedule(
                 scores=scores,
             )
 
-            total_rebalance_costs += cost
+            turnover = (
+                final_weights.reindex(
+                    current_weights.index.union(final_weights.index), fill_value=0.0
+                )
+                .sub(
+                    current_weights.reindex(
+                        current_weights.index.union(final_weights.index), fill_value=0.0
+                    )
+                )
+                .abs()
+                .sum()
+            )
             weights = final_weights.to_frame("weight")
             prev_weights = final_weights
         else:
+            cost = 0.0
             weights = target_weights
-            prev_weights = target_weights["weight"].astype(float)
+            tw = target_weights["weight"].astype(float)
+            if prev_weights is None:
+                turnover = tw.abs().sum()
+            else:
+                turnover = (
+                    tw.reindex(prev_weights.index.union(tw.index), fill_value=0.0)
+                    .sub(
+                        prev_weights.reindex(
+                            prev_weights.index.union(tw.index), fill_value=0.0
+                        )
+                    )
+                    .abs()
+                    .sum()
+                )
+            prev_weights = tw
 
-        pf.rebalance(date, weights)
+        pf.rebalance(date, weights, turnover, cost)
 
         if col and col in sf.columns:
             if prev_date is None:
@@ -169,8 +204,6 @@ def run_schedule(
                     pass
         prev_date = pd.to_datetime(date)
 
-    # Store total rebalancing costs in portfolio
-    pf.total_rebalance_costs = total_rebalance_costs
     return pf
 
 
