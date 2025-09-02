@@ -72,7 +72,7 @@ def _find_config_directory() -> Path:
 def _validate_version_value(v: Any) -> str:
     """Validate the ``version`` field for both pydantic and fallback modes."""
     if not isinstance(v, str):
-        raise TypeError("version must be a string")
+        raise ValueError("version must be a string")
     if len(v) == 0:
         # Match pydantic's wording for empty strings
         raise ValueError("String should have at least 1 character")
@@ -107,16 +107,14 @@ class Config(BaseModel):
 
     @field_validator("version", mode="before")
     @classmethod
-    def _ensure_version_str(cls, v: Any) -> str:
-        """Ensure ``version`` is always a string."""
+    def _validate_version_type_and_value(cls, v: Any) -> str:
+        """Validate version field type and value."""
+        if v is None:
+            raise ValueError("version field is required")
         if not isinstance(v, str):
-            raise TypeError("version must be a string")
-        return v
-
-    @field_validator("version")
-    @classmethod
-    def _ensure_version_not_whitespace(cls, v: str) -> str:
-        """Reject strings that consist only of whitespace."""
+            raise ValueError("version must be a string")
+        if len(v) == 0:
+            raise ValueError("String should have at least 1 character")
         if not v.strip():
             raise ValueError("Version field cannot be empty")
         return v
@@ -134,7 +132,7 @@ class Config(BaseModel):
 
             v = getattr(self, "version", None)
             if not isinstance(v, str):
-                raise TypeError("version must be a string")
+                raise ValueError("version must be a string")
             if len(v) == 0:
                 raise ValueError("String should have at least 1 character")
             if not v.strip():
@@ -149,7 +147,7 @@ class Config(BaseModel):
             for name in dict_field_names:
                 val = getattr(self, name, {})
                 if not isinstance(val, dict):
-                    raise TypeError(f"{name} must be a dictionary")
+                    raise ValueError(f"{name} must be a dictionary")
 
     @field_validator(
         "data",
@@ -165,7 +163,7 @@ class Config(BaseModel):
     @classmethod
     def _ensure_dict(cls, v: Any, info: ValidationInfo) -> dict[str, Any]:
         if not isinstance(v, dict):
-            raise TypeError(f"{info.field_name} must be a dictionary")
+            raise ValueError(f"{info.field_name} must be a dictionary")
         return v
 
 

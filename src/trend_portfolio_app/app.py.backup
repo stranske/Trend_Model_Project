@@ -8,7 +8,7 @@ import pandas as pd
 import streamlit as st
 import yaml  # type: ignore[import-untyped]
 
-from trend_analysis import api
+from trend_analysis import pipeline
 from trend_analysis.multi_period import run as run_multi
 from trend_analysis.config import DEFAULTS as DEFAULT_CFG_PATH, Config
 from trend_analysis.data import load_csv as ta_load_csv, identify_risk_free_fund
@@ -128,7 +128,7 @@ with st.sidebar:
                     merged_data = _merge_update(_read_defaults(), data)
                     # Validate the config using the Config model
                     try:
-                        Config(**merged_data)  # Just validate, don't store the result
+                        validated_config = Config(**merged_data)
                         # Convert back to dict for compatibility with existing UI code
                         st.session_state.config_dict = merged_data
                         st.success("Config imported and validated")
@@ -1661,21 +1661,7 @@ with tabs[8]:
     if go_single and cfg_obj is not None:
         with st.spinner("Running single-period analysis..."):
             try:
-                # Load CSV data from config
-                csv_path = cfg_obj.data.get("csv_path")
-                if csv_path is None:
-                    st.error("CSV path must be provided in configuration")
-                    st.stop()
-
-                df = ta_load_csv(csv_path)
-                if df is None:
-                    st.error(f"Failed to load CSV file: {csv_path}")
-                    st.stop()
-
-                # Use unified API instead of direct pipeline call
-                result = api.run_simulation(cfg_obj, df)
-                out_df = result.metrics
-
+                out_df = pipeline.run(cfg_obj)
                 disp = _summarise_run_df(out_df)
                 st.success(f"Completed. {len(disp)} rows.")
                 st.dataframe(disp, use_container_width=True)
