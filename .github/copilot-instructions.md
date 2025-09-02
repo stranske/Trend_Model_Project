@@ -47,8 +47,8 @@ source .venv/bin/activate
 # Run analysis with config file (completes in <1 second)
 PYTHONPATH="./src" python -m trend_analysis.run_analysis -c config/demo.yml
 
-# Run with default config (loads config/defaults.yml)
-PYTHONPATH="./src" python -m trend_analysis.run_analysis
+# Run with environment variable config (requires config file)
+TREND_CFG=config/defaults.yml PYTHONPATH="./src" python -m trend_analysis.run_analysis
 
 # Run with environment variable config
 TREND_CFG=custom.yml PYTHONPATH="./src" python -m trend_analysis.run_analysis
