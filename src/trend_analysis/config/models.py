@@ -158,7 +158,7 @@ if _HAS_PYDANTIC:
             )
             def _ensure_dict(cls, v: Any, info: _ValidationInfo) -> dict[str, Any]:
                 if not isinstance(v, dict):
-                    raise ValueError(f"{info.field_name} must be a dictionary")
+                    raise TypeError(f"{info.field_name} must be a dictionary")
                 return v
 
         setattr(_bi, "_TREND_CONFIG_CLASS", Config)
