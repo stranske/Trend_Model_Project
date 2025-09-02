@@ -25,7 +25,7 @@ try:  # pragma: no cover - exercised via tests toggling availability
     _field_validator = _pyd.field_validator
 
     _HAS_PYDANTIC = True
-except Exception:  # pragma: no cover
+except ImportError:  # pragma: no cover
     _BaseModel = object
 
     def _Field(*_args: Any, **_kwargs: Any) -> None:  # noqa: D401 - simple fallback
