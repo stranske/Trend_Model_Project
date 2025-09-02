@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable, List, Sequence
+from typing import List, Sequence, Callable, Mapping, Any, cast
+
+import numpy as np
 
 import pandas as pd
 
@@ -71,7 +73,13 @@ def walk_forward(
     step_size: int,
     metric_cols: Sequence[str] | None = None,
     regimes: pd.Series | None = None,
-    agg: str | Iterable[str] = "mean",
+    agg: (
+        Callable[..., Any]
+        | str
+        | np.ufunc
+        | Mapping[Any, Callable[..., Any] | str | np.ufunc]
+        | List[str]
+    ) = "mean",
 ) -> WalkForwardResult:
     """Run a simple walk‑forward aggregation.
 
@@ -98,24 +106,26 @@ def walk_forward(
     df = _prepare_index(df)
     metrics_df = df if metric_cols is None else df[list(metric_cols)]
 
-    splits = _generate_splits(metrics_df.index, train_size, test_size, step_size)
+    splits = _generate_splits(
+        cast(pd.DatetimeIndex, metrics_df.index), train_size, test_size, step_size
+    )
 
     if splits:
-        oos_index = pd.Index([])
+        oos_index: pd.DatetimeIndex = pd.DatetimeIndex([])
         for sp in splits:
-            oos_index = oos_index.union(sp.test_index)
+            oos_index = pd.DatetimeIndex(oos_index.union(sp.test_index))
         oos_df = metrics_df.loc[oos_index]
-        oos_metrics = oos_df.agg(agg)
+        oos_metrics = oos_df.agg(cast(Any, agg))
     else:
         oos_df = metrics_df.iloc[0:0]
-        oos_metrics = oos_df.agg(agg)
+        oos_metrics = oos_df.agg(cast(Any, agg))
 
-    full_metrics = metrics_df.agg(agg)
+    full_metrics = metrics_df.agg(cast(Any, agg))
 
     by_regime = pd.DataFrame()
     if regimes is not None and not oos_df.empty:
         reg = regimes.reindex(metrics_df.index)
-        by_regime = oos_df.groupby(reg.loc[oos_df.index]).agg(agg)
+        by_regime = oos_df.groupby(reg.loc[oos_df.index]).agg(cast(Any, agg))
 
     return WalkForwardResult(
         splits=splits,

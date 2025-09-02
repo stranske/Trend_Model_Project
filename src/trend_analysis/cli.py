@@ -148,13 +148,14 @@ def main(argv: list[str] | None = None) -> int:
                     export.export_data(
                         data, str(Path(out_dir) / filename), formats=other
                     )
-            else:
-                export.export_data(
-                    data, str(Path(out_dir) / filename), formats=out_formats
-                )
+                else:
+                    export.export_data(
+                        data, str(Path(out_dir) / filename), formats=out_formats
+                    )
         return 0
 
     # This shouldn't be reached with required=True.
+    return 0
 
 
 if __name__ == "__main__":  # pragma: no cover - manual invocation

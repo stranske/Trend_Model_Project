@@ -1,5 +1,5 @@
 [flake8]
-max-line-length = 88
+max-line-length = 120
 extend-ignore = E203, W503, F822
 exclude = 
     Old/,
@@ -8,3 +8,6 @@ exclude =
     .git,
     .venv,
     *.ipynb
+per-file-ignores =
+  tests/*: E501,F401,F841,W291
+  scripts/*: E501

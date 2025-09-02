@@ -19,4 +19,4 @@ class RiskParity(WeightEngine):
         std = np.sqrt(np.diag(cov))
         inv = 1.0 / std
         w = inv / inv.sum()
-        return pd.Series(w, index=cov.index)
+        return pd.Series(w, index=cov.index, dtype=float)

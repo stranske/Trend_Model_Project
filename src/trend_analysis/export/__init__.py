@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import math
 from typing import Any, Callable, Iterable, Mapping, cast
 from collections import OrderedDict
 import inspect
@@ -53,7 +54,7 @@ def _build_summary_formatter(
         def safe(v: float | str | None) -> str | float:
             if pd.isna(v) or not pd.notna(v):
                 return ""
-            return cast(str | float, v)
+            return v if isinstance(v, (int, float, str)) else ""
 
         def to_tuple(obj: Any) -> tuple[float, float, float, float, float, float]:
             if isinstance(obj, tuple):
@@ -191,9 +192,11 @@ def _build_summary_formatter(
             # Normalize to a list of dict rows with expected keys
             rows: list[dict[str, Any]]
             if isinstance(contrib, pd.DataFrame):
-                rows = cast(pd.DataFrame, contrib).to_dict(orient="records")
+                df2 = contrib.copy()
+                df2.columns = [str(c) for c in df2.columns]
+                rows = cast(list[dict[str, Any]], df2.to_dict(orient="records"))
             else:
-                rows = cast(list[dict[str, Any]], contrib)
+                rows = [dict(r) for r in cast(list[Mapping[str, Any]], contrib)]
             if rows:
                 row += 2
                 ws.write_row(row, 0, ["Manager Participation & Contribution"], bold)
@@ -251,12 +254,17 @@ def format_summary_text(
 ) -> str:
     """Return a plain-text summary table similar to the Excel output."""
 
-    def safe(val: float | str | None) -> str:
-        if pd.isna(val) or not pd.notna(val):
+    def safe(val: float | int | str | None) -> str:
+        if val is None:
             return ""
-        if isinstance(val, (int, float)):
+        if isinstance(val, float):
+            if math.isnan(val):
+                return ""
             return f"{val:.2f}"
-        return cast(str, val)
+        if isinstance(val, int):
+            return f"{float(val):.2f}"
+        # strings or other objects
+        return str(val)
 
     def to_tuple(obj: Any) -> tuple[float, float, float, float, float, float]:
         if isinstance(obj, tuple):

@@ -19,6 +19,7 @@ plot_contributions
 from __future__ import annotations
 
 from typing import Iterable
+from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -83,12 +84,18 @@ def export_contributions(contrib: pd.DataFrame, path: str) -> None:
     contrib.to_csv(path, index=True)
 
 
+if (
+    TYPE_CHECKING
+):  # for static typing of matplotlib axes without runtime dependency chain
+    from matplotlib.axes import Axes as _Axes
+
+
 def plot_contributions(
     contrib: pd.DataFrame,
     *,
-    ax: plt.Axes | None = None,
+    ax: "_Axes | None" = None,
     labels: Iterable[str] | None = None,
-) -> plt.Axes:
+) -> "_Axes":
     """Plot cumulative contributions over time.
 
     Parameters

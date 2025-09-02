@@ -8,6 +8,7 @@ import datetime
 import zipfile
 import tempfile
 import atexit
+from typing import Any
 
 
 # Global registry for cleanup of temporary files
@@ -30,7 +31,7 @@ def _cleanup_temp_files() -> None:
 atexit.register(_cleanup_temp_files)
 
 
-def export_bundle(results, config_dict) -> str:
+def export_bundle(results: Any, config_dict: dict[str, Any]) -> str:
     """
     Export analysis results as a ZIP bundle.
 

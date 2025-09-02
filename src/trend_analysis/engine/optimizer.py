@@ -52,6 +52,12 @@ def _apply_cap(w: pd.Series, cap: float) -> pd.Series:
             break
         w = w.clip(upper=cap)
         room_mask = w < cap - NUMERICAL_TOLERANCE_HIGH
+        # Ensure boolean mask is a Series aligned to w for type safety
+        room_mask = (
+            pd.Series(room_mask, index=w.index)
+            if not isinstance(room_mask, pd.Series)
+            else room_mask
+        )
         w = _redistribute(w, room_mask, excess.sum())
     return w
 
@@ -83,7 +89,8 @@ def _apply_group_caps(
         excess = grp_weight - cap
         scale = cap / grp_weight
         w.loc[members] *= scale
-        others_mask = ~w.index.isin(members)
+        others_mask_arr = ~w.index.isin(members)
+        others_mask = pd.Series(others_mask_arr, index=w.index)
         w = _redistribute(w, others_mask, excess)
     return w
 
