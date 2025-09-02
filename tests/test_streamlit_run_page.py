@@ -4,6 +4,7 @@ import pytest
 import pandas as pd
 from datetime import date
 from unittest.mock import patch, MagicMock
+
 import sys
 from pathlib import Path
 
@@ -19,6 +20,14 @@ sys.modules["matplotlib"] = MagicMock()
 sys.modules["matplotlib.pyplot"] = MagicMock()
 
 from trend_analysis.api import RunResult  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _mock_plotting_modules(monkeypatch):
+    """Provide lightweight stand-ins for optional heavy dependencies."""
+    monkeypatch.setitem(sys.modules, "streamlit", Mock())
+    monkeypatch.setitem(sys.modules, "matplotlib", MagicMock())
+    monkeypatch.setitem(sys.modules, "matplotlib.pyplot", MagicMock())
 
 
 def _ctx_mock() -> MagicMock:

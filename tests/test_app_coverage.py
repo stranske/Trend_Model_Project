@@ -125,9 +125,10 @@ class TestBuildStep0:
         mock_widgets.HBox.return_value = Mock()
 
         # Mock DataGrid availability
-        mock_datagrid_instance = Mock()
-        mock_datagrid_instance.on = Mock()  # Add the missing 'on' method
-        mock_datagrid_class = Mock(return_value=mock_datagrid_instance)
+        mock_datagrid_instance = MagicMock()
+        mock_datagrid_instance.on = MagicMock()  # Add the missing 'on' method
+        mock_datagrid_instance.hold_trait_notifications.return_value = _cm_mock()
+        mock_datagrid_class = MagicMock(return_value=mock_datagrid_instance)
 
         with patch("trend_analysis.gui.app.DataGrid", mock_datagrid_class):
             store = ParamStore()
@@ -519,9 +520,10 @@ class TestErrorHandling:
         mock_widgets.HBox.return_value = Mock()
 
         # Mock DataGrid availability
-        mock_datagrid_instance = Mock()
-        mock_datagrid_instance.on = Mock()  # Add the missing 'on' method
-        mock_datagrid_class = Mock(return_value=mock_datagrid_instance)
+        mock_datagrid_instance = MagicMock()
+        mock_datagrid_instance.on = MagicMock()  # Add the missing 'on' method
+        mock_datagrid_instance.hold_trait_notifications.return_value = _cm_mock()
+        mock_datagrid_class = MagicMock(return_value=mock_datagrid_instance)
 
         with patch("trend_analysis.gui.app.DataGrid", mock_datagrid_class):
             store = ParamStore()

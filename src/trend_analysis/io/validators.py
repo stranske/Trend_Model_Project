@@ -3,16 +3,16 @@
 from __future__ import annotations
 
 import io
-from typing import Tuple, List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 
-# Map human readable frequency labels to legacy alias codes.  Earlier versions
-# of the project used indirections like ``"ME"`` (month‑end) which were then
-# converted to pandas ``PeriodIndex`` codes such as ``"M"``.  ``FREQ_ALIAS_MAP``
-# retains those aliases for backwards compatibility while ``FREQUENCY_MAP``
-# exposes the canonical pandas codes used throughout the codebase.
+# ---------------------------------------------------------------------------
+# Frequency mappings
+# ---------------------------------------------------------------------------
+
+# Human readable labels mapped to legacy alias codes used in older configs.
 FREQ_ALIAS_MAP: Dict[str, str] = {
     "daily": "D",
     "weekly": "W",
