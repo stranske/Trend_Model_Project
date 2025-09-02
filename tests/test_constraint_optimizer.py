@@ -1,0 +1,45 @@
+import pandas as pd
+import numpy as np
+import pytest
+
+from trend_analysis.engine.optimizer import (
+    apply_constraints,
+    ConstraintViolation,
+)
+
+
+def test_long_only_and_max_weight():
+    w = pd.Series([-0.2, 0.6, 0.6], index=["a", "b", "c"])
+    out = apply_constraints(w, {"long_only": True, "max_weight": 0.55})
+    assert (out >= 0).all()
+    assert np.isclose(out.sum(), 1.0)
+    assert (out <= 0.55 + 1e-12).all()
+
+
+def test_group_caps():
+    w = pd.Series([0.4, 0.3, 0.3], index=["a", "b", "c"])
+    constraints = {
+        "long_only": True,
+        "max_weight": 0.6,
+        "group_caps": {"tech": 0.5},
+        "groups": {"a": "tech", "b": "tech", "c": "fin"},
+    }
+    out = apply_constraints(w, constraints)
+    assert np.isclose(out.sum(), 1.0)
+    assert out.loc["a"] + out.loc["b"] <= 0.5 + 1e-12
+
+
+def test_infeasible_max_weight():
+    w = pd.Series([0.5, 0.5], index=["a", "b"])
+    with pytest.raises(ConstraintViolation):
+        apply_constraints(w, {"max_weight": 0.4})
+
+
+def test_infeasible_group_caps():
+    w = pd.Series([0.5, 0.5], index=["a", "b"])
+    constraints = {
+        "group_caps": {"g1": 0.4, "g2": 0.4},
+        "groups": {"a": "g1", "b": "g2"},
+    }
+    with pytest.raises(ConstraintViolation):
+        apply_constraints(w, constraints)
