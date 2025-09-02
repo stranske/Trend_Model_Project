@@ -8,4 +8,15 @@ set -euo pipefail
 export PYTHONHASHSEED=0
 
 pip install -r requirements.txt pytest
-PYTHONPATH="./src" pytest --cov trend_analysis --cov-branch "$@"
+
+# Run pytest and capture exit code so we can handle the "no tests" case
+set +e
+PYTHONPATH="./src" pytest --maxfail=1 --disable-warnings --cov trend_analysis --cov-branch "$@"
+status=$?
+set -e
+
+  echo "No tests were collected or ran. This may be due to test filters or missing/misnamed tests."
+  exit 1
+fi
+
+exit "$status"
