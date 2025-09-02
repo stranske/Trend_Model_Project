@@ -162,9 +162,9 @@ class Simulator:
     def _gen_review_dates(
         self, start: pd.Timestamp, end: pd.Timestamp, freq: str
     ) -> List[pd.Timestamp]:
-        dates = pd.period_range(start=start, end=end, freq="M").to_timestamp(how="end")
+        dates = pd.period_range(start=start, end=end, freq="M").to_timestamp()
         if freq.startswith("q"):
-            dates = dates[dates.to_period("Q").to_timestamp(how="end") == dates]
+            dates = dates[dates.to_period("Q").to_timestamp() == dates]
         return list(dates)
 
     def run(

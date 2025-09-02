@@ -20,7 +20,6 @@ _original_streamlit = sys.modules.get("streamlit")
 sys.modules["streamlit"] = Mock()
 
 from trend_analysis.api import RunResult  # noqa: E402
-from trend_analysis.config import Config  # noqa: E402
 
 
 def cleanup_streamlit_mock():
@@ -194,7 +193,7 @@ class TestConfigCreation:
                 config = run_page.create_config_from_session_state()
 
                 assert config is not None
-                assert isinstance(config, Config)
+                assert isinstance(config, run_page.Config)
                 assert config.vol_adjust["target_vol"] == 1.0
                 assert "2020-01" in config.sample_split["in_start"]
 
