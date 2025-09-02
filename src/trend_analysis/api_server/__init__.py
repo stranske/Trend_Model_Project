@@ -20,7 +20,10 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
 
-def run(host: str = "0.0.0.0", port: int = 8000) -> None:
-    """Start the minimal HTTP server."""
-    server = HTTPServer((host, port), RequestHandler)
-    server.serve_forever()
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.shutdown()
+        server.server_close()
