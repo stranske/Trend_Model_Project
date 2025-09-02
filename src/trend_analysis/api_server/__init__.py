@@ -19,7 +19,6 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_response(404)
             self.end_headers()
 
-
     try:
         server.serve_forever()
     except KeyboardInterrupt:

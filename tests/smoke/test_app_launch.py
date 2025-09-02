@@ -49,22 +49,22 @@ def wait_for_streamlit_ready(
 ) -> bool:
     """
     Wait for Streamlit app to be ready by polling the health endpoint.
-    
+
     This replaces the hardcoded sleep with a sophisticated readiness check
     that polls until the service is actually ready to serve requests.
-    
+
     Args:
         port: Port number where Streamlit is running
         timeout: Maximum time to wait for startup (seconds)
-        poll_interval: Time between polling attempts (seconds) 
+        poll_interval: Time between polling attempts (seconds)
         ready_timeout: Timeout for individual HTTP requests (seconds)
-        
+
     Returns:
         True if app is ready, False if timeout exceeded
     """
     start_time = time.time()
     url = f"http://localhost:{port}"
-    
+
     while time.time() - start_time < timeout:
         try:
             # Try to connect to the Streamlit app
@@ -77,27 +77,27 @@ def wait_for_streamlit_ready(
         except requests.exceptions.RequestException:
             # Expected during startup - service not ready yet
             pass
-        
+
         # Wait before next poll attempt
         time.sleep(poll_interval)
-    
+
     return False
 
 
 def test_app_starts_headlessly():
     """
     Test that Streamlit app starts successfully with configurable readiness check.
-    
+
     This test addresses the flaky test issue by replacing hardcoded sleep
     with a sophisticated polling mechanism that waits until the app is actually ready.
     """
     # Configure environment for headless operation
     env = os.environ.copy()
     env["STREAMLIT_SERVER_HEADLESS"] = "true"
-    
+
     # Use a dynamic port to avoid conflicts
     port = 8765
-    
+
     # Build command to start Streamlit
     cmd = [
         sys.executable,
@@ -108,7 +108,7 @@ def test_app_starts_headlessly():
         "--server.headless=true",
         f"--server.port={port}",
     ]
-    
+
     # Start the Streamlit process
     proc = subprocess.Popen(
         cmd,
@@ -116,7 +116,7 @@ def test_app_starts_headlessly():
         stderr=subprocess.STDOUT,
         env=env,
     )
-    
+
     try:
         # Use sophisticated readiness check instead of hardcoded sleep
         if not wait_for_streamlit_ready(port):
@@ -129,14 +129,20 @@ def test_app_starts_headlessly():
                 pytest.fail(
                     f"Streamlit app failed to become ready within {DEFAULT_STARTUP_TIMEOUT} seconds"
                 )
-        
+
         # Verify the process is still running after successful readiness check
-        assert proc.poll() is None, "Streamlit app terminated unexpectedly after startup"
-        
+        assert (
+            proc.poll() is None
+        ), "Streamlit app terminated unexpectedly after startup"
+
         # Additional health check to ensure the app is serving requests
-        response = requests.get(f"http://localhost:{port}", timeout=DEFAULT_READY_TIMEOUT)
-        assert response.status_code == 200, f"Health check failed with status {response.status_code}"
-        
+        response = requests.get(
+            f"http://localhost:{port}", timeout=DEFAULT_READY_TIMEOUT
+        )
+        assert (
+            response.status_code == 200
+        ), f"Health check failed with status {response.status_code}"
+
     finally:
         # Clean shutdown of the Streamlit process
         proc.terminate()
@@ -153,22 +159,22 @@ def test_configurable_timeout():
     # Test with a very short timeout to verify configurability
     original_timeout = os.environ.get("STREAMLIT_STARTUP_TIMEOUT")
     original_poll = os.environ.get("STREAMLIT_POLL_INTERVAL")
-    
+
     try:
         # Set short timeouts for testing
         os.environ["STREAMLIT_STARTUP_TIMEOUT"] = "1"
         os.environ["STREAMLIT_POLL_INTERVAL"] = "0.1"
-        
+
         # This should timeout quickly for a non-existent service
         assert not wait_for_streamlit_ready(port=9999, timeout=1, poll_interval=0.1)
-        
+
     finally:
         # Restore original environment
         if original_timeout is not None:
             os.environ["STREAMLIT_STARTUP_TIMEOUT"] = original_timeout
         else:
             os.environ.pop("STREAMLIT_STARTUP_TIMEOUT", None)
-            
+
         if original_poll is not None:
             os.environ["STREAMLIT_POLL_INTERVAL"] = original_poll
         else:
