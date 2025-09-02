@@ -7,31 +7,27 @@ from typing import Tuple, List, Dict, Any, Optional
 import pandas as pd
 import numpy as np
 
-# Map human readable frequency labels to short aliases.  These aliases are
-# subsequently normalised to the final pandas ``Period`` codes via
-# ``PANDAS_FREQ_MAP``.  Keeping the alias stage allows us to retain backwards
-# compatibility (e.g. ``"ME"`` for month-end) while exposing the canonical codes
-# through ``FREQUENCY_MAP`` for use throughout the codebase.
+# Map human readable frequency labels to legacy alias codes.  Earlier versions
+# of the project used indirections like ``"ME"`` (month‑end) which were then
+# converted to pandas ``PeriodIndex`` codes such as ``"M"``.  ``FREQ_ALIAS_MAP``
+# retains those aliases for backwards compatibility while ``FREQUENCY_MAP``
+# exposes the canonical pandas codes used throughout the codebase.
 FREQ_ALIAS_MAP: Dict[str, str] = {
     "daily": "D",
     "weekly": "W",
-    "monthly": "ME",  # mapped to ``M`` via ``PANDAS_FREQ_MAP``
-    "quarterly": "Q",
-    "annual": "A",  # mapped to ``Y``
+    "monthly": "ME",
+    "quarterly": "QE",
+    "annual": "A",
 }
 
-# Map modern frequency codes (e.g., ``"ME"`` for month-end) to the legacy
-# pandas ``Period`` codes (``"M"`` for month-end).  This keeps legacy data and
-# newer code paths interoperable.
-PANDAS_FREQ_MAP = {"ME": "M"}
+# Translate legacy alias codes to the canonical pandas codes expected by
+# ``pd.PeriodIndex``.
+PANDAS_FREQ_MAP: Dict[str, str] = {"ME": "M", "QE": "Q", "A": "Y"}
 
-# Final mapping exposed to consumers.  Each human-readable label resolves to the
-# canonical pandas period code used when constructing ``PeriodIndex`` objects.
+# Public mapping of human‑readable labels to canonical pandas frequency codes.
 FREQUENCY_MAP: Dict[str, str] = {
-    human: ("Y" if alias == "A" else PANDAS_FREQ_MAP.get(alias, alias))
-    for human, alias in FREQ_ALIAS_MAP.items()
+    human: PANDAS_FREQ_MAP.get(alias, alias) for human, alias in FREQ_ALIAS_MAP.items()
 }
-
 
 class ValidationResult:
     """Result of schema validation with detailed feedback."""
@@ -217,7 +213,7 @@ def load_and_validate_upload(file_like: Any) -> Tuple[pd.DataFrame, Dict[str, An
     # Use PeriodIndex.to_timestamp(how='end') to ensure end-of-period alignment
     idx = pd.to_datetime(df.index)
     # Map human-friendly frequency labels (e.g. ``"monthly"``) to pandas
-    # ``Period`` codes using ``FREQUENCY_MAP``.  Default to monthly if detection
+    # ``Period`` codes using ``FREQUENCY_MAP``. Default to monthly if detection
     # failed so downstream code still receives a valid index.
     freq_key = (validation.frequency or "").lower()
     pandas_freq = FREQUENCY_MAP.get(freq_key, "M")
