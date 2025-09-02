@@ -53,12 +53,27 @@ def main() -> None:
 
     csv_path = f"{OUT_DIR}/demo_returns.csv"
     xlsx_path = f"{OUT_DIR}/demo_returns.xlsx"
-    df.to_csv(csv_path)
-    if not args.no_xlsx:
-        df.to_excel(xlsx_path)
-        print(f"Wrote {csv_path} and {xlsx_path}")
-    else:
-        print(f"Wrote {csv_path}")
+
+    try:
+        # Ensure files are writable if they exist
+        if os.path.exists(csv_path):
+            os.chmod(csv_path, 0o644)
+        if os.path.exists(xlsx_path):
+            os.chmod(xlsx_path, 0o644)
+
+        df.to_csv(csv_path)
+        if not args.no_xlsx:
+            df.to_excel(xlsx_path)
+            print(f"Wrote {csv_path} and {xlsx_path}")
+        else:
+            print(f"Wrote {csv_path}")
+    except PermissionError as e:
+        print(f"Permission error writing to {csv_path}: {e}")
+        print("Make sure the demo/ directory and files are writable")
+        raise
+    except Exception as e:
+        print(f"Error writing demo files: {e}")
+        raise
 
 
 if __name__ == "__main__":

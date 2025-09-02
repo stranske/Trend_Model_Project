@@ -10,7 +10,6 @@ from . import export, pipeline
 from .config import load_config
 from .api import run_simulation
 from .data import load_csv
-from .config import load_config
 from .constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 
 

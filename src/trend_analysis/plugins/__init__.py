@@ -76,15 +76,3 @@ def create_selector(name: str, **params: Any) -> Selector:
 def create_rebalancer(name: str, params: Dict[str, Any] | None = None) -> Rebalancer:
     """Instantiate a rebalancer plugin by ``name``."""
     return rebalancer_registry.create(name, params or {})
-
-
-__all__ = [
-    "Plugin",
-    "PluginRegistry",
-    "Selector",
-    "Rebalancer",
-    "selector_registry",
-    "rebalancer_registry",
-    "create_selector",
-    "create_rebalancer",
-]

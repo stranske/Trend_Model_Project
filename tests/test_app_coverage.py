@@ -12,6 +12,7 @@ from trend_analysis.gui.app import (
     _build_rank_options,
     launch,
 )
+from trend_analysis.gui.store import ParamStore
 
 
 def _cm_mock() -> MagicMock:
@@ -19,9 +20,6 @@ def _cm_mock() -> MagicMock:
     m.__enter__.return_value = m
     m.__exit__.return_value = None
     return m
-
-
-from trend_analysis.gui.store import ParamStore
 
 
 class TestLoadSaveState:

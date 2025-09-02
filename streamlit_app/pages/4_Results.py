@@ -1,6 +1,7 @@
 import streamlit as st
 import io
 import json
+import pandas as pd
 
 st.title("Results")
 
@@ -34,7 +35,7 @@ try:
         st.area_chart(w_df)
     else:
         st.caption("No weights recorded.")
-except (KeyError, ValueError, TypeError, AttributeError, ImportError) as _:
+except (KeyError, ValueError, TypeError, AttributeError, ImportError):
     st.caption("Weights view unavailable.")
 
 st.subheader("Event log")

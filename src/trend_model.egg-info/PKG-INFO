@@ -27,8 +27,23 @@ Requires-Dist: xlsxwriter
 Requires-Dist: openpyxl
 Requires-Dist: pydantic>=2
 Requires-Dist: hypothesis
+Requires-Dist: matplotlib
+Requires-Dist: ipywidgets
 Provides-Extra: app
 Requires-Dist: streamlit>=1.30; extra == "app"
+Requires-Dist: streamlit-sortables; extra == "app"
+Provides-Extra: notebooks
+Requires-Dist: ipyfilechooser; extra == "notebooks"
+Requires-Dist: nbformat; extra == "notebooks"
+Provides-Extra: dev
+Requires-Dist: pre-commit>=3.2.0; extra == "dev"
+Requires-Dist: black==24.8.0; extra == "dev"
+Requires-Dist: ruff==0.6.3; extra == "dev"
+Requires-Dist: mypy>=1.0.0; extra == "dev"
+Requires-Dist: flake8; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: types-PyYAML; extra == "dev"
 Dynamic: license-file
 
 # Trend Model Project
@@ -142,6 +157,19 @@ trend-model run -c path/to/config.yml -i returns.csv
 The configuration file **must** define `data.csv_path`, which is overridden by
 the ``-i`` option above. The `-c` option is **required**; you must specify a configuration file.
 If you wish to use the default configuration, provide `config/defaults.yml` as the argument to `-c`, or set the ``TREND_CFG`` environment variable to point to your desired config file.
+
+## Reproducible Results
+
+For consistent, reproducible results across different runs, use the reproducible launcher:
+
+```bash
+# Ensures PYTHONHASHSEED is set before Python starts
+./scripts/trend-reproducible trend_analysis.run_analysis -c config/demo.yml
+```
+
+This is important because setting `PYTHONHASHSEED` after the Python interpreter has started has no effect. The environment variable must be set before Python starts to control hash randomization.
+
+For more details on reproducibility and random seeding, see [docs/ReproducibilityGuide.md](docs/ReproducibilityGuide.md).
 
 
 ## Ranking-based selection

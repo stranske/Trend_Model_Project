@@ -2,7 +2,6 @@
 
 import pytest
 import pandas as pd
-import numpy as np
 from trend_analysis.rebalancing import (
     VolTargetRebalanceStrategy,
     DrawdownGuardStrategy,

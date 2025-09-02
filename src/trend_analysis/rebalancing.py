@@ -1,15 +1,14 @@
 """Portfolio rebalancing strategies implementation.
 
 This module provides various rebalancing strategies that control how target
-weights are realised into actual trades and positions, including turnover
-constraints and transaction cost modelling.  Strategies are exposed via a
+weights are realized into actual trades and positions, including turnover
+constraints and transaction cost modeling.  Strategies are exposed via a
 simple plugin registry so they can be selected by name in configuration files.
 """
 
 from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple
 
-import numpy as np
 import pandas as pd
 
 from .plugins import Rebalancer, rebalancer_registry, create_rebalancer
@@ -261,6 +260,11 @@ class VolTargetRebalanceStrategy(Rebalancer):
         self.lev_min = float(self.params.get("lev_min", 0.5))
         self.lev_max = float(self.params.get("lev_max", 1.5))
 
+    @property
+    def target_vol(self) -> float:
+        """Target volatility (alias for target)."""
+        return self.target
+
     def apply(
         self, current_weights: pd.Series, target_weights: pd.Series, **kwargs
     ) -> Tuple[pd.Series, float]:
@@ -422,7 +426,17 @@ __all__ = [
     "DriftBandStrategy",
     "VolTargetRebalanceStrategy",
     "DrawdownGuardStrategy",
-    "create_rebalancing_strategy",
-    "apply_rebalancing_strategies",
-    "rebalancer_registry",
+    "REBALANCING_STRATEGIES",
 ]
+
+
+def get_rebalancing_strategies():
+    """Get available rebalancing strategy names and classes."""
+    return {
+        name: rebalancer_registry._plugins[name] 
+        for name in rebalancer_registry.available()
+    }
+
+
+# Backwards compatibility - provide access to registered strategies
+REBALANCING_STRATEGIES = get_rebalancing_strategies()

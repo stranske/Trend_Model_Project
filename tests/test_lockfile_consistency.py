@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import re
 import subprocess
+import shutil
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+import pytest
 
 
 def _normalize_lockfile_content(content: str) -> str:
@@ -46,8 +48,15 @@ def _normalize_lockfile_content(content: str) -> str:
     return "\n".join(lines) + ("\n" if lines else "")
 
 
+import pytest
+import shutil
+
 def test_lockfile_up_to_date() -> None:
     """Compare compiled dependencies with the committed lockfile."""
+
+    # Skip if uv is not available
+    if not shutil.which("uv"):
+        pytest.skip("uv command not available")
 
     result = subprocess.run(
         ["uv", "pip", "compile", "pyproject.toml"],
