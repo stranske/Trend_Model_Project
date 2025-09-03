@@ -8,6 +8,8 @@ sys.path.insert(0, str(ROOT / "src"))  # noqa: E402
 
 from trend_analysis import config  # noqa: E402
 
+Config = config.models.Config
+
 # Try to import ValidationError, fallback to ValueError for environments without pydantic
 try:
     from pydantic import ValidationError
@@ -17,7 +19,7 @@ except ImportError:
     ValidationException = ValueError
 
 # Use constants from the Config class to avoid hardcoded duplication
-_DICT_SECTIONS = config.models.Config.REQUIRED_DICT_FIELDS
+_DICT_SECTIONS = Config.REQUIRED_DICT_FIELDS
 
 invalid_values = st.one_of(
     st.integers(), st.floats(), st.booleans(), st.lists(st.integers())
