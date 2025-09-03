@@ -13,7 +13,6 @@ from typing import Any, Dict, List, cast, ClassVar, TYPE_CHECKING
 from collections.abc import Mapping
 
 import yaml
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     # Define Config type alias for static type checking
@@ -158,18 +157,21 @@ if _HAS_PYDANTIC:
         # Field lists generated dynamically from model fields to prevent maintenance burden
         @classmethod
         def _dict_field_names(cls) -> List[str]:
-            """Return names of fields whose type is dict[str, Any] (or compatible)."""
-            # Only include fields whose annotation is a dict (ignoring optionality)
-            result = []
+            """Return names of fields whose type is ``dict[str, Any]``."""
+            if cls is None or not hasattr(cls, "__fields__"):
+                return []
+            result: List[str] = []
             for name, field in cls.__fields__.items():
-                # Check if the outer type is dict (for Pydantic v1/v2 compatibility)
-                typ = field.outer_type_
+                # ``outer_type_`` exists on Pydantic v1, while v2 exposes ``annotation``.
+                typ = getattr(field, "outer_type_", getattr(field, "annotation", None))
                 if getattr(typ, "__origin__", None) is dict:
-                    result.append(name)
+                    args = getattr(typ, "__args__", (None, None))
+                    if len(args) == 2 and args[1] is Any:
+                        result.append(name)
             return result
 
-        REQUIRED_DICT_FIELDS: ClassVar[List[str]] = _dict_field_names.__func__(None)
-        ALL_FIELDS: ClassVar[List[str]] = list(__fields__.keys())
+        REQUIRED_DICT_FIELDS: ClassVar[List[str]] = []
+        ALL_FIELDS: ClassVar[List[str]] = []
 
         # Use a plain dict for model_config to avoid type-checker issues when
         # Pydantic is not installed (tests toggle availability).
@@ -214,6 +216,10 @@ if _HAS_PYDANTIC:
             if not isinstance(v, dict):
                 raise ValueError(f"{info.field_name} must be a dictionary")
             return v
+
+    # Populate field constants once the class is fully defined
+    _PydanticConfigImpl.REQUIRED_DICT_FIELDS = _PydanticConfigImpl._dict_field_names()
+    _PydanticConfigImpl.ALL_FIELDS = list(_PydanticConfigImpl.__fields__.keys())
 
     # Only cache when creating a fresh class
     if _cached is None:
