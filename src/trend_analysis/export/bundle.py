@@ -104,18 +104,33 @@ def export_bundle(run: Any, path: Path) -> Path:
             from matplotlib import pyplot as plt  # locally scoped import
 
             eq = (1 + portfolio.fillna(0)).cumprod()
-            # Use figure/add_subplot for maximum backend compatibility
+
+            # ------------------------------------------------------------------
+            # Equity curve
+            # ------------------------------------------------------------------
             fig = plt.figure()
             ax = fig.add_subplot(1, 1, 1)
-            eq.plot(ax=ax)
+            if not eq.empty:
+                eq.plot(ax=ax)
+            else:  # pragma: no cover - visual placeholder for empty data
+                ax.set_axis_off()
             ax.set_title("Equity Curve")
             fig.savefig(charts_dir / "equity_curve.png", metadata={"run_id": run_id})
             plt.close(fig)
 
-            dd = eq / eq.cummax() - 1
+            # ------------------------------------------------------------------
+            # Drawdown chart
+            # ------------------------------------------------------------------
+            if not eq.empty:
+                dd = eq / eq.cummax() - 1
+            else:
+                dd = pd.Series(dtype=float)
             fig = plt.figure()
             ax = fig.add_subplot(1, 1, 1)
-            dd.plot(ax=ax)
+            if not dd.empty:
+                dd.plot(ax=ax)
+            else:  # pragma: no cover - visual placeholder for empty data
+                ax.set_axis_off()
             ax.set_title("Drawdown")
             fig.savefig(charts_dir / "drawdown.png", metadata={"run_id": run_id})
             plt.close(fig)
