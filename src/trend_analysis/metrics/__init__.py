@@ -86,7 +86,7 @@ def _is_zero_everywhere(
         return bool(result)
 
     # For scalar values, check if close to zero to handle floating-point precision
-    return abs(value) < tol
+    return abs(value) <= tol
 
 
 # ------------------------------------------------------------------------
