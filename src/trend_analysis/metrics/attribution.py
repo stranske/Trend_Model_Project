@@ -93,7 +93,7 @@ if (
 def plot_contributions(
     contrib: pd.DataFrame,
     *,
-    ax: "_Axes | None" = None,
+    ax: "_Axes | Iterable[_Axes] | None" = None,
     labels: Iterable[str] | None = None,
 ) -> "_Axes":
     """Plot cumulative contributions over time.
@@ -118,6 +118,15 @@ def plot_contributions(
 
     if ax is None:
         _, ax = plt.subplots()
+    else:
+        # ``plt.subplots`` returns either a single ``Axes`` instance or a
+        # sequence of them.  Some callers may accidentally pass the entire
+        # sequence which is often a tuple (immutable).  Converting to a list
+        # allows safe indexing and we pick the first axis for plotting.
+        if isinstance(ax, tuple):
+            ax = list(ax)
+        if isinstance(ax, (list, np.ndarray)):
+            ax = ax[0]
 
     if labels is None:
         labels = [c for c in contrib.columns if c != "total"]

@@ -202,6 +202,8 @@ def test_basic_functionality_integration():
         from typing import cast
 
         to_result = charts.turnover_series(cast(dict, weights))
+        if isinstance(to_result, tuple):
+            _, to_result = to_result
         assert to_result.shape == (4, 1)
         assert list(to_result.columns) == ["turnover"]
     except Exception:
