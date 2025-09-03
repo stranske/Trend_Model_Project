@@ -76,5 +76,5 @@ def test_run_meta_missing_required_fails(tmp_path):
     )
     schema = json.loads(schema_path.read_text())
 
-    with pytest.raises(Exception):
+    with pytest.raises(jsonschema.ValidationError):
         jsonschema.validate(instance=invalid, schema=schema)
