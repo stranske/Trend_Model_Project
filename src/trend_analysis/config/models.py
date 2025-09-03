@@ -14,8 +14,7 @@ from collections.abc import Mapping
 
 import yaml
 
-if TYPE_CHECKING:
-    # Define Config type alias for static type checking
+try:
     from typing_extensions import Protocol
 
     class ConfigProtocol(Protocol):
@@ -36,9 +35,11 @@ if TYPE_CHECKING:
         jobs: int | None
         checkpoint_dir: str | None
         seed: int
-
-    # Type alias for Config that works with both implementations
+        
     ConfigType = ConfigProtocol
+except ImportError:
+    # Fallback for environments without typing_extensions
+    ConfigType = Any
 
 # Pydantic import (optional in tests)
 # Use temporary underscored names within the branch, then export public names
@@ -386,9 +387,9 @@ else:  # Fallback mode for tests without pydantic
 
 # Public alias selected at runtime for callers
 if _HAS_PYDANTIC:
-    Config = cast(Any, globals().get("_PydanticConfigImpl"))
+    Config = cast("type[ConfigType]", globals().get("_PydanticConfigImpl"))
 else:
-    Config = cast(Any, globals().get("_FallbackConfig"))
+    Config = cast("type[ConfigType]", globals().get("_FallbackConfig"))
 
 
 class PresetConfig(SimpleBaseModel):
@@ -589,6 +590,7 @@ def load(path: str | Path | None = None) -> Any:
 
 __all__ = [
     "Config",
+    "ConfigType",
     "load",
     "PresetConfig",
     "ColumnMapping",

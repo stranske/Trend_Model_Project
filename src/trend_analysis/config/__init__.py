@@ -8,6 +8,7 @@ from .models import (
     load_preset,
     list_available_presets,
     Config,
+    ConfigType,
     load,
     load_config,
     DEFAULTS,
@@ -25,6 +26,7 @@ __all__ = [
     "load",
     "load_config",
     "Config",
+    "ConfigType",
     "DEFAULTS",
     "_find_config_directory",
 ]
