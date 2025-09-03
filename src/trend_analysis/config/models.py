@@ -36,29 +36,6 @@ if TYPE_CHECKING:
         jobs: int | None
         checkpoint_dir: str | None
         seed: int
-
-# Define ConfigType at runtime for type annotations
-try:
-    from typing_extensions import Protocol as _Protocol
-    
-    class ConfigProtocol(_Protocol):
-        """Type protocol for Config class that works in both Pydantic and fallback modes."""
-        
-        version: str
-        data: dict[str, Any]
-        preprocessing: dict[str, Any]
-        vol_adjust: dict[str, Any]
-        sample_split: dict[str, Any]
-        portfolio: dict[str, Any]
-        benchmarks: dict[str, str]
-        metrics: dict[str, Any]
-        export: dict[str, Any]
-        output: dict[str, Any] | None
-        run: dict[str, Any]
-        multi_period: dict[str, Any] | None
-        jobs: int | None
-        checkpoint_dir: str | None
-        seed: int
         
     ConfigType = ConfigProtocol
 except ImportError:
