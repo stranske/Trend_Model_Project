@@ -66,6 +66,23 @@ def test_export_bundle(tmp_path):
     assert "created" in meta["receipt"]
     assert f"run_id: {expected_run_id}" in receipt
 
+    # New: outputs sha256 map
+    outputs = meta.get("outputs", {})
+    assert isinstance(outputs, dict) and outputs
+    # Must include at least these files
+    for required in [
+        "results/portfolio.csv",
+        "charts/equity_curve.png",
+        "charts/drawdown.png",
+        "summary.xlsx",
+        "README.txt",
+        "receipt.txt",
+    ]:
+        assert required in outputs
+        assert isinstance(outputs[required], str)
+        assert len(outputs[required]) == 64
+        int(outputs[required], 16)  # valid hex
+
 
 def test_receipt_deterministic(tmp_path):
     input_path = _write_input(tmp_path)
