@@ -228,6 +228,10 @@ if _HAS_PYDANTIC:
                 raise ValueError(f"{info.field_name} must be a dictionary")
             return v
 
+    # Populate field constants once the class is fully defined
+    _PydanticConfigImpl.REQUIRED_DICT_FIELDS = _PydanticConfigImpl._dict_field_names()
+    _PydanticConfigImpl.ALL_FIELDS = list(_PydanticConfigImpl.__fields__.keys())
+
     # Only cache when creating a fresh class
     if _cached is None:
         setattr(_bi, "_TREND_CONFIG_CLASS", _PydanticConfigImpl)
