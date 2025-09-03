@@ -154,35 +154,66 @@ if _HAS_PYDANTIC:
     class _PydanticConfigImpl(PydanticConfigBase):  # type: ignore[misc, valid-type]
         """Typed access to the YAML configuration (Pydantic mode)."""
 
-        # Field lists as class constants to prevent maintenance burden
-        REQUIRED_DICT_FIELDS: ClassVar[List[str]] = [
-            "data",
-            "preprocessing",
-            "vol_adjust",
-            "sample_split",
-            "portfolio",
-            "metrics",
-            "export",
-            "run",
-        ]
+        # Field lists generated dynamically from model fields to prevent maintenance burden
+        @classmethod
+        def _dict_field_names(cls) -> List[str]:
+            """Return names of fields whose type is dict[str, Any] (or compatible)."""
+            # Support both Pydantic v2 (model_fields) and v1 (__fields__)
+            fields_map = getattr(cls, "model_fields", getattr(cls, "__fields__", {}))
 
-        ALL_FIELDS: ClassVar[List[str]] = [
-            "version",
-            "data",
-            "preprocessing",
-            "vol_adjust",
-            "sample_split",
-            "portfolio",
-            "benchmarks",
-            "metrics",
-            "export",
-            "output",
-            "run",
-            "multi_period",
-            "jobs",
-            "checkpoint_dir",
-            "seed",
-        ]
+            # items() for both dict-like types
+            def _items(obj: Any) -> list[tuple[str, Any]]:
+                try:
+                    return list(obj.items())
+                except Exception:
+                    return []
+
+            items: list[tuple[str, Any]] = _items(fields_map)
+
+            def _is_dict_type(tp: Any) -> bool:
+                # Python 3.8+ typing origin helper
+                try:
+                    from typing import get_origin as _get_origin
+
+                    origin = cast(Any, _get_origin(tp))
+                except Exception:  # pragma: no cover - fallback
+                    origin = getattr(tp, "__origin__", None)
+                if not (origin is dict or tp is dict):
+                    return False
+                # Prefer to include only dict[str, Any]-like annotations
+                try:
+                    from typing import get_args as _get_args
+
+                    args = _get_args(tp)
+                except Exception:  # pragma: no cover - fallback
+                    args = getattr(tp, "__args__", ())
+                if len(args) == 2:
+                    _key_t, val_t = args
+                    # Exclude specific concrete types (e.g., str) for value
+                    if (
+                        getattr(val_t, "__module__", "") == "typing"
+                        and getattr(val_t, "__qualname__", "") == "Any"
+                    ):
+                        return True
+                    # If value annotation is 'Any' from typing, above returns True.
+                    # Otherwise, do not include (filters out dict[str, str])
+                    return False
+                # If no args, fall back to including
+                return True
+
+            result: List[str] = []
+            for name, field in items:
+                # Pydantic v2 exposes annotation on FieldInfo; v1 provides outer_type_
+                tp = getattr(field, "annotation", None)
+                if tp is None:
+                    tp = getattr(field, "outer_type_", None)
+                if _is_dict_type(tp):
+                    result.append(name)
+            return result
+
+        # Placeholders; computed after class creation for reliability
+        REQUIRED_DICT_FIELDS: ClassVar[List[str]] = []
+        ALL_FIELDS: ClassVar[List[str]] = []
 
         # Use a plain dict for model_config to avoid type-checker issues when
         # Pydantic is not installed (tests toggle availability).
@@ -233,6 +264,23 @@ if _HAS_PYDANTIC:
     # Only cache when creating a fresh class
     if _cached is None:
         setattr(_bi, "_TREND_CONFIG_CLASS", _PydanticConfigImpl)
+
+    # Compute class-level field lists post definition (works for v1/v2)
+    _fields_map = getattr(
+        _PydanticConfigImpl,
+        "model_fields",
+        getattr(_PydanticConfigImpl, "__fields__", {}),
+    )
+    try:
+        _field_names = list(_fields_map.keys())
+    except Exception:  # pragma: no cover
+        _field_names = list(_fields_map)
+    setattr(_PydanticConfigImpl, "ALL_FIELDS", _field_names)
+    setattr(
+        _PydanticConfigImpl,
+        "REQUIRED_DICT_FIELDS",
+        _PydanticConfigImpl._dict_field_names(),
+    )
 
 else:  # Fallback mode for tests without pydantic
 
@@ -338,9 +386,9 @@ else:  # Fallback mode for tests without pydantic
 
 # Public alias selected at runtime for callers
 if _HAS_PYDANTIC:
-    Config = cast(Any, _PydanticConfigImpl)
+    Config = cast(Any, globals().get("_PydanticConfigImpl"))
 else:
-    Config = cast(Any, _FallbackConfig)
+    Config = cast(Any, globals().get("_FallbackConfig"))
 
 
 class PresetConfig(SimpleBaseModel):

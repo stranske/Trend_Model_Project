@@ -104,14 +104,17 @@ def export_bundle(run: Any, path: Path) -> Path:
             from matplotlib import pyplot as plt  # locally scoped import
 
             eq = (1 + portfolio.fillna(0)).cumprod()
-            fig, ax = plt.subplots()
+            # Use figure/add_subplot for maximum backend compatibility
+            fig = plt.figure()
+            ax = fig.add_subplot(1, 1, 1)
             eq.plot(ax=ax)
             ax.set_title("Equity Curve")
             fig.savefig(charts_dir / "equity_curve.png", metadata={"run_id": run_id})
             plt.close(fig)
 
             dd = eq / eq.cummax() - 1
-            fig, ax = plt.subplots()
+            fig = plt.figure()
+            ax = fig.add_subplot(1, 1, 1)
             dd.plot(ax=ax)
             ax.set_title("Drawdown")
             fig.savefig(charts_dir / "drawdown.png", metadata={"run_id": run_id})
