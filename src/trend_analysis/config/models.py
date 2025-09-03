@@ -14,8 +14,7 @@ from collections.abc import Mapping
 
 import yaml
 
-if TYPE_CHECKING:
-    # Define Config type alias for static type checking
+try:
     from typing_extensions import Protocol
 
     class ConfigProtocol(Protocol):
@@ -591,6 +590,7 @@ def load(path: str | Path | None = None) -> Any:
 
 __all__ = [
     "Config",
+    "ConfigType",
     "load",
     "PresetConfig",
     "ColumnMapping",
