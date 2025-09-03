@@ -123,8 +123,8 @@ def plot_contributions(
         # sequence of them.  Some callers may accidentally pass the entire
         # sequence which is often a tuple (immutable).  Converting to a list
         # allows safe indexing and we pick the first axis for plotting.
-        # If ax is any iterable (except string), extract the first element.
-        if isinstance(ax, Iterable) and not isinstance(ax, str):
+        # If ax is a sequence (tuple, list, or np.ndarray), pick the first axis for plotting.
+        if hasattr(ax, '__getitem__') and not isinstance(ax, str):
             ax = ax[0]
 
     if labels is None:
