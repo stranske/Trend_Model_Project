@@ -476,6 +476,62 @@ EXPORTERS: dict[
 }
 
 
+def execution_metrics_frame(
+    results: Iterable[Mapping[str, object]],
+) -> pd.DataFrame:
+    """Build a per-period execution metrics frame.
+
+    Columns:
+      - Period: period label (OOS end month or synthetic label)
+      - Turnover: sum of absolute weight changes applied for the period
+      - Transaction Cost: linear cost computed from turnover and cost bps (if available)
+
+    Missing values are filled with NaN when a metric isn't present in the period result.
+    """
+    rows: list[dict[str, Any]] = []
+    for idx, res in enumerate(results, start=1):
+        period = res.get("period")
+        if isinstance(period, (list, tuple)) and len(period) >= 4:
+            label = str(period[3])
+        else:
+            label = f"period_{idx}"
+        turnover = cast(float | None, res.get("turnover"))
+        tx_cost = cast(float | None, res.get("transaction_cost"))
+        rows.append(
+            {
+                "Period": label,
+                "Turnover": float(turnover) if turnover is not None else float("nan"),
+                "Transaction Cost": (
+                    float(tx_cost) if tx_cost is not None else float("nan")
+                ),
+            }
+        )
+    return (
+        pd.DataFrame(rows, columns=["Period", "Turnover", "Transaction Cost"])
+        if rows
+        else pd.DataFrame(columns=["Period", "Turnover", "Transaction Cost"])
+    )
+
+
+def export_execution_metrics(
+    results: Iterable[Mapping[str, object]],
+    output_path: str,
+    *,
+    formats: Iterable[str] = ("xlsx",),
+) -> None:
+    """Export execution metrics (turnover and transaction cost) separately.
+
+    This does not alter the Phase‑1 summary tables or existing exports.
+
+    Produces:
+      - Excel: a workbook with a single sheet named ``execution_metrics``
+      - CSV/JSON/TXT: files with suffix ``_execution_metrics``
+    """
+    df = execution_metrics_frame(list(results))
+    data = {"execution_metrics": df}
+    export_data(data, output_path, formats=formats)
+
+
 def metrics_from_result(res: Mapping[str, object]) -> pd.DataFrame:
     """Return a metrics DataFrame identical to :func:`pipeline.run` output."""
     from ..pipeline import _Stats  # lazy import to avoid cycle
@@ -600,7 +656,7 @@ def combined_summary_result(
             weight_sum[c] += fund_map.get(c, 0.0)
         for c in out_df.columns:
             fund_out[c].append(out_df[c])
-        periods += 1
+    periods += 1
 
     rf_in = pd.Series(0.0, index=pd.concat(ew_in_series).index)
     rf_out = pd.Series(0.0, index=pd.concat(ew_out_series).index)
@@ -635,7 +691,7 @@ def combined_summary_result(
 
     fund_weights = {f: weight_sum[f] / periods for f in weight_sum}
 
-    return {
+    out: dict[str, Any] = {
         "in_ew_stats": in_ew_stats,
         "out_ew_stats": out_ew_stats,
         "in_user_stats": in_user_stats,
@@ -645,6 +701,7 @@ def combined_summary_result(
         "fund_weights": fund_weights,
         "benchmark_ir": {},
     }
+    return out
 
 
 def manager_contrib_table(
