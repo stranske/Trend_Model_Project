@@ -18,3 +18,4 @@ black
 ruff
 mypy
 pytest-cov
+jsonschema
