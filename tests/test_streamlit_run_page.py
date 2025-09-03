@@ -3,7 +3,7 @@
 import pytest
 import pandas as pd
 from datetime import date
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, Mock
 
 import sys
 from pathlib import Path
