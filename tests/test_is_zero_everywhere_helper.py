@@ -22,8 +22,9 @@ class TestIsZeroEverywhere:
         assert _is_zero_everywhere(-1.0) is False
         assert _is_zero_everywhere(0.1) is False
 
-        # Test edge cases
-        assert _is_zero_everywhere(1e-16) is False  # Very small but non-zero
+        # Test edge cases with numerical tolerance
+        assert _is_zero_everywhere(1e-16) is True   # Within tolerance, treated as zero
+        assert _is_zero_everywhere(1e-13) is False  # Outside tolerance, not zero
 
     def test_pandas_series(self):
         """Test _is_zero_everywhere with pandas Series."""

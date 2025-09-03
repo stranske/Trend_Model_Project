@@ -58,7 +58,7 @@ def _is_zero_everywhere(value: Series | DataFrame | float | int) -> bool:
     """Check if a value is zero everywhere.
 
     For pandas Series/DataFrame, checks if all elements equal zero.
-    For scalar values, uses == 0 comparison.
+    For scalar values, uses == 0 comparison with numerical tolerance.
 
     Parameters
     ----------
@@ -77,7 +77,8 @@ def _is_zero_everywhere(value: Series | DataFrame | float | int) -> bool:
             else (value == 0).all()
         )
         return bool(result)
-    return value == 0
+    # For scalar values, check if close to zero to handle floating-point precision
+    return abs(value) < 1e-14
 
 
 # ------------------------------------------------------------------------
