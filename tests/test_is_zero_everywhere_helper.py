@@ -82,7 +82,7 @@ class TestIsZeroEverywhere:
         assert _is_zero_everywhere(nan_series) is False
         
         # DataFrame with NaN should not be zero everywhere
-        nan_df = pd.Series([[0, np.nan], [0, 0]])
+        nan_df = pd.DataFrame([[0, np.nan], [0, 0]])
         assert _is_zero_everywhere(nan_df) is False
         
     def test_integration_with_metrics(self):
