@@ -85,3 +85,21 @@ def test_receipt_deterministic(tmp_path):
         r1 = z1.read("receipt.txt")
         r2 = z2.read("receipt.txt")
     assert r1 == r2
+
+
+def test_export_bundle_empty_portfolio(tmp_path):
+    """export_bundle should handle empty portfolio without crashing."""
+    input_path = _write_input(tmp_path)
+    run = DummyRun(
+        portfolio=pd.Series(dtype=float),
+        config={},
+        seed=1,
+        input_path=input_path,
+    )
+    out = tmp_path / "empty_bundle.zip"
+    export_bundle(run, out)
+    with zipfile.ZipFile(out) as z:
+        names = set(z.namelist())
+        # Placeholder charts should still be created
+        assert "charts/equity_curve.png" in names
+        assert "charts/drawdown.png" in names
