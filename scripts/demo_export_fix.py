@@ -16,6 +16,7 @@ from trend_analysis.io.utils import (
     _TEMP_FILES_TO_CLEANUP,
 )
 
+
 def create_mock_results():
     """Create a mock results object for testing."""
     mock_results = mock.MagicMock()

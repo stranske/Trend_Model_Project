@@ -54,6 +54,33 @@ def _empty_like(obj: Series | DataFrame, name: str) -> float | pd.Series:
     return pd.Series(np.nan, index=obj.columns, name=name, dtype=float)
 
 
+def _is_zero_everywhere(value: Series | DataFrame | float | int) -> bool:
+    """Check if a value is zero everywhere.
+
+    For pandas Series/DataFrame, checks if all elements equal zero.
+    For scalar values, uses == 0 comparison with numerical tolerance.
+
+    Parameters
+    ----------
+    value : Series | DataFrame | float | int
+        The value to check for being zero everywhere
+
+    Returns
+    -------
+    bool
+        True if the value is zero everywhere, False otherwise
+    """
+    if isinstance(value, (Series, DataFrame)):
+        result = (
+            (value == 0).all().all()
+            if isinstance(value, DataFrame)
+            else (value == 0).all()
+        )
+        return bool(result)
+    # For scalar values, check if close to zero to handle floating-point precision
+    return abs(value) < 1e-14
+
+
 # ------------------------------------------------------------------------
 def _validate_input(obj: Series | DataFrame, fn_name: str = "metric") -> None:
     """Type guard – the second argument is optional for convenience."""
@@ -160,12 +187,8 @@ def sharpe_ratio(
     ann_ret = annual_return(excess, periods_per_year)
     sigma = volatility(excess, periods_per_year)
 
-    if isinstance(sigma, Series):
-        if (sigma == 0).all():
-            return _empty_like(returns, "sharpe_ratio")
-    else:
-        if sigma == 0:
-            return _empty_like(returns, "sharpe_ratio")
+    if _is_zero_everywhere(sigma):
+        return _empty_like(returns, "sharpe_ratio")
 
     sr = ann_ret / sigma
     return float(sr) if isinstance(returns, Series) else sr
@@ -197,11 +220,7 @@ def sortino_ratio(
     downside = excess.clip(upper=0)
     downside_std = np.sqrt((downside**2).mean())
 
-    if (
-        (downside_std == 0).all()
-        if isinstance(downside_std, Series)
-        else downside_std == 0
-    ):
+    if _is_zero_everywhere(downside_std):
         return _empty_like(returns, "sortino_ratio")
 
     sr = annual_return(excess, periods_per_year) / (
@@ -285,12 +304,8 @@ def information_ratio(
     ann_act = active.mean() * periods_per_year
     tr_error = active.std(ddof=1) * np.sqrt(periods_per_year)
 
-    if isinstance(tr_error, Series):
-        if (tr_error == 0).all():
-            return _empty_like(returns, "information_ratio")
-    else:
-        if tr_error == 0:
-            return _empty_like(returns, "information_ratio")
+    if _is_zero_everywhere(tr_error):
+        return _empty_like(returns, "information_ratio")
 
     ir = ann_act / tr_error
     return float(ir) if isinstance(returns, Series) else ir

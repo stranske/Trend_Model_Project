@@ -14,15 +14,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 # Import the functions we want to test
 sys.path.insert(0, str(Path(__file__).parent.parent / "app" / "streamlit" / "pages"))
 
-# Mock external dependencies before importing our module
-sys.modules["streamlit"] = MagicMock()
-sys.modules["matplotlib"] = MagicMock()
-sys.modules["matplotlib.pyplot"] = MagicMock()
-
 from trend_analysis.api import RunResult  # noqa: E402
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 def _mock_plotting_modules(monkeypatch):
     """Provide lightweight stand-ins for optional heavy dependencies."""
     monkeypatch.setitem(sys.modules, "streamlit", Mock())
@@ -95,6 +90,7 @@ def sample_config():
     }
 
 
+@pytest.mark.usefixtures("_mock_plotting_modules")
 class TestErrorFormatting:
     """Test error message formatting functionality."""
 
@@ -166,6 +162,7 @@ class TestErrorFormatting:
             assert "Some runtime issue" in result
 
 
+@pytest.mark.usefixtures("_mock_plotting_modules")
 class TestConfigCreation:
     """Test configuration creation from session state."""
 
@@ -243,6 +240,7 @@ class TestConfigCreation:
                 assert config is None
 
 
+@pytest.mark.usefixtures("_mock_plotting_modules")
 class TestDataPreparation:
     """Test data preparation functionality."""
 
@@ -321,6 +319,7 @@ class TestDataPreparation:
                 assert df is not None or run_page.st.error.called
 
 
+@pytest.mark.usefixtures("_mock_plotting_modules")
 class TestLogHandler:
     """Test the custom log handler."""
 
@@ -423,6 +422,7 @@ class TestLogHandler:
             assert len(handler.get_logs()) == 0
 
 
+@pytest.mark.usefixtures("_mock_plotting_modules")
 class TestAnalysisIntegration:
     """Test the full analysis integration."""
 
@@ -522,6 +522,7 @@ class TestAnalysisIntegration:
                 mock_error.assert_called()
 
 
+@pytest.mark.usefixtures("_mock_plotting_modules")
 def test_smoke_test_imports():
     """Smoke test to ensure all imports work."""
     with patch.dict("sys.modules", {"streamlit": create_mock_streamlit()}):
