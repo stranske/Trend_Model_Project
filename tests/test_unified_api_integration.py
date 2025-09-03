@@ -7,7 +7,6 @@ from pathlib import Path
 from trend_analysis.config import Config
 from trend_analysis import api
 from trend_analysis.data import load_csv
-from trend_analysis.run_analysis import main as cli_main
 
 
 def test_comprehensive_api_integration():

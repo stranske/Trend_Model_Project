@@ -7,8 +7,6 @@ are not present in Streamlit smoke tests, which could cause flaky tests.
 import re
 from pathlib import Path
 
-import pytest
-
 
 def test_no_hardcoded_sleeps_in_smoke_tests():
     """Verify that smoke tests don't contain hardcoded sleep statements."""

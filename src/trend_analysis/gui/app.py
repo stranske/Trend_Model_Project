@@ -507,7 +507,7 @@ def launch() -> widgets.Widget:
         store.dirty = True
         theme_val = change["new"]
         js = cast(Any, Javascript)(
-            f"document.documentElement.style.setProperty("  # noqa: W503
+            f"document.documentElement.style.setProperty("
             f"' --trend-theme','{theme_val}')"
         )
         cast(Any, display)(js)
