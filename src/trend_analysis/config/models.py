@@ -155,35 +155,21 @@ if _HAS_PYDANTIC:
     class _PydanticConfigImpl(PydanticConfigBase):  # type: ignore[misc, valid-type]
         """Typed access to the YAML configuration (Pydantic mode)."""
 
-        # Field lists as class constants to prevent maintenance burden
-        REQUIRED_DICT_FIELDS: ClassVar[List[str]] = [
-            "data",
-            "preprocessing",
-            "vol_adjust",
-            "sample_split",
-            "portfolio",
-            "metrics",
-            "export",
-            "run",
-        ]
+        # Field lists generated dynamically from model fields to prevent maintenance burden
+        @classmethod
+        def _dict_field_names(cls) -> List[str]:
+            """Return names of fields whose type is dict[str, Any] (or compatible)."""
+            # Only include fields whose annotation is a dict (ignoring optionality)
+            result = []
+            for name, field in cls.__fields__.items():
+                # Check if the outer type is dict (for Pydantic v1/v2 compatibility)
+                typ = field.outer_type_
+                if getattr(typ, "__origin__", None) is dict:
+                    result.append(name)
+            return result
 
-        ALL_FIELDS: ClassVar[List[str]] = [
-            "version",
-            "data",
-            "preprocessing",
-            "vol_adjust",
-            "sample_split",
-            "portfolio",
-            "benchmarks",
-            "metrics",
-            "export",
-            "output",
-            "run",
-            "multi_period",
-            "jobs",
-            "checkpoint_dir",
-            "seed",
-        ]
+        REQUIRED_DICT_FIELDS: ClassVar[List[str]] = _dict_field_names.__func__(None)
+        ALL_FIELDS: ClassVar[List[str]] = list(__fields__.keys())
 
         # Use a plain dict for model_config to avoid type-checker issues when
         # Pydantic is not installed (tests toggle availability).
