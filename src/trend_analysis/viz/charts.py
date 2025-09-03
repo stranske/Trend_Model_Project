@@ -29,11 +29,7 @@ def _weights_to_frame(
     if not weights:
         raise ValueError("weights cannot be empty")
 
-    return (
-        pd.DataFrame({d: s for d, s in weights.items()})
-        .T.sort_index()
-        .fillna(0.0)
-    )
+    return pd.DataFrame({d: s for d, s in weights.items()}).T.sort_index().fillna(0.0)
 
 
 def equity_curve(returns: pd.Series) -> tuple[Figure, pd.DataFrame]:

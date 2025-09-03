@@ -13,7 +13,6 @@ from typing import Any, Dict, List, cast, ClassVar, TYPE_CHECKING
 from collections.abc import Mapping
 
 import yaml
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     # Define Config type alias for static type checking

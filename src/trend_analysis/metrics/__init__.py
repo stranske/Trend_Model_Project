@@ -57,7 +57,7 @@ def _empty_like(obj: Series | DataFrame, name: str) -> float | pd.Series:
 def _is_zero_everywhere(value: Series | DataFrame | float | int) -> bool:
     """Check if a value is zero everywhere.
 
-    For pandas Series/DataFrame, uses .equals(0) to check element-wise equality.
+    For pandas Series/DataFrame, checks if all elements equal zero.
     For scalar values, uses == 0 comparison.
 
     Parameters
@@ -71,7 +71,12 @@ def _is_zero_everywhere(value: Series | DataFrame | float | int) -> bool:
         True if the value is zero everywhere, False otherwise
     """
     if isinstance(value, (Series, DataFrame)):
-        return value.equals(0)
+        result = (
+            (value == 0).all().all()
+            if isinstance(value, DataFrame)
+            else (value == 0).all()
+        )
+        return bool(result)
     return value == 0
 
 
