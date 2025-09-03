@@ -70,7 +70,7 @@ def _is_zero_everywhere(
         The value to check for being zero everywhere
     tol : float, optional
         Numerical tolerance for scalar comparisons. Values whose absolute
-        magnitude is strictly less than ``tol`` are treated as zero.
+        magnitude is less than or equal to ``tol`` are treated as zero.
 
     Returns
     -------
