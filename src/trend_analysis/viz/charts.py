@@ -35,6 +35,9 @@ def _weights_to_frame(
 def equity_curve(returns: pd.Series) -> tuple[Figure, pd.DataFrame]:
     """Return equity curve figure and DataFrame from periodic returns."""
 
+    if returns.empty:
+        raise ValueError("returns cannot be empty")
+
     eq_series: pd.Series = (1.0 + returns.fillna(0.0)).cumprod()
     curve: pd.DataFrame = eq_series.to_frame("equity")
     fig, ax = plt.subplots()
@@ -46,6 +49,9 @@ def equity_curve(returns: pd.Series) -> tuple[Figure, pd.DataFrame]:
 
 def drawdown_curve(returns: pd.Series) -> tuple[Figure, pd.DataFrame]:
     """Return drawdown figure and DataFrame derived from ``returns``."""
+
+    if returns.empty:
+        raise ValueError("returns cannot be empty")
 
     curve: pd.Series = (1.0 + returns.fillna(0.0)).cumprod()
     dd: pd.Series = curve / curve.cummax() - 1.0
@@ -63,6 +69,9 @@ def rolling_information_ratio(
     window: int = 12,
 ) -> tuple[Figure, pd.DataFrame]:
     """Rolling information ratio over ``window`` periods."""
+    if returns.empty:
+        raise ValueError("returns cannot be empty")
+
     ir_series: pd.Series = rolling_metrics.rolling_information_ratio(
         returns, benchmark, window
     )
