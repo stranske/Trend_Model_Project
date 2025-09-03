@@ -15,6 +15,7 @@ PYTHONPATH="./src" pytest --maxfail=1 --disable-warnings --cov trend_analysis --
 status=$?
 set -e
 
+if [[ "$status" == 5 ]]; then
   echo "No tests were collected or ran. This may be due to test filters or missing/misnamed tests."
   exit 1
 fi
