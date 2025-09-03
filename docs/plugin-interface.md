@@ -25,6 +25,15 @@ class TopNSelector(Selector):
         self.score_col = score_col
 
     def select(self, score_frame: pd.DataFrame):
+        """
+        Select top N items from the DataFrame based on the score column.
+
+        Parameters:
+            score_frame (pd.DataFrame): DataFrame containing scores.
+
+        Returns:
+            Tuple[pd.DataFrame, pd.DataFrame]: Selected rows and a log DataFrame with score column.
+        """
         sel = score_frame.nlargest(self.top_n, self.score_col)
         log = sel[[self.score_col]].copy()
         return sel, log
