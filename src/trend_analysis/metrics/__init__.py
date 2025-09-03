@@ -85,8 +85,11 @@ def _is_zero_everywhere(
         )
         return bool(result)
 
-    # For scalar values, check if close to zero to handle floating-point precision
-    return abs(value) <= tol
+    # For scalar values, check if close to zero to handle floating-point precision.
+    # ``abs(value) <= tol`` may return a ``numpy.bool_`` when ``value`` is a NumPy
+    # scalar.  Cast to ``bool`` so callers can rely on a plain Python ``bool`` and
+    # identity checks like ``is True`` behave as expected.
+    return bool(abs(value) <= tol)
 
 
 # ------------------------------------------------------------------------

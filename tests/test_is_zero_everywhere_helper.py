@@ -28,6 +28,12 @@ class TestIsZeroEverywhere:
         # The tolerance can be overridden for scalar comparisons
         assert _is_zero_everywhere(1e-13, tol=1e-12) is True
 
+        # Works with NumPy scalar types and still returns a Python ``bool``
+        np_value = np.float64(1e-13)
+        result = _is_zero_everywhere(np_value, tol=1e-12)
+        assert result is True
+        assert isinstance(result, bool)
+
     def test_pandas_series(self):
         """Test _is_zero_everywhere with pandas Series."""
         # Test all-zero series
