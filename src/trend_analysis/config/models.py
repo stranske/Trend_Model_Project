@@ -37,8 +37,33 @@ if TYPE_CHECKING:
         checkpoint_dir: str | None
         seed: int
 
-    # Type alias for Config that works with both implementations
+# Define ConfigType at runtime for type annotations
+try:
+    from typing_extensions import Protocol as _Protocol
+    
+    class ConfigProtocol(_Protocol):
+        """Type protocol for Config class that works in both Pydantic and fallback modes."""
+        
+        version: str
+        data: dict[str, Any]
+        preprocessing: dict[str, Any]
+        vol_adjust: dict[str, Any]
+        sample_split: dict[str, Any]
+        portfolio: dict[str, Any]
+        benchmarks: dict[str, str]
+        metrics: dict[str, Any]
+        export: dict[str, Any]
+        output: dict[str, Any] | None
+        run: dict[str, Any]
+        multi_period: dict[str, Any] | None
+        jobs: int | None
+        checkpoint_dir: str | None
+        seed: int
+        
     ConfigType = ConfigProtocol
+except ImportError:
+    # Fallback for environments without typing_extensions
+    ConfigType = Any
 
 # Pydantic import (optional in tests)
 # Use temporary underscored names within the branch, then export public names
@@ -386,9 +411,9 @@ else:  # Fallback mode for tests without pydantic
 
 # Public alias selected at runtime for callers
 if _HAS_PYDANTIC:
-    Config = cast(Any, globals().get("_PydanticConfigImpl"))
+    Config = cast("type[ConfigType]", globals().get("_PydanticConfigImpl"))
 else:
-    Config = cast(Any, globals().get("_FallbackConfig"))
+    Config = cast("type[ConfigType]", globals().get("_FallbackConfig"))
 
 
 class PresetConfig(SimpleBaseModel):
