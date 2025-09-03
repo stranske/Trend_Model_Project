@@ -66,6 +66,23 @@ def test_export_bundle(tmp_path):
     assert "created" in meta["receipt"]
     assert f"run_id: {expected_run_id}" in receipt
 
+    # New: outputs sha256 map
+    outputs = meta.get("outputs", {})
+    assert isinstance(outputs, dict) and outputs
+    # Must include at least these files
+    for required in [
+        "results/portfolio.csv",
+        "charts/equity_curve.png",
+        "charts/drawdown.png",
+        "summary.xlsx",
+        "README.txt",
+        "receipt.txt",
+    ]:
+        assert required in outputs
+        assert isinstance(outputs[required], str)
+        assert len(outputs[required]) == 64
+        int(outputs[required], 16)  # valid hex
+
 
 def test_receipt_deterministic(tmp_path):
     input_path = _write_input(tmp_path)
@@ -85,3 +102,21 @@ def test_receipt_deterministic(tmp_path):
         r1 = z1.read("receipt.txt")
         r2 = z2.read("receipt.txt")
     assert r1 == r2
+
+
+def test_export_bundle_empty_portfolio(tmp_path):
+    """export_bundle should handle empty portfolio without crashing."""
+    input_path = _write_input(tmp_path)
+    run = DummyRun(
+        portfolio=pd.Series(dtype=float),
+        config={},
+        seed=1,
+        input_path=input_path,
+    )
+    out = tmp_path / "empty_bundle.zip"
+    export_bundle(run, out)
+    with zipfile.ZipFile(out) as z:
+        names = set(z.namelist())
+        # Placeholder charts should still be created
+        assert "charts/equity_curve.png" in names
+        assert "charts/drawdown.png" in names

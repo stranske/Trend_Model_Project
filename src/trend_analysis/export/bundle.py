@@ -58,9 +58,17 @@ def export_bundle(run: Any, path: Path) -> Path:
         config = getattr(run, "config", {})
         seed = getattr(run, "seed", None)
 
-        input_path = Path(getattr(run, "input_path", ""))
+        # input_path may be missing or explicitly None; handle safely
+        _inp = getattr(run, "input_path", None)
+        try:
+            input_path = Path(_inp) if _inp else None
+        except TypeError:
+            # Guard against non-pathlike types
+            input_path = None
         input_sha256 = (
-            sha256_file(input_path) if input_path and input_path.exists() else None
+            sha256_file(input_path)
+            if input_path is not None and input_path.exists()
+            else None
         )
         config_sha256 = sha256_config(config)
         run_id_src = "|".join(
@@ -104,18 +112,33 @@ def export_bundle(run: Any, path: Path) -> Path:
             from matplotlib import pyplot as plt  # locally scoped import
 
             eq = (1 + portfolio.fillna(0)).cumprod()
-            # Use figure/add_subplot for maximum backend compatibility
+
+            # ------------------------------------------------------------------
+            # Equity curve
+            # ------------------------------------------------------------------
             fig = plt.figure()
             ax = fig.add_subplot(1, 1, 1)
-            eq.plot(ax=ax)
+            if not eq.empty:
+                eq.plot(ax=ax)
+            else:  # pragma: no cover - visual placeholder for empty data
+                ax.set_axis_off()
             ax.set_title("Equity Curve")
             fig.savefig(charts_dir / "equity_curve.png", metadata={"run_id": run_id})
             plt.close(fig)
 
-            dd = eq / eq.cummax() - 1
+            # ------------------------------------------------------------------
+            # Drawdown chart
+            # ------------------------------------------------------------------
+            if not eq.empty:
+                dd = eq / eq.cummax() - 1
+            else:
+                dd = pd.Series(dtype=float)
             fig = plt.figure()
             ax = fig.add_subplot(1, 1, 1)
-            dd.plot(ax=ax)
+            if not dd.empty:
+                dd.plot(ax=ax)
+            else:  # pragma: no cover - visual placeholder for empty data
+                ax.set_axis_off()
             ax.set_title("Drawdown")
             fig.savefig(charts_dir / "drawdown.png", metadata={"run_id": run_id})
             plt.close(fig)
@@ -137,6 +160,31 @@ def export_bundle(run: Any, path: Path) -> Path:
         pd.DataFrame([row]).to_excel(bundle_dir / "summary.xlsx", index=False)
 
         # ------------------------------------------------------------------
+        # Compute outputs hashes (relative file paths -> sha256)
+        # ------------------------------------------------------------------
+        def _rel(p: Path) -> str:
+            return str(p.relative_to(bundle_dir).as_posix())
+
+        outputs: dict[str, str] = {}
+
+        files_to_hash: list[Path] = [
+            results_dir / "portfolio.csv",
+            charts_dir / "equity_curve.png",
+            charts_dir / "drawdown.png",
+            bundle_dir / "summary.xlsx",
+            bundle_dir / "README.txt",  # written below, but path reserved
+            bundle_dir / "receipt.txt",  # written below, but path reserved
+        ]
+        # Optionals if present
+        opt_files = [results_dir / "benchmark.csv", results_dir / "weights.csv"]
+        for fp in opt_files:
+            if fp.exists():
+                files_to_hash.append(fp)
+
+        # NOTE: README.txt and receipt.txt are written just below; we'll fill
+        # their hashes after writing those files.
+
+        # ------------------------------------------------------------------
         # Metadata manifest
         # ------------------------------------------------------------------
         env = getattr(run, "environment", {"python": sys.version.split()[0]})
@@ -147,7 +195,8 @@ def export_bundle(run: Any, path: Path) -> Path:
         except Exception:
             env.setdefault("trend_analysis", "0")
 
-        meta = {
+        meta: dict[str, Any] = {
+            "schema_version": "1.0",
             "run_id": run_id,
             "config": config,
             "config_sha256": config_sha256,
@@ -158,8 +207,7 @@ def export_bundle(run: Any, path: Path) -> Path:
             "input_sha256": input_sha256,
         }
 
-        with open(bundle_dir / "run_meta.json", "w", encoding="utf-8") as f:
-            json.dump(meta, f, indent=2)
+        # We'll set meta["outputs"] after we have all files written and hashed
 
         # ------------------------------------------------------------------
         # Receipt
@@ -172,16 +220,16 @@ def export_bundle(run: Any, path: Path) -> Path:
         if seed is not None:
             receipt_lines.append(f"seed: {seed}")
         receipt_lines.append(f"git_hash: {meta['git_hash']}")
-        (bundle_dir / "receipt.txt").write_text(
-            "\n".join(receipt_lines) + "\n", encoding="utf-8"
-        )
+        receipt_path = bundle_dir / "receipt.txt"
+        receipt_path.write_text("\n".join(receipt_lines) + "\n", encoding="utf-8")
 
         # ------------------------------------------------------------------
         # README
         # ------------------------------------------------------------------
         commit_hash = meta.get("git_hash", "unavailable") or "unavailable"
         commit_short = str(commit_hash)[:8]
-        with open(bundle_dir / "README.txt", "w", encoding="utf-8") as f:
+        readme_path = bundle_dir / "README.txt"
+        with open(readme_path, "w", encoding="utf-8") as f:
             f.write(
                 f"""Trend Analysis Bundle
 ====================
@@ -220,6 +268,16 @@ https://github.com/stranske/Trend_Model_Project
 Git commit: {commit_short}
 """
             )
+
+        # Now that README.txt and receipt.txt exist, compute output hashes
+        for fp in [*files_to_hash, readme_path, receipt_path]:
+            if fp.exists():
+                outputs[_rel(fp)] = sha256_file(fp)
+
+        # Attach outputs map and write the manifest
+        meta["outputs"] = outputs
+        with open(bundle_dir / "run_meta.json", "w", encoding="utf-8") as f:
+            json.dump(meta, f, indent=2)
 
         # ------------------------------------------------------------------
         # Zip everything
