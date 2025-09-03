@@ -108,7 +108,9 @@ def main(cfg_path: str = "config/long_backtest.yml") -> int:
         vol = volatility(portfolio)
         sr = sharpe_ratio(portfolio, rf)
         msg = (
-            f"OOS CAGR: {cagr*100:.2f}%  " f"Vol: {vol*100:.2f}%  " f"Sharpe: {sr:.2f}"
+            f"OOS CAGR: {cagr*100:.2f}%  "
+            f"Vol: {vol*100:.2f}%  "
+            f"Sharpe: {sr:.2f}"
         )
         print(msg)
         print(f"Weights: {weights_path}")
