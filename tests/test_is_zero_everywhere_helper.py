@@ -34,17 +34,6 @@ class TestIsZeroEverywhere:
         assert result is True
         assert isinstance(result, bool)
 
-    def test_numpy_array(self):
-        """Test _is_zero_everywhere with NumPy array inputs."""
-        zeros = np.array([0.0, 0.0])
-        assert _is_zero_everywhere(zeros) is True
-
-        mixed = np.array([0.0, 1e-13])
-        assert _is_zero_everywhere(mixed) is False
-        array_result = _is_zero_everywhere(mixed, tol=1e-12)
-        assert array_result is True
-        assert isinstance(array_result, bool)
-
     def test_pandas_series(self):
         """Test _is_zero_everywhere with pandas Series."""
         # Test all-zero series

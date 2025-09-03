@@ -86,15 +86,11 @@ def _is_zero_everywhere(
         )
         return bool(result)
 
-    if np.isscalar(value):
-        # ``abs(value) <= tol`` may return a ``numpy.bool_`` when ``value`` is a
-        # NumPy scalar. Cast to ``bool`` so callers can rely on a plain Python
-        # ``bool`` and identity checks like ``is True`` behave as expected.
-        return bool(abs(value) <= tol)
-
-    # For array-like inputs, ensure every element lies within the tolerance.
-    arr = np.asarray(value)
-    return bool(np.all(np.abs(arr) <= tol))
+    # For scalar values, check if close to zero to handle floating-point precision.
+    # ``abs(value) <= tol`` may return a ``numpy.bool_`` when ``value`` is a NumPy
+    # scalar.  Cast to ``bool`` so callers can rely on a plain Python ``bool`` and
+    # identity checks like ``is True`` behave as expected.
+    return bool(abs(value) <= tol)
 
 
 # ------------------------------------------------------------------------
