@@ -160,15 +160,19 @@ def sharpe_ratio(
     ann_ret = annual_return(excess, periods_per_year)
     sigma = volatility(excess, periods_per_year)
 
-    if isinstance(sigma, Series):
-        if (sigma == 0).all():
+    if isinstance(returns, Series):
+        # Scalar path
+        sig = float(cast(float, sigma))
+        if sig == 0:
             return _empty_like(returns, "sharpe_ratio")
+        sr = float(cast(float, ann_ret)) / sig
+        return float(sr)
     else:
-        if sigma == 0:
-            return _empty_like(returns, "sharpe_ratio")
-
-    sr = ann_ret / sigma
-    return float(sr) if isinstance(returns, Series) else sr
+        # Vector path
+        assert isinstance(ann_ret, pd.Series)
+        assert isinstance(sigma, pd.Series)
+        sigma_safe = sigma.replace(0, np.nan)
+        return ann_ret / sigma_safe
 
 
 # Backwards-compatible short name
@@ -197,17 +201,18 @@ def sortino_ratio(
     downside = excess.clip(upper=0)
     downside_std = np.sqrt((downside**2).mean())
 
-    if (
-        (downside_std == 0).all()
-        if isinstance(downside_std, Series)
-        else downside_std == 0
-    ):
-        return _empty_like(returns, "sortino_ratio")
-
-    sr = annual_return(excess, periods_per_year) / (
-        downside_std * np.sqrt(periods_per_year)
-    )
-    return float(sr) if isinstance(returns, Series) else sr
+    if isinstance(returns, Series):
+        denom = float(cast(float, downside_std)) * float(np.sqrt(periods_per_year))
+        if denom == 0:
+            return _empty_like(returns, "sortino_ratio")
+        sr = float(cast(float, annual_return(excess, periods_per_year))) / denom
+        return float(sr)
+    else:
+        assert isinstance(downside_std, pd.Series)
+        denom = downside_std * np.sqrt(periods_per_year)
+        denom = denom.replace(0, np.nan)
+        ar = cast(pd.Series, annual_return(excess, periods_per_year))
+        return ar / denom
 
 
 ###############################################################################
@@ -292,8 +297,14 @@ def information_ratio(
         if tr_error == 0:
             return _empty_like(returns, "information_ratio")
 
-    ir = ann_act / tr_error
-    return float(ir) if isinstance(returns, Series) else ir
+    if isinstance(returns, Series):
+        ir_val = float(cast(float, ann_act)) / float(cast(float, tr_error))
+        return float(ir_val)
+    else:
+        assert isinstance(ann_act, pd.Series)
+        assert isinstance(tr_error, pd.Series)
+        tr_error = tr_error.replace(0, np.nan)
+        return ann_act / tr_error
 
 
 # ------------------------------------------------------------------ #
