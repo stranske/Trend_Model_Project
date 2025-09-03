@@ -259,6 +259,8 @@ if _HAS_PYDANTIC:
                 raise ValueError(f"{info.field_name} must be a dictionary")
             return v
 
+    # Field constants are already defined as class variables above
+
     # Only cache when creating a fresh class
     if _cached is None:
         setattr(_bi, "_TREND_CONFIG_CLASS", _PydanticConfigImpl)

@@ -54,6 +54,33 @@ def _empty_like(obj: Series | DataFrame, name: str) -> float | pd.Series:
     return pd.Series(np.nan, index=obj.columns, name=name, dtype=float)
 
 
+def _is_zero_everywhere(value: Series | DataFrame | float | int) -> bool:
+    """Check if a value is zero everywhere.
+
+    For pandas Series/DataFrame, checks if all elements equal zero.
+    For scalar values, uses == 0 comparison with numerical tolerance.
+
+    Parameters
+    ----------
+    value : Series | DataFrame | float | int
+        The value to check for being zero everywhere
+
+    Returns
+    -------
+    bool
+        True if the value is zero everywhere, False otherwise
+    """
+    if isinstance(value, (Series, DataFrame)):
+        result = (
+            (value == 0).all().all()
+            if isinstance(value, DataFrame)
+            else (value == 0).all()
+        )
+        return bool(result)
+    # For scalar values, check if close to zero to handle floating-point precision
+    return abs(value) < 1e-14
+
+
 # ------------------------------------------------------------------------
 def _validate_input(obj: Series | DataFrame, fn_name: str = "metric") -> None:
     """Type guard – the second argument is optional for convenience."""
@@ -290,12 +317,8 @@ def information_ratio(
     ann_act = active.mean() * periods_per_year
     tr_error = active.std(ddof=1) * np.sqrt(periods_per_year)
 
-    if isinstance(tr_error, Series):
-        if (tr_error == 0).all():
-            return _empty_like(returns, "information_ratio")
-    else:
-        if tr_error == 0:
-            return _empty_like(returns, "information_ratio")
+    if _is_zero_everywhere(tr_error):
+        return _empty_like(returns, "information_ratio")
 
     if isinstance(returns, Series):
         ir_val = float(cast(float, ann_act)) / float(cast(float, tr_error))
