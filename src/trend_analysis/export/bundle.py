@@ -8,11 +8,8 @@ import zipfile
 import subprocess
 import sys
 
-import pandas as pd
 import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
+import pandas as pd
 
 from trend_analysis.util.hash import (
     sha256_config,
@@ -81,7 +78,8 @@ def export_bundle(run: Any, path: Path) -> Path:
             portfolio = getattr(run, "portfolio")
         except AttributeError:
             raise ValueError(
-                "The 'portfolio' attribute is required for bundle creation but was not found in the provided 'run' object."
+                "The 'portfolio' attribute is required for bundle creation "
+                "but was not found in the provided 'run' object."
             )
         with open(results_dir / "portfolio.csv", "w", encoding="utf-8") as f:
             f.write(f"# run_id: {run_id}\n")
@@ -100,32 +98,40 @@ def export_bundle(run: Any, path: Path) -> Path:
         # ------------------------------------------------------------------
         # Charts PNGs
         # ------------------------------------------------------------------
-        eq = (1 + portfolio.fillna(0)).cumprod()
-        fig, ax = plt.subplots()
-        eq.plot(ax=ax)
-        ax.set_title("Equity Curve")
-        fig.savefig(charts_dir / "equity_curve.png", metadata={"run_id": run_id})
-        plt.close(fig)
+        def _write_charts() -> None:
+            # Configure non-interactive backend and import pyplot lazily
+            matplotlib.use("Agg")
+            from matplotlib import pyplot as plt  # locally scoped import
 
-        dd = eq / eq.cummax() - 1
-        fig, ax = plt.subplots()
-        dd.plot(ax=ax)
-        ax.set_title("Drawdown")
-        fig.savefig(charts_dir / "drawdown.png", metadata={"run_id": run_id})
-        plt.close(fig)
+            eq = (1 + portfolio.fillna(0)).cumprod()
+            fig, ax = plt.subplots()
+            eq.plot(ax=ax)
+            ax.set_title("Equity Curve")
+            fig.savefig(charts_dir / "equity_curve.png", metadata={"run_id": run_id})
+            plt.close(fig)
+
+            dd = eq / eq.cummax() - 1
+            fig, ax = plt.subplots()
+            dd.plot(ax=ax)
+            ax.set_title("Drawdown")
+            fig.savefig(charts_dir / "drawdown.png", metadata={"run_id": run_id})
+            plt.close(fig)
+
+        _write_charts()
 
         # ------------------------------------------------------------------
         # Summary workbook
         # ------------------------------------------------------------------
-        summary = {}
+        summary: dict[str, Any]
         summ_fn = getattr(run, "summary", None)
         if callable(summ_fn):
-            summary = summ_fn()
+            s = summ_fn()
+            summary = dict(s) if isinstance(s, dict) else {}
         else:
             summary = {"total_return": float(portfolio.sum())}
-        pd.DataFrame([{"run_id": run_id, **summary}]).to_excel(
-            bundle_dir / "summary.xlsx", index=False
-        )
+        row = {"run_id": run_id}
+        row.update(summary)
+        pd.DataFrame([row]).to_excel(bundle_dir / "summary.xlsx", index=False)
 
         # ------------------------------------------------------------------
         # Metadata manifest
@@ -170,12 +176,14 @@ def export_bundle(run: Any, path: Path) -> Path:
         # ------------------------------------------------------------------
         # README
         # ------------------------------------------------------------------
+        commit_hash = meta.get("git_hash", "unavailable") or "unavailable"
+        commit_short = str(commit_hash)[:8]
         with open(bundle_dir / "README.txt", "w", encoding="utf-8") as f:
             f.write(
                 f"""Trend Analysis Bundle
 ====================
 
-This bundle contains the complete results of a trend analysis run, including data, 
+This bundle contains the complete results of a trend analysis run, including data,
 charts, and metadata necessary for reproducibility and sharing.
 
 Generated: {_dt.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
@@ -199,14 +207,14 @@ Reproducibility:
 ---------------
 To reproduce these results:
 1. Use the same input data (SHA256 hash in run_meta.json)
-2. Apply the configuration from run_meta.json  
+2. Apply the configuration from run_meta.json
 3. Use the same software versions listed in environment section
 4. Set the same random seed if specified
 
 For more information about the Trend Analysis Project, visit:
 https://github.com/stranske/Trend_Model_Project
 
-Git commit: {(meta.get('git_hash', 'unavailable') or 'unavailable')[:8]}
+Git commit: {commit_short}
 """
             )
 

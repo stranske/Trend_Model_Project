@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import pandas as pd  # Required for type annotations used as strings
 
 import streamlit as st
 

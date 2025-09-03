@@ -78,7 +78,7 @@ def single_period_run(
         raise ValueError("DataFrame must contain a 'Date' column")
 
     df = df.copy()
-    if not np.issubdtype(df["Date"].dtype, np.datetime64):
+    if not pd.api.types.is_datetime64_any_dtype(df["Date"].dtype):
         df["Date"] = pd.to_datetime(df["Date"])
 
     def _parse_month(s: str) -> pd.Timestamp:
@@ -105,9 +105,10 @@ def single_period_run(
 def _compute_stats(df: pd.DataFrame, rf: pd.Series) -> dict[str, _Stats]:
     # Metrics expect 1D Series; iterating keeps the logic simple for a handful
     # of columns and avoids reshaping into higher-dimensional arrays.
-    stats = {}
+    stats: dict[str, _Stats] = {}
     for col in df:
-        stats[col] = _Stats(
+        key = str(col)
+        stats[key] = _Stats(
             cagr=float(annual_return(df[col])),
             vol=float(volatility(df[col])),
             sharpe=float(sharpe_ratio(df[col], rf)),
@@ -146,7 +147,7 @@ def _run_analysis(
         raise ValueError("DataFrame must contain a 'Date' column")
 
     df = df.copy()
-    if not np.issubdtype(df[date_col].dtype, np.datetime64):
+    if not pd.api.types.is_datetime64_any_dtype(df[date_col].dtype):
         df[date_col] = pd.to_datetime(df[date_col])
     df.sort_values(date_col, inplace=True)
 

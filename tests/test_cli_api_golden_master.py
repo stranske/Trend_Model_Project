@@ -10,7 +10,6 @@ from pathlib import Path
 
 from trend_analysis.config import Config
 from trend_analysis import api
-from trend_analysis.data import load_csv
 
 
 def make_test_data():
@@ -73,48 +72,48 @@ def test_cli_api_golden_master():
         _write_config(config_file, cfg)
 
         # Test API output
-        api_result = api.run_simulation(cfg, df)
+    api_result = api.run_simulation(cfg, df)
 
-        # Test CLI output (detailed mode to get metrics DataFrame)
-        result = subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "trend_analysis.run_analysis",
-                "-c",
-                str(config_file),
-                "--detailed",
-            ],
-            cwd=Path(__file__).parent.parent,
-            env={
-                **dict(os.environ),
-                "PYTHONPATH": str(Path(__file__).parent.parent / "src"),
-            },
-            capture_output=True,
-            text=True,
-        )
+    # Test CLI output (detailed mode to get metrics DataFrame)
+    subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "trend_analysis.run_analysis",
+            "-c",
+            str(config_file),
+            "--detailed",
+        ],
+        cwd=Path(__file__).parent.parent,
+        env={
+            **dict(os.environ),
+            "PYTHONPATH": str(Path(__file__).parent.parent / "src"),
+        },
+        capture_output=True,
+        text=True,
+    )
 
-        # For this test, we'll compare API results with expected structure
-        # The CLI comparison is complex due to output formatting
-        assert isinstance(api_result.metrics, pd.DataFrame)
-        assert not api_result.metrics.empty
-        assert "cagr" in api_result.metrics.columns
-        assert "sharpe" in api_result.metrics.columns
-        assert "ir_spx" in api_result.metrics.columns
+    # For this test, we'll compare API results with expected structure
+    # The CLI comparison is complex due to output formatting
+    assert isinstance(api_result.metrics, pd.DataFrame)
+    assert not api_result.metrics.empty
+    assert "cagr" in api_result.metrics.columns
+    assert "sharpe" in api_result.metrics.columns
+    assert "ir_spx" in api_result.metrics.columns
 
-        # Validate RunResult structure
-        assert hasattr(api_result, "details")
-        assert hasattr(api_result, "seed")
-        assert hasattr(api_result, "environment")
+    # Validate RunResult structure
+    assert hasattr(api_result, "details")
+    assert hasattr(api_result, "seed")
+    assert hasattr(api_result, "environment")
 
-        # Validate details structure
-        assert "out_sample_stats" in api_result.details
-        assert "benchmark_ir" in api_result.details
+    # Validate details structure
+    assert "out_sample_stats" in api_result.details
+    assert "benchmark_ir" in api_result.details
 
-        # Validate environment info
-        assert "python" in api_result.environment
-        assert "numpy" in api_result.environment
-        assert "pandas" in api_result.environment
+    # Validate environment info
+    assert "python" in api_result.environment
+    assert "numpy" in api_result.environment
+    assert "pandas" in api_result.environment
 
 
 def test_api_deterministic_behavior():

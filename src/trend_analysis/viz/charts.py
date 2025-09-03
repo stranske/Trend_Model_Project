@@ -39,10 +39,8 @@ def _weights_to_frame(
 def equity_curve(returns: pd.Series) -> tuple[Figure, pd.DataFrame]:
     """Return equity curve figure and DataFrame from periodic returns."""
 
-    if returns.empty:
-        raise ValueError("returns cannot be empty")
-
-    curve = (1.0 + returns.fillna(0.0)).cumprod().to_frame("equity")
+    eq_series: pd.Series = (1.0 + returns.fillna(0.0)).cumprod()
+    curve: pd.DataFrame = eq_series.to_frame("equity")
     fig, ax = plt.subplots()
     curve.plot(ax=ax)
     ax.set_ylabel("Equity")
@@ -53,11 +51,8 @@ def equity_curve(returns: pd.Series) -> tuple[Figure, pd.DataFrame]:
 def drawdown_curve(returns: pd.Series) -> tuple[Figure, pd.DataFrame]:
     """Return drawdown figure and DataFrame derived from ``returns``."""
 
-    if returns.empty:
-        raise ValueError("returns cannot be empty")
-
-    curve = (1.0 + returns.fillna(0.0)).cumprod()
-    dd = curve / curve.cummax() - 1.0
+    curve: pd.Series = (1.0 + returns.fillna(0.0)).cumprod()
+    dd: pd.Series = curve / curve.cummax() - 1.0
     dd_df = dd.to_frame("drawdown")
     fig, ax = plt.subplots()
     dd_df.plot(ax=ax)
@@ -72,12 +67,10 @@ def rolling_information_ratio(
     window: int = 12,
 ) -> tuple[Figure, pd.DataFrame]:
     """Rolling information ratio over ``window`` periods."""
-
-    if returns.empty:
-        raise ValueError("returns cannot be empty")
-
-    ir_series = rolling_metrics.rolling_information_ratio(returns, benchmark, window)
-    ir_df = ir_series.to_frame("rolling_ir")
+    ir_series: pd.Series = rolling_metrics.rolling_information_ratio(
+        returns, benchmark, window
+    )
+    ir_df: pd.DataFrame = ir_series.to_frame("rolling_ir")
     fig, ax = plt.subplots()
     ir_df.plot(ax=ax)
     ax.set_ylabel("Rolling IR")
@@ -132,6 +125,4 @@ def weights_heatmap_data(
         DataFrame with dates as index and assets as columns, filled with 0.0
         for missing values and sorted chronologically.
     """
-
-    # Delegate to ``weights_heatmap`` for validation and conversion.
-    return weights_heatmap(weights)[1]
+    return _weights_to_frame(weights)

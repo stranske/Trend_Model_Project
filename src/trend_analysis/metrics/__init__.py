@@ -7,7 +7,7 @@ Legacy *annualize_* wrappers are kept for back-compat with the test-suite.
 
 from __future__ import annotations
 
-from typing import Callable, TypeVar, ParamSpec
+from typing import Callable, cast
 import sys
 import types
 import builtins as _bi
@@ -23,14 +23,17 @@ _METRIC_REGISTRY: dict[str, Callable[..., float | pd.Series | np.floating]] = {}
 METRIC_REGISTRY = _METRIC_REGISTRY
 
 
-P = ParamSpec("P")
-R = TypeVar("R")
-
-
-def register_metric(name: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
+def register_metric(
+    name: str,
+) -> Callable[
+    [Callable[..., float | pd.Series | np.floating]],
+    Callable[..., float | pd.Series | np.floating],
+]:
     """Decorator that adds the function to the public registry."""
 
-    def _deco(fn: Callable[P, R]) -> Callable[P, R]:
+    def _deco(
+        fn: Callable[..., float | pd.Series | np.floating],
+    ) -> Callable[..., float | pd.Series | np.floating]:
         _METRIC_REGISTRY[name] = fn
         return fn
 
@@ -116,12 +119,27 @@ def annual_return(
     if returns.empty:
         return _empty_like(returns, "annual_return")
 
-    compounded = (1 + returns).prod()
-    n_periods = returns.shape[0]
-    ann_factor = periods_per_year / n_periods
-    out = compounded**ann_factor - 1
-
-    return float(out) if isinstance(returns, Series) else out.astype(float)
+    n_periods = max(returns.shape[0], 1)
+    if isinstance(returns, Series):
+        prod_val = (1 + returns).prod()
+        # Use numpy.asarray(...).item() to obtain a native Python scalar
+        compounded_scalar = np.asarray(prod_val).item()
+        compounded = float(compounded_scalar)
+        # If total growth is non-positive, legacy semantics return -1.0
+        if compounded <= 0:
+            return -1.0
+        out = compounded ** (periods_per_year / n_periods) - 1.0
+        return float(out)
+    else:
+        compounded_df = (1 + returns).prod()
+        k = periods_per_year / n_periods
+        res = pd.Series(index=returns.columns, dtype=float)
+        mask = compounded_df <= 0
+        if mask.any():
+            res[mask] = -1.0
+        if (~mask).any():
+            res[~mask] = compounded_df[~mask] ** k - 1.0
+        return res.astype(float)
 
 
 ###############################################################################
@@ -225,7 +243,7 @@ def max_drawdown(returns: pd.Series | pd.DataFrame) -> float | pd.Series | np.fl
         )
 
     def _one(col: pd.Series) -> float:
-        wealth = (1 + col).cumprod()
+        wealth: pd.Series = (1 + col).cumprod()
         draw = 1 - wealth / wealth.cummax()
         return float(draw.max())  # positive number
 
@@ -251,10 +269,11 @@ def information_ratio(
 
     # --- scalar → broadcast -------------------------------------------------
     if np.isscalar(benchmark):
+        bval = float(cast(float | int | np.floating, benchmark))
         benchmark = (
-            pd.Series(benchmark, index=returns.index, name="benchmark")
+            pd.Series(bval, index=returns.index, name="benchmark")
             if isinstance(returns, Series)
-            else pd.DataFrame(benchmark, index=returns.index, columns=returns.columns)
+            else pd.DataFrame(bval, index=returns.index, columns=returns.columns)
         )
 
     # --- Series → duplicate across all columns -----------------------------
