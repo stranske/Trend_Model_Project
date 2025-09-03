@@ -155,6 +155,36 @@ if _HAS_PYDANTIC:
     class _PydanticConfigImpl(PydanticConfigBase):  # type: ignore[misc, valid-type]
         """Typed access to the YAML configuration (Pydantic mode)."""
 
+        # Field lists as class constants to prevent maintenance burden
+        REQUIRED_DICT_FIELDS: ClassVar[List[str]] = [
+            "data",
+            "preprocessing",
+            "vol_adjust",
+            "sample_split",
+            "portfolio",
+            "metrics",
+            "export",
+            "run",
+        ]
+
+        ALL_FIELDS: ClassVar[List[str]] = [
+            "version",
+            "data",
+            "preprocessing",
+            "vol_adjust",
+            "sample_split",
+            "portfolio",
+            "benchmarks",
+            "metrics",
+            "export",
+            "output",
+            "run",
+            "multi_period",
+            "jobs",
+            "checkpoint_dir",
+            "seed",
+        ]
+
         # Use a plain dict for model_config to avoid type-checker issues when
         # Pydantic is not installed (tests toggle availability).
         model_config = {"extra": "ignore"}
