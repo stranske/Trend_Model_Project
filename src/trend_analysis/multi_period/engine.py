@@ -22,7 +22,6 @@ from typing import Dict, List, Mapping, Protocol, Any, cast
 
 import pandas as pd
 
-from ..config import Config
 from ..constants import NUMERICAL_TOLERANCE_HIGH
 from ..data import load_csv
 from ..pipeline import _run_analysis
@@ -209,7 +208,7 @@ def run_schedule(
 
 
 def run(
-    cfg: Config,
+    cfg: Any,
     df: pd.DataFrame | None = None,
     price_frames: dict[str, pd.DataFrame] | None = None,
 ) -> List[Dict[str, object]]:
@@ -450,6 +449,10 @@ def run(
     # --- main loop ------------------------------------------------------
     results: List[Dict[str, object]] = []
     prev_weights: pd.Series | None = None
+    prev_final_weights: pd.Series | None = None
+    # Transaction cost and turnover-cap controls (Issue #429)
+    tc_bps = float(cfg.portfolio.get("transaction_cost_bps", 0.0))
+    max_turnover_cap = float(cfg.portfolio.get("max_turnover", 1.0))
     low_weight_strikes: dict[str, int] = {}
 
     def _firm(name: str) -> str:
@@ -755,7 +758,34 @@ def run(
 
         # Apply weight bounds and renormalise
         bounded_w = _apply_weight_bounds(prev_weights)
-        prev_weights = bounded_w
+
+        # Enforce optional turnover cap by scaling trades towards target
+        target_w = bounded_w.copy()
+        if prev_final_weights is None:
+            last_aligned = pd.Series(0.0, index=target_w.index)
+        else:
+            union_ix = prev_final_weights.index.union(target_w.index)
+            last_aligned = prev_final_weights.reindex(union_ix, fill_value=0.0)
+            target_w = target_w.reindex(union_ix, fill_value=0.0)
+
+        desired_trades = target_w - last_aligned
+        desired_turnover = float(desired_trades.abs().sum())
+        final_w = target_w.copy()
+        if (
+            max_turnover_cap < 1.0 - NUMERICAL_TOLERANCE_HIGH
+            and desired_turnover > max_turnover_cap + NUMERICAL_TOLERANCE_HIGH
+        ):
+            # Scale trades proportionally towards target to respect cap
+            scale = max_turnover_cap / desired_turnover if desired_turnover > 0 else 0.0
+            final_w = last_aligned + desired_trades * scale
+        # Ensure bounds and normalisation remain satisfied
+        final_w = _apply_weight_bounds(final_w)
+
+        # Track turnover/cost for this period; persist weights for next period
+        period_turnover = float((final_w - last_aligned).abs().sum())
+        period_cost = period_turnover * (tc_bps / 10000.0)
+        prev_final_weights = final_w.copy()
+        prev_weights = final_w.copy()
 
         # Prepare custom weights mapping in percent for _run_analysis
         custom: dict[str, float] = {
@@ -788,8 +818,10 @@ def run(
             pt.out_start,
             pt.out_end,
         )
-        # Attach per-period manager change log
+        # Attach per-period manager change log and execution stats
         res["manager_changes"] = events
+        res["turnover"] = period_turnover
+        res["transaction_cost"] = float(period_cost)
         results.append(res)
 
     # Update complete for this period; next loop will use prev_weights

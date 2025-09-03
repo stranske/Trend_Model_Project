@@ -55,18 +55,19 @@ def _empty_like(obj: Series | DataFrame, name: str) -> float | pd.Series:
 
 
 def _is_zero_everywhere(
-    value: Series | DataFrame | float | int,
+    value: Series | DataFrame | float | int | np.ndarray,
     tol: float = 1e-15,
 ) -> bool:
     """Check if a value is zero everywhere.
 
     For pandas Series/DataFrame, checks if all elements equal zero.
-    For scalar values, uses numerical tolerance to account for floating-point
-    precision issues.
+    For scalar values (Python or NumPy) the absolute value is compared against
+    ``tol``.  Array-like inputs (e.g. ``np.ndarray``) are treated element-wise
+    and return ``True`` only if every element lies within the tolerance.
 
     Parameters
     ----------
-    value : Series | DataFrame | float | int
+    value : Series | DataFrame | float | int | np.ndarray
         The value to check for being zero everywhere
     tol : float, optional
         Numerical tolerance for scalar comparisons. Values whose absolute
