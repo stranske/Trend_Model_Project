@@ -9,7 +9,7 @@ from trend_analysis.export.bundle import export_bundle
 
 try:
     import jsonschema
-except Exception:  # pragma: no cover - environment without dev deps
+except ImportError:  # pragma: no cover - environment without dev deps
     jsonschema = None
 
 
