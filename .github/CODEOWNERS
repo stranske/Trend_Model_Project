@@ -1,0 +1,13 @@
+# Core engine and numerics
+/src/trend_analysis/**         @stranske
+
+# Streamlit app
+/streamlit_app/**              @stranske
+
+# CI/CD & release
+/.github/workflows/**          @stranske
+/Dockerfile                    @stranske
+/docker-compose.yml            @stranske
+
+# Docs live separately; no owner review required by default
+/docs/**                       
