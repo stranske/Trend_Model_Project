@@ -187,8 +187,24 @@ with st.expander("Compute contributions by signal and rebalancing"):
                 rebal_s = rb[first_col]
             elif isinstance(rb, pd.Series):
                 rebal_s = rb
+    except pd.errors.EmptyDataError as e:
+        st.warning(f"Uploaded file is empty: {e}")
+        signals_df = None
+        rebal_s = None
+    except ValueError as e:
+        st.warning(f"Failed to parse uploaded files (ValueError): {e}")
+        signals_df = None
+        rebal_s = None
+    except TypeError as e:
+        st.warning(f"Failed to parse uploaded files (TypeError): {e}")
+        signals_df = None
+        rebal_s = None
+    except FileNotFoundError as e:
+        st.warning(f"File not found: {e}")
+        signals_df = None
+        rebal_s = None
     except Exception as e:  # pragma: no cover - UI path
-        st.warning(f"Failed to parse uploaded files: {e}")
+        st.warning(f"Unexpected error while parsing uploaded files: {e}")
         signals_df = None
         rebal_s = None
 
