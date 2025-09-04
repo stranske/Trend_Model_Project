@@ -18,10 +18,21 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-
+import pathlib, pytest, yaml
 
 # --- Ensure local ``src`` packages are importable ---------------------------------------
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
+
+def pytest_collection_modifyitems(config, items):
+    q = pathlib.Path(__file__).with_name("quarantine.yml")
+    if not q.exists():
+        return
+    data = yaml.safe_load(q.read_text()) or {}
+    bad = set(data.get("tests", []))
+    for it in items:
+        if it.nodeid in bad:
+            it.add_marker(pytest.mark.quarantine(reason="repo quarantine list"))
+            it.add_marker(pytest.mark.xfail(reason="quarantined", strict=False))
