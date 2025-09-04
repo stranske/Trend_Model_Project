@@ -18,7 +18,8 @@ jobs:
             if (login.includes('copilot') || branch.startsWith('copilot/')) labels.push('from:copilot');
             if (login.includes('codex')   || branch.startsWith('codex/'))   labels.push('from:codex');
             if (labels.length) {
-              labels.push('automerge','risk:low');
+              // Do not automatically add 'automerge' or 'risk:low' labels to agent PRs.
+              // Agent-generated code should undergo proper review before being automatically merged.
               await github.rest.issues.addLabels({
                 owner: context.repo.owner, repo: context.repo.repo, issue_number: pr.number, labels
               });
