@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
+import logging
 
 import numpy as np
 import pandas as pd
@@ -17,6 +18,8 @@ from .metrics import (
     max_drawdown,
     information_ratio,
 )
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:  # pragma: no cover - for static type checking only
     from .config import Config
@@ -136,6 +139,7 @@ def _run_analysis(
     benchmarks: dict[str, str] | None = None,
     seed: int = 42,
     stats_cfg: "RiskStatsConfig" | None = None,
+    weighting_scheme: str | None = None,
 ) -> dict[str, object] | None:
     from .core.rank_selection import RiskStatsConfig, rank_select_funds
 
@@ -269,6 +273,28 @@ def _run_analysis(
     out_ew_stats = _compute_stats(pd.DataFrame({"ew": out_ew}), rf_out)["ew"]
     out_ew_stats_raw = _compute_stats(pd.DataFrame({"ew": out_ew_raw}), rf_out)["ew"]
 
+    # Optionally compute plugin-based weights on in-sample covariance
+    if (
+        custom_weights is None
+        and weighting_scheme
+        and weighting_scheme.lower() != "equal"
+    ):
+        try:
+            from .plugins import create_weight_engine
+
+            cov = in_df[fund_cols].cov()
+            engine = create_weight_engine(weighting_scheme.lower())
+            w_series = engine.weight(cov).reindex(fund_cols).fillna(0.0)
+            # Convert to percent mapping expected by downstream logic
+            custom_weights = {c: float(w_series.get(c, 0.0) * 100.0) for c in fund_cols}
+            logger.debug("Successfully created %s weight engine", weighting_scheme)
+        except Exception as e:
+            # Fallback to equal weights with proper logging for debugging
+            logger.debug(
+                'Weight engine creation failed, falling back to equal weights: %s', e
+            )
+            custom_weights = None
+
     if custom_weights is None:
         custom_weights = {c: 100 / len(fund_cols) for c in fund_cols}
     user_w = np.array([custom_weights.get(c, 0) / 100 for c in fund_cols])
@@ -352,6 +378,7 @@ def run_analysis(
     benchmarks: dict[str, str] | None = None,
     seed: int = 42,
     stats_cfg: "RiskStatsConfig" | None = None,
+    weighting_scheme: str | None = None,
 ) -> dict[str, object] | None:
     """Backward-compatible wrapper around ``_run_analysis``."""
     return _run_analysis(
@@ -371,6 +398,7 @@ def run_analysis(
         benchmarks,
         seed,
         stats_cfg=stats_cfg,
+        weighting_scheme=weighting_scheme,
     )
 
 
@@ -412,6 +440,7 @@ def run(cfg: Config) -> pd.DataFrame:
         benchmarks=cfg.benchmarks,
         seed=getattr(cfg, "seed", 42),
         stats_cfg=stats_cfg,
+        weighting_scheme=cfg.portfolio.get("weighting_scheme"),
     )
     if res is None:
         return pd.DataFrame()
