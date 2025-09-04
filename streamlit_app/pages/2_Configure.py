@@ -44,12 +44,12 @@ try:
             presets.append(preset_file.stem.title())
         return sorted(presets)
 
-except ImportError:
+except Exception:
     # Ultimate fallback
-    def load_preset_direct(name: str) -> dict:
+    def load_preset_direct(name: str) -> dict:  # type: ignore[no-redef]
         return {}
 
-    def list_available_presets_direct() -> List[str]:
+    def list_available_presets_direct() -> List[str]:  # type: ignore[no-redef]
         return ["Conservative", "Balanced", "Aggressive"]
 
 
@@ -180,6 +180,10 @@ def render_column_mapping(df: pd.DataFrame):
                     )
 
     # Create column mapping object
+    # Ensure locals exist even if no return_cols
+    display_names = locals().get("display_names", {})
+    tickers = locals().get("tickers", {})
+
     mapping = {
         "date_column": date_col,
         "return_columns": return_cols,
@@ -271,6 +275,14 @@ def render_parameter_forms(preset_config: Optional[Dict[str, Any]]):
             help="Minimum time before reconsidering fired funds",
         )
 
+        st.markdown("**Weighting**")
+        weighting_scheme = st.selectbox(
+            "Weighting scheme",
+            options=["equal", "risk_parity", "hrp", "erc"],
+            index=0,
+            help="How to allocate weights across selected funds",
+        )
+
     # Metrics selection
     st.markdown("**Selection Metrics**")
     metric_names = list(AVAILABLE_METRICS.keys())
@@ -319,6 +331,7 @@ def render_parameter_forms(preset_config: Optional[Dict[str, Any]]):
         "cooldown_months": cooldown_months,
         "selected_metrics": selected_metrics,
         "metric_weights": weights,
+        "weighting_scheme": weighting_scheme,
     }
 
     st.session_state.config_state["custom_overrides"] = overrides
@@ -421,6 +434,9 @@ def save_configuration():
         "risk_target": overrides.get("risk_target", 0.10),
         "column_mapping": config_state.get("column_mapping"),
         "preset_name": config_state.get("preset_name"),
+        "portfolio": {
+            "weighting_scheme": overrides.get("weighting_scheme", "equal"),
+        },
     }
 
     config_state["is_valid"] = True
