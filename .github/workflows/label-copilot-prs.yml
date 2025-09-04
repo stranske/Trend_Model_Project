@@ -18,6 +18,7 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: pr.number,
-                labels: ['from:copilot','automerge','risk:low']  // your existing labels
+                # your existing labels
+                labels: ['from:copilot','automerge','risk:low']
               });
             }
