@@ -76,50 +76,52 @@ with st.expander("Run walk-forward (rolling OOS) analysis"):
             "Date": portfolio_curve.index,
             "metric": portfolio_curve.values
         })
+        
+        # Only proceed with walk-forward analysis if we have valid data
+        if not wf_df.empty and len(wf_df.columns) >= 2:
+            regimes = None
+            if regime_source == "Portfolio sign (+/-)":
+                try:
+                    s = wf_df.set_index("Date").iloc[:, 0]
+                    regimes = pd.Series((s >= 0).map({True: "+", False: "-"}), index=s.index)
+                except Exception:
+                    regimes = None
+
+            metric_name = wf_df.columns[1]
+            res_wf = walk_forward(
+                wf_df,
+                train_size=train_size,
+                test_size=test_size,
+                step_size=step_size,
+                metric_cols=[metric_name],
+                regimes=regimes,
+                agg="mean",
+            )
+
+            view = st.radio(
+                "View",
+                ("Full period", "OOS only", "Per regime"),
+                horizontal=True,
+            )
+
+            if view == "Full period":
+                st.write("Full-period aggregate:")
+                st.dataframe(res_wf.full.to_frame("mean"))
+            elif view == "OOS only":
+                st.write("Out-of-sample aggregate:")
+                st.dataframe(res_wf.oos.to_frame("mean"))
+            else:
+                st.write("Per-regime aggregate (OOS windows):")
+                if res_wf.by_regime is not None and not res_wf.by_regime.empty:
+                    st.dataframe(res_wf.by_regime)
+                else:
+                    st.caption("No regime data available.")
+        else:
+            st.caption("No data available for walk-forward analysis.")
+            
     except (AttributeError, KeyError, ValueError, TypeError) as e:
         st.warning(f"Walk-forward data unavailable: {e}")
-        wf_df = pd.DataFrame({"Date": [], "metric": []})
-
-    regimes = None
-    if regime_source == "Portfolio sign (+/-)":
-        try:
-            s = wf_df.set_index("Date").iloc[:, 0]
-            regimes = pd.Series((s >= 0).map({True: "+", False: "-"}), index=s.index)
-        except Exception:
-            regimes = None
-
-    if wf_df.empty:
         st.caption("No data available for walk-forward analysis.")
-    else:
-        metric_name = wf_df.columns[1]
-        res_wf = walk_forward(
-            wf_df,
-            train_size=train_size,
-            test_size=test_size,
-            step_size=step_size,
-            metric_cols=[metric_name],
-            regimes=regimes,
-            agg="mean",
-        )
-
-        view = st.radio(
-            "View",
-            ("Full period", "OOS only", "Per regime"),
-            horizontal=True,
-        )
-
-        if view == "Full period":
-            st.write("Full-period aggregate:")
-            st.dataframe(res_wf.full.to_frame("mean"))
-        elif view == "OOS only":
-            st.write("Out-of-sample aggregate:")
-            st.dataframe(res_wf.oos.to_frame("mean"))
-        else:
-            st.write("Per-regime aggregate (OOS windows):")
-            if res_wf.by_regime is not None and not res_wf.by_regime.empty:
-                st.dataframe(res_wf.by_regime)
-            else:
-                st.caption("No regime data available.")
 
 st.subheader("Downloads")
 col1, col2, col3 = st.columns(3)
