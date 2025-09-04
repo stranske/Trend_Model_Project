@@ -28,7 +28,11 @@ fi
 
 # Quick lint check on recent changes
 echo -e "${BLUE}Checking recent changes...${NC}"
-CHANGED_FILES=$(git diff --name-only HEAD~1 | grep -E '\.(py)$' | grep -v -E '^(Old/|notebooks/old/)' | head -5 || true)
+CHANGED_FILES=$(git diff --name-only HEAD~1 2>/dev/null | grep -E '\.(py)$' 2>/dev/null | grep -v -E '^(Old/|notebooks/old/)' 2>/dev/null | head -5)
+if [[ $? -ne 0 ]]; then
+    echo "::warning::git diff command failed, but continuing. Recent changes check may be incomplete."
+    CHANGED_FILES=""
+fi
 if [[ -n "$CHANGED_FILES" ]]; then
     if echo "$CHANGED_FILES" | xargs flake8 2>/dev/null; then
         echo -e "${GREEN}✓ Recent changes look good${NC}"
