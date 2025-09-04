@@ -70,6 +70,12 @@ with st.expander("Run walk-forward (rolling OOS) analysis"):
     )
 
     # Build a simple DataFrame with a metric to aggregate. Use portfolio returns if available.
+    try:
+        portfolio_curve = res.portfolio_curve()
+        wf_df = pd.DataFrame({
+            "Date": portfolio_curve.index,
+            "metric": portfolio_curve.values
+        })
     except (AttributeError, KeyError, ValueError, TypeError) as e:
         st.warning(f"Walk-forward data unavailable: {e}")
         wf_df = pd.DataFrame({"Date": [], "metric": []})
