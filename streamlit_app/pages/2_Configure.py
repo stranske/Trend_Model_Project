@@ -117,6 +117,10 @@ def render_column_mapping(df: pd.DataFrame):
     """Render column mapping UI."""
     st.subheader("🔗 Column Mapping")
 
+    # Initialize display names and tickers at function scope
+    display_names = {}
+    tickers = {}
+
     cols = df.columns.tolist()
 
     with st.expander("Map your data columns", expanded=True):
@@ -161,9 +165,6 @@ def render_column_mapping(df: pd.DataFrame):
         if return_cols:
             st.subheader("Column Labels (Optional)")
             col1, col2 = st.columns(2)
-
-            display_names = {}
-            tickers = {}
 
             for i, col in enumerate(return_cols):
                 with col1:
