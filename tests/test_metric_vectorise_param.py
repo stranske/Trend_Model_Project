@@ -1,8 +1,9 @@
 import numpy as np
 import pandas as pd
 import pytest
-import trend_analysis.metrics as M
+
 import tests.legacy_metrics as L
+import trend_analysis.metrics as M
 from trend_analysis.constants import NUMERICAL_TOLERANCE_HIGH
 
 _rng = np.random.default_rng(42)

@@ -9,6 +9,7 @@ package without requiring the ``viz`` helpers.
 from __future__ import annotations
 
 from typing import Mapping
+
 import pandas as pd
 
 

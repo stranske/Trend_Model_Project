@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import io
-import pandas as pd  # Required for type annotations used as strings
 
+import pandas as pd  # Required for type annotations used as strings
 import streamlit as st
 
-from trend_analysis.viz import charts
 from trend_analysis.metrics import summary
+from trend_analysis.viz import charts
 
 
 def _create_line_chart_with_download(

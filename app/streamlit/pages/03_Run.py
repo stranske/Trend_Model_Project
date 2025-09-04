@@ -1,18 +1,19 @@
 """Run page for Streamlit trend analysis app with unified execution and progress."""
 
-import streamlit as st
-import pandas as pd
 import logging
-import traceback
 import sys
+import traceback
 from datetime import datetime
-from typing import Optional
 from pathlib import Path
+from typing import Optional
+
+import pandas as pd
+import streamlit as st
 
 # Add src to path for imports
 sys.path.append(str(Path(__file__).parent.parent.parent / "src"))
 
-from trend_analysis.api import run_simulation, RunResult
+from trend_analysis.api import RunResult, run_simulation
 
 # Configure logging for the app
 logging.basicConfig(level=logging.INFO)

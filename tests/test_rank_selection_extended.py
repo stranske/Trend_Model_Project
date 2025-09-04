@@ -1,8 +1,9 @@
 """Test rank selection functionality for improved coverage."""
 
-import pytest
-import pandas as pd
 import numpy as np
+import pandas as pd
+import pytest
+
 from trend_analysis.core import rank_selection as rs
 
 

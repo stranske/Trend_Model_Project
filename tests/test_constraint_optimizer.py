@@ -3,10 +3,7 @@ import pandas as pd
 import pytest
 
 from trend_analysis.constants import NUMERICAL_TOLERANCE_HIGH
-from trend_analysis.engine.optimizer import (
-    apply_constraints,
-    ConstraintViolation,
-)
+from trend_analysis.engine.optimizer import ConstraintViolation, apply_constraints
 
 
 def test_long_only_and_max_weight():

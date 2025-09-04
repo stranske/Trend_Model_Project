@@ -1,8 +1,8 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 
-from trend_analysis.pipeline import _run_analysis
 from trend_analysis.core.rank_selection import RiskStatsConfig, canonical_metric_list
+from trend_analysis.pipeline import _run_analysis
 
 
 def make_df():

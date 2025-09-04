@@ -1,16 +1,15 @@
 from __future__ import annotations
 
 import argparse
-
 from pathlib import Path
-
 from typing import cast
 
-from .config import load
+import pandas as pd
+
 from . import api, export
+from .config import load
 from .constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 from .data import load_csv
-import pandas as pd
 
 
 def main(argv: list[str] | None = None) -> int:

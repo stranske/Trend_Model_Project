@@ -1,7 +1,9 @@
 """Test regex optimization in rank_selection module."""
 
 import time
+
 import pandas as pd
+
 from trend_analysis.core import rank_selection as rs
 
 

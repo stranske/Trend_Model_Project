@@ -1,10 +1,11 @@
 """Tests for volatility targeting and drawdown guard rebalancing strategies."""
 
-import pytest
 import pandas as pd
+import pytest
+
 from trend_analysis.rebalancing import (
-    VolTargetRebalanceStrategy,
     DrawdownGuardStrategy,
+    VolTargetRebalanceStrategy,
     create_rebalancing_strategy,
 )
 

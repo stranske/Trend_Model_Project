@@ -6,13 +6,7 @@ from typing import Mapping
 
 import pandas as pd
 
-from . import (
-    annual_return,
-    volatility,
-    max_drawdown,
-    information_ratio,
-    sharpe_ratio,
-)
+from . import annual_return, information_ratio, max_drawdown, sharpe_ratio, volatility
 from .turnover import realized_turnover, turnover_cost
 
 

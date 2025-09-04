@@ -18,8 +18,7 @@ plot_contributions
 
 from __future__ import annotations
 
-from typing import Iterable, Any, cast
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Iterable, cast
 
 import matplotlib.pyplot as plt
 import numpy as np

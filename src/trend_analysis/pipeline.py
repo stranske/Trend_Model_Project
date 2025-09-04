@@ -1,22 +1,21 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, cast
 import logging
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
-from typing import Any
 
 from .data import load_csv
 from .metrics import (
     annual_return,
-    volatility,
+    information_ratio,
+    max_drawdown,
     sharpe_ratio,
     sortino_ratio,
-    max_drawdown,
-    information_ratio,
+    volatility,
 )
 
 logger = logging.getLogger(__name__)
@@ -292,7 +291,7 @@ def _run_analysis(
         except Exception as e:
             # Fallback to equal weights with proper logging for debugging
             logger.debug(
-                'Weight engine creation failed, falling back to equal weights: %s', e
+                "Weight engine creation failed, falling back to equal weights: %s", e
             )
             custom_weights = None
 

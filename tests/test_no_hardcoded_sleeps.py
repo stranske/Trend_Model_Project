@@ -1,7 +1,8 @@
 """Test that ensures no hardcoded sleep values exist in critical test files.
 
-This test addresses issue #620 by verifying that hardcoded sleep statements
-are not present in Streamlit smoke tests, which could cause flaky tests.
+This test addresses issue #620 by verifying that hardcoded sleep
+statements are not present in Streamlit smoke tests, which could cause
+flaky tests.
 """
 
 import re

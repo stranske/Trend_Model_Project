@@ -2,10 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from trend_analysis.engine.optimizer import (
-    ConstraintViolation,
-    apply_constraints,
-)
+from trend_analysis.engine.optimizer import ConstraintViolation, apply_constraints
 
 
 def test_long_only_projection_normalizes():

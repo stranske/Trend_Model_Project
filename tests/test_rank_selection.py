@@ -1,4 +1,5 @@
 import pandas as pd
+
 from trend_analysis.core import rank_selection as rs
 from trend_analysis.pipeline import run_analysis
 

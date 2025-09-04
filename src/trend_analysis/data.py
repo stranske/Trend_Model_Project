@@ -1,5 +1,6 @@
 import logging
 from typing import Optional
+
 import pandas as pd
 from pandas.api.types import is_datetime64_any_dtype
 

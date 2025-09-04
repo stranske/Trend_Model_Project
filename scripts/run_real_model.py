@@ -13,9 +13,10 @@ from typing import Dict, List
 
 import pandas as pd
 
-from trend_analysis.config import load, Config
+from trend_analysis.config import Config, load
 from trend_analysis.data import load_csv
-from trend_analysis.multi_period import run as run_mp, run_schedule
+from trend_analysis.multi_period import run as run_mp
+from trend_analysis.multi_period import run_schedule
 from trend_analysis.selector import RankSelector
 from trend_analysis.weighting import ScorePropBayesian
 
@@ -100,7 +101,7 @@ def main(cfg_path: str = "config/long_backtest.yml") -> int:
         port_path = out_dir / "portfolio_oos_returns.csv"
         portfolio.to_csv(port_path, index_label="Date")
         # Basic stats
-        from trend_analysis.metrics import annual_return, volatility, sharpe_ratio
+        from trend_analysis.metrics import annual_return, sharpe_ratio, volatility
 
         rf = df_all.get("Risk-Free Rate")
         rf = rf.loc[portfolio.index] if rf is not None else 0.0

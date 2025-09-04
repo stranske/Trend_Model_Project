@@ -1,18 +1,20 @@
 """Portfolio rebalancing strategies implementation.
 
-This module provides various rebalancing strategies that control how target
-weights are realised into actual trades and positions, including turnover
-constraints and transaction cost modelling.  Strategies are exposed via a
-simple plugin registry so they can be selected by name in configuration files.
+This module provides various rebalancing strategies that control how
+target weights are realised into actual trades and positions, including
+turnover constraints and transaction cost modelling.  Strategies are
+exposed via a simple plugin registry so they can be selected by name in
+configuration files.
 """
 
 from __future__ import annotations
+
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 
-from ..plugins import Rebalancer, rebalancer_registry, create_rebalancer
+from ..plugins import Rebalancer, create_rebalancer, rebalancer_registry
 
 # Backwards compatibility name
 RebalancingStrategy = Rebalancer
@@ -25,9 +27,9 @@ TURNOVER_EPSILON = 1e-10
 class TurnoverCapStrategy(Rebalancer):
     """Turnover cap rebalancing strategy.
 
-    Limits the total turnover (sum of absolute trades) per rebalancing period
-    and applies optional transaction costs. Prioritizes trades by either
-    largest gap or best score delta.
+    Limits the total turnover (sum of absolute trades) per rebalancing
+    period and applies optional transaction costs. Prioritizes trades by
+    either largest gap or best score delta.
     """
 
     def __init__(self, params: Dict[str, Any] | None = None):
@@ -174,7 +176,8 @@ class TurnoverCapStrategy(Rebalancer):
         return priorities
 
     def _calculate_cost(self, turnover: float) -> float:
-        """Calculate transaction cost based on turnover and cost basis points."""
+        """Calculate transaction cost based on turnover and cost basis
+        points."""
         return turnover * (self.cost_bps / 10000.0)
 
 
@@ -253,7 +256,8 @@ class DriftBandStrategy(Rebalancer):
 
 @rebalancer_registry.register("vol_target_rebalance")
 class VolTargetRebalanceStrategy(Rebalancer):
-    """Scale weights to hit a target volatility based on recent equity curve."""
+    """Scale weights to hit a target volatility based on recent equity
+    curve."""
 
     def __init__(self, params: Dict[str, Any] | None = None) -> None:
         super().__init__(params)

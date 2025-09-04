@@ -9,10 +9,9 @@ import pandas as pd
 
 from . import export, pipeline
 from .api import run_simulation
-from .data import load_csv
 from .config import load_config
 from .constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
-
+from .data import load_csv
 
 APP_PATH = Path(__file__).resolve().parents[2] / "streamlit_app" / "app.py"
 LOCK_PATH = Path(__file__).resolve().parents[2] / "requirements.lock"

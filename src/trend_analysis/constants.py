@@ -1,7 +1,7 @@
 """Constants for the trend analysis package.
 
-This module centralizes all hardcoded default values to improve maintainability
-and make them easier to modify.
+This module centralizes all hardcoded default values to improve
+maintainability and make them easier to modify.
 """
 
 # Default export configuration constants

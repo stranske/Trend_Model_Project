@@ -1,11 +1,11 @@
 import pandas as pd
 
 from trend_analysis.export import (
+    FORMATTERS_EXCEL,
     export_data,
     export_to_excel,
     register_formatter_excel,
     reset_formatters_excel,
-    FORMATTERS_EXCEL,
 )
 
 

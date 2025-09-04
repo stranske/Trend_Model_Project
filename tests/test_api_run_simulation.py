@@ -1,9 +1,10 @@
-import pandas as pd
-import json
 import hashlib
+import json
 
-from trend_analysis.config import Config
+import pandas as pd
+
 from trend_analysis import api, pipeline
+from trend_analysis.config import Config
 
 
 def make_df():
@@ -55,6 +56,7 @@ def test_run_simulation_matches_pipeline(tmp_path):
 def _hash_result(res: api.RunResult) -> str:
     def deterministic_default(obj):
         import datetime
+
         import numpy as np
         import pandas as pd
 
@@ -138,6 +140,7 @@ def test_run_simulation_deterministic(tmp_path):
 
     # Import required modules
     import random
+
     import numpy as np
 
     def reset_random_state(seed):
@@ -237,6 +240,7 @@ def test_run_simulation_deterministic_with_random_selection(tmp_path):
     }
 
     import random
+
     import numpy as np
 
     def reset_random_state(seed):

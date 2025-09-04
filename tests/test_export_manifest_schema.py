@@ -9,13 +9,13 @@ matches the schema expectations.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from pathlib import Path
 import json
 import zipfile
+from dataclasses import dataclass
+from pathlib import Path
 
-import pandas as pd
 import jsonschema
+import pandas as pd
 import pytest
 
 from trend_analysis.export.bundle import export_bundle

@@ -1,8 +1,8 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
+
 from trend_analysis.constants import NUMERICAL_TOLERANCE_MEDIUM
 from trend_analysis.multi_period.replacer import Rebalancer
-
 
 CFG = {
     "multi_period": {

@@ -24,14 +24,14 @@ Assumptions:
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Set
 
-import math
 import pandas as pd
 
-from trend_analysis.config import load, Config
+from trend_analysis.config import Config, load
 from trend_analysis.multi_period import run as run_mp
 
 

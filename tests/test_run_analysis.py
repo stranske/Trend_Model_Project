@@ -1,14 +1,15 @@
-import pandas as pd
 import numpy as np
-from trend_analysis.pipeline import run_analysis, Stats, calc_portfolio_returns
+import pandas as pd
+
 from trend_analysis.core.rank_selection import RiskStatsConfig
 from trend_analysis.metrics import (
     annualize_return,
     annualize_volatility,
+    max_drawdown,
     sharpe_ratio,
     sortino_ratio,
-    max_drawdown,
 )
+from trend_analysis.pipeline import Stats, calc_portfolio_returns, run_analysis
 
 
 def make_df():

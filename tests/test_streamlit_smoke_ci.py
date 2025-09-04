@@ -1,14 +1,15 @@
 """CI smoke test for Streamlit app with headless run testing."""
 
+import os
+import signal
 import subprocess
+import sys
 import time
+from pathlib import Path
+
+import pandas as pd
 import pytest
 import requests
-import signal
-import os
-import pandas as pd
-from pathlib import Path
-import sys
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
