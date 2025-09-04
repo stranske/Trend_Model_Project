@@ -10,4 +10,4 @@
 /docker-compose.yml            @stranske
 
 # Docs live separately; no owner review required by default
-/docs/**                       @stranske
+/docs/**                       
