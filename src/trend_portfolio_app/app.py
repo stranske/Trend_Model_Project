@@ -11,6 +11,12 @@ import yaml
 from trend_analysis import pipeline
 from trend_analysis.multi_period import run as run_multi
 from trend_analysis.config import DEFAULTS as DEFAULT_CFG_PATH, Config
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:  # pragma: no cover - type-only alias to satisfy mypy
+    from trend_analysis.config.models import ConfigProtocol as ConfigType
+else:  # runtime
+    from typing import Any as ConfigType
 from trend_analysis.data import load_csv as ta_load_csv, identify_risk_free_fund
 from trend_analysis.core.rank_selection import METRIC_REGISTRY
 
@@ -51,7 +57,7 @@ def _merge_update(base: Dict[str, Any], updates: Dict[str, Any]) -> Dict[str, An
     return out
 
 
-def _build_cfg(d: Dict[str, Any]) -> Config:
+def _build_cfg(d: Dict[str, Any]) -> ConfigType:
     # Construct Config object (works with or without pydantic installed)
     return Config(**d)
 
@@ -1687,7 +1693,7 @@ with tabs[8]:
     with col2:
         go_multi = st.button("Run Multi-Period", type="primary")
 
-    cfg_obj: Config | None = None
+    cfg_obj: ConfigType | None = None
     if go_single or go_multi:
         # Rebuild config dict from session state flat keys we used
         cfg_dict = st.session_state.config_dict

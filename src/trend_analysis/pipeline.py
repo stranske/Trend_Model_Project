@@ -22,7 +22,7 @@ from .metrics import (
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:  # pragma: no cover - for static type checking only
-    from .config import Config
+    from .config.models import ConfigProtocol as Config
     from .core.rank_selection import RiskStatsConfig
 
 del TYPE_CHECKING
@@ -263,6 +263,24 @@ def _run_analysis(
     out_stats = _compute_stats(out_scaled, rf_out)
     out_stats_raw = _compute_stats(out_df[fund_cols], rf_out)
 
+    # Optionally compute plugin-based weights on in-sample covariance
+    if (
+        custom_weights is None
+        and weighting_scheme
+        and weighting_scheme.lower() != "equal"
+    ):
+        try:
+            from .plugins import create_weight_engine
+
+            cov = in_df[fund_cols].cov()
+            engine = create_weight_engine(weighting_scheme.lower())
+            w_series = engine.weight(cov).reindex(fund_cols).fillna(0.0)
+            # Convert to percent mapping expected by downstream logic
+            custom_weights = {c: float(w_series.get(c, 0.0) * 100.0) for c in fund_cols}
+        except Exception:
+            # Fallback silently to user/equal weights if engine creation fails
+            pass
+
     ew_weights = np.repeat(1.0 / len(fund_cols), len(fund_cols))
     ew_w_dict = {c: w for c, w in zip(fund_cols, ew_weights)}
     in_ew = calc_portfolio_returns(ew_weights, in_scaled)
@@ -297,8 +315,40 @@ def _run_analysis(
 
     if custom_weights is None:
         custom_weights = {c: 100 / len(fund_cols) for c in fund_cols}
-    user_w = np.array([custom_weights.get(c, 0) / 100 for c in fund_cols])
-    user_w_dict = {c: w for c, w in zip(fund_cols, user_w)}
+    # Convert provided weights mapping (percent) to decimal ndarray
+    user_w = np.array([custom_weights.get(c, 0) / 100 for c in fund_cols], dtype=float)
+    # Apply portfolio constraints if configured
+    try:
+        constraints_cfg = constraints or {}
+        if isinstance(constraints_cfg, dict) and constraints_cfg:
+            from .engine.optimizer import apply_constraints
+
+            w_series = pd.Series(user_w, index=fund_cols, dtype=float)
+            # Build minimal constraint dict; group_caps require a mapping of asset->group
+            cons: dict[str, Any] = {}
+            if "long_only" in constraints_cfg:
+                cons["long_only"] = bool(constraints_cfg.get("long_only", True))
+            if "max_weight" in constraints_cfg:
+                _mw = constraints_cfg.get("max_weight")
+                if _mw is not None:
+                    cons["max_weight"] = float(_mw)
+            if constraints_cfg.get("group_caps"):
+                cons["group_caps"] = constraints_cfg.get("group_caps")
+                if constraints_cfg.get("groups"):
+                    cons["groups"] = constraints_cfg.get("groups")
+            if cons:
+                w_series = apply_constraints(w_series, cons)
+            user_w = (
+                w_series.reindex(fund_cols)
+                .fillna(0.0)
+                .to_numpy(dtype=float, copy=False)
+            )
+    except Exception:
+        # If constraints application fails, fall back silently to original user weights
+        pass
+
+    # Keep a dictionary for result payload (already in decimals 0..1)
+    user_w_dict = {c: float(w) for c, w in zip(fund_cols, user_w)}
 
     in_user = calc_portfolio_returns(user_w, in_scaled)
     out_user = calc_portfolio_returns(user_w, out_scaled)
@@ -336,8 +386,24 @@ def _run_analysis(
             if isinstance(ir_series, pd.Series)
             else {fund_cols[0]: float(ir_series)}
         )
-        ir_dict["equal_weight"] = information_ratio(out_ew_raw, out_df[col])
-        ir_dict["user_weight"] = information_ratio(out_user_raw, out_df[col])
+        # Add portfolio-level IR references for context
+        try:
+            ir_eq = information_ratio(out_ew_raw, out_df[col])
+            ir_usr = information_ratio(out_user_raw, out_df[col])
+            # Best effort conversion; skip if not scalar convertible
+            ir_dict["equal_weight"] = (
+                float(ir_eq)
+                if isinstance(ir_eq, (float, int, np.floating))
+                else float("nan")
+            )
+            ir_dict["user_weight"] = (
+                float(ir_usr)
+                if isinstance(ir_usr, (float, int, np.floating))
+                else float("nan")
+            )
+        except Exception:
+            # Leave without portfolio-level IRs if computation fails
+            pass
         benchmark_ir[label] = ir_dict
 
     return {
@@ -397,6 +463,8 @@ def run_analysis(
         indices_list,
         benchmarks,
         seed,
+        weighting_scheme,
+        constraints,
         stats_cfg=stats_cfg,
         weighting_scheme=weighting_scheme,
     )
@@ -439,6 +507,8 @@ def run(cfg: Config) -> pd.DataFrame:
         indices_list=cfg.portfolio.get("indices_list"),
         benchmarks=cfg.benchmarks,
         seed=getattr(cfg, "seed", 42),
+        weighting_scheme=cfg.portfolio.get("weighting_scheme", "equal"),
+        constraints=cfg.portfolio.get("constraints"),
         stats_cfg=stats_cfg,
         weighting_scheme=cfg.portfolio.get("weighting_scheme"),
     )
@@ -497,6 +567,8 @@ def run_full(cfg: Config) -> dict[str, object]:
         indices_list=cfg.portfolio.get("indices_list"),
         benchmarks=cfg.benchmarks,
         seed=getattr(cfg, "seed", 42),
+        weighting_scheme=cfg.portfolio.get("weighting_scheme", "equal"),
+        constraints=cfg.portfolio.get("constraints"),
         stats_cfg=stats_cfg,
     )
     return {} if res is None else res

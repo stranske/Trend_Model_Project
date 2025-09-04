@@ -86,6 +86,10 @@ def _is_zero_everywhere(
         )
         return bool(result)
 
+    # NumPy arrays: require all elements within tolerance
+    if isinstance(value, np.ndarray):
+        return bool(np.all(np.abs(value) <= tol))
+
     # For scalar values, check if close to zero to handle floating-point precision.
     # ``abs(value) <= tol`` may return a ``numpy.bool_`` when ``value`` is a NumPy
     # scalar.  Cast to ``bool`` so callers can rely on a plain Python ``bool`` and

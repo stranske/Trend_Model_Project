@@ -87,6 +87,12 @@ def main():
         st.error("Missing start/end dates in configuration.")
         return
 
+    portfolio_cfg = {
+        "weighting_scheme": cfg_get(cfg, "portfolio", {}).get(
+            "weighting_scheme", "equal"
+        )
+    }
+
     config = Config(
         version="1",
         data={},
@@ -98,7 +104,7 @@ def main():
             "out_start": start.strftime("%Y-%m"),
             "out_end": end.strftime("%Y-%m"),
         },
-        portfolio={},
+        portfolio=portfolio_cfg,
         metrics={},
         export={},
         run={},

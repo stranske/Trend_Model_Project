@@ -70,6 +70,31 @@ with st.expander("Run walk-forward (rolling OOS) analysis"):
     )
 
     # Build a simple DataFrame with a metric to aggregate. Use portfolio returns if available.
+    try:
+        wf_df = pd.DataFrame({"Date": [], "metric": []})
+        if hasattr(res, "portfolio") and res.portfolio is not None:
+            # Prefer a pandas Series; if DataFrame, take the first column
+            if isinstance(res.portfolio, pd.Series):
+                ser = res.portfolio
+            elif isinstance(res.portfolio, pd.DataFrame):
+                ser = res.portfolio.iloc[:, 0]
+            else:
+                # Last resort: try to coerce into a Series
+                ser = pd.Series(res.portfolio)
+
+            wf_df = ser.rename("metric").to_frame().reset_index()
+            # Ensure columns are [Date, metric]
+            if wf_df.shape[1] >= 2:
+                wf_df.columns = [
+                    "Date",
+                    "metric",
+                    *[f"col{i}" for i in range(wf_df.shape[1] - 2)],
+                ]
+            else:
+                # If index didn't become a column, add a positional index as Date
+                wf_df.insert(0, "Date", range(len(wf_df)))
+        else:
+            raise AttributeError("res.portfolio missing")
     except (AttributeError, KeyError, ValueError, TypeError) as e:
         st.warning(f"Walk-forward data unavailable: {e}")
         wf_df = pd.DataFrame({"Date": [], "metric": []})

@@ -2,14 +2,17 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, TYPE_CHECKING
 import random
 import sys
 
 import numpy as np
 import pandas as pd
 
-from .config import Config
+if TYPE_CHECKING:  # pragma: no cover - for static type checking only
+    from .config.models import ConfigProtocol as ConfigType
+else:  # Runtime: avoid importing typing-only names
+    from typing import Any as ConfigType
 from .pipeline import _run_analysis
 
 logger = logging.getLogger(__name__)
@@ -25,7 +28,7 @@ class RunResult:
     environment: dict[str, Any]
 
 
-def run_simulation(config: Config, returns: pd.DataFrame) -> RunResult:
+def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
     """Execute the analysis pipeline using pre-loaded returns data.
 
     Parameters
@@ -73,6 +76,8 @@ def run_simulation(config: Config, returns: pd.DataFrame) -> RunResult:
         indices_list=config.portfolio.get("indices_list"),
         benchmarks=config.benchmarks,
         seed=seed,
+        weighting_scheme=config.portfolio.get("weighting_scheme", "equal"),
+        constraints=config.portfolio.get("constraints"),
         stats_cfg=stats_cfg,
     )
     if res is None:
