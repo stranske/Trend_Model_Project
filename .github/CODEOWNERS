@@ -1,13 +1,35 @@
-# Core engine and numerics
-/src/trend_analysis/**         @stranske
+# Default owner for everything
+*                                   @stranske
 
-# Streamlit app
-/streamlit_app/**              @stranske
+# Core library and engine
+/src/**                             @stranske
 
-# CI/CD & release
-/.github/workflows/**          @stranske
-/Dockerfile                    @stranske
-/docker-compose.yml            @stranske
+# Streamlit application
+/streamlit_app/**                   @stranske
+/app/**                             @stranske
 
-# Docs live separately; no owner review required by default
-/docs/**                       
+# Configuration, presets, demo data
+/config/**                          @stranske
+/demo/**                            @stranske
+
+# Assets and screenshots
+/assets/**                          @stranske
+
+# Tests
+/tests/**                           @stranske
+
+# Developer tooling and scripts
+/scripts/**                         @stranske
+/tools/**                           @stranske
+/.devcontainer/**                   @stranske
+
+# Documentation and notebooks
+/docs/**                            @stranske
+/Old/**                             @stranske
+/notebooks/**                       @stranske
+/*.ipynb                            @stranske
+
+# CI/CD and container files
+/.github/workflows/**               @stranske
+/Dockerfile                         @stranske
+/docker-compose.yml                 @stranske
