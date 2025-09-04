@@ -158,7 +158,8 @@ with st.expander("Compute contributions by signal and rebalancing"):
     try:
         if hasattr(res, "signal_pnls") and isinstance(res.signal_pnls, pd.DataFrame):
             auto_signals = res.signal_pnls.copy()
-            res.rebalancing_pnl, pd.Series
+        if hasattr(res, "rebalancing_pnl") and isinstance(res.rebalancing_pnl, pd.Series):
+            auto_rebal = res.rebalancing_pnl.copy()
         ):
             auto_rebal = res.rebalancing_pnl.copy()
     except Exception:
