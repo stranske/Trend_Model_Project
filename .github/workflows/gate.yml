@@ -1,0 +1,21 @@
+# .github/workflows/gate.yml
+name: gate
+on:
+  pull_request:
+jobs:
+  # Define a YAML anchor for the marker filter
+  _marker_filter: &marker_filter "not quarantine and not slow"
+  core-tests-311:
+    uses: ./.github/workflows/ci.yml
+    with: { python: "3.11", marker: *marker_filter }
+  core-tests-312:
+    uses: ./.github/workflows/ci.yml
+    with: { python: "3.12", marker: *marker_filter }
+  docker-smoke:
+    uses: ./.github/workflows/docker.yml
+    with: { mode: "smoke" }
+  gate:
+    runs-on: ubuntu-latest
+    needs: [core-tests-311, core-tests-312, docker-smoke]
+    steps:
+      - run: echo "All required jobs passed."
