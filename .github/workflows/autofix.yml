@@ -23,16 +23,10 @@ jobs:
     if: github.event_name == 'pull_request' &&
         github.actor != 'github-actions' &&
         github.actor != 'github-actions[bot]' &&
-        !github.event.pull_request.draft
+        !github.event.pull_request.draft &&
+        contains(github.event.pull_request.labels.*.name, 'autofix')
     runs-on: ubuntu-latest
     steps:
-      - name: Check for autofix label
-        run: |
-          if ! echo "${{ toJson(github.event.pull_request.labels) }}" | \
-               grep -q '"name": "autofix"'; then
-            echo "No 'autofix' label present, skipping autofix."
-            exit 78
-          fi
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.ref }}
