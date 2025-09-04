@@ -8,7 +8,6 @@ from .models import (
     ConfigType,
     ConfigurationState,
     PresetConfig,
-    _find_config_directory,
     list_available_presets,
     load,
     load_config,
@@ -28,5 +27,4 @@ __all__ = [
     "Config",
     "ConfigType",
     "DEFAULTS",
-    "_find_config_directory",
 ]

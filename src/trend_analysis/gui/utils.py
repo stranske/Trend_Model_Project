@@ -41,4 +41,4 @@ def list_builtin_cfgs() -> list[str]:
     return sorted(p.stem for p in cfg_dir.glob("*.yml"))
 
 
-__all__ = ["debounce", "list_builtin_cfgs", "_find_config_directory"]
+__all__ = ["debounce", "list_builtin_cfgs"]

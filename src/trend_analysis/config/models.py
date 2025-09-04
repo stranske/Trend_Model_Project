@@ -598,6 +598,4 @@ __all__ = [
     "list_available_presets",
     "load_config",
     "DEFAULTS",
-    "_find_config_directory",
-    "_HAS_PYDANTIC",
 ]

@@ -6,7 +6,8 @@ from unittest import mock
 
 import pytest
 
-from trend_analysis.config import DEFAULTS, _find_config_directory
+from trend_analysis.config import DEFAULTS
+from trend_analysis.config.models import _find_config_directory
 from trend_analysis.gui.utils import list_builtin_cfgs
 
 

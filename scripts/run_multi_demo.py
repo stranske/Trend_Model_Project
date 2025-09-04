@@ -1929,7 +1929,6 @@ def _check_module_exports() -> None:
             "load_config",
             "Config",
             "DEFAULTS",
-            "_find_config_directory",
         },
         "data": {"load_csv", "identify_risk_free_fund", "ensure_datetime"},
         "export": {
