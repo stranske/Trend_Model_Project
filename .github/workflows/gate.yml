@@ -2,7 +2,6 @@
 name: gate
 on:
   pull_request:
-permissions: {}
 jobs:
   # Define a YAML anchor for the marker filter
   _marker_filter: &marker_filter "not quarantine and not slow"
