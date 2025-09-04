@@ -42,9 +42,9 @@ fi
 # Determine files to check
 if [[ "$CHANGED_ONLY" == true ]]; then
     # Only check files changed in the last commit or working directory
-    PYTHON_FILES=$(git diff --name-only HEAD~1 2>/dev/null | grep -E '\.(py)$' | grep -v -E '^(Old/|notebooks/old/)' || true)
-    UNSTAGED_FILES=$(git diff --name-only 2>/dev/null | grep -E '\.(py)$' | grep -v -E '^(Old/|notebooks/old/)' || true)
-    ALL_FILES=$(echo -e "$PYTHON_FILES\n$UNSTAGED_FILES" | sort -u | grep -v '^$' || true)
+    PYTHON_FILES=$(git diff --name-only HEAD~1 2>/dev/null | grep -E '\.(py)$' 2>/dev/null | grep -v -E '^(Old/|notebooks/old/)' 2>/dev/null || echo "")
+    UNSTAGED_FILES=$(git diff --name-only 2>/dev/null | grep -E '\.(py)$' 2>/dev/null | grep -v -E '^(Old/|notebooks/old/)' 2>/dev/null || echo "")
+    ALL_FILES=$(echo -e "$PYTHON_FILES\n$UNSTAGED_FILES" | sort -u | grep -v '^$' 2>/dev/null || echo "")
     
     if [[ -z "$ALL_FILES" ]]; then
         echo -e "${GREEN}
