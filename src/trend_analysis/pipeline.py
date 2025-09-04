@@ -485,7 +485,6 @@ def run(cfg: Config) -> pd.DataFrame:
         indices_list=cfg.portfolio.get("indices_list"),
         benchmarks=cfg.benchmarks,
         seed=getattr(cfg, "seed", 42),
-        weighting_scheme=cfg.portfolio.get("weighting_scheme", "equal"),
         constraints=cfg.portfolio.get("constraints"),
         stats_cfg=stats_cfg,
         weighting_scheme=cfg.portfolio.get("weighting_scheme"),
