@@ -291,28 +291,6 @@ def _run_analysis(
     out_ew_stats = _compute_stats(pd.DataFrame({"ew": out_ew}), rf_out)["ew"]
     out_ew_stats_raw = _compute_stats(pd.DataFrame({"ew": out_ew_raw}), rf_out)["ew"]
 
-    # Optionally compute plugin-based weights on in-sample covariance
-    if (
-        custom_weights is None
-        and weighting_scheme
-        and weighting_scheme.lower() != "equal"
-    ):
-        try:
-            from .plugins import create_weight_engine
-
-            cov = in_df[fund_cols].cov()
-            engine = create_weight_engine(weighting_scheme.lower())
-            w_series = engine.weight(cov).reindex(fund_cols).fillna(0.0)
-            # Convert to percent mapping expected by downstream logic
-            custom_weights = {c: float(w_series.get(c, 0.0) * 100.0) for c in fund_cols}
-            logger.debug("Successfully created %s weight engine", weighting_scheme)
-        except Exception as e:
-            # Fallback to equal weights with proper logging for debugging
-            logger.debug(
-                'Weight engine creation failed, falling back to equal weights: %s', e
-            )
-            custom_weights = None
-
     if custom_weights is None:
         custom_weights = {c: 100 / len(fund_cols) for c in fund_cols}
     # Convert provided weights mapping (percent) to decimal ndarray
