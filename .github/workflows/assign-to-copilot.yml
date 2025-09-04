@@ -1,3 +1,4 @@
+# .github/workflows/assign-to-copilot.yml
 name: Assign issue to Copilot
 on:
   issues:
@@ -6,19 +7,26 @@ permissions:
   issues: write
 jobs:
   assign:
-    if: contains(github.event.issue.labels.*.name, 'agent:copilot')
+    if: github.event.label.name == 'agent:copilot'
     runs-on: ubuntu-latest
     steps:
-      - name: Assign to assignee
+      - name: Assign to @copilot (only if not already assigned)
         uses: actions/github-script@v7
         with:
           script: |
-            const assignee = process.env.COPILOT_ASSIGNEE || 'copilot';
-            await github.rest.issues.addAssignees({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.payload.issue.number,
-              assignees: [assignee]
-            });
-    env:
-      COPILOT_ASSIGNEE: ${{ vars.COPILOT_ASSIGNEE }}
+            const { issue } = context.payload;
+            const assignees = issue.assignees?.map(a => a.login.toLowerCase()) || [];
+            if (!assignees.includes('copilot')) {
+              await github.rest.issues.addAssignees({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                assignees: ['copilot']
+              });
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: 'Assigned to @copilot. The agent will create a branch and open a PR when ready.'
+              });
+            }
