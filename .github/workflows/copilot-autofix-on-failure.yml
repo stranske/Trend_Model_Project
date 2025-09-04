@@ -19,9 +19,9 @@ jobs:
             const suite = context.payload.check_suite;
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            // Find PRs with head = owner:branch
+            // Find PRs with head = branch name only
             const prs = await github.rest.pulls.list({
-              owner, repo, state: 'open', head: `${owner}:${suite.head_branch}`
+              owner, repo, state: 'open', head: suite.head_branch
             });
             if (!prs.data.length) return core.setOutput('pr', '');
             core.setOutput('pr', prs.data[0].number.toString());
