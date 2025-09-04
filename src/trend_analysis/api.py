@@ -77,6 +77,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         benchmarks=config.benchmarks,
         seed=seed,
         weighting_scheme=config.portfolio.get("weighting_scheme", "equal"),
+        constraints=config.portfolio.get("constraints"),
         stats_cfg=stats_cfg,
     )
     if res is None:
