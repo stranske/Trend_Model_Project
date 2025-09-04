@@ -1,3 +1,4 @@
+# .github/workflows/enable-automerge.yml
 name: Enable auto-merge for eligible PRs
 on:
   pull_request:
@@ -8,7 +9,10 @@ jobs:
   enable:
     if: >
       github.event.pull_request.draft == false &&
-      contains(github.event.pull_request.labels.*.name, 'from:copilot') &&
+      (
+        contains(github.event.pull_request.labels.*.name, 'from:copilot') ||
+        contains(github.event.pull_request.labels.*.name, 'from:codex')
+      ) &&
       contains(github.event.pull_request.labels.*.name, 'automerge') &&
       contains(github.event.pull_request.labels.*.name, 'risk:low')
     runs-on: ubuntu-latest
