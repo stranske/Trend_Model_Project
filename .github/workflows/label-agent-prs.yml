@@ -1,0 +1,25 @@
+name: Label agent PRs (Copilot + Codex)
+on:
+  pull_request:
+    types: [opened]
+permissions:
+  pull-requests: write
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const login = (pr.user?.login || '').toLowerCase();
+            const branch = (pr.head?.ref || '').toLowerCase();
+            const labels = [];
+            if (login.includes('copilot') || branch.startsWith('copilot/')) labels.push('from:copilot');
+            if (login.includes('codex')   || branch.startsWith('codex/'))   labels.push('from:codex');
+            if (labels.length) {
+              labels.push('automerge','risk:low');
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner, repo: context.repo.repo, issue_number: pr.number, labels
+              });
+            }
