@@ -1,8 +1,9 @@
 """Main Streamlit app for testing upload functionality."""
 
-import streamlit as st
-import sys
 import os
+import sys
+
+import streamlit as st
 
 # Add paths for our modules using relative paths
 base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -42,8 +43,8 @@ except ImportError as e:
     # Direct implementation for testing
     from trend_analysis.io.validators import (
         create_sample_template,
-        validate_returns_schema,
         load_and_validate_upload,
+        validate_returns_schema,
     )
 
     st.header("📤 File Upload Test")

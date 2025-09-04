@@ -106,12 +106,9 @@ def create_weight_engine(name: str, **params: Any) -> WeightEngine:
 
 
 # Import built-in weight engine modules so that they register with the plugin registry
-from ..weights import (  # noqa: E402,F401
-    risk_parity as _risk_parity,
-    equal_risk_contribution as _equal_risk_contribution,
-    hierarchical_risk_parity as _hierarchical_risk_parity,
-)
-
+from ..weights import equal_risk_contribution as _equal_risk_contribution
+from ..weights import hierarchical_risk_parity as _hierarchical_risk_parity
+from ..weights import risk_parity as _risk_parity  # noqa: E402,F401
 
 __all__ = [
     "Plugin",

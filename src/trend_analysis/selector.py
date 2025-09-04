@@ -3,7 +3,7 @@ from __future__ import annotations
 import pandas as pd
 
 from .core.rank_selection import ASCENDING_METRICS
-from .plugins import Selector, selector_registry, create_selector
+from .plugins import Selector, create_selector, selector_registry
 
 
 @selector_registry.register("rank")

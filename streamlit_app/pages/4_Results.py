@@ -1,8 +1,10 @@
-import streamlit as st
 import io
 import json
+
 import numpy as np
 import pandas as pd
+import streamlit as st
+
 from trend_analysis.engine.walkforward import walk_forward
 from trend_analysis.metrics import attribution
 
@@ -74,11 +76,10 @@ with st.expander("Run walk-forward (rolling OOS) analysis"):
     # Build a simple DataFrame with a metric to aggregate. Use portfolio returns if available.
     try:
         portfolio_curve = res.portfolio_curve()
-        wf_df = pd.DataFrame({
-            "Date": portfolio_curve.index,
-            "metric": portfolio_curve.values
-        })
-        
+        wf_df = pd.DataFrame(
+            {"Date": portfolio_curve.index, "metric": portfolio_curve.values}
+        )
+
         # Only proceed with walk-forward analysis if we have valid data
         if not wf_df.empty and len(wf_df.columns) >= 2:
             regimes = None
@@ -120,7 +121,7 @@ with st.expander("Run walk-forward (rolling OOS) analysis"):
                     st.caption("No regime data available.")
         else:
             st.caption("No data available for walk-forward analysis.")
-            
+
     except (AttributeError, KeyError, ValueError, TypeError) as e:
         st.warning(f"Walk-forward data unavailable: {e}")
         st.caption("No data available for walk-forward analysis.")
@@ -142,7 +143,9 @@ with st.expander("Compute contributions by signal and rebalancing"):
     try:
         if hasattr(res, "signal_pnls") and isinstance(res.signal_pnls, pd.DataFrame):
             auto_signals = res.signal_pnls.copy()
-        if hasattr(res, "rebalancing_pnl") and isinstance(res.rebalancing_pnl, pd.Series):
+        if hasattr(res, "rebalancing_pnl") and isinstance(
+            res.rebalancing_pnl, pd.Series
+        ):
             auto_rebal = res.rebalancing_pnl.copy()
     except Exception:
         auto_signals = None

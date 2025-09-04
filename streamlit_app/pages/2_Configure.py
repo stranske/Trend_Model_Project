@@ -1,21 +1,23 @@
 """Enhanced Configure page with presets and column mapping."""
 
-import streamlit as st
-import pandas as pd
 import sys
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Any, Dict, List, Optional
+
+import pandas as pd
+import streamlit as st
 
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
-from trend_portfolio_app.policy_engine import PolicyConfig, MetricSpec
 from trend_portfolio_app.metrics_extra import AVAILABLE_METRICS
+from trend_portfolio_app.policy_engine import MetricSpec, PolicyConfig
 
 # Import our config models with fallback - use simpler approach
 try:
-    import yaml
     from pathlib import Path
+
+    import yaml
 
     # Define preset loading functions directly to avoid circular imports
     def load_preset_direct(preset_name: str) -> dict:

@@ -1,30 +1,31 @@
 """Upload page for Streamlit trend analysis app."""
 
-import streamlit as st
-import pandas as pd
 import os
 
 # Import our custom modules
 import sys
 
+import pandas as pd
+import streamlit as st
+
 sys.path.append("/home/runner/work/Trend_Model_Project/Trend_Model_Project/src")
 sys.path.append("/home/runner/work/Trend_Model_Project/Trend_Model_Project/app")
 
 from trend_analysis.io.validators import (
+    create_sample_template,
     load_and_validate_upload,
     validate_returns_schema,
-    create_sample_template,
 )
 
 # Import state management functions
 try:
     from streamlit.state import (
-        initialize_session_state,
-        store_validated_data,
+        clear_upload_data,
+        get_upload_summary,
         get_uploaded_data,
         has_valid_upload,
-        get_upload_summary,
-        clear_upload_data,
+        initialize_session_state,
+        store_validated_data,
     )
 except ImportError:
     # Fallback to local import

@@ -1,15 +1,17 @@
 """Tests for trend_analysis.io.validators module."""
 
-import pytest
-import pandas as pd
 import io
+
+import pandas as pd
+import pytest
+
 from trend_analysis.io.validators import (
+    FREQUENCY_MAP,
     ValidationResult,
-    validate_returns_schema,
+    create_sample_template,
     detect_frequency,
     load_and_validate_upload,
-    create_sample_template,
-    FREQUENCY_MAP,
+    validate_returns_schema,
 )
 
 
@@ -170,7 +172,8 @@ class TestFrequencyMap:
     """Test the module-level FREQUENCY_MAP constant."""
 
     def test_frequency_map_exists(self):
-        """Test that FREQUENCY_MAP is defined and contains expected mappings."""
+        """Test that FREQUENCY_MAP is defined and contains expected
+        mappings."""
         assert isinstance(FREQUENCY_MAP, dict)
         assert len(FREQUENCY_MAP) > 0
 

@@ -1,8 +1,7 @@
 import pandas as pd
 import pytest
 
-from trend_analysis import pipeline
-from trend_analysis import config
+from trend_analysis import config, pipeline
 from trend_analysis.config import Config
 
 

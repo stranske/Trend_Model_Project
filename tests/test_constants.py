@@ -3,13 +3,14 @@
 from pathlib import Path
 
 import pandas as pd
-from trend_analysis import run_analysis, run_multi_analysis, cli
+
+from trend_analysis import cli, run_analysis, run_multi_analysis
 from trend_analysis.constants import (
     DEFAULT_OUTPUT_DIRECTORY,
     DEFAULT_OUTPUT_FORMATS,
     NUMERICAL_TOLERANCE_HIGH,
-    NUMERICAL_TOLERANCE_MEDIUM,
     NUMERICAL_TOLERANCE_LOW,
+    NUMERICAL_TOLERANCE_MEDIUM,
 )
 
 
@@ -100,10 +101,11 @@ def test_constants_default_behavior_unchanged(tmp_path, monkeypatch):
 
 
 def test_numerical_tolerance_constants_in_use():
-    """Test that numerical tolerance constants are being imported in key modules."""
+    """Test that numerical tolerance constants are being imported in key
+    modules."""
     # Test that the constants can be imported from specific modules that use them
-    from trend_analysis.engine.optimizer import NUMERICAL_TOLERANCE_HIGH as opt_tol
     from trend_analysis.constants import NUMERICAL_TOLERANCE_HIGH as const_tol
+    from trend_analysis.engine.optimizer import NUMERICAL_TOLERANCE_HIGH as opt_tol
 
     # Verify they are the same constant
     assert opt_tol is const_tol

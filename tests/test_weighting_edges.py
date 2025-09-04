@@ -1,6 +1,7 @@
 import pandas as pd
 import pytest
-from trend_analysis.weighting import EqualWeight, ScorePropSimple, ScorePropBayesian
+
+from trend_analysis.weighting import EqualWeight, ScorePropBayesian, ScorePropSimple
 
 
 def make_df() -> pd.DataFrame:

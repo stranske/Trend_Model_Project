@@ -2,23 +2,25 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import TYPE_CHECKING, Any, Dict, List
 
 import pandas as pd
 import streamlit as st
 import yaml
 
 from trend_analysis import pipeline
+from trend_analysis.config import DEFAULTS as DEFAULT_CFG_PATH
+from trend_analysis.config import Config
 from trend_analysis.multi_period import run as run_multi
-from trend_analysis.config import DEFAULTS as DEFAULT_CFG_PATH, Config
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover - type-only alias to satisfy mypy
     from trend_analysis.config.models import ConfigProtocol as ConfigType
 else:  # runtime
     from typing import Any as ConfigType
-from trend_analysis.data import load_csv as ta_load_csv, identify_risk_free_fund
+
 from trend_analysis.core.rank_selection import METRIC_REGISTRY
+from trend_analysis.data import identify_risk_free_fund
+from trend_analysis.data import load_csv as ta_load_csv
 
 # Optional drag-and-drop support (falls back gracefully if not installed)
 try:  # streamlit-sortables by okld

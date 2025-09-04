@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import os
-import json
-import datetime
-import zipfile
-import tempfile
 import atexit
+import datetime
+import json
+import os
+import tempfile
+import zipfile
 from typing import Any, Dict, Protocol
-
 
 # Global registry for cleanup of temporary files
 _TEMP_FILES_TO_CLEANUP: list[str] = []
@@ -38,8 +37,7 @@ atexit.register(_cleanup_temp_files)
 
 
 def export_bundle(results: _HasPortfolioAndLog, config_dict: Dict[str, Any]) -> str:
-    """
-    Export analysis results as a ZIP bundle.
+    """Export analysis results as a ZIP bundle.
 
     The bundle is assembled in-memory to avoid leaving intermediate files on
     disk.  A temporary ZIP file is created and registered for cleanup on exit.
@@ -101,8 +99,7 @@ def export_bundle(results: _HasPortfolioAndLog, config_dict: Dict[str, Any]) -> 
 
 
 def cleanup_bundle_file(file_path: str) -> None:
-    """
-    Manually clean up a bundle file created by export_bundle.
+    """Manually clean up a bundle file created by export_bundle.
 
     Args:
         file_path: The path to the bundle file returned by export_bundle.

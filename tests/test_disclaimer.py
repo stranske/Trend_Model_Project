@@ -1,6 +1,6 @@
 import importlib.util
-from types import SimpleNamespace
 import pathlib
+from types import SimpleNamespace
 
 import pandas as pd
 import streamlit as st

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
-from typing import Any, TYPE_CHECKING
 import random
 import sys
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
@@ -13,6 +13,7 @@ if TYPE_CHECKING:  # pragma: no cover - for static type checking only
     from .config.models import ConfigProtocol as ConfigType
 else:  # Runtime: avoid importing typing-only names
     from typing import Any as ConfigType
+
 from .pipeline import _run_analysis
 
 logger = logging.getLogger(__name__)

@@ -1,8 +1,8 @@
 import pandas as pd
 import pytest
 
-from trend_analysis.pipeline import run_full, run
 from trend_analysis.config import Config
+from trend_analysis.pipeline import run, run_full
 
 
 def make_cfg(tmp_path, df):

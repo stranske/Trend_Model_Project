@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any, TYPE_CHECKING
 import os
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import yaml
-
 
 if TYPE_CHECKING:  # pragma: no cover - mypy only
 

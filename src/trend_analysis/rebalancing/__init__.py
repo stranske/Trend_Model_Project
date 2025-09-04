@@ -1,12 +1,12 @@
 from .strategies import (
+    DrawdownGuardStrategy,
+    DriftBandStrategy,
+    PeriodicRebalanceStrategy,
     RebalancingStrategy,
     TurnoverCapStrategy,
-    PeriodicRebalanceStrategy,
-    DriftBandStrategy,
     VolTargetRebalanceStrategy,
-    DrawdownGuardStrategy,
-    create_rebalancing_strategy,
     apply_rebalancing_strategies,
+    create_rebalancing_strategy,
     rebalancer_registry,
 )
 

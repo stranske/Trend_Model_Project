@@ -1,11 +1,12 @@
 """Tests for turnover_cap rebalancing strategy."""
 
-import pytest
 import pandas as pd
+import pytest
+
 from trend_analysis.rebalancing import (
     TurnoverCapStrategy,
-    create_rebalancing_strategy,
     apply_rebalancing_strategies,
+    create_rebalancing_strategy,
 )
 
 

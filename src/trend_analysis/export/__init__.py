@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-import math
-from typing import Any, Callable, Iterable, Mapping, cast
-from collections import OrderedDict
 import inspect
+import math
+from collections import OrderedDict
+from pathlib import Path
+from typing import Any, Callable, Iterable, Mapping, cast
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 from .bundle import export_bundle
 
@@ -417,8 +417,8 @@ def export_to_csv(
     output_path: str,
     formatter: Formatter | None = None,
 ) -> None:
-    """Export each dataframe to an individual CSV file using ``output_path``
-    as prefix."""
+    """Export each dataframe to an individual CSV file using ``output_path`` as
+    prefix."""
     prefix = Path(output_path)
     _ensure_dir(prefix)
     # Looping over the ``data`` dictionary ensures each frame gets its own file.
@@ -436,9 +436,8 @@ def export_to_json(
     output_path: str,
     formatter: Formatter | None = None,
 ) -> None:
-    """Export each DataFrame to an individual JSON file
-    using ``output_path`` as prefix.
-    """
+    """Export each DataFrame to an individual JSON file using ``output_path``
+    as prefix."""
     prefix = Path(output_path)
     _ensure_dir(prefix)
     # Iterate over the mapping so each DataFrame is written to its own JSON file.
@@ -454,7 +453,8 @@ def export_to_txt(
     output_path: str,
     formatter: Formatter | None = None,
 ) -> None:
-    """Export each dataframe to a plain text file using ``output_path`` as prefix."""
+    """Export each dataframe to a plain text file using ``output_path`` as
+    prefix."""
     prefix = Path(output_path)
     _ensure_dir(prefix)
     for name, df in data.items():

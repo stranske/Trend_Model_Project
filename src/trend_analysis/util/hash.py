@@ -1,17 +1,17 @@
 """Hashing helpers.
 
-This module centralises SHA256 hashing utilities so that hashing logic is
-consistent across the project.  It deliberately avoids any project
+This module centralises SHA256 hashing utilities so that hashing logic
+is consistent across the project.  It deliberately avoids any project
 specific dependencies so it can be imported from light‑weight contexts
 like test helpers or build scripts.
 """
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any, Mapping, Union
 import hashlib
 import json
+from pathlib import Path
+from typing import Any, Mapping, Union
 
 PathLike = Union[str, Path]
 

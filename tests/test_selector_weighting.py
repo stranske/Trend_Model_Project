@@ -1,5 +1,7 @@
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
+
 from trend_analysis.constants import NUMERICAL_TOLERANCE_MEDIUM
 from trend_analysis.selector import RankSelector, ZScoreSelector
 from trend_analysis.weighting import EqualWeight, ScorePropBayesian

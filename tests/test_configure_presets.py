@@ -1,6 +1,7 @@
 """Tests for the enhanced Configure page functionality."""
 
 from pathlib import Path
+
 import yaml
 
 
@@ -18,7 +19,8 @@ class TestPresetLoading:
             assert preset_path.exists(), f"Preset file {preset_file} should exist"
 
     def test_preset_yaml_validity(self):
-        """Test that all preset YAML files are valid and have required fields."""
+        """Test that all preset YAML files are valid and have required
+        fields."""
         presets_dir = Path(__file__).parent.parent / "config" / "presets"
         required_fields = ["name", "description", "lookback_months", "risk_target"]
 

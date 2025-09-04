@@ -6,50 +6,49 @@ This script exercises the Phase‑2 multi-period engine by running
 feeding them through ``run_schedule`` with a selector and weighting scheme.
 """
 
-from trend_analysis.config import load, Config
-import subprocess
-import sys
-from pathlib import Path
-import os
-import shutil
-import pandas as pd
-import numpy as np
-import yaml  # type: ignore[import-untyped]
-import openpyxl
 import copy
 import importlib
+import os
+import shutil
+import subprocess
+import sys
 from dataclasses import fields
+from pathlib import Path
+from typing import Any, Mapping, Sequence
+
+import numpy as np
+import openpyxl
+import pandas as pd
+import yaml  # type: ignore[import-untyped]
+
+import trend_analysis as ta
 
 # (widgets and metrics imported within functions where needed)
 from trend_analysis import (
-    pipeline,
+    cli,
     export,
     gui,
-    cli,
     metrics,
+    pipeline,
     run_analysis,
     run_multi_analysis,
 )
-import trend_analysis as ta
-from trend_analysis.multi_period import (
-    run as run_mp,
-    run_schedule,
-    scheduler,
-)
+from trend_analysis.config import Config, load
+from trend_analysis.core import rank_selection as rs
+from trend_analysis.core.rank_selection import RiskStatsConfig, rank_select_funds
+from trend_analysis.data import ensure_datetime, identify_risk_free_fund, load_csv
+from trend_analysis.multi_period import run as run_mp
+from trend_analysis.multi_period import run_schedule, scheduler
 from trend_analysis.multi_period.engine import Portfolio, SelectorProtocol
 from trend_analysis.multi_period.replacer import Rebalancer
 from trend_analysis.selector import RankSelector, ZScoreSelector
-from trend_analysis.data import load_csv, identify_risk_free_fund, ensure_datetime
-from trend_analysis.core.rank_selection import rank_select_funds, RiskStatsConfig
-from trend_analysis.core import rank_selection as rs
 from trend_analysis.weighting import (
     AdaptiveBayesWeighting,
     BaseWeighting,
     EqualWeight,
-    ScorePropSimple,
     ScorePropBayesian,
+    ScorePropSimple,
 )
-from typing import Mapping, Sequence, Any
 
 
 def _check_generate_demo() -> None:
@@ -172,9 +171,10 @@ def _check_gui(cfg_path: str) -> None:
         raise SystemExit("list_builtin_cfgs missing defaults.yml")
     if builtin_cfgs != sorted(builtin_cfgs):
         raise SystemExit("list_builtin_cfgs not sorted")
+    import ipywidgets as widgets
+
     from trend_analysis.core.rank_selection import build_ui
     from trend_analysis.gui import app as gui_app
-    import ipywidgets as widgets
 
     ui = build_ui()
     if not isinstance(ui, widgets.Widget):
@@ -205,10 +205,12 @@ def _check_gui(cfg_path: str) -> None:
 def _check_datagrid_override() -> None:
     """Exercise DataGrid path in manual override builder."""
 
-    import types
     import sys
-    from trend_analysis.gui import app as gui_app
+    import types
+
     import ipywidgets as widgets
+
+    from trend_analysis.gui import app as gui_app
 
     mod = types.ModuleType("ipydatagrid")
 
@@ -230,9 +232,10 @@ def _check_datagrid_override() -> None:
 def _check_plugin_discovery() -> None:
     """Validate discover_plugins registers entry points."""
 
-    import types
-    import sys
     import importlib.metadata as md
+    import sys
+    import types
+
     from trend_analysis.gui import plugins
 
     dummy_mod = types.ModuleType("demo_plugin")
@@ -328,8 +331,9 @@ def _check_misc(
     results: Sequence[dict[str, Any]],
 ) -> None:
     """Exercise smaller utility modules."""
-    from trend_analysis import metrics
     import asyncio
+
+    from trend_analysis import metrics
 
     if "annual_return" not in metrics.available_metrics():
         raise SystemExit("Metrics registry incomplete")

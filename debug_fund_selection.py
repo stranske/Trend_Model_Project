@@ -3,11 +3,12 @@
 Debug the fund selection process - why are only Mgr_01-08 being considered?
 """
 
-import pandas as pd
 import numpy as np
+import pandas as pd
+
 from trend_analysis.config import load
-from trend_analysis.data import load_csv, identify_risk_free_fund
-from trend_analysis.core.rank_selection import rank_select_funds, RiskStatsConfig
+from trend_analysis.core.rank_selection import RiskStatsConfig, rank_select_funds
+from trend_analysis.data import identify_risk_free_fund, load_csv
 
 
 def debug_fund_selection():

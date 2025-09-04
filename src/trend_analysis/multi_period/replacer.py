@@ -1,5 +1,4 @@
-"""
-Very small “strike / replace” helper required by tests/test_replacer.py.
+"""Very small “strike / replace” helper required by tests/test_replacer.py.
 
 Rules implemented:
 
@@ -15,7 +14,6 @@ from __future__ import annotations
 from typing import Any, Dict
 
 import pandas as pd
-
 
 _LOW_Z = -1.0  # removal trigger (soft)
 _LOW_STRIKES = 2  # consecutive strikes required
@@ -74,10 +72,8 @@ class Rebalancer:  # pylint: disable=too-few-public-methods
         prev_weights: Dict[str, float] | pd.Series,
         score_frame: pd.DataFrame,
     ) -> pd.Series:
-        """
-        Return next‑period weights after applying the two simple rules
-        required by the unit tests.
-        """
+        """Return next‑period weights after applying the two simple rules
+        required by the unit tests."""
         prev_w = (
             prev_weights.copy()
             if isinstance(prev_weights, pd.Series)

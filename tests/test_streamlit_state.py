@@ -1,7 +1,9 @@
 """Tests for Streamlit state management."""
 
-import pandas as pd
 from unittest.mock import patch
+
+import pandas as pd
+
 from app.streamlit import state as state_module
 
 

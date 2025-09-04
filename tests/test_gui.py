@@ -1,9 +1,10 @@
 import asyncio
-from types import SimpleNamespace
-import yaml  # type: ignore[import-untyped]
 import importlib
-
 import sys
+from types import SimpleNamespace
+
+import yaml  # type: ignore[import-untyped]
+
 import trend_analysis.gui as gui
 
 
@@ -80,7 +81,7 @@ def test_build_config_from_store():
 
 def test_manual_override_fallback(monkeypatch):
     monkeypatch.setitem(sys.modules, "ipydatagrid", None)
-    from ipywidgets import VBox, Label
+    from ipywidgets import Label, VBox
 
     store = gui.ParamStore(cfg={})
     widget = gui.app._build_manual_override(store)

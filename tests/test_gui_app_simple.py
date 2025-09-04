@@ -150,7 +150,7 @@ class TestWidgetInteractionPatterns:
 class TestMockingPatterns:
     """Test mocking patterns for GUI components."""
 
-    from unittest.mock import patch, mock_open
+    from unittest.mock import mock_open, patch
 
     @patch("builtins.open", mock_open(read_data='{"test": "data"}'))
     def test_file_mocking_pattern(self):

@@ -1,7 +1,8 @@
 """Disclaimer modal component for the Streamlit app."""
 
-import streamlit as st
 import os
+
+import streamlit as st
 
 LICENSE_URL = os.environ.get(
     "LICENSE_URL", "https://github.com/stranske/Trend_Model_Project/blob/main/LICENSE"

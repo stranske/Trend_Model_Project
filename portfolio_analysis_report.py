@@ -4,9 +4,9 @@ Portfolio Test Analysis Report
 July 2005 - June 2025 (20-year backtest)
 """
 
-import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np  # noqa: F401
+import pandas as pd
 
 # Portfolio performance data from multi-period analysis
 performance_data = {

@@ -7,12 +7,14 @@ Verify that:
 3. The process iterates through all periods correctly
 """
 
-import pandas as pd
-import numpy as np
 from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
 from trend_analysis.config import load
-from trend_analysis.multi_period import run as run_mp
 from trend_analysis.data import load_csv
+from trend_analysis.multi_period import run as run_mp
 
 
 def test_multi_period_selection():

@@ -1,5 +1,6 @@
 import pandas as pd
 from numpy.testing import assert_allclose
+
 from trend_analysis.constants import (
     NUMERICAL_TOLERANCE_HIGH,
     NUMERICAL_TOLERANCE_MEDIUM,

@@ -1,7 +1,7 @@
 import pandas as pd
 
+from trend_portfolio_app.policy_engine import MetricSpec, PolicyConfig
 from trend_portfolio_app.sim_runner import Simulator
-from trend_portfolio_app.policy_engine import PolicyConfig, MetricSpec
 
 
 def test_simulator_diversification_guard_integration():
