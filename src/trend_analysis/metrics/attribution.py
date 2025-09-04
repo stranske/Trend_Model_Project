@@ -18,7 +18,7 @@ plot_contributions
 
 from __future__ import annotations
 
-from typing import Iterable
+from typing import Iterable, Any, cast
 from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
@@ -93,7 +93,7 @@ if (
 def plot_contributions(
     contrib: pd.DataFrame,
     *,
-    ax: "_Axes | Iterable[_Axes] | None" = None,
+    ax: "_Axes | None" = None,
     labels: Iterable[str] | None = None,
 ) -> "_Axes":
     """Plot cumulative contributions over time.
@@ -116,22 +116,21 @@ def plot_contributions(
         further customise or save the figure.
     """
 
+    # Determine the axes to plot on, handling accidental sequences at runtime
     if ax is None:
-        _, ax = plt.subplots()
+        _, plot_ax = plt.subplots()
     else:
-        # ``plt.subplots`` returns either a single ``Axes`` instance or a
-        # sequence of them.  Some callers may accidentally pass the entire
-        # sequence which is often a tuple (immutable).  Converting to a list
-        # allows safe indexing and we pick the first axis for plotting.
-        # If ax is a sequence (tuple, list, or np.ndarray), pick the first axis for plotting.
-        if hasattr(ax, '__getitem__') and not isinstance(ax, str):
-            ax = ax[0]
+        obj: Any = ax
+        if hasattr(obj, "__getitem__") and not isinstance(obj, str):
+            plot_ax = cast("_Axes", obj[0])
+        else:
+            plot_ax = cast("_Axes", obj)
 
     if labels is None:
         labels = [c for c in contrib.columns if c != "total"]
 
-    contrib[labels].cumsum().plot(ax=ax)
-    ax.set_ylabel("Cumulative contribution")
-    ax.set_xlabel("Time")
-    ax.legend(title="Component")
-    return ax
+    contrib[labels].cumsum().plot(ax=plot_ax)
+    plot_ax.set_ylabel("Cumulative contribution")
+    plot_ax.set_xlabel("Time")
+    plot_ax.legend(title="Component")
+    return plot_ax

@@ -124,4 +124,3 @@ def test_run_meta_missing_required_fails(tmp_path: Path) -> None:
 
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.validate(meta, schema)
-
