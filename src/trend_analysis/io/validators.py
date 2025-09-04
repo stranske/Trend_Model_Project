@@ -202,8 +202,20 @@ def load_and_validate_upload(file_like: Any) -> Tuple[pd.DataFrame, Dict[str, An
         else:
             # Default to CSV
             df = pd.read_csv(file_like)
-    except Exception as e:
-        raise ValueError(f"Failed to read file: {str(e)}")
+    except FileNotFoundError:
+        raise ValueError(f"File not found: '{name}'")
+    except PermissionError:
+        raise ValueError(f"Permission denied accessing file: '{name}'")
+    except IsADirectoryError:
+        raise ValueError(f"Path is a directory, not a file: '{name}'")
+    except pd.errors.EmptyDataError:
+        raise ValueError(f"File contains no data: '{name}'")
+    except pd.errors.ParserError:
+        raise ValueError(
+            f"Failed to parse file (corrupted or invalid format): '{name}'"
+        )
+    except Exception:
+        raise ValueError(f"Failed to read file: '{name}'")
 
     # Validate schema
     validation = validate_returns_schema(df)

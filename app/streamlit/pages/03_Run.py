@@ -53,6 +53,8 @@ def format_error_message(error: Exception) -> str:
         "KeyError": "Missing required data field",
         "ValueError": "Invalid data or configuration value",
         "FileNotFoundError": "Required file not found",
+        "PermissionError": "Access denied to file or directory",
+        "IsADirectoryError": "Expected a file but found a directory",
         "ImportError": "Missing required dependency",
         "MemoryError": "Insufficient memory for analysis",
         "TimeoutError": "Analysis took too long to complete",
