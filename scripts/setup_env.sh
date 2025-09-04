@@ -20,10 +20,14 @@ if (return 0 2>/dev/null); then
 		pip install -e . || echo "Warning: Package installation failed, CLI available via scripts/trend-model"
 		
 		# Install pre-commit hooks
-		pre-commit install --install-hooks || true
+		if ! pre-commit install --install-hooks; then
+			echo "::warning::pre-commit install --install-hooks failed, but continuing. Git hooks may not be available."
+		fi
 		
 		# Ensure CLI wrapper script is executable
-		chmod +x scripts/trend-model || true
+		if ! chmod +x scripts/trend-model; then
+			echo "::warning::chmod +x scripts/trend-model failed, but continuing. CLI wrapper may not be executable."
+		fi
 	)
 	# Now activate in the current shell so the user can keep working
 	# shellcheck disable=SC1091
@@ -50,10 +54,14 @@ pip install -e ".[dev]"
 pip install -e . || echo "Warning: Package installation failed, CLI available via scripts/trend-model"
 
 # Install pre-commit hooks so formatting runs locally before commits
-pre-commit install --install-hooks || true
+if ! pre-commit install --install-hooks; then
+	echo "::warning::pre-commit install --install-hooks failed, but continuing. Git hooks may not be available."
+fi
 
 # Ensure CLI wrapper script is executable
-chmod +x scripts/trend-model || true
+if ! chmod +x scripts/trend-model; then
+	echo "::warning::chmod +x scripts/trend-model failed, but continuing. CLI wrapper may not be executable."
+fi
 
 echo "Environment setup complete. Activate later with 'source $ENV_DIR/bin/activate'."
 echo "CLI available as: 'trend-model' (if installed) or './scripts/trend-model'"

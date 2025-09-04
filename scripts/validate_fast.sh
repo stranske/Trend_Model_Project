@@ -64,12 +64,12 @@ fi
 
 # Analyze what changed to determine optimal validation strategy
 echo -e "${BLUE}Analyzing changes...${NC}"
-CHANGED_FILES=$(git diff --name-only $COMMIT_RANGE 2>/dev/null | grep -v -E '^(Old/|notebooks/old/)' || echo "")
-PYTHON_FILES=$(echo "$CHANGED_FILES" | grep -E '\.(py)$' || true)
-CONFIG_FILES=$(echo "$CHANGED_FILES" | grep -E '\.(yml|yaml|toml|cfg|ini)$' || true)
-TEST_FILES=$(echo "$PYTHON_FILES" | grep -E '^tests/' || true)
-SRC_FILES=$(echo "$PYTHON_FILES" | grep -E '^src/' || true)
-SCRIPT_FILES=$(echo "$PYTHON_FILES" | grep -E '^scripts/' || true)
+CHANGED_FILES=$(git diff --name-only $COMMIT_RANGE 2>/dev/null | grep -v -E '^(Old/|notebooks/old/)' 2>/dev/null || echo "")
+PYTHON_FILES=$(echo "$CHANGED_FILES" | grep -E '\.(py)$' 2>/dev/null || echo "")
+CONFIG_FILES=$(echo "$CHANGED_FILES" | grep -E '\.(yml|yaml|toml|cfg|ini)$' 2>/dev/null || echo "")
+TEST_FILES=$(echo "$PYTHON_FILES" | grep -E '^tests/' 2>/dev/null || echo "")
+SRC_FILES=$(echo "$PYTHON_FILES" | grep -E '^src/' 2>/dev/null || echo "")
+SCRIPT_FILES=$(echo "$PYTHON_FILES" | grep -E '^scripts/' 2>/dev/null || echo "")
 
 # Count changes
 TOTAL_PYTHON=$(echo "$PYTHON_FILES" | grep -v '^$' | wc -l || echo 0)
