@@ -62,19 +62,26 @@ def wait_for_streamlit_ready(
         True if app is ready, False if timeout exceeded
     """
     start_time = time.time()
-    url = f"http://localhost:{port}"
+    root_url = f"http://localhost:{port}"
+    health_url = f"{root_url}/?health=1"
 
     while time.time() - start_time < timeout:
         try:
-            # Try to connect to the Streamlit app
-            response = requests.get(url, timeout=ready_timeout)
+            # Prefer fast health endpoint if available
+            r = requests.get(health_url, timeout=ready_timeout)
+            if r.status_code == 200 and r.text.strip().upper().startswith("OK"):
+                return True
+        except requests.exceptions.RequestException:
+            pass
+
+        try:
+            # Fallback: connect to the root page and look for plausible content
+            response = requests.get(root_url, timeout=ready_timeout)
             if response.status_code == 200:
-                # Additional check to ensure the response contains Streamlit content
                 content = response.text.lower()
                 if "streamlit" in content or "trend" in content or len(content) > 100:
                     return True
         except requests.exceptions.RequestException:
-            # Expected during startup - service not ready yet
             pass
 
         # Wait before next poll attempt
@@ -136,7 +143,7 @@ def test_app_starts_headlessly():
 
         # Additional health check to ensure the app is serving requests
         response = requests.get(
-            f"http://localhost:{port}", timeout=DEFAULT_READY_TIMEOUT
+            f"http://localhost:{port}/?health=1", timeout=DEFAULT_READY_TIMEOUT
         )
         assert (
             response.status_code == 200
