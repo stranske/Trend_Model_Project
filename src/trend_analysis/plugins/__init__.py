@@ -123,4 +123,7 @@ __all__ = [
     "create_selector",
     "create_rebalancer",
     "create_weight_engine",
+    "_equal_risk_contribution",
+    "_hierarchical_risk_parity",
+    "_risk_parity",
 ]
