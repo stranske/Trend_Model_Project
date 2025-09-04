@@ -7,7 +7,7 @@
 # 4. PR has the 'autofix' label (opt-in behavior)
 
 name: autofix trivial issues
-"on":
+on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, labeled]
     branches: [phase-2-dev, main]
