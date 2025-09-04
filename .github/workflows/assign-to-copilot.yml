@@ -6,7 +6,7 @@ permissions:
   issues: write
 jobs:
   assign:
-    if: github.event.label.name == 'agent:copilot'
+    if: contains(github.event.issue.labels.*.name, 'agent:copilot')
     runs-on: ubuntu-latest
     steps:
       - name: Assign to assignee
