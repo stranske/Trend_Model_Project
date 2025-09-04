@@ -119,6 +119,10 @@ exercises every new code path.
 
 For reproducible results across different runs and environments, see [ReproducibilityGuide.md](ReproducibilityGuide.md). This is especially important when using random selection modes or when running tests.
 
+## 12.1 Walk-forward (rolling OOS) analysis
+
+The Streamlit Results page now includes a Walk-forward analysis expander to aggregate metrics over rolling out-of-sample windows and, optionally, by regime. See [Walkforward.md](Walkforward.md) for a quick guide and a CLI example.
+
 ## 13. Further help
 
 See `README.md` for a short overview of the repository structure and the example notebooks for end‑to‑end demonstrations.
