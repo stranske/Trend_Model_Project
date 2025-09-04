@@ -70,29 +70,8 @@ with st.expander("Run walk-forward (rolling OOS) analysis"):
     )
 
     # Build a simple DataFrame with a metric to aggregate. Use portfolio returns if available.
-    try:
-        port = getattr(res, "portfolio", None)
-        if port is not None and isinstance(port, pd.Series) and not port.empty:
-            wf_df = (
-                port.rename("portfolio_return")
-                .to_frame()
-                .reset_index()
-                .rename(columns={port.index.name or "index": "Date"})
-            )
-        else:
-            # Fallback: use event log counts per day as a proxy metric
-            ev = res.event_log_df()
-            if not ev.empty:
-                wf_df = (
-                    ev.assign(Date=pd.to_datetime(ev[ev.columns[0]]))
-                    .groupby("Date")
-                    .size()
-                    .rename("events")
-                    .reset_index()
-                )
-            else:
-                wf_df = pd.DataFrame({"Date": [], "metric": []})
-    except Exception:
+    except (AttributeError, KeyError, ValueError, TypeError) as e:
+        st.warning(f"Walk-forward data unavailable: {e}")
         wf_df = pd.DataFrame({"Date": [], "metric": []})
 
     regimes = None
