@@ -1,31 +1,31 @@
 from __future__ import annotations
 
 import asyncio
+import pickle
 import sys
 import warnings
-import yaml
-import pickle
-import ipywidgets as widgets
-from IPython.display import Javascript, display, FileLink
-from typing import Any, cast, Dict, TYPE_CHECKING
-import pandas as pd
-
 from pathlib import Path
-from .store import ParamStore
-from .plugins import discover_plugins, iter_plugins
+from typing import TYPE_CHECKING, Any, Dict, cast
 
+import ipywidgets as widgets
+import pandas as pd
+import yaml
+from IPython.display import FileLink, Javascript, display
+
+from ..config import Config
+from .plugins import discover_plugins, iter_plugins
+from .store import ParamStore
+from .utils import _find_config_directory, debounce, list_builtin_cfgs
 
 # Use _find_config_directory from utils instead of local duplicate
 
-
-from .utils import list_builtin_cfgs, debounce, _find_config_directory
-from ..config import Config
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..config.models import ConfigProtocol as ConfigType
 else:
     from typing import Any as ConfigType
-from .. import pipeline, export, weighting
+
+from .. import export, pipeline, weighting
 
 # Try to import DataGrid at module level for test patching
 try:

@@ -1,15 +1,16 @@
 """Golden master test comparing CLI and API outputs."""
 
 import os
-import pandas as pd
 import subprocess
-import tempfile
 import sys
-import yaml
+import tempfile
 from pathlib import Path
 
-from trend_analysis.config import Config
+import pandas as pd
+import yaml
+
 from trend_analysis import api
+from trend_analysis.config import Config
 
 
 def make_test_data():

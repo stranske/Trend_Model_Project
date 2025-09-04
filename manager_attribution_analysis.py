@@ -4,9 +4,9 @@ Manager Performance Attribution Analysis
 Analysis of individual manager contributions over the 20-year backtest
 """
 
-import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np  # noqa: F401
+import pandas as pd
 
 # Manager performance data from the single-period analysis (2005-2025)
 manager_data = {

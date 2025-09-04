@@ -8,8 +8,9 @@ import pytest
 
 
 def test_config_import_with_pydantic():
-    """Test that config module imports successfully when pydantic is available."""
-    from trend_analysis.config.models import Config, _HAS_PYDANTIC
+    """Test that config module imports successfully when pydantic is
+    available."""
+    from trend_analysis.config.models import _HAS_PYDANTIC, Config
 
     assert _HAS_PYDANTIC is True
 
@@ -20,7 +21,8 @@ def test_config_import_with_pydantic():
 
 
 def test_config_import_without_pydantic():
-    """Test that config module imports and works when pydantic is not available."""
+    """Test that config module imports and works when pydantic is not
+    available."""
     # Mock the import to simulate pydantic not being available
     original_import = builtins.__import__
 
@@ -40,7 +42,7 @@ def test_config_import_without_pydantic():
                 del sys.modules[module]
 
         # Import should work without pydantic
-        from trend_analysis.config.models import Config, _HAS_PYDANTIC
+        from trend_analysis.config.models import _HAS_PYDANTIC, Config
 
         assert _HAS_PYDANTIC is False
 
@@ -53,6 +55,7 @@ def test_config_import_without_pydantic():
 def test_config_validation_with_pydantic():
     """Test that validation works when pydantic is available."""
     import importlib
+
     import trend_analysis.config.models as models
 
     # Reload to ensure pydantic-backed model is used after previous tests

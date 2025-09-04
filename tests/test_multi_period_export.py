@@ -1,23 +1,24 @@
-import pandas as pd
-from typing import cast
-import yaml  # type: ignore[import-untyped]
 from pathlib import Path
+from typing import cast
+
+import pandas as pd
+import yaml  # type: ignore[import-untyped]
 
 from trend_analysis.config import Config
-from trend_analysis.multi_period import run as run_mp
 from trend_analysis.export import (
-    metrics_from_result,
-    summary_frame_from_result,
-    combined_summary_result,
     combined_summary_frame,
+    combined_summary_result,
     export_multi_period_metrics,
     export_phase1_multi_metrics,
     export_phase1_workbook,
-    phase1_workbook_data,
-    period_frames_from_results,
-    workbook_frames_from_results,
     flat_frames_from_results,
+    metrics_from_result,
+    period_frames_from_results,
+    phase1_workbook_data,
+    summary_frame_from_result,
+    workbook_frames_from_results,
 )
+from trend_analysis.multi_period import run as run_mp
 
 
 def make_df():

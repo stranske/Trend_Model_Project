@@ -1,8 +1,10 @@
-import pytest
-import pandas as pd
 from pathlib import Path
-from trend_analysis.pipeline import single_period_run
+
+import pandas as pd
+import pytest
+
 from trend_analysis.core.rank_selection import RiskStatsConfig
+from trend_analysis.pipeline import single_period_run
 
 
 def make_df():

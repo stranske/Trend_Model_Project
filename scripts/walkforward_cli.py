@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import argparse
 import sys
+
 import pandas as pd
+
 from trend_analysis.engine.walkforward import walk_forward
 
 

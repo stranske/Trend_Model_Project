@@ -5,8 +5,8 @@ from __future__ import annotations
 from typing import Mapping
 
 import matplotlib.pyplot as plt
-from matplotlib.figure import Figure
 import pandas as pd
+from matplotlib.figure import Figure
 
 from ..metrics import rolling as rolling_metrics
 

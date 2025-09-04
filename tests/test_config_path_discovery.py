@@ -62,7 +62,8 @@ def test_gui_utils_config_discovery():
 
 
 def test_config_discovery_fallback():
-    """Test fallback behavior when config directory not found in normal search."""
+    """Test fallback behavior when config directory not found in normal
+    search."""
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_path = Path(temp_dir)
 

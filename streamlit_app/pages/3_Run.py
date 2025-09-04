@@ -1,7 +1,8 @@
 import pandas as pd
+
+from streamlit_app.components.disclaimer import show_disclaimer
 from trend_analysis.api import run_simulation
 from trend_analysis.config import Config
-from streamlit_app.components.disclaimer import show_disclaimer
 
 
 def main():

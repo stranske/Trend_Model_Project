@@ -18,23 +18,23 @@ multi-period run path. When ``cfg.portfolio.policy == 'threshold_hold'`` we:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Mapping, Protocol, Any, cast
+from typing import Any, Dict, List, Mapping, Protocol, cast
 
 import pandas as pd
 
 from ..constants import NUMERICAL_TOLERANCE_HIGH
+from ..core.rank_selection import ASCENDING_METRICS
 from ..data import load_csv
 from ..pipeline import _run_analysis
-from .scheduler import generate_periods
+from ..rebalancing import apply_rebalancing_strategies
 from ..weighting import (
+    AdaptiveBayesWeighting,
     BaseWeighting,
     EqualWeight,
     ScorePropBayesian,
-    AdaptiveBayesWeighting,
 )
-from ..core.rank_selection import ASCENDING_METRICS
 from .replacer import Rebalancer
-from ..rebalancing import apply_rebalancing_strategies
+from .scheduler import generate_periods
 
 
 @dataclass

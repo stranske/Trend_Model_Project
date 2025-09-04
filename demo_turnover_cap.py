@@ -9,14 +9,13 @@ Usage:
     python demo_turnover_cap.py
 """
 
-import pandas as pd
 import numpy as np
+import pandas as pd
+
+from src.trend_analysis.multi_period.engine import run_schedule
 
 # Import the rebalancing functionality
-from src.trend_analysis.rebalancing import (
-    TurnoverCapStrategy,
-)
-from src.trend_analysis.multi_period.engine import run_schedule
+from src.trend_analysis.rebalancing import TurnoverCapStrategy
 from src.trend_analysis.selector import RankSelector
 from src.trend_analysis.weighting import EqualWeight
 

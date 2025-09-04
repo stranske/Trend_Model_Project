@@ -1,7 +1,8 @@
 """Smoke tests for installed CLI entry points - validates console_scripts work in CI Ubuntu."""
 
-import subprocess
 import shutil
+import subprocess
+
 import pytest
 
 

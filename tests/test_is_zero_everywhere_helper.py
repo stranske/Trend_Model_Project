@@ -1,7 +1,7 @@
 """Test the _is_zero_everywhere helper function extracted in issue #683."""
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 from trend_analysis.metrics import _is_zero_everywhere
 
@@ -96,12 +96,13 @@ class TestIsZeroEverywhere:
         assert _is_zero_everywhere(nan_df) is False
 
     def test_integration_with_metrics(self):
-        """Test that the helper function integrates correctly with metric functions."""
+        """Test that the helper function integrates correctly with metric
+        functions."""
         # This test verifies that the refactored functions still work
         from trend_analysis.metrics import (
+            information_ratio,
             sharpe_ratio,
             sortino_ratio,
-            information_ratio,
         )
 
         # Create test data that would trigger the zero-check

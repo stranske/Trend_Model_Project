@@ -1,11 +1,13 @@
-"""Comprehensive test validating unified API behavior across CLI and components."""
+"""Comprehensive test validating unified API behavior across CLI and
+components."""
 
-import pandas as pd
 import tempfile
 from pathlib import Path
 
-from trend_analysis.config import Config
+import pandas as pd
+
 from trend_analysis import api
+from trend_analysis.config import Config
 from trend_analysis.data import load_csv
 
 

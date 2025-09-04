@@ -1,8 +1,8 @@
 """Smoke test for Streamlit app launch with configurable readiness check.
 
-This module addresses the issue of hardcoded sleep timers by implementing
-a configurable, sophisticated readiness check that polls the health endpoint
-instead of using fixed delays.
+This module addresses the issue of hardcoded sleep timers by
+implementing a configurable, sophisticated readiness check that polls
+the health endpoint instead of using fixed delays.
 """
 
 import os
@@ -13,7 +13,6 @@ from pathlib import Path
 
 import pytest
 import requests
-
 
 pytestmark = pytest.mark.smoke
 
@@ -27,7 +26,8 @@ DEFAULT_READY_TIMEOUT = int(os.environ.get("STREAMLIT_READY_TIMEOUT", "5"))
 def find_project_root(
     start_path: Path, marker_files=("pyproject.toml", "setup.py", ".git")
 ) -> Path:
-    """Search upwards from start_path for a directory containing one of the marker files."""
+    """Search upwards from start_path for a directory containing one of the
+    marker files."""
     current = start_path.resolve()
     for parent in [current] + list(current.parents):
         for marker in marker_files:
@@ -46,8 +46,7 @@ def wait_for_streamlit_ready(
     poll_interval: float = DEFAULT_POLL_INTERVAL,
     ready_timeout: int = DEFAULT_READY_TIMEOUT,
 ) -> bool:
-    """
-    Wait for Streamlit app to be ready by polling the health endpoint.
+    """Wait for Streamlit app to be ready by polling the health endpoint.
 
     This replaces the hardcoded sleep with a sophisticated readiness check
     that polls until the service is actually ready to serve requests.
@@ -91,11 +90,12 @@ def wait_for_streamlit_ready(
 
 
 def test_app_starts_headlessly():
-    """
-    Test that Streamlit app starts successfully with configurable readiness check.
+    """Test that Streamlit app starts successfully with configurable readiness
+    check.
 
-    This test addresses the flaky test issue by replacing hardcoded sleep
-    with a sophisticated polling mechanism that waits until the app is actually ready.
+    This test addresses the flaky test issue by replacing hardcoded
+    sleep with a sophisticated polling mechanism that waits until the
+    app is actually ready.
     """
     # Configure environment for headless operation
     env = os.environ.copy()

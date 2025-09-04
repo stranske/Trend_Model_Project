@@ -34,8 +34,9 @@ def test_rebalancing_module_exports():
 
 def test_apply_rebalancing_strategies_signature():
     """Test that apply_rebalancing_strategies has the expected signature."""
-    from trend_analysis.rebalancing import apply_rebalancing_strategies
     import inspect
+
+    from trend_analysis.rebalancing import apply_rebalancing_strategies
 
     sig = inspect.signature(apply_rebalancing_strategies)
     params = list(sig.parameters.keys())

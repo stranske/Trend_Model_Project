@@ -7,10 +7,11 @@ Legacy *annualize_* wrappers are kept for back-compat with the test-suite.
 
 from __future__ import annotations
 
-from typing import Callable, cast
+import builtins as _bi
 import sys
 import types
-import builtins as _bi
+from typing import Callable, cast
+
 import numpy as np
 import pandas as pd
 from pandas import DataFrame, Series
@@ -109,10 +110,9 @@ def _check_shapes(
     other: Series | DataFrame | float | int,
     fn: str,
 ) -> None:
-    """
-    Raise ValueError if *other* is not scalar **and** its exact shape
-    differs from `ret`, or if the pandas types disagree (Series vs DataFrame).
-    """
+    """Raise ValueError if *other* is not scalar **and** its exact shape
+    differs from `ret`, or if the pandas types disagree (Series vs
+    DataFrame)."""
     if np.isscalar(other):
         return
     assert isinstance(other, (Series, DataFrame))
@@ -130,10 +130,9 @@ def annual_return(
     returns: Series | DataFrame,
     periods_per_year: int = 12,
 ) -> float | pd.Series | np.floating | pd.Series:
-    """
-    Annualise a vector of periodic *returns*.
-    ▸ Series    → float
-    ▸ DataFrame → Series (per-column)
+    """Annualise a vector of periodic *returns*.
+
+    ▸ Series    → float ▸ DataFrame → Series (per-column)
     """
 
     _validate_input(returns, "annual_return")
@@ -378,7 +377,7 @@ setattr(_bi, "annualize_return", annualize_return)
 setattr(_bi, "annualize_volatility", annualize_volatility)
 
 # Public submodule to expose summary helpers
-from . import summary  # noqa: E402,F401
-from . import rolling  # noqa: E402,F401
-from . import turnover  # noqa: E402,F401
 from . import attribution  # noqa: E402,F401
+from . import rolling  # noqa: E402,F401
+from . import summary  # noqa: E402,F401
+from . import turnover  # noqa: E402,F401

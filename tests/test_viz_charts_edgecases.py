@@ -2,7 +2,8 @@
 
 These tests ensure robustness around missing assets in weights history
 and confirm that helper functions sort indices and fill missing values.
-They also sanity-check that plotting functions return a Figure + DataFrame.
+They also sanity-check that plotting functions return a Figure +
+DataFrame.
 """
 
 from __future__ import annotations

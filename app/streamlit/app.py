@@ -1,8 +1,9 @@
 """Main Streamlit app for trend analysis."""
 
-import streamlit as st
 import sys
 from pathlib import Path
+
+import streamlit as st
 
 # Add src to path for imports
 sys.path.append(str(Path(__file__).parent.parent.parent / "src"))

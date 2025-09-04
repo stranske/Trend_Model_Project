@@ -1,7 +1,9 @@
-import sys
 import pathlib
+import sys
+
 import pytest
-from hypothesis import given, strategies as st
+from hypothesis import given
+from hypothesis import strategies as st
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))  # noqa: E402
@@ -44,7 +46,8 @@ def test_version_must_be_string(val):
 
 
 def test_config_field_constants_synchronized():
-    """Test that field constants are synchronized across all Config implementations."""
+    """Test that field constants are synchronized across all Config
+    implementations."""
     # Ensure both Pydantic and fallback modes have the same field constants
     pydantic_required = config.models.Config.REQUIRED_DICT_FIELDS
     pydantic_all = config.models.Config.ALL_FIELDS

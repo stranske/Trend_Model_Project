@@ -5,6 +5,7 @@ Generate extended demo data from July 2005 to June 2025 (20 years).
 
 import datetime as dt
 import os
+
 import numpy as np
 import pandas as pd
 

@@ -1,17 +1,19 @@
 """Extended tests for rank_selection module to improve coverage."""
 
-import pytest
-import pandas as pd
+from unittest.mock import MagicMock, Mock, patch
+
 import numpy as np
-from unittest.mock import Mock, MagicMock, patch
+import pandas as pd
+import pytest
+
 from trend_analysis.core.rank_selection import (
-    _quality_filter,
-    blended_score,
-    select_funds,
-    build_ui,
+    DEFAULT_METRIC,
     FundSelectionConfig,
     RiskStatsConfig,
-    DEFAULT_METRIC,
+    _quality_filter,
+    blended_score,
+    build_ui,
+    select_funds,
 )
 
 
@@ -23,7 +25,8 @@ def _cm_mock() -> MagicMock:
 
 
 class TestQualityFilter:
-    """Test the _quality_filter function for edge cases and boundary conditions."""
+    """Test the _quality_filter function for edge cases and boundary
+    conditions."""
 
     def test_quality_filter_empty_dataframe(self):
         """Test quality filter with empty dataframe."""

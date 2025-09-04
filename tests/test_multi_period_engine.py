@@ -1,10 +1,14 @@
+from pathlib import Path
+
 import pandas as pd
 import yaml  # type: ignore[import-untyped]
-from pathlib import Path
+
 from trend_analysis.config import Config
-from trend_analysis.multi_period import run as run_mp, run_schedule, Portfolio
+from trend_analysis.multi_period import Portfolio
+from trend_analysis.multi_period import run as run_mp
+from trend_analysis.multi_period import run_schedule
 from trend_analysis.selector import RankSelector
-from trend_analysis.weighting import EqualWeight, AdaptiveBayesWeighting
+from trend_analysis.weighting import AdaptiveBayesWeighting, EqualWeight
 
 
 def make_df():
@@ -112,7 +116,8 @@ def test_run_with_price_frames_provided():
 
 
 def test_run_with_invalid_price_frames():
-    """Test run function with invalid price_frames raises appropriate errors."""
+    """Test run function with invalid price_frames raises appropriate
+    errors."""
     cfg_data = yaml.safe_load(Path("config/defaults.yml").read_text())
     cfg_data["multi_period"] = {
         "frequency": "M",

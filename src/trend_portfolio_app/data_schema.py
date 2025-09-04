@@ -1,6 +1,8 @@
 from __future__ import annotations
+
 import io
-from typing import Tuple, List, Dict, Any, IO
+from typing import IO, Any, Dict, List, Tuple
+
 import pandas as pd
 
 DATE_COL = "Date"

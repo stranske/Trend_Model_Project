@@ -1,10 +1,9 @@
-import streamlit as st
-from trend_portfolio_app.data_schema import (
-    load_and_validate_file,
-    infer_benchmarks,
-)
 import os
 from functools import lru_cache
+
+import streamlit as st
+
+from trend_portfolio_app.data_schema import infer_benchmarks, load_and_validate_file
 
 st.title("Upload")
 

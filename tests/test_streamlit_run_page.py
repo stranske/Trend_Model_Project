@@ -1,12 +1,12 @@
 """Tests for the enhanced Streamlit Run page functionality."""
 
-import pytest
-import pandas as pd
-from datetime import date
-from unittest.mock import patch, MagicMock, Mock
-
 import sys
+from datetime import date
 from pathlib import Path
+from unittest.mock import MagicMock, Mock, patch
+
+import pandas as pd
+import pytest
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))

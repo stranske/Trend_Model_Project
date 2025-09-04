@@ -1,11 +1,13 @@
 """Test cases for common human errors in YAML configuration files."""
 
-import sys
-import pathlib
-import pytest
-import tempfile
 import os
-from hypothesis import given, strategies as st
+import pathlib
+import sys
+import tempfile
+
+import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))  # noqa: E402
@@ -22,7 +24,8 @@ except ImportError:
 
 
 class TestHumanErrors:
-    """Test common human errors that occur when editing YAML configuration files."""
+    """Test common human errors that occur when editing YAML configuration
+    files."""
 
     def test_version_as_number(self):
         """Test version field as number (common mistake)."""
@@ -175,7 +178,8 @@ class TestHumanErrors:
 
     @given(st.sampled_from(["  ", "   ", "\t", "\n", " \t ", "\n\n", " \n "]))
     def test_whitespace_version_variants(self, whitespace_version):
-        """Test various whitespace-only versions using property-based testing."""
+        """Test various whitespace-only versions using property-based
+        testing."""
         cfg = {"version": whitespace_version, "data": {}}
         with pytest.raises(
             (ValidationException, ValueError, TypeError),

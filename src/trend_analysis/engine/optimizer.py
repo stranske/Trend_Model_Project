@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Mapping, Any
+from typing import Any, Mapping
 
 import pandas as pd
 
@@ -23,7 +23,8 @@ class ConstraintSet:
 
 
 def _redistribute(w: pd.Series, mask: pd.Series, amount: float) -> pd.Series:
-    """Redistribute ``amount`` to weights where ``mask`` is True proportionally."""
+    """Redistribute ``amount`` to weights where ``mask`` is True
+    proportionally."""
 
     if amount <= 0:
         return w
@@ -104,7 +105,8 @@ def _apply_group_caps(
 def apply_constraints(
     weights: pd.Series, constraints: ConstraintSet | Mapping[str, Any]
 ) -> pd.Series:
-    """Project ``weights`` onto the feasible region defined by ``constraints``."""
+    """Project ``weights`` onto the feasible region defined by
+    ``constraints``."""
 
     if isinstance(constraints, Mapping) and not isinstance(constraints, ConstraintSet):
         constraints = ConstraintSet(**constraints)

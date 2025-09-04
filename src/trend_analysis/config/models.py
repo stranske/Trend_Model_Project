@@ -8,15 +8,16 @@ symbol ``_HAS_PYDANTIC`` to reflect availability.
 from __future__ import annotations
 
 import os
-from pathlib import Path
-from typing import Any, Dict, List, cast, ClassVar, Protocol
 from collections.abc import Mapping
+from pathlib import Path
+from typing import Any, ClassVar, Dict, List, Protocol, cast
 
 import yaml
 
 
 class ConfigProtocol(Protocol):
-    """Type protocol for Config class that works in both Pydantic and fallback modes."""
+    """Type protocol for Config class that works in both Pydantic and fallback
+    modes."""
 
     version: str
     data: dict[str, Any]
@@ -154,7 +155,8 @@ if _HAS_PYDANTIC:
         # Field lists generated dynamically from model fields to prevent maintenance burden
         @classmethod
         def _dict_field_names(cls) -> List[str]:
-            """Return names of fields whose type is dict[str, Any] (or compatible)."""
+            """Return names of fields whose type is dict[str, Any] (or
+            compatible)."""
             # Support both Pydantic v2 (model_fields) and v1 (__fields__)
             fields_map = getattr(cls, "model_fields", getattr(cls, "__fields__", {}))
 
@@ -549,6 +551,7 @@ def load_config(cfg: Mapping[str, Any] | str | Path) -> ConfigProtocol:
 
 def load(path: str | Path | None = None) -> ConfigProtocol:
     """Load configuration from ``path`` or ``DEFAULTS``.
+
     If ``path`` is ``None``, the ``TREND_CFG`` environment variable is
     consulted before falling back to ``DEFAULTS``.
     If ``path`` is a dict, it is used directly as configuration data.

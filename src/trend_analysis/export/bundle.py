@@ -1,21 +1,17 @@
-import tempfile
-from pathlib import Path
-from typing import Any
-import json
 import datetime as _dt
+import json
 import os
-import zipfile
 import subprocess
 import sys
+import tempfile
+import zipfile
+from pathlib import Path
+from typing import Any
 
 import matplotlib
 import pandas as pd
 
-from trend_analysis.util.hash import (
-    sha256_config,
-    sha256_file,
-    sha256_text,
-)
+from trend_analysis.util.hash import sha256_config, sha256_file, sha256_text
 
 
 def _git_hash() -> str:

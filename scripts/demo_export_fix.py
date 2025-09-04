@@ -11,9 +11,9 @@ from unittest import mock
 
 # Import the bundle utilities used in this demo
 from trend_analysis.io.utils import (
-    export_bundle,
-    cleanup_bundle_file,
     _TEMP_FILES_TO_CLEANUP,
+    cleanup_bundle_file,
+    export_bundle,
 )
 
 

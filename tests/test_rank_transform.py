@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+
 from trend_analysis.core.rank_selection import _apply_transform
 
 

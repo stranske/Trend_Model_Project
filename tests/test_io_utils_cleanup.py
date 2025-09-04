@@ -9,7 +9,8 @@ from trend_analysis.io import utils as io_utils
 
 
 def test_export_bundle_creates_temp_files():
-    """Test that export_bundle creates temporary files that can be cleaned up."""
+    """Test that export_bundle creates temporary files that can be cleaned
+    up."""
     # Create a mock results object with required methods
     mock_results = mock.MagicMock()
 

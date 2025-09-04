@@ -10,17 +10,18 @@ by metrics registered in `METRIC_REGISTRY`. Metrics listed in
 #  Runtime imports and dataclasses
 # =============================================================================
 from __future__ import annotations
-from dataclasses import dataclass, field
+
 import io
 import re
-from typing import Any, Callable, Dict, List, Iterable, cast
+from dataclasses import dataclass, field
+from typing import Any, Callable, Dict, Iterable, List, cast
 
 import ipywidgets as widgets
 import numpy as np
 import pandas as pd
 
 from .. import metrics as _metrics
-from ..data import load_csv, ensure_datetime
+from ..data import ensure_datetime, load_csv
 from ..export import Formatter
 
 # Compiled regex pattern for better performance when processing large files
@@ -40,8 +41,7 @@ def _apply_transform(
     rank_pct: float | None = None,
     ddof: int = 0,
 ) -> pd.Series:
-    """
-    Return a transformed copy of *series* without mutating the original.
+    """Return a transformed copy of *series* without mutating the original.
 
     Parameters
     ----------
@@ -288,10 +288,8 @@ _METRIC_ALIASES: dict[str, str] = {
 
 
 def canonical_metric_list(names: Iterable[str] | None = None) -> list[str]:
-    """
-    Return registry keys normalised from ``names``,
-    or all registered metrics if names is None.
-    """
+    """Return registry keys normalised from ``names``, or all registered
+    metrics if names is None."""
     if names is None:
         return list(METRIC_REGISTRY.keys())
     result = []
@@ -318,7 +316,8 @@ def register_metric(
 
 
 def quality_filter(df: pd.DataFrame, cfg: FundSelectionConfig) -> List[str]:
-    """Public interface for quality filtering funds based on data quality gates.
+    """Public interface for quality filtering funds based on data quality
+    gates.
 
     Parameters
     ----------
@@ -436,8 +435,8 @@ DEFAULT_METRIC = "AnnualReturn"
 def _compute_metric_series(
     in_sample_df: pd.DataFrame, metric_name: str, stats_cfg: RiskStatsConfig
 ) -> pd.Series:
-    """
-    Return a pd.Series (index = fund code, value = metric score).
+    """Return a pd.Series (index = fund code, value = metric score).
+
     Vectorised: uses the registered metric on each column.
     """
     fn = METRIC_REGISTRY.get(metric_name)
@@ -453,7 +452,10 @@ def _compute_metric_series(
 
 
 def _zscore(series: pd.Series) -> pd.Series:
-    """Return z‑scores (mean 0, stdev 1).  Gracefully handles zero σ."""
+    """Return z‑scores (mean 0, stdev 1).
+
+    Gracefully handles zero σ.
+    """
     μ, σ = series.mean(), series.std(ddof=0)
     if σ == 0:
         return pd.Series(0.0, index=series.index)
@@ -463,9 +465,7 @@ def _zscore(series: pd.Series) -> pd.Series:
 def blended_score(
     in_sample_df: pd.DataFrame, weights: dict[str, float], stats_cfg: RiskStatsConfig
 ) -> pd.Series:
-    """
-    Z‑score each contributing metric, then weighted linear combo.
-    """
+    """Z‑score each contributing metric, then weighted linear combo."""
     if not weights:
         raise ValueError("blended_score requires non‑empty weights dict")
     # Normalize metric names using _METRIC_ALIASES
@@ -509,8 +509,7 @@ def select_funds(
     rank_kwargs: dict[str, Any] | None = None,
     **kwargs: Any,
 ) -> list[str]:
-    """
-    Flexible interface for fund selection that handles both test patterns.
+    """Flexible interface for fund selection that handles both test patterns.
 
     Two calling patterns:
     1. Simple: select_funds(df, rf_col, mode="random", n=2, ...)
@@ -585,8 +584,9 @@ def select_funds_extended(
     random_n: int | None = None,
     rank_kwargs: dict[str, Any] | None = None,
 ) -> list[str]:
-    """
-    Extended to honour 'rank' mode.  Existing modes unchanged.
+    """Extended to honour 'rank' mode.
+
+    Existing modes unchanged.
     """
     # -- existing quality gate logic (unchanged) ------------------
     eligible = _quality_filter(  # pseudo‑factorised
@@ -933,7 +933,7 @@ def build_ui() -> widgets.VBox:
         with output:
             output.clear_output()
             try:
-                from .. import pipeline, export
+                from .. import export, pipeline
 
                 df = session.get("df")
                 if df is None:

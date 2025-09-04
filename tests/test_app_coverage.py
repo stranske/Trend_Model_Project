@@ -2,17 +2,19 @@
 
 import sys
 import tempfile
-import yaml  # type: ignore[import-untyped]
 from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch, ANY
-from trend_analysis.gui.store import ParamStore
+from unittest.mock import ANY, MagicMock, Mock, patch
+
+import yaml  # type: ignore[import-untyped]
+
 from trend_analysis.gui.app import (
+    _build_rank_options,
+    _build_step0,
+    launch,
     load_state,
     save_state,
-    _build_step0,
-    _build_rank_options,
-    launch,
 )
+from trend_analysis.gui.store import ParamStore
 
 
 def _cm_mock() -> MagicMock:
