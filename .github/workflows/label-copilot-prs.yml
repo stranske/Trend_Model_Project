@@ -14,10 +14,12 @@ jobs:
             const pr = context.payload.pull_request;
             const login = (pr.user?.login || '').toLowerCase();
             if (login === 'copilot') {
+              // Do not automatically add 'automerge' or 'risk:low' labels to agent PRs.
+              // Agent-generated code should undergo proper review before being automatically merged.
               await github.rest.issues.addLabels({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: pr.number,
-                labels: ['from:copilot','automerge','risk:low']
+                labels: ['from:copilot']
               });
             }
