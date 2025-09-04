@@ -140,6 +140,7 @@ def _run_analysis(
     seed: int = 42,
     stats_cfg: "RiskStatsConfig" | None = None,
     weighting_scheme: str | None = None,
+    constraints: dict[str, Any] | None = None,
 ) -> dict[str, object] | None:
     from .core.rank_selection import RiskStatsConfig, rank_select_funds
 
@@ -263,6 +264,16 @@ def _run_analysis(
     out_stats = _compute_stats(out_scaled, rf_out)
     out_stats_raw = _compute_stats(out_df[fund_cols], rf_out)
 
+    ew_weights = np.repeat(1.0 / len(fund_cols), len(fund_cols))
+    ew_w_dict = {c: w for c, w in zip(fund_cols, ew_weights)}
+    in_ew = calc_portfolio_returns(ew_weights, in_scaled)
+    out_ew = calc_portfolio_returns(ew_weights, out_scaled)
+    out_ew_raw = calc_portfolio_returns(ew_weights, out_df[fund_cols])
+
+    in_ew_stats = _compute_stats(pd.DataFrame({"ew": in_ew}), rf_in)["ew"]
+    out_ew_stats = _compute_stats(pd.DataFrame({"ew": out_ew}), rf_out)["ew"]
+    out_ew_stats_raw = _compute_stats(pd.DataFrame({"ew": out_ew_raw}), rf_out)["ew"]
+
     # Optionally compute plugin-based weights on in-sample covariance
     if (
         custom_weights is None
@@ -277,19 +288,13 @@ def _run_analysis(
             w_series = engine.weight(cov).reindex(fund_cols).fillna(0.0)
             # Convert to percent mapping expected by downstream logic
             custom_weights = {c: float(w_series.get(c, 0.0) * 100.0) for c in fund_cols}
-        except Exception:
-            # Fallback silently to user/equal weights if engine creation fails
-            pass
-
-    ew_weights = np.repeat(1.0 / len(fund_cols), len(fund_cols))
-    ew_w_dict = {c: w for c, w in zip(fund_cols, ew_weights)}
-    in_ew = calc_portfolio_returns(ew_weights, in_scaled)
-    out_ew = calc_portfolio_returns(ew_weights, out_scaled)
-    out_ew_raw = calc_portfolio_returns(ew_weights, out_df[fund_cols])
-
-    in_ew_stats = _compute_stats(pd.DataFrame({"ew": in_ew}), rf_in)["ew"]
-    out_ew_stats = _compute_stats(pd.DataFrame({"ew": out_ew}), rf_out)["ew"]
-    out_ew_stats_raw = _compute_stats(pd.DataFrame({"ew": out_ew_raw}), rf_out)["ew"]
+            logger.debug("Successfully created %s weight engine", weighting_scheme)
+        except Exception as e:
+            # Fallback to equal weights with proper logging for debugging
+            logger.debug(
+                'Weight engine creation failed, falling back to equal weights: %s', e
+            )
+            custom_weights = None
 
     if custom_weights is None:
         custom_weights = {c: 100 / len(fund_cols) for c in fund_cols}
@@ -423,6 +428,7 @@ def run_analysis(
     seed: int = 42,
     stats_cfg: "RiskStatsConfig" | None = None,
     weighting_scheme: str | None = None,
+    constraints: dict[str, Any] | None = None,
 ) -> dict[str, object] | None:
     """Backward-compatible wrapper around ``_run_analysis``."""
     return _run_analysis(
@@ -441,10 +447,9 @@ def run_analysis(
         indices_list,
         benchmarks,
         seed,
+        stats_cfg,
         weighting_scheme,
         constraints,
-        stats_cfg=stats_cfg,
-        weighting_scheme=weighting_scheme,
     )
 
 

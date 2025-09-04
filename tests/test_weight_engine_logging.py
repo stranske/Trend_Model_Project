@@ -74,7 +74,7 @@ def test_weight_engine_import_failure_logging(caplog):
     df = make_df()
     
     # Mock the import to fail
-    with patch('trend_analysis.pipeline.create_weight_engine') as mock_import:
+    with patch('trend_analysis.plugins.create_weight_engine') as mock_import:
         mock_import.side_effect = ImportError("Mock import error")
         
         with caplog.at_level(logging.DEBUG):
