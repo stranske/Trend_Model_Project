@@ -9,37 +9,33 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any, Dict, List, cast, ClassVar, TYPE_CHECKING
+from typing import Any, Dict, List, cast, ClassVar, Protocol
 from collections.abc import Mapping
 
 import yaml
 
-try:
-    from typing_extensions import Protocol
 
-    class ConfigProtocol(Protocol):
-        """Type protocol for Config class that works in both Pydantic and fallback modes."""
+class ConfigProtocol(Protocol):
+    """Type protocol for Config class that works in both Pydantic and fallback modes."""
 
-        version: str
-        data: dict[str, Any]
-        preprocessing: dict[str, Any]
-        vol_adjust: dict[str, Any]
-        sample_split: dict[str, Any]
-        portfolio: dict[str, Any]
-        benchmarks: dict[str, str]
-        metrics: dict[str, Any]
-        export: dict[str, Any]
-        output: dict[str, Any] | None
-        run: dict[str, Any]
-        multi_period: dict[str, Any] | None
-        jobs: int | None
-        checkpoint_dir: str | None
-        seed: int
-        
-    ConfigType = ConfigProtocol
-except ImportError:
-    # Fallback for environments without typing_extensions
-    ConfigType = Any
+    version: str
+    data: dict[str, Any]
+    preprocessing: dict[str, Any]
+    vol_adjust: dict[str, Any]
+    sample_split: dict[str, Any]
+    portfolio: dict[str, Any]
+    benchmarks: dict[str, str]
+    metrics: dict[str, Any]
+    export: dict[str, Any]
+    output: dict[str, Any] | None
+    run: dict[str, Any]
+    multi_period: dict[str, Any] | None
+    jobs: int | None
+    checkpoint_dir: str | None
+    seed: int
+
+
+ConfigType = ConfigProtocol
 
 # Pydantic import (optional in tests)
 # Use temporary underscored names within the branch, then export public names
@@ -542,16 +538,16 @@ def list_available_presets() -> List[str]:
 DEFAULTS = Path(__file__).resolve().parents[3] / "config" / "defaults.yml"
 
 
-def load_config(cfg: Mapping[str, Any] | str | Path) -> Any:
+def load_config(cfg: Mapping[str, Any] | str | Path) -> ConfigProtocol:
     """Load configuration from a mapping or file path."""
     if isinstance(cfg, (str, Path)):
         return load(cfg)
     if isinstance(cfg, Mapping):
-        return cast("ConfigType", Config(**cfg))
+        return Config(**cfg)
     raise TypeError("cfg must be a mapping or path")
 
 
-def load(path: str | Path | None = None) -> Any:
+def load(path: str | Path | None = None) -> ConfigProtocol:
     """Load configuration from ``path`` or ``DEFAULTS``.
     If ``path`` is ``None``, the ``TREND_CFG`` environment variable is
     consulted before falling back to ``DEFAULTS``.
@@ -585,7 +581,7 @@ def load(path: str | Path | None = None) -> Any:
             export_cfg.setdefault("directory", str(p.parent) if p.parent else ".")
             export_cfg.setdefault("filename", p.name)
 
-    return cast("ConfigType", Config(**data))
+    return Config(**data)
 
 
 __all__ = [
