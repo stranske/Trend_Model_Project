@@ -1,6 +1,7 @@
 import streamlit as st
 import io
 import json
+import numpy as np
 import pandas as pd
 from trend_analysis.engine.walkforward import walk_forward
 
@@ -83,7 +84,7 @@ with st.expander("Run walk-forward (rolling OOS) analysis"):
             if regime_source == "Portfolio sign (+/-)":
                 try:
                     s = wf_df.set_index("Date").iloc[:, 0]
-                    regimes = pd.Series((s >= 0).map({True: "+", False: "-"}), index=s.index)
+                    regimes = pd.Series(np.where(s >= 0, "+", "-"), index=s.index)
                 except Exception:
                     regimes = None
 
