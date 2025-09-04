@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Optional, cast
 
 import numpy as np
 import pandas as pd
@@ -19,7 +19,7 @@ from .metrics import (
 )
 
 if TYPE_CHECKING:  # pragma: no cover - for static type checking only
-    from .config import Config
+    from .config.models import ConfigProtocol as Config
     from .core.rank_selection import RiskStatsConfig
 
 del TYPE_CHECKING
@@ -135,7 +135,8 @@ def _run_analysis(
     indices_list: list[str] | None = None,
     benchmarks: dict[str, str] | None = None,
     seed: int = 42,
-    stats_cfg: "RiskStatsConfig" | None = None,
+    weighting_scheme: str = "equal",
+    stats_cfg: Optional["RiskStatsConfig"] = None,
 ) -> dict[str, object] | None:
     from .core.rank_selection import RiskStatsConfig, rank_select_funds
 
@@ -259,6 +260,24 @@ def _run_analysis(
     out_stats = _compute_stats(out_scaled, rf_out)
     out_stats_raw = _compute_stats(out_df[fund_cols], rf_out)
 
+    # Optionally compute plugin-based weights on in-sample covariance
+    if (
+        custom_weights is None
+        and weighting_scheme
+        and weighting_scheme.lower() != "equal"
+    ):
+        try:
+            from .plugins import create_weight_engine
+
+            cov = in_df[fund_cols].cov()
+            engine = create_weight_engine(weighting_scheme.lower())
+            w_series = engine.weight(cov).reindex(fund_cols).fillna(0.0)
+            # Convert to percent mapping expected by downstream logic
+            custom_weights = {c: float(w_series.get(c, 0.0) * 100.0) for c in fund_cols}
+        except Exception:
+            # Fallback silently to user/equal weights if engine creation fails
+            pass
+
     ew_weights = np.repeat(1.0 / len(fund_cols), len(fund_cols))
     ew_w_dict = {c: w for c, w in zip(fund_cols, ew_weights)}
     in_ew = calc_portfolio_returns(ew_weights, in_scaled)
@@ -310,8 +329,24 @@ def _run_analysis(
             if isinstance(ir_series, pd.Series)
             else {fund_cols[0]: float(ir_series)}
         )
-        ir_dict["equal_weight"] = information_ratio(out_ew_raw, out_df[col])
-        ir_dict["user_weight"] = information_ratio(out_user_raw, out_df[col])
+        # Add portfolio-level IR references for context
+        try:
+            ir_eq = information_ratio(out_ew_raw, out_df[col])
+            ir_usr = information_ratio(out_user_raw, out_df[col])
+            # Best effort conversion; skip if not scalar convertible
+            ir_dict["equal_weight"] = (
+                float(ir_eq)
+                if isinstance(ir_eq, (float, int, np.floating))
+                else float("nan")
+            )
+            ir_dict["user_weight"] = (
+                float(ir_usr)
+                if isinstance(ir_usr, (float, int, np.floating))
+                else float("nan")
+            )
+        except Exception:
+            # Leave without portfolio-level IRs if computation fails
+            pass
         benchmark_ir[label] = ir_dict
 
     return {
@@ -351,7 +386,8 @@ def run_analysis(
     indices_list: list[str] | None = None,
     benchmarks: dict[str, str] | None = None,
     seed: int = 42,
-    stats_cfg: "RiskStatsConfig" | None = None,
+    weighting_scheme: str = "equal",
+    stats_cfg: Optional["RiskStatsConfig"] = None,
 ) -> dict[str, object] | None:
     """Backward-compatible wrapper around ``_run_analysis``."""
     return _run_analysis(
@@ -370,6 +406,7 @@ def run_analysis(
         indices_list,
         benchmarks,
         seed,
+        weighting_scheme,
         stats_cfg=stats_cfg,
     )
 
@@ -411,6 +448,7 @@ def run(cfg: Config) -> pd.DataFrame:
         indices_list=cfg.portfolio.get("indices_list"),
         benchmarks=cfg.benchmarks,
         seed=getattr(cfg, "seed", 42),
+        weighting_scheme=cfg.portfolio.get("weighting_scheme", "equal"),
         stats_cfg=stats_cfg,
     )
     if res is None:
@@ -468,6 +506,7 @@ def run_full(cfg: Config) -> dict[str, object]:
         indices_list=cfg.portfolio.get("indices_list"),
         benchmarks=cfg.benchmarks,
         seed=getattr(cfg, "seed", 42),
+        weighting_scheme=cfg.portfolio.get("weighting_scheme", "equal"),
         stats_cfg=stats_cfg,
     )
     return {} if res is None else res

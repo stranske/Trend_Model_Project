@@ -7,7 +7,7 @@ import yaml
 import pickle
 import ipywidgets as widgets
 from IPython.display import Javascript, display, FileLink
-from typing import Any, cast, Dict
+from typing import Any, cast, Dict, TYPE_CHECKING
 import pandas as pd
 
 from pathlib import Path
@@ -20,6 +20,11 @@ from .plugins import discover_plugins, iter_plugins
 
 from .utils import list_builtin_cfgs, debounce, _find_config_directory
 from ..config import Config
+
+if TYPE_CHECKING:  # pragma: no cover
+    from ..config.models import ConfigProtocol as ConfigType
+else:
+    from typing import Any as ConfigType
 from .. import pipeline, export, weighting
 
 # Try to import DataGrid at module level for test patching
@@ -97,7 +102,7 @@ def build_config_dict(store: ParamStore) -> Dict[str, Any]:
     return cfg
 
 
-def build_config_from_store(store: ParamStore) -> Config:
+def build_config_from_store(store: ParamStore) -> ConfigType:
     """Convert ``store`` into a :class:`Config` object."""
     cfg: Dict[str, Any] = build_config_dict(store)
     return Config(**cfg)
