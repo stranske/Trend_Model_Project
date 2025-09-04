@@ -1928,6 +1928,7 @@ def _check_module_exports() -> None:
             "load",
             "load_config",
             "Config",
+            "ConfigType",
             "DEFAULTS",
         },
         "data": {"load_csv", "identify_risk_free_fund", "ensure_datetime"},
