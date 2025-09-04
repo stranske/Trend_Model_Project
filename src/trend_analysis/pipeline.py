@@ -136,6 +136,7 @@ def _run_analysis(
     benchmarks: dict[str, str] | None = None,
     seed: int = 42,
     weighting_scheme: str = "equal",
+    constraints: dict[str, Any] | None = None,
     stats_cfg: Optional["RiskStatsConfig"] = None,
 ) -> dict[str, object] | None:
     from .core.rank_selection import RiskStatsConfig, rank_select_funds
@@ -290,8 +291,40 @@ def _run_analysis(
 
     if custom_weights is None:
         custom_weights = {c: 100 / len(fund_cols) for c in fund_cols}
-    user_w = np.array([custom_weights.get(c, 0) / 100 for c in fund_cols])
-    user_w_dict = {c: w for c, w in zip(fund_cols, user_w)}
+    # Convert provided weights mapping (percent) to decimal ndarray
+    user_w = np.array([custom_weights.get(c, 0) / 100 for c in fund_cols], dtype=float)
+    # Apply portfolio constraints if configured
+    try:
+        constraints_cfg = constraints or {}
+        if isinstance(constraints_cfg, dict) and constraints_cfg:
+            from .engine.optimizer import apply_constraints
+
+            w_series = pd.Series(user_w, index=fund_cols, dtype=float)
+            # Build minimal constraint dict; group_caps require a mapping of asset->group
+            cons: dict[str, Any] = {}
+            if "long_only" in constraints_cfg:
+                cons["long_only"] = bool(constraints_cfg.get("long_only", True))
+            if "max_weight" in constraints_cfg:
+                _mw = constraints_cfg.get("max_weight")
+                if _mw is not None:
+                    cons["max_weight"] = float(_mw)
+            if constraints_cfg.get("group_caps"):
+                cons["group_caps"] = constraints_cfg.get("group_caps")
+                if constraints_cfg.get("groups"):
+                    cons["groups"] = constraints_cfg.get("groups")
+            if cons:
+                w_series = apply_constraints(w_series, cons)
+            user_w = (
+                w_series.reindex(fund_cols)
+                .fillna(0.0)
+                .to_numpy(dtype=float, copy=False)
+            )
+    except Exception:
+        # If constraints application fails, fall back silently to original user weights
+        pass
+
+    # Keep a dictionary for result payload (already in decimals 0..1)
+    user_w_dict = {c: float(w) for c, w in zip(fund_cols, user_w)}
 
     in_user = calc_portfolio_returns(user_w, in_scaled)
     out_user = calc_portfolio_returns(user_w, out_scaled)
@@ -387,6 +420,7 @@ def run_analysis(
     benchmarks: dict[str, str] | None = None,
     seed: int = 42,
     weighting_scheme: str = "equal",
+    constraints: dict[str, Any] | None = None,
     stats_cfg: Optional["RiskStatsConfig"] = None,
 ) -> dict[str, object] | None:
     """Backward-compatible wrapper around ``_run_analysis``."""
@@ -407,6 +441,7 @@ def run_analysis(
         benchmarks,
         seed,
         weighting_scheme,
+        constraints,
         stats_cfg=stats_cfg,
     )
 
@@ -449,6 +484,7 @@ def run(cfg: Config) -> pd.DataFrame:
         benchmarks=cfg.benchmarks,
         seed=getattr(cfg, "seed", 42),
         weighting_scheme=cfg.portfolio.get("weighting_scheme", "equal"),
+        constraints=cfg.portfolio.get("constraints"),
         stats_cfg=stats_cfg,
     )
     if res is None:
@@ -507,6 +543,7 @@ def run_full(cfg: Config) -> dict[str, object]:
         benchmarks=cfg.benchmarks,
         seed=getattr(cfg, "seed", 42),
         weighting_scheme=cfg.portfolio.get("weighting_scheme", "equal"),
+        constraints=cfg.portfolio.get("constraints"),
         stats_cfg=stats_cfg,
     )
     return {} if res is None else res

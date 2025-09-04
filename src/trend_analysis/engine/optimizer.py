@@ -30,7 +30,13 @@ def _redistribute(w: pd.Series, mask: pd.Series, amount: float) -> pd.Series:
     eligible = w[mask]
     if eligible.empty:
         raise ConstraintViolation("No capacity to redistribute excess weight")
-    w.loc[eligible.index] += amount * (eligible / eligible.sum())
+    total = float(eligible.sum())
+    if total <= NUMERICAL_TOLERANCE_HIGH:
+        # If eligible bucket currently has (near) zero mass, distribute uniformly
+        share = amount / len(eligible)
+        w.loc[eligible.index] += share
+    else:
+        w.loc[eligible.index] += amount * (eligible / total)
     return w
 
 
