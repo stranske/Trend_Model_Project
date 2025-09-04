@@ -4,12 +4,14 @@ on:
   pull_request:
 permissions: {}
 jobs:
+  # Define a YAML anchor for the marker filter
+  _marker_filter: &marker_filter "not quarantine and not slow"
   core-tests-311:
     uses: ./.github/workflows/ci.yml
-    with: { python: "3.11", marker: "not quarantine and not slow" }
+    with: { python: "3.11", marker: *marker_filter }
   core-tests-312:
     uses: ./.github/workflows/ci.yml
-    with: { python: "3.12", marker: "not quarantine and not slow" }
+    with: { python: "3.12", marker: *marker_filter }
   docker-smoke:
     uses: ./.github/workflows/docker.yml
     with: { mode: "smoke" }
