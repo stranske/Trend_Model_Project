@@ -13,7 +13,7 @@ jobs:
           script: |
             const pr = context.payload.pull_request;
             const login = (pr.user?.login || '').toLowerCase();
-            if (login.includes('copilot')) {
+            if (login === 'copilot') {
               await github.rest.issues.addLabels({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
