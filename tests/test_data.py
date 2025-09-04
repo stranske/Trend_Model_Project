@@ -78,3 +78,26 @@ def test_ensure_datetime_missing_column():
     df = pd.DataFrame({"X": [1]})
     out = data_mod.ensure_datetime(df)
     assert "X" in out.columns and "Date" not in out.columns
+
+
+def test_load_csv_permission_error(tmp_path):
+    """Test permission error handling."""
+    f = tmp_path / "restricted.csv"
+    f.write_text("Date,A\n2020-01-01,1")
+
+    # Remove read permissions
+    f.chmod(0o000)
+
+    try:
+        result = data_mod.load_csv(str(f))
+        assert result is None
+    finally:
+        # Restore permissions for cleanup
+        f.chmod(0o644)
+
+
+def test_load_csv_directory_error(tmp_path):
+    """Test directory path error handling."""
+    # Try to load a directory as a CSV file
+    result = data_mod.load_csv(str(tmp_path))
+    assert result is None

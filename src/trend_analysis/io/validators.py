@@ -202,6 +202,18 @@ def load_and_validate_upload(file_like: Any) -> Tuple[pd.DataFrame, Dict[str, An
         else:
             # Default to CSV
             df = pd.read_csv(file_like)
+    except FileNotFoundError as e:
+        raise ValueError(f"File not found: {str(e)}")
+    except PermissionError as e:
+        raise ValueError(f"Permission denied accessing file: {str(e)}")
+    except IsADirectoryError as e:
+        raise ValueError(f"Path is a directory, not a file: {str(e)}")
+    except pd.errors.EmptyDataError as e:
+        raise ValueError(f"File contains no data: {str(e)}")
+    except pd.errors.ParserError as e:
+        raise ValueError(
+            f"Failed to parse file (corrupted or invalid format): {str(e)}"
+        )
     except Exception as e:
         raise ValueError(f"Failed to read file: {str(e)}")
 

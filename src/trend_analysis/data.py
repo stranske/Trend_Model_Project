@@ -54,6 +54,12 @@ def load_csv(path: str) -> Optional[pd.DataFrame]:
     except FileNotFoundError:
         logger.error(f"File not found: {path}")
         return None
+    except PermissionError:
+        logger.error(f"Permission denied accessing file: {path}")
+        return None
+    except IsADirectoryError:
+        logger.error(f"Path is a directory, not a file: {path}")
+        return None
     except pd.errors.EmptyDataError:
         logger.error(f"No data in file: {path}")
         return None
