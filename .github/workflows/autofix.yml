@@ -27,7 +27,7 @@ jobs:
           ruff check --fix .
           black .
           isort .
-          docformatter -r -i src tests
+          docformatter --recursive -i src tests
       - name: Commit and push if changed
         run: |
             git commit -m "ci: autofix formatting/lint [skip ci]"
