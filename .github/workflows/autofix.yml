@@ -21,7 +21,7 @@ jobs:
       - name: Install dev tools
         run: |
           python -m pip install -U pip
-          pip install -e ".[dev]" pre-commit black ruff isort docformatter
+          pip install -e ".[dev]"
       - name: Run auto-fixers
         run: |
           ruff check --fix .
