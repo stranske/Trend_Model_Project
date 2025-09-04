@@ -1,0 +1,39 @@
+name: autofix trivial issues
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  autofix:
+    if: >
+      github.event.pull_request.draft == false &&
+      (github.actor == 'copilot' ||
+       contains(github.event.pull_request.labels.*.name, 'from:copilot') ||
+       contains(github.event.pull_request.labels.*.name, 'autofix'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Install dev tools
+        run: |
+          python -m pip install -U pip
+          pip install -e ".[dev]" pre-commit black ruff isort docformatter
+      - name: Run auto-fixers
+        run: |
+          ruff check --fix .
+          black .
+          isort .
+          docformatter -r -i src tests
+      - name: Commit and push if changed
+        run: |
+          if ! git diff --quiet; then
+            git config user.name "github-actions"
+            git config user.email "github-actions@users.noreply.github.com"
+            git add -A
+            git commit -m "ci: autofix formatting/lint"
+            git push
+          fi
