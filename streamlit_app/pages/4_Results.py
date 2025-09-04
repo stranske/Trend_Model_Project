@@ -4,6 +4,7 @@ import json
 import numpy as np
 import pandas as pd
 from trend_analysis.engine.walkforward import walk_forward
+from trend_analysis.metrics import attribution
 
 st.title("Results")
 
@@ -123,6 +124,100 @@ with st.expander("Run walk-forward (rolling OOS) analysis"):
     except (AttributeError, KeyError, ValueError, TypeError) as e:
         st.warning(f"Walk-forward data unavailable: {e}")
         st.caption("No data available for walk-forward analysis.")
+
+# ---------------------------------------------------------------------------
+# Performance attribution (optional upload or auto-detect)
+# ---------------------------------------------------------------------------
+st.subheader("Performance attribution")
+with st.expander("Compute contributions by signal and rebalancing"):
+    st.caption(
+        "Provide per-signal PnL as a CSV (columns = signals, index/date in first column) "
+        "and a rebalancing PnL CSV (single column). If available in the result object, "
+        "we'll use those automatically."
+    )
+
+    # Try to auto-detect on the result object first
+    auto_signals = None
+    auto_rebal = None
+    try:
+        if hasattr(res, "signal_pnls") and isinstance(res.signal_pnls, pd.DataFrame):
+            auto_signals = res.signal_pnls.copy()
+        if hasattr(res, "rebalancing_pnl") and isinstance(res.rebalancing_pnl, pd.Series):
+            auto_rebal = res.rebalancing_pnl.copy()
+    except Exception:
+        auto_signals = None
+        auto_rebal = None
+
+    # Upload fallbacks if auto not present
+    sig_file = st.file_uploader("Signal PnL CSV", type=["csv"], key="attr_signals")
+    reb_file = st.file_uploader("Rebalancing PnL CSV", type=["csv"], key="attr_rebal")
+
+    signals_df = None
+    rebal_s = None
+    try:
+        if auto_signals is not None:
+            signals_df = auto_signals
+        elif sig_file is not None:
+            signals_df = pd.read_csv(sig_file, index_col=0, parse_dates=True)
+
+        if auto_rebal is not None:
+            rebal_s = auto_rebal
+        elif reb_file is not None:
+            rb = pd.read_csv(reb_file, index_col=0, parse_dates=True)
+            # Use first column as the series
+            if isinstance(rb, pd.DataFrame) and rb.shape[1] >= 1:
+                first_col = rb.columns[0]
+                rebal_s = rb[first_col]
+            elif isinstance(rb, pd.Series):
+                rebal_s = rb
+    except pd.errors.EmptyDataError as e:
+        st.warning(f"Uploaded file is empty: {e}")
+        signals_df = None
+        rebal_s = None
+    except ValueError as e:
+        st.warning(f"Failed to parse uploaded files (ValueError): {e}")
+        signals_df = None
+        rebal_s = None
+    except TypeError as e:
+        st.warning(f"Failed to parse uploaded files (TypeError): {e}")
+        signals_df = None
+        rebal_s = None
+    except FileNotFoundError as e:
+        st.warning(f"File not found: {e}")
+        signals_df = None
+        rebal_s = None
+    except Exception as e:  # pragma: no cover - UI path
+        st.warning(f"Unexpected error while parsing uploaded files: {e}")
+        signals_df = None
+        rebal_s = None
+
+    if signals_df is None or rebal_s is None:
+        st.info(
+            "Waiting for both Signal PnL and Rebalancing PnL inputs (or auto-detected values)."
+        )
+    else:
+        try:
+            contrib = attribution.compute_contributions(signals_df, rebal_s)
+            st.success("Contributions computed.")
+
+            # Chart (cumulative) and table
+            cum = contrib.drop(
+                columns=[c for c in ["total"] if c in contrib.columns]
+            ).cumsum()
+            st.line_chart(cum)
+            st.dataframe(contrib.tail(20))
+
+            # Download CSV
+            buf = io.StringIO()
+            contrib.to_csv(buf)
+            st.download_button(
+                "Contributions (CSV)",
+                data=buf.getvalue(),
+                file_name="contributions.csv",
+                mime="text/csv",
+            )
+        except Exception as e:
+            st.warning(f"Attribution failed: {e}")
 
 st.subheader("Downloads")
 col1, col2, col3 = st.columns(3)
