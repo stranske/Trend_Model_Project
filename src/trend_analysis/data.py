@@ -1,4 +1,6 @@
 import logging
+import stat
+from pathlib import Path
 from typing import Optional
 
 import pandas as pd
@@ -20,8 +22,18 @@ def load_csv(path: str) -> Optional[pd.DataFrame]:
     pandas.DataFrame or None
         The loaded DataFrame if successful, otherwise ``None``.
     """
+    p = Path(path)
     try:
-        df = pd.read_csv(path)
+        if not p.exists():
+            raise FileNotFoundError(path)
+        if p.is_dir():
+            raise IsADirectoryError(path)
+        mode = p.stat().st_mode
+        if mode & (stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH) == 0:
+            logger.error(f"Permission denied accessing file: {path}")
+            return None
+
+        df = pd.read_csv(str(p))
         if "Date" in df.columns:
             try:
                 df["Date"] = pd.to_datetime(df["Date"], format="%m/%d/%y")
