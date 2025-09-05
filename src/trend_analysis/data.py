@@ -33,7 +33,7 @@ def load_csv(path: str) -> Optional[pd.DataFrame]:
             logger.error(f"Permission denied accessing file: {path}")
             return None
 
-        df = pd.read_csv(p)
+        df = pd.read_csv(str(p))
         if "Date" in df.columns:
             try:
                 df["Date"] = pd.to_datetime(df["Date"], format="%m/%d/%y")
