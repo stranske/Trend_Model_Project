@@ -2,7 +2,7 @@
 
 # validate_fast.sh - Intelligent fast validation for Codex commits
 # Automatically detects what type of validation is needed based on changes
-# Usage: ./scripts/validate_fast.sh [--full] [--fix] [--verbose] [--profile] [--commit-range=HEAD~1]
+# Usage: ./scripts/validate_fast.sh [--full] [--fix] [--verbose] [--profile] [--commit-range=HEAD]
 
 set -e
 
@@ -19,7 +19,9 @@ NC='\033[0m'
 FULL_CHECK=false
 FIX_MODE=false
 VERBOSE_MODE=false
-COMMIT_RANGE="HEAD~1"
+# Default to diffing against the current HEAD so an unchanged working tree
+# exits quickly during validation.
+COMMIT_RANGE="HEAD"
 PROFILE_MODE=false
 START_TIME=$(date +%s)
 
