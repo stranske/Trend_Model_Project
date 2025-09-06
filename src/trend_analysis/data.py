@@ -9,6 +9,23 @@ from pandas.api.types import is_datetime64_any_dtype
 logger = logging.getLogger(__name__)
 
 
+def _is_readable(mode: int) -> bool:
+    """Check if a file mode indicates the file is readable.
+
+    Parameters
+    ----------
+    mode : int
+        File mode obtained from stat.st_mode
+
+    Returns
+    -------
+    bool
+        True if the file has read permissions for user, group, or others;
+        False if no read permissions are available.
+    """
+    return (mode & (stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)) != 0
+
+
 def load_csv(path: str) -> Optional[pd.DataFrame]:
     """Load a CSV expecting a 'Date' column.
 
@@ -29,7 +46,7 @@ def load_csv(path: str) -> Optional[pd.DataFrame]:
         if p.is_dir():
             raise IsADirectoryError(path)
         mode = p.stat().st_mode
-        if mode & (stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH) == 0:
+        if not _is_readable(mode):
             logger.error(f"Permission denied accessing file: {path}")
             return None
 
