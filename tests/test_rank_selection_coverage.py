@@ -6,15 +6,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from trend_analysis.core.rank_selection import (
-    DEFAULT_METRIC,
-    FundSelectionConfig,
-    RiskStatsConfig,
-    _quality_filter,
-    blended_score,
-    build_ui,
-    select_funds,
-)
+from trend_analysis.core.rank_selection import (DEFAULT_METRIC,
+                                                FundSelectionConfig,
+                                                RiskStatsConfig,
+                                                _quality_filter, blended_score,
+                                                build_ui, select_funds)
 
 
 def _cm_mock() -> MagicMock:
