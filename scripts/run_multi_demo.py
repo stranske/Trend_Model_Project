@@ -21,6 +21,9 @@ import openpyxl
 import pandas as pd
 import yaml  # type: ignore[import-untyped]
 
+# Allow running without installing the package by adding src/ to PYTHONPATH
+ROOT = Path(__file__).resolve().parent.parent
+
 import trend_analysis as ta
 # (widgets and metrics imported within functions where needed)
 from trend_analysis import (cli, export, gui, metrics, pipeline, run_analysis,
@@ -275,6 +278,7 @@ def _check_cli_env(cfg_path: str) -> None:
     """Invoke the CLI using the TREND_CFG environment variable."""
     env = os.environ.copy()
     env["TREND_CFG"] = cfg_path
+    env["PYTHONPATH"] = f"{ROOT / 'src'}:{env.get('PYTHONPATH', '')}"
     subprocess.run(
         [sys.executable, "-m", "trend_analysis.run_analysis", "--detailed"],
         check=True,
@@ -292,6 +296,7 @@ def _check_cli_env_multi(cfg_path: str) -> None:
     """Invoke the multi-period CLI using the TREND_CFG variable."""
     env = os.environ.copy()
     env["TREND_CFG"] = cfg_path
+    env["PYTHONPATH"] = f"{ROOT / 'src'}:{env.get('PYTHONPATH', '')}"
     subprocess.run(
         [sys.executable, "-m", "trend_analysis.run_multi_analysis", "--detailed"],
         check=True,
@@ -2005,12 +2010,15 @@ _check_module_exports()
 
 def _check_cli_help() -> None:
     """Ensure the CLI entry points print help and exit cleanly."""
+    env = os.environ.copy()
+    env["PYTHONPATH"] = f"{ROOT / 'src'}:{env.get('PYTHONPATH', '')}"
     subprocess.run(
         [sys.executable, "-m", "trend_analysis.run_analysis", "--help"],
         check=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         shell=False,
+        env=env,
     )
     subprocess.run(
         [sys.executable, "-m", "trend_analysis.run_multi_analysis", "--help"],
@@ -2018,6 +2026,7 @@ def _check_cli_help() -> None:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         shell=False,
+        env=env,
     )
     subprocess.run(
         [sys.executable, "-m", "trend_analysis.cli", "--help"],
@@ -2025,6 +2034,7 @@ def _check_cli_help() -> None:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         shell=False,
+        env=env,
     )
 
 
@@ -2107,6 +2117,8 @@ cli_cfg.unlink()
 print("Multi-period demo checks passed")
 
 # Run the CLI entry point in both modes to verify it behaves correctly
+_env = os.environ.copy()
+_env["PYTHONPATH"] = f"{ROOT / 'src'}:{_env.get('PYTHONPATH', '')}"
 subprocess.run(
     [
         sys.executable,
@@ -2117,6 +2129,7 @@ subprocess.run(
     ],
     check=True,
     shell=False,
+    env=_env,
 )
 subprocess.run(
     [
@@ -2129,6 +2142,7 @@ subprocess.run(
     ],
     check=True,
     shell=False,
+    env=_env,
 )
 subprocess.run(
     [
@@ -2141,6 +2155,7 @@ subprocess.run(
     ],
     check=True,
     shell=False,
+    env=_env,
 )
 
 subprocess.run(
