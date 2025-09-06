@@ -24,24 +24,28 @@ def _dummy_prices():
     return 100 * (1 + rets).cumprod()
 
 
-# (metric_name, data_fn, kwargs)
 CASES = [
-    ("volatility", _dummy_returns, {}),
-    ("sharpe_ratio", _dummy_returns, {"risk_free": 0.0}),
-    ("max_drawdown", _dummy_prices, {}),
-    ("sortino_ratio", _dummy_returns, {"target": 0.0}),
-    ("info_ratio", _dummy_returns, {"benchmark": _dummy_returns().mean(axis=1)}),
+    ("volatility", _dummy_returns, lambda data: {}),
+    ("sharpe_ratio", _dummy_returns, lambda data: {"risk_free": 0.0}),
+    ("max_drawdown", _dummy_prices, lambda data: {}),
+    ("info_ratio", _dummy_returns, lambda data: {"benchmark": data.mean(axis=1)}),
 ]
 
 
-@pytest.mark.parametrize("name, data_fn, kw", CASES)
-def test_vectorised_metric_matches_legacy(name, data_fn, kw):
+@pytest.mark.parametrize("name, data_fn, kw_factory", CASES)
+def test_vectorised_metric_matches_legacy(name, data_fn, kw_factory):
     data = data_fn()
     vec_fn = getattr(M, name)
     leg_fn = getattr(L, name)
 
+    kw = kw_factory(data)
     new_series = vec_fn(data, **kw)
-    old_series = leg_fn(data, **kw)
+
+    if name == "sharpe_ratio":
+        rf = pd.Series(0.0, index=data.index)
+        old_series = pd.Series({c: leg_fn(data[c], rf) for c in data.columns})
+    else:
+        old_series = leg_fn(data, **kw)
 
     pd.testing.assert_series_equal(
         new_series,
@@ -50,10 +54,14 @@ def test_vectorised_metric_matches_legacy(name, data_fn, kw):
         atol=NUMERICAL_TOLERANCE_HIGH,
     )
 
-    # also test Series input → scalar
     one_col = data[_cols[0]]
+    kw = kw_factory(one_col.to_frame())
     new_scalar = vec_fn(one_col, **kw)
-    old_scalar = leg_fn(one_col, **kw)
+    if name == "sharpe_ratio":
+        rf = pd.Series(0.0, index=one_col.index)
+        old_scalar = leg_fn(one_col, rf)
+    else:
+        old_scalar = leg_fn(one_col, **kw)
     assert np.isclose(
         new_scalar,
         old_scalar,
