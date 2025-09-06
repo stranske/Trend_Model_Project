@@ -31,9 +31,12 @@ def test_compute_score_frame_local_metric_error(monkeypatch):
     panel = pd.DataFrame(
         {"A": [0.1, 0.2]}, index=pd.date_range("2020-01-31", periods=2, freq="M")
     )
+    def raise_bad(*args, **kwargs):
+        raise ValueError("bad")
+
     dummy_metrics = {
         "ok": {"fn": lambda r, idx: 1.0},
-        "bad": {"fn": lambda r, idx: (_ for _ in ()).throw(ValueError("bad"))},
+        "bad": {"fn": raise_bad},
     }
     monkeypatch.setattr(sim_runner, "AVAILABLE_METRICS", dummy_metrics)
     df = compute_score_frame_local(panel)
