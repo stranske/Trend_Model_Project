@@ -68,7 +68,7 @@ class StreamlitProxyIntegration:
             
             # Try to create proxy (will fail if dependencies missing)
             try:
-                proxy = StreamlitProxy("127.0.0.1", streamlit_port)
+                StreamlitProxy("127.0.0.1", streamlit_port)
                 print("✅ Proxy dependencies available")
                 
                 # In a real scenario, you would start the proxy here:

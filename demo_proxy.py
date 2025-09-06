@@ -24,7 +24,7 @@ def demonstrate_proxy_import():
 
         # Try to create instance (should fail without dependencies)
         try:
-            proxy = StreamlitProxy()
+            StreamlitProxy()
             print("❌ ERROR: Should have raised ImportError for missing dependencies")
         except ImportError as e:
             print(f"✅ Correctly detected missing dependencies: {e}")
