@@ -131,12 +131,15 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         "pandas": pd.__version__,
     }
 
-    fallback_info = res.get("weight_engine_fallback") if isinstance(res, dict) else None
+    fallback_raw = res.get("weight_engine_fallback") if isinstance(res, dict) else None
+    fallback_info: dict[str, Any] | None = (
+        fallback_raw if isinstance(fallback_raw, dict) else None
+    )
     logger.info("run_simulation end")
     return RunResult(
         metrics=metrics_df,
         details=res,
         seed=seed,
         environment=env,
-        fallback_info=fallback_info,  # type: ignore[arg-type]
+        fallback_info=fallback_info,
     )
