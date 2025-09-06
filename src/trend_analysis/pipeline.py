@@ -9,8 +9,14 @@ import pandas as pd
 from numpy.typing import NDArray
 
 from .data import load_csv
-from .metrics import (annual_return, information_ratio, max_drawdown,
-                      sharpe_ratio, sortino_ratio, volatility)
+from .metrics import (
+    annual_return,
+    information_ratio,
+    max_drawdown,
+    sharpe_ratio,
+    sortino_ratio,
+    volatility,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -268,6 +274,9 @@ def _run_analysis(
     out_ew_stats_raw = _compute_stats(pd.DataFrame({"ew": out_ew_raw}), rf_out)["ew"]
 
     # Optionally compute plugin-based weights on in-sample covariance
+    # Track whether a plugin engine failed so downstream (CLI/UI) can surface
+    # a single prominent warning.  Store minimal structured info.
+    weight_engine_fallback: dict[str, str] | None = None
     if (
         custom_weights is None
         and weighting_scheme
@@ -285,11 +294,22 @@ def _run_analysis(
             # level.  This helps `caplog` capture the success message reliably.
             logger.setLevel(logging.DEBUG)
             logger.debug("Successfully created %s weight engine", weighting_scheme)
-        except Exception as e:
-            # Fallback to equal weights with proper logging for debugging
+        except Exception as e:  # pragma: no cover - exercised via tests
+            # Promote to WARNING (single emission) for visibility while also
+            # retaining a DEBUG breadcrumb for detailed CI logs.
+            msg = (
+                "Weight engine '%s' failed (%s: %s); falling back to equal weights"
+                % (weighting_scheme, type(e).__name__, e)
+            )
+            logger.warning(msg)
             logger.debug(
                 "Weight engine creation failed, falling back to equal weights: %s", e
             )
+            weight_engine_fallback = {
+                "engine": str(weighting_scheme),
+                "error_type": type(e).__name__,
+                "error": str(e),
+            }
             custom_weights = None
 
     if custom_weights is None:
@@ -403,6 +423,7 @@ def _run_analysis(
         "benchmark_stats": benchmark_stats,
         "benchmark_ir": benchmark_ir,
         "score_frame": score_frame,
+        "weight_engine_fallback": weight_engine_fallback,
     }
 
 
