@@ -287,6 +287,9 @@ def _run_analysis(
             w_series = engine.weight(cov).reindex(fund_cols).fillna(0.0)
             # Convert to percent mapping expected by downstream logic
             custom_weights = {c: float(w_series.get(c, 0.0) * 100.0) for c in fund_cols}
+            # Ensure debug logs are emitted even if previous tests altered the logger's
+            # level.  This helps `caplog` capture the success message reliably.
+            logger.setLevel(logging.DEBUG)
             logger.debug("Successfully created %s weight engine", weighting_scheme)
         except Exception as e:
             # Fallback to equal weights with proper logging for debugging
