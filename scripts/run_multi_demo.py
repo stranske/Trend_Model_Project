@@ -23,7 +23,6 @@ import yaml  # type: ignore[import-untyped]
 
 # Allow running without installing the package by adding src/ to PYTHONPATH
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "src"))
 
 import trend_analysis as ta
 # (widgets and metrics imported within functions where needed)
