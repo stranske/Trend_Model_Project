@@ -106,7 +106,7 @@ class TestStreamlitProxy:
                     proxy_host="0.0.0.0",
                     proxy_port=8500,
                 )
-            except SystemExit as e:
+            except SystemExit:
                 # May exit with code 0 or error code depending on dependencies
                 pass
 
