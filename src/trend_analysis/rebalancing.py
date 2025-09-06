@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import Dict
 
 from trend_analysis.rebalancing import strategies as _strategies
+
 from .plugins import rebalancer_registry
 
 # Re-export public classes and helpers from the strategies module
