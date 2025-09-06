@@ -101,7 +101,8 @@ def main(cfg_path: str = "config/long_backtest.yml") -> int:
         port_path = out_dir / "portfolio_oos_returns.csv"
         portfolio.to_csv(port_path, index_label="Date")
         # Basic stats
-        from trend_analysis.metrics import annual_return, sharpe_ratio, volatility
+        from trend_analysis.metrics import (annual_return, sharpe_ratio,
+                                            volatility)
 
         rf = df_all.get("Risk-Free Rate")
         rf = rf.loc[portfolio.index] if rf is not None else 0.0

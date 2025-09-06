@@ -9,14 +9,8 @@ import pandas as pd
 from numpy.typing import NDArray
 
 from .data import load_csv
-from .metrics import (
-    annual_return,
-    information_ratio,
-    max_drawdown,
-    sharpe_ratio,
-    sortino_ratio,
-    volatility,
-)
+from .metrics import (annual_return, information_ratio, max_drawdown,
+                      sharpe_ratio, sortino_ratio, volatility)
 
 logger = logging.getLogger(__name__)
 
