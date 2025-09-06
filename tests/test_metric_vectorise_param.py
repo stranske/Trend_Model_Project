@@ -28,7 +28,8 @@ def _dummy_prices():
 
 # Special function for info_ratio that ensures benchmark and data consistency
 def _dummy_returns_with_benchmark():
-    """Generate returns data and return both the data and its benchmark (mean across columns)."""
+    """Generate returns data and return both the data and its benchmark (mean
+    across columns)."""
     data = _dummy_returns()
     return data, data.mean(axis=1)
 

@@ -15,6 +15,13 @@ fastapi>=0.104.0
 uvicorn[standard]
 httpx>=0.25
 
+# Optional proxy dependencies (for WebSocket-capable Streamlit proxy)
+# Install with: pip install fastapi uvicorn httpx websockets
+# fastapi>=0.100.0
+# uvicorn>=0.20.0  
+# httpx>=0.24.0
+# websockets>=11.0
+
 # Development tools
 pre-commit
 black
