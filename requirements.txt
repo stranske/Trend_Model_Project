@@ -19,3 +19,8 @@ ruff
 mypy
 pytest-cov
 jsonschema
+
+# FastAPI health wrapper dependencies
+fastapi
+uvicorn[standard]
+httpx

@@ -45,4 +45,9 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl --fail http://localhost:8501/health || exit 1
 
 # Default command runs the health wrapper (which starts Streamlit internally)
+ENV PYTHONPATH="/app/src"
+ENV STREAMLIT_APP_PATH="/app/src/trend_portfolio_app/app.py"
+ENV HEALTH_WRAPPER_PORT="8501"
+ENV STREAMLIT_PORT="8502"
+ENV STREAMLIT_SERVER_HEADLESS="true"
 CMD ["python", "-m", "trend_portfolio_app.health_wrapper"]
