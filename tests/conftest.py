@@ -21,6 +21,7 @@ import sys
 from pathlib import Path
 
 import pytest
+
 try:
     import yaml  # type: ignore
 except ImportError:

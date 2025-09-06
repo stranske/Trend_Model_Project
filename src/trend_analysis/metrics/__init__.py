@@ -128,7 +128,8 @@ def _compute_ratio_with_zero_handling(
     denominator: float | Series,
     fn_name: str,
 ) -> float | pd.Series | np.floating:
-    """Compute ratio with appropriate zero-division handling for Series vs DataFrame."""
+    """Compute ratio with appropriate zero-division handling for Series vs
+    DataFrame."""
     if isinstance(returns, Series):
         # Scalar path
         denom = float(cast(float, denominator))
