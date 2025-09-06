@@ -156,6 +156,7 @@ def test_simulator_handles_equity_curve_update_failure(monkeypatch, caplog):
         return {"hire": [], "fire": []}
 
     def fake_apply(prev_weights, target_weights, date, rb_cfg, rb_state, policy):
+        # Intentionally assign invalid data to simulate equity curve update failure
         rb_state["equity_curve"] = 1
         return pd.Series(dtype=float)
 
