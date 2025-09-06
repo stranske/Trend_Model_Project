@@ -24,9 +24,7 @@ class TestMalformedDateValidation:
                 "Fund2": [0.05, 0.06, 0.07, 0.08],
             }
         )
-
         result = validate_returns_schema(df)
-
         # Should fail validation due to malformed dates
         assert not result.is_valid
         assert len(result.issues) > 0
