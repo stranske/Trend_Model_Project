@@ -33,7 +33,7 @@ if fb_info and not st.session_state.get("dismiss_weight_engine_fallback"):
         ):
             st.session_state["dismiss_weight_engine_fallback"] = True
             try:
-                st.experimental_rerun()  # type: ignore[attr-defined]
+                st.rerun()
             except Exception:  # pragma: no cover
                 pass
 
