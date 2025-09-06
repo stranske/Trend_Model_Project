@@ -38,10 +38,8 @@ def pytest_collection_modifyitems(config, items):
     qfile = pathlib.Path(__file__).with_name("quarantine.yml")
     if not qfile.exists() or yaml is None:
         return
-    data = yaml.safe_load(qfile.read_text()) or {}
-    q = set()
-    for entry in data.get("tests", []):
-        q.add(entry["id"] if isinstance(entry, dict) else str(entry))
+    data = yaml.safe_load(q.read_text()) or {}
+    bad = {t["id"] for t in data.get("tests", [])}
     for it in items:
         if it.nodeid in q:
             it.add_marker(pytest.mark.quarantine(reason="repo quarantine list"))
