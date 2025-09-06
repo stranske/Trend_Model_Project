@@ -23,7 +23,7 @@ from pathlib import Path
 import pytest
 try:
     import yaml  # type: ignore
-except Exception:
+except ImportError:
     yaml = None
 
 # --- Ensure local ``src`` packages are importable ---------------------------------------
