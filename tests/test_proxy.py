@@ -20,7 +20,7 @@ class TestStreamlitProxy:
             with pytest.raises(
                 ImportError, match="Required dependencies not available"
             ):
-                StreamlitProxy()
+                StreamlitProxy(streamlit_host="localhost", streamlit_port=8501)
 
     def test_proxy_initialization_with_deps(self):
         """Test proxy initialization when dependencies are available."""
