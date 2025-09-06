@@ -58,16 +58,37 @@ def load_csv(path: str) -> Optional[pd.DataFrame]:
                 # Try generic parsing, but detect malformed dates
                 parsed_dates = pd.to_datetime(df["Date"], errors="coerce")
                 if parsed_dates.isnull().any():
-                    # Count malformed dates for better error reporting
-                    malformed_count = parsed_dates.isnull().sum()
+                    # Distinguish between null/empty dates and malformed string dates
                     malformed_mask = parsed_dates.isnull()
                     malformed_values = df.loc[malformed_mask, "Date"].tolist()
-
-                    logger.error(
-                        f"Validation failed ({path}): {malformed_count} malformed date(s) that cannot be parsed: {malformed_values[:5]}{'...' if len(malformed_values) > 5 else ''}"
-                    )
-                    # Treat malformed dates as validation errors, not expiration failures
-                    return None
+                    
+                    # Check if these are null/empty dates (empty strings, NaN) vs malformed strings
+                    null_dates = [v for v in malformed_values if v == '' or pd.isna(v)]
+                    malformed_strings = [v for v in malformed_values if v != '' and not pd.isna(v)]
+                    
+                    if malformed_strings:
+                        # Strict handling: reject entire file for malformed string dates
+                        malformed_count = len(malformed_strings)
+                        logger.error(
+                            f"Validation failed ({path}): {malformed_count} malformed date(s) that cannot be parsed: {malformed_strings[:5]}{'...' if len(malformed_strings) > 5 else ''}"
+                        )
+                        return None
+                    elif null_dates:
+                        # Graceful handling: filter out null/empty dates but continue
+                        null_count = len(null_dates)
+                        logger.warning(
+                            f"Found {null_count} null/empty date(s): {null_dates[:5]}{'...' if len(null_dates) > 5 else ''}. Removing these rows from the dataset."
+                        )
+                        # Filter out rows with null dates
+                        valid_mask = ~malformed_mask
+                        df = df.loc[valid_mask].copy()
+                        parsed_dates = parsed_dates.loc[valid_mask]
+                        
+                        # If no valid dates remain, then return None
+                        if len(df) == 0:
+                            logger.error(f"No valid date rows remaining in {path} after filtering null dates")
+                            return None
+                        
                 df["Date"] = parsed_dates
         # Coerce non-Date columns to numeric when they look like strings
         # (e.g., "0.56%", "1,234", or parentheses for negatives).
