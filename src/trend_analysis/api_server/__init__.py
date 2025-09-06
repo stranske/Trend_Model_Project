@@ -72,7 +72,7 @@ def run(host: str = "127.0.0.1", port: int = 8000) -> Tuple[str, int]:
     import uvicorn
 
     uvicorn.run(
-        "trend_analysis.api_server:app",
+        app,
         host=host,
         port=port,
         reload=False,
