@@ -73,6 +73,7 @@ dev = [
     "pytest-cov",
     "types-PyYAML",
     "jsonschema",
+    "httpx>=0.25",
 ]
 
 [tool.black]
