@@ -102,6 +102,7 @@ jobs:
         run: |
           docker run -d --name trendci -p 8000:8000 \
             -e STREAMLIT_SERVER_HEADLESS=1 \
+            -e HEALTH_PORT=8501 \
             trend:ci
       - name: Wait for health
         run: |
