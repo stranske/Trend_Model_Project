@@ -48,6 +48,7 @@ Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: types-PyYAML; extra == "dev"
 Requires-Dist: jsonschema; extra == "dev"
+Requires-Dist: httpx>=0.25; extra == "dev"
 
 # Trend Model Project
 
