@@ -12,7 +12,7 @@ from trend_portfolio_app.sim_runner import (
 
 def test_module_import_sets_has_ta_false(monkeypatch):
     import importlib
-    monkeypatch.setattr(importlib, "import_module", lambda name: (_ for _ in ()).throw(Exception()))
+    monkeypatch.setattr(importlib, "import_module", lambda name: (_ for _ in ()).throw(ImportError()))
     reloaded = importlib.reload(sr)
     assert reloaded.HAS_TA is False
     assert reloaded.ta_pipeline is None
