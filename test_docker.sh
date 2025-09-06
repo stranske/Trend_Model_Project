@@ -30,7 +30,7 @@ sleep 10
 # Test 3: Check health endpoint
 echo ""
 echo "🔍 Test 3: Testing health endpoint..."
-if curl -f http://localhost:8501/_stcore/health; then
+if curl -f http://localhost:8501/health; then
     echo "✅ Health check passed"
 else
     echo "❌ Health check failed"

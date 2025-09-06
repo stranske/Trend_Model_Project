@@ -58,6 +58,9 @@ include = ["trend_analysis*", "trend_portfolio_app*"]
 app = [
     "streamlit>=1.30",
     "streamlit-sortables",
+    "fastapi",
+    "uvicorn[standard]",
+    "httpx",
 ]
 notebooks = [
     "ipyfilechooser",

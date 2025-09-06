@@ -29,21 +29,6 @@ except Exception:  # pragma: no cover - optional UI nicety
     _st_sort_items = None
 
 
-# ---- health check (fast path for CI/readiness) -------------------------
-# If the query string contains health=1 (or true/yes), immediately return a tiny
-# page and stop execution. This gives CI a super-fast and deterministic endpoint
-# without rendering the full app.
-try:  # Prefer stable API when available
-    _qs = st.experimental_get_query_params()
-except Exception:  # pragma: no cover - extremely unlikely
-    _qs = {}
-
-_health_flag = str(_qs.get("health", ["0"])[0]).lower()
-if _health_flag in {"1", "true", "yes"}:  # pragma: no cover - exercised via smoke test
-    st.write("OK")
-    st.stop()
-
-
 # ---- small helpers -----------------------------------------------------
 
 
