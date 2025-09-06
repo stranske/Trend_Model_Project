@@ -91,8 +91,22 @@ jobs:
             const owner = context.repo.owner;
             const repo  = context.repo.repo;
             const prNum = Number('${{ steps.find_pr.outputs.pr }}');
-            const jobs = await github.rest.actions.listJobsForWorkflowRun({ owner, repo, run_id: run.id, per_page: 100 });
-            const failing = jobs.data.jobs
+            // Fetch all jobs using pagination
+            let allJobs = [];
+            let page = 1;
+            let fetched;
+            do {
+              fetched = await github.rest.actions.listJobsForWorkflowRun({
+                owner,
+                repo,
+                run_id: run.id,
+                per_page: 100,
+                page
+              });
+              allJobs = allJobs.concat(fetched.data.jobs);
+              page += 1;
+            } while (fetched.data.jobs.length === 100);
+            const failing = allJobs
               .filter(j => (j.conclusion || '') !== 'success')
               .map(j => `- **${j.name}** (${j.conclusion}) → [logs](${j.html_url})`)
               .join('\n') || '- failed checks, see run logs.';
