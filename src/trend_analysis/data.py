@@ -64,7 +64,7 @@ def load_csv(path: str) -> Optional[pd.DataFrame]:
                     malformed_values = df.loc[malformed_mask, "Date"].tolist()
 
                     logger.error(
-                        f\"Validation failed ({path}): {malformed_count} malformed date(s) that cannot be parsed: {malformed_values[:5]}{'...' if len(malformed_values) > 5 else ''}\"
+                        f"Validation failed ({path}): {malformed_count} malformed date(s) that cannot be parsed: {malformed_values[:5]}{'...' if len(malformed_values) > 5 else ''}"
                     )
                     # Treat malformed dates as validation errors, not expiration failures
                     return None
@@ -149,7 +149,7 @@ def ensure_datetime(df: pd.DataFrame, column: str = "Date") -> pd.DataFrame:
                 malformed_values = df.loc[malformed_mask, column].tolist()
 
                 logger.error(
-                    f\"Found {malformed_count} malformed date(s) in column '{column}' that cannot be parsed: {malformed_values[:5]}{'...' if len(malformed_values) > 5 else ''}\"
+                    f"Found {malformed_count} malformed date(s) in column '{column}' that cannot be parsed: {malformed_values[:5]}{'...' if len(malformed_values) > 5 else ''}"
                 )
                 # Raise an exception to prevent malformed dates from being
                 # processed as expired dates or other incorrect handling
