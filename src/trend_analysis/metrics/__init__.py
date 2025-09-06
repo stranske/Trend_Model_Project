@@ -122,6 +122,29 @@ def _check_shapes(
         raise ValueError(f"{fn}: inputs must have identical shape")
 
 
+def _compute_ratio_with_zero_handling(
+    returns: Series | DataFrame,
+    numerator: float | Series,
+    denominator: float | Series,
+    fn_name: str,
+) -> float | pd.Series | np.floating:
+    """Compute ratio with appropriate zero-division handling for Series vs
+    DataFrame."""
+    if isinstance(returns, Series):
+        # Scalar path
+        denom = float(cast(float, denominator))
+        if denom == 0:
+            return _empty_like(returns, fn_name)
+        result = float(cast(float, numerator)) / denom
+        return float(result)
+    else:
+        # Vector path
+        assert isinstance(numerator, pd.Series)
+        assert isinstance(denominator, pd.Series)
+        denom_safe = denominator.replace(0, np.nan)
+        return numerator / denom_safe
+
+
 ###############################################################################
 # Annualised total return (a.k.a. CAGR)                                       #
 ###############################################################################
@@ -193,28 +216,14 @@ def sharpe_ratio(
     if isinstance(risk_free, DataFrame):
         raise ValueError("sharpe_ratio: risk_free cannot be a DataFrame")
     if isinstance(returns, Series) and isinstance(risk_free, DataFrame):
-        raise ValueError(
-            "sharpe_ratio: Series vs DataFrame not supported"
-        )  # pragma: no cover - unreachable
+        raise ValueError("sharpe_ratio: Series vs DataFrame not supported")
     _check_shapes(returns, risk_free, "sharpe_ratio")
 
     excess = returns - risk_free
     ann_ret = annual_return(excess, periods_per_year)
     sigma = volatility(excess, periods_per_year)
 
-    if isinstance(returns, Series):
-        # Scalar path
-        sig = float(cast(float, sigma))
-        if sig == 0:
-            return _empty_like(returns, "sharpe_ratio")
-        sr = float(cast(float, ann_ret)) / sig
-        return float(sr)
-    else:
-        # Vector path
-        assert isinstance(ann_ret, pd.Series)
-        assert isinstance(sigma, pd.Series)
-        sigma_safe = sigma.replace(0, np.nan)
-        return ann_ret / sigma_safe
+    return _compute_ratio_with_zero_handling(returns, ann_ret, sigma, "sharpe_ratio")
 
 
 # Backwards-compatible short name
@@ -245,16 +254,17 @@ def sortino_ratio(
 
     if isinstance(returns, Series):
         denom = float(cast(float, downside_std)) * float(np.sqrt(periods_per_year))
-        if denom == 0:
-            return _empty_like(returns, "sortino_ratio")
-        sr = float(cast(float, annual_return(excess, periods_per_year))) / denom
-        return float(sr)
+        numerator = float(cast(float, annual_return(excess, periods_per_year)))
+        return _compute_ratio_with_zero_handling(
+            returns, numerator, denom, "sortino_ratio"
+        )
     else:
         assert isinstance(downside_std, pd.Series)
         denom = downside_std * np.sqrt(periods_per_year)
-        denom = denom.replace(0, np.nan)
-        ar = cast(pd.Series, annual_return(excess, periods_per_year))
-        return ar / denom
+        numerator = cast(pd.Series, annual_return(excess, periods_per_year))
+        return _compute_ratio_with_zero_handling(
+            returns, numerator, denom, "sortino_ratio"
+        )
 
 
 ###############################################################################
