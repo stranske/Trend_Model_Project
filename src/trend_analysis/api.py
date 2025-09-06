@@ -21,12 +21,29 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class RunResult:
-    """Container for simulation output."""
+    """Container for simulation output.
+
+    Attributes
+    ----------
+    metrics : pd.DataFrame
+        Summary metrics table.
+    details : dict[str, Any]
+        Full result payload returned by the pipeline.
+    seed : int
+        Random seed used for reproducibility.
+    environment : dict[str, Any]
+        Environment metadata (python/numpy/pandas versions).
+    fallback_info : dict[str, Any] | None
+        Present when a requested weight engine failed and the system
+        reverted to equal weights.  Includes keys: ``engine``,
+        ``error_type`` and ``error``.
+    """
 
     metrics: pd.DataFrame
     details: dict[str, Any]
     seed: int
     environment: dict[str, Any]
+    fallback_info: dict[str, Any] | None = None
 
 
 def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
@@ -114,5 +131,12 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         "pandas": pd.__version__,
     }
 
+    fallback_info = res.get("weight_engine_fallback") if isinstance(res, dict) else None
     logger.info("run_simulation end")
-    return RunResult(metrics=metrics_df, details=res, seed=seed, environment=env)
+    return RunResult(
+        metrics=metrics_df,
+        details=res,
+        seed=seed,
+        environment=env,
+        fallback_info=fallback_info,  # type: ignore[arg-type]
+    )

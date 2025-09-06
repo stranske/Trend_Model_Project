@@ -67,6 +67,10 @@ def test_weight_engine_failure_logging(caplog):
 
     # Check that analysis succeeded (fallback to equal weights)
     assert result is not None
+    # Fallback info structure present
+    assert result.get("weight_engine_fallback") is not None
+    fb = result["weight_engine_fallback"]
+    assert fb["engine"] == "nonexistent_engine"
 
     # Check that fallback message was logged
     debug_logs = [
@@ -77,6 +81,14 @@ def test_weight_engine_failure_logging(caplog):
     ]
     assert len(fallback_logs) > 0
     assert "Weight engine creation failed" in fallback_logs[0].message
+    # A single WARNING should have been emitted for visibility
+    warn_logs = [
+        record for record in caplog.records if record.levelno == logging.WARNING
+    ]
+    warning_fallback = [
+        w for w in warn_logs if "falling back to equal weights" in w.message
+    ]
+    assert len(warning_fallback) == 1
 
 
 def test_weight_engine_import_failure_logging(caplog):

@@ -16,6 +16,27 @@ if "sim_results" not in st.session_state:
 
 res = st.session_state["sim_results"]
 
+# One-time banner for weight engine fallback
+try:
+    fb_info = getattr(res, "fallback_info", None)
+except Exception:  # pragma: no cover - defensive
+    fb_info = None
+if fb_info and not st.session_state.get("dismiss_weight_engine_fallback"):
+    with st.warning(
+        "⚠️ Weight engine '%s' failed (%s). Portfolio uses equal weights."
+        % (fb_info.get("engine"), fb_info.get("error_type"))
+    ):
+        if st.button(
+            "Dismiss",
+            key="btn_dismiss_weight_engine_fallback_results",
+            help="Hide this warning banner.",
+        ):
+            st.session_state["dismiss_weight_engine_fallback"] = True
+            try:
+                st.experimental_rerun()  # type: ignore[attr-defined]
+            except Exception:  # pragma: no cover
+                pass
+
 c1, c2 = st.columns(2)
 with c1:
     st.subheader("Equity curve")

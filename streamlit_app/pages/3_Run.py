@@ -114,6 +114,23 @@ def main():
     result = run_simulation(config, returns)
     progress.progress(100)
     st.session_state["sim_results"] = result
+    # Show fallback banner if a weight engine failed
+    try:
+        fb = getattr(result, "fallback_info", None)
+    except Exception:  # pragma: no cover - defensive
+        fb = None
+    if fb and not st.session_state.get("dismiss_weight_engine_fallback"):
+        with st.warning(
+            "⚠️ Weight engine '%s' failed (%s). Using equal weights."
+            % (fb.get("engine"), fb.get("error_type")),
+        ):
+            if st.button(
+                "Dismiss",
+                key="btn_dismiss_weight_engine_fallback",
+                help="Hide this warning for the current session.",
+            ):
+                st.session_state["dismiss_weight_engine_fallback"] = True
+                st.experimental_rerun()  # type: ignore[attr-defined]
     st.success("Done.")
     st.write("Summary:", result.metrics)
 
