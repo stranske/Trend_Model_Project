@@ -117,12 +117,24 @@ def validate_returns_schema(df: pd.DataFrame) -> ValidationResult:
         issues.append("Missing required 'Date' column")
         return ValidationResult(False, issues, warnings)
 
-    # Try to parse dates
+    # Try to parse dates with coercion to detect malformed dates
     try:
+        # First try strict parsing
         date_series = pd.to_datetime(df["Date"])
-    except Exception as e:
-        issues.append(f"Date column contains invalid dates: {str(e)}")
-        return ValidationResult(False, issues, warnings)
+    except Exception:
+        # If strict parsing fails, use coercion to identify specific malformed dates
+        date_series = pd.to_datetime(df["Date"], errors="coerce")
+        if date_series.isna().any():
+            # Treat malformed dates as validation errors, not expiration failures
+            malformed_count = date_series.isna().sum()
+            malformed_mask = date_series.isna()
+            malformed_values = df.loc[malformed_mask, "Date"].tolist()
+            issues.append(
+                f"Found {malformed_count} malformed date(s) that could not be parsed: {malformed_values[:5]}"
+                + ("..." if len(malformed_values) > 5 else "")
+                + ". These should be treated as validation errors, not expiration failures."
+            )
+            return ValidationResult(False, issues, warnings)
 
     # Check for numeric columns
     non_date_cols = [col for col in df.columns if col != "Date"]

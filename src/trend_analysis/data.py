@@ -55,12 +55,22 @@ def load_csv(path: str) -> Optional[pd.DataFrame]:
             try:
                 df["Date"] = pd.to_datetime(df["Date"], format="%m/%d/%y")
             except ValueError:
-                df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-                if df["Date"].isnull().any():
-                    logger.warning(
-                        "Could not parse all dates in %s using mm/dd/yy format",
-                        path,
+                # Try generic parsing, but detect malformed dates
+                parsed_dates = pd.to_datetime(df["Date"], errors="coerce")
+                if parsed_dates.isnull().any():
+                    # Count malformed dates for better error reporting
+                    malformed_count = parsed_dates.isnull().sum()
+                    malformed_mask = parsed_dates.isnull()
+                    malformed_values = df.loc[malformed_mask, "Date"].tolist()
+
+                    logger.error(
+                        f"Validation failed ({path}): {malformed_count} malformed date(s) "
+                        f"that cannot be parsed: {malformed_values[:5]}"
+                        + ("..." if len(malformed_values) > 5 else "")
                     )
+                    # Treat malformed dates as validation errors, not expiration failures
+                    return None
+                df["Date"] = parsed_dates
         # Coerce non-Date columns to numeric when they look like strings
         # (e.g., "0.56%", "1,234", or parentheses for negatives).
         for col in df.columns:
@@ -123,12 +133,35 @@ def identify_risk_free_fund(df: pd.DataFrame) -> Optional[str]:
 
 
 def ensure_datetime(df: pd.DataFrame, column: str = "Date") -> pd.DataFrame:
-    """Coerce ``column`` to datetime if needed."""
+    """Coerce ``column`` to datetime if needed.
+
+    Treats malformed dates as validation errors rather than silently
+    converting them to NaT values.
+    """
     if column in df.columns and not is_datetime64_any_dtype(df[column]):
         try:
             df[column] = pd.to_datetime(df[column], format="%m/%d/%y")
         except Exception:
-            df[column] = pd.to_datetime(df[column], errors="coerce")
+            # Try generic parsing, but detect malformed dates
+            parsed_dates = pd.to_datetime(df[column], errors="coerce")
+            if parsed_dates.isna().any():
+                # Count malformed dates for better error reporting
+                malformed_count = parsed_dates.isna().sum()
+                malformed_mask = parsed_dates.isna()
+                malformed_values = df.loc[malformed_mask, column].tolist()
+
+                logger.error(
+                    f"Found {malformed_count} malformed date(s) in column '{column}' "
+                    f"that cannot be parsed: {malformed_values[:5]}"
+                    + ("..." if len(malformed_values) > 5 else "")
+                )
+                # Raise an exception to prevent malformed dates from being
+                # processed as expired dates or other incorrect handling
+                raise ValueError(
+                    f"Malformed dates found in column '{column}'. "
+                    "These should be treated as validation errors, not expiration failures."
+                )
+            df[column] = parsed_dates
     return df
 
 
