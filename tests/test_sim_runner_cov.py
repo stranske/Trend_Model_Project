@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 import pandas as pd
 import pytest
@@ -23,6 +24,19 @@ def test_compute_score_frame_local_handles_failure(monkeypatch):
     df = sim_runner.compute_score_frame_local(panel.set_index("Date"))
     assert "boom" in df.columns
     assert np.isnan(df.loc["A", "boom"])
+
+
+def test_compute_score_frame_local_skips_date_column():
+    panel = pd.DataFrame(
+        {
+            "Date": [pd.Timestamp("2020-01-31"), pd.Timestamp("2020-02-29")],
+            "A": [0.1, 0.2],
+        },
+        index=[pd.Timestamp("2020-01-31"), pd.Timestamp("2020-02-29")],
+    )
+
+    df = sim_runner.compute_score_frame_local(panel)
+    assert "Date" not in df.index
 
 
 def test_compute_score_frame_validations_and_fallback(monkeypatch):
@@ -127,6 +141,37 @@ def test_simulator_run_progress_and_fire(monkeypatch):
     assert calls == [(1, 2), (2, 2)]
     assert res.event_log.events[0].action == "hire"
     assert res.event_log.events[1].action == "fire"
+
+
+def test_simulator_handles_equity_curve_update_failure(monkeypatch, caplog):
+    first = pd.Timestamp("2020-01-31")
+    second = pd.Timestamp("2020-02-29")
+    data = pd.DataFrame({"A": [0.1, 0.2]}, index=[first, second])
+    sim = sim_runner.Simulator(data)
+
+    def fake_compute(panel, start, end, rf_annual=0.0):
+        return pd.DataFrame({"m": [1.0]}, index=["A"])
+
+    def fake_decide(asof, sf, current, policy, directions, cooldowns, eligible_since, tenure):
+        return {"hire": [], "fire": []}
+
+    def fake_apply(prev_weights, target_weights, date, rb_cfg, rb_state, policy):
+        rb_state["equity_curve"] = 1
+        return pd.Series(dtype=float)
+
+    monkeypatch.setattr(sim_runner, "compute_score_frame", fake_compute)
+    monkeypatch.setattr(sim_runner, "decide_hires_fires", fake_decide)
+    monkeypatch.setattr(sim_runner, "_apply_rebalance_pipeline", fake_apply)
+
+    caplog.set_level(logging.WARNING)
+    sim.run(
+        start=first,
+        end=first,
+        freq="M",
+        lookback_months=1,
+        policy=PolicyConfig(min_track_months=0),
+    )
+    assert "Failed to update equity curve" in caplog.text
 
 
 def test_apply_rebalance_pipeline_no_prev():
