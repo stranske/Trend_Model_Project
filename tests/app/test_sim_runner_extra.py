@@ -173,7 +173,17 @@ def test_apply_rebalance_pipeline_branches(monkeypatch):
         prev_weights=pd.Series([0.2], index=["A"]),
         target_weights=pd.Series([0.2], index=["A"]),
         date=pd.Timestamp("2020-01-31"),
-        rb_cfg={"bayesian_only": False, "strategies": ["drawdown_guard"], "params": {"drawdown_guard": {"dd_window": 2, "dd_threshold": 0.5, "recover_threshold": 0.05}}},
+        rb_cfg={
+            "bayesian_only": False,
+            "strategies": ["drawdown_guard"],
+            "params": {
+                "drawdown_guard": {
+                    "dd_window": 2,
+                    "dd_threshold": 0.5,
+                    "recover_threshold": 0.05,
+                }
+            },
+        },
         rb_state=rb_state,
         policy=policy,
     )
