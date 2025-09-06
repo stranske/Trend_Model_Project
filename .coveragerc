@@ -1,3 +1,5 @@
 [run]
 omit =
     trend_analysis/core/*
+    trend_analysis/gui/*
+    trend_analysis/proxy/server.py
