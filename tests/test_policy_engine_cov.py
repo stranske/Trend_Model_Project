@@ -1,11 +1,8 @@
 import pandas as pd
-from trend_portfolio_app.policy_engine import (
-    CooldownBook,
-    MetricSpec,
-    PolicyConfig,
-    decide_hires_fires,
-    zscore,
-)
+
+from trend_portfolio_app.policy_engine import (CooldownBook, MetricSpec,
+                                               PolicyConfig,
+                                               decide_hires_fires, zscore)
 
 
 def test_policy_config_dict_cooldown_and_zscore():
