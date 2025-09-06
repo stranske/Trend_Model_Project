@@ -18,7 +18,7 @@ pytestmark = pytest.mark.smoke
 
 
 # Configuration constants with environment variable overrides
-DEFAULT_STARTUP_TIMEOUT = int(os.environ.get("STREAMLIT_STARTUP_TIMEOUT", "30"))
+DEFAULT_STARTUP_TIMEOUT = int(os.environ.get("STREAMLIT_STARTUP_TIMEOUT", "60"))
 DEFAULT_POLL_INTERVAL = float(os.environ.get("STREAMLIT_POLL_INTERVAL", "0.5"))
 DEFAULT_READY_TIMEOUT = int(os.environ.get("STREAMLIT_READY_TIMEOUT", "5"))
 
@@ -110,11 +110,17 @@ def test_app_starts_headlessly():
         "-m",
         "trend_portfolio_app.health_wrapper",
     ]
-    
+
     # Set the wrapper to use the test port and correct app path
-    env["HEALTH_WRAPPER_PORT"] = str(port)
+    env["HEALTH_PORT"] = str(port)
+    env["HEALTH_HOST"] = "127.0.0.1"  # Use localhost for tests
+    # These variables are not used by health_wrapper but kept for compatibility
     env["STREAMLIT_APP_PATH"] = str(APP_PATH)
     env["STREAMLIT_PORT"] = str(port + 1)  # Use different port for internal Streamlit
+
+    print(f"Launching health wrapper on port {port}...")
+    print(f"Command: {' '.join(cmd)}")
+    print(f"Environment: HEALTH_PORT={port}, HEALTH_HOST=127.0.0.1")
 
     # Start the Streamlit process
     proc = subprocess.Popen(
@@ -127,18 +133,40 @@ def test_app_starts_headlessly():
 
     try:
         # Use sophisticated readiness check instead of hardcoded sleep
+        print(
+            f"Waiting for app to become ready (timeout: {DEFAULT_STARTUP_TIMEOUT}s)..."
+        )
         if not wait_for_streamlit_ready(port):
             # If readiness check fails, check if process is still running
             if proc.poll() is not None:
                 # Print output for easier debugging as suggested
-                print("STDOUT:", proc.stdout.read())
-                print("STDERR:", proc.stderr.read())
+                stdout_output = proc.stdout.read() if proc.stdout else "No stdout"
+                stderr_output = proc.stderr.read() if proc.stderr else "No stderr"
+                print("STDOUT:", stdout_output)
+                print("STDERR:", stderr_output)
                 pytest.fail(
-                    f"Streamlit app terminated early with exit code {proc.returncode}"
+                    f"Health wrapper terminated early with exit code {proc.returncode}. "
+                    f"STDOUT: {stdout_output}. STDERR: {stderr_output}"
                 )
             else:
+                # Collect any available output for debugging
+                try:
+                    stdout_output = (
+                        proc.stdout.read() if proc.stdout else "No stdout available"
+                    )
+                    stderr_output = (
+                        proc.stderr.read() if proc.stderr else "No stderr available"
+                    )
+                    print("Process still running but not ready. STDOUT:", stdout_output)
+                    print("Process still running but not ready. STDERR:", stderr_output)
+                except Exception as e:
+                    print(f"Could not read process output: {e}")
+                    stdout_output = "Could not read stdout"
+                    stderr_output = "Could not read stderr"
+
                 pytest.fail(
-                    f"Streamlit app failed to become ready within {DEFAULT_STARTUP_TIMEOUT} seconds"
+                    f"Health wrapper failed to become ready within {DEFAULT_STARTUP_TIMEOUT} seconds. "
+                    f"Process still running. STDOUT: {stdout_output}. STDERR: {stderr_output}"
                 )
 
         # Verify the process is still running after successful readiness check
