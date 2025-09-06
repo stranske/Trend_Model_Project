@@ -1928,8 +1928,8 @@ def _check_module_exports() -> None:
             "load",
             "load_config",
             "Config",
+            "ConfigType",
             "DEFAULTS",
-            "_find_config_directory",
         },
         "data": {"load_csv", "identify_risk_free_fund", "ensure_datetime"},
         "export": {
