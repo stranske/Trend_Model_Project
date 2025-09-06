@@ -89,6 +89,8 @@ jobs:
             -e STREAMLIT_SERVER_HEADLESS=1 \
             trend:ci
       - name: Wait for health
+        # NOTE: The health check endpoint '/?health=1' is a custom implementation.
+        # Consider updating the application to expose a standard '/health' endpoint for clarity.
         run: |
           for i in {1..20}; do
             if curl -fsS http://localhost:8501/?health=1 | grep -qi "ok"; then
