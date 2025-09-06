@@ -1,45 +1,83 @@
-"""Minimal HTTP API server for demo purposes.
+"""FastAPI server for trend analysis API.
 
-Exposes a simple health check endpoint at ``/health``.
+Provides REST API endpoints for trend analysis operations with modern
+lifespan context manager for startup/shutdown events.
 """
 
 from __future__ import annotations
 
-from http.server import BaseHTTPRequestHandler, HTTPServer
-from typing import Tuple
+import logging
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator, Tuple
+
+from fastapi import FastAPI
+
+logger = logging.getLogger(__name__)
 
 
-class RequestHandler(BaseHTTPRequestHandler):
-    """Handle basic GET requests."""
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """Manage application lifespan events.
 
-    def do_GET(self) -> None:  # noqa: N802 (Http server interface)
-        if self.path == "/health":
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(b'{"status":"ok"}')
-        else:
-            self.send_response(404)
-            self.end_headers()
-
-    def log_message(self, format: str, *args: object) -> None:  # noqa: A003
-        # Silence default logging in tests/demos
-        return
-
-
-def run(host: str = "127.0.0.1", port: int = 8080) -> Tuple[str, int]:
-    """Run the demo API server and block until interrupted.
-
-    Returns the host and port used.
+    Modern FastAPI approach using context manager instead of deprecated
+    @app.on_event() decorators.
     """
-    server = HTTPServer((host, port), RequestHandler)
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        pass
-    finally:
-        server.shutdown()
-        server.server_close()
+    # Startup logic
+    logger.info("Starting up trend analysis API server")
+    # Initialize any resources here (database connections, ML models, etc.)
+
+    yield  # Application is running
+
+    # Shutdown logic
+    logger.info("Shutting down trend analysis API server")
+    # Clean up resources here
+
+
+# Create FastAPI app with lifespan context manager
+app = FastAPI(
+    title="Trend Analysis API",
+    description="REST API for volatility-adjusted trend portfolio analysis",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    return {"status": "ok"}
+
+
+@app.get("/")
+async def root():
+    """Root endpoint with API information."""
+    return {
+        "message": "Trend Analysis API",
+        "version": "1.0.0",
+        "docs": "/docs",
+        "health": "/health",
+    }
+
+
+def run(host: str = "127.0.0.1", port: int = 8000) -> Tuple[str, int]:
+    """Run the FastAPI server.
+
+    Args:
+        host: Host to bind to
+        port: Port to bind to
+
+    Returns:
+        Tuple of (host, port) for backward compatibility
+    """
+    import uvicorn
+
+    uvicorn.run(
+        app,
+        host=host,
+        port=port,
+        reload=False,
+        log_level="info",
+    )
     return host, port
 
 
