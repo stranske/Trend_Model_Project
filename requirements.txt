@@ -11,6 +11,8 @@ nbformat
 streamlit>=1.30
 streamlit-sortables
 scipy
+fastapi>=0.104.0
+uvicorn[standard]
 
 # Development tools
 pre-commit
