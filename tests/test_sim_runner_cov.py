@@ -1,5 +1,3 @@
-import logging
-
 import numpy as np
 import pandas as pd
 import pytest
@@ -145,9 +143,11 @@ def test_simulator_run_progress_and_fire(monkeypatch):
 
 
 def test_simulator_handles_equity_curve_update_failure(monkeypatch, caplog):
-    first = pd.Timestamp("2020-01-31")
-    second = pd.Timestamp("2020-02-29")
-    data = pd.DataFrame({"A": [0.1, 0.2]}, index=[first, second])
+    import logging
+
+    periods = pd.period_range("2020-01", "2020-02", freq="M")
+    index = periods.to_timestamp(how="end")
+    data = pd.DataFrame({"A": [0.1, 0.2]}, index=index)
     sim = sim_runner.Simulator(data)
 
     def fake_compute(panel, start, end, rf_annual=0.0):
@@ -169,8 +169,8 @@ def test_simulator_handles_equity_curve_update_failure(monkeypatch, caplog):
 
     caplog.set_level(logging.WARNING)
     sim.run(
-        start=first,
-        end=first,
+        start=index[0],
+        end=index[0],
         freq="M",
         lookback_months=1,
         policy=PolicyConfig(min_track_months=0),
