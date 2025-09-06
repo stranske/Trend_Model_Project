@@ -24,19 +24,32 @@ def _dummy_prices():
     return 100 * (1 + rets).cumprod()
 
 
+# Special function for info_ratio that ensures benchmark and data consistency
+def _dummy_returns_with_benchmark():
+    """Generate returns data and return both the data and its benchmark (mean across columns)."""
+    data = _dummy_returns()
+    return data, data.mean(axis=1)
+
+
 # (metric_name, data_fn, kwargs)
 CASES = [
     ("volatility", _dummy_returns, {}),
     ("sharpe_ratio", _dummy_returns, {"risk_free": 0.0}),
     ("max_drawdown", _dummy_prices, {}),
     ("sortino_ratio", _dummy_returns, {"target": 0.0}),
-    ("info_ratio", _dummy_returns, {"benchmark": _dummy_returns().mean(axis=1)}),
+    ("info_ratio", _dummy_returns_with_benchmark, {}),
 ]
 
 
 @pytest.mark.parametrize("name, data_fn, kw", CASES)
 def test_vectorised_metric_matches_legacy(name, data_fn, kw):
-    data = data_fn()
+    # Handle special case for info_ratio which returns (data, benchmark)
+    if name == "info_ratio":
+        data, benchmark = data_fn()
+        kw = {"benchmark": benchmark}
+    else:
+        data = data_fn()
+
     vec_fn = getattr(M, name)
     leg_fn = getattr(L, name)
 
