@@ -14,5 +14,8 @@ jobs:
           script: |
             const {owner, repo} = context.repo;
             const issue_number = context.payload.issue.number;
-            await github.rest.issues.addAssignees({ owner, repo, issue_number, assignees: ['copilot'] });
-            await github.rest.issues.createComment({ owner, repo, issue_number, body: 'Assigning to @copilot. Please pick up this issue.' });
+            const assignees = context.payload.issue.assignees.map(a => a.login);
+            if (!assignees.includes('copilot')) {
+              await github.rest.issues.addAssignees({ owner, repo, issue_number, assignees: ['copilot'] });
+              await github.rest.issues.createComment({ owner, repo, issue_number, body: 'Assigning to @copilot. Please pick up this issue.' });
+            }
