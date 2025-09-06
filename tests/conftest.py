@@ -21,6 +21,7 @@ import sys
 from pathlib import Path
 
 import pytest
+
 try:
     import yaml  # type: ignore
 except ImportError:
@@ -38,10 +39,8 @@ def pytest_collection_modifyitems(config, items):
     if not qfile.exists() or yaml is None:
         return
     data = yaml.safe_load(qfile.read_text()) or {}
-    q = set()
-    for entry in data.get("tests", []):
-        q.add(entry["id"] if isinstance(entry, dict) else str(entry))
+    bad = {t["id"] for t in data.get("tests", [])}
     for it in items:
-        if it.nodeid in q:
+        if it.nodeid in bad:
             it.add_marker(pytest.mark.quarantine(reason="repo quarantine list"))
             it.add_marker(pytest.mark.xfail(reason="quarantined", strict=False))
