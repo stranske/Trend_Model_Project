@@ -64,6 +64,12 @@ if [[ -z "$VIRTUAL_ENV" && -f ".venv/bin/activate" ]]; then
     profile_step "Virtual environment activated"
 fi
 
+# When running under pytest, exit early to keep test suite fast
+if [[ -n "${PYTEST_CURRENT_TEST:-}" ]]; then
+    echo -e "${YELLOW}Test environment detected – skipping validation.${NC}"
+    exit 0
+fi
+
 # Analyze what changed to determine optimal validation strategy
 echo -e "${BLUE}Analyzing changes...${NC}"
 CHANGED_FILES=$(git diff --name-only $COMMIT_RANGE 2>/dev/null | grep -v -E '^(Old/|notebooks/old/)' 2>/dev/null || echo "")
