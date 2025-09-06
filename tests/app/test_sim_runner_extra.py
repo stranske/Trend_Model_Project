@@ -21,7 +21,7 @@ def test_import_fallback(monkeypatch):
     monkeypatch.setattr(
         sim_runner.importlib,
         "import_module",
-        lambda name: (_ for _ in ()).throw(ImportError("boom")),
+        lambda name: exec("raise ImportError('boom')"),
     )
     importlib.reload(sim_runner)
     assert sim_runner.HAS_TA is False and sim_runner.ta_pipeline is None
