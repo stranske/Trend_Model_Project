@@ -12,32 +12,6 @@ _cols = list("ABCD")
 
 
 def _dummy_returns():
-    dates = pd.date_range("2021-01-31", periods=_periods, freq="ME")
-    return pd.DataFrame(
-        _rng.normal(0.01, 0.02, size=(_periods, len(_cols))), index=dates, columns=_cols
-    )
-
-
-def _dummy_prices():
-    # start at 100 and walk
-    rets = _dummy_returns()
-    return 100 * (1 + rets).cumprod()
-
-
-import numpy as np
-import pandas as pd
-import pytest
-
-import tests.legacy_metrics as L
-import trend_analysis.metrics as M
-from trend_analysis.constants import NUMERICAL_TOLERANCE_HIGH
-
-_rng = np.random.default_rng(42)
-_periods = 36
-_cols = list("ABCD")
-
-
-def _dummy_returns():
     # Use a fixed seed to ensure reproducible data for each test case
     rng = np.random.default_rng(42)
     dates = pd.date_range("2021-01-31", periods=_periods, freq="ME")

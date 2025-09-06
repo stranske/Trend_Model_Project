@@ -240,21 +240,33 @@ def sortino_ratio(
     _check_shapes(returns, target, "sortino_ratio")
 
     excess = returns - target
-    downside = excess.clip(upper=0)
-    downside_std = np.sqrt((downside**2).mean())
 
     if isinstance(returns, Series):
-        denom = float(cast(float, downside_std)) * float(np.sqrt(periods_per_year))
-        if denom == 0:
+        # Match legacy behavior: only negative returns, use std with ddof=1
+        downside = excess[excess < 0]
+        if downside.empty:
             return _empty_like(returns, "sortino_ratio")
-        sr = float(cast(float, annual_return(excess, periods_per_year))) / denom
-        return float(sr)
+        down_vol = downside.std(ddof=1) * np.sqrt(periods_per_year)
+        if down_vol == 0 or np.isnan(down_vol):
+            return _empty_like(returns, "sortino_ratio")
+        ar = float(cast(float, annual_return(excess, periods_per_year)))
+        return float(ar / down_vol)
     else:
-        assert isinstance(downside_std, pd.Series)
-        denom = downside_std * np.sqrt(periods_per_year)
-        denom = denom.replace(0, np.nan)
-        ar = cast(pd.Series, annual_return(excess, periods_per_year))
-        return ar / denom
+        # DataFrame path: apply legacy logic to each column
+        def _calc_col(col_excess: Series) -> float:
+            downside = col_excess[col_excess < 0]
+            if downside.empty:
+                return np.nan
+            down_vol = downside.std(ddof=1) * np.sqrt(periods_per_year)
+            if down_vol == 0 or np.isnan(down_vol):
+                return np.nan
+            ar = float(cast(float, annual_return(col_excess, periods_per_year)))
+            return ar / down_vol
+        
+        result = pd.Series(index=excess.columns, dtype=float)
+        for col in excess.columns:
+            result[col] = _calc_col(excess[col])
+        return result
 
 
 ###############################################################################
