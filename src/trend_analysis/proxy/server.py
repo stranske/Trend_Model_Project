@@ -104,8 +104,11 @@ class StreamlitProxy:
                     """Forward messages from client to Streamlit."""
                     try:
                         while True:
-                            data = await websocket.receive_bytes()
-                            await target_ws.send(data)
+                            message = await websocket.receive()
+                            if "bytes" in message and message["bytes"] is not None:
+                                await target_ws.send(message["bytes"])
+                            elif "text" in message and message["text"] is not None:
+                                await target_ws.send(message["text"])
                     except WebSocketDisconnect:
                         pass
                     except Exception as e:
