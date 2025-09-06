@@ -31,7 +31,7 @@ class TestStreamlitProxy:
             with (
                 patch("trend_analysis.proxy.server.httpx") as mock_httpx,
                 patch("trend_analysis.proxy.server.FastAPI") as mock_fastapi,
-                patch("trend_analysis.proxy.server.uvicorn") as mock_uvicorn,
+                patch("trend_analysis.proxy.server.uvicorn"),
                 patch("trend_analysis.proxy.server.websockets"),
             ):
 
