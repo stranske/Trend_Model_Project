@@ -28,7 +28,7 @@ CASES = [
     ("volatility", _dummy_returns, lambda data: {}),
     ("sharpe_ratio", _dummy_returns, lambda data: {"risk_free": 0.0}),
     ("max_drawdown", _dummy_prices, lambda data: {}),
-    ("info_ratio", _dummy_returns, lambda data: {"benchmark": data.mean(axis=1)}),
+    ("info_ratio", _dummy_returns, lambda data: {"benchmark": data.iloc[:, 0]}),
 ]
 
 
