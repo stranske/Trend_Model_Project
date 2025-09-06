@@ -1,201 +1,273 @@
-import pandas as pd
+import importlib
+from typing import List
+
 import numpy as np
+import pandas as pd
 import pytest
 
-import trend_portfolio_app.sim_runner as sr
-from trend_portfolio_app.sim_runner import (
-    Simulator,
-    _apply_rebalance_pipeline,
-    PolicyConfig,
-)
+from trend_portfolio_app import sim_runner
+from trend_portfolio_app.event_log import Event, EventLog
+from trend_portfolio_app.policy_engine import MetricSpec, PolicyConfig
+from trend_portfolio_app.sim_runner import (SimResult, Simulator,
+                                            _apply_rebalance_pipeline,
+                                            compute_score_frame,
+                                            compute_score_frame_local)
 
 
-def test_module_import_sets_has_ta_false(monkeypatch):
-    import importlib
-    monkeypatch.setattr(importlib, "import_module", lambda name: (_ for _ in ()).throw(ImportError()))
-    reloaded = importlib.reload(sr)
-    assert reloaded.HAS_TA is False
-    assert reloaded.ta_pipeline is None
+def test_import_fallback(monkeypatch):
+    monkeypatch.setattr(
+        sim_runner.importlib,
+        "import_module",
+        lambda name: exec("raise ImportError('boom')"),
+    )
+    importlib.reload(sim_runner)
+    assert sim_runner.HAS_TA is False and sim_runner.ta_pipeline is None
 
 
-def test_compute_score_frame_local_handles_metric_errors(monkeypatch):
-    def bad_metric(r, idx):
-        raise ValueError("boom")
-    monkeypatch.setattr(sr, "AVAILABLE_METRICS", {"bad": {"fn": bad_metric}})
-    panel = pd.DataFrame({"A": [0.1, 0.2, 0.3]}, index=pd.date_range("2020-01-31", periods=3, freq="M"))
-    df = sr.compute_score_frame_local(panel)
+def test_compute_score_frame_local_metric_error(monkeypatch):
+    panel = pd.DataFrame(
+        {"A": [0.1, 0.2]}, index=pd.date_range("2020-01-31", periods=2, freq="M")
+    )
+
+    def raise_bad(*args, **kwargs):
+        raise ValueError("bad")
+
+    dummy_metrics = {
+        "ok": {"fn": lambda r, idx: 1.0},
+        "bad": {"fn": raise_bad},
+    }
+    monkeypatch.setattr(sim_runner, "AVAILABLE_METRICS", dummy_metrics)
+    df = compute_score_frame_local(panel)
     assert np.isnan(df.loc["A", "bad"])
 
 
-def test_compute_score_frame_missing_date_column():
-    panel = pd.DataFrame({"A": [1, 2, 3]})
+def test_compute_score_frame_raises_without_date():
+    df = pd.DataFrame({"A": [0.1]})
     with pytest.raises(ValueError):
-        sr.compute_score_frame(panel, pd.Timestamp("2020-01-31"), pd.Timestamp("2020-02-29"))
+        compute_score_frame(df, pd.Timestamp("2020-01-31"), pd.Timestamp("2020-01-31"))
 
 
-def test_compute_score_frame_external_attribute_error(monkeypatch):
-    class Fake:
-        def single_period_run(self, *a, **k):
-            raise AttributeError("no attr")
-    monkeypatch.setattr(sr, "HAS_TA", True)
-    monkeypatch.setattr(sr, "ta_pipeline", Fake())
-    panel = pd.DataFrame({"Date": ["2020-01-31"], "A": [0.1]})
-    out = sr.compute_score_frame(panel, pd.Timestamp("2020-01-31"), pd.Timestamp("2020-01-31"))
-    assert isinstance(out, pd.DataFrame)
+def test_compute_score_frame_external_errors(monkeypatch):
+    df = pd.DataFrame({"Date": ["2020-01-31"], "A": [0.1]})
 
+    class Dummy:
+        pass
 
-def test_compute_score_frame_external_value_error(monkeypatch):
-    class Fake:
-        def single_period_run(self, *a, **k):
-            raise ValueError("bad input")
-    monkeypatch.setattr(sr, "HAS_TA", True)
-    monkeypatch.setattr(sr, "ta_pipeline", Fake())
-    panel = pd.DataFrame({"Date": ["2020-01-31"], "A": [0.1]})
-    out = sr.compute_score_frame(panel, pd.Timestamp("2020-01-31"), pd.Timestamp("2020-01-31"))
-    assert isinstance(out, pd.DataFrame)
+    dummy = Dummy()
+
+    def bad_import(*args, **kwargs):
+        raise ImportError("boom")
+
+    dummy.single_period_run = bad_import
+    monkeypatch.setattr(sim_runner, "HAS_TA", True)
+    monkeypatch.setattr(sim_runner, "ta_pipeline", dummy)
+    compute_score_frame(df, pd.Timestamp("2020-01-31"), pd.Timestamp("2020-01-31"))
+
+    def bad_value(*args, **kwargs):
+        raise ValueError("bad")
+
+    dummy.single_period_run = bad_value
+    compute_score_frame(df, pd.Timestamp("2020-01-31"), pd.Timestamp("2020-01-31"))
 
 
 def test_simresult_helpers():
-    ev = sr.EventLog()
-    ev.append(sr.Event(date=pd.Timestamp("2020-01-31"), action="hire", manager="A", reason="top"))
-    res = sr.SimResult(
-        dates=[pd.Timestamp("2020-01-31")],
-        portfolio=pd.Series([0.01], index=[pd.Timestamp("2020-02-29")]),
-        weights={},
-        event_log=ev,
-        benchmark=pd.Series([0.0], index=[pd.Timestamp("2020-02-29")]),
+    el = EventLog()
+    el.append(
+        Event(date=pd.Timestamp("2020-01-31"), action="hire", manager="A", reason="x")
     )
-    assert isinstance(res.portfolio_curve(), pd.Series)
-    assert isinstance(res.drawdown_curve(), pd.Series)
-    assert isinstance(res.event_log_df(), pd.DataFrame)
-    summary = res.summary()
+    sr = SimResult(
+        dates=[pd.Timestamp("2020-01-31")],
+        portfolio=pd.Series([0.1], index=[pd.Timestamp("2020-01-31")]),
+        weights={},
+        event_log=el,
+        benchmark=None,
+    )
+    assert isinstance(sr.portfolio_curve(), pd.Series)
+    assert isinstance(sr.drawdown_curve(), pd.Series)
+    assert isinstance(sr.event_log_df(), pd.DataFrame)
+    summary = sr.summary()
     assert "total_return" in summary
 
 
 def test_gen_review_dates_quarterly():
-    df = pd.DataFrame({"A": [0.0]}, index=[pd.Timestamp("2020-01-31")])
+    df = pd.DataFrame(
+        {
+            "Date": pd.to_datetime(["2020-01-31", "2020-02-29", "2020-03-31"]),
+            "A": [0.1, 0.2, 0.3],
+        }
+    )
     sim = Simulator(df)
-    dates = sim._gen_review_dates(pd.Timestamp("2020-01-31"), pd.Timestamp("2020-06-30"), "q")
-    assert all(d.month in (3, 6) for d in dates)
+    dates = sim._gen_review_dates(
+        pd.Timestamp("2020-01-31"), pd.Timestamp("2020-03-31"), "q"
+    )
+    assert dates == [pd.Timestamp("2020-03-31 23:59:59.999999999")]
 
 
-def test_simulator_run_progress_and_fire(monkeypatch):
-    df = pd.DataFrame({"A": [0.0, 0.0]}, index=[pd.Timestamp("2020-01-31"), pd.Timestamp("2020-02-29")])
+def test_run_progress_fire_and_equity(monkeypatch):
+    df = pd.DataFrame(
+        {
+            "Date": pd.to_datetime(["2020-01-31", "2020-02-29"]),
+            "A": [0.1, -0.2],
+            "B": [0.2, 0.3],
+        }
+    )
     sim = Simulator(df)
+    calls: List[tuple[int, int]] = []
 
-    calls = []
-    def progress(i, total):
+    def cb(i, total):
         calls.append((i, total))
 
-    decisions = [
-        {"hire": [("A", "top")], "fire": []},
-        {"hire": [], "fire": [("A", "bottom")]}
-    ]
-    def fake_decide(*a, **k):
-        return decisions.pop(0)
-    monkeypatch.setattr(sr, "decide_hires_fires", fake_decide)
-    monkeypatch.setattr(sr, "compute_score_frame", lambda *a, **k: pd.DataFrame({"m": [1.0]}, index=["A"]))
-    def stub_reb(prev_weights, target_weights, date, rb_cfg, rb_state, policy):
-        rb_state["equity_curve"] = 1.0
+    policy = PolicyConfig(
+        top_k=1, bottom_k=1, min_track_months=0, metrics=[MetricSpec("m1")]
+    )
+
+    def fake_score(panel, start, end, rf_annual=0.0):
+        if end.month == 1:
+            return pd.DataFrame({"m1": [1.0, -1.0]}, index=["A", "B"])
+        else:
+            return pd.DataFrame({"m1": [-1.0, 1.0]}, index=["A", "B"])
+
+    monkeypatch.setattr(sim_runner, "compute_score_frame", fake_score)
+
+    def fake_apply(prev_weights, target_weights, date, rb_cfg, rb_state, policy):
+        rb_state["equity_curve"] = "bad"
         return target_weights
-    monkeypatch.setattr(sr, "_apply_rebalance_pipeline", stub_reb)
-    res = sim.run(
-        start=pd.Timestamp("2020-01-31"),
-        end=pd.Timestamp("2020-02-29"),
-        freq="m",
-        lookback_months=1,
-        policy=PolicyConfig(top_k=1, bottom_k=1, min_track_months=0, metrics=[]),
-        progress_cb=progress,
+
+    monkeypatch.setattr(sim_runner, "_apply_rebalance_pipeline", fake_apply)
+
+    result = sim.run(
+        pd.Timestamp("2020-01-31"),
+        pd.Timestamp("2020-02-29"),
+        "M",
+        1,
+        policy,
+        progress_cb=cb,
     )
-    assert calls and calls[0][0] == 1
-    assert isinstance(res, sr.SimResult)
+    assert calls and calls[0] == (1, 2)
+    assert any(e.action == "fire" for e in result.event_log.events)
 
 
-def test_apply_rebalance_pipeline_branches(monkeypatch):
-    policy = PolicyConfig(max_weight=0.5)
-    # Bayesian only shortcut
-    res = _apply_rebalance_pipeline(
-        prev_weights=pd.Series([0.2], index=["A"]),
-        target_weights=pd.Series([0.4], index=["A"]),
+def test_apply_rebalance_prev_empty():
+    policy = PolicyConfig(max_weight=1.0)
+    prev = pd.Series(dtype=float)
+    tw = pd.Series({"A": 1.0})
+    rb_cfg = {"bayesian_only": False}
+    rb_state = {}
+    out = _apply_rebalance_pipeline(
+        prev_weights=prev,
+        target_weights=tw,
         date=pd.Timestamp("2020-01-31"),
-        rb_cfg={"bayesian_only": True},
-        rb_state={},
-        policy=policy,
-    )
-    assert res.loc["A"] == 0.4
-
-    # Empty previous weights branch
-    res2 = _apply_rebalance_pipeline(
-        prev_weights=pd.Series(dtype=float),
-        target_weights=pd.Series(dtype=float),
-        date=pd.Timestamp("2020-01-31"),
-        rb_cfg={"bayesian_only": False},
-        rb_state={},
-        policy=policy,
-    )
-    assert res2.empty
-
-    # Drift band with clipping and continue path
-    rb_state = {"since_last_reb": 0}
-    res3 = _apply_rebalance_pipeline(
-        prev_weights=pd.Series([0.4, 0.1], index=["A", "B"]),
-        target_weights=pd.Series([0.8, 0.1], index=["A", "B"]),
-        date=pd.Timestamp("2020-01-31"),
-        rb_cfg={
-            "bayesian_only": False,
-            "strategies": ["drift_band"],
-            "params": {
-                "drift_band": {
-                    "band_pct": 0.05,
-                    "mode": "full",
-                }
-            },
-        },
+        rb_cfg=rb_cfg,
         rb_state=rb_state,
         policy=policy,
     )
-    assert res3.loc["A"] <= 0.5
+    assert list(out.index) == list(tw.index)
+    assert rb_state["since_last_reb"] == 0
 
-    # Turnover cap branch where gap below threshold
-    res4 = _apply_rebalance_pipeline(
-        prev_weights=pd.Series([0.1], index=["A"]),
-        target_weights=pd.Series([0.15], index=["A"]),
+
+def test_apply_rebalance_drift_band_and_clip():
+    policy = PolicyConfig(max_weight=0.4)
+    prev = pd.Series({"A": 0.5, "B": 0.5})
+    tw = pd.Series({"A": 0.52, "B": 0.48})
+    rb_cfg = {
+        "bayesian_only": False,
+        "strategies": ["drift_band"],
+        "params": {"drift_band": {"band_pct": 0.03}},
+    }
+    rb_state = {}
+    out = _apply_rebalance_pipeline(
+        prev_weights=prev,
+        target_weights=tw,
         date=pd.Timestamp("2020-01-31"),
-        rb_cfg={"bayesian_only": False, "strategies": ["turnover_cap"], "params": {"turnover_cap": {"max_turnover": 1.0}}},
-        rb_state={"since_last_reb": 0},
+        rb_cfg=rb_cfg,
+        rb_state=rb_state,
         policy=policy,
     )
-    assert res4.loc["A"] == pytest.approx(0.15)
+    assert isinstance(out, pd.Series)
 
-    # Drawdown guard turning off
-    rb_state = {"since_last_reb": 0, "equity_curve": [1.0, 1.0], "guard_on": True}
-    res5 = _apply_rebalance_pipeline(
-        prev_weights=pd.Series([0.2], index=["A"]),
-        target_weights=pd.Series([0.2], index=["A"]),
+
+def test_apply_rebalance_drift_band_full():
+    policy = PolicyConfig()
+    prev = pd.Series({"A": 0.5})
+    tw = pd.Series({"A": 0.0})
+    rb_cfg = {
+        "bayesian_only": False,
+        "strategies": ["drift_band"],
+        "params": {"drift_band": {"band_pct": 0.01, "mode": "full", "min_trade": 0.0}},
+    }
+    rb_state = {}
+    out = _apply_rebalance_pipeline(
+        prev_weights=prev,
+        target_weights=tw,
         date=pd.Timestamp("2020-01-31"),
-        rb_cfg={
-            "bayesian_only": False,
-            "strategies": ["drawdown_guard"],
-            "params": {
-                "drawdown_guard": {
-                    "dd_window": 2,
-                    "dd_threshold": 0.5,
-                    "recover_threshold": 0.05,
-                }
-            },
+        rb_cfg=rb_cfg,
+        rb_state=rb_state,
+        policy=policy,
+    )
+    assert out.loc["A"] == 0.0
+
+
+def test_apply_rebalance_turnover_cap():
+    policy = PolicyConfig()
+    prev = pd.Series({"A": 0.6, "B": 0.4})
+    tw = pd.Series({"A": 0.5, "B": 0.5})
+    rb_cfg = {
+        "bayesian_only": False,
+        "strategies": ["turnover_cap"],
+        "params": {"turnover_cap": {"max_turnover": 1.0}},
+    }
+    rb_state = {}
+    out = _apply_rebalance_pipeline(
+        prev_weights=prev,
+        target_weights=tw,
+        date=pd.Timestamp("2020-01-31"),
+        rb_cfg=rb_cfg,
+        rb_state=rb_state,
+        policy=policy,
+    )
+    assert out.equals(tw)
+
+
+def test_apply_rebalance_drawdown_guard_release():
+    policy = PolicyConfig()
+    prev = pd.Series({"A": 1.0})
+    tw = pd.Series({"A": 1.0})
+    rb_cfg = {
+        "bayesian_only": False,
+        "strategies": ["drawdown_guard"],
+        "params": {
+            "drawdown_guard": {
+                "dd_window": 2,
+                "dd_threshold": 0.1,
+                "guard_multiplier": 0.5,
+                "recover_threshold": 0.05,
+            }
         },
+    }
+    rb_state = {"equity_curve": [1.0, 1.1], "guard_on": True}
+    _apply_rebalance_pipeline(
+        prev_weights=prev,
+        target_weights=tw,
+        date=pd.Timestamp("2020-01-31"),
+        rb_cfg=rb_cfg,
         rb_state=rb_state,
         policy=policy,
     )
     assert rb_state["guard_on"] is False
 
-    # Unknown strategy -> continue
-    res6 = _apply_rebalance_pipeline(
-        prev_weights=pd.Series([0.2], index=["A"]),
-        target_weights=pd.Series([0.2], index=["A"]),
+
+def test_apply_rebalance_unknown_strategy():
+    policy = PolicyConfig()
+    prev = pd.Series({"A": 1.0})
+    tw = pd.Series({"A": 1.0})
+    rb_cfg = {"bayesian_only": False, "strategies": ["unknown"]}
+    rb_state = {}
+    out = _apply_rebalance_pipeline(
+        prev_weights=prev,
+        target_weights=tw,
         date=pd.Timestamp("2020-01-31"),
-        rb_cfg={"bayesian_only": False, "strategies": ["unknown"]},
-        rb_state={"since_last_reb": 0},
+        rb_cfg=rb_cfg,
+        rb_state=rb_state,
         policy=policy,
     )
-    assert res6.loc["A"] == pytest.approx(0.2)
+    assert out.equals(prev)

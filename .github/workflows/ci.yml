@@ -68,8 +68,12 @@ jobs:
             trend:ci
       - name: Wait for health
         run: |
-          for i in {1..10}; do
-            if curl -fsS http://localhost:8000/health | grep -qi "ok"; then
+          # Health check: configurable max iterations and delay.
+          # Defaults: 10 iterations, 1s delay (10s total) as requested for ≤10s total
+          HEALTH_CHECK_MAX_ITER="${HEALTH_CHECK_MAX_ITER:-10}"
+          HEALTH_CHECK_DELAY="${HEALTH_CHECK_DELAY:-1}"
+          for i in $(seq 1 "$HEALTH_CHECK_MAX_ITER"); do
+            if curl -fsS http://localhost:8000/health | grep -q "OK"; then
               echo "App healthy"; exit 0
             fi
             sleep 1
