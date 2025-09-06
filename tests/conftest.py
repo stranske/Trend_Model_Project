@@ -21,7 +21,10 @@ import sys
 from pathlib import Path
 
 import pytest
-import yaml
+try:
+    import yaml  # type: ignore
+except ImportError:
+    yaml = None
 
 # --- Ensure local ``src`` packages are importable ---------------------------------------
 ROOT = Path(__file__).resolve().parents[1]
@@ -31,12 +34,14 @@ if str(SRC) not in sys.path:
 
 
 def pytest_collection_modifyitems(config, items):
-    q = pathlib.Path(__file__).with_name("quarantine.yml")
-    if not q.exists():
+    qfile = pathlib.Path(__file__).with_name("quarantine.yml")
+    if not qfile.exists() or yaml is None:
         return
-    data = yaml.safe_load(q.read_text()) or {}
-    bad = set(data.get("tests", []))
+    data = yaml.safe_load(qfile.read_text()) or {}
+    q = set()
+    for entry in data.get("tests", []):
+        q.add(entry["id"] if isinstance(entry, dict) else str(entry))
     for it in items:
-        if it.nodeid in bad:
+        if it.nodeid in q:
             it.add_marker(pytest.mark.quarantine(reason="repo quarantine list"))
             it.add_marker(pytest.mark.xfail(reason="quarantined", strict=False))
