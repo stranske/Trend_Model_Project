@@ -47,12 +47,14 @@ jobs:
             echo "fix_pushed=false" >> $GITHUB_OUTPUT
           fi
 
+jobs:
   core-tests:
     name: core-tests (Python ${{ matrix.py }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      matrix: { py: ["3.11", "3.12"] }
+      matrix:
+        py: ["3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -74,7 +76,8 @@ jobs:
     continue-on-error: true
     strategy:
       fail-fast: false
-      matrix: { py: ["3.11", "3.12"] }
+      matrix:
+        py: ["3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -89,7 +92,6 @@ jobs:
         run: |
           pytest -m "quarantine or slow" --reruns 2 --reruns-delay 1 --timeout=180
 
-  # ---- fast docker smoke inside CI (separate from your full Docker workflow) ----
   docker-smoke:
     name: docker-smoke
     runs-on: ubuntu-latest
@@ -99,25 +101,19 @@ jobs:
         run: docker build -t trend:ci .
       - name: Run container
         run: |
-          docker run -d --name trendci -p 8000:8000 \
+          docker run -d --name trendci -p 8501:8501 \
             -e STREAMLIT_SERVER_HEADLESS=1 \
             trend:ci
       - name: Wait for health
-        # Health check using the new stable /health endpoint
         run: |
-          # Health check: configurable max iterations and delay.
-          # Defaults: 10 iterations, 1s delay (10s total) as requested for ≤10s total
-          HEALTH_CHECK_MAX_ITER="${HEALTH_CHECK_MAX_ITER:-10}"
-          HEALTH_CHECK_DELAY="${HEALTH_CHECK_DELAY:-1}"
-          for i in $(seq 1 "$HEALTH_CHECK_MAX_ITER"); do
-            if curl -fsS http://localhost:8000/health | grep -q "OK"; then
+          for i in {1..10}; do
+            if curl -fsS http://localhost:8501/health | grep -qi "ok"; then
               echo "App healthy"; exit 0
             fi
-            sleep "$HEALTH_CHECK_DELAY"
+            sleep 1
           done
           echo "Health check failed"; docker logs trendci; exit 1
 
-  # ---- single required check ----
   gate:
     name: gate / all-required-green
     runs-on: ubuntu-latest

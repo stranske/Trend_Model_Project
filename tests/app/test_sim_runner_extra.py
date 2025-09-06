@@ -15,6 +15,11 @@ from trend_portfolio_app.sim_runner import (
     compute_score_frame_local,
 )
 from trend_portfolio_app.event_log import Event, EventLog
+from trend_portfolio_app.policy_engine import MetricSpec, PolicyConfig
+from trend_portfolio_app.sim_runner import (SimResult, Simulator,
+                                            _apply_rebalance_pipeline,
+                                            compute_score_frame,
+                                            compute_score_frame_local)
 
 
 def test_import_fallback(monkeypatch):
@@ -31,6 +36,7 @@ def test_compute_score_frame_local_metric_error(monkeypatch):
     panel = pd.DataFrame(
         {"A": [0.1, 0.2]}, index=pd.date_range("2020-01-31", periods=2, freq="M")
     )
+
     def raise_bad(*args, **kwargs):
         raise ValueError("bad")
 
