@@ -24,22 +24,27 @@ def _dummy_prices():
     return 100 * (1 + rets).cumprod()
 
 
-# (metric_name, data_fn, kwargs)
+# (metric_name, data_fn, kwargs_factory)
 CASES = [
-    ("volatility", _dummy_returns, {}),
-    ("sharpe_ratio", _dummy_returns, {"risk_free": 0.0}),
-    ("max_drawdown", _dummy_prices, {}),
-    ("sortino_ratio", _dummy_returns, {"target": 0.0}),
-    ("info_ratio", _dummy_returns, {"benchmark": _dummy_returns().mean(axis=1)}),
+    ("volatility", _dummy_returns, lambda: {}),
+    ("sharpe_ratio", _dummy_returns, lambda: {"risk_free": 0.0}),
+    ("max_drawdown", _dummy_prices, lambda: {}),
+    ("sortino_ratio", _dummy_returns, lambda: {"target": 0.0}),
+    (
+        "info_ratio",
+        _dummy_returns,
+        lambda: {"benchmark": _dummy_returns().mean(axis=1)},
+    ),
 ]
 
 
-@pytest.mark.parametrize("name, data_fn, kw", CASES)
-def test_vectorised_metric_matches_legacy(name, data_fn, kw):
+@pytest.mark.parametrize("name, data_fn, kw_fn", CASES)
+def test_vectorised_metric_matches_legacy(name, data_fn, kw_fn):
     data = data_fn()
     vec_fn = getattr(M, name)
     leg_fn = getattr(L, name)
 
+    kw = kw_fn()
     new_series = vec_fn(data, **kw)
     old_series = leg_fn(data, **kw)
 

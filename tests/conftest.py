@@ -35,7 +35,7 @@ def pytest_collection_modifyitems(config, items):
     if not q.exists():
         return
     data = yaml.safe_load(q.read_text()) or {}
-    bad = set(data.get("tests", []))
+    bad = {t["id"] for t in data.get("tests", [])}
     for it in items:
         if it.nodeid in bad:
             it.add_marker(pytest.mark.quarantine(reason="repo quarantine list"))
