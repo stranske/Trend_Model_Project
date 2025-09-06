@@ -16,15 +16,16 @@ def main() -> None:
     src_path = repo_root / "src"
     if str(src_path) not in sys.path:
         sys.path.insert(0, str(src_path))
-    
+
     # This main() is only called for 'python -m trend_portfolio_app'
     # For 'python -m trend_portfolio_app.health_wrapper', the health_wrapper.py
     # module is executed directly and this main() is not called.
     print("Starting Streamlit app...")
     print("For health service, use: python -m trend_portfolio_app.health_wrapper")
-    
+
     # Import and run streamlit app
     import streamlit.web.cli as stcli
+
     app_path = Path(__file__).parent / "app.py"
     sys.argv = ["streamlit", "run", str(app_path)]
     stcli.main()

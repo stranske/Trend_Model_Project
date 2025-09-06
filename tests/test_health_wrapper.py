@@ -10,12 +10,13 @@ sys.path.insert(0, str(src_path))
 
 
 def test_health_wrapper_module_import():
-    """Test that health_wrapper module can be imported with correct qualification."""
+    """Test that health_wrapper module can be imported with correct
+    qualification."""
     from trend_portfolio_app import health_wrapper
-    
+
     # Verify module has correct fully qualified name
     assert health_wrapper.__name__ == "trend_portfolio_app.health_wrapper"
-    
+
     # Verify main function exists
     assert hasattr(health_wrapper, "main")
     assert callable(health_wrapper.main)
@@ -24,7 +25,7 @@ def test_health_wrapper_module_import():
 def test_health_wrapper_module_path():
     """Test that the module is located in the correct package path."""
     from trend_portfolio_app import health_wrapper
-    
+
     # Verify module file is in correct location
     module_path = Path(health_wrapper.__file__)
     assert module_path.name == "health_wrapper.py"
@@ -33,8 +34,7 @@ def test_health_wrapper_module_path():
 
 def test_health_wrapper_graceful_dependency_handling():
     """Test that module handles missing dependencies gracefully."""
-    from trend_portfolio_app import health_wrapper
-    
+
     # Test that app is None when FastAPI is not available
     # (This will be None in our test environment without dependencies)
     # The key fix is that the module can be imported despite missing deps
