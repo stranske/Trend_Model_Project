@@ -29,7 +29,9 @@ TURNOVER_EPSILON = _strategies.TURNOVER_EPSILON
 def get_rebalancing_strategies() -> Dict[str, type]:
     """Return mapping of registered strategy names to classes."""
 
-    return {name: rebalancer_registry.get(name) for name in rebalancer_registry.available()}
+    return {
+        name: rebalancer_registry.get(name) for name in rebalancer_registry.available()
+    }
 
 
 # Snapshot of available strategies for external introspection
@@ -50,4 +52,3 @@ __all__ = [
     "get_rebalancing_strategies",
     "REBALANCING_STRATEGIES",
 ]
-
