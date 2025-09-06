@@ -173,7 +173,7 @@ class StreamlitProxy:
             # Prepare response headers
             response_headers = dict(response.headers)
             # Remove headers that should not be forwarded
-            for header in ["content-encoding", "content-length", "transfer-encoding"]:
+            for header in ["content-encoding", "transfer-encoding"]:
                 response_headers.pop(header, None)
 
             # Return streaming response for large content
