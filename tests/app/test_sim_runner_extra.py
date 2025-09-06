@@ -257,7 +257,6 @@ def test_apply_rebalance_drawdown_guard_release():
     )
     assert rb_state["guard_on"] is False
 
-
 def test_apply_rebalance_unknown_strategy():
     policy = PolicyConfig()
     prev = pd.Series({"A": 1.0})
