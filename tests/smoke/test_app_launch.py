@@ -119,9 +119,10 @@ def test_app_starts_headlessly():
     # Start the Streamlit process
     proc = subprocess.Popen(
         cmd,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.STDOUT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         env=env,
+        text=True,
     )
 
     try:
@@ -129,6 +130,9 @@ def test_app_starts_headlessly():
         if not wait_for_streamlit_ready(port):
             # If readiness check fails, check if process is still running
             if proc.poll() is not None:
+                # Print output for easier debugging as suggested
+                print("STDOUT:", proc.stdout.read())
+                print("STDERR:", proc.stderr.read())
                 pytest.fail(
                     f"Streamlit app terminated early with exit code {proc.returncode}"
                 )
