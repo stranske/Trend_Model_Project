@@ -47,6 +47,15 @@ class PluginRegistry(Generic[T]):
             ) from exc
         return cls(*args, **kwargs)
 
+    def get(self, name: str) -> Type[T]:
+        """Return the plugin class registered under ``name``."""
+        try:
+            return self._plugins[name]
+        except KeyError as exc:  # pragma: no cover - defensive
+            raise ValueError(
+                f"Unknown plugin: {name}. Available: {list(self._plugins.keys())}"
+            ) from exc
+
     def available(self) -> List[str]:
         """Return a list of registered plugin names."""
         return list(self._plugins.keys())
