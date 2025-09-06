@@ -141,7 +141,16 @@ def test_apply_rebalance_pipeline_branches(monkeypatch):
         prev_weights=pd.Series([0.4, 0.1], index=["A", "B"]),
         target_weights=pd.Series([0.8, 0.1], index=["A", "B"]),
         date=pd.Timestamp("2020-01-31"),
-        rb_cfg={"bayesian_only": False, "strategies": ["drift_band"], "params": {"drift_band": {"band_pct": 0.05, "mode": "full"}}},
+        rb_cfg={
+            "bayesian_only": False,
+            "strategies": ["drift_band"],
+            "params": {
+                "drift_band": {
+                    "band_pct": 0.05,
+                    "mode": "full",
+                }
+            },
+        },
         rb_state=rb_state,
         policy=policy,
     )
