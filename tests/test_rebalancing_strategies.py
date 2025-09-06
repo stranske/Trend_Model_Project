@@ -5,12 +5,14 @@ import pandas as pd
 import pytest
 
 import trend_analysis
-from trend_analysis.rebalancing import strategies as strat_mod
 from trend_analysis.plugins import rebalancer_registry
+from trend_analysis.rebalancing import strategies as strat_mod
 
 # Load the rebalancing.py module which is shadowed by the package
 MODULE_PATH = Path(trend_analysis.__file__).with_name("rebalancing.py")
-SPEC = importlib.util.spec_from_file_location("trend_analysis.rebalancing_file", MODULE_PATH)
+SPEC = importlib.util.spec_from_file_location(
+    "trend_analysis.rebalancing_file", MODULE_PATH
+)
 reb_module = importlib.util.module_from_spec(SPEC)
 assert SPEC and SPEC.loader
 SPEC.loader.exec_module(reb_module)
@@ -36,7 +38,9 @@ def test_turnover_cap_executes_within_limit():
 def test_turnover_cap_respects_limit_and_cost():
     current = pd.Series({"A": 0.5, "B": 0.5})
     target = pd.Series({"A": 1.0, "B": 0.0})
-    strat = TurnoverCapStrategy({"max_turnover": 0.2, "cost_bps": 10, "priority": "largest_gap"})
+    strat = TurnoverCapStrategy(
+        {"max_turnover": 0.2, "cost_bps": 10, "priority": "largest_gap"}
+    )
     new_w, cost = strat.apply(current, target)
     assert pytest.approx(new_w["A"], rel=1e-6) == 0.7
     assert pytest.approx(new_w["B"], rel=1e-6) == 0.5
