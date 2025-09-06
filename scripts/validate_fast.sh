@@ -123,9 +123,13 @@ run_fast_check() {
     # Use specific files if provided and not in full mode
     local actual_command="$command"
     if [[ -n "$check_files" && "$VALIDATION_STRATEGY" != "full" ]]; then
-        # When a focused file list is supplied, append it to the command instead of
-        # performing brittle in-line sed substitution which can break on newlines.
-        actual_command="$command $check_files"
+        # If the command contains a {files} placeholder, replace it with the file list.
+        # Otherwise, append the file list at the end (for backward compatibility).
+        if [[ "$command" == *"{files}"* ]]; then
+            actual_command="${command//\{files\}/$check_files}"
+        else
+            actual_command="$command $check_files"
+        fi
     fi
     
     local start_check=$(date +%s)
