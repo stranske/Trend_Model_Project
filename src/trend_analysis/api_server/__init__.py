@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Tuple
 
 from fastapi import FastAPI
 
@@ -59,12 +59,15 @@ async def root():
     }
 
 
-def run(host: str = "127.0.0.1", port: int = 8000) -> None:
+def run(host: str = "127.0.0.1", port: int = 8000) -> Tuple[str, int]:
     """Run the FastAPI server.
 
     Args:
         host: Host to bind to
         port: Port to bind to
+
+    Returns:
+        Tuple of (host, port) for backward compatibility
     """
     import uvicorn
 
@@ -75,6 +78,7 @@ def run(host: str = "127.0.0.1", port: int = 8000) -> None:
         reload=False,
         log_level="info",
     )
+    return host, port
 
 
 if __name__ == "__main__":

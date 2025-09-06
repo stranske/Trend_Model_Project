@@ -36,7 +36,7 @@ def test_lifespan_events(client):
     # indicates that the lifespan context manager is working correctly
     response = client.get("/health")
     assert response.status_code == 200
-    
+
     # Test that the app can handle multiple requests
     response2 = client.get("/")
     assert response2.status_code == 200
@@ -46,9 +46,9 @@ def test_api_docs_accessible(client):
     """Test that OpenAPI docs are accessible."""
     response = client.get("/docs")
     assert response.status_code == 200
-    
+
     response = client.get("/redoc")
     assert response.status_code == 200
-    
+
     response = client.get("/openapi.json")
     assert response.status_code == 200
