@@ -92,11 +92,15 @@ jobs:
         # NOTE: The health check endpoint '/?health=1' is a custom implementation.
         # Consider updating the application to expose a standard '/health' endpoint for clarity.
         run: |
-          for i in {1..20}; do
+          # Health check: configurable max iterations and delay.
+          # Defaults: 20 iterations, 2s delay (40s total). Streamlit typically starts within 10s; 40s is a conservative upper bound for CI.
+          HEALTH_CHECK_MAX_ITER="${HEALTH_CHECK_MAX_ITER:-20}"
+          HEALTH_CHECK_DELAY="${HEALTH_CHECK_DELAY:-2}"
+          for i in $(seq 1 "$HEALTH_CHECK_MAX_ITER"); do
             if curl -fsS http://localhost:8501/?health=1 | grep -qi "ok"; then
               echo "App healthy"; exit 0
             fi
-            sleep 2
+            sleep "$HEALTH_CHECK_DELAY"
           done
           echo "Health check failed"; docker logs trendci; exit 1
 
