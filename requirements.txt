@@ -14,6 +14,7 @@ scipy
 fastapi>=0.104.0
 uvicorn[standard]
 httpx>=0.25
+requests
 
 # Optional proxy dependencies (for WebSocket-capable Streamlit proxy)
 # Install with: pip install fastapi uvicorn httpx websockets
@@ -29,8 +30,3 @@ ruff
 mypy
 pytest-cov
 jsonschema
-
-# FastAPI health wrapper dependencies
-fastapi
-uvicorn[standard]
-httpx
