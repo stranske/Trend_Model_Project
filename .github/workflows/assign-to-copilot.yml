@@ -7,8 +7,9 @@ permissions:
 jobs:
   assign:
     if: >
-      github.event.action == 'opened' ||
-      contains(join(fromJson(toJson(github.event.issue.labels)).*.name, ','), 'agent:copilot')
+      (github.event.action == 'opened' &&
+       contains(join(fromJson(toJson(github.event.issue.labels)).*.name, ','), 'agent:copilot')) ||
+      (github.event.action == 'labeled' && github.event.label.name == 'agent:copilot')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/github-script@v7
