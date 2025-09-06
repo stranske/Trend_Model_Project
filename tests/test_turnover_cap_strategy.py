@@ -3,11 +3,9 @@
 import pandas as pd
 import pytest
 
-from trend_analysis.rebalancing import (
-    TurnoverCapStrategy,
-    apply_rebalancing_strategies,
-    create_rebalancing_strategy,
-)
+from trend_analysis.rebalancing import (TurnoverCapStrategy,
+                                        apply_rebalancing_strategies,
+                                        create_rebalancing_strategy)
 
 
 class TestTurnoverCapStrategy:

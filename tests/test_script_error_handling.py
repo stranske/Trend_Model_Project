@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
-"""
-Test script error handling improvements for shell scripts.
+"""Test script error handling improvements for shell scripts.
 
-This test validates that shell scripts properly handle failures and provide
-appropriate logging instead of using || true to mask errors.
+This test validates that shell scripts properly handle failures and
+provide appropriate logging instead of using || true to mask errors.
 """
 
-import os
 import subprocess
-import tempfile
 import unittest
 from pathlib import Path
 
@@ -27,7 +24,7 @@ class TestScriptErrorHandling(unittest.TestCase):
         self.assertTrue(script_path.exists(), "setup_env.sh should exist")
 
         # Read the script content
-        with open(script_path, 'r') as f:
+        with open(script_path, "r") as f:
             content = f.read()
 
         # Verify that || true patterns have been replaced
@@ -45,7 +42,7 @@ class TestScriptErrorHandling(unittest.TestCase):
         script_path = self.scripts_dir / "quick_check.sh"
         self.assertTrue(script_path.exists(), "quick_check.sh should exist")
 
-        with open(script_path, 'r') as f:
+        with open(script_path, "r") as f:
             content = f.read()
 
         # Verify that || true patterns have been replaced
@@ -60,13 +57,15 @@ class TestScriptErrorHandling(unittest.TestCase):
         script_path = self.scripts_dir / "validate_fast.sh"
         self.assertTrue(script_path.exists(), "validate_fast.sh should exist")
 
-        with open(script_path, 'r') as f:
+        with open(script_path, "r") as f:
             content = f.read()
 
         # Verify that || true patterns for grep have been replaced
         # Count occurrences of || true (should be minimal/none for our target patterns)
         grep_or_true_count = content.count("grep -E") - content.count("|| true")
-        self.assertGreaterEqual(grep_or_true_count, 5, "Grep commands should use proper null handling")
+        self.assertGreaterEqual(
+            grep_or_true_count, 5, "Grep commands should use proper null handling"
+        )
 
         # Verify proper null handling with echo ""
         self.assertIn('|| echo ""', content)
@@ -76,7 +75,7 @@ class TestScriptErrorHandling(unittest.TestCase):
         script_path = self.scripts_dir / "dev_check.sh"
         self.assertTrue(script_path.exists(), "dev_check.sh should exist")
 
-        with open(script_path, 'r') as f:
+        with open(script_path, "r") as f:
             content = f.read()
 
         # Verify that || true patterns for git operations have been replaced
@@ -94,7 +93,7 @@ class TestScriptErrorHandling(unittest.TestCase):
                 cwd=self.project_root,
                 capture_output=True,
                 text=True,
-                timeout=60
+                timeout=60,
             )
             # Script should complete (exit code 0 or non-zero due to checks, but not crash)
             self.assertIsNotNone(result.returncode, "quick_check.sh should complete")
@@ -108,7 +107,7 @@ class TestScriptErrorHandling(unittest.TestCase):
                 cwd=self.project_root,
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=30,
             )
             self.assertIsNotNone(result.returncode, "dev_check.sh should complete")
         except subprocess.TimeoutExpired:
@@ -121,7 +120,7 @@ class TestScriptErrorHandling(unittest.TestCase):
                 cwd=self.project_root,
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=30,
             )
             self.assertIsNotNone(result.returncode, "validate_fast.sh should complete")
         except subprocess.TimeoutExpired:
@@ -130,7 +129,7 @@ class TestScriptErrorHandling(unittest.TestCase):
     def test_error_messages_are_helpful(self):
         """Test that error messages provide useful information."""
         script_path = self.scripts_dir / "setup_env.sh"
-        with open(script_path, 'r') as f:
+        with open(script_path, "r") as f:
             content = f.read()
 
         # Check that warning messages are descriptive
