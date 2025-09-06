@@ -1,7 +1,8 @@
 """Tests for the Streamlit WebSocket proxy."""
 
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
 
 
 class TestStreamlitProxy:

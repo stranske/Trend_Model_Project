@@ -6,9 +6,9 @@ the WebSocket-capable proxy, solving the connection issues.
 """
 
 import asyncio
+import signal
 import subprocess
 import sys
-import signal
 from pathlib import Path
 
 # Add src to path

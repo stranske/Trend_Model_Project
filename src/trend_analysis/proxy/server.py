@@ -1,7 +1,8 @@
 """WebSocket-capable proxy server for Streamlit applications.
 
-This proxy forwards HTTP requests using httpx and WebSocket connections directly,
-ensuring that Streamlit's real-time features work properly through the proxy.
+This proxy forwards HTTP requests using httpx and WebSocket connections
+directly, ensuring that Streamlit's real-time features work properly
+through the proxy.
 """
 
 from __future__ import annotations
@@ -12,11 +13,12 @@ from urllib.parse import urljoin
 
 try:
     import httpx
-    from fastapi import FastAPI, Request, Response, WebSocket, WebSocketDisconnect
-    from fastapi.responses import StreamingResponse
-    from starlette.background import BackgroundTask
     import uvicorn
     import websockets
+    from fastapi import (FastAPI, Request, Response, WebSocket,
+                         WebSocketDisconnect)
+    from fastapi.responses import StreamingResponse
+    from starlette.background import BackgroundTask
 except ImportError:
     # Graceful degradation if dependencies aren't available
     httpx = None
@@ -34,11 +36,12 @@ logger = logging.getLogger(__name__)
 
 
 class StreamlitProxy:
-    """A proxy server that forwards both HTTP and WebSocket traffic to Streamlit.
+    """A proxy server that forwards both HTTP and WebSocket traffic to
+    Streamlit.
 
-    This solves the issue where Streamlit's frontend requires WebSocket endpoints
-    like `/_stcore/stream` for bidirectional updates that aren't supported by
-    simple HTTP-only proxies.
+    This solves the issue where Streamlit's frontend requires WebSocket
+    endpoints like `/_stcore/stream` for bidirectional updates that
+    aren't supported by simple HTTP-only proxies.
     """
 
     def __init__(self, streamlit_host: str = "localhost", streamlit_port: int = 8501):
