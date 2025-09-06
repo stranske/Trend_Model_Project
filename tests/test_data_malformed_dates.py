@@ -96,4 +96,5 @@ class TestDataLoadingMalformedDates:
         assert pd.api.types.is_datetime64_any_dtype(result_df["Date"])
         assert len(result_df) == 3
         # Dates should be unchanged
-        pd.testing.assert_series_equal(result_df["Date"], dates)
+        expected_series = pd.Series(dates, name="Date")
+        pd.testing.assert_series_equal(result_df["Date"], expected_series)
