@@ -25,6 +25,19 @@ def test_compute_score_frame_local_handles_failure(monkeypatch):
     assert np.isnan(df.loc["A", "boom"])
 
 
+def test_compute_score_frame_local_skips_date_column():
+    panel = pd.DataFrame(
+        {
+            "Date": [pd.Timestamp("2020-01-31"), pd.Timestamp("2020-02-29")],
+            "A": [0.1, 0.2],
+        },
+        index=[pd.Timestamp("2020-01-31"), pd.Timestamp("2020-02-29")],
+    )
+
+    df = sim_runner.compute_score_frame_local(panel)
+    assert "Date" not in df.index
+
+
 def test_compute_score_frame_validations_and_fallback(monkeypatch):
     df = pd.DataFrame({"A": [0.1, 0.2]})
     with pytest.raises(ValueError):
@@ -129,6 +142,42 @@ def test_simulator_run_progress_and_fire(monkeypatch):
     assert res.event_log.events[1].action == "fire"
 
 
+def test_simulator_handles_equity_curve_update_failure(monkeypatch, caplog):
+    import logging
+
+    periods = pd.period_range("2020-01", "2020-02", freq="M")
+    index = periods.to_timestamp(how="end")
+    data = pd.DataFrame({"A": [0.1, 0.2]}, index=index)
+    sim = sim_runner.Simulator(data)
+
+    def fake_compute(panel, start, end, rf_annual=0.0):
+        return pd.DataFrame({"m": [1.0]}, index=["A"])
+
+    def fake_decide(
+        asof, sf, current, policy, directions, cooldowns, eligible_since, tenure
+    ):
+        return {"hire": [], "fire": []}
+
+    def fake_apply(prev_weights, target_weights, date, rb_cfg, rb_state, policy):
+        # Intentionally assign invalid data to simulate equity curve update failure
+        rb_state["equity_curve"] = 1
+        return pd.Series(dtype=float)
+
+    monkeypatch.setattr(sim_runner, "compute_score_frame", fake_compute)
+    monkeypatch.setattr(sim_runner, "decide_hires_fires", fake_decide)
+    monkeypatch.setattr(sim_runner, "_apply_rebalance_pipeline", fake_apply)
+
+    caplog.set_level(logging.WARNING)
+    sim.run(
+        start=index[0],
+        end=index[0],
+        freq="M",
+        lookback_months=1,
+        policy=PolicyConfig(min_track_months=0),
+    )
+    assert "Failed to update equity curve" in caplog.text
+
+
 def test_apply_rebalance_pipeline_no_prev():
     tw = pd.Series(dtype=float)
     res = sim_runner._apply_rebalance_pipeline(
@@ -169,3 +218,44 @@ def test_apply_rebalance_pipeline_strategies():
         policy=policy,
     )
     assert isinstance(res, pd.Series)
+
+
+def test_compute_score_frame_local_skips_date_column(monkeypatch):
+    panel = pd.DataFrame(
+        {
+            "Date": [pd.Timestamp("2020-01-31"), pd.Timestamp("2020-02-29")],
+            "A": [0.1, 0.2],
+        }
+    )
+    monkeypatch.setattr(sim_runner, "AVAILABLE_METRICS", {})
+    df = sim_runner.compute_score_frame_local(panel)
+    assert "Date" not in df.index
+
+
+def test_simulator_equity_curve_warning(monkeypatch, caplog):
+    monkeypatch.setattr(
+        sim_runner, "compute_score_frame", lambda *a, **k: pd.DataFrame()
+    )
+    monkeypatch.setattr(
+        sim_runner, "decide_hires_fires", lambda *a, **k: {"hire": [], "fire": []}
+    )
+
+    def bad_rebalance(prev_weights, target_weights, date, rb_cfg, rb_state, policy):
+        rb_state["equity_curve"] = [1.0, "bad"]
+        return target_weights
+
+    monkeypatch.setattr(sim_runner, "_apply_rebalance_pipeline", bad_rebalance)
+    calls: list[tuple] = []
+    monkeypatch.setattr(sim_runner.logger, "warning", lambda *a, **k: calls.append(a))
+    index = pd.period_range("2020-01", "2020-03", freq="M").to_timestamp(how="end")
+    data = pd.DataFrame({"A": [0.0, 0.0, 0.0]}, index=index)
+    sim = sim_runner.Simulator(data)
+    policy = PolicyConfig()
+    sim.run(
+        start=index[0],
+        end=index[1],
+        freq="M",
+        lookback_months=1,
+        policy=policy,
+    )
+    assert any("Failed to update equity curve" in str(msg[0]) for msg in calls)
