@@ -32,7 +32,7 @@ class TestStreamlitProxy:
                 patch("trend_analysis.proxy.server.httpx") as mock_httpx,
                 patch("trend_analysis.proxy.server.FastAPI") as mock_fastapi,
                 patch("trend_analysis.proxy.server.uvicorn") as mock_uvicorn,
-                patch("trend_analysis.proxy.server.websockets") as mock_websockets,
+                patch("trend_analysis.proxy.server.websockets"),
             ):
 
                 mock_httpx.AsyncClient.return_value = Mock()
