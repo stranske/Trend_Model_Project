@@ -61,11 +61,13 @@ def load_csv(path: str) -> Optional[pd.DataFrame]:
                     # Distinguish between null/empty dates and malformed string dates
                     malformed_mask = parsed_dates.isnull()
                     malformed_values = df.loc[malformed_mask, "Date"].tolist()
-                    
+
                     # Check if these are null/empty dates (empty strings, NaN) vs malformed strings
-                    null_dates = [v for v in malformed_values if v == '' or pd.isna(v)]
-                    malformed_strings = [v for v in malformed_values if v != '' and not pd.isna(v)]
-                    
+                    null_dates = [v for v in malformed_values if v == "" or pd.isna(v)]
+                    malformed_strings = [
+                        v for v in malformed_values if v != "" and not pd.isna(v)
+                    ]
+
                     if malformed_strings:
                         # Strict handling: reject entire file for malformed string dates
                         malformed_count = len(malformed_strings)
@@ -83,12 +85,14 @@ def load_csv(path: str) -> Optional[pd.DataFrame]:
                         valid_mask = ~malformed_mask
                         df = df.loc[valid_mask].copy()
                         parsed_dates = parsed_dates.loc[valid_mask]
-                        
+
                         # If no valid dates remain, then return None
                         if len(df) == 0:
-                            logger.error(f"No valid date rows remaining in {path} after filtering null dates")
+                            logger.error(
+                                f"No valid date rows remaining in {path} after filtering null dates"
+                            )
                             return None
-                        
+
                 df["Date"] = parsed_dates
         # Coerce non-Date columns to numeric when they look like strings
         # (e.g., "0.56%", "1,234", or parentheses for negatives).
