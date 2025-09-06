@@ -46,8 +46,7 @@ jobs:
           else
             echo "fix_pushed=false" >> $GITHUB_OUTPUT
           fi
-
-jobs:
+  
   core-tests:
     name: core-tests (Python ${{ matrix.py }})
     runs-on: ubuntu-latest
