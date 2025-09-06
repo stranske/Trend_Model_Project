@@ -1,4 +1,5 @@
 import logging
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -152,7 +153,9 @@ def test_simulator_handles_equity_curve_update_failure(monkeypatch, caplog):
     def fake_compute(panel, start, end, rf_annual=0.0):
         return pd.DataFrame({"m": [1.0]}, index=["A"])
 
-    def fake_decide(asof, sf, current, policy, directions, cooldowns, eligible_since, tenure):
+    def fake_decide(
+        asof, sf, current, policy, directions, cooldowns, eligible_since, tenure
+    ):
         return {"hire": [], "fire": []}
 
     def fake_apply(prev_weights, target_weights, date, rb_cfg, rb_state, policy):
