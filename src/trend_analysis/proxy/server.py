@@ -142,7 +142,8 @@ class StreamlitProxy:
             The proxied response from Streamlit
         """
         # Construct the target URL
-        target_url = urljoin(self.streamlit_base_url, path)
+        normalized_path = path if path.startswith("/") else f"/{path}"
+        target_url = urljoin(self.streamlit_base_url, normalized_path)
         query_string = str(request.url.query)
         if query_string:
             target_url += f"?{query_string}"
