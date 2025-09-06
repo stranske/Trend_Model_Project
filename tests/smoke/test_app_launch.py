@@ -62,13 +62,13 @@ def wait_for_streamlit_ready(
     """
     start_time = time.time()
     root_url = f"http://localhost:{port}"
-    health_url = f"{root_url}/?health=1"
+    health_url = f"{root_url}/health"
 
     while time.time() - start_time < timeout:
         try:
-            # Prefer fast health endpoint if available
+            # Use the new stable /health endpoint
             r = requests.get(health_url, timeout=ready_timeout)
-            if r.status_code == 200 and r.text.strip().upper().startswith("OK"):
+            if r.status_code == 200 and r.text.strip() == "OK":
                 return True
         except requests.exceptions.RequestException:
             pass
@@ -104,23 +104,25 @@ def test_app_starts_headlessly():
     # Use a dynamic port to avoid conflicts
     port = 8765
 
-    # Build command to start Streamlit
+    # Build command to start health wrapper (which starts Streamlit internally)
     cmd = [
         sys.executable,
         "-m",
-        "streamlit",
-        "run",
-        str(APP_PATH),
-        "--server.headless=true",
-        f"--server.port={port}",
+        "trend_portfolio_app.health_wrapper",
     ]
+    
+    # Set the wrapper to use the test port and correct app path
+    env["HEALTH_WRAPPER_PORT"] = str(port)
+    env["STREAMLIT_APP_PATH"] = str(APP_PATH)
+    env["STREAMLIT_PORT"] = str(port + 1)  # Use different port for internal Streamlit
 
     # Start the Streamlit process
     proc = subprocess.Popen(
         cmd,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.STDOUT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         env=env,
+        text=True,
     )
 
     try:
@@ -128,6 +130,9 @@ def test_app_starts_headlessly():
         if not wait_for_streamlit_ready(port):
             # If readiness check fails, check if process is still running
             if proc.poll() is not None:
+                # Print output for easier debugging as suggested
+                print("STDOUT:", proc.stdout.read())
+                print("STDERR:", proc.stderr.read())
                 pytest.fail(
                     f"Streamlit app terminated early with exit code {proc.returncode}"
                 )
@@ -143,11 +148,14 @@ def test_app_starts_headlessly():
 
         # Additional health check to ensure the app is serving requests
         response = requests.get(
-            f"http://localhost:{port}/?health=1", timeout=DEFAULT_READY_TIMEOUT
+            f"http://localhost:{port}/health", timeout=DEFAULT_READY_TIMEOUT
         )
         assert (
             response.status_code == 200
         ), f"Health check failed with status {response.status_code}"
+        assert (
+            response.text.strip() == "OK"
+        ), f"Health check returned unexpected content: {response.text}"
 
     finally:
         # Clean shutdown of the Streamlit process
