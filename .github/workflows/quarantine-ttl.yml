@@ -29,7 +29,7 @@ jobs:
                       if dt.date.fromisoformat(t["expires"]) < today:
                           expired.append(t["id"])
                   except Exception:
-                      print(f"Bad date for {t.get('id')}: {t.get('expires')}")
+                      print(f"Invalid date format for {t.get('id')}: {t.get('expires')}. Expected ISO format (YYYY-MM-DD).")
                       expired.append(t.get('id','<unknown>'))
           if expired:
               print("Quarantine entries expired:")
