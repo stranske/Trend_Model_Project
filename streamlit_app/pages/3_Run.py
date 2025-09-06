@@ -130,7 +130,7 @@ def main():
                 help="Hide this warning for the current session.",
             ):
                 st.session_state["dismiss_weight_engine_fallback"] = True
-                st.experimental_rerun()  # type: ignore[attr-defined]
+                st.rerun()
     st.success("Done.")
     st.write("Summary:", result.metrics)
 

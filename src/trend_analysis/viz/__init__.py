@@ -6,8 +6,14 @@ lightweight so they can be reused outside of Streamlit and make it easy
 to export the underlying data.
 """
 
-from .charts import (drawdown_curve, equity_curve, rolling_information_ratio,
-                     turnover_series, weights_heatmap, weights_heatmap_data)
+from .charts import (
+    drawdown_curve,
+    equity_curve,
+    rolling_information_ratio,
+    turnover_series,
+    weights_heatmap,
+    weights_heatmap_data,
+)
 
 __all__ = [
     "equity_curve",
