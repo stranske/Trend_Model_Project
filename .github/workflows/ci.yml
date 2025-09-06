@@ -50,7 +50,7 @@ jobs:
   core-tests:
     name: core-tests (Python ${{ matrix.py }})
     needs: [autofix]
-    if: env.FIX_PUSHED != 'true'
+    if: needs.autofix.outputs.fix_pushed != 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
