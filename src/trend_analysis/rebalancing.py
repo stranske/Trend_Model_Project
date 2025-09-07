@@ -11,7 +11,10 @@ from __future__ import annotations
 
 from typing import Dict
 
-from . import strategies as _strategies
+# Import canonical implementations from the package so this shim
+# can re-export them without triggering circular imports or relying
+# on a non-existent top-level ``strategies`` module.
+from .rebalancing import strategies as _strategies
 from .plugins import rebalancer_registry
 
 # Re-export public classes and helpers from the strategies module
@@ -29,9 +32,11 @@ TURNOVER_EPSILON = _strategies.TURNOVER_EPSILON
 def get_rebalancing_strategies() -> Dict[str, type]:
     """Return mapping of registered strategy names to classes."""
 
-    return {
-        name: rebalancer_registry.get(name) for name in rebalancer_registry.available()
-    }
+    # ``PluginRegistry`` exposes its internal mapping via the private
+    # ``_plugins`` attribute. Accessing it directly lets this shim provide a
+    # snapshot of the current registrations without requiring additional API
+    # surface on the registry itself.
+    return {name: cls for name, cls in rebalancer_registry._plugins.items()}
 
 
 # Snapshot of available strategies for external introspection
