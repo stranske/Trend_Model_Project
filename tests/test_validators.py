@@ -1,7 +1,6 @@
 """Tests for trend_analysis.io.validators module."""
 
 import io
-import os
 import tempfile
 from pathlib import Path
 
