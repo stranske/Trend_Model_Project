@@ -107,7 +107,7 @@ jobs:
       - name: Wait for health
         run: |
           for i in {1..10}; do
-            if curl -fsS http://localhost:8000/health | grep -qi "ok"; then
+            if curl -fsS http://localhost:8501/health | grep -qi "ok"; then
               echo "App healthy"; exit 0
             fi
             sleep 1
