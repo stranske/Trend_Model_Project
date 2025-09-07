@@ -19,7 +19,7 @@ if [[ ! -f ".coveragerc.${PROFILE}" ]]; then
 fi
 # Run pytest under coverage and capture exit code so we can handle the "no tests" case
 set +e
-PYTHONPATH="./src" coverage run --rcfile ".coveragerc.${PROFILE}" --source=src/trend_analysis -m pytest --maxfail=1 --disable-warnings "$@"
+PYTHONPATH="./src" coverage run --branch --rcfile ".coveragerc.${PROFILE}" -m pytest --maxfail=1 --disable-warnings "$@"
 status=$?
 set -e
 
