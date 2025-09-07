@@ -207,15 +207,12 @@ class TestLoadAndValidateUpload:
             assert "File contains no data" in str(exc_info.value)
 
     def test_garbled_content_error(self):
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as tmp:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv") as tmp:
             tmp.write('"unclosed,quote')
-            tmp_path = tmp.name
-        try:
+            tmp.flush()
             with pytest.raises(ValueError) as exc_info:
-                load_and_validate_upload(tmp_path)
+                load_and_validate_upload(tmp.name)
             assert "Failed to parse file" in str(exc_info.value)
-        finally:
-            os.remove(tmp_path)
 
     def test_excel_pointer_reset(self):
         df = pd.DataFrame({"Date": ["2023-01-31"], "Fund1": [0.01]})
