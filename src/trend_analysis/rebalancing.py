@@ -8,17 +8,13 @@ duplicate plugins.
 
 from __future__ import annotations
 
-from .rebalancing.strategies import (
-    DrawdownGuardStrategy,
-    DriftBandStrategy,
-    PeriodicRebalanceStrategy,
-    RebalancingStrategy,
-    TurnoverCapStrategy,
-    VolTargetRebalanceStrategy,
-    apply_rebalancing_strategies,
-    create_rebalancing_strategy,
-    rebalancer_registry,
-)
+from .rebalancing.strategies import (DrawdownGuardStrategy, DriftBandStrategy,
+                                     PeriodicRebalanceStrategy,
+                                     RebalancingStrategy, TurnoverCapStrategy,
+                                     VolTargetRebalanceStrategy,
+                                     apply_rebalancing_strategies,
+                                     create_rebalancing_strategy,
+                                     rebalancer_registry)
 
 __all__ = [
     "RebalancingStrategy",
