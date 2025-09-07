@@ -1,12 +1,8 @@
 import pandas as pd
 
-from trend_analysis.export import (
-    FORMATTERS_EXCEL,
-    export_to_excel,
-    format_summary_text,
-    make_period_formatter,
-    make_summary_formatter,
-)
+from trend_analysis.export import (FORMATTERS_EXCEL, export_to_excel,
+                                   format_summary_text, make_period_formatter,
+                                   make_summary_formatter)
 
 
 class DummyWS:
