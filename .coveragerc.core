@@ -5,10 +5,4 @@ omit =
     src/trend_analysis/proxy/*
     src/trend_analysis/api_server/*
     src/trend_analysis/cli.py
-    src/trend_analysis/config/*
-    src/trend_analysis/export/*
-    src/trend_analysis/io/*
-    src/trend_analysis/metrics/attribution.py
-    src/trend_analysis/multi_period/*
-    src/trend_analysis/run_multi_analysis.py
     tests/*
