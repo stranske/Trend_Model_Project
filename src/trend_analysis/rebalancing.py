@@ -15,7 +15,6 @@ from typing import Dict
 # on a non-existent top-level ``strategies`` module.
 from .rebalancing import strategies as _strategies
 from .plugins import rebalancer_registry
-from .strategies import strategies as _strategies
 
 # Re-export public classes and helpers from the strategies module
 RebalancingStrategy = _strategies.RebalancingStrategy
