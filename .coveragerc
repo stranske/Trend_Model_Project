@@ -1,4 +1,6 @@
 [run]
+branch = True
+source = trend_analysis
 omit =
     src/trend_analysis/core/*
     src/trend_analysis/gui/*
