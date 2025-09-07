@@ -73,12 +73,12 @@ jobs:
         run: |
           echo "GraphQL says has_copilot = ${{ steps.gql.outputs.has_copilot }}"
           echo "Assignment call ok       = ${{ steps.assign.outputs.ok }} (status=${{ steps.assign.outputs.status }})"
-          if [ "${{ steps.gql.outputs.has_copilot }}" != "true" ]; then
-            echo "::error::Copilot is NOT assignable in this repo. Enable Copilot coding agent for this repo/org."
+          if [ "${{ steps.gql.outputs.has_copilot }}" != "true" ] || [ "${{ steps.assign.outputs.ok }}" != "true" ]; then
+            if [ "${{ steps.gql.outputs.has_copilot }}" != "true" ]; then
+              echo "::error::Copilot is NOT assignable in this repo. Enable Copilot coding agent for this repo/org."
+            fi
+            if [ "${{ steps.assign.outputs.ok }}" != "true" ]; then
+              echo "::error::GitHub refused to assign @copilot here (status=${{ steps.assign.outputs.status }}). That confirms policy/enablement is blocking it."
+            fi
             exit 1
-          fi
-          if [ "${{ steps.assign.outputs.ok }}" != "true" ]; then
-            echo "::error::GitHub refused to assign @copilot here (status=${{ steps.assign.outputs.status }}). That confirms policy/enablement is blocking it."
-            exit 1
-          fi
           echo "Copilot appears assignable here."
