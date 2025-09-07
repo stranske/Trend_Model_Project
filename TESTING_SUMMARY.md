@@ -42,6 +42,9 @@ streamlit run test_upload_app.py --server.headless true
 # Validation workflow test
 python -c "from src.trend_analysis.io.validators import load_and_validate_upload; ..."
 
+# Install dependencies before running tests
+pip install -r requirements.txt pytest coverage
+
 # Run full test suite with coverage (core profile)
 ./scripts/run_tests.sh
 
