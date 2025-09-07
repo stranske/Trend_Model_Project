@@ -20,8 +20,8 @@ jobs:
             const head = (pr.head?.ref || '').toLowerCase();
 
             const labels = [];
-            if (actor.includes('copilot') || head.startsWith('copilot/')) labels.push('from:copilot');
-            if (actor.includes('codex')   || head.startsWith('codex/'))   labels.push('from:codex');
+            if (actor.includes('copilot') || head.startsWith('copilot/')) labels.push('from:copilot', 'agent:copilot');
+            if (actor.includes('codex')   || head.startsWith('codex/'))   labels.push('from:codex', 'agent:codex');
 
             if (labels.length) {
               await github.rest.issues.addLabels({ owner, repo, issue_number: pr.number, labels });
