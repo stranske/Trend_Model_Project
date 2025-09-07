@@ -2,10 +2,8 @@ import pandas as pd
 import pytest
 
 from trend_analysis.plugins import rebalancer_registry
-from trend_analysis.rebalancing import (
-    PeriodicRebalanceStrategy,
-    TurnoverCapStrategy,
-)
+from trend_analysis.rebalancing import (PeriodicRebalanceStrategy,
+                                        TurnoverCapStrategy)
 from trend_analysis.rebalancing import strategies as strat_mod
 
 # Restore registry to point to canonical strategy implementations
