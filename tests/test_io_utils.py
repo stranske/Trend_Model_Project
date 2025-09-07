@@ -36,6 +36,7 @@ class DummyResults:
         log = mock.MagicMock()
         log.to_csv = self._event_log_to_csv
         return log
+
     def summary(self):
         return {"ok": True}
 

@@ -54,7 +54,7 @@ def test_missing_required_key_raises():
         from pydantic import ValidationError  # type: ignore[import-not-found]
 
         err_type = (ValueError, ValidationError)
-    except Exception:
+    except (ImportError, ModuleNotFoundError):
         err_type = (ValueError,)
 
     with pytest.raises(err_type):
@@ -68,7 +68,7 @@ def test_invalid_version_type_raises():
         from pydantic import ValidationError  # type: ignore[import-not-found]
 
         err_type = (ValueError, ValidationError)
-    except Exception:
+    except (ImportError, ModuleNotFoundError):
         err_type = (ValueError,)
 
     with pytest.raises(err_type):
