@@ -7,7 +7,7 @@ set -euo pipefail
 # Set hash seed before Python starts for reproducible results
 export PYTHONHASHSEED=0
 
-pip install -r requirements.txt pytest coverage
+# Requires pytest and coverage installed in the environment
 
 # Select coverage profile (defaults to "core" if not provided)
 PROFILE="${COVERAGE_PROFILE:-core}"
