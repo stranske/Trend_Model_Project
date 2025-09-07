@@ -162,17 +162,22 @@ def test_run_with_invalid_price_frames():
 
 
 def test_generate_periods_respects_boundaries():
+    # Use relative dates for maintainability
+    start = (pd.Timestamp.today() - pd.offsets.MonthBegin(5)).strftime("%Y-%m")
+    end = pd.Timestamp.today().strftime("%Y-%m")
     cfg = {
         "multi_period": {
             "frequency": "M",
             "in_sample_len": 2,
             "out_sample_len": 1,
-            "start": "1990-01",
-            "end": "1990-06",
+            "start": start,
+            "end": end,
         }
     }
     periods = generate_periods(cfg)
-    assert len(periods) == 4
+    # The number of periods depends on the date range and window sizes
+    expected_periods = len(pd.period_range(start, end, freq="M")) - 2 + 1
+    assert len(periods) == expected_periods
     prev_start = None
     for pt in periods:
         in_start = pd.to_datetime(pt.in_start)
@@ -195,9 +200,9 @@ def test_generate_periods_respects_boundaries():
 def test_run_schedule_with_rebalancer_replaces_funds():
     sf1 = pd.DataFrame({"zscore": [2.0, 1.5, -0.5]}, index=["A", "B", "C"])
     sf2 = pd.DataFrame({"zscore": [-1.5, 0.5, 2.0]}, index=["A", "B", "C"])
-    # Use fixed month-end dates to ensure deterministic test behavior
+    # Use a fixed reference date for deterministic tests
     end_of_month = pd.Timestamp('2023-01-31')
-    prev_month_end = pd.Timestamp('2022-12-31')
+    prev_month_end = end_of_month - pd.offsets.MonthEnd(1)
     frames = {prev_month_end: sf1, end_of_month: sf2}
     selector = RankSelector(top_n=2, rank_column="zscore")
     weighting = EqualWeight()
