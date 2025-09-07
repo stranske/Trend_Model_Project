@@ -32,6 +32,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/agents.json
 
       # Debug what we actually saw (so we stop arguing with ghosts)
       - name: Debug event snapshot
