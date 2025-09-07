@@ -1,6 +1,6 @@
+import importlib
 import sys
 from unittest.mock import MagicMock
-import importlib
 
 
 def test_show_disclaimer(monkeypatch):
@@ -12,6 +12,8 @@ def test_show_disclaimer(monkeypatch):
     st.rerun.return_value = None
 
     monkeypatch.setitem(sys.modules, "streamlit", st)
-    disclaimer = importlib.reload(importlib.import_module("streamlit_app.components.disclaimer"))
+    disclaimer = importlib.reload(
+        importlib.import_module("streamlit_app.components.disclaimer")
+    )
     assert disclaimer.show_disclaimer() is False
     assert disclaimer.show_disclaimer() is True

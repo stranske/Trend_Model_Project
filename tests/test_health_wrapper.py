@@ -1,7 +1,7 @@
 """Test for health wrapper module to ensure proper module qualification."""
 
-from pathlib import Path
 import sys
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -66,8 +66,8 @@ def test_main_missing_uvicorn(monkeypatch, capsys):
 
 
 def test_import_without_dependencies(monkeypatch):
-    import importlib
     import builtins
+    import importlib
 
     from trend_portfolio_app import health_wrapper as hw
 
