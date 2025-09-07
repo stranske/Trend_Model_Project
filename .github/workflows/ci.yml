@@ -100,14 +100,14 @@ jobs:
         run: docker build -t trend:ci .
       - name: Run container
         run: |
-          docker run -d --name trendci -p 8501:8000 \
+          docker run -d --name trendci -p 8000:8000 \
             -e STREAMLIT_SERVER_HEADLESS=1 \
-            -e HEALTH_PORT=8501 \
+            -e HEALTH_PORT=8000 \
             trend:ci
       - name: Wait for health
         run: |
           for i in {1..10}; do
-            if curl -fsS http://localhost:8501/health | grep -qi "ok"; then
+            if curl -fsS http://localhost:8000/health | grep -qi "ok"; then
               echo "App healthy"; exit 0
             fi
             sleep 1
