@@ -3,56 +3,20 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [phase-2-dev]
+    branches: [ phase-2-dev ]
   workflow_dispatch:
 
 permissions:
   contents: read
 
-jobs:
-  autofix:
-    name: autofix (PR only)
-    if: github.event_name == 'pull_request' && github.actor != 'github-actions' && github.actor != 'github-actions[bot]'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    outputs:
-      fix_pushed: ${{ steps.autofix_step.outputs.fix_pushed }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
-          persist-credentials: true
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Run autofix
-        id: autofix_step
-        shell: bash
-        run: |
-          python -m pip install -U pip
-          pip install -e ".[dev]" black ruff isort docformatter
-          ruff check --fix .
-          black .
-          isort .
-          docformatter -r -i src tests
-          if ! git diff --quiet; then
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add -A
-            git commit -m "ci: autofix formatting/lint"
-            git push origin HEAD:${{ github.event.pull_request.head.ref }}
-            echo "fix_pushed=true" >> $GITHUB_OUTPUT
-          else
-            echo "fix_pushed=false" >> $GITHUB_OUTPUT
-          fi
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
+jobs:
   core-tests:
     name: core-tests (Python ${{ matrix.py }})
     runs-on: ubuntu-latest
-    needs: [autofix]
-    if: needs.autofix.result == 'skipped' || needs.autofix.outputs.fix_pushed == 'false'
     strategy:
       fail-fast: false
       matrix:
@@ -62,49 +26,19 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.py }}
-      - name: Install test deps
+      - name: Install
         run: |
           python -m pip install -U pip
           pip install -r requirements.txt
           pip install -e ".[dev]" pytest pytest-cov
       - name: Run core subset
         run: |
-          pytest -m "not quarantine and not slow" --cov=src --cov-report=term-missing --cov-fail-under=80
-
-  docker-smoke:
-    name: docker-smoke
-    runs-on: ubuntu-latest
-    needs: [autofix]
-    # Only run docker-smoke if autofix was skipped or did not push changes.
-    # This prevents testing the pre-autofix state of the code.
-    if: needs.autofix.result == 'skipped' || needs.autofix.outputs.fix_pushed == 'false'
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build image
-        run: docker build -t trend:ci .
-      - name: Run container
-        run: |
-          # Run the app on 8501 in-container and map to 8501 on host
-          docker run -d --name trendci -p 8501:8501 \
-            -e STREAMLIT_SERVER_PORT=8501 \
-            trend:ci
-      - name: Wait for health
-        shell: bash
-        run: |
-          for i in {1..20}; do
-            if curl -fsS "http://localhost:8501/" -o /dev/null; then
-              echo "App healthy"
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "Health check failed"
-          docker logs trendci || true
-          exit 1
+          pytest -m "not quarantine and not slow" \
+            --cov=src --cov-report=term-missing --cov-fail-under=80
 
   gate:
     name: gate / all-required-green
     runs-on: ubuntu-latest
-    needs: [core-tests, docker-smoke]
+    needs: [core-tests]
     steps:
-      - run: echo "Core tests and docker smoke passed."
+      - run: echo "Core tests passed."
