@@ -29,9 +29,12 @@ def get_rebalancing_strategies() -> Dict[str, type]:
     """Return mapping of registered strategy names to classes."""
 
     # PluginRegistry exposes registered names via ``available`` but does not
-    # provide a public accessor for the classes themselves.  The registry keeps
+    # provide a public accessor for the classes themselves. The registry keeps
     # them in the private ``_plugins`` dict, which we copy here for introspection
     # without mutating the original mapping.
+    # NOTE: Accessing the private attribute ``_plugins`` violates encapsulation principles
+    # (see CodeQL rule: "Accessing private attributes (`_plugins`) violates encapsulation principles").
+    # This is a necessary workaround because the registry design cannot be modified here.
     return rebalancer_registry._plugins.copy()
 
 
