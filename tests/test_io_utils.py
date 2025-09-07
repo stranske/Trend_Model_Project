@@ -6,8 +6,7 @@ from unittest import mock
 import pandas as pd
 import pytest
 
-from trend_analysis.io import utils
-from trend_analysis.io import validators
+from trend_analysis.io import utils, validators
 
 
 class DummyResults:
