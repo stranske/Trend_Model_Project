@@ -1,6 +1,5 @@
 [run]
 omit =
-    src/trend_analysis/core/*
     src/trend_analysis/gui/*
     src/trend_analysis/proxy/*
     src/trend_analysis/api_server/*
