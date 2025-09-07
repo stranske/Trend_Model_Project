@@ -1,7 +1,8 @@
 import pandas as pd
 
 from trend_analysis.export import (FORMATTERS_EXCEL, export_to_excel,
-                                   format_summary_text, make_summary_formatter)
+                                   format_summary_text, make_period_formatter,
+                                   make_summary_formatter)
 
 
 class DummyWS:
@@ -176,3 +177,22 @@ def test_make_summary_formatter_contract():
     assert ws.frozen == (5, 0)
     assert ws.autofilter_args[0] == 4
     assert ws.columns[0][2] == len("Name") + 2
+
+
+def test_make_period_formatter_registers_and_runs():
+    FORMATTERS_EXCEL.clear()
+    res = {
+        "in_ew_stats": (1, 1, 1, 1, 1, 1),
+        "out_ew_stats": (2, 2, 2, 2, 2, 2),
+        "in_user_stats": (3, 3, 3, 3, 3, 3),
+        "out_user_stats": (4, 4, 4, 4, 4, 4),
+        "in_sample_stats": {"fund": (5, 5, 5, 5, 5, 5)},
+        "out_sample_stats": {"fund": (6, 6, 6, 6, 6, 6)},
+        "fund_weights": {"fund": 0.5},
+    }
+    fmt = make_period_formatter("period_1", res, "a", "b", "c", "d")
+    assert "period_1" in FORMATTERS_EXCEL
+    ws = DummyWS()
+    wb = DummyWB()
+    fmt(ws, wb)
+    assert ws.rows[0][2][0] == "Vol-Adj Trend Analysis"
