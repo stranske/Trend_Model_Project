@@ -200,8 +200,8 @@ def test_generate_periods_respects_boundaries():
 def test_run_schedule_with_rebalancer_replaces_funds():
     sf1 = pd.DataFrame({"zscore": [2.0, 1.5, -0.5]}, index=["A", "B", "C"])
     sf2 = pd.DataFrame({"zscore": [-1.5, 0.5, 2.0]}, index=["A", "B", "C"])
-    # Use relative month-end dates to avoid hardcoding specific calendar days
-    end_of_month = pd.Timestamp.today() + pd.offsets.MonthEnd(0)
+    # Use a fixed reference date for deterministic tests
+    end_of_month = pd.Timestamp('2023-01-31')
     prev_month_end = end_of_month - pd.offsets.MonthEnd(1)
     frames = {prev_month_end: sf1, end_of_month: sf2}
     selector = RankSelector(top_n=2, rank_column="zscore")
