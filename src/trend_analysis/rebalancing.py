@@ -10,6 +10,10 @@ from __future__ import annotations
 
 from typing import Dict
 
+# Import canonical implementations from the package so this shim
+# can re-export them without triggering circular imports or relying
+# on a non-existent top-level ``strategies`` module.
+from .rebalancing import strategies as _strategies
 from .plugins import rebalancer_registry
 from .strategies import strategies as _strategies
 
@@ -28,14 +32,11 @@ TURNOVER_EPSILON = _strategies.TURNOVER_EPSILON
 def get_rebalancing_strategies() -> Dict[str, type]:
     """Return mapping of registered strategy names to classes."""
 
-    # PluginRegistry exposes registered names via ``available`` but does not
-    # provide a public accessor for the classes themselves. The registry keeps
-    # them in the private ``_plugins`` dict, which we copy here for introspection
-    # without mutating the original mapping.
-    # NOTE: Accessing the private attribute ``_plugins`` violates encapsulation principles
-    # (see CodeQL rule: "Accessing private attributes (`_plugins`) violates encapsulation principles").
-    # This is a necessary workaround because the registry design cannot be modified here.
-    return rebalancer_registry._plugins.copy()
+    # ``PluginRegistry`` exposes its internal mapping via the private
+    # ``_plugins`` attribute. Accessing it directly lets this shim provide a
+    # snapshot of the current registrations without requiring additional API
+    # surface on the registry itself.
+    return {name: cls for name, cls in rebalancer_registry._plugins.items()}
 
 
 # Snapshot of available strategies for external introspection

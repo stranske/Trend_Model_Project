@@ -1,15 +1,3 @@
 [run]
 omit =
-    */trend_analysis/core/*
-    */trend_analysis/gui/*
-    */trend_analysis/export/*
-    */trend_analysis/api_server/*
-    */trend_analysis/cli.py
-    */trend_analysis/config/*
-    */trend_analysis/io/*
-    */trend_analysis/metrics/attribution.py
-    */trend_analysis/multi_period/*
-    */trend_analysis/proxy/*
-    */trend_analysis/run_multi_analysis.py
-    */trend_analysis/weights/risk_parity.py
-    */trend_analysis/proxy/server.py
+

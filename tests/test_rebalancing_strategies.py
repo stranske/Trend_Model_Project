@@ -1,6 +1,7 @@
 import importlib.util
 from pathlib import Path
 
+
 import pandas as pd
 import pytest
 
@@ -69,3 +70,9 @@ def test_periodic_rebalance_interval():
     w2, c2 = strat.apply(current, target)
     pd.testing.assert_series_equal(w2.sort_index(), target.sort_index())
     assert c2 == 0
+
+
+def test_get_rebalancing_strategies_matches_registry():
+    mapping = reb_module.get_rebalancing_strategies()
+    assert set(mapping) == set(rebalancer_registry.available())
+    assert mapping["turnover_cap"] is strat_mod.TurnoverCapStrategy
