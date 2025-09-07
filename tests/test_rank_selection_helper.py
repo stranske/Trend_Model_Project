@@ -33,7 +33,7 @@ def test_rank_select_funds_blended_requires_weights_and_no_dedupe():
     res = rank_select_funds(
         df, cfg, inclusion_approach="top_n", n=2, limit_one_per_firm=False
     )
-    assert res[:2] == res
+    assert len(res) == 2
 
 
 @pytest.fixture
