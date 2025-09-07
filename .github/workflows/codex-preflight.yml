@@ -18,7 +18,7 @@ jobs:
             // Change this if your connector uses a different login
             const USER = 'chatgpt-codex-connector';
             const { data: issue } = await github.rest.issues.create({
-              owner, repo, title: "[probe] codex-assignability", body: "temporary"
+              owner, repo, title: `[probe] codex-assignability ${new Date().toISOString()}`, body: "temporary"
             });
             try {
               const res = await github.rest.issues.addAssignees({ owner, repo, issue_number: issue.number, assignees: [USER] });
