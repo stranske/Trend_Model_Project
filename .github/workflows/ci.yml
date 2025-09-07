@@ -1,6 +1,10 @@
 name: Assign to Copilot (Issues + PRs)
 
 on:
+  push:
+    branches: [ phase-2-dev ]
+  pull_request:
+    branches: [ phase-2-dev ]
   issues:
     types: [opened, labeled, reopened]
   pull_request_target:
@@ -13,15 +17,38 @@ on:
         default: "both"
 
 permissions:
+  contents: read
   issues: write
   pull-requests: write
 
 concurrency:
-  group: assign-${{ github.event_name }}-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: false
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
+  core-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        py: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.py }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run tests
+        run: pytest -q
+
   assign_or_backfill:
+    if: github.event_name != 'push' && github.event_name != 'pull_request'
+    concurrency:
+      group: assign-${{ github.event_name }}-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/github-script@v7
@@ -29,6 +56,7 @@ jobs:
           script: |
             const { owner, repo } = context.repo;
             const LABEL = 'agent:copilot';
+            const COPILOT = 'github-copilot';
 
             async function assignToCopilot(issue_number) {
               // Always refetch to get current labels/assignees
@@ -38,16 +66,16 @@ jobs:
                 core.info(`#${issue_number}: missing ${LABEL}, skipping`);
                 return;
               }
-              const assignees = (issue.assignees || []).map(a => (a.login || '').toLowerCase());
-              if (!assignees.includes('copilot')) {
-                await github.rest.issues.addAssignees({ owner, repo, issue_number, assignees: ['copilot'] });
+              const assignees = (issue.assignees || []).map(a => a.login || '');
+              if (!assignees.includes(COPILOT)) {
+                await github.rest.issues.addAssignees({ owner, repo, issue_number, assignees: [COPILOT] });
                 await github.rest.issues.createComment({
                   owner, repo, issue_number,
-                  body: 'Assigning to @copilot. Please pick up this task.'
+                  body: `Assigning to @${COPILOT}. Please pick up this task.`
                 });
-                core.info(`#${issue_number}: assigned to copilot`);
+                core.info(`#${issue_number}: assigned to ${COPILOT}`);
               } else {
-                core.info(`#${issue_number}: copilot already assigned`);
+                core.info(`#${issue_number}: ${COPILOT} already assigned`);
               }
             }
 
@@ -56,9 +84,9 @@ jobs:
               const scope = (context.payload.inputs?.scope || 'both').toLowerCase();
               const queries = [];
               if (scope === 'issues' || scope === 'both')
-                queries.push(`repo:${owner}/${repo} is:issue is:open label:"${LABEL}" -assignee:copilot`);
+                queries.push(`repo:${owner}/${repo} is:issue is:open label:"${LABEL}" -assignee:${COPILOT}`);
               if (scope === 'prs' || scope === 'both')
-                queries.push(`repo:${owner}/${repo} is:pr is:open label:"${LABEL}" -assignee:copilot`);
+                queries.push(`repo:${owner}/${repo} is:pr is:open label:"${LABEL}" -assignee:${COPILOT}`);
 
               for (const q of queries) {
                 core.info(`Backfill query: ${q}`);
