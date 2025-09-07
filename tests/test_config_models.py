@@ -3,7 +3,6 @@ from typing import Any
 
 import pytest
 
-
 # Import the module directly via its source path
 models = importlib.import_module("trend_analysis.config.models")
 
