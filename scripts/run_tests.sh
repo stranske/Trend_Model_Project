@@ -7,11 +7,16 @@ set -euo pipefail
 # Set hash seed before Python starts for reproducible results
 export PYTHONHASHSEED=0
 
-pip install -r requirements.txt pytest coverage ox_profile
+pip install -r requirements.txt pytest coverage
 
 # Select coverage profile (defaults to "core" if not provided)
 PROFILE="${COVERAGE_PROFILE:-core}"
 
+# Validate coverage profile file exists
+if [[ ! -f ".coveragerc.${PROFILE}" ]]; then
+  echo "Invalid coverage profile: ${PROFILE}. File .coveragerc.${PROFILE} not found."
+  exit 1
+fi
 # Run pytest under coverage and capture exit code so we can handle the "no tests" case
 set +e
 PYTHONPATH="./src" coverage run --rcfile ".coveragerc.${PROFILE}" -m pytest --maxfail=1 --disable-warnings "$@"
