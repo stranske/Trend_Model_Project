@@ -14,17 +14,12 @@ from .plugins import rebalancer_registry
 # Import canonical implementations from the package so this shim
 # can re-export them without triggering circular imports or relying
 # on a non-existent top-level ``strategies`` module.
-from .rebalancing.strategies import (
-    DrawdownGuardStrategy,
-    DriftBandStrategy,
-    PeriodicRebalanceStrategy,
-    RebalancingStrategy,
-    TurnoverCapStrategy,
-    VolTargetRebalanceStrategy,
-    apply_rebalancing_strategies,
-    create_rebalancing_strategy,
-)
-from .plugins import rebalancer_registry
+from .rebalancing.strategies import (DrawdownGuardStrategy, DriftBandStrategy,
+                                     PeriodicRebalanceStrategy,
+                                     RebalancingStrategy, TurnoverCapStrategy,
+                                     VolTargetRebalanceStrategy,
+                                     apply_rebalancing_strategies,
+                                     create_rebalancing_strategy)
 
 
 def get_rebalancing_strategies() -> Dict[str, type]:
