@@ -81,4 +81,5 @@ jobs:
               echo "::error::GitHub refused to assign @copilot here (status=${{ steps.assign.outputs.status }}). That confirms policy/enablement is blocking it."
             fi
             exit 1
+          fi
           echo "Copilot appears assignable here."
