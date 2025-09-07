@@ -1,8 +1,21 @@
 import pandas as pd
+import pytest
 
 from trend_analysis.export import (FORMATTERS_EXCEL, export_to_excel,
                                    format_summary_text, make_period_formatter,
                                    make_summary_formatter)
+
+
+@pytest.fixture
+def formatters_excel_registry():
+    """Yield with a clean FORMATTERS_EXCEL registry and restore afterward."""
+    original = FORMATTERS_EXCEL.copy()
+    FORMATTERS_EXCEL.clear()
+    try:
+        yield
+    finally:
+        FORMATTERS_EXCEL.clear()
+        FORMATTERS_EXCEL.update(original)
 
 
 class DummyWS:
@@ -38,8 +51,7 @@ class DummyWB:
         return spec
 
 
-def test_make_summary_formatter_registers_and_runs():
-    FORMATTERS_EXCEL.clear()
+def test_make_summary_formatter_registers_and_runs(formatters_excel_registry):
     res = {
         "in_ew_stats": (1, 1, 1, 1, 1, 1),
         "out_ew_stats": (2, 2, 2, 2, 2, 2),
@@ -140,8 +152,7 @@ def test_make_summary_formatter_handles_nan(tmp_path):
     assert ws.rows[0][2][0] == "Vol-Adj Trend Analysis"
 
 
-def test_make_summary_formatter_with_benchmarks():
-    FORMATTERS_EXCEL.clear()
+def test_make_summary_formatter_with_benchmarks(formatters_excel_registry):
     res = {
         "in_ew_stats": (1, 1, 1, 1, 1, 1),
         "out_ew_stats": (2, 2, 2, 2, 2, 2),
@@ -179,8 +190,7 @@ def test_make_summary_formatter_contract():
     assert ws.columns[0][2] == len("Name") + 2
 
 
-def test_make_period_formatter_registers_and_runs():
-    FORMATTERS_EXCEL.clear()
+def test_make_period_formatter_registers_and_runs(formatters_excel_registry):
     res = {
         "in_ew_stats": (1, 1, 1, 1, 1, 1),
         "out_ew_stats": (2, 2, 2, 2, 2, 2),
@@ -190,7 +200,11 @@ def test_make_period_formatter_registers_and_runs():
         "out_sample_stats": {"fund": (6, 6, 6, 6, 6, 6)},
         "fund_weights": {"fund": 0.5},
     }
-    fmt = make_period_formatter("period_1", res, "a", "b", "c", "d")
+    in_start = "2020-01-01"
+    in_end = "2020-06-30"
+    out_start = "2020-07-01"
+    out_end = "2020-12-31"
+    fmt = make_period_formatter("period_1", res, in_start, in_end, out_start, out_end)
     assert "period_1" in FORMATTERS_EXCEL
     ws = DummyWS()
     wb = DummyWB()
