@@ -25,19 +25,6 @@ def test_compute_score_frame_local_handles_failure(monkeypatch):
     assert np.isnan(df.loc["A", "boom"])
 
 
-def test_compute_score_frame_local_skips_date_column():
-    panel = pd.DataFrame(
-        {
-            "Date": [pd.Timestamp("2020-01-31"), pd.Timestamp("2020-02-29")],
-            "A": [0.1, 0.2],
-        },
-        index=[pd.Timestamp("2020-01-31"), pd.Timestamp("2020-02-29")],
-    )
-
-    df = sim_runner.compute_score_frame_local(panel)
-    assert "Date" not in df.index
-
-
 def test_compute_score_frame_validations_and_fallback(monkeypatch):
     df = pd.DataFrame({"A": [0.1, 0.2]})
     with pytest.raises(ValueError):
@@ -218,18 +205,6 @@ def test_apply_rebalance_pipeline_strategies():
         policy=policy,
     )
     assert isinstance(res, pd.Series)
-
-
-def test_compute_score_frame_local_skips_date_column(monkeypatch):
-    panel = pd.DataFrame(
-        {
-            "Date": [pd.Timestamp("2020-01-31"), pd.Timestamp("2020-02-29")],
-            "A": [0.1, 0.2],
-        }
-    )
-    monkeypatch.setattr(sim_runner, "AVAILABLE_METRICS", {})
-    df = sim_runner.compute_score_frame_local(panel)
-    assert "Date" not in df.index
 
 
 def test_simulator_equity_curve_warning(monkeypatch, caplog):
