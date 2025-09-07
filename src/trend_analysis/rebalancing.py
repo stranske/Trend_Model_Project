@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Dict
 
-from . import strategies as _strategies
+from .rebalancing import strategies as _strategies
 from .plugins import rebalancer_registry
 
 # Re-export public classes and helpers from the strategies module
@@ -29,9 +29,11 @@ TURNOVER_EPSILON = _strategies.TURNOVER_EPSILON
 def get_rebalancing_strategies() -> Dict[str, type]:
     """Return mapping of registered strategy names to classes."""
 
-    return {
-        name: rebalancer_registry.get(name) for name in rebalancer_registry.available()
-    }
+    # PluginRegistry exposes registered names via ``available`` but does not
+    # provide a public accessor for the classes themselves.  The registry keeps
+    # them in the private ``_plugins`` dict, which we copy here for introspection
+    # without mutating the original mapping.
+    return rebalancer_registry._plugins.copy()
 
 
 # Snapshot of available strategies for external introspection

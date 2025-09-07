@@ -11,7 +11,7 @@ pip install -r requirements.txt pytest
 
 # Run pytest and capture exit code so we can handle the "no tests" case
 set +e
-PYTHONPATH="./src" pytest --maxfail=1 --disable-warnings --cov trend_analysis --cov-branch "$@"
+PYTHONPATH="./src" pytest --maxfail=1 --disable-warnings --cov trend_analysis --cov-branch --cov-fail-under=85 "$@"
 status=$?
 set -e
 
