@@ -75,7 +75,7 @@ def test_import_without_dependencies(monkeypatch):
 
     def fake_import(name, *args, **kwargs):
         if name.startswith("fastapi") or name == "uvicorn":
-            raise ImportError(f'No module named {name}')
+            raise ImportError(f"No module named {name}")
         return original_import(name, *args, **kwargs)
 
     monkeypatch.setattr(builtins, "__import__", fake_import)
