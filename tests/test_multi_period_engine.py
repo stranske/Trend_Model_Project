@@ -7,8 +7,8 @@ from trend_analysis.config import Config
 from trend_analysis.multi_period import Portfolio
 from trend_analysis.multi_period import run as run_mp
 from trend_analysis.multi_period import run_schedule
-from trend_analysis.multi_period.scheduler import generate_periods
 from trend_analysis.multi_period.replacer import Rebalancer
+from trend_analysis.multi_period.scheduler import generate_periods
 from trend_analysis.selector import RankSelector
 from trend_analysis.weighting import AdaptiveBayesWeighting, EqualWeight
 
@@ -201,7 +201,7 @@ def test_run_schedule_with_rebalancer_replaces_funds():
     sf1 = pd.DataFrame({"zscore": [2.0, 1.5, -0.5]}, index=["A", "B", "C"])
     sf2 = pd.DataFrame({"zscore": [-1.5, 0.5, 2.0]}, index=["A", "B", "C"])
     # Use a fixed reference date for deterministic tests
-    end_of_month = pd.Timestamp('2023-01-31')
+    end_of_month = pd.Timestamp("2023-01-31")
     prev_month_end = end_of_month - pd.offsets.MonthEnd(1)
     frames = {prev_month_end: sf1, end_of_month: sf2}
     selector = RankSelector(top_n=2, rank_column="zscore")
