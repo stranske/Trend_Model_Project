@@ -1,0 +1,64 @@
+name: codex preflight
+on: { workflow_dispatch: {} }
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Is codex assignee allowed?
+        id: assign
+        continue-on-error: true
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            // Change this if your connector uses a different login
+            const USER = 'chatgpt-codex-connector';
+            const { data: issue } = await github.rest.issues.create({
+              owner, repo, title: "[probe] codex-assignability", body: "temporary"
+            });
+            try {
+              const res = await github.rest.issues.addAssignees({ owner, repo, issue_number: issue.number, assignees: [USER] });
+              core.info("addAssignees status: " + res.status);
+              core.setOutput('ok', 'true');
+              core.setOutput('num', String(issue.number));
+            } catch (err) {
+              core.warning(`addAssignees failed: ${err.status} ${err.message}`);
+              core.setOutput('ok', 'false');
+              core.setOutput('num', String(issue.number));
+            }
+
+      - name: Post command Codex listens for (optional)
+        if: steps.assign.outputs.num
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const issue_number = Number("${{ steps.assign.outputs.num }}");
+            // If your connector requires a phrase, put it here:
+            const COMMAND = 'codex: start';
+            await github.rest.issues.createComment({
+              owner, repo, issue_number,
+              body: `${COMMAND}\n\nPlease create a working branch, implement, run tests, and open a draft PR linking back to this issue.`
+            });
+
+      - name: Close temp
+        if: steps.assign.outputs.num
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            await github.rest.issues.update({
+              owner, repo, issue_number: Number("${{ steps.assign.outputs.num }}"), state: 'closed'
+            });
+
+      - name: Verdict
+        run: |
+          if [ "${{ steps.assign.outputs.ok }}" != "true" ]; then
+            echo "::warning::Codex account was NOT assignable here. Install/authorize the ChatGPT GitHub connector app for this repo or use the exact command it expects."
+            exit 0
+          fi
+          echo "Codex account is assignable; if it still does nothing, add the correct command phrase."
