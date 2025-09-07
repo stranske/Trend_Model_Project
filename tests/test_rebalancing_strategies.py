@@ -1,29 +1,17 @@
-import importlib.util
-from pathlib import Path
-
 import pandas as pd
 import pytest
 
-import trend_analysis
 from trend_analysis.plugins import rebalancer_registry
+from trend_analysis.rebalancing import (
+    PeriodicRebalanceStrategy,
+    TurnoverCapStrategy,
+)
 from trend_analysis.rebalancing import strategies as strat_mod
 
-# Load the rebalancing.py module which is shadowed by the package
-MODULE_PATH = Path(trend_analysis.__file__).with_name("rebalancing.py")
-SPEC = importlib.util.spec_from_file_location(
-    "trend_analysis.rebalancing_file", MODULE_PATH
-)
-reb_module = importlib.util.module_from_spec(SPEC)
-assert SPEC and SPEC.loader
-SPEC.loader.exec_module(reb_module)
-
 # Restore registry to point to canonical strategy implementations
-rebalancer_registry.register("turnover_cap")(strat_mod.TurnoverCapStrategy)
-rebalancer_registry.register("periodic_rebalance")(strat_mod.PeriodicRebalanceStrategy)
+rebalancer_registry.register("turnover_cap")(TurnoverCapStrategy)
+rebalancer_registry.register("periodic_rebalance")(PeriodicRebalanceStrategy)
 rebalancer_registry.register("drawdown_guard")(strat_mod.DrawdownGuardStrategy)
-
-TurnoverCapStrategy = reb_module.TurnoverCapStrategy
-PeriodicRebalanceStrategy = reb_module.PeriodicRebalanceStrategy
 
 
 def test_turnover_cap_executes_within_limit():
