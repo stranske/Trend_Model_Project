@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from typing import Dict
 
-from .strategies import strategies as _strategies
 from .plugins import rebalancer_registry
+from .strategies import strategies as _strategies
 
 # Re-export public classes and helpers from the strategies module
 RebalancingStrategy = _strategies.RebalancingStrategy
