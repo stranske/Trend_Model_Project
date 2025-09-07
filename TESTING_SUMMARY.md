@@ -41,6 +41,12 @@ streamlit run test_upload_app.py --server.headless true
 
 # Validation workflow test
 python -c "from src.trend_analysis.io.validators import load_and_validate_upload; ..."
+
+# Run full test suite with coverage (core profile)
+./scripts/run_tests.sh
+
+# Run tests with the full coverage profile
+COVERAGE_PROFILE=full ./scripts/run_tests.sh
 ```
 
 ## Screenshots Available
