@@ -162,17 +162,22 @@ def test_run_with_invalid_price_frames():
 
 
 def test_generate_periods_respects_boundaries():
+    # Use relative dates for maintainability
+    start = (pd.Timestamp.today() - pd.offsets.MonthBegin(5)).strftime("%Y-%m")
+    end = pd.Timestamp.today().strftime("%Y-%m")
     cfg = {
         "multi_period": {
             "frequency": "M",
             "in_sample_len": 2,
             "out_sample_len": 1,
-            "start": "1990-01",
-            "end": "1990-06",
+            "start": start,
+            "end": end,
         }
     }
     periods = generate_periods(cfg)
-    assert len(periods) == 4
+    # The number of periods depends on the date range and window sizes
+    expected_periods = len(pd.period_range(start, end, freq="M")) - 2 + 1
+    assert len(periods) == expected_periods
     prev_start = None
     for pt in periods:
         in_start = pd.to_datetime(pt.in_start)
