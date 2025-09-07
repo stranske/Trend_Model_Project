@@ -25,6 +25,23 @@ def test_compute_score_frame_local_handles_failure(monkeypatch):
     assert np.isnan(df.loc["A", "boom"])
 
 
+def test_compute_score_frame_local_skips_date_column(monkeypatch):
+    panel = pd.DataFrame(
+        {
+            "Date": [pd.Timestamp("2020-01-31"), pd.Timestamp("2020-02-29")],
+            "A": [0.1, 0.2],
+        }
+    )
+
+    monkeypatch.setitem(
+        sim_runner.AVAILABLE_METRICS, "dummy", {"fn": lambda r, idx: 1.0}
+    )
+
+    df = sim_runner.compute_score_frame_local(panel)
+    assert "Date" not in df.index
+    assert df.loc["A", "dummy"] == 1.0
+
+
 def test_compute_score_frame_validations_and_fallback(monkeypatch):
     df = pd.DataFrame({"A": [0.1, 0.2]})
     with pytest.raises(ValueError):
