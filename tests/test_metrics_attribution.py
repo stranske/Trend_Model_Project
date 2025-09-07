@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import pytest
 
 from trend_analysis.metrics import attribution
 
@@ -13,6 +14,12 @@ def _sample_data():
         index=pd.RangeIndex(3),
     )
     rebal = pd.Series([0.001, -0.002, 0.0], index=signals.index, name="rebalancing")
+    return signals, rebal
+
+
+def _zero_exposure_data():
+    signals = pd.DataFrame(0.0, index=pd.RangeIndex(3), columns=["s1", "s2"])
+    rebal = pd.Series(0.0, index=signals.index, name="rebalancing")
     return signals, rebal
 
 
@@ -39,3 +46,16 @@ def test_export_and_plot(tmp_path):
     # plot
     ax = attribution.plot_contributions(contrib)
     assert hasattr(ax, "plot")
+
+
+def test_zero_exposure_handled():
+    signals, rebal = _zero_exposure_data()
+    contrib = attribution.compute_contributions(signals, rebal)
+    assert (contrib == 0).all().all()
+
+
+def test_index_mismatch_raises():
+    signals, rebal = _sample_data()
+    rebal = rebal.reindex(rebal.index[::-1])
+    with pytest.raises(ValueError):
+        attribution.compute_contributions(signals, rebal)
