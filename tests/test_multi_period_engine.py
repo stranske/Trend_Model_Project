@@ -7,6 +7,8 @@ from trend_analysis.config import Config
 from trend_analysis.multi_period import Portfolio
 from trend_analysis.multi_period import run as run_mp
 from trend_analysis.multi_period import run_schedule
+from trend_analysis.multi_period.replacer import Rebalancer
+from trend_analysis.multi_period.scheduler import generate_periods
 from trend_analysis.selector import RankSelector
 from trend_analysis.weighting import AdaptiveBayesWeighting, EqualWeight
 
@@ -157,3 +159,68 @@ def test_run_with_invalid_price_frames():
         assert False, "Should have raised ValueError for empty price_frames"
     except ValueError as e:
         assert "price_frames is empty" in str(e)
+
+
+def test_generate_periods_respects_boundaries():
+    # Use relative dates for maintainability
+    start = (pd.Timestamp.today() - pd.offsets.MonthBegin(5)).strftime("%Y-%m")
+    end = pd.Timestamp.today().strftime("%Y-%m")
+    cfg = {
+        "multi_period": {
+            "frequency": "M",
+            "in_sample_len": 2,
+            "out_sample_len": 1,
+            "start": start,
+            "end": end,
+        }
+    }
+    periods = generate_periods(cfg)
+    # The number of periods depends on the date range and window sizes
+    expected_periods = len(pd.period_range(start, end, freq="M")) - 2 + 1
+    assert len(periods) == expected_periods
+    prev_start = None
+    for pt in periods:
+        in_start = pd.to_datetime(pt.in_start)
+        in_end = pd.to_datetime(pt.in_end)
+        out_start = pd.to_datetime(pt.out_start)
+        out_end = pd.to_datetime(pt.out_end)
+        # window lengths
+        in_len = len(pd.period_range(in_start, in_end, freq="M"))
+        out_len = len(pd.period_range(out_start, out_end, freq="M"))
+        assert in_len == 2
+        assert out_len == 1
+        # out-of-sample begins after in-sample ends
+        assert in_end < out_start
+        if prev_start is not None:
+            # next period starts exactly one month after previous start
+            assert in_start == prev_start + pd.offsets.MonthBegin(1)
+        prev_start = in_start
+
+
+def test_run_schedule_with_rebalancer_replaces_funds():
+    sf1 = pd.DataFrame({"zscore": [2.0, 1.5, -0.5]}, index=["A", "B", "C"])
+    sf2 = pd.DataFrame({"zscore": [-1.5, 0.5, 2.0]}, index=["A", "B", "C"])
+    # Use a fixed reference date for deterministic tests
+    end_of_month = pd.Timestamp("2023-01-31")
+    prev_month_end = end_of_month - pd.offsets.MonthEnd(1)
+    frames = {prev_month_end: sf1, end_of_month: sf2}
+    selector = RankSelector(top_n=2, rank_column="zscore")
+    weighting = EqualWeight()
+    cfg = {
+        "portfolio": {
+            "threshold_hold": {"soft_strikes": 1, "entry_soft_strikes": 1},
+            "constraints": {"max_funds": 2},
+        }
+    }
+    reb = Rebalancer(cfg)
+    pf = run_schedule(
+        frames,
+        selector,
+        weighting,
+        rank_column="zscore",
+        rebalancer=reb,
+    )
+    w1 = pf.history[str(prev_month_end.date())]
+    w2 = pf.history[str(end_of_month.date())]
+    assert set(w1.index) == {"A", "B"}
+    assert set(w2.index) == {"B", "C"}
