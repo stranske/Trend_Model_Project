@@ -176,7 +176,10 @@ def test_generate_periods_respects_boundaries():
     }
     periods = generate_periods(cfg)
     # The number of periods depends on the date range and window sizes
-    expected_periods = len(pd.period_range(start, end, freq="M")) - 2 + 1
+    total = len(pd.period_range(start, end, freq="M"))
+    in_len = cfg["multi_period"]["in_sample_len"]
+    out_len = cfg["multi_period"]["out_sample_len"]
+    expected_periods = ((total - (in_len + out_len)) // out_len) + 1
     assert len(periods) == expected_periods
     prev_start = None
     for pt in periods:
