@@ -1,10 +1,9 @@
-"""Backward-compatible rebalancing strategy API.
+"""Backward compatibility shim for rebalancing strategies.
 
-This module used to host the concrete rebalancing strategy implementations.
-The implementations now live in :mod:`trend_analysis.rebalancing.strategies`.
-To avoid confusing multiple class definitions (which previously caused
-``isinstance`` checks to fail), this shim simply re-exports the strategy
-classes and helpers from the canonical ``strategies`` module.
+The canonical implementations live in :mod:`trend_analysis.rebalancing.strategies`.
+This module re-exports those classes so legacy imports of
+``trend_analysis.rebalancing`` continue to work without registering
+duplicate plugins.
 """
 
 from __future__ import annotations
@@ -16,6 +15,7 @@ from typing import Dict
 # on a non-existent top-level ``strategies`` module.
 from .rebalancing import strategies as _strategies
 from .plugins import rebalancer_registry
+from .strategies import strategies as _strategies
 
 # Re-export public classes and helpers from the strategies module
 RebalancingStrategy = _strategies.RebalancingStrategy
@@ -52,8 +52,5 @@ __all__ = [
     "DrawdownGuardStrategy",
     "create_rebalancing_strategy",
     "apply_rebalancing_strategies",
-    "TURNOVER_EPSILON",
     "rebalancer_registry",
-    "get_rebalancing_strategies",
-    "REBALANCING_STRATEGIES",
 ]
