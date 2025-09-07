@@ -89,8 +89,8 @@ jobs:
               for (const [k,rec] of Object.entries(REGISTRY)) {
                 if ((rec.aliases || []).map(a => a.toLowerCase()).includes(key)) return { key: k, ...rec };
               }
-              // Fallback: assume the suffix is a username
-              return { key, assignee: key, mention: '@'+key, aliases: [key] };
+              // No fallback: only allow explicitly registered agents
+              return null;
             }
 
             function agentsFromLabels(labels) {
