@@ -1,5 +1,7 @@
 import hashlib
-from trend_analysis.util.hash import sha256_bytes, sha256_text, sha256_file, sha256_config
+
+from trend_analysis.util.hash import (sha256_bytes, sha256_config, sha256_file,
+                                      sha256_text)
 
 
 def test_sha256_bytes_matches_hashlib():
