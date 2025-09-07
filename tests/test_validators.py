@@ -1,6 +1,9 @@
 """Tests for trend_analysis.io.validators module."""
 
 import io
+import os
+import tempfile
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -49,6 +52,17 @@ class TestDetectFrequency:
         df = pd.DataFrame(index=[])
         assert detect_frequency(df) == "unknown"
 
+    def test_single_timestamp_returns_unknown(self):
+        dates = pd.to_datetime(["2023-01-01"])
+        df = pd.DataFrame(index=dates)
+        assert detect_frequency(df) == "unknown"
+
+    def test_irregular_spacing_returns_irregular(self):
+        dates = pd.to_datetime(["2023-01-01", "2023-01-05", "2023-01-20"])
+        df = pd.DataFrame(index=dates)
+        result = detect_frequency(df)
+        assert result.startswith("irregular")
+
 
 class TestValidateReturnsSchema:
     """Test schema validation."""
@@ -94,6 +108,28 @@ class TestValidateReturnsSchema:
         result = validate_returns_schema(df)
         assert not result.is_valid
         assert any("Duplicate dates found" in issue for issue in result.issues)
+
+    def test_non_numeric_strings_fail_validation(self):
+        df = pd.DataFrame(
+            {
+                "Date": ["2023-01-31", "2023-02-28"],
+                "Fund1": ["a", "b"],
+            }
+        )
+        result = validate_returns_schema(df)
+        assert not result.is_valid
+        assert any("contains no valid numeric data" in issue for issue in result.issues)
+
+    def test_small_sample_emits_warning(self):
+        df = pd.DataFrame(
+            {
+                "Date": pd.date_range("2023-01-31", periods=5, freq="M"),
+                "Fund1": [0.01] * 5,
+            }
+        )
+        result = validate_returns_schema(df)
+        assert result.is_valid
+        assert any("Dataset is quite small" in w for w in result.warnings)
 
     def test_warnings_for_missing_values(self):
         # Create a larger dataset to avoid small dataset warning
@@ -142,6 +178,62 @@ class TestLoadAndValidateUpload:
         with pytest.raises(ValueError) as exc_info:
             load_and_validate_upload(file_like)
         assert "Schema validation failed" in str(exc_info.value)
+
+    def test_nonexistent_file_raises(self):
+        with pytest.raises(ValueError) as exc_info:
+            load_and_validate_upload("no_such_file.csv")
+        assert "File not found" in str(exc_info.value)
+
+    def test_permission_error_raises(self, monkeypatch):
+        def fake_read_csv(*args, **kwargs):  # pragma: no cover - patched
+            raise PermissionError
+
+        monkeypatch.setattr(pd, "read_csv", fake_read_csv)
+        with pytest.raises(ValueError) as exc_info:
+            load_and_validate_upload("test.csv")
+        assert "Permission denied" in str(exc_info.value)
+
+    def test_directory_path_error(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with pytest.raises(ValueError) as exc_info:
+                load_and_validate_upload(Path(tmpdir))
+            assert "Path is a directory" in str(exc_info.value)
+
+    def test_empty_file_error(self):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv") as tmp:
+            tmp.flush()
+            with pytest.raises(ValueError) as exc_info:
+                load_and_validate_upload(tmp.name)
+            assert "File contains no data" in str(exc_info.value)
+
+    def test_garbled_content_error(self):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as tmp:
+            tmp.write('"unclosed,quote')
+            tmp_path = tmp.name
+        try:
+            with pytest.raises(ValueError) as exc_info:
+                load_and_validate_upload(tmp_path)
+            assert "Failed to parse file" in str(exc_info.value)
+        finally:
+            os.remove(tmp_path)
+
+    def test_excel_pointer_reset(self):
+        df = pd.DataFrame({"Date": ["2023-01-31"], "Fund1": [0.01]})
+        buf = io.BytesIO()
+        df.to_excel(buf, index=False)
+        buf.seek(0)
+        buf.name = "test.xlsx"
+        load_and_validate_upload(buf)
+        assert buf.read(1)  # pointer reset allows re-read
+
+    def test_frequency_detection_fallback(self):
+        csv_data = "Date,Fund1\n2023-01-01,0.01\n2023-01-10,0.02\n2023-02-15,-0.01"
+        file_like = io.StringIO(csv_data)
+        file_like.name = "irregular.csv"
+        df, meta = load_and_validate_upload(file_like)
+        assert meta["frequency"].startswith("irregular")
+        month_end = df.index.to_period("M").to_timestamp(how="end")
+        assert all(df.index == month_end)
 
 
 class TestCreateSampleTemplate:

@@ -45,3 +45,9 @@ def test_missing_groups_raises():
     w = pd.Series([0.5, 0.5], index=["a", "b"], dtype=float)
     with pytest.raises(KeyError):
         apply_constraints(w, {"group_caps": {"X": 0.6}, "groups": {"a": "X"}})
+
+
+def test_redistribute_failure_raises():
+    w = pd.Series([0.5, 0.5], index=["a", "b"], dtype=float)
+    with pytest.raises(ConstraintViolation):
+        apply_constraints(w, {"long_only": True, "max_weight": 0.4})
