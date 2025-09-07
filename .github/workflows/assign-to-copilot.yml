@@ -1,73 +1,65 @@
-name: Assign to Copilot
+name: Assign issue to Copilot
 
 on:
   issues:
-    types: [opened, labeled]
-  pull_request_target:
-    types: [opened, labeled]
+    types: [opened, labeled, reopened]
+  workflow_dispatch:    # backfill button in Actions
 
 permissions:
   issues: write
-  pull-requests: write
+
+concurrency:
+  group: assign-${{ github.event.issue.number || 'manual' }}
+  cancel-in-progress: false
 
 jobs:
-  assign:
-    if: |
-      (
-        github.event_name == 'issues' &&
-        (
-          (github.event.action == 'opened' && contains(github.event.issue.labels.*.name, 'agent:copilot')) ||
-          (github.event.action == 'labeled' && github.event.label.name == 'agent:copilot')
-        )
-      ) ||
-      (
-        github.event_name == 'pull_request_target' &&
-        (
-          (github.event.action == 'opened' && contains(github.event.pull_request.labels.*.name, 'agent:copilot')) ||
-          (github.event.action == 'labeled' && github.event.label.name == 'agent:copilot')
-        )
-      )
+  assign_or_backfill:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/github-script@v7
         with:
           script: |
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
+            const { owner, repo } = context.repo;
 
-            function hasAgentLabel(labels) {
-              const names = (labels || []).map(l => (l.name || '').toLowerCase());
-              return names.includes('agent:copilot');
+            // Helper: does this label set include agent:copilot?
+            function hasAgentCopilot(labels) {
+              return (labels || []).map(l => (l.name || '').toLowerCase()).includes('agent:copilot');
             }
 
-            if (context.eventName === 'issues') {
-              const issue = context.payload.issue;
-              const isTriggered =
-                (context.payload.action === 'opened' && hasAgentLabel(issue.labels)) ||
-                (context.payload.action === 'labeled' && (context.payload.label?.name || '').toLowerCase() === 'agent:copilot');
-
-              if (!isTriggered) return;
-
-              const assignees = (issue.assignees || []).map(a => a.login);
-              if (!assignees.includes('copilot')) {
-                await github.rest.issues.addAssignees({ owner, repo, issue_number: issue.number, assignees: ['copilot'] });
-                await github.rest.issues.createComment({ owner, repo, issue_number: issue.number, body: 'Assigning to @copilot. Please pick up this issue.' });
+            // --- Manual backfill path (workflow_dispatch) ---
+            if (context.eventName === 'workflow_dispatch') {
+              // Find open issues with agent:copilot label but not assigned to copilot
+              const q = `repo:${owner}/${repo} is:issue is:open label:"agent:copilot" -assignee:copilot`;
+              const { data } = await github.rest.search.issuesAndPullRequests({ q, per_page: 100 });
+              for (const it of data.items) {
+                await github.rest.issues.addAssignees({ owner, repo, issue_number: it.number, assignees: ['copilot'] });
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number: it.number,
+                  body: 'Assigning to @copilot. Please pick up this issue.'
+                });
               }
+              core.info(`Backfilled ${data.items.length} issues to @copilot`);
+              return;
+            }
+
+            // --- Issue event path ---
+            const issue = context.payload.issue;
+            const eventLabel = ((context.payload.label && context.payload.label.name) || '').toLowerCase();
+            const labelPresent = hasAgentCopilot(issue.labels) || eventLabel === 'agent:copilot';
+
+            if (!labelPresent) {
+              core.info('agent:copilot not present on this issue; nothing to do.');
+              return;
+            }
+
+            const currentAssignees = (issue.assignees || []).map(a => a.login);
+            if (!currentAssignees.includes('copilot')) {
+              await github.rest.issues.addAssignees({ owner, repo, issue_number: issue.number, assignees: ['copilot'] });
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: issue.number,
+                body: 'Assigning to @copilot. Please pick up this issue.'
+              });
+              core.info('Assigned copilot and commented.');
             } else {
-              // pull_request_target
-              const pr = context.payload.pull_request;
-              const isTriggered =
-                (context.payload.action === 'opened' && hasAgentLabel(pr.labels)) ||
-                (context.payload.action === 'labeled' && (context.payload.label?.name || '').toLowerCase() === 'agent:copilot');
-
-              if (!isTriggered) return;
-
-              // Use the issues API for PR assignees
-              const num = pr.number;
-              const { data: full } = await github.rest.issues.get({ owner, repo, issue_number: num });
-              const assignees = (full.assignees || []).map(a => a.login);
-              if (!assignees.includes('copilot')) {
-                await github.rest.issues.addAssignees({ owner, repo, issue_number: num, assignees: ['copilot'] });
-                await github.rest.issues.createComment({ owner, repo, issue_number: num, body: 'Assigning to @copilot for PR handling.' });
-              }
+              core.info('Copilot already assigned; nothing to do.');
             }
