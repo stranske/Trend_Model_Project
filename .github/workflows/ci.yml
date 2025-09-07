@@ -1,44 +1,103 @@
-name: CI
+name: Assign to Copilot (Issues + PRs)
 
 on:
-  pull_request:
-  push:
-    branches: [ phase-2-dev ]
+  issues:
+    types: [opened, labeled, reopened]
+  pull_request_target:
+    types: [opened, labeled, reopened]
   workflow_dispatch:
+    inputs:
+      scope:
+        description: "Backfill scope: issues | prs | both"
+        required: false
+        default: "both"
 
 permissions:
-  contents: read
+  issues: write
+  pull-requests: write
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: assign-${{ github.event_name }}-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
 
 jobs:
-  core-tests:
-    name: core-tests (Python ${{ matrix.py }})
+  assign_or_backfill:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        py: ["3.11", "3.12"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/github-script@v7
         with:
-          python-version: ${{ matrix.py }}
-      - name: Install
-        run: |
-          python -m pip install -U pip
-          pip install -r requirements.txt
-          pip install -e ".[dev]" pytest pytest-cov
-      - name: Run core subset
-        run: |
-          pytest -m "not quarantine and not slow" \
-            --cov=src --cov-report=term-missing --cov-fail-under=80
+          script: |
+            const { owner, repo } = context.repo;
+            const LABEL = 'agent:copilot';
 
-  gate:
-    name: gate / all-required-green
-    runs-on: ubuntu-latest
-    needs: [core-tests]
-    steps:
-      - run: echo "Core tests passed."
+            async function assignToCopilot(issue_number) {
+              // Always refetch to get current labels/assignees
+              const { data: issue } = await github.rest.issues.get({ owner, repo, issue_number });
+              const labels = (issue.labels || []).map(l => (l.name || '').toLowerCase());
+              if (!labels.includes(LABEL)) {
+                core.info(`#${issue_number}: missing ${LABEL}, skipping`);
+                return;
+              }
+              const assignees = (issue.assignees || []).map(a => (a.login || '').toLowerCase());
+              if (!assignees.includes('copilot')) {
+                await github.rest.issues.addAssignees({ owner, repo, issue_number, assignees: ['copilot'] });
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number,
+                  body: 'Assigning to @copilot. Please pick up this task.'
+                });
+                core.info(`#${issue_number}: assigned to copilot`);
+              } else {
+                core.info(`#${issue_number}: copilot already assigned`);
+              }
+            }
+
+            // Manual backfill via Actions button
+            if (context.eventName === 'workflow_dispatch') {
+              const scope = (context.payload.inputs?.scope || 'both').toLowerCase();
+              const queries = [];
+              if (scope === 'issues' || scope === 'both')
+                queries.push(`repo:${owner}/${repo} is:issue is:open label:"${LABEL}" -assignee:copilot`);
+              if (scope === 'prs' || scope === 'both')
+                queries.push(`repo:${owner}/${repo} is:pr is:open label:"${LABEL}" -assignee:copilot`);
+
+              for (const q of queries) {
+                core.info(`Backfill query: ${q}`);
+                const { data } = await github.rest.search.issuesAndPullRequests({ q, per_page: 100 });
+                for (const it of data.items) {
+                  await assignToCopilot(it.number);
+                }
+              }
+              return;
+            }
+
+            // Issue events
+            if (context.eventName === 'issues') {
+              const issue = context.payload.issue;
+              const eventLabel = ((context.payload.label && context.payload.label.name) || '').toLowerCase();
+              const hasLabel =
+                (issue.labels || []).map(l => (l.name || '').toLowerCase()).includes(LABEL) ||
+                eventLabel === LABEL;
+
+              if (!hasLabel) {
+                core.info('Issue event without agent label; skipping');
+                return;
+              }
+              await assignToCopilot(issue.number);
+              return;
+            }
+
+            // PR events (use the Issues API with PR number)
+            if (context.eventName === 'pull_request_target') {
+              const pr = context.payload.pull_request;
+              const eventLabel = ((context.payload.label && context.payload.label.name) || '').toLowerCase();
+              const hasLabel =
+                (pr.labels || []).map(l => (l.name || '').toLowerCase()).includes(LABEL) ||
+                eventLabel === LABEL;
+
+              if (!hasLabel) {
+                core.info('PR event without agent label; skipping');
+                return;
+              }
+              await assignToCopilot(pr.number);
+              return;
+            }
