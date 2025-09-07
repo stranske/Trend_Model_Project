@@ -30,12 +30,10 @@ jobs:
   assign_or_backfill:
     runs-on: ubuntu-latest
     steps:
-      # Optional registry override file
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
-          sparse-checkout: |
-            .github/agents.json
-          sparse-checkout-cone-mode: false
+          sparse-checkout: .github/agents.json
 
       # Debug what we actually saw (so we stop arguing with ghosts)
       - name: Debug event snapshot
