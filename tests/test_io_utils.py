@@ -6,8 +6,7 @@ from unittest import mock
 import pandas as pd
 import pytest
 
-from trend_analysis.io import utils
-from trend_analysis.io import validators
+from trend_analysis.io import utils, validators
 
 
 class DummyResults:
@@ -36,6 +35,7 @@ class DummyResults:
         log = mock.MagicMock()
         log.to_csv = self._event_log_to_csv
         return log
+
     def summary(self):
         return {"ok": True}
 
@@ -43,6 +43,7 @@ class DummyResults:
 # ---------------------------------------------------------------------------
 # utils.py tests
 # ---------------------------------------------------------------------------
+
 
 def test_export_bundle_with_write_errors(tmp_path):
     """export_bundle should fall back to empty files when writes fail."""
@@ -70,6 +71,7 @@ def test_cleanup_bundle_file_nonexistent(tmp_path):
 # ---------------------------------------------------------------------------
 # validators.py tests
 # ---------------------------------------------------------------------------
+
 
 def test_detect_frequency_irregular():
     dates = pd.to_datetime(["2023-01-01", "2023-01-03", "2023-01-10"])

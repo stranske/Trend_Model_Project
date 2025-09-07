@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import Dict
 
+from .plugins import rebalancer_registry
 # Import canonical implementations from the package so this shim
 # can re-export them without triggering circular imports or relying
 # on a non-existent top-level ``strategies`` module.
