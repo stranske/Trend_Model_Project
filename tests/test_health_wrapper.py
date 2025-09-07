@@ -2,8 +2,10 @@
 
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
+from fastapi.testclient import TestClient
 
 # Add src to path
 repo_root = Path(__file__).parent.parent
@@ -61,6 +63,69 @@ def test_main_missing_uvicorn(monkeypatch, capsys):
     assert exc_info.value.code == 1
     captured = capsys.readouterr()
     assert "uvicorn is required" in captured.err
+
+
+def test_import_without_dependencies(monkeypatch):
+    import builtins
+    import importlib
+
+    from trend_portfolio_app import health_wrapper as hw
+
+    original_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if name.startswith("fastapi") or name == "uvicorn":
+            raise ImportError(f"No module named {name}")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+
+    reloaded = importlib.reload(hw)
+    assert reloaded.FastAPI is None
+    assert reloaded.app is None
+
+    # Reload again with real imports to restore module state
+    monkeypatch.setattr(builtins, "__import__", original_import)
+    importlib.reload(reloaded)
+
+
+def test_create_app_endpoints():
+    """Ensure the FastAPI app exposes expected health endpoints."""
+    from trend_portfolio_app import health_wrapper
+
+    app = health_wrapper.create_app()
+    client = TestClient(app)
+    assert client.get("/health").text == "OK"
+    assert client.get("/").text == "OK"
+
+
+def test_main_runs_uvicorn(monkeypatch):
+    from trend_portfolio_app import health_wrapper
+
+    calls = {}
+
+    def fake_run(app_path, host, port, reload, access_log):
+        calls["app_path"] = app_path
+        calls["host"] = host
+        calls["port"] = port
+        calls["reload"] = reload
+        calls["access_log"] = access_log
+
+    monkeypatch.setattr(
+        health_wrapper,
+        "uvicorn",
+        SimpleNamespace(run=fake_run),
+    )
+    monkeypatch.setenv("HEALTH_HOST", "127.0.0.1")
+    monkeypatch.setenv("HEALTH_PORT", "1234")
+
+    health_wrapper.main()
+
+    assert calls["app_path"] == "trend_portfolio_app.health_wrapper:app"
+    assert calls["host"] == "127.0.0.1"
+    assert calls["port"] == 1234
+    assert calls["reload"] is False
+    assert calls["access_log"] is False
 
 
 if __name__ == "__main__":
