@@ -1,0 +1,196 @@
+name: Assign to Agent (Issues + PRs)
+
+on:
+  issues:
+    types: [opened, labeled, reopened]
+  pull_request_target:
+    types: [opened, labeled, reopened]
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: "Backfill scope: issues | prs | both"
+        required: false
+        default: "both"
+      agents:
+        description: "Comma-separated agent names for backfill (default: all known)"
+        required: false
+        default: ""
+
+permissions:
+  issues: write
+  pull-requests: write
+
+# avoid duplicate runs fighting each other
+concurrency:
+  group: assign-agent-${{ github.event_name }}-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  assign_or_backfill:
+    runs-on: ubuntu-latest
+    steps:
+      # Optional registry override file
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github/agents.json
+          sparse-checkout-cone-mode: false
+
+      # Debug what we actually saw (so we stop arguing with ghosts)
+      - name: Debug event snapshot
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const e = context;
+            const payload = {
+              event: e.eventName,
+              action: e.payload.action,
+              issue_number: e.payload.issue?.number,
+              pr_number: e.payload.pull_request?.number,
+              event_label: (e.payload.label?.name || '').toLowerCase(),
+              issue_labels: (e.payload.issue?.labels || []).map(l => (l.name || '').toLowerCase()),
+              pr_labels: (e.payload.pull_request?.labels || []).map(l => (l.name || '').toLowerCase()),
+            };
+            core.info('EVENT DEBUG:\n' + JSON.stringify(payload, null, 2));
+
+      - name: Assign or backfill
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+
+            // ---- Agent registry: defaults + optional override from .github/agents.json ----
+            const DEFAULTS = {
+              copilot: { assignee: 'copilot', mention: '@copilot', aliases: ['copilot'] },
+              codex:   { assignee: 'chatgpt-codex-connector', mention: '@chatgpt-codex-connector', aliases: ['codex','chatgpt-codex-connector'] }
+            };
+            const fs = require('fs');
+            let REGISTRY = JSON.parse(JSON.stringify(DEFAULTS));
+            try {
+              if (fs.existsSync('.github/agents.json')) {
+                const extra = JSON.parse(fs.readFileSync('.github/agents.json','utf8'));
+                for (const [k,v] of Object.entries(extra || {})) {
+                  const key = k.toLowerCase();
+                  REGISTRY[key] = {
+                    assignee: (v.assignee || v.username || v.login || key),
+                    mention:  (v.mention  || '@'+(v.assignee || v.username || v.login || key)),
+                    aliases:  (v.aliases || []).map(a => String(a).toLowerCase()).concat([key])
+                  };
+                }
+              }
+            } catch (err) {
+              core.warning('agents.json present but could not be parsed: ' + err.message);
+            }
+
+            function resolveAgent(name) {
+              if (!name) return null;
+              const key = String(name).toLowerCase();
+              if (REGISTRY[key]) return { key, ...REGISTRY[key] };
+              for (const [k,rec] of Object.entries(REGISTRY)) {
+                if ((rec.aliases || []).map(a => a.toLowerCase()).includes(key)) return { key: k, ...rec };
+              }
+              // No fallback: only allow explicitly registered agents
+              return null;
+            }
+
+            function agentsFromLabels(labels) {
+              const names = (labels || []).map(l => (l.name || '').toLowerCase());
+              const wanted = names.filter(n => n.startsWith('agent:')).map(n => n.slice('agent:'.length));
+              return [...new Set(wanted)].map(resolveAgent).filter(Boolean);
+            }
+
+            async function assignOne(issue_number, agent) {
+              const { data:item } = await github.rest.issues.get({ owner, repo, issue_number });
+              const labels = (item.labels || []).map(l => (l.name || '').toLowerCase());
+              // ensure at least one matching agent:* label remains on the item
+              const hasLabel = labels.includes(`agent:${agent.key}`) ||
+                (agent.aliases || []).some(a => labels.includes(`agent:${a}`));
+              if (!hasLabel) {
+                core.info(`#${issue_number}: missing agent label for ${agent.key}; skip`);
+                return;
+              }
+              const current = (item.assignees || []).map(a => (a.login || '').toLowerCase());
+              try {
+                if (!current.includes(agent.assignee.toLowerCase())) {
+                  await github.rest.issues.addAssignees({ owner, repo, issue_number, assignees: [agent.assignee] });
+                  core.info(`#${issue_number}: assigned ${agent.assignee}`);
+                } else {
+                  core.info(`#${issue_number}: already assigned ${agent.assignee}`);
+                }
+              } catch (err) {
+                core.warning(`#${issue_number}: addAssignees(${agent.assignee}) failed: ${err.status || '?'} ${err.message}`);
+              }
+              // Always ping the agent handle so you have a visible breadcrumb
+              await github.rest.issues.createComment({
+                owner, repo, issue_number,
+                body: `Assigning/pinging ${agent.mention} for this task.`
+              });
+            }
+
+            async function backfill(scope, agentKeys) {
+              const keys = agentKeys.length ? agentKeys : Object.keys(REGISTRY);
+              for (const raw of keys) {
+                const ag = resolveAgent(raw);
+                if (!ag) continue;
+                const base = `repo:${owner}/${repo} label:"agent:${ag.key}" is:open`;
+                const buckets = [];
+                if (scope === 'issues' || scope === 'both') buckets.push(`${base} is:issue`);
+                if (scope === 'prs'    || scope === 'both') buckets.push(`${base} is:pr`);
+                for (const q of buckets) {
+                  let page = 1;
+                  while (true) {
+                    const res = await github.rest.search.issuesAndPullRequests({ q, per_page: 100, page });
+                    if (!res.data.items.length) break;
+                    for (const it of res.data.items) {
+                      await assignOne(it.number, ag);
+                    }
+                    if (res.data.items.length < 100) break;
+                    page += 1;
+                  }
+                }
+              }
+            }
+
+            // ---- Entrypoints ----
+            if (context.eventName === 'workflow_dispatch') {
+              const scope  = (context.payload.inputs?.scope || 'both').toLowerCase();
+              const agents = (context.payload.inputs?.agents || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+              await backfill(scope, agents);
+              return;
+            }
+
+            if (context.eventName === 'issues') {
+              const issue = context.payload.issue;
+              const eventLabel = (context.payload.label?.name || '').toLowerCase();
+              let agents = agentsFromLabels(issue.labels);
+              if (eventLabel.startsWith('agent:')) {
+                const extra = resolveAgent(eventLabel.slice(6));
+                if (extra) agents.push(extra);
+              }
+              if (!agents.length) { core.info('No agent:* label on issue; skip'); return; }
+              const seen = new Set();
+              for (const ag of agents) {
+                const key = ag.key + '#' + ag.assignee;
+                if (seen.has(key)) continue; seen.add(key);
+                await assignOne(issue.number, ag);
+              }
+              return;
+            }
+
+            if (context.eventName === 'pull_request_target') {
+              const pr = context.payload.pull_request;
+              const eventLabel = (context.payload.label?.name || '').toLowerCase();
+              let agents = agentsFromLabels(pr.labels);
+              if (eventLabel.startsWith('agent:')) {
+                const extra = resolveAgent(eventLabel.slice(6));
+                if (extra) agents.push(extra);
+              }
+              if (!agents.length) { core.info('No agent:* label on PR; skip'); return; }
+              const seen = new Set();
+              for (const ag of agents) {
+                const key = ag.key + '#' + ag.assignee;
+                if (seen.has(key)) continue; seen.add(key);
+                await assignOne(pr.number, ag);
+              }
+              return;
+            }
