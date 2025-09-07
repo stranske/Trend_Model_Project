@@ -101,7 +101,6 @@ jobs:
             async function assignOne(issue_number, agent) {
               const { data:item } = await github.rest.issues.get({ owner, repo, issue_number });
               const labels = (item.labels || []).map(l => (l.name || '').toLowerCase());
-              // ensure at least one matching agent:* label remains on the item
               const hasLabel = labels.includes(`agent:${agent.key}`) ||
                 (agent.aliases || []).some(a => labels.includes(`agent:${a}`));
               if (!hasLabel) {
@@ -109,21 +108,28 @@ jobs:
                 return;
               }
               const current = (item.assignees || []).map(a => (a.login || '').toLowerCase());
+              let assigned = false;
               try {
                 if (!current.includes(agent.assignee.toLowerCase())) {
-                  await github.rest.issues.addAssignees({ owner, repo, issue_number, assignees: [agent.assignee] });
-                  core.info(`#${issue_number}: assigned ${agent.assignee}`);
+                  const res = await github.rest.issues.addAssignees({
+                    owner, repo, issue_number, assignees: [agent.assignee]
+                  });
+                  core.info(`#${issue_number}: addAssignees(${agent.assignee}) status ${res.status}`);
+                  assigned = res.status >= 200 && res.status < 300;
                 } else {
                   core.info(`#${issue_number}: already assigned ${agent.assignee}`);
+                  assigned = true;
                 }
               } catch (err) {
-                core.warning(`#${issue_number}: addAssignees(${agent.assignee}) failed: ${err.status || '?'} ${err.message}`);
+                core.error(`#${issue_number}: addAssignees(${agent.assignee}) failed: ${err.status || '?'} ${err.message}`);
               }
-              // Always ping the agent handle so you have a visible breadcrumb
               await github.rest.issues.createComment({
                 owner, repo, issue_number,
                 body: `Assigning/pinging ${agent.mention} for this task.`
               });
+              if (!assigned) {
+                core.setFailed(`#${issue_number}: ${agent.assignee} is not assignable here. See logs above.`);
+              }
             }
 
             async function backfill(scope, agentKeys) {
