@@ -14,30 +14,28 @@ class DummyResults:
     """Simple results object for export_bundle tests."""
 
     def __init__(self, portfolio_error=False, event_error=False):
+        self.portfolio_error = portfolio_error
+        self.event_error = event_error
         self.portfolio = mock.MagicMock()
+        self.portfolio.to_csv = self._portfolio_to_csv
+        self.event_log_df = self._event_log_df
 
-        def to_csv(path, header=None):
-            if portfolio_error:
-                raise RuntimeError("portfolio write failed")
-            with open(path, "w") as f:
-                f.write("value\n1\n")
+    def _portfolio_to_csv(self, path, header=None):
+        if self.portfolio_error:
+            raise RuntimeError("portfolio write failed")
+        with open(path, "w") as f:
+            f.write("value\n1\n")
 
-        self.portfolio.to_csv = to_csv
+    def _event_log_to_csv(self, path):
+        if self.event_error:
+            raise RuntimeError("event log write failed")
+        with open(path, "w") as f:
+            f.write("event,value\nstart,1\n")
 
-        def event_log_df():
-            log = mock.MagicMock()
-
-            def log_to_csv(path):
-                if event_error:
-                    raise RuntimeError("event log write failed")
-                with open(path, "w") as f:
-                    f.write("event,value\nstart,1\n")
-
-            log.to_csv = log_to_csv
-            return log
-
-        self.event_log_df = event_log_df
-
+    def _event_log_df(self):
+        log = mock.MagicMock()
+        log.to_csv = self._event_log_to_csv
+        return log
     def summary(self):
         return {"ok": True}
 
