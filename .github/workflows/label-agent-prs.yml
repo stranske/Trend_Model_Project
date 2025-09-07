@@ -1,9 +1,12 @@
 name: Label agent PRs (Copilot + Codex)
+
 on:
-  pull_request:
-    types: [opened]
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
 permissions:
   pull-requests: write
+
 jobs:
   label:
     runs-on: ubuntu-latest
@@ -11,16 +14,20 @@ jobs:
       - uses: actions/github-script@v7
         with:
           script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
             const pr = context.payload.pull_request;
-            const login = (pr.user?.login || '').toLowerCase();
-            const branch = (pr.head?.ref || '').toLowerCase();
-            const labels = [];
-            if (login.includes('copilot') || branch.startsWith('copilot/')) labels.push('from:copilot');
-            if (login.includes('codex')   || branch.startsWith('codex/'))   labels.push('from:codex');
+
+            const actor = (pr.user?.login || '').toLowerCase();
+            const headRef = (pr.head?.ref || '').toLowerCase();
+
+            const isCopilot = actor.includes('copilot') || headRef.startsWith('copilot/');
+            const isCodex   = actor.includes('codex')   || headRef.startsWith('codex/');
+
+            let labels = [];
+            if (isCopilot) labels.push('from:copilot', 'agent:copilot');
+            if (isCodex)   labels.push('from:codex', 'agent:copilot');
+
             if (labels.length) {
-              // Do not automatically add 'automerge' or 'risk:low' labels to agent PRs.
-              // Agent-generated code should undergo proper review before being automatically merged.
-              await github.rest.issues.addLabels({
-                owner: context.repo.owner, repo: context.repo.repo, issue_number: pr.number, labels
-              });
+              await github.rest.issues.addLabels({ owner, repo, issue_number: pr.number, labels });
             }
