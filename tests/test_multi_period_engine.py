@@ -195,7 +195,10 @@ def test_generate_periods_respects_boundaries():
 def test_run_schedule_with_rebalancer_replaces_funds():
     sf1 = pd.DataFrame({"zscore": [2.0, 1.5, -0.5]}, index=["A", "B", "C"])
     sf2 = pd.DataFrame({"zscore": [-1.5, 0.5, 2.0]}, index=["A", "B", "C"])
-    frames = {"2025-06-30": sf1, "2025-07-31": sf2}
+    # Use relative month-end dates to avoid hardcoding specific calendar days
+    end_of_month = pd.Timestamp.today() + pd.offsets.MonthEnd(0)
+    prev_month_end = end_of_month - pd.offsets.MonthEnd(1)
+    frames = {prev_month_end: sf1, end_of_month: sf2}
     selector = RankSelector(top_n=2, rank_column="zscore")
     weighting = EqualWeight()
     cfg = {
@@ -212,7 +215,7 @@ def test_run_schedule_with_rebalancer_replaces_funds():
         rank_column="zscore",
         rebalancer=reb,
     )
-    w1 = pf.history["2025-06-30"]
-    w2 = pf.history["2025-07-31"]
+    w1 = pf.history[str(prev_month_end.date())]
+    w2 = pf.history[str(end_of_month.date())]
     assert set(w1.index) == {"A", "B"}
     assert set(w2.index) == {"B", "C"}
