@@ -1,0 +1,17 @@
+{
+  "copilot": {
+    "assignee": "copilot",
+    "mention": "@copilot",
+    "aliases": ["gh-copilot"]
+  },
+  "codex": {
+    "assignee": "chatgpt-codex-connector",
+    "mention": "@chatgpt-codex-connector",
+    "aliases": ["codex", "codex-bot"]
+  },
+  "qa-bot": {
+    "assignee": "my-qa-bot",
+    "mention": "@my-qa-bot",
+    "aliases": ["qa", "quality"]
+  }
+}
