@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from trend_analysis import export
 from trend_analysis.export.bundle import export_bundle
 from trend_analysis.util.hash import sha256_config, sha256_file, sha256_text
 
@@ -120,3 +121,29 @@ def test_export_bundle_empty_portfolio(tmp_path):
         # Placeholder charts should still be created
         assert "charts/equity_curve.png" in names
         assert "charts/drawdown.png" in names
+
+
+def test_export_data_all_formats_content(tmp_path):
+    df = pd.DataFrame({"A": [1.0, 2.0], "B": [3.0, 4.0]})
+    data = {"sheet": df}
+    out = tmp_path / "report"
+    export.export_data(data, str(out), formats=["csv", "xlsx", "json", "txt"])
+
+    csv_path = tmp_path / "report_sheet.csv"
+    xlsx_path = tmp_path / "report.xlsx"
+    json_path = tmp_path / "report_sheet.json"
+    txt_path = tmp_path / "report_sheet.txt"
+
+    assert csv_path.exists()
+    assert xlsx_path.exists()
+    assert json_path.exists()
+    assert txt_path.exists()
+
+    pd.testing.assert_frame_equal(pd.read_csv(csv_path), df, check_dtype=False)
+    pd.testing.assert_frame_equal(
+        pd.read_excel(xlsx_path, sheet_name="sheet"), df, check_dtype=False
+    )
+    with open(json_path) as f:
+        json_data = json.load(f)
+    pd.testing.assert_frame_equal(pd.DataFrame(json_data), df, check_dtype=False)
+    assert txt_path.read_text() == df.to_string(index=False)

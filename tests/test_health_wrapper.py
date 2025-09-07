@@ -3,6 +3,8 @@
 import sys
 from pathlib import Path
 
+import pytest
+
 # Add src to path
 repo_root = Path(__file__).parent.parent
 src_path = repo_root / "src"
@@ -39,6 +41,26 @@ def test_health_wrapper_graceful_dependency_handling():
     # (This will be None in our test environment without dependencies)
     # The key fix is that the module can be imported despite missing deps
     assert True  # If we get here, import succeeded which is the main fix
+
+
+def test_create_app_missing_fastapi(monkeypatch):
+    from trend_portfolio_app import health_wrapper
+
+    monkeypatch.setattr(health_wrapper, "FastAPI", None)
+    with pytest.raises(ImportError) as exc_info:
+        health_wrapper.create_app()
+    assert "FastAPI is required" in str(exc_info.value)
+
+
+def test_main_missing_uvicorn(monkeypatch, capsys):
+    from trend_portfolio_app import health_wrapper
+
+    monkeypatch.setattr(health_wrapper, "uvicorn", None)
+    with pytest.raises(SystemExit) as exc_info:
+        health_wrapper.main()
+    assert exc_info.value.code == 1
+    captured = capsys.readouterr()
+    assert "uvicorn is required" in captured.err
 
 
 if __name__ == "__main__":

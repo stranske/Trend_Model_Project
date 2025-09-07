@@ -332,24 +332,34 @@ and installs test dependencies such as `pytest`.
 or by installing directly with pip (Python 3.11+ recommended):
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements.txt pytest coverage
 ```
 `requirements.txt` lives at the repository root and lists every
-dependency required to run the analysis and its tests.
+dependency required to run the analysis. `pytest` and `coverage`
+are additional development dependencies needed for running the test
+suite.
 
 Once the dependencies are installed, run the tests with coverage enabled:
 
 ```bash
-pytest --cov trend_analysis --cov-branch
+coverage run --rcfile .coveragerc.core -m pytest --maxfail=1 --disable-warnings
+coverage report -m
 ```
 All unit tests reside in the `tests/` directory and enforce 100 % branch
-coverage through `pytest-cov`.
+coverage.
 
-Alternatively, you can use the helper script which installs the requirements
-and then executes the test suite in one step:
+Alternatively, after installing the dependencies, you can use the
+helper script to execute the test suite in one step. The script accepts a
+`COVERAGE_PROFILE` environment variable (`core` by default) to switch between
+coverage configurations:
 
 ```bash
+# Run tests with the default core profile
 ./scripts/run_tests.sh
+
+# Run tests with the full profile
+COVERAGE_PROFILE=full ./scripts/run_tests.sh
 ```
-This convenience wrapper (under `scripts/run_tests.sh`) installs the
-requirements and then runs the same `pytest` command as above.
+This convenience wrapper (under `scripts/run_tests.sh`) assumes
+`pytest` and `coverage` are available in the environment and then runs the
+same coverage command as above.
