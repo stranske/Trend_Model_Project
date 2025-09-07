@@ -1,4 +1,5 @@
 [run]
+branch = True
 omit =
     src/trend_analysis/gui/*
     src/trend_analysis/proxy/*
