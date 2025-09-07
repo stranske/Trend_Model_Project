@@ -1,7 +1,7 @@
-name: Label agent PRs (Copilot + Codex)
+name: Label agent PRs
 
 on:
-  pull_request_target:
+  pull_request:
     types: [opened, synchronize, reopened]
 
 permissions:
@@ -14,19 +14,14 @@ jobs:
       - uses: actions/github-script@v7
         with:
           script: |
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
+            const { owner, repo } = context.repo;
             const pr = context.payload.pull_request;
-
             const actor = (pr.user?.login || '').toLowerCase();
-            const headRef = (pr.head?.ref || '').toLowerCase();
+            const head = (pr.head?.ref || '').toLowerCase();
 
-            const isCopilot = actor.includes('copilot') || headRef.startsWith('copilot/');
-            const isCodex   = actor.includes('codex')   || headRef.startsWith('codex/');
-
-            let labels = [];
-            if (isCopilot) labels.push('from:copilot', 'agent:copilot');
-            if (isCodex)   labels.push('from:codex', 'agent:codex');
+            const labels = [];
+            if (actor.includes('copilot') || head.startsWith('copilot/')) labels.push('from:copilot');
+            if (actor.includes('codex')   || head.startsWith('codex/'))   labels.push('from:codex');
 
             if (labels.length) {
               await github.rest.issues.addLabels({ owner, repo, issue_number: pr.number, labels });
