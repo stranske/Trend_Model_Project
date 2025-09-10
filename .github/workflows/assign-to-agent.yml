@@ -89,9 +89,14 @@ jobs:
               core.warning('agents.json present but could not be parsed: ' + err.message);
             }
 
-            const ALLOWED_FALLBACKS = (process.env.ALLOWED_FALLBACKS || '')
-              .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+            function parseAgentList(str) {
+              return String(str || '')
+                .split(',')
+                .map(s => s.trim().toLowerCase())
+                .filter(Boolean);
+            }
 
+            const ALLOWED_FALLBACKS = parseAgentList(process.env.ALLOWED_FALLBACKS);
             function resolveAgent(name) {
               if (!name) return null;
               const key = String(name).toLowerCase();
