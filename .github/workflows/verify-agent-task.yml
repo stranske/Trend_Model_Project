@@ -29,5 +29,5 @@ jobs:
             if (!hasCopilot && !hasCodex) {
               core.setFailed(`Issue #${issue_number} is NOT assigned to an agent. Add label agent:copilot or agent:codex to trigger assignment, or assign manually in the sidebar.`);
             } else {
-              core.info(`OK: assigned to ${ hasCopilot ? 'copilot' : '' } ${ hasCodex ? 'chatgpt-codex-connector' : '' }`.trim());
+              core.info(`OK: assigned to ${[hasCopilot && 'copilot', hasCodex && 'chatgpt-codex-connector'].filter(Boolean).join(', ')}`);
             }
