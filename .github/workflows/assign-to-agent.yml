@@ -35,6 +35,7 @@ jobs:
     env:
       # Default Codex command; can be overridden via workflow_dispatch input above
       CODEX_COMMAND: ${{ github.event.inputs.codex_command }}
+      ALLOWED_FALLBACKS: ${{ vars.ALLOWED_FALLBACKS || '' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -88,6 +89,14 @@ jobs:
               core.warning('agents.json present but could not be parsed: ' + err.message);
             }
 
+            function parseAgentList(str) {
+              return String(str || '')
+                .split(',')
+                .map(s => s.trim().toLowerCase())
+                .filter(Boolean);
+            }
+
+            const ALLOWED_FALLBACKS = parseAgentList(process.env.ALLOWED_FALLBACKS);
             function resolveAgent(name) {
               if (!name) return null;
               const key = String(name).toLowerCase();
@@ -95,8 +104,12 @@ jobs:
               for (const [k,rec] of Object.entries(REGISTRY)) {
                 if ((rec.aliases || []).map(a => a.toLowerCase()).includes(key)) return { key: k, ...rec };
               }
-              // Fallback: assume the suffix is a username
-              return { key, assignee: key, mention: '@'+key, aliases: [key] };
+              // Fallback: only allow predefined usernames
+              if (ALLOWED_FALLBACKS.includes(key)) {
+                return { key, assignee: key, mention: '@'+key, aliases: [key] };
+              }
+              core.warning(`Unknown agent "${name}" not in ALLOWED_FALLBACKS; skip`);
+              return null;
             }
 
             function agentsFromLabels(labels) {
@@ -118,42 +131,51 @@ jobs:
               }
 
               const current = (item.assignees || []).map(a => (a.login || '').toLowerCase());
-              let changed = false;
+              const already = current.includes(agent.assignee.toLowerCase());
+              let added = false;
 
-              if (!current.includes(agent.assignee.toLowerCase())) {
+              if (!already) {
                 try {
                   const res = await github.rest.issues.addAssignees({
                     owner, repo, issue_number, assignees: [agent.assignee]
                   });
                   core.info(`#${issue_number}: addAssignees(${agent.assignee}) -> ${res.status}`);
-                  changed = res.status >= 200 && res.status < 300;
+                  added = res.status >= 200 && res.status < 300;
                 } catch (e) {
                   core.error(`#${issue_number}: addAssignees(${agent.assignee}) failed: ${e.status || '?'} ${e.message}`);
-                  changed = false;
+                  added = false;
                 }
               } else {
                 core.info(`#${issue_number}: ${agent.assignee} already assigned`);
-                changed = true;
               }
 
-              // Always leave a breadcrumb
-              await github.rest.issues.createComment({
-                owner, repo, issue_number,
-                body: `Assigning/pinging ${agent.mention} for this task.`
-              });
-
-              // Auto-kick Codex with a command phrase (customizable via env or dispatch input)
-              const CODEX_COMMAND = (process.env.CODEX_COMMAND || 'codex: start').trim();
-              if (agent.key === 'codex' && CODEX_COMMAND) {
+              if (added) {
                 await github.rest.issues.createComment({
                   owner, repo, issue_number,
-                  body: `${CODEX_COMMAND}\n\nPlease create a working branch, implement, run tests, and open a draft PR linking back to this issue.`
+                  body: `Assigning/pinging ${agent.mention} for this task.`
                 });
-                core.info(`#${issue_number}: posted Codex command "${CODEX_COMMAND}"`);
+
+                // Auto-kick Codex with a command phrase (customizable via env or dispatch input)
+                let cmd = String(process.env.CODEX_COMMAND || 'codex: start')
+                  .replace(/[\r\n`]/g, '')
+                  .trim();
+                // Allow only safe characters: letters, numbers, spaces, colon, dash
+                if (!/^[a-zA-Z0-9 :\-]+$/.test(cmd)) {
+                  core.warning(`Unsafe characters detected in Codex command; using default.`);
+                  cmd = 'codex: start';
+                }
+                if (!cmd.toLowerCase().startsWith('codex:')) cmd = 'codex: ' + cmd;
+                if (agent.key === 'codex' && cmd) {
+                  await github.rest.issues.createComment({
+                    owner, repo, issue_number,
+                    body: `${cmd}\n\nPlease create a working branch, implement, run tests, and open a draft PR linking back to this issue.`
+                  });
+                  core.info(`#${issue_number}: posted Codex command "${cmd}"`);
+                }
               }
 
-              // Hardened behavior: fail if assignment did not take
-              if (!changed) {
+              // Hardened behavior: fail if assignment did not take and wasn't already present
+              if (!added && !already) {
                 core.setFailed(`#${issue_number}: ${agent.assignee} is not assigned. See logs above.`);
               }
             }
