@@ -1,0 +1,147 @@
+name: agent readiness (copilot + codex)
+
+on:
+  workflow_dispatch:
+    inputs:
+      agents:
+        description: "Comma-separated agent keys to test"
+        default: "copilot,codex"
+        required: false
+      require_all:
+        description: "Fail if any requested agent is not assignable (true/false)"
+        default: "true"
+        required: false
+      copilot_logins:
+        description: "Candidate GitHub logins for Copilot (comma-separated)"
+        default: "copilot,copilot-swe-agent"
+        required: false
+      codex_logins:
+        description: "Candidate GitHub logins for Codex (comma-separated)"
+        default: "chatgpt-codex-connector"
+        required: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe assignable actors via GraphQL
+        id: gql
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const q = `
+              query($owner:String!, $repo:String!) {
+                repository(owner:$owner, name:$repo) {
+                  suggestedActors(capabilities:[CAN_BE_ASSIGNED], first:100) {
+                    nodes { login }
+                  }
+                }
+              }`;
+            const res = await github.graphql(q, { owner, repo });
+            const actors = (res.repository?.suggestedActors?.nodes || [])
+              .map(n => (n.login || '').toLowerCase());
+            core.info("Assignable actors reported by GitHub: " + JSON.stringify(actors));
+            core.setOutput('actors', JSON.stringify(actors));
+
+      - name: Create temporary issue
+        id: tmp
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const { data: issue } = await github.rest.issues.create({
+              owner, repo,
+              title: "[readiness] agent assignability probe",
+              body: "Temporary issue for readiness checks. Safe to close."
+            });
+            core.info(`Temp issue #${issue.number} created`);
+            core.setOutput('num', String(issue.number));
+
+      - name: Try assigning agents
+        id: try
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const num = Number("${{ steps.tmp.outputs.num }}");
+
+            // Inputs
+            const inputs = (context.payload.inputs || {});
+            const requireAll = String(inputs.require_all || 'true').toLowerCase() === 'true';
+            const agentsRequested = (inputs.agents || 'copilot,codex')
+              .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+
+            // Candidate login lists (overrideable via inputs)
+            const CANDIDATES = {
+              copilot: (inputs.copilot_logins || 'copilot,copilot-swe-agent')
+                        .split(',').map(s => s.trim().toLowerCase()).filter(Boolean),
+              codex:   (inputs.codex_logins   || 'chatgpt-codex-connector')
+                        .split(',').map(s => s.trim().toLowerCase()).filter(Boolean),
+            };
+
+            const actors = JSON.parse("${{ steps.gql.outputs.actors || '[]' }}");
+            const report = {};
+
+            async function tryAssign(oneLogin) {
+              try {
+                const res = await github.rest.issues.addAssignees({
+                  owner, repo, issue_number: num, assignees: [oneLogin]
+                });
+                return { ok: res.status >= 200 && res.status < 300, status: res.status, login: oneLogin };
+              } catch (err) {
+                return { ok: false, status: err.status || 'ERR', login: oneLogin, message: err.message || String(err) };
+              }
+            }
+
+            for (const agentKey of agentsRequested) {
+              const candidates = CANDIDATES[agentKey] || [];
+              if (!candidates.length) {
+                report[agentKey] = { ok: false, reason: 'no candidates configured' };
+                continue;
+              }
+
+              core.info(`\n== Testing ${agentKey.toUpperCase()} ==`);
+              core.info(`Candidates: ${JSON.stringify(candidates)}`);
+              const inSuggested = candidates.some(c => actors.includes(c));
+              core.info(`GraphQL suggestedActors contains any candidate? ${inSuggested}`);
+
+              let outcome = { ok: false, status: 'NA', used: null, inSuggested };
+              for (const cand of candidates) {
+                const res = await tryAssign(cand);
+                core.info(`addAssignees(${cand}) -> ${res.status} ok=${res.ok}`);
+                if (res.ok) { outcome = { ok: true, status: res.status, used: cand, inSuggested }; break; }
+                // record first failure details if needed
+                if (!outcome.message && res.message) outcome.message = res.message;
+              }
+              report[agentKey] = outcome;
+            }
+
+            core.info("Report: " + JSON.stringify(report, null, 2));
+            core.setOutput('report', JSON.stringify(report));
+            // Fail if required agents are not assignable
+            if (Object.entries(report).some(([k,v]) => v && v.ok === false) && requireAll) {
+              core.setFailed("One or more requested agents are not assignable here. See report above.");
+            }
+
+      - name: Close temporary issue
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const num = Number("${{ steps.tmp.outputs.num || '0' }}");
+            if (num) {
+              await github.rest.issues.update({ owner, repo, issue_number: num, state: 'closed' });
+              core.info(`Temp issue #${num} closed`);
+            }
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "=== Agent readiness report ==="
+          echo '${{ steps.try.outputs.report }}' | sed -e 's/^/  /'
