@@ -6,6 +6,7 @@ on:
         description: "Issue number to verify"
         required: true
 permissions:
+  actions: write
   contents: read
   issues: read
 jobs:
@@ -18,7 +19,10 @@ jobs:
           script: |
             const {owner, repo} = context.repo;
             const issue_number = Number((context.payload.inputs.issue || '').trim());
-            if (!issue_number) core.setFailed('Missing issue number input');
+            if (Number.isNaN(issue_number) || issue_number <= 0) {
+              core.setFailed('Missing or invalid issue number input');
+              return;
+            }
 
             const { data: issue } = await github.rest.issues.get({ owner, repo, issue_number });
             const assignees = (issue.assignees || []).map(a => (a.login || '').toLowerCase());
@@ -26,8 +30,12 @@ jobs:
 
             const hasCopilot = assignees.includes('copilot');
             const hasCodex   = assignees.includes('chatgpt-codex-connector');
-            if (!hasCopilot && !hasCodex) {
+            const assigned = [];
+            if (hasCopilot) assigned.push('copilot');
+            if (hasCodex) assigned.push('chatgpt-codex-connector');
+
+            if (assigned.length === 0) {
               core.setFailed(`Issue #${issue_number} is NOT assigned to an agent. Add label agent:copilot or agent:codex to trigger assignment, or assign manually in the sidebar.`);
             } else {
-              core.info(`OK: assigned to ${ hasCopilot ? 'copilot' : '' } ${ hasCodex ? 'chatgpt-codex-connector' : '' }`.trim());
+              core.info(`OK: assigned to ${assigned.join(' and ')}`);
             }
