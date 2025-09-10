@@ -119,6 +119,7 @@ jobs:
 
               const current = (item.assignees || []).map(a => (a.login || '').toLowerCase());
               let changed = false;
+              let newlyAssigned = false;
 
               if (!current.includes(agent.assignee.toLowerCase())) {
                 try {
@@ -126,7 +127,8 @@ jobs:
                     owner, repo, issue_number, assignees: [agent.assignee]
                   });
                   core.info(`#${issue_number}: addAssignees(${agent.assignee}) -> ${res.status}`);
-                  changed = res.status >= 200 && res.status < 300;
+                  newlyAssigned = res.status >= 200 && res.status < 300;
+                  changed = newlyAssigned;
                 } catch (e) {
                   core.error(`#${issue_number}: addAssignees(${agent.assignee}) failed: ${e.status || '?'} ${e.message}`);
                   changed = false;
@@ -136,15 +138,21 @@ jobs:
                 changed = true;
               }
 
-              // Always leave a breadcrumb
-              await github.rest.issues.createComment({
-                owner, repo, issue_number,
-                body: `Assigning/pinging ${agent.mention} for this task.`
-              });
+              if (changed) {
+                const verb = newlyAssigned ? 'Assigning' : 'Pinging';
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number,
+                  body: `${verb} ${agent.mention} for this task.`
+                });
+              }
 
               // Auto-kick Codex with a command phrase (customizable via env or dispatch input)
-              const CODEX_COMMAND = (process.env.CODEX_COMMAND || 'codex: start').trim();
-              if (agent.key === 'codex' && CODEX_COMMAND) {
+              const rawCommand = (process.env.CODEX_COMMAND || 'codex: start').trim();
+              const CODEX_COMMAND = /^[\w:\- ]+$/.test(rawCommand) ? rawCommand : '';
+              if (rawCommand && !CODEX_COMMAND) {
+                core.warning(`#${issue_number}: refusing unsafe CODEX_COMMAND content`);
+              }
+              if (agent.key === 'codex' && newlyAssigned && CODEX_COMMAND) {
                 await github.rest.issues.createComment({
                   owner, repo, issue_number,
                   body: `${CODEX_COMMAND}\n\nPlease create a working branch, implement, run tests, and open a draft PR linking back to this issue.`
