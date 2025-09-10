@@ -136,14 +136,19 @@ jobs:
                 changed = true;
               }
 
-              // Always leave a breadcrumb
-              await github.rest.issues.createComment({
-                owner, repo, issue_number,
-                body: `Assigning/pinging ${agent.mention} for this task.`
-              });
+              if (changed) {
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number,
+                  body: `Assigning/pinging ${agent.mention} for this task.`
+                });
+              } else {
+                core.info(`#${issue_number}: skipping comment because assignment failed.`);
+              }
 
-              // Auto-kick Codex with a command phrase (customizable via env or dispatch input)
-              const CODEX_COMMAND = (process.env.CODEX_COMMAND || 'codex: start').trim();
+              // Auto-kick Codex with a sanitized command phrase (customizable via env or dispatch input)
+              const RAW_CODEX = (process.env.CODEX_COMMAND || 'codex: start').trim();
+              const SAFE_CODEX = RAW_CODEX.replace(/[^\w\s:-]/g, '');
+              const CODEX_COMMAND = SAFE_CODEX.toLowerCase().startsWith('codex:') ? SAFE_CODEX : 'codex: start';
               if (agent.key === 'codex' && CODEX_COMMAND) {
                 await github.rest.issues.createComment({
                   owner, repo, issue_number,
