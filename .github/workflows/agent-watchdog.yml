@@ -54,8 +54,27 @@ jobs:
               return null;
             }
 
-            const timeoutMinutes = Number(process.env.WATCH_TIMEOUT_MINUTES);
-            const pollIntervalMs = Number(process.env.POLL_INTERVAL_SECONDS) * 1000;
+            const timeoutMinutesRaw = process.env.WATCH_TIMEOUT_MINUTES;
+            const pollIntervalSecondsRaw = process.env.POLL_INTERVAL_SECONDS;
+            const timeoutMinutes = Number(timeoutMinutesRaw);
+            const pollIntervalMs = Number(pollIntervalSecondsRaw) * 1000;
+
+            if (
+              !timeoutMinutesRaw ||
+              isNaN(timeoutMinutes) ||
+              timeoutMinutes <= 0
+            ) {
+              core.setFailed(`WATCH_TIMEOUT_MINUTES is missing or invalid: "${timeoutMinutesRaw}"`);
+              return;
+            }
+            if (
+              !pollIntervalSecondsRaw ||
+              isNaN(Number(pollIntervalSecondsRaw)) ||
+              Number(pollIntervalSecondsRaw) <= 0
+            ) {
+              core.setFailed(`POLL_INTERVAL_SECONDS is missing or invalid: "${pollIntervalSecondsRaw}"`);
+              return;
+            }
             const started = Date.now();
             const deadlineMs = timeoutMinutes * 60 * 1000;
             let prFound = null;
