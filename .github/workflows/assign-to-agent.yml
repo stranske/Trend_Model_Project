@@ -123,11 +123,12 @@ jobs:
               } catch (err) {
                 core.error(`#${issue_number}: addAssignees(${agent.assignee}) failed: ${err.status || '?'} ${err.message}`);
               }
-              await github.rest.issues.createComment({
-                owner, repo, issue_number,
-                body: `Assigning/pinging ${agent.mention} for this task.`
-              });
-              if (!assigned) {
+              if (assigned) {
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number,
+                  body: `Assigning/pinging ${agent.mention} for this task.`
+                });
+              } else {
                 core.setFailed(`#${issue_number}: ${agent.assignee} is not assignable here. See logs above.`);
               }
             }
