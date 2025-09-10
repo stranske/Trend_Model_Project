@@ -16,7 +16,7 @@ on:
         required: false
         default: ""
       codex_command:
-        description: "Command to kick Codex after assignment"
+        description: "Command to kick Codex after assignment (for PRs)"
         required: false
         default: "codex: start"
 
@@ -33,7 +33,7 @@ jobs:
   assign_or_backfill:
     runs-on: ubuntu-latest
     env:
-      # Default Codex command; can be overridden via workflow_dispatch input above
+      # Default Codex command for PRs; can be overridden via workflow_dispatch input above
       CODEX_COMMAND: ${{ github.event.inputs.codex_command }}
       ALLOWED_FALLBACKS: ${{ vars.ALLOWED_FALLBACKS || '' }}
     steps:
@@ -65,6 +65,7 @@ jobs:
         with:
           script: |
             const { owner, repo } = context.repo;
+            const number = (context.payload.issue?.number ?? context.payload.pull_request?.number);
 
             // ---- Agent registry (defaults + optional .github/agents.json override) ----
             const DEFAULTS = {
@@ -89,14 +90,15 @@ jobs:
               core.warning('agents.json present but could not be parsed: ' + err.message);
             }
 
-            function parseAgentList(str) {
+            function parseList(str) {
               return String(str || '')
                 .split(',')
                 .map(s => s.trim().toLowerCase())
                 .filter(Boolean);
             }
 
-            const ALLOWED_FALLBACKS = parseAgentList(process.env.ALLOWED_FALLBACKS);
+            const ALLOWED_FALLBACKS = parseList(process.env.ALLOWED_FALLBACKS);
+
             function resolveAgent(name) {
               if (!name) return null;
               const key = String(name).toLowerCase();
@@ -104,7 +106,6 @@ jobs:
               for (const [k,rec] of Object.entries(REGISTRY)) {
                 if ((rec.aliases || []).map(a => a.toLowerCase()).includes(key)) return { key: k, ...rec };
               }
-              // Fallback: only allow predefined usernames
               if (ALLOWED_FALLBACKS.includes(key)) {
                 return { key, assignee: key, mention: '@'+key, aliases: [key] };
               }
@@ -118,102 +119,119 @@ jobs:
               return [...new Set(wanted)].map(resolveAgent).filter(Boolean);
             }
 
-            // ---- HARDENED assignment with failure + Codex auto-kick ----
-            async function assignOne(issue_number, agent) {
-              const { data:item } = await github.rest.issues.get({ owner, repo, issue_number });
+            async function breadcrumb(body, issueOrPR = number) {
+              await github.rest.issues.createComment({ owner, repo, issue_number: issueOrPR, body });
+            }
 
-              const labels = (item.labels || []).map(l => (l.name || '').toLowerCase());
-              const hasLabel = labels.includes(`agent:${agent.key}`) ||
-                (agent.aliases || []).some(a => labels.includes(`agent:${a}`));
-              if (!hasLabel) {
-                core.info(`#${issue_number}: missing agent label for ${agent.key}; skip`);
-                return;
+            // ---- Copilot via GraphQL on ISSUES (official path) ----
+            async function assignCopilotIssueGraphQL(issue_number) {
+              const q = `
+                query($owner:String!,$repo:String!,$num:Int!) {
+                  repository(owner:$owner, name:$repo) {
+                    issue(number:$num) {
+                      id
+                      assignees(first:100){ nodes { id login } }
+                    }
+                    suggestedActors(capabilities:[CAN_BE_ASSIGNED], first:100){
+                      nodes {
+                        login
+                        __typename
+                        ... on Bot { id }
+                        ... on User { id }
+                      }
+                    }
+                  }
+                }`;
+              const data = await github.graphql(q, { owner, repo, num: issue_number });
+
+              const actors = (data.repository.suggestedActors?.nodes || [])
+                .map(n => ({ login: (n.login || '').toLowerCase(), id: n.id }));
+              const cop = actors.find(a => a.login === 'copilot-swe-agent');
+
+              if (!cop?.id) {
+                await breadcrumb(
+                  "Tried to assign **Copilot**, but this repo’s GraphQL `suggestedActors` does not include `copilot-swe-agent`. " +
+                  "Enable the Copilot coding agent for this repo/org, then try again."
+                , issue_number);
+                core.setFailed("Copilot not enabled for this repo (no `copilot-swe-agent` in suggestedActors).");
+                return false;
               }
 
+              const issueId = data.repository.issue.id;
+              const existing = (data.repository.issue.assignees?.nodes || []).map(n => n.id);
+              const uniq = Array.from(new Set([...existing, cop.id]));
+
+              const m = `
+                mutation($assignableId:ID!,$actorIds:[ID!]!) {
+                  replaceActorsForAssignable(input:{ assignableId:$assignableId, actorIds:$actorIds }) {
+                    clientMutationId
+                  }
+                }`;
+              await github.graphql(m, { assignableId: issueId, actorIds: uniq });
+              await breadcrumb("Assigning/pinging @copilot for this task.", issue_number);
+              return true;
+            }
+
+            // ---- Codex on PRs: assign + command ----
+            async function assignCodexPR(pr_number) {
+              // Assign bot to PR
+              let ok = false;
+              try {
+                const res = await github.rest.issues.addAssignees({
+                  owner, repo, issue_number: pr_number, assignees: ['chatgpt-codex-connector']
+                });
+                ok = res.status >= 200 && res.status < 300;
+                core.info(`#${pr_number}: addAssignees(chatgpt-codex-connector) -> ${res.status}`);
+              } catch (e) {
+                core.warning(`#${pr_number}: assigning Codex failed: ${e.status || '?'} ${e.message}`);
+              }
+              // Post the trigger command
+              let cmd = String(process.env.CODEX_COMMAND || 'codex: start')
+                .replace(/[\r\n`]/g, '')
+                .trim();
+              if (!/^[a-zA-Z0-9 :\-]+$/.test(cmd)) {
+                core.warning('Unsafe Codex command; using default.');
+                cmd = 'codex: start';
+              }
+              if (!cmd.toLowerCase().startsWith('codex:')) cmd = 'codex: ' + cmd;
+
+              await breadcrumb(`${cmd}\n\nPlease create commits on this branch, run tests, and keep the PR updated.`, pr_number);
+              if (!ok) core.setFailed(`#${pr_number}: Codex was not assigned to the PR. See logs.`);
+              return ok;
+            }
+
+            // ---- Generic REST assignment (fallback agents) ----
+            async function assignGenericREST(issue_number, agent) {
+              const { data:item } = await github.rest.issues.get({ owner, repo, issue_number });
               const current = (item.assignees || []).map(a => (a.login || '').toLowerCase());
               const already = current.includes(agent.assignee.toLowerCase());
-              let added = false;
-
-              if (!already) {
-                try {
-                  const res = await github.rest.issues.addAssignees({
-                    owner, repo, issue_number, assignees: [agent.assignee]
-                  });
-                  core.info(`#${issue_number}: addAssignees(${agent.assignee}) -> ${res.status}`);
-                  added = res.status >= 200 && res.status < 300;
-                } catch (e) {
-                  core.error(`#${issue_number}: addAssignees(${agent.assignee}) failed: ${e.status || '?'} ${e.message}`);
-                  added = false;
-                }
-              } else {
+              if (already) {
                 core.info(`#${issue_number}: ${agent.assignee} already assigned`);
+                return true;
               }
-
-              if (added) {
-                await github.rest.issues.createComment({
-                  owner, repo, issue_number,
-                  body: `Assigning/pinging ${agent.mention} for this task.`
+              try {
+                const res = await github.rest.issues.addAssignees({
+                  owner, repo, issue_number, assignees: [agent.assignee]
                 });
-
-                // Auto-kick Codex with a command phrase (customizable via env or dispatch input)
-                let cmd = String(process.env.CODEX_COMMAND || 'codex: start')
-                  .replace(/[\r\n`]/g, '')
-                  .trim();
-                // Allow only safe characters: letters, numbers, spaces, colon, dash
-                if (!/^[a-zA-Z0-9 :\-]+$/.test(cmd)) {
-                  core.warning(`Unsafe characters detected in Codex command; using default.`);
-                  cmd = 'codex: start';
-                }
-                if (!cmd.toLowerCase().startsWith('codex:')) cmd = 'codex: ' + cmd;
-                if (agent.key === 'codex' && cmd) {
-                  await github.rest.issues.createComment({
-                    owner, repo, issue_number,
-                    body: `${cmd}\n\nPlease create a working branch, implement, run tests, and open a draft PR linking back to this issue.`
-                  });
-                  core.info(`#${issue_number}: posted Codex command "${cmd}"`);
-                }
-              }
-
-              // Hardened behavior: fail if assignment did not take and wasn't already present
-              if (!added && !already) {
-                core.setFailed(`#${issue_number}: ${agent.assignee} is not assigned. See logs above.`);
+                const ok = res.status >= 200 && res.status < 300;
+                await breadcrumb(`Assigning/pinging ${agent.mention} for this task.`, issue_number);
+                if (!ok) core.setFailed(`#${issue_number}: ${agent.assignee} could not be assigned.`);
+                return ok;
+              } catch (e) {
+                core.error(`#${issue_number}: addAssignees(${agent.assignee}) failed: ${e.status || '?'} ${e.message}`);
+                core.setFailed(`#${issue_number}: ${agent.assignee} is not assigned. See logs.`);
+                return false;
               }
             }
 
-            async function backfill(scope, agentKeys) {
-              const keys = agentKeys.length ? agentKeys : Object.keys(REGISTRY);
-              for (const raw of keys) {
-                const ag = resolveAgent(raw);
-                if (!ag) continue;
-                const base = `repo:${owner}/${repo} label:"agent:${ag.key}" is:open`;
-                const buckets = [];
-                if (scope === 'issues' || scope === 'both') buckets.push(`${base} is:issue`);
-                if (scope === 'prs'    || scope === 'both') buckets.push(`${base} is:pr`);
-                for (const q of buckets) {
-                  let page = 1;
-                  while (true) {
-                    const res = await github.rest.search.issuesAndPullRequests({ q, per_page: 100, page });
-                    if (!res.data.items.length) break;
-                    for (const it of res.data.items) {
-                      await assignOne(it.number, ag);
-                    }
-                    if (res.data.items.length < 100) break;
-                    page += 1;
-                  }
-                }
-              }
+            // For backfill: re-trigger Codex bridge by re-applying the label on issues
+            async function retriggerCodexBridge(issue_number) {
+              try { await github.rest.issues.removeLabel({ owner, repo, issue_number, name: 'agent:codex' }); } catch {}
+              await github.rest.issues.addLabels({ owner, repo, issue_number, labels: ['agent:codex'] });
             }
 
             // ---- Entrypoints ----
-            if (context.eventName === 'workflow_dispatch') {
-              const scope  = (context.payload.inputs?.scope || 'both').toLowerCase();
-              const agents = (context.payload.inputs?.agents || '')
-                .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
-              await backfill(scope, agents);
-              return;
-            }
-
-            if (context.eventName === 'issues') {
+            async function handleIssues() {
               const issue = context.payload.issue;
               const eventLabel = (context.payload.label?.name || '').toLowerCase();
               let agents = agentsFromLabels(issue.labels);
@@ -227,12 +245,19 @@ jobs:
               for (const ag of agents) {
                 const key = ag.key + '#' + ag.assignee;
                 if (seen.has(key)) continue; seen.add(key);
-                await assignOne(issue.number, ag);
+
+                if (ag.key === 'copilot') {
+                  await assignCopilotIssueGraphQL(issue.number);
+                } else if (ag.key === 'codex') {
+                  core.info('Issue labeled agent:codex — deferring to Codex Issue Bridge workflow.');
+                  // Intentionally do nothing here; the bridge should react to the label.
+                } else {
+                  await assignGenericREST(issue.number, ag);
+                }
               }
-              return;
             }
 
-            if (context.eventName === 'pull_request_target') {
+            async function handlePRs() {
               const pr = context.payload.pull_request;
               const eventLabel = (context.payload.label?.name || '').toLowerCase();
               let agents = agentsFromLabels(pr.labels);
@@ -246,7 +271,79 @@ jobs:
               for (const ag of agents) {
                 const key = ag.key + '#' + ag.assignee;
                 if (seen.has(key)) continue; seen.add(key);
-                await assignOne(pr.number, ag);
+
+                if (ag.key === 'copilot') {
+                  await breadcrumb("Heads up: Copilot coding agent starts from **issues**, not PRs. Label the linked issue `agent:copilot`.", pr.number);
+                } else if (ag.key === 'codex') {
+                  await assignCodexPR(pr.number);
+                } else {
+                  await assignGenericREST(pr.number, ag);
+                }
               }
+            }
+
+            async function backfill(scope, agentKeys) {
+              const keys = agentKeys.length ? agentKeys : Object.keys(REGISTRY);
+
+              for (const raw of keys) {
+                const ag = resolveAgent(raw);
+                if (!ag) continue;
+
+                // Issues bucket
+                if (scope === 'issues' || scope === 'both') {
+                  const qI = `repo:${owner}/${repo} is:issue is:open label:"agent:${ag.key}"`;
+                  let page = 1;
+                  while (true) {
+                    const res = await github.rest.search.issuesAndPullRequests({ q: qI, per_page: 100, page });
+                    if (!res.data.items.length) break;
+                    for (const it of res.data.items) {
+                      if (ag.key === 'codex') {
+                        core.info(`Backfill: retrigger Codex bridge for issue #${it.number}`);
+                        await retriggerCodexBridge(it.number);
+                      } else if (ag.key === 'copilot') {
+                        await assignCopilotIssueGraphQL(it.number);
+                      } else {
+                        await assignGenericREST(it.number, ag);
+                      }
+                    }
+                    if (res.data.items.length < 100) break;
+                    page += 1;
+                  }
+                }
+
+                // PR bucket
+                if (scope === 'prs' || scope === 'both') {
+                  const qP = `repo:${owner}/${repo} is:pr is:open label:"agent:${ag.key}"`;
+                  let page = 1;
+                  while (true) {
+                    const res = await github.rest.search.issuesAndPullRequests({ q: qP, per_page: 100, page });
+                    if (!res.data.items.length) break;
+                    for (const it of res.data.items) {
+                      if (ag.key === 'codex') {
+                        await assignCodexPR(it.number);
+                      } else if (ag.key === 'copilot') {
+                        await breadcrumb("Copilot coding agent starts from **issues**, not PRs. Label the linked issue `agent:copilot`.", it.number);
+                      } else {
+                        await assignGenericREST(it.number, ag);
+                      }
+                    }
+                    if (res.data.items.length < 100) break;
+                    page += 1;
+                  }
+                }
+              }
+            }
+
+            // Dispatch
+            if (context.eventName === 'workflow_dispatch') {
+              const scope  = (context.payload.inputs?.scope || 'both').toLowerCase();
+              const agents = parseList(context.payload.inputs?.agents || '');
+              await backfill(scope, agents);
               return;
+            }
+            if (context.eventName === 'issues') {
+              await handleIssues(); return;
+            }
+            if (context.eventName === 'pull_request_target') {
+              await handlePRs(); return;
             }
