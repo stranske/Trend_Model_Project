@@ -131,17 +131,19 @@ jobs:
 
             core.info("Report: " + JSON.stringify(report, null, 2));
             core.setOutput('report', JSON.stringify(report));
-            if (Object.values(report).some(v => v && v.ok === false) && requireAll) {
+            if (Object.values(report).some(v => v && typeof v === 'object' && v.ok === false) && requireAll) {
               core.setFailed("One or more requested agents are not assignable here. See report above.");
             }
 
       - name: Close temporary issue
         if: always()
+        env:
+          ISSUE_NUM: ${{ steps.tmp.outputs.num }}
         uses: actions/github-script@v7
         with:
           script: |
             const { owner, repo } = context.repo;
-            const num = Number(process.env.ISSUE_NUM || '${{ steps.tmp.outputs.num || 0 }}');
+            const num = Number(process.env.ISSUE_NUM || '0');
             if (num) {
               await github.rest.issues.update({ owner, repo, issue_number: num, state: 'closed' });
               core.info(`Temp issue #${num} closed`);
