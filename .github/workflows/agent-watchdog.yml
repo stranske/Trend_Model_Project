@@ -17,6 +17,9 @@ jobs:
       (github.event.action == 'labeled' && startsWith(github.event.label.name, 'agent:')) ||
       (github.event.action == 'reopened')
     runs-on: ubuntu-latest
+    env:
+      WATCH_TIMEOUT_MINUTES: 10
+      POLL_INTERVAL_SECONDS: 15
     steps:
       - name: Wait for agent PR (poll timeline)
         id: poll
@@ -51,14 +54,16 @@ jobs:
               return null;
             }
 
+            const timeoutMinutes = Number(process.env.WATCH_TIMEOUT_MINUTES);
+            const pollIntervalMs = Number(process.env.POLL_INTERVAL_SECONDS) * 1000;
             const started = Date.now();
-            const deadlineMs = 10 * 60 * 1000; // 10 minutes
+            const deadlineMs = timeoutMinutes * 60 * 1000;
             let prFound = null;
 
             while ((Date.now() - started) < deadlineMs) {
               const prNum = await findLinkedPR();
               if (prNum) { prFound = prNum; break; }
-              await new Promise(r => setTimeout(r, 15000)); // 15s backoff
+              await new Promise(r => setTimeout(r, pollIntervalMs));
             }
 
             core.setOutput('pr', prFound ? String(prFound) : '');
@@ -69,9 +74,15 @@ jobs:
               });
               core.info(`Found PR #${prFound} linked to issue #${issue_number}.`);
             } else {
+              const timeoutMessage = [
+                'No agent PR detected within the watch window.',
+                'If this issue is assigned to @copilot, check the Agents panel or reassign.',
+                'For Codex ensure the connector is authorized and use its command (e.g., "codex: start").'
+              ].join(' ');
+
               await github.rest.issues.createComment({
                 owner, repo, issue_number,
-                body: `No agent PR detected within the watch window. If this issue is assigned to @copilot, check the Agents panel or reassign; for Codex ensure the connector is authorized and use its command (e.g., "codex: start").`
+                body: timeoutMessage
               });
-              core.setFailed(`No PR linked to issue #${issue_number} within 10 minutes.`);
+              core.setFailed(`No PR linked to issue #${issue_number} within ${timeoutMinutes} minutes.`);
             }
