@@ -1,0 +1,33 @@
+name: verify agent assignment
+on:
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: "Issue number to verify"
+        required: true
+permissions:
+  contents: read
+  issues: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check assignees
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const issue_number = Number((context.payload.inputs.issue || '').trim());
+            if (!issue_number) core.setFailed('Missing issue number input');
+
+            const { data: issue } = await github.rest.issues.get({ owner, repo, issue_number });
+            const assignees = (issue.assignees || []).map(a => (a.login || '').toLowerCase());
+            core.info(`Assignees on #${issue_number}: ${JSON.stringify(assignees)}`);
+
+            const hasCopilot = assignees.includes('copilot');
+            const hasCodex   = assignees.includes('chatgpt-codex-connector');
+            if (!hasCopilot && !hasCodex) {
+              core.setFailed(`Issue #${issue_number} is NOT assigned to an agent. Add label agent:copilot or agent:codex to trigger assignment, or assign manually in the sidebar.`);
+            } else {
+              core.info(`OK: assigned to ${ hasCopilot ? 'copilot' : '' } ${ hasCodex ? 'chatgpt-codex-connector' : '' }`.trim());
+            }
