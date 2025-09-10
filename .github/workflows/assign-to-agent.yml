@@ -154,6 +154,11 @@ jobs:
                 let cmd = String(process.env.CODEX_COMMAND || 'codex: start')
                   .replace(/[\r\n`]/g, '')
                   .trim();
+                // Allow only safe characters: letters, numbers, spaces, colon, dash
+                if (!/^[a-zA-Z0-9 :\-]+$/.test(cmd)) {
+                  core.warning(`Unsafe characters detected in Codex command; using default.`);
+                  cmd = 'codex: start';
+                }
                 if (!cmd.toLowerCase().startsWith('codex:')) cmd = 'codex: ' + cmd;
                 if (agent.key === 'codex' && cmd) {
                   await github.rest.issues.createComment({
