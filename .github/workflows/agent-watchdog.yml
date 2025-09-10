@@ -1,0 +1,77 @@
+name: agent watchdog (issue -> PR)
+on:
+  issues:
+    types: [assigned, labeled, reopened]
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  watch:
+    if: >
+      (github.event.action == 'assigned'  && (
+          (github.event.assignee.login == 'copilot') ||
+          (github.event.assignee.login == 'chatgpt-codex-connector')
+      )) ||
+      (github.event.action == 'labeled' && startsWith(github.event.label.name, 'agent:')) ||
+      (github.event.action == 'reopened')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for agent PR (poll timeline)
+        id: poll
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const issue_number = context.payload.issue.number;
+
+            // Helper: fetch cross-referenced PRs from issue timeline
+            async function findLinkedPR() {
+              // Timeline can contain cross-referenced events with a source.issue that is a PR
+              let page = 1;
+              while (true) {
+                const { data: events } = await github.rest.issues.listEventsForTimeline({
+                  owner, repo, issue_number, per_page: 100, page
+                });
+                if (!events.length) break;
+                for (const ev of events) {
+                  if (ev.event === 'cross-referenced' && ev.source && ev.source.issue && ev.source.issue.pull_request) {
+                    const prNum = ev.source.issue.number;
+                    // ensure the PR still exists and is open
+                    try {
+                      const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNum });
+                      if (pr.state === 'open') return prNum;
+                    } catch (e) { /* ignore */ }
+                  }
+                }
+                if (events.length < 100) break;
+                page += 1;
+              }
+              return null;
+            }
+
+            const started = Date.now();
+            const deadlineMs = 10 * 60 * 1000; // 10 minutes
+            let prFound = null;
+
+            while ((Date.now() - started) < deadlineMs) {
+              const prNum = await findLinkedPR();
+              if (prNum) { prFound = prNum; break; }
+              await new Promise(r => setTimeout(r, 15000)); // 15s backoff
+            }
+
+            core.setOutput('pr', prFound ? String(prFound) : '');
+            if (prFound) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number,
+                body: `Agent linked PR #${prFound}. Tracking begins here.`
+              });
+              core.info(`Found PR #${prFound} linked to issue #${issue_number}.`);
+            } else {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number,
+                body: `No agent PR detected within the watch window. If this issue is assigned to @copilot, check the Agents panel or reassign; for Codex ensure the connector is authorized and use its command (e.g., "codex: start").`
+              });
+              core.setFailed(`No PR linked to issue #${issue_number} within 10 minutes.`);
+            }
