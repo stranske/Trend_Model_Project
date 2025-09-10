@@ -15,13 +15,16 @@ on:
         description: "Comma-separated agent names for backfill (default: all known)"
         required: false
         default: ""
+      codex_command:
+        description: "Command to kick Codex after assignment"
+        required: false
+        default: "codex: start"
 
 permissions:
-  contents: read
   issues: write
   pull-requests: write
+  contents: read
 
-# avoid duplicate runs fighting each other
 concurrency:
   group: assign-agent-${{ github.event_name }}-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
   cancel-in-progress: false
@@ -29,13 +32,17 @@ concurrency:
 jobs:
   assign_or_backfill:
     runs-on: ubuntu-latest
+    env:
+      # Default Codex command; can be overridden via workflow_dispatch input above
+      CODEX_COMMAND: ${{ github.event.inputs.codex_command }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          sparse-checkout: .github/agents.json
+          # Optional registry override file
+          sparse-checkout: |
+            .github/agents.json
+          sparse-checkout-cone-mode: false
 
-      # Debug what we actually saw (so we stop arguing with ghosts)
       - name: Debug event snapshot
         uses: actions/github-script@v7
         with:
@@ -56,14 +63,14 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const fs = require('fs');
             const { owner, repo } = context.repo;
 
-            // ---- Agent registry: defaults + optional override from .github/agents.json ----
+            // ---- Agent registry (defaults + optional .github/agents.json override) ----
             const DEFAULTS = {
               copilot: { assignee: 'copilot', mention: '@copilot', aliases: ['copilot'] },
               codex:   { assignee: 'chatgpt-codex-connector', mention: '@chatgpt-codex-connector', aliases: ['codex','chatgpt-codex-connector'] }
             };
+            const fs = require('fs');
             let REGISTRY = JSON.parse(JSON.stringify(DEFAULTS));
             try {
               if (fs.existsSync('.github/agents.json')) {
@@ -88,8 +95,8 @@ jobs:
               for (const [k,rec] of Object.entries(REGISTRY)) {
                 if ((rec.aliases || []).map(a => a.toLowerCase()).includes(key)) return { key: k, ...rec };
               }
-              // No fallback: only allow explicitly registered agents
-              return null;
+              // Fallback: assume the suffix is a username
+              return { key, assignee: key, mention: '@'+key, aliases: [key] };
             }
 
             function agentsFromLabels(labels) {
@@ -98,8 +105,10 @@ jobs:
               return [...new Set(wanted)].map(resolveAgent).filter(Boolean);
             }
 
+            // ---- HARDENED assignment with failure + Codex auto-kick ----
             async function assignOne(issue_number, agent) {
               const { data:item } = await github.rest.issues.get({ owner, repo, issue_number });
+
               const labels = (item.labels || []).map(l => (l.name || '').toLowerCase());
               const hasLabel = labels.includes(`agent:${agent.key}`) ||
                 (agent.aliases || []).some(a => labels.includes(`agent:${a}`));
@@ -107,29 +116,45 @@ jobs:
                 core.info(`#${issue_number}: missing agent label for ${agent.key}; skip`);
                 return;
               }
+
               const current = (item.assignees || []).map(a => (a.login || '').toLowerCase());
-              let assigned = false;
-              try {
-                if (!current.includes(agent.assignee.toLowerCase())) {
+              let changed = false;
+
+              if (!current.includes(agent.assignee.toLowerCase())) {
+                try {
                   const res = await github.rest.issues.addAssignees({
                     owner, repo, issue_number, assignees: [agent.assignee]
                   });
-                  core.info(`#${issue_number}: addAssignees(${agent.assignee}) status ${res.status}`);
-                  assigned = res.status >= 200 && res.status < 300;
-                } else {
-                  core.info(`#${issue_number}: already assigned ${agent.assignee}`);
-                  assigned = true;
+                  core.info(`#${issue_number}: addAssignees(${agent.assignee}) -> ${res.status}`);
+                  changed = res.status >= 200 && res.status < 300;
+                } catch (e) {
+                  core.error(`#${issue_number}: addAssignees(${agent.assignee}) failed: ${e.status || '?'} ${e.message}`);
+                  changed = false;
                 }
-              } catch (err) {
-                core.error(`#${issue_number}: addAssignees(${agent.assignee}) failed: ${err.status || '?'} ${err.message}`);
+              } else {
+                core.info(`#${issue_number}: ${agent.assignee} already assigned`);
+                changed = true;
               }
-              if (assigned) {
+
+              // Always leave a breadcrumb
+              await github.rest.issues.createComment({
+                owner, repo, issue_number,
+                body: `Assigning/pinging ${agent.mention} for this task.`
+              });
+
+              // Auto-kick Codex with a command phrase (customizable via env or dispatch input)
+              const CODEX_COMMAND = (process.env.CODEX_COMMAND || 'codex: start').trim();
+              if (agent.key === 'codex' && CODEX_COMMAND) {
                 await github.rest.issues.createComment({
                   owner, repo, issue_number,
-                  body: `Assigning/pinging ${agent.mention} for this task.`
+                  body: `${CODEX_COMMAND}\n\nPlease create a working branch, implement, run tests, and open a draft PR linking back to this issue.`
                 });
-              } else {
-                core.setFailed(`#${issue_number}: ${agent.assignee} is not assignable here. See logs above.`);
+                core.info(`#${issue_number}: posted Codex command "${CODEX_COMMAND}"`);
+              }
+
+              // Hardened behavior: fail if assignment did not take
+              if (!changed) {
+                core.setFailed(`#${issue_number}: ${agent.assignee} is not assigned. See logs above.`);
               }
             }
 
@@ -160,7 +185,8 @@ jobs:
             // ---- Entrypoints ----
             if (context.eventName === 'workflow_dispatch') {
               const scope  = (context.payload.inputs?.scope || 'both').toLowerCase();
-              const agents = (context.payload.inputs?.agents || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+              const agents = (context.payload.inputs?.agents || '')
+                .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
               await backfill(scope, agents);
               return;
             }
@@ -174,6 +200,7 @@ jobs:
                 if (extra) agents.push(extra);
               }
               if (!agents.length) { core.info('No agent:* label on issue; skip'); return; }
+
               const seen = new Set();
               for (const ag of agents) {
                 const key = ag.key + '#' + ag.assignee;
@@ -192,6 +219,7 @@ jobs:
                 if (extra) agents.push(extra);
               }
               if (!agents.length) { core.info('No agent:* label on PR; skip'); return; }
+
               const seen = new Set();
               for (const ag of agents) {
                 const key = ag.key + '#' + ag.assignee;
