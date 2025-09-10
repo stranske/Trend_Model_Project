@@ -189,7 +189,10 @@ jobs:
               let cmd = String(process.env.CODEX_COMMAND || 'codex: start')
                 .replace(/[\r\n`]/g, '')
                 .trim();
-              if (!/^[a-zA-Z0-9 :\-]+$/.test(cmd)) { core.warning('Unsafe Codex command; using default.'); cmd = 'codex: start'; }
+              if (!/^[a-zA-Z0-9 :\-]+$/.test(cmd)) {
+                core.warning('Unsafe Codex command; using default.');
+                cmd = 'codex: start';
+              }
               if (!cmd.toLowerCase().startsWith('codex:')) cmd = 'codex: ' + cmd;
 
               await breadcrumb(`${cmd}\n\nPlease create commits on this branch, run tests, and keep the PR updated.`, pr_number);
