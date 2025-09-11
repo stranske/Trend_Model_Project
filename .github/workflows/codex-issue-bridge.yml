@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   bridge:
-    if: contains(join(fromJson(toJson(github.event.issue.labels)).*.name, ','), 'agent:codex')
+    if: contains(github.event.issue.labels.*.name, 'agent:codex')
     runs-on: ubuntu-latest
 
     steps:
