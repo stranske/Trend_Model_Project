@@ -35,7 +35,7 @@ jobs:
     env:
       CODEX_COMMAND: ${{ github.event.inputs.codex_command }}
       ALLOWED_FALLBACKS: ${{ vars.ALLOWED_FALLBACKS || '' }}
-      SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}   # ← PAT exposed at job level
+      SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}   # PAT exposed at job level
 
     steps:
       # Optional registry override file
@@ -313,7 +313,7 @@ jobs:
                 if (ag.key === 'copilot') {
                   await assignCopilotIssueGraphQL(issue.number);
                 } else if (ag.key === 'codex') {
-                  await codexBootstrapFromIssue(issue.number);   // ← build the PR and post the command as service user
+                  await codexBootstrapFromIssue(issue.number);   // build the PR and post the command as service user
                 } else {
                   await assignGenericREST(issue.number, ag);
                 }
@@ -338,7 +338,7 @@ jobs:
                 if (ag.key === 'copilot') {
                   await breadcrumb("Heads up: Copilot coding agent starts from **issues**, not PRs. Label the linked issue `agent:copilot`.", pr.number);
                 } else if (ag.key === 'codex') {
-                  await assignCodexPR(pr.number);                // ← label and post command as service user
+                  await assignCodexPR(pr.number);                // label and post the command as service user
                 } else {
                   await assignGenericREST(pr.number, ag);
                 }
