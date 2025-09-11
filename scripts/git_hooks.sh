@@ -58,16 +58,28 @@ if ! ./scripts/validate_fast.sh --commit-range=HEAD; then
     echo "❌ Initial pre-commit validation failed"
     echo "🔧 Attempting automatic fixes..."
     if ./scripts/fix_common_issues.sh > "$HOME/.pre_commit_autofix.log" 2>&1; then
+        echo "📄 Auto-fix log saved to $HOME/.pre_commit_autofix.log"
+        echo "📝 Staging auto-fixed files..."
+        git add -u
         echo "♻️  Re-running validation after fixes..."
         if ./scripts/validate_fast.sh --commit-range=HEAD; then
-            echo "✅ Validation passed after automatic fixes!"
+            echo "✅ Validation passed after automatic fixes."
             exit 0
+        else
+            echo "❌ Validation still failing after automatic fixes."
+            echo ""
+            echo "🔒 Commit aborted to allow review of staged fixes."
+            echo "💡 Review changes and run 'git commit' again."
+            exit 1
         fi
+    else
+        echo "⚠️ Automatic fixes could not be applied; see $HOME/.pre_commit_autofix.log for details"
     fi
     echo ""
     echo "❌ Pre-commit validation failed!"
     echo "💡 Fix issues or use 'git commit --no-verify' to skip checks"
     echo "🔧 Manual fixes: ./scripts/validate_fast.sh --fix"
+    echo "📄 Auto-fix log: $HOME/.pre_commit_autofix.log"
     exit 1
 fi
 
