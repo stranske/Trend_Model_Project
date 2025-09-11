@@ -122,4 +122,4 @@ jobs:
             await github.rest.issues.createComment({
               owner, repo, issue_number: context.payload.issue.number,
               body: `Opened draft PR #${{ steps.pr.outputs.number }} to engage Codex. Track work there.`
-            })
+            });
