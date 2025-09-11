@@ -16,7 +16,29 @@ jobs:
       contains(github.event.pull_request.labels.*.name, 'risk:low')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/github-script@v7
+      - name: Check PR file patterns and size
+        id: pr-check
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.SERVICE_BOT_PAT }}
+          script: |
+            const { owner, repo } = context.repo;
+            const pull_number = context.payload.pull_request.number;
+            // Get list of files changed in the PR
+            const files = await github.paginate(
+              github.pulls.listFiles,
+              { owner, repo, pull_number }
+            );
+            // Only allow changes in src/ directory
+            const allowed = files.every(f => f.filename.startsWith('src/'));
+            // Limit total lines changed
+            const totalChanges = files.reduce((sum, f) => sum + f.changes, 0);
+            const sizeOk = totalChanges <= 500;
+            // Set output
+            return allowed && sizeOk;
+      - name: Auto-approve PR
+        if: steps.pr-check.outputs.result == 'true'
+        uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.SERVICE_BOT_PAT }}
           script: |
