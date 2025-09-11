@@ -16,8 +16,6 @@ jobs:
       contains(github.event.pull_request.labels.*.name, 'risk:low')
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
       - name: Check PR file patterns and size
         id: pr-check
         uses: actions/github-script@v7
