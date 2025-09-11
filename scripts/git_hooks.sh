@@ -64,13 +64,14 @@ if ! ./scripts/validate_fast.sh --commit-range=HEAD; then
         echo "♻️  Re-running validation after fixes..."
         if ./scripts/validate_fast.sh --commit-range=HEAD; then
             echo "✅ Validation passed after automatic fixes."
+            exit 0
         else
             echo "❌ Validation still failing after automatic fixes."
+            echo ""
+            echo "🔒 Commit aborted to allow review of staged fixes."
+            echo "💡 Review changes and run 'git commit' again."
+            exit 1
         fi
-        echo ""
-        echo "🔒 Commit aborted to allow review of staged fixes."
-        echo "💡 Review changes and run 'git commit' again."
-        exit 1
     else
         echo "⚠️ Automatic fixes could not be applied; see $HOME/.pre_commit_autofix.log for details"
     fi
