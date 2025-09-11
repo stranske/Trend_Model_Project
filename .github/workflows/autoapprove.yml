@@ -29,11 +29,16 @@ jobs:
               github.pulls.listFiles,
               { owner, repo, pull_number }
             );
-            // Only allow changes in src/ directory
-            const allowed = files.every(f => f.filename.startsWith('src/'));
+            // Allow changes in src/, docs/, tests/ directories, or Markdown files
+            const allowed = files.every(f =>
+              f.filename.startsWith('src/') ||
+              f.filename.startsWith('docs/') ||
+              f.filename.startsWith('tests/') ||
+              f.filename.endsWith('.md')
+            );
             // Limit total lines changed
             const totalChanges = files.reduce((sum, f) => sum + f.changes, 0);
-            const sizeOk = totalChanges <= 500;
+            const sizeOk = totalChanges <= 1000;
             // Set output
             return allowed && sizeOk;
       - name: Auto-approve PR
