@@ -23,25 +23,37 @@ import yaml  # type: ignore[import-untyped]
 
 # Allow running without installing the package by adding src/ to PYTHONPATH
 ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT / "src") not in sys.path:
+    sys.path.insert(0, str(ROOT / "src"))
 
 import trend_analysis as ta
+
 # (widgets and metrics imported within functions where needed)
-from trend_analysis import (cli, export, gui, metrics, pipeline, run_analysis,
-                            run_multi_analysis)
+from trend_analysis import (
+    cli,
+    export,
+    gui,
+    metrics,
+    pipeline,
+    run_analysis,
+    run_multi_analysis,
+)
 from trend_analysis.config import Config, load
 from trend_analysis.core import rank_selection as rs
-from trend_analysis.core.rank_selection import (RiskStatsConfig,
-                                                rank_select_funds)
-from trend_analysis.data import (ensure_datetime, identify_risk_free_fund,
-                                 load_csv)
+from trend_analysis.core.rank_selection import RiskStatsConfig, rank_select_funds
+from trend_analysis.data import ensure_datetime, identify_risk_free_fund, load_csv
 from trend_analysis.multi_period import run as run_mp
 from trend_analysis.multi_period import run_schedule, scheduler
 from trend_analysis.multi_period.engine import Portfolio, SelectorProtocol
 from trend_analysis.multi_period.replacer import Rebalancer
 from trend_analysis.selector import RankSelector, ZScoreSelector
-from trend_analysis.weighting import (AdaptiveBayesWeighting, BaseWeighting,
-                                      EqualWeight, ScorePropBayesian,
-                                      ScorePropSimple)
+from trend_analysis.weighting import (
+    AdaptiveBayesWeighting,
+    BaseWeighting,
+    EqualWeight,
+    ScorePropBayesian,
+    ScorePropSimple,
+)
 
 
 def _check_generate_demo() -> None:
@@ -2179,4 +2191,8 @@ subprocess.run(["bash", str(quick_check)], check=True, shell=False)
 
 # Execute the full test suite to cover the entire code base
 run_tests = Path(__file__).resolve().with_name("run_tests.sh")
-subprocess.run([str(run_tests)], check=True, shell=False)
+result = subprocess.run([str(run_tests)], shell=False)
+if result.returncode != 0:
+    raise SystemExit(
+        f"{run_tests} failed with exit code {result.returncode}"
+    )
