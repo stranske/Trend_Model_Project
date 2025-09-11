@@ -57,7 +57,7 @@ if ! ./scripts/validate_fast.sh --commit-range=HEAD; then
     echo ""
     echo "❌ Initial pre-commit validation failed"
     echo "🔧 Attempting automatic fixes..."
-    if ./scripts/fix_common_issues.sh > /tmp/pre_commit_autofix.log 2>&1; then
+    if ./scripts/fix_common_issues.sh > "$HOME/.pre_commit_autofix.log" 2>&1; then
         echo "♻️  Re-running validation after fixes..."
         if ./scripts/validate_fast.sh --commit-range=HEAD; then
             echo "✅ Validation passed after automatic fixes!"
