@@ -36,7 +36,7 @@ install_hooks() {
     # Create hooks directory if it doesn't exist
     mkdir -p "$GIT_HOOKS_DIR"
     
-    # Pre-commit hook (fast validation)
+    # Pre-commit hook (fast validation with auto-debugging)
     cat > "$GIT_HOOKS_DIR/pre-commit" << 'EOF'
 #!/bin/bash
 # Pre-commit hook: Fast validation for Codex commits
@@ -55,9 +55,19 @@ fi
 # Run fast validation on staged changes
 if ! ./scripts/validate_fast.sh --commit-range=HEAD; then
     echo ""
+    echo "❌ Initial pre-commit validation failed"
+    echo "🔧 Attempting automatic fixes..."
+    if ./scripts/fix_common_issues.sh > /tmp/pre_commit_autofix.log 2>&1; then
+        echo "♻️  Re-running validation after fixes..."
+        if ./scripts/validate_fast.sh --commit-range=HEAD; then
+            echo "✅ Validation passed after automatic fixes!"
+            exit 0
+        fi
+    fi
+    echo ""
     echo "❌ Pre-commit validation failed!"
     echo "💡 Fix issues or use 'git commit --no-verify' to skip checks"
-    echo "🔧 Quick fixes: ./scripts/validate_fast.sh --fix"
+    echo "🔧 Manual fixes: ./scripts/validate_fast.sh --fix"
     exit 1
 fi
 
