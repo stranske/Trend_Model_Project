@@ -23,7 +23,7 @@ on:
 permissions:
   issues: write
   pull-requests: write
-  contents: write         # ← must be write so we can create a branch/file for Codex bootstrap
+  contents: write         # Must be write so we can create a branch/file for Codex bootstrap
 
 concurrency:
   group: assign-agent-${{ github.event_name }}-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
