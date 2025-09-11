@@ -276,7 +276,7 @@ jobs:
               const already = current.includes(agent.assignee.toLowerCase());
               if (already) {
                 core.info(`#${issue_number}: ${agent.assignee} already assigned`);
-                await breadcrumb(`Assigning/pinging ${agent.mention} for this task.`, issue_number);
+                // Breadcrumb not needed when agent is already assigned
                 return true;
               }
               try {
