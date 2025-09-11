@@ -66,7 +66,6 @@ jobs:
         with:
           script: |
             const { owner, repo } = context.repo;
-            const isIssue = !!context.payload.issue;
             const number = (context.payload.issue?.number ?? context.payload.pull_request?.number);
 
             // ---- Agent registry (defaults + optional .github/agents.json override) ----
