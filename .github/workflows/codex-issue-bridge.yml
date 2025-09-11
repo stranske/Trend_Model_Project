@@ -1,4 +1,4 @@
-name: Codex Issue Bridge (label → draft PR + command)
+name: Codex Issue Bridge (label → draft PR + human command)
 
 on:
   issues:
@@ -46,10 +46,8 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BR"
           mkdir -p agents
-          cat > agents/codex-${ISSUE}.md <<'EOF'
-          <!-- This file is here so the branch and PR exist for Codex to work against. -->
-          EOF
-          git add agents/codex-${ISSUE}.md
+          printf "<!-- bootstrap for codex on issue #%s -->\n" "$ISSUE" > "agents/codex-${ISSUE}.md"
+          git add "agents/codex-${ISSUE}.md"
           git commit -m "chore(codex): bootstrap PR for issue #${ISSUE}"
           git push origin "$BR"
           echo "branch=$BR" >> "$GITHUB_OUTPUT"
@@ -66,7 +64,6 @@ jobs:
             const base = "${{ steps.def.outputs.default }}";
             const head = process.env.BRANCH;
 
-            // Avoid duplicates if rerun
             const existing = await github.rest.pulls.list({ owner, repo, state: 'open', head: `${owner}:${head}` });
             let pr = existing.data[0];
             if (!pr) {
@@ -78,39 +75,51 @@ jobs:
             }
             core.setOutput('number', String(pr.number));
 
-      - name: Label/assign PR to Codex and post command
+      - name: Label PR (agent:codex)
         uses: actions/github-script@v7
         env:
           PR: ${{ steps.pr.outputs.number }}
-          CODEX_COMMAND: "codex: start"
         with:
           script: |
             const {owner, repo} = context.repo;
             const prNumber = Number(process.env.PR);
-
-            // Mirror intent onto the PR
             await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels: ['agent:codex'] });
 
-            // Assign Codex bot to the PR (works today for you)
-            try {
-              await github.rest.issues.addAssignees({
-                owner, repo, issue_number: prNumber, assignees: ['chatgpt-codex-connector']
-              });
-            } catch (e) {
-              core.warning(`Assigning Codex to PR failed: ${e.status || '?'} ${e.message}`);
-            }
+      # Prefer posting as a human service user so Codex sees the command
+      - name: Post Codex command as service user
+        if: ${{ secrets.SERVICE_BOT_PAT != '' }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.SERVICE_BOT_PAT }}
+          script: |
+            const {owner, repo} = context.repo;
+            const prNumber = Number("${{ steps.pr.outputs.number }}");
+            const cmd = 'codex: start';
+            await github.rest.issues.createComment({
+              owner, repo, issue_number: prNumber,
+              body: `${cmd}\n\nPlease create commits on this branch, run tests, and keep the PR updated.`
+            });
 
-            // Post the trigger command Codex listens for
-            const cmd = (process.env.CODEX_COMMAND || '').trim();
-            if (cmd) {
-              await github.rest.issues.createComment({
-                owner, repo, issue_number: prNumber,
-                body: `${cmd}\n\nPlease push commits to this branch, run tests, and keep the PR updated.`
-              });
-            }
+      # Fallback: still post with GITHUB_TOKEN if no PAT (Codex may ignore it)
+      - name: Post Codex command (fallback as github-actions)
+        if: ${{ secrets.SERVICE_BOT_PAT == '' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const prNumber = Number("${{ steps.pr.outputs.number }}");
+            const cmd = 'codex: start';
+            await github.rest.issues.createComment({
+              owner, repo, issue_number: prNumber,
+              body: `${cmd}\n\nPlease create commits on this branch, run tests, and keep the PR updated.`
+            });
 
-            // Let the Issue know where to watch
+      - name: Link PR on original issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {owner, repo} = context.repo;
             await github.rest.issues.createComment({
               owner, repo, issue_number: context.payload.issue.number,
-              body: `Opened draft PR #${prNumber} to engage Codex. Track work there.`
+              body: `Opened draft PR #${{ steps.pr.outputs.number }} to engage Codex. Track work there.`
             });

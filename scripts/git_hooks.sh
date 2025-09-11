@@ -67,12 +67,15 @@ if ! ./scripts/validate_fast.sh --commit-range=HEAD; then
             echo "📋 Auto-fix log saved to $LOG_FILE"
             echo "⚠️  Review the staged changes and re-run commit."
         fi
+    else
+        echo "⚠️ Automatic fixes could not be applied; see $HOME/.pre_commit_autofix.log for details"
     fi
     echo ""
     echo "❌ Pre-commit validation failed!"
     echo "📋 Auto-fix log saved to $LOG_FILE"
     echo "💡 Fix issues or use 'git commit --no-verify' to skip checks"
     echo "🔧 Manual fixes: ./scripts/validate_fast.sh --fix"
+    echo "📄 Auto-fix log: $HOME/.pre_commit_autofix.log"
     exit 1
 fi
 
