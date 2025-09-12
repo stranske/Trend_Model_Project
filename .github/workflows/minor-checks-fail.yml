@@ -21,6 +21,7 @@ jobs:
         with:
           script: |
             const run = context.payload.workflow_run;
+            if (!Array.isArray(run.pull_requests) || run.pull_requests.length === 0) return;
             const pr = run.pull_requests[0];
             if (!pr) return;
             const { data: prData } = await github.rest.pulls.get({
