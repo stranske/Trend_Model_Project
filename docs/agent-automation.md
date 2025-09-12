@@ -1,0 +1,139 @@
+# Agent Automation & Telemetry Overview
+
+_Last updated: 2025-09-12_
+
+This document summarizes the GitHub Actions automation that powers agent assignment, labeling, formatting autofix, Codex bootstrap PR creation, and watchdog telemetry in this repository.
+
+## High-Level Flow
+
+```
+Issue Labeled agent:copilot  ──▶ assign-to-agent.yml (issues) ──▶ GraphQL suggestActors → assign copilot-swe-agent
+Issue Labeled agent:codex    ──▶ assign-to-agent.yml (issues) ──▶ sets needs_codex_bootstrap=true
+                                                       │
+                                                       ▼
+                                   codex_bootstrap job creates draft PR, assigns, labels
+                                                       │
+PR Opened/Updated               ──▶ label-agent-prs.yml (pull_request_target) → idempotent labeling
+                                                       │
+PR (any)                        ──▶ autofix.yml (pull_request) → composite autofix action
+                                                       │
+Failing CI / Docker / Tests     ──▶ autofix-on-failure.yml (workflow_run) → composite autofix action
+                                                       │
+Issue / PR lacks Codex PR       ──▶ agent-watchdog.yml (schedule or dispatch) → state telemetry
+```
+
+## Key Workflows
+
+### 1. `assign-to-agent.yml`
+Triggers: `issues` (opened, labeled, reopened), `pull_request_target` (opened, labeled, reopened), manual `workflow_dispatch`.
+
+Responsibilities:
+- Resolve `agent:*` labels to registry entries (default + optional `.github/agents.json`).
+- Assign Copilot via GraphQL (issues only; PR path posts breadcrumb reminder).
+- Defer Codex bootstrap to secondary job via outputs (`needs_codex_bootstrap`).
+- Assign generic agents via REST fallback.
+- Write JSON artifact `agent_assignment.json` for telemetry / auditing.
+- Bootstrap job (`codex_bootstrap`): creates/reuses branch `agents/codex-issue-<n>`, replicates issue title & body into PR, assigns actors, posts start command, drops marker file to ensure idempotency.
+
+Outputs (first job):
+- `needs_codex_bootstrap`: `true|false`
+- `codex_issue`: issue number needing Codex PR
+- `copilot_assigned`: whether Copilot was successfully assigned
+- `generic_agents`: comma list of non-core agents assigned
+
+Marker files:
+- `agents/.codex-bootstrap-<issue>.json` prevents duplicate Codex PR creation.
+
+### 2. `codex_bootstrap` (job inside `assign-to-agent.yml`)
+- Runs only when `needs_codex_bootstrap == true`.
+- Requires `SERVICE_BOT_PAT`; fails early & comments on issue if missing.
+- Replicates issue metadata: PR body contains structured header, original body, boilerplate instructions.
+- Updates existing draft PR if body doesn’t already include replicated header.
+
+### 3. `label-agent-prs.yml`
+Trigger: `pull_request_target` (opened, synchronize, reopened).
+
+Rationale for `pull_request_target`:
+- Needs secret (PAT) for cross-fork labeling edge cases.
+- No code checkout (reads event payload only) → mitigates secret exfil risk.
+- Ensures labels applied before downstream workflows evaluate label predicates.
+
+Idempotent: computes label delta and applies only missing labels.
+
+### 4. `autofix.yml`
+Trigger: standard `pull_request` events.
+
+Logic:
+- Skips drafts unless explicitly labeled `autofix`.
+- Uses composite action `.github/actions/autofix` to install pinned versions and run ruff/black/isort/docformatter.
+- Pushes changes only if formatter produced a diff (guard via `changed` output).
+
+### 5. `autofix-on-failure.yml`
+Trigger: `workflow_run` (CI, Docker, Lint, Tests) when conclusion != success.
+
+Steps:
+- Finds related open PR by head ref.
+- Applies same composite autofix action (idempotent).
+- Commits with canonical message `ci: autofix after failed checks` (loop guard in main autofix to avoid recursion).
+
+### 6. `agent-watchdog.yml`
+Purpose: Detect issues labeled for Codex where bootstrap PR not yet created OR gather fast telemetry.
+
+Enhancements:
+- Fast-mode: detects marker file presence to short-circuit deeper polling.
+- Provides structured outputs (`state`) such as `FOUND` or `TIMEOUT`.
+- Step summary enumerates any pending items.
+
+### 7. `cleanup-codex-bootstrap.yml`
+Scheduled cleanup of stale `agents/codex-issue-*` branches beyond age threshold.
+
+## Composite Action: `.github/actions/autofix`
+Encapsulates tool installation and formatting logic:
+- Loads pinned versions from `autofix-versions.env`.
+- Runs ruff (fix), black, isort, docformatter.
+- Emits `changed=true|false` output and summary table.
+
+## Telemetry & Artifacts
+| Artifact / Output | Source | Purpose |
+|-------------------|--------|---------|
+| `agent_assignment.json` | `assign-to-agent.yml` | Auditable record of assignment decisions (inputs & outputs). |
+| Step Summary tables | All major workflows | Human-readable status in Actions UI. |
+| `state` output | `agent-watchdog.yml` | Programmatic detector for missing Codex bootstrap. |
+| Marker files | Codex bootstrap job | Idempotency & external observable state via repo tree. |
+
+## Security Posture
+- Principle of least privilege: `contents: write` only in `codex_bootstrap`; base assignment job uses `contents: read`.
+- `pull_request_target` restricted to a single labeler workflow with no code checkout.
+- Secrets (PAT) only consumed where necessary (Codex bootstrap & optional labeler fallback). Graceful degradation to `GITHUB_TOKEN` otherwise.
+- Idempotent operations minimize repeated side-effect risk.
+
+## Failure Modes & Handling
+| Failure | Mitigation |
+|---------|------------|
+| PAT missing for Codex bootstrap | Early fail + issue comment instructing re-label after secret setup. |
+| Copilot not enabled (no `copilot-swe-agent`) | GraphQL result triggers explicit failure + breadcrumb guidance. |
+| Duplicate Codex label events | Marker file short-circuits re-bootstrap. |
+| Autofix loop risk | Guard: skip when PR title starts with `ci: autofix`. |
+| Formatting version drift | Shared `autofix-versions.env` ensures uniform versions. |
+
+## Operational Playbook
+1. Label issue with `agent:copilot` or `agent:codex`.
+2. For Codex: expect draft PR within seconds; PR body mirrors issue content.
+3. Review `agent_assignment.json` artifact if automation outcome unclear.
+4. On failure to bootstrap: check issue comments for diagnostic message.
+5. Use `workflow_dispatch` on `assign-to-agent.yml` for historical backfill.
+6. Watchdog run (scheduled) should report `FOUND` for newly created bootstrap markers; investigate `TIMEOUT` states.
+
+## Extensibility Hooks
+- Add new agents via `.github/agents.json` with `assignee`, `mention`, `aliases`.
+- Additional formatting tools: extend composite action; maintain pinned versions list.
+- Telemetry expansion: append keys to `agent_assignment.json` (backwards-compatible additions are fine).
+
+## Future Improvements (Backlog)
+- Consolidated dashboard artifact combining assignment + watchdog states over time.
+- Metrics export (JSON Lines) for external observability platform ingestion.
+- Slack / Teams notification step for bootstrap failures.
+- Automated stale branch closure heuristics tied to issue closure events.
+
+---
+For questions or updates to this design, open an issue labeled `agent:codex` or `agent:copilot` and describe the desired change.
