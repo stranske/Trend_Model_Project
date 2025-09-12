@@ -494,7 +494,8 @@ jobs:
               const suppressFromEnv   = !!process.env.CODEX_SUPPRESS_ACTIVATE;
               const activationSuppressed = suppressFromEnv || suppressFromInput || suppressFromToken;
               // Parse marker for PR number and propagate outputs + artifact
-              const parsed = (()=>{ try { return JSON.parse(decoded||'{}'); } catch { return {}; } })();
+              let parsed = {};
+              try { parsed = JSON.parse(decoded || '{}'); } catch { parsed = {}; }
               if (parsed.pr) core.setOutput('codex_pr', String(parsed.pr));
               core.setOutput('codex_reused', 'true');
               try {
