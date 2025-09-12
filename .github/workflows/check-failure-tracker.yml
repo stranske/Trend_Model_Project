@@ -1,0 +1,47 @@
+name: Check Failure Tracker
+
+on:
+  workflow_run:
+    workflows: ["CI", "Docker"]
+    types:
+      - completed
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  failure:
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create or update failure issue
+        uses: peter-evans/create-or-update-issue@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          title: "CI Failure - ${{ github.event.workflow_run.name }}"
+          body: |
+            The workflow [${{ github.event.workflow_run.name }}](${{ github.event.workflow_run.html_url }}) failed.
+            Please inspect the run for details.
+          labels: ci-failure
+          assignees: stranske-automation-bot
+
+  success:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Find existing failure issue
+        id: find
+        uses: peter-evans/find-issue@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue-title: "CI Failure - ${{ github.event.workflow_run.name }}"
+          labels: ci-failure
+          state: open
+      - name: Close issue
+        if: ${{ steps.find.outputs.issue-number }}
+        uses: peter-evans/close-issue@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ steps.find.outputs.issue-number }}
+
