@@ -514,7 +514,16 @@ jobs:
                 if (decoded) fs.writeFileSync('codex-artifacts/marker_snapshot.json', decoded);
                 fs.writeFileSync('codex-artifacts/README.txt', 'Codex bootstrap artifacts. Fields:\n- codex_bootstrap_result.json: structured summary\n- marker_snapshot.json: on-branch marker file copy (if available)\n');
               } catch (e) { core.warning('Failed to write codex_bootstrap_result.json: ' + e.message); }
-              console.log('CODEX_BOOTSTRAP_RESULT:' + JSON.stringify({ reused: true, issue: issue_number, pr: parsed.pr || null, branch, base: baseBranch, suppression: activationSuppressed }));
+              console.log('CODEX_BOOTSTRAP_RESULT:' + JSON.stringify({
+                reused: true,
+                issue: issue_number,
+                pr: parsed.pr || null,
+                branch,
+                base: baseBranch,
+                suppression: activationSuppressed,
+                assigned_issue: null,
+                assigned_pr: null
+              }));
               return;
             }
             const path = `agents/codex-${issue_number}.md`;
