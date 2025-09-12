@@ -1,0 +1,40 @@
+name: Flag failed checks for minor changes
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
+
+permissions:
+  issues: write
+  pull-requests: read
+
+jobs:
+  open-issue:
+    if: >-
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v6
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+            if (!Array.isArray(run.pull_requests) || run.pull_requests.length === 0) return;
+            const pr = run.pull_requests[0];
+            if (!pr) return;
+            const { data: prData } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+            });
+            const hasMinor = prData.labels.some(l => l.name === 'minor');
+            if (!hasMinor) return;
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Fix failing checks for minor PR #${pr.number}`,
+              body: `CI workflow failed for minor change in PR #${pr.number}.`,
+              labels: ['agent:codex']
+            });

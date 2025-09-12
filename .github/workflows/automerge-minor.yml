@@ -1,0 +1,19 @@
+name: Automerge minor changes
+
+on:
+  pull_request:
+    types:
+      - labeled
+
+permissions:
+  pull-requests: write
+
+jobs:
+  automerge:
+    if: github.event.label.name == 'minor'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: peter-evans/enable-auto-merge@v3
+        with:
+          merge-method: squash
+          pull-request-number: ${{ github.event.pull_request.number }}
