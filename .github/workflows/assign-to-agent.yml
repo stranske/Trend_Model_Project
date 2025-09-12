@@ -83,7 +83,7 @@ jobs:
 
             // ---- Agent registry (defaults + optional .github/agents.json override) ----
             const DEFAULTS = {
-              copilot: { assignee: 'copilot', mention: '@copilot', aliases: ['copilot'] },
+              copilot: { assignee: 'copilot-swe-agent', mention: '@copilot-swe-agent', aliases: ['copilot','copilot-swe-agent'] },
               codex:   { assignee: 'chatgpt-codex-connector', mention: '@chatgpt-codex-connector', aliases: ['codex','chatgpt-codex-connector'] }
             };
             const fs = require('fs');
@@ -320,7 +320,7 @@ jobs:
                       if (ag.key === 'copilot') {
                         await assignCopilotIssueGraphQL(it.number);
                       } else if (ag.key === 'codex') {
-                        await codexBootstrapFromIssue(it.number);
+                        await breadcrumb('Codex bootstrap runs on issue label events. Re-label this issue with `agent:codex` to trigger the dedicated job.', it.number);
                       } else {
                         await assignGenericREST(it.number, ag);
                       }
@@ -443,8 +443,8 @@ jobs:
               try { await github.rest.repos.getContent({owner, repo, path, ref}); return true; } catch { return false; }
             }
             const { data: repoInfo } = await github.rest.repos.get({ owner, repo });
-            const base = repoInfo.default_branch || 'main';
-            const { data: ref } = await github.rest.git.getRef({ owner, repo, ref: `heads/${base}` });
+            const baseBranch = repoInfo.default_branch || 'main';
+            const { data: ref } = await github.rest.git.getRef({ owner, repo, ref: `heads/${baseBranch}` });
             const baseSha = ref.object.sha;
             let branchExists = true;
             try { await github.rest.git.getRef({ owner, repo, ref: `heads/${branch}` }); } catch { branchExists = false; }
@@ -485,7 +485,7 @@ jobs:
                 prBodyNeedsUpdate = true;
               }
             } else {
-              const { data: pr } = await github.rest.pulls.create({ owner, repo, head: branch, base, draft: true, title: `Codex bootstrap for #${issue_number}`, body: replicatedBody });
+              const { data: pr } = await github.rest.pulls.create({ owner, repo, head: branch, base: baseBranch, draft: true, title: `Codex bootstrap for #${issue_number}`, body: replicatedBody });
               prNumber = pr.number;
             }
             if (prBodyNeedsUpdate) {
