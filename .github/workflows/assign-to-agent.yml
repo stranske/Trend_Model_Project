@@ -604,3 +604,8 @@ jobs:
         with:
           name: codex-bootstrap-${{ github.run_id }}
           path: codex-artifacts/codex_bootstrap_result.json
+      - name: Debug Codex artifact directory
+        if: always()
+        run: |
+          echo "Listing codex-artifacts directory (if present)";
+          if [ -d codex-artifacts ]; then ls -l codex-artifacts; else echo "codex-artifacts directory missing"; fi
