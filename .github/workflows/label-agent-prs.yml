@@ -21,18 +21,18 @@ jobs:
             const actor = (pr.user?.login || '').toLowerCase();
             const head = (pr.head?.ref || '').toLowerCase();
 
-              const COMMON_LABELS = ['automerge', 'risk:low'];
-              const COPILOT_LABELS = ['from:copilot', 'agent:copilot', ...COMMON_LABELS];
-              const CODEX_LABELS = ['from:codex', 'agent:codex', ...COMMON_LABELS];
+            const COMMON_LABELS = ['automerge', 'risk:low'];
+            const COPILOT_LABELS = ['from:copilot', 'agent:copilot', ...COMMON_LABELS];
+            const CODEX_LABELS = ['from:codex', 'agent:codex', ...COMMON_LABELS];
 
-              const labels = new Set();
-              if (actor.includes('copilot') || head.startsWith('copilot/') || head.startsWith('agents/copilot-')) {
-                COPILOT_LABELS.forEach(l => labels.add(l));
-              }
-              if (actor.includes('codex') || head.startsWith('codex/') || head.startsWith('agents/codex-')) {
-                CODEX_LABELS.forEach(l => labels.add(l));
-              }
+            const labels = new Set();
+            if (actor.includes('copilot') || head.startsWith('copilot/') || head.startsWith('agents/copilot-')) {
+              COPILOT_LABELS.forEach(l => labels.add(l));
+            }
+            if (actor.includes('codex') || head.startsWith('codex/') || head.startsWith('agents/codex-')) {
+              CODEX_LABELS.forEach(l => labels.add(l));
+            }
 
-              if (labels.size) {
-                await github.rest.issues.addLabels({ owner, repo, issue_number: pr.number, labels: Array.from(labels) });
-              }
+            if (labels.size) {
+              await github.rest.issues.addLabels({ owner, repo, issue_number: pr.number, labels: Array.from(labels) });
+            }
