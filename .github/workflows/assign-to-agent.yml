@@ -23,7 +23,7 @@ on:
 permissions:
   issues: write
   pull-requests: write
-  contents: read          # Escalate to write only in codex bootstrap job
+  contents: read          # Base permission level; codex_bootstrap job sets contents: write in its own elevated permissions section
 
 concurrency:
   group: assign-agent-${{ github.event_name }}-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
