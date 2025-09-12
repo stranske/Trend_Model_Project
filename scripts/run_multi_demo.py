@@ -23,6 +23,8 @@ import yaml  # type: ignore[import-untyped]
 
 # Allow running without installing the package by adding src/ to PYTHONPATH
 ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT / "src") not in sys.path:
+    sys.path.insert(0, str(ROOT / "src"))
 
 import trend_analysis as ta
 # (widgets and metrics imported within functions where needed)
@@ -2179,4 +2181,6 @@ subprocess.run(["bash", str(quick_check)], check=True, shell=False)
 
 # Execute the full test suite to cover the entire code base
 run_tests = Path(__file__).resolve().with_name("run_tests.sh")
-subprocess.run([str(run_tests)], check=True, shell=False)
+result = subprocess.run([str(run_tests)], shell=False)
+if result.returncode != 0:
+    raise SystemExit(f"{run_tests} failed with exit code {result.returncode}")
