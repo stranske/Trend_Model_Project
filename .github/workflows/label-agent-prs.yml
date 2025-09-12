@@ -33,6 +33,11 @@ jobs:
               CODEX_LABELS.forEach(l => labels.add(l));
             }
 
-            if (labels.size) {
-              await github.rest.issues.addLabels({ owner, repo, issue_number: pr.number, labels: Array.from(labels) });
-            }
+              if (labels.size) {
+                await github.rest.issues.addLabels({
+                  owner,
+                  repo,
+                  issue_number: pr.number,
+                  labels: Array.from(labels),
+                });
+              }
