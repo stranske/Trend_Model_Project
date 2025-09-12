@@ -19,6 +19,10 @@ on:
         description: "Command to kick Codex after assignment (for PRs and bootstrap PRs)"
         required: false
         default: "codex: start"
+      suppress_activate:
+        description: "Set true to suppress initial Codex activation comment"
+        required: false
+        default: "false"
 
 permissions:
   issues: write
@@ -412,6 +416,7 @@ jobs:
       SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
       CODEX_COMMAND: ${{ github.event.inputs.codex_command }}
       CODEX_SUPPRESS_ACTIVATE: ${{ vars.CODEX_SUPPRESS_ACTIVATE || '' }}
+      CODEX_SUPPRESS_ACTIVATE_INPUT: ${{ github.event.inputs.suppress_activate }}
     steps:
       - uses: actions/checkout@v4
       - name: Debug needs
@@ -474,7 +479,7 @@ jobs:
             }
             if (await exists(markerPath, branch)) {
               core.info('Marker exists – bootstrap already performed. Emitting summary (idempotent).');
-              let decoded;
+              let decoded; let issueBodyCached = '';
               try {
                 const { data: markerFile } = await github.rest.repos.getContent({ owner, repo, path: markerPath, ref: branch });
                 if (!Array.isArray(markerFile)) {
@@ -482,6 +487,12 @@ jobs:
                   core.summary.addHeading('Codex Bootstrap (Previously Completed)').addCodeBlock(decoded, 'json').write();
                 }
               } catch (e) { core.warning('Could not read marker for summary: ' + e.message); }
+              // Fetch issue to allow suppression detection for parity (not strictly needed but keeps fields consistent)
+              try { const { data: issue } = await github.rest.issues.get({ owner, repo, issue_number }); issueBodyCached = issue.body || ''; } catch {}
+              const suppressFromToken = (issueBodyCached || '').includes('[codex-suppress-activate]');
+              const suppressFromInput = /true/i.test(String(process.env.CODEX_SUPPRESS_ACTIVATE_INPUT||''));
+              const suppressFromEnv   = !!process.env.CODEX_SUPPRESS_ACTIVATE;
+              const activationSuppressed = suppressFromEnv || suppressFromInput || suppressFromToken;
               // Parse marker for PR number and propagate outputs + artifact
               const parsed = (()=>{ try { return JSON.parse(decoded||'{}'); } catch { return {}; } })();
               if (parsed.pr) core.setOutput('codex_pr', String(parsed.pr));
@@ -495,10 +506,14 @@ jobs:
                   pr: parsed.pr || null,
                   branch,
                   base: baseBranch,
+                  suppression: activationSuppressed,
                   ts: new Date().toISOString()
                 }, null, 2));
+                // Copy marker snapshot for convenience
+                if (decoded) fs.writeFileSync('codex-artifacts/marker_snapshot.json', decoded);
+                fs.writeFileSync('codex-artifacts/README.txt', 'Codex bootstrap artifacts. Fields:\n- codex_bootstrap_result.json: structured summary\n- marker_snapshot.json: on-branch marker file copy (if available)\n');
               } catch (e) { core.warning('Failed to write codex_bootstrap_result.json: ' + e.message); }
-              console.log('CODEX_BOOTSTRAP_RESULT:' + JSON.stringify({ reused: true, issue: issue_number, pr: parsed.pr || null, branch, base: baseBranch }));
+              console.log('CODEX_BOOTSTRAP_RESULT:' + JSON.stringify({ reused: true, issue: issue_number, pr: parsed.pr || null, branch, base: baseBranch, suppression: activationSuppressed }));
               return;
             }
             const path = `agents/codex-${issue_number}.md`;
@@ -516,6 +531,11 @@ jobs:
             } catch (e) {
               core.warning(`Failed to fetch issue #${issue_number} for body replication: ${e.message}`);
             }
+            // Suppression detection (inputs/env/token)
+            const suppressFromToken = (issueBody || '').includes('[codex-suppress-activate]');
+            const suppressFromInput = /true/i.test(String(process.env.CODEX_SUPPRESS_ACTIVATE_INPUT||''));
+            const suppressFromEnv   = !!process.env.CODEX_SUPPRESS_ACTIVATE;
+            const activationSuppressed = suppressFromEnv || suppressFromInput || suppressFromToken;
             const replicatedHeader = `### Source Issue #${issue_number}: ${issueTitle}`;
             const replicatedBody = `${replicatedHeader}\n\n---\n${issueBody}\n\n---\n\nThis draft PR was auto-created to engage Codex on the task above. All edits should occur on this branch.\n`;
             // Discover existing PR (open, head = branch) before attempting creation
@@ -561,10 +581,10 @@ jobs:
               ]).write();
             }
             // Explicit activation instructions comment (only once per bootstrap unless suppressed by CODEX_SUPPRESS_ACTIVATE)
-            if (!process.env.CODEX_SUPPRESS_ACTIVATE) {
+            if (!activationSuppressed) {
               await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: `@chatgpt-codex-connector Please begin work on this task. Focus first on establishing a passing baseline, then implement required changes as described in the source issue #${issue_number}. Provide incremental commits and keep descriptions concise.` });
             } else {
-              core.info('Activation comment suppressed via CODEX_SUPPRESS_ACTIVATE env variable.');
+              core.info('Activation comment suppressed (env/input/token).');
             }
             // Label and Codex command kickoff
             await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels: ['agent:codex'] });
@@ -577,7 +597,9 @@ jobs:
             const markerContent = Buffer.from(JSON.stringify({ issue: issue_number, pr: prNumber, ts: new Date().toISOString() }, null, 2)).toString('base64');
             await github.rest.repos.createOrUpdateFileContents({ owner, repo, path: markerPath, branch, message: `chore(codex): mark bootstrap for #${issue_number}`, content: markerContent });
             // Summary + outputs
-            core.summary.addHeading('Codex Bootstrap').addTable([[{data:'Issue',header:true},{data:'PR',header:true},{data:'Branch',header:true}], [String(issue_number), String(prNumber), branch]]).write();
+            core.summary.addHeading('Codex Bootstrap').addTable([[
+              {data:'Issue',header:true},{data:'PR',header:true},{data:'Branch',header:true},{data:'Reused',header:true},{data:'Suppressed',header:true}
+            ], [String(issue_number), String(prNumber), branch, 'false', String(activationSuppressed)] ]).write();
             core.setOutput('codex_pr', String(prNumber));
             core.setOutput('codex_reused', 'false');
             // Write structured artifact file (non-reused path)
@@ -592,18 +614,20 @@ jobs:
                 base: baseBranch,
                 assigned_issue: issueAssignOk,
                 assigned_pr: prAssignOk,
+                suppression: activationSuppressed,
                 ts: new Date().toISOString()
               }, null, 2));
+              fs.writeFileSync('codex-artifacts/README.txt', 'Codex bootstrap artifacts. Fields:\n- codex_bootstrap_result.json: structured summary\n- marker_snapshot.json: on-branch marker file copy (added on reuse)\n');
             } catch (e) { core.warning('Failed to write codex_bootstrap_result.json: ' + e.message); }
             // Structured console artifact line
-            console.log('CODEX_BOOTSTRAP_RESULT:' + JSON.stringify({ reused: false, issue: issue_number, pr: prNumber, branch, base: baseBranch, assigned_issue: issueAssignOk, assigned_pr: prAssignOk }));
+            console.log('CODEX_BOOTSTRAP_RESULT:' + JSON.stringify({ reused: false, issue: issue_number, pr: prNumber, branch, base: baseBranch, assigned_issue: issueAssignOk, assigned_pr: prAssignOk, suppression: activationSuppressed }));
 
       - name: Upload Codex bootstrap artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: codex-bootstrap-${{ github.run_id }}
-          path: codex-artifacts/codex_bootstrap_result.json
+          path: codex-artifacts
       - name: Debug Codex artifact directory
         if: always()
         run: |
