@@ -400,6 +400,9 @@ jobs:
   codex_bootstrap:
     needs: assign_or_backfill
     if: needs.assign_or_backfill.outputs.needs_codex_bootstrap == 'true'
+    outputs:
+      codex_pr: ${{ steps.bootstrap.outputs.codex_pr }}
+      codex_reused: ${{ steps.bootstrap.outputs.codex_reused }}
     permissions:
       issues: write
       contents: write
@@ -408,6 +411,7 @@ jobs:
     env:
       SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
       CODEX_COMMAND: ${{ github.event.inputs.codex_command }}
+      CODEX_SUPPRESS_ACTIVATE: ${{ vars.CODEX_SUPPRESS_ACTIVATE || '' }}
     steps:
       - uses: actions/checkout@v4
       - name: Debug needs
@@ -427,6 +431,7 @@ jobs:
             }
             return;
       - name: Bootstrap Codex branch/PR
+        id: bootstrap
         uses: actions/github-script@v7
         with:
           github-token: ${{ github.token }}
@@ -480,6 +485,7 @@ jobs:
               // Parse marker for PR number and propagate outputs + artifact
               const parsed = (()=>{ try { return JSON.parse(decoded||'{}'); } catch { return {}; } })();
               if (parsed.pr) core.setOutput('codex_pr', String(parsed.pr));
+              core.setOutput('codex_reused', 'true');
               try {
                 const fs = require('fs');
                 fs.mkdirSync('codex-artifacts', { recursive: true });
@@ -573,6 +579,7 @@ jobs:
             // Summary + outputs
             core.summary.addHeading('Codex Bootstrap').addTable([[{data:'Issue',header:true},{data:'PR',header:true},{data:'Branch',header:true}], [String(issue_number), String(prNumber), branch]]).write();
             core.setOutput('codex_pr', String(prNumber));
+            core.setOutput('codex_reused', 'false');
             // Write structured artifact file (non-reused path)
             try {
               const fs = require('fs');
@@ -590,3 +597,10 @@ jobs:
             } catch (e) { core.warning('Failed to write codex_bootstrap_result.json: ' + e.message); }
             // Structured console artifact line
             console.log('CODEX_BOOTSTRAP_RESULT:' + JSON.stringify({ reused: false, issue: issue_number, pr: prNumber, branch, base: baseBranch, assigned_issue: issueAssignOk, assigned_pr: prAssignOk }));
+
+      - name: Upload Codex bootstrap artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codex-bootstrap-${{ github.run_id }}
+          path: codex-artifacts/codex_bootstrap_result.json
