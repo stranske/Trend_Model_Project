@@ -1,0 +1,26 @@
+name: Assign codex to labeled issues
+
+on:
+  issues:
+    types:
+      - labeled
+
+permissions:
+  issues: write
+
+jobs:
+  assign:
+    if: github.event.label.name == 'agent:codex'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v6
+        with:
+          script: |
+            const issue_number = context.payload.issue.number;
+            const assignees = ['codex', 'stranske-automation-bot'];
+            await github.rest.issues.addAssignees({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number,
+              assignees,
+            });
