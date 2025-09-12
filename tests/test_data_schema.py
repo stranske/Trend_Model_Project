@@ -3,10 +3,13 @@ import io
 import pandas as pd
 import pytest
 
-from trend_portfolio_app.data_schema import (DATE_COL, _validate_df,
-                                             infer_benchmarks,
-                                             load_and_validate_csv,
-                                             load_and_validate_file)
+from trend_portfolio_app.data_schema import (
+    DATE_COL,
+    _validate_df,
+    infer_benchmarks,
+    load_and_validate_csv,
+    load_and_validate_file,
+)
 
 
 def test_validate_df_basic():

@@ -1,8 +1,12 @@
 import pandas as pd
 
-from trend_analysis.export import (FORMATTERS_EXCEL, export_data,
-                                   export_to_excel, register_formatter_excel,
-                                   reset_formatters_excel)
+from trend_analysis.export import (
+    FORMATTERS_EXCEL,
+    export_data,
+    export_to_excel,
+    register_formatter_excel,
+    reset_formatters_excel,
+)
 
 
 def test_export_data(tmp_path):
