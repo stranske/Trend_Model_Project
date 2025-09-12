@@ -66,6 +66,7 @@ jobs:
             core.info('EVENT DEBUG:\n' + JSON.stringify(payload, null, 2));
 
       - name: Assign or backfill
+        id: assign_or_backfill
         uses: actions/github-script@v7
         env:
           GH_TOKEN: ${{ env.SERVICE_BOT_PAT }}
@@ -409,6 +410,10 @@ jobs:
       CODEX_COMMAND: ${{ github.event.inputs.codex_command }}
     steps:
       - uses: actions/checkout@v4
+      - name: Debug needs
+        run: |
+          echo "needs_codex_bootstrap=${{ needs.assign_or_backfill.outputs.needs_codex_bootstrap }}"
+          echo "codex_issue=${{ needs.assign_or_backfill.outputs.codex_issue }}"
       - name: Abort if PAT missing
         if: env.SERVICE_BOT_PAT == ''
         uses: actions/github-script@v7
