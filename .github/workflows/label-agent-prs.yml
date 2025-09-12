@@ -34,5 +34,10 @@ jobs:
               }
 
               if (labels.size) {
-                await github.rest.issues.addLabels({ owner, repo, issue_number: pr.number, labels: Array.from(labels) });
+                await github.rest.issues.addLabels({
+                  owner,
+                  repo,
+                  issue_number: pr.number,
+                  labels: Array.from(labels),
+                });
               }
