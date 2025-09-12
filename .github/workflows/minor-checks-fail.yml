@@ -34,11 +34,14 @@ jobs:
             const hasMinor = prData.labels.some(l => l.name === 'minor');
             if (!hasMinor) return;
             const title = `Fix failing checks for minor PR #${pr.number}`;
-            const { data: existing } = await github.rest.search.issuesAndPullRequests({
-              q: `repo:${context.repo.owner}/${context.repo.repo} ` +
-                 `is:open in:title "${title}"`
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100
             });
-            if (existing.total_count === 0) {
+            const existing = issues.filter(issue => issue.title === title);
+            if (existing.length === 0) {
               await github.rest.issues.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
