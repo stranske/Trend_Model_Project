@@ -30,6 +30,22 @@ jobs:
             const {owner, repo} = context.repo;
             const issue_number = context.payload.issue.number;
 
+            // Early exit: detect codex bootstrap skip comment
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number, per_page: 100 });
+            if (comments.some(c => /Codex bootstrap skipped: missing SERVICE_BOT_PAT/i.test(c.body || ''))) {
+              core.notice('Detected bootstrap skip comment; aborting watchdog.');
+              return;
+            }
+
+            // If marker file already exists, reduce timeout to fast poll
+            let fastMode = false;
+            try {
+              const marker = `agents/.codex-bootstrap-${issue_number}.json`;
+              await github.rest.repos.getContent({ owner, repo, path: marker });
+              core.info('Bootstrap marker present – switching to fast 2-minute window.');
+              fastMode = true;
+            } catch {}
+
             // Helper: fetch cross-referenced PRs from issue timeline
             async function findLinkedPR() {
               // Timeline can contain cross-referenced events with a source.issue that is a PR
@@ -57,8 +73,9 @@ jobs:
 
             const timeoutMinutesRaw = process.env.WATCH_TIMEOUT_MINUTES;
             const pollIntervalSecondsRaw = process.env.POLL_INTERVAL_SECONDS;
-            const timeoutMinutes = Number(timeoutMinutesRaw);
+            let timeoutMinutes = Number(timeoutMinutesRaw);
             const pollIntervalMs = Number(pollIntervalSecondsRaw) * 1000;
+            if (fastMode && timeoutMinutes > 2) timeoutMinutes = 2;
 
             if (
               !timeoutMinutesRaw ||
@@ -93,6 +110,7 @@ jobs:
                 body: `Agent linked PR #${prFound}. Tracking begins here.`
               });
               core.info(`Found PR #${prFound} linked to issue #${issue_number}.`);
+              core.setOutput('state', 'FOUND');
             } else {
               const timeoutMessage = [
                 'No agent PR detected within the watch window.',
@@ -105,4 +123,12 @@ jobs:
                 body: timeoutMessage
               });
               core.setFailed(`No PR linked to issue #${issue_number} within ${timeoutMinutes} minutes.`);
+              core.setOutput('state', 'TIMEOUT');
             }
+      - name: Summary
+        if: always()
+        run: |
+          echo "### Watchdog Summary" >> $GITHUB_STEP_SUMMARY
+          echo "Issue: ${{ github.event.issue.number }}" >> $GITHUB_STEP_SUMMARY
+          echo "State: ${{ steps.poll.outputs.state || 'SKIPPED' }}" >> $GITHUB_STEP_SUMMARY
+          echo "PR: ${{ steps.poll.outputs.pr || '(none)' }}" >> $GITHUB_STEP_SUMMARY
