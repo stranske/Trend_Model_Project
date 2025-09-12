@@ -41,9 +41,11 @@ except ImportError as e:
     st.markdown("**Fallback:** Running upload functionality directly...")
 
     # Direct implementation for testing
-    from trend_analysis.io.validators import (create_sample_template,
-                                              load_and_validate_upload,
-                                              validate_returns_schema)
+    from trend_analysis.io.validators import (
+        create_sample_template,
+        load_and_validate_upload,
+        validate_returns_schema,
+    )
 
     st.header("📤 File Upload Test")
 

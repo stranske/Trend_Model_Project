@@ -15,8 +15,7 @@ try:
     import httpx
     import uvicorn
     import websockets
-    from fastapi import (FastAPI, Request, Response, WebSocket,
-                         WebSocketDisconnect)
+    from fastapi import FastAPI, Request, Response, WebSocket, WebSocketDisconnect
     from fastapi.responses import StreamingResponse
     from starlette.background import BackgroundTask
 except ImportError:

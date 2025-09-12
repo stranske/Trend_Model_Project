@@ -27,14 +27,25 @@ echo "Started container: $CONTAINER_ID"
 # Wait for container to start
 sleep 10
 
-# Test 3: Check health endpoint
+# Test 3: Check health endpoint with retry/backoff
 echo ""
 echo "🔍 Test 3: Testing health endpoint..."
-if curl -f http://localhost:8501/health; then
-    echo "✅ Health check passed"
-else
-    echo "❌ Health check failed"
+max_attempts=10
+attempt=1
+while [ $attempt -le $max_attempts ]; do
+    if curl -fs http://localhost:8501/health | grep -q "OK"; then
+        echo "✅ Health check passed"
+        break
+    else
+        echo "Attempt $attempt failed, retrying..."
+        sleep 1
+    fi
+    attempt=$((attempt+1))
+done
+if [ $attempt -gt $max_attempts ]; then
+    echo "❌ Health check failed after $max_attempts attempts"
     docker logs "$CONTAINER_ID"
+    exit 1
 fi
 
 # Test 4: Test CLI functionality
