@@ -21,7 +21,7 @@ jobs:
             const wfName = run.name;
             const title = `${wfName} failing`;
             const search = await github.rest.search.issuesAndPullRequests({
-              q: `repo:${owner}/${repo} is:issue is:open in:title "${title}" label:ci-failure`
+              q: `repo:${owner}/${repo} is:issue is:open in:title '${title}' label:ci-failure`
             });
             const issue = search.data.items[0];
             if (conclusion !== 'success') {
