@@ -12,8 +12,8 @@ permissions:
 
 jobs:
   open-issue:
-    if: >-
-      github.event.workflow_run.conclusion == 'failure' &&
+    if: >
+      github.event.workflow_run.conclusion != 'success' &&
       github.event.workflow_run.event == 'pull_request'
     runs-on: ubuntu-latest
     steps:
@@ -31,10 +31,17 @@ jobs:
             });
             const hasMinor = prData.labels.some(l => l.name === 'minor');
             if (!hasMinor) return;
-            await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: `Fix failing checks for minor PR #${pr.number}`,
-              body: `CI workflow failed for minor change in PR #${pr.number}.`,
-              labels: ['agent:codex']
+            const title = `Fix failing checks for minor PR #${pr.number}`;
+            const { data: existing } = await github.rest.search.issuesAndPullRequests({
+              q: `repo:${context.repo.owner}/${context.repo.repo} ` +
+                 `is:open in:title "${title}"`
             });
+            if (existing.total_count === 0) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body: `CI workflow failed for minor change in PR #${pr.number}.`,
+                labels: ['agent:codex']
+              });
+            }
