@@ -46,7 +46,7 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 title,
-                body: `CI workflow failed for minor change in PR #${pr.number}.`,
+                body: `CI workflow ${run.conclusion} for minor change in PR #${pr.number}.`,
                 labels: ['agent:codex']
               });
             }
