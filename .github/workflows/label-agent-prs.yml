@@ -82,7 +82,7 @@ jobs:
             const missing = desired.filter(l => !existing.includes(l));
             if (!missing.length) {
               core.info('All desired agent labels already present; no-op.');
-            } else if (missing.length) {
+            } else {
               await github.rest.issues.addLabels({ owner, repo, issue_number: pr.number, labels: missing });
               core.info('Applied labels: ' + JSON.stringify(missing));
             }
