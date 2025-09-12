@@ -468,7 +468,14 @@ jobs:
               core.info(`Branch ${branch} already exists`);
             }
             if (await exists(markerPath, branch)) {
-              core.info('Marker exists – bootstrap already performed.');
+              core.info('Marker exists – bootstrap already performed. Emitting summary.');
+              try {
+                const { data: markerFile } = await github.rest.repos.getContent({ owner, repo, path: markerPath, ref: branch });
+                if (!Array.isArray(markerFile)) {
+                  const decoded = Buffer.from(markerFile.content, markerFile.encoding || 'base64').toString('utf8');
+                  core.summary.addHeading('Codex Bootstrap (Previously Completed)').addCodeBlock(decoded, 'json').write();
+                }
+              } catch (e) { core.warning('Could not read marker for summary: ' + e.message); }
               return;
             }
             const path = `agents/codex-${issue_number}.md`;
@@ -485,21 +492,43 @@ jobs:
               issueBody  = issue.body  || issueBody;
             } catch (e) {
               core.warning(`Failed to fetch issue #${issue_number} for body replication: ${e.message}`);
+            // --- Assignment phase with granular diagnostics ---
+            const human = 'stranske-automation-bot';
+            async function assignPair(targetIssueOrPR) {
+              try {
+                await github.rest.issues.addAssignees({ owner, repo, issue_number: targetIssueOrPR, assignees: ['chatgpt-codex-connector', human] });
+                core.info(`Assigned chatgpt-codex-connector + ${human} to #${targetIssueOrPR}`);
+                return true;
+              } catch (e) {
+                core.warning(`Codex assignment failed on #${targetIssueOrPR}: status=${e.status || '?'} message="${e.message}"`);
+                try {
+                  await github.rest.issues.createComment({ owner, repo, issue_number: targetIssueOrPR, body: `:warning: Unable to assign chatgpt-codex-connector automatically (status ${e.status || '?'}). Ensure the bot has access or add it manually.\n\nError: ${e.message}` });
+                } catch (c2) { core.warning('Secondary comment failed: ' + c2.message); }
+                return false;
+              }
             }
-            const replicatedHeader = `### Source Issue #${issue_number}: ${issueTitle}`;
-            const replicatedBody = `${replicatedHeader}\n\n---\n${issueBody}\n\n---\n\nThis draft PR was auto-created to engage Codex on the task above. All edits should occur on this branch.\n`;
-
-            const { data: open } = await github.rest.pulls.list({ owner, repo, state: 'open', head: `${owner}:${branch}` });
+            const issueAssignOk = await assignPair(issue_number);
+            const prAssignOk = await assignPair(prNumber);
+            if (!issueAssignOk || !prAssignOk) {
+              core.summary.addHeading('Codex Assignment Issues').addList([
+                `Issue assignment ok: ${issueAssignOk}`,
+                `PR assignment ok: ${prAssignOk}`
+              ]).write();
+            }
             let prNumber; let prBodyNeedsUpdate = false; let existingPR;
             if (open.length) {
               existingPR = open[0];
               prNumber = existingPR.number;
               if (!existingPR.body || !existingPR.body.includes(replicatedHeader)) {
+            // Extra explicit mention + instructions to maximize activation probability
+            await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: `@chatgpt-codex-connector Please begin work on this task. Focus first on establishing a passing baseline, then implement required changes as described in the source issue #${issue_number}. Provide incremental commits and keep descriptions concise.` });
                 prBodyNeedsUpdate = true;
               }
             } else {
               const { data: pr } = await github.rest.pulls.create({ owner, repo, head: branch, base: baseBranch, draft: true, title: `Codex bootstrap for #${issue_number}`, body: replicatedBody });
               prNumber = pr.number;
+            // Export artifact style JSON via stdout (actions/upload-artifact could be added in a future iteration if needed)
+            console.log('CODEX_BOOTSTRAP_RESULT:' + JSON.stringify({ issue: issue_number, pr: prNumber, branch, base: baseBranch, assigned_issue: issueAssignOk, assigned_pr: prAssignOk }));
             }
             if (prBodyNeedsUpdate) {
               try {
