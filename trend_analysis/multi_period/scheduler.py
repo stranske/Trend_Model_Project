@@ -4,7 +4,7 @@ Generate (in‑sample, out‑sample) period tuples for the multi‑period engine
 from __future__ import annotations
 
 from collections import namedtuple
-from typing import List
+from typing import Any, List, Mapping
 import pandas as pd
 
 PeriodTuple = namedtuple(
@@ -14,7 +14,7 @@ PeriodTuple = namedtuple(
 FREQ_MAP = {"M": "M", "Q": "Q", "A": "Y"}
 
 
-def generate_periods(cfg) -> List[PeriodTuple]:
+def generate_periods(cfg: Mapping[str, Any]) -> List[PeriodTuple]:
     """
     Returns a list of PeriodTuple driven by `cfg.multi_period`.
 
