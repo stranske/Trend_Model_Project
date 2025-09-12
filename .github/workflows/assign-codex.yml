@@ -2,15 +2,17 @@ name: Assign codex to labeled issues
 
 on:
   issues:
-    types:
-      - labeled
+    types: [opened, labeled]
 
 permissions:
   issues: write
 
 jobs:
   assign:
-    if: github.event.label.name == 'agent:codex'
+    if: >
+      (github.event.action == 'labeled' && github.event.label.name == 'agent:codex') ||
+      (github.event.action == 'opened' &&
+       contains(github.event.issue.labels.*.name, 'agent:codex'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/github-script@v6
