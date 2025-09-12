@@ -1,7 +1,6 @@
 import pandas as pd
 
-from trend_analysis.core.rank_selection import (RiskStatsConfig,
-                                                rank_select_funds)
+from trend_analysis.core.rank_selection import RiskStatsConfig, rank_select_funds
 
 
 def test_rank_selection_sorts_correctly():

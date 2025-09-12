@@ -1,8 +1,11 @@
 import pandas as pd
 
-from trend_portfolio_app.policy_engine import (CooldownBook, MetricSpec,
-                                               PolicyConfig,
-                                               decide_hires_fires)
+from trend_portfolio_app.policy_engine import (
+    CooldownBook,
+    MetricSpec,
+    PolicyConfig,
+    decide_hires_fires,
+)
 
 
 def test_turnover_budget_limits_changes():
