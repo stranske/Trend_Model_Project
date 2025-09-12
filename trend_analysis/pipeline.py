@@ -118,7 +118,7 @@ def _compute_stats(df: pd.DataFrame, rf: pd.Series) -> dict[str, _Stats]:
     return stats
 
 
-def single_period_run(
+def _run_analysis(
     df: pd.DataFrame,
     in_start: str,
     in_end: str,
@@ -323,7 +323,7 @@ def run_analysis(
     seed: int = 42,
 ) -> dict[str, object] | None:
     """Backward-compatible wrapper around ``single_period_run``."""
-    return single_period_run(
+    return _run_analysis(
         df,
         in_start,
         in_end,
@@ -353,7 +353,7 @@ def run(cfg: Config) -> pd.DataFrame:
         raise FileNotFoundError(csv_path)
 
     split = cfg.sample_split
-    res = single_period_run(
+    res = _run_analysis(
         df,
         cast(str, split.get("in_start")),
         cast(str, split.get("in_end")),
@@ -399,7 +399,7 @@ def run_full(cfg: Config) -> dict[str, object]:
         raise FileNotFoundError(csv_path)
 
     split = cfg.sample_split
-    res = single_period_run(
+    res = _run_analysis(
         df,
         cast(str, split.get("in_start")),
         cast(str, split.get("in_end")),
