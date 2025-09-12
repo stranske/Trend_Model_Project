@@ -370,8 +370,8 @@ jobs:
       - name: Decide summary
         id: decide
         run: |
-          echo "needs_codex_bootstrap=${{ steps.assign_or_backfill.outputs.needs_codex_bootstrap }}" >> $GITHUB_OUTPUT || true
-          echo "codex_issue=${{ steps.assign_or_backfill.outputs.codex_issue }}" >> $GITHUB_OUTPUT || true
+          echo "needs_codex_bootstrap=${{ steps.assign_or_backfill.outputs.needs_codex_bootstrap }}" >> $GITHUB_OUTPUT
+          echo "codex_issue=${{ steps.assign_or_backfill.outputs.codex_issue }}" >> $GITHUB_OUTPUT
       - name: Write assignment artifact
         if: always()
         run: |
