@@ -93,7 +93,7 @@ class TestDemoGoldenMaster:
             normalized = self.normalize_csv_content(content)
 
             # Compute hash
-            return hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:16]
+            return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
         except Exception as e:
             return f"ERROR_READING_FILE_{type(e).__name__}"
 
