@@ -14,15 +14,3 @@ Use the sidebar to step through: Upload → Configure → Run → Results → Ex
     """
 )
 st.info("Open '1_Upload' in the sidebar to get started.")
-
-# --- FastAPI health probe ---
-try:
-    from fastapi import FastAPI, Response
-except ImportError:
-    app = None
-else:
-    app = FastAPI()
-
-    @app.get("/health", response_class=Response)
-    async def health():
-        return Response(content="OK", media_type="text/plain")
