@@ -256,7 +256,7 @@ jobs:
         if: always()
         uses: actions/github-script@v7
         with:
-          github-token: ${{ env.SERVICE_BOT_PAT != '' && env.SERVICE_BOT_PAT || github.token }}
+          github-token: ${{ secrets.SERVICE_BOT_PAT != '' && secrets.SERVICE_BOT_PAT || github.token }}
           script: |
             const marker = '<!-- codex-agent-summary -->';
             const codexIssueRaw = '${{ needs.assign_or_backfill.outputs.codex_issue }}'.trim();
