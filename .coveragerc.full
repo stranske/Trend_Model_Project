@@ -2,3 +2,12 @@
 branch = True
 omit =
     tests/*
+
+[report]
+# Require ≥80% coverage globally
+fail_under = 80
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise AssertionError
+    raise NotImplementedError
