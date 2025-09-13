@@ -133,13 +133,35 @@ runs:
           let branchExists = true;
             try { await github.rest.git.getRef({ owner, repo, ref: `heads/${branch}` }); } catch { branchExists = false; }
           if (!branchExists) {
+            let created = false;
+            let firstErr;
             try {
               await github.rest.git.createRef({ owner, repo, ref: `refs/heads/${branch}`, sha: baseSha });
-              core.info(`Created branch ${branch}`);
+              core.info(`Created branch ${branch} with primary token (${tokenSource}).`);
+              created = true;
             } catch (e) {
-              const msg = `Codex bootstrap blocked: unable to create branch ${branch} (permissions). ${e.status || ''} ${e.message}`;
+              firstErr = e;
+              core.warning(`Primary branch create failed (${tokenSource}) status=${e.status || '?'} msg=${e.message}`);
+              // Retry with fallback if PAT failed and fallback is allowed
+              const allowFallback = '${{ inputs.allow_fallback }}' === 'true';
+              if (tokenSource === 'SERVICE_BOT_PAT' && allowFallback) {
+                core.info('Attempting branch create retry with GITHUB_TOKEN fallback.');
+                try {
+                  const { Octokit } = require('@octokit/rest');
+                  const oc = new Octokit({ auth: process.env.GITHUB_TOKEN, request: { fetch: global.fetch } });
+                  await oc.git.createRef({ owner, repo, ref: `refs/heads/${branch}`, sha: baseSha });
+                  created = true;
+                  core.info(`Created branch ${branch} with fallback GITHUB_TOKEN.`);
+                } catch (e2) {
+                  core.warning(`Fallback branch create also failed status=${e2.status || '?'} msg=${e2.message}`);
+                }
+              }
+            }
+            if (!created) {
+              const err = firstErr || { status: 'unknown', message: 'unspecified branch create error' };
+              const msg = `Codex bootstrap blocked: unable to create branch ${branch} (permissions). ${err.status || ''} ${err.message}`;
+              try { await github.rest.issues.createComment({ owner, repo, issue_number, body: msg + '\n\nEnsure Actions token can create branches or configure SERVICE_BOT_PAT with repo access.' }); } catch {}
               core.warning(msg);
-              try { await github.rest.issues.createComment({ owner, repo, issue_number, body: msg + '\n\nEnsure GITHUB_TOKEN has contents:write or configure SERVICE_BOT_PAT with repo access.' }); } catch {}
               return;
             }
           } else {
