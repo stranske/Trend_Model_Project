@@ -16,13 +16,13 @@ from typing import Any
 try:  # pragma: no cover - import side effect
     from fastapi import FastAPI  # type: ignore
     from fastapi.responses import PlainTextResponse  # type: ignore
-except Exception:  # FastAPI missing
+except (ImportError, ModuleNotFoundError):  # FastAPI missing
     FastAPI = None  # type: ignore
     PlainTextResponse = None  # type: ignore
 
 try:  # pragma: no cover - import side effect
     import uvicorn  # type: ignore
-except Exception:  # uvicorn missing
+except (ImportError, ModuleNotFoundError):  # uvicorn missing
     uvicorn = None  # type: ignore
 
 
@@ -59,7 +59,12 @@ def create_app() -> Any:
 if FastAPI is not None:  # Create app eagerly when possible
     try:
         app = create_app()
-    except Exception:  # pragma: no cover - defensive
+    except (
+        ImportError,
+        AttributeError,
+        TypeError,
+    ) as e:  # pragma: no cover - defensive
+        print(f"Warning: Failed to create FastAPI app: {e}", file=sys.stderr)
         app = None
 else:
     app = None
