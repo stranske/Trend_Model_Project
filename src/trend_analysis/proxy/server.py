@@ -124,8 +124,6 @@ class StreamlitProxy:
                                 await target_ws.send(message["bytes"])
                             elif "text" in message and message["text"] is not None:
                                 await target_ws.send(message["text"])
-                    except Exception:  # broad except: dependency-specific disconnect
-                        pass
                     except Exception as e:
                         logger.error(f"Error forwarding to target: {e}")
 
