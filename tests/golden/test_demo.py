@@ -89,8 +89,14 @@ class TestDemoGoldenMaster:
                     field,
                 )
 
-                # Normalize version patterns
-                field = re.sub(r"v?\d+\.\d+(\.\d+)?", "NORMALIZED_VERSION", field)
+                # Normalize version patterns (only actual version strings, not numeric data)
+                field = re.sub(r"v\d+\.\d+(\.\d+)?", "NORMALIZED_VERSION", field)
+                field = re.sub(
+                    r"\bversion\s+\d+\.\d+(\.\d+)?",
+                    "version NORMALIZED_VERSION",
+                    field,
+                    flags=re.IGNORECASE,
+                )
 
                 # Try to parse as float and round to reduce precision-based variation
                 try:
