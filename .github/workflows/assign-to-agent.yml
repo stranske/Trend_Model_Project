@@ -497,13 +497,20 @@ jobs:
                 }
               } catch (e) { core.warning('Could not read marker for summary: ' + e.message); }
               // Fetch issue to allow suppression detection for parity (not strictly needed but keeps fields consistent)
-              try { const { data: issue } = await github.rest.issues.get({ owner, repo, issue_number }); issueBodyCached = issue.body || ''; } catch {}
+              try { const { data: issue } = await github.rest.issues.get({ owner, repo, issue_number }); issueBodyCached = issue.body || ''; } catch (e) { core.warning('Could not fetch issue for suppression detection: ' + e.message); }
               const suppressFromToken = (issueBodyCached || '').includes('[codex-suppress-activate]');
               const suppressFromInput = /true/i.test(String(process.env.CODEX_SUPPRESS_ACTIVATE_INPUT||''));
               const suppressFromEnv   = !!process.env.CODEX_SUPPRESS_ACTIVATE;
               const activationSuppressed = suppressFromEnv || suppressFromInput || suppressFromToken;
               // Parse marker for PR number and propagate outputs + artifact
-              const parsed = (()=>{ try { return JSON.parse(decoded||'{}'); } catch { return {}; } })();
+              const parsed = (()=>{ 
+                try { 
+                  return JSON.parse(decoded||'{}'); 
+                } catch (e) { 
+                  core.warning('Failed to parse marker file JSON: ' + e.message); 
+                  return {}; 
+                } 
+              })();
               if (parsed.pr) core.setOutput('codex_pr', String(parsed.pr));
               core.setOutput('codex_reused', 'true');
               const prAuthor = parsed.pr_author || null;
@@ -575,12 +582,12 @@ jobs:
             if (open.length) {
               existingPR = open[0];
               prNumber = existingPR.number;
-              prAuthorLogin = existingPR.user && existingPR.user.login || null;
+              prAuthorLogin = (existingPR.user && existingPR.user.login) || null;
               if (!existingPR.body || !existingPR.body.includes(replicatedHeader)) prBodyNeedsUpdate = true;
             } else {
               const { data: pr } = await github.rest.pulls.create({ owner, repo, head: branch, base: baseBranch, draft: true, title: `Codex bootstrap for #${issue_number}`, body: replicatedBody });
               prNumber = pr.number;
-              prAuthorLogin = pr.user && pr.user.login || null;
+              prAuthorLogin = (pr.user && pr.user.login) || null;
             }
             if (prBodyNeedsUpdate) {
               try {
