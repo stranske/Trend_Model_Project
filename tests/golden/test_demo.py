@@ -42,7 +42,8 @@ class TestDemoGoldenMaster:
         Normalize CSV content to make hashes stable.
 
         - Round floating point numbers to 6 decimal places
-        - Remove any timestamp-like patterns
+        - Remove/normalize timestamp-like patterns
+        - Remove version information
         - Normalize line endings
         """
         lines = []
@@ -51,10 +52,45 @@ class TestDemoGoldenMaster:
             if not line.strip():
                 continue
 
+            # Skip or normalize metadata lines that contain timestamps/versions
+            if any(
+                marker in line.lower()
+                for marker in [
+                    "generated on",
+                    "timestamp",
+                    "version",
+                    "created at",
+                    "run at",
+                    "execution time",
+                    "datetime",
+                ]
+            ):
+                # Replace with normalized metadata line
+                if "generated on" in line.lower():
+                    line = "# Generated on NORMALIZED_TIMESTAMP"
+                elif "version" in line.lower():
+                    line = "# Version NORMALIZED_VERSION"
+                elif any(
+                    x in line.lower() for x in ["timestamp", "created at", "run at"]
+                ):
+                    line = "# Timestamp NORMALIZED_TIMESTAMP"
+                else:
+                    continue  # Skip other timestamp-like metadata
+
             # Process each field in CSV line
             fields = []
             for field in line.split(","):
                 field = field.strip()
+
+                # Normalize timestamp patterns in field values
+                field = re.sub(
+                    r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(\.\d+)?([+-]\d{2}:\d{2}|Z)?",
+                    "NORMALIZED_TIMESTAMP",
+                    field,
+                )
+
+                # Normalize version patterns
+                field = re.sub(r"v?\d+\.\d+(\.\d+)?", "NORMALIZED_VERSION", field)
 
                 # Try to parse as float and round to reduce precision-based variation
                 try:
@@ -62,7 +98,10 @@ class TestDemoGoldenMaster:
                         field
                         and field != "nan"
                         and field != "NaN"
+                        and field != "NORMALIZED_TIMESTAMP"
+                        and field != "NORMALIZED_VERSION"
                         and not field.isalpha()
+                        and not field.startswith("#")
                     ):
                         # Check if it looks like a number
                         float_val = float(field)

@@ -7,7 +7,7 @@ import tempfile
 from pathlib import Path
 
 import pandas as pd
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from trend_analysis import api
 from trend_analysis.config import Config

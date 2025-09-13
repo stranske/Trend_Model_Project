@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, Dict, List
 
 import pandas as pd
 import streamlit as st
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from trend_analysis import pipeline
 from trend_analysis.config import DEFAULTS as DEFAULT_CFG_PATH
