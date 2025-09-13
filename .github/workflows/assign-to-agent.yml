@@ -49,6 +49,8 @@ jobs:
       CODEX_COMMAND: ${{ github.event.inputs.codex_command }}
       ALLOWED_FALLBACKS: ${{ vars.ALLOWED_FALLBACKS || '' }}
       SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
+      # Optional override: set CODEX_ALLOW_FALLBACK=true to permit GITHUB_TOKEN bootstrap when PAT absent.
+      CODEX_ALLOW_FALLBACK: ${{ vars.CODEX_ALLOW_FALLBACK || '' }}
     steps:
       # Optional registry override file
       - uses: actions/checkout@v4
@@ -78,22 +80,29 @@ jobs:
           if [ -n "${{ env.SERVICE_BOT_PAT }}" ]; then
             echo "Using SERVICE_BOT_PAT for assignment/backfill job.";
           else
-            echo "SERVICE_BOT_PAT not set – falling back to GITHUB_TOKEN.";
+            if [ "${{ env.CODEX_ALLOW_FALLBACK }}" = "true" ]; then
+              echo "SERVICE_BOT_PAT not set – fallback to GITHUB_TOKEN permitted (CODEX_ALLOW_FALLBACK=true).";
+            else
+              echo "SERVICE_BOT_PAT not set and fallback not permitted (set repo/org variable CODEX_ALLOW_FALLBACK=true to allow). Codex bootstrap will later fail fast.";
+            fi
           fi
 
       - name: Assign or backfill
         id: assign_or_backfill
         uses: actions/github-script@v7
         env:
-          # Fallback to standard GitHub token if SERVICE_BOT_PAT is not configured so label events still function.
-          GH_TOKEN: ${{ env.SERVICE_BOT_PAT != '' && env.SERVICE_BOT_PAT || github.token }}
+          TOKEN_SOURCE: ${{ env.SERVICE_BOT_PAT != '' && 'SERVICE_BOT_PAT' || (env.CODEX_ALLOW_FALLBACK == 'true' && 'GITHUB_TOKEN' || 'NONE') }}
+          EFFECTIVE_TOKEN: ${{ env.SERVICE_BOT_PAT != '' && env.SERVICE_BOT_PAT || (env.CODEX_ALLOW_FALLBACK == 'true' && github.token || '') }}
         with:
-          # Use PAT when available (human authored comments / wider perms), otherwise safe fallback.
-          github-token: ${{ env.SERVICE_BOT_PAT != '' && env.SERVICE_BOT_PAT || github.token }}
+          github-token: ${{ env.SERVICE_BOT_PAT != '' && env.SERVICE_BOT_PAT || (env.CODEX_ALLOW_FALLBACK == 'true' && github.token) || github.token }}
           script: |
             const { owner, repo } = context.repo;
             const number = (context.payload.issue?.number ?? context.payload.pull_request?.number);
             const eventName = context.eventName;
+            core.info(`Effective token source: ${process.env.TOKEN_SOURCE}`);
+            if (process.env.TOKEN_SOURCE === 'NONE') {
+              core.warning('No SERVICE_BOT_PAT and fallback not permitted; Codex bootstrap (if needed) will fail later.');
+            }
             const labelPayload = (context.payload.issue?.labels || context.payload.pull_request?.labels || []).map(l => (l.name||'').toLowerCase());
             let codexLabelPresent = labelPayload.includes('agent:codex');
             let copilotAssigned = false;
@@ -480,14 +489,22 @@ jobs:
       CODEX_SUPPRESS_ACTIVATE_INPUT: ${{ github.event.inputs.suppress_activate }}
       CODEX_PR_MODE: ${{ github.event.inputs.codex_pr_mode || vars.CODEX_PR_MODE || '' }}
       CODEX_FAIL_ON_TOKEN_MISMATCH: "${{ vars.CODEX_FAIL_ON_TOKEN_MISMATCH || '' }}"
+      CODEX_ALLOW_FALLBACK: ${{ vars.CODEX_ALLOW_FALLBACK || '' }}
     steps:
       - uses: actions/checkout@v4
+      - name: Pre-flight token gate
+        id: token_gate
+        run: |
+          if [ -z "${{ env.SERVICE_BOT_PAT }}" ] && [ "${{ env.CODEX_ALLOW_FALLBACK }}" != "true" ]; then
+            echo "Codex bootstrap blocked: SERVICE_BOT_PAT missing and fallback not allowed (set CODEX_ALLOW_FALLBACK=true to permit).";
+            exit 86
+          fi
       - name: Debug needs
         run: |
           echo "needs_codex_bootstrap=${{ needs.assign_or_backfill.outputs.needs_codex_bootstrap }}"
           echo "codex_issue=${{ needs.assign_or_backfill.outputs.codex_issue }}"
       - name: Warn if PAT missing (fallback to GITHUB_TOKEN)
-        if: env.SERVICE_BOT_PAT == ''
+        if: env.SERVICE_BOT_PAT == '' && env.CODEX_ALLOW_FALLBACK == 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -498,6 +515,11 @@ jobs:
               await github.rest.issues.createComment({ owner, repo, issue_number, body: 'Heads up: SERVICE_BOT_PAT is not configured. Proceeding with GITHUB_TOKEN; comments and commits will appear as github-actions[bot].' });
             }
             return;
+      - name: Fail when PAT missing and fallback disallowed
+        if: env.SERVICE_BOT_PAT == '' && env.CODEX_ALLOW_FALLBACK != 'true'
+        run: |
+          echo "Codex bootstrap aborted (explicit). Configure SERVICE_BOT_PAT or set repo/org variable CODEX_ALLOW_FALLBACK=true to allow fallback.";
+          exit 86
       - name: Bootstrap Codex branch/PR
         id: bootstrap
         uses: actions/github-script@v7

@@ -108,6 +108,17 @@ Encapsulates tool installation and formatting logic:
 - Secrets (PAT) only consumed where necessary (Codex bootstrap & optional labeler fallback). Graceful degradation to `GITHUB_TOKEN` otherwise.
 - Idempotent operations minimize repeated side-effect risk.
 
+### PAT vs Fallback Policy (Codex Bootstrap)
+
+| Scenario | SERVICE_BOT_PAT | `CODEX_ALLOW_FALLBACK` | Result |
+|----------|-----------------|------------------------|--------|
+| Recommended | present | (ignored) | Human-authored draft PR + comments (preferred) |
+| PAT missing, fallback allowed | absent | true | Bootstrap proceeds with `GITHUB_TOKEN` (PR authored by github-actions[bot]) |
+| PAT missing, fallback disallowed (default) | absent | false / unset | Bootstrap job fails fast (exit 86) with explicit remediation comment |
+
+Set the repository (or org) variable `CODEX_ALLOW_FALLBACK=true` only if you accept bot-authored Codex PRs temporarily. Long term, configure a PAT with `repo` scope and store it as `SERVICE_BOT_PAT` secret.
+
+
 ## Failure Modes & Handling
 | Failure | Mitigation |
 |---------|------------|
