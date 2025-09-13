@@ -1,0 +1,223 @@
+name: "Codex Bootstrap"
+description: "Bootstraps (or reuses) Codex draft PR & branch for a labeled issue with optional network retry and PAT gating"
+inputs:
+  issue:
+    description: "Issue number to bootstrap"
+    required: true
+  service_bot_pat:
+    description: "Personal access token for human-authored PR/comments (optional)"
+    required: false
+    default: ""
+  codex_command:
+    description: "Codex activation command (must start with or will be prefixed by 'codex:')"
+    required: false
+    default: "codex: start"
+  suppress_activate:
+    description: "If 'true', suppress initial activation comment (also suppressed by issue token or env)"
+    required: false
+    default: ""
+  pr_mode:
+    description: "auto | manual (manual = create branch + marker only)"
+    required: false
+    default: "auto"
+  allow_fallback:
+    description: "Permit fallback to GITHUB_TOKEN when PAT absent (true|false)"
+    required: false
+    default: "false"
+  fail_on_token_mismatch:
+    description: "If set (non-empty), fail when PAT present but PR author is github-actions[bot]"
+    required: false
+    default: ""
+  net_retry_attempts:
+    description: "Network preflight attempts (>=1)"
+    required: false
+    default: "1"
+  net_retry_delay_s:
+    description: "Seconds to sleep between network preflight retries"
+    required: false
+    default: "2"
+outputs:
+  codex_pr:
+    description: "Codex draft PR number (blank in manual mode before PR creation)"
+    value: ${{ steps.bootstrap.outputs.codex_pr }}
+  codex_reused:
+    description: "true if existing bootstrap was reused"
+    value: ${{ steps.bootstrap.outputs.codex_reused }}
+runs:
+  using: "composite"
+  steps:
+    - name: Network preflight (optional retry)
+      shell: bash
+      run: |
+        attempts=${{ inputs.net_retry_attempts }}
+        delay=${{ inputs.net_retry_delay_s }}
+        if ! [[ "$attempts" =~ ^[0-9]+$ ]] || [ "$attempts" -lt 1 ]; then attempts=1; fi
+        if ! [[ "$delay" =~ ^[0-9]+$ ]] || [ "$delay" -lt 1 ]; then delay=2; fi
+        i=1
+        while [ $i -le $attempts ]; do
+          echo "[network-preflight] Attempt $i/$attempts ..."
+            if curl -sSf https://api.github.com/rate_limit > /dev/null 2>&1; then
+              echo "[network-preflight] OK"; break
+            fi
+          if [ $i -eq $attempts ]; then
+            echo "[network-preflight] FAILED after $attempts attempts" >&2
+            exit 75
+          fi
+          echo "[network-preflight] Retry in ${delay}s"; sleep $delay; i=$((i+1))
+        done
+    - name: Pre-flight token gate
+      id: token_gate
+      shell: bash
+      run: |
+        if [ -z "${{ inputs.service_bot_pat }}" ] && [ "${{ inputs.allow_fallback }}" != "true" ]; then
+          echo "Codex bootstrap blocked: SERVICE_BOT_PAT missing and fallback not allowed (set CODEX_ALLOW_FALLBACK=true to permit).";
+          exit 86
+        fi
+    - name: Warn if PAT missing (fallback to GITHUB_TOKEN)
+      if: inputs.service_bot_pat == '' && inputs.allow_fallback == 'true'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const {owner, repo} = context.repo;
+          const issue_number = Number('${{ inputs.issue }}');
+          core.warning('SERVICE_BOT_PAT missing – proceeding with GITHUB_TOKEN for bootstrap. Comments/commits will appear as github-actions[bot].');
+          if (issue_number) {
+            await github.rest.issues.createComment({ owner, repo, issue_number, body: 'Heads up: SERVICE_BOT_PAT is not configured. Proceeding with GITHUB_TOKEN; comments and commits will appear as github-actions[bot].' });
+          }
+    - name: Bootstrap Codex branch/PR
+      id: bootstrap
+      uses: actions/github-script@v7
+      env:
+        SERVICE_BOT_PAT: ${{ inputs.service_bot_pat }}
+        CODEX_COMMAND: ${{ inputs.codex_command }}
+        CODEX_SUPPRESS_ACTIVATE_INPUT: ${{ inputs.suppress_activate }}
+        CODEX_PR_MODE: ${{ inputs.pr_mode }}
+        CODEX_FAIL_ON_TOKEN_MISMATCH: ${{ inputs.fail_on_token_mismatch }}
+      with:
+        github-token: ${{ inputs.service_bot_pat != '' && inputs.service_bot_pat || github.token }}
+        script: |
+          const issue_number = Number('${{ inputs.issue }}');
+          const { owner, repo } = context.repo;
+          if (!issue_number) { core.setFailed('No issue number passed to bootstrap'); return; }
+          const usingPAT = !!process.env.SERVICE_BOT_PAT;
+          const tokenSource = usingPAT ? 'SERVICE_BOT_PAT' : 'GITHUB_TOKEN';
+          const branch = `agents/codex-issue-${issue_number}`;
+          const markerPath = `agents/.codex-bootstrap-${issue_number}.json`;
+          async function exists(path, ref){
+            try { await github.rest.repos.getContent({owner, repo, path, ref}); return true; } catch { return false; }
+          }
+          // Resolve base branch
+          let baseSha; let baseBranch;
+          try {
+            const { data: repoInfo } = await github.rest.repos.get({ owner, repo });
+            baseBranch = repoInfo.default_branch || 'main';
+            const { data: ref } = await github.rest.git.getRef({ owner, repo, ref: `heads/${baseBranch}` });
+            baseSha = ref.object.sha;
+          } catch (e) {
+            core.setFailed(`Unable to resolve base branch SHA: ${e.message}`);
+            return;
+          }
+          let branchExists = true;
+            try { await github.rest.git.getRef({ owner, repo, ref: `heads/${branch}` }); } catch { branchExists = false; }
+          if (!branchExists) {
+            try {
+              await github.rest.git.createRef({ owner, repo, ref: `refs/heads/${branch}`, sha: baseSha });
+              core.info(`Created branch ${branch}`);
+            } catch (e) {
+              const msg = `Codex bootstrap blocked: unable to create branch ${branch} (permissions). ${e.status || ''} ${e.message}`;
+              core.warning(msg);
+              try { await github.rest.issues.createComment({ owner, repo, issue_number, body: msg + '\n\nEnsure GITHUB_TOKEN has contents:write or configure SERVICE_BOT_PAT with repo access.' }); } catch {}
+              return;
+            }
+          } else {
+            core.info(`Branch ${branch} already exists`);
+          }
+          if (await exists(markerPath, branch)) {
+            core.info('Marker exists – bootstrap already performed. Emitting summary (idempotent).');
+            let decoded; let issueBodyCached = '';
+            try {
+              const { data: markerFile } = await github.rest.repos.getContent({ owner, repo, path: markerPath, ref: branch });
+              if (!Array.isArray(markerFile)) {
+                decoded = Buffer.from(markerFile.content, markerFile.encoding || 'base64').toString('utf8');
+                core.summary.addHeading('Codex Bootstrap (Previously Completed)').addCodeBlock(decoded, 'json').write();
+              }
+            } catch (e) { core.warning('Could not read marker for summary: ' + e.message); }
+            try { const { data: issue } = await github.rest.issues.get({ owner, repo, issue_number }); issueBodyCached = issue.body || ''; } catch {}
+            const suppressFromToken = (issueBodyCached || '').includes('[codex-suppress-activate]');
+            const suppressFromInput = /true/i.test(String(process.env.CODEX_SUPPRESS_ACTIVATE_INPUT||''));
+            const suppressFromEnv   = !!process.env.CODEX_SUPPRESS_ACTIVATE;
+            const activationSuppressed = suppressFromEnv || suppressFromInput || suppressFromToken;
+            let parsed = {}; try { parsed = JSON.parse(decoded||'{}'); } catch {}
+            if (parsed.pr) core.setOutput('codex_pr', String(parsed.pr));
+            core.setOutput('codex_reused', 'true');
+            const prAuthor = parsed.pr_author || null;
+            try {
+              const fs = require('fs'); fs.mkdirSync('codex-artifacts', { recursive: true });
+              fs.writeFileSync('codex-artifacts/codex_bootstrap_result.json', JSON.stringify({
+                reused: true, issue: issue_number, pr: parsed.pr || null, branch, base: baseBranch,
+                suppression: activationSuppressed, token_source: tokenSource, pr_author: prAuthor, ts: new Date().toISOString()
+              }, null, 2));
+              if (decoded) fs.writeFileSync('codex-artifacts/marker_snapshot.json', decoded);
+              fs.writeFileSync('codex-artifacts/README.txt', 'Codex bootstrap artifacts.');
+            } catch (e) { core.warning('Failed to write codex_bootstrap_result.json: ' + e.message); }
+            console.log('CODEX_BOOTSTRAP_RESULT:' + JSON.stringify({ reused: true, issue: issue_number, pr: parsed.pr || null, branch, base: baseBranch, suppression: activationSuppressed, token_source: tokenSource, pr_author: prAuthor }));
+            return;
+          }
+          // Create marker seed file to ensure branch has a change (issue markdown stub)
+          const path = `agents/codex-${issue_number}.md`;
+          const content = Buffer.from(`<!-- bootstrap for codex on issue #${issue_number} -->\n`).toString('base64');
+          let sha; try { const probe = await github.rest.repos.getContent({ owner, repo, path, ref: branch }); if (!Array.isArray(probe.data)) sha = probe.data.sha; } catch {}
+          await github.rest.repos.createOrUpdateFileContents({ owner, repo, path, branch, message: `chore(codex): bootstrap PR for issue #${issue_number}`, content, sha });
+          // Pull issue details
+          let issueTitle = '(no title)'; let issueBody = '(no body provided)';
+          try { const { data: issue } = await github.rest.issues.get({ owner, repo, issue_number }); issueTitle = issue.title || issueTitle; issueBody = issue.body || issueBody; } catch (e) { core.warning(`Failed to fetch issue #${issue_number} for body replication: ${e.message}`); }
+          const prMode = (process.env.CODEX_PR_MODE || 'auto').toLowerCase();
+          const manual = prMode === 'manual';
+          if (manual) {
+            const markerContent = Buffer.from(JSON.stringify({ issue: issue_number, pr: null, ts: new Date().toISOString(), mode: 'manual', token_source: tokenSource }, null, 2)).toString('base64');
+            await github.rest.repos.createOrUpdateFileContents({ owner, repo, path: markerPath, branch, message: `chore(codex): mark manual bootstrap for #${issue_number}`, content: markerContent });
+            await github.rest.issues.createComment({ owner, repo, issue_number, body: `Branch **${branch}** created. Manual mode is enabled (CODEX_PR_MODE=manual). Open a draft PR from this branch targeting **${baseBranch}** then label with \`agent:codex\`.` });
+            core.summary.addHeading('Codex Bootstrap (Manual Mode)').addTable([[{data:'Issue',header:true},{data:'Branch',header:true},{data:'PR Created',header:true},{data:'Mode',header:true},{data:'TokenSource',header:true}], [String(issue_number), branch, 'false', 'manual', tokenSource]]).write();
+            const fs = require('fs'); fs.mkdirSync('codex-artifacts', { recursive: true });
+            fs.writeFileSync('codex-artifacts/codex_bootstrap_result.json', JSON.stringify({ reused:false, issue:issue_number, pr:null, branch, base:baseBranch, manual:true, token_source: tokenSource, pr_author: null, ts:new Date().toISOString() }, null, 2));
+            console.log('CODEX_BOOTSTRAP_RESULT:' + JSON.stringify({ reused:false, issue:issue_number, pr:null, branch, base:baseBranch, manual:true, token_source: tokenSource, pr_author: null }));
+            core.setOutput('codex_pr', ''); core.setOutput('codex_reused', 'false');
+            return;
+          }
+          const suppressFromToken = (issueBody || '').includes('[codex-suppress-activate]');
+          const suppressFromInput = /true/i.test(String(process.env.CODEX_SUPPRESS_ACTIVATE_INPUT||''));
+          const suppressFromEnv   = !!process.env.CODEX_SUPPRESS_ACTIVATE;
+          const activationSuppressed = suppressFromEnv || suppressFromInput || suppressFromToken;
+          const replicatedHeader = `### Source Issue #${issue_number}: ${issueTitle}`;
+          const replicatedBody = `${replicatedHeader}\n\n---\n${issueBody}\n\n---\n\nThis draft PR was auto-created to engage Codex on the task above. All edits should occur on this branch.\n`;
+          const { data: open } = await github.rest.pulls.list({ owner, repo, state: 'open', head: `${owner}:${branch}` });
+          let prNumber; let prBodyNeedsUpdate = false; let existingPR; let prAuthorLogin = null;
+          if (open.length) { existingPR = open[0]; prNumber = existingPR.number; prAuthorLogin = existingPR.user && existingPR.user.login || null; if (!existingPR.body || !existingPR.body.includes(replicatedHeader)) prBodyNeedsUpdate = true; }
+          else { const { data: pr } = await github.rest.pulls.create({ owner, repo, head: branch, base: baseBranch, draft: true, title: `Codex bootstrap for #${issue_number}`, body: replicatedBody }); prNumber = pr.number; prAuthorLogin = pr.user && pr.user.login || null; }
+          if (prBodyNeedsUpdate) { try { await github.rest.pulls.update({ owner, repo, pull_number: prNumber, body: replicatedBody }); core.info(`Updated existing PR #${prNumber} body.`); } catch (e) { core.warning(`Unable to update PR body: ${e.message}`); } }
+          const human = 'stranske-automation-bot';
+          async function assignPair(target) { try { await github.rest.issues.addAssignees({ owner, repo, issue_number: target, assignees: ['chatgpt-codex-connector', human] }); return true; } catch (e) { core.warning(`Codex assignment failed on #${target}: ${e.status || '?'} ${e.message}`); return false; } }
+          const issueAssignOk = await assignPair(issue_number);
+          const prAssignOk = await assignPair(prNumber);
+          if (!activationSuppressed) {
+            await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: `@chatgpt-codex-connector Please begin work on this task. Source issue #${issue_number}.` });
+          } else { core.info('Activation comment suppressed.'); }
+          await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels: ['agent:codex'] });
+          let cmd = String(process.env.CODEX_COMMAND || 'codex: start').replace(/[\r\n`]/g,'').trim();
+          if (!/^[a-zA-Z0-9 :\-]+$/.test(cmd)) { core.warning('Unsafe Codex command; defaulting.'); cmd = 'codex: start'; }
+          if (!/^codex:/i.test(cmd)) cmd = 'codex: ' + cmd;
+          await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: `${cmd}\n\nPlease create commits on this branch, run tests, and keep the PR updated.` });
+          await github.rest.issues.createComment({ owner, repo, issue_number, body: `Opened draft PR #${prNumber} to engage Codex. Track work there.` });
+          const markerContent = Buffer.from(JSON.stringify({ issue: issue_number, pr: prNumber, ts: new Date().toISOString() }, null, 2)).toString('base64');
+          await github.rest.repos.createOrUpdateFileContents({ owner, repo, path: markerPath, branch, message: `chore(codex): mark bootstrap for #${issue_number}`, content: markerContent });
+          core.summary.addHeading('Codex Bootstrap').addTable([[{data:'Issue',header:true},{data:'PR',header:true},{data:'Branch',header:true},{data:'Reused',header:true},{data:'Suppressed',header:true},{data:'TokenSource',header:true},{data:'Author',header:true}], [String(issue_number), String(prNumber), branch, 'false', String(activationSuppressed), tokenSource, prAuthorLogin || '(unknown)']]).write();
+          core.setOutput('codex_pr', String(prNumber));
+          core.setOutput('codex_reused', 'false');
+          try { const fs = require('fs'); fs.mkdirSync('codex-artifacts', { recursive: true }); fs.writeFileSync('codex-artifacts/codex_bootstrap_result.json', JSON.stringify({ reused:false, issue:issue_number, pr:prNumber, branch, base:baseBranch, assigned_issue:issueAssignOk, assigned_pr:prAssignOk, suppression:activationSuppressed, token_source: tokenSource, pr_author: prAuthorLogin, ts:new Date().toISOString() }, null, 2)); fs.writeFileSync('codex-artifacts/README.txt', 'Codex bootstrap artifacts.'); } catch(e){ core.warning('Failed to write artifact: '+e.message); }
+          console.log('CODEX_BOOTSTRAP_RESULT:' + JSON.stringify({ reused:false, issue:issue_number, pr:prNumber, branch, base:baseBranch, assigned_issue:issueAssignOk, assigned_pr:prAssignOk, suppression:activationSuppressed, token_source: tokenSource, pr_author: prAuthorLogin }));
+          const mismatch = usingPAT && prAuthorLogin === 'github-actions[bot]';
+          if (mismatch) {
+            const msg = `:warning: Token mismatch – SERVICE_BOT_PAT present but PR author is github-actions[bot].`;
+            try { await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: msg }); } catch(e){ core.warning('Comment failed: '+e.message); }
+            if (process.env.CODEX_FAIL_ON_TOKEN_MISMATCH) core.setFailed('Failing due to CODEX_FAIL_ON_TOKEN_MISMATCH and author mismatch.');
+          }

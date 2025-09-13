@@ -17,6 +17,7 @@ This guide helps diagnose why labeling an issue with `agent:codex` did **not** c
 |---------|--------------|-----|
 | `codex_bootstrap` job skipped | `needs_codex_bootstrap` output was `false` | Ensure label exactly `agent:codex` (lowercase) and event type is issue label (not PR) |
 | Error: cannot create branch | GITHUB_TOKEN lacks `contents: write` in repo settings | Enable ACTIONS permissions: Allow write, or configure `SERVICE_BOT_PAT` |
+| Exit code 86 early in job | PAT missing & fallback disallowed | Add `SERVICE_BOT_PAT` secret or set repo/org var `CODEX_ALLOW_FALLBACK=true` |
 | PR created but not assigned to Codex | Bot not assignable / missing permission | Manually add `chatgpt-codex-connector` and automation companion user |
 | Activation comment missing | Suppression token present or suppression env/input set | Remove `[codex-suppress-activate]` or unset suppression vars |
 | Marker exists but PR missing | Marker written in manual mode before PR made | Open a draft PR from the branch; re-run labeling |
@@ -26,7 +27,8 @@ This guide helps diagnose why labeling an issue with `agent:codex` did **not** c
 | Scenario | SERVICE_BOT_PAT | Behavior |
 |----------|-----------------|----------|
 | PAT present (recommended) | Yes | Human-authored comments & branch creation via PAT |
-| PAT absent | No | Falls back to `GITHUB_TOKEN` (now supported after fallback fix) |
+| PAT absent (fallback allowed) | No | Falls back to `GITHUB_TOKEN` (PR authored by github-actions[bot]) |
+| PAT absent (fallback disallowed) | No + `CODEX_ALLOW_FALLBACK` unset/false | Bootstrap fails early (exit 86); add PAT or enable fallback |
 | PAT present but PR author is `github-actions[bot]` | Yes (mismatch) | Logged warning; enable full repo access for the PAT |
 
 Minimum scopes for PAT: `repo` (contents + issues + pull requests). Optional: `workflow` if you later add dynamic dispatch.
@@ -58,6 +60,8 @@ Activation is suppressed if ANY of:
 4. Verify branch `agents/codex-issue-<n>` pushed.
 5. (Auto mode) Confirm draft PR opened with body header `### Source Issue #<n>`.
 6. Re-run: remove label, add again → second run logs `reused: true` in summary.
+7. (Fallback test) Remove PAT, set `CODEX_ALLOW_FALLBACK=true`, re-label → bootstrap proceeds with warning.
+8. (Gating test) Remove PAT, unset fallback → run fails at preflight token gate (exit 86).
 
 ## Verification Workflow (Optional)
 
@@ -79,6 +83,7 @@ Collect these from the run summary:
 - `codex_issue`
 - Any warnings about PAT / token mismatch
 - Presence of `CODEX_BOOTSTRAP_RESULT:` line in logs
+ - Exit code 86 indicates PAT gating prevented bootstrap; confirm secret or fallback variable.
 
 If missing, the initial job likely short‑circuited before setting outputs.
 
@@ -89,6 +94,8 @@ Use these in workflow logs:
 - `Marker exists – bootstrap already performed.`
 - `Token mismatch – SERVICE_BOT_PAT` (permission misconfiguration)
 - `Codex bootstrap blocked: unable to create branch` (contents permission)
+ - `SERVICE_BOT_PAT missing – proceeding with GITHUB_TOKEN` (fallback path)
+ - `exit 86` (token gating fast-fail)
 
 ## Safe Local Experiments
 
@@ -100,6 +107,16 @@ codex_pr_mode: manual
 ```
 Then label an issue and compare manual vs auto sequences.
 
+### Network Preflight Retry
+Configure (repo/org variables) to mitigate transient API/network hiccups before bootstrap side-effects:
+
+| Variable | Example | Effect |
+|----------|---------|--------|
+| `CODEX_NET_RETRY_ATTEMPTS` | 3 | Number of lightweight `/rate_limit` probes before proceeding |
+| `CODEX_NET_RETRY_DELAY_S` | 3 | Seconds between probes |
+
+Failures after preflight indicate persistent issues (permissions, logic) rather than transient connectivity.
+
 ## Future Hardening Ideas
 
 - Add a lightweight `verify-agent-task.yml` step to assert branch + marker invariants.
@@ -107,4 +124,4 @@ Then label an issue and compare manual vs auto sequences.
 - Add metrics export (counts of reused vs new bootstraps) to an org dashboard.
 
 ---
-*Last updated: 2025-09-13*
+*Last updated: 2025-09-13 (composite action + PAT gating update)*

@@ -45,10 +45,28 @@ Marker files:
 - `agents/.codex-bootstrap-<issue>.json` prevents duplicate Codex PR creation.
 
 ### 2. `codex_bootstrap` (job inside `assign-to-agent.yml`)
-- Runs only when `needs_codex_bootstrap == true`.
-- Requires `SERVICE_BOT_PAT`; fails early & comments on issue if missing.
-- Replicates issue metadata: PR body contains structured header, original body, boilerplate instructions.
-- Updates existing draft PR if body doesn’t already include replicated header.
+Implemented via composite action: `.github/actions/codex-bootstrap`.
+
+Responsibilities:
+- Enforces PAT gating (exit 86) unless `CODEX_ALLOW_FALLBACK=true`.
+- Optional network preflight with retries (see Variables below) to reduce transient API flakiness before performing branch/PR writes.
+- Creates or reuses branch `agents/codex-issue-<n>` and marker file `agents/.codex-bootstrap-<n>.json`.
+- Auto (default) mode: opens or reuses draft PR with replicated issue content.
+- Manual mode: only branch + marker + instructions comment (user opens draft PR).
+- Writes structured artifact `codex_bootstrap_result.json` (always) for downstream inspection.
+- Idempotent: re-run when marker exists emits summary without duplicating PR.
+
+Composite inputs (selected):
+| Input | Purpose | Default |
+|-------|---------|---------|
+| `issue` | Issue number to bootstrap | (required) |
+| `service_bot_pat` | PAT for human-authored PR & comments | "" |
+| `allow_fallback` | Permit fallback to `GITHUB_TOKEN` | false |
+| `pr_mode` | `auto` or `manual` | auto |
+| `codex_command` | Activation command (validated) | `codex: start` |
+| `net_retry_attempts` | Preflight HTTP attempts | 1 |
+| `net_retry_delay_s` | Delay between attempts | 2 |
+| `fail_on_token_mismatch` | Fail if PAT present but author bot | unset |
 
 ### 3. `label-agent-prs.yml`
 Trigger: `pull_request_target` (opened, synchronize, reopened).
@@ -108,10 +126,31 @@ Encapsulates tool installation and formatting logic:
 - Secrets (PAT) only consumed where necessary (Codex bootstrap & optional labeler fallback). Graceful degradation to `GITHUB_TOKEN` otherwise.
 - Idempotent operations minimize repeated side-effect risk.
 
+### PAT vs Fallback Policy (Codex Bootstrap)
+
+| Scenario | SERVICE_BOT_PAT | `CODEX_ALLOW_FALLBACK` | Result |
+|----------|-----------------|------------------------|--------|
+| Recommended | present | (ignored) | Human-authored draft PR + comments (preferred) |
+| PAT missing, fallback allowed | absent | true | Bootstrap proceeds with `GITHUB_TOKEN` (PR authored by github-actions[bot]) |
+| PAT missing, fallback disallowed (default) | absent | false / unset | Bootstrap job fails fast (exit 86) with explicit remediation comment |
+
+Set the repository (or org) variable `CODEX_ALLOW_FALLBACK=true` only if you accept bot-authored Codex PRs temporarily. Long term, configure a PAT with `repo` scope and store it as `SERVICE_BOT_PAT` secret.
+
+### Additional Environment / Repository Variables
+
+| Variable | Effect |
+|----------|--------|
+| `CODEX_NET_RETRY_ATTEMPTS` | Sets composite preflight `net_retry_attempts` (ensure integer ≥1). |
+| `CODEX_NET_RETRY_DELAY_S` | Delay between preflight attempts in seconds. |
+| `CODEX_FAIL_ON_TOKEN_MISMATCH` | If non-empty, workflow fails when PAT supplied but PR author shows as `github-actions[bot]`. |
+| `CODEX_PR_MODE` | Global default for Codex PR mode (`auto` / `manual`). |
+| `CODEX_SUPPRESS_ACTIVATE` | When set, suppresses initial activation comment. |
+
+
 ## Failure Modes & Handling
 | Failure | Mitigation |
 |---------|------------|
-| PAT missing for Codex bootstrap | Early fail + issue comment instructing re-label after secret setup. |
+| PAT missing for Codex bootstrap | Early fail (exit 86) unless fallback explicitly allowed; issue comment provides remediation. |
 | Copilot not enabled (no `copilot-swe-agent`) | GraphQL result triggers explicit failure + breadcrumb guidance. |
 | Duplicate Codex label events | Marker file short-circuits re-bootstrap. |
 | Autofix loop risk | Guard: skip when PR title starts with `ci: autofix`. |
@@ -136,6 +175,8 @@ Encapsulates tool installation and formatting logic:
 - Slack / Teams notification step for bootstrap failures.
 - Automated stale branch closure heuristics tied to issue closure events.
 - Enrich JSON summary with watchdog scan deltas & retry command surface.
+- Optional backoff jitter for network preflight.
+- Composite action versioning & changelog automation.
 
 ---
 For questions or updates to this design, open an issue labeled `agent:codex` or `agent:copilot` and describe the desired change.
