@@ -217,8 +217,18 @@ runs:
           } else { core.info('Activation comment suppressed.'); }
           await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels: ['agent:codex'] });
           let cmd = String(process.env.CODEX_COMMAND || 'codex: start').replace(/[\r\n`]/g,'').trim();
-          if (!/^[a-zA-Z0-9 :\-]+$/.test(cmd)) { core.warning('Unsafe Codex command; defaulting.'); cmd = 'codex: start'; }
-          if (!/^codex:/i.test(cmd)) cmd = 'codex: ' + cmd;
+          const allowedCommands = [
+            'codex: start',
+            'codex: test',
+            'codex: lint',
+            'codex: build',
+            'codex: review',
+            'codex: docs'
+          ];
+          if (!allowedCommands.some(c => c.toLowerCase() === cmd.toLowerCase())) {
+            core.warning('Unsafe Codex command; defaulting.');
+            cmd = 'codex: start';
+          }
           await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: `${cmd}\n\nPlease create commits on this branch, run tests, and keep the PR updated.` });
           await github.rest.issues.createComment({ owner, repo, issue_number, body: `Opened draft PR #${prNumber} to engage Codex. Track work there.` });
           const markerContent = Buffer.from(JSON.stringify({ issue: issue_number, pr: prNumber, ts: new Date().toISOString() }, null, 2)).toString('base64');
