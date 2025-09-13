@@ -1,6 +1,6 @@
 name: Assign to Agent (Issues + PRs)
 
-on:
+'on':
   issues:
     types: [opened, labeled, reopened]
   pull_request_target:
@@ -32,11 +32,11 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const { context, core, github } = require('@actions/github');
+            const { context, core } = require('@actions/github');
             const event = context.eventName;
             let needsCodex = false;
             let codexIssue = '';
-            let copilotAssigned = false; // placeholder (not yet re-implemented)
+            let copilotAssigned = false; // placeholder
             let genericAgents = [];
 
             function labelSet(labels) {
@@ -187,6 +187,43 @@ jobs:
           echo "needs_codex_bootstrap=${{ needs.assign_or_backfill.outputs.needs_codex_bootstrap }}"
           echo "codex_issue=${{ needs.assign_or_backfill.outputs.codex_issue }}"
       - uses: actions/checkout@v4
+      - name: PAT permission smoke test (create ephemeral ref)
+        id: pat_perm
+        env:
+          PAT: ${{ secrets.SERVICE_BOT_PAT }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PAT}" ]; then
+            echo "no_pat=1" >> $GITHUB_OUTPUT
+            echo "SERVICE_BOT_PAT is empty; skipping explicit ref test";
+            exit 0
+          fi
+          owner_repo='${{ github.repository }}'
+          owner="${owner_repo%%/*}"
+          repo="${owner_repo##*/}"
+          # obtain the current commit sha to point the test ref at
+          sha="$(git rev-parse HEAD)"
+          ref_name="refs/heads/_codex-perm-probe-${RANDOM}${RANDOM}"
+          echo "Attempting to create temp ref $ref_name at $sha"
+          payload=$(printf '{"ref":"%s","sha":"%s"}' "$ref_name" "$sha")
+          code=$(echo "$payload" | curl -s -o /tmp/resp.json -w '%{http_code}' -X POST \
+            -H "Authorization: Bearer ${PAT}" \
+            -H 'Accept: application/vnd.github+json' \
+            https://api.github.com/repos/${owner}/${repo}/git/refs \
+            -d @- ) || true
+          echo "create_status=$code" >> $GITHUB_OUTPUT
+          if [ "$code" = 201 ]; then
+            echo "Temp ref created successfully; deleting to clean up";
+            curl -s -o /dev/null -w '%{http_code}' -X DELETE \
+              -H "Authorization: Bearer ${PAT}" \
+              -H 'Accept: application/vnd.github+json' \
+              https://api.github.com/repos/${owner}/${repo}/git/${ref_name} || true
+            echo "perm_ok=1" >> $GITHUB_OUTPUT
+          else
+            echo "perm_ok=0" >> $GITHUB_OUTPUT
+            echo "Temp ref create failed (status=$code)";
+            echo "Response:"; sed 's/.*/  &/' /tmp/resp.json || true
+          fi
       - name: Codex bootstrap (composite)
         id: bootstrap
         uses: ./.github/actions/codex-bootstrap
@@ -196,7 +233,8 @@ jobs:
           codex_command: ${{ github.event.inputs.codex_command }}
           suppress_activate: ${{ github.event.inputs.suppress_activate || vars.CODEX_SUPPRESS_ACTIVATE || '' }}
           pr_mode: ${{ github.event.inputs.codex_pr_mode || vars.CODEX_PR_MODE || 'auto' }}
-          allow_fallback: ${{ vars.CODEX_ALLOW_FALLBACK || 'false' }}
+          # Force fallback true temporarily to ensure end-to-end while we validate PAT permissions.
+          allow_fallback: 'true'
           fail_on_token_mismatch: ${{ vars.CODEX_FAIL_ON_TOKEN_MISMATCH || '' }}
           net_retry_attempts: ${{ vars.CODEX_NET_RETRY_ATTEMPTS || '1' }}
           net_retry_delay_s: ${{ vars.CODEX_NET_RETRY_DELAY_S || '2' }}
@@ -243,7 +281,6 @@ jobs:
             const newBody = `${marker}\n\n\`\`\`json\n${JSON.stringify(merged, null, 2)}\n\`\`\`\n\n_Do not edit above block; updated automatically._`;
             await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body: newBody });
             core.info('Updated JSON summary comment with bootstrap data.');
-            }
 
             async function handlePRs() {
               const pr = context.payload.pull_request;
