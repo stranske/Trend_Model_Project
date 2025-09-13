@@ -162,8 +162,6 @@ jobs:
                   name: codex-bootstrap-${{ github.run_id }}
                   path: codex-artifacts
           
-          name: codex-bootstrap-${{ github.run_id }}
-          path: codex-artifacts
       - name: Debug Codex artifact directory
         if: always()
         run: |
