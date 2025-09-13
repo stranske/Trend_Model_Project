@@ -51,14 +51,27 @@ runs:
       run: |
         attempts=${{ inputs.net_retry_attempts }}
         delay=${{ inputs.net_retry_delay_s }}
+        # Determine token to use for authenticated requests
+        token=""
+        if [ -n "${{ inputs.service_bot_pat }}" ]; then
+          token="${{ inputs.service_bot_pat }}"
+        elif [ "${{ inputs.allow_fallback }}" = "true" ] && [ -n "${GITHUB_TOKEN}" ]; then
+          token="${GITHUB_TOKEN}"
+        fi
         if ! [[ "$attempts" =~ ^[0-9]+$ ]] || [ "$attempts" -lt 1 ]; then attempts=1; fi
         if ! [[ "$delay" =~ ^[0-9]+$ ]] || [ "$delay" -lt 1 ]; then delay=2; fi
         i=1
         while [ $i -le $attempts ]; do
           echo "[network-preflight] Attempt $i/$attempts ..."
+          if [ -n "$token" ]; then
+            if curl -sSf -H "Authorization: Bearer $token" https://api.github.com/rate_limit > /dev/null 2>&1; then
+              echo "[network-preflight] OK"; break
+            fi
+          else
             if curl -sSf https://api.github.com/rate_limit > /dev/null 2>&1; then
               echo "[network-preflight] OK"; break
             fi
+          fi
           if [ $i -eq $attempts ]; then
             echo "[network-preflight] FAILED after $attempts attempts" >&2
             exit 75
