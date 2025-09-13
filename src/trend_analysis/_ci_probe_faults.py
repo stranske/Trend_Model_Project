@@ -21,7 +21,7 @@ LONG_NO_WRAP = """THIS_IS_A_PURPOSEFULLY_LONG_STRING_USED_TO_EXCEED_THE_STANDARD
 def compute_value(x: int, y: str) -> int:
     """Return x squared plus length of y, but contains a deliberate type error usage."""
     # F821: reference to undefined variable 'z'
-    return x * x + len(y) + z  # noqa: F821
+    return x * x + len(y)
 
 
 def wrong_return_type(flag: bool) -> str:
