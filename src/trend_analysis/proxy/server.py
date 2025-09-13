@@ -133,8 +133,8 @@ class StreamlitProxy:
                         async for message in target_ws:
                             if isinstance(message, bytes):
                                 await websocket.send_bytes(message)
-                            elif isinstance(message, str):
-                                await websocket.send_text(message)
+                            else:
+                                await websocket.send_text(str(message))
                     except Exception as e:
                         logger.error(f"Error forwarding to client: {e}")
 
