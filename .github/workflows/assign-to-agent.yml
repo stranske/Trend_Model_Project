@@ -582,12 +582,12 @@ jobs:
             if (open.length) {
               existingPR = open[0];
               prNumber = existingPR.number;
-              prAuthorLogin = existingPR.user && existingPR.user.login || null;
+              prAuthorLogin = (existingPR.user && existingPR.user.login) || null;
               if (!existingPR.body || !existingPR.body.includes(replicatedHeader)) prBodyNeedsUpdate = true;
             } else {
               const { data: pr } = await github.rest.pulls.create({ owner, repo, head: branch, base: baseBranch, draft: true, title: `Codex bootstrap for #${issue_number}`, body: replicatedBody });
               prNumber = pr.number;
-              prAuthorLogin = pr.user && pr.user.login || null;
+              prAuthorLogin = (pr.user && pr.user.login) || null;
             }
             if (prBodyNeedsUpdate) {
               try {
