@@ -6,6 +6,18 @@ This repository contains experiments and utilities for analyzing volatility-adju
 
 For a beginner-friendly overview, see [docs/UserGuide.md](docs/UserGuide.md).
 
+## Automated Autofix & Type Hygiene
+
+Pull requests trigger an automated formatting + light type hygiene pass:
+
+- Style: `ruff --fix`, `black`, `isort`, `docformatter`
+- Type hygiene: installs missing third‑party stubs (`mypy --install-types`) and runs a narrow allowlist-based script (`scripts/auto_type_hygiene.py`) that appends `# type: ignore[import-untyped]` only for explicitly configured untyped libs (default: `yaml`).
+- Idempotent: re-running produces no diffs when clean.
+- Safe scope: does **not** mask real type errors or rewrite logic.
+
+If the workflow makes changes it auto-commits a `chore(autofix): ...` patch onto the PR branch. See `docs/autofix_type_hygiene.md` for details, extension steps, and troubleshooting.
+
+
 
 ## Notebooks
 
