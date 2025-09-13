@@ -146,19 +146,26 @@ class TestDemoGoldenMaster:
         Focuses on the most important outputs that should remain stable.
         """
         key_patterns = [
-            "*_metrics.csv",
-            "*_summary.csv",
-            "period_frames_*.csv",
-            "summary_frames_*.csv",
-            "phase1_multi_metrics_*.csv",
+            "*_metrics.csv",  # Core performance metrics
+            "*_summary.csv",  # Portfolio summary data
+            "*_periods.csv",  # Period-based analysis
+            "period_frames_*.csv",  # Multi-period frames
+            "summary_frames_*.csv",  # Summary frames
+            "phase1_multi_metrics_*.csv",  # Multi-phase metrics
+            "alias_demo.csv",  # Main demo output (from config)
         ]
 
         key_files = []
         for pattern in key_patterns:
             key_files.extend(demo_exports.glob(pattern))
 
-        # Return first 5 key files to keep test focused
-        return sorted(key_files)[:5]
+        # Also check for the main demo output file specifically
+        main_output = demo_exports / "alias_demo.csv"
+        if main_output.exists() and main_output not in key_files:
+            key_files.append(main_output)
+
+        # Return sorted list, limit to most critical files
+        return sorted(key_files)[:8]
 
     def test_demo_pipeline_end_to_end(self):
         """
@@ -368,3 +375,102 @@ class TestDemoGoldenMaster:
         ), f"Non-deterministic outputs detected in files: {mismatched_files}"
 
         print(f"\nDemo deterministic test passed. {len(hashes_run1)} files validated.")
+
+    def test_coverage_gate_enforcement(self):
+        """
+        Test that coverage gates are properly configured and enforced.
+
+        This test validates that the coverage configuration meets the requirements:
+        - CI fails if coverage drops below 80% globally
+        - CI fails if trend_analysis coverage drops below 85%
+        """
+        import configparser
+
+        # Check CI configuration
+        ci_config_path = Path(".github/workflows/ci.yml")
+        assert ci_config_path.exists(), "CI configuration file not found"
+
+        with open(ci_config_path, "r") as f:
+            ci_content = f.read()
+
+        # Verify global coverage gate is set to 80%
+        assert (
+            "--cov-fail-under=80" in ci_content
+        ), "CI should require 80% coverage globally (found in workflow)"
+
+        # Check core coverage configuration
+        core_config_path = Path(".coveragerc.core")
+        assert core_config_path.exists(), "Core coverage config not found"
+
+        config = configparser.ConfigParser()
+        config.read(core_config_path)
+
+        # Verify trend_analysis modules require 85% coverage
+        assert config.has_section("report"), "Coverage config missing [report] section"
+        fail_under = config.get("report", "fail_under", fallback="0")
+        assert (
+            int(fail_under) == 85
+        ), f"trend_analysis modules should require 85% coverage, found {fail_under}%"
+
+        # Verify include pattern targets trend_analysis
+        include = config.get("report", "include", fallback="")
+        assert (
+            "src/trend_analysis/*" in include
+        ), "Coverage config should include src/trend_analysis/*"
+
+        print("✓ Coverage gates properly configured:")
+        print("  - Global CI coverage: 80%")
+        print("  - trend_analysis modules: 85%")
+
+    def test_demo_regression_detection(self):
+        """
+        Test that the golden master test catches meaningful regressions.
+
+        This validates that changes to key output files would be detected
+        by the hash comparison mechanism.
+        """
+        # This test ensures our normalization doesn't over-normalize
+        # and still catches real changes
+
+        sample_csv_content = """Date,Manager_A,Manager_B,SPX
+2023-01-01,0.015432,0.012345,0.011234
+2023-02-01,0.023456,0.019876,0.015678
+"""
+
+        # Test that identical content produces identical hashes
+        hash1 = hashlib.sha256(
+            self.normalize_csv_content(sample_csv_content).encode()
+        ).hexdigest()
+        hash2 = hashlib.sha256(
+            self.normalize_csv_content(sample_csv_content).encode()
+        ).hexdigest()
+        assert hash1 == hash2, "Identical content should produce identical hashes"
+
+        # Test that meaningful changes are detected
+        modified_content = sample_csv_content.replace("0.015432", "0.025432")
+        hash3 = hashlib.sha256(
+            self.normalize_csv_content(modified_content).encode()
+        ).hexdigest()
+        assert hash1 != hash3, "Modified content should produce different hashes"
+
+        # Test that timestamp normalization works but preserves data
+        timestamped_content = (
+            f"# Generated on 2024-01-01T12:00:00Z\n{sample_csv_content}"
+        )
+        hash4 = hashlib.sha256(
+            self.normalize_csv_content(timestamped_content).encode()
+        ).hexdigest()
+
+        timestamped_content2 = (
+            f"# Generated on 2024-06-15T15:30:45Z\n{sample_csv_content}"
+        )
+        hash5 = hashlib.sha256(
+            self.normalize_csv_content(timestamped_content2).encode()
+        ).hexdigest()
+
+        assert hash4 == hash5, "Different timestamps should normalize to same hash"
+
+        print("✓ Regression detection working correctly:")
+        print("  - Identical content → identical hashes")
+        print("  - Modified data → different hashes")
+        print("  - Timestamps normalized properly")
