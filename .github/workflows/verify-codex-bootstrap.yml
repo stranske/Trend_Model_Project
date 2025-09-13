@@ -30,7 +30,16 @@ jobs:
             const branch = `agents/codex-issue-${issue}`;
             // Probe branch existence
             let branchExists = true;
-            try { await github.rest.git.getRef({ owner, repo, ref: `heads/${branch}` }); } catch { branchExists = false; }
+            try { 
+              await github.rest.git.getRef({ owner, repo, ref: `heads/${branch}` }); 
+            } catch (error) { 
+              if (error.status === 404) { 
+                branchExists = false; 
+              } else { 
+                core.error(`Error checking branch existence: ${error.message || error}`); 
+                throw error; 
+              } 
+            }
             if (!branchExists) {
               core.setFailed(`Branch ${branch} does not exist.`);
               return;
