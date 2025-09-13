@@ -745,7 +745,7 @@ jobs:
             try {
               const raw = fs.readFileSync('codex-artifacts/codex_bootstrap_result.json','utf8');
               bootstrap = JSON.parse(raw);
-            } catch (e) { core.warning('No codex_bootstrap_result.json found: ' + e.message); }
+            } catch (e) { core.warning('Failed to load bootstrap data: ' + e.message); }
             // Fetch existing summary comment
             const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number, per_page: 100 });
             const existing = comments.find(c => c.body && c.body.includes(marker));
