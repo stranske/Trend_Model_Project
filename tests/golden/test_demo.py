@@ -94,7 +94,7 @@ class TestDemoGoldenMaster:
 
             # Compute hash
             return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
-        except Exception as e:
+        except (IOError, OSError, UnicodeDecodeError) as e:
             return f"ERROR_READING_FILE_{type(e).__name__}"
 
     def get_key_output_files(self, demo_exports: Path) -> List[Path]:
