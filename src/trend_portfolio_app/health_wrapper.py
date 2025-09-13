@@ -10,57 +10,64 @@ from __future__ import annotations
 
 import os
 import sys
+from typing import Any
 
-try:
-    import uvicorn
-    from fastapi import FastAPI
-    from fastapi.responses import PlainTextResponse
-except ImportError:
-    # Graceful fallback if FastAPI/uvicorn are not installed
-    FastAPI = None
-    PlainTextResponse = None
-    uvicorn = None
+# Optional dependency sentinels (exposed for tests to monkeypatch)
+try:  # pragma: no cover - import side effect
+    from fastapi import FastAPI  # type: ignore
+    from fastapi.responses import PlainTextResponse  # type: ignore
+except Exception:  # FastAPI missing
+    FastAPI = None  # type: ignore
+    PlainTextResponse = None  # type: ignore
+
+try:  # pragma: no cover - import side effect
+    import uvicorn  # type: ignore
+except Exception:  # uvicorn missing
+    uvicorn = None  # type: ignore
 
 
-def create_app():
-    """Create FastAPI application with health endpoint."""
-    if FastAPI is None:
+def create_app() -> Any:
+    """Create FastAPI application with health endpoints.
+
+    Returns a FastAPI app if dependencies are available, otherwise
+    raises ImportError.
+    """
+    if FastAPI is None or PlainTextResponse is None:  # pragma: no cover - defensive
         raise ImportError(
-            "FastAPI is required but not installed. "
-            "Install with: pip install fastapi uvicorn"
+            "FastAPI is required but not installed. Install with: pip install fastapi uvicorn"
         )
 
-    app = FastAPI(
+    app_obj = FastAPI(
         title="Trend Portfolio Health Service",
         description="Health check service for trend portfolio application",
         version="1.0.0",
-        docs_url=None,  # Disable docs for security
-        redoc_url=None,  # Disable redoc for security
+        docs_url=None,
+        redoc_url=None,
     )
 
-    @app.get("/health", response_class=PlainTextResponse)
-    async def health_check() -> str:
-        """Health check endpoint that returns 'OK' when service is healthy."""
+    @app_obj.get("/health", response_class=PlainTextResponse)
+    async def health_check() -> str:  # noqa: D401
         return "OK"
 
-    @app.get("/", response_class=PlainTextResponse)
-    async def root_health_check() -> str:
-        """Root endpoint that also serves as health check for compatibility."""
+    @app_obj.get("/", response_class=PlainTextResponse)
+    async def root_health_check() -> str:  # noqa: D401
         return "OK"
 
-    return app
+    return app_obj
 
 
-# Create the app instance (only when FastAPI is available)
-if FastAPI is not None:
-    app = create_app()
+if FastAPI is not None:  # Create app eagerly when possible
+    try:
+        app = create_app()
+    except Exception:  # pragma: no cover - defensive
+        app = None
 else:
     app = None
 
 
 def main() -> None:
     """Main entry point for running the health wrapper service."""
-    if uvicorn is None:
+    if uvicorn is None:  # pragma: no cover
         print("ERROR: uvicorn is required but not installed.", file=sys.stderr)
         print("Install with: pip install uvicorn", file=sys.stderr)
         sys.exit(1)

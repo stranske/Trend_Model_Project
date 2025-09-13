@@ -33,6 +33,13 @@ runs:
         black .
         isort .
         docformatter -r -i src tests || true
+        # --- Type hygiene (lightweight) ---
+        echo "[autofix] Running auto_type_hygiene..."
+        python scripts/auto_type_hygiene.py || true
+        echo "[autofix] Installing missing type stubs (non-fatal)..."
+        mypy --install-types --non-interactive || true
+        # Optional warm cache (do not fail build)
+        mypy src/ --ignore-missing-imports --follow-imports=silent > /dev/null 2>&1 || true
         if ! git diff --quiet; then echo "changed=true" >> $GITHUB_OUTPUT; else echo "changed=false" >> $GITHUB_OUTPUT; fi
     - name: Commit changes
       if: steps.runfix.outputs.changed == 'true'

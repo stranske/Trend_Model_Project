@@ -126,8 +126,14 @@ def validate_returns_schema(df: pd.DataFrame) -> ValidationResult:
             malformed_count = date_series.isna().sum()
             malformed_mask = date_series.isna()
             malformed_values = df.loc[malformed_mask, "Date"].tolist()
+            preview = malformed_values[:5]
+            tail = "..." if len(malformed_values) > 5 else ""
             issues.append(
-                f"Found {malformed_count} invalid dates that could not be parsed: {malformed_values[:5]}{'...' if len(malformed_values) > 5 else ''}. These {malformed_count} malformed date(s) should be treated as validation errors, not expiration failures."
+                (
+                    f"Found {malformed_count} invalid dates that could not be parsed: {preview}{tail}. "
+                    f"These {malformed_count} malformed date(s) should be treated as validation errors, "
+                    "not expiration failures."
+                )
             )
             return ValidationResult(False, issues, warnings)
     except Exception:
@@ -138,8 +144,14 @@ def validate_returns_schema(df: pd.DataFrame) -> ValidationResult:
             malformed_count = date_series.isna().sum()
             malformed_mask = date_series.isna()
             malformed_values = df.loc[malformed_mask, "Date"].tolist()
+            preview2 = malformed_values[:5]
+            tail2 = "..." if len(malformed_values) > 5 else ""
             issues.append(
-                f"Found {malformed_count} invalid dates that could not be parsed: {malformed_values[:5]}{'...' if len(malformed_values) > 5 else ''}. These {malformed_count} malformed date(s) should be treated as validation errors, not expiration failures."
+                (
+                    f"Found {malformed_count} invalid dates that could not be parsed: {preview2}{tail2}. "
+                    f"These {malformed_count} malformed date(s) should be treated as validation errors, "
+                    "not expiration failures."
+                )
             )
             return ValidationResult(False, issues, warnings)
 
