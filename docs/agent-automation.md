@@ -100,6 +100,7 @@ Encapsulates tool installation and formatting logic:
 | Step Summary tables | All major workflows | Human-readable status in Actions UI. |
 | `state` output | `agent-watchdog.yml` | Programmatic detector for missing Codex bootstrap. |
 | Marker files | Codex bootstrap job | Idempotency & external observable state via repo tree. |
+| JSON summary comment | `assign-to-agent.yml` (new) | Machine-readable evergreen comment (issue/PR) with assignment + (later) bootstrap snapshot. |
 
 ## Security Posture
 - Principle of least privilege: `contents: write` only in `codex_bootstrap`; base assignment job uses `contents: read`.
@@ -134,6 +135,7 @@ Encapsulates tool installation and formatting logic:
 - Metrics export (JSON Lines) for external observability platform ingestion.
 - Slack / Teams notification step for bootstrap failures.
 - Automated stale branch closure heuristics tied to issue closure events.
+- Enrich JSON summary with watchdog scan deltas & retry command surface.
 
 ---
 For questions or updates to this design, open an issue labeled `agent:codex` or `agent:copilot` and describe the desired change.
