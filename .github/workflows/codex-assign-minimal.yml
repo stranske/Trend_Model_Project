@@ -1,0 +1,62 @@
+name: Codex Assign Minimal
+
+on:
+  issues:
+    types: [labeled, opened, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      needs_codex_bootstrap: ${{ steps.detect.outputs.needs_codex_bootstrap }}
+      codex_issue: ${{ steps.detect.outputs.codex_issue }}
+    steps:
+      - name: Detect codex label
+        id: detect
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            let needs = 'false';
+            let num = '';
+            if (issue) {
+              num = String(issue.number);
+              const labels = (issue.labels || []).map(l => l.name);
+              if (labels.includes('agent:codex')) needs = 'true';
+            }
+            core.setOutput('needs_codex_bootstrap', needs);
+            core.setOutput('codex_issue', num);
+            core.info(`needs_codex_bootstrap=${needs} issue=${num}`);
+      - name: Detection summary
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.summary
+              .addHeading('Codex Detection Summary')
+              .addTable([[{data:'Issue',header:true},{data:'Needs Bootstrap',header:true}], ['${{ steps.detect.outputs.codex_issue }}' || '(none)', '${{ steps.detect.outputs.needs_codex_bootstrap }}']])
+              .write();
+
+  codex_bootstrap:
+    needs: detect
+    if: needs.detect.outputs.needs_codex_bootstrap == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Bootstrap Codex
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // TODO: Implement the bootstrap logic here, or replace with the correct action
+          issue: ${{ needs.detect.outputs.codex_issue }}
+          service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
+          allow_fallback: ${{ vars.CODEX_ALLOW_FALLBACK || 'true' }}
+          codex_command: "codex: start"
+          pr_mode: auto
+          net_retry_attempts: 2
+          net_retry_delay_s: 3
