@@ -3,538 +3,165 @@ name: Assign to Agent (Issues + PRs)
 on:
   issues:
     types: [opened, labeled, reopened]
-  pull_request_target:
-    types: [opened, labeled, reopened]
   workflow_dispatch:
     inputs:
-      scope:
-        description: "Backfill scope: issues | prs | both"
-        required: false
-        default: "both"
-      agents:
-        description: "Comma-separated agent names for backfill (default: all known)"
-        required: false
-        default: ""
       codex_command:
-        description: "Command to kick Codex after assignment (for PRs and bootstrap PRs)"
+        description: "Command to kick Codex after assignment / bootstrap"
         required: false
         default: "codex: start"
-      suppress_activate:
-        description: "Set true to suppress initial Codex activation comment"
-        required: false
-        default: "false"
       codex_pr_mode:
-        description: "Codex PR creation mode: auto | manual (manual = create branch only; user opens PR)"
+        description: "Codex PR creation mode: auto | manual"
         required: false
         default: "auto"
 
 permissions:
+  contents: read
   issues: write
   pull-requests: write
-  contents: read          # Base permission level; codex_bootstrap job sets contents: write in its own elevated permissions section
-
-concurrency:
-  group: assign-agent-${{ github.event_name }}-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: false
 
 jobs:
-  assign_or_backfill:
+  assign:
+    name: Detect Codex Issue
     runs-on: ubuntu-latest
     outputs:
-      needs_codex_bootstrap: ${{ steps.decide.outputs.needs_codex_bootstrap }}
-      codex_issue: ${{ steps.decide.outputs.codex_issue }}
-      copilot_assigned: ${{ steps.assign_or_backfill.outputs.copilot_assigned }}
-      generic_agents: ${{ steps.assign_or_backfill.outputs.generic_agents }}
-    env:
-      CODEX_COMMAND: ${{ github.event.inputs.codex_command }}
-      ALLOWED_FALLBACKS: ${{ vars.ALLOWED_FALLBACKS || '' }}
-      SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
-      # Optional override: set CODEX_ALLOW_FALLBACK=true to permit GITHUB_TOKEN bootstrap when PAT absent.
-      CODEX_ALLOW_FALLBACK: ${{ vars.CODEX_ALLOW_FALLBACK || '' }}
+      needs_codex_bootstrap: ${{ steps.detect.outputs.needs_codex_bootstrap }}
+      codex_issue: ${{ steps.detect.outputs.codex_issue }}
     steps:
-      # Optional registry override file
-      - uses: actions/checkout@v4
-        with:
-          sparse-checkout: |
-            .github/agents.json
-          sparse-checkout-cone-mode: false
-
-      - name: Debug event snapshot
+      - name: Detect label
+        id: detect
         uses: actions/github-script@v7
         with:
           script: |
-            const e = context;
-            const payload = {
-              event: e.eventName,
-              action: e.payload.action,
-              issue_number: e.payload.issue?.number,
-              pr_number: e.payload.pull_request?.number,
-              event_label: (e.payload.label?.name || '').toLowerCase(),
-              issue_labels: (e.payload.issue?.labels || []).map(l => (l.name || '').toLowerCase()),
-              pr_labels: (e.payload.pull_request?.labels || []).map(l => (l.name || '').toLowerCase()),
-            };
-            core.info('EVENT DEBUG:\n' + JSON.stringify(payload, null, 2));
-
-      - name: Token diagnostics
-        run: |
-          if [ -n "${{ env.SERVICE_BOT_PAT }}" ]; then
-            echo "Using SERVICE_BOT_PAT for assignment/backfill job.";
-          else
-            if [ "${{ env.CODEX_ALLOW_FALLBACK }}" = "true" ]; then
-              echo "SERVICE_BOT_PAT not set – fallback to GITHUB_TOKEN permitted (CODEX_ALLOW_FALLBACK=true).";
-            else
-              echo "SERVICE_BOT_PAT not set and fallback not permitted (set repo/org variable CODEX_ALLOW_FALLBACK=true to allow). Codex bootstrap will later fail fast.";
-            fi
-          fi
-
-      - name: Assign or backfill
-        id: assign_or_backfill
-        uses: actions/github-script@v7
-        env:
-          TOKEN_SOURCE: ${{ env.SERVICE_BOT_PAT != '' && 'SERVICE_BOT_PAT' || (env.CODEX_ALLOW_FALLBACK == 'true' && 'GITHUB_TOKEN' || 'NONE') }}
-          EFFECTIVE_TOKEN: ${{ env.SERVICE_BOT_PAT != '' && env.SERVICE_BOT_PAT || (env.CODEX_ALLOW_FALLBACK == 'true' && github.token || '') }}
-        with:
-          github-token: ${{ env.SERVICE_BOT_PAT != '' && env.SERVICE_BOT_PAT || (env.CODEX_ALLOW_FALLBACK == 'true' && github.token) || github.token }}
-          script: |
-            const { owner, repo } = context.repo;
-            const number = (context.payload.issue?.number ?? context.payload.pull_request?.number);
-            const eventName = context.eventName;
-            core.info(`Effective token source: ${process.env.TOKEN_SOURCE}`);
-            if (process.env.TOKEN_SOURCE === 'NONE') {
-              core.warning('No SERVICE_BOT_PAT and fallback not permitted; Codex bootstrap (if needed) will fail later.');
-            }
-            const labelPayload = (context.payload.issue?.labels || context.payload.pull_request?.labels || []).map(l => (l.name||'').toLowerCase());
-            let codexLabelPresent = labelPayload.includes('agent:codex');
-            let copilotAssigned = false;
-            const genericAssigned = [];
-
-            // ---- Agent registry (defaults + optional .github/agents.json override) ----
-            const DEFAULTS = {
-              copilot: { assignee: 'copilot-swe-agent', mention: '@copilot-swe-agent', aliases: ['copilot','copilot-swe-agent'] },
-              codex:   { assignee: 'chatgpt-codex-connector', mention: '@chatgpt-codex-connector', aliases: ['codex','chatgpt-codex-connector'] }
-            };
-            const fs = require('fs');
-            let REGISTRY = JSON.parse(JSON.stringify(DEFAULTS));
             try {
-              if (fs.existsSync('.github/agents.json')) {
-                const extra = JSON.parse(fs.readFileSync('.github/agents.json','utf8'));
-                for (const [k,v] of Object.entries(extra || {})) {
-                  const key = k.toLowerCase();
-                  REGISTRY[key] = {
-                    assignee: (v.assignee || v.username || v.login || key),
-                    mention:  (v.mention  || '@'+(v.assignee || v.username || v.login || key)),
-                    aliases:  (v.aliases || []).map(a => String(a).toLowerCase()).concat([key])
-                  };
-                }
-              }
-            } catch (err) {
-              core.warning('agents.json present but could not be parsed: ' + err.message);
-            }
-
-            function parseList(str) {
-              return String(str || '')
-                .split(',')
-                .map(s => s.trim().toLowerCase())
-                .filter(Boolean);
-            }
-
-            const ALLOWED_FALLBACKS = parseList(process.env.ALLOWED_FALLBACKS);
-
-            function resolveAgent(name) {
-              if (!name) return null;
-              const key = String(name).toLowerCase();
-              if (REGISTRY[key]) return { key, ...REGISTRY[key] };
-              for (const [k,rec] of Object.entries(REGISTRY)) {
-                if ((rec.aliases || []).map(a => a.toLowerCase()).includes(key)) return { key: k, ...rec };
-              }
-              if (ALLOWED_FALLBACKS.includes(key)) {
-                return { key, assignee: key, mention: '@'+key, aliases: [key] };
-              }
-              core.warning(`Unknown agent "${name}" not in ALLOWED_FALLBACKS; skip`);
-              return null;
-            }
-
-            function agentsFromLabels(labels) {
-              const names = (labels || []).map(l => (l.name || '').toLowerCase());
-              const wanted = names.filter(n => n.startsWith('agent:')).map(n => n.slice('agent:'.length));
-              return [...new Set(wanted)].map(resolveAgent).filter(Boolean);
-            }
-
-            async function breadcrumb(body, issueOrPR = number) {
-              await github.rest.issues.createComment({ owner, repo, issue_number: issueOrPR, body });
-            }
-
-            // ---- Utility: post as service user when we need a "human" author ----
-            async function postAsService(body, issueOrPR = number) {
-              const pat = process.env.SERVICE_BOT_PAT || '';
-              if (!pat) {
-                core.warning('SERVICE_BOT_PAT not set; posting as github-actions[bot]. Some apps may ignore this.');
-                await github.rest.issues.createComment({ owner, repo, issue_number: issueOrPR, body });
+              if (context.eventName !== 'issues') {
+                core.setOutput('needs_codex_bootstrap', 'false');
+                core.setOutput('codex_issue', '');
                 return;
               }
-              const { Octokit } = require('@octokit/rest');
-              const oc = new Octokit({ auth: pat, request: { fetch: global.fetch } });
-              await oc.issues.createComment({ owner, repo, issue_number: issueOrPR, body });
-              core.info(`Posted comment as service user on #${issueOrPR}`);
+              const labels = (context.payload.issue?.labels || []).map(l => (l.name || '').toLowerCase());
+              const has = labels.includes('agent:codex');
+              core.setOutput('needs_codex_bootstrap', has ? 'true' : 'false');
+              core.setOutput('codex_issue', has ? String(context.payload.issue.number) : '');
+            } catch (e) {
+              core.warning('detection failed: ' + e.message);
+              core.setOutput('needs_codex_bootstrap', 'false');
+              core.setOutput('codex_issue', '');
             }
-
-            // ---- Copilot via GraphQL on ISSUES (official path) ----
-            async function assignCopilotIssueGraphQL(issue_number) {
-              const q = `
-                query($owner:String!,$repo:String!,$num:Int!) {
-                  repository(owner:$owner, name:$repo) {
-                    issue(number:$num) {
-                      id
-                      assignees(first:100){ nodes { id login } }
-                    }
-                    suggestedActors(capabilities:[CAN_BE_ASSIGNED], first:100){
-                      nodes {
-                        login
-                        __typename
-                        ... on Bot { id }
-                        ... on User { id }
-                      }
-                    }
-                  }
-                }`;
-              const data = await github.graphql(q, { owner, repo, num: issue_number });
-
-              const actors = (data.repository.suggestedActors?.nodes || [])
-                .map(n => ({ login: (n.login || '').toLowerCase(), id: n.id }));
-              const cop = actors.find(a => a.login === 'copilot-swe-agent');
-
-              if (!cop?.id) {
-                await breadcrumb(
-                  "Tried to assign **Copilot**, but this repo’s GraphQL `suggestedActors` does not include `copilot-swe-agent`. " +
-                  "Enable the Copilot coding agent for this repo/org, then try again."
-                , issue_number);
-                core.setFailed("Copilot not enabled for this repo (no `copilot-swe-agent` in suggestedActors).");
-                return false;
-              }
-
-              const issueId = data.repository.issue.id;
-              const existing = (data.repository.issue.assignees?.nodes || []).map(n => n.id);
-              const uniq = Array.from(new Set([...existing, cop.id]));
-
-              const m = `
-                mutation($assignableId:ID!,$actorIds:[ID!]!) {
-                  replaceActorsForAssignable(input:{ assignableId:$assignableId, actorIds:$actorIds }) {
-                    clientMutationId
-                  }
-                }`;
-              await github.graphql(m, { assignableId: issueId, actorIds: uniq });
-              await breadcrumb("Assigning/pinging @copilot for this task.", issue_number);
-              return true;
-            }
-
-            // Codex bootstrap removed to dedicated job
-
-            // ---- Codex on PRs: label + human-authored command ----
-            async function assignCodexPR(pr_number) {
-              await github.rest.issues.addLabels({ owner, repo, issue_number: pr_number, labels: ['agent:codex'] });
-              try {
-                const human = 'stranske-automation-bot';
-                await github.rest.issues.addAssignees({ owner, repo, issue_number: pr_number, assignees: ['chatgpt-codex-connector', human] });
-              } catch (err) {
-                core.warning('Failed to assign Codex/human: ' + err.message);
-              }
-
-              let cmd = String(process.env.CODEX_COMMAND || 'codex: start')
-                .replace(/[\r\n`]/g, '')
-                .trim();
-              if (!/^[a-zA-Z0-9 :\-]+$/.test(cmd)) { core.warning('Unsafe Codex command; defaulting.'); cmd = 'codex: start'; }
-              if (!/^codex:/i.test(cmd)) cmd = 'codex: ' + cmd;
-
-              await postAsService(`${cmd}\n\nPlease create commits on this branch, run tests, and keep the PR updated.`, pr_number);
-              return true;
-            }
-
-            // ---- Generic REST assignment (fallback agents) ----
-            async function assignGenericREST(issue_number, agent) {
-              const { data:item } = await github.rest.issues.get({ owner, repo, issue_number });
-              const current = (item.assignees || []).map(a => (a.login || '').toLowerCase());
-              const already = current.includes(agent.assignee.toLowerCase());
-              if (already) {
-                core.info(`#${issue_number}: ${agent.assignee} already assigned`);
-                // Breadcrumb not needed when agent is already assigned
-                return true;
-              }
-              try {
-                const res = await github.rest.issues.addAssignees({
-                  owner, repo, issue_number, assignees: [agent.assignee]
-                });
-                const ok = res.status >= 200 && res.status < 300;
-                await breadcrumb(`Assigning/pinging ${agent.mention} for this task.`, issue_number);
-                if (!ok) core.setFailed(`#${issue_number}: ${agent.assignee} could not be assigned.`);
-                return ok;
-              } catch (e) {
-                core.error(`#${issue_number}: addAssignees(${agent.assignee}) failed: ${e.status || '?'} ${e.message}`);
-                core.setFailed(`#${issue_number}: ${agent.assignee} is not assigned. See logs.`);
-                return false;
-              }
-            }
-
-            // ---- Entrypoints ----
-            async function handleIssues() {
-              const issue = context.payload.issue;
-              const eventLabel = (context.payload.label?.name || '').toLowerCase();
-              let agents = agentsFromLabels(issue.labels);
-              if (eventLabel.startsWith('agent:')) {
-                const extra = resolveAgent(eventLabel.slice(6));
-                if (extra) agents.push(extra);
-              }
-              if (!agents.length) { core.info('No agent:* label on issue; skip'); return; }
-
-              const seen = new Set();
-              for (const ag of agents) {
-                const key = ag.key + '#' + ag.assignee;
-                if (seen.has(key)) continue; seen.add(key);
-
-                if (ag.key === 'copilot') {
-                  const res = await assignCopilotIssueGraphQL(issue.number);
-                  copilotAssigned = copilotAssigned || !!res;
-                } else if (ag.key === 'codex') {
-                  codexLabelPresent = true; // mark for second job
-                } else {
-                  await assignGenericREST(issue.number, ag);
-                  genericAssigned.push(ag.key);
-                }
-              }
-            }
-
-            async function handlePRs() {
-              const pr = context.payload.pull_request;
-              const eventLabel = (context.payload.label?.name || '').toLowerCase();
-              let agents = agentsFromLabels(pr.labels);
-              if (eventLabel.startsWith('agent:')) {
-                const extra = resolveAgent(eventLabel.slice(6));
-                if (extra) agents.push(extra);
-              }
-              if (!agents.length) { core.info('No agent:* label on PR; skip'); return; }
-
-              const seen = new Set();
-              for (const ag of agents) {
-                const key = ag.key + '#' + ag.assignee;
-                if (seen.has(key)) continue; seen.add(key);
-
-                if (ag.key === 'copilot') {
-                  await breadcrumb("Heads up: Copilot coding agent starts from **issues**, not PRs. Label the linked issue `agent:copilot`.", pr.number);
-                } else if (ag.key === 'codex') {
-                  // For PR label, we still just label & command here (no branch needed)
-                  await assignCodexPR(pr.number);
-                } else {
-                  await assignGenericREST(pr.number, ag);
-                  genericAssigned.push(ag.key);
-                }
-              }
-            }
-
-            async function backfill(scope, agentKeys) {
-              const keys = agentKeys.length ? agentKeys : Object.keys(REGISTRY);
-
-              for (const raw of keys) {
-                const ag = resolveAgent(raw);
-                if (!ag) continue;
-
-                // Issues
-                if (scope === 'issues' || scope === 'both') {
-                  const qI = `repo:${owner}/${repo} is:issue is:open label:"agent:${ag.key}"`;
-                  let page = 1;
-                  while (true) {
-                    const res = await github.rest.search.issuesAndPullRequests({ q: qI, per_page: 100, page });
-                    if (!res.data.items.length) break;
-                    for (const it of res.data.items) {
-                      if (ag.key === 'copilot') {
-                        await assignCopilotIssueGraphQL(it.number);
-                      } else if (ag.key === 'codex') {
-                        await breadcrumb('Codex bootstrap runs on issue label events. Re-label this issue with `agent:codex` to trigger the dedicated job.', it.number);
-                      } else {
-                        await assignGenericREST(it.number, ag);
-                      }
-                    }
-                    if (res.data.items.length < 100) break;
-                    page += 1;
-                  }
-                }
-
-                // PRs
-                if (scope === 'prs' || scope === 'both') {
-                  const qP = `repo:${owner}/${repo} is:pr is:open label:"agent:${ag.key}"`;
-                  let page = 1;
-                  while (true) {
-                    const res = await github.rest.search.issuesAndPullRequests({ q: qP, per_page: 100, page });
-                    if (!res.data.items.length) break;
-                    for (const it of res.data.items) {
-                      if (ag.key === 'copilot') {
-                        await breadcrumb("Copilot coding agent starts from **issues**, not PRs. Label the linked issue `agent:copilot`.", it.number);
-                      } else if (ag.key === 'codex') {
-                        await assignCodexPR(it.number);
-                      } else {
-                        await assignGenericREST(it.number, ag);
-                      }
-                    }
-                    if (res.data.items.length < 100) break;
-                    page += 1;
-                  }
-                }
-              }
-            }
-
-            // Dispatch
-            if (context.eventName === 'workflow_dispatch') {
-              const scope  = (context.payload.inputs?.scope || 'both').toLowerCase();
-              const agents = parseList(context.payload.inputs?.agents || '');
-              await backfill(scope, agents);
-              return;
-            }
-            if (context.eventName === 'issues')  { await handleIssues(); }
-            if (context.eventName === 'pull_request_target') { await handlePRs(); }
-
-            core.setOutput('needs_codex_bootstrap', codexLabelPresent && eventName === 'issues' ? 'true' : 'false');
-            core.setOutput('codex_issue', codexLabelPresent && eventName === 'issues' ? String(number) : '');
-            core.setOutput('copilot_assigned', copilotAssigned ? 'true' : 'false');
-            core.setOutput('generic_agents', genericAssigned.join(','));
-
-      - name: Decide summary
-        id: decide
-        run: |
-          echo "needs_codex_bootstrap=${{ steps.assign_or_backfill.outputs.needs_codex_bootstrap }}" >> $GITHUB_OUTPUT
-          echo "codex_issue=${{ steps.assign_or_backfill.outputs.codex_issue }}" >> $GITHUB_OUTPUT
-      - name: Write assignment artifact
-        if: always()
-        run: |
-          mkdir -p agent-artifacts
-          cat > agent-artifacts/agent_assignment.json <<'EOF'
-          {
-            "event": "${{ github.event_name }}",
-            "issue": "${{ github.event.issue.number || '' }}",
-            "pr": "${{ github.event.pull_request.number || '' }}",
-            "needs_codex_bootstrap": "${{ steps.assign_or_backfill.outputs.needs_codex_bootstrap }}",
-            "codex_issue": "${{ steps.assign_or_backfill.outputs.codex_issue }}",
-            "copilot_assigned": "${{ steps.assign_or_backfill.outputs.copilot_assigned }}",
-            "generic_agents": "${{ steps.assign_or_backfill.outputs.generic_agents }}"
-          }
-          EOF
-          echo '### Agent Assignment Summary' >> $GITHUB_STEP_SUMMARY
-          cat agent-artifacts/agent_assignment.json >> $GITHUB_STEP_SUMMARY
-      - name: Upload assignment artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: agent-assignment-${{ github.run_id }}
-          path: agent-artifacts/agent_assignment.json
-
-      - name: Post / update JSON summary comment (non-fatal w/ fallback)
+      - name: Summary comment (non-fatal)
         if: always()
         uses: actions/github-script@v7
-        continue-on-error: true
-        env:
-          SUMMARY_EVENT: ${{ github.event_name }}
-          SUMMARY_ISSUE: ${{ github.event.issue.number || '' }}
-          SUMMARY_PR: ${{ github.event.pull_request.number || '' }}
-          SUMMARY_NEEDS: ${{ steps.assign_or_backfill.outputs.needs_codex_bootstrap }}
-          SUMMARY_CODEX_ISSUE: ${{ steps.assign_or_backfill.outputs.codex_issue }}
-          SUMMARY_COPILOT: ${{ steps.assign_or_backfill.outputs.copilot_assigned }}
-          SUMMARY_GENERIC: ${{ steps.assign_or_backfill.outputs.generic_agents }}
-          SERVICE_BOT_PAT: ${{ env.SERVICE_BOT_PAT }}
-          GH_FALLBACK_TOKEN: ${{ github.token }}
         with:
-          # Still prefer PAT so authored-by service user when permitted
-          github-token: ${{ env.SERVICE_BOT_PAT != '' && env.SERVICE_BOT_PAT || github.token }}
+          github-token: ${{ github.token }}
           script: |
+            if (context.eventName !== 'issues') return;
             const marker = '<!-- codex-agent-summary -->';
-            function getValidNumber(str) {
-              if (!str || str.trim() === '') return null;
-              const n = parseInt(str, 10);
-              return Number.isInteger(n) && n > 0 ? n : null;
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.issue.number;
+            const needs = '${{ steps.detect.outputs.needs_codex_bootstrap }}' === 'true';
+            const summary = { issue: issue_number, needs_codex_bootstrap: needs, ts: new Date().toISOString() };
+            const body = `${marker}\n\n\`\`\`json\n${JSON.stringify(summary, null, 2)}\n\`\`\``;
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number, per_page: 100 });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
             }
-            async function upsert(octokit, issue_number, body) {
-              const { owner, repo } = context.repo;
-              const comments = await octokit.paginate(octokit.rest.issues.listComments, { owner, repo, issue_number, per_page: 100 });
-              const existing = comments.find(c => c.body && c.body.includes(marker));
-              if (existing) {
-                await octokit.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
-                return 'updated';
-              } else {
-                await octokit.rest.issues.createComment({ owner, repo, issue_number, body });
-                return 'created';
-              }
-            }
-            (async () => {
-              const issue_number =
-                getValidNumber(process.env.SUMMARY_ISSUE) ||
-                getValidNumber(process.env.SUMMARY_PR);
-              if (issue_number == null) { core.info('No issue/PR number available for summary comment'); return; }
-              const summary = {
-                event: process.env.SUMMARY_EVENT,
-                issue: process.env.SUMMARY_ISSUE || null,
-                pr: process.env.SUMMARY_PR || null,
-                needs_codex_bootstrap: process.env.SUMMARY_NEEDS === 'true',
-                codex_issue: process.env.SUMMARY_CODEX_ISSUE || null,
-                copilot_assigned: process.env.SUMMARY_COPILOT === 'true',
-                generic_agents: (process.env.SUMMARY_GENERIC || '').split(',').filter(Boolean),
-                ts: new Date().toISOString()
-              };
-              const body = `${marker}\n\n\`\`\`json\n${JSON.stringify(summary, null, 2)}\n\`\`\`\n\n_Do not edit above block; updated automatically._`;
-              const primaryResult = { ok: false, status: null };
-              try {
-                await upsert(github, issue_number, body);
-                primaryResult.ok = true;
-                core.info('JSON summary comment upserted with primary token.');
-              } catch (e) {
-                primaryResult.status = e.status || 'unknown';
-                core.warning(`Primary token failed to upsert summary (status=${e.status || '?'} message=${e.message}).`);
-              }
-              if (!primaryResult.ok && process.env.SERVICE_BOT_PAT && process.env.GH_FALLBACK_TOKEN) {
-                // PAT attempted and failed; retry once with fallback GITHUB_TOKEN
-                try {
-                  const { Octokit } = require('@octokit/rest');
-                  const octo = new Octokit({ auth: process.env.GH_FALLBACK_TOKEN, request: { fetch: global.fetch } });
-                  await upsert(octo, issue_number, body);
-                  core.info('JSON summary comment upserted with fallback GITHUB_TOKEN.');
-                } catch (e2) {
-                  core.warning(`Fallback token also failed to upsert summary (status=${e2.status || '?'} message=${e2.message}). Proceeding without summary comment.`);
-                }
-              }
-            })().catch(err => {
-              core.warning('Non-fatal error in JSON summary step: ' + err.message);
-            });
 
   codex_bootstrap:
-    needs: assign_or_backfill
-    if: needs.assign_or_backfill.outputs.needs_codex_bootstrap == 'true'
-    outputs:
-      codex_pr: ${{ steps.bootstrap.outputs.codex_pr }}
-      codex_reused: ${{ steps.bootstrap.outputs.codex_reused }}
-    permissions:
-      issues: write
-      contents: write
-      pull-requests: write
+    name: Codex Bootstrap
+    needs: assign
+    if: needs.assign.outputs.needs_codex_bootstrap == 'true'
     runs-on: ubuntu-latest
-    env: {}
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
     steps:
-      - name: Debug needs
-        run: |
-          echo "needs_codex_bootstrap=${{ needs.assign_or_backfill.outputs.needs_codex_bootstrap }}"
-          echo "codex_issue=${{ needs.assign_or_backfill.outputs.codex_issue }}"
       - uses: actions/checkout@v4
-      - name: Codex bootstrap (composite)
+      - name: Codex bootstrap
         id: bootstrap
         uses: ./.github/actions/codex-bootstrap
         with:
-          issue: ${{ needs.assign_or_backfill.outputs.codex_issue }}
+          issue: ${{ needs.assign.outputs.codex_issue }}
           service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
           codex_command: ${{ github.event.inputs.codex_command }}
-          suppress_activate: ${{ github.event.inputs.suppress_activate || vars.CODEX_SUPPRESS_ACTIVATE || '' }}
-          pr_mode: ${{ github.event.inputs.codex_pr_mode || vars.CODEX_PR_MODE || 'auto' }}
-          allow_fallback: ${{ vars.CODEX_ALLOW_FALLBACK || 'false' }}
-          fail_on_token_mismatch: ${{ vars.CODEX_FAIL_ON_TOKEN_MISMATCH || '' }}
-          net_retry_attempts: ${{ vars.CODEX_NET_RETRY_ATTEMPTS || '1' }}
-          net_retry_delay_s: ${{ vars.CODEX_NET_RETRY_DELAY_S || '2' }}
-      - name: Upload Codex bootstrap artifact
+          pr_mode: ${{ github.event.inputs.codex_pr_mode || 'auto' }}
+          allow_fallback: 'true'
+      - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
+          name: codex-bootstrap-${{ github.run_id }}
+          path: codex-artifacts
+
+        permissions:
+          contents: read
+          issues: write
+          pull-requests: write
+
+        jobs:
+          assign:
+            name: Detect Codex Issue
+            runs-on: ubuntu-latest
+            outputs:
+              needs_codex_bootstrap: ${{ steps.detect.outputs.needs_codex_bootstrap }}
+              codex_issue: ${{ steps.detect.outputs.codex_issue }}
+            steps:
+              - name: Detect label
+                id: detect
+                uses: actions/github-script@v7
+                with:
+                  script: |
+                    try {
+                      if (context.eventName !== 'issues') { core.setOutput('needs_codex_bootstrap','false'); core.setOutput('codex_issue',''); return; }
+                      const labels = (context.payload.issue?.labels||[]).map(l=> (l.name||'').toLowerCase());
+                      const has = labels.includes('agent:codex');
+                      core.setOutput('needs_codex_bootstrap', has ? 'true':'false');
+                      core.setOutput('codex_issue', has ? String(context.payload.issue.number):'');
+                    } catch(e){ core.warning('detection failed: '+e.message); core.setOutput('needs_codex_bootstrap','false'); core.setOutput('codex_issue',''); }
+              - name: Summary comment (non-fatal)
+                if: always()
+                uses: actions/github-script@v7
+                with:
+                  github-token: ${{ github.token }}
+                  script: |
+                    const marker='<!-- codex-agent-summary -->';
+                    if (context.eventName!=='issues') return;
+                    const { owner, repo } = context.repo;
+                    const issue_number = context.payload.issue.number;
+                    const needs = '${{ steps.detect.outputs.needs_codex_bootstrap }}'==='true';
+                    const body = `${marker}\n\n\`\`\`json\n${JSON.stringify({ issue: issue_number, needs_codex_bootstrap: needs, ts:new Date().toISOString() },null,2)}\n\`\`\``;
+                    const comments = await github.paginate(github.rest.issues.listComments,{owner,repo,issue_number,per_page:100});
+                    const existing = comments.find(c=>c.body&&c.body.includes(marker));
+                    if (existing) await github.rest.issues.updateComment({owner,repo,comment_id:existing.id,body}); else await github.rest.issues.createComment({owner,repo,issue_number,body});
+
+          codex_bootstrap:
+            needs: assign
+            if: needs.assign.outputs.needs_codex_bootstrap == 'true'
+            runs-on: ubuntu-latest
+            permissions:
+              contents: write
+              issues: write
+              pull-requests: write
+            steps:
+              - uses: actions/checkout@v4
+              - name: Codex bootstrap
+                id: bootstrap
+                uses: ./.github/actions/codex-bootstrap
+                with:
+                  issue: ${{ needs.assign.outputs.codex_issue }}
+                  service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
+                  codex_command: ${{ github.event.inputs.codex_command }}
+                  pr_mode: ${{ github.event.inputs.codex_pr_mode || 'auto' }}
+                  allow_fallback: 'true'
+              - name: Upload artifacts
+                if: always()
+                uses: actions/upload-artifact@v4
+                with:
+                  name: codex-bootstrap-${{ github.run_id }}
+                  path: codex-artifacts
+          
           name: codex-bootstrap-${{ github.run_id }}
           path: codex-artifacts
       - name: Debug Codex artifact directory
