@@ -107,10 +107,10 @@ jobs:
           SUMMARY_CODEX_ISSUE: ${{ steps.assign.outputs.codex_issue }}
           SUMMARY_COPILOT: ${{ steps.assign.outputs.copilot_assigned }}
           SUMMARY_GENERIC: ${{ steps.assign.outputs.generic_agents }}
-          SERVICE_BOT_PAT: ${{ env.SERVICE_BOT_PAT }}
+          SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
           GH_FALLBACK_TOKEN: ${{ github.token }}
         with:
-          github-token: ${{ env.SERVICE_BOT_PAT != '' && env.SERVICE_BOT_PAT || github.token }}
+          github-token: ${{ secrets.SERVICE_BOT_PAT != '' && secrets.SERVICE_BOT_PAT || github.token }}
           script: |
             const marker = '<!-- codex-agent-summary -->';
             function getValidNumber(str) {
