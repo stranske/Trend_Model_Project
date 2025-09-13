@@ -735,8 +735,9 @@ jobs:
           github-token: ${{ env.SERVICE_BOT_PAT != '' && env.SERVICE_BOT_PAT || github.token }}
           script: |
             const marker = '<!-- codex-agent-summary -->';
-            const issue_number = Number('${{ needs.assign_or_backfill.outputs.codex_issue }}');
-            if (!issue_number) { core.info('No codex issue number; skip JSON bootstrap update'); return; }
+            const codexIssueRaw = '${{ needs.assign_or_backfill.outputs.codex_issue }}'.trim();
+            if (!codexIssueRaw || !/^\d+$/.test(codexIssueRaw)) { core.info('No valid codex issue number; skip JSON bootstrap update'); return; }
+            const issue_number = Number(codexIssueRaw);
             const { owner, repo } = context.repo;
             // Read bootstrap result json if present
             const fs = require('fs');
