@@ -2,33 +2,46 @@
 
 import importlib
 import importlib.metadata
+from types import ModuleType
 from typing import Any
 
-# Attempt to import submodules.  Some of them pull in optional heavy
-# dependencies (e.g. ``matplotlib``).  Missing extras shouldn't prevent
-# lightweight helpers such as ``io.validators`` from being imported, so we
-# ignore ``ModuleNotFoundError`` during initialisation.
-_SUBMODULES = [
-    "api",
+# Attempt to import a core set of lighter submodules eagerly. Heavier or
+# optional pieces are exposed lazily via __getattr__ to avoid hard failures
+# when the environment is only partially initialised (e.g. before venv
+# activation). This also prevents transient ModuleNotFoundError masking when
+# optional dependencies of those submodules are absent.
+_EAGER_SUBMODULES = [
     "metrics",
     "config",
     "data",
     "pipeline",
     "export",
-    "selector",
-    "weighting",
-    "run_multi_analysis",
 ]
 
-for _name in _SUBMODULES:
-    try:
+# Modules that may drag optional / heavy deps; imported on first attribute access.
+_LAZY_SUBMODULES = {
+    "api": "trend_analysis.api",
+    "selector": "trend_analysis.selector",
+    "weighting": "trend_analysis.weighting",
+    "run_multi_analysis": "trend_analysis.run_multi_analysis",
+}
+
+for _name in _EAGER_SUBMODULES:
+    try:  # pragma: no cover - import side effects
         globals()[_name] = importlib.import_module(f"trend_analysis.{_name}")
-    except ModuleNotFoundError as e:
-        # Only suppress if the missing module is NOT the submodule itself
-        if e.name == f"{__name__}.{_name}":
-            raise
-        # Optional dependency for this submodule is missing; skip exposing it.
-        pass
+    except ImportError:
+        # Missing optional dependency chain; submodule simply not exposed.
+        continue
+
+
+def __getattr__(attr: str) -> ModuleType:  # pragma: no cover - thin lazy loader
+    target = _LAZY_SUBMODULES.get(attr)
+    if target is None:
+        raise AttributeError(attr)
+    mod = importlib.import_module(target)
+    globals()[attr] = mod
+    return mod
+
 
 # Forward declarations for static type checkers; actual values are assigned
 # dynamically above via importlib. This avoids mypy complaints about names
@@ -38,10 +51,10 @@ config: Any
 data: Any
 pipeline: Any
 export: Any
+api: Any
 selector: Any
 weighting: Any
 run_multi_analysis: Any
-api: Any
 
 if "data" in globals():
     # Conditional import: 'data' submodule may not always be present

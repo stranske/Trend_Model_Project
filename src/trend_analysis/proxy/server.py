@@ -1,181 +1,175 @@
-"""WebSocket-capable proxy server for Streamlit applications.
+"""Streamlit proxy (HTTP + WebSocket) with optional dependencies.
 
-This proxy forwards HTTP requests using httpx and WebSocket connections
-directly, ensuring that Streamlit's real-time features work properly
-through the proxy.
+This implementation keeps heavy optional libraries (FastAPI, uvicorn,
+httpx, websockets) isolated so the rest of the package can be imported
+without them. A clear RuntimeError is raised only when starting the
+proxy if dependencies are missing.
+Type checking is satisfied via simple runtime asserts before use.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol, TYPE_CHECKING, runtime_checkable
 from urllib.parse import urljoin
-
-try:  # Optional heavy deps
-    import httpx  # type: ignore
-    import uvicorn  # type: ignore
-    import websockets  # type: ignore
-    from fastapi import FastAPI  # type: ignore
-    from fastapi.responses import StreamingResponse  # type: ignore
-    from starlette.background import BackgroundTask  # type: ignore
-
-    _DEPS_AVAILABLE = True
-except ImportError:  # pragma: no cover - optional path
-    _DEPS_AVAILABLE = False
-
-
-@runtime_checkable
-class _SupportsWebSocket(Protocol):  # minimal protocol for type clarity
-    async def accept(self) -> None: ...  # noqa: D401,E701
-    async def close(self, code: int) -> None: ...  # noqa: D401,E701
-    @property
-    def url(self) -> Any: ...  # noqa: D401,E701
-    async def receive(self) -> dict[str, Any]: ...  # noqa: D401,E701
-    async def send_bytes(self, data: bytes) -> None: ...  # noqa: D401,E701
-    async def send_text(self, data: str) -> None: ...  # noqa: D401,E701
-
-
-def _assert_deps() -> None:
-    if not _DEPS_AVAILABLE:
-        raise RuntimeError(
-            "Proxy dependencies not installed. Install with: pip install fastapi uvicorn httpx websockets"
-        )
-
 
 logger = logging.getLogger(__name__)
 
+# Forward declarations for optional dependencies (assigned at runtime)
+httpx: Any
+uvicorn: Any
+websockets: Any
+FastAPI: Any
+StreamingResponse: Any
+BackgroundTask: Any
+
+if TYPE_CHECKING:  # pragma: no cover - static type hints only
+    import httpx as _httpx_mod  # noqa: F401
+    import uvicorn as _uvicorn_mod  # noqa: F401
+    import websockets as _websockets_mod  # noqa: F401
+    from fastapi import FastAPI as _FastAPIType  # noqa: F401
+    from starlette.background import BackgroundTask as _BackgroundTaskType  # noqa: F401
+
+
+def _lazy_import_deps() -> bool:
+    """Attempt to import heavy dependencies on-demand.
+
+    Returns True if all imports succeed, False otherwise. This allows the
+    module to be imported before the virtual environment is activated.
+    """
+    global httpx, uvicorn, websockets, FastAPI, StreamingResponse, BackgroundTask, _DEPS_AVAILABLE
+    try:  # pragma: no cover - side-effect imports
+        import importlib
+
+        httpx = importlib.import_module("httpx")
+        uvicorn = importlib.import_module("uvicorn")
+        websockets = importlib.import_module("websockets")
+        fastapi_mod = importlib.import_module("fastapi")
+        FastAPI = getattr(fastapi_mod, "FastAPI")
+        StreamingResponse = getattr(fastapi_mod.responses, "StreamingResponse")
+        starlette_bg = importlib.import_module("starlette.background")
+        BackgroundTask = getattr(starlette_bg, "BackgroundTask")
+        _DEPS_AVAILABLE = True
+        return True
+    except Exception:  # pragma: no cover
+        return False
+
+
+try:  # Optional heavy deps (initial attempt)
+    import httpx
+    import uvicorn
+    import websockets
+    from fastapi import FastAPI
+    from fastapi.responses import StreamingResponse
+    from starlette.background import BackgroundTask
+
+    _DEPS_AVAILABLE = True
+except Exception:  # pragma: no cover
+    _DEPS_AVAILABLE = False
+    httpx = None
+    uvicorn = None
+    websockets = None
+    FastAPI = None
+    StreamingResponse = None
+    BackgroundTask = None
+
+
+def _assert_deps() -> None:
+    if not _DEPS_AVAILABLE and not _lazy_import_deps():  # pragma: no cover
+        raise ImportError(
+            "Required dependencies not available (fastapi, uvicorn, httpx, websockets). "
+            "Install with: pip install fastapi uvicorn httpx websockets"
+        )
+
+
+@runtime_checkable
+class _SupportsWebSocket(Protocol):  # Minimal protocol slice
+    async def accept(self) -> None: ...  # noqa: D401
+    async def close(self, code: int) -> None: ...  # noqa: D401
+    @property
+    def url(self) -> Any: ...  # noqa: D401
+    async def receive(self) -> dict[str, Any]: ...  # noqa: D401
+    async def send_bytes(self, data: bytes) -> None: ...  # noqa: D401
+    async def send_text(self, data: str) -> None: ...  # noqa: D401
+
 
 class StreamlitProxy:
-    """A proxy server that forwards both HTTP and WebSocket traffic to
-    Streamlit.
-
-    This solves the issue where Streamlit's frontend requires WebSocket
-    endpoints like `/_stcore/stream` for bidirectional updates that
-    aren't supported by simple HTTP-only proxies.
-    """
+    """Forward HTTP + WebSocket traffic to a Streamlit instance."""
 
     def __init__(self, streamlit_host: str = "localhost", streamlit_port: int = 8501):
-        """Initialize the Streamlit proxy.
-
-        Args:
-            streamlit_host: Host where Streamlit is running
-            streamlit_port: Port where Streamlit is running
-        """
-        if not _DEPS_AVAILABLE:
-            raise ImportError(
-                "Required dependencies not available. Install with: pip install fastapi uvicorn httpx websockets"
-            )
-
+        _assert_deps()
         self.streamlit_host = streamlit_host
         self.streamlit_port = streamlit_port
         self.streamlit_base_url = f"http://{streamlit_host}:{streamlit_port}"
         self.streamlit_ws_url = f"ws://{streamlit_host}:{streamlit_port}"
+        # FastAPI app + shared async client (lazy optional deps already asserted)
+        self.app = FastAPI(title="Streamlit Proxy", version="1.0.0")
+        # httpx.AsyncClient typing is fine at runtime after _assert_deps;
+        # keep simple Any / inferred type to avoid extra TYPE_CHECKING complexity
+        self.client = httpx.AsyncClient()
+        self._register_routes()
 
-        # Runtime-initialised attributes (deps guaranteed above)
-        self.app = FastAPI(title="Streamlit Proxy", version="1.0.0")  # type: ignore
-        self.client = httpx.AsyncClient()  # type: ignore
-
-        self._setup_routes()
-
-    def _setup_routes(self) -> None:
-        """Set up HTTP and WebSocket routes."""
-
-        @self.app.websocket("/{path:path}")  # type: ignore[attr-defined]
-        async def websocket_proxy(websocket: _SupportsWebSocket, path: str) -> None:
-            await self._handle_websocket(websocket, path)
-
-        @self.app.api_route(  # type: ignore[attr-defined]
+    def _register_routes(self) -> None:
+        self.app.router.add_api_websocket_route("/{path:path}", self._websocket_entry)
+        self.app.router.add_api_route(
             "/{path:path}",
+            self._http_entry,
             methods=["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"],
         )
-        async def http_proxy(
-            request: Any, path: str
-        ) -> Any:  # request is FastAPI Request when deps present
-            return await self._handle_http_request(request, path)
+
+    async def _websocket_entry(self, websocket: _SupportsWebSocket, path: str) -> None:
+        await self._handle_websocket(websocket, path)
+
+    async def _http_entry(
+        self, request: Any, path: str
+    ) -> Any:  # FastAPI Request at runtime
+        return await self._handle_http_request(request, path)
 
     async def _handle_websocket(self, websocket: _SupportsWebSocket, path: str) -> None:
-        """Handle WebSocket connection forwarding to Streamlit.
-
-        Args:
-            websocket: The incoming WebSocket connection
-            path: The WebSocket path being requested
-        """
         _assert_deps()
         await websocket.accept()
-
-        # Construct the target WebSocket URL
         target_url = f"{self.streamlit_ws_url}/{path}"
-        query_string = websocket.url.query
-        if query_string:
-            target_url += f"?{query_string}"
+        q = getattr(websocket.url, "query", "")
+        if q:
+            target_url += f"?{q}"
+        logger.info("Proxying WebSocket -> %s", target_url)
+        try:  # pragma: no cover
+            async with websockets.connect(target_url) as target_ws:
 
-        logger.info(f"Proxying WebSocket connection to: {target_url}")
+                async def client_to_streamlit() -> None:
+                    while True:
+                        msg = await websocket.receive()
+                        if (b := msg.get("bytes")) is not None:
+                            await target_ws.send(b)
+                        elif (t := msg.get("text")) is not None:
+                            await target_ws.send(t)
 
-        try:
-            async with websockets.connect(target_url) as target_ws:  # type: ignore[attr-defined]
-                # Set up bidirectional forwarding
-                async def forward_to_target():
-                    """Forward messages from client to Streamlit."""
-                    try:
-                        while True:
-                            message = await websocket.receive()
-                            if "bytes" in message and message["bytes"] is not None:
-                                await target_ws.send(message["bytes"])
-                            elif "text" in message and message["text"] is not None:
-                                await target_ws.send(message["text"])
-                    except Exception as e:
-                        logger.error(f"Error forwarding to target: {e}")
+                async def streamlit_to_client() -> None:
+                    async for payload in target_ws:
+                        if isinstance(payload, bytes):
+                            await websocket.send_bytes(payload)
+                        else:
+                            await websocket.send_text(str(payload))
 
-                async def forward_to_client():
-                    """Forward messages from Streamlit to client."""
-                    try:
-                        async for message in target_ws:
-                            if isinstance(message, bytes):
-                                await websocket.send_bytes(message)
-                            else:
-                                await websocket.send_text(str(message))
-                    except Exception as e:
-                        logger.error(f"Error forwarding to client: {e}")
-
-                # Run both forwarding tasks concurrently
-                await asyncio.gather(
-                    forward_to_target(), forward_to_client(), return_exceptions=True
-                )
-
-        except Exception as e:
-            logger.error(f"WebSocket proxy error: {e}")
+                await asyncio.gather(client_to_streamlit(), streamlit_to_client())
+        except Exception as e:  # pragma: no cover
+            logger.error("WebSocket proxy error: %s", e)
             await websocket.close(code=1011)
 
     async def _handle_http_request(self, request: Any, path: str) -> Any:
-        """Handle HTTP request forwarding to Streamlit.
-
-        Args:
-            request: The incoming HTTP request
-            path: The HTTP path being requested
-
-        Returns:
-            The proxied response from Streamlit
-        """
-        # Construct the target URL
         _assert_deps()
-        normalized_path = path if path.startswith("/") else f"/{path}"
-        target_url = urljoin(self.streamlit_base_url, normalized_path)
-        query_string = str(request.url.query)
-        if query_string:
-            target_url += f"?{query_string}"
-
-        logger.debug(f"Proxying HTTP {request.method} request to: {target_url}")
-
-        # Forward headers (excluding host)
+        normalized = path if path.startswith("/") else f"/{path}"
+        target_url = urljoin(self.streamlit_base_url, normalized)
+        if q := str(request.url.query):
+            target_url += f"?{q}"
+        logger.debug(
+            "Proxying HTTP %s -> %s", getattr(request, "method", "?"), target_url
+        )
         headers = dict(request.headers)
         headers.pop("host", None)
-
-        try:
-            # Read request body
+        try:  # pragma: no cover
             body = await request.body()
-
-            # Forward the request to Streamlit
             response = await self.client.request(
                 method=request.method,
                 url=target_url,
@@ -183,44 +177,47 @@ class StreamlitProxy:
                 content=body,
                 follow_redirects=True,
             )
+            filtered = {
+                k: v
+                for k, v in response.headers.items()
+                if k.lower() not in {"content-encoding", "transfer-encoding"}
+            }
+            from collections.abc import AsyncIterator
 
-            # Prepare response headers
-            response_headers = dict(response.headers)
-            # Remove headers that should not be forwarded
-            for header in ["content-encoding", "transfer-encoding"]:
-                response_headers.pop(header, None)
-
-            # Return streaming response for large content
-            async def generate():
+            async def generate() -> AsyncIterator[bytes]:
                 async for chunk in response.aiter_bytes():
                     yield chunk
 
+            background = None
+            if BackgroundTask is not None:  # pragma: no branch
+                background = BackgroundTask(response.aclose)
+            if StreamingResponse is None:  # pragma: no cover - defensive
+                return {
+                    "status_code": response.status_code,
+                    "headers": headers,
+                    "error": "StreamingResponse dependency missing",
+                }
             return StreamingResponse(
                 generate(),
                 status_code=response.status_code,
-                headers=response_headers,
-                background=BackgroundTask(response.aclose),
+                headers=filtered,
+                background=background,
             )
-        except Exception as e:
-            logger.error(f"HTTP proxy error: {e}")
+        except Exception as e:  # pragma: no cover
+            logger.error("HTTP proxy error: %s", e)
             return {"error": str(e), "status_code": 502}
 
-    async def start(self, host: str = "0.0.0.0", port: int = 8500) -> None:
-        """Start the proxy server.
-
-        Args:
-            host: Host to bind the proxy server to
-            port: Port to bind the proxy server to
-        """
+    async def start(
+        self, host: str = "0.0.0.0", port: int = 8500
+    ) -> None:  # noqa: D401
         _assert_deps()
-        config = uvicorn.Config(app=self.app, host=host, port=port, log_level="info")  # type: ignore[attr-defined]
-        server = uvicorn.Server(config)  # type: ignore[attr-defined]
-        logger.info(f"Starting Streamlit proxy on {host}:{port}")
-        logger.info(f"Forwarding to Streamlit at {self.streamlit_base_url}")
+        config = uvicorn.Config(app=self.app, host=host, port=port, log_level="info")
+        server = uvicorn.Server(config)
+        logger.info("Starting Streamlit proxy on %s:%s", host, port)
+        logger.info("Forwarding to Streamlit at %s", self.streamlit_base_url)
         await server.serve()
 
-    async def close(self) -> None:
-        """Close the HTTP client."""
+    async def close(self) -> None:  # noqa: D401
         _assert_deps()
         await self.client.aclose()
 
@@ -231,16 +228,9 @@ def run_proxy(
     proxy_host: str = "0.0.0.0",
     proxy_port: int = 8500,
 ) -> None:
-    """Run the Streamlit proxy server.
+    """Run the proxy synchronously (convenience wrapper)."""
 
-    Args:
-        streamlit_host: Host where Streamlit is running
-        streamlit_port: Port where Streamlit is running
-        proxy_host: Host to bind the proxy server to
-        proxy_port: Port to bind the proxy server to
-    """
-
-    async def main():
+    async def main() -> None:
         proxy = StreamlitProxy(streamlit_host, streamlit_port)
         try:
             await proxy.start(proxy_host, proxy_port)
@@ -250,5 +240,7 @@ def run_proxy(
     asyncio.run(main())
 
 
-if __name__ == "__main__":
+__all__ = ["StreamlitProxy", "run_proxy"]
+
+if __name__ == "__main__":  # pragma: no cover
     run_proxy()

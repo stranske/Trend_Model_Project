@@ -186,22 +186,22 @@ def rank_select_funds(
     if inclusion_approach == "top_n":
         if n is None:
             raise ValueError("top_n requires parameter n")
-        ordered = cast(list[str], scores.index.tolist())
-        return _dedupe_by_firm(ordered, k=n)
+        ordered_top_n: list[str] = [str(x) for x in scores.index.tolist()]
+        return _dedupe_by_firm(ordered_top_n, k=n)
     elif inclusion_approach == "top_pct":
         if pct is None or not 0 < pct <= 1:
             raise ValueError("top_pct requires 0 < pct <= 1")
         k = max(1, int(round(len(scores) * pct)))
-        ordered = cast(list[str], scores.index.tolist())
-        return _dedupe_by_firm(ordered, k=k)
+        ordered_top_pct: list[str] = [str(x) for x in scores.index.tolist()]
+        return _dedupe_by_firm(ordered_top_pct, k=k)
     elif inclusion_approach == "threshold":
         if threshold is None:
             raise ValueError("threshold approach requires parameter threshold")
         # For ascending=True (smaller is better), keep scores <= threshold
         # else keep scores >= threshold
         mask = scores <= threshold if ascending else scores >= threshold
-        ordered = cast(list[str], scores[mask].index.tolist())
-        return _dedupe_by_firm(ordered)
+        ordered_threshold: list[str] = [str(x) for x in scores[mask].index.tolist()]
+        return _dedupe_by_firm(ordered_threshold)
     else:
         raise ValueError("Unknown inclusion_approach")
 
@@ -547,11 +547,13 @@ def select_funds(
     if quality_cfg is None:
         quality_cfg = FundSelectionConfig()
 
-    # Get fund columns (exclude Date and rf_col)
-    fund_columns = [col for col in df.columns if col not in ["Date", rf_col]]
+    # Get fund columns (exclude Date and rf_col) for simple path
+    simple_fund_columns: list[str] = [
+        str(col) for col in df.columns if col not in ["Date", rf_col]
+    ]
 
     if mode == "all":
-        return fund_columns
+        return list(simple_fund_columns)
     elif mode == "random":
         eligible = quality_filter(df, quality_cfg)
         if n is None and random_n is None:
@@ -561,12 +563,26 @@ def select_funds(
             raise ValueError("random_n must be provided for random mode")
         import numpy as np
 
-        return list(np.random.choice(eligible, min(n, len(eligible)), replace=False))
+        return [
+            str(x)
+            for x in np.random.choice(
+                eligible, min(n, len(eligible)), replace=False
+            ).tolist()
+        ]
     elif mode == "rank":
+        # Basic rank mode: order eligible funds by descending in-sample CAGR (annual_return)
+        # NOTE: This is a minimal improvement over the previous slice-by-order behavior.
+        # A fuller implementation should reuse the unified ranking logic used in
+        # select_funds_extended / rank_select_funds, but here we avoid importing
+        # additional heavy helpers to keep simple pathway light.
         eligible = quality_filter(df, quality_cfg)
         if n is None:
             n = len(eligible)
-        return eligible[:n]
+        in_sample = df.loc[:, eligible]
+        # Compute simple performance proxy: cumulative return over entire frame
+        perf = (1 + in_sample).prod() - 1.0
+        ordered = list(perf.sort_values(ascending=False).index[:n])
+        return ordered
     else:
         raise ValueError(f"Unsupported mode '{mode}'")
 

@@ -71,7 +71,8 @@ def compute_contributions(
 
     # Validate totals – contributions must sum to the total return
     check = contrib.drop(columns="total").sum(axis=1)
-    if not np.allclose(check, contrib["total"], atol=tolerance):
+    # Cast to numpy arrays for explicit type clarity with np.allclose
+    if not np.allclose(check.to_numpy(), contrib["total"].to_numpy(), atol=tolerance):
         raise ValueError("Contributions do not sum to total within tolerance")
 
     return contrib
