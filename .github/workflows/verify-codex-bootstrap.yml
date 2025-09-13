@@ -60,7 +60,13 @@ jobs:
               if (!Array.isArray(markerFile)) {
                 markerContent = Buffer.from(markerFile.content, markerFile.encoding || 'base64').toString('utf8');
               }
-            } catch {}
+            } catch (err) {
+              if (err && err.status === 404) {
+                // Marker file not found; this is expected in some cases.
+              } else {
+                core.warning(`Error fetching marker file: ${err?.message || err}`);
+              }
+            }
             core.summary
               .addHeading('Codex Bootstrap Verification')
               .addTable([[{data:'Issue',header:true},{data:'Branch',header:true},{data:'Branch Exists',header:true},{data:'PR',header:true},{data:'Marker',header:true}],
