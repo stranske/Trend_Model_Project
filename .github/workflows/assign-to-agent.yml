@@ -428,8 +428,15 @@ jobs:
           github-token: ${{ env.SERVICE_BOT_PAT != '' && env.SERVICE_BOT_PAT || github.token }}
           script: |
             const marker = '<!-- codex-agent-summary -->';
-            const issue_number = Number(process.env.SUMMARY_ISSUE || process.env.SUMMARY_PR || 0);
-            if (!issue_number) { core.info('No issue/PR number available for summary comment'); return; }
+            function getValidNumber(str) {
+              if (!str || str.trim() === '') return null;
+              const n = parseInt(str, 10);
+              return Number.isInteger(n) && n > 0 ? n : null;
+            }
+            const issue_number =
+              getValidNumber(process.env.SUMMARY_ISSUE) ||
+              getValidNumber(process.env.SUMMARY_PR);
+            if (issue_number == null) { core.info('No issue/PR number available for summary comment'); return; }
             const summary = {
               event: process.env.SUMMARY_EVENT,
               issue: process.env.SUMMARY_ISSUE || null,
