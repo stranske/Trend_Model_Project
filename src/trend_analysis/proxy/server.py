@@ -38,7 +38,7 @@ class _SupportsWebSocket(Protocol):  # minimal protocol for type clarity
 
 def _assert_deps() -> None:
     if not _DEPS_AVAILABLE:
-        raise RuntimeError(
+        raise ImportError(
             "Proxy dependencies not installed. Install with: pip install fastapi uvicorn httpx websockets"
         )
 
@@ -195,11 +195,12 @@ class StreamlitProxy:
                 async for chunk in response.aiter_bytes():
                     yield chunk
 
-            return StreamingResponse(
+            # mypy: objects guaranteed after _assert_deps(); retain runtime clarity
+            return StreamingResponse(  # type: ignore[name-defined]
                 generate(),
                 status_code=response.status_code,
                 headers=response_headers,
-                background=BackgroundTask(response.aclose),
+                background=BackgroundTask(response.aclose),  # type: ignore[name-defined]
             )
         except Exception as e:
             logger.error(f"HTTP proxy error: {e}")
