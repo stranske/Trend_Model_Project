@@ -630,7 +630,7 @@ def _check_builtin_metric_aliases() -> None:
     if not hasattr(builtins, "annualize_volatility"):
         raise SystemExit("builtins missing annualize_volatility")
 
-    if getattr(builtins, "annualize_return")(s) != legacy.annualize_return(s):
+    if builtins.annualize_return(s) != legacy.annualize_return(s):
         raise SystemExit("builtins annualize_return mismatch")
     av = getattr(builtins, "annualize_volatility")
     if av(s) != legacy.annualize_volatility(s):
