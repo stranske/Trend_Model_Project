@@ -54,7 +54,7 @@ jobs:
           script: |
             // TODO: Implement the bootstrap logic here, or replace with the correct action
           issue: ${{ needs.detect.outputs.codex_issue }}
-          service_bot_pat: ${{ secrets.SERVICE_BOT_PAT || '' }}
+          service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
           allow_fallback: ${{ vars.CODEX_ALLOW_FALLBACK || 'true' }}
           codex_command: "codex: start"
           pr_mode: auto
