@@ -497,7 +497,7 @@ jobs:
                 }
               } catch (e) { core.warning('Could not read marker for summary: ' + e.message); }
               // Fetch issue to allow suppression detection for parity (not strictly needed but keeps fields consistent)
-              try { const { data: issue } = await github.rest.issues.get({ owner, repo, issue_number }); issueBodyCached = issue.body || ''; } catch {}
+              try { const { data: issue } = await github.rest.issues.get({ owner, repo, issue_number }); issueBodyCached = issue.body || ''; } catch (e) { core.warning('Could not fetch issue for suppression detection: ' + e.message); }
               const suppressFromToken = (issueBodyCached || '').includes('[codex-suppress-activate]');
               const suppressFromInput = /true/i.test(String(process.env.CODEX_SUPPRESS_ACTIVATE_INPUT||''));
               const suppressFromEnv   = !!process.env.CODEX_SUPPRESS_ACTIVATE;
