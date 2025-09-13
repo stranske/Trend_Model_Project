@@ -73,6 +73,14 @@ jobs:
             };
             core.info('EVENT DEBUG:\n' + JSON.stringify(payload, null, 2));
 
+      - name: Token diagnostics
+        run: |
+          if [ -n "${{ env.SERVICE_BOT_PAT }}" ]; then
+            echo "Using SERVICE_BOT_PAT for assignment/backfill job.";
+          else
+            echo "SERVICE_BOT_PAT not set – falling back to GITHUB_TOKEN.";
+          fi
+
       - name: Assign or backfill
         id: assign_or_backfill
         uses: actions/github-script@v7
@@ -405,6 +413,46 @@ jobs:
           name: agent-assignment-${{ github.run_id }}
           path: agent-artifacts/agent_assignment.json
 
+      - name: Post / update JSON summary comment
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          SUMMARY_EVENT: ${{ github.event_name }}
+          SUMMARY_ISSUE: ${{ github.event.issue.number || '' }}
+          SUMMARY_PR: ${{ github.event.pull_request.number || '' }}
+          SUMMARY_NEEDS: ${{ steps.assign_or_backfill.outputs.needs_codex_bootstrap }}
+          SUMMARY_CODEX_ISSUE: ${{ steps.assign_or_backfill.outputs.codex_issue }}
+          SUMMARY_COPILOT: ${{ steps.assign_or_backfill.outputs.copilot_assigned }}
+          SUMMARY_GENERIC: ${{ steps.assign_or_backfill.outputs.generic_agents }}
+        with:
+          github-token: ${{ env.SERVICE_BOT_PAT != '' && env.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const marker = '<!-- codex-agent-summary -->';
+            const issue_number = Number(process.env.SUMMARY_ISSUE || process.env.SUMMARY_PR || 0);
+            if (!issue_number) { core.info('No issue/PR number available for summary comment'); return; }
+            const summary = {
+              event: process.env.SUMMARY_EVENT,
+              issue: process.env.SUMMARY_ISSUE || null,
+              pr: process.env.SUMMARY_PR || null,
+              needs_codex_bootstrap: process.env.SUMMARY_NEEDS === 'true',
+              codex_issue: process.env.SUMMARY_CODEX_ISSUE || null,
+              copilot_assigned: process.env.SUMMARY_COPILOT === 'true',
+              generic_agents: (process.env.SUMMARY_GENERIC || '').split(',').filter(Boolean),
+              ts: new Date().toISOString()
+            };
+            const body = `${marker}\n\n\`\`\`json\n${JSON.stringify(summary, null, 2)}\n\`\`\`\n\n_Do not edit above block; updated automatically._`;
+            const { owner, repo } = context.repo;
+            // Find existing comment
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number, per_page: 100 });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+              core.info('Updated existing JSON summary comment.');
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+              core.info('Created new JSON summary comment.');
+            }
+
   codex_bootstrap:
     needs: assign_or_backfill
     if: needs.assign_or_backfill.outputs.needs_codex_bootstrap == 'true'
@@ -679,3 +727,35 @@ jobs:
         run: |
           echo "Listing codex-artifacts directory (if present)";
           if [ -d codex-artifacts ]; then ls -l codex-artifacts; else echo "codex-artifacts directory missing"; fi
+
+      - name: Update JSON summary with bootstrap data
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.SERVICE_BOT_PAT != '' && env.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const marker = '<!-- codex-agent-summary -->';
+            const issue_number = Number('${{ needs.assign_or_backfill.outputs.codex_issue }}');
+            if (!issue_number) { core.info('No codex issue number; skip JSON bootstrap update'); return; }
+            const { owner, repo } = context.repo;
+            // Read bootstrap result json if present
+            const fs = require('fs');
+            let bootstrap = null;
+            try {
+              const raw = fs.readFileSync('codex-artifacts/codex_bootstrap_result.json','utf8');
+              bootstrap = JSON.parse(raw);
+            } catch (e) { core.warning('No codex_bootstrap_result.json found: ' + e.message); }
+            // Fetch existing summary comment
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number, per_page: 100 });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (!existing) { core.info('No existing summary comment to update (assignment job may have failed).'); return; }
+            // Extract prior JSON
+            const rx = /```json\n([\s\S]*?)\n```/m;
+            const m = existing.body.match(rx);
+            let prior = {};
+            if (m) { try { prior = JSON.parse(m[1]); } catch (e) { core.warning('Failed to parse prior JSON: ' + e.message); } }
+            const merged = { ...prior, bootstrap };
+            merged.ts_bootstrap_update = new Date().toISOString();
+            const newBody = `${marker}\n\n\`\`\`json\n${JSON.stringify(merged, null, 2)}\n\`\`\`\n\n_Do not edit above block; updated automatically._`;
+            await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body: newBody });
+            core.info('Updated JSON summary comment with bootstrap data.');
