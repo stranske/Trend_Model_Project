@@ -18,6 +18,9 @@ from typing import List, Set
 import pandas as pd
 import pytest
 
+# Guard against missing matplotlib dependency
+pytest.importorskip("matplotlib")
+
 
 class TestDemoGoldenMaster:
     """Golden master tests for demo pipeline outputs."""
