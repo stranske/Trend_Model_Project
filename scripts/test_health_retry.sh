@@ -9,7 +9,14 @@ cd "$(dirname "$0")/.."
 echo "🔍 Testing health endpoint retry logic..."
 
 # Start health wrapper in background
-source .venv/bin/activate
+# Activate virtual environment if available (Unix or Windows), else fallback to system Python
+if [ -f ".venv/bin/activate" ]; then
+    source .venv/bin/activate
+elif [ -f ".venv/Scripts/activate" ]; then
+    source .venv/Scripts/activate
+else
+    echo "⚠️  No virtual environment found. Falling back to system Python."
+fi
 PYTHONPATH="./src" python -m trend_portfolio_app.health_wrapper &
 HEALTH_PID=$!
 
