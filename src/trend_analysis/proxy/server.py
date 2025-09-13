@@ -38,7 +38,7 @@ class _SupportsWebSocket(Protocol):  # minimal protocol for type clarity
 
 def _assert_deps() -> None:
     if not _DEPS_AVAILABLE:
-        raise ImportError(
+        raise ModuleNotFoundError(
             "Proxy dependencies not installed. Install with: pip install fastapi uvicorn httpx websockets"
         )
 
