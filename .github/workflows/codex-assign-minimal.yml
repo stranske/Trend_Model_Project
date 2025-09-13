@@ -42,7 +42,8 @@ jobs:
               if (labels.includes('agent:codex')) needs = 'true';
             } else if (manualIssue) {
               num = manualIssue;
-              if (simulated.map(s => s.toLowerCase()).includes('agent:codex')) needs = 'true';
+              const simulatedLower = simulated.map(s => s.toLowerCase());
+              if (simulatedLower.includes('agent:codex')) needs = 'true';
             }
             core.setOutput('needs_codex_bootstrap', needs);
             core.setOutput('codex_issue', num);
