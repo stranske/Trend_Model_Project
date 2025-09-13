@@ -463,7 +463,7 @@ jobs:
               } catch (e) {
                 const msg = `Codex bootstrap blocked: unable to create branch ${branch} (permissions). ${e.status || ''} ${e.message}`;
                 core.warning(msg);
-                try { await github.rest.issues.createComment({ owner, repo, issue_number, body: msg + '\n\nEnsure GITHUB_TOKEN has contents:write and repo settings allow Actions to write branches. Optionally configure SERVICE_BOT_PAT with repo access.' }); } catch {}
+                try { await github.rest.issues.createComment({ owner, repo, issue_number, body: msg + '\n\nEnsure GITHUB_TOKEN has contents:write and repo settings allow Actions to write branches. Optionally configure SERVICE_BOT_PAT with repo access.' }); } catch (commentError) { core.warning(`Failed to post fallback comment: ${commentError.message}`); }
                 return; // degrade gracefully
               }
             } else {
