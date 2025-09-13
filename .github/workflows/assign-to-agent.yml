@@ -73,13 +73,23 @@ jobs:
             };
             core.info('EVENT DEBUG:\n' + JSON.stringify(payload, null, 2));
 
+      - name: Token diagnostics
+        run: |
+          if [ -n "${{ env.SERVICE_BOT_PAT }}" ]; then
+            echo "Using SERVICE_BOT_PAT for assignment/backfill job.";
+          else
+            echo "SERVICE_BOT_PAT not set – falling back to GITHUB_TOKEN.";
+          fi
+
       - name: Assign or backfill
         id: assign_or_backfill
         uses: actions/github-script@v7
         env:
-          GH_TOKEN: ${{ env.SERVICE_BOT_PAT }}
+          # Fallback to standard GitHub token if SERVICE_BOT_PAT is not configured so label events still function.
+          GH_TOKEN: ${{ env.SERVICE_BOT_PAT != '' && env.SERVICE_BOT_PAT || github.token }}
         with:
-          github-token: ${{ env.SERVICE_BOT_PAT }}
+          # Use PAT when available (human authored comments / wider perms), otherwise safe fallback.
+          github-token: ${{ env.SERVICE_BOT_PAT != '' && env.SERVICE_BOT_PAT || github.token }}
           script: |
             const { owner, repo } = context.repo;
             const number = (context.payload.issue?.number ?? context.payload.pull_request?.number);
