@@ -8,8 +8,8 @@ omit =
     tests/*
 
 [report]
-# Require ≥82% coverage for core trend_analysis modules (raised from 70%)
-fail_under = 82
+# Require ≥85% coverage for core trend_analysis modules (raised from 70%)
+fail_under = 85
 include = src/trend_analysis/*
 exclude_lines =
     pragma: no cover

@@ -12,7 +12,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Protocol, cast
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 
 class ConfigProtocol(Protocol):

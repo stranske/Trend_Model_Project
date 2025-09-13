@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import pytest
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from trend_analysis.config import legacy
 
