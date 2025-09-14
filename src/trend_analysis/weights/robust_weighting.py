@@ -220,7 +220,7 @@ class RobustMeanVariance(WeightEngine):
             return self._safe_mode_weights(cov)
         
         # Use normal mean-variance optimization
-        logger.info(f"Using mean-variance optimization with {self.shrinkage_method} shrinkage")
+        logger.debug(f"Using mean-variance optimization with {self.shrinkage_method} shrinkage")
         return self._mean_variance_weights(shrunk_cov)
 
 
