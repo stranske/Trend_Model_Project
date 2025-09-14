@@ -58,6 +58,12 @@ outputs:
   branch_created:
     description: "true if branch was created in this run"
     value: ${{ steps.bootstrap.outputs.branch_created }}
+  token_source:
+    description: "Token actually used for GitHub API calls (SERVICE_BOT_PAT | GITHUB_TOKEN | ACTIONS_DEFAULT_TOKEN)"
+    value: ${{ steps.bootstrap.outputs.token_source }}
+  fallback_used:
+    description: "true if a fallback token (GITHUB_TOKEN or ACTIONS_DEFAULT_TOKEN) was needed for branch or PR creation"
+    value: ${{ steps.bootstrap.outputs.fallback_used }}
 runs:
   using: "composite"
   steps:
@@ -128,7 +134,9 @@ runs:
           const { owner, repo } = context.repo;
           if (!issue_number) { core.setFailed('No issue number passed to bootstrap'); return; }
           const usingPAT = !!process.env.SERVICE_BOT_PAT;
-          const tokenSource = usingPAT ? 'SERVICE_BOT_PAT' : 'GITHUB_TOKEN';
+          let tokenSource = usingPAT ? 'SERVICE_BOT_PAT' : 'GITHUB_TOKEN';
+          const allowFallback = '${{ inputs.allow_fallback }}' === 'true';
+          let fallbackUsed = false;
           const branch = `agents/codex-issue-${issue_number}`;
           const markerPath = `agents/.codex-bootstrap-${issue_number}.json`;
           async function exists(path, ref){
@@ -150,7 +158,6 @@ runs:
           if (!branchExists) {
             let created = false;
             let firstErr;
-            const allowFallback = '${{ inputs.allow_fallback }}' === 'true';
             const debugMode = '${{ inputs.debug_mode }}' === 'true';
             try {
               await github.rest.git.createRef({ owner, repo, ref: `refs/heads/${branch}`, sha: baseSha });
@@ -180,9 +187,6 @@ runs:
                   } else {
                     core.warning(`Fallback branch create failed http_status=${resp.status} error=Unable to create branch. See debug logs for details.`);
                   }
-                } catch (e2) {
-                  const detail2 = e2 && e2.response && e2.response.data ? JSON.stringify(e2.response.data) : '';
-                  core.warning(`Fallback branch create also failed status=${e2.status || '?'} msg=${e2.message} detail=${detail2}`);
                 }
               }
             }
@@ -196,11 +200,14 @@ runs:
               return;
             } else {
               core.setOutput('branch_created', 'true');
+              core.setOutput('fallback_used', fallbackUsed ? 'true' : 'false');
             }
           } else {
             core.info(`Branch ${branch} already exists`);
             core.setOutput('branch_created', 'false');
+            core.setOutput('fallback_used', 'false');
           }
+          core.setOutput('token_source', tokenSource);
           if (await exists(markerPath, branch)) {
             core.info('Marker exists – bootstrap already performed. Emitting summary (idempotent).');
             let decoded; let issueBodyCached = '';
@@ -224,7 +231,6 @@ runs:
                 const { data: existingPR } = await github.rest.pulls.get({ owner, repo, pull_number: prNumberExisting });
                 if (existingPR.state === 'closed') {
                   core.info(`Existing PR #${prNumberExisting} is closed; initiating re-bootstrap.`);
-                  // create new draft PR referencing same branch
                   const replicatedHeader = `### Source Issue #${issue_number}: ${existingPR.title || ''}`;
                   const newBody = `${replicatedHeader}\n\nRe-bootstrap due to closed original PR #${prNumberExisting}.`;
                   const { data: newPR } = await github.rest.pulls.create({ owner, repo, head: branch, base: baseBranch, draft: true, title: `Codex re-bootstrap for #${issue_number}`, body: newBody });
@@ -267,7 +273,8 @@ runs:
               const fs = require('fs'); fs.mkdirSync('codex-artifacts', { recursive: true });
               fs.writeFileSync('codex-artifacts/codex_bootstrap_summary.json', JSON.stringify({
                 reused: reuse, issue: issue_number, pr: prNumberExisting || null, branch, base: baseBranch,
-                suppression: activationSuppressed, token_source: tokenSource, pr_author: prAuthorFinal, ts: new Date().toISOString(), rebootstrap_attempt: !reuse
+                suppression: activationSuppressed, token_source: tokenSource, pr_author: prAuthorFinal, ts: new Date().toISOString(), rebootstrap_attempt: !reuse,
+                fallback_used: (fallbackUsed || core.getOutput('fallback_used') === 'true')
               }, null, 2));
               if (decoded) fs.writeFileSync('codex-artifacts/marker_snapshot.json', decoded);
               fs.writeFileSync('codex-artifacts/README.txt', 'Codex bootstrap artifacts.');
