@@ -257,7 +257,8 @@ runs:
                   await github.rest.issues.addLabels({ owner, repo, issue_number: prNumberExisting, labels: ['agent:codex'] });
                   let cmd = String(process.env.CODEX_COMMAND || 'codex: start').replace(/[\r\n`]/g,'').trim();
                   const allowedCommands = ['codex: start','codex: test','codex: lint','codex: build','codex: review','codex: docs'];
-                  if (!allowedCommands.some(c => c.toLowerCase() === cmd.toLowerCase())) {
+                  const allowedCommandsLower = allowedCommands.map(c => c.toLowerCase());
+                  if (!allowedCommandsLower.includes(cmd.toLowerCase())) {
                     core.warning('Unsafe Codex command; defaulting.');
                     cmd = 'codex: start';
                   }
