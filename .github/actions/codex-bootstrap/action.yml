@@ -165,7 +165,8 @@ runs:
               if (tokenSource === 'SERVICE_BOT_PAT' && allowFallback && process.env.GITHUB_TOKEN) {
                 core.info('Attempting branch create retry with GITHUB_TOKEN fallback (fetch API).');
                 try {
-                  const resp = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/refs`, {
+                  const apiBaseUrl = process.env.GITHUB_API_URL || 'https://api.github.com';
+                  const resp = await fetch(`${apiBaseUrl}/repos/${owner}/${repo}/git/refs`, {
                     method: 'POST',
                     headers: {
                       'Authorization': `Bearer ${process.env.GITHUB_TOKEN}`,
