@@ -32,7 +32,7 @@ def test_gui_app_import(monkeypatch):
 
     dummy = types.SimpleNamespace(title=title, write=write)
     monkeypatch.setitem(sys.modules, "streamlit", dummy)
-    sys.modules.pop("trend_analysis.gui.app", None)
+    monkeypatch.delitem(sys.modules, "trend_analysis.gui.app", raising=False)
     importlib.import_module("trend_analysis.gui.app")
     assert "GUI coming soon" in calls["title"]
     assert "placeholder" in calls["write"]
