@@ -53,7 +53,7 @@ Responsibilities:
 - Creates or reuses branch `agents/codex-issue-<n>` and marker file `agents/.codex-bootstrap-<n>.json`.
 - Auto (default) mode: opens or reuses draft PR with replicated issue content.
 - Manual mode: only branch + marker + instructions comment (user opens draft PR).
-- Writes structured artifact `codex_bootstrap_result.json` (always) for downstream inspection.
+- Writes structured artifact `codex_bootstrap_summary.json` (always) for downstream inspection.
 - Idempotent: re-run when marker exists emits summary without duplicating PR.
 
 Composite inputs (selected):
