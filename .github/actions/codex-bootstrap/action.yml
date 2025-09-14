@@ -179,7 +179,7 @@ runs:
                     created = true; core.info(`Created branch ${branch} with fallback GITHUB_TOKEN.`);
                   } else {
                     let txt; try { txt = await resp.text(); } catch {}
-                    core.warning(`Fallback branch create failed http_status=${resp.status} body=${(txt||'').slice(0,500)}`);
+                    core.warning(`Fallback branch create failed http_status=${resp.status} error=Unable to create branch. See debug logs for details.`);
                   }
                 } catch (e2) {
                   const detail2 = e2 && e2.response && e2.response.data ? JSON.stringify(e2.response.data) : '';
