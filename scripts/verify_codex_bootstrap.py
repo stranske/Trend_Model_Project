@@ -364,11 +364,12 @@ def scenario_t08_pat_missing_fallback(ctx: dict) -> ScenarioResult:
             expectation=ScenarioExpectation(expect_artifact=True),
         )
     # We accept token_source != SERVICE_BOT_PAT OR fallback_used true
-    token_source = (
-        art.get("token_source")
-        or art.get("token_source".lower())
-        or art.get("token_source".upper())
-    )
+    # Case-insensitive lookup for "token_source"
+    token_source = None
+    for k, v in art.items():
+        if k.lower() == "token_source":
+            token_source = v
+            break
     fallback_used = art.get("fallback_used")
     ok = (
         token_source in ("GITHUB_TOKEN", "ACTIONS_DEFAULT_TOKEN")
