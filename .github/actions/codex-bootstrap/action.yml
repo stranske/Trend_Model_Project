@@ -36,6 +36,14 @@ inputs:
     description: "Seconds to sleep between network preflight retries"
     required: false
     default: "2"
+  debug_mode:
+    description: "Emit verbose diagnostic logging (true|false)"
+    required: false
+    default: "false"
+  fail_on_dual_branch_failure:
+    description: "Fail the action if both primary and fallback branch creation attempts fail (true|false)"
+    required: false
+    default: "true"
 outputs:
   codex_pr:
     description: "Codex draft PR number (blank in manual mode before PR creation)"
@@ -43,6 +51,9 @@ outputs:
   codex_reused:
     description: "true if existing bootstrap was reused"
     value: ${{ steps.bootstrap.outputs.codex_reused }}
+  branch_created:
+    description: "true if branch was created in this run"
+    value: ${{ steps.bootstrap.outputs.branch_created }}
 runs:
   using: "composite"
   steps:
@@ -135,37 +146,56 @@ runs:
           if (!branchExists) {
             let created = false;
             let firstErr;
+            const allowFallback = '${{ inputs.allow_fallback }}' === 'true';
+            const debugMode = '${{ inputs.debug_mode }}' === 'true';
             try {
               await github.rest.git.createRef({ owner, repo, ref: `refs/heads/${branch}`, sha: baseSha });
               core.info(`Created branch ${branch} with primary token (${tokenSource}).`);
               created = true;
             } catch (e) {
               firstErr = e;
-              core.warning(`Primary branch create failed (${tokenSource}) status=${e.status || '?'} msg=${e.message}`);
-              // Retry with fallback if PAT failed and fallback is allowed
-              const allowFallback = '${{ inputs.allow_fallback }}' === 'true';
-              if (tokenSource === 'SERVICE_BOT_PAT' && allowFallback) {
-                core.info('Attempting branch create retry with GITHUB_TOKEN fallback.');
+              const detail = e && e.response && e.response.data ? JSON.stringify(e.response.data) : '';
+              core.warning(`Primary branch create failed (${tokenSource}) status=${e.status || '?'} msg=${e.message} detail=${detail}`);
+              if (debugMode) core.info(`DEBUG primary-create-error-object: ${JSON.stringify({status: e.status, message: e.message, stack: e.stack})}`);
+              // Fallback only if PAT primary attempt and allowed
+              if (tokenSource === 'SERVICE_BOT_PAT' && allowFallback && process.env.GITHUB_TOKEN) {
+                core.info('Attempting branch create retry with GITHUB_TOKEN fallback (fetch API).');
                 try {
-                  const { Octokit } = require('@octokit/rest');
-                  const oc = new Octokit({ auth: process.env.GITHUB_TOKEN, request: { fetch: global.fetch } });
-                  await oc.git.createRef({ owner, repo, ref: `refs/heads/${branch}`, sha: baseSha });
-                  created = true;
-                  core.info(`Created branch ${branch} with fallback GITHUB_TOKEN.`);
+                  const resp = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/refs`, {
+                    method: 'POST',
+                    headers: {
+                      'Authorization': `Bearer ${process.env.GITHUB_TOKEN}`,
+                      'Accept': 'application/vnd.github+json',
+                      'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: baseSha })
+                  });
+                  if (resp.status === 201) {
+                    created = true; core.info(`Created branch ${branch} with fallback GITHUB_TOKEN.`);
+                  } else {
+                    let txt; try { txt = await resp.text(); } catch {}
+                    core.warning(`Fallback branch create failed http_status=${resp.status} body=${(txt||'').slice(0,500)}`);
+                  }
                 } catch (e2) {
-                  core.warning(`Fallback branch create also failed status=${e2.status || '?'} msg=${e2.message}`);
+                  const detail2 = e2 && e2.response && e2.response.data ? JSON.stringify(e2.response.data) : '';
+                  core.warning(`Fallback branch create also failed status=${e2.status || '?'} msg=${e2.message} detail=${detail2}`);
                 }
               }
             }
             if (!created) {
+              const dualFail = tokenSource === 'SERVICE_BOT_PAT';
               const err = firstErr || { status: 'unknown', message: 'unspecified branch create error' };
-              const msg = `Codex bootstrap blocked: unable to create branch ${branch} (permissions). ${err.status || ''} ${err.message}`;
-              try { await github.rest.issues.createComment({ owner, repo, issue_number, body: msg + '\n\nEnsure Actions token can create branches or configure SERVICE_BOT_PAT with repo access.' }); } catch {}
+              const msg = `Codex bootstrap blocked: unable to create branch ${branch}. primary_status=${err.status || '?'} primary_msg=${err.message}`;
+              try { await github.rest.issues.createComment({ owner, repo, issue_number, body: msg + '\n\nIf this persists: 1) confirm token rulesets, 2) check branch protection/rulesets, 3) ensure fallback allowed if PAT blocked.' }); } catch {}
               core.warning(msg);
+              if ('${{ inputs.fail_on_dual_branch_failure }}' === 'true') core.setFailed(msg);
               return;
+            } else {
+              core.setOutput('branch_created', 'true');
             }
           } else {
             core.info(`Branch ${branch} already exists`);
+            core.setOutput('branch_created', 'false');
           }
           if (await exists(markerPath, branch)) {
             core.info('Marker exists – bootstrap already performed. Emitting summary (idempotent).');
