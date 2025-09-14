@@ -101,7 +101,7 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const pr = core.getInput('codex_pr') || process.env.CODex_PR || '';
+            const pr = core.getInput('codex_pr') || process.env.CODEX_PR || '';
             core.summary
               .addHeading('Codex Bootstrap Outputs')
               .addTable([
