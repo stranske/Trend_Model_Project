@@ -11,7 +11,7 @@ on:
       - 'docs/codex-simulation.md'
     inputs:
       scenarios:
-        description: "Comma list: all or subset (t01_basic,t02_reuse,t03_rebootstrap,t04_missing_label,t05_manual_sim,t06_manual_no_sim,t07_invalid_manual,t08_pat_missing_fallback,t09_pat_missing_block,t10_primary_403_fallback,t11_dual_fail,t12_manual_mode,t13_suppressed,t14_invalid_cmd,t15_corrupt_marker)"
+        description: "Comma-separated list: all or subset. See scripts/verify_codex_bootstrap.py SCENARIOS_IMPL for available scenarios."
         required: false
         default: "all"
       parallel:
