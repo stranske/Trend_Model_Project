@@ -1,3 +1,5 @@
 [run]
 omit =
     trend_analysis/core/*
+    Old/*
+    tests/*
