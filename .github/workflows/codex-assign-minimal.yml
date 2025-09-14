@@ -12,56 +12,69 @@ on:
         description: "Comma separated labels to simulate (include agent:codex to trigger)"
         required: false
 
-permissions:
-  contents: write
-  issues: write
-  pull-requests: write
+concurrency:
+  group: codex-bootstrap-${{ github.event.issue.number || github.event.inputs.test_issue || 'unknown' }}
+  cancel-in-progress: false
 
 jobs:
   detect:
     runs-on: ubuntu-latest
+    permissions:
+      issues: read
+      contents: read
+      pull-requests: read
     outputs:
       needs_codex_bootstrap: ${{ steps.detect.outputs.needs_codex_bootstrap }}
       codex_issue: ${{ steps.detect.outputs.codex_issue }}
+      detection_reason: ${{ steps.detect.outputs.detection_reason }}
     steps:
       - name: Detect codex label
         id: detect
         uses: actions/github-script@v7
         with:
           script: |
-            // Support both event-driven (issues.*) and manual workflow_dispatch testing.
             const inputs = context.payload.inputs || {};
-            const manualIssue = (inputs.test_issue || '').trim();
+            const manualIssueRaw = (inputs.test_issue || '').trim();
+            const manualIssue = manualIssueRaw && /^(\d+)$/.test(manualIssueRaw) ? manualIssueRaw : '';
+            if (manualIssueRaw && !manualIssue) { core.warning(`Ignoring non-numeric test_issue input: '${manualIssueRaw}'`); }
             const simulated = (inputs.simulate_label || '').split(',').map(s => s.trim()).filter(Boolean);
             const issue = context.payload.issue;
-            let needs = 'false';
-            let num = '';
+            let needs = 'false'; let num = ''; let reason = 'no-issue-context';
             if (issue) {
               num = String(issue.number);
               const labels = (issue.labels || []).map(l => l.name);
-              if (labels.includes('agent:codex')) needs = 'true';
+              if (labels.includes('agent:codex')) { needs = 'true'; reason = 'labeled-issue-event'; } else { reason = 'issue-without-label'; }
             } else if (manualIssue) {
               num = manualIssue;
-              const simulatedLower = simulated.map(s => s.toLowerCase());
-              if (simulatedLower.includes('agent:codex')) needs = 'true';
-            }
+              const lowered = simulated.map(s => s.toLowerCase());
+              if (lowered.includes('agent:codex')) { needs = 'true'; reason = 'manual-dispatch-simulated-label'; } else { reason = 'manual-dispatch-missing-simulated-label'; }
+            } else if (manualIssueRaw && !manualIssue) { reason = 'invalid-manual-issue'; }
             core.setOutput('needs_codex_bootstrap', needs);
             core.setOutput('codex_issue', num);
-            core.info(`needs_codex_bootstrap=${needs} issue=${num}`);
+            core.setOutput('detection_reason', reason);
+            core.info(`needs_codex_bootstrap=${needs} issue=${num} reason=${reason}`);
       - name: Detection summary
         if: always()
         uses: actions/github-script@v7
         with:
           script: |
-            core.summary
-              .addHeading('Codex Detection Summary')
-              .addTable([[{data:'Issue',header:true},{data:'Needs Bootstrap',header:true}], ['${{ steps.detect.outputs.codex_issue }}' || '(none)', '${{ steps.detect.outputs.needs_codex_bootstrap }}']])
-              .write();
+            const tbl = [
+              [{data:'Issue',header:true},{data:'Needs Bootstrap',header:true},{data:'Reason',header:true}],
+              ['${{ steps.detect.outputs.codex_issue }}' || '(none)', '${{ steps.detect.outputs.needs_codex_bootstrap }}', '${{ steps.detect.outputs.detection_reason }}']
+            ];
+            core.summary.addHeading('Codex Detection Summary').addTable(tbl).write();
+      - name: No trigger note
+        if: steps.detect.outputs.needs_codex_bootstrap != 'true'
+        run: echo "No bootstrap triggered (reason=${{ steps.detect.outputs.detection_reason }})."
 
   codex_bootstrap:
     needs: detect
     if: needs.detect.outputs.needs_codex_bootstrap == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: write
+      pull-requests: write
     steps:
       - name: Checkout repository (required for local action)
         uses: actions/checkout@v4
@@ -75,3 +88,10 @@ jobs:
           pr_mode: auto
           net_retry_attempts: 2
           net_retry_delay_s: 3
+      - name: Upload bootstrap artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codex-bootstrap-${{ needs.detect.outputs.codex_issue || 'unknown' }}
+          path: codex-artifacts
+          if-no-files-found: ignore
