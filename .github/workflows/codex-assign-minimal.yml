@@ -54,7 +54,12 @@ jobs:
             } else if (manualIssue) {
               num = manualIssue;
               const lowered = simulated.map(s => s.toLowerCase());
-              if (lowered.includes('agent:codex')) { needs = 'true'; reason = 'manual-dispatch-simulated-label'; } else { reason = 'manual-dispatch-missing-simulated-label'; }
+              if (lowered.includes('agent:codex')) {
+                needs = 'true';
+                reason = 'manual-dispatch-simulated-label';
+              } else {
+                reason = 'manual-dispatch-missing-simulated-label';
+              }
             } else if (manualIssueRaw && !manualIssue) { reason = 'invalid-manual-issue'; }
             core.setOutput('needs_codex_bootstrap', needs);
             core.setOutput('codex_issue', num);
