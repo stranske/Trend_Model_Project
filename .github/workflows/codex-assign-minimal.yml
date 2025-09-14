@@ -39,7 +39,9 @@ jobs:
             if (manualIssueRaw && !manualIssue) { core.warning(`Ignoring non-numeric test_issue input: '${manualIssueRaw}'`); }
             const simulated = (inputs.simulate_label || '').split(',').map(s => s.trim()).filter(Boolean);
             const issue = context.payload.issue;
-            let needs = 'false'; let num = ''; let reason = 'no-issue-context';
+            let needs = 'false';
+            let num = '';
+            let reason = 'no-issue-context';
             if (issue) {
               num = String(issue.number);
               const labels = (issue.labels || []).map(l => l.name);
