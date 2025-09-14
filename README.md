@@ -1,10 +1,14 @@
 # Trend Model Project
 
+[![Codex Verification (Latest)](https://github.com/stranske/Trend_Model_Project/actions/workflows/verify-codex-bootstrap-matrix.yml/badge.svg?branch=phase-2-dev)](https://github.com/stranske/Trend_Model_Project/actions/workflows/verify-codex-bootstrap-matrix.yml) [![Codex Verification Guide](https://img.shields.io/badge/codex--verification-docs-blueviolet)](docs/codex-simulation.md)
+
 > **🚀 New User?** → **[Quick Start Guide](docs/quickstart.md)** — Get your first analysis running in under 10 minutes!
 
 This repository contains experiments and utilities for analyzing volatility-adjusted trend portfolios. The Jupyter notebooks demonstrate how to load hedge fund data, apply trend-following rules, and export the results.
 
 For a beginner-friendly overview, see [docs/UserGuide.md](docs/UserGuide.md).
+
+➡️ **Codex Bootstrap Simulation & Verification Guide:** See [docs/codex-simulation.md](docs/codex-simulation.md) for the hardened workflow design, simulation labels, forced-failure controls, and scenario matrix (T01–T15).
 
 ## Automated Autofix & Type Hygiene
 

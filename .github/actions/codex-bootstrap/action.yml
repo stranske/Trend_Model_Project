@@ -40,10 +40,22 @@ inputs:
     description: "Emit verbose diagnostic logging (true|false)"
     required: false
     default: "false"
+  force_branch_fail:
+    description: "(Test only) If true, force primary branch creation attempt to fail with synthetic 403 before trying fallback"
+    required: false
+    default: "false"
+  force_dual_fail:
+    description: "(Test only) If true, force both primary and fallback branch creation to fail"
+    required: false
+    default: "false"
   fail_on_dual_branch_failure:
     description: "Fail the action if both primary and fallback branch creation attempts fail (true|false)"
     required: false
     default: "true"
+  fail_on_invalid_command:
+    description: "If true, action fails when an invalid Codex command override is provided"
+    required: false
+    default: "false"
   rebootstrap_closed_pr:
     description: "If true and referenced PR is closed, create a fresh draft PR and update marker"
     required: false
@@ -127,6 +139,9 @@ runs:
         CODEX_SUPPRESS_ACTIVATE_INPUT: ${{ inputs.suppress_activate }}
         CODEX_PR_MODE: ${{ inputs.pr_mode }}
         CODEX_FAIL_ON_TOKEN_MISMATCH: ${{ inputs.fail_on_token_mismatch }}
+        CODEX_FORCE_BRANCH_FAIL: ${{ inputs.force_branch_fail }}
+        CODEX_FORCE_DUAL_FAIL: ${{ inputs.force_dual_fail }}
+        CODEX_FAIL_ON_INVALID_COMMAND: ${{ inputs.fail_on_invalid_command }}
       with:
         github-token: ${{ inputs.service_bot_pat != '' && inputs.service_bot_pat || github.token }}
         script: |
@@ -159,7 +174,10 @@ runs:
             let created = false;
             let firstErr;
             const debugMode = '${{ inputs.debug_mode }}' === 'true';
+            const forcePrimaryFail = /true/i.test(String(process.env.CODEX_FORCE_BRANCH_FAIL||''));
+            const forceDualFail = /true/i.test(String(process.env.CODEX_FORCE_DUAL_FAIL||''));
             try {
+              if (forcePrimaryFail) { throw Object.assign(new Error('Forced primary failure (test simulation)'), { status: 403 }); }
               await github.rest.git.createRef({ owner, repo, ref: `refs/heads/${branch}`, sha: baseSha });
               core.info(`Created branch ${branch} with primary token (${tokenSource}).`);
               created = true;
@@ -168,24 +186,35 @@ runs:
               const detail = e && e.response && e.response.data ? JSON.stringify(e.response.data) : '';
               core.warning(`Primary branch create failed (${tokenSource}) status=${e.status || '?'} msg=${e.message} detail=${detail}`);
               if (debugMode) core.info(`DEBUG primary-create-error-object: ${JSON.stringify({status: e.status, message: e.message, stack: e.stack})}`);
-              // Fallback only if PAT primary attempt and allowed
-              if (tokenSource === 'SERVICE_BOT_PAT' && allowFallback && process.env.GITHUB_TOKEN) {
-                core.info('Attempting branch create retry with GITHUB_TOKEN fallback (fetch API).');
-                try {
-                  const apiBaseUrl = process.env.GITHUB_API_URL || 'https://api.github.com';
-                  const resp = await fetch(`${apiBaseUrl}/repos/${owner}/${repo}/git/refs`, {
-                    method: 'POST',
-                    headers: {
-                      'Authorization': `Bearer ${process.env.GITHUB_TOKEN}`,
-                      'Accept': 'application/vnd.github+json',
-                      'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: baseSha })
-                  });
-                  if (resp.status === 201) {
-                    created = true; core.info(`Created branch ${branch} with fallback GITHUB_TOKEN.`);
-                  } else {
-                    core.warning(`Fallback branch create failed http_status=${resp.status} error=Unable to create branch. See debug logs for details.`);
+              // Multi-layer fallback only if PAT primary attempt and allowed
+              if (tokenSource === 'SERVICE_BOT_PAT' && allowFallback && !forceDualFail) {
+                const fallbackCandidates = [
+                  { env: 'GITHUB_TOKEN', value: process.env.GITHUB_TOKEN },
+                  { env: 'ACTIONS_DEFAULT_TOKEN', value: process.env.ACTIONS_DEFAULT_TOKEN }
+                ].filter(c => !!c.value);
+                for (const cand of fallbackCandidates) {
+                  if (forceDualFail) { core.warning('Forced dual failure active – skipping fallback success path.'); break; }
+                  if (created) break;
+                  core.info(`Attempting branch create retry with fallback ${cand.env} (fetch API).`);
+                  try {
+                    const resp = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/refs`, {
+                      method: 'POST',
+                      headers: {
+                        'Authorization': `Bearer ${cand.value}`,
+                        'Accept': 'application/vnd.github+json',
+                        'Content-Type': 'application/json'
+                      },
+                      body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: baseSha })
+                    });
+                    if (resp.status === 201) {
+                      created = true; fallbackUsed = true; tokenSource = cand.env; core.info(`Created branch ${branch} with fallback ${cand.env}.`);
+                    } else {
+                      let txt; try { txt = await resp.text(); } catch {}
+                      core.warning(`Fallback (${cand.env}) branch create failed http_status=${resp.status} body=${(txt||'').slice(0,400)}`);
+                    }
+                  } catch (e2) {
+                    const detail2 = e2 && e2.response && e2.response.data ? JSON.stringify(e2.response.data) : '';
+                    core.warning(`Fallback (${cand.env}) branch create exception status=${e2.status || '?'} msg=${e2.message} detail=${detail2}`);
                   }
                 }
               }
@@ -332,8 +361,12 @@ runs:
             'codex: review',
             'codex: docs'
           ];
+          const failOnInvalidCommand = /true/i.test(String(process.env.CODEX_FAIL_ON_INVALID_COMMAND||''));
+          const originalCmd = cmd;
+          let invalidCommand = false;
           if (!allowedCommands.some(c => c.toLowerCase() === cmd.toLowerCase())) {
-            core.warning('Unsafe Codex command; defaulting.');
+            invalidCommand = true;
+            core.warning(`Unsafe Codex command '${originalCmd}' – defaulting to 'codex: start'.`);
             cmd = 'codex: start';
           }
           await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: `${cmd}\n\nPlease create commits on this branch, run tests, and keep the PR updated.` });
@@ -343,11 +376,18 @@ runs:
           core.summary.addHeading('Codex Bootstrap').addTable([[{data:'Issue',header:true},{data:'PR',header:true},{data:'Branch',header:true},{data:'Reused',header:true},{data:'Suppressed',header:true},{data:'TokenSource',header:true},{data:'Author',header:true}], [String(issue_number), String(prNumber), branch, 'false', String(activationSuppressed), tokenSource, prAuthorLogin || '(unknown)']]).write();
           core.setOutput('codex_pr', String(prNumber));
           core.setOutput('codex_reused', 'false');
-          try { const fs = require('fs'); fs.mkdirSync('codex-artifacts', { recursive: true }); fs.writeFileSync('codex-artifacts/codex_bootstrap_summary.json', JSON.stringify({ reused:false, issue:issue_number, pr:prNumber, branch, base:baseBranch, assigned_issue:issueAssignOk, assigned_pr:prAssignOk, suppression:activationSuppressed, token_source: tokenSource, pr_author: prAuthorLogin, ts:new Date().toISOString() }, null, 2)); fs.writeFileSync('codex-artifacts/README.txt', 'Codex bootstrap artifacts.'); } catch(e){ core.warning('Failed to write artifact: '+e.message); }
-          console.log('CODEX_BOOTSTRAP_SUMMARY:' + JSON.stringify({ reused:false, issue:issue_number, pr:prNumber, branch, base:baseBranch, assigned_issue:issueAssignOk, assigned_pr:prAssignOk, suppression:activationSuppressed, token_source: tokenSource, pr_author: prAuthorLogin }));
+          try {
+            const fs = require('fs'); fs.mkdirSync('codex-artifacts', { recursive: true });
+            const artifactPayload = { reused:false, issue:issue_number, pr:prNumber, branch, base:baseBranch, assigned_issue:issueAssignOk, assigned_pr:prAssignOk, suppression:activationSuppressed, token_source: tokenSource, pr_author: prAuthorLogin, ts:new Date().toISOString(), fallback_used: fallbackUsed, command_original: originalCmd, command_final: cmd, invalid_command: invalidCommand };
+            fs.writeFileSync('codex-artifacts/codex_bootstrap_result.json', JSON.stringify(artifactPayload, null, 2)); fs.writeFileSync('codex-artifacts/README.txt', 'Codex bootstrap artifacts.');
+            console.log('CODEX_BOOTSTRAP_RESULT:' + JSON.stringify(artifactPayload));
+          } catch(e){ core.warning('Failed to write artifact: '+e.message); }
           const mismatch = usingPAT && prAuthorLogin === 'github-actions[bot]';
           if (mismatch) {
             const msg = `:warning: Token mismatch – SERVICE_BOT_PAT present but PR author is github-actions[bot].`;
             try { await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: msg }); } catch(e){ core.warning('Comment failed: '+e.message); }
             if (process.env.CODEX_FAIL_ON_TOKEN_MISMATCH) core.setFailed('Failing due to CODEX_FAIL_ON_TOKEN_MISMATCH and author mismatch.');
+          }
+          if (invalidCommand && failOnInvalidCommand) {
+            core.setFailed(`Failing due to invalid Codex command override: '${originalCmd}'.`);
           }
