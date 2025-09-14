@@ -649,9 +649,29 @@ def scenario_t15_corrupt_marker(ctx: dict) -> ScenarioResult:
     try:
         run(f"gh pr view {pr} --json body -q .body > pr_body.txt")
         orig = pathlib.Path("pr_body.txt").read_text()
-        corrupted = orig.replace("Codex", "CdX")[
-            : max(20, len(orig) // 2)
-        ]  # truncate to simulate damage
+        # Systematically corrupt marker: try to locate a JSON marker block and break its structure
+        import re
+        marker_pattern = re.compile(r"```json\n(.*?)\n```", re.DOTALL)
+        match = marker_pattern.search(orig)
+        if match:
+            marker_json = match.group(1)
+            try:
+                marker_obj = json.loads(marker_json)
+                # Corrupt a specific field, e.g., remove 'marker' or change its value
+                if "marker" in marker_obj:
+                    marker_obj["marker"] = "CORRUPTED"
+                else:
+                    # Remove a random key if 'marker' not present
+                    if marker_obj:
+                        marker_obj.pop(next(iter(marker_obj)))
+                corrupted_marker_json = json.dumps(marker_obj)
+                corrupted = orig[:match.start(1)] + corrupted_marker_json + orig[match.end(1):]
+            except Exception:
+                # If JSON parsing fails, just break the block
+                corrupted = orig[:match.start(1)] + "CORRUPTED_MARKER" + orig[match.end(1):]
+        else:
+            # If no marker found, fallback to previous heuristic
+            corrupted = orig.replace("Codex", "CdX")
         pathlib.Path("pr_body_corrupt.txt").write_text(corrupted)
         run(f"gh pr edit {pr} -F pr_body_corrupt.txt")
     except Exception as e:
