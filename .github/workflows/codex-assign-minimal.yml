@@ -79,6 +79,7 @@ jobs:
       - name: Checkout repository (required for local action)
         uses: actions/checkout@v4
       - name: Bootstrap Codex
+        id: bootstrap
         uses: ./.github/actions/codex-bootstrap
         with:
           issue: ${{ needs.detect.outputs.codex_issue }}
@@ -95,3 +96,35 @@ jobs:
           name: codex-bootstrap-${{ needs.detect.outputs.codex_issue || 'unknown' }}
           path: codex-artifacts
           if-no-files-found: ignore
+      - name: Bootstrap outputs summary
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = core.getInput('codex_pr') || process.env.CODex_PR || '';
+            core.summary
+              .addHeading('Codex Bootstrap Outputs')
+              .addTable([
+                [{data:'Output',header:true},{data:'Value',header:true}],
+                ['codex_pr', '${{ steps.bootstrap.outputs.codex_pr || '' }}'],
+                ['codex_reused', '${{ steps.bootstrap.outputs.codex_reused || '' }}'],
+                ['branch_created', '${{ steps.bootstrap.outputs.branch_created || '' }}']
+              ])
+              .write();
+      - name: Structured JSON summary
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            fs.mkdirSync('codex-artifacts', { recursive: true });
+            const summary = {
+              issue: '${{ needs.detect.outputs.codex_issue }}',
+              detection_reason: '${{ needs.detect.outputs.detection_reason }}',
+              codex_pr: '${{ steps.bootstrap.outputs.codex_pr || '' }}',
+              codex_reused: '${{ steps.bootstrap.outputs.codex_reused || '' }}',
+              branch_created: '${{ steps.bootstrap.outputs.branch_created || '' }}',
+              ts: new Date().toISOString()
+            };
+            fs.writeFileSync('codex-artifacts/codex_bootstrap_summary.json', JSON.stringify(summary, null, 2));
+            core.info('Wrote codex-artifacts/codex_bootstrap_summary.json');
