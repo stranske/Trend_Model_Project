@@ -54,7 +54,7 @@
 ## 4. Operational Notes
 - Always test create (T01) and idempotent reuse (T02) after any action.yml change.
 - Run dual failure (T11) before relaxing protections to ensure fail path clarity.
-- Keep artifact JSON (`codex_bootstrap_result.json`) as source of truth for outputs vs console logs.
+- Keep artifact JSON (`codex_bootstrap_summary.json`) as source of truth for outputs vs console logs.
 
 ## 5. Suggested Future Enhancements
 - (DONE) Structured JSON summary artifact (`codex_bootstrap_summary.json`).
