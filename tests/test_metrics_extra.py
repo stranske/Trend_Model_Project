@@ -98,3 +98,17 @@ def test_max_drawdown():
     assert isinstance(metrics.max_drawdown(df), pd.Series)
     empty = pd.Series([], dtype=float)
     assert np.isnan(metrics.max_drawdown(empty))
+
+
+def test_information_ratio_dataframe_defaults_mean_benchmark():
+    df = pd.DataFrame({"a": [0.1, 0.2], "b": [0.2, 0.1]})
+    res = metrics.information_ratio(df)
+    assert isinstance(res, pd.Series)
+    assert np.allclose(res, 0.0)
+
+
+def test_information_ratio_scalar_benchmark_series():
+    s = pd.Series([0.1, 0.2])
+    ir = metrics.information_ratio(s, benchmark=0.05)
+    expected = ((s - 0.05).mean() * 12) / ((s - 0.05).std(ddof=1) * np.sqrt(12))
+    assert np.isclose(ir, expected)
