@@ -1,0 +1,150 @@
+name: Codex Bootstrap Diagnostic
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: "(Optional) Issue number used to name diagnostic branch"
+        required: false
+      branch:
+        description: "Explicit branch name to test (overrides auto naming)"
+        required: false
+      attempt_branch_create:
+        description: "Set to true to attempt branch creation w/ fallback logic"
+        required: false
+        default: "false"
+      dry_run:
+        description: "If true, skip any mutating API calls (probe only)"
+        required: false
+        default: "false"
+
+concurrency:
+  group: codex-bootstrap-diagnostic-${{ github.event.inputs.issue || github.event.inputs.branch || 'none' }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write         # Needed if we actually create a branch
+  issues: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    name: Environment & Token Probe
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Token / Env Probe
+        id: probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Running Codex bootstrap diagnostics..."
+          ISSUE_INPUT="${{ github.event.inputs.issue }}"
+            BRANCH_INPUT="${{ github.event.inputs.branch }}"
+          DRY_RUN="${{ github.event.inputs.dry_run }}"
+          ATTEMPT_BRANCH_CREATE="${{ github.event.inputs.attempt_branch_create }}"
+          TS=$(date -u +%Y%m%d%H%M%S)
+          if [[ -n "$BRANCH_INPUT" ]]; then
+            TARGET_BRANCH="$BRANCH_INPUT"
+          elif [[ -n "$ISSUE_INPUT" ]]; then
+            TARGET_BRANCH="diagnostic/codex-issue-${ISSUE_INPUT}"
+          else
+            TARGET_BRANCH="diagnostic/codex-${TS}"
+          fi
+          echo "target_branch=$TARGET_BRANCH" >> "$GITHUB_OUTPUT"
+
+          has() { if [[ -n "${!1:-}" ]]; then echo present; else echo absent; fi; }
+          SBP_STATE=$(has SERVICE_BOT_PAT)
+          GT_STATE=$(has GITHUB_TOKEN)
+          ADT_STATE=$(has ACTIONS_DEFAULT_TOKEN)
+          echo "service_bot_pat=$SBP_STATE" >> "$GITHUB_OUTPUT"
+          echo "github_token=$GT_STATE" >> "$GITHUB_OUTPUT"
+          echo "actions_default_token=$ADT_STATE" >> "$GITHUB_OUTPUT"
+
+          echo "### Codex Bootstrap Diagnostic" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Item | Status |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|------|--------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| SERVICE_BOT_PAT | $SBP_STATE |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| GITHUB_TOKEN | $GT_STATE |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| ACTIONS_DEFAULT_TOKEN | $ADT_STATE |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| attempt_branch_create | $ATTEMPT_BRANCH_CREATE |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| dry_run | $DRY_RUN |" >> "$GITHUB_STEP_SUMMARY"
+
+          BASE_BRANCH=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)
+          echo "base_branch=$BASE_BRANCH" >> "$GITHUB_OUTPUT"
+          echo "| base_branch | $BASE_BRANCH |" >> "$GITHUB_STEP_SUMMARY"
+
+          BASE_SHA=$(gh api repos/${{ github.repository }}/git/ref/heads/$BASE_BRANCH -q .object.sha 2>/dev/null || echo '')
+          if [[ -n "$BASE_SHA" ]]; then
+            echo "base_sha=$BASE_SHA" >> "$GITHUB_OUTPUT"
+            echo "| base_sha | $(echo "$BASE_SHA" | cut -c1-12) |" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "base_sha_missing=true" >> "$GITHUB_OUTPUT"
+            echo "| base_sha | (unresolved) |" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Attempt Branch Create (PAT first, fallback tokens)
+        if: ${{ steps.probe.outputs.base_sha != '' && github.event.inputs.attempt_branch_create == 'true' }}
+        id: branch
+        shell: bash
+        env:
+          TARGET_BRANCH: ${{ steps.probe.outputs.target_branch }}
+          BASE_SHA: ${{ steps.probe.outputs.base_sha }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          echo "Testing branch create for $TARGET_BRANCH (dry_run=$DRY_RUN)"
+          # If branch already exists, record and stop
+          if git ls-remote --exit-code origin "refs/heads/${TARGET_BRANCH}" >/dev/null 2>&1; then
+            echo "already_exists=true" >> "$GITHUB_OUTPUT"
+            echo "Branch already exists." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if [[ "$DRY_RUN" == "true" ]]; then
+            echo "dry_run=true" >> "$GITHUB_OUTPUT"
+            echo "Skipping actual create (dry run)." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          api_create() {
+            local token_name="$1"; shift
+            local token_val="$1"; shift
+            if [[ -z "$token_val" ]]; then return 1; fi
+            echo "Attempt create with $token_name" >> "$GITHUB_STEP_SUMMARY"
+            local code
+            code=$(curl -s -o /tmp/create_resp.json -w '%{http_code}' -X POST \
+              -H "Authorization: token $token_val" \
+              -H 'Accept: application/vnd.github+json' \
+              https://api.github.com/repos/${{ github.repository }}/git/refs \
+              -d "{\"ref\":\"refs/heads/${TARGET_BRANCH}\",\"sha\":\"${BASE_SHA}\"}") || true
+            if [[ "$code" == "201" ]]; then
+              echo "created_by=$token_name" >> "$GITHUB_OUTPUT"
+              echo "Creation succeeded with $token_name" >> "$GITHUB_STEP_SUMMARY"
+              return 0
+            fi
+            echo "Creation failed with $token_name (http=$code)" >> "$GITHUB_STEP_SUMMARY"
+            return 1
+          }
+          # Order: SERVICE_BOT_PAT -> GITHUB_TOKEN -> ACTIONS_DEFAULT_TOKEN
+          api_create SERVICE_BOT_PAT "${SERVICE_BOT_PAT:-}" || \
+          api_create GITHUB_TOKEN "${GITHUB_TOKEN:-}" || \
+          api_create ACTIONS_DEFAULT_TOKEN "${ACTIONS_DEFAULT_TOKEN:-}" || true
+          # Final existence check
+          if git ls-remote --exit-code origin "refs/heads/${TARGET_BRANCH}" >/dev/null 2>&1; then
+            echo "created=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "created=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Diagnostic Summary
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const core = require('@actions/core');
+            const probe = { // collected probe outputs
+              target_branch: core.getInput('target_branch') || process.env.TARGET_BRANCH || '',
+            };
+            core.summary.addHeading('Codex Bootstrap Diagnostic – Complete')
+              .addQuote('See above sections for detailed probe and branch creation attempts.')
+              .write();
