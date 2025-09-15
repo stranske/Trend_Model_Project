@@ -86,7 +86,16 @@ jobs:
           echo "| base_branch | $BASE_BRANCH |" >> "$GITHUB_STEP_SUMMARY"
 
           # Resolve base SHA via git (no tokens required for local ref)
-          BASE_SHA=$(git rev-parse "origin/$BASE_BRANCH" 2>/dev/null || git rev-parse "$BASE_BRANCH" 2>/dev/null || echo '')
+          # Try to resolve base SHA from origin/$BASE_BRANCH first
+          BASE_SHA=$(git rev-parse "origin/$BASE_BRANCH" 2>/dev/null || echo '')
+          if [[ -z "$BASE_SHA" ]]; then
+            # Fallback: try local $BASE_BRANCH
+            BASE_SHA=$(git rev-parse "$BASE_BRANCH" 2>/dev/null || echo '')
+          fi
+          if [[ -z "$BASE_SHA" ]]; then
+            # Final fallback: unresolved
+            BASE_SHA=''
+          fi
           if [[ -n "$BASE_SHA" ]]; then
             echo "base_sha=$BASE_SHA" >> "$GITHUB_OUTPUT"
             echo "| base_sha | $(echo "$BASE_SHA" | cut -c1-12) |" >> "$GITHUB_STEP_SUMMARY"
