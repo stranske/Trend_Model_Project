@@ -71,11 +71,17 @@ jobs:
           echo "| attempt_branch_create | $ATTEMPT_BRANCH_CREATE |" >> "$GITHUB_STEP_SUMMARY"
           echo "| dry_run | $DRY_RUN |" >> "$GITHUB_STEP_SUMMARY"
 
-          BASE_BRANCH=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)
+          # Resolve base branch without requiring API access
+          BASE_BRANCH="${{ github.ref_name }}"
+          if [[ -z "$BASE_BRANCH" ]]; then
+            BASE_BRANCH=$(git remote show origin | sed -n 's/.*HEAD branch: //p' | tr -d '\n' || true)
+          fi
+          if [[ -z "$BASE_BRANCH" ]]; then BASE_BRANCH="main"; fi
           echo "base_branch=$BASE_BRANCH" >> "$GITHUB_OUTPUT"
           echo "| base_branch | $BASE_BRANCH |" >> "$GITHUB_STEP_SUMMARY"
 
-          BASE_SHA=$(gh api repos/${{ github.repository }}/git/ref/heads/$BASE_BRANCH -q .object.sha 2>/dev/null || echo '')
+          # Resolve base SHA via git (no tokens required for local ref)
+          BASE_SHA=$(git rev-parse "origin/$BASE_BRANCH" 2>/dev/null || git rev-parse "$BASE_BRANCH" 2>/dev/null || echo '')
           if [[ -n "$BASE_SHA" ]]; then
             echo "base_sha=$BASE_SHA" >> "$GITHUB_OUTPUT"
             echo "| base_sha | $(echo "$BASE_SHA" | cut -c1-12) |" >> "$GITHUB_STEP_SUMMARY"
@@ -95,6 +101,12 @@ jobs:
         run: |
           set -euo pipefail
           echo "Testing branch create for $TARGET_BRANCH (dry_run=$DRY_RUN)"
+          # If no tokens at all, do not attempt API calls; just report
+          if [[ -z "${SERVICE_BOT_PAT:-}" && -z "${GITHUB_TOKEN:-}" && -z "${ACTIONS_DEFAULT_TOKEN:-}" ]]; then
+            echo "no_tokens=true" >> "$GITHUB_OUTPUT"
+            echo "No tokens present; skipping API branch creation attempts." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           # If branch already exists, record and stop
           if git ls-remote --exit-code origin "refs/heads/${TARGET_BRANCH}" >/dev/null 2>&1; then
             echo "already_exists=true" >> "$GITHUB_OUTPUT"
