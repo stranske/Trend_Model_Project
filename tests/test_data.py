@@ -1,4 +1,5 @@
 import pandas as pd
+import pytest
 
 from trend_analysis import data as data_mod
 
@@ -51,6 +52,56 @@ def test_load_csv_null_dates(tmp_path):
     assert df is not None
 
 
+def test_load_csv_malformed_date_strings(tmp_path, caplog):
+    f = tmp_path / "malformed_dates.csv"
+    f.write_text("Date,A\nbad,1\n01/01/20,2")
+    with caplog.at_level("ERROR"):
+        result = data_mod.load_csv(str(f))
+    assert result is None
+    assert "malformed date" in caplog.text
+
+
+def test_load_csv_null_dates_all_filtered(tmp_path, monkeypatch):
+    f = tmp_path / "null_only.csv"
+    f.write_text("Date,A\n,1\n,2")
+
+    original_to_datetime = data_mod.pd.to_datetime
+
+    def fake_to_datetime(values, *args, **kwargs):
+        if kwargs.get("errors") == "coerce":
+            return original_to_datetime(values, *args, **kwargs)
+        raise ValueError("force fallback")
+
+    monkeypatch.setattr(data_mod.pd, "to_datetime", fake_to_datetime)
+    result = data_mod.load_csv(str(f))
+    assert result is None
+
+
+def test_load_csv_numeric_and_percent_coercion(tmp_path):
+    f = tmp_path / "coerce_numeric.csv"
+    f.write_text(
+        """Date,Value,Percent,Neg
+01/01/20,"1,234",50%,(100)
+01/02/20,"2,468",75%,(200)
+"""
+    )
+    df = data_mod.load_csv(str(f))
+    assert df is not None
+    assert df["Value"].tolist() == [1234.0, 2468.0]
+    assert df["Percent"].tolist() == [0.5, 0.75]
+    assert df["Neg"].tolist() == [-100.0, -200.0]
+
+
+def test_load_csv_warns_on_null_dates_without_format_error(tmp_path, caplog):
+    f = tmp_path / "null_warning.csv"
+    f.write_text("Date,A\n,1\n01/01/20,2")
+    with caplog.at_level("WARNING"):
+        df = data_mod.load_csv(str(f))
+    assert df is not None
+    assert df["Date"].isnull().sum() == 1
+    assert "Null values found" in caplog.text
+
+
 def test_identify_risk_free_fund_basic():
     dates = pd.date_range("2020-01-31", periods=3, freq="ME")
     df = pd.DataFrame(
@@ -78,6 +129,12 @@ def test_ensure_datetime_missing_column():
     df = pd.DataFrame({"X": [1]})
     out = data_mod.ensure_datetime(df)
     assert "X" in out.columns and "Date" not in out.columns
+
+
+def test_ensure_datetime_raises_on_malformed():
+    df = pd.DataFrame({"Date": ["not-a-date", "01/01/20"]})
+    with pytest.raises(ValueError, match="Malformed dates"):
+        data_mod.ensure_datetime(df)
 
 
 def test_load_csv_permission_error(tmp_path):
