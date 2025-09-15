@@ -41,7 +41,7 @@ jobs:
           set -euo pipefail
           echo "Running Codex bootstrap diagnostics..."
           ISSUE_INPUT="${{ github.event.inputs.issue }}"
-            BRANCH_INPUT="${{ github.event.inputs.branch }}"
+          BRANCH_INPUT="${{ github.event.inputs.branch }}"
           DRY_RUN="${{ github.event.inputs.dry_run }}"
           ATTEMPT_BRANCH_CREATE="${{ github.event.inputs.attempt_branch_create }}"
           TS=$(date -u +%Y%m%d%H%M%S)
@@ -71,11 +71,31 @@ jobs:
           echo "| attempt_branch_create | $ATTEMPT_BRANCH_CREATE |" >> "$GITHUB_STEP_SUMMARY"
           echo "| dry_run | $DRY_RUN |" >> "$GITHUB_STEP_SUMMARY"
 
-          BASE_BRANCH=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)
+          # Resolve base branch without requiring API access
+          BASE_BRANCH="${{ github.ref_name }}"
+          if [[ -z "$BASE_BRANCH" ]]; then
+            # Try to resolve default branch locally first
+            BASE_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' | tr -d '\n' || true)
+            # If still empty, fall back to network request
+            if [[ -z "$BASE_BRANCH" ]]; then
+              BASE_BRANCH=$(git remote show origin | sed -n 's/.*HEAD branch: //p' | tr -d '\n' || true)
+            fi
+          fi
+          if [[ -z "$BASE_BRANCH" ]]; then BASE_BRANCH="main"; fi
           echo "base_branch=$BASE_BRANCH" >> "$GITHUB_OUTPUT"
           echo "| base_branch | $BASE_BRANCH |" >> "$GITHUB_STEP_SUMMARY"
 
-          BASE_SHA=$(gh api repos/${{ github.repository }}/git/ref/heads/$BASE_BRANCH -q .object.sha 2>/dev/null || echo '')
+          # Resolve base SHA via git (no tokens required for local ref)
+          # Try to resolve base SHA from origin/$BASE_BRANCH first
+          BASE_SHA=$(git rev-parse "origin/$BASE_BRANCH" 2>/dev/null || echo '')
+          if [[ -z "$BASE_SHA" ]]; then
+            # Fallback: try local $BASE_BRANCH
+            BASE_SHA=$(git rev-parse "$BASE_BRANCH" 2>/dev/null || echo '')
+          fi
+          if [[ -z "$BASE_SHA" ]]; then
+            # Final fallback: unresolved
+            BASE_SHA=''
+          fi
           if [[ -n "$BASE_SHA" ]]; then
             echo "base_sha=$BASE_SHA" >> "$GITHUB_OUTPUT"
             echo "| base_sha | $(echo "$BASE_SHA" | cut -c1-12) |" >> "$GITHUB_STEP_SUMMARY"
@@ -95,6 +115,12 @@ jobs:
         run: |
           set -euo pipefail
           echo "Testing branch create for $TARGET_BRANCH (dry_run=$DRY_RUN)"
+          # If no tokens at all, do not attempt API calls; just report
+          if [[ -z "${SERVICE_BOT_PAT:-}" && -z "${GITHUB_TOKEN:-}" && -z "${ACTIONS_DEFAULT_TOKEN:-}" ]]; then
+            echo "no_tokens=true" >> "$GITHUB_OUTPUT"
+            echo "No tokens present; skipping API branch creation attempts." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           # If branch already exists, record and stop
           if git ls-remote --exit-code origin "refs/heads/${TARGET_BRANCH}" >/dev/null 2>&1; then
             echo "already_exists=true" >> "$GITHUB_OUTPUT"
