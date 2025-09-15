@@ -141,10 +141,8 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const core = require('@actions/core');
-            const probe = { // collected probe outputs
-              target_branch: core.getInput('target_branch') || process.env.TARGET_BRANCH || '',
-            };
-            core.summary.addHeading('Codex Bootstrap Diagnostic – Complete')
+            // 'core' is provided by the runtime; do not redeclare it
+            core.summary
+              .addHeading('Codex Bootstrap Diagnostic – Complete')
               .addQuote('See above sections for detailed probe and branch creation attempts.')
               .write();
