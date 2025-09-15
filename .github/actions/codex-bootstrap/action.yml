@@ -97,9 +97,10 @@ runs:
         while [ $i -le $attempts ]; do
           echo "[network-preflight] Attempt $i/$attempts ..."
           if [ -n "$token" ]; then
-            if curl -sSf -H "Authorization: Bearer $token" https://api.github.com/rate_limit > /dev/null 2>&1; then
-              echo "[network-preflight] OK"; break
-            fi
+            # Try Bearer first, then legacy 'token' header
+            if curl -sSf -H "Authorization: Bearer $token" https://api.github.com/rate_limit > /dev/null 2>&1 \
+              || curl -sSf -H "Authorization: token $token" https://api.github.com/rate_limit > /dev/null 2>&1; then
+              echo "[network-preflight] OK"; break; fi
           else
             if curl -sSf https://api.github.com/rate_limit > /dev/null 2>&1; then
               echo "[network-preflight] OK"; break
@@ -186,35 +187,76 @@ runs:
               const detail = e && e.response && e.response.data ? JSON.stringify(e.response.data) : '';
               core.warning(`Primary branch create failed (${tokenSource}) status=${e.status || '?'} msg=${e.message} detail=${detail}`);
               if (debugMode) core.info(`DEBUG primary-create-error-object: ${JSON.stringify({status: e.status, message: e.message, stack: e.stack})}`);
-              // Multi-layer fallback only if PAT primary attempt and allowed
-              if (tokenSource === 'SERVICE_BOT_PAT' && allowFallback && !forceDualFail) {
+              // Multi-layer retry path
+              // 1) If primary was SERVICE_BOT_PAT, optionally retry using low-level fetch with PAT itself (some rulesets block Octokit flow but allow token header variants)
+              if (tokenSource === 'SERVICE_BOT_PAT' && !forceDualFail) {
+                const primaryToken = process.env.SERVICE_BOT_PAT;
+                const headerVariants = primaryToken ? [
+                  { style: 'Bearer', header: `Bearer ${primaryToken}` },
+                  { style: 'token',  header: `token ${primaryToken}` }
+                ] : [];
+                for (const hv of headerVariants) {
+                  if (created) break;
+                  try {
+                    core.info(`Retrying branch create with SERVICE_BOT_PAT via fetch (Authorization: ${hv.style}).`);
+                    const resp = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/refs`, {
+                      method: 'POST',
+                      headers: {
+                        'Authorization': hv.header,
+                        'Accept': 'application/vnd.github+json',
+                        'Content-Type': 'application/json',
+                        'User-Agent': 'codex-bootstrap-action'
+                      },
+                      body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: baseSha })
+                    });
+                    if (resp.status === 201) {
+                      created = true; fallbackUsed = true; // treat as fallback path
+                      core.info(`Created branch ${branch} with SERVICE_BOT_PAT using ${hv.style} header.`);
+                      break;
+                    } else {
+                      let txt; try { txt = await resp.text(); } catch {}
+                      core.warning(`SERVICE_BOT_PAT fetch (${hv.style}) failed http_status=${resp.status} body=${(txt||'').slice(0,400)}`);
+                    }
+                  } catch (e2) {
+                    core.warning(`SERVICE_BOT_PAT fetch (${hv.style}) exception msg=${e2.message}`);
+                  }
+                }
+              }
+              // 2) Fallback to alternate tokens if allowed
+              if (!created && tokenSource === 'SERVICE_BOT_PAT' && allowFallback && !forceDualFail) {
                 const fallbackCandidates = [
                   { env: 'GITHUB_TOKEN', value: process.env.GITHUB_TOKEN },
                   { env: 'ACTIONS_DEFAULT_TOKEN', value: process.env.ACTIONS_DEFAULT_TOKEN }
                 ].filter(c => !!c.value);
                 for (const cand of fallbackCandidates) {
-                  if (forceDualFail) { core.warning('Forced dual failure active – skipping fallback success path.'); break; }
                   if (created) break;
                   core.info(`Attempting branch create retry with fallback ${cand.env} (fetch API).`);
-                  try {
-                    const resp = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/refs`, {
-                      method: 'POST',
-                      headers: {
-                        'Authorization': `Bearer ${cand.value}`,
-                        'Accept': 'application/vnd.github+json',
-                        'Content-Type': 'application/json'
-                      },
-                      body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: baseSha })
-                    });
-                    if (resp.status === 201) {
-                      created = true; fallbackUsed = true; tokenSource = cand.env; core.info(`Created branch ${branch} with fallback ${cand.env}.`);
-                    } else {
-                      let txt; try { txt = await resp.text(); } catch {}
-                      core.warning(`Fallback (${cand.env}) branch create failed http_status=${resp.status} body=${(txt||'').slice(0,400)}`);
+                  for (const hv of [
+                    { style: 'Bearer', header: `Bearer ${cand.value}` },
+                    { style: 'token',  header: `token ${cand.value}` }
+                  ]) {
+                    if (created) break;
+                    try {
+                      const resp = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/refs`, {
+                        method: 'POST',
+                        headers: {
+                          'Authorization': hv.header,
+                          'Accept': 'application/vnd.github+json',
+                          'Content-Type': 'application/json',
+                          'User-Agent': 'codex-bootstrap-action'
+                        },
+                        body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: baseSha })
+                      });
+                      if (resp.status === 201) {
+                        created = true; fallbackUsed = true; tokenSource = cand.env; core.info(`Created branch ${branch} with fallback ${cand.env} using ${hv.style} header.`);
+                        break;
+                      } else {
+                        let txt; try { txt = await resp.text(); } catch {}
+                        core.warning(`Fallback (${cand.env}) ${hv.style} failed http_status=${resp.status} body=${(txt||'').slice(0,400)}`);
+                      }
+                    } catch (e3) {
+                      core.warning(`Fallback (${cand.env}) ${hv.style} exception msg=${e3.message}`);
                     }
-                  } catch (e2) {
-                    const detail2 = e2 && e2.response && e2.response.data ? JSON.stringify(e2.response.data) : '';
-                    core.warning(`Fallback (${cand.env}) branch create exception status=${e2.status || '?'} msg=${e2.message} detail=${detail2}`);
                   }
                 }
               }
