@@ -142,9 +142,13 @@ jobs:
         with:
           script: |
             const core = require('@actions/core');
-            const probe = { // collected probe outputs
+            // Collect probe outputs from previous steps
+            const probe = {
               target_branch: core.getInput('target_branch') || process.env.TARGET_BRANCH || '',
+              base_sha: core.getInput('base_sha') || process.env.BASE_SHA || '',
+              created: core.getInput('created') || process.env.CREATED || '',
             };
             core.summary.addHeading('Codex Bootstrap Diagnostic – Complete')
               .addQuote('See above sections for detailed probe and branch creation attempts.')
+              .addCodeBlock(JSON.stringify(probe, null, 2), 'json')
               .write();
