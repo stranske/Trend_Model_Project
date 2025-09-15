@@ -41,7 +41,7 @@ jobs:
           set -euo pipefail
           echo "Running Codex bootstrap diagnostics..."
           ISSUE_INPUT="${{ github.event.inputs.issue }}"
-          BRANCH_INPUT="${{ github.event.inputs.branch }}"
+            BRANCH_INPUT="${{ github.event.inputs.branch }}"
           DRY_RUN="${{ github.event.inputs.dry_run }}"
           ATTEMPT_BRANCH_CREATE="${{ github.event.inputs.attempt_branch_create }}"
           TS=$(date -u +%Y%m%d%H%M%S)
@@ -141,14 +141,8 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const core = require('@actions/core');
-            // Collect probe outputs from previous steps
-            const probe = {
-              target_branch: core.getInput('target_branch') || process.env.TARGET_BRANCH || '',
-              base_sha: core.getInput('base_sha') || process.env.BASE_SHA || '',
-              created: core.getInput('created') || process.env.CREATED || '',
-            };
-            core.summary.addHeading('Codex Bootstrap Diagnostic – Complete')
+            // 'core' is provided by the runtime; do not redeclare it
+            core.summary
+              .addHeading('Codex Bootstrap Diagnostic – Complete')
               .addQuote('See above sections for detailed probe and branch creation attempts.')
-              .addCodeBlock(JSON.stringify(probe, null, 2), 'json')
               .write();
