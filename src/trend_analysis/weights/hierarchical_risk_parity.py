@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import numpy as np
 import pandas as pd
 from scipy.cluster.hierarchy import leaves_list, linkage
@@ -7,9 +8,17 @@ from scipy.spatial.distance import squareform
 
 from ..plugins import WeightEngine, weight_engine_registry
 
+logger = logging.getLogger(__name__)
+
 
 def _cov_to_corr(cov: pd.DataFrame) -> pd.DataFrame:
     std: np.ndarray = np.sqrt(np.diag(cov))
+    
+    # Check for zero standard deviations
+    if np.any(std == 0):
+        logger.warning("Zero standard deviations detected in correlation calculation")
+        std = np.maximum(std, np.max(std) * 1e-8)
+    
     # Construct the outer product as a DataFrame to preserve types for mypy
     denom = pd.DataFrame(np.outer(std, std), index=cov.index, columns=cov.columns)
     corr_df: pd.DataFrame = cov / denom
@@ -19,43 +28,91 @@ def _cov_to_corr(cov: pd.DataFrame) -> pd.DataFrame:
 
 @weight_engine_registry.register("hrp")
 class HierarchicalRiskParity(WeightEngine):
-    """Hierarchical risk parity weighting."""
+    """Hierarchical risk parity weighting with enhanced robustness."""
 
     def weight(self, cov: pd.DataFrame) -> pd.Series:
         if cov.empty:
             return pd.Series(dtype=float)
         if not cov.index.equals(cov.columns):
             raise ValueError("Covariance matrix must be square with matching labels")
-        corr = _cov_to_corr(cov)
-        # Compute distance matrix as numpy array for typing clarity
-        dist_arr: np.ndarray = np.sqrt(0.5 * (1.0 - corr.values))
-        condensed: np.ndarray = squareform(dist_arr, checks=False)
-        link = linkage(condensed, method="single")
-        sort_ix = corr.index[leaves_list(link)]
-        cov_sorted = cov.loc[sort_ix, sort_ix]
-        w = pd.Series(1.0, index=sort_ix)
-        clusters = [list(cov_sorted.index)]
-        while clusters:
-            new_clusters: list[list[str]] = []
-            for cluster in clusters:
-                if len(cluster) <= 1:
-                    continue
-                split = len(cluster) // 2
-                left = cluster[:split]
-                right = cluster[split:]
-                cov_left = cov_sorted.loc[left, left]
-                cov_right = cov_sorted.loc[right, right]
-                inv_left = 1 / np.diag(cov_left)
-                inv_left /= inv_left.sum()
-                inv_right = 1 / np.diag(cov_right)
-                inv_right /= inv_right.sum()
-                var_left = inv_left @ cov_left.values @ inv_left
-                var_right = inv_right @ cov_right.values @ inv_right
-                alpha = 1 - var_left / (var_left + var_right)
-                w[left] *= alpha
-                w[right] *= 1 - alpha
-                new_clusters.extend([left, right])
-            clusters = new_clusters
-        w = w.reindex(cov.index).fillna(0.0)
-        w /= w.sum()
-        return w
+        
+        # Check condition number
+        condition_num = np.linalg.cond(cov.values)
+        logger.debug(f"HRP input covariance condition number: {condition_num:.2e}")
+        
+        try:
+            corr = _cov_to_corr(cov)
+            
+            # Check for invalid correlations
+            if np.any(~np.isfinite(corr.values)):
+                logger.warning("Non-finite correlations detected in HRP calculation")
+                # Fall back to diagonal correlation matrix
+                corr = pd.DataFrame(np.eye(len(cov)), index=cov.index, columns=cov.columns)
+            
+            # Compute distance matrix as numpy array for typing clarity
+            dist_arr: np.ndarray = np.sqrt(0.5 * (1.0 - corr.values))
+            
+            # Ensure distance matrix is valid
+            if np.any(~np.isfinite(dist_arr)) or np.any(dist_arr < 0):
+                logger.warning("Invalid distance matrix in HRP, using equal weights")
+                n = len(cov)
+                return pd.Series(np.ones(n) / n, index=cov.index)
+            
+            condensed: np.ndarray = squareform(dist_arr, checks=False)
+            link = linkage(condensed, method="single")
+            sort_ix = corr.index[leaves_list(link)]
+            cov_sorted = cov.loc[sort_ix, sort_ix]
+            w = pd.Series(1.0, index=sort_ix)
+            clusters = [list(cov_sorted.index)]
+            
+            while clusters:
+                new_clusters: list[list[str]] = []
+                for cluster in clusters:
+                    if len(cluster) <= 1:
+                        continue
+                    split = len(cluster) // 2
+                    left = cluster[:split]
+                    right = cluster[split:]
+                    cov_left = cov_sorted.loc[left, left]
+                    cov_right = cov_sorted.loc[right, right]
+                    
+                    # Robust computation of cluster variances
+                    try:
+                        inv_left = 1 / np.diag(cov_left)
+                        inv_left /= inv_left.sum()
+                        inv_right = 1 / np.diag(cov_right)
+                        inv_right /= inv_right.sum()
+                        var_left = inv_left @ cov_left.values @ inv_left
+                        var_right = inv_right @ cov_right.values @ inv_right
+                        
+                        # Avoid division by zero
+                        total_var = var_left + var_right
+                        if total_var == 0:
+                            alpha = 0.5
+                        else:
+                            alpha = 1 - var_left / total_var
+                    except (ZeroDivisionError, np.linalg.LinAlgError):
+                        logger.warning(f"Numerical issues in HRP cluster allocation, using equal split")
+                        alpha = 0.5
+                    
+                    w[left] *= alpha
+                    w[right] *= 1 - alpha
+                    new_clusters.extend([left, right])
+                clusters = new_clusters
+            
+            w = w.reindex(cov.index).fillna(0.0)
+            
+            # Final normalization and validation
+            if w.sum() == 0:
+                logger.warning("Zero sum weights in HRP, using equal weights")
+                n = len(cov)
+                return pd.Series(np.ones(n) / n, index=cov.index)
+            
+            w /= w.sum()
+            logger.debug("Successfully computed HRP weights")
+            return w
+            
+        except Exception as e:
+            logger.error(f"HRP computation failed: {e}, falling back to equal weights")
+            n = len(cov)
+            return pd.Series(np.ones(n) / n, index=cov.index)

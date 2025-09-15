@@ -101,6 +101,7 @@ def _load_weight_engines() -> None:  # pragma: no cover - tiny import shim
         equal_risk_contribution as _equal_risk_contribution,  # noqa: F401
         hierarchical_risk_parity as _hierarchical_risk_parity,  # noqa: F401
         risk_parity as _risk_parity,  # noqa: F401
+        robust_weighting as _robust_weighting,  # noqa: F401
     )
 
     # Expose in module globals for __all__ export
@@ -109,6 +110,7 @@ def _load_weight_engines() -> None:  # pragma: no cover - tiny import shim
             "_equal_risk_contribution": _equal_risk_contribution,
             "_hierarchical_risk_parity": _hierarchical_risk_parity,
             "_risk_parity": _risk_parity,
+            "_robust_weighting": _robust_weighting,
         }
     )
 
@@ -146,4 +148,5 @@ __all__ = [
     "_equal_risk_contribution",
     "_hierarchical_risk_parity",  # ensures HRP is exported
     "_risk_parity",
+    "_robust_weighting",
 ]
