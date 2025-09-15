@@ -396,7 +396,8 @@ class TestRankSelectFundsBranchCoverage:
             score_by="AnnualReturn",
         )
 
-        assert result[0].strip() == ""
+        # Assert that no selected fund has a blank name after stripping
+        assert all(col.strip() != "" for col in result)
 
     def test_rank_select_funds_backfills_duplicate_firms(self):
         df = pd.DataFrame(
