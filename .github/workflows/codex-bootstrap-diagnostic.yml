@@ -74,7 +74,12 @@ jobs:
           # Resolve base branch without requiring API access
           BASE_BRANCH="${{ github.ref_name }}"
           if [[ -z "$BASE_BRANCH" ]]; then
-            BASE_BRANCH=$(git remote show origin | sed -n 's/.*HEAD branch: //p' | tr -d '\n' || true)
+            # Try to resolve default branch locally first
+            BASE_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' | tr -d '\n' || true)
+            # If still empty, fall back to network request
+            if [[ -z "$BASE_BRANCH" ]]; then
+              BASE_BRANCH=$(git remote show origin | sed -n 's/.*HEAD branch: //p' | tr -d '\n' || true)
+            fi
           fi
           if [[ -z "$BASE_BRANCH" ]]; then BASE_BRANCH="main"; fi
           echo "base_branch=$BASE_BRANCH" >> "$GITHUB_OUTPUT"
