@@ -13,13 +13,18 @@ from ..plugins import WeightEngine, weight_engine_registry
 logger = logging.getLogger(__name__)
 
 
-def ledoit_wolf_shrinkage(cov: np.ndarray) -> tuple[np.ndarray, float]:
+def ledoit_wolf_shrinkage(cov: np.ndarray, n_samples: int = None) -> tuple[np.ndarray, float]:
     """Apply Ledoit-Wolf shrinkage to covariance matrix.
+    
+    Args:
+        cov: Covariance matrix to shrink
+        n_samples: Number of observations used to estimate covariance.
+                  If None, uses a heuristic based on matrix properties.
     
     Returns:
         tuple: (shrunk_cov, shrinkage_intensity)
     """
-    n, p = cov.shape[0], cov.shape[1]
+    p = cov.shape[0]  # Number of assets/variables
     
     # Sample covariance
     sample_cov = cov.copy()
@@ -28,8 +33,14 @@ def ledoit_wolf_shrinkage(cov: np.ndarray) -> tuple[np.ndarray, float]:
     mu = np.trace(sample_cov) / p
     target = mu * np.eye(p)
     
-    # Shrinkage intensity (simplified Ledoit-Wolf formula)
-    # In practice, this would use more sophisticated estimation
+    # Estimate sample size if not provided
+    if n_samples is None:
+        # Heuristic: estimate based on condition number and matrix properties
+        # This is an approximation when true sample size is unknown
+        n_samples = max(p + 1, int(p * 2))  # Conservative estimate
+    
+    # Shrinkage intensity (simplified Ledoit-Wolf approach)
+    # When we don't have access to raw data, use matrix-based approximation
     trace_diff = np.trace((sample_cov - target) @ (sample_cov - target))
     trace_sample = np.trace(sample_cov @ sample_cov)
     
@@ -37,7 +48,8 @@ def ledoit_wolf_shrinkage(cov: np.ndarray) -> tuple[np.ndarray, float]:
     if trace_sample == 0:
         intensity = 1.0
     else:
-        intensity = min(1.0, trace_diff / (n * trace_sample))
+        # Use estimated sample size rather than matrix dimension
+        intensity = min(1.0, trace_diff / (n_samples * trace_sample))
     
     # Apply shrinkage
     shrunk_cov = (1 - intensity) * sample_cov + intensity * target
@@ -45,13 +57,18 @@ def ledoit_wolf_shrinkage(cov: np.ndarray) -> tuple[np.ndarray, float]:
     return shrunk_cov, intensity
 
 
-def oas_shrinkage(cov: np.ndarray) -> tuple[np.ndarray, float]:
+def oas_shrinkage(cov: np.ndarray, n_samples: int = None) -> tuple[np.ndarray, float]:
     """Apply Oracle Approximating Shrinkage (OAS) to covariance matrix.
+    
+    Args:
+        cov: Covariance matrix to shrink
+        n_samples: Number of observations used to estimate covariance.
+                  If None, uses a heuristic based on matrix properties.
     
     Returns:
         tuple: (shrunk_cov, shrinkage_intensity)
     """
-    n, p = cov.shape[0], cov.shape[1]
+    p = cov.shape[0]  # Number of assets/variables
     
     # Sample covariance
     sample_cov = cov.copy()
@@ -59,6 +76,12 @@ def oas_shrinkage(cov: np.ndarray) -> tuple[np.ndarray, float]:
     # Target: diagonal matrix with average variance
     mu = np.trace(sample_cov) / p
     target = mu * np.eye(p)
+    
+    # Estimate sample size if not provided
+    if n_samples is None:
+        # Heuristic: estimate based on matrix properties
+        # This is an approximation when true sample size is unknown
+        n_samples = max(p + 1, int(p * 2))  # Conservative estimate
     
     # OAS shrinkage intensity
     trace_sample = np.trace(sample_cov @ sample_cov)
@@ -67,8 +90,8 @@ def oas_shrinkage(cov: np.ndarray) -> tuple[np.ndarray, float]:
     if trace_sample == 0:
         intensity = 1.0
     else:
-        # Simplified OAS formula
-        intensity = min(1.0, (trace_target) / (n * trace_sample))
+        # Simplified OAS formula using estimated sample size
+        intensity = min(1.0, (trace_target) / (n_samples * trace_sample))
     
     # Apply shrinkage
     shrunk_cov = (1 - intensity) * sample_cov + intensity * target

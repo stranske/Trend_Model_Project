@@ -85,11 +85,8 @@ class TestRobustMeanVariance:
             safe_mode="hrp"
         )
         
-        with pytest.warns(None) as warnings:
-            weights = engine.weight(cov)
-        
-        # Should have logged a warning about switching to safe mode
-        # (In actual implementation, this would be logged)
+        # The engine should handle ill-conditioned matrices gracefully
+        weights = engine.weight(cov)
         
         # Basic sanity checks for HRP fallback
         assert np.isclose(weights.sum(), 1.0)
@@ -215,8 +212,8 @@ class TestRobustRiskParity:
             diagonal_loading_factor=1e-3
         )
         
-        with pytest.warns(None) as warnings:
-            weights = engine.weight(cov)
+        # The engine should handle ill-conditioned matrices gracefully
+        weights = engine.weight(cov)
         
         assert np.isclose(weights.sum(), 1.0)
         assert (weights >= 0).all()
