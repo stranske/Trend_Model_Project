@@ -33,10 +33,10 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
 
-      - name: Bootstrap Codex with local action
+      - name: Try local composite Codex bootstrap
         id: local_action
         continue-on-error: true
-        uses: ./.github/actions/codex-bootstrap-lite
+        uses: ./.github/actions/codex-bootstrap
         with:
           issue: ${{ github.event.issue.number }}
           service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
