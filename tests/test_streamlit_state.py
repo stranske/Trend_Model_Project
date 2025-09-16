@@ -92,7 +92,7 @@ class TestSessionState:
     def test_get_upload_summary(self):
         """Test getting upload summary."""
         # Create test data with date index
-        dates = pd.date_range("2023-01-01", periods=10, freq="M")
+        dates = pd.date_range("2023-01-01", periods=10, freq="ME")
         df = pd.DataFrame({"Fund1": range(10), "Fund2": range(10)}, index=dates)
         meta = {"frequency": "monthly"}
 

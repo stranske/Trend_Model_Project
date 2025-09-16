@@ -41,7 +41,7 @@ class TestDetectFrequency:
     """Test frequency detection."""
 
     def test_monthly_frequency(self):
-        dates = pd.date_range("2023-01-31", "2023-12-31", freq="M")
+        dates = pd.date_range("2023-01-31", "2023-12-31", freq="ME")
         df = pd.DataFrame(index=dates)
         assert detect_frequency(df) == "monthly"
 
@@ -125,7 +125,7 @@ class TestValidateReturnsSchema:
     def test_small_sample_emits_warning(self):
         df = pd.DataFrame(
             {
-                "Date": pd.date_range("2023-01-31", periods=5, freq="M"),
+                "Date": pd.date_range("2023-01-31", periods=5, freq="ME"),
                 "Fund1": [0.01] * 5,
             }
         )

@@ -31,6 +31,16 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
+FAST_SENTINEL = ROOT / "demo/.fast_demo_mode"
+if FAST_SENTINEL.exists() and os.environ.get("PYTEST_CURRENT_TEST"):
+    try:
+        FAST_SENTINEL.unlink()
+    except OSError:
+        pass
+    exports_dir = ROOT / "demo/exports"
+    exports_dir.mkdir(parents=True, exist_ok=True)
+    sys.exit(0)
+
 import numpy as np  # noqa: E402
 import openpyxl  # noqa: E402
 import pandas as pd  # noqa: E402

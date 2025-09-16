@@ -74,7 +74,9 @@ def main(argv: list[str] | None = None) -> int:
                         cast(str, split.get("out_start")),
                         cast(str, split.get("out_end")),
                     )
-                    data["summary"] = pd.DataFrame()
+                    data["summary"] = export.summary_frame_from_result(
+                        result.details
+                    )
                     export.export_to_excel(
                         data,
                         str(Path(out_dir) / f"{filename}.xlsx"),
