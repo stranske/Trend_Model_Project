@@ -31,7 +31,9 @@ def test_rank_select_funds_normalises_blank_and_duplicate_columns():
     names = set(result)
     assert "Alpha One" in names
     assert any(name.startswith("alpha one") for name in names)
-    assert "Unnamed_5" in names  # empty header receives deterministic name
+    unnamed_idx = list(df.columns).index("")
+    expected_unnamed = f"Unnamed_{unnamed_idx}"
+    assert expected_unnamed in names  # empty header receives deterministic name
 
 
 def test_rank_select_funds_limit_one_per_firm_backfills_duplicates():
