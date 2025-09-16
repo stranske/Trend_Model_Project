@@ -165,7 +165,11 @@ runs:
         path="agents/codex-${ISSUE_NUM}.md"
         api_base="https://api.github.com/repos/${OWNER}/${REPO}/contents/${path}"
         body_base64=$(printf "<!-- bootstrap for codex on issue #%s -->\n" "$ISSUE_NUM" | base64 -w0)
-        sha=$(curl -sfS -H "Authorization: Bearer ${BOOTSTRAP_TOKEN}" "${api_base}?ref=${BRANCH_NAME}" | jq -r '.sha' 2>/dev/null || true)
+        sha=$(curl -sfS -H "Authorization: Bearer ${BOOTSTRAP_TOKEN}" "${api_base}?ref=${BRANCH_NAME}" | jq -r '.sha')
+        jq_status=$?
+        if [ $jq_status -ne 0 ]; then
+          echo "Warning: Failed to parse .sha from API response for marker file (jq exit code $jq_status)" >&2
+        fi
         if [ -n "$sha" ] && [ "$sha" != "null" ]; then
           payload=$(jq -n --arg msg "chore(codex): update marker for #${ISSUE_NUM}" --arg content "$body_base64" --arg branch "$BRANCH_NAME" --arg sha "$sha" '{message:$msg, content:$content, branch:$branch, sha:$sha}')
         else
