@@ -1,0 +1,261 @@
+name: "Codex Bootstrap (concise)"
+description: "Create a new branch and draft PR from an issue, then post a Codex command. Uses PAT if provided, else GITHUB_TOKEN."
+
+inputs:
+  issue:
+    description: "Issue number to bootstrap from"
+    required: true
+  service_bot_pat:
+    description: "Optional classic PAT with repo scope for branch/PR creation"
+    required: false
+  allow_fallback:
+    description: "Allow fallback to GITHUB_TOKEN when PAT is missing"
+    default: "true"
+    required: false
+  codex_command:
+    description: "Command to post to the PR to trigger Codex"
+    default: "codex: start"
+    required: false
+  base_branch:
+    description: "Base branch to open PR against (defaults to current checkout)"
+    required: false
+  debug_mode:
+    description: "Enable verbose logging"
+    default: "false"
+    required: false
+
+outputs:
+  pr_number:
+    description: "Opened or reused PR number"
+    value: ${{ steps.pr_out.outputs.pr_number }}
+  pr_url:
+    description: "Opened or reused PR URL"
+    value: ${{ steps.pr_out.outputs.pr_url }}
+  branch_name:
+    description: "Created branch name"
+    value: ${{ steps.branch_out.outputs.branch_name }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Preflight and token selection
+      id: preflight
+      shell: bash
+      env:
+        INPUT_PAT: ${{ inputs.service_bot_pat }}
+        INPUT_ALLOW_FALLBACK: ${{ inputs.allow_fallback }}
+        GH_TOKEN_DEFAULT: ${{ github.token }}
+        DEBUG_MODE: ${{ inputs.debug_mode }}
+      run: |
+        set -euo pipefail
+        issue="${{ inputs.issue }}"
+        [[ -n "$issue" ]] || { echo "issue input is required" >&2; exit 2; }
+
+        token=""
+        if [ -n "${INPUT_PAT:-}" ]; then
+          token="$INPUT_PAT"
+          src="SERVICE_BOT_PAT"
+        elif [ "${INPUT_ALLOW_FALLBACK:-true}" = "true" ]; then
+          token="$GH_TOKEN_DEFAULT"
+          src="GITHUB_TOKEN"
+        else
+          echo "SERVICE_BOT_PAT missing and fallback disabled" >&2
+          exit 86
+        fi
+
+        if ! curl -fsS -H "Authorization: Bearer ${token}" https://api.github.com/rate_limit >/dev/null; then
+          if ! curl -fsS -H "Authorization: token ${token}" https://api.github.com/rate_limit >/dev/null; then
+            echo "Auth probe failed for selected token source ${src}" >&2
+            exit 1
+          fi
+        fi
+
+        repo_full="${{ github.repository }}"
+        owner="${repo_full%%/*}"
+        repo="${repo_full##*/}"
+
+        base_branch_input="${{ inputs.base_branch }}"
+        if [ -n "$base_branch_input" ]; then
+          base_branch="$base_branch_input"
+        else
+          base_branch="${{ github.ref_name }}"
+        fi
+
+        api="https://api.github.com/repos/${owner}/${repo}"
+        head_sha=$(curl -fsS -H "Authorization: Bearer ${token}" "${api}/git/ref/heads/${base_branch}" | jq -r '.object.sha' || true)
+        if [ -z "$head_sha" ] || [ "$head_sha" = "null" ]; then
+          default_branch=$(curl -fsS -H "Authorization: Bearer ${token}" "${api}" | jq -r '.default_branch')
+          head_sha=$(curl -fsS -H "Authorization: Bearer ${token}" "${api}/git/ref/heads/${default_branch}" | jq -r '.object.sha')
+          base_branch="$default_branch"
+        fi
+        if [ -z "$head_sha" ] || [ "$head_sha" = "null" ]; then
+          echo "Failed to resolve base branch head sha" >&2
+          exit 3
+        fi
+
+        run_id="${{ github.run_id }}"
+        branch="agents/codex-issue-${issue}-${run_id}"
+
+        {
+          echo "TOKEN_SRC=${src}"
+          echo "BOOTSTRAP_TOKEN=${token}"
+          echo "OWNER=${owner}"
+          echo "REPO=${repo}"
+          echo "BASE_BRANCH=${base_branch}"
+          echo "BASE_SHA=${head_sha}"
+          echo "ISSUE_NUM=${issue}"
+          echo "BRANCH_NAME=${branch}"
+        } >> "$GITHUB_ENV"
+
+        if [ "${DEBUG_MODE}" = "true" ]; then
+          echo "owner/repo=${owner}/${repo} base=${base_branch} sha=${head_sha} branch=${branch} token=${src}"
+        fi
+
+    - name: Create branch (git ref)
+      id: create_branch
+      shell: bash
+      env:
+        OWNER: ${{ env.OWNER }}
+        REPO: ${{ env.REPO }}
+        BASE_SHA: ${{ env.BASE_SHA }}
+        BRANCH_NAME: ${{ env.BRANCH_NAME }}
+        BOOTSTRAP_TOKEN: ${{ env.BOOTSTRAP_TOKEN }}
+      run: |
+        set -euo pipefail
+        api="https://api.github.com/repos/${OWNER}/${REPO}/git/refs"
+        payload=$(jq -n --arg ref "refs/heads/${BRANCH_NAME}" --arg sha "$BASE_SHA" '{ref: $ref, sha: $sha}')
+        status=$(curl -s -o /tmp/create_ref.json -w "%{http_code}" -X POST -H "Authorization: Bearer ${BOOTSTRAP_TOKEN}" -H 'Content-Type: application/json' "$api" -d "$payload" || true)
+        if [ "$status" -eq 422 ]; then
+          echo "Branch already exists (422) – continuing."
+          echo "BRANCH_CREATED=false" >> "$GITHUB_ENV"
+        elif [ "$status" -eq 201 ]; then
+          echo "Branch created (201)."
+          echo "BRANCH_CREATED=true" >> "$GITHUB_ENV"
+        else
+          status2=$(curl -s -o /tmp/create_ref2.json -w "%{http_code}" -X POST -H "Authorization: token ${BOOTSTRAP_TOKEN}" -H 'Content-Type: application/json' "$api" -d "$payload" || true)
+          if [ "$status2" -eq 422 ]; then
+            echo "Branch already exists (422 legacy) – continuing."
+            echo "BRANCH_CREATED=false" >> "$GITHUB_ENV"
+          elif [ "$status2" -eq 201 ]; then
+            echo "Branch created (201 legacy)."
+            echo "BRANCH_CREATED=true" >> "$GITHUB_ENV"
+          else
+            echo "Failed to create branch: HTTP $status / $status2" >&2
+            echo "Response1:" >&2; sed -n '1,200p' /tmp/create_ref.json >&2 || true
+            echo "Response2:" >&2; sed -n '1,200p' /tmp/create_ref2.json >&2 || true
+            exit 10
+          fi
+        fi
+
+    - name: Ensure marker commit on branch
+      id: marker
+      shell: bash
+      env:
+        OWNER: ${{ env.OWNER }}
+        REPO: ${{ env.REPO }}
+        BOOTSTRAP_TOKEN: ${{ env.BOOTSTRAP_TOKEN }}
+        BRANCH_NAME: ${{ env.BRANCH_NAME }}
+        ISSUE_NUM: ${{ env.ISSUE_NUM }}
+      run: |
+        set -euo pipefail
+        path="agents/codex-${ISSUE_NUM}.md"
+        api_base="https://api.github.com/repos/${OWNER}/${REPO}/contents/${path}"
+        body_base64=$(printf "<!-- bootstrap for codex on issue #%s -->\n" "$ISSUE_NUM" | base64 -w0)
+        sha=$(curl -sfS -H "Authorization: Bearer ${BOOTSTRAP_TOKEN}" "${api_base}?ref=${BRANCH_NAME}" | jq -r '.sha' 2>/dev/null || true)
+        if [ -n "$sha" ] && [ "$sha" != "null" ]; then
+          payload=$(jq -n --arg msg "chore(codex): update marker for #${ISSUE_NUM}" --arg content "$body_base64" --arg branch "$BRANCH_NAME" --arg sha "$sha" '{message:$msg, content:$content, branch:$branch, sha:$sha}')
+        else
+          payload=$(jq -n --arg msg "chore(codex): bootstrap marker for #${ISSUE_NUM}" --arg content "$body_base64" --arg branch "$BRANCH_NAME" '{message:$msg, content:$content, branch:$branch}')
+        fi
+        status=$(curl -s -o /tmp/put_content.json -w "%{http_code}" -X PUT -H "Authorization: Bearer ${BOOTSTRAP_TOKEN}" -H 'Content-Type: application/json' "$api_base" -d "$payload" || true)
+        if [ "$status" -ge 200 ] && [ "$status" -lt 300 ]; then
+          echo "Marker file ensured on branch."
+        else
+          echo "Failed to create/update marker file (HTTP $status). Proceeding anyway to attempt PR creation." >&2
+          sed -n '1,200p' /tmp/put_content.json >&2 || true
+        fi
+
+    - name: Open or reuse draft PR
+      id: open_pr
+      shell: bash
+      env:
+        OWNER: ${{ env.OWNER }}
+        REPO: ${{ env.REPO }}
+        BOOTSTRAP_TOKEN: ${{ env.BOOTSTRAP_TOKEN }}
+        BRANCH_NAME: ${{ env.BRANCH_NAME }}
+        BASE_BRANCH: ${{ env.BASE_BRANCH }}
+        ISSUE_NUM: ${{ env.ISSUE_NUM }}
+      run: |
+        set -euo pipefail
+        api="https://api.github.com/repos/${OWNER}/${REPO}"
+        title=$(curl -fsS -H "Authorization: Bearer ${BOOTSTRAP_TOKEN}" "$api/issues/${ISSUE_NUM}" | jq -r '.title // "(no title)"')
+        body=$(curl -fsS -H "Authorization: Bearer ${BOOTSTRAP_TOKEN}" "$api/issues/${ISSUE_NUM}" | jq -r '.body // "(no body provided)"')
+        header="### Source Issue #${ISSUE_NUM}: ${title}"
+        pr_body=$(jq -n --arg h "$header" --arg b "$body" '$h + "\n\n---\n" + $b + "\n\n---\n\nThis draft PR was auto-created to engage Codex on the task above. All edits should occur on this branch."')
+        existing=$(curl -fsS -H "Authorization: Bearer ${BOOTSTRAP_TOKEN}" "$api/pulls?state=open&head=${OWNER}:${BRANCH_NAME}")
+        pr_number=$(echo "$existing" | jq -r '.[0].number // empty')
+        pr_url=$(echo "$existing" | jq -r '.[0].html_url // empty')
+        if [ -z "$pr_number" ]; then
+          payload=$(jq -n --arg title "Codex bootstrap for #${ISSUE_NUM}" --arg head "$BRANCH_NAME" --arg base "$BASE_BRANCH" --argjson draft true --arg body "$pr_body" '{title:$title, head:$head, base:$base, draft:$draft, body:$body}')
+          status=$(curl -s -o /tmp/create_pr.json -w "%{http_code}" -X POST -H "Authorization: Bearer ${BOOTSTRAP_TOKEN}" -H 'Content-Type: application/json' "$api/pulls" -d "$payload" || true)
+          if [ "$status" -ge 200 ] && [ "$status" -lt 300 ]; then
+            pr_number=$(jq -r '.number' /tmp/create_pr.json)
+            pr_url=$(jq -r '.html_url' /tmp/create_pr.json)
+            echo "PR created: #$pr_number"
+          else
+            echo "Failed to create PR (HTTP $status)" >&2
+            sed -n '1,200p' /tmp/create_pr.json >&2 || true
+            exit 11
+          fi
+        else
+          echo "Reusing existing PR #$pr_number"
+          has_header=$(echo "$existing" | jq -r '.[0].body | contains("'"$header"'")')
+          if [ "$has_header" != "true" ]; then
+            payload=$(jq -n --arg body "$pr_body" '{body:$body}')
+            curl -fsS -X PATCH -H "Authorization: Bearer ${BOOTSTRAP_TOKEN}" -H 'Content-Type: application/json' "$api/pulls/$pr_number" -d "$payload" >/dev/null || true
+          fi
+        fi
+        {
+          echo "PR_NUMBER=$pr_number"
+          echo "PR_URL=$pr_url"
+        } >> "$GITHUB_ENV"
+        {
+          echo "CODEX_PR=$pr_number"
+          echo "CODEX_REUSED=$( [ -z "$existing" ] && echo false || echo true )"
+        } >> "$GITHUB_ENV"
+
+    - name: Label and post Codex command
+      id: codex_comment
+      shell: bash
+      env:
+        OWNER: ${{ env.OWNER }}
+        REPO: ${{ env.REPO }}
+        BOOTSTRAP_TOKEN: ${{ env.BOOTSTRAP_TOKEN }}
+        PR_NUMBER: ${{ env.PR_NUMBER }}
+        ISSUE_NUM: ${{ env.ISSUE_NUM }}
+        CODEX_CMD: ${{ inputs.codex_command }}
+      run: |
+        set -euo pipefail
+        api="https://api.github.com/repos/${OWNER}/${REPO}"
+        curl -fsS -X POST -H "Authorization: Bearer ${BOOTSTRAP_TOKEN}" -H 'Content-Type: application/json' \
+          "$api/issues/${PR_NUMBER}/labels" -d '{"labels":["agent:codex"]}' >/dev/null || true
+        safe_cmd=$(printf "%s" "$CODEX_CMD" | tr -d '\r' )
+        payload=$(jq -n --arg body "$safe_cmd" '{body:$body}')
+        curl -fsS -X POST -H "Authorization: Bearer ${BOOTSTRAP_TOKEN}" -H 'Content-Type: application/json' \
+          "$api/issues/${PR_NUMBER}/comments" -d "$payload" >/dev/null
+        link_payload=$(jq -n --arg body "Opened draft PR #${PR_NUMBER} to engage Codex. Track work there." '{body:$body}')
+        curl -fsS -X POST -H "Authorization: Bearer ${BOOTSTRAP_TOKEN}" -H 'Content-Type: application/json' \
+          "$api/issues/${ISSUE_NUM}/comments" -d "$link_payload" >/dev/null || true
+
+    - name: branch_out
+      id: branch_out
+      shell: bash
+      run: |
+        echo "branch_name=${BRANCH_NAME}" >> "$GITHUB_OUTPUT"
+
+    - name: pr_out
+      id: pr_out
+      shell: bash
+      run: |
+        echo "pr_number=${PR_NUMBER}" >> "$GITHUB_OUTPUT"
+        echo "pr_url=${PR_URL}" >> "$GITHUB_OUTPUT"
