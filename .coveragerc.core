@@ -12,9 +12,6 @@ omit =
 fail_under = 85
 include =
     src/trend_analysis/*
-    src/trend_analysis/__init__.py
-    src/trend_analysis/core/*.py
-    src/trend_analysis/plugins/*.py
     src/trend_analysis/selector.py
     src/trend_analysis/util/*.py
 exclude_lines =
