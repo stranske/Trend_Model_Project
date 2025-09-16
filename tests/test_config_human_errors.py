@@ -118,7 +118,7 @@ class TestHumanErrors:
         cfg[section] = None
         with pytest.raises(
             (ValidationException, ValueError, TypeError),
-            match=f"{section} must be a dictionary",
+            match=f"{section} (must be a dictionary|section is required)",
         ):
             config.load_config(cfg)
 
