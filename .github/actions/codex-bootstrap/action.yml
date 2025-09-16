@@ -210,7 +210,7 @@ runs:
                       body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: baseSha })
                     });
                     if (resp.status === 201) {
-                      created = true; fallbackUsed = true; // treat as fallback path
+                      created = true; fallbackUsed = true; // header variant retry with SERVICE_BOT_PAT, not token fallback
                       core.info(`Created branch ${branch} with SERVICE_BOT_PAT using ${hv.style} header.`);
                       break;
                     } else {
