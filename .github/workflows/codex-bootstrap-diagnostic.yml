@@ -69,7 +69,7 @@ jobs:
           set -euo pipefail
           echo "Running Codex bootstrap diagnostics..."
           ISSUE_INPUT="${{ github.event.inputs.issue }}"
-            BRANCH_INPUT="${{ github.event.inputs.branch }}"
+          BRANCH_INPUT="${{ github.event.inputs.branch }}"
           DRY_RUN="${{ github.event.inputs.dry_run }}"
           ATTEMPT_BRANCH_CREATE="${{ github.event.inputs.attempt_branch_create }}"
           TS=$(date -u +%Y%m%d%H%M%S)
