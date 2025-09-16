@@ -2,10 +2,14 @@ import json
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
+import pytest
 import pandas as pd
 
 from trend_analysis import export
+from trend_analysis.export import bundle as bundle_mod
 from trend_analysis.export.bundle import export_bundle
 from trend_analysis.util.hash import sha256_config, sha256_file, sha256_text
 
@@ -20,10 +24,15 @@ def _write_input(tmp_path: Path) -> Path:
 class DummyRun:
     portfolio: pd.Series
     config: dict
-    seed: int
-    input_path: Path
+    seed: int | None = None
+    input_path: object | None = None
+    benchmark: pd.Series | None = None
+    weights: pd.DataFrame | None = None
+    summary_override: dict | None = None
 
     def summary(self):
+        if self.summary_override is not None:
+            return self.summary_override
         return {"total_return": float(self.portfolio.sum())}
 
 
@@ -121,6 +130,89 @@ def test_export_bundle_empty_portfolio(tmp_path):
         # Placeholder charts should still be created
         assert "charts/equity_curve.png" in names
         assert "charts/drawdown.png" in names
+
+
+def test_export_bundle_optional_outputs(tmp_path):
+    """Optional run attributes should produce additional bundle artifacts."""
+
+    portfolio = pd.Series(
+        [0.1, 0.2], index=pd.date_range("2024-01-31", periods=2, freq="ME")
+    )
+    benchmark = pd.Series(
+        [0.05, 0.07], index=pd.date_range("2024-01-31", periods=2, freq="ME")
+    )
+    weights = pd.DataFrame({"fund_a": [0.6, 0.4], "fund_b": [0.4, 0.6]})
+
+    run = DummyRun(
+        portfolio=portfolio,
+        config={"foo": "bar"},
+        seed=None,
+        input_path=object(),  # Triggers TypeError branch for Path conversion
+        benchmark=benchmark,
+        weights=weights,
+    )
+
+    out = tmp_path / "bundle_optional.zip"
+    export_bundle(run, out)
+
+    with zipfile.ZipFile(out) as z:
+        names = set(z.namelist())
+        assert {"results/benchmark.csv", "results/weights.csv"}.issubset(names)
+        meta = json.load(z.open("run_meta.json"))
+
+    assert meta["seed"] is None
+    assert meta["input_sha256"] is None
+    outputs = meta["outputs"]
+    assert outputs["results/benchmark.csv"]
+    assert outputs["results/weights.csv"]
+
+
+def test_export_bundle_summary_default_when_not_callable(tmp_path):
+    """Fallback summary should use total return when attribute is not callable."""
+
+    portfolio = pd.Series(
+        [0.1, -0.05, 0.03],
+        index=pd.date_range("2023-01-31", periods=3, freq="ME"),
+    )
+    run = SimpleNamespace(
+        portfolio=portfolio,
+        config={"foo": 1},
+        seed=7,
+        input_path=_write_input(tmp_path),
+        summary={"should": "ignore"},
+    )
+
+    original_to_excel = pd.DataFrame.to_excel
+    written: list[pd.DataFrame] = []
+
+    def spy(self: pd.DataFrame, excel_writer, *args, **kwargs):
+        written.append(self.copy())
+        return original_to_excel(self, excel_writer, *args, **kwargs)
+
+    with patch("pandas.DataFrame.to_excel", new=spy):
+        export_bundle(run, tmp_path / "bundle_fallback.zip")
+
+    assert written, "Expected summary DataFrame to be written"
+    df_written = written[-1]
+    assert pytest.approx(df_written.loc[0, "total_return"]) == float(portfolio.sum())
+
+
+def test_export_bundle_requires_portfolio(tmp_path):
+    """A portfolio attribute is mandatory for bundle creation."""
+
+    run = SimpleNamespace(config={}, seed=0, input_path=None)
+    with pytest.raises(ValueError, match="portfolio"):
+        export_bundle(run, tmp_path / "bundle_missing.zip")
+
+
+def test_git_hash_fallback():
+    """_git_hash should return a sentinel when git metadata is unavailable."""
+
+    with patch(
+        "trend_analysis.export.bundle.subprocess.check_output",
+        side_effect=FileNotFoundError,
+    ):
+        assert bundle_mod._git_hash() == "unknown"
 
 
 def test_export_data_all_formats_content(tmp_path):
