@@ -41,31 +41,40 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const {owner, repo} = context.repo;
-            const {data} = await github.rest.repos.get({owner, repo});
-            core.setOutput('default', data.default_branch || 'main');
-
-      - name: Create branch and bootstrap marker (fallback)
-        if: ${{ steps.local_action.outcome == 'failure' }}
-        id: mk
-        env:
-          ISSUE: ${{ github.event.issue.number }}
-        run: |
-          set -euo pipefail
-          BR=agents/codex-issue-${ISSUE}-${GITHUB_RUN_ID}
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -B "$BR"
-          mkdir -p agents
-          printf "<!-- bootstrap for codex on issue #%s -->\n" "$ISSUE" > "agents/codex-${ISSUE}.md"
-          git add "agents/codex-${ISSUE}.md"
-          git commit -m "chore(codex): bootstrap PR for issue #${ISSUE}" || echo "No changes to commit"
-          git push -u origin "$BR" --force-with-lease
-          echo "branch=$BR" >> "$GITHUB_OUTPUT"
-
-      - name: Open or reuse draft PR (fallback)
-        if: ${{ steps.local_action.outcome == 'failure' }}
-        id: pr
+            const inputs = context.payload.inputs || {};
+            const manualIssueRaw = (inputs.test_issue || '').trim();
+            const manualIssue = manualIssueRaw && /^(\d+)$/.test(manualIssueRaw) ? manualIssueRaw : '';
+            if (manualIssueRaw && !manualIssue) { core.warning(`Ignoring non-numeric test_issue input: '${manualIssueRaw}'`); }
+            const simulated = (inputs.simulate_label || '').split(',').map(s => s.trim()).filter(Boolean);
+            const issue = context.payload.issue;
+            let needs = 'false'; let num = ''; let reason = 'no-issue-context';
+            let labels = [];
+            const allowFallbackOverride = (inputs.allow_fallback || '').trim();
+            const codexCommand = (inputs.codex_command || '').trim();
+            if (issue) {
+              num = String(issue.number);
+              labels = (issue.labels || []).map(l => l.name);
+              const lower = labels.map(l => String(l||'').toLowerCase());
+              if (lower.includes('agent:codex') || lower.includes('agents:codex')) { needs = 'true'; reason = 'labeled-issue-event'; } else { reason = 'issue-without-label'; }
+            } else if (manualIssue) {
+              num = manualIssue;
+              const lowered = simulated.map(s => s.toLowerCase());
+              if (lowered.includes('agent:codex') || lowered.includes('agents:codex')) { needs = 'true'; reason = 'manual-dispatch-simulated-label'; } else { reason = 'manual-dispatch-missing-simulated-label'; }
+            } else if (manualIssueRaw && !manualIssue) { reason = 'invalid-manual-issue'; }
+            const lowerAll = labels.map(l => l.toLowerCase()).concat(simulated.map(s=>s.toLowerCase()));
+            function has(tag){ return lowerAll.includes(tag); }
+            core.setOutput('sim_force_branch_fail', has('codex-sim:primary-fail') ? 'true':'false');
+            core.setOutput('sim_force_dual_fail', has('codex-sim:dual-fail') ? 'true':'false');
+            core.setOutput('sim_manual_mode', has('codex-sim:manual') ? 'true':'false');
+            core.setOutput('sim_suppressed', has('codex-sim:suppress') ? 'true':'false');
+            if (allowFallbackOverride === 'true' || allowFallbackOverride === 'false') core.setOutput('allow_fallback_override', allowFallbackOverride); else core.setOutput('allow_fallback_override','');
+            if (codexCommand) core.setOutput('codex_command', codexCommand); else core.setOutput('codex_command','');
+            core.setOutput('needs_codex_bootstrap', needs);
+            core.setOutput('codex_issue', num);
+            core.setOutput('detection_reason', reason);
+            core.info(`needs_codex_bootstrap=${needs} issue=${num} reason=${reason}`);
+      - name: Detection summary
+        if: always()
         uses: actions/github-script@v7
         env:
           BRANCH: ${{ steps.mk.outputs.branch }}
@@ -92,14 +101,20 @@ jobs:
         env:
           PR: ${{ steps.pr.outputs.number }}
         with:
-          script: |
-            const {owner, repo} = context.repo;
-            const prNumber = Number(process.env.PR);
-            await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels: ['agent:codex'] });
-
-      - name: Post Codex command as service user (fallback preferred)
-        if: ${{ steps.local_action.outcome == 'failure' && secrets.SERVICE_BOT_PAT != '' }}
-        uses: actions/github-script@v7
+          issue: ${{ needs.detect.outputs.codex_issue }}
+          service_bot_pat: ${{ secrets.SERVICE_BOT_PAT || '' }}
+          allow_fallback: ${{ needs.detect.outputs.allow_fallback_override != '' && needs.detect.outputs.allow_fallback_override || vars.CODEX_ALLOW_FALLBACK || 'true' }}
+          codex_command: "${{ needs.detect.outputs.codex_command != '' && needs.detect.outputs.codex_command || '@codex start' }}"
+          pr_mode: "${{ needs.detect.outputs.sim_manual_mode == 'true' && 'manual' || 'auto' }}"
+          suppress_activate: "${{ needs.detect.outputs.sim_suppressed }}"
+          force_branch_fail: "${{ needs.detect.outputs.sim_force_branch_fail }}"
+          force_dual_fail: "${{ needs.detect.outputs.sim_force_dual_fail }}"
+          fail_on_invalid_command: true
+          net_retry_attempts: 2
+          net_retry_delay_s: 3
+      - name: Upload bootstrap artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
           github-token: ${{ secrets.SERVICE_BOT_PAT }}
           script: |
