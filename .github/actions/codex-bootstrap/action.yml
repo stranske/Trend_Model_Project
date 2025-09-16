@@ -256,8 +256,21 @@ runs:
         # Add agent:codex label to the PR (PRs are issues in API)
         curl -fsS -X POST -H "Authorization: Bearer ${BOOTSTRAP_TOKEN}" -H 'Content-Type: application/json' \
           "$api/issues/${PR_NUMBER}/labels" -d '{"labels":["agent:codex"]}' >/dev/null || true
-        # Post the Codex command as a comment on the PR
+        # Validate Codex command against allowed list
+        allowed_cmds=("codex: start" "codex: test" "codex: review" "codex: plan" "codex: update" "codex: close")
         safe_cmd=$(printf "%s" "$CODEX_CMD" | tr -d '\r' )
+        is_valid=false
+        for cmd in "${allowed_cmds[@]}"; do
+          if [ "$safe_cmd" = "$cmd" ]; then
+            is_valid=true
+            break
+          fi
+        done
+        if [ "$is_valid" != "true" ]; then
+          echo "Error: Codex command '$safe_cmd' is not allowed. Allowed commands are: ${allowed_cmds[*]}"
+          exit 1
+        fi
+        # Post the Codex command as a comment on the PR
         payload=$(jq -n --arg body "$safe_cmd" '{body:$body}')
         curl -fsS -X POST -H "Authorization: Bearer ${BOOTSTRAP_TOKEN}" -H 'Content-Type: application/json' \
           "$api/issues/${PR_NUMBER}/comments" -d "$payload" >/dev/null
