@@ -80,6 +80,9 @@ runs:
   using: "composite"
   steps:
     - name: Network preflight (optional retry)
+      env:
+        # Expose the workflow's token to this bash step for curl checks
+        GITHUB_TOKEN: ${{ github.token }}
       shell: bash
       run: |
         attempts=${{ inputs.net_retry_attempts }}
@@ -136,6 +139,8 @@ runs:
       uses: actions/github-script@v7
       env:
         SERVICE_BOT_PAT: ${{ inputs.service_bot_pat }}
+        # Ensure fallback paths and diagnostics can access the default token
+        GITHUB_TOKEN: ${{ github.token }}
         CODEX_COMMAND: ${{ inputs.codex_command }}
         CODEX_SUPPRESS_ACTIVATE_INPUT: ${{ inputs.suppress_activate }}
         CODEX_PR_MODE: ${{ inputs.pr_mode }}
