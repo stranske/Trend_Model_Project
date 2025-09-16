@@ -9,6 +9,14 @@ on:
         description: "Manually test with a specific issue number (optional)"
         required: false
         default: ""
+      post_codex_comment:
+        description: "Auto-post '@codex start' as the actor (true/false)"
+        required: false
+        default: "false"
+      pr_mode:
+        description: "create | invite (invite = human opens the PR)"
+        required: false
+        default: "invite"
 
 permissions:
   contents: write
@@ -75,6 +83,8 @@ jobs:
           base_branch: ''
           draft: 'false'
           auto_ready: 'true'
+          post_codex_comment: ${{ inputs.post_codex_comment || 'false' }}
+          pr_mode: ${{ inputs.pr_mode || 'invite' }}
 
       - name: Debug composite outputs
         if: ${{ steps.local_action.outcome == 'success' }}
@@ -99,8 +109,35 @@ jobs:
           git push origin "$BR"
           echo "branch=$BR" >> "$GITHUB_OUTPUT"
 
+      - name: Invite human to open PR (fallback)
+        if: ${{ steps.local_action.outcome == 'failure' && inputs.pr_mode == 'invite' }}
+        uses: actions/github-script@v7
+        env:
+          BRANCH: ${{ steps.mk.outputs.branch }}
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const issue_number = (context.payload.issue && context.payload.issue.number) || Number(context.payload.inputs && context.payload.inputs.test_issue);
+            const base = "${{ steps.def.outputs.default }}";
+            const branch = process.env.BRANCH;
+            // Replicate issue for suggested PR body
+            let issueTitle = '';
+            let issueBody = '';
+            try { const { data: is } = await github.rest.issues.get({ owner, repo, issue_number }); issueTitle = is.title || ''; issueBody = is.body || ''; } catch {}
+            const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue_number}`;
+            const header = `### Source Issue #${issue_number}: ${issueTitle}`;
+            const quoted = (issueBody || '').split('\n').map(l => `> ${l}`).join('\n');
+            const suggestion = `${header}\n\nSource: ${issueUrl}\n\n${quoted}\n\n—\n(After opening the PR, comment with \`@codex start\`.)`;
+            const compareUrl = `https://github.com/${owner}/${repo}/compare/${base}...${branch}?expand=1`;
+            await github.rest.issues.createComment({ owner, repo, issue_number, body: `Branch \`${branch}\` created from \`${base}\`.\n\nPlease open the PR as the author so Codex can work on it:\n\n- Compare link: ${compareUrl}\n- Suggested title: \`Codex bootstrap for #${issue_number}\`\n- Suggested body (copy/paste):\n\n\n${'```markdown'}\n${suggestion}\n${'```'}` });
+
+      - name: Skip PR creation when inviting
+        if: ${{ steps.local_action.outcome == 'failure' && inputs.pr_mode == 'invite' }}
+        run: |
+          echo "Invite mode: skipping PR creation; waiting for human author."
+
       - name: Open or reuse PR
-        if: ${{ steps.local_action.outcome == 'failure' }}
+        if: ${{ steps.local_action.outcome == 'failure' && inputs.pr_mode != 'invite' }}
         id: pr
         uses: actions/github-script@v7
         env:
@@ -155,7 +192,7 @@ jobs:
 
       # Prefer posting as a human service user so Codex sees the command
       - name: Post Codex command as service user
-        if: ${{ steps.local_action.outcome == 'failure' && env.SERVICE_BOT_PAT != '' }}
+        if: ${{ steps.local_action.outcome == 'failure' && env.SERVICE_BOT_PAT != '' && (inputs.post_codex_comment == 'true') }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ env.SERVICE_BOT_PAT }}
@@ -170,7 +207,7 @@ jobs:
 
       # Fallback: still post with GITHUB_TOKEN if no PAT (Codex may ignore it)
       - name: Post Codex command (fallback as github-actions)
-        if: ${{ steps.local_action.outcome == 'failure' && env.SERVICE_BOT_PAT == '' }}
+        if: ${{ steps.local_action.outcome == 'failure' && env.SERVICE_BOT_PAT == '' && (inputs.post_codex_comment == 'true') }}
         uses: actions/github-script@v7
         with:
           script: |
@@ -180,6 +217,18 @@ jobs:
             await github.rest.issues.createComment({
               owner, repo, issue_number: prNumber,
               body: `${cmd}\n\nPlease create commits on this branch, run tests, and keep the PR updated.`
+            });
+
+      - name: Prompt human to post Codex command
+        if: ${{ steps.local_action.outcome == 'failure' && (inputs.post_codex_comment != 'true') }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const prNumber = Number("${{ steps.pr.outputs.number }}");
+            await github.rest.issues.createComment({
+              owner, repo, issue_number: prNumber,
+              body: `PR created. To engage Codex, the PR author must comment:\n\n\`@codex start\``
             });
 
       - name: Link PR on original issue
