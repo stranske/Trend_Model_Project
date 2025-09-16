@@ -124,7 +124,7 @@ runs:
 
           // Label and post command (PAT preferred)
           try { await github.rest.issues.addLabels({ owner, repo, issue_number: prNum, labels: ['agent:codex'] }); } catch (e) { core.warning(`Label failed: ${e.message}`); }
-          const cmd = (process.env.CODEX_CMD || '@codex start').replace(/[\r\n`]/g,' ').trim() || '@codex start';
+          const cmd = (process.env.CODEX_CMD || '@codex start').replace(/[\r\n`]/g,'').trim() || '@codex start';
           try {
             await github.rest.issues.createComment({ owner, repo, issue_number: prNum, body: `${cmd}\n\nPlease create commits on this branch, run tests, and keep the PR updated.` });
           } catch (e) { core.warning(`Comment failed: ${e.message}`); }
