@@ -182,7 +182,16 @@ def test_manager_contrib_table_computes_participation():
     ]
     assert table["OOS CAGR"].tolist() == pytest.approx(expected_cagrs)
 
-    contrib_totals = {"FundA": 0.024, "FundB": 0.0025, "FundC": 0.016}
+    # Compute contribution totals from test data to avoid magic numbers
+    contrib_totals = {}
+    for result in results:
+        out_sample = result["out_sample_scaled"]
+        weights = result["fund_weights"]
+        for fund in out_sample.columns:
+            contrib = (out_sample[fund] * weights.get(fund, 0.0)).sum()
+            contrib_totals[fund] = contrib_totals.get(fund, 0.0) + contrib
+    # Only include funds that appear in the output table
+    contrib_totals = {k: contrib_totals[k] for k in ["FundA", "FundC", "FundB"]}
     total = sum(contrib_totals.values())
     expected_shares = [contrib_totals[name] / total for name in ["FundA", "FundC", "FundB"]]
     assert table["Contribution Share"].tolist() == pytest.approx(expected_shares)
