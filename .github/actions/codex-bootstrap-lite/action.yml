@@ -82,10 +82,14 @@ runs:
         fi
 
         api="https://api.github.com/repos/${owner}/${repo}"
+        # Fetch repository info once to get default branch
+        repo_info=$(curl -fsS -H "Authorization: Bearer ${token}" "${api}")
+        default_branch=$(echo "$repo_info" | jq -r '.default_branch')
+        # Try to get SHA for the desired base branch
         head_sha=$(curl -fsS -H "Authorization: Bearer ${token}" "${api}/git/ref/heads/${base_branch}" | jq -r '.object.sha' || true)
         if [ -z "$head_sha" ] || [ "$head_sha" = "null" ]; then
-          default_branch=$(curl -fsS -H "Authorization: Bearer ${token}" "${api}" | jq -r '.default_branch')
-          head_sha=$(curl -fsS -H "Authorization: Bearer ${token}" "${api}/git/ref/heads/${default_branch}" | jq -r '.object.sha')
+          # Fallback to default branch from repo info
+          head_sha=$(curl -fsS -H "Authorization: Bearer ${token}" "${api}/git/ref/heads/${default_branch}" | jq -r '.object.sha' || true)
           base_branch="$default_branch"
         fi
         if [ -z "$head_sha" ] || [ "$head_sha" = "null" ]; then
