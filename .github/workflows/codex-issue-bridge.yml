@@ -21,30 +21,26 @@ concurrency:
 
 jobs:
   bridge:
-    if: contains(github.event.issue.labels.*.name, 'agent:codex') || contains(github.event.issue.labels.*.name, 'agents:codex')
+    if: >
+      (github.event.action == 'labeled' &&
+        (github.event.label.name == 'agent:codex' || github.event.label.name == 'agents:codex')) ||
+      (github.event.action != 'labeled' &&
+        (contains(github.event.issue.labels.*.name, 'agent:codex') || contains(github.event.issue.labels.*.name, 'agents:codex')))
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout this ref (for local action)
-        uses: actions/checkout@v4
+      - name: Event summary
+        uses: actions/github-script@v7
         with:
-          # Pull the branch that triggered the event so the local action exists at the right path
-          ref: ${{ github.ref_name }}
-          fetch-depth: 0
-          persist-credentials: true
+          script: |
+            const act = context.payload.action;
+            const label = (context.payload.label && context.payload.label.name) || '(none)';
+            const issueNo = context.payload.issue && context.payload.issue.number;
+            core.summary.addHeading('Codex Bridge – Event Summary').addTable([
+              [{data:'Action',header:true},{data:'Label',header:true},{data:'Issue',header:true}],
+              [String(act), label, String(issueNo)]
+            ]).write();
 
-      - name: Try local composite Codex bootstrap (lite)
-        id: local_action
-        continue-on-error: true
-        uses: ./.github/actions/codex-bootstrap-lite
-        with:
-          issue: ${{ github.event.issue.number }}
-          service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
-          allow_fallback: true
-          codex_command: '@codex start'
-          base_branch: ''
-          draft: 'false'
-          auto_ready: 'true'
       - name: Get default branch
         id: def
         uses: actions/github-script@v7
@@ -60,6 +56,19 @@ jobs:
           ref: ${{ steps.def.outputs.default }}
           fetch-depth: 0
           persist-credentials: true
+
+      - name: Try local composite Codex bootstrap (lite)
+        id: local_action
+        continue-on-error: true
+        uses: ./.github/actions/codex-bootstrap-lite
+        with:
+          issue: ${{ github.event.issue.number }}
+          service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
+          allow_fallback: true
+          codex_command: '@codex start'
+          base_branch: ''
+          draft: 'false'
+          auto_ready: 'true'
 
       - name: Create branch and bootstrap file
         if: ${{ steps.local_action.outcome == 'failure' }}
@@ -79,7 +88,7 @@ jobs:
           git push origin "$BR"
           echo "branch=$BR" >> "$GITHUB_OUTPUT"
 
-      - name: Open or reuse draft PR
+      - name: Open or reuse PR
         if: ${{ steps.local_action.outcome == 'failure' }}
         id: pr
         uses: actions/github-script@v7
@@ -98,7 +107,7 @@ jobs:
               ({ data: pr } = await github.rest.pulls.create({
                 owner, repo, head, base, draft: false,
                 title: `Codex bootstrap for #${issue_number}`,
-                body: `Refs #${issue_number}\n\nReady-for-review PR created to engage Codex on this task.`
+                body: `Refs #${issue_number}\n\nPR created to engage Codex on this task.`
               }));
             }
             core.setOutput('number', String(pr.number));
@@ -156,5 +165,5 @@ jobs:
             const {owner, repo} = context.repo;
             await github.rest.issues.createComment({
               owner, repo, issue_number: context.payload.issue.number,
-              body: `Opened draft PR #${{ steps.pr.outputs.number }} to engage Codex. Track work there.`
+              body: `Opened PR #${{ steps.pr.outputs.number }} to engage Codex. Track work there.`
             });
