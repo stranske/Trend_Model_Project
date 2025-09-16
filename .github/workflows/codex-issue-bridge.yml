@@ -33,7 +33,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
 
-      - name: Try local composite Codex bootstrap (lite)
+      - name: Bootstrap Codex with local action
         id: local_action
         continue-on-error: true
         uses: ./.github/actions/codex-bootstrap-lite
