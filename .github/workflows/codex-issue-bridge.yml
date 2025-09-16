@@ -16,12 +16,13 @@ permissions:
   issues: write
 
 concurrency:
-  group: codex-issue-${{ github.event.issue.number }}
+  group: codex-issue-${{ github.event.issue.number || inputs.test_issue || github.run_id }}
   cancel-in-progress: false
 
 jobs:
   bridge:
     if: >
+      github.event_name == 'workflow_dispatch' ||
       (github.event.action == 'labeled' &&
         (github.event.label.name == 'agent:codex' || github.event.label.name == 'agents:codex')) ||
       (github.event.action != 'labeled' &&
@@ -62,7 +63,7 @@ jobs:
         continue-on-error: true
         uses: ./.github/actions/codex-bootstrap-lite
         with:
-          issue: ${{ github.event.issue.number }}
+          issue: ${{ github.event.issue.number || inputs.test_issue }}
           service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
           allow_fallback: true
           codex_command: '@codex start'
@@ -74,7 +75,7 @@ jobs:
         if: ${{ steps.local_action.outcome == 'failure' }}
         id: mk
         env:
-          ISSUE: ${{ github.event.issue.number }}
+          ISSUE: ${{ github.event.issue.number || inputs.test_issue }}
         run: |
           set -euo pipefail
           BR=agents/codex-issue-${ISSUE}-${GITHUB_RUN_ID}
@@ -97,7 +98,7 @@ jobs:
         with:
           script: |
             const {owner, repo} = context.repo;
-            const issue_number = context.payload.issue.number;
+            const issue_number = (context.payload.issue && context.payload.issue.number) || Number(context.payload.inputs && context.payload.inputs.test_issue);
             const base = "${{ steps.def.outputs.default }}";
             const head = process.env.BRANCH;
 
@@ -163,7 +164,12 @@ jobs:
         with:
           script: |
             const {owner, repo} = context.repo;
-            await github.rest.issues.createComment({
-              owner, repo, issue_number: context.payload.issue.number,
-              body: `Opened PR #${{ steps.pr.outputs.number }} to engage Codex. Track work there.`
-            });
+            const issue_number = (context.payload.issue && context.payload.issue.number) || Number(context.payload.inputs && context.payload.inputs.test_issue);
+            if (!issue_number) {
+              core.warning('No issue context available to link PR back (workflow_dispatch without test_issue).');
+            } else {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number,
+                body: `Opened PR #${{ steps.pr.outputs.number }} to engage Codex. Track work there.`
+              });
+            }
