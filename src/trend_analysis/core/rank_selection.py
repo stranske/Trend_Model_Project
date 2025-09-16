@@ -667,7 +667,7 @@ def select_funds_extended(
 # ===============================================================
 
 
-def build_ui() -> widgets.VBox:
+def build_ui() -> widgets.VBox:  # pragma: no cover - UI wiring exercised manually
     # -------------------- Step 1: data source & periods --------------------
     source_tb = widgets.ToggleButtons(
         options=["Path/URL", "Browse"],
