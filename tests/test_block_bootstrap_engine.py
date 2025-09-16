@@ -10,7 +10,7 @@ from trend_portfolio_app.monte_carlo.engine import (
 
 def make_panel():
     data = np.arange(60).reshape(20, 3) + 1
-    dates = pd.date_range("2020-01-31", periods=20, freq="M")
+    dates = pd.date_range("2020-01-31", periods=20, freq="ME")
     return pd.DataFrame(data, index=dates, columns=["A", "B", "C"])
 
 

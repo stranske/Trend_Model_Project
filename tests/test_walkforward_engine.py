@@ -5,7 +5,7 @@ from trend_analysis.engine.walkforward import walk_forward
 
 
 def test_walkforward_split_counts_and_regime_aggregation():
-    dates = pd.date_range("2020-01-31", periods=12, freq="M")
+    dates = pd.date_range("2020-01-31", periods=12, freq="ME")
     df = pd.DataFrame({"Date": dates, "metric": np.arange(1, 13)})
     regimes = pd.Series(["A"] * 6 + ["B"] * 6, index=dates)
 

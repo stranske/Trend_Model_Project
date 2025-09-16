@@ -1,0 +1,3 @@
+# Default coverage configuration to ensure consistent branch data collection.
+[run]
+branch = True
