@@ -1,47 +1,43 @@
-name: Codex Assign Minimal
+name: Codex Assign Minimal (fixed)
 
 on:
   issues:
-    types: [labeled, opened, reopened]
-  workflow_dispatch:
-    inputs:
-      test_issue:
-        description: "Manual test: issue number to treat as labeled"
-        required: false
-      simulate_label:
-        description: "Comma separated labels to simulate (include agent:codex to trigger)"
-        required: false
-      allow_fallback:
-        description: "Override allow_fallback (true|false) for simulation"
-        required: false
-      codex_command:
-        description: "Override Codex command (testing invalid command paths)"
-        required: false
+    types: [labeled, reopened]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
 
 concurrency:
-  group: codex-bootstrap-${{ github.event.issue.number || github.event.inputs.test_issue || 'unknown' }}
+  group: codex-assign-${{ github.event.issue.number }}
   cancel-in-progress: false
 
 jobs:
-  detect:
+  minimal:
+    if: contains(github.event.issue.labels.*.name, 'agent:codex')
     runs-on: ubuntu-latest
-    permissions:
-      issues: read
-      contents: read
-      pull-requests: read
-    outputs:
-      needs_codex_bootstrap: ${{ steps.detect.outputs.needs_codex_bootstrap }}
-      codex_issue: ${{ steps.detect.outputs.codex_issue }}
-      detection_reason: ${{ steps.detect.outputs.detection_reason }}
-      sim_force_branch_fail: ${{ steps.detect.outputs.sim_force_branch_fail }}
-      sim_force_dual_fail: ${{ steps.detect.outputs.sim_force_dual_fail }}
-      sim_manual_mode: ${{ steps.detect.outputs.sim_manual_mode }}
-      sim_suppressed: ${{ steps.detect.outputs.sim_suppressed }}
-      allow_fallback_override: ${{ steps.detect.outputs.allow_fallback_override }}
-      codex_command: ${{ steps.detect.outputs.codex_command }}
     steps:
-      - name: Detect codex label
-        id: detect
+      # For issues events, checkout defaults to the repo's default branch.
+      - name: Checkout repository (default branch)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Use local Codex bootstrap composite (concise)
+        id: local_action
+        continue-on-error: true
+        uses: ./.github/actions/codex-bootstrap
+        with:
+          issue: ${{ github.event.issue.number }}
+          service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
+          allow_fallback: true
+          codex_command: 'codex: start'
+
+      # Fallback path in case the local composite fails for any reason
+      - name: Get default branch name
+        if: ${{ steps.local_action.outcome == 'failure' }}
+        id: def
         uses: actions/github-script@v7
         with:
           script: |
@@ -80,31 +76,30 @@ jobs:
       - name: Detection summary
         if: always()
         uses: actions/github-script@v7
+        env:
+          BRANCH: ${{ steps.mk.outputs.branch }}
         with:
           script: |
-            const tbl = [
-              [{data:'Issue',header:true},{data:'Needs',header:true},{data:'Reason',header:true},{data:'PrimaryFail',header:true},{data:'DualFail',header:true},{data:'Manual',header:true},{data:'Suppressed',header:true},{data:'AllowFallbackOv',header:true},{data:'CmdOverride',header:true}],
-              ['${{ steps.detect.outputs.codex_issue }}' || '(none)', '${{ steps.detect.outputs.needs_codex_bootstrap }}', '${{ steps.detect.outputs.detection_reason }}', '${{ steps.detect.outputs.sim_force_branch_fail }}', '${{ steps.detect.outputs.sim_force_dual_fail }}', '${{ steps.detect.outputs.sim_manual_mode }}', '${{ steps.detect.outputs.sim_suppressed }}', '${{ steps.detect.outputs.allow_fallback_override }}', '${{ steps.detect.outputs.codex_command }}']
-            ];
-            core.summary.addHeading('Codex Detection Summary').addTable(tbl).write();
-      - name: No trigger note
-        if: steps.detect.outputs.needs_codex_bootstrap != 'true'
-        run: echo "No bootstrap triggered (reason=${{ steps.detect.outputs.detection_reason }})."
+            const {owner, repo} = context.repo;
+            const issue_number = context.payload.issue.number;
+            const base = "${{ steps.def.outputs.default }}";
+            const head = process.env.BRANCH;
+            const existing = await github.rest.pulls.list({ owner, repo, state: 'open', head: `${owner}:${head}` });
+            let pr = existing.data[0];
+            if (!pr) {
+              ({ data: pr } = await github.rest.pulls.create({
+                owner, repo, head, base, draft: true,
+                title: `Codex bootstrap for #${issue_number}`,
+                body: `Refs #${issue_number}\n\nDraft PR created to engage Codex on this task.`
+              }));
+            }
+            core.setOutput('number', String(pr.number));
 
-  codex_bootstrap:
-    needs: detect
-    if: needs.detect.outputs.needs_codex_bootstrap == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      issues: write
-      contents: write
-      pull-requests: write
-    steps:
-      - name: Checkout repository (required for local action)
-        uses: actions/checkout@v4
-      - name: Bootstrap Codex
-        id: bootstrap
-        uses: ./.github/actions/codex-bootstrap
+      - name: Label PR with agent:codex (fallback)
+        if: ${{ steps.local_action.outcome == 'failure' }}
+        uses: actions/github-script@v7
+        env:
+          PR: ${{ steps.pr.outputs.number }}
         with:
           issue: ${{ needs.detect.outputs.codex_issue }}
           service_bot_pat: ${{ secrets.SERVICE_BOT_PAT || '' }}
@@ -121,42 +116,27 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: codex-bootstrap-${{ needs.detect.outputs.codex_issue || 'unknown' }}
-          path: codex-artifacts
-          if-no-files-found: ignore
-      - name: Bootstrap outputs summary
-        if: always()
+          github-token: ${{ secrets.SERVICE_BOT_PAT }}
+          script: |
+            const {owner, repo} = context.repo;
+            const prNumber = Number("${{ steps.pr.outputs.number }}");
+            const cmd = 'codex: start';
+            await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: `${cmd}` });
+
+      - name: Post Codex command as github-actions (fallback)
+        if: ${{ steps.local_action.outcome == 'failure' && secrets.SERVICE_BOT_PAT == '' }}
         uses: actions/github-script@v7
         with:
           script: |
-            const pr = core.getInput('codex_pr') || process.env.CODEX_PR || '';
-            core.summary
-              .addHeading('Codex Bootstrap Outputs')
-              .addTable([
-                [{data:'Output',header:true},{data:'Value',header:true}],
-                ['codex_pr', '${{ steps.bootstrap.outputs.codex_pr || '' }}'],
-                ['codex_reused', '${{ steps.bootstrap.outputs.codex_reused || '' }}'],
-                ['branch_created', '${{ steps.bootstrap.outputs.branch_created || '' }}'],
-                ['token_source', '${{ steps.bootstrap.outputs.token_source || '' }}'],
-                ['fallback_used', '${{ steps.bootstrap.outputs.fallback_used || '' }}']
-              ])
-              .write();
-      - name: Structured JSON summary
-        if: always()
+            const {owner, repo} = context.repo;
+            const prNumber = Number("${{ steps.pr.outputs.number }}");
+            const cmd = 'codex: start';
+            await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: `${cmd}` });
+
+      - name: Link PR back to source issue (fallback)
+        if: ${{ steps.local_action.outcome == 'failure' }}
         uses: actions/github-script@v7
         with:
           script: |
-            const fs = require('fs');
-            fs.mkdirSync('codex-artifacts', { recursive: true });
-            const summary = {
-              issue: '${{ needs.detect.outputs.codex_issue }}',
-              detection_reason: '${{ needs.detect.outputs.detection_reason }}',
-              codex_pr: '${{ steps.bootstrap.outputs.codex_pr || '' }}',
-              codex_reused: '${{ steps.bootstrap.outputs.codex_reused || '' }}',
-              branch_created: '${{ steps.bootstrap.outputs.branch_created || '' }}',
-              token_source: '${{ steps.bootstrap.outputs.token_source || '' }}',
-              fallback_used: '${{ steps.bootstrap.outputs.fallback_used || '' }}',
-              ts: new Date().toISOString()
-            };
-            fs.writeFileSync('codex-artifacts/codex_bootstrap_summary.json', JSON.stringify(summary, null, 2));
-            core.info('Wrote codex-artifacts/codex_bootstrap_summary.json');
+            const {owner, repo} = context.repo;
+            await github.rest.issues.createComment({ owner, repo, issue_number: context.payload.issue.number, body: `Opened draft PR #${{ steps.pr.outputs.number }} to engage Codex. Track work there.` });

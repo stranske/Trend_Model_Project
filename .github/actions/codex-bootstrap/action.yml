@@ -1,11 +1,12 @@
-name: "Codex Bootstrap"
-description: "Bootstraps (or reuses) Codex draft PR & branch for a labeled issue with optional network retry and PAT gating"
+name: "Codex Bootstrap (concise)"
+description: "Create a new branch and draft PR from an issue, then post a Codex command. Uses PAT if provided, else GITHUB_TOKEN."
+
 inputs:
   issue:
-    description: "Issue number to bootstrap"
+    description: "Issue number to bootstrap from"
     required: true
   service_bot_pat:
-    description: "Personal access token for human-authored PR/comments (optional)"
+    description: "Optional classic PAT with repo scope for branch/PR creation"
     required: false
     default: ""
   codex_command:
@@ -21,122 +22,240 @@ inputs:
     required: false
     default: "auto"
   allow_fallback:
-    description: "Permit fallback to GITHUB_TOKEN when PAT absent (true|false)"
-    required: false
+    description: "Allow fallback to GITHUB_TOKEN when PAT is missing"
     default: "true"
-  fail_on_token_mismatch:
-    description: "If set (non-empty), fail when PAT present but PR author is github-actions[bot]"
     required: false
-    default: ""
-  net_retry_attempts:
-    description: "Network preflight attempts (>=1)"
+  codex_command:
+    description: "Command to post to the PR to trigger Codex"
+    default: "codex: start"
     required: false
-    default: "1"
-  net_retry_delay_s:
-    description: "Seconds to sleep between network preflight retries"
+  base_branch:
+    description: "Base branch to open PR against (defaults to current checkout)"
     required: false
-    default: "2"
   debug_mode:
-    description: "Emit verbose diagnostic logging (true|false)"
-    required: false
+    description: "Enable verbose logging"
     default: "false"
-  force_branch_fail:
-    description: "(Test only) If true, force primary branch creation attempt to fail with synthetic 403 before trying fallback"
     required: false
-    default: "false"
-  force_dual_fail:
-    description: "(Test only) If true, force both primary and fallback branch creation to fail"
-    required: false
-    default: "false"
-  fail_on_dual_branch_failure:
-    description: "Fail the action if both primary and fallback branch creation attempts fail (true|false)"
-    required: false
-    default: "true"
-  fail_on_invalid_command:
-    description: "If true, action fails when an invalid Codex command override is provided"
-    required: false
-    default: "false"
-  rebootstrap_closed_pr:
-    description: "If true and referenced PR is closed, create a fresh draft PR and update marker"
-    required: false
-    default: "true"
+
 outputs:
-  codex_pr:
-    description: "Codex draft PR number (blank in manual mode before PR creation)"
-    value: ${{ steps.bootstrap.outputs.codex_pr }}
-  codex_reused:
-    description: "true if existing bootstrap was reused"
-    value: ${{ steps.bootstrap.outputs.codex_reused }}
-  branch_created:
-    description: "true if branch was created in this run"
-    value: ${{ steps.bootstrap.outputs.branch_created }}
-  token_source:
-    description: "Token actually used for GitHub API calls (SERVICE_BOT_PAT | GITHUB_TOKEN | ACTIONS_DEFAULT_TOKEN)"
-    value: ${{ steps.bootstrap.outputs.token_source }}
-  fallback_used:
-    description: "true if a fallback token (GITHUB_TOKEN or ACTIONS_DEFAULT_TOKEN) was needed for branch or PR creation"
-    value: ${{ steps.bootstrap.outputs.fallback_used }}
+  pr_number:
+    description: "Opened or reused PR number"
+    value: ${{ steps.pr_out.outputs.pr_number }}
+  pr_url:
+    description: "Opened or reused PR URL"
+    value: ${{ steps.pr_out.outputs.pr_url }}
+  branch_name:
+    description: "Created branch name"
+    value: ${{ steps.branch_out.outputs.branch_name }}
+
 runs:
   using: "composite"
   steps:
-    - name: Network preflight (optional retry)
+    - name: Preflight and token selection
+      id: preflight
+      shell: bash
       env:
-        # Expose the workflow's token to this bash step for curl checks
-        GITHUB_TOKEN: ${{ github.token }}
-      shell: bash
+        INPUT_PAT: ${{ inputs.service_bot_pat }}
+        INPUT_ALLOW_FALLBACK: ${{ inputs.allow_fallback }}
+        GH_TOKEN_DEFAULT: ${{ github.token }}
+        DEBUG_MODE: ${{ inputs.debug_mode }}
       run: |
-        attempts=${{ inputs.net_retry_attempts }}
-        delay=${{ inputs.net_retry_delay_s }}
-        # Determine token to use for authenticated requests
+        set -euo pipefail
+        issue="${{ inputs.issue }}"
+        [[ -n "$issue" ]] || { echo "issue input is required" >&2; exit 2; }
+
+        # Choose token: PAT first, else GITHUB_TOKEN if allowed
         token=""
-        if [ -n "${{ inputs.service_bot_pat }}" ]; then
-          token="${{ inputs.service_bot_pat }}"
-        elif [ "${{ inputs.allow_fallback }}" = "true" ] && [ -n "${GITHUB_TOKEN}" ]; then
-          token="${GITHUB_TOKEN}"
-        fi
-        if ! [[ "$attempts" =~ ^[0-9]+$ ]] || [ "$attempts" -lt 1 ]; then attempts=1; fi
-        if ! [[ "$delay" =~ ^[0-9]+$ ]] || [ "$delay" -lt 1 ]; then delay=2; fi
-        i=1
-        while [ $i -le $attempts ]; do
-          echo "[network-preflight] Attempt $i/$attempts ..."
-          if [ -n "$token" ]; then
-            # Try Bearer first, then legacy 'token' header
-            if curl -sSf -H "Authorization: Bearer $token" https://api.github.com/rate_limit > /dev/null 2>&1 \
-              || curl -sSf -H "Authorization: token $token" https://api.github.com/rate_limit > /dev/null 2>&1; then
-              echo "[network-preflight] OK"; break; fi
-          else
-            if curl -sSf https://api.github.com/rate_limit > /dev/null 2>&1; then
-              echo "[network-preflight] OK"; break
-            fi
-          fi
-          if [ $i -eq $attempts ]; then
-            echo "[network-preflight] FAILED after $attempts attempts" >&2
-            exit 75
-          fi
-          echo "[network-preflight] Retry in ${delay}s"; sleep $delay; i=$((i+1))
-        done
-    - name: Pre-flight token gate
-      id: token_gate
-      shell: bash
-      run: |
-        if [ -z "${{ inputs.service_bot_pat }}" ] && [ "${{ inputs.allow_fallback }}" != "true" ]; then
-          echo "Codex bootstrap blocked: SERVICE_BOT_PAT missing and fallback not allowed (set CODEX_ALLOW_FALLBACK=true to permit).";
+        if [ -n "${INPUT_PAT:-}" ]; then
+          token="$INPUT_PAT"
+          src="SERVICE_BOT_PAT"
+        elif [ "${INPUT_ALLOW_FALLBACK:-true}" = "true" ]; then
+          token="$GH_TOKEN_DEFAULT"
+          src="GITHUB_TOKEN"
+        else
+          echo "SERVICE_BOT_PAT missing and fallback disabled" >&2
           exit 86
         fi
-    - name: Warn if PAT missing (fallback to GITHUB_TOKEN)
-      if: inputs.service_bot_pat == '' && inputs.allow_fallback == 'true'
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const {owner, repo} = context.repo;
-          const issue_number = Number('${{ inputs.issue }}');
-          core.warning('SERVICE_BOT_PAT missing – proceeding with GITHUB_TOKEN for bootstrap. Comments/commits will appear as github-actions[bot].');
-          if (issue_number) {
-            await github.rest.issues.createComment({ owner, repo, issue_number, body: 'Heads up: SERVICE_BOT_PAT is not configured. Proceeding with GITHUB_TOKEN; comments and commits will appear as github-actions[bot].' });
-          }
-    - name: Bootstrap Codex branch/PR
-      id: bootstrap
-      uses: actions/github-script@v7
+
+        # Minimal auth probe
+        if ! curl -fsS -H "Authorization: Bearer ${token}" https://api.github.com/rate_limit >/dev/null; then
+          # Try legacy header
+          if ! curl -fsS -H "Authorization: token ${token}" https://api.github.com/rate_limit >/dev/null; then
+            echo "Auth probe failed for selected token source ${src}" >&2
+            exit 1
+          fi
+        fi
+
+        # Derive owner/repo
+        repo_full="${{ github.repository }}"
+        owner="${repo_full%%/*}"
+        repo="${repo_full##*/}"
+
+        # Determine base branch
+        base_branch_input="${{ inputs.base_branch }}"
+        if [ -n "$base_branch_input" ]; then
+          base_branch="$base_branch_input"
+        else
+          # Fall back to the currently checked-out ref name
+          base_branch="${{ github.ref_name }}"
+        fi
+
+        # Determine head sha for base branch
+        api="https://api.github.com/repos/${owner}/${repo}"
+        head_sha=$(curl -fsS -H "Authorization: Bearer ${token}" "${api}/git/ref/heads/${base_branch}" | jq -r '.object.sha' || true)
+        if [ -z "$head_sha" ] || [ "$head_sha" = "null" ]; then
+          # Try default branch
+          default_branch=$(curl -fsS -H "Authorization: Bearer ${token}" "${api}" | jq -r '.default_branch')
+          head_sha=$(curl -fsS -H "Authorization: Bearer ${token}" "${api}/git/ref/heads/${default_branch}" | jq -r '.object.sha')
+          base_branch="$default_branch"
+        fi
+        if [ -z "$head_sha" ] || [ "$head_sha" = "null" ]; then
+          echo "Failed to resolve base branch head sha" >&2
+          exit 3
+        fi
+
+        # Create a unique branch name (agents/codex-issue-<n>-<run_id>)
+        run_id="${{ github.run_id }}"
+        branch="agents/codex-issue-${issue}-${run_id}"
+
+        # Export for later steps
+        {
+          echo "TOKEN_SRC=${src}"
+          echo "BOOTSTRAP_TOKEN=${token}"
+          echo "OWNER=${owner}"
+          echo "REPO=${repo}"
+          echo "BASE_BRANCH=${base_branch}"
+          echo "BASE_SHA=${head_sha}"
+          echo "ISSUE_NUM=${issue}"
+          echo "BRANCH_NAME=${branch}"
+        } >> "$GITHUB_ENV"
+
+        if [ "${DEBUG_MODE}" = "true" ]; then
+          echo "owner/repo=${owner}/${repo} base=${base_branch} sha=${head_sha} branch=${branch} token=${src}"
+        fi
+
+    - name: Create branch (git ref)
+      id: create_branch
+      shell: bash
+      env:
+        OWNER: ${{ env.OWNER }}
+        REPO: ${{ env.REPO }}
+        BASE_SHA: ${{ env.BASE_SHA }}
+        BRANCH_NAME: ${{ env.BRANCH_NAME }}
+        BOOTSTRAP_TOKEN: ${{ env.BOOTSTRAP_TOKEN }}
+      run: |
+        set -euo pipefail
+        api="https://api.github.com/repos/${OWNER}/${REPO}/git/refs"
+        payload=$(jq -n --arg ref "refs/heads/${BRANCH_NAME}" --arg sha "$BASE_SHA" '{ref: $ref, sha: $sha}')
+        # Try Bearer, then legacy token header
+        status=$(curl -s -o /tmp/create_ref.json -w "%{http_code}" -X POST -H "Authorization: Bearer ${BOOTSTRAP_TOKEN}" -H 'Content-Type: application/json' "$api" -d "$payload" || true)
+        if [ "$status" -eq 422 ]; then
+          echo "Branch already exists (422) – continuing."
+          echo "BRANCH_CREATED=false" >> "$GITHUB_ENV"
+        elif [ "$status" -eq 201 ]; then
+          echo "Branch created (201)."
+          echo "BRANCH_CREATED=true" >> "$GITHUB_ENV"
+        else
+          status2=$(curl -s -o /tmp/create_ref2.json -w "%{http_code}" -X POST -H "Authorization: token ${BOOTSTRAP_TOKEN}" -H 'Content-Type: application/json' "$api" -d "$payload" || true)
+          if [ "$status2" -eq 422 ]; then
+            echo "Branch already exists (422 legacy) – continuing."
+            echo "BRANCH_CREATED=false" >> "$GITHUB_ENV"
+          elif [ "$status2" -eq 201 ]; then
+            echo "Branch created (201 legacy)."
+            echo "BRANCH_CREATED=true" >> "$GITHUB_ENV"
+          else
+            echo "Failed to create branch: HTTP $status / $status2" >&2
+            echo "Response1:" >&2; sed -n '1,200p' /tmp/create_ref.json >&2 || true
+            echo "Response2:" >&2; sed -n '1,200p' /tmp/create_ref2.json >&2 || true
+            exit 10
+          fi
+        fi
+
+    - name: Ensure marker commit on branch
+      id: marker
+      shell: bash
+      env:
+        OWNER: ${{ env.OWNER }}
+        REPO: ${{ env.REPO }}
+        BOOTSTRAP_TOKEN: ${{ env.BOOTSTRAP_TOKEN }}
+        BRANCH_NAME: ${{ env.BRANCH_NAME }}
+        ISSUE_NUM: ${{ env.ISSUE_NUM }}
+      run: |
+        set -euo pipefail
+        path="agents/codex-${ISSUE_NUM}.md"
+        api_base="https://api.github.com/repos/${OWNER}/${REPO}/contents/${path}"
+        body_base64=$(printf "<!-- bootstrap for codex on issue #%s -->\n" "$ISSUE_NUM" | base64 -w0)
+        # Probe for existing file on the branch
+        sha=$(curl -sfS -H "Authorization: Bearer ${BOOTSTRAP_TOKEN}" "${api_base}?ref=${BRANCH_NAME}" | jq -r '.sha' 2>/dev/null || true)
+        if [ -n "$sha" ] && [ "$sha" != "null" ]; then
+          payload=$(jq -n --arg msg "chore(codex): update marker for #${ISSUE_NUM}" --arg content "$body_base64" --arg branch "$BRANCH_NAME" --arg sha "$sha" '{message:$msg, content:$content, branch:$branch, sha:$sha}')
+        else
+          payload=$(jq -n --arg msg "chore(codex): bootstrap marker for #${ISSUE_NUM}" --arg content "$body_base64" --arg branch "$BRANCH_NAME" '{message:$msg, content:$content, branch:$branch}')
+        fi
+        status=$(curl -s -o /tmp/put_content.json -w "%{http_code}" -X PUT -H "Authorization: Bearer ${BOOTSTRAP_TOKEN}" -H 'Content-Type: application/json' "$api_base" -d "$payload" || true)
+        if [ "$status" -ge 200 ] && [ "$status" -lt 300 ]; then
+          echo "Marker file ensured on branch."
+        else
+          echo "Failed to create/update marker file (HTTP $status). Proceeding anyway to attempt PR creation." >&2
+          sed -n '1,200p' /tmp/put_content.json >&2 || true
+        fi
+
+    - name: Open or reuse draft PR
+      id: open_pr
+      shell: bash
+      env:
+        OWNER: ${{ env.OWNER }}
+        REPO: ${{ env.REPO }}
+        BOOTSTRAP_TOKEN: ${{ env.BOOTSTRAP_TOKEN }}
+        BRANCH_NAME: ${{ env.BRANCH_NAME }}
+        BASE_BRANCH: ${{ env.BASE_BRANCH }}
+        ISSUE_NUM: ${{ env.ISSUE_NUM }}
+      run: |
+        set -euo pipefail
+        api="https://api.github.com/repos/${OWNER}/${REPO}"
+        # Fetch issue details for PR body
+        title=$(curl -fsS -H "Authorization: Bearer ${BOOTSTRAP_TOKEN}" "$api/issues/${ISSUE_NUM}" | jq -r '.title // "(no title)"')
+        body=$(curl -fsS -H "Authorization: Bearer ${BOOTSTRAP_TOKEN}" "$api/issues/${ISSUE_NUM}" | jq -r '.body // "(no body provided)"')
+        header="### Source Issue #${ISSUE_NUM}: ${title}"
+        pr_body=$(jq -n --arg h "$header" --arg b "$body" '$h + "\n\n---\n" + $b + "\n\n---\n\nThis draft PR was auto-created to engage Codex on the task above. All edits should occur on this branch."')
+        # Check if PR already open for this branch
+        existing=$(curl -fsS -H "Authorization: Bearer ${BOOTSTRAP_TOKEN}" "$api/pulls?state=open&head=${OWNER}:${BRANCH_NAME}")
+        pr_number=$(echo "$existing" | jq -r '.[0].number // empty')
+        pr_url=$(echo "$existing" | jq -r '.[0].html_url // empty')
+        if [ -z "$pr_number" ]; then
+          payload=$(jq -n --arg title "Codex bootstrap for #${ISSUE_NUM}" --arg head "$BRANCH_NAME" --arg base "$BASE_BRANCH" --argjson draft true --arg body "$pr_body" '{title:$title, head:$head, base:$base, draft:$draft, body:$body}')
+          status=$(curl -s -o /tmp/create_pr.json -w "%{http_code}" -X POST -H "Authorization: Bearer ${BOOTSTRAP_TOKEN}" -H 'Content-Type: application/json' "$api/pulls" -d "$payload" || true)
+          if [ "$status" -ge 200 ] && [ "$status" -lt 300 ]; then
+            pr_number=$(jq -r '.number' /tmp/create_pr.json)
+            pr_url=$(jq -r '.html_url' /tmp/create_pr.json)
+            echo "PR created: #$pr_number"
+          else
+            echo "Failed to create PR (HTTP $status)" >&2
+            sed -n '1,200p' /tmp/create_pr.json >&2 || true
+            exit 11
+          fi
+        else
+          echo "Reusing existing PR #$pr_number"
+          # Optionally update body if missing header
+          has_header=$(echo "$existing" | jq -r '.[0].body | contains("'"$header"'")')
+          if [ "$has_header" != "true" ]; then
+            payload=$(jq -n --arg body "$pr_body" '{body:$body}')
+            curl -fsS -X PATCH -H "Authorization: Bearer ${BOOTSTRAP_TOKEN}" -H 'Content-Type: application/json' "$api/pulls/$pr_number" -d "$payload" >/dev/null || true
+          fi
+        fi
+        {
+          echo "PR_NUMBER=$pr_number"
+          echo "PR_URL=$pr_url"
+        } >> "$GITHUB_ENV"
+        # Also expose for downstream job steps that read env
+        {
+          echo "CODEX_PR=$pr_number"
+          echo "CODEX_REUSED=$( [ -z "$existing" ] && echo false || echo true )"
+        } >> "$GITHUB_ENV"
+
+    - name: Label and post Codex command
+      id: codex_comment
+      shell: bash
       env:
         SERVICE_BOT_PAT: ${{ inputs.service_bot_pat }}
         # Ensure fallback paths and diagnostics can access the default token
