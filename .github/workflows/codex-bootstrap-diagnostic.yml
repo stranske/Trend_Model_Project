@@ -34,6 +34,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Bot permission on this repo
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const username = 'stranske-automation-bot';
+            try {
+              const resp = await github.request('GET /repos/{owner}/{repo}/collaborators/{username}/permission', { owner, repo, username });
+              core.info('Bot permission check:');
+              core.info(JSON.stringify(resp.data, null, 2));
+              core.summary.addHeading('Bot Permission on Repo').addCodeBlock(JSON.stringify(resp.data, null, 2), 'json').write();
+            } catch (e) {
+              core.warning(`Permission check failed: ${e.status || '?'} ${e.message}`);
+            }
+
       - name: Token / Env Probe
         id: probe
         shell: bash
