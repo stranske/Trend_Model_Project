@@ -35,6 +35,8 @@ class DummyWorksheet:
 
 
 class DummyWorkbook:
+    # This method is intended to mock the 'add_worksheet' method from the real workbook class
+    # (e.g., xlsxwriter.Workbook), but the signature differs for testing purposes.
     def add_worksheet(self, name: str) -> DummyWorksheet:  # type: ignore[override]
         return DummyWorksheet(name)
 
