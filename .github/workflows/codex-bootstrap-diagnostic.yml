@@ -40,6 +40,8 @@ jobs:
         env:
           # Map the workflow token so the probe can actually see it
           GITHUB_TOKEN: ${{ github.token }}
+          # Expose PAT secret for probe visibility (safe: value not printed)
+          SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
         run: |
           set -euo pipefail
           echo "Running Codex bootstrap diagnostics..."
@@ -103,6 +105,8 @@ jobs:
           DRY_RUN: ${{ github.event.inputs.dry_run }}
           # Ensure default token is visible to the step
           GITHUB_TOKEN: ${{ github.token }}
+          # Expose PAT secret so branch create can try PAT first
+          SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
         run: |
           set -euo pipefail
           echo "Testing branch create for $TARGET_BRANCH (dry_run=$DRY_RUN)"
