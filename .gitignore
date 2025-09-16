@@ -23,6 +23,7 @@ demo/*.xlsx
 demo/*.json
 demo/*.txt
 demo/exports/
+demo/.fast_demo_mode
 
 # keep the sample dataset under version control
 !demo/demo_returns.csv

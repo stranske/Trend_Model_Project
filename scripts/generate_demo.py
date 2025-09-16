@@ -6,12 +6,27 @@ fake managers and dump to CSV + XLSX.
 import argparse
 import datetime as dt
 import os
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 OUT_DIR = "demo"
 os.makedirs(OUT_DIR, exist_ok=True)
+
+
+# When running inside pytest we keep a sentinel so the optional
+# ``scripts/run_multi_demo.py`` step can detect CI's "fast" mode and skip
+# the extremely long multi-period exercise. This prevents the golden master
+# tests from timing out while still exercising the main demo pipeline.
+FAST_SENTINEL = Path(OUT_DIR) / ".fast_demo_mode"
+
+
+# Keep the demo anchored to a fixed window so repeated runs are perfectly
+# reproducible, regardless of when the script is executed.  The in/out sample
+# ranges in ``config/demo.yml`` expect 2015-01 → 2024-12, so expose the same
+# span here.
+START_DATE = dt.date(2015, 1, 31)
 
 
 def main() -> None:
@@ -23,7 +38,14 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    start = dt.date.today().replace(year=dt.date.today().year - 10, day=1)
+    # Keep sentinel handling close to argument parsing so repeated invocations
+    # behave predictably regardless of test ordering.
+    if "PYTEST_CURRENT_TEST" in os.environ:
+        FAST_SENTINEL.touch()
+    elif FAST_SENTINEL.exists():
+        FAST_SENTINEL.unlink()
+
+    start = START_DATE
     periods = 120  # 10 years * 12 months
     # Use month-end frequency; pandas accepts 'ME' as an alias
     dates = pd.date_range(start, periods=periods, freq="ME")

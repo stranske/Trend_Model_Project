@@ -164,7 +164,7 @@ if [[ "$FAST_MODE" == false ]]; then
     fi
 
     echo ""
-    if ! run_validation "Test coverage" "pytest --cov=src --cov-report=term-missing --cov-fail-under=80" ""; then
+    if ! run_validation "Test coverage" "rm -f .coverage .coverage.* && pytest --cov=src --cov-report=term-missing --cov-fail-under=80 --cov-branch" ""; then
         VALIDATION_SUCCESS=false
         FAILED_CHECKS+=("Test coverage")
     fi
