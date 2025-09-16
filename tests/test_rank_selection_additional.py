@@ -32,7 +32,8 @@ def test_rank_select_funds_normalises_blank_and_duplicate_columns():
     assert "Alpha One" in names
     assert any(name.startswith("alpha one") for name in names)
     unnamed_idx = list(df.columns).index("")
-    expected_unnamed = f"Unnamed_{unnamed_idx}"
+    # Column indices are 0-based but the sanitiser uses 1-based suffixes.
+    expected_unnamed = f"Unnamed_{unnamed_idx + 1}"
     assert expected_unnamed in names  # empty header receives deterministic name
 
 
