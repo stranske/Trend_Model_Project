@@ -104,6 +104,32 @@ def rank_select_funds(
 
     metric_name = _METRIC_ALIASES.get(score_by, score_by)
 
+    # Normalise column labels early so downstream logic never sees blank names.
+    # ``rank_select_funds`` historically received DataFrames with accidental
+    # whitespace-only column names (e.g., CSVs with an empty header).  Those
+    # would flow through the metric computations unchanged, leading to
+    # selections that contained empty strings.  Sanitising here avoids
+    # surprising downstream behaviour while preserving existing labels when
+    # possible.
+    if len(df.columns) > 0:
+        clean_names: list[str] = []
+        seen: set[str] = set()
+        for idx, col in enumerate(df.columns):
+            name = str(col).strip()
+            if not name:
+                name = f"Unnamed_{idx + 1}"
+            base = name
+            # Ensure uniqueness after stripping by appending suffixes when required.
+            counter = 1
+            while name in seen:
+                counter += 1
+                name = f"{base}_{counter}"
+            seen.add(name)
+            clean_names.append(name)
+        if list(df.columns) != clean_names:
+            df = df.copy()
+            df.columns = clean_names
+
     # Compute metric scores
     if metric_name == "blended":
         if blended_weights is None:

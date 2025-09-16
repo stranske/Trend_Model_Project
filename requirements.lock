@@ -20,7 +20,7 @@ executing==2.2.1
     # via stack-data
 fonttools==4.59.2
     # via matplotlib
-hypothesis==6.138.16
+hypothesis==6.138.17
     # via trend-model (pyproject.toml)
 ipython==9.5.0
     # via ipywidgets
@@ -107,5 +107,5 @@ wcwidth==0.2.13
     # via prompt-toolkit
 widgetsnbextension==4.0.14
     # via ipywidgets
-xlsxwriter==3.2.8
+xlsxwriter==3.2.9
     # via trend-model (pyproject.toml)
