@@ -11,6 +11,7 @@ omit =
 # Require ≥85% coverage for focused core modules
 fail_under = 85
 include =
+    src/trend_analysis/*
     src/trend_analysis/__init__.py
     src/trend_analysis/core/*.py
     src/trend_analysis/plugins/*.py
