@@ -214,3 +214,74 @@ def test_make_period_formatter_registers_and_runs(formatters_excel_registry):
     wb = DummyWB()
     fmt(ws, wb)
     assert ws.rows[0][2][0] == "Vol-Adj Trend Analysis"
+
+
+def _build_base_result():
+    stats_a = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6)
+    stats_b = (0.2, 0.3, 0.4, 0.5, 0.6, 0.7)
+    return {
+        "in_ew_stats": stats_a,
+        "out_ew_stats": stats_b,
+        "in_user_stats": stats_a,
+        "out_user_stats": stats_b,
+        "in_sample_stats": {"Fund A": stats_a},
+        "out_sample_stats": {"Fund A": stats_b},
+        "fund_weights": {"Fund A": None},
+    }
+
+
+def test_make_summary_formatter_optional_sections(formatters_excel_registry):
+    res = _build_base_result()
+    res["benchmark_ir"] = {
+        "bench": {
+            "Fund A": pd.NA,
+            "equal_weight": None,
+            "user_weight": pd.NA,
+        }
+    }
+    res["manager_changes"] = [
+        {"Period": "2020", "action": "add", "manager": "Fund A", "detail": "init"},
+        {"action": "remove", "manager": "Fund B"},
+    ]
+    res["manager_contrib"] = pd.DataFrame(
+        [{"Manager": "Fund A", "Years": 2, "OOS CAGR": 0.05, "Contribution Share": 0.25}]
+    )
+
+    fmt = make_summary_formatter(res, "2020-01", "2020-06", "2020-07", "2020-12")
+    ws = DummyWS()
+    wb = DummyWB()
+    fmt(ws, wb)
+
+    headers = [row for row in ws.rows if row[0] >= 0]
+    assert any("Manager Changes" in row[2] for row in headers)
+    assert any("Manager Participation & Contribution" in row[2] for row in headers)
+    # The optional sections should also write out manager rows
+    assert any(cell[2] == "Fund A" for cell in ws.cells)
+
+
+def test_make_summary_formatter_manager_contrib_list(formatters_excel_registry):
+    res = _build_base_result()
+    res["benchmark_ir"] = {"bench": {"Fund A": 0.1, "equal_weight": 0.2, "user_weight": 0.3}}
+    res["manager_contrib"] = [
+        {"Manager": "Fund B", "Years": 3, "OOS CAGR": 0.02, "Contribution Share": 0.1}
+    ]
+
+    fmt = make_summary_formatter(res, "2020-01", "2020-06", "2020-07", "2020-12")
+    ws = DummyWS()
+    wb = DummyWB()
+    fmt(ws, wb)
+
+    contrib_rows = [row for row in ws.rows if row[2] and row[2][0] == "Manager"]
+    assert contrib_rows, "Expected contribution header row to be written"
+    # Ensure list-based records were written to worksheet
+    assert any(cell[2] == "Fund B" for cell in ws.cells)
+
+
+def test_format_summary_text_formats_ints_and_nones():
+    res = _build_base_result()
+    res["fund_weights"] = {"Fund A": 1}
+    res["benchmark_ir"] = {"bench": {"Fund A": pd.NA, "equal_weight": None, "user_weight": 0.1}}
+
+    text = format_summary_text(res, "2020-01", "2020-06", "2020-07", "2020-12")
+    # Weight of 1 -> 100% formatted with two decimals
+    assert "100.00" in text

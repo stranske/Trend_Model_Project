@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+import trend_analysis.engine.optimizer as optimizer
 from trend_analysis.engine.optimizer import ConstraintViolation, apply_constraints
 
 
@@ -50,3 +51,57 @@ def test_redistribute_failure_raises():
     w = pd.Series([0.5, 0.5], index=["a", "b"], dtype=float)
     with pytest.raises(ConstraintViolation):
         apply_constraints(w, {"long_only": True, "max_weight": 0.4})
+
+
+def test_redistribute_zero_amount_is_noop():
+    w = pd.Series([0.3, 0.7], index=["a", "b"], dtype=float)
+    mask = pd.Series([True, False], index=w.index)
+    out = optimizer._redistribute(w.copy(), mask, 0.0)
+    pd.testing.assert_series_equal(out, w)
+
+
+def test_redistribute_without_capacity_raises():
+    w = pd.Series([0.4, 0.6], index=["a", "b"], dtype=float)
+    mask = pd.Series([False, False], index=w.index)
+    with pytest.raises(ConstraintViolation):
+        optimizer._redistribute(w.copy(), mask, 0.1)
+
+
+def test_apply_cap_uniformly_redistributes_zero_mass_bucket():
+    w = pd.Series([1.0, 0.0, 0.0], index=["a", "b", "c"], dtype=float)
+    capped = optimizer._apply_cap(w, 0.6)
+    expected = pd.Series([0.6, 0.2, 0.2], index=w.index)
+    pd.testing.assert_series_equal(capped, expected, check_exact=False, atol=1e-12, rtol=1e-12)
+
+
+def test_apply_constraints_empty_input_returns_empty():
+    w = pd.Series(dtype=float)
+    out = apply_constraints(w, {})
+    assert out.empty
+
+
+def test_apply_constraints_long_only_all_non_positive():
+    w = pd.Series([-0.1, -0.2], index=["a", "b"], dtype=float)
+    with pytest.raises(ConstraintViolation):
+        apply_constraints(w, {"long_only": True})
+
+
+def test_apply_constraints_group_caps_require_mapping():
+    w = pd.Series([0.6, 0.4], index=["a", "b"], dtype=float)
+    with pytest.raises(ConstraintViolation):
+        apply_constraints(w, {"group_caps": {"G1": 0.7}})
+
+
+def test_apply_constraints_reapplies_max_after_group_caps():
+    w = pd.Series([0.8, 0.2, 0.0], index=["a", "b", "c"], dtype=float)
+    constraints = {
+        "long_only": True,
+        "max_weight": 0.4,
+        "group_caps": {"A": 0.5, "B": 0.6},
+        "groups": {"a": "A", "b": "A", "c": "B"},
+    }
+    out = apply_constraints(w, constraints)
+    np.testing.assert_allclose(out.sum(), 1.0)
+    assert (out <= 0.4 + 1e-9).all()
+    # Ensure redistribution moved weight to the previously zero bucket
+    assert out["c"] > 0
