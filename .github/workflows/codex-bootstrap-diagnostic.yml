@@ -17,6 +17,14 @@ on:
         description: "If true, skip any mutating API calls (probe only)"
         required: false
         default: "false"
+      pat_probe:
+        description: "Run one-off PAT create-ref probe (true|false)"
+        required: false
+        default: "false"
+      pat_probe_branch:
+        description: "Branch name for PAT probe (leave empty to auto-generate)"
+        required: false
+        default: ""
 
 concurrency:
   group: codex-bootstrap-diagnostic-${{ github.event.inputs.issue || github.event.inputs.branch || 'none' }}
@@ -61,7 +69,7 @@ jobs:
           set -euo pipefail
           echo "Running Codex bootstrap diagnostics..."
           ISSUE_INPUT="${{ github.event.inputs.issue }}"
-            BRANCH_INPUT="${{ github.event.inputs.branch }}"
+          BRANCH_INPUT="${{ github.event.inputs.branch }}"
           DRY_RUN="${{ github.event.inputs.dry_run }}"
           ATTEMPT_BRANCH_CREATE="${{ github.event.inputs.attempt_branch_create }}"
           TS=$(date -u +%Y%m%d%H%M%S)
@@ -179,6 +187,44 @@ jobs:
           else
             echo "created=false" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: One-off PAT create-ref probe
+        if: ${{ steps.probe.outputs.base_sha != '' && github.event.inputs.pat_probe == 'true' }}
+        id: pat_probe
+        shell: bash
+        env:
+          BASE_SHA: ${{ steps.probe.outputs.base_sha }}
+          SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
+        run: |
+          set -euo pipefail
+          echo "Testing PAT create-ref one-off"
+            if [[ -z "${SERVICE_BOT_PAT:-}" ]]; then
+              echo "No SERVICE_BOT_PAT present; skipping." >> "$GITHUB_STEP_SUMMARY"; exit 0;
+            fi
+            TS=$(date -u +%Y%m%d%H%M%S)
+            BRANCH_INPUT="${{ github.event.inputs.pat_probe_branch }}"
+            TARGET_BRANCH=${BRANCH_INPUT:-"diagnostic/pat-probe-${TS}"}
+            echo "target_branch=$TARGET_BRANCH" >> "$GITHUB_OUTPUT"
+            URL="https://api.github.com/repos/${{ github.repository }}/git/refs"
+            payload="{\"ref\":\"refs/heads/${TARGET_BRANCH}\",\"sha\":\"${BASE_SHA}\"}"
+            code1=$(curl -s -o /tmp/pat1.json -w '%{http_code}' -X POST \
+              -H "Authorization: Bearer ${SERVICE_BOT_PAT}" -H 'Accept: application/vnd.github+json' "$URL" -d "$payload" || true)
+            if [[ "$code1" != "201" ]]; then
+              code2=$(curl -s -o /tmp/pat2.json -w '%{http_code}' -X POST \
+                -H "Authorization: token ${SERVICE_BOT_PAT}" -H 'Accept: application/vnd.github+json' "$URL" -d "$payload" || true)
+            else
+              code2="$code1"
+            fi
+            short1=$(sed -E 's/\s+/ /g' /tmp/pat1.json | cut -c1-300 || true)
+            short2=$(sed -E 's/\s+/ /g' /tmp/pat2.json | cut -c1-300 || true)
+            echo "code1=$code1" >> "$GITHUB_OUTPUT"
+            echo "code2=$code2" >> "$GITHUB_OUTPUT"
+            {
+              echo "### PAT Create-Ref Probe";
+              echo "- target_branch: $TARGET_BRANCH";
+              echo "- bearer_attempt: http=$code1 body=${short1}";
+              echo "- token_attempt:  http=$code2 body=${short2}";
+            } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Diagnostic Summary
         if: always()
