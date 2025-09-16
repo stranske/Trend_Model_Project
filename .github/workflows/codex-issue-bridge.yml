@@ -28,6 +28,8 @@ jobs:
       (github.event.action != 'labeled' &&
         (contains(github.event.issue.labels.*.name, 'agent:codex') || contains(github.event.issue.labels.*.name, 'agents:codex')))
     runs-on: ubuntu-latest
+    env:
+      SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
 
     steps:
       - name: Event summary
@@ -131,7 +133,7 @@ jobs:
 
       # Prefer posting as a human service user so Codex sees the command
       - name: Post Codex command as service user
-        if: ${{ steps.local_action.outcome == 'failure' && secrets.SERVICE_BOT_PAT != '' }}
+        if: ${{ steps.local_action.outcome == 'failure' && env.SERVICE_BOT_PAT != '' }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.SERVICE_BOT_PAT }}
@@ -146,7 +148,7 @@ jobs:
 
       # Fallback: still post with GITHUB_TOKEN if no PAT (Codex may ignore it)
       - name: Post Codex command (fallback as github-actions)
-        if: ${{ steps.local_action.outcome == 'failure' && secrets.SERVICE_BOT_PAT == '' }}
+        if: ${{ steps.local_action.outcome == 'failure' && env.SERVICE_BOT_PAT == '' }}
         uses: actions/github-script@v7
         with:
           script: |
