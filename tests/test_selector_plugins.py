@@ -71,7 +71,7 @@ def test_plugin_registry_available_lists_registered_selectors():
 
 
 def test_plugin_registry_create_error_message():
-    registry: PluginRegistry[RankSelector] = PluginRegistry()
+    registry = PluginRegistry()
     registry.register("demo")(RankSelector)
 
     with pytest.raises(ValueError) as excinfo:
