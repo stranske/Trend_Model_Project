@@ -21,11 +21,21 @@ concurrency:
 
 jobs:
   bridge:
+    # Extract label names into a variable for maintainability
+    env:
+      CODEX_LABELS: 'agent:codex,agents:codex'
     if: >
-      (github.event.action == 'labeled' &&
-        (github.event.label.name == 'agent:codex' || github.event.label.name == 'agents:codex')) ||
-      (github.event.action != 'labeled' &&
-        (contains(github.event.issue.labels.*.name, 'agent:codex') || contains(github.event.issue.labels.*.name, 'agents:codex')))
+      (
+        github.event.action == 'labeled' &&
+        contains(fromJson('["agent:codex","agents:codex"]'), github.event.label.name)
+      ) ||
+      (
+        github.event.action != 'labeled' &&
+        (
+          contains(github.event.issue.labels.*.name, 'agent:codex') ||
+          contains(github.event.issue.labels.*.name, 'agents:codex')
+        )
+      )
     runs-on: ubuntu-latest
 
     steps:
