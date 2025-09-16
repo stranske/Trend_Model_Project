@@ -80,6 +80,9 @@ runs:
   using: "composite"
   steps:
     - name: Network preflight (optional retry)
+      env:
+        # Expose the workflow's token to this bash step for curl checks
+        GITHUB_TOKEN: ${{ github.token }}
       shell: bash
       run: |
         attempts=${{ inputs.net_retry_attempts }}
@@ -136,6 +139,8 @@ runs:
       uses: actions/github-script@v7
       env:
         SERVICE_BOT_PAT: ${{ inputs.service_bot_pat }}
+        # Ensure fallback paths and diagnostics can access the default token
+        GITHUB_TOKEN: ${{ github.token }}
         CODEX_COMMAND: ${{ inputs.codex_command }}
         CODEX_SUPPRESS_ACTIVATE_INPUT: ${{ inputs.suppress_activate }}
         CODEX_PR_MODE: ${{ inputs.pr_mode }}
@@ -210,11 +215,11 @@ runs:
                       body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: baseSha })
                     });
                     if (resp.status === 201) {
-                      created = true; fallbackUsed = true; // header variant retry with SERVICE_BOT_PAT, not token fallback
+                      created = true; fallbackUsed = true; // treat as fallback path
                       core.info(`Created branch ${branch} with SERVICE_BOT_PAT using ${hv.style} header.`);
                       break;
                     } else {
-                      let txt; try { txt = await resp.text(); } catch (err) { core.warning(`Error reading response text: ${err && err.message ? err.message : err}`); txt = '[Error reading response text]'; }
+                      let txt; try { txt = await resp.text(); } catch (err) { core.warning(`Failed to parse response text: ${err && err.message ? err.message : err}`); txt = ''; }
                       core.warning(`SERVICE_BOT_PAT fetch (${hv.style}) failed http_status=${resp.status} body=${(txt||'').slice(0,400)}`);
                     }
                   } catch (e2) {
@@ -251,7 +256,7 @@ runs:
                         created = true; fallbackUsed = true; tokenSource = cand.env; core.info(`Created branch ${branch} with fallback ${cand.env} using ${hv.style} header.`);
                         break;
                       } else {
-                        let txt; try { txt = await resp.text(); } catch (err) { core.warning(`Error reading response text: ${err && err.message ? err.message : err}`); txt = '[response text unavailable due to error]'; }
+                        let txt; try { txt = await resp.text(); } catch {}
                         core.warning(`Fallback (${cand.env}) ${hv.style} failed http_status=${resp.status} body=${(txt||'').slice(0,400)}`);
                       }
                     } catch (e3) {
