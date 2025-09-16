@@ -1,12 +1,19 @@
 """Tests for the GUI app module to improve coverage."""
 
+import asyncio
+import contextlib
+import importlib
+import pickle
 import sys
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import ANY, MagicMock, Mock, patch
 
+import pandas as pd
 import yaml  # type: ignore[import-untyped]
 
+import trend_analysis.gui.app as app_module
 from trend_analysis.gui.app import (
     _build_rank_options,
     _build_step0,
@@ -553,3 +560,572 @@ class TestErrorHandling:
             result = _build_step0(store)
 
             assert result is not None
+
+
+class DummyLayout:
+    """Simple layout object mirroring ipywidgets layout attributes."""
+
+    def __init__(self) -> None:
+        self.border = ""
+        self.display = "flex"
+
+
+class DummyValueWidget:
+    """Basic widget capturing observers and supporting value updates."""
+
+    def __init__(self, value: object | None = None) -> None:
+        self.value = value
+        self._observers: list[callable] = []
+        self.layout = DummyLayout()
+
+    def observe(self, callback, names: str | None = None) -> None:  # pragma: no cover - stub
+        self._observers.append(callback)
+
+    def set_value(self, value: object) -> None:
+        self.value = value
+        for cb in list(self._observers):
+            cb({"new": value})
+
+
+class DummyFileUpload(DummyValueWidget):
+    """File upload stub returning stored payloads."""
+
+    def __init__(self, accept: str = "", multiple: bool = False) -> None:
+        super().__init__(value={})
+
+    def trigger(self) -> None:
+        for cb in list(self._observers):
+            cb({"new": self.value})
+
+
+class DummyDropdown(DummyValueWidget):
+    """Dropdown widget exposing options and value change notifications."""
+
+    def __init__(self, options: list[object] | None = None, value: object | None = None, description: str = "") -> None:
+        opts = list(options or [])
+        default = value if value is not None else (opts[0] if opts else None)
+        super().__init__(default)
+        self.options = opts
+        self.description = description
+
+
+class DummyCheckbox(DummyValueWidget):
+    """Checkbox widget supporting observe callbacks."""
+
+    def __init__(self, value: bool = False, description: str = "", indent: bool = True) -> None:
+        super().__init__(value)
+        self.description = description
+        self.indent = indent
+
+
+class DummyToggleButtons(DummyValueWidget):
+    """Toggle buttons stub mirroring ipywidgets API."""
+
+    def __init__(self, options: list[str], value: str, description: str = "") -> None:
+        super().__init__(value)
+        self.options = options
+        self.description = description
+
+
+class DummyBoundedIntText(DummyValueWidget):
+    def __init__(self, value: int = 0, **kwargs) -> None:
+        super().__init__(value)
+        for key, val in kwargs.items():
+            setattr(self, key, val)
+
+
+class DummyBoundedFloatText(DummyValueWidget):
+    def __init__(self, value: float = 0.0, **kwargs) -> None:
+        super().__init__(value)
+        for key, val in kwargs.items():
+            setattr(self, key, val)
+
+
+class DummyFloatText(DummyValueWidget):
+    def __init__(self, value: float = 0.0, **kwargs) -> None:
+        super().__init__(value)
+        for key, val in kwargs.items():
+            setattr(self, key, val)
+
+
+class DummyFloatSlider(DummyValueWidget):
+    def __init__(self, value: float = 0.0, **kwargs) -> None:
+        super().__init__(value)
+        for key, val in kwargs.items():
+            setattr(self, key, val)
+
+
+class DummyButton:
+    """Button stub storing click handlers."""
+
+    def __init__(self, description: str = "") -> None:
+        self.description = description
+        self.layout = DummyLayout()
+        self._handlers: list[callable] = []
+
+    def on_click(self, callback) -> None:  # pragma: no cover - simple setter
+        self._handlers.append(callback)
+
+    def click(self) -> None:
+        for cb in list(self._handlers):
+            cb(self)
+
+
+class DummyBox:
+    """Container widget preserving child references."""
+
+    def __init__(self, children: list[object] | tuple[object, ...] | None = None) -> None:
+        self.children = tuple(children or [])
+        self.layout = DummyLayout()
+
+
+class DummyLabel:
+    def __init__(self, value: str = "") -> None:
+        self.value = value
+        self.layout = DummyLayout()
+
+
+class FakeDataGrid:
+    """Minimal DataGrid stand-in capturing callbacks and data updates."""
+
+    def __init__(self, df, editable: bool = True) -> None:
+        self.df = df
+        self.editable = editable
+        self.layout = DummyLayout()
+        self.data: object | None = None
+        self.callbacks: dict[str, callable] = {}
+
+    def on(self, name: str, callback) -> None:
+        self.callbacks[name] = callback
+
+    def hold_trait_notifications(self):  # pragma: no cover - trivial passthrough
+        return contextlib.nullcontext(self)
+
+
+class FakeLoop:
+    """Event-loop stub executing callbacks immediately."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[float, callable]] = []
+
+    def call_later(self, delay: float, callback) -> None:
+        self.calls.append((delay, callback))
+        callback()
+
+
+class ImmediateTask:
+    """Wrapper returned by the immediate create_task helper."""
+
+    def __init__(self, task: asyncio.Task) -> None:
+        self._task = task
+
+    def cancel(self) -> None:  # pragma: no cover - no asynchronous backlog in tests
+        if not self._task.done():
+            self._task.cancel()
+
+
+def immediate_create_task(coro):
+    """Create a task and execute it promptly for debounce callbacks."""
+
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        try:
+            task = loop.create_task(coro)
+            loop.run_until_complete(task)
+        finally:
+            loop.close()
+        return ImmediateTask(task)
+    else:
+        task = loop.create_task(coro)
+        return ImmediateTask(task)
+
+
+async def fake_sleep(_: float) -> None:
+    """Async sleep stub returning immediately."""
+
+
+def _call_observer(callback, change, store):
+    """Invoke widget observer and execute coroutine callbacks when needed."""
+
+    try:
+        result = callback(change, store=store)
+    except TypeError:
+        result = callback(change)
+    if asyncio.iscoroutine(result):
+        asyncio.run(result)
+
+
+def test_datagrid_import_sets_flag(monkeypatch):
+    """Reload module with ipydatagrid present to hit import branch."""
+
+    fake_module = SimpleNamespace(DataGrid=object)
+    monkeypatch.setitem(sys.modules, "ipydatagrid", fake_module)
+
+    reloaded = importlib.reload(app_module)
+    try:
+        assert reloaded.HAS_DATAGRID is True
+    finally:
+        monkeypatch.delitem(sys.modules, "ipydatagrid", raising=False)
+        importlib.reload(app_module)
+
+
+def test_load_state_with_weight_variants(tmp_path, monkeypatch):
+    """Ensure load_state handles both new and legacy weight files."""
+
+    state_file = tmp_path / "state.yml"
+    weight_file = tmp_path / "weights.pkl"
+    state_file.write_text("mode: all\n")
+    weight_file.write_bytes(pickle.dumps({"adaptive_bayes_posteriors": {"fund": 1.0}}))
+
+    monkeypatch.setattr(app_module, "STATE_FILE", state_file)
+    monkeypatch.setattr(app_module, "WEIGHT_STATE_FILE", weight_file)
+
+    store = app_module.load_state()
+    assert store.weight_state == {"fund": 1.0}
+
+    weight_file.write_bytes(pickle.dumps([0.1, 0.2]))
+    store = app_module.load_state()
+    assert store.weight_state == [0.1, 0.2]
+
+
+def test_reset_weight_state_removes_file(tmp_path, monkeypatch):
+    """reset_weight_state should clear persisted weight cache."""
+
+    weight_file = tmp_path / "weights.pkl"
+    weight_file.write_bytes(b"cached")
+
+    store = ParamStore()
+    store.weight_state = {"legacy": True}
+
+    monkeypatch.setattr(app_module, "WEIGHT_STATE_FILE", weight_file)
+    app_module.reset_weight_state(store)
+
+    assert store.weight_state is None
+    assert not weight_file.exists()
+
+
+def test_build_config_dict_populates_defaults():
+    """Non-minimal configs should receive expected default sections."""
+
+    store = ParamStore()
+    store.cfg = {"mode": "rank", "data": {"csv_path": "demo.csv"}}
+
+    cfg = app_module.build_config_dict(store)
+
+    for key in [
+        "data",
+        "preprocessing",
+        "vol_adjust",
+        "sample_split",
+        "portfolio",
+        "benchmarks",
+        "metrics",
+        "export",
+        "run",
+        "multi_period",
+    ]:
+        assert key in cfg
+
+
+def test_build_config_from_store_uses_config_factory(monkeypatch):
+    """build_config_from_store should honour the Config factory."""
+
+    store = ParamStore()
+    store.cfg = {"mode": "rank", "output": {"format": "csv"}}
+
+    created: list[SimpleNamespace] = []
+
+    def fake_config(**kwargs):
+        ns = SimpleNamespace(**kwargs)
+        created.append(ns)
+        return ns
+
+    monkeypatch.setattr(app_module, "Config", fake_config)
+    cfg_obj = app_module.build_config_from_store(store)
+
+    assert created and cfg_obj.mode == "rank"
+
+
+def test_build_step0_datagrid_callbacks(monkeypatch, tmp_path):
+    """Exercise the DataGrid editing and upload paths of _build_step0."""
+
+    monkeypatch.setattr(app_module, "HAS_DATAGRID", True)
+    monkeypatch.setattr(app_module, "DataGrid", FakeDataGrid)
+    monkeypatch.setattr(app_module.asyncio, "get_event_loop", lambda: FakeLoop())
+    monkeypatch.setattr(app_module, "list_builtin_cfgs", lambda: ["demo"])
+    monkeypatch.setattr(app_module, "STATE_FILE", tmp_path / "state.yml")
+    monkeypatch.setattr(app_module, "WEIGHT_STATE_FILE", tmp_path / "weights.pkl")
+
+    save_calls: list[dict[str, object]] = []
+    display_calls: list[object] = []
+    monkeypatch.setattr(app_module, "save_state", lambda store: save_calls.append(store.to_dict()))
+    monkeypatch.setattr(app_module, "reset_weight_state", lambda store: store.cfg.setdefault("reset", True))
+    monkeypatch.setattr(app_module, "display", lambda obj: display_calls.append(obj))
+    monkeypatch.setattr(app_module, "FileLink", lambda path: f"link:{path}")
+
+    orig_safe_load = yaml.safe_load
+
+    def guarded_safe_load(text: str):
+        if text == "bad":
+            raise ValueError("invalid")
+        return orig_safe_load(text)
+
+    monkeypatch.setattr(app_module.yaml, "safe_load", guarded_safe_load)
+
+    monkeypatch.setattr(app_module.widgets, "FileUpload", DummyFileUpload)
+    monkeypatch.setattr(app_module.widgets, "Dropdown", DummyDropdown)
+    monkeypatch.setattr(app_module.widgets, "Label", DummyLabel)
+    monkeypatch.setattr(app_module.widgets, "Button", DummyButton)
+    monkeypatch.setattr(app_module.widgets, "VBox", DummyBox)
+    monkeypatch.setattr(app_module.widgets, "HBox", DummyBox)
+
+    cfg_dir = tmp_path / "cfg"
+    cfg_dir.mkdir()
+    (cfg_dir / "demo.yml").write_text("alpha: 1\n")
+    monkeypatch.setattr(app_module, "_find_config_directory", lambda: cfg_dir)
+
+    store = ParamStore()
+    store.cfg = {"alpha": 1}
+
+    container = app_module._build_step0(store)
+    template, upload, grid, buttons = container.children
+    save_btn, download_btn = buttons.children
+
+    grid.callbacks["cell_edited"]({"column": 1, "row": 0, "new": "2"})
+    assert store.cfg["alpha"] == 2 and store.dirty
+
+    grid.callbacks["cell_edited"]({"column": 1, "row": 0, "new": "bad"})
+    assert grid.layout.border == ""
+
+    upload.value = {"user.yml": {"content": b"foo: bar"}}
+    upload.trigger()
+    assert store.cfg["foo"] == "bar" and store.cfg["reset"]
+
+    template.set_value("demo")
+    assert "alpha" in store.cfg
+
+    save_btn.click()
+    assert save_calls and not store.dirty
+
+    download_btn.click()
+    download_path = app_module.STATE_FILE.with_name("config_download.yml")
+    assert download_path.exists()
+    assert display_calls == [f"link:{download_path}"]
+
+
+def test_build_rank_options_observers(monkeypatch):
+    """Verify rank option widgets persist changes back into the store."""
+
+    monkeypatch.setattr(app_module.widgets, "Dropdown", DummyDropdown)
+    monkeypatch.setattr(app_module.widgets, "BoundedIntText", DummyBoundedIntText)
+    monkeypatch.setattr(app_module.widgets, "BoundedFloatText", DummyBoundedFloatText)
+    monkeypatch.setattr(app_module.widgets, "FloatText", DummyFloatText)
+    monkeypatch.setattr(app_module.widgets, "FloatSlider", DummyFloatSlider)
+    monkeypatch.setattr(app_module.widgets, "VBox", DummyBox)
+    monkeypatch.setattr(app_module.asyncio, "create_task", immediate_create_task)
+    monkeypatch.setattr(app_module.asyncio, "sleep", fake_sleep)
+    import trend_analysis.gui.utils as utils_module
+
+    monkeypatch.setattr(utils_module.asyncio, "create_task", immediate_create_task)
+    monkeypatch.setattr(utils_module.asyncio, "sleep", fake_sleep)
+    time_values = iter([0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0])
+    monkeypatch.setattr(utils_module.time, "time", lambda: next(time_values))
+
+    metrics = {"Sharpe": object(), "Sortino": object(), "MaxDrawdown": object()}
+    import trend_analysis.core.rank_selection as rank_selection_module
+
+    monkeypatch.setattr(rank_selection_module, "METRIC_REGISTRY", metrics)
+
+    store = ParamStore()
+    result = app_module._build_rank_options(store)
+    incl, metric, n_text, pct_text, thresh, blended = result.children
+    m1, w1, m2, w2, m3, w3 = blended.children
+
+    incl.value = "threshold"
+    _call_observer(incl._observers[0], {"new": "threshold"}, store)
+
+    metric.value = "blended"
+    for callback in metric._observers:
+        _call_observer(callback, {"new": "blended"}, store)
+
+    n_text.value = 5
+    _call_observer(n_text._observers[0], {"new": 5}, store)
+
+    pct_text.value = 0.2
+    _call_observer(pct_text._observers[0], {"new": 0.2}, store)
+
+    thresh.value = 1.5
+    _call_observer(thresh._observers[0], {"new": 1.5}, store)
+
+    w1.value = 0.4
+    _call_observer(w1._observers[0], {"new": 0.4}, store)
+
+    assert store.cfg["rank"]["inclusion_approach"] == "threshold"
+    assert blended.layout.display == "flex"
+
+
+def test_build_manual_override_datagrid(monkeypatch):
+    """Manual override grid should mutate manual lists and weights."""
+
+    monkeypatch.setattr(app_module, "HAS_DATAGRID", True)
+    monkeypatch.setattr(app_module, "DataGrid", FakeDataGrid)
+    monkeypatch.setattr(app_module.widgets, "VBox", DummyBox)
+    fake_module = SimpleNamespace(DataGrid=FakeDataGrid)
+    monkeypatch.setitem(sys.modules, "ipydatagrid", fake_module)
+
+    store = ParamStore()
+    store.cfg = {
+        "portfolio": {
+            "custom_weights": {"FundA": 0.1},
+            "manual_list": ["FundA", "FundB"],
+        }
+    }
+
+    box = app_module._build_manual_override(store)
+    grid = box.children[0]
+
+    grid.callbacks["cell_edited"]({"row": 1, "column": 1, "new": False})
+    grid.callbacks["cell_edited"]({"row": 0, "column": 2, "new": "0.3"})
+
+    manual = store.cfg["portfolio"]["manual_list"]
+    weights = store.cfg["portfolio"]["custom_weights"]
+
+    assert "FundB" not in manual and weights["FundA"] == 0.3
+
+
+def test_build_weighting_options_callbacks(monkeypatch):
+    """Weighting widgets should keep params in sync with the store."""
+
+    monkeypatch.setattr(app_module.widgets, "Dropdown", DummyDropdown)
+    monkeypatch.setattr(app_module.widgets, "IntSlider", DummyBoundedIntText)
+    monkeypatch.setattr(app_module.widgets, "FloatSlider", DummyFloatSlider)
+    monkeypatch.setattr(app_module.widgets, "VBox", DummyBox)
+    monkeypatch.setattr(app_module.asyncio, "create_task", immediate_create_task)
+    monkeypatch.setattr(app_module.asyncio, "sleep", fake_sleep)
+    import trend_analysis.gui.utils as utils_module
+
+    monkeypatch.setattr(utils_module.asyncio, "create_task", immediate_create_task)
+    monkeypatch.setattr(utils_module.asyncio, "sleep", fake_sleep)
+    time_values = iter([0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0])
+    monkeypatch.setattr(utils_module.time, "time", lambda: next(time_values))
+    monkeypatch.setattr(app_module, "iter_plugins", lambda: [type("Plugin", (), {"__name__": "custom"})])
+
+    store = ParamStore()
+    result = app_module._build_weighting_options(store)
+    method, adv_box = result.children
+    hl, obs, max_w, tau = adv_box.children
+
+    method.value = "adaptive_bayes"
+    for callback in method._observers:
+        _call_observer(callback, {"new": "adaptive_bayes"}, store)
+
+    hl.value = 120
+    _call_observer(hl._observers[0], {"new": 120}, store)
+
+    obs.value = 0.4
+    _call_observer(obs._observers[0], {"new": 0.4}, store)
+
+    max_w.value = 0.25
+    _call_observer(max_w._observers[0], {"new": 0.25}, store)
+
+    tau.value = 1.2
+    _call_observer(tau._observers[0], {"new": 1.2}, store)
+
+    weight_cfg = store.cfg["portfolio"]["weighting"]
+    assert weight_cfg["name"] == "adaptive_bayes"
+    assert weight_cfg["params"]["prior_tau"] == 1.2
+    assert adv_box.layout.display == "flex"
+
+
+def test_launch_interactions(monkeypatch, tmp_path):
+    """Validate launch wiring including run/export callbacks."""
+
+    monkeypatch.setattr(app_module.widgets, "Dropdown", DummyDropdown)
+    monkeypatch.setattr(app_module.widgets, "Checkbox", DummyCheckbox)
+    monkeypatch.setattr(app_module.widgets, "ToggleButtons", DummyToggleButtons)
+    monkeypatch.setattr(app_module.widgets, "Button", DummyButton)
+    monkeypatch.setattr(app_module.widgets, "VBox", DummyBox)
+
+    rank_box = DummyBox()
+    manual_box = DummyBox()
+    weight_box = DummyBox()
+
+    monkeypatch.setattr(app_module, "_build_step0", lambda store: DummyBox())
+    monkeypatch.setattr(app_module, "_build_rank_options", lambda store: rank_box)
+    monkeypatch.setattr(app_module, "_build_manual_override", lambda store: manual_box)
+    monkeypatch.setattr(app_module, "_build_weighting_options", lambda store: weight_box)
+    monkeypatch.setattr(app_module, "discover_plugins", lambda: None)
+
+    store = ParamStore()
+    store.cfg = {"output": {"format": "excel"}}
+
+    monkeypatch.setattr(app_module, "load_state", lambda: store)
+
+    sample_split = {
+        "in_start": "2020-01",
+        "in_end": "2020-06",
+        "out_start": "2020-07",
+        "out_end": "2020-12",
+    }
+
+    def build_cfg(store_obj: ParamStore) -> SimpleNamespace:
+        output_cfg = store_obj.cfg.get("output", {}).copy()
+        output_cfg.setdefault("path", str(tmp_path / "out"))
+        return SimpleNamespace(output=output_cfg, sample_split=sample_split)
+
+    monkeypatch.setattr(app_module, "build_config_from_store", build_cfg)
+
+    run_calls: list[pd.DataFrame] = []
+    full_calls: list[object] = []
+    export_calls: list[tuple] = []
+    json_calls: list[tuple] = []
+    save_calls: list[ParamStore] = []
+    reset_calls: list[ParamStore] = []
+    theme_calls: list[str] = []
+
+    monkeypatch.setattr(app_module.pipeline, "run", lambda cfg: run_calls.append(pd.DataFrame({"a": [1]})) or pd.DataFrame({"a": [1]}))
+    monkeypatch.setattr(app_module.pipeline, "run_full", lambda cfg: full_calls.append({"metrics": pd.DataFrame({"a": [1]})}) or {"metrics": pd.DataFrame({"a": [1]})})
+    monkeypatch.setattr(app_module.export, "make_summary_formatter", lambda *args, **kwargs: lambda df: df)
+    monkeypatch.setattr(app_module.export, "export_to_excel", lambda data, path, default_sheet_formatter=None: export_calls.append((path, data)))
+
+    exporters = dict(app_module.export.EXPORTERS)
+    exporters["json"] = lambda data, path, _: json_calls.append((path, data))
+    monkeypatch.setattr(app_module.export, "EXPORTERS", exporters)
+
+    monkeypatch.setattr(app_module, "save_state", lambda store: save_calls.append(store))
+    monkeypatch.setattr(app_module, "reset_weight_state", lambda store: reset_calls.append(store))
+    monkeypatch.setattr(app_module, "Javascript", lambda script: script)
+    monkeypatch.setattr(app_module, "display", lambda payload: theme_calls.append(payload))
+
+    container = app_module.launch()
+    _, mode, vol_adj, use_rank, _, _, _, fmt_dd, theme, reset_btn, run_btn = container.children
+
+    mode.set_value("rank")
+    assert store.cfg["mode"] == "rank" and rank_box.layout.display == "flex"
+
+    use_rank.set_value(True)
+    assert rank_box.layout.display == "flex"
+
+    mode.set_value("manual")
+    assert manual_box.layout.display == "flex"
+
+    vol_adj.set_value(True)
+    assert store.cfg["use_vol_adjust"] is True
+
+    fmt_dd.set_value("json")
+    assert store.cfg["output"]["format"] == "json"
+
+    theme.set_value("dark")
+    assert store.theme == "dark" and theme_calls
+
+    run_btn.click()
+    assert json_calls and save_calls and not store.dirty
+
+    fmt_dd.set_value("excel")
+    run_btn.click()
+    assert export_calls
+
+    reset_btn.click()
+    assert reset_calls
