@@ -115,6 +115,10 @@ def _build_step0(store: ParamStore) -> widgets.Widget:
     template = widgets.Dropdown(options=list_builtin_cfgs(), description="Template")
     if HAS_DATAGRID and DataGrid is not None:
         grid_df = pd.DataFrame(list(store.cfg.items()), columns=["Key", "Value"])
+        # ``Value`` may contain scalars of varying dtypes; keep it as ``object`` so
+        # edits with strings, ints or floats don't trigger pandas' incompatible
+        # dtype warnings (which will become errors in future releases).
+        grid_df["Value"] = grid_df["Value"].astype(object)
         grid = DataGrid(grid_df, editable=True)
 
         def on_cell_change(event: dict[str, Any]) -> None:
@@ -124,8 +128,9 @@ def _build_step0(store: ParamStore) -> widgets.Widget:
             old = grid_df.iloc[event["row"], 1]
             new = event["new"]
             try:
-                store.cfg[key] = yaml.safe_load(new)
-                grid_df.iloc[event["row"], 1] = new
+                parsed = yaml.safe_load(new)
+                store.cfg[key] = parsed
+                grid_df.iloc[event["row"], 1] = parsed
                 store.dirty = True
             except Exception:
                 grid_df.iloc[event["row"], 1] = old

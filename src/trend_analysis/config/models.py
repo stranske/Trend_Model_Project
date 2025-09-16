@@ -581,7 +581,22 @@ def load(path: str | Path | None = None) -> ConfigProtocol:
         export_cfg = data.setdefault("export", {})
         fmt = out_cfg.get("format")
         if fmt:
-            export_cfg["formats"] = [fmt] if isinstance(fmt, str) else list(fmt)
+            fmt_list = [fmt] if isinstance(fmt, str) else list(fmt)
+            existing = export_cfg.get("formats")
+            if isinstance(existing, str):
+                combined = [str(existing)]
+            elif isinstance(existing, (list, tuple, set)):
+                combined = [str(item) for item in existing]
+            else:
+                combined = []
+            seen = {item.lower() for item in combined}
+            for item in fmt_list:
+                item_str = str(item)
+                key = item_str.lower()
+                if key not in seen:
+                    combined.append(item_str)
+                    seen.add(key)
+            export_cfg["formats"] = combined if combined else [str(v) for v in fmt_list]
         path_val = out_cfg.get("path")
         if path_val:
             p = Path(path_val)
