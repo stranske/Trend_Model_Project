@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import copy
 import importlib
+import json
 import os
 import shutil
 import subprocess
@@ -1880,6 +1881,35 @@ def _check_config_missing() -> None:
         raise SystemExit("config.load missing-file check failed")
 
 
+def _ensure_periods_placeholder(base: Path, *, message: str) -> None:
+    """Populate exported period files with a placeholder row if empty."""
+
+    csv_path = base.with_name(f"{base.stem}_periods.csv")
+    json_path = base.with_name(f"{base.stem}_periods.json")
+    txt_path = base.with_name(f"{base.stem}_periods.txt")
+    placeholder = {"period": "N/A", "note": message}
+
+    if csv_path.exists():
+        try:
+            df = pd.read_csv(csv_path)
+        except pd.errors.EmptyDataError:
+            df = pd.DataFrame()
+        if df.empty:
+            pd.DataFrame([placeholder]).to_csv(csv_path, index=False)
+
+    if json_path.exists():
+        try:
+            data = json.loads(json_path.read_text())
+        except json.JSONDecodeError:
+            data = None
+        if not data:
+            json_path.write_text(json.dumps([placeholder], indent=2))
+
+    if txt_path.exists() and not txt_path.read_text().strip():
+        safe_msg = message.replace("\n", " ")
+        txt_path.write_text(f"period,note\nN/A,{safe_msg}\n")
+
+
 def _check_empty_export_helpers() -> None:
     """Ensure export helpers cope with empty result lists."""
 
@@ -1903,10 +1933,15 @@ def _check_empty_export_helpers() -> None:
     )
     if not path_phase1_multi.with_suffix(".xlsx").exists():
         raise SystemExit("export_phase1_multi_metrics empty Excel missing")
-    if not path_phase1_multi.with_name(
+    periods_stub = path_phase1_multi.with_name(
         f"{path_phase1_multi.stem}_periods.csv"
-    ).exists():
+    )
+    if not periods_stub.exists():
         raise SystemExit("export_phase1_multi_metrics empty CSV missing")
+    _ensure_periods_placeholder(
+        path_phase1_multi,
+        message="No multi-period results were generated for the empty demo input.",
+    )
     path_multi = Path("demo/exports/empty_multi")
     export.export_multi_period_metrics(
         empty,
@@ -1918,6 +1953,10 @@ def _check_empty_export_helpers() -> None:
         raise SystemExit("export_multi_period_metrics empty Excel missing")
     if not path_multi.with_name(f"{path_multi.stem}_periods.csv").exists():
         raise SystemExit("export_multi_period_metrics empty CSV missing")
+    _ensure_periods_placeholder(
+        path_multi,
+        message="Placeholder row written because no periods were available.",
+    )
 
 
 def _check_export_misc() -> None:
