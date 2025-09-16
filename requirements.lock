@@ -20,7 +20,7 @@ executing==2.2.1
     # via stack-data
 fonttools==4.59.2
     # via matplotlib
-hypothesis==6.138.15
+hypothesis==6.138.17
     # via trend-model (pyproject.toml)
 ipython==9.5.0
     # via ipywidgets
@@ -63,7 +63,7 @@ ptyprocess==0.7.0
     # via pexpect
 pure-eval==0.2.3
     # via stack-data
-pydantic==2.11.7
+pydantic==2.11.9
     # via trend-model (pyproject.toml)
 pydantic-core==2.33.2
     # via pydantic
@@ -71,7 +71,7 @@ pygments==2.19.2
     # via
     #   ipython
     #   ipython-pygments-lexers
-pyparsing==3.2.3
+pyparsing==3.2.4
     # via matplotlib
 python-dateutil==2.9.0.post0
     # via
@@ -81,7 +81,7 @@ pytz==2025.2
     # via pandas
 pyyaml==6.0.2
     # via trend-model (pyproject.toml)
-scipy==1.16.1
+scipy==1.16.2
     # via trend-model (pyproject.toml)
 six==1.17.0
     # via python-dateutil
@@ -107,5 +107,5 @@ wcwidth==0.2.13
     # via prompt-toolkit
 widgetsnbextension==4.0.14
     # via ipywidgets
-xlsxwriter==3.2.5
+xlsxwriter==3.2.9
     # via trend-model (pyproject.toml)

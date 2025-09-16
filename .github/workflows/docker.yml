@@ -41,5 +41,33 @@ jobs:
             echo "Running tests with quiet output for production build..."
             docker run --rm ghcr.io/${{ github.repository_owner }}/trend-model:latest pytest -q
           fi
+      - name: Smoke test health endpoint
+        run: |
+          echo "🔍 Testing health endpoint with retry logic..."
+          CONTAINER_ID=$(docker run -d -p 8000:8000 ghcr.io/${{ github.repository_owner }}/trend-model:latest)
+          echo "Started container: $CONTAINER_ID"
+          
+          # Wait for container startup with backoff
+          max_attempts=10
+          attempt=1
+          while [ $attempt -le $max_attempts ]; do
+            if curl -fs http://localhost:8000/health | grep -q "OK"; then
+              echo "✅ Health check passed on attempt $attempt"
+              break
+            else
+              echo "Attempt $attempt failed, retrying..."
+              sleep 1
+            fi
+            attempt=$((attempt+1))
+          done
+          
+          # Cleanup
+          docker stop "$CONTAINER_ID"
+          docker rm "$CONTAINER_ID"
+          
+          if [ $attempt -gt $max_attempts ]; then
+            echo "❌ Health check failed after $max_attempts attempts"
+            exit 1
+          fi
       - name: Push image
         run: docker push ghcr.io/${{ github.repository_owner }}/trend-model:latest

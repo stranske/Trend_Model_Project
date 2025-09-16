@@ -8,10 +8,13 @@ import pytest
 from trend_portfolio_app import sim_runner
 from trend_portfolio_app.event_log import Event, EventLog
 from trend_portfolio_app.policy_engine import MetricSpec, PolicyConfig
-from trend_portfolio_app.sim_runner import (SimResult, Simulator,
-                                            _apply_rebalance_pipeline,
-                                            compute_score_frame,
-                                            compute_score_frame_local)
+from trend_portfolio_app.sim_runner import (
+    SimResult,
+    Simulator,
+    _apply_rebalance_pipeline,
+    compute_score_frame,
+    compute_score_frame_local,
+)
 
 
 def test_import_fallback(monkeypatch):

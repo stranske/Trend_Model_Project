@@ -2,7 +2,7 @@ name: autofix on failures
 
 on:
   workflow_run:
-    workflows: ["CI", "Docker"]
+    workflows: ["CI", "Docker", "Lint", "Tests"]
     types: [completed]
 
 permissions:
@@ -60,18 +60,10 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-
-      - name: Run auto-fixers (ruff/black/isort/docformatter)
+      - name: Autofix
         id: fix
         if: steps.find_pr.outputs.pr != '' && steps.find_pr.outputs.same_repo == 'true'
-        run: |
-          python -m pip install -U pip
-          pip install -e ".[dev]" black==23.9.1 ruff==0.3.0 isort==5.12.0 docformatter==1.7.4
-          ruff check --fix .
-          black .
-          isort .
-          docformatter -r -i src tests
-          if ! git diff --quiet; then echo "changed=true" >> $GITHUB_OUTPUT; else echo "changed=false" >> $GITHUB_OUTPUT; fi
+        uses: ./.github/actions/autofix
 
       - name: Commit and push autofixes
         if: steps.fix.outputs.changed == 'true'
@@ -81,36 +73,11 @@ jobs:
           git add -A
           git commit -m "ci: autofix after failed checks"
           git push origin HEAD:${{ steps.find_pr.outputs.head_ref }}
-
-      - name: Summarize failing jobs and ping @copilot
-        if: steps.find_pr.outputs.pr != '' && steps.fix.outputs.changed != 'true'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const run = context.payload.workflow_run;
-            const owner = context.repo.owner;
-            const repo  = context.repo.repo;
-            const prNum = Number('${{ steps.find_pr.outputs.pr }}');
-            // Fetch all jobs using pagination
-            let allJobs = [];
-            let page = 1;
-            let fetched;
-            do {
-              fetched = await github.rest.actions.listJobsForWorkflowRun({
-                owner,
-                repo,
-                run_id: run.id,
-                per_page: 100,
-                page
-              });
-              allJobs = allJobs.concat(fetched.data.jobs);
-              page += 1;
-            } while (fetched.data.jobs.length === 100);
-            const failing = allJobs
-              .filter(j => (j.conclusion || '') !== 'success')
-              .map(j => `- **${j.name}** (${j.conclusion}) → [logs](${j.html_url})`)
-              .join('\n') || '- failed checks, see run logs.';
-            const isAgent = '${{ steps.find_pr.outputs.is_agent }}' === 'true';
-            const mention = isAgent ? '@copilot ' : '';
-            const body = `${mention}please update this PR to fix failing checks from **${run.name}** #${run.run_number}:\n\n${failing}`;
-            await github.rest.issues.createComment({ owner, repo, issue_number: prNum, body });
+      - name: Summary
+        if: always()
+        run: |
+          echo "### Autofix Failure Handler Summary" >> $GITHUB_STEP_SUMMARY
+          echo "Target PR: ${{ steps.find_pr.outputs.pr }}" >> $GITHUB_STEP_SUMMARY
+          echo "Same repo: ${{ steps.find_pr.outputs.same_repo }}" >> $GITHUB_STEP_SUMMARY
+          echo "Agent PR: ${{ steps.find_pr.outputs.is_agent }}" >> $GITHUB_STEP_SUMMARY
+          echo "Applied changes: ${{ steps.fix.outputs.changed }}" >> $GITHUB_STEP_SUMMARY

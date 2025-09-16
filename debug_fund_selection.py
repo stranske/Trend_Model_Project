@@ -7,8 +7,7 @@ import numpy as np
 import pandas as pd
 
 from trend_analysis.config import load
-from trend_analysis.core.rank_selection import (RiskStatsConfig,
-                                                rank_select_funds)
+from trend_analysis.core.rank_selection import RiskStatsConfig, rank_select_funds
 from trend_analysis.data import identify_risk_free_fund, load_csv
 
 

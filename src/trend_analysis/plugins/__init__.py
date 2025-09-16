@@ -90,6 +90,34 @@ rebalancer_registry: PluginRegistry[Rebalancer] = PluginRegistry()
 weight_engine_registry: PluginRegistry[WeightEngine] = PluginRegistry()
 
 
+def _load_weight_engines() -> None:  # pragma: no cover - tiny import shim
+    """Load built-in weight engines after registry construction.
+
+    Kept in a function so Ruff (E402) does not object to mid-file imports while
+    still ensuring side-effect registration occurs at import time.
+    """
+    # Local import scope prevents premature evaluation during type checking
+    from ..weights import (
+        equal_risk_contribution as _equal_risk_contribution,  # noqa: F401
+        hierarchical_risk_parity as _hierarchical_risk_parity,  # noqa: F401
+        risk_parity as _risk_parity,  # noqa: F401
+        robust_weighting as _robust_weighting,  # noqa: F401
+    )
+
+    # Expose in module globals for __all__ export
+    globals().update(
+        {
+            "_equal_risk_contribution": _equal_risk_contribution,
+            "_hierarchical_risk_parity": _hierarchical_risk_parity,
+            "_risk_parity": _risk_parity,
+            "_robust_weighting": _robust_weighting,
+        }
+    )
+
+
+_load_weight_engines()
+
+
 def create_selector(name: str, **params: Any) -> Selector:
     """Instantiate a selector plugin by ``name``."""
     return selector_registry.create(name, **params)
@@ -104,13 +132,6 @@ def create_weight_engine(name: str, **params: Any) -> WeightEngine:
     """Instantiate a weight engine plugin by ``name``."""
     return weight_engine_registry.create(name, **params)
 
-
-# Import built-in weight engine modules so that they register with the plugin registry
-# ruff: noqa: E402
-from ..weights import \
-    equal_risk_contribution as _equal_risk_contribution  # noqa: F401
-from ..weights import hierarchical_risk_parity as _hierarchical_risk_parity
-from ..weights import risk_parity as _risk_parity
 
 __all__ = [
     "Plugin",
@@ -127,4 +148,5 @@ __all__ = [
     "_equal_risk_contribution",
     "_hierarchical_risk_parity",  # ensures HRP is exported
     "_risk_parity",
+    "_robust_weighting",
 ]

@@ -4,44 +4,119 @@
 This script exercises the Phase‑2 multi-period engine by running
 ``multi_period.run`` to obtain a collection of ``score_frame`` objects and then
 feeding them through ``run_schedule`` with a selector and weighting scheme.
+
+Type Hygiene Notes
+------------------
+This file is intentionally verbose and exercises a very broad surface area of
+the code base for CI. We add lightweight type aliases and Protocols so mypy
+can reason about common structures without over-specifying every intermediate
+object. The goal is clarity + reduced noise, not full strict coverage.
 """
+
+from __future__ import annotations
 
 import copy
 import importlib
+import json
 import os
 import shutil
 import subprocess
 import sys
 from dataclasses import fields
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, Sequence, Protocol, TypedDict, cast
 
-import numpy as np
-import openpyxl
-import pandas as pd
-import yaml  # type: ignore[import-untyped]
-
-# Allow running without installing the package by adding src/ to PYTHONPATH
+# Ensure src/ is on PYTHONPATH before importing project packages
 ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT / "src") not in sys.path:
+    sys.path.insert(0, str(ROOT / "src"))
 
-import trend_analysis as ta
+import numpy as np  # noqa: E402
+import openpyxl  # noqa: E402
+import pandas as pd  # noqa: E402
+import yaml  # type: ignore[import-untyped]  # noqa: E402
+
+# ---------------------------------------------------------------------------
+# Type aliases / structural protocols
+# ---------------------------------------------------------------------------
+
+
+class _StatsLike(Protocol):  # minimal protocol matching pipeline._Stats
+    cagr: float
+    vol: float
+    sharpe: float
+    sortino: float
+    information_ratio: float
+    max_drawdown: float
+
+
+PeriodTuple = tuple[str, str, str, str]
+
+
+class ResultDict(TypedDict, total=False):
+    period: PeriodTuple
+    score_frame: pd.DataFrame
+    selected_funds: list[str]
+    out_ew_stats: _StatsLike
+    out_sample_stats: dict[str, _StatsLike]
+    benchmark_ir: dict[str, Mapping[str, float]]
+
+
+class PortfolioConfig(TypedDict, total=False):
+    selection_mode: str
+    random_n: int
+    manual_list: list[str]
+
+
+class SampleSplitConfig(TypedDict):
+    in_start: str
+    in_end: str
+    out_start: str
+    out_end: str
+
+
+ScoreFrame = pd.DataFrame  # semantic alias for clarity
+StatsMap = Mapping[str, _StatsLike]
+MetricSeries = pd.Series
+
+import trend_analysis as ta  # noqa: E402
+
 # (widgets and metrics imported within functions where needed)
-from trend_analysis import (cli, export, gui, metrics, pipeline, run_analysis,
-                            run_multi_analysis)
-from trend_analysis.config import Config, load
-from trend_analysis.core import rank_selection as rs
-from trend_analysis.core.rank_selection import (RiskStatsConfig,
-                                                rank_select_funds)
-from trend_analysis.data import (ensure_datetime, identify_risk_free_fund,
-                                 load_csv)
-from trend_analysis.multi_period import run as run_mp
-from trend_analysis.multi_period import run_schedule, scheduler
-from trend_analysis.multi_period.engine import Portfolio, SelectorProtocol
-from trend_analysis.multi_period.replacer import Rebalancer
-from trend_analysis.selector import RankSelector, ZScoreSelector
-from trend_analysis.weighting import (AdaptiveBayesWeighting, BaseWeighting,
-                                      EqualWeight, ScorePropBayesian,
-                                      ScorePropSimple)
+from trend_analysis import (  # noqa: E402
+    cli,
+    export,
+    gui,
+    metrics,
+    pipeline,
+    run_analysis,
+    run_multi_analysis,
+)
+from trend_analysis.config import Config, load  # noqa: E402
+from trend_analysis.config.models import (  # noqa: E402
+    ConfigProtocol as _ConfigProto,
+)  # for type hints only
+from trend_analysis.core import rank_selection as rs  # noqa: E402
+from trend_analysis.core.rank_selection import (  # noqa: E402
+    RiskStatsConfig,
+    rank_select_funds,
+)
+from trend_analysis.data import (  # noqa: E402
+    ensure_datetime,
+    identify_risk_free_fund,
+    load_csv,
+)
+from trend_analysis.multi_period import run as run_mp  # noqa: E402
+from trend_analysis.multi_period import run_schedule, scheduler  # noqa: E402
+from trend_analysis.multi_period.engine import Portfolio, SelectorProtocol  # noqa: E402
+from trend_analysis.multi_period.replacer import Rebalancer  # noqa: E402
+from trend_analysis.selector import RankSelector, ZScoreSelector  # noqa: E402
+from trend_analysis.weighting import (  # noqa: E402
+    AdaptiveBayesWeighting,
+    BaseWeighting,
+    EqualWeight,
+    ScorePropBayesian,
+    ScorePropSimple,
+)
 
 
 def _check_generate_demo() -> None:
@@ -77,7 +152,7 @@ def _check_generate_demo_help() -> None:
         raise SystemExit("generate_demo --help missing text")
 
 
-def _check_demo_data(cfg: Config) -> pd.DataFrame:
+def _check_demo_data(cfg: Config) -> pd.DataFrame:  # use concrete Config for model_dump
     """Validate the generated demo CSV and return the DataFrame."""
     df = load_csv(cfg.data["csv_path"])
     if df is None:
@@ -110,11 +185,17 @@ def _check_schedule(
     score_frames: Mapping[str, pd.DataFrame],
     selector: SelectorProtocol,
     weighting: BaseWeighting,
-    cfg: Config,
+    cfg: Config | _ConfigProto,
     *,
     rank_column: str | None = None,
 ) -> Portfolio:
-    rebalancer = Rebalancer(cfg.model_dump())
+    # Ensure we have access to model_dump (present on concrete Config and fallback)
+    cfg_dump: dict[str, Any]
+    if hasattr(cfg, "model_dump"):
+        cfg_dump = getattr(cfg, "model_dump")()  # type: ignore[no-any-return]
+    else:  # pragma: no cover - defensive
+        cfg_dump = cast(dict[str, Any], getattr(cfg, "__dict__", {}))
+    rebalancer = Rebalancer(cfg_dump)
     pf = run_schedule(
         score_frames,
         selector,
@@ -561,13 +642,20 @@ def _check_builtin_metric_aliases() -> None:
 
     ir1 = m.info_ratio(s, s)
     ir2 = m.information_ratio(s, s)
-    if pd.isna(ir1) and pd.isna(ir2):
-        pass
-    elif ir1 != ir2:
+
+    def _to_float(x: Any) -> float:
+        try:
+            return float(x)
+        except Exception:  # pragma: no cover - defensive
+            return float("nan")
+
+    ir1_f = _to_float(ir1)
+    ir2_f = _to_float(ir2)
+    if not (np.isnan(ir1_f) and np.isnan(ir2_f)) and ir1_f != ir2_f:
         raise SystemExit("info_ratio alias mismatch")
-    if m.annualize_sharpe_ratio(s) != m.sharpe_ratio(s):
+    if _to_float(m.annualize_sharpe_ratio(s)) != _to_float(m.sharpe_ratio(s)):
         raise SystemExit("annualize_sharpe_ratio alias mismatch")
-    if m.annualize_sortino_ratio(s) != m.sortino_ratio(s):
+    if _to_float(m.annualize_sortino_ratio(s)) != _to_float(m.sortino_ratio(s)):
         raise SystemExit("annualize_sortino_ratio alias mismatch")
 
 
@@ -607,14 +695,14 @@ def _check_selector_errors() -> None:
     df = pd.DataFrame({"A": [1, 2, 3]})
 
     try:
-        RankSelector(1, "B").select(df)
+        RankSelector(top_n=1, rank_column="B").select(df)
     except KeyError:
         pass
     else:
         raise SystemExit("RankSelector missing-column check failed")
 
     try:
-        ZScoreSelector(0.0).select(df)
+        ZScoreSelector(threshold=0.0).select(df)
     except KeyError:
         pass
     else:
@@ -624,7 +712,7 @@ def _check_selector_errors() -> None:
 def _check_zscore_direction() -> None:
     """Verify ``direction`` parameter handles negative thresholds."""
     df = pd.DataFrame({"metric": [0.0, 1.0, 2.0]}, index=["A", "B", "C"])
-    sel = ZScoreSelector(0.0, direction=-1, column="metric")
+    sel = ZScoreSelector(threshold=0.0, direction=-1, column="metric")
     selected, _ = sel.select(df)
     if selected.index.tolist() != ["A"]:
         raise SystemExit("ZScoreSelector direction handling failed")
@@ -1793,6 +1881,35 @@ def _check_config_missing() -> None:
         raise SystemExit("config.load missing-file check failed")
 
 
+def _ensure_periods_placeholder(base: Path, *, message: str) -> None:
+    """Populate exported period files with a placeholder row if empty."""
+
+    csv_path = base.with_name(f"{base.stem}_periods.csv")
+    json_path = base.with_name(f"{base.stem}_periods.json")
+    txt_path = base.with_name(f"{base.stem}_periods.txt")
+    placeholder = {"period": "N/A", "note": message}
+
+    if csv_path.exists():
+        try:
+            df = pd.read_csv(csv_path)
+        except pd.errors.EmptyDataError:
+            df = pd.DataFrame()
+        if df.empty:
+            pd.DataFrame([placeholder]).to_csv(csv_path, index=False)
+
+    if json_path.exists():
+        try:
+            data = json.loads(json_path.read_text())
+        except json.JSONDecodeError:
+            data = None
+        if data is None or (isinstance(data, list) and len(data) == 0):
+            json_path.write_text(json.dumps([placeholder], indent=2))
+
+    if txt_path.exists() and not txt_path.read_text().strip():
+        safe_msg = message.replace("\n", " ")
+        txt_path.write_text(f"period,note\nN/A,{safe_msg}\n")
+
+
 def _check_empty_export_helpers() -> None:
     """Ensure export helpers cope with empty result lists."""
 
@@ -1816,10 +1933,15 @@ def _check_empty_export_helpers() -> None:
     )
     if not path_phase1_multi.with_suffix(".xlsx").exists():
         raise SystemExit("export_phase1_multi_metrics empty Excel missing")
-    if not path_phase1_multi.with_name(
+    periods_stub = path_phase1_multi.with_name(
         f"{path_phase1_multi.stem}_periods.csv"
-    ).exists():
+    )
+    if not periods_stub.exists():
         raise SystemExit("export_phase1_multi_metrics empty CSV missing")
+    _ensure_periods_placeholder(
+        path_phase1_multi,
+        message="No multi-period results were generated for the empty demo input.",
+    )
     path_multi = Path("demo/exports/empty_multi")
     export.export_multi_period_metrics(
         empty,
@@ -1831,6 +1953,10 @@ def _check_empty_export_helpers() -> None:
         raise SystemExit("export_multi_period_metrics empty Excel missing")
     if not path_multi.with_name(f"{path_multi.stem}_periods.csv").exists():
         raise SystemExit("export_multi_period_metrics empty CSV missing")
+    _ensure_periods_placeholder(
+        path_multi,
+        message="Placeholder row written because no periods were available.",
+    )
 
 
 def _check_export_misc() -> None:
@@ -2179,4 +2305,6 @@ subprocess.run(["bash", str(quick_check)], check=True, shell=False)
 
 # Execute the full test suite to cover the entire code base
 run_tests = Path(__file__).resolve().with_name("run_tests.sh")
-subprocess.run([str(run_tests)], check=True, shell=False)
+result = subprocess.run([str(run_tests)], shell=False)
+if result.returncode != 0:
+    raise SystemExit(f"{run_tests} failed with exit code {result.returncode}")

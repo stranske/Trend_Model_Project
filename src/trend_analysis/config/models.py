@@ -12,7 +12,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Protocol, cast
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 
 class ConfigProtocol(Protocol):
@@ -254,8 +254,12 @@ if _HAS_PYDANTIC:
             mode="before",
         )
         def _ensure_dict(cls, v: Any, info: Any) -> dict[str, Any]:
+            field_name = getattr(info, "field_name", "field")
+            if v is None:
+                # Maintain backwards-compatible error message checked in tests.
+                raise ValueError(f"{field_name} section is required")
             if not isinstance(v, dict):
-                raise ValueError(f"{info.field_name} must be a dictionary")
+                raise ValueError(f"{field_name} must be a dictionary")
             return v
 
     # Field constants are already defined as class variables above
