@@ -407,16 +407,21 @@ def export_to_excel(
         for sheet, df in data.items():
             fmt = FORMATTERS_EXCEL.get(sheet, default_sheet_formatter)
             if fmt is not None:
-                # Create an empty worksheet and delegate full rendering
-                # xlsxwriter workbook object provides add_worksheet; cast for typing
+                # Create an empty worksheet and delegate full rendering when the
+                # engine exposes the expected ``add_worksheet`` hook (xlsxwriter).
                 book_any: Any = writer.book
-                add_ws = getattr(book_any, "add_worksheet")
-                ws = cast(Worksheet, add_ws(sheet))
-                writer.sheets[sheet] = ws
-                fmt(ws, writer.book)
-            else:
-                formatted = _apply_format(df, df_formatter)
-                formatted.to_excel(writer, sheet_name=sheet, index=False)
+                add_ws = getattr(book_any, "add_worksheet", None)
+                if callable(add_ws):
+                    ws = cast(Worksheet, add_ws(sheet))
+                    writer.sheets[sheet] = ws
+                    fmt(ws, writer.book)
+                    continue
+                # Fallback when the underlying writer does not provide the
+                # xlsxwriter API (e.g. openpyxl).  In this case we degrade to a
+                # simple DataFrame export so at least the data lands in the
+                # workbook.
+            formatted = _apply_format(df, df_formatter)
+            formatted.to_excel(writer, sheet_name=sheet, index=False, startrow=4)
 
 
 def export_to_csv(

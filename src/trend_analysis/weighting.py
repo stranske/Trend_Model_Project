@@ -21,8 +21,12 @@ class EqualWeight(BaseWeighting):
         if selected.empty:
             return pd.DataFrame(columns=["weight"])
         n = len(selected)
-        w = np.repeat(1.0 / n, n)
-        w = (w * 10000).round() / 10000
+        w = np.full(n, 1.0 / n, dtype=float)
+        # Numerical stability: guard against accumulated floating error by
+        # re-normalising to exactly sum to one.
+        total = float(w.sum())
+        if total != 0:
+            w /= total
         return pd.DataFrame({"weight": w}, index=selected.index)
 
 
