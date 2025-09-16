@@ -1902,7 +1902,7 @@ def _ensure_periods_placeholder(base: Path, *, message: str) -> None:
             data = json.loads(json_path.read_text())
         except json.JSONDecodeError:
             data = None
-        if not data:
+        if data is None or (isinstance(data, list) and len(data) == 0):
             json_path.write_text(json.dumps([placeholder], indent=2))
 
     if txt_path.exists() and not txt_path.read_text().strip():
