@@ -58,11 +58,12 @@ jobs:
             if (issue) {
               num = String(issue.number);
               labels = (issue.labels || []).map(l => l.name);
-              if (labels.includes('agent:codex')) { needs = 'true'; reason = 'labeled-issue-event'; } else { reason = 'issue-without-label'; }
+              const lower = labels.map(l => String(l||'').toLowerCase());
+              if (lower.includes('agent:codex') || lower.includes('agents:codex')) { needs = 'true'; reason = 'labeled-issue-event'; } else { reason = 'issue-without-label'; }
             } else if (manualIssue) {
               num = manualIssue;
               const lowered = simulated.map(s => s.toLowerCase());
-              if (lowered.includes('agent:codex')) { needs = 'true'; reason = 'manual-dispatch-simulated-label'; } else { reason = 'manual-dispatch-missing-simulated-label'; }
+              if (lowered.includes('agent:codex') || lowered.includes('agents:codex')) { needs = 'true'; reason = 'manual-dispatch-simulated-label'; } else { reason = 'manual-dispatch-missing-simulated-label'; }
             } else if (manualIssueRaw && !manualIssue) { reason = 'invalid-manual-issue'; }
             const lowerAll = labels.map(l => l.toLowerCase()).concat(simulated.map(s=>s.toLowerCase()));
             function has(tag){ return lowerAll.includes(tag); }
@@ -108,7 +109,7 @@ jobs:
           issue: ${{ needs.detect.outputs.codex_issue }}
           service_bot_pat: ${{ secrets.SERVICE_BOT_PAT || '' }}
           allow_fallback: ${{ needs.detect.outputs.allow_fallback_override != '' && needs.detect.outputs.allow_fallback_override || vars.CODEX_ALLOW_FALLBACK || 'true' }}
-          codex_command: "${{ needs.detect.outputs.codex_command != '' && needs.detect.outputs.codex_command || 'codex: start' }}"
+          codex_command: "${{ needs.detect.outputs.codex_command != '' && needs.detect.outputs.codex_command || '@codex start' }}"
           pr_mode: "${{ needs.detect.outputs.sim_manual_mode == 'true' && 'manual' || 'auto' }}"
           suppress_activate: "${{ needs.detect.outputs.sim_suppressed }}"
           force_branch_fail: "${{ needs.detect.outputs.sim_force_branch_fail }}"

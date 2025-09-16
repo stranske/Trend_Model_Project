@@ -1,0 +1,147 @@
+name: "Codex Bootstrap (Lite)"
+description: "Minimal issue → branch → PR bootstrap with PAT-first auth and optional auto-ready"
+
+inputs:
+  issue:
+    description: "Issue number to bootstrap"
+    required: true
+  service_bot_pat:
+    description: "Personal access token to author PR/comments (optional)"
+    required: false
+    default: ""
+  allow_fallback:
+    description: "Allow fallback to GITHUB_TOKEN if PAT missing (true|false)"
+    required: false
+    default: "true"
+  codex_command:
+    description: "Codex activation command"
+    required: false
+    default: "@codex start"
+  base_branch:
+    description: "Override base branch (empty = repo default)"
+    required: false
+    default: ""
+  draft:
+    description: "Whether to create the PR as a draft (true|false)"
+    required: false
+    default: "true"
+  auto_ready:
+    description: "If draft=true and auto_ready=true, immediately mark ready-for-review"
+    required: false
+    default: "false"
+
+outputs:
+  pr:
+    description: "Created or reused PR number"
+    value: ${{ steps.bootstrap.outputs.pr }}
+  branch:
+    description: "Created branch name"
+    value: ${{ steps.bootstrap.outputs.branch }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Determine token
+      id: token
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: |
+        if [ -n "${{ inputs.service_bot_pat }}" ]; then
+          echo "token_source=SERVICE_BOT_PAT" >> "$GITHUB_OUTPUT"
+        elif [ "${{ inputs.allow_fallback }}" = "true" ]; then
+          echo "token_source=GITHUB_TOKEN" >> "$GITHUB_OUTPUT"
+        else
+          echo "::error::SERVICE_BOT_PAT is required and fallback not allowed"
+          exit 1
+        fi
+
+    - name: Bootstrap via API
+      id: bootstrap
+      uses: actions/github-script@v7
+      env:
+        SERVICE_BOT_PAT: ${{ inputs.service_bot_pat }}
+        GITHUB_TOKEN: ${{ github.token }}
+        CODEX_CMD: ${{ inputs.codex_command }}
+        FORCE_BASE: ${{ inputs.base_branch }}
+        DRAFT_FLAG: ${{ inputs.draft }}
+        AUTO_READY: ${{ inputs.auto_ready }}
+      with:
+        github-token: ${{ inputs.service_bot_pat != '' && inputs.service_bot_pat || github.token }}
+        script: |
+          const { owner, repo } = context.repo;
+          const issue_number = Number('${{ inputs.issue }}');
+          if (!issue_number) { core.setFailed('Missing issue number'); return; }
+
+          // Resolve base branch
+          let baseBranch = (process.env.FORCE_BASE || '').trim();
+          if (!baseBranch) {
+            const { data: repoInfo } = await github.rest.repos.get({ owner, repo });
+            baseBranch = repoInfo.default_branch || 'main';
+          }
+          const { data: ref } = await github.rest.git.getRef({ owner, repo, ref: `heads/${baseBranch}` });
+          const baseSha = ref.object.sha;
+
+          // Create deterministic branch with run id suffix to avoid collisions
+          const runId = process.env.GITHUB_RUN_ID || String(Date.now());
+          const branch = `agents/codex-issue-${issue_number}-${runId}`;
+          try {
+            await github.rest.git.createRef({ owner, repo, ref: `refs/heads/${branch}`, sha: baseSha });
+          } catch (e) {
+            core.setFailed(`Failed to create branch ${branch}: ${e.status || '?'} ${e.message}`);
+            return;
+          }
+
+          // Seed a bootstrap file so the branch has content
+          const path = `agents/codex-${issue_number}.md`;
+          const content = Buffer.from(`<!-- bootstrap for codex on issue #${issue_number} -->\n`).toString('base64');
+          await github.rest.repos.createOrUpdateFileContents({
+            owner, repo, path, message: `chore(codex): bootstrap PR for issue #${issue_number}`,
+            content, branch
+          });
+
+          // Build PR body by referencing the issue
+          let issueTitle = '';
+          try { const { data: is } = await github.rest.issues.get({ owner, repo, issue_number }); issueTitle = is.title || ''; } catch {}
+          const replicatedHeader = `### Source Issue #${issue_number}: ${issueTitle}`;
+          const body = `${replicatedHeader}\n\nDraft PR created to engage Codex on this task.`;
+          const asDraft = /^true$/i.test(process.env.DRAFT_FLAG || 'true');
+
+          // Create draft or ready PR
+          let prNum = null;
+          try {
+            const { data: pr } = await github.rest.pulls.create({ owner, repo, head: branch, base: baseBranch, draft: asDraft, title: `Codex bootstrap for #${issue_number}`, body });
+            prNum = pr.number;
+          } catch (e) {
+            core.setFailed(`Failed to open PR: ${e.status || '?'} ${e.message}`);
+            return;
+          }
+
+          // Assign PR and source issue to connector + human bot if available
+          const assignees = ['chatgpt-codex-connector', 'stranske-automation-bot'];
+          try { await github.rest.issues.addAssignees({ owner, repo, issue_number: prNum, assignees }); } catch (e) { core.warning(`PR assign failed: ${e.message}`); }
+          try { await github.rest.issues.addAssignees({ owner, repo, issue_number, assignees }); } catch (e) { core.warning(`Issue assign failed: ${e.message}`); }
+
+          // Label and post command (PAT preferred)
+          try { await github.rest.issues.addLabels({ owner, repo, issue_number: prNum, labels: ['agent:codex'] }); } catch (e) { core.warning(`Label failed: ${e.message}`); }
+          const cmd = (process.env.CODEX_CMD || '@codex start').replace(/[\r\n`]/g,' ').trim() || '@codex start';
+          try {
+            await github.rest.issues.createComment({ owner, repo, issue_number: prNum, body: `${cmd}\n\nPlease create commits on this branch, run tests, and keep the PR updated.` });
+          } catch (e) { core.warning(`Comment failed: ${e.message}`); }
+
+          // Optional: immediately mark ready for review
+          const auto = /^true$/i.test(process.env.AUTO_READY || 'false');
+          if (asDraft && auto) {
+            try { await github.rest.pulls.update({ owner, repo, pull_number: prNum, draft: false }); } catch (e) {
+              // Some endpoints prefer the separate ready-for-review endpoint
+              try { await github.request('POST /repos/{owner}/{repo}/pulls/{pull_number}/ready-for-review', { owner, repo, pull_number: prNum }); } catch (e2) { core.warning(`Auto-ready failed: ${e2.status || '?'} ${e2.message}`); }
+            }
+          }
+
+          // Link back to the issue
+          try {
+            await github.rest.issues.createComment({ owner, repo, issue_number, body: `Opened ${asDraft && !auto ? 'draft ' : ''}PR #${prNum} to engage Codex. Track work there.` });
+          } catch {}
+
+          core.setOutput('pr', String(prNum));
+          core.setOutput('branch', branch);

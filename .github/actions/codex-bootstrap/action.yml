@@ -11,7 +11,7 @@ inputs:
   codex_command:
     description: "Codex activation command (must start with or will be prefixed by 'codex:')"
     required: false
-    default: "codex: start"
+    default: "@codex start"
   suppress_activate:
     description: "If 'true', suppress initial activation comment (also suppressed by issue token or env)"
     required: false
@@ -331,12 +331,12 @@ runs:
                     core.info('Activation comment suppressed.');
                   }
                   await github.rest.issues.addLabels({ owner, repo, issue_number: prNumberExisting, labels: ['agent:codex'] });
-                  let cmd = String(process.env.CODEX_COMMAND || 'codex: start').replace(/[\r\n`]/g,'').trim();
-                  const allowedCommands = ['codex: start','codex: test','codex: lint','codex: build','codex: review','codex: docs'];
+                  let cmd = String(process.env.CODEX_COMMAND || '@codex start').replace(/[\r\n`]/g,'').trim();
+                  const allowedCommands = ['@codex start','@codex test','@codex lint','@codex build','@codex review','@codex docs','codex: start','codex: test','codex: lint','codex: build','codex: review','codex: docs'];
                   const allowedCommandsLower = allowedCommands.map(c => c.toLowerCase());
                   if (!allowedCommandsLower.includes(cmd.toLowerCase())) {
                     core.warning('Unsafe Codex command; defaulting.');
-                    cmd = 'codex: start';
+                    cmd = '@codex start';
                   }
                   await github.rest.issues.createComment({ owner, repo, issue_number: prNumberExisting, body: `${cmd}\n\nPlease create commits on this branch, run tests, and keep the PR updated.` });
                   await github.rest.issues.createComment({ owner, repo, issue_number, body: `Opened draft PR #${prNumberExisting} to engage Codex. Track work there.` });
@@ -399,14 +399,11 @@ runs:
             await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: `@chatgpt-codex-connector Please begin work on this task. Source issue #${issue_number}.` });
           } else { core.info('Activation comment suppressed.'); }
           await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels: ['agent:codex'] });
-          let cmd = String(process.env.CODEX_COMMAND || 'codex: start').replace(/[\r\n`]/g,'').trim();
+          let cmd = String(process.env.CODEX_COMMAND || '@codex start').replace(/[\r\n`]/g,'').trim();
+          // Support both legacy "codex:" and new "@codex" prefixes
           const allowedCommands = [
-            'codex: start',
-            'codex: test',
-            'codex: lint',
-            'codex: build',
-            'codex: review',
-            'codex: docs'
+            '@codex start','@codex test','@codex lint','@codex build','@codex review','@codex docs',
+            'codex: start','codex: test','codex: lint','codex: build','codex: review','codex: docs'
           ];
           const failOnInvalidCommand = /true/i.test(String(process.env.CODEX_FAIL_ON_INVALID_COMMAND||''));
           const originalCmd = cmd;
