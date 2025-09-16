@@ -10,7 +10,7 @@ inputs:
     required: false
     default: ""
   codex_command:
-    description: "Codex activation command (must start with or will be prefixed by 'codex:')"
+    description: "Codex activation command (must start with or will be prefixed by 'codex:' or '@codex')"
     required: false
     default: "@codex start"
   suppress_activate:
