@@ -56,7 +56,7 @@ portfolio:
   selection_mode: "all" # all | random | manual
   random_n: 10 # num managers if random
   manual_list: [] # filled when selection_mode=manual
-  weighting_scheme: "equal" # equal | risk_parity | hrp | erc | custom
+  weighting_scheme: "equal" # equal | risk_parity | hrp | erc | robust_mv | robust_risk_parity | custom
   rebalance_freq: "M" # M | Q | A | None
   leverage_cap: 2.0 # max gross exposure
   transaction_cost_bps: 0       # linear cost per unit turnover
@@ -84,6 +84,23 @@ portfolio:
     long_only: true
     max_weight: 0.25
     group_caps: {}
+  # Robustness settings for covariance matrix handling
+  robustness:
+    # Covariance shrinkage options
+    shrinkage:
+      enabled: true
+      method: "ledoit_wolf"          # none | ledoit_wolf | oas
+    # Condition number monitoring and safe mode fallback
+    condition_check:
+      enabled: true
+      threshold: 1.0e12              # maximum allowed condition number
+      safe_mode: "hrp"               # hrp | risk_parity | diagonal_mv
+      diagonal_loading_factor: 1.0e-6  # for diagonal loading regularization
+    # Logging configuration for robustness decisions
+    logging:
+      log_method_switches: true      # log when switching to safe mode
+      log_shrinkage_intensity: true  # log shrinkage parameters
+      log_condition_numbers: true    # log matrix condition numbers
 # ----------------------------------------------------------------------
 # BENCHMARKS
 # ----------------------------------------------------------------------

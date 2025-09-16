@@ -8,6 +8,11 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, cast
 
+try:  # Optional openpyxl for richer typing; not required at runtime.
+    from openpyxl.worksheet.worksheet import Worksheet
+except Exception:  # pragma: no cover - openpyxl not installed
+    Worksheet = Any  # fallback alias used when openpyxl is absent
+
 import numpy as np
 import pandas as pd
 
@@ -403,8 +408,10 @@ def export_to_excel(
             fmt = FORMATTERS_EXCEL.get(sheet, default_sheet_formatter)
             if fmt is not None:
                 # Create an empty worksheet and delegate full rendering
-                book_any = cast(Any, writer.book)
-                ws = book_any.add_worksheet(sheet)
+                # xlsxwriter workbook object provides add_worksheet; cast for typing
+                book_any: Any = writer.book
+                add_ws = getattr(book_any, "add_worksheet")
+                ws = cast(Worksheet, add_ws(sheet))
                 writer.sheets[sheet] = ws
                 fmt(ws, writer.book)
             else:

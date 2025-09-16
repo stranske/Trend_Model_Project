@@ -71,15 +71,25 @@ def load_csv(path: str) -> Optional[pd.DataFrame]:
                     if malformed_strings:
                         # Strict handling: reject entire file for malformed string dates
                         malformed_count = len(malformed_strings)
+                        preview = malformed_strings[:5]
+                        tail = "..." if len(malformed_strings) > 5 else ""
                         logger.error(
-                            f"Validation failed ({path}): {malformed_count} malformed date(s) that cannot be parsed: {malformed_strings[:5]}{'...' if len(malformed_strings) > 5 else ''}"
+                            (
+                                f"Validation failed ({path}): {malformed_count} malformed date(s) "
+                                f"that cannot be parsed: {preview}{tail}"
+                            )
                         )
                         return None
                     elif null_dates:
                         # Graceful handling: filter out null/empty dates but continue
                         null_count = len(null_dates)
+                        null_preview = null_dates[:5]
+                        null_tail = "..." if len(null_dates) > 5 else ""
                         logger.warning(
-                            f"Found {null_count} null/empty date(s): {null_dates[:5]}{'...' if len(null_dates) > 5 else ''}. Removing these rows from the dataset."
+                            (
+                                f"Found {null_count} null/empty date(s): {null_preview}{null_tail}. "
+                                "Removing these rows from the dataset."
+                            )
                         )
                         # Filter out rows with null dates
                         valid_mask = ~malformed_mask
@@ -89,7 +99,10 @@ def load_csv(path: str) -> Optional[pd.DataFrame]:
                         # If no valid dates remain, then return None
                         if len(df) == 0:
                             logger.error(
-                                f"No valid date rows remaining in {path} after filtering null dates"
+                                (
+                                    f"No valid date rows remaining in {path} "
+                                    "after filtering null dates"
+                                )
                             )
                             return None
 
@@ -173,14 +186,21 @@ def ensure_datetime(df: pd.DataFrame, column: str = "Date") -> pd.DataFrame:
                 malformed_mask = parsed_dates.isna()
                 malformed_values = df.loc[malformed_mask, column].tolist()
 
+                preview_vals = malformed_values[:5]
+                preview_tail = "..." if len(malformed_values) > 5 else ""
                 logger.error(
-                    f"Found {malformed_count} malformed date(s) in column '{column}' that cannot be parsed: {malformed_values[:5]}{'...' if len(malformed_values) > 5 else ''}"
+                    (
+                        f"Found {malformed_count} malformed date(s) in column '{column}' "
+                        f"that cannot be parsed: {preview_vals}{preview_tail}"
+                    )
                 )
                 # Raise an exception to prevent malformed dates from being
                 # processed as expired dates or other incorrect handling
                 raise ValueError(
-                    f"Malformed dates found in column '{column}'. "
-                    "These should be treated as validation errors, not expiration failures."
+                    (
+                        f"Malformed dates found in column '{column}'. "
+                        "These should be treated as validation errors, not expiration failures."
+                    )
                 )
             df[column] = parsed_dates
     return df

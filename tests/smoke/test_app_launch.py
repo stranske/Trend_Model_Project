@@ -105,11 +105,7 @@ def test_app_starts_headlessly():
     port = 8765
 
     # Build command to start health wrapper (which starts Streamlit internally)
-    cmd = [
-        sys.executable,
-        "-m",
-        "trend_portfolio_app.health_wrapper",
-    ]
+    cmd = [sys.executable, "-m", "trend_portfolio_app.health_wrapper_runner"]
 
     # Set the wrapper to use the test port and correct app path
     env["HEALTH_PORT"] = str(port)
@@ -117,6 +113,10 @@ def test_app_starts_headlessly():
     # These variables are not used by health_wrapper but kept for compatibility
     env["STREAMLIT_APP_PATH"] = str(APP_PATH)
     env["STREAMLIT_PORT"] = str(port + 1)  # Use different port for internal Streamlit
+    # Ensure src/ path is available in subprocess for module discovery
+    src_path = PROJECT_ROOT / "src"
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = f"{src_path}:{existing}" if existing else str(src_path)
 
     print(f"Launching health wrapper on port {port}...")
     print(f"Command: {' '.join(cmd)}")

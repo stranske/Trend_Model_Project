@@ -1,23 +1,9 @@
-name: Assign to Copilot (Issues + PRs)
+name: CI
 
 on:
   pull_request:
   push:
     branches: [ phase-2-dev ]
-  workflow_dispatch:
-    inputs:
-      scope:
-        description: "Backfill scope: issues | prs | both"
-        required: false
-        default: "both"
-
-permissions:
-  issues: write
-  pull-requests: write
-
-concurrency:
-  group: assign-${{ github.event_name }}-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: false
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}

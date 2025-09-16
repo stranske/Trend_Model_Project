@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 if TYPE_CHECKING:  # pragma: no cover - mypy only
 

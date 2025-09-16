@@ -1,0 +1,115 @@
+# ======================================================================
+# Robust Portfolio Analysis Demo Configuration
+# ======================================================================
+version: "0.1.0"
+# ----------------------------------------------------------------------
+# Demo configuration showcasing robustness features for ill-conditioned
+# covariance matrices with shrinkage and safe mode fallbacks
+# ----------------------------------------------------------------------
+
+data:
+  managers_glob: "demo/demo_returns.csv"
+  indices_glob: "data/raw/indices/*.csv"  
+  date_column: "Date"
+  price_column: "Adj_Close"
+  frequency: "D"
+  timezone: "UTC"
+  currency: "USD"
+  nan_policy: "ffill"
+  lookback_required: 252  # 1 year minimum for demo
+
+preprocessing:
+  de_duplicate: true
+  winsorise:
+    enabled: false  # Keep raw data for robustness testing
+  log_prices: false
+  holiday_calendar: "NYSE"
+  resample:
+    target: "D"
+    method: "last"
+    business_only: true
+
+vol_adjust:
+  enabled: false  # Disable for cleaner robustness demonstration
+
+sample_split:
+  method: "ratio"
+  ratio: 0.70
+  rolling_walk: false
+
+portfolio:
+  selection_mode: "all"
+  weighting_scheme: "robust_mv"  # Use robust mean-variance optimization
+  rebalance_freq: "M"
+  leverage_cap: 1.0
+  transaction_cost_bps: 0
+  max_turnover: 1.0
+  
+  # Enhanced robustness configuration
+  robustness:
+    shrinkage:
+      enabled: true
+      method: "ledoit_wolf"          # Ledoit-Wolf shrinkage for covariance
+    condition_check:
+      enabled: true
+      threshold: 1.0e10              # Conservative threshold for demo
+      safe_mode: "hrp"               # Fall back to HRP for ill-conditioned matrices
+      diagonal_loading_factor: 1.0e-5
+    logging:
+      log_method_switches: true      # Enable detailed logging
+      log_shrinkage_intensity: true
+      log_condition_numbers: true
+
+  # Standard portfolio configuration
+  rank:
+    inclusion_approach: top_n
+    n: 5
+    score_by: sharpe_ratio
+  selector:
+    name: zscore
+    params:
+      threshold: 0.5
+  weighting:
+    name: robust_mv  # Use robust engine
+    params:
+      shrinkage_method: "ledoit_wolf"
+      condition_threshold: 1.0e10
+      safe_mode: "hrp"
+      diagonal_loading_factor: 1.0e-5
+  constraints:
+    long_only: true
+    max_weight: 0.50
+
+benchmarks:
+  spx: SPX
+
+metrics:
+  rf_rate_annual: 0.02
+  use_continuous: false
+  registry:
+    - annual_return
+    - volatility
+    - sharpe_ratio
+    - max_drawdown
+  compute:
+    - CAGR
+    - Volatility
+    - Sharpe
+    - Max_Drawdown
+  bootstrap_ci:
+    enabled: false  # Disable for faster demo
+
+export:
+  directory: "results/robust_demo/"
+  formats: ["xlsx", "csv"]
+  include_raw_returns: true
+  include_vol_adj: false
+
+run:
+  log_level: "DEBUG"  # Enable detailed logging for robustness features
+  log_file: "logs/robust_demo.log"
+  n_jobs: 1  # Single-threaded for clearer logging
+  cache_dir: ".cache/"
+  deterministic: true
+
+seed: 42

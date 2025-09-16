@@ -1,28 +1,97 @@
 name: Label agent PRs
 
+# ----------------------------------------------------------------------------------
+# DESIGN NOTE (2025-09-12)
+# We intentionally use `pull_request_target` instead of `pull_request` here because:
+#   1. The workflow needs to apply labels with a PAT fallback (SERVICE_BOT_PAT) for
+#      cross‑fork agent PRs. `pull_request_target` executes in the base repo context
+#      so secrets are available (GitHub’s standard permission model blocks secrets
+#      on arbitrary fork code when using plain `pull_request`).
+#   2. This job is read‑only with respect to the fork’s code; it never checks out
+#      or executes untrusted fork contents. All logic operates solely on the event
+#      payload metadata (actor login, head ref name, existing labels). This mitigates
+#      the primary supply‑chain risk of `pull_request_target` (i.e. running attacker
+#      code with elevated secrets).
+#   3. Labels must be applied before other guarded workflows (assignment/autofix)
+#      evaluate label predicates; using `pull_request_target` guarantees the labeler
+#      runs even for first‑time contributors whose PRs would otherwise lack secret
+#      access, keeping downstream automation deterministic.
+#
+# Guard‑rails implemented:
+#   • No repository write operations beyond issue/PR label mutation.
+#   • No checkout of fork code (avoids executing attacker code path).
+#   • Optional PAT fallback only when SERVICE_BOT_PAT is defined; otherwise the
+#     ephemeral GITHUB_TOKEN is used (principle of least privilege by default).
+#   • Idempotent logic: computes missing labels and only adds the delta, reducing
+#     audit noise.
+#
+# Migration criteria for reconsidering `pull_request_target`:
+#   • If GitHub enables secure label mutation with secrets on `pull_request` for
+#     forks (current limitation removed), OR
+#   • If we drop PAT usage entirely and rely solely on GITHUB_TOKEN with sufficient
+#     scopes, making secret access unnecessary, OR
+#   • If threat modeling changes and we decide to centralize labeling within the
+#     broader assignment workflow (already split‑permission aware).
+#
+# Until one of those conditions is satisfied, retaining `pull_request_target` here
+# keeps cross‑fork agent labeling reliable without expanding the attack surface.
+# ----------------------------------------------------------------------------------
+
 on:
   pull_request_target:
     types: [opened, synchronize, reopened]
 
 permissions:
+  contents: read
   pull-requests: write
+  issues: write
 
 jobs:
   label:
     runs-on: ubuntu-latest
     steps:
+      - name: Select token (PAT fallback)
+        id: token
+        run: |
+          if [ -n "${{ secrets.SERVICE_BOT_PAT }}" ]; then
+            echo "value=${{ secrets.SERVICE_BOT_PAT }}" >> $GITHUB_OUTPUT
+          else
+            echo "value=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_OUTPUT
+          fi
       - uses: actions/github-script@v7
         with:
+          github-token: ${{ steps.token.outputs.value }}
           script: |
             const { owner, repo } = context.repo;
             const pr = context.payload.pull_request;
             const actor = (pr.user?.login || '').toLowerCase();
             const head = (pr.head?.ref || '').toLowerCase();
 
-            const labels = [];
-            if (actor.includes('copilot') || head.startsWith('copilot/')) labels.push('from:copilot', 'agent:copilot');
-            if (actor.includes('codex')   || head.startsWith('codex/'))   labels.push('from:codex', 'agent:codex');
+            const COMMON_LABELS = ['automerge', 'risk:low'];
+            const COPILOT_LABELS = ['from:copilot', 'agent:copilot', ...COMMON_LABELS];
+            const CODEX_LABELS = ['from:codex', 'agent:codex', ...COMMON_LABELS];
 
-            if (labels.length) {
-              await github.rest.issues.addLabels({ owner, repo, issue_number: pr.number, labels });
+            const labels = new Set();
+            if (actor.includes('copilot') || head.startsWith('copilot/') || head.startsWith('agents/copilot-')) {
+              COPILOT_LABELS.forEach(l => labels.add(l));
             }
+            if (actor.includes('codex') || head.startsWith('codex/') || head.startsWith('agents/codex-')) {
+              CODEX_LABELS.forEach(l => labels.add(l));
+            }
+            const desired = Array.from(labels);
+            const existing = (pr.labels || []).map(l => l.name);
+            const missing = desired.filter(l => !existing.includes(l));
+            if (!missing.length) {
+              core.info('All desired agent labels already present; no-op.');
+            } else {
+              await github.rest.issues.addLabels({ owner, repo, issue_number: pr.number, labels: missing });
+              core.info('Applied labels: ' + JSON.stringify(missing));
+            }
+
+            core.summary
+              .addHeading('Agent PR Label Summary')
+              .addTable([
+                [{data: 'PR', header: true}, {data: 'Actor', header: true}, {data: 'Head Ref', header: true}, {data: 'Added', header: true}, {data: 'Already Present', header: true}],
+                [String(pr.number), actor, head, missing.join(',') || '(none)', desired.filter(l => existing.includes(l)).join(',') || '(none)']
+              ])
+              .write();

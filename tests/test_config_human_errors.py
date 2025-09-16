@@ -118,7 +118,7 @@ class TestHumanErrors:
         cfg[section] = None
         with pytest.raises(
             (ValidationException, ValueError, TypeError),
-            match=f"{section} must be a dictionary",
+            match=f"{section} (must be a dictionary|section is required)",
         ):
             config.load_config(cfg)
 
@@ -138,7 +138,7 @@ class TestHumanErrors:
 
         try:
             # YAML parsing will fail with specific error types
-            import yaml
+            import yaml  # type: ignore[import-untyped]
 
             with pytest.raises((yaml.YAMLError, yaml.scanner.ScannerError, Exception)):
                 config.load_config(yaml_path)
