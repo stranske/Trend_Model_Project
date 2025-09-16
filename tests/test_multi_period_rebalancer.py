@@ -127,4 +127,3 @@ def test_rebalancer_returns_empty_series_for_empty_holdings() -> None:
 
     weights = reb.apply_triggers(prev, frame)
     assert weights.empty
-

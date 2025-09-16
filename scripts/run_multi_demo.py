@@ -1933,9 +1933,7 @@ def _check_empty_export_helpers() -> None:
     )
     if not path_phase1_multi.with_suffix(".xlsx").exists():
         raise SystemExit("export_phase1_multi_metrics empty Excel missing")
-    periods_stub = path_phase1_multi.with_name(
-        f"{path_phase1_multi.stem}_periods.csv"
-    )
+    periods_stub = path_phase1_multi.with_name(f"{path_phase1_multi.stem}_periods.csv")
     if not periods_stub.exists():
         raise SystemExit("export_phase1_multi_metrics empty CSV missing")
     _ensure_periods_placeholder(

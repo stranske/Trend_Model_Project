@@ -85,7 +85,9 @@ def test_rank_select_funds_blended_requires_weights():
     cfg = rs.RiskStatsConfig(risk_free=0.0)
 
     with pytest.raises(ValueError, match="blended score requires blended_weights"):
-        rs.rank_select_funds(df, cfg, inclusion_approach="top_n", n=1, score_by="blended")
+        rs.rank_select_funds(
+            df, cfg, inclusion_approach="top_n", n=1, score_by="blended"
+        )
 
 
 @pytest.mark.parametrize(
@@ -98,7 +100,9 @@ def test_rank_select_funds_blended_requires_weights():
 )
 def test_some_function_missing_annotation_branches(approach, kwargs, expected):
     series = pd.Series([0.6, 0.5, 0.4], index=["Alpha One", "Alpha Two", "Beta Core"])
-    result = rs.some_function_missing_annotation(series, approach, ascending=False, **kwargs)
+    result = rs.some_function_missing_annotation(
+        series, approach, ascending=False, **kwargs
+    )
     assert list(result) == expected[: len(result)]
 
 
@@ -125,7 +129,9 @@ def test_quality_filter_and_private_variant_share_logic():
     df = make_simple_returns().reset_index().rename(columns={"index": "Date"})
     cfg = rs.FundSelectionConfig(max_missing_months=1, max_missing_ratio=0.5)
     eligible_public = rs.quality_filter(df, cfg)
-    eligible_private = rs._quality_filter(df, eligible_public, "2021-01", "2021-12", cfg)
+    eligible_private = rs._quality_filter(
+        df, eligible_public, "2021-01", "2021-12", cfg
+    )
     assert eligible_public == eligible_private
 
 

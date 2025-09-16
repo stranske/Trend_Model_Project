@@ -100,12 +100,21 @@ runs:
             content, branch
           });
 
-          // Build PR body by referencing the issue
+          // Build PR body by replicating the full issue content with source link
           let issueTitle = '';
-          try { const { data: is } = await github.rest.issues.get({ owner, repo, issue_number }); issueTitle = is.title || ''; } catch {}
-          const replicatedHeader = `### Source Issue #${issue_number}: ${issueTitle}`;
-          const body = `${replicatedHeader}\n\nDraft PR created to engage Codex on this task.`;
-          const asDraft = /^true$/i.test(process.env.DRAFT_FLAG || 'true');
+          let issueBody = '';
+          try {
+            const { data: is } = await github.rest.issues.get({ owner, repo, issue_number });
+            issueTitle = is.title || '';
+            issueBody = is.body || '';
+          } catch (e) {
+            core.warning(`Failed to read issue #${issue_number}: ${e.message}`);
+          }
+          const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue_number}`;
+          const header = `### Source Issue #${issue_number}: ${issueTitle}`;
+          const quoted = (issueBody || '').split('\n').map(l => `> ${l}`).join('\n');
+          const body = `${header}\n\nSource: ${issueUrl}\n\n${quoted}\n\n—\nPR created automatically to engage Codex.`;
+          const asDraft = /^true$/i.test(process.env.DRAFT_FLAG || 'false');
 
           // Create draft or ready PR
           let prNum = null;
@@ -145,3 +154,4 @@ runs:
 
           core.setOutput('pr', String(prNum));
           core.setOutput('branch', branch);
+          core.info(`codex-bootstrap-lite: pr=${prNum} branch=${branch}`);

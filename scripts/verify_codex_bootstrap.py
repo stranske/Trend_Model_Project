@@ -651,6 +651,7 @@ def scenario_t15_corrupt_marker(ctx: dict) -> ScenarioResult:
         orig = pathlib.Path("pr_body.txt").read_text()
         # Systematically corrupt marker: try to locate a JSON marker block and break its structure
         import re
+
         marker_pattern = re.compile(r"```json\n(.*?)\n```", re.DOTALL)
         match = marker_pattern.search(orig)
         if match:
@@ -665,10 +666,16 @@ def scenario_t15_corrupt_marker(ctx: dict) -> ScenarioResult:
                     if marker_obj:
                         marker_obj.pop(next(iter(marker_obj)))
                 corrupted_marker_json = json.dumps(marker_obj)
-                corrupted = orig[:match.start(1)] + corrupted_marker_json + orig[match.end(1):]
+                corrupted = (
+                    orig[: match.start(1)]
+                    + corrupted_marker_json
+                    + orig[match.end(1) :]
+                )
             except Exception:
                 # If JSON parsing fails, just break the block
-                corrupted = orig[:match.start(1)] + "CORRUPTED_MARKER" + orig[match.end(1):]
+                corrupted = (
+                    orig[: match.start(1)] + "CORRUPTED_MARKER" + orig[match.end(1) :]
+                )
         else:
             # If no marker found, fallback to previous heuristic
             corrupted = orig.replace("Codex", "CdX")

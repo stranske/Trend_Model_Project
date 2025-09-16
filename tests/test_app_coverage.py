@@ -578,7 +578,9 @@ class DummyValueWidget:
         self._observers: list[callable] = []
         self.layout = DummyLayout()
 
-    def observe(self, callback, names: str | None = None) -> None:  # pragma: no cover - stub
+    def observe(
+        self, callback, names: str | None = None
+    ) -> None:  # pragma: no cover - stub
         self._observers.append(callback)
 
     def set_value(self, value: object) -> None:
@@ -601,7 +603,12 @@ class DummyFileUpload(DummyValueWidget):
 class DummyDropdown(DummyValueWidget):
     """Dropdown widget exposing options and value change notifications."""
 
-    def __init__(self, options: list[object] | None = None, value: object | None = None, description: str = "") -> None:
+    def __init__(
+        self,
+        options: list[object] | None = None,
+        value: object | None = None,
+        description: str = "",
+    ) -> None:
         opts = list(options or [])
         default = value if value is not None else (opts[0] if opts else None)
         super().__init__(default)
@@ -612,7 +619,9 @@ class DummyDropdown(DummyValueWidget):
 class DummyCheckbox(DummyValueWidget):
     """Checkbox widget supporting observe callbacks."""
 
-    def __init__(self, value: bool = False, description: str = "", indent: bool = True) -> None:
+    def __init__(
+        self, value: bool = False, description: str = "", indent: bool = True
+    ) -> None:
         super().__init__(value)
         self.description = description
         self.indent = indent
@@ -674,7 +683,9 @@ class DummyButton:
 class DummyBox:
     """Container widget preserving child references."""
 
-    def __init__(self, children: list[object] | tuple[object, ...] | None = None) -> None:
+    def __init__(
+        self, children: list[object] | tuple[object, ...] | None = None
+    ) -> None:
         self.children = tuple(children or [])
         self.layout = DummyLayout()
 
@@ -860,8 +871,14 @@ def test_build_step0_datagrid_callbacks(monkeypatch, tmp_path):
 
     save_calls: list[dict[str, object]] = []
     display_calls: list[object] = []
-    monkeypatch.setattr(app_module, "save_state", lambda store: save_calls.append(store.to_dict()))
-    monkeypatch.setattr(app_module, "reset_weight_state", lambda store: store.cfg.setdefault("reset", True))
+    monkeypatch.setattr(
+        app_module, "save_state", lambda store: save_calls.append(store.to_dict())
+    )
+    monkeypatch.setattr(
+        app_module,
+        "reset_weight_state",
+        lambda store: store.cfg.setdefault("reset", True),
+    )
     monkeypatch.setattr(app_module, "display", lambda obj: display_calls.append(obj))
     monkeypatch.setattr(app_module, "FileLink", lambda path: f"link:{path}")
 
@@ -1010,7 +1027,9 @@ def test_build_weighting_options_callbacks(monkeypatch):
     monkeypatch.setattr(utils_module.asyncio, "sleep", fake_sleep)
     time_values = iter([0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0])
     monkeypatch.setattr(utils_module.time, "time", lambda: next(time_values))
-    monkeypatch.setattr(app_module, "iter_plugins", lambda: [type("Plugin", (), {"__name__": "custom"})])
+    monkeypatch.setattr(
+        app_module, "iter_plugins", lambda: [type("Plugin", (), {"__name__": "custom"})]
+    )
 
     store = ParamStore()
     result = app_module._build_weighting_options(store)
@@ -1055,7 +1074,9 @@ def test_launch_interactions(monkeypatch, tmp_path):
     monkeypatch.setattr(app_module, "_build_step0", lambda store: DummyBox())
     monkeypatch.setattr(app_module, "_build_rank_options", lambda store: rank_box)
     monkeypatch.setattr(app_module, "_build_manual_override", lambda store: manual_box)
-    monkeypatch.setattr(app_module, "_build_weighting_options", lambda store: weight_box)
+    monkeypatch.setattr(
+        app_module, "_build_weighting_options", lambda store: weight_box
+    )
     monkeypatch.setattr(app_module, "discover_plugins", lambda: None)
 
     store = ParamStore()
@@ -1085,22 +1106,50 @@ def test_launch_interactions(monkeypatch, tmp_path):
     reset_calls: list[ParamStore] = []
     theme_calls: list[str] = []
 
-    monkeypatch.setattr(app_module.pipeline, "run", lambda cfg: run_calls.append(pd.DataFrame({"a": [1]})) or pd.DataFrame({"a": [1]}))
-    monkeypatch.setattr(app_module.pipeline, "run_full", lambda cfg: full_calls.append({"metrics": pd.DataFrame({"a": [1]})}) or {"metrics": pd.DataFrame({"a": [1]})})
-    monkeypatch.setattr(app_module.export, "make_summary_formatter", lambda *args, **kwargs: lambda df: df)
-    monkeypatch.setattr(app_module.export, "export_to_excel", lambda data, path, default_sheet_formatter=None: export_calls.append((path, data)))
+    monkeypatch.setattr(
+        app_module.pipeline,
+        "run",
+        lambda cfg: run_calls.append(pd.DataFrame({"a": [1]}))
+        or pd.DataFrame({"a": [1]}),
+    )
+    monkeypatch.setattr(
+        app_module.pipeline,
+        "run_full",
+        lambda cfg: full_calls.append({"metrics": pd.DataFrame({"a": [1]})})
+        or {"metrics": pd.DataFrame({"a": [1]})},
+    )
+    monkeypatch.setattr(
+        app_module.export,
+        "make_summary_formatter",
+        lambda *args, **kwargs: lambda df: df,
+    )
+    monkeypatch.setattr(
+        app_module.export,
+        "export_to_excel",
+        lambda data, path, default_sheet_formatter=None: export_calls.append(
+            (path, data)
+        ),
+    )
 
     exporters = dict(app_module.export.EXPORTERS)
     exporters["json"] = lambda data, path, _: json_calls.append((path, data))
     monkeypatch.setattr(app_module.export, "EXPORTERS", exporters)
 
-    monkeypatch.setattr(app_module, "save_state", lambda store: save_calls.append(store))
-    monkeypatch.setattr(app_module, "reset_weight_state", lambda store: reset_calls.append(store))
+    monkeypatch.setattr(
+        app_module, "save_state", lambda store: save_calls.append(store)
+    )
+    monkeypatch.setattr(
+        app_module, "reset_weight_state", lambda store: reset_calls.append(store)
+    )
     monkeypatch.setattr(app_module, "Javascript", lambda script: script)
-    monkeypatch.setattr(app_module, "display", lambda payload: theme_calls.append(payload))
+    monkeypatch.setattr(
+        app_module, "display", lambda payload: theme_calls.append(payload)
+    )
 
     container = app_module.launch()
-    _, mode, vol_adj, use_rank, _, _, _, fmt_dd, theme, reset_btn, run_btn = container.children
+    _, mode, vol_adj, use_rank, _, _, _, fmt_dd, theme, reset_btn, run_btn = (
+        container.children
+    )
 
     mode.set_value("rank")
     assert store.cfg["mode"] == "rank" and rank_box.layout.display == "flex"

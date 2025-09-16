@@ -24,9 +24,12 @@ jobs:
     if: >
       github.event_name == 'workflow_dispatch' ||
       (github.event.action == 'labeled' &&
-        (github.event.label.name == 'agent:codex' || github.event.label.name == 'agents:codex')) ||
+        (contains(github.event.label.name, 'agent:codex') || contains(github.event.label.name, 'agents:codex'))) ||
       (github.event.action != 'labeled' &&
-        (contains(github.event.issue.labels.*.name, 'agent:codex') || contains(github.event.issue.labels.*.name, 'agents:codex')))
+        (
+          contains(join(github.event.issue.labels.*.name, ' '), 'agent:codex') ||
+          contains(join(github.event.issue.labels.*.name, ' '), 'agents:codex')
+        ))
     runs-on: ubuntu-latest
     env:
       SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
@@ -73,6 +76,11 @@ jobs:
           draft: 'false'
           auto_ready: 'true'
 
+      - name: Debug composite outputs
+        if: ${{ steps.local_action.outcome == 'success' }}
+        run: |
+          echo "Composite outputs: pr=${{ steps.local_action.outputs.pr }} branch=${{ steps.local_action.outputs.branch }}"
+
       - name: Create branch and bootstrap file
         if: ${{ steps.local_action.outcome == 'failure' }}
         id: mk
@@ -107,10 +115,24 @@ jobs:
             const existing = await github.rest.pulls.list({ owner, repo, state: 'open', head: `${owner}:${head}` });
             let pr = existing.data[0];
             if (!pr) {
+              // Pull original issue details to replicate contents in PR body
+              let issueTitle = '';
+              let issueBody = '';
+              try {
+                const { data: is } = await github.rest.issues.get({ owner, repo, issue_number });
+                issueTitle = is.title || '';
+                issueBody = is.body || '';
+              } catch (e) {
+                core.warning(`Failed to fetch issue #${issue_number}: ${e.message}`);
+              }
+              const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue_number}`;
+              const header = `### Source Issue #${issue_number}: ${issueTitle}`;
+              const quoted = (issueBody || '').split('\n').map(l => `> ${l}`).join('\n');
+              const prBody = `${header}\n\nSource: ${issueUrl}\n\n${quoted}\n\n—\nPR created automatically to engage Codex.`;
               ({ data: pr } = await github.rest.pulls.create({
                 owner, repo, head, base, draft: false,
                 title: `Codex bootstrap for #${issue_number}`,
-                body: `Refs #${issue_number}\n\nPR created to engage Codex on this task.`
+                body: prBody
               }));
             }
             core.setOutput('number', String(pr.number));
@@ -136,7 +158,7 @@ jobs:
         if: ${{ steps.local_action.outcome == 'failure' && env.SERVICE_BOT_PAT != '' }}
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.SERVICE_BOT_PAT }}
+          github-token: ${{ env.SERVICE_BOT_PAT }}
           script: |
             const {owner, repo} = context.repo;
             const prNumber = Number("${{ steps.pr.outputs.number }}");

@@ -10,6 +10,8 @@ For a beginner-friendly overview, see [docs/UserGuide.md](docs/UserGuide.md).
 
 ➡️ **Codex Bootstrap Simulation & Verification Guide:** See [docs/codex-simulation.md](docs/codex-simulation.md) for the hardened workflow design, simulation labels, forced-failure controls, and scenario matrix (T01–T15).
 
+📌 Operational facts for Codex bootstrap (labels, permissions, tokens, PR behavior) are captured in `docs/ops/codex-bootstrap-facts.md`.
+
 ## Automated Autofix & Type Hygiene
 
 Pull requests trigger an automated formatting + light type hygiene pass:
