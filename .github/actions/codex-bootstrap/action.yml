@@ -529,8 +529,8 @@ runs:
           let invalidCommand = false;
           if (!allowedCommands.some(c => c.toLowerCase() === cmd.toLowerCase())) {
             invalidCommand = true;
-            core.warning(`Unsafe Codex command '${originalCmd}' – defaulting to 'codex: start'.`);
-            cmd = 'codex: start';
+            core.warning(`Unsafe Codex command '${originalCmd}' – defaulting to '@codex start'.`);
+            cmd = '@codex start';
           }
           await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: `${cmd}\n\nPlease create commits on this branch, run tests, and keep the PR updated.` });
           await github.rest.issues.createComment({ owner, repo, issue_number, body: `Opened draft PR #${prNumber} to engage Codex. Track work there.` });
