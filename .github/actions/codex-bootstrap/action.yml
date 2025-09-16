@@ -309,7 +309,7 @@ runs:
                   core.info(`Existing PR #${prNumberExisting} is closed; initiating re-bootstrap.`);
                   const replicatedHeader = `### Source Issue #${issue_number}: ${existingPR.title || ''}`;
                   const newBody = `${replicatedHeader}\n\nRe-bootstrap due to closed original PR #${prNumberExisting}.`;
-                  const { data: newPR } = await github.rest.pulls.create({ owner, repo, head: branch, base: baseBranch, draft: true, title: `Codex re-bootstrap for #${issue_number}`, body: newBody });
+                  const { data: newPR } = await github.rest.pulls.create({ owner, repo, head: branch, base: baseBranch, draft: false, title: `Codex re-bootstrap for #${issue_number}`, body: newBody });
                   prNumberExisting = newPR.number; prAuthor = newPR.user && newPR.user.login || null; reuse = false; // treat as fresh for outputs
                   const markerContent = Buffer.from(JSON.stringify({ issue: issue_number, pr: prNumberExisting, ts: new Date().toISOString(), rebootstrap: true }, null, 2)).toString('base64');
                   await github.rest.repos.createOrUpdateFileContents({ owner, repo, path: markerPath, branch, message: `chore(codex): rebootstrap marker for #${issue_number}`, content: markerContent });
@@ -385,11 +385,11 @@ runs:
           const suppressFromEnv   = !!process.env.CODEX_SUPPRESS_ACTIVATE;
           const activationSuppressed = suppressFromEnv || suppressFromInput || suppressFromToken;
           const replicatedHeader = `### Source Issue #${issue_number}: ${issueTitle}`;
-          const replicatedBody = `${replicatedHeader}\n\n---\n${issueBody}\n\n---\n\nThis draft PR was auto-created to engage Codex on the task above. All edits should occur on this branch.\n`;
+          const replicatedBody = `${replicatedHeader}\n\n---\n${issueBody}\n\n---\n\nThis PR was auto-created to engage Codex on the task above. All edits should occur on this branch.\n`;
           const { data: open } = await github.rest.pulls.list({ owner, repo, state: 'open', head: `${owner}:${branch}` });
           let prNumber; let prBodyNeedsUpdate = false; let existingPR; let prAuthorLogin = null;
           if (open.length) { existingPR = open[0]; prNumber = existingPR.number; prAuthorLogin = existingPR.user && existingPR.user.login || null; if (!existingPR.body || !existingPR.body.includes(replicatedHeader)) prBodyNeedsUpdate = true; }
-          else { const { data: pr } = await github.rest.pulls.create({ owner, repo, head: branch, base: baseBranch, draft: true, title: `Codex bootstrap for #${issue_number}`, body: replicatedBody }); prNumber = pr.number; prAuthorLogin = pr.user && pr.user.login || null; }
+          else { const { data: pr } = await github.rest.pulls.create({ owner, repo, head: branch, base: baseBranch, draft: false, title: `Codex bootstrap for #${issue_number}`, body: replicatedBody }); prNumber = pr.number; prAuthorLogin = pr.user && pr.user.login || null; }
           if (prBodyNeedsUpdate) { try { await github.rest.pulls.update({ owner, repo, pull_number: prNumber, body: replicatedBody }); core.info(`Updated existing PR #${prNumber} body.`); } catch (e) { core.warning(`Unable to update PR body: ${e.message}`); } }
           const human = 'stranske-automation-bot';
           async function assignPair(target) { try { await github.rest.issues.addAssignees({ owner, repo, issue_number: target, assignees: ['chatgpt-codex-connector', human] }); return true; } catch (e) { core.warning(`Codex assignment failed on #${target}: ${e.status || '?'} ${e.message}`); return false; } }

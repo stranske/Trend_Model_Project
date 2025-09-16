@@ -24,7 +24,7 @@ inputs:
   draft:
     description: "Whether to create the PR as a draft (true|false)"
     required: false
-    default: "true"
+    default: "false"
   auto_ready:
     description: "If draft=true and auto_ready=true, immediately mark ready-for-review"
     required: false

@@ -96,9 +96,9 @@ jobs:
             let pr = existing.data[0];
             if (!pr) {
               ({ data: pr } = await github.rest.pulls.create({
-                owner, repo, head, base, draft: true,
+                owner, repo, head, base, draft: false,
                 title: `Codex bootstrap for #${issue_number}`,
-                body: `Refs #${issue_number}\n\nDraft PR created to engage Codex on this task.`
+                body: `Refs #${issue_number}\n\nPR created to engage Codex on this task.`
               }));
             }
             core.setOutput('number', String(pr.number));
