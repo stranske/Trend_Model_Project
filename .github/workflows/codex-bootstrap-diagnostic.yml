@@ -196,8 +196,8 @@ jobs:
           BASE_SHA: ${{ steps.probe.outputs.base_sha }}
           SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
         run: |
-            set -euo pipefail
-            echo "Testing PAT create-ref one-off"
+          set -euo pipefail
+          echo "Testing PAT create-ref one-off"
             if [[ -z "${SERVICE_BOT_PAT:-}" ]]; then
               echo "No SERVICE_BOT_PAT present; skipping." >> "$GITHUB_STEP_SUMMARY"; exit 0;
             fi
