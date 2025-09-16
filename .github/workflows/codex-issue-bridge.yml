@@ -12,11 +12,11 @@ on:
       post_codex_comment:
         description: "Auto-post '@codex start' as the actor (true/false)"
         required: false
-        default: "false"
+        default: "true"
       pr_mode:
         description: "create | invite (invite = human opens the PR)"
         required: false
-        default: "invite"
+        default: "create"
 
 permissions:
   contents: write
@@ -77,7 +77,7 @@ jobs:
         uses: ./.github/actions/codex-bootstrap-lite
         with:
           issue: ${{ github.event.issue.number || inputs.test_issue }}
-          service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
+          service_bot_pat: ${{ (inputs.pr_mode == 'create' && secrets.OWNER_PR_PAT) || secrets.SERVICE_BOT_PAT }}
           allow_fallback: true
           codex_command: '@codex start'
           base_branch: ''
