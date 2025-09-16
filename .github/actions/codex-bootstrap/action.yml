@@ -214,7 +214,7 @@ runs:
                       core.info(`Created branch ${branch} with SERVICE_BOT_PAT using ${hv.style} header.`);
                       break;
                     } else {
-                      let txt; try { txt = await resp.text(); } catch {}
+                      let txt; try { txt = await resp.text(); } catch (err) { core.warning(`Error reading response text: ${err && err.message ? err.message : err}`); txt = '[Error reading response text]'; }
                       core.warning(`SERVICE_BOT_PAT fetch (${hv.style}) failed http_status=${resp.status} body=${(txt||'').slice(0,400)}`);
                     }
                   } catch (e2) {
