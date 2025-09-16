@@ -47,9 +47,10 @@ class ZScoreSelector(Selector):
         if self.column not in score_frame.columns:
             raise KeyError(self.column)
         scores = score_frame[self.column].astype(float)
-        mu = scores.mean()
-        sigma = scores.std(ddof=0)
-        z = (scores - mu) / (sigma if sigma else 1.0)
+        mu = float(scores.mean())
+        sigma = float(scores.std(ddof=0))
+        denom = sigma if pd.notna(sigma) and sigma != 0 else 1.0
+        z = (scores - mu) / denom
         mask = z * self.direction > self.threshold
         selected = score_frame.loc[mask].copy()
         log = pd.DataFrame(
