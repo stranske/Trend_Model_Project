@@ -32,7 +32,7 @@ if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
 FAST_SENTINEL = ROOT / "demo/.fast_demo_mode"
-if FAST_SENTINEL.exists() and os.environ.get("PYTEST_CURRENT_TEST"):
+if FAST_SENTINEL.exists():
     try:
         FAST_SENTINEL.unlink()
     except OSError:
