@@ -1,0 +1,153 @@
+name: Codex Issue Bridge (label → draft PR + human command)
+
+on:
+  issues:
+    types: [opened, labeled, reopened]
+  workflow_dispatch:
+    inputs:
+      test_issue:
+        description: "Manually test with a specific issue number (optional)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: codex-issue-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  bridge:
+    if: contains(github.event.issue.labels.*.name, 'agent:codex')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout this ref (for local action)
+        uses: actions/checkout@v4
+        with:
+          # Pull the branch that triggered the event so the local action exists at the right path
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Try local composite Codex bootstrap (lite)
+        id: local_action
+        continue-on-error: true
+        uses: ./.github/actions/codex-bootstrap-lite
+        with:
+          issue: ${{ github.event.issue.number }}
+          service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
+          allow_fallback: true
+          codex_command: 'codex: start'
+          base_branch: ''
+      - name: Get default branch
+        id: def
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const {data} = await github.rest.repos.get({owner, repo});
+            core.setOutput('default', data.default_branch || 'main');
+
+      - name: Checkout default
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.def.outputs.default }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Create branch and bootstrap file
+        if: ${{ steps.local_action.outcome == 'failure' }}
+        id: mk
+        env:
+          ISSUE: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          BR=agents/codex-issue-${ISSUE}-${GITHUB_RUN_ID}
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BR"
+          mkdir -p agents
+          printf "<!-- bootstrap for codex on issue #%s -->\n" "$ISSUE" > "agents/codex-${ISSUE}.md"
+          git add "agents/codex-${ISSUE}.md"
+          git commit -m "chore(codex): bootstrap PR for issue #${ISSUE}"
+          git push origin "$BR"
+          echo "branch=$BR" >> "$GITHUB_OUTPUT"
+
+      - name: Open or reuse draft PR
+        if: ${{ steps.local_action.outcome == 'failure' }}
+        id: pr
+        uses: actions/github-script@v7
+        env:
+          BRANCH: ${{ steps.mk.outputs.branch }}
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const issue_number = context.payload.issue.number;
+            const base = "${{ steps.def.outputs.default }}";
+            const head = process.env.BRANCH;
+
+            const existing = await github.rest.pulls.list({ owner, repo, state: 'open', head: `${owner}:${head}` });
+            let pr = existing.data[0];
+            if (!pr) {
+              ({ data: pr } = await github.rest.pulls.create({
+                owner, repo, head, base, draft: true,
+                title: `Codex bootstrap for #${issue_number}`,
+                body: `Refs #${issue_number}\n\nDraft PR created to engage Codex on this task.`
+              }));
+            }
+            core.setOutput('number', String(pr.number));
+
+      - name: Label PR (agent:codex)
+        if: ${{ steps.local_action.outcome == 'failure' }}
+        uses: actions/github-script@v7
+        env:
+          PR: ${{ steps.pr.outputs.number }}
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const prNumber = Number(process.env.PR);
+            await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels: ['agent:codex'] });
+
+      # Prefer posting as a human service user so Codex sees the command
+      - name: Post Codex command as service user
+        if: ${{ steps.local_action.outcome == 'failure' && secrets.SERVICE_BOT_PAT != '' }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.SERVICE_BOT_PAT }}
+          script: |
+            const {owner, repo} = context.repo;
+            const prNumber = Number("${{ steps.pr.outputs.number }}");
+            const cmd = 'codex: start';
+            await github.rest.issues.createComment({
+              owner, repo, issue_number: prNumber,
+              body: `${cmd}\n\nPlease create commits on this branch, run tests, and keep the PR updated.`
+            });
+
+      # Fallback: still post with GITHUB_TOKEN if no PAT (Codex may ignore it)
+      - name: Post Codex command (fallback as github-actions)
+        if: ${{ steps.local_action.outcome == 'failure' && secrets.SERVICE_BOT_PAT == '' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const prNumber = Number("${{ steps.pr.outputs.number }}");
+            const cmd = 'codex: start';
+            await github.rest.issues.createComment({
+              owner, repo, issue_number: prNumber,
+              body: `${cmd}\n\nPlease create commits on this branch, run tests, and keep the PR updated.`
+            });
+
+      - name: Link PR on original issue
+        if: ${{ steps.local_action.outcome == 'failure' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            await github.rest.issues.createComment({
+              owner, repo, issue_number: context.payload.issue.number,
+              body: `Opened draft PR #${{ steps.pr.outputs.number }} to engage Codex. Track work there.`
+            });
