@@ -68,8 +68,17 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const { owner, repo } = context.repo;
+            if (!context.payload || !context.payload.pull_request) {
+              core.warning('No pull_request in event payload; skip approval.');
+              return;
+            }
             const pull_number = context.payload.pull_request.number;
-            await github.pulls.createReview({
+            const createReview = github?.rest?.pulls?.createReview || github?.pulls?.createReview;
+            if (!createReview) {
+              core.warning('Octokit pulls.createReview API is unavailable on this runner.');
+              return;
+            }
+            await createReview({
               owner,
               repo,
               pull_number,
