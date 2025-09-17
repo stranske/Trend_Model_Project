@@ -82,18 +82,20 @@ def test_cli_matches_api_output() -> None:
         assert cli_result.environment == api_result.environment
 
         split = cli_config.sample_split
+        def get_split_params(split: dict) -> tuple[str, str, str, str]:
+            return (
+                str(split.get("in_start")),
+                str(split.get("in_end")),
+                str(split.get("out_start")),
+                str(split.get("out_end")),
+            )
+        split_params = get_split_params(split)
         summary_cli = export.format_summary_text(
             cli_result.details,
-            str(split.get("in_start")),
-            str(split.get("in_end")),
-            str(split.get("out_start")),
-            str(split.get("out_end")),
+            *split_params,
         )
         summary_api = export.format_summary_text(
             api_result.details,
-            str(split.get("in_start")),
-            str(split.get("in_end")),
-            str(split.get("out_start")),
-            str(split.get("out_end")),
+            *split_params,
         )
         assert summary_cli == summary_api
