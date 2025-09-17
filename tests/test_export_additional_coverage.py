@@ -9,6 +9,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from trend_analysis import export as export_module
+
 try:  # pragma: no cover - exercised when matplotlib is installed
     import matplotlib  # type: ignore
 except ModuleNotFoundError:  # pragma: no cover - handled in test environment
@@ -255,3 +257,87 @@ def test_export_multi_helpers_include_metrics(tmp_path, exporter):
 
     summary_df = pd.read_csv(summary_path)
     assert not summary_df.empty
+
+
+def test_export_phase1_multi_metrics_all_formats(monkeypatch, tmp_path):
+    """Ensure excel + flat exports both run and include metric tables."""
+
+    results = [_make_period_result("1", include_changes=True), _make_period_result("2")]
+
+    workbook_calls: list[tuple[str, bool, int]] = []
+    data_calls: list[tuple[str, tuple[str, ...], dict[str, pd.DataFrame]]] = []
+
+    def fake_workbook(res_list, path, include_metrics=False):
+        workbook_calls.append((path, include_metrics, len(res_list)))
+
+    def fake_export_data(data, output_path, *, formats):
+        data_calls.append((output_path, tuple(formats), data))
+
+    monkeypatch.setattr(export_module, "export_phase1_workbook", fake_workbook)
+    monkeypatch.setattr(export_module, "export_data", fake_export_data)
+
+    export_phase1_multi_metrics(
+        results, str(tmp_path / "report"), formats=["xlsx", "csv"], include_metrics=True
+    )
+
+    assert workbook_calls == [
+        (str((tmp_path / "report").with_suffix(".xlsx")), True, len(results))
+    ]
+    assert data_calls, "Expected non-excel export to be invoked"
+    _, formats, payload = data_calls[0]
+    assert formats == ("csv",)
+    # Expect consolidated metrics plus summary + manager tables when available
+    assert {"periods", "summary", "metrics", "metrics_summary", "manager_contrib"}.issubset(
+        payload
+    )
+    metrics = payload["metrics"]
+    assert "Period" in metrics.columns
+
+
+def test_export_multi_period_metrics_all_formats(monkeypatch, tmp_path):
+    """Exercise both excel + flat exporters including summary helpers."""
+
+    results = [_make_period_result("1", include_changes=True), _make_period_result("2")]
+
+    period_calls: list[tuple[str, str, str, str, str]] = []
+    summary_calls: list[tuple[dict[str, object], tuple[str, str, str, str]]] = []
+    export_calls: list[tuple[tuple[str, ...], str, dict[str, pd.DataFrame]]] = []
+
+    def fake_make_period(sheet, res, in_s, in_e, out_s, out_e):
+        period_calls.append((sheet, in_s, in_e, out_s, out_e))
+        return lambda ws, wb: None
+
+    def fake_make_summary(res, in_s, in_e, out_s, out_e):
+        summary_calls.append((res, (in_s, in_e, out_s, out_e)))
+        return lambda ws, wb: None
+
+    def fake_export_data(data, output_path, *, formats):
+        export_calls.append((tuple(formats), output_path, data))
+
+    monkeypatch.setattr(export_module, "make_period_formatter", fake_make_period)
+    monkeypatch.setattr(export_module, "make_summary_formatter", fake_make_summary)
+    monkeypatch.setattr(export_module, "export_data", fake_export_data)
+
+    export_multi_period_metrics(
+        results,
+        str(tmp_path / "multi"),
+        formats=["xlsx", "json"],
+        include_metrics=True,
+    )
+
+    # Period formatters should be created for both sheets with populated ranges
+    assert {call[0] for call in period_calls} == {"Period 1", "Period 2"}
+    assert all(call[1:] != ("", "", "", "") for call in period_calls)
+
+    # Summary formatter should be invoked with manager contribution payload
+    assert summary_calls
+    payload, ranges = summary_calls[0]
+    assert ranges[0] and ranges[3], "Expected populated in/out ranges"
+    assert "manager_contrib" in payload
+
+    # Both excel and json exporters should be triggered with enriched data
+    assert {formats for formats, _, _ in export_calls} == {("xlsx",), ("json",)}
+    excel_payload = next(data for fmt, _, data in export_calls if fmt == ("xlsx",))
+    assert "summary" in excel_payload and "metrics_summary" in excel_payload
+    json_payload = next(data for fmt, _, data in export_calls if fmt == ("json",))
+    assert {"periods", "summary", "metrics", "metrics_summary"}.issubset(json_payload)

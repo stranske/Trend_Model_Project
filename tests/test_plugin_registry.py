@@ -4,6 +4,7 @@ import pytest
 from trend_analysis import rebalancing as rebalancing_module
 from trend_analysis import selector as selector_module
 from trend_analysis.plugins import rebalancer_registry, selector_registry
+from trend_analysis.gui import plugins as gui_plugins
 
 
 def test_selector_registry_discovery():
@@ -27,3 +28,18 @@ def test_rebalancer_registry_discovery():
 def test_rebalancer_unknown_name():
     with pytest.raises(ValueError, match="Unknown plugin"):
         rebalancer_registry.create("nope", {})
+
+
+def test_gui_plugin_register_deduplicates(monkeypatch):
+    """Registering the same GUI plugin twice should only keep one entry."""
+
+    monkeypatch.setattr(gui_plugins, "_PLUGIN_REGISTRY", [])
+
+    class DummyPlugin:
+        pass
+
+    gui_plugins.register_plugin(DummyPlugin)
+    gui_plugins.register_plugin(DummyPlugin)
+
+    registered = list(gui_plugins.iter_plugins())
+    assert registered == [DummyPlugin]

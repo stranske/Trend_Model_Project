@@ -71,20 +71,42 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
 
+      - name: Select PR mode (invite for issue events)
+        id: mode
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Enforce invite mode on issue events so the human is the PR author; allow inputs on workflow_dispatch
+            const ev = context.eventName;
+            let mode = 'invite';
+            let reason = 'issues-event-enforced';
+            if (ev === 'workflow_dispatch') {
+              const im = (context.payload.inputs && context.payload.inputs.pr_mode) || 'create';
+              const m = String(im).toLowerCase();
+              mode = (m === 'invite' || m === 'create') ? m : 'create';
+              reason = 'workflow-dispatch';
+            }
+            core.setOutput('mode', mode);
+            core.setOutput('reason', reason);
+
+      - name: Log chosen mode
+        run: |
+          echo "Chosen PR mode: ${{ steps.mode.outputs.mode }} (reason: ${{ steps.mode.outputs.reason }})"
+
       - name: Try local composite Codex bootstrap (lite)
         id: local_action
         continue-on-error: true
         uses: ./.github/actions/codex-bootstrap-lite
         with:
           issue: ${{ github.event.issue.number || inputs.test_issue }}
-          service_bot_pat: ${{ (inputs.pr_mode == 'create' && secrets.OWNER_PR_PAT) || secrets.SERVICE_BOT_PAT }}
+          service_bot_pat: ${{ (steps.mode.outputs.mode == 'create' && secrets.OWNER_PR_PAT) || secrets.SERVICE_BOT_PAT }}
           allow_fallback: true
           codex_command: '@codex start'
           base_branch: ''
           draft: 'false'
           auto_ready: 'true'
           post_codex_comment: ${{ inputs.post_codex_comment || 'false' }}
-          pr_mode: ${{ inputs.pr_mode || 'invite' }}
+          pr_mode: ${{ steps.mode.outputs.mode }}
 
       - name: Debug composite outputs
         if: ${{ steps.local_action.outcome == 'success' }}
@@ -110,7 +132,7 @@ jobs:
           echo "branch=$BR" >> "$GITHUB_OUTPUT"
 
       - name: Invite human to open PR (fallback)
-        if: ${{ steps.local_action.outcome == 'failure' && inputs.pr_mode == 'invite' }}
+        if: ${{ steps.local_action.outcome == 'failure' && steps.mode.outputs.mode == 'invite' }}
         uses: actions/github-script@v7
         env:
           BRANCH: ${{ steps.mk.outputs.branch }}
@@ -129,15 +151,15 @@ jobs:
             const quoted = (issueBody || '').split('\n').map(l => `> ${l}`).join('\n');
             const suggestion = `${header}\n\nSource: ${issueUrl}\n\n${quoted}\n\n—\n(After opening the PR, comment with \`@codex start\`.)`;
             const compareUrl = `https://github.com/${owner}/${repo}/compare/${base}...${branch}?expand=1`;
-            await github.rest.issues.createComment({ owner, repo, issue_number, body: `Branch \`${branch}\` created from \`${base}\`.\n\nPlease open the PR as the author so Codex can work on it:\n\n- Compare link: ${compareUrl}\n- Suggested title: \`Codex bootstrap for #${issue_number}\`\n- Suggested body (copy/paste):\n\n\n${'```markdown'}\n${suggestion}\n${'```'}` });
+            await github.rest.issues.createComment({ owner, repo, issue_number, body: `Branch \`${branch}\` created from \`${base}\`.\n\nOption 1 (Invite) is enforced on issue events. PR creation is disabled by design so you are the PR author. Codex only engages on human-authored PRs.\n\nPlease open the PR as the author so Codex can work on it:\n\n- Compare link: ${compareUrl}\n- Suggested title: \`Codex bootstrap for #${issue_number}\`\n- Suggested body (copy/paste):\n\n\n${'```markdown'}\n${suggestion}\n${'```'}` });
 
       - name: Skip PR creation when inviting
-        if: ${{ steps.local_action.outcome == 'failure' && inputs.pr_mode == 'invite' }}
+        if: ${{ steps.local_action.outcome == 'failure' && steps.mode.outputs.mode == 'invite' }}
         run: |
           echo "Invite mode: skipping PR creation; waiting for human author."
 
       - name: Open or reuse PR
-        if: ${{ steps.local_action.outcome == 'failure' && inputs.pr_mode != 'invite' }}
+        if: ${{ steps.local_action.outcome == 'failure' && steps.mode.outputs.mode != 'invite' }}
         id: pr
         uses: actions/github-script@v7
         env:
@@ -180,7 +202,7 @@ jobs:
             try { await github.rest.issues.addAssignees({ owner, repo, issue_number, assignees }); } catch (e) { core.warning(`Issue assign failed: ${e.message}`); }
 
       - name: Label PR (agent:codex)
-        if: ${{ steps.local_action.outcome == 'failure' }}
+        if: ${{ steps.local_action.outcome == 'failure' && steps.mode.outputs.mode != 'invite' }}
         uses: actions/github-script@v7
         env:
           PR: ${{ steps.pr.outputs.number }}
@@ -192,7 +214,7 @@ jobs:
 
       # Prefer posting as a human service user so Codex sees the command
       - name: Post Codex command as service user
-        if: ${{ steps.local_action.outcome == 'failure' && env.SERVICE_BOT_PAT != '' && (inputs.post_codex_comment == 'true') }}
+        if: ${{ steps.local_action.outcome == 'failure' && steps.mode.outputs.mode != 'invite' && env.SERVICE_BOT_PAT != '' && (inputs.post_codex_comment == 'true') }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ env.SERVICE_BOT_PAT }}
@@ -207,7 +229,7 @@ jobs:
 
       # Fallback: still post with GITHUB_TOKEN if no PAT (Codex may ignore it)
       - name: Post Codex command (fallback as github-actions)
-        if: ${{ steps.local_action.outcome == 'failure' && env.SERVICE_BOT_PAT == '' && (inputs.post_codex_comment == 'true') }}
+        if: ${{ steps.local_action.outcome == 'failure' && steps.mode.outputs.mode != 'invite' && env.SERVICE_BOT_PAT == '' && (inputs.post_codex_comment == 'true') }}
         uses: actions/github-script@v7
         with:
           script: |
@@ -220,7 +242,7 @@ jobs:
             });
 
       - name: Prompt human to post Codex command
-        if: ${{ steps.local_action.outcome == 'failure' && (inputs.post_codex_comment != 'true') }}
+        if: ${{ steps.local_action.outcome == 'failure' && steps.mode.outputs.mode != 'invite' && (inputs.post_codex_comment != 'true') }}
         uses: actions/github-script@v7
         with:
           script: |
@@ -232,7 +254,7 @@ jobs:
             });
 
       - name: Link PR on original issue
-        if: ${{ steps.local_action.outcome == 'failure' }}
+        if: ${{ steps.local_action.outcome == 'failure' && steps.mode.outputs.mode != 'invite' }}
         uses: actions/github-script@v7
         with:
           script: |
