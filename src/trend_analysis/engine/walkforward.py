@@ -115,8 +115,9 @@ def _infer_periods_per_year(index: pd.DatetimeIndex) -> int:
     if len(index) < 2:
         return 1
 
-    diffs = np.diff(index.values.astype("datetime64[ns]")
-                    .astype(np.int64))
+    diffs = np.diff(
+        index.values.astype("datetime64[ns]").astype(np.int64)
+    )
     if len(diffs) == 0:
         return 1
 
