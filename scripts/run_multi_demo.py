@@ -91,24 +91,25 @@ MetricSeries = pd.Series
 
 import trend_analysis as ta  # noqa: E402
 # (widgets and metrics imported within functions where needed)
-from trend_analysis import (cli, export, gui, metrics, pipeline,  # noqa: E402
-                            run_analysis, run_multi_analysis)
+from trend_analysis import pipeline  # noqa: E402
+from trend_analysis import (cli, export, gui, metrics, run_analysis,
+                            run_multi_analysis)
 from trend_analysis.config import Config, load  # noqa: E402
 from trend_analysis.config.models import \
     ConfigProtocol as _ConfigProto  # noqa: E402; for type hints only
 from trend_analysis.core import rank_selection as rs  # noqa: E402
-from trend_analysis.core.rank_selection import (RiskStatsConfig,  # noqa: E402
-                                                rank_select_funds)
-from trend_analysis.data import (ensure_datetime,  # noqa: E402
-                                 identify_risk_free_fund, load_csv)
+from trend_analysis.core.rank_selection import RiskStatsConfig  # noqa: E402
+from trend_analysis.core.rank_selection import rank_select_funds
+from trend_analysis.data import ensure_datetime  # noqa: E402
+from trend_analysis.data import identify_risk_free_fund, load_csv
 from trend_analysis.multi_period import run as run_mp  # noqa: E402
 from trend_analysis.multi_period import run_schedule, scheduler  # noqa: E402
 from trend_analysis.multi_period.engine import (Portfolio,  # noqa: E402
                                                 SelectorProtocol)
 from trend_analysis.multi_period.replacer import Rebalancer  # noqa: E402
 from trend_analysis.selector import RankSelector, ZScoreSelector  # noqa: E402
-from trend_analysis.weighting import (AdaptiveBayesWeighting,  # noqa: E402
-                                      BaseWeighting, EqualWeight,
+from trend_analysis.weighting import AdaptiveBayesWeighting  # noqa: E402
+from trend_analysis.weighting import (BaseWeighting, EqualWeight,
                                       ScorePropBayesian, ScorePropSimple)
 
 
