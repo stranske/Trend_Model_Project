@@ -41,7 +41,7 @@ def test_run_simulation_matches_pipeline(tmp_path):
     expected_details = pipeline.run_full(cfg)
     expected_metrics = pipeline.run(cfg)
 
-    result = api.run_simulation(cfg, df)
+    result = api.run_simulation(cfg, df, log_dir=tmp_path)
 
     assert result.details["benchmark_ir"] == expected_details["benchmark_ir"]
     assert result.details["out_sample_stats"] == expected_details["out_sample_stats"]
@@ -51,6 +51,8 @@ def test_run_simulation_matches_pipeline(tmp_path):
     pd.testing.assert_frame_equal(result.metrics, expected_metrics)
     assert result.seed == cfg.seed
     assert "python" in result.environment
+    assert result.log is not None
+    assert result.log.path.exists()
 
 
 def _hash_result(res: api.RunResult) -> str:
@@ -155,11 +157,11 @@ def test_run_simulation_deterministic(tmp_path):
 
     # Run 1: Set seeds and run simulation
     reset_random_state(cfg.seed)
-    r1 = api.run_simulation(cfg, df)
+    r1 = api.run_simulation(cfg, df, log_dir=tmp_path)
 
     # Run 2: Reset seeds and run simulation again
     reset_random_state(cfg.seed)
-    r2 = api.run_simulation(cfg, df)
+    r2 = api.run_simulation(cfg, df, log_dir=tmp_path)
 
     # Generate hashes
     hash1 = _hash_result(r1)
@@ -252,11 +254,11 @@ def test_run_simulation_deterministic_with_random_selection(tmp_path):
 
     # Run 1: Set seeds and run simulation
     reset_random_state(cfg.seed)
-    r1 = api.run_simulation(cfg, df)
+    r1 = api.run_simulation(cfg, df, log_dir=tmp_path)
 
     # Run 2: Reset seeds and run simulation again
     reset_random_state(cfg.seed)
-    r2 = api.run_simulation(cfg, df)
+    r2 = api.run_simulation(cfg, df, log_dir=tmp_path)
 
     # Generate hashes
     hash1 = _hash_result(r1)

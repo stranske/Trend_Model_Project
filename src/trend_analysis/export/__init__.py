@@ -693,6 +693,11 @@ def export_to_excel(
                         else:
                             writer.sheets.pop(current_title, None)
                     writer.sheets[sheet] = ws_obj
+                elif workbook_adapter is not None:
+                    try:
+                        workbook_adapter.rename_last_sheet(sheet)
+                    except Exception:  # pragma: no cover - defensive rename
+                        pass
 
 
 def export_to_csv(

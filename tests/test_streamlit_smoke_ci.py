@@ -272,7 +272,7 @@ def test_progress_reporting_components():
     # Check for progress reporting features
     assert "progress" in content.lower()
     assert "log" in content.lower()
-    assert "StreamlitLogHandler" in content or "logging" in content.lower()
+    assert "_read_log_entries" in content
 
     print("✅ Progress reporting components test passed")
 
