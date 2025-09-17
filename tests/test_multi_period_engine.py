@@ -1,16 +1,18 @@
 from pathlib import Path
 
 import pandas as pd
+import pytest
 import yaml  # type: ignore[import-untyped]
 
 from trend_analysis.config import Config
 from trend_analysis.multi_period import Portfolio
 from trend_analysis.multi_period import run as run_mp
 from trend_analysis.multi_period import run_schedule
+from trend_analysis.multi_period import engine as mp_engine
 from trend_analysis.multi_period.replacer import Rebalancer
 from trend_analysis.multi_period.scheduler import generate_periods
 from trend_analysis.selector import RankSelector
-from trend_analysis.weighting import AdaptiveBayesWeighting, EqualWeight
+from trend_analysis.weighting import AdaptiveBayesWeighting, BaseWeighting, EqualWeight
 
 
 def make_df():
@@ -227,3 +229,121 @@ def test_run_schedule_with_rebalancer_replaces_funds():
     w2 = pf.history[str(end_of_month.date())]
     assert set(w1.index) == {"A", "B"}
     assert set(w2.index) == {"B", "C"}
+
+
+def test_portfolio_rebalance_accepts_mapping():
+    pf = Portfolio()
+    pf.rebalance("2024-01-31", {"Fund A": 0.25, "Fund B": 0.75}, turnover=0.1, cost=0.02)
+    key = "2024-01-31"
+    assert set(pf.history[key].index) == {"Fund A", "Fund B"}
+    assert pf.history[key].dtype == float
+    assert pf.turnover[key] == pytest.approx(0.1)
+    assert pf.costs[key] == pytest.approx(0.02)
+    assert pf.total_rebalance_costs == pytest.approx(0.02)
+
+
+def test_run_schedule_calls_rebalance_strategies_and_updates(monkeypatch):
+    dates = [pd.Timestamp("2024-01-31"), pd.Timestamp("2024-02-29")]
+    sf1 = pd.DataFrame({"Sharpe": [1.0, 0.5], "weight": [0.6, 0.4]}, index=["Fund A", "Fund B"])
+    sf2 = pd.DataFrame({"Sharpe": [0.4, 1.2], "weight": [0.5, 0.5]}, index=["Fund A", "Fund B"])
+    frames = {dates[0]: sf1, dates[1]: sf2}
+
+    class DummySelector:
+        rank_column = "Sharpe"
+
+        def select(self, score_frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+            return score_frame, score_frame
+
+    class DummyWeighting(BaseWeighting):
+        def __init__(self) -> None:
+            self.updates: list[tuple[pd.Series, int]] = []
+
+        def weight(self, selected: pd.DataFrame) -> pd.DataFrame:
+            weights = pd.Series([0.6, 0.4], index=selected.index, dtype=float)
+            return pd.DataFrame({"weight": weights})
+
+        def update(self, scores: pd.Series, days: int) -> None:
+            self.updates.append((scores.copy(), days))
+
+    class DummyRebalancer:
+        def __init__(self) -> None:
+            self.calls: list[pd.Series] = []
+
+        def apply_triggers(self, prev_weights: pd.Series, score_frame: pd.DataFrame) -> pd.Series:
+            self.calls.append(prev_weights.copy())
+            return prev_weights.sort_index()
+
+    dummy_weighting = DummyWeighting()
+    dummy_rebalancer = DummyRebalancer()
+
+    weights_sequence = iter(
+        [
+            (pd.Series({"Fund A": 0.7, "Fund B": 0.3}, dtype=float), 0.123),
+            (pd.Series({"Fund A": 0.5, "Fund B": 0.5}, dtype=float), 0.456),
+        ]
+    )
+
+    def fake_apply(strategies, params, current_weights, target_weights, **kwargs):
+        assert strategies == ["dummy"]
+        assert params == {"dummy": {"alpha": 0.5}}
+        assert list(current_weights.index) == ["Fund A", "Fund B"]
+        assert list(target_weights.index) == ["Fund A", "Fund B"]
+        assert kwargs["scores"].name == "Sharpe"
+        return next(weights_sequence)
+
+    monkeypatch.setattr(mp_engine, "apply_rebalancing_strategies", fake_apply)
+
+    pf = run_schedule(
+        frames,
+        DummySelector(),
+        dummy_weighting,
+        rank_column="Sharpe",
+        rebalancer=dummy_rebalancer,
+        rebalance_strategies=["dummy"],
+        rebalance_params={"dummy": {"alpha": 0.5}},
+    )
+
+    # Rebalancer used the initial weights and fake strategy output stored the cost
+    assert dummy_rebalancer.calls, "rebalancer should have been invoked"
+    assert pf.costs["2024-01-31"] == pytest.approx(0.123)
+    assert pf.costs["2024-02-29"] == pytest.approx(0.456)
+    assert pf.turnover["2024-02-29"] == pytest.approx(0.4)
+    assert pf.total_rebalance_costs == pytest.approx(0.123 + 0.456)
+
+    # Weighting update ran for both periods with increasing day offsets
+    assert len(dummy_weighting.updates) == 2
+    days_between = dummy_weighting.updates[1][1]
+    assert days_between > 0
+
+
+def test_run_requires_csv_path_when_df_missing():
+    cfg_data = yaml.safe_load(Path("config/defaults.yml").read_text())
+    cfg_data["multi_period"] = {
+        "frequency": "M",
+        "in_sample_len": 1,
+        "out_sample_len": 1,
+        "start": "1990-01",
+        "end": "1990-03",
+    }
+    cfg_data["data"].pop("csv_path", None)
+    cfg = Config(**cfg_data)
+    with pytest.raises(KeyError):
+        run_mp(cfg, df=None)
+
+
+def test_run_raises_file_not_found_when_loader_returns_none(monkeypatch):
+    cfg_data = yaml.safe_load(Path("config/defaults.yml").read_text())
+    cfg_data["multi_period"] = {
+        "frequency": "M",
+        "in_sample_len": 1,
+        "out_sample_len": 1,
+        "start": "1990-01",
+        "end": "1990-03",
+    }
+    cfg_data["data"]["csv_path"] = "missing.csv"
+    cfg = Config(**cfg_data)
+
+    monkeypatch.setattr(mp_engine, "load_csv", lambda path: None)
+
+    with pytest.raises(FileNotFoundError):
+        run_mp(cfg, df=None)
