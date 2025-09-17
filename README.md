@@ -117,6 +117,8 @@ Then visit http://localhost:8501 for the interactive web interface.
    order.  All notebooks reside at the repository root and depend on the
    `trend_analysis` package for data loading, metrics and exports.
 
+Note: This README now includes a minor formatting tweak used to verify the auto-merge workflow.
+
 ## Applying patches
 
 Some updates are provided as patch files. Apply them from the repository root with:
