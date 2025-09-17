@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
+from streamlit_app.demo_runner import handle_demo_navigation
+
 from trend_analysis.engine.walkforward import walk_forward
 from trend_analysis.metrics import attribution
 
@@ -270,3 +272,5 @@ with col3:
         file_name="summary.json",
         mime="application/json",
     )
+
+handle_demo_navigation(st, "pages/4_Results.py")
