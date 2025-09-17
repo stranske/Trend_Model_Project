@@ -3,6 +3,8 @@ import os
 
 import streamlit as st
 
+from streamlit_app.demo_runner import handle_demo_navigation
+
 from trend_analysis.io import export_bundle
 
 st.title("Export")
@@ -83,3 +85,5 @@ except Exception as e:
     st.error(f"Failed to create export bundle: {e}")
 
     # The temporary files will be cleaned up automatically on process exit
+
+handle_demo_navigation(st, "pages/5_Export.py")
