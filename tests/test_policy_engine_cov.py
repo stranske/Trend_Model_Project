@@ -234,3 +234,34 @@ def test_decide_hires_fires_bucket_skip_and_nan_priorities(monkeypatch):
     assert all(name != "b" for name, _ in hires)
     # NaN priority for the fired manager should drop it from turnover-constrained moves
     assert fires == []
+
+
+def test_decide_hires_fires_unknown_bucket_defaults_to_name(monkeypatch):
+    score_frame = pd.DataFrame({"m": [2.0, 3.5]}, index=["known", "mystery"])
+    policy = PolicyConfig(
+        top_k=1,
+        max_active=2,
+        min_track_months=0,
+        diversification_max_per_bucket=1,
+        diversification_buckets={"known": "bucket"},
+        metrics=[MetricSpec("m", 1.0)],
+    )
+
+    def fake_rank_scores(sf, metric_weights, metric_directions):  # noqa: ARG001
+        return pd.Series({"known": 0.5, "mystery": 2.0}, index=sf.index)
+
+    monkeypatch.setattr(
+        "trend_portfolio_app.policy_engine.rank_scores", fake_rank_scores
+    )
+
+    decisions = decide_hires_fires(
+        pd.Timestamp("2020-01-31"),
+        score_frame,
+        current=["known"],
+        policy=policy,
+        directions={"m": 1},
+        cooldowns=CooldownBook(),
+        eligible_since={name: 12 for name in score_frame.index},
+    )
+
+    assert decisions["hire"] == [("mystery", "top_k")]

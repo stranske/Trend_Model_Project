@@ -221,3 +221,39 @@ def test_walk_forward_orders_oos_window_columns():
     assert metric_cols == sorted(metric_cols, key=lambda c: (str(c[0]), str(c[1])))
     # The window metadata columns stay at the front of the frame.
     assert window_cols[0] == ("window", "train_start")
+
+
+def test_walk_forward_handles_empty_test_windows(monkeypatch):
+    df = _monthly_frame(4)
+    regimes = pd.Series(["r1", "r2", "r3", "r4"], index=df["Date"])
+
+    base_index = pd.to_datetime(df["Date"])
+    custom_split = walkforward.Split(
+        train_start=base_index[0],
+        train_end=base_index[1],
+        test_start=pd.NaT,
+        test_end=pd.NaT,
+        train_index=pd.DatetimeIndex(base_index[:2]),
+        test_index=pd.DatetimeIndex([]),
+    )
+
+    monkeypatch.setattr(
+        walkforward,
+        "_generate_splits",
+        lambda *args, **kwargs: [custom_split],
+    )
+
+    result = walkforward.walk_forward(
+        df,
+        train_size=2,
+        test_size=1,
+        step_size=1,
+        regimes=regimes,
+    )
+
+    # With empty test windows no OOS regimes should be produced.
+    assert result.by_regime.empty
+    # Information ratio columns are omitted when no test data is present.
+    assert all("information_ratio" not in col for col in result.oos_windows.columns)
+    # The OOS aggregation dataframe should contain only NaN placeholders.
+    assert result.oos.isna().all().all()
