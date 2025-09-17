@@ -53,10 +53,10 @@ class DummyUpload:
 
 
 class DummyDropdown:
-    def __init__(self, options, description: str = "") -> None:  # noqa: ANN001, ARG002
-        self.options = options
+    def __init__(self, options, value=None, description: str = "") -> None:  # noqa: ANN001, ARG002
+        self.options = list(options)
         self.description = description
-        self.value = options[0] if options else None
+        self.value = value if value is not None else (self.options[0] if self.options else None)
         self._callbacks: list = []
         key = description or f"dropdown_{len(created_instances.get('dropdowns', []))}"
         created_instances.setdefault("dropdowns", []).append(self)
@@ -66,10 +66,31 @@ class DummyDropdown:
         self._callbacks.append(callback)
 
 
+class DummyCheckbox:
+    def __init__(self, value: bool = False, description: str = "", indent: bool = False) -> None:  # noqa: ARG002
+        self.value = value
+        self.description = description
+        self.indent = indent
+        self._callbacks: list = []
+        created_instances.setdefault("checkboxes", []).append(self)
+
+    def observe(self, callback, names=None) -> None:  # noqa: ANN001
+        self._callbacks.append(callback)
+
+
+class DummyToggleButtons(DummyCheckbox):
+    def __init__(self, options, value=None, description: str = "") -> None:  # noqa: ANN001, ARG002
+        super().__init__(value=value or (options[0] if options else None), description=description)
+        self.options = options
+
+
 class DummyButton:
     def __init__(self, description: str = "") -> None:  # noqa: ARG002
         self.description = description
         self._callbacks: list = []
+        created_instances.setdefault("buttons", []).append(self)
+        key = description or f"button_{len(created_instances['buttons'])}"
+        created_instances[key] = self
 
     def on_click(self, callback) -> None:  # noqa: ANN001
         self._callbacks.append(callback)
@@ -234,3 +255,50 @@ def test_template_loader_handles_error_paths(monkeypatch, tmp_path):
 
     with pytest.warns(UserWarning, match="Failed to load template"):
         callback({"new": "boom"})
+
+
+def test_launch_run_uses_registered_exporter(monkeypatch, tmp_path):
+    created_instances.clear()
+    store = ParamStore(
+        cfg={
+            "version": "1.0",
+            "mode": "all",
+            "output": {"format": "csv", "path": str(tmp_path / "out")},
+        }
+    )
+    store.theme = "system"
+
+    monkeypatch.setattr(app, "load_state", lambda: store)
+    monkeypatch.setattr(app, "discover_plugins", lambda: None)
+    monkeypatch.setattr(app.widgets, "Dropdown", DummyDropdown)
+    monkeypatch.setattr(app.widgets, "Checkbox", DummyCheckbox)
+    monkeypatch.setattr(app.widgets, "ToggleButtons", DummyToggleButtons)
+    monkeypatch.setattr(app.widgets, "Button", DummyButton)
+    monkeypatch.setattr(app.widgets, "VBox", DummyVBox)
+    monkeypatch.setattr(app.widgets, "HBox", DummyVBox)
+
+    calls: list[tuple[dict[str, pd.DataFrame], str]] = []
+
+    def fake_export(data, path, formatter):  # noqa: ANN001
+        calls.append((data, path))
+
+    monkeypatch.setitem(app.export.EXPORTERS, "csv", fake_export)
+    monkeypatch.setattr(app, "save_state", lambda s: calls.append(({}, "saved")))
+    monkeypatch.setattr(app.pipeline, "run", lambda cfg: pd.DataFrame({"metric": [1.0]}))
+    monkeypatch.setattr(app.pipeline, "run_full", lambda cfg: {"extra": 1})
+
+    widget = app.launch()
+    assert isinstance(widget, DummyVBox)
+
+    run_btn = created_instances.get("Run")
+    assert run_btn is not None and run_btn._callbacks
+
+    for cb in run_btn._callbacks:
+        cb(run_btn)
+
+    export_calls = [entry for entry in calls if "metrics" in entry[0]]
+    assert export_calls, "Expected CSV exporter to be invoked"
+    data, path = export_calls[-1]
+    assert data["metrics"].equals(pd.DataFrame({"metric": [1.0]}))
+    assert path == str(tmp_path / "out")
+    assert store.dirty is False

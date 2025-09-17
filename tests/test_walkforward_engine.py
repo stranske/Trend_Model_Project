@@ -196,3 +196,25 @@ def test_infer_periods_per_year_branch_guards(monkeypatch):
     monkeypatch.setattr(np, "median", lambda arr: _PositiveMedian())
     assert walkforward._infer_periods_per_year(idx) == 1
     monkeypatch.setattr(np, "median", real_median, raising=False)
+
+
+def test_walk_forward_orders_oos_window_columns():
+    df = _monthly_frame(8).set_index("Date")
+    # Reverse column order to ensure sorting branch executes.
+    df = df[["beta", "alpha"]]
+
+    result = walkforward.walk_forward(
+        df,
+        train_size=4,
+        test_size=2,
+        step_size=2,
+        agg={"beta": ["mean", "max"], "alpha": ["std"]},
+    )
+
+    assert not result.oos_windows.empty
+    window_cols = [col for col in result.oos_windows.columns if col[0] == "window"]
+    metric_cols = [col for col in result.oos_windows.columns if col[0] != "window"]
+    # Metric columns should be sorted alphabetically by metric/statistic tuple.
+    assert metric_cols == sorted(metric_cols, key=lambda c: (str(c[0]), str(c[1])))
+    # The window metadata columns stay at the front of the frame.
+    assert window_cols[0] == ("window", "train_start")
