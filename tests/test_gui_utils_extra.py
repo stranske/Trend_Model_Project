@@ -119,3 +119,29 @@ def test_debounce_sync_handler_returning_coroutine(monkeypatch):
     asyncio.run(run())
 
     assert calls == ["coroutine"]
+
+
+def test_debounce_skips_call_when_wait_not_elapsed(monkeypatch):
+    """Callbacks should be suppressed if the debounce window has not passed."""
+
+    time_values = iter([0.0, 0.05])
+    monkeypatch.setattr(utils.time, "time", lambda: next(time_values))
+
+    async def fast_sleep(_: float) -> None:
+        return None
+
+    monkeypatch.setattr(utils.asyncio, "sleep", fast_sleep)
+
+    calls: list[str] = []
+
+    @utils.debounce(200)
+    def handler(value: str) -> None:
+        calls.append(value)
+
+    async def run() -> None:
+        await handler("first")
+        await asyncio.sleep(0)
+
+    asyncio.run(run())
+
+    assert calls == []

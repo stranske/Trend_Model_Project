@@ -1,5 +1,8 @@
 """Tests for the Streamlit WebSocket proxy."""
 
+import runpy
+import sys
+from types import ModuleType
 from unittest.mock import Mock, patch
 
 import pytest
@@ -120,3 +123,23 @@ class TestStreamlitProxy:
             import importlib
 
             importlib.import_module("trend_analysis.proxy.__main__")
+
+    def test_proxy_main_entrypoint_executes(self, monkeypatch):
+        """Running ``python -m trend_analysis.proxy`` should invoke CLI main."""
+
+        calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+
+        def fake_main(*args, **kwargs):
+            calls.append((args, kwargs))
+            return 0
+
+        cli_module = ModuleType("trend_analysis.proxy.cli")
+        cli_module.main = fake_main
+
+        monkeypatch.setitem(sys.modules, "trend_analysis.proxy.cli", cli_module)
+
+        with pytest.raises(SystemExit) as exc:
+            runpy.run_module("trend_analysis.proxy.__main__", run_name="__main__")
+
+        assert exc.value.code == 0
+        assert calls == [(tuple(), {})]
