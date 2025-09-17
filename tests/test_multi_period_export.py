@@ -106,6 +106,7 @@ def test_workbook_frames_from_results_basic():
     frames = workbook_frames_from_results(results)
     first = _period_label(results[0])
     assert "summary" in frames
+    assert "execution_metrics" in frames
     assert first in frames
     assert list(frames[first].columns) == list(frames["summary"].columns)
 
@@ -118,6 +119,7 @@ def test_phase1_workbook_data(tmp_path):
     first = _period_label(results[0])
     assert f"metrics_{first}" in frames
     assert "summary" in frames
+    assert "execution_metrics" in frames
 
 
 def test_flat_frames_from_results_basic():
@@ -125,8 +127,8 @@ def test_flat_frames_from_results_basic():
     cfg = make_cfg()
     results = run_mp(cfg, df)
     frames = flat_frames_from_results(results)
-    # Must at least contain periods and summary; may also include 'changes'
-    assert {"periods", "summary"}.issubset(set(frames))
+    # Must at least contain periods, summary, and execution metrics; may also include 'changes'
+    assert {"periods", "summary", "execution_metrics"}.issubset(set(frames))
     assert not frames["periods"].empty
     cols_periods = [c for c in frames["periods"].columns if c != "Period"]
     assert cols_periods == list(frames["summary"].columns)
@@ -170,9 +172,10 @@ def test_export_phase1_multi_metrics(tmp_path):
     export_phase1_multi_metrics(results, str(out), formats=["csv"])
     periods_path = out.with_name(f"{out.stem}_periods.csv")
     summary_path = out.with_name(f"{out.stem}_summary.csv")
-    assert periods_path.exists() and summary_path.exists()
+    exec_path = out.with_name(f"{out.stem}_execution_metrics.csv")
+    assert periods_path.exists() and summary_path.exists() and exec_path.exists()
     files = set(tmp_path.glob("*.csv"))
-    assert periods_path in files and summary_path in files
+    assert {periods_path, summary_path, exec_path}.issubset(files)
     df_read = pd.read_csv(periods_path)
     assert list(df_read.columns)[0] == "Period"
     assert df_read.iloc[0, 1] == "Equal Weight"
@@ -186,9 +189,10 @@ def test_export_phase1_multi_metrics_json(tmp_path):
     export_phase1_multi_metrics(results, str(out), formats=["json"])
     periods_path = out.with_name(f"{out.stem}_periods.json")
     summary_path = out.with_name(f"{out.stem}_summary.json")
-    assert periods_path.exists() and summary_path.exists()
+    exec_path = out.with_name(f"{out.stem}_execution_metrics.json")
+    assert periods_path.exists() and summary_path.exists() and exec_path.exists()
     files = set(tmp_path.glob("*.json"))
-    assert periods_path in files and summary_path in files
+    assert {periods_path, summary_path, exec_path}.issubset(files)
     df_read = pd.read_json(periods_path)
     assert list(df_read.columns)[0] == "Period"
     assert df_read.loc[0, "Name"] == "Equal Weight"
@@ -207,6 +211,7 @@ def test_export_phase1_workbook(tmp_path):
     assert first_period in book.sheet_names
     assert second_period in book.sheet_names
     assert "summary" in book.sheet_names
+    assert "execution_metrics" in book.sheet_names
 
 
 def test_export_phase1_workbook_content(tmp_path):
@@ -219,8 +224,10 @@ def test_export_phase1_workbook_content(tmp_path):
     first_period = _period_label(results[0])
     df_first = book[first_period]
     df_summary = book["summary"]
+    df_exec = pd.read_excel(out, sheet_name="execution_metrics")
     assert list(df_first.columns) == list(df_summary.columns)
     assert df_summary.iloc[0, 0] == "Equal Weight"
+    assert list(df_exec.columns) == ["Period", "Turnover", "Transaction Cost"]
 
 
 def test_export_phase1_workbook_order(tmp_path):
@@ -230,7 +237,7 @@ def test_export_phase1_workbook_order(tmp_path):
     out = tmp_path / "res.xlsx"
     export_phase1_workbook(results, str(out))
     book = pd.ExcelFile(out)
-    expected = ["summary"] + [str(cast(dict, r)["period"][3]) for r in results]
+    expected = ["summary", "execution_metrics"] + [str(cast(dict, r)["period"][3]) for r in results]
     assert book.sheet_names == expected
 
 
@@ -260,6 +267,7 @@ def test_export_phase1_multi_metrics_excel(tmp_path):
     assert first_period in book.sheet_names
     assert second_period in book.sheet_names
     assert "summary" in book.sheet_names
+    assert "execution_metrics" in book.sheet_names
     df_first = pd.read_excel(path, sheet_name=first_period, skiprows=4)
     df_summary = pd.read_excel(path, sheet_name="summary", skiprows=4)
     assert list(df_first.columns) == list(df_summary.columns)

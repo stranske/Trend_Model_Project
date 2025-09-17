@@ -152,6 +152,7 @@ def test_flat_frames_from_results_includes_contrib_and_changes():
 
     assert "manager_contrib" in frames
     assert not frames["manager_contrib"].empty
+    assert "execution_metrics" in frames
     assert "changes" in frames
     # Manager change rows should include the generated period label
     assert set(frames["changes"]["Period"]) == {"Period 1"}
