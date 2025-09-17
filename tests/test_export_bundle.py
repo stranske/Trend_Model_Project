@@ -233,7 +233,7 @@ def test_export_data_all_formats_content(tmp_path):
     assert txt_path.exists()
 
     pd.testing.assert_frame_equal(pd.read_csv(csv_path), df, check_dtype=False)
-    pd.testing.assert_frame_equal(pd.read_excel(xlsx_path), df, check_dtype=False)
+    pd.testing.assert_frame_equal(pd.read_excel(xlsx_path, sheet_name="sheet"), df, check_dtype=False)
     with open(json_path) as f:
         json_data = json.load(f)
     pd.testing.assert_frame_equal(pd.DataFrame(json_data), df, check_dtype=False)
