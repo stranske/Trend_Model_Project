@@ -1,6 +1,4 @@
 import pandas as pd
-import pandas as pd
-
 from trend_portfolio_app.policy_engine import (
     CooldownBook,
     MetricSpec,
