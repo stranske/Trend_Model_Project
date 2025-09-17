@@ -125,7 +125,8 @@ class TestStreamlitProxy:
             importlib.import_module("trend_analysis.proxy.__main__")
 
     def test_proxy_main_entrypoint_executes(self, monkeypatch):
-        """Running ``python -m trend_analysis.proxy`` should invoke CLI main."""
+        """Running ``python -m trend_analysis.proxy`` should invoke CLI
+        main."""
 
         calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
 
