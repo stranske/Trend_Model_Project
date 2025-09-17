@@ -10,11 +10,11 @@ jobs:
     if: >
       github.event.pull_request.draft == false &&
       (
-        contains(github.event.pull_request.labels.*.name, 'from:copilot') ||
-        contains(github.event.pull_request.labels.*.name, 'from:codex')
+        contains(github.event.pull_request.labels.*.name, (vars.AGENT_FROM_LABEL || 'from:copilot')) ||
+        contains(github.event.pull_request.labels.*.name, (vars.AGENT_FROM_LABEL_ALT || 'from:codex'))
       ) &&
-      contains(github.event.pull_request.labels.*.name, 'automerge') &&
-      contains(github.event.pull_request.labels.*.name, 'risk:low')
+      contains(github.event.pull_request.labels.*.name, (vars.AUTOMERGE_LABEL || 'automerge')) &&
+      contains(github.event.pull_request.labels.*.name, (vars.RISK_LABEL || 'risk:low'))
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository

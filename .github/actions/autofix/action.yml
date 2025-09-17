@@ -39,7 +39,11 @@ runs:
         docformatter -r -i src tests || true
         # --- Type hygiene (lightweight) ---
         echo "[autofix] Running auto_type_hygiene..."
-        python scripts/auto_type_hygiene.py || true
+        if [ -f scripts/auto_type_hygiene.py ]; then
+          python scripts/auto_type_hygiene.py || true
+        else
+          echo "(skip) scripts/auto_type_hygiene.py not found"
+        fi
         echo "[autofix] Installing missing type stubs (non-fatal)..."
         mypy --install-types --non-interactive || true
         # Optional warm cache (do not fail build)

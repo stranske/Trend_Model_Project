@@ -19,7 +19,7 @@ jobs:
           !startsWith(github.event.pull_request.title, 'ci: autofix') &&
           (
             !github.event.pull_request.draft ||
-            contains(github.event.pull_request.labels.*.name, 'autofix')
+            contains(github.event.pull_request.labels.*.name, (vars.AUTOFIX_OPT_IN_LABEL || 'autofix'))
           ) }}
     runs-on: ubuntu-latest
     steps:
