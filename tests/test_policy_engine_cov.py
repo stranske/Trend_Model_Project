@@ -146,7 +146,8 @@ def test_decide_hires_fires_turnover_budget_prioritises(monkeypatch):
 
 
 def test_decide_hires_fires_turnover_budget_mixed_moves(monkeypatch):
-    """Turnover gating should compare hires and fires and keep the best move."""
+    """Turnover gating should compare hires and fires and keep the best
+    move."""
 
     score_frame = pd.DataFrame(
         {"m": [4.0, 3.0, -2.0]}, index=["hire1", "hire2", "drop"]
