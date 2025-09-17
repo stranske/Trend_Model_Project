@@ -29,6 +29,7 @@ class DummyRun:
     config: dict
     seed: int
     input_path: Path
+    python_hash_seed: int | None = None
 
     def summary(self) -> dict:
         return {"total_return": float(self.portfolio.sum())}
@@ -50,6 +51,7 @@ def _schema() -> dict:
             "config",
             "config_sha256",
             "seed",
+            "python_hash_seed",
             "environment",
             "git_hash",
             "receipt",
@@ -70,6 +72,7 @@ def _schema() -> dict:
             "config_sha256": {"type": "string"},
             "seed": {"type": ["integer", "null"]},
             "environment": {"type": "object"},
+            "python_hash_seed": {"type": ["integer", "null"]},
             "git_hash": {"type": ["string", "null"]},
             "receipt": {
                 "type": "object",
@@ -96,6 +99,7 @@ def _build_meta(tmp_path: Path) -> dict:
         config=config,
         seed=42,
         input_path=input_path,
+        python_hash_seed=0,
     )
 
     out = tmp_path / "bundle.zip"

@@ -48,7 +48,7 @@ def test_run_simulation_handles_missing_result(monkeypatch):
     assert result.fallback_info is None
     # The helper falls back to a deterministic default seed when absent.
     assert result.seed == 42
-    assert set(result.environment) == {"python", "numpy", "pandas"}
+    assert set(result.environment) == {"python", "numpy", "pandas", "python_hash_seed"}
 
 
 def test_run_simulation_populates_metrics_and_fallback(monkeypatch):

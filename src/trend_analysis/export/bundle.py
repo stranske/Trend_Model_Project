@@ -53,6 +53,12 @@ def export_bundle(run: Any, path: Path) -> Path:
         # Pre-compute hashes and run identifier --------------------------------
         config = getattr(run, "config", {})
         seed = getattr(run, "seed", None)
+        python_hash_seed = getattr(run, "python_hash_seed", None)
+        if isinstance(python_hash_seed, str):
+            try:
+                python_hash_seed = int(python_hash_seed)
+            except ValueError:
+                python_hash_seed = None
 
         # input_path may be missing or explicitly None; handle safely
         _inp = getattr(run, "input_path", None)
@@ -197,6 +203,7 @@ def export_bundle(run: Any, path: Path) -> Path:
             "config": config,
             "config_sha256": config_sha256,
             "seed": seed,
+            "python_hash_seed": python_hash_seed,
             "environment": env,
             "git_hash": _git_hash(),
             "receipt": {"created": _dt.datetime.utcnow().isoformat() + "Z"},
@@ -215,6 +222,8 @@ def export_bundle(run: Any, path: Path) -> Path:
         ]
         if seed is not None:
             receipt_lines.append(f"seed: {seed}")
+        if python_hash_seed is not None:
+            receipt_lines.append(f"python_hash_seed: {python_hash_seed}")
         receipt_lines.append(f"git_hash: {meta['git_hash']}")
         receipt_path = bundle_dir / "receipt.txt"
         receipt_path.write_text("\n".join(receipt_lines) + "\n", encoding="utf-8")

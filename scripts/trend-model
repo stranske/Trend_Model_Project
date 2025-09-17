@@ -2,6 +2,16 @@
 # Development wrapper for trend-model CLI
 # Makes 'trend-model' command available without requiring package installation
 
+# Ensure deterministic hashes unless caller explicitly set one
+if [ -z "${PYTHONHASHSEED+x}" ]; then
+    export PYTHONHASHSEED=0
+fi
+
+# Provide a default pipeline seed while allowing overrides
+if [ -z "${TREND_PIPELINE_SEED+x}" ]; then
+    export TREND_PIPELINE_SEED=42
+fi
+
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"

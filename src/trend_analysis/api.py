@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import random
 import sys
 from dataclasses import dataclass
@@ -43,7 +44,48 @@ class RunResult:
     details: dict[str, Any]
     seed: int
     environment: dict[str, Any]
+    python_hash_seed: int | None = None
     fallback_info: dict[str, Any] | None = None
+
+
+def _seed_was_supplied(config: ConfigType) -> bool:
+    """Return ``True`` if the config explicitly provided a seed value."""
+
+    for attr in ("model_fields_set", "__fields_set__"):
+        fields_set = getattr(config, attr, None)
+        if isinstance(fields_set, set):
+            return "seed" in fields_set
+    return hasattr(config, "seed")
+
+
+def _resolve_pipeline_seed(config: ConfigType) -> int:
+    """Determine the seed to use, respecting environment overrides."""
+
+    env_seed_raw = os.environ.get("TREND_PIPELINE_SEED")
+    env_seed: int | None = None
+    if env_seed_raw is not None:
+        try:
+            env_seed = int(env_seed_raw)
+        except ValueError:
+            logger.warning(
+                "Ignoring invalid TREND_PIPELINE_SEED value: %s", env_seed_raw
+            )
+
+    current_seed = getattr(config, "seed", None)
+
+    if env_seed is not None and (
+        current_seed is None or not _seed_was_supplied(config)
+    ):
+        try:
+            setattr(config, "seed", env_seed)
+        except Exception:  # pragma: no cover - defensive fallback
+            logger.debug("Unable to set seed on config", exc_info=True)
+        return env_seed
+
+    if current_seed is not None:
+        return int(current_seed)
+
+    return env_seed if env_seed is not None else 42
 
 
 def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
@@ -63,9 +105,21 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
     """
     logger.info("run_simulation start")
 
-    seed = getattr(config, "seed", 42)
+    seed = _resolve_pipeline_seed(config)
     random.seed(seed)
     np.random.seed(seed)
+
+    python_hash_seed_raw = os.environ.get("PYTHONHASHSEED")
+    python_hash_seed: int | None
+    try:
+        python_hash_seed = (
+            int(python_hash_seed_raw) if python_hash_seed_raw is not None else None
+        )
+    except ValueError:
+        logger.warning(
+            "Ignoring invalid PYTHONHASHSEED value: %s", python_hash_seed_raw
+        )
+        python_hash_seed = None
 
     split = config.sample_split
     metrics_list = config.metrics.get("registry")
@@ -105,7 +159,8 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
             "numpy": np.__version__,
             "pandas": pd.__version__,
         }
-        return RunResult(pd.DataFrame(), {}, seed, env)
+        env["python_hash_seed"] = python_hash_seed
+        return RunResult(pd.DataFrame(), {}, seed, env, python_hash_seed=python_hash_seed)
 
     stats_obj = res["out_sample_stats"]
     if isinstance(stats_obj, dict):
@@ -129,6 +184,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         "python": sys.version.split()[0],
         "numpy": np.__version__,
         "pandas": pd.__version__,
+        "python_hash_seed": python_hash_seed,
     }
 
     fallback_raw = res.get("weight_engine_fallback") if isinstance(res, dict) else None
@@ -141,5 +197,6 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         details=res,
         seed=seed,
         environment=env,
+        python_hash_seed=python_hash_seed,
         fallback_info=fallback_info,
     )

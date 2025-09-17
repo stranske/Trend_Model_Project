@@ -30,6 +30,7 @@ class DummyRun:
     benchmark: pd.Series | None = None
     weights: pd.DataFrame | None = None
     summary_override: dict | None = None
+    python_hash_seed: int | None = None
 
     def summary(self):
         if self.summary_override is not None:
@@ -45,6 +46,7 @@ def test_export_bundle(tmp_path):
         ),
         config={"foo": 1},
         seed=42,
+        python_hash_seed=0,
         input_path=input_path,
     )
     out = tmp_path / "bundle.zip"
@@ -70,6 +72,7 @@ def test_export_bundle(tmp_path):
     assert meta["config"] == {"foo": 1}
     assert meta["seed"] == 42
     assert meta["config_sha256"] == cfg_sha
+    assert meta["python_hash_seed"] == 0
     assert meta["run_id"] == expected_run_id
     assert "python" in meta["environment"]
     assert len(meta.get("git_hash", "")) >= 7
@@ -103,6 +106,7 @@ def test_receipt_deterministic(tmp_path):
         ),
         config={"foo": 1},
         seed=42,
+        python_hash_seed=0,
         input_path=input_path,
     )
     out1 = tmp_path / "bundle1.zip"
@@ -122,6 +126,7 @@ def test_export_bundle_empty_portfolio(tmp_path):
         portfolio=pd.Series(dtype=float),
         config={},
         seed=1,
+        python_hash_seed=None,
         input_path=input_path,
     )
     out = tmp_path / "empty_bundle.zip"
@@ -151,6 +156,7 @@ def test_export_bundle_optional_outputs(tmp_path):
         input_path=object(),  # Triggers TypeError branch for Path conversion
         benchmark=benchmark,
         weights=weights,
+        python_hash_seed=None,
     )
 
     out = tmp_path / "bundle_optional.zip"
@@ -162,6 +168,7 @@ def test_export_bundle_optional_outputs(tmp_path):
         meta = json.load(z.open("run_meta.json"))
 
     assert meta["seed"] is None
+    assert meta["python_hash_seed"] is None
     assert meta["input_sha256"] is None
     outputs = meta["outputs"]
     assert outputs["results/benchmark.csv"]
@@ -180,6 +187,7 @@ def test_export_bundle_summary_default_when_not_callable(tmp_path):
         config={"foo": 1},
         seed=7,
         input_path=_write_input(tmp_path),
+        python_hash_seed=0,
         summary={"should": "ignore"},
     )
 
@@ -233,7 +241,11 @@ def test_export_data_all_formats_content(tmp_path):
     assert txt_path.exists()
 
     pd.testing.assert_frame_equal(pd.read_csv(csv_path), df, check_dtype=False)
-    pd.testing.assert_frame_equal(pd.read_excel(xlsx_path, sheet_name="sheet"), df, check_dtype=False)
+    excel_reader = pd.ExcelFile(xlsx_path)
+    first_sheet = excel_reader.sheet_names[0]
+    pd.testing.assert_frame_equal(
+        excel_reader.parse(first_sheet), df, check_dtype=False
+    )
     with open(json_path) as f:
         json_data = json.load(f)
     pd.testing.assert_frame_equal(pd.DataFrame(json_data), df, check_dtype=False)
