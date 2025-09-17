@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pandas as pd
 
-from . import export, pipeline
-from .api import run_simulation
-from .config import load_config
+from . import export
+from .api import RunResult, run_simulation
+from .config import ConfigType, load_config
 from .constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 from .data import load_csv
 
@@ -55,6 +55,49 @@ def check_environment(lock_path: Path | None = None) -> int:
     return 0
 
 
+REQUIRED_SAMPLE_KEYS = {"in_start", "in_end", "out_start", "out_end"}
+
+
+def run_cli_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
+    """Execute the CLI pipeline via :func:`run_simulation`.
+
+    Parameters
+    ----------
+    config : ConfigType
+        Loaded configuration object.
+    returns : pd.DataFrame
+        Returns data including a ``Date`` column.
+
+    Returns
+    -------
+    RunResult
+        Structured output from :func:`trend_analysis.api.run_simulation`.
+    """
+
+    split = getattr(config, "sample_split", {})
+    missing = [key for key in REQUIRED_SAMPLE_KEYS if not split.get(key)]
+    if missing:
+        joined = ", ".join(sorted(missing))
+        raise ValueError(
+            "Configuration sample_split is missing required keys: " f"{joined}"
+        )
+
+    return run_simulation(config, returns)
+
+
+def run_cli_simulation_from_paths(
+    config_path: str, returns_path: str
+) -> tuple[RunResult, ConfigType]:
+    """Load configuration and returns from disk then run the pipeline."""
+
+    config = load_config(config_path)
+    returns = load_csv(returns_path)
+    if returns is None:
+        raise FileNotFoundError(returns_path)
+    result = run_cli_simulation(config, returns)
+    return result, config
+
+
 def main(argv: list[str] | None = None) -> int:
     """Entry point for the ``trend-model`` command."""
 
@@ -93,18 +136,9 @@ def main(argv: list[str] | None = None) -> int:
         return proc.returncode
 
     if args.command == "run":
-        cfg = load_config(args.config)
-        df = load_csv(args.input)
-        assert df is not None  # narrow type for type-checkers
-        split = cfg.sample_split
-        required_keys = {"in_start", "in_end", "out_start", "out_end"}
-        if required_keys.issubset(split):
-            run_result = run_simulation(cfg, df)
-            metrics_df = run_result.metrics
-            res = run_result.details
-        else:  # pragma: no cover - legacy fallback
-            metrics_df = pipeline.run(cfg)
-            res = pipeline.run_full(cfg)
+        run_result, cfg = run_cli_simulation_from_paths(args.config, args.input)
+        metrics_df = run_result.metrics
+        res = run_result.details
         if not res:
             print("No results")
             return 0
