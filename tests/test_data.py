@@ -1,6 +1,8 @@
+
+
 import pandas as pd
 import pytest
-
+from types import SimpleNamespace
 from trend_analysis import data as data_mod
 
 
@@ -90,6 +92,22 @@ def test_load_csv_permission_error_during_stat(monkeypatch, tmp_path, caplog):
     with caplog.at_level("ERROR"):
         result = data_mod.load_csv(str(f))
     assert result is None
+    assert "Permission denied" in caplog.text
+
+
+def test_load_csv_not_readable_mode(monkeypatch, tmp_path, caplog):
+    """Files without read permissions should trigger a logged error."""
+
+    f = tmp_path / "noread.csv"
+    f.write_text("Date,A\n01/01/20,1")
+
+    monkeypatch.setattr(
+        data_mod.Path, "stat", lambda self, **_: SimpleNamespace(st_mode=0)
+    )
+
+    with caplog.at_level("ERROR"):
+        assert data_mod.load_csv(str(f)) is None
+
     assert "Permission denied" in caplog.text
 
 

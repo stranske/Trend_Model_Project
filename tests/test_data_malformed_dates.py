@@ -53,6 +53,30 @@ class TestDataLoadingMalformedDates:
             # Clean up temporary file
             os.unlink(temp_path)
 
+    def test_load_csv_filters_null_or_empty_dates(self, caplog):
+        """Rows with blank dates should be dropped while retaining valid rows."""
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+            f.write("Date,Fund1\n")
+            f.write(",0.01\n")  # empty string should be treated as null/empty
+            f.write("2023-01-31,0.02\n")  # mismatched format triggers fallback parsing
+            f.write("2023-03-31,0.03\n")
+            temp_path = f.name
+
+        try:
+            caplog.set_level("WARNING")
+            result = load_csv(temp_path)
+            assert result is not None, "Valid rows should still be returned"
+            # Only the valid dated row should remain after filtering null dates
+            assert len(result) == 2
+            dates = result["Date"].tolist()
+            assert pd.Timestamp("2023-01-31") in dates
+            assert pd.Timestamp("2023-03-31") in dates
+            # Ensure a warning was emitted for the null/empty entries
+            assert any("null/empty date" in rec.message.lower() for rec in caplog.records)
+        finally:
+            os.unlink(temp_path)
+
     def test_ensure_datetime_raises_error_for_malformed_dates(self):
         """Test that ensure_datetime raises an error for malformed dates."""
         df = pd.DataFrame(

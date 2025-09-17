@@ -149,6 +149,29 @@ def test_openpyxl_proxy_apply_format_sets_styles(monkeypatch):
     assert cell.font.color == "FF123ABC"
 
 
+def test_openpyxl_proxy_skips_formatting_when_letter_helper_missing(monkeypatch):
+    ws = DummyWorksheet()
+    proxy = export._OpenpyxlWorksheetProxy(ws)
+
+    monkeypatch.setattr(export, "get_column_letter", None)
+
+    proxy.set_column(0, 1, 10)
+    proxy.autofilter(0, 0, 0, 0)
+
+    assert len(ws.column_dimensions) == 0
+    assert ws.auto_filter.ref == ""
+
+
+def test_openpyxl_proxy_ignores_invalid_font_color():
+    ws = DummyWorksheet()
+    proxy = export._OpenpyxlWorksheetProxy(ws)
+
+    proxy.write(0, 0, "value", {"font_color": "invalid"})
+
+    cell = ws.cell(1, 1)
+    assert cell.font.color is None
+
+
 def test_openpyxl_workbook_proxy_removes_default_sheet(monkeypatch):
     utils_mod = SimpleNamespace(get_column_letter=lambda idx: chr(ord("A") + idx - 1))
     monkeypatch.setitem(sys.modules, "openpyxl", SimpleNamespace(utils=utils_mod))
