@@ -29,7 +29,11 @@ jobs:
             }
             const pull_number = context.payload.pull_request.number;
             // Get list of files changed in the PR
-            const listFiles = github?.rest?.pulls?.listFiles || github?.pulls?.listFiles;
+            // Octokit v17+ uses github.rest.pulls.listFiles; older versions use github.pulls.listFiles.
+            // Prefer github.rest.pulls.listFiles, fallback to github.pulls.listFiles for compatibility.
+            const listFiles = github?.rest?.pulls?.listFiles
+              ? github.rest.pulls.listFiles
+              : github?.pulls?.listFiles;
             if (!listFiles) {
               core.warning('Octokit pulls.listFiles API is unavailable on this runner.');
               return false;
