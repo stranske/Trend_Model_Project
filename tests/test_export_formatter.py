@@ -106,7 +106,6 @@ def test_maybe_remove_openpyxl_default_sheet_ignores_named_or_populated():
     assert populated_book.worksheets
 
 
-
 def test_make_summary_formatter_registers_and_runs(formatters_excel_registry):
     res = {
         "in_ew_stats": (1, 1, 1, 1, 1, 1),
