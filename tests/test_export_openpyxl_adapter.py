@@ -54,6 +54,9 @@ class DummyWorkbook:
         self.worksheets.append(ws)
         return ws
 
+    def __getitem__(self, key: str) -> DummyWorksheet:
+        raise KeyError(key)
+
 
 def test_openpyxl_adapter_wraps_core_methods(monkeypatch):
     utils_mod = SimpleNamespace(
@@ -123,6 +126,105 @@ def test_export_to_excel_uses_adapter_when_xlsxwriter_missing(monkeypatch, tmp_p
     assert export.FORMATTERS_EXCEL == {}
     assert created and created[0].book.worksheets[-1].title == "summary"
 
+
+def test_openpyxl_proxy_apply_format_sets_styles(monkeypatch):
+    utils_mod = SimpleNamespace(
+        get_column_letter=lambda idx: chr(ord("A") + idx - 1)
+    )
+    monkeypatch.setitem(sys.modules, "openpyxl", SimpleNamespace(utils=utils_mod))
+    monkeypatch.setitem(sys.modules, "openpyxl.utils", utils_mod)
+
+    ws = DummyWorksheet()
+    proxy = export._OpenpyxlWorksheetProxy(ws)
+
+    proxy.write(
+        0,
+        0,
+        "value",
+        {"num_format": "0.00", "font_color": "#123abc"},
+    )
+
+    cell = ws.cell(1, 1)
+    assert cell.number_format == "0.00"
+    # Normalised hex should have an FF alpha prefix
+    assert cell.font.color == "FF123ABC"
+
+
+def test_openpyxl_workbook_proxy_removes_default_sheet(monkeypatch):
+    utils_mod = SimpleNamespace(
+        get_column_letter=lambda idx: chr(ord("A") + idx - 1)
+    )
+    monkeypatch.setitem(sys.modules, "openpyxl", SimpleNamespace(utils=utils_mod))
+    monkeypatch.setitem(sys.modules, "openpyxl.utils", utils_mod)
+
+    writer = SimpleNamespace(book=DummyWorkbook(), sheets={"Sheet": object()})
+    proxy = export._OpenpyxlWorkbookProxy(writer)
+
+    ws_proxy = proxy.add_worksheet("Report")
+
+    assert "Sheet" not in writer.sheets
+    assert ws_proxy.name == "Report"
+
+
+def test_export_to_excel_populates_proxy_with_renamed_sheets(monkeypatch, tmp_path):
+    utils_mod = SimpleNamespace(
+        get_column_letter=lambda idx: chr(ord("A") + idx - 1)
+    )
+    monkeypatch.setitem(sys.modules, "openpyxl", SimpleNamespace(utils=utils_mod))
+    monkeypatch.setitem(sys.modules, "openpyxl.utils", utils_mod)
+
+    class DummyWriter:
+        def __init__(self) -> None:
+            self.book = DummyWorkbook()
+            self.sheets: dict[str, object] = {"Sheet": object()}
+            self.engine = "openpyxl"
+
+        def __enter__(self) -> "DummyWriter":
+            return self
+
+        def __exit__(self, exc_type, exc, tb) -> None:  # noqa: D401
+            return None
+
+    created: list[DummyWriter] = []
+
+    def fake_excel_writer(path, engine=None):  # noqa: ARG001
+        if engine == "xlsxwriter":
+            raise ModuleNotFoundError("no xlsxwriter")
+        writer = DummyWriter()
+        created.append(writer)
+        return writer
+
+    monkeypatch.setattr(pd, "ExcelWriter", fake_excel_writer)
+
+    def fake_to_excel(self, writer, sheet_name, index=False, **_):  # noqa: ARG002
+        ws = DummyWorksheet("Temp")
+        writer.book.worksheets.append(ws)
+        writer.sheets[sheet_name] = ws
+
+    monkeypatch.setattr(pd.DataFrame, "to_excel", fake_to_excel, raising=False)
+
+    export.reset_formatters_excel()
+    captured: dict[str, object] = {}
+
+    def fake_formatter(ws, wb):  # noqa: ANN001
+        captured["formatter_called"] = (ws, wb)
+
+    export.register_formatter_excel("metrics")(fake_formatter)
+
+    df = pd.DataFrame({"x": [1.0]})
+    out = tmp_path / "report.xlsx"
+
+    export.export_to_excel({"metrics": df, "summary": df}, out)
+
+    assert created, "Expected ExcelWriter to be instantiated"
+    assert captured["formatter_called"][0].name == "metrics"
+    metrics_ws = created[0].sheets.get("metrics")
+    summary_ws = created[0].sheets.get("summary")
+    assert isinstance(metrics_ws, DummyWorksheet)
+    assert metrics_ws.title == "metrics"
+    assert isinstance(summary_ws, DummyWorksheet)
+    assert summary_ws.title == "summary"
+    export.reset_formatters_excel()
 
 def test_flat_frames_from_results_collects_changes(monkeypatch):
     frames = pd.Series([1.0], name="value").to_frame()
