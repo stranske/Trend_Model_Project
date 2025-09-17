@@ -10,6 +10,7 @@ import streamlit as st
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
+from trend_analysis.plugins import weight_engine_registry
 from trend_portfolio_app.metrics_extra import AVAILABLE_METRICS
 from trend_portfolio_app.policy_engine import MetricSpec, PolicyConfig
 
@@ -53,6 +54,58 @@ except Exception:
 
     def list_available_presets_direct() -> List[str]:  # type: ignore[no-redef]
         return ["Conservative", "Balanced", "Aggressive"]
+
+
+_WEIGHT_ENGINE_ALIASES: Dict[str, str] = {
+    "vol_inverse": "risk_parity",
+    "robust_mean_variance": "robust_mv",
+}
+
+_WEIGHT_ENGINE_LABELS: Dict[str, str] = {
+    "equal": "Equal Weight (1/N)",
+    "risk_parity": "Risk Parity (Inverse Volatility)",
+    "hrp": "Hierarchical Risk Parity",
+    "erc": "Equal Risk Contribution",
+    "robust_mv": "Robust Mean-Variance",
+    "robust_risk_parity": "Robust Risk Parity",
+}
+
+_PREFERRED_WEIGHT_ORDER: List[str] = [
+    "risk_parity",
+    "hrp",
+    "erc",
+    "robust_mv",
+    "robust_risk_parity",
+]
+
+
+def _discover_weighting_options() -> List[str]:
+    """Return canonical weight engine names including aliases."""
+
+    available = {
+        _WEIGHT_ENGINE_ALIASES.get(name, name).lower()
+        for name in weight_engine_registry.available()
+    }
+
+    ordered: List[str] = []
+    for name in _PREFERRED_WEIGHT_ORDER:
+        if name in available:
+            ordered.append(name)
+            available.remove(name)
+
+    if available:
+        ordered.extend(sorted(available))
+
+    return ["equal", *ordered]
+
+
+def _format_weighting_option(option: str) -> str:
+    """Return human-friendly label for a weighting option."""
+
+    label = _WEIGHT_ENGINE_LABELS.get(option)
+    if label:
+        return label
+    return option.replace("_", " ").title()
 
 
 def initialize_session_state():
@@ -278,11 +331,31 @@ def render_parameter_forms(preset_config: Optional[Dict[str, Any]]):
         )
 
         st.markdown("**Weighting**")
+        weighting_options = _discover_weighting_options()
+        default_weighting = "equal"
+        if preset_config:
+            preset_weighting = (
+                preset_config.get("portfolio", {})
+                .get("weighting_scheme", preset_config.get("weighting_scheme"))
+            )
+            if isinstance(preset_weighting, str) and preset_weighting.lower() in {
+                opt.lower() for opt in weighting_options
+            }:
+                default_weighting = preset_weighting.lower()
+
+        if default_weighting not in weighting_options:
+            default_weighting = "equal"
+
         weighting_scheme = st.selectbox(
             "Weighting scheme",
-            options=["equal", "risk_parity", "hrp", "erc"],
-            index=0,
-            help="How to allocate weights across selected funds",
+            options=weighting_options,
+            index=weighting_options.index(default_weighting),
+            format_func=_format_weighting_option,
+            help=(
+                "Choose how to convert the covariance matrix into portfolio weights. "
+                "Risk parity, HRP, and ERC run on the in-sample covariance and "
+                "produce fully invested, long-only weights."
+            ),
         )
 
     # Metrics selection

@@ -39,3 +39,10 @@ def test_hierarchical_risk_parity_expected_weights():
     assert np.allclose(w.values, expected.values, atol=1e-6)
     assert np.isclose(w.sum(), 1.0)
     assert (w >= 0).all()
+
+
+def test_risk_parity_alias_maps_to_same_engine():
+    cov = pd.DataFrame([[0.25, 0.05], [0.05, 0.16]], index=["x", "y"], columns=["x", "y"])
+    canonical = create_weight_engine("risk_parity").weight(cov)
+    alias = create_weight_engine("vol_inverse").weight(cov)
+    assert np.allclose(canonical.values, alias.values)

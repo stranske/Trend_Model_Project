@@ -58,10 +58,21 @@ Manual mode displays a table of candidates so you can override fund inclusion an
 
 Several weighting strategies are built in:
 
+**Score-based weights** (configured under `portfolio.weighting.name`):
+
 - **EqualWeight** – simple 1/N allocation.
 - **ScorePropSimple** – weights proportional to positive scores.
 - **ScorePropBayesian** – shrinks scores toward the mean before weighting.
 - **AdaptiveBayesWeighting** – updates weights over multiple periods and persists its state between runs.
+
+**Covariance-driven engines** (pick via `portfolio.weighting_scheme` or the Streamlit dropdown):
+
+- **Risk Parity (`risk_parity`)** – inverse-volatility weights with safety checks for tiny variances (alias: `vol_inverse`).
+- **Hierarchical Risk Parity (`hrp`)** – tree-clustered allocation that decorrelates highly related assets.
+- **Equal Risk Contribution (`erc`)** – iteratively scales positions until each contributes the same marginal risk.
+- **Robust Mean-Variance / Risk Parity** – defensive variants that add diagonal loading when the covariance matrix is ill conditioned.
+
+All engines operate on the in-sample covariance matrix and normalise the output to 100 % long-only weights. If numerical issues occur the pipeline emits a warning and falls back to equal weighting so runs remain reproducible.
 
 When the GUI is used, the state of AdaptiveBayesWeighting is saved alongside the main config so that repeated runs refine the posterior.
 
