@@ -280,6 +280,41 @@ class TestBuildStep0:
 
     @patch("trend_analysis.gui.app.widgets")
     @patch("trend_analysis.gui.app.list_builtin_cfgs")
+    def test_template_error_handling_generic_exception(
+        self, mock_list_cfgs, mock_widgets
+    ):
+        """Template handler should surface unexpected exceptions."""
+
+        mock_list_cfgs.return_value = ["broken_template"]
+
+        mock_dropdown = Mock()
+        mock_widgets.FileUpload.return_value = Mock()
+        mock_widgets.Dropdown.return_value = mock_dropdown
+        mock_widgets.Label.return_value = Mock()
+        mock_widgets.Button.return_value = Mock()
+        mock_widgets.VBox.return_value = Mock()
+        mock_widgets.HBox.return_value = Mock()
+
+        store = ParamStore()
+
+        with (
+            patch("trend_analysis.gui.app.reset_weight_state"),
+            patch("warnings.warn") as mock_warn,
+            patch("pathlib.Path.read_text", side_effect=RuntimeError("boom")),
+        ):
+            _build_step0(store)
+
+            template_callback = mock_dropdown.observe.call_args[0][0]
+            change_event = {"new": "broken_template"}
+
+            template_callback(change_event, store=store)
+
+            mock_warn.assert_called()
+            warning_msg = str(mock_warn.call_args[0][0])
+            assert "Failed to load template config" in warning_msg
+
+    @patch("trend_analysis.gui.app.widgets")
+    @patch("trend_analysis.gui.app.list_builtin_cfgs")
     def test_template_loading_success(self, mock_list_cfgs, mock_widgets):
         """Test successful template loading doesn't crash."""
         mock_list_cfgs.return_value = ["demo"]  # Use actual existing template
