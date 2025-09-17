@@ -92,7 +92,9 @@ def test_debounce_awaits_coroutine() -> None:
     assert observed == [10]
 
 
-def test_list_builtin_cfgs_returns_sorted(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_list_builtin_cfgs_returns_sorted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Built-in configuration listing should return sorted YAML stem names."""
 
     cfg_dir = tmp_path / "cfg"
@@ -104,4 +106,3 @@ def test_list_builtin_cfgs_returns_sorted(tmp_path: Path, monkeypatch: pytest.Mo
     monkeypatch.setattr(gui_utils, "_find_config_directory", lambda: cfg_dir)
 
     assert gui_utils.list_builtin_cfgs() == ["alpha", "zeta"]
-

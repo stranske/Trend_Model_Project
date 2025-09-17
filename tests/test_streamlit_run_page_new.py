@@ -97,9 +97,7 @@ def test_main_handles_invalid_dates_gracefully() -> None:
     mock_st = _make_streamlit(button_response=True)
     module = _load_run_module(mock_st)
 
-    mock_returns = pd.DataFrame(
-        {"A": [0.1, -0.1]}, index=pd.Index([1, 2], name="Date")
-    )
+    mock_returns = pd.DataFrame({"A": [0.1, -0.1]}, index=pd.Index([1, 2], name="Date"))
     mock_cfg = {
         "start": "not-a-date",
         "end": object(),

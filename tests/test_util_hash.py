@@ -49,4 +49,3 @@ def test_sha256_bytes_matches_stdlib(value: bytes) -> None:
     """The raw byte helper should mirror ``hashlib.sha256``."""
 
     assert hash_utils.sha256_bytes(value) == hashlib.sha256(value).hexdigest()
-
