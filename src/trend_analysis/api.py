@@ -159,6 +159,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
                 str(split.get("out_end")),
             )
         except Exception:  # pragma: no cover - defensive guard
+            logger.exception("Error generating summary text in run_simulation")
             summary_text = None
     logger.info("run_simulation end")
     return RunResult(
