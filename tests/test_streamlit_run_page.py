@@ -447,7 +447,7 @@ class TestDataPreparation:
         class BadObject:
             @property
             def columns(self):  # pragma: no cover - property intentionally raises
-                raise RuntimeError("boom")
+                raise RuntimeError("Intentional test error: property access failed")
 
         mock_st = create_mock_streamlit()
         run_page, mock_st = load_run_page_module(mock_st)
