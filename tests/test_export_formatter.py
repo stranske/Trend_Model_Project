@@ -1,8 +1,11 @@
 import pandas as pd
 import pytest
+from types import SimpleNamespace
 
 from trend_analysis.export import (
     FORMATTERS_EXCEL,
+    _maybe_remove_openpyxl_default_sheet,
+    _normalise_color,
     export_to_excel,
     format_summary_text,
     make_period_formatter,
@@ -53,6 +56,54 @@ class DummyWB:
     def add_format(self, spec):
         self.formats.append(spec)
         return spec
+
+
+class DummyOpenpyxlSheet:
+    def __init__(self, title: str = "Sheet", value: object | None = None) -> None:
+        self.title = title
+        self._value = value
+
+    def cell(self, row: int, column: int) -> SimpleNamespace:  # noqa: ARG002
+        return SimpleNamespace(value=self._value)
+
+
+class DummyOpenpyxlBook:
+    def __init__(self, title: str = "Sheet", value: object | None = None) -> None:
+        self.worksheets: list[DummyOpenpyxlSheet] = [
+            DummyOpenpyxlSheet(title=title, value=value)
+        ]
+        self._removed: list[DummyOpenpyxlSheet] = []
+
+    def remove(self, sheet: DummyOpenpyxlSheet) -> None:
+        self._removed.append(sheet)
+        self.worksheets = [ws for ws in self.worksheets if ws is not sheet]
+
+
+def test_normalise_color_handles_variants():
+    assert _normalise_color(" red ") == "FFFF0000"
+    assert _normalise_color("#1a2b3c") == "FF1A2B3C"
+    assert _normalise_color("ff89abcd") == "FF89ABCD"
+    assert _normalise_color("  ") is None
+    assert _normalise_color(123) is None
+    assert _normalise_color("not-a-colour") is None
+
+
+def test_maybe_remove_openpyxl_default_sheet_prunes_blank_sheet():
+    book = DummyOpenpyxlBook()
+    removed_title = _maybe_remove_openpyxl_default_sheet(book)
+    assert removed_title == "Sheet"
+    assert book._removed and book._removed[0].title == "Sheet"
+    assert book.worksheets == []
+
+
+def test_maybe_remove_openpyxl_default_sheet_ignores_named_or_populated():
+    named_book = DummyOpenpyxlBook(title="Report")
+    assert _maybe_remove_openpyxl_default_sheet(named_book) is None
+    assert named_book.worksheets
+
+    populated_book = DummyOpenpyxlBook(title="Sheet", value="data")
+    assert _maybe_remove_openpyxl_default_sheet(populated_book) is None
+    assert populated_book.worksheets
 
 
 def test_make_summary_formatter_registers_and_runs(formatters_excel_registry):
