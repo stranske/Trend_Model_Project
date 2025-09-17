@@ -23,12 +23,18 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const { owner, repo } = context.repo;
+            if (!context.payload || !context.payload.pull_request) {
+              core.warning('No pull_request in event payload; refusing to auto-approve.');
+              return false;
+            }
             const pull_number = context.payload.pull_request.number;
             // Get list of files changed in the PR
-            const files = await github.paginate(
-              github.pulls.listFiles,
-              { owner, repo, pull_number }
-            );
+            const listFiles = github?.rest?.pulls?.listFiles || github?.pulls?.listFiles;
+            if (!listFiles) {
+              core.warning('Octokit pulls.listFiles API is unavailable on this runner.');
+              return false;
+            }
+            const files = await github.paginate(listFiles, { owner, repo, pull_number });
             // Allow files by simple glob-like patterns
             const patterns = (process.env.APPROVE_PATTERNS || 'src/**,docs/**,tests/**,**/*.md')
               .split(',')
