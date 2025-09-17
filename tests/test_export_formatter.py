@@ -155,7 +155,9 @@ def test_make_summary_formatter_writes_manager_contrib(
         row == ["Manager Participation & Contribution"] for row in headers
     ), "Expected contribution section header"
     contrib_headers = [
-        row for row in headers if row == ["Manager", "Years", "OOS CAGR", "Contribution Share"]
+        row
+        for row in headers
+        if row == ["Manager", "Years", "OOS CAGR", "Contribution Share"]
     ]
     assert contrib_headers, "Expected contribution column headers"
 

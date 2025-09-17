@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from trend_analysis.config import models
 
@@ -27,13 +27,17 @@ def _base_config() -> dict[str, object]:
     }
 
 
-def test_column_mapping_defaults_and_validation(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_column_mapping_defaults_and_validation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Exercise the ``ColumnMapping`` defaults and validation branches."""
 
     with pytest.raises(ValueError, match="Date column must be specified"):
         models.ColumnMapping(return_columns=["ret"])
 
-    with pytest.raises(ValueError, match="At least one return column must be specified"):
+    with pytest.raises(
+        ValueError, match="At least one return column must be specified"
+    ):
         models.ColumnMapping(date_column="Date")
 
     mapping = models.ColumnMapping(
@@ -65,7 +69,9 @@ def test_load_merges_output_section(tmp_path: Path) -> None:
     assert config.export["filename"] == export_target.name
 
 
-def test_load_uses_environment_default(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_load_uses_environment_default(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """When no path is provided, ``load`` should honour ``TREND_CFG``."""
 
     config_path = tmp_path / "custom.yml"
@@ -100,7 +106,9 @@ def test_list_available_presets_handles_missing_directory(
     assert models.list_available_presets() == []
 
 
-def test_preset_listing_and_loading(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_preset_listing_and_loading(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Presets are discovered and loaded via ``_find_config_directory``."""
 
     config_dir = tmp_path / "cfg"
@@ -118,7 +126,9 @@ def test_preset_listing_and_loading(tmp_path: Path, monkeypatch: pytest.MonkeyPa
         "export": {},
         "run": {},
     }
-    (config_dir / "alpha.yml").write_text(yaml.safe_dump(preset_payload), encoding="utf-8")
+    (config_dir / "alpha.yml").write_text(
+        yaml.safe_dump(preset_payload), encoding="utf-8"
+    )
     (config_dir / "beta.yml").write_text("[]\n", encoding="utf-8")
 
     monkeypatch.setattr(models, "_find_config_directory", lambda: config_dir)
