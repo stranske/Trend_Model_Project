@@ -75,7 +75,7 @@ jobs:
               `I generated an autofix patch for this fork PR.`,
               ``,
               `How to apply locally:`,
-              '1. Download the artifact "autofix-patch-pr-${{ github.event.pull_request.number }}" from the Actions run.',
+              '1. Download the artifact "autofix-patch-pr-' + pr.number + '" from the Actions run.',
               '2. In your repo root, run:',
               '   git am < autofix.patch',
               '3. Push the changes to your PR branch:',
