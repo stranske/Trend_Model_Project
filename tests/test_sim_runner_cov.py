@@ -235,7 +235,7 @@ def test_simulator_run_max_weight_clip(monkeypatch):
         clip_calls.append((lower, upper))
         return original_clip(self, lower=lower, upper=upper, *args, **kwargs)
 
-    monkeypatch.setattr(sim_runner.pd.Series, "clip", tracking_clip, raising=False)
+    monkeypatch.setattr(sim_runner.pd.Series, "clip", tracking_clip)
 
     policy = PolicyConfig(top_k=2, max_weight=0.4, min_track_months=0)
     sim.run(
