@@ -55,6 +55,23 @@ jobs:
               [String(act), label, String(issueNo)]
             ]).write();
 
+      - name: Resolve issue number
+        id: ctx
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const ev = context.eventName;
+            const issueFromEvent = context.payload.issue && context.payload.issue.number;
+            const issueFromInput = context.payload.inputs && context.payload.inputs.test_issue;
+            const num = Number(issueFromEvent || issueFromInput || 0);
+            core.setOutput('issue', num > 0 ? String(num) : '');
+            core.setOutput('has_issue', num > 0 ? 'true' : 'false');
+
+      - name: Fail fast on missing issue (manual run)
+        if: ${{ github.event_name == 'workflow_dispatch' && steps.ctx.outputs.has_issue != 'true' }}
+        run: |
+          echo "::error::Missing input test_issue for workflow_dispatch. Provide an issue number when manually running this workflow." && exit 1
+
       - name: Get default branch
         id: def
         uses: actions/github-script@v7
@@ -98,7 +115,7 @@ jobs:
         continue-on-error: true
         uses: ./.github/actions/codex-bootstrap-lite
         with:
-          issue: ${{ github.event.issue.number || inputs.test_issue }}
+          issue: ${{ steps.ctx.outputs.issue }}
           service_bot_pat: ${{ (steps.mode.outputs.mode == 'create' && secrets.OWNER_PR_PAT) || secrets.SERVICE_BOT_PAT }}
           allow_fallback: true
           codex_command: '@codex start'
@@ -117,7 +134,7 @@ jobs:
         if: ${{ steps.local_action.outcome == 'failure' }}
         id: mk
         env:
-          ISSUE: ${{ github.event.issue.number || inputs.test_issue }}
+          ISSUE: ${{ steps.ctx.outputs.issue }}
         run: |
           set -euo pipefail
           BR=agents/codex-issue-${ISSUE}-${GITHUB_RUN_ID}
@@ -139,7 +156,7 @@ jobs:
         with:
           script: |
             const {owner, repo} = context.repo;
-            const issue_number = (context.payload.issue && context.payload.issue.number) || Number(context.payload.inputs && context.payload.inputs.test_issue);
+            const issue_number = Number('${{ steps.ctx.outputs.issue }}');
             const base = "${{ steps.def.outputs.default }}";
             const branch = process.env.BRANCH;
             // Replicate issue for suggested PR body
@@ -151,6 +168,7 @@ jobs:
             const quoted = (issueBody || '').split('\n').map(l => `> ${l}`).join('\n');
             const suggestion = `${header}\n\nSource: ${issueUrl}\n\n${quoted}\n\n—\n(After opening the PR, comment with \`@codex start\`.)`;
             const compareUrl = `https://github.com/${owner}/${repo}/compare/${base}...${branch}?expand=1`;
+            if (!issue_number) { core.setFailed('Resolved issue number missing; cannot post invite.'); return; }
             await github.rest.issues.createComment({ owner, repo, issue_number, body: `Branch \`${branch}\` created from \`${base}\`.\n\nOption 1 (Invite) is enforced on issue events. PR creation is disabled by design so you are the PR author. Codex only engages on human-authored PRs.\n\nPlease open the PR as the author so Codex can work on it:\n\n- Compare link: ${compareUrl}\n- Suggested title: \`Codex bootstrap for #${issue_number}\`\n- Suggested body (copy/paste):\n\n\n${'```markdown'}\n${suggestion}\n${'```'}` });
 
       - name: Skip PR creation when inviting
@@ -165,11 +183,13 @@ jobs:
         env:
           BRANCH: ${{ steps.mk.outputs.branch }}
         with:
+          github-token: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT || github.token }}
           script: |
             const {owner, repo} = context.repo;
-            const issue_number = (context.payload.issue && context.payload.issue.number) || Number(context.payload.inputs && context.payload.inputs.test_issue);
+            const issue_number = Number('${{ steps.ctx.outputs.issue }}');
             const base = "${{ steps.def.outputs.default }}";
             const head = process.env.BRANCH;
+            if (!issue_number) { core.setFailed('Resolved issue number missing; cannot open PR.'); return; }
 
             const existing = await github.rest.pulls.list({ owner, repo, state: 'open', head: `${owner}:${head}` });
             let pr = existing.data[0];
