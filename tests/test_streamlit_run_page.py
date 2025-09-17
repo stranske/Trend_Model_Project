@@ -1,7 +1,9 @@
 """Tests for the enhanced Streamlit Run page functionality."""
 
+import importlib.util
+import logging
 import sys
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
@@ -53,6 +55,43 @@ def create_mock_streamlit():
     mock_st.progress = MagicMock(return_value=progress_mock)
 
     return mock_st
+
+
+def load_run_page_module(mock_st: MagicMock | None = None):
+    """Import the Run page module with a provided Streamlit mock."""
+
+    if mock_st is None:
+        mock_st = create_mock_streamlit()
+
+    spec = importlib.util.spec_from_file_location(
+        "run_page_module",
+        Path(__file__).parent.parent / "app" / "streamlit" / "pages" / "03_Run.py",
+    )
+    run_page = importlib.util.module_from_spec(spec)
+
+    with patch.dict("sys.modules", {"streamlit": mock_st}):
+        assert spec.loader is not None
+        spec.loader.exec_module(run_page)
+
+    return run_page, mock_st
+
+
+def setup_analysis_ui(mock_st: MagicMock):
+    """Prepare common Streamlit UI mocks used by integration tests."""
+
+    status_placeholder = MagicMock()
+    mock_st.empty = MagicMock(return_value=status_placeholder)
+
+    progress_widget = _ctx_mock()
+    progress_widget.progress = MagicMock()
+    mock_st.progress = MagicMock(return_value=progress_widget)
+
+    log_display = MagicMock()
+    log_expander = MagicMock()
+    log_expander.empty.return_value = log_display
+    mock_st.expander = MagicMock(return_value=log_expander)
+
+    return status_placeholder, progress_widget, log_expander, log_display
 
 
 @pytest.fixture
@@ -141,25 +180,38 @@ class TestErrorFormatting:
 
     def test_format_error_message_generic(self):
         """Test formatting of generic errors."""
-        with patch.dict("sys.modules", {"streamlit": create_mock_streamlit()}):
-            import importlib.util
+        run_page, _ = load_run_page_module()
 
-            spec = importlib.util.spec_from_file_location(
-                "run_page",
-                Path(__file__).parent.parent
-                / "app"
-                / "streamlit"
-                / "pages"
-                / "03_Run.py",
-            )
-            assert spec is not None and spec.loader is not None
-            run_page = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(run_page)
+        error = RuntimeError("Some runtime issue")
+        result = run_page.format_error_message(error)
+        assert "RuntimeError" in result
+        assert "Some runtime issue" in result
 
-            error = RuntimeError("Some runtime issue")
-            result = run_page.format_error_message(error)
-            assert "RuntimeError" in result
-            assert "Some runtime issue" in result
+    def test_format_error_message_sample_split_hint(self):
+        """Errors mentioning sample_split should return config guidance."""
+
+        run_page, _ = load_run_page_module()
+
+        message = run_page.format_error_message(ValueError("bad sample_split"))
+        assert "Invalid date ranges" in message
+        assert "in-sample" in message
+
+    def test_format_error_message_returns_hint(self):
+        """Errors mentioning returns should reference data guidance."""
+
+        run_page, _ = load_run_page_module()
+
+        message = run_page.format_error_message(RuntimeError("returns blew up"))
+        assert "Invalid returns data format" in message
+
+    def test_format_error_message_config_hint(self):
+        """Errors mentioning config provide configuration guidance."""
+
+        run_page, _ = load_run_page_module()
+
+        message = run_page.format_error_message(RuntimeError("config mismatch"))
+        assert "Configuration error" in message
+        assert "review your analysis parameters" in message
 
 
 @pytest.mark.usefixtures("_mock_plotting_modules")
@@ -239,6 +291,26 @@ class TestConfigCreation:
                 config = run_page.create_config_from_session_state()
                 assert config is None
 
+    def test_create_config_runtime_error(self, sample_config):
+        """Errors while building the config should surface friendly
+        messages."""
+
+        mock_st = create_mock_streamlit()
+        run_page, mock_st = load_run_page_module(mock_st)
+
+        mock_st.session_state["sim_config"] = sample_config
+
+        with patch(
+            "trend_analysis.config.Config",
+            side_effect=RuntimeError("Config creation failed"),
+        ):
+            config = run_page.create_config_from_session_state()
+
+        assert config is None
+        mock_st.error.assert_called()
+        message = mock_st.error.call_args[0][0]
+        assert "Failed to create configuration" in message
+
 
 @pytest.mark.usefixtures("_mock_plotting_modules")
 class TestDataPreparation:
@@ -317,6 +389,79 @@ class TestDataPreparation:
                 df = run_page.prepare_returns_data()
                 # Should still work if there's an index that can be converted
                 assert df is not None or run_page.st.error.called
+
+    def test_prepare_returns_data_respects_index_name(self, sample_returns_data):
+        """When the index has a name it should become the Date column."""
+
+        df = sample_returns_data.set_index("Date").copy()
+        df.index.name = "custom_date"
+
+        mock_st = create_mock_streamlit()
+        run_page, mock_st = load_run_page_module(mock_st)
+        mock_st.session_state["returns_df"] = df
+
+        result = run_page.prepare_returns_data()
+        assert result is not None
+        assert "Date" in result.columns
+        mock_st.error.assert_not_called()
+
+    def test_prepare_returns_data_renames_index_column(self, sample_returns_data):
+        """Existing index columns named 'index' should be renamed."""
+
+        df = sample_returns_data.rename(columns={"Date": "index"}).copy()
+
+        mock_st = create_mock_streamlit()
+        run_page, mock_st = load_run_page_module(mock_st)
+        mock_st.session_state["returns_df"] = df
+
+        result = run_page.prepare_returns_data()
+        assert result is not None
+        assert "Date" in result.columns
+
+    def test_prepare_returns_data_renames_date_like_columns(self, sample_returns_data):
+        """Date-like column names should be normalised to 'Date'."""
+
+        df = sample_returns_data.rename(columns={"Date": "TradeDate"}).set_index(
+            "TradeDate"
+        )
+
+        mock_st = create_mock_streamlit()
+        run_page, mock_st = load_run_page_module(mock_st)
+        mock_st.session_state["returns_df"] = df
+
+        result = run_page.prepare_returns_data()
+        assert result is not None
+        assert "Date" in result.columns
+
+    def test_prepare_returns_data_errors_when_no_date_like_columns(self):
+        """If no date information is found an error should be shown."""
+
+        df = pd.DataFrame({"Asset_A": [0.1, 0.2], "Asset_B": [0.2, 0.3]})
+        df.index.name = "row_id"
+
+        mock_st = create_mock_streamlit()
+        run_page, mock_st = load_run_page_module(mock_st)
+        mock_st.session_state["returns_df"] = df
+
+        result = run_page.prepare_returns_data()
+        assert result is None
+        mock_st.error.assert_called()
+
+    def test_prepare_returns_data_handles_exceptions(self):
+        """Unexpected data types should trigger a friendly error message."""
+
+        class BadObject:
+            @property
+            def columns(self):  # pragma: no cover - property intentionally raises
+                raise RuntimeError("Intentional test error: property access failed")
+
+        mock_st = create_mock_streamlit()
+        run_page, mock_st = load_run_page_module(mock_st)
+        mock_st.session_state["returns_df"] = BadObject()
+
+        result = run_page.prepare_returns_data()
+        assert result is None
+        mock_st.error.assert_called()
 
 
 @pytest.mark.usefixtures("_mock_plotting_modules")
@@ -431,95 +576,297 @@ class TestAnalysisIntegration:
         self, mock_run_simulation, sample_returns_data, sample_config
     ):
         """Test successful analysis run."""
-        # Create mock result
+
         mock_result = RunResult(
             metrics=pd.DataFrame({"metric": [1.0, 2.0]}),
             details={"test": "data"},
             seed=42,
             environment={"python": "3"},
         )
-        mock_run_simulation.return_value = mock_result
 
-        with patch.dict("sys.modules", {"streamlit": create_mock_streamlit()}):
-            import importlib.util
+        def _side_effect(config, returns_df):
+            logging.getLogger("trend_analysis").info("analysis completed")
+            return mock_result
 
-            spec = importlib.util.spec_from_file_location(
-                "run_page",
-                Path(__file__).parent.parent
-                / "app"
-                / "streamlit"
-                / "pages"
-                / "03_Run.py",
-            )
-            assert spec is not None and spec.loader is not None
-            run_page = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(run_page)
+        mock_run_simulation.side_effect = _side_effect
 
-            # Mock session state with required data
-            session_state = {
-                "returns_df": sample_returns_data,
-                "sim_config": sample_config,
-            }
+        mock_st = create_mock_streamlit()
+        run_page, mock_st = load_run_page_module(mock_st)
+        mock_st.session_state.update(
+            {"returns_df": sample_returns_data, "sim_config": sample_config}
+        )
 
-            with patch.object(run_page.st, "session_state", session_state):
-                # Mock streamlit UI elements
-                with patch.object(run_page.st, "container", return_value=_ctx_mock()):
-                    with patch.object(
-                        run_page.st, "progress", return_value=_ctx_mock()
-                    ):
-                        with patch.object(
-                            run_page.st, "empty", return_value=_ctx_mock()
-                        ):
-                            result = run_page.run_analysis_with_progress()
+        _, _, _, log_display = setup_analysis_ui(mock_st)
 
-                assert result is not None
-                assert isinstance(result, RunResult)
-                mock_run_simulation.assert_called_once()
+        result = run_page.run_analysis_with_progress()
+
+        assert result is mock_result
+        assert isinstance(result, RunResult)
+        mock_run_simulation.assert_called_once()
+        log_display.code.assert_called()
 
     @patch("trend_analysis.api.run_simulation")
     def test_run_analysis_with_progress_failure(
         self, mock_run_simulation, sample_returns_data, sample_config
     ):
         """Test analysis run with failure."""
-        # Make run_simulation raise an exception
-        mock_run_simulation.side_effect = ValueError("Test error")
 
-        with patch.dict("sys.modules", {"streamlit": create_mock_streamlit()}):
-            import importlib.util
+        def _raise_error(config, returns_df):
+            logging.getLogger("trend_analysis").info("about to fail")
+            raise ValueError("Test error")
 
-            spec = importlib.util.spec_from_file_location(
-                "run_page",
-                Path(__file__).parent.parent
-                / "app"
-                / "streamlit"
-                / "pages"
-                / "03_Run.py",
-            )
-            assert spec is not None and spec.loader is not None
-            run_page = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(run_page)
+        mock_run_simulation.side_effect = _raise_error
 
-            session_state = {
+        mock_st = create_mock_streamlit()
+        mock_st.code = MagicMock()
+        run_page, mock_st = load_run_page_module(mock_st)
+        mock_st.session_state.update(
+            {"returns_df": sample_returns_data, "sim_config": sample_config}
+        )
+
+        _, _, log_expander, log_display = setup_analysis_ui(mock_st)
+
+        fallback_expander = MagicMock()
+        fallback_expander.code.side_effect = RuntimeError("expander broken")
+        mock_st.expander.side_effect = [log_expander, fallback_expander]
+
+        result = run_page.run_analysis_with_progress()
+
+        assert result is None
+        mock_st.error.assert_called()
+        log_display.code.assert_called()
+        mock_st.code.assert_called()
+
+    @patch("trend_analysis.api.run_simulation")
+    def test_run_analysis_with_progress_returns_none_when_config_missing(
+        self, mock_run_simulation, sample_returns_data
+    ):
+        """If the configuration cannot be created the run should abort
+        early."""
+
+        mock_st = create_mock_streamlit()
+        run_page, mock_st = load_run_page_module(mock_st)
+        mock_st.session_state["returns_df"] = sample_returns_data
+
+        setup_analysis_ui(mock_st)
+
+        with patch.object(
+            run_page, "create_config_from_session_state", return_value=None
+        ):
+            result = run_page.run_analysis_with_progress()
+
+        assert result is None
+        mock_run_simulation.assert_not_called()
+
+    @patch("trend_analysis.api.run_simulation")
+    def test_run_analysis_with_progress_returns_none_when_data_missing(
+        self, mock_run_simulation, sample_config
+    ):
+        """Missing returns data should also abort the run."""
+
+        mock_st = create_mock_streamlit()
+        run_page, mock_st = load_run_page_module(mock_st)
+        mock_st.session_state["sim_config"] = sample_config
+
+        setup_analysis_ui(mock_st)
+
+        with patch.object(
+            run_page, "create_config_from_session_state", return_value=object()
+        ):
+            with patch.object(run_page, "prepare_returns_data", return_value=None):
+                result = run_page.run_analysis_with_progress()
+
+        assert result is None
+        mock_run_simulation.assert_not_called()
+
+    @patch("trend_analysis.api.run_simulation")
+    def test_run_analysis_with_progress_handles_empty_returns(
+        self, mock_run_simulation, sample_config
+    ):
+        """Empty data should raise a user-visible validation error."""
+
+        mock_st = create_mock_streamlit()
+        mock_st.code = MagicMock()
+        run_page, mock_st = load_run_page_module(mock_st)
+        mock_st.session_state["sim_config"] = sample_config
+
+        setup_analysis_ui(mock_st)
+
+        empty_df = pd.DataFrame({"Date": []})
+
+        with patch.object(
+            run_page, "create_config_from_session_state", return_value=object()
+        ):
+            with patch.object(run_page, "prepare_returns_data", return_value=empty_df):
+                result = run_page.run_analysis_with_progress()
+
+        assert result is None
+        mock_st.error.assert_called()
+        mock_run_simulation.assert_not_called()
+
+    @patch("trend_analysis.api.run_simulation")
+    def test_run_analysis_with_progress_handles_missing_date_column(
+        self, mock_run_simulation, sample_config
+    ):
+        """Data without a Date column should surface a clear error."""
+
+        mock_st = create_mock_streamlit()
+        mock_st.code = MagicMock()
+        run_page, mock_st = load_run_page_module(mock_st)
+        mock_st.session_state["sim_config"] = sample_config
+
+        setup_analysis_ui(mock_st)
+
+        df_no_date = pd.DataFrame({"Value": [0.1, 0.2]})
+
+        with patch.object(
+            run_page, "create_config_from_session_state", return_value=object()
+        ):
+            with patch.object(
+                run_page, "prepare_returns_data", return_value=df_no_date
+            ):
+                result = run_page.run_analysis_with_progress()
+
+        assert result is None
+        mock_st.error.assert_called()
+        mock_run_simulation.assert_not_called()
+
+
+@pytest.mark.usefixtures("_mock_plotting_modules")
+class TestRunPageMain:
+    """Tests covering the Streamlit Run page top-level UI flow."""
+
+    def test_main_requires_returns_data(self, sample_config):
+        mock_st = create_mock_streamlit()
+        run_page, mock_st = load_run_page_module(mock_st)
+        mock_st.title = MagicMock()
+        mock_st.warning = MagicMock()
+        mock_st.info = MagicMock()
+        mock_st.session_state.clear()
+
+        run_page.main()
+
+        mock_st.warning.assert_called_once()
+        mock_st.info.assert_called()
+
+    def test_main_requires_configuration(self, sample_returns_data):
+        mock_st = create_mock_streamlit()
+        run_page, mock_st = load_run_page_module(mock_st)
+        mock_st.title = MagicMock()
+        mock_st.warning = MagicMock()
+        mock_st.info = MagicMock()
+        mock_st.session_state["returns_df"] = sample_returns_data
+
+        run_page.main()
+
+        assert mock_st.warning.call_count == 1
+        mock_st.info.assert_called()
+
+    def test_main_runs_analysis_successfully(self, sample_returns_data, sample_config):
+        mock_st = create_mock_streamlit()
+        run_page, mock_st = load_run_page_module(mock_st)
+
+        columns = (_ctx_mock(), _ctx_mock())
+        for col in columns:
+            col.info = MagicMock()
+            col.write = MagicMock()
+
+        mock_st.title = MagicMock()
+        mock_st.warning = MagicMock()
+        mock_st.info = MagicMock()
+        mock_st.markdown = MagicMock()
+        mock_st.success = MagicMock()
+        mock_st.dataframe = MagicMock()
+        mock_st.caption = MagicMock()
+        mock_st.button = MagicMock(side_effect=[True, False])
+        mock_st.spinner = MagicMock(return_value=_ctx_mock())
+        mock_st.columns = MagicMock(return_value=columns)
+
+        mock_st.session_state.update(
+            {"returns_df": sample_returns_data, "sim_config": sample_config}
+        )
+
+        metrics_df = pd.DataFrame({"metric": [1.0]})
+        run_result = RunResult(metrics=metrics_df, details={}, seed=1, environment={})
+
+        with patch.object(
+            run_page, "run_analysis_with_progress", return_value=run_result
+        ) as mock_runner:
+            run_page.main()
+
+        mock_runner.assert_called_once()
+        mock_st.success.assert_called()
+        mock_st.dataframe.assert_called()
+        mock_st.markdown.assert_called()
+        mock_st.caption.assert_called()
+        assert "sim_results" in mock_st.session_state
+        assert "last_run_timestamp" in mock_st.session_state
+
+    def test_main_shows_info_when_metrics_empty(
+        self, sample_returns_data, sample_config
+    ):
+        mock_st = create_mock_streamlit()
+        run_page, mock_st = load_run_page_module(mock_st)
+
+        columns = (_ctx_mock(), _ctx_mock())
+        mock_st.columns = MagicMock(return_value=columns)
+        mock_st.title = MagicMock()
+        mock_st.warning = MagicMock()
+        mock_st.info = MagicMock()
+        mock_st.success = MagicMock()
+        mock_st.dataframe = MagicMock()
+        mock_st.button = MagicMock(side_effect=[True, False])
+        mock_st.spinner = MagicMock(return_value=_ctx_mock())
+        mock_st.markdown = MagicMock()
+
+        mock_st.session_state.update(
+            {"returns_df": sample_returns_data, "sim_config": sample_config}
+        )
+
+        empty_result = RunResult(
+            metrics=pd.DataFrame(), details={}, seed=1, environment={}
+        )
+
+        with patch.object(
+            run_page, "run_analysis_with_progress", return_value=empty_result
+        ):
+            run_page.main()
+
+        mock_st.info.assert_any_call("No metrics to display.")
+
+    def test_main_clear_results_reruns_app(self, sample_returns_data, sample_config):
+        mock_st = create_mock_streamlit()
+        run_page, mock_st = load_run_page_module(mock_st)
+
+        columns = (_ctx_mock(), _ctx_mock())
+        mock_st.columns = MagicMock(return_value=columns)
+        mock_st.title = MagicMock()
+        mock_st.warning = MagicMock()
+        mock_st.info = MagicMock()
+        mock_st.success = MagicMock()
+        mock_st.rerun = MagicMock()
+        mock_st.button = MagicMock(side_effect=[False, True])
+
+        mock_st.session_state.update(
+            {
                 "returns_df": sample_returns_data,
                 "sim_config": sample_config,
+                "sim_results": RunResult(
+                    metrics=pd.DataFrame({"metric": [1.0]}),
+                    details={},
+                    seed=1,
+                    environment={},
+                ),
+                "last_run_timestamp": datetime.now(),
             }
+        )
 
-            with patch.object(run_page.st, "session_state", session_state):
-                with patch.object(run_page.st, "container", return_value=_ctx_mock()):
-                    with patch.object(
-                        run_page.st, "progress", return_value=_ctx_mock()
-                    ):
-                        with patch.object(
-                            run_page.st, "empty", return_value=_ctx_mock()
-                        ):
-                            with patch.object(run_page.st, "error") as mock_error:
-                                with patch.object(
-                                    run_page.st, "expander", return_value=_ctx_mock()
-                                ):
-                                    result = run_page.run_analysis_with_progress()
+        run_page.main()
 
-                assert result is None
-                mock_error.assert_called()
+        mock_st.success.assert_called_with("Results cleared!")
+        mock_st.rerun.assert_called_once()
+        assert "sim_results" not in mock_st.session_state
+        assert "last_run_timestamp" not in mock_st.session_state
 
 
 @pytest.mark.usefixtures("_mock_plotting_modules")
