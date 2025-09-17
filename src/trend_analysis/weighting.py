@@ -21,9 +21,14 @@ class EqualWeight(BaseWeighting):
         if selected.empty:
             return pd.DataFrame(columns=["weight"])
         n = len(selected)
-        w = np.repeat(1.0 / n, n)
-        w = (w * 10000).round() / 10000
-        return pd.DataFrame({"weight": w}, index=selected.index)
+        total_bps = 10000
+        base_bps = total_bps // n
+        weights_bps = np.full(n, base_bps, dtype=int)
+        remainder = total_bps - base_bps * n
+        if remainder > 0:
+            weights_bps[:remainder] += 1
+        weights = weights_bps.astype(float) / total_bps
+        return pd.DataFrame({"weight": weights}, index=selected.index)
 
 
 class ScorePropSimple(BaseWeighting):

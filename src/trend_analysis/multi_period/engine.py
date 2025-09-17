@@ -23,9 +23,9 @@ from typing import Any, Dict, List, Mapping, Protocol, cast
 import pandas as pd
 
 from ..constants import NUMERICAL_TOLERANCE_HIGH
-from ..core.rank_selection import ASCENDING_METRICS
+from ..core.rank_selection import ASCENDING_METRICS, RiskStatsConfig
 from ..data import load_csv
-from ..pipeline import _run_analysis
+from ..pipeline import _run_analysis, single_period_run
 from ..rebalancing import apply_rebalancing_strategies
 from ..weighting import (
     AdaptiveBayesWeighting,
@@ -33,6 +33,7 @@ from ..weighting import (
     EqualWeight,
     ScorePropBayesian,
 )
+from ..selector import RankSelector
 from .replacer import Rebalancer
 from .scheduler import generate_periods
 
@@ -282,44 +283,6 @@ def run(
         if df is None:
             raise FileNotFoundError(csv_path)
 
-    # If policy is not threshold-hold, use the Phase‑1 style per-period runs.
-    if str(cfg.portfolio.get("policy", "").lower()) != "threshold_hold":
-        periods = generate_periods(cfg.model_dump())
-        out_results: List[Dict[str, object]] = []
-        for pt in periods:
-            res = _run_analysis(
-                df,
-                pt.in_start[:7],
-                pt.in_end[:7],
-                pt.out_start[:7],
-                pt.out_end[:7],
-                cfg.vol_adjust.get("target_vol", 1.0),
-                getattr(cfg, "run", {}).get("monthly_cost", 0.0),
-                selection_mode=cfg.portfolio.get("selection_mode", "all"),
-                random_n=cfg.portfolio.get("random_n", 8),
-                custom_weights=cfg.portfolio.get("custom_weights"),
-                rank_kwargs=cfg.portfolio.get("rank"),
-                manual_funds=cfg.portfolio.get("manual_list"),
-                indices_list=cfg.portfolio.get("indices_list"),
-                benchmarks=cfg.benchmarks,
-                seed=getattr(cfg, "seed", 42),
-            )
-            if res is None:
-                continue
-            res = dict(res)
-            res["period"] = (
-                pt.in_start,
-                pt.in_end,
-                pt.out_start,
-                pt.out_end,
-            )
-            out_results.append(res)
-        return out_results
-
-    # Threshold-hold path with Bayesian weighting
-    periods = generate_periods(cfg.model_dump())
-
-    # --- helpers --------------------------------------------------------
     def _parse_month(s: str) -> pd.Timestamp:
         return pd.to_datetime(f"{s}-01") + pd.offsets.MonthEnd(0)
 
@@ -342,18 +305,106 @@ def run(
         if in_df.empty or out_df.empty:
             return in_df, out_df, [], ""
         ret_cols = [c for c in sub.columns if c != date_col]
-        # Exclude indices if configured
         indices_list = cast(list[str] | None, cfg.portfolio.get("indices_list")) or []
         if indices_list:
             idx_set = set(indices_list)
             ret_cols = [c for c in ret_cols if c not in idx_set]
         rf_col = min(ret_cols, key=lambda c: sub[c].std())
         fund_cols = [c for c in ret_cols if c != rf_col]
-        # Keep only funds with complete data in both windows
         in_ok = ~in_df[fund_cols].isna().any()
         out_ok = ~out_df[fund_cols].isna().any()
         fund_cols = [c for c in fund_cols if in_ok[c] and out_ok[c]]
         return in_df, out_df, fund_cols, rf_col
+
+    # If policy is not threshold-hold, use the Phase‑1 style per-period runs.
+    if str(cfg.portfolio.get("policy", "").lower()) != "threshold_hold":
+        periods = generate_periods(cfg.model_dump())
+        out_results: List[Dict[str, object]] = []
+        selector = RankSelector(top_n=5, rank_column="Sharpe")
+        weighting = EqualWeight()
+        stats_cfg = RiskStatsConfig(risk_free=0.0)
+        selection_mode = cfg.portfolio.get("selection_mode", "all")
+        random_n = cfg.portfolio.get("random_n", 8)
+        base_custom_weights = cfg.portfolio.get("custom_weights")
+        rank_kwargs = cfg.portfolio.get("rank")
+        manual_list = cfg.portfolio.get("manual_list")
+        indices_list = cfg.portfolio.get("indices_list")
+        constraints_cfg = cfg.portfolio.get("constraints")
+
+        for pt in periods:
+            base_res = _run_analysis(
+                df,
+                pt.in_start[:7],
+                pt.in_end[:7],
+                pt.out_start[:7],
+                pt.out_end[:7],
+                cfg.vol_adjust.get("target_vol", 1.0),
+                getattr(cfg, "run", {}).get("monthly_cost", 0.0),
+                selection_mode=selection_mode,
+                random_n=random_n,
+                custom_weights=base_custom_weights,
+                rank_kwargs=rank_kwargs,
+                manual_funds=manual_list,
+                indices_list=indices_list,
+                benchmarks=cfg.benchmarks,
+                seed=getattr(cfg, "seed", 42),
+            )
+            if base_res is None:
+                continue
+
+            candidates = list(base_res.get("selected_funds", []))
+            if not candidates:
+                continue
+
+            period_df = df[["Date"] + candidates].copy()
+            score_frame = single_period_run(
+                period_df, pt.in_start[:7], pt.in_end[:7], stats_cfg=stats_cfg
+            )
+            selected, log = selector.select(score_frame)
+            if selected.empty:
+                continue
+
+            weights_df = weighting.weight(selected)
+            if weights_df.empty:
+                continue
+
+            manual_funds = [str(idx) for idx in weights_df.index]
+            custom_weights = {
+                str(k): float(v * 100.0) for k, v in weights_df["weight"].items()
+            }
+
+            res = _run_analysis(
+                df,
+                pt.in_start[:7],
+                pt.in_end[:7],
+                pt.out_start[:7],
+                pt.out_end[:7],
+                cfg.vol_adjust.get("target_vol", 1.0),
+                getattr(cfg, "run", {}).get("monthly_cost", 0.0),
+                selection_mode="manual",
+                manual_funds=manual_funds,
+                custom_weights=custom_weights,
+                indices_list=indices_list,
+                benchmarks=cfg.benchmarks,
+                seed=getattr(cfg, "seed", 42),
+                constraints=constraints_cfg,
+            )
+            if res is None:
+                continue
+
+            res = dict(res)
+            res["period"] = (
+                pt.in_start,
+                pt.in_end,
+                pt.out_start,
+                pt.out_end,
+            )
+            res["selection_log"] = log
+            out_results.append(res)
+        return out_results
+
+    # Threshold-hold path with Bayesian weighting
+    periods = generate_periods(cfg.model_dump())
 
     def _score_frame(in_df: pd.DataFrame, funds: list[str]) -> pd.DataFrame:
         # Compute metrics frame for the in-sample window (vectorised)

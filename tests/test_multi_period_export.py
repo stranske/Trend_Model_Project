@@ -263,3 +263,17 @@ def test_export_phase1_multi_metrics_excel(tmp_path):
     df_first = pd.read_excel(path, sheet_name=first_period, skiprows=4)
     df_summary = pd.read_excel(path, sheet_name="summary", skiprows=4)
     assert list(df_first.columns) == list(df_summary.columns)
+
+
+def test_export_period_sheets_and_summary(tmp_path):
+    df = make_df()
+    cfg = make_cfg()
+    results = run_mp(cfg, df)
+    out = tmp_path / "period_export"
+    export_phase1_multi_metrics(results, str(out), formats=["xlsx"])
+    workbook = pd.ExcelFile(out.with_suffix(".xlsx"))
+
+    period_sheets = [str(cast(dict, res)["period"][3]) for res in results]
+    for sheet in period_sheets:
+        assert sheet in workbook.sheet_names
+    assert "summary" in workbook.sheet_names

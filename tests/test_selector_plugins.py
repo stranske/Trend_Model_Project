@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pandas as pd
 import pytest
 
@@ -18,6 +20,19 @@ def make_score_frame() -> pd.DataFrame:
         },
         index=["Fund A", "Fund B", "Fund C", "Fund D"],
     )
+
+
+def test_rank_selector_top5_sharpe():
+    source = Path("tests/fixtures/score_frame_rank_topn.csv")
+    expected = Path("tests/fixtures/score_frame_rank_top5_expected.csv")
+    scores = pd.read_csv(source, index_col=0)
+    expected_selection = pd.read_csv(expected, index_col=0)
+
+    selector = RankSelector(top_n=5, rank_column="Sharpe")
+    selected, log = selector.select(scores)
+
+    pd.testing.assert_frame_equal(selected, expected_selection)
+    assert log.loc[expected_selection.index, "reason"].tolist() == [1.0, 2.0, 3.0, 4.0, 5.0]
 
 
 def test_rank_selector_descending_metric_orders_top_n():
