@@ -273,7 +273,7 @@ def test_export_to_excel_handles_missing_sheet_lookup(monkeypatch, tmp_path):
         def __enter__(self) -> "DummyWriter":
             return self
 
-        def __exit__(self, exc_type, exc, tb) -> None:  # noqa: D401
+        def __exit__(self, exc_type, exc, tb) -> None:
             return None
 
     writers: list[DummyWriter] = []
