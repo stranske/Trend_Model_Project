@@ -39,7 +39,11 @@ def test_period_results_include_turnover_and_cost():
     results = run_mp(cfg, df)
     assert results, "no results returned"
     # Each period result should carry execution metrics with correct values
+    # Turnover is 0.5 in the first period because the portfolio is fully reallocated (max_turnover=0.5),
+    # and 0.0 in subsequent periods due to the threshold-hold policy (no further rebalancing).
     expected_turnover = [0.5, 0.0, 0.0, 0.0]
+    # Transaction cost is calculated as turnover * transaction_cost_rate (10 bps = 0.0010),
+    # so 0.5 * 0.0010 = 0.0005 in the first period, and 0.0 thereafter.
     expected_cost = [0.0005, 0.0, 0.0, 0.0]
     for res, to_exp, cost_exp in zip(results, expected_turnover, expected_cost):
         assert "turnover" in res
