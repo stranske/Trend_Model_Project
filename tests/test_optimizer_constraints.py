@@ -105,3 +105,32 @@ def test_apply_constraints_reapplies_max_after_group_caps():
     assert (out <= 0.4 + 1e-9).all()
     # Ensure redistribution moved weight to the previously zero bucket
     assert out["c"] > 0
+
+
+def test_cash_weight_scales_investable_allocation():
+    w = pd.Series([0.6, 0.4], index=["a", "b"], dtype=float)
+    out = apply_constraints(w, {"cash_weight": 0.25})
+    np.testing.assert_allclose(out.sum(), 0.75)
+    np.testing.assert_allclose(out["a"], 0.45)
+
+
+def test_cash_weight_invalid_range_raises():
+    w = pd.Series([0.6, 0.4], index=["a", "b"], dtype=float)
+    with pytest.raises(ConstraintViolation):
+        apply_constraints(w, {"cash_weight": -0.1})
+    with pytest.raises(ConstraintViolation):
+        apply_constraints(w, {"cash_weight": 1.0})
+
+
+def test_cash_weight_respected_with_other_caps():
+    w = pd.Series([0.9, 0.05, 0.05], index=["a", "b", "c"], dtype=float)
+    constraints = {
+        "max_weight": 0.6,
+        "group_caps": {"X": 0.6, "Y": 0.5},
+        "groups": {"a": "X", "b": "X", "c": "Y"},
+        "cash_weight": 0.2,
+    }
+    out = apply_constraints(w, constraints)
+    np.testing.assert_allclose(out.sum(), 0.8)
+    assert out.loc[["a", "b"]].sum() <= 0.6 + 1e-9
+    assert out.max() <= 0.6 + 1e-9

@@ -54,3 +54,14 @@ def test_empty_group_handling():
     assert np.isclose(out.sum(), 1.0)
     # Both assets should be in "existing" group, no constraint needed since cap is 1.0
     assert out.loc["a"] + out.loc["b"] <= 1.0 + NUMERICAL_TOLERANCE_HIGH
+
+
+def test_cash_weight_combined_with_caps():
+    w = pd.Series([0.9, 0.1], index=["a", "b"])
+    constraints = {
+        "max_weight": 0.55,
+        "cash_weight": 0.2,
+    }
+    out = apply_constraints(w, constraints)
+    assert np.isclose(out.sum(), 0.8)
+    assert out.max() <= 0.55 + NUMERICAL_TOLERANCE_HIGH

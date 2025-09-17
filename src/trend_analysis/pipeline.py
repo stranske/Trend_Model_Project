@@ -335,6 +335,10 @@ def _run_analysis(
                 cons["group_caps"] = constraints_cfg.get("group_caps")
                 if constraints_cfg.get("groups"):
                     cons["groups"] = constraints_cfg.get("groups")
+            if "cash_weight" in constraints_cfg:
+                _cw = constraints_cfg.get("cash_weight")
+                if _cw is not None:
+                    cons["cash_weight"] = float(_cw)
             if cons:
                 w_series = apply_constraints(w_series, cons)
             user_w = (

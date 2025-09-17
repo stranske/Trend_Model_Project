@@ -149,3 +149,19 @@ def test_run_analysis_custom_weights():
         custom_weights={"A": 100},
     )
     assert res["fund_weights"]["A"] == 1.0
+
+
+def test_run_analysis_cash_weight_constraint():
+    df = make_df()
+    res = pipeline.run_analysis(
+        df,
+        "2020-01",
+        "2020-03",
+        "2020-04",
+        "2020-06",
+        1.0,
+        0.0,
+        custom_weights={"A": 100},
+        constraints={"cash_weight": 0.2},
+    )
+    assert pytest.approx(res["fund_weights"]["A"]) == 0.8
