@@ -3,15 +3,15 @@
 This implementation keeps heavy optional libraries (FastAPI, uvicorn,
 httpx, websockets) isolated so the rest of the package can be imported
 without them. A clear RuntimeError is raised only when starting the
-proxy if dependencies are missing.
-Type checking is satisfied via simple runtime asserts before use.
+proxy if dependencies are missing. Type checking is satisfied via simple
+runtime asserts before use.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Protocol, TYPE_CHECKING, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 from urllib.parse import urljoin
 
 logger = logging.getLogger(__name__)
@@ -29,14 +29,16 @@ if TYPE_CHECKING:  # pragma: no cover - static type hints only
     import uvicorn as _uvicorn_mod  # noqa: F401
     import websockets as _websockets_mod  # noqa: F401
     from fastapi import FastAPI as _FastAPIType  # noqa: F401
-    from starlette.background import BackgroundTask as _BackgroundTaskType  # noqa: F401
+    from starlette.background import \
+        BackgroundTask as _BackgroundTaskType  # noqa: F401
 
 
 def _lazy_import_deps() -> bool:
     """Attempt to import heavy dependencies on-demand.
 
-    Returns True if all imports succeed, False otherwise. This allows the
-    module to be imported before the virtual environment is activated.
+    Returns True if all imports succeed, False otherwise. This allows
+    the module to be imported before the virtual environment is
+    activated.
     """
     global httpx, uvicorn, websockets, FastAPI, StreamingResponse, BackgroundTask, _DEPS_AVAILABLE
     try:  # pragma: no cover - side-effect imports

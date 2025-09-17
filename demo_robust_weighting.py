@@ -7,6 +7,7 @@ covariance matrices and automatically switch to safe modes when needed.
 """
 
 import logging
+
 import numpy as np
 import pandas as pd
 

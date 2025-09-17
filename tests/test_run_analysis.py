@@ -2,13 +2,8 @@ import numpy as np
 import pandas as pd
 
 from trend_analysis.core.rank_selection import RiskStatsConfig
-from trend_analysis.metrics import (
-    annualize_return,
-    annualize_volatility,
-    max_drawdown,
-    sharpe_ratio,
-    sortino_ratio,
-)
+from trend_analysis.metrics import (annualize_return, annualize_volatility,
+                                    max_drawdown, sharpe_ratio, sortino_ratio)
 from trend_analysis.pipeline import Stats, calc_portfolio_returns, run_analysis
 
 

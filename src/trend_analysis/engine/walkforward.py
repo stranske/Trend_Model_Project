@@ -115,9 +115,7 @@ def _infer_periods_per_year(index: pd.DatetimeIndex) -> int:
     if len(index) < 2:
         return 1
 
-    diffs = np.diff(
-        index.values.astype("datetime64[ns]").astype(np.int64)
-    )
+    diffs = np.diff(index.values.astype("datetime64[ns]").astype(np.int64))
     if len(diffs) == 0:
         return 1
 
@@ -238,13 +236,9 @@ def walk_forward(
 
     oos_df = metrics_df.loc[oos_index] if len(oos_index) else metrics_df.iloc[0:0]
 
-    full_metrics = _to_dataframe(
-        metrics_df.agg(cast(Any, agg)), default_name=agg_label
-    )
+    full_metrics = _to_dataframe(metrics_df.agg(cast(Any, agg)), default_name=agg_label)
     full_ir = _information_ratio_frame(
-        information_ratio(
-            metrics_df, benchmark=0.0, periods_per_year=periods_per_year
-        ),
+        information_ratio(metrics_df, benchmark=0.0, periods_per_year=periods_per_year),
         metrics_df.columns,
     )
     full = pd.concat([full_metrics, full_ir], axis=0, sort=False)

@@ -3,7 +3,8 @@ import pandas as pd
 import pytest
 
 import trend_analysis.engine.optimizer as optimizer
-from trend_analysis.engine.optimizer import ConstraintViolation, apply_constraints
+from trend_analysis.engine.optimizer import (ConstraintViolation,
+                                             apply_constraints)
 
 
 def test_long_only_projection_normalizes():
@@ -83,7 +84,9 @@ def test_apply_cap_uniformly_redistributes_zero_mass_bucket():
     w = pd.Series([1.0, 0.0, 0.0], index=["a", "b", "c"], dtype=float)
     capped = optimizer._apply_cap(w, 0.6)
     expected = pd.Series([0.6, 0.2, 0.2], index=w.index)
-    pd.testing.assert_series_equal(capped, expected, check_exact=False, atol=1e-12, rtol=1e-12)
+    pd.testing.assert_series_equal(
+        capped, expected, check_exact=False, atol=1e-12, rtol=1e-12
+    )
 
 
 def test_apply_group_caps_handles_missing_cap_entries():

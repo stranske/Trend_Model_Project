@@ -5,6 +5,10 @@ inputs:
     description: "Python version"
     required: false
     default: "3.12"
+outputs:
+  changed:
+    description: "Whether any files were modified by the fixers"
+    value: ${{ steps.runfix.outputs.changed }}
 runs:
   using: "composite"
   steps:
@@ -41,14 +45,6 @@ runs:
         # Optional warm cache (do not fail build)
         mypy src/ --ignore-missing-imports --follow-imports=silent > /dev/null 2>&1 || true
         if ! git diff --quiet; then echo "changed=true" >> $GITHUB_OUTPUT; else echo "changed=false" >> $GITHUB_OUTPUT; fi
-    - name: Commit changes
-      if: steps.runfix.outputs.changed == 'true'
-      shell: bash
-      run: |
-        git config user.name "github-actions[bot]"
-        git config user.email "github-actions[bot]@users.noreply.github.com"
-        git add -A
-        git commit -m "ci: autofix formatting/lint"
     - name: Summary
       shell: bash
       run: |

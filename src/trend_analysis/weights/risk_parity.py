@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+
 import numpy as np
 import pandas as pd
 
@@ -12,7 +13,8 @@ logger = logging.getLogger(__name__)
 @weight_engine_registry.register("risk_parity")
 @weight_engine_registry.register("vol_inverse")
 class RiskParity(WeightEngine):
-    """Simple inverse-volatility risk parity weighting with robustness checks."""
+    """Simple inverse-volatility risk parity weighting with robustness
+    checks."""
 
     def weight(self, cov: pd.DataFrame) -> pd.Series:
         if cov.empty:

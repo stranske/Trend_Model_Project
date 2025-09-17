@@ -15,13 +15,8 @@ import pytest
 import yaml  # type: ignore[import-untyped]
 
 import trend_analysis.gui.app as app_module
-from trend_analysis.gui.app import (
-    _build_rank_options,
-    _build_step0,
-    launch,
-    load_state,
-    save_state,
-)
+from trend_analysis.gui.app import (_build_rank_options, _build_step0, launch,
+                                    load_state, save_state)
 from trend_analysis.gui.store import ParamStore
 
 
@@ -973,7 +968,8 @@ def test_build_step0_datagrid_callbacks(monkeypatch, tmp_path):
 
 
 def test_build_step0_datagrid_missing_on(monkeypatch, tmp_path):
-    """If DataGrid lacks an ``on`` handler the code should degrade gracefully."""
+    """If DataGrid lacks an ``on`` handler the code should degrade
+    gracefully."""
 
     class GridNoOn(FakeDataGrid):
         def on(self, *args, **kwargs):
@@ -1112,7 +1108,9 @@ def test_build_manual_override_datagrid_missing_on(monkeypatch):
     monkeypatch.setitem(sys.modules, "ipydatagrid", fake_module)
 
     store = ParamStore()
-    store.cfg = {"portfolio": {"custom_weights": {"FundA": 0.4}, "manual_list": ["FundA"]}}
+    store.cfg = {
+        "portfolio": {"custom_weights": {"FundA": 0.4}, "manual_list": ["FundA"]}
+    }
 
     box = app_module._build_manual_override(store)
 
@@ -1135,7 +1133,9 @@ def test_build_manual_override_import_error(monkeypatch):
     monkeypatch.setattr(app_module.widgets, "VBox", DummyBox)
 
     store = ParamStore()
-    store.cfg = {"portfolio": {"custom_weights": {"FundA": 0.2}, "manual_list": ["FundA"]}}
+    store.cfg = {
+        "portfolio": {"custom_weights": {"FundA": 0.2}, "manual_list": ["FundA"]}
+    }
 
     box = app_module._build_manual_override(store)
     warn, select, weights_box = box.children
@@ -1143,13 +1143,16 @@ def test_build_manual_override_import_error(monkeypatch):
     assert isinstance(warn, DummyLabel)
     assert isinstance(select, DummySelectMultiple)
     if hasattr(weights_box, "children"):
-        assert weights_box.children and isinstance(weights_box.children[0], DummyFloatText)
+        assert weights_box.children and isinstance(
+            weights_box.children[0], DummyFloatText
+        )
     else:
         assert isinstance(weights_box, DummyFloatText)
 
     # Trigger selection change and ensure manual list updates via fallback handlers
     select.set_value(("FundA", "FundA"))
     assert store.cfg["portfolio"]["manual_list"] == ["FundA", "FundA"]
+
 
 def test_build_weighting_options_callbacks(monkeypatch):
     """Weighting widgets should keep params in sync with the store."""
@@ -1320,7 +1323,8 @@ def test_launch_interactions(monkeypatch, tmp_path):
 
 
 def test_launch_run_with_empty_metrics(monkeypatch, tmp_path):
-    """Ensure on_run exits early when pipeline returns an empty metrics frame."""
+    """Ensure on_run exits early when pipeline returns an empty metrics
+    frame."""
 
     class DummyOutput:
         def __init__(self) -> None:
@@ -1369,14 +1373,18 @@ def test_launch_run_with_empty_metrics(monkeypatch, tmp_path):
     )
 
     run_calls: list[object] = []
-    monkeypatch.setattr(app_module.pipeline, "run", lambda cfg: run_calls.append(cfg) or pd.DataFrame())
+    monkeypatch.setattr(
+        app_module.pipeline, "run", lambda cfg: run_calls.append(cfg) or pd.DataFrame()
+    )
     monkeypatch.setattr(
         app_module.pipeline,
         "run_full",
         lambda cfg: pytest.fail("run_full should not execute"),
     )
     saved: list[ParamStore] = []
-    monkeypatch.setattr(app_module, "save_state", lambda store_obj: saved.append(store_obj))
+    monkeypatch.setattr(
+        app_module, "save_state", lambda store_obj: saved.append(store_obj)
+    )
 
     container = app_module.launch()
     _, _, _, _, _, _, _, _, _, _, run_btn = container.children

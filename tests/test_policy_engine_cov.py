@@ -1,13 +1,9 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 
-from trend_portfolio_app.policy_engine import (
-    CooldownBook,
-    MetricSpec,
-    PolicyConfig,
-    decide_hires_fires,
-    zscore,
-)
+from trend_portfolio_app.policy_engine import (CooldownBook, MetricSpec,
+                                               PolicyConfig,
+                                               decide_hires_fires, zscore)
 
 
 def test_policy_config_dict_cooldown_and_zscore():
@@ -68,9 +64,7 @@ def test_policy_engine_allow_add_ci_level_and_diversification_break():
 def test_decide_hires_fires_diversification_and_turnover(monkeypatch):
     """Bucket caps and turnover limits should constrain hires/fires."""
 
-    score_frame = pd.DataFrame(
-        {"m": [3.0, 2.5, 0.5, 1.5]}, index=["a", "b", "c", "d"]
-    )
+    score_frame = pd.DataFrame({"m": [3.0, 2.5, 0.5, 1.5]}, index=["a", "b", "c", "d"])
     policy = PolicyConfig(
         top_k=3,
         max_active=3,
@@ -228,9 +222,7 @@ def test_decide_hires_fires_turnover_budget_mixes_hires_and_fires(monkeypatch):
 
 
 def test_decide_hires_fires_bucket_skip_and_nan_priorities(monkeypatch):
-    score_frame = pd.DataFrame(
-        {"m": [3.0, 2.5, 1.5, -0.5]}, index=["a", "b", "c", "d"]
-    )
+    score_frame = pd.DataFrame({"m": [3.0, 2.5, 1.5, -0.5]}, index=["a", "b", "c", "d"])
     policy = PolicyConfig(
         top_k=2,
         bottom_k=1,

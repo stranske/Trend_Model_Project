@@ -117,7 +117,8 @@ def diagonal_loading(cov: np.ndarray, loading_factor: float = 1e-6) -> np.ndarra
 @weight_engine_registry.register("robust_mv")
 @weight_engine_registry.register("robust_mean_variance")
 class RobustMeanVariance(WeightEngine):
-    """Robust mean-variance optimization with shrinkage and safe mode fallback."""
+    """Robust mean-variance optimization with shrinkage and safe mode
+    fallback."""
 
     def __init__(
         self,
@@ -201,7 +202,8 @@ class RobustMeanVariance(WeightEngine):
             raise ValueError(f"Unknown safe mode: {self.safe_mode}")
 
     def _mean_variance_weights(self, cov: pd.DataFrame) -> pd.Series:
-        """Compute mean-variance optimal weights (minimum variance portfolio)."""
+        """Compute mean-variance optimal weights (minimum variance
+        portfolio)."""
         try:
             # Minimum variance portfolio: w = (Σ^-1 * 1) / (1' * Σ^-1 * 1)
             cov_inv = np.linalg.inv(cov.values)
@@ -227,7 +229,8 @@ class RobustMeanVariance(WeightEngine):
             return pd.Series(np.ones(n) / n, index=cov.index)
 
     def weight(self, cov: pd.DataFrame) -> pd.Series:
-        """Compute robust portfolio weights with shrinkage and safe mode fallback."""
+        """Compute robust portfolio weights with shrinkage and safe mode
+        fallback."""
         if cov.empty:
             return pd.Series(dtype=float)
 

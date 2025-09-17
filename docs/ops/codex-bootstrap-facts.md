@@ -101,10 +101,13 @@ This catalog explains what each active workflow does, how it’s triggered, the 
      - Fails the run if the PR head branch previously backed a merged PR (prevents accidental reuse)
 
 <a id="wf-autofix"></a>
-5) [`autofix.yml`](../../.github/workflows/autofix.yml) — Trivial autofix on open PRs
+5) [`autofix.yml`](../../.github/workflows/autofix.yml) — Trivial autofix on open PRs (fork‑friendly)
    - Triggers: `pull_request` (various types) on `phase-2-dev`/`main`
    - Jobs: `autofix`
-     - Runs local composite `.github/actions/autofix` and pushes changes to the PR branch if fixes were applied
+     - Uses local composite `.github/actions/autofix` which only runs fixers and exposes `outputs.changed` (no internal commits)
+     - Same‑repo PRs: commits `ci: autofix formatting/lint` and pushes directly to the PR branch
+     - Fork PRs: generates `autofix.patch` (`git format-patch -1 --stdout`), uploads as an artifact named `autofix-patch-pr-<num>`, and comments on the PR with step‑by‑step apply instructions (`git am < autofix.patch`; push to branch)
+     - The job summary reports whether changes were applied and whether this was a same‑repo or fork path. For forks, it includes the artifact name
 
 <a id="wf-autofix-on-failure"></a>
 6) [`autofix-on-failure.yml`](../../.github/workflows/autofix-on-failure.yml) — Attempt autofix when CI/Docker fail
@@ -240,6 +243,14 @@ This section summarizes the differences between the failing Option 2 (manual/"cr
 - Clearer run summaries: The event summary shows both the event-derived and input-provided issue numbers, helping diagnose mismatches quickly.
 - Token priority clarified: `OWNER_PR_PAT` is preferred to author the PR as the human; else `SERVICE_BOT_PAT`, else `GITHUB_TOKEN`.
 - PR hygiene defaults: PRs are opened as non-draft and include an initial `@codex start` comment; the PR body replicates the source issue content.
+
+### Autofix pipeline — fork‑friendly refactor
+
+- Composite action `.github/actions/autofix` no longer commits; it emits `outputs.changed` after running `ruff`, `black`, `isort`, `docformatter`, and light type‑hygiene steps.
+- Workflow `.github/workflows/autofix.yml` branches by PR provenance:
+  - Same‑repo: commit and push to the PR head branch.
+  - Fork: create `autofix.patch`, upload as artifact `autofix-patch-pr-<num>`, and post a PR comment with local apply instructions.
+- Benefits: Same‑repo remains hands‑off; forks still get actionable fixes without elevated permissions.
 
 ## Invite vs Create — when to use which
 

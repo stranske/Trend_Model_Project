@@ -3,8 +3,8 @@ import pytest
 # Import modules to trigger plugin registration
 from trend_analysis import rebalancing as rebalancing_module
 from trend_analysis import selector as selector_module
-from trend_analysis.plugins import rebalancer_registry, selector_registry
 from trend_analysis.gui import plugins as gui_plugins
+from trend_analysis.plugins import rebalancer_registry, selector_registry
 
 
 def test_selector_registry_discovery():

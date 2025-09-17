@@ -4,13 +4,9 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from trend_analysis.export import (
-    FORMATTERS_EXCEL,
-    export_to_csv,
-    export_to_excel,
-    export_to_json,
-    export_to_txt,
-)
+from trend_analysis.export import (FORMATTERS_EXCEL, export_to_csv,
+                                   export_to_excel, export_to_json,
+                                   export_to_txt)
 
 
 @pytest.fixture(autouse=True)
@@ -76,7 +72,11 @@ def test_export_to_excel_falls_back_without_xlsxwriter(monkeypatch, tmp_path):
         sheet_calls.append(ws.name)
         ws.write(0, 0, "ok")
 
-    export_to_excel({"summary": pd.DataFrame({"A": [1]})}, str(out_path), default_sheet_formatter=sheet_formatter)
+    export_to_excel(
+        {"summary": pd.DataFrame({"A": [1]})},
+        str(out_path),
+        default_sheet_formatter=sheet_formatter,
+    )
 
     assert calls == [(out_path, "xlsxwriter"), (out_path, None)]
     assert sheet_calls == ["summary"]

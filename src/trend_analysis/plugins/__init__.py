@@ -93,16 +93,17 @@ weight_engine_registry: PluginRegistry[WeightEngine] = PluginRegistry()
 def _load_weight_engines() -> None:  # pragma: no cover - tiny import shim
     """Load built-in weight engines after registry construction.
 
-    Kept in a function so Ruff (E402) does not object to mid-file imports while
-    still ensuring side-effect registration occurs at import time.
+    Kept in a function so Ruff (E402) does not object to mid-file
+    imports while still ensuring side-effect registration occurs at
+    import time.
     """
     # Local import scope prevents premature evaluation during type checking
-    from ..weights import (
-        equal_risk_contribution as _equal_risk_contribution,  # noqa: F401
-        hierarchical_risk_parity as _hierarchical_risk_parity,  # noqa: F401
-        risk_parity as _risk_parity,  # noqa: F401
-        robust_weighting as _robust_weighting,  # noqa: F401
-    )
+    from ..weights import \
+        equal_risk_contribution as _equal_risk_contribution  # noqa: F401
+    from ..weights import \
+        hierarchical_risk_parity as _hierarchical_risk_parity  # noqa: F401
+    from ..weights import risk_parity as _risk_parity  # noqa: F401
+    from ..weights import robust_weighting as _robust_weighting  # noqa: F401
 
     # Expose in module globals for __all__ export
     globals().update(

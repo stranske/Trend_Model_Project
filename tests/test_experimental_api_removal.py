@@ -10,7 +10,8 @@ sys.path.insert(0, str(src_path))
 
 
 def test_streamlit_app_no_experimental_fastapi():
-    """Test that streamlit_app/app.py no longer contains experimental FastAPI code."""
+    """Test that streamlit_app/app.py no longer contains experimental FastAPI
+    code."""
     streamlit_app_path = repo_root / "streamlit_app" / "app.py"
 
     # Read the file content

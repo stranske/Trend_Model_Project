@@ -11,13 +11,9 @@ import yaml
 
 from trend_analysis.api import run_simulation
 from trend_analysis.config import Config
-from trend_portfolio_app.data_schema import (
-    SchemaMeta,
-    infer_benchmarks,
-    load_and_validate_file,
-)
+from trend_portfolio_app.data_schema import (SchemaMeta, infer_benchmarks,
+                                             load_and_validate_file)
 from trend_portfolio_app.policy_engine import MetricSpec, PolicyConfig
-
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEMO_DIR = REPO_ROOT / "demo"
@@ -103,7 +99,9 @@ def _derive_window(
 ) -> Tuple[pd.Timestamp, pd.Timestamp]:
     end = _month_end(pd.Timestamp(df.index.max()))
     start = _month_end(end - pd.DateOffset(months=max(oos_months - 1, 0)))
-    earliest = _month_end(pd.Timestamp(df.index.min()) + pd.DateOffset(months=lookback_months))
+    earliest = _month_end(
+        pd.Timestamp(df.index.min()) + pd.DateOffset(months=lookback_months)
+    )
     if start < earliest:
         start = earliest
     if start > end:
@@ -111,7 +109,9 @@ def _derive_window(
     return start, end
 
 
-def _build_policy(metric_weights: Mapping[str, float], preset: Mapping[str, Any]) -> PolicyConfig:
+def _build_policy(
+    metric_weights: Mapping[str, float], preset: Mapping[str, Any]
+) -> PolicyConfig:
     metrics = [
         MetricSpec(name=metric, weight=float(weight))
         for metric, weight in metric_weights.items()
@@ -261,7 +261,9 @@ def _prepare_demo_setup(df: pd.DataFrame) -> DemoSetup:
     return DemoSetup(config_state, sim_config, pipeline_config, benchmark)
 
 
-def _update_session_state(st_module: Any, setup: DemoSetup, df: pd.DataFrame, meta: SchemaMeta) -> None:
+def _update_session_state(
+    st_module: Any, setup: DemoSetup, df: pd.DataFrame, meta: SchemaMeta
+) -> None:
     state: MutableMapping[str, Any] = st_module.session_state
     state["returns_df"] = df
     state["schema_meta"] = meta

@@ -1,9 +1,8 @@
-"""
-Golden master test for demo configuration.
+"""Golden master test for demo configuration.
 
-This test runs the complete demo pipeline end-to-end and validates
-that key CSV outputs remain stable, catching regressions in the
-core analysis functionality.
+This test runs the complete demo pipeline end-to-end and validates that
+key CSV outputs remain stable, catching regressions in the core analysis
+functionality.
 """
 
 import hashlib
@@ -11,9 +10,8 @@ import os
 import re
 import shutil
 import subprocess
-import tempfile
 from pathlib import Path
-from typing import List, Set
+from typing import List
 
 import pandas as pd
 import pytest
@@ -38,8 +36,7 @@ class TestDemoGoldenMaster:
             shutil.rmtree(demo_exports)
 
     def normalize_csv_content(self, content: str) -> str:
-        """
-        Normalize CSV content to make hashes stable.
+        """Normalize CSV content to make hashes stable.
 
         - Round floating point numbers to 6 decimal places
         - Remove/normalize timestamp-like patterns
@@ -124,11 +121,10 @@ class TestDemoGoldenMaster:
         return "\n".join(lines)
 
     def compute_content_hash(self, file_path: Path) -> str:
-        """
-        Compute a stable hash of CSV file content.
+        """Compute a stable hash of CSV file content.
 
-        This normalizes the content before hashing to account for
-        minor floating-point variations and timestamp differences.
+        This normalizes the content before hashing to account for minor
+        floating-point variations and timestamp differences.
         """
         if not file_path.exists():
             return "FILE_NOT_FOUND"
@@ -146,8 +142,7 @@ class TestDemoGoldenMaster:
             return f"ERROR_READING_FILE_{type(e).__name__}"
 
     def get_key_output_files(self, demo_exports: Path) -> List[Path]:
-        """
-        Identify key CSV output files to validate.
+        """Identify key CSV output files to validate.
 
         Focuses on the most important outputs that should remain stable.
         """
@@ -300,14 +295,13 @@ class TestDemoGoldenMaster:
         assert found_metrics, "No metrics files found with expected columns"
 
         # Step 7: Store hash summary for debugging
-        print(f"\nDemo pipeline golden master validation passed.")
+        print("\nDemo pipeline golden master validation passed.")
         print(f"Key files validated: {len(file_hashes)}")
         for filename, file_hash in sorted(file_hashes.items()):
             print(f"  {filename}: {file_hash}")
 
     def test_demo_pipeline_deterministic(self):
-        """
-        Test that demo pipeline produces deterministic outputs across runs.
+        """Test that demo pipeline produces deterministic outputs across runs.
 
         This test runs the demo twice and ensures outputs are identical
         when using the same seed and environment.
@@ -383,8 +377,7 @@ class TestDemoGoldenMaster:
         print(f"\nDemo deterministic test passed. {len(hashes_run1)} files validated.")
 
     def test_coverage_gate_enforcement(self):
-        """
-        Test that coverage gates are properly configured and enforced.
+        """Test that coverage gates are properly configured and enforced.
 
         This test validates that the coverage configuration meets the requirements:
         - CI fails if coverage drops below 80% globally
@@ -429,11 +422,10 @@ class TestDemoGoldenMaster:
         print("  - trend_analysis modules: 85%")
 
     def test_demo_regression_detection(self):
-        """
-        Test that the golden master test catches meaningful regressions.
+        """Test that the golden master test catches meaningful regressions.
 
-        This validates that changes to key output files would be detected
-        by the hash comparison mechanism.
+        This validates that changes to key output files would be
+        detected by the hash comparison mechanism.
         """
         # This test ensures our normalization doesn't over-normalize
         # and still catches real changes

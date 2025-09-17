@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import Any
-import sys
 
 import pandas as pd
 import pytest
@@ -76,7 +76,8 @@ def test_select_benchmark_returns_none_for_absent_candidates() -> None:
 
 
 def test_derive_window_caps_start_bounds(sample_returns: pd.DataFrame) -> None:
-    """Month-end windows should respect the available history and OOS length."""
+    """Month-end windows should respect the available history and OOS
+    length."""
 
     start, end = demo_runner._derive_window(sample_returns, lookback_months=48)
 
@@ -86,7 +87,8 @@ def test_derive_window_caps_start_bounds(sample_returns: pd.DataFrame) -> None:
 
 
 def test_derive_window_respects_earliest_bound() -> None:
-    """The rolling window should advance start to the earliest allowed value."""
+    """The rolling window should advance start to the earliest allowed
+    value."""
 
     dates = pd.date_range("2022-01-31", periods=12, freq="ME")
     df = pd.DataFrame({"Alpha": range(12)}, index=dates)
@@ -98,7 +100,8 @@ def test_derive_window_respects_earliest_bound() -> None:
 
 
 def test_derive_window_handles_single_period() -> None:
-    """A single observation should collapse start to match the end timestamp."""
+    """A single observation should collapse start to match the end
+    timestamp."""
 
     dates = pd.date_range("2020-01-31", periods=1, freq="ME")
     df = pd.DataFrame({"Alpha": [0.1]}, index=dates)
@@ -110,7 +113,8 @@ def test_derive_window_handles_single_period() -> None:
 
 
 def test_derive_window_no_adjustment_needed() -> None:
-    """When sufficient history exists the original window should be retained."""
+    """When sufficient history exists the original window should be
+    retained."""
 
     dates = pd.date_range("2020-01-31", periods=24, freq="ME")
     df = pd.DataFrame({"Alpha": range(24)}, index=dates)
@@ -140,7 +144,8 @@ def test_build_policy_uses_metric_weights() -> None:
 
 
 def test_build_pipeline_config_translates_weights() -> None:
-    """Pipeline config should translate UI aliases into metric registry names."""
+    """Pipeline config should translate UI aliases into metric registry
+    names."""
 
     sim_cfg = {
         "start": "2020-03-31",
@@ -168,7 +173,8 @@ def test_build_pipeline_config_translates_weights() -> None:
 def test_prepare_demo_setup_builds_consistent_state(
     sample_returns: pd.DataFrame, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """``_prepare_demo_setup`` should construct matching configs for the app."""
+    """``_prepare_demo_setup`` should construct matching configs for the
+    app."""
 
     preset = {
         "metrics": {"sharpe": 0.7, "return_ann": 0.2, "drawdown": 0.1},
@@ -212,7 +218,9 @@ def test_update_session_state_populates_streamlit_state(
         pipeline_config=SimpleNamespace(),
         benchmark="SPX Index",
     )
-    meta = demo_runner.SchemaMeta(n_rows=len(sample_returns), original_columns=list(sample_returns.columns))
+    meta = demo_runner.SchemaMeta(
+        n_rows=len(sample_returns), original_columns=list(sample_returns.columns)
+    )
 
     st_module = DummySt()
     demo_runner._update_session_state(st_module, setup, sample_returns, meta)
@@ -223,27 +231,37 @@ def test_update_session_state_populates_streamlit_state(
     assert st_module.session_state["sim_config"]["preset_name"] == "Balanced"
 
 
-def test_load_demo_returns_reads_first_candidate(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_load_demo_returns_reads_first_candidate(
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Existing demo data files should be loaded via the validator helper."""
 
     candidate = tmp_path / "demo.csv"
     candidate.write_text("dummy")
     monkeypatch.setattr(demo_runner, "DEMO_DATA_CANDIDATES", (candidate,))
 
-    df = pd.DataFrame({"Date": pd.date_range("2024-01-31", periods=2, freq="ME"), "Fund": [0.1, 0.2]}).set_index("Date")
+    df = pd.DataFrame(
+        {"Date": pd.date_range("2024-01-31", periods=2, freq="ME"), "Fund": [0.1, 0.2]}
+    ).set_index("Date")
     meta = demo_runner.SchemaMeta(n_rows=2)
 
-    monkeypatch.setattr(demo_runner, "load_and_validate_file", lambda handle: (df, meta))
+    monkeypatch.setattr(
+        demo_runner, "load_and_validate_file", lambda handle: (df, meta)
+    )
 
     loaded_df, loaded_meta = demo_runner._load_demo_returns()
     assert loaded_df is df
     assert loaded_meta is meta
 
 
-def test_load_demo_returns_raises_when_missing(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_load_demo_returns_raises_when_missing(
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Missing demo files should trigger a clear FileNotFoundError."""
 
-    monkeypatch.setattr(demo_runner, "DEMO_DATA_CANDIDATES", (tmp_path / "missing.csv",))
+    monkeypatch.setattr(
+        demo_runner, "DEMO_DATA_CANDIDATES", (tmp_path / "missing.csv",)
+    )
 
     with pytest.raises(FileNotFoundError):
         demo_runner._load_demo_returns()
@@ -263,7 +281,9 @@ def test_load_preset_reads_yaml(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) 
     assert data == {"metrics": {"sharpe": 1.0}}
 
 
-def test_load_preset_returns_empty_for_missing(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_load_preset_returns_empty_for_missing(
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Absent preset files should return an empty mapping."""
 
     monkeypatch.setattr(demo_runner, "PRESET_DIR", tmp_path)
@@ -272,9 +292,15 @@ def test_load_preset_returns_empty_for_missing(tmp_path: Any, monkeypatch: pytes
 
 
 def test_run_one_click_demo_happy_path(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The demo runner should orchestrate loading, running and state updates."""
+    """The demo runner should orchestrate loading, running and state
+    updates."""
 
-    df = pd.DataFrame({"Date": pd.date_range("2020-01-31", periods=3, freq="ME"), "Fund": [0.01, 0.02, 0.03]}).set_index("Date")
+    df = pd.DataFrame(
+        {
+            "Date": pd.date_range("2020-01-31", periods=3, freq="ME"),
+            "Fund": [0.01, 0.02, 0.03],
+        }
+    ).set_index("Date")
     meta = demo_runner.SchemaMeta(n_rows=3)
 
     pipeline_config = demo_runner.Config(
@@ -282,7 +308,12 @@ def test_run_one_click_demo_happy_path(monkeypatch: pytest.MonkeyPatch) -> None:
         data={},
         preprocessing={},
         vol_adjust={"target_vol": 0.1},
-        sample_split={"in_start": "2019-10", "in_end": "2019-12", "out_start": "2020-01", "out_end": "2020-03"},
+        sample_split={
+            "in_start": "2019-10",
+            "in_end": "2019-12",
+            "out_start": "2020-01",
+            "out_end": "2020-03",
+        },
         portfolio={"selection_mode": "rank", "rank": {}, "weighting_scheme": "equal"},
         benchmarks={},
         metrics={"registry": []},
@@ -313,7 +344,9 @@ def test_run_one_click_demo_happy_path(monkeypatch: pytest.MonkeyPatch) -> None:
 
     captured = {}
 
-    def fake_run_simulation(config: demo_runner.Config, returns: pd.DataFrame) -> object:
+    def fake_run_simulation(
+        config: demo_runner.Config, returns: pd.DataFrame
+    ) -> object:
         captured["config"] = config
         captured["returns"] = returns
         return sentinel_result
@@ -328,10 +361,17 @@ def test_run_one_click_demo_happy_path(monkeypatch: pytest.MonkeyPatch) -> None:
     assert st_module.session_state["demo_show_export_prompt"] is True
 
 
-def test_run_one_click_demo_handles_simulation_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_one_click_demo_handles_simulation_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Failures during the simulation should surface as user-facing errors."""
 
-    df = pd.DataFrame({"Date": pd.date_range("2020-01-31", periods=2, freq="ME"), "Fund": [0.01, 0.02]}).set_index("Date")
+    df = pd.DataFrame(
+        {
+            "Date": pd.date_range("2020-01-31", periods=2, freq="ME"),
+            "Fund": [0.01, 0.02],
+        }
+    ).set_index("Date")
     meta = demo_runner.SchemaMeta(n_rows=2)
     setup = demo_runner.DemoSetup(
         config_state={},
@@ -352,7 +392,11 @@ def test_run_one_click_demo_handles_simulation_failure(monkeypatch: pytest.Monke
 
     monkeypatch.setattr(demo_runner, "_load_demo_returns", lambda: (df, meta))
     monkeypatch.setattr(demo_runner, "_prepare_demo_setup", lambda _: setup)
-    monkeypatch.setattr(demo_runner, "run_simulation", lambda *_: (_ for _ in ()).throw(RuntimeError("boom")))
+    monkeypatch.setattr(
+        demo_runner,
+        "run_simulation",
+        lambda *_: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
 
     assert demo_runner.run_one_click_demo(st_module) is False
     assert st_module.errors and "boom" in st_module.errors[0]
@@ -440,14 +484,24 @@ def test_show_disclaimer_acceptance(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_run_one_click_demo_imports_streamlit(monkeypatch: pytest.MonkeyPatch) -> None:
     """Calling the demo runner without a module should import ``streamlit``."""
 
-    df = pd.DataFrame({"Date": pd.date_range("2020-01-31", periods=2, freq="ME"), "Fund": [0.01, 0.02]}).set_index("Date")
+    df = pd.DataFrame(
+        {
+            "Date": pd.date_range("2020-01-31", periods=2, freq="ME"),
+            "Fund": [0.01, 0.02],
+        }
+    ).set_index("Date")
     meta = demo_runner.SchemaMeta(n_rows=2)
     pipeline_config = demo_runner.Config(
         version="1",
         data={},
         preprocessing={},
         vol_adjust={"target_vol": 0.1},
-        sample_split={"in_start": "2019-11", "in_end": "2019-12", "out_start": "2020-01", "out_end": "2020-02"},
+        sample_split={
+            "in_start": "2019-11",
+            "in_end": "2019-12",
+            "out_start": "2020-01",
+            "out_end": "2020-02",
+        },
         portfolio={"selection_mode": "rank", "rank": {}, "weighting_scheme": "equal"},
         benchmarks={},
         metrics={"registry": []},
@@ -475,4 +529,3 @@ def test_run_one_click_demo_imports_streamlit(monkeypatch: pytest.MonkeyPatch) -
         assert stub.session_state["sim_results"] is sentinel
     finally:
         monkeypatch.delitem(sys.modules, "streamlit", raising=False)
-

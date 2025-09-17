@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+
 import numpy as np
 import pandas as pd
 
@@ -12,7 +13,8 @@ logger = logging.getLogger(__name__)
 
 @weight_engine_registry.register("erc")
 class EqualRiskContribution(WeightEngine):
-    """Equal risk contribution weighting via iterative scaling with robustness checks."""
+    """Equal risk contribution weighting via iterative scaling with robustness
+    checks."""
 
     def __init__(self, *, max_iter: int = 1000, tol: float = 1e-8) -> None:
         self.max_iter = int(max_iter)

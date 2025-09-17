@@ -127,7 +127,10 @@ def test_prepare_index_converts_and_validates():
         }
     )
     prepared = walkforward._prepare_index(df)
-    assert list(prepared.index) == [pd.Timestamp("2020-01-01"), pd.Timestamp("2020-02-01")]
+    assert list(prepared.index) == [
+        pd.Timestamp("2020-01-01"),
+        pd.Timestamp("2020-02-01"),
+    ]
     assert prepared.index.is_monotonic_increasing
 
     with pytest.raises(ValueError):
@@ -207,6 +210,8 @@ def test_infer_periods_per_year_branch_guards(monkeypatch):
     monkeypatch.setattr(np, "median", lambda arr: _PositiveMedian())
     assert walkforward._infer_periods_per_year(idx) == 1
     monkeypatch.setattr(np, "median", real_median, raising=False)
+
+
 def test_walk_forward_handles_empty_metric_columns():
     df = _monthly_frame(5)
 

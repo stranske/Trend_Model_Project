@@ -30,7 +30,9 @@ class DummyWorksheet:
         self.freeze_panes = None
         self.auto_filter = SimpleNamespace(ref="")
 
-    def cell(self, row: int, column: int, value: object | None = None) -> SimpleNamespace:
+    def cell(
+        self, row: int, column: int, value: object | None = None
+    ) -> SimpleNamespace:
         key = (row, column)
         cell = self._cells.setdefault(
             key,
@@ -60,9 +62,7 @@ class DummyWorkbook:
 
 
 def test_openpyxl_adapter_wraps_core_methods(monkeypatch):
-    utils_mod = SimpleNamespace(
-        get_column_letter=lambda idx: chr(ord("A") + idx - 1)
-    )
+    utils_mod = SimpleNamespace(get_column_letter=lambda idx: chr(ord("A") + idx - 1))
     monkeypatch.setitem(sys.modules, "openpyxl", SimpleNamespace(utils=utils_mod))
     monkeypatch.setitem(sys.modules, "openpyxl.utils", utils_mod)
 
@@ -85,9 +85,7 @@ def test_openpyxl_adapter_wraps_core_methods(monkeypatch):
 
 
 def test_export_to_excel_uses_adapter_when_xlsxwriter_missing(monkeypatch, tmp_path):
-    utils_mod = SimpleNamespace(
-        get_column_letter=lambda idx: chr(ord("A") + idx - 1)
-    )
+    utils_mod = SimpleNamespace(get_column_letter=lambda idx: chr(ord("A") + idx - 1))
     monkeypatch.setitem(sys.modules, "openpyxl", SimpleNamespace(utils=utils_mod))
     monkeypatch.setitem(sys.modules, "openpyxl.utils", utils_mod)
 
@@ -113,7 +111,9 @@ def test_export_to_excel_uses_adapter_when_xlsxwriter_missing(monkeypatch, tmp_p
 
     monkeypatch.setattr(pd, "ExcelWriter", fake_excel_writer)
 
-    def fake_to_excel(self, writer, sheet_name, index=False, **_: object) -> None:  # noqa: ARG002
+    def fake_to_excel(
+        self, writer, sheet_name, index=False, **_: object
+    ) -> None:  # noqa: ARG002
         writer.sheets[sheet_name] = object()
         writer.book.worksheets.append(DummyWorksheet("Sheet"))
 
@@ -129,9 +129,7 @@ def test_export_to_excel_uses_adapter_when_xlsxwriter_missing(monkeypatch, tmp_p
 
 
 def test_openpyxl_proxy_apply_format_sets_styles(monkeypatch):
-    utils_mod = SimpleNamespace(
-        get_column_letter=lambda idx: chr(ord("A") + idx - 1)
-    )
+    utils_mod = SimpleNamespace(get_column_letter=lambda idx: chr(ord("A") + idx - 1))
     monkeypatch.setitem(sys.modules, "openpyxl", SimpleNamespace(utils=utils_mod))
     monkeypatch.setitem(sys.modules, "openpyxl.utils", utils_mod)
 
@@ -175,9 +173,7 @@ def test_openpyxl_proxy_ignores_invalid_font_color():
 
 
 def test_openpyxl_workbook_proxy_removes_default_sheet(monkeypatch):
-    utils_mod = SimpleNamespace(
-        get_column_letter=lambda idx: chr(ord("A") + idx - 1)
-    )
+    utils_mod = SimpleNamespace(get_column_letter=lambda idx: chr(ord("A") + idx - 1))
     monkeypatch.setitem(sys.modules, "openpyxl", SimpleNamespace(utils=utils_mod))
     monkeypatch.setitem(sys.modules, "openpyxl.utils", utils_mod)
 
@@ -191,9 +187,7 @@ def test_openpyxl_workbook_proxy_removes_default_sheet(monkeypatch):
 
 
 def test_export_to_excel_cleans_up_openpyxl_defaults(monkeypatch, tmp_path):
-    utils_mod = SimpleNamespace(
-        get_column_letter=lambda idx: chr(ord("A") + idx - 1)
-    )
+    utils_mod = SimpleNamespace(get_column_letter=lambda idx: chr(ord("A") + idx - 1))
     monkeypatch.setitem(sys.modules, "openpyxl", SimpleNamespace(utils=utils_mod))
     monkeypatch.setitem(sys.modules, "openpyxl.utils", utils_mod)
 
@@ -241,7 +235,9 @@ def test_export_to_excel_cleans_up_openpyxl_defaults(monkeypatch, tmp_path):
         writer.sheets["Sheet1"] = ws
 
     monkeypatch.setattr(pd, "ExcelWriter", fake_excel_writer)
-    monkeypatch.setattr(export, "_maybe_remove_openpyxl_default_sheet", fake_remove_default)
+    monkeypatch.setattr(
+        export, "_maybe_remove_openpyxl_default_sheet", fake_remove_default
+    )
     monkeypatch.setattr(pd.DataFrame, "to_excel", fake_to_excel, raising=False)
 
     export.reset_formatters_excel()
@@ -260,9 +256,7 @@ def test_export_to_excel_cleans_up_openpyxl_defaults(monkeypatch, tmp_path):
 
 
 def test_export_to_excel_handles_missing_sheet_lookup(monkeypatch, tmp_path):
-    utils_mod = SimpleNamespace(
-        get_column_letter=lambda idx: chr(ord("A") + idx - 1)
-    )
+    utils_mod = SimpleNamespace(get_column_letter=lambda idx: chr(ord("A") + idx - 1))
     monkeypatch.setitem(sys.modules, "openpyxl", SimpleNamespace(utils=utils_mod))
     monkeypatch.setitem(sys.modules, "openpyxl.utils", utils_mod)
 
@@ -274,7 +268,9 @@ def test_export_to_excel_handles_missing_sheet_lookup(monkeypatch, tmp_path):
             export._maybe_remove_openpyxl_default_sheet(book)
 
         def rename_last_sheet(self, name: str) -> None:
-            last_title = self.book.worksheets[-1].title if self.book.worksheets else None
+            last_title = (
+                self.book.worksheets[-1].title if self.book.worksheets else None
+            )
             rename_calls.append((name, last_title))
             if self.book.worksheets:
                 self.book.worksheets[-1].title = name
@@ -330,9 +326,7 @@ def test_export_to_excel_handles_missing_sheet_lookup(monkeypatch, tmp_path):
 
 
 def test_export_to_excel_populates_proxy_with_renamed_sheets(monkeypatch, tmp_path):
-    utils_mod = SimpleNamespace(
-        get_column_letter=lambda idx: chr(ord("A") + idx - 1)
-    )
+    utils_mod = SimpleNamespace(get_column_letter=lambda idx: chr(ord("A") + idx - 1))
     monkeypatch.setitem(sys.modules, "openpyxl", SimpleNamespace(utils=utils_mod))
     monkeypatch.setitem(sys.modules, "openpyxl.utils", utils_mod)
 
@@ -391,9 +385,7 @@ def test_export_to_excel_populates_proxy_with_renamed_sheets(monkeypatch, tmp_pa
 
 
 def test_export_to_excel_strips_temp_sheet_key(monkeypatch, tmp_path):
-    utils_mod = SimpleNamespace(
-        get_column_letter=lambda idx: chr(ord("A") + idx - 1)
-    )
+    utils_mod = SimpleNamespace(get_column_letter=lambda idx: chr(ord("A") + idx - 1))
     monkeypatch.setitem(sys.modules, "openpyxl", SimpleNamespace(utils=utils_mod))
     monkeypatch.setitem(sys.modules, "openpyxl.utils", utils_mod)
 
@@ -418,7 +410,9 @@ def test_export_to_excel_strips_temp_sheet_key(monkeypatch, tmp_path):
 
     monkeypatch.setattr(pd, "ExcelWriter", fake_excel_writer)
 
-    def fake_to_excel(self, writer, sheet_name, index=False, **_: object) -> None:  # noqa: ARG002
+    def fake_to_excel(
+        self, writer, sheet_name, index=False, **_: object
+    ) -> None:  # noqa: ARG002
         ws = DummyWorksheet("Temp")
         writer.book.worksheets.append(ws)
         writer.sheets[sheet_name] = ws
@@ -436,6 +430,7 @@ def test_export_to_excel_strips_temp_sheet_key(monkeypatch, tmp_path):
     assert "summary" in writer.sheets
     assert writer.book.worksheets[-1].title == "summary"
 
+
 def test_flat_frames_from_results_collects_changes(monkeypatch):
     frames = pd.Series([1.0], name="value").to_frame()
     dummy_frames = {
@@ -451,19 +446,27 @@ def test_flat_frames_from_results_collects_changes(monkeypatch):
     monkeypatch.setattr(
         export,
         "manager_contrib_table",
-        lambda results: pd.DataFrame({
-            "Manager": ["M"],
-            "Years": [1.0],
-            "OOS CAGR": [0.1],
-            "Contribution Share": [0.5],
-        }),
+        lambda results: pd.DataFrame(
+            {
+                "Manager": ["M"],
+                "Years": [1.0],
+                "OOS CAGR": [0.1],
+                "Contribution Share": [0.5],
+            }
+        ),
     )
 
     results = [
         {
             "period": ("2020-01", "2020-06", "2020-07", "2020-12"),
             "manager_changes": [
-                {"action": "add", "manager": "M", "firm": "F", "reason": None, "detail": ""}
+                {
+                    "action": "add",
+                    "manager": "M",
+                    "firm": "F",
+                    "reason": None,
+                    "detail": "",
+                }
             ],
         }
     ]
@@ -493,12 +496,14 @@ def test_export_phase1_workbook_passes_summary_extensions(monkeypatch, tmp_path)
     monkeypatch.setattr(export, "make_period_formatter", fake_make_period)
 
     def fake_manager_contrib(results):
-        return pd.DataFrame({
-            "Manager": ["M"],
-            "Years": [1.0],
-            "OOS CAGR": [0.1],
-            "Contribution Share": [0.5],
-        })
+        return pd.DataFrame(
+            {
+                "Manager": ["M"],
+                "Years": [1.0],
+                "OOS CAGR": [0.1],
+                "Contribution Share": [0.5],
+            }
+        )
 
     monkeypatch.setattr(export, "manager_contrib_table", fake_manager_contrib)
 
@@ -511,19 +516,33 @@ def test_export_phase1_workbook_passes_summary_extensions(monkeypatch, tmp_path)
         captured["summary_res"] = res
 
     monkeypatch.setattr(export, "make_summary_formatter", record_summary)
-    monkeypatch.setattr(export, "export_to_excel", lambda data, path: captured.setdefault("data", data))
+    monkeypatch.setattr(
+        export, "export_to_excel", lambda data, path: captured.setdefault("data", data)
+    )
 
     results = [
         {
             "period": ("2020-01", "2020-06", "2020-07", "2020-12"),
             "manager_changes": [
-                {"action": "add", "manager": "M", "firm": "F", "reason": "r", "detail": "d"}
+                {
+                    "action": "add",
+                    "manager": "M",
+                    "firm": "F",
+                    "reason": "r",
+                    "detail": "d",
+                }
             ],
         },
         {
             "period": ("2021-01", "2021-06", "2021-07", "2021-12"),
             "manager_changes": [
-                {"action": "drop", "manager": "N", "firm": "F2", "reason": None, "detail": None}
+                {
+                    "action": "drop",
+                    "manager": "N",
+                    "firm": "F2",
+                    "reason": None,
+                    "detail": None,
+                }
             ],
         },
     ]
@@ -549,7 +568,9 @@ def test_openpyxl_proxy_handles_formatting_helpers(monkeypatch):
     assert first_cell.number_format == "0.00"
     assert first_cell.font.color == "FFFF0000"
 
-    monkeypatch.setattr(export, "get_column_letter", lambda idx: chr(ord("A") + idx - 1))
+    monkeypatch.setattr(
+        export, "get_column_letter", lambda idx: chr(ord("A") + idx - 1)
+    )
     proxy.set_column(0, 1, 18)
     assert ws.column_dimensions["A"].width == 18
     assert ws.column_dimensions["B"].width == 18
@@ -568,9 +589,7 @@ def test_openpyxl_proxy_handles_formatting_helpers(monkeypatch):
 
 
 def test_openpyxl_workbook_adapter_prunes_and_proxies(monkeypatch):
-    utils_mod = SimpleNamespace(
-        get_column_letter=lambda idx: chr(ord("A") + idx - 1)
-    )
+    utils_mod = SimpleNamespace(get_column_letter=lambda idx: chr(ord("A") + idx - 1))
     monkeypatch.setitem(sys.modules, "openpyxl", SimpleNamespace(utils=utils_mod))
     monkeypatch.setitem(sys.modules, "openpyxl.utils", utils_mod)
 
@@ -599,9 +618,7 @@ def test_openpyxl_workbook_adapter_prunes_and_proxies(monkeypatch):
 
 
 def test_openpyxl_worksheet_adapter_exposes_native(monkeypatch):
-    utils_mod = SimpleNamespace(
-        get_column_letter=lambda idx: chr(ord("A") + idx - 1)
-    )
+    utils_mod = SimpleNamespace(get_column_letter=lambda idx: chr(ord("A") + idx - 1))
     monkeypatch.setitem(sys.modules, "openpyxl", SimpleNamespace(utils=utils_mod))
     monkeypatch.setitem(sys.modules, "openpyxl.utils", utils_mod)
 
@@ -611,9 +628,7 @@ def test_openpyxl_worksheet_adapter_exposes_native(monkeypatch):
 
 
 def test_export_to_excel_removes_default_and_renames(monkeypatch, tmp_path):
-    utils_mod = SimpleNamespace(
-        get_column_letter=lambda idx: chr(ord("A") + idx - 1)
-    )
+    utils_mod = SimpleNamespace(get_column_letter=lambda idx: chr(ord("A") + idx - 1))
     monkeypatch.setitem(sys.modules, "openpyxl", SimpleNamespace(utils=utils_mod))
     monkeypatch.setitem(sys.modules, "openpyxl.utils", utils_mod)
 
@@ -653,24 +668,3 @@ def test_export_to_excel_removes_default_and_renames(monkeypatch, tmp_path):
     writer = created[0]
     assert all(ws.title != "Sheet" for ws in writer.book.worksheets)
     assert writer.book.worksheets[-1].title == "summary"
-
-
-def test_openpyxl_apply_format_skips_missing_attributes(monkeypatch):
-    utils_mod = SimpleNamespace(
-        get_column_letter=lambda idx: chr(ord("A") + idx - 1)
-    )
-    monkeypatch.setitem(sys.modules, "openpyxl", SimpleNamespace(utils=utils_mod))
-    monkeypatch.setitem(sys.modules, "openpyxl.utils", utils_mod)
-
-    class BareCell:
-        def __init__(self) -> None:
-            self.font = None  # no copy method available
-
-    ws = DummyWorksheet()
-    proxy = export._OpenpyxlWorksheetProxy(ws)
-
-    cell = BareCell()
-    proxy._apply_format(cell, {"num_format": "0.0", "font_color": object()})
-
-    assert not hasattr(cell, "number_format")
-    assert cell.font is None

@@ -22,6 +22,7 @@ def _flatten_columns(df: pd.DataFrame) -> pd.DataFrame:
         return out
     return df
 
+
 st.title("Results")
 
 if "sim_results" not in st.session_state:
@@ -162,7 +163,11 @@ with st.expander("Run walk-forward (rolling OOS) analysis"):
                             key="wf_regime_column",
                         )
                         regimes = reg_df.set_index(date_col)[regime_col]
-                    except (pd.errors.EmptyDataError, ValueError, FileNotFoundError) as exc:  # pragma: no cover - streamlit UI feedback
+                    except (
+                        pd.errors.EmptyDataError,
+                        ValueError,
+                        FileNotFoundError,
+                    ) as exc:  # pragma: no cover - streamlit UI feedback
                         regime_error = str(exc)
                         regimes = None
                 else:
@@ -210,12 +215,12 @@ with st.expander("Run walk-forward (rolling OOS) analysis"):
                     st.dataframe(_flatten_columns(res_wf.oos_windows))
 
                     metric_cols = res_wf.oos_windows.loc[
-                        :, res_wf.oos_windows.columns.get_level_values("category") != "window"
+                        :,
+                        res_wf.oos_windows.columns.get_level_values("category")
+                        != "window",
                     ]
                     stat_options = list(
-                        dict.fromkeys(
-                            metric_cols.columns.get_level_values("statistic")
-                        )
+                        dict.fromkeys(metric_cols.columns.get_level_values("statistic"))
                     )
                     if stat_options:
                         oos_stat = st.selectbox(

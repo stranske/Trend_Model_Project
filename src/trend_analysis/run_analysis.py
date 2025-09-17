@@ -4,8 +4,6 @@ import argparse
 from pathlib import Path
 from typing import cast
 
-import pandas as pd
-
 from . import api, export
 from .config import load
 from .constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
@@ -74,9 +72,7 @@ def main(argv: list[str] | None = None) -> int:
                         cast(str, split.get("out_start")),
                         cast(str, split.get("out_end")),
                     )
-                    data["summary"] = export.summary_frame_from_result(
-                        result.details
-                    )
+                    data["summary"] = export.summary_frame_from_result(result.details)
                     export.export_to_excel(
                         data,
                         str(Path(out_dir) / f"{filename}.xlsx"),

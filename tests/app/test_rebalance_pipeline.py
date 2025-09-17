@@ -182,7 +182,12 @@ def test_combined_rebalance_branches():
         "params": {
             "drift_band": {"band_pct": 0.01, "min_trade": 0.001, "mode": "partial"},
             "turnover_cap": {"max_turnover": 0.05},
-            "vol_target_rebalance": {"target": 0.2, "window": 3, "lev_min": 0.5, "lev_max": 1.5},
+            "vol_target_rebalance": {
+                "target": 0.2,
+                "window": 3,
+                "lev_min": 0.5,
+                "lev_max": 1.5,
+            },
             "drawdown_guard": {
                 "dd_window": 4,
                 "dd_threshold": 0.05,

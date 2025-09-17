@@ -1,16 +1,13 @@
-import pandas as pd
-import pytest
 from types import SimpleNamespace
 
-from trend_analysis.export import (
-    FORMATTERS_EXCEL,
-    _maybe_remove_openpyxl_default_sheet,
-    _normalise_color,
-    export_to_excel,
-    format_summary_text,
-    make_period_formatter,
-    make_summary_formatter,
-)
+import pandas as pd
+import pytest
+
+from trend_analysis.export import (FORMATTERS_EXCEL,
+                                   _maybe_remove_openpyxl_default_sheet,
+                                   _normalise_color, export_to_excel,
+                                   format_summary_text, make_period_formatter,
+                                   make_summary_formatter)
 
 
 @pytest.fixture
@@ -176,7 +173,9 @@ def test_export_to_excel_backward_compat_sheet_formatter(tmp_path):
     assert out.exists()
 
 
-def test_export_to_excel_without_xlsxwriter(formatters_excel_registry, monkeypatch, tmp_path):
+def test_export_to_excel_without_xlsxwriter(
+    formatters_excel_registry, monkeypatch, tmp_path
+):
     df = pd.DataFrame({"A": [1]})
     called: list[str] = []
 
@@ -324,7 +323,14 @@ def test_make_summary_formatter_optional_sections(formatters_excel_registry):
         {"action": "remove", "manager": "Fund B"},
     ]
     res["manager_contrib"] = pd.DataFrame(
-        [{"Manager": "Fund A", "Years": 2, "OOS CAGR": 0.05, "Contribution Share": 0.25}]
+        [
+            {
+                "Manager": "Fund A",
+                "Years": 2,
+                "OOS CAGR": 0.05,
+                "Contribution Share": 0.25,
+            }
+        ]
     )
 
     fmt = make_summary_formatter(res, "2020-01", "2020-06", "2020-07", "2020-12")
@@ -341,7 +347,9 @@ def test_make_summary_formatter_optional_sections(formatters_excel_registry):
 
 def test_make_summary_formatter_manager_contrib_list(formatters_excel_registry):
     res = _build_base_result()
-    res["benchmark_ir"] = {"bench": {"Fund A": 0.1, "equal_weight": 0.2, "user_weight": 0.3}}
+    res["benchmark_ir"] = {
+        "bench": {"Fund A": 0.1, "equal_weight": 0.2, "user_weight": 0.3}
+    }
     res["manager_contrib"] = [
         {"Manager": "Fund B", "Years": 3, "OOS CAGR": 0.02, "Contribution Share": 0.1}
     ]
@@ -360,7 +368,9 @@ def test_make_summary_formatter_manager_contrib_list(formatters_excel_registry):
 def test_format_summary_text_formats_ints_and_nones():
     res = _build_base_result()
     res["fund_weights"] = {"Fund A": 1}
-    res["benchmark_ir"] = {"bench": {"Fund A": pd.NA, "equal_weight": None, "user_weight": 0.1}}
+    res["benchmark_ir"] = {
+        "bench": {"Fund A": pd.NA, "equal_weight": None, "user_weight": 0.1}
+    }
 
     text = format_summary_text(res, "2020-01", "2020-06", "2020-07", "2020-12")
     # Weight of 1 -> 100% formatted with two decimals
