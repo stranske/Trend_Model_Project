@@ -142,7 +142,6 @@ def test_manifest_deterministic(tmp_path):
         m2 = z2.read("run_meta.json")
 
     assert m1 == m2
-    assert json.loads(m1) == json.loads(m2)
 
 
 def test_export_bundle_empty_portfolio(tmp_path):
