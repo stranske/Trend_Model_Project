@@ -198,8 +198,7 @@ def test_infer_periods_per_year_branch_guards(monkeypatch):
 
     monkeypatch.setattr(np, "median", lambda arr: _PositiveMedian())
     assert walkforward._infer_periods_per_year(idx) == 1
-
-
+    monkeypatch.setattr(np, "median", real_median, raising=False)
 def test_walk_forward_handles_empty_metric_columns():
     df = _monthly_frame(5)
 
