@@ -161,14 +161,14 @@ def test_manual_override_grid_updates_state(monkeypatch):
 
 
 class _FakePath:
-    def __init__(self, name: str, behaviour: object):
+    def __init__(self, name: str, behavior: object):
         self._name = name
-        self._behaviour = behaviour
+        self._behavior = behavior
 
     def read_text(self) -> str:
-        if isinstance(self._behaviour, Exception):
-            raise self._behaviour
-        return str(self._behaviour)
+        if isinstance(self._behavior, Exception):
+            raise self._behavior
+        return str(self._behavior)
 
     def __str__(self) -> str:
         return f"/fake/{self._name}"
