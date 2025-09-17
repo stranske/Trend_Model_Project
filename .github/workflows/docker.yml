@@ -70,4 +70,5 @@ jobs:
             exit 1
           fi
       - name: Push image
+        if: github.event_name == 'push' && github.ref == 'refs/heads/phase-2-dev'
         run: docker push ghcr.io/${{ github.repository_owner }}/trend-model:latest

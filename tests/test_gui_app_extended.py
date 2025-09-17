@@ -303,3 +303,50 @@ def test_launch_run_uses_registered_exporter(monkeypatch, tmp_path):
     assert data["metrics"].equals(pd.DataFrame({"metric": [1.0]}))
     assert path == str(tmp_path / "out")
     assert store.dirty is False
+
+
+def test_build_step0_handles_grid_without_data(monkeypatch, tmp_path):
+    created_instances.clear()
+    store = ParamStore(cfg={"foo": 1})
+
+    class GridNoData:
+        def __init__(self, df, editable=True):  # noqa: ANN001, ARG002
+            self.df = df
+            self.layout = SimpleNamespace(border="")
+            created_instances["grid"] = self
+
+        def on(self, *_, **__):  # noqa: ANN001, D401
+            raise AttributeError("no event hooks")
+
+        def hold_trait_notifications(self):  # noqa: D401
+            return contextlib.nullcontext()
+
+    monkeypatch.setattr(app, "STATE_FILE", tmp_path / "state.yml")
+    monkeypatch.setattr(app, "WEIGHT_STATE_FILE", tmp_path / "weights.pkl")
+    monkeypatch.setattr(app, "DataGrid", GridNoData)
+    monkeypatch.setattr(app, "HAS_DATAGRID", True)
+    monkeypatch.setattr(app.widgets, "FileUpload", DummyUpload)
+    monkeypatch.setattr(app.widgets, "Dropdown", DummyDropdown)
+    monkeypatch.setattr(app.widgets, "Button", DummyButton)
+    monkeypatch.setattr(app.widgets, "VBox", DummyVBox)
+    monkeypatch.setattr(app.widgets, "HBox", DummyVBox)
+    monkeypatch.setattr(app, "list_builtin_cfgs", lambda: ["base"])
+
+    widget = app._build_step0(store)
+    assert isinstance(widget, DummyVBox)
+
+    upload = created_instances["upload"]
+    # Simulate a no-op update where change["new"] evaluates to False
+    callback = upload._callbacks[0]
+    store.dirty = False
+    callback({"new": False})
+    assert store.cfg == {"foo": 1}
+    assert store.dirty is False
+
+    payload = yaml.safe_dump({"alpha": 2}).encode("utf-8")
+    upload.trigger(payload)
+
+    assert store.cfg == {"alpha": 2}
+    assert store.dirty is True
+    grid = created_instances["grid"]
+    assert not hasattr(grid, "data"), "Guard should skip grids without data attribute"

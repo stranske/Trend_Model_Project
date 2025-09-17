@@ -607,3 +607,23 @@ def test_export_to_excel_removes_default_and_renames(monkeypatch, tmp_path):
     assert all(ws.title != "Sheet" for ws in writer.book.worksheets)
     assert writer.book.worksheets[-1].title == "summary"
 
+
+def test_openpyxl_apply_format_skips_missing_attributes(monkeypatch):
+    utils_mod = SimpleNamespace(
+        get_column_letter=lambda idx: chr(ord("A") + idx - 1)
+    )
+    monkeypatch.setitem(sys.modules, "openpyxl", SimpleNamespace(utils=utils_mod))
+    monkeypatch.setitem(sys.modules, "openpyxl.utils", utils_mod)
+
+    class BareCell:
+        def __init__(self) -> None:
+            self.font = None  # no copy method available
+
+    ws = DummyWorksheet()
+    proxy = export._OpenpyxlWorksheetProxy(ws)
+
+    cell = BareCell()
+    proxy._apply_format(cell, {"num_format": "0.0", "font_color": object()})
+
+    assert not hasattr(cell, "number_format")
+    assert cell.font is None
