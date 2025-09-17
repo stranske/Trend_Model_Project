@@ -37,6 +37,8 @@ class _OpenpyxlWorksheetAdapter:
         return self._ws
 
     def write(self, row: int, col: int, value: object, fmt: object | None = None) -> None:  # noqa: ARG002
+        # The `fmt` parameter is ignored because openpyxl's formatting model is
+        # different from xlsxwriter's, and this adapter does not support cell formatting.
         self._ws.cell(row=row + 1, column=col + 1, value=value)
 
     def write_row(
