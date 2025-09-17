@@ -27,6 +27,25 @@ def test_zscore_selector_edge():
     assert list(selected.index) == ["C"]
 
 
+def test_rank_selector_log_structure():
+    sf = load_fixture()
+    selector = RankSelector(top_n=2, rank_column="Sharpe")
+    _, log = selector.select(sf)
+    assert list(log.columns) == ["metric", "reason"]
+    assert log["metric"].nunique() == 1
+    assert log.loc["A", "reason"] == 1.0
+    assert log.loc["B", "reason"] == 2.0
+
+
+def test_zscore_selector_log_values():
+    sf = load_fixture()
+    selector = ZScoreSelector(threshold=0.0, direction=-1, column="Sharpe")
+    _, log = selector.select(sf)
+    assert log.loc["A", "metric"] == "Sharpe"
+    assert log["reason"].loc["A"] > log["reason"].loc["B"] > log["reason"].loc["C"]
+    assert log.loc["C", "reason"] < 0
+
+
 def test_equal_weighting_sum_to_one():
     sf = load_fixture().loc[["A", "B"]]
     weights = EqualWeight().weight(sf)
