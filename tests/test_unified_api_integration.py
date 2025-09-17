@@ -50,69 +50,72 @@ def test_comprehensive_api_integration():
             seed=42,
         )
 
-        # Test 1: API direct call
-        result = api.run_simulation(config, test_df)
+        with tempfile.TemporaryDirectory() as tmp_logs:
+            log_dir = Path(tmp_logs)
 
-        # Validate RunResult structure
-        assert hasattr(result, "metrics"), "RunResult missing metrics"
-        assert hasattr(result, "details"), "RunResult missing details"
-        assert hasattr(result, "seed"), "RunResult missing seed"
-        assert hasattr(result, "environment"), "RunResult missing environment"
+            # Test 1: API direct call
+            result = api.run_simulation(config, test_df, log_dir=log_dir)
 
-        # Validate metrics DataFrame
-        assert isinstance(result.metrics, pd.DataFrame), "metrics should be DataFrame"
-        expected_columns = {
-            "cagr",
-            "vol",
-            "sharpe",
-            "sortino",
-            "information_ratio",
-            "max_drawdown",
-        }
-        actual_columns = set(result.metrics.columns)
-        assert expected_columns.issubset(
-            actual_columns
-        ), f"Missing columns: {expected_columns - actual_columns}"
+            # Validate RunResult structure
+            assert hasattr(result, "metrics"), "RunResult missing metrics"
+            assert hasattr(result, "details"), "RunResult missing details"
+            assert hasattr(result, "seed"), "RunResult missing seed"
+            assert hasattr(result, "environment"), "RunResult missing environment"
 
-        # Validate details dictionary
-        assert isinstance(result.details, dict), "details should be dict"
-        assert "out_sample_stats" in result.details, "details missing out_sample_stats"
-        assert "benchmark_ir" in result.details, "details missing benchmark_ir"
+            # Validate metrics DataFrame
+            assert isinstance(result.metrics, pd.DataFrame), "metrics should be DataFrame"
+            expected_columns = {
+                "cagr",
+                "vol",
+                "sharpe",
+                "sortino",
+                "information_ratio",
+                "max_drawdown",
+            }
+            actual_columns = set(result.metrics.columns)
+            assert expected_columns.issubset(
+                actual_columns
+            ), f"Missing columns: {expected_columns - actual_columns}"
 
-        # Validate seed
-        assert result.seed == 42, "seed should match config"
+            # Validate details dictionary
+            assert isinstance(result.details, dict), "details should be dict"
+            assert "out_sample_stats" in result.details, "details missing out_sample_stats"
+            assert "benchmark_ir" in result.details, "details missing benchmark_ir"
 
-        # Validate environment
-        assert isinstance(result.environment, dict), "environment should be dict"
-        assert "python" in result.environment, "environment missing python version"
-        assert "numpy" in result.environment, "environment missing numpy version"
-        assert "pandas" in result.environment, "environment missing pandas version"
+            # Validate seed
+            assert result.seed == 42, "seed should match config"
 
-        # Test 2: Reproducibility
-        result2 = api.run_simulation(config, test_df)
-        pd.testing.assert_frame_equal(
-            result.metrics, result2.metrics, "API calls should be reproducible"
-        )
+            # Validate environment
+            assert isinstance(result.environment, dict), "environment should be dict"
+            assert "python" in result.environment, "environment missing python version"
+            assert "numpy" in result.environment, "environment missing numpy version"
+            assert "pandas" in result.environment, "environment missing pandas version"
 
-        # Test 3: CLI integration works by loading CSV internally
-        # (CLI now loads CSV and calls api.run_simulation internally)
-        # This validates the unified code path
-        loaded_df = load_csv(str(csv_file))
-        assert loaded_df is not None, "CSV loading should work"
-        pd.testing.assert_frame_equal(
-            test_df, loaded_df, "Loaded CSV should match original"
-        )
+            # Test 2: Reproducibility
+            result2 = api.run_simulation(config, test_df, log_dir=log_dir)
+            pd.testing.assert_frame_equal(
+                result.metrics, result2.metrics, "API calls should be reproducible"
+            )
 
-        # Validate that CLI would get same data
-        cli_result = api.run_simulation(config, loaded_df)
-        pd.testing.assert_frame_equal(
-            result.metrics, cli_result.metrics, "CLI path should match API call"
-        )
+            # Test 3: CLI integration works by loading CSV internally
+            # (CLI now loads CSV and calls api.run_simulation internally)
+            # This validates the unified code path
+            loaded_df = load_csv(str(csv_file))
+            assert loaded_df is not None, "CSV loading should work"
+            pd.testing.assert_frame_equal(
+                test_df, loaded_df, "Loaded CSV should match original"
+            )
 
-        print("✓ All integration tests passed!")
-        print(f"✓ API processed {len(result.metrics)} funds")
-        print(f"✓ Generated metrics with {len(result.metrics.columns)} columns")
-        print(f"✓ Environment: Python {result.environment['python']}")
+            # Validate that CLI would get same data
+            cli_result = api.run_simulation(config, loaded_df, log_dir=log_dir)
+            pd.testing.assert_frame_equal(
+                result.metrics, cli_result.metrics, "CLI path should match API call"
+            )
+
+            print("✓ All integration tests passed!")
+            print(f"✓ API processed {len(result.metrics)} funds")
+            print(f"✓ Generated metrics with {len(result.metrics.columns)} columns")
+            print(f"✓ Environment: Python {result.environment['python']}")
 
 
 if __name__ == "__main__":

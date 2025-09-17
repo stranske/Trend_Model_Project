@@ -30,6 +30,9 @@ def _ctx_mock() -> MagicMock:
     m = MagicMock()
     m.__enter__.return_value = m
     m.__exit__.return_value = None
+    m.empty = MagicMock(return_value=MagicMock())
+    m.code = MagicMock()
+    m.markdown = MagicMock()
     return m
 
 
@@ -46,6 +49,8 @@ def create_mock_streamlit():
     mock_st.expander = _ctx_mock()
     mock_st.code = MagicMock()
     mock_st.rerun = MagicMock()
+    mock_st.download_button = MagicMock()
+    mock_st.spinner = _ctx_mock()
 
     # Make progress return a context-aware mock object
     progress_mock = _ctx_mock()
@@ -319,108 +324,6 @@ class TestDataPreparation:
                 assert df is not None or run_page.st.error.called
 
 
-@pytest.mark.usefixtures("_mock_plotting_modules")
-class TestLogHandler:
-    """Test the custom log handler."""
-
-    def test_streamlit_log_handler_creation(self):
-        """Test creating the log handler."""
-        with patch.dict("sys.modules", {"streamlit": create_mock_streamlit()}):
-            import importlib.util
-
-            spec = importlib.util.spec_from_file_location(
-                "run_page",
-                Path(__file__).parent.parent
-                / "app"
-                / "streamlit"
-                / "pages"
-                / "03_Run.py",
-            )
-            assert spec is not None and spec.loader is not None
-            run_page = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(run_page)
-
-            handler = run_page.StreamlitLogHandler()
-            assert handler is not None
-            assert handler.log_messages == []
-
-    def test_streamlit_log_handler_emit(self):
-        """Test log message emission."""
-        import logging
-
-        with patch.dict("sys.modules", {"streamlit": create_mock_streamlit()}):
-            import importlib.util
-
-            spec = importlib.util.spec_from_file_location(
-                "run_page",
-                Path(__file__).parent.parent
-                / "app"
-                / "streamlit"
-                / "pages"
-                / "03_Run.py",
-            )
-            assert spec is not None and spec.loader is not None
-            run_page = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(run_page)
-
-            handler = run_page.StreamlitLogHandler()
-
-            # Create a log record
-            record = logging.LogRecord(
-                name="test",
-                level=logging.INFO,
-                pathname="",
-                lineno=0,
-                msg="Test message",
-                args=(),
-                exc_info=None,
-            )
-
-            handler.emit(record)
-            logs = handler.get_logs()
-
-            assert len(logs) == 1
-            assert logs[0]["level"] == "INFO"
-            assert "Test message" in logs[0]["message"]
-
-    def test_streamlit_log_handler_clear(self):
-        """Test clearing log messages."""
-        import logging
-
-        with patch.dict("sys.modules", {"streamlit": create_mock_streamlit()}):
-            import importlib.util
-
-            spec = importlib.util.spec_from_file_location(
-                "run_page",
-                Path(__file__).parent.parent
-                / "app"
-                / "streamlit"
-                / "pages"
-                / "03_Run.py",
-            )
-            assert spec is not None and spec.loader is not None
-            run_page = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(run_page)
-
-            handler = run_page.StreamlitLogHandler()
-
-            # Add a log message
-            record = logging.LogRecord(
-                name="test",
-                level=logging.INFO,
-                pathname="",
-                lineno=0,
-                msg="Test message",
-                args=(),
-                exc_info=None,
-            )
-            handler.emit(record)
-
-            assert len(handler.get_logs()) == 1
-
-            handler.clear_logs()
-            assert len(handler.get_logs()) == 0
-
 
 @pytest.mark.usefixtures("_mock_plotting_modules")
 class TestAnalysisIntegration:
@@ -541,4 +444,6 @@ def test_smoke_test_imports():
     assert hasattr(run_page, "create_config_from_session_state")
     assert hasattr(run_page, "prepare_returns_data")
     assert hasattr(run_page, "run_analysis_with_progress")
-    assert hasattr(run_page, "StreamlitLogHandler")
+    assert hasattr(run_page, "_read_log_entries")
+    assert hasattr(run_page, "_format_log_block")
+    assert hasattr(run_page, "_summarise_errors")

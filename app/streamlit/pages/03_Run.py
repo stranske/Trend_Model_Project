@@ -1,8 +1,13 @@
 """Run page for Streamlit trend analysis app with unified execution and progress."""
 
 import logging
+import json
+import logging
 import sys
+import threading
+import time
 import traceback
+import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -15,33 +20,64 @@ sys.path.append(str(Path(__file__).parent.parent.parent / "src"))
 
 from trend_analysis.api import RunResult, run_simulation
 
-# Configure logging for the app
+# Configure logging for the app (streamlit already initialises logging, but ensure level)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+_LOG_DIR = Path.cwd() / "run_logs"
 
-class StreamlitLogHandler(logging.Handler):
-    """Custom log handler to capture logs for display in Streamlit."""
 
-    def __init__(self):
-        super().__init__()
-        self.log_messages = []
+def _read_log_entries(path: Path) -> list[dict[str, object]]:
+    """Load JSONL log entries from ``path``."""
 
-    def emit(self, record):
-        log_message = self.format(record)
-        self.log_messages.append(
-            {
-                "timestamp": datetime.now().strftime("%H:%M:%S"),
-                "level": record.levelname,
-                "message": log_message,
-            }
-        )
+    if not path.exists():
+        return []
+    entries: list[dict[str, object]] = []
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            for line in handle:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    parsed = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(parsed, dict):
+                    entries.append(parsed)  # type: ignore[arg-type]
+    except OSError:
+        return entries
+    return entries
 
-    def get_logs(self):
-        return self.log_messages
 
-    def clear_logs(self):
-        self.log_messages = []
+def _format_log_block(entries: list[dict[str, object]], limit: int = 30) -> str:
+    if limit and len(entries) > limit:
+        entries = entries[-limit:]
+    lines: list[str] = []
+    for item in entries:
+        timestamp = item.get("timestamp", "?")
+        level = item.get("level", "INFO")
+        step = item.get("step", "-")
+        message = item.get("message", "")
+        lines.append(f"[{timestamp}] [{level}] ({step}) {message}")
+    return "\n".join(lines)
+
+
+def _summarise_errors(entries: list[dict[str, object]]) -> str | None:
+    errors = [item for item in entries if item.get("level") in {"ERROR", "CRITICAL"}]
+    if not errors:
+        return None
+    seen: set[str] = set()
+    unique: list[str] = []
+    for item in errors:
+        message = item.get("message", "")
+        if message not in seen:
+            seen.add(message)
+            unique.append(message)
+    if not unique:
+        return None
+    bullets = "\n".join(f"- {msg}" for msg in unique[-5:])
+    return f"### 🚨 Errors detected\n{bullets}"
 
 
 def format_error_message(error: Exception) -> str:
@@ -167,27 +203,15 @@ def prepare_returns_data() -> Optional[pd.DataFrame]:
 
 
 def run_analysis_with_progress() -> Optional[RunResult]:
-    """Run the analysis with progress reporting and error handling."""
+    """Run the analysis with progress reporting, structured logs and error summary."""
 
-    # Initialize log handler
-    log_handler = StreamlitLogHandler()
-    log_handler.setLevel(logging.INFO)
-    formatter = logging.Formatter("%(name)s - %(levelname)s - %(message)s")
-    log_handler.setFormatter(formatter)
-
-    # Add handler to relevant loggers
-    trend_logger = logging.getLogger("trend_analysis")
-    trend_logger.addHandler(log_handler)
-    trend_logger.setLevel(logging.INFO)
-
-    # Create UI primitives directly (avoid context manager requirements for tests)
     progress_bar = st.progress(0, "Initializing analysis...")
     status_text = st.empty()
-    log_expander = st.expander("📋 Analysis Log", expanded=True)
+    error_summary = st.empty()
+    log_expander = st.expander("📋 Run Log", expanded=True)
     log_display = log_expander.empty()
 
     try:
-        # Phase 1: Prepare data and configuration
         status_text.text("🔧 Preparing data and configuration...")
         progress_bar.progress(10, "Preparing data and configuration...")
 
@@ -200,79 +224,109 @@ def run_analysis_with_progress() -> Optional[RunResult]:
             return None
 
         progress_bar.progress(25, "Data preparation complete...")
-
-        # Phase 2: Validate inputs
         status_text.text("✅ Validating inputs...")
         progress_bar.progress(40, "Validating inputs...")
 
-        # Basic validation
         if len(returns_df) == 0:
             raise ValueError("Returns data is empty")
-
         if "Date" not in returns_df.columns:
             raise ValueError("Date column is missing from returns data")
 
-        progress_bar.progress(50, "Input validation complete...")
+        progress_bar.progress(55, "Input validation complete...")
 
-        # Phase 3: Run analysis
+        run_id = uuid.uuid4().hex
+        log_path = _LOG_DIR / f"{run_id}.jsonl"
+        _LOG_DIR.mkdir(parents=True, exist_ok=True)
+        try:
+            if log_path.exists():
+                log_path.unlink()
+        except OSError:
+            pass
+
         status_text.text("🚀 Running trend analysis...")
-        progress_bar.progress(60, "Running trend analysis...")
+        progress_bar.progress(65, "Running trend analysis...")
 
-        result = run_simulation(config, returns_df)
+        state: dict[str, object | None] = {"result": None, "error": None, "traceback": None}
 
-        progress_bar.progress(90, "Analysis complete, finalizing results...")
+        def _worker() -> None:
+            try:
+                state["result"] = run_simulation(
+                    config,
+                    returns_df,
+                    run_id=run_id,
+                    log_dir=_LOG_DIR,
+                )
+            except Exception as exc:  # pragma: no cover - surfaced in UI
+                state["error"] = exc
+                state["traceback"] = traceback.format_exc()
 
-        # Phase 4: Finalize
-        status_text.text("✨ Finalizing results...")
+        worker = threading.Thread(target=_worker, name=f"run-sim-{run_id[:8]}", daemon=True)
+        worker.start()
+
+        while worker.is_alive():
+            entries = _read_log_entries(log_path)
+            summary = _summarise_errors(entries)
+            if summary:
+                error_summary.markdown(summary)
+            else:
+                error_summary.markdown("✅ No errors logged so far.")
+            log_block = _format_log_block(entries)
+            log_display.code(log_block or "(log pending...)")
+            progress_bar.progress(75, "Running trend analysis...")
+            time.sleep(0.25)
+
+        worker.join()
+
+        entries = _read_log_entries(log_path)
+        summary = _summarise_errors(entries)
+        if summary:
+            error_summary.markdown(summary)
+        else:
+            error_summary.markdown("✅ No errors logged.")
+        log_display.code(_format_log_block(entries) or "(no log entries)")
+
+        if state["error"] is not None:
+            progress_bar.progress(0, "Analysis failed")
+            status_text.text("❌ Analysis failed")
+            error_msg = format_error_message(state["error"])  # type: ignore[arg-type]
+            st.error(f"**Analysis Failed**: {error_msg}")
+            details = (
+                f"Exception Type: {type(state['error']).__name__}\n\n"  # type: ignore[index]
+                f"Exception Message:\n{state['error']}\n\n"  # type: ignore[index]
+                f"Full Traceback:\n{state['traceback'] or ''}"
+            )
+            expander = st.expander("🔍 Show Technical Details", expanded=False)
+            try:
+                expander.code(details)
+            except Exception:
+                st.code(details)
+            return None
+
+        result = state.get("result")
+        if not isinstance(result, RunResult):
+            st.error("Unexpected result type from run_simulation.")
+            return None
+
         progress_bar.progress(100, "Analysis completed successfully!")
-
-        # Display final logs
-        logs = log_handler.get_logs()
-        if logs:
-            log_text = "\n".join(
-                [
-                    f"[{log['timestamp']}] {log['level']}: {log['message']}"
-                    for log in logs[-10:]
-                ]
-            )  # Show last 10 logs
-            log_display.code(log_text)
-
         status_text.text("🎉 Analysis completed successfully!")
+
         return result
 
-    except Exception as e:
+    except Exception as exc:
         progress_bar.progress(0, "Analysis failed")
         status_text.text("❌ Analysis failed")
-
-        # Display logs up to failure
-        logs = log_handler.get_logs()
-        if logs:
-            log_text = "\n".join(
-                [
-                    f"[{log['timestamp']}] {log['level']}: {log['message']}"
-                    for log in logs
-                ]
-            )
-            log_display.code(log_text)
-
-        # Show user-friendly error message
-        error_msg = format_error_message(e)
-        st.error(f"**Analysis Failed**: {error_msg}")
-
-        # Show detailed error (avoid context manager for test mocks)
-        details = f"Exception Type: {type(e).__name__}\n\nException Message:\n{str(e)}\n\nFull Traceback:\n{traceback.format_exc()}"
+        st.error(f"**Analysis Failed**: {format_error_message(exc)}")
+        details = (
+            f"Exception Type: {type(exc).__name__}\n\n"
+            f"Exception Message:\n{exc}\n\n"
+            f"Full Traceback:\n{traceback.format_exc()}"
+        )
         expander = st.expander("🔍 Show Technical Details", expanded=False)
         try:
             expander.code(details)
         except Exception:
-            # If expander isn't a real widget (e.g., Mock), fall back
             st.code(details)
-
         return None
-
-    finally:
-        # Clean up log handler
-        trend_logger.removeHandler(log_handler)
 
 
 def main():
@@ -324,6 +378,21 @@ def main():
 
                     # Display summary
                     st.success("✅ **Analysis completed successfully!**")
+
+                    log_meta = getattr(result, "log", None)
+                    if log_meta and getattr(log_meta, "path", None):
+                        try:
+                            log_bytes = Path(log_meta.path).read_bytes()
+                        except Exception:
+                            st.warning("Run log is unavailable for download.")
+                        else:
+                            st.download_button(
+                                "📥 Download run log (JSONL)",
+                                data=log_bytes,
+                                file_name=f"{getattr(log_meta, 'run_id', 'run')}.jsonl",
+                                mime="application/json",
+                                use_container_width=True,
+                            )
 
                     with st.expander("📈 Quick Results Summary", expanded=True):
                         if not result.metrics.empty:

@@ -33,7 +33,7 @@ def _make_config(**overrides: object) -> SimpleNamespace:
     return SimpleNamespace(**base)
 
 
-def test_run_simulation_handles_missing_result(monkeypatch):
+def test_run_simulation_handles_missing_result(monkeypatch, tmp_path):
     """When the pipeline returns ``None`` an empty ``RunResult`` is produced."""
 
     config = _make_config()
@@ -41,7 +41,7 @@ def test_run_simulation_handles_missing_result(monkeypatch):
 
     monkeypatch.setattr(api, "_run_analysis", lambda *_, **__: None)
 
-    result = api.run_simulation(config, returns)
+    result = api.run_simulation(config, returns, log_dir=tmp_path)
 
     assert result.metrics.empty
     assert result.details == {}
@@ -49,9 +49,10 @@ def test_run_simulation_handles_missing_result(monkeypatch):
     # The helper falls back to a deterministic default seed when absent.
     assert result.seed == 42
     assert set(result.environment) == {"python", "numpy", "pandas"}
+    assert result.log is not None
 
 
-def test_run_simulation_populates_metrics_and_fallback(monkeypatch):
+def test_run_simulation_populates_metrics_and_fallback(monkeypatch, tmp_path):
     """Exercise the branches that construct metrics and fallback metadata."""
 
     metrics_list = ["Sharpe", "Sortino"]
@@ -105,7 +106,7 @@ def test_run_simulation_populates_metrics_and_fallback(monkeypatch):
 
     monkeypatch.setattr(api, "_run_analysis", fake_run_analysis)
 
-    result = api.run_simulation(config, returns)
+    result = api.run_simulation(config, returns, log_dir=tmp_path)
 
     # ``canonical_metric_list`` should receive the raw registry values.
     assert captured["canonical_metrics"] == tuple(metrics_list)
@@ -125,6 +126,7 @@ def test_run_simulation_populates_metrics_and_fallback(monkeypatch):
 
     # The fallback payload is surfaced directly on the RunResult.
     assert result.fallback_info == {"engine": "TestEngine", "error": "boom"}
+    assert result.log is not None
 
     # The details object is exactly the payload returned by ``_run_analysis``.
     assert result.details["benchmark_ir"]["bench"]["FundA"] == 0.3

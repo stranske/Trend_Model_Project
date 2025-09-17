@@ -106,6 +106,8 @@ def test_cli_api_golden_master():
     assert hasattr(api_result, "details")
     assert hasattr(api_result, "seed")
     assert hasattr(api_result, "environment")
+    assert hasattr(api_result, "log")
+    assert api_result.log is not None
 
     # Validate details structure
     assert "out_sample_stats" in api_result.details
