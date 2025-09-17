@@ -56,7 +56,8 @@ class DummyDropdown:
     def __init__(self, options, value=None, description: str = "") -> None:  # noqa: ANN001, ARG002
         self.options = list(options)
         self.description = description
-        self.value = value if value is not None else (self.options[0] if self.options else None)
+        default_value = self.options[0] if self.options else None
+        self.value = value if value is not None else default_value
         self._callbacks: list = []
         key = description or f"dropdown_{len(created_instances.get('dropdowns', []))}"
         created_instances.setdefault("dropdowns", []).append(self)
