@@ -12,6 +12,16 @@ class DummyColumnDim:
         self.width: float | None = None
 
 
+class DummyFont:
+    def __init__(self) -> None:
+        self.color: str | None = None
+
+    def copy(self, **kwargs) -> "DummyFont":
+        new = DummyFont()
+        new.color = kwargs.get("color")
+        return new
+
+
 class DummyWorksheet:
     def __init__(self, title: str = "Sheet") -> None:
         self.title = title
@@ -22,7 +32,10 @@ class DummyWorksheet:
 
     def cell(self, row: int, column: int, value: object | None = None) -> SimpleNamespace:
         key = (row, column)
-        cell = self._cells.setdefault(key, SimpleNamespace(value=None))
+        cell = self._cells.setdefault(
+            key,
+            SimpleNamespace(value=None, number_format=None, font=DummyFont()),
+        )
         if value is not None:
             cell.value = value
         return cell
@@ -208,4 +221,35 @@ def test_export_phase1_workbook_passes_summary_extensions(monkeypatch, tmp_path)
     summary_res = captured["summary_res"]
     assert len(summary_res["manager_changes"]) == 2
     assert "manager_contrib" in summary_res
+
+
+def test_openpyxl_proxy_handles_formatting_helpers(monkeypatch):
+    ws = DummyWorksheet("Report")
+    proxy = export._OpenpyxlWorksheetProxy(ws)
+
+    fmt = {"num_format": "0.00", "font_color": "red"}
+    proxy.write(0, 0, "value", fmt)
+    proxy.write_row(1, 0, [1, 2])
+
+    first_cell = ws.cell(1, 1)
+    assert first_cell.value == "value"
+    assert first_cell.number_format == "0.00"
+    assert first_cell.font.color == "FFFF0000"
+
+    monkeypatch.setattr(export, "get_column_letter", lambda idx: chr(ord("A") + idx - 1))
+    proxy.set_column(0, 1, 18)
+    assert ws.column_dimensions["A"].width == 18
+    assert ws.column_dimensions["B"].width == 18
+
+    proxy.freeze_panes(1, 1)
+    assert ws.freeze_panes is ws.cell(2, 2)
+
+    proxy.autofilter(0, 0, 1, 1)
+    assert ws.auto_filter.ref == "A1:B2"
+
+    monkeypatch.setattr(export, "get_column_letter", None, raising=False)
+    proxy.set_column(0, 0, 10)
+    proxy.autofilter(0, 0, 0, 0)
+    assert ws.column_dimensions["A"].width == 18
+    assert ws.auto_filter.ref == "A1:B2"
 
