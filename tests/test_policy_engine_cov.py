@@ -147,3 +147,42 @@ def test_decide_hires_fires_turnover_budget_prioritises(monkeypatch):
     assert len(decisions["hire"]) == 2
     assert decisions["fire"] == []
     assert {m for m, _ in decisions["hire"]} == {"b", "c"}
+
+
+def test_decide_hires_fires_turnover_budget_trims_mixed(monkeypatch):
+    score_frame = pd.DataFrame({"m": [3.0, 2.0, -1.0]}, index=["a", "b", "c"])
+    policy = PolicyConfig(
+        top_k=2,
+        bottom_k=1,
+        max_active=2,
+        min_track_months=0,
+        turnover_budget_max_changes=1,
+        diversification_max_per_bucket=1,
+        diversification_buckets={"a": "g1", "b": "g1", "c": "g2"},
+        metrics=[MetricSpec("m", 1.0)],
+    )
+    directions = {"m": 1}
+    eligible_since = {k: 12 for k in score_frame.index}
+    tenure = {"c": 5}
+
+    def fake_rank_scores(sf, metric_weights, metric_directions):  # noqa: ARG001
+        return pd.Series({"a": 1.0, "b": 2.0, "c": -1.0}, index=sf.index)
+
+    monkeypatch.setattr(
+        "trend_portfolio_app.policy_engine.rank_scores", fake_rank_scores
+    )
+
+    decisions = decide_hires_fires(
+        pd.Timestamp("2020-01-31"),
+        score_frame,
+        current=["c"],
+        policy=policy,
+        directions=directions,
+        cooldowns=CooldownBook(),
+        eligible_since=eligible_since,
+        tenure=tenure,
+    )
+
+    # With a turnover budget of one move the higher scored hire should be kept
+    assert decisions["hire"] == [("b", "top_k")]
+    assert decisions["fire"] == []
