@@ -190,7 +190,7 @@ jobs:
         env:
           BRANCH: ${{ steps.mk.outputs.branch }}
         with:
-          github-token: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+          github-token: ${{ secrets.SERVICE_BOT_PAT || secrets.OWNER_PR_PAT || github.token }}
           script: |
             const {owner, repo} = context.repo;
             const issue_number = Number('${{ steps.ctx.outputs.issue }}');
