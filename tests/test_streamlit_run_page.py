@@ -299,7 +299,7 @@ class TestConfigCreation:
 
         mock_st.session_state["sim_config"] = sample_config
 
-        with patch("trend_analysis.config.Config", side_effect=RuntimeError("boom")):
+        with patch("trend_analysis.config.Config", side_effect=RuntimeError("Config creation failed")):
             config = run_page.create_config_from_session_state()
 
         assert config is None
