@@ -78,7 +78,7 @@ jobs:
               '1. Download the artifact "autofix-patch-pr-${{ github.event.pull_request.number }}" from the Actions run.',
               '2. In your repo root, run:',
               '   git am < autofix.patch',
-              '3. Push the changes to your PR branch:' ,
+              '3. Push the changes to your PR branch:',
               '   git push origin HEAD:' + pr.head.ref,
             ].join('\n');
             await github.rest.issues.createComment({
