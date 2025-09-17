@@ -1,6 +1,7 @@
 import pandas as pd
 
 from streamlit_app.components.disclaimer import show_disclaimer
+from streamlit_app.result_adapter import adapt_run_result
 from trend_analysis.api import run_simulation
 from trend_analysis.config import Config
 
@@ -112,11 +113,12 @@ def main():
     )
 
     result = run_simulation(config, returns)
+    adapted = adapt_run_result(result)
     progress.progress(100)
-    st.session_state["sim_results"] = result
+    st.session_state["sim_results"] = adapted
     # Show fallback banner if a weight engine failed
     try:
-        fb = getattr(result, "fallback_info", None)
+        fb = getattr(adapted, "fallback_info", None)
     except Exception:  # pragma: no cover - defensive
         fb = None
     if fb and not st.session_state.get("dismiss_weight_engine_fallback"):
@@ -132,7 +134,7 @@ def main():
                 st.session_state["dismiss_weight_engine_fallback"] = True
                 st.rerun()
     st.success("Done.")
-    st.write("Summary:", result.metrics)
+    st.write("Summary:", getattr(adapted, "metrics", getattr(result, "metrics", None)))
 
 
 if __name__ == "__main__":
