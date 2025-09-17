@@ -34,7 +34,15 @@ if [ "${1:-}" = "--docker" ]; then
   cid=$(docker run -d -p 8000:8000 trend-model:ci)
   attempt=1; max_attempts=10
   until curl -fs http://localhost:8000/health | grep -q OK; do
-    echo "Health check attempt $attempt failed"; attempt=$((attempt+1)); [ $attempt -le $max_attempts ] || { echo "Health check failed"; docker logs "$cid" || true; docker rm -f "$cid"; exit 1; }; sleep 1;
+    echo "Health check attempt $attempt failed"
+    attempt=$((attempt+1))
+    if [ $attempt -gt $max_attempts ]; then
+      echo "Health check failed"
+      docker logs "$cid" || true
+      docker rm -f "$cid"
+      exit 1
+    fi
+    sleep 1
   done
   docker rm -f "$cid"
 fi
