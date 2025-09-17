@@ -190,6 +190,43 @@ def test_decide_hires_fires_turnover_budget_trims_mixed(monkeypatch):
     assert decisions["fire"] == []
 
 
+def test_decide_hires_fires_turnover_budget_mixes_hires_and_fires(monkeypatch):
+    score_frame = pd.DataFrame({"m": [4.0, 3.0, 1.0]}, index=["a", "b", "c"])
+    policy = PolicyConfig(
+        top_k=2,
+        bottom_k=1,
+        max_active=2,
+        turnover_budget_max_changes=1,
+        min_track_months=0,
+        metrics=[MetricSpec("m", 1.0)],
+    )
+    directions = {"m": 1}
+    eligible_since = {name: 12 for name in score_frame.index}
+    tenure = {"a": 2}
+
+    def fake_rank_scores(sf, metric_weights, metric_directions):  # noqa: ARG001
+        return pd.Series({"a": -0.5, "b": 1.5, "c": 1.0}, index=sf.index)
+
+    monkeypatch.setattr(
+        "trend_portfolio_app.policy_engine.rank_scores", fake_rank_scores
+    )
+
+    decisions = decide_hires_fires(
+        pd.Timestamp("2020-01-31"),
+        score_frame,
+        current=["a"],
+        policy=policy,
+        directions=directions,
+        cooldowns=CooldownBook(),
+        eligible_since=eligible_since,
+        tenure=tenure,
+    )
+
+    assert len(decisions["hire"]) == 1
+    assert decisions["hire"][0][0] in {"b", "c"}
+    assert decisions["fire"] == []
+
+
 def test_decide_hires_fires_bucket_skip_and_nan_priorities(monkeypatch):
     score_frame = pd.DataFrame(
         {"m": [3.0, 2.5, 1.5, -0.5]}, index=["a", "b", "c", "d"]

@@ -111,6 +111,14 @@ def test_infer_periods_per_year_edge_cases():
     assert walkforward._infer_periods_per_year(idx_sparse) == 1
 
 
+def test_infer_periods_per_year_returns_general_case():
+    """Values outside the preset windows should return the rounded estimate."""
+
+    # Roughly bi-weekly cadence → approx ≈ 26, none of the special cases apply.
+    idx = pd.date_range("2020-01-01", periods=10, freq="14D")
+    assert walkforward._infer_periods_per_year(idx) == pytest.approx(26)
+
+
 def test_prepare_index_converts_and_validates():
     df = pd.DataFrame(
         {
