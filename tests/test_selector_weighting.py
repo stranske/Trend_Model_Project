@@ -1,8 +1,7 @@
 from pathlib import Path
 
 import pandas as pd
-
-from trend_analysis.constants import NUMERICAL_TOLERANCE_MEDIUM
+import pytest
 from trend_analysis.selector import RankSelector, ZScoreSelector
 from trend_analysis.weighting import EqualWeight, ScorePropBayesian
 
@@ -28,9 +27,9 @@ def test_zscore_selector_edge():
 
 
 def test_equal_weighting_sum_to_one():
-    sf = load_fixture().loc[["A", "B"]]
+    sf = load_fixture()
     weights = EqualWeight().weight(sf)
-    assert abs(weights["weight"].sum() - 1.0) < NUMERICAL_TOLERANCE_MEDIUM
+    assert weights["weight"].sum() == pytest.approx(1.0, abs=1e-10)
 
 
 def test_bayesian_shrinkage_monotonic():
