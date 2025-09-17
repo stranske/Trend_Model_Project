@@ -1296,7 +1296,7 @@ def test_launch_run_with_empty_metrics(monkeypatch, tmp_path):
     monkeypatch.setattr(
         app_module.pipeline,
         "run_full",
-        lambda cfg: (_ for _ in ()).throw(AssertionError("run_full should not execute")),
+        lambda cfg: pytest.fail("run_full should not execute"),
     )
     saved: list[ParamStore] = []
     monkeypatch.setattr(app_module, "save_state", lambda store_obj: saved.append(store_obj))
