@@ -108,3 +108,42 @@ def test_decide_hires_fires_diversification_and_turnover(monkeypatch):
     assert hires == [("d", "top_k")]
     assert fires == []
     assert all(h[0] != "b" for h in hires), "Bucket cap should skip second g1 fund"
+
+
+def test_decide_hires_fires_turnover_budget_prioritises(monkeypatch):
+    """Turnover limits should prioritise hires/fires based on scores."""
+
+    score_frame = pd.DataFrame({"m": [3.0, 2.0, 0.5]}, index=["a", "b", "c"])
+    policy = PolicyConfig(
+        top_k=2,
+        bottom_k=1,
+        min_track_months=0,
+        turnover_budget_max_changes=2,
+        metrics=[MetricSpec("m", 1.0)],
+    )
+    directions = {"m": 1}
+    eligible_since = {k: 12 for k in score_frame.index}
+    tenure = {"a": 5}
+
+    def fake_rank_scores(sf, metric_weights, metric_directions):
+        return pd.Series({"a": -1.0, "b": 2.0, "c": 1.5}, index=sf.index)
+
+    monkeypatch.setattr(
+        "trend_portfolio_app.policy_engine.rank_scores", fake_rank_scores
+    )
+
+    decisions = decide_hires_fires(
+        pd.Timestamp("2020-01-31"),
+        score_frame,
+        current=["a"],
+        policy=policy,
+        directions=directions,
+        cooldowns=CooldownBook(),
+        eligible_since=eligible_since,
+        tenure=tenure,
+    )
+
+    # Turnover cap of 2 should keep the top two moves (both hires) and drop the fire
+    assert len(decisions["hire"]) == 2
+    assert decisions["fire"] == []
+    assert {m for m, _ in decisions["hire"]} == {"b", "c"}

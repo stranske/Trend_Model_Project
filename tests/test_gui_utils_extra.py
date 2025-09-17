@@ -48,3 +48,29 @@ def test_debounce_cancels_pending_call(monkeypatch):
 
     assert calls == ["second"]
     assert tasks and tasks[0].cancelled is True
+
+
+def test_debounce_awaits_async_handler(monkeypatch):
+    """Async callbacks returned by debounce should be awaited before finishing."""
+
+    time_values = iter([0.0, 0.5])
+    monkeypatch.setattr(utils.time, "time", lambda: next(time_values))
+
+    async def fast_sleep(_):
+        return None
+
+    monkeypatch.setattr(utils.asyncio, "sleep", fast_sleep)
+
+    calls: list[str] = []
+
+    @utils.debounce(50)
+    async def handler(value: str) -> None:
+        calls.append(value)
+
+    async def run() -> None:
+        await handler("async")
+        await asyncio.sleep(0)
+
+    asyncio.run(run())
+
+    assert calls == ["async"]
