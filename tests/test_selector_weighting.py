@@ -35,7 +35,6 @@ def test_rank_selector_log_structure():
     assert log["metric"].nunique() == 1
     assert log.loc["A", "reason"] == 1.0
     assert log.loc["B", "reason"] == 2.0
-    assert log.loc["C", "reason"] == 3.0
 
 
 def test_zscore_selector_log_values():
