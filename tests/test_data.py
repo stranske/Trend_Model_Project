@@ -109,6 +109,26 @@ def test_load_csv_null_dates_all_filtered(tmp_path, monkeypatch):
     assert result is None
 
 
+def test_load_csv_all_null_dates_logs_error(tmp_path, monkeypatch, caplog):
+    f = tmp_path / "null_only.csv"
+    f.write_text("Date,A\n,1\n,2")
+
+    original_to_datetime = data_mod.pd.to_datetime
+
+    def fake_to_datetime(values, *args, **kwargs):
+        if kwargs.get("format") == "%m/%d/%y":
+            raise ValueError("force fallback")
+        return original_to_datetime(values, *args, **kwargs)
+
+    monkeypatch.setattr(data_mod.pd, "to_datetime", fake_to_datetime)
+
+    with caplog.at_level("ERROR"):
+        result = data_mod.load_csv(str(f))
+
+    assert result is None
+    assert "No valid date rows remaining" in caplog.text
+
+
 def test_load_csv_numeric_and_percent_coercion(tmp_path):
     f = tmp_path / "coerce_numeric.csv"
     f.write_text(
