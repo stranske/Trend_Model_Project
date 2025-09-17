@@ -165,6 +165,7 @@ jobs:
         env:
           BRANCH: ${{ steps.mk.outputs.branch }}
         with:
+          github-token: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT || github.token }}
           script: |
             const {owner, repo} = context.repo;
             const issue_number = (context.payload.issue && context.payload.issue.number) || Number(context.payload.inputs && context.payload.inputs.test_issue);
