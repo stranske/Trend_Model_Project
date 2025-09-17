@@ -81,7 +81,8 @@ class TestDataLoadingMalformedDates:
             os.unlink(temp_path)
 
     def test_load_csv_returns_none_when_all_dates_removed(self, caplog, monkeypatch):
-        """If every row has a null date, the loader should give up gracefully."""
+        """If every row has a null date, the loader should give up
+        gracefully."""
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
             f.write("Date,Fund1\n")

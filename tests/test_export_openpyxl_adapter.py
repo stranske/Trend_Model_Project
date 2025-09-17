@@ -385,9 +385,7 @@ def test_export_to_excel_populates_proxy_with_renamed_sheets(monkeypatch, tmp_pa
 
 
 def test_export_to_excel_strips_temp_sheet_key(monkeypatch, tmp_path):
-    utils_mod = SimpleNamespace(
-        get_column_letter=lambda idx: chr(ord("A") + idx - 1)
-    )
+    utils_mod = SimpleNamespace(get_column_letter=lambda idx: chr(ord("A") + idx - 1))
     monkeypatch.setitem(sys.modules, "openpyxl", SimpleNamespace(utils=utils_mod))
     monkeypatch.setitem(sys.modules, "openpyxl.utils", utils_mod)
 
@@ -412,7 +410,9 @@ def test_export_to_excel_strips_temp_sheet_key(monkeypatch, tmp_path):
 
     monkeypatch.setattr(pd, "ExcelWriter", fake_excel_writer)
 
-    def fake_to_excel(self, writer, sheet_name, index=False, **_: object) -> None:  # noqa: ARG002
+    def fake_to_excel(
+        self, writer, sheet_name, index=False, **_: object
+    ) -> None:  # noqa: ARG002
         ws = DummyWorksheet("Temp")
         writer.book.worksheets.append(ws)
         writer.sheets[sheet_name] = ws
@@ -430,7 +430,7 @@ def test_export_to_excel_strips_temp_sheet_key(monkeypatch, tmp_path):
     assert "summary" in writer.sheets
     assert writer.book.worksheets[-1].title == "summary"
 
-    
+
 def test_flat_frames_from_results_collects_changes(monkeypatch):
     frames = pd.Series([1.0], name="value").to_frame()
     dummy_frames = {
