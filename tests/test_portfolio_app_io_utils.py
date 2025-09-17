@@ -7,8 +7,6 @@ import sys
 import zipfile
 from types import ModuleType
 
-import pytest
-
 from trend_portfolio_app import io_utils
 
 
@@ -114,7 +112,8 @@ def test_cleanup_temp_files_handles_missing_files(tmp_path):
 
 
 def test_portfolio_app_main_invokes_streamlit(monkeypatch):
-    """Running ``python -m trend_portfolio_app`` should invoke streamlit CLI."""
+    """Running ``python -m trend_portfolio_app`` should invoke streamlit
+    CLI."""
 
     calls: list[list[str]] = []
 
