@@ -74,3 +74,19 @@ def test_debounce_awaits_async_handler(monkeypatch):
     asyncio.run(run())
 
     assert calls == ["async"]
+
+
+def test_debounce_waits_for_elapsed_time():
+    calls: list[str] = []
+
+    @utils.debounce(10)
+    def handler(value: str) -> None:
+        calls.append(value)
+
+    async def run() -> None:
+        await handler("first")
+        await asyncio.sleep(0.05)
+
+    asyncio.run(run())
+
+    assert calls == ["first"]

@@ -106,3 +106,51 @@ def test_infer_periods_per_year_edge_cases():
         ["2020-01-01", "2022-12-31", "2025-12-31", "2028-12-31"]
     )
     assert walkforward._infer_periods_per_year(idx_sparse) == 1
+
+
+def test_prepare_index_converts_and_validates():
+    df = pd.DataFrame(
+        {
+            "Date": ["2020-02-01", "2020-01-01"],
+            "alpha": [2, 1],
+        }
+    )
+    prepared = walkforward._prepare_index(df)
+    assert list(prepared.index) == [pd.Timestamp("2020-01-01"), pd.Timestamp("2020-02-01")]
+    assert prepared.index.is_monotonic_increasing
+
+    with pytest.raises(ValueError):
+        walkforward._prepare_index(pd.DataFrame({"alpha": [1, 2]}))
+
+
+def test_walk_forward_regime_rows_include_information_ratio(monkeypatch):
+    df = _monthly_frame(6)
+
+    def fake_ir(frame, benchmark=0.0, periods_per_year=12):  # noqa: ARG001
+        return pd.Series({col: idx + 1.0 for idx, col in enumerate(frame.columns)})
+
+    monkeypatch.setattr(walkforward, "information_ratio", fake_ir)
+
+    regimes = pd.Series(
+        ["bull", "bear", None, "bull", "bear", "bull"],
+        index=pd.to_datetime(df["Date"]),
+    )
+
+    result = walkforward.walk_forward(
+        df,
+        train_size=3,
+        test_size=2,
+        step_size=1,
+        agg={"alpha": ["mean", "max"], "beta": ["mean"]},
+        regimes=regimes,
+    )
+
+    # Regime aggregation should yield non-empty rows with MultiIndex columns
+    assert not result.by_regime.empty
+    assert set(result.by_regime.columns.get_level_values("statistic")) >= {
+        "mean",
+        "information_ratio",
+    }
+    # Out-of-sample windows should be enumerated and ordered
+    assert list(result.oos_windows.index) == sorted(result.oos_windows.index)
+    assert result.oos_windows.columns[0][0] == "window"

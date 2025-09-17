@@ -166,3 +166,44 @@ def test_drawdown_guard_reduces_exposure_on_dd():
     )
     # Exposure should be reduced by guard_multiplier (approx half gross)
     assert float(out.sum()) == pytest.approx(0.5, abs=1e-6)
+
+
+def test_combined_rebalance_branches():
+    prev = pd.Series({"A": 0.6, "B": 0.4}, dtype=float)
+    target = pd.Series({"A": 0.2, "B": 0.8}, dtype=float)
+    rb_cfg = {
+        "bayesian_only": False,
+        "strategies": [
+            "drift_band",
+            "turnover_cap",
+            "vol_target_rebalance",
+            "drawdown_guard",
+        ],
+        "params": {
+            "drift_band": {"band_pct": 0.01, "min_trade": 0.001, "mode": "partial"},
+            "turnover_cap": {"max_turnover": 0.05},
+            "vol_target_rebalance": {"target": 0.2, "window": 3, "lev_min": 0.5, "lev_max": 1.5},
+            "drawdown_guard": {
+                "dd_window": 4,
+                "dd_threshold": 0.05,
+                "guard_multiplier": 0.4,
+                "recover_threshold": 0.02,
+            },
+        },
+    }
+    rb_state = {
+        "equity_curve": [1.0, 1.1, 0.95, 1.05, 0.90, 0.85],
+        "since_last_reb": 0,
+    }
+    out = _apply_rebalance_pipeline(
+        prev_weights=prev,
+        target_weights=target,
+        date=pd.Timestamp("2020-07-31"),
+        rb_cfg=rb_cfg,
+        rb_state=rb_state,
+        policy=_pc(),
+    )
+
+    assert rb_state.get("guard_on") is True
+    assert out.index.tolist() == ["A", "B"]
+    assert out.sum() == pytest.approx(out.clip(lower=0).sum(), abs=1e-9)
