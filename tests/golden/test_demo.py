@@ -396,8 +396,11 @@ class TestDemoGoldenMaster:
         # Accept either a literal --cov-fail-under=80 or a variable-based expression resolving to 80,
         # such as --cov-fail-under=${{ vars.COV_MIN || 80 }}.
         literal_ok = "--cov-fail-under=80" in ci_content
-        variable_ok = (
-            "--cov-fail-under=${{ vars.COV_MIN" in ci_content and "|| 80" in ci_content
+        variable_ok = bool(
+            re.search(
+                r"--cov-fail-under=\$\{\{\s*vars\.COV_MIN\s*\|\|\s*80\s*\}\}",
+                ci_content,
+            )
         )
         assert (
             literal_ok or variable_ok
