@@ -158,7 +158,7 @@ class RobustMeanVariance(WeightEngine):
 
     def _log_condition(self, condition_number: float) -> None:
         level = logging.INFO if self.log_condition_numbers else logging.DEBUG
-        logger.log(level, f"Covariance matrix condition number: {condition_number:.2e}")
+        logger.log(level, "Covariance matrix condition number: %.2e", condition_number)
 
     def _log_shrinkage(self, message: str) -> None:
         level = logging.INFO if self.log_shrinkage_intensity else logging.DEBUG
