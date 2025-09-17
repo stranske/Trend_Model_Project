@@ -226,6 +226,7 @@ def test_decide_hires_fires_turnover_budget_mixes_hires_and_fires(monkeypatch):
     assert decisions["hire"][0][0] in {"b", "c"}
     assert decisions["fire"] == []
 
+
 def test_decide_hires_fires_bucket_skip_and_nan_priorities(monkeypatch):
     score_frame = pd.DataFrame(
         {"m": [3.0, 2.5, 1.5, -0.5]}, index=["a", "b", "c", "d"]
