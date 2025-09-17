@@ -5,7 +5,7 @@ This page captures the established, validated facts about the Codex bootstrap an
 Last updated: 2025‑09‑17
 
 ## Branches and Event Semantics
-- Default branch: `phase-2-dev`.
+- Default branch: `main`.
 - Issue label events execute workflows from the default branch.
 - We do not reuse existing PR branches for fixes; each run creates a fresh branch from default.
 
@@ -105,12 +105,12 @@ This catalog explains what each active workflow does, how it’s triggered, the 
 
 <a id="wf-ci"></a>
 7) [`ci.yml`](../../.github/workflows/ci.yml) — Test suite on pushes and PRs
-   - Triggers: `push` to `phase-2-dev`, `pull_request`
+   - Triggers: `push` to `main`/`phase-2-dev`, `pull_request`
    - Jobs: `core-tests` (matrix on Python 3.11/3.12), `gate` (aggregates)
 
 <a id="wf-docker"></a>
 8) [`docker.yml`](../../.github/workflows/docker.yml) — Build, test, and push container image
-   - Triggers: `push` to `phase-2-dev`, `pull_request`, `workflow_dispatch`
+   - Triggers: `push` to `main`/`phase-2-dev`, `pull_request`, `workflow_dispatch`
    - Jobs: `build`
      - Builds image, runs tests in container, health-checks a simple endpoint, pushes to GHCR
 
@@ -122,7 +122,7 @@ This catalog explains what each active workflow does, how it’s triggered, the 
 
 <a id="wf-quarantine-ttl"></a>
 10) [`quarantine-ttl.yml`](../../.github/workflows/quarantine-ttl.yml) — Enforce test quarantine expirations
-   - Triggers: `pull_request`, `push` to `phase-2-dev`
+   - Triggers: `pull_request`, `push` to `main`/`phase-2-dev`
    - Jobs: `ttl`
      - Validates `tests/quarantine.yml` entries have not expired
 

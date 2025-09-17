@@ -1,0 +1,32 @@
+name: Release Notes
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Download git-cliff
+        run: |
+          curl -L https://github.com/orhun/git-cliff/releases/latest/download/git-cliff-x86_64-unknown-linux-gnu.tar.gz \
+            | tar -xz
+          chmod +x git-cliff
+      - name: Generate unreleased notes
+        run: ./git-cliff --unreleased --strip header --output release-notes.md
+      - name: Validate release notes output
+        run: |
+          if [ ! -s release-notes.md ]; then
+            echo "Generated release notes are empty" >&2
+            exit 1
+          fi
+      - name: Upload release notes preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-notes-preview
+          path: release-notes.md
+          retention-days: 5

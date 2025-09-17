@@ -2,7 +2,7 @@ name: quarantine-ttl
 on:
   pull_request:
   push:
-    branches: [phase-2-dev]
+    branches: [main, phase-2-dev]
 permissions: read-all
 jobs:
   ttl:
