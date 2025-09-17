@@ -71,7 +71,7 @@ class RunResultAdapter:
         weights = self._weight_series()
         if frame is None or weights is None or frame.empty:
             return {}
-        mapping: "OrderedDict[pd.Timestamp, pd.Series]" = OrderedDict()
+        mapping: OrderedDict[pd.Timestamp, pd.Series] = OrderedDict()
         for label in frame.index:
             try:
                 ts = pd.Timestamp(label)
