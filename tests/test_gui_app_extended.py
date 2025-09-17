@@ -81,7 +81,7 @@ class DummyCheckbox:
 
 class DummyToggleButtons(DummyCheckbox):
     def __init__(self, options, value=None, description: str = "") -> None:  # noqa: ANN001, ARG002
-        super().__init__(value=value or (options[0] if options else None), description=description)
+        super().__init__(value=value if value is not None else (options[0] if options else None), description=description)
         self.options = options
 
 
