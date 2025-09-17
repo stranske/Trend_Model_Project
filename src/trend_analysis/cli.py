@@ -79,7 +79,7 @@ def run_cli_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
     if missing:
         joined = ", ".join(sorted(missing))
         raise ValueError(
-            "Configuration sample_split is missing required keys: " f"{joined}"
+            f"Configuration sample_split is missing required keys: {joined}"
         )
 
     return run_simulation(config, returns)
