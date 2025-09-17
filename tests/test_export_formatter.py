@@ -121,6 +121,50 @@ def test_make_summary_formatter_registers_and_runs(formatters_excel_registry):
     assert ws.rows[0][2][0] == "Vol-Adj Trend Analysis"
 
 
+@pytest.mark.parametrize("as_dataframe", [False, True])
+def test_make_summary_formatter_writes_manager_contrib(
+    formatters_excel_registry, as_dataframe
+):
+    """Manager contribution payloads should render a dedicated section."""
+
+    stats = (0.01, 0.02, 0.5, 0.4, 0.3, -0.1)
+    rows = [
+        {"Manager": "FundA", "Years": 1.5, "OOS CAGR": 0.04, "Contribution Share": 0.6},
+        {"Manager": "FundB", "Years": 2.0, "OOS CAGR": 0.03, "Contribution Share": 0.4},
+    ]
+    contrib_payload = pd.DataFrame(rows) if as_dataframe else rows
+    res = {
+        "in_ew_stats": stats,
+        "out_ew_stats": stats,
+        "in_user_stats": stats,
+        "out_user_stats": stats,
+        "in_sample_stats": {"FundA": stats},
+        "out_sample_stats": {"FundA": stats},
+        "fund_weights": {"FundA": 0.5},
+        "manager_contrib": contrib_payload,
+        "manager_changes": [],
+    }
+
+    fmt = make_summary_formatter(res, "2020-01", "2020-12", "2021-01", "2021-12")
+    ws = DummyWS()
+    wb = DummyWB()
+    fmt(ws, wb)
+
+    headers = [entry[2] for entry in ws.rows]
+    assert any(
+        row == ["Manager Participation & Contribution"] for row in headers
+    ), "Expected contribution section header"
+    contrib_headers = [
+        row for row in headers if row == ["Manager", "Years", "OOS CAGR", "Contribution Share"]
+    ]
+    assert contrib_headers, "Expected contribution column headers"
+
+    managers_written = [
+        cell[2] for cell in ws.cells if cell[1] == 0 and cell[2] in {"FundA", "FundB"}
+    ]
+    assert set(managers_written) == {"FundA", "FundB"}
+
+
 def test_format_summary_text_basic():
     res = {
         "in_ew_stats": (1, 1, 1, 1, 1, 1),
