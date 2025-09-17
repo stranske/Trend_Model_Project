@@ -44,6 +44,7 @@ class DummyWorksheet:
 class DummyWorkbook:
     def __init__(self) -> None:
         self.worksheets: list[DummyWorksheet] = [DummyWorksheet()]
+        self.foo = "bar"
 
     def remove(self, sheet: DummyWorksheet) -> None:
         if sheet in self.worksheets:
@@ -354,4 +355,92 @@ def test_openpyxl_proxy_handles_formatting_helpers(monkeypatch):
     proxy.autofilter(0, 0, 0, 0)
     assert ws.column_dimensions["A"].width == 18
     assert ws.auto_filter.ref == "A1:B2"
+
+
+def test_openpyxl_workbook_adapter_prunes_and_proxies(monkeypatch):
+    utils_mod = SimpleNamespace(
+        get_column_letter=lambda idx: chr(ord("A") + idx - 1)
+    )
+    monkeypatch.setitem(sys.modules, "openpyxl", SimpleNamespace(utils=utils_mod))
+    monkeypatch.setitem(sys.modules, "openpyxl.utils", utils_mod)
+
+    class QuirkyWorkbook(DummyWorkbook):
+        def create_sheet(self, title: str) -> DummyWorksheet:
+            ws = super().create_sheet(title)
+            ws.title = f"temp_{title}"
+            return ws
+
+    wb = QuirkyWorkbook()
+    adapter = export._OpenpyxlWorkbookAdapter(wb)
+
+    assert wb.worksheets == []
+
+    ws_adapter = adapter.add_worksheet("Summary")
+    assert isinstance(ws_adapter, export._OpenpyxlWorksheetAdapter)
+    assert ws_adapter.native.title == "Summary"
+
+    assert adapter.add_format(None) == {}
+    fmt = adapter.add_format({"bold": True})
+    assert fmt == {"bold": True}
+
+    adapter.rename_last_sheet("Final")
+    assert wb.worksheets[-1].title == "Final"
+    assert adapter.foo == "bar"
+
+
+def test_openpyxl_worksheet_adapter_exposes_native(monkeypatch):
+    utils_mod = SimpleNamespace(
+        get_column_letter=lambda idx: chr(ord("A") + idx - 1)
+    )
+    monkeypatch.setitem(sys.modules, "openpyxl", SimpleNamespace(utils=utils_mod))
+    monkeypatch.setitem(sys.modules, "openpyxl.utils", utils_mod)
+
+    ws = DummyWorksheet("Data")
+    adapter = export._OpenpyxlWorksheetAdapter(ws)
+    assert adapter.native is ws
+
+
+def test_export_to_excel_removes_default_and_renames(monkeypatch, tmp_path):
+    utils_mod = SimpleNamespace(
+        get_column_letter=lambda idx: chr(ord("A") + idx - 1)
+    )
+    monkeypatch.setitem(sys.modules, "openpyxl", SimpleNamespace(utils=utils_mod))
+    monkeypatch.setitem(sys.modules, "openpyxl.utils", utils_mod)
+
+    class Writer:
+        def __init__(self) -> None:
+            self.book = DummyWorkbook()
+            self.sheets: dict[str, object] = {"Sheet": object()}
+            self.engine = "openpyxl"
+
+        def __enter__(self) -> "Writer":
+            return self
+
+        def __exit__(self, exc_type, exc, tb) -> None:  # noqa: D401
+            return None
+
+    created: list[Writer] = []
+
+    def fake_writer(path, engine=None, **_):  # noqa: ARG001
+        if engine == "xlsxwriter":
+            raise ModuleNotFoundError
+        writer = Writer()
+        created.append(writer)
+        return writer
+
+    monkeypatch.setattr(pd, "ExcelWriter", fake_writer)
+
+    def fake_to_excel(self, writer, sheet_name, index=False, **_):  # noqa: ARG002
+        ws = DummyWorksheet("TempName")
+        writer.book.worksheets.append(ws)
+
+    monkeypatch.setattr(pd.DataFrame, "to_excel", fake_to_excel, raising=False)
+
+    df = pd.DataFrame({"value": [1.0]})
+    export.export_to_excel({"summary": df}, tmp_path / "out.xlsx")
+
+    assert created
+    writer = created[0]
+    assert all(ws.title != "Sheet" for ws in writer.book.worksheets)
+    assert writer.book.worksheets[-1].title == "summary"
 

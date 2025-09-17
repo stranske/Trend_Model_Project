@@ -50,7 +50,10 @@ from trend_analysis.export import (
     export_phase1_multi_metrics,
     export_phase1_workbook,
     flat_frames_from_results,
+    format_summary_text,
+    manager_contrib_table,
     phase1_workbook_data,
+    workbook_frames_from_results,
 )
 from trend_analysis.pipeline import _compute_stats, calc_portfolio_returns
 
@@ -394,3 +397,61 @@ def test_manager_contrib_table_computes_shares_and_handles_empty():
         [{"out_sample_scaled": pd.DataFrame(), "fund_weights": {}}]
     )
     assert empty.empty
+
+
+def test_format_summary_text_formats_ints():
+    stat = types.SimpleNamespace(
+        cagr=0.1,
+        vol=0.2,
+        sharpe=1.4,
+        sortino=1.0,
+        information_ratio=1,
+        max_drawdown=-0.25,
+    )
+    res = {
+        "in_ew_stats": stat,
+        "out_ew_stats": stat,
+        "in_user_stats": stat,
+        "out_user_stats": stat,
+        "in_sample_stats": {"FundA": stat},
+        "out_sample_stats": {"FundA": stat},
+        "fund_weights": {"FundA": 1},
+        "benchmark_ir": {"Bench": {"FundA": 0.5, "equal_weight": 0.2, "user_weight": 0.3}},
+    }
+
+    text = format_summary_text(res, "2020-01", "2020-06", "2020-07", "2020-12")
+    assert "Equal Weight" in text
+    assert "1.00" in text
+
+
+def test_manager_contrib_table_handles_sparse_series(monkeypatch):
+    results = [
+        {
+            "out_sample_scaled": pd.DataFrame({"FundA": [0.01, 0.0], "FundB": [np.nan, np.nan]}),
+            "fund_weights": {"FundA": 0.6, "FundB": 0.4},
+        },
+        {
+            "out_sample_scaled": pd.DataFrame({"FundA": [0.02, 0.03]}),
+            "fund_weights": {"FundA": 0.5},
+        },
+    ]
+
+    real_concat = pd.concat
+
+    def fake_concat(objs, *args, **kwargs):  # noqa: ANN001
+        fake_concat.calls += 1
+        if fake_concat.calls == 2:
+            return pd.Series(dtype=float)
+        return real_concat(objs, *args, **kwargs)
+
+    fake_concat.calls = 0
+    monkeypatch.setattr(pd, "concat", fake_concat)
+
+    table = manager_contrib_table(results)
+    assert not table.empty
+    assert table["Contribution Share"].sum() <= 1.0
+
+
+def test_workbook_frames_from_results_includes_summary():
+    frames = workbook_frames_from_results([_make_period_result("1")])
+    assert "summary" in frames
