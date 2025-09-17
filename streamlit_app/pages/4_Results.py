@@ -30,6 +30,12 @@ if "sim_results" not in st.session_state:
 
 res = st.session_state["sim_results"]
 
+if st.session_state.pop("demo_show_export_prompt", False):
+    st.success("Demo run complete! Download bundle from the Export tab when ready.")
+    if st.button("Go to Export", key="btn_demo_go_export", type="primary"):
+        st.switch_page("pages/5_Export.py")
+        st.stop()
+
 # One-time banner for weight engine fallback
 try:
     fb_info = getattr(res, "fallback_info", None)
