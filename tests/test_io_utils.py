@@ -68,6 +68,147 @@ def test_cleanup_bundle_file_nonexistent(tmp_path):
     utils.cleanup_bundle_file(tmp_path / "does_not_exist.zip")
 
 
+def test_export_bundle_cleans_up_on_zip_failure(tmp_path, monkeypatch):
+    """export_bundle should remove incomplete bundles if zipping fails."""
+    results = DummyResults()
+    zip_path = tmp_path / "bundle_fail.zip"
+    before = list(utils._TEMP_FILES_TO_CLEANUP)
+
+    def fake_mkstemp(*_, **__):
+        fd = os.open(zip_path, os.O_CREAT | os.O_RDWR)
+        return fd, str(zip_path)
+
+    def boom_zipfile(*_, **__):
+        raise RuntimeError("zip failure")
+
+    monkeypatch.setattr(utils.tempfile, "mkstemp", fake_mkstemp)
+    monkeypatch.setattr(utils.zipfile, "ZipFile", boom_zipfile)
+
+    try:
+        with pytest.raises(RuntimeError):
+            utils.export_bundle(results, {})
+        assert not zip_path.exists()
+        assert str(zip_path) not in utils._TEMP_FILES_TO_CLEANUP
+    finally:
+        utils._TEMP_FILES_TO_CLEANUP[:] = before
+        if zip_path.exists():
+            os.remove(zip_path)
+
+
+def test_cleanup_bundle_file_handles_remove_error(tmp_path, monkeypatch):
+    """cleanup_bundle_file should swallow removal errors and allow retry."""
+    bundle_path = tmp_path / "stubborn.zip"
+    bundle_path.write_text("data", encoding="utf-8")
+    before = list(utils._TEMP_FILES_TO_CLEANUP)
+    utils._TEMP_FILES_TO_CLEANUP.append(str(bundle_path))
+
+    original_remove = os.remove
+    call_state = {"count": 0}
+
+    def flaky_remove(path):
+        if path == str(bundle_path) and call_state["count"] == 0:
+            call_state["count"] += 1
+            raise OSError("temp failure")
+        return original_remove(path)
+
+    monkeypatch.setattr(utils.os, "remove", flaky_remove)
+
+    try:
+        utils.cleanup_bundle_file(str(bundle_path))
+        assert str(bundle_path) in utils._TEMP_FILES_TO_CLEANUP
+        assert bundle_path.exists()
+
+        utils.cleanup_bundle_file(str(bundle_path))
+        assert str(bundle_path) not in utils._TEMP_FILES_TO_CLEANUP
+        assert not bundle_path.exists()
+    finally:
+        utils._TEMP_FILES_TO_CLEANUP[:] = before
+        if bundle_path.exists():
+            original_remove(str(bundle_path))
+
+
+def test_cleanup_temp_files_removes_registered_paths(tmp_path):
+    """_cleanup_temp_files should delete existing files and clear registry."""
+    before = list(utils._TEMP_FILES_TO_CLEANUP)
+    file_a = tmp_path / "a.tmp"
+    file_b = tmp_path / "b.tmp"
+    file_a.write_text("a", encoding="utf-8")
+    file_b.write_text("b", encoding="utf-8")
+    missing = tmp_path / "missing.tmp"
+
+    try:
+        utils._TEMP_FILES_TO_CLEANUP.extend([str(file_a), str(file_b), str(missing)])
+        utils._cleanup_temp_files()
+        assert not file_a.exists()
+        assert not file_b.exists()
+        assert utils._TEMP_FILES_TO_CLEANUP == []
+    finally:
+        utils._TEMP_FILES_TO_CLEANUP[:] = before
+        for path in (file_a, file_b):
+            if path.exists():
+                path.unlink()
+
+
+def test_cleanup_temp_files_handles_remove_error(tmp_path, monkeypatch):
+    """_cleanup_temp_files should ignore removal errors but clear registry."""
+    before = list(utils._TEMP_FILES_TO_CLEANUP)
+    troublesome = tmp_path / "error.tmp"
+    troublesome.write_text("boom", encoding="utf-8")
+
+    original_remove = utils.os.remove
+
+    def flaky_remove(path):
+        if path == str(troublesome):
+            raise OSError("cannot delete")
+        return original_remove(path)
+
+    monkeypatch.setattr(utils.os, "remove", flaky_remove)
+
+    try:
+        utils._TEMP_FILES_TO_CLEANUP.append(str(troublesome))
+        utils._cleanup_temp_files()
+        assert utils._TEMP_FILES_TO_CLEANUP == []
+        assert troublesome.exists()
+        troublesome.unlink()
+    finally:
+        utils._TEMP_FILES_TO_CLEANUP[:] = before
+
+
+def test_export_bundle_zip_failure_missing_file(tmp_path, monkeypatch):
+    """export_bundle should cope when cleanup target is already missing."""
+    results = DummyResults()
+    zip_path = tmp_path / "missing_bundle.zip"
+    before = list(utils._TEMP_FILES_TO_CLEANUP)
+
+    def fake_mkstemp(*_, **__):
+        fd = os.open(zip_path, os.O_CREAT | os.O_RDWR)
+        return fd, str(zip_path)
+
+    def boom_zipfile(*_, **__):
+        raise RuntimeError("zip failure")
+
+    original_exists = utils.os.path.exists
+
+    def fake_exists(path):
+        if path == str(zip_path):
+            return False
+        return original_exists(path)
+
+    monkeypatch.setattr(utils.tempfile, "mkstemp", fake_mkstemp)
+    monkeypatch.setattr(utils.zipfile, "ZipFile", boom_zipfile)
+    monkeypatch.setattr(utils.os.path, "exists", fake_exists)
+
+    try:
+        with pytest.raises(RuntimeError):
+            utils.export_bundle(results, {})
+        # File may remain because cleanup skipped removal
+        assert zip_path.exists()
+    finally:
+        utils._TEMP_FILES_TO_CLEANUP[:] = before
+        if zip_path.exists():
+            os.remove(zip_path)
+
+
 # ---------------------------------------------------------------------------
 # validators.py tests
 # ---------------------------------------------------------------------------
