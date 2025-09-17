@@ -1,0 +1,93 @@
+name: PR Status Summary
+
+on:
+  workflow_run:
+    workflows: [CI, Docker]
+    types: [completed]
+
+concurrency:
+  group: pr-status-summary-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: true
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  summarize:
+    if: >
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.pull_requests[0].number
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prepare summary body
+        id: prep
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const run = context.payload.workflow_run;
+            const pr = run.pull_requests[0];
+            const { owner, repo } = context.repo;
+
+            // Fetch latest combined status for the head SHA
+            const sha = run.head_sha;
+            const checks = await github.rest.checks.listForRef({ owner, repo, ref: sha });
+            const conclusions = {};
+            for (const chk of checks.data.check_runs) {
+              conclusions[chk.name] = chk.conclusion || chk.status;
+            }
+
+            // Determine overall state for required jobs (heuristic: CI + Docker if present)
+            const required = ['CI'];
+            if ('Docker' in conclusions) required.push('Docker');
+            const requiredStates = required.map(n => `${n}: ${conclusions[n] || 'missing'}`);
+
+            function badge(state){
+              if (state === 'success') return '✅';
+              if (state === 'failure' || state === 'cancelled' || state === 'timed_out') return '❌';
+              if (state === 'skipped') return '⏭️';
+              return '⏳';
+            }
+
+            const lines = Object.entries(conclusions)
+              .sort()
+              .map(([k,v]) => `| ${k} | ${badge(v)} ${v} |`);
+
+            const body = [
+              `### Automated Status Summary`,
+              `**Workflow Run:** ${run.name} (#${run.id})`,
+              `**Head SHA:** ${sha}`,
+              `**Required:** ${requiredStates.join(', ')}`,
+              '',
+              '| Job | Result |',
+              '|-----|--------|',
+              ...lines,
+              '',
+              '_Updated automatically; will refresh on subsequent CI/Docker completions._'
+            ].join('\n');
+
+            core.setOutput('body', body);
+            core.setOutput('pr_number', pr.number);
+      - name: Upsert summary comment
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr_number = Number(process.env.PR_NUMBER);
+            const body = process.env.BODY;
+            const { owner, repo } = context.repo;
+
+            // Find existing summary comment
+            const { data: comments } = await github.rest.issues.listComments({ owner, repo, issue_number: pr_number, per_page: 100 });
+            const marker = 'Automated Status Summary';
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number: pr_number, body });
+            }
+        env:
+          PR_NUMBER: ${{ steps.prep.outputs.pr_number }}
+          BODY: ${{ steps.prep.outputs.body }}
