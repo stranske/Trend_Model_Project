@@ -567,7 +567,7 @@ def export_to_excel(
         else:
             proxy = None
         if proxy is not None:
-            supports_sheet_formatters = True
+            pass
         # Iterate over frames and either let a registered sheet formatter
         # render the entire sheet (preferred), or fall back to writing the
         # DataFrame directly when no formatter is available.
