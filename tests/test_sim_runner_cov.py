@@ -71,6 +71,56 @@ def test_compute_score_frame_validations_and_fallback(monkeypatch):
     assert isinstance(sf, pd.DataFrame)
 
 
+def test_compute_score_frame_external_success(monkeypatch):
+    panel = pd.DataFrame(
+        {
+            "Date": [pd.Timestamp("2020-01-31"), pd.Timestamp("2020-02-29")],
+            "A": [0.1, 0.2],
+        }
+    )
+
+    class Dummy:
+        def single_period_run(self, panel, start, end):
+            assert start == "2020-01" and end == "2020-02"
+            return pd.DataFrame({"metric": [1.0]}, index=["A"])
+
+    monkeypatch.setattr(sim_runner, "HAS_TA", True)
+    monkeypatch.setattr(sim_runner, "ta_pipeline", Dummy())
+
+    sf = sim_runner.compute_score_frame(
+        panel,
+        pd.Timestamp("2020-01-31"),
+        pd.Timestamp("2020-02-29"),
+    )
+
+    assert list(sf.index) == ["A"] and "metric" in sf.columns
+
+
+def test_compute_score_frame_non_callable_external(monkeypatch):
+    panel = pd.DataFrame(
+        {
+            "Date": [pd.Timestamp("2020-01-31"), pd.Timestamp("2020-02-29")],
+            "A": [0.1, 0.2],
+        }
+    )
+
+    class Dummy:
+        single_period_run = None  # attribute present but not callable
+
+    monkeypatch.setattr(sim_runner, "HAS_TA", True)
+    monkeypatch.setattr(sim_runner, "ta_pipeline", Dummy())
+
+    sf = sim_runner.compute_score_frame(
+        panel,
+        pd.Timestamp("2020-01-31"),
+        pd.Timestamp("2020-02-29"),
+    )
+
+    # Should fall back to local implementation when attribute isn't callable
+    assert isinstance(sf, pd.DataFrame)
+    assert "A" in sf.index
+
+
 def test_simresult_methods():
     ev = EventLog()
     ev.append(Event(pd.Timestamp("2020-01-31"), "hire", "A", "top_k"))
@@ -144,6 +194,61 @@ def test_simulator_run_progress_and_fire(monkeypatch):
     assert calls == [(1, 2), (2, 2)]
     assert res.event_log.events[0].action == "hire"
     assert res.event_log.events[1].action == "fire"
+
+
+def test_simulator_run_max_weight_clip(monkeypatch):
+    periods = pd.period_range("2020-01", "2020-02", freq="M")
+    index = periods.to_timestamp(how="end")
+    data = pd.DataFrame({"A": [0.1, 0.0], "B": [0.2, 0.0]}, index=index)
+    sim = sim_runner.Simulator(data)
+
+    monkeypatch.setattr(
+        sim_runner,
+        "compute_score_frame",
+        lambda *a, **k: pd.DataFrame({"m": [1.0, 0.9]}, index=["A", "B"]),
+    )
+
+    call_count = {"n": 0}
+
+    def fake_decide(
+        asof, sf, current, policy, directions, cooldowns, eligible_since, tenure
+    ):
+        call_count["n"] += 1
+        if call_count["n"] == 1:
+            return {"hire": [("A", "top_k"), ("B", "top_k")], "fire": []}
+        return {"hire": [], "fire": []}
+
+    monkeypatch.setattr(sim_runner, "decide_hires_fires", fake_decide)
+
+    captured_targets: list[pd.Series] = []
+
+    def fake_apply(prev_weights, target_weights, date, rb_cfg, rb_state, policy):
+        captured_targets.append(target_weights.copy())
+        return target_weights
+
+    monkeypatch.setattr(sim_runner, "_apply_rebalance_pipeline", fake_apply)
+
+    original_clip = sim_runner.pd.Series.clip
+    clip_calls: list[tuple[float | None, float | None]] = []
+
+    def tracking_clip(self, lower=None, upper=None, *args, **kwargs):
+        clip_calls.append((lower, upper))
+        return original_clip(self, lower=lower, upper=upper, *args, **kwargs)
+
+    monkeypatch.setattr(sim_runner.pd.Series, "clip", tracking_clip)
+
+    policy = PolicyConfig(top_k=2, max_weight=0.4, min_track_months=0)
+    sim.run(
+        start=index[0],
+        end=index[-1],
+        freq="M",
+        lookback_months=1,
+        policy=policy,
+    )
+
+    assert clip_calls, "Expected weight clipping to be attempted"
+    assert any(upper == policy.max_weight for _, upper in clip_calls)
+    assert captured_targets and list(captured_targets[0].index) == ["A", "B"]
 
 
 def test_simulator_handles_equity_curve_update_failure(monkeypatch, caplog):
@@ -223,6 +328,53 @@ def test_apply_rebalance_pipeline_strategies():
     )
     assert isinstance(res, pd.Series)
 
+
+def test_apply_rebalance_pipeline_vol_and_drawdown(monkeypatch):
+    prev = pd.Series({"A": 0.6, "B": 0.4})
+    target = pd.Series({"A": 0.2, "B": 0.8})
+    rb_state = {"since_last_reb": 0, "equity_curve": [1.0, 1.2, 0.9], "guard_on": False}
+    rb_cfg = {
+        "bayesian_only": False,
+        "strategies": ["drift_band", "vol_target_rebalance", "drawdown_guard"],
+        "params": {
+            "drift_band": {"band_pct": 0.0, "min_trade": 0.0, "mode": "full"},
+            "vol_target_rebalance": {"target": 0.10, "window": 2, "lev_min": 0.5, "lev_max": 2.0},
+            "drawdown_guard": {
+                "dd_window": 3,
+                "dd_threshold": 0.05,
+                "guard_multiplier": 0.5,
+                "recover_threshold": 0.02,
+            },
+        },
+    }
+    policy = PolicyConfig(max_weight=1.0)
+
+    res1 = sim_runner._apply_rebalance_pipeline(
+        prev_weights=prev,
+        target_weights=target,
+        date=pd.Timestamp("2020-01-31"),
+        rb_cfg=rb_cfg,
+        rb_state=rb_state,
+        policy=policy,
+    )
+
+    assert isinstance(res1, pd.Series)
+    assert rb_state["guard_on"] is True
+
+    # Simulate recovery to toggle guard off while running through strategies again
+    rb_state["equity_curve"] = [1.0, 1.2, 1.18]
+    rb_state["guard_on"] = True
+    res2 = sim_runner._apply_rebalance_pipeline(
+        prev_weights=res1,
+        target_weights=target,
+        date=pd.Timestamp("2020-02-29"),
+        rb_cfg=rb_cfg,
+        rb_state=rb_state,
+        policy=policy,
+    )
+
+    assert isinstance(res2, pd.Series)
+    assert rb_state["guard_on"] is False
 
 def test_simulator_equity_curve_warning(monkeypatch, caplog):
     monkeypatch.setattr(
