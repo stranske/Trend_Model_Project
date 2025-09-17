@@ -24,6 +24,81 @@ Formatter = Callable[[pd.DataFrame], pd.DataFrame]
 FORMATTERS_EXCEL: dict[str, Callable[[Any, Any], None]] = {}
 
 
+class _OpenpyxlWorksheetAdapter:
+    """Lightweight adapter exposing a subset of the xlsxwriter worksheet API."""
+
+    __slots__ = ("_ws",)
+
+    def __init__(self, worksheet: Any) -> None:
+        self._ws = worksheet
+
+    @property
+    def native(self) -> Any:
+        return self._ws
+
+    def write(self, row: int, col: int, value: object, fmt: object | None = None) -> None:  # noqa: ARG002
+        self._ws.cell(row=row + 1, column=col + 1, value=value)
+
+    def write_row(
+        self, row: int, col: int, data: Iterable[object], fmt: object | None = None  # noqa: ARG002
+    ) -> None:
+        for offset, value in enumerate(data):
+            self.write(row, col + offset, value, fmt)
+
+    def set_column(self, first_col: int, last_col: int, width: float) -> None:
+        from openpyxl.utils import get_column_letter
+
+        for idx in range(first_col, last_col + 1):
+            letter = get_column_letter(idx + 1)
+            self._ws.column_dimensions[letter].width = width
+
+    def freeze_panes(self, row: int, col: int) -> None:
+        self._ws.freeze_panes = self._ws.cell(row=row + 1, column=col + 1)
+
+    def autofilter(self, fr: int, fc: int, lr: int, lc: int) -> None:
+        from openpyxl.utils import get_column_letter
+
+        start = f"{get_column_letter(fc + 1)}{fr + 1}"
+        end = f"{get_column_letter(lc + 1)}{lr + 1}"
+        self._ws.auto_filter.ref = f"{start}:{end}"
+
+
+class _OpenpyxlWorkbookAdapter:
+    """Adapter that exposes minimal workbook hooks expected by formatters."""
+
+    __slots__ = ("_wb",)
+
+    def __init__(self, workbook: Any) -> None:
+        self._wb = workbook
+        self._prune_default_sheet()
+
+    def _prune_default_sheet(self) -> None:
+        sheets = getattr(self._wb, "worksheets", [])
+        if len(sheets) == 1:
+            sheet = sheets[0]
+            title = getattr(sheet, "title", "")
+            value = sheet.cell(1, 1).value if hasattr(sheet, "cell") else None
+            if title == "Sheet" and value in (None, "") and hasattr(self._wb, "remove"):
+                self._wb.remove(sheet)
+
+    def add_worksheet(self, name: str) -> _OpenpyxlWorksheetAdapter:
+        ws = self._wb.create_sheet(title=name)
+        if getattr(ws, "title", name) != name:
+            ws.title = name
+        return _OpenpyxlWorksheetAdapter(ws)
+
+    def add_format(self, spec: Mapping[str, Any] | None) -> Mapping[str, Any]:
+        return dict(spec or {})
+
+    def rename_last_sheet(self, name: str) -> None:
+        sheets = getattr(self._wb, "worksheets", [])
+        if sheets:
+            sheets[-1].title = name
+
+    def __getattr__(self, attr: str) -> Any:
+        return getattr(self._wb, attr)
+
+
 def register_formatter_excel(
     category: str,
 ) -> Callable[[Callable[[Any, Any], None]], Callable[[Any, Any], None]]:
@@ -392,6 +467,7 @@ def export_to_excel(
             # backward compat
             df_formatter = None
 
+    workbook_adapter: _OpenpyxlWorkbookAdapter | None = None
     try:
         writer = pd.ExcelWriter(path, engine="xlsxwriter")
         supports_custom = True
@@ -404,6 +480,9 @@ def export_to_excel(
         supports_custom = all(
             hasattr(book_any, attr) for attr in ("add_worksheet", "add_format")
         )
+        if not supports_custom:
+            workbook_adapter = _OpenpyxlWorkbookAdapter(book_any)
+            supports_custom = True
 
     with writer:
         # Iterate over frames and either let a registered sheet formatter
@@ -414,14 +493,17 @@ def export_to_excel(
             if fmt is not None and supports_custom:
                 # Create an empty worksheet and delegate full rendering
                 # xlsxwriter workbook object provides add_worksheet; cast for typing
-                book_any: Any = writer.book
+                book_any = workbook_adapter or writer.book
                 add_ws = getattr(book_any, "add_worksheet")
                 ws = cast(Worksheet, add_ws(sheet))
-                writer.sheets[sheet] = ws
-                fmt(ws, writer.book)
+                native_ws = getattr(ws, "native", ws)
+                writer.sheets[sheet] = native_ws
+                fmt(ws, book_any)
             else:
                 formatted = _apply_format(df, df_formatter)
                 formatted.to_excel(writer, sheet_name=sheet, index=False)
+                if workbook_adapter is not None:
+                    workbook_adapter.rename_last_sheet(sheet)
 
 
 def export_to_csv(
