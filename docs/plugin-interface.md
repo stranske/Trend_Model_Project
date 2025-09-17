@@ -50,5 +50,16 @@ print(weight_engine_registry.available())
 ## Config usage
 Strategies can be specified by name in config and constructed via the factories. Unknown names raise a clear `ValueError` listing available plugins.
 
+Example (Weight Engine):
+
+```python
+from trend_analysis.plugins import create_weight_engine
+
+engine = create_weight_engine("risk_parity")
+weights = engine.weight(cov_matrix)
+```
+
+Built-in names include `risk_parity`, `hrp`, `erc`, `robust_mv`, and `robust_risk_parity`. Aliases such as `vol_inverse` map to their canonical counterparts.
+
 ## Tests
 - Registry behavior and error handling are covered by tests (e.g., `tests/test_weight_engines.py`, `tests/test_rebalancing_*`, `tests/test_selector_weighting.py`).
