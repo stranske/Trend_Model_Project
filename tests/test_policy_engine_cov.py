@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 
 from trend_portfolio_app.policy_engine import (
     CooldownBook,
@@ -62,3 +63,174 @@ def test_policy_engine_allow_add_ci_level_and_diversification_break():
         eligible_since={"c": 24, "d": 24},
     )
     assert ("c", "top_k") not in decisions_neg["hire"]
+
+
+def test_decide_hires_fires_diversification_and_turnover(monkeypatch):
+    """Bucket caps and turnover limits should constrain hires/fires."""
+
+    score_frame = pd.DataFrame(
+        {"m": [3.0, 2.5, 0.5, 1.5]}, index=["a", "b", "c", "d"]
+    )
+    policy = PolicyConfig(
+        top_k=3,
+        max_active=3,
+        bottom_k=1,
+        metrics=[MetricSpec("m", 1.0)],
+        diversification_max_per_bucket=1,
+        diversification_buckets={"a": "g1", "b": "g1", "c": "g2", "d": "g2"},
+        turnover_budget_max_changes=1,
+        min_track_months=0,
+        min_tenure_n=0,
+    )
+    directions = {"m": 1}
+    eligible_since = {k: 12 for k in score_frame.index}
+    tenure = {"a": 3, "c": 3}
+
+    def fake_rank_scores(sf, metric_weights, metric_directions):
+        return pd.Series({"a": 2.0, "b": 1.2, "c": -0.5, "d": 1.0}, index=sf.index)
+
+    monkeypatch.setattr(
+        "trend_portfolio_app.policy_engine.rank_scores", fake_rank_scores
+    )
+
+    decisions = decide_hires_fires(
+        pd.Timestamp("2020-01-31"),
+        score_frame,
+        current=["a", "c"],
+        policy=policy,
+        directions=directions,
+        cooldowns=CooldownBook(),
+        eligible_since=eligible_since,
+        tenure=tenure,
+    )
+
+    hires = decisions["hire"]
+    fires = decisions["fire"]
+
+    assert hires == [("d", "top_k")]
+    assert fires == []
+    assert all(h[0] != "b" for h in hires), "Bucket cap should skip second g1 fund"
+
+
+def test_decide_hires_fires_turnover_budget_prioritises(monkeypatch):
+    """Turnover limits should prioritise hires/fires based on scores."""
+
+    score_frame = pd.DataFrame({"m": [3.0, 2.0, 0.5]}, index=["a", "b", "c"])
+    policy = PolicyConfig(
+        top_k=2,
+        bottom_k=1,
+        min_track_months=0,
+        turnover_budget_max_changes=2,
+        metrics=[MetricSpec("m", 1.0)],
+    )
+    directions = {"m": 1}
+    eligible_since = {k: 12 for k in score_frame.index}
+    tenure = {"a": 5}
+
+    def fake_rank_scores(sf, metric_weights, metric_directions):
+        return pd.Series({"a": -1.0, "b": 2.0, "c": 1.5}, index=sf.index)
+
+    monkeypatch.setattr(
+        "trend_portfolio_app.policy_engine.rank_scores", fake_rank_scores
+    )
+
+    decisions = decide_hires_fires(
+        pd.Timestamp("2020-01-31"),
+        score_frame,
+        current=["a"],
+        policy=policy,
+        directions=directions,
+        cooldowns=CooldownBook(),
+        eligible_since=eligible_since,
+        tenure=tenure,
+    )
+
+    # Turnover cap of 2 should keep the top two moves (both hires) and drop the fire
+    assert len(decisions["hire"]) == 2
+    assert decisions["fire"] == []
+    assert {m for m, _ in decisions["hire"]} == {"b", "c"}
+
+
+def test_decide_hires_fires_turnover_budget_trims_mixed(monkeypatch):
+    score_frame = pd.DataFrame({"m": [3.0, 2.0, -1.0]}, index=["a", "b", "c"])
+    policy = PolicyConfig(
+        top_k=2,
+        bottom_k=1,
+        max_active=2,
+        min_track_months=0,
+        turnover_budget_max_changes=1,
+        diversification_max_per_bucket=1,
+        diversification_buckets={"a": "g1", "b": "g1", "c": "g2"},
+        metrics=[MetricSpec("m", 1.0)],
+    )
+    directions = {"m": 1}
+    eligible_since = {k: 12 for k in score_frame.index}
+    tenure = {"c": 5}
+
+    def fake_rank_scores(sf, metric_weights, metric_directions):  # noqa: ARG001
+        return pd.Series({"a": 1.0, "b": 2.0, "c": -1.0}, index=sf.index)
+
+    monkeypatch.setattr(
+        "trend_portfolio_app.policy_engine.rank_scores", fake_rank_scores
+    )
+
+    decisions = decide_hires_fires(
+        pd.Timestamp("2020-01-31"),
+        score_frame,
+        current=["c"],
+        policy=policy,
+        directions=directions,
+        cooldowns=CooldownBook(),
+        eligible_since=eligible_since,
+        tenure=tenure,
+    )
+
+    # With a turnover budget of one move the higher scored hire should be kept
+    assert decisions["hire"] == [("b", "top_k")]
+    assert decisions["fire"] == []
+
+
+def test_decide_hires_fires_bucket_skip_and_nan_priorities(monkeypatch):
+    score_frame = pd.DataFrame(
+        {"m": [3.0, 2.5, 1.5, -0.5]}, index=["a", "b", "c", "d"]
+    )
+    policy = PolicyConfig(
+        top_k=2,
+        bottom_k=1,
+        max_active=3,
+        min_track_months=0,
+        diversification_max_per_bucket=1,
+        diversification_buckets={"a": "g1", "b": "g1", "c": "g2", "d": "g3"},
+        turnover_budget_max_changes=1,
+        metrics=[MetricSpec("m", 1.0)],
+    )
+
+    eligible = {name: 12 for name in score_frame.index}
+    tenure = {"a": 5, "d": 5}
+
+    def fake_rank_scores(sf, metric_weights, metric_directions):  # noqa: ARG001
+        return pd.Series({"a": 5.0, "b": 4.0, "c": 3.0, "d": np.nan}, index=sf.index)
+
+    monkeypatch.setattr(
+        "trend_portfolio_app.policy_engine.rank_scores", fake_rank_scores
+    )
+
+    decisions = decide_hires_fires(
+        pd.Timestamp("2020-01-31"),
+        score_frame,
+        current=["a", "d"],
+        policy=policy,
+        directions={"m": 1},
+        cooldowns=CooldownBook(),
+        eligible_since=eligible,
+        tenure=tenure,
+    )
+
+    hires = decisions["hire"]
+    fires = decisions["fire"]
+
+    # Bucket guard should skip hiring "b" (same bucket as "a") while allowing "c"
+    assert ("c", "top_k") in hires
+    assert all(name != "b" for name, _ in hires)
+    # NaN priority for the fired manager should drop it from turnover-constrained moves
+    assert fires == []

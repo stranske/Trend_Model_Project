@@ -1,4 +1,5 @@
 import importlib
+import logging
 from typing import List
 
 import numpy as np
@@ -71,6 +72,30 @@ def test_compute_score_frame_external_errors(monkeypatch):
 
     dummy.single_period_run = bad_value
     compute_score_frame(df, pd.Timestamp("2020-01-31"), pd.Timestamp("2020-01-31"))
+
+
+def test_compute_score_frame_type_error_fallback(monkeypatch, caplog):
+    df = pd.DataFrame({"Date": ["2020-01-31", "2020-02-29"], "A": [0.1, 0.2]})
+
+    class Dummy:
+        pass
+
+    def bad_type(*args, **kwargs):  # noqa: ANN001
+        raise TypeError("unsupported")
+
+    dummy = Dummy()
+    dummy.single_period_run = bad_type
+
+    monkeypatch.setattr(sim_runner, "HAS_TA", True)
+    monkeypatch.setattr(sim_runner, "ta_pipeline", dummy)
+
+    with caplog.at_level(logging.WARNING):
+        result = compute_score_frame(
+            df, pd.Timestamp("2020-01-31"), pd.Timestamp("2020-02-29")
+        )
+
+    assert isinstance(result, pd.DataFrame)
+    assert any("TypeError" in rec.message for rec in caplog.records)
 
 
 def test_simresult_helpers():
