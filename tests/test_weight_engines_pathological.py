@@ -4,8 +4,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from trend_analysis.weights.equal_risk_contribution import EqualRiskContribution
-from trend_analysis.weights.hierarchical_risk_parity import HierarchicalRiskParity
+from trend_analysis.weights.equal_risk_contribution import \
+    EqualRiskContribution
+from trend_analysis.weights.hierarchical_risk_parity import \
+    HierarchicalRiskParity
 from trend_analysis.weights.risk_parity import RiskParity
 from trend_analysis.weights.robust_weighting import RobustRiskParity
 
@@ -29,9 +31,7 @@ class TestEqualRiskContribution:
             engine.weight(skewed)
 
     def test_regularizes_ill_conditioned_matrix(self) -> None:
-        cov = pd.DataFrame(
-            np.diag([1e-13, 1.0]), index=["a", "b"], columns=["a", "b"]
-        )
+        cov = pd.DataFrame(np.diag([1e-13, 1.0]), index=["a", "b"], columns=["a", "b"])
         engine = EqualRiskContribution()
         weights = engine.weight(cov)
         assert np.isclose(weights.sum(), 1.0)
@@ -115,7 +115,8 @@ class TestHierarchicalRiskParity:
             )
 
         monkeypatch.setattr(
-            "trend_analysis.weights.hierarchical_risk_parity._cov_to_corr", fake_cov_to_corr
+            "trend_analysis.weights.hierarchical_risk_parity._cov_to_corr",
+            fake_cov_to_corr,
         )
         with pytest.warns(RuntimeWarning):
             weights = engine.weight(cov)
@@ -185,9 +186,7 @@ class TestRobustRiskParity:
         assert (weights >= 0).all()
 
     def test_ill_conditioned_matrix_is_regularized(self) -> None:
-        cov = pd.DataFrame(
-            np.diag([1e-13, 1.0]), index=["a", "b"], columns=["a", "b"]
-        )
+        cov = pd.DataFrame(np.diag([1e-13, 1.0]), index=["a", "b"], columns=["a", "b"])
         engine = RobustRiskParity(condition_threshold=1e6)
         weights = engine.weight(cov)
         assert np.isclose(weights.sum(), 1.0)
