@@ -36,7 +36,7 @@ Security posture: The `pull_request_target` workflows in this template do not ch
 
 ## 3. Branch and Trigger Notes
 
-- Default branch is auto-resolved where needed; update branch filters if your default branch isn’t `phase-2-dev`.
+- Default branch is auto-resolved where needed; update branch filters if your default branch isn’t `main`.
 - CI runs on `pull_request` and `push` to default branch.
 - Docker pushes only on `push` to the default branch (adjust if your flow differs).
 
