@@ -55,14 +55,12 @@ def export_bundle(run: Any, path: Path) -> Path:
         # Pre-compute hashes and run identifier --------------------------------
         config = getattr(run, "config", {})
         raw_seed = getattr(run, "seed", None)
-        if raw_seed is None:
-            seed = None
-        else:
+        seed = raw_seed
+        if raw_seed is not None:
             try:
                 seed = int(raw_seed)
             except (TypeError, ValueError):
-                seed = raw_seed
-
+                pass
         # input_path may be missing or explicitly None; handle safely
         _inp = getattr(run, "input_path", None)
         try:
