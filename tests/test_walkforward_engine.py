@@ -99,6 +99,9 @@ def test_infer_periods_per_year_edge_cases():
     idx_daily = pd.date_range("2020-01-01", periods=300, freq="B")
     assert walkforward._infer_periods_per_year(idx_daily) == 252
 
+    idx_quarterly = pd.date_range("2020-03-31", periods=4, freq="Q")
+    assert walkforward._infer_periods_per_year(idx_quarterly) == 4
+
     idx_negative = pd.to_datetime(["2020-01-03", "2020-01-01", "2020-01-01"])
     assert walkforward._infer_periods_per_year(idx_negative) == 1
 

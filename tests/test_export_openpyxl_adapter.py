@@ -167,6 +167,75 @@ def test_openpyxl_workbook_proxy_removes_default_sheet(monkeypatch):
     assert ws_proxy.name == "Report"
 
 
+def test_export_to_excel_cleans_up_openpyxl_defaults(monkeypatch, tmp_path):
+    utils_mod = SimpleNamespace(
+        get_column_letter=lambda idx: chr(ord("A") + idx - 1)
+    )
+    monkeypatch.setitem(sys.modules, "openpyxl", SimpleNamespace(utils=utils_mod))
+    monkeypatch.setitem(sys.modules, "openpyxl.utils", utils_mod)
+
+    class FakeOpenpyxlWorkbook(DummyWorkbook):
+        __module__ = "openpyxl.workbook"
+
+    class TrackingDict(dict):
+        def __init__(self, *args, **kwargs) -> None:  # noqa: D401, ANN001
+            super().__init__(*args, **kwargs)
+            self.pops: list[str] = []
+
+        def pop(self, key, default=None):  # noqa: D401, ANN001
+            self.pops.append(key)
+            return super().pop(key, default)
+
+    class DummyWriter:
+        def __init__(self) -> None:
+            self.book = FakeOpenpyxlWorkbook()
+            self.sheets: TrackingDict[str, object] = TrackingDict({"Sheet": object()})
+            self.engine = "openpyxl"
+
+        def __enter__(self) -> "DummyWriter":
+            return self
+
+        def __exit__(self, exc_type, exc, tb) -> None:  # noqa: D401
+            return None
+
+    created: list[DummyWriter] = []
+    removals = {"count": 0}
+
+    def fake_excel_writer(path, engine=None):  # noqa: ARG001
+        if engine == "xlsxwriter":
+            raise ModuleNotFoundError("no xlsxwriter")
+        writer = DummyWriter()
+        created.append(writer)
+        return writer
+
+    def fake_remove_default(book):  # noqa: ANN001
+        removals["count"] += 1
+        return "Sheet"
+
+    def fake_to_excel(self, writer, sheet_name, index=False, **_):  # noqa: ARG002
+        ws = DummyWorksheet("Sheet1")
+        writer.book.worksheets.append(ws)
+        writer.sheets["Sheet1"] = ws
+
+    monkeypatch.setattr(pd, "ExcelWriter", fake_excel_writer)
+    monkeypatch.setattr(export, "_maybe_remove_openpyxl_default_sheet", fake_remove_default)
+    monkeypatch.setattr(pd.DataFrame, "to_excel", fake_to_excel, raising=False)
+
+    export.reset_formatters_excel()
+    df = pd.DataFrame({"x": [1.0]})
+    out = tmp_path / "cleanup.xlsx"
+    export.export_to_excel({"report": df}, out)
+
+    assert created, "Expected fallback writer to be created"
+    writer = created[0]
+    assert "Sheet" not in writer.sheets
+    assert "Sheet" in writer.sheets.pops
+    ws = writer.book.worksheets[-1]
+    assert ws.title == "report"
+    assert writer.sheets.get("report") is ws
+    assert removals["count"] >= 2
+
+
 def test_export_to_excel_populates_proxy_with_renamed_sheets(monkeypatch, tmp_path):
     utils_mod = SimpleNamespace(
         get_column_letter=lambda idx: chr(ord("A") + idx - 1)

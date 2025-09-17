@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import math
 import sys
 import types
+from collections import OrderedDict
 
 import numpy as np
 import pandas as pd
@@ -453,6 +455,133 @@ def test_manager_contrib_table_handles_sparse_series(monkeypatch):
     assert table["Contribution Share"].sum() <= 1.0
 
 
+def test_manager_contrib_table_sets_nan_when_concat_empty(monkeypatch):
+    idx = pd.date_range("2020-01-31", periods=2, freq="ME")
+    out_df = pd.DataFrame({"FundA": [0.01, 0.02]}, index=idx)
+    results = [{"out_sample_scaled": out_df, "fund_weights": {"FundA": 1.0}}]
+
+    real_concat = pd.concat
+
+    def fake_concat(objs, *args, **kwargs):  # noqa: ANN001
+        fake_concat.calls += 1
+        if fake_concat.calls == 1:
+            return pd.Series(dtype=float)
+        return real_concat(objs, *args, **kwargs)
+
+    fake_concat.calls = 0
+    monkeypatch.setattr(pd, "concat", fake_concat)
+
+    table = manager_contrib_table(results)
+    assert math.isnan(float(table.loc[0, "OOS CAGR"]))
+
+
 def test_workbook_frames_from_results_includes_summary():
     frames = workbook_frames_from_results([_make_period_result("1")])
     assert "summary" in frames
+
+
+def test_workbook_frames_from_results_adds_execution_metrics(monkeypatch):
+    summary_df = pd.DataFrame({"x": [1]})
+    metrics_df = pd.DataFrame({"m": [2]})
+
+    monkeypatch.setattr(
+        export_module,
+        "summary_frame_from_result",
+        lambda res: summary_df.copy(),
+    )
+    monkeypatch.setattr(
+        export_module,
+        "combined_summary_result",
+        lambda res: {"data": 1},
+    )
+    monkeypatch.setattr(
+        export_module,
+        "execution_metrics_frame",
+        lambda res: metrics_df.copy(),
+    )
+
+    frames = workbook_frames_from_results(
+        [{"period": ("2020-01", "2020-03", "2020-04", "Period 1")}]
+    )
+
+    assert "summary" in frames and "execution_metrics" in frames
+    pd.testing.assert_frame_equal(frames["execution_metrics"], metrics_df)
+
+
+def test_phase1_workbook_data_appends_metrics_summary(monkeypatch):
+    base_frames = OrderedDict(
+        [
+            ("summary", pd.DataFrame({"x": [1]})),
+            ("execution_metrics", pd.DataFrame({"m": [2]})),
+        ]
+    )
+
+    monkeypatch.setattr(
+        export_module,
+        "workbook_frames_from_results",
+        lambda results: base_frames.copy(),
+    )
+    monkeypatch.setattr(
+        export_module,
+        "metrics_from_result",
+        lambda res: pd.DataFrame({"metric": [42]}),
+    )
+    monkeypatch.setattr(
+        export_module,
+        "combined_summary_result",
+        lambda res: {"metrics": True},
+    )
+
+    frames = phase1_workbook_data(
+        [{"period": ("2020-01", "2020-06", "2020-07", "Period 1")}],
+        include_metrics=True,
+    )
+
+    assert "metrics_Period 1" in frames
+    assert "metrics_summary" in frames
+
+
+def test_flat_frames_from_results_includes_manager_tables(monkeypatch):
+    base_frames = OrderedDict(
+        [
+            ("Period 1", pd.DataFrame({"val": [1]})),
+            ("summary", pd.DataFrame({"s": [2]})),
+            ("execution_metrics", pd.DataFrame({"m": [3]})),
+        ]
+    )
+
+    monkeypatch.setattr(
+        export_module,
+        "workbook_frames_from_results",
+        lambda results: base_frames.copy(),
+    )
+    monkeypatch.setattr(
+        export_module,
+        "manager_contrib_table",
+        lambda results: pd.DataFrame(
+            {
+                "Manager": ["FundA"],
+                "Years": [1.0],
+                "OOS CAGR": [0.1],
+                "Contribution Share": [0.5],
+            }
+        ),
+    )
+    monkeypatch.setattr(
+        export_module,
+        "execution_metrics_frame",
+        lambda results: pd.DataFrame({"m": [3]}),
+    )
+
+    frames = flat_frames_from_results(
+        [
+            {
+                "period": ("2020-01", "2020-06", "2020-07", "Period 1"),
+                "manager_changes": [{"action": "add", "manager": "FundA"}],
+            }
+        ]
+    )
+
+    assert {"periods", "summary", "manager_contrib", "changes", "execution_metrics"}.issubset(
+        frames
+    )
