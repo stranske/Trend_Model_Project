@@ -7,6 +7,7 @@ import streamlit as st
 
 from trend_analysis.engine.walkforward import walk_forward
 from trend_analysis.metrics import attribution
+from streamlit_app.components.fallback_warning import format_weight_engine_warning
 
 
 def _flatten_columns(df: pd.DataFrame) -> pd.DataFrame:
@@ -42,10 +43,11 @@ try:
 except Exception:  # pragma: no cover - defensive
     fb_info = None
 if fb_info and not st.session_state.get("dismiss_weight_engine_fallback"):
-    with st.warning(
-        "⚠️ Weight engine '%s' failed (%s). Portfolio uses equal weights."
-        % (fb_info.get("engine"), fb_info.get("error_type"))
-    ):
+    message = format_weight_engine_warning(
+        fb_info,
+        suffix="Portfolio uses equal weights.",
+    )
+    with st.warning(message):
         if st.button(
             "Dismiss",
             key="btn_dismiss_weight_engine_fallback_results",

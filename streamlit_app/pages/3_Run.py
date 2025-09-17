@@ -1,6 +1,7 @@
 import pandas as pd
 
 from streamlit_app.components.disclaimer import show_disclaimer
+from streamlit_app.components.fallback_warning import format_weight_engine_warning
 from trend_analysis.api import run_simulation
 from trend_analysis.config import Config
 
@@ -120,10 +121,11 @@ def main():
     except Exception:  # pragma: no cover - defensive
         fb = None
     if fb and not st.session_state.get("dismiss_weight_engine_fallback"):
-        with st.warning(
-            "⚠️ Weight engine '%s' failed (%s). Using equal weights."
-            % (fb.get("engine"), fb.get("error_type")),
-        ):
+        message = format_weight_engine_warning(
+            fb,
+            suffix="Using equal weights.",
+        )
+        with st.warning(message):
             if st.button(
                 "Dismiss",
                 key="btn_dismiss_weight_engine_fallback",

@@ -71,6 +71,9 @@ def test_weight_engine_failure_logging(caplog):
     assert result.get("weight_engine_fallback") is not None
     fb = result["weight_engine_fallback"]
     assert fb["engine"] == "nonexistent_engine"
+    assert fb["error_type"] == "ValueError"
+    assert "Unknown plugin" in fb["error"]
+    assert result["fund_weights"] == result["ew_weights"]
 
     # Check that fallback message was logged
     debug_logs = [
@@ -89,6 +92,7 @@ def test_weight_engine_failure_logging(caplog):
         w for w in warn_logs if "falling back to equal weights" in w.message
     ]
     assert len(warning_fallback) == 1
+    assert "ValueError" in warning_fallback[0].message
 
 
 def test_weight_engine_import_failure_logging(caplog):

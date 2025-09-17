@@ -100,7 +100,11 @@ def test_run_simulation_populates_metrics_and_fallback(monkeypatch):
                     "user_weight": 0.1,
                 }
             },
-            "weight_engine_fallback": {"engine": "TestEngine", "error": "boom"},
+            "weight_engine_fallback": {
+                "engine": "TestEngine",
+                "error": "boom",
+                "error_type": "BoomError",
+            },
         }
 
     monkeypatch.setattr(api, "_run_analysis", fake_run_analysis)
@@ -124,7 +128,11 @@ def test_run_simulation_populates_metrics_and_fallback(monkeypatch):
     assert result.metrics.loc["FundA", "ir_bench"] == 0.3
 
     # The fallback payload is surfaced directly on the RunResult.
-    assert result.fallback_info == {"engine": "TestEngine", "error": "boom"}
+    assert result.fallback_info == {
+        "engine": "TestEngine",
+        "error": "boom",
+        "error_type": "BoomError",
+    }
 
     # The details object is exactly the payload returned by ``_run_analysis``.
     assert result.details["benchmark_ir"]["bench"]["FundA"] == 0.3

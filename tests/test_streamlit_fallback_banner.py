@@ -130,6 +130,10 @@ def test_streamlit_run_page_fallback_banner(monkeypatch):
 
     # Assertions: banner message & fallback_info present
     assert any("Weight engine" in w and "failed" in w for w in warnings)
+    assert any("ValueError" in w for w in warnings)
+    assert any("Unknown plugin" in w for w in warnings)
     sim_res = mock_st.session_state.get("sim_results")
     assert sim_res is not None
     assert getattr(sim_res, "fallback_info", None) is not None
+    details = getattr(sim_res, "details", {})
+    assert details.get("fund_weights") == details.get("ew_weights")
