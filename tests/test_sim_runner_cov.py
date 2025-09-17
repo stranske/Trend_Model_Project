@@ -442,4 +442,6 @@ def test_simulator_run_handles_missing_forward_month(monkeypatch):
     )
 
     assert result.portfolio.empty
-    assert list(result.weights.keys()) == [pd.Timestamp("2020-01-31 23:59:59.999999999")]
+    assert list(result.weights.keys()) == [
+        pd.Timestamp("2020-01-31 23:59:59.999999999")
+    ]

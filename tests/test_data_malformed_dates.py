@@ -54,7 +54,8 @@ class TestDataLoadingMalformedDates:
             os.unlink(temp_path)
 
     def test_load_csv_filters_null_or_empty_dates(self, caplog):
-        """Rows with blank dates should be dropped while retaining valid rows."""
+        """Rows with blank dates should be dropped while retaining valid
+        rows."""
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
             f.write("Date,Fund1\n")
@@ -73,7 +74,9 @@ class TestDataLoadingMalformedDates:
             assert pd.Timestamp("2023-01-31") in dates
             assert pd.Timestamp("2023-03-31") in dates
             # Ensure a warning was emitted for the null/empty entries
-            assert any("null/empty date" in rec.message.lower() for rec in caplog.records)
+            assert any(
+                "null/empty date" in rec.message.lower() for rec in caplog.records
+            )
         finally:
             os.unlink(temp_path)
 

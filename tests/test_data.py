@@ -1,8 +1,8 @@
-
+from types import SimpleNamespace
 
 import pandas as pd
 import pytest
-from types import SimpleNamespace
+
 from trend_analysis import data as data_mod
 
 
