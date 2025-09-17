@@ -338,7 +338,12 @@ def test_apply_rebalance_pipeline_vol_and_drawdown(monkeypatch):
         "strategies": ["drift_band", "vol_target_rebalance", "drawdown_guard"],
         "params": {
             "drift_band": {"band_pct": 0.0, "min_trade": 0.0, "mode": "full"},
-            "vol_target_rebalance": {"target": 0.10, "window": 2, "lev_min": 0.5, "lev_max": 2.0},
+            "vol_target_rebalance": {
+                "target": 0.10,
+                "window": 2,
+                "lev_min": 0.5,
+                "lev_max": 2.0,
+            },
             "drawdown_guard": {
                 "dd_window": 3,
                 "dd_threshold": 0.05,
@@ -375,6 +380,7 @@ def test_apply_rebalance_pipeline_vol_and_drawdown(monkeypatch):
 
     assert isinstance(res2, pd.Series)
     assert rb_state["guard_on"] is False
+
 
 def test_simulator_equity_curve_warning(monkeypatch, caplog):
     monkeypatch.setattr(

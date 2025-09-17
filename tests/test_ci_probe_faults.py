@@ -44,7 +44,8 @@ def test_internal_helper_aggregates_and_uses_dependencies(monkeypatch):
 
 
 def test_internal_helper_handles_empty_sequence(monkeypatch):
-    """Empty iterables should not break the helper and still call dependencies."""
+    """Empty iterables should not break the helper and still call
+    dependencies."""
     calls = {}
 
     monkeypatch.setattr(

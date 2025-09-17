@@ -119,7 +119,10 @@ def test_prepare_index_converts_and_validates():
         }
     )
     prepared = walkforward._prepare_index(df)
-    assert list(prepared.index) == [pd.Timestamp("2020-01-01"), pd.Timestamp("2020-02-01")]
+    assert list(prepared.index) == [
+        pd.Timestamp("2020-01-01"),
+        pd.Timestamp("2020-02-01"),
+    ]
     assert prepared.index.is_monotonic_increasing
 
     with pytest.raises(ValueError):

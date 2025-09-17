@@ -6,8 +6,8 @@ from pathlib import Path
 from types import ModuleType, SimpleNamespace
 from unittest.mock import patch
 
-import pytest
 import pandas as pd
+import pytest
 
 from trend_analysis import export
 from trend_analysis.export import bundle as bundle_mod
@@ -169,7 +169,8 @@ def test_export_bundle_optional_outputs(tmp_path):
 
 
 def test_export_bundle_summary_default_when_not_callable(tmp_path):
-    """Fallback summary should use total return when attribute is not callable."""
+    """Fallback summary should use total return when attribute is not
+    callable."""
 
     portfolio = pd.Series(
         [0.1, -0.05, 0.03],
@@ -233,7 +234,9 @@ def test_export_data_all_formats_content(tmp_path):
     assert txt_path.exists()
 
     pd.testing.assert_frame_equal(pd.read_csv(csv_path), df, check_dtype=False)
-    pd.testing.assert_frame_equal(pd.read_excel(xlsx_path, sheet_name="sheet"), df, check_dtype=False)
+    pd.testing.assert_frame_equal(
+        pd.read_excel(xlsx_path, sheet_name="sheet"), df, check_dtype=False
+    )
     with open(json_path) as f:
         json_data = json.load(f)
     pd.testing.assert_frame_equal(pd.DataFrame(json_data), df, check_dtype=False)

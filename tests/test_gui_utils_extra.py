@@ -5,7 +5,8 @@ from trend_analysis.gui import utils
 
 
 def test_debounce_cancels_pending_call(monkeypatch):
-    """debounce should cancel prior tasks and only execute latest invocation."""
+    """Debounce should cancel prior tasks and only execute latest
+    invocation."""
 
     # Controlled time progression for debounce window checks
     time_values = iter([0.0, 0.05, 0.35, 0.70, 1.0])
@@ -51,7 +52,8 @@ def test_debounce_cancels_pending_call(monkeypatch):
 
 
 def test_debounce_awaits_async_handler(monkeypatch):
-    """Async callbacks returned by debounce should be awaited before finishing."""
+    """Async callbacks returned by debounce should be awaited before
+    finishing."""
 
     time_values = iter([0.0, 0.5])
     monkeypatch.setattr(utils.time, "time", lambda: next(time_values))

@@ -47,16 +47,13 @@ except ModuleNotFoundError:  # pragma: no cover - handled in test environment
     sys.modules.setdefault("matplotlib", matplotlib)
     sys.modules.setdefault("matplotlib.pyplot", pyplot)
 
-from trend_analysis.export import (
-    export_multi_period_metrics,
-    export_phase1_multi_metrics,
-    export_phase1_workbook,
-    flat_frames_from_results,
-    format_summary_text,
-    manager_contrib_table,
-    phase1_workbook_data,
-    workbook_frames_from_results,
-)
+from trend_analysis.export import (export_multi_period_metrics,
+                                   export_phase1_multi_metrics,
+                                   export_phase1_workbook,
+                                   flat_frames_from_results,
+                                   format_summary_text, manager_contrib_table,
+                                   phase1_workbook_data,
+                                   workbook_frames_from_results)
 from trend_analysis.pipeline import _compute_stats, calc_portfolio_returns
 
 
@@ -96,7 +93,9 @@ def _make_period_result(
     fund_in_stats = _compute_stats(in_df, rf_in)
     fund_out_stats = _compute_stats(out_df, rf_out)
 
-    def _portfolio_stats(weights: dict[str, float], frame: pd.DataFrame, rf: pd.Series) -> dict[str, object]:
+    def _portfolio_stats(
+        weights: dict[str, float], frame: pd.DataFrame, rf: pd.Series
+    ) -> dict[str, object]:
         arr = np.array([weights.get(col, 0.0) for col in frame.columns], dtype=float)
         returns = calc_portfolio_returns(arr, frame)
         return _compute_stats(pd.DataFrame({"p": returns}), rf)["p"]
@@ -192,8 +191,12 @@ def test_export_phase1_workbook_missing_period_metadata(monkeypatch, tmp_path):
     def fake_export_to_excel(data, path):
         frames_written.update(data)
 
-    monkeypatch.setattr("trend_analysis.export.make_period_formatter", fake_make_period_formatter)
-    monkeypatch.setattr("trend_analysis.export.make_summary_formatter", fake_make_summary_formatter)
+    monkeypatch.setattr(
+        "trend_analysis.export.make_period_formatter", fake_make_period_formatter
+    )
+    monkeypatch.setattr(
+        "trend_analysis.export.make_summary_formatter", fake_make_summary_formatter
+    )
     monkeypatch.setattr("trend_analysis.export.export_to_excel", fake_export_to_excel)
 
     export_phase1_workbook(results, str(tmp_path / "out.xlsx"))
@@ -223,8 +226,12 @@ def test_export_phase1_workbook_collects_manager_changes(monkeypatch, tmp_path):
         summary_call["payload"] = res
         return lambda ws, wb: None
 
-    monkeypatch.setattr("trend_analysis.export.make_summary_formatter", fake_make_summary_formatter)
-    monkeypatch.setattr("trend_analysis.export.export_to_excel", lambda data, path: None)
+    monkeypatch.setattr(
+        "trend_analysis.export.make_summary_formatter", fake_make_summary_formatter
+    )
+    monkeypatch.setattr(
+        "trend_analysis.export.export_to_excel", lambda data, path: None
+    )
 
     export_phase1_workbook(results, str(tmp_path / "out.xlsx"))
 
@@ -293,9 +300,13 @@ def test_export_phase1_multi_metrics_all_formats(monkeypatch, tmp_path):
     _, formats, payload = data_calls[0]
     assert formats == ("csv",)
     # Expect consolidated metrics plus summary + manager tables when available
-    assert {"periods", "summary", "metrics", "metrics_summary", "manager_contrib"}.issubset(
-        payload
-    )
+    assert {
+        "periods",
+        "summary",
+        "metrics",
+        "metrics_summary",
+        "manager_contrib",
+    }.issubset(payload)
     metrics = payload["metrics"]
     assert "Period" in metrics.columns
 
@@ -367,7 +378,9 @@ def test_summary_frame_from_result_handles_mixed_stats():
         "in_sample_stats": {"FundA": tuple_stats},
         "out_sample_stats": {"FundA": obj_stats},
         "fund_weights": {"FundA": 0.5},
-        "benchmark_ir": {"Bench": {"FundA": 0.4, "equal_weight": 0.2, "user_weight": 0.25}},
+        "benchmark_ir": {
+            "Bench": {"FundA": 0.4, "equal_weight": 0.2, "user_weight": 0.25}
+        },
     }
 
     frame = export_module.summary_frame_from_result(result)
@@ -388,12 +401,16 @@ def test_manager_contrib_table_computes_shares_and_handles_empty():
         },
         index=idx,
     )
-    results = [{"out_sample_scaled": out_df, "fund_weights": {"FundA": 0.6, "FundB": 0.4}}]
+    results = [
+        {"out_sample_scaled": out_df, "fund_weights": {"FundA": 0.6, "FundB": 0.4}}
+    ]
 
     table = export_module.manager_contrib_table(results)
 
     assert set(table["Manager"]) == {"FundA", "FundB"}
-    assert table.loc[table["Manager"] == "FundB", "Contribution Share"].iloc[0] == pytest.approx(0.0)
+    assert table.loc[table["Manager"] == "FundB", "Contribution Share"].iloc[
+        0
+    ] == pytest.approx(0.0)
     assert table.loc[table["Manager"] == "FundA", "Contribution Share"].iloc[0] > 0
 
     empty = export_module.manager_contrib_table(
@@ -419,7 +436,9 @@ def test_format_summary_text_formats_ints():
         "in_sample_stats": {"FundA": stat},
         "out_sample_stats": {"FundA": stat},
         "fund_weights": {"FundA": 1},
-        "benchmark_ir": {"Bench": {"FundA": 0.5, "equal_weight": 0.2, "user_weight": 0.3}},
+        "benchmark_ir": {
+            "Bench": {"FundA": 0.5, "equal_weight": 0.2, "user_weight": 0.3}
+        },
     }
 
     text = format_summary_text(res, "2020-01", "2020-06", "2020-07", "2020-12")
@@ -430,7 +449,9 @@ def test_format_summary_text_formats_ints():
 def test_manager_contrib_table_handles_sparse_series(monkeypatch):
     results = [
         {
-            "out_sample_scaled": pd.DataFrame({"FundA": [0.01, 0.0], "FundB": [np.nan, np.nan]}),
+            "out_sample_scaled": pd.DataFrame(
+                {"FundA": [0.01, 0.0], "FundB": [np.nan, np.nan]}
+            ),
             "fund_weights": {"FundA": 0.6, "FundB": 0.4},
         },
         {
@@ -582,6 +603,10 @@ def test_flat_frames_from_results_includes_manager_tables(monkeypatch):
         ]
     )
 
-    assert {"periods", "summary", "manager_contrib", "changes", "execution_metrics"}.issubset(
-        frames
-    )
+    assert {
+        "periods",
+        "summary",
+        "manager_contrib",
+        "changes",
+        "execution_metrics",
+    }.issubset(frames)

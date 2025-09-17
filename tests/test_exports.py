@@ -3,17 +3,11 @@ import pandas as pd
 import pytest
 
 import trend_analysis.export as export_module
-
-from trend_analysis.export import (
-    FORMATTERS_EXCEL,
-    execution_metrics_frame,
-    export_data,
-    export_execution_metrics,
-    export_to_excel,
-    manager_contrib_table,
-    register_formatter_excel,
-    reset_formatters_excel,
-)
+from trend_analysis.export import (FORMATTERS_EXCEL, execution_metrics_frame,
+                                   export_data, export_execution_metrics,
+                                   export_to_excel, manager_contrib_table,
+                                   register_formatter_excel,
+                                   reset_formatters_excel)
 
 
 def test_export_data(tmp_path):
@@ -126,7 +120,9 @@ def test_export_execution_metrics_delegates(monkeypatch):
 
     monkeypatch.setattr(export_module, "export_data", fake_export_data)
 
-    export_execution_metrics((res for res in results_list), "out/report", formats=("csv", "json"))
+    export_execution_metrics(
+        (res for res in results_list), "out/report", formats=("csv", "json")
+    )
 
     assert captured["output_path"] == "out/report"
     assert captured["formats"] == ("csv", "json")
@@ -158,8 +154,14 @@ def test_manager_contrib_table_computes_participation():
     )
 
     results = [
-        {"out_sample_scaled": out1, "fund_weights": {"FundA": 0.5, "FundB": 0.5, "FundSkip": 0.0}},
-        {"out_sample_scaled": out2, "fund_weights": {"FundA": 0.6, "FundC": 0.4, "FundB": 0.0}},
+        {
+            "out_sample_scaled": out1,
+            "fund_weights": {"FundA": 0.5, "FundB": 0.5, "FundSkip": 0.0},
+        },
+        {
+            "out_sample_scaled": out2,
+            "fund_weights": {"FundA": 0.6, "FundC": 0.4, "FundB": 0.0},
+        },
     ]
 
     table = manager_contrib_table(results)
@@ -193,12 +195,16 @@ def test_manager_contrib_table_computes_participation():
     # Only include funds that appear in the output table
     contrib_totals = {k: contrib_totals[k] for k in ["FundA", "FundC", "FundB"]}
     total = sum(contrib_totals.values())
-    expected_shares = [contrib_totals[name] / total for name in ["FundA", "FundC", "FundB"]]
+    expected_shares = [
+        contrib_totals[name] / total for name in ["FundA", "FundC", "FundB"]
+    ]
     assert table["Contribution Share"].tolist() == pytest.approx(expected_shares)
     assert table["Contribution Share"].sum() == pytest.approx(1.0)
 
 
 def test_manager_contrib_table_empty_results():
-    table = manager_contrib_table([{"out_sample_scaled": pd.DataFrame(), "fund_weights": {}}])
+    table = manager_contrib_table(
+        [{"out_sample_scaled": pd.DataFrame(), "fund_weights": {}}]
+    )
     assert table.empty
     assert list(table.columns) == ["Manager", "Years", "OOS CAGR", "Contribution Share"]

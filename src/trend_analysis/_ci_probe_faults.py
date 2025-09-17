@@ -1,8 +1,8 @@
 """CI probe module (style-only) used to verify autofix pipeline.
 
-This version intentionally keeps the code clean so the current iteration can
-achieve a passing validation run; historical purpose (introducing only
-auto-fixable issues) is documented in earlier commits.
+This version intentionally keeps the code clean so the current iteration
+can achieve a passing validation run; historical purpose (introducing
+only auto-fixable issues) is documented in earlier commits.
 """
 
 from __future__ import annotations

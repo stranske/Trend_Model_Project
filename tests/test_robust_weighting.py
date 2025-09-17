@@ -1,6 +1,8 @@
-"""Tests for robust weighting methods with shrinkage and condition number safeguards."""
+"""Tests for robust weighting methods with shrinkage and condition number
+safeguards."""
 
 import logging
+
 import numpy as np
 import pandas as pd
 
@@ -93,7 +95,8 @@ class TestRobustMeanVariance:
         assert len(weights) == 3
 
     def test_ill_conditioned_safe_mode_risk_parity(self):
-        """Test safe mode fallback to risk parity for ill-conditioned matrices."""
+        """Test safe mode fallback to risk parity for ill-conditioned
+        matrices."""
         cov = create_ill_conditioned_cov()
 
         engine = create_weight_engine(
@@ -108,7 +111,8 @@ class TestRobustMeanVariance:
         assert len(weights) == 3
 
     def test_ill_conditioned_safe_mode_diagonal_mv(self):
-        """Test safe mode fallback to diagonal-loaded MV for ill-conditioned matrices."""
+        """Test safe mode fallback to diagonal-loaded MV for ill-conditioned
+        matrices."""
         cov = create_ill_conditioned_cov()
 
         engine = create_weight_engine(
@@ -237,7 +241,8 @@ class TestShrinkageFunctions:
 
     def test_ledoit_wolf_shrinkage(self):
         """Test Ledoit-Wolf shrinkage function."""
-        from trend_analysis.weights.robust_weighting import ledoit_wolf_shrinkage
+        from trend_analysis.weights.robust_weighting import \
+            ledoit_wolf_shrinkage
 
         cov = create_well_conditioned_cov().values
         shrunk_cov, intensity = ledoit_wolf_shrinkage(cov)
@@ -284,7 +289,8 @@ class TestShrinkageFunctions:
 
 
 class TestSyntheticNearSingularCases:
-    """Tests with synthetic pathological inputs to ensure stability and reproducibility."""
+    """Tests with synthetic pathological inputs to ensure stability and
+    reproducibility."""
 
     def test_perfectly_correlated_assets(self):
         """Test handling of perfectly correlated assets."""

@@ -89,7 +89,8 @@ def _maybe_remove_openpyxl_default_sheet(book: Any) -> str | None:
 
 
 class _OpenpyxlWorksheetProxy:
-    """Adapter exposing the subset of ``xlsxwriter`` APIs used by formatters."""
+    """Adapter exposing the subset of ``xlsxwriter`` APIs used by
+    formatters."""
 
     def __init__(self, ws: Any):
         self._ws = ws
@@ -169,7 +170,8 @@ class _OpenpyxlWorkbookProxy:
 
 
 class _OpenpyxlWorksheetAdapter:
-    """Lightweight adapter exposing a subset of the xlsxwriter worksheet API."""
+    """Lightweight adapter exposing a subset of the xlsxwriter worksheet
+    API."""
 
     __slots__ = ("_ws",)
 
@@ -180,13 +182,19 @@ class _OpenpyxlWorksheetAdapter:
     def native(self) -> Any:
         return self._ws
 
-    def write(self, row: int, col: int, value: object, fmt: object | None = None) -> None:  # noqa: ARG002
+    def write(
+        self, row: int, col: int, value: object, fmt: object | None = None
+    ) -> None:  # noqa: ARG002
         # The `fmt` parameter is ignored because openpyxl's formatting model is
         # different from xlsxwriter's, and this adapter does not support cell formatting.
         self._ws.cell(row=row + 1, column=col + 1, value=value)
 
     def write_row(
-        self, row: int, col: int, data: Iterable[object], fmt: object | None = None  # noqa: ARG002
+        self,
+        row: int,
+        col: int,
+        data: Iterable[object],
+        fmt: object | None = None,  # noqa: ARG002
     ) -> None:
         for offset, value in enumerate(data):
             self.write(row, col + offset, value)
@@ -1157,9 +1165,7 @@ def flat_frames_from_results(
     results_list = list(results)
     frames = workbook_frames_from_results(results_list)
     period_frames = [
-        (k, v)
-        for k, v in frames.items()
-        if k not in {"summary", "execution_metrics"}
+        (k, v) for k, v in frames.items() if k not in {"summary", "execution_metrics"}
     ]
     combined_frames = []
     for name, df in period_frames:

@@ -62,25 +62,15 @@ if "data" in globals():
     from .data import identify_risk_free_fund, load_csv
 
 if "export" in globals():
-    from .export import (
-        combined_summary_frame,
-        combined_summary_result,
-        export_bundle,
-        export_data,
-        export_multi_period_metrics,
-        export_phase1_multi_metrics,
-        export_phase1_workbook,
-        export_to_csv,
-        export_to_excel,
-        export_to_json,
-        export_to_txt,
-        flat_frames_from_results,
-        make_summary_formatter,
-        metrics_from_result,
-        phase1_workbook_data,
-        register_formatter_excel,
-        reset_formatters_excel,
-    )
+    from .export import (combined_summary_frame, combined_summary_result,
+                         export_bundle, export_data,
+                         export_multi_period_metrics,
+                         export_phase1_multi_metrics, export_phase1_workbook,
+                         export_to_csv, export_to_excel, export_to_json,
+                         export_to_txt, flat_frames_from_results,
+                         make_summary_formatter, metrics_from_result,
+                         phase1_workbook_data, register_formatter_excel,
+                         reset_formatters_excel)
 
 # Get version from package metadata
 try:

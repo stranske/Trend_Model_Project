@@ -34,7 +34,8 @@ def _make_config(**overrides: object) -> SimpleNamespace:
 
 
 def test_run_simulation_handles_missing_result(monkeypatch):
-    """When the pipeline returns ``None`` an empty ``RunResult`` is produced."""
+    """When the pipeline returns ``None`` an empty ``RunResult`` is
+    produced."""
 
     config = _make_config()
     returns = _make_returns()

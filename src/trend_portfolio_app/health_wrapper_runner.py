@@ -1,4 +1,5 @@
-"""Executable module ensuring src path injection prior to loading health wrapper.
+"""Executable module ensuring src path injection prior to loading health
+wrapper.
 
 Some CI environments invoke `python -m trend_portfolio_app.health_wrapper` which
 fails if the package is not installed and `src` is not on `sys.path`.
