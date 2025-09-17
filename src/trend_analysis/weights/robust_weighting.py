@@ -418,8 +418,6 @@ class RobustRiskParity(WeightEngine):
         weights = inv_vol / np.sum(inv_vol)
 
         logger.debug("Successfully computed robust risk parity weights")
-        info.setdefault("selected_method", "risk_parity")
-        info.setdefault("reason", "condition_number_within_threshold")
         info["weights_index"] = list(cov.index)
         self.last_run_info = info
         return pd.Series(weights, index=cov.index)
