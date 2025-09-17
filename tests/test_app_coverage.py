@@ -7,10 +7,11 @@ import pickle
 import sys
 import tempfile
 from pathlib import Path
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 from unittest.mock import ANY, MagicMock, Mock, patch
 
 import pandas as pd
+import pytest
 import yaml  # type: ignore[import-untyped]
 
 import trend_analysis.gui.app as app_module
@@ -1003,14 +1004,75 @@ def test_build_manual_override_datagrid(monkeypatch):
     box = app_module._build_manual_override(store)
     grid = box.children[0]
 
+    # Column outside editable range should be ignored
+    grid.callbacks["cell_edited"]({"row": 0, "column": 0, "new": "noop"})
+
     grid.callbacks["cell_edited"]({"row": 1, "column": 1, "new": False})
     grid.callbacks["cell_edited"]({"row": 0, "column": 2, "new": "0.3"})
+    grid.callbacks["cell_edited"]({"row": 0, "column": 2, "new": None})
+    grid.callbacks["cell_edited"]({"row": 0, "column": 2, "new": "-1"})
 
     manual = store.cfg["portfolio"]["manual_list"]
     weights = store.cfg["portfolio"]["custom_weights"]
 
     assert "FundB" not in manual and weights["FundA"] == 0.3
 
+
+def test_build_manual_override_datagrid_missing_on(monkeypatch):
+    """Gracefully handle DataGrid implementations lacking an ``on`` method."""
+
+    monkeypatch.setattr(app_module.widgets, "VBox", DummyBox)
+
+    class NoOnDataGrid:
+        def __init__(self, df, editable: bool = True) -> None:
+            self.df = df
+            self.editable = editable
+            self.layout = DummyLayout()
+            self.data = None
+
+    fake_module = ModuleType("ipydatagrid")
+    fake_module.DataGrid = NoOnDataGrid  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "ipydatagrid", fake_module)
+
+    store = ParamStore()
+    store.cfg = {"portfolio": {"custom_weights": {"FundA": 0.4}, "manual_list": ["FundA"]}}
+
+    box = app_module._build_manual_override(store)
+
+    assert isinstance(box.children[0], NoOnDataGrid)
+
+
+def test_build_manual_override_import_error(monkeypatch):
+    """Import failures should fall back to the non-DataGrid widgets."""
+
+    class DummySelectMultiple(DummyValueWidget):
+        def __init__(self, options=None, value=(), description: str = "") -> None:
+            super().__init__(tuple(value))
+            self.options = tuple(options or [])
+            self.description = description
+
+    monkeypatch.setitem(sys.modules, "ipydatagrid", ModuleType("ipydatagrid"))
+    monkeypatch.setattr(app_module.widgets, "Label", DummyLabel)
+    monkeypatch.setattr(app_module.widgets, "SelectMultiple", DummySelectMultiple)
+    monkeypatch.setattr(app_module.widgets, "FloatText", DummyFloatText)
+    monkeypatch.setattr(app_module.widgets, "VBox", DummyBox)
+
+    store = ParamStore()
+    store.cfg = {"portfolio": {"custom_weights": {"FundA": 0.2}, "manual_list": ["FundA"]}}
+
+    box = app_module._build_manual_override(store)
+    warn, select, weights_box = box.children
+
+    assert isinstance(warn, DummyLabel)
+    assert isinstance(select, DummySelectMultiple)
+    if hasattr(weights_box, "children"):
+        assert weights_box.children and isinstance(weights_box.children[0], DummyFloatText)
+    else:
+        assert isinstance(weights_box, DummyFloatText)
+
+    # Trigger selection change and ensure manual list updates via fallback handlers
+    select.set_value(("FundA", "FundA"))
+    assert store.cfg["portfolio"]["manual_list"] == ["FundA", "FundA"]
 
 def test_build_weighting_options_callbacks(monkeypatch):
     """Weighting widgets should keep params in sync with the store."""
@@ -1178,3 +1240,72 @@ def test_launch_interactions(monkeypatch, tmp_path):
 
     reset_btn.click()
     assert reset_calls
+
+
+def test_launch_run_with_empty_metrics(monkeypatch, tmp_path):
+    """Ensure on_run exits early when pipeline returns an empty metrics frame."""
+
+    class DummyOutput:
+        def __init__(self) -> None:
+            self._ctx = contextlib.nullcontext(self)
+
+        def hold_trait_notifications(self):  # pragma: no cover - trivial passthrough
+            return self._ctx
+
+    monkeypatch.setattr(app_module, "discover_plugins", lambda: None)
+    monkeypatch.setattr(app_module, "list_builtin_cfgs", lambda: ["demo"])
+
+    monkeypatch.setattr(app_module.widgets, "FileUpload", DummyFileUpload)
+    monkeypatch.setattr(app_module.widgets, "Dropdown", DummyDropdown)
+    monkeypatch.setattr(app_module.widgets, "Checkbox", DummyCheckbox)
+    monkeypatch.setattr(app_module.widgets, "ToggleButtons", DummyToggleButtons)
+    monkeypatch.setattr(app_module.widgets, "Button", DummyButton)
+    monkeypatch.setattr(app_module.widgets, "Label", DummyLabel)
+    monkeypatch.setattr(app_module.widgets, "VBox", DummyBox)
+    monkeypatch.setattr(app_module.widgets, "HBox", DummyBox)
+    monkeypatch.setattr(app_module.widgets, "Output", DummyOutput)
+    monkeypatch.setattr(app_module.widgets, "FloatText", DummyFloatText)
+    monkeypatch.setattr(app_module.widgets, "BoundedFloatText", DummyBoundedFloatText)
+    monkeypatch.setattr(app_module.widgets, "IntText", DummyBoundedIntText)
+    monkeypatch.setattr(app_module.widgets, "BoundedIntText", DummyBoundedIntText)
+    monkeypatch.setattr(app_module.widgets, "IntSlider", DummyBoundedIntText)
+    monkeypatch.setattr(app_module.widgets, "FloatSlider", DummyFloatSlider)
+    monkeypatch.setattr(app_module.widgets, "SelectMultiple", DummyDropdown)
+
+    store = ParamStore()
+    store.cfg = {"output": {"format": "excel", "path": str(tmp_path / "out")}}
+    monkeypatch.setattr(app_module, "load_state", lambda: store)
+
+    sample_split = {
+        "in_start": "2021-01",
+        "in_end": "2021-06",
+        "out_start": "2021-07",
+        "out_end": "2021-12",
+    }
+
+    monkeypatch.setattr(
+        app_module,
+        "build_config_from_store",
+        lambda store_obj: SimpleNamespace(
+            output=store_obj.cfg.get("output", {}), sample_split=sample_split
+        ),
+    )
+
+    run_calls: list[object] = []
+    monkeypatch.setattr(app_module.pipeline, "run", lambda cfg: run_calls.append(cfg) or pd.DataFrame())
+    monkeypatch.setattr(
+        app_module.pipeline,
+        "run_full",
+        lambda cfg: pytest.fail("run_full should not execute"),
+    )
+    saved: list[ParamStore] = []
+    monkeypatch.setattr(app_module, "save_state", lambda store_obj: saved.append(store_obj))
+
+    container = app_module.launch()
+    _, _, _, _, _, _, _, _, _, _, run_btn = container.children
+
+    run_btn.click()
+
+    assert run_calls, "Expected pipeline.run to be invoked"
+    assert saved == [], "save_state should not be called when metrics are empty"
+    assert store.cfg["output"]["format"] == "excel"
