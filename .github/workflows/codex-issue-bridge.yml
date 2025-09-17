@@ -81,9 +81,9 @@ jobs:
             let mode = 'invite';
             let reason = 'issues-event-enforced';
             if (ev === 'workflow_dispatch') {
-              const inputMode = (context.payload.inputs && context.payload.inputs.pr_mode) || 'create';
-              const normalizedMode = String(inputMode).toLowerCase();
-              mode = (normalizedMode === 'invite' || normalizedMode === 'create') ? normalizedMode : 'create';
+              const im = (context.payload.inputs && context.payload.inputs.pr_mode) || 'create';
+              const m = String(im).toLowerCase();
+              mode = (m === 'invite' || m === 'create') ? m : 'create';
               reason = 'workflow-dispatch';
             }
             core.setOutput('mode', mode);
