@@ -179,6 +179,11 @@ def test_manual_override_grid_updates_state(monkeypatch):
     assert store.cfg["portfolio"]["custom_weights"]["FundA"] == pytest.approx(1.75)
     assert grid.df.loc[0, "Weight"] == pytest.approx(1.75)
     assert store.dirty is True
+
+    store.dirty = False
+    callback({"row": 0, "column": 2, "new": "-0.5"})
+    assert store.cfg["portfolio"]["custom_weights"]["FundA"] == pytest.approx(1.75)
+    assert store.dirty is False
     assert widget.layout.display == "none"
 
 

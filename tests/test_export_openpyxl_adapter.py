@@ -366,6 +366,53 @@ def test_export_to_excel_populates_proxy_with_renamed_sheets(monkeypatch, tmp_pa
     assert summary_ws.title == "summary"
     export.reset_formatters_excel()
 
+
+def test_export_to_excel_strips_temp_sheet_key(monkeypatch, tmp_path):
+    utils_mod = SimpleNamespace(
+        get_column_letter=lambda idx: chr(ord("A") + idx - 1)
+    )
+    monkeypatch.setitem(sys.modules, "openpyxl", SimpleNamespace(utils=utils_mod))
+    monkeypatch.setitem(sys.modules, "openpyxl.utils", utils_mod)
+
+    class DummyWriter:
+        def __init__(self) -> None:
+            self.book = DummyWorkbook()
+            self.sheets: dict[str, object] = {"Sheet": object()}
+            self.engine = "openpyxl"
+
+        def __enter__(self) -> "DummyWriter":
+            return self
+
+        def __exit__(self, exc_type, exc, tb) -> None:  # noqa: D401
+            return None
+
+    created: list[DummyWriter] = []
+
+    def fake_excel_writer(path, engine=None):  # noqa: ARG001
+        writer = DummyWriter()
+        created.append(writer)
+        return writer
+
+    monkeypatch.setattr(pd, "ExcelWriter", fake_excel_writer)
+
+    def fake_to_excel(self, writer, sheet_name, index=False, **_: object) -> None:  # noqa: ARG002
+        ws = DummyWorksheet("Temp")
+        writer.book.worksheets.append(ws)
+        writer.sheets[sheet_name] = ws
+        writer.sheets["Temp"] = ws
+
+    monkeypatch.setattr(pd.DataFrame, "to_excel", fake_to_excel, raising=False)
+
+    df = pd.DataFrame({"value": [1]})
+    out = tmp_path / "strip.xlsx"
+    export.export_to_excel({"summary": df}, out)
+
+    assert created, "Writer should be instantiated"
+    writer = created[0]
+    assert "Temp" not in writer.sheets
+    assert "summary" in writer.sheets
+    assert writer.book.worksheets[-1].title == "summary"
+
 def test_flat_frames_from_results_collects_changes(monkeypatch):
     frames = pd.Series([1.0], name="value").to_frame()
     dummy_frames = {
