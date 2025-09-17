@@ -241,10 +241,10 @@ def test_export_data_all_formats_content(tmp_path):
     assert txt_path.exists()
 
     pd.testing.assert_frame_equal(pd.read_csv(csv_path), df, check_dtype=False)
-    excel_reader = pd.ExcelFile(xlsx_path)
-    first_sheet = excel_reader.sheet_names[0]
+    # Use engine="openpyxl" for explicit Excel reading, and access the expected sheet by name.
+    excel_reader = pd.ExcelFile(xlsx_path, engine="openpyxl")
     pd.testing.assert_frame_equal(
-        excel_reader.parse(first_sheet), df, check_dtype=False
+        excel_reader.parse("sheet"), df, check_dtype=False
     )
     with open(json_path) as f:
         json_data = json.load(f)
