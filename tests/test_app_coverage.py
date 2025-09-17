@@ -911,6 +911,10 @@ def test_build_step0_datagrid_callbacks(monkeypatch, tmp_path):
     template, upload, grid, buttons = container.children
     save_btn, download_btn = buttons.children
 
+    # Column other than value column should be ignored by the handler
+    grid.callbacks["cell_edited"]({"column": 0, "row": 0, "new": "ignored"})
+    assert store.cfg == {"alpha": 1}
+
     grid.callbacks["cell_edited"]({"column": 1, "row": 0, "new": "2"})
     assert store.cfg["alpha"] == 2 and store.dirty
 
@@ -931,6 +935,44 @@ def test_build_step0_datagrid_callbacks(monkeypatch, tmp_path):
     download_path = app_module.STATE_FILE.with_name("config_download.yml")
     assert download_path.exists()
     assert display_calls == [f"link:{download_path}"]
+
+
+def test_build_step0_datagrid_missing_on(monkeypatch, tmp_path):
+    """If DataGrid lacks an ``on`` handler the code should degrade gracefully."""
+
+    class GridNoOn(FakeDataGrid):
+        def on(self, *args, **kwargs):
+            raise AttributeError("no handler")
+
+    monkeypatch.setattr(app_module, "HAS_DATAGRID", True)
+    monkeypatch.setattr(app_module, "DataGrid", GridNoOn)
+    monkeypatch.setattr(app_module, "list_builtin_cfgs", lambda: ["demo"])
+    monkeypatch.setattr(app_module, "STATE_FILE", tmp_path / "state.yml")
+    monkeypatch.setattr(app_module, "WEIGHT_STATE_FILE", tmp_path / "weights.pkl")
+
+    monkeypatch.setattr(app_module, "reset_weight_state", lambda store: None)
+    monkeypatch.setattr(app_module, "save_state", lambda store: None)
+    monkeypatch.setattr(app_module, "FileLink", lambda path: path)
+    monkeypatch.setattr(app_module, "display", lambda obj: obj)
+
+    cfg_dir = tmp_path / "cfg"
+    cfg_dir.mkdir()
+    (cfg_dir / "demo.yml").write_text("alpha: 1\n")
+    monkeypatch.setattr(app_module, "_find_config_directory", lambda: cfg_dir)
+
+    monkeypatch.setattr(app_module.widgets, "FileUpload", DummyFileUpload)
+    monkeypatch.setattr(app_module.widgets, "Dropdown", DummyDropdown)
+    monkeypatch.setattr(app_module.widgets, "Label", DummyLabel)
+    monkeypatch.setattr(app_module.widgets, "Button", DummyButton)
+    monkeypatch.setattr(app_module.widgets, "VBox", DummyBox)
+    monkeypatch.setattr(app_module.widgets, "HBox", DummyBox)
+
+    store = ParamStore()
+    store.cfg = {"alpha": 1}
+
+    # Should not raise even though GridNoOn.on raises AttributeError
+    container = app_module._build_step0(store)
+    assert isinstance(container, DummyBox)
 
 
 def test_build_rank_options_observers(monkeypatch):
