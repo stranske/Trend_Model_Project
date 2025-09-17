@@ -167,7 +167,8 @@ def test_main_runs_and_surfaces_fallback(monkeypatch: pytest.MonkeyPatch) -> Non
 
 
 def test_main_handles_non_iterable_session_state() -> None:
-    """The page should fall back to attribute access when session_state misbehaves."""
+    """The page should fall back to attribute access when session_state
+    misbehaves."""
 
     class NonIterableState:
         def __init__(self, returns_df: pd.DataFrame, sim_config: dict[str, object]):
@@ -228,7 +229,8 @@ def test_main_handles_non_iterable_session_state() -> None:
 
 
 def test_main_uses_default_weighting_when_portfolio_missing() -> None:
-    """cfg_get should fall back to defaults when both get and item access fail."""
+    """cfg_get should fall back to defaults when both get and item access
+    fail."""
 
     class PortfolioFault(dict):
         def get(self, key: str, default: object | None = None) -> object | None:
