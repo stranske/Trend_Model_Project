@@ -25,7 +25,7 @@ import pandas as pd
 from ..constants import NUMERICAL_TOLERANCE_HIGH
 from ..core.rank_selection import ASCENDING_METRICS
 from ..data import load_csv
-from ..pipeline import _run_analysis
+from ..pipeline import _run_analysis, _resolve_weight_engine_params
 from ..rebalancing import apply_rebalancing_strategies
 from ..weighting import (
     AdaptiveBayesWeighting,
@@ -282,6 +282,11 @@ def run(
         if df is None:
             raise FileNotFoundError(csv_path)
 
+    weighting_scheme = cfg.portfolio.get("weighting_scheme")
+    weight_engine_params = _resolve_weight_engine_params(
+        weighting_scheme, cfg.portfolio
+    )
+
     # If policy is not threshold-hold, use the Phase‑1 style per-period runs.
     if str(cfg.portfolio.get("policy", "").lower()) != "threshold_hold":
         periods = generate_periods(cfg.model_dump())
@@ -303,6 +308,8 @@ def run(
                 indices_list=cfg.portfolio.get("indices_list"),
                 benchmarks=cfg.benchmarks,
                 seed=getattr(cfg, "seed", 42),
+                weighting_scheme=weighting_scheme,
+                weight_engine_params=weight_engine_params,
             )
             if res is None:
                 continue
@@ -808,6 +815,8 @@ def run(
             indices_list=cfg.portfolio.get("indices_list"),
             benchmarks=cfg.benchmarks,
             seed=getattr(cfg, "seed", 42),
+            weighting_scheme=weighting_scheme,
+            weight_engine_params=weight_engine_params,
         )
         if res is None:
             continue

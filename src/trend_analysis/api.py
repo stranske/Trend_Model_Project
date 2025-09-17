@@ -14,7 +14,7 @@ if TYPE_CHECKING:  # pragma: no cover - for static type checking only
 else:  # Runtime: avoid importing typing-only names
     from typing import Any as ConfigType
 
-from .pipeline import _run_analysis
+from .pipeline import _run_analysis, _resolve_weight_engine_params
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +78,11 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
             risk_free=0.0,
         )
 
+    weighting_scheme = config.portfolio.get("weighting_scheme", "equal")
+    weight_engine_params = _resolve_weight_engine_params(
+        weighting_scheme, config.portfolio
+    )
+
     res = _run_analysis(
         returns,
         str(split.get("in_start")),
@@ -94,9 +99,10 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         indices_list=config.portfolio.get("indices_list"),
         benchmarks=config.benchmarks,
         seed=seed,
-        weighting_scheme=config.portfolio.get("weighting_scheme", "equal"),
+        weighting_scheme=weighting_scheme,
         constraints=config.portfolio.get("constraints"),
         stats_cfg=stats_cfg,
+        weight_engine_params=weight_engine_params,
     )
     if res is None:
         logger.warning("run_simulation produced no result")

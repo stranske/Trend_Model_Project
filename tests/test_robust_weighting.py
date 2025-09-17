@@ -177,6 +177,26 @@ class TestRobustMeanVariance:
         log_messages = [record.message for record in caplog.records]
         assert any("shrinkage" in msg.lower() for msg in log_messages)
 
+    def test_last_run_info_safe_mode_metadata(self):
+        """Safe mode runs should expose diagnostics via last_run_info."""
+        cov = create_ill_conditioned_cov()
+        engine = create_weight_engine(
+            "robust_mv",
+            condition_threshold=1.0,
+            log_method_switches=True,
+            log_condition_numbers=True,
+        )
+
+        weights = engine.weight(cov)
+
+        info = engine.last_run_info
+        assert info is not None
+        assert info["selected_method"] == "safe_mode"
+        assert info["method"] == "hrp"
+        assert info["reason"] == "condition_number_exceeded"
+        assert isinstance(info["condition_number"], float)
+        assert info["weights_index"] == list(weights.index)
+
 
 class TestRobustRiskParity:
     """Tests for RobustRiskParity weight engine."""
@@ -230,6 +250,22 @@ class TestRobustRiskParity:
 
         assert weights.empty
         assert len(weights) == 0
+
+    def test_last_run_info_records_condition(self):
+        """Risk parity diagnostics include condition number metadata."""
+        cov = create_well_conditioned_cov()
+        engine = create_weight_engine(
+            "robust_risk_parity", log_condition_numbers=True
+        )
+
+        weights = engine.weight(cov)
+
+        info = engine.last_run_info
+        assert info is not None
+        assert info["selected_method"] == "risk_parity"
+        assert info["reason"] == "condition_number_within_threshold"
+        assert isinstance(info["condition_number"], float)
+        assert info["weights_index"] == list(weights.index)
 
 
 class TestShrinkageFunctions:

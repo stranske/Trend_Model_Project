@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Mapping, cast
 
 import numpy as np
 import pandas as pd
@@ -44,6 +44,103 @@ def calc_portfolio_returns(
 ) -> pd.Series:
     """Calculate weighted portfolio returns."""
     return returns_df.mul(weights, axis=1).sum(axis=1)
+
+
+def _as_mapping(value: Any) -> Mapping[str, Any] | None:
+    return value if isinstance(value, Mapping) else None
+
+
+def _resolve_weight_engine_params(
+    weighting_scheme: str | None, portfolio_cfg: Mapping[str, Any] | None
+) -> dict[str, Any] | None:
+    """Derive weight-engine parameters from portfolio robustness settings."""
+
+    if not weighting_scheme or not portfolio_cfg:
+        return None
+
+    scheme = weighting_scheme.lower()
+    params: dict[str, Any] = {}
+
+    extra_params = _as_mapping(portfolio_cfg.get("weight_engine_params"))
+    if extra_params:
+        params.update({k: v for k, v in extra_params.items()})
+
+    robust_cfg = _as_mapping(portfolio_cfg.get("robustness"))
+    if not robust_cfg:
+        return params or None
+
+    shrink_cfg = _as_mapping(robust_cfg.get("shrinkage"))
+    cond_cfg = _as_mapping(robust_cfg.get("condition_check"))
+    log_cfg = _as_mapping(robust_cfg.get("logging"))
+
+    if scheme in {"robust_mv", "robust_mean_variance"}:
+        method: str | None = None
+        if shrink_cfg:
+            if not shrink_cfg.get("enabled", True):
+                method = "none"
+            else:
+                method = str(shrink_cfg.get("method", "ledoit_wolf"))
+        elif "shrinkage_method" not in params:
+            method = "ledoit_wolf"
+        if method and "shrinkage_method" not in params:
+            params["shrinkage_method"] = method
+
+        if cond_cfg:
+            if not cond_cfg.get("enabled", True):
+                params.setdefault("condition_threshold", float("inf"))
+            else:
+                if "threshold" in cond_cfg:
+                    params.setdefault(
+                        "condition_threshold", float(cond_cfg["threshold"])
+                    )
+                if "safe_mode" in cond_cfg:
+                    params.setdefault("safe_mode", str(cond_cfg["safe_mode"]))
+                if "diagonal_loading_factor" in cond_cfg:
+                    params.setdefault(
+                        "diagonal_loading_factor",
+                        float(cond_cfg["diagonal_loading_factor"]),
+                    )
+
+        if log_cfg:
+            if "log_method_switches" in log_cfg:
+                params.setdefault(
+                    "log_method_switches", bool(log_cfg["log_method_switches"])
+                )
+            if "log_shrinkage_intensity" in log_cfg:
+                params.setdefault(
+                    "log_shrinkage_intensity",
+                    bool(log_cfg["log_shrinkage_intensity"]),
+                )
+            if "log_condition_numbers" in log_cfg:
+                params.setdefault(
+                    "log_condition_numbers", bool(log_cfg["log_condition_numbers"])
+                )
+
+    elif scheme == "robust_risk_parity":
+        if cond_cfg:
+            if not cond_cfg.get("enabled", True):
+                params.setdefault("condition_threshold", float("inf"))
+            else:
+                if "threshold" in cond_cfg:
+                    params.setdefault(
+                        "condition_threshold", float(cond_cfg["threshold"])
+                    )
+                if "diagonal_loading_factor" in cond_cfg:
+                    params.setdefault(
+                        "diagonal_loading_factor",
+                        float(cond_cfg["diagonal_loading_factor"]),
+                    )
+        if log_cfg:
+            if "log_method_switches" in log_cfg:
+                params.setdefault(
+                    "log_method_switches", bool(log_cfg["log_method_switches"])
+                )
+            if "log_condition_numbers" in log_cfg:
+                params.setdefault(
+                    "log_condition_numbers", bool(log_cfg["log_condition_numbers"])
+                )
+
+    return params or None
 
 
 def single_period_run(
@@ -140,6 +237,7 @@ def _run_analysis(
     stats_cfg: "RiskStatsConfig" | None = None,
     weighting_scheme: str | None = None,
     constraints: dict[str, Any] | None = None,
+    weight_engine_params: dict[str, Any] | None = None,
 ) -> dict[str, object] | None:
     from .core.rank_selection import RiskStatsConfig, rank_select_funds
 
@@ -277,6 +375,7 @@ def _run_analysis(
     # Track whether a plugin engine failed so downstream (CLI/UI) can surface
     # a single prominent warning.  Store minimal structured info.
     weight_engine_fallback: dict[str, str] | None = None
+    weight_engine_info: dict[str, Any] | None = None
     if (
         custom_weights is None
         and weighting_scheme
@@ -286,8 +385,15 @@ def _run_analysis(
             from .plugins import create_weight_engine
 
             cov = in_df[fund_cols].cov()
-            engine = create_weight_engine(weighting_scheme.lower())
+            params = dict(weight_engine_params) if weight_engine_params else {}
+            if params:
+                engine = create_weight_engine(weighting_scheme.lower(), **params)
+            else:
+                engine = create_weight_engine(weighting_scheme.lower())
             w_series = engine.weight(cov).reindex(fund_cols).fillna(0.0)
+            info = getattr(engine, "last_run_info", None)
+            if isinstance(info, dict):
+                weight_engine_info = dict(info)
             # Convert to percent mapping expected by downstream logic
             custom_weights = {c: float(w_series.get(c, 0.0) * 100.0) for c in fund_cols}
             # Ensure debug logs are emitted even if previous tests altered the logger's
@@ -424,6 +530,7 @@ def _run_analysis(
         "benchmark_ir": benchmark_ir,
         "score_frame": score_frame,
         "weight_engine_fallback": weight_engine_fallback,
+        "weight_engine_diagnostics": weight_engine_info,
     }
 
 
@@ -446,6 +553,7 @@ def run_analysis(
     stats_cfg: "RiskStatsConfig" | None = None,
     weighting_scheme: str | None = None,
     constraints: dict[str, Any] | None = None,
+    weight_engine_params: dict[str, Any] | None = None,
 ) -> dict[str, object] | None:
     """Backward-compatible wrapper around ``_run_analysis``."""
     return _run_analysis(
@@ -467,6 +575,7 @@ def run_analysis(
         stats_cfg,
         weighting_scheme,
         constraints,
+        weight_engine_params,
     )
 
 
@@ -491,6 +600,11 @@ def run(cfg: Config) -> pd.DataFrame:
             risk_free=0.0,
         )
 
+    weighting_scheme = cfg.portfolio.get("weighting_scheme")
+    weight_engine_params = _resolve_weight_engine_params(
+        weighting_scheme, cfg.portfolio
+    )
+
     res = _run_analysis(
         df,
         cast(str, split.get("in_start")),
@@ -509,7 +623,8 @@ def run(cfg: Config) -> pd.DataFrame:
         seed=getattr(cfg, "seed", 42),
         constraints=cfg.portfolio.get("constraints"),
         stats_cfg=stats_cfg,
-        weighting_scheme=cfg.portfolio.get("weighting_scheme"),
+        weighting_scheme=weighting_scheme,
+        weight_engine_params=weight_engine_params,
     )
     if res is None:
         return pd.DataFrame()
@@ -550,6 +665,11 @@ def run_full(cfg: Config) -> dict[str, object]:
             risk_free=0.0,
         )
 
+    weighting_scheme = cfg.portfolio.get("weighting_scheme", "equal")
+    weight_engine_params = _resolve_weight_engine_params(
+        weighting_scheme, cfg.portfolio
+    )
+
     res = _run_analysis(
         df,
         cast(str, split.get("in_start")),
@@ -566,9 +686,10 @@ def run_full(cfg: Config) -> dict[str, object]:
         indices_list=cfg.portfolio.get("indices_list"),
         benchmarks=cfg.benchmarks,
         seed=getattr(cfg, "seed", 42),
-        weighting_scheme=cfg.portfolio.get("weighting_scheme", "equal"),
+        weighting_scheme=weighting_scheme,
         constraints=cfg.portfolio.get("constraints"),
         stats_cfg=stats_cfg,
+        weight_engine_params=weight_engine_params,
     )
     return {} if res is None else res
 

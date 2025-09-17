@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Literal
+from typing import Any, Dict, Literal, Optional
 
 import numpy as np
 import pandas as pd
@@ -128,6 +128,9 @@ class RobustMeanVariance(WeightEngine):
         diagonal_loading_factor: float = 1e-6,
         min_weight: float = 0.0,
         max_weight: float = 1.0,
+        log_condition_numbers: bool = False,
+        log_shrinkage_intensity: bool = False,
+        log_method_switches: bool = False,
     ) -> None:
         """Initialize robust mean-variance optimizer.
 
@@ -138,6 +141,9 @@ class RobustMeanVariance(WeightEngine):
             diagonal_loading_factor: Factor for diagonal loading regularization
             min_weight: Minimum weight constraint
             max_weight: Maximum weight constraint
+            log_condition_numbers: Promote condition number messages to INFO.
+            log_shrinkage_intensity: Promote shrinkage logs to INFO.
+            log_method_switches: Emit INFO logs describing method selection.
         """
         self.shrinkage_method = shrinkage_method
         self.condition_threshold = float(condition_threshold)
@@ -145,6 +151,18 @@ class RobustMeanVariance(WeightEngine):
         self.diagonal_loading_factor = float(diagonal_loading_factor)
         self.min_weight = float(min_weight)
         self.max_weight = float(max_weight)
+        self.log_condition_numbers = bool(log_condition_numbers)
+        self.log_shrinkage_intensity = bool(log_shrinkage_intensity)
+        self.log_method_switches = bool(log_method_switches)
+        self.last_run_info: Optional[Dict[str, Any]] = None
+
+    def _log_condition(self, condition_number: float) -> None:
+        level = logging.INFO if self.log_condition_numbers else logging.DEBUG
+        logger.log(level, f"Covariance matrix condition number: {condition_number:.2e}")
+
+    def _log_shrinkage(self, message: str) -> None:
+        level = logging.INFO if self.log_shrinkage_intensity else logging.DEBUG
+        logger.log(level, message)
 
     def _check_condition_number(self, cov: np.ndarray) -> float:
         """Compute condition number of covariance matrix."""
@@ -166,14 +184,16 @@ class RobustMeanVariance(WeightEngine):
         elif self.shrinkage_method == "ledoit_wolf":
             shrunk_cov, intensity = ledoit_wolf_shrinkage(cov)
             shrinkage_info["intensity"] = intensity
-            logger.debug(
+            self._log_shrinkage(
                 f"Applied Ledoit-Wolf shrinkage with intensity {intensity:.4f}"
             )
             return shrunk_cov, shrinkage_info
         elif self.shrinkage_method == "oas":
             shrunk_cov, intensity = oas_shrinkage(cov)
             shrinkage_info["intensity"] = intensity
-            logger.debug(f"Applied OAS shrinkage with intensity {intensity:.4f}")
+            self._log_shrinkage(
+                f"Applied OAS shrinkage with intensity {intensity:.4f}"
+            )
             return shrunk_cov, shrinkage_info
         else:
             raise ValueError(f"Unknown shrinkage method: {self.shrinkage_method}")
@@ -234,6 +254,7 @@ class RobustMeanVariance(WeightEngine):
         if not cov.index.equals(cov.columns):
             raise ValueError("Covariance matrix must be square with matching labels")
 
+        self.last_run_info = None
         # Apply shrinkage
         shrunk_cov_array, shrinkage_info = self._apply_shrinkage(cov.values)
         shrunk_cov = pd.DataFrame(
@@ -242,21 +263,62 @@ class RobustMeanVariance(WeightEngine):
 
         # Check condition number
         condition_num = self._check_condition_number(shrunk_cov_array)
+        self._log_condition(condition_num)
 
-        logger.debug(f"Covariance matrix condition number: {condition_num:.2e}")
+        run_info: Dict[str, Any] = {
+            "engine": "robust_mean_variance",
+            "condition_number": float(condition_num),
+            "condition_threshold": float(self.condition_threshold),
+            "safe_mode": self.safe_mode,
+            "shrinkage": shrinkage_info,
+        }
 
         if condition_num > self.condition_threshold:
-            logger.warning(
-                f"Ill-conditioned covariance matrix (condition number: {condition_num:.2e} > "
-                f"threshold: {self.condition_threshold:.2e}). Switching to safe mode: {self.safe_mode}"
+            message = (
+                "Ill-conditioned covariance matrix (condition number: "
+                f"{condition_num:.2e} > threshold: {self.condition_threshold:.2e}). "
+                f"Switching to safe mode: {self.safe_mode}"
             )
-            return self._safe_mode_weights(cov)
+            if self.log_method_switches:
+                logger.info(message)
+            else:
+                logger.warning(message)
+            run_info.update(
+                {
+                    "selected_method": "safe_mode",
+                    "method": str(self.safe_mode),
+                    "reason": "condition_number_exceeded",
+                }
+            )
+            weights = self._safe_mode_weights(cov)
+            run_info["weights_index"] = list(weights.index)
+            self.last_run_info = run_info
+            return weights
 
         # Use normal mean-variance optimization
-        logger.debug(
-            f"Using mean-variance optimization with {self.shrinkage_method} shrinkage"
+        if self.log_method_switches:
+            logger.info(
+                "Using mean-variance optimization with %s shrinkage (condition number "
+                "%.2e ≤ threshold %.2e)",
+                self.shrinkage_method,
+                condition_num,
+                self.condition_threshold,
+            )
+        else:
+            logger.debug(
+                "Using mean-variance optimization with %s shrinkage", self.shrinkage_method
+            )
+        run_info.update(
+            {
+                "selected_method": "mean_variance",
+                "method": "mean_variance",
+                "reason": "condition_number_within_threshold",
+            }
         )
-        return self._mean_variance_weights(shrunk_cov)
+        weights = self._mean_variance_weights(shrunk_cov)
+        run_info["weights_index"] = list(weights.index)
+        self.last_run_info = run_info
+        return weights
 
 
 @weight_engine_registry.register("robust_risk_parity")
@@ -268,15 +330,22 @@ class RobustRiskParity(WeightEngine):
         *,
         condition_threshold: float = 1e12,
         diagonal_loading_factor: float = 1e-6,
+        log_condition_numbers: bool = False,
+        log_method_switches: bool = False,
     ) -> None:
         """Initialize robust risk parity.
 
         Args:
             condition_threshold: Maximum allowed condition number
             diagonal_loading_factor: Factor for diagonal loading when needed
+            log_condition_numbers: Promote condition logs to INFO level.
+            log_method_switches: Emit INFO logs when applying diagonal loading.
         """
         self.condition_threshold = float(condition_threshold)
         self.diagonal_loading_factor = float(diagonal_loading_factor)
+        self.log_condition_numbers = bool(log_condition_numbers)
+        self.log_method_switches = bool(log_method_switches)
+        self.last_run_info: Optional[Dict[str, Any]] = None
 
     def weight(self, cov: pd.DataFrame) -> pd.Series:
         """Compute risk parity weights with robustness checks."""
@@ -288,6 +357,13 @@ class RobustRiskParity(WeightEngine):
 
         # Check for problematic values
         cov_array = cov.values
+        self.last_run_info = {
+            "engine": "robust_risk_parity",
+            "condition_threshold": float(self.condition_threshold),
+            "diagonal_loading_factor": float(self.diagonal_loading_factor),
+        }
+
+        info = self.last_run_info
 
         # Check for non-positive diagonal elements
         diag_vals = np.diag(cov_array)
@@ -296,16 +372,40 @@ class RobustRiskParity(WeightEngine):
                 "Non-positive diagonal elements detected. Applying diagonal loading."
             )
             cov_array = diagonal_loading(cov_array, self.diagonal_loading_factor)
+            info.update(
+                {
+                    "selected_method": "diagonal_loading",
+                    "reason": "non_positive_diagonal",
+                }
+            )
 
         # Check condition number
         condition_num = np.linalg.cond(cov_array)
+        level = logging.INFO if self.log_condition_numbers else logging.DEBUG
+        logger.log(level, f"Risk parity covariance condition number: {condition_num:.2e}")
 
         if condition_num > self.condition_threshold:
-            logger.warning(
-                f"Ill-conditioned covariance matrix (condition number: {condition_num:.2e}). "
-                f"Applying diagonal loading."
+            message = (
+                "Ill-conditioned covariance matrix (condition number: "
+                f"{condition_num:.2e} > threshold: {self.condition_threshold:.2e}). "
+                "Applying diagonal loading."
             )
+            if self.log_method_switches:
+                logger.info(message)
+            else:
+                logger.warning(message)
             cov_array = diagonal_loading(cov_array, self.diagonal_loading_factor)
+            info.update(
+                {
+                    "selected_method": "diagonal_loading",
+                    "reason": "condition_number_exceeded",
+                }
+            )
+        else:
+            info.setdefault("selected_method", "risk_parity")
+            info.setdefault("reason", "condition_number_within_threshold")
+
+        info["condition_number"] = float(condition_num)
 
         # Compute inverse volatility weights
         std_devs = np.sqrt(np.diag(cov_array))
@@ -318,4 +418,8 @@ class RobustRiskParity(WeightEngine):
         weights = inv_vol / np.sum(inv_vol)
 
         logger.debug("Successfully computed robust risk parity weights")
+        info.setdefault("selected_method", "risk_parity")
+        info.setdefault("reason", "condition_number_within_threshold")
+        info["weights_index"] = list(cov.index)
+        self.last_run_info = info
         return pd.Series(weights, index=cov.index)

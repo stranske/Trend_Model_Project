@@ -117,6 +117,7 @@ def test_run_simulation_populates_metrics_and_fallback(monkeypatch):
     stats_kwargs = captured["risk_stats_calls"][0]
     assert stats_kwargs["metrics_to_run"] == [value.upper() for value in metrics_list]
     assert stats_kwargs["risk_free"] == 0.0
+    assert kwargs["weight_engine_params"] is None
 
     # Metrics are built from the stats mapping and benchmark IR data.
     assert set(result.metrics.index) == {"FundA", "FundB"}

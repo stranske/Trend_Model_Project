@@ -179,3 +179,33 @@ def test_weight_engine_equal_scheme_no_logging(caplog):
     ]
     weight_logs = [log for log in debug_logs if "weight engine" in log.message.lower()]
     assert len(weight_logs) == 0
+
+
+def test_weight_engine_diagnostics_safe_mode(caplog):
+    """Diagnostics include safe-mode metadata when triggered."""
+    df = make_df()
+
+    with caplog.at_level(logging.INFO):
+        result = pipeline._run_analysis(
+            df,
+            "2020-01",
+            "2020-03",
+            "2020-04",
+            "2020-06",
+            target_vol=1.0,
+            monthly_cost=0.0,
+            weighting_scheme="robust_mv",
+            weight_engine_params={
+                "condition_threshold": 1.0,
+                "log_method_switches": True,
+                "log_condition_numbers": True,
+            },
+        )
+
+    assert result is not None
+    diagnostics = result.get("weight_engine_diagnostics")
+    assert diagnostics is not None
+    assert diagnostics["selected_method"] == "safe_mode"
+    assert diagnostics["method"] == "hrp"
+    assert diagnostics["reason"] == "condition_number_exceeded"
+    assert any("Switching to safe mode" in rec.message for rec in caplog.records)
