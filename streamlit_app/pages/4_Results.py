@@ -156,7 +156,7 @@ with st.expander("Run walk-forward (rolling OOS) analysis"):
                             key="wf_regime_column",
                         )
                         regimes = reg_df.set_index(date_col)[regime_col]
-                    except Exception as exc:  # pragma: no cover - streamlit UI feedback
+                    except (pd.errors.EmptyDataError, ValueError, FileNotFoundError) as exc:  # pragma: no cover - streamlit UI feedback
                         regime_error = str(exc)
                         regimes = None
                 else:
