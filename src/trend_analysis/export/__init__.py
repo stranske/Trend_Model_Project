@@ -9,9 +9,11 @@ from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, cast
 
 try:  # Optional openpyxl for richer typing; not required at runtime.
+    from openpyxl.utils import get_column_letter
     from openpyxl.worksheet.worksheet import Worksheet
 except Exception:  # pragma: no cover - openpyxl not installed
     Worksheet = Any  # fallback alias used when openpyxl is absent
+    get_column_letter = None
 
 import numpy as np
 import pandas as pd
@@ -22,6 +24,225 @@ Formatter = Callable[[pd.DataFrame], pd.DataFrame]
 
 
 FORMATTERS_EXCEL: dict[str, Callable[[Any, Any], None]] = {}
+
+_OPENPYXL_COLOR_MAP = {
+    "red": "FFFF0000",
+}
+
+
+def _normalise_color(value: Any) -> str | None:
+    """Return an ARGB hex colour string understood by openpyxl."""
+
+    if not isinstance(value, str):
+        return None
+    stripped = value.strip()
+    if not stripped:
+        return None
+    mapped = _OPENPYXL_COLOR_MAP.get(stripped.lower())
+    if mapped:
+        return mapped
+    if stripped.startswith("#"):
+        stripped = stripped[1:]
+    length = len(stripped)
+    if length == 6:
+        return f"FF{stripped.upper()}"
+    if length == 8:
+        return stripped.upper()
+    return None
+
+
+def _is_openpyxl_book(book: Any) -> bool:
+    """Return ``True`` when ``book`` looks like an openpyxl workbook."""
+
+    module = getattr(book.__class__, "__module__", "")
+    return module.startswith("openpyxl")
+
+
+def _maybe_remove_openpyxl_default_sheet(book: Any) -> str | None:
+    """Drop the empty default sheet created by openpyxl workbooks.
+
+    Returns the title of the removed sheet when a removal occurs so callers can
+    keep auxiliary mappings (e.g. :attr:`pandas.ExcelWriter.sheets`) in sync.
+    """
+
+    try:
+        worksheets = list(getattr(book, "worksheets", []))
+    except Exception:  # pragma: no cover - defensive guard
+        return None
+    if len(worksheets) != 1:
+        return None
+    ws = worksheets[0]
+    title = getattr(ws, "title", "")
+    if title.lower() != "sheet":
+        return None
+    try:
+        cell = ws.cell(row=1, column=1)
+    except Exception:  # pragma: no cover - defensive guard
+        return None
+    if getattr(cell, "value", None) is None:
+        try:
+            book.remove(ws)
+            return title
+        except Exception:  # pragma: no cover - defensive guard
+            return None
+    return None
+
+
+class _OpenpyxlWorksheetProxy:
+    """Adapter exposing the subset of ``xlsxwriter`` APIs used by formatters."""
+
+    def __init__(self, ws: Any):
+        self._ws = ws
+
+    @property
+    def name(self) -> str:
+        return getattr(self._ws, "title", "")
+
+    def write(self, row: int, col: int, value: Any, fmt: Any | None = None) -> None:
+        cell = self._ws.cell(row=row + 1, column=col + 1)
+        cell.value = value
+        if fmt and isinstance(fmt, dict):
+            self._apply_format(cell, fmt)
+
+    def write_row(
+        self, row: int, col: int, data: Iterable[Any], fmt: Any | None = None
+    ) -> None:
+        for offset, value in enumerate(data):
+            self.write(row, col + offset, value, fmt)
+
+    def set_column(self, first_col: int, last_col: int, width: float) -> None:
+        if get_column_letter is None:
+            return
+        for col in range(first_col, last_col + 1):
+            letter = get_column_letter(col + 1)
+            dim = self._ws.column_dimensions[letter]
+            dim.width = width
+
+    def freeze_panes(self, row: int, col: int) -> None:
+        self._ws.freeze_panes = self._ws.cell(row=row + 1, column=col + 1)
+
+    def autofilter(self, fr: int, fc: int, lr: int, lc: int) -> None:
+        if get_column_letter is None:
+            return
+        start_col = get_column_letter(fc + 1)
+        end_col = get_column_letter(lc + 1)
+        self._ws.auto_filter.ref = f"{start_col}{fr + 1}:{end_col}{lr + 1}"
+
+    def _apply_format(self, cell: Any, fmt: Mapping[str, Any]) -> None:
+        if "num_format" in fmt:
+            num_format = fmt["num_format"]
+            if hasattr(cell, "number_format"):
+                cell.number_format = num_format
+        if "font_color" in fmt:
+            colour_hex = _normalise_color(fmt["font_color"])
+            if colour_hex:
+                font = getattr(cell, "font", None)
+                if font is not None and hasattr(font, "copy"):
+                    cell.font = font.copy(color=colour_hex)
+
+
+class _OpenpyxlWorkbookProxy:
+    """Expose workbook helpers expected by the registered formatters."""
+
+    def __init__(self, writer: Any):
+        self._writer = writer
+
+    @property
+    def _book(self) -> Any:
+        return self._writer.book
+
+    def add_format(self, spec: Mapping[str, Any]) -> Mapping[str, Any]:
+        # Formatting support is best-effort under openpyxl; return the spec so
+        # callers can still pass it back to ``write``.
+        return dict(spec)
+
+    def add_worksheet(self, name: str) -> _OpenpyxlWorksheetProxy:
+        book = self._book
+        removed = _maybe_remove_openpyxl_default_sheet(book)
+        if removed:
+            self._writer.sheets.pop(removed, None)
+        ws = book.create_sheet(title=name)
+        return _OpenpyxlWorksheetProxy(ws)
+
+    def __getattr__(self, name: str) -> Any:  # pragma: no cover - simple proxy
+        return getattr(self._book, name)
+
+
+class _OpenpyxlWorksheetAdapter:
+    """Lightweight adapter exposing a subset of the xlsxwriter worksheet API."""
+
+    __slots__ = ("_ws",)
+
+    def __init__(self, worksheet: Any) -> None:
+        self._ws = worksheet
+
+    @property
+    def native(self) -> Any:
+        return self._ws
+
+    def write(self, row: int, col: int, value: object, fmt: object | None = None) -> None:  # noqa: ARG002
+        # The `fmt` parameter is ignored because openpyxl's formatting model is
+        # different from xlsxwriter's, and this adapter does not support cell formatting.
+        self._ws.cell(row=row + 1, column=col + 1, value=value)
+
+    def write_row(
+        self, row: int, col: int, data: Iterable[object], fmt: object | None = None  # noqa: ARG002
+    ) -> None:
+        for offset, value in enumerate(data):
+            self.write(row, col + offset, value)
+
+    def set_column(self, first_col: int, last_col: int, width: float) -> None:
+        from openpyxl.utils import get_column_letter
+
+        for idx in range(first_col, last_col + 1):
+            letter = get_column_letter(idx + 1)
+            self._ws.column_dimensions[letter].width = width
+
+    def freeze_panes(self, row: int, col: int) -> None:
+        self._ws.freeze_panes = self._ws.cell(row=row + 1, column=col + 1)
+
+    def autofilter(self, fr: int, fc: int, lr: int, lc: int) -> None:
+        from openpyxl.utils import get_column_letter
+
+        start = f"{get_column_letter(fc + 1)}{fr + 1}"
+        end = f"{get_column_letter(lc + 1)}{lr + 1}"
+        self._ws.auto_filter.ref = f"{start}:{end}"
+
+
+class _OpenpyxlWorkbookAdapter:
+    """Adapter that exposes minimal workbook hooks expected by formatters."""
+
+    __slots__ = ("_wb",)
+
+    def __init__(self, workbook: Any) -> None:
+        self._wb = workbook
+        self._prune_default_sheet()
+
+    def _prune_default_sheet(self) -> None:
+        sheets = getattr(self._wb, "worksheets", [])
+        if len(sheets) == 1:
+            sheet = sheets[0]
+            title = getattr(sheet, "title", "")
+            value = sheet.cell(1, 1).value if hasattr(sheet, "cell") else None
+            if title == "Sheet" and value in (None, "") and hasattr(self._wb, "remove"):
+                self._wb.remove(sheet)
+
+    def add_worksheet(self, name: str) -> _OpenpyxlWorksheetAdapter:
+        ws = self._wb.create_sheet(title=name)
+        if getattr(ws, "title", name) != name:
+            ws.title = name
+        return _OpenpyxlWorksheetAdapter(ws)
+
+    def add_format(self, spec: Mapping[str, Any] | None) -> Mapping[str, Any]:
+        return dict(spec or {})
+
+    def rename_last_sheet(self, name: str) -> None:
+        sheets = getattr(self._wb, "worksheets", [])
+        if sheets:
+            sheets[-1].title = name
+
+    def __getattr__(self, attr: str) -> Any:
+        return getattr(self._wb, attr)
 
 
 def register_formatter_excel(
@@ -392,31 +613,86 @@ def export_to_excel(
             # backward compat
             df_formatter = None
 
+    workbook_adapter: _OpenpyxlWorkbookAdapter | None = None
     try:
         writer = pd.ExcelWriter(path, engine="xlsxwriter")
+        supports_custom = True
     except ModuleNotFoundError:
         # ``xlsxwriter`` is an optional dependency.  Fall back to the default
         # engine (typically ``openpyxl``) when it is unavailable so callers can
         # still export workbooks without installing the extra package.
         writer = pd.ExcelWriter(path)
+        book_any: Any = writer.book
+        supports_custom = all(
+            hasattr(book_any, attr) for attr in ("add_worksheet", "add_format")
+        )
+        if not supports_custom:
+            workbook_adapter = _OpenpyxlWorkbookAdapter(book_any)
+            supports_custom = True
 
     with writer:
+        book_any: Any = getattr(writer, "book", None)
+        engine_name = getattr(writer, "engine", None)
+        proxy: _OpenpyxlWorkbookProxy | None = None
+        supports_sheet_formatters = bool(
+            book_any and callable(getattr(book_any, "add_worksheet", None))
+        )
+        removed_title: str | None = None
+        if not supports_sheet_formatters:
+            if book_any is not None and _is_openpyxl_book(book_any):
+                removed_title = _maybe_remove_openpyxl_default_sheet(book_any)
+                if removed_title:
+                    writer.sheets.pop(removed_title, None)
+                proxy = _OpenpyxlWorkbookProxy(writer)
+                supports_sheet_formatters = True
+            elif engine_name == "openpyxl":
+                proxy = _OpenpyxlWorkbookProxy(writer)
+                supports_sheet_formatters = True
+            else:
+                proxy = None
+        else:
+            proxy = None
+        if proxy is not None:
+            pass
         # Iterate over frames and either let a registered sheet formatter
         # render the entire sheet (preferred), or fall back to writing the
         # DataFrame directly when no formatter is available.
         for sheet, df in data.items():
             fmt = FORMATTERS_EXCEL.get(sheet, default_sheet_formatter)
-            if fmt is not None:
-                # Create an empty worksheet and delegate full rendering
-                # xlsxwriter workbook object provides add_worksheet; cast for typing
-                book_any: Any = writer.book
-                add_ws = getattr(book_any, "add_worksheet")
-                ws = cast(Worksheet, add_ws(sheet))
-                writer.sheets[sheet] = ws
-                fmt(ws, writer.book)
+            if fmt is not None and supports_sheet_formatters:
+                if proxy is not None:
+                    ws_proxy = proxy.add_worksheet(sheet)
+                    writer.sheets[sheet] = ws_proxy._ws  # type: ignore[attr-defined]
+                    fmt(ws_proxy, proxy)
+                else:
+                    # Create an empty worksheet and delegate full rendering
+                    # xlsxwriter workbook object provides add_worksheet; cast for typing
+                    book_any = writer.book
+                    add_ws = getattr(book_any, "add_worksheet")
+                    ws = cast(Worksheet, add_ws(sheet))
+                    writer.sheets[sheet] = ws
+                    fmt(ws, writer.book)
             else:
+                if proxy is not None:
+                    removed = _maybe_remove_openpyxl_default_sheet(writer.book)
+                    if removed:
+                        writer.sheets.pop(removed, None)
                 formatted = _apply_format(df, df_formatter)
                 formatted.to_excel(writer, sheet_name=sheet, index=False)
+                if proxy is not None:
+                    try:
+                        ws_obj = writer.book[sheet]
+                    except KeyError:
+                        ws_obj = writer.book.worksheets[-1]
+                    current_title = getattr(ws_obj, "title", sheet)
+                    if current_title != sheet:
+                        try:
+                            ws_obj.title = sheet
+                        except Exception:  # pragma: no cover - best effort rename
+                            pass
+                        else:
+                            writer.sheets.pop(current_title, None)
+                    writer.sheets[sheet] = ws_obj
 
 
 def export_to_csv(

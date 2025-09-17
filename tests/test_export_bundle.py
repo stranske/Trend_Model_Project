@@ -1,8 +1,9 @@
 import json
+import sys
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -232,10 +233,37 @@ def test_export_data_all_formats_content(tmp_path):
     assert txt_path.exists()
 
     pd.testing.assert_frame_equal(pd.read_csv(csv_path), df, check_dtype=False)
-    pd.testing.assert_frame_equal(
-        pd.read_excel(xlsx_path, sheet_name="sheet"), df, check_dtype=False
-    )
+    pd.testing.assert_frame_equal(pd.read_excel(xlsx_path, sheet_name="sheet"), df, check_dtype=False)
     with open(json_path) as f:
         json_data = json.load(f)
     pd.testing.assert_frame_equal(pd.DataFrame(json_data), df, check_dtype=False)
     assert txt_path.read_text() == df.to_string(index=False)
+
+
+def test_export_bundle_env_version_fallback(monkeypatch, tmp_path):
+    """If importlib metadata lookup fails, fallback version should be used."""
+
+    fake_meta = ModuleType("importlib.metadata")
+
+    def boom(_: str) -> str:
+        raise RuntimeError("no version info")
+
+    fake_meta.version = boom  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "importlib.metadata", fake_meta)
+
+    run = DummyRun(
+        portfolio=pd.Series(
+            [0.02, 0.01], index=pd.date_range("2021-01", periods=2, freq="ME")
+        ),
+        config={"demo": True},
+        seed=5,
+        input_path=_write_input(tmp_path),
+    )
+
+    out = tmp_path / "env_fallback.zip"
+    export_bundle(run, out)
+
+    with zipfile.ZipFile(out) as z:
+        meta = json.load(z.open("run_meta.json"))
+
+    assert meta["environment"].get("trend_analysis") == "0"

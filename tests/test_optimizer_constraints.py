@@ -67,11 +67,46 @@ def test_redistribute_without_capacity_raises():
         optimizer._redistribute(w.copy(), mask, 0.1)
 
 
+def test_apply_cap_none_returns_original_series():
+    w = pd.Series([0.4, 0.6], index=["a", "b"], dtype=float)
+    out = optimizer._apply_cap(w, None)
+    assert out is w
+
+
+def test_apply_cap_rejects_non_positive_cap():
+    w = pd.Series([0.5, 0.5], index=["a", "b"], dtype=float)
+    with pytest.raises(ConstraintViolation, match="max_weight must be positive"):
+        optimizer._apply_cap(w, 0.0)
+
+
 def test_apply_cap_uniformly_redistributes_zero_mass_bucket():
     w = pd.Series([1.0, 0.0, 0.0], index=["a", "b", "c"], dtype=float)
     capped = optimizer._apply_cap(w, 0.6)
     expected = pd.Series([0.6, 0.2, 0.2], index=w.index)
     pd.testing.assert_series_equal(capped, expected, check_exact=False, atol=1e-12, rtol=1e-12)
+
+
+def test_apply_group_caps_handles_missing_cap_entries():
+    w = pd.Series([0.6, 0.4], index=["a", "b"], dtype=float)
+    groups = {"a": "X", "b": "Y"}
+    # No cap provided for group Y; branch should simply skip enforcement
+    out = optimizer._apply_group_caps(w, {"X": 0.8}, groups)
+    pd.testing.assert_series_equal(out, w)
+
+
+def test_apply_group_caps_sum_too_small_raises():
+    w = pd.Series([0.6, 0.4], index=["a", "b"], dtype=float)
+    groups = {"a": "X", "b": "Y"}
+    with pytest.raises(ConstraintViolation, match="Group caps sum to less than 100%"):
+        optimizer._apply_group_caps(w, {"X": 0.3, "Y": 0.4}, groups)
+
+
+def test_apply_group_caps_skips_empty_groups():
+    w = pd.Series([0.5, 0.5], index=["a", "b"], dtype=float)
+    groups = {"a": "X", "b": "Y"}
+    caps = {"X": 0.7, "Y": 0.7, "Z": 0.5}
+    out = optimizer._apply_group_caps(w, caps, groups)
+    np.testing.assert_allclose(out.sum(), 1.0)
 
 
 def test_apply_constraints_empty_input_returns_empty():
@@ -90,6 +125,14 @@ def test_apply_constraints_group_caps_require_mapping():
     w = pd.Series([0.6, 0.4], index=["a", "b"], dtype=float)
     with pytest.raises(ConstraintViolation):
         apply_constraints(w, {"group_caps": {"G1": 0.7}})
+
+
+def test_apply_constraints_accepts_constraintset_instance():
+    w = pd.Series([0.8, -0.4, 0.6], index=["a", "b", "c"], dtype=float)
+    constraints = optimizer.ConstraintSet(long_only=False)
+    out = apply_constraints(w, constraints)
+    np.testing.assert_allclose(out.sum(), 1.0)
+    assert any(out < 0)
 
 
 def test_apply_constraints_reapplies_max_after_group_caps():
