@@ -92,7 +92,7 @@ def _apply_group_caps(
         missing = set(w.index) - set(group_series.index)
         raise KeyError(f"Missing group mapping for: {sorted(missing)}")
 
-    if investable_total <= 0:
+    if investable_total <= NUMERICAL_TOLERANCE_HIGH:
         raise ConstraintViolation("Target allocation must be positive")
     scale = 1.0 / investable_total
     effective_caps: dict[str, float] = {}
