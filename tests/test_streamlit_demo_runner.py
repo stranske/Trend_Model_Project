@@ -22,7 +22,7 @@ class _DummyResult:
 
 def _make_mock_streamlit() -> ModuleType:
     class MockStreamlit(ModuleType):
-        def __init__(self) -> None:  # noqa: D401 - simple helper
+        def __init__(self) -> None:
             super().__init__("streamlit")
             self.session_state = {}
             self.errors: list[str] = []
