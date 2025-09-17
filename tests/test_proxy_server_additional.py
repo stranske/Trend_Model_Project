@@ -21,9 +21,7 @@ class DummyRouter:
     def add_api_websocket_route(self, path: str, handler: Any) -> None:
         self.ws_routes.append((path, handler))
 
-    def add_api_route(
-        self, path: str, handler: Any, *, methods: list[str]
-    ) -> None:
+    def add_api_route(self, path: str, handler: Any, *, methods: list[str]) -> None:
         self.http_routes.append((path, handler, tuple(methods)))
 
 
@@ -165,6 +163,7 @@ def test_handle_http_request_streams_response(patched_server: Any) -> None:
     assert recorded["url"] == "http://example.com:1234/status?foo=bar"
     # Streamed response exposes filtered headers only
     assert result.headers == {"X-Test": "ok"}
+
     async def collect() -> list[bytes]:
         return [chunk async for chunk in result.iterator]
 
