@@ -150,8 +150,12 @@ jobs:
           git checkout -b "$BR"
           mkdir -p agents
           printf "<!-- bootstrap for codex on issue #%s -->\n" "$ISSUE" > "agents/codex-${ISSUE}.md"
-          git add "agents/codex-${ISSUE}.md"
-          git commit -m "chore(codex): bootstrap PR for issue #${ISSUE}"
+          git add -A || true
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(codex): bootstrap PR for issue #${ISSUE}"
+          else
+            echo "No changes to commit; proceeding to push branch with existing tree."
+          fi
           git push origin "$BR"
           echo "branch=$BR" >> "$GITHUB_OUTPUT"
 
