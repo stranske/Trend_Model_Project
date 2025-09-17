@@ -67,9 +67,20 @@ jobs:
             const actor = (pr.user?.login || '').toLowerCase();
             const head = (pr.head?.ref || '').toLowerCase();
 
-            const COMMON_LABELS = ['automerge', 'risk:low'];
-            const COPILOT_LABELS = ['from:copilot', 'agent:copilot', ...COMMON_LABELS];
-            const CODEX_LABELS = ['from:codex', 'agent:codex', ...COMMON_LABELS];
+            const COMMON_LABELS = [
+              process.env.AUTOMERGE_LABEL || 'automerge',
+              process.env.RISK_LABEL || 'risk:low',
+            ];
+            const COPILOT_LABELS = [
+              process.env.AGENT_FROM_LABEL || 'from:copilot',
+              process.env.AGENT_LABEL || 'agent:copilot',
+              ...COMMON_LABELS,
+            ];
+            const CODEX_LABELS = [
+              process.env.AGENT_FROM_LABEL_ALT || 'from:codex',
+              process.env.AGENT_LABEL_ALT || 'agent:codex',
+              ...COMMON_LABELS,
+            ];
 
             const labels = new Set();
             if (actor.includes('copilot') || head.startsWith('copilot/') || head.startsWith('agents/copilot-')) {
@@ -95,3 +106,10 @@ jobs:
                 [String(pr.number), actor, head, missing.join(',') || '(none)', desired.filter(l => existing.includes(l)).join(',') || '(none)']
               ])
               .write();
+        env:
+          AUTOMERGE_LABEL: ${{ vars.AUTOMERGE_LABEL }}
+          RISK_LABEL: ${{ vars.RISK_LABEL }}
+          AGENT_FROM_LABEL: ${{ vars.AGENT_FROM_LABEL }}
+          AGENT_LABEL: ${{ vars.AGENT_LABEL }}
+          AGENT_FROM_LABEL_ALT: ${{ vars.AGENT_FROM_LABEL_ALT }}
+          AGENT_LABEL_ALT: ${{ vars.AGENT_LABEL_ALT }}

@@ -9,11 +9,11 @@ jobs:
     if: >
       github.event.pull_request.draft == false &&
       (
-        contains(github.event.pull_request.labels.*.name, 'from:copilot') ||
-        contains(github.event.pull_request.labels.*.name, 'from:codex')
+        contains(github.event.pull_request.labels.*.name, (vars.AGENT_FROM_LABEL || 'from:copilot')) ||
+        contains(github.event.pull_request.labels.*.name, (vars.AGENT_FROM_LABEL_ALT || 'from:codex'))
       ) &&
-      contains(github.event.pull_request.labels.*.name, 'automerge') &&
-      contains(github.event.pull_request.labels.*.name, 'risk:low')
+      contains(github.event.pull_request.labels.*.name, (vars.AUTOMERGE_LABEL || 'automerge')) &&
+      contains(github.event.pull_request.labels.*.name, (vars.RISK_LABEL || 'risk:low'))
     runs-on: ubuntu-latest
     steps:
       - name: Check PR file patterns and size
@@ -29,18 +29,28 @@ jobs:
               github.pulls.listFiles,
               { owner, repo, pull_number }
             );
-            // Allow changes in src/, docs/, tests/ directories, or Markdown files
-            const allowed = files.every(f =>
-              f.filename.startsWith('src/') ||
-              f.filename.startsWith('docs/') ||
-              f.filename.startsWith('tests/') ||
-              f.filename.endsWith('.md')
-            );
+            // Allow files by simple glob-like patterns
+            const patterns = (process.env.APPROVE_PATTERNS || 'src/**,docs/**,tests/**,**/*.md')
+              .split(',')
+              .map(s => s.trim())
+              .filter(Boolean);
+            function match(filename) {
+              return patterns.some(p => {
+                if (p.endsWith('/**')) return filename.startsWith(p.slice(0, -3));
+                if (p.startsWith('**/*.')) return filename.endsWith(p.slice(4));
+                return filename === p;
+              });
+            }
+            const allowed = files.every(f => match(f.filename));
             // Limit total lines changed
+            const cap = Number(process.env.MAX_LINES_CHANGED || '1000');
             const totalChanges = files.reduce((sum, f) => sum + f.changes, 0);
-            const sizeOk = totalChanges <= 1000;
+            const sizeOk = totalChanges <= cap;
             // Set output
             return allowed && sizeOk;
+        env:
+          APPROVE_PATTERNS: ${{ vars.APPROVE_PATTERNS }}
+          MAX_LINES_CHANGED: ${{ vars.MAX_LINES_CHANGED }}
       - name: Auto-approve PR
         if: steps.pr-check.outputs.result == 'true'
         uses: actions/github-script@v7

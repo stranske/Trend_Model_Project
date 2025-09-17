@@ -18,40 +18,45 @@ jobs:
     permissions:
       contents: read
       packages: write
+    env:
+      REGISTRY: ${{ vars.REGISTRY || 'ghcr.io' }}
+      IMAGE_NAME: ${{ vars.IMAGE_NAME || format('{0}/{1}', github.repository_owner, 'trend-model') }}
+      HEALTH_PORT: ${{ vars.HEALTH_PORT || '8000' }}
+      HEALTH_PATH: ${{ vars.HEALTH_PATH || '/health' }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - name: Log in to GHCR
+      - name: Log in to container registry
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
+          registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build image
-        run: docker build -t ghcr.io/${{ github.repository_owner }}/trend-model:latest .
+        run: docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest .
       - name: Run test suite
         run: |
           # Use verbose output only for debug builds, quiet mode for production
           if [ "${{ github.event.inputs.debug_build }}" = "true" ]; then
             echo "Running tests with verbose output for debugging..."
-            docker run --rm ghcr.io/${{ github.repository_owner }}/trend-model:latest pytest -v --tb=short
+            docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest pytest -v --tb=short
           else
             echo "Running tests with quiet output for production build..."
-            docker run --rm ghcr.io/${{ github.repository_owner }}/trend-model:latest pytest -q
+            docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest pytest -q
           fi
       - name: Smoke test health endpoint
         run: |
           echo "🔍 Testing health endpoint with retry logic..."
-          CONTAINER_ID=$(docker run -d -p 8000:8000 ghcr.io/${{ github.repository_owner }}/trend-model:latest)
+          CONTAINER_ID=$(docker run -d -p ${{ env.HEALTH_PORT }}:${{ env.HEALTH_PORT }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest)
           echo "Started container: $CONTAINER_ID"
           
           # Wait for container startup with backoff
           max_attempts=10
           attempt=1
           while [ $attempt -le $max_attempts ]; do
-            if curl -fs http://localhost:8000/health | grep -q "OK"; then
+            if curl -fs http://localhost:${{ env.HEALTH_PORT }}${{ env.HEALTH_PATH }} | grep -q "OK"; then
               echo "✅ Health check passed on attempt $attempt"
               break
             else
@@ -71,4 +76,4 @@ jobs:
           fi
       - name: Push image
         if: github.event_name == 'push' && github.ref == 'refs/heads/phase-2-dev'
-        run: docker push ghcr.io/${{ github.repository_owner }}/trend-model:latest
+        run: docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
