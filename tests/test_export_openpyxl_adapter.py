@@ -236,6 +236,76 @@ def test_export_to_excel_cleans_up_openpyxl_defaults(monkeypatch, tmp_path):
     assert removals["count"] >= 2
 
 
+def test_export_to_excel_handles_missing_sheet_lookup(monkeypatch, tmp_path):
+    utils_mod = SimpleNamespace(
+        get_column_letter=lambda idx: chr(ord("A") + idx - 1)
+    )
+    monkeypatch.setitem(sys.modules, "openpyxl", SimpleNamespace(utils=utils_mod))
+    monkeypatch.setitem(sys.modules, "openpyxl.utils", utils_mod)
+
+    rename_calls: list[tuple[str, str | None]] = []
+
+    class TrackingAdapter:
+        def __init__(self, book):  # noqa: ANN001
+            self.book = book
+            export._maybe_remove_openpyxl_default_sheet(book)
+
+        def rename_last_sheet(self, name: str) -> None:
+            last_title = self.book.worksheets[-1].title if self.book.worksheets else None
+            rename_calls.append((name, last_title))
+            if self.book.worksheets:
+                self.book.worksheets[-1].title = name
+
+    monkeypatch.setattr(export, "_OpenpyxlWorkbookAdapter", TrackingAdapter)
+
+    class NoLookupWorkbook(DummyWorkbook):
+        __module__ = "openpyxl.workbook"
+
+        def __getitem__(self, key: str) -> DummyWorksheet:  # noqa: D401
+            raise KeyError(key)
+
+    class DummyWriter:
+        def __init__(self) -> None:
+            self.book = NoLookupWorkbook()
+            self.sheets: dict[str, object] = {"Sheet": object()}
+            self.engine = "openpyxl"
+
+        def __enter__(self) -> "DummyWriter":
+            return self
+
+        def __exit__(self, exc_type, exc, tb) -> None:  # noqa: D401
+            return None
+
+    writers: list[DummyWriter] = []
+
+    def fake_excel_writer(path, engine=None):  # noqa: ANN001, ARG001
+        if engine == "xlsxwriter":
+            raise ModuleNotFoundError("no xlsxwriter")
+        writer = DummyWriter()
+        writers.append(writer)
+        return writer
+
+    monkeypatch.setattr(pd, "ExcelWriter", fake_excel_writer)
+
+    def fake_to_excel(self, writer, sheet_name, index=False, **_):  # noqa: ARG002
+        ws = DummyWorksheet("Temp")
+        writer.book.worksheets.append(ws)
+
+    monkeypatch.setattr(pd.DataFrame, "to_excel", fake_to_excel, raising=False)
+
+    export.reset_formatters_excel()
+    df = pd.DataFrame({"value": [1.0]})
+    out = tmp_path / "lookup.xlsx"
+    export.export_to_excel({"summary": df}, out)
+
+    assert writers, "Expected fallback writer"
+    writer = writers[0]
+    assert rename_calls and rename_calls[-1][0] == "summary"
+    final_sheet = writer.book.worksheets[-1]
+    assert final_sheet.title == "summary"
+    assert writer.sheets["summary"] is final_sheet
+
+
 def test_export_to_excel_populates_proxy_with_renamed_sheets(monkeypatch, tmp_path):
     utils_mod = SimpleNamespace(
         get_column_letter=lambda idx: chr(ord("A") + idx - 1)
