@@ -90,3 +90,32 @@ def test_debounce_waits_for_elapsed_time():
     asyncio.run(run())
 
     assert calls == ["first"]
+
+
+def test_debounce_sync_handler_returning_coroutine(monkeypatch):
+    """Synchronous handlers that return coroutines should be awaited."""
+
+    time_values = iter([0.0, 0.05, 0.10, 0.15])
+    monkeypatch.setattr(utils.time, "time", lambda: next(time_values))
+
+    async def fast_sleep(_):
+        return None
+
+    monkeypatch.setattr(utils.asyncio, "sleep", fast_sleep)
+
+    calls: list[str] = []
+
+    @utils.debounce(10)
+    def handler(value: str):
+        async def inner() -> None:
+            calls.append(value)
+
+        return inner()
+
+    async def run() -> None:
+        await handler("coroutine")
+        await asyncio.sleep(0)
+
+    asyncio.run(run())
+
+    assert calls == ["coroutine"]

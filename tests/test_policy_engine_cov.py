@@ -236,44 +236,32 @@ def test_decide_hires_fires_bucket_skip_and_nan_priorities(monkeypatch):
     assert fires == []
 
 
-def test_sticky_drop_rule_blocks_fires_until_threshold():
-    score_frame = pd.DataFrame({"m": [0.1]}, index=["mgr"])
+def test_decide_hires_fires_unknown_bucket_defaults_to_name(monkeypatch):
+    score_frame = pd.DataFrame({"m": [2.0, 3.5]}, index=["known", "mystery"])
     policy = PolicyConfig(
-        bottom_k=1,
-        top_k=0,
+        top_k=1,
+        max_active=2,
         min_track_months=0,
-        sticky_drop_y=2,
-        drop_rules=["sticky_rank_window"],
+        diversification_max_per_bucket=1,
+        diversification_buckets={"known": "bucket"},
         metrics=[MetricSpec("m", 1.0)],
     )
-    eligible = {"mgr": 12}
-    cooldowns = CooldownBook()
-    tenure = {"mgr": 3}
 
-    blocked = decide_hires_fires(
+    def fake_rank_scores(sf, metric_weights, metric_directions):  # noqa: ARG001
+        return pd.Series({"known": 0.5, "mystery": 2.0}, index=sf.index)
+
+    monkeypatch.setattr(
+        "trend_portfolio_app.policy_engine.rank_scores", fake_rank_scores
+    )
+
+    decisions = decide_hires_fires(
         pd.Timestamp("2020-01-31"),
         score_frame,
-        current=["mgr"],
+        current=["known"],
         policy=policy,
         directions={"m": 1},
-        cooldowns=cooldowns,
-        eligible_since=eligible,
-        tenure=tenure,
-        rule_state={"drop_streak": {"mgr": 1}},
+        cooldowns=CooldownBook(),
+        eligible_since={name: 12 for name in score_frame.index},
     )
 
-    assert blocked["fire"] == []
-
-    allowed = decide_hires_fires(
-        pd.Timestamp("2020-02-29"),
-        score_frame,
-        current=["mgr"],
-        policy=policy,
-        directions={"m": 1},
-        cooldowns=cooldowns,
-        eligible_since=eligible,
-        tenure=tenure,
-        rule_state={"drop_streak": {"mgr": 5}},
-    )
-
-    assert allowed["fire"] == [("mgr", "bottom_k")]
+    assert decisions["hire"] == [("mystery", "top_k")]

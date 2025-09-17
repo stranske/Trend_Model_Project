@@ -404,33 +404,36 @@ def test_simulator_equity_curve_warning(monkeypatch, caplog):
     )
     assert any("Failed to update equity curve" in str(msg[0]) for msg in calls)
 
-def test_simulator_records_nan_when_next_month_missing(monkeypatch):
-    index = pd.to_datetime(["2020-01-31"])
-    data = pd.DataFrame({"A": [0.1]}, index=index)
+
+def test_simulator_run_handles_missing_forward_month(monkeypatch):
+    data = pd.DataFrame({"A": [0.1]}, index=[pd.Timestamp("2020-01-31")])
     sim = sim_runner.Simulator(data)
 
     monkeypatch.setattr(
         sim_runner,
         "compute_score_frame",
-        lambda *a, **k: pd.DataFrame({"m": [1.0]}, index=["A"]),
+        lambda *a, **k: pd.DataFrame({"m": [0.5]}, index=["A"]),
     )
     monkeypatch.setattr(
         sim_runner,
         "decide_hires_fires",
         lambda *a, **k: {"hire": [], "fire": []},
     )
-    monkeypatch.setattr(
-        sim_runner,
-        "_apply_rebalance_pipeline",
-        lambda **_: pd.Series(dtype=float),
-    )
 
-    res = sim.run(
-        start=index[0],
-        end=index[0],
+    def passthrough_rebalance(*, target_weights, **_):
+        return target_weights
+
+    monkeypatch.setattr(sim_runner, "_apply_rebalance_pipeline", passthrough_rebalance)
+
+    policy = PolicyConfig(top_k=0, bottom_k=0, min_track_months=0)
+
+    result = sim.run(
+        start=pd.Timestamp("2020-01-31"),
+        end=pd.Timestamp("2020-01-31"),
         freq="M",
         lookback_months=1,
-        policy=PolicyConfig(min_track_months=0),
+        policy=policy,
     )
 
-    assert res.portfolio.empty
+    assert result.portfolio.empty
+    assert list(result.weights.keys()) == [pd.Timestamp("2020-01-31 23:59:59.999999999")]
