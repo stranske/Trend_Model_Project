@@ -3,6 +3,7 @@ from pathlib import Path
 import pandas as pd
 
 from trend_analysis import cli
+from trend_analysis.api import RunResult
 
 
 def _write_cfg(path: Path, version: str) -> None:
@@ -31,13 +32,17 @@ def test_cli_version_custom(tmp_path, monkeypatch):
 
     captured: dict[str, str] = {}
 
-    def fake_run(cfg):
+    def fake_run(cfg, _df):
         captured["version"] = cfg.version
-        return pd.DataFrame()
+        return RunResult(
+            metrics=pd.DataFrame(),
+            details={"out_sample_stats": {}},
+            seed=42,
+            environment={},
+            summary_text="",
+        )
 
-    monkeypatch.setattr(cli.pipeline, "run", fake_run)
-    monkeypatch.setattr(cli.pipeline, "run_full", lambda cfg: {"dummy": 1})
-    monkeypatch.setattr(cli.export, "format_summary_text", lambda *a, **k: "")
+    monkeypatch.setattr(cli, "run_simulation", fake_run)
     monkeypatch.setattr(cli.export, "export_to_excel", lambda *a, **k: None)
     monkeypatch.setattr(cli.export, "export_data", lambda *a, **k: None)
 
@@ -52,8 +57,17 @@ def test_cli_default_json(tmp_path, capsys, monkeypatch):
     csv = tmp_path / "data.csv"
     csv.write_text("Date,RF\n2020-01-31,0.0\n")
 
-    monkeypatch.setattr(cli.pipeline, "run", lambda cfg: pd.DataFrame())
-    monkeypatch.setattr(cli.pipeline, "run_full", lambda cfg: None)
+    monkeypatch.setattr(
+        cli,
+        "run_simulation",
+        lambda cfg, _df: RunResult(
+            metrics=pd.DataFrame(),
+            details={},
+            seed=42,
+            environment={},
+            summary_text=None,
+        ),
+    )
 
     rc = cli.main(["run", "-c", str(cfg), "-i", str(csv)])
     out = capsys.readouterr().out.strip()

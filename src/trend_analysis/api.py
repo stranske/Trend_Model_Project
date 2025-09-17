@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import pandas as pd
 
+from . import export
 if TYPE_CHECKING:  # pragma: no cover - for static type checking only
     from .config.models import ConfigProtocol as ConfigType
 else:  # Runtime: avoid importing typing-only names
@@ -44,6 +45,17 @@ class RunResult:
     seed: int
     environment: dict[str, Any]
     fallback_info: dict[str, Any] | None = None
+    summary_text: str | None = None
+
+    def __getattr__(self, name: str) -> Any:
+        """Proxy attribute access to the underlying pipeline result."""
+
+        details = self.details
+        if hasattr(details, name):
+            return getattr(details, name)
+        if isinstance(details, dict) and name in details:
+            return details[name]
+        raise AttributeError(name)
 
 
 def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
@@ -135,6 +147,19 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
     fallback_info: dict[str, Any] | None = (
         fallback_raw if isinstance(fallback_raw, dict) else None
     )
+    summary_text: str | None = None
+    required_keys = ("in_start", "in_end", "out_start", "out_end")
+    if res and all(key in split for key in required_keys):
+        try:
+            summary_text = export.format_summary_text(
+                res,
+                str(split.get("in_start")),
+                str(split.get("in_end")),
+                str(split.get("out_start")),
+                str(split.get("out_end")),
+            )
+        except Exception:  # pragma: no cover - defensive guard
+            summary_text = None
     logger.info("run_simulation end")
     return RunResult(
         metrics=metrics_df,
@@ -142,4 +167,5 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         seed=seed,
         environment=env,
         fallback_info=fallback_info,
+        summary_text=summary_text,
     )

@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from . import export, pipeline
+from . import export
 from .api import run_simulation
 from .config import load_config
 from .constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
@@ -96,28 +96,24 @@ def main(argv: list[str] | None = None) -> int:
         cfg = load_config(args.config)
         df = load_csv(args.input)
         assert df is not None  # narrow type for type-checkers
-        split = cfg.sample_split
-        required_keys = {"in_start", "in_end", "out_start", "out_end"}
-        if required_keys.issubset(split):
-            run_result = run_simulation(cfg, df)
-            metrics_df = run_result.metrics
-            res = run_result.details
-        else:  # pragma: no cover - legacy fallback
-            metrics_df = pipeline.run(cfg)
-            res = pipeline.run_full(cfg)
+        run_result = run_simulation(cfg, df)
+        metrics_df = run_result.metrics
+        res = run_result.details
         if not res:
             print("No results")
             return 0
 
         split = cfg.sample_split
-        text = export.format_summary_text(
-            res,
-            str(split.get("in_start")),
-            str(split.get("in_end")),
-            str(split.get("out_start")),
-            str(split.get("out_end")),
-        )
-        print(text)
+        summary_text = run_result.summary_text
+        if summary_text is None:
+            summary_text = export.format_summary_text(
+                res,
+                str(split.get("in_start")),
+                str(split.get("in_end")),
+                str(split.get("out_start")),
+                str(split.get("out_end")),
+            )
+        print(summary_text or "")
 
         export_cfg = cfg.export
         out_dir = export_cfg.get("directory")

@@ -1,20 +1,15 @@
-"""Golden master test comparing CLI and API outputs."""
-
-import os
-import subprocess
-import sys
-import tempfile
 from pathlib import Path
 
 import pandas as pd
 import yaml  # type: ignore[import-untyped]
 
-from trend_analysis import api
+from trend_analysis import api, cli
 from trend_analysis.config import Config
 
 
-def make_test_data():
+def make_test_data() -> pd.DataFrame:
     """Create test data for golden master comparison."""
+
     dates = pd.date_range("2020-01-31", periods=24, freq="ME")
     return pd.DataFrame(
         {
@@ -30,6 +25,8 @@ def make_test_data():
 
 def make_test_config(csv_path: str) -> Config:
     """Create test configuration."""
+
+    base_dir = Path(csv_path).parent
     return Config(
         version="1",
         data={"csv_path": csv_path},
@@ -44,98 +41,66 @@ def make_test_config(csv_path: str) -> Config:
         portfolio={},
         benchmarks={"spx": "SPX"},
         metrics={},
-        export={},
+        export={"directory": str(base_dir / "noop"), "formats": []},
         run={},
     )
 
 
 def _write_config(cfg_path: Path, config: Config) -> None:
     """Write Config object to YAML file."""
+
     config_dict = config.model_dump()
     with open(cfg_path, "w", encoding="utf-8") as f:
         yaml.safe_dump(config_dict, f, default_flow_style=False, sort_keys=False)
 
 
-def test_cli_api_golden_master():
+def test_cli_api_golden_master(tmp_path, capsys):
     """Test that CLI and API produce identical outputs for same inputs."""
-    # Create temporary test data
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        tmp_path = Path(tmp_dir)
-        csv_file = tmp_path / "test_data.csv"
-        config_file = tmp_path / "test_config.yml"
 
-        # Write test data
-        df = make_test_data()
-        df.to_csv(csv_file, index=False)
+    csv_file = tmp_path / "test_data.csv"
+    config_file = tmp_path / "test_config.yml"
 
-        # Create and write config
-        cfg = make_test_config(str(csv_file))
-        _write_config(config_file, cfg)
+    df = make_test_data()
+    df.to_csv(csv_file, index=False)
 
-        # Test API output
+    cfg = make_test_config(str(csv_file))
+    _write_config(config_file, cfg)
+
     api_result = api.run_simulation(cfg, df)
 
-    # Test CLI output (detailed mode to get metrics DataFrame)
-    subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "trend_analysis.run_analysis",
-            "-c",
-            str(config_file),
-            "--detailed",
-        ],
-        cwd=Path(__file__).parent.parent,
-        env={
-            **dict(os.environ),
-            "PYTHONPATH": str(Path(__file__).parent.parent / "src"),
-        },
-        capture_output=True,
-        text=True,
-    )
-
-    # For this test, we'll compare API results with expected structure
-    # The CLI comparison is complex due to output formatting
     assert isinstance(api_result.metrics, pd.DataFrame)
     assert not api_result.metrics.empty
-    assert "cagr" in api_result.metrics.columns
-    assert "sharpe" in api_result.metrics.columns
-    assert "ir_spx" in api_result.metrics.columns
+    assert api_result.summary_text is not None
 
-    # Validate RunResult structure
-    assert hasattr(api_result, "details")
-    assert hasattr(api_result, "seed")
-    assert hasattr(api_result, "environment")
+    rc = cli.main(["run", "-c", str(config_file), "-i", str(csv_file)])
+    captured = capsys.readouterr()
 
-    # Validate details structure
+    assert rc == 0
+    summary_cli = captured.out.strip()
+    summary_api = (api_result.summary_text or "").strip()
+    assert summary_cli == summary_api
+
     assert "out_sample_stats" in api_result.details
     assert "benchmark_ir" in api_result.details
-
-    # Validate environment info
     assert "python" in api_result.environment
     assert "numpy" in api_result.environment
     assert "pandas" in api_result.environment
 
 
-def test_api_deterministic_behavior():
+def test_api_deterministic_behavior(tmp_path):
     """Test that API produces deterministic results."""
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        tmp_path = Path(tmp_dir)
-        csv_file = tmp_path / "test_data.csv"
 
-        # Write test data
-        df = make_test_data()
-        df.to_csv(csv_file, index=False)
+    csv_file = tmp_path / "test_data.csv"
 
-        # Create config with fixed seed
-        cfg = make_test_config(str(csv_file))
-        cfg.seed = 12345
+    df = make_test_data()
+    df.to_csv(csv_file, index=False)
 
-        # Run simulation twice
-        result1 = api.run_simulation(cfg, df)
-        result2 = api.run_simulation(cfg, df)
+    cfg = make_test_config(str(csv_file))
+    cfg.seed = 12345
 
-        # Results should be identical
-        pd.testing.assert_frame_equal(result1.metrics, result2.metrics)
-        assert result1.seed == result2.seed
-        assert result1.environment == result2.environment
+    result1 = api.run_simulation(cfg, df)
+    result2 = api.run_simulation(cfg, df)
+
+    pd.testing.assert_frame_equal(result1.metrics, result2.metrics)
+    assert result1.seed == result2.seed
+    assert result1.environment == result2.environment
