@@ -20,9 +20,11 @@ Last updated: 2025‑09‑17
 - PRs are labeled with `agent:codex`.
 
 ## Tokens, Permissions, and Secrets
-- Preferred token: `SERVICE_BOT_PAT` (scopes: `repo`, `workflows`, `pull_requests`, `issues`).
-- Fallback token: `GITHUB_TOKEN` (requires Actions → Workflow permissions set to “Read and write”).
-- The workflow is safe without referencing `secrets.*` inside step‑level `if:` conditions; token decisions are passed via `env`/inputs.
+- Token priority (authoring intent): `OWNER_PR_PAT` → `SERVICE_BOT_PAT` → `GITHUB_TOKEN`.
+  - `OWNER_PR_PAT`: When provided, the PR is authored as the human owner and Codex engages on a human‑authored PR.
+  - `SERVICE_BOT_PAT`: Service bot author, used when owner PAT is absent.
+  - `GITHUB_TOKEN`: Fallback; ensure repository Actions permissions are set to Read/Write.
+- The workflow avoids using `secrets.*` inside step‑level `if:` blocks; token decisions are propagated via `env` and inputs.
 
 ## Workflows and Actions
 - Bridge workflow: `.github/workflows/codex-issue-bridge.yml`.
@@ -52,6 +54,7 @@ Last updated: 2025‑09‑17
 - Copilot Readiness — [`copilot-readiness.yml`](../../.github/workflows/copilot-readiness.yml) · [jump](#wf-copilot-readiness)
 - Agent Readiness — [`agent-readiness.yml`](../../.github/workflows/agent-readiness.yml) · [jump](#wf-agent-readiness)
 - Agent Watchdog — [`agent-watchdog.yml`](../../.github/workflows/agent-watchdog.yml) · [jump](#wf-agent-watchdog)
+- Guard: No‑Reuse PR Branches — [`guard-no-reuse-pr-branches.yml`](../../.github/workflows/guard-no-reuse-pr-branches.yml) · [jump](#wf-guard-no-reuse)
 - Verify Codex Bootstrap Matrix — [`verify-codex-bootstrap-matrix.yml`](../../.github/workflows/verify-codex-bootstrap-matrix.yml) · [jump](#wf-verify-codex-bootstrap-matrix)
 - Check Failure Tracker — [`check-failure-tracker.yml`](../../.github/workflows/check-failure-tracker.yml) · [jump](#wf-check-failure-tracker)
 - Release — [`release.yml`](../../.github/workflows/release.yml) · [jump](#wf-release)
@@ -90,6 +93,12 @@ This catalog explains what each active workflow does, how it’s triggered, the 
    - Triggers: `pull_request: [opened, labeled, synchronize, ready_for_review]`
    - Jobs: `enable`
      - Enables squash auto-merge when labels and state match
+
+<a id="wf-guard-no-reuse"></a>
+5) [`guard-no-reuse-pr-branches.yml`](../../.github/workflows/guard-no-reuse-pr-branches.yml) — Enforce no reuse of merged PR branches
+   - Triggers: `pull_request_target: [opened, reopened, synchronize]`
+   - Jobs: `guard`
+     - Fails the run if the PR head branch previously backed a merged PR (prevents accidental reuse)
 
 <a id="wf-autofix"></a>
 5) [`autofix.yml`](../../.github/workflows/autofix.yml) — Trivial autofix on open PRs
@@ -219,6 +228,29 @@ Use these when investigating bootstrap, authorization, or automation behaviours:
 ## Expectations for Future Work
 - Keep this page up to date if labels, assignees, or token policy changes.
 - If org rules change, document the new constraints here (e.g., PAT usage restrictions).
+
+## What changed and why it works now
+
+This section summarizes the differences between the failing Option 2 (manual/"create" mode) runs and the current working implementation.
+
+- Sha-safe file updates: When the bootstrap file already exists (e.g., `agents/codex-<issue>.md`), updates to `/contents` now include the existing `sha` to satisfy the GitHub API and avoid 422 “Invalid request. 'sha' wasn’t supplied.”
+- Resilient fallback path: The git-based fallback commits only when there are changes but will still push the new branch even if there are no changes (no-op safe), ensuring the branch exists for PR creation.
+- Strict no-reuse policy with guard: Unique, deterministic branch names are used for each run, and a dedicated guard workflow blocks reusing branches that have already backed merged PRs.
+- Safer event handling: The bridge resolves the issue number early and gates subsequent steps behind `has_issue`, with fail-fast behavior for manual runs that omit `test_issue`.
+- Clearer run summaries: The event summary shows both the event-derived and input-provided issue numbers, helping diagnose mismatches quickly.
+- Token priority clarified: `OWNER_PR_PAT` is preferred to author the PR as the human; else `SERVICE_BOT_PAT`, else `GITHUB_TOKEN`.
+- PR hygiene defaults: PRs are opened as non-draft and include an initial `@codex start` comment; the PR body replicates the source issue content.
+
+## Invite vs Create — when to use which
+
+- Invite mode (default on issue events): Use when you want Codex to assist on PRs authored by a human. The workflow prepares a branch and compare link; you open the PR.
+- Create mode (manual dispatch): Use when you want automation to open the PR. Provide `test_issue` and, ideally, `OWNER_PR_PAT` to ensure the PR is authored as you; otherwise the service bot will author the PR.
+
+## Troubleshooting map: symptom → fix
+
+- 422 “Invalid request. 'sha' wasn’t supplied.” when updating `agents/codex-*.md` → The composite now fetches and supplies the existing `sha` on updates.
+- “nothing to commit, working tree clean” then branch missing → Fallback now pushes the branch even without a commit (no-op safe push).
+- PR created from an old/merged branch → Guard workflow fails the run; create a new branch and retry.
 
 ## Tips and Operational Notes
 - Issue-label path enforces `invite` mode, guaranteeing human-authored PRs so Codex engages reliably; use `workflow_dispatch` with `pr_mode=create` and `OWNER_PR_PAT` if you need the workflow to open the PR on your behalf.
