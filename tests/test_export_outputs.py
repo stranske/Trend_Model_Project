@@ -40,6 +40,9 @@ class DummyWorkbook:
     def add_worksheet(self, name: str) -> DummyWorksheet:  # type: ignore[override]
         return DummyWorksheet(name)
 
+    def add_format(self, _options=None):
+        return object()
+
 
 class DummyWriter:
     def __init__(self, path: Path, *, engine: str | None):
