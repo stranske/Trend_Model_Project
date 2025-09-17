@@ -329,6 +329,35 @@ def test_apply_rebalance_pipeline_strategies():
     assert isinstance(res, pd.Series)
 
 
+def test_apply_rebalance_pipeline_periodic_skip_and_min_trade():
+    prev = pd.Series({"A": 0.6, "B": 0.4})
+    target = pd.Series({"A": 0.62, "B": 0.38})
+    rb_state = {"since_last_reb": 0}
+    rb_cfg = {
+        "bayesian_only": False,
+        "strategies": ["periodic_rebalance", "drift_band"],
+        "params": {
+            "periodic_rebalance": {"interval": 3},
+            "drift_band": {"band_pct": 0.01, "min_trade": 0.5, "mode": "partial"},
+        },
+    }
+    policy = PolicyConfig(max_weight=1.0)
+
+    res = sim_runner._apply_rebalance_pipeline(
+        prev_weights=prev,
+        target_weights=target,
+        date=pd.Timestamp("2020-01-31"),
+        rb_cfg=rb_cfg,
+        rb_state=rb_state,
+        policy=policy,
+    )
+
+    # Periodic rebalance should defer because interval not yet met
+    assert rb_state["since_last_reb"] == 1
+    # Drift adjustments below the minimum trade should leave weights unchanged
+    pd.testing.assert_series_equal(res.sort_index(), prev.sort_index().astype(float))
+
+
 def test_apply_rebalance_pipeline_vol_and_drawdown(monkeypatch):
     prev = pd.Series({"A": 0.6, "B": 0.4})
     target = pd.Series({"A": 0.2, "B": 0.8})

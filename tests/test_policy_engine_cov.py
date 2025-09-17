@@ -151,6 +151,42 @@ def test_decide_hires_fires_turnover_budget_prioritises(monkeypatch):
     assert {m for m, _ in decisions["hire"]} == {"b", "c"}
 
 
+def test_decide_hires_fires_turnover_budget_mixed_moves(monkeypatch):
+    """Turnover gating should compare hires and fires and keep the best move."""
+
+    score_frame = pd.DataFrame(
+        {"m": [4.0, 3.0, -2.0]}, index=["hire1", "hire2", "drop"]
+    )
+    policy = PolicyConfig(
+        top_k=2,
+        bottom_k=1,
+        turnover_budget_max_changes=1,
+        min_track_months=0,
+        metrics=[MetricSpec("m", 1.0)],
+    )
+
+    def fake_rank_scores(sf, metric_weights, metric_directions):  # noqa: ARG001
+        return pd.Series({"hire1": 2.0, "hire2": 1.0, "drop": -1.5}, index=sf.index)
+
+    monkeypatch.setattr(
+        "trend_portfolio_app.policy_engine.rank_scores", fake_rank_scores
+    )
+
+    decisions = decide_hires_fires(
+        pd.Timestamp("2020-01-31"),
+        score_frame,
+        current=["drop"],
+        policy=policy,
+        directions={"m": 1},
+        cooldowns=CooldownBook(),
+        eligible_since={name: 12 for name in score_frame.index},
+        tenure={"drop": 5},
+    )
+
+    assert decisions["hire"] == [("hire1", "top_k")]
+    assert decisions["fire"] == []
+
+
 def test_decide_hires_fires_turnover_budget_trims_mixed(monkeypatch):
     score_frame = pd.DataFrame({"m": [3.0, 2.0, -1.0]}, index=["a", "b", "c"])
     policy = PolicyConfig(
