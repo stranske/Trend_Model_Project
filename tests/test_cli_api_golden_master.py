@@ -1,35 +1,35 @@
-"""Golden master test comparing CLI and API outputs."""
+from __future__ import annotations
 
-import os
-import subprocess
-import sys
 import tempfile
 from pathlib import Path
 
 import pandas as pd
 import yaml  # type: ignore[import-untyped]
 
-from trend_analysis import api
+from trend_analysis import api, export
+from trend_analysis.cli import run_cli_simulation_from_paths
 from trend_analysis.config import Config
 
 
-def make_test_data():
-    """Create test data for golden master comparison."""
+def make_test_data() -> pd.DataFrame:
+    """Create deterministic monthly return data."""
+
     dates = pd.date_range("2020-01-31", periods=24, freq="ME")
     return pd.DataFrame(
         {
             "Date": dates,
             "RF": 0.0,
-            "Fund_A": [0.01 + 0.001 * i for i in range(24)],
-            "Fund_B": [0.015 + 0.002 * i for i in range(24)],
-            "Fund_C": [0.008 + 0.0005 * i for i in range(24)],
-            "SPX": [0.012 + 0.001 * i for i in range(24)],
+            "Fund_A": [0.01 + 0.001 * i for i in range(len(dates))],
+            "Fund_B": [0.015 + 0.002 * i for i in range(len(dates))],
+            "Fund_C": [0.008 + 0.0005 * i for i in range(len(dates))],
+            "SPX": [0.012 + 0.001 * i for i in range(len(dates))],
         }
     )
 
 
-def make_test_config(csv_path: str) -> Config:
-    """Create test configuration."""
+def make_test_config(csv_path: str, *, seed: int = 42) -> Config:
+    """Build a minimal configuration for the comparison test."""
+
     return Config(
         version="1",
         data={"csv_path": csv_path},
@@ -46,96 +46,56 @@ def make_test_config(csv_path: str) -> Config:
         metrics={},
         export={},
         run={},
+        seed=seed,
     )
 
 
 def _write_config(cfg_path: Path, config: Config) -> None:
-    """Write Config object to YAML file."""
+    """Persist the Config object to YAML for CLI consumption."""
+
     config_dict = config.model_dump()
-    with open(cfg_path, "w", encoding="utf-8") as f:
-        yaml.safe_dump(config_dict, f, default_flow_style=False, sort_keys=False)
+    with cfg_path.open("w", encoding="utf-8") as fh:
+        yaml.safe_dump(config_dict, fh, default_flow_style=False, sort_keys=False)
 
 
-def test_cli_api_golden_master():
-    """Test that CLI and API produce identical outputs for same inputs."""
-    # Create temporary test data
+def test_cli_matches_api_output() -> None:
+    """CLI helper should match API metrics and summary output."""
+
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = Path(tmp_dir)
         csv_file = tmp_path / "test_data.csv"
         config_file = tmp_path / "test_config.yml"
 
-        # Write test data
         df = make_test_data()
         df.to_csv(csv_file, index=False)
 
-        # Create and write config
-        cfg = make_test_config(str(csv_file))
+        cfg = make_test_config(str(csv_file), seed=1234)
         _write_config(config_file, cfg)
 
-        # Test API output
-    api_result = api.run_simulation(cfg, df)
+        api_result = api.run_simulation(cfg, df)
+        cli_result, cli_config = run_cli_simulation_from_paths(
+            str(config_file), str(csv_file)
+        )
 
-    # Test CLI output (detailed mode to get metrics DataFrame)
-    subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "trend_analysis.run_analysis",
-            "-c",
-            str(config_file),
-            "--detailed",
-        ],
-        cwd=Path(__file__).parent.parent,
-        env={
-            **dict(os.environ),
-            "PYTHONPATH": str(Path(__file__).parent.parent / "src"),
-        },
-        capture_output=True,
-        text=True,
-    )
+        pd.testing.assert_frame_equal(cli_result.metrics, api_result.metrics)
+        assert cli_result.seed == api_result.seed
+        assert cli_result.environment == api_result.environment
 
-    # For this test, we'll compare API results with expected structure
-    # The CLI comparison is complex due to output formatting
-    assert isinstance(api_result.metrics, pd.DataFrame)
-    assert not api_result.metrics.empty
-    assert "cagr" in api_result.metrics.columns
-    assert "sharpe" in api_result.metrics.columns
-    assert "ir_spx" in api_result.metrics.columns
-
-    # Validate RunResult structure
-    assert hasattr(api_result, "details")
-    assert hasattr(api_result, "seed")
-    assert hasattr(api_result, "environment")
-
-    # Validate details structure
-    assert "out_sample_stats" in api_result.details
-    assert "benchmark_ir" in api_result.details
-
-    # Validate environment info
-    assert "python" in api_result.environment
-    assert "numpy" in api_result.environment
-    assert "pandas" in api_result.environment
-
-
-def test_api_deterministic_behavior():
-    """Test that API produces deterministic results."""
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        tmp_path = Path(tmp_dir)
-        csv_file = tmp_path / "test_data.csv"
-
-        # Write test data
-        df = make_test_data()
-        df.to_csv(csv_file, index=False)
-
-        # Create config with fixed seed
-        cfg = make_test_config(str(csv_file))
-        cfg.seed = 12345
-
-        # Run simulation twice
-        result1 = api.run_simulation(cfg, df)
-        result2 = api.run_simulation(cfg, df)
-
-        # Results should be identical
-        pd.testing.assert_frame_equal(result1.metrics, result2.metrics)
-        assert result1.seed == result2.seed
-        assert result1.environment == result2.environment
+        split = cli_config.sample_split
+        def get_split_params(split: dict) -> tuple[str, str, str, str]:
+            return (
+                str(split.get("in_start")),
+                str(split.get("in_end")),
+                str(split.get("out_start")),
+                str(split.get("out_end")),
+            )
+        split_params = get_split_params(split)
+        summary_cli = export.format_summary_text(
+            cli_result.details,
+            *split_params,
+        )
+        summary_api = export.format_summary_text(
+            api_result.details,
+            *split_params,
+        )
+        assert summary_cli == summary_api
