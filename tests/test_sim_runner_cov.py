@@ -403,3 +403,34 @@ def test_simulator_equity_curve_warning(monkeypatch, caplog):
         policy=policy,
     )
     assert any("Failed to update equity curve" in str(msg[0]) for msg in calls)
+
+def test_simulator_records_nan_when_next_month_missing(monkeypatch):
+    index = pd.to_datetime(["2020-01-31"])
+    data = pd.DataFrame({"A": [0.1]}, index=index)
+    sim = sim_runner.Simulator(data)
+
+    monkeypatch.setattr(
+        sim_runner,
+        "compute_score_frame",
+        lambda *a, **k: pd.DataFrame({"m": [1.0]}, index=["A"]),
+    )
+    monkeypatch.setattr(
+        sim_runner,
+        "decide_hires_fires",
+        lambda *a, **k: {"hire": [], "fire": []},
+    )
+    monkeypatch.setattr(
+        sim_runner,
+        "_apply_rebalance_pipeline",
+        lambda **_: pd.Series(dtype=float),
+    )
+
+    res = sim.run(
+        start=index[0],
+        end=index[0],
+        freq="M",
+        lookback_months=1,
+        policy=PolicyConfig(min_track_months=0),
+    )
+
+    assert res.portfolio.empty

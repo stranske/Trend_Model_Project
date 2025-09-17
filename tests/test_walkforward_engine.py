@@ -198,7 +198,59 @@ def test_infer_periods_per_year_branch_guards(monkeypatch):
 
     monkeypatch.setattr(np, "median", lambda arr: _PositiveMedian())
     assert walkforward._infer_periods_per_year(idx) == 1
-    monkeypatch.setattr(np, "median", real_median, raising=False)
+
+
+def test_walk_forward_handles_empty_metric_columns():
+    df = _monthly_frame(5)
+
+    result = walkforward.walk_forward(
+        df,
+        train_size=2,
+        test_size=1,
+        step_size=1,
+        metric_cols=[],
+    )
+
+    # Without metric columns the OOS aggregates should be empty but metadata retained.
+    assert result.oos.empty
+    assert list(result.oos_windows.columns.get_level_values("category")) == [
+        "window",
+        "window",
+        "window",
+        "window",
+        "window",
+        "window",
+    ]
+
+
+def test_walk_forward_no_splits_yields_empty_windows():
+    df = _monthly_frame(3)
+
+    result = walkforward.walk_forward(
+        df,
+        train_size=5,
+        test_size=3,
+        step_size=1,
+    )
+
+    assert result.splits == []
+    assert result.oos_windows.empty
+
+
+def test_walk_forward_ignores_missing_regime_labels():
+    df = _monthly_frame(6)
+    # All regimes are missing/NaN which should skip regime aggregation block
+    regimes = pd.Series([None] * len(df), index=pd.to_datetime(df["Date"]))
+
+    result = walkforward.walk_forward(
+        df,
+        train_size=3,
+        test_size=2,
+        step_size=1,
+        regimes=regimes,
+    )
+
+    assert result.by_regime.empty
 
 
 def test_walk_forward_orders_oos_window_columns():

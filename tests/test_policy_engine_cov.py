@@ -234,3 +234,46 @@ def test_decide_hires_fires_bucket_skip_and_nan_priorities(monkeypatch):
     assert all(name != "b" for name, _ in hires)
     # NaN priority for the fired manager should drop it from turnover-constrained moves
     assert fires == []
+
+
+def test_sticky_drop_rule_blocks_fires_until_threshold():
+    score_frame = pd.DataFrame({"m": [0.1]}, index=["mgr"])
+    policy = PolicyConfig(
+        bottom_k=1,
+        top_k=0,
+        min_track_months=0,
+        sticky_drop_y=2,
+        drop_rules=["sticky_rank_window"],
+        metrics=[MetricSpec("m", 1.0)],
+    )
+    eligible = {"mgr": 12}
+    cooldowns = CooldownBook()
+    tenure = {"mgr": 3}
+
+    blocked = decide_hires_fires(
+        pd.Timestamp("2020-01-31"),
+        score_frame,
+        current=["mgr"],
+        policy=policy,
+        directions={"m": 1},
+        cooldowns=cooldowns,
+        eligible_since=eligible,
+        tenure=tenure,
+        rule_state={"drop_streak": {"mgr": 1}},
+    )
+
+    assert blocked["fire"] == []
+
+    allowed = decide_hires_fires(
+        pd.Timestamp("2020-02-29"),
+        score_frame,
+        current=["mgr"],
+        policy=policy,
+        directions={"m": 1},
+        cooldowns=cooldowns,
+        eligible_since=eligible,
+        tenure=tenure,
+        rule_state={"drop_streak": {"mgr": 5}},
+    )
+
+    assert allowed["fire"] == [("mgr", "bottom_k")]
