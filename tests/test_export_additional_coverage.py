@@ -341,3 +341,56 @@ def test_export_multi_period_metrics_all_formats(monkeypatch, tmp_path):
     assert "summary" in excel_payload and "metrics_summary" in excel_payload
     json_payload = next(data for fmt, _, data in export_calls if fmt == ("json",))
     assert {"periods", "summary", "metrics", "metrics_summary"}.issubset(json_payload)
+
+
+def test_summary_frame_from_result_handles_mixed_stats():
+    tuple_stats = (0.05, 0.10, 1.2, 0.9, 0.7, 0.15)
+    obj_stats = types.SimpleNamespace(
+        cagr=0.06,
+        vol=0.12,
+        sharpe=0.95,
+        sortino=0.85,
+        information_ratio=0.55,
+        max_drawdown=0.20,
+    )
+    result = {
+        "in_ew_stats": tuple_stats,
+        "out_ew_stats": obj_stats,
+        "in_user_stats": tuple_stats,
+        "out_user_stats": obj_stats,
+        "in_sample_stats": {"FundA": tuple_stats},
+        "out_sample_stats": {"FundA": obj_stats},
+        "fund_weights": {"FundA": 0.5},
+        "benchmark_ir": {"Bench": {"FundA": 0.4, "equal_weight": 0.2, "user_weight": 0.25}},
+    }
+
+    frame = export_module.summary_frame_from_result(result)
+
+    assert {"OS IR Bench", "OS MaxDD"}.issubset(frame.columns)
+    fund_row = frame[frame["Name"] == "FundA"].iloc[0]
+    assert fund_row["Weight"] == pytest.approx(50.0)
+    assert fund_row["OS IR Bench"] == pytest.approx(20.0)
+    assert fund_row["OS MaxDD"] == pytest.approx(0.4)
+
+
+def test_manager_contrib_table_computes_shares_and_handles_empty():
+    idx = pd.date_range("2020-01-31", periods=3, freq="ME")
+    out_df = pd.DataFrame(
+        {
+            "FundA": [0.01, 0.02, 0.0],
+            "FundB": [0.0, 0.0, 0.0],
+        },
+        index=idx,
+    )
+    results = [{"out_sample_scaled": out_df, "fund_weights": {"FundA": 0.6, "FundB": 0.4}}]
+
+    table = export_module.manager_contrib_table(results)
+
+    assert set(table["Manager"]) == {"FundA", "FundB"}
+    assert table.loc[table["Manager"] == "FundB", "Contribution Share"].iloc[0] == pytest.approx(0.0)
+    assert table.loc[table["Manager"] == "FundA", "Contribution Share"].iloc[0] > 0
+
+    empty = export_module.manager_contrib_table(
+        [{"out_sample_scaled": pd.DataFrame(), "fund_weights": {}}]
+    )
+    assert empty.empty
