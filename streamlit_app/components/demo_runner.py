@@ -288,7 +288,7 @@ def run_one_click_demo(st_module: Any | None = None) -> bool:
     try:
         df, meta = _load_demo_returns()
     except Exception as exc:  # pragma: no cover - defensive guard
-        st_module.error(f"Unable to load demo data: {exc}")
+        st_module.error(f"Unable to load demo returns data: {exc}")
         return False
 
     try:
