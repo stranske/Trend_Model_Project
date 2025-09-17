@@ -45,7 +45,7 @@ class _OpenpyxlWorksheetAdapter:
         self, row: int, col: int, data: Iterable[object], fmt: object | None = None  # noqa: ARG002
     ) -> None:
         for offset, value in enumerate(data):
-            self.write(row, col + offset, value, fmt)
+            self.write(row, col + offset, value)
 
     def set_column(self, first_col: int, last_col: int, width: float) -> None:
         from openpyxl.utils import get_column_letter
