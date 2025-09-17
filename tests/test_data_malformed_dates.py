@@ -80,6 +80,39 @@ class TestDataLoadingMalformedDates:
         finally:
             os.unlink(temp_path)
 
+    def test_load_csv_returns_none_when_all_dates_removed(self, caplog, monkeypatch):
+        """If every row has a null date, the loader should give up gracefully."""
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+            f.write("Date,Fund1\n")
+            temp_path = f.name
+
+        try:
+            monkeypatch.setattr(
+                pd,
+                "read_csv",
+                lambda *_, **__: pd.DataFrame(
+                    {"Date": ["", ""], "Fund1": [0.01, 0.02]}
+                ),
+            )
+
+            call_count = {"n": 0}
+
+            def fake_to_datetime(values, *args, **kwargs):  # noqa: ANN001
+                call_count["n"] += 1
+                if call_count["n"] == 1:
+                    raise ValueError("bad format")
+                index = getattr(values, "index", None)
+                return pd.Series([pd.NaT] * len(values), index=index)
+
+            monkeypatch.setattr(pd, "to_datetime", fake_to_datetime)
+            caplog.set_level("ERROR")
+            result = load_csv(temp_path)
+            assert result is None, "No valid rows should result in a None return"
+            assert any("No valid date rows" in rec.message for rec in caplog.records)
+        finally:
+            os.unlink(temp_path)
+
     def test_ensure_datetime_raises_error_for_malformed_dates(self):
         """Test that ensure_datetime raises an error for malformed dates."""
         df = pd.DataFrame(

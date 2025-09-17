@@ -169,6 +169,14 @@ def test_phase1_workbook_data_adds_metrics_summary():
     assert "metrics_summary" in frames
 
 
+def test_workbook_frames_from_results_adds_summary_and_execution():
+    results = [_make_period_result("1"), _make_period_result("2")]
+    frames = workbook_frames_from_results(results)
+
+    assert set(frames) >= {"summary", "execution_metrics", "Period 1", "Period 2"}
+    assert not frames["execution_metrics"].empty
+
+
 def test_export_phase1_workbook_missing_period_metadata(monkeypatch, tmp_path):
     results = [
         _make_period_result("1", include_changes=True, period_metadata=False),
