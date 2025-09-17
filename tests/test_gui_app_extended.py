@@ -177,6 +177,8 @@ class _FakePath:
 class _FakeDir(dict[str, _FakePath]):
     def __truediv__(self, other: str) -> _FakePath:
         stem = other[:-4] if other.endswith(".yml") else other
+        if stem not in self:
+            raise FileNotFoundError(f"No such file: {other}")
         return self[stem]
 
 
