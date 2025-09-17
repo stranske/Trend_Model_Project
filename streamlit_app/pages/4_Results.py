@@ -8,6 +8,20 @@ import streamlit as st
 from trend_analysis.engine.walkforward import walk_forward
 from trend_analysis.metrics import attribution
 
+
+def _flatten_columns(df: pd.DataFrame) -> pd.DataFrame:
+    if isinstance(df.columns, pd.MultiIndex):
+        out = df.copy()
+        flat_cols = []
+        for col in out.columns:
+            parts = [str(part) for part in col if part not in (None, "")]
+            if parts and parts[0] == "window":
+                parts = parts[1:]
+            flat_cols.append(" • ".join(parts) if parts else "")
+        out.columns = flat_cols
+        return out
+    return df
+
 st.title("Results")
 
 if "sim_results" not in st.session_state:
@@ -90,6 +104,7 @@ with st.expander("Run walk-forward (rolling OOS) analysis"):
         (
             "None",
             "Portfolio sign (+/-)",
+            "Upload CSV",
         ),
         index=0,
     )
@@ -104,12 +119,50 @@ with st.expander("Run walk-forward (rolling OOS) analysis"):
         # Only proceed with walk-forward analysis if we have valid data
         if not wf_df.empty and len(wf_df.columns) >= 2:
             regimes = None
+            regime_error: str | None = None
             if regime_source == "Portfolio sign (+/-)":
                 try:
                     s = wf_df.set_index("Date").iloc[:, 0]
                     regimes = pd.Series(np.where(s >= 0, "+", "-"), index=s.index)
-                except Exception:
+                except Exception as exc:
+                    regime_error = str(exc)
                     regimes = None
+            elif regime_source == "Upload CSV":
+                regime_file = st.file_uploader(
+                    "Regime CSV (requires a Date column)",
+                    type=["csv"],
+                    key="wf_regime_csv",
+                )
+                if regime_file is not None:
+                    try:
+                        reg_df = pd.read_csv(regime_file)
+                        date_col = None
+                        if "Date" in reg_df.columns:
+                            date_col = "Date"
+                        else:
+                            for c in reg_df.columns:
+                                if c.lower().startswith("date"):
+                                    date_col = c
+                                    break
+                        if date_col is None:
+                            raise ValueError("CSV must contain a Date column")
+                        reg_df[date_col] = pd.to_datetime(reg_df[date_col])
+                        label_cols = [c for c in reg_df.columns if c != date_col]
+                        if not label_cols:
+                            raise ValueError("No label column found in CSV")
+                        regime_col = st.selectbox(
+                            "Regime column",
+                            options=label_cols,
+                            key="wf_regime_column",
+                        )
+                        regimes = reg_df.set_index(date_col)[regime_col]
+                    except (pd.errors.EmptyDataError, ValueError, FileNotFoundError) as exc:  # pragma: no cover - streamlit UI feedback
+                        regime_error = str(exc)
+                        regimes = None
+                else:
+                    st.caption("Upload a CSV with columns 'Date' and regime labels.")
+            if regime_error:
+                st.warning(f"Regime data unavailable: {regime_error}")
 
             metric_name = wf_df.columns[1]
             res_wf = walk_forward(
@@ -128,16 +181,69 @@ with st.expander("Run walk-forward (rolling OOS) analysis"):
                 horizontal=True,
             )
 
+            st.caption(f"Detected periods/year: {res_wf.periods_per_year}")
+
             if view == "Full period":
-                st.write("Full-period aggregate:")
-                st.dataframe(res_wf.full.to_frame("mean"))
+                st.write("Full-period summary:")
+                st.dataframe(res_wf.full)
+                stat_options = list(res_wf.full.index)
+                if stat_options:
+                    full_stat = st.selectbox(
+                        "Statistic",
+                        stat_options,
+                        key="wf_full_stat",
+                    )
+                    chart_df = res_wf.full.loc[[full_stat]].T
+                    chart_df.columns = [full_stat]
+                    st.bar_chart(chart_df)
             elif view == "OOS only":
-                st.write("Out-of-sample aggregate:")
-                st.dataframe(res_wf.oos.to_frame("mean"))
+                st.write("Out-of-sample summary:")
+                st.dataframe(res_wf.oos)
+                if not res_wf.oos_windows.empty:
+                    st.write("Per-window breakdown:")
+                    st.dataframe(_flatten_columns(res_wf.oos_windows))
+
+                    metric_cols = res_wf.oos_windows.loc[
+                        :, res_wf.oos_windows.columns.get_level_values("category") != "window"
+                    ]
+                    stat_options = list(
+                        dict.fromkeys(
+                            metric_cols.columns.get_level_values("statistic")
+                        )
+                    )
+                    if stat_options:
+                        oos_stat = st.selectbox(
+                            "Statistic",
+                            stat_options,
+                            key="wf_oos_stat",
+                        )
+                        chart_df = metric_cols.xs(oos_stat, axis=1, level="statistic")
+                        if ("window", "test_end") in res_wf.oos_windows.columns:
+                            chart_df = chart_df.copy()
+                            chart_df.index = res_wf.oos_windows["window", "test_end"]
+                            chart_df.index.name = "test_end"
+                        st.line_chart(chart_df)
+                else:
+                    st.caption("No OOS windows generated for the selected parameters.")
             else:
                 st.write("Per-regime aggregate (OOS windows):")
                 if res_wf.by_regime is not None and not res_wf.by_regime.empty:
-                    st.dataframe(res_wf.by_regime)
+                    st.dataframe(_flatten_columns(res_wf.by_regime))
+                    stat_options = list(
+                        dict.fromkeys(
+                            res_wf.by_regime.columns.get_level_values("statistic")
+                        )
+                    )
+                    if stat_options:
+                        regime_stat = st.selectbox(
+                            "Statistic",
+                            stat_options,
+                            key="wf_regime_stat",
+                        )
+                        chart_df = res_wf.by_regime.xs(
+                            regime_stat, axis=1, level="statistic"
+                        )
+                        st.bar_chart(chart_df)
                 else:
                     st.caption("No regime data available.")
         else:
