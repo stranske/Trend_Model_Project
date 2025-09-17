@@ -125,6 +125,35 @@ def test_export_to_excel_backward_compat_sheet_formatter(tmp_path):
     assert out.exists()
 
 
+def test_export_to_excel_without_xlsxwriter(formatters_excel_registry, monkeypatch, tmp_path):
+    df = pd.DataFrame({"A": [1]})
+    called: list[str] = []
+
+    def sheet_formatter(ws, wb):
+        called.append(ws.name)
+        ws.write_row(0, 0, df.columns)
+        for idx, row in enumerate(df.itertuples(index=False, name=None), start=1):
+            ws.write_row(idx, 0, row)
+
+    original_excel_writer = pd.ExcelWriter
+
+    def fake_excel_writer(path, engine=None, **kwargs):
+        if engine == "xlsxwriter":
+            raise ModuleNotFoundError("xlsxwriter missing")
+        # Force openpyxl so the workbook lacks ``add_worksheet`` / ``add_format`` APIs.
+        return original_excel_writer(path, engine="openpyxl", **kwargs)
+
+    monkeypatch.setattr(pd, "ExcelWriter", fake_excel_writer)
+
+    out = tmp_path / "fallback.xlsx"
+    export_to_excel({"summary": df}, str(out), formatter=sheet_formatter)
+
+    assert out.exists()
+    assert called == ["summary"]
+    read = pd.read_excel(out, sheet_name="summary")
+    pd.testing.assert_frame_equal(read, df)
+
+
 def test_format_summary_text_no_index_stats():
     res = {
         "in_ew_stats": (1, 1, 1, 1, 1, 1),
