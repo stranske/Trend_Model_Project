@@ -35,11 +35,33 @@ Last updated: 2025‑09‑17
   - Seeds a bootstrap file under `agents/` and opens a non‑draft PR.
   - Labels/assigns and posts `@codex start` in PR comments.
 
+## Quick Index
+
+- Codex Issue Bridge — [`codex-issue-bridge.yml`](../../.github/workflows/codex-issue-bridge.yml) · [jump](#wf-codex-issue-bridge)
+- Label Agent PRs — [`label-agent-prs.yml`](../../.github/workflows/label-agent-prs.yml) · [jump](#wf-label-agent-prs)
+- Auto-approve Agent PRs — [`autoapprove.yml`](../../.github/workflows/autoapprove.yml) · [jump](#wf-autoapprove)
+- Enable Auto-merge — [`enable-automerge.yml`](../../.github/workflows/enable-automerge.yml) · [jump](#wf-enable-automerge)
+- Autofix Trivial — [`autofix.yml`](../../.github/workflows/autofix.yml) · [jump](#wf-autofix)
+- Autofix on Failure — [`autofix-on-failure.yml`](../../.github/workflows/autofix-on-failure.yml) · [jump](#wf-autofix-on-failure)
+- CI — [`ci.yml`](../../.github/workflows/ci.yml) · [jump](#wf-ci)
+- Docker — [`docker.yml`](../../.github/workflows/docker.yml) · [jump](#wf-docker)
+- Cleanup Codex Bootstrap — [`cleanup-codex-bootstrap.yml`](../../.github/workflows/cleanup-codex-bootstrap.yml) · [jump](#wf-cleanup-codex-bootstrap)
+- Quarantine TTL — [`quarantine-ttl.yml`](../../.github/workflows/quarantine-ttl.yml) · [jump](#wf-quarantine-ttl)
+- Verify Service Bot PAT — [`verify-service-bot-pat.yml`](../../.github/workflows/verify-service-bot-pat.yml) · [jump](#wf-verify-service-bot-pat)
+- Codex Preflight — [`codex-preflight.yml`](../../.github/workflows/codex-preflight.yml) · [jump](#wf-codex-preflight)
+- Copilot Readiness — [`copilot-readiness.yml`](../../.github/workflows/copilot-readiness.yml) · [jump](#wf-copilot-readiness)
+- Agent Readiness — [`agent-readiness.yml`](../../.github/workflows/agent-readiness.yml) · [jump](#wf-agent-readiness)
+- Agent Watchdog — [`agent-watchdog.yml`](../../.github/workflows/agent-watchdog.yml) · [jump](#wf-agent-watchdog)
+- Verify Codex Bootstrap Matrix — [`verify-codex-bootstrap-matrix.yml`](../../.github/workflows/verify-codex-bootstrap-matrix.yml) · [jump](#wf-verify-codex-bootstrap-matrix)
+- Check Failure Tracker — [`check-failure-tracker.yml`](../../.github/workflows/check-failure-tracker.yml) · [jump](#wf-check-failure-tracker)
+- Release — [`release.yml`](../../.github/workflows/release.yml) · [jump](#wf-release)
+
 ## Workflow Catalog (purpose, triggers, jobs)
 
 This catalog explains what each active workflow does, how it’s triggered, the jobs it runs, and any notable relationships or token usage.
 
-1) `codex-issue-bridge.yml` — Codex bootstrap (issue → branch, invite/create PR)
+<a id="wf-codex-issue-bridge"></a>
+1) [`codex-issue-bridge.yml`](../../.github/workflows/codex-issue-bridge.yml) — Codex bootstrap (issue → branch, invite/create PR)
    - Triggers: `issues: [opened, labeled, reopened]`, `workflow_dispatch`
    - Jobs: `bridge`
      - Selects mode: `invite` for issue events (human opens PR), `create` for manual dispatch
@@ -48,89 +70,106 @@ This catalog explains what each active workflow does, how it’s triggered, the 
      - Labels/assigns, optional `@codex start` comment, links PR back to issue
    - Links to: `label-agent-prs.yml` (labels on PR), `agent-watchdog.yml` (issue-to-PR watch), and auto-merge stack (`autoapprove.yml`, `enable-automerge.yml`)
 
-2) `label-agent-prs.yml` — Apply agent labels to PRs (keeps downstream automation deterministic)
+<a id="wf-label-agent-prs"></a>
+2) [`label-agent-prs.yml`](../../.github/workflows/label-agent-prs.yml) — Apply agent labels to PRs (keeps downstream automation deterministic)
    - Triggers: `pull_request_target: [opened, synchronize, reopened]`
    - Jobs: `label`
      - Computes desired labels based on actor/head-ref; adds `from:codex|copilot`, `agent:codex|copilot`, `automerge`, `risk:low`
      - Uses `SERVICE_BOT_PAT` if available; otherwise `GITHUB_TOKEN`
    - Links to: `autoapprove.yml`, `enable-automerge.yml`, `autofix*.yml` (they predicate on these labels)
 
-3) `autoapprove.yml` — Auto-approve eligible agent PRs
+<a id="wf-autoapprove"></a>
+3) [`autoapprove.yml`](../../.github/workflows/autoapprove.yml) — Auto-approve eligible agent PRs
    - Triggers: `pull_request_target: [opened, labeled, synchronize, ready_for_review]`
    - Jobs: `approve`
      - Checks labels: `from:*`, `agent:*`, `automerge`, `risk:low`
      - Validates changed file patterns and size, then approves
 
-4) `enable-automerge.yml` — Turn on GitHub auto-merge for eligible PRs
+<a id="wf-enable-automerge"></a>
+4) [`enable-automerge.yml`](../../.github/workflows/enable-automerge.yml) — Turn on GitHub auto-merge for eligible PRs
    - Triggers: `pull_request: [opened, labeled, synchronize, ready_for_review]`
    - Jobs: `enable`
      - Enables squash auto-merge when labels and state match
 
-5) `autofix.yml` — Trivial autofix on open PRs
+<a id="wf-autofix"></a>
+5) [`autofix.yml`](../../.github/workflows/autofix.yml) — Trivial autofix on open PRs
    - Triggers: `pull_request` (various types) on `phase-2-dev`/`main`
    - Jobs: `autofix`
      - Runs local composite `.github/actions/autofix` and pushes changes to the PR branch if fixes were applied
 
-6) `autofix-on-failure.yml` — Attempt autofix when CI/Docker fail
+<a id="wf-autofix-on-failure"></a>
+6) [`autofix-on-failure.yml`](../../.github/workflows/autofix-on-failure.yml) — Attempt autofix when CI/Docker fail
    - Triggers: `workflow_run` for `CI`, `Docker`, `Lint`, `Tests` (type: `completed`)
    - Jobs: `handle-failure`
      - Locates corresponding PR, checks out same-repo branches, runs autofix, commits, and pushes
 
-7) `ci.yml` — Test suite on pushes and PRs
+<a id="wf-ci"></a>
+7) [`ci.yml`](../../.github/workflows/ci.yml) — Test suite on pushes and PRs
    - Triggers: `push` to `phase-2-dev`, `pull_request`
    - Jobs: `core-tests` (matrix on Python 3.11/3.12), `gate` (aggregates)
 
-8) `docker.yml` — Build, test, and push container image
+<a id="wf-docker"></a>
+8) [`docker.yml`](../../.github/workflows/docker.yml) — Build, test, and push container image
    - Triggers: `push` to `phase-2-dev`, `pull_request`, `workflow_dispatch`
    - Jobs: `build`
      - Builds image, runs tests in container, health-checks a simple endpoint, pushes to GHCR
 
-9) `cleanup-codex-bootstrap.yml` — Prune stale bootstrap branches
+<a id="wf-cleanup-codex-bootstrap"></a>
+9) [`cleanup-codex-bootstrap.yml`](../../.github/workflows/cleanup-codex-bootstrap.yml) — Prune stale bootstrap branches
    - Triggers: `schedule` (daily), `workflow_dispatch`
    - Jobs: `prune`
      - Deletes old `agents/codex-issue-*` branches beyond TTL
 
-10) `quarantine-ttl.yml` — Enforce test quarantine expirations
+<a id="wf-quarantine-ttl"></a>
+10) [`quarantine-ttl.yml`](../../.github/workflows/quarantine-ttl.yml) — Enforce test quarantine expirations
    - Triggers: `pull_request`, `push` to `phase-2-dev`
    - Jobs: `ttl`
      - Validates `tests/quarantine.yml` entries have not expired
 
-11) `verify-service-bot-pat.yml` — Verify `SERVICE_BOT_PAT` presence and scopes
+<a id="wf-verify-service-bot-pat"></a>
+11) [`verify-service-bot-pat.yml`](../../.github/workflows/verify-service-bot-pat.yml) — Verify `SERVICE_BOT_PAT` presence and scopes
    - Triggers: `workflow_dispatch`
    - Jobs: `check-token`
      - Checks secret exists and minimally has `repo`/`workflow` scopes
 
-12) `codex-preflight.yml` — Quick Codex readiness probe
+<a id="wf-codex-preflight"></a>
+12) [`codex-preflight.yml`](../../.github/workflows/codex-preflight.yml) — Quick Codex readiness probe
    - Triggers: `workflow_dispatch`
    - Jobs: `probe`
      - Creates a temp issue, attempts to assign `CODEX_USER`, optionally posts command, then closes
 
-13) `copilot-readiness.yml` — Copilot readiness probe
+<a id="wf-copilot-readiness"></a>
+13) [`copilot-readiness.yml`](../../.github/workflows/copilot-readiness.yml) — Copilot readiness probe
    - Triggers: `workflow_dispatch`
    - Jobs: `probe`
      - GraphQL `suggestedActors` check, temp issue assign attempt to `@copilot`, close, verdict
 
-14) `agent-readiness.yml` — Multi-agent readiness probe
+<a id="wf-agent-readiness"></a>
+14) [`agent-readiness.yml`](../../.github/workflows/agent-readiness.yml) — Multi-agent readiness probe
    - Triggers: `workflow_dispatch`
    - Jobs: `probe`
      - Tests multiple candidate logins for assignability; produces a per-agent report
 
-15) `agent-watchdog.yml` — Issue-to-PR watcher for agents
+<a id="wf-agent-watchdog"></a>
+15) [`agent-watchdog.yml`](../../.github/workflows/agent-watchdog.yml) — Issue-to-PR watcher for agents
    - Triggers: `issues: [assigned, labeled, reopened]`
    - Jobs: `watch`
      - Polls issue timeline for a linked PR within a time window; posts findings or timeouts
 
-16) `verify-codex-bootstrap-matrix.yml` — End-to-end bootstrap scenario matrix
+<a id="wf-verify-codex-bootstrap-matrix"></a>
+16) [`verify-codex-bootstrap-matrix.yml`](../../.github/workflows/verify-codex-bootstrap-matrix.yml) — End-to-end bootstrap scenario matrix
    - Triggers: `workflow_dispatch`, `schedule`, `push` to specific paths
    - Jobs: `plan`, `matrix` (parallel), `sequential`
      - Runs `scripts/verify_codex_bootstrap.py` across scenarios; uploads artifacts and summaries
 
-17) `check-failure-tracker.yml` — Open/close CI failure issues
+<a id="wf-check-failure-tracker"></a>
+17) [`check-failure-tracker.yml`](../../.github/workflows/check-failure-tracker.yml) — Open/close CI failure issues
    - Triggers: `workflow_run` for `CI` and `Docker`
    - Jobs: `failure`, `success`
      - Opens an issue on failures; closes the corresponding issue on subsequent success
 
-18) `release.yml` — Build/publish package and GitHub release
+<a id="wf-release"></a>
+18) [`release.yml`](../../.github/workflows/release.yml) — Build/publish package and GitHub release
    - Triggers: `push` tags `v*`, `workflow_dispatch`
    - Jobs: `build`, `test-install`, `test-pypi` (optional), `release`
      - Builds wheels/sdist, checks, tests install, creates GitHub Release, uploads assets, publishes to PyPI/TestPyPI
