@@ -154,3 +154,45 @@ def test_walk_forward_regime_rows_include_information_ratio(monkeypatch):
     # Out-of-sample windows should be enumerated and ordered
     assert list(result.oos_windows.index) == sorted(result.oos_windows.index)
     assert result.oos_windows.columns[0][0] == "window"
+
+
+def test_information_ratio_frame_handles_empty_columns():
+    cols = pd.Index([])
+    frame = walkforward._information_ratio_frame(0.5, cols)
+    assert frame.empty
+    assert list(frame.index) == ["information_ratio"]
+
+
+def test_agg_label_prefers_callable_name():
+    def custom_metric(values):  # noqa: ARG001
+        return values.mean()
+
+    assert walkforward._agg_label("mean") == "mean"
+    assert walkforward._agg_label(custom_metric) == "custom_metric"
+    assert walkforward._agg_label(object()) == "value"
+
+
+def test_infer_periods_per_year_branch_guards(monkeypatch):
+    idx = pd.date_range("2020-01-01", periods=5, freq="D")
+
+    assert walkforward._infer_periods_per_year(idx[:1]) == 1
+
+    real_diff = np.diff
+    monkeypatch.setattr(np, "diff", lambda arr: np.array([], dtype=np.int64))
+    assert walkforward._infer_periods_per_year(idx) == 1
+    monkeypatch.setattr(np, "diff", real_diff, raising=False)
+
+    real_median = np.median
+    monkeypatch.setattr(np, "median", lambda arr: -10)
+    assert walkforward._infer_periods_per_year(idx) == 1
+
+    class _PositiveMedian:
+        def __le__(self, other):  # noqa: D401, ANN001
+            return False
+
+        def __truediv__(self, other):  # noqa: D401, ANN001
+            return 0
+
+    monkeypatch.setattr(np, "median", lambda arr: _PositiveMedian())
+    assert walkforward._infer_periods_per_year(idx) == 1
+    monkeypatch.setattr(np, "median", real_median, raising=False)

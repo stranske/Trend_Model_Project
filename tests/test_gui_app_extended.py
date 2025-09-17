@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import contextlib
-from types import SimpleNamespace
+import sys
+from pathlib import Path
+from types import ModuleType, SimpleNamespace
 
 import pandas as pd
+import pytest
 import yaml
 
 from trend_analysis.gui import app
@@ -17,12 +20,19 @@ class DummyGrid:
         self.layout = SimpleNamespace(border="")
         self._callbacks: dict[str, object] = {}
         created_instances["grid"] = self
+        created_instances.setdefault("grids", []).append(self)
 
     def on(self, event: str, callback) -> None:  # noqa: ANN001
         self._callbacks[event] = callback
 
     def hold_trait_notifications(self):  # noqa: D401
         return contextlib.nullcontext()
+
+    def trigger(self, event: str, payload: dict[str, object]) -> None:
+        callback = self._callbacks.get(event)
+        if callback is None:
+            raise AssertionError(f"No callback registered for {event}")
+        callback(payload)
 
 
 class DummyUpload:
@@ -48,6 +58,9 @@ class DummyDropdown:
         self.description = description
         self.value = options[0] if options else None
         self._callbacks: list = []
+        key = description or f"dropdown_{len(created_instances.get('dropdowns', []))}"
+        created_instances.setdefault("dropdowns", []).append(self)
+        created_instances[key] = self
 
     def observe(self, callback, names=None) -> None:  # noqa: ANN001
         self._callbacks.append(callback)
@@ -65,6 +78,7 @@ class DummyButton:
 class DummyVBox:
     def __init__(self, children) -> None:  # noqa: ANN001
         self.children = children
+        self.layout = SimpleNamespace(display="")
 
 
 created_instances: dict[str, object] = {}
@@ -96,3 +110,125 @@ def test_build_step0_upload_refresh(monkeypatch, tmp_path):
     assert store.cfg == {"alpha": 2}
     assert store.dirty is True
     assert grid.data == [store.cfg]
+
+
+def test_manual_override_grid_updates_state(monkeypatch):
+    created_instances.clear()
+    store = ParamStore(
+        cfg={"portfolio": {"custom_weights": {"FundA": 0.25}, "manual_list": ["FundA"]}}
+    )
+
+    module = ModuleType("ipydatagrid")
+    module.DataGrid = DummyGrid
+    monkeypatch.setitem(sys.modules, "ipydatagrid", module)
+    monkeypatch.setattr(app.widgets, "VBox", DummyVBox)
+
+    widget = app._build_manual_override(store)
+
+    assert isinstance(widget, DummyVBox)
+    grid = widget.children[0]
+    assert isinstance(grid, DummyGrid)
+
+    callback = grid._callbacks.get("cell_edited")
+    assert callback is not None
+
+    store.dirty = False
+    callback({"row": 0, "column": 1, "new": False})
+    assert "FundA" not in store.cfg["portfolio"]["manual_list"]
+    assert store.dirty is True
+
+    store.dirty = False
+    callback({"row": 0, "column": 1, "new": True})
+    assert "FundA" in store.cfg["portfolio"]["manual_list"]
+    assert store.dirty is True
+
+    store.dirty = False
+    callback({"row": 0, "column": 2, "new": None})
+    assert store.cfg["portfolio"]["custom_weights"]["FundA"] == 0.25
+    assert store.dirty is False
+
+    store.dirty = False
+    callback({"row": 0, "column": 2, "new": "invalid"})
+    assert store.cfg["portfolio"]["custom_weights"]["FundA"] == 0.25
+    assert store.dirty is False
+
+    store.dirty = False
+    callback({"row": 0, "column": 2, "new": "1.75"})
+    assert store.cfg["portfolio"]["custom_weights"]["FundA"] == pytest.approx(1.75)
+    assert grid.df.loc[0, "Weight"] == pytest.approx(1.75)
+    assert store.dirty is True
+    assert widget.layout.display == "none"
+
+
+class _FakePath:
+    def __init__(self, name: str, behaviour: object):
+        self._name = name
+        self._behaviour = behaviour
+
+    def read_text(self) -> str:
+        if isinstance(self._behaviour, Exception):
+            raise self._behaviour
+        return str(self._behaviour)
+
+    def __str__(self) -> str:
+        return f"/fake/{self._name}"
+
+
+class _FakeDir(dict[str, _FakePath]):
+    def __truediv__(self, other: str) -> _FakePath:
+        stem = other[:-4] if other.endswith(".yml") else other
+        return self[stem]
+
+
+def test_template_loader_handles_error_paths(monkeypatch, tmp_path):
+    created_instances.clear()
+    store = ParamStore(cfg={"foo": "bar"})
+
+    fake_dir = _FakeDir(
+        {
+            "valid": _FakePath("valid.yml", "alpha: 1"),
+            "missing": _FakePath("missing.yml", FileNotFoundError("missing")),
+            "permission": _FakePath("permission.yml", PermissionError("denied")),
+            "invalid": _FakePath("invalid.yml", yaml.YAMLError("bad yaml")),
+            "boom": _FakePath("boom.yml", RuntimeError("boom")),
+        }
+    )
+
+    monkeypatch.setattr(app, "STATE_FILE", tmp_path / "state.yml")
+    monkeypatch.setattr(app, "WEIGHT_STATE_FILE", tmp_path / "weights.pkl")
+    monkeypatch.setattr(app, "DataGrid", DummyGrid)
+    monkeypatch.setattr(app, "HAS_DATAGRID", True)
+    monkeypatch.setattr(app.widgets, "FileUpload", DummyUpload)
+    monkeypatch.setattr(app.widgets, "Dropdown", DummyDropdown)
+    monkeypatch.setattr(app.widgets, "Button", DummyButton)
+    monkeypatch.setattr(app.widgets, "VBox", DummyVBox)
+    monkeypatch.setattr(app.widgets, "HBox", DummyVBox)
+    monkeypatch.setattr(app, "list_builtin_cfgs", lambda: list(fake_dir.keys()))
+    monkeypatch.setattr(app, "_find_config_directory", lambda: fake_dir)
+
+    reset_calls: list[ParamStore] = []
+    monkeypatch.setattr(app, "reset_weight_state", lambda store: reset_calls.append(store))
+
+    widget = app._build_step0(store)
+    assert isinstance(widget, DummyVBox)
+
+    template = created_instances["Template"]
+    grid = created_instances["grid"]
+    callback = template._callbacks[0]
+
+    callback({"new": "valid"})
+    assert store.cfg == {"alpha": 1}
+    assert grid.data == [store.cfg]
+    assert reset_calls == [store]
+
+    with pytest.warns(UserWarning, match="Template config file not found"):
+        callback({"new": "missing"})
+
+    with pytest.warns(UserWarning, match="Permission denied"):
+        callback({"new": "permission"})
+
+    with pytest.warns(UserWarning, match="Invalid YAML"):
+        callback({"new": "invalid"})
+
+    with pytest.warns(UserWarning, match="Failed to load template"):
+        callback({"new": "boom"})
