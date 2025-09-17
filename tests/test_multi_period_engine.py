@@ -6,13 +6,14 @@ import yaml  # type: ignore[import-untyped]
 
 from trend_analysis.config import Config
 from trend_analysis.multi_period import Portfolio
+from trend_analysis.multi_period import engine as mp_engine
 from trend_analysis.multi_period import run as run_mp
 from trend_analysis.multi_period import run_schedule
-from trend_analysis.multi_period import engine as mp_engine
 from trend_analysis.multi_period.replacer import Rebalancer
 from trend_analysis.multi_period.scheduler import generate_periods
 from trend_analysis.selector import RankSelector
-from trend_analysis.weighting import AdaptiveBayesWeighting, BaseWeighting, EqualWeight
+from trend_analysis.weighting import (AdaptiveBayesWeighting, BaseWeighting,
+                                      EqualWeight)
 
 
 def make_df():
@@ -233,7 +234,9 @@ def test_run_schedule_with_rebalancer_replaces_funds():
 
 def test_portfolio_rebalance_accepts_mapping():
     pf = Portfolio()
-    pf.rebalance("2024-01-31", {"Fund A": 0.25, "Fund B": 0.75}, turnover=0.1, cost=0.02)
+    pf.rebalance(
+        "2024-01-31", {"Fund A": 0.25, "Fund B": 0.75}, turnover=0.1, cost=0.02
+    )
     key = "2024-01-31"
     assert set(pf.history[key].index) == {"Fund A", "Fund B"}
     assert pf.history[key].dtype == float
@@ -244,14 +247,20 @@ def test_portfolio_rebalance_accepts_mapping():
 
 def test_run_schedule_calls_rebalance_strategies_and_updates(monkeypatch):
     dates = [pd.Timestamp("2024-01-31"), pd.Timestamp("2024-02-29")]
-    sf1 = pd.DataFrame({"Sharpe": [1.0, 0.5], "weight": [0.6, 0.4]}, index=["Fund A", "Fund B"])
-    sf2 = pd.DataFrame({"Sharpe": [0.4, 1.2], "weight": [0.5, 0.5]}, index=["Fund A", "Fund B"])
+    sf1 = pd.DataFrame(
+        {"Sharpe": [1.0, 0.5], "weight": [0.6, 0.4]}, index=["Fund A", "Fund B"]
+    )
+    sf2 = pd.DataFrame(
+        {"Sharpe": [0.4, 1.2], "weight": [0.5, 0.5]}, index=["Fund A", "Fund B"]
+    )
     frames = {dates[0]: sf1, dates[1]: sf2}
 
     class DummySelector:
         rank_column = "Sharpe"
 
-        def select(self, score_frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+        def select(
+            self, score_frame: pd.DataFrame
+        ) -> tuple[pd.DataFrame, pd.DataFrame]:
             return score_frame, score_frame
 
     class DummyWeighting(BaseWeighting):
@@ -269,7 +278,9 @@ def test_run_schedule_calls_rebalance_strategies_and_updates(monkeypatch):
         def __init__(self) -> None:
             self.calls: list[pd.Series] = []
 
-        def apply_triggers(self, prev_weights: pd.Series, score_frame: pd.DataFrame) -> pd.Series:
+        def apply_triggers(
+            self, prev_weights: pd.Series, score_frame: pd.DataFrame
+        ) -> pd.Series:
             self.calls.append(prev_weights.copy())
             return prev_weights.sort_index()
 
