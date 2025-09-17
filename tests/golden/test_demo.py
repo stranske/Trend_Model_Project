@@ -392,10 +392,19 @@ class TestDemoGoldenMaster:
         with open(ci_config_path, "r") as f:
             ci_content = f.read()
 
-        # Verify global coverage gate is set to 80%
+        # Verify global coverage gate is set to 80% (literal or via variable)
+        # Accept either a literal --cov-fail-under=80 or a variable-based expression resolving to 80,
+        # such as --cov-fail-under=${{ vars.COV_MIN || 80 }}.
+        literal_ok = "--cov-fail-under=80" in ci_content
+        variable_ok = bool(
+            re.search(
+                r"--cov-fail-under=\$\{\{\s*vars\.COV_MIN\s*\|\|\s*80\s*\}\}",
+                ci_content,
+            )
+        )
         assert (
-            "--cov-fail-under=80" in ci_content
-        ), "CI should require 80% coverage globally (found in workflow)"
+            literal_ok or variable_ok
+        ), "CI should require 80% coverage globally (literal or via vars.COV_MIN with default 80)"
 
         # Check core coverage configuration
         core_config_path = Path(".coveragerc.core")

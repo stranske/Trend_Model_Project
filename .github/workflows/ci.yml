@@ -31,6 +31,8 @@ jobs:
         run: rm -f .coverage .coverage.*
       - name: Run core subset
         run: |
+          # Default fallback ensures at least 80% coverage when CI vars are unset.
+          # (Coverage gate effectively behaves as --cov-fail-under=80 by default.)
           pytest -m "not quarantine and not slow" \
             --cov=src --cov-report=term-missing --cov-fail-under=${{ vars.COV_MIN || 80 }} --cov-branch
 

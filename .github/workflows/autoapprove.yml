@@ -23,12 +23,22 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const { owner, repo } = context.repo;
+            if (!context.payload || !context.payload.pull_request) {
+              core.warning('No pull_request in event payload; refusing to auto-approve.');
+              return false;
+            }
             const pull_number = context.payload.pull_request.number;
             // Get list of files changed in the PR
-            const files = await github.paginate(
-              github.pulls.listFiles,
-              { owner, repo, pull_number }
-            );
+            // Octokit v17+ uses github.rest.pulls.listFiles; older versions use github.pulls.listFiles.
+            // Prefer github.rest.pulls.listFiles, fallback to github.pulls.listFiles for compatibility.
+            const listFiles = github?.rest?.pulls?.listFiles
+              ? github.rest.pulls.listFiles
+              : github?.pulls?.listFiles;
+            if (!listFiles) {
+              core.warning('Octokit pulls.listFiles API is unavailable on this runner.');
+              return false;
+            }
+            const files = await github.paginate(listFiles, { owner, repo, pull_number });
             // Allow files by simple glob-like patterns
             const patterns = (process.env.APPROVE_PATTERNS || 'src/**,docs/**,tests/**,**/*.md')
               .split(',')
@@ -58,8 +68,17 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const { owner, repo } = context.repo;
+            if (!context.payload || !context.payload.pull_request) {
+              core.warning('No pull_request in event payload; skip approval.');
+              return;
+            }
             const pull_number = context.payload.pull_request.number;
-            await github.pulls.createReview({
+            const createReview = github?.rest?.pulls?.createReview || github?.pulls?.createReview;
+            if (!createReview) {
+              core.warning('Octokit pulls.createReview API is unavailable on this runner.');
+              return;
+            }
+            await createReview({
               owner,
               repo,
               pull_number,
