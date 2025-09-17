@@ -16,7 +16,7 @@ on:
       pr_mode:
         description: "create | invite (invite = human opens the PR)"
         required: false
-        default: "invite"
+        default: "create"
 
 permissions:
   contents: write

@@ -71,6 +71,31 @@ def test_compute_score_frame_validations_and_fallback(monkeypatch):
     assert isinstance(sf, pd.DataFrame)
 
 
+def test_compute_score_frame_external_success(monkeypatch):
+    panel = pd.DataFrame(
+        {
+            "Date": [pd.Timestamp("2020-01-31"), pd.Timestamp("2020-02-29")],
+            "A": [0.1, 0.2],
+        }
+    )
+
+    class Dummy:
+        def single_period_run(self, panel, start, end):
+            assert start == "2020-01" and end == "2020-02"
+            return pd.DataFrame({"metric": [1.0]}, index=["A"])
+
+    monkeypatch.setattr(sim_runner, "HAS_TA", True)
+    monkeypatch.setattr(sim_runner, "ta_pipeline", Dummy())
+
+    sf = sim_runner.compute_score_frame(
+        panel,
+        pd.Timestamp("2020-01-31"),
+        pd.Timestamp("2020-02-29"),
+    )
+
+    assert list(sf.index) == ["A"] and "metric" in sf.columns
+
+
 def test_simresult_methods():
     ev = EventLog()
     ev.append(Event(pd.Timestamp("2020-01-31"), "hire", "A", "top_k"))
@@ -223,6 +248,53 @@ def test_apply_rebalance_pipeline_strategies():
     )
     assert isinstance(res, pd.Series)
 
+
+def test_apply_rebalance_pipeline_vol_and_drawdown(monkeypatch):
+    prev = pd.Series({"A": 0.6, "B": 0.4})
+    target = pd.Series({"A": 0.2, "B": 0.8})
+    rb_state = {"since_last_reb": 0, "equity_curve": [1.0, 1.2, 0.9], "guard_on": False}
+    rb_cfg = {
+        "bayesian_only": False,
+        "strategies": ["drift_band", "vol_target_rebalance", "drawdown_guard"],
+        "params": {
+            "drift_band": {"band_pct": 0.0, "min_trade": 0.0, "mode": "full"},
+            "vol_target_rebalance": {"target": 0.10, "window": 2, "lev_min": 0.5, "lev_max": 2.0},
+            "drawdown_guard": {
+                "dd_window": 3,
+                "dd_threshold": 0.05,
+                "guard_multiplier": 0.5,
+                "recover_threshold": 0.02,
+            },
+        },
+    }
+    policy = PolicyConfig(max_weight=1.0)
+
+    res1 = sim_runner._apply_rebalance_pipeline(
+        prev_weights=prev,
+        target_weights=target,
+        date=pd.Timestamp("2020-01-31"),
+        rb_cfg=rb_cfg,
+        rb_state=rb_state,
+        policy=policy,
+    )
+
+    assert isinstance(res1, pd.Series)
+    assert rb_state["guard_on"] is True
+
+    # Simulate recovery to toggle guard off while running through strategies again
+    rb_state["equity_curve"] = [1.0, 1.2, 1.18]
+    rb_state["guard_on"] = True
+    res2 = sim_runner._apply_rebalance_pipeline(
+        prev_weights=res1,
+        target_weights=target,
+        date=pd.Timestamp("2020-02-29"),
+        rb_cfg=rb_cfg,
+        rb_state=rb_state,
+        policy=policy,
+    )
+
+    assert isinstance(res2, pd.Series)
+    assert rb_state["guard_on"] is False
 
 def test_simulator_equity_curve_warning(monkeypatch, caplog):
     monkeypatch.setattr(

@@ -61,6 +61,38 @@ def test_load_csv_malformed_date_strings(tmp_path, caplog):
     assert "malformed date" in caplog.text
 
 
+def test_load_csv_malformed_dates_preview_tail(tmp_path, caplog):
+    f = tmp_path / "malformed_many_dates.csv"
+    bad_rows = "\n".join([f"bad{i},1" for i in range(7)])
+    f.write_text(f"Date,A\n{bad_rows}")
+
+    with caplog.at_level("ERROR"):
+        result = data_mod.load_csv(str(f))
+
+    assert result is None
+    assert "7 malformed date(s)" in caplog.text
+    assert "..." in caplog.text
+
+
+def test_load_csv_permission_error_during_stat(monkeypatch, tmp_path, caplog):
+    f = tmp_path / "stat_permission.csv"
+    f.write_text("Date,A\n01/01/20,1")
+
+    original_stat = data_mod.Path.stat
+
+    def fake_stat(self, *args, **kwargs):
+        if self == data_mod.Path(str(f)):
+            raise PermissionError("stat denied")
+        return original_stat(self, *args, **kwargs)
+
+    monkeypatch.setattr(data_mod.Path, "stat", fake_stat)
+
+    with caplog.at_level("ERROR"):
+        result = data_mod.load_csv(str(f))
+    assert result is None
+    assert "Permission denied" in caplog.text
+
+
 def test_load_csv_null_dates_all_filtered(tmp_path, monkeypatch):
     f = tmp_path / "null_only.csv"
     f.write_text("Date,A\n,1\n,2")
@@ -100,6 +132,68 @@ def test_load_csv_warns_on_null_dates_without_format_error(tmp_path, caplog):
     assert df is not None
     assert df["Date"].isnull().sum() == 1
     assert "Null values found" in caplog.text
+
+
+def test_load_csv_null_dates_preview_tail(monkeypatch, tmp_path, caplog):
+    f = tmp_path / "null_many_dates.csv"
+    rows = [",1" for _ in range(7)] + ["01/01/20,2"]
+    f.write_text("Date,A\n" + "\n".join(rows))
+
+    original_to_datetime = data_mod.pd.to_datetime
+
+    def fake_to_datetime(values, *args, **kwargs):
+        if kwargs.get("format") == "%m/%d/%y":
+            raise ValueError("force fallback")
+        return original_to_datetime(values, *args, **kwargs)
+
+    monkeypatch.setattr(data_mod.pd, "to_datetime", fake_to_datetime)
+
+    with caplog.at_level("WARNING"):
+        df = data_mod.load_csv(str(f))
+
+    assert df is not None
+    assert df.shape[0] == 1
+    assert df["A"].tolist() == [2]
+    assert "Removing these rows" in caplog.text
+    assert "..." in caplog.text
+
+
+def test_load_csv_fallback_parses_clean_data(monkeypatch, tmp_path):
+    f = tmp_path / "fallback.csv"
+    f.write_text("Date,A\n2020-01-01,1\n2020-02-01,2")
+
+    original_to_datetime = data_mod.pd.to_datetime
+
+    def fake_to_datetime(values, *args, **kwargs):
+        if kwargs.get("format") == "%m/%d/%y":
+            raise ValueError("force fallback")
+        return original_to_datetime(values, *args, **kwargs)
+
+    monkeypatch.setattr(data_mod.pd, "to_datetime", fake_to_datetime)
+
+    df = data_mod.load_csv(str(f))
+    assert df is not None
+    assert df["Date"].dt.month.tolist() == [1, 2]
+
+
+def test_load_csv_preserves_non_numeric_strings(monkeypatch, tmp_path):
+    f = tmp_path / "labels.csv"
+    f.write_text("Date,Label\n01/01/20,alpha\n01/02/20,beta")
+
+    original_to_numeric = data_mod.pd.to_numeric
+
+    def fake_to_numeric(values, *args, **kwargs):
+        return pd.Series(list(values), index=values.index, dtype=object)
+
+    monkeypatch.setattr(data_mod.pd, "to_numeric", fake_to_numeric)
+
+    df = data_mod.load_csv(str(f))
+
+    assert df is not None
+    assert df["Label"].tolist() == ["alpha", "beta"]
+
+    # Restore to ensure other tests continue with the original implementation
+    monkeypatch.setattr(data_mod.pd, "to_numeric", original_to_numeric)
 
 
 def test_identify_risk_free_fund_basic():

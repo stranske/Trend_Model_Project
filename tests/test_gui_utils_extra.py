@@ -1,0 +1,50 @@
+import asyncio
+from types import SimpleNamespace
+
+from trend_analysis.gui import utils
+
+
+def test_debounce_cancels_pending_call(monkeypatch):
+    """debounce should cancel prior tasks and only execute latest invocation."""
+
+    # Controlled time progression for debounce window checks
+    time_values = iter([0.0, 0.05, 0.35, 0.70, 1.0])
+    monkeypatch.setattr(utils.time, "time", lambda: next(time_values))
+
+    async def fast_sleep(_):
+        return None
+
+    monkeypatch.setattr(utils.asyncio, "sleep", fast_sleep)
+
+    tasks: list[SimpleNamespace] = []
+    original_create_task = asyncio.create_task
+
+    def tracking_create_task(coro):
+        task = original_create_task(coro)
+        wrapper = SimpleNamespace(_task=task, cancelled=False)
+
+        def cancel() -> None:
+            wrapper.cancelled = True
+            task.cancel()
+
+        wrapper.cancel = cancel
+        tasks.append(wrapper)
+        return wrapper
+
+    monkeypatch.setattr(utils.asyncio, "create_task", tracking_create_task)
+
+    calls: list[str] = []
+
+    @utils.debounce(300)
+    def handler(value: str) -> None:
+        calls.append(value)
+
+    async def run() -> None:
+        await handler("first")
+        await handler("second")
+        await asyncio.sleep(0)
+
+    asyncio.run(run())
+
+    assert calls == ["second"]
+    assert tasks and tasks[0].cancelled is True
