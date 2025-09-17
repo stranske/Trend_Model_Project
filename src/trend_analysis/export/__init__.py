@@ -1092,13 +1092,14 @@ def period_frames_from_results(
 def workbook_frames_from_results(
     results: Iterable[Mapping[str, object]],
 ) -> OrderedDict[str, pd.DataFrame]:
-    """Return per-period frames plus a combined summary frame."""
+    """Return per-period frames plus summary and execution metrics."""
 
     results_list = list(results)
     frames = period_frames_from_results(results_list)
     if results_list:
         summary = combined_summary_result(results_list)
         frames["summary"] = summary_frame_from_result(summary)
+        frames["execution_metrics"] = execution_metrics_frame(results_list)
     return frames
 
 
@@ -1155,7 +1156,11 @@ def flat_frames_from_results(
 
     results_list = list(results)
     frames = workbook_frames_from_results(results_list)
-    period_frames = [(k, v) for k, v in frames.items() if k != "summary"]
+    period_frames = [
+        (k, v)
+        for k, v in frames.items()
+        if k not in {"summary", "execution_metrics"}
+    ]
     combined_frames = []
     for name, df in period_frames:
         df = df.copy()
@@ -1172,6 +1177,7 @@ def flat_frames_from_results(
         contrib_df = manager_contrib_table(results_list)
         if not contrib_df.empty:
             out["manager_contrib"] = contrib_df
+    out["execution_metrics"] = execution_metrics_frame(results_list)
 
     # Also emit a combined manager changes frame if available
     changes_rows: list[dict[str, Any]] = []
@@ -1268,9 +1274,12 @@ def export_phase1_workbook(
     if "summary" in frames:
         ordered: OrderedDict[str, pd.DataFrame] = OrderedDict()
         ordered["summary"] = frames["summary"]
+        if "execution_metrics" in frames:
+            ordered["execution_metrics"] = frames["execution_metrics"]
         for k, v in frames.items():
-            if k != "summary":
-                ordered[k] = v
+            if k in {"summary", "execution_metrics"}:
+                continue
+            ordered[k] = v
         frames = ordered
 
     export_to_excel(frames, output_path)

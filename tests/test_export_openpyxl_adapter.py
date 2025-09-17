@@ -261,6 +261,7 @@ def test_flat_frames_from_results_collects_changes(monkeypatch):
 
     out = export.flat_frames_from_results(results)
     assert "periods" in out and "summary" in out
+    assert "execution_metrics" in out
     assert "manager_contrib" in out
     assert "changes" in out and out["changes"].iloc[0]["Period"] == "2020-12"
 
