@@ -22,7 +22,7 @@ jobs:
             const currentPrNumber = pr.number;
 
             // List all PRs with this head ref (state=all), then check if any other PR is merged
-            const { data: prs } = await github.rest.pulls.list({ owner, repo, head: `${owner}:${headRef}`, state: 'all', per_page: 100 });
+            const { data: prs } = await github.rest.pulls.list({ owner, repo, head: `${pr.head.repo.owner.login}:${headRef}`, state: 'all', per_page: 100 });
             for (const p of prs) {
               if (p.number === currentPrNumber) continue;
               // Fetch details to get merged_at reliably
