@@ -6,12 +6,14 @@ import sys
 import tempfile
 import zipfile
 from pathlib import Path
-from typing import Any
+from typing import Any, List
 
 import matplotlib
 import pandas as pd
 
 from trend_analysis.util.hash import sha256_config, sha256_file, sha256_text
+
+_MANIFEST_SCHEMA_REF = "trend_analysis/export/manifest_schema.json"
 
 
 def _git_hash() -> str:
@@ -52,7 +54,14 @@ def export_bundle(run: Any, path: Path) -> Path:
 
         # Pre-compute hashes and run identifier --------------------------------
         config = getattr(run, "config", {})
-        seed = getattr(run, "seed", None)
+        raw_seed = getattr(run, "seed", None)
+        if raw_seed is None:
+            seed = None
+        else:
+            try:
+                seed = int(raw_seed)
+            except (TypeError, ValueError):
+                seed = raw_seed
 
         # input_path may be missing or explicitly None; handle safely
         _inp = getattr(run, "input_path", None)
@@ -183,23 +192,31 @@ def export_bundle(run: Any, path: Path) -> Path:
         # ------------------------------------------------------------------
         # Metadata manifest
         # ------------------------------------------------------------------
-        env = getattr(run, "environment", {"python": sys.version.split()[0]})
+        env_attr = getattr(run, "environment", None)
+        environment = dict(env_attr) if isinstance(env_attr, dict) else {}
+        environment.setdefault("python", sys.version.split()[0])
         try:
             import importlib.metadata as _ilmd
 
-            env.setdefault("trend_analysis", _ilmd.version("trend-analysis"))
+            environment.setdefault("trend_analysis", _ilmd.version("trend-analysis"))
         except Exception:
-            env.setdefault("trend_analysis", "0")
+            environment.setdefault("trend_analysis", "0")
+        environment = {k: environment[k] for k in sorted(environment)}
+        versions = dict(environment)
+        git_hash = _git_hash()
+        seeds: List[Any] = [seed] if seed is not None else []
 
         meta: dict[str, Any] = {
+            "$schema": _MANIFEST_SCHEMA_REF,
             "schema_version": "1.0",
             "run_id": run_id,
             "config": config,
             "config_sha256": config_sha256,
             "seed": seed,
-            "environment": env,
-            "git_hash": _git_hash(),
-            "receipt": {"created": _dt.datetime.utcnow().isoformat() + "Z"},
+            "seeds": seeds,
+            "environment": environment,
+            "versions": versions,
+            "git_hash": git_hash,
             "input_sha256": input_sha256,
         }
 
@@ -215,14 +232,14 @@ def export_bundle(run: Any, path: Path) -> Path:
         ]
         if seed is not None:
             receipt_lines.append(f"seed: {seed}")
-        receipt_lines.append(f"git_hash: {meta['git_hash']}")
+        receipt_lines.append(f"git_hash: {git_hash}")
         receipt_path = bundle_dir / "receipt.txt"
         receipt_path.write_text("\n".join(receipt_lines) + "\n", encoding="utf-8")
 
         # ------------------------------------------------------------------
         # README
         # ------------------------------------------------------------------
-        commit_hash = meta.get("git_hash", "unavailable") or "unavailable"
+        commit_hash = git_hash or "unavailable"
         commit_short = str(commit_hash)[:8]
         readme_path = bundle_dir / "README.txt"
         with open(readme_path, "w", encoding="utf-8") as f:
@@ -247,7 +264,7 @@ charts/
   drawdown.png       - Drawdown analysis chart
 
 summary.xlsx         - Summary metrics and performance statistics
-run_meta.json        - Configuration, environment, and reproducibility metadata
+run_meta.json        - Configuration manifest with hashes and versions
 README.txt           - This file
 
 Reproducibility:
@@ -255,7 +272,7 @@ Reproducibility:
 To reproduce these results:
 1. Use the same input data (SHA256 hash in run_meta.json)
 2. Apply the configuration from run_meta.json
-3. Use the same software versions listed in environment section
+3. Use the same software versions listed in the versions section
 4. Set the same random seed if specified
 
 For more information about the Trend Analysis Project, visit:
@@ -273,7 +290,7 @@ Git commit: {commit_short}
         # Attach outputs map and write the manifest
         meta["outputs"] = outputs
         with open(bundle_dir / "run_meta.json", "w", encoding="utf-8") as f:
-            json.dump(meta, f, indent=2)
+            json.dump(meta, f, indent=2, sort_keys=True)
 
         # ------------------------------------------------------------------
         # Zip everything

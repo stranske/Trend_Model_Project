@@ -67,14 +67,18 @@ def test_export_bundle(tmp_path):
     cfg_sha = sha256_config({"foo": 1})
     expected_run_id = sha256_text("|".join([input_sha, cfg_sha, str(42)]))
 
+    assert meta["$schema"] == "trend_analysis/export/manifest_schema.json"
     assert meta["config"] == {"foo": 1}
     assert meta["seed"] == 42
+    assert meta["seeds"] == [42]
     assert meta["config_sha256"] == cfg_sha
     assert meta["run_id"] == expected_run_id
-    assert "python" in meta["environment"]
+    assert meta["versions"]["python"] == sys.version.split()[0]
+    assert "trend_analysis" in meta["versions"]
     assert len(meta.get("git_hash", "")) >= 7
     assert meta["input_sha256"] == input_sha
-    assert "created" in meta["receipt"]
+    assert "environment" in meta
+    assert "receipt" not in meta
     assert f"run_id: {expected_run_id}" in receipt
 
     # New: outputs sha256 map
@@ -113,6 +117,32 @@ def test_receipt_deterministic(tmp_path):
         r1 = z1.read("receipt.txt")
         r2 = z2.read("receipt.txt")
     assert r1 == r2
+
+
+def test_manifest_deterministic(tmp_path):
+    """The generated manifest should be identical across matching runs."""
+
+    input_path = _write_input(tmp_path)
+    run = DummyRun(
+        portfolio=pd.Series(
+            [0.01, -0.02], index=pd.date_range("2020-01", periods=2, freq="ME")
+        ),
+        config={"foo": 1},
+        seed=42,
+        input_path=input_path,
+    )
+
+    out1 = tmp_path / "bundle1.zip"
+    out2 = tmp_path / "bundle2.zip"
+    export_bundle(run, out1)
+    export_bundle(run, out2)
+
+    with zipfile.ZipFile(out1) as z1, zipfile.ZipFile(out2) as z2:
+        m1 = z1.read("run_meta.json")
+        m2 = z2.read("run_meta.json")
+
+    assert m1 == m2
+    assert json.loads(m1) == json.loads(m2)
 
 
 def test_export_bundle_empty_portfolio(tmp_path):
@@ -162,6 +192,7 @@ def test_export_bundle_optional_outputs(tmp_path):
         meta = json.load(z.open("run_meta.json"))
 
     assert meta["seed"] is None
+    assert meta["seeds"] == []
     assert meta["input_sha256"] is None
     outputs = meta["outputs"]
     assert outputs["results/benchmark.csv"]

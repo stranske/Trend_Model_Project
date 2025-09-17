@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Trend Analysis Export Bundle Manifest",
+  "description": "Schema describing the manifest embedded in export bundles.",
+  "type": "object",
+  "required": [
+    "$schema",
+    "schema_version",
+    "run_id",
+    "config",
+    "config_sha256",
+    "seed",
+    "seeds",
+    "versions",
+    "git_hash",
+    "input_sha256",
+    "outputs"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "pattern": "^trend_analysis/export/manifest_schema\\.json$"
+    },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+$"
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "config": {
+      "type": "object"
+    },
+    "config_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "seed": {
+      "type": ["integer", "string", "null"]
+    },
+    "seeds": {
+      "type": "array",
+      "items": {
+        "type": ["integer", "string"]
+      },
+      "uniqueItems": true
+    },
+    "versions": {
+      "type": "object",
+      "required": ["python", "trend_analysis"],
+      "properties": {
+        "python": {"type": "string"},
+        "trend_analysis": {"type": "string"}
+      },
+      "additionalProperties": {"type": "string"}
+    },
+    "environment": {
+      "type": "object"
+    },
+    "git_hash": {
+      "anyOf": [
+        {"type": "string", "pattern": "^[0-9a-f]{7,40}$"},
+        {"type": "string", "enum": ["unknown"]},
+        {"type": "null"}
+      ]
+    },
+    "input_sha256": {
+      "anyOf": [
+        {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        {"type": "null"}
+      ]
+    },
+    "outputs": {
+      "type": "object",
+      "minProperties": 1,
+      "patternProperties": {
+        ".+": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": true
+}

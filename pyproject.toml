@@ -54,6 +54,9 @@ trend-model = "trend_analysis.cli:main"
 where = ["src"]
 include = ["trend_analysis*", "trend_portfolio_app*"]
 
+[tool.setuptools.package-data]
+"trend_analysis.export" = ["manifest_schema.json"]
+
 [project.optional-dependencies]
 app = [
     "streamlit>=1.30",
