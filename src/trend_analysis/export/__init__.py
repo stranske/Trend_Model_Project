@@ -394,11 +394,16 @@ def export_to_excel(
 
     try:
         writer = pd.ExcelWriter(path, engine="xlsxwriter")
+        supports_custom = True
     except ModuleNotFoundError:
         # ``xlsxwriter`` is an optional dependency.  Fall back to the default
         # engine (typically ``openpyxl``) when it is unavailable so callers can
         # still export workbooks without installing the extra package.
         writer = pd.ExcelWriter(path)
+        book_any: Any = writer.book
+        supports_custom = all(
+            hasattr(book_any, attr) for attr in ("add_worksheet", "add_format")
+        )
 
     with writer:
         # Iterate over frames and either let a registered sheet formatter
@@ -406,7 +411,7 @@ def export_to_excel(
         # DataFrame directly when no formatter is available.
         for sheet, df in data.items():
             fmt = FORMATTERS_EXCEL.get(sheet, default_sheet_formatter)
-            if fmt is not None:
+            if fmt is not None and supports_custom:
                 # Create an empty worksheet and delegate full rendering
                 # xlsxwriter workbook object provides add_worksheet; cast for typing
                 book_any: Any = writer.book

@@ -21,17 +21,35 @@ def test_walkforward_split_counts_and_regime_aggregation():
 
     assert len(res.splits) == 4
 
-    # expected OOS indices (0-based): 3-4,5-6,7-8,9-10
     expected_idx = [3, 4, 5, 6, 7, 8, 9, 10]
     expected_oos_mean = df.iloc[expected_idx]["metric"].mean()
-    assert res.oos["metric"] == expected_oos_mean
+    assert res.oos.loc["mean", "metric"] == expected_oos_mean
 
-    # regime means
-    assert res.by_regime.loc["A", "metric"] == 5
-    assert res.by_regime.loc["B", "metric"] == 9
+    expected_oos_ir = pytest.approx(10.6066017178, rel=1e-9)
+    assert res.oos.loc["information_ratio", "metric"] == expected_oos_ir
 
-    # full period mean for completeness
-    assert res.full["metric"] == df["metric"].mean()
+    # regime aggregates
+    assert res.by_regime.loc["A", ("metric", "mean")] == 5
+    assert res.by_regime.loc["B", ("metric", "mean")] == 9
+    assert res.by_regime.loc["A", ("metric", "information_ratio")] == pytest.approx(
+        17.3205080757
+    )
+    assert res.by_regime.loc["B", ("metric", "information_ratio")] == pytest.approx(
+        19.7180120701
+    )
+
+    # per-window table includes train/test boundaries and window statistics
+    assert ("window", "train_start") in res.oos_windows.columns
+    assert ("metric", "mean") in res.oos_windows.columns
+    first_window = res.oos_windows.loc[1]
+    assert first_window["window", "test_start"] == pd.Timestamp("2020-04-30")
+    assert first_window["window", "test_end"] == pd.Timestamp("2020-05-31")
+    assert first_window["metric", "mean"] == pytest.approx(4.5)
+    assert first_window["metric", "information_ratio"] == pytest.approx(22.0454076850)
+
+    # full-period summary retains mean + IR
+    assert res.full.loc["mean", "metric"] == df["metric"].mean()
+    assert res.full.loc["information_ratio", "metric"] == pytest.approx(6.2449979984)
 
 
 def test_walk_forward_requires_datetime_index():
@@ -54,5 +72,7 @@ def test_walk_forward_empty_splits_and_regimes():
     )
 
     assert res.splits == []
-    assert res.oos.isna().all()
+    assert res.oos.loc["mean"].isna().all()
+    assert res.oos.loc["information_ratio"].isna().all()
+    assert res.oos_windows.empty
     assert res.by_regime.empty
