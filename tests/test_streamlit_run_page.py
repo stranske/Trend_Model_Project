@@ -292,14 +292,18 @@ class TestConfigCreation:
                 assert config is None
 
     def test_create_config_runtime_error(self, sample_config):
-        """Errors while building the config should surface friendly messages."""
+        """Errors while building the config should surface friendly
+        messages."""
 
         mock_st = create_mock_streamlit()
         run_page, mock_st = load_run_page_module(mock_st)
 
         mock_st.session_state["sim_config"] = sample_config
 
-        with patch("trend_analysis.config.Config", side_effect=RuntimeError("Config creation failed")):
+        with patch(
+            "trend_analysis.config.Config",
+            side_effect=RuntimeError("Config creation failed"),
+        ):
             config = run_page.create_config_from_session_state()
 
         assert config is None
@@ -417,7 +421,9 @@ class TestDataPreparation:
     def test_prepare_returns_data_renames_date_like_columns(self, sample_returns_data):
         """Date-like column names should be normalised to 'Date'."""
 
-        df = sample_returns_data.rename(columns={"Date": "TradeDate"}).set_index("TradeDate")
+        df = sample_returns_data.rename(columns={"Date": "TradeDate"}).set_index(
+            "TradeDate"
+        )
 
         mock_st = create_mock_streamlit()
         run_page, mock_st = load_run_page_module(mock_st)
@@ -635,7 +641,8 @@ class TestAnalysisIntegration:
     def test_run_analysis_with_progress_returns_none_when_config_missing(
         self, mock_run_simulation, sample_returns_data
     ):
-        """If the configuration cannot be created the run should abort early."""
+        """If the configuration cannot be created the run should abort
+        early."""
 
         mock_st = create_mock_streamlit()
         run_page, mock_st = load_run_page_module(mock_st)
@@ -643,7 +650,9 @@ class TestAnalysisIntegration:
 
         setup_analysis_ui(mock_st)
 
-        with patch.object(run_page, "create_config_from_session_state", return_value=None):
+        with patch.object(
+            run_page, "create_config_from_session_state", return_value=None
+        ):
             result = run_page.run_analysis_with_progress()
 
         assert result is None
@@ -661,7 +670,9 @@ class TestAnalysisIntegration:
 
         setup_analysis_ui(mock_st)
 
-        with patch.object(run_page, "create_config_from_session_state", return_value=object()):
+        with patch.object(
+            run_page, "create_config_from_session_state", return_value=object()
+        ):
             with patch.object(run_page, "prepare_returns_data", return_value=None):
                 result = run_page.run_analysis_with_progress()
 
@@ -683,7 +694,9 @@ class TestAnalysisIntegration:
 
         empty_df = pd.DataFrame({"Date": []})
 
-        with patch.object(run_page, "create_config_from_session_state", return_value=object()):
+        with patch.object(
+            run_page, "create_config_from_session_state", return_value=object()
+        ):
             with patch.object(run_page, "prepare_returns_data", return_value=empty_df):
                 result = run_page.run_analysis_with_progress()
 
@@ -706,8 +719,12 @@ class TestAnalysisIntegration:
 
         df_no_date = pd.DataFrame({"Value": [0.1, 0.2]})
 
-        with patch.object(run_page, "create_config_from_session_state", return_value=object()):
-            with patch.object(run_page, "prepare_returns_data", return_value=df_no_date):
+        with patch.object(
+            run_page, "create_config_from_session_state", return_value=object()
+        ):
+            with patch.object(
+                run_page, "prepare_returns_data", return_value=df_no_date
+            ):
                 result = run_page.run_analysis_with_progress()
 
         assert result is None
@@ -745,9 +762,7 @@ class TestRunPageMain:
         assert mock_st.warning.call_count == 1
         mock_st.info.assert_called()
 
-    def test_main_runs_analysis_successfully(
-        self, sample_returns_data, sample_config
-    ):
+    def test_main_runs_analysis_successfully(self, sample_returns_data, sample_config):
         mock_st = create_mock_streamlit()
         run_page, mock_st = load_run_page_module(mock_st)
 
@@ -772,9 +787,7 @@ class TestRunPageMain:
         )
 
         metrics_df = pd.DataFrame({"metric": [1.0]})
-        run_result = RunResult(
-            metrics=metrics_df, details={}, seed=1, environment={}
-        )
+        run_result = RunResult(metrics=metrics_df, details={}, seed=1, environment={})
 
         with patch.object(
             run_page, "run_analysis_with_progress", return_value=run_result
@@ -821,9 +834,7 @@ class TestRunPageMain:
 
         mock_st.info.assert_any_call("No metrics to display.")
 
-    def test_main_clear_results_reruns_app(
-        self, sample_returns_data, sample_config
-    ):
+    def test_main_clear_results_reruns_app(self, sample_returns_data, sample_config):
         mock_st = create_mock_streamlit()
         run_page, mock_st = load_run_page_module(mock_st)
 
