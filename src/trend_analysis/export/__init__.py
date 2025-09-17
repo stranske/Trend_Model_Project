@@ -679,6 +679,11 @@ def export_to_excel(
                         writer.sheets.pop(removed, None)
                 formatted = _apply_format(df, df_formatter)
                 formatted.to_excel(writer, sheet_name=sheet, index=False)
+                if workbook_adapter is not None:
+                    try:
+                        workbook_adapter.rename_last_sheet(sheet)
+                    except Exception:  # pragma: no cover - defensive best effort
+                        pass
                 if proxy is not None:
                     try:
                         ws_obj = writer.book[sheet]
