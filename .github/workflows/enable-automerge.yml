@@ -20,7 +20,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
       - name: Enable auto-merge (squash)
+        id: enable
+        continue-on-error: true
         uses: peter-evans/enable-pull-request-automerge@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           merge-method: squash
+      - name: Summarize auto-merge enable
+        if: always()
+        run: |
+          echo "### Auto-merge Enable Summary" >> $GITHUB_STEP_SUMMARY
+          echo "Result: ${{ steps.enable.outcome }}" >> $GITHUB_STEP_SUMMARY
