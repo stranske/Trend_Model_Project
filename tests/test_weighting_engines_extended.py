@@ -6,10 +6,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from trend_analysis.weights.equal_risk_contribution import EqualRiskContribution
-from trend_analysis.weights.hierarchical_risk_parity import HierarchicalRiskParity
+from trend_analysis.weights.equal_risk_contribution import \
+    EqualRiskContribution
+from trend_analysis.weights.hierarchical_risk_parity import \
+    HierarchicalRiskParity
 from trend_analysis.weights.risk_parity import RiskParity
-from trend_analysis.weights.robust_weighting import RobustMeanVariance, RobustRiskParity
+from trend_analysis.weights.robust_weighting import (RobustMeanVariance,
+                                                     RobustRiskParity)
 
 
 def _make_covariance(num_assets: int = 4) -> pd.DataFrame:

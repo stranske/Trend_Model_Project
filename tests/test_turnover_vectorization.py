@@ -7,10 +7,8 @@ import pandas as pd
 import pytest
 
 from trend_analysis.multi_period.engine import _compute_turnover_state
-from trend_analysis.rebalancing.strategies import (
-    TURNOVER_EPSILON,
-    TurnoverCapStrategy,
-)
+from trend_analysis.rebalancing.strategies import (TURNOVER_EPSILON,
+                                                   TurnoverCapStrategy)
 
 
 def python_turnover_state(

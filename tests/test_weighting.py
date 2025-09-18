@@ -5,12 +5,8 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from trend_analysis.weighting import (
-    AdaptiveBayesWeighting,
-    EqualWeight,
-    ScorePropBayesian,
-    ScorePropSimple,
-)
+from trend_analysis.weighting import (AdaptiveBayesWeighting, EqualWeight,
+                                      ScorePropBayesian, ScorePropSimple)
 
 
 def test_score_prop_simple_basic_proportional_weights() -> None:

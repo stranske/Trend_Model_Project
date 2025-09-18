@@ -15,8 +15,8 @@ if TYPE_CHECKING:  # pragma: no cover - for static type checking only
 else:  # Runtime: avoid importing typing-only names
     from typing import Any as ConfigType
 
-from .pipeline import _run_analysis
 from .logging import log_step as _log_step  # lightweight import
+from .pipeline import _run_analysis
 
 logger = logging.getLogger(__name__)
 
@@ -208,6 +208,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         ):
             # Build one continuous portfolio series across IS + OS
             import numpy as _np
+
             from .pipeline import calc_portfolio_returns as _cpr
 
             cols = list(in_scaled.columns)
@@ -233,7 +234,8 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
     )
     # Ensure details dict is JSON-friendly (no Timestamp / non-primitive keys)
     try:  # pragma: no cover - lightweight sanitation (non-destructive)
-        from pandas import Series as _Series, DataFrame as _DataFrame
+        from pandas import DataFrame as _DataFrame
+        from pandas import Series as _Series
 
         def _sanitize_keys(obj: Any) -> Any:
             if isinstance(obj, _Series):

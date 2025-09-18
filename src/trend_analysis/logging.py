@@ -7,6 +7,7 @@ import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Optional
+
 import pandas as _pd
 
 RUN_LOGGER_NAME = "trend_analysis.runlog"
@@ -26,8 +27,8 @@ class LogRecordSchema:
 class JsonlHandler(logging.Handler):
     """A minimal JSONL file handler.
 
-    Writes one JSON object per line.  Thread-safe via a coarse lock because
-    logging volume here is modest (a few dozen lines per run).
+    Writes one JSON object per line.  Thread-safe via a coarse lock
+    because logging volume here is modest (a few dozen lines per run).
     """
 
     def __init__(

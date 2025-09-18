@@ -27,15 +27,16 @@ BackgroundTask: Any | None = None
 
 if TYPE_CHECKING:  # pragma: no cover - static type hints only
     import httpx as _httpx_mod  # noqa: F401
-    from httpx import AsyncClient as _HTTPXAsyncClient  # noqa: F401
     import uvicorn as _uvicorn_mod  # noqa: F401
-    from uvicorn import Config as _UvicornConfig, Server as _UvicornServer  # noqa: F401
     import websockets as _websockets_mod  # noqa: F401
     from fastapi import FastAPI as _FastAPIType  # noqa: F401
-    from fastapi.responses import (
-        StreamingResponse as _StreamingResponseType,
-    )  # noqa: F401
-    from starlette.background import BackgroundTask as _BackgroundTaskType  # noqa: F401
+    from fastapi.responses import \
+        StreamingResponse as _StreamingResponseType  # noqa: F401
+    from httpx import AsyncClient as _HTTPXAsyncClient  # noqa: F401
+    from starlette.background import \
+        BackgroundTask as _BackgroundTaskType  # noqa: F401
+    from uvicorn import Config as _UvicornConfig  # noqa: F401
+    from uvicorn import Server as _UvicornServer
 
 
 def _lazy_import_deps() -> bool:

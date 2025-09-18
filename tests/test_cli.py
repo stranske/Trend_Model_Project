@@ -5,7 +5,8 @@ import pandas as pd
 
 from trend_analysis import cli
 from trend_analysis.api import RunResult
-from trend_analysis.constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
+from trend_analysis.constants import (DEFAULT_OUTPUT_DIRECTORY,
+                                      DEFAULT_OUTPUT_FORMATS)
 
 
 def _write_cfg(path: Path, version: str) -> None:

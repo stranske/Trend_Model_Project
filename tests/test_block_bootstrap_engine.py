@@ -2,10 +2,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from trend_portfolio_app.monte_carlo.engine import (
-    BlockBootstrapModel,
-    ReturnModelConfig,
-)
+from trend_portfolio_app.monte_carlo.engine import (BlockBootstrapModel,
+                                                    ReturnModelConfig)
 
 
 def make_panel():

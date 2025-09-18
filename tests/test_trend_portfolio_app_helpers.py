@@ -173,7 +173,6 @@ def test_read_defaults_populates_expected_keys(monkeypatch: pytest.MonkeyPatch) 
     app_mod = _load_app(monkeypatch)
 
     defaults = app_mod._read_defaults()
-
     assert "data" in defaults
     assert "portfolio" in defaults
     assert "policy" in defaults["portfolio"]

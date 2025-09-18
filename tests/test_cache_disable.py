@@ -1,9 +1,9 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 
+from trend_analysis.core.rank_selection import (
+    RiskStatsConfig, compute_metric_series_with_cache)
 from trend_analysis.perf.cache import CovCache
-from trend_analysis.core.rank_selection import compute_metric_series_with_cache
-from trend_analysis.core.rank_selection import RiskStatsConfig
 
 
 def test_cache_disabled_path():

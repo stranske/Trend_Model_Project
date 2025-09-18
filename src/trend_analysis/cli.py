@@ -9,9 +9,7 @@ from importlib import metadata
 from pathlib import Path
 from typing import Any
 
-from .logging import log_step as _log_step
 import numpy as np
-
 import pandas as pd
 
 from . import export, pipeline
@@ -19,6 +17,7 @@ from .api import run_simulation
 from .config import load_config
 from .constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 from .data import load_csv
+from .logging import log_step as _log_step
 
 APP_PATH = Path(__file__).resolve().parents[2] / "streamlit_app" / "app.py"
 LOCK_PATH = Path(__file__).resolve().parents[2] / "requirements.lock"
@@ -182,8 +181,9 @@ def main(argv: list[str] | None = None) -> int:
         assert df is not None  # narrow type for type-checkers
         split = cfg.sample_split
         required_keys = {"in_start", "in_end", "out_start", "out_end"}
-        from .logging import get_default_log_path, init_run_logger
         import uuid
+
+        from .logging import get_default_log_path, init_run_logger
 
         run_id = getattr(cfg, "run_id", None) or uuid.uuid4().hex[:12]
         try:
@@ -329,8 +329,8 @@ def main(argv: list[str] | None = None) -> int:
 
         # Optional bundle export (reproducibility manifest + hashes)
         if args.bundle:
-            from .export.bundle import export_bundle
             from .api import RunResult as _RR
+            from .export.bundle import export_bundle
 
             bundle_path = Path(args.bundle)
             if bundle_path.is_dir():

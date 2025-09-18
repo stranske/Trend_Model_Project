@@ -1,11 +1,7 @@
 from pathlib import Path
 
-from trend_analysis.logging import (
-    init_run_logger,
-    log_step,
-    logfile_to_frame,
-    error_summary,
-)
+from trend_analysis.logging import (error_summary, init_run_logger, log_step,
+                                    logfile_to_frame)
 
 
 def test_logfile_helpers(tmp_path: Path):
