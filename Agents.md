@@ -199,6 +199,10 @@ performance:
 
 Default remains off (non‑breaking). Covariance payload caching is unaffected. Refer to `docs/metric_cache.md` for details.
 
+### 2025-09-18 UPDATE — PR DRAFT TOGGLE (ISSUE #1137)
+
+Codex bootstrap workflow now supports a `codex_pr_draft` input (workflow_dispatch) controlling whether the automatically created PR is a draft. Default remains non‑draft to ensure agent engagement (addressing Issue #1137). Fallback and composite bootstrap paths both consume the resolved draft flag so behavior is consistent. Invite mode (issue-triggered path) still requires a human-authored PR and is unaffected.
+
 Immediate Refactor Tasks
 Flatten duplications
 

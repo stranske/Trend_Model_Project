@@ -186,8 +186,7 @@ This catalog explains what each active workflow does, how it’s triggered, the 
    - Jobs: `build`, `test-install`, `test-pypi` (optional), `release`
      - Builds wheels/sdist, checks, tests install, creates GitHub Release, uploads assets, publishes to PyPI/TestPyPI
 
-Archived (moved to `Old/.github/workflows/` on 2025‑09‑17):
-- `assign-to-agent.yml`, `assign-to-agent-legacy.yml`, `assign-to-agent.yml.rewrite`, `codex-assign-minimal.yml`, `verify-codex-bootstrap.yml`.
+Archived / Removed (Issue #1140 hardening, 2025‑09‑18): Legacy agent assignment/bootstrap experiments were deleted to reduce attack surface and maintenance overhead. See `Old/.github/workflows/archive/README.md` for a historical list.
 
 ## Diagnostics Workflows — purposes and use cases
 

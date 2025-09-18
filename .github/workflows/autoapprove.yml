@@ -1,4 +1,9 @@
 name: auto-approve agent PRs
+
+# Hardening Note (Issue #1140)
+# This workflow intentionally uses pull_request_target with restricted permissions
+# and a sparse checkout of ONLY a trusted allowlist file. It does not execute or
+# build PR code. Any expansion beyond the allowlist path must be reviewed.
 on:
   pull_request_target:
     types: [opened, labeled, synchronize, ready_for_review]
@@ -25,6 +30,13 @@ jobs:
             .github/autoapprove-allowlist.json
           sparse-checkout-cone: false
           path: trusted-config
+      - name: Assert sparse checkout scope (Issue #1140)
+        run: |
+          set -euo pipefail
+          COUNT=$(find trusted-config -type f | wc -l | tr -d ' ')
+          if [ "$COUNT" -gt 2 ]; then
+            echo "::error::Unexpected file expansion in sparse checkout (found $COUNT files)"; exit 1;
+          fi
       - name: Check PR file patterns and size
         id: pr-check
         uses: actions/github-script@v7
