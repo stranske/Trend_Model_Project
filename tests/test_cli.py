@@ -1,8 +1,12 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 import pandas as pd
 
 from trend_analysis import cli
+from trend_analysis.api import RunResult
+from trend_analysis.constants import (DEFAULT_OUTPUT_DIRECTORY,
+                                      DEFAULT_OUTPUT_FORMATS)
 
 
 def _write_cfg(path: Path, version: str) -> None:
@@ -59,3 +63,297 @@ def test_cli_default_json(tmp_path, capsys, monkeypatch):
     out = capsys.readouterr().out.strip()
     assert rc == 0
     assert out == "No results"
+
+
+def test_cli_run_legacy_bundle_and_exports(tmp_path, capsys, monkeypatch):
+    config = SimpleNamespace(
+        seed=123,
+        sample_split={"in_start": "2020-01-01"},
+        export={
+            "directory": str(tmp_path),
+            "formats": ["excel", "json"],
+            "filename": "report",
+        },
+        run={},
+        vol_adjust={},
+        metrics={},
+        portfolio={},
+        benchmarks={},
+    )
+
+    metrics_df = pd.DataFrame({"Sharpe": [1.23]})
+    results_payload = {"summary": "ok"}
+
+    monkeypatch.setattr(cli, "load_config", lambda path: config)
+    monkeypatch.setattr(
+        cli,
+        "load_csv",
+        lambda path: pd.DataFrame({"Date": pd.to_datetime(["2020-01-31"]), "A": [0.0]}),
+    )
+    monkeypatch.setattr(cli.pipeline, "run", lambda cfg: metrics_df)
+    monkeypatch.setattr(cli.pipeline, "run_full", lambda cfg: results_payload)
+    monkeypatch.setattr(cli.export, "format_summary_text", lambda *a, **k: "summary")
+
+    formatter_calls: list[tuple[dict, tuple[str, str, str, str]]] = []
+    monkeypatch.setattr(
+        cli.export,
+        "make_summary_formatter",
+        lambda res, *periods: (
+            formatter_calls.append((res, tuple(periods))) or object()
+        ),
+    )
+
+    excel_calls: list[tuple[dict, Path, object]] = []
+    monkeypatch.setattr(
+        cli.export,
+        "export_to_excel",
+        lambda data, path, default_sheet_formatter: excel_calls.append(
+            (data, Path(path), default_sheet_formatter)
+        ),
+    )
+
+    data_calls: list[tuple[dict, Path, tuple[str, ...]]] = []
+    monkeypatch.setattr(
+        cli.export,
+        "export_data",
+        lambda data, path, formats: data_calls.append(
+            (data, Path(path), tuple(formats))
+        ),
+    )
+
+    bundle_calls: dict[str, object] = {}
+
+    def fake_export_bundle(rr, path):
+        bundle_calls["rr"] = rr
+        bundle_calls["path"] = path
+
+    monkeypatch.setattr(
+        "trend_analysis.export.bundle.export_bundle", fake_export_bundle
+    )
+
+    rc = cli.main(
+        [
+            "run",
+            "-c",
+            "config.yml",
+            "-i",
+            "input.csv",
+            "--bundle",
+            str(tmp_path),
+        ]
+    )
+    out = capsys.readouterr().out
+
+    assert rc == 0
+    assert "Bundle written" in out
+    assert formatter_calls == [
+        (results_payload, ("2020-01-01", "None", "None", "None"))
+    ]
+    assert excel_calls and excel_calls[0][1] == tmp_path / "report.xlsx"
+    excel_payload, _, _ = excel_calls[0]
+    assert excel_payload["metrics"] is metrics_df
+
+    assert len(data_calls) == 1
+    data_payload, data_path, formats = data_calls[0]
+    assert data_payload is excel_payload
+    assert data_path == tmp_path / "report"
+    assert formats == ("json",)
+
+    assert bundle_calls["path"] == tmp_path / "analysis_bundle.zip"
+    rr = bundle_calls["rr"]
+    assert isinstance(rr, RunResult)
+    assert rr.metrics is metrics_df
+    assert rr.details is results_payload
+    assert rr.seed == 123
+    assert rr.config["export"]["filename"] == "report"
+    assert rr.input_path == Path("input.csv")
+
+
+def test_cli_run_modern_bundle_attaches_payload(tmp_path, capsys, monkeypatch):
+    out_dir = tmp_path / "exports"
+    out_dir.mkdir()
+
+    split = {
+        "in_start": "2020-01-01",
+        "in_end": "2020-12-31",
+        "out_start": "2021-01-01",
+        "out_end": "2021-12-31",
+    }
+
+    config = SimpleNamespace(
+        seed=5,
+        sample_split=split,
+        export={"directory": str(out_dir), "formats": ["json"], "filename": "custom"},
+        run={},
+        vol_adjust={},
+        metrics={},
+        portfolio={},
+        benchmarks={},
+    )
+
+    metrics_df = pd.DataFrame({"Return": [0.05]})
+    portfolio_series = pd.Series(
+        [0.1, 0.2], index=pd.Index(["2020-01", "2020-02"]), name="user"
+    )
+
+    class TruthySeries:
+        def __init__(self, series: pd.Series):
+            self.series = series
+
+        def __bool__(self) -> bool:
+            return True
+
+        def equals(self, other: pd.Series) -> bool:  # pragma: no cover - passthrough
+            return self.series.equals(other)
+
+        def __getattr__(self, name):
+            return getattr(self.series, name)
+
+    details = {
+        "portfolio_user_weight": 0,
+        "portfolio_equal_weight": TruthySeries(portfolio_series),
+        "benchmarks": {
+            "bench": pd.Series(
+                [0.3, 0.4], index=pd.Index(["2020-01", "2020-02"]), name="bench"
+            )
+        },
+        "weights_user_weight": pd.DataFrame({"w": [1.0]}, index=["fund"]),
+    }
+    run_result = RunResult(metrics_df, details, 999, {"python": "3"})
+
+    seed_seen: dict[str, int] = {}
+
+    def fake_run_simulation(cfg, df):
+        seed_seen["seed"] = getattr(cfg, "seed")
+        return run_result
+
+    monkeypatch.setenv("TREND_SEED", "456")
+    monkeypatch.setattr(cli, "load_config", lambda path: config)
+    monkeypatch.setattr(
+        cli,
+        "load_csv",
+        lambda path: pd.DataFrame({"Date": pd.to_datetime(["2020-01-31"]), "A": [0.0]}),
+    )
+    monkeypatch.setattr(cli, "run_simulation", fake_run_simulation)
+    monkeypatch.setattr(cli.export, "format_summary_text", lambda *a, **k: "summary")
+
+    monkeypatch.setattr(cli.export, "export_data", lambda *a, **k: None)
+    monkeypatch.setattr(
+        cli.export,
+        "export_to_excel",
+        lambda *a, **k: (_ for _ in ()).throw(
+            AssertionError("unexpected excel export")
+        ),
+    )
+
+    bundle_calls: dict[str, object] = {}
+
+    def fake_export_bundle(rr, path):
+        bundle_calls["rr"] = rr
+        bundle_calls["path"] = path
+
+    monkeypatch.setattr(
+        "trend_analysis.export.bundle.export_bundle", fake_export_bundle
+    )
+
+    monkeypatch.chdir(tmp_path)
+    rc = cli.main(
+        [
+            "run",
+            "-c",
+            "cfg.yml",
+            "-i",
+            "input.csv",
+            "--seed",
+            "789",
+            "--bundle",
+        ]
+    )
+    out = capsys.readouterr().out
+
+    assert rc == 0
+    assert "summary" in out
+    assert seed_seen["seed"] == 789
+    assert config.seed == 789
+    assert run_result.portfolio.equals(portfolio_series)
+    assert run_result.benchmark.equals(details["benchmarks"]["bench"])
+    assert run_result.weights.equals(details["weights_user_weight"])
+    assert bundle_calls["rr"] is run_result
+    assert bundle_calls["path"] == Path("analysis_bundle.zip")
+
+
+def test_cli_run_env_seed_and_default_exports(tmp_path, capsys, monkeypatch):
+    out_dir = Path(DEFAULT_OUTPUT_DIRECTORY)
+    split = {
+        "in_start": "2019-01-01",
+        "in_end": "2019-12-31",
+        "out_start": "2020-01-01",
+        "out_end": "2020-12-31",
+    }
+
+    config = SimpleNamespace(
+        seed=11,
+        sample_split=split,
+        export={},
+        run={},
+        vol_adjust={},
+        metrics={},
+        portfolio={},
+        benchmarks={},
+    )
+
+    metrics_df = pd.DataFrame({"Sharpe": [1.5]})
+    run_result = RunResult(metrics_df, {"summary": "great"}, 222, {"python": "3.12"})
+
+    seen: dict[str, int] = {}
+
+    def fake_run_simulation(cfg, df):
+        seen["seed"] = getattr(cfg, "seed")
+        return run_result
+
+    monkeypatch.setenv("TREND_SEED", "314")
+    monkeypatch.setattr(cli, "load_config", lambda path: config)
+    monkeypatch.setattr(
+        cli,
+        "load_csv",
+        lambda path: pd.DataFrame({"Date": pd.to_datetime(["2019-01-31"]), "A": [0.0]}),
+    )
+    monkeypatch.setattr(cli, "run_simulation", fake_run_simulation)
+    monkeypatch.setattr(cli.export, "format_summary_text", lambda *a, **k: "summary")
+
+    excel_calls: list[tuple[dict, Path, object]] = []
+    monkeypatch.setattr(
+        cli.export,
+        "export_to_excel",
+        lambda data, path, default_sheet_formatter: excel_calls.append(
+            (data, Path(path), default_sheet_formatter)
+        ),
+    )
+
+    data_calls: list[tuple[dict, Path, tuple[str, ...]]] = []
+    monkeypatch.setattr(
+        cli.export,
+        "export_data",
+        lambda data, path, formats: data_calls.append(
+            (data, Path(path), tuple(formats))
+        ),
+    )
+
+    monkeypatch.setattr(
+        cli.export,
+        "make_summary_formatter",
+        lambda *a, **k: object(),
+    )
+
+    rc = cli.main(["run", "-c", "cfg.yml", "-i", "input.csv"])
+    out = capsys.readouterr().out
+
+    assert rc == 0
+    assert "summary" in out
+    assert seen["seed"] == 314
+    assert config.seed == 314
+    assert excel_calls and excel_calls[0][1] == out_dir / "analysis.xlsx"
+    data_payload, data_path, formats = data_calls[0]
+    assert data_payload is excel_calls[0][0]
+    assert data_path == out_dir / "analysis"
+    assert formats == tuple(DEFAULT_OUTPUT_FORMATS)
