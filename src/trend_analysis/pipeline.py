@@ -37,6 +37,7 @@ class _Stats:
     sortino: float
     information_ratio: float
     max_drawdown: float
+    avg_corr: float | None = None
 
 
 def calc_portfolio_returns(
@@ -124,12 +125,22 @@ def single_period_run(
     return score_frame.astype(float)
 
 
-def _compute_stats(df: pd.DataFrame, rf: pd.Series) -> dict[str, _Stats]:
+def _compute_stats(
+    df: pd.DataFrame,
+    rf: pd.Series,
+    *,
+    avg_corr: pd.Series | None = None,
+) -> dict[str, _Stats]:
     # Metrics expect 1D Series; iterating keeps the logic simple for a handful
     # of columns and avoids reshaping into higher-dimensional arrays.
     stats: dict[str, _Stats] = {}
     for col in df:
         key = str(col)
+        avg_corr_val: float | None = None
+        if avg_corr is not None and key in avg_corr.index:
+            raw = avg_corr.loc[key]
+            if pd.notna(raw):
+                avg_corr_val = float(raw)
         stats[key] = _Stats(
             cagr=float(annual_return(df[col])),
             vol=float(volatility(df[col])),
@@ -137,6 +148,7 @@ def _compute_stats(df: pd.DataFrame, rf: pd.Series) -> dict[str, _Stats]:
             sortino=float(sortino_ratio(df[col], rf)),
             max_drawdown=float(max_drawdown(df[col])),
             information_ratio=float(information_ratio(df[col], rf)),
+            avg_corr=avg_corr_val,
         )
     return stats
 
@@ -279,9 +291,38 @@ def _run_analysis(
     rf_in = in_df[rf_col]
     rf_out = out_df[rf_col]
 
-    in_stats = _compute_stats(in_scaled, rf_in)
-    out_stats = _compute_stats(out_scaled, rf_out)
-    out_stats_raw = _compute_stats(out_df[fund_cols], rf_out)
+    extra_metrics = getattr(stats_cfg, "extra_metrics", [])
+    avg_corr_enabled = "AvgCorr" in extra_metrics or "AvgCorr" in score_frame.columns
+    avg_corr_in: pd.Series | None = None
+    avg_corr_out: pd.Series | None = None
+    avg_corr_out_raw: pd.Series | None = None
+
+    if avg_corr_enabled and "AvgCorr" in score_frame.columns:
+        avg_corr_in = cast(pd.Series, score_frame["AvgCorr"]).astype(float)
+        if len(fund_cols) > 1:
+            from .core.rank_selection import compute_metric_series_with_cache
+
+            avg_corr_out = compute_metric_series_with_cache(
+                out_scaled,
+                "AvgCorr",
+                stats_cfg,
+                enable_cache=False,
+            )
+            avg_corr_out_raw = compute_metric_series_with_cache(
+                out_df[fund_cols],
+                "AvgCorr",
+                stats_cfg,
+                enable_cache=False,
+            )
+        else:
+            avg_corr_out = pd.Series(0.0, index=fund_cols, name="AvgCorr")
+            avg_corr_out_raw = pd.Series(0.0, index=fund_cols, name="AvgCorr")
+
+    in_stats = _compute_stats(in_scaled, rf_in, avg_corr=avg_corr_in)
+    out_stats = _compute_stats(out_scaled, rf_out, avg_corr=avg_corr_out)
+    out_stats_raw = _compute_stats(
+        out_df[fund_cols], rf_out, avg_corr=avg_corr_out_raw
+    )
 
     ew_weights = np.repeat(1.0 / len(fund_cols), len(fund_cols))
     ew_w_dict = {c: w for c, w in zip(fund_cols, ew_weights)}

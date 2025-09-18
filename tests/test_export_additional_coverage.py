@@ -57,7 +57,7 @@ from trend_analysis.export import (
     phase1_workbook_data,
     workbook_frames_from_results,
 )
-from trend_analysis.pipeline import _compute_stats, calc_portfolio_returns
+from trend_analysis.pipeline import _Stats, _compute_stats, calc_portfolio_returns
 
 
 def _make_period_result(
@@ -401,6 +401,46 @@ def test_summary_frame_from_result_handles_mixed_stats():
     assert fund_row["Weight"] == pytest.approx(50.0)
     assert fund_row["OS IR Bench"] == pytest.approx(20.0)
     assert fund_row["OS MaxDD"] == pytest.approx(0.4)
+
+
+def test_summary_frame_includes_avg_corr_values():
+    stat_in = _Stats(
+        cagr=0.05,
+        vol=0.1,
+        sharpe=1.1,
+        sortino=0.9,
+        information_ratio=0.6,
+        max_drawdown=0.2,
+        avg_corr=0.25,
+    )
+    stat_out = _Stats(
+        cagr=0.04,
+        vol=0.11,
+        sharpe=0.95,
+        sortino=0.85,
+        information_ratio=0.5,
+        max_drawdown=0.22,
+        avg_corr=0.15,
+    )
+    result = {
+        "in_ew_stats": stat_in,
+        "out_ew_stats": stat_out,
+        "in_user_stats": stat_in,
+        "out_user_stats": stat_out,
+        "in_sample_stats": {"FundA": stat_in},
+        "out_sample_stats": {"FundA": stat_out},
+        "fund_weights": {"FundA": 0.5},
+        "benchmark_ir": {},
+    }
+
+    frame = export_module.summary_frame_from_result(result)
+
+    assert {"IS AvgCorr", "OS AvgCorr"}.issubset(frame.columns)
+    eq_row = frame.iloc[0]
+    assert pd.isna(eq_row["IS AvgCorr"]) and pd.isna(eq_row["OS AvgCorr"])
+    fund_row = frame.loc[frame["Name"] == "FundA"].iloc[0]
+    assert fund_row["IS AvgCorr"] == pytest.approx(0.25)
+    assert fund_row["OS AvgCorr"] == pytest.approx(0.15)
 
 
 def test_manager_contrib_table_computes_shares_and_handles_empty():

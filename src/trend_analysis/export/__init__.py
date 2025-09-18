@@ -889,17 +889,20 @@ def summary_frame_from_result(res: Mapping[str, object]) -> pd.DataFrame:
     ]
     columns.extend([f"OS IR {b}" for b in bench_labels])
     columns.append("OS MaxDD")
+    include_avg = False
     # Optional trailing AvgCorr if present on in_sample_stats objects (attached in pipeline)
     try:  # pragma: no cover - presence is data dependent
         in_stats = cast(Mapping[str, _Stats], res.get("in_sample_stats", {}))
-        # Detect presence by checking one fund's attribute via getattr
         if in_stats:
-            any_stat = next(iter(in_stats.values()))
-            if hasattr(any_stat, "avg_corr"):
-                columns.append("IS AvgCorr")
-                columns.append("OS AvgCorr")
+            include_avg = any(
+                getattr(stat, "avg_corr", None) is not None
+                for stat in in_stats.values()
+            )
     except Exception:  # defensive
-        pass
+        include_avg = False
+    if include_avg:
+        columns.append("IS AvgCorr")
+        columns.append("OS AvgCorr")
 
     rows: list[list[Any]] = []
 
@@ -919,20 +922,29 @@ def summary_frame_from_result(res: Mapping[str, object]) -> pd.DataFrame:
 
     rows.append([pd.NA] * len(columns))
 
-    include_avg = False
-    # Determine whether AvgCorr columns were appended
-    if columns[-1] == "OS AvgCorr":
-        include_avg = True
     for fund, stat_in in cast(Mapping[str, _Stats], res["in_sample_stats"]).items():
         stat_out = cast(Mapping[str, _Stats], res["out_sample_stats"])[fund]
         weight = cast(Mapping[str, float], res["fund_weights"])[fund] * 100
         vals = pct(stat_in) + pct(stat_out)
         extra = [bench_map.get(b, {}).get(fund, pd.NA) for b in bench_labels]
         if include_avg:
-            # Append placeholder NA values for AvgCorr until metric fully wired
-            rows.append([fund, weight, *vals, *extra, pd.NA, pd.NA])
+            rows.append(
+                [
+                    fund,
+                    weight,
+                    *vals,
+                    *extra,
+                    (stat_in.avg_corr if stat_in.avg_corr is not None else pd.NA),
+                    (stat_out.avg_corr if stat_out.avg_corr is not None else pd.NA),
+                ]
+            )
         else:
             rows.append([fund, weight, *vals, *extra])
+
+    if include_avg:
+        pad = [pd.NA, pd.NA]
+        rows[0].extend(pad)
+        rows[1].extend(pad)
 
     return pd.DataFrame(rows, columns=columns)
 
@@ -955,6 +967,11 @@ def combined_summary_result(
     weight_sum: dict[str, float] = defaultdict(float)
     periods = 0
 
+    avg_corr_enabled = False
+
+    def _stats_have_avg_corr(stats_map: Mapping[str, _Stats]) -> bool:
+        return any(getattr(stat, "avg_corr", None) is not None for stat in stats_map.values())
+
     for res in results:
         in_df = cast(pd.DataFrame, res.get("in_sample_scaled"))
         out_df = cast(pd.DataFrame, res.get("out_sample_scaled"))
@@ -971,7 +988,14 @@ def combined_summary_result(
             weight_sum[c] += fund_map.get(c, 0.0)
         for c in out_df.columns:
             fund_out[c].append(out_df[c])
-    periods += 1
+        if not avg_corr_enabled:
+            try:  # pragma: no cover - defensive guard against malformed payloads
+                in_stats_map = cast(Mapping[str, _Stats], res.get("in_sample_stats", {}))
+                if in_stats_map and _stats_have_avg_corr(in_stats_map):
+                    avg_corr_enabled = True
+            except Exception:
+                avg_corr_enabled = False
+        periods += 1
 
     rf_in = pd.Series(0.0, index=pd.concat(ew_in_series).index)
     rf_out = pd.Series(0.0, index=pd.concat(ew_out_series).index)
@@ -988,6 +1012,38 @@ def combined_summary_result(
         pd.DataFrame({"user": pd.concat(user_out_series)}), rf_out
     )["user"]
 
+    def _stack_series_map(series_map: Mapping[str, list[pd.Series]]) -> pd.DataFrame:
+        frames: list[pd.Series] = []
+        for name, seq in series_map.items():
+            if not seq:
+                continue
+            frames.append(pd.concat(seq).rename(name))
+        if not frames:
+            return pd.DataFrame()
+        return pd.concat(frames, axis=1)
+
+    avg_corr_in_series: pd.Series | None = None
+    avg_corr_out_series: pd.Series | None = None
+    if avg_corr_enabled:
+        from ..core.rank_selection import RiskStatsConfig, compute_metric_series_with_cache
+
+        in_concat = _stack_series_map(fund_in)
+        if not in_concat.empty:
+            avg_corr_in_series = compute_metric_series_with_cache(
+                in_concat.dropna(axis=1, how="all"),
+                "AvgCorr",
+                RiskStatsConfig(),
+                enable_cache=False,
+            )
+        out_concat = _stack_series_map(fund_out)
+        if not out_concat.empty:
+            avg_corr_out_series = compute_metric_series_with_cache(
+                out_concat.dropna(axis=1, how="all"),
+                "AvgCorr",
+                RiskStatsConfig(),
+                enable_cache=False,
+            )
+
     # Compute per-fund stats with risk-free series aligned to each fund's
     # concatenated return index to avoid shape mismatches when a fund is
     # not present in every period.
@@ -996,13 +1052,17 @@ def combined_summary_result(
     for f, series_list in fund_in.items():
         joined = pd.concat(series_list)
         rf = pd.Series(0.0, index=joined.index)
-        in_stats[f] = _compute_stats(pd.DataFrame({f: joined}), rf)[f]
+        in_stats[f] = _compute_stats(
+            pd.DataFrame({f: joined}), rf, avg_corr=avg_corr_in_series
+        )[f]
 
     out_stats: dict[str, Any] = {}
     for f, series_list in fund_out.items():
         joined = pd.concat(series_list)
         rf = pd.Series(0.0, index=joined.index)
-        out_stats[f] = _compute_stats(pd.DataFrame({f: joined}), rf)[f]
+        out_stats[f] = _compute_stats(
+            pd.DataFrame({f: joined}), rf, avg_corr=avg_corr_out_series
+        )[f]
 
     fund_weights = {f: weight_sum[f] / periods for f in weight_sum}
 

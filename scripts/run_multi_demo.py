@@ -58,6 +58,7 @@ class _StatsLike(Protocol):  # minimal protocol matching pipeline._Stats
     sortino: float
     information_ratio: float
     max_drawdown: float
+    avg_corr: float | None
 
 
 PeriodTuple = tuple[str, str, str, str]
@@ -945,6 +946,7 @@ def _check_stats_dataclass() -> None:
         "sortino",
         "information_ratio",
         "max_drawdown",
+        "avg_corr",
     }
     actual = {f.name for f in fields(pipeline._Stats)}
     if actual != expected:
@@ -1582,6 +1584,7 @@ expected_cols = {
     "sortino",
     "information_ratio",
     "max_drawdown",
+    "avg_corr",
     "ir_spx",
 }
 if set(metrics_df.columns) != expected_cols:
@@ -1613,6 +1616,8 @@ _oss = _oss if isinstance(_oss, dict) else {}
 for obj in _oss.values():
     if not hasattr(obj, "information_ratio"):
         raise SystemExit("_Stats missing information_ratio")
+    if not hasattr(obj, "avg_corr"):
+        raise SystemExit("_Stats missing avg_corr")
 
 # Reuse the sample split for the convenience wrapper
 split = cfg.sample_split
