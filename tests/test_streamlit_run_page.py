@@ -68,10 +68,9 @@ def _spec_from_path(module_name: str, path: Path) -> ModuleSpec:
 
 
 def _exec_module(spec: ModuleSpec, module: ModuleType) -> None:
-    loader: Loader | None = spec.loader
-    if loader is None:
+    if spec.loader is None:
         raise AssertionError(f"Spec loader unavailable for {module.__name__}")
-    loader.exec_module(module)
+    spec.loader.exec_module(module)
 
 
 def load_run_page_module(mock_st: MagicMock | None = None):
