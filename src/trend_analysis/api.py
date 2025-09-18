@@ -156,7 +156,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
             port_os = _cpr(w, out_scaled)
             portfolio_series = pd.concat([port_is, port_os])
             res["portfolio_equal_weight_combined"] = portfolio_series
-    except Exception:  # pragma: no cover - defensive
+    except (KeyError, AttributeError, TypeError, IndexError):  # pragma: no cover - defensive
         pass
 
     rr = RunResult(
