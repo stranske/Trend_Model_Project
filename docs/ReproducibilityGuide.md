@@ -103,3 +103,68 @@ Results should be identical when using the same configuration and environment se
 - **Results vary between runs**: Ensure `PYTHONHASHSEED` is set before Python starts
 - **Tests show warnings about hash seeding**: This is expected from NumPy's test suite and can be safely ignored
 - **Different results on different systems**: Check Python version, library versions, and floating-point precision
+
+## Deterministic Runs (Issue #723)
+
+The determinism enhancements introduced in Issue #723 standardize how seeds and
+hash behavior are applied and provide an optional reproducibility bundle.
+
+### Seed Precedence
+
+When invoking the CLI, the effective random seed is resolved using this order:
+
+1. `--seed <N>` CLI flag (highest precedence)
+2. `TREND_SEED` environment variable
+3. `config.seed` value inside the loaded YAML config (if present)
+4. Fallback default: `42`
+
+### Enforced Hash Seed
+
+The `scripts/trend-model` wrapper (and Docker image) force `PYTHONHASHSEED=0`
+if it is not already set, ensuring stable dict/set iteration ordering. Override
+by exporting a different value before calling the script if required.
+
+### Reproducibility Bundle
+
+Add `--bundle` (optionally with a path) to produce a portable archive capturing
+the run inputs and metadata:
+
+Contents:
+- `run_meta.json`: run_id, config hash, seed, Python + library versions, file hashes
+- `metrics.csv|json`: summary metrics
+- `summary.txt`: human-readable period summary
+- `portfolio.csv` / `benchmark.csv`: time series when available
+
+Example:
+```bash
+./scripts/trend-model run -c config/demo.yml -i demo/demo_returns.csv --seed 777 --bundle outputs/deterministic.zip
+unzip -p outputs/deterministic.zip run_meta.json | jq .seed
+```
+
+### Verifying Bitwise Stability
+
+```bash
+./scripts/trend-model run -c config/demo.yml -i demo/demo_returns.csv --seed 111 --bundle first.zip
+./scripts/trend-model run -c config/demo.yml -i demo/demo_returns.csv --seed 111 --bundle second.zip
+diff <(unzip -p first.zip run_meta.json | jq -S .) <(unzip -p second.zip run_meta.json | jq -S .) && echo "Deterministic ✅"
+```
+
+If the diff is non-empty, inspect `run_meta.json` differences (look for
+unexpected version or ordering changes) and open an issue.
+
+### Docker Usage
+
+```bash
+docker run --rm -e TREND_SEED=202 -v "$PWD/demo/demo_returns.csv":/data/returns.csv -v "$PWD/config/demo.yml":/cfg.yml \
+  ghcr.io/stranske/trend-model:latest trend-model run -c /cfg.yml -i /data/returns.csv --bundle /tmp/bundle.zip
+```
+
+Copy the bundle from the container if needed or mount an output volume.
+
+### Notes
+
+- A parallel `details_sanitized` structure is exposed internally for hashing; the
+  original rich objects (DataFrames / Series) remain untouched for tests and
+  downstream analysis.
+- If you introduce new randomness sources (e.g. custom RNGs, libraries like
+  PyTorch), ensure they obey the resolved seed.
