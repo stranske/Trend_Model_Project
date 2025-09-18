@@ -43,7 +43,7 @@ jobs:
       - name: Loop guard summary
         if: steps.loop_guard.outputs.skip == 'true'
         run: |
-          echo "Skipping autofix run because the latest commit is an autofix pushed by ${GITHUB_ACTOR}."
+          echo "Skipping autofix run because the latest commit is an autofix pushed by ${{ github.actor }}."
       - uses: actions/checkout@v4
         if: steps.loop_guard.outputs.skip != 'true'
         with:
