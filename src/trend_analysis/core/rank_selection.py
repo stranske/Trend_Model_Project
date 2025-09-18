@@ -17,7 +17,10 @@ import json
 import re
 from contextvars import ContextVar
 from dataclasses import asdict, dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, cast
+from typing import Any, Callable, Dict, Iterable, List, cast, TYPE_CHECKING
+
+import hashlib
+import json
 
 import ipywidgets as widgets
 import numpy as np
@@ -34,6 +37,228 @@ if TYPE_CHECKING:  # pragma: no cover - type checking only
 _FIRM_NAME_TOKENIZER = re.compile(r"[^A-Za-z]+")
 
 DEFAULT_METRIC = "annual_return"
+
+WindowKey = tuple[str, str, str, str]
+
+
+def _json_default(value: Any) -> Any:
+    """Helper for JSON serialisation of stats configuration objects."""
+
+    if isinstance(value, (set, tuple)):
+        return list(value)
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    if isinstance(value, (np.floating, np.integer)):
+        return float(value)
+    raise TypeError(f"Object of type {type(value)!r} is not JSON serialisable")
+
+
+def _canonicalise_labels(labels: Iterable[str]) -> list[str]:
+    """Return column labels normalised for caching consistency."""
+
+    clean: list[str] = []
+    seen: set[str] = set()
+    for idx, label in enumerate(labels):
+        name = str(label).strip()
+        if not name:
+            name = f"Unnamed_{idx + 1}"
+        base = name
+        counter = 1
+        while name in seen:
+            counter += 1
+            name = f"{base}_{counter}"
+        seen.add(name)
+        clean.append(name)
+    return clean
+
+
+def _ensure_canonical_columns(frame: pd.DataFrame) -> pd.DataFrame:
+    """Return *frame* with canonicalised column labels."""
+
+    if frame.columns.empty:
+        return frame
+    clean = _canonicalise_labels(frame.columns)
+    if list(frame.columns) == clean:
+        return frame
+    out = frame.copy()
+    out.columns = clean
+    return out
+
+
+def _hash_universe(universe: Iterable[str]) -> str:
+    joined = "\x1f".join(sorted(map(str, universe)))
+    return hashlib.sha256(joined.encode("utf-8")).hexdigest()[:16]
+
+
+def _stats_cfg_hash(cfg: "RiskStatsConfig") -> str:
+    base = asdict(cfg)
+    extras = {k: v for k, v in vars(cfg).items() if k not in base}
+    if extras:
+        base["__extras__"] = extras
+    payload = json.dumps(base, sort_keys=True, default=_json_default)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+
+@dataclass
+class WindowMetricBundle:
+    """Cached metric bundle for a selector window."""
+
+    key: WindowKey | None
+    start: str
+    end: str
+    freq: str
+    stats_cfg_hash: str
+    universe: tuple[str, ...]
+    in_sample_df: pd.DataFrame
+    _metrics: pd.DataFrame
+    cov_payload: "CovPayload | None" = None
+
+    def metrics_frame(self) -> pd.DataFrame:
+        """Return a copy of the cached metrics frame."""
+
+        if self._metrics.empty:
+            return pd.DataFrame(index=self.in_sample_df.columns)
+        return self._metrics.copy()
+
+    def ensure_metric(
+        self,
+        metric_name: str,
+        stats_cfg: "RiskStatsConfig",
+        *,
+        cov_cache: "CovCache | None" = None,
+        enable_cov_cache: bool = True,
+        incremental_cov: bool = False,
+    ) -> pd.Series:
+        """Ensure *metric_name* exists in the cached frame and return it."""
+
+        canonical = _METRIC_ALIASES.get(metric_name, metric_name)
+        if canonical in self._metrics.columns:
+            return self._metrics[canonical]
+        if canonical in {"AvgCorr", "__COV_VAR__"}:
+            payload = self.cov_payload
+            if payload is None:
+                payload = _compute_covariance_payload(
+                    self,
+                    cov_cache,
+                    enable_cov_cache=enable_cov_cache,
+                    incremental_cov=incremental_cov,
+                )
+                self.cov_payload = payload
+            series = _cov_metric_from_payload(
+                canonical, payload, self.in_sample_df.columns
+            )
+        else:
+            series = _compute_metric_series(self.in_sample_df, canonical, stats_cfg)
+        series = series.astype(float)
+        self._metrics[canonical] = series
+        return self._metrics[canonical]
+
+
+def _cov_metric_from_payload(
+    metric_name: str, payload: "CovPayload", columns: Iterable[str]
+) -> pd.Series:
+    if metric_name == "__COV_VAR__":
+        return pd.Series(payload.cov.diagonal(), index=columns, name="CovVar")
+    diag = np.sqrt(np.clip(np.diag(payload.cov), 0, None))
+    if diag.size <= 1:
+        return pd.Series(0.0, index=columns, name="AvgCorr")
+    with np.errstate(divide="ignore", invalid="ignore"):
+        denom = np.outer(diag, diag)
+        corr = np.divide(
+            payload.cov, denom, out=np.zeros_like(payload.cov), where=denom != 0
+        )
+    sums = corr.sum(axis=1) - 1.0
+    avg = sums / (corr.shape[0] - 1)
+    return pd.Series(avg, index=columns, name="AvgCorr")
+
+
+def _compute_covariance_payload(
+    bundle: WindowMetricBundle,
+    cov_cache: "CovCache | None",
+    *,
+    enable_cov_cache: bool,
+    incremental_cov: bool,
+) -> "CovPayload":
+    from ..perf.cache import compute_cov_payload
+
+    if not enable_cov_cache or cov_cache is None:
+        return compute_cov_payload(
+            bundle.in_sample_df, materialise_aggregates=incremental_cov
+        )
+    key = cov_cache.make_key(
+        bundle.start or "0000-00",
+        bundle.end or "0000-00",
+        bundle.in_sample_df.columns,
+        bundle.freq,
+    )
+    return cov_cache.get_or_compute(
+        key,
+        lambda: compute_cov_payload(
+            bundle.in_sample_df, materialise_aggregates=incremental_cov
+        ),
+    )
+
+
+_WINDOW_METRIC_BUNDLES: dict[WindowKey, WindowMetricBundle] = {}
+_SELECTOR_CACHE_HITS = 0
+_SELECTOR_CACHE_MISSES = 0
+
+
+def make_window_key(
+    start: str, end: str, universe: Iterable[str], stats_cfg: "RiskStatsConfig"
+) -> WindowKey:
+    """Return a stable cache key for a selector window."""
+
+    canonical = _canonicalise_labels(universe)
+    return (
+        str(start),
+        str(end),
+        _hash_universe(canonical),
+        _stats_cfg_hash(stats_cfg),
+    )
+
+
+def get_window_metric_bundle(window_key: WindowKey) -> WindowMetricBundle | None:
+    """Return the cached bundle for *window_key* if present."""
+
+    global _SELECTOR_CACHE_HITS, _SELECTOR_CACHE_MISSES
+
+    bundle = _WINDOW_METRIC_BUNDLES.get(window_key)
+    if bundle is None:
+        _SELECTOR_CACHE_MISSES += 1
+        return None
+    _SELECTOR_CACHE_HITS += 1
+    return bundle
+
+
+def store_window_metric_bundle(
+    window_key: WindowKey | None, bundle: WindowMetricBundle
+) -> None:
+    """Store *bundle* under *window_key* when provided."""
+
+    if window_key is None:
+        return
+    _WINDOW_METRIC_BUNDLES[window_key] = bundle
+
+
+def clear_window_metric_cache() -> None:
+    """Reset the selector window cache and counters."""
+
+    global _SELECTOR_CACHE_HITS, _SELECTOR_CACHE_MISSES
+
+    _WINDOW_METRIC_BUNDLES.clear()
+    _SELECTOR_CACHE_HITS = 0
+    _SELECTOR_CACHE_MISSES = 0
+
+
+def selector_cache_stats() -> dict[str, int]:
+    """Return selector cache instrumentation counters."""
+
+    return {
+        "entries": len(_WINDOW_METRIC_BUNDLES),
+        "selector_cache_hits": _SELECTOR_CACHE_HITS,
+        "selector_cache_misses": _SELECTOR_CACHE_MISSES,
+    }
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -101,9 +326,13 @@ def rank_select_funds(
     zscore_ddof: int = 1,
     rank_pct: float = 0.5,
     limit_one_per_firm: bool = True,
-    window_key: WindowKey | None = None,
     bundle: WindowMetricBundle | None = None,
-    enable_cache: bool = True,
+    window_key: WindowKey | None = None,
+    cov_cache: "CovCache | None" = None,
+    freq: str = "M",
+    enable_cov_cache: bool = True,
+    incremental_cov: bool = False,
+    store_bundle: bool = True,
 ) -> list[str]:
     """Select funds based on ranking by a specified metric."""
 
@@ -113,45 +342,64 @@ def rank_select_funds(
 
     metric_name = _METRIC_ALIASES.get(score_by, score_by)
 
-    active_bundle = _resolve_bundle(window_key, bundle, enable_cache)
+    df = _ensure_canonical_columns(df)
+    universe = tuple(df.columns)
+    cfg_hash = _stats_cfg_hash(cfg)
 
-    # Normalise column labels early so downstream logic never sees blank names.
-    # ``rank_select_funds`` historically received DataFrames with accidental
-    # whitespace-only column names (e.g., CSVs with an empty header).  Those
-    # would flow through the metric computations unchanged, leading to
-    # selections that contained empty strings.  Sanitising here avoids
-    # surprising downstream behaviour while preserving existing labels when
-    # possible.
-    if len(df.columns) > 0:
-        clean_names: list[str] = []
-        seen: set[str] = set()
-        for idx, col in enumerate(df.columns):
-            name = str(col).strip()
-            if not name:
-                name = f"Unnamed_{idx + 1}"
-            base = name
-            # Ensure uniqueness after stripping by appending suffixes when required.
-            counter = 1
-            while name in seen:
-                counter += 1
-                name = f"{base}_{counter}"
-            seen.add(name)
-            clean_names.append(name)
-        if list(df.columns) != clean_names:
-            df = df.copy()
-            df.columns = clean_names
+    if bundle is not None and bundle.universe != universe:
+        raise ValueError("Provided bundle does not match DataFrame columns")
+    if bundle is not None and bundle.stats_cfg_hash != cfg_hash:
+        raise ValueError("Provided bundle does not match stats configuration")
+
+    if bundle is None and window_key is not None:
+        cached_bundle = get_window_metric_bundle(window_key)
+        if cached_bundle is not None and cached_bundle.universe == universe:
+            bundle = cached_bundle
+        elif cached_bundle is not None and cached_bundle.universe != universe:
+            bundle = None
+
+    if bundle is None:
+        metrics_frame = pd.DataFrame(index=universe, dtype=float)
+        bundle = WindowMetricBundle(
+            key=window_key,
+            start=window_key[0] if window_key else "",
+            end=window_key[1] if window_key else "",
+            freq=freq,
+            stats_cfg_hash=cfg_hash,
+            universe=universe,
+            in_sample_df=df.copy(),
+            _metrics=metrics_frame,
+        )
+        if store_bundle:
+            store_window_metric_bundle(window_key, bundle)
+    elif bundle is not None:
+        bundle.freq = freq
 
     # Compute metric scores
     if metric_name == "blended":
         if blended_weights is None:
             raise ValueError("blended score requires blended_weights parameter")
+        target_df = bundle.in_sample_df if bundle is not None else df
         scores = blended_score(
-            df, blended_weights, cfg, bundle=active_bundle
+            target_df,
+            blended_weights,
+            cfg,
+            bundle=bundle,
+            cov_cache=cov_cache,
+            enable_cov_cache=enable_cov_cache,
+            incremental_cov=incremental_cov,
         )
     else:
-        scores = _get_metric_series_cached(
-            metric_name, df, cfg, active_bundle
-        )
+        if bundle is not None:
+            scores = bundle.ensure_metric(
+                metric_name,
+                cfg,
+                cov_cache=cov_cache,
+                enable_cov_cache=enable_cov_cache,
+                incremental_cov=incremental_cov,
+            ).copy()
+        else:
+            scores = _compute_metric_series(df, metric_name, cfg)
 
     # Apply transform
     scores = _apply_transform(
@@ -836,6 +1084,9 @@ def blended_score(
     stats_cfg: RiskStatsConfig,
     *,
     bundle: WindowMetricBundle | None = None,
+    cov_cache: "CovCache | None" = None,
+    enable_cov_cache: bool = True,
+    incremental_cov: bool = False,
 ) -> pd.Series:
     """Z‑score each contributing metric, then weighted linear combo."""
     if not weights:
@@ -855,7 +1106,16 @@ def blended_score(
 
     combo = pd.Series(0.0, index=in_sample_df.columns)
     for metric, w in w_norm.items():
-        raw = _get_metric_series_cached(metric, in_sample_df, stats_cfg, bundle)
+        if bundle is not None:
+            raw = bundle.ensure_metric(
+                metric,
+                stats_cfg,
+                cov_cache=cov_cache,
+                enable_cov_cache=enable_cov_cache,
+                incremental_cov=incremental_cov,
+            )
+        else:
+            raw = _compute_metric_series(in_sample_df, metric, stats_cfg)
         z = _zscore(raw)
         # If metric is "smaller‑is‑better", *invert* before z‑score
         if metric in ASCENDING_METRICS:
@@ -1435,6 +1695,11 @@ __all__ = [
     "blended_score",
     "compute_metric_series_with_cache",
     "rank_select_funds",
+    "WindowMetricBundle",
+    "make_window_key",
+    "get_window_metric_bundle",
+    "selector_cache_stats",
+    "clear_window_metric_cache",
     "select_funds",
     "build_ui",
     "canonical_metric_list",
