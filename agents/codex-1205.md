@@ -19,7 +19,7 @@ Establish automated lifecycle management for inactive pull requests so queues st
 
 2. **Stale detection + reminder path**
    - When a PR surpasses the first inactivity threshold (N days) and lacks exempt labels/states, apply `status:stale` (or repo-standard equivalent) and post a comment outlining the impending closure timeline.
-   - Record the reminder timestamp (via comment metadata or label with `stale-at=<date>` in description) so the follow-up phase can be calculated deterministically.
+   - Record the reminder timestamp using either the label's creation timestamp (available via the GitHub API) or a dedicated comment with machine-readable metadata, so the follow-up phase can be calculated deterministically.
 
 3. **Auto-close path**
    - For PRs already labeled stale, compare the reminder timestamp to `M`. If exceeded and no new commits/comments occurred, post a closure message and call the REST API to close the PR.
