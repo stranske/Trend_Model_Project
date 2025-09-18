@@ -678,3 +678,65 @@ def test_run_raises_file_not_found_when_loader_returns_none(monkeypatch):
 
     with pytest.raises(FileNotFoundError):
         run_mp(cfg, df=None)
+
+
+def test_prepare_returns_frame_forward_fills_and_zeroes():
+    df = pd.DataFrame(
+        {
+            "A": [np.nan, 0.1, np.nan, 0.2],
+            "B": [0.05, np.nan, 0.07, np.nan],
+        }
+    )
+    result = mp_engine._prepare_returns_frame(df)
+    # Forward fill propagates previous values and final NaNs become zero
+    assert result.iloc[0].tolist() == [0.0, 0.05]
+    assert result.iloc[1].tolist() == [0.1, 0.05]
+    assert result.iloc[2].tolist() == [0.1, 0.07]
+    assert result.iloc[3].tolist() == [0.2, 0.07]
+
+
+def test_compute_turnover_state_aligns_indices():
+    initial = pd.Series([0.6, 0.4], index=["A", "B"], dtype=float)
+    turnover, prev_idx, prev_vals = mp_engine._compute_turnover_state(
+        None, None, initial
+    )
+    assert pytest.approx(turnover) == 1.0
+    updated = pd.Series([0.5, 0.3, 0.2], index=["A", "C", "B"], dtype=float)
+    turnover2, _, _ = mp_engine._compute_turnover_state(prev_idx, prev_vals, updated)
+    # |0.5-0.6| + |0.3-0| + |0.2-0.4| = 0.1 + 0.3 + 0.2 = 0.6
+    assert pytest.approx(turnover2) == pytest.approx(0.6)
+
+
+def test_run_schedule_validates_turnover_when_debug_enabled(monkeypatch):
+    frames = {
+        "2024-01-31": pd.DataFrame({"Sharpe": [1.0, 0.5]}, index=["A", "B"]),
+        "2024-02-29": pd.DataFrame({"Sharpe": [0.2, 1.1]}, index=["A", "B"]),
+    }
+
+    class DummySelector:
+        rank_column = "Sharpe"
+
+        def select(
+            self, score_frame: pd.DataFrame
+        ) -> tuple[pd.DataFrame, pd.DataFrame]:
+            return score_frame, score_frame
+
+    class CyclingWeight(mp_engine.BaseWeighting):
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def weight(self, selected: pd.DataFrame) -> pd.DataFrame:
+            self.calls += 1
+            if self.calls == 1:
+                weights = pd.Series([0.7, 0.3], index=selected.index, dtype=float)
+            else:
+                weights = pd.Series([0.4, 0.6], index=selected.index, dtype=float)
+            return pd.DataFrame({"weight": weights})
+
+    monkeypatch.setenv("DEBUG_TURNOVER_VALIDATE", "1")
+    weighting = CyclingWeight()
+    portfolio = mp_engine.run_schedule(
+        frames, DummySelector(), weighting, rank_column="Sharpe"
+    )
+
+    assert list(portfolio.turnover.values()) == [pytest.approx(1.0), pytest.approx(0.6)]
