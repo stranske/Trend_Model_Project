@@ -84,7 +84,7 @@ jobs:
       - name: Finalize cache
         run: |
           rm -rf /tmp/.buildx-cache
-          mv /tmp/.buildx-cache-new /tmp/.buildx-cache || true
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
       - name: Run test suite
         run: |
           # Use verbose output only for debug builds, quiet mode for production
