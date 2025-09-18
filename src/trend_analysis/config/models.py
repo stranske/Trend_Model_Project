@@ -202,7 +202,9 @@ if _HAS_PYDANTIC:
                 # If no args, fall back to including
                 return True
 
-            optional_fields = getattr(cls, "OPTIONAL_DICT_FIELDS", set())
+            optional_fields = cast(
+                set[str], getattr(cls, "OPTIONAL_DICT_FIELDS", set())
+            )
             result: List[str] = []
             for name, field in items:
                 tp = getattr(field, "annotation", None)

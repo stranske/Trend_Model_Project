@@ -418,7 +418,7 @@ def run(
         cov_cache_obj = None
         if enable_cache:
             try:  # lazy import to avoid hard dependency if module layout changes
-                from ..perf.cache import CovCache  # type: ignore
+                from ..perf.cache import CovCache
 
                 cov_cache_obj = CovCache()
             except Exception:  # pragma: no cover - defensive
