@@ -12,12 +12,13 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from . import export, pipeline
+from . import export
+from . import logging as run_logging
+from . import pipeline
 from .api import run_simulation
 from .config import load_config
 from .constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 from .data import load_csv
-from .logging import log_step as _log_step
 
 APP_PATH = Path(__file__).resolve().parents[2] / "streamlit_app" / "app.py"
 LOCK_PATH = Path(__file__).resolve().parents[2] / "requirements.lock"
@@ -110,7 +111,7 @@ def maybe_log_step(
     """Log a structured step when ``enabled`` is True."""
 
     if enabled:
-        _log_step(run_id, event, message, **fields)
+        run_logging.log_step(run_id, event, message, **fields)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -183,8 +184,6 @@ def main(argv: list[str] | None = None) -> int:
         required_keys = {"in_start", "in_end", "out_start", "out_end"}
         import uuid
 
-        from .logging import get_default_log_path, init_run_logger
-
         run_id = getattr(cfg, "run_id", None) or uuid.uuid4().hex[:12]
         try:
             setattr(cfg, "run_id", run_id)
@@ -192,11 +191,13 @@ def main(argv: list[str] | None = None) -> int:
             # Some config implementations may forbid new attrs; proceed without persisting
             pass
         log_path = (
-            Path(args.log_file) if args.log_file else get_default_log_path(run_id)
+            Path(args.log_file)
+            if args.log_file
+            else run_logging.get_default_log_path(run_id)
         )
         do_structured = not args.no_structured_log
         if do_structured:
-            init_run_logger(run_id, log_path)
+            run_logging.init_run_logger(run_id, log_path)
         maybe_log_step(
             do_structured,
             run_id,
