@@ -167,7 +167,9 @@ def test_run_analysis_applies_constraints(monkeypatch):
     df = _make_two_fund_df()
     captured: dict[str, object] = {}
 
-    def fake_apply_constraints(weights: pd.Series, cons: dict[str, object]) -> pd.Series:
+    def fake_apply_constraints(
+        weights: pd.Series, cons: dict[str, object]
+    ) -> pd.Series:
         captured["weights_before"] = weights.copy()
         captured["constraints"] = cons.copy()
         return pd.Series({"A": 0.6, "B": 0.4})
