@@ -24,11 +24,14 @@ LOCK_PATH = Path(__file__).resolve().parents[2] / "requirements.lock"
 def _extract_cache_stats(payload: object) -> dict[str, int] | None:
     """Return the most recent cache statistics embedded in ``payload``.
 
-    Walks nested mappings / sequences looking for dictionaries that carry the
-    four integer fields emitted by ``CovCache.stats``.  The multi-period engine
-    records a snapshot after every period, so the **last** occurrence reflects
-    the final counters that users care about.  Traversal intentionally skips
-    pandas and NumPy containers to avoid expensive recursion through frames.
+    Walks nested mappings and sequences looking for dictionaries that carry
+    four integer fields: ``entries``, ``hits``, ``misses``, and ``incremental_updates``.
+    These fields represent cache usage and performance counters during multi-period
+    trend analysis, such as the number of cache entries, cache hits, cache misses,
+    and incremental updates performed. The multi-period engine records a snapshot
+    after every period, so the **last** occurrence reflects the final counters
+    relevant to the analysis. Traversal intentionally skips pandas and NumPy
+    containers to avoid expensive recursion through frames.
     """
 
     required = ("entries", "hits", "misses", "incremental_updates")
