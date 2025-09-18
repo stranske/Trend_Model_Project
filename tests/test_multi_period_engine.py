@@ -451,6 +451,197 @@ def test_run_schedule_calls_rebalance_strategies_and_updates(monkeypatch):
     assert days_between > 0
 
 
+def test_threshold_hold_replacement_flow(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Exercise the threshold-hold branch covering low-weight replacements."""
+
+    cfg_data = yaml.safe_load(Path("config/defaults.yml").read_text())
+    cfg_data["multi_period"] = {
+        "frequency": "M",
+        "in_sample_len": 2,
+        "out_sample_len": 1,
+        "start": "2020-01",
+        "end": "2020-04",
+    }
+
+    portfolio = cfg_data.setdefault("portfolio", {})
+    portfolio["policy"] = "threshold_hold"
+    portfolio["transaction_cost_bps"] = 25
+    portfolio["max_turnover"] = 0.1
+    th_cfg = portfolio.setdefault("threshold_hold", {})
+    th_cfg.update(
+        {
+            "target_n": 3,
+            "metric": "Sharpe",
+            "soft_strikes": 1,
+            "entry_soft_strikes": 1,
+            "z_exit_soft": -0.5,
+            "z_entry_soft": 0.5,
+        }
+    )
+    constraints = portfolio.setdefault("constraints", {})
+    constraints.update(
+        {
+            "max_funds": 3,
+            "min_weight": 0.15,
+            "max_weight": 0.6,
+            "min_weight_strikes": 1,
+        }
+    )
+    weighting_cfg = portfolio.setdefault("weighting", {})
+    weighting_cfg.update({"name": "adaptive_bayes", "params": {}})
+
+    cfg = Config(**cfg_data)
+
+    dates = pd.to_datetime(["2020-01-31", "2020-02-29", "2020-03-31", "2020-04-30"])
+    df = pd.DataFrame(
+        {
+            "Date": dates,
+            "A Alpha": [0.05, 0.07, 0.06, 0.08],
+            "B Beta": [0.01, 0.005, 0.002, 0.001],
+            "C Capital": [0.03, 0.035, 0.04, 0.045],
+            "D Delta": [0.06, 0.07, 0.08, 0.09],
+            "E Echo": [0.025, 0.03, 0.028, 0.027],
+        }
+    )
+
+    def fake_run_analysis(*_args, **_kwargs):
+        return {
+            "out_ew_stats": {"sharpe": 0.5, "cagr": 0.03},
+            "out_user_stats": {"sharpe": 0.75, "cagr": 0.05},
+        }
+
+    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+
+    class DummySelector:
+        rank_column = "Sharpe"
+
+        def select(self, score_frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+            return score_frame.loc[["A Alpha", "B Beta", "C Capital"]], score_frame
+
+    import trend_analysis.selector as selector_mod
+
+    monkeypatch.setattr(
+        selector_mod, "create_selector_by_name", lambda *a, **k: DummySelector()
+    )
+
+    class ScriptedWeighting:
+        def __init__(self, *_args, **_kwargs) -> None:
+            self.calls = 0
+            self.sequences = [
+                {"A Alpha": 0.6, "B Beta": 0.2, "C Capital": 0.2},
+                {"A Alpha": 0.7, "B Beta": 0.1, "C Capital": 0.2},
+                {"A Alpha": 0.5, "C Capital": 0.3, "D Delta": 0.2},
+                {"A Alpha": 0.1, "B Beta": 0.2, "D Delta": 0.7},
+                {"D Delta": 0.6, "C Capital": 0.25, "E Echo": 0.15},
+            ]
+
+        def weight(self, selected: pd.DataFrame) -> pd.DataFrame:
+            seq = self.sequences[min(self.calls, len(self.sequences) - 1)]
+            self.calls += 1
+            weights = pd.Series(
+                {idx: seq.get(idx, 0.1) for idx in selected.index},
+                index=selected.index,
+                dtype=float,
+            )
+            total = float(weights.sum())
+            if total <= 0:
+                weights[:] = 1.0 / len(weights)
+            else:
+                weights /= total
+            return pd.DataFrame({"weight": weights})
+
+    monkeypatch.setattr(mp_engine, "AdaptiveBayesWeighting", ScriptedWeighting)
+
+    class ScriptedRebalancer:
+        def __init__(self, *_cfg) -> None:
+            self.calls = 0
+
+        def apply_triggers(self, prev_weights: pd.Series, _sf: pd.DataFrame) -> pd.Series:
+            self.calls += 1
+            prev = prev_weights.astype(float).copy()
+            if self.calls == 1:
+                data = {
+                    "A Alpha": float(prev.get("A Alpha", 0.0)),
+                    "D Delta": float(prev.get("D Delta", 0.0)),
+                    "B Beta": 0.0,
+                }
+                return pd.Series(data, dtype=float)
+            return prev
+
+    monkeypatch.setattr(mp_engine, "Rebalancer", ScriptedRebalancer)
+
+    import trend_analysis.core.rank_selection as rank_sel
+
+    metric_maps = {
+        "AnnualReturn": {
+            "A Alpha": 0.12,
+            "B Beta": 0.03,
+            "C Capital": 0.18,
+            "D Delta": 0.22,
+            "E Echo": 0.2,
+        },
+        "Volatility": {
+            "A Alpha": 0.25,
+            "B Beta": 0.15,
+            "C Capital": 0.2,
+            "D Delta": 0.3,
+            "E Echo": 0.18,
+        },
+        "Sharpe": {
+            "A Alpha": 0.6,
+            "B Beta": 0.1,
+            "C Capital": 1.2,
+            "D Delta": 1.5,
+            "E Echo": 1.1,
+        },
+        "Sortino": {
+            "A Alpha": 0.8,
+            "B Beta": 0.2,
+            "C Capital": 1.0,
+            "D Delta": 1.6,
+            "E Echo": 1.2,
+        },
+        "InformationRatio": {
+            "A Alpha": 0.5,
+            "B Beta": 0.05,
+            "C Capital": 0.9,
+            "D Delta": 1.3,
+            "E Echo": 1.0,
+        },
+        "MaxDrawdown": {
+            "A Alpha": -0.12,
+            "B Beta": -0.05,
+            "C Capital": -0.08,
+            "D Delta": -0.1,
+            "E Echo": -0.09,
+        },
+    }
+
+    def fake_metric_series(_frame: pd.DataFrame, metric: str, _stats_cfg) -> pd.Series:
+        values = metric_maps[metric]
+        return pd.Series(values, dtype=float)
+
+    monkeypatch.setattr(rank_sel, "_compute_metric_series", fake_metric_series)
+
+    results = mp_engine.run(cfg, df)
+
+    assert len(results) == 2
+
+    events_period_1 = results[0]["manager_changes"]
+    assert any(evt["reason"] == "seed" for evt in events_period_1)
+    assert any(evt["reason"] == "replacement" for evt in events_period_1)
+    assert any(evt["reason"] == "low_weight_strikes" for evt in events_period_1)
+
+    events_period_2 = results[1]["manager_changes"]
+    assert any(evt["action"] == "dropped" for evt in events_period_2)
+    assert any(evt["action"] == "added" for evt in events_period_2)
+
+    assert results[1]["turnover"] > 0.0
+    assert results[1]["transaction_cost"] == pytest.approx(
+        results[1]["turnover"] * (portfolio["transaction_cost_bps"] / 10000.0)
+    )
+
+
 def test_run_requires_csv_path_when_df_missing():
     cfg_data = yaml.safe_load(Path("config/defaults.yml").read_text())
     cfg_data["multi_period"] = {
