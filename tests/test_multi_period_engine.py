@@ -97,7 +97,9 @@ def test_run_schedule_rebalancer_path(monkeypatch: pytest.MonkeyPatch) -> None:
     class DummySelector:
         rank_column = "Sharpe"
 
-        def select(self, score_frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+        def select(
+            self, score_frame: pd.DataFrame
+        ) -> tuple[pd.DataFrame, pd.DataFrame]:
             top = score_frame.sort_values("Sharpe", ascending=False).head(2)
             return top, top
 
@@ -137,7 +139,9 @@ def test_run_schedule_rebalance_strategies(monkeypatch: pytest.MonkeyPatch) -> N
     class DummySelector:
         column = "Sharpe"
 
-        def select(self, score_frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+        def select(
+            self, score_frame: pd.DataFrame
+        ) -> tuple[pd.DataFrame, pd.DataFrame]:
             return score_frame.iloc[:2], score_frame
 
     weighting = TrackingWeight()
