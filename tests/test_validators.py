@@ -213,6 +213,17 @@ class TestLoadAndValidateUpload:
                 load_and_validate_upload(tmp.name)
             assert "Failed to parse file" in str(exc_info.value)
 
+    def test_unexpected_reader_failure_is_wrapped(self, monkeypatch):
+        def boom(*args, **kwargs):
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(pd, "read_csv", boom)
+
+        with pytest.raises(ValueError) as exc_info:
+            load_and_validate_upload("whatever.csv")
+
+        assert "Failed to read file" in str(exc_info.value)
+
     def test_excel_pointer_reset(self):
         df = pd.DataFrame({"Date": ["2023-01-31"], "Fund1": [0.01]})
         buf = io.BytesIO()
