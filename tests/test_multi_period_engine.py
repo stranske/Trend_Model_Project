@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 import yaml  # type: ignore[import-untyped]
@@ -64,6 +65,125 @@ def test_run_schedule_updates_weighting():
     w1 = portfolio.history["2025-06-30"]
     w2 = portfolio.history["2025-07-31"]
     assert w2.loc["A"] > w1.loc["A"]
+
+
+class TrackingWeight(BaseWeighting):
+    def __init__(self) -> None:
+        self.updates: list[tuple[pd.Series, int]] = []
+
+    def weight(self, selected: pd.DataFrame) -> pd.DataFrame:
+        if selected.empty:
+            return pd.DataFrame(columns=["weight"])
+        values = np.linspace(1.0, 0.5, num=len(selected), dtype=float)
+        weights = pd.Series(values, index=selected.index, dtype=float)
+        weights /= weights.sum()
+        return weights.to_frame("weight")
+
+    def update(self, scores: pd.Series, days: int) -> None:
+        self.updates.append((scores.astype(float), days))
+
+
+def _make_simple_frames() -> dict[str, pd.DataFrame]:
+    idx = ["A", "B", "C"]
+    return {
+        "2020-01-31": pd.DataFrame({"Sharpe": [0.6, 0.3, 0.1]}, index=idx),
+        "2020-02-29": pd.DataFrame({"Sharpe": [0.2, 0.5, 0.4]}, index=idx),
+    }
+
+
+def test_run_schedule_rebalancer_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    frames = _make_simple_frames()
+
+    class DummySelector:
+        rank_column = "Sharpe"
+
+        def select(self, score_frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+            top = score_frame.sort_values("Sharpe", ascending=False).head(2)
+            return top, top
+
+    class DummyRebalancer:
+        def __init__(self) -> None:
+            self.calls: list[pd.Series] = []
+
+        def apply_triggers(self, prev: pd.Series, sf: pd.DataFrame) -> pd.Series:
+            self.calls.append(prev.copy())
+            # Swap order to prove we use the rebalancer output.
+            return prev.sort_index(ascending=False)
+
+    selector = DummySelector()
+    rebalancer = DummyRebalancer()
+    weighting = TrackingWeight()
+
+    portfolio = run_schedule(
+        frames,
+        selector,
+        weighting,
+        rank_column="Sharpe",
+        rebalancer=rebalancer,
+    )
+
+    assert list(portfolio.history.keys()) == ["2020-01-31", "2020-02-29"]
+    # Rebalancer flips the order so the stored weights follow its output.
+    first_weights = portfolio.history["2020-01-31"]
+    assert list(first_weights.index) == ["B", "A"]
+    assert len(rebalancer.calls) == 2
+    # update() invoked once per period with computed day gaps.
+    assert [days for _, days in weighting.updates] == [0, 29]
+
+
+def test_run_schedule_rebalance_strategies(monkeypatch: pytest.MonkeyPatch) -> None:
+    frames = _make_simple_frames()
+
+    class DummySelector:
+        column = "Sharpe"
+
+        def select(self, score_frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+            return score_frame.iloc[:2], score_frame
+
+    weighting = TrackingWeight()
+    apply_calls: list[dict[str, object]] = []
+
+    def fake_apply(
+        strategies: list[str],
+        params: dict[str, dict[str, object]],
+        current: pd.Series,
+        target: pd.Series,
+        *,
+        scores: pd.Series | None = None,
+    ) -> tuple[pd.Series, float]:
+        apply_calls.append(
+            {
+                "strategies": strategies,
+                "params": params,
+                "current_index": list(current.index),
+                "target_index": list(target.index),
+                "has_scores": scores is not None,
+            }
+        )
+        adjusted = target.copy()
+        if not adjusted.empty:
+            first = adjusted.index[0]
+            adjusted.loc[first] = min(0.9, float(adjusted.loc[first]) + 0.1)
+            adjusted /= adjusted.sum()
+        return adjusted, 0.125
+
+    monkeypatch.setattr(mp_engine, "apply_rebalancing_strategies", fake_apply)
+
+    portfolio = run_schedule(
+        frames,
+        DummySelector(),
+        weighting,
+        rank_column="Sharpe",
+        rebalance_strategies=["dummy"],
+        rebalance_params={"dummy": {}},
+    )
+
+    assert len(apply_calls) == 2
+    assert all(call["has_scores"] for call in apply_calls)
+    # Costs accumulate from the mocked strategy output.
+    assert portfolio.total_rebalance_costs == pytest.approx(0.25)
+    for series in portfolio.history.values():
+        assert pytest.approx(series.sum(), rel=1e-6) == 1.0
 
 
 def test_run_with_price_frames_none():
