@@ -158,7 +158,22 @@ class WindowMetricBundle:
                 canonical, payload, self.in_sample_df.columns
             )
         else:
-            series = _compute_metric_series(self.in_sample_df, canonical, stats_cfg)
+            # Attempt scalar metric cache (Issue #1156)
+            from .metric_cache import get_or_compute_metric_series as _metric_cached
+
+            use_metric_cache = getattr(stats_cfg, "enable_metric_cache", False)
+            series = _metric_cached(
+                start=self.start,
+                end=self.end,
+                universe_cols=tuple(self.in_sample_df.columns.astype(str)),
+                metric_name=canonical,
+                cfg_hash=self.stats_cfg_hash,
+                compute=lambda: _compute_metric_series(
+                    self.in_sample_df, canonical, stats_cfg
+                ),
+                enable=use_metric_cache,
+                cache=None,
+            )
         series = series.astype(float)
         self._metrics[canonical] = series
         _SELECTOR_CACHE_MISSES += 1
