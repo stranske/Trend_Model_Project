@@ -1,0 +1,9 @@
+{
+  "patterns": [
+    "src/**",
+    "docs/**",
+    "tests/**",
+    "**/*.md"
+  ],
+  "max_lines_changed": 1000
+}
