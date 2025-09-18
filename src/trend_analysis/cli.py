@@ -1,11 +1,12 @@
 import argparse
+import numbers
 import os
 import platform
 import subprocess
 import sys
+from collections.abc import Mapping, Sequence
 from importlib import metadata
 from pathlib import Path
-import numpy as np
 
 import numpy as np
 import pandas as pd
@@ -18,6 +19,48 @@ from .data import load_csv
 
 APP_PATH = Path(__file__).resolve().parents[2] / "streamlit_app" / "app.py"
 LOCK_PATH = Path(__file__).resolve().parents[2] / "requirements.lock"
+
+
+def _extract_cache_stats(payload: object) -> dict[str, int] | None:
+    """Return the most recent cache statistics embedded in ``payload``.
+
+    Walks nested mappings / sequences looking for dictionaries that carry the
+    four integer fields emitted by ``CovCache.stats``.  The multi-period engine
+    records a snapshot after every period, so the **last** occurrence reflects
+    the final counters that users care about.  Traversal intentionally skips
+    pandas and NumPy containers to avoid expensive recursion through frames.
+    """
+
+    required = ("entries", "hits", "misses", "incremental_updates")
+    found: list[dict[str, int]] = []
+
+    def _visit(obj: object) -> None:
+        if isinstance(obj, (pd.Series, pd.DataFrame, np.ndarray)):
+            return
+        if isinstance(obj, Mapping):
+            if all(k in obj for k in required):
+                candidate: dict[str, int] = {}
+                for key in required:
+                    value = obj.get(key)
+                    if isinstance(value, numbers.Integral):
+                        candidate[key] = int(value)
+                    elif isinstance(value, numbers.Real) and float(value).is_integer():
+                        candidate[key] = int(value)
+                    else:
+                        break
+                else:
+                    found.append(candidate)
+            for value in obj.values():
+                _visit(value)
+            return
+        if isinstance(obj, Sequence) and not isinstance(
+            obj, (str, bytes, bytearray)
+        ):
+            for item in obj:
+                _visit(item)
+
+    _visit(payload)
+    return found[-1] if found else None
 
 
 def check_environment(lock_path: Path | None = None) -> int:
@@ -203,6 +246,24 @@ def main(argv: list[str] | None = None) -> int:
         print(text)
         if do_structured:
             log_step(run_id, "summary_render", "Printed summary text")
+
+        cache_stats = _extract_cache_stats(res)
+        if cache_stats:
+            print("\nCache statistics:")
+            print(f"  Entries: {cache_stats['entries']}")
+            print(f"  Hits: {cache_stats['hits']}")
+            print(f"  Misses: {cache_stats['misses']}")
+            print(
+                f"  Incremental updates: {cache_stats['incremental_updates']}"
+            )
+            if do_structured:
+                log_step(
+                    run_id,
+                    "cache_stats",
+                    "Cache statistics summary",
+                    event="cache_stats",
+                    **cache_stats,
+                )
 
         export_cfg = cfg.export
         out_dir = export_cfg.get("directory")
