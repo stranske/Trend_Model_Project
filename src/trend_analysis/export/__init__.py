@@ -895,7 +895,7 @@ def summary_frame_from_result(res: Mapping[str, object]) -> pd.DataFrame:
         in_stats = cast(Mapping[str, _Stats], res.get("in_sample_stats", {}))
         if in_stats:
             include_avg = any(
-                getattr(stat, "avg_corr", None) is not None
+                hasattr(stat, "avg_corr") and stat.avg_corr is not None
                 for stat in in_stats.values()
             )
     except Exception:  # defensive
