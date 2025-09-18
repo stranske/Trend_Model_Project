@@ -417,6 +417,31 @@ def test_cli_run_uses_env_seed_and_populates_run_result(tmp_path, capsys, monkey
         [0.05], index=pd.Index(["2020-01"], name="month"), name="bench"
     )
     weights_df = pd.DataFrame({"A": [0.6], "B": [0.4]})
+
+    cache_first = {
+        "entries": 1,
+        "hits": 2,
+        "misses": 3,
+        "incremental_updates": 4,
+    }
+    cache_second = {
+        "entries": 5.0,
+        "hits": 6.0,
+        "misses": 7.0,
+        "incremental_updates": 8.0,
+    }
+
+    # Helper class for tests
+    class TruthySeries:
+        def __init__(self, series: pd.Series):
+            self.series = series
+
+        def __bool__(self) -> bool:
+            return True
+
+        def __getattr__(self, name: str):
+            return getattr(self.series, name)
+
     details = {
         "cache": cache_first,
         "nested": [cache_second],
