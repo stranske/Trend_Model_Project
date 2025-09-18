@@ -5,10 +5,8 @@ import pandas as pd
 
 from trend_analysis import cli
 from trend_analysis.api import RunResult
-from trend_analysis.constants import (
-    DEFAULT_OUTPUT_DIRECTORY,
-    DEFAULT_OUTPUT_FORMATS,
-)
+from trend_analysis.constants import (DEFAULT_OUTPUT_DIRECTORY,
+                                      DEFAULT_OUTPUT_FORMATS)
 
 
 def _write_cfg(path: Path, version: str) -> None:
@@ -90,9 +88,7 @@ def test_cli_run_legacy_bundle_and_exports(tmp_path, capsys, monkeypatch):
     monkeypatch.setattr(
         cli,
         "load_csv",
-        lambda path: pd.DataFrame(
-            {"Date": pd.to_datetime(["2020-01-31"]), "A": [0.0]}
-        ),
+        lambda path: pd.DataFrame({"Date": pd.to_datetime(["2020-01-31"]), "A": [0.0]}),
     )
     monkeypatch.setattr(cli.pipeline, "run", lambda cfg: metrics_df)
     monkeypatch.setattr(cli.pipeline, "run_full", lambda cfg: results_payload)
@@ -135,15 +131,17 @@ def test_cli_run_legacy_bundle_and_exports(tmp_path, capsys, monkeypatch):
         "trend_analysis.export.bundle.export_bundle", fake_export_bundle
     )
 
-    rc = cli.main([
-        "run",
-        "-c",
-        "config.yml",
-        "-i",
-        "input.csv",
-        "--bundle",
-        str(tmp_path),
-    ])
+    rc = cli.main(
+        [
+            "run",
+            "-c",
+            "config.yml",
+            "-i",
+            "input.csv",
+            "--bundle",
+            str(tmp_path),
+        ]
+    )
     out = capsys.readouterr().out
 
     assert rc == 0
@@ -234,9 +232,7 @@ def test_cli_run_modern_bundle_attaches_payload(tmp_path, capsys, monkeypatch):
     monkeypatch.setattr(
         cli,
         "load_csv",
-        lambda path: pd.DataFrame(
-            {"Date": pd.to_datetime(["2020-01-31"]), "A": [0.0]}
-        ),
+        lambda path: pd.DataFrame({"Date": pd.to_datetime(["2020-01-31"]), "A": [0.0]}),
     )
     monkeypatch.setattr(cli, "run_simulation", fake_run_simulation)
     monkeypatch.setattr(cli.export, "format_summary_text", lambda *a, **k: "summary")
@@ -245,7 +241,9 @@ def test_cli_run_modern_bundle_attaches_payload(tmp_path, capsys, monkeypatch):
     monkeypatch.setattr(
         cli.export,
         "export_to_excel",
-        lambda *a, **k: (_ for _ in ()).throw(AssertionError("unexpected excel export")),
+        lambda *a, **k: (_ for _ in ()).throw(
+            AssertionError("unexpected excel export")
+        ),
     )
 
     bundle_calls: dict[str, object] = {}
@@ -259,16 +257,18 @@ def test_cli_run_modern_bundle_attaches_payload(tmp_path, capsys, monkeypatch):
     )
 
     monkeypatch.chdir(tmp_path)
-    rc = cli.main([
-        "run",
-        "-c",
-        "cfg.yml",
-        "-i",
-        "input.csv",
-        "--seed",
-        "789",
-        "--bundle",
-    ])
+    rc = cli.main(
+        [
+            "run",
+            "-c",
+            "cfg.yml",
+            "-i",
+            "input.csv",
+            "--seed",
+            "789",
+            "--bundle",
+        ]
+    )
     out = capsys.readouterr().out
 
     assert rc == 0
@@ -316,9 +316,7 @@ def test_cli_run_env_seed_and_default_exports(tmp_path, capsys, monkeypatch):
     monkeypatch.setattr(
         cli,
         "load_csv",
-        lambda path: pd.DataFrame(
-            {"Date": pd.to_datetime(["2019-01-31"]), "A": [0.0]}
-        ),
+        lambda path: pd.DataFrame({"Date": pd.to_datetime(["2019-01-31"]), "A": [0.0]}),
     )
     monkeypatch.setattr(cli, "run_simulation", fake_run_simulation)
     monkeypatch.setattr(cli.export, "format_summary_text", lambda *a, **k: "summary")
