@@ -7,12 +7,11 @@ from typing import Any
 
 import pandas as pd
 import pytest
-import yaml
+import yaml  # type: ignore[import-untyped]
 
-from trend_analysis.config import DEFAULTS as DEFAULT_CFG_PATH
 import trend_analysis.pipeline as pipeline_mod
-
 from tests.test_trend_portfolio_app_helpers import _DummyStreamlit
+from trend_analysis.config import DEFAULTS as DEFAULT_CFG_PATH
 
 
 class _RunButtonStreamlit(_DummyStreamlit):
@@ -26,7 +25,9 @@ class _RunButtonStreamlit(_DummyStreamlit):
         return False
 
 
-def test_run_tab_applies_session_state_and_invokes_pipeline(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_tab_applies_session_state_and_invokes_pipeline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Ensure the run tab wires session-state edits back into the config."""
 
     captured: dict[str, Any] = {}
@@ -72,4 +73,3 @@ def test_run_tab_applies_session_state_and_invokes_pipeline(monkeypatch: pytest.
 
     # Avoid leaking the imported module to other tests.
     sys.modules.pop("trend_portfolio_app.app", None)
-
