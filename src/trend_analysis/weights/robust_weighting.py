@@ -321,7 +321,9 @@ class RobustRiskParity(WeightEngine):
         if max_std <= 0.0:
             # Fallback to equal weights when the covariance matrix collapses.
             logger.warning("Falling back to equal weights due to zero variance inputs")
-            return pd.Series(np.full(len(cov.index), 1.0 / len(cov.index)), index=cov.index)
+            return pd.Series(
+                np.full(len(cov.index), 1.0 / len(cov.index)), index=cov.index
+            )
 
         # Handle zero or very small standard deviations
         min_std = max_std * 1e-8 if max_std > 0.0 else np.finfo(float).eps
@@ -330,8 +332,12 @@ class RobustRiskParity(WeightEngine):
         inv_vol = np.reciprocal(std_devs)
         total = float(np.sum(inv_vol))
         if not np.isfinite(total) or total <= 0.0:
-            logger.warning("Falling back to equal weights due to invalid inverse volatility sum")
-            return pd.Series(np.full(len(cov.index), 1.0 / len(cov.index)), index=cov.index)
+            logger.warning(
+                "Falling back to equal weights due to invalid inverse volatility sum"
+            )
+            return pd.Series(
+                np.full(len(cov.index), 1.0 / len(cov.index)), index=cov.index
+            )
 
         weights = inv_vol / total
 

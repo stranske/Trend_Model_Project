@@ -1,4 +1,5 @@
-"""Direct pipeline execution tests to boost coverage for export and multi-period paths."""
+"""Direct pipeline execution tests to boost coverage for export and multi-
+period paths."""
 
 from __future__ import annotations
 
