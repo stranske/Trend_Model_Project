@@ -139,9 +139,7 @@ class StreamlitProxy:
         )
 
     async def _websocket_entry(self, websocket: Any, path: str) -> None:
-        ws = cast(_SupportsWebSocket, websocket)
-        await self._handle_websocket(ws, path)
-
+        await self._handle_websocket(cast(_SupportsWebSocket, websocket), path)
     async def _http_entry(
         self, request: Any, path: str
     ) -> Any:  # FastAPI Request at runtime
