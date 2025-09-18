@@ -136,7 +136,7 @@ def main(argv: list[str] | None = None) -> int:
         run_id = getattr(cfg, "run_id", None) or uuid.uuid4().hex[:12]
         try:
             setattr(cfg, "run_id", run_id)  # type: ignore[attr-defined]
-        except Exception:
+        except (AttributeError, TypeError):
             # Some config implementations may forbid new attrs; proceed without persisting
             pass
         log_path = (
