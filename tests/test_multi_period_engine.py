@@ -518,7 +518,8 @@ def test_threshold_hold_replacement_flow(monkeypatch: pytest.MonkeyPatch) -> Non
         def select(
             self, score_frame: pd.DataFrame
         ) -> tuple[pd.DataFrame, pd.DataFrame]:
-            return score_frame.loc[["A Alpha", "B Beta", "C Capital"]], score_frame
+            filtered = score_frame.loc[["A Alpha", "B Beta", "C Capital"]]
+            return filtered, filtered
 
     import trend_analysis.selector as selector_mod
 
