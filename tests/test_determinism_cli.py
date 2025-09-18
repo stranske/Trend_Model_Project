@@ -1,7 +1,7 @@
 import json
 import os
-import zipfile
 import subprocess
+import zipfile
 from pathlib import Path
 
 DEMO_CONFIG = Path("config/demo.yml")

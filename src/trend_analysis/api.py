@@ -148,6 +148,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         ):
             # Build one continuous portfolio series across IS + OS
             import numpy as _np
+
             from .pipeline import calc_portfolio_returns as _cpr
 
             cols = list(in_scaled.columns)
@@ -173,7 +174,8 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
     )
     # Ensure details dict is JSON-friendly (no Timestamp / non-primitive keys)
     try:  # pragma: no cover - lightweight sanitation (non-destructive)
-        from pandas import Series as _Series, DataFrame as _DataFrame
+        from pandas import DataFrame as _DataFrame
+        from pandas import Series as _Series
 
         def _sanitize_keys(obj):  # type: ignore[override]
             if isinstance(obj, _Series):
@@ -210,4 +212,3 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
     except (AttributeError, TypeError, ValueError):  # pragma: no cover
         pass
     return rr
-
