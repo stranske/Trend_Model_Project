@@ -166,8 +166,9 @@ def apply_constraints(
     if constraints.group_caps:
         if not constraints.groups:
             raise ConstraintViolation("Group mapping required when group_caps set")
+        group_mapping = {asset: constraints.groups[asset] for asset in working.index}
         working = _apply_group_caps(
-            working, constraints.group_caps, constraints.groups, total=total_allocation
+            working, constraints.group_caps, group_mapping, total=total_allocation
         )
         # max weight may have been violated again
         if constraints.max_weight is not None:
