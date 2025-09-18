@@ -42,11 +42,14 @@ def test_cli_emits_cache_stats(monkeypatch, capsys, tmp_path):
     log_calls: list[tuple[str, str, str, dict[str, object]]] = []
 
     def fake_log_step(run_id, step, message, level="INFO", **extra):
-        log_calls.append((run_id, step, message, extra))
+        payload = dict(extra)
+        payload.setdefault("event", step)
+        log_calls.append((run_id, step, message, payload))
 
     from trend_analysis import logging as run_logging
 
     monkeypatch.setattr(run_logging, "log_step", fake_log_step)
+    monkeypatch.setattr(cli, "_log_step", fake_log_step)
     monkeypatch.setattr(run_logging, "init_run_logger", lambda run_id, path: None)
     monkeypatch.setattr(
         run_logging, "get_default_log_path", lambda run_id: tmp_path / "log.jsonl"

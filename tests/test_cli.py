@@ -385,6 +385,23 @@ def test_cli_run_env_seed_and_default_exports(tmp_path, capsys, monkeypatch):
     assert formats == tuple(DEFAULT_OUTPUT_FORMATS)
 
 
+def test_maybe_log_step_respects_flag(monkeypatch):
+    """Structured logging helper should be a no-op when disabled."""
+
+    calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+
+    def fake_log_step(run_id: str, event: str, message: str, **fields: object) -> None:
+        calls.append(((run_id, event, message), dict(fields)))
+
+    monkeypatch.setattr(cli, "_log_step", fake_log_step)
+
+    cli.maybe_log_step(False, "rid", "cache", "skipped", extra=1)
+    assert calls == []
+
+    cli.maybe_log_step(True, "rid", "cache", "processed", entries=2)
+    assert calls == [(("rid", "cache", "processed"), {"entries": 2})]
+
+
 def test_cli_run_uses_env_seed_and_populates_run_result(tmp_path, capsys, monkeypatch):
     out_dir = tmp_path / "exports"
     out_dir.mkdir()
