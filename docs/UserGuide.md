@@ -80,7 +80,7 @@ When the GUI is used, the state of AdaptiveBayesWeighting is saved alongside the
 Notes:
 1. All engines normalise final weights to sum to 1.0 (100%).
 2. Negative intermediate scores are truncated to zero for score‑proportional engines before normalisation.
-3. Bayesian shrinkage parameter `shrink_tau` closer to 1.0 = stronger pull toward cross‑sectional mean.
+3. Bayesian shrinkage parameter `shrink_tau` closer to 1.0 = stronger pull toward cross-sectional mean.
 4. If an engine raises a recoverable error (e.g. singular covariance) the pipeline logs a single WARNING and falls back to `EqualWeight`, recording structured `fallback_info` visible in the CLI and GUI.
 5. Additional third‑party / custom engines can be registered via the weighting plugin registry (see `docs/plugin-interface.md`).
 
