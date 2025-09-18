@@ -153,6 +153,8 @@ if _HAS_PYDANTIC:
         """Typed access to the YAML configuration (Pydantic mode)."""
 
         # Field lists generated dynamically from model fields to prevent maintenance burden
+        OPTIONAL_DICT_FIELDS: ClassVar[set[str]] = {"performance"}
+
         @classmethod
         def _dict_field_names(cls) -> List[str]:
             """Return names of fields whose type is dict[str, Any] (or
@@ -205,11 +207,8 @@ if _HAS_PYDANTIC:
                 tp = getattr(field, "annotation", None)
                 if tp is None:
                     tp = getattr(field, "outer_type_", None)
-                if _is_dict_type(tp):
+                if _is_dict_type(tp) and name not in cls.OPTIONAL_DICT_FIELDS:
                     result.append(name)
-            if "performance" in result:
-                # Maintain backward compatibility: performance is optional
-                result.remove("performance")
             return result
 
         # Placeholders; computed after class creation for reliability

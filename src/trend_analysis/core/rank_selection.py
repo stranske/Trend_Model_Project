@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import io
 import re
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Iterable, List, cast, TYPE_CHECKING
 
@@ -303,6 +304,9 @@ class RiskStatsConfig:
 
 
 METRIC_REGISTRY: Dict[str, Callable[..., float | pd.Series | np.floating]] = {}
+_METRIC_CONTEXT: ContextVar[dict[str, Any] | None] = ContextVar(
+    "_TREND_METRIC_CONTEXT", default=None
+)
 
 # Map snake_case config names to the canonical registry keys.
 _METRIC_ALIASES: dict[str, str] = {
@@ -343,6 +347,13 @@ def register_metric(
         return fn
 
     return decorator
+
+
+def _get_metric_context() -> dict[str, Any]:
+    ctx = _METRIC_CONTEXT.get()
+    if ctx is None:
+        raise RuntimeError("Metric context is unavailable for frame-aware metrics")
+    return ctx
 
 
 def quality_filter(df: pd.DataFrame, cfg: FundSelectionConfig) -> List[str]:
@@ -455,13 +466,30 @@ register_metric("InformationRatio")(
 )
 
 
-# Average correlation metric (implemented via covariance cache path; per-column
-# function is a placeholder raising if used directly)
+# Average correlation metric (frame-aware via metric context)
 @register_metric("AvgCorr")
-def _avg_corr_placeholder(*_args: Any, **_kwargs: Any) -> float:  # pragma: no cover
-    raise RuntimeError(
-        "AvgCorr is computed via compute_metric_series_with_cache; direct per-column call is unsupported"
-    )
+def _avg_corr_metric(series: pd.Series, **_: Any) -> float:
+    """Fallback AvgCorr implementation using the metric context frame."""
+
+    ctx = _get_metric_context()
+    frame = ctx.get("frame")
+    if frame is None or frame.empty:
+        return 0.0
+    if frame.shape[1] <= 1:
+        return 0.0
+    corr = ctx.get("avg_corr_corr")
+    corr_frame_id = ctx.get("avg_corr_frame_id")
+    if corr is None or corr_frame_id != id(frame):
+        corr = frame.corr(method="pearson", min_periods=2)
+        ctx["avg_corr_corr"] = corr
+        ctx["avg_corr_frame_id"] = id(frame)
+    col = series.name
+    if col not in corr.columns:
+        return 0.0
+    col_corr = corr.loc[col].drop(labels=[col], errors="ignore").dropna()
+    if col_corr.empty:
+        return 0.0
+    return float(col_corr.mean())
 
 
 # ===============================================================
@@ -482,13 +510,17 @@ def _compute_metric_series(
     fn = METRIC_REGISTRY.get(metric_name)
     if fn is None:
         raise ValueError(f"Metric '{metric_name}' not registered")
-    # map across columns without Python loops
-    return in_sample_df.apply(
-        fn,
-        periods_per_year=stats_cfg.periods_per_year,
-        risk_free=stats_cfg.risk_free,
-        axis=0,
-    )
+    context: dict[str, Any] = {"frame": in_sample_df}
+    token = _METRIC_CONTEXT.set(context)
+    try:
+        return in_sample_df.apply(
+            fn,
+            periods_per_year=stats_cfg.periods_per_year,
+            risk_free=stats_cfg.risk_free,
+            axis=0,
+        )
+    finally:
+        _METRIC_CONTEXT.reset(token)
 
 
 def compute_metric_series_with_cache(

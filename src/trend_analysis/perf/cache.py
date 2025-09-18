@@ -26,7 +26,7 @@ Key = Tuple[str, str, int, str]
 def _universe_hash(assets: Iterable[str]) -> int:
     """Stable hash for an asset universe.
 
-    Uses sha1 for stability across processes; truncated to 8 bytes -> int.
+    Uses SHA-256 for stability across processes; truncated to 8 bytes -> int.
     """
     joined = "\x1f".join(sorted(map(str, assets)))
     h = hashlib.sha256(joined.encode("utf-8")).digest()[:8]
