@@ -10,7 +10,6 @@ permissions:
   issues: write
   metadata: read
   pull-requests: read
-  administration: read
 
 jobs:
   self-check:
