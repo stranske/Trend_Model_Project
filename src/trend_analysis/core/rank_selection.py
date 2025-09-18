@@ -564,7 +564,7 @@ _METRIC_CONTEXT: ContextVar[dict[str, Any] | None] = ContextVar(
     "_TREND_METRIC_CONTEXT", default=None
 )
 
-WindowKey = tuple[str, str, int, int]
+WindowKey = tuple[str, str, str, str]  # Use the type signature from the first definition at line 41
 
 
 @dataclass
