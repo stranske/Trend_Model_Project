@@ -1,0 +1,1 @@
+"""Streamlit pages package marker for type checking."""
