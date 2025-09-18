@@ -52,8 +52,17 @@ class Metric:
             # Degenerate case where baseline is zero; any deviation counts as
             # either a regression (runtime getting slower) or improvement.
             if self.metric_type == "runtime":
-                return 100.0 if self.value > 0 else 0.0
-            return 100.0 if self.value < 0 else 0.0
+                if math.isclose(self.value, 0.0):
+                    return 0.0
+                elif self.value > 0:
+                    return float('inf')
+                else:
+                    return 0.0
+            # For speedup, baseline zero means any decrease or zero is infinite regression
+            if self.value <= 0:
+                return float('inf')
+            else:
+                return 0.0
 
         change_ratio = (self.value - self.baseline) / self.baseline
 
