@@ -104,4 +104,3 @@ def test_run_price_frames_combines_and_sorts(monkeypatch: pytest.MonkeyPatch) ->
     # Latest observation should win when de-duplicating on Date.
     assert pd.isna(dup_row["FundA"].iloc[0])
     assert dup_row["FundB"].iloc[0] == pytest.approx(0.03)
-
