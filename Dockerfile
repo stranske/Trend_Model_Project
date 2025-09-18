@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.11-slim@sha256:316d89b74c4d467565864be703299878ca7a97893ed44ae45f6acba5af09d154
 
 # Deterministic hash seed (can be overridden at build time)
 ARG PY_HASH_SEED=0
