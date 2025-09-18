@@ -30,7 +30,6 @@ class SequenceWeighting:
         # The engine will call update when rank_column is present. The sequence
         # weighting used in this test is deterministic and state free, so we do
         # not need to adjust any internal state here.
-        return None
 
     def weight(self, selected: pd.DataFrame) -> pd.DataFrame:
         weights = self.sequences[self._idx]
