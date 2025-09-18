@@ -44,7 +44,8 @@ jobs:
                 return {};
               }
             }
-            const allowlist = loadAllowlist(process.env.ALLOWLIST_PATH);
+            const allowlistPath = process.env.ALLOWLIST_PATH || 'trusted-config/.github/autoapprove-allowlist.json';
+            const allowlist = loadAllowlist(allowlistPath);
             const { owner, repo } = context.repo;
             if (!context.payload || !context.payload.pull_request) {
               core.warning('No pull_request in event payload; refusing to auto-approve.');

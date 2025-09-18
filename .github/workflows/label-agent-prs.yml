@@ -93,7 +93,8 @@ jobs:
                 .map(v => v.trim())
                 .filter(v => v.length > 0);
             }
-            const rules = loadRules(process.env.LABEL_RULES_PATH);
+            const rulesPath = process.env.LABEL_RULES_PATH || 'trusted-config/.github/agent-label-rules.json';
+            const rules = loadRules(rulesPath);
             const agents = rules.agents || {};
             const { owner, repo } = context.repo;
             const pr = context.payload.pull_request;
