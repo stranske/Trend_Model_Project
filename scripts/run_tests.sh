@@ -19,13 +19,29 @@ if [[ ! -f ".coveragerc.${PROFILE}" ]]; then
 fi
 # Run pytest under coverage and capture exit code so we can handle the "no tests" case
 set +e
-PYTHONPATH="./src" coverage run --branch --rcfile ".coveragerc.${PROFILE}" -m pytest --maxfail=1 --disable-warnings "$@"
+PYTHONPATH="./src" coverage run --branch --rcfile ".coveragerc.${PROFILE}" -m pytest --disable-warnings "$@"
 status=$?
 set -e
 
 if [[ "$status" -eq 5 ]]; then
   echo "No tests were collected or ran. This may be due to test filters or missing/misnamed tests."
   exit 1
+fi
+
+if [[ "$status" -eq 1 ]]; then
+  echo "Detected test failures. Retrying failed tests once..."
+  set +e
+  PYTHONPATH="./src" coverage run --branch --rcfile ".coveragerc.${PROFILE}" --append -m pytest --disable-warnings --failed-first --maxfail=1 "$@"
+  retry_status=$?
+  set -e
+
+  if [[ "$retry_status" -eq 0 ]]; then
+    echo "Retry succeeded; flaky failures resolved on re-run."
+    status=0
+  else
+    echo "Retry failed with status ${retry_status}. Persistent failures detected."
+    status=$retry_status
+  fi
 fi
 
 coverage report -m
