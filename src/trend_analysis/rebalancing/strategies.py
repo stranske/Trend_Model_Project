@@ -98,7 +98,7 @@ class TurnoverCapStrategy(Rebalancer):
 
         # Calculate trade priorities and order trades descending
         priorities = self._calculate_priorities(current, target, trades, scores)
-        priorities = priorities.fillna(float("-inf"))
+        priorities = priorities.fillna(-np.inf)
         order = priorities.sort_values(ascending=False, kind="mergesort").index
 
         ordered_trades = trades.reindex(order)
