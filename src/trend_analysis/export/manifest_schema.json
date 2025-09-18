@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trend-analysis.example.com/schema/run_meta.json",
+  "title": "Trend Analysis Bundle Manifest",
+  "type": "object",
+  "required": [
+    "run_id",
+    "config",
+    "config_sha256",
+    "seed",
+    "environment",
+    "git_hash",
+    "receipt",
+    "input_sha256"
+  ],
+  "properties": {
+    "schema_version": {"type": ["string", "null"]},
+    "run_id": {"type": "string"},
+    "config": {"type": "object"},
+    "config_sha256": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"},
+    "seed": {"type": ["integer", "null"]},
+    "environment": {"type": "object"},
+    "git_hash": {"type": ["string", "null"], "minLength": 1},
+    "receipt": {
+      "type": "object",
+      "required": ["created"],
+      "properties": {
+        "created": {"type": "string", "format": "date-time"}
+      }
+    },
+    "input_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-fA-F]{64}$"},
+    "outputs": {
+      "type": "object",
+      "additionalProperties": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"}
+    },
+    "log_file": {"type": ["string", "null"]}
+  },
+  "additionalProperties": true
+}
