@@ -159,7 +159,8 @@ class WindowMetricBundle:
             )
         else:
             # Attempt scalar metric cache (Issue #1156)
-            from .metric_cache import get_or_compute_metric_series as _metric_cached
+            from .metric_cache import \
+                get_or_compute_metric_series as _metric_cached
 
             use_metric_cache = getattr(stats_cfg, "enable_metric_cache", False)
             series = _metric_cached(

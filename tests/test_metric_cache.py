@@ -1,15 +1,11 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 
-from trend_analysis.core.metric_cache import (
-    clear_metric_cache,
-    global_metric_cache,
-)
-from trend_analysis.core.rank_selection import (
-    RiskStatsConfig,
-    WindowMetricBundle,
-    _compute_metric_series,
-)
+from trend_analysis.core.metric_cache import (clear_metric_cache,
+                                              global_metric_cache)
+from trend_analysis.core.rank_selection import (RiskStatsConfig,
+                                                WindowMetricBundle,
+                                                _compute_metric_series)
 
 
 def _dummy_frame(n=5, m=24):
