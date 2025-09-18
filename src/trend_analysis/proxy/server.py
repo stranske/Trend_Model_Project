@@ -11,7 +11,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+import sys
+from typing import TYPE_CHECKING, Any, Protocol, cast, runtime_checkable
 from urllib.parse import urljoin
 
 logger = logging.getLogger(__name__)
@@ -78,6 +79,23 @@ except Exception:  # pragma: no cover
 
 
 def _assert_deps() -> None:
+    global _DEPS_AVAILABLE
+
+    # If the modules were explicitly marked as missing (set to None in
+    # ``sys.modules``) treat them as unavailable even if they were previously
+    # imported.  This mirrors the behaviour expected by the proxy tests where
+    # dependencies are monkeypatched out to validate the graceful fallback.
+    required = ("fastapi", "uvicorn", "httpx", "websockets")
+    explicitly_missing = [
+        name for name in required if name in sys.modules and sys.modules[name] is None
+    ]
+    if explicitly_missing:
+        _DEPS_AVAILABLE = False
+        raise ImportError(
+            "Required dependencies not available (fastapi, uvicorn, httpx, websockets). "
+            "Install with: pip install fastapi uvicorn httpx websockets"
+        )
+
     if not _DEPS_AVAILABLE and not _lazy_import_deps():  # pragma: no cover
         raise ImportError(
             "Required dependencies not available (fastapi, uvicorn, httpx, websockets). "
@@ -120,8 +138,8 @@ class StreamlitProxy:
             methods=["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"],
         )
 
-    async def _websocket_entry(self, websocket: _SupportsWebSocket, path: str) -> None:
-        await self._handle_websocket(websocket, path)
+    async def _websocket_entry(self, websocket: Any, path: str) -> None:
+        await self._handle_websocket(cast(_SupportsWebSocket, websocket), path)
 
     async def _http_entry(
         self, request: Any, path: str

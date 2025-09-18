@@ -156,7 +156,12 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
             port_os = _cpr(w, out_scaled)
             portfolio_series = pd.concat([port_is, port_os])
             res["portfolio_equal_weight_combined"] = portfolio_series
-    except Exception:  # pragma: no cover - defensive
+    except (
+        KeyError,
+        AttributeError,
+        TypeError,
+        IndexError,
+    ):  # pragma: no cover - defensive
         pass
 
     rr = RunResult(
@@ -201,9 +206,6 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
 
         # Store a parallel sanitized view for hashing/export without mutating original
         rr.details_sanitized = _sanitize_keys(rr.details)  # type: ignore[attr-defined]
-    except Exception:  # pragma: no cover
-        pass
-    return rr
 
     # NOTE: unreachable code block retained for clarity; bundle export now
     # handled by attaching portfolio in CLI before export.
@@ -211,3 +213,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
 
 # Monkey-patch friendly attributes (documented for export_bundle) are added
 # downstream in CLI when needed (portfolio / benchmark / weights).
+    except (AttributeError, TypeError, ValueError):  # pragma: no cover
+        pass
+    return rr
+
