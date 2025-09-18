@@ -38,6 +38,8 @@ results/
 *.xlsx
 *.csv
 *.json
+!.github/autoapprove-allowlist.json
+!.github/agent-label-rules.json
 !src/trend_analysis/export/manifest_schema.json
 *.txt
 

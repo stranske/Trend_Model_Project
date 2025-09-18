@@ -1,0 +1,18 @@
+{
+  "common": {
+    "automerge": "automerge",
+    "risk": "risk:low"
+  },
+  "agents": {
+    "copilot": {
+      "actor_substrings": ["copilot"],
+      "head_prefixes": ["copilot/", "agents/copilot-"],
+      "labels": ["from:copilot", "agent:copilot"]
+    },
+    "codex": {
+      "actor_substrings": ["codex"],
+      "head_prefixes": ["codex/", "agents/codex-"],
+      "labels": ["from:codex", "agent:codex"]
+    }
+  }
+}
