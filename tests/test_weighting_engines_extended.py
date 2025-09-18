@@ -27,7 +27,8 @@ def test_equal_risk_contribution_regularises_ill_conditioned_matrix() -> None:
     cov = _make_covariance()
     # Force extreme condition number by shrinking one variance dramatically.
     cov.iloc[0, 0] = cov.iloc[0, 0] * 1e-8
-    cov.iloc[0, 1:] = cov.iloc[1:, 0] = cov.iloc[1:, 0]  # keep symmetry
+    cov.iloc[0, 1:] = cov.iloc[1:, 0].values  # keep symmetry
+    cov.iloc[1:, 0] = cov.iloc[0, 1:].values  # ensure symmetry
 
     engine = EqualRiskContribution(max_iter=200)
     weights = engine.weight(cov)
