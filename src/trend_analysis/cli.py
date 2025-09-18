@@ -8,6 +8,8 @@ from collections.abc import Mapping, Sequence
 from importlib import metadata
 from pathlib import Path
 from typing import Any
+
+from .logging import log_step as _log_step
 import numpy as np
 
 import pandas as pd
@@ -49,7 +51,7 @@ def _extract_cache_stats(payload: object) -> dict[str, int] | None:
                     if isinstance(value, numbers.Integral):
                         candidate[key] = int(value)
                     elif isinstance(value, numbers.Real) and float(value).is_integer():
-                        candidate[key] = int(value)
+                        candidate[key] = int(float(value))
                     else:
                         break
                 else:
@@ -109,7 +111,7 @@ def maybe_log_step(enabled: bool, run_id: str, event: str, message: str, **field
     """Log a structured step when ``enabled`` is True."""
 
     if enabled:
-        log_step(run_id, event, message, **fields)
+        _log_step(run_id, event, message, **fields)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -173,23 +175,19 @@ def main(argv: list[str] | None = None) -> int:
         env_seed = os.getenv("TREND_SEED")
         # Precedence: CLI flag > TREND_SEED > config.seed > default 42
         if cli_seed is not None:
-            cfg.seed = int(cli_seed)  # type: ignore[attr-defined]
+            setattr(cfg, "seed", int(cli_seed))
         elif env_seed is not None and env_seed.isdigit():
-            cfg.seed = int(env_seed)  # type: ignore[attr-defined]
+            setattr(cfg, "seed", int(env_seed))
         df = load_csv(args.input)
         assert df is not None  # narrow type for type-checkers
         split = cfg.sample_split
         required_keys = {"in_start", "in_end", "out_start", "out_end"}
-        from .logging import (
-            get_default_log_path,
-            init_run_logger,
-            log_step,
-        )
+        from .logging import get_default_log_path, init_run_logger
         import uuid
 
         run_id = getattr(cfg, "run_id", None) or uuid.uuid4().hex[:12]
         try:
-            setattr(cfg, "run_id", run_id)  # type: ignore[attr-defined]
+            setattr(cfg, "run_id", run_id)
         except Exception:
             # Some config implementations may forbid new attrs; proceed without persisting
             pass
@@ -238,17 +236,17 @@ def main(argv: list[str] | None = None) -> int:
                 except Exception:
                     port_ser = None
                 if port_ser is not None:
-                    run_result.portfolio = port_ser  # type: ignore[attr-defined]
+                    setattr(run_result, "portfolio", port_ser)
                 bench_map = res.get("benchmarks") if isinstance(res, dict) else None
                 if isinstance(bench_map, dict) and bench_map:
                     # Pick first benchmark for manifest (simple case)
                     first_bench = next(iter(bench_map.values()))
-                    run_result.benchmark = first_bench  # type: ignore[attr-defined]
+                    setattr(run_result, "benchmark", first_bench)
                 weights_user = (
                     res.get("weights_user_weight") if isinstance(res, dict) else None
                 )
                 if weights_user is not None:
-                    run_result.weights = weights_user  # type: ignore[attr-defined]
+                    setattr(run_result, "weights", weights_user)
         else:  # pragma: no cover - legacy fallback
             metrics_df = pipeline.run(cfg)
             res = pipeline.run_full(cfg)
@@ -282,7 +280,6 @@ def main(argv: list[str] | None = None) -> int:
                 run_id,
                 "cache_stats",
                 "Cache statistics summary",
-                event="cache_stats",
                 **cache_stats,
             )
 
@@ -351,8 +348,8 @@ def main(argv: list[str] | None = None) -> int:
                 }
                 rr = _RR(metrics_df, res, run_seed, env)
             # Attach config + seed for export_bundle
-            rr.config = getattr(cfg, "__dict__", {})  # type: ignore[attr-defined]
-            rr.input_path = Path(args.input)  # type: ignore[attr-defined]
+            setattr(rr, "config", getattr(cfg, "__dict__", {}))
+            setattr(rr, "input_path", Path(args.input))
             export_bundle(rr, bundle_path)
             print(f"Bundle written: {bundle_path}")
             maybe_log_step(

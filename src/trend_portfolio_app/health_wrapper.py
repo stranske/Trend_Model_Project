@@ -10,20 +10,36 @@ from __future__ import annotations
 
 import os
 import sys
-from typing import Any
+from types import ModuleType
+from typing import TYPE_CHECKING, Any
 
-# Optional dependency sentinels (exposed for tests to monkeypatch)
+if TYPE_CHECKING:  # pragma: no cover - imports for type hints only
+    from fastapi import FastAPI as FastAPIType
+    from fastapi.responses import PlainTextResponse as PlainTextResponseType
+else:  # runtime fallbacks keep optional deps optional
+    FastAPIType = Any  # type: ignore[assignment]
+    PlainTextResponseType = Any  # type: ignore[assignment]
+
+FastAPI: type[FastAPIType] | None
+PlainTextResponse: type[PlainTextResponseType] | None
+
 try:  # pragma: no cover - import side effect
-    from fastapi import FastAPI  # type: ignore
-    from fastapi.responses import PlainTextResponse  # type: ignore
+    from fastapi import FastAPI as _FastAPI
+    from fastapi.responses import PlainTextResponse as _PlainTextResponse
 except (ImportError, ModuleNotFoundError):  # FastAPI missing
-    FastAPI = None  # type: ignore
-    PlainTextResponse = None  # type: ignore
+    FastAPI = None
+    PlainTextResponse = None
+else:
+    FastAPI = _FastAPI
+    PlainTextResponse = _PlainTextResponse
 
+uvicorn: ModuleType | None
 try:  # pragma: no cover - import side effect
-    import uvicorn  # type: ignore
+    import uvicorn as _uvicorn
 except (ImportError, ModuleNotFoundError):  # uvicorn missing
-    uvicorn = None  # type: ignore
+    uvicorn = None
+else:
+    uvicorn = _uvicorn
 
 
 def create_app() -> Any:

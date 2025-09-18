@@ -154,7 +154,7 @@ def iter_jsonl(path: Path) -> Iterable[dict[str, Any]]:
     """Yield parsed JSON objects from a JSONL file (best-effort)."""
 
     if not Path(path).exists():  # pragma: no cover - guard
-        return []
+        return
     with open(path, "r", encoding="utf-8") as fh:
         for line in fh:
             line = line.strip()

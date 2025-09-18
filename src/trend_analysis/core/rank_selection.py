@@ -28,7 +28,7 @@ from ..data import ensure_datetime, load_csv
 from ..export import Formatter
 
 if TYPE_CHECKING:  # pragma: no cover - type checking only
-    from ..perf.cache import CovCache
+    from ..perf.cache import CovCache, CovPayload
 
 # Compiled regex pattern for better performance when processing large files
 _FIRM_NAME_TOKENIZER = re.compile(r"[^A-Za-z]+")
@@ -117,6 +117,16 @@ class WindowMetricBundle:
             return pd.DataFrame(index=self.in_sample_df.columns)
         return self._metrics.copy()
 
+    def as_frame(self) -> pd.DataFrame:
+        """Backward compatible alias for :meth:`metrics_frame`."""
+
+        return self.metrics_frame()
+
+    def available_metrics(self) -> list[str]:
+        """Return the metric names cached in this bundle."""
+
+        return list(self._metrics.columns)
+
     def ensure_metric(
         self,
         metric_name: str,
@@ -128,8 +138,11 @@ class WindowMetricBundle:
     ) -> pd.Series:
         """Ensure *metric_name* exists in the cached frame and return it."""
 
+        global _SELECTOR_CACHE_HITS, _SELECTOR_CACHE_MISSES
         canonical = _METRIC_ALIASES.get(metric_name, metric_name)
         if canonical in self._metrics.columns:
+            _SELECTOR_CACHE_HITS += 1
+            _sync_cache_counters()
             return self._metrics[canonical]
         if canonical in {"AvgCorr", "__COV_VAR__"}:
             payload = self.cov_payload
@@ -148,6 +161,8 @@ class WindowMetricBundle:
             series = _compute_metric_series(self.in_sample_df, canonical, stats_cfg)
         series = series.astype(float)
         self._metrics[canonical] = series
+        _SELECTOR_CACHE_MISSES += 1
+        _sync_cache_counters()
         return self._metrics[canonical]
 
 
@@ -200,6 +215,18 @@ _WINDOW_METRIC_BUNDLES: dict[WindowKey, WindowMetricBundle] = {}
 _SELECTOR_CACHE_HITS = 0
 _SELECTOR_CACHE_MISSES = 0
 
+# Backwards compatibility counters exposed in tests.
+selector_cache_hits = 0
+selector_cache_misses = 0
+
+
+def _sync_cache_counters() -> None:
+    """Mirror internal cache counters to public module attributes."""
+
+    global selector_cache_hits, selector_cache_misses
+    selector_cache_hits = _SELECTOR_CACHE_HITS
+    selector_cache_misses = _SELECTOR_CACHE_MISSES
+
 
 def make_window_key(
     start: str, end: str, universe: Iterable[str], stats_cfg: "RiskStatsConfig"
@@ -223,8 +250,10 @@ def get_window_metric_bundle(window_key: WindowKey) -> WindowMetricBundle | None
     bundle = _WINDOW_METRIC_BUNDLES.get(window_key)
     if bundle is None:
         _SELECTOR_CACHE_MISSES += 1
+        _sync_cache_counters()
         return None
     _SELECTOR_CACHE_HITS += 1
+    _sync_cache_counters()
     return bundle
 
 
@@ -246,6 +275,13 @@ def clear_window_metric_cache() -> None:
     _WINDOW_METRIC_BUNDLES.clear()
     _SELECTOR_CACHE_HITS = 0
     _SELECTOR_CACHE_MISSES = 0
+    _sync_cache_counters()
+
+
+def reset_selector_cache() -> None:
+    """Compatibility alias for :func:`clear_window_metric_cache`."""
+
+    clear_window_metric_cache()
 
 
 def selector_cache_stats() -> dict[str, int]:
@@ -564,102 +600,6 @@ _METRIC_CONTEXT: ContextVar[dict[str, Any] | None] = ContextVar(
     "_TREND_METRIC_CONTEXT", default=None
 )
 
-WindowKey = tuple[str, str, str, str]  # Use the type signature from the first definition at line 41
-
-
-@dataclass
-class WindowMetricBundle:
-    """Cached metric series and covariance payload for a window."""
-
-    key: WindowKey
-    metrics: Dict[str, pd.Series] = field(default_factory=dict)
-    cov_payload: "CovPayload | None" = None
-
-    def as_frame(self) -> pd.DataFrame:
-        """Materialise cached metrics as a DataFrame."""
-
-        if not self.metrics:
-            return pd.DataFrame()
-        return pd.DataFrame(self.metrics)
-
-    def available_metrics(self) -> list[str]:
-        """Return the metric names stored in this bundle."""
-
-        return list(self.metrics.keys())
-
-
-selector_cache_hits = 0
-selector_cache_misses = 0
-_WINDOW_METRIC_CACHE: Dict[WindowKey, WindowMetricBundle] = {}
-
-
-def _stats_cfg_hash(stats_cfg: RiskStatsConfig) -> int:
-    """Stable hash for a :class:`RiskStatsConfig` instance."""
-
-    payload = json.dumps(asdict(stats_cfg), sort_keys=True)
-    digest = hashlib.sha256(payload.encode("utf-8")).digest()[:8]
-    return int.from_bytes(digest, "big", signed=False)
-
-
-def make_window_key(
-    start: str, end: str, assets: Iterable[str], stats_cfg: RiskStatsConfig
-) -> WindowKey:
-    """Construct the canonical cache key for a selector window."""
-
-    from ..perf.cache import CovCache  # local import to avoid circular deps
-
-    cov_key = CovCache.make_key(start, end, assets)
-    return (start, end, cov_key[2], _stats_cfg_hash(stats_cfg))
-
-
-def get_window_metric_bundle(window_key: WindowKey) -> WindowMetricBundle | None:
-    """Return the cached bundle for ``window_key`` if available."""
-
-    return _WINDOW_METRIC_CACHE.get(window_key)
-
-
-def reset_selector_cache() -> None:
-    """Clear selector metric caches and reset instrumentation counters."""
-
-    global selector_cache_hits, selector_cache_misses
-    _WINDOW_METRIC_CACHE.clear()
-    selector_cache_hits = 0
-    selector_cache_misses = 0
-
-
-def _resolve_bundle(
-    window_key: WindowKey | None,
-    bundle: WindowMetricBundle | None,
-    enable_cache: bool,
-) -> WindowMetricBundle | None:
-    """Return the active bundle taking into account cache settings."""
-
-    if not enable_cache:
-        return None
-
-    key = window_key
-    if bundle is not None and key is None:
-        key = bundle.key
-
-    if bundle is not None:
-        if key is not None:
-            bundle.key = key
-            cached = _WINDOW_METRIC_CACHE.get(key)
-            if cached is not bundle:
-                _WINDOW_METRIC_CACHE[key] = bundle
-        return bundle
-
-    if key is None:
-        return None
-
-    cached = _WINDOW_METRIC_CACHE.get(key)
-    if cached is not None:
-        return cached
-
-    new_bundle = WindowMetricBundle(key=key)
-    _WINDOW_METRIC_CACHE[key] = new_bundle
-    return new_bundle
-
 # Map snake_case config names to the canonical registry keys.
 _METRIC_ALIASES: dict[str, str] = {
     "annual_return": "AnnualReturn",
@@ -901,156 +841,6 @@ def _metric_from_cov_payload(
             payload.cov.diagonal(), index=in_sample_df.columns, name="CovVar"
         )
 
-    diag = np.sqrt(np.clip(np.diag(payload.cov), 0, None))
-    if diag.size <= 1:
-        return pd.Series(0.0, index=in_sample_df.columns, name="AvgCorr")
-    with np.errstate(divide="ignore", invalid="ignore"):
-        denom = np.outer(diag, diag)
-        corr = np.divide(
-            payload.cov, denom, out=np.zeros_like(payload.cov), where=denom != 0
-        )
-    sums = corr.sum(axis=1) - 1.0
-    avg = sums / (corr.shape[0] - 1)
-    return pd.Series(avg, index=in_sample_df.columns, name="AvgCorr")
-
-
-def _get_metric_series_cached(
-    metric_name: str,
-    in_sample_df: pd.DataFrame,
-    stats_cfg: RiskStatsConfig,
-    bundle: WindowMetricBundle | None,
-) -> pd.Series:
-    """Return metric series, reusing cached computations when possible."""
-
-    if bundle is not None:
-        cached = bundle.metrics.get(metric_name)
-        if cached is not None:
-            global selector_cache_hits
-            selector_cache_hits += 1
-            return cached
-
-    if metric_name in {"AvgCorr", "__COV_VAR__"}:
-        payload = _ensure_cov_payload(in_sample_df, bundle)
-        series = _metric_from_cov_payload(metric_name, in_sample_df, payload)
-    else:
-        series = _compute_metric_series(in_sample_df, metric_name, stats_cfg)
-
-    if bundle is not None:
-        global selector_cache_misses
-        selector_cache_misses += 1
-        bundle.metrics[metric_name] = series
-    return series
-
-
-def compute_metric_series_with_cache(
-    in_sample_df: pd.DataFrame,
-    metric_name: str,
-    stats_cfg: RiskStatsConfig,
-    *,
-    cov_cache: "CovCache | None" = None,
-    window_start: str | None = None,
-    window_end: str | None = None,
-    freq: str = "M",
-    enable_cache: bool = True,
-    incremental_cov: bool = False,
-) -> pd.Series:
-    """Compute metric series with optional covariance caching.
-
-    Current pipeline calls remain unchanged; this helper is opt-in for
-    metrics that require a covariance matrix. A synthetic metric name
-    ``__COV_VAR__`` demonstrates usage by returning diagonal variances
-    from a cached covariance payload. Real metrics can hook into this
-    path without altering existing registry semantics.
-    """
-    if metric_name not in {"__COV_VAR__", "AvgCorr"}:
-        return _compute_metric_series(in_sample_df, metric_name, stats_cfg)
-    from ..perf.cache import compute_cov_payload
-
-    # Caching disabled path
-    if (cov_cache is None) or (not enable_cache):
-        payload = compute_cov_payload(in_sample_df)
-    else:
-        key = cov_cache.make_key(
-            window_start or "0000-00",
-            window_end or "0000-00",
-            in_sample_df.columns,
-            freq,
-        )
-        # NOTE: incremental_cov is a future optimization: requires caller to
-        # provide previous payload & row deltas. For now we simply ignore the
-        # flag and rely on standard cache lookups. Hook point documented.
-        payload = cov_cache.get_or_compute(
-            key,
-            lambda: compute_cov_payload(
-                in_sample_df, materialise_aggregates=incremental_cov
-            ),
-        )
-    if metric_name == "__COV_VAR__":
-        return pd.Series(
-            payload.cov.diagonal(), index=in_sample_df.columns, name="CovVar"
-        )
-    # AvgCorr computation
-    diag = np.sqrt(np.clip(np.diag(payload.cov), 0, None))
-    if diag.size <= 1:
-        return pd.Series(0.0, index=in_sample_df.columns, name="AvgCorr")
-    with np.errstate(divide="ignore", invalid="ignore"):
-        denom = np.outer(diag, diag)
-        corr = np.divide(
-            payload.cov, denom, out=np.zeros_like(payload.cov), where=denom != 0
-        )
-    sums = corr.sum(axis=1) - 1.0
-    avg = sums / (corr.shape[0] - 1)
-    return pd.Series(avg, index=in_sample_df.columns, name="AvgCorr")
-
-
-def compute_metric_series_with_cache(
-    in_sample_df: pd.DataFrame,
-    metric_name: str,
-    stats_cfg: RiskStatsConfig,
-    *,
-    cov_cache: "CovCache | None" = None,
-    window_start: str | None = None,
-    window_end: str | None = None,
-    freq: str = "M",
-    enable_cache: bool = True,
-    incremental_cov: bool = False,
-) -> pd.Series:
-    """Compute metric series with optional covariance caching.
-
-    Current pipeline calls remain unchanged; this helper is opt-in for
-    metrics that require a covariance matrix. A synthetic metric name
-    ``__COV_VAR__`` demonstrates usage by returning diagonal variances
-    from a cached covariance payload. Real metrics can hook into this
-    path without altering existing registry semantics.
-    """
-    if metric_name not in {"__COV_VAR__", "AvgCorr"}:
-        return _compute_metric_series(in_sample_df, metric_name, stats_cfg)
-    from ..perf.cache import compute_cov_payload
-
-    # Caching disabled path
-    if (cov_cache is None) or (not enable_cache):
-        payload = compute_cov_payload(in_sample_df)
-    else:
-        key = cov_cache.make_key(
-            window_start or "0000-00",
-            window_end or "0000-00",
-            in_sample_df.columns,
-            freq,
-        )
-        # NOTE: incremental_cov is a future optimization: requires caller to
-        # provide previous payload & row deltas. For now we simply ignore the
-        # flag and rely on standard cache lookups. Hook point documented.
-        payload = cov_cache.get_or_compute(
-            key,
-            lambda: compute_cov_payload(
-                in_sample_df, materialise_aggregates=incremental_cov
-            ),
-        )
-    if metric_name == "__COV_VAR__":
-        return pd.Series(
-            payload.cov.diagonal(), index=in_sample_df.columns, name="CovVar"
-        )
-    # AvgCorr computation
     diag = np.sqrt(np.clip(np.diag(payload.cov), 0, None))
     if diag.size <= 1:
         return pd.Series(0.0, index=in_sample_df.columns, name="AvgCorr")

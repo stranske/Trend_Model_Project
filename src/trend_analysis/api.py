@@ -3,8 +3,9 @@ from __future__ import annotations
 import logging
 import random
 import sys
+from collections.abc import Mapping, Sized
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 import pandas as pd
@@ -18,6 +19,12 @@ from .pipeline import _run_analysis
 from .logging import log_step as _log_step  # lightweight import
 
 logger = logging.getLogger(__name__)
+
+
+def _safe_len(obj: Any) -> int:
+    """Return len(obj) when supported, otherwise zero."""
+
+    return len(obj) if isinstance(obj, Sized) else 0
 
 
 @dataclass
@@ -45,6 +52,7 @@ class RunResult:
     seed: int
     environment: dict[str, Any]
     fallback_info: dict[str, Any] | None = None
+    details_sanitized: Any | None = None
 
 
 def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
@@ -69,6 +77,12 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
     seed = getattr(config, "seed", 42)
     random.seed(seed)
     np.random.seed(seed)
+
+    env = {
+        "python": sys.version.split()[0],
+        "numpy": np.__version__,
+        "pandas": pd.__version__,
+    }
 
     split = config.sample_split
     metrics_list = config.metrics.get("registry")
@@ -104,21 +118,24 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
     )
     if res is None:
         logger.warning("run_simulation produced no result")
-        env = {
-            "python": sys.version.split()[0],
-            "numpy": np.__version__,
-            "pandas": pd.__version__,
-        }
+        return RunResult(pd.DataFrame(), {}, seed, env)
+
+    if isinstance(res, dict):
+        res_dict: dict[str, Any] = res
+    elif isinstance(res, Mapping):
+        res_dict = dict(res)
+    else:
+        logger.warning("Unexpected result type from _run_analysis: %s", type(res))
         return RunResult(pd.DataFrame(), {}, seed, env)
 
     _log_step(run_id, "metrics_build", "Building metrics dataframe")
-    stats_obj = res["out_sample_stats"]
+    stats_obj = res_dict.get("out_sample_stats")
     if isinstance(stats_obj, dict):
         stats_items = list(stats_obj.items())
     else:
         stats_items = list(getattr(stats_obj, "items", lambda: [])())
     metrics_df = pd.DataFrame({k: vars(v) for k, v in stats_items}).T
-    bench_ir_obj = res.get("benchmark_ir", {})
+    bench_ir_obj = res_dict.get("benchmark_ir", {})
     bench_ir_items = bench_ir_obj.items() if isinstance(bench_ir_obj, dict) else []
     for label, ir_map in bench_ir_items:
         col = f"ir_{label}"
@@ -130,56 +147,49 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
             }
         )
 
-    env = {
-        "python": sys.version.split()[0],
-        "numpy": np.__version__,
-        "pandas": pd.__version__,
-    }
-
-    fallback_raw = res.get("weight_engine_fallback") if isinstance(res, dict) else None
+    fallback_raw = res_dict.get("weight_engine_fallback")
     fallback_info: dict[str, Any] | None = (
         fallback_raw if isinstance(fallback_raw, dict) else None
     )
     # Granular logging (best-effort; keys may vary by configuration)
     try:  # pragma: no cover - observational logging
-        if isinstance(res, dict):
-            if res.get("selected_funds") is not None:
-                _log_step(
-                    run_id,
-                    "selection",
-                    "Funds selected",
-                    count=len(res.get("selected_funds", [])),
-                )
-            if res.get("weights_user_weight") is not None:
+        if res_dict.get("selected_funds") is not None:
+            _log_step(
+                run_id,
+                "selection",
+                "Funds selected",
+                count=_safe_len(res_dict.get("selected_funds")),
+            )
+            if res_dict.get("weights_user_weight") is not None:
                 _log_step(
                     run_id,
                     "weighting",
                     "User weighting applied",
-                    n=len(res.get("weights_user_weight", {})),
+                    n=_safe_len(res_dict.get("weights_user_weight")),
                 )
-            elif res.get("weights_equal_weight") is not None:
+            elif res_dict.get("weights_equal_weight") is not None:
                 _log_step(
                     run_id,
                     "weighting",
                     "Equal weighting applied",
-                    n=len(res.get("weights_equal_weight", {})),
+                    n=_safe_len(res_dict.get("weights_equal_weight")),
                 )
             else:
                 # Fallback: approximate number of assets from selected funds
-                sel = res.get("selected_funds") or []
+                sel = res_dict.get("selected_funds")
                 _log_step(
                     run_id,
                     "weighting",
                     "Implicit equal weighting (no explicit weights recorded)",
-                    n=len(sel),
+                    n=_safe_len(sel),
                 )
-            if res.get("benchmark_ir") is not None:
-                _log_step(
-                    run_id,
-                    "benchmarks",
-                    "Benchmark IR computed",
-                    n=len(res.get("benchmark_ir", {})),
-                )
+        if res_dict.get("benchmark_ir") is not None:
+            _log_step(
+                run_id,
+                "benchmarks",
+                "Benchmark IR computed",
+                n=_safe_len(res_dict.get("benchmark_ir")),
+            )
     except Exception:
         pass
     logger.info("run_simulation end")
@@ -188,9 +198,9 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
     )
     # Construct portfolio series for bundle export (equal-weight baseline)
     try:
-        in_scaled = res.get("in_sample_scaled")  # type: ignore[index]
-        out_scaled = res.get("out_sample_scaled")  # type: ignore[index]
-        ew_weights = res.get("ew_weights")  # type: ignore[index]
+        in_scaled = res_dict.get("in_sample_scaled")
+        out_scaled = res_dict.get("out_sample_scaled")
+        ew_weights = res_dict.get("ew_weights")
         if (
             isinstance(in_scaled, pd.DataFrame)
             and isinstance(out_scaled, pd.DataFrame)
@@ -205,7 +215,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
             port_is = _cpr(w, in_scaled)
             port_os = _cpr(w, out_scaled)
             portfolio_series = pd.concat([port_is, port_os])
-            res["portfolio_equal_weight_combined"] = portfolio_series
+            res_dict["portfolio_equal_weight_combined"] = portfolio_series
     except (
         KeyError,
         AttributeError,
@@ -216,7 +226,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
 
     rr = RunResult(
         metrics=metrics_df,
-        details=res,
+        details=res_dict,
         seed=seed,
         environment=env,
         fallback_info=fallback_info,
@@ -225,7 +235,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
     try:  # pragma: no cover - lightweight sanitation (non-destructive)
         from pandas import Series as _Series, DataFrame as _DataFrame
 
-        def _sanitize_keys(obj):  # type: ignore[override]
+        def _sanitize_keys(obj: Any) -> Any:
             if isinstance(obj, _Series):
                 return {
                     (
@@ -238,24 +248,23 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
             if isinstance(obj, _DataFrame):
                 return {col: _sanitize_keys(obj[col]) for col in obj.columns}
             if isinstance(obj, dict):
-                new = {}
+                new: dict[str | int | float | bool | None, Any] = {}
                 for k, v in obj.items():
-                    # Leave DataFrame/Series values untouched (they will be sanitized recursively if needed)
-                    if not isinstance(k, (str, int, float, bool, type(None))):
-                        try:
-                            sk = str(getattr(k, "isoformat", lambda: k)())
-                        except Exception:  # pragma: no cover
-                            sk = str(k)
+                    if isinstance(k, (str, int, float, bool)) or k is None:
+                        new_key: str | int | float | bool | None = k
                     else:
-                        sk = k  # type: ignore[assignment]
-                    new[sk] = _sanitize_keys(v)
+                        try:
+                            new_key = str(getattr(k, "isoformat", lambda: k)())
+                        except Exception:  # pragma: no cover
+                            new_key = str(k)
+                    new[new_key] = _sanitize_keys(v)
                 return new
             if isinstance(obj, (list, tuple)):
                 return [_sanitize_keys(x) for x in obj]
             return obj
 
         # Store a parallel sanitized view for hashing/export without mutating original
-        rr.details_sanitized = _sanitize_keys(rr.details)  # type: ignore[attr-defined]
+        rr.details_sanitized = _sanitize_keys(rr.details)
     except Exception:  # pragma: no cover
         pass
     return rr
