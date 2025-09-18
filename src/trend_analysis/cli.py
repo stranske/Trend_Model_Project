@@ -5,7 +5,6 @@ import subprocess
 import sys
 from importlib import metadata
 from pathlib import Path
-import numpy as np
 
 import numpy as np
 import pandas as pd
@@ -126,12 +125,9 @@ def main(argv: list[str] | None = None) -> int:
         assert df is not None  # narrow type for type-checkers
         split = cfg.sample_split
         required_keys = {"in_start", "in_end", "out_start", "out_end"}
-        from .logging import (
-            get_default_log_path,
-            init_run_logger,
-            log_step,
-        )
         import uuid
+
+        from .logging import get_default_log_path, init_run_logger, log_step
 
         run_id = getattr(cfg, "run_id", None) or uuid.uuid4().hex
         try:
@@ -245,8 +241,8 @@ def main(argv: list[str] | None = None) -> int:
 
         # Optional bundle export (reproducibility manifest + hashes)
         if args.bundle:
-            from .export.bundle import export_bundle
             from .api import RunResult as _RR
+            from .export.bundle import export_bundle
 
             bundle_path = Path(args.bundle)
             if bundle_path.is_dir():
