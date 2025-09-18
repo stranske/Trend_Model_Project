@@ -176,7 +176,7 @@ jobs:
                 const res = await tryAssign(cand);
                 core.info(`addAssignees(${cand}) -> ${res.status} ok=${res.ok}`);
                 outcome.attempts.push({ login: cand, ok: res.ok, status: res.status });
-                if (res.ok) { outcome = { ...outcome, ok: true, status: res.status, used: cand }; break; }
+                if (res.ok) { outcome.ok = true; outcome.status = res.status; outcome.used = cand; break; }
                 if (!outcome.message && res.message) outcome.message = res.message;
               }
               report[agentKey] = outcome;
