@@ -1,0 +1,25 @@
+# Maps repository paths to pull request labels so automation can triage changes.
+# The labels referenced here should already exist in the repository.
+'component:app':
+  - "streamlit_app/**"
+  - "app/**"
+'component:core':
+  - "src/**"
+  - "tools/**"
+  - "scripts/**"
+'component:config':
+  - "config/**"
+  - "*.toml"
+  - "*.ini"
+'component:ci':
+  - ".github/workflows/**"
+  - ".github/*.yml"
+  - ".github/*.yaml"
+'component:docs':
+  - "docs/**"
+  - "README*.md"
+  - "**/README.md"
+'component:tests':
+  - "tests/**"
+  - "test_*.py"
+  - "**/test_*.py"

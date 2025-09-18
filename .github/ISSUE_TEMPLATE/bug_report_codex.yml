@@ -1,6 +1,6 @@
 name: Bug report
 description: Something broke. Keep it factual.
-labels: ["type:bug","codex-ready"]
+labels: ["type:bug","codex-ready","risk:low"]
 body:
   - type: input
     id: env
@@ -19,3 +19,18 @@ body:
         1.
         2.
         3.
+  - type: dropdown
+    id: labels
+    attributes:
+      label: Routing
+      description: "Pick who should handle this issue. `risk:low` is added automatically."
+      default: agent:codex
+      options:
+        - label: 🤖 Codex (default)
+          value: agent:codex
+        - label: 🤖 Copilot
+          value: agent:copilot
+        - label: 🙋 Human maintainer
+          value: agent:human
+    validations:
+      required: true

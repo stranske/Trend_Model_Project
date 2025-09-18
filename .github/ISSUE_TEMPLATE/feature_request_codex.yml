@@ -1,6 +1,6 @@
 name: Feature request
 description: Small, single-scope feature for the Streamlit app or sim layer
-labels: ["type:feature","codex-ready"]
+labels: ["type:feature","codex-ready","risk:low"]
 body:
   - type: textarea
     id: summary
@@ -19,5 +19,20 @@ body:
         - [ ] A
         - [ ] B
         - [ ] C
+    validations:
+      required: true
+  - type: dropdown
+    id: labels
+    attributes:
+      label: Routing
+      description: "Pick who should handle this issue. `risk:low` is added automatically."
+      default: agent:codex
+      options:
+        - label: 🤖 Codex (default)
+          value: agent:codex
+        - label: 🤖 Copilot
+          value: agent:copilot
+        - label: 🙋 Human maintainer
+          value: agent:human
     validations:
       required: true
