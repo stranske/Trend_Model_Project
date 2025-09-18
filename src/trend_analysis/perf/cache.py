@@ -29,7 +29,7 @@ def _universe_hash(assets: Iterable[str]) -> int:
     Uses sha1 for stability across processes; truncated to 8 bytes -> int.
     """
     joined = "\x1f".join(sorted(map(str, assets)))
-    h = hashlib.sha1(joined.encode("utf-8")).digest()[:8]
+    h = hashlib.sha256(joined.encode("utf-8")).digest()[:8]
     return int.from_bytes(h, "big", signed=False)
 
 
