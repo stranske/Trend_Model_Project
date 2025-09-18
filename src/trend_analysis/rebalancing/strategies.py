@@ -96,42 +96,36 @@ class TurnoverCapStrategy(Rebalancer):
     ) -> Tuple[pd.Series, float]:
         """Apply turnover cap with prioritized trade allocation."""
 
-        # Calculate trade priorities
+        # Calculate trade priorities and order trades descending
         priorities = self._calculate_priorities(current, target, trades, scores)
+        priorities = priorities.fillna(float("-inf"))
+        order = priorities.sort_values(ascending=False, kind="mergesort").index
 
-        # Sort trades by priority (highest first)
-        trade_items = [
-            (asset, trade, priority)
-            for asset, trade, priority in zip(
-                trades.index, trades.values, priorities.values
-            )
-        ]
-        trade_items.sort(key=lambda x: x[2], reverse=True)
+        ordered_trades = trades.reindex(order)
+        trade_values = ordered_trades.to_numpy(dtype=float, copy=False)
+        abs_trades = np.abs(trade_values)
 
-        # Allocate turnover budget by priority
-        remaining_turnover = self.max_turnover
+        cumsum_turnover = np.cumsum(abs_trades)
+        full_mask = cumsum_turnover <= (self.max_turnover + TURNOVER_EPSILON)
+
+        executed_ordered = np.zeros_like(trade_values)
+        executed_ordered[full_mask] = trade_values[full_mask]
+
+        remaining_turnover = self.max_turnover - abs_trades[full_mask].sum()
+
+        if remaining_turnover > TURNOVER_EPSILON:
+            # Execute partial trade for the next highest-priority asset
+            remaining_indices = np.flatnonzero(~full_mask & (abs_trades > 0))
+            if remaining_indices.size:
+                idx = int(remaining_indices[0])
+                executed_ordered[idx] = (
+                    np.sign(trade_values[idx])
+                    * min(abs_trades[idx], remaining_turnover)
+                )
+                remaining_turnover = 0.0
+
         executed_trades = pd.Series(0.0, index=trades.index)
-
-        for asset, desired_trade, priority in trade_items:
-            if (
-                remaining_turnover <= TURNOVER_EPSILON
-            ):  # Check if remaining turnover is negligible
-                break
-
-            # Scale trade to fit remaining budget
-            trade_size = abs(desired_trade)
-            if (
-                trade_size <= remaining_turnover + TURNOVER_EPSILON
-            ):  # Allow for numerical precision tolerance
-                # Execute full trade
-                executed_trades[asset] = desired_trade
-                remaining_turnover -= trade_size
-            else:
-                # Execute partial trade within remaining budget
-                if desired_trade != 0:
-                    scale_factor = remaining_turnover / trade_size
-                    executed_trades[asset] = desired_trade * scale_factor
-                    remaining_turnover = 0
+        executed_trades.loc[order] = executed_ordered
 
         # Apply executed trades
         new_weights = current + executed_trades
