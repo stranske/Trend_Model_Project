@@ -249,8 +249,6 @@ def get_window_metric_bundle(window_key: WindowKey) -> WindowMetricBundle | None
 
     bundle = _WINDOW_METRIC_BUNDLES.get(window_key)
     if bundle is None:
-        _SELECTOR_CACHE_MISSES += 1
-        _sync_cache_counters()
         return None
     _SELECTOR_CACHE_HITS += 1
     _sync_cache_counters()
