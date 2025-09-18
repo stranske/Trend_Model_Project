@@ -403,15 +403,16 @@ def test_cli_run_uses_env_seed_and_populates_run_result(tmp_path, capsys, monkey
         "misses": 7.0,
         "incremental_updates": 8.0,
     }
-    class TruthySeries:
-        def __init__(self, series: pd.Series):
-            self.series = series
+# Helper class for tests
+class TruthySeries:
+    def __init__(self, series: pd.Series):
+        self.series = series
 
-        def __bool__(self) -> bool:
-            return True
+    def __bool__(self) -> bool:
+        return True
 
-        def __getattr__(self, name: str):
-            return getattr(self.series, name)
+    def __getattr__(self, name: str):
+        return getattr(self.series, name)
 
     details = {
         "cache": cache_first,
