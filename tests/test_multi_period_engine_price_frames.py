@@ -126,3 +126,23 @@ def test_run_combines_price_frames_and_invokes_analysis(
     # The combined data should cover all unique dates from both frames.
     expected_dates = pd.to_datetime(["2020-01-31", "2020-02-29", "2020-03-31"])
     assert set(captured_dates) == set(expected_dates)
+
+
+def test_run_requires_csv_path_when_frame_not_provided() -> None:
+    cfg = DummyConfig()
+    cfg.data = {}
+
+    with pytest.raises(KeyError, match=r"cfg\.data\['csv_path'\] must be provided"):
+        mp_engine.run(cfg, df=None)
+
+
+def test_run_raises_when_loader_returns_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    cfg = DummyConfig()
+
+    def fake_loader(path: str) -> pd.DataFrame | None:
+        return None
+
+    monkeypatch.setattr(mp_engine, "load_csv", fake_loader)
+
+    with pytest.raises(FileNotFoundError):
+        mp_engine.run(cfg, df=None)
