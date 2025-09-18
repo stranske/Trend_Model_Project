@@ -437,7 +437,14 @@ def run(
                         k = None
                         if same_len:
                             # Compare trailing blocks to find minimal k
-                            max_shift_steps = getattr(cfg, "shift_detection_max_steps", 10)
+                            raw_max_steps = perf_flags.get(
+                                "shift_detection_max_steps", 10
+                            )
+                            try:
+                                max_shift_steps = int(raw_max_steps)
+                            except (TypeError, ValueError):
+                                max_shift_steps = 10
+                            max_shift_steps = max(1, max_shift_steps)
                             for step in range(
                                 1, min(max_shift_steps, n_rows - 1)
                             ):  # cap search for safety
