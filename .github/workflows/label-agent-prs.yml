@@ -58,35 +58,99 @@ jobs:
           else
             echo "value=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_OUTPUT
           fi
+      - name: Checkout trusted config
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          persist-credentials: false
+          sparse-checkout: |
+            .github/agent-label-rules.json
+          sparse-checkout-cone: false
+          path: trusted-config
       - uses: actions/github-script@v7
         with:
           github-token: ${{ steps.token.outputs.value }}
           script: |
+            const fs = require('fs');
+            function loadRules(filePath) {
+              if (!filePath) {
+                return {};
+              }
+              try {
+                const raw = fs.readFileSync(filePath, 'utf8');
+                return JSON.parse(raw);
+              } catch (error) {
+                core.warning(`Failed to load agent label rules from ${filePath}: ${error.message}`);
+                return {};
+              }
+            }
+            function collectStrings(value) {
+              if (!Array.isArray(value)) {
+                return [];
+              }
+              return value
+                .filter(v => typeof v === 'string')
+                .map(v => v.trim())
+                .filter(v => v.length > 0);
+            }
+            const rulesPath = process.env.LABEL_RULES_PATH || 'trusted-config/.github/agent-label-rules.json';
+            const rules = loadRules(rulesPath);
+            const agents = rules.agents || {};
             const { owner, repo } = context.repo;
             const pr = context.payload.pull_request;
             const actor = (pr.user?.login || '').toLowerCase();
             const head = (pr.head?.ref || '').toLowerCase();
 
+            const defaultAutomerge = (rules.common && typeof rules.common.automerge === 'string')
+              ? rules.common.automerge
+              : 'automerge';
+            const defaultRisk = (rules.common && typeof rules.common.risk === 'string')
+              ? rules.common.risk
+              : 'risk:low';
             const COMMON_LABELS = [
-              process.env.AUTOMERGE_LABEL || 'automerge',
-              process.env.RISK_LABEL || 'risk:low',
+              process.env.AUTOMERGE_LABEL || defaultAutomerge,
+              process.env.RISK_LABEL || defaultRisk,
             ];
+
+            const copilotRules = agents.copilot || {};
+            const codexRules = agents.codex || {};
+
+            const copilotDefaults = collectStrings(copilotRules.labels);
+            const codexDefaults = collectStrings(codexRules.labels);
+
             const COPILOT_LABELS = [
-              process.env.AGENT_FROM_LABEL || 'from:copilot',
-              process.env.AGENT_LABEL || 'agent:copilot',
+              process.env.AGENT_FROM_LABEL || copilotDefaults[0] || 'from:copilot',
+              process.env.AGENT_LABEL || copilotDefaults[1] || 'agent:copilot',
               ...COMMON_LABELS,
             ];
             const CODEX_LABELS = [
-              process.env.AGENT_FROM_LABEL_ALT || 'from:codex',
-              process.env.AGENT_LABEL_ALT || 'agent:codex',
+              process.env.AGENT_FROM_LABEL_ALT || codexDefaults[0] || 'from:codex',
+              process.env.AGENT_LABEL_ALT || codexDefaults[1] || 'agent:codex',
               ...COMMON_LABELS,
             ];
 
+            const copilotActorFragments = collectStrings(copilotRules.actor_substrings);
+            const copilotHeadPrefixes = collectStrings(copilotRules.head_prefixes);
+            const codexActorFragments = collectStrings(codexRules.actor_substrings);
+            const codexHeadPrefixes = collectStrings(codexRules.head_prefixes);
+
             const labels = new Set();
-            if (actor.includes('copilot') || head.startsWith('copilot/') || head.startsWith('agents/copilot-')) {
+            const matchesCopilotActor = copilotActorFragments.length
+              ? copilotActorFragments.some(fragment => actor.includes(fragment.toLowerCase()))
+              : actor.includes('copilot');
+            const matchesCopilotHead = copilotHeadPrefixes.length
+              ? copilotHeadPrefixes.some(prefix => head.startsWith(prefix.toLowerCase()))
+              : head.startsWith('copilot/') || head.startsWith('agents/copilot-');
+            if (matchesCopilotActor || matchesCopilotHead) {
               COPILOT_LABELS.forEach(l => labels.add(l));
             }
-            if (actor.includes('codex') || head.startsWith('codex/') || head.startsWith('agents/codex-')) {
+            const matchesCodexActor = codexActorFragments.length
+              ? codexActorFragments.some(fragment => actor.includes(fragment.toLowerCase()))
+              : actor.includes('codex');
+            const matchesCodexHead = codexHeadPrefixes.length
+              ? codexHeadPrefixes.some(prefix => head.startsWith(prefix.toLowerCase()))
+              : head.startsWith('codex/') || head.startsWith('agents/codex-');
+            if (matchesCodexActor || matchesCodexHead) {
               CODEX_LABELS.forEach(l => labels.add(l));
             }
             const desired = Array.from(labels);
@@ -107,6 +171,7 @@ jobs:
               ])
               .write();
         env:
+          LABEL_RULES_PATH: trusted-config/.github/agent-label-rules.json
           AUTOMERGE_LABEL: ${{ vars.AUTOMERGE_LABEL }}
           RISK_LABEL: ${{ vars.RISK_LABEL }}
           AGENT_FROM_LABEL: ${{ vars.AGENT_FROM_LABEL }}

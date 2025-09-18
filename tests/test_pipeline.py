@@ -149,3 +149,87 @@ def test_run_analysis_custom_weights():
         custom_weights={"A": 100},
     )
     assert res["fund_weights"]["A"] == 1.0
+
+
+def _make_two_fund_df() -> pd.DataFrame:
+    dates = pd.date_range("2020-01-31", periods=6, freq="ME")
+    return pd.DataFrame(
+        {
+            "Date": dates,
+            "RF": 0.0,
+            "A": [0.02, 0.01, 0.03, 0.04, 0.02, 0.01],
+            "B": [0.01, 0.02, 0.02, 0.03, 0.01, 0.02],
+        }
+    )
+
+
+def test_run_analysis_applies_constraints(monkeypatch):
+    df = _make_two_fund_df()
+    captured: dict[str, object] = {}
+
+    def fake_apply_constraints(
+        weights: pd.Series, cons: dict[str, object]
+    ) -> pd.Series:
+        captured["weights_before"] = weights.copy()
+        captured["constraints"] = cons.copy()
+        return pd.Series({"A": 0.6, "B": 0.4})
+
+    monkeypatch.setattr(
+        "trend_analysis.engine.optimizer.apply_constraints",
+        fake_apply_constraints,
+    )
+
+    constraints_cfg = {
+        "long_only": True,
+        "max_weight": 0.55,
+        "group_caps": {"grp": 0.8},
+        "groups": {"A": "grp", "B": "grp"},
+    }
+
+    res = pipeline.run_analysis(
+        df,
+        "2020-01",
+        "2020-03",
+        "2020-04",
+        "2020-06",
+        1.0,
+        0.0,
+        constraints=constraints_cfg,
+    )
+
+    assert res is not None
+    assert captured["constraints"] == constraints_cfg
+    # The pipeline should adopt the constrained weights returned by the helper.
+    assert res["fund_weights"] == {"A": pytest.approx(0.6), "B": pytest.approx(0.4)}
+
+
+def test_run_analysis_constraint_failure_falls_back(monkeypatch):
+    df = _make_two_fund_df()
+    calls: list[tuple[pd.Series, dict[str, object]]] = []
+
+    def boom(*args, **kwargs):
+        weights = args[0]
+        cons = args[1]
+        calls.append((weights.copy(), cons.copy()))
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(
+        "trend_analysis.engine.optimizer.apply_constraints",
+        boom,
+    )
+
+    res = pipeline.run_analysis(
+        df,
+        "2020-01",
+        "2020-03",
+        "2020-04",
+        "2020-06",
+        1.0,
+        0.0,
+        constraints={"max_weight": 0.6},
+    )
+
+    assert calls, "Expected apply_constraints to be invoked"
+    assert res is not None
+    # When constraints processing fails the pipeline should keep the equal weights.
+    assert res["fund_weights"] == {"A": pytest.approx(0.5), "B": pytest.approx(0.5)}

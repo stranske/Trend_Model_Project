@@ -5,8 +5,10 @@ import logging
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from trend_analysis.plugins import create_weight_engine
+from trend_analysis.weights import robust_weighting as rw
 
 
 def create_well_conditioned_cov():
@@ -285,6 +287,82 @@ class TestShrinkageFunctions:
 
         # Diagonal elements should be larger
         assert (np.diag(loaded_cov) >= np.diag(cov)).all()
+
+
+class TestRobustWeightingBranchCoverage:
+    def test_ledoit_wolf_zero_trace_intensity(self):
+        cov = np.zeros((2, 2))
+        shrunk, intensity = rw.ledoit_wolf_shrinkage(cov)
+        assert intensity == pytest.approx(1.0)
+        assert np.allclose(shrunk, np.zeros_like(cov))
+
+    def test_oas_zero_trace_intensity(self):
+        cov = np.zeros((3, 3))
+        shrunk, intensity = rw.oas_shrinkage(cov)
+        assert intensity == pytest.approx(1.0)
+        assert np.allclose(shrunk, np.zeros_like(cov))
+
+    def test_robust_mv_unknown_shrinkage(self):
+        cov = pd.DataFrame(np.eye(2), index=["a", "b"], columns=["a", "b"])
+        engine = rw.RobustMeanVariance(shrinkage_method="mystery")
+        with pytest.raises(ValueError, match="Unknown shrinkage method"):
+            engine.weight(cov)
+
+    def test_robust_mv_unknown_safe_mode(self):
+        cov = create_ill_conditioned_cov()
+        engine = rw.RobustMeanVariance(
+            safe_mode="mystery", condition_threshold=1.0, shrinkage_method="none"
+        )
+        with pytest.raises(ValueError, match="Unknown safe mode"):
+            engine.weight(cov)
+
+    def test_robust_mv_non_square_matrix(self):
+        cov = pd.DataFrame(
+            [[0.1, 0.02], [0.02, 0.1]], index=["a", "b"], columns=["a", "c"]
+        )
+        engine = rw.RobustMeanVariance()
+        with pytest.raises(ValueError, match="Covariance matrix must be square"):
+            engine.weight(cov)
+
+    def test_robust_mv_singular_fallback_to_equal_weights(self):
+        cov = create_singular_cov()
+        engine = rw.RobustMeanVariance(
+            shrinkage_method="none",
+            condition_threshold=float("inf"),
+            min_weight=0.0,
+        )
+        weights = engine.weight(cov)
+        assert pytest.approx(weights.sum()) == 1.0
+        assert np.allclose(weights.values, np.repeat(1 / len(cov), len(cov)))
+
+    def test_risk_parity_non_square_matrix(self):
+        cov = pd.DataFrame(
+            [[0.05, 0.01], [0.01, 0.04]], index=["a", "b"], columns=["a", "c"]
+        )
+        engine = rw.RobustRiskParity()
+        with pytest.raises(ValueError, match="Covariance matrix must be square"):
+            engine.weight(cov)
+
+    def test_risk_parity_zero_variance_fallback(self):
+        cov = pd.DataFrame(
+            np.zeros((3, 3)), index=["a", "b", "c"], columns=["a", "b", "c"]
+        )
+        engine = rw.RobustRiskParity()
+        weights = engine.weight(cov)
+        assert pytest.approx(weights.sum()) == 1.0
+        assert np.allclose(weights.values, np.repeat(1 / len(cov), len(cov)))
+
+    def test_risk_parity_invalid_inverse_sum(self, monkeypatch):
+        cov = create_well_conditioned_cov()
+        engine = rw.RobustRiskParity()
+
+        def fake_reciprocal(values):
+            return np.full(values.shape, np.nan)
+
+        monkeypatch.setattr(rw.np, "reciprocal", fake_reciprocal)
+        weights = engine.weight(cov)
+        assert pytest.approx(weights.sum()) == 1.0
+        assert np.allclose(weights.values, np.repeat(1 / len(cov), len(cov)))
 
 
 class TestSyntheticNearSingularCases:

@@ -290,7 +290,7 @@ class RobustRiskParity(WeightEngine):
             raise ValueError("Covariance matrix must be square with matching labels")
 
         # Check for problematic values
-        cov_array = cov.values
+        cov_array = cov.values.astype(float, copy=True)
 
         # Check for non-positive diagonal elements
         diag_vals = np.diag(cov_array)
@@ -299,6 +299,7 @@ class RobustRiskParity(WeightEngine):
                 "Non-positive diagonal elements detected. Applying diagonal loading."
             )
             cov_array = diagonal_loading(cov_array, self.diagonal_loading_factor)
+            diag_vals = np.diag(cov_array)
 
         # Check condition number
         condition_num = np.linalg.cond(cov_array)
@@ -309,16 +310,36 @@ class RobustRiskParity(WeightEngine):
                 f"Applying diagonal loading."
             )
             cov_array = diagonal_loading(cov_array, self.diagonal_loading_factor)
+            diag_vals = np.diag(cov_array)
 
         # Compute inverse volatility weights
-        std_devs = np.sqrt(np.diag(cov_array))
+        diag_vals = np.where(diag_vals > 0, diag_vals, 0.0)
+        std_devs = np.sqrt(diag_vals)
+        std_devs = np.nan_to_num(std_devs, nan=0.0, posinf=0.0, neginf=0.0)
+
+        max_std = float(np.max(std_devs)) if std_devs.size else 0.0
+        if max_std <= 0.0:
+            # Fallback to equal weights when the covariance matrix collapses.
+            logger.warning("Falling back to equal weights due to zero variance inputs")
+            return pd.Series(
+                np.full(len(cov.index), 1.0 / len(cov.index)), index=cov.index
+            )
 
         # Handle zero or very small standard deviations
-        min_std = np.max(std_devs) * 1e-8
-        std_devs = np.maximum(std_devs, min_std)
+        min_std = max_std * 1e-8 if max_std > 0.0 else np.finfo(float).eps
+        std_devs = np.where(std_devs < min_std, min_std, std_devs)
 
-        inv_vol = 1.0 / std_devs
-        weights = inv_vol / np.sum(inv_vol)
+        inv_vol = np.reciprocal(std_devs)
+        total = float(np.sum(inv_vol))
+        if not np.isfinite(total) or total <= 0.0:
+            logger.warning(
+                "Falling back to equal weights due to invalid inverse volatility sum"
+            )
+            return pd.Series(
+                np.full(len(cov.index), 1.0 / len(cov.index)), index=cov.index
+            )
+
+        weights = inv_vol / total
 
         logger.debug("Successfully computed robust risk parity weights")
         return pd.Series(weights, index=cov.index)
