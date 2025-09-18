@@ -59,9 +59,7 @@ def _extract_cache_stats(payload: object) -> dict[str, int] | None:
             for value in obj.values():
                 _visit(value)
             return
-        if isinstance(obj, Sequence) and not isinstance(
-            obj, (str, bytes, bytearray)
-        ):
+        if isinstance(obj, Sequence) and not isinstance(obj, (str, bytes, bytearray)):
             for item in obj:
                 _visit(item)
 
@@ -107,7 +105,9 @@ def check_environment(lock_path: Path | None = None) -> int:
     return 0
 
 
-def maybe_log_step(enabled: bool, run_id: str, event: str, message: str, **fields: Any) -> None:
+def maybe_log_step(
+    enabled: bool, run_id: str, event: str, message: str, **fields: Any
+) -> None:
     """Log a structured step when ``enabled`` is True."""
 
     if enabled:
@@ -272,9 +272,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  Entries: {cache_stats['entries']}")
             print(f"  Hits: {cache_stats['hits']}")
             print(f"  Misses: {cache_stats['misses']}")
-            print(
-                f"  Incremental updates: {cache_stats['incremental_updates']}"
-            )
+            print(f"  Incremental updates: {cache_stats['incremental_updates']}")
             maybe_log_step(
                 do_structured,
                 run_id,

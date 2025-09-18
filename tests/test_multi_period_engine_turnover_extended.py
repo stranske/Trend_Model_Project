@@ -52,7 +52,9 @@ class TrackingWeighting(BaseWeighting):
         self.updates.append((scores.astype(float), days))
 
 
-def test_run_schedule_fast_turnover_tracks_union(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_schedule_fast_turnover_tracks_union(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Exercise the specialised fast-turnover path when holdings change."""
 
     frames = {
@@ -112,7 +114,9 @@ def test_run_schedule_fast_turnover_tracks_union(monkeypatch: pytest.MonkeyPatch
     new = returned_series[1]
     union = prev.index.union(new.index)
     expected = float(
-        np.abs(new.reindex(union, fill_value=0.0) - prev.reindex(union, fill_value=0.0)).sum()
+        np.abs(
+            new.reindex(union, fill_value=0.0) - prev.reindex(union, fill_value=0.0)
+        ).sum()
     )
     assert portfolio.turnover["2020-02-29"] == pytest.approx(expected)
 
@@ -174,13 +178,21 @@ class DummyPeriod:
 def test_run_incremental_covariance_path(monkeypatch: pytest.MonkeyPatch) -> None:
     cfg = IncrementalConfig()
 
-    dates = pd.to_datetime([
-        "2020-01-31",
-        "2020-02-29",
-        "2020-03-31",
-        "2020-04-30",
-    ])
-    df = pd.DataFrame({"Date": dates, "FundA": [0.01, 0.02, 0.03, 0.04], "FundB": [0.05, 0.04, 0.03, 0.02]})
+    dates = pd.to_datetime(
+        [
+            "2020-01-31",
+            "2020-02-29",
+            "2020-03-31",
+            "2020-04-30",
+        ]
+    )
+    df = pd.DataFrame(
+        {
+            "Date": dates,
+            "FundA": [0.01, 0.02, 0.03, 0.04],
+            "FundB": [0.05, 0.04, 0.03, 0.02],
+        }
+    )
 
     periods = [
         DummyPeriod("2020-01-31", "2020-03-31", "2020-04-30", "2020-04-30"),

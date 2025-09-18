@@ -104,18 +104,24 @@ class _DummyStreamlit(ModuleType):
     def slider(self, *_, value=None, **__):
         return value
 
-    def selectbox(self, _label: str, options: Sequence | Iterable, *_, index: int = 0, **__):
+    def selectbox(
+        self, _label: str, options: Sequence | Iterable, *_, index: int = 0, **__
+    ):
         options_list = list(options)
         if not options_list:
             return None
         return options_list[min(index, len(options_list) - 1)]
 
-    def multiselect(self, _label: str, options: Sequence | Iterable, *_, default=None, **__):
+    def multiselect(
+        self, _label: str, options: Sequence | Iterable, *_, default=None, **__
+    ):
         if default is None:
             return []
         return list(default)
 
-    def radio(self, _label: str, options: Sequence | Iterable, *_, index: int = 0, **__):
+    def radio(
+        self, _label: str, options: Sequence | Iterable, *_, index: int = 0, **__
+    ):
         options_list = list(options)
         if not options_list:
             return None
@@ -199,7 +205,9 @@ def test_build_cfg_accepts_roundtrip_from_yaml(monkeypatch: pytest.MonkeyPatch) 
     assert reconstructed.data["csv_path"] == "demo.csv"
 
 
-def test_summarise_run_df_rounds_numeric_columns(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_summarise_run_df_rounds_numeric_columns(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     app_mod = _load_app(monkeypatch)
 
     df = pd.DataFrame({"metric": [1.234567, 2.345678], "label": ["A", "B"]})
@@ -210,7 +218,9 @@ def test_summarise_run_df_rounds_numeric_columns(monkeypatch: pytest.MonkeyPatch
     assert summary["label"].tolist() == ["A", "B"]
 
 
-def test_summarise_multi_handles_missing_sections(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_summarise_multi_handles_missing_sections(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     app_mod = _load_app(monkeypatch)
 
     results = [

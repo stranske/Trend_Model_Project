@@ -80,4 +80,3 @@ def test_adaptive_bayes_weighting_updates_state_and_caps_weights() -> None:
         weights["weight"],
         pd.Series([0.5, 0.5], index=candidates.index, name="weight"),
     )
-

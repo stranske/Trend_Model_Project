@@ -487,8 +487,7 @@ def run(
                 ):
                     same_len = prev_in_df.shape[0] == in_df_prepared.shape[0]
                     same_cols = (
-                        prev_in_df.columns.tolist()
-                        == in_df_prepared.columns.tolist()
+                        prev_in_df.columns.tolist() == in_df_prepared.columns.tolist()
                     )
                     n_rows = in_df_prepared.shape[0]
                     if same_cols and n_rows >= 3:

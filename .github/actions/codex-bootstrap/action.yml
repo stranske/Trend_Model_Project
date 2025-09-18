@@ -25,10 +25,6 @@ inputs:
     description: "Allow fallback to GITHUB_TOKEN when PAT is missing"
     default: "true"
     required: false
-  codex_command:
-    description: "Command to post to the PR to trigger Codex"
-    default: "codex: start"
-    required: false
   base_branch:
     description: "Base branch to open PR against (defaults to current checkout)"
     required: false
@@ -36,6 +32,22 @@ inputs:
     description: "Enable verbose logging"
     default: "false"
     required: false
+  fail_on_token_mismatch:
+    description: "If set, fail when PAT fallback changes token source"
+    required: false
+    default: ""
+  force_branch_fail:
+    description: "Testing flag to force primary branch creation failure"
+    required: false
+    default: ""
+  force_dual_fail:
+    description: "Testing flag to force both primary and fallback branch creation failures"
+    required: false
+    default: ""
+  fail_on_invalid_command:
+    description: "If set, surface invalid Codex commands as hard failures"
+    required: false
+    default: ""
 
 outputs:
   pr_number:
