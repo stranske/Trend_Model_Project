@@ -62,9 +62,6 @@ def test_run_schedule_turnover_debug_validation(monkeypatch: pytest.MonkeyPatch)
             score_frames, selector, weighting, rank_column="Sharpe"
         )
 
-    try:
-        portfolio = run_schedule(score_frames, selector, weighting, rank_column="Sharpe")
-
         # Ensure the debug validator populated history and turnover for each period.
         assert isinstance(portfolio, Portfolio)
         assert set(portfolio.history) == {"2020-01-31", "2020-02-29"}
