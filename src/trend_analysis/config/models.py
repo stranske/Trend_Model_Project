@@ -202,16 +202,14 @@ if _HAS_PYDANTIC:
                 # If no args, fall back to including
                 return True
 
+            optional_fields = getattr(cls, "OPTIONAL_DICT_FIELDS", set())
             result: List[str] = []
             for name, field in items:
                 tp = getattr(field, "annotation", None)
                 if tp is None:
                     tp = getattr(field, "outer_type_", None)
-                if _is_dict_type(tp) and name not in cls.OPTIONAL_DICT_FIELDS:
+                if _is_dict_type(tp) and name not in optional_fields:
                     result.append(name)
-            if "performance" in result:
-                # Maintain backward compatibility: performance is optional
-                result.remove("performance")
             return result
 
         # Placeholders; computed after class creation for reliability
@@ -357,6 +355,8 @@ else:  # Fallback mode for tests without pydantic
             "checkpoint_dir",
             "seed",
         ]
+
+        OPTIONAL_DICT_FIELDS: ClassVar[set[str]] = {"performance"}
 
         # Attribute declarations for linters/type-checkers
         version: str

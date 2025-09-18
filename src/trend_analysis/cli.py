@@ -7,9 +7,9 @@ import sys
 from collections.abc import Mapping, Sequence
 from importlib import metadata
 from pathlib import Path
+from typing import Any
 import numpy as np
 
-import numpy as np
 import pandas as pd
 
 from . import export, pipeline
@@ -105,6 +105,13 @@ def check_environment(lock_path: Path | None = None) -> int:
     return 0
 
 
+def maybe_log_step(enabled: bool, run_id: str, event: str, message: str, **fields: Any) -> None:
+    """Log a structured step when ``enabled`` is True."""
+
+    if enabled:
+        log_step(run_id, event, message, **fields)
+
+
 def main(argv: list[str] | None = None) -> int:
     """Entry point for the ``trend-model`` command."""
 
@@ -192,18 +199,29 @@ def main(argv: list[str] | None = None) -> int:
         do_structured = not args.no_structured_log
         if do_structured:
             init_run_logger(run_id, log_path)
-            log_step(run_id, "start", "CLI run initialised", config_path=args.config)
+        maybe_log_step(
+            do_structured,
+            run_id,
+            "start",
+            "CLI run initialised",
+            config_path=args.config,
+        )
         if required_keys.issubset(split):
-            if do_structured:
-                log_step(run_id, "load_data", "Loaded returns dataframe", rows=len(df))
+            maybe_log_step(
+                do_structured,
+                run_id,
+                "load_data",
+                "Loaded returns dataframe",
+                rows=len(df),
+            )
             run_result = run_simulation(cfg, df)
-            if do_structured:
-                log_step(
-                    run_id,
-                    "pipeline_complete",
-                    "Pipeline execution finished",
-                    metrics_rows=len(run_result.metrics),
-                )
+            maybe_log_step(
+                do_structured,
+                run_id,
+                "pipeline_complete",
+                "Pipeline execution finished",
+                metrics_rows=len(run_result.metrics),
+            )
             metrics_df = run_result.metrics
             res = run_result.details
             run_seed = run_result.seed
@@ -248,8 +266,7 @@ def main(argv: list[str] | None = None) -> int:
             str(split.get("out_end")),
         )
         print(text)
-        if do_structured:
-            log_step(run_id, "summary_render", "Printed summary text")
+        maybe_log_step(do_structured, run_id, "summary_render", "Printed summary text")
 
         cache_stats = _extract_cache_stats(res)
         if cache_stats:
@@ -260,14 +277,14 @@ def main(argv: list[str] | None = None) -> int:
             print(
                 f"  Incremental updates: {cache_stats['incremental_updates']}"
             )
-            if do_structured:
-                log_step(
-                    run_id,
-                    "cache_stats",
-                    "Cache statistics summary",
-                    event="cache_stats",
-                    **cache_stats,
-                )
+            maybe_log_step(
+                do_structured,
+                run_id,
+                "cache_stats",
+                "Cache statistics summary",
+                event="cache_stats",
+                **cache_stats,
+            )
 
         export_cfg = cfg.export
         out_dir = export_cfg.get("directory")
@@ -287,10 +304,13 @@ def main(argv: list[str] | None = None) -> int:
                     str(split.get("out_end")),
                 )
                 data["summary"] = pd.DataFrame()
-                if do_structured:
-                    log_step(
-                        run_id, "export_start", "Beginning export", formats=out_formats
-                    )
+                maybe_log_step(
+                    do_structured,
+                    run_id,
+                    "export_start",
+                    "Beginning export",
+                    formats=out_formats,
+                )
                 export.export_to_excel(
                     data,
                     str(Path(out_dir) / f"{filename}.xlsx"),
@@ -305,8 +325,12 @@ def main(argv: list[str] | None = None) -> int:
                     export.export_data(
                         data, str(Path(out_dir) / filename), formats=out_formats
                     )
-            if do_structured:
-                log_step(run_id, "export_complete", "Export finished")
+            maybe_log_step(
+                do_structured,
+                run_id,
+                "export_complete",
+                "Export finished",
+            )
 
         # Optional bundle export (reproducibility manifest + hashes)
         if args.bundle:
@@ -331,15 +355,20 @@ def main(argv: list[str] | None = None) -> int:
             rr.input_path = Path(args.input)  # type: ignore[attr-defined]
             export_bundle(rr, bundle_path)
             print(f"Bundle written: {bundle_path}")
-            if do_structured:
-                log_step(
-                    run_id,
-                    "bundle_complete",
-                    "Reproducibility bundle written",
-                    bundle=str(bundle_path),
-                )
-        if do_structured:
-            log_step(run_id, "end", "CLI run complete", log_file=str(log_path))
+            maybe_log_step(
+                do_structured,
+                run_id,
+                "bundle_complete",
+                "Reproducibility bundle written",
+                bundle=str(bundle_path),
+            )
+        maybe_log_step(
+            do_structured,
+            run_id,
+            "end",
+            "CLI run complete",
+            log_file=str(log_path),
+        )
         return 0
 
     # This shouldn't be reached with required=True.
