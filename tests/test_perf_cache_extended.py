@@ -2,13 +2,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from trend_analysis.perf.cache import (
-    CovCache,
-    CovPayload,
-    _ensure_aggregates,
-    compute_cov_payload,
-    incremental_cov_update,
-)
+from trend_analysis.perf.cache import (CovCache, CovPayload,
+                                       _ensure_aggregates, compute_cov_payload,
+                                       incremental_cov_update)
 
 
 def make_df(rows: int = 5, cols: int = 3) -> pd.DataFrame:
@@ -112,7 +108,9 @@ def test_incremental_cov_update_validates_shapes_and_sample_size() -> None:
     payload_short = compute_cov_payload(df.iloc[:1])
 
     with pytest.raises(ValueError):
-        incremental_cov_update(payload_short, df.iloc[0].to_numpy(), df.iloc[1].to_numpy())
+        incremental_cov_update(
+            payload_short, df.iloc[0].to_numpy(), df.iloc[1].to_numpy()
+        )
 
     payload_window = compute_cov_payload(df.iloc[:3])
     bad_new_row = np.append(df.iloc[1].to_numpy(), 0.0)
@@ -120,7 +118,9 @@ def test_incremental_cov_update_validates_shapes_and_sample_size() -> None:
         incremental_cov_update(payload_window, df.iloc[0].to_numpy(), bad_new_row)
 
     with pytest.raises(ValueError):
-        incremental_cov_update(payload_window, df.iloc[0].to_numpy()[:-1], df.iloc[1].to_numpy())
+        incremental_cov_update(
+            payload_window, df.iloc[0].to_numpy()[:-1], df.iloc[1].to_numpy()
+        )
 
 
 def test_incremental_cov_update_matches_full_recompute() -> None:
