@@ -357,3 +357,173 @@ def test_cli_run_env_seed_and_default_exports(tmp_path, capsys, monkeypatch):
     assert data_payload is excel_calls[0][0]
     assert data_path == out_dir / "analysis"
     assert formats == tuple(DEFAULT_OUTPUT_FORMATS)
+
+def test_cli_run_uses_env_seed_and_populates_run_result(tmp_path, capsys, monkeypatch):
+    out_dir = tmp_path / "exports"
+    out_dir.mkdir()
+
+    config = SimpleNamespace(
+        seed=None,
+        sample_split={
+            "in_start": "2020-01-01",
+            "in_end": "2020-12-31",
+            "out_start": "2021-01-01",
+            "out_end": "2021-12-31",
+        },
+        export={
+            "directory": str(out_dir),
+            "formats": ["excel", "json"],
+            "filename": "analysis",
+        },
+        run={},
+        vol_adjust={},
+        metrics={},
+        portfolio={},
+        benchmarks={},
+    )
+
+    metrics_df = pd.DataFrame({"Sharpe": [1.0]}, index=["A"])
+    portfolio_series = pd.Series(
+        [0.1, 0.2], index=pd.Index(["2020-01", "2020-02"]), name="user"
+    )
+    benchmark_series = pd.Series(
+        [0.05], index=pd.Index(["2020-01"], name="month"), name="bench"
+    )
+    weights_df = pd.DataFrame({"A": [0.6], "B": [0.4]})
+
+    cache_first = {
+        "entries": 1,
+        "hits": 2,
+        "misses": 3,
+        "incremental_updates": 4,
+    }
+    cache_second = {
+        "entries": 5.0,
+        "hits": 6.0,
+        "misses": 7.0,
+        "incremental_updates": 8.0,
+    }
+    class TruthySeries:
+        def __init__(self, series: pd.Series):
+            self.series = series
+
+        def __bool__(self) -> bool:
+            return True
+
+        def __getattr__(self, name: str):
+            return getattr(self.series, name)
+
+    details = {
+        "cache": cache_first,
+        "nested": [cache_second],
+        "portfolio_user_weight": TruthySeries(portfolio_series),
+        "benchmarks": {"BMK": benchmark_series},
+        "weights_user_weight": weights_df,
+    }
+
+    run_result = SimpleNamespace(metrics=metrics_df, details=details, seed=11)
+
+    monkeypatch.setattr(cli, "load_config", lambda path: config)
+    monkeypatch.setattr(
+        cli,
+        "load_csv",
+        lambda path: pd.DataFrame({"Date": pd.to_datetime(["2020-01-31"]), "A": [0.0]}),
+    )
+    monkeypatch.setattr(cli, "run_simulation", lambda cfg, df: run_result)
+
+    summary_calls: list[tuple] = []
+    monkeypatch.setattr(
+        cli.export,
+        "format_summary_text",
+        lambda *args: summary_calls.append(args) or "summary text",
+    )
+
+    formatter_calls: list[tuple] = []
+    monkeypatch.setattr(
+        cli.export,
+        "make_summary_formatter",
+        lambda *args: formatter_calls.append(args) or object(),
+    )
+
+    excel_calls: list[tuple] = []
+    monkeypatch.setattr(
+        cli.export,
+        "export_to_excel",
+        lambda data, path, default_sheet_formatter: excel_calls.append(
+            (data, Path(path), default_sheet_formatter)
+        ),
+    )
+
+    data_calls: list[tuple] = []
+    monkeypatch.setattr(
+        cli.export,
+        "export_data",
+        lambda data, path, formats: data_calls.append(
+            (data, Path(path), tuple(formats))
+        ),
+    )
+
+    bundle_calls: list[tuple] = []
+    monkeypatch.setattr(
+        "trend_analysis.export.bundle.export_bundle",
+        lambda rr, bundle_path: bundle_calls.append((rr, Path(bundle_path))),
+    )
+
+    log_calls: list[tuple[object, object]] = []
+
+    def fake_log_step(run_id: str, *args, **kwargs) -> None:
+        event_name = kwargs.get("event")
+        if event_name is None and args:
+            event_name = args[0]
+        message = kwargs.get("message")
+        if message is None and len(args) > 1:
+            message = args[1]
+        log_calls.append((event_name, message))
+
+    monkeypatch.setattr(
+        "trend_analysis.logging.get_default_log_path",
+        lambda run_id: tmp_path / f"{run_id}.jsonl",
+    )
+    monkeypatch.setattr(
+        "trend_analysis.logging.init_run_logger",
+        lambda run_id, path: log_calls.append(("init", run_id)),
+    )
+    monkeypatch.setattr("trend_analysis.logging.log_step", fake_log_step)
+
+    monkeypatch.setattr(
+        "uuid.uuid4",
+        lambda: SimpleNamespace(hex="abcdef1234567890"),
+    )
+
+    monkeypatch.setenv("TREND_SEED", "987")
+
+    bundle_path = tmp_path / "bundle-out.zip"
+    rc = cli.main(
+        [
+            "run",
+            "-c",
+            "cfg.yml",
+            "-i",
+            "input.csv",
+            "--bundle",
+            str(bundle_path),
+        ]
+    )
+
+    out = capsys.readouterr().out
+
+    assert rc == 0
+    assert config.seed == 987
+    assert "summary text" in out
+    assert "Cache statistics" in out
+    assert "Bundle written" in out
+    assert summary_calls and summary_calls[0][0] is details
+    assert isinstance(run_result.portfolio, TruthySeries)
+    assert run_result.portfolio.series is portfolio_series
+    assert run_result.benchmark is benchmark_series
+    assert run_result.weights is weights_df
+    assert formatter_calls
+    assert excel_calls and excel_calls[0][1] == out_dir / "analysis.xlsx"
+    assert data_calls == [(excel_calls[0][0], out_dir / "analysis", ("json",))]
+    assert bundle_calls == [(run_result, bundle_path)]
+    assert any(event == "cache_stats" for event, _ in log_calls)
