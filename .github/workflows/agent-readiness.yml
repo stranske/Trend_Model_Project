@@ -102,27 +102,48 @@ jobs:
 
             const customLoginsRaw = process.env.INPUT_CUSTOM_LOGINS_JSON || '';
             if (customLoginsRaw.trim()) {
-              try {
-                const parsed = JSON.parse(customLoginsRaw);
-                if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-                  core.warning('custom_logins_json must be a JSON object mapping agent -> logins');
-                } else {
-                  for (const [agentKey, value] of Object.entries(parsed)) {
-                    if (!agentKey) continue;
-                    const key = agentKey.trim().toLowerCase();
-                    if (!key) continue;
-                    const rawList = Array.isArray(value) ? value : String(value || '')
-                      .split(',').map(s => s.trim()).filter(Boolean);
-                    const list = rawList.map(s => s.toLowerCase()).filter(Boolean);
-                    if (list.length) {
-                      CANDIDATES[key] = list;
-                    } else {
-                      core.warning(`custom_logins_json entry for ${agentKey} is empty after parsing`);
+              // Input size validation
+              if (customLoginsRaw.length > 10000) {
+                core.warning('custom_logins_json input too large (max 10,000 characters allowed)');
+              } else {
+                try {
+                  const parsed = JSON.parse(customLoginsRaw);
+                  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+                    core.warning('custom_logins_json must be a JSON object mapping agent -> logins');
+                  } else {
+                    const agentEntries = Object.entries(parsed);
+                    if (agentEntries.length > 10) {
+                      core.warning('custom_logins_json has too many agent keys (max 10 allowed)');
+                    }
+                    for (const [agentKey, value] of agentEntries.slice(0, 10)) {
+                      if (!agentKey) continue;
+                      const key = agentKey.trim().toLowerCase();
+                      if (!key) continue;
+                      let rawList;
+                      if (Array.isArray(value)) {
+                        rawList = value.filter(v => typeof v === 'string');
+                      } else if (typeof value === 'string') {
+                        rawList = value.split(',').map(s => s.trim()).filter(Boolean);
+                      } else {
+                        core.warning(`custom_logins_json entry for ${agentKey} is not a string or array`);
+                        continue;
+                      }
+                      // Limit number of logins per agent
+                      if (rawList.length > 20) {
+                        core.warning(`custom_logins_json entry for ${agentKey} has too many logins (max 20 allowed)`);
+                        rawList = rawList.slice(0, 20);
+                      }
+                      const list = rawList.map(s => s.toLowerCase()).filter(Boolean);
+                      if (list.length) {
+                        CANDIDATES[key] = list;
+                      } else {
+                        core.warning(`custom_logins_json entry for ${agentKey} is empty after parsing`);
+                      }
                     }
                   }
+                } catch (err) {
+                  core.warning(`Unable to parse custom_logins_json: ${err.message || err}`);
                 }
-              } catch (err) {
-                core.warning(`Unable to parse custom_logins_json: ${err.message || err}`);
               }
             }
 
