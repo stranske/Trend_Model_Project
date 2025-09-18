@@ -151,3 +151,43 @@ def test_apply_constraints_reapplies_max_after_group_caps():
     assert (out <= 0.4 + 1e-9).all()
     # Ensure redistribution moved weight to the previously zero bucket
     assert out["c"] > 0
+
+
+def test_cash_weight_added_and_scaled():
+    w = pd.Series([0.5, 0.5], index=["a", "b"], dtype=float)
+    out = apply_constraints(w, {"cash_weight": 0.1})
+    assert "CASH" in out.index
+    np.testing.assert_allclose(out.loc["CASH"], 0.1)
+    np.testing.assert_allclose(out.loc[["a", "b"]].sum(), 0.9)
+    np.testing.assert_allclose(out.sum(), 1.0)
+
+
+def test_cash_weight_existing_cash_rescaled():
+    w = pd.Series([0.4, 0.4, 0.2], index=["a", "b", "CASH"], dtype=float)
+    out = apply_constraints(w, {"cash_weight": 0.25})
+    np.testing.assert_allclose(out.loc["CASH"], 0.25)
+    np.testing.assert_allclose(out.drop("CASH").sum(), 0.75)
+    np.testing.assert_allclose(out.sum(), 1.0)
+
+
+def test_cash_weight_invalid_range_raises():
+    w = pd.Series([0.6, 0.4], index=["a", "b"], dtype=float)
+    with pytest.raises(ConstraintViolation):
+        apply_constraints(w, {"cash_weight": 1.0})
+    with pytest.raises(ConstraintViolation):
+        apply_constraints(w, {"cash_weight": 0.0})
+
+
+def test_cash_weight_infeasible_with_max_weight():
+    # With two assets, cash=0.3 leaves 0.7. Equal after scaling = 0.35 each which exceeds cap 0.3
+    w = pd.Series([0.5, 0.5], index=["a", "b"], dtype=float)
+    # The current feasibility check triggers the generic max_weight feasibility error
+    with pytest.raises(ConstraintViolation, match="max_weight too small"):
+        apply_constraints(w, {"cash_weight": 0.3, "max_weight": 0.3})
+
+
+def test_cash_weight_exceeds_max_weight_for_cash():
+    # cash_weight larger than max_weight should raise
+    w = pd.Series([0.7, 0.3], index=["a", "b"], dtype=float)
+    with pytest.raises(ConstraintViolation, match="exceeds max_weight"):
+        apply_constraints(w, {"cash_weight": 0.6, "max_weight": 0.5})

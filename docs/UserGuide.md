@@ -219,3 +219,57 @@ to each result dictionary. These appear in a separate execution metrics export
 (`execution_metrics` sheet / file) so the legacy Phase‑1 summary schema remains
 unchanged.
 
+## 16. Portfolio Constraint Set (advanced)
+
+The engine can project preliminary weights onto a feasible region defined by a constraint set:
+
+Supported keys (YAML under `portfolio.constraints`):
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `long_only` | bool | `true` | Clip negative weights then renormalise. Raises if all become zero. |
+| `max_weight` | float | `null` | Per-asset cap (exclusive of redistribution tolerance). Must satisfy `max_weight * N >= 1`. |
+| `group_caps` | mapping(str->float) | `null` | Upper bounds for groups; excess is redistributed to other groups. |
+| `groups` | mapping(asset->group) | `null` | Required when `group_caps` set; every asset must map to a group present. |
+| `cash_weight` | float | `null` | Fixed slice allocated to a synthetic `CASH` line; remaining weights scaled to sum to `1 - cash_weight`. |
+
+Example snippet:
+
+```yaml
+portfolio:
+   constraints:
+      long_only: true
+      max_weight: 0.25
+      group_caps:
+         Trend: 0.55
+         Macro: 0.60
+      groups:
+         FundA: Trend
+         FundB: Trend
+         FundC: Macro
+         FundD: Macro
+      cash_weight: 0.10
+```
+
+Behaviour notes:
+1. Order of enforcement: long_only → normalise → max_weight cap (iterative) → group_caps (with redistribution) → re-apply max_weight if needed → carve out `cash_weight` slice → final normalisation.
+2. `cash_weight` feasibility: with N non-cash assets, equal residual weight after carving cash is `(1 - cash_weight)/N`; if this already exceeds `max_weight` a `ConstraintViolation` is raised.
+3. `cash_weight` triggers creation of a `CASH` line if not already present; if provided, the existing weight is overwritten by the fixed slice.
+4. Group caps whose total (for the groups present) sums to less than 100% lead to an infeasibility error to avoid unallocated mass.
+5. All redistribution steps preserve total weight = 1.0 within numerical tolerance.
+6. Any infeasibility raises `ConstraintViolation` with a descriptive message (e.g. *"max_weight too small for number of assets"*, *"cash_weight exceeds max_weight constraint"*).
+
+Programmatic usage:
+
+```python
+from trend_analysis.engine.optimizer import apply_constraints, ConstraintSet
+import pandas as pd
+
+weights = pd.Series({"FundA": 0.4, "FundB": 0.3, "FundC": 0.3})
+cs = ConstraintSet(long_only=True, max_weight=0.25, cash_weight=0.1)
+projected = apply_constraints(weights, cs)
+print(projected)
+```
+
+To ignore all constraints (legacy behaviour), omit the `portfolio.constraints` block.
+

@@ -50,14 +50,14 @@ With train=3, test=2, step=2, the splits are:
 
 OOS summary (mean):
 
-| Window | Test Dates         | Mean Return | IR (annualized) |
+| Window | Test Dates         | Mean Return | IR (annualised) |
 |--------|--------------------|-------------|-----------------|
 | 1      | 2022-01-04,05      | 0.005       | 0.35            |
 | 2      | 2022-01-06         | 0.01        | 0.70            |
 
 Per-regime OOS IR:
 
-| Regime | OOS Dates          | Mean Return | IR (annualized) |
+| Regime | OOS Dates          | Mean Return | IR (annualised) |
 |--------|--------------------|-------------|-----------------|
 | Bull   | 2022-01-04,06      | 0.02        | 0.80            |
 | Bear   | 2022-01-05         | -0.02       | -0.40           |

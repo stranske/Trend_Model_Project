@@ -1,0 +1,24 @@
+description: "Illustrative preset with max weight, group caps and cash sleeve"
+metrics:
+  sharpe: 0.4
+  return_ann: 0.3
+  drawdown: 0.3
+portfolio:
+  weighting_scheme: equal
+  constraints:
+    long_only: true
+    max_weight: 0.25
+    group_caps:
+      Trend: 0.55
+      Macro: 0.60
+    groups:
+      FundA: Trend
+      FundB: Trend
+      FundC: Macro
+      FundD: Macro
+    cash_weight: 0.10
+lookback_months: 36
+rebalance_frequency: monthly
+min_track_months: 24
+selection_count: 8
+risk_target: 0.10
