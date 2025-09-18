@@ -97,7 +97,9 @@ jobs:
             const existing = allComments.find(c => c.body && c.body.includes(marker));
 
             if (existing) {
-              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+              if (existing.body !== body) {
+                await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+              } // else: no update needed, bodies are identical
             } else {
               await github.rest.issues.createComment({ owner, repo, issue_number: pr_number, body });
             }
