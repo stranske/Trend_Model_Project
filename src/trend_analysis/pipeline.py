@@ -131,6 +131,25 @@ def _compute_stats(
     *,
     avg_corr: pd.Series | None = None,
 ) -> dict[str, _Stats]:
+    """
+    Compute performance statistics for each column in the DataFrame.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame containing return series for each fund (columns are fund names).
+    rf : pd.Series
+        Risk-free rate series aligned with df's index.
+    avg_corr : pd.Series or None, optional
+        Series containing average correlation values indexed by fund names.
+        If provided, each fund's average correlation value is included in the stats.
+        If None, average correlation values are omitted.
+
+    Returns
+    -------
+    dict[str, _Stats]
+        Dictionary mapping fund names to their computed statistics.
+    """
     # Metrics expect 1D Series; iterating keeps the logic simple for a handful
     # of columns and avoids reshaping into higher-dimensional arrays.
     stats: dict[str, _Stats] = {}
