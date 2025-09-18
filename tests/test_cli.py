@@ -404,15 +404,15 @@ def test_cli_run_uses_env_seed_and_populates_run_result(tmp_path, capsys, monkey
         "incremental_updates": 8.0,
     }
 # Helper class for tests
-class TruthySeries:
-    def __init__(self, series: pd.Series):
-        self.series = series
+    class TruthySeries:
+        def __init__(self, series: pd.Series):
+            self.series = series
 
-    def __bool__(self) -> bool:
-        return True
+        def __bool__(self) -> bool:
+            return True
 
-    def __getattr__(self, name: str):
-        return getattr(self.series, name)
+        def __getattr__(self, name: str):
+            return getattr(self.series, name)
 
     details = {
         "cache": cache_first,
@@ -490,6 +490,7 @@ class TruthySeries:
         lambda run_id, path: log_calls.append(("init", run_id)),
     )
     monkeypatch.setattr("trend_analysis.logging.log_step", fake_log_step)
+    monkeypatch.setattr(cli, "_log_step", fake_log_step)
 
     monkeypatch.setattr(
         "uuid.uuid4",
