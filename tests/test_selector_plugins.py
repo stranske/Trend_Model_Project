@@ -3,11 +3,8 @@ import pytest
 
 from trend_analysis.core.rank_selection import ASCENDING_METRICS
 from trend_analysis.plugins import PluginRegistry, selector_registry
-from trend_analysis.selector import (
-    RankSelector,
-    ZScoreSelector,
-    create_selector_by_name,
-)
+from trend_analysis.selector import (RankSelector, ZScoreSelector,
+                                     create_selector_by_name)
 
 
 def make_score_frame() -> pd.DataFrame:

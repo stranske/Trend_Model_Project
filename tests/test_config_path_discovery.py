@@ -45,9 +45,8 @@ def test_config_discovery_robustness():
         # Mock the __file__ variable to point to our mock location
         with mock.patch("trend_analysis.config.models.__file__", str(mock_models)):
             # Import and test the function from the mocked location
-            from trend_analysis.config.models import (
-                _find_config_directory as mock_find_config,
-            )
+            from trend_analysis.config.models import \
+                _find_config_directory as mock_find_config
 
             found_config = mock_find_config()
             assert found_config == mock_config
@@ -80,9 +79,8 @@ def test_config_discovery_fallback():
         mock_models = deep_path / "models.py"
 
         with mock.patch("trend_analysis.config.models.__file__", str(mock_models)):
-            from trend_analysis.config.models import (
-                _find_config_directory as mock_find_config,
-            )
+            from trend_analysis.config.models import \
+                _find_config_directory as mock_find_config
 
             # Should find the fallback config
             found_config = mock_find_config()
@@ -100,9 +98,8 @@ def test_config_discovery_failure():
         mock_models = deep_path / "models.py"
 
         with mock.patch("trend_analysis.config.models.__file__", str(mock_models)):
-            from trend_analysis.config.models import (
-                _find_config_directory as mock_find_config,
-            )
+            from trend_analysis.config.models import \
+                _find_config_directory as mock_find_config
 
             with pytest.raises(
                 FileNotFoundError, match="Could not find 'config' directory"

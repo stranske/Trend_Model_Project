@@ -9,9 +9,7 @@ from importlib import metadata
 from pathlib import Path
 from typing import Any
 
-from .logging import log_step as _log_step
 import numpy as np
-
 import pandas as pd
 
 from . import export, pipeline
@@ -19,6 +17,7 @@ from .api import run_simulation
 from .config import load_config
 from .constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 from .data import load_csv
+from .logging import log_step as _log_step
 
 APP_PATH = Path(__file__).resolve().parents[2] / "streamlit_app" / "app.py"
 LOCK_PATH = Path(__file__).resolve().parents[2] / "requirements.lock"
@@ -59,9 +58,7 @@ def _extract_cache_stats(payload: object) -> dict[str, int] | None:
             for value in obj.values():
                 _visit(value)
             return
-        if isinstance(obj, Sequence) and not isinstance(
-            obj, (str, bytes, bytearray)
-        ):
+        if isinstance(obj, Sequence) and not isinstance(obj, (str, bytes, bytearray)):
             for item in obj:
                 _visit(item)
 
@@ -107,7 +104,9 @@ def check_environment(lock_path: Path | None = None) -> int:
     return 0
 
 
-def maybe_log_step(enabled: bool, run_id: str, event: str, message: str, **fields: Any) -> None:
+def maybe_log_step(
+    enabled: bool, run_id: str, event: str, message: str, **fields: Any
+) -> None:
     """Log a structured step when ``enabled`` is True."""
 
     if enabled:
@@ -182,8 +181,9 @@ def main(argv: list[str] | None = None) -> int:
         assert df is not None  # narrow type for type-checkers
         split = cfg.sample_split
         required_keys = {"in_start", "in_end", "out_start", "out_end"}
-        from .logging import get_default_log_path, init_run_logger
         import uuid
+
+        from .logging import get_default_log_path, init_run_logger
 
         run_id = getattr(cfg, "run_id", None) or uuid.uuid4().hex[:12]
         try:
@@ -272,9 +272,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  Entries: {cache_stats['entries']}")
             print(f"  Hits: {cache_stats['hits']}")
             print(f"  Misses: {cache_stats['misses']}")
-            print(
-                f"  Incremental updates: {cache_stats['incremental_updates']}"
-            )
+            print(f"  Incremental updates: {cache_stats['incremental_updates']}")
             maybe_log_step(
                 do_structured,
                 run_id,
@@ -331,8 +329,8 @@ def main(argv: list[str] | None = None) -> int:
 
         # Optional bundle export (reproducibility manifest + hashes)
         if args.bundle:
-            from .export.bundle import export_bundle
             from .api import RunResult as _RR
+            from .export.bundle import export_bundle
 
             bundle_path = Path(args.bundle)
             if bundle_path.is_dir():

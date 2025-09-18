@@ -7,10 +7,8 @@ import pandas as pd
 import pytest
 
 from trend_analysis.multi_period.engine import _compute_turnover_state
-from trend_analysis.rebalancing.strategies import (
-    TURNOVER_EPSILON,
-    TurnoverCapStrategy,
-)
+from trend_analysis.rebalancing.strategies import (TURNOVER_EPSILON,
+                                                   TurnoverCapStrategy)
 
 
 def python_turnover_state(
@@ -149,9 +147,7 @@ def test_turnover_cap_vectorisation_matches_python(priority: str) -> None:
         expected_weights, expected_cost = python_turnover_cap(
             strategy_py, current, target, scores
         )
-        actual_weights, actual_cost = strategy_vec.apply(
-            current, target, scores=scores
-        )
+        actual_weights, actual_cost = strategy_vec.apply(current, target, scores=scores)
 
         pd.testing.assert_series_equal(
             actual_weights.sort_index(),

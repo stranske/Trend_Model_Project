@@ -17,7 +17,7 @@ import json
 import re
 from contextvars import ContextVar
 from dataclasses import asdict, dataclass, field
-from typing import Any, Callable, Dict, Iterable, List, cast, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, cast
 
 import ipywidgets as widgets
 import numpy as np

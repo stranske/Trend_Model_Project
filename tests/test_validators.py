@@ -7,14 +7,11 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from trend_analysis.io.validators import (
-    FREQUENCY_MAP,
-    ValidationResult,
-    create_sample_template,
-    detect_frequency,
-    load_and_validate_upload,
-    validate_returns_schema,
-)
+from trend_analysis.io.validators import (FREQUENCY_MAP, ValidationResult,
+                                          create_sample_template,
+                                          detect_frequency,
+                                          load_and_validate_upload,
+                                          validate_returns_schema)
 
 
 class TestValidationResult:

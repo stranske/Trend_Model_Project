@@ -118,9 +118,8 @@ class TurnoverCapStrategy(Rebalancer):
             remaining_indices = np.flatnonzero(~full_mask & (abs_trades > 0))
             if remaining_indices.size:
                 idx = int(remaining_indices[0])
-                executed_ordered[idx] = (
-                    np.sign(trade_values[idx])
-                    * min(abs_trades[idx], remaining_turnover)
+                executed_ordered[idx] = np.sign(trade_values[idx]) * min(
+                    abs_trades[idx], remaining_turnover
                 )
                 remaining_turnover = 0.0
 
