@@ -62,9 +62,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /tmp/.buildx-cache
-          key: buildx-${{ hashFiles('Dockerfile', 'requirements.lock') }}
+          key: buildx-${{ hashFiles('Dockerfile', 'requirements.lock') }}-${{ github.sha }}
           restore-keys: |
-            buildx-
+            buildx-${{ hashFiles('Dockerfile', 'requirements.lock') }}
 
       - name: Note cache presence
         run: |
