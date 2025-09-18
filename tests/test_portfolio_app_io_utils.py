@@ -141,3 +141,56 @@ def test_portfolio_app_main_invokes_streamlit(monkeypatch):
     assert argv[0] == "streamlit"
     assert argv[1] == "run"
     assert argv[2].endswith("trend_portfolio_app/app.py")
+
+
+def test_health_wrapper_runner_injects_src_path(monkeypatch):
+    """Importing the runner should prepend the repo ``src`` directory to
+    ``sys.path``."""
+
+    import importlib.util
+    import sys
+    from pathlib import Path
+    from types import ModuleType
+
+    module_name = "trend_portfolio_app.health_wrapper_runner"
+
+    # Ensure a clean import and simulate the src path missing from sys.path.
+    sys.modules.pop(module_name, None)
+
+    src_path = Path(__file__).resolve().parents[1] / "src"
+    scrubbed_path = [p for p in sys.path if str(src_path) not in p]
+    monkeypatch.setattr(sys, "path", scrubbed_path, raising=False)
+
+    # Provide lightweight stubs so the runner can import the health wrapper.
+    package = ModuleType("trend_portfolio_app")
+    package.__path__ = []  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "trend_portfolio_app", package)
+
+    invoked: dict[str, bool] = {}
+
+    def fake_main() -> None:  # noqa: D401
+        invoked["called"] = True
+
+    health_wrapper = ModuleType("trend_portfolio_app.health_wrapper")
+    health_wrapper.main = fake_main  # type: ignore[attr-defined]
+    monkeypatch.setitem(
+        sys.modules, "trend_portfolio_app.health_wrapper", health_wrapper
+    )
+
+    module_path = src_path / "trend_portfolio_app" / "health_wrapper_runner.py"
+    spec = importlib.util.spec_from_file_location(module_name, module_path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader  # pragma: no branch - sanity check
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+
+    # The runner should have inserted the src directory at the front of sys.path.
+    assert sys.path[0] == str(src_path)
+    assert module.src == src_path
+
+    # The imported ``main`` should be callable and proxy through to the fake implementation.
+    module.main()
+    assert invoked == {"called": True}
+
+    # Clean up the temporary module entry so future imports see the real package.
+    sys.modules.pop(module_name, None)
