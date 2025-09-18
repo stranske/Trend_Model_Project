@@ -209,6 +209,9 @@ if _HAS_PYDANTIC:
                     tp = getattr(field, "outer_type_", None)
                 if _is_dict_type(tp) and name not in cls.OPTIONAL_DICT_FIELDS:
                     result.append(name)
+            if "performance" in result:
+                # Maintain backward compatibility: performance is optional
+                result.remove("performance")
             return result
 
         # Placeholders; computed after class creation for reliability
