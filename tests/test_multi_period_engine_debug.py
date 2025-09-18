@@ -57,6 +57,10 @@ def test_run_schedule_turnover_debug_validation(monkeypatch: pytest.MonkeyPatch)
     )
 
     monkeypatch.setenv("DEBUG_TURNOVER_VALIDATE", "1")
+    try:
+        portfolio = run_schedule(
+            score_frames, selector, weighting, rank_column="Sharpe"
+        )
 
     try:
         portfolio = run_schedule(score_frames, selector, weighting, rank_column="Sharpe")
