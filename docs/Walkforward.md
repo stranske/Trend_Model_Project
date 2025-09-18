@@ -29,3 +29,37 @@ python scripts/walkforward_cli.py \
 ```
 
 The CLI prints the inferred periods-per-year multiplier, full and OOS summaries, the per-window breakdown, and – when provided – per-regime aggregates.
+
+## Numeric worked example
+
+Suppose you run walk-forward with the following synthetic returns and regime tags:
+
+| Date       | Portfolio | Regime |
+|------------|-----------|--------|
+| 2022-01-01 | 0.02      | Bull   |
+| 2022-01-02 | 0.01      | Bull   |
+| 2022-01-03 | -0.01     | Bear   |
+| 2022-01-04 | 0.03      | Bull   |
+| 2022-01-05 | -0.02     | Bear   |
+| 2022-01-06 | 0.01      | Bull   |
+
+With train=3, test=2, step=2, the splits are:
+
+1. Train: 2022-01-01 to 2022-01-03, Test: 2022-01-04 to 2022-01-05
+2. Train: 2022-01-03 to 2022-01-05, Test: 2022-01-06
+
+OOS summary (mean):
+
+| Window | Test Dates         | Mean Return | IR (annualized) |
+|--------|--------------------|-------------|-----------------|
+| 1      | 2022-01-04,05      | 0.005       | 0.35            |
+| 2      | 2022-01-06         | 0.01        | 0.70            |
+
+Per-regime OOS IR:
+
+| Regime | OOS Dates          | Mean Return | IR (annualized) |
+|--------|--------------------|-------------|-----------------|
+| Bull   | 2022-01-04,06      | 0.02        | 0.80            |
+| Bear   | 2022-01-05         | -0.02       | -0.40           |
+
+These tables are produced by the Results page and CLI, and match the output of `walk_forward`.
