@@ -174,3 +174,29 @@ Disable logging only if you have strict I/O limits or are micro‑benchmarking; 
 
 See `README.md` for a short overview of the repository structure and the example notebooks for end‑to‑end demonstrations.
 
+## 15. Turnover and Transaction Cost Controls
+
+Two optional portfolio execution controls make simulation results closer to
+realistic implementation:
+
+- `portfolio.transaction_cost_bps` – linear cost, in basis points, applied to
+   the absolute turnover each rebalancing period. Must be a non‑negative
+   number (e.g. `10` = 10 bps = 0.10%). The summary metrics internally
+   subtract these costs when computing risk/return figures.
+- `portfolio.max_turnover` – soft cap on total turnover (sum of absolute
+   weight changes) for a single rebalance expressed as a fraction of gross
+   notional. Accepted range is `0.0` to `2.0` where `1.0` effectively means
+   “no practical cap” for most strategies (full liquidation + rebuild would
+   require `2.0`). Values above `2.0` are rejected by configuration validation.
+
+Validation rules:
+
+- Negative values for either field raise a configuration error.
+- Values are coerced from numeric strings when possible (e.g. `"15"`).
+- Omitting both keys preserves previous behaviour (no costs, no cap).
+
+Multi‑period runs attach per‑period `turnover` and `transaction_cost` figures
+to each result dictionary. These appear in a separate execution metrics export
+(`execution_metrics` sheet / file) so the legacy Phase‑1 summary schema remains
+unchanged.
+
