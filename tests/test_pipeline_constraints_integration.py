@@ -1,8 +1,8 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 
-from trend_analysis.pipeline import _run_analysis
 from trend_analysis.core.rank_selection import RiskStatsConfig
+from trend_analysis.pipeline import _run_analysis
 
 
 def make_dummy_returns(n_months: int = 24) -> pd.DataFrame:
