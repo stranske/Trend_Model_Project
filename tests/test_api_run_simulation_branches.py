@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import sys
+from collections import UserDict
 from types import ModuleType, SimpleNamespace
 
 import pandas as pd
+import pytest
 
 from trend_analysis import api
 
@@ -129,3 +131,49 @@ def test_run_simulation_populates_metrics_and_fallback(monkeypatch):
 
     # The details object is exactly the payload returned by ``_run_analysis``.
     assert result.details["benchmark_ir"]["bench"]["FundA"] == 0.3
+
+
+def test_run_simulation_accepts_mapping_payload_and_swallows_logging_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The API should coerce Mapping results and tolerate logging failures."""
+
+    config = _make_config()
+    returns = _make_returns()
+
+    stats_mapping = {"FundA": SimpleNamespace(alpha=0.9, beta=0.4)}
+    bench_ir = {"bench": {"FundA": 0.2}}
+    payload = UserDict(
+        {
+            "out_sample_stats": stats_mapping,
+            "selected_funds": ["FundA"],
+            "weights_user_weight": None,
+            "weights_equal_weight": {"FundA": 1.0},
+            "benchmark_ir": bench_ir,
+        }
+    )
+
+    monkeypatch.setattr(api, "_run_analysis", lambda *_, **__: payload)
+
+    events: list[tuple[str, str]] = []
+
+    def noisy_log_step(run_id: str, step: str, message: str, **extra: object) -> None:
+        events.append((step, message))
+        if step == "selection":
+            raise RuntimeError("log boom")
+
+    monkeypatch.setattr(api, "_log_step", noisy_log_step)
+
+    result = api.run_simulation(config, returns)
+
+    # Mapping payload should be materialised into a dict with metrics captured.
+    assert isinstance(result.metrics, pd.DataFrame)
+    assert not result.metrics.empty
+    assert result.metrics.loc["FundA", "alpha"] == 0.9
+
+    # The logging error should have been swallowed allowing execution to finish.
+    assert ("selection", "Funds selected") in events
+    assert ("api_end", "run_simulation complete") in events
+
+    # Benchmark IR column is created even when the payload is a Mapping.
+    assert result.metrics.loc["FundA", "ir_bench"] == 0.2
