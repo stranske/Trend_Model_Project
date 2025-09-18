@@ -158,6 +158,8 @@ export:
 performance:
   enable_cache: true
   incremental_cov: false
+  cache:
+    metrics: false  # scalar metric series memoization (Issue #1156)
 run:
   log_level: "INFO" # DEBUG | INFO | WARNING | ERROR
   log_file: "logs/phase1.log"
