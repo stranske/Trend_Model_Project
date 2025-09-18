@@ -1210,10 +1210,15 @@ export.export_phase1_workbook(results, str(wb_direct))
 if not wb_direct.exists():
     raise SystemExit("export_phase1_workbook failed")
 wb = openpyxl.load_workbook(wb_direct)
-expected_sheets = {str(r["period"][3]) for r in results}
-expected_sheets.add("summary")
-if set(wb.sheetnames) != expected_sheets:
-    raise SystemExit("phase1 workbook sheets mismatch")
+# Phase-1 workbook now (by design) includes an "execution_metrics" sheet
+# alongside one sheet per period and the leading "summary" sheet. Keep the
+# demo expectation flexible: all required sheets must be present, but the
+# exporter may add new diagnostic sheets over time without breaking CI.
+period_sheet_names = {str(r["period"][3]) for r in results}
+required = {"summary", "execution_metrics"} | period_sheet_names
+missing = required.difference(wb.sheetnames)
+if missing:
+    raise SystemExit(f"phase1 workbook sheets mismatch (missing: {sorted(missing)})")
 pf_frames = export.period_frames_from_results(results)
 if len(pf_frames) != len(results):
     raise SystemExit("period_frames_from_results count mismatch")
@@ -2105,8 +2110,17 @@ def _check_module_exports() -> None:
             "RiskStatsConfig",
             "register_metric",
             "METRIC_REGISTRY",
+            "WindowMetricBundle",
+            "make_window_key",
+            "get_window_metric_bundle",
+            "reset_selector_cache",
+            "selector_cache_hits",
+            "selector_cache_misses",
             "blended_score",
+            "compute_metric_series_with_cache",
             "rank_select_funds",
+            "selector_cache_stats",
+            "clear_window_metric_cache",
             "select_funds",
             "build_ui",
             "canonical_metric_list",

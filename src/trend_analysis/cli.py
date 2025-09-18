@@ -24,6 +24,17 @@ APP_PATH = Path(__file__).resolve().parents[2] / "streamlit_app" / "app.py"
 LOCK_PATH = Path(__file__).resolve().parents[2] / "requirements.lock"
 
 
+def _log_step(run_id: str, event: str, message: str, **fields: Any) -> None:
+    """Internal indirection for structured logging.
+
+    Tests monkeypatch this symbol directly (`_log_step`) rather than the public
+    logging module function. Keeping this thin wrapper preserves the existing
+    runtime behaviour while allowing tests to intercept calls without touching
+    the logging subsystem.
+    """
+    run_logging.log_step(run_id, event, message, **fields)
+
+
 def _extract_cache_stats(payload: object) -> dict[str, int] | None:
     """Return the most recent cache statistics embedded in ``payload``.
 
@@ -109,7 +120,6 @@ def maybe_log_step(
     enabled: bool, run_id: str, event: str, message: str, **fields: Any
 ) -> None:
     """Log a structured step when ``enabled`` is True."""
-
     if enabled:
         _log_step(run_id, event, message, **fields)
 
