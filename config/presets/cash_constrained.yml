@@ -1,3 +1,4 @@
+name: "Cash constrained"
 description: "Illustrative preset with max weight, group caps and cash sleeve"
 metrics:
   sharpe: 0.4

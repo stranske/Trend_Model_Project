@@ -170,7 +170,7 @@ def apply_constraints(
             asset for asset in working.index if asset not in constraints.groups
         ]
         if missing_assets:
-            raise ConstraintViolation(
+            raise KeyError(
                 f"Missing group mapping for assets: {', '.join(missing_assets)}"
             )
         group_mapping = {asset: constraints.groups[asset] for asset in working.index}

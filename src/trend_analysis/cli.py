@@ -111,7 +111,7 @@ def maybe_log_step(
     """Log a structured step when ``enabled`` is True."""
 
     if enabled:
-        run_logging.log_step(run_id, event, message, **fields)
+        _log_step(run_id, event, message, **fields)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -371,5 +371,8 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
+_log_step = run_logging.log_step
+
 if __name__ == "__main__":  # pragma: no cover - manual invocation
     raise SystemExit(main())
+
