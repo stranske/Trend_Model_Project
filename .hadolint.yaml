@@ -1,4 +1,7 @@
 ignored:
+  # DL3008: We use non-pinned package versions for flexibility in base images.
   - DL3008
+  # DL3013: Certain packages are intentionally installed without verification due to upstream limitations.
   - DL3013
+  # SC2102: Array expansion in Dockerfile is required for our build scripts.
   - SC2102
