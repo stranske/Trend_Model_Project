@@ -72,6 +72,57 @@ def sample_bundle():
     return bundle
 
 
+def test_blended_score_merges_aliases_and_inverts(sample_bundle):
+    bundle = sample_bundle
+    stats_cfg = rank_selection.RiskStatsConfig()
+    cache = CovCache()
+
+    recorded: list[str] = []
+    original = bundle.ensure_metric
+
+    def tracker(metric: str, *args, **kwargs):
+        recorded.append(metric)
+        return original(metric, *args, **kwargs)
+
+    bundle.ensure_metric = tracker  # type: ignore[assignment]
+
+    weights = {"Sharpe": 2.0, "sharpe": 1.0, "MaxDrawdown": 1.0}
+    result = rank_selection.blended_score(
+        bundle.in_sample_df,
+        weights,
+        stats_cfg,
+        bundle=bundle,
+        cov_cache=cache,
+    )
+
+    assert recorded.count("Sharpe") == 1
+    assert recorded.count("MaxDrawdown") == 1
+
+    canonical_total = {"Sharpe": 3.0, "MaxDrawdown": 1.0}
+    total = sum(canonical_total.values())
+    expected = (canonical_total["Sharpe"] / total) * rank_selection._zscore(
+        bundle._metrics["Sharpe"]
+    ) + (  # type: ignore[index]
+        canonical_total["MaxDrawdown"] / total
+    ) * (
+        -rank_selection._zscore(bundle._metrics["MaxDrawdown"])
+    )  # type: ignore[index]
+
+    pd.testing.assert_series_equal(result, expected)
+
+
+def test_blended_score_rejects_zero_sum_weights():
+    df = pd.DataFrame({"A": [0.01, 0.02, 0.03], "B": [0.02, 0.01, 0.00]})
+    stats_cfg = rank_selection.RiskStatsConfig()
+
+    with pytest.raises(ValueError, match="Sum of weights must not be zero"):
+        rank_selection.blended_score(
+            df,
+            {"AnnualReturn": 1.0, "Sharpe": -1.0},
+            stats_cfg,
+        )
+
+
 def test_window_metric_bundle_metrics_frame_and_cache(sample_bundle):
     bundle = sample_bundle
     empty_metrics = bundle.metrics_frame()
