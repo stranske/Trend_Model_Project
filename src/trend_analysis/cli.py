@@ -109,7 +109,7 @@ def maybe_log_step(
     """Log a structured step when ``enabled`` is True."""
 
     if enabled:
-        run_logging.log_step(run_id, event, message, event=event, **fields)
+        run_logging.log_step(run_id, event, message, **fields)
 
 
 def main(argv: list[str] | None = None) -> int:
