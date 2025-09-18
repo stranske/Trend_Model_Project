@@ -172,7 +172,7 @@ def _load_app(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
 def test_read_defaults_populates_expected_keys(monkeypatch: pytest.MonkeyPatch) -> None:
     app_mod = _load_app(monkeypatch)
 
-    defaults: dict[str, Any] = cast(dict[str, Any], app_mod._read_defaults())
+    defaults: dict[str, Any] = app_mod._read_defaults()
     assert "data" in defaults
     assert "portfolio" in defaults
 
