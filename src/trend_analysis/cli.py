@@ -124,15 +124,11 @@ def main(argv: list[str] | None = None) -> int:
             # Attach time series required by export_bundle if present
             if isinstance(res, dict):
                 # portfolio returns preference: user_weight then equal_weight fallback
-                port_ser = None
-                try:
-                    port_ser = (
-                        res.get("portfolio_user_weight")
-                        or res.get("portfolio_equal_weight")
-                        or res.get("portfolio_equal_weight_combined")
-                    )
-                except Exception:
-                    port_ser = None
+                port_ser = (
+                    res.get("portfolio_user_weight")
+                    or res.get("portfolio_equal_weight")
+                    or res.get("portfolio_equal_weight_combined")
+                )
                 if port_ser is not None:
                     run_result.portfolio = port_ser  # type: ignore[attr-defined]
                 bench_map = res.get("benchmarks") if isinstance(res, dict) else None
