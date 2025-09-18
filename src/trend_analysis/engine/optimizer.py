@@ -170,9 +170,6 @@ def apply_constraints(
             asset for asset in working.index if asset not in constraints.groups
         ]
         if missing_assets:
-            # Tests expect a KeyError for missing group mappings to mirror
-            # pandas-style key semantics rather than a domain-specific
-            # ConstraintViolation.
             raise KeyError(
                 f"Missing group mapping for assets: {', '.join(missing_assets)}"
             )

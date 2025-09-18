@@ -381,5 +381,7 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
+_log_step = run_logging.log_step
+
 if __name__ == "__main__":  # pragma: no cover - manual invocation
     raise SystemExit(main())
