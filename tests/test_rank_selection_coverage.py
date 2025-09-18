@@ -9,12 +9,13 @@ import pandas as pd
 import pytest
 
 import trend_analysis.core.rank_selection as rank_selection
-from trend_analysis.core.rank_selection import (DEFAULT_METRIC,
-                                                FundSelectionConfig,
-                                                RiskStatsConfig,
-                                                _quality_filter, blended_score,
-                                                build_ui, rank_select_funds,
-                                                select_funds)
+from trend_analysis.core.rank_selection import (
+    DEFAULT_METRIC, FundSelectionConfig, RiskStatsConfig, WindowMetricBundle,
+    _apply_transform, _canonicalise_labels, _ensure_canonical_columns,
+    _json_default, _quality_filter, _stats_cfg_hash, blended_score, build_ui,
+    clear_window_metric_cache, get_window_metric_bundle, make_window_key,
+    rank_select_funds, select_funds, selector_cache_stats,
+    some_function_missing_annotation, store_window_metric_bundle)
 
 
 def _cm_mock() -> MagicMock:
@@ -250,6 +251,191 @@ class TestSelectFunds:
             selection_mode="all",
         )
         assert result == []
+
+
+class TestRankSelectionInternals:
+    def test_canonicalise_labels_and_dataframe_columns(self):
+        labels = ["", " Fund", "Fund", "Alpha", "Alpha"]
+        canonical = _canonicalise_labels(labels)
+        assert canonical == [
+            "Unnamed_1",
+            "Fund",
+            "Fund_2",
+            "Alpha",
+            "Alpha_2",
+        ]
+
+        df = pd.DataFrame([[1, 2, 3, 4, 5]], columns=labels)
+        canon_df = _ensure_canonical_columns(df)
+        assert list(canon_df.columns) == canonical
+        # Ensure original DataFrame left untouched
+        assert list(df.columns) == labels
+
+    def test_json_default_and_stats_hash_include_extras(self):
+        cfg = RiskStatsConfig()
+        cfg.extra_flag = True
+        first_hash = _stats_cfg_hash(cfg)
+        cfg.extra_flag = False
+        second_hash = _stats_cfg_hash(cfg)
+        assert first_hash != second_hash
+        assert _json_default((1, 2)) == [1, 2]
+        assert _json_default(np.array([1.0, 2.0])) == [1.0, 2.0]
+        assert _json_default(np.int64(3)) == 3.0
+        with pytest.raises(TypeError):
+            _json_default(object())
+
+    def test_window_key_and_cache_roundtrip(self):
+        clear_window_metric_cache()
+        cfg = RiskStatsConfig()
+        df = pd.DataFrame({"A": [0.01, 0.02], "B": [0.02, 0.03]})
+        key = make_window_key("2020-01", "2020-02", df.columns, cfg)
+        # Same columns in different order should yield identical key
+        key_reordered = make_window_key("2020-01", "2020-02", ["B", "A"], cfg)
+        assert key == key_reordered
+
+        bundle = WindowMetricBundle(
+            key=key,
+            start="2020-01",
+            end="2020-02",
+            freq="M",
+            stats_cfg_hash=_stats_cfg_hash(cfg),
+            universe=tuple(df.columns),
+            in_sample_df=df,
+            _metrics=pd.DataFrame(index=df.columns, dtype=float),
+        )
+
+        store_window_metric_bundle(None, bundle)
+        assert selector_cache_stats()["entries"] == 0
+
+        store_window_metric_bundle(key, bundle)
+        cached = get_window_metric_bundle(key)
+        assert cached is bundle
+        stats = selector_cache_stats()
+        assert stats["entries"] == 1
+        assert stats["selector_cache_hits"] >= 1
+
+        clear_window_metric_cache()
+        assert selector_cache_stats()["entries"] == 0
+
+    def test_apply_transform_variants(self):
+        series = pd.Series([3.0, 1.0, 2.0], index=["A", "B", "C"])
+        ranked = _apply_transform(series, mode="rank")
+        assert list(ranked.sort_index()) == [1.0, 3.0, 2.0]
+
+        with pytest.raises(ValueError):
+            _apply_transform(series, mode="percentile")
+        pct = _apply_transform(series, mode="percentile", rank_pct=0.5)
+        assert pct.count() == 2
+        assert set(pct.dropna().index) == {"A", "C"}
+
+        zeros = pd.Series([1.0, 1.0, 1.0], index=["X", "Y", "Z"])
+        zscores = _apply_transform(zeros, mode="zscore")
+        assert (zscores == 0).all()
+
+        with pytest.raises(ValueError):
+            _apply_transform(series, mode="unknown")
+
+    def test_rank_select_funds_dedup_and_cache(self):
+        clear_window_metric_cache()
+        cfg = RiskStatsConfig()
+        dates = pd.date_range("2020-01-31", periods=6, freq="ME")
+        df = pd.DataFrame(
+            {
+                "ACME Growth": [0.05] * 6,
+                "ACME Value": [0.04] * 6,
+                "Beta Alpha": [0.03] * 6,
+            },
+            index=dates,
+        )
+        key = make_window_key("2020-01", "2020-06", df.columns, cfg)
+        selected = rank_select_funds(
+            df,
+            cfg,
+            inclusion_approach="top_n",
+            n=3,
+            window_key=key,
+            freq="M",
+        )
+        assert selected == ["ACME Growth", "Beta Alpha", "ACME Value"]
+
+        stats_after_first = selector_cache_stats()
+        assert stats_after_first["entries"] == 1
+
+        second = rank_select_funds(
+            df,
+            cfg,
+            inclusion_approach="top_n",
+            n=2,
+            window_key=key,
+            limit_one_per_firm=False,
+        )
+        assert second == ["ACME Growth", "ACME Value"]
+        assert (
+            selector_cache_stats()["selector_cache_hits"]
+            > stats_after_first["selector_cache_hits"]
+        )
+
+    def test_rank_select_funds_validates_bundle(self):
+        cfg = RiskStatsConfig()
+        dates = pd.date_range("2020-01-31", periods=3, freq="ME")
+        df = pd.DataFrame(
+            {"Acme": [0.05, 0.04, 0.03], "Beta": [0.02, 0.02, 0.02]},
+            index=dates,
+        )
+        wrong_universe_bundle = WindowMetricBundle(
+            key=None,
+            start="",
+            end="",
+            freq="M",
+            stats_cfg_hash=_stats_cfg_hash(cfg),
+            universe=("Other",),
+            in_sample_df=df,
+            _metrics=pd.DataFrame(index=df.columns, dtype=float),
+        )
+        with pytest.raises(ValueError, match="does not match DataFrame columns"):
+            rank_select_funds(df, cfg, bundle=wrong_universe_bundle)
+
+        wrong_hash_bundle = WindowMetricBundle(
+            key=None,
+            start="",
+            end="",
+            freq="M",
+            stats_cfg_hash="not-the-same",
+            universe=tuple(df.columns),
+            in_sample_df=df,
+            _metrics=pd.DataFrame(index=df.columns, dtype=float),
+        )
+        with pytest.raises(ValueError, match="stats configuration"):
+            rank_select_funds(df, cfg, bundle=wrong_hash_bundle)
+
+    def test_some_function_missing_annotation_paths(self):
+        series = pd.Series([3.0, 2.0, 1.0], index=["A", "B", "C"])
+        top_two = some_function_missing_annotation(
+            series,
+            "top_n",
+            n=2,
+            ascending=False,
+        )
+        assert top_two == ["A", "B"]
+
+        pct = some_function_missing_annotation(
+            series,
+            "top_pct",
+            pct=0.5,
+            ascending=False,
+        )
+        assert len(pct) == 2
+
+        thresh = some_function_missing_annotation(
+            series,
+            "threshold",
+            threshold=2.5,
+            ascending=False,
+        )
+        assert thresh == ["A"]
+
+        with pytest.raises(ValueError):
+            some_function_missing_annotation(series, "threshold", ascending=False)
 
 
 class TestBuildUI:
