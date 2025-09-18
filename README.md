@@ -218,6 +218,26 @@ The handler performs a simple size rotation (default ~1 MB). When the limit is e
 
 ### Troubleshooting
 - Empty pane: run may not have initialised the structured logger (check `--log-file` path permissions).
+
+## Scalar Metric Memoization (Performance Cache)
+
+Phase‑2 introduces an opt‑in memoization layer for per‑fund scalar metrics (Sharpe, AnnualReturn, etc.) used during ranking and weighting. Enable it via:
+
+```yaml
+performance:
+   enable_cache: true          # existing covariance cache
+   incremental_cov: false
+   cache:
+      metrics: true             # enable scalar metric series memoization
+```
+
+Key facts:
+- Zero behavioural change when disabled (default is false if key absent).
+- Cache key = `(start, end, ordered_universe, metric_name, stats_cfg_hash)`.
+- Safe to clear anytime: `from trend_analysis.core.metric_cache import clear_metric_cache`.
+- Introspection: `global_metric_cache.stats()` returns hit/miss counters.
+
+See `docs/metric_cache.md` for full design notes and benchmarking guidance.
 - Missing granular steps: selection/weighting keys depend on configuration; ensure the run produced those artifacts.
 
 Structured logging is intentionally additive; if absent the pipeline still produces results normally.
