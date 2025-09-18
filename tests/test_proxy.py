@@ -144,3 +144,37 @@ class TestStreamlitProxy:
 
         assert exc.value.code == 0
         assert calls == [(tuple(), {})]
+
+
+class TestProxyCliErrorHandling:
+    """Additional CLI edge-case coverage."""
+
+    def test_keyboard_interrupt_returns_zero(self, monkeypatch, capsys):
+        from trend_analysis.proxy import cli
+
+        def stop(**_: object) -> None:
+            raise KeyboardInterrupt
+
+        monkeypatch.setattr(cli, "run_proxy", stop)
+        monkeypatch.setattr(cli.sys, "argv", ["proxy"])
+
+        rc = cli.main()
+        out, err = capsys.readouterr()
+        assert rc == 0
+        assert "stopped by user" in out
+        assert err == ""
+
+    def test_unexpected_error_prints_message(self, monkeypatch, capsys):
+        from trend_analysis.proxy import cli
+
+        def explode(**_: object) -> None:
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(cli, "run_proxy", explode)
+        monkeypatch.setattr(cli.sys, "argv", ["proxy"])
+
+        rc = cli.main()
+        out, err = capsys.readouterr()
+        assert rc == 1
+        assert out == ""
+        assert "Error starting proxy: boom" in err
