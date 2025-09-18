@@ -42,7 +42,12 @@ fi
 # Determine files to check
 if [[ "$CHANGED_ONLY" == true ]]; then
     # Only check files changed in the last commit or working directory
-    PYTHON_FILES=$(git diff --name-only HEAD~1 2>/dev/null | grep -E '\.(py)$' 2>/dev/null | grep -v -E '^(Old/|notebooks/old/)' 2>/dev/null || echo "")
+    if git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+        PYTHON_FILES=$(git diff --name-only HEAD~1 2>/dev/null | grep -E '\.(py)$' 2>/dev/null | grep -v -E '^(Old/|notebooks/old/)' 2>/dev/null || echo "")
+    else
+        # Shallow / single-commit clone fallback: skip HEAD~1 diff for speed
+        PYTHON_FILES=""
+    fi
     UNSTAGED_FILES=$(git diff --name-only 2>/dev/null | grep -E '\.(py)$' 2>/dev/null | grep -v -E '^(Old/|notebooks/old/)' 2>/dev/null || echo "")
     ALL_FILES=$(echo -e "$PYTHON_FILES\n$UNSTAGED_FILES" | sort -u | grep -v '^$' 2>/dev/null || echo "")
     
