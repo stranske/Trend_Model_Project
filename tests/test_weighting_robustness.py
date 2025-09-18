@@ -40,7 +40,7 @@ class TestEqualRiskContribution:
         with pytest.raises(ValueError):
             engine.weight(cov)
 
-    def test_weighting_regularises_ill_conditioned_matrix(self) -> None:
+    def test_weighting_regularizes_ill_conditioned_matrix(self) -> None:
         # Matrix with a negative eigenvalue triggers the regularisation path.
         cov = _make_covariance(np.array([[1.0, 2.0], [2.0, 1.0]]), labels=["A", "B"])
         engine = EqualRiskContribution(max_iter=256, tol=1e-9)
