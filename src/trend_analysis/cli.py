@@ -5,8 +5,8 @@ import subprocess
 import sys
 from importlib import metadata
 from pathlib import Path
-import numpy as np
 
+import numpy as np
 import pandas as pd
 
 from . import export, pipeline
@@ -194,8 +194,8 @@ def main(argv: list[str] | None = None) -> int:
 
         # Optional bundle export (reproducibility manifest + hashes)
         if args.bundle:
-            from .export.bundle import export_bundle
             from .api import RunResult as _RR
+            from .export.bundle import export_bundle
 
             bundle_path = Path(args.bundle)
             if bundle_path.is_dir():
