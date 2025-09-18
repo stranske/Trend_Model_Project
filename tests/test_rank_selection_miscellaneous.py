@@ -100,12 +100,13 @@ def test_blended_score_merges_aliases_and_inverts(sample_bundle):
 
     canonical_total = {"Sharpe": 3.0, "MaxDrawdown": 1.0}
     total = sum(canonical_total.values())
-    expected = (
-        (canonical_total["Sharpe"] / total)
-        * rank_selection._zscore(bundle._metrics["Sharpe"])  # type: ignore[index]
-        + (canonical_total["MaxDrawdown"] / total)
-        * (-rank_selection._zscore(bundle._metrics["MaxDrawdown"]))  # type: ignore[index]
-    )
+    expected = (canonical_total["Sharpe"] / total) * rank_selection._zscore(
+        bundle._metrics["Sharpe"]
+    ) + (  # type: ignore[index]
+        canonical_total["MaxDrawdown"] / total
+    ) * (
+        -rank_selection._zscore(bundle._metrics["MaxDrawdown"])
+    )  # type: ignore[index]
 
     pd.testing.assert_series_equal(result, expected)
 
