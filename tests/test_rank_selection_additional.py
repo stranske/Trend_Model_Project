@@ -198,6 +198,42 @@ def test_make_window_key_and_cache_helpers_round_trip():
     assert cached is bundle
 
 
+def test_rank_select_funds_replaces_mismatched_cached_bundle():
+    """A cached bundle with the wrong universe should be ignored."""
+
+    df = make_simple_returns()[["Alpha One", "Beta Core"]]
+    cfg = rs.RiskStatsConfig(risk_free=0.0)
+    window_key = rs.make_window_key("2021-01", "2021-06", df.columns, cfg)
+
+    rs.clear_window_metric_cache()
+
+    wrong_bundle = rs.WindowMetricBundle(
+        key=window_key,
+        start="2021-01",
+        end="2021-06",
+        freq="M",
+        stats_cfg_hash=rs._stats_cfg_hash(cfg),
+        universe=("Other",),
+        in_sample_df=pd.DataFrame({"Other": df.iloc[:, 0]}),
+        _metrics=pd.DataFrame(index=["Other"], dtype=float),
+    )
+    rs.store_window_metric_bundle(window_key, wrong_bundle)
+
+    selected = rs.rank_select_funds(
+        df,
+        cfg,
+        window_key=window_key,
+        inclusion_approach="top_n",
+        n=1,
+    )
+
+    assert selected and selected[0] in df.columns
+    cached = rs.get_window_metric_bundle(window_key)
+    assert cached is not wrong_bundle
+    assert cached is not None
+    assert cached.universe == tuple(df.columns)
+
+
 def test_window_metric_bundle_covariance_branch(monkeypatch):
     df = pd.DataFrame(
         {
