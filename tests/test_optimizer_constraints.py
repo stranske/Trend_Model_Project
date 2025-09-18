@@ -100,7 +100,9 @@ def test_apply_group_caps_handles_missing_cap_entries():
 def test_apply_group_caps_sum_too_small_raises():
     w = pd.Series([0.6, 0.4], index=["a", "b"], dtype=float)
     groups = {"a": "X", "b": "Y"}
-    with pytest.raises(ConstraintViolation, match="Group caps sum to less than 100%"):
+    with pytest.raises(
+        ConstraintViolation, match="Group caps sum to less than required allocation"
+    ):
         optimizer._apply_group_caps(w, {"X": 0.3, "Y": 0.4}, groups)
 
 
@@ -181,8 +183,10 @@ def test_cash_weight_invalid_range_raises():
 def test_cash_weight_infeasible_with_max_weight():
     # With two assets, cash=0.3 leaves 0.7. Equal after scaling = 0.35 each which exceeds cap 0.3
     w = pd.Series([0.5, 0.5], index=["a", "b"], dtype=float)
-    # The current feasibility check triggers the generic max_weight feasibility error
-    with pytest.raises(ConstraintViolation, match="max_weight too small"):
+    with pytest.raises(
+        ConstraintViolation,
+        match="cash_weight infeasible: remaining allocation forces per-asset weight above max_weight",
+    ):
         apply_constraints(w, {"cash_weight": 0.3, "max_weight": 0.3})
 
 
@@ -191,3 +195,12 @@ def test_cash_weight_exceeds_max_weight_for_cash():
     w = pd.Series([0.7, 0.3], index=["a", "b"], dtype=float)
     with pytest.raises(ConstraintViolation, match="exceeds max_weight"):
         apply_constraints(w, {"cash_weight": 0.6, "max_weight": 0.5})
+
+
+def test_cash_weight_respects_max_weight_after_residual_scaling():
+    # Scenario highlighted in review: feasible once residual mass considered
+    w = pd.Series([0.6, 0.4], index=["a", "b"], dtype=float)
+    out = apply_constraints(w, {"cash_weight": 0.3, "max_weight": 0.4})
+    np.testing.assert_allclose(out.loc["CASH"], 0.3)
+    assert (out.drop("CASH") <= 0.4 + 1e-9).all()
+    np.testing.assert_allclose(out.sum(), 1.0)

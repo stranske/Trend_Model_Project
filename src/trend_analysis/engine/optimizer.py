@@ -42,15 +42,18 @@ def _redistribute(w: pd.Series, mask: pd.Series, amount: float) -> pd.Series:
     return w
 
 
-def _apply_cap(w: pd.Series, cap: float) -> pd.Series:
+def _apply_cap(w: pd.Series, cap: float, total: float | None = None) -> pd.Series:
     """Cap individual weights at ``cap`` and redistribute the excess."""
 
     if cap is None:
         return w
     if cap <= 0:
         raise ConstraintViolation("max_weight must be positive")
+    total_allocation = float(total if total is not None else w.sum())
+    if total_allocation <= NUMERICAL_TOLERANCE_HIGH:
+        return w
     # Feasibility check
-    if cap * len(w) < 1 - NUMERICAL_TOLERANCE_HIGH:
+    if cap * len(w) < total_allocation - NUMERICAL_TOLERANCE_HIGH:
         raise ConstraintViolation("max_weight too small for number of assets")
 
     w = w.copy()
@@ -71,7 +74,10 @@ def _apply_cap(w: pd.Series, cap: float) -> pd.Series:
 
 
 def _apply_group_caps(
-    w: pd.Series, group_caps: Mapping[str, float], groups: Mapping[str, str]
+    w: pd.Series,
+    group_caps: Mapping[str, float],
+    groups: Mapping[str, str],
+    total: float | None = None,
 ) -> pd.Series:
     """Enforce group caps, redistributing excess weight."""
 
@@ -82,10 +88,11 @@ def _apply_group_caps(
         raise KeyError(f"Missing group mapping for: {sorted(missing)}")
 
     all_groups = set(group_series.loc[w.index].values)
+    total_allocation = float(total if total is not None else w.sum())
     if all_groups.issubset(group_caps.keys()):
         total_cap = sum(group_caps[g] for g in all_groups)
-        if total_cap < 1 - NUMERICAL_TOLERANCE_HIGH:
-            raise ConstraintViolation("Group caps sum to less than 100%")
+        if total_cap < total_allocation - NUMERICAL_TOLERANCE_HIGH:
+            raise ConstraintViolation("Group caps sum to less than required allocation")
 
     for group, cap in group_caps.items():
         members = group_series[group_series == group].index
@@ -124,53 +131,61 @@ def apply_constraints(
             )
     w /= w.sum()
 
+    total_allocation = float(w.sum())
+    working = w
+    cash_weight = None
+
+    # cash_weight processing (fixed slice). We treat a dedicated 'CASH' label.
+    if constraints.cash_weight is not None:
+        cash_weight = float(constraints.cash_weight)
+        if not (0 < cash_weight < 1):
+            raise ConstraintViolation("cash_weight must be in (0,1) exclusive")
+        if "CASH" not in w.index:
+            # Create a CASH row with zero pre-allocation so scaling logic is uniform
+            w.loc["CASH"] = 0.0
+        non_cash_index = w.index[w.index != "CASH"]
+        working = w.loc[non_cash_index].copy()
+        if working.empty:
+            raise ConstraintViolation("No assets available for non-CASH allocation")
+        total_allocation = 1.0 - cash_weight
+        working /= working.sum()
+        working *= total_allocation
+        if constraints.max_weight is not None and len(working) > 0:
+            eq_after = total_allocation / len(working)
+            if eq_after - NUMERICAL_TOLERANCE_HIGH > constraints.max_weight:
+                raise ConstraintViolation(
+                    "cash_weight infeasible: remaining allocation forces per-asset weight above max_weight"
+                )
+    else:
+        working = w.copy()
+
     if constraints.max_weight is not None:
-        w = _apply_cap(w, constraints.max_weight)
+        working = _apply_cap(working, constraints.max_weight, total=total_allocation)
 
     if constraints.group_caps:
         if not constraints.groups:
             raise ConstraintViolation("Group mapping required when group_caps set")
-        w = _apply_group_caps(w, constraints.group_caps, constraints.groups)
+        working = _apply_group_caps(
+            working, constraints.group_caps, constraints.groups, total=total_allocation
+        )
         # max weight may have been violated again
         if constraints.max_weight is not None:
-            w = _apply_cap(w, constraints.max_weight)
+            working = _apply_cap(
+                working, constraints.max_weight, total=total_allocation
+            )
 
-    # cash_weight processing (fixed slice). We treat a dedicated 'CASH' label.
-    if constraints.cash_weight is not None:
-        cw = float(constraints.cash_weight)
-        if not (0 < cw < 1):
-            raise ConstraintViolation("cash_weight must be in (0,1) exclusive")
-        has_cash = "CASH" in w.index
-        if not has_cash:
-            # Create a CASH row with zero pre-allocation so scaling logic is uniform
-            w.loc["CASH"] = 0.0
-        # Exclude CASH from scaling
-        non_cash_mask = w.index != "CASH"
-        non_cash = w[non_cash_mask]
-        if non_cash.empty:
-            raise ConstraintViolation("No assets available for non-CASH allocation")
-        # Feasibility with max_weight: if max_weight is set ensure each non-cash asset
-        # could in principle satisfy cap after scaling
-        if constraints.max_weight is not None:
-            cap = constraints.max_weight
-            # Minimal achievable equal weight after carving cash
-            eq_after = (1 - cw) / len(non_cash)
-            if eq_after - NUMERICAL_TOLERANCE_HIGH > cap:
-                raise ConstraintViolation(
-                    "cash_weight infeasible: remaining allocation forces per-asset weight above max_weight"
-                )
-        # Scale non-cash block to (1 - cw)
-        scale = (1 - cw) / non_cash.sum()
-        non_cash = non_cash * scale
-        w.update(non_cash)
-        w.loc["CASH"] = cw
-
-        # If max_weight applies to CASH as well enforce; else skip. We enforce for consistency.
+    if cash_weight is not None:
+        result = working.copy()
+        result.loc["CASH"] = cash_weight
+        order = list(w.index)
+        w = result.reindex(order)
         if (
             constraints.max_weight is not None
             and w.loc["CASH"] > constraints.max_weight + NUMERICAL_TOLERANCE_HIGH
         ):
             raise ConstraintViolation("cash_weight exceeds max_weight constraint")
+    else:
+        w = working
 
     # Final normalisation guard
     w /= w.sum()
