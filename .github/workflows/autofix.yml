@@ -28,19 +28,16 @@ jobs:
         with:
           script: |
             const prefix = 'chore(autofix):';
-            const actor = context.actor;
             let skip = false;
-            if (actor === 'github-actions' || actor === 'github-actions[bot]') {
-              const { data: commit } = await github.rest.git.getCommit({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                commit_sha: context.payload.pull_request.head.sha,
-              });
-              const message = commit.message || '';
-              if (message.startsWith(prefix)) {
-                core.info(`Head commit message '${message.split('\n')[0]}' starts with '${prefix}'. Skipping autofix to avoid a loop.`);
-                skip = true;
-              }
+            const { data: commit } = await github.rest.git.getCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.payload.pull_request.head.sha,
+            });
+            const message = commit.message || '';
+            if (message.startsWith(prefix)) {
+              core.info(`Head commit message '${message.split('\n')[0]}' starts with '${prefix}'. Skipping autofix to avoid a loop.`);
+              skip = true;
             }
             core.setOutput('skip', skip ? 'true' : 'false');
       - name: Loop guard summary
