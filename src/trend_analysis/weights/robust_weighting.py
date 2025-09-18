@@ -324,7 +324,7 @@ class RobustRiskParity(WeightEngine):
             return pd.Series(np.full(len(cov.index), 1.0 / len(cov.index)), index=cov.index)
 
         # Handle zero or very small standard deviations
-        min_std = max_std * 1e-8 or np.finfo(float).eps
+        min_std = max_std * 1e-8 if max_std > 0.0 else np.finfo(float).eps
         std_devs = np.where(std_devs < min_std, min_std, std_devs)
 
         inv_vol = np.reciprocal(std_devs)
