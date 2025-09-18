@@ -166,6 +166,43 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         environment=env,
         fallback_info=fallback_info,
     )
+    # Ensure details dict is JSON-friendly (no Timestamp / non-primitive keys)
+    try:  # pragma: no cover - lightweight sanitation (non-destructive)
+        from pandas import Series as _Series, DataFrame as _DataFrame
+
+        def _sanitize_keys(obj):  # type: ignore[override]
+            if isinstance(obj, _Series):
+                return {
+                    (
+                        str(getattr(i, "isoformat", lambda: i)())
+                        if not isinstance(i, (str, int, float, bool, type(None)))
+                        else i
+                    ): _sanitize_keys(v)
+                    for i, v in obj.items()
+                }
+            if isinstance(obj, _DataFrame):
+                return {col: _sanitize_keys(obj[col]) for col in obj.columns}
+            if isinstance(obj, dict):
+                new = {}
+                for k, v in obj.items():
+                    # Leave DataFrame/Series values untouched (they will be sanitized recursively if needed)
+                    if not isinstance(k, (str, int, float, bool, type(None))):
+                        try:
+                            sk = str(getattr(k, "isoformat", lambda: k)())
+                        except Exception:  # pragma: no cover
+                            sk = str(k)
+                    else:
+                        sk = k  # type: ignore[assignment]
+                    new[sk] = _sanitize_keys(v)
+                return new
+            if isinstance(obj, (list, tuple)):
+                return [_sanitize_keys(x) for x in obj]
+            return obj
+
+        # Store a parallel sanitized view for hashing/export without mutating original
+        rr.details_sanitized = _sanitize_keys(rr.details)  # type: ignore[attr-defined]
+    except Exception:  # pragma: no cover
+        pass
     return rr
 
     # NOTE: unreachable code block retained for clarity; bundle export now

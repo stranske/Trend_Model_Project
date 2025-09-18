@@ -119,9 +119,11 @@ def _hash_result(res: api.RunResult) -> str:
     metrics_copy = res.metrics.copy().sort_index().sort_index(axis=1)
 
     # Create more stable serialization
+    # Prefer sanitized details view if provided by api.run_simulation
+    details_obj = getattr(res, "details_sanitized", res.details)
     payload = {
         "metrics": deterministic_default(metrics_copy),
-        "details": deterministic_default(res.details),
+        "details": deterministic_default(details_obj),
         "seed": res.seed,
         "environment": deterministic_default(res.environment),
     }
