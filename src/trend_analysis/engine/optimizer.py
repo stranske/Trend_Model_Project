@@ -155,7 +155,7 @@ def apply_constraints(
             cap = constraints.max_weight
             # Minimal achievable equal weight after carving cash
             eq_after = (1 - cw) / len(non_cash)
-            if cap is not None and eq_after - NUMERICAL_TOLERANCE_HIGH > cap:
+            if eq_after - NUMERICAL_TOLERANCE_HIGH > cap:
                 raise ConstraintViolation(
                     "cash_weight infeasible: remaining allocation forces per-asset weight above max_weight"
                 )
