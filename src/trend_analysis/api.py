@@ -207,12 +207,6 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         # Store a parallel sanitized view for hashing/export without mutating original
         rr.details_sanitized = _sanitize_keys(rr.details)  # type: ignore[attr-defined]
 
-    # NOTE: unreachable code block retained for clarity; bundle export now
-    # handled by attaching portfolio in CLI before export.
-
-
-# Monkey-patch friendly attributes (documented for export_bundle) are added
-# downstream in CLI when needed (portfolio / benchmark / weights).
     except (AttributeError, TypeError, ValueError):  # pragma: no cover
         pass
     return rr
