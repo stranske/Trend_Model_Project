@@ -115,4 +115,3 @@ def test_incremental_update_runs_with_invalid_shift_limit(
     assert incremental_calls == [1]
     assert "cov_diag" in results[-1]
     assert results[-1]["cache_stats"]["incremental_updates"] == 1
-

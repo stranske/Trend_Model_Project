@@ -91,4 +91,3 @@ def test_run_simulation_sanitizes_details_and_combines_portfolio(
     assert isinstance(result.details_sanitized, dict)
     sanitized_keys = result.details_sanitized["weird_keys"].keys()
     assert all(isinstance(k, str) for k in sanitized_keys)
-
