@@ -14,22 +14,45 @@ jobs:
   autofix:
     if: >-
       ${{ github.event_name == 'pull_request' &&
-          github.actor != 'github-actions' &&
-          github.actor != 'github-actions[bot]' &&
           !startsWith(github.event.pull_request.title, 'ci: autofix') &&
+          !startsWith(github.event.pull_request.title, 'chore(autofix):') &&
           (
             !github.event.pull_request.draft ||
             contains(github.event.pull_request.labels.*.name, (vars.AUTOFIX_OPT_IN_LABEL || 'autofix'))
           ) }}
     runs-on: ubuntu-latest
     steps:
+      - name: Autofix loop guard
+        id: loop_guard
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prefix = 'chore(autofix):';
+            let skip = false;
+            const { data: commit } = await github.rest.git.getCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.payload.pull_request.head.sha,
+            });
+            const message = commit.message || '';
+            if (message.startsWith(prefix)) {
+              core.info(`Head commit message '${message.split('\n')[0]}' starts with '${prefix}'. Skipping autofix to avoid a loop.`);
+              skip = true;
+            }
+            core.setOutput('skip', skip ? 'true' : 'false');
+      - name: Loop guard summary
+        if: steps.loop_guard.outputs.skip == 'true'
+        run: |
+          echo "Skipping autofix run because the latest commit is an autofix pushed by ${{ github.actor }}."
       - uses: actions/checkout@v4
+        if: steps.loop_guard.outputs.skip != 'true'
         with:
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
           persist-credentials: true
       - name: Detect same-repo PR
         id: same_repo
+        if: steps.loop_guard.outputs.skip != 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -38,35 +61,36 @@ jobs:
             core.setOutput('same', String(same));
       - name: Autofix
         id: autofix
+        if: steps.loop_guard.outputs.skip != 'true'
         uses: ./.github/actions/autofix
       - name: Commit changes (same-repo)
-        if: steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same == 'true'
+        if: steps.loop_guard.outputs.skip != 'true' && steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same == 'true'
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "ci: autofix formatting/lint"
+          git commit -m "chore(autofix): formatting/lint"
       - name: Push changes (same-repo)
-        if: steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same == 'true'
+        if: steps.loop_guard.outputs.skip != 'true' && steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same == 'true'
         run: git push origin HEAD:${{ github.event.pull_request.head.ref }}
       - name: Create patch artifact (fork PR)
-        if: steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same != 'true'
+        if: steps.loop_guard.outputs.skip != 'true' && steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same != 'true'
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "ci: autofix formatting/lint (patch)" || true
+          git commit -m "chore(autofix): formatting/lint (patch)" || true
           git format-patch -1 --stdout > autofix.patch
       - name: Upload patch artifact
-        if: steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same != 'true'
+        if: steps.loop_guard.outputs.skip != 'true' && steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: autofix-patch-pr-${{ github.event.pull_request.number }}
           path: autofix.patch
       - name: Comment with patch instructions
-        if: steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same != 'true'
+        if: steps.loop_guard.outputs.skip != 'true' && steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same != 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -91,6 +115,7 @@ jobs:
         if: always()
         run: |
           echo "### Autofix Trivial Summary" >> $GITHUB_STEP_SUMMARY
+          echo "Loop guard skip: ${{ steps.loop_guard.outputs.skip }}" >> $GITHUB_STEP_SUMMARY
           echo "Applied changes: ${{ steps.autofix.outputs.changed }}" >> $GITHUB_STEP_SUMMARY
           echo "Same repo: ${{ steps.same_repo.outputs.same }}" >> $GITHUB_STEP_SUMMARY
           if [ "${{ steps.autofix.outputs.changed }}" = "true" ] && [ "${{ steps.same_repo.outputs.same }}" != "true" ]; then
