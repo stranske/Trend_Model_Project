@@ -1,0 +1,115 @@
+name: reusable autofix pipeline
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        description: "Python version"
+        required: false
+        default: '3.12'
+        type: string
+      ref:
+        description: "Git ref to checkout"
+        required: false
+        default: ''
+        type: string
+      run-summary:
+        description: "Emit step summary"
+        required: false
+        default: true
+        type: boolean
+    secrets:
+      repo-token:
+        required: false
+
+jobs:
+  autofix:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.event.pull_request.head.ref || github.ref }}
+          fetch-depth: 0
+          persist-credentials: true
+          token: ${{ secrets.repo-token || github.token }}
+      - name: Detect same-repo PR
+        if: github.event_name == 'pull_request'
+        id: same_repo
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            if (!pr) { core.setOutput('same', 'false'); return; }
+            const same = pr.head.repo.full_name === `${context.repo.owner}/${context.repo.repo}`;
+            core.setOutput('same', String(same));
+      - name: Run autofix composite
+        id: autofix
+        uses: ./.github/actions/autofix
+        with:
+          python-version: ${{ inputs.python-version }}
+      - name: Commit changes (same-repo)
+        if: github.event_name == 'pull_request' && steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same == 'true'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "ci: autofix formatting/lint"
+      - name: Push changes (same-repo)
+        if: github.event_name == 'pull_request' && steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same == 'true'
+        run: git push origin HEAD:${{ github.event.pull_request.head.ref }}
+      - name: Create patch artifact (fork PR)
+        if: github.event_name == 'pull_request' && steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same != 'true'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "ci: autofix formatting/lint (patch)" || true
+          git format-patch -1 --stdout > autofix.patch
+      - name: Upload patch artifact
+        if: github.event_name == 'pull_request' && steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: autofix-patch-pr-${{ github.event.pull_request.number }}
+          path: autofix.patch
+      - name: Comment with patch instructions
+        if: github.event_name == 'pull_request' && steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same != 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            if (!pr) { return; }
+            const body = [
+              `I generated an autofix patch for this fork PR.`,
+              ``,
+              `How to apply locally:`,
+              '1. Download the artifact "autofix-patch-pr-' + pr.number + '" from the Actions run.',
+              '2. In your repo root, run:',
+              '   git am < autofix.patch',
+              '3. Push the changes to your PR branch:',
+              '   git push origin HEAD:' + pr.head.ref,
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              body
+            });
+      - name: Output summary
+        if: inputs.run-summary
+        run: |
+          echo "### Autofix Result" >> $GITHUB_STEP_SUMMARY
+          echo "Changed files: ${{ steps.autofix.outputs.changed }}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "Same repo: ${{ steps.same_repo.outputs.same || 'false' }}" >> $GITHUB_STEP_SUMMARY
+            if [ "${{ steps.autofix.outputs.changed }}" = "true" ] && [ "${{ steps.same_repo.outputs.same }}" != "true" ]; then
+              echo "Patch artifact: autofix-patch-pr-${{ github.event.pull_request.number }}" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+    outputs:
+      changed: ${{ steps.autofix.outputs.changed }}

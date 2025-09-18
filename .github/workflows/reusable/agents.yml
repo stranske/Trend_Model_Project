@@ -1,0 +1,538 @@
+name: reusable agents automation
+
+on:
+  workflow_call:
+    inputs:
+      operation:
+        description: "Which automation to run"
+        required: true
+        type: string
+      test-issue:
+        description: "Override issue number when dispatching"
+        required: false
+        default: ''
+        type: string
+      post-codex-comment:
+        description: "Whether to auto-post the Codex activation command"
+        required: false
+        default: ''
+        type: string
+      pr-mode:
+        description: "PR mode override (create|invite)"
+        required: false
+        default: ''
+        type: string
+      codex-command:
+        description: "Codex activation command override"
+        required: false
+        default: ''
+        type: string
+      allow-fallback:
+        description: "Allow fallback to GITHUB_TOKEN when PAT missing"
+        required: false
+        default: ''
+        type: string
+      agents:
+        description: "Comma-separated agent keys"
+        required: false
+        default: ''
+        type: string
+      require-all:
+        description: "Require all requested agents"
+        required: false
+        default: ''
+        type: string
+      copilot-logins:
+        description: "Copilot login candidates"
+        required: false
+        default: ''
+        type: string
+      codex-logins:
+        description: "Codex login candidates"
+        required: false
+        default: ''
+        type: string
+      scenarios:
+        description: "Codex verification scenarios"
+        required: false
+        default: ''
+        type: string
+      parallel:
+        description: "Run verification in parallel"
+        required: false
+        default: ''
+        type: string
+      force-branch-fail:
+        description: "Force branch failure during verification"
+        required: false
+        default: ''
+        type: string
+      override-allow-fallback:
+        description: "Override allow_fallback for verification harness"
+        required: false
+        default: ''
+        type: string
+      override-codex-command:
+        description: "Override codex command for verification"
+        required: false
+        default: ''
+        type: string
+      override-pr-mode:
+        description: "Override pr_mode for verification"
+        required: false
+        default: ''
+        type: string
+      suppress-activate:
+        description: "Suppress Codex activation during verification"
+        required: false
+        default: ''
+        type: string
+    secrets:
+      service-bot-pat:
+        required: false
+      owner-pr-pat:
+        required: false
+
+jobs:
+  codex-issue-bridge:
+    if: inputs.operation == 'codex_issue_bridge'
+    name: codex issue bridge
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    env:
+      INPUT_TEST_ISSUE: ${{ inputs.test-issue || github.event.inputs.test_issue || '' }}
+      INPUT_POST_CODEX: ${{ inputs.post-codex-comment || github.event.inputs.post_codex_comment || 'true' }}
+      INPUT_PR_MODE: ${{ inputs.pr-mode || github.event.inputs.pr_mode || '' }}
+      INPUT_ALLOW_FALLBACK: ${{ inputs.allow-fallback || 'true' }}
+      INPUT_CODEX_COMMAND: ${{ inputs.codex-command || github.event.inputs.codex_command || '@codex start' }}
+    steps:
+      - name: Event summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const act = context.payload.action;
+            const label = (context.payload.label && context.payload.label.name) || '(none)';
+            const issueNo = context.payload.issue && context.payload.issue.number;
+            const manualIssue = process.env.INPUT_TEST_ISSUE || '';
+            core.summary.addHeading('Codex Bridge – Event Summary').addTable([
+              [
+                {data:'Action',header:true},
+                {data:'Label',header:true},
+                {data:'Issue (event)',header:true},
+                {data:'Issue (input)',header:true}
+              ],
+              [String(act), label, String(issueNo), String(manualIssue)]
+            ]).write();
+      - name: Resolve issue number
+        id: ctx
+        uses: actions/github-script@v7
+        env:
+          INPUT_TEST_ISSUE: ${{ env.INPUT_TEST_ISSUE }}
+        with:
+          script: |
+            const ev = context.eventName;
+            const issueFromEvent = context.payload.issue && context.payload.issue.number;
+            const issueFromInput = (process.env.INPUT_TEST_ISSUE || '').trim();
+            const num = Number(issueFromEvent || issueFromInput || 0);
+            core.setOutput('issue', num > 0 ? String(num) : '');
+            core.setOutput('has_issue', num > 0 ? 'true' : 'false');
+      - name: Fail fast on missing issue (manual run)
+        if: ${{ github.event_name == 'workflow_dispatch' && steps.ctx.outputs.has_issue != 'true' }}
+        run: |
+          echo "::error::Missing issue number for workflow_dispatch." && exit 1
+      - name: Get default branch
+        id: def
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const {data} = await github.rest.repos.get({owner, repo});
+            core.setOutput('default', data.default_branch || 'main');
+      - name: Checkout default
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.def.outputs.default }}
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Select PR mode (invite for issue events)
+        id: mode
+        env:
+          INPUT_PR_MODE: ${{ env.INPUT_PR_MODE }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const ev = context.eventName;
+            let mode = 'invite';
+            let reason = 'issues-event-enforced';
+            if (ev === 'workflow_dispatch') {
+              const raw = (process.env.INPUT_PR_MODE || '').toLowerCase();
+              mode = raw === 'invite' || raw === 'create' ? raw : 'create';
+              reason = 'workflow-dispatch';
+            }
+            core.setOutput('mode', mode);
+            core.setOutput('reason', reason);
+      - name: Log chosen mode
+        run: |
+          echo "Chosen PR mode: ${{ steps.mode.outputs.mode }} (reason: ${{ steps.mode.outputs.reason }})"
+      - name: Try local composite Codex bootstrap (lite)
+        id: local_action
+        continue-on-error: true
+        if: ${{ steps.ctx.outputs.has_issue == 'true' }}
+        uses: ./.github/actions/codex-bootstrap-lite
+        with:
+          issue: ${{ steps.ctx.outputs.issue }}
+          service_bot_pat: ${{ steps.mode.outputs.mode == 'create' && (secrets.owner-pr-pat || secrets.service-bot-pat) || secrets.service-bot-pat }}
+          allow_fallback: ${{ env.INPUT_ALLOW_FALLBACK }}
+          codex_command: ${{ env.INPUT_CODEX_COMMAND }}
+          base_branch: ''
+          draft: 'false'
+          auto_ready: 'true'
+          post_codex_comment: ${{ env.INPUT_POST_CODEX }}
+          pr_mode: ${{ steps.mode.outputs.mode }}
+      - name: Debug composite outputs
+        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.local_action.outcome == 'success' }}
+        run: |
+          echo "Composite outputs: pr=${{ steps.local_action.outputs.pr }} branch=${{ steps.local_action.outputs.branch }}"
+      - name: Create branch and bootstrap file
+        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.local_action.outcome == 'failure' }}
+        id: mk
+        env:
+          ISSUE: ${{ steps.ctx.outputs.issue }}
+        run: |
+          set -euo pipefail
+          BR=agents/codex-issue-${ISSUE}-${GITHUB_RUN_ID}
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BR"
+          mkdir -p agents
+          printf "<!-- bootstrap for codex on issue #%s -->\n" "$ISSUE" > "agents/codex-${ISSUE}.md"
+          git add -A || true
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(codex): bootstrap PR for issue #${ISSUE}"
+          else
+            echo "No changes to commit; proceeding to push branch with existing tree."
+          fi
+          git push origin "$BR"
+          echo "branch=$BR" >> "$GITHUB_OUTPUT"
+      - name: Invite human to open PR (fallback)
+        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.local_action.outcome == 'failure' && steps.mode.outputs.mode == 'invite' }}
+        uses: actions/github-script@v7
+        env:
+          BRANCH: ${{ steps.mk.outputs.branch }}
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const issue_number = Number('${{ steps.ctx.outputs.issue }}');
+            const base = "${{ steps.def.outputs.default }}";
+            const branch = process.env.BRANCH;
+            let issueTitle = '';
+            let issueBody = '';
+            try {
+              const { data: is } = await github.rest.issues.get({ owner, repo, issue_number });
+              issueTitle = is.title || '';
+              issueBody = is.body || '';
+            } catch {}
+            const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue_number}`;
+            const header = `### Source Issue #${issue_number}: ${issueTitle}`;
+            const quoted = (issueBody || '').split('\n').map(l => `> ${l}`).join('\n');
+            const suggestion = `${header}\n\nSource: ${issueUrl}\n\n${quoted}\n\n—\n(After opening the PR, comment with \`@codex start\`.)`;
+            const compareUrl = `https://github.com/${owner}/${repo}/compare/${base}...${branch}?expand=1`;
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number,
+              body: `Branch \`${branch}\` created from \`${base}\`.\n\nPlease open the PR as the author so Codex can work on it:\n\n- Compare link: ${compareUrl}\n- Suggested title: \`Codex bootstrap for #${issue_number}\`\n- Suggested body (copy/paste):\n\n\n${'```markdown'}\n${suggestion}\n${'```'}`
+            });
+      - name: Skip PR creation when inviting
+        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.local_action.outcome == 'failure' && steps.mode.outputs.mode == 'invite' }}
+        run: echo "Invite mode: waiting for human author."
+      - name: Open or reuse PR
+        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.local_action.outcome == 'failure' && steps.mode.outputs.mode != 'invite' }}
+        id: pr
+        uses: actions/github-script@v7
+        env:
+          BRANCH: ${{ steps.mk.outputs.branch }}
+        with:
+          github-token: ${{ secrets.owner-pr-pat || secrets.service-bot-pat || github.token }}
+          script: |
+            const {owner, repo} = context.repo;
+            const issue_number = Number('${{ steps.ctx.outputs.issue }}');
+            const branch = process.env.BRANCH;
+            const base = "${{ steps.def.outputs.default }}";
+            const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue_number}`;
+            let issueTitle = '';
+            let issueBody = '';
+            try {
+              const { data: is } = await github.rest.issues.get({ owner, repo, issue_number });
+              issueTitle = is.title || '';
+              issueBody = is.body || '';
+            } catch {}
+            const header = `### Source Issue #${issue_number}: ${issueTitle}`;
+            const quoted = (issueBody || '').split('\n').map(l => `> ${l}`).join('\n');
+            const body = `${header}\n\nSource: ${issueUrl}\n\n${quoted}\n\n—\nPR created automatically to engage Codex.`;
+            try {
+              const { data: pr } = await github.rest.pulls.create({
+                owner,
+                repo,
+                head: branch,
+                base,
+                title: `Codex bootstrap for #${issue_number}`,
+                body
+              });
+              core.setOutput('pr', String(pr.number));
+            } catch (e) {
+              core.setFailed(`Failed to open PR: ${e.status || '?'} ${e.message}`);
+            }
+      - name: Summary
+        if: always()
+        run: |
+          echo "### Codex Issue Bridge" >> $GITHUB_STEP_SUMMARY
+          echo "Issue: ${{ steps.ctx.outputs.issue || '(none)' }}" >> $GITHUB_STEP_SUMMARY
+          echo "Composite outcome: ${{ steps.local_action.outcome || 'not-run' }}" >> $GITHUB_STEP_SUMMARY
+
+  agent-readiness:
+    if: inputs.operation == 'agent_readiness'
+    name: agent readiness (copilot + codex)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    env:
+      INPUT_AGENTS: ${{ inputs.agents || github.event.inputs.agents || 'copilot,codex' }}
+      INPUT_REQUIRE_ALL: ${{ inputs.require-all || github.event.inputs.require_all || 'true' }}
+      INPUT_COPILOT_LOGINS: ${{ inputs.copilot-logins || github.event.inputs.copilot_logins || 'copilot,copilot-swe-agent' }}
+      INPUT_CODEX_LOGINS: ${{ inputs.codex-logins || github.event.inputs.codex_logins || 'chatgpt-codex-connector' }}
+    steps:
+      - name: Probe assignable actors via GraphQL
+        id: gql
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const q = `
+              query($owner:String!, $repo:String!) {
+                repository(owner:$owner, name:$repo) {
+                  suggestedActors(capabilities:[CAN_BE_ASSIGNED], first:100) {
+                    nodes { login }
+                  }
+                }
+              }`;
+            const res = await github.graphql(q, { owner, repo });
+            const actors = (res.repository?.suggestedActors?.nodes || [])
+              .map(n => (n.login || '').toLowerCase());
+            core.info("Assignable actors: " + JSON.stringify(actors));
+            core.setOutput('actors', JSON.stringify(actors));
+      - name: Create temporary issue
+        id: tmp
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const { data: issue } = await github.rest.issues.create({
+              owner, repo,
+              title: "[readiness] agent assignability probe",
+              body: "Temporary issue for readiness checks. Safe to close."
+            });
+            core.setOutput('num', String(issue.number));
+      - name: Try assigning agents
+        id: try
+        env:
+          ACTORS_JSON: ${{ steps.gql.outputs.actors }}
+          INPUT_AGENTS: ${{ env.INPUT_AGENTS }}
+          INPUT_REQUIRE_ALL: ${{ env.INPUT_REQUIRE_ALL }}
+          INPUT_COPILOT_LOGINS: ${{ env.INPUT_COPILOT_LOGINS }}
+          INPUT_CODEX_LOGINS: ${{ env.INPUT_CODEX_LOGINS }}
+          ISSUE_NUM: ${{ steps.tmp.outputs.num }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const num = Number(process.env.ISSUE_NUM || '0');
+            let actors = [];
+            try { actors = JSON.parse(process.env.ACTORS_JSON || '[]'); }
+            catch (e) { core.warning('Could not parse ACTORS_JSON; using []'); actors = []; }
+            const requireAll = String(process.env.INPUT_REQUIRE_ALL || 'true').toLowerCase() === 'true';
+            const agentsRequested = (process.env.INPUT_AGENTS || 'copilot,codex')
+              .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+            const CANDIDATES = {
+              copilot: (process.env.INPUT_COPILOT_LOGINS || 'copilot,copilot-swe-agent')
+                        .split(',').map(s => s.trim().toLowerCase()).filter(Boolean),
+              codex:   (process.env.INPUT_CODEX_LOGINS   || 'chatgpt-codex-connector')
+                        .split(',').map(s => s.trim().toLowerCase()).filter(Boolean),
+            };
+            async function tryAssign(oneLogin) {
+              try {
+                const res = await github.rest.issues.addAssignees({
+                  owner, repo, issue_number: num, assignees: [oneLogin]
+                });
+                return { ok: res.status >= 200 && res.status < 300, status: res.status, login: oneLogin };
+              } catch (err) {
+                return { ok: false, status: err.status || 'ERR', login: oneLogin, message: err.message || String(err) };
+              }
+            }
+            const report = {};
+            for (const agentKey of agentsRequested) {
+              const candidates = CANDIDATES[agentKey] || [];
+              if (!candidates.length) {
+                report[agentKey] = { ok: false, reason: 'no candidates configured' };
+                continue;
+              }
+              core.info(`\n== Testing ${agentKey.toUpperCase()} ==`);
+              core.info(`Candidates: ${JSON.stringify(candidates)}`);
+              const inSuggested = candidates.some(c => actors.includes(c));
+              core.info(`GraphQL suggestedActors contains any candidate? ${inSuggested}`);
+              let outcome = { ok: false, status: 'NA', used: null, inSuggested };
+              for (const cand of candidates) {
+                const res = await tryAssign(cand);
+                core.info(`addAssignees(${cand}) -> ${res.status} ok=${res.ok}`);
+                if (res.ok) { outcome = { ok: true, status: res.status, used: cand, inSuggested }; break; }
+                if (!outcome.message && res.message) outcome.message = res.message;
+              }
+              report[agentKey] = outcome;
+            }
+            core.setOutput('report', JSON.stringify(report));
+            if (Object.values(report).some(v => v && typeof v === 'object' && v.ok === false) && requireAll) {
+              core.setFailed('One or more requested agents are not assignable here.');
+            }
+      - name: Close temporary issue
+        if: always()
+        env:
+          ISSUE_NUM: ${{ steps.tmp.outputs.num }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const num = Number(process.env.ISSUE_NUM || '0');
+            if (num) {
+              await github.rest.issues.update({ owner, repo, issue_number: num, state: 'closed' });
+            }
+      - name: Summary
+        if: always()
+        env:
+          REPORT: ${{ steps.try.outputs.report }}
+        run: |
+          echo "=== Agent readiness report ==="
+          echo "${REPORT}" | sed -e 's/^/  /'
+
+  codex-verify-plan:
+    if: inputs.operation == 'codex_verify'
+    name: plan codex scenarios
+    runs-on: ubuntu-latest
+    outputs:
+      scenario_list: ${{ steps.plan.outputs.scenario_list }}
+    env:
+      INPUT_SCENARIOS: ${{ inputs.scenarios || github.event.inputs.scenarios || 'all' }}
+    steps:
+      - id: plan
+        run: |
+          IN="$INPUT_SCENARIOS"
+          if [ -z "$IN" ] || [ "$IN" = "all" ]; then
+            LIST="t01_basic,t02_reuse,t03_rebootstrap,t04_missing_label,t05_manual_sim,t06_manual_no_sim,t07_invalid_manual,t08_pat_missing_fallback,t09_pat_missing_block,t10_primary_403_fallback,t11_dual_fail,t12_manual_mode,t13_suppressed,t14_invalid_cmd,t15_corrupt_marker"
+          else
+            LIST="$IN"
+          fi
+          echo "scenario_list=$LIST" >> $GITHUB_OUTPUT
+          echo "Scenarios: $LIST"
+
+  codex-verify-matrix:
+    if: inputs.operation == 'codex_verify' && (inputs.parallel == 'true' || github.event.inputs.parallel == 'true')
+    name: verify codex scenarios (matrix)
+    runs-on: ubuntu-latest
+    needs: codex-verify-plan
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario: ${{ fromJson(format('["{0}"]', replace(needs.codex-verify-plan.outputs.scenario_list, ',', '","'))) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+      - name: Run scenario
+        env:
+          SCENARIOS: ${{ matrix.scenario }}
+          FORCE_BRANCH_FAIL: ${{ inputs.force-branch-fail || github.event.inputs.force_branch_fail || 'false' }}
+          OVERRIDE_ALLOW_FALLBACK: ${{ inputs.override-allow-fallback || github.event.inputs.override_allow_fallback || '' }}
+          OVERRIDE_CODEX_COMMAND: ${{ inputs.override-codex-command || github.event.inputs.codex_command || 'codex: start' }}
+          OVERRIDE_PR_MODE: ${{ inputs.override-pr-mode || github.event.inputs.pr_mode || 'auto' }}
+          SUPPRESS_ACTIVATE: ${{ inputs.suppress-activate || github.event.inputs.suppress_activate || 'false' }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SERVICE_BOT_PAT: ${{ secrets.service-bot-pat }}
+        run: |
+          python scripts/verify_codex_bootstrap.py || echo "Scenario completed (status captured in artifact)."
+      - name: Upload scenario artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codex-bootstrap-${{ matrix.scenario }}
+          path: |
+            codex-verification-report.json
+            codex-verification-report.md
+            codex-scenario-logs/
+          if-no-files-found: warn
+      - name: Scenario summary
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            if (!fs.existsSync('codex-verification-report.json')) { return; }
+            const data = JSON.parse(fs.readFileSync('codex-verification-report.json','utf8'));
+            const rows = data.map(r => [r.name, r.status, r.duration_s ?? '', (r.expectation && (r.expectation.expect_new_pr && 'new_pr' || r.expectation.expect_reuse && 'reuse' || r.expectation.expect_no_bootstrap && 'no_bootstrap' || r.expectation.expect_artifact && 'artifact' || ''))]);
+            core.summary.addHeading(`Scenario ${process.env.SCENARIOS || ''} Result`).addTable([[{data:'Scenario',header:true},{data:'Status',header:true},{data:'Duration(s)',header:true},{data:'Expectation',header:true}], ...rows]).write();
+
+  codex-verify-sequential:
+    if: inputs.operation == 'codex_verify' && !(inputs.parallel == 'true' || github.event.inputs.parallel == 'true')
+    name: verify codex scenarios
+    runs-on: ubuntu-latest
+    needs: codex-verify-plan
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+      - name: Run verification harness
+        env:
+          SCENARIOS: ${{ needs.codex-verify-plan.outputs.scenario_list }}
+          FORCE_BRANCH_FAIL: ${{ inputs.force-branch-fail || github.event.inputs.force_branch_fail || 'false' }}
+          OVERRIDE_ALLOW_FALLBACK: ${{ inputs.override-allow-fallback || github.event.inputs.override_allow_fallback || '' }}
+          OVERRIDE_CODEX_COMMAND: ${{ inputs.override-codex-command || github.event.inputs.codex_command || 'codex: start' }}
+          OVERRIDE_PR_MODE: ${{ inputs.override-pr-mode || github.event.inputs.pr_mode || 'auto' }}
+          SUPPRESS_ACTIVATE: ${{ inputs.suppress-activate || github.event.inputs.suppress_activate || 'false' }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SERVICE_BOT_PAT: ${{ secrets.service-bot-pat }}
+        run: python scripts/verify_codex_bootstrap.py
+      - name: Upload verification report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codex-bootstrap-verification
+          path: |
+            codex-verification-report.json
+            codex-verification-report.md
+            codex-scenario-logs/
+          if-no-files-found: warn
+      - name: Verification summary
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            if (!fs.existsSync('codex-verification-report.json')) {
+              core.warning('No verification JSON found');
+              return;
+            }
+            const data = JSON.parse(fs.readFileSync('codex-verification-report.json','utf8'));
+            const rows = data.map(r => [r.name, r.status, r.duration_s ?? '', (r.expectation && (r.expectation.expect_new_pr && 'new_pr' || r.expectation.expect_reuse && 'reuse' || r.expectation.expect_no_bootstrap && 'no_bootstrap' || r.expectation.expect_artifact && 'artifact' || ''))]);
+            core.summary.addHeading('Codex Verification Summary').addTable([[{data:'Scenario',header:true},{data:'Status',header:true},{data:'Duration(s)',header:true},{data:'Expectation',header:true}], ...rows]).write();
