@@ -76,7 +76,7 @@ jobs:
 
       - name: Build image (cached)
         run: |
-          docker buildx build --pull \
+          docker buildx build --pull --load \
             --cache-from type=local,src=/tmp/.buildx-cache \
             --cache-to type=local,dest=/tmp/.buildx-cache-new,mode=max \
             -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest .
