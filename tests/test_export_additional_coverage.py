@@ -18,7 +18,15 @@ try:  # pragma: no cover - exercised when matplotlib is installed
 except ModuleNotFoundError:  # pragma: no cover - handled in test environment
     matplotlib = types.ModuleType("matplotlib")
     matplotlib.use = lambda *args, **kwargs: None
-    pyplot = types.ModuleType("matplotlib.pyplot")
+
+    class _PyplotModule(types.ModuleType):
+        """Minimal pyplot stub exposing the helpers under test."""
+
+        def figure(self, *args: object, **kwargs: object) -> "_Figure":
+            return _Figure()
+
+        def close(self, *args: object, **kwargs: object) -> None:
+            pass
 
     class _Axis:
         def plot(self, *args, **kwargs):
@@ -37,11 +45,7 @@ except ModuleNotFoundError:  # pragma: no cover - handled in test environment
         def savefig(self, *args, **kwargs) -> None:
             return None
 
-    def _figure(*args, **kwargs):
-        return _Figure()
-
-    pyplot.figure = _figure
-    pyplot.close = lambda *args, **kwargs: None
+    pyplot = _PyplotModule("matplotlib.pyplot")
 
     matplotlib.pyplot = pyplot  # type: ignore[attr-defined]
     sys.modules.setdefault("matplotlib", matplotlib)

@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import sys
-from dataclasses import dataclass
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 import pytest
 
 from streamlit_app.components import demo_runner, disclaimer
+from trend_analysis.config import Config
 
 
 @pytest.fixture()
@@ -201,21 +201,14 @@ def test_update_session_state_populates_streamlit_state(
 ) -> None:
     """Ensure the Streamlit session state is updated with demo metadata."""
 
-    @dataclass
-    class DummySetup:
-        config_state: dict[str, Any]
-        sim_config: dict[str, Any]
-        pipeline_config: Any
-        benchmark: str | None
-
     class DummySt:
         def __init__(self) -> None:
             self.session_state: dict[str, Any] = {}
 
-    setup = DummySetup(
+    setup = demo_runner.DemoSetup(
         config_state={"preset_name": "Balanced"},
         sim_config={"preset_name": "Balanced"},
-        pipeline_config=SimpleNamespace(),
+        pipeline_config=cast(Config, SimpleNamespace()),
         benchmark="SPX Index",
     )
     meta = demo_runner.SchemaMeta(

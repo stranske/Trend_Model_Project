@@ -15,12 +15,13 @@ sys.path.insert(0, str(ROOT / "src"))  # noqa: E402
 from trend_analysis import config  # noqa: E402
 
 # Try to import ValidationError, fallback to ValueError for environments without pydantic
+ValidationException: type[Exception]
 try:
     from pydantic import ValidationError
-
-    ValidationException = ValidationError
 except ImportError:
     ValidationException = ValueError
+else:
+    ValidationException = ValidationError
 
 
 class TestHumanErrors:

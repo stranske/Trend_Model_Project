@@ -13,8 +13,9 @@ MODULE_PATH = Path(trend_analysis.__file__).with_name("rebalancing.py")
 SPEC = importlib.util.spec_from_file_location(
     "trend_analysis.rebalancing_file", MODULE_PATH
 )
+if SPEC is None or SPEC.loader is None:
+    raise AssertionError("Unable to load rebalancing module spec")
 reb_module = importlib.util.module_from_spec(SPEC)
-assert SPEC and SPEC.loader
 SPEC.loader.exec_module(reb_module)
 
 # Restore registry to point to canonical strategy implementations
