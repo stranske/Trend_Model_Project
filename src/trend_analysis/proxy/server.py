@@ -27,14 +27,17 @@ BackgroundTask: Any | None = None
 
 if TYPE_CHECKING:  # pragma: no cover - static type hints only
     import httpx as _httpx_mod  # noqa: F401
-    from httpx import AsyncClient as _HTTPXAsyncClient  # noqa: F401
     import uvicorn as _uvicorn_mod  # noqa: F401
-    from uvicorn import Config as _UvicornConfig, Server as _UvicornServer  # noqa: F401
     import websockets as _websockets_mod  # noqa: F401
-    from websockets.legacy.client import WebSocketClientProtocol as _WebsocketProtocol  # noqa: F401
     from fastapi import FastAPI as _FastAPIType  # noqa: F401
-    from fastapi.responses import StreamingResponse as _StreamingResponseType  # noqa: F401
-    from starlette.background import BackgroundTask as _BackgroundTaskType  # noqa: F401
+    from fastapi.responses import \
+        StreamingResponse as _StreamingResponseType  # noqa: F401
+    from httpx import AsyncClient as _HTTPXAsyncClient  # noqa: F401
+    from starlette.background import \
+        BackgroundTask as _BackgroundTaskType  # noqa: F401
+    from uvicorn import Config as _UvicornConfig  # noqa: F401
+    from websockets.legacy.client import \
+        WebSocketClientProtocol as _WebsocketProtocol  # noqa: F401
 
 
 def _lazy_import_deps() -> bool:
@@ -163,7 +166,9 @@ class StreamlitProxy:
     async def _handle_websocket(self, websocket: _SupportsWebSocket, path: str) -> None:
         _assert_deps()
         if websockets is None:
-            raise RuntimeError("websockets dependency is required for proxy WebSocket support")
+            raise RuntimeError(
+                "websockets dependency is required for proxy WebSocket support"
+            )
         await websocket.accept()
         target_url = f"{self.streamlit_ws_url}/{path}"
         q = getattr(websocket.url, "query", "")
@@ -248,7 +253,9 @@ class StreamlitProxy:
     ) -> None:  # noqa: D401
         _assert_deps()
         if uvicorn is None:
-            raise RuntimeError("uvicorn dependency is required to start the proxy server")
+            raise RuntimeError(
+                "uvicorn dependency is required to start the proxy server"
+            )
         config = uvicorn.Config(app=self.app, host=host, port=port, log_level="info")
         server = uvicorn.Server(config)
         logger.info("Starting Streamlit proxy on %s:%s", host, port)

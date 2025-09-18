@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-
 import logging
 from typing import Any, Dict, Literal
 
@@ -103,9 +102,7 @@ def oas_shrinkage(
     return shrunk_cov.astype(float, copy=False), float(intensity)
 
 
-def diagonal_loading(
-    cov: NDArrayFloat, loading_factor: float = 1e-6
-) -> NDArrayFloat:
+def diagonal_loading(cov: NDArrayFloat, loading_factor: float = 1e-6) -> NDArrayFloat:
     """Apply diagonal loading to improve conditioning.
 
     Args:

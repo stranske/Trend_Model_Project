@@ -1,9 +1,10 @@
-import subprocess
 import os
+import subprocess
 import sys
 from pathlib import Path
+
 import pandas as pd
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 
 def test_cli_no_structured_log(tmp_path: Path):

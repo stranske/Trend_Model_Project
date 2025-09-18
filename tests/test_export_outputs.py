@@ -4,13 +4,9 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from trend_analysis.export import (
-    FORMATTERS_EXCEL,
-    export_to_csv,
-    export_to_excel,
-    export_to_json,
-    export_to_txt,
-)
+from trend_analysis.export import (FORMATTERS_EXCEL, export_to_csv,
+                                   export_to_excel, export_to_json,
+                                   export_to_txt)
 
 
 @pytest.fixture(autouse=True)
