@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List
+from typing import TYPE_CHECKING, Any, Dict, List, cast
 
 import pandas as pd
 import streamlit as st
@@ -46,7 +46,8 @@ def _read_defaults() -> Dict[str, Any]:
 
 
 def _to_yaml(d: Dict[str, Any]) -> str:
-    return yaml.safe_dump(d, sort_keys=False, allow_unicode=True)
+    dumped = yaml.safe_dump(d, sort_keys=False, allow_unicode=True)
+    return cast(str, dumped)
 
 
 def _merge_update(base: Dict[str, Any], updates: Dict[str, Any]) -> Dict[str, Any]:
