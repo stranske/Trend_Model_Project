@@ -7,6 +7,7 @@ import sys
 from collections.abc import Mapping, Sequence
 from importlib import metadata
 from pathlib import Path
+import numpy as np
 
 import numpy as np
 import pandas as pd

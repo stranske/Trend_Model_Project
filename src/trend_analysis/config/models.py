@@ -267,6 +267,42 @@ if _HAS_PYDANTIC:
                 raise ValueError(f"{field_name} must be a dictionary")
             return v
 
+        @_fv_typed("portfolio", mode="after")
+        def _validate_portfolio_controls(
+            cls, v: dict[str, Any]
+        ) -> dict[str, Any]:  # noqa: N805 - pydantic validator
+            """Validate and normalise turnover / transaction cost controls.
+
+            Backwards compatible: silently coerces numeric strings and ignores
+            missing keys. Only raises when values are present but invalid.
+            """
+            if not isinstance(v, dict):  # defensive (already checked above)
+                return v
+            # Transaction cost (basis points per 1 unit turnover)
+            if "transaction_cost_bps" in v:
+                raw = v["transaction_cost_bps"]
+                try:
+                    tc = float(raw)
+                except Exception as exc:  # pragma: no cover - defensive
+                    raise ValueError("transaction_cost_bps must be numeric") from exc
+                if tc < 0:
+                    raise ValueError("transaction_cost_bps must be >= 0")
+                v["transaction_cost_bps"] = tc
+            # Max turnover cap (fraction of portfolio; 1.0 = effectively uncapped)
+            if "max_turnover" in v:
+                raw = v["max_turnover"]
+                try:
+                    mt = float(raw)
+                except Exception as exc:  # pragma: no cover - defensive
+                    raise ValueError("max_turnover must be numeric") from exc
+                if mt < 0:
+                    raise ValueError("max_turnover must be >= 0")
+                # Allow values >1.0 (full liquidation + rebuild = 2.0 theoretical upper)
+                if mt > 2.0:
+                    raise ValueError("max_turnover must be <= 2.0")
+                v["max_turnover"] = mt
+            return v
+
     # Field constants are already defined as class variables above
 
     # Only cache when creating a fresh class
@@ -385,6 +421,29 @@ else:  # Fallback mode for tests without pydantic
                     raise ValueError(f"{field} section is required")
                 if not isinstance(value, dict):
                     raise ValueError(f"{field} must be a dictionary")
+            # Light-weight validation for turnover / cost controls
+            port = getattr(self, "portfolio", {})
+            if isinstance(port, dict):
+                if "transaction_cost_bps" in port:
+                    try:
+                        tc = float(port["transaction_cost_bps"])
+                    except Exception as exc:  # pragma: no cover - defensive
+                        raise ValueError(
+                            "transaction_cost_bps must be numeric"
+                        ) from exc
+                    if tc < 0:
+                        raise ValueError("transaction_cost_bps must be >= 0")
+                    port["transaction_cost_bps"] = tc
+                if "max_turnover" in port:
+                    try:
+                        mt = float(port["max_turnover"])
+                    except Exception as exc:  # pragma: no cover - defensive
+                        raise ValueError("max_turnover must be numeric") from exc
+                    if mt < 0:
+                        raise ValueError("max_turnover must be >= 0")
+                    if mt > 2.0:
+                        raise ValueError("max_turnover must be <= 2.0")
+                    port["max_turnover"] = mt
 
         # Provide a similar API surface to pydantic for callers
         def model_dump(self) -> Dict[str, Any]:

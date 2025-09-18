@@ -645,6 +645,67 @@ def compute_metric_series_with_cache(
     return pd.Series(avg, index=in_sample_df.columns, name="AvgCorr")
 
 
+def compute_metric_series_with_cache(
+    in_sample_df: pd.DataFrame,
+    metric_name: str,
+    stats_cfg: RiskStatsConfig,
+    *,
+    cov_cache: "CovCache | None" = None,
+    window_start: str | None = None,
+    window_end: str | None = None,
+    freq: str = "M",
+    enable_cache: bool = True,
+    incremental_cov: bool = False,
+) -> pd.Series:
+    """Compute metric series with optional covariance caching.
+
+    Current pipeline calls remain unchanged; this helper is opt-in for
+    metrics that require a covariance matrix. A synthetic metric name
+    ``__COV_VAR__`` demonstrates usage by returning diagonal variances
+    from a cached covariance payload. Real metrics can hook into this
+    path without altering existing registry semantics.
+    """
+    if metric_name not in {"__COV_VAR__", "AvgCorr"}:
+        return _compute_metric_series(in_sample_df, metric_name, stats_cfg)
+    from ..perf.cache import compute_cov_payload
+
+    # Caching disabled path
+    if (cov_cache is None) or (not enable_cache):
+        payload = compute_cov_payload(in_sample_df)
+    else:
+        key = cov_cache.make_key(
+            window_start or "0000-00",
+            window_end or "0000-00",
+            in_sample_df.columns,
+            freq,
+        )
+        # NOTE: incremental_cov is a future optimization: requires caller to
+        # provide previous payload & row deltas. For now we simply ignore the
+        # flag and rely on standard cache lookups. Hook point documented.
+        payload = cov_cache.get_or_compute(
+            key,
+            lambda: compute_cov_payload(
+                in_sample_df, materialise_aggregates=incremental_cov
+            ),
+        )
+    if metric_name == "__COV_VAR__":
+        return pd.Series(
+            payload.cov.diagonal(), index=in_sample_df.columns, name="CovVar"
+        )
+    # AvgCorr computation
+    diag = np.sqrt(np.clip(np.diag(payload.cov), 0, None))
+    if diag.size <= 1:
+        return pd.Series(0.0, index=in_sample_df.columns, name="AvgCorr")
+    with np.errstate(divide="ignore", invalid="ignore"):
+        denom = np.outer(diag, diag)
+        corr = np.divide(
+            payload.cov, denom, out=np.zeros_like(payload.cov), where=denom != 0
+        )
+    sums = corr.sum(axis=1) - 1.0
+    avg = sums / (corr.shape[0] - 1)
+    return pd.Series(avg, index=in_sample_df.columns, name="AvgCorr")
+
+
 def _zscore(series: pd.Series) -> pd.Series:
     """Return z‑scores (mean 0, stdev 1).
 

@@ -170,6 +170,62 @@ def run_schedule(
     prev_tidx: np.ndarray | None = None
     prev_tvals: np.ndarray | None = None
 
+    def _fast_turnover(
+        prev_idx: np.ndarray | None,
+        prev_vals: np.ndarray | None,
+        new_series: pd.Series,
+    ) -> tuple[float, np.ndarray, np.ndarray]:
+        """Compute turnover between previous and new weights using NumPy.
+
+        Parameters
+        ----------
+        prev_idx : np.ndarray | None
+            Previous weight index values (object dtype) or None on first call.
+        prev_vals : np.ndarray | None
+            Previous weight values aligned with ``prev_idx``.
+        new_series : pd.Series
+            New weights (float) indexed by asset identifier.
+
+        Returns
+        -------
+        turnover : float
+            Sum of absolute weight changes.
+        next_idx, next_vals : np.ndarray, np.ndarray
+            Stored index/value arrays for next iteration (copy-safe).
+        """
+        # First period: turnover = sum(abs(new_w))
+        nidx = new_series.index.to_numpy()
+        nvals = new_series.to_numpy(dtype=float, copy=True)
+        if prev_idx is None or prev_vals is None:
+            return float(np.abs(nvals).sum()), nidx, nvals
+        # Build unified index mapping only once per call
+        # Map previous positions
+        pmap = {k: i for i, k in enumerate(prev_idx.tolist())}
+        # Map new positions
+        # Collect union preserving new ordering first then unseen old to keep determinism
+        union_list: list[Any] = []
+        seen: set[Any] = set()
+        for k in nidx.tolist():
+            union_list.append(k)
+            seen.add(k)
+        for k in prev_idx.tolist():
+            if k not in seen:
+                union_list.append(k)
+                seen.add(k)
+        union_arr = np.array(union_list, dtype=object)
+        # Allocate aligned arrays
+        new_aligned = np.zeros(len(union_arr), dtype=float)
+        prev_aligned = np.zeros(len(union_arr), dtype=float)
+        # Fill new
+        nmap = {k: i for i, k in enumerate(nidx.tolist())}
+        for i, k in enumerate(union_arr.tolist()):
+            if k in nmap:
+                new_aligned[i] = nvals[nmap[k]]
+            if k in pmap:
+                prev_aligned[i] = prev_vals[pmap[k]]
+        turnover = float(np.abs(new_aligned - prev_aligned).sum())
+        return turnover, nidx, nvals
+
     col = (
         rank_column
         or getattr(selector, "rank_column", None)
@@ -207,10 +263,8 @@ def run_schedule(
             )
 
             # Fast turnover computation
-            turnover, prev_tidx, prev_tvals = _compute_turnover_state(
-                prev_tidx,
-                prev_tvals,
-                final_weights.astype(float),
+            turnover, prev_tidx, prev_tvals = _fast_turnover(
+                prev_tidx, prev_tvals, final_weights.astype(float)
             )
             weights = final_weights.to_frame("weight")
             prev_weights = final_weights
