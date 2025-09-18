@@ -51,6 +51,7 @@ def _apply_cap(w: pd.Series, cap: float, total: float | None = None) -> pd.Serie
         raise ConstraintViolation("max_weight must be positive")
     total_allocation = float(total if total is not None else w.sum())
     if total_allocation <= NUMERICAL_TOLERANCE_HIGH:
+        # Early return: If total allocation is (near) zero, there's nothing to cap or redistribute.
         return w
     # Feasibility check
     if cap * len(w) < total_allocation - NUMERICAL_TOLERANCE_HIGH:
