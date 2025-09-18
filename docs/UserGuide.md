@@ -123,54 +123,7 @@ For reproducible results across different runs and environments, see [Reproducib
 
 The Streamlit Results page now includes a Walk-forward analysis expander to aggregate metrics over rolling out-of-sample windows and, optionally, by regime. See [Walkforward.md](Walkforward.md) for a quick guide and a CLI example.
 
-## 13. Structured run logging
-
-Structured JSONL logging provides a machine‑parsable trace of each pipeline run. It is enabled by default for CLI and Streamlit executions.
-
-Key points:
-
-- Default path: `outputs/logs/run_<run_id>.jsonl` (auto‑created). A unique 12‑char hex `run_id` is generated if the config does not supply one.
-- CLI overrides: `--log-file custom/path.jsonl` writes to a specific file; `--no-structured-log` disables JSONL emission entirely.
-- Rotation: log files rotate when they exceed ~1 MB (single backup `<name>.jsonl.1`).
-- Schema (one JSON object per line): `{"ts": <epoch_seconds>, "run_id": "...", "step": "selection", "level": "INFO", "msg": "...", "extra": {...}}`
-- Steps include: init / start, load_data, metrics_build, selection, weighting (always present via fallback), benchmarks, pipeline_complete, summary_render, export_start / export_complete, bundle_complete, end.
-- Streamlit UI: the Results page shows a Run Log pane with auto‑refresh (5s), tail view, file size & line count, error summary and a download button.
-
-Command examples:
-
-```bash
-# Default (creates outputs/logs/run_<id>.jsonl)
-python -m trend_analysis.run_analysis -c config/demo.yml -i demo/demo_returns.csv
-
-# Custom path
-python -m trend_analysis.run_analysis -c config/demo.yml -i demo/demo_returns.csv \
-   --log-file logs/my_run.jsonl
-
-# Disable structured logging
-python -m trend_analysis.run_analysis -c config/demo.yml -i demo/demo_returns.csv \
-   --no-structured-log
-```
-
-Programmatic helpers:
-
-- `from trend_analysis.logging import logfile_to_frame, error_summary`
-- `logfile_to_frame(path)` returns a DataFrame (most recent first) with flattened scalar fields from `extra`.
-- `error_summary(path)` groups ERROR lines with counts and last timestamp.
-
-Notebook inspection example:
-
-```python
-from pathlib import Path
-from trend_analysis.logging import logfile_to_frame, error_summary
-log_path = next(Path('outputs/logs').glob('run_*.jsonl'))
-df = logfile_to_frame(log_path)
-print(df.head())
-print(error_summary(log_path))
-```
-
-Disable logging only if you have strict I/O limits or are micro‑benchmarking; overhead is negligible (dozens of lines per run).
-
-## 14. Further help
+## 13. Further help
 
 See `README.md` for a short overview of the repository structure and the example notebooks for end‑to‑end demonstrations.
 

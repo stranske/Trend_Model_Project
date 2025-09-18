@@ -80,15 +80,6 @@ def main(argv: list[str] | None = None) -> int:
         const="analysis_bundle.zip",
         help="Write reproducibility bundle (optional path or default analysis_bundle.zip)",
     )
-    run_p.add_argument(
-        "--log-file",
-        help="Path to JSONL structured log (defaults to outputs/logs/run_<id>.jsonl)",
-    )
-    run_p.add_argument(
-        "--no-structured-log",
-        action="store_true",
-        help="Disable structured JSONL logging for this run",
-    )
 
     # Handle --check flag before parsing subcommands
     # This allows --check to work without requiring a subcommand
@@ -125,49 +116,19 @@ def main(argv: list[str] | None = None) -> int:
         assert df is not None  # narrow type for type-checkers
         split = cfg.sample_split
         required_keys = {"in_start", "in_end", "out_start", "out_end"}
-        import uuid
-
-        from .logging import get_default_log_path, init_run_logger, log_step
-
-        run_id = getattr(cfg, "run_id", None) or uuid.uuid4().hex[:12]
-        try:
-            setattr(cfg, "run_id", run_id)  # type: ignore[attr-defined]
-        except (AttributeError, TypeError):
-            # Some config implementations may forbid new attrs; proceed without persisting
-            pass
-        log_path = (
-            Path(args.log_file) if args.log_file else get_default_log_path(run_id)
-        )
-        do_structured = not args.no_structured_log
-        if do_structured:
-            init_run_logger(run_id, log_path)
-            log_step(run_id, "start", "CLI run initialised", config_path=args.config)
         if required_keys.issubset(split):
-            if do_structured:
-                log_step(run_id, "load_data", "Loaded returns dataframe", rows=len(df))
             run_result = run_simulation(cfg, df)
-            if do_structured:
-                log_step(
-                    run_id,
-                    "pipeline_complete",
-                    "Pipeline execution finished",
-                    metrics_rows=len(run_result.metrics),
-                )
             metrics_df = run_result.metrics
             res = run_result.details
             run_seed = run_result.seed
             # Attach time series required by export_bundle if present
             if isinstance(res, dict):
                 # portfolio returns preference: user_weight then equal_weight fallback
-                port_ser = None
-                try:
-                    port_ser = (
-                        res.get("portfolio_user_weight")
-                        or res.get("portfolio_equal_weight")
-                        or res.get("portfolio_equal_weight_combined")
-                    )
-                except Exception:
-                    port_ser = None
+                port_ser = (
+                    res.get("portfolio_user_weight")
+                    or res.get("portfolio_equal_weight")
+                    or res.get("portfolio_equal_weight_combined")
+                )
                 if port_ser is not None:
                     run_result.portfolio = port_ser  # type: ignore[attr-defined]
                 bench_map = res.get("benchmarks") if isinstance(res, dict) else None
@@ -197,8 +158,6 @@ def main(argv: list[str] | None = None) -> int:
             str(split.get("out_end")),
         )
         print(text)
-        if do_structured:
-            log_step(run_id, "summary_render", "Printed summary text")
 
         export_cfg = cfg.export
         out_dir = export_cfg.get("directory")
@@ -218,10 +177,6 @@ def main(argv: list[str] | None = None) -> int:
                     str(split.get("out_end")),
                 )
                 data["summary"] = pd.DataFrame()
-                if do_structured:
-                    log_step(
-                        run_id, "export_start", "Beginning export", formats=out_formats
-                    )
                 export.export_to_excel(
                     data,
                     str(Path(out_dir) / f"{filename}.xlsx"),
@@ -236,8 +191,6 @@ def main(argv: list[str] | None = None) -> int:
                     export.export_data(
                         data, str(Path(out_dir) / filename), formats=out_formats
                     )
-            if do_structured:
-                log_step(run_id, "export_complete", "Export finished")
 
         # Optional bundle export (reproducibility manifest + hashes)
         if args.bundle:
@@ -262,15 +215,6 @@ def main(argv: list[str] | None = None) -> int:
             rr.input_path = Path(args.input)  # type: ignore[attr-defined]
             export_bundle(rr, bundle_path)
             print(f"Bundle written: {bundle_path}")
-            if do_structured:
-                log_step(
-                    run_id,
-                    "bundle_complete",
-                    "Reproducibility bundle written",
-                    bundle=str(bundle_path),
-                )
-        if do_structured:
-            log_step(run_id, "end", "CLI run complete", log_file=str(log_path))
         return 0
 
     # This shouldn't be reached with required=True.

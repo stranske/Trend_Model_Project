@@ -1,7 +1,6 @@
 import json
 import os
 import subprocess
-import zipfile
 from pathlib import Path
 
 DEMO_CONFIG = Path("config/demo.yml")
@@ -90,6 +89,8 @@ def test_cli_seed_precedence_env_vs_flag(tmp_path: Path) -> None:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
+    import json
+    import zipfile
 
     with zipfile.ZipFile(bundle) as z:
         with z.open("run_meta.json") as f:

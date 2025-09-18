@@ -208,7 +208,6 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
 
         # Store a parallel sanitized view for hashing/export without mutating original
         rr.details_sanitized = _sanitize_keys(rr.details)  # type: ignore[attr-defined]
-
     except (AttributeError, TypeError, ValueError):  # pragma: no cover
         pass
     return rr
