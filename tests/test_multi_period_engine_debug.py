@@ -26,14 +26,10 @@ class SequenceWeighting:
     sequences: Tuple[Dict[str, float], ...]
     _idx: int = 0
 
-    def update(
-        self, scores: pd.Series, days: int | None = None
-    ) -> None:  # pragma: no cover - hook for protocol
+    def update(self, scores: pd.Series, days: int = 30) -> None:  # pragma: no cover - hook for protocol
         # The engine will call update when rank_column is present. The sequence
         # weighting used in this test is deterministic and state free, so we do
         # not need to adjust any internal state here.
-        # The `days` argument is accepted for compatibility with the engine but
-        # is not used because this weighting scheme has no state.
         pass
 
     def weight(self, selected: pd.DataFrame) -> pd.DataFrame:
@@ -66,6 +62,9 @@ def test_run_schedule_turnover_debug_validation(monkeypatch: pytest.MonkeyPatch)
             score_frames, selector, weighting, rank_column="Sharpe"
         )
 
+    try:
+        portfolio = run_schedule(score_frames, selector, weighting, rank_column="Sharpe")
+
         # Ensure the debug validator populated history and turnover for each period.
         assert isinstance(portfolio, Portfolio)
         assert set(portfolio.history) == {"2020-01-31", "2020-02-29"}
@@ -73,4 +72,4 @@ def test_run_schedule_turnover_debug_validation(monkeypatch: pytest.MonkeyPatch)
         # The second period should see turnover from introducing FundC while FundA is removed.
         assert portfolio.turnover["2020-02-29"] > 0.0
     finally:
-        monkeypatch.delenv("DEBUG_TURNOVER_VALIDATE")
+        monkeypatch.delenv("DEBUG_TURNOVER_VALIDATE", raising=False)
