@@ -205,9 +205,3 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         pass
     return rr
 
-    # NOTE: unreachable code block retained for clarity; bundle export now
-    # handled by attaching portfolio in CLI before export.
-
-
-# Monkey-patch friendly attributes (documented for export_bundle) are added
-# downstream in CLI when needed (portfolio / benchmark / weights).
