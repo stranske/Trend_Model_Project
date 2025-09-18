@@ -10,7 +10,8 @@ from trend_analysis.multi_period import engine as mp_engine
 
 
 def test_prepare_returns_frame_forward_fill_and_zero_fill() -> None:
-    """The helper should cast to float, forward fill, and replace NaNs with zero."""
+    """The helper should cast to float, forward fill, and replace NaNs with
+    zero."""
 
     df = pd.DataFrame(
         {
@@ -33,7 +34,8 @@ def test_prepare_returns_frame_forward_fill_and_zero_fill() -> None:
 
 
 def test_compute_turnover_state_handles_fresh_and_existing_weights() -> None:
-    """Turnover computation should work for first-period and subsequent updates."""
+    """Turnover computation should work for first-period and subsequent
+    updates."""
 
     first_series = pd.Series([0.4, -0.1], index=["A", "B"], dtype=float)
     first_turnover, idx, vals = mp_engine._compute_turnover_state(
@@ -60,14 +62,17 @@ def test_compute_turnover_state_handles_fresh_and_existing_weights() -> None:
     expected = float(
         np.abs(
             new_series.reindex(union, fill_value=0.0).to_numpy()
-            - pd.Series(prev_vals, index=prev_idx).reindex(union, fill_value=0.0).to_numpy()
+            - pd.Series(prev_vals, index=prev_idx)
+            .reindex(union, fill_value=0.0)
+            .to_numpy()
         ).sum()
     )
     assert turnover == pytest.approx(expected)
 
 
 def test_portfolio_rebalance_accepts_multiple_input_shapes() -> None:
-    """The ``Portfolio.rebalance`` helper should normalise supported input types."""
+    """The ``Portfolio.rebalance`` helper should normalise supported input
+    types."""
 
     pf = mp_engine.Portfolio()
 

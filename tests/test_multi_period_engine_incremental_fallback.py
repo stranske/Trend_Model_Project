@@ -1,4 +1,5 @@
-"""Additional tests for the multi-period engine incremental covariance logic."""
+"""Additional tests for the multi-period engine incremental covariance
+logic."""
 
 from __future__ import annotations
 
@@ -31,9 +32,7 @@ class _Config:
             "indices_list": None,
         }
     )
-    vol_adjust: Dict[str, Any] = field(
-        default_factory=lambda: {"target_vol": 1.0}
-    )
+    vol_adjust: Dict[str, Any] = field(default_factory=lambda: {"target_vol": 1.0})
     benchmarks: Dict[str, Any] = field(default_factory=dict)
     run: Dict[str, Any] = field(default_factory=lambda: {"monthly_cost": 0.0})
     performance: Dict[str, Any] = field(
@@ -78,17 +77,20 @@ def _payload_for(frame: pd.DataFrame) -> SimpleNamespace:
 def test_incremental_covariance_falls_back_to_full_recompute(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """When no sliding-window shift is detected a full recompute is triggered."""
+    """When no sliding-window shift is detected a full recompute is
+    triggered."""
 
     cfg = _Config(data={"csv_path": "unused.csv"})
 
-    dates = pd.to_datetime([
-        "2020-01-31",
-        "2020-02-29",
-        "2020-03-31",
-        "2020-04-30",
-        "2020-05-31",
-    ])
+    dates = pd.to_datetime(
+        [
+            "2020-01-31",
+            "2020-02-29",
+            "2020-03-31",
+            "2020-04-30",
+            "2020-05-31",
+        ]
+    )
     df = pd.DataFrame(
         {
             "Date": dates,
@@ -120,8 +122,12 @@ def test_incremental_covariance_falls_back_to_full_recompute(
         compute_calls.append(frame.shape[0])
         return _payload_for(frame)
 
-    def fake_incremental_cov_update(*args: Any, **kwargs: Any) -> None:  # pragma: no cover
-        raise AssertionError("incremental update path should not be used in fallback test")
+    def fake_incremental_cov_update(
+        *args: Any, **kwargs: Any
+    ) -> None:  # pragma: no cover
+        raise AssertionError(
+            "incremental update path should not be used in fallback test"
+        )
 
     monkeypatch.setattr("trend_analysis.perf.cache.CovCache", _DummyCache)
     monkeypatch.setattr(
@@ -146,4 +152,3 @@ def test_incremental_covariance_falls_back_to_full_recompute(
         "incremental_updates": 0,
     }
     assert results[-1]["cov_diag"] == [1.0, 1.0]
-
