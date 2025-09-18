@@ -97,7 +97,9 @@ class ScriptedWeighting:
         )
         return weights.to_frame("weight")
 
-    def update(self, scores: pd.Series, days: int) -> None:  # pragma: no cover - inert hook
+    def update(
+        self, scores: pd.Series, days: int
+    ) -> None:  # pragma: no cover - inert hook
         pass
 
 
@@ -145,7 +147,9 @@ def test_threshold_hold_weight_bounds(monkeypatch: pytest.MonkeyPatch) -> None:
 
     import trend_analysis.selector as selector_mod
 
-    monkeypatch.setattr(selector_mod, "create_selector_by_name", lambda *a, **k: ScriptedSelector())
+    monkeypatch.setattr(
+        selector_mod, "create_selector_by_name", lambda *a, **k: ScriptedSelector()
+    )
 
     import trend_analysis.core.rank_selection as rank_sel
 
@@ -188,7 +192,9 @@ def test_threshold_hold_weight_bounds(monkeypatch: pytest.MonkeyPatch) -> None:
         },
     }
 
-    def fake_metric_series(_frame: pd.DataFrame, metric: str, _stats_cfg: Any) -> pd.Series:
+    def fake_metric_series(
+        _frame: pd.DataFrame, metric: str, _stats_cfg: Any
+    ) -> pd.Series:
         values = metric_maps[metric]
         return pd.Series(values, dtype=float)
 
@@ -209,11 +215,13 @@ def test_threshold_hold_weight_bounds(monkeypatch: pytest.MonkeyPatch) -> None:
         manual_funds: List[str],
         **_kwargs: Any,
     ) -> Dict[str, Any]:
-        records.append({
-            "weights": dict(custom_weights),
-            "funds": list(manual_funds),
-            "period": (in_start, out_end),
-        })
+        records.append(
+            {
+                "weights": dict(custom_weights),
+                "funds": list(manual_funds),
+                "period": (in_start, out_end),
+            }
+        )
         return {"metrics": pd.DataFrame(), "details": {}, "seed": cfg.seed}
 
     monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
