@@ -29,7 +29,10 @@
 /notebooks/**                       @stranske
 /*.ipynb                            @stranske
 
-# CI/CD and container files
-/.github/workflows/**               @stranske
+# Automation, infrastructure, and agents
+/.github/**                         @stranske
+/agents/**                          @stranske
+
+# Container tooling
 /Dockerfile                         @stranske
 /docker-compose.yml                 @stranske
