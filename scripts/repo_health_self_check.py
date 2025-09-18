@@ -199,7 +199,7 @@ def _check_branch_protection(
             expected={200, 403, 404},
             session=session,
         )
-    except CheckError as exc:  # pragma: no cover - defensive logging
+    except CheckError as exc:  # pragma: no cover - error handling, not logging
         return CheckOutcome(False, f"Unable to inspect branch protection: {exc}")
 
     if response.status_code == 404:
