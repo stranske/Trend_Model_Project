@@ -38,6 +38,16 @@ from ..weighting import (
 from .replacer import Rebalancer
 from .scheduler import generate_periods
 
+SHIFT_DETECTION_MAX_STEPS_DEFAULT = 10
+
+
+def _prepare_returns_frame(df: pd.DataFrame) -> pd.DataFrame:
+    """Return a forward-filled/zero-filled float copy of returns."""
+
+    prepared = df.astype(float, copy=True)
+    prepared = prepared.ffill().fillna(0.0)
+    return prepared
+
 
 def _compute_turnover_state(
     prev_idx: np.ndarray | None,
@@ -468,36 +478,39 @@ def run(
                     if c not in (cfg.benchmarks or {}).values()
                 ]
                 in_df_full = in_df_full[fund_cols]
+                in_df_prepared = _prepare_returns_frame(in_df_full)
 
                 if (
                     incremental_cov
                     and prev_cov_payload is not None
                     and prev_in_df is not None
                 ):
-                    same_len = prev_in_df.shape[0] == in_df_full.shape[0]
+                    same_len = prev_in_df.shape[0] == in_df_prepared.shape[0]
                     same_cols = (
-                        prev_in_df.columns.tolist() == in_df_full.columns.tolist()
+                        prev_in_df.columns.tolist()
+                        == in_df_prepared.columns.tolist()
                     )
-                    n_rows = in_df_full.shape[0]
+                    n_rows = in_df_prepared.shape[0]
                     if same_cols and n_rows >= 3:
                         # Determine shift distance k (number of rows replaced at head and appended at tail)
                         k = None
                         if same_len:
                             # Compare trailing blocks to find minimal k
                             raw_max_steps = perf_flags.get(
-                                "shift_detection_max_steps", 10
+                                "shift_detection_max_steps",
+                                SHIFT_DETECTION_MAX_STEPS_DEFAULT,
                             )
                             try:
                                 max_shift_steps = int(raw_max_steps)
                             except (TypeError, ValueError):
-                                max_shift_steps = 10
+                                max_shift_steps = SHIFT_DETECTION_MAX_STEPS_DEFAULT
                             max_shift_steps = max(1, max_shift_steps)
                             for step in range(
                                 1, min(max_shift_steps, n_rows - 1)
                             ):  # cap search for safety
                                 if np.allclose(
                                     prev_in_df.iloc[step:].to_numpy(),
-                                    in_df_full.iloc[:-step].to_numpy(),
+                                    in_df_prepared.iloc[:-step].to_numpy(),
                                     rtol=0,
                                     atol=1e-12,
                                 ):
@@ -506,7 +519,7 @@ def run(
                         if k is None:
                             # Fallback full recompute
                             prev_cov_payload = compute_cov_payload(
-                                in_df_full, materialise_aggregates=incremental_cov
+                                in_df_prepared, materialise_aggregates=incremental_cov
                             )
                         else:
                             # Apply k incremental updates sequentially
@@ -515,7 +528,7 @@ def run(
                                     old_row = prev_in_df.iloc[step].to_numpy(
                                         dtype=float
                                     )
-                                    new_row = in_df_full.iloc[
+                                    new_row = in_df_prepared.iloc[
                                         n_rows - k + step
                                     ].to_numpy(dtype=float)
                                     prev_cov_payload = incremental_cov_update(
@@ -525,19 +538,20 @@ def run(
                                         cov_cache_obj.incremental_updates += 1
                             except Exception:  # pragma: no cover - fallback safety
                                 prev_cov_payload = compute_cov_payload(
-                                    in_df_full, materialise_aggregates=incremental_cov
+                                    in_df_prepared,
+                                    materialise_aggregates=incremental_cov,
                                 )
                     else:
                         prev_cov_payload = compute_cov_payload(
-                            in_df_full, materialise_aggregates=incremental_cov
+                            in_df_prepared, materialise_aggregates=incremental_cov
                         )
                 else:
                     from ..perf.cache import compute_cov_payload as _ccp
 
                     prev_cov_payload = _ccp(
-                        in_df_full, materialise_aggregates=incremental_cov
+                        in_df_prepared, materialise_aggregates=incremental_cov
                     )
-                prev_in_df = in_df_full
+                prev_in_df = in_df_prepared
                 res["cov_diag"] = prev_cov_payload.cov.diagonal().tolist()
                 if cov_cache_obj is not None:
                     # attach cache stats for observability (does not alter existing keys)
