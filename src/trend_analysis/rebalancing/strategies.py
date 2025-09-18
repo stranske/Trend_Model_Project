@@ -111,7 +111,7 @@ class TurnoverCapStrategy(Rebalancer):
         executed_ordered = np.zeros_like(trade_values)
         executed_ordered[full_mask] = trade_values[full_mask]
 
-        remaining_turnover = self.max_turnover - abs_trades[full_mask].sum()
+        remaining_turnover = max(0.0, self.max_turnover - abs_trades[full_mask].sum())
 
         if remaining_turnover > TURNOVER_EPSILON:
             # Execute partial trade for the next highest-priority asset
