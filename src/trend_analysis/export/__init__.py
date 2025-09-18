@@ -889,6 +889,17 @@ def summary_frame_from_result(res: Mapping[str, object]) -> pd.DataFrame:
     ]
     columns.extend([f"OS IR {b}" for b in bench_labels])
     columns.append("OS MaxDD")
+    # Optional trailing AvgCorr if present on in_sample_stats objects (attached in pipeline)
+    try:  # pragma: no cover - presence is data dependent
+        in_stats = cast(Mapping[str, _Stats], res.get("in_sample_stats", {}))
+        # Detect presence by checking one fund's attribute via getattr
+        if in_stats:
+            any_stat = next(iter(in_stats.values()))
+            if hasattr(any_stat, "avg_corr"):
+                columns.append("IS AvgCorr")
+                columns.append("OS AvgCorr")
+    except Exception:  # defensive
+        pass
 
     rows: list[list[Any]] = []
 
@@ -908,12 +919,20 @@ def summary_frame_from_result(res: Mapping[str, object]) -> pd.DataFrame:
 
     rows.append([pd.NA] * len(columns))
 
+    include_avg = False
+    # Determine whether AvgCorr columns were appended
+    if columns[-1] == "OS AvgCorr":
+        include_avg = True
     for fund, stat_in in cast(Mapping[str, _Stats], res["in_sample_stats"]).items():
         stat_out = cast(Mapping[str, _Stats], res["out_sample_stats"])[fund]
         weight = cast(Mapping[str, float], res["fund_weights"])[fund] * 100
         vals = pct(stat_in) + pct(stat_out)
         extra = [bench_map.get(b, {}).get(fund, pd.NA) for b in bench_labels]
-        rows.append([fund, weight, *vals, *extra])
+        if include_avg:
+            # Append placeholder NA values for AvgCorr until metric fully wired
+            rows.append([fund, weight, *vals, *extra, pd.NA, pd.NA])
+        else:
+            rows.append([fund, weight, *vals, *extra])
 
     return pd.DataFrame(rows, columns=columns)
 

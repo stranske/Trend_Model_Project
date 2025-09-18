@@ -29,8 +29,7 @@ if TYPE_CHECKING:  # pragma: no cover - static type hints only
     import uvicorn as _uvicorn_mod  # noqa: F401
     import websockets as _websockets_mod  # noqa: F401
     from fastapi import FastAPI as _FastAPIType  # noqa: F401
-    from starlette.background import \
-        BackgroundTask as _BackgroundTaskType  # noqa: F401
+    from starlette.background import BackgroundTask as _BackgroundTaskType  # noqa: F401
 
 
 def _lazy_import_deps() -> bool:

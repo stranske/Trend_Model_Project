@@ -15,6 +15,7 @@ else:  # Runtime: avoid importing typing-only names
     from typing import Any as ConfigType
 
 from .pipeline import _run_analysis
+from .logging import log_step as _log_step  # lightweight import
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +63,8 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         Structured results with the summary metrics and detailed payload.
     """
     logger.info("run_simulation start")
+    run_id = getattr(config, "run_id", None) or "api_run"
+    _log_step(run_id, "api_start", "run_simulation invoked")
 
     seed = getattr(config, "seed", 42)
     random.seed(seed)
@@ -78,6 +81,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
             risk_free=0.0,
         )
 
+    _log_step(run_id, "analysis_start", "_run_analysis dispatch")
     res = _run_analysis(
         returns,
         str(split.get("in_start")),
@@ -107,6 +111,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         }
         return RunResult(pd.DataFrame(), {}, seed, env)
 
+    _log_step(run_id, "metrics_build", "Building metrics dataframe")
     stats_obj = res["out_sample_stats"]
     if isinstance(stats_obj, dict):
         stats_items = list(stats_obj.items())
@@ -135,7 +140,52 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
     fallback_info: dict[str, Any] | None = (
         fallback_raw if isinstance(fallback_raw, dict) else None
     )
+    # Granular logging (best-effort; keys may vary by configuration)
+    try:  # pragma: no cover - observational logging
+        if isinstance(res, dict):
+            if res.get("selected_funds") is not None:
+                _log_step(
+                    run_id,
+                    "selection",
+                    "Funds selected",
+                    count=len(res.get("selected_funds", [])),
+                )
+            if res.get("weights_user_weight") is not None:
+                _log_step(
+                    run_id,
+                    "weighting",
+                    "User weighting applied",
+                    n=len(res.get("weights_user_weight", {})),
+                )
+            elif res.get("weights_equal_weight") is not None:
+                _log_step(
+                    run_id,
+                    "weighting",
+                    "Equal weighting applied",
+                    n=len(res.get("weights_equal_weight", {})),
+                )
+            else:
+                # Fallback: approximate number of assets from selected funds
+                sel = res.get("selected_funds") or []
+                _log_step(
+                    run_id,
+                    "weighting",
+                    "Implicit equal weighting (no explicit weights recorded)",
+                    n=len(sel),
+                )
+            if res.get("benchmark_ir") is not None:
+                _log_step(
+                    run_id,
+                    "benchmarks",
+                    "Benchmark IR computed",
+                    n=len(res.get("benchmark_ir", {})),
+                )
+    except Exception:
+        pass
     logger.info("run_simulation end")
+    _log_step(
+        run_id, "api_end", "run_simulation complete", fallback=bool(fallback_info)
+    )
     # Construct portfolio series for bundle export (equal-weight baseline)
     try:
         in_scaled = res.get("in_sample_scaled")  # type: ignore[index]

@@ -47,13 +47,16 @@ except ModuleNotFoundError:  # pragma: no cover - handled in test environment
     sys.modules.setdefault("matplotlib", matplotlib)
     sys.modules.setdefault("matplotlib.pyplot", pyplot)
 
-from trend_analysis.export import (export_multi_period_metrics,
-                                   export_phase1_multi_metrics,
-                                   export_phase1_workbook,
-                                   flat_frames_from_results,
-                                   format_summary_text, manager_contrib_table,
-                                   phase1_workbook_data,
-                                   workbook_frames_from_results)
+from trend_analysis.export import (
+    export_multi_period_metrics,
+    export_phase1_multi_metrics,
+    export_phase1_workbook,
+    flat_frames_from_results,
+    format_summary_text,
+    manager_contrib_table,
+    phase1_workbook_data,
+    workbook_frames_from_results,
+)
 from trend_analysis.pipeline import _compute_stats, calc_portfolio_returns
 
 

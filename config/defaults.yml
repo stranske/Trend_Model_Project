@@ -155,6 +155,9 @@ export:
 # ----------------------------------------------------------------------
 # 8. LOGGING & EXECUTION
 # ----------------------------------------------------------------------
+performance:
+  enable_cache: true
+  incremental_cov: false
 run:
   log_level: "INFO" # DEBUG | INFO | WARNING | ERROR
   log_file: "logs/phase1.log"

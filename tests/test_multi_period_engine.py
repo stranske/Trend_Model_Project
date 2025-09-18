@@ -12,8 +12,7 @@ from trend_analysis.multi_period import run_schedule
 from trend_analysis.multi_period.replacer import Rebalancer
 from trend_analysis.multi_period.scheduler import generate_periods
 from trend_analysis.selector import RankSelector
-from trend_analysis.weighting import (AdaptiveBayesWeighting, BaseWeighting,
-                                      EqualWeight)
+from trend_analysis.weighting import AdaptiveBayesWeighting, BaseWeighting, EqualWeight
 
 
 def make_df():

@@ -11,8 +11,11 @@ import yaml
 
 from trend_analysis.api import run_simulation
 from trend_analysis.config import Config
-from trend_portfolio_app.data_schema import (SchemaMeta, infer_benchmarks,
-                                             load_and_validate_file)
+from trend_portfolio_app.data_schema import (
+    SchemaMeta,
+    infer_benchmarks,
+    load_and_validate_file,
+)
 from trend_portfolio_app.policy_engine import MetricSpec, PolicyConfig
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
