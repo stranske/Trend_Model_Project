@@ -122,7 +122,7 @@ def _check_service_bot(
             expected=200,
             session=session,
         )
-    except CheckError as exc:  # pragma: no cover - defensive logging
+    except CheckError as exc:  # pragma: no cover - error handling
         return CheckOutcome(False, f"SERVICE_BOT_PAT is invalid: {exc}")
 
     # Discover the latest commit on the default branch.
