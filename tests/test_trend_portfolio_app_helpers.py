@@ -206,7 +206,7 @@ def test_merge_update_deep_merges_nested_dicts(monkeypatch: pytest.MonkeyPatch) 
 def test_build_cfg_accepts_roundtrip_from_yaml(monkeypatch: pytest.MonkeyPatch) -> None:
     app_mod = _load_app(monkeypatch)
 
-    defaults: dict[str, Any] = cast(dict[str, Any], app_mod._read_defaults())
+    defaults: dict[str, Any] = app_mod._read_defaults()
     data_section = defaults.setdefault("data", {})
     if not isinstance(data_section, dict):
         raise AssertionError("Expected mapping for defaults['data']")
