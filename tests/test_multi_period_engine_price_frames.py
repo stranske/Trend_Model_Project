@@ -1,4 +1,5 @@
-"""Extra coverage for ``trend_analysis.multi_period.engine.run`` price-frame handling."""
+"""Extra coverage for ``trend_analysis.multi_period.engine.run`` price-frame
+handling."""
 
 from __future__ import annotations
 
@@ -76,7 +77,9 @@ def test_run_rejects_empty_price_frames_collection() -> None:
         mp_engine.run(cfg, price_frames={})
 
 
-def test_run_combines_price_frames_and_invokes_analysis(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_combines_price_frames_and_invokes_analysis(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     cfg = DummyConfig()
 
     frame_one = pd.DataFrame(
@@ -95,7 +98,9 @@ def test_run_combines_price_frames_and_invokes_analysis(monkeypatch: pytest.Monk
     captured_dates: list[pd.Timestamp] = []
     captured_columns: list[List[str]] = []
 
-    def fake_run_analysis(df: pd.DataFrame, *args: Any, **kwargs: Any) -> Dict[str, Any]:
+    def fake_run_analysis(
+        df: pd.DataFrame, *args: Any, **kwargs: Any
+    ) -> Dict[str, Any]:
         # ``run`` should provide a DataFrame that is date-ordered and deduplicated.
         assert df["Date"].is_monotonic_increasing
         assert not df["Date"].duplicated().any()
