@@ -154,7 +154,6 @@ def rank_select_funds(
         )
 
     # Apply transform
-    scores = scores.copy()
     scores = _apply_transform(
         scores,
         mode=transform,
