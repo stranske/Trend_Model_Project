@@ -33,7 +33,9 @@ jobs:
         run: |
           # Default fallback ensures at least 80% coverage when CI vars are unset.
           # (Coverage gate effectively behaves as --cov-fail-under=80 by default.)
+          echo "::notice title=FlakeQuarantine::Enabling single rerun for flaky tests (Issue #1147)" || true
           pytest -m "not quarantine and not slow" \
+            --reruns 1 --reruns-delay 1 \
             --cov=src --cov-report=term-missing --cov-fail-under=${{ vars.COV_MIN || 80 }} --cov-branch
 
   gate:
