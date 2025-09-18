@@ -568,6 +568,7 @@ def test_threshold_hold_replacement_flow(monkeypatch: pytest.MonkeyPatch) -> Non
                 data = {
                     "A Alpha": float(prev.get("A Alpha", 0.0)),
                     "D Delta": float(prev.get("D Delta", 0.0)),
+                    # Assign zero weight to 'B Beta' to test handling of assets dropped during rebalancing.
                     "B Beta": 0.0,
                 }
                 return pd.Series(data, dtype=float)
