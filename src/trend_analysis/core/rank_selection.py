@@ -401,7 +401,7 @@ def rank_select_funds(
 
     # Apply transform
     scores = _apply_transform(
-        scores.copy(),
+        scores,
         mode=transform,
         window=zscore_window,
         ddof=zscore_ddof,
