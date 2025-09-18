@@ -133,7 +133,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         import uuid
 
-        run_id = getattr(cfg, "run_id", None) or uuid.uuid4().hex[:12]
+        run_id = getattr(cfg, "run_id", None) or uuid.uuid4().hex
         try:
             setattr(cfg, "run_id", run_id)  # type: ignore[attr-defined]
         except Exception:
