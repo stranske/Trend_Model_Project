@@ -144,7 +144,8 @@ def test_portfolio_app_main_invokes_streamlit(monkeypatch):
 
 
 def test_health_wrapper_runner_injects_src_path(monkeypatch):
-    """Importing the runner should prepend the repo ``src`` directory to ``sys.path``."""
+    """Importing the runner should prepend the repo ``src`` directory to
+    ``sys.path``."""
 
     import importlib.util
     import sys
@@ -172,7 +173,9 @@ def test_health_wrapper_runner_injects_src_path(monkeypatch):
 
     health_wrapper = ModuleType("trend_portfolio_app.health_wrapper")
     health_wrapper.main = fake_main  # type: ignore[attr-defined]
-    monkeypatch.setitem(sys.modules, "trend_portfolio_app.health_wrapper", health_wrapper)
+    monkeypatch.setitem(
+        sys.modules, "trend_portfolio_app.health_wrapper", health_wrapper
+    )
 
     module_path = src_path / "trend_portfolio_app" / "health_wrapper_runner.py"
     spec = importlib.util.spec_from_file_location(module_name, module_path)
