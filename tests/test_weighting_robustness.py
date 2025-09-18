@@ -6,16 +6,20 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from trend_analysis.weights.equal_risk_contribution import EqualRiskContribution
-from trend_analysis.weights.hierarchical_risk_parity import HierarchicalRiskParity
+from trend_analysis.weights.equal_risk_contribution import \
+    EqualRiskContribution
+from trend_analysis.weights.hierarchical_risk_parity import \
+    HierarchicalRiskParity
 from trend_analysis.weights.robust_weighting import (RobustMeanVariance,
-                                                    RobustRiskParity,
-                                                    diagonal_loading,
-                                                    ledoit_wolf_shrinkage,
-                                                    oas_shrinkage)
+                                                     RobustRiskParity,
+                                                     diagonal_loading,
+                                                     ledoit_wolf_shrinkage,
+                                                     oas_shrinkage)
 
 
-def _make_covariance(values: np.ndarray, labels: list[str] | None = None) -> pd.DataFrame:
+def _make_covariance(
+    values: np.ndarray, labels: list[str] | None = None
+) -> pd.DataFrame:
     """Utility helper returning a symmetric covariance DataFrame."""
 
     labels = labels or [f"A{i}" for i in range(values.shape[0])]
@@ -30,7 +34,9 @@ class TestEqualRiskContribution:
 
     def test_weighting_requires_square_matrix(self) -> None:
         engine = EqualRiskContribution()
-        cov = pd.DataFrame([[0.1, 0.0], [0.0, 0.2]], index=["A", "B"], columns=["A", "C"])
+        cov = pd.DataFrame(
+            [[0.1, 0.0], [0.0, 0.2]], index=["A", "B"], columns=["A", "C"]
+        )
         with pytest.raises(ValueError):
             engine.weight(cov)
 
@@ -50,16 +56,22 @@ class TestHierarchicalRiskParity:
 
     def test_weighting_requires_matching_labels(self) -> None:
         engine = HierarchicalRiskParity()
-        cov = pd.DataFrame([[0.1, 0.0], [0.0, 0.2]], index=["A", "B"], columns=["A", "C"])
+        cov = pd.DataFrame(
+            [[0.1, 0.0], [0.0, 0.2]], index=["A", "B"], columns=["A", "C"]
+        )
         with pytest.raises(ValueError):
             engine.weight(cov)
 
-    def test_weighting_handles_nan_correlations(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_weighting_handles_nan_correlations(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setattr(
             "trend_analysis.weights.hierarchical_risk_parity.np.linalg.cond",
             lambda _: 1.0,
         )
-        cov = _make_covariance(np.array([[0.1, np.nan], [np.nan, 0.2]]), labels=["A", "B"])
+        cov = _make_covariance(
+            np.array([[0.1, np.nan], [np.nan, 0.2]]), labels=["A", "B"]
+        )
         engine = HierarchicalRiskParity()
         weights = engine.weight(cov)
         assert weights.sum() == pytest.approx(1.0, rel=1e-9)
