@@ -136,10 +136,41 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         fallback_raw if isinstance(fallback_raw, dict) else None
     )
     logger.info("run_simulation end")
-    return RunResult(
+    # Construct portfolio series for bundle export (equal-weight baseline)
+    try:
+        in_scaled = res.get("in_sample_scaled")  # type: ignore[index]
+        out_scaled = res.get("out_sample_scaled")  # type: ignore[index]
+        ew_weights = res.get("ew_weights")  # type: ignore[index]
+        if (
+            isinstance(in_scaled, pd.DataFrame)
+            and isinstance(out_scaled, pd.DataFrame)
+            and isinstance(ew_weights, dict)
+        ):
+            # Build one continuous portfolio series across IS + OS
+            import numpy as _np
+            from .pipeline import calc_portfolio_returns as _cpr
+
+            cols = list(in_scaled.columns)
+            w = _np.array([ew_weights.get(c, 0.0) for c in cols])
+            port_is = _cpr(w, in_scaled)
+            port_os = _cpr(w, out_scaled)
+            portfolio_series = pd.concat([port_is, port_os])
+            res["portfolio_equal_weight_combined"] = portfolio_series
+    except Exception:  # pragma: no cover - defensive
+        pass
+
+    rr = RunResult(
         metrics=metrics_df,
         details=res,
         seed=seed,
         environment=env,
         fallback_info=fallback_info,
     )
+    return rr
+
+    # NOTE: unreachable code block retained for clarity; bundle export now
+    # handled by attaching portfolio in CLI before export.
+
+
+# Monkey-patch friendly attributes (documented for export_bundle) are added
+# downstream in CLI when needed (portfolio / benchmark / weights).
