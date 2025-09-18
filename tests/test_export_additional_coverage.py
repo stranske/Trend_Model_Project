@@ -26,7 +26,7 @@ except ModuleNotFoundError:  # pragma: no cover - handled in test environment
             return _Figure()
 
         def close(self, *args: object, **kwargs: object) -> None:
-            return None
+            pass
 
     class _Axis:
         def plot(self, *args, **kwargs):
