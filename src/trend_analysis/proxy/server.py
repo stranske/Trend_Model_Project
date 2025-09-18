@@ -18,18 +18,22 @@ from urllib.parse import urljoin
 logger = logging.getLogger(__name__)
 
 # Forward declarations for optional dependencies (assigned at runtime)
-httpx: Any
-uvicorn: Any
-websockets: Any
-FastAPI: Any
-StreamingResponse: Any
-BackgroundTask: Any
+httpx: Any | None = None
+uvicorn: Any | None = None
+websockets: Any | None = None
+FastAPI: Any | None = None
+StreamingResponse: Any | None = None
+BackgroundTask: Any | None = None
 
 if TYPE_CHECKING:  # pragma: no cover - static type hints only
     import httpx as _httpx_mod  # noqa: F401
+    from httpx import AsyncClient as _HTTPXAsyncClient  # noqa: F401
     import uvicorn as _uvicorn_mod  # noqa: F401
+    from uvicorn import Config as _UvicornConfig, Server as _UvicornServer  # noqa: F401
     import websockets as _websockets_mod  # noqa: F401
+    from websockets.legacy.client import WebSocketClientProtocol as _WebsocketProtocol  # noqa: F401
     from fastapi import FastAPI as _FastAPIType  # noqa: F401
+    from fastapi.responses import StreamingResponse as _StreamingResponseType  # noqa: F401
     from starlette.background import BackgroundTask as _BackgroundTaskType  # noqa: F401
 
 
@@ -59,12 +63,19 @@ def _lazy_import_deps() -> bool:
 
 
 try:  # Optional heavy deps (initial attempt)
-    import httpx
-    import uvicorn
-    import websockets
-    from fastapi import FastAPI
-    from fastapi.responses import StreamingResponse
-    from starlette.background import BackgroundTask
+    import httpx as _httpx_mod
+    import uvicorn as _uvicorn_mod
+    import websockets as _websockets_mod
+    from fastapi import FastAPI as _FastAPI_type
+    from fastapi.responses import StreamingResponse as _StreamingResponseType
+    from starlette.background import BackgroundTask as _BackgroundTaskType
+
+    httpx = _httpx_mod
+    uvicorn = _uvicorn_mod
+    websockets = _websockets_mod
+    FastAPI = _FastAPI_type
+    StreamingResponse = _StreamingResponseType
+    BackgroundTask = _BackgroundTaskType
 
     _DEPS_AVAILABLE = True
 except Exception:  # pragma: no cover
@@ -118,6 +129,10 @@ class StreamlitProxy:
 
     def __init__(self, streamlit_host: str = "localhost", streamlit_port: int = 8501):
         _assert_deps()
+        if FastAPI is None or httpx is None:
+            raise RuntimeError(
+                "FastAPI/httpx dependencies are required for StreamlitProxy"
+            )
         self.streamlit_host = streamlit_host
         self.streamlit_port = streamlit_port
         self.streamlit_base_url = f"http://{streamlit_host}:{streamlit_port}"
@@ -147,6 +162,8 @@ class StreamlitProxy:
 
     async def _handle_websocket(self, websocket: _SupportsWebSocket, path: str) -> None:
         _assert_deps()
+        if websockets is None:
+            raise RuntimeError("websockets dependency is required for proxy WebSocket support")
         await websocket.accept()
         target_url = f"{self.streamlit_ws_url}/{path}"
         q = getattr(websocket.url, "query", "")
@@ -230,6 +247,8 @@ class StreamlitProxy:
         self, host: str = "0.0.0.0", port: int = 8500
     ) -> None:  # noqa: D401
         _assert_deps()
+        if uvicorn is None:
+            raise RuntimeError("uvicorn dependency is required to start the proxy server")
         config = uvicorn.Config(app=self.app, host=host, port=port, log_level="info")
         server = uvicorn.Server(config)
         logger.info("Starting Streamlit proxy on %s:%s", host, port)

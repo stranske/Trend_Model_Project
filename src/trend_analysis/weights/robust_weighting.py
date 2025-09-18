@@ -2,20 +2,24 @@
 
 from __future__ import annotations
 
+
 import logging
 from typing import Any, Dict, Literal
 
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 
 from ..plugins import WeightEngine, weight_engine_registry
 
 logger = logging.getLogger(__name__)
 
+NDArrayFloat = npt.NDArray[np.float64]
+
 
 def ledoit_wolf_shrinkage(
-    cov: np.ndarray, n_samples: int = None
-) -> tuple[np.ndarray, float]:
+    cov: NDArrayFloat, n_samples: int | None = None
+) -> tuple[NDArrayFloat, float]:
     """Apply Ledoit-Wolf shrinkage to covariance matrix.
 
     Args:
@@ -26,14 +30,12 @@ def ledoit_wolf_shrinkage(
     Returns:
         tuple: (shrunk_cov, shrinkage_intensity)
     """
-    p = cov.shape[0]  # Number of assets/variables
-
-    # Sample covariance
-    sample_cov = cov.copy()
+    sample_cov = np.asarray(cov, dtype=float)
+    p = sample_cov.shape[0]  # Number of assets/variables
 
     # Target: diagonal matrix with average variance
-    mu = np.trace(sample_cov) / p
-    target = mu * np.eye(p)
+    mu = float(np.trace(sample_cov)) / float(p)
+    target = mu * np.eye(p, dtype=float)
 
     # Estimate sample size if not provided
     if n_samples is None:
@@ -43,8 +45,8 @@ def ledoit_wolf_shrinkage(
 
     # Shrinkage intensity (simplified Ledoit-Wolf approach)
     # When we don't have access to raw data, use matrix-based approximation
-    trace_diff = np.trace((sample_cov - target) @ (sample_cov - target))
-    trace_sample = np.trace(sample_cov @ sample_cov)
+    trace_diff = float(np.trace((sample_cov - target) @ (sample_cov - target)))
+    trace_sample = float(np.trace(sample_cov @ sample_cov))
 
     # Avoid division by zero
     if trace_sample == 0:
@@ -54,12 +56,14 @@ def ledoit_wolf_shrinkage(
         intensity = min(1.0, trace_diff / (n_samples * trace_sample))
 
     # Apply shrinkage
-    shrunk_cov = (1 - intensity) * sample_cov + intensity * target
+    shrunk_cov = (1.0 - intensity) * sample_cov + intensity * target
 
-    return shrunk_cov, intensity
+    return shrunk_cov.astype(float, copy=False), float(intensity)
 
 
-def oas_shrinkage(cov: np.ndarray, n_samples: int = None) -> tuple[np.ndarray, float]:
+def oas_shrinkage(
+    cov: NDArrayFloat, n_samples: int | None = None
+) -> tuple[NDArrayFloat, float]:
     """Apply Oracle Approximating Shrinkage (OAS) to covariance matrix.
 
     Args:
@@ -70,14 +74,12 @@ def oas_shrinkage(cov: np.ndarray, n_samples: int = None) -> tuple[np.ndarray, f
     Returns:
         tuple: (shrunk_cov, shrinkage_intensity)
     """
-    p = cov.shape[0]  # Number of assets/variables
-
-    # Sample covariance
-    sample_cov = cov.copy()
+    sample_cov = np.asarray(cov, dtype=float)
+    p = sample_cov.shape[0]  # Number of assets/variables
 
     # Target: diagonal matrix with average variance
-    mu = np.trace(sample_cov) / p
-    target = mu * np.eye(p)
+    mu = float(np.trace(sample_cov)) / float(p)
+    target = mu * np.eye(p, dtype=float)
 
     # Estimate sample size if not provided
     if n_samples is None:
@@ -86,22 +88,24 @@ def oas_shrinkage(cov: np.ndarray, n_samples: int = None) -> tuple[np.ndarray, f
         n_samples = max(p + 1, int(p * 2))  # Conservative estimate
 
     # OAS shrinkage intensity
-    trace_sample = np.trace(sample_cov @ sample_cov)
-    trace_target = np.trace(target @ target)
+    trace_sample = float(np.trace(sample_cov @ sample_cov))
+    trace_target = float(np.trace(target @ target))
 
     if trace_sample == 0:
         intensity = 1.0
     else:
         # Simplified OAS formula using estimated sample size
-        intensity = min(1.0, (trace_target) / (n_samples * trace_sample))
+        intensity = min(1.0, trace_target / (n_samples * trace_sample))
 
     # Apply shrinkage
-    shrunk_cov = (1 - intensity) * sample_cov + intensity * target
+    shrunk_cov = (1.0 - intensity) * sample_cov + intensity * target
 
-    return shrunk_cov, intensity
+    return shrunk_cov.astype(float, copy=False), float(intensity)
 
 
-def diagonal_loading(cov: np.ndarray, loading_factor: float = 1e-6) -> np.ndarray:
+def diagonal_loading(
+    cov: NDArrayFloat, loading_factor: float = 1e-6
+) -> NDArrayFloat:
     """Apply diagonal loading to improve conditioning.
 
     Args:
@@ -111,7 +115,11 @@ def diagonal_loading(cov: np.ndarray, loading_factor: float = 1e-6) -> np.ndarra
     Returns:
         Regularized covariance matrix
     """
-    return cov + loading_factor * np.trace(cov) / len(cov) * np.eye(len(cov))
+    base = np.asarray(cov, dtype=float)
+    if base.size == 0:
+        return base
+    scale = float(loading_factor) * float(np.trace(base)) / float(base.shape[0])
+    return base + scale * np.eye(base.shape[0], dtype=float)
 
 
 @weight_engine_registry.register("robust_mv")
@@ -147,18 +155,20 @@ class RobustMeanVariance(WeightEngine):
         self.min_weight = float(min_weight)
         self.max_weight = float(max_weight)
 
-    def _check_condition_number(self, cov: np.ndarray) -> float:
+    def _check_condition_number(self, cov: NDArrayFloat) -> float:
         """Compute condition number of covariance matrix."""
         try:
-            eigenvals = np.linalg.eigvals(cov)
+            eigenvals = np.linalg.eigvalsh(cov)
             eigenvals = eigenvals[eigenvals > 0]  # Only positive eigenvalues
             if len(eigenvals) == 0:
                 return np.inf
-            return np.max(eigenvals) / np.min(eigenvals)
+            return float(np.max(eigenvals) / np.min(eigenvals))
         except np.linalg.LinAlgError:
             return np.inf
 
-    def _apply_shrinkage(self, cov: np.ndarray) -> tuple[np.ndarray, Dict[str, Any]]:
+    def _apply_shrinkage(
+        self, cov: NDArrayFloat
+    ) -> tuple[NDArrayFloat, Dict[str, Any]]:
         """Apply shrinkage method to covariance matrix."""
         shrinkage_info = {"method": self.shrinkage_method, "intensity": 0.0}
 
@@ -184,16 +194,18 @@ class RobustMeanVariance(WeightEngine):
         if self.safe_mode == "hrp":
             from .hierarchical_risk_parity import HierarchicalRiskParity
 
-            engine = HierarchicalRiskParity()
-            return engine.weight(cov)
+            hrp_engine = HierarchicalRiskParity()
+            return hrp_engine.weight(cov)
         elif self.safe_mode == "risk_parity":
             from .risk_parity import RiskParity
 
-            engine = RiskParity()
-            return engine.weight(cov)
+            rp_engine = RiskParity()
+            return rp_engine.weight(cov)
         elif self.safe_mode == "diagonal_mv":
             # Use diagonal-loaded covariance for mean-variance
-            cov_loaded = diagonal_loading(cov.values, self.diagonal_loading_factor)
+            cov_loaded = diagonal_loading(
+                np.asarray(cov.values, dtype=float), self.diagonal_loading_factor
+            )
             cov_loaded_df = pd.DataFrame(
                 cov_loaded, index=cov.index, columns=cov.columns
             )
@@ -238,7 +250,8 @@ class RobustMeanVariance(WeightEngine):
             raise ValueError("Covariance matrix must be square with matching labels")
 
         # Apply shrinkage
-        shrunk_cov_array, shrinkage_info = self._apply_shrinkage(cov.values)
+        cov_array = np.asarray(cov.values, dtype=float)
+        shrunk_cov_array, shrinkage_info = self._apply_shrinkage(cov_array)
         shrunk_cov = pd.DataFrame(
             shrunk_cov_array, index=cov.index, columns=cov.columns
         )
