@@ -129,10 +129,10 @@ def main(argv: list[str] | None = None) -> int:
 
         from .logging import get_default_log_path, init_run_logger, log_step
 
-        run_id = getattr(cfg, "run_id", None) or uuid.uuid4().hex[:12]
+        run_id = getattr(cfg, "run_id", None) or uuid.uuid4().hex
         try:
             setattr(cfg, "run_id", run_id)  # type: ignore[attr-defined]
-        except (AttributeError, TypeError):
+        except Exception:
             # Some config implementations may forbid new attrs; proceed without persisting
             pass
         log_path = (

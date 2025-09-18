@@ -20,6 +20,15 @@ import pytest
 
 from trend_analysis.export.bundle import export_bundle
 
+# Locate schema file packaged with export module
+SCHEMA_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "src"
+    / "trend_analysis"
+    / "export"
+    / "manifest_schema.json"
+)
+
 
 @dataclass
 class DummyRun:
@@ -41,44 +50,10 @@ def _write_input(tmp_path: Path) -> Path:
 
 
 def _schema() -> dict:
-    """Return the JSON schema for ``run_meta.json``."""
-
-    return {
-        "type": "object",
-        "required": [
-            "run_id",
-            "config",
-            "config_sha256",
-            "seed",
-            "environment",
-            "git_hash",
-            "receipt",
-            "input_sha256",
-        ],
-        "properties": {
-            "run_id": {"type": "string"},
-            "config": {
-                "type": "object",
-                "properties": {
-                    "dates": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                    }
-                },
-                "required": ["dates"],
-            },
-            "config_sha256": {"type": "string"},
-            "seed": {"type": ["integer", "null"]},
-            "environment": {"type": "object"},
-            "git_hash": {"type": ["string", "null"]},
-            "receipt": {
-                "type": "object",
-                "properties": {"created": {"type": "string"}},
-                "required": ["created"],
-            },
-            "input_sha256": {"type": "string"},
-        },
-    }
+    """Load and return the JSON schema for ``run_meta.json`` from file."""
+    assert SCHEMA_PATH.exists(), f"Schema file missing: {SCHEMA_PATH}"
+    with open(SCHEMA_PATH, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 
 def _build_meta(tmp_path: Path) -> dict:
@@ -121,6 +96,5 @@ def test_run_meta_missing_required_fails(tmp_path: Path) -> None:
     meta = _build_meta(tmp_path)
     schema = _schema()
     meta.pop("run_id")
-
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.validate(meta, schema)
