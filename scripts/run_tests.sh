@@ -31,7 +31,7 @@ fi
 if [[ "$status" -eq 1 ]]; then
   echo "Detected test failures. Retrying failed tests once..."
   set +e
-  PYTHONPATH="./src" coverage run --branch --rcfile ".coveragerc.${PROFILE}" --append -m pytest --disable-warnings --last-failed --maxfail=1 "$@"
+  PYTHONPATH="./src" coverage run --branch --rcfile ".coveragerc.${PROFILE}" --append -m pytest --disable-warnings --failed-first --maxfail=1 "$@"
   retry_status=$?
   set -e
 
