@@ -311,12 +311,11 @@ def _run_analysis(
     rf_out = out_df[rf_col]
 
     extra_metrics = getattr(stats_cfg, "extra_metrics", [])
-    avg_corr_enabled = "AvgCorr" in extra_metrics or "AvgCorr" in score_frame.columns
     avg_corr_in: pd.Series | None = None
     avg_corr_out: pd.Series | None = None
     avg_corr_out_raw: pd.Series | None = None
 
-    if avg_corr_enabled and "AvgCorr" in score_frame.columns:
+    if "AvgCorr" in score_frame.columns:
         avg_corr_in = cast(pd.Series, score_frame["AvgCorr"]).astype(float)
         if len(fund_cols) > 1:
             from .core.rank_selection import compute_metric_series_with_cache
