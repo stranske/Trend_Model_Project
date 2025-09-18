@@ -16,12 +16,35 @@ jobs:
       contains(github.event.pull_request.labels.*.name, (vars.RISK_LABEL || 'risk:low'))
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout trusted config
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          persist-credentials: false
+          sparse-checkout: |
+            .github/autoapprove-allowlist.json
+          sparse-checkout-cone: false
+          path: trusted-config
       - name: Check PR file patterns and size
         id: pr-check
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const fs = require('fs');
+            function loadAllowlist(filePath) {
+              if (!filePath) {
+                return {};
+              }
+              try {
+                const data = fs.readFileSync(filePath, 'utf8');
+                return JSON.parse(data);
+              } catch (error) {
+                core.warning(`Failed to read allowlist from ${filePath}: ${error.message}`);
+                return {};
+              }
+            }
+            const allowlist = loadAllowlist(process.env.ALLOWLIST_PATH);
             const { owner, repo } = context.repo;
             if (!context.payload || !context.payload.pull_request) {
               core.warning('No pull_request in event payload; refusing to auto-approve.');
@@ -40,12 +63,20 @@ jobs:
             }
             const files = await github.paginate(listFiles, { owner, repo, pull_number });
             // Allow files by simple glob-like patterns
-            const patterns = (process.env.APPROVE_PATTERNS || 'src/**,docs/**,tests/**,**/*.md')
+            const fallbackPatterns = Array.isArray(allowlist.patterns)
+              ? allowlist.patterns.filter(p => typeof p === 'string')
+              : [];
+            const patterns = (process.env.APPROVE_PATTERNS || '')
               .split(',')
               .map(s => s.trim())
               .filter(Boolean);
+            const effectivePatterns = patterns.length ? patterns : fallbackPatterns;
+            if (!effectivePatterns.length) {
+              core.warning('No allowlist patterns configured; refusing to auto-approve.');
+              return false;
+            }
             function match(filename) {
-              return patterns.some(p => {
+              return effectivePatterns.some(p => {
                 if (p.endsWith('/**')) return filename.startsWith(p.slice(0, -3));
                 if (p.startsWith('**/*.')) return filename.endsWith(p.slice(4));
                 return filename === p;
@@ -53,12 +84,13 @@ jobs:
             }
             const allowed = files.every(f => match(f.filename));
             // Limit total lines changed
-            const cap = Number(process.env.MAX_LINES_CHANGED || '1000');
+            const cap = Number(process.env.MAX_LINES_CHANGED || allowlist.max_lines_changed || '1000');
             const totalChanges = files.reduce((sum, f) => sum + f.changes, 0);
             const sizeOk = totalChanges <= cap;
             // Set output
             return allowed && sizeOk;
         env:
+          ALLOWLIST_PATH: trusted-config/.github/autoapprove-allowlist.json
           APPROVE_PATTERNS: ${{ vars.APPROVE_PATTERNS }}
           MAX_LINES_CHANGED: ${{ vars.MAX_LINES_CHANGED }}
       - name: Auto-approve PR
