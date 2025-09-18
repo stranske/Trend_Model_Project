@@ -437,8 +437,9 @@ def run(
                         k = None
                         if same_len:
                             # Compare trailing blocks to find minimal k
+                            max_shift_steps = getattr(cfg, "shift_detection_max_steps", 10)
                             for step in range(
-                                1, min(10, n_rows - 1)
+                                1, min(max_shift_steps, n_rows - 1)
                             ):  # cap search for safety
                                 if np.allclose(
                                     prev_in_df.iloc[step:].to_numpy(),
