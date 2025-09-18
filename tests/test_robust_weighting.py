@@ -345,7 +345,9 @@ class TestRobustWeightingBranchCoverage:
             engine.weight(cov)
 
     def test_risk_parity_zero_variance_fallback(self):
-        cov = pd.DataFrame(np.zeros((3, 3)), index=["a", "b", "c"], columns=["a", "b", "c"])
+        cov = pd.DataFrame(
+            np.zeros((3, 3)), index=["a", "b", "c"], columns=["a", "b", "c"]
+        )
         engine = rw.RobustRiskParity()
         weights = engine.weight(cov)
         assert pytest.approx(weights.sum()) == 1.0
