@@ -1,7 +1,8 @@
+from types import SimpleNamespace
+
 import numpy as np
 import pandas as pd
 import pytest
-from types import SimpleNamespace
 
 from trend_analysis.core import rank_selection as rs
 
