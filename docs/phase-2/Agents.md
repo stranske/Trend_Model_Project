@@ -66,6 +66,12 @@ Functional spec
 7.  Unit‑test hooks:
     • New pure functions must be import‑safe and testable without widgets.
       (e.g. `rank_select_funds()`).
+8.  Selector cache reuse:
+    • Window bundles are keyed by `(start, end, universe_hash, stats_cfg_hash)` via
+      `make_window_key()` and surfaced through `get_window_metric_bundle()`.
+    • Instrument `selector_cache_stats()["selector_cache_hits"]` to verify that
+      repeated selector runs on identical windows reuse the cached metrics and
+      covariance payloads.
 
 Sample YAML
 ~~~~~~~~~~~

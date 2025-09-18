@@ -17,12 +17,17 @@ from .metrics import (
     sortino_ratio,
     volatility,
 )
+from .core.rank_selection import (
+    RiskStatsConfig,
+    get_window_metric_bundle,
+    make_window_key,
+    rank_select_funds,
+)
 
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:  # pragma: no cover - for static type checking only
     from .config.models import ConfigProtocol as Config
-    from .core.rank_selection import RiskStatsConfig
 
 del TYPE_CHECKING
 
@@ -161,8 +166,6 @@ def _run_analysis(
     weighting_scheme: str | None = None,
     constraints: dict[str, Any] | None = None,
 ) -> dict[str, object] | None:
-    from .core.rank_selection import RiskStatsConfig, rank_select_funds
-
     if df is None:
         return None
 
@@ -249,8 +252,14 @@ def _run_analysis(
     elif selection_mode == "rank":
         mask = (df[date_col] >= in_sdate) & (df[date_col] <= in_edate)
         sub = df.loc[mask, fund_cols]
+        window_key = make_window_key(in_start, in_end, fund_cols, stats_cfg)
+        bundle = get_window_metric_bundle(window_key)
         fund_cols = rank_select_funds(
-            sub, stats_cfg, **(rank_kwargs or {})  # type: ignore[arg-type]
+            sub,
+            stats_cfg,
+            **(rank_kwargs or {}),  # type: ignore[arg-type]
+            window_key=window_key,
+            bundle=bundle,
         )
     elif selection_mode == "manual":
         if manual_funds:  # pragma: no cover - rarely hit
