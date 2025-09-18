@@ -515,7 +515,9 @@ def test_threshold_hold_replacement_flow(monkeypatch: pytest.MonkeyPatch) -> Non
     class DummySelector:
         rank_column = "Sharpe"
 
-        def select(self, score_frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+        def select(
+            self, score_frame: pd.DataFrame
+        ) -> tuple[pd.DataFrame, pd.DataFrame]:
             return score_frame.loc[["A Alpha", "B Beta", "C Capital"]], score_frame
 
     import trend_analysis.selector as selector_mod
@@ -556,7 +558,9 @@ def test_threshold_hold_replacement_flow(monkeypatch: pytest.MonkeyPatch) -> Non
         def __init__(self, *_cfg) -> None:
             self.calls = 0
 
-        def apply_triggers(self, prev_weights: pd.Series, _sf: pd.DataFrame) -> pd.Series:
+        def apply_triggers(
+            self, prev_weights: pd.Series, _sf: pd.DataFrame
+        ) -> pd.Series:
             self.calls += 1
             prev = prev_weights.astype(float).copy()
             if self.calls == 1:

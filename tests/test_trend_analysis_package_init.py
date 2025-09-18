@@ -35,10 +35,13 @@ def test_getattr_unknown_name_raises_attribute_error() -> None:
         trend_analysis.__getattr__("does_not_exist")
 
 
-def test_version_fallback_when_metadata_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_version_fallback_when_metadata_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     module = importlib.import_module("trend_analysis")
 
     with monkeypatch.context() as m:
+
         def fake_version(_name: str) -> str:
             raise importlib.metadata.PackageNotFoundError
 
