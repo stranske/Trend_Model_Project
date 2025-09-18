@@ -1,0 +1,52 @@
+name: Performance benchmark
+
+on:
+  push:
+    branches:
+      - phase-2-dev
+      - main
+  pull_request:
+  schedule:
+    - cron: '0 5 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    if: github.repository_owner == 'stranske'
+    runs-on: ubuntu-latest
+    env:
+      PERF_REGRESSION_PCT: ${{ vars.PERF_REGRESSION_PCT || '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install -U pip
+          pip install -r requirements.txt
+          pip install -e .
+
+      - name: Run performance benchmark
+        run: |
+          python scripts/benchmark_performance.py \
+            --rows 600 --cols 35 --runs 3 --output benchmark_perf.json
+
+      - name: Check against baseline
+        run: |
+          python scripts/check_perf_regression.py \
+            --benchmark benchmark_perf.json \
+            --baseline perf_baseline.json
+
+      - name: Upload benchmark artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-perf
+          path: |
+            benchmark_perf.json
+

@@ -38,6 +38,7 @@ results/
 *.xlsx
 *.csv
 *.json
+!perf_baseline.json
 !src/trend_analysis/export/manifest_schema.json
 *.txt
 
