@@ -21,14 +21,20 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Mapping, Protocol, cast
 
 import pandas as pd
+import numpy as np
+import os
 
 from ..constants import NUMERICAL_TOLERANCE_HIGH
 from ..core.rank_selection import ASCENDING_METRICS
 from ..data import load_csv
 from ..pipeline import _run_analysis
 from ..rebalancing import apply_rebalancing_strategies
-from ..weighting import (AdaptiveBayesWeighting, BaseWeighting, EqualWeight,
-                         ScorePropBayesian)
+from ..weighting import (
+    AdaptiveBayesWeighting,
+    BaseWeighting,
+    EqualWeight,
+    ScorePropBayesian,
+)
 from .replacer import Rebalancer
 from .scheduler import generate_periods
 
@@ -115,6 +121,66 @@ def run_schedule(
     pf = Portfolio()
     prev_date: pd.Timestamp | None = None
     prev_weights: pd.Series | None = None
+    # Fast turnover state (index array + values array)
+    prev_tidx: np.ndarray | None = None
+    prev_tvals: np.ndarray | None = None
+
+    def _fast_turnover(
+        prev_idx: np.ndarray | None,
+        prev_vals: np.ndarray | None,
+        new_series: pd.Series,
+    ) -> tuple[float, np.ndarray, np.ndarray]:
+        """Compute turnover between previous and new weights using NumPy.
+
+        Parameters
+        ----------
+        prev_idx : np.ndarray | None
+            Previous weight index values (object dtype) or None on first call.
+        prev_vals : np.ndarray | None
+            Previous weight values aligned with ``prev_idx``.
+        new_series : pd.Series
+            New weights (float) indexed by asset identifier.
+
+        Returns
+        -------
+        turnover : float
+            Sum of absolute weight changes.
+        next_idx, next_vals : np.ndarray, np.ndarray
+            Stored index/value arrays for next iteration (copy-safe).
+        """
+        # First period: turnover = sum(abs(new_w))
+        nidx = new_series.index.to_numpy()
+        nvals = new_series.to_numpy(dtype=float, copy=True)
+        if prev_idx is None or prev_vals is None:
+            return float(np.abs(nvals).sum()), nidx, nvals
+        # Build unified index mapping only once per call
+        # Map previous positions
+        pmap = {k: i for i, k in enumerate(prev_idx.tolist())}
+        # Map new positions
+        # Collect union preserving new ordering first then unseen old to keep determinism
+        union_list: list[Any] = []
+        seen: set[Any] = set()
+        for k in nidx.tolist():
+            union_list.append(k)
+            seen.add(k)
+        for k in prev_idx.tolist():
+            if k not in seen:
+                union_list.append(k)
+                seen.add(k)
+        union_arr = np.array(union_list, dtype=object)
+        # Allocate aligned arrays
+        new_aligned = np.zeros(len(union_arr), dtype=float)
+        prev_aligned = np.zeros(len(union_arr), dtype=float)
+        # Fill new
+        nmap = {k: i for i, k in enumerate(nidx.tolist())}
+        for i, k in enumerate(union_arr.tolist()):
+            if k in nmap:
+                new_aligned[i] = nvals[nmap[k]]
+            if k in pmap:
+                prev_aligned[i] = prev_vals[pmap[k]]
+        turnover = float(np.abs(new_aligned - prev_aligned).sum())
+        return turnover, nidx, nvals
+
     col = (
         rank_column
         or getattr(selector, "rank_column", None)
@@ -151,17 +217,9 @@ def run_schedule(
                 scores=scores,
             )
 
-            turnover = (
-                final_weights.reindex(
-                    current_weights.index.union(final_weights.index), fill_value=0.0
-                )
-                .sub(
-                    current_weights.reindex(
-                        current_weights.index.union(final_weights.index), fill_value=0.0
-                    )
-                )
-                .abs()
-                .sum()
+            # Fast turnover computation
+            turnover, prev_tidx, prev_tvals = _fast_turnover(
+                prev_tidx, prev_tvals, final_weights.astype(float)
             )
             weights = final_weights.to_frame("weight")
             prev_weights = final_weights
@@ -169,19 +227,7 @@ def run_schedule(
             cost = 0.0
             weights = target_weights
             tw = target_weights["weight"].astype(float)
-            if prev_weights is None:
-                turnover = tw.abs().sum()
-            else:
-                turnover = (
-                    tw.reindex(prev_weights.index.union(tw.index), fill_value=0.0)
-                    .sub(
-                        prev_weights.reindex(
-                            prev_weights.index.union(tw.index), fill_value=0.0
-                        )
-                    )
-                    .abs()
-                    .sum()
-                )
+            turnover, prev_tidx, prev_tvals = _fast_turnover(prev_tidx, prev_tvals, tw)
             prev_weights = tw
 
         pf.rebalance(date, weights, turnover, cost)
@@ -200,6 +246,31 @@ def run_schedule(
                     pass
         prev_date = pd.to_datetime(date)
 
+    # Optional debug validation: recompute turnover from stored history and compare
+    if os.getenv("DEBUG_TURNOVER_VALIDATE"):
+        try:
+            dates = sorted(pf.history)
+            prev = None
+            for d in dates:
+                w = pf.history[d].astype(float)
+                if prev is None:
+                    expected = float(np.abs(w.to_numpy()).sum())
+                else:
+                    # align via union
+                    u = prev.index.union(w.index)
+                    dv = w.reindex(u, fill_value=0.0).to_numpy()
+                    pv = prev.reindex(u, fill_value=0.0).to_numpy()
+                    expected = float(np.abs(dv - pv).sum())
+                got = pf.turnover[d]
+                if not np.isclose(
+                    expected, got, rtol=0, atol=1e-12
+                ):  # pragma: no cover
+                    raise AssertionError(
+                        f"Turnover mismatch for {d}: expected {expected} got {got}"
+                    )
+                prev = w
+        except Exception:  # pragma: no cover - defensive
+            pass
     return pf
 
 
@@ -282,6 +353,21 @@ def run(
     if str(cfg.portfolio.get("policy", "").lower()) != "threshold_hold":
         periods = generate_periods(cfg.model_dump())
         out_results: List[Dict[str, object]] = []
+        # Performance flags
+        perf_flags = getattr(cfg, "performance", {}) or {}
+        enable_cache = bool(perf_flags.get("enable_cache", True))
+        incremental_cov = bool(perf_flags.get("incremental_cov", False))
+        prev_cov_payload = None  # rolling covariance state
+        cov_cache_obj = None
+        if enable_cache:
+            try:  # lazy import to avoid hard dependency if module layout changes
+                from ..perf.cache import CovCache  # type: ignore
+
+                cov_cache_obj = CovCache()
+            except Exception:  # pragma: no cover - defensive
+                cov_cache_obj = None
+        prev_in_df = None
+
         for pt in periods:
             res = _run_analysis(
                 df,
@@ -309,6 +395,99 @@ def run(
                 pt.out_start,
                 pt.out_end,
             )
+
+            # (Experimental) attach covariance diag using cache/incremental path for diagnostics.
+            # Keeps existing outputs stable; adds optional "cov_diag" key.
+            if enable_cache:
+                from ..perf.cache import compute_cov_payload, incremental_cov_update
+
+                in_start = pt.in_start[:7]
+                in_end = pt.in_end[:7]
+                # Recreate in-sample frame identical to _run_analysis slice
+                date_col = "Date"
+                sub = df.copy()
+                if not pd.api.types.is_datetime64_any_dtype(sub[date_col]):
+                    sub[date_col] = pd.to_datetime(sub[date_col])
+                sub.sort_values(date_col, inplace=True)
+                sdate = pd.to_datetime(f"{in_start}-01") + pd.offsets.MonthEnd(0)
+                edate = pd.to_datetime(f"{in_end}-01") + pd.offsets.MonthEnd(0)
+                in_df_full = sub[
+                    (sub[date_col] >= sdate) & (sub[date_col] <= edate)
+                ].set_index(date_col)
+                # Remove benchmark columns if present in result universe
+                fund_cols = [
+                    c
+                    for c in in_df_full.columns
+                    if c not in (cfg.benchmarks or {}).values()
+                ]
+                in_df_full = in_df_full[fund_cols]
+
+                if (
+                    incremental_cov
+                    and prev_cov_payload is not None
+                    and prev_in_df is not None
+                ):
+                    same_len = prev_in_df.shape[0] == in_df_full.shape[0]
+                    same_cols = (
+                        prev_in_df.columns.tolist() == in_df_full.columns.tolist()
+                    )
+                    n_rows = in_df_full.shape[0]
+                    if same_cols and n_rows >= 3:
+                        # Determine shift distance k (number of rows replaced at head and appended at tail)
+                        k = None
+                        if same_len:
+                            # Compare trailing blocks to find minimal k
+                            max_shift_steps = getattr(cfg, "shift_detection_max_steps", 10)
+                            for step in range(
+                                1, min(max_shift_steps, n_rows - 1)
+                            ):  # cap search for safety
+                                if np.allclose(
+                                    prev_in_df.iloc[step:].to_numpy(),
+                                    in_df_full.iloc[:-step].to_numpy(),
+                                    rtol=0,
+                                    atol=1e-12,
+                                ):
+                                    k = step
+                                    break
+                        if k is None:
+                            # Fallback full recompute
+                            prev_cov_payload = compute_cov_payload(
+                                in_df_full, materialise_aggregates=incremental_cov
+                            )
+                        else:
+                            # Apply k incremental updates sequentially
+                            try:
+                                for step in range(k):
+                                    old_row = prev_in_df.iloc[step].to_numpy(
+                                        dtype=float
+                                    )
+                                    new_row = in_df_full.iloc[
+                                        n_rows - k + step
+                                    ].to_numpy(dtype=float)
+                                    prev_cov_payload = incremental_cov_update(
+                                        prev_cov_payload, old_row, new_row
+                                    )
+                                    if cov_cache_obj is not None:
+                                        cov_cache_obj.incremental_updates += 1
+                            except Exception:  # pragma: no cover - fallback safety
+                                prev_cov_payload = compute_cov_payload(
+                                    in_df_full, materialise_aggregates=incremental_cov
+                                )
+                    else:
+                        prev_cov_payload = compute_cov_payload(
+                            in_df_full, materialise_aggregates=incremental_cov
+                        )
+                else:
+                    from ..perf.cache import compute_cov_payload as _ccp
+
+                    prev_cov_payload = _ccp(
+                        in_df_full, materialise_aggregates=incremental_cov
+                    )
+                prev_in_df = in_df_full
+                res["cov_diag"] = prev_cov_payload.cov.diagonal().tolist()
+                if cov_cache_obj is not None:
+                    # attach cache stats for observability (does not alter existing keys)
+                    res.setdefault("cache_stats", cov_cache_obj.stats())
             out_results.append(res)
         return out_results
 
@@ -353,8 +532,7 @@ def run(
 
     def _score_frame(in_df: pd.DataFrame, funds: list[str]) -> pd.DataFrame:
         # Compute metrics frame for the in-sample window (vectorised)
-        from ..core.rank_selection import (RiskStatsConfig,
-                                           _compute_metric_series)
+        from ..core.rank_selection import RiskStatsConfig, _compute_metric_series
 
         stats_cfg = RiskStatsConfig(risk_free=0.0)
         # Canonical metrics as produced by

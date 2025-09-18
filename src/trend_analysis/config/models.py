@@ -158,7 +158,7 @@ if _HAS_PYDANTIC:
             """Return names of fields whose type is dict[str, Any] (or
             compatible)."""
             # Support both Pydantic v2 (model_fields) and v1 (__fields__)
-            fields_map = getattr(cls, "model_fields", getattr(cls, "__fields__", {}))
+            fields_map = getattr(cls, "model_fields", {})
 
             # items() for both dict-like types
             def _items(obj: Any) -> list[tuple[str, Any]]:
@@ -202,12 +202,14 @@ if _HAS_PYDANTIC:
 
             result: List[str] = []
             for name, field in items:
-                # Pydantic v2 exposes annotation on FieldInfo; v1 provides outer_type_
                 tp = getattr(field, "annotation", None)
                 if tp is None:
                     tp = getattr(field, "outer_type_", None)
                 if _is_dict_type(tp):
                     result.append(name)
+            if "performance" in result:
+                # Maintain backward compatibility: performance is optional
+                result.remove("performance")
             return result
 
         # Placeholders; computed after class creation for reliability
@@ -230,6 +232,7 @@ if _HAS_PYDANTIC:
         benchmarks: dict[str, str] = Field(default_factory=dict)
         metrics: dict[str, Any] = Field(default_factory=dict)
         export: dict[str, Any] = Field(default_factory=dict)
+        performance: dict[str, Any] = Field(default_factory=dict)
         output: dict[str, Any] | None = None
         run: dict[str, Any] = Field(default_factory=dict)
         multi_period: dict[str, Any] | None = None
@@ -269,11 +272,7 @@ if _HAS_PYDANTIC:
         setattr(_bi, "_TREND_CONFIG_CLASS", _PydanticConfigImpl)
 
     # Compute class-level field lists post definition (works for v1/v2)
-    _fields_map = getattr(
-        _PydanticConfigImpl,
-        "model_fields",
-        getattr(_PydanticConfigImpl, "__fields__", {}),
-    )
+    _fields_map = getattr(_PydanticConfigImpl, "model_fields", {})
     try:
         _field_names = list(_fields_map.keys())
     except Exception:  # pragma: no cover
@@ -312,6 +311,7 @@ else:  # Fallback mode for tests without pydantic
             "benchmarks",
             "metrics",
             "export",
+            "performance",
             "output",
             "run",
             "multi_period",
@@ -330,6 +330,7 @@ else:  # Fallback mode for tests without pydantic
         benchmarks: Dict[str, str]
         metrics: Dict[str, Any]
         export: Dict[str, Any]
+        performance: Dict[str, Any]
         output: Dict[str, Any] | None
         run: Dict[str, Any]
         multi_period: Dict[str, Any] | None
@@ -347,6 +348,7 @@ else:  # Fallback mode for tests without pydantic
                 "benchmarks": {},
                 "metrics": {},
                 "export": {},
+                "performance": {},
                 "output": None,
                 "run": {},
                 "multi_period": None,
@@ -373,6 +375,7 @@ else:  # Fallback mode for tests without pydantic
                 "portfolio",
                 "metrics",
                 "export",
+                "performance",
                 "run",
             ]:
                 value = getattr(self, field, None)

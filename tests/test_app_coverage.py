@@ -15,8 +15,13 @@ import pytest
 import yaml  # type: ignore[import-untyped]
 
 import trend_analysis.gui.app as app_module
-from trend_analysis.gui.app import (_build_rank_options, _build_step0, launch,
-                                    load_state, save_state)
+from trend_analysis.gui.app import (
+    _build_rank_options,
+    _build_step0,
+    launch,
+    load_state,
+    save_state,
+)
 from trend_analysis.gui.store import ParamStore
 
 

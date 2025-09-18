@@ -159,6 +159,69 @@ For consistent, reproducible results across different runs, use the reproducible
 
 This is important because setting `PYTHONHASHSEED` after the Python interpreter has started has no effect. The environment variable must be set before Python starts to control hash randomization.
 
+## Structured Run Logging
+
+The CLI and Streamlit UI emit **structured JSONL logs** capturing each major pipeline step with a stable schema. This dramatically simplifies debugging and post‑run analysis.
+
+### CLI
+
+```bash
+trend-model run -c config/demo.yml -i demo/demo_returns.csv --log-file logs/myrun.jsonl
+```
+
+If `--log-file` is omitted a file is created under `outputs/logs/run_<ID>.jsonl` where `<ID>` is a 12‑character run id.
+
+Disable structured logging entirely:
+
+```bash
+trend-model run -c config/demo.yml -i demo/demo_returns.csv --no-structured-log
+```
+
+### Schema (one JSON object per line)
+
+```json
+{
+   "ts": 1730000000.123,      // POSIX timestamp (float)
+   "run_id": "a1b2c3d4e5f6",  // Correlates all lines of a run
+   "step": "selection",       // Machine‑friendly step id
+   "level": "INFO",           // Logging level
+   "msg": "Funds selected",   // Human readable message
+   "extra": { "count": 8 }    // Arbitrary JSON‑serialisable context
+}
+```
+
+### Streamlit UI
+
+After a run completes the **Run Log** pane (Results page) displays:
+- Auto‑refreshing tail (last ~500 lines)
+- File size + line count
+- Error summary table (aggregated by message)
+- Download button for the raw JSONL
+- Legacy in‑memory event log (will be deprecated once parity established)
+
+### Programmatic Parsing
+
+Use helpers in `trend_analysis.logging`:
+
+```python
+from trend_analysis.logging import logfile_to_frame, error_summary
+df = logfile_to_frame(Path("outputs/logs/run_<id>.jsonl"))
+errs = error_summary(Path("outputs/logs/run_<id>.jsonl"))
+```
+
+### Rotation
+
+The handler performs a simple size rotation (default ~1 MB). When the limit is exceeded the active file is renamed with a `.1` suffix and a new file started.
+
+### Typical Steps
+`start`, `load_data`, `analysis_start`, `selection`, `weighting`, `benchmarks`, `metrics_build`, `export_start`, `export_complete`, `bundle_complete`, `end`.
+
+### Troubleshooting
+- Empty pane: run may not have initialised the structured logger (check `--log-file` path permissions).
+- Missing granular steps: selection/weighting keys depend on configuration; ensure the run produced those artifacts.
+
+Structured logging is intentionally additive; if absent the pipeline still produces results normally.
+
 For more details on reproducibility and random seeding, see [docs/ReproducibilityGuide.md](docs/ReproducibilityGuide.md).
 
 

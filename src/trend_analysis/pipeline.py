@@ -9,8 +9,14 @@ import pandas as pd
 from numpy.typing import NDArray
 
 from .data import load_csv
-from .metrics import (annual_return, information_ratio, max_drawdown,
-                      sharpe_ratio, sortino_ratio, volatility)
+from .metrics import (
+    annual_return,
+    information_ratio,
+    max_drawdown,
+    sharpe_ratio,
+    sortino_ratio,
+    volatility,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +101,26 @@ def single_period_run(
     score_frame.columns = metrics
     score_frame.attrs["insample_len"] = len(window)
     score_frame.attrs["period"] = (start, end)
+    # Optional derived correlation metric (opt-in via stats_cfg.extra_metrics)
+    try:
+        extra = getattr(stats_cfg, "extra_metrics", [])
+        if (
+            "AvgCorr" in extra
+            and score_frame.shape[1] > 0
+            and window.shape[1] > 1
+            and "AvgCorr" not in score_frame.columns
+        ):
+            from .core.rank_selection import compute_metric_series_with_cache
+
+            avg_corr_series = compute_metric_series_with_cache(
+                window.dropna(axis=1, how="all"),
+                "AvgCorr",
+                stats_cfg,
+                enable_cache=False,
+            )
+            score_frame = pd.concat([score_frame, avg_corr_series], axis=1)
+    except Exception:  # pragma: no cover - defensive
+        pass
     return score_frame.astype(float)
 
 

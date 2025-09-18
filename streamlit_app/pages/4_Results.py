@@ -1,11 +1,13 @@
 import io
 import json
+from pathlib import Path as _Path
 
 import numpy as np
 import pandas as pd
 import streamlit as st
 
 from trend_analysis.engine.walkforward import walk_forward
+from trend_analysis.logging import logfile_to_frame, error_summary
 from trend_analysis.metrics import attribution
 
 
@@ -85,7 +87,52 @@ try:
 except (KeyError, ValueError, TypeError, AttributeError, ImportError):
     st.caption("Weights view unavailable.")
 
-st.subheader("Event log")
+st.subheader("Run Log")
+
+run_id = getattr(res, "seed", None)  # fallback if run_id not attached
+log_path_str = None
+try:
+    log_path_str = st.session_state.get("run_log_path")
+except Exception:  # pragma: no cover
+    log_path_str = None
+if log_path_str:
+    lp = _Path(log_path_str)
+    # Auto-refresh every 5 seconds (limit 600 refreshes ~ 50 min session)
+    st.autorefresh(interval=5000, limit=600, key="runlog_autorefresh")
+    df_log = logfile_to_frame(lp, limit=500)
+    c1, c2, c3 = st.columns([3, 1, 1])
+    with c1:
+        size_kb = lp.stat().st_size / 1024 if lp.exists() else 0
+        st.caption(f"Log file: {lp} ({size_kb:.1f} KB)")
+    with c2:
+        if st.button("Manual refresh", key="btn_refresh_log"):
+            st.experimental_rerun()
+    with c3:
+        st.caption(f"Lines: {len(df_log)}")
+    if not df_log.empty:
+        st.dataframe(
+            df_log[[c for c in ["ts", "step", "level", "msg"] if c in df_log.columns]]
+        )
+        errs = error_summary(lp)
+        if not errs.empty:
+            st.markdown("**Errors**")
+            st.dataframe(errs)
+        # Download button
+        try:
+            st.download_button(
+                label="Download JSONL",
+                data=lp.read_bytes(),
+                file_name=lp.name,
+                mime="application/json",
+            )
+        except Exception:  # pragma: no cover
+            pass
+    else:
+        st.caption("No structured log lines yet.")
+else:
+    st.caption("No structured log available for this run.")
+
+st.subheader("Event log (legacy in-memory)")
 st.dataframe(res.event_log_df().tail(200))
 
 st.subheader("Summary")

@@ -2,6 +2,11 @@ import pandas as pd
 
 from streamlit_app.components.disclaimer import show_disclaimer
 from trend_analysis.api import run_simulation
+from trend_analysis.logging import (
+    init_run_logger,
+    get_default_log_path,
+    log_step,
+)
 from trend_analysis.config import Config
 
 
@@ -111,9 +116,27 @@ def main():
         run={},
     )
 
+    # Assign / persist run_id in session
+    import uuid
+
+    run_id = st.session_state.get("run_id") or uuid.uuid4().hex[:12]
+    st.session_state["run_id"] = run_id
+    log_path = get_default_log_path(run_id)
+    init_run_logger(run_id, log_path)
+    log_step(run_id, "ui_start", "Streamlit run initiated")
+    config.run_id = run_id  # type: ignore[attr-defined]
+    log_step(run_id, "api_call", "Dispatching run_simulation")
     result = run_simulation(config, returns)
+    log_step(
+        run_id,
+        "api_return",
+        "run_simulation returned",
+        metrics_rows=len(result.metrics),
+    )
     progress.progress(100)
     st.session_state["sim_results"] = result
+    st.session_state["run_log_path"] = str(log_path)
+    log_step(run_id, "ui_end", "Run complete")
     # Show fallback banner if a weight engine failed
     try:
         fb = getattr(result, "fallback_info", None)

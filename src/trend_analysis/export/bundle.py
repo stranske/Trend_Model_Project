@@ -191,9 +191,11 @@ def export_bundle(run: Any, path: Path) -> Path:
         except Exception:
             env.setdefault("trend_analysis", "0")
 
+        # Attempt to propagate a user-visible run_id if one was attached upstream
+        provided_run_id = getattr(run, "run_id", None)
         meta: dict[str, Any] = {
             "schema_version": "1.0",
-            "run_id": run_id,
+            "run_id": provided_run_id or run_id,
             "config": config,
             "config_sha256": config_sha256,
             "seed": seed,
@@ -202,6 +204,10 @@ def export_bundle(run: Any, path: Path) -> Path:
             "receipt": {"created": _dt.datetime.utcnow().isoformat() + "Z"},
             "input_sha256": input_sha256,
         }
+        # Pass through structured log reference if present on the run object
+        log_file = getattr(run, "log_file", None)
+        if log_file:
+            meta["log_file"] = str(log_file)
 
         # We'll set meta["outputs"] after we have all files written and hashed
 
