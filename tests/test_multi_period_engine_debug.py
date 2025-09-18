@@ -26,7 +26,9 @@ class SequenceWeighting:
     sequences: Tuple[Dict[str, float], ...]
     _idx: int = 0
 
-    def update(self, scores: pd.Series, days: int = 30) -> None:  # pragma: no cover - hook for protocol
+    def update(
+        self, scores: pd.Series, days: int = 30
+    ) -> None:  # pragma: no cover - hook for protocol
         # The engine will call update when rank_column is present. The sequence
         # weighting used in this test is deterministic and state free, so we do
         # not need to adjust any internal state here.
@@ -46,7 +48,9 @@ def build_score_frames() -> Dict[str, pd.DataFrame]:
     return {"2020-01-31": first, "2020-02-29": second}
 
 
-def test_run_schedule_turnover_debug_validation(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_schedule_turnover_debug_validation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     score_frames = build_score_frames()
     selector = DummySelector()
     weighting = SequenceWeighting(

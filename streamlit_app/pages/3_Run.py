@@ -2,12 +2,9 @@ import pandas as pd
 
 from streamlit_app.components.disclaimer import show_disclaimer
 from trend_analysis.api import run_simulation
-from trend_analysis.logging import (
-    init_run_logger,
-    get_default_log_path,
-    log_step,
-)
 from trend_analysis.config import Config
+from trend_analysis.logging import (get_default_log_path, init_run_logger,
+                                    log_step)
 
 
 def main():

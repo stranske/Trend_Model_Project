@@ -98,12 +98,10 @@ def _load_weight_engines() -> None:  # pragma: no cover - tiny import shim
     import time.
     """
     # Local import scope prevents premature evaluation during type checking
-    from ..weights import (
-        equal_risk_contribution as _equal_risk_contribution,
-    )  # noqa: F401
-    from ..weights import (
-        hierarchical_risk_parity as _hierarchical_risk_parity,
-    )  # noqa: F401
+    from ..weights import \
+        equal_risk_contribution as _equal_risk_contribution  # noqa: F401
+    from ..weights import \
+        hierarchical_risk_parity as _hierarchical_risk_parity  # noqa: F401
     from ..weights import risk_parity as _risk_parity  # noqa: F401
     from ..weights import robust_weighting as _robust_weighting  # noqa: F401
 

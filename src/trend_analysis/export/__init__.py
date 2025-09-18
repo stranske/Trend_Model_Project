@@ -639,16 +639,16 @@ def export_to_excel(
             supports_custom = True
 
     with writer:
-        book_any: Any = getattr(writer, "book", None)
+        workbook_any: Any = getattr(writer, "book", None)
         engine_name = getattr(writer, "engine", None)
         proxy: _OpenpyxlWorkbookProxy | None = None
         supports_sheet_formatters = bool(
-            book_any and callable(getattr(book_any, "add_worksheet", None))
+            workbook_any and callable(getattr(workbook_any, "add_worksheet", None))
         )
         removed_title: str | None = None
         if not supports_sheet_formatters:
-            if book_any is not None and _is_openpyxl_book(book_any):
-                removed_title = _maybe_remove_openpyxl_default_sheet(book_any)
+            if workbook_any is not None and _is_openpyxl_book(workbook_any):
+                removed_title = _maybe_remove_openpyxl_default_sheet(workbook_any)
                 if removed_title:
                     writer.sheets.pop(removed_title, None)
                 proxy = _OpenpyxlWorkbookProxy(writer)
@@ -670,13 +670,13 @@ def export_to_excel(
             if fmt is not None and supports_sheet_formatters:
                 if proxy is not None:
                     ws_proxy = proxy.add_worksheet(sheet)
-                    writer.sheets[sheet] = ws_proxy._ws  # type: ignore[attr-defined]
+                    writer.sheets[sheet] = ws_proxy._ws
                     fmt(ws_proxy, proxy)
                 else:
                     # Create an empty worksheet and delegate full rendering
                     # xlsxwriter workbook object provides add_worksheet; cast for typing
-                    book_any = writer.book
-                    add_ws = getattr(book_any, "add_worksheet")
+                    workbook_obj = writer.book
+                    add_ws = getattr(workbook_obj, "add_worksheet")
                     ws = cast(Worksheet, add_ws(sheet))
                     writer.sheets[sheet] = ws
                     fmt(ws, writer.book)

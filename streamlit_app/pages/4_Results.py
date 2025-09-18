@@ -7,7 +7,7 @@ import pandas as pd
 import streamlit as st
 
 from trend_analysis.engine.walkforward import walk_forward
-from trend_analysis.logging import logfile_to_frame, error_summary
+from trend_analysis.logging import error_summary, logfile_to_frame
 from trend_analysis.metrics import attribution
 
 
