@@ -104,7 +104,9 @@ def test_cov_metric_from_payload_handles_single_asset():
     assert series.name == "AvgCorr"
     assert series.iloc[0] == 0.0
 
-    variances = rank_selection._cov_metric_from_payload("__COV_VAR__", payload, ["Solo"])
+    variances = rank_selection._cov_metric_from_payload(
+        "__COV_VAR__", payload, ["Solo"]
+    )
     assert variances.iloc[0] == pytest.approx(0.04)
 
 
@@ -155,7 +157,9 @@ def test_some_function_missing_annotation_branches():
         "Fund B",
     ]
 
-    assert rank_selection.some_function_missing_annotation(scores, "top_pct", pct=0.5) == [
+    assert rank_selection.some_function_missing_annotation(
+        scores, "top_pct", pct=0.5
+    ) == [
         "Fund C",
         "Fund B",
     ]
@@ -167,10 +171,7 @@ def test_some_function_missing_annotation_branches():
         ascending=False,
     ) == ["Fund A", "Fund B"]
 
-    assert (
-        rank_selection.some_function_missing_annotation(scores, "unsupported")
-        == []
-    )
+    assert rank_selection.some_function_missing_annotation(scores, "unsupported") == []
 
 
 def test_rank_select_funds_validates_bundle_alignment(sample_bundle):
