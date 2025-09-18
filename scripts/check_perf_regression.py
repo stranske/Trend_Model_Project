@@ -35,6 +35,8 @@ from typing import Iterable
 
 MetricType = str
 
+EPSILON = 1e-12
+
 
 @dataclass(frozen=True)
 class Metric:
@@ -71,7 +73,7 @@ class Metric:
 
         # For speedups we treat decreases as regressions.
         result = max(-change_ratio, 0.0) * 100.0
-        return 0.0 if abs(result) < 1e-12 else result
+        return 0.0 if abs(result) < EPSILON else result
 
     def is_regression(self, threshold_pct: float) -> bool:
         return self.regression_pct() > threshold_pct
@@ -121,7 +123,26 @@ def _iter_metrics(data: dict, baseline: dict) -> Iterable[Metric]:
 
     cap_data = data.get("turnover_cap_vectorization", {})
     cap_baseline = baseline.get("turnover_cap_vectorization", {})
-    for priority in sorted(cap_data):
+
+    cap_priorities = set(cap_data)
+    baseline_priorities = set(cap_baseline)
+    missing_in_benchmark = sorted(baseline_priorities - cap_priorities)
+    missing_in_baseline = sorted(cap_priorities - baseline_priorities)
+
+    if missing_in_benchmark:
+        missing = ", ".join(missing_in_benchmark)
+        raise ValueError(
+            "Benchmark is missing turnover-cap priorities present in baseline: "
+            f"{missing}"
+        )
+    if missing_in_baseline:
+        missing = ", ".join(missing_in_baseline)
+        raise ValueError(
+            "Baseline is missing turnover-cap priorities present in benchmark: "
+            f"{missing}"
+        )
+
+    for priority in sorted(cap_priorities):
         key_prefix = f"turnover_cap.{priority}"
         current = cap_data[priority]
         base = cap_baseline.get(priority, {})
