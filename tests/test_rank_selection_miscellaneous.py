@@ -248,7 +248,9 @@ def test_ensure_cov_payload_reuses_existing_bundle(sample_bundle, monkeypatch):
     sample_bundle.cov_payload = payload
 
     def boom(*args, **kwargs):  # pragma: no cover - guard against regressions
-        raise AssertionError("compute_cov_payload should not be called when bundle cached")
+        raise AssertionError(
+            "compute_cov_payload should not be called when bundle cached"
+        )
 
     monkeypatch.setattr("trend_analysis.perf.cache.compute_cov_payload", boom)
 
@@ -262,9 +264,13 @@ def test_ensure_cov_payload_populates_bundle_when_missing(sample_bundle, monkeyp
     df = sample_bundle.in_sample_df
     recorded: list[CovPayload] = []
 
-    def tracker(frame: pd.DataFrame, *, materialise_aggregates: bool = False) -> CovPayload:
+    def tracker(
+        frame: pd.DataFrame, *, materialise_aggregates: bool = False
+    ) -> CovPayload:
         assert frame.equals(df)
-        payload = compute_cov_payload(frame, materialise_aggregates=materialise_aggregates)
+        payload = compute_cov_payload(
+            frame, materialise_aggregates=materialise_aggregates
+        )
         recorded.append(payload)
         return payload
 
@@ -293,7 +299,10 @@ def test_metric_from_cov_payload_supports_variance_and_avgcorr(sample_bundle):
 
     avgcorr = rank_selection._metric_from_cov_payload("AvgCorr", df, payload)
     expected_corr = 0.02 / (np.sqrt(0.04) * np.sqrt(0.09))
-    assert avgcorr.tolist() == [pytest.approx(expected_corr), pytest.approx(expected_corr)]
+    assert avgcorr.tolist() == [
+        pytest.approx(expected_corr),
+        pytest.approx(expected_corr),
+    ]
 
 
 def test_compute_metric_series_with_cache_disables_cache_when_requested(monkeypatch):
@@ -301,7 +310,9 @@ def test_compute_metric_series_with_cache_disables_cache_when_requested(monkeypa
     cfg = rank_selection.RiskStatsConfig(risk_free=0.0)
     calls: list[bool] = []
 
-    def tracker(frame: pd.DataFrame, *, materialise_aggregates: bool = False) -> CovPayload:
+    def tracker(
+        frame: pd.DataFrame, *, materialise_aggregates: bool = False
+    ) -> CovPayload:
         calls.append(materialise_aggregates)
         return compute_cov_payload(frame, materialise_aggregates=materialise_aggregates)
 
@@ -327,7 +338,9 @@ def test_compute_metric_series_with_cache_materialises_when_incremental(monkeypa
     cfg = rank_selection.RiskStatsConfig(risk_free=0.0)
     flags: list[bool] = []
 
-    def tracker(frame: pd.DataFrame, *, materialise_aggregates: bool = False) -> CovPayload:
+    def tracker(
+        frame: pd.DataFrame, *, materialise_aggregates: bool = False
+    ) -> CovPayload:
         flags.append(materialise_aggregates)
         return compute_cov_payload(frame, materialise_aggregates=materialise_aggregates)
 
