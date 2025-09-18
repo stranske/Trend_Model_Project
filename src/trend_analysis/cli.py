@@ -1,10 +1,12 @@
 import argparse
+import os
 import platform
 import subprocess
 import sys
 from importlib import metadata
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from . import export, pipeline
@@ -69,6 +71,15 @@ def main(argv: list[str] | None = None) -> int:
     run_p = sub.add_parser("run", help="Run analysis pipeline")
     run_p.add_argument("-c", "--config", required=True, help="Path to YAML config")
     run_p.add_argument("-i", "--input", required=True, help="Path to returns CSV")
+    run_p.add_argument(
+        "--seed", type=int, help="Override random seed (takes precedence)"
+    )
+    run_p.add_argument(
+        "--bundle",
+        nargs="?",
+        const="analysis_bundle.zip",
+        help="Write reproducibility bundle (optional path or default analysis_bundle.zip)",
+    )
 
     # Handle --check flag before parsing subcommands
     # This allows --check to work without requiring a subcommand
@@ -94,6 +105,13 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "run":
         cfg = load_config(args.config)
+        cli_seed = args.seed
+        env_seed = os.getenv("TREND_SEED")
+        # Precedence: CLI flag > TREND_SEED > config.seed > default 42
+        if cli_seed is not None:
+            cfg.seed = int(cli_seed)  # type: ignore[attr-defined]
+        elif env_seed is not None and env_seed.isdigit():
+            cfg.seed = int(env_seed)  # type: ignore[attr-defined]
         df = load_csv(args.input)
         assert df is not None  # narrow type for type-checkers
         split = cfg.sample_split
@@ -102,9 +120,31 @@ def main(argv: list[str] | None = None) -> int:
             run_result = run_simulation(cfg, df)
             metrics_df = run_result.metrics
             res = run_result.details
+            run_seed = run_result.seed
+            # Attach time series required by export_bundle if present
+            if isinstance(res, dict):
+                # portfolio returns preference: user_weight then equal_weight fallback
+                port_ser = (
+                    res.get("portfolio_user_weight")
+                    or res.get("portfolio_equal_weight")
+                    or res.get("portfolio_equal_weight_combined")
+                )
+                if port_ser is not None:
+                    run_result.portfolio = port_ser  # type: ignore[attr-defined]
+                bench_map = res.get("benchmarks") if isinstance(res, dict) else None
+                if isinstance(bench_map, dict) and bench_map:
+                    # Pick first benchmark for manifest (simple case)
+                    first_bench = next(iter(bench_map.values()))
+                    run_result.benchmark = first_bench  # type: ignore[attr-defined]
+                weights_user = (
+                    res.get("weights_user_weight") if isinstance(res, dict) else None
+                )
+                if weights_user is not None:
+                    run_result.weights = weights_user  # type: ignore[attr-defined]
         else:  # pragma: no cover - legacy fallback
             metrics_df = pipeline.run(cfg)
             res = pipeline.run_full(cfg)
+            run_seed = getattr(cfg, "seed", 42)
         if not res:
             print("No results")
             return 0
@@ -151,6 +191,30 @@ def main(argv: list[str] | None = None) -> int:
                     export.export_data(
                         data, str(Path(out_dir) / filename), formats=out_formats
                     )
+
+        # Optional bundle export (reproducibility manifest + hashes)
+        if args.bundle:
+            from .api import RunResult as _RR
+            from .export.bundle import export_bundle
+
+            bundle_path = Path(args.bundle)
+            if bundle_path.is_dir():
+                bundle_path = bundle_path / "analysis_bundle.zip"
+            # Build a minimal RunResult-like shim if we executed legacy path
+            if "run_result" in locals():  # modern path
+                rr = run_result
+            else:
+                env = {
+                    "python": sys.version.split()[0],
+                    "numpy": np.__version__,
+                    "pandas": pd.__version__,
+                }
+                rr = _RR(metrics_df, res, run_seed, env)
+            # Attach config + seed for export_bundle
+            rr.config = getattr(cfg, "__dict__", {})  # type: ignore[attr-defined]
+            rr.input_path = Path(args.input)  # type: ignore[attr-defined]
+            export_bundle(rr, bundle_path)
+            print(f"Bundle written: {bundle_path}")
         return 0
 
     # This shouldn't be reached with required=True.

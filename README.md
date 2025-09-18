@@ -383,3 +383,88 @@ COVERAGE_PROFILE=full ./scripts/run_tests.sh
 This convenience wrapper (under `scripts/run_tests.sh`) assumes
 `pytest` and `coverage` are available in the environment and then runs the
 same coverage command as above.
+
+## Deterministic Runs & Reproducibility Bundles
+
+Issue #723 introduced first‑class deterministic execution and portable run
+bundles. The pipeline now enforces a stable hash seed and exposes explicit
+controls for random seeds and artifact capture.
+
+Key points:
+- Hash randomisation: `PYTHONHASHSEED` is forced to `0` by the wrapper script
+   (`scripts/trend-model`) and Docker image unless you override it. This makes
+   any ordering that accidentally depends on dict/set hashing stable across
+   processes.
+- Seed precedence (highest wins): CLI `--seed` flag > `TREND_SEED` env var >
+   `config.seed` (if present) > default `42`.
+- The CLI attaches a combined portfolio return series plus (first) benchmark
+   so downstream reproducibility tooling can compute digests deterministically.
+
+### Basic deterministic invocation
+
+```bash
+./scripts/trend-model run -c config/demo.yml -i demo/demo_returns.csv --seed 123
+```
+
+Repeat runs with the same inputs + seed produce identical `run_id` values in
+the bundle manifest (see below) and identical metrics output.
+
+### Reproducibility bundle
+
+Add the `--bundle` flag to write a compressed archive containing:
+- Run manifest (`run_meta.json`) with: `run_id`, config hash, seed, package
+   versions, file hashes
+- Metrics table (`metrics.csv` / JSON)
+- Summary text file
+- Portfolio and benchmark time series (when available)
+
+Usage examples:
+```bash
+# Default bundle name (analysis_bundle.zip) in CWD
+./scripts/trend-model run -c config/demo.yml -i demo/demo_returns.csv --bundle
+
+# Custom bundle path (directory or file). If a directory is supplied the
+# file name defaults to analysis_bundle.zip inside it.
+./scripts/trend-model run -c config/demo.yml -i demo/demo_returns.csv --bundle outputs/my_run.zip
+```
+
+Inspect the manifest quickly:
+```bash
+unzip -p analysis_bundle.zip run_meta.json | jq .
+```
+
+### Overriding seeds via environment
+
+```bash
+TREND_SEED=999 ./scripts/trend-model run -c config/demo.yml -i demo/demo_returns.csv
+```
+
+This is equivalent to `--seed 999` unless the CLI flag is also provided, in
+which case the flag wins.
+
+### Docker deterministic run
+
+```bash
+docker run --rm -e PYTHONHASHSEED=0 -e TREND_SEED=123 \
+   -v "$PWD/demo/demo_returns.csv":/data/returns.csv \
+   -v "$PWD/config/demo.yml":/cfg.yml \
+   ghcr.io/stranske/trend-model:latest trend-model run -c /cfg.yml -i /data/returns.csv --bundle
+```
+
+All randomness (Python + NumPy) is seeded; if you introduce additional RNG
+sources (e.g. `random.Random`, `torch`, `scipy` stochastic routines) ensure
+they are also seeded inside the pipeline.
+
+### Verifying determinism locally
+
+```bash
+./scripts/trend-model run -c config/demo.yml -i demo/demo_returns.csv --seed 321 --bundle
+unzip -p analysis_bundle.zip run_meta.json | jq -r .run_id > first.id
+./scripts/trend-model run -c config/demo.yml -i demo/demo_returns.csv --seed 321 --bundle my2.zip
+unzip -p my2.zip run_meta.json | jq -r .run_id > second.id
+diff -u first.id second.id && echo "Deterministic ✅"
+```
+
+If the diff command produces output, open an issue with the differing
+`run_meta.json` files so the source of non‑determinism can be traced.
+

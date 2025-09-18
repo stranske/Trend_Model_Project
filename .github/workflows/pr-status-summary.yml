@@ -78,28 +78,13 @@ jobs:
             const body = process.env.BODY;
             const { owner, repo } = context.repo;
 
-            // Find existing summary comment (handle pagination)
-            let allComments = [];
-            let page = 1;
+            // Find existing summary comment
+            const { data: comments } = await github.rest.issues.listComments({ owner, repo, issue_number: pr_number, per_page: 100 });
             const marker = 'Automated Status Summary';
-            while (true) {
-              const { data: comments } = await github.rest.issues.listComments({
-                owner,
-                repo,
-                issue_number: pr_number,
-                per_page: 100,
-                page
-              });
-              allComments = allComments.concat(comments);
-              if (comments.length < 100) break;
-              page++;
-            }
-            const existing = allComments.find(c => c.body && c.body.includes(marker));
+            const existing = comments.find(c => c.body && c.body.includes(marker));
 
             if (existing) {
-              if (existing.body !== body) {
-                await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
-              } // else: no update needed, bodies are identical
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
             } else {
               await github.rest.issues.createComment({ owner, repo, issue_number: pr_number, body });
             }

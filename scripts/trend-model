@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # Development wrapper for trend-model CLI
 # Makes 'trend-model' command available without requiring package installation
+# Ensures deterministic hash seeding unless user already provided one.
+
+if [[ -z "${PYTHONHASHSEED:-}" ]]; then
+    export PYTHONHASHSEED=0
+fi
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
