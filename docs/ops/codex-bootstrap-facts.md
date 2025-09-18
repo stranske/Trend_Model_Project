@@ -160,7 +160,8 @@ This catalog explains what each active workflow does, how it’s triggered, the 
 14) [`agent-readiness.yml`](../../.github/workflows/agent-readiness.yml) — Multi-agent readiness probe
    - Triggers: `workflow_dispatch`
    - Jobs: `probe`
-     - Tests multiple candidate logins for assignability; produces a per-agent report
+     - Tests multiple candidate logins for assignability; produces a per-agent report and step summary table
+     - Supports per-agent login overrides via `copilot_logins`, `codex_logins`, or `custom_logins_json`
 
 <a id="wf-agent-watchdog"></a>
 15) [`agent-watchdog.yml`](../../.github/workflows/agent-watchdog.yml) — Issue-to-PR watcher for agents
@@ -201,8 +202,8 @@ Use these when investigating bootstrap, authorization, or automation behaviours:
   - Purpose: Validate that `@copilot` is assignable via GraphQL and REST.
   - Use when: Copilot agent appears inactive or assignment fails silently.
 
-- `agent-readiness.yml` (Multi-agent matrix)
-  - Purpose: Test a list of candidate logins for assignability; produces a JSON-like report in the job logs/summary.
+ - `agent-readiness.yml` (Multi-agent matrix)
+   - Purpose: Test a list of candidate logins for assignability; produces a JSON-like log report and markdown summary table.
   - Use when: Standing up new repos or debugging org policy changes that affect multiple agents.
 
 - `codex-bootstrap-diagnostic.yml` (Environment & token probe)

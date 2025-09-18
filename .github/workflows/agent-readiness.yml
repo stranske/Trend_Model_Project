@@ -19,6 +19,10 @@ on:
         description: "Candidate GitHub logins for Codex (comma-separated)"
         default: "chatgpt-codex-connector"
         required: false
+      custom_logins_json:
+        description: "JSON object mapping agent keys to candidate logins"
+        default: ""
+        required: false
 
 permissions:
   contents: read
@@ -70,6 +74,7 @@ jobs:
           INPUT_REQUIRE_ALL: ${{ github.event.inputs.require_all }}
           INPUT_COPILOT_LOGINS: ${{ github.event.inputs.copilot_logins }}
           INPUT_CODEX_LOGINS: ${{ github.event.inputs.codex_logins }}
+          INPUT_CUSTOM_LOGINS_JSON: ${{ github.event.inputs.custom_logins_json }}
           ISSUE_NUM: ${{ steps.tmp.outputs.num }}
         uses: actions/github-script@v7
         with:
@@ -95,6 +100,32 @@ jobs:
                         .split(',').map(s => s.trim().toLowerCase()).filter(Boolean),
             };
 
+            const customLoginsRaw = process.env.INPUT_CUSTOM_LOGINS_JSON || '';
+            if (customLoginsRaw.trim()) {
+              try {
+                const parsed = JSON.parse(customLoginsRaw);
+                if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+                  core.warning('custom_logins_json must be a JSON object mapping agent -> logins');
+                } else {
+                  for (const [agentKey, value] of Object.entries(parsed)) {
+                    if (!agentKey) continue;
+                    const key = agentKey.trim().toLowerCase();
+                    if (!key) continue;
+                    const rawList = Array.isArray(value) ? value : String(value || '')
+                      .split(',').map(s => s.trim()).filter(Boolean);
+                    const list = rawList.map(s => s.toLowerCase()).filter(Boolean);
+                    if (list.length) {
+                      CANDIDATES[key] = list;
+                    } else {
+                      core.warning(`custom_logins_json entry for ${agentKey} is empty after parsing`);
+                    }
+                  }
+                }
+              } catch (err) {
+                core.warning(`Unable to parse custom_logins_json: ${err.message || err}`);
+              }
+            }
+
             async function tryAssign(oneLogin) {
               try {
                 const res = await github.rest.issues.addAssignees({
@@ -110,7 +141,7 @@ jobs:
             for (const agentKey of agentsRequested) {
               const candidates = CANDIDATES[agentKey] || [];
               if (!candidates.length) {
-                report[agentKey] = { ok: false, reason: 'no candidates configured' };
+                report[agentKey] = { ok: false, reason: 'no candidates configured', candidates: [] };
                 continue;
               }
 
@@ -119,11 +150,12 @@ jobs:
               const inSuggested = candidates.some(c => actors.includes(c));
               core.info(`GraphQL suggestedActors contains any candidate? ${inSuggested}`);
 
-              let outcome = { ok: false, status: 'NA', used: null, inSuggested };
+              let outcome = { ok: false, status: 'NA', used: null, inSuggested, candidates, attempts: [] };
               for (const cand of candidates) {
                 const res = await tryAssign(cand);
                 core.info(`addAssignees(${cand}) -> ${res.status} ok=${res.ok}`);
-                if (res.ok) { outcome = { ok: true, status: res.status, used: cand, inSuggested }; break; }
+                outcome.attempts.push({ login: cand, ok: res.ok, status: res.status });
+                if (res.ok) { outcome = { ...outcome, ok: true, status: res.status, used: cand }; break; }
                 if (!outcome.message && res.message) outcome.message = res.message;
               }
               report[agentKey] = outcome;
@@ -151,8 +183,94 @@ jobs:
 
       - name: Summary
         if: always()
+        uses: actions/github-script@v7
         env:
           REPORT: ${{ steps.try.outputs.report }}
-        run: |
-          echo "=== Agent readiness report ==="
-          echo "${REPORT}" | sed -e 's/^/  /'
+          INPUT_AGENTS: ${{ github.event.inputs.agents }}
+          INPUT_REQUIRE_ALL: ${{ github.event.inputs.require_all }}
+        with:
+          script: |
+            function parseAgents(raw) {
+              return String(raw || '')
+                .split(',')
+                .map(s => s.trim().toLowerCase())
+                .filter(Boolean);
+            }
+
+            let report = {};
+            try {
+              report = JSON.parse(process.env.REPORT || '{}');
+            } catch (err) {
+              core.warning(`Unable to parse report JSON: ${err.message || err}`);
+              report = {};
+            }
+
+            const requestedAgents = parseAgents(process.env.INPUT_AGENTS || 'copilot,codex');
+            const requireAll = String(process.env.INPUT_REQUIRE_ALL || 'true').toLowerCase() === 'true';
+
+            const rows = [
+              [
+                { data: 'Agent', header: true },
+                { data: 'Result', header: true },
+                { data: 'Details', header: true, markdown: true },
+              ],
+            ];
+
+            const seen = new Set();
+            const fmtCode = value => `\`${value}\``;
+            const detailLines = agent => {
+              const entry = report[agent] || {};
+              const lines = [];
+              if (entry.used) lines.push(`Assigned as ${fmtCode(entry.used)}`);
+              if (entry.candidates && entry.candidates.length) {
+                lines.push(`Candidates: ${entry.candidates.map(fmtCode).join(', ')}`);
+              }
+              if (Array.isArray(entry.attempts) && entry.attempts.length) {
+                const attempts = entry.attempts
+                  .map(a => `${fmtCode(a.login)} (${a.ok ? 'ok' : 'fail'}:${a.status})`)
+                  .join(', ');
+                lines.push(`Attempts: ${attempts}`);
+              }
+              if (typeof entry.inSuggested === 'boolean') {
+                lines.push(entry.inSuggested ? 'Listed in suggestedActors' : 'Not in suggestedActors');
+              }
+              if (entry.reason) lines.push(entry.reason);
+              if (entry.message) lines.push(entry.message);
+              return lines.length ? lines.join('<br/>') : '—';
+            };
+
+            const ordered = requestedAgents.length ? requestedAgents : Object.keys(report);
+            for (const agent of ordered) {
+              if (!agent) continue;
+              seen.add(agent);
+              const entry = report[agent] || {};
+              rows.push([
+                { data: agent },
+                { data: entry.ok ? '✅ Ready' : '❌ Not ready' },
+                { data: detailLines(agent), markdown: true },
+              ]);
+            }
+
+            for (const agent of Object.keys(report)) {
+              if (seen.has(agent)) continue;
+              const entry = report[agent] || {};
+              rows.push([
+                { data: agent },
+                { data: entry.ok ? '✅ Ready' : '❌ Not ready' },
+                { data: detailLines(agent), markdown: true },
+              ]);
+            }
+
+            core.info('=== Agent readiness report ===');
+            for (const row of rows.slice(1)) {
+              core.info(`${row[0].data}: ${row[1].data} — ${row[2].data.replace(/<br\/>/g, '; ')}`);
+            }
+
+            await core.summary
+              .addHeading('Agent readiness results', 3)
+              .addRaw(`**Requested agents:** ${requestedAgents.length ? requestedAgents.join(', ') : '_none_'}`)
+              .addRaw('\n\n')
+              .addRaw(`**require_all:** ${requireAll}`)
+              .addRaw('\n\n')
+              .addTable(rows)
+              .write();
