@@ -178,8 +178,8 @@ def apply_constraints(
     if cash_weight is not None:
         result = working.copy()
         result.loc["CASH"] = cash_weight
-        order = list(w.index)
-        w = result.reindex(order)
+        original_order = list(w.index)
+        w = result.reindex(original_order)
         if (
             constraints.max_weight is not None
             and w.loc["CASH"] > constraints.max_weight + NUMERICAL_TOLERANCE_HIGH
