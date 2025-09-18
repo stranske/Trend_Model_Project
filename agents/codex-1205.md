@@ -22,7 +22,7 @@ Establish automated lifecycle management for inactive pull requests so queues st
    - Record the reminder timestamp using either the label's creation timestamp (available via the GitHub API) or a dedicated comment with machine-readable metadata, so the follow-up phase can be calculated deterministically.
 
 3. **Auto-close path**
-   - For PRs already labeled stale, compare the reminder timestamp to `M`. If exceeded and no new commits/comments occurred, post a closure message and call the REST API to close the PR.
+   - For PRs already labeled stale, compare the reminder timestamp to `M`. If exceeded and no new commits/comments, reviews, or pushes have occurred *since the reminder timestamp*, post a closure message and call the REST API to close the PR.
    - Remove/replace labels to reflect the closed state (e.g., `status:closed-by-ttl`) for analytics and to prevent further processing.
 
 4. **Safety rails & observability**
