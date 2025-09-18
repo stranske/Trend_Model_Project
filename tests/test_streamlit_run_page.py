@@ -5,10 +5,10 @@ import logging
 import sys
 from datetime import date, datetime
 from importlib.abc import Loader
+from importlib.machinery import ModuleSpec
 from pathlib import Path
 from types import ModuleType
 from unittest.mock import MagicMock, Mock, patch
-from importlib.machinery import ModuleSpec
 
 import pandas as pd
 import pytest

@@ -3,7 +3,7 @@ from __future__ import annotations
 import contextlib
 import sys
 from types import ModuleType, SimpleNamespace
-from typing import Callable, cast
+from typing import Callable
 
 import pandas as pd
 import pytest
@@ -22,9 +22,7 @@ class DummyGrid:
         created_instances["grid"] = self
         _instance_list("grids").append(self)
 
-    def on(
-        self, event: str, callback: Callable[[dict[str, object]], None]
-    ) -> None:
+    def on(self, event: str, callback: Callable[[dict[str, object]], None]) -> None:
         self._callbacks[event] = callback
 
     def hold_trait_notifications(self):  # noqa: D401

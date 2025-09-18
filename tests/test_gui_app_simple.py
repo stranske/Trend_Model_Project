@@ -1,7 +1,8 @@
 """Test GUI app functionality for improved coverage."""
 
-import pytest
 from unittest.mock import Mock, mock_open, patch
+
+import pytest
 
 
 def test_gui_module_imports():

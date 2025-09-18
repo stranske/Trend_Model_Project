@@ -704,7 +704,9 @@ class DummyButton:
         self.layout = DummyLayout()
         self._handlers: list[Callable[["DummyButton"], None]] = []
 
-    def on_click(self, callback: Callable[["DummyButton"], None]) -> None:  # pragma: no cover - simple setter
+    def on_click(
+        self, callback: Callable[["DummyButton"], None]
+    ) -> None:  # pragma: no cover - simple setter
         self._handlers.append(callback)
 
     def click(self) -> None:
