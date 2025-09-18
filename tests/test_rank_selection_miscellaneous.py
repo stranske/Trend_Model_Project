@@ -3,7 +3,7 @@ import pandas as pd
 import pytest
 
 from trend_analysis.core import rank_selection
-from trend_analysis.perf.cache import CovCache, CovPayload
+from trend_analysis.perf.cache import CovCache, CovPayload, compute_cov_payload
 
 
 @pytest.fixture(autouse=True)
@@ -240,3 +240,169 @@ def test_rank_select_funds_uses_cached_bundle():
     )
     assert len(fresh_selection) == 1
     assert rank_selection.get_window_metric_bundle(new_key) is not None
+
+
+def test_ensure_cov_payload_reuses_existing_bundle(sample_bundle, monkeypatch):
+    df = sample_bundle.in_sample_df
+    payload = compute_cov_payload(df)
+    sample_bundle.cov_payload = payload
+
+    def boom(*args, **kwargs):  # pragma: no cover - guard against regressions
+        raise AssertionError("compute_cov_payload should not be called when bundle cached")
+
+    monkeypatch.setattr("trend_analysis.perf.cache.compute_cov_payload", boom)
+
+    ensured = rank_selection._ensure_cov_payload(df, sample_bundle)
+
+    assert ensured is payload
+    assert sample_bundle.cov_payload is payload
+
+
+def test_ensure_cov_payload_populates_bundle_when_missing(sample_bundle, monkeypatch):
+    df = sample_bundle.in_sample_df
+    recorded: list[CovPayload] = []
+
+    def tracker(frame: pd.DataFrame, *, materialise_aggregates: bool = False) -> CovPayload:
+        assert frame.equals(df)
+        payload = compute_cov_payload(frame, materialise_aggregates=materialise_aggregates)
+        recorded.append(payload)
+        return payload
+
+    monkeypatch.setattr("trend_analysis.perf.cache.compute_cov_payload", tracker)
+    sample_bundle.cov_payload = None
+
+    ensured = rank_selection._ensure_cov_payload(df, sample_bundle)
+
+    assert recorded and ensured is recorded[0]
+    assert sample_bundle.cov_payload is ensured
+
+
+def test_metric_from_cov_payload_supports_variance_and_avgcorr(sample_bundle):
+    df = sample_bundle.in_sample_df
+    cov = np.array([[0.04, 0.02], [0.02, 0.09]], dtype=float)
+    payload = CovPayload(
+        cov=cov,
+        mean=np.zeros(2),
+        std=np.sqrt(np.diag(cov)),
+        n=10,
+        assets=tuple(df.columns),
+    )
+
+    variances = rank_selection._metric_from_cov_payload("__COV_VAR__", df, payload)
+    assert list(variances) == [pytest.approx(0.04), pytest.approx(0.09)]
+
+    avgcorr = rank_selection._metric_from_cov_payload("AvgCorr", df, payload)
+    expected_corr = 0.02 / (np.sqrt(0.04) * np.sqrt(0.09))
+    assert avgcorr.tolist() == [pytest.approx(expected_corr), pytest.approx(expected_corr)]
+
+
+def test_compute_metric_series_with_cache_disables_cache_when_requested(monkeypatch):
+    df = pd.DataFrame(np.random.default_rng(0).normal(size=(6, 1)), columns=["FundA"])
+    cfg = rank_selection.RiskStatsConfig(risk_free=0.0)
+    calls: list[bool] = []
+
+    def tracker(frame: pd.DataFrame, *, materialise_aggregates: bool = False) -> CovPayload:
+        calls.append(materialise_aggregates)
+        return compute_cov_payload(frame, materialise_aggregates=materialise_aggregates)
+
+    monkeypatch.setattr("trend_analysis.perf.cache.compute_cov_payload", tracker)
+
+    cache = CovCache()
+    series = rank_selection.compute_metric_series_with_cache(
+        df,
+        "AvgCorr",
+        cfg,
+        cov_cache=cache,
+        enable_cache=False,
+    )
+
+    assert calls == [False]
+    assert cache.stats()["entries"] == 0
+    assert series.name == "AvgCorr"
+    assert series.eq(0.0).all()
+
+
+def test_compute_metric_series_with_cache_materialises_when_incremental(monkeypatch):
+    df = pd.DataFrame(np.random.default_rng(1).normal(size=(8, 3)), columns=list("ABC"))
+    cfg = rank_selection.RiskStatsConfig(risk_free=0.0)
+    flags: list[bool] = []
+
+    def tracker(frame: pd.DataFrame, *, materialise_aggregates: bool = False) -> CovPayload:
+        flags.append(materialise_aggregates)
+        return compute_cov_payload(frame, materialise_aggregates=materialise_aggregates)
+
+    monkeypatch.setattr("trend_analysis.perf.cache.compute_cov_payload", tracker)
+
+    cache = CovCache()
+    series = rank_selection.compute_metric_series_with_cache(
+        df,
+        "AvgCorr",
+        cfg,
+        cov_cache=cache,
+        window_start="2024-01",
+        window_end="2024-06",
+        incremental_cov=True,
+    )
+
+    assert flags == [True]
+    assert cache.stats()["entries"] == 1
+    assert series.name == "AvgCorr"
+
+
+def test_select_funds_extended_rank_injects_bundle_and_window_key(monkeypatch):
+    dates = pd.period_range("2020-01", periods=6, freq="M").to_timestamp("M")
+    df = pd.DataFrame(
+        {
+            "Date": dates,
+            "RF": [0.0] * len(dates),
+            "FundA": np.linspace(0.01, 0.05, len(dates)),
+            "FundB": np.linspace(0.02, 0.06, len(dates)),
+        }
+    )
+    cfg = rank_selection.FundSelectionConfig()
+    expected_key = rank_selection.make_window_key(
+        "2020-01",
+        "2020-03",
+        ["FundA", "FundB"],
+        rank_selection.RiskStatsConfig(risk_free=0.0),
+    )
+
+    captured: dict[str, object] = {}
+
+    def fake_rank_select(window_df: pd.DataFrame, stats_cfg, **kwargs):
+        captured["window_df_cols"] = list(window_df.columns)
+        captured["window_df"] = window_df.copy()
+        captured["window_key"] = kwargs["window_key"]
+        captured["bundle"] = kwargs["bundle"]
+        return ["FundA"]
+
+    monkeypatch.setattr(rank_selection, "rank_select_funds", fake_rank_select)
+
+    result = rank_selection.select_funds_extended(
+        df,
+        "RF",
+        ["FundA", "FundB"],
+        "2020-01",
+        "2020-03",
+        "2020-04",
+        "2020-06",
+        cfg,
+        selection_mode="rank",
+        rank_kwargs={
+            "score_by": "Sharpe",
+            "inclusion_approach": "top_n",
+            "n": 1,
+        },
+    )
+
+    assert result == ["FundA"]
+    assert captured["window_df_cols"] == ["FundA", "FundB"]
+    assert captured["window_key"] == expected_key
+    bundle = captured["bundle"]
+    assert bundle is None  # cache miss yields None bundle by default
+    expected_window = df.loc[
+        df["Date"].between("2020-01-31", "2020-03-31"), ["FundA", "FundB"]
+    ].reset_index(drop=True)
+    pd.testing.assert_frame_equal(
+        captured["window_df"].reset_index(drop=True), expected_window
+    )
