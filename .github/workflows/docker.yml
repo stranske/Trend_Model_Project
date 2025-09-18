@@ -34,6 +34,7 @@ jobs:
   build:
     needs: lint
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
       packages: write
@@ -53,8 +54,37 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build image
-        run: docker build --pull -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest .
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Restore buildx cache
+        id: buildx-cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: buildx-${{ hashFiles('Dockerfile', 'requirements.lock') }}-${{ github.sha }}
+          restore-keys: |
+            buildx-${{ hashFiles('Dockerfile', 'requirements.lock') }}
+
+      - name: Note cache presence
+        run: |
+          if [ -d /tmp/.buildx-cache ]; then
+            echo "::notice title=BuildxCache::Cache restored (Issue #1153)"
+          else
+            echo "::notice title=BuildxCache::No existing cache (Issue #1153)"
+          fi
+
+      - name: Build image (cached)
+        run: |
+          docker buildx build --pull --load \
+            --cache-from type=local,src=/tmp/.buildx-cache \
+            --cache-to type=local,dest=/tmp/.buildx-cache-new,mode=max \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest .
+
+      - name: Finalize cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
       - name: Run test suite
         run: |
           # Use verbose output only for debug builds, quiet mode for production

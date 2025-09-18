@@ -73,6 +73,7 @@ dev = [
     "flake8",
     "pytest",
     "pytest-cov",
+    "pytest-rerunfailures>=13.0",
     "types-PyYAML",
     "jsonschema",
     "httpx>=0.25",
