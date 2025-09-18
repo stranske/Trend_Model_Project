@@ -8,7 +8,6 @@ from trend_analysis.api import RunResult
 from trend_analysis.constants import (DEFAULT_OUTPUT_DIRECTORY,
                                       DEFAULT_OUTPUT_FORMATS)
 
-
 cache_first = {
     "entries": 1,
     "hits": 2,
@@ -384,6 +383,7 @@ def test_cli_run_env_seed_and_default_exports(tmp_path, capsys, monkeypatch):
     assert data_payload is excel_calls[0][0]
     assert data_path == out_dir / "analysis"
     assert formats == tuple(DEFAULT_OUTPUT_FORMATS)
+
 
 def test_cli_run_uses_env_seed_and_populates_run_result(tmp_path, capsys, monkeypatch):
     out_dir = tmp_path / "exports"

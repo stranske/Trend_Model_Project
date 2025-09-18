@@ -1,7 +1,8 @@
 import numpy as np
 import pandas as pd
 
-from trend_analysis.perf.cache import compute_cov_payload, incremental_cov_update
+from trend_analysis.perf.cache import (compute_cov_payload,
+                                       incremental_cov_update)
 
 
 def _make_df(rows: int = 20, cols: int = 5, seed: int = 0):

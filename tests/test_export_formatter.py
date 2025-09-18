@@ -3,15 +3,11 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
-from trend_analysis.export import (
-    FORMATTERS_EXCEL,
-    _maybe_remove_openpyxl_default_sheet,
-    _normalise_color,
-    export_to_excel,
-    format_summary_text,
-    make_period_formatter,
-    make_summary_formatter,
-)
+from trend_analysis.export import (FORMATTERS_EXCEL,
+                                   _maybe_remove_openpyxl_default_sheet,
+                                   _normalise_color, export_to_excel,
+                                   format_summary_text, make_period_formatter,
+                                   make_summary_formatter)
 
 
 @pytest.fixture

@@ -3,16 +3,11 @@ import pandas as pd
 import pytest
 
 import trend_analysis.export as export_module
-from trend_analysis.export import (
-    FORMATTERS_EXCEL,
-    execution_metrics_frame,
-    export_data,
-    export_execution_metrics,
-    export_to_excel,
-    manager_contrib_table,
-    register_formatter_excel,
-    reset_formatters_excel,
-)
+from trend_analysis.export import (FORMATTERS_EXCEL, execution_metrics_frame,
+                                   export_data, export_execution_metrics,
+                                   export_to_excel, manager_contrib_table,
+                                   register_formatter_excel,
+                                   reset_formatters_excel)
 
 
 def test_export_data(tmp_path):
