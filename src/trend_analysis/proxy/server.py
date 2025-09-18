@@ -36,7 +36,6 @@ if TYPE_CHECKING:  # pragma: no cover - static type hints only
     from starlette.background import \
         BackgroundTask as _BackgroundTaskType  # noqa: F401
     from uvicorn import Config as _UvicornConfig  # noqa: F401
-    from uvicorn import Server as _UvicornServer
     from websockets.legacy.client import \
         WebSocketClientProtocol as _WebsocketProtocol  # noqa: F401
 
