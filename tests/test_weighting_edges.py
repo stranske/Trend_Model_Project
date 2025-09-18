@@ -2,9 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from trend_analysis.weighting import (AdaptiveBayesWeighting, BaseWeighting,
-                                      EqualWeight, ScorePropBayesian,
-                                      ScorePropSimple)
+from trend_analysis.weighting import EqualWeight, ScorePropBayesian, ScorePropSimple
 
 
 def make_df() -> pd.DataFrame:

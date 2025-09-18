@@ -3,9 +3,11 @@
 import pandas as pd
 import pytest
 
-from trend_analysis.rebalancing import (DrawdownGuardStrategy,
-                                        VolTargetRebalanceStrategy,
-                                        create_rebalancing_strategy)
+from trend_analysis.rebalancing import (
+    DrawdownGuardStrategy,
+    VolTargetRebalanceStrategy,
+    create_rebalancing_strategy,
+)
 
 
 class TestVolTargetRebalanceStrategy:

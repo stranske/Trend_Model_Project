@@ -14,7 +14,7 @@ from __future__ import annotations
 import io
 import re
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Iterable, List, cast
+from typing import Any, Callable, Dict, Iterable, List, cast, TYPE_CHECKING
 
 import ipywidgets as widgets
 import numpy as np
@@ -23,6 +23,9 @@ import pandas as pd
 from .. import metrics as _metrics
 from ..data import ensure_datetime, load_csv
 from ..export import Formatter
+
+if TYPE_CHECKING:  # pragma: no cover - type checking only
+    from ..perf.cache import CovCache
 
 # Compiled regex pattern for better performance when processing large files
 _FIRM_NAME_TOKENIZER = re.compile(r"[^A-Za-z]+")
@@ -310,6 +313,7 @@ _METRIC_ALIASES: dict[str, str] = {
     "sortino_ratio": "Sortino",
     "max_drawdown": "MaxDrawdown",
     "information_ratio": "InformationRatio",
+    "avg_corr": "AvgCorr",
 }
 
 
@@ -450,6 +454,16 @@ register_metric("InformationRatio")(
     )
 )
 
+
+# Average correlation metric (implemented via covariance cache path; per-column
+# function is a placeholder raising if used directly)
+@register_metric("AvgCorr")
+def _avg_corr_placeholder(*_args: Any, **_kwargs: Any) -> float:  # pragma: no cover
+    raise RuntimeError(
+        "AvgCorr is computed via compute_metric_series_with_cache; direct per-column call is unsupported"
+    )
+
+
 # ===============================================================
 #  NEW: RANK‑BASED FUND SELECTION
 # ===============================================================
@@ -475,6 +489,67 @@ def _compute_metric_series(
         risk_free=stats_cfg.risk_free,
         axis=0,
     )
+
+
+def compute_metric_series_with_cache(
+    in_sample_df: pd.DataFrame,
+    metric_name: str,
+    stats_cfg: RiskStatsConfig,
+    *,
+    cov_cache: "CovCache | None" = None,
+    window_start: str | None = None,
+    window_end: str | None = None,
+    freq: str = "M",
+    enable_cache: bool = True,
+    incremental_cov: bool = False,
+) -> pd.Series:
+    """Compute metric series with optional covariance caching.
+
+    Current pipeline calls remain unchanged; this helper is opt-in for
+    metrics that require a covariance matrix. A synthetic metric name
+    ``__COV_VAR__`` demonstrates usage by returning diagonal variances
+    from a cached covariance payload. Real metrics can hook into this
+    path without altering existing registry semantics.
+    """
+    if metric_name not in {"__COV_VAR__", "AvgCorr"}:
+        return _compute_metric_series(in_sample_df, metric_name, stats_cfg)
+    from ..perf.cache import compute_cov_payload
+
+    # Caching disabled path
+    if (cov_cache is None) or (not enable_cache):
+        payload = compute_cov_payload(in_sample_df)
+    else:
+        key = cov_cache.make_key(
+            window_start or "0000-00",
+            window_end or "0000-00",
+            in_sample_df.columns,
+            freq,
+        )
+        # NOTE: incremental_cov is a future optimization: requires caller to
+        # provide previous payload & row deltas. For now we simply ignore the
+        # flag and rely on standard cache lookups. Hook point documented.
+        payload = cov_cache.get_or_compute(
+            key,
+            lambda: compute_cov_payload(
+                in_sample_df, materialise_aggregates=incremental_cov
+            ),
+        )
+    if metric_name == "__COV_VAR__":
+        return pd.Series(
+            payload.cov.diagonal(), index=in_sample_df.columns, name="CovVar"
+        )
+    # AvgCorr computation
+    diag = np.sqrt(np.clip(np.diag(payload.cov), 0, None))
+    if diag.size <= 1:
+        return pd.Series(0.0, index=in_sample_df.columns, name="AvgCorr")
+    with np.errstate(divide="ignore", invalid="ignore"):
+        denom = np.outer(diag, diag)
+        corr = np.divide(
+            payload.cov, denom, out=np.zeros_like(payload.cov), where=denom != 0
+        )
+    sums = corr.sum(axis=1) - 1.0
+    avg = sums / (corr.shape[0] - 1)
+    return pd.Series(avg, index=in_sample_df.columns, name="AvgCorr")
 
 
 def _zscore(series: pd.Series) -> pd.Series:
@@ -1072,6 +1147,7 @@ __all__ = [
     "register_metric",
     "METRIC_REGISTRY",
     "blended_score",
+    "compute_metric_series_with_cache",
     "rank_select_funds",
     "select_funds",
     "build_ui",

@@ -1,8 +1,14 @@
-from .strategies import (DrawdownGuardStrategy, DriftBandStrategy,
-                         PeriodicRebalanceStrategy, RebalancingStrategy,
-                         TurnoverCapStrategy, VolTargetRebalanceStrategy,
-                         apply_rebalancing_strategies,
-                         create_rebalancing_strategy, rebalancer_registry)
+from .strategies import (
+    DrawdownGuardStrategy,
+    DriftBandStrategy,
+    PeriodicRebalanceStrategy,
+    RebalancingStrategy,
+    TurnoverCapStrategy,
+    VolTargetRebalanceStrategy,
+    apply_rebalancing_strategies,
+    create_rebalancing_strategy,
+    rebalancer_registry,
+)
 
 __all__ = (
     "RebalancingStrategy",

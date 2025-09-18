@@ -243,8 +243,7 @@ class TestShrinkageFunctions:
 
     def test_ledoit_wolf_shrinkage(self):
         """Test Ledoit-Wolf shrinkage function."""
-        from trend_analysis.weights.robust_weighting import \
-            ledoit_wolf_shrinkage
+        from trend_analysis.weights.robust_weighting import ledoit_wolf_shrinkage
 
         cov = create_well_conditioned_cov().values
         shrunk_cov, intensity = ledoit_wolf_shrinkage(cov)
