@@ -1,4 +1,5 @@
 import json
+import zipfile
 import os
 import subprocess
 from pathlib import Path
@@ -90,8 +91,6 @@ def test_cli_seed_precedence_env_vs_flag(tmp_path: Path) -> None:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
-    import zipfile
-    import json
 
     with zipfile.ZipFile(bundle) as z:
         with z.open("run_meta.json") as f:

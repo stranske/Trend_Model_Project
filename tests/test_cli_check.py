@@ -31,3 +31,26 @@ def test_check_environment_mismatch(tmp_path, capsys):
     assert ret == 1
     assert "some-missing-package" in out
     assert "expected 0.0.1" in out
+
+
+def test_check_environment_missing_file(tmp_path, capsys):
+    lock = tmp_path / "missing.lock"
+    ret = cli.check_environment(lock)
+    out = capsys.readouterr().out
+    assert ret == 1
+    assert f"Lock file not found: {lock}" in out
+
+
+def test_main_check_flag_without_subcommand(monkeypatch):
+    called: dict[str, bool] = {}
+
+    def fake_check(lock_path=None):
+        called["ran"] = True
+        return 0
+
+    monkeypatch.setattr(cli, "check_environment", fake_check)
+
+    rc = cli.main(["--check"])
+
+    assert rc == 0
+    assert called == {"ran": True}

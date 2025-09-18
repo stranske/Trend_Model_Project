@@ -56,6 +56,10 @@ All operations O(k^2) vs. O(n k^2) full recompute.
 
 `multi_period.engine` attaches an experimental `cov_diag` per result when `performance.enable_cache` is true. If `incremental_cov` is enabled and the new window is a one-step slide with identical universe and length, it applies `incremental_cov_update`; otherwise it falls back to full payload construction.
 
+## CLI Observability
+
+The `trend-model run` CLI now surfaces the cache counters at the end of a run whenever a stats payload is present.  Users will see a short block summarising the number of cache entries along with hit/miss and incremental-update totals.  Structured JSONL logging emits a dedicated `{ "event": "cache_stats", ... }` record so automation can track the same values without scraping stdout.
+
 ## Testing
 
 `tests/test_perf_cache.py` verifies:

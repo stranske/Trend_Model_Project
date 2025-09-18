@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 import yaml  # type: ignore[import-untyped]
@@ -63,6 +64,129 @@ def test_run_schedule_updates_weighting():
     w1 = portfolio.history["2025-06-30"]
     w2 = portfolio.history["2025-07-31"]
     assert w2.loc["A"] > w1.loc["A"]
+
+
+class TrackingWeight(BaseWeighting):
+    def __init__(self) -> None:
+        self.updates: list[tuple[pd.Series, int]] = []
+
+    def weight(self, selected: pd.DataFrame) -> pd.DataFrame:
+        if selected.empty:
+            return pd.DataFrame(columns=["weight"])
+        values = np.linspace(1.0, 0.5, num=len(selected), dtype=float)
+        weights = pd.Series(values, index=selected.index, dtype=float)
+        weights /= weights.sum()
+        return weights.to_frame("weight")
+
+    def update(self, scores: pd.Series, days: int) -> None:
+        self.updates.append((scores.astype(float), days))
+
+
+def _make_simple_frames() -> dict[str, pd.DataFrame]:
+    idx = ["A", "B", "C"]
+    return {
+        "2020-01-31": pd.DataFrame({"Sharpe": [0.6, 0.3, 0.1]}, index=idx),
+        "2020-02-29": pd.DataFrame({"Sharpe": [0.2, 0.5, 0.4]}, index=idx),
+    }
+
+
+def test_run_schedule_rebalancer_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    frames = _make_simple_frames()
+
+    class DummySelector:
+        rank_column = "Sharpe"
+
+        def select(
+            self, score_frame: pd.DataFrame
+        ) -> tuple[pd.DataFrame, pd.DataFrame]:
+            top = score_frame.sort_values("Sharpe", ascending=False).head(2)
+            return top, top
+
+    class DummyRebalancer:
+        def __init__(self) -> None:
+            self.calls: list[pd.Series] = []
+
+        def apply_triggers(self, prev: pd.Series, sf: pd.DataFrame) -> pd.Series:
+            self.calls.append(prev.copy())
+            # Swap order to prove we use the rebalancer output.
+            return prev.sort_index(ascending=False)
+
+    selector = DummySelector()
+    rebalancer = DummyRebalancer()
+    weighting = TrackingWeight()
+
+    portfolio = run_schedule(
+        frames,
+        selector,
+        weighting,
+        rank_column="Sharpe",
+        rebalancer=rebalancer,
+    )
+
+    assert list(portfolio.history.keys()) == ["2020-01-31", "2020-02-29"]
+    # Rebalancer flips the order so the stored weights follow its output.
+    first_weights = portfolio.history["2020-01-31"]
+    assert list(first_weights.index) == ["B", "A"]
+    assert len(rebalancer.calls) == 2
+    # update() invoked once per period with computed day gaps.
+    assert [days for _, days in weighting.updates] == [0, 29]
+
+
+def test_run_schedule_rebalance_strategies(monkeypatch: pytest.MonkeyPatch) -> None:
+    frames = _make_simple_frames()
+
+    class DummySelector:
+        column = "Sharpe"
+
+        def select(
+            self, score_frame: pd.DataFrame
+        ) -> tuple[pd.DataFrame, pd.DataFrame]:
+            return score_frame.iloc[:2], score_frame
+
+    weighting = TrackingWeight()
+    apply_calls: list[dict[str, object]] = []
+
+    def fake_apply(
+        strategies: list[str],
+        params: dict[str, dict[str, object]],
+        current: pd.Series,
+        target: pd.Series,
+        *,
+        scores: pd.Series | None = None,
+    ) -> tuple[pd.Series, float]:
+        apply_calls.append(
+            {
+                "strategies": strategies,
+                "params": params,
+                "current_index": list(current.index),
+                "target_index": list(target.index),
+                "has_scores": scores is not None,
+            }
+        )
+        adjusted = target.copy()
+        if not adjusted.empty:
+            first = adjusted.index[0]
+            adjusted.loc[first] = min(0.9, float(adjusted.loc[first]) + 0.1)
+            adjusted /= adjusted.sum()
+        return adjusted, 0.125
+
+    monkeypatch.setattr(mp_engine, "apply_rebalancing_strategies", fake_apply)
+
+    portfolio = run_schedule(
+        frames,
+        DummySelector(),
+        weighting,
+        rank_column="Sharpe",
+        rebalance_strategies=["dummy"],
+        rebalance_params={"dummy": {}},
+    )
+
+    assert len(apply_calls) == 2
+    assert all(call["has_scores"] for call in apply_calls)
+    # Costs accumulate from the mocked strategy output.
+    assert portfolio.total_rebalance_costs == pytest.approx(0.25)
+    for series in portfolio.history.values():
+        assert pytest.approx(series.sum(), rel=1e-6) == 1.0
 
 
 def test_run_with_price_frames_none():
@@ -324,6 +448,203 @@ def test_run_schedule_calls_rebalance_strategies_and_updates(monkeypatch):
     assert len(dummy_weighting.updates) == 2
     days_between = dummy_weighting.updates[1][1]
     assert days_between > 0
+
+
+def test_threshold_hold_replacement_flow(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Exercise the threshold-hold branch covering low-weight replacements."""
+
+    cfg_data = yaml.safe_load(Path("config/defaults.yml").read_text())
+    cfg_data["multi_period"] = {
+        "frequency": "M",
+        "in_sample_len": 2,
+        "out_sample_len": 1,
+        "start": "2020-01",
+        "end": "2020-04",
+    }
+
+    portfolio = cfg_data.setdefault("portfolio", {})
+    portfolio["policy"] = "threshold_hold"
+    portfolio["transaction_cost_bps"] = 25
+    portfolio["max_turnover"] = 0.1
+    th_cfg = portfolio.setdefault("threshold_hold", {})
+    th_cfg.update(
+        {
+            "target_n": 3,
+            "metric": "Sharpe",
+            "soft_strikes": 1,
+            "entry_soft_strikes": 1,
+            "z_exit_soft": -0.5,
+            "z_entry_soft": 0.5,
+        }
+    )
+    constraints = portfolio.setdefault("constraints", {})
+    constraints.update(
+        {
+            "max_funds": 3,
+            "min_weight": 0.15,
+            "max_weight": 0.6,
+            "min_weight_strikes": 1,
+        }
+    )
+    weighting_cfg = portfolio.setdefault("weighting", {})
+    weighting_cfg.update({"name": "adaptive_bayes", "params": {}})
+
+    cfg = Config(**cfg_data)
+
+    dates = pd.to_datetime(["2020-01-31", "2020-02-29", "2020-03-31", "2020-04-30"])
+    df = pd.DataFrame(
+        {
+            "Date": dates,
+            "A Alpha": [0.05, 0.07, 0.06, 0.08],
+            "B Beta": [0.01, 0.005, 0.002, 0.001],
+            "C Capital": [0.03, 0.035, 0.04, 0.045],
+            "D Delta": [0.06, 0.07, 0.08, 0.09],
+            "E Echo": [0.025, 0.03, 0.028, 0.027],
+        }
+    )
+
+    def fake_run_analysis(*_args, **_kwargs):
+        return {
+            "out_ew_stats": {"sharpe": 0.5, "cagr": 0.03},
+            "out_user_stats": {"sharpe": 0.75, "cagr": 0.05},
+        }
+
+    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+
+    class DummySelector:
+        rank_column = "Sharpe"
+
+        def select(
+            self, score_frame: pd.DataFrame
+        ) -> tuple[pd.DataFrame, pd.DataFrame]:
+            filtered = score_frame.loc[["A Alpha", "B Beta", "C Capital"]]
+            return filtered, filtered
+
+    import trend_analysis.selector as selector_mod
+
+    monkeypatch.setattr(
+        selector_mod, "create_selector_by_name", lambda *a, **k: DummySelector()
+    )
+
+    class ScriptedWeighting:
+        def __init__(self, *_args, **_kwargs) -> None:
+            self.calls = 0
+            self.sequences = [
+                {"A Alpha": 0.6, "B Beta": 0.2, "C Capital": 0.2},
+                {"A Alpha": 0.7, "B Beta": 0.1, "C Capital": 0.2},
+                {"A Alpha": 0.5, "C Capital": 0.3, "D Delta": 0.2},
+                {"A Alpha": 0.1, "B Beta": 0.2, "D Delta": 0.7},
+                {"D Delta": 0.6, "C Capital": 0.25, "E Echo": 0.15},
+            ]
+
+        def weight(self, selected: pd.DataFrame) -> pd.DataFrame:
+            seq = self.sequences[min(self.calls, len(self.sequences) - 1)]
+            self.calls += 1
+            weights = pd.Series(
+                {idx: seq.get(idx, 0.1) for idx in selected.index},
+                index=selected.index,
+                dtype=float,
+            )
+            total = float(weights.sum())
+            if total <= 0:
+                weights[:] = 1.0 / len(weights)
+            else:
+                weights /= total
+            return pd.DataFrame({"weight": weights})
+
+    monkeypatch.setattr(mp_engine, "AdaptiveBayesWeighting", ScriptedWeighting)
+
+    class ScriptedRebalancer:
+        def __init__(self, *_cfg) -> None:
+            self.calls = 0
+
+        def apply_triggers(
+            self, prev_weights: pd.Series, _sf: pd.DataFrame
+        ) -> pd.Series:
+            self.calls += 1
+            prev = prev_weights.astype(float).copy()
+            if self.calls == 1:
+                data = {
+                    "A Alpha": float(prev.get("A Alpha", 0.0)),
+                    "D Delta": float(prev.get("D Delta", 0.0)),
+                    # Assign zero weight to 'B Beta' to test handling of assets dropped during rebalancing.
+                    "B Beta": 0.0,
+                }
+                return pd.Series(data, dtype=float)
+            return prev
+
+    monkeypatch.setattr(mp_engine, "Rebalancer", ScriptedRebalancer)
+
+    import trend_analysis.core.rank_selection as rank_sel
+
+    metric_maps = {
+        "AnnualReturn": {
+            "A Alpha": 0.12,
+            "B Beta": 0.03,
+            "C Capital": 0.18,
+            "D Delta": 0.22,
+            "E Echo": 0.2,
+        },
+        "Volatility": {
+            "A Alpha": 0.25,
+            "B Beta": 0.15,
+            "C Capital": 0.2,
+            "D Delta": 0.3,
+            "E Echo": 0.18,
+        },
+        "Sharpe": {
+            "A Alpha": 0.6,
+            "B Beta": 0.1,
+            "C Capital": 1.2,
+            "D Delta": 1.5,
+            "E Echo": 1.1,
+        },
+        "Sortino": {
+            "A Alpha": 0.8,
+            "B Beta": 0.2,
+            "C Capital": 1.0,
+            "D Delta": 1.6,
+            "E Echo": 1.2,
+        },
+        "InformationRatio": {
+            "A Alpha": 0.5,
+            "B Beta": 0.05,
+            "C Capital": 0.9,
+            "D Delta": 1.3,
+            "E Echo": 1.0,
+        },
+        "MaxDrawdown": {
+            "A Alpha": -0.12,
+            "B Beta": -0.05,
+            "C Capital": -0.08,
+            "D Delta": -0.1,
+            "E Echo": -0.09,
+        },
+    }
+
+    def fake_metric_series(_frame: pd.DataFrame, metric: str, _stats_cfg) -> pd.Series:
+        values = metric_maps[metric]
+        return pd.Series(values, dtype=float)
+
+    monkeypatch.setattr(rank_sel, "_compute_metric_series", fake_metric_series)
+
+    results = mp_engine.run(cfg, df)
+
+    assert len(results) == 2
+
+    events_period_1 = results[0]["manager_changes"]
+    assert any(evt["reason"] == "seed" for evt in events_period_1)
+    assert any(evt["reason"] == "replacement" for evt in events_period_1)
+    assert any(evt["reason"] == "low_weight_strikes" for evt in events_period_1)
+
+    events_period_2 = results[1]["manager_changes"]
+    assert any(evt["action"] == "dropped" for evt in events_period_2)
+    assert any(evt["action"] == "added" for evt in events_period_2)
+
+    assert results[1]["turnover"] > 0.0
+    assert results[1]["transaction_cost"] == pytest.approx(
+        results[1]["turnover"] * (portfolio["transaction_cost_bps"] / 10000.0)
+    )
 
 
 def test_run_requires_csv_path_when_df_missing():

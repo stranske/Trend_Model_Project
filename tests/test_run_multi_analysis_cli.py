@@ -40,3 +40,66 @@ def test_multi_cli_exports_files(tmp_path):
     assert rc == 0
     files = list(out_dir.glob("analysis_*.csv"))
     assert files, "no output files"
+
+
+def test_multi_cli_detailed_output(monkeypatch, capsys, tmp_path):
+    from types import SimpleNamespace
+
+    from trend_analysis import run_multi_analysis
+
+    cfg = SimpleNamespace(
+        export={
+            "directory": str(tmp_path),
+            "formats": ["csv"],
+            "filename": "custom",
+        }
+    )
+    results = [
+        {"period": ("2020-01", "2020-03", "2020-04", "2020-06"), "value": 1},
+        {"period": ("2020-04", "2020-06", "2020-07", "2020-09"), "value": 2},
+    ]
+    summary = {"period": ("2020-01", "2020-03", "2020-07", "2020-09"), "value": 99}
+    formatted: list[tuple[dict[str, object], tuple[str, str, str, str]]] = []
+    export_calls: list[tuple[object, ...]] = []
+
+    monkeypatch.setattr(run_multi_analysis, "load", lambda _: cfg)
+    monkeypatch.setattr(run_multi_analysis, "run_mp", lambda _cfg: results)
+
+    def fake_format(result: dict[str, object], *period: str) -> str:
+        formatted.append((result, period))
+        return f"summary-{result['value']}"
+
+    monkeypatch.setattr(run_multi_analysis.export, "format_summary_text", fake_format)
+    monkeypatch.setattr(
+        run_multi_analysis.export,
+        "combined_summary_result",
+        lambda _results: summary,
+    )
+
+    def fake_export_phase1_multi_metrics(*args, **kwargs) -> None:
+        export_calls.append(args)
+        export_calls.append(tuple(sorted(kwargs.items())))
+
+    monkeypatch.setattr(
+        run_multi_analysis.export,
+        "export_phase1_multi_metrics",
+        fake_export_phase1_multi_metrics,
+    )
+
+    rc = run_multi_analysis.main(["--detailed", "-c", "dummy.yml"])
+    assert rc == 0
+    captured = capsys.readouterr()
+    assert "summary-1" in captured.out
+    assert "summary-2" in captured.out
+    assert "Combined Summary" in captured.out
+    assert "summary-99" in captured.out
+    assert captured.err == ""
+
+    assert formatted[0][0] == results[0]
+    assert formatted[-1][0] == summary
+    assert export_calls
+    exported_args = export_calls[0]
+    assert exported_args[0] == results
+    assert exported_args[1].endswith("/custom")
+    exported_kwargs = dict(export_calls[1])
+    assert exported_kwargs == {"formats": ["csv"], "include_metrics": True}

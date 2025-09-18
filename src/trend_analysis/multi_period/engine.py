@@ -39,6 +39,51 @@ from .replacer import Rebalancer
 from .scheduler import generate_periods
 
 
+def _compute_turnover_state(
+    prev_idx: np.ndarray | None,
+    prev_vals: np.ndarray | None,
+    new_series: pd.Series,
+) -> tuple[float, np.ndarray, np.ndarray]:
+    """Vectorised turnover computation used by ``run_schedule``.
+
+    Parameters
+    ----------
+    prev_idx : np.ndarray | None
+        Previous weight index values or ``None`` on the first iteration.
+    prev_vals : np.ndarray | None
+        Previous weight values aligned with ``prev_idx``.
+    new_series : pd.Series
+        Latest weights indexed by asset identifier.
+
+    Returns
+    -------
+    tuple[float, np.ndarray, np.ndarray]
+        Total turnover together with the index/value arrays to persist for the
+        next iteration.
+    """
+
+    new_series = new_series.astype(float, copy=False)
+    nidx = new_series.index.to_numpy()
+    nvals = new_series.to_numpy(dtype=float, copy=True)
+
+    if prev_idx is None or prev_vals is None:
+        return float(np.abs(nvals).sum()), nidx, nvals
+
+    prev_index = pd.Index(prev_idx)
+    prev_series = pd.Series(prev_vals, index=prev_index, dtype=float, copy=False)
+    union_index = new_series.index.union(prev_index, sort=False)
+
+    new_aligned = new_series.reindex(union_index, fill_value=0.0).to_numpy(
+        dtype=float, copy=False
+    )
+    prev_aligned = prev_series.reindex(union_index, fill_value=0.0).to_numpy(
+        dtype=float, copy=False
+    )
+
+    turnover = float(np.abs(new_aligned - prev_aligned).sum())
+    return turnover, nidx, nvals
+
+
 @dataclass
 class Portfolio:
     """Minimal container for weight, turnover and cost history."""
@@ -227,7 +272,9 @@ def run_schedule(
             cost = 0.0
             weights = target_weights
             tw = target_weights["weight"].astype(float)
-            turnover, prev_tidx, prev_tvals = _fast_turnover(prev_tidx, prev_tvals, tw)
+            turnover, prev_tidx, prev_tvals = _compute_turnover_state(
+                prev_tidx, prev_tvals, tw
+            )
             prev_weights = tw
 
         pf.rebalance(date, weights, turnover, cost)
@@ -437,8 +484,16 @@ def run(
                         k = None
                         if same_len:
                             # Compare trailing blocks to find minimal k
+                            raw_max_steps = perf_flags.get(
+                                "shift_detection_max_steps", 10
+                            )
+                            try:
+                                max_shift_steps = int(raw_max_steps)
+                            except (TypeError, ValueError):
+                                max_shift_steps = 10
+                            max_shift_steps = max(1, max_shift_steps)
                             for step in range(
-                                1, min(10, n_rows - 1)
+                                1, min(max_shift_steps, n_rows - 1)
                             ):  # cap search for safety
                                 if np.allclose(
                                     prev_in_df.iloc[step:].to_numpy(),
