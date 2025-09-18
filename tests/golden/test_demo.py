@@ -156,7 +156,7 @@ class TestDemoGoldenMaster:
             "alias_demo.csv",  # Main demo output (from config)
         ]
 
-        key_files = []
+        key_files: list[Path] = []
         for pattern in key_patterns:
             key_files.extend(demo_exports.glob(pattern))
 

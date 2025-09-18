@@ -26,7 +26,9 @@ class DummyWorksheet:
     def __init__(self, title: str = "Sheet") -> None:
         self.title = title
         self._cells: dict[tuple[int, int], SimpleNamespace] = {}
-        self.column_dimensions = defaultdict(DummyColumnDim)
+        self.column_dimensions: defaultdict[str, DummyColumnDim] = defaultdict(
+            DummyColumnDim
+        )
         self.freeze_panes = None
         self.auto_filter = SimpleNamespace(ref="")
 
@@ -194,7 +196,7 @@ def test_export_to_excel_cleans_up_openpyxl_defaults(monkeypatch, tmp_path):
     class FakeOpenpyxlWorkbook(DummyWorkbook):
         __module__ = "openpyxl.workbook"
 
-    class TrackingDict(dict):
+    class TrackingDict(dict[str, object]):
         def __init__(self, *args, **kwargs) -> None:  # noqa: D401, ANN001
             super().__init__(*args, **kwargs)
             self.pops: list[str] = []
@@ -206,7 +208,7 @@ def test_export_to_excel_cleans_up_openpyxl_defaults(monkeypatch, tmp_path):
     class DummyWriter:
         def __init__(self) -> None:
             self.book = FakeOpenpyxlWorkbook()
-            self.sheets: TrackingDict[str, object] = TrackingDict({"Sheet": object()})
+            self.sheets: TrackingDict = TrackingDict({"Sheet": object()})
             self.engine = "openpyxl"
 
         def __enter__(self) -> "DummyWriter":

@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import sys
 from types import ModuleType, SimpleNamespace
+from typing import Callable, cast
 
 import pandas as pd
 import pytest
@@ -17,11 +18,13 @@ class DummyGrid:
         self.df = df
         self.data: list[dict[str, object]] = []
         self.layout = SimpleNamespace(border="")
-        self._callbacks: dict[str, object] = {}
+        self._callbacks: dict[str, Callable[[dict[str, object]], None]] = {}
         created_instances["grid"] = self
-        created_instances.setdefault("grids", []).append(self)
+        _instance_list("grids").append(self)
 
-    def on(self, event: str, callback) -> None:  # noqa: ANN001
+    def on(
+        self, event: str, callback: Callable[[dict[str, object]], None]
+    ) -> None:
         self._callbacks[event] = callback
 
     def hold_trait_notifications(self):  # noqa: D401
@@ -41,10 +44,12 @@ class DummyUpload:
         self.accept = accept
         self.multiple = multiple
         self.value: dict[str, dict[str, bytes]] = {}
-        self._callbacks: list = []
+        self._callbacks: list[Callable[[dict[str, object]], None]] = []
         created_instances["upload"] = self
 
-    def observe(self, callback, names=None) -> None:  # noqa: ANN001
+    def observe(
+        self, callback: Callable[[dict[str, object]], None], names: object | None = None
+    ) -> None:
         self._callbacks.append(callback)
 
     def trigger(self, content: bytes) -> None:
@@ -61,26 +66,31 @@ class DummyDropdown:
         self.description = description
         default_value = self.options[0] if self.options else None
         self.value = value if value is not None else default_value
-        self._callbacks: list = []
-        key = description or f"dropdown_{len(created_instances.get('dropdowns', []))}"
-        created_instances.setdefault("dropdowns", []).append(self)
+        self._callbacks: list[Callable[[dict[str, object]], None]] = []
+        dropdowns = _instance_list("dropdowns")
+        key = description or f"dropdown_{len(dropdowns)}"
+        dropdowns.append(self)
         created_instances[key] = self
 
-    def observe(self, callback, names=None) -> None:  # noqa: ANN001
+    def observe(
+        self, callback: Callable[[dict[str, object]], None], names: object | None = None
+    ) -> None:
         self._callbacks.append(callback)
 
 
 class DummyCheckbox:
     def __init__(
-        self, value: bool = False, description: str = "", indent: bool = False
+        self, value: object = False, description: str = "", indent: bool = False
     ) -> None:  # noqa: ARG002
         self.value = value
         self.description = description
         self.indent = indent
-        self._callbacks: list = []
-        created_instances.setdefault("checkboxes", []).append(self)
+        self._callbacks: list[Callable[[dict[str, object]], None]] = []
+        _instance_list("checkboxes").append(self)
 
-    def observe(self, callback, names=None) -> None:  # noqa: ANN001
+    def observe(
+        self, callback: Callable[[dict[str, object]], None], names: object | None = None
+    ) -> None:
         self._callbacks.append(callback)
 
 
@@ -98,12 +108,13 @@ class DummyToggleButtons(DummyCheckbox):
 class DummyButton:
     def __init__(self, description: str = "") -> None:  # noqa: ARG002
         self.description = description
-        self._callbacks: list = []
-        created_instances.setdefault("buttons", []).append(self)
-        key = description or f"button_{len(created_instances['buttons'])}"
+        self._callbacks: list[Callable[..., None]] = []
+        buttons = _instance_list("buttons")
+        buttons.append(self)
+        key = description or f"button_{len(buttons)}"
         created_instances[key] = self
 
-    def on_click(self, callback) -> None:  # noqa: ANN001
+    def on_click(self, callback: Callable[..., None]) -> None:
         self._callbacks.append(callback)
 
 
@@ -114,6 +125,15 @@ class DummyVBox:
 
 
 created_instances: dict[str, object] = {}
+
+
+def _instance_list(key: str) -> list[object]:
+    bucket = created_instances.get(key)
+    if isinstance(bucket, list):
+        return bucket
+    new_list: list[object] = []
+    created_instances[key] = new_list
+    return new_list
 
 
 def test_build_step0_upload_refresh(monkeypatch, tmp_path):

@@ -37,6 +37,8 @@ def _make_streamlit(button_response: Any = False) -> MagicMock:
 def _load_run_module(mock_st: MagicMock) -> Any:
     module_path = Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Run.py"
     spec = importlib.util.spec_from_file_location("streamlit_run_page", module_path)
+    if spec is None or spec.loader is None:
+        raise AssertionError("Unable to load streamlit run page module spec")
     module = importlib.util.module_from_spec(spec)
     disclaimer_mod = SimpleNamespace(show_disclaimer=lambda: True)
 
@@ -47,7 +49,6 @@ def _load_run_module(mock_st: MagicMock) -> Any:
             "streamlit_app.components.disclaimer": disclaimer_mod,
         },
     ):
-        assert spec.loader is not None
         spec.loader.exec_module(module)
 
     return module

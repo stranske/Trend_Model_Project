@@ -10,7 +10,7 @@ def test_lazy_getattr_loads_and_caches_module(monkeypatch: pytest.MonkeyPatch) -
     import trend_analysis
 
     sentinel = ModuleType("trend_analysis.selector")
-    sentinel.flag = "sentinel"
+    setattr(sentinel, "flag", "sentinel")
 
     original_import = importlib.import_module
 

@@ -59,7 +59,7 @@ def test_multi_cli_detailed_output(monkeypatch, capsys, tmp_path):
         {"period": ("2020-04", "2020-06", "2020-07", "2020-09"), "value": 2},
     ]
     summary = {"period": ("2020-01", "2020-03", "2020-07", "2020-09"), "value": 99}
-    formatted: list[tuple[dict[str, object], tuple[str, str, str, str]]] = []
+    formatted: list[tuple[dict[str, object], tuple[str, ...]]] = []
     export_calls: list[tuple[object, ...]] = []
 
     monkeypatch.setattr(run_multi_analysis, "load", lambda _: cfg)

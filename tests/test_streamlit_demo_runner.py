@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib
 import sys
 from types import ModuleType
+from typing import Any
 
 import pandas as pd
 
@@ -24,7 +25,7 @@ def _make_mock_streamlit() -> ModuleType:
     class MockStreamlit(ModuleType):
         def __init__(self) -> None:
             super().__init__("streamlit")
-            self.session_state = {}
+            self.session_state: dict[str, Any] = {}
             self.errors: list[str] = []
             self.successes: list[str] = []
 
@@ -59,7 +60,7 @@ def test_app_demo_button_triggers_navigation(monkeypatch):
     class MockStreamlit(ModuleType):
         def __init__(self) -> None:  # noqa: D401 - helper
             super().__init__("streamlit")
-            self.session_state = {}
+            self.session_state: dict[str, Any] = {}
             self.button_calls: list[str] = []
             self.switch_targets: list[str] = []
             self.success_messages: list[str] = []

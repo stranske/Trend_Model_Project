@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, Mapping, MutableMapping, Tuple
 
 import pandas as pd
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from trend_analysis.api import run_simulation
 from trend_analysis.config import Config

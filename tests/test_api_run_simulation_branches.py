@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 from types import ModuleType, SimpleNamespace
+from typing import cast
 
 import pandas as pd
 
@@ -16,7 +17,7 @@ def _make_returns() -> pd.DataFrame:
 
 
 def _make_config(**overrides: object) -> SimpleNamespace:
-    base = {
+    base: dict[str, object] = {
         "sample_split": {
             "in_start": "2021-01",
             "in_end": "2021-12",
@@ -73,7 +74,11 @@ def test_run_simulation_populates_metrics_and_fallback(monkeypatch):
 
     class DummyRiskStatsConfig:
         def __init__(self, **kwargs: object) -> None:
-            captured.setdefault("risk_stats_calls", []).append(kwargs)
+            calls = cast(
+                list[dict[str, object]],
+                captured.setdefault("risk_stats_calls", []),
+            )
+            calls.append(kwargs)
 
     def fake_canonical_metric_list(values: list[str]) -> list[str]:
         captured["canonical_metrics"] = tuple(values)
