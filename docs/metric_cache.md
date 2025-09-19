@@ -69,3 +69,14 @@ For large (≥300 funds, ≥6 metrics, multiple ranking passes) internal timing 
 
 ## Changelog Entry
 Added in Phase‑2 (Issue #1156). No breaking changes; disabled by default.
+
+## AvgCorr Export (Issue #1160)
+
+When the `AvgCorr` metric is included in `metrics.registry` (or explicitly in a
+`RiskStatsConfig.metrics_to_run` list), the pipeline computes per‑fund average
+pairwise correlations for both in‑sample and out‑of‑sample windows. These appear
+as `IS AvgCorr` and `OS AvgCorr` columns in the summary export. If the metric is
+not requested, the columns are omitted (backward compatible). The value for a
+fund is the mean of its correlations with every other selected fund (self
+correlation excluded). Computation uses `DataFrame.corr()` and adds negligible
+overhead relative to existing metric calculations.
