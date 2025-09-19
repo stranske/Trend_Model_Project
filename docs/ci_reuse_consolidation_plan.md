@@ -25,7 +25,7 @@ The `.github/workflows` directory contains both new reusable workflows and sever
 Release, docker, auto-merge enablement, PR status summary, quarantine TTL, failure trackers remain orthogonal to the three reusable workflows.
 
 ## Consolidation Actions Executed
-All previously flagged legacy workflows have been removed in alignment with Issue #1259. Consumers must use the reusable equivalents. This concludes the stabilization window referenced in PR #1257.
+All previously flagged legacy workflows have been marked for removal in alignment with Issue #1259, with actual deletions pending in a follow-up PR. Consumers should transition to the reusable equivalents. This concludes the stabilization window referenced in PR #1257.
 
 ## Deletion Timetable (Superseded)
 Original timetable replaced by immediate removal once validation completed. Retained here for historical context only.
