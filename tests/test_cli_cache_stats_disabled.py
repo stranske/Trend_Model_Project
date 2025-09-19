@@ -93,4 +93,4 @@ def test_cli_suppresses_cache_stats_when_absent(monkeypatch, capsys, tmp_path):
     # Ensure no cache_stats structured event emitted
     assert not any(
         evt for evt in log_calls if evt[1] == "cache_stats"
-    ), "unexpected cache_stats event when cache disabled"
+    ), "No cache_stats events should be emitted when caching is disabled"
