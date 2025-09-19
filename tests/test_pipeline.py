@@ -42,7 +42,8 @@ def test_run_returns_dataframe(tmp_path):
     cfg = make_cfg(tmp_path, make_df())
     out = pipeline.run(cfg)
     assert not out.empty
-    assert set(out.columns) == {
+    columns = set(out.columns)
+    expected = {
         "cagr",
         "vol",
         "sharpe",
@@ -50,6 +51,11 @@ def test_run_returns_dataframe(tmp_path):
         "information_ratio",
         "max_drawdown",
     }
+    assert expected.issubset(columns)
+    # Some pipeline configurations now emit in/out-of-sample average correlation
+    # diagnostics.  If present they should be the only additional columns.
+    extra = columns - expected
+    assert extra <= {"is_avg_corr", "os_avg_corr"}
 
 
 def test_run_with_benchmarks(tmp_path):
