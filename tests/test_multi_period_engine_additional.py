@@ -24,7 +24,9 @@ def test_compute_turnover_state_with_previous_allocation() -> None:
     assert next_vals.tolist() == [0.5, 0.1]
 
 
-def test_run_schedule_with_rebalance_strategies(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_schedule_with_rebalance_strategies(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     class DummySelector:
         rank_column = "score"
 
@@ -59,12 +61,8 @@ def test_run_schedule_with_rebalance_strategies(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setenv("DEBUG_TURNOVER_VALIDATE", "1")
 
     score_frames = {
-        "2020-01-31": pd.DataFrame(
-            {"score": [1.0, 2.0]}, index=["Fund A", "Fund B"]
-        ),
-        "2020-02-29": pd.DataFrame(
-            {"score": [1.5, 1.0]}, index=["Fund A", "Fund C"]
-        ),
+        "2020-01-31": pd.DataFrame({"score": [1.0, 2.0]}, index=["Fund A", "Fund B"]),
+        "2020-02-29": pd.DataFrame({"score": [1.5, 1.0]}, index=["Fund A", "Fund C"]),
     }
 
     weighting = DummyWeighting()
@@ -132,19 +130,17 @@ def test_run_combines_price_frames(monkeypatch: pytest.MonkeyPatch) -> None:
 
     captured: dict[str, Any] = {}
 
-    def fake_run_analysis(df: pd.DataFrame, *args: Any, **kwargs: Any) -> dict[str, Any]:
+    def fake_run_analysis(
+        df: pd.DataFrame, *args: Any, **kwargs: Any
+    ) -> dict[str, Any]:
         captured["df"] = df
         return {"ok": True}
 
     monkeypatch.setattr(engine, "_run_analysis", fake_run_analysis)
 
     price_frames = {
-        "first": pd.DataFrame(
-            {"Date": [pd.Timestamp("2020-02-01")], "FundB": [0.2]}
-        ),
-        "second": pd.DataFrame(
-            {"Date": [pd.Timestamp("2020-01-01")], "FundA": [0.1]}
-        ),
+        "first": pd.DataFrame({"Date": [pd.Timestamp("2020-02-01")], "FundB": [0.2]}),
+        "second": pd.DataFrame({"Date": [pd.Timestamp("2020-01-01")], "FundA": [0.1]}),
     }
 
     results = engine.run(cfg, price_frames=price_frames)
@@ -182,7 +178,9 @@ def test_run_incremental_covariance(monkeypatch: pytest.MonkeyPatch) -> None:
         diag = np.arange(1, len(df.columns) + 1, dtype=float)
         return CovPayload(diag)
 
-    def fake_incremental(payload: CovPayload, old_row: np.ndarray, new_row: np.ndarray) -> CovPayload:
+    def fake_incremental(
+        payload: CovPayload, old_row: np.ndarray, new_row: np.ndarray
+    ) -> CovPayload:
         diag = payload.cov.diagonal() + 0.5
         return CovPayload(diag)
 
@@ -216,7 +214,9 @@ def test_run_incremental_covariance(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(engine, "generate_periods", lambda _: periods)
 
-    def fake_run_analysis(df: pd.DataFrame, *args: Any, **kwargs: Any) -> dict[str, Any]:
+    def fake_run_analysis(
+        df: pd.DataFrame, *args: Any, **kwargs: Any
+    ) -> dict[str, Any]:
         return {}
 
     monkeypatch.setattr(engine, "_run_analysis", fake_run_analysis)
@@ -237,4 +237,3 @@ def test_run_incremental_covariance(monkeypatch: pytest.MonkeyPatch) -> None:
     assert results[0]["cache_stats"] == {"updates": 0}
     assert results[1]["cov_diag"] == [1.5, 2.5]
     assert results[1]["cache_stats"] == {"updates": 1}
-

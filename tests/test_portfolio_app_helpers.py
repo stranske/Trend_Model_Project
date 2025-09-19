@@ -2,23 +2,20 @@
 
 from __future__ import annotations
 
+import importlib.util
 from pathlib import Path
 from typing import Any, Dict
-
-import importlib.util
-import pandas as pd
-import pytest
-import yaml
 from unittest import mock
 
-from tests.test_trend_portfolio_app_helpers import _DummyStreamlit
+import pandas as pd
+import pytest
+import yaml  # type: ignore[import-untyped]
 
 
 def load_helper_namespace() -> Dict[str, Any]:
-    """Import helper utilities from ``app.py`` using the shared Streamlit stub."""
-
-    dummy = _DummyStreamlit()
-    with mock.patch.dict("sys.modules", {"streamlit": dummy}):
+    """Import the helper portion of ``app.py`` and return its globals, mocking
+    Streamlit."""
+    with mock.patch.dict("sys.modules", {"streamlit": mock.MagicMock()}):
         spec = importlib.util.spec_from_file_location(
             "trend_portfolio_app.app", "src/trend_portfolio_app/app.py"
         )
@@ -29,8 +26,12 @@ def load_helper_namespace() -> Dict[str, Any]:
         if hasattr(loader, "exec_module") and callable(getattr(loader, "exec_module")):
             loader.exec_module(module)
         else:
-            raise TypeError(f"Loader {type(loader)} does not have an exec_module method")
+            raise TypeError(
+                f"Loader {type(loader)} does not have an exec_module method"
+            )
         return module.__dict__
+
+
 def test_merge_update_recurses_through_nested_dicts():
     ns = load_helper_namespace()
     merge = ns["_merge_update"]
