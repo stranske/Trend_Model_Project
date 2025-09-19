@@ -29,11 +29,15 @@ from ..core.rank_selection import ASCENDING_METRICS
 from ..data import load_csv
 from ..pipeline import _run_analysis
 from ..rebalancing import apply_rebalancing_strategies
-from ..typing import MultiPeriodPeriodResult  # structural alias
 from ..weighting import (AdaptiveBayesWeighting, BaseWeighting, EqualWeight,
                          ScorePropBayesian)
 from .replacer import Rebalancer
 from .scheduler import generate_periods
+
+# ``trend_analysis.typing`` does not exist in this project; keep the structural
+# intent of ``MultiPeriodPeriodResult`` using a simple mapping alias so the
+# engine remains importable without introducing a new module dependency.
+MultiPeriodPeriodResult = Dict[str, Any]
 
 SHIFT_DETECTION_MAX_STEPS_DEFAULT = 10
 
