@@ -74,7 +74,6 @@ jobs:
         working-directory: trusted-config
         run: |
           git sparse-checkout set --no-cone .github/agent-label-rules.json
-          git checkout ${{ github.event.pull_request.base.ref }}
       - name: Assert sparse checkout scope (Issue #1140)
         run: |
           set -euo pipefail
