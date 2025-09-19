@@ -8,6 +8,8 @@ This repository contains experiments and utilities for analyzing volatility-adju
 
 For a beginner-friendly overview, see [docs/UserGuide.md](docs/UserGuide.md).
 
+📦 **Reusable CI & Automation**: Standardise tests, autofix, and agent automation across repositories using the new reusable workflows documented in [docs/ci_reuse.md](docs/ci_reuse.md). Consumers call `reuse-ci-python.yml`, `reuse-autofix.yml`, and `reuse-agents.yml` via thin `uses:` wrappers.
+
 ➡️ **Codex Bootstrap Simulation & Verification Guide:** See [docs/codex-simulation.md](docs/codex-simulation.md) for the hardened workflow design, simulation labels, forced-failure controls, and scenario matrix (T01–T15).
 
 📌 Operational facts for Codex bootstrap (labels, permissions, tokens, PR behavior) are captured in `docs/ops/codex-bootstrap-facts.md`.

@@ -1,4 +1,10 @@
 name: autofix trivial issues
+# DEPRECATION NOTICE (2025-09-19):
+# This legacy autofix workflow is superseded by the reusable workflow
+# `reuse-autofix.yml` + consumer `autofix-consumer.yml`.
+# It is retained temporarily for backward compatibility and will be
+# removed after a 2-week stabilization period post merge of PR #1257.
+# New contributions should ONLY modify the reusable workflow.
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, labeled]
