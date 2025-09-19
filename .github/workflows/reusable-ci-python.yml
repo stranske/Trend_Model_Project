@@ -11,7 +11,7 @@ on:
       coverage-min:
         description: 'Minimum coverage percentage gate'
         required: false
-        default: '80'
+        default: '85'
         type: string
       marker-expr:
         description: 'Pytest -m expression to select tests'
