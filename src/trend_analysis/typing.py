@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
-from typing import (Mapping, MutableMapping, MutableSequence, TypeAlias,
-                    TypedDict)
+from typing import Mapping, MutableMapping, MutableSequence, TypedDict
+
+try:  # pragma: no cover - import fallback only exercised on <3.10
+    from typing import TypeAlias
+except ImportError:  # pragma: no cover - maintained for older runtimes
+    from typing_extensions import TypeAlias
 
 
 CovarianceDiagonal: TypeAlias = list[float]
