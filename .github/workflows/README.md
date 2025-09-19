@@ -19,7 +19,7 @@ Event Flow (conceptual):
 
 ---
 ## 2. Label Cheat Sheet
-| Label | Purpose | Source |
+|| Label | Purpose | Source |
 |-------|---------|--------|
 | `agent:codex` / `agent:copilot` | Classify automation origin PRs | Agent labeler heuristic |
 | `from:codex` / `from:copilot` | Origin marker | Agent labeler |
