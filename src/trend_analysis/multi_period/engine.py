@@ -800,6 +800,7 @@ def run(
             # Preserve period alignment: produce a minimal placeholder so downstream
             # consumers expecting one entry per generated period retain indexing.
             # (Chosen over 'continue' because some tests assert len(results) == len(periods)).
+            empty_metrics = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
             results.append(
                 cast(
                     MultiPeriodPeriodResult,
@@ -810,11 +811,29 @@ def run(
                             pt.out_start,
                             pt.out_end,
                         ),
+                        "selected_funds": [],
+                        "in_sample_scaled": pd.DataFrame(),
+                        "out_sample_scaled": pd.DataFrame(),
+                        "in_sample_stats": {},
+                        "out_sample_stats": {},
+                        "out_sample_stats_raw": {},
+                        "in_ew_stats": empty_metrics,
+                        "out_ew_stats": empty_metrics,
+                        "out_ew_stats_raw": empty_metrics,
+                        "in_user_stats": empty_metrics,
+                        "out_user_stats": empty_metrics,
+                        "out_user_stats_raw": empty_metrics,
+                        "ew_weights": {},
+                        "fund_weights": {},
+                        "benchmark_stats": {},
+                        "benchmark_ir": {},
+                        "score_frame": pd.DataFrame(),
+                        "weight_engine_fallback": None,
                         "manager_changes": [],
+                        "turnover": 0.0,
+                        "transaction_cost": 0.0,
                     },
-                        "manager_changes": [],
-                        "out_ew_stats": None,
-                        "out_user_stats": None,
+                )
             )
             continue
         sf = _score_frame(in_df, fund_cols)
