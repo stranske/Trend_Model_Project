@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import pandas as pd
 from types import SimpleNamespace
+
+import pandas as pd
 
 from trend_analysis import cli
 from trend_analysis.api import RunResult
