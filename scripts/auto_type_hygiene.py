@@ -4,7 +4,8 @@
 Goals (automation-safe):
   * Install missing type stubs (handled by workflow separately) – this script only mutates source files.
   * Inject `# type: ignore[import-untyped]` comments for a curated allowlist of known untyped imports
-    (currently only `yaml`).
+    (currently only `yaml`).  If a stub file or `py.typed` marker is present, the script leaves the import
+    unchanged.
   * Idempotent: never duplicate ignore comments.
   * Skip legacy / excluded paths (Old/, notebooks/old/).
   * Avoid masking *semantic* errors – we only touch import lines that succeed at runtime but lack stubs.
@@ -23,6 +24,7 @@ This script intentionally uses only the standard library.
 """
 from __future__ import annotations
 
+import importlib.util
 import os
 import re
 from pathlib import Path
@@ -51,9 +53,44 @@ def should_exclude(path: Path) -> bool:
     return any(p.search(rel) for p in EXCLUDE_PATTERNS)
 
 
+def module_has_types(module: str) -> bool:
+    """Return ``True`` if ``module`` has typing support available."""
+
+    parts = module.split(".")
+    for base in SRC_DIRS:
+        package_path = base.joinpath(*parts)
+        stub = package_path.with_suffix(".pyi")
+        if stub.exists():
+            return True
+        if (package_path / "__init__.pyi").exists():
+            return True
+
+    try:
+        spec = importlib.util.find_spec(module)
+    except (ImportError, AttributeError, ValueError):
+        return False
+
+    if spec is None:
+        return False
+
+    origin = getattr(spec, "origin", None)
+    if isinstance(origin, str) and origin.endswith(".pyi"):
+        return True
+
+    submodules = getattr(spec, "submodule_search_locations", None)
+    if submodules:
+        for location in submodules:
+            if Path(location).joinpath("py.typed").exists():
+                return True
+
+    return False
+
+
 def needs_ignore(module: str) -> bool:
     base = module.split(".")[0]
-    return base in ALLOWLIST
+    if base not in ALLOWLIST:
+        return False
+    return not module_has_types(module)
 
 
 def process_file(path: Path) -> tuple[bool, list[str]]:
