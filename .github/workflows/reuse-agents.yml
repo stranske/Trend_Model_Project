@@ -1,0 +1,70 @@
+name: Reusable Agents Pipeline
+
+on:
+  workflow_call:
+    inputs:
+      enable_watchdog:
+        description: 'Run watchdog checks (true/false)'
+        required: false
+        default: 'true'
+        type: string
+      bootstrap_issues_label:
+        description: 'Label to trigger Codex bootstrap'
+        required: false
+        default: 'agent:codex'
+        type: string
+      draft_pr:
+        description: 'Open bootstrap PRs as draft (true/false)'
+        required: false
+        default: 'false'
+        type: string
+    secrets:
+      service_bot_pat:
+        required: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  bootstrap-codex:
+    name: Bootstrap Codex PRs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Find Ready Issues
+        id: ready
+        uses: actions/github-script@v7
+        env:
+          LABEL: ${{ inputs.bootstrap_issues_label }}
+        with:
+          script: |
+            const label = process.env.LABEL;
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: label,
+              per_page: 30
+            });
+            const ready = issues.filter(i => !i.pull_request && !i.title.toLowerCase().includes('wip'));
+            core.setOutput('issue_numbers', ready.map(r => r.number).join(','));
+      - name: Bootstrap First Issue (if any)
+        if: steps.ready.outputs.issue_numbers != ''
+        uses: ./.github/actions/codex-bootstrap-lite
+        with:
+            issue: ${{ fromJSON('[' + steps.ready.outputs.issue_numbers + ']')[0] }}
+            service_bot_pat: ${{ secrets.service_bot_pat || '' }}
+            draft: ${{ inputs.draft_pr }}
+
+  watchdog:
+    if: inputs.enable_watchdog == 'true'
+    name: Agent Watchdog
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Basic Repo Sanity
+        run: |
+          test -f pyproject.toml || { echo 'pyproject.toml missing'; exit 1; }
+          echo 'Repository baseline OK.'

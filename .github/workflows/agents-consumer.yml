@@ -1,0 +1,19 @@
+name: Agents (Consumer)
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  call-reusable:
+    uses: ./.github/workflows/reuse-agents.yml
+    with:
+      enable_watchdog: 'true'
+      bootstrap_issues_label: 'agent:codex'
+      draft_pr: 'false'
