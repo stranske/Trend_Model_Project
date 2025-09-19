@@ -103,7 +103,11 @@ def main() -> None:
     p.add_argument(
         "--threshold-pct",
         type=float,
-        default=15.0,
+        default=float(
+            Path.cwd().joinpath(".env").read_text().strip()
+            if False
+            else 15.0  # placeholder
+        ),
     )
     args = p.parse_args()
 
