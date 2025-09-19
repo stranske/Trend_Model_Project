@@ -6,7 +6,7 @@ This guide enables a new maintainer to understand and operate the CI + agent aut
 ## 1. Architecture Snapshot
 Core layers:
 - Reusable CI (`reuse-ci-python.yml`): tests, coverage, style.
-- Reusable Autofix (`reuse-autofix.yml` + consumer): formatting & lint patching.
+- Reusable Autofix (`reuse-autofix.yml` + consumer): formatting & linting.
 - Reusable Agents (`reuse-agents.yml` + consumer): modes for readiness, preflight, diagnostic, verify, watchdog, bootstrap.
 - Governance & Health: `repo-health-self-check.yml`, labelers, dependency review, CodeQL.
 - Path Labeling: `pr-path-labeler.yml` auto‑categorizes PRs.
