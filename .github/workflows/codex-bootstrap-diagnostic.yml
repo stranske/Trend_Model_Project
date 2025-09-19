@@ -1,4 +1,5 @@
 name: Codex Bootstrap Diagnostic
+# DEPRECATION: Superseded by reuse-agents.yml (enable_diagnostic=true).
 
 on:
   workflow_dispatch:

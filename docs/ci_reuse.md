@@ -75,7 +75,7 @@ jobs:
 3. Commits changes back to the PR branch (uses GitHub token). Fork safety: logic avoids committing if permissions insufficient.
 
 ## 3. Agents Automation (`reuse-agents.yml`)
-Centralises Codex bootstrap and an optional watchdog pass to ensure agent issues / PRs remain healthy.
+Centralises Codex bootstrap plus optional modes (readiness probe, preflight, diagnostic, verify) and a watchdog pass to ensure agent issues / PRs remain healthy.
 
 ### Consumer Example
 ```yaml
@@ -97,14 +97,44 @@ jobs:
 ### Inputs
 | Name | Default | Description |
 | ---- | ------- | ----------- |
-| `issue_query` | `is:open is:issue label:codex-bootstrap` | GitHub search query to select bootstrap targets. |
-| `draft_pr` | `false` | Create draft PRs when bootstrapping if true. |
-| `enable_watchdog` | `true` | Run additional repo health checks (lint, stale detection). |
+| `enable_readiness` | `false` | Run agent assignability (readiness) probe. |
+| `readiness_agents` | `copilot,codex` | Comma list of agent keys for readiness step. |
+| `enable_preflight` | `false` | Run Codex preflight (assignability + optional command post). |
+| `codex_user` | `` | Override Codex connector login. |
+| `codex_command_phrase` | `` | Command phrase to post in preflight issue. |
+| `enable_diagnostic` | `false` | Run bootstrap diagnostic environment / token probe. |
+| `diagnostic_attempt_branch` | `false` | Attempt branch creation during diagnostic. |
+| `diagnostic_dry_run` | `true` | Skip mutating branch creation unless set false. |
+| `enable_verify_issue` | `false` | Verify a specific issue has an agent assignee. |
+| `verify_issue_number` | `` | Issue number used when verification enabled. |
+| `enable_watchdog` | `true` | Run repository watchdog sanity checks. |
+| `bootstrap_issues_label` | `agent:codex` | Label used to select issues for Codex bootstrap. |
+| `draft_pr` | `false` | Open PR as draft when bootstrapping. |
 
 ### Behaviour
-1. Queries issues via GitHub Script.
-2. For each target issue: invokes composite action to create / update a branch + PR (respects `draft_pr`).
-3. Optionally runs watchdog tasks (extensible section in workflow).
+Each mode is gated by its `enable_*` boolean input.
+
+Order of potential jobs (independent; may run in parallel):
+1. Readiness probe: GraphQL assignability + temp issue test.
+2. Preflight: Codex single-issue assignability + optional command comment.
+3. Diagnostic: Environment & token visibility + optional branch create attempt.
+4. Verify issue: Ensures specified issue has at least one agent assignee.
+5. Codex bootstrap: Finds first open issue with matching label and bootstraps PR.
+6. Watchdog: Lightweight repo sanity (extensible future hook).
+
+Only jobs with their enable flag set to `true` execute.
+
+### Legacy Workflow Consolidation
+The following legacy workflows are now superseded by input‑gated modes:
+| Legacy Workflow | Replacement Mode |
+| ---------------- | ---------------- |
+| `agent-readiness.yml` | `enable_readiness` |
+| `codex-preflight.yml` | `enable_preflight` |
+| `codex-bootstrap-diagnostic.yml` | `enable_diagnostic` |
+| `verify-agent-task.yml` | `enable_verify_issue` |
+| `agent-watchdog.yml` | (partially) `enable_watchdog` (full parity pending) |
+
+Deprecation headers were added; removal can occur after a stability window.
 
 ## 4. Adoption Guide (External Repos)
 1. Copy the three reusable files verbatim or add this repo as a submodule / template reference.
