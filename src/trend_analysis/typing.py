@@ -11,16 +11,23 @@ except ImportError:  # pragma: no cover - maintained for older runtimes
 
 
 CovarianceDiagonal: TypeAlias = list[float]
+StatsMapping: TypeAlias = Mapping[str, float] | MutableMapping[str, float]
+
+__all__ = [
+    "CovarianceDiagonal",
+    "StatsMapping",
+    "MultiPeriodPeriodResult",
+]
 
 
 class MultiPeriodPeriodResult(TypedDict, total=False):
     """Typed contract for multi-period analysis results."""
 
     period: tuple[str, str, str, str]
-    out_ew_stats: Mapping[str, float] | MutableMapping[str, float]
-    out_user_stats: Mapping[str, float] | MutableMapping[str, float]
+    out_ew_stats: StatsMapping
+    out_user_stats: StatsMapping
     manager_changes: MutableSequence[dict[str, object]]
     turnover: float
     transaction_cost: float
     cov_diag: CovarianceDiagonal
-    cache_stats: Mapping[str, float] | MutableMapping[str, float]
+    cache_stats: StatsMapping

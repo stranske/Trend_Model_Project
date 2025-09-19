@@ -10,7 +10,7 @@ from __future__ import annotations
 import math
 from typing import List
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 
 PROBE_VERSION = "style_only_v3"
 

@@ -4,7 +4,8 @@ from collections import UserDict
 from types import MappingProxyType
 from typing import Any, List, Mapping, MutableMapping, MutableSequence, Union, cast, get_args, get_origin, get_type_hints
 
-from trend_analysis.typing import MultiPeriodPeriodResult
+from trend_analysis.typing import (MultiPeriodPeriodResult, StatsMapping,
+                                   CovarianceDiagonal)
 
 
 def test_multi_period_period_result_schema_matches_expected_contract() -> None:
@@ -41,6 +42,10 @@ def test_multi_period_period_result_schema_matches_expected_contract() -> None:
     # ``list`` keeps the assertion type-friendly while remaining precise about
     # the expected element type.
     assert cov_diag_hint == list[float]
+    assert CovarianceDiagonal == list[float]
+
+    stats_mapping_hint = cast(Any, hints["out_ew_stats"])
+    assert stats_mapping_hint == StatsMapping
 def test_multi_period_period_result_supports_incremental_population() -> None:
     """Ensure the TypedDict behaves like a mutable dictionary at runtime."""
 
