@@ -80,7 +80,7 @@ def _normalize_columns(cols: Any, expected: int) -> List[Any]:
 
     if not normalised:
         placeholder_factory = getattr(st, "empty", None)
-        placeholder = (
+        placeholder = placeholder_factory() if callable(placeholder_factory) else _NullContext()
             placeholder_factory() if callable(placeholder_factory) else object()
         )
         normalised = [placeholder]
