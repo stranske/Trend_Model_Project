@@ -36,8 +36,11 @@ def test_multi_period_period_result_schema_matches_expected_contract() -> None:
     assert hints["turnover"] == float
     assert hints["transaction_cost"] == float
     cov_diag_hint = cast(Any, hints["cov_diag"])
-    origin = get_origin(cov_diag_hint)
-    assert origin in (list, List)
+    # ``TypeAlias`` annotations resolve to ``list[float]`` at runtime on
+    # supported Python versions.  Comparing directly against the specialised
+    # ``list`` keeps the assertion type-friendly while remaining precise about
+    # the expected element type.
+    assert cov_diag_hint == list[float]
     assert get_args(cov_diag_hint) == (float,)
 
 
