@@ -9,22 +9,16 @@ from typing import Any, Dict
 import pandas as pd
 import pytest
 import yaml
-
+import importlib.util
+from unittest import mock
 
 def load_helper_namespace() -> Dict[str, Any]:
-    """Execute the helper portion of ``app.py`` and return its globals."""
-
-    source = Path("src/trend_portfolio_app/app.py").read_text(encoding="utf-8")
-    prefix, _ = source.split("# ---- UI", 1)
-    # ``streamlit`` is only required by the UI section; avoid importing it here.
-    cleaned = "\n".join(
-        line for line in prefix.splitlines() if line.strip() != "import streamlit as st"
-    )
-    namespace: Dict[str, Any] = {}
-    exec(cleaned, namespace)  # nosec: trusted project source under test
-    return namespace
-
-
+    """Import the helper portion of ``app.py`` and return its globals, mocking Streamlit."""
+    with mock.patch.dict("sys.modules", {"streamlit": mock.MagicMock()}):
+        spec = importlib.util.spec_from_file_location("trend_portfolio_app.app", "src/trend_portfolio_app/app.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module.__dict__
 def test_merge_update_recurses_through_nested_dicts():
     ns = load_helper_namespace()
     merge = ns["_merge_update"]
