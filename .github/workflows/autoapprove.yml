@@ -33,7 +33,7 @@ jobs:
       - name: Assert sparse checkout scope (Issue #1140)
         run: |
           set -euo pipefail
-          COUNT=$(find trusted-config -path 'trusted-config/.git' -prune -o -type f -print | wc -l | tr -d ' ')
+          COUNT=$(find trusted-config -type f ! -path 'trusted-config/.git/*' | wc -l | tr -d ' ')
           if [ "$COUNT" -gt 2 ]; then
             echo "::error::Unexpected file expansion in sparse checkout (found $COUNT files outside .git)"; exit 1;
           fi
