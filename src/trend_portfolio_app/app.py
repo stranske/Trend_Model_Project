@@ -82,7 +82,7 @@ def _expected_columns(spec: Any) -> int:
     if isinstance(spec, int):
         return max(0, spec)
     if isinstance(spec, Sequence):
-        return len(list(spec))
+        return len(spec)
     return 1
 
 
