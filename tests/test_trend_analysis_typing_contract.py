@@ -1,6 +1,7 @@
 """Tests for the :mod:`trend_analysis.typing` module contract."""
 
 from collections import UserDict
+from types import MappingProxyType
 from typing import Mapping, MutableMapping, MutableSequence, Union, get_args, get_origin, get_type_hints
 
 from trend_analysis.typing import MultiPeriodPeriodResult
@@ -59,3 +60,29 @@ def test_multi_period_period_result_supports_incremental_population() -> None:
     assert result["cov_diag"][1] == 0.2
     assert result["out_ew_stats"]["alpha"] == 1.0
     assert result["cache_stats"]["beta"] == 2.0
+
+
+def test_multi_period_period_result_accepts_mapping_variants() -> None:
+    """The union fields should accept both mutable and immutable mappings."""
+
+    result: MultiPeriodPeriodResult = MultiPeriodPeriodResult()
+
+    # ``period`` is optional because the TypedDict is marked ``total=False``.
+    result["period"] = ("2021-01-01", "2021-03-31", "2021-04-01", "2021-06-30")
+
+    # ``MappingProxyType`` provides an immutable ``Mapping`` implementation,
+    # while ``UserDict`` exercises the ``MutableMapping`` branch of the union.
+    ew_stats = MappingProxyType({"alpha": 1.23})
+    user_stats = UserDict({"beta": 4.56})
+
+    result["out_ew_stats"] = ew_stats
+    result["out_user_stats"] = user_stats
+    result["cache_stats"] = user_stats
+
+    assert result["out_ew_stats"]["alpha"] == 1.23
+
+    # ``UserDict`` remains mutable after assignment, confirming that
+    # ``MutableMapping`` values are stored by reference.
+    user_stats["beta"] = 7.89
+    assert result["out_user_stats"]["beta"] == 7.89
+    assert result["cache_stats"]["beta"] == 7.89
