@@ -123,9 +123,9 @@ def _summarise_multi(results: List[Dict[str, Any]]) -> pd.DataFrame:
         per = r.get("period")
         out_ew = r.get("out_ew_stats", {})
         out_user = r.get("out_user_stats", {})
-
-        def _get(d: Any, key: str) -> float:
-            if d is None:
+            try:
+                if d is None:
+                    return float("nan")
                 return float("nan")
             try:
                 if hasattr(d, "get"):
