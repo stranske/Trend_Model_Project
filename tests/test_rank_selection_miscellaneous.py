@@ -328,9 +328,7 @@ def test_some_function_missing_annotation_branches():
 
 
 def test_apply_transform_modes_and_guardrails():
-    series = pd.Series(
-        [0.3, 0.2, 0.1], index=["FundA", "FundB", "FundC"], dtype=float
-    )
+    series = pd.Series([0.3, 0.2, 0.1], index=["FundA", "FundB", "FundC"], dtype=float)
 
     ranked = rank_selection._apply_transform(series, mode="rank")
     assert ranked.loc["FundA"] == pytest.approx(1.0)
@@ -389,9 +387,7 @@ def test_avg_corr_metric_handles_context_variants():
         expected_second = corr.loc["B"].drop(labels=["B"]).mean()
         assert second == pytest.approx(expected_second)
 
-        missing = rank_selection._avg_corr_metric(
-            pd.Series([0.0, 1.0], name="Missing")
-        )
+        missing = rank_selection._avg_corr_metric(pd.Series([0.0, 1.0], name="Missing"))
         assert missing == 0.0
     finally:
         rank_selection._METRIC_CONTEXT.reset(token)
@@ -406,9 +402,7 @@ def test_rank_select_funds_transform_alias_and_cache_storage():
         }
     )
     cfg = rank_selection.RiskStatsConfig()
-    window_key = rank_selection.make_window_key(
-        "2020-01", "2020-04", df.columns, cfg
-    )
+    window_key = rank_selection.make_window_key("2020-01", "2020-04", df.columns, cfg)
 
     mismatched = rank_selection.WindowMetricBundle(
         key=window_key,
@@ -593,6 +587,7 @@ def test_select_funds_extended_rank_requires_kwargs(df=None):
             selection_mode="rank",
             rank_kwargs=None,
         )
+
 
 def test_rank_select_funds_validates_bundle_alignment(sample_bundle):
     bundle = sample_bundle
