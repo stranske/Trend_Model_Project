@@ -72,9 +72,32 @@ def process_file(path: Path) -> tuple[bool, list[str]]:
             new_lines.append(line)
             continue
         module = m.group("module")
-        if needs_ignore(module) and IGNORE_TOKEN not in line:
-            # Do not append if another type: ignore already covers it more specifically
-            if "type: ignore" not in line:
+        if needs_ignore(module):
+            if IGNORE_TOKEN in line:
+                new_lines.append(line)
+                continue
+
+            ignore_match = re.search(r"#\s*type:\s*ignore(?P<bracket>\[[^\]]*\])?", line)
+            if ignore_match:
+                bracket = ignore_match.group("bracket")
+                if bracket is None:
+                    replacement = "# type: ignore[import-untyped]"
+                else:
+                    bracket_content = bracket[1:-1].strip()
+                    if bracket_content:
+                        codes = [code.strip() for code in bracket_content.split(",") if code.strip()]
+                    else:
+                        codes = []
+                    if "import-untyped" in codes:
+                        new_lines.append(line)
+                        continue
+                    codes.append("import-untyped")
+                    replacement = f"# type: ignore[{', '.join(codes)}]"
+
+                start, end = ignore_match.span()
+                line = f"{line[:start]}{replacement}{line[end:]}"
+                changed = True
+            else:
                 line = f"{line.rstrip()}  {IGNORE_TOKEN}"
                 changed = True
         new_lines.append(line)
