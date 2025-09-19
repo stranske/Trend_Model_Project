@@ -14,9 +14,9 @@ jobs:
     uses: ./.github/workflows/reuse-ci-python.yml
     with:
       python_matrix: ${{ vars.CI_PY_VERSIONS || '["3.11","3.12"]' }}
-      cov_min: ${{ vars.COV_MIN || 80 }}
+      cov_min: ${{ vars.COV_MIN || 85 }}
       # Coverage gate enforced in the reusable workflow via
-      # pytest --cov --cov-fail-under=${{ vars.COV_MIN || 80 }}
+      # pytest --cov --cov-fail-under=${{ vars.COV_MIN || 85 }}
       run_quarantine: 'false'
   gate:
     name: gate / all-required-green
