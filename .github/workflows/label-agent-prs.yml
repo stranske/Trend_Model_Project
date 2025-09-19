@@ -75,10 +75,11 @@ jobs:
       - name: Assert sparse checkout scope (Issue #1140)
         run: |
           set -euo pipefail
-          EXPECTED=1
+          # Only the agent label rules file should be present after sparse checkout.
+          EXPECTED_AGENT_RULES_FILE_COUNT=1
           COUNT=$(git -C trusted-config ls-tree --full-tree --name-only HEAD | wc -l | tr -d ' ')
-          if [ "$COUNT" -ne "$EXPECTED" ]; then
-            echo "::error::Unexpected tracked file count in sparse checkout (expected $EXPECTED, found $COUNT)";
+          if [ "$COUNT" -ne "$EXPECTED_AGENT_RULES_FILE_COUNT" ]; then
+            echo "::error::Unexpected tracked file count in sparse checkout (expected $EXPECTED_AGENT_RULES_FILE_COUNT, found $COUNT)";
             git -C trusted-config ls-tree --full-tree --name-only HEAD || true
             exit 1
           fi
