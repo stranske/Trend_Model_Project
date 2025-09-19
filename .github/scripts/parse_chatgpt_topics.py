@@ -36,7 +36,7 @@ def _split_numbered_items(text: str) -> list[dict[str, str | list[str]]]:
         else:
             if current is None:
                 continue
-            current.setdefault("lines", []).append(raw_line.rstrip("\n"))
+            current["lines"].append(raw_line.rstrip("\n"))
     if current:
         items.append(current)
     if not items:
