@@ -34,7 +34,9 @@ def test_multi_period_period_result_schema_matches_expected_contract() -> None:
     assert hints["manager_changes"] == MutableSequence[dict[str, object]]
     assert hints["turnover"] == float
     assert hints["transaction_cost"] == float
-    assert hints["cov_diag"] == list[float]
+    cov_diag_hint = hints["cov_diag"]
+    assert get_origin(cov_diag_hint) is list
+    assert get_args(cov_diag_hint) == (float,)
 
 
 def test_multi_period_period_result_supports_incremental_population() -> None:
