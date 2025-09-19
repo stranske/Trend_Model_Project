@@ -51,3 +51,17 @@ def test_version_fallback_when_metadata_missing(
         assert reloaded.__version__ == "0.1.0-dev"
 
     importlib.reload(module)
+
+
+def test_top_level_reexports_expose_data_and_export_helpers() -> None:
+    module = importlib.reload(importlib.import_module("trend_analysis"))
+
+    # ``load_csv`` and ``identify_risk_free_fund`` should come from the data module.
+    assert hasattr(module, "load_csv")
+    assert module.load_csv is module.data.load_csv
+    assert hasattr(module, "identify_risk_free_fund")
+    assert module.identify_risk_free_fund is module.data.identify_risk_free_fund
+
+    # Export helpers are re-exported when the export submodule imports succeed.
+    assert hasattr(module, "export_to_csv")
+    assert module.export_to_csv is module.export.export_to_csv
