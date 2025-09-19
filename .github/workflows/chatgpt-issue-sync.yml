@@ -247,6 +247,9 @@ PY
                       bestScore = ratio;
                     }
                   }
+                  // The threshold value 0.35 for fuzzy label matching was chosen empirically.
+                  // It balances matching accuracy: lower values are too strict, higher values allow too many false positives.
+                  // Adjust if label matching behavior needs to be tuned.
                   if (best !== null && bestScore <= 0.35) {
                     return best;
                   }
