@@ -216,7 +216,10 @@ def _load_app_with_magicmock(
 
     source = Path(module.__file__).read_text(encoding="utf-8")
     prefix = source.split("st.set_page_config", 1)[0]
-    code = compile(prefix + "    pass\n", module.__file__, "exec")
+    # Dynamically determine indentation for injected "pass" statement
+    last_line = prefix.splitlines()[-1] if prefix.splitlines() else ""
+    indentation = last_line[:len(last_line) - len(last_line.lstrip())]
+    code = compile(prefix + f"{indentation}pass\n", module.__file__, "exec")
     exec(code, module.__dict__)
 
     is_mock_impl = module._is_mock_streamlit  # type: ignore[attr-defined]
