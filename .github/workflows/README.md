@@ -125,7 +125,7 @@ jobs:
 
 ---
 ## 9. Related Deep-Dive Docs
-| Topic | Doc |
+|| Topic | Doc |
 |-------|-----|
 | Reusable workflow design | `docs/ci_reuse.md` |
 | Consolidation history | `docs/ci_reuse_consolidation_plan.md` |
