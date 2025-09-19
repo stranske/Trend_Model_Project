@@ -392,19 +392,26 @@ class TestDemoGoldenMaster:
         with open(ci_config_path, "r") as f:
             ci_content = f.read()
 
-        # Verify global coverage gate is set to 80% (literal or via variable)
-        # Accept either a literal --cov-fail-under=80 or a variable-based expression resolving to 80,
-        # such as --cov-fail-under=${{ vars.COV_MIN || 80 }}.
+        # Verify global coverage gate is set to 80% (literal or via reusable workflow input)
         literal_ok = "--cov-fail-under=80" in ci_content
-        variable_ok = bool(
+        cov_min_input_ok = bool(
             re.search(
-                r"--cov-fail-under=\$\{\{\s*vars\.COV_MIN\s*\|\|\s*80\s*\}\}",
+                r"cov_min\s*:\s*\$\{\{\s*vars\.COV_MIN\s*\|\|\s*80\s*\}\}",
                 ci_content,
             )
         )
         assert (
-            literal_ok or variable_ok
-        ), "CI should require 80% coverage globally (literal or via vars.COV_MIN with default 80)"
+            literal_ok or cov_min_input_ok
+        ), "CI should require 80% coverage globally (literal flag or vars.COV_MIN input)"
+
+        if cov_min_input_ok:
+            # Ensure the reusable workflow actually enforces the gate via pytest command
+            reusable_path = Path(".github/workflows/reuse-ci-python.yml")
+            assert reusable_path.exists(), "Reusable CI workflow not found"
+            reusable_content = reusable_path.read_text()
+            assert re.search(
+                r"--cov-fail-under=\$\{\{\s*inputs\.cov_min\s*\}\}", reusable_content
+            ), "Reusable CI workflow must pass --cov-fail-under=${{ inputs.cov_min }} to pytest"
 
         # Check core coverage configuration
         core_config_path = Path(".coveragerc.core")
