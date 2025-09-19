@@ -1,46 +1,58 @@
 # Path-based label mappings (Issue #1180)
 # Syncs labels to reflect areas of change.
 backend:
-  - 'src/**'
-  - 'trend_portfolio_app/**'
-  - 'app/**'
+  - changed-files:
+      - any-glob-to-any-file: 'src/**'
+      - any-glob-to-any-file: 'trend_portfolio_app/**'
+      - any-glob-to-any-file: 'app/**'
 
 metrics:
-  - 'src/trend_analysis/metrics.py'
-  - 'src/trend_analysis/multi_period/**'
+  - changed-files:
+      - any-glob-to-any-file: 'src/trend_analysis/metrics.py'
+      - any-glob-to-any-file: 'src/trend_analysis/multi_period/**'
 
 selection:
-  - 'src/trend_analysis/core/**'
-  - 'src/trend_analysis/engine/**'
+  - changed-files:
+      - any-glob-to-any-file: 'src/trend_analysis/core/**'
+      - any-glob-to-any-file: 'src/trend_analysis/engine/**'
 
 config:
-  - 'config/**'
+  - changed-files:
+      - any-glob-to-any-file: 'config/**'
 
 docs:
-  - 'docs/**'
-  - 'README*.md'
-  - 'AGENTS_APP.md'
+  - changed-files:
+      - any-glob-to-any-file: 'docs/**'
+      - any-glob-to-any-file: 'README*.md'
+      - any-glob-to-any-file: 'AGENTS_APP.md'
 
 workflows:
-  - '.github/workflows/**'
+  - changed-files:
+      - any-glob-to-any-file: '.github/workflows/**'
 
 ci:
-  - 'scripts/**'
-  - '.github/actions/**'
+  - changed-files:
+      - any-glob-to-any-file: 'scripts/**'
+      - any-glob-to-any-file: '.github/actions/**'
 
 tests:
-  - 'tests/**'
+  - changed-files:
+      - any-glob-to-any-file: 'tests/**'
 
 notebooks:
-  - 'notebooks/**'
+  - changed-files:
+      - any-glob-to-any-file: 'notebooks/**'
 
 export:
-  - 'src/trend_analysis/export.py'
-  - 'src/trend_analysis/export/**'
+  - changed-files:
+      - any-glob-to-any-file: 'src/trend_analysis/export.py'
+      - any-glob-to-any-file: 'src/trend_analysis/export/**'
 
 performance:
-  - 'perf/**'
+  - changed-files:
+      - any-glob-to-any-file: 'perf/**'
 
 streamlit:
-  - 'streamlit_app/**'
-  - 'src/trend_portfolio_app/**'
+  - changed-files:
+      - any-glob-to-any-file: 'streamlit_app/**'
+      - any-glob-to-any-file: 'src/trend_portfolio_app/**'
