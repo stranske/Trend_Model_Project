@@ -99,11 +99,8 @@ class TestIsZeroEverywhere:
         """Test that the helper function integrates correctly with metric
         functions."""
         # This test verifies that the refactored functions still work
-        from trend_analysis.metrics import (
-            information_ratio,
-            sharpe_ratio,
-            sortino_ratio,
-        )
+        from trend_analysis.metrics import (information_ratio, sharpe_ratio,
+                                            sortino_ratio)
 
         # Create test data that would trigger the zero-check
         zero_returns = pd.Series([0, 0, 0])

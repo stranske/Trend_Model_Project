@@ -12,11 +12,11 @@ Design goals:
 
 from __future__ import annotations
 
+import hashlib
 from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Iterable, Tuple
 
-import hashlib
 import numpy as np
 import pandas as pd
 
@@ -26,7 +26,8 @@ Key = Tuple[str, str, int, str]
 def _universe_hash(assets: Iterable[str]) -> int:
     """Stable hash for an asset universe.
 
-    Uses SHA-256 for stability across processes; truncated to 8 bytes -> int.
+    Uses SHA-256 for stability across processes; truncated to 8 bytes ->
+    int.
     """
     joined = "\x1f".join(sorted(map(str, assets)))
     h = hashlib.sha256(joined.encode("utf-8")).digest()[:8]

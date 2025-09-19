@@ -13,12 +13,13 @@ from trend_analysis import config  # noqa: E402
 Config = config.models.Config
 
 # Try to import ValidationError, fallback to ValueError for environments without pydantic
+ValidationException: type[Exception]
 try:
     from pydantic import ValidationError
-
-    ValidationException = ValidationError
 except ImportError:
     ValidationException = ValueError
+else:
+    ValidationException = ValidationError
 
 # Use constants from the Config class to avoid hardcoded duplication
 _DICT_SECTIONS = Config.REQUIRED_DICT_FIELDS

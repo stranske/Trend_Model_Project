@@ -2,9 +2,7 @@ import numpy as np
 import pandas as pd
 
 from trend_analysis.core.rank_selection import (
-    RiskStatsConfig,
-    compute_metric_series_with_cache,
-)
+    RiskStatsConfig, compute_metric_series_with_cache)
 from trend_analysis.perf.cache import CovCache
 
 

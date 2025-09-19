@@ -7,14 +7,11 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from trend_analysis.io.validators import (
-    FREQUENCY_MAP,
-    ValidationResult,
-    create_sample_template,
-    detect_frequency,
-    load_and_validate_upload,
-    validate_returns_schema,
-)
+from trend_analysis.io.validators import (FREQUENCY_MAP, ValidationResult,
+                                          create_sample_template,
+                                          detect_frequency,
+                                          load_and_validate_upload,
+                                          validate_returns_schema)
 
 
 class TestValidationResult:
@@ -215,6 +212,17 @@ class TestLoadAndValidateUpload:
             with pytest.raises(ValueError) as exc_info:
                 load_and_validate_upload(tmp.name)
             assert "Failed to parse file" in str(exc_info.value)
+
+    def test_unexpected_reader_failure_is_wrapped(self, monkeypatch):
+        def boom(*args, **kwargs):
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(pd, "read_csv", boom)
+
+        with pytest.raises(ValueError) as exc_info:
+            load_and_validate_upload("whatever.csv")
+
+        assert "Failed to read file" in str(exc_info.value)
 
     def test_excel_pointer_reset(self):
         df = pd.DataFrame({"Date": ["2023-01-31"], "Fund1": [0.01]})

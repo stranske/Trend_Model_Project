@@ -8,11 +8,13 @@ from collections.abc import Mapping, Sequence
 from importlib import metadata
 from pathlib import Path
 from typing import Any
-import numpy as np
 
+import numpy as np
 import pandas as pd
 
-from . import export, pipeline
+from . import export
+from . import logging as run_logging
+from . import pipeline
 from .api import run_simulation
 from .config import load_config
 from .constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
@@ -20,6 +22,17 @@ from .data import load_csv
 
 APP_PATH = Path(__file__).resolve().parents[2] / "streamlit_app" / "app.py"
 LOCK_PATH = Path(__file__).resolve().parents[2] / "requirements.lock"
+
+
+def _log_step(run_id: str, event: str, message: str, **fields: Any) -> None:
+    """Internal indirection for structured logging.
+
+    Tests monkeypatch this symbol directly (`_log_step`) rather than the public
+    logging module function. Keeping this thin wrapper preserves the existing
+    runtime behaviour while allowing tests to intercept calls without touching
+    the logging subsystem.
+    """
+    run_logging.log_step(run_id, event, message, **fields)
 
 
 def _extract_cache_stats(payload: object) -> dict[str, int] | None:
@@ -49,7 +62,7 @@ def _extract_cache_stats(payload: object) -> dict[str, int] | None:
                     if isinstance(value, numbers.Integral):
                         candidate[key] = int(value)
                     elif isinstance(value, numbers.Real) and float(value).is_integer():
-                        candidate[key] = int(value)
+                        candidate[key] = int(float(value))
                     else:
                         break
                 else:
@@ -57,9 +70,7 @@ def _extract_cache_stats(payload: object) -> dict[str, int] | None:
             for value in obj.values():
                 _visit(value)
             return
-        if isinstance(obj, Sequence) and not isinstance(
-            obj, (str, bytes, bytearray)
-        ):
+        if isinstance(obj, Sequence) and not isinstance(obj, (str, bytes, bytearray)):
             for item in obj:
                 _visit(item)
 
@@ -105,11 +116,12 @@ def check_environment(lock_path: Path | None = None) -> int:
     return 0
 
 
-def maybe_log_step(enabled: bool, run_id: str, event: str, message: str, **fields: Any) -> None:
+def maybe_log_step(
+    enabled: bool, run_id: str, event: str, message: str, **fields: Any
+) -> None:
     """Log a structured step when ``enabled`` is True."""
-
     if enabled:
-        log_step(run_id, event, message, **fields)
+        _log_step(run_id, event, message, **fields)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -173,32 +185,29 @@ def main(argv: list[str] | None = None) -> int:
         env_seed = os.getenv("TREND_SEED")
         # Precedence: CLI flag > TREND_SEED > config.seed > default 42
         if cli_seed is not None:
-            cfg.seed = int(cli_seed)  # type: ignore[attr-defined]
+            setattr(cfg, "seed", int(cli_seed))
         elif env_seed is not None and env_seed.isdigit():
-            cfg.seed = int(env_seed)  # type: ignore[attr-defined]
+            setattr(cfg, "seed", int(env_seed))
         df = load_csv(args.input)
         assert df is not None  # narrow type for type-checkers
         split = cfg.sample_split
         required_keys = {"in_start", "in_end", "out_start", "out_end"}
-        from .logging import (
-            get_default_log_path,
-            init_run_logger,
-            log_step,
-        )
         import uuid
 
         run_id = getattr(cfg, "run_id", None) or uuid.uuid4().hex[:12]
         try:
-            setattr(cfg, "run_id", run_id)  # type: ignore[attr-defined]
+            setattr(cfg, "run_id", run_id)
         except Exception:
             # Some config implementations may forbid new attrs; proceed without persisting
             pass
         log_path = (
-            Path(args.log_file) if args.log_file else get_default_log_path(run_id)
+            Path(args.log_file)
+            if args.log_file
+            else run_logging.get_default_log_path(run_id)
         )
         do_structured = not args.no_structured_log
         if do_structured:
-            init_run_logger(run_id, log_path)
+            run_logging.init_run_logger(run_id, log_path)
         maybe_log_step(
             do_structured,
             run_id,
@@ -238,17 +247,17 @@ def main(argv: list[str] | None = None) -> int:
                 except Exception:
                     port_ser = None
                 if port_ser is not None:
-                    run_result.portfolio = port_ser  # type: ignore[attr-defined]
+                    setattr(run_result, "portfolio", port_ser)
                 bench_map = res.get("benchmarks") if isinstance(res, dict) else None
                 if isinstance(bench_map, dict) and bench_map:
                     # Pick first benchmark for manifest (simple case)
                     first_bench = next(iter(bench_map.values()))
-                    run_result.benchmark = first_bench  # type: ignore[attr-defined]
+                    setattr(run_result, "benchmark", first_bench)
                 weights_user = (
                     res.get("weights_user_weight") if isinstance(res, dict) else None
                 )
                 if weights_user is not None:
-                    run_result.weights = weights_user  # type: ignore[attr-defined]
+                    setattr(run_result, "weights", weights_user)
         else:  # pragma: no cover - legacy fallback
             metrics_df = pipeline.run(cfg)
             res = pipeline.run_full(cfg)
@@ -274,15 +283,12 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  Entries: {cache_stats['entries']}")
             print(f"  Hits: {cache_stats['hits']}")
             print(f"  Misses: {cache_stats['misses']}")
-            print(
-                f"  Incremental updates: {cache_stats['incremental_updates']}"
-            )
+            print(f"  Incremental updates: {cache_stats['incremental_updates']}")
             maybe_log_step(
                 do_structured,
                 run_id,
                 "cache_stats",
                 "Cache statistics summary",
-                event="cache_stats",
                 **cache_stats,
             )
 
@@ -334,8 +340,8 @@ def main(argv: list[str] | None = None) -> int:
 
         # Optional bundle export (reproducibility manifest + hashes)
         if args.bundle:
-            from .export.bundle import export_bundle
             from .api import RunResult as _RR
+            from .export.bundle import export_bundle
 
             bundle_path = Path(args.bundle)
             if bundle_path.is_dir():
@@ -351,8 +357,8 @@ def main(argv: list[str] | None = None) -> int:
                 }
                 rr = _RR(metrics_df, res, run_seed, env)
             # Attach config + seed for export_bundle
-            rr.config = getattr(cfg, "__dict__", {})  # type: ignore[attr-defined]
-            rr.input_path = Path(args.input)  # type: ignore[attr-defined]
+            setattr(rr, "config", getattr(cfg, "__dict__", {}))
+            setattr(rr, "input_path", Path(args.input))
             export_bundle(rr, bundle_path)
             print(f"Bundle written: {bundle_path}")
             maybe_log_step(
@@ -374,6 +380,8 @@ def main(argv: list[str] | None = None) -> int:
     # This shouldn't be reached with required=True.
     return 0
 
+
+_log_step = run_logging.log_step
 
 if __name__ == "__main__":  # pragma: no cover - manual invocation
     raise SystemExit(main())

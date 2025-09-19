@@ -8,6 +8,7 @@ import sys
 import tempfile
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
+from typing import Callable
 from unittest.mock import ANY, MagicMock, Mock, patch
 
 import pandas as pd
@@ -15,13 +16,8 @@ import pytest
 import yaml  # type: ignore[import-untyped]
 
 import trend_analysis.gui.app as app_module
-from trend_analysis.gui.app import (
-    _build_rank_options,
-    _build_step0,
-    launch,
-    load_state,
-    save_state,
-)
+from trend_analysis.gui.app import (_build_rank_options, _build_step0, launch,
+                                    load_state, save_state)
 from trend_analysis.gui.store import ParamStore
 
 
@@ -611,11 +607,11 @@ class DummyValueWidget:
 
     def __init__(self, value: object | None = None) -> None:
         self.value = value
-        self._observers: list[callable] = []
+        self._observers: list[Callable[[dict[str, object]], None]] = []
         self.layout = DummyLayout()
 
     def observe(
-        self, callback, names: str | None = None
+        self, callback: Callable[[dict[str, object]], None], names: str | None = None
     ) -> None:  # pragma: no cover - stub
         self._observers.append(callback)
 
@@ -706,9 +702,11 @@ class DummyButton:
     def __init__(self, description: str = "") -> None:
         self.description = description
         self.layout = DummyLayout()
-        self._handlers: list[callable] = []
+        self._handlers: list[Callable[["DummyButton"], None]] = []
 
-    def on_click(self, callback) -> None:  # pragma: no cover - simple setter
+    def on_click(
+        self, callback: Callable[["DummyButton"], None]
+    ) -> None:  # pragma: no cover - simple setter
         self._handlers.append(callback)
 
     def click(self) -> None:
@@ -740,9 +738,9 @@ class FakeDataGrid:
         self.editable = editable
         self.layout = DummyLayout()
         self.data: object | None = None
-        self.callbacks: dict[str, callable] = {}
+        self.callbacks: dict[str, Callable[..., None]] = {}
 
-    def on(self, name: str, callback) -> None:
+    def on(self, name: str, callback: Callable[..., None]) -> None:
         self.callbacks[name] = callback
 
     def hold_trait_notifications(self):  # pragma: no cover - trivial passthrough
@@ -753,9 +751,9 @@ class FakeLoop:
     """Event-loop stub executing callbacks immediately."""
 
     def __init__(self) -> None:
-        self.calls: list[tuple[float, callable]] = []
+        self.calls: list[tuple[float, Callable[..., None]]] = []
 
-    def call_later(self, delay: float, callback) -> None:
+    def call_later(self, delay: float, callback: Callable[..., None]) -> None:
         self.calls.append((delay, callback))
         callback()
 

@@ -4,7 +4,9 @@ import importlib.util
 import logging
 import sys
 from datetime import date, datetime
+from importlib.machinery import ModuleSpec
 from pathlib import Path
+from types import ModuleType
 from unittest.mock import MagicMock, Mock, patch
 
 import pandas as pd
@@ -57,21 +59,33 @@ def create_mock_streamlit():
     return mock_st
 
 
+def _spec_from_path(module_name: str, path: Path) -> ModuleSpec:
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    if spec is None or spec.loader is None:
+        raise AssertionError(f"Unable to load spec for {module_name}")
+    return spec
+
+
+def _exec_module(spec: ModuleSpec, module: ModuleType) -> None:
+    if spec.loader is None:
+        raise AssertionError(f"Spec loader unavailable for {module.__name__}")
+    spec.loader.exec_module(module)
+
+
 def load_run_page_module(mock_st: MagicMock | None = None):
     """Import the Run page module with a provided Streamlit mock."""
 
     if mock_st is None:
         mock_st = create_mock_streamlit()
 
-    spec = importlib.util.spec_from_file_location(
+    spec = _spec_from_path(
         "run_page_module",
         Path(__file__).parent.parent / "app" / "streamlit" / "pages" / "03_Run.py",
     )
     run_page = importlib.util.module_from_spec(spec)
 
     with patch.dict("sys.modules", {"streamlit": mock_st}):
-        assert spec.loader is not None
-        spec.loader.exec_module(run_page)
+        _exec_module(spec, run_page)
 
     return run_page, mock_st
 
@@ -140,7 +154,7 @@ class TestErrorFormatting:
             # We need to import after mocking streamlit
             import importlib.util
 
-            spec = importlib.util.spec_from_file_location(
+            spec = _spec_from_path(
                 "run_page",
                 Path(__file__).parent.parent
                 / "app"
@@ -148,9 +162,8 @@ class TestErrorFormatting:
                 / "pages"
                 / "03_Run.py",
             )
-            assert spec is not None and spec.loader is not None
             run_page = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(run_page)
+            _exec_module(spec, run_page)
 
             error = KeyError("missing_field")
             result = run_page.format_error_message(error)
@@ -161,7 +174,7 @@ class TestErrorFormatting:
         with patch.dict("sys.modules", {"streamlit": create_mock_streamlit()}):
             import importlib.util
 
-            spec = importlib.util.spec_from_file_location(
+            spec = _spec_from_path(
                 "run_page",
                 Path(__file__).parent.parent
                 / "app"
@@ -169,9 +182,8 @@ class TestErrorFormatting:
                 / "pages"
                 / "03_Run.py",
             )
-            assert spec is not None and spec.loader is not None
             run_page = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(run_page)
+            _exec_module(spec, run_page)
 
             error = ValueError("Date column not found")
             result = run_page.format_error_message(error)
@@ -223,7 +235,7 @@ class TestConfigCreation:
         with patch.dict("sys.modules", {"streamlit": create_mock_streamlit()}):
             import importlib.util
 
-            spec = importlib.util.spec_from_file_location(
+            spec = _spec_from_path(
                 "run_page",
                 Path(__file__).parent.parent
                 / "app"
@@ -231,9 +243,8 @@ class TestConfigCreation:
                 / "pages"
                 / "03_Run.py",
             )
-            assert spec is not None and spec.loader is not None
             run_page = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(run_page)
+            _exec_module(spec, run_page)
 
             # Mock streamlit session state
             with patch.object(
@@ -251,7 +262,7 @@ class TestConfigCreation:
         with patch.dict("sys.modules", {"streamlit": create_mock_streamlit()}):
             import importlib.util
 
-            spec = importlib.util.spec_from_file_location(
+            spec = _spec_from_path(
                 "run_page",
                 Path(__file__).parent.parent
                 / "app"
@@ -259,9 +270,8 @@ class TestConfigCreation:
                 / "pages"
                 / "03_Run.py",
             )
-            assert spec is not None and spec.loader is not None
             run_page = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(run_page)
+            _exec_module(spec, run_page)
 
             with patch.object(run_page.st, "session_state", {}):
                 config = run_page.create_config_from_session_state()
@@ -272,7 +282,7 @@ class TestConfigCreation:
         with patch.dict("sys.modules", {"streamlit": create_mock_streamlit()}):
             import importlib.util
 
-            spec = importlib.util.spec_from_file_location(
+            spec = _spec_from_path(
                 "run_page",
                 Path(__file__).parent.parent
                 / "app"
@@ -280,9 +290,8 @@ class TestConfigCreation:
                 / "pages"
                 / "03_Run.py",
             )
-            assert spec is not None and spec.loader is not None
             run_page = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(run_page)
+            _exec_module(spec, run_page)
 
             incomplete_config = {"risk_target": 1.0}
             with patch.object(
@@ -321,7 +330,7 @@ class TestDataPreparation:
         with patch.dict("sys.modules", {"streamlit": create_mock_streamlit()}):
             import importlib.util
 
-            spec = importlib.util.spec_from_file_location(
+            spec = _spec_from_path(
                 "run_page",
                 Path(__file__).parent.parent
                 / "app"
@@ -329,9 +338,8 @@ class TestDataPreparation:
                 / "pages"
                 / "03_Run.py",
             )
-            assert spec is not None and spec.loader is not None
             run_page = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(run_page)
+            _exec_module(spec, run_page)
 
             with patch.object(
                 run_page.st, "session_state", {"returns_df": sample_returns_data}
@@ -347,7 +355,7 @@ class TestDataPreparation:
         with patch.dict("sys.modules", {"streamlit": create_mock_streamlit()}):
             import importlib.util
 
-            spec = importlib.util.spec_from_file_location(
+            spec = _spec_from_path(
                 "run_page",
                 Path(__file__).parent.parent
                 / "app"
@@ -355,9 +363,8 @@ class TestDataPreparation:
                 / "pages"
                 / "03_Run.py",
             )
-            assert spec is not None and spec.loader is not None
             run_page = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(run_page)
+            _exec_module(spec, run_page)
 
             with patch.object(run_page.st, "session_state", {}):
                 df = run_page.prepare_returns_data()
@@ -368,7 +375,7 @@ class TestDataPreparation:
         with patch.dict("sys.modules", {"streamlit": create_mock_streamlit()}):
             import importlib.util
 
-            spec = importlib.util.spec_from_file_location(
+            spec = _spec_from_path(
                 "run_page",
                 Path(__file__).parent.parent
                 / "app"
@@ -376,9 +383,8 @@ class TestDataPreparation:
                 / "pages"
                 / "03_Run.py",
             )
-            assert spec is not None and spec.loader is not None
             run_page = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(run_page)
+            _exec_module(spec, run_page)
 
             # Data without Date column
             df_no_date = pd.DataFrame(
@@ -473,7 +479,7 @@ class TestLogHandler:
         with patch.dict("sys.modules", {"streamlit": create_mock_streamlit()}):
             import importlib.util
 
-            spec = importlib.util.spec_from_file_location(
+            spec = _spec_from_path(
                 "run_page",
                 Path(__file__).parent.parent
                 / "app"
@@ -481,9 +487,8 @@ class TestLogHandler:
                 / "pages"
                 / "03_Run.py",
             )
-            assert spec is not None and spec.loader is not None
             run_page = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(run_page)
+            _exec_module(spec, run_page)
 
             handler = run_page.StreamlitLogHandler()
             assert handler is not None
@@ -496,7 +501,7 @@ class TestLogHandler:
         with patch.dict("sys.modules", {"streamlit": create_mock_streamlit()}):
             import importlib.util
 
-            spec = importlib.util.spec_from_file_location(
+            spec = _spec_from_path(
                 "run_page",
                 Path(__file__).parent.parent
                 / "app"
@@ -504,9 +509,8 @@ class TestLogHandler:
                 / "pages"
                 / "03_Run.py",
             )
-            assert spec is not None and spec.loader is not None
             run_page = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(run_page)
+            _exec_module(spec, run_page)
 
             handler = run_page.StreamlitLogHandler()
 
@@ -535,7 +539,7 @@ class TestLogHandler:
         with patch.dict("sys.modules", {"streamlit": create_mock_streamlit()}):
             import importlib.util
 
-            spec = importlib.util.spec_from_file_location(
+            spec = _spec_from_path(
                 "run_page",
                 Path(__file__).parent.parent
                 / "app"
@@ -543,9 +547,8 @@ class TestLogHandler:
                 / "pages"
                 / "03_Run.py",
             )
-            assert spec is not None and spec.loader is not None
             run_page = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(run_page)
+            _exec_module(spec, run_page)
 
             handler = run_page.StreamlitLogHandler()
 
@@ -875,13 +878,12 @@ def test_smoke_test_imports():
     with patch.dict("sys.modules", {"streamlit": create_mock_streamlit()}):
         import importlib.util
 
-        spec = importlib.util.spec_from_file_location(
+        spec = _spec_from_path(
             "run_page",
             Path(__file__).parent.parent / "app" / "streamlit" / "pages" / "03_Run.py",
         )
-    assert spec is not None and spec.loader is not None
     run_page = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(run_page)
+    _exec_module(spec, run_page)
 
     # Check that key functions are available
     assert hasattr(run_page, "format_error_message")

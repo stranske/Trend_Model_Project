@@ -90,14 +90,13 @@ StatsMap = Mapping[str, _StatsLike]
 MetricSeries = pd.Series
 
 import trend_analysis as ta  # noqa: E402
-
 # (widgets and metrics imported within functions where needed)
 from trend_analysis import pipeline  # noqa: E402
-from trend_analysis import cli, export, gui, metrics, run_analysis, run_multi_analysis
+from trend_analysis import (cli, export, gui, metrics, run_analysis,
+                            run_multi_analysis)
 from trend_analysis.config import Config, load  # noqa: E402
-from trend_analysis.config.models import (
-    ConfigProtocol as _ConfigProto,
-)  # noqa: E402; for type hints only
+from trend_analysis.config.models import \
+    ConfigProtocol as _ConfigProto  # noqa: E402; for type hints only
 from trend_analysis.core import rank_selection as rs  # noqa: E402
 from trend_analysis.core.rank_selection import RiskStatsConfig  # noqa: E402
 from trend_analysis.core.rank_selection import rank_select_funds
@@ -105,16 +104,13 @@ from trend_analysis.data import ensure_datetime  # noqa: E402
 from trend_analysis.data import identify_risk_free_fund, load_csv
 from trend_analysis.multi_period import run as run_mp  # noqa: E402
 from trend_analysis.multi_period import run_schedule, scheduler  # noqa: E402
-from trend_analysis.multi_period.engine import Portfolio, SelectorProtocol  # noqa: E402
+from trend_analysis.multi_period.engine import (Portfolio,  # noqa: E402
+                                                SelectorProtocol)
 from trend_analysis.multi_period.replacer import Rebalancer  # noqa: E402
 from trend_analysis.selector import RankSelector, ZScoreSelector  # noqa: E402
 from trend_analysis.weighting import AdaptiveBayesWeighting  # noqa: E402
-from trend_analysis.weighting import (
-    BaseWeighting,
-    EqualWeight,
-    ScorePropBayesian,
-    ScorePropSimple,
-)
+from trend_analysis.weighting import (BaseWeighting, EqualWeight,
+                                      ScorePropBayesian, ScorePropSimple)
 
 
 def _check_generate_demo() -> None:
@@ -1214,10 +1210,15 @@ export.export_phase1_workbook(results, str(wb_direct))
 if not wb_direct.exists():
     raise SystemExit("export_phase1_workbook failed")
 wb = openpyxl.load_workbook(wb_direct)
-expected_sheets = {str(r["period"][3]) for r in results}
-expected_sheets.add("summary")
-if set(wb.sheetnames) != expected_sheets:
-    raise SystemExit("phase1 workbook sheets mismatch")
+# Phase-1 workbook now (by design) includes an "execution_metrics" sheet
+# alongside one sheet per period and the leading "summary" sheet. Keep the
+# demo expectation flexible: all required sheets must be present, but the
+# exporter may add new diagnostic sheets over time without breaking CI.
+period_sheet_names = {str(r["period"][3]) for r in results}
+required = {"summary", "execution_metrics"} | period_sheet_names
+missing = required.difference(wb.sheetnames)
+if missing:
+    raise SystemExit(f"phase1 workbook sheets mismatch (missing: {sorted(missing)})")
 pf_frames = export.period_frames_from_results(results)
 if len(pf_frames) != len(results):
     raise SystemExit("period_frames_from_results count mismatch")
@@ -2109,8 +2110,17 @@ def _check_module_exports() -> None:
             "RiskStatsConfig",
             "register_metric",
             "METRIC_REGISTRY",
+            "WindowMetricBundle",
+            "make_window_key",
+            "get_window_metric_bundle",
+            "reset_selector_cache",
+            "selector_cache_hits",
+            "selector_cache_misses",
             "blended_score",
+            "compute_metric_series_with_cache",
             "rank_select_funds",
+            "selector_cache_stats",
+            "clear_window_metric_cache",
             "select_funds",
             "build_ui",
             "canonical_metric_list",

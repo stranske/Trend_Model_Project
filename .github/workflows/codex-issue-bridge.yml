@@ -17,6 +17,10 @@ on:
         description: "create | invite (invite = human opens the PR)"
         required: false
         default: "create"
+      codex_pr_draft:
+        description: "Force created PR to be draft (true/false)"
+        required: false
+        default: "false"
 
 permissions:
   contents: write
@@ -112,6 +116,21 @@ jobs:
             core.setOutput('mode', mode);
             core.setOutput('reason', reason);
 
+      - name: Resolve draft flag
+        id: draft
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Issue #1137: Default to non-draft unless explicitly overridden by input
+            const raw = (context.payload.inputs && context.payload.inputs.codex_pr_draft) || 'false';
+            const val = String(raw).toLowerCase() === 'true';
+            core.setOutput('draft', val ? 'true' : 'false');
+
+      - name: Log chosen mode & draft
+        run: |
+          echo "Chosen PR mode: ${{ steps.mode.outputs.mode }} (reason: ${{ steps.mode.outputs.reason }})"
+          echo "Resolved draft flag: ${{ steps.draft.outputs.draft }}"
+
       - name: Log chosen mode
         run: |
           echo "Chosen PR mode: ${{ steps.mode.outputs.mode }} (reason: ${{ steps.mode.outputs.reason }})"
@@ -127,7 +146,7 @@ jobs:
           allow_fallback: true
           codex_command: '@codex start'
           base_branch: ''
-          draft: 'false'
+          draft: ${{ steps.draft.outputs.draft }}
           auto_ready: 'true'
           post_codex_comment: ${{ inputs.post_codex_comment || 'false' }}
           pr_mode: ${{ steps.mode.outputs.mode }}
@@ -200,6 +219,7 @@ jobs:
             const issue_number = Number('${{ steps.ctx.outputs.issue }}');
             const base = "${{ steps.def.outputs.default }}";
             const head = process.env.BRANCH;
+            const draftFlag = "${{ steps.draft.outputs.draft }}" === 'true';
             if (!issue_number) { core.setFailed('Resolved issue number missing; cannot open PR.'); return; }
 
             const existing = await github.rest.pulls.list({ owner, repo, state: 'open', head: `${owner}:${head}` });
@@ -220,7 +240,7 @@ jobs:
               const quoted = (issueBody || '').split('\n').map(l => `> ${l}`).join('\n');
               const prBody = `${header}\n\nSource: ${issueUrl}\n\n${quoted}\n\n—\nPR created automatically to engage Codex.`;
               ({ data: pr } = await github.rest.pulls.create({
-                owner, repo, head, base, draft: false,
+                owner, repo, head, base, draft: draftFlag,
                 title: `Codex bootstrap for #${issue_number}`,
                 body: prBody
               }));

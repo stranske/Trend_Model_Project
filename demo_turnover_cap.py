@@ -13,7 +13,6 @@ import numpy as np
 import pandas as pd
 
 from src.trend_analysis.multi_period.engine import run_schedule
-
 # Import the rebalancing functionality
 from src.trend_analysis.rebalancing import TurnoverCapStrategy
 from src.trend_analysis.selector import RankSelector

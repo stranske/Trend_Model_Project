@@ -187,6 +187,22 @@ exactly as v1.0 did. Breaking that throws `ExportError`.
 One concern → one module.
 Replacements must delete or comment‑out whatever they obsolete in the same PR.
 
+### 2025-09-18 UPDATE — SCALAR METRIC MEMOIZATION (ISSUE #1156)
+
+An opt-in memoization layer now caches scalar per‑fund metric series accessed via `WindowMetricBundle.ensure_metric`. Enable with:
+
+```yaml
+performance:
+  cache:
+    metrics: true
+```
+
+Default remains off (non‑breaking). Covariance payload caching is unaffected. Refer to `docs/metric_cache.md` for details.
+
+### 2025-09-18 UPDATE — PR DRAFT TOGGLE (ISSUE #1137)
+
+Codex bootstrap workflow now supports a `codex_pr_draft` input (workflow_dispatch) controlling whether the automatically created PR is a draft. Default remains non‑draft to ensure agent engagement (addressing Issue #1137). Fallback and composite bootstrap paths both consume the resolved draft flag so behavior is consistent. Invite mode (issue-triggered path) still requires a human-authored PR and is unaffected.
+
 Immediate Refactor Tasks
 Flatten duplications
 

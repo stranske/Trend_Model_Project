@@ -17,12 +17,12 @@ multi-period run path. When ``cfg.portfolio.policy == 'threshold_hold'`` we:
 
 from __future__ import annotations  # mypy: ignore-errors
 
+import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Mapping, Protocol, cast
 
-import pandas as pd
 import numpy as np
-import os
+import pandas as pd
 
 from ..constants import NUMERICAL_TOLERANCE_HIGH
 from ..core.rank_selection import ASCENDING_METRICS
@@ -30,12 +30,8 @@ from ..data import load_csv
 from ..pipeline import _run_analysis
 from ..typing import MultiPeriodPeriodResult  # structural alias
 from ..rebalancing import apply_rebalancing_strategies
-from ..weighting import (
-    AdaptiveBayesWeighting,
-    BaseWeighting,
-    EqualWeight,
-    ScorePropBayesian,
-)
+from ..weighting import (AdaptiveBayesWeighting, BaseWeighting, EqualWeight,
+                         ScorePropBayesian)
 from .replacer import Rebalancer
 from .scheduler import generate_periods
 
@@ -457,7 +453,8 @@ def run(
             # (Experimental) attach covariance diag using cache/incremental path for diagnostics.
             # Keeps existing outputs stable; adds optional "cov_diag" key.
             if enable_cache:
-                from ..perf.cache import compute_cov_payload, incremental_cov_update
+                from ..perf.cache import (compute_cov_payload,
+                                          incremental_cov_update)
 
                 in_start = pt.in_start[:7]
                 in_end = pt.in_end[:7]
@@ -600,7 +597,8 @@ def run(
 
     def _score_frame(in_df: pd.DataFrame, funds: list[str]) -> pd.DataFrame:
         # Compute metrics frame for the in-sample window (vectorised)
-        from ..core.rank_selection import RiskStatsConfig, _compute_metric_series
+        from ..core.rank_selection import (RiskStatsConfig,
+                                           _compute_metric_series)
 
         stats_cfg = RiskStatsConfig(risk_free=0.0)
         # Canonical metrics as produced by

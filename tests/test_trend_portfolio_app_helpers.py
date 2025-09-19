@@ -1,7 +1,7 @@
 import importlib
 import sys
 from types import ModuleType
-from typing import Iterable, Sequence
+from typing import Any, Iterable, Sequence, cast
 
 import pandas as pd
 import pytest
@@ -104,18 +104,24 @@ class _DummyStreamlit(ModuleType):
     def slider(self, *_, value=None, **__):
         return value
 
-    def selectbox(self, _label: str, options: Sequence | Iterable, *_, index: int = 0, **__):
+    def selectbox(
+        self, _label: str, options: Sequence | Iterable, *_, index: int = 0, **__
+    ):
         options_list = list(options)
         if not options_list:
             return None
         return options_list[min(index, len(options_list) - 1)]
 
-    def multiselect(self, _label: str, options: Sequence | Iterable, *_, default=None, **__):
+    def multiselect(
+        self, _label: str, options: Sequence | Iterable, *_, default=None, **__
+    ):
         if default is None:
             return []
         return list(default)
 
-    def radio(self, _label: str, options: Sequence | Iterable, *_, index: int = 0, **__):
+    def radio(
+        self, _label: str, options: Sequence | Iterable, *_, index: int = 0, **__
+    ):
         options_list = list(options)
         if not options_list:
             return None
@@ -166,12 +172,19 @@ def _load_app(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
 def test_read_defaults_populates_expected_keys(monkeypatch: pytest.MonkeyPatch) -> None:
     app_mod = _load_app(monkeypatch)
 
-    defaults = app_mod._read_defaults()
-
+    defaults: dict[str, Any] = app_mod._read_defaults()
     assert "data" in defaults
     assert "portfolio" in defaults
-    assert "policy" in defaults["portfolio"]
-    assert "csv_path" in defaults["data"]
+
+    raw_portfolio = defaults["portfolio"]
+    assert isinstance(raw_portfolio, dict)
+    portfolio_section = cast(dict[str, Any], raw_portfolio)
+    assert "policy" in portfolio_section
+
+    raw_data = defaults["data"]
+    assert isinstance(raw_data, dict)
+    data_section = cast(dict[str, Any], raw_data)
+    assert "csv_path" in data_section
 
 
 def test_merge_update_deep_merges_nested_dicts(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -184,22 +197,29 @@ def test_merge_update_deep_merges_nested_dicts(monkeypatch: pytest.MonkeyPatch) 
 
     assert merged == {"a": 1, "nested": {"x": 10, "y": 99, "z": 5}, "b": 2}
     # Original dictionaries should remain unmodified
-    assert base["nested"]["y"] == 20
-    assert "z" not in base["nested"]
+    nested_section = base["nested"]
+    assert isinstance(nested_section, dict)
+    assert nested_section["y"] == 20
+    assert "z" not in nested_section
 
 
 def test_build_cfg_accepts_roundtrip_from_yaml(monkeypatch: pytest.MonkeyPatch) -> None:
     app_mod = _load_app(monkeypatch)
 
-    defaults = app_mod._read_defaults()
-    defaults.setdefault("data", {})["csv_path"] = "demo.csv"
+    defaults: dict[str, Any] = app_mod._read_defaults()
+    data_section = defaults.setdefault("data", {})
+    if not isinstance(data_section, dict):
+        raise AssertionError("Expected mapping for defaults['data']")
+    data_section["csv_path"] = "demo.csv"
     yaml_text = app_mod._to_yaml(defaults)
     reconstructed = app_mod._build_cfg(app_mod.yaml.safe_load(yaml_text))
 
     assert reconstructed.data["csv_path"] == "demo.csv"
 
 
-def test_summarise_run_df_rounds_numeric_columns(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_summarise_run_df_rounds_numeric_columns(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     app_mod = _load_app(monkeypatch)
 
     df = pd.DataFrame({"metric": [1.234567, 2.345678], "label": ["A", "B"]})
@@ -210,7 +230,9 @@ def test_summarise_run_df_rounds_numeric_columns(monkeypatch: pytest.MonkeyPatch
     assert summary["label"].tolist() == ["A", "B"]
 
 
-def test_summarise_multi_handles_missing_sections(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_summarise_multi_handles_missing_sections(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     app_mod = _load_app(monkeypatch)
 
     results = [

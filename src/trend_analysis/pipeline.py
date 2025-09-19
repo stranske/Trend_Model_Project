@@ -8,21 +8,11 @@ import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
 
+from .core.rank_selection import (RiskStatsConfig, get_window_metric_bundle,
+                                  make_window_key, rank_select_funds)
 from .data import load_csv
-from .metrics import (
-    annual_return,
-    information_ratio,
-    max_drawdown,
-    sharpe_ratio,
-    sortino_ratio,
-    volatility,
-)
-from .core.rank_selection import (
-    RiskStatsConfig,
-    get_window_metric_bundle,
-    make_window_key,
-    rank_select_funds,
-)
+from .metrics import (annual_return, information_ratio, max_drawdown,
+                      sharpe_ratio, sortino_ratio, volatility)
 
 logger = logging.getLogger(__name__)
 
@@ -34,14 +24,22 @@ del TYPE_CHECKING
 
 @dataclass
 class _Stats:
-    """Container for performance metrics."""
+    """Container for performance metrics.
+
+    AvgCorr fields are optional and only populated when the user explicitly
+    requests the ``AvgCorr`` metric (Issue #1160). They remain ``None`` to
+    preserve backward compatibility and avoid altering column order when the
+    feature is not in use.
+    """
 
     cagr: float
     vol: float
     sharpe: float
     sortino: float
-    information_ratio: float
     max_drawdown: float
+    information_ratio: float
+    is_avg_corr: float | None = None
+    os_avg_corr: float | None = None
 
 
 def calc_portfolio_returns(
@@ -129,7 +127,13 @@ def single_period_run(
     return score_frame.astype(float)
 
 
-def _compute_stats(df: pd.DataFrame, rf: pd.Series) -> dict[str, _Stats]:
+def _compute_stats(
+    df: pd.DataFrame,
+    rf: pd.Series,
+    *,
+    in_sample_avg_corr: dict[str, float] | None = None,
+    out_sample_avg_corr: dict[str, float] | None = None,
+) -> dict[str, _Stats]:
     # Metrics expect 1D Series; iterating keeps the logic simple for a handful
     # of columns and avoids reshaping into higher-dimensional arrays.
     stats: dict[str, _Stats] = {}
@@ -142,6 +146,8 @@ def _compute_stats(df: pd.DataFrame, rf: pd.Series) -> dict[str, _Stats]:
             sortino=float(sortino_ratio(df[col], rf)),
             max_drawdown=float(max_drawdown(df[col])),
             information_ratio=float(information_ratio(df[col], rf)),
+            is_avg_corr=(in_sample_avg_corr or {}).get(col),
+            os_avg_corr=(out_sample_avg_corr or {}).get(col),
         )
     return stats
 
@@ -288,9 +294,55 @@ def _run_analysis(
     rf_in = in_df[rf_col]
     rf_out = out_df[rf_col]
 
-    in_stats = _compute_stats(in_scaled, rf_in)
-    out_stats = _compute_stats(out_scaled, rf_out)
-    out_stats_raw = _compute_stats(out_df[fund_cols], rf_out)
+    # Optional average pairwise correlation (Issue #1160). Compute only if requested
+    # via metrics registry including 'AvgCorr'. Definition: for each fund, the
+    # mean of its correlations with all other selected funds (excluding self).
+    want_avg_corr = False
+    try:
+        reg = getattr(stats_cfg, "metrics_to_run", []) or []
+        want_avg_corr = "AvgCorr" in reg
+    except Exception:  # pragma: no cover - defensive
+        want_avg_corr = False
+
+    # Compute average correlations for in-sample and out-of-sample
+    is_avg_corr: dict[str, float] | None = None  # in-sample average correlation
+    os_avg_corr: dict[str, float] | None = None  # out-of-sample average correlation
+    if want_avg_corr and len(fund_cols) > 1:
+        try:
+            corr_in = in_scaled[fund_cols].corr()
+            corr_out = out_scaled[fund_cols].corr()
+            # Exclude self by taking sum of row minus 1, divided by (n-1)
+            n_f = len(fund_cols)
+            is_avg_corr = {
+                f: float((corr_in.loc[f].sum() - 1.0) / (n_f - 1)) for f in fund_cols
+            }
+            os_avg_corr = {
+                f: float((corr_out.loc[f].sum() - 1.0) / (n_f - 1)) for f in fund_cols
+            }
+        except Exception:  # pragma: no cover - defensive (fallback to None)
+            is_avg_corr = None
+            os_avg_corr = None
+
+    # For in-sample stats, only pass in-sample average correlation
+    in_stats = _compute_stats(
+        in_scaled,
+        rf_in,
+        in_sample_avg_corr=is_avg_corr,
+        out_sample_avg_corr=None,
+    )
+    # For out-of-sample stats, only pass out-of-sample average correlation
+    out_stats = _compute_stats(
+        out_scaled,
+        rf_out,
+        in_sample_avg_corr=None,
+        out_sample_avg_corr=os_avg_corr,
+    )
+    out_stats_raw = _compute_stats(
+        out_df[fund_cols],
+        rf_out,
+        in_sample_avg_corr=None,
+        out_sample_avg_corr=os_avg_corr,
+    )
 
     ew_weights = np.repeat(1.0 / len(fund_cols), len(fund_cols))
     ew_w_dict = {c: w for c, w in zip(fund_cols, ew_weights)}

@@ -1,5 +1,7 @@
 """Test GUI app functionality for improved coverage."""
 
+from unittest.mock import Mock, mock_open, patch
+
 import pytest
 
 
@@ -150,8 +152,6 @@ class TestWidgetInteractionPatterns:
 class TestMockingPatterns:
     """Test mocking patterns for GUI components."""
 
-    from unittest.mock import mock_open, patch
-
     @patch("builtins.open", mock_open(read_data='{"test": "data"}'))
     def test_file_mocking_pattern(self):
         """Test file mocking patterns."""
@@ -160,8 +160,6 @@ class TestMockingPatterns:
         assert '"test": "data"' in content
 
     def test_mock_object_pattern(self):
-        from unittest.mock import Mock
-
         """Test mock object patterns."""
         mock_widget = Mock()
         mock_widget.children = []

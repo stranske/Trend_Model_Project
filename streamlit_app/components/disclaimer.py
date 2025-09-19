@@ -1,6 +1,8 @@
 """Disclaimer modal component for the Streamlit app."""
 
 import os
+from contextlib import nullcontext
+from typing import Any, Callable, ContextManager, cast
 
 import streamlit as st
 
@@ -22,7 +24,15 @@ def show_disclaimer() -> bool:
         st.session_state["disclaimer_accepted"] = False
 
     if not st.session_state["disclaimer_accepted"]:
-        with st.modal("Disclaimer"):
+        modal_attr = getattr(st, "modal", None)
+        context_manager: ContextManager[Any]
+        if callable(modal_attr):
+            modal_callable = cast(Callable[[str], ContextManager[Any]], modal_attr)
+            context_manager = modal_callable("Disclaimer")
+        else:
+            context_manager = nullcontext()
+
+        with context_manager:
             st.markdown(
                 f"By continuing you agree to our [License]({LICENSE_URL}) and "
                 f"[Security Policy]({SECURITY_URL})."

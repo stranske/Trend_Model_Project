@@ -639,16 +639,16 @@ def export_to_excel(
             supports_custom = True
 
     with writer:
-        book_any: Any = getattr(writer, "book", None)
+        workbook_any: Any = getattr(writer, "book", None)
         engine_name = getattr(writer, "engine", None)
         proxy: _OpenpyxlWorkbookProxy | None = None
         supports_sheet_formatters = bool(
-            book_any and callable(getattr(book_any, "add_worksheet", None))
+            workbook_any and callable(getattr(workbook_any, "add_worksheet", None))
         )
         removed_title: str | None = None
         if not supports_sheet_formatters:
-            if book_any is not None and _is_openpyxl_book(book_any):
-                removed_title = _maybe_remove_openpyxl_default_sheet(book_any)
+            if workbook_any is not None and _is_openpyxl_book(workbook_any):
+                removed_title = _maybe_remove_openpyxl_default_sheet(workbook_any)
                 if removed_title:
                     writer.sheets.pop(removed_title, None)
                 proxy = _OpenpyxlWorkbookProxy(writer)
@@ -670,13 +670,13 @@ def export_to_excel(
             if fmt is not None and supports_sheet_formatters:
                 if proxy is not None:
                     ws_proxy = proxy.add_worksheet(sheet)
-                    writer.sheets[sheet] = ws_proxy._ws  # type: ignore[attr-defined]
+                    writer.sheets[sheet] = ws_proxy._ws
                     fmt(ws_proxy, proxy)
                 else:
                     # Create an empty worksheet and delegate full rendering
                     # xlsxwriter workbook object provides add_worksheet; cast for typing
-                    book_any = writer.book
-                    add_ws = getattr(book_any, "add_worksheet")
+                    workbook_obj = writer.book
+                    add_ws = getattr(workbook_obj, "add_worksheet")
                     ws = cast(Worksheet, add_ws(sheet))
                     writer.sheets[sheet] = ws
                     fmt(ws, writer.book)
@@ -890,15 +890,19 @@ def summary_frame_from_result(res: Mapping[str, object]) -> pd.DataFrame:
     columns.extend([f"OS IR {b}" for b in bench_labels])
     columns.append("OS MaxDD")
     # Optional trailing AvgCorr if present on in_sample_stats objects (attached in pipeline)
-    try:  # pragma: no cover - presence is data dependent
-        in_stats = cast(Mapping[str, _Stats], res.get("in_sample_stats", {}))
-        # Detect presence by checking one fund's attribute via getattr
-        if in_stats:
-            any_stat = next(iter(in_stats.values()))
-            if hasattr(any_stat, "avg_corr"):
+    # Append AvgCorr columns only if stats objects carry correlation values
+    try:  # pragma: no cover - data dependent
+        in_stats_map = cast(Mapping[str, _Stats], res.get("in_sample_stats", {}))
+        if in_stats_map:
+            probe = next(iter(in_stats_map.values()))
+            # New fields: is_avg_corr / os_avg_corr
+            if (
+                getattr(probe, "is_avg_corr", None) is not None
+                or getattr(probe, "os_avg_corr", None) is not None
+            ):
                 columns.append("IS AvgCorr")
                 columns.append("OS AvgCorr")
-    except Exception:  # defensive
+    except Exception:  # pragma: no cover - defensive
         pass
 
     rows: list[list[Any]] = []
@@ -919,18 +923,16 @@ def summary_frame_from_result(res: Mapping[str, object]) -> pd.DataFrame:
 
     rows.append([pd.NA] * len(columns))
 
-    include_avg = False
-    # Determine whether AvgCorr columns were appended
-    if columns[-1] == "OS AvgCorr":
-        include_avg = True
+    include_avg = columns[-1] == "OS AvgCorr"
     for fund, stat_in in cast(Mapping[str, _Stats], res["in_sample_stats"]).items():
         stat_out = cast(Mapping[str, _Stats], res["out_sample_stats"])[fund]
         weight = cast(Mapping[str, float], res["fund_weights"])[fund] * 100
         vals = pct(stat_in) + pct(stat_out)
         extra = [bench_map.get(b, {}).get(fund, pd.NA) for b in bench_labels]
         if include_avg:
-            # Append placeholder NA values for AvgCorr until metric fully wired
-            rows.append([fund, weight, *vals, *extra, pd.NA, pd.NA])
+            is_ac = getattr(stat_in, "is_avg_corr", None)
+            os_ac = getattr(stat_out, "os_avg_corr", None)
+            rows.append([fund, weight, *vals, *extra, is_ac, os_ac])
         else:
             rows.append([fund, weight, *vals, *extra])
 

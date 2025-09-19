@@ -1,5 +1,5 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 from trend_analysis.config import Config
 from trend_analysis.multi_period import run as run_mp

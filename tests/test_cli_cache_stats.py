@@ -42,19 +42,28 @@ def test_cli_emits_cache_stats(monkeypatch, capsys, tmp_path):
     log_calls: list[tuple[str, str, str, dict[str, object]]] = []
 
     def fake_log_step(run_id, step, message, level="INFO", **extra):
-        log_calls.append((run_id, step, message, extra))
+        payload = dict(extra)
+        payload.setdefault("event", step)
+        log_calls.append((run_id, step, message, payload))
 
     from trend_analysis import logging as run_logging
 
     monkeypatch.setattr(run_logging, "log_step", fake_log_step)
+    monkeypatch.setattr(cli, "_log_step", fake_log_step)
     monkeypatch.setattr(run_logging, "init_run_logger", lambda run_id, path: None)
     monkeypatch.setattr(
         run_logging, "get_default_log_path", lambda run_id: tmp_path / "log.jsonl"
     )
-    monkeypatch.setattr(cli.export, "format_summary_text", lambda *args, **kwargs: "summary")
+    monkeypatch.setattr(
+        cli.export, "format_summary_text", lambda *args, **kwargs: "summary"
+    )
     monkeypatch.setattr(cli.export, "export_to_excel", lambda *args, **kwargs: None)
     monkeypatch.setattr(cli.export, "export_data", lambda *args, **kwargs: None)
-    monkeypatch.setattr(cli.export, "make_summary_formatter", lambda *args, **kwargs: lambda *a, **k: None)
+    monkeypatch.setattr(
+        cli.export,
+        "make_summary_formatter",
+        lambda *args, **kwargs: lambda *a, **k: None,
+    )
 
     run_result = RunResult(
         metrics=pd.DataFrame({"metric": [1.0]}),
@@ -76,13 +85,15 @@ def test_cli_emits_cache_stats(monkeypatch, capsys, tmp_path):
 
     monkeypatch.setattr(cli, "run_simulation", lambda *args, **kwargs: run_result)
 
-    rc = cli.main([
-        "run",
-        "-c",
-        str(tmp_path / "cfg.yml"),
-        "-i",
-        str(csv_path),
-    ])
+    rc = cli.main(
+        [
+            "run",
+            "-c",
+            str(tmp_path / "cfg.yml"),
+            "-i",
+            str(csv_path),
+        ]
+    )
 
     assert rc == 0
 
