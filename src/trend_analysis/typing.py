@@ -7,10 +7,7 @@ from typing import Mapping, MutableMapping, MutableSequence, TYPE_CHECKING, Type
 if TYPE_CHECKING:
     from typing import TypeAlias
 else:  # pragma: no cover - runtime fallback for older interpreters.
-    try:
-        from typing import TypeAlias
-    except ImportError:
-        from typing_extensions import TypeAlias
+    from typing_extensions import TypeAlias
 
 
 CovarianceDiagonal: TypeAlias = list[float]
