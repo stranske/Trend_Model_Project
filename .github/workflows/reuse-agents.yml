@@ -146,7 +146,7 @@ jobs:
             for (const login of custom) {
               const ok = actors.includes(login.toLowerCase());
               report[`custom:${login}`] = { ok, used: ok ? login.toLowerCase(): '' };
-              rows.push({ label:login, type:'custom', requested:true, ok, used: ok? login.toLowerCase(): '' });
+              rows.push({ label:login.toLowerCase(), type:'custom', requested:true, ok, used: ok? login.toLowerCase(): '' });
             }
             // Build markdown table
             const header = '| Agent | Kind | Requested | Assignable | Resolved Login |';
