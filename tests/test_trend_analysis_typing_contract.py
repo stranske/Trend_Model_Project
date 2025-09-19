@@ -41,9 +41,6 @@ def test_multi_period_period_result_schema_matches_expected_contract() -> None:
     # ``list`` keeps the assertion type-friendly while remaining precise about
     # the expected element type.
     assert cov_diag_hint == list[float]
-    assert get_args(cov_diag_hint) == (float,)
-
-
 def test_multi_period_period_result_supports_incremental_population() -> None:
     """Ensure the TypedDict behaves like a mutable dictionary at runtime."""
 
