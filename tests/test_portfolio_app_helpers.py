@@ -2,23 +2,28 @@
 
 from __future__ import annotations
 
+import importlib.util
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any, Dict
+from unittest import mock
 
 import pandas as pd
 import pytest
-import yaml
-import importlib.util
-from unittest import mock
+import yaml  # type: ignore[import-untyped]
+
 
 def load_helper_namespace() -> Dict[str, Any]:
-    """Import the helper portion of ``app.py`` and return its globals, mocking Streamlit."""
+    """Import the helper portion of ``app.py`` and return its globals, mocking
+    Streamlit."""
     with mock.patch.dict("sys.modules", {"streamlit": mock.MagicMock()}):
-        spec = importlib.util.spec_from_file_location("trend_portfolio_app.app", "src/trend_portfolio_app/app.py")
+        spec = importlib.util.spec_from_file_location(
+            "trend_portfolio_app.app", "src/trend_portfolio_app/app.py"
+        )
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         return module.__dict__
+
+
 def test_merge_update_recurses_through_nested_dicts():
     ns = load_helper_namespace()
     merge = ns["_merge_update"]

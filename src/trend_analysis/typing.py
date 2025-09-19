@@ -16,4 +16,3 @@ class MultiPeriodPeriodResult(TypedDict, total=False):
     transaction_cost: float
     cov_diag: list[float]
     cache_stats: Mapping[str, float] | MutableMapping[str, float]
-
