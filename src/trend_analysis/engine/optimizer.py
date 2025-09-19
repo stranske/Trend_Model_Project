@@ -233,6 +233,43 @@ def apply_constraints(
         ):
             raise ConstraintViolation("cash_weight exceeds max_weight constraint")
 
+    # cash_weight processing (fixed slice). We treat a dedicated 'CASH' label.
+    if constraints.cash_weight is not None:
+        cw = float(constraints.cash_weight)
+        if not (0 < cw < 1):
+            raise ConstraintViolation("cash_weight must be in (0,1) exclusive")
+        has_cash = "CASH" in w.index
+        if not has_cash:
+            # Create a CASH row with zero pre-allocation so scaling logic is uniform
+            w.loc["CASH"] = 0.0
+        # Exclude CASH from scaling
+        non_cash_mask = w.index != "CASH"
+        non_cash = w[non_cash_mask]
+        if non_cash.empty:
+            raise ConstraintViolation("No assets available for non-CASH allocation")
+        # Feasibility with max_weight: if max_weight is set ensure each non-cash asset
+        # could in principle satisfy cap after scaling
+        if constraints.max_weight is not None:
+            cap = constraints.max_weight
+            # Minimal achievable equal weight after carving cash
+            eq_after = (1 - cw) / len(non_cash)
+            if cap is not None and eq_after - NUMERICAL_TOLERANCE_HIGH > cap:
+                raise ConstraintViolation(
+                    "cash_weight infeasible: remaining allocation forces per-asset weight above max_weight"
+                )
+        # Scale non-cash block to (1 - cw)
+        scale = (1 - cw) / non_cash.sum()
+        non_cash = non_cash * scale
+        w.update(non_cash)
+        w.loc["CASH"] = cw
+
+        # If max_weight applies to CASH as well enforce; else skip. We enforce for consistency.
+        if (
+            constraints.max_weight is not None
+            and w.loc["CASH"] > constraints.max_weight + NUMERICAL_TOLERANCE_HIGH
+        ):
+            raise ConstraintViolation("cash_weight exceeds max_weight constraint")
+
     # Final normalisation guard
     w /= w.sum()
     return w
