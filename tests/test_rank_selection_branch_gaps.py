@@ -313,7 +313,7 @@ def test_compute_metric_series_with_cache_single_asset_avgcorr() -> None:
 def test_blended_score_empty_weights_error() -> None:
     df = _sample_frame()
     cfg = RiskStatsConfig()
-    with pytest.raises(ValueError, match="non\u2011empty weights dict"):
+    with pytest.raises(ValueError, match="non-empty weights dict"):
         rank_selection.blended_score(df, {}, cfg)
 
 
