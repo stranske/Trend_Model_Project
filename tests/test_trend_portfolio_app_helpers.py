@@ -1,7 +1,9 @@
 import importlib
 import sys
+from pathlib import Path
 from types import ModuleType
 from typing import Any, Iterable, Sequence, cast
+from unittest.mock import MagicMock, Mock
 
 import pandas as pd
 import pytest
@@ -165,8 +167,41 @@ def _load_app(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     dummy = _DummyStreamlit()
     monkeypatch.setitem(sys.modules, "streamlit", dummy)
     sys.modules.pop("trend_portfolio_app.app", None)
-    module = importlib.import_module("trend_portfolio_app.app")
+
+    module = ModuleType("trend_portfolio_app.app")
+    module.__file__ = str(Path("src/trend_portfolio_app/app.py"))
+
+    source = Path(module.__file__).read_text(encoding="utf-8")
+    prefix = source.split("st.set_page_config", 1)[0]
+    code = compile(prefix, module.__file__, "exec")
+    exec(code, module.__dict__)
+
+    sys.modules[module.__name__] = module
     return module
+
+
+def _load_app_with_magicmock(
+    monkeypatch: pytest.MonkeyPatch,
+) -> tuple[ModuleType, MagicMock]:
+    """Import the app module while ``streamlit`` is a ``MagicMock`` instance."""
+
+    stub = MagicMock()
+    # Ensure placeholder helpers fall back to the module-defined ``_NullContext``.
+    stub.empty = None
+    stub.columns.return_value = []
+    monkeypatch.setitem(sys.modules, "streamlit", stub)
+    sys.modules.pop("trend_portfolio_app.app", None)
+
+    module = ModuleType("trend_portfolio_app.app")
+    module.__file__ = str(Path("src/trend_portfolio_app/app.py"))
+
+    source = Path(module.__file__).read_text(encoding="utf-8")
+    prefix = source.split("st.set_page_config", 1)[0]
+    code = compile(prefix, module.__file__, "exec")
+    exec(code, module.__dict__)
+
+    sys.modules[module.__name__] = module
+    return module, stub
 
 
 def test_read_defaults_populates_expected_keys(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -260,3 +295,70 @@ def test_summarise_multi_handles_missing_sections(
     assert summary.loc[0, "user_sharpe"] != summary.loc[0, "user_sharpe"]  # NaN
     assert summary.loc[1, "in_start"] == ""
     assert summary.loc[1, "ew_cagr"] != summary.loc[1, "ew_cagr"]  # NaN
+
+
+def test_expected_columns_handles_various_specs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app_mod = _load_app(monkeypatch)
+
+    assert app_mod._expected_columns(3) == 3
+    assert app_mod._expected_columns(["a", "b"]) == 2
+    assert app_mod._expected_columns(None) == 1
+
+
+def test_normalize_columns_supplies_placeholders(monkeypatch: pytest.MonkeyPatch) -> None:
+    app_mod = _load_app(monkeypatch)
+
+    sentinel = object()
+    app_mod.st.empty = lambda: sentinel  # type: ignore[attr-defined]
+
+    cols = app_mod._normalize_columns(None, 3)
+
+    assert cols == [sentinel, sentinel, sentinel]
+
+    # When explicit columns exceed the requested count they should be truncated.
+    trimmed = app_mod._normalize_columns([1, 2, 3], 2)
+    assert trimmed == [1, 2]
+
+
+def test_columns_wraps_streamlit_columns(monkeypatch: pytest.MonkeyPatch) -> None:
+    app_mod = _load_app(monkeypatch)
+
+    calls: list[Any] = []
+
+    def fake_columns(spec: Any) -> list[str]:
+        calls.append(spec)
+        return ["first", "second"]
+
+    app_mod.st.columns = fake_columns  # type: ignore[assignment]
+
+    result = app_mod._columns([1, 2, 3])
+
+    assert calls == [[1, 2, 3]]
+    assert result == ["first", "second", "second"]
+
+
+def test_is_streamlit_mock_identifies_mocks(monkeypatch: pytest.MonkeyPatch) -> None:
+    app_mod = _load_app(monkeypatch)
+
+    assert app_mod._is_streamlit_mock(Mock()) is True
+    assert app_mod._is_streamlit_mock(object()) is False
+
+
+def test_magicmock_streamlit_bootstrap_installs_null_context(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app_mod, stub = _load_app_with_magicmock(monkeypatch)
+
+    try:
+        assert app_mod._STREAMLIT_IS_MOCK is True
+        # Without ``streamlit.empty`` the helper should allocate ``_NullContext`` instances.
+        placeholders = app_mod._normalize_columns(None, 2)
+        assert all(isinstance(p, app_mod._NullContext) for p in placeholders)
+
+        # UI callbacks should be replaced with inert stubs when patched with ``MagicMock``.
+        assert app_mod.st.button("any") is False
+        assert isinstance(app_mod.st.session_state, app_mod._SessionState)
+    finally:
+        sys.modules.pop("trend_portfolio_app.app", None)
