@@ -1,65 +1,64 @@
 # Workflow & Agent Automation Quick Start (Issue #1204)
 
-This guide enables a new maintainer to understand and operate the CI + agent automation stack in under 10 minutes.
+This guide enables a new maintainer to operate the CI + agent automation stack in under 10 minutes.
 
 ---
 ## 1. Architecture Snapshot
 Core layers:
 - Reusable CI (`reuse-ci-python.yml`): tests, coverage, style.
 - Reusable Autofix (`reuse-autofix.yml` + consumer): formatting & linting.
-- Reusable Agents (`reuse-agents.yml` + consumer): modes for readiness, preflight, diagnostic, verify, watchdog, bootstrap.
+- Reusable Agents (`reuse-agents.yml` + consumer): readiness, preflight, diagnostic, verify, watchdog, bootstrap.
 - Governance & Health: `repo-health-self-check.yml`, labelers, dependency review, CodeQL.
-- Path Labeling: `pr-path-labeler.yml` auto‑categorizes PRs.
+- Path Labeling: `pr-path-labeler.yml` auto-categorizes PRs.
 
-Event Flow (conceptual):
-1. PR opened → path labeler & agent labeler apply labels.
-2. Labels + branch rules trigger CI / autofix / agent readiness.
-3. Maintainer approves (CODEOWNERS) → low‑risk + `automerge` merges automatically.
-4. Scheduled jobs (health, CodeQL) ensure hygiene.
+Flow:
+1. PR opened → labelers apply path + agent labels.
+2. Labels / branch rules trigger CI, autofix, readiness.
+3. Maintainer approval (CODEOWNERS) → `automerge` merges low-risk.
+4. Schedules (health, CodeQL) maintain hygiene.
 
 ---
 ## 2. Label Cheat Sheet
-|| Label | Purpose | Source |
+| Label | Purpose | Source |
 |-------|---------|--------|
-| `agent:codex` / `agent:copilot` | Classify automation origin PRs | Agent labeler heuristic |
+| `agent:codex` / `agent:copilot` | Automation origin PRs | Agent labeler |
 | `from:codex` / `from:copilot` | Origin marker | Agent labeler |
-| `risk:low` | Enables low‑friction auto‑merge path | Issue form defaults / agent labeler |
-| `automerge` | Eligible for merge automation after checks | Issue form defaults / labeler |
-| `codex-ready` | Signals agent bootstrap allowed | Issue templates |
-| `type:bug` / `type:feature` | Issue taxonomy | Issue templates |
-| Area labels (e.g. `backend`, `docs`, `tests`) | Scope classification | Path labeler |
+| `risk:low` | Low-friction auto-merge | Issue form / labeler |
+| `automerge` | Eligible for merge automation | Issue form / maintainer |
+| `codex-ready` | Allows bootstrap run | Issue template |
+| `type:bug` / `type:feature` | Taxonomy | Templates |
+| Area labels | Scope classification | Path labeler |
 
 ---
 ## 3. Required Secrets & Variables
-| Name | Type | Required | Purpose | Notes |
-|------|------|----------|---------|-------|
-| `SERVICE_BOT_PAT` | Secret | Recommended | Enables cross‑fork label/PR ops with stable identity | PAT with `repo` scope |
-| `CODEX_ALLOW_FALLBACK` | Repo / Org Variable | Optional | Allow fallback to GITHUB_TOKEN when PAT absent | Set to `true` only temporarily |
-| `AUTOMERGE_LABEL` | Variable | Optional | Override default `automerge` label name | Defaults inside workflows |
-| `RISK_LABEL` | Variable | Optional | Override default `risk:low` label name | Keep consistent across docs |
-| `AGENT_LABEL` / `AGENT_LABEL_ALT` | Variable | Optional | Customize agent classification labels | Paired with origin labels |
-| `AUTOFIX_OPT_IN_LABEL` | Variable | Optional | Gate autofix in draft or certain repos | Falls back to `autofix` |
+| Name | Type | Req | Purpose | Notes |
+|------|------|-----|---------|-------|
+| `SERVICE_BOT_PAT` | Secret | Rec | Cross-fork ops identity | `repo` scope |
+| `CODEX_ALLOW_FALLBACK` | Var | Opt | Allow fallback token use | Temporary only |
+| `AUTOMERGE_LABEL` | Var | Opt | Customize `automerge` label | Must exist |
+| `RISK_LABEL` | Var | Opt | Customize risk label | Default `risk:low` |
+| `AGENT_LABEL` / `AGENT_LABEL_ALT` | Var | Opt | Agent classification synonyms | Cosmetic |
+| `AUTOFIX_OPT_IN_LABEL` | Var | Opt | Gate autofix | Falls back internally |
 
-All other workflows operate with the default `GITHUB_TOKEN` under principle of least privilege.
+All others use default `GITHUB_TOKEN`.
 
 ---
 ## 4. Trigger Matrix
-|| Workflow | Trigger(s) | Key Inputs / Modes |
-|----------|------------|--------------------|
-| `reuse-ci-python.yml` | PR, push | Python matrix, coverage threshold |
-| `reuse-autofix.yml` (consumer) | PR label / event | Formatting + lint patch apply |
-| `reuse-agents.yml` (consumer) | `workflow_dispatch`, labels | readiness, preflight, diagnostic, verify_issue, watchdog, bootstrap |
-| `repo-health-self-check.yml` | schedule, manual | Governance audit (labels, secrets, branch protection) |
-| `pr-path-labeler.yml` | PR events | Path-based label sync |
-| `label-agent-prs.yml` | PR (target) | Agent heuristics + baseline risk/automerge |
-| `codeql.yml` | push, PR, schedule | Code scanning (Python) |
-| `dependency-review.yml` | PR | Dependency diff & severity gate |
+| Workflow | Trigger(s) | Notes |
+|----------|-----------|-------|
+| `reuse-ci-python.yml` | PR, push | Coverage & matrix |
+| `reuse-autofix.yml` | PR events | Formatting patch |
+| `reuse-agents.yml` | dispatch, labels | All agent modes |
+| `repo-health-self-check.yml` | schedule, manual | Governance audit |
+| `pr-path-labeler.yml` | PR events | Path labels |
+| `label-agent-prs.yml` | PR target | Origin + risk labels |
+| `codeql.yml` | push, PR, schedule | Code scanning |
+| `dependency-review.yml` | PR | Dependency diff gate |
 
 ---
-## 5. Adopting Reusable Workflows in Another Repository
-Minimal example (in target repo):
+## 5. Adopt Reusable Workflows
+CI consumer:
 ```yaml
-# .github/workflows/ci.yml
 name: CI
 on:
   pull_request:
@@ -72,7 +71,7 @@ jobs:
       python_matrix: '"3.11"'
       cov_min: 70
 ```
-Autofix consumer:
+Autofix:
 ```yaml
 name: Autofix
 on: [pull_request]
@@ -80,7 +79,7 @@ jobs:
   call:
     uses: stranske/Trend_Model_Project/.github/workflows/reuse-autofix.yml@phase-2-dev
 ```
-Agents consumer (selected modes):
+Agents (subset):
 ```yaml
 name: Agents
 on:
@@ -95,73 +94,94 @@ jobs:
       enable_preflight: true
       enable_diagnostic: false
 ```
-> Replace `phase-2-dev` with a tagged release ref when versioned.
+Use a tagged ref when versioned.
 
 ---
-## 6. Standard Onboarding (≈7 Minutes)
-1. Create required labels: `automerge`, `risk:low`, `agent:codex`, `agent:copilot`, `codex-ready`.
-2. Add optional area labels (backend, docs, tests, etc.).
-3. Add secret `SERVICE_BOT_PAT` (or set `CODEX_ALLOW_FALLBACK=true` temporarily).
-4. Configure Actions permissions: allow read+write for workflows.
-5. Copy reusable workflow consumers (CI, autofix, agents) into repository.
-6. Open a dummy PR → confirm path + agent labels applied.
-7. Trigger agent readiness (if applicable) via `workflow_dispatch` selecting readiness/preflight.
+## 6. Onboarding Checklist (~7m)
+1. Create labels `automerge`, `risk:low`, `agent:codex`, `agent:copilot`, `codex-ready`.
+2. Add area labels.
+3. Add `SERVICE_BOT_PAT` or set `CODEX_ALLOW_FALLBACK=true` (temporary).
+4. Ensure Actions write permission.
+5. Add CI / Autofix / Agents consumers.
+6. Open dummy PR → verify labels.
+7. Dispatch readiness.
 
 ---
-## 7. Troubleshooting Pointers
-|| Symptom | Likely Cause | Reference |
-|---------|--------------|-----------|
-| No labels applied | Missing labeler workflow or insufficient permissions | `label-agent-prs.yml` |
-| Agent bootstrap blocked (exit 86) | PAT missing & fallback disabled | `agent_codex_troubleshooting.md` |
-| Autofix skipped | PR title matches autofix commit or opt-in label absent | Autofix consumer notes |
-| Dependency review missing | Fork PR without diff or Action disabled | `dependency-review.yml` |
-| CodeQL no alerts | First run pending or analysis still indexing | `codeql.yml` |
+## 7. Troubleshooting
+| Symptom | Cause | Ref |
+|---------|-------|-----|
+| No labels | Labeler/perms missing | `label-agent-prs.yml` |
+| Bootstrap blocked | PAT missing & fallback off | troubleshooting doc |
+| Autofix skipped | Title match / opt-in absent | Autofix README |
+| No dependency review | Fork PR / disabled | `dependency-review.yml` |
+| No CodeQL alerts | First run indexing | `codeql.yml` |
 
 ---
-## 8. Extending
-- Add quarantine job (planned) by extending `reuse-ci-python.yml` inputs.
-- Introduce severity gating changes for dependency review (`fail-on-severity` tuning).
-- Version reusables via annotated tags for external stability.
+## 8. Extensibility
+- Add quarantine job via new inputs.
+- Tune dependency severity gating.
+- Tag releases for stable reuse.
 
 ---
-## 9. Related Deep-Dive Docs
-|| Topic | Doc |
+## 9. Deep-Dive Docs
+| Topic | Doc |
 |-------|-----|
-| Reusable workflow design | `docs/ci_reuse.md` |
-| Consolidation history | `docs/ci_reuse_consolidation_plan.md` |
-| Agent automation modes | `docs/agent-automation.md` |
-| Codex troubleshooting | `docs/agent_codex_troubleshooting.md` |
-| Bootstrap verification scenarios | `docs/codex_bootstrap_verification.md` |
-| Service bot facts | `docs/ops/codex-bootstrap-facts.md` |
+| Reusable design | `docs/ci_reuse.md` |
+| Consolidation | `docs/ci_reuse_consolidation_plan.md` |
+| Agent modes | `docs/agent-automation.md` |
+| Bootstrap verify | `docs/codex_bootstrap_verification.md` |
+| Troubleshooting | `docs/agent_codex_troubleshooting.md` |
+| Bot facts | `docs/ops/codex-bootstrap-facts.md` |
 
 ---
 ## 10. Change Process
-Submit a PR updating this README plus any workflow changes. Major workflow semantics should be noted in a short “Design Note” block inside the workflow file and linked here if impactful.
+Update this README + workflows in PR; note semantic changes inline as design notes.
 
 ---
-## 11. Stale PR TTL Policy (Issue #1205)
-Purpose: Keep the open PR queue reviewable and reduce CI load.
+## 11. Stale PR TTL (Issue #1205)
+`stale-prs.yml` (daily 02:23 UTC + manual)
 
-Workflow: `stale-prs.yml` (scheduled daily @ 02:23 UTC + manual dispatch).
+Defaults:
+- Warn after 14d inactivity (`stale` label).
+- Close after 21d inactivity.
+- Exempt: `pinned`, `work-in-progress`, `security`, `blocked`.
+Activity clears `stale`.
 
-Policy Defaults:
-- Warn (mark stale + add `stale` label) after 14 days of no activity (no commits, comments, or reviews).
-- Auto-close after an additional 7 days (21 days total inactivity).
-- Exempt labels: `pinned`, `work-in-progress`, `security`, `blocked` (presence of any prevents stale processing).
-- Activity (push/comment / label removal) removes the `stale` label automatically.
+Tips: long draft → add `work-in-progress`; external wait → `blocked`.
+Tune via `days-before-pr-stale` / `days-before-pr-close`.
 
-Operator Guidance:
-- To keep a long‑running draft alive: apply `work-in-progress`.
-- To pause due to external dependency: apply `blocked`.
-- Reopen a closed stale PR via the GitHub UI if work resumes (or open a new PR referencing the old number if history is heavy).
-- Adjust timings by editing `days-before-pr-stale` / `days-before-pr-close` in the workflow.
+Future (planned): telemetry summary, org-level TTL var.
 
-Rationale:
-- Ensures reviewer focus on active contributions.
-- Prevents silent accumulation of outdated branches soaking CI cycles.
+_Last updated: 2025-09-19 (Issue #1205)_
 
-Future Enhancements (not yet implemented):
-- Telemetry summary comment with counts of newly stale and closed PRs.
-- Org-level override via repository variable (e.g. `STALE_PR_TTL_DAYS`).
+---
+## 12. Agent Readiness Enhancements (Issue #1220)
+Richer readiness probing.
 
-_Last updated: 2025-09-19 (adds Issue #1205 implementation)_
+New Inputs:
+- `readiness_custom_logins`: comma-separated bot usernames.
+- `require_all`: fail if any requested builtin or custom login missing when true.
+
+Existing:
+- `readiness_agents`: builtin keys (`copilot,codex`).
+
+Outputs:
+- Markdown table + JSON block (summary).
+- Columns: Agent | Kind | Requested | Assignable | Resolved Login.
+
+Failure Semantics:
+- `require_all=false` → always succeed (missing show ❌).
+- `require_all=true` → fail on any missing.
+
+Example:
+```yaml
+with:
+  enable_readiness: 'true'
+  readiness_agents: 'copilot,codex'
+  readiness_custom_logins: 'my-internal-bot'
+  require_all: 'true'
+```
+
+Rationale: Portability across repos + deterministic artifacts.
+
+_Last updated: 2025-09-19 (Issue #1220)_

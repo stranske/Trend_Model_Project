@@ -13,6 +13,14 @@ on:
         description: 'Agents to probe (copilot,codex)'
         required: false
         default: 'copilot,codex'
+      readiness_custom_logins:
+        description: 'Additional raw bot logins (comma separated)'
+        required: false
+        default: ''
+      require_all:
+        description: 'Fail if any requested/custom agent not assignable'
+        required: false
+        default: 'false'
       enable_preflight:
         description: 'Run codex preflight'
         required: false
@@ -69,6 +77,8 @@ jobs:
     with:
       enable_readiness: ${{ inputs.enable_readiness || 'false' }}
       readiness_agents: ${{ inputs.readiness_agents || 'copilot,codex' }}
+      readiness_custom_logins: ${{ inputs.readiness_custom_logins || '' }}
+      require_all: ${{ inputs.require_all || 'false' }}
       enable_preflight: ${{ inputs.enable_preflight || 'false' }}
       codex_user: ${{ inputs.codex_user || '' }}
       codex_command_phrase: ${{ inputs.codex_command_phrase || '' }}
