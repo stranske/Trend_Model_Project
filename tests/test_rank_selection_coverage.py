@@ -146,7 +146,7 @@ class TestBlendedScore:
         stats_cfg = RiskStatsConfig()
 
         with pytest.raises(
-            ValueError, match="blended_score requires non‑empty weights dict"
+            ValueError, match=r"blended_score requires non[-‑]empty weights dict"
         ):
             blended_score(df, weights, stats_cfg)
 

@@ -257,7 +257,9 @@ class TestBlendedScore:
         in_df = df.loc[df.index[:3], ["A", "B"]]
         cfg = rs.RiskStatsConfig(risk_free=0.0)
 
-        with pytest.raises(ValueError, match="blended_score requires non‑empty"):
+        with pytest.raises(
+            ValueError, match=r"blended_score requires non[-‑]empty"
+        ):
             rs.blended_score(in_df, {}, cfg)
 
 
