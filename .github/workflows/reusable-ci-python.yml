@@ -265,3 +265,4 @@ jobs:
         with:
           name: ${{ inputs.history-artifact-name }}
           path: metrics-history.ndjson
+
