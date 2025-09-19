@@ -86,9 +86,11 @@ def _normalize_columns(cols: Any, expected: int) -> List[Any]:
 
     if not normalised:
         placeholder_factory = getattr(st, "empty", None)
-        placeholder = placeholder_factory() if callable(placeholder_factory) else _NullContext()
-            placeholder_factory() if callable(placeholder_factory) else object()
-        )
+        if callable(placeholder_factory):
+            placeholder = placeholder_factory()
+        else:
+            null_ctx = globals().get("_NullContext")
+            placeholder = null_ctx() if callable(null_ctx) else object()
         normalised = [placeholder]
 
     if len(normalised) < expected:
@@ -129,11 +131,11 @@ def _summarise_multi(results: List[Dict[str, Any]]) -> pd.DataFrame:
         per = r.get("period")
         out_ew = r.get("out_ew_stats", {})
         out_user = r.get("out_user_stats", {})
+
+        def _get(d: Any, key: str) -> float:
             try:
                 if d is None:
                     return float("nan")
-                return float("nan")
-            try:
                 if hasattr(d, "get"):
                     value = d.get(key)  # type: ignore[attr-defined]
                 else:
