@@ -15,6 +15,9 @@
 # Assets and screenshots
 /assets/**                          @stranske
 
+# Agent automation and task specs
+/agents/**                          @stranske
+
 # Tests
 /tests/**                           @stranske
 
