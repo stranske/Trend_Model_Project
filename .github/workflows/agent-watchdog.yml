@@ -1,4 +1,5 @@
 name: agent watchdog (issue -> PR)
+# DEPRECATION: Replaced largely by reuse-agents.yml (enable_watchdog). Retain until full parity implemented.
 on:
   issues:
     types: [assigned, labeled, reopened]

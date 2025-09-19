@@ -1,4 +1,5 @@
 name: codex preflight
+# DEPRECATION: Superseded by reuse-agents.yml (enable_preflight=true).
 on:
   workflow_dispatch:
     inputs:

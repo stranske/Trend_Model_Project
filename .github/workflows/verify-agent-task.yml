@@ -1,4 +1,5 @@
 name: verify agent assignment
+# DEPRECATION: Superseded by reuse-agents.yml (enable_verify_issue=true).
 on:
   workflow_dispatch:
     inputs:

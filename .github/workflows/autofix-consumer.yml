@@ -1,0 +1,17 @@
+name: Autofix (Consumer)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
+    branches: [phase-2-dev, main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  call-reusable:
+    uses: ./.github/workflows/reuse-autofix.yml
+    with:
+      opt_in_label: ${{ vars.AUTOFIX_OPT_IN_LABEL || 'autofix' }}
+      commit_prefix: 'ci: autofix'

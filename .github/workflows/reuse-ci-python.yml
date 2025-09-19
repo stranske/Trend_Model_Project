@@ -1,0 +1,79 @@
+name: Reusable CI (Python)
+
+on:
+  workflow_call:
+    inputs:
+      python_matrix:
+        description: 'JSON array of Python versions'
+        required: false
+        default: '["3.11","3.12"]'
+        type: string
+      cov_min:
+        description: 'Coverage minimum threshold'
+        required: false
+        default: '80'
+        type: string
+      run_quarantine:
+        description: 'Include tests marked quarantine'
+        required: false
+        default: 'false'
+        type: string
+    secrets:
+      additional_pypi_token:
+        required: false
+    outputs:
+      coverage:
+        description: 'Reported coverage percentage (approx)'
+        value: ${{ jobs.core-tests.outputs.coverage }}
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  core-tests:
+    name: core-tests (Python ${{ matrix.py }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        py: ${{ fromJson(inputs.python_matrix) }}
+    outputs:
+      coverage: ${{ steps.cov_out.outputs.cov || '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.py }}
+      - name: Install
+        run: |
+          python -m pip install -U pip
+          pip install -r requirements.txt
+          pip install -e '.[dev]' pytest pytest-cov
+      - name: Remove old coverage data
+        run: rm -f .coverage .coverage.*
+      - name: Run tests
+        id: run_tests
+        env:
+          COV_MIN: ${{ inputs.cov_min }}
+          RUN_QUAR: ${{ inputs.run_quarantine }}
+        run: |
+          echo "::notice title=FlakeQuarantine::Single rerun enabled (Issue #1147)"
+          MARK_EXPR="not slow"
+          if [ "${RUN_QUAR}" != "true" ]; then
+            MARK_EXPR="not quarantine and not slow"
+          fi
+          pytest -m "$MARK_EXPR" \
+            --reruns 1 --reruns-delay 1 \
+            --cov=src --cov-report=term-missing --cov-fail-under=${COV_MIN} --cov-branch
+      - name: Extract coverage
+        id: cov_out
+        run: |
+          pct=$(grep -Eo 'TOTAL.+ [0-9]+%' <(coverage report 2>/dev/null || true) | awk '{print $NF}' | tr -d '%') || true
+          echo "cov=${pct}" >> $GITHUB_OUTPUT
+      - name: Summary
+        if: always()
+        run: |
+          echo "### CI Python Summary" >> $GITHUB_STEP_SUMMARY
+          echo "Python: ${{ matrix.py }}" >> $GITHUB_STEP_SUMMARY
+          echo "Coverage: ${{ steps.cov_out.outputs.cov }}" >> $GITHUB_STEP_SUMMARY
