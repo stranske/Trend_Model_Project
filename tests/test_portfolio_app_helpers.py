@@ -7,9 +7,15 @@ from pathlib import Path
 from typing import Any, Dict
 from unittest import mock
 
+import importlib.util
 import pandas as pd
 import pytest
-import yaml  # type: ignore[import-untyped]
+
+import yaml
+from unittest import mock
+
+
+from tests.test_trend_portfolio_app_helpers import _DummyStreamlit
 
 
 def load_helper_namespace() -> Dict[str, Any]:
@@ -20,7 +26,13 @@ def load_helper_namespace() -> Dict[str, Any]:
             "trend_portfolio_app.app", "src/trend_portfolio_app/app.py"
         )
         module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        assert module is not None
+        loader = spec.loader
+        assert loader is not None
+        if hasattr(loader, "exec_module") and callable(getattr(loader, "exec_module")):
+            loader.exec_module(module)
+        else:
+            raise TypeError(f"Loader {type(loader)} does not have an exec_module method")
         return module.__dict__
 
 
