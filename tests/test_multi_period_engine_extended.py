@@ -28,6 +28,10 @@ class DummyWeighting(engine.BaseWeighting):
     def __init__(self) -> None:
         self.updates: list[tuple[pd.Series, int]] = []
 
+    # The signature of this method intentionally differs from the base class for testing purposes.
+    # This override is safe because DummyWeighting is only used in controlled test scenarios
+    # where the input and output types are known and compatible. The simplified signature
+    # allows for deterministic behavior in tests.
     def weight(self, df: pd.DataFrame) -> pd.DataFrame:  # type: ignore[override]
         if df.empty:
             return pd.DataFrame({"weight": pd.Series(dtype=float)})
