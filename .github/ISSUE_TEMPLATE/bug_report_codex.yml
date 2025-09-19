@@ -1,6 +1,6 @@
 name: Bug report
 description: Something broke. Keep it factual.
-labels: ["type:bug","codex-ready"]
+labels: ["type:bug","risk:low","agent:codex","automerge","codex-ready"]
 body:
   - type: input
     id: env

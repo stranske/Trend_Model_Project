@@ -1,0 +1,46 @@
+# Path-based label mappings (Issue #1180)
+# Syncs labels to reflect areas of change.
+backend:
+  - 'src/**'
+  - 'trend_portfolio_app/**'
+  - 'app/**'
+
+metrics:
+  - 'src/trend_analysis/metrics.py'
+  - 'src/trend_analysis/multi_period/**'
+
+selection:
+  - 'src/trend_analysis/core/**'
+  - 'src/trend_analysis/engine/**'
+
+config:
+  - 'config/**'
+
+docs:
+  - 'docs/**'
+  - 'README*.md'
+  - 'AGENTS_APP.md'
+
+workflows:
+  - '.github/workflows/**'
+
+ci:
+  - 'scripts/**'
+  - '.github/actions/**'
+
+tests:
+  - 'tests/**'
+
+notebooks:
+  - 'notebooks/**'
+
+export:
+  - 'src/trend_analysis/export.py'
+  - 'src/trend_analysis/export/**'
+
+performance:
+  - 'perf/**'
+
+streamlit:
+  - 'streamlit_app/**'
+  - 'src/trend_portfolio_app/**'

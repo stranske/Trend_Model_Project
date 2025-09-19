@@ -1,6 +1,6 @@
 name: Feature request
 description: Small, single-scope feature for the Streamlit app or sim layer
-labels: ["type:feature","codex-ready"]
+labels: ["type:feature","risk:low","agent:codex","automerge","codex-ready"]
 body:
   - type: textarea
     id: summary
