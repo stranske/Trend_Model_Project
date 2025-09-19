@@ -16,7 +16,7 @@ The `repo-health-self-check.yml` workflow provides a scheduled, automated govern
 
 ## Issue Lifecycle
 - Opens (or updates) a single canonical issue titled: `Repository Health Failing Checks`.
-- Adds / replaces a machine section delimited by HTML comments for idempotent updates.
+- Adds or replaces a machine section delimited by HTML comments for idempotent updates.
 - Closes the issue automatically when all checks pass (adds a success summary comment first).
 
 ## Extending Checks
