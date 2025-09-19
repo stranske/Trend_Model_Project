@@ -24,7 +24,9 @@ APP_PATH = Path(__file__).resolve().parents[2] / "streamlit_app" / "app.py"
 LOCK_PATH = Path(__file__).resolve().parents[2] / "requirements.lock"
 
 
-def _log_step(run_id: str, event: str, message: str, **fields: Any) -> None:
+def _log_step(
+    run_id: str, event: str, message: str, level: str = "INFO", **fields: Any
+) -> None:
     """Internal indirection for structured logging.
 
     Tests monkeypatch this symbol directly (`_log_step`) rather than the public
@@ -32,7 +34,7 @@ def _log_step(run_id: str, event: str, message: str, **fields: Any) -> None:
     runtime behaviour while allowing tests to intercept calls without touching
     the logging subsystem.
     """
-    run_logging.log_step(run_id, event, message, **fields)
+    run_logging.log_step(run_id, event, message, level=level, **fields)
 
 
 def _extract_cache_stats(payload: object) -> dict[str, int] | None:
@@ -379,9 +381,6 @@ def main(argv: list[str] | None = None) -> int:
 
     # This shouldn't be reached with required=True.
     return 0
-
-
-_log_step = run_logging.log_step
 
 if __name__ == "__main__":  # pragma: no cover - manual invocation
     raise SystemExit(main())

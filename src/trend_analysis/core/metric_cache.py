@@ -46,7 +46,7 @@ class MetricCache:
         self.hits = 0
         self.misses = 0
 
-    def stats(self) -> dict[str, int | float]:
+    def stats(self) -> dict[str, float | int]:
         total = self.hits + self.misses
         hit_rate = (self.hits / total) if total else 0.0
         return {
