@@ -67,7 +67,9 @@ class DummyRebalancer:
     def __init__(self) -> None:
         self.calls: list[tuple[pd.Series, list[str]]] = []
 
-    def apply_triggers(self, prev_weights: pd.Series, score_frame: pd.DataFrame) -> pd.Series:
+    def apply_triggers(
+        self, prev_weights: pd.Series, score_frame: pd.DataFrame
+    ) -> pd.Series:
         self.calls.append((prev_weights.copy(), score_frame.index.tolist()))
         return prev_weights.sort_index()
 
@@ -153,6 +155,7 @@ class DummyCfg:
     def model_dump(self) -> dict[str, object]:
         return {}
 
+
 def test_run_price_frames_validation_errors():
     cfg = DummyCfg()
 
@@ -219,4 +222,3 @@ def test_run_with_price_frames_builds_covariance(monkeypatch):
     assert "cov_diag" in result
     assert len(result["cov_diag"]) == 2
     assert "cache_stats" in result
-
