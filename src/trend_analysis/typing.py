@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Mapping, MutableMapping, MutableSequence, TypedDict
+from typing import (Mapping, MutableMapping, MutableSequence, TypeAlias,
+                    TypedDict)
+
+
+CovarianceDiagonal: TypeAlias = list[float]
 
 
 class MultiPeriodPeriodResult(TypedDict, total=False):
@@ -14,5 +18,5 @@ class MultiPeriodPeriodResult(TypedDict, total=False):
     manager_changes: MutableSequence[dict[str, object]]
     turnover: float
     transaction_cost: float
-    cov_diag: list[float]
+    cov_diag: CovarianceDiagonal
     cache_stats: Mapping[str, float] | MutableMapping[str, float]
