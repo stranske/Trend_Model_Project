@@ -170,10 +170,10 @@ def test_register_metric_decorator_registers_function():
         return float(series.mean())
 
     series = pd.Series([1.0, 2.0, 3.0])
-    assert rank_selection.METRIC_REGISTRY["TestMetric"](series) == pytest.approx(2.0)
-    rank_selection.METRIC_REGISTRY.pop("TestMetric", None)
-
-
+    try:
+        assert rank_selection.METRIC_REGISTRY["TestMetric"](series) == pytest.approx(2.0)
+    finally:
+        rank_selection.METRIC_REGISTRY.pop("TestMetric", None)
 def test_quality_filter_basic_thresholds():
     data = pd.DataFrame(
         {
