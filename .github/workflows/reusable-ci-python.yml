@@ -48,6 +48,36 @@ on:
         required: false
         default: '0'
         type: string
+      enable-metrics:
+        description: 'Enable Phase1 metrics extraction (slow / failing tests)'
+        required: false
+        default: 'false'
+        type: string
+      slow-test-top:
+        description: 'Top N slow tests to record when metrics enabled'
+        required: false
+        default: '10'
+        type: string
+      slow-test-min-seconds:
+        description: 'Minimum duration (s) to include in slow test list'
+        required: false
+        default: '0'
+        type: string
+      enable-classification:
+        description: 'Enable log-based failure classification summary'
+        required: false
+        default: 'false'
+        type: string
+      enable-history:
+        description: 'Enable writing NDJSON historical metrics line'
+        required: false
+        default: 'false'
+        type: string
+      history-artifact-name:
+        description: 'Artifact name for metrics history (NDJSON)'
+        required: false
+        default: 'ci-history'
+        type: string
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -87,10 +117,27 @@ jobs:
           set -o pipefail
           MARK='${{ steps.markers.outputs.value }}'
           if [ "${{ inputs.run-full }}" = "true" ] || [ -z "$MARK" ]; then
-            pytest --junitxml=pytest-junit.xml --cov=src --cov-report=term-missing --cov-report=xml:coverage.xml --cov-branch
+            pytest --junitxml=pytest-junit.xml --cov=src --cov-report=term-missing --cov-report=xml:coverage.xml --cov-branch 2>&1 | tee pytest.log || echo $? > test_status
           else
-            pytest -m "$MARK" --junitxml=pytest-junit.xml --cov=src --cov-report=term-missing --cov-report=xml:coverage.xml --cov-branch
+            pytest -m "$MARK" --junitxml=pytest-junit.xml --cov=src --cov-report=term-missing --cov-report=xml:coverage.xml --cov-branch 2>&1 | tee pytest.log || echo $? > test_status
           fi
+          echo "status=$(cat test_status 2>/dev/null || echo 0)" >> $GITHUB_OUTPUT
+      - name: Classify (Phase2)
+        if: inputs.enable-classification == 'true'
+        id: classify
+        shell: bash
+        run: |
+          cls=green
+          s='${{ steps.run_tests.outputs.status }}'
+          if [ "$s" != "0" ]; then
+            log=pytest.log
+            grep -qi 'ModuleNotFoundError' "$log" && cls=import_error || true
+            grep -qi 'ImportError' "$log" && cls=import_error || true
+            grep -qi 'SyntaxError' "$log" && cls=syntax_error || true
+            grep -qi 'AssertionError' "$log" && cls=assertion_failure || true
+            grep -qi 'Timeout' "$log" && cls=timeout || true
+          fi
+          echo "classification=$cls" >> $GITHUB_OUTPUT
       - name: Coverage gate
         if: inputs.coverage-min != ''
         shell: bash
@@ -114,3 +161,107 @@ jobs:
         run: |
           echo '{"status":"ok"}' > payload.json
           curl -s -X POST -H 'Content-Type: application/json' -d @payload.json '${{ inputs.webhook-url }}' || true
+      - name: Extract metrics (Phase1)
+        if: inputs.enable-metrics == 'true'
+        shell: bash
+        run: |
+          python - <<'PY'
+          import xml.etree.ElementTree as ET, json, os
+          PATH = 'pytest-junit.xml'
+          if not os.path.exists(PATH):
+              raise SystemExit('pytest-junit.xml missing for metrics extraction')
+          root = ET.parse(PATH).getroot()
+          tests = []  # (name, classname, dur, status)
+          for case in root.iter('testcase'):
+              name = case.get('name') or ''
+              classname = case.get('classname') or ''
+              try:
+                  dur = float(case.get('time') or '0')
+              except ValueError:
+                  dur = 0.0
+              status = 'passed'
+              if any(child.tag in ('failure','error') for child in case):
+                  status = 'failed'
+              elif any(child.tag == 'skipped' for child in case):
+                  status = 'skipped'
+              tests.append((name, classname, dur, status))
+          total = len(tests)
+            
+          failed = [t for t in tests if t[3] == 'failed']
+          skipped = [t for t in tests if t[3] == 'skipped']
+          passed = [t for t in tests if t[3] == 'passed']
+          top_n = int(os.getenv('TOP_N','10'))
+          min_s = float(os.getenv('MIN_S','0'))
+          slow = sorted([t for t in tests if t[2] >= min_s], key=lambda x: x[2], reverse=True)[:top_n]
+          payload = {
+            'summary': {
+              'total': total,
+              'passed': len(passed),
+              'failed': len(failed),
+              'skipped': len(skipped),
+            },
+            'failed_tests': [
+              {'name': n,'classname': c,'duration_s': d} for (n,c,d,s) in failed
+            ],
+            'slow_tests': [
+              {'name': n,'classname': c,'duration_s': d} for (n,c,d,s) in slow
+            ],
+          }
+          with open('ci-metrics.json','w') as fh:
+              json.dump(payload, fh, indent=2)
+          print('Wrote ci-metrics.json with', len(payload['slow_tests']), 'slow tests and', len(payload['failed_tests']), 'failures')
+          PY
+        env:
+          TOP_N: ${{ inputs.slow-test-top }}
+          MIN_S: ${{ inputs.slow-test-min-seconds }}
+      - name: Upload metrics artifact
+        if: inputs.enable-metrics == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-metrics
+          path: ci-metrics.json
+      - name: Append history (Phase2)
+        if: inputs.enable-history == 'true'
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, os, time, hashlib
+          line = {
+            'timestamp': int(time.time()),
+            'sha': os.getenv('GITHUB_SHA'),
+            'ref': os.getenv('GITHUB_REF'),
+            'workflow': os.getenv('GITHUB_WORKFLOW'),
+            'enable_metrics': os.getenv('ENABLE_METRICS'),
+          }
+          # include metrics summary if present
+          if os.path.exists('ci-metrics.json'):
+              try:
+                  with open('ci-metrics.json') as fh:
+                      data = json.load(fh)
+                  line['summary'] = data.get('summary')
+                  line['failed_count'] = len(data.get('failed_tests', []))
+                  line['slow_count'] = len(data.get('slow_tests', []))
+              except Exception as e:
+                  line['metrics_error'] = str(e)
+          # classification
+          cls = os.getenv('CLASSIFICATION')
+          if cls:
+              line['classification'] = cls
+          # produce deterministic id
+          m = hashlib.sha256()
+          m.update(repr(line).encode())
+          line['id'] = m.hexdigest()[:16]
+          with open('metrics-history.ndjson','a') as out:
+              out.write(json.dumps(line, separators=(',',':')) + '\n')
+          print('Appended history line id', line['id'])
+          PY
+        env:
+          ENABLE_METRICS: ${{ inputs.enable-metrics }}
+          CLASSIFICATION: ${{ steps.classify.outputs.classification }}
+      - name: Upload history artifact (Phase2)
+        if: inputs.enable-history == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.history-artifact-name }}
+          path: metrics-history.ndjson
+
