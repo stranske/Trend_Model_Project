@@ -150,6 +150,10 @@ def test_run_incremental_covariance_fallback_on_error(monkeypatch):
     assert second_stats["incremental_updates"] == 0
 
 def test_run_incremental_covariance_handles_bad_shift_and_strings(monkeypatch):
+    """Test that the engine correctly handles string-formatted dates and invalid
+    (non-integer) shift detection settings. Ensures that covariance computation
+    and diagnostics are performed even when input formats are incorrect or edge
+    cases are present."""
     cfg = _Cfg()
     cfg.performance["shift_detection_max_steps"] = "not-an-int"
     cfg.benchmarks = {"bm": "Benchmark"}
