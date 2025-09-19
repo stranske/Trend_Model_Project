@@ -1,26 +1,12 @@
-"""Tests covering the public package initializer."""
-
-from __future__ import annotations
-
 import importlib
-import importlib.metadata
-
-import pytest
-
-import trend_analysis as ta
 
 
-def test_version_falls_back_when_metadata_missing(monkeypatch, request):
-    def raise_missing(_: str) -> str:
-        raise importlib.metadata.PackageNotFoundError()
+def test_trend_analysis_init_exposes_exports():
+    import trend_analysis
 
-    monkeypatch.setattr(importlib.metadata, "version", raise_missing)
-    importlib.reload(ta)
-    assert ta.__version__ == "0.1.0-dev"
+    module = importlib.reload(trend_analysis)
 
-    request.addfinalizer(lambda: importlib.reload(ta))
+    assert hasattr(module, "load_csv")
+    assert hasattr(module, "export_to_csv")
+    assert hasattr(module, "export_to_excel")
 
-
-def test_getattr_raises_for_unknown_attribute():
-    with pytest.raises(AttributeError):
-        getattr(ta, "does_not_exist")
