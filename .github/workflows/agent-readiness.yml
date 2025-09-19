@@ -1,4 +1,5 @@
 name: agent readiness (copilot + codex)
+# DEPRECATION: Functionality now provided by reuse-agents.yml (enable_readiness=true).
 
 on:
   workflow_dispatch:
