@@ -314,41 +314,44 @@ def _run_analysis(
     except Exception:  # pragma: no cover - defensive
         want_avg_corr = False
 
-    in_avg_corr: dict[str, float] | None = None
-    out_avg_corr: dict[str, float] | None = None
+    # Compute average correlations for in-sample and out-of-sample
+    is_avg_corr: dict[str, float] | None = None  # in-sample average correlation
+    os_avg_corr: dict[str, float] | None = None  # out-of-sample average correlation
     if want_avg_corr and len(fund_cols) > 1:
         try:
             corr_in = in_scaled[fund_cols].corr()
             corr_out = out_scaled[fund_cols].corr()
             # Exclude self by taking sum of row minus 1, divided by (n-1)
             n_f = len(fund_cols)
-            in_avg_corr = {
+            is_avg_corr = {
                 f: float((corr_in.loc[f].sum() - 1.0) / (n_f - 1)) for f in fund_cols
             }
-            out_avg_corr = {
+            os_avg_corr = {
                 f: float((corr_out.loc[f].sum() - 1.0) / (n_f - 1)) for f in fund_cols
             }
         except Exception:  # pragma: no cover - defensive (fallback to None)
-            in_avg_corr = None
-            out_avg_corr = None
+            is_avg_corr = None
+            os_avg_corr = None
 
+    # For in-sample stats, only pass in-sample average correlation
     in_stats = _compute_stats(
         in_scaled,
         rf_in,
-        in_sample_avg_corr=in_avg_corr,
+        in_sample_avg_corr=is_avg_corr,
         out_sample_avg_corr=None,
     )
+    # For out-of-sample stats, only pass out-of-sample average correlation
     out_stats = _compute_stats(
         out_scaled,
         rf_out,
         in_sample_avg_corr=None,
-        out_sample_avg_corr=out_avg_corr,
+        out_sample_avg_corr=os_avg_corr,
     )
     out_stats_raw = _compute_stats(
         out_df[fund_cols],
         rf_out,
         in_sample_avg_corr=None,
-        out_sample_avg_corr=out_avg_corr,
+        out_sample_avg_corr=os_avg_corr,
     )
 
     ew_weights = np.repeat(1.0 / len(fund_cols), len(fund_cols))
