@@ -2,8 +2,9 @@
 
 These tests exercise edge paths that were previously unvisited by the
 existing suite (error branches, rare helper logic, and alternate call
-patterns).  The goal is to tighten coverage around configuration validation
-and helper utilities without disturbing the broader behavioural tests.
+patterns).  The goal is to tighten coverage around configuration
+validation and helper utilities without disturbing the broader
+behavioural tests.
 """
 
 from __future__ import annotations
@@ -13,14 +14,11 @@ import pandas as pd
 import pytest
 
 from trend_analysis.core import rank_selection
-from trend_analysis.core.rank_selection import (
-    FundSelectionConfig,
-    RiskStatsConfig,
-    WindowMetricBundle,
-    clear_window_metric_cache,
-    get_window_metric_bundle,
-    make_window_key,
-)
+from trend_analysis.core.rank_selection import (FundSelectionConfig,
+                                                RiskStatsConfig,
+                                                WindowMetricBundle,
+                                                clear_window_metric_cache,
+                                                get_window_metric_bundle)
 from trend_analysis.perf.cache import CovPayload
 
 
@@ -112,7 +110,9 @@ def test_rank_select_funds_uses_compute_metric_series_when_no_bundle(
     cfg = RiskStatsConfig()
     called: dict[str, object] = {}
 
-    def _fake_compute(frame: pd.DataFrame, metric: str, cfg_arg: RiskStatsConfig) -> pd.Series:
+    def _fake_compute(
+        frame: pd.DataFrame, metric: str, cfg_arg: RiskStatsConfig
+    ) -> pd.Series:
         called["args"] = (frame, metric, cfg_arg)
         return pd.Series([1.0, 0.5], index=frame.columns)
 
@@ -208,7 +208,11 @@ def test_quality_filters_cover_ratio_and_limits() -> None:
         {
             "Date": dates,
             "A": [0.1, np.nan, 0.2],  # missing count == 1 (passes first check)
-            "B": [np.nan, 0.0, np.nan],  # ratio of missing values triggers max_missing_ratio
+            "B": [
+                np.nan,
+                0.0,
+                np.nan,
+            ],  # ratio of missing values triggers max_missing_ratio
             "C": [0.0, 5.0, 0.0],  # implausible value triggers limit check
             "D": [0.0, 0.1, 0.2],
         }
@@ -291,7 +295,9 @@ def test_metric_from_cov_payload_single_asset_returns_zero() -> None:
         n=5,
         assets=("Solo",),
     )
-    avg = rank_selection._metric_from_cov_payload("AvgCorr", pd.DataFrame(columns=["Solo"]), payload)
+    avg = rank_selection._metric_from_cov_payload(
+        "AvgCorr", pd.DataFrame(columns=["Solo"]), payload
+    )
     assert avg.iloc[0] == 0.0
 
 
@@ -317,12 +323,16 @@ def test_blended_score_empty_weights_error() -> None:
         rank_selection.blended_score(df, {}, cfg)
 
 
-def test_blended_score_without_bundle_uses_metric(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_blended_score_without_bundle_uses_metric(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     df = _sample_frame()
     cfg = RiskStatsConfig()
     observed: list[str] = []
 
-    def _fake_metric(frame: pd.DataFrame, metric: str, cfg_arg: RiskStatsConfig) -> pd.Series:
+    def _fake_metric(
+        frame: pd.DataFrame, metric: str, cfg_arg: RiskStatsConfig
+    ) -> pd.Series:
         observed.append(metric)
         return pd.Series([0.1, 0.2], index=frame.columns)
 
@@ -353,7 +363,9 @@ def test_select_funds_random_requires_n(monkeypatch: pytest.MonkeyPatch) -> None
 
     captured: dict[str, object] = {}
 
-    def _fake_choice(eligible: list[str], size: int, replace: bool = False) -> np.ndarray:
+    def _fake_choice(
+        eligible: list[str], size: int, replace: bool = False
+    ) -> np.ndarray:
         captured["eligible"] = eligible
         captured["size"] = size
         return np.array(eligible[:size])
@@ -379,7 +391,9 @@ def test_select_funds_extended_random_branch(monkeypatch: pytest.MonkeyPatch) ->
     )
     cfg = FundSelectionConfig()
 
-    monkeypatch.setattr(np.random, "choice", lambda eligible, n, replace=False: np.array(eligible[:n]))
+    monkeypatch.setattr(
+        np.random, "choice", lambda eligible, n, replace=False: np.array(eligible[:n])
+    )
 
     selected = rank_selection.select_funds_extended(
         df,
@@ -397,7 +411,9 @@ def test_select_funds_extended_random_branch(monkeypatch: pytest.MonkeyPatch) ->
     assert selected == ["FundA"]
 
 
-def test_select_funds_extended_rank_injects_window_key(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_select_funds_extended_rank_injects_window_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     dates = pd.period_range("2021-01", periods=3, freq="M").to_timestamp("M")
     df = pd.DataFrame(
         {
@@ -411,7 +427,9 @@ def test_select_funds_extended_rank_injects_window_key(monkeypatch: pytest.Monke
 
     captured: dict[str, object] = {}
 
-    def _fake_rank(df_slice: pd.DataFrame, stats: RiskStatsConfig, **kwargs: object) -> list[str]:
+    def _fake_rank(
+        df_slice: pd.DataFrame, stats: RiskStatsConfig, **kwargs: object
+    ) -> list[str]:
         captured.update(kwargs)
         return list(df_slice.columns)
 
@@ -525,7 +543,9 @@ def test_select_funds_extended_random_requires_parameter() -> None:
         )
 
 
-def test_select_funds_allows_extended_call_through_helper(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_select_funds_allows_extended_call_through_helper(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     df = pd.DataFrame(
         {
             "Date": pd.date_range("2025-01-31", periods=2, freq="ME"),
@@ -560,4 +580,3 @@ def test_select_funds_allows_extended_call_through_helper(monkeypatch: pytest.Mo
 
     assert out == ["A"]
     assert called["args"][1] == "RF"
-
