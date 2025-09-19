@@ -13,6 +13,16 @@ on:
         required: false
         default: 'copilot,codex'
         type: string
+      readiness_custom_logins:
+        description: 'Comma-separated additional raw bot logins (exact usernames)'
+        required: false
+        default: ''
+        type: string
+      require_all:
+        description: 'Fail readiness job if any requested agent/custom login not assignable (true/false)'
+        required: false
+        default: 'false'
+        type: string
       enable_preflight:
         description: 'Run codex preflight probe (true/false)'
         required: false
@@ -109,24 +119,49 @@ jobs:
         env:
           ACTORS_JSON: ${{ steps.gql.outputs.actors }}
           AGENTS_REQ: ${{ inputs.readiness_agents }}
+          CUSTOM_LOGINS: ${{ inputs.readiness_custom_logins }}
+          REQUIRE_ALL: ${{ inputs.require_all }}
         uses: actions/github-script@v7
         with:
           script: |
             const num = Number(core.getInput('issue_number') || process.env.ISSUE_NUM || '${{ steps.tmp.outputs.num }}');
             const actors = JSON.parse(process.env.ACTORS_JSON || '[]');
             const requested = (process.env.AGENTS_REQ || 'copilot,codex').split(',').map(s=>s.trim()).filter(Boolean);
+            const custom = (process.env.CUSTOM_LOGINS || '').split(',').map(s=>s.trim()).filter(Boolean);
             const CANDIDATES = {
               copilot: ['copilot','copilot-swe-agent'],
               codex: ['chatgpt-codex-connector']
             };
+            const rows = [];
             const report = {};
+            // Handle keyed agents
             for (const key of requested) {
               const cands = CANDIDATES[key]||[];
-              let ok=false, used=null;
+              let ok=false, used='';
               for (const c of cands) { if (actors.includes(c)) { ok=true; used=c; break; } }
               report[key]={ok, used};
+              rows.push({ label:key, type:'builtin', requested:true, ok, used });
             }
+            // Handle custom explicit logins (exact matches)
+            for (const login of custom) {
+              const ok = actors.includes(login.toLowerCase());
+              report[`custom:${login}`] = { ok, used: ok ? login.toLowerCase(): '' };
+              rows.push({ label:login.toLowerCase(), type:'custom', requested:true, ok, used: ok? login.toLowerCase(): '' });
+            }
+            // Build markdown table
+            const header = '| Agent | Kind | Requested | Assignable | Resolved Login |';
+            const sep = '|-------|------|-----------|-----------|---------------|';
+            const mdRows = rows.map(r => `| ${r.label} | ${r.type} | yes | ${r.ok? '✅':'❌'} | ${r.used} |`);
+            const table = [header, sep, ...mdRows].join('\n');
             core.setOutput('report', JSON.stringify(report));
+            core.setOutput('table', table);
+            const requireAll = (process.env.REQUIRE_ALL||'false').toLowerCase()==='true';
+            if (requireAll) {
+              const missing = rows.filter(r=>!r.ok).map(r=>r.label);
+              if (missing.length) {
+                core.setFailed('Missing assignable agents: '+missing.join(', '));
+              }
+            }
       - name: Close temp
         if: always()
         uses: actions/github-script@v7
@@ -136,7 +171,17 @@ jobs:
       - name: Summary
         if: always()
         run: |
-          echo "Readiness report: ${{ steps.try.outputs.report }}"
+          echo "### Agent Readiness Report ${{ steps.try.outcome == 'failure' && '❌' || '✅' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          echo '${{ steps.try.outputs.report }}' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '${{ steps.try.outputs.table }}' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Require all: ${{ inputs.require_all }}" >> $GITHUB_STEP_SUMMARY
+          echo "Custom logins: ${{ inputs.readiness_custom_logins }}" >> $GITHUB_STEP_SUMMARY
+          echo "Overall: ${{ steps.try.outcome == 'failure' && 'failure (missing required agents)' || 'success' }}" >> $GITHUB_STEP_SUMMARY
 
   preflight:
     if: inputs.enable_preflight == 'true'
