@@ -2,13 +2,6 @@ name: Verify Codex Bootstrap Matrix
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '17 3 * * *'
-  push:
-    paths:
-      - '.github/workflows/verify-codex-bootstrap-matrix.yml'
-      - 'scripts/verify_codex_bootstrap.py'
-      - 'docs/codex-simulation.md'
     inputs:
       scenarios:
         description: "Comma-separated list: all or subset. See scripts/verify_codex_bootstrap.py SCENARIOS_IMPL for available scenarios."
@@ -38,6 +31,13 @@ on:
         description: "Set to true for t13_suppressed"
         required: false
         default: "false"
+  schedule:
+    - cron: '17 3 * * *'
+  push:
+    paths:
+      - '.github/workflows/verify-codex-bootstrap-matrix.yml'
+      - 'scripts/verify_codex_bootstrap.py'
+      - 'docs/codex-simulation.md'
 
 jobs:
   plan:
