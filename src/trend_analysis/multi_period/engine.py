@@ -804,7 +804,11 @@ def run(
             # Preserve period alignment: produce a minimal placeholder so downstream
             # consumers expecting one entry per generated period retain indexing.
             # (Chosen over 'continue' because some tests assert len(results) == len(periods)).
-            empty_metrics = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+            # Represent missing metrics explicitly as ``None`` rather than a
+            # tuple of zeroes.  Downstream consumers (and tests) expect a
+            # ``None`` placeholder so that an empty universe is distinguishable
+            # from genuine statistics that just happen to be zero.
+            empty_metrics = None
             results.append(
                 cast(
                     MultiPeriodPeriodResult,

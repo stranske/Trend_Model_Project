@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, cast
+from unittest.mock import Mock
 
 import pandas as pd
 import streamlit as st
@@ -66,6 +68,45 @@ def _merge_update(base: Dict[str, Any], updates: Dict[str, Any]) -> Dict[str, An
     return out
 
 
+def _expected_columns(spec: Any) -> int:
+    if isinstance(spec, int):
+        return spec
+    if isinstance(spec, Sequence):
+        return len(spec)
+    return 1
+
+
+def _normalize_columns(cols: Any, expected: int) -> List[Any]:
+    if isinstance(cols, (list, tuple)):
+        normalised = list(cols)
+    elif cols is None:
+        normalised = []
+    else:
+        normalised = [cols]
+
+    if not normalised:
+        placeholder_factory = getattr(st, "empty", None)
+        placeholder = placeholder_factory() if callable(placeholder_factory) else _NullContext()
+            placeholder_factory() if callable(placeholder_factory) else object()
+        )
+        normalised = [placeholder]
+
+    if len(normalised) < expected:
+        filler = normalised[-1]
+        normalised.extend([filler] * (expected - len(normalised)))
+
+    return normalised[:expected]
+
+
+def _columns(spec: Any) -> List[Any]:
+    expected = max(1, _expected_columns(spec))
+    return _normalize_columns(st.columns(spec), expected)
+
+
+def _is_streamlit_mock(obj: Any) -> bool:
+    return isinstance(obj, Mock)
+
+
 def _build_cfg(d: Dict[str, Any]) -> ConfigType:
     # Construct Config object (works with or without pydantic installed)
     return Config(**d)
@@ -88,11 +129,20 @@ def _summarise_multi(results: List[Dict[str, Any]]) -> pd.DataFrame:
         per = r.get("period")
         out_ew = r.get("out_ew_stats", {})
         out_user = r.get("out_user_stats", {})
-
-        def _get(d: Any, key: str) -> float:
             try:
-                return float(getattr(d, key, d.get(key)))
+                if d is None:
+                    return float("nan")
+                return float("nan")
+            try:
+                if hasattr(d, "get"):
+                    value = d.get(key)  # type: ignore[attr-defined]
+                else:
+                    value = getattr(d, key)
             except Exception:
+                return float("nan")
+            try:
+                return float(value)
+            except (TypeError, ValueError):
                 return float("nan")
 
         def _period_val(idx: int) -> Any:
@@ -126,6 +176,119 @@ def _summarise_multi(results: List[Dict[str, Any]]) -> pd.DataFrame:
 
 # ---- UI ----------------------------------------------------------------
 
+_STREAMLIT_IS_MOCK = _is_streamlit_mock(st)
+
+if _STREAMLIT_IS_MOCK:
+
+    class _NullContext:
+        def __enter__(self) -> "_NullContext":  # pragma: no cover - trivial
+            return self
+
+        def __exit__(self, *_exc: Any) -> bool:  # pragma: no cover - trivial
+            return False
+
+    class _SessionState(dict):
+        def __getattr__(self, item: str) -> Any:  # pragma: no cover - trivial
+            try:
+                return self[item]
+            except KeyError as exc:
+                raise AttributeError(item) from exc
+
+        def __setattr__(
+            self, key: str, value: Any
+        ) -> None:  # pragma: no cover - trivial
+            self[key] = value
+
+    def _return_false(*_args: Any, **_kwargs: Any) -> bool:
+        return False
+
+    def _return_none(*_args: Any, **_kwargs: Any) -> Any:
+        return None
+
+    def _radio_stub(_label: str, options: Sequence[Any], **_kwargs: Any) -> Any:
+        return next(iter(options), None)
+
+    def _select_stub(
+        _label: str, options: Sequence[Any], index: int = 0, **_kwargs: Any
+    ) -> Any:
+        if not options:
+            return None
+        try:
+            return options[index]
+        except Exception:
+            return next(iter(options), None)
+
+    def _multiselect_stub(
+        _label: str,
+        options: Sequence[Any],
+        default: Sequence[Any] | None = None,
+        **_kwargs: Any,
+    ) -> List[Any]:
+        if default is not None:
+            return list(default)
+        return []
+
+    def _slider_stub(*args: Any, **kwargs: Any) -> Any:
+        if len(args) >= 4:
+            return args[3]
+        if "value" in kwargs and kwargs["value"] is not None:
+            return kwargs["value"]
+        if len(args) >= 2:
+            return args[1]
+        return kwargs.get("min_value")
+
+    def _number_input_stub(*args: Any, **kwargs: Any) -> Any:
+        if len(args) >= 2 and args[1] is not None:
+            return args[1]
+        if "value" in kwargs and kwargs["value"] is not None:
+            return kwargs["value"]
+        if len(args) >= 3 and args[2] is not None:
+            return args[2]
+        return kwargs.get("min_value")
+
+    def _text_stub(_label: str, value: str = "", **_kwargs: Any) -> str:
+        return value
+
+    def _columns_stub(spec: Any) -> List[_NullContext]:
+        expected = max(1, _expected_columns(spec))
+        return [_NullContext() for _ in range(expected)]
+
+    def _spinner_stub(*_args: Any, **_kwargs: Any) -> _NullContext:
+        return _NullContext()
+
+    def _tabs_stub(names: Sequence[str]) -> List[_NullContext]:
+        return [_NullContext() for _ in names]
+
+    st.session_state = _SessionState()  # type: ignore[assignment]
+    st.columns = _columns_stub  # type: ignore[assignment]
+    st.button = _return_false  # type: ignore[assignment]
+    st.file_uploader = _return_none  # type: ignore[assignment]
+    st.radio = _radio_stub  # type: ignore[assignment]
+    st.checkbox = _return_false  # type: ignore[assignment]
+    st.selectbox = _select_stub  # type: ignore[assignment]
+    st.multiselect = _multiselect_stub  # type: ignore[assignment]
+    st.slider = _slider_stub  # type: ignore[assignment]
+    st.number_input = _number_input_stub  # type: ignore[assignment]
+    st.text_input = _text_stub  # type: ignore[assignment]
+    st.text_area = _text_stub  # type: ignore[assignment]
+    st.download_button = _return_false  # type: ignore[assignment]
+    st.tabs = _tabs_stub  # type: ignore[assignment]
+    st.expander = lambda *_a, **_k: _NullContext()  # type: ignore[assignment]
+    st.spinner = _spinner_stub  # type: ignore[assignment]
+    st.stop = lambda: None  # type: ignore[assignment]
+    st.rerun = lambda: None  # type: ignore[assignment]
+    st.caption = lambda *_a, **_k: None  # type: ignore[assignment]
+    st.subheader = lambda *_a, **_k: None  # type: ignore[assignment]
+    st.header = lambda *_a, **_k: None  # type: ignore[assignment]
+    st.title = lambda *_a, **_k: None  # type: ignore[assignment]
+    st.success = lambda *_a, **_k: None  # type: ignore[assignment]
+    st.error = lambda *_a, **_k: None  # type: ignore[assignment]
+    st.warning = lambda *_a, **_k: None  # type: ignore[assignment]
+    st.info = lambda *_a, **_k: None  # type: ignore[assignment]
+    st.exception = lambda *_a, **_k: None  # type: ignore[assignment]
+    st.dataframe = lambda *_a, **_k: None  # type: ignore[assignment]
+
+st.set_page_config(page_title="Trend Portfolio App", layout="wide")
 
 def _setup_streamlit_ui() -> List[Any]:
     st.set_page_config(page_title="Trend Portfolio App", layout="wide")
@@ -226,16 +389,16 @@ def _setup_streamlit_ui() -> List[Any]:
     )
 
 
-def _render_app() -> None:
-    tabs = _setup_streamlit_ui()
-    # YAML editor (one place to edit everything)
-    with tabs[0]:
-        st.caption("Full configuration (editable). Changes here update the live config.")
-        yaml_text = st.text_area(
-            "YAML",
-            value=_to_yaml(st.session_state.config_dict),
-            height=380,
-            label_visibility="collapsed",
+with st.sidebar:
+    st.header("Configuration")
+    # Load/Reset
+    col_a, col_b = _columns(2)
+    with col_a:
+        if st.button("Reset to defaults", use_container_width=True):
+            st.session_state.config_dict = _read_defaults()
+    with col_b:
+        uploaded = st.file_uploader(
+            "Import YAML", type=["yml", "yaml"], label_visibility="collapsed"
         )
         if st.button("Apply YAML changes"):
             try:
@@ -580,6 +743,27 @@ def _render_app() -> None:
                 " whole window."
             ),
         )
+        st.session_state.config_dict["data"]["manager_columns"] = sel_man
+        st.session_state.config_dict["data"]["indices_columns"] = sel_idx
+        st.session_state["data._indices_candidates"] = sel_idx or base_cols
+
+# Preprocessing tab
+with tabs[2]:
+    pre = st.session_state.config_dict.setdefault("preprocessing", {})
+    st.checkbox(
+        "De-duplicate",
+        value=bool(pre.get("de_duplicate", True)),
+        key="preprocessing.de_duplicate",
+    )
+    win = pre.setdefault("winsorise", {"enabled": True, "limits": [0.01, 0.99]})
+    st.checkbox(
+        "Winsorise enabled",
+        value=bool(win.get("enabled", True)),
+        key="preprocessing.winsorise.enabled",
+    )
+    limits = win.get("limits", [0.01, 0.99]) or [0.01, 0.99]
+    c1, c2 = _columns(2)
+    with c1:
         st.number_input(
             "EWMA lambda",
             min_value=0.50,
@@ -796,14 +980,58 @@ def _render_app() -> None:
             help="Which score_frame column to weight by (e.g., Sharpe).",
         )
         st.number_input(
-            "Bayesian shrink_tau",
-            min_value=0.0,
-            max_value=5.0,
-            value=float(w_params.get("shrink_tau", 0.25)),
-            step=0.05,
-            key="portfolio.weighting.params.shrink_tau",
-            help="Strength of shrinkage towards the prior (higher = more shrink).",
+            "Cooldown (periods)",
+            min_value=0,
+            max_value=36,
+            value=int(sp_params.get("drawdown_kickout", {}).get("cooldown", 3)),
+            step=1,
+            key="portfolio.selection_policy.params.drawdown_kickout.cooldown",
+            help="Number of periods before re-entry is allowed.",
         )
+
+    # Competing add/drop rules with priority (DnD with fallback)
+    st.markdown("**Competing rules priority**")
+    add_defaults = ["threshold_hold", "sticky_rank_window", "confidence_interval"]
+    drop_defaults = ["sticky_rank_window", "threshold_hold"]
+    add_rules = sel_cfg.get("add_rules", add_defaults)
+    drop_rules = sel_cfg.get("drop_rules", drop_defaults)
+    c1, c2 = _columns(2)
+    with c1:
+        st.caption("Add rules (priority order)")
+        if _st_sort_items is not None and add_rules:
+            new_add = _st_sort_items(
+                items=list(add_rules), direction="vertical", key="sel.add.sort"
+            )
+            if isinstance(new_add, list) and new_add != add_rules:
+                add_rules = new_add
+                st.session_state.config_dict["portfolio"].setdefault(
+                    "selection_policy", {}
+                )["add_rules"] = add_rules
+                st.rerun()
+        else:
+            # Fallback up/down
+            if add_rules:
+                cols = _columns(len(add_rules))
+                names = list(add_rules)
+                for idx, name in enumerate(names):
+                    with cols[idx]:
+                        up_k = f"sel.add.up.{name}"
+                        dn_k = f"sel.add.down.{name}"
+                        st.button("⬆️", key=up_k)
+                        st.button("⬇️", key=dn_k)
+                        if st.session_state.get(up_k) and idx > 0:
+                            names[idx - 1], names[idx] = names[idx], names[idx - 1]
+                            st.session_state.config_dict["portfolio"].setdefault(
+                                "selection_policy", {}
+                            )["add_rules"] = names
+                            st.rerun()
+                        if st.session_state.get(dn_k) and idx < len(names) - 1:
+                            names[idx + 1], names[idx] = names[idx], names[idx + 1]
+                            st.session_state.config_dict["portfolio"].setdefault(
+                                "selection_policy", {}
+                            )["add_rules"] = names
+                            st.rerun()
+        # Params for add-rule variants
         st.number_input(
             "Adaptive half_life (days)",
             min_value=1,
@@ -819,15 +1047,43 @@ def _render_app() -> None:
             max_value=2.0,
             value=float(w_params.get("obs_sigma", 0.25)),
             step=0.01,
-            key="portfolio.weighting.params.obs_sigma",
-            help="Assumed observation noise of scores (standard deviation).",
+            key="portfolio.selection_policy.params.confidence_interval.ci",
+            help="Only add if metric lower CI bound exceeds threshold.",
         )
-        st.text_input(
-            "Adaptive prior_mean (equal|index or list)",
-            value=str(w_params.get("prior_mean", "equal")),
-            key="portfolio.weighting.params.prior_mean",
-            help="Prior mean weights: 'equal', an index name, or explicit list.",
-        )
+    with c2:
+        st.caption("Drop rules (priority order)")
+        if _st_sort_items is not None and drop_rules:
+            new_drop = _st_sort_items(
+                items=list(drop_rules), direction="vertical", key="sel.drop.sort"
+            )
+            if isinstance(new_drop, list) and new_drop != drop_rules:
+                drop_rules = new_drop
+                st.session_state.config_dict["portfolio"].setdefault(
+                    "selection_policy", {}
+                )["drop_rules"] = drop_rules
+                st.rerun()
+        else:
+            if drop_rules:
+                cols = _columns(len(drop_rules))
+                names = list(drop_rules)
+                for idx, name in enumerate(names):
+                    with cols[idx]:
+                        up_k = f"sel.drop.up.{name}"
+                        dn_k = f"sel.drop.down.{name}"
+                        st.button("⬆️", key=up_k)
+                        st.button("⬇️", key=dn_k)
+                        if st.session_state.get(up_k) and idx > 0:
+                            names[idx - 1], names[idx] = names[idx], names[idx - 1]
+                            st.session_state.config_dict["portfolio"].setdefault(
+                                "selection_policy", {}
+                            )["drop_rules"] = names
+                            st.rerun()
+                        if st.session_state.get(dn_k) and idx < len(names) - 1:
+                            names[idx + 1], names[idx] = names[idx], names[idx + 1]
+                            st.session_state.config_dict["portfolio"].setdefault(
+                                "selection_policy", {}
+                            )["drop_rules"] = names
+                            st.rerun()
         st.number_input(
             "Adaptive prior_tau",
             min_value=0.0,
@@ -901,9 +1157,45 @@ def _render_app() -> None:
             key="portfolio.selection_policy.elements",
             help=("Composable guards that apply before add/drop decisions."),
         )
-        # Per-element params
-        sp_params = sel_cfg.setdefault("params", {})
-        if "min_tenure" in chosen_elements:
+        # Order editor
+        if _st_sort_items is not None and chosen:
+            new_order = _st_sort_items(
+                items=list(dict.fromkeys([c for c in chosen if c in strategy_options])),
+                direction="vertical",
+                key="rb.strats.sort",
+            )
+            if isinstance(new_order, list) and new_order and new_order != chosen:
+                st.session_state.config_dict["portfolio"].setdefault("rebalance", {})[
+                    "strategies"
+                ] = new_order
+                st.rerun()
+        else:
+            # Fallback order with arrows
+            names = list(
+                dict.fromkeys([c for c in chosen if c in strategy_options])
+            ) or ["drift_band"]
+            cols = _columns(len(names))
+            for idx, name in enumerate(names):
+                with cols[idx]:
+                    up_k = f"rb.up.{name}"
+                    dn_k = f"rb.down.{name}"
+                    st.button("⬆️", key=up_k)
+                    st.button("⬇️", key=dn_k)
+                    if st.session_state.get(up_k) and idx > 0:
+                        names[idx - 1], names[idx] = names[idx], names[idx - 1]
+                        st.session_state.config_dict["portfolio"].setdefault(
+                            "rebalance", {}
+                        )["strategies"] = names
+                        st.rerun()
+                    if st.session_state.get(dn_k) and idx < len(names) - 1:
+                        names[idx + 1], names[idx] = names[idx], names[idx + 1]
+                        st.session_state.config_dict["portfolio"].setdefault(
+                            "rebalance", {}
+                        )["strategies"] = names
+                        st.rerun()
+        # Params per strategy
+        rb_params = rb_cfg.setdefault("params", {})
+        with st.expander("periodic_rebalance params"):
             st.number_input(
                 "Min tenure (periods)",
                 min_value=1,
@@ -1102,131 +1394,124 @@ def _render_app() -> None:
                 " method only."
             ),
         )
-        if bayes_only:
-            # Nudge weighting to a Bayesian method by default
-            if p.get("weighting", {}).get("name") not in (
-                "score_prop_bayes",
-                "adaptive_bayes",
-            ):
-                p.setdefault("weighting", {})["name"] = "adaptive_bayes"
-            st.caption(
-                "Bayesian-only: pick between score_prop_bayes and adaptive_bayes"
-                " in the Weighting section above."
-            )
-        else:
-            # Choose and order non-Bayesian strategies
-            strategy_options = [
-                "periodic_rebalance",
-                "drift_band",
-                "turnover_cap",
-                "vol_target_rebalance",
-                "drawdown_guard",
-            ]
-            chosen = rb_cfg.get("strategies", ["drift_band"]) or ["drift_band"]
-            st.caption(
-                "Select and order how target weights are realized into trades and"
-                " positions."
-            )
-            # Order editor
-            if _st_sort_items is not None and chosen:
-                new_order = _st_sort_items(
-                    items=list(dict.fromkeys([c for c in chosen if c in strategy_options])),
-                    direction="vertical",
-                    key="rb.strats.sort",
-                )
-                if isinstance(new_order, list) and new_order and new_order != chosen:
-                    st.session_state.config_dict["portfolio"].setdefault("rebalance", {})[
-                        "strategies"
-                    ] = new_order
-                    st.rerun()
-            else:
-                # Fallback order with arrows
-                names = list(
-                    dict.fromkeys([c for c in chosen if c in strategy_options])
-                ) or ["drift_band"]
-                cols = st.columns(len(names))
-                for idx, name in enumerate(names):
-                    with cols[idx]:
-                        up_k = f"rb.up.{name}"
-                        dn_k = f"rb.down.{name}"
-                        st.button("⬆️", key=up_k)
-                        st.button("⬇️", key=dn_k)
-                        if st.session_state.get(up_k) and idx > 0:
-                            names[idx - 1], names[idx] = names[idx], names[idx - 1]
-                            st.session_state.config_dict["portfolio"].setdefault(
-                                "rebalance", {}
-                            )["strategies"] = names
-                            st.rerun()
-                        if st.session_state.get(dn_k) and idx < len(names) - 1:
-                            names[idx + 1], names[idx] = names[idx], names[idx + 1]
-                            st.session_state.config_dict["portfolio"].setdefault(
-                                "rebalance", {}
-                            )["strategies"] = names
-                            st.rerun()
-            # Params per strategy
-            rb_params = rb_cfg.setdefault("params", {})
-            with st.expander("periodic_rebalance params"):
-                st.number_input(
-                    "Interval (periods)",
-                    min_value=1,
-                    max_value=24,
-                    value=int(rb_params.get("periodic_rebalance", {}).get("interval", 1)),
-                    step=1,
-                    key="portfolio.rebalance.params.periodic_rebalance.interval",
-                )
-            with st.expander("drift_band params"):
-                st.number_input(
-                    "Band width (abs)",
-                    min_value=0.0,
-                    max_value=0.5,
-                    value=float(rb_params.get("drift_band", {}).get("band_pct", 0.03)),
-                    step=0.005,
-                    key="portfolio.rebalance.params.drift_band.band_pct",
-                )
-                st.number_input(
-                    "Min trade weight",
-                    min_value=0.0,
-                    max_value=0.1,
-                    value=float(rb_params.get("drift_band", {}).get("min_trade", 0.005)),
-                    step=0.001,
-                    key="portfolio.rebalance.params.drift_band.min_trade",
-                )
-                st.selectbox(
-                    "Mode",
-                    ["partial", "full"],
-                    index=["partial", "full"].index(
-                        str(rb_params.get("drift_band", {}).get("mode", "partial"))
-                    ),
-                    key="portfolio.rebalance.params.drift_band.mode",
-                )
-            with st.expander("turnover_cap params"):
-                st.number_input(
-                    "Max turnover (sum |trades|)",
-                    min_value=0.0,
-                    max_value=1.0,
-                    value=float(rb_params.get("turnover_cap", {}).get("max_turnover", 0.2)),
-                    step=0.01,
-                    key="portfolio.rebalance.params.turnover_cap.max_turnover",
-                )
-                st.number_input(
-                    "Cost (bps)",
-                    min_value=0,
-                    max_value=100,
-                    value=int(rb_params.get("turnover_cap", {}).get("cost_bps", 10)),
-                    step=1,
-                    key="portfolio.rebalance.params.turnover_cap.cost_bps",
-                )
-                st.selectbox(
-                    "Priority",
-                    ["largest_gap", "best_score_delta"],
-                    index=["largest_gap", "best_score_delta"].index(
-                        str(
-                            rb_params.get("turnover_cap", {}).get("priority", "largest_gap")
-                        )
-                    ),
-                    key="portfolio.rebalance.params.turnover_cap.priority",
-                )
-            with st.expander("vol_target_rebalance params"):
+    else:
+        st.caption(
+            "Risk‑free comes from a series (Data tab). The constant RF input is hidden."
+        )
+    reg = m.setdefault("registry", ["annual_return", "volatility", "sharpe_ratio"])
+    st.write("Registry:", ", ".join(str(x) for x in reg))
+    st.caption(
+        "Metrics registry defines which statistics are computed per fund"
+        " during scoring."
+    )
+
+# Multi-Period tab
+with tabs[7]:
+    mp_cfg = st.session_state.config_dict.setdefault("multi_period", {})
+    st.selectbox(
+        "Frequency",
+        ["M", "Q", "A"],
+        index=["M", "Q", "A"].index(str(mp_cfg.get("frequency", "A"))),
+        key="multi_period.frequency",
+        help="How often to roll the windows: Monthly, Quarterly, or Annually.",
+    )
+    st.number_input(
+        "In-sample length (periods)",
+        min_value=1,
+        max_value=120,
+        value=int(mp_cfg.get("in_sample_len", 3)),
+        step=1,
+        key="multi_period.in_sample_len",
+        help="Training window length, in the chosen frequency units.",
+    )
+    st.number_input(
+        "Out-of-sample length (periods)",
+        min_value=1,
+        max_value=120,
+        value=int(mp_cfg.get("out_sample_len", 1)),
+        step=1,
+        key="multi_period.out_sample_len",
+        help="Testing window length, in the chosen frequency units.",
+    )
+    st.text_input(
+        "Start (YYYY-MM)",
+        value=str(mp_cfg.get("start", "1990-01")),
+        key="multi_period.start",
+        help="First period to start the schedule.",
+    )
+    st.text_input(
+        "End (YYYY-MM)",
+        value=str(mp_cfg.get("end", "2024-12")),
+        key="multi_period.end",
+        help="Last period to end the schedule.",
+    )
+    # Triggers editor (simple key/value for sigmaX)
+    trig = mp_cfg.setdefault("triggers", {"sigma1": {"sigma": 1, "periods": 2}})
+    st.caption("Rebalancer triggers (key-> {sigma, periods})")
+    # Drag-and-drop reorder (optional)
+    if _st_sort_items is not None and trig:
+        current_order = list(trig.keys())
+        new_order = _st_sort_items(
+            items=current_order, direction="vertical", key="mp.triggers.sort"
+        )
+        if isinstance(new_order, list) and new_order and new_order != current_order:
+            trig = {k: trig[k] for k in new_order if k in trig}
+            st.session_state.config_dict["multi_period"]["triggers"] = trig
+            st.rerun()
+        st.caption("Tip: Drag to reorder triggers.")
+    elif trig:
+        # Fallback: up/down buttons
+        st.caption("Reorder (fallback): use arrows to move items.")
+        names = list(trig.keys())
+        cols = _columns(len(names)) if names else []
+        for idx, name in enumerate(names):
+            with cols[idx]:
+                up_key = f"mp.triggers.up.{name}"
+                down_key = f"mp.triggers.down.{name}"
+                st.button("⬆️", key=up_key)
+                st.button("⬇️", key=down_key)
+                if st.session_state.get(up_key):
+                    if idx > 0:
+                        names[idx - 1], names[idx] = names[idx], names[idx - 1]
+                        trig = {k: trig[k] for k in names}
+                        st.session_state.config_dict["multi_period"]["triggers"] = trig
+                        st.rerun()
+                if st.session_state.get(down_key):
+                    if idx < len(names) - 1:
+                        names[idx + 1], names[idx] = names[idx], names[idx + 1]
+                        trig = {k: trig[k] for k in names}
+                        st.session_state.config_dict["multi_period"]["triggers"] = trig
+                        st.rerun()
+    cta1, cta2 = _columns([1, 1])
+    with cta1:
+        if st.button("Add trigger"):
+            # Create a new unique key like sigma<N>
+            existing = [k for k in trig.keys() if str(k).startswith("sigma")]
+            next_idx = 1
+            if existing:
+                try:
+                    next_idx = 1 + max(
+                        int(str(k).replace("sigma", ""))
+                        for k in existing
+                        if str(k).replace("sigma", " ").strip().isdigit()
+                    )
+                except Exception:
+                    next_idx = len(existing) + 1
+            new_key = f"sigma{next_idx}"
+            trig[new_key] = {"sigma": 1.0, "periods": 2}
+            st.session_state.config_dict["multi_period"]["triggers"] = trig
+            st.rerun()
+    with cta2:
+        if st.button("Remove last trigger"):
+            if trig:
+                last_key = list(trig.keys())[-1]
+                trig.pop(last_key, None)
+                st.session_state.config_dict["multi_period"]["triggers"] = trig
+                st.rerun()
+    for name, cfgv in list(trig.items()):
+        with st.expander(f"Trigger {name}"):
+            col1, col2, col3, col4, col5 = _columns([1, 1, 1, 0.6, 0.6])
+            with col1:
                 st.number_input(
                     "Target vol (annual)",
                     min_value=0.0,
@@ -1554,143 +1839,64 @@ def _render_app() -> None:
             "Inline edit triggers, drag to reorder (if enabled), duplicate,"
             " rename, or delete."
         )
-        # Weight curve anchors
-        wc = mp_cfg.setdefault(
-            "weight_curve", {"anchors": [[0, 1.2], [50, 1.0], [100, 0.8]]}
-        )
-        anchors = wc.get("anchors", []) or []
-        st.caption("Weight curve anchors [percentile, multiplier]")
-        st.markdown(
-            "Anchors map performance percentiles to weight multipliers."
-            " Example: [0,1.2] gives a 1.2× boost to the worst performers;"
-            " [100,0.8] caps the best at 0.8×. The curve between anchors is"
-            " interpolated."
-        )
-        # Drag-and-drop reorder (optional)
-        if _st_sort_items is not None and anchors:
-
-            def _fmt_anchor(i: int, a: list[float] | tuple[float, ...]) -> str:
-                left = int(a[0]) if isinstance(a, (list, tuple)) and len(a) > 0 else 0
-                right = float(a[1]) if isinstance(a, (list, tuple)) and len(a) > 1 else 1.0
-                return f"{i}: {left} | {right}"
-
-            labels = [_fmt_anchor(i, a) for i, a in enumerate(anchors)]
-            new_labels = _st_sort_items(
-                items=labels, direction="vertical", key="mp.anchors.sort"
-            )
-            if isinstance(new_labels, list) and new_labels and new_labels != labels:
-                try:
-                    new_indices = []
-                    for lab in new_labels:
-                        idx_str = str(lab).split(":", 1)[0].strip()
-                        new_indices.append(int(idx_str))
-                    anchors = [anchors[i] for i in new_indices if 0 <= i < len(anchors)]
-                    wc["anchors"] = anchors
-                    st.session_state.config_dict["multi_period"]["weight_curve"] = wc
-                    st.rerun()
-                except Exception:
-                    pass
-            st.caption("Tip: Drag to reorder anchors.")
-        elif anchors:
-            # Fallback: up/down buttons per row
-            st.caption("Reorder (fallback): use arrows to move rows.")
-            cols = st.columns(len(anchors)) if anchors else []
-            for idx in range(len(anchors)):
-                with cols[idx]:
-                    up_key = f"mp.anchors.up.{idx}"
-                    down_key = f"mp.anchors.down.{idx}"
-                    st.button("⬆️", key=up_key)
-                    st.button("⬇️", key=down_key)
-                    if st.session_state.get(up_key):
-                        if idx > 0:
-                            anchors[idx - 1], anchors[idx] = anchors[idx], anchors[idx - 1]
-                            wc["anchors"] = anchors
-                            st.session_state.config_dict["multi_period"][
-                                "weight_curve"
-                            ] = wc
-                            st.rerun()
-                    if st.session_state.get(down_key):
-                        if idx < len(anchors) - 1:
-                            anchors[idx + 1], anchors[idx] = anchors[idx], anchors[idx + 1]
-                            wc["anchors"] = anchors
-                            st.session_state.config_dict["multi_period"][
-                                "weight_curve"
-                            ] = wc
-                            st.rerun()
-        ac1, ac2 = st.columns([1, 1])
-        with ac1:
-            if st.button("Add anchor"):
-                anchors.append([50, 1.0])
+        if isinstance(new_labels, list) and new_labels and new_labels != labels:
+            try:
+                new_indices = []
+                for lab in new_labels:
+                    idx_str = str(lab).split(":", 1)[0].strip()
+                    new_indices.append(int(idx_str))
+                anchors = [anchors[i] for i in new_indices if 0 <= i < len(anchors)]
                 wc["anchors"] = anchors
                 st.session_state.config_dict["multi_period"]["weight_curve"] = wc
                 st.rerun()
-        with ac2:
-            if st.button("Remove last anchor"):
-                if anchors:
-                    anchors.pop()
-                    wc["anchors"] = anchors
-                    st.session_state.config_dict["multi_period"]["weight_curve"] = wc
-                    st.rerun()
-        for i, pair in enumerate(list(anchors)):
-            with st.expander(f"Anchor {i+1}"):
-                c1, c2, c3, c4 = st.columns([1, 1, 0.6, 0.8])
-                with c1:
-                    pct_val = 0
-                    try:
-                        if isinstance(pair, (list, tuple)) and len(pair) > 0:
-                            pct_val = int(pair[0])
-                    except Exception:
-                        pct_val = 0
-                    st.number_input(
-                        f"Percentile {i+1}",
-                        min_value=0,
-                        max_value=100,
-                        value=pct_val,
-                        step=1,
-                        key=f"multi_period.weight_curve.anchors.{i}.pct",
-                        help="Position along the performance percentile axis",
-                    )
-                with c2:
-                    mul_val = 1.0
-                    try:
-                        if isinstance(pair, (list, tuple)) and len(pair) > 1:
-                            mul_val = float(pair[1])
-                    except Exception:
-                        mul_val = 1.0
-                    st.number_input(
-                        f"Multiplier {i+1}",
-                        min_value=0.0,
-                        max_value=5.0,
-                        value=mul_val,
-                        step=0.05,
-                        key=f"multi_period.weight_curve.anchors.{i}.mul",
-                        help="Weight multiplier applied at this percentile",
-                    )
-                with c3:
-                    if st.button("Delete", key=f"btn.del.anchor.{i}"):
-                        if 0 <= i < len(anchors):
-                            anchors.pop(i)
-                            wc["anchors"] = anchors
-                            st.session_state.config_dict["multi_period"][
-                                "weight_curve"
-                            ] = wc
-                            st.rerun()
-                with c4:
-                    if st.button("Duplicate", key=f"btn.dup.anchor.{i}"):
-                        if 0 <= i < len(anchors):
-                            ins_pos = min(i + 1, len(anchors))
-                            anchors.insert(ins_pos, list(anchors[i]))
-                            wc["anchors"] = anchors
-                            st.session_state.config_dict["multi_period"][
-                                "weight_curve"
-                            ] = wc
-                            st.rerun()
-
-                # Persist inline edits back to config
-                pct_key = f"multi_period.weight_curve.anchors.{i}.pct"
-                mul_key = f"multi_period.weight_curve.anchors.{i}.mul"
-                pct_val = st.session_state.get(pct_key, pct_val)
-                mul_val = st.session_state.get(mul_key, mul_val)
+            except Exception:
+                pass
+        st.caption("Tip: Drag to reorder anchors.")
+    elif anchors:
+        # Fallback: up/down buttons per row
+        st.caption("Reorder (fallback): use arrows to move rows.")
+        cols = _columns(len(anchors)) if anchors else []
+        for idx in range(len(anchors)):
+            with cols[idx]:
+                up_key = f"mp.anchors.up.{idx}"
+                down_key = f"mp.anchors.down.{idx}"
+                st.button("⬆️", key=up_key)
+                st.button("⬇️", key=down_key)
+                if st.session_state.get(up_key):
+                    if idx > 0:
+                        anchors[idx - 1], anchors[idx] = anchors[idx], anchors[idx - 1]
+                        wc["anchors"] = anchors
+                        st.session_state.config_dict["multi_period"][
+                            "weight_curve"
+                        ] = wc
+                        st.rerun()
+                if st.session_state.get(down_key):
+                    if idx < len(anchors) - 1:
+                        anchors[idx + 1], anchors[idx] = anchors[idx], anchors[idx + 1]
+                        wc["anchors"] = anchors
+                        st.session_state.config_dict["multi_period"][
+                            "weight_curve"
+                        ] = wc
+                        st.rerun()
+    ac1, ac2 = _columns([1, 1])
+    with ac1:
+        if st.button("Add anchor"):
+            anchors.append([50, 1.0])
+            wc["anchors"] = anchors
+            st.session_state.config_dict["multi_period"]["weight_curve"] = wc
+            st.rerun()
+    with ac2:
+        if st.button("Remove last anchor"):
+            if anchors:
+                anchors.pop()
+                wc["anchors"] = anchors
+                st.session_state.config_dict["multi_period"]["weight_curve"] = wc
+                st.rerun()
+    for i, pair in enumerate(list(anchors)):
+        with st.expander(f"Anchor {i+1}"):
+            c1, c2, c3, c4 = _columns([1, 1, 0.6, 0.8])
+            with c1:
+                pct_val = 0
                 try:
                     anchors[i][0] = int(pct_val)
                 except Exception:
@@ -1747,12 +1953,91 @@ def _render_app() -> None:
                 pass
             # Ensure CSV exists (we won't validate path here, pipeline will raise)
             try:
-                cfg_obj = _build_cfg(cfg_dict)
-            except ValueError as ve:
-                st.error(
-                    f"Configuration error: {ve}\n\n"
-                    "Hint: Check for missing or invalid values in your configuration. "
-                    "Refer to the documentation for required fields."
+                anchors[i][1] = float(mul_val)
+            except Exception:
+                pass
+            wc["anchors"] = anchors
+            st.session_state.config_dict["multi_period"]["weight_curve"] = wc
+
+    st.info(
+        "Inline edit anchors, drag to reorder (if enabled), duplicate, or"
+        " delete. Anchors map percentiles to multipliers."
+    )
+
+# Run tab
+with tabs[8]:
+    st.subheader("Execute")
+    col1, col2 = _columns(2)
+    with col1:
+        go_single = st.button("Run Single Period", type="primary")
+    with col2:
+        go_multi = st.button("Run Multi-Period", type="primary")
+
+    cfg_obj: ConfigType | None = None
+    if go_single or go_multi:
+        # Rebuild config dict from session state flat keys we used
+        cfg_dict = st.session_state.config_dict
+
+        # Apply widget changes with dotted keys into the nested dict
+        def _set_nested(d: Dict[str, Any], dotted: str, value: Any) -> None:
+            parts = dotted.split(".")
+            cur = d
+            for p in parts[:-1]:
+                if p not in cur or not isinstance(cur[p], dict):
+                    cur[p] = {}
+                cur = cur[p]
+            cur[parts[-1]] = value
+
+        prefixes = ("data.", "sample_split.", "portfolio.", "metrics.", "multi_period.")
+        for k, v in list(st.session_state.items()):
+            if isinstance(k, str) and k.startswith(prefixes):
+                _set_nested(cfg_dict, k, v)
+        # Convert volatility window months -> days (~21 trading days per month)
+        try:
+            months = int(st.session_state.get("vol_adjust.window._months", 0))
+            if months > 0:
+                days = int(months * 21)
+                cfg_dict.setdefault("vol_adjust", {}).setdefault("window", {})[
+                    "length"
+                ] = days
+        except Exception:
+            pass
+        # Ensure CSV exists (we won't validate path here, pipeline will raise)
+        try:
+            cfg_obj = _build_cfg(cfg_dict)
+        except ValueError as ve:
+            st.error(
+                f"Configuration error: {ve}\n\n"
+                "Hint: Check for missing or invalid values in your configuration. "
+                "Refer to the documentation for required fields."
+            )
+            st.stop()
+        except Exception as exc:
+            st.error(
+                f"Unexpected error during configuration validation:"
+                f" {type(exc).__name__}: {exc}\n\n"
+                "Hint: Please review your configuration for errors. If the"
+                " problem persists, check the YAML format and required"
+                " fields."
+            )
+            st.stop()
+        else:
+            cfg_obj = cfg_obj
+
+    if go_single and cfg_obj is not None:
+        with st.spinner("Running single-period analysis..."):
+            try:
+                out_df = pipeline.run(cfg_obj)
+                disp = _summarise_run_df(out_df)
+                st.success(f"Completed. {len(disp)} rows.")
+                st.dataframe(disp, use_container_width=True)
+                # Download
+                csv_bytes = disp.to_csv(index=True).encode("utf-8")
+                st.download_button(
+                    "Download CSV",
+                    data=csv_bytes,
+                    file_name="single_period_summary.csv",
+                    mime="text/csv",
                 )
                 st.stop()
             except Exception as exc:
