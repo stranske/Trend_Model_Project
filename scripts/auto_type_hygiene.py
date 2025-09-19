@@ -83,7 +83,11 @@ def process_file(path: Path) -> tuple[bool, list[str]]:
                 if bracket is None:
                     replacement = "# type: ignore[import-untyped]"
                 else:
-                    codes = [code.strip() for code in bracket[1:-1].split(",") if code.strip()]
+                    bracket_content = bracket[1:-1].strip()
+                    if bracket_content:
+                        codes = [code.strip() for code in bracket_content.split(",") if code.strip()]
+                    else:
+                        codes = []
                     if "import-untyped" in codes:
                         new_lines.append(line)
                         continue
