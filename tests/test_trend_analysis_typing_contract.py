@@ -2,7 +2,7 @@
 
 from collections import UserDict
 from types import MappingProxyType
-from typing import Mapping, MutableMapping, MutableSequence, Union, get_args, get_origin, get_type_hints
+from typing import List, Mapping, MutableMapping, MutableSequence, Union, get_args, get_origin, get_type_hints
 
 from trend_analysis.typing import MultiPeriodPeriodResult
 
@@ -35,7 +35,8 @@ def test_multi_period_period_result_schema_matches_expected_contract() -> None:
     assert hints["turnover"] == float
     assert hints["transaction_cost"] == float
     cov_diag_hint = hints["cov_diag"]
-    assert get_origin(cov_diag_hint) is list
+    origin = get_origin(cov_diag_hint)
+    assert origin in (list, List)
     assert get_args(cov_diag_hint) == (float,)
 
 
