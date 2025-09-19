@@ -105,7 +105,7 @@ def parse_topics() -> list[dict[str, object]]:
 
     parsed: list[dict[str, object]] = []
     for item in items:
-        raw_lines = list(item.get("lines", []))
+        raw_lines = list(item["lines"])
         labels, sections, extras = _parse_sections(raw_lines)
         data = {
             "title": item["title"],
