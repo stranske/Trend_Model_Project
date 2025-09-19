@@ -174,7 +174,11 @@ def _load_app(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
 
     source = Path(module.__file__).read_text(encoding="utf-8")
     prefix = source.split("st.set_page_config", 1)[0]
-    code = compile(prefix + "    pass\n", module.__file__, "exec")
+    # Find indentation of last non-empty line in prefix
+    last_line = [line for line in prefix.splitlines() if line.strip()][-1] if any(line.strip() for line in prefix.splitlines()) else ""
+    indent = last_line[:len(last_line) - len(last_line.lstrip())]
+    code_str = prefix + f"{indent}pass\n"
+    code = compile(code_str, module.__file__, "exec")
     exec(code, module.__dict__)
 
     is_mock_impl = module._is_mock_streamlit  # type: ignore[attr-defined]
