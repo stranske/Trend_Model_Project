@@ -80,7 +80,7 @@ jobs:
             OVERRIDE_ALLOW_FALLBACK: ${{ github.event.inputs.override_allow_fallback }}
             OVERRIDE_CODEX_COMMAND: ${{ github.event.inputs.codex_command }}
             OVERRIDE_PR_MODE: ${{ github.event.inputs.pr_mode }}
-            SUPPRESS_ACTIVATE: ${{ github.event.inputs.suppress_activate }}
+            SUPPRESS_ACTIVATE: ${{ github.event.inputs.suppress_activate != '' && github.event.inputs.suppress_activate || 'false' }}
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
             SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
           run: |
@@ -128,7 +128,7 @@ jobs:
           OVERRIDE_ALLOW_FALLBACK: ${{ github.event.inputs.override_allow_fallback }}
           OVERRIDE_CODEX_COMMAND: ${{ github.event.inputs.codex_command }}
           OVERRIDE_PR_MODE: ${{ github.event.inputs.pr_mode }}
-          SUPPRESS_ACTIVATE: ${{ github.event.inputs.suppress_activate }}
+          SUPPRESS_ACTIVATE: ${{ github.event.inputs.suppress_activate || 'false' }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
         run: |
