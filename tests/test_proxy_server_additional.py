@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import sys
 from types import SimpleNamespace
 from typing import Any, AsyncIterator
 
@@ -215,3 +216,64 @@ def test_run_proxy_starts_and_closes(monkeypatch: pytest.MonkeyPatch) -> None:
     assert proxy.port == 1234
     assert proxy.started == [("0.0.0.0", 9000)]
     assert proxy.closed is True
+
+
+def test_assert_deps_respects_explicit_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(server, "_DEPS_AVAILABLE", True)
+    for name in ("fastapi", "uvicorn", "httpx", "websockets"):
+        monkeypatch.setitem(sys.modules, name, None)
+    with pytest.raises(ImportError):
+        server._assert_deps()
+
+
+def test_streamlit_proxy_requires_runtime_deps(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(server, "_assert_deps", lambda: None)
+    monkeypatch.setattr(server, "FastAPI", None)
+    monkeypatch.setattr(server, "httpx", None)
+    with pytest.raises(RuntimeError):
+        server.StreamlitProxy()
+
+
+def test_websocket_entry_delegates(patched_server: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    proxy = patched_server.StreamlitProxy()
+    calls: list[tuple[Any, str]] = []
+
+    async def fake_handle(websocket: Any, path: str) -> None:
+        calls.append((websocket, path))
+
+    monkeypatch.setattr(proxy, "_handle_websocket", fake_handle)
+    websocket = object()
+    asyncio.run(proxy._websocket_entry(websocket, "foo/bar"))
+    assert calls == [(websocket, "foo/bar")]
+
+
+def test_handle_websocket_requires_dependency(
+    patched_server: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    proxy = patched_server.StreamlitProxy()
+    monkeypatch.setattr(patched_server, "websockets", None)
+    with pytest.raises(RuntimeError):
+        asyncio.run(proxy._handle_websocket(SimpleNamespace(url=SimpleNamespace(query="")), "ws"))
+
+
+def test_http_entry_delegates(patched_server: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    proxy = patched_server.StreamlitProxy()
+    recorded: list[tuple[Any, str]] = []
+
+    async def fake_handle(request: Any, path: str) -> str:
+        recorded.append((request, path))
+        return "ok"
+
+    monkeypatch.setattr(proxy, "_handle_http_request", fake_handle)
+    result = asyncio.run(proxy._http_entry(object(), "status"))
+    assert result == "ok"
+    assert recorded[0][1] == "status"
+
+
+def test_streamlit_proxy_start_requires_uvicorn(
+    patched_server: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    proxy = patched_server.StreamlitProxy()
+    monkeypatch.setattr(patched_server, "uvicorn", None)
+    with pytest.raises(RuntimeError):
+        asyncio.run(proxy.start())
