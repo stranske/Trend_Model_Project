@@ -14,7 +14,9 @@ def test_trend_analysis_init_exposes_exports():
     assert hasattr(module, "export_to_excel")
 
 
-def test_trend_analysis_getattr_lazy_and_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_trend_analysis_getattr_lazy_and_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     import trend_analysis
 
     module = importlib.reload(trend_analysis)
@@ -35,6 +37,7 @@ def test_trend_analysis_version_fallback(monkeypatch: pytest.MonkeyPatch) -> Non
     module = importlib.reload(trend_analysis)
 
     with monkeypatch.context() as ctx:
+
         def fake_version(_name: str) -> str:
             raise importlib.metadata.PackageNotFoundError
 
@@ -43,4 +46,3 @@ def test_trend_analysis_version_fallback(monkeypatch: pytest.MonkeyPatch) -> Non
         assert module.__version__ == "0.1.0-dev"
 
     importlib.reload(module)  # restore original metadata-driven version
-

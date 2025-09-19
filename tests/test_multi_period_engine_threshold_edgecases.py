@@ -160,9 +160,7 @@ def test_threshold_hold_yields_placeholder_when_universe_empty(
         }
     )
 
-    periods = [
-        DummyPeriod("2020-01-31", "2020-02-29", "2020-03-31", "2020-03-31")
-    ]
+    periods = [DummyPeriod("2020-01-31", "2020-02-29", "2020-03-31", "2020-03-31")]
 
     monkeypatch.setattr(mp_engine, "generate_periods", lambda _cfg: periods)
 
@@ -272,7 +270,13 @@ def test_threshold_hold_drops_low_weight_and_replenishes(
 
     weighting = SequenceWeighting(
         [
-            {"Alpha One": 0.55, "Alpha Two": 0.25, "Beta One": 0.15, "Gamma One": 0.04, "Delta One": 0.01},
+            {
+                "Alpha One": 0.55,
+                "Alpha Two": 0.25,
+                "Beta One": 0.15,
+                "Gamma One": 0.04,
+                "Delta One": 0.01,
+            },
             {"Alpha Two": 0.6, "Gamma One": 0.02, "Beta One": 0.38},
             {"Alpha Two": 0.55, "Gamma One": 0.02, "Beta One": 0.4},
             {"Alpha Two": 0.52, "Beta One": 0.28, "Delta One": 0.2},
@@ -405,8 +409,12 @@ def test_run_schedule_applies_strategy_and_turnover_fast_path(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     score_frames = {
-        "2020-01-31": pd.DataFrame({"Sharpe": [1.0, 0.5]}, index=["Alpha One", "Beta One"]),
-        "2020-02-29": pd.DataFrame({"Sharpe": [0.3, 1.2]}, index=["Alpha One", "Beta One"]),
+        "2020-01-31": pd.DataFrame(
+            {"Sharpe": [1.0, 0.5]}, index=["Alpha One", "Beta One"]
+        ),
+        "2020-02-29": pd.DataFrame(
+            {"Sharpe": [0.3, 1.2]}, index=["Alpha One", "Beta One"]
+        ),
     }
 
     selector = ScriptedSelector(["Alpha One", "Beta One"])
