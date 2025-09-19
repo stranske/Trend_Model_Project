@@ -100,7 +100,7 @@ def _summarise_multi(results: List[Dict[str, Any]]) -> pd.DataFrame:
                 return per[idx] if len(per) > idx else ""
             try:
                 seq = list(per)  # type: ignore[arg-type]
-            except Exception:
+            except (TypeError, ValueError):
                 return ""
             return seq[idx] if len(seq) > idx else ""
 
