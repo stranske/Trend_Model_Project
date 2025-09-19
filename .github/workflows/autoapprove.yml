@@ -36,7 +36,7 @@ jobs:
       - name: Configure sparse checkout for trusted files
         run: |
           set -euo pipefail
-          readarray -t patterns <<<"${TRUSTED_CONFIG_PATHS}"
+          mapfile -t patterns < <(echo "$TRUSTED_CONFIG_PATHS")
           if [ ${#patterns[@]} -eq 0 ]; then
             echo "::error::No trusted config paths configured" >&2
             exit 1
