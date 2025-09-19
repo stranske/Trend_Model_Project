@@ -92,7 +92,9 @@ def test_compute_turnover_state_tracks_union_alignment() -> None:
     assert list(next_vals) == [0.2, 0.8]
 
 
-def test_run_schedule_applies_rebalance_strategies(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_schedule_applies_rebalance_strategies(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     dates = ["2021-01-31", "2021-02-28"]
     frames = {
         d: pd.DataFrame(
@@ -158,7 +160,9 @@ def test_run_price_frames_validation_errors() -> None:
         engine.run(cfg, df=df, price_frames={})
 
 
-def test_run_combines_price_frames_and_calls_analysis(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_combines_price_frames_and_calls_analysis(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     cfg = DummyConfig()
 
     frames = {
@@ -189,7 +193,10 @@ def test_run_combines_price_frames_and_calls_analysis(monkeypatch: pytest.Monkey
 
     assert captured, "_run_analysis should be called"
     combined_df = captured[0]
-    assert combined_df["Date"].tolist() == [pd.Timestamp("2020-01-31"), pd.Timestamp("2020-02-29")]
+    assert combined_df["Date"].tolist() == [
+        pd.Timestamp("2020-01-31"),
+        pd.Timestamp("2020-02-29"),
+    ]
     assert len(results) == 1
     assert results[0]["period"] == (
         "2020-01-31",
