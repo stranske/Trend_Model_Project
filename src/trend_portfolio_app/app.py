@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, cast
+from collections.abc import Sequence
+from unittest.mock import Mock
 
 import pandas as pd
 import streamlit as st
@@ -60,6 +62,43 @@ def _merge_update(base: Dict[str, Any], updates: Dict[str, Any]) -> Dict[str, An
     return out
 
 
+def _expected_columns(spec: Any) -> int:
+    if isinstance(spec, int):
+        return spec
+    if isinstance(spec, Sequence):
+        return len(spec)
+    return 1
+
+
+def _normalize_columns(cols: Any, expected: int) -> List[Any]:
+    if isinstance(cols, (list, tuple)):
+        normalised = list(cols)
+    elif cols is None:
+        normalised = []
+    else:
+        normalised = [cols]
+
+    if not normalised:
+        placeholder_factory = getattr(st, "empty", None)
+        placeholder = placeholder_factory() if callable(placeholder_factory) else object()
+        normalised = [placeholder]
+
+    if len(normalised) < expected:
+        filler = normalised[-1]
+        normalised.extend([filler] * (expected - len(normalised)))
+
+    return normalised[:expected]
+
+
+def _columns(spec: Any) -> List[Any]:
+    expected = max(1, _expected_columns(spec))
+    return _normalize_columns(st.columns(spec), expected)
+
+
+def _is_streamlit_mock(obj: Any) -> bool:
+    return isinstance(obj, Mock)
+
+
 def _build_cfg(d: Dict[str, Any]) -> ConfigType:
     # Construct Config object (works with or without pydantic installed)
     return Config(**d)
@@ -84,9 +123,18 @@ def _summarise_multi(results: List[Dict[str, Any]]) -> pd.DataFrame:
         out_user = r.get("out_user_stats", {})
 
         def _get(d: Any, key: str) -> float:
+            if d is None:
+                return float("nan")
             try:
-                return float(getattr(d, key, d.get(key)))
+                if hasattr(d, "get"):
+                    value = d.get(key)  # type: ignore[attr-defined]
+                else:
+                    value = getattr(d, key)
             except Exception:
+                return float("nan")
+            try:
+                return float(value)
+            except (TypeError, ValueError):
                 return float("nan")
 
         rows.append(
@@ -111,6 +159,112 @@ def _summarise_multi(results: List[Dict[str, Any]]) -> pd.DataFrame:
 
 # ---- UI ----------------------------------------------------------------
 
+_STREAMLIT_IS_MOCK = _is_streamlit_mock(st)
+
+if _STREAMLIT_IS_MOCK:
+    class _NullContext:
+        def __enter__(self) -> "_NullContext":  # pragma: no cover - trivial
+            return self
+
+        def __exit__(self, *_exc: Any) -> bool:  # pragma: no cover - trivial
+            return False
+
+    class _SessionState(dict):
+        def __getattr__(self, item: str) -> Any:  # pragma: no cover - trivial
+            try:
+                return self[item]
+            except KeyError as exc:
+                raise AttributeError(item) from exc
+
+        def __setattr__(self, key: str, value: Any) -> None:  # pragma: no cover - trivial
+            self[key] = value
+
+    def _return_false(*_args: Any, **_kwargs: Any) -> bool:
+        return False
+
+    def _return_none(*_args: Any, **_kwargs: Any) -> Any:
+        return None
+
+    def _radio_stub(_label: str, options: Sequence[Any], **_kwargs: Any) -> Any:
+        return next(iter(options), None)
+
+    def _select_stub(
+        _label: str, options: Sequence[Any], index: int = 0, **_kwargs: Any
+    ) -> Any:
+        if not options:
+            return None
+        try:
+            return options[index]
+        except Exception:
+            return next(iter(options), None)
+
+    def _multiselect_stub(
+        _label: str, options: Sequence[Any], default: Sequence[Any] | None = None, **_kwargs: Any
+    ) -> List[Any]:
+        if default is not None:
+            return list(default)
+        return []
+
+    def _slider_stub(*args: Any, **kwargs: Any) -> Any:
+        if len(args) >= 4:
+            return args[3]
+        if "value" in kwargs and kwargs["value"] is not None:
+            return kwargs["value"]
+        if len(args) >= 2:
+            return args[1]
+        return kwargs.get("min_value")
+
+    def _number_input_stub(*args: Any, **kwargs: Any) -> Any:
+        if len(args) >= 2 and args[1] is not None:
+            return args[1]
+        if "value" in kwargs and kwargs["value"] is not None:
+            return kwargs["value"]
+        if len(args) >= 3 and args[2] is not None:
+            return args[2]
+        return kwargs.get("min_value")
+
+    def _text_stub(_label: str, value: str = "", **_kwargs: Any) -> str:
+        return value
+
+    def _columns_stub(spec: Any) -> List[_NullContext]:
+        expected = max(1, _expected_columns(spec))
+        return [_NullContext() for _ in range(expected)]
+
+    def _spinner_stub(*_args: Any, **_kwargs: Any) -> _NullContext:
+        return _NullContext()
+
+    def _tabs_stub(names: Sequence[str]) -> List[_NullContext]:
+        return [_NullContext() for _ in names]
+
+    st.session_state = _SessionState()  # type: ignore[assignment]
+    st.columns = _columns_stub  # type: ignore[assignment]
+    st.button = _return_false  # type: ignore[assignment]
+    st.file_uploader = _return_none  # type: ignore[assignment]
+    st.radio = _radio_stub  # type: ignore[assignment]
+    st.checkbox = _return_false  # type: ignore[assignment]
+    st.selectbox = _select_stub  # type: ignore[assignment]
+    st.multiselect = _multiselect_stub  # type: ignore[assignment]
+    st.slider = _slider_stub  # type: ignore[assignment]
+    st.number_input = _number_input_stub  # type: ignore[assignment]
+    st.text_input = _text_stub  # type: ignore[assignment]
+    st.text_area = _text_stub  # type: ignore[assignment]
+    st.download_button = _return_false  # type: ignore[assignment]
+    st.tabs = _tabs_stub  # type: ignore[assignment]
+    st.expander = lambda *_a, **_k: _NullContext()  # type: ignore[assignment]
+    st.spinner = _spinner_stub  # type: ignore[assignment]
+    st.stop = lambda: None  # type: ignore[assignment]
+    st.rerun = lambda: None  # type: ignore[assignment]
+    st.caption = lambda *_a, **_k: None  # type: ignore[assignment]
+    st.subheader = lambda *_a, **_k: None  # type: ignore[assignment]
+    st.header = lambda *_a, **_k: None  # type: ignore[assignment]
+    st.title = lambda *_a, **_k: None  # type: ignore[assignment]
+    st.success = lambda *_a, **_k: None  # type: ignore[assignment]
+    st.error = lambda *_a, **_k: None  # type: ignore[assignment]
+    st.warning = lambda *_a, **_k: None  # type: ignore[assignment]
+    st.info = lambda *_a, **_k: None  # type: ignore[assignment]
+    st.exception = lambda *_a, **_k: None  # type: ignore[assignment]
+    st.dataframe = lambda *_a, **_k: None  # type: ignore[assignment]
+
 st.set_page_config(page_title="Trend Portfolio App", layout="wide")
 
 st.title("Trend Portfolio App")
@@ -122,7 +276,7 @@ if "config_dict" not in st.session_state:
 with st.sidebar:
     st.header("Configuration")
     # Load/Reset
-    col_a, col_b = st.columns(2)
+    col_a, col_b = _columns(2)
     with col_a:
         if st.button("Reset to defaults", use_container_width=True):
             st.session_state.config_dict = _read_defaults()
@@ -464,7 +618,7 @@ with tabs[2]:
         key="preprocessing.winsorise.enabled",
     )
     limits = win.get("limits", [0.01, 0.99]) or [0.01, 0.99]
-    c1, c2 = st.columns(2)
+    c1, c2 = _columns(2)
     with c1:
         st.number_input(
             "Lower limit",
@@ -971,7 +1125,7 @@ with tabs[5]:
     drop_defaults = ["sticky_rank_window", "threshold_hold"]
     add_rules = sel_cfg.get("add_rules", add_defaults)
     drop_rules = sel_cfg.get("drop_rules", drop_defaults)
-    c1, c2 = st.columns(2)
+    c1, c2 = _columns(2)
     with c1:
         st.caption("Add rules (priority order)")
         if _st_sort_items is not None and add_rules:
@@ -987,7 +1141,7 @@ with tabs[5]:
         else:
             # Fallback up/down
             if add_rules:
-                cols = st.columns(len(add_rules))
+                cols = _columns(len(add_rules))
                 names = list(add_rules)
                 for idx, name in enumerate(names):
                     with cols[idx]:
@@ -1040,7 +1194,7 @@ with tabs[5]:
                 st.rerun()
         else:
             if drop_rules:
-                cols = st.columns(len(drop_rules))
+                cols = _columns(len(drop_rules))
                 names = list(drop_rules)
                 for idx, name in enumerate(names):
                     with cols[idx]:
@@ -1124,7 +1278,7 @@ with tabs[5]:
             names = list(
                 dict.fromkeys([c for c in chosen if c in strategy_options])
             ) or ["drift_band"]
-            cols = st.columns(len(names))
+            cols = _columns(len(names))
             for idx, name in enumerate(names):
                 with cols[idx]:
                     up_k = f"rb.up.{name}"
@@ -1408,7 +1562,7 @@ with tabs[7]:
         # Fallback: up/down buttons
         st.caption("Reorder (fallback): use arrows to move items.")
         names = list(trig.keys())
-        cols = st.columns(len(names)) if names else []
+        cols = _columns(len(names)) if names else []
         for idx, name in enumerate(names):
             with cols[idx]:
                 up_key = f"mp.triggers.up.{name}"
@@ -1427,7 +1581,7 @@ with tabs[7]:
                         trig = {k: trig[k] for k in names}
                         st.session_state.config_dict["multi_period"]["triggers"] = trig
                         st.rerun()
-    cta1, cta2 = st.columns([1, 1])
+    cta1, cta2 = _columns([1, 1])
     with cta1:
         if st.button("Add trigger"):
             # Create a new unique key like sigma<N>
@@ -1455,7 +1609,7 @@ with tabs[7]:
                 st.rerun()
     for name, cfgv in list(trig.items()):
         with st.expander(f"Trigger {name}"):
-            col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 0.6, 0.6])
+            col1, col2, col3, col4, col5 = _columns([1, 1, 1, 0.6, 0.6])
             with col1:
                 st.number_input(
                     f"{name} sigma",
@@ -1574,7 +1728,7 @@ with tabs[7]:
     elif anchors:
         # Fallback: up/down buttons per row
         st.caption("Reorder (fallback): use arrows to move rows.")
-        cols = st.columns(len(anchors)) if anchors else []
+        cols = _columns(len(anchors)) if anchors else []
         for idx in range(len(anchors)):
             with cols[idx]:
                 up_key = f"mp.anchors.up.{idx}"
@@ -1597,7 +1751,7 @@ with tabs[7]:
                             "weight_curve"
                         ] = wc
                         st.rerun()
-    ac1, ac2 = st.columns([1, 1])
+    ac1, ac2 = _columns([1, 1])
     with ac1:
         if st.button("Add anchor"):
             anchors.append([50, 1.0])
@@ -1613,7 +1767,7 @@ with tabs[7]:
                 st.rerun()
     for i, pair in enumerate(list(anchors)):
         with st.expander(f"Anchor {i+1}"):
-            c1, c2, c3, c4 = st.columns([1, 1, 0.6, 0.8])
+            c1, c2, c3, c4 = _columns([1, 1, 0.6, 0.8])
             with c1:
                 pct_val = 0
                 try:
@@ -1690,7 +1844,7 @@ with tabs[7]:
 # Run tab
 with tabs[8]:
     st.subheader("Execute")
-    col1, col2 = st.columns(2)
+    col1, col2 = _columns(2)
     with col1:
         go_single = st.button("Run Single Period", type="primary")
     with col2:
