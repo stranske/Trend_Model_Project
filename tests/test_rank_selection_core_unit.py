@@ -110,7 +110,6 @@ def test_ensure_metric_scalar_metric_computes_once():
 
 def test_compute_covariance_payload_cache_path():
     df = _sample_returns()
-    cfg = rank_selection.RiskStatsConfig()
     bundle = _bundle_for(df)
     cache = CovCache()
     payload = rank_selection._compute_covariance_payload(
