@@ -28,8 +28,8 @@ from ..constants import NUMERICAL_TOLERANCE_HIGH
 from ..core.rank_selection import ASCENDING_METRICS
 from ..data import load_csv
 from ..pipeline import _run_analysis
-from ..typing import MultiPeriodPeriodResult  # structural alias
 from ..rebalancing import apply_rebalancing_strategies
+from ..typing import MultiPeriodPeriodResult  # structural alias
 from ..weighting import (AdaptiveBayesWeighting, BaseWeighting, EqualWeight,
                          ScorePropBayesian)
 from .replacer import Rebalancer

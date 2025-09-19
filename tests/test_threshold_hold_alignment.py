@@ -1,7 +1,8 @@
-import pytest
-import yaml
 from pathlib import Path
+
 import pandas as pd
+import pytest
+import yaml  # type: ignore[import-untyped]
 
 from trend_analysis.config import Config
 from trend_analysis.multi_period import engine as mp_engine
