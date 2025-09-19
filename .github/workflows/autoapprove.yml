@@ -20,23 +20,73 @@ jobs:
       contains(github.event.pull_request.labels.*.name, (vars.AUTOMERGE_LABEL || 'automerge')) &&
       contains(github.event.pull_request.labels.*.name, (vars.RISK_LABEL || 'risk:low'))
     runs-on: ubuntu-latest
+    env:
+      TRUSTED_CONFIG_PATHS: |
+        .github/autoapprove-allowlist.json
+        .github/agent-label-rules.json
     steps:
       - name: Checkout trusted config
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.base.ref }}
           persist-credentials: false
-          sparse-checkout: |
-            .github/autoapprove-allowlist.json
-          sparse-checkout-cone: false
+          fetch-depth: 1
+          filter: blob:none
           path: trusted-config
+      - name: Configure sparse checkout for trusted files
+        run: |
+          set -euo pipefail
+          readarray -t patterns <<<"${TRUSTED_CONFIG_PATHS}"
+          if [ ${#patterns[@]} -eq 0 ]; then
+            echo "::error::No trusted config paths configured" >&2
+            exit 1
+          fi
+          git -C trusted-config sparse-checkout set --no-cone "${patterns[@]}"
       - name: Assert sparse checkout scope (Issue #1140)
         run: |
           set -euo pipefail
-          COUNT=$(find trusted-config -type f ! -path 'trusted-config/.git/*' | wc -l | tr -d ' ')
-          if [ "$COUNT" -gt 2 ]; then
-            echo "::error::Unexpected file expansion in sparse checkout (found $COUNT files outside .git)"; exit 1;
-          fi
+          python <<'PY'
+import os
+import sys
+from pathlib import Path
+
+allowed = {
+    line.strip()
+    for line in os.environ.get('TRUSTED_CONFIG_PATHS', '').splitlines()
+    if line.strip()
+}
+if not allowed:
+    print('::error::No trusted config paths defined', file=sys.stderr)
+    sys.exit(1)
+
+root = Path('trusted-config')
+if not root.exists():
+    print('::error::trusted-config checkout missing', file=sys.stderr)
+    sys.exit(1)
+
+found = set()
+for path in root.rglob('*'):
+    if not path.is_file():
+        continue
+    try:
+        rel = path.relative_to(root).as_posix()
+    except ValueError:
+        continue
+    if '/.git/' in f'/{rel}/' or rel.startswith('.git/'):
+        continue
+    found.add(rel)
+
+missing = sorted(allowed - found)
+extra = sorted(found - allowed)
+
+if missing:
+    print('::error::Missing required trusted config file(s): ' + ', '.join(missing), file=sys.stderr)
+if extra:
+    print('::error::Unexpected file(s) in trusted config checkout: ' + ', '.join(extra), file=sys.stderr)
+
+if missing or extra:
+    sys.exit(1)
+PY
       - name: Check PR file patterns and size
         id: pr-check
         uses: actions/github-script@v7
