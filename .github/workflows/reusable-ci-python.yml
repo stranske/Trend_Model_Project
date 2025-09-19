@@ -117,9 +117,9 @@ jobs:
           set -o pipefail
           MARK='${{ steps.markers.outputs.value }}'
           if [ "${{ inputs.run-full }}" = "true" ] || [ -z "$MARK" ]; then
-            pytest --junitxml=pytest-junit.xml --cov=src --cov-report=term-missing --cov-report=xml:coverage.xml --cov-branch 2>&1 | tee pytest.log || echo $? > test_status
+            pytest --junitxml=pytest-junit.xml --cov=src --cov-report=term-missing --cov-report=xml:coverage.xml --cov-branch --cov-fail-under=${{ inputs.coverage-min }} 2>&1 | tee pytest.log || echo $? > test_status
           else
-            pytest -m "$MARK" --junitxml=pytest-junit.xml --cov=src --cov-report=term-missing --cov-report=xml:coverage.xml --cov-branch 2>&1 | tee pytest.log || echo $? > test_status
+            pytest -m "$MARK" --junitxml=pytest-junit.xml --cov=src --cov-report=term-missing --cov-report=xml:coverage.xml --cov-branch --cov-fail-under=${{ inputs.coverage-min }} 2>&1 | tee pytest.log || echo $? > test_status
           fi
           echo "status=$(cat test_status 2>/dev/null || echo 0)" >> $GITHUB_OUTPUT
       - name: Classify (Phase2)
