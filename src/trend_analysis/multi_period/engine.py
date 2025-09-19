@@ -509,12 +509,14 @@ def run(
                             for step in range(
                                 1, min(max_shift_steps, n_rows - 1)
                             ):  # cap search for safety
+                                prev_block = prev_in_df.iloc[step:].to_numpy()
+                                new_block = in_df_prepared.iloc[:-step].to_numpy()
                                 if np.allclose(
-                                    prev_in_df.iloc[step:].to_numpy(),
-                                    in_df_prepared.iloc[:-step].to_numpy(),
+                                    prev_block,
+                                    new_block,
                                     rtol=0,
                                     atol=1e-12,
-                                ):
+                                ) or np.array_equal(prev_block, new_block):
                                     k = step
                                     break
                         if k is None:
