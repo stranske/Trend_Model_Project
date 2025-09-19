@@ -26,6 +26,26 @@ def test_canonicalise_labels_handles_duplicates_and_blanks():
     ]
 
 
+def test_json_default_serialises_common_numpy_types():
+    values = rank_selection._json_default(("x", "y"))
+    assert values == ["x", "y"]
+
+    arr = np.array([1, 2, 3], dtype=np.int64)
+    assert rank_selection._json_default(arr) == [1, 2, 3]
+
+    scalar = np.float32(1.25)
+    assert rank_selection._json_default(scalar) == pytest.approx(1.25)
+
+    as_set = rank_selection._json_default({"b", "a"})
+    assert sorted(as_set) == ["a", "b"]
+
+    class _Dummy:
+        pass
+
+    with pytest.raises(TypeError):
+        rank_selection._json_default(_Dummy())
+
+
 def test_ensure_canonical_columns_idempotent_and_mutating_copy():
     frame = pd.DataFrame({"Col A": [1, 2], "Col B": [3, 4]})
     same = rank_selection._ensure_canonical_columns(frame)
@@ -35,6 +55,9 @@ def test_ensure_canonical_columns_idempotent_and_mutating_copy():
     cleaned = rank_selection._ensure_canonical_columns(messy)
     assert list(cleaned.columns) == ["Col A", "Unnamed_2"]
     assert cleaned is not messy
+
+    empty = pd.DataFrame(index=[0, 1])
+    assert rank_selection._ensure_canonical_columns(empty) is empty
 
 
 def test_stats_cfg_hash_includes_dynamic_attributes():
@@ -143,6 +166,85 @@ def test_window_metric_bundle_metrics_frame_and_cache(sample_bundle):
     assert (variances >= 0).all()
 
 
+def test_window_metric_bundle_exposes_copy_and_available_metrics(sample_bundle):
+    metrics = pd.DataFrame(
+        {"Sharpe": [1.0, 2.0], "Sortino": [0.9, 1.1]},
+        index=sample_bundle.in_sample_df.columns,
+    )
+    bundle = rank_selection.WindowMetricBundle(
+        key=sample_bundle.key,
+        start=sample_bundle.start,
+        end=sample_bundle.end,
+        freq=sample_bundle.freq,
+        stats_cfg_hash=sample_bundle.stats_cfg_hash,
+        universe=sample_bundle.universe,
+        in_sample_df=sample_bundle.in_sample_df,
+        _metrics=metrics,
+    )
+
+    snapshot = bundle.metrics_frame()
+    assert snapshot.equals(metrics)
+    assert snapshot is not metrics
+    pd.testing.assert_frame_equal(bundle.as_frame(), snapshot)
+    assert set(bundle.available_metrics()) == {"Sharpe", "Sortino"}
+
+
+def test_compute_covariance_payload_without_cache(monkeypatch, sample_bundle):
+    calls: dict[str, object] = {}
+
+    def fake_compute_cov(df: pd.DataFrame, materialise_aggregates: bool):
+        calls["df"] = df.copy()
+        calls["materialise"] = materialise_aggregates
+        return CovPayload(
+            cov=np.eye(len(df.columns)),
+            mean=np.zeros(len(df.columns)),
+            std=np.ones(len(df.columns)),
+            n=len(df),
+            assets=tuple(df.columns),
+        )
+
+    monkeypatch.setattr(
+        "trend_analysis.perf.cache.compute_cov_payload", fake_compute_cov
+    )
+
+    payload = rank_selection._compute_covariance_payload(
+        sample_bundle,
+        cov_cache=None,
+        enable_cov_cache=False,
+        incremental_cov=True,
+    )
+
+    assert isinstance(payload, CovPayload)
+    pd.testing.assert_frame_equal(calls["df"], sample_bundle.in_sample_df)
+    assert calls["materialise"] is True
+
+
+def test_store_and_reset_window_metric_cache(sample_bundle):
+    rank_selection.clear_window_metric_cache()
+
+    rank_selection.store_window_metric_bundle(None, sample_bundle)
+    assert rank_selection.selector_cache_stats()["entries"] == 0
+
+    key = rank_selection.make_window_key(
+        sample_bundle.start,
+        sample_bundle.end,
+        sample_bundle.universe,
+        rank_selection.RiskStatsConfig(),
+    )
+    rank_selection.store_window_metric_bundle(key, sample_bundle)
+
+    stats = rank_selection.selector_cache_stats()
+    assert stats["entries"] == 1
+    assert rank_selection.get_window_metric_bundle(key) is sample_bundle
+
+    rank_selection.reset_selector_cache()
+    assert rank_selection.selector_cache_stats() == {
+        "entries": 0,
+        "selector_cache_hits": 0,
+        "selector_cache_misses": 0,
+    }
+
+
 def test_cov_metric_from_payload_handles_single_asset():
     payload = CovPayload(
         cov=np.array([[0.04]]),
@@ -224,6 +326,273 @@ def test_some_function_missing_annotation_branches():
 
     assert rank_selection.some_function_missing_annotation(scores, "unsupported") == []
 
+
+def test_apply_transform_modes_and_guardrails():
+    series = pd.Series(
+        [0.3, 0.2, 0.1], index=["FundA", "FundB", "FundC"], dtype=float
+    )
+
+    ranked = rank_selection._apply_transform(series, mode="rank")
+    assert ranked.loc["FundA"] == pytest.approx(1.0)
+    assert ranked.loc["FundC"] == pytest.approx(3.0)
+
+    masked = rank_selection._apply_transform(series, mode="percentile", rank_pct=0.5)
+    assert masked.loc["FundA"] == pytest.approx(0.3)
+    assert pd.isna(masked.loc["FundC"])
+
+    zscores = rank_selection._apply_transform(series, mode="zscore", window=10, ddof=0)
+    expected = (series - series.mean()) / series.std(ddof=0)
+    pd.testing.assert_series_equal(zscores, expected)
+
+    zeros = rank_selection._apply_transform(
+        pd.Series([1.0, 1.0, 1.0], index=list("XYZ"), dtype=float),
+        mode="zscore",
+        window=2,
+    )
+    assert zeros.eq(0.0).all()
+
+    with pytest.raises(ValueError):
+        rank_selection._apply_transform(series, mode="unknown")
+
+
+def test_avg_corr_metric_handles_context_variants():
+    token = rank_selection._METRIC_CONTEXT.set({"frame": pd.DataFrame()})
+    try:
+        empty = rank_selection._avg_corr_metric(pd.Series(dtype=float, name="None"))
+        assert empty == 0.0
+    finally:
+        rank_selection._METRIC_CONTEXT.reset(token)
+
+    const_frame = pd.DataFrame({"A": [1.0, 1.0, 1.0], "B": [2.0, 2.0, 2.0]})
+    token = rank_selection._METRIC_CONTEXT.set({"frame": const_frame})
+    try:
+        assert rank_selection._avg_corr_metric(const_frame["A"]) == 0.0
+    finally:
+        rank_selection._METRIC_CONTEXT.reset(token)
+
+    frame = pd.DataFrame(
+        {
+            "A": [1.0, 2.0, 3.0, 4.0],
+            "B": [4.0, 3.0, 2.0, 1.0],
+            "C": [1.0, 1.5, 2.0, 2.5],
+        }
+    )
+    ctx: dict[str, object] = {"frame": frame}
+    token = rank_selection._METRIC_CONTEXT.set(ctx)
+    try:
+        first = rank_selection._avg_corr_metric(frame["A"])
+        corr = frame.corr(method="pearson", min_periods=2)
+        expected_first = corr.loc["A"].drop(labels=["A"]).mean()
+        assert first == pytest.approx(expected_first)
+
+        second = rank_selection._avg_corr_metric(frame["B"])
+        expected_second = corr.loc["B"].drop(labels=["B"]).mean()
+        assert second == pytest.approx(expected_second)
+
+        missing = rank_selection._avg_corr_metric(
+            pd.Series([0.0, 1.0], name="Missing")
+        )
+        assert missing == 0.0
+    finally:
+        rank_selection._METRIC_CONTEXT.reset(token)
+
+
+def test_rank_select_funds_transform_alias_and_cache_storage():
+    rank_selection.clear_window_metric_cache()
+    df = pd.DataFrame(
+        {
+            "Alpha Capital A": [0.01, 0.02, 0.015, 0.018],
+            "Beta Management": [0.012, 0.017, 0.02, 0.022],
+        }
+    )
+    cfg = rank_selection.RiskStatsConfig()
+    window_key = rank_selection.make_window_key(
+        "2020-01", "2020-04", df.columns, cfg
+    )
+
+    mismatched = rank_selection.WindowMetricBundle(
+        key=window_key,
+        start="2020-01",
+        end="2020-04",
+        freq="M",
+        stats_cfg_hash=rank_selection._stats_cfg_hash(cfg),
+        universe=("Gamma",),
+        in_sample_df=df,
+        _metrics=pd.DataFrame(index=["Gamma"], dtype=float),
+    )
+    rank_selection.store_window_metric_bundle(window_key, mismatched)
+
+    selected = rank_selection.rank_select_funds(
+        df,
+        cfg,
+        inclusion_approach="top_n",
+        n=1,
+        transform_mode="rank",
+        window_key=window_key,
+    )
+
+    assert selected[0] in df.columns
+    cached = rank_selection.get_window_metric_bundle(window_key)
+    assert cached is not None
+    assert tuple(cached.universe) == tuple(df.columns)
+    assert cached.freq == "M"
+
+
+def test_rank_select_funds_honours_limit_one_per_firm(monkeypatch):
+    df = pd.DataFrame(
+        {
+            "Alpha Capital A": [0.01, 0.02],
+            "Alpha Capital B": [0.015, 0.025],
+            "Beta Partners": [0.005, 0.01],
+        }
+    )
+    cfg = rank_selection.RiskStatsConfig()
+
+    def fake_metric(frame: pd.DataFrame, metric: str, stats_cfg):
+        return pd.Series(
+            {
+                "Alpha Capital A": 1.0,
+                "Alpha Capital B": 0.9,
+                "Beta Partners": 0.8,
+            }
+        )
+
+    monkeypatch.setattr(rank_selection, "_compute_metric_series", fake_metric)
+
+    top = rank_selection.rank_select_funds(
+        df,
+        cfg,
+        inclusion_approach="top_n",
+        n=2,
+        limit_one_per_firm=True,
+    )
+    assert top == ["Alpha Capital A", "Beta Partners"]
+
+    threshold = rank_selection.rank_select_funds(
+        df,
+        cfg,
+        inclusion_approach="threshold",
+        threshold=0.85,
+        limit_one_per_firm=True,
+    )
+    assert threshold == ["Alpha Capital A"]
+
+    unrestricted = rank_selection.rank_select_funds(
+        df,
+        cfg,
+        inclusion_approach="top_n",
+        n=2,
+        limit_one_per_firm=False,
+    )
+    assert unrestricted[:2] == ["Alpha Capital A", "Alpha Capital B"]
+
+
+def test_rank_select_funds_supports_blended_scores(monkeypatch):
+    df = pd.DataFrame(
+        {
+            "FundA": [0.01, 0.02, 0.015],
+            "FundB": [0.012, 0.011, 0.013],
+        }
+    )
+    cfg = rank_selection.RiskStatsConfig()
+
+    weights = {"Sharpe": 1.0, "MaxDrawdown": 1.0}
+
+    selected = rank_selection.rank_select_funds(
+        df,
+        cfg,
+        inclusion_approach="top_n",
+        n=1,
+        score_by="blended",
+        blended_weights=weights,
+    )
+
+    assert selected[0] in {"FundA", "FundB"}
+
+
+def test_select_funds_simple_modes(monkeypatch):
+    dates = pd.date_range("2021-01-31", periods=4, freq="M")
+    df = pd.DataFrame(
+        {
+            "Date": dates,
+            "RF": [0.0] * 4,
+            "FundA": [0.01, 0.02, 0.015, 0.017],
+            "FundB": [0.02, 0.01, 0.018, 0.02],
+        }
+    )
+
+    all_sel = rank_selection.select_funds(df, "RF", mode="all")
+    assert all_sel == ["FundA", "FundB"]
+
+    monkeypatch.setattr(
+        np.random,
+        "choice",
+        lambda eligible, size, replace=False: np.array([eligible[-1]]),
+    )
+    random_sel = rank_selection.select_funds(df, "RF", mode="random", n=1)
+    assert random_sel == ["FundB"]
+
+    ranked = rank_selection.select_funds(df, "RF", mode="rank", n=1)
+    assert ranked[0] in {"FundA", "FundB"}
+
+    available = rank_selection.select_funds(df, "RF", mode="random")
+    assert set(available) == {"FundA", "FundB", "RF"}
+
+    with pytest.raises(ValueError):
+        rank_selection.select_funds(df, "RF", mode="unknown")
+
+
+def test_select_funds_extended_random_requires_parameter():
+    dates = pd.period_range("2020-01", periods=3, freq="M").to_timestamp("M")
+    df = pd.DataFrame(
+        {
+            "Date": dates,
+            "RF": [0.0] * 3,
+            "FundA": [0.01, 0.02, 0.03],
+            "FundB": [0.02, 0.01, 0.02],
+        }
+    )
+    cfg = rank_selection.FundSelectionConfig()
+
+    with pytest.raises(ValueError, match="random_n must be provided"):
+        rank_selection.select_funds_extended(
+            df,
+            "RF",
+            ["FundA", "FundB"],
+            "2020-01",
+            "2020-02",
+            "2020-03",
+            "2020-03",
+            cfg,
+            selection_mode="random",
+        )
+
+
+def test_select_funds_extended_rank_requires_kwargs(df=None):
+    dates = pd.period_range("2020-01", periods=3, freq="M").to_timestamp("M")
+    df = pd.DataFrame(
+        {
+            "Date": dates,
+            "RF": [0.0] * 3,
+            "FundA": [0.01, 0.02, 0.03],
+            "FundB": [0.02, 0.01, 0.02],
+        }
+    )
+    cfg = rank_selection.FundSelectionConfig()
+
+    with pytest.raises(ValueError, match="rank mode requires rank_kwargs"):
+        rank_selection.select_funds_extended(
+            df,
+            "RF",
+            ["FundA", "FundB"],
+            "2020-01",
+            "2020-02",
+            "2020-03",
+            "2020-03",
+            cfg,
+            selection_mode="rank",
+            rank_kwargs=None,
+        )
 
 def test_rank_select_funds_validates_bundle_alignment(sample_bundle):
     bundle = sample_bundle
