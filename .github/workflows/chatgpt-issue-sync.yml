@@ -266,6 +266,8 @@ PY
               }
               let counter = 1;
               while (counter < 4096) {
+                // Step through color space in large intervals to generate visually distinct colors.
+                // 0x111111 is chosen so each step changes all RGB components, reducing similarity.
                 const candidateValue = (parseInt(base, 16) + counter * 0x111111) % 0xffffff;
                 const candidate = candidateValue.toString(16).padStart(6, '0');
                 if (!usedColors.has(candidate)) {
