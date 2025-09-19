@@ -1,0 +1,153 @@
+name: Repository Health Self-Check
+
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  administration: read   # Needed for branch protection endpoint (may downgrade gracefully if not granted)
+
+jobs:
+  self-check:
+    runs-on: ubuntu-latest
+    env:
+      REQUIRED_LABELS: 'agent:codex,agent:copilot,risk:low'
+      FAILURE_ISSUE_TITLE: '[health] repository self-check failed'
+    steps:
+      - name: Gather context
+        id: ctx
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const result = { failures: [] };
+            // 1. SERVICE_BOT_PAT presence check
+            if (!process.env.SERVICE_BOT_PAT) {
+              result.failures.push('Missing secret: SERVICE_BOT_PAT');
+            }
+            core.setOutput('json', JSON.stringify(result));
+
+      - name: Attempt PAT dry-run comment
+        id: pat_comment
+        uses: actions/github-script@v7
+        env:
+          SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
+        with:
+          script: |
+            if (!process.env.SERVICE_BOT_PAT) {
+              core.notice('Skipping PAT comment probe (no secret)');
+              return;
+            }
+            const { owner, repo } = context.repo;
+            // Create then close a probe issue to validate comment ability
+            const probe = await github.rest.issues.create({ owner, repo, title: '[health-probe] PAT comment ability', body: 'temp' });
+            try {
+              await github.rest.issues.createComment({ owner, repo, issue_number: probe.data.number, body: 'PAT comment probe OK' });
+              core.setOutput('ok', 'true');
+            } catch (e) {
+              core.warning('Failed to comment with PAT: ' + e.message);
+              core.setOutput('ok', 'false');
+            } finally {
+              await github.rest.issues.update({ owner, repo, issue_number: probe.data.number, state: 'closed' });
+            }
+
+      - name: Verify required labels
+        id: labels
+        uses: actions/github-script@v7
+        env:
+          REQUIRED_LABELS: ${{ env.REQUIRED_LABELS }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const required = (process.env.REQUIRED_LABELS||'').split(',').map(s=>s.trim()).filter(Boolean);
+            const labels = await github.paginate(github.rest.issues.listLabelsForRepo, { owner, repo, per_page: 100 });
+            const have = new Set(labels.map(l => l.name));
+            const missing = required.filter(r => !have.has(r));
+            core.setOutput('missing', missing.join(','));
+            if (missing.length) {
+              core.warning('Missing labels: ' + missing.join(', '));
+            }
+
+      - name: Check branch protection (phase-2-dev)
+        id: bp_main
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const branch = 'phase-2-dev';
+            try {
+              const res = await github.request('GET /repos/{owner}/{repo}/branches/{branch}/protection', { owner, repo, branch });
+              const requiredContexts = (res.data?.required_status_checks?.checks || []).map(c => c.context || c.app_id || c.app_slug).filter(Boolean);
+              const allRequired = (res.data?.required_status_checks?.strict !== undefined);
+              const gateMatch = requiredContexts.some(c => /ci|gate|all-required-green/i.test(String(c)));
+              if (!gateMatch) {
+                core.setOutput('protection_issue', 'Missing expected gate status context');
+                core.warning('No gate-like required status found. Contexts: ' + JSON.stringify(requiredContexts));
+              } else {
+                core.setOutput('protection_issue', '');
+              }
+            } catch (e) {
+              core.warning('Branch protection fetch failed: ' + e.message);
+              core.setOutput('protection_issue', 'Unable to verify branch protection via API');
+            }
+
+      - name: Aggregate results
+        id: aggregate
+        run: |
+          echo 'failures<<EOF' >> $GITHUB_OUTPUT
+          if [ -z "${{ steps.pat_comment.outputs.ok }}" ] || [ "${{ steps.pat_comment.outputs.ok }}" != "true" ]; then
+            echo 'PAT comment probe failed or skipped' >> $GITHUB_OUTPUT
+          fi
+          if [ -n "${{ steps.labels.outputs.missing }}" ]; then
+            echo "Missing labels: ${{ steps.labels.outputs.missing }}" >> $GITHUB_OUTPUT
+          fi
+          if [ -n "${{ steps.bp_main.outputs.protection_issue }}" ]; then
+            echo "Branch protection: ${{ steps.bp_main.outputs.protection_issue }}" >> $GITHUB_OUTPUT
+          fi
+          echo EOF >> $GITHUB_OUTPUT
+
+      - name: Open / update failure issue
+        if: ${{ steps.aggregate.outputs.failures != '' }}
+        uses: actions/github-script@v7
+        env:
+          FAILURE_ISSUE_TITLE: ${{ env.FAILURE_ISSUE_TITLE }}
+        with:
+          script: |
+            const failuresRaw = core.getInput('failures') || process.env.FAILURES || '${{ steps.aggregate.outputs.failures }}';
+            const failures = failuresRaw.split('\n').filter(Boolean);
+            const { owner, repo } = context.repo;
+            const existing = await github.paginate(github.rest.issues.listForRepo, { owner, repo, state: 'open', per_page: 100 });
+            const found = existing.find(i => i.title === process.env.FAILURE_ISSUE_TITLE);
+            const body = ['Repository health self-check failed:', '', ...failures.map(f => '- ' + f), '', 'Automated run: ' + new Date().toISOString()].join('\n');
+            if (found) {
+              await github.rest.issues.createComment({ owner, repo, issue_number: found.number, body });
+            } else {
+              await github.rest.issues.create({ owner, repo, title: process.env.FAILURE_ISSUE_TITLE, body });
+            }
+
+      - name: Close prior failure issue if healthy
+        if: ${{ steps.aggregate.outputs.failures == '' }}
+        uses: actions/github-script@v7
+        env:
+          FAILURE_ISSUE_TITLE: ${{ env.FAILURE_ISSUE_TITLE }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issues = await github.paginate(github.rest.issues.listForRepo, { owner, repo, state: 'open', per_page: 100 });
+            const found = issues.find(i => i.title === process.env.FAILURE_ISSUE_TITLE);
+            if (found) {
+              await github.rest.issues.createComment({ owner, repo, issue_number: found.number, body: 'All checks passing; closing.' });
+              await github.rest.issues.update({ owner, repo, issue_number: found.number, state: 'closed' });
+            } else {
+              core.info('No existing failure issue to close.');
+            }
+
+      - name: Summary
+        if: always()
+        run: |
+          echo '### Repository Health Self-Check' >> $GITHUB_STEP_SUMMARY
+          echo '* PAT comment OK: ${{ steps.pat_comment.outputs.ok || 'false' }}' >> $GITHUB_STEP_SUMMARY
+          echo '* Missing labels: ${{ steps.labels.outputs.missing || '(none)' }}' >> $GITHUB_STEP_SUMMARY
+          echo '* Branch protection issue: ${{ steps.bp_main.outputs.protection_issue || '(none)' }}' >> $GITHUB_STEP_SUMMARY
