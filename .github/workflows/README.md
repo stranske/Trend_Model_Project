@@ -109,7 +109,7 @@ jobs:
 
 ---
 ## 7. Troubleshooting Pointers
-| Symptom | Likely Cause | Reference |
+|| Symptom | Likely Cause | Reference |
 |---------|--------------|-----------|
 | No labels applied | Missing labeler workflow or insufficient permissions | `label-agent-prs.yml` |
 | Agent bootstrap blocked (exit 86) | PAT missing & fallback disabled | `agent_codex_troubleshooting.md` |
