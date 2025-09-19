@@ -388,10 +388,15 @@ def test_threshold_hold_scales_trades_to_respect_turnover_cap(
     results = mp_engine.run(cfg, df=df)
 
     assert len(results) == 2
-    assert run_calls[1]["custom_weights"] == {
-        "Alpha One": pytest.approx(32.5, rel=1e-3),
-        "Beta One": pytest.approx(67.5, rel=1e-3),
+    # The expected weights below are derived from the initial weights and the turnover cap.
+    # Initial weights: {"Alpha One": 0.6, "Beta One": 0.4}
+    # Turnover cap: 1.0 (from config), but the test scenario results in a turnover of 0.4.
+    # The weights are scaled such that Alpha One: 0.325, Beta One: 0.675, then multiplied by 100 for percentage.
+    expected_weights = {
+        "Alpha One": pytest.approx(0.325 * 100, rel=1e-3),
+        "Beta One": pytest.approx(0.675 * 100, rel=1e-3),
     }
+    assert run_calls[1]["custom_weights"] == expected_weights
     assert results[1]["turnover"] == pytest.approx(0.4, rel=1e-6)
     assert results[1]["transaction_cost"] == pytest.approx(0.4 * 15.0 / 10000.0)
 
