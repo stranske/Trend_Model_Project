@@ -952,7 +952,9 @@ def blended_score(
 ) -> pd.Series:
     """Z‑score each contributing metric, then weighted linear combo."""
     if not weights:
-        raise ValueError("blended_score requires non‑empty weights dict")
+        raise ValueError(
+            "blended_score requires non‑empty weights dict"
+        )
     # Normalize metric names using _METRIC_ALIASES
     canonical_weights: dict[str, float] = {}
     for k, v in weights.items():

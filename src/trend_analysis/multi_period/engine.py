@@ -834,8 +834,8 @@ def run(
                         "score_frame": pd.DataFrame(),
                         "weight_engine_fallback": None,
                         "manager_changes": [],
-                        "turnover": 0.0,
-                        "transaction_cost": 0.0,
+                        "out_ew_stats": None,
+                        "out_user_stats": None,
                     },
                 )
             )
