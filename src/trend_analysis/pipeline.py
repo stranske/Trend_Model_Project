@@ -8,21 +8,11 @@ import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
 
-from .core.rank_selection import (
-    RiskStatsConfig,
-    get_window_metric_bundle,
-    make_window_key,
-    rank_select_funds,
-)
+from .core.rank_selection import (RiskStatsConfig, get_window_metric_bundle,
+                                  make_window_key, rank_select_funds)
 from .data import load_csv
-from .metrics import (
-    annual_return,
-    information_ratio,
-    max_drawdown,
-    sharpe_ratio,
-    sortino_ratio,
-    volatility,
-)
+from .metrics import (annual_return, information_ratio, max_drawdown,
+                      sharpe_ratio, sortino_ratio, volatility)
 
 logger = logging.getLogger(__name__)
 

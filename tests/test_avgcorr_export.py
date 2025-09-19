@@ -1,10 +1,11 @@
-import pandas as pd
-import numpy as np
 from pathlib import Path
 
-from trend_analysis.pipeline import _run_analysis  # type: ignore
-from trend_analysis.export import summary_frame_from_result
+import numpy as np
+import pandas as pd
+
 from trend_analysis.core.rank_selection import RiskStatsConfig
+from trend_analysis.export import summary_frame_from_result
+from trend_analysis.pipeline import _run_analysis  # type: ignore
 
 
 def _make_dataset(tmp_path: Path) -> Path:
