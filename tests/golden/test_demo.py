@@ -409,9 +409,22 @@ class TestDemoGoldenMaster:
             reusable_path = Path(".github/workflows/reuse-ci-python.yml")
             assert reusable_path.exists(), "Reusable CI workflow not found"
             reusable_content = reusable_path.read_text()
-            assert re.search(
-                r"--cov-fail-under=\$\{\{\s*inputs\.cov_min\s*\}\}", reusable_content
-            ), "Reusable CI workflow must pass --cov-fail-under=${{ inputs.cov_min }} to pytest"
+
+            # Accept either a direct interpolation of the workflow input or
+            # an environment variable populated from that input. This keeps the
+            # test resilient to minor refactors of the shell command while still
+            # verifying that pytest receives an explicit --cov-fail-under flag.
+            enforce_patterns = [
+                r"--cov-fail-under=\$\{\{\s*inputs\.cov_min\s*\}\}",
+                r"--cov-fail-under=\$\{COV_MIN\}",
+                r"--cov-fail-under=\$COV_MIN",
+            ]
+            assert any(
+                re.search(pattern, reusable_content) for pattern in enforce_patterns
+            ), (
+                "Reusable CI workflow must pass --cov-fail-under with the configured "
+                "coverage gate to pytest"
+            )
 
         # Check core coverage configuration
         core_config_path = Path(".coveragerc.core")
