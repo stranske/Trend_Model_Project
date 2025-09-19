@@ -410,8 +410,8 @@ class TestDemoGoldenMaster:
             assert reusable_path.exists(), "Reusable CI workflow not found"
             reusable_content = reusable_path.read_text()
             assert re.search(
-                r"--cov-fail-under=\$\{COV_MIN\}", reusable_content
-            ), "Reusable CI workflow must pass --cov-fail-under=${COV_MIN} to pytest"
+                r"--cov-fail-under=\$\{\{\s*inputs\.cov_min\s*\}\}", reusable_content
+            ), "Reusable CI workflow must pass --cov-fail-under=${{ inputs.cov_min }} to pytest"
 
         # Check core coverage configuration
         core_config_path = Path(".coveragerc.core")
