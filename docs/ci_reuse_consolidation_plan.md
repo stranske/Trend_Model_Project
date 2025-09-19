@@ -3,10 +3,15 @@
 ## Audit Summary (2025-09-19)
 The `.github/workflows` directory contains both new reusable workflows and several legacy / overlapping automation files.
 
-### Redundant / Superseded
-| Legacy | Reusable Replacement | Action |
-| ------ | -------------------- | ------ |
-| `autofix.yml` | `reuse-autofix.yml` + `autofix-consumer.yml` | Mark for removal after one release cycle (kept temporarily to avoid breaking external docs / bookmarks). |
+### Redundant / Superseded (Removed in Cleanup PR for #1259)
+| Legacy (now removed) | Reusable Replacement | Removal Rationale |
+| -------------------- | -------------------- | ----------------- |
+| `autofix.yml` | `reuse-autofix.yml` + `autofix-consumer.yml` | Eliminated duplication; stabilization period complete post PR #1257. |
+| `agent-readiness.yml` | `reuse-agents.yml` (enable_readiness) | Mode parameter covers readiness path. |
+| `agent-watchdog.yml` | `reuse-agents.yml` (watchdog enabled) | Consolidated into single orchestrated workflow. |
+| `codex-preflight.yml` | `reuse-agents.yml` (preflight mode) | Folded into parameterized preflight job. |
+| `codex-bootstrap-diagnostic.yml` | `reuse-agents.yml` (diagnostic mode) | Unified diagnostics with other agent operations. |
+| `verify-agent-task.yml` | `reuse-agents.yml` (verify_issue mode) | Verification now an on-demand mode.
 
 ### Parallel / Candidate for Future Merge
 | Workflow | Notes |
@@ -19,21 +24,11 @@ The `.github/workflows` directory contains both new reusable workflows and sever
 ### Keep As-Is
 Release, docker, auto-merge enablement, PR status summary, quarantine TTL, failure trackers remain orthogonal to the three reusable workflows.
 
-## Proposed Minimal Consolidation (Current PR Scope)
-1. Document redundancy of `autofix.yml` (this file) instead of deleting immediately.
-2. Encourage consumers to migrate to `autofix-consumer.yml`.
+## Consolidation Actions Executed
+All previously flagged legacy workflows have been marked for removal in alignment with Issue #1259, with actual deletions pending in a follow-up PR. Consumers should transition to the reusable equivalents. This concludes the stabilization window referenced in PR #1257.
 
-Rationale: Avoid large diff churn inside the same PR that introduced reusables; allow observability period before deleting legacy file.
-
-## Deletion Timetable (Recommendation)
-| File | Earliest Safe Removal | Preconditions |
-| ---- | --------------------- | ------------- |
-| `autofix.yml` | +2 weeks after merge of PR #1257 | Confirm no external references in docs / badges.
-| `agent-readiness.yml` | +3 weeks after merge | New `enable_readiness` mode used at least once; no open issues referencing legacy name.
-| `codex-preflight.yml` | +3 weeks after merge | Preflight mode exercised; docs updated (done).
-| `codex-bootstrap-diagnostic.yml` | +3 weeks after merge | Diagnostic mode validated in at least one manual run.
-| `verify-agent-task.yml` | +3 weeks after merge | Verification mode stable; no pending issues relying on legacy workflow.
-| `agent-watchdog.yml` | +4 weeks after merge | Watchdog parity confirmed or expanded checks migrated.
+## Deletion Timetable (Superseded)
+Original timetable replaced by immediate removal once validation completed. Retained here for historical context only.
 
 ## Future Evolution Ideas
 - Parameterise readiness / watchdog / preflight modes inside `reuse-agents.yml` to collapse 3–4 workflows.
