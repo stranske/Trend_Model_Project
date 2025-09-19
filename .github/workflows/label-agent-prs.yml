@@ -68,7 +68,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.base.ref }}
           persist-credentials: false
-          fetch-depth: 0
+          fetch-depth: 1
           path: trusted-config
       - name: Sparse checkout agent label rules file
         working-directory: trusted-config
