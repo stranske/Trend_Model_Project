@@ -83,6 +83,7 @@ def test_run_incremental_covariance_updates(monkeypatch):
     periods = _make_periods()
 
     monkeypatch.setattr(mp_engine, "generate_periods", lambda _cfg: periods)
+    monkeypatch.setattr(mp_engine.np, "allclose", lambda *a, **kwargs: False)
 
     run_calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
 
@@ -147,3 +148,41 @@ def test_run_incremental_covariance_fallback_on_error(monkeypatch):
     second_stats = results[1]["cache_stats"]
     # No incremental updates recorded because the helper kept failing
     assert second_stats["incremental_updates"] == 0
+
+def test_run_incremental_covariance_handles_bad_shift_and_strings(monkeypatch):
+    """Test that the engine correctly handles string-formatted dates and invalid
+    (non-integer) shift detection settings. Ensures that covariance computation
+    and diagnostics are performed even when input formats are incorrect or edge
+    cases are present."""
+    cfg = _Cfg()
+    cfg.performance["shift_detection_max_steps"] = "not-an-int"
+    cfg.benchmarks = {"bm": "Benchmark"}
+    cfg.portfolio["indices_list"] = ["Benchmark"]
+
+    df = _make_df()
+    df["Date"] = df["Date"].dt.strftime("%Y-%m-%d")
+    df["Benchmark"] = [0.0, 0.0, 0.0, 0.0, 0.0]
+    periods = _make_periods()
+
+    monkeypatch.setattr(mp_engine, "generate_periods", lambda _cfg: periods)
+
+    compute_calls: list[int] = []
+    real_compute = cache_mod.compute_cov_payload
+
+    def wrapped_compute(frame: pd.DataFrame, *, materialise_aggregates: bool):
+        compute_calls.append(frame.shape[0])
+        return real_compute(frame, materialise_aggregates=materialise_aggregates)
+
+    monkeypatch.setattr(cache_mod, "compute_cov_payload", wrapped_compute)
+
+    def fake_run_analysis(*args, **kwargs):
+        return {"out_ew_stats": {"sharpe": 1.0}}
+
+    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+
+    results = mp_engine.run(cfg, df=df)
+
+    assert len(results) == 2
+    # Invalid shift thresholds still compute covariance and expose diagnostics
+    assert compute_calls[0] == 3
+    assert all("cov_diag" in result for result in results)
