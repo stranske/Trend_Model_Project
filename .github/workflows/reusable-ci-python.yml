@@ -48,6 +48,21 @@ on:
         required: false
         default: '0'
         type: string
+      enable-metrics:
+        description: 'Enable Phase1 metrics extraction (slow / failing tests)'
+        required: false
+        default: 'false'
+        type: string
+      slow-test-top:
+        description: 'Top N slow tests to record when metrics enabled'
+        required: false
+        default: '10'
+        type: string
+      slow-test-min-seconds:
+        description: 'Minimum duration (s) to include in slow test list'
+        required: false
+        default: '0'
+        type: string
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -114,3 +129,67 @@ jobs:
         run: |
           echo '{"status":"ok"}' > payload.json
           curl -s -X POST -H 'Content-Type: application/json' -d @payload.json '${{ inputs.webhook-url }}' || true
+      - name: Extract metrics (Phase1)
+        if: inputs.enable-metrics == 'true'
+        shell: bash
+        run: |
+          python - <<'PY'
+          import xml.etree.ElementTree as ET, json, os
+          PATH = 'pytest-junit.xml'
+          if not os.path.exists(PATH):
+              raise SystemExit('pytest-junit.xml missing for metrics extraction')
+          root = ET.parse(PATH).getroot()
+          tests = []  # (name, classname, dur, status)
+          for case in root.iter('testcase'):
+              name = case.get('name') or ''
+              classname = case.get('classname') or ''
+              try:
+                  dur = float(case.get('time') or '0')
+              except ValueError:
+                  dur = 0.0
+              status = 'passed'
+              if any(child.tag in ('failure','error') for child in case):
+                  status = 'failed'
+              elif any(child.tag == 'skipped' for child in case):
+                  status = 'skipped'
+              tests.append((name, classname, dur, status))
+          total = len(tests)
+            
+          failed = [t for t in tests if t[3] == 'failed']
+          skipped = [t for t in tests if t[3] == 'skipped']
+          passed = [t for t in tests if t[3] == 'passed']
+          import sys
+          top_n = int(os.getenv('TOP_N','10'))
+          try:
+              min_s = float(os.getenv('MIN_S','0'))
+          except ValueError:
+              min_s = 0.0
+              print("Warning: MIN_S environment variable is not a valid float. Defaulting to 0.0.", file=sys.stderr)
+          slow = sorted([t for t in tests if t[2] >= min_s], key=lambda x: x[2], reverse=True)[:top_n]
+          payload = {
+            'summary': {
+              'total': total,
+              'passed': len(passed),
+              'failed': len(failed),
+              'skipped': len(skipped),
+            },
+            'failed_tests': [
+              {'name': n,'classname': c,'duration_s': d} for (n,c,d,s) in failed
+            ],
+            'slow_tests': [
+              {'name': n,'classname': c,'duration_s': d} for (n,c,d,s) in slow
+            ],
+          }
+          with open('ci-metrics.json','w') as fh:
+              json.dump(payload, fh, indent=2)
+          print('Wrote ci-metrics.json with', len(payload['slow_tests']), 'slow tests and', len(payload['failed_tests']), 'failures')
+          PY
+        env:
+          TOP_N: ${{ inputs.slow-test-top }}
+          MIN_S: ${{ inputs.slow-test-min-seconds }}
+      - name: Upload metrics artifact
+        if: inputs.enable-metrics == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-metrics
+          path: ci-metrics.json
