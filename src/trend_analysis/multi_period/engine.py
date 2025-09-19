@@ -1084,7 +1084,6 @@ def run(
         res["transaction_cost"] = float(period_cost)
         # Append this period's result (was incorrectly outside loop causing only last period kept)
         results.append(cast(MultiPeriodPeriodResult, res))
-
     # Update complete for this period; next loop will use prev_weights
 
     return results
