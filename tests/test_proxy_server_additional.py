@@ -341,4 +341,4 @@ def test_handle_http_request_accepts_non_string_query(patched_server: Any) -> No
     result = asyncio.run(proxy._handle_http_request(DummyRequest(), "/metrics"))
     assert result.status_code == 200
     recorded = proxy.client.calls[-1]
-    assert recorded["url"].endswith("/metrics?b'id=42'")
+    assert recorded["url"].endswith("/metrics?id=42")
