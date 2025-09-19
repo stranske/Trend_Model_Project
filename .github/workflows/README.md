@@ -44,7 +44,7 @@ All other workflows operate with the default `GITHUB_TOKEN` under principle of l
 
 ---
 ## 4. Trigger Matrix
-| Workflow | Trigger(s) | Key Inputs / Modes |
+|| Workflow | Trigger(s) | Key Inputs / Modes |
 |----------|------------|--------------------|
 | `reuse-ci-python.yml` | PR, push | Python matrix, coverage threshold |
 | `reuse-autofix.yml` (consumer) | PR label / event | Formatting + lint patch apply |
