@@ -52,7 +52,8 @@ def _read_defaults() -> Dict[str, Any]:
     defaults.setdefault("portfolio", {})
 
     demo_csv = Path("demo/demo_returns.csv")
-    defaults["data"].setdefault("csv_path", str(demo_csv))
+    if demo_csv.exists():
+        defaults["data"].setdefault("csv_path", str(demo_csv))
     defaults["portfolio"].setdefault("policy", "")
 
     return defaults
