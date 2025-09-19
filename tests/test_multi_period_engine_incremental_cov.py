@@ -1,4 +1,5 @@
-"""Tests covering the incremental covariance path in the multi-period engine."""
+"""Tests covering the incremental covariance path in the multi-period
+engine."""
 
 from __future__ import annotations
 

@@ -1,8 +1,8 @@
 import importlib
 import importlib.metadata
+from typing import Optional
 
 import pytest
-from typing import Optional
 
 
 def test_trend_analysis_init_exposes_exports():
@@ -49,7 +49,9 @@ def test_trend_analysis_version_fallback(monkeypatch: pytest.MonkeyPatch) -> Non
     importlib.reload(module)  # restore original metadata-driven version
 
 
-def test_trend_analysis_missing_optional_module(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_trend_analysis_missing_optional_module(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     import trend_analysis
 
     module = importlib.reload(trend_analysis)
