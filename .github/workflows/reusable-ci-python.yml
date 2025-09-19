@@ -131,12 +131,17 @@ jobs:
           s='${{ steps.run_tests.outputs.status }}'
           if [ "$s" != "0" ]; then
             log=pytest.log
-            grep -qi 'ModuleNotFoundError' "$log" && cls=import_error || true
-            grep -qi 'ImportError' "$log" && cls=import_error || true
-            grep -qi 'SyntaxError' "$log" && cls=syntax_error || true
-            grep -qi 'AssertionError' "$log" && cls=assertion_failure || true
-            grep -qi 'Timeout' "$log" && cls=timeout || true
-          fi
+            if grep -qi 'ModuleNotFoundError' "$log"; then
+              cls=import_error
+            elif grep -qi 'ImportError' "$log"; then
+              cls=import_error
+            elif grep -qi 'SyntaxError' "$log"; then
+              cls=syntax_error
+            elif grep -qi 'AssertionError' "$log"; then
+              cls=assertion_failure
+            elif grep -qi 'Timeout' "$log"; then
+              cls=timeout
+            fi
           echo "classification=$cls" >> $GITHUB_OUTPUT
       - name: Coverage gate
         if: inputs.coverage-min != ''
