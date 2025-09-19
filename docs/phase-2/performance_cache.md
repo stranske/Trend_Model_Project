@@ -60,6 +60,8 @@ All operations O(k^2) vs. O(n k^2) full recompute.
 
 The `trend-model run` CLI now surfaces the cache counters at the end of a run whenever a stats payload is present.  Users will see a short block summarising the number of cache entries along with hit/miss and incremental-update totals.  Structured JSONL logging emits a dedicated `{ "event": "cache_stats", ... }` record so automation can track the same values without scraping stdout.
 
+When caching is disabled (e.g. `performance.enable_cache: false`) or no cache snapshot exists in the result payload, the CLI produces **no cache statistics block** and emits **no** `cache_stats` structured event—ensuring true zero overhead in the disabled path.
+
 ## Testing
 
 `tests/test_perf_cache.py` verifies:
