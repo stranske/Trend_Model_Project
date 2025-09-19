@@ -138,7 +138,7 @@ for item in items:
         'extras': join_section(extras),
     }
     normalized_title = re.sub(r'\s+', ' ', item['title'].strip().lower())
-    data['guid'] = str(uuid.uuid5(uuid.NAMESPACE_URL, normalized_title))
+    data['guid'] = str(uuid.uuid5(uuid.NAMESPACE_DNS, normalized_title))
     parsed.append(data)
 
 Path('topics.json').write_text(json.dumps(parsed, indent=2), encoding='utf-8')
