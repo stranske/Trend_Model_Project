@@ -26,7 +26,10 @@ def load_helper_namespace() -> Dict[str, Any]:
         assert module is not None
         loader = spec.loader
         assert loader is not None
-        loader.exec_module(module)  # type: ignore[call-arg]
+        if hasattr(loader, "exec_module") and callable(getattr(loader, "exec_module")):
+            loader.exec_module(module)
+        else:
+            raise TypeError(f"Loader {type(loader)} does not have an exec_module method")
         return module.__dict__
 def test_merge_update_recurses_through_nested_dicts():
     ns = load_helper_namespace()
