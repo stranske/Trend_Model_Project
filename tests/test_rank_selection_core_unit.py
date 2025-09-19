@@ -203,14 +203,11 @@ def test_avg_corr_metric_uses_metric_context_cache():
 def test_compute_metric_series_resets_context():
     df = _sample_returns()
     cfg = rank_selection.RiskStatsConfig()
-    token = rank_selection._METRIC_CONTEXT.set({"frame": pd.DataFrame()})
-    try:
+    with metric_context(pd.DataFrame()):
         initial_ctx = rank_selection._METRIC_CONTEXT.get()
         series = rank_selection._compute_metric_series(df, "AnnualReturn", cfg)
         assert "Alpha" in series.index
         assert rank_selection._METRIC_CONTEXT.get() is initial_ctx
-    finally:
-        rank_selection._METRIC_CONTEXT.reset(token)
 
 
 def test_metric_from_cov_payload_variants():
