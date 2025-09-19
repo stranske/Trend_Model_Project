@@ -158,7 +158,6 @@ jobs:
           failed = [t for t in tests if t[3] == 'failed']
           skipped = [t for t in tests if t[3] == 'skipped']
           passed = [t for t in tests if t[3] == 'passed']
-          import os
           top_n = int(os.getenv('TOP_N','10'))
           min_s = float(os.getenv('MIN_S','0'))
           slow = sorted([t for t in tests if t[2] >= min_s], key=lambda x: x[2], reverse=True)[:top_n]
