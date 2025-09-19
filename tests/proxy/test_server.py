@@ -138,6 +138,55 @@ def test_handle_websocket_query_forwarding(proxy_fixture, monkeypatch, caplog):
         for record in caplog.records
     )
 
+def test_handle_websocket_without_query(proxy_fixture, monkeypatch):
+    """When no query string is present the base URL should remain unchanged."""
+
+    proxy, _ = proxy_fixture
+
+    class DummyWebSocket:
+        def __init__(self) -> None:
+            self.url = types.SimpleNamespace()  # no ``query`` attribute
+            self.accept = AsyncMock()
+            self.receive = AsyncMock()
+            self.send_bytes = AsyncMock()
+            self.send_text = AsyncMock()
+            self.close = AsyncMock()
+
+    websocket = DummyWebSocket()
+
+    captured: dict[str, str] = {}
+
+    class DummyContext:
+        def __init__(self, url: str) -> None:
+            self.url = url
+
+        async def __aenter__(self):
+            captured["url"] = self.url
+            return types.SimpleNamespace()
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    def connect(url: str):
+        return DummyContext(url)
+
+    async def fake_gather(*coroutines):
+        for coro in coroutines:
+            try:
+                coro.close()
+            except AttributeError:
+                pass
+        return None
+
+    monkeypatch.setattr(server, "websockets", types.SimpleNamespace(connect=connect))
+    monkeypatch.setattr(server.asyncio, "gather", fake_gather)
+
+    asyncio.run(proxy._handle_websocket(websocket, "plain/path"))
+
+    assert captured["url"] == "ws://example.com:1234/plain/path"
+    websocket.accept.assert_awaited_once()
+    assert websocket.receive.await_count == 0
+
 
 class DummyResponse:
     def __init__(self, chunks: list[bytes]) -> None:
@@ -180,6 +229,24 @@ def test_handle_http_request_streams_response(proxy_fixture):
     assert result.status_code == response.status_code
     assert result.headers == {"Content-Type": "application/json", "x-extra": "1"}
     assert result.background.func == response.aclose
+
+
+def test_handle_http_request_without_query(proxy_fixture):
+    proxy, client = proxy_fixture
+    request = types.SimpleNamespace()
+    request.method = "GET"
+    request.headers = {"host": "ignored", "accept": "json"}
+    request.url = types.SimpleNamespace(query="")
+    request.body = AsyncMock(return_value=b"")
+
+    response = DummyResponse([b"chunk"])
+    client.request.return_value = response
+
+    result = asyncio.run(proxy._handle_http_request(request, "status"))
+
+    await_args = client.request.await_args
+    assert await_args.kwargs["url"] == "http://example.com:1234/status"
+    assert isinstance(result, DummyStreamingResponse)
 
 
 def test_start_requires_uvicorn(proxy_fixture, monkeypatch):
