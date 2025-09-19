@@ -226,7 +226,6 @@ def _setup_streamlit_ui() -> List[Any]:
     )
 
 
-
 def _render_app() -> None:
     tabs = _setup_streamlit_ui()
     # YAML editor (one place to edit everything)
