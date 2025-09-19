@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, cast
-from collections.abc import Sequence
 from unittest.mock import Mock
 
 import pandas as pd
@@ -80,7 +80,9 @@ def _normalize_columns(cols: Any, expected: int) -> List[Any]:
 
     if not normalised:
         placeholder_factory = getattr(st, "empty", None)
-        placeholder = placeholder_factory() if callable(placeholder_factory) else object()
+        placeholder = (
+            placeholder_factory() if callable(placeholder_factory) else object()
+        )
         normalised = [placeholder]
 
     if len(normalised) < expected:
@@ -162,6 +164,7 @@ def _summarise_multi(results: List[Dict[str, Any]]) -> pd.DataFrame:
 _STREAMLIT_IS_MOCK = _is_streamlit_mock(st)
 
 if _STREAMLIT_IS_MOCK:
+
     class _NullContext:
         def __enter__(self) -> "_NullContext":  # pragma: no cover - trivial
             return self
@@ -176,7 +179,9 @@ if _STREAMLIT_IS_MOCK:
             except KeyError as exc:
                 raise AttributeError(item) from exc
 
-        def __setattr__(self, key: str, value: Any) -> None:  # pragma: no cover - trivial
+        def __setattr__(
+            self, key: str, value: Any
+        ) -> None:  # pragma: no cover - trivial
             self[key] = value
 
     def _return_false(*_args: Any, **_kwargs: Any) -> bool:
@@ -199,7 +204,10 @@ if _STREAMLIT_IS_MOCK:
             return next(iter(options), None)
 
     def _multiselect_stub(
-        _label: str, options: Sequence[Any], default: Sequence[Any] | None = None, **_kwargs: Any
+        _label: str,
+        options: Sequence[Any],
+        default: Sequence[Any] | None = None,
+        **_kwargs: Any,
     ) -> List[Any]:
         if default is not None:
             return list(default)
