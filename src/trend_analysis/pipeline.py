@@ -156,8 +156,8 @@ def _compute_stats(
             sortino=float(sortino_ratio(df[col], rf)),
             max_drawdown=float(max_drawdown(df[col])),
             information_ratio=float(information_ratio(df[col], rf)),
-            is_avg_corr=(in_sample_avg_corr or {}).get(key),
-            os_avg_corr=(out_sample_avg_corr or {}).get(key),
+            is_avg_corr=(in_sample_avg_corr or {}).get(col),
+            os_avg_corr=(out_sample_avg_corr or {}).get(col),
         )
     return stats
 
