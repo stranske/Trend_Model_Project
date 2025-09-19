@@ -63,6 +63,21 @@ on:
         required: false
         default: '0'
         type: string
+      enable-classification:
+        description: 'Enable log-based failure classification summary'
+        required: false
+        default: 'false'
+        type: string
+      enable-history:
+        description: 'Enable writing NDJSON historical metrics line'
+        required: false
+        default: 'false'
+        type: string
+      history-artifact-name:
+        description: 'Artifact name for metrics history (NDJSON)'
+        required: false
+        default: 'ci-history'
+        type: string
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -102,10 +117,27 @@ jobs:
           set -o pipefail
           MARK='${{ steps.markers.outputs.value }}'
           if [ "${{ inputs.run-full }}" = "true" ] || [ -z "$MARK" ]; then
-            pytest --junitxml=pytest-junit.xml --cov=src --cov-report=term-missing --cov-report=xml:coverage.xml --cov-branch
+            pytest --junitxml=pytest-junit.xml --cov=src --cov-report=term-missing --cov-report=xml:coverage.xml --cov-branch 2>&1 | tee pytest.log || echo $? > test_status
           else
-            pytest -m "$MARK" --junitxml=pytest-junit.xml --cov=src --cov-report=term-missing --cov-report=xml:coverage.xml --cov-branch
+            pytest -m "$MARK" --junitxml=pytest-junit.xml --cov=src --cov-report=term-missing --cov-report=xml:coverage.xml --cov-branch 2>&1 | tee pytest.log || echo $? > test_status
           fi
+          echo "status=$(cat test_status 2>/dev/null || echo 0)" >> $GITHUB_OUTPUT
+      - name: Classify (Phase2)
+        if: inputs.enable-classification == 'true'
+        id: classify
+        shell: bash
+        run: |
+          cls=green
+          s='${{ steps.run_tests.outputs.status }}'
+          if [ "$s" != "0" ]; then
+            log=pytest.log
+            grep -qi 'ModuleNotFoundError' "$log" && cls=import_error || true
+            grep -qi 'ImportError' "$log" && cls=import_error || true
+            grep -qi 'SyntaxError' "$log" && cls=syntax_error || true
+            grep -qi 'AssertionError' "$log" && cls=assertion_failure || true
+            grep -qi 'Timeout' "$log" && cls=timeout || true
+          fi
+          echo "classification=$cls" >> $GITHUB_OUTPUT
       - name: Coverage gate
         if: inputs.coverage-min != ''
         shell: bash
@@ -189,3 +221,47 @@ jobs:
         with:
           name: ci-metrics
           path: ci-metrics.json
+      - name: Append history (Phase2)
+        if: inputs.enable-history == 'true'
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, os, time, hashlib
+          line = {
+            'timestamp': int(time.time()),
+            'sha': os.getenv('GITHUB_SHA'),
+            'ref': os.getenv('GITHUB_REF'),
+            'workflow': os.getenv('GITHUB_WORKFLOW'),
+            'enable_metrics': os.getenv('ENABLE_METRICS'),
+          }
+          # include metrics summary if present
+          if os.path.exists('ci-metrics.json'):
+              try:
+                  with open('ci-metrics.json') as fh:
+                      data = json.load(fh)
+                  line['summary'] = data.get('summary')
+                  line['failed_count'] = len(data.get('failed_tests', []))
+                  line['slow_count'] = len(data.get('slow_tests', []))
+              except Exception as e:
+                  line['metrics_error'] = str(e)
+          # classification
+          cls = os.getenv('CLASSIFICATION')
+          if cls:
+              line['classification'] = cls
+          # produce deterministic id
+          m = hashlib.sha256()
+          m.update(repr(line).encode())
+          line['id'] = m.hexdigest()[:16]
+          with open('metrics-history.ndjson','a') as out:
+              out.write(json.dumps(line, separators=(',',':')) + '\n')
+          print('Appended history line id', line['id'])
+          PY
+        env:
+          ENABLE_METRICS: ${{ inputs.enable-metrics }}
+          CLASSIFICATION: ${{ steps.classify.outputs.classification }}
+      - name: Upload history artifact (Phase2)
+        if: inputs.enable-history == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.history-artifact-name }}
+          path: metrics-history.ndjson
