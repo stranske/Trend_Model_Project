@@ -9,4 +9,3 @@ def test_trend_analysis_init_exposes_exports():
     assert hasattr(module, "load_csv")
     assert hasattr(module, "export_to_csv")
     assert hasattr(module, "export_to_excel")
-
