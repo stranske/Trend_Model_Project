@@ -1,0 +1,19 @@
+"""Shared typing aliases for trend_analysis multi-period outputs."""
+
+from __future__ import annotations
+
+from typing import Mapping, MutableMapping, MutableSequence, TypedDict
+
+
+class MultiPeriodPeriodResult(TypedDict, total=False):
+    """Typed contract for multi-period analysis results."""
+
+    period: tuple[str, str, str, str]
+    out_ew_stats: Mapping[str, float] | MutableMapping[str, float]
+    out_user_stats: Mapping[str, float] | MutableMapping[str, float]
+    manager_changes: MutableSequence[dict[str, object]]
+    turnover: float
+    transaction_cost: float
+    cov_diag: list[float]
+    cache_stats: Mapping[str, float] | MutableMapping[str, float]
+

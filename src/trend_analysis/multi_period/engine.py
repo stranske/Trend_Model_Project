@@ -811,10 +811,10 @@ def run(
                             pt.out_end,
                         ),
                         "manager_changes": [],
-                    },
-                        "manager_changes": [],
                         "out_ew_stats": None,
                         "out_user_stats": None,
+                    },
+                )
             )
             continue
         sf = _score_frame(in_df, fund_cols)
