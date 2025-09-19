@@ -29,6 +29,11 @@ Rationale: Avoid large diff churn inside the same PR that introduced reusables; 
 | File | Earliest Safe Removal | Preconditions |
 | ---- | --------------------- | ------------- |
 | `autofix.yml` | +2 weeks after merge of PR #1257 | Confirm no external references in docs / badges.
+| `agent-readiness.yml` | +3 weeks after merge | New `enable_readiness` mode used at least once; no open issues referencing legacy name.
+| `codex-preflight.yml` | +3 weeks after merge | Preflight mode exercised; docs updated (done).
+| `codex-bootstrap-diagnostic.yml` | +3 weeks after merge | Diagnostic mode validated in at least one manual run.
+| `verify-agent-task.yml` | +3 weeks after merge | Verification mode stable; no pending issues relying on legacy workflow.
+| `agent-watchdog.yml` | +4 weeks after merge | Watchdog parity confirmed or expanded checks migrated.
 
 ## Future Evolution Ideas
 - Parameterise readiness / watchdog / preflight modes inside `reuse-agents.yml` to collapse 3–4 workflows.
