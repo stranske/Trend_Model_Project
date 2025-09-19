@@ -68,19 +68,21 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.base.ref }}
           persist-credentials: false
-          sparse-checkout: |
-            .github/agent-label-rules.json
-          sparse-checkout-cone: false
+          fetch-depth: 1
           path: trusted-config
+      - name: Sparse checkout agent label rules file
+        working-directory: trusted-config
+        run: |
+          git sparse-checkout set --no-cone .github/agent-label-rules.json
       - name: Assert sparse checkout scope (Issue #1140)
         run: |
           set -euo pipefail
           # Only the agent label rules file should be present after sparse checkout.
-          EXPECTED_AGENT_RULES_FILE_COUNT=1
-          COUNT=$(git -C trusted-config ls-tree --full-tree --name-only HEAD | wc -l | tr -d ' ')
-          if [ "$COUNT" -ne "$EXPECTED_AGENT_RULES_FILE_COUNT" ]; then
-            echo "::error::Unexpected tracked file count in sparse checkout (expected $EXPECTED_AGENT_RULES_FILE_COUNT, found $COUNT)";
-            git -C trusted-config ls-tree --full-tree --name-only HEAD || true
+          EXPECTED_PATTERN=".github/agent-label-rules.json"
+          PATTERNS=$(git -C trusted-config sparse-checkout list)
+          if [ "$PATTERNS" != "$EXPECTED_PATTERN" ]; then
+            echo "::error::Unexpected sparse checkout patterns (expected $EXPECTED_PATTERN, found $PATTERNS)";
+            git -C trusted-config sparse-checkout list || true
             exit 1
           fi
       - uses: actions/github-script@v7
