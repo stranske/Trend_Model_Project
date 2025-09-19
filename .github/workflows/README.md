@@ -138,4 +138,30 @@ jobs:
 ## 10. Change Process
 Submit a PR updating this README plus any workflow changes. Major workflow semantics should be noted in a short “Design Note” block inside the workflow file and linked here if impactful.
 
-_Last updated: 2025-09-19 (implements Issue #1204)_
+---
+## 11. Stale PR TTL Policy (Issue #1205)
+Purpose: Keep the open PR queue reviewable and reduce CI load.
+
+Workflow: `stale-prs.yml` (scheduled daily @ 02:23 UTC + manual dispatch).
+
+Policy Defaults:
+- Warn (mark stale + add `stale` label) after 14 days of no activity (no commits, comments, or reviews).
+- Auto-close after an additional 7 days (21 days total inactivity).
+- Exempt labels: `pinned`, `work-in-progress`, `security`, `blocked` (presence of any prevents stale processing).
+- Activity (push/comment / label removal) removes the `stale` label automatically.
+
+Operator Guidance:
+- To keep a long‑running draft alive: apply `work-in-progress`.
+- To pause due to external dependency: apply `blocked`.
+- Reopen a closed stale PR via the GitHub UI if work resumes (or open a new PR referencing the old number if history is heavy).
+- Adjust timings by editing `days-before-pr-stale` / `days-before-pr-close` in the workflow.
+
+Rationale:
+- Ensures reviewer focus on active contributions.
+- Prevents silent accumulation of outdated branches soaking CI cycles.
+
+Future Enhancements (not yet implemented):
+- Telemetry summary comment with counts of newly stale and closed PRs.
+- Org-level override via repository variable (e.g. `STALE_PR_TTL_DAYS`).
+
+_Last updated: 2025-09-19 (adds Issue #1205 implementation)_
