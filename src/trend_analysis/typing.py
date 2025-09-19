@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Mapping, MutableMapping, MutableSequence, TYPE_CHECKING, TypedDict
+from typing import Mapping, MutableMapping, MutableSequence, TypedDict
 
-if TYPE_CHECKING:
+try:  # pragma: no cover - import fallback only exercised on <3.10
     from typing import TypeAlias
-else:  # pragma: no cover - runtime fallback for older interpreters.
+except ImportError:  # pragma: no cover - maintained for older runtimes
     from typing_extensions import TypeAlias
 
 
