@@ -549,7 +549,9 @@ def test_threshold_hold_seed_dedupe_and_rebalance_events(
         def __init__(self, ordering: Sequence[str]) -> None:
             self._ordering = list(ordering)
 
-        def select(self, score_frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+        def select(
+            self, score_frame: pd.DataFrame
+        ) -> tuple[pd.DataFrame, pd.DataFrame]:
             ordered = [fund for fund in self._ordering if fund in score_frame.index]
             selected = score_frame.loc[ordered]
             return selected, selected
@@ -566,7 +568,9 @@ def test_threshold_hold_seed_dedupe_and_rebalance_events(
         def __init__(self, *_cfg: Any) -> None:
             self.calls = 0
 
-        def apply_triggers(self, prev_weights: pd.Series, _sf: pd.DataFrame) -> pd.Series:
+        def apply_triggers(
+            self, prev_weights: pd.Series, _sf: pd.DataFrame
+        ) -> pd.Series:
             self.calls += 1
             series = prev_weights.astype(float).copy()
             if self.calls == 1:
@@ -794,7 +798,9 @@ def test_threshold_hold_enforces_bounds_and_replacement_flow(
             self.top_n = top_n
             self.rank_column = rank_column
 
-        def select(self, score_frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+        def select(
+            self, score_frame: pd.DataFrame
+        ) -> tuple[pd.DataFrame, pd.DataFrame]:
             ordered = score_frame.sort_values(self.rank_column, ascending=False)
             picked = ordered.head(self.top_n)
             return picked, picked
@@ -840,7 +846,9 @@ def test_threshold_hold_enforces_bounds_and_replacement_flow(
         def __init__(self, *_cfg: Any) -> None:
             self.invocations: list[pd.Series] = []
 
-        def apply_triggers(self, prev_weights: pd.Series, score_frame: pd.DataFrame) -> pd.Series:
+        def apply_triggers(
+            self, prev_weights: pd.Series, score_frame: pd.DataFrame
+        ) -> pd.Series:
             self.invocations.append(prev_weights.copy())
             return pd.Series(
                 {
@@ -901,4 +909,3 @@ def test_threshold_hold_enforces_bounds_and_replacement_flow(
     reasons = {event["reason"] for event in second_events}
     assert {"one_per_firm", "low_weight_strikes", "replacement"} <= reasons
     assert results[1]["turnover"] > 0
-

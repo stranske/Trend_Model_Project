@@ -72,7 +72,9 @@ def _setup_proxy_deps(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(server, "BackgroundTask", _DummyBackgroundTask)
 
 
-def test_streamlit_proxy_init_requires_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_streamlit_proxy_init_requires_dependencies(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(server, "_assert_deps", lambda: None)
     monkeypatch.setattr(server, "FastAPI", None)
     monkeypatch.setattr(server, "httpx", None)
@@ -81,7 +83,9 @@ def test_streamlit_proxy_init_requires_dependencies(monkeypatch: pytest.MonkeyPa
         server.StreamlitProxy()
 
 
-def test_streamlit_proxy_websocket_and_http_routing(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_streamlit_proxy_websocket_and_http_routing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     _setup_proxy_deps(monkeypatch)
 
     dummy_websockets_calls: list[str] = []
@@ -180,7 +184,9 @@ def test_streamlit_proxy_websocket_and_http_routing(monkeypatch: pytest.MonkeyPa
     asyncio.run(runner())
 
 
-def test_streamlit_proxy_start_requires_uvicorn(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_streamlit_proxy_start_requires_uvicorn(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     _setup_proxy_deps(monkeypatch)
     monkeypatch.setattr(server, "uvicorn", None)
 
@@ -191,4 +197,3 @@ def test_streamlit_proxy_start_requires_uvicorn(monkeypatch: pytest.MonkeyPatch)
             await proxy.start()
 
     asyncio.run(runner())
-

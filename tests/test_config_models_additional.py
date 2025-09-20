@@ -5,8 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-import yaml  # type: ignore[import-untyped]
 
+import yaml  # type: ignore[import-untyped]
 from trend_analysis.config import models
 
 

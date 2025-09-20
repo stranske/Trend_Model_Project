@@ -13,9 +13,9 @@ from unittest.mock import ANY, MagicMock, Mock, patch
 
 import pandas as pd
 import pytest
-import yaml  # type: ignore[import-untyped]
 
 import trend_analysis.gui.app as app_module
+import yaml  # type: ignore[import-untyped]
 from trend_analysis.gui.app import (_build_rank_options, _build_step0, launch,
                                     load_state, save_state)
 from trend_analysis.gui.store import ParamStore
