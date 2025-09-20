@@ -129,3 +129,4 @@ jobs:
           pip install mypy
       - name: Run mypy
         run: mypy src || (echo 'mypy failed' && exit 1)
+
