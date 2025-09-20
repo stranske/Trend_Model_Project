@@ -32,16 +32,6 @@ src/trend_analysis/_autofix_violation_case2.py:49:5: F841 Local variable `data` 
    |
    = help: Remove assignment to unused variable `data`
 
-src/trend_analysis/proxy/server.py:40:36: F401 [*] `websockets.legacy.client.WebSocketClientProtocol` imported but unused
-   |
-38 |     from uvicorn import Config as _UvicornConfig  # noqa: F401
-39 |     from websockets.legacy.client import (
-40 |         WebSocketClientProtocol as _WebsocketProtocol,
-   |                                    ^^^^^^^^^^^^^^^^^^ F401
-41 |     )  # noqa: F401
-   |
-   = help: Remove unused import: `websockets.legacy.client.WebSocketClientProtocol`
-
 tests/test_multi_period_engine_threshold_events_extended.py:109:28: F821 Undefined name `Tuple`
     |
 107 |         self.sequences = sequences
@@ -71,5 +61,5 @@ tests/test_trend_analysis_typing_contract.py:51:12: E721 Use `is` and `is not` f
 53 |     # ``TypeAlias`` annotations resolve to ``list[float]`` at runtime on
    |
 
-Found 8 errors.
-[*] 1 fixable with the `--fix` option (1 hidden fix can be enabled with the `--unsafe-fixes` option).
+Found 7 errors.
+No fixes available (1 hidden fix can be enabled with the `--unsafe-fixes` option).
