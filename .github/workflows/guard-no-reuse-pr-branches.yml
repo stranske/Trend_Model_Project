@@ -1,35 +1,20 @@
-name: Guard — No PR Branch Reuse
+name: Guard — No PR Branch Reuse (ARCHIVED 2025-09-20 – consolidated)
 
-on:
-  pull_request:
-    types: [opened, reopened, synchronize]
+# ARCHIVED WORKFLOW
+# This guard has been archived in favour of repository governance guidance and
+# consolidated CI checks. It no longer needs to block PR events. Retained only
+# for historical reference; remove after 2025-10-20 if no rollback required.
+# Replacement: documented policy (no automated job required) – branch reuse
+# detection deemed low-value compared to noise.
 
-permissions:
-  contents: read
-  pull-requests: read
+on: {}
+
+permissions: {}
 
 jobs:
-  check-branch-reuse:
+  archived-placeholder:
+    if: ${{ false }}
     runs-on: ubuntu-latest
     steps:
-      - name: Fail if head branch was used by a merged PR
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const pr = context.payload.pull_request;
-            const { owner, repo } = context.repo;
-            const headRef = pr.head.ref; // branch name
-            const currentPrNumber = pr.number;
-
-            // List all PRs with this head ref (state=all), then check if any other PR is merged
-            const { data: prs } = await github.rest.pulls.list({ owner, repo, head: `${pr.head.repo.owner.login}:${headRef}`, state: 'all', per_page: 100 });
-            for (const p of prs) {
-              if (p.number === currentPrNumber) continue;
-              // Fetch details to get merged_at reliably
-              const { data: details } = await github.rest.pulls.get({ owner, repo, pull_number: p.number });
-              if (details.merged_at) {
-                core.setFailed(`Branch '${headRef}' already backed merged PR #${details.number}. Create a new branch for this PR.`);
-                return;
-              }
-            }
-            core.info(`Branch '${headRef}' has no previously merged PRs — OK.`);
+      - name: Archived placeholder
+        run: echo "Archived workflow placeholder (will not run)"
