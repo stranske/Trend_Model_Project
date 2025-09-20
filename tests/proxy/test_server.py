@@ -249,6 +249,40 @@ def test_handle_http_request_without_query(proxy_fixture):
     assert isinstance(result, DummyStreamingResponse)
 
 
+def test_handle_http_request_decodes_bytes_query(proxy_fixture):
+    proxy, client = proxy_fixture
+    request = types.SimpleNamespace()
+    request.method = "GET"
+    request.headers = {"host": "ignored"}
+    request.url = types.SimpleNamespace(query=b"symbol=%E2%82%AC")
+    request.body = AsyncMock(return_value=b"")
+
+    response = DummyResponse([b"chunk"])
+    client.request.return_value = response
+
+    asyncio.run(proxy._handle_http_request(request, "feed"))
+
+    target_url = client.request.await_args.kwargs["url"]
+    assert target_url.endswith("symbol=%E2%82%AC")
+
+
+def test_handle_http_request_none_query(proxy_fixture):
+    proxy, client = proxy_fixture
+    request = types.SimpleNamespace()
+    request.method = "GET"
+    request.headers = {"host": "ignored"}
+    request.url = types.SimpleNamespace(query=None)
+    request.body = AsyncMock(return_value=b"")
+
+    response = DummyResponse([b"chunk"])
+    client.request.return_value = response
+
+    asyncio.run(proxy._handle_http_request(request, "noop"))
+
+    target_url = client.request.await_args.kwargs["url"]
+    assert target_url == "http://example.com:1234/noop"
+
+
 def test_start_requires_uvicorn(proxy_fixture, monkeypatch):
     proxy, _ = proxy_fixture
     monkeypatch.setattr(server, "uvicorn", None)
