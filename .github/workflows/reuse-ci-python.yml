@@ -28,7 +28,8 @@ on:
 
 permissions:
   contents: read
-  pull-requests: read
+  pull-requests: write
+  issues: write
 
 jobs:
   core-tests:
@@ -111,25 +112,11 @@ jobs:
           script: |
             const pr = context.payload.pull_request.number;
             const { owner, repo } = context.repo;
-            // Fetch matrix run jobs for coverage summary
-            const runId = context.runId;
-            // We rely on per-job step summary already; just collate coverage outputs from jobs API
-            const jobs = await github.rest.actions.listJobsForWorkflowRun({ owner, repo, run_id: runId, per_page: 100 });
-            const covs = [];
-            for (const j of jobs.data.jobs) {
-              const m = /Coverage: (\d+)/.exec((j.steps?.map(s=>s.name+':'+(s.conclusion||''))||[]).join('\n'));
-              // fallback: skip; robust extraction would require artifact or explicit output
-            }
-            // Simpler: use outputs from strategy? Not exposed; so leave placeholder.
-            // Render minimal test success note.
             const bodyAdd = `\n\n**Tests:** ✅ All matrix jobs succeeded (see CI checks).`;
             const marker = '<!-- autofix-status: DO NOT EDIT -->';
             const comments = await github.rest.issues.listComments({ owner, repo, issue_number: pr, per_page: 100 });
             const target = comments.data.find(c=>c.body && c.body.includes(marker));
-            if (!target) {
-              core.info('Unified comment not found; skipping update');
-              return;
-            }
+            if (!target) { core.info('Unified comment not found; skipping update'); return; }
             let body = target.body;
             if (body.includes('**Tests:**')) {
               body = body.replace(/\*\*Tests:\*\*[\s\S]*?(?=\n\n|$)/, '**Tests:** ✅ All matrix jobs succeeded (see CI checks).');
@@ -138,3 +125,26 @@ jobs:
             }
             await github.rest.issues.updateComment({ owner, repo, comment_id: target.id, body });
             core.info('Updated unified status comment with test results.');
+  remove-green-on-fail:
+    name: strip ci:green on failure
+    runs-on: ubuntu-latest
+    needs: [core-tests]
+    if: needs.core-tests.result != 'success' && github.event_name == 'pull_request'
+    permissions:
+      pull-requests: write
+      issues: write
+      contents: read
+    steps:
+      - name: Remove ci:green label
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request.number;
+            const { owner, repo } = context.repo;
+            const ciLabel = process.env.CI_LABEL || 'ci:green';
+            try {
+              await github.rest.issues.removeLabel({ owner, repo, issue_number: pr, name: ciLabel });
+              core.info('Removed ci:green label due to failing CI run.');
+            } catch(e){ core.warning('Could not remove ci:green (maybe absent): ' + e.message); }
+        env:
+          CI_LABEL: ${{ vars.CI_LABEL || 'ci:green' }}
