@@ -181,7 +181,7 @@ jobs:
         run: |
           import json, glob, os, math
           totals=[]; hotspots=[]
-          for jf in glob.glob('coverage.json'):
+          for jf in glob.glob('**/coverage.json', recursive=True):
               with open(jf,'r') as fh:
                   data=json.load(fh)
               t=data.get('totals', {})
