@@ -397,15 +397,11 @@ class TestDemoGoldenMaster:
         # workflow do not require test changes.
         # 
         # Regex explanation:
-        #   Matches a YAML workflow input block like:
-        #     cov_min:
-        #       description: Minimum coverage
-        #       type: int
-        #       default: 10
-        #   - {key}:\s*\n         → The input name followed by a newline
-        #   - (?:\s+[^\n]*\n)*?   → Any number of indented lines (description/type/etc.)
-        #   - \s+default:\s*      → Indented 'default:' line
-        #   - '?(?P<value>\d+)'?  → The integer value, possibly quoted
+        #   Matches a YAML workflow input block with the specified key,
+        #   including any indented metadata lines, followed by a ``default``
+        #   entry containing the integer value. Backslashes in the raw string
+        #   escape whitespace and newline tokens so the expression remains
+        #   resilient to minor formatting changes in the workflow file.
         pattern = rf"{key}:\s*\n(?:\s+[^\n]*\n)*?\s+default:\s*'?(?P<value>\d+)'?"
         match = re.search(pattern, content)
         if not match:
