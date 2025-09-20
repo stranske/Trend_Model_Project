@@ -31,6 +31,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      - name: Echo received inputs
+        run: |
+          echo "Inputs JSON:" '${{ toJson(github.event.inputs) }}'
+          echo "Selected ref: ${GITHUB_REF}"
       - name: Prepare topic source
         env:
           RAW_INPUT_JSON: ${{ toJson(github.event.inputs.raw_input) }}
@@ -49,9 +53,12 @@ jobs:
               echo "::error::Failed to download content from ${SOURCE_URL}" >&2
               exit 1
             fi
+            # Create minimal diagnostics for URL path (decoder not invoked)
+            jq -n --arg src "source_url" --arg url "${SOURCE_URL}" --arg size "$(wc -c < input.txt 2>/dev/null || echo 0)" '{source_used:$src, source_url:$url, input_size: ($size|tonumber)}' > decode_debug.json || true
           elif [ -n "${REPO_FILE}" ]; then
             if [ -f "${REPO_FILE}" ]; then
               cp "${REPO_FILE}" input.txt
+              jq -n --arg src "repo_file" --arg path "${REPO_FILE}" --arg size "$(wc -c < input.txt 2>/dev/null || echo 0)" '{source_used:$src, repo_path:$path, input_size: ($size|tonumber)}' > decode_debug.json || true
             else
               echo "::error::repo_file '${REPO_FILE}' not found in repository." >&2
               exit 1
