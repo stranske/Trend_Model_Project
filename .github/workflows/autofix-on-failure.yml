@@ -3,7 +3,7 @@ name: autofix on failures
 on:
   workflow_run:
     # Only monitor workflows that actually exist by current name
-    workflows: ["CI", "Docker"]
+    workflows: ["CI", "Docker", "actionlint"]
     types: [completed]
 
 permissions:
@@ -64,6 +64,20 @@ jobs:
           ref: ${{ steps.find_pr.outputs.head_ref }}
           fetch-depth: 0
           persist-credentials: true
+      - name: Detect prior autofix commit (idempotence guard)
+        if: steps.find_pr.outputs.pr != '' && steps.find_pr.outputs.opt_in == 'true' && steps.find_pr.outputs.same_repo == 'true'
+        id: guard
+        run: |
+          last_msg=$(git log -1 --pretty=%B | tr -d '\r')
+          echo "Last commit: $last_msg"
+          if echo "$last_msg" | grep -qi 'ci: autofix'; then
+            echo "already=true" >> $GITHUB_OUTPUT
+          else
+            echo "already=false" >> $GITHUB_OUTPUT
+          fi
+      - name: Skip second autofix attempt
+        if: steps.guard.outputs.already == 'true'
+        run: echo "Previous commit already an autofix; skipping repeat remediation." && exit 0
 
       - name: Setup Python
         if: steps.find_pr.outputs.pr != '' && steps.find_pr.outputs.opt_in == 'true' && steps.find_pr.outputs.same_repo == 'true'
@@ -72,11 +86,11 @@ jobs:
           python-version: "3.12"
       - name: Autofix
         id: fix
-        if: steps.find_pr.outputs.pr != '' && steps.find_pr.outputs.opt_in == 'true' && steps.find_pr.outputs.same_repo == 'true'
+        if: steps.find_pr.outputs.pr != '' && steps.find_pr.outputs.opt_in == 'true' && steps.find_pr.outputs.same_repo == 'true' && steps.guard.outputs.already != 'true'
         uses: ./.github/actions/autofix
 
       - name: Commit and push autofixes
-        if: steps.fix.outputs.changed == 'true' && steps.find_pr.outputs.same_repo == 'true'
+        if: steps.fix.outputs.changed == 'true' && steps.find_pr.outputs.same_repo == 'true' && steps.guard.outputs.already != 'true'
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -84,7 +98,7 @@ jobs:
           git commit -m "ci: autofix after failed checks"
           git push origin HEAD:${{ steps.find_pr.outputs.head_ref }}
       - name: Fork patch artifact
-        if: steps.fix.outputs.changed == 'true' && steps.find_pr.outputs.same_repo != 'true'
+        if: steps.fix.outputs.changed == 'true' && steps.find_pr.outputs.same_repo != 'true' && steps.guard.outputs.already != 'true'
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -92,13 +106,13 @@ jobs:
           git commit -m "ci: autofix after failed checks (patch)" || true
           git format-patch -1 --stdout > failure-autofix.patch
       - name: Upload fork patch
-        if: steps.fix.outputs.changed == 'true' && steps.find_pr.outputs.same_repo != 'true'
+        if: steps.fix.outputs.changed == 'true' && steps.find_pr.outputs.same_repo != 'true' && steps.guard.outputs.already != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: failure-autofix-pr-${{ steps.find_pr.outputs.pr }}
           path: failure-autofix.patch
       - name: Comment patch instructions (fork)
-        if: steps.fix.outputs.changed == 'true' && steps.find_pr.outputs.same_repo != 'true'
+        if: steps.fix.outputs.changed == 'true' && steps.find_pr.outputs.same_repo != 'true' && steps.guard.outputs.already != 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -126,3 +140,21 @@ jobs:
           echo "Agent PR: ${{ steps.find_pr.outputs.is_agent }}" >> $GITHUB_STEP_SUMMARY
           echo "Opt-in label present: ${{ steps.find_pr.outputs.opt_in }}" >> $GITHUB_STEP_SUMMARY
           echo "Applied changes: ${{ steps.fix.outputs.changed }}" >> $GITHUB_STEP_SUMMARY
+      - name: Tag PR with needs-autofix label
+        if: steps.find_pr.outputs.pr != '' && steps.find_pr.outputs.opt_in == 'true' && steps.fix.outputs.changed != 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Add a label to signal that failure remediation attempted but no changes applied.
+            const issue_number = Number('${{ steps.find_pr.outputs.pr }}');
+            const label = 'needs-autofix-review';
+            try {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number,
+                labels: [label]
+              });
+            } catch (e) {
+              core.warning('Could not add label: ' + e.message);
+            }

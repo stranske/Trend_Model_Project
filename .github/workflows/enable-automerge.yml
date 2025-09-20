@@ -31,11 +31,21 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           merge-method: squash
           pull-request-number: ${{ github.event.pull_request.number }}
+      - name: Capture failure reason
+        if: failure()
+        id: fail_parse
+        run: |
+          echo "Attempting to extract failure reason from logs..."
+          # GitHub encapsulates the step failure message automatically; expose generic note.
+          echo "reason=action_failed_or_not_eligible" >> $GITHUB_OUTPUT
       - name: Summarize attempt
         if: always()
         run: |
           echo "### Auto-merge Attempt (PR Event)" >> $GITHUB_STEP_SUMMARY
           echo "Outcome: ${{ steps.enable.outcome }}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.enable.outcome }}" != "success" ]; then
+            echo "FailureReason: ${{ steps.fail_parse.outputs.reason || 'n/a' }}" >> $GITHUB_STEP_SUMMARY
+          fi
 
   enable-post-status:
     if: >
@@ -90,6 +100,11 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           merge-method: squash
           pull-request-number: ${{ steps.find_pr.outputs.pr }}
+      - name: Capture failure reason (post-status)
+        if: steps.gate.outputs.eligible == 'true' && failure()
+        id: post_fail_parse
+        run: |
+          echo "reason=action_failed_or_not_eligible" >> $GITHUB_OUTPUT
       - name: Summarize post-status
         if: always() && steps.find_pr.outputs.pr != ''
         run: |
@@ -97,3 +112,6 @@ jobs:
           echo "PR: #${{ steps.find_pr.outputs.pr }}" >> $GITHUB_STEP_SUMMARY
           echo "Eligible: ${{ steps.gate.outputs.eligible }}" >> $GITHUB_STEP_SUMMARY
           echo "Enable Outcome: ${{ steps.post_enable.outcome }}" >> $GITHUB_STEP_SUMMARY || true
+          if [ "${{ steps.post_enable.outcome }}" != "success" ] && [ "${{ steps.gate.outputs.eligible }}" = "true" ]; then
+            echo "FailureReason: ${{ steps.post_fail_parse.outputs.reason || 'n/a' }}" >> $GITHUB_STEP_SUMMARY
+          fi
