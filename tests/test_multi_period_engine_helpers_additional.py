@@ -93,5 +93,83 @@ def test_portfolio_rebalance_accepts_multiple_input_shapes() -> None:
     assert set(pf.history[feb_key].index) == {"F1", "F3"}
     assert pf.costs[feb_key] == pytest.approx(0.02)
 
+    # Direct Series input should be preserved without copying columns.
+    march_series = pd.Series({"F2": 0.7, "F4": 0.3}, dtype=float)
+    pf.rebalance("2021-03-31", march_series, turnover=0.12)
+
+    march_key = "2021-03-31"
+    assert pf.history[march_key].equals(march_series.astype(float))
+    assert pf.turnover[march_key] == pytest.approx(0.12)
+
     # Costs accumulate over time.
     assert pf.total_rebalance_costs == pytest.approx(0.07)
+
+
+def test_run_schedule_invokes_update_and_fast_turnover(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``run_schedule`` should exercise fast turnover and update hooks."""
+
+    class DummySelector:
+        rank_column = "Sharpe"
+
+        def select(self, score_frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+            return score_frame, score_frame
+
+    class RecordingWeighting:
+        def __init__(self) -> None:
+            self.updates: list[tuple[pd.Series, int]] = []
+
+        def weight(self, selected: pd.DataFrame) -> pd.DataFrame:
+            weights = pd.Series(1.0 / len(selected), index=selected.index, dtype=float)
+            return weights.to_frame("weight")
+
+        def update(self, scores: pd.Series, days: int) -> None:
+            self.updates.append((scores.astype(float), int(days)))
+
+    score_frames = {
+        "2020-01-31": pd.DataFrame(
+            {"Sharpe": [1.0, 0.5]}, index=["Alpha Fund", "Beta Fund"]
+        ),
+        "2020-02-29": pd.DataFrame(
+            {"Sharpe": [0.8, 1.1]}, index=["Alpha Fund", "Gamma Fund"]
+        ),
+    }
+
+    selector = DummySelector()
+    weighting = RecordingWeighting()
+
+    apply_calls: list[pd.Series] = []
+
+    def fake_apply(
+        strategies: list[str],
+        params: dict[str, dict[str, object]],
+        current_weights: pd.Series,
+        target_weights: pd.Series,
+        *,
+        scores: pd.Series | None = None,
+    ) -> tuple[pd.Series, float]:
+        assert strategies == ["noop"]
+        assert "noop" in params
+        assert scores is not None
+        # Return the target weights to keep logic simple while capturing calls.
+        result = target_weights.astype(float)
+        apply_calls.append(result)
+        # Differing indices across iterations ensures the NumPy fast path executes.
+        return result, 0.05 * (len(apply_calls))
+
+    monkeypatch.setattr(mp_engine, "apply_rebalancing_strategies", fake_apply)
+
+    portfolio = mp_engine.run_schedule(
+        score_frames,
+        selector,
+        weighting,
+        rank_column="Sharpe",
+        rebalance_strategies=["noop"],
+        rebalance_params={"noop": {}},
+    )
+
+    # Two periods processed, each updating the weighting model.
+    assert [days for _scores, days in weighting.updates] == [0, 29]
+    assert len(portfolio.history) == 2
+    assert portfolio.total_rebalance_costs == pytest.approx(0.15)
+    # ``apply_rebalancing_strategies`` was consulted for each period.
+    assert len(apply_calls) == 2

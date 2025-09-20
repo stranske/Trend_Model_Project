@@ -18,7 +18,7 @@ Set these variables to tailor behavior (all have sensible defaults if omitted):
 - `APPROVE_PATTERNS` (default: `src/**,docs/**,tests/**,**/*.md`)
 - `MAX_LINES_CHANGED` (default: `1000`)
 - `CI_PY_VERSIONS` (default: `["3.11","3.12"]`)
-- `COV_MIN` (default: `80`)
+- `COV_MIN` (default: `85`)
 - `REGISTRY` (default: `ghcr.io`)
 - `IMAGE_NAME` (default: `<owner>/trend-model`) – override per project
 - `HEALTH_PORT` (default: `8000`)

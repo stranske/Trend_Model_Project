@@ -146,6 +146,23 @@ def test_run_schedule_applies_rebalance_strategies(
     assert [days for _, days in weighting.updates] == [0, 28]
 
 
+def test_portfolio_rebalance_accepts_series() -> None:
+    """The Portfolio helper should store series inputs without re-wrapping."""
+
+    pf = engine.Portfolio()
+    weights = pd.Series({"FundA": 0.6, "FundB": 0.4}, dtype=float)
+
+    pf.rebalance("2021-03-31", weights, turnover=0.12, cost=0.005)
+
+    assert set(pf.history) == {"2021-03-31"}
+    stored = pf.history["2021-03-31"]
+    assert isinstance(stored, pd.Series)
+    assert stored.to_dict() == {"FundA": 0.6, "FundB": 0.4}
+    assert pf.turnover["2021-03-31"] == pytest.approx(0.12)
+    assert pf.costs["2021-03-31"] == pytest.approx(0.005)
+    assert pf.total_rebalance_costs == pytest.approx(0.005)
+
+
 def test_run_price_frames_validation_errors() -> None:
     cfg = DummyConfig()
     df = pd.DataFrame({"Date": [pd.Timestamp("2020-01-31")], "Fund": [0.1]})
