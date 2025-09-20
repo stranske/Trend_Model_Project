@@ -2,13 +2,6 @@ name: Verify Codex Bootstrap Matrix
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '17 3 * * *'
-  push:
-    paths:
-      - '.github/workflows/verify-codex-bootstrap-matrix.yml'
-      - 'scripts/verify_codex_bootstrap.py'
-      - 'docs/codex-simulation.md'
     inputs:
       scenarios:
         description: "Comma-separated list: all or subset. See scripts/verify_codex_bootstrap.py SCENARIOS_IMPL for available scenarios."
@@ -38,6 +31,13 @@ on:
         description: "Set to true for t13_suppressed"
         required: false
         default: "false"
+  schedule:
+    - cron: '17 3 * * *'
+  push:
+    paths:
+      - '.github/workflows/verify-codex-bootstrap-matrix.yml'
+      - 'scripts/verify_codex_bootstrap.py'
+      - 'docs/codex-simulation.md'
 
 jobs:
   plan:
@@ -128,7 +128,7 @@ jobs:
           OVERRIDE_ALLOW_FALLBACK: ${{ github.event.inputs.override_allow_fallback }}
           OVERRIDE_CODEX_COMMAND: ${{ github.event.inputs.codex_command }}
           OVERRIDE_PR_MODE: ${{ github.event.inputs.pr_mode }}
-          SUPPRESS_ACTIVATE: ${{ github.event.inputs.suppress_activate || 'false' }}
+          SUPPRESS_ACTIVATE: ${{ github.event.inputs.suppress_activate != '' && github.event.inputs.suppress_activate || 'false' }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
         run: |

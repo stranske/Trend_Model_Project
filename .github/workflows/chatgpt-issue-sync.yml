@@ -1,0 +1,350 @@
+name: Sync ChatGPT topics to issues
+
+on:
+  workflow_dispatch:
+    inputs:
+      raw_input:
+        description: "Paste the ChatGPT topic list"
+        required: false
+        type: string
+      source_url:
+        description: "URL containing the ChatGPT topic list"
+        required: false
+        type: string
+
+jobs:
+  sync:
+    name: Normalize ChatGPT topics into GitHub issues
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Prepare topic source
+        id: prepare
+        run: |
+          set -euo pipefail
+          raw_input="${{ github.event.inputs.raw_input }}"
+          source_url="${{ github.event.inputs.source_url }}"
+          if [ -n "${raw_input}" ]; then
+            printf '%s\n' "${raw_input}" > input.txt
+          elif [ -n "${source_url}" ]; then
+            if command -v curl >/dev/null 2>&1; then
+              if ! curl -fsSL "${source_url}" -o input.txt; then
+                echo "::error::Failed to download content from ${source_url}" >&2
+                exit 1
+              fi
+            else
+              echo "::error::curl is not available on the runner" >&2
+              exit 1
+            fi
+          else
+            echo "::error::Provide either raw_input or source_url when dispatching this workflow." >&2
+            exit 1
+          fi
+          if ! [ -s input.txt ]; then
+            echo "::error::The provided input was empty." >&2
+            exit 1
+          fi
+
+      - name: Parse topics
+        id: parse
+        run: |
+          python .github/scripts/parse_chatgpt_topics.py
+
+      - name: Sync issues
+        uses: actions/github-script@v7
+        env:
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const fs = require('fs');
+            const crypto = require('crypto');
+            const core = require('@actions/core');
+
+            const topics = JSON.parse(fs.readFileSync('topics.json', 'utf8'));
+            if (!Array.isArray(topics) || topics.length === 0) {
+              core.setFailed('No topics to process.');
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+
+            const normalize = (name) => name.toLowerCase().replace(/[^a-z0-9]+/g, '');
+            const canonicalizeNewLabel = (name) => {
+              let cleaned = name.trim().toLowerCase();
+              cleaned = cleaned.replace(/[_\u2013\u2014]/g, ' ');
+              cleaned = cleaned.replace(/[^a-z0-9: ]+/g, ' ').replace(/\s+/g, ' ').trim();
+              if (!cleaned) {
+                return name.trim();
+              }
+              if (cleaned.includes(':')) {
+                return cleaned
+                  .split(':')
+                  .map((segment) => segment.trim().replace(/\s+/g, '-'))
+                  .join(':');
+              }
+              const parts = cleaned.split(' ');
+              if (parts.length > 1) {
+                return `${parts[0]}:${parts.slice(1).join('-')}`;
+              }
+              return cleaned.replace(/\s+/g, '-');
+            };
+
+            const levenshtein = (a, b) => {
+              const dp = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0));
+              for (let i = 0; i <= a.length; i++) dp[i][0] = i;
+              for (let j = 0; j <= b.length; j++) dp[0][j] = j;
+              for (let i = 1; i <= a.length; i++) {
+                for (let j = 1; j <= b.length; j++) {
+                  const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+                  dp[i][j] = Math.min(
+                    dp[i - 1][j] + 1,
+                    dp[i][j - 1] + 1,
+                    dp[i - 1][j - 1] + cost,
+                  );
+                }
+              }
+              return dp[a.length][b.length];
+            };
+
+            const labelsCache = await github.paginate(github.rest.issues.listLabelsForRepo, {
+              owner,
+              repo,
+              per_page: 100,
+            });
+            const usedColors = new Set(labelsCache.map((label) => label.color.toLowerCase()));
+
+            const findMatchingLabel = (input) => {
+              const candidates = [input];
+              if (!input.includes(':')) {
+                candidates.push(canonicalizeNewLabel(input));
+              }
+              for (const candidate of candidates) {
+                const normalizedTarget = normalize(candidate);
+                if (!normalizedTarget) continue;
+
+                for (const label of labelsCache) {
+                  if (normalize(label.name) === normalizedTarget) {
+                    return label.name;
+                  }
+                }
+
+                const partialMatches = labelsCache
+                  .map((label) => ({
+                    label,
+                    normalized: normalize(label.name),
+                  }))
+                  .filter(({ normalized }) =>
+                    normalized &&
+                    (normalized.includes(normalizedTarget) || normalizedTarget.includes(normalized))
+                  );
+
+                if (partialMatches.length === 1) {
+                  return partialMatches[0].label.name;
+                }
+                if (partialMatches.length > 1) {
+                  let best = null;
+                  let bestScore = Infinity;
+                  for (const match of partialMatches) {
+                    const distance = levenshtein(match.normalized, normalizedTarget);
+                    const ratio = distance / Math.max(match.normalized.length, normalizedTarget.length);
+                    if (ratio < bestScore) {
+                      best = match.label.name;
+                      bestScore = ratio;
+                    }
+                  }
+                  // The threshold value 0.35 for fuzzy label matching was chosen empirically.
+                  // It balances matching accuracy: lower values are too strict, higher values allow too many false positives.
+                  // Adjust if label matching behavior needs to be tuned.
+                  if (best !== null && bestScore <= 0.35) {
+                    return best;
+                  }
+                }
+              }
+              return null;
+            };
+
+            const generateColor = (name) => {
+              const base = crypto.createHash('md5').update(name.toLowerCase()).digest('hex').slice(0, 6);
+              if (!usedColors.has(base)) {
+                usedColors.add(base);
+                return base;
+              }
+              let counter = 1;
+              while (counter < 4096) {
+                // Step through color space in large intervals to generate visually distinct colors.
+                // 0x111111 is chosen so each step changes all RGB components, reducing similarity.
+                const candidateValue = (parseInt(base, 16) + counter * 0x111111) % 0xffffff;
+                const candidate = candidateValue.toString(16).padStart(6, '0');
+                if (!usedColors.has(candidate)) {
+                  usedColors.add(candidate);
+                  return candidate;
+                }
+                counter += 1;
+              }
+              const fallback = '777777';
+              usedColors.add(fallback);
+              return fallback;
+            };
+
+            const ensureLabel = async (input) => {
+              const trimmed = input.trim();
+              if (!trimmed) {
+                return null;
+              }
+              const existing = findMatchingLabel(trimmed);
+              if (existing) {
+                return existing;
+              }
+              const newName = canonicalizeNewLabel(trimmed);
+              const already = findMatchingLabel(newName);
+              if (already) {
+                return already;
+              }
+              const color = generateColor(newName);
+              try {
+                const created = await github.rest.issues.createLabel({
+                  owner,
+                  repo,
+                  name: newName,
+                  color,
+                  description: `Synthesized from ChatGPT import for “${trimmed}”`,
+                });
+                labelsCache.push(created.data);
+                core.info(`Created label ${newName} (${color}).`);
+                return created.data.name;
+              } catch (error) {
+                core.warning(`Failed to create label for "${trimmed}": ${error.message}`);
+                return null;
+              }
+            };
+
+            const formatTasks = (text) => {
+              if (!text || !text.trim()) {
+                return '_Not provided._';
+              }
+              const lines = text.split('\n');
+              const formatted = [];
+              let inFence = false;
+              for (const rawLine of lines) {
+                const line = rawLine;
+                const trimmed = line.trim();
+                if (trimmed.startsWith('```')) {
+                  inFence = !inFence;
+                  formatted.push(line);
+                  continue;
+                }
+                if (!inFence && /^[-*]\s+/.test(trimmed)) {
+                  formatted.push(line.replace(/^\s*[-*]\s+/, '- [ ] '));
+                } else {
+                  formatted.push(line);
+                }
+              }
+              return formatted.join('\n').trim() || '_Not provided._';
+            };
+
+            const ensureContent = (text) => (text && text.trim() ? text.trim() : '_Not provided._');
+
+            const buildBody = (topic) => {
+              const lines = [];
+              lines.push(`Topic GUID: ${topic.guid}`);
+              lines.push('');
+              lines.push(`## Why`);
+              const whyContent = topic.sections?.why && topic.sections.why.trim() ? topic.sections.why.trim() : topic.extras?.trim() || '_Not provided._';
+              lines.push(whyContent);
+              lines.push('');
+              lines.push('## Tasks');
+              lines.push(formatTasks(topic.sections?.tasks || ''));
+              lines.push('');
+              lines.push('## Acceptance criteria');
+              lines.push(ensureContent(topic.sections?.acceptance_criteria || ''));
+              lines.push('');
+              lines.push('## Implementation notes');
+              lines.push(ensureContent(topic.sections?.implementation_notes || ''));
+              lines.push('');
+              lines.push('---');
+              lines.push(`Synced by [workflow run](${process.env.RUN_URL}).`);
+              return lines.join('\n');
+            };
+
+            for (const topic of topics) {
+              try {
+                const desiredLabels = [];
+                for (const rawLabel of topic.labels || []) {
+                  const resolved = await ensureLabel(rawLabel);
+                  if (resolved) {
+                    desiredLabels.push(resolved);
+                  } else {
+                    core.warning(`Skipped label "${rawLabel}" for ${topic.title}.`);
+                  }
+                }
+
+                const uniqueDesired = Array.from(new Set(desiredLabels));
+                const body = buildBody(topic);
+                const title = topic.title;
+                const guid = topic.guid;
+
+                let issueNumber = null;
+                let state = 'open';
+
+                const searchOpen = await github.rest.search.issuesAndPullRequests({
+                  q: `repo:${owner}/${repo} "${guid}" in:body is:issue is:open`,
+                  per_page: 1,
+                });
+                if (searchOpen.data.items.length > 0) {
+                  issueNumber = searchOpen.data.items[0].number;
+                  core.info(`Updating existing open issue #${issueNumber} for ${title}.`);
+                } else {
+                  const searchAny = await github.rest.search.issuesAndPullRequests({
+                    q: `repo:${owner}/${repo} "${guid}" in:body is:issue`,
+                    per_page: 1,
+                  });
+                  if (searchAny.data.items.length > 0) {
+                    issueNumber = searchAny.data.items[0].number;
+                    state = searchAny.data.items[0].state;
+                    core.info(`Reusing existing ${state} issue #${issueNumber} for ${title}.`);
+                  }
+                }
+
+                if (issueNumber) {
+                  const issueData = await github.rest.issues.get({ owner, repo, issue_number: issueNumber });
+                  const currentLabels = (issueData.data.labels || []).map((label) => label.name).filter(Boolean);
+                  const finalLabels = Array.from(new Set([...currentLabels, ...uniqueDesired]));
+                  const updatePayload = {
+                    owner,
+                    repo,
+                    issue_number: issueNumber,
+                    title,
+                    body,
+                    labels: finalLabels,
+                  };
+                  if (issueData.data.state === 'closed') {
+                    updatePayload.state = 'open';
+                  }
+                  await github.rest.issues.update(updatePayload);
+                  try {
+                    await github.rest.issues.createComment({
+                      owner,
+                      repo,
+                      issue_number: issueNumber,
+                      body: `Updated by [workflow run](${process.env.RUN_URL}).`,
+                    });
+                  } catch (commentError) {
+                    core.warning(`Failed to comment on issue #${issueNumber}: ${commentError.message}`);
+                  }
+                } else {
+                  const createPayload = {
+                    owner,
+                    repo,
+                    title,
+                    body,
+                    labels: uniqueDesired,
+                  };
+                  const created = await github.rest.issues.create(createPayload);
+                  core.info(`Created issue #${created.data.number} for ${title}.`);
+                }
+              } catch (error) {
+                core.warning(`Failed to process topic "${topic.title}": ${error.message}`);
+              }
+            }
