@@ -114,6 +114,28 @@ def test_simresult_helpers():
     assert "total_return" in summary
 
 
+def test_event_log_to_frame_handles_empty_and_sorting():
+    """The EventLog frame output preserves shape and ordering."""
+
+    log = EventLog()
+    empty_frame = log.to_frame()
+    # Empty log should still expose the schema with the date index
+    assert list(empty_frame.columns) == ["action", "manager", "reason", "details"]
+    assert empty_frame.index.name == "date"
+
+    later = pd.Timestamp("2020-03-31")
+    earlier = pd.Timestamp("2020-01-31")
+    log.append(Event(date=later, action="hire", manager="B", reason="alpha"))
+    log.append(Event(date=earlier, action="fire", manager="A", reason="beta"))
+
+    frame = log.to_frame()
+    # Events are sorted chronologically despite append order
+    assert list(frame.index) == [earlier, later]
+    # Original payloads preserved
+    assert frame.loc[earlier, "action"] == "fire"
+    assert frame.loc[later, "manager"] == "B"
+
+
 def test_gen_review_dates_quarterly():
     df = pd.DataFrame(
         {
