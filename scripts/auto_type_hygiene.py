@@ -80,7 +80,7 @@ def module_has_types(module: str) -> bool:
     submodules = getattr(spec, "submodule_search_locations", None)
     if submodules:
         for location in submodules:
-            if Path(location).joinpath("py.typed").exists():
+            if location and Path(location).joinpath("py.typed").exists():
                 return True
 
     return False
