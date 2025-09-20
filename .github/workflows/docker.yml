@@ -126,3 +126,59 @@ jobs:
       - name: Push image
         if: github.event_name == 'push' && github.ref == 'refs/heads/phase-2-dev'
         run: docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+  summarize-logs:
+    name: summarize / logs-for-this-run
+    runs-on: ubuntu-latest
+    needs: [lint, build]
+    if: ${{ always() }}
+    steps:
+      - name: Append job log links to summary
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const core = require('@actions/core');
+            const { owner, repo } = context.repo;
+            const run_id = context.runId;
+
+            const jobs = [];
+            const iterator = github.paginate.iterator(
+              github.rest.actions.listJobsForWorkflowRun,
+              {
+                owner,
+                repo,
+                run_id,
+                per_page: 100,
+              },
+            );
+
+            for await (const { data }) of iterator {
+              jobs.push(...data.jobs);
+            }
+
+            const heading = 'Logs for this run';
+            if (jobs.length === 0) {
+              await core.summary
+                .addHeading(heading)
+                .addRaw('_No jobs found for this run._', true)
+                .write();
+              return;
+            }
+
+            const rows = jobs.map(job => {
+              const name = job.name.replace(/\|/g, '\\|');
+              const result = job.conclusion ?? job.status;
+              const url = job.html_url ?? job.url;
+              return `| ${name} | ${result} | [Logs](${url}) |`;
+            });
+
+            const table = [
+              '| Job | Result | Logs |',
+              '| --- | ------ | ---- |',
+              ...rows,
+            ].join('\n');
+
+            await core.summary
+              .addHeading(heading)
+              .addRaw(table, true)
+              .write();
