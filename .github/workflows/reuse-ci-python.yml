@@ -43,12 +43,8 @@ jobs:
         py: ${{ fromJson(inputs.python_matrix) }}
     outputs:
       coverage: ${{ steps.cov_out.outputs.cov || '' }}
-      run_id: ${{ steps.run_meta.outputs.run_id || github.run_id }}
+      run_id: ${{ github.run_id }}
     steps:
-      - name: Capture run metadata
-        id: run_meta
-        run: |
-          echo "run_id=${{ github.run_id }}" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
