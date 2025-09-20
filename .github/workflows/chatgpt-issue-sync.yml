@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       raw_input:
-        description: "Paste the ChatGPT topic list"
+        description: Paste the ChatGPT topic list.
         required: false
         type: string
       source_url:
-        description: "URL containing the ChatGPT topic list"
+        description: URL containing the ChatGPT topic list.
         required: false
         type: string
 
@@ -21,23 +21,17 @@ jobs:
       issues: write
     steps:
       - name: Prepare topic source
-        id: prepare
-        shell: bash
         env:
           RAW_INPUT_JSON: ${{ toJson(github.event.inputs.raw_input) }}
           SOURCE_URL: ${{ github.event.inputs.source_url }}
         run: |
           set -euo pipefail
           if [ -n "${RAW_INPUT_JSON}" ] && [ "${RAW_INPUT_JSON}" != "null" ]; then
-            python3 -c "import json,os;raw=os.environ.get('RAW_INPUT_JSON');\nimport sys;\ntry:\n    text=json.loads(raw) if raw not in (None,'null','') else ''\nexcept Exception:\n    text=raw or ''\ntext=(text or '').rstrip('\\r\\n');\nopen('input.txt','w',encoding='utf-8').write((text+'\\n') if text.strip() else '')"
+            printf '%s' "${RAW_INPUT_JSON}" > raw_input.json
+            python .github/scripts/decode_raw_input.py
           elif [ -n "${SOURCE_URL}" ]; then
-            if command -v curl >/dev/null 2>&1; then
-              if ! curl -fsSL "${SOURCE_URL}" -o input.txt; then
-                echo "::error::Failed to download content from ${SOURCE_URL}" >&2
-                exit 1
-              fi
-            else
-              echo "::error::curl is not available on the runner" >&2
+            if ! curl -fsSL "${SOURCE_URL}" -o input.txt; then
+              echo "::error::Failed to download content from ${SOURCE_URL}" >&2
               exit 1
             fi
           else
@@ -50,8 +44,6 @@ jobs:
           fi
 
       - name: Parse topics
-        id: parse
-        shell: bash
         env:
           ALLOW_SINGLE_TOPIC: '1'
         run: |
@@ -65,8 +57,8 @@ jobs:
             ec=$?
             case "$ec" in
               2) echo '::error::Exit 2 (empty after trimming). Ensure raw_input or source_url contains non-whitespace content.' ;;
-              3) echo '::error::Exit 3 (no enumerated topics). Add lines like "1) Title" or rely on fallback (enabled).' ;;
-              4) echo '::error::Exit 4 (parsed zero topics unexpectedly). File a bug with sample input.' ;;
+              3) echo '::error::Exit 3 (no enumerated topics). Provide numbered lines.' ;;
+              4) echo '::error::Exit 4 (parsed zero topics unexpectedly).' ;;
               *) echo "::error::Parser failed with exit code $ec." ;;
             esac
             exit $ec
@@ -129,19 +121,26 @@ jobs:
                     const d=levenshtein(m.norm,norm); const r=d/Math.max(m.norm.length,norm.length);
                     if (r<bestScore){best=m.label.name; bestScore=r;}
                   }
-                  // Empirical fuzzy match threshold: 0.35 chosen to balance false positives/negatives in label matching.
-                  // Lower for stricter matches, higher for looser; tune with real data if needed.
                   if (best!==null && bestScore<=0.35) return best;
+                }
               }
               return null;
             };
             const generateColor = (name) => {
               const base = crypto.createHash('md5').update(name.toLowerCase()).digest('hex').slice(0,6);
-              // Use 0x111111 stepping to generate visually distinct colors by incrementing the base color.
-              // If all such colors are exhausted, fall back to a default gray ('777777').
               if (!usedColors.has(base)){ usedColors.add(base); return base; }
-              let c=1; while (c<4096){ const val=(parseInt(base,16)+c*0x111111)%0xffffff; const cand=val.toString(16).padStart(6,'0'); if(!usedColors.has(cand)){usedColors.add(cand); return cand;} c++; }
-              usedColors.add('777777'); return '777777';
+              let c = 1;
+              while (c < 4096) {
+                const val = (parseInt(base, 16) + c * 0x111111) % 0xffffff;
+                const cand = val.toString(16).padStart(6, '0');
+                if (!usedColors.has(cand)) {
+                  usedColors.add(cand);
+                  return cand;
+                }
+                c++;
+              }
+              usedColors.add('777777');
+              return '777777';
             };
             const ensureLabel = async (input) => {
               const trimmed=input.trim(); if(!trimmed) return null;
@@ -171,12 +170,12 @@ jobs:
                 const desired=[]; for (const rawLabel of topic.labels||[]){ const r=await ensureLabel(rawLabel); if(r) desired.push(r); else core.warning(`Skipped label \"${rawLabel}\" for ${topic.title}.`); }
                 const unique=Array.from(new Set(desired));
                 const body=buildBody(topic); const title=topic.title; const guid=topic.guid;
-                let issueNumber=null;
+                let issueNumber=null; let state='open';
                 const searchOpen=await github.rest.search.issuesAndPullRequests({ q:`repo:${owner}/${repo} \\\"${guid}\\\" in:body is:issue is:open`, per_page:1 });
                 if (searchOpen.data.items.length){ issueNumber=searchOpen.data.items[0].number; }
                 else {
                   const searchAny=await github.rest.search.issuesAndPullRequests({ q:`repo:${owner}/${repo} \\\"${guid}\\\" in:body is:issue`, per_page:1 });
-                  if (searchAny.data.items.length){ issueNumber=searchAny.data.items[0].number; }
+                  if (searchAny.data.items.length){ issueNumber=searchAny.data.items[0].number; state=searchAny.data.items[0].state; }
                 }
                 if (issueNumber){
                   const issueData=await github.rest.issues.get({owner,repo,issue_number:issueNumber});
