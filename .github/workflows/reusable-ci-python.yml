@@ -1,267 +1,132 @@
-name: reusable-ci-python
+name: Reusable Python CI
 
 on:
   workflow_call:
     inputs:
-      python-versions:
-        description: 'JSON array of Python versions'
-        required: false
-        default: '["3.11","3.12"]'
-        type: string
-      coverage-min:
-        description: 'Minimum coverage percentage gate'
-        required: false
-        default: '85'
-        type: string
-      marker-expr:
-        description: 'Pytest -m expression to select tests'
-        required: false
-        default: 'not quarantine and not slow'
-        type: string
-      run-full:
-        description: 'If true run full suite'
-        required: false
-        default: 'false'
-        type: string
-      include-slow:
-        description: 'Include slow tests'
-        required: false
-        default: 'false'
-        type: string
-      include-quarantine:
-        description: 'Include quarantine tests'
-        required: false
-        default: 'false'
-        type: string
-      run-mypy:
-        description: 'Run mypy after tests'
-        required: false
-        default: 'false'
-        type: string
-      webhook-url:
-        description: 'Optional webhook URL for summary'
-        required: false
-        default: ''
-        type: string
-      coverage-alert-drop:
-        description: 'Coverage drop alert threshold (planned future logic)'
-        required: false
-        default: '0'
-        type: string
-      enable-metrics:
-        description: 'Enable Phase1 metrics extraction (slow / failing tests)'
-        required: false
-        default: 'false'
-        type: string
-      slow-test-top:
-        description: 'Top N slow tests to record when metrics enabled'
-        required: false
-        default: '10'
-        type: string
-      slow-test-min-seconds:
-        description: 'Minimum duration (s) to include in slow test list'
-        required: false
-        default: '0'
-        type: string
-      enable-classification:
-        description: 'Enable log-based failure classification summary'
-        required: false
-        default: 'false'
-        type: string
-      enable-history:
-        description: 'Enable writing NDJSON historical metrics line'
-        required: false
-        default: 'false'
-        type: string
-      history-artifact-name:
-        description: 'Artifact name for metrics history (NDJSON)'
-        required: false
-        default: 'ci-history'
-        type: string
-
-concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+      python-versions: { description: 'JSON list Python versions', required: false, default: '["3.11"]', type: string }
+      coverage-min: { description: 'Minimum coverage percent', required: false, default: '70', type: string }
+      run-mypy: { description: 'Run mypy job', required: false, default: 'true', type: string }
+      # Phase 1 – Metrics extraction inputs
+      enable-metrics: { description: 'Enable metrics extraction (ci-metrics.json)', required: false, default: 'false', type: string }
+      slow-test-top: { description: 'Count of slow tests to report', required: false, default: '15', type: string }
+      slow-test-min-seconds: { description: 'Min seconds for slow test list', required: false, default: '1', type: string }
+      # Phase 2 – Classification & history logging
+      enable-classification: { description: 'Enable failure classification', required: false, default: 'false', type: string }
+      enable-history: { description: 'Enable metrics history append', required: false, default: 'false', type: string }
+      history-artifact-name: { description: 'Artifact name for metrics history', required: false, default: 'metrics-history.ndjson', type: string }
+      # Phase 3 – Coverage delta
+      enable-coverage-delta: { description: 'Enable coverage delta evaluation', required: false, default: 'false', type: string }
+      baseline-coverage: { description: 'Baseline coverage percent', required: false, default: '0', type: string }
+      coverage-alert-drop: { description: 'Coverage drop alert threshold (pct pts)', required: false, default: '1', type: string }
+      fail-on-coverage-drop: { description: 'Fail if drop >= threshold', required: false, default: 'false', type: string }
+      coverage-drop-label: { description: 'Label to add on drop (future)', required: false, default: 'coverage-drop', type: string }
 
 jobs:
   tests:
-    name: tests (py ${{ matrix.py }})
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: false
       matrix:
-        py: ${{ fromJson(inputs.python-versions) }}
+        python-version: ${{ fromJson(inputs.python-versions) }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.py }}
-      - name: Install dependencies
+          python-version: ${{ matrix.python-version }}
+      - name: Install deps
         run: |
           python -m pip install -U pip
           pip install -r requirements.txt
-          pip install -e .[dev] pytest pytest-cov
-      - name: Derive marker expression
-        id: markers
-        shell: bash
+          pip install pytest pytest-cov
+      - name: Run tests with coverage
         run: |
-          if [[ "${{ inputs.run-full }}" == "true" ]]; then echo "value=" >> $GITHUB_OUTPUT; exit 0; fi
-          BASE='${{ inputs.marker-expr }}'
-          if [[ "${{ inputs.include-slow }}" == "true" ]]; then BASE=$(echo "$BASE" | sed -E 's/ ?and not slow//'); fi
-          if [[ "${{ inputs.include-quarantine }}" == "true" ]]; then BASE=$(echo "$BASE" | sed -E 's/ ?and not quarantine//'); fi
-          echo "value=$BASE" >> $GITHUB_OUTPUT
-      - name: Run tests
-        id: run_tests
-        shell: bash
+          pytest --junitxml=pytest-junit.xml --cov=src --cov-report=xml:coverage.xml --cov-report=term-missing --cov-branch
+      - name: Extract test metrics
+        if: ${{ inputs.enable-metrics == 'true' }}
         run: |
-          set -o pipefail
-          MARK='${{ steps.markers.outputs.value }}'
-          if [ "${{ inputs.run-full }}" = "true" ] || [ -z "$MARK" ]; then
-            pytest --junitxml=pytest-junit.xml --cov=src --cov-report=term-missing --cov-report=xml:coverage.xml --cov-branch --cov-fail-under=${{ inputs.coverage-min }} 2>&1 | tee pytest.log || echo $? > test_status
-          else
-            pytest -m "$MARK" --junitxml=pytest-junit.xml --cov=src --cov-report=term-missing --cov-report=xml:coverage.xml --cov-branch --cov-fail-under=${{ inputs.coverage-min }} 2>&1 | tee pytest.log || echo $? > test_status
-          fi
-          echo "status=$(cat test_status 2>/dev/null || echo 0)" >> $GITHUB_OUTPUT
-      - name: Classify (Phase2)
-        if: inputs.enable-classification == 'true'
-        id: classify
-        shell: bash
-        run: |
-          cls=green
-          s='${{ steps.run_tests.outputs.status }}'
-          if [ "$s" != "0" ]; then
-            log=pytest.log
-            grep -qi 'ModuleNotFoundError' "$log" && cls=import_error || true
-            grep -qi 'ImportError' "$log" && cls=import_error || true
-            grep -qi 'SyntaxError' "$log" && cls=syntax_error || true
-            grep -qi 'AssertionError' "$log" && cls=assertion_failure || true
-            grep -qi 'Timeout' "$log" && cls=timeout || true
-          fi
-          echo "classification=$cls" >> $GITHUB_OUTPUT
-      - name: Coverage gate
-        if: inputs.coverage-min != ''
-        shell: bash
-        run: |
-          if [ -f coverage.xml ]; then
-            pct=$(grep -Eo 'line-rate="[0-9.]+"' coverage.xml | head -1 | sed -E 's/.*"([0-9.]+)"/\1/')
-            pct=$(python -c "print(f'{float($pct)*100:.2f}')")
-            min=${{ inputs.coverage-min }}
-            awk -v a="$pct" -v b="$min" 'BEGIN { exit (a+0 < b+0) ? 1 : 0 }'
-            echo "Coverage: $pct% (min $min%)"
-          else
-            echo "coverage.xml missing"; exit 1
-          fi
-      - name: Optional mypy
-        if: inputs.run-mypy == 'true'
-        run: |
-          pip install mypy
-          mypy --ignore-missing-imports src || true
-      - name: Webhook (placeholder)
-        if: inputs.webhook-url != ''
-        run: |
-          echo '{"status":"ok"}' > payload.json
-          curl -s -X POST -H 'Content-Type: application/json' -d @payload.json '${{ inputs.webhook-url }}' || true
-      - name: Extract metrics (Phase1)
-        if: inputs.enable-metrics == 'true'
-        shell: bash
-        run: |
-          python - <<'PY'
-          import xml.etree.ElementTree as ET, json, os
-          PATH = 'pytest-junit.xml'
-          if not os.path.exists(PATH):
-              raise SystemExit('pytest-junit.xml missing for metrics extraction')
-          root = ET.parse(PATH).getroot()
-          tests = []  # (name, classname, dur, status)
-          for case in root.iter('testcase'):
-              name = case.get('name') or ''
-              classname = case.get('classname') or ''
-              try:
-                  dur = float(case.get('time') or '0')
-              except ValueError:
-                  dur = 0.0
-              status = 'passed'
-              if any(child.tag in ('failure','error') for child in case):
-                  status = 'failed'
-              elif any(child.tag == 'skipped' for child in case):
-                  status = 'skipped'
-              tests.append((name, classname, dur, status))
-          total = len(tests)
-            
-          failed = [t for t in tests if t[3] == 'failed']
-          skipped = [t for t in tests if t[3] == 'skipped']
-          passed = [t for t in tests if t[3] == 'passed']
-          top_n = int(os.getenv('TOP_N','10'))
-          min_s = float(os.getenv('MIN_S','0'))
-          slow = sorted([t for t in tests if t[2] >= min_s], key=lambda x: x[2], reverse=True)[:top_n]
-          payload = {
-            'summary': {
-              'total': total,
-              'passed': len(passed),
-              'failed': len(failed),
-              'skipped': len(skipped),
-            },
-            'failed_tests': [
-              {'name': n,'classname': c,'duration_s': d} for (n,c,d,s) in failed
-            ],
-            'slow_tests': [
-              {'name': n,'classname': c,'duration_s': d} for (n,c,d,s) in slow
-            ],
-          }
-          with open('ci-metrics.json','w') as fh:
-              json.dump(payload, fh, indent=2)
-          print('Wrote ci-metrics.json with', len(payload['slow_tests']), 'slow tests and', len(payload['failed_tests']), 'failures')
-          PY
+          python scripts/ci_metrics.py || { echo "ci_metrics.py failed" >&2; exit 1; }
         env:
+          JUNIT_PATH: pytest-junit.xml
+          OUTPUT_PATH: ci-metrics.json
           TOP_N: ${{ inputs.slow-test-top }}
-          MIN_S: ${{ inputs.slow-test-min-seconds }}
+          MIN_SECONDS: ${{ inputs.slow-test-min-seconds }}
       - name: Upload metrics artifact
-        if: inputs.enable-metrics == 'true'
+        if: ${{ inputs.enable-metrics == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: ci-metrics
           path: ci-metrics.json
-      - name: Append history (Phase2)
-        if: inputs.enable-history == 'true'
-        shell: bash
+      - name: Enforce coverage minimum
         run: |
-          python - <<'PY'
-          import json, os, time, hashlib
-          line = {
-            'timestamp': int(time.time()),
-            'sha': os.getenv('GITHUB_SHA'),
-            'ref': os.getenv('GITHUB_REF'),
-            'workflow': os.getenv('GITHUB_WORKFLOW'),
-            'enable_metrics': os.getenv('ENABLE_METRICS'),
-          }
-          # include metrics summary if present
-          if os.path.exists('ci-metrics.json'):
-              try:
-                  with open('ci-metrics.json') as fh:
-                      data = json.load(fh)
-                  line['summary'] = data.get('summary')
-                  line['failed_count'] = len(data.get('failed_tests', []))
-                  line['slow_count'] = len(data.get('slow_tests', []))
-              except Exception as e:
-                  line['metrics_error'] = str(e)
-          # classification
-          cls = os.getenv('CLASSIFICATION')
-          if cls:
-              line['classification'] = cls
-          # produce deterministic id
-          m = hashlib.sha256()
-          m.update(repr(line).encode())
-          line['id'] = m.hexdigest()[:16]
-          with open('metrics-history.ndjson','a') as out:
-              out.write(json.dumps(line, separators=(',',':')) + '\n')
-          print('Appended history line id', line['id'])
-          PY
+          if [ ! -f coverage.xml ]; then echo 'coverage.xml missing'; exit 1; fi
+          RAW=$(grep -Eo 'line-rate="[0-9.]+' coverage.xml | head -1 | sed -E 's/.*"([0-9.]+)$/\1/')
+          PCT=$(python -c "print('{:.2f}'.format(float('$RAW')*100.0))")
+          echo "Current coverage: $PCT%"
+          MIN=${{ inputs.coverage-min }}
+          python -c "import sys; c=float('$PCT'); m=float('$MIN'); sys.exit(0 if c>=m else 1)" || { echo "Coverage $PCT% < min $MIN%" >&2; exit 1; }
+      - name: Coverage delta
+        if: ${{ inputs.enable-coverage-delta == 'true' }}
+        run: |
+          python scripts/ci_coverage_delta.py || exit 1
         env:
-          ENABLE_METRICS: ${{ inputs.enable-metrics }}
-          CLASSIFICATION: ${{ steps.classify.outputs.classification }}
-      - name: Upload history artifact (Phase2)
-        if: inputs.enable-history == 'true'
+          BASELINE_COVERAGE: ${{ inputs.baseline-coverage }}
+          ALERT_DROP: ${{ inputs.coverage-alert-drop }}
+          FAIL_ON_DROP: ${{ inputs.fail-on-coverage-drop }}
+      - name: Upload coverage delta artifact
+        if: ${{ inputs.enable-coverage-delta == 'true' }}
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.history-artifact-name }}
-          path: metrics-history.ndjson
+          name: coverage-delta
+          path: coverage-delta.json
+      - name: History & classification
+        if: ${{ inputs.enable-history == 'true' || inputs.enable-classification == 'true' }}
+        run: |
+          python scripts/ci_history.py || { echo "ci_history.py failed" >&2; exit 1; }
+        env:
+          JUNIT_PATH: pytest-junit.xml
+          METRICS_PATH: ci-metrics.json
+          HISTORY_PATH: ${{ inputs.history-artifact-name }}
+          ENABLE_CLASSIFICATION: ${{ inputs.enable-classification }}
+          CLASSIFICATION_OUT: classification.json
+      - name: Upload history artifact
+        if: ${{ inputs.enable-history == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: metrics-history
+          path: ${{ inputs.history-artifact-name }}
+      - name: Upload classification artifact
+        if: ${{ inputs.enable-classification == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: classification
+          path: classification.json
+      - name: CI summary
+        run: |
+          echo "## CI Summary" >> $GITHUB_STEP_SUMMARY
+          if [ -f ci-metrics.json ]; then echo "- Metrics: present" >> $GITHUB_STEP_SUMMARY; else echo "- Metrics: (disabled)" >> $GITHUB_STEP_SUMMARY; fi
+          if [ -f coverage-delta.json ]; then
+            CUR=$(jq -r .current coverage-delta.json 2>/dev/null || echo '?')
+            BASE=$(jq -r .baseline coverage-delta.json 2>/dev/null || echo '?')
+            DELTA=$(jq -r .delta coverage-delta.json 2>/dev/null || echo '?')
+            echo "- Coverage delta: current=$CUR baseline=$BASE delta=$DELTA" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- Coverage delta: (disabled)" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ -f classification.json ]; then echo "- Classification: present" >> $GITHUB_STEP_SUMMARY; else echo "- Classification: (disabled)" >> $GITHUB_STEP_SUMMARY; fi
+          if [ -f ${{ inputs.history-artifact-name }} ]; then echo "- History: appended" >> $GITHUB_STEP_SUMMARY; else echo "- History: (disabled)" >> $GITHUB_STEP_SUMMARY; fi
+
+  mypy:
+    if: ${{ inputs.run-mypy == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install deps
+        run: |
+          python -m pip install -U pip
+          pip install -r requirements.txt
+          pip install mypy
+      - name: Run mypy
+        run: mypy src || (echo 'mypy failed' && exit 1)
 
