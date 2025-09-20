@@ -2,11 +2,23 @@
 
 from collections import UserDict
 from types import MappingProxyType
-from typing import (Any, Mapping, MutableMapping, MutableSequence, Union, cast,
-                    get_args, get_origin, get_type_hints)
+from typing import (
+    Any,
+    Mapping,
+    MutableMapping,
+    MutableSequence,
+    Union,
+    cast,
+    get_args,
+    get_origin,
+    get_type_hints,
+)
 
-from trend_analysis.typing import (CovarianceDiagonal, MultiPeriodPeriodResult,
-                                   StatsMapping)
+from trend_analysis.typing import (
+    CovarianceDiagonal,
+    MultiPeriodPeriodResult,
+    StatsMapping,
+)
 
 
 def test_multi_period_period_result_schema_matches_expected_contract() -> None:

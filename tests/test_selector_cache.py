@@ -1,12 +1,14 @@
 import numpy as np
 import pandas as pd
 
-from trend_analysis.core.rank_selection import (RiskStatsConfig,
-                                                clear_window_metric_cache,
-                                                get_window_metric_bundle,
-                                                make_window_key,
-                                                rank_select_funds,
-                                                selector_cache_stats)
+from trend_analysis.core.rank_selection import (
+    RiskStatsConfig,
+    clear_window_metric_cache,
+    get_window_metric_bundle,
+    make_window_key,
+    rank_select_funds,
+    selector_cache_stats,
+)
 
 
 def test_rank_selector_reuses_cached_window_metrics() -> None:

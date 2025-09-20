@@ -32,6 +32,16 @@ src/trend_analysis/_autofix_violation_case2.py:49:5: F841 Local variable `data` 
    |
    = help: Remove assignment to unused variable `data`
 
+src/trend_analysis/proxy/server.py:40:36: F401 [*] `websockets.legacy.client.WebSocketClientProtocol` imported but unused
+   |
+38 |     from uvicorn import Config as _UvicornConfig  # noqa: F401
+39 |     from websockets.legacy.client import (
+40 |         WebSocketClientProtocol as _WebsocketProtocol,
+   |                                    ^^^^^^^^^^^^^^^^^^ F401
+41 |     )  # noqa: F401
+   |
+   = help: Remove unused import: `websockets.legacy.client.WebSocketClientProtocol`
+
 tests/test_multi_period_engine_threshold_events_extended.py:109:28: F821 Undefined name `Tuple`
     |
 107 |         self.sequences = sequences
@@ -42,24 +52,24 @@ tests/test_multi_period_engine_threshold_events_extended.py:109:28: F821 Undefin
 111 |     def weight(self, selected: pd.DataFrame, date: pd.Timestamp) -> pd.DataFrame:
     |
 
-tests/test_trend_analysis_typing_contract.py:38:12: E721 Use `is` and `is not` for type comparisons, or `isinstance()` for isinstance checks
+tests/test_trend_analysis_typing_contract.py:50:12: E721 Use `is` and `is not` for type comparisons, or `isinstance()` for isinstance checks
    |
-37 |     assert hints["manager_changes"] == MutableSequence[dict[str, object]]
-38 |     assert hints["turnover"] == float
+49 |     assert hints["manager_changes"] == MutableSequence[dict[str, object]]
+50 |     assert hints["turnover"] == float
    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^ E721
-39 |     assert hints["transaction_cost"] == float
-40 |     cov_diag_hint = cast(Any, hints["cov_diag"])
+51 |     assert hints["transaction_cost"] == float
+52 |     cov_diag_hint = cast(Any, hints["cov_diag"])
    |
 
-tests/test_trend_analysis_typing_contract.py:39:12: E721 Use `is` and `is not` for type comparisons, or `isinstance()` for isinstance checks
+tests/test_trend_analysis_typing_contract.py:51:12: E721 Use `is` and `is not` for type comparisons, or `isinstance()` for isinstance checks
    |
-37 |     assert hints["manager_changes"] == MutableSequence[dict[str, object]]
-38 |     assert hints["turnover"] == float
-39 |     assert hints["transaction_cost"] == float
+49 |     assert hints["manager_changes"] == MutableSequence[dict[str, object]]
+50 |     assert hints["turnover"] == float
+51 |     assert hints["transaction_cost"] == float
    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E721
-40 |     cov_diag_hint = cast(Any, hints["cov_diag"])
-41 |     # ``TypeAlias`` annotations resolve to ``list[float]`` at runtime on
+52 |     cov_diag_hint = cast(Any, hints["cov_diag"])
+53 |     # ``TypeAlias`` annotations resolve to ``list[float]`` at runtime on
    |
 
-Found 7 errors.
-No fixes available (1 hidden fix can be enabled with the `--unsafe-fixes` option).
+Found 8 errors.
+[*] 1 fixable with the `--fix` option (1 hidden fix can be enabled with the `--unsafe-fixes` option).
