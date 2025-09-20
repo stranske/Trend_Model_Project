@@ -8,7 +8,7 @@ on:
         required: false
         type: string
       source_url:
-        description: URL containing the ChatGPT topic list
+        description: URL containing the ChatGPT topic list.
         required: false
         type: string
 
