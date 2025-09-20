@@ -202,16 +202,15 @@ class StreamlitProxy:
         _assert_deps()
         normalized = path if path.startswith("/") else f"/{path}"
         target_url = urljoin(self.streamlit_base_url, normalized)
-        query = getattr(request.url, "query", "")
-        if isinstance(query, bytes):
-            try:
-                decoded_query = query.decode()
-            except UnicodeDecodeError:
-                decoded_query = query.decode("latin-1", errors="ignore")
+        raw_query = getattr(request.url, "query", "")
+        if isinstance(raw_query, bytes):
+            query_string = raw_query.decode("utf-8", errors="ignore")
+        elif raw_query is None:
+            query_string = ""
         else:
-            decoded_query = str(query)
-        if decoded_query:
-            target_url += f"?{decoded_query}"
+            query_string = str(raw_query)
+        if query_string:
+            target_url += f"?{query_string}"
         logger.debug(
             "Proxying HTTP %s -> %s", getattr(request, "method", "?"), target_url
         )
