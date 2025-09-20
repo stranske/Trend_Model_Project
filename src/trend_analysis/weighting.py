@@ -10,14 +10,18 @@ import pandas as pd
 class BaseWeighting:
     """Base interface for weighting schemes."""
 
-    def weight(self, selected: pd.DataFrame) -> pd.DataFrame:
+    def weight(
+        self, selected: pd.DataFrame, date: pd.Timestamp | None = None
+    ) -> pd.DataFrame:
         raise NotImplementedError
 
 
 class EqualWeight(BaseWeighting):
     """Simple equal weighting."""
 
-    def weight(self, selected: pd.DataFrame) -> pd.DataFrame:
+    def weight(
+        self, selected: pd.DataFrame, date: pd.Timestamp | None = None
+    ) -> pd.DataFrame:
         if selected.empty:
             return pd.DataFrame(columns=["weight"])
         n = len(selected)
@@ -32,7 +36,9 @@ class ScorePropSimple(BaseWeighting):
     def __init__(self, column: str = "Sharpe") -> None:
         self.column = column
 
-    def weight(self, selected: pd.DataFrame) -> pd.DataFrame:
+    def weight(
+        self, selected: pd.DataFrame, date: pd.Timestamp | None = None
+    ) -> pd.DataFrame:
         if selected.empty:
             return pd.DataFrame(columns=["weight"])
         if self.column not in selected.columns:
@@ -51,7 +57,9 @@ class ScorePropBayesian(BaseWeighting):
         self.column = column
         self.tau = float(shrink_tau)
 
-    def weight(self, selected: pd.DataFrame) -> pd.DataFrame:
+    def weight(
+        self, selected: pd.DataFrame, date: pd.Timestamp | None = None
+    ) -> pd.DataFrame:
         if selected.empty:
             return pd.DataFrame(columns=["weight"])
         if self.column not in selected.columns:
@@ -123,7 +131,9 @@ class AdaptiveBayesWeighting(BaseWeighting):
         self.mean.loc[scores.index] = m_new
         self.tau.loc[scores.index] = tau_new
 
-    def weight(self, candidates: pd.DataFrame) -> pd.DataFrame:
+    def weight(
+        self, candidates: pd.DataFrame, date: pd.Timestamp | None = None
+    ) -> pd.DataFrame:
         if len(candidates.index) == 0:
             return pd.DataFrame(columns=["weight"])
         self._ensure_index(candidates.index)
