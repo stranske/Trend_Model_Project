@@ -290,3 +290,33 @@ def test_close_closes_client(proxy_fixture):
     proxy, client = proxy_fixture
     asyncio.run(proxy.close())
     client.aclose.assert_awaited_once()
+
+
+def test_run_proxy_closes_on_start_failure(monkeypatch):
+    events: list[tuple[str, tuple[object, ...]]] = []
+
+    class DummyProxy:
+        def __init__(self, *args: object) -> None:
+            events.append(("init", args))
+
+        async def start(self, host: str, port: int) -> None:
+            events.append(("start", (host, port)))
+            raise RuntimeError("boom")
+
+        async def close(self) -> None:
+            events.append(("close", ()))
+
+    monkeypatch.setattr(server, "StreamlitProxy", DummyProxy)
+
+    original_run = asyncio.run
+
+    def fake_run(coro):
+        return original_run(coro)
+
+    monkeypatch.setattr(server.asyncio, "run", fake_run)
+
+    with pytest.raises(RuntimeError):
+        server.run_proxy("alpha", 1234, "beta", 4321)
+
+    assert events[0][0] == "init"
+    assert any(name == "close" for name, _ in events)

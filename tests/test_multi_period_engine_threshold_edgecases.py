@@ -683,3 +683,222 @@ def test_run_schedule_applies_strategy_and_turnover_fast_path(
     assert len(weighting.update_calls) == 2
     assert weighting.update_calls[0][1] == 0
     assert weighting.update_calls[1][1] > 0
+
+
+def test_threshold_hold_enforces_bounds_and_replacement_flow(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Exercise weight-bound enforcement, dedupe, and replacement logic."""
+
+    cfg = DummyConfig()
+    cfg.portfolio["threshold_hold"].update(
+        {
+            "target_n": 5,
+            "metric": "Sharpe",
+            "z_exit_soft": -0.5,
+            "z_entry_soft": -0.5,
+        }
+    )
+    cfg.portfolio["constraints"].update(
+        {
+            "max_funds": 3,
+            "min_weight": 0.05,
+            "max_weight": 0.6,
+            "min_weight_strikes": 2,
+        }
+    )
+    cfg.portfolio.update(
+        {
+            "transaction_cost_bps": 25.0,
+            "max_turnover": 0.2,
+            "indices_list": ["Index Bench"],
+        }
+    )
+
+    dates = pd.date_range("2020-01-31", periods=6, freq="M")
+    df = pd.DataFrame(
+        {
+            "Date": [d.strftime("%Y-%m-%d") for d in dates],
+            "Alpha One": [0.05, 0.04, 0.03, 0.02, 0.01, 0.02],
+            "Alpha Two": [0.03, 0.02, 0.01, 0.02, 0.01, 0.02],
+            "Bravo One": [0.04, 0.03, 0.05, 0.04, 0.03, 0.02],
+            "Charlie One": [0.01, 0.02, 0.01, 0.02, 0.01, 0.02],
+            "Delta One": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            "Index Bench": [0.0] * 6,
+        }
+    )
+
+    periods = [
+        DummyPeriod("2020-01-31", "2020-03-31", "2020-04-30", "2020-04-30"),
+        DummyPeriod("2020-02-29", "2020-04-30", "2020-05-31", "2020-05-31"),
+    ]
+
+    monkeypatch.setattr(mp_engine, "generate_periods", lambda _cfg: periods)
+
+    metrics = {
+        "AnnualReturn": {
+            "Alpha One": 0.18,
+            "Alpha Two": 0.12,
+            "Bravo One": 0.16,
+            "Charlie One": 0.11,
+            "Delta One": 0.10,
+        },
+        "Volatility": {
+            "Alpha One": 0.20,
+            "Alpha Two": 0.18,
+            "Bravo One": 0.17,
+            "Charlie One": 0.15,
+            "Delta One": 0.16,
+        },
+        "Sharpe": {
+            "Alpha One": 1.60,
+            "Alpha Two": 1.30,
+            "Bravo One": 1.50,
+            "Charlie One": 1.35,
+            "Delta One": 1.05,
+        },
+        "Sortino": {
+            "Alpha One": 1.70,
+            "Alpha Two": 1.35,
+            "Bravo One": 1.55,
+            "Charlie One": 1.40,
+            "Delta One": 1.05,
+        },
+        "InformationRatio": {
+            "Alpha One": 1.40,
+            "Alpha Two": 1.10,
+            "Bravo One": 1.35,
+            "Charlie One": 1.15,
+            "Delta One": 0.90,
+        },
+        "MaxDrawdown": {
+            "Alpha One": -0.10,
+            "Alpha Two": -0.08,
+            "Bravo One": -0.09,
+            "Charlie One": -0.07,
+            "Delta One": -0.06,
+        },
+    }
+
+    from trend_analysis import selector as selector_mod
+    from trend_analysis.core import rank_selection as rank_mod
+
+    def fake_metric_series(frame: pd.DataFrame, metric: str, _cfg: Any) -> pd.Series:
+        values = metrics[metric]
+        return pd.Series({col: values[col] for col in frame.columns}, dtype=float)
+
+    monkeypatch.setattr(rank_mod, "_compute_metric_series", fake_metric_series)
+
+    class OrderedSelector:
+        def __init__(self, top_n: int, rank_column: str) -> None:
+            self.top_n = top_n
+            self.rank_column = rank_column
+
+        def select(self, score_frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+            ordered = score_frame.sort_values(self.rank_column, ascending=False)
+            picked = ordered.head(self.top_n)
+            return picked, picked
+
+    monkeypatch.setattr(
+        selector_mod,
+        "create_selector_by_name",
+        lambda _name, *, top_n, rank_column: OrderedSelector(top_n, rank_column),
+    )
+
+    class ScriptedWeighting:
+        def __init__(self, *_, **__) -> None:
+            self.calls = 0
+
+        def weight(self, selected: pd.DataFrame) -> pd.DataFrame:
+            sequences = [
+                {
+                    "Alpha One": 0.90,
+                    "Alpha Two": 0.40,
+                    "Bravo One": 0.90,
+                    "Charlie One": 0.01,
+                    "Delta One": 0.20,
+                },
+                {"Alpha One": 0.90, "Bravo One": 0.90, "Charlie One": 0.01},
+                {"Alpha One": 0.70, "Charlie One": 0.02},
+                {"Alpha One": 0.60, "Bravo One": 0.25, "Charlie One": 0.15},
+            ]
+            data = sequences[min(self.calls, len(sequences) - 1)]
+            weights = pd.Series(
+                [data.get(idx, 0.05) for idx in selected.index],
+                index=selected.index,
+                dtype=float,
+            )
+            self.calls += 1
+            return weights.to_frame("weight")
+
+        def update(self, scores: pd.Series, days: int) -> None:
+            return None
+
+    monkeypatch.setattr(mp_engine, "AdaptiveBayesWeighting", ScriptedWeighting)
+
+    class ScriptedRebalancer:
+        def __init__(self, *_cfg: Any) -> None:
+            self.invocations: list[pd.Series] = []
+
+        def apply_triggers(self, prev_weights: pd.Series, score_frame: pd.DataFrame) -> pd.Series:
+            self.invocations.append(prev_weights.copy())
+            return pd.Series(
+                {
+                    "Alpha One": float(prev_weights.get("Alpha One", 0.45)),
+                    "Alpha Two": 0.20,
+                    "Charlie One": float(prev_weights.get("Charlie One", 0.02)),
+                }
+            )
+
+    monkeypatch.setattr(mp_engine, "Rebalancer", ScriptedRebalancer)
+
+    run_calls: list[Dict[str, Any]] = []
+
+    def fake_run_analysis(
+        *_args: Any,
+        manual_funds: Sequence[str] | None = None,
+        custom_weights: Dict[str, float] | None = None,
+        **_kwargs: Any,
+    ) -> Dict[str, Any]:
+        run_calls.append(
+            {
+                "manual_funds": list(manual_funds or []),
+                "custom_weights": dict(custom_weights or {}),
+            }
+        )
+        return {
+            "selected_funds": list(manual_funds or []),
+            "in_sample_scaled": pd.DataFrame(),
+            "out_sample_scaled": pd.DataFrame(),
+            "in_sample_stats": {},
+            "out_sample_stats": {},
+            "out_sample_stats_raw": {},
+            "in_ew_stats": (),
+            "out_ew_stats": (),
+            "out_ew_stats_raw": (),
+            "in_user_stats": (),
+            "out_user_stats": (),
+            "out_user_stats_raw": (),
+            "ew_weights": {},
+            "fund_weights": {},
+            "benchmark_stats": {},
+            "benchmark_ir": {},
+            "score_frame": pd.DataFrame(),
+            "weight_engine_fallback": None,
+        }
+
+    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+
+    results = mp_engine.run(cfg, df=df)
+
+    assert len(results) == 2
+    assert [len(call["manual_funds"]) for call in run_calls] == [3, 3]
+    second_weights = run_calls[1]["custom_weights"]
+    assert set(second_weights) == {"Alpha One", "Bravo One", "Charlie One"}
+    assert any(event["reason"] == "seed" for event in results[0]["manager_changes"])
+
+    second_events = results[1]["manager_changes"]
+    reasons = {event["reason"] for event in second_events}
+    assert {"one_per_firm", "low_weight_strikes", "replacement"} <= reasons
+    assert results[1]["turnover"] > 0
+
