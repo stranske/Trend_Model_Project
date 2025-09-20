@@ -12,27 +12,95 @@ from pathlib import Path
 INPUT_PATH = Path("input.txt")
 OUTPUT_PATH = Path("topics.json")
 
+# Exit code conventions (documented for the workflow & tests):
+# 1 = generic failure / missing file (legacy paths kept)
+# 2 = empty input file
+# 3 = no numbered topics detected (and fallback disabled)
+# 4 = parsed produced zero topic objects (should not normally occur)
+
+import os
+
+ALLOW_FALLBACK = os.environ.get("ALLOW_SINGLE_TOPIC", "0") in {"1", "true", "True"}
+
 
 def _load_text() -> str:
     try:
         text = INPUT_PATH.read_text(encoding="utf-8").strip()
-    except FileNotFoundError as exc:  # pragma: no cover - guardrail for workflow execution
+    except (
+        FileNotFoundError
+    ) as exc:  # pragma: no cover - guardrail for workflow execution
         raise SystemExit("No input.txt found to parse.") from exc
     if not text:
         raise SystemExit("No topic content provided.")
     return text
 
 
-def _split_numbered_items(text: str) -> list[dict[str, str | list[str]]]:
-    numbered_pattern = re.compile(r"^\s*\d+[\).]\s+", re.MULTILINE)
-    items: list[dict[str, str | list[str]]] = []
-    current: dict[str, str | list[str]] | None = None
+def _split_numbered_items(text: str) -> list[dict[str, str | list[str] | bool]]:
+    """Split raw text into enumerated topic blocks.
+
+    Supports enumeration tokens:
+      Numeric: 1. 1) 1: 1-
+      Alpha:   A. A) A: A-
+      Alphanum: A1. A1) (letter followed by digits)
+
+    Adds continuity detection for numeric and alpha sequences; alphanum is left as-is.
+    Each returned item dict includes:
+      title, lines, enumerator, continuity_break (bool)
+    """
+    pattern = re.compile(
+        r"^\s*(?P<enum>(?:\d+|[A-Za-z]\d+|[A-Za-z]))[\).:\-]\s+(?P<title>.+)$"
+    )
+    items: list[dict[str, str | list[str] | bool]] = []
+    current: dict[str, str | list[str] | bool] | None = None
+    style: str | None = None  # 'numeric' | 'alpha' | 'alphanum'
+    last_enum_value: str | None = None
+
+    def detect_style(token: str) -> str:
+        if token.isdigit():
+            return "numeric"
+        if re.fullmatch(r"[A-Za-z]", token):
+            return "alpha"
+        if re.fullmatch(r"[A-Za-z]\d+", token):
+            return "alphanum"
+        return "unknown"
+
+    def continuity_ok(prev: str | None, current_token: str, current_style: str) -> bool:
+        if prev is None:
+            return True
+        if current_style == "numeric" and prev.isdigit() and current_token.isdigit():
+            try:
+                return int(current_token) == int(prev) + 1
+            except ValueError:  # pragma: no cover - defensive
+                return True
+        if (
+            current_style == "alpha"
+            and re.fullmatch(r"[A-Za-z]", prev)
+            and re.fullmatch(r"[A-Za-z]", current_token)
+        ):
+            return ord(current_token.upper()) == ord(prev.upper()) + 1
+        # For alphanum or unknown styles skip continuity enforcement
+        return True
+
     for raw_line in text.splitlines():
-        if numbered_pattern.match(raw_line):
-            title = numbered_pattern.sub("", raw_line, count=1).strip()
+        m = pattern.match(raw_line)
+        if m:
+            token = m.group("enum")
+            title = m.group("title").strip()
+            # Clean simple markdown emphasis and stray trailing punctuation that harms GUID stability
+            title = re.sub(r"^[*_`]+|[*_`]+$", "", title).strip()
+            title = title.rstrip(". ")
             if current:
                 items.append(current)
-            current = {"title": title, "lines": []}
+            if style is None:
+                style = detect_style(token)
+            is_cont_ok = continuity_ok(last_enum_value, token, style)
+            current = {
+                "title": title,
+                "lines": [],
+                "enumerator": token,
+                "continuity_break": not is_cont_ok,
+            }
+            last_enum_value = token
         else:
             if current is None:
                 continue
@@ -44,12 +112,18 @@ def _split_numbered_items(text: str) -> list[dict[str, str | list[str]]]:
     return items
 
 
-def _parse_sections(raw_lines: list[str]) -> tuple[list[str], dict[str, list[str]], list[str]]:
+def _parse_sections(
+    raw_lines: list[str],
+) -> tuple[list[str], dict[str, list[str]], list[str]]:
     section_aliases: dict[str, set[str]] = {
         "why": {"why"},
         "tasks": {"tasks"},
         "acceptance_criteria": {"acceptance criteria", "acceptance criteria."},
-        "implementation_notes": {"implementation notes", "implementation note", "notes"},
+        "implementation_notes": {
+            "implementation notes",
+            "implementation note",
+            "notes",
+        },
     }
 
     labels: list[str] = []
@@ -99,9 +173,34 @@ def _join_section(lines: list[str]) -> str:
     return "\n".join(lines).strip()
 
 
-def parse_topics() -> list[dict[str, object]]:
-    text = _load_text()
-    items = _split_numbered_items(text)
+def parse_text(
+    text: str, *, allow_single_fallback: bool = False
+) -> list[dict[str, object]]:
+    """Parse raw *text* into topic dictionaries.
+
+    Parameters
+    ----------
+    text : str
+        The raw input content.
+    allow_single_fallback : bool, default False
+        When True and no numbered topics are found, treat entire *text* as one topic.
+    """
+    try:
+        items = _split_numbered_items(text)
+    except SystemExit as exc:
+        if allow_single_fallback and "No numbered topics" in str(exc):
+            cleaned = text.strip()
+            if not cleaned:
+                raise SystemExit(2)
+            items = [
+                {
+                    "title": cleaned.splitlines()[0][:120].strip(),
+                    "lines": cleaned.splitlines()[1:],
+                }
+            ]
+        else:
+            # Re-raise original (will map to code 3 upstream if message matches)
+            raise
 
     parsed: list[dict[str, object]] = []
     for item in items:
@@ -112,18 +211,38 @@ def parse_topics() -> list[dict[str, object]]:
             "labels": labels,
             "sections": {key: _join_section(value) for key, value in sections.items()},
             "extras": _join_section(extras),
+            "enumerator": item.get("enumerator"),
+            "continuity_break": bool(item.get("continuity_break", False)),
         }
         normalized_title = re.sub(r"\s+", " ", item["title"].strip().lower())
         data["guid"] = str(uuid.uuid5(uuid.NAMESPACE_DNS, normalized_title))
         parsed.append(data)
-
     return parsed
 
 
+def parse_topics() -> list[dict[str, object]]:
+    text = _load_text()
+    return parse_text(text, allow_single_fallback=ALLOW_FALLBACK)
+
+
 def main() -> None:
-    parsed = parse_topics()
+    try:
+        parsed = parse_topics()
+    except SystemExit as exc:
+        msg = str(exc)
+        # Map specific messages to distinct exit codes for CI diagnostics
+        if msg.startswith("No input.txt"):
+            raise  # keep exit 1
+        if msg == "No topic content provided.":
+            raise SystemExit(2)
+        if msg.startswith("No numbered topics"):
+            raise SystemExit(3)
+        raise
+    if not parsed:
+        raise SystemExit(4)
+    preview = parsed[0]["title"] if parsed else ""  # defensive
     OUTPUT_PATH.write_text(json.dumps(parsed, indent=2), encoding="utf-8")
-    print(f"Parsed {len(parsed)} topic(s).")
+    print(f"Parsed {len(parsed)} topic(s). First title: {preview[:80]}")
 
 
 if __name__ == "__main__":
