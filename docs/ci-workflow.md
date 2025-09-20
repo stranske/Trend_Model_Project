@@ -138,4 +138,4 @@ The workflow writes a Markdown overview (artifacts presence + coverage stats) in
 * Slack/Teams summarizer job (out-of-repo dispatch) using artifacts.
 
 ---
-Last updated: YYYY-MM-DD (update when modifying workflow inputs or scripts).
+Last updated: 2024-06-10 (update when modifying workflow inputs or scripts).
