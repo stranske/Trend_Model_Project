@@ -1,7 +1,9 @@
+import logging
 from pathlib import Path
 
-from trend_analysis.logging import (error_summary, init_run_logger, log_step,
-                                    logfile_to_frame)
+from trend_analysis.logging import (RUN_LOGGER_NAME, error_summary,
+                                    get_default_log_path, init_run_logger,
+                                    latest_errors, log_step, logfile_to_frame)
 
 
 def test_logfile_helpers(tmp_path: Path):
@@ -54,3 +56,40 @@ def test_logfile_to_frame_flattens_scalar_extras(tmp_path: Path) -> None:
     assert "bar" not in df.columns
     extras = [extra for extra in df["extra"].tolist() if isinstance(extra, dict)]
     assert any("bar" in extra for extra in extras)
+
+
+def test_latest_errors_and_default_path(tmp_path: Path) -> None:
+    run_id = "err-log"
+    log_path = get_default_log_path(run_id, base=tmp_path)
+    logger = init_run_logger(run_id, log_path)
+
+    log_step(run_id, "prep", "starting")
+    logger.warning("warn", extra={"run_id": run_id, "step": "prep", "code": 1})
+    logger.error("boom", extra={"run_id": run_id, "step": "run", "code": 2})
+
+    errors = latest_errors(log_path, limit=5)
+    assert errors
+    assert errors[-1]["msg"] == "boom"
+    assert errors[-1]["extra"]["code"] == 2
+
+    summary = error_summary(log_path)
+    assert not summary.empty
+    assert summary.iloc[0]["msg"] == "boom"
+
+
+def test_log_step_no_handlers_is_noop() -> None:
+    logger = logging.getLogger(RUN_LOGGER_NAME)
+    handlers = list(logger.handlers)
+    try:
+        for handler in handlers:
+            logger.removeHandler(handler)
+        logger.propagate = False
+
+        # Should silently do nothing because no structured handler is registered.
+        log_step("no-run", "step", "message")
+
+        # No handlers should have been added implicitly.
+        assert not logger.handlers
+    finally:
+        for handler in handlers:
+            logger.addHandler(handler)

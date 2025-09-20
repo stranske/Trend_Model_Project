@@ -111,6 +111,53 @@ def test_cleanup_temp_files_handles_missing_files(tmp_path):
     assert io_utils._TEMP_FILES_TO_CLEANUP == []
 
 
+def test_cleanup_temp_files_handles_remove_error(tmp_path, monkeypatch):
+    io_utils._TEMP_FILES_TO_CLEANUP.clear()
+    stubborn = tmp_path / "stubborn.zip"
+    stubborn.write_text("x", encoding="utf-8")
+    io_utils._TEMP_FILES_TO_CLEANUP.append(str(stubborn))
+
+    def boom(path: str) -> None:  # noqa: D401
+        raise OSError("cannot remove")
+
+    monkeypatch.setattr(io_utils.os, "remove", boom)
+
+    io_utils._cleanup_temp_files()
+
+    # Registry should still be cleared even though the file remains.
+    assert io_utils._TEMP_FILES_TO_CLEANUP == []
+    assert stubborn.exists()
+    stubborn.unlink()
+
+
+def test_cleanup_bundle_file_recovers_after_error(tmp_path, monkeypatch):
+    io_utils._TEMP_FILES_TO_CLEANUP.clear()
+    bundle = tmp_path / "bundle.zip"
+    bundle.write_text("payload", encoding="utf-8")
+    io_utils._TEMP_FILES_TO_CLEANUP.append(str(bundle))
+
+    original_remove = io_utils.os.remove
+    calls = {"count": 0}
+
+    def flaky_remove(path: str) -> None:  # noqa: D401
+        if path == str(bundle) and calls["count"] == 0:
+            calls["count"] += 1
+            raise OSError("temp failure")
+        original_remove(path)
+
+    monkeypatch.setattr(io_utils.os, "remove", flaky_remove)
+
+    # First attempt should swallow the error and keep the file registered.
+    io_utils.cleanup_bundle_file(str(bundle))
+    assert str(bundle) in io_utils._TEMP_FILES_TO_CLEANUP
+    assert bundle.exists()
+
+    # Second attempt succeeds once the remover stops raising.
+    io_utils.cleanup_bundle_file(str(bundle))
+    assert str(bundle) not in io_utils._TEMP_FILES_TO_CLEANUP
+    assert not bundle.exists()
+
+
 def test_portfolio_app_main_invokes_streamlit(monkeypatch):
     """Running ``python -m trend_portfolio_app`` should invoke streamlit
     CLI."""

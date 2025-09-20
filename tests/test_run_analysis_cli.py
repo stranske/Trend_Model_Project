@@ -1,6 +1,8 @@
 from pathlib import Path
+import types
 
 import pandas as pd
+import pytest
 
 from trend_analysis import run_analysis
 
@@ -38,3 +40,30 @@ def test_cli_detailed(tmp_path, capsys):
     captured = capsys.readouterr().out
     assert rc == 0
     assert "cagr" in captured.lower()
+
+
+def test_main_raises_when_csv_path_missing(monkeypatch):
+    cfg = types.SimpleNamespace(
+        data={},
+        sample_split={},
+        export={},
+    )
+
+    monkeypatch.setattr(run_analysis, "load", lambda path: cfg)
+
+    with pytest.raises(KeyError):
+        run_analysis.main(["-c", "dummy.yml"])
+
+
+def test_main_raises_when_csv_missing(monkeypatch):
+    cfg = types.SimpleNamespace(
+        data={"csv_path": "missing.csv"},
+        sample_split={},
+        export={},
+    )
+
+    monkeypatch.setattr(run_analysis, "load", lambda path: cfg)
+    monkeypatch.setattr(run_analysis, "load_csv", lambda path: None)
+
+    with pytest.raises(FileNotFoundError):
+        run_analysis.main(["-c", "dummy.yml"])
