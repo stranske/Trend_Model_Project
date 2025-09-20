@@ -25,6 +25,9 @@ on:
       coverage:
         description: 'Reported coverage percentage (approx)'
         value: ${{ jobs.core-tests.outputs.coverage }}
+      run_id:
+        description: 'Workflow run id for artifact retrieval'
+        value: ${{ jobs.core-tests.outputs.run_id }}
 
 permissions:
   contents: read
@@ -40,7 +43,12 @@ jobs:
         py: ${{ fromJson(inputs.python_matrix) }}
     outputs:
       coverage: ${{ steps.cov_out.outputs.cov || '' }}
+      run_id: ${{ steps.run_meta.outputs.run_id || github.run_id }}
     steps:
+      - name: Capture run metadata
+        id: run_meta
+        run: |
+          echo "run_id=${{ github.run_id }}" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:

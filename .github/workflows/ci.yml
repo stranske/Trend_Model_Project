@@ -31,6 +31,7 @@ jobs:
       - name: Download coverage artifacts
         uses: actions/download-artifact@v4
         with:
+          run-id: ${{ needs.reuse.outputs.run_id || github.run_id }}
           pattern: coverage-*
           merge-multiple: true
           path: coverage_artifacts
@@ -93,7 +94,8 @@ jobs:
           else:
             header = "**Coverage data unavailable**\n\n"
 
-          hotspots = sorted(file_stats.items(), key=lambda item: item[1])[:15]
+          HOTSPOT_LIMIT = 15  # Capture the 15 lowest-covered files to keep the table concise.
+          hotspots = sorted(file_stats.items(), key=lambda item: item[1])[:HOTSPOT_LIMIT]
 
           with coverage_path.open('w', encoding='utf-8') as handle:
             handle.write(header)
