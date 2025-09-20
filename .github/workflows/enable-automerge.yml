@@ -21,7 +21,8 @@ jobs:
         contains(github.event.pull_request.labels.*.name, (vars.AGENT_FROM_LABEL_ALT || 'from:codex'))
       ) &&
       contains(github.event.pull_request.labels.*.name, (vars.AUTOMERGE_LABEL || 'automerge')) &&
-      contains(github.event.pull_request.labels.*.name, (vars.RISK_LABEL || 'risk:low'))
+      contains(github.event.pull_request.labels.*.name, (vars.RISK_LABEL || 'risk:low')) &&
+      contains(github.event.pull_request.labels.*.name, (vars.CI_LABEL || 'ci:green'))
     runs-on: ubuntu-latest
     steps:
       - name: Enable auto-merge (tentative)
@@ -86,7 +87,7 @@ jobs:
             const ok = !draft && (
               has(need('AGENT_FROM_LABEL','from:copilot')) ||
               has(need('AGENT_FROM_LABEL_ALT','from:codex'))
-            ) && has(need('AUTOMERGE_LABEL','automerge')) && has(need('RISK_LABEL','risk:low'));
+            ) && has(need('AUTOMERGE_LABEL','automerge')) && has(need('RISK_LABEL','risk:low')) && has(need('CI_LABEL','ci:green'));
             core.setOutput('eligible', String(ok));
             if(!ok){ core.info('Not eligible yet.'); }
         env:
