@@ -395,7 +395,7 @@ class TestDemoGoldenMaster:
         # Match the input stanza and capture the default value. We keep the
         # expression intentionally permissive so minor formatting updates in the
         # workflow do not require test changes.
-        # 
+        #
         # Regex explanation:
         #   Matches a YAML workflow input block with the specified key,
         #   including any indented metadata lines, followed by a ``default``
@@ -454,7 +454,9 @@ class TestDemoGoldenMaster:
 
             fail_under_raw = config.get("report", "fail_under", fallback="")
             if not fail_under_raw:
-                errors.append(f"Coverage profile {path} must define fail_under threshold")
+                errors.append(
+                    f"Coverage profile {path} must define fail_under threshold"
+                )
                 continue
 
             try:
@@ -477,11 +479,15 @@ class TestDemoGoldenMaster:
                 )
 
         if not active_profiles:
-            pytest.skip("Coverage profiles not configured; skipping coverage gate policy check")
+            pytest.skip(
+                "Coverage profiles not configured; skipping coverage gate policy check"
+            )
 
         script_path = Path("scripts/run_tests.sh")
         if not script_path.exists():
-            pytest.skip("run_tests.sh missing; coverage gate enforcement handled elsewhere")
+            pytest.skip(
+                "run_tests.sh missing; coverage gate enforcement handled elsewhere"
+            )
 
         script_content = script_path.read_text()
         rcfile_pattern = r"coverage run[^\n]+--rcfile \"\.coveragerc\.\$\{PROFILE\}\""

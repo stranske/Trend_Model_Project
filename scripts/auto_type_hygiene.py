@@ -114,7 +114,9 @@ def process_file(path: Path) -> tuple[bool, list[str]]:
                 new_lines.append(line)
                 continue
 
-            ignore_match = re.search(r"#\s*type:\s*ignore(?P<bracket>\[[^\]]*\])?", line)
+            ignore_match = re.search(
+                r"#\s*type:\s*ignore(?P<bracket>\[[^\]]*\])?", line
+            )
             if ignore_match:
                 bracket = ignore_match.group("bracket")
                 if bracket is None:
@@ -122,7 +124,11 @@ def process_file(path: Path) -> tuple[bool, list[str]]:
                 else:
                     bracket_content = bracket[1:-1].strip()
                     if bracket_content:
-                        codes = [code.strip() for code in bracket_content.split(",") if code.strip()]
+                        codes = [
+                            code.strip()
+                            for code in bracket_content.split(",")
+                            if code.strip()
+                        ]
                     else:
                         codes = []
                     if "import-untyped" in codes:
