@@ -11,6 +11,10 @@ on:
         description: URL containing the ChatGPT topic list
         required: false
         type: string
+      debug:
+        description: Enable verbose debug diagnostics
+        required: false
+        type: boolean
 
 jobs:
   sync:
@@ -43,6 +47,28 @@ jobs:
           if ! [ -s input.txt ]; then
             echo "::error::The provided input was empty." >&2
             exit 1
+          fi
+
+      - name: Debug artifacts (raw/decoded)
+        if: ${{ github.event.inputs.debug == 'true' }}
+        run: |
+          echo '--- DEBUG: file inventory ---'
+          ls -al . | sed 's/^/  /'
+          if [ -f raw_input.json ]; then
+            echo "--- DEBUG: raw_input.json (size) ---"; wc -c raw_input.json
+            echo '--- DEBUG: raw_input.json (first 240 chars) ---'
+            head -c 240 raw_input.json | sed 's/[[:cntrl:]]/./g'; echo
+            echo '--- DEBUG: raw_input.json (hexdump first 256 bytes) ---'
+            head -c 256 raw_input.json | hexdump -C || true
+          else
+            echo 'raw_input.json missing'
+          fi
+          if [ -f input.txt ]; then
+            echo "--- DEBUG: input.txt (size + line count) ---"; wc -cl input.txt
+            echo '--- DEBUG: input.txt (first 240 chars) ---'
+            head -c 240 input.txt | sed 's/[[:cntrl:]]/./g'; echo
+          else
+            echo 'input.txt missing'
           fi
 
       - name: Parse topics
