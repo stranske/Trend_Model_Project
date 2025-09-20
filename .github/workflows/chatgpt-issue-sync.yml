@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       raw_input:
-        description: Paste the ChatGPT topic list
+        description: Paste the ChatGPT topic list.
         required: false
         type: string
       source_url:
