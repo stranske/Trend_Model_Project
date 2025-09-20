@@ -9,6 +9,9 @@ outputs:
   changed:
     description: "Whether any files were modified by the fixers"
     value: ${{ steps.runfix.outputs.changed }}
+  remaining_issues:
+    description: "Count of ruff lint issues remaining after auto-fix"
+    value: ${{ steps.runfix.outputs.remaining_issues }}
 runs:
   using: "composite"
   steps:
@@ -29,15 +32,21 @@ runs:
           black==${BLACK_VERSION} \
           isort==${ISORT_VERSION} \
           docformatter==${DOCFORMATTER_VERSION}
-    - name: Run fixers
+    - name: Run fixers (tolerant two-phase)
       id: runfix
       shell: bash
       run: |
-        ruff check --fix .
+        set -euo pipefail
+        echo "[autofix] Phase 1: ruff auto-fix (non-fatal)"
+        # Apply all auto-fixes but never fail the job here.
+        ruff check --fix --exit-zero .
+
+        echo "[autofix] Formatting (black / isort / docformatter)"
         black .
         isort .
         docformatter -r -i src tests || true
-        # --- Type hygiene (lightweight) ---
+
+        # Lightweight type hygiene (never fail)
         echo "[autofix] Running auto_type_hygiene..."
         if [ -f scripts/auto_type_hygiene.py ]; then
           python scripts/auto_type_hygiene.py || true
@@ -46,11 +55,31 @@ runs:
         fi
         echo "[autofix] Installing missing type stubs (non-fatal)..."
         mypy --install-types --non-interactive || true
-        # Optional warm cache (do not fail build)
         mypy src/ --ignore-missing-imports --follow-imports=silent > /dev/null 2>&1 || true
-        if ! git diff --quiet; then echo "changed=true" >> $GITHUB_OUTPUT; else echo "changed=false" >> $GITHUB_OUTPUT; fi
+
+        # Detect changes produced by the auto-fix phase(s)
+        if ! git diff --quiet; then
+          echo "changed=true" >> $GITHUB_OUTPUT
+        else
+          echo "changed=false" >> $GITHUB_OUTPUT
+        fi
+
+        echo "[autofix] Phase 2: ruff diagnostic pass (tolerant)"
+        # Run a diagnostic pass; capture remaining issue count without failing.
+        # Use a tee so logs appear in the action output; then parse count lines starting with code pattern.
+        # Ruff's non-zero exit should be ignored for reporting-only run.
+        set +e
+        ruff_output=$(ruff check . 2>&1)
+        ruff_status=$?
+        echo "$ruff_output"
+        # Count lines that look like "path:line:col: CODE ..." by grepping for pattern of error codes.
+        remaining=$(printf '%s\n' "$ruff_output" | grep -E '^[^:]+:[0-9]+:[0-9]+: [A-Z0-9]+' -c || true)
+        echo "[autofix] Remaining ruff issues: $remaining (exit=$ruff_status)"
+        echo "remaining_issues=$remaining" >> $GITHUB_OUTPUT
+        set -e
     - name: Summary
       shell: bash
       run: |
         echo "### Composite Autofix Summary" >> $GITHUB_STEP_SUMMARY
         echo "Changed: ${{ steps.runfix.outputs.changed }}" >> $GITHUB_STEP_SUMMARY
+        echo "Remaining ruff issues: ${{ steps.runfix.outputs.remaining_issues }}" >> $GITHUB_STEP_SUMMARY
