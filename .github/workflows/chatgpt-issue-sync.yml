@@ -76,7 +76,7 @@ jobs:
           fi
 
       - name: Upload debug artifacts
-        if: ${{ github.event.inputs.debug == 'true' }}
+        if: ${{ always() && github.event.inputs.debug == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: chatgpt-sync-debug
@@ -84,6 +84,7 @@ jobs:
             raw_input.json
             input.txt
             topics.json
+            decode_debug.json
           if-no-files-found: ignore
 
       - name: Parse topics

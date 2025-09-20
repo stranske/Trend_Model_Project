@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+from typing import List, Dict, Any
 
 RAW_FILE = Path("raw_input.json")
 OUT_FILE = Path("input.txt")
@@ -26,36 +27,78 @@ def main() -> None:
     except Exception:
         # Treat as already unescaped plain text
         text = raw
-    text = (text or "").rstrip("\r\n")
+    original = text or ""
+    # Normalize CR-only to LF
+    original = original.replace("\r\n", "\n").replace("\r", "\n")
+    text = original.rstrip("\n")
 
     # Heuristic: if the input lost original line breaks (appears mostly as one very long line)
     # reconstruct newlines before common enumeration patterns so the parser can split topics.
-    if text and ("\n" not in text or text.count("\n") < 2):
-        # Insert a newline before occurrences of pattern like ' 2)' ' 3.' ' 4:' etc. when preceded by whitespace
-        # and a digit/letter enumerator. We avoid touching inside code blocks by the simplicity of early stage.
+    applied: List[str] = []
+
+    def apply_enumerator_newlines(s: str) -> str:
         pattern = re.compile(
-            r"(?:(?<=\s)|^)(?P<enum>([0-9]{1,3}|[A-Za-z]|[A-Za-z][0-9]+)[\)\.:\-])\s+"
+            r"(?<!\n)(?:(?<=\s)|^)(?P<enum>([0-9]{1,3}|[A-Za-z][0-9]*))[\)\.:\-]\s+"
         )
-        # To keep it simple, split on matches and rejoin with newline+token.
-        parts = []
+        parts: List[str] = []
         last = 0
-        for m in pattern.finditer(text):
+        for m in pattern.finditer(s):
             start = m.start()
             if start > last:
-                segment = text[last:start]
-                parts.append(segment)
-            # Start a new line at enumerator
-            parts.append("\n" + text[m.start() : m.end()])
+                parts.append(s[last:start])
+            parts.append("\n" + s[m.start() : m.end()])
             last = m.end()
-        if last < len(text):
-            parts.append(text[last:])
+        parts.append(s[last:])
         rebuilt = "".join(parts)
-        # If heuristic produced more newlines (improves structure), adopt it.
-        if rebuilt.count("\n") > text.count("\n"):
-            text = rebuilt.lstrip("\n")
+        if rebuilt.count("\n") > s.count("\n"):
+            applied.append("enumerators")
+            return rebuilt.lstrip("\n")
+        return s
+
+    def apply_section_headers(s: str) -> str:
+        # Insert newlines before key section markers if they appear in the middle of a long line
+        markers = [
+            " Why ",
+            " Tasks ",
+            " Acceptance criteria ",
+            " Implementation notes ",
+        ]
+        rebuilt = s
+        for m in markers:
+            # replace occurrences not already preceded by newline
+            rebuilt = re.sub(
+                rf"(?<!\n){re.escape(m)}", "\n" + m.strip() + "\n", rebuilt
+            )
+        if rebuilt != s:
+            applied.append("sections")
+        return rebuilt
+
+    text_before = text
+    if text and ("\n" not in text or text.count("\n") < 2):
+        text = apply_enumerator_newlines(text)
+        text = apply_section_headers(text)
+
+    # Fallback: if still almost no newlines but multiple enumerators exist, force split
+    if text.count("\n") < 2 and len(re.findall(r"[0-9]{1,3}[)\.:\-]", text)) >= 2:
+        forced = re.sub(r"\s+([0-9]{1,3}[)\.:\-])\s+", r"\n\1 ", text)
+        if forced != text:
+            applied.append("forced_split")
+            text = forced
+
+    diagnostics: Dict[str, Any] = {
+        "raw_len": len(original),
+        "raw_newlines": original.count("\n"),
+        "rebuilt_len": len(text),
+        "rebuilt_newlines": text.count("\n"),
+        "applied": applied,
+    }
 
     if text.strip():
         OUT_FILE.write_text(text + "\n", encoding="utf-8")
+    # Always write diagnostics when debug artifact collection might happen
+    Path("decode_debug.json").write_text(
+        json.dumps(diagnostics, indent=2), encoding="utf-8"
+    )
 
 
 if __name__ == "__main__":
