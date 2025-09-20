@@ -2,11 +2,23 @@
 
 from collections import UserDict
 from types import MappingProxyType
-from typing import (Any, Mapping, MutableMapping, MutableSequence, Union, cast,
-                    get_args, get_origin, get_type_hints)
+from typing import (
+    Any,
+    Mapping,
+    MutableMapping,
+    MutableSequence,
+    Union,
+    cast,
+    get_args,
+    get_origin,
+    get_type_hints,
+)
 
-from trend_analysis.typing import (CovarianceDiagonal, MultiPeriodPeriodResult,
-                                   StatsMapping)
+from trend_analysis.typing import (
+    CovarianceDiagonal,
+    MultiPeriodPeriodResult,
+    StatsMapping,
+)
 
 
 def test_multi_period_period_result_schema_matches_expected_contract() -> None:
@@ -35,8 +47,9 @@ def test_multi_period_period_result_schema_matches_expected_contract() -> None:
     assert_mapping_union(hints["cache_stats"])
 
     assert hints["manager_changes"] == MutableSequence[dict[str, object]]
-    assert hints["turnover"] == float
-    assert hints["transaction_cost"] == float
+    # identity comparison appropriate for bare builtin class objects
+    assert hints["turnover"] is float
+    assert hints["transaction_cost"] is float
     cov_diag_hint = cast(Any, hints["cov_diag"])
     # ``TypeAlias`` annotations resolve to ``list[float]`` at runtime on
     # supported Python versions.  Comparing directly against the specialised
