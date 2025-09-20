@@ -165,12 +165,14 @@ jobs:
             }
             const commentBody = commentSections.join('\n\n');
 
+            // GitHub green for coverage label (see https://primer.style/design/foundations/colors)
+            const COVERAGE_LABEL_COLOR = '0e8a16';
             async function ensureLabel() {
               try {
                 await github.rest.issues.getLabel({ owner, repo, name: label });
               } catch (error) {
                 if (error.status === 404) {
-                  await github.rest.issues.createLabel({ owner, repo, name: label, color: '0e8a16' });
+                  await github.rest.issues.createLabel({ owner, repo, name: label, color: COVERAGE_LABEL_COLOR });
                 } else {
                   throw error;
                 }
