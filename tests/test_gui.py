@@ -3,9 +3,8 @@ import importlib
 import sys
 from types import SimpleNamespace
 
-import yaml  # type: ignore[import-untyped]
-
 import trend_analysis.gui as gui
+import yaml  # type: ignore[import-untyped]
 
 
 def test_paramstore_roundtrip(tmp_path):

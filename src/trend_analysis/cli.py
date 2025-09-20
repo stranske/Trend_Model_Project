@@ -382,5 +382,6 @@ def main(argv: list[str] | None = None) -> int:
     # This shouldn't be reached with required=True.
     return 0
 
+
 if __name__ == "__main__":  # pragma: no cover - manual invocation
     raise SystemExit(main())

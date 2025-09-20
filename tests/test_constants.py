@@ -5,11 +5,13 @@ from pathlib import Path
 import pandas as pd
 
 from trend_analysis import cli, run_analysis, run_multi_analysis
-from trend_analysis.constants import (DEFAULT_OUTPUT_DIRECTORY,
-                                      DEFAULT_OUTPUT_FORMATS,
-                                      NUMERICAL_TOLERANCE_HIGH,
-                                      NUMERICAL_TOLERANCE_LOW,
-                                      NUMERICAL_TOLERANCE_MEDIUM)
+from trend_analysis.constants import (
+    DEFAULT_OUTPUT_DIRECTORY,
+    DEFAULT_OUTPUT_FORMATS,
+    NUMERICAL_TOLERANCE_HIGH,
+    NUMERICAL_TOLERANCE_LOW,
+    NUMERICAL_TOLERANCE_MEDIUM,
+)
 
 
 def test_constants_exist():
@@ -103,15 +105,15 @@ def test_numerical_tolerance_constants_in_use():
     modules."""
     # Test that the constants can be imported from specific modules that use them
     from trend_analysis.constants import NUMERICAL_TOLERANCE_HIGH as const_tol
-    from trend_analysis.engine.optimizer import \
-        NUMERICAL_TOLERANCE_HIGH as opt_tol
+    from trend_analysis.engine.optimizer import NUMERICAL_TOLERANCE_HIGH as opt_tol
 
     # Verify they are the same constant
     assert opt_tol is const_tol
     assert opt_tol == 1e-12
 
     # Test a few other modules
-    from trend_analysis.multi_period.engine import \
-        NUMERICAL_TOLERANCE_HIGH as engine_tol
+    from trend_analysis.multi_period.engine import (
+        NUMERICAL_TOLERANCE_HIGH as engine_tol,
+    )
 
     assert engine_tol is const_tol

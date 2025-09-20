@@ -2,8 +2,11 @@ import pandas as pd
 import pytest
 
 from trend_analysis.core.rank_selection import (
-    RiskStatsConfig, _apply_transform, rank_select_funds,
-    some_function_missing_annotation)
+    RiskStatsConfig,
+    _apply_transform,
+    rank_select_funds,
+    some_function_missing_annotation,
+)
 
 
 def test_apply_transform_percentile_and_errors():

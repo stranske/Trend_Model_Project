@@ -14,11 +14,13 @@ import pandas as pd
 import pytest
 
 from trend_analysis.core import rank_selection
-from trend_analysis.core.rank_selection import (FundSelectionConfig,
-                                                RiskStatsConfig,
-                                                WindowMetricBundle,
-                                                clear_window_metric_cache,
-                                                get_window_metric_bundle)
+from trend_analysis.core.rank_selection import (
+    FundSelectionConfig,
+    RiskStatsConfig,
+    WindowMetricBundle,
+    clear_window_metric_cache,
+    get_window_metric_bundle,
+)
 from trend_analysis.perf.cache import CovPayload
 
 

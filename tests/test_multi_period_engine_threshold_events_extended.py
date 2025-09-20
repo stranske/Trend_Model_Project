@@ -248,7 +248,9 @@ def _patch_metrics(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(rank_sel, "_compute_metric_series", fake_metric_series)
 
 
-def test_threshold_hold_event_log_and_replacements(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_threshold_hold_event_log_and_replacements(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     cfg = ThresholdConfig()
     df = _build_base_frame()
 
@@ -284,10 +286,25 @@ def test_threshold_hold_event_log_and_replacements(monkeypatch: pytest.MonkeyPat
         "AdaptiveBayesWeighting",
         lambda *args, **kwargs: SequencedWeighting(
             [
-                {"Alpha One": 0.7, "Beta One": 0.1, "Gamma One": 0.05, "Delta One": 0.05},
-                {"Alpha One": 0.8, "Beta One": 0.04, "Gamma One": 0.02, "Delta One": 0.01},
+                {
+                    "Alpha One": 0.7,
+                    "Beta One": 0.1,
+                    "Gamma One": 0.05,
+                    "Delta One": 0.05,
+                },
+                {
+                    "Alpha One": 0.8,
+                    "Beta One": 0.04,
+                    "Gamma One": 0.02,
+                    "Delta One": 0.01,
+                },
                 {"Alpha One": 0.7, "Gamma One": 0.05, "Delta One": 0.2},
-                {"Alpha One": 0.7, "Delta One": 0.2, "Epsilon One": 0.1, "Beta One": 0.05},
+                {
+                    "Alpha One": 0.7,
+                    "Delta One": 0.2,
+                    "Epsilon One": 0.1,
+                    "Beta One": 0.05,
+                },
             ]
         ),
     )
@@ -303,7 +320,9 @@ def test_threshold_hold_event_log_and_replacements(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(
         selector_mod,
         "create_selector_by_name",
-        lambda *_args, **_kwargs: ScriptedSelector(order, cfg.portfolio["threshold_hold"]["target_n"]),
+        lambda *_args, **_kwargs: ScriptedSelector(
+            order, cfg.portfolio["threshold_hold"]["target_n"]
+        ),
     )
 
     analysis_calls: List[Dict[str, Any]] = []
@@ -339,12 +358,18 @@ def test_threshold_hold_event_log_and_replacements(monkeypatch: pytest.MonkeyPat
 
     second_period = results[1]
     reasons = {event["reason"] for event in second_period["manager_changes"]}
-    assert {"z_exit", "z_entry", "one_per_firm", "low_weight_strikes", "replacement"}.issubset(
-        reasons
-    )
+    assert {
+        "z_exit",
+        "z_entry",
+        "one_per_firm",
+        "low_weight_strikes",
+        "replacement",
+    }.issubset(reasons)
 
     low_weight_events = [
-        event for event in second_period["manager_changes"] if event["reason"] == "low_weight_strikes"
+        event
+        for event in second_period["manager_changes"]
+        if event["reason"] == "low_weight_strikes"
     ]
     assert low_weight_events and "below min" in low_weight_events[0]["detail"]
 
@@ -360,7 +385,9 @@ def test_threshold_hold_event_log_and_replacements(monkeypatch: pytest.MonkeyPat
     assert "Gamma One" not in manual_funds
 
     assert second_period["turnover"] == pytest.approx(0.25)
-    expected_cost = second_period["turnover"] * (cfg.portfolio["transaction_cost_bps"] / 10000.0)
+    expected_cost = second_period["turnover"] * (
+        cfg.portfolio["transaction_cost_bps"] / 10000.0
+    )
     assert second_period["transaction_cost"] == pytest.approx(expected_cost)
 
 

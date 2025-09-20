@@ -5,11 +5,12 @@ Reads raw_input.json (single JSON string) -> writes decoded text to input.txt if
 Falls back to treating file contents as plain text if JSON parse fails.
 """
 from __future__ import annotations
+
+import argparse
 import json
 import re
-import argparse
 from pathlib import Path
-from typing import List, Dict, Any, Tuple
+from typing import Any, Dict, List, Tuple
 
 RAW_FILE = Path("raw_input.json")
 OUT_FILE = Path("input.txt")

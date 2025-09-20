@@ -64,10 +64,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Load tool versions
+        run: |
+          cat .github/workflows/autofix-versions.env >> $GITHUB_ENV
       - name: Install lint deps
         run: |
           pip install --quiet --upgrade pip
-          pip install black flake8
+          pip install black==${BLACK_VERSION} flake8
       - name: Run black --check
         run: black --check .
       - name: Run flake8

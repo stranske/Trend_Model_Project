@@ -6,15 +6,15 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from trend_analysis.weights.equal_risk_contribution import \
-    EqualRiskContribution
-from trend_analysis.weights.hierarchical_risk_parity import \
-    HierarchicalRiskParity
-from trend_analysis.weights.robust_weighting import (RobustMeanVariance,
-                                                     RobustRiskParity,
-                                                     diagonal_loading,
-                                                     ledoit_wolf_shrinkage,
-                                                     oas_shrinkage)
+from trend_analysis.weights.equal_risk_contribution import EqualRiskContribution
+from trend_analysis.weights.hierarchical_risk_parity import HierarchicalRiskParity
+from trend_analysis.weights.robust_weighting import (
+    RobustMeanVariance,
+    RobustRiskParity,
+    diagonal_loading,
+    ledoit_wolf_shrinkage,
+    oas_shrinkage,
+)
 
 
 def _make_covariance(

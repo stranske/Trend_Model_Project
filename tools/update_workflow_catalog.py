@@ -18,13 +18,15 @@ Categories (heuristic order):
 Note: Keep logic lightweight; manual curation can adjust JSON after generation.
 """
 from __future__ import annotations
+
+import datetime
 import json
+import pathlib
 import re
 import sys
-import pathlib
-import datetime
-import yaml
 from typing import Any
+
+import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 WF_DIR = ROOT / ".github" / "workflows"
@@ -109,7 +111,9 @@ def main() -> int:
         )
     catalog = {
         "_meta": {
-            "generated": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z"),
+            "generated": datetime.datetime.now(datetime.timezone.utc)
+            .isoformat()
+            .replace("+00:00", "Z"),
             "source": ".github/workflows",
             "script": "tools/update_workflow_catalog.py",
         },

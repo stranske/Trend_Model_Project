@@ -10,12 +10,27 @@ import pytest
 
 import trend_analysis.core.rank_selection as rank_selection
 from trend_analysis.core.rank_selection import (
-    DEFAULT_METRIC, FundSelectionConfig, RiskStatsConfig, WindowMetricBundle,
-    _apply_transform, _canonicalise_labels, _ensure_canonical_columns,
-    _json_default, _quality_filter, _stats_cfg_hash, blended_score, build_ui,
-    clear_window_metric_cache, get_window_metric_bundle, make_window_key,
-    rank_select_funds, select_funds, selector_cache_stats,
-    some_function_missing_annotation, store_window_metric_bundle)
+    DEFAULT_METRIC,
+    FundSelectionConfig,
+    RiskStatsConfig,
+    WindowMetricBundle,
+    _apply_transform,
+    _canonicalise_labels,
+    _ensure_canonical_columns,
+    _json_default,
+    _quality_filter,
+    _stats_cfg_hash,
+    blended_score,
+    build_ui,
+    clear_window_metric_cache,
+    get_window_metric_bundle,
+    make_window_key,
+    rank_select_funds,
+    select_funds,
+    selector_cache_stats,
+    some_function_missing_annotation,
+    store_window_metric_bundle,
+)
 
 
 def _cm_mock() -> MagicMock:

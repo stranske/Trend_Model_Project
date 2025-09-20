@@ -36,7 +36,9 @@ class _UpdatingWeighting(BaseWeighting):
         weights = np.linspace(1.0, 2.0, n) / np.linspace(1.0, 2.0, n).sum()
         return pd.DataFrame({"weight": weights}, index=selected.index)
 
-    def update(self, scores: pd.Series, days: int) -> None:  # pragma: no cover - runtime hook
+    def update(
+        self, scores: pd.Series, days: int
+    ) -> None:  # pragma: no cover - runtime hook
         self.update_calls.append((scores.copy(), days))
 
 
@@ -120,4 +122,3 @@ def test_run_schedule_invokes_rebalance_strategies_and_weighting_update(monkeypa
     # First update occurs with zero elapsed days; second uses actual delta (~29 days)
     assert weighting.update_calls[0][1] == 0
     assert weighting.update_calls[1][1] > 0
-

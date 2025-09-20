@@ -9,8 +9,9 @@ from typing import TYPE_CHECKING, Any, Dict, cast
 
 import ipywidgets as widgets
 import pandas as pd
-import yaml  # type: ignore[import-untyped]
 from IPython.display import FileLink, Javascript, display
+
+import yaml  # type: ignore[import-untyped]
 
 from ..config import Config
 from .plugins import discover_plugins, iter_plugins

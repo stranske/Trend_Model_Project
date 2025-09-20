@@ -2,9 +2,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from trend_analysis.perf.cache import (CovCache, CovPayload,
-                                       _ensure_aggregates, compute_cov_payload,
-                                       incremental_cov_update)
+from trend_analysis.perf.cache import (
+    CovCache,
+    CovPayload,
+    _ensure_aggregates,
+    compute_cov_payload,
+    incremental_cov_update,
+)
 
 
 def make_df(rows: int = 5, cols: int = 3) -> pd.DataFrame:

@@ -9,6 +9,9 @@ outputs:
   changed:
     description: "Whether any files were modified by the fixers"
     value: ${{ steps.runfix.outputs.changed }}
+  remaining_issues:
+    description: "Count of unresolved ruff diagnostics after autofix phase"
+    value: ${{ steps.runfix.outputs.remaining_issues }}
 runs:
   using: "composite"
   steps:
@@ -33,10 +36,25 @@ runs:
       id: runfix
       shell: bash
       run: |
-        ruff check --fix .
-        black .
+        echo "[autofix] Phase 1: applying safe fixes (ruff + isort + docformatter + black final)"
+        # Ruff first (fast) – non-fatal
+        ruff check --fix --exit-zero .
+        # isort next so import reordering is final before black
         isort .
+        # docformatter before black so black enforces final layout
         docformatter -r -i src tests || true
+        # black last for canonical formatting
+        black .
+
+        echo "[autofix] Phase 2: collect remaining ruff diagnostics (non-fatal)"
+        # Capture remaining issues for summary; never fail this job here
+        if ! ruff check . > ruff_remaining.log 2>&1; then
+          echo "[autofix] Ruff reported remaining issues (expected for non-auto-fixable codes)."
+        fi
+        remaining_count=$(grep -cE '^[^ ]+:[0-9]+:[0-9]+:' ruff_remaining.log || true)
+        echo "remaining_issues=$remaining_count" >> $GITHUB_OUTPUT
+        echo "[autofix] Remaining ruff issues: $remaining_count"
+
         # --- Type hygiene (lightweight) ---
         echo "[autofix] Running auto_type_hygiene..."
         if [ -f scripts/auto_type_hygiene.py ]; then
@@ -48,9 +66,12 @@ runs:
         mypy --install-types --non-interactive || true
         # Optional warm cache (do not fail build)
         mypy src/ --ignore-missing-imports --follow-imports=silent > /dev/null 2>&1 || true
+
         if ! git diff --quiet; then echo "changed=true" >> $GITHUB_OUTPUT; else echo "changed=false" >> $GITHUB_OUTPUT; fi
     - name: Summary
       shell: bash
       run: |
         echo "### Composite Autofix Summary" >> $GITHUB_STEP_SUMMARY
         echo "Changed: ${{ steps.runfix.outputs.changed }}" >> $GITHUB_STEP_SUMMARY
+        echo "Remaining ruff issues: ${{ steps.runfix.outputs.remaining_issues }}" >> $GITHUB_STEP_SUMMARY
+        echo "Remaining Ruff Issues: ${{ steps.runfix.outputs.remaining_issues }}" >> $GITHUB_STEP_SUMMARY

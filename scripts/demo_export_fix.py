@@ -10,8 +10,11 @@ import os
 from unittest import mock
 
 # Import the bundle utilities used in this demo
-from trend_analysis.io.utils import (_TEMP_FILES_TO_CLEANUP,
-                                     cleanup_bundle_file, export_bundle)
+from trend_analysis.io.utils import (
+    _TEMP_FILES_TO_CLEANUP,
+    cleanup_bundle_file,
+    export_bundle,
+)
 
 
 def create_mock_results():
