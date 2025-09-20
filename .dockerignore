@@ -74,7 +74,9 @@ docker-compose.override.yml
 Dockerfile.dev
 
 # CI/CD
-.github/
+.github/*
+!.github/scripts/
+!.github/scripts/parse_chatgpt_topics.py
 
 # Local configuration
 .env.local
