@@ -74,8 +74,8 @@ docker-compose.override.yml
 Dockerfile.dev
 
 # CI/CD
-.github/
-
+.github/*
+!.github/scripts/
 # Local configuration
 .env.local
 .env.*.local
