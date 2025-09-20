@@ -15,6 +15,7 @@ on:
         description: Enable verbose debug diagnostics
         required: false
         type: boolean
+        default: false
 
 jobs:
   sync:
@@ -30,8 +31,11 @@ jobs:
         env:
           RAW_INPUT_JSON: ${{ toJson(github.event.inputs.raw_input) }}
           SOURCE_URL: ${{ github.event.inputs.source_url }}
+          DEBUG_FLAG: ${{ github.event.inputs.debug }}
         run: |
           set -euo pipefail
+          echo "Ref: ${GITHUB_REF} Commit: ${GITHUB_SHA}" >&2
+          echo "Debug input (raw): '${DEBUG_FLAG}'" >&2
           if [ -n "${RAW_INPUT_JSON}" ] && [ "${RAW_INPUT_JSON}" != "null" ]; then
             printf '%s' "${RAW_INPUT_JSON}" > raw_input.json
             python .github/scripts/decode_raw_input.py
