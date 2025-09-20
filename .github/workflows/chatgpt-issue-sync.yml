@@ -136,6 +136,8 @@ jobs:
             };
             const generateColor = (name) => {
               const base = crypto.createHash('md5').update(name.toLowerCase()).digest('hex').slice(0,6);
+              // Use 0x111111 stepping to generate visually distinct colors by incrementing the base color.
+              // If all such colors are exhausted, fall back to a default gray ('777777').
               if (!usedColors.has(base)){ usedColors.add(base); return base; }
               let c=1; while (c<4096){ const val=(parseInt(base,16)+c*0x111111)%0xffffff; const cand=val.toString(16).padStart(6,'0'); if(!usedColors.has(cand)){usedColors.add(cand); return cand;} c++; }
               usedColors.add('777777'); return '777777';
