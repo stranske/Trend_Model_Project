@@ -3,12 +3,16 @@ name: Sync ChatGPT topics to issues
 on:
   workflow_dispatch:
     inputs:
+      repo_file:
+        description: "Primary: path (in repo) to topics file (preferred for large lists)"
+        required: false
+        type: string
       raw_input:
-        description: Paste the ChatGPT topic list
+        description: "Secondary: small pasted topic list (may truncate around 1KB)"
         required: false
         type: string
       source_url:
-        description: URL containing the ChatGPT topic list
+        description: "Fallback: raw text URL (raw.githubusercontent.com / Gist raw)"
         required: false
         type: string
       debug:
@@ -16,10 +20,6 @@ on:
         required: false
         type: boolean
         default: false
-      repo_file:
-        description: Path (in repo) to a text file with topics (used if raw_input & source_url empty)
-        required: false
-        type: string
 
 jobs:
   sync:
