@@ -5,6 +5,7 @@ Reads raw_input.json (single JSON string) -> writes decoded text to input.txt if
 Falls back to treating file contents as plain text if JSON parse fails.
 """
 from __future__ import annotations
+
 import json
 from pathlib import Path
 
