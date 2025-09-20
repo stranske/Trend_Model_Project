@@ -109,6 +109,12 @@ jobs:
           fi
           echo 'Topics length:'
           if [ -f topics.json ]; then jq 'length' topics.json || true; fi
+          if [ -f decode_debug.json ] && [ -f topics.json ]; then
+            topics_count=$(jq 'length' topics.json 2>/dev/null || echo 0)
+            first_title=$(jq -r '.[0].title // ""' topics.json 2>/dev/null || echo "")
+            tmp=$(mktemp)
+            jq --arg tc "$topics_count" --arg ft "$first_title" '. + {parsed_topics: ($tc|tonumber), first_title: $ft}' decode_debug.json > "$tmp" && mv "$tmp" decode_debug.json || true
+          fi
 
       - name: Sync issues
         uses: actions/github-script@v7

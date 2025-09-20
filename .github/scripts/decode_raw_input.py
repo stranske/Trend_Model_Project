@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 
 RAW_FILE = Path("raw_input.json")
 OUT_FILE = Path("input.txt")
@@ -85,12 +85,32 @@ def main() -> None:
             applied.append("forced_split")
             text = forced
 
+    def extract_enumerators(s: str) -> Tuple[List[str], List[str]]:
+        # Enumerators followed by punctuation ) . : - then space
+        enum_pattern = re.compile(r"(^|\s)(([0-9]{1,3}|[A-Za-z][0-9]*))[\)\.:\-](?=\s)")
+        tokens: List[str] = []
+        for m in enum_pattern.finditer(s):
+            token = m.group(2)
+            tokens.append(token)
+        distinct = []
+        for t in tokens:
+            if t not in distinct:
+                distinct.append(t)
+        return tokens, distinct
+
+    raw_tokens, raw_distinct = extract_enumerators(original)
+    reb_tokens, reb_distinct = extract_enumerators(text)
+
     diagnostics: Dict[str, Any] = {
         "raw_len": len(original),
         "raw_newlines": original.count("\n"),
         "rebuilt_len": len(text),
         "rebuilt_newlines": text.count("\n"),
         "applied": applied,
+        "raw_enum_count": len(raw_tokens),
+        "raw_enum_distinct": raw_distinct[:50],
+        "rebuilt_enum_count": len(reb_tokens),
+        "rebuilt_enum_distinct": reb_distinct[:50],
     }
 
     if text.strip():
