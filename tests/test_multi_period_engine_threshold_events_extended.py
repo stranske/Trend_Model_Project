@@ -106,7 +106,7 @@ class SequencedWeighting:
     def __init__(self, sequences: List[Dict[str, float]]) -> None:
         self.sequences = sequences
         self.calls = 0
-        self.updates: List[tuple[pd.Series, int]] = []
+        self.updates: List[Tuple[pd.Series, int]] = []
 
     def weight(self, selected: pd.DataFrame) -> pd.DataFrame:  # type: ignore[override]
         idx = min(self.calls, len(self.sequences) - 1)
