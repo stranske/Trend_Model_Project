@@ -43,7 +43,7 @@ jobs:
       - name: Extract test metrics
         if: ${{ inputs.enable-metrics == 'true' }}
         run: |
-          python scripts/ci_metrics.py || exit 1
+          python scripts/ci_metrics.py || { echo "ci_metrics.py failed" >&2; exit 1; }
         env:
           JUNIT_PATH: pytest-junit.xml
           OUTPUT_PATH: ci-metrics.json
