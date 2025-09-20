@@ -55,7 +55,7 @@ jobs:
           set -euo pipefail
           echo '--- INPUT PREVIEW (first 200 chars) ---'
           head -c 200 input.txt 2>/dev/null | sed 's/[[:cntrl:]]/./g' || true
-          echo '\n--------------------------------------'
+          printf '\n--------------------------------------\n'
           if python .github/scripts/parse_chatgpt_topics.py; then
             echo 'Parser succeeded.'
           else
