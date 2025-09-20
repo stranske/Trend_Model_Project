@@ -20,6 +20,8 @@ jobs:
       contents: read
       issues: write
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
       - name: Prepare topic source
         env:
           RAW_INPUT_JSON: ${{ toJson(github.event.inputs.raw_input) }}
