@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       raw_input:
-        description: "Paste the ChatGPT topic list"
+        description: Paste the ChatGPT topic list
         required: false
         type: string
       source_url:
-        description: "URL containing the ChatGPT topic list"
+        description: URL containing the ChatGPT topic list
         required: false
         type: string
 
@@ -21,23 +21,17 @@ jobs:
       issues: write
     steps:
       - name: Prepare topic source
-        id: prepare
-        shell: bash
         env:
           RAW_INPUT_JSON: ${{ toJson(github.event.inputs.raw_input) }}
           SOURCE_URL: ${{ github.event.inputs.source_url }}
         run: |
           set -euo pipefail
           if [ -n "${RAW_INPUT_JSON}" ] && [ "${RAW_INPUT_JSON}" != "null" ]; then
-            python3 -c "import json,os;raw=os.environ.get('RAW_INPUT_JSON');\nimport sys;\ntry:\n    text=json.loads(raw) if raw not in (None,'null','') else ''\nexcept Exception:\n    text=raw or ''\ntext=(text or '').rstrip('\\r\\n');\nopen('input.txt','w',encoding='utf-8').write((text+'\\n') if text.strip() else '')"
+            printf '%s' "${RAW_INPUT_JSON}" > raw_input.json
+            python .github/scripts/decode_raw_input.py
           elif [ -n "${SOURCE_URL}" ]; then
-            if command -v curl >/dev/null 2>&1; then
-              if ! curl -fsSL "${SOURCE_URL}" -o input.txt; then
-                echo "::error::Failed to download content from ${SOURCE_URL}" >&2
-                exit 1
-              fi
-            else
-              echo "::error::curl is not available on the runner" >&2
+            if ! curl -fsSL "${SOURCE_URL}" -o input.txt; then
+              echo "::error::Failed to download content from ${SOURCE_URL}" >&2
               exit 1
             fi
           else
@@ -50,8 +44,6 @@ jobs:
           fi
 
       - name: Parse topics
-        id: parse
-        shell: bash
         env:
           ALLOW_SINGLE_TOPIC: '1'
         run: |
@@ -65,8 +57,8 @@ jobs:
             ec=$?
             case "$ec" in
               2) echo '::error::Exit 2 (empty after trimming). Ensure raw_input or source_url contains non-whitespace content.' ;;
-              3) echo '::error::Exit 3 (no enumerated topics). Add lines like "1) Title" or rely on fallback (enabled).' ;;
-              4) echo '::error::Exit 4 (parsed zero topics unexpectedly). File a bug with sample input.' ;;
+              3) echo '::error::Exit 3 (no enumerated topics). Provide numbered lines.' ;;
+              4) echo '::error::Exit 4 (parsed zero topics unexpectedly).' ;;
               *) echo "::error::Parser failed with exit code $ec." ;;
             esac
             exit $ec
