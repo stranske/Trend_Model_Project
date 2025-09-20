@@ -168,12 +168,12 @@ jobs:
                 const desired=[]; for (const rawLabel of topic.labels||[]){ const r=await ensureLabel(rawLabel); if(r) desired.push(r); else core.warning(`Skipped label \"${rawLabel}\" for ${topic.title}.`); }
                 const unique=Array.from(new Set(desired));
                 const body=buildBody(topic); const title=topic.title; const guid=topic.guid;
-                let issueNumber=null; let state='open';
+                let issueNumber=null;
                 const searchOpen=await github.rest.search.issuesAndPullRequests({ q:`repo:${owner}/${repo} \\\"${guid}\\\" in:body is:issue is:open`, per_page:1 });
                 if (searchOpen.data.items.length){ issueNumber=searchOpen.data.items[0].number; }
                 else {
                   const searchAny=await github.rest.search.issuesAndPullRequests({ q:`repo:${owner}/${repo} \\\"${guid}\\\" in:body is:issue`, per_page:1 });
-                  if (searchAny.data.items.length){ issueNumber=searchAny.data.items[0].number; state=searchAny.data.items[0].state; }
+                  if (searchAny.data.items.length){ issueNumber=searchAny.data.items[0].number; }
                 }
                 if (issueNumber){
                   const issueData=await github.rest.issues.get({owner,repo,issue_number:issueNumber});
