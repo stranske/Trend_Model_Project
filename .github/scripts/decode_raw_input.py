@@ -7,6 +7,7 @@ Falls back to treating file contents as plain text if JSON parse fails.
 from __future__ import annotations
 import json
 import re
+import argparse
 from pathlib import Path
 from typing import List, Dict, Any, Tuple
 
@@ -14,19 +15,44 @@ RAW_FILE = Path("raw_input.json")
 OUT_FILE = Path("input.txt")
 
 
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Decode or normalize topic input")
+    parser.add_argument(
+        "--passthrough", action="store_true", help="Read plain text from --in file"
+    )
+    parser.add_argument("--in", dest="in_file", help="Input file for passthrough mode")
+    parser.add_argument(
+        "--source",
+        dest="source_tag",
+        help="Source tag (repo_file|source_url|raw_input)",
+    )
+    return parser.parse_args()
+
+
 def main() -> None:
-    if not RAW_FILE.exists():
-        return
-    raw = RAW_FILE.read_text(encoding="utf-8")
+    args = _parse_args()
     text: str = ""
-    try:
-        if raw not in ("", "null"):
-            text = json.loads(raw)
-        else:
-            text = ""
-    except Exception:
-        # Treat as already unescaped plain text
-        text = raw
+    source_used = args.source_tag or (
+        "passthrough" if args.passthrough else "raw_input"
+    )
+    if args.passthrough:
+        if not args.in_file:
+            return
+        src_path = Path(args.in_file)
+        if not src_path.exists():
+            return
+        text = src_path.read_text(encoding="utf-8", errors="ignore")
+    else:
+        if not RAW_FILE.exists():
+            return
+        raw = RAW_FILE.read_text(encoding="utf-8")
+        try:
+            if raw not in ("", "null"):
+                text = json.loads(raw)
+            else:
+                text = ""
+        except Exception:
+            text = raw
     original = text or ""
     # Normalize CR-only to LF and remove BOM if present
     normalization_counts = {
@@ -140,6 +166,7 @@ def main() -> None:
         "rebuilt_enum_count": len(reb_tokens),
         "rebuilt_enum_distinct": reb_distinct[:50],
         "whitespace_normalization": normalization_counts,
+        "source_used": source_used,
     }
 
     if text.strip():
