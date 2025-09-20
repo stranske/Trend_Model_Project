@@ -80,7 +80,7 @@ jobs:
       - name: History & classification
         if: ${{ inputs.enable-history == 'true' || inputs.enable-classification == 'true' }}
         run: |
-          python scripts/ci_history.py || exit 1
+          python scripts/ci_history.py || { echo "ci_history.py failed" >&2; exit 1; }
         env:
           JUNIT_PATH: pytest-junit.xml
           METRICS_PATH: ci-metrics.json
