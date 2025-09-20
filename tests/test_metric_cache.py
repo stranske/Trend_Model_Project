@@ -2,8 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from trend_analysis.core.metric_cache import (MetricCache,
-                                              clear_metric_cache,
+from trend_analysis.core.metric_cache import (MetricCache, clear_metric_cache,
                                               get_or_compute_metric_series,
                                               global_metric_cache)
 from trend_analysis.core.rank_selection import (RiskStatsConfig,

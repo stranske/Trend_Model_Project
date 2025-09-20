@@ -44,6 +44,7 @@ if FAST_SENTINEL.exists():
 import numpy as np  # noqa: E402
 import openpyxl  # noqa: E402
 import pandas as pd  # noqa: E402
+
 import yaml  # type: ignore[import-untyped]  # noqa: E402
 
 # ---------------------------------------------------------------------------

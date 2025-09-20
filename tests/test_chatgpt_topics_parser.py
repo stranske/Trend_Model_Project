@@ -1,5 +1,5 @@
-import os
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -8,7 +8,8 @@ SCRIPT = pathlib.Path(".github/scripts/parse_chatgpt_topics.py")
 
 
 def run_parser(text: str, env: dict | None = None) -> tuple[int, str, str]:
-    """Helper to invoke the parser script in a subprocess for exit code semantics."""
+    """Helper to invoke the parser script in a subprocess for exit code
+    semantics."""
     tmp = pathlib.Path("input.txt")
     tmp.write_text(text, encoding="utf-8")
     proc = subprocess.run(

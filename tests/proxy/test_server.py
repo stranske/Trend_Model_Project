@@ -32,7 +32,9 @@ class DummyBackgroundTask:
 
 
 class DummyStreamingResponse:
-    def __init__(self, iterable, *, status_code: int, headers: dict[str, str], background) -> None:
+    def __init__(
+        self, iterable, *, status_code: int, headers: dict[str, str], background
+    ) -> None:
         self.iterable = iterable
         self.status_code = status_code
         self.headers = headers
@@ -137,6 +139,7 @@ def test_handle_websocket_query_forwarding(proxy_fixture, monkeypatch, caplog):
         "ws://example.com:1234/stream/path?token=abc" in record.getMessage()
         for record in caplog.records
     )
+
 
 def test_handle_websocket_without_query(proxy_fixture, monkeypatch):
     """When no query string is present the base URL should remain unchanged."""
@@ -308,7 +311,9 @@ def test_start_invokes_uvicorn(proxy_fixture, monkeypatch):
     monkeypatch.setattr(
         server,
         "uvicorn",
-        types.SimpleNamespace(Config=lambda **kwargs: DummyConfig(**kwargs), Server=DummyServer),
+        types.SimpleNamespace(
+            Config=lambda **kwargs: DummyConfig(**kwargs), Server=DummyServer
+        ),
     )
 
     asyncio.run(proxy.start("0.0.0.0", 7777))

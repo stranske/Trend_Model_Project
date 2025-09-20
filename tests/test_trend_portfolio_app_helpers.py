@@ -1,4 +1,3 @@
-import importlib
 import json
 import sys
 from pathlib import Path
@@ -175,8 +174,12 @@ def _load_app(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     source = Path(module.__file__).read_text(encoding="utf-8")
     prefix = source.split("st.set_page_config", 1)[0]
     # Find indentation of last non-empty line in prefix
-    last_line = [line for line in prefix.splitlines() if line.strip()][-1] if any(line.strip() for line in prefix.splitlines()) else ""
-    indent = last_line[:len(last_line) - len(last_line.lstrip())]
+    last_line = (
+        [line for line in prefix.splitlines() if line.strip()][-1]
+        if any(line.strip() for line in prefix.splitlines())
+        else ""
+    )
+    indent = last_line[: len(last_line) - len(last_line.lstrip())]
     code_str = prefix + f"{indent}pass\n"
     code = compile(code_str, module.__file__, "exec")
     exec(code, module.__dict__)
@@ -200,7 +203,8 @@ def _load_app(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
 def _load_app_with_magicmock(
     monkeypatch: pytest.MonkeyPatch,
 ) -> tuple[ModuleType, MagicMock]:
-    """Import the app module while ``streamlit`` is a ``MagicMock`` instance."""
+    """Import the app module while ``streamlit`` is a ``MagicMock``
+    instance."""
 
     stub = MagicMock()
     # Ensure placeholder helpers fall back to the module-defined ``_NullContext``.
@@ -218,7 +222,7 @@ def _load_app_with_magicmock(
     prefix = source.split("st.set_page_config", 1)[0]
     # Dynamically determine indentation for injected "pass" statement
     last_line = prefix.splitlines()[-1] if prefix.splitlines() else ""
-    indentation = last_line[:len(last_line) - len(last_line.lstrip())]
+    indentation = last_line[: len(last_line) - len(last_line.lstrip())]
     code = compile(prefix + f"{indentation}pass\n", module.__file__, "exec")
     exec(code, module.__dict__)
 
@@ -341,7 +345,9 @@ def test_expected_columns_handles_various_specs(
     assert app_mod._expected_columns(None) == 1
 
 
-def test_normalize_columns_supplies_placeholders(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_normalize_columns_supplies_placeholders(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     app_mod = _load_app(monkeypatch)
 
     sentinel = object()
@@ -398,7 +404,9 @@ def test_magicmock_streamlit_bootstrap_installs_null_context(
         sys.modules.pop("trend_portfolio_app.app", None)
 
 
-def test_apply_session_state_expands_session_keys(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_apply_session_state_expands_session_keys(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     app_mod = _load_app(monkeypatch)
 
     state = app_mod.st.session_state
@@ -430,7 +438,9 @@ def test_render_sidebar_resets_and_serialises(monkeypatch: pytest.MonkeyPatch) -
     app_mod = _load_app(monkeypatch)
 
     defaults = {"data": {"csv_path": "reset.csv"}, "portfolio": {"policy": "reset"}}
-    monkeypatch.setattr(app_mod, "_read_defaults", lambda: json.loads(json.dumps(defaults)))
+    monkeypatch.setattr(
+        app_mod, "_read_defaults", lambda: json.loads(json.dumps(defaults))
+    )
 
     button_calls: list[str] = []
 
@@ -480,7 +490,9 @@ def test_render_sidebar_resets_and_serialises(monkeypatch: pytest.MonkeyPatch) -
     assert dumped["data"]["csv_path"] == "user.csv"
 
 
-def test_render_run_section_executes_single_period(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_render_run_section_executes_single_period(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     app_mod = _load_app(monkeypatch)
 
     def fake_button(label: str, *_, **__) -> bool:
@@ -512,7 +524,9 @@ def test_render_run_section_executes_single_period(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(app_mod, "_summarise_run_df", lambda _df: summary)
 
     run_calls: list[Any] = []
-    monkeypatch.setattr(app_mod.pipeline, "run", lambda cfg_obj: run_calls.append(cfg_obj) or summary)
+    monkeypatch.setattr(
+        app_mod.pipeline, "run", lambda cfg_obj: run_calls.append(cfg_obj) or summary
+    )
 
     built_cfg_objects: list[Any] = []
 
@@ -540,7 +554,9 @@ def test_render_run_section_executes_single_period(monkeypatch: pytest.MonkeyPat
     assert rows[1:] == ["1", "2"]
 
 
-def test_render_run_section_executes_multi_period(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_render_run_section_executes_multi_period(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     app_mod = _load_app(monkeypatch)
 
     def fake_button(label: str, *_, **__) -> bool:
@@ -590,7 +606,10 @@ def test_render_run_section_executes_multi_period(monkeypatch: pytest.MonkeyPatc
     app_mod._render_run_section(cfg)
 
     assert cfg["data"]["csv_path"] == "from-state.csv"
-    assert built_cfg_objects and built_cfg_objects[0]["data"]["csv_path"] == "from-state.csv"
+    assert (
+        built_cfg_objects
+        and built_cfg_objects[0]["data"]["csv_path"] == "from-state.csv"
+    )
     assert successes == ["Completed. Periods: 2"]
     assert tables == [summary]
     assert len(downloads) == 2

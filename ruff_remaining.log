@@ -1,0 +1,65 @@
+src/trend_analysis/_autofix_trigger_sample.py:1:1: F403 `from typing import *` used; unable to detect undefined names
+  |
+1 | from typing import *
+  | ^^^^^^^^^^^^^^^^^^^^ F403
+2 | 
+3 | #  This file intentionally violates style conventions for test of autofix workflows.
+  |
+
+src/trend_analysis/_autofix_trigger_sample.py:20:21: F405 `List` may be undefined, or defined from star imports
+   |
+20 | def another_func(a: List[int], b: List[int]):
+   |                     ^^^^ F405
+21 |     result = [i + j for i, j in zip(a, b)]
+22 |     return result
+   |
+
+src/trend_analysis/_autofix_trigger_sample.py:20:35: F405 `List` may be undefined, or defined from star imports
+   |
+20 | def another_func(a: List[int], b: List[int]):
+   |                                   ^^^^ F405
+21 |     result = [i + j for i, j in zip(a, b)]
+22 |     return result
+   |
+
+src/trend_analysis/_autofix_violation_case2.py:49:5: F841 Local variable `data` is assigned to but never used
+   |
+47 |     a, b, c
+48 | ):  # parameters intentionally unused; add mutable default below (B006)
+49 |     data = []  # mutable list (not default param) but harmless; keeps function non-empty
+   |     ^^^^ F841
+50 |     return None  # explicit return for clarity
+   |
+   = help: Remove assignment to unused variable `data`
+
+tests/test_multi_period_engine_threshold_events_extended.py:109:28: F821 Undefined name `Tuple`
+    |
+107 |         self.sequences = sequences
+108 |         self.calls = 0
+109 |         self.updates: List[Tuple[pd.Series, int]] = []
+    |                            ^^^^^ F821
+110 | 
+111 |     def weight(self, selected: pd.DataFrame, date: pd.Timestamp) -> pd.DataFrame:
+    |
+
+tests/test_trend_analysis_typing_contract.py:38:12: E721 Use `is` and `is not` for type comparisons, or `isinstance()` for isinstance checks
+   |
+37 |     assert hints["manager_changes"] == MutableSequence[dict[str, object]]
+38 |     assert hints["turnover"] == float
+   |            ^^^^^^^^^^^^^^^^^^^^^^^^^^ E721
+39 |     assert hints["transaction_cost"] == float
+40 |     cov_diag_hint = cast(Any, hints["cov_diag"])
+   |
+
+tests/test_trend_analysis_typing_contract.py:39:12: E721 Use `is` and `is not` for type comparisons, or `isinstance()` for isinstance checks
+   |
+37 |     assert hints["manager_changes"] == MutableSequence[dict[str, object]]
+38 |     assert hints["turnover"] == float
+39 |     assert hints["transaction_cost"] == float
+   |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E721
+40 |     cov_diag_hint = cast(Any, hints["cov_diag"])
+41 |     # ``TypeAlias`` annotations resolve to ``list[float]`` at runtime on
+   |
+
+Found 7 errors.
+No fixes available (1 hidden fix can be enabled with the `--unsafe-fixes` option).

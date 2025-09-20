@@ -1,5 +1,4 @@
 import yaml  # type: ignore[import-untyped]
-
 from trend_analysis import config
 
 
