@@ -165,7 +165,7 @@ jobs:
           script: |
             const fs = require('fs');
             const crypto = require('crypto');
-            const core = require('@actions/core');
+            // 'core' is already provided by github-script runtime; do not redeclare to avoid SyntaxError
             const topics = JSON.parse(fs.readFileSync('topics.json', 'utf8'));
             if (!Array.isArray(topics) || topics.length === 0) {
               core.setFailed('No topics to process.');
