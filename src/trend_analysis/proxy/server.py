@@ -208,8 +208,6 @@ class StreamlitProxy:
                 decoded_query = query.decode()
             except UnicodeDecodeError:
                 decoded_query = query.decode("latin-1", errors="ignore")
-        elif query is None:
-            decoded_query = ""
         else:
             decoded_query = str(query)
         if decoded_query:
