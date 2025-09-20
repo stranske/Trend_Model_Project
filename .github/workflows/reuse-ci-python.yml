@@ -76,7 +76,36 @@ jobs:
           fi
           pytest -m "$MARK_EXPR" \
             --reruns 1 --reruns-delay 1 \
-            --cov=src --cov-report=term-missing --cov-fail-under=${COV_MIN} --cov-branch
+            --cov=src \
+            --cov-report=term-missing:skip-covered \
+            --cov-report=xml \
+            --cov-report=json \
+            --cov-report=html \
+            --cov-fail-under=${COV_MIN} \
+            --cov-branch \
+            --junitxml=pytest-report.xml
+      - name: Prepare coverage artifacts
+        if: always()
+        run: |
+          dest="coverage_artifacts/${{ matrix.py }}"
+          mkdir -p "${dest}"
+          for f in coverage.xml coverage.json pytest-report.xml; do
+            if [ -f "$f" ]; then
+              cp "$f" "${dest}/"
+            fi
+          done
+          if [ -d htmlcov ]; then
+            rm -rf "${dest}/htmlcov"
+            cp -R htmlcov "${dest}/htmlcov"
+          fi
+      - name: Upload coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.py }}
+          path: coverage_artifacts/${{ matrix.py }}
+          if-no-files-found: warn
+          retention-days: 7
       - name: Extract coverage
         id: cov_out
         run: |
