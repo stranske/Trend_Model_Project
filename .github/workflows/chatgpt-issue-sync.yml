@@ -16,6 +16,10 @@ on:
         required: false
         type: boolean
         default: false
+      repo_file:
+        description: Path (in repo) to a text file with topics (used if raw_input & source_url empty)
+        required: false
+        type: string
 
 jobs:
   sync:
@@ -31,6 +35,7 @@ jobs:
         env:
           RAW_INPUT_JSON: ${{ toJson(github.event.inputs.raw_input) }}
           SOURCE_URL: ${{ github.event.inputs.source_url }}
+          REPO_FILE: ${{ github.event.inputs.repo_file }}
           DEBUG_FLAG: ${{ github.event.inputs.debug }}
         run: |
           set -euo pipefail
@@ -44,6 +49,13 @@ jobs:
               echo "::error::Failed to download content from ${SOURCE_URL}" >&2
               exit 1
             fi
+          elif [ -n "${REPO_FILE}" ]; then
+            if [ -f "${REPO_FILE}" ]; then
+              cp "${REPO_FILE}" input.txt
+            else
+              echo "::error::repo_file '${REPO_FILE}' not found in repository." >&2
+              exit 1
+            fi
           else
             echo "::error::Provide either raw_input or source_url when dispatching this workflow." >&2
             exit 1
@@ -51,6 +63,12 @@ jobs:
           if ! [ -s input.txt ]; then
             echo "::error::The provided input was empty." >&2
             exit 1
+          fi
+          if [ -f raw_input.json ]; then
+            size=$(wc -c < raw_input.json || echo 0)
+            if [ "$size" -ge 1024 ]; then
+              echo "::warning::raw_input size is $size bytes (possible truncation). Prefer source_url or repo_file." >&2
+            fi
           fi
 
       - name: Debug artifacts (raw/decoded)
@@ -105,7 +123,23 @@ jobs:
               4) echo '::error::Exit 4 (parsed zero topics unexpectedly).' ;;
               *) echo "::error::Parser failed with exit code $ec." ;;
             esac
-            exit $ec
+            # Fallback: if enumerators detected by decoder (decode_debug.json) and code==3, attempt naive split
+            if [ "$ec" -eq 3 ] && [ -f decode_debug.json ]; then
+              enum_count=$(jq '.rebuilt_enum_count // 0' decode_debug.json 2>/dev/null || echo 0)
+              if [ "$enum_count" -gt 0 ]; then
+                echo '::warning::Structured parser failed; invoking fallback enumerator splitter.'
+                python .github/scripts/fallback_split.py || true
+                if [ -f topics.json ]; then
+                  tmp=$(mktemp)
+                  jq '. + {fallback_used: true}' decode_debug.json > "$tmp" && mv "$tmp" decode_debug.json || true
+                  echo 'Fallback succeeded.'
+                  ec=0
+                fi
+              fi
+            fi
+            if [ "$ec" -ne 0 ]; then
+              exit $ec
+            fi
           fi
           echo 'Topics length:'
           if [ -f topics.json ]; then jq 'length' topics.json || true; fi

@@ -28,8 +28,36 @@ def main() -> None:
         # Treat as already unescaped plain text
         text = raw
     original = text or ""
-    # Normalize CR-only to LF
+    # Normalize CR-only to LF and remove BOM if present
+    normalization_counts = {
+        "carriage_returns": original.count("\r") - original.count("\r\n"),
+        "crlf_pairs": original.count("\r\n"),
+        "bom": 1 if original.startswith("\ufeff") else 0,
+        "nbsp": original.count("\u00A0"),
+        "zws": original.count("\u200B"),
+        "tabs": original.count("\t"),
+        "other_zero_width": sum(
+            original.count(ch) for ch in ("\u200C", "\u200D", "\u2060", "\uFEFF")
+        ),
+    }
+    # Remove BOM
+    if original.startswith("\ufeff"):
+        original = original[1:]
+    # Replace CRLF and CR
     original = original.replace("\r\n", "\n").replace("\r", "\n")
+    # Replace NBSP with normal space
+    if "\u00A0" in original:
+        original = original.replace("\u00A0", " ")
+    # Remove zero-width spaces
+    if "\u200B" in original:
+        original = original.replace("\u200B", "")
+    # Remove other zero-width characters
+    for ch in ("\u200C", "\u200D", "\u2060", "\uFEFF"):
+        if ch in original:
+            original = original.replace(ch, "")
+    # Convert tabs to single space (avoid accidental code block breaks)
+    if "\t" in original:
+        original = original.replace("\t", " ")
     text = original.rstrip("\n")
 
     # Heuristic: if the input lost original line breaks (appears mostly as one very long line)
@@ -111,6 +139,7 @@ def main() -> None:
         "raw_enum_distinct": raw_distinct[:50],
         "rebuilt_enum_count": len(reb_tokens),
         "rebuilt_enum_distinct": reb_distinct[:50],
+        "whitespace_normalization": normalization_counts,
     }
 
     if text.strip():
