@@ -3,6 +3,8 @@ name: autofix on failures
 on:
   workflow_run:
     # Only monitor workflows that actually exist by current name
+    # Note: 'Lint' and 'Tests' workflows were removed from this list because they no longer exist or are not relevant for autofix.
+    # If new workflows are added that should be monitored for failures, update this list accordingly.
     workflows: ["CI", "Docker"]
     types: [completed]
 
