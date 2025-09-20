@@ -49,8 +49,31 @@ jobs:
 
       - name: Parse topics
         id: parse
+        env:
+          ALLOW_SINGLE_TOPIC: '1'
         run: |
-          python .github/scripts/parse_chatgpt_topics.py
+          set -euo pipefail
+          echo '--- INPUT PREVIEW (first 200 chars) ---'
+          head -c 200 input.txt 2>/dev/null | sed 's/[[:cntrl:]]/./g' || true
+          echo '\n--------------------------------------'
+          if python .github/scripts/parse_chatgpt_topics.py; then
+            echo 'Parser succeeded.'
+          else
+            ec=$?
+            case "$ec" in
+              2)
+                echo '::error::Exit 2 (empty after trimming). Ensure raw_input or source_url contains non-whitespace content.' ;;
+              3)
+                echo '::error::Exit 3 (no enumerated topics). Add lines like "1) Title" or rely on fallback (enabled).' ;;
+              4)
+                echo '::error::Exit 4 (parsed zero topics unexpectedly). File a bug with sample input.' ;;
+              *)
+                echo "::error::Parser failed with exit code $ec." ;;
+            esac
+            exit $ec
+          fi
+          echo 'Topics length:'
+          if [ -f topics.json ]; then jq 'length' topics.json || true; fi
 
       - name: Sync issues
         uses: actions/github-script@v7
