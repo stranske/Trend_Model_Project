@@ -129,8 +129,9 @@ jobs:
                     const d=levenshtein(m.norm,norm); const r=d/Math.max(m.norm.length,norm.length);
                     if (r<bestScore){best=m.label.name; bestScore=r;}
                   }
+                  // Empirical fuzzy match threshold: 0.35 chosen to balance false positives/negatives in label matching.
+                  // Lower for stricter matches, higher for looser; tune with real data if needed.
                   if (best!==null && bestScore<=0.35) return best;
-                }
               }
               return null;
             };
