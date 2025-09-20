@@ -109,7 +109,7 @@ def main() -> int:
         )
     catalog = {
         "_meta": {
-            "generated": datetime.datetime.utcnow().isoformat() + "Z",
+            "generated": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z"),
             "source": ".github/workflows",
             "script": "tools/update_workflow_catalog.py",
         },
