@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated": "2025-09-20T00:00:00Z",
+    "generated": "2024-06-09T00:00:00Z",
     "description": "Authoritative catalog of GitHub Actions workflows. Update via tools/update_workflow_catalog.py"
   },
   "workflows": [
