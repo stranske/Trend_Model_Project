@@ -101,26 +101,6 @@ jobs:
           name: autofix-patch-pr-${{ github.event.pull_request.number }}
           path: autofix.patch
 
-      - name: Comment remaining issues (same-repo)
-        if: steps.same_repo.outputs.same == 'true'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const pr = context.payload.pull_request;
-            const changed = '${{ steps.autofix.outputs.changed }}';
-            const remaining = '${{ steps.autofix.outputs.remaining_issues }}';
-            const lines = [
-              'Autofix run complete.',
-              `Changed files: ${changed}`,
-              `Remaining ruff issues: ${remaining}`,
-              (remaining !== '0' ? 'Some issues remain; address manually or leave for future passes.' : 'Workspace is clean after autofix.')
-            ];
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: pr.number,
-              body: lines.join('\n')
-            });
 
       - name: Manage clean/debt labels (same-repo)
         if: steps.same_repo.outputs.same == 'true'
@@ -140,19 +120,114 @@ jobs:
               core.warning('Label management warning: ' + e.message);
             }
 
+      - name: Update residual history (same-repo)
+        if: steps.same_repo.outputs.same == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f autofix_report_enriched.json ]; then echo "[history] missing enriched report"; exit 0; fi
+          python scripts/update_residual_history.py || echo "[history] update failed"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ci/autofix/history.json
+          if git diff --cached --quiet; then echo "[history] No updates to commit"; exit 0; fi
+          branch="${{ github.event.pull_request.head.ref }}"
+          git commit -m "${{ inputs.commit_prefix }} update residual history"
+          for attempt in 1 2 3; do
+            if git push origin HEAD:"$branch"; then echo "[history] Push succeeded"; exit 0; fi
+            echo "[history] Push failed attempt $attempt; rebasing";
+            git fetch origin "$branch" --prune || true
+            git rebase --autostash origin/"$branch" || git rebase --abort || true
+          done
+          echo "[history] Failed to push history after retries" >&2
+          exit 1
+
+      - name: Generate trend sparkline (same-repo)
+        if: steps.same_repo.outputs.same == 'true'
+        shell: bash
+        run: |
+          if [ -f scripts/generate_residual_trend.py ]; then python scripts/generate_residual_trend.py || true; fi
+          if [ -f ci/autofix/trend.json ]; then echo "Trend:"; cat ci/autofix/trend.json; fi
+
+      - name: Build consolidated PR comment (same-repo)
+        if: steps.same_repo.outputs.same == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/build_autofix_pr_comment.py --out autofix_pr_comment.md
+          echo 'Built unified comment:'
+          sed -n '1,40p' autofix_pr_comment.md
+
+      - name: Upsert consolidated PR comment (same-repo)
+        if: steps.same_repo.outputs.same == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- autofix-status: DO NOT EDIT -->';
+            const body = fs.readFileSync('autofix_pr_comment.md', 'utf8');
+            const pr = context.payload.pull_request;
+            // Fetch existing comments once (first 100 is ample for typical PRs)
+            const comments = await github.paginate(github.rest.issues.listComments, { owner: context.repo.owner, repo: context.repo.repo, issue_number: pr.number, per_page: 100 });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body });
+              console.log('Updated existing autofix status comment.');
+            } else {
+              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr.number, body });
+              console.log('Created new autofix status comment.');
+            }
+
+      - name: Regression detector (same-repo)
+        if: steps.same_repo.outputs.same == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let hist=[]; try { hist = JSON.parse(fs.readFileSync('ci/autofix/history.json','utf8')); } catch(e) {}
+            if (!Array.isArray(hist) || hist.length < 5) { return; }
+            const last = hist.slice(-1)[0];
+            const prev = hist.slice(-6,-1); // previous 5 points
+            const avgPrev = prev.reduce((a,b)=>a+(b.remaining||0),0)/prev.length;
+            const spike = avgPrev > 0 ? (last.remaining - avgPrev)/avgPrev : 0;
+            const THRESH = 0.35; // 35% jump threshold
+            if (spike <= THRESH) return;
+            const issueTitle = 'lint regression: residual spike';
+            // Check for existing open issue
+            const issues = await github.rest.issues.listForRepo({ owner: context.repo.owner, repo: context.repo.repo, state:'open', labels:'autofix:regression' });
+            if (issues.data.some(i => i.title === issueTitle)) return;
+            const body = [
+              'Detected residual lint spike exceeding threshold.',
+              `Latest remaining: ${last.remaining}`,
+              `Previous avg (5 runs): ${avgPrev.toFixed(2)}`,
+              `Relative increase: ${(spike*100).toFixed(1)}%`,
+              '',
+              'Action items:',
+              '- Investigate new codes in last run classification',
+              '- Consider targeted fixes or allowlist pruning',
+              '',
+              'This issue was auto-generated.'
+            ].join('\n');
+            await github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title: issueTitle, body, labels:['autofix:regression'] });
+
       - name: Emit JSON report
         shell: bash
         run: |
           set -euo pipefail
           ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          cat > autofix_report.json <<EOF
-          {
-            "changed": "${{ steps.autofix.outputs.changed }}",
-            "remaining_issues": "${{ steps.autofix.outputs.remaining_issues }}",
-            "pull_request": "${{ github.event.pull_request.number }}",
-            "timestamp_utc": "${ts}"
-          }
-          EOF
+          if [ -f autofix_report_enriched.json ]; then
+            python -c "import json,os;from datetime import datetime,timezone as TZ;meta={'pull_request':os.environ.get('PR_NUMBER'),'timestamp_utc':datetime.now(TZ.utc).strftime('%Y-%m-%dT%H:%M:%SZ')};\nimport pathlib;\ntry: data=json.load(open('autofix_report_enriched.json'));\nexcept Exception: data={};data.update(meta);json.dump(data, open('autofix_report.json','w'), indent=2, sort_keys=True)" || echo '{"error":"merge_failed"}' > autofix_report.json
+          else
+            printf '{\n  "changed": "%s",\n  "remaining_issues": "%s",\n  "new_issues": "%s",\n  "pull_request": "%s",\n  "timestamp_utc": "%s"\n}\n' \
+              "${{ steps.autofix.outputs.changed }}" \
+              "${{ steps.autofix.outputs.remaining_issues }}" \
+              "${{ steps.autofix.outputs.new_issues }}" \
+              "${{ github.event.pull_request.number }}" \
+              "$ts" > autofix_report.json
+          fi
+          echo "Enriched report ready.";
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
 
       - name: Upload JSON report
         uses: actions/upload-artifact@v4
@@ -190,6 +265,7 @@ jobs:
           echo "Applied changes: ${{ steps.autofix.outputs.changed }}" >> $GITHUB_STEP_SUMMARY
           echo "Same repo: ${{ steps.same_repo.outputs.same }}" >> $GITHUB_STEP_SUMMARY
           echo "Remaining ruff issues: ${{ steps.autofix.outputs.remaining_issues }}" >> $GITHUB_STEP_SUMMARY
+          echo "New (non-allowlisted) ruff issues: ${{ steps.autofix.outputs.new_issues }}" >> $GITHUB_STEP_SUMMARY
           if [ "${{ steps.autofix.outputs.changed }}" = "true" ] && [ "${{ steps.same_repo.outputs.same }}" != "true" ]; then
             echo "Patch artifact: autofix-patch-pr-${{ github.event.pull_request.number }}" >> $GITHUB_STEP_SUMMARY
           fi
