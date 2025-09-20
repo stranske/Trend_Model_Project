@@ -2,12 +2,19 @@
 name: Enable auto-merge for eligible PRs
 on:
   pull_request:
-    types: [opened, labeled, synchronize, ready_for_review]
+    types: [opened, labeled, synchronize, ready_for_review, reopened]
+  workflow_run:
+    workflows: ["CI", "Docker"]
+    types: [completed]
 permissions:
   pull-requests: write
+  contents: read
+  checks: read
+  actions: read
 jobs:
-  enable:
+  enable-on-pr-event:
     if: >
+      github.event_name == 'pull_request' &&
       github.event.pull_request.draft == false &&
       (
         contains(github.event.pull_request.labels.*.name, (vars.AGENT_FROM_LABEL || 'from:copilot')) ||
@@ -17,18 +24,76 @@ jobs:
       contains(github.event.pull_request.labels.*.name, (vars.RISK_LABEL || 'risk:low'))
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Enable auto-merge (squash)
+      - name: Enable auto-merge (tentative)
         id: enable
-        continue-on-error: true
         uses: peter-evans/enable-pull-request-automerge@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           merge-method: squash
           pull-request-number: ${{ github.event.pull_request.number }}
-      - name: Summarize auto-merge enable
+      - name: Summarize attempt
         if: always()
         run: |
-          echo "### Auto-merge Enable Summary" >> $GITHUB_STEP_SUMMARY
-          echo "Result: ${{ steps.enable.outcome }}" >> $GITHUB_STEP_SUMMARY
+          echo "### Auto-merge Attempt (PR Event)" >> $GITHUB_STEP_SUMMARY
+          echo "Outcome: ${{ steps.enable.outcome }}" >> $GITHUB_STEP_SUMMARY
+
+  enable-post-status:
+    if: >
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Identify PR
+        id: find_pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+            const { owner, repo } = context.repo;
+            const branch = run.head_branch;
+            const prs = await github.rest.pulls.list({ owner, repo, state: 'open', head: `${owner}:${branch}` });
+            if (!prs.data.length) { core.setOutput('pr',''); return; }
+            const pr = prs.data[0];
+            const labels = pr.labels.map(l=>l.name);
+            function has(name, fallback){ return labels.includes(process.env[name] || fallback); }
+            const result = { number: pr.number, draft: pr.draft, labels };
+            core.setOutput('pr', String(pr.number));
+            core.setOutput('draft', String(pr.draft));
+            core.setOutput('labels', labels.join(','));
+      - name: Stop if no PR
+        if: steps.find_pr.outputs.pr == ''
+        run: echo "No open PR for this branch."
+      - name: Check labels & draft
+        id: gate
+        if: steps.find_pr.outputs.pr != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const labels = (core.getInput('labels')||'').split(',');
+            const draft = core.getInput('draft') === 'true';
+            const need = (n,f)=> (process.env[n]||f);
+            function has(l){ return labels.includes(l); }
+            const ok = !draft && (
+              has(need('AGENT_FROM_LABEL','from:copilot')) ||
+              has(need('AGENT_FROM_LABEL_ALT','from:codex'))
+            ) && has(need('AUTOMERGE_LABEL','automerge')) && has(need('RISK_LABEL','risk:low'));
+            core.setOutput('eligible', String(ok));
+            if(!ok){ core.info('Not eligible yet.'); }
+        env:
+          labels: ${{ steps.find_pr.outputs.labels }}
+          draft: ${{ steps.find_pr.outputs.draft }}
+      - name: Enable auto-merge (post-status)
+        if: steps.gate.outputs.eligible == 'true'
+        id: post_enable
+        uses: peter-evans/enable-pull-request-automerge@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          merge-method: squash
+          pull-request-number: ${{ steps.find_pr.outputs.pr }}
+      - name: Summarize post-status
+        if: always() && steps.find_pr.outputs.pr != ''
+        run: |
+          echo "### Auto-merge Post-Status Summary" >> $GITHUB_STEP_SUMMARY
+          echo "PR: #${{ steps.find_pr.outputs.pr }}" >> $GITHUB_STEP_SUMMARY
+          echo "Eligible: ${{ steps.gate.outputs.eligible }}" >> $GITHUB_STEP_SUMMARY
+          echo "Enable Outcome: ${{ steps.post_enable.outcome }}" >> $GITHUB_STEP_SUMMARY || true
