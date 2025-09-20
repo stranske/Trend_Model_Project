@@ -1,0 +1,48 @@
+{
+  "_meta": {
+    "generated": "2024-06-09T00:00:00Z",
+    "description": "Authoritative catalog of GitHub Actions workflows. Update via tools/update_workflow_catalog.py"
+  },
+  "workflows": [
+    {
+      "file": "ci.yml",
+      "name": "CI",
+      "category": "ci",
+      "archived": false,
+      "triggers": {"pull_request": true, "push": ["phase-2-dev"]},
+      "replacement_for": null
+    },
+    {
+      "file": "docker.yml",
+      "name": "Docker",
+      "category": "ci",
+      "archived": false,
+      "triggers": {"pull_request": true, "push": ["phase-2-dev"], "workflow_dispatch": true},
+      "replacement_for": null
+    },
+    {
+      "file": "enable-automerge.yml",
+      "name": "Enable auto-merge for eligible PRs",
+      "category": "governance",
+      "archived": false,
+      "triggers": {"pull_request": true, "workflow_run": ["CI", "Docker"]},
+      "replacement_for": null
+    },
+    {
+      "file": "autofix.yml",
+      "name": "autofix trivial issues (ARCHIVED 2025-09-20 – use reuse-autofix.yml)",
+      "category": "remediation",
+      "archived": true,
+      "triggers": {},
+      "replacement_for": "reuse-autofix.yml + autofix-consumer.yml"
+    },
+    {
+      "file": "lint-verification.yml",
+      "name": "Lint Verification (post-autofix)",
+      "category": "ci",
+      "archived": false,
+      "triggers": {"push": true, "workflow_run": ["CI", "Docker"]},
+      "replacement_for": null
+    }
+  ]
+}
