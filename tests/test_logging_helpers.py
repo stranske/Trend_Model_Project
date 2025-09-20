@@ -1,9 +1,15 @@
 import logging
 from pathlib import Path
 
-from trend_analysis.logging import (RUN_LOGGER_NAME, error_summary,
-                                    get_default_log_path, init_run_logger,
-                                    latest_errors, log_step, logfile_to_frame)
+from trend_analysis.logging import (
+    RUN_LOGGER_NAME,
+    error_summary,
+    get_default_log_path,
+    init_run_logger,
+    latest_errors,
+    log_step,
+    logfile_to_frame,
+)
 
 
 def test_logfile_helpers(tmp_path: Path):

@@ -1,5 +1,5 @@
 name: "Autofix Python Formatting"
-description: "Run ruff, black, isort, docformatter with pinned versions and emit summary"
+description: "Run ruff (two-pass), black, isort, docformatter; classify residual diagnostics; emit enriched summary"
 inputs:
   python-version:
     description: "Python version"
@@ -9,6 +9,12 @@ outputs:
   changed:
     description: "Whether any files were modified by the fixers"
     value: ${{ steps.runfix.outputs.changed }}
+  remaining_issues:
+    description: "Count of unresolved ruff diagnostics after autofix phase"
+    value: ${{ steps.classify.outputs.remaining_issues }}
+  new_issues:
+    description: "Count of new (non-allowlisted) ruff diagnostics"
+    value: ${{ steps.classify.outputs.new_issues }}
 runs:
   using: "composite"
   steps:
@@ -33,10 +39,27 @@ runs:
       id: runfix
       shell: bash
       run: |
-        ruff check --fix .
-        black .
+        echo "[autofix] Phase 1: applying safe fixes (ruff + isort + docformatter + black final)"
+        # Ruff first (fast) – non-fatal
+        ruff check --fix --exit-zero .
+        # isort next so import reordering is final before black
         isort .
+        # docformatter before black so black enforces final layout
         docformatter -r -i src tests || true
+        # black last for canonical formatting
+        black .
+        echo "[autofix] Phase 1b: second ruff pass to capture post-format unlocks"
+        ruff check --fix --exit-zero .
+
+        echo "[autofix] Phase 2: collect remaining ruff diagnostics (non-fatal)"
+        # Capture diagnostics (text + JSON); never fail this job here
+        if ! ruff check . > ruff_remaining.log 2>&1; then
+          echo "[autofix] Ruff reported remaining issues (expected for non-auto-fixable codes)."
+        fi
+        if ! ruff check --output-format json . > ruff_diagnostics.json 2>/dev/null; then
+          echo "[]" > ruff_diagnostics.json
+        fi
+
         # --- Type hygiene (lightweight) ---
         echo "[autofix] Running auto_type_hygiene..."
         if [ -f scripts/auto_type_hygiene.py ]; then
@@ -48,9 +71,36 @@ runs:
         mypy --install-types --non-interactive || true
         # Optional warm cache (do not fail build)
         mypy src/ --ignore-missing-imports --follow-imports=silent > /dev/null 2>&1 || true
+
         if ! git diff --quiet; then echo "changed=true" >> $GITHUB_OUTPUT; else echo "changed=false" >> $GITHUB_OUTPUT; fi
+
+    - name: Classify residual diagnostics
+      id: classify
+      shell: bash
+      run: |
+        echo "[autofix] Phase 3: classification (allowlist vs new)"
+          ALLOWLIST_FILE=.ruff-residual-allowlist.json
+          if [ ! -f "$ALLOWLIST_FILE" ]; then echo '{"allow":[]}' > "$ALLOWLIST_FILE"; fi
+          if [ -f scripts/classify_ruff.py ]; then
+            python scripts/classify_ruff.py ruff_diagnostics.json $ALLOWLIST_FILE ruff_classification.json || echo '{"error":"classification_failed"}' > ruff_classification.json
+          else
+            echo "[autofix] No classify_ruff.py script; generating minimal classification"
+            ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+            echo '{"total":0,"allowed":0,"new":0,"by_code":{},"new_by_code":{},"timestamp":"'$ts'"}' > ruff_classification.json
+          fi
+          echo "[autofix] Classification output:"; cat ruff_classification.json || true
+          remaining=$(jq -r '.total' ruff_classification.json 2>/dev/null || echo 0)
+          new=$(jq -r '.new' ruff_classification.json 2>/dev/null || echo 0)
+          echo "remaining_issues=$remaining" >> $GITHUB_OUTPUT
+          echo "new_issues=$new" >> $GITHUB_OUTPUT
+          if git diff --quiet; then changed=false; else changed=true; fi
+          jq -n --arg changed "$changed" --slurpfile cls ruff_classification.json '{changed:($changed=="true"), classification:$cls[0]}' > autofix_report_enriched.json || echo '{"changed":false}' > autofix_report_enriched.json
+          echo "[autofix] Wrote enriched report autofix_report_enriched.json"
     - name: Summary
       shell: bash
       run: |
         echo "### Composite Autofix Summary" >> $GITHUB_STEP_SUMMARY
         echo "Changed: ${{ steps.runfix.outputs.changed }}" >> $GITHUB_STEP_SUMMARY
+        echo "Remaining ruff issues: ${{ steps.classify.outputs.remaining_issues }}" >> $GITHUB_STEP_SUMMARY
+        echo "New (non-allowlisted) ruff issues: ${{ steps.classify.outputs.new_issues }}" >> $GITHUB_STEP_SUMMARY
+        echo "(See autofix_report_enriched.json for full breakdown)" >> $GITHUB_STEP_SUMMARY

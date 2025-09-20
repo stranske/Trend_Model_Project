@@ -23,11 +23,12 @@ import numpy as np
 import pandas as pd
 
 from trend_analysis.core.rank_selection import (
-    RiskStatsConfig, compute_metric_series_with_cache)
+    RiskStatsConfig,
+    compute_metric_series_with_cache,
+)
 from trend_analysis.multi_period.engine import _compute_turnover_state
 from trend_analysis.perf.cache import CovCache
-from trend_analysis.rebalancing.strategies import (TURNOVER_EPSILON,
-                                                   TurnoverCapStrategy)
+from trend_analysis.rebalancing.strategies import TURNOVER_EPSILON, TurnoverCapStrategy
 
 
 def _make_df(rows: int, cols: int, seed: int = 0) -> pd.DataFrame:

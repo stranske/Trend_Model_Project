@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, cast
 
 import pandas as pd
 import streamlit as st
-import yaml  # type: ignore[import-untyped]
 
+import yaml  # type: ignore[import-untyped]
 from trend_analysis import pipeline
 from trend_analysis.config import DEFAULTS as DEFAULT_CFG_PATH
 from trend_analysis.config import Config
@@ -41,7 +41,8 @@ def _is_mock_streamlit(module: Any) -> bool:
 
 
 def _read_defaults() -> Dict[str, Any]:
-    """Load the default YAML configuration bundled with the analysis package."""
+    """Load the default YAML configuration bundled with the analysis
+    package."""
 
     data = yaml.safe_load(Path(DEFAULT_CFG_PATH).read_text(encoding="utf-8"))
     if not isinstance(data, dict):  # pragma: no cover - defensive
@@ -329,4 +330,3 @@ def _render_app() -> None:
 
 if not _is_mock_streamlit(st):
     _render_app()
-

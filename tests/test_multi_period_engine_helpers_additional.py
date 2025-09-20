@@ -105,13 +105,17 @@ def test_portfolio_rebalance_accepts_multiple_input_shapes() -> None:
     assert pf.total_rebalance_costs == pytest.approx(0.07)
 
 
-def test_run_schedule_invokes_update_and_fast_turnover(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_schedule_invokes_update_and_fast_turnover(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """``run_schedule`` should exercise fast turnover and update hooks."""
 
     class DummySelector:
         rank_column = "Sharpe"
 
-        def select(self, score_frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+        def select(
+            self, score_frame: pd.DataFrame
+        ) -> tuple[pd.DataFrame, pd.DataFrame]:
             return score_frame, score_frame
 
     class RecordingWeighting:
