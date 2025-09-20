@@ -3,7 +3,10 @@
 Writes: ci/autofix/residual_report.md
 """
 from __future__ import annotations
-import json, datetime, pathlib
+
+import datetime
+import json
+import pathlib
 
 root = pathlib.Path("ci/autofix")
 root.mkdir(parents=True, exist_ok=True)
