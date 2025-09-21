@@ -26,7 +26,13 @@ def _load_config_module_without_pydantic(
 ) -> ModuleType:
     """Load ``config.models`` with ``pydantic`` forcibly unavailable."""
 
-    module_path = Path(__file__).resolve().parents[1] / "src" / "trend_analysis" / "config" / "models.py"
+    module_path = (
+        Path(__file__).resolve().parents[1]
+        / "src"
+        / "trend_analysis"
+        / "config"
+        / "models.py"
+    )
     spec = importlib.util.spec_from_file_location(module_name, module_path)
     assert spec and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -90,7 +96,10 @@ def test_fallback_config_provides_defaults(fallback_models: ModuleType) -> None:
         ({"version": "   "}, "Version field cannot be empty"),
         ({"data": None}, "data section is required"),
         ({"portfolio": []}, "portfolio must be a dictionary"),
-        ({"portfolio": {"transaction_cost_bps": -0.1}}, "transaction_cost_bps must be >= 0"),
+        (
+            {"portfolio": {"transaction_cost_bps": -0.1}},
+            "transaction_cost_bps must be >= 0",
+        ),
         ({"portfolio": {"max_turnover": 3.5}}, "max_turnover must be <= 2.0"),
     ],
 )
@@ -229,8 +238,11 @@ def test_list_available_presets_handles_empty_directory(
     assert fallback_models.list_available_presets() == []
 
 
-def test_pydantic_dict_field_detection_handles_item_errors(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Ensure the Pydantic helper tolerates ``model_fields`` that lack ``items``."""
+def test_pydantic_dict_field_detection_handles_item_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Ensure the Pydantic helper tolerates ``model_fields`` that lack
+    ``items``."""
 
     import trend_analysis.config.models as models  # type: ignore[import-not-found]
 

@@ -114,7 +114,8 @@ def test_run_incremental_covariance_updates(monkeypatch):
 
 
 def test_run_incremental_covariance_shift_detection(monkeypatch):
-    """Ensure the incremental path applies sequential updates when shifts are detected."""
+    """Ensure the incremental path applies sequential updates when shifts are
+    detected."""
 
     cfg = _Cfg()
     df = _make_df()
@@ -219,7 +220,8 @@ def test_run_incremental_covariance_handles_bad_shift_and_strings(monkeypatch):
 
 
 def test_run_incremental_covariance_multi_step_update(monkeypatch):
-    """Incremental covariance handles multi-row shifts via sequential updates."""
+    """Incremental covariance handles multi-row shifts via sequential
+    updates."""
 
     cfg = _Cfg()
     dates = pd.to_datetime(

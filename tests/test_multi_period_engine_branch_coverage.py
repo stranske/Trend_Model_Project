@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from types import SimpleNamespace
-from typing import Any, Dict, Iterable, Sequence
+from typing import Any, Dict, Iterable
 
 import pandas as pd
 
@@ -70,7 +70,9 @@ class WeightingStub:
     def __init__(self) -> None:
         self.updates: list[tuple[pd.Series, int]] = []
 
-    def weight(self, selected: pd.DataFrame, date: pd.Timestamp | None = None) -> pd.DataFrame:
+    def weight(
+        self, selected: pd.DataFrame, date: pd.Timestamp | None = None
+    ) -> pd.DataFrame:
         del date
         base = [0.7, 0.6, 0.5]
         values = pd.Series(base[: len(selected)], index=selected.index, dtype=float)

@@ -931,12 +931,14 @@ def test_threshold_hold_weight_bounds_handles_uniform_minimum(monkeypatch):
         }
     )
 
-    dates = pd.to_datetime([
-        "2020-01-31",
-        "2020-02-29",
-        "2020-03-31",
-        "2020-04-30",
-    ])
+    dates = pd.to_datetime(
+        [
+            "2020-01-31",
+            "2020-02-29",
+            "2020-03-31",
+            "2020-04-30",
+        ]
+    )
     df = pd.DataFrame(
         {
             "Date": dates,
