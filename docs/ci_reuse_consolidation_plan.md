@@ -16,8 +16,6 @@ The `.github/workflows` directory contains both new reusable workflows and sever
 ### Parallel / Candidate for Future Merge
 | Workflow | Notes |
 | -------- | ----- |
-| `agent-readiness.yml`, `agent-watchdog.yml`, `verify-agent-task.yml` | Functional overlap with `reuse-agents.yml` (watchdog path). Consider collapsing into parameters (e.g., `enable_readiness`) in a later iteration. |
-| `codex-bootstrap-diagnostic.yml`, `codex-preflight.yml` | Pre-bootstrap diagnostics; could become a mode in `reuse-agents.yml` (input flag). |
 | `verify-codex-bootstrap-matrix.yml` | Specialized matrix verification; keep separate (long-running, matrix heavy). |
 | `perf-benchmark.yml` | Performance regression; intentionally standalone (different triggers, resource profile). |
 
@@ -25,7 +23,7 @@ The `.github/workflows` directory contains both new reusable workflows and sever
 Release, docker, auto-merge enablement, PR status summary, quarantine TTL, failure trackers remain orthogonal to the three reusable workflows.
 
 ## Consolidation Actions Executed
-All previously flagged legacy workflows have been marked for removal in alignment with Issue #1259, with actual deletions pending in a follow-up PR. Consumers should transition to the reusable equivalents. This concludes the stabilization window referenced in PR #1257.
+All previously flagged legacy workflows have now been deleted in alignment with Issue #1259. Consumers should transition to the reusable equivalents. This concludes the stabilization window referenced in PR #1257.
 
 ## Deletion Timetable (Superseded)
 Original timetable replaced by immediate removal once validation completed. Retained here for historical context only.

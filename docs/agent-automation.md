@@ -15,11 +15,11 @@ Issue Labeled agent:codex    ──▶ assign-to-agent.yml (issues) ──▶ se
                                                        │
 PR Opened/Updated               ──▶ label-agent-prs.yml (pull_request_target) → idempotent labeling
                                                        │
-PR (any)                        ──▶ autofix.yml (pull_request) → composite autofix action
+PR (any)                        ──▶ autofix-consumer.yml (pull_request) → reusable autofix wrapper
                                                        │
 Failing CI / Docker / Tests     ──▶ autofix-on-failure.yml (workflow_run) → composite autofix action
                                                        │
-Issue / PR lacks Codex PR       ──▶ agent-watchdog.yml (schedule or dispatch) → state telemetry
+Issue / PR lacks Codex PR       ──▶ reuse-agents.yml (enable_watchdog) → state telemetry
 ```
 
 ## Key Workflows
@@ -78,13 +78,13 @@ Rationale for `pull_request_target`:
 
 Idempotent: computes label delta and applies only missing labels.
 
-### 4. `autofix.yml`
+### 4. `autofix-consumer.yml`
 Trigger: standard `pull_request` events.
 
 Logic:
-- Skips drafts unless explicitly labeled `autofix`.
-- Uses composite action `.github/actions/autofix` to install pinned versions and run ruff/black/isort/docformatter.
-- Pushes changes only if formatter produced a diff (guard via `changed` output).
+- Thin wrapper that invokes `reuse-autofix.yml` with the repo's preferred label + commit prefix.
+- Skips drafts unless explicitly labeled `autofix` (delegated to reusable workflow input gates).
+- Pushes changes only if the reusable job reports a diff (guard via `changed` output).
 
 ### 5. `autofix-on-failure.yml`
 Trigger: `workflow_run` (CI, Docker, Lint, Tests) when conclusion != success.
@@ -94,13 +94,15 @@ Steps:
 - Applies same composite autofix action (idempotent).
 - Commits with canonical message `chore(autofix): after failed checks` (loop guard in main autofix to avoid recursion).
 
-### 6. `agent-watchdog.yml`
-Purpose: Detect issues labeled for Codex where bootstrap PR not yet created OR gather fast telemetry.
+### 6. `reuse-agents.yml` (watchdog + probes)
+Purpose: Parameterised harness for Codex automation – enables watchdog telemetry, readiness probes, preflight checks, diagnostics, and verify-issue sweeps from a single workflow.
 
-Enhancements:
-- Fast-mode: detects marker file presence to short-circuit deeper polling.
-- Provides structured outputs (`state`) such as `FOUND` or `TIMEOUT`.
-- Step summary enumerates any pending items.
+Key inputs:
+- `enable_watchdog`: toggles the lightweight telemetry sweep (replacement for `agent-watchdog.yml`).
+- `enable_readiness`, `enable_preflight`, `enable_diagnostic`, `enable_verify_issue`: opt-in single-purpose jobs that subsumed the legacy standalone workflows.
+- `bootstrap_issues_label`, `draft_pr`: govern Codex PR creation behaviour.
+
+Outputs & summaries mirror the legacy jobs but are scoped per enabled mode. Watchdog retains the structured `state` output (`FOUND`, `TIMEOUT`, etc.).
 
 ### 7. `cleanup-codex-bootstrap.yml`
 Scheduled cleanup of stale `agents/codex-issue-*` branches beyond age threshold.
@@ -116,7 +118,7 @@ Encapsulates tool installation and formatting logic:
 |-------------------|--------|---------|
 | `agent_assignment.json` | `assign-to-agent.yml` | Auditable record of assignment decisions (inputs & outputs). |
 | Step Summary tables | All major workflows | Human-readable status in Actions UI. |
-| `state` output | `agent-watchdog.yml` | Programmatic detector for missing Codex bootstrap. |
+| `state` output | `reuse-agents.yml` (watchdog mode) | Programmatic detector for missing Codex bootstrap. |
 | Marker files | Codex bootstrap job | Idempotency & external observable state via repo tree. |
 | JSON summary comment | `assign-to-agent.yml` (new) | Machine-readable evergreen comment (issue/PR) with assignment + (later) bootstrap snapshot. |
 
