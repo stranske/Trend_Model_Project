@@ -125,16 +125,16 @@ Order of potential jobs (independent; may run in parallel):
 Only jobs with their enable flag set to `true` execute.
 
 ### Legacy Workflow Consolidation
-The following legacy workflows are now superseded by input‑gated modes:
-| Legacy Workflow | Replacement Mode |
+The standalone agent probe workflows were deleted on 2025-09-21. Use the inputs below when migrating from the historical files:
+| Removed Workflow | Replacement Mode |
 | ---------------- | ---------------- |
 | `agent-readiness.yml` | `enable_readiness` |
 | `codex-preflight.yml` | `enable_preflight` |
 | `codex-bootstrap-diagnostic.yml` | `enable_diagnostic` |
 | `verify-agent-task.yml` | `enable_verify_issue` |
-| `agent-watchdog.yml` | (partially) `enable_watchdog` (full parity pending) |
+| `agent-watchdog.yml` | `enable_watchdog` |
 
-Deprecation headers were added; removal can occur after a stability window.
+The reusable workflow now provides the single entry point for these capabilities; archive copies exist only for reference.
 
 ## 4. Adoption Guide (External Repos)
 1. Copy the three reusable files verbatim or add this repo as a submodule / template reference.
@@ -182,4 +182,4 @@ Deprecation headers were added; removal can occur after a stability window.
 These docs accompany PR #1257 (Issue #1166). Optional future enhancements: remote versioned usage, quarantine job, extended watchdog metrics.
 
 ---
-Last updated: 2025-09-19
+Last updated: 2025-09-21
