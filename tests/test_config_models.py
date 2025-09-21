@@ -1,8 +1,6 @@
 import importlib
 from typing import Any
 
-import importlib
-from typing import Any
 
 import pytest
 
