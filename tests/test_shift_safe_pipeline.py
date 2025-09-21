@@ -67,5 +67,5 @@ def test_compute_signal_only_uses_past_data(returns):
         if len(history) < 3:
             assert math.isnan(value)
             continue
-        expected = np.mean(history.to_numpy(dtype=float))
+        expected = history.mean()
         assert value == pytest.approx(expected)
