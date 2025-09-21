@@ -60,14 +60,14 @@ jobs:
     uses: ./.github/workflows/reuse-autofix.yml
     with:
       opt_in_label: bot:autofix
-      commit_prefix: "autofix(ci):"
+      commit_prefix: "chore(autofix):"
 ```
 
 ### Inputs
 | Name | Default | Description |
 | ---- | ------- | ----------- |
 | `opt_in_label` | `bot:autofix` | Label required on the PR to activate autofix. |
-| `commit_prefix` | `autofix:` | Prefix for generated commit messages. |
+| `commit_prefix` | `chore(autofix):` | Prefix for generated commit messages. |
 
 ### Behaviour
 1. Skips entirely if label not present.
@@ -134,7 +134,7 @@ The following legacy workflows were removed in favour of input‑gated modes wit
 | `verify-agent-task.yml` | `enable_verify_issue` |
 | `agent-watchdog.yml` | (partially) `enable_watchdog` (full parity pending) |
 
-Removal completed once the stabilization window closed (Issue #1259).
+Removal completed once the stabilization window closed (Issue #1259), except for the watchdog which remains active pending parity work.
 
 ## 4. Adoption Guide (External Repos)
 1. Copy the three reusable files verbatim or add this repo as a submodule / template reference.
