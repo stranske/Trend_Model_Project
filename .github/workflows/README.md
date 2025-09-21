@@ -179,7 +179,7 @@ Outputs:
 
 Behavior: Non‑blocking (always succeeds). Parsing failures degrade gracefully (warning + skip) to avoid blocking unrelated PR progress.
 Hotspots: Sorted ascending by percent covered (lowest coverage first) limited to 15 entries for scannability.
-Retention Guidance: Use 7–14 days. Shorter (<7) risks losing comparison context for slower review cycles; longer (>14) increases storage without materially improving triage.
+Retention Guidance: Use 7–14 days. Shorter (<7 days) risks losing comparison context for slower review cycles; longer (>14 days) increases storage without materially improving triage.
 
 ---
 ## 7.4 Universal Logs Summary (Issue #1351)
