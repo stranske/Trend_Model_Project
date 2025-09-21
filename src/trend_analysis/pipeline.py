@@ -712,7 +712,7 @@ def compute_signal(
 
     rolling = base.rolling(window=window, min_periods=effective_min_periods).mean()
     signal = rolling.shift(1)
-    signal.name = getattr(base, "name", None) or f"{column}_signal"
+    signal.name = f"{column}_signal"
     return signal
 
 
