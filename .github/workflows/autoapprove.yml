@@ -38,9 +38,9 @@ jobs:
           fi
           git -C trusted-config sparse-checkout set --no-cone "${patterns[@]}"
       - name: Assert sparse checkout scope (Issue #1140)
-    run: |
-      set -euo pipefail
-      python scripts/verify_trusted_config.py
+        run: |
+          set -euo pipefail
+          python scripts/verify_trusted_config.py
       - name: Check PR file patterns and size
         id: pr-check
         uses: actions/github-script@v7
