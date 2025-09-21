@@ -14,6 +14,8 @@ from typing import Any, ClassVar, Dict, List, Protocol, cast
 
 import yaml
 
+from .model import validate_trend_config
+
 
 class ConfigProtocol(Protocol):
     """Type protocol for Config class that works in both Pydantic and fallback
@@ -615,7 +617,10 @@ def load_config(cfg: Mapping[str, Any] | str | Path) -> ConfigProtocol:
     if isinstance(cfg, (str, Path)):
         return load(cfg)
     if isinstance(cfg, Mapping):
-        return Config(**cfg)
+        cfg_dict = dict(cfg)
+        config_obj = Config(**cfg_dict)
+        validate_trend_config(cfg_dict, base_path=Path.cwd())
+        return config_obj
     raise TypeError("cfg must be a mapping or path")
 
 
@@ -626,17 +631,20 @@ def load(path: str | Path | None = None) -> ConfigProtocol:
     consulted before falling back to ``DEFAULTS``.
     If ``path`` is a dict, it is used directly as configuration data.
     """
+    base_dir = Path.cwd()
     if isinstance(path, dict):
         data = path.copy()
     elif path is None:
-        env = os.environ.get("TREND_CFG")
+        env = os.environ.get("TREND_CONFIG") or os.environ.get("TREND_CFG")
         cfg_path = Path(env) if env else DEFAULTS
+        base_dir = cfg_path.parent
         with cfg_path.open("r", encoding="utf-8") as fh:
             data = yaml.safe_load(fh)
             if not isinstance(data, dict):
                 raise TypeError("Config file must contain a mapping")
     else:
         cfg_path = Path(path)
+        base_dir = cfg_path.parent
         with cfg_path.open("r", encoding="utf-8") as fh:
             data = yaml.safe_load(fh)
             if not isinstance(data, dict):
@@ -668,6 +676,11 @@ def load(path: str | Path | None = None) -> ConfigProtocol:
             p = Path(path_val)
             export_cfg.setdefault("directory", str(p.parent) if p.parent else ".")
             export_cfg.setdefault("filename", p.name)
+
+    try:
+        validate_trend_config(data, base_path=base_dir)
+    except (ValueError, TypeError) as exc:  # pragma: no cover - surface helpful error
+        raise ValueError(str(exc)) from exc
 
     return Config(**data)
 

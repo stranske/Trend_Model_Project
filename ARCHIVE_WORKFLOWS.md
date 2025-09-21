@@ -18,7 +18,7 @@ All deprecated agent automation workflows were deleted from `.github/workflows/`
 - (2026-02-07) `codex-issue-bridge.yml`, `reuse-agents.yml`, and `agents-consumer.yml` moved to `Old/.github/workflows/` after assigner/watchdog consolidation.
 
 ## Retired Autofix Wrapper
-- `autofix.yml` – Deleted in the same cleanup; consumers must use `autofix-consumer.yml` which calls `reuse-autofix.yml` directly.
+- Legacy `autofix.yml` (pre-2025) was deleted during the earlier cleanup. As of 2026-02-15 a new consolidated `autofix.yml` now drives both small fixes and trivial failure remediation; the former consumer wrappers have been removed.
 
 ## Rationale
 The 2025 cleanup centralized agent probe, diagnostic, and verification logic into `reuse-agents.yml`. In 2026 this was further simplified: `assign-to-agents.yml` handles label-driven assignment + Codex bootstrap while `agent-watchdog.yml` supplies the diagnostic signal, reducing optional flags and clarifying ownership.

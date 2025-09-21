@@ -37,6 +37,8 @@ results/
 *_tmp*.xlsx
 *.xlsx
 *.csv
+!data/raw/managers/*.csv
+!data/raw/indices/*.csv
 *.json
 !perf/perf_baseline.json
 !src/trend_analysis/export/manifest_schema.json

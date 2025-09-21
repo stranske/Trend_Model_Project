@@ -6,7 +6,7 @@ This guide enables a new maintainer to operate the CI + agent automation stack i
 ## 1. Architecture Snapshot
 Core layers:
 - Reusable CI (`reuse-ci-python.yml`): tests, coverage, aggregated gate.
-- Reusable Autofix (`reuse-autofix.yml` + consumer): formatting & linting (ruff+black) with residual classification.
+- Autofix lane (`autofix.yml`): workflow_run follower that batches small hygiene fixes and trivial failure remediation using the composite autofix action.
 - Style Gate (`style-gate.yml`): authoritative style verification (black --check + ruff new-issue fail) running on PR & main branch pushes.
 - Agent routing & watchdog (`assign-to-agents.yml` + `agent-watchdog.yml`): label-driven assignment, Codex bootstrap, diagnostics.
 - Governance & Health: `repo-health-self-check.yml`, labelers, dependency review, CodeQL.
@@ -21,7 +21,7 @@ The CI stack now runs in distinct lanes so each concern can evolve independently
 | Gate aggregation | `reusable-ci-python.yml` job: `gate / all-required-green` | Ensures upstream jobs passed (single source of truth) | Secondary | Will replace wrapper after burn‑in |
 | Coverage soft gate | `coverage_soft_gate` job (opt‑in) | Posts coverage & hotspots (non-blocking) | Advisory | Remains advisory |
 | Universal logs | `logs_summary` job | Per‑job log table in summary | Not required | Always-on helper |
-| Autofix lane | `reuse-autofix.yml` | Automated formatting/lint fixes (ruff+black+isort+docformatter) | Not required | Remains optional |
+| Autofix lane | `autofix.yml` | Workflow_run follower that commits small hygiene fixes (success runs) and retries trivial CI failures | Not required | Remains optional |
 | Style verification | `style-gate.yml` | Enforce black formatting + ruff cleanliness (fail on new issues) | Candidate required | Become required once stable |
 | Agent assignment | `assign-to-agents.yml` | Maps labels → assignees, creates Codex bootstrap PRs | Not required | Harden diagnostics |
 | Agent watchdog | `agent-watchdog.yml` | Confirms Codex PR cross-reference or posts timeout | Not required | Tune timeout post burn-in |
@@ -64,7 +64,7 @@ All others use default `GITHUB_TOKEN`.
 | Workflow | Trigger(s) | Notes |
 |----------|-----------|-------|
 | `reuse-ci-python.yml` | PR, push | Coverage & matrix |
-| `reuse-autofix.yml` | PR events | Formatting patch |
+| `autofix.yml` | workflow_run (`CI`) | Hygiene autofix + trivial failure remediation |
 | `style-gate.yml` | PR, push (main branches) | Style enforcement |
 | `assign-to-agents.yml` | issue/PR labels, dispatch | Agent assignment + Codex bootstrap |
 | `agent-watchdog.yml` | workflow dispatch | Codex PR presence diagnostic |
@@ -90,16 +90,8 @@ jobs:
       python_matrix: '"3.11"'
       cov_min: 70
 ```
-Autofix:
-```yaml
-name: Autofix
-on: [pull_request]
-jobs:
-  call:
-    uses: stranske/Trend_Model_Project/.github/workflows/reuse-autofix.yml@phase-2-dev
-```
-Autofix commits use the configurable prefix (default `chore(autofix):`). The reusable workflow guards against loops by
-detecting automation actors + existing prefix.
+Autofix commits use the configurable prefix (default `chore(autofix):`). The consolidated workflow guards against loops by
+detecting automation actors + existing prefix and only running after the CI workflow completes.
 
 ```yaml
 name: Agents
@@ -139,8 +131,8 @@ Use a tagged ref when versioned.
 
 ### 7.1 Autofix Loop Guard (Issue #1347)
 Loop prevention layers:
-1. Reusable Autofix job `if:` excludes automation actors.
-2. Guard step inspects latest commit subject for the configured prefix (default `chore(autofix):`).
+1. The consolidated workflow only reacts to completed CI runs (no direct `push` trigger).
+2. Guard logic inspects the latest commit subject for the configured prefix (default `chore(autofix):`) when the actor is `github-actions`.
 3. Style Gate runs independently and does not trigger autofix.
 
 Result: Each human push generates at most one autofix patch sequence; autofix commits do not recursively spawn new runs.

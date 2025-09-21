@@ -41,10 +41,8 @@ Update: `cleanup-codex-bootstrap.yml` confirmed – prunes stale `agents/codex-i
 
 ### 4. Automated Debug / Remediation
 - `reuse-autofix.yml` – Reusable autofix job logic.
-- `autofix-consumer.yml` – Consumer invoking `reuse-autofix.yml` on PR events.
-- `autofix-on-failure.yml` – Reactive autofix on failing workflows (CI, Docker, Lint, Tests).
+- `autofix.yml` – Consolidated workflow_run follower for small hygiene fixes + trivial failure remediation.
 - `verify-ci-stack.yml` – Manual trigger to validate CI/Docker/autofix interplay (observational harness).
-- *(Removed 2025-09-26)* `autofix.yml` – Legacy standalone workflow retired after stabilization window.
 
 ### 5. Release & Distribution
 - `release.yml` – Tag / manual-dispatch PyPI build & publish, changelog generation.
@@ -76,7 +74,8 @@ Update: `cleanup-codex-bootstrap.yml` confirmed – prunes stale `agents/codex-i
 | codex-issue-bridge.yml | assign-to-agents.yml | ARCHIVED (2026-02-07) | Moved to `Old/.github/workflows/` after Issue #1419 consolidation. |
 | reuse-agents.yml | assign-to-agents.yml + agent-watchdog.yml | ARCHIVED (2026-02-07) | Archived in `Old/.github/workflows/`; parameter matrix deprecated. |
 | guard-no-reuse-pr-branches.yml | Policy (no automation) | ARCHIVED | In-place archived with no-op job. |
-| autofix.yml | reuse-autofix + consumer | REMOVED (2025-09-21) | Use `autofix-consumer.yml` to call reusable workflow. |
+| autofix-consumer.yml | `autofix.yml` | REMOVED (2026-02-15) | Small-fix lane now runs inside consolidated follower workflow. |
+| autofix-on-failure.yml | `autofix.yml` | REMOVED (2026-02-15) | Failure remediation merged into consolidated follower workflow. |
 
 ## Potential Duplications / Overlaps
 
@@ -89,8 +88,8 @@ Update: `cleanup-codex-bootstrap.yml` confirmed – prunes stale `agents/codex-i
 - Archived `codex-issue-bridge.yml` and `reuse-agents.yml` remain in `Old/.github/workflows/` for reference but should not receive new consumers.
 
 ### Autofix
-- Legacy `autofix.yml` has been removed; `autofix-consumer.yml` is the supported entry point calling `reuse-autofix.yml`.
-- `autofix-on-failure.yml` is complementary (reactive) and should remain; could optionally be refactored to call `reuse-autofix.yml` directly to unify logic.
+- Consolidated `autofix.yml` now reacts to CI workflow_run events, orchestrating both small hygiene patches and trivial failure remediation through the composite action.
+- `reuse-autofix.yml` remains the single implementation of fixer logic; no other direct consumers remain.
 
 ### Status & Failure Reporting
 - `pr-status-summary.yml` and `check-failure-tracker.yml` both respond to workflow_run. Distinct outputs (comment vs issue). Keep both; minimal overlap.

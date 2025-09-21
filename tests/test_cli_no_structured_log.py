@@ -21,7 +21,11 @@ def test_cli_no_structured_log(tmp_path: Path):
     df.to_csv(csv_path, index=False)
     cfg = {
         "version": "1",
-        "data": {},
+        "data": {
+            "csv_path": str(csv_path),
+            "date_column": "Date",
+            "frequency": "M",
+        },
         "preprocessing": {},
         "vol_adjust": {"target_vol": 1.0},
         "sample_split": {
@@ -30,7 +34,12 @@ def test_cli_no_structured_log(tmp_path: Path):
             "out_start": "2023-05",
             "out_end": "2023-08",
         },
-        "portfolio": {"selection_mode": "all"},
+        "portfolio": {
+            "selection_mode": "all",
+            "rebalance_calendar": "NYSE",
+            "max_turnover": 0.25,
+            "transaction_cost_bps": 10,
+        },
         "metrics": {},
         "export": {},
         "run": {},

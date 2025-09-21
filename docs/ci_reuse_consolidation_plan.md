@@ -37,4 +37,4 @@ Original timetable replaced by immediate removal once validation completed. Reta
 All other workflows serve distinct concerns; consolidating now would add complexity without clear maintenance win.
 
 ---
-Last updated: 2025-09-21
+Last updated: 2026-02-15

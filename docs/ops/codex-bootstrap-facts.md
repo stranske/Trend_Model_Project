@@ -47,8 +47,7 @@ Last updated: 2026-02-07
 - Label Agent PRs — [`label-agent-prs.yml`](../../.github/workflows/label-agent-prs.yml) · [jump](#wf-label-agent-prs)
 - Auto-approve Agent PRs — [`autoapprove.yml`](../../.github/workflows/autoapprove.yml) · [jump](#wf-autoapprove)
 - Enable Auto-merge — [`enable-automerge.yml`](../../.github/workflows/enable-automerge.yml) · [jump](#wf-enable-automerge)
-- Autofix Trivial — [`autofix-consumer.yml`](../../.github/workflows/autofix-consumer.yml) · [jump](#wf-autofix-consumer)
-- Autofix on Failure — [`autofix-on-failure.yml`](../../.github/workflows/autofix-on-failure.yml) · [jump](#wf-autofix-on-failure)
+- Autofix Lane — [`autofix.yml`](../../.github/workflows/autofix.yml) · [jump](#wf-autofix)
 - CI — [`ci.yml`](../../.github/workflows/ci.yml) · [jump](#wf-ci)
 - Docker — [`docker.yml`](../../.github/workflows/docker.yml) · [jump](#wf-docker)
 - Cleanup Codex Bootstrap — [`cleanup-codex-bootstrap.yml`](../../.github/workflows/cleanup-codex-bootstrap.yml) · [jump](#wf-cleanup-codex-bootstrap)
@@ -87,7 +86,7 @@ This catalog explains what each active workflow does, how it’s triggered, the 
    - Jobs: `label`
      - Computes desired labels based on actor/head-ref; adds `from:codex|copilot`, `agent:codex|copilot`, `automerge`, `risk:low`
      - Uses `SERVICE_BOT_PAT` if available; otherwise `GITHUB_TOKEN`
-   - Links to: `autoapprove.yml`, `enable-automerge.yml`, `autofix*.yml` (they predicate on these labels)
+   - Links to: `autoapprove.yml`, `enable-automerge.yml`, `autofix.yml` (they predicate on these labels)
 
 <a id="wf-autoapprove"></a>
 4) [`autoapprove.yml`](../../.github/workflows/autoapprove.yml) — Auto-approve eligible agent PRs
@@ -230,14 +229,14 @@ This section summarizes the differences between the failing Option 2 (manual/"cr
 - Token priority clarified: `OWNER_PR_PAT` is preferred to author the PR as the human; else `SERVICE_BOT_PAT`, else `GITHUB_TOKEN`.
 - PR hygiene defaults: PRs are opened as non-draft and include an initial `@codex start` comment; the PR body replicates the source issue content.
 
-### Autofix pipeline — fork‑friendly refactor
+### Autofix pipeline — CI follower consolidation
 
 - Composite action `.github/actions/autofix` no longer commits; it emits `outputs.changed` after running `ruff`, `black`, `isort`, `docformatter`, and light type‑hygiene steps.
-- Workflow `.github/workflows/autofix-consumer.yml` branches by PR provenance via `reuse-autofix.yml`:
+- Workflow `.github/workflows/autofix.yml` executes after CI completes and coordinates two lanes:
 
-  - Same‑repo: commit and push to the PR head branch.
-  - Fork: create `autofix.patch`, upload as artifact `autofix-patch-pr-<num>`, and post a PR comment with local apply instructions.
-- Benefits: Same‑repo remains hands‑off; forks still get actionable fixes without elevated permissions.
+  - `small-fixes` (CI success + safe diff): commits `chore(autofix): apply small fixes` with `SERVICE_BOT_PAT` for same-repo PRs; forks receive a `small-autofix.patch` artifact.
+  - `fix-failing-checks` (CI failure w/ trivial job names): commits `chore(autofix): fix failing checks` when format/lint/type jobs fail; forks receive `failing-checks-autofix.patch`; adds `needs-autofix-review` when no diff produced.
+- Benefits: Same composite logic serves both proactive hygiene and reactive failure remediation with a single workflow; forks still get actionable patches without elevated permissions.
 
 ## Invite vs Create — when to use which
 

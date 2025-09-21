@@ -58,6 +58,7 @@ portfolio:
   manual_list: [] # filled when selection_mode=manual
   weighting_scheme: "equal" # equal | risk_parity | hrp | erc | robust_mv | robust_risk_parity | custom
   rebalance_freq: "M" # M | Q | A | None
+  rebalance_calendar: "NYSE"
   leverage_cap: 2.0 # max gross exposure
   transaction_cost_bps: 0       # linear cost per unit turnover
   max_turnover: 1.0             # optional turnover cap (1.0 = no cap)

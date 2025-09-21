@@ -98,7 +98,7 @@ Issue #1419 replaced the multi-flag `reuse-agents.yml` pipeline with a focused p
 ### Example Badges
 ```markdown
 ![CI](https://github.com/<org>/<repo>/actions/workflows/ci.yml/badge.svg)
-![Autofix](https://github.com/<org>/<repo>/actions/workflows/autofix-consumer.yml/badge.svg)
+![Autofix](https://github.com/<org>/<repo>/actions/workflows/autofix.yml/badge.svg)
 ```
 
 ## 5. Customisation Points
@@ -111,13 +111,13 @@ Issue #1419 replaced the multi-flag `reuse-agents.yml` pipeline with a focused p
 
 ## 6. Security & Permissions
 - Minimal default `permissions: contents: read` in CI; elevate only where required (e.g. `contents: write` for autofix commits).
-- Avoid `pull-request-target` unless strictly necessary; current design uses standard `pull_request` to reduce attack surface.
+- Autofix now runs via `workflow_run` follower (`autofix.yml`) and pushes with `SERVICE_BOT_PAT`; avoid falling back to `GITHUB_TOKEN`.
 
 ## 7. Migration Checklist (Existing Repo)
 - [ ] Identify old CI workflows to retire.
 - [ ] Introduce new consumer pointing at `reuse-ci-python.yml`.
 - [ ] Validate coverage gate matches previous policy.
-- [ ] Add autofix consumer if policy allows automated commits.
+- [ ] Enable the autofix follower (`autofix.yml`) if policy allows automated commits.
 - [ ] Add agents consumer (if using Codex automation).
 - [ ] Remove redundant workflows.
 
@@ -135,4 +135,4 @@ Issue #1419 replaced the multi-flag `reuse-agents.yml` pipeline with a focused p
 These docs accompany PR #1257 (Issue #1166). Optional future enhancements: remote versioned usage, quarantine job, extended watchdog metrics.
 
 ---
-Last updated: 2025-09-21
+Last updated: 2026-02-15

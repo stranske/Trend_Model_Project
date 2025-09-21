@@ -3,6 +3,7 @@ version: "1"                      # whatever your defaults.yml uses
 
 data:
   csv_path: demo/demo_returns.csv   # <– written by generate_demo.py
+  date_column: Date
   frequency: ME                 # monthly data
 
 preprocessing:
@@ -10,6 +11,7 @@ preprocessing:
 
 vol_adjust:
   enabled: false                # keep it off for speed
+  target_vol: 0.10              # default risk target when enabled
 
 sample_split:
   in_start: 2015-01
@@ -34,6 +36,9 @@ portfolio:
   weighting:
     name: equal
     params: {}
+  rebalance_calendar: NYSE
+  transaction_cost_bps: 0
+  max_turnover: 1.0
 
 benchmarks:
   spx: SPX
