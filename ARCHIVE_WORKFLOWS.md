@@ -1,19 +1,17 @@
-# Archived GitHub Workflows (Updated 2025-09-26)
+# Archived GitHub Workflows (2025-09-21)
 
-This document records the retirement of legacy agent-related workflows that have now been deleted from `.github/workflows/` in favour of the consolidated reusable pipeline introduced in PR #1257.
+This document records the archival and removal of legacy agent-related workflows now replaced by consolidated reusable pipelines.
 
-## Removed Files
-| Legacy Workflow (deleted) | Historical Archive Copy | Replacement Path | Replacement Mode |
-|---------------------------|-------------------------|------------------|------------------|
-| `.github/workflows/agent-readiness.yml` | (see git history) | `reuse-agents.yml` | `enable_readiness=true` |
-| `.github/workflows/agent-watchdog.yml` | (see git history) | `reuse-agents.yml` | `enable_watchdog=true` |
-| `.github/workflows/codex-preflight.yml` | (see git history) | `reuse-agents.yml` | `enable_preflight=true` |
-| `.github/workflows/codex-bootstrap-diagnostic.yml` | (see git history) | `reuse-agents.yml` | `enable_diagnostic=true` |
-| `.github/workflows/verify-agent-task.yml` | (see git history) | `reuse-agents.yml` | `enable_verify_issue=true` |
-| `.github/workflows/autofix.yml` | (see git history) | `reuse-autofix.yml` + `autofix-consumer.yml` | `opt_in_label` |
+## Archived Files
+| Legacy Workflow (removed) | Archived Copy | Replacement Path | Replacement Mode |
+|---------------------------|--------------|------------------|------------------|
+| `.github/workflows/agent-readiness.yml` | `archive/agent-readiness.yml` | `reuse-agents.yml` | `enable_readiness=true` |
+| `.github/workflows/agent-watchdog.yml` | `archive/agent-watchdog.yml` | `reuse-agents.yml` | `enable_watchdog=true` |
+| `.github/workflows/codex-preflight.yml` | `archive/codex-preflight.yml` | `reuse-agents.yml` | `enable_preflight=true` |
+| `.github/workflows/codex-bootstrap-diagnostic.yml` | `archive/codex-bootstrap-diagnostic.yml` | `reuse-agents.yml` | `enable_diagnostic=true` |
+| `.github/workflows/verify-agent-task.yml` | `archive/verify-agent-task.yml` | `reuse-agents.yml` | `enable_verify_issue=true` |
+| `.github/workflows/autofix.yml` | (removed; see git history) | `reuse-autofix.yml` + `autofix-consumer.yml` | Opt-in label gate |
 | `.github/workflows/guard-no-reuse-pr-branches.yml` | (in-place archived) | Policy / docs only | n/a |
-
-`archive/*.yml` entries referenced above remain available in git history for forensic review when necessary.
 
 ## Rationale
 Consolidating agent probe, diagnostic, and verification logic into `reuse-agents.yml` reduces workflow sprawl, centralizes feature flags, and ensures consistent permissions and summary formatting.

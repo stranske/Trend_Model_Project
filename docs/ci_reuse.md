@@ -125,7 +125,16 @@ Order of potential jobs (independent; may run in parallel):
 Only jobs with their enable flag set to `true` execute.
 
 ### Legacy Workflow Consolidation
-Single-purpose workflows (`agent-readiness.yml`, `codex-preflight.yml`, `codex-bootstrap-diagnostic.yml`, `verify-agent-task.yml`, `agent-watchdog.yml`) have been deleted. Their behaviour now lives behind the `enable_*` inputs documented above. Consumers should call the reusable workflow directly and toggle only the modes they require.
+The following legacy workflows were removed in favour of input‑gated modes within `reuse-agents.yml`:
+| Legacy Workflow (removed) | Replacement Mode |
+| ------------------------- | ---------------- |
+| `agent-readiness.yml` | `enable_readiness` |
+| `codex-preflight.yml` | `enable_preflight` |
+| `codex-bootstrap-diagnostic.yml` | `enable_diagnostic` |
+| `verify-agent-task.yml` | `enable_verify_issue` |
+| `agent-watchdog.yml` | (partially) `enable_watchdog` (full parity pending) |
+
+Removal completed once the stabilization window closed (Issue #1259).
 
 ## 4. Adoption Guide (External Repos)
 1. Copy the three reusable files verbatim or add this repo as a submodule / template reference.
@@ -173,4 +182,4 @@ Single-purpose workflows (`agent-readiness.yml`, `codex-preflight.yml`, `codex-b
 These docs accompany PR #1257 (Issue #1166). Optional future enhancements: remote versioned usage, quarantine job, extended watchdog metrics.
 
 ---
-Last updated: 2025-09-19
+Last updated: 2025-09-21
