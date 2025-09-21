@@ -477,12 +477,9 @@ jobs:
 
       - name: Build consolidated PR comment (same-repo)
         if: needs.context.outputs.same_repo == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          python scripts/build_autofix_pr_comment.py --out autofix_pr_comment.md
-          echo 'Built unified comment:'
-          sed -n '1,40p' autofix_pr_comment.md
+        uses: ./.github/actions/build-consolidated-pr-comment
+        with:
+          output: autofix_pr_comment.md
 
       - name: Upsert consolidated PR comment (same-repo)
         if: needs.context.outputs.same_repo == 'true'
