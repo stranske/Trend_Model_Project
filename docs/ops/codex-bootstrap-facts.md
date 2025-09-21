@@ -26,7 +26,7 @@ Last updated: 2026-02-07
   - `GITHUB_TOKEN`: Fallback; ensure repository Actions permissions are set to Read/Write.
 - The workflow avoids using `secrets.*` inside step‑level `if:` blocks; token decisions are propagated via `env` and inputs.
 
--## Workflows and Actions
+- ## Workflows and Actions
 - Assigner workflow: `.github/workflows/assign-to-agents.yml`.
   - Triggers on Issues/PRs when `agent:*` labels are applied (manual `workflow_dispatch` supported for diagnostics).
   - Uses `.github/actions/codex-bootstrap-lite` to create Codex bootstrap branches/PRs and posts `@codex start` on the PR.
