@@ -234,16 +234,7 @@ jobs:
             const jobTable = process.env.TABLE || '';
             const runUrl = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`;
             // Ensure label exists
-            try {
-              await github.rest.issues.getLabel({owner, repo, name: label});
-            } catch (error) {
-              if (error.status === 404) {
-                await github.rest.issues.createLabel({owner, repo, name: label, color: '0e8a16'});
-              } else {
-                core.error(`Failed to get label "${label}": ${error.message}`);
-                throw error;
-              }
-            }
+            try { await github.rest.issues.getLabel({owner, repo, name: label}); } catch { await github.rest.issues.createLabel({owner, repo, name: label, color: '0e8a16'}); }
             const q = `repo:${owner}/${repo} is:issue is:open in:title "${title}" label:"${label}"`;
             const search = await github.rest.search.issuesAndPullRequests({ q, per_page: 1 });
             const compositeBody = `CI run: ${runUrl}\n\n${bodyBlock}\n\n#### Job logs\n${jobTable}`;
@@ -284,19 +275,11 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            // Define job conclusion constants based on GitHub's official values
-            const JOB_CONCLUSION = {
-              SUCCESS: 'success',
-              SKIPPED: 'skipped'
-            };
             const {owner, repo} = context.repo;
             const run_id = context.runId;
             const { data } = await github.rest.actions.listJobsForWorkflowRun({ owner, repo, run_id, per_page: 100 });
             const rows = data.jobs.map(j => `| ${j.name} | ${j.conclusion || j.status} | [logs](${j.html_url}) |`);
-            const allowedConclusions = [JOB_CONCLUSION.SUCCESS, JOB_CONCLUSION.SKIPPED];
-            const failed = data.jobs
-              .filter(j => !allowedConclusions.includes((j.conclusion || '').toLowerCase()))
-              .map(j => j.name);
+            const failed = data.jobs.filter(j => !['success','skipped'].includes((j.conclusion || '').toLowerCase())).map(j => j.name);
             let explanation = '';
             if (failed.length) {
               explanation = `\n> ❗ ${failed.length} job(s) did not succeed: ${failed.join(', ')}.`;
