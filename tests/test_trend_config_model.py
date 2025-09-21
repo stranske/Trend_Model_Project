@@ -153,7 +153,7 @@ def test_trend_config_requires_matching_managers_glob(tmp_path: Path) -> None:
 def test_trend_config_managers_glob_requires_csv_extension(tmp_path: Path) -> None:
     data_dir = tmp_path / "inputs"
     data_dir.mkdir()
-    (data_dir / "fund_a.txt").write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
+    (data_dir / "fund_a.txt").write_text("This is not a CSV file.", encoding="utf-8")
 
     cfg = {
         "version": "1",
