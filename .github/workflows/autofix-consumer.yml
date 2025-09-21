@@ -80,7 +80,7 @@ jobs:
           echo "message<<END" >> $GITHUB_OUTPUT
           echo "$msg" >> $GITHUB_OUTPUT
           echo "END" >> $GITHUB_OUTPUT
-          if echo "$msg" | grep -q '^chore(autofix):'; then echo "applied=true" >> $GITHUB_OUTPUT; else echo "applied=false" >> $GITHUB_OUTPUT; fi
+          if echo "$msg" | grep -qi '^chore(autofix):'; then echo "applied=true" >> $GITHUB_OUTPUT; else echo "applied=false" >> $GITHUB_OUTPUT; fi
       - name: Add label
         if: steps.msg.outputs.applied == 'true'
         uses: actions/github-script@v7
