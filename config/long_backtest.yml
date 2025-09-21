@@ -3,6 +3,7 @@ version: "1"
 
 data:
   csv_path: hedge_fund_returns_with_indexes.csv
+  date_column: Date
   frequency: ME  # monthly data (month-end)
   na_as_zero:
     enabled: true
@@ -48,6 +49,9 @@ portfolio:
     soft_strikes: 2
     target_n: 8
     weighting: score_prop_bayes
+  transaction_cost_bps: 10     # Transaction cost of 10 basis points per trade
+  max_turnover: 0.50           # Limit monthly turnover to 50%
+  rebalance_calendar: NYSE
 
 # Leave benchmarks empty because the CSV does not include SPX/TSX columns
 benchmarks: {}

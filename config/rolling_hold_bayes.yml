@@ -2,6 +2,8 @@ version: "0.1.0"
 
 data:
   csv_path: "hedge_fund_returns_with_indexes.csv"
+  date_column: Date
+  frequency: ME
 
 preprocessing: {}
 vol_adjust:
@@ -32,6 +34,9 @@ portfolio:
     z_entry_hard: 1.5
     soft_strikes: 2
     weighting: score_prop_bayes
+  transaction_cost_bps: 0
+  max_turnover: 1.0
+  rebalance_calendar: NYSE
 
 benchmarks: {}
 

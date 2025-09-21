@@ -3,6 +3,7 @@ version: "1"
 
 data:
   csv_path: Trend Universe Data.csv  # path to Trend Universe dataset in repo root
+  date_column: Date
   frequency: ME  # monthly data (month-end)
   na_as_zero:
     enabled: true
@@ -56,6 +57,9 @@ portfolio:
     - Abrdn MOSERS Trend
     - HFRXSDV Base
     - SG Trend Index
+  transaction_cost_bps: 10
+  max_turnover: 0.50
+  rebalance_calendar: NYSE
 
 benchmarks: {}
 

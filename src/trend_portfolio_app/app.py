@@ -11,7 +11,7 @@ import streamlit as st
 import yaml
 from trend_analysis import pipeline
 from trend_analysis.config import DEFAULTS as DEFAULT_CFG_PATH
-from trend_analysis.config import Config
+from trend_analysis.config import Config, validate_trend_config
 from trend_analysis.multi_period import run as run_multi
 
 if TYPE_CHECKING:  # pragma: no cover - type-only alias for static checkers
@@ -118,7 +118,7 @@ def _columns(spec: Any) -> List[Any]:
 
 def _build_cfg(d: Dict[str, Any]) -> ConfigType:
     """Instantiate the flexible ``Config`` object used by the pipeline."""
-
+    validate_trend_config(d, base_path=Path.cwd())
     return Config(**d)
 
 

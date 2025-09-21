@@ -15,11 +15,20 @@ def _base_config() -> dict[str, object]:
 
     return {
         "version": "1.0",
-        "data": {},
+        "data": {
+            "managers_glob": "data/raw/managers/*.csv",
+            "date_column": "Date",
+            "frequency": "D",
+        },
         "preprocessing": {},
-        "vol_adjust": {},
+        "vol_adjust": {"target_vol": 0.1},
         "sample_split": {},
-        "portfolio": {},
+        "portfolio": {
+            "selection_mode": "all",
+            "rebalance_calendar": "NYSE",
+            "max_turnover": 1.0,
+            "transaction_cost_bps": 0,
+        },
         "benchmarks": {},
         "metrics": {},
         "export": {},
@@ -95,6 +104,22 @@ def test_load_config_rejects_invalid_type() -> None:
         models.load_config(123)  # type: ignore[arg-type]
 
 
+def test_load_config_validates_mapping_paths(tmp_path: Path) -> None:
+    """``load_config`` validates mapping inputs via the minimal model."""
+
+    csv_file = tmp_path / "returns.csv"
+    csv_file.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
+    cfg = _base_config()
+    cfg["data"] = {
+        "csv_path": str(csv_file),
+        "date_column": "Date",
+        "frequency": "M",
+    }
+
+    loaded = models.load_config(cfg)
+    assert loaded.data["csv_path"] == str(csv_file)
+
+
 def test_list_available_presets_handles_missing_directory(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -117,11 +142,20 @@ def test_preset_listing_and_loading(
 
     preset_payload = {
         "description": "demo",
-        "data": {},
+        "data": {
+            "managers_glob": "data/raw/managers/*.csv",
+            "date_column": "Date",
+            "frequency": "D",
+        },
         "preprocessing": {},
-        "vol_adjust": {},
+        "vol_adjust": {"target_vol": 0.1},
         "sample_split": {},
-        "portfolio": {},
+        "portfolio": {
+            "selection_mode": "all",
+            "rebalance_calendar": "NYSE",
+            "max_turnover": 1.0,
+            "transaction_cost_bps": 0,
+        },
         "metrics": {},
         "export": {},
         "run": {},

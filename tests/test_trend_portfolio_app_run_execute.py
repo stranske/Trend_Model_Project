@@ -26,7 +26,7 @@ class _RunButtonStreamlit(_DummyStreamlit):
 
 
 def test_run_tab_applies_session_state_and_invokes_pipeline(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """Ensure the run tab wires session-state edits back into the config."""
 
@@ -46,7 +46,9 @@ def test_run_tab_applies_session_state_and_invokes_pipeline(
     streamlit_stub.session_state["config_dict"] = defaults
     # Populate a few dotted session keys that the run tab should fold back
     # into the nested configuration structure.
-    streamlit_stub.session_state["data.csv_path"] = "custom.csv"
+    csv_path = tmp_path / "custom.csv"
+    csv_path.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
+    streamlit_stub.session_state["data.csv_path"] = str(csv_path)
     streamlit_stub.session_state["portfolio.constraints.max_weight"] = 0.25
     streamlit_stub.session_state["vol_adjust.window._months"] = 2
 
@@ -61,14 +63,14 @@ def test_run_tab_applies_session_state_and_invokes_pipeline(
     assert "config" in captured
 
     config_dict = streamlit_stub.session_state["config_dict"]
-    assert config_dict["data"]["csv_path"] == "custom.csv"
+    assert config_dict["data"]["csv_path"] == str(csv_path)
     assert config_dict["portfolio"]["constraints"]["max_weight"] == 0.25
     # The helper converts months into trading-day lengths (~21 trading days).
     assert config_dict["vol_adjust"]["window"]["length"] == 42
 
     # The pipeline stub should receive the Config object with the updates.
     cfg_obj = captured["config"]
-    assert getattr(cfg_obj, "data")["csv_path"] == "custom.csv"
+    assert getattr(cfg_obj, "data")["csv_path"] == str(csv_path)
     assert getattr(cfg_obj, "vol_adjust")["window"]["length"] == 42
 
     # Avoid leaking the imported module to other tests.

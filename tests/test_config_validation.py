@@ -28,12 +28,33 @@ invalid_values = st.one_of(
     st.integers(), st.floats(), st.booleans(), st.lists(st.integers())
 )
 
-_BASE_CFG = {"version": "1", "data": {}}
+
+def _base_cfg() -> dict[str, object]:
+    return {
+        "version": "1",
+        "data": {
+            "managers_glob": "data/raw/managers/*.csv",
+            "date_column": "Date",
+            "frequency": "D",
+        },
+        "preprocessing": {},
+        "vol_adjust": {"target_vol": 0.1},
+        "sample_split": {},
+        "portfolio": {
+            "selection_mode": "all",
+            "rebalance_calendar": "NYSE",
+            "max_turnover": 1.0,
+            "transaction_cost_bps": 0,
+        },
+        "metrics": {},
+        "export": {},
+        "run": {},
+    }
 
 
 @given(field=st.sampled_from(_DICT_SECTIONS), val=invalid_values)
 def test_sections_require_mappings(field, val):
-    cfg = _BASE_CFG.copy()
+    cfg = _base_cfg()
     cfg[field] = val
     with pytest.raises((ValidationException, ValueError, TypeError)):
         config.load_config(cfg)
@@ -41,7 +62,8 @@ def test_sections_require_mappings(field, val):
 
 @given(val=invalid_values)
 def test_version_must_be_string(val):
-    cfg = {"version": val, "data": {}}
+    cfg = _base_cfg()
+    cfg["version"] = val
     with pytest.raises((ValidationException, ValueError, TypeError)):
         config.load_config(cfg)
 
@@ -79,9 +101,8 @@ def test_config_constants_match_model_attributes():
     from trend_analysis.config.models import Config
 
     # Create a sample config to test all fields exist as attributes
-    cfg_data = {"version": "test"}
-    for field in Config.REQUIRED_DICT_FIELDS:
-        cfg_data[field] = {}
+    cfg_data = _base_cfg()
+    cfg_data["version"] = "test"
 
     cfg = config.load_config(cfg_data)
 
