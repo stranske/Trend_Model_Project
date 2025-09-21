@@ -6,12 +6,12 @@ The `.github/workflows` directory contains both new reusable workflows and sever
 ### Redundant / Superseded (Removed in Cleanup PR for #1259)
 | Legacy (now removed) | Reusable Replacement | Removal Rationale |
 | -------------------- | -------------------- | ----------------- |
-| `autofix-consumer.yml` + `autofix-on-failure.yml` | `autofix.yml` (workflow_run follower) | Small-fix and failure remediation lanes collapsed into a single follower workflow that still delegates to `reuse-autofix.yml`. |
-| `agent-readiness.yml` | `reuse-agents.yml` (enable_readiness) | Mode parameter covers readiness path. |
-| `agent-watchdog.yml` | `reuse-agents.yml` (watchdog enabled) | Consolidated into single orchestrated workflow. |
-| `codex-preflight.yml` | `reuse-agents.yml` (preflight mode) | Folded into parameterized preflight job. |
-| `codex-bootstrap-diagnostic.yml` | `reuse-agents.yml` (diagnostic mode) | Unified diagnostics with other agent operations. |
-| `verify-agent-task.yml` | `reuse-agents.yml` (verify_issue mode) | Verification now an on-demand mode.
+| `autofix.yml` | `reuse-autofix.yml` + `autofix-consumer.yml` | Eliminated duplication; stabilization period complete post PR #1257. |
+| `agent-readiness.yml` | _(archived)_ | No direct replacement; run ad-hoc GitHub Script checks when needed. |
+| `agent-watchdog.yml` | `agent-watchdog.yml` | Standalone watchdog workflow introduced with Issue #1419. |
+| `codex-preflight.yml` | _(archived)_ | Manual diagnostics or future targeted scripts as needed. |
+| `codex-bootstrap-diagnostic.yml` | _(archived)_ | Superseded by assign-to-agents bootstrap + watchdog pairing. |
+| `verify-agent-task.yml` | _(archived)_ | Use issue audit scripts or custom GitHub Script snippets.
 
 ### Parallel / Candidate for Future Merge
 | Workflow | Notes |
@@ -23,13 +23,13 @@ The `.github/workflows` directory contains both new reusable workflows and sever
 Release, docker, auto-merge enablement, PR status summary, quarantine TTL, failure trackers remain orthogonal to the three reusable workflows.
 
 ## Consolidation Actions Executed
-All previously flagged legacy workflows were deleted in alignment with Issue #1259. As of 2026-02-15 the remaining autofix consumers were collapsed into `autofix.yml`, which still delegates to `reuse-autofix.yml` but now runs exclusively as a CI follower. This concludes the stabilization window referenced in PR #1257.
+All previously flagged legacy workflows were deleted in alignment with Issue #1259. Consumers now invoke the reusable equivalents (`reuse-autofix.yml`) alongside the new agent pair (`assign-to-agents.yml`, `agent-watchdog.yml`). This concludes the stabilization window referenced in PR #1257.
 
 ## Deletion Timetable (Superseded)
 Original timetable replaced by immediate removal once validation completed. Retained here for historical context only.
 
 ## Future Evolution Ideas
-- Parameterise readiness / watchdog / preflight modes inside `reuse-agents.yml` to collapse 3–4 workflows.
+- Monitor whether additional readiness/preflight scripts are required now that `reuse-agents.yml` has been retired in favour of the assigner/watchdog workflows.
 - Expose versioned `@v1` tags for remote consumption (convert internal `uses:` paths to fully-qualified refs in downstream repos).
 - Add quarantine job implementation tied to `run_quarantine` input in `reuse-ci-python.yml`.
 
