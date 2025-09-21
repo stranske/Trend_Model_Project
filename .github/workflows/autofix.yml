@@ -1,0 +1,419 @@
+name: Autofix
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+  actions: read
+
+concurrency:
+  group: autofix-${{ github.event.workflow_run.id }}
+  cancel-in-progress: false
+
+env:
+  COMMIT_PREFIX: 'chore(autofix):'
+
+jobs:
+  context:
+    name: Gather context
+    runs-on: ubuntu-latest
+    outputs:
+      found: ${{ steps.info.outputs.found }}
+      pr: ${{ steps.info.outputs.pr }}
+      head_ref: ${{ steps.info.outputs.head_ref }}
+      head_sha: ${{ steps.info.outputs.head_sha }}
+      same_repo: ${{ steps.info.outputs.same_repo }}
+      loop_skip: ${{ steps.info.outputs.loop_skip }}
+      small_eligible: ${{ steps.info.outputs.small_eligible }}
+      file_count: ${{ steps.info.outputs.file_count }}
+      change_count: ${{ steps.info.outputs.change_count }}
+      safe_paths: ${{ steps.info.outputs.safe_paths }}
+      has_opt_in: ${{ steps.info.outputs.has_opt_in }}
+      is_draft: ${{ steps.info.outputs.is_draft }}
+      run_conclusion: ${{ steps.info.outputs.run_conclusion }}
+      actor: ${{ steps.info.outputs.actor }}
+      head_subject: ${{ steps.info.outputs.head_subject }}
+      pat_available: ${{ steps.pat.outputs.available }}
+      trivial_failure: ${{ steps.failure.outputs.trivial }}
+      failing_jobs: ${{ steps.failure.outputs.names }}
+      failing_count: ${{ steps.failure.outputs.count }}
+    env:
+      AUTOFIX_OPT_IN_LABEL: ${{ vars.AUTOFIX_OPT_IN_LABEL || 'autofix' }}
+      AUTOFIX_MAX_FILES: ${{ vars.AUTOFIX_MAX_FILES || '40' }}
+      AUTOFIX_MAX_CHANGES: ${{ vars.AUTOFIX_MAX_CHANGES || '800' }}
+    steps:
+      - name: Check PAT availability
+        id: pat
+        shell: bash
+        run: |
+          if [ -z "${{ secrets.SERVICE_BOT_PAT }}" ]; then
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Resolve workflow context
+        id: info
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const prefix = process.env.COMMIT_PREFIX || 'chore(autofix):';
+            const branch = run.head_branch;
+            const headSha = run.head_sha;
+
+            const result = {
+              found: 'false',
+              pr: '',
+              head_ref: branch || '',
+              head_sha: headSha || '',
+              same_repo: 'false',
+              loop_skip: 'false',
+              small_eligible: 'false',
+              file_count: '0',
+              change_count: '0',
+              safe_paths: 'false',
+              has_opt_in: 'false',
+              is_draft: run.event === 'pull_request' && run.head_repository ? (run.pull_requests?.[0]?.draft ? 'true' : 'false') : 'false',
+              run_conclusion: run.conclusion || '',
+              actor: (run.triggering_actor?.login || run.actor?.login || '').toLowerCase(),
+              head_subject: '',
+            };
+
+            if (!branch || !headSha) {
+              core.info('Workflow run missing branch or head SHA; skipping.');
+              for (const [key, value] of Object.entries(result)) {
+                core.setOutput(key, value);
+              }
+              return;
+            }
+
+            const prs = await github.paginate(github.rest.pulls.list, {
+              owner,
+              repo,
+              state: 'open',
+              head: `${owner}:${branch}`,
+              per_page: 100,
+            });
+
+            if (!prs.length) {
+              core.info(`No open PR detected for branch ${branch}`);
+              for (const [key, value] of Object.entries(result)) {
+                core.setOutput(key, value);
+              }
+              return;
+            }
+
+            const pr = prs.find(p => (p.head?.sha || '').toLowerCase() === headSha.toLowerCase()) || prs[0];
+            result.found = 'true';
+            result.pr = String(pr.number);
+            result.head_ref = pr.head?.ref || branch;
+            result.head_sha = pr.head?.sha || headSha;
+            result.same_repo = pr.head?.repo?.full_name === `${owner}/${repo}` ? 'true' : 'false';
+            result.is_draft = pr.draft ? 'true' : 'false';
+
+            const labels = (pr.labels || []).map(label => label.name);
+            const optLabel = process.env.AUTOFIX_OPT_IN_LABEL || 'autofix';
+            result.has_opt_in = labels.includes(optLabel) ? 'true' : 'false';
+
+            try {
+              const commit = await github.rest.repos.getCommit({ owner, repo, ref: result.head_sha });
+              const subject = (commit.data.commit.message || '').split('\n')[0];
+              result.head_subject = subject;
+              const actor = result.actor;
+              if ((actor === 'github-actions' || actor === 'github-actions[bot]') &&
+                  subject.toLowerCase().startsWith(prefix.toLowerCase())) {
+                core.info('Loop guard engaged: detected prior autofix commit.');
+                result.loop_skip = 'true';
+              }
+            } catch (error) {
+              core.warning(`Unable to inspect commit message for loop guard: ${error.message}`);
+            }
+
+            if (result.found === 'true') {
+              const files = await github.paginate(github.rest.pulls.listFiles, {
+                owner,
+                repo,
+                pull_number: pr.number,
+                per_page: 100,
+              });
+              const { Minimatch } = require('minimatch');
+              const safeGlobs = [
+                '*.py',
+                '**/*.py',
+                '**/*.pyi',
+                '**/pyproject.toml',
+                '**/ruff.toml',
+                '**/.ruff.toml',
+                '**/mypy.ini',
+                '**/.pre-commit-config.yaml',
+                '**/pytest.ini',
+                '**/.coveragerc',
+                '**/*.cfg',
+                '**/*.ini',
+                '**/*.toml',
+                'src/**/*.py',
+                'tests/**/*.py',
+                'scripts/**/*.py',
+                'tools/**/*.py',
+              ];
+              const matchers = safeGlobs.map(pattern => new Minimatch(pattern, { dot: true, nocase: true, matchBase: true }));
+              const totalFiles = files.length;
+              const totalChanges = files.reduce((acc, file) => acc + (file.changes || 0), 0);
+              const allSafe = files.every(file => matchers.some(matcher => matcher.match(file.filename)));
+              const limitFiles = Number(process.env.AUTOFIX_MAX_FILES || 40);
+              const limitChanges = Number(process.env.AUTOFIX_MAX_CHANGES || 800);
+              const baseEligible = pr.draft ? labels.includes(optLabel) : true;
+              const eligible = baseEligible && allSafe && totalFiles <= limitFiles && totalChanges <= limitChanges;
+              result.small_eligible = eligible ? 'true' : 'false';
+              result.file_count = String(totalFiles);
+              result.change_count = String(totalChanges);
+              result.safe_paths = allSafe ? 'true' : 'false';
+            }
+
+            for (const [key, value] of Object.entries(result)) {
+              core.setOutput(key, value ?? '');
+            }
+
+      - name: Inspect failing jobs
+        id: failure
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const conclusion = (run.conclusion || '').toLowerCase();
+            if (conclusion === 'success' || !run.id) {
+              core.setOutput('trivial', 'false');
+              core.setOutput('names', '');
+              core.setOutput('count', '0');
+              return;
+            }
+
+            const keywords = (process.env.TRIVIAL_KEYWORDS || 'lint,format,style,doc,ruff,mypy,type,black,isort').split(',')
+              .map(str => str.trim().toLowerCase())
+              .filter(Boolean);
+
+            const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
+              owner,
+              repo,
+              run_id: run.id,
+              per_page: 100,
+            });
+
+            const failing = jobs.filter(job => {
+              const c = (job.conclusion || '').toLowerCase();
+              return c && c !== 'success' && c !== 'skipped';
+            });
+
+            if (!failing.length) {
+              core.setOutput('trivial', 'false');
+              core.setOutput('names', '');
+              core.setOutput('count', '0');
+              return;
+            }
+
+            const allTrivial = failing.every(job => {
+              const name = (job.name || '').toLowerCase();
+              return keywords.some(keyword => name.includes(keyword));
+            });
+
+            core.setOutput('trivial', allTrivial ? 'true' : 'false');
+            core.setOutput('names', failing.map(job => job.name).join(', '));
+            core.setOutput('count', String(failing.length));
+
+  small-fixes:
+    name: Small hygiene fixes
+    needs: context
+    if: |
+      needs.context.outputs.found == 'true' &&
+      needs.context.outputs.loop_skip != 'true' &&
+      needs.context.outputs.small_eligible == 'true' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      (needs.context.outputs.same_repo != 'true' || needs.context.outputs.pat_available == 'true')
+    runs-on: ubuntu-latest
+    env:
+      APPLIED_LABEL: ${{ vars.AUTOFIX_APPLIED_LABEL || 'autofix:applied' }}
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.context.outputs.head_ref }}
+          fetch-depth: 0
+          token: ${{ needs.context.outputs.same_repo == 'true' && secrets.SERVICE_BOT_PAT || github.token }}
+
+      - name: Configure service bot identity
+        if: needs.context.outputs.same_repo == 'true'
+        run: |
+          git config user.name "trend-model-service-bot"
+          git config user.email "trend-model-service-bot@users.noreply.github.com"
+
+      - name: Run autofix composite
+        id: autofix
+        uses: ./.github/actions/autofix
+
+      - name: Commit changes (same-repo)
+        if: steps.autofix.outputs.changed == 'true' && needs.context.outputs.same_repo == 'true'
+        run: |
+          git add -A
+          git commit -m "${COMMIT_PREFIX} apply small fixes"
+
+      - name: Push changes (same-repo)
+        if: steps.autofix.outputs.changed == 'true' && needs.context.outputs.same_repo == 'true'
+        run: |
+          git push origin HEAD:${{ needs.context.outputs.head_ref }}
+
+      - name: Create patch artifact (fork)
+        if: steps.autofix.outputs.changed == 'true' && needs.context.outputs.same_repo != 'true'
+        run: |
+          git add -A || true
+          git commit -m "${COMMIT_PREFIX} apply small fixes (patch)" || true
+          git format-patch -1 --stdout > small-autofix.patch
+
+      - name: Upload patch artifact (fork)
+        if: steps.autofix.outputs.changed == 'true' && needs.context.outputs.same_repo != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: small-autofix-pr-${{ needs.context.outputs.pr }}
+          path: small-autofix.patch
+
+      - name: Label PR (autofix applied)
+        if: steps.autofix.outputs.changed == 'true' && needs.context.outputs.same_repo == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const pr = Number('${{ needs.context.outputs.pr }}');
+            const label = process.env.APPLIED_LABEL || 'autofix:applied';
+            try {
+              await github.rest.issues.addLabels({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr, labels: [label] });
+            } catch (error) {
+              core.warning(`Failed to add label: ${error.message}`);
+            }
+
+      - name: Manage clean/debt labels
+        if: needs.context.outputs.same_repo == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const pr = Number('${{ needs.context.outputs.pr }}');
+            const remaining = Number("${{ steps.autofix.outputs.remaining_issues || '0' }}") || 0;
+            const cleanLabel = 'autofix:clean';
+            const debtLabel = 'autofix:debt';
+            const want = remaining === 0 ? cleanLabel : debtLabel;
+            const drop = remaining === 0 ? debtLabel : cleanLabel;
+            try {
+              await github.rest.issues.removeLabel({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr, name: drop }).catch(() => {});
+              await github.rest.issues.addLabels({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr, labels: [want] });
+            } catch (error) {
+              core.warning(`Label management warning: ${error.message}`);
+            }
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "### Small fixes" >> "$GITHUB_STEP_SUMMARY"
+          echo "PR: #${{ needs.context.outputs.pr }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Files considered: ${{ needs.context.outputs.file_count }} (safe paths: ${{ needs.context.outputs.safe_paths }})" >> "$GITHUB_STEP_SUMMARY"
+          echo "Changes applied: ${{ steps.autofix.outputs.changed }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Remaining ruff issues: ${{ steps.autofix.outputs.remaining_issues }}" >> "$GITHUB_STEP_SUMMARY"
+
+  fix-failing-checks:
+    name: Fix failing checks
+    needs: context
+    if: |
+      needs.context.outputs.found == 'true' &&
+      needs.context.outputs.loop_skip != 'true' &&
+      needs.context.outputs.trivial_failure == 'true' &&
+      (needs.context.outputs.same_repo != 'true' || needs.context.outputs.pat_available == 'true')
+    runs-on: ubuntu-latest
+    env:
+      APPLIED_LABEL: ${{ vars.AUTOFIX_APPLIED_LABEL || 'autofix:applied' }}
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.context.outputs.head_ref }}
+          fetch-depth: 0
+          token: ${{ needs.context.outputs.same_repo == 'true' && secrets.SERVICE_BOT_PAT || github.token }}
+
+      - name: Configure service bot identity
+        if: needs.context.outputs.same_repo == 'true'
+        run: |
+          git config user.name "trend-model-service-bot"
+          git config user.email "trend-model-service-bot@users.noreply.github.com"
+
+      - name: Run autofix composite
+        id: autofix
+        uses: ./.github/actions/autofix
+
+      - name: Commit changes (same-repo)
+        if: steps.autofix.outputs.changed == 'true' && needs.context.outputs.same_repo == 'true'
+        run: |
+          git add -A
+          git commit -m "${COMMIT_PREFIX} fix failing checks"
+
+      - name: Push changes (same-repo)
+        if: steps.autofix.outputs.changed == 'true' && needs.context.outputs.same_repo == 'true'
+        run: |
+          git push origin HEAD:${{ needs.context.outputs.head_ref }}
+
+      - name: Create patch artifact (fork)
+        if: steps.autofix.outputs.changed == 'true' && needs.context.outputs.same_repo != 'true'
+        run: |
+          git add -A || true
+          git commit -m "${COMMIT_PREFIX} fix failing checks (patch)" || true
+          git format-patch -1 --stdout > failing-checks-autofix.patch
+
+      - name: Upload patch artifact (fork)
+        if: steps.autofix.outputs.changed == 'true' && needs.context.outputs.same_repo != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: failing-checks-autofix-pr-${{ needs.context.outputs.pr }}
+          path: failing-checks-autofix.patch
+
+      - name: Label PR (autofix applied)
+        if: steps.autofix.outputs.changed == 'true' && needs.context.outputs.same_repo == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const pr = Number('${{ needs.context.outputs.pr }}');
+            const label = process.env.APPLIED_LABEL || 'autofix:applied';
+            try {
+              await github.rest.issues.addLabels({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr, labels: [label] });
+            } catch (error) {
+              core.warning(`Failed to add label: ${error.message}`);
+            }
+
+      - name: Tag PR for manual review
+        if: steps.autofix.outputs.changed != 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const pr = Number('${{ needs.context.outputs.pr }}');
+            const label = 'needs-autofix-review';
+            try {
+              await github.rest.issues.addLabels({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr, labels: [label] });
+            } catch (error) {
+              core.warning(`Failed to add label: ${error.message}`);
+            }
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "### Fix failing checks" >> "$GITHUB_STEP_SUMMARY"
+          echo "PR: #${{ needs.context.outputs.pr }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Failing jobs: ${{ needs.context.outputs.failing_jobs }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Changes applied: ${{ steps.autofix.outputs.changed }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Remaining ruff issues: ${{ steps.autofix.outputs.remaining_issues }}" >> "$GITHUB_STEP_SUMMARY"

@@ -2,7 +2,7 @@
 
 This page captures the established, validated facts about the Codex bootstrap and workflow wiring in this repository. It is the single source of truth so we don’t keep re‑asking for already‑confirmed details.
 
-Last updated: 2025‑09‑21
+Last updated: 2026‑02‑15
 
 ## Branches and Event Semantics
 - Default branch: `phase-2-dev`.
@@ -43,8 +43,7 @@ Last updated: 2025‑09‑21
 - Label Agent PRs — [`label-agent-prs.yml`](../../.github/workflows/label-agent-prs.yml) · [jump](#wf-label-agent-prs)
 - Auto-approve Agent PRs — [`autoapprove.yml`](../../.github/workflows/autoapprove.yml) · [jump](#wf-autoapprove)
 - Enable Auto-merge — [`enable-automerge.yml`](../../.github/workflows/enable-automerge.yml) · [jump](#wf-enable-automerge)
-- Autofix Trivial — [`autofix-consumer.yml`](../../.github/workflows/autofix-consumer.yml) · [jump](#wf-autofix-consumer)
-- Autofix on Failure — [`autofix-on-failure.yml`](../../.github/workflows/autofix-on-failure.yml) · [jump](#wf-autofix-on-failure)
+- Autofix Lane — [`autofix.yml`](../../.github/workflows/autofix.yml) · [jump](#wf-autofix)
 - CI — [`ci.yml`](../../.github/workflows/ci.yml) · [jump](#wf-ci)
 - Docker — [`docker.yml`](../../.github/workflows/docker.yml) · [jump](#wf-docker)
 - Cleanup Codex Bootstrap — [`cleanup-codex-bootstrap.yml`](../../.github/workflows/cleanup-codex-bootstrap.yml) · [jump](#wf-cleanup-codex-bootstrap)
@@ -77,7 +76,7 @@ This catalog explains what each active workflow does, how it’s triggered, the 
    - Jobs: `label`
      - Computes desired labels based on actor/head-ref; adds `from:codex|copilot`, `agent:codex|copilot`, `automerge`, `risk:low`
      - Uses `SERVICE_BOT_PAT` if available; otherwise `GITHUB_TOKEN`
-   - Links to: `autoapprove.yml`, `enable-automerge.yml`, `autofix*.yml` (they predicate on these labels)
+   - Links to: `autoapprove.yml`, `enable-automerge.yml`, `autofix.yml` (they predicate on these labels)
 
 <a id="wf-autoapprove"></a>
 3) [`autoapprove.yml`](../../.github/workflows/autoapprove.yml) — Auto-approve eligible agent PRs
@@ -98,47 +97,40 @@ This catalog explains what each active workflow does, how it’s triggered, the 
    - Jobs: `guard`
      - Fails the run if the PR head branch previously backed a merged PR (prevents accidental reuse)
 
-<a id="wf-autofix-consumer"></a>
-5) [`autofix-consumer.yml`](../../.github/workflows/autofix-consumer.yml) — Thin wrapper around `reuse-autofix`
-   - Triggers: `pull_request` (various types) on `phase-2-dev`/`main`
-   - Jobs: `autofix`
-     - Calls reusable workflow `reuse-autofix.yml` with repo defaults (label, commit prefix)
-     - Uses local composite `.github/actions/autofix` which only runs fixers and exposes `outputs.changed`
-     - Same‑repo PRs: commits `autofix(ci): …` and pushes directly to the PR branch
-     - Fork PRs: generates `autofix.patch` (`git format-patch -1 --stdout`), uploads as `autofix-patch-pr-<num>`, and comments on the PR with apply instructions (`git am < autofix.patch`; push to branch)
-     - The job summary reports whether changes were applied and whether this was a same‑repo or fork path. For forks, it includes the artifact name
-
-<a id="wf-autofix-on-failure"></a>
-7) [`autofix-on-failure.yml`](../../.github/workflows/autofix-on-failure.yml) — Attempt autofix when CI/Docker fail
-   - Triggers: `workflow_run` for `CI`, `Docker`, `Lint`, `Tests` (type: `completed`)
-   - Jobs: `handle-failure`
-     - Locates corresponding PR, checks out same-repo branches, runs autofix, commits, and pushes
+<a id="wf-autofix"></a>
+6) [`autofix.yml`](../../.github/workflows/autofix.yml) — Consolidated CI follower for hygiene + trivial failure remediation
+   - Triggers: `workflow_run` for `CI` (types: `completed`)
+   - Jobs:
+     - `context`: Resolves PR metadata, enforces loop guard (skip when actor is `github-actions` _and_ head commit subject starts with `chore(autofix):`), checks draft/label gating, and evaluates safe file heuristics (`AUTOFIX_MAX_FILES`, `AUTOFIX_MAX_CHANGES`, curated glob list).
+     - `small-fixes`: Runs when CI succeeded _and_ the diff stays within safe heuristics. Executes composite `.github/actions/autofix`, commits `chore(autofix): apply small fixes`, pushes with `SERVICE_BOT_PAT`, manages `autofix:clean`/`autofix:debt`, and uploads patches for fork PRs.
+     - `fix-failing-checks`: Runs when CI failed but every failing job name matches lint/format/type keywords. Executes the composite, commits `chore(autofix): fix failing checks`, uploads fork patches, and labels the PR `needs-autofix-review` if no changes applied.
+   - Notes: Both jobs rely on the shared composite action and never push with `GITHUB_TOKEN`; fork flows receive patch artifacts instead.
 
 <a id="wf-ci"></a>
-8) [`ci.yml`](../../.github/workflows/ci.yml) — Test suite on pushes and PRs
+7) [`ci.yml`](../../.github/workflows/ci.yml) — Test suite on pushes and PRs
    - Triggers: `push` to `phase-2-dev`, `pull_request`
    - Jobs: `core-tests` (matrix on Python 3.11/3.12), `gate` (aggregates)
 
 <a id="wf-docker"></a>
-9) [`docker.yml`](../../.github/workflows/docker.yml) — Build, test, and push container image
+8) [`docker.yml`](../../.github/workflows/docker.yml) — Build, test, and push container image
    - Triggers: `push` to `phase-2-dev`, `pull_request`, `workflow_dispatch`
    - Jobs: `build`
      - Builds image, runs tests in container, health-checks a simple endpoint, pushes to GHCR
 
 <a id="wf-cleanup-codex-bootstrap"></a>
-10) [`cleanup-codex-bootstrap.yml`](../../.github/workflows/cleanup-codex-bootstrap.yml) — Prune stale bootstrap branches
+9) [`cleanup-codex-bootstrap.yml`](../../.github/workflows/cleanup-codex-bootstrap.yml) — Prune stale bootstrap branches
    - Triggers: `schedule` (daily), `workflow_dispatch`
    - Jobs: `prune`
      - Deletes old `agents/codex-issue-*` branches beyond TTL
 
 <a id="wf-quarantine-ttl"></a>
-11) [`quarantine-ttl.yml`](../../.github/workflows/quarantine-ttl.yml) — Enforce test quarantine expirations
+10) [`quarantine-ttl.yml`](../../.github/workflows/quarantine-ttl.yml) — Enforce test quarantine expirations
    - Triggers: `pull_request`, `push` to `phase-2-dev`
    - Jobs: `ttl`
      - Validates `tests/quarantine.yml` entries have not expired
 
 <a id="wf-verify-service-bot-pat"></a>
-12) [`verify-service-bot-pat.yml`](../../.github/workflows/verify-service-bot-pat.yml) — Verify `SERVICE_BOT_PAT` presence and scopes
+11) [`verify-service-bot-pat.yml`](../../.github/workflows/verify-service-bot-pat.yml) — Verify `SERVICE_BOT_PAT` presence and scopes
    - Triggers: `workflow_dispatch`
    - Jobs: `check-token`
      - Checks secret exists and minimally has `repo`/`workflow` scopes
@@ -155,7 +147,7 @@ This catalog explains what each active workflow does, how it’s triggered, the 
    - Notes: Only the requested modes run; schedule triggers typically enable `enable_watchdog` to provide periodic telemetry.
 
 <a id="wf-copilot-readiness"></a>
-12) [`copilot-readiness.yml`](../../.github/workflows/copilot-readiness.yml) — Copilot readiness probe
+13) [`copilot-readiness.yml`](../../.github/workflows/copilot-readiness.yml) — Copilot readiness probe
    - Triggers: `workflow_dispatch`
    - Jobs: `probe`
      - GraphQL `suggestedActors` check, temp issue assign attempt to `@copilot`, close, verdict
@@ -239,14 +231,14 @@ This section summarizes the differences between the failing Option 2 (manual/"cr
 - Token priority clarified: `OWNER_PR_PAT` is preferred to author the PR as the human; else `SERVICE_BOT_PAT`, else `GITHUB_TOKEN`.
 - PR hygiene defaults: PRs are opened as non-draft and include an initial `@codex start` comment; the PR body replicates the source issue content.
 
-### Autofix pipeline — fork‑friendly refactor
+### Autofix pipeline — CI follower consolidation
 
 - Composite action `.github/actions/autofix` no longer commits; it emits `outputs.changed` after running `ruff`, `black`, `isort`, `docformatter`, and light type‑hygiene steps.
-- Workflow `.github/workflows/autofix-consumer.yml` branches by PR provenance via `reuse-autofix.yml`:
+- Workflow `.github/workflows/autofix.yml` executes after CI completes and coordinates two lanes:
 
-  - Same‑repo: commit and push to the PR head branch.
-  - Fork: create `autofix.patch`, upload as artifact `autofix-patch-pr-<num>`, and post a PR comment with local apply instructions.
-- Benefits: Same‑repo remains hands‑off; forks still get actionable fixes without elevated permissions.
+  - `small-fixes` (CI success + safe diff): commits `chore(autofix): apply small fixes` with `SERVICE_BOT_PAT` for same-repo PRs; forks receive a `small-autofix.patch` artifact.
+  - `fix-failing-checks` (CI failure w/ trivial job names): commits `chore(autofix): fix failing checks` when format/lint/type jobs fail; forks receive `failing-checks-autofix.patch`; adds `needs-autofix-review` when no diff produced.
+- Benefits: Same composite logic serves both proactive hygiene and reactive failure remediation with a single workflow; forks still get actionable patches without elevated permissions.
 
 ## Invite vs Create — when to use which
 

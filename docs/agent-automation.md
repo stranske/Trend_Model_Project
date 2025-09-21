@@ -1,6 +1,6 @@
 # Agent Automation & Telemetry Overview
 
-_Last updated: 2025-09-21_
+_Last updated: 2026-02-15_
 
 This document summarizes the GitHub Actions automation that powers agent assignment, labeling, formatting autofix, Codex bootstrap PR creation, and watchdog telemetry in this repository.
 
@@ -15,9 +15,9 @@ Issue Labeled agent:codex    ──▶ assign-to-agent.yml (issues) ──▶ se
                                                        │
 PR Opened/Updated               ──▶ label-agent-prs.yml (pull_request_target) → idempotent labeling
                                                        │
-PR (any)                        ──▶ autofix-consumer.yml (pull_request) → composite autofix action
-                                                       │
-Failing CI / Docker / Tests     ──▶ autofix-on-failure.yml (workflow_run) → composite autofix action
+CI (success) completion         ──▶ autofix.yml (workflow_run) → small-fixes job → composite autofix action
+                                                      │
+CI (trivial failure) completion ──▶ autofix.yml (workflow_run) → fix-failing-checks job → composite autofix action
                                                        │
 Issue / PR lacks Codex PR       ──▶ reuse-agents.yml (schedule or dispatch, watchdog enabled) → state telemetry
 ```
@@ -78,24 +78,20 @@ Rationale for `pull_request_target`:
 
 Idempotent: computes label delta and applies only missing labels.
 
-### 4. `autofix-consumer.yml`
-Trigger: standard `pull_request` events.
+### 4. `autofix.yml`
+Trigger: `workflow_run` for the `CI` workflow (types: `completed`).
 
-Logic:
-- Thin consumer that invokes `reuse-autofix.yml` with repository-specific defaults.
-- Skips drafts unless explicitly labeled `autofix`.
-- Invokes the reusable workflow `.github/workflows/reuse-autofix.yml`, which installs pinned versions and runs ruff/black/isort/docformatter.
-- Pushes changes only if formatter produced a diff (guard via `changed` output).
+Jobs:
+- **`context`** – Resolves the target PR, applies loop guard (skip when actor is `github-actions` _and_ head commit starts with `chore(autofix):`), and inspects changed files for safe globs and size limits.
+- **`small-fixes`** – Runs when CI succeeded and the diff stays within safe heuristics (≤ `AUTOFIX_MAX_FILES`, ≤ `AUTOFIX_MAX_CHANGES`, all paths match curated globs). Uses the composite autofix action, commits as `chore(autofix): apply small fixes`, pushes with `SERVICE_BOT_PAT`, and emits fork patches when push is impossible.
+- **`fix-failing-checks`** – Runs when CI failed but every failing job name contains lint/format/type keywords. Applies the composite action, commits `chore(autofix): fix failing checks`, uploads patches for forks, and labels the PR `needs-autofix-review` if no change was produced.
 
-### 5. `autofix-on-failure.yml`
-Trigger: `workflow_run` (CI, Docker, Lint, Tests) when conclusion != success.
+Other behavior:
+- Same PAT guard for pushes (no fallback to `GITHUB_TOKEN`).
+- Restores/updates `autofix:clean` vs `autofix:debt` labels based on residual diagnostics.
+- Uploads summary sections so maintainers can see eligibility decisions directly from the run.
 
-Steps:
-- Finds related open PR by head ref.
-- Applies same composite autofix action (idempotent).
-- Commits with canonical message `chore(autofix): after failed checks` (loop guard in main autofix to avoid recursion).
-
-### 6. `reuse-agents.yml` (watchdog mode)
+### 5. `reuse-agents.yml` (watchdog mode)
 Purpose: Detect issues labeled for Codex where bootstrap PR not yet created OR gather fast telemetry using the consolidated agent automation workflow.
 
 Activation: Enable by setting `enable_watchdog: true` on the `reuse-agents.yml` reusable workflow consumer.
@@ -157,7 +153,7 @@ Set the repository (or org) variable `CODEX_ALLOW_FALLBACK=true` only if you acc
 | PAT missing for Codex bootstrap | Early fail (exit 86) unless fallback explicitly allowed; issue comment provides remediation. |
 | Copilot not enabled (no `copilot-swe-agent`) | GraphQL result triggers explicit failure + breadcrumb guidance. |
 | Duplicate Codex label events | Marker file short-circuits re-bootstrap. |
-| Autofix loop risk | Guard: skip when GitHub Actions pushes a head commit whose subject starts with `chore(autofix):`. |
+| Autofix loop risk | Guard: workflow_run follower + skip when GitHub Actions pushes a head commit whose subject starts with `chore(autofix):`. |
 | Formatting version drift | Shared `autofix-versions.env` ensures uniform versions. |
 
 ## Operational Playbook
