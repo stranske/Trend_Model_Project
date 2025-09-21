@@ -44,6 +44,7 @@ Update: `cleanup-codex-bootstrap.yml` confirmed – prunes stale `agents/codex-i
 - `autofix-consumer.yml` – Consumer invoking `reuse-autofix.yml` on PR events.
 - `autofix-on-failure.yml` – Reactive autofix on failing workflows (CI, Docker, Lint, Tests).
 - `verify-ci-stack.yml` – Manual trigger to validate CI/Docker/autofix interplay (observational harness).
+- *(Removed 2025-09-26)* `autofix.yml` – Legacy standalone workflow retired after stabilization window.
 
 ### 5. Release & Distribution
 - `release.yml` – Tag / manual-dispatch PyPI build & publish, changelog generation.
@@ -65,7 +66,7 @@ Update: `cleanup-codex-bootstrap.yml` confirmed – prunes stale `agents/codex-i
 - `dependency-review.yml` – (Also in Category 1; cross-cutting governance.)
 - `quarantine-ttl.yml` – (Also in Category 1; test governance.)
 
-## Deprecated / Superseded (Post-Archival Status)
+## Deprecated / Superseded (Post-Removal Status)
 | Workflow | Replacement | Status | Notes |
 |----------|-------------|--------|-------|
 | agent-readiness.yml | reuse-agents.yml (enable_readiness) | REMOVED | Delete completed 2025-09-21 (see git history for archival copy). |

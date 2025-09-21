@@ -143,7 +143,7 @@ This catalog explains what each active workflow does, how it’s triggered, the 
      - Checks secret exists and minimally has `repo`/`workflow` scopes
 
 <a id="wf-copilot-readiness"></a>
-13) [`copilot-readiness.yml`](../../.github/workflows/copilot-readiness.yml) — Copilot readiness probe
+12) [`copilot-readiness.yml`](../../.github/workflows/copilot-readiness.yml) — Copilot readiness probe
    - Triggers: `workflow_dispatch`
    - Jobs: `probe`
      - GraphQL `suggestedActors` check, temp issue assign attempt to `@copilot`, close, verdict
