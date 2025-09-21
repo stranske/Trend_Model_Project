@@ -22,7 +22,7 @@ jobs:
           script: |
             const prefix = process.env.COMMIT_PREFIX || 'chore(autofix):';
             const actor = context.actor;
-            if (actor !== 'github-actions') {
+            if (actor !== 'github-actions[bot]') {
               core.setOutput('skip', 'false');
               return;
             }
