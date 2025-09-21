@@ -79,6 +79,7 @@ jobs:
   call:
     uses: stranske/Trend_Model_Project/.github/workflows/reuse-autofix.yml@phase-2-dev
 ```
+Autofix commits are tagged with the `chore(autofix):` prefix. The consumer workflow exits early when a run is triggered by `github-actions` on a head commit whose subject starts with that prefix so that bot pushes do not retrigger themselves.
 Agents (subset):
 ```yaml
 name: Agents
