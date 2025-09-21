@@ -11,7 +11,7 @@ import ipywidgets as widgets
 import pandas as pd
 from IPython.display import FileLink, Javascript, display
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 
 from ..config import Config
 from .plugins import discover_plugins, iter_plugins
