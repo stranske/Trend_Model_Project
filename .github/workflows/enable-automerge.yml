@@ -23,10 +23,42 @@ jobs:
         contains(github.event.pull_request.labels.*.name, (vars.AGENT_FROM_LABEL_ALT || 'from:codex'))
       ) &&
       contains(github.event.pull_request.labels.*.name, (vars.AUTOMERGE_LABEL || 'automerge')) &&
-      contains(github.event.pull_request.labels.*.name, (vars.RISK_LABEL || 'risk:low'))
+      contains(github.event.pull_request.labels.*.name, (vars.RISK_LABEL || 'risk:low')) &&
+      contains(github.event.pull_request.labels.*.name, (vars.CI_LABEL || 'ci:green'))
     runs-on: ubuntu-latest
     steps:
+      - name: Quiet & active workflow gate
+        id: extra_gate
+        uses: actions/github-script@v7
+        env:
+          QUIET_MINUTES: ${{ vars.QUIET_MINUTES || '3' }}
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const quietMinutes = parseInt(process.env.QUIET_MINUTES || '3',10);
+            const { owner, repo } = context.repo;
+            const sha = pr.head.sha;
+            const commit = await github.rest.repos.getCommit({ owner, repo, ref: sha });
+            const commitTime = new Date(commit.data.commit.author.date).getTime();
+            const ageMin = (Date.now() - commitTime) / 60000;
+            // Active workflow check (CI or Reusable Autofix still running?)
+            async function active(workflowName){
+              try {
+                const runs = await github.rest.actions.listWorkflowRunsForRepo({ owner, repo, per_page: 50, branch: pr.head.ref });
+                return runs.data.workflow_runs.some(r => r.name === workflowName && ['in_progress','queued','waiting'].includes(r.status));
+              } catch(e){ core.warning('List runs failed: '+e.message); return false; }
+            }
+            const activeCI = await active('CI');
+            const activeAutofix = await active('Reusable Autofix');
+            const quietOk = ageMin >= quietMinutes;
+            const activeOk = !(activeCI || activeAutofix);
+            const proceed = quietOk && activeOk;
+            core.setOutput('proceed', String(proceed));
+            core.setOutput('age_min', ageMin.toFixed(2));
+            if(!quietOk) core.info(`Quiet period not satisfied: age=${ageMin.toFixed(2)} < required=${quietMinutes}`);
+            if(!activeOk) core.info('Active workflows still running; delaying auto-merge enable.');
       - name: Enable auto-merge (tentative)
+        if: steps.extra_gate.outputs.proceed == 'true'
         id: enable
         uses: peter-evans/enable-pull-request-automerge@v3
         with:
@@ -88,7 +120,7 @@ jobs:
             const ok = !draft && (
               has(need('AGENT_FROM_LABEL','from:copilot')) ||
               has(need('AGENT_FROM_LABEL_ALT','from:codex'))
-            ) && has(need('AUTOMERGE_LABEL','automerge')) && has(need('RISK_LABEL','risk:low'));
+            ) && has(need('AUTOMERGE_LABEL','automerge')) && has(need('RISK_LABEL','risk:low')) && has(need('CI_LABEL','ci:green'));
             core.setOutput('eligible', String(ok));
             if(!ok){ core.info('Not eligible yet.'); }
         env:
@@ -96,6 +128,33 @@ jobs:
           draft: ${{ steps.find_pr.outputs.draft }}
       - name: Enable auto-merge (post-status)
         if: steps.gate.outputs.eligible == 'true'
+        id: post_enable_prelude
+        uses: actions/github-script@v7
+        env:
+          QUIET_MINUTES: ${{ vars.QUIET_MINUTES || '3' }}
+        with:
+          script: |
+            const prNumber = parseInt('${{ steps.find_pr.outputs.pr }}',10);
+            const quietMinutes = parseInt(process.env.QUIET_MINUTES || '3',10);
+            const { owner, repo } = context.repo;
+            const pr = (await github.rest.pulls.get({ owner, repo, pull_number: prNumber })).data;
+            const sha = pr.head.sha;
+            const commit = await github.rest.repos.getCommit({ owner, repo, ref: sha });
+            const commitTime = new Date(commit.data.commit.author.date).getTime();
+            const ageMin = (Date.now() - commitTime)/60000;
+            async function active(workflowName){
+              try { const runs = await github.rest.actions.listWorkflowRunsForRepo({ owner, repo, per_page: 50, branch: pr.head.ref });
+                return runs.data.workflow_runs.some(r => r.name === workflowName && ['in_progress','queued','waiting'].includes(r.status));
+              } catch(e){ core.warning('List runs failed: '+e.message); return false; }
+            }
+            const activeCI = await active('CI');
+            const activeAutofix = await active('Reusable Autofix');
+            const proceed = ageMin >= quietMinutes && !(activeCI || activeAutofix);
+            core.setOutput('proceed', String(proceed));
+            core.info(`Quiet/Active Gate -> proceed=${proceed} ageMin=${ageMin.toFixed(2)}`);
+        
+      - name: Enable auto-merge (post-status final)
+        if: steps.gate.outputs.eligible == 'true' && steps.post_enable_prelude.outputs.proceed == 'true'
         id: post_enable
         uses: peter-evans/enable-pull-request-automerge@v3
         with:

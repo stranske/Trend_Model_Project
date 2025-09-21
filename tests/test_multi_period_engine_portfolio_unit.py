@@ -8,7 +8,10 @@ class RecordingWeighting(BaseWeighting):
     def __init__(self) -> None:
         self.update_calls: list[tuple[pd.Series, int]] = []
 
-    def weight(self, selected: pd.DataFrame) -> pd.DataFrame:
+    def weight(
+        self, selected: pd.DataFrame, date: pd.Timestamp | None = None
+    ) -> pd.DataFrame:
+        del date
         if selected.empty:
             return pd.DataFrame(columns=["weight"])
         weights = pd.Series(1.0 / len(selected), index=selected.index, dtype=float)
