@@ -184,7 +184,7 @@ def test_agg_label_prefers_callable_name():
 
     class _CallableWithoutName:
         def __call__(self, values):  # noqa: D401, ANN001
-            return float(getattr(values, "mean", lambda: 0.0)())
+            return float(values.mean())
 
     assert walkforward._agg_label("mean") == "mean"
     assert walkforward._agg_label(custom_metric) == "custom_metric"
