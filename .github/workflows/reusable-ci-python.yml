@@ -238,16 +238,7 @@ jobs:
             const jobTable = process.env.TABLE || '';
             const runUrl = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`;
             // Ensure label exists
-            try {
-              await github.rest.issues.getLabel({owner, repo, name: label});
-            } catch (error) {
-              if (error.status === 404) {
-                await github.rest.issues.createLabel({owner, repo, name: label, color: '0e8a16'});
-              } else {
-                core.error(`Failed to get label "${label}": ${error.message}`);
-                throw error;
-              }
-            }
+            try { await github.rest.issues.getLabel({owner, repo, name: label}); } catch { await github.rest.issues.createLabel({owner, repo, name: label, color: '0e8a16'}); }
             const q = `repo:${owner}/${repo} is:issue is:open in:title "${title}" label:"${label}"`;
             const search = await github.rest.search.issuesAndPullRequests({ q, per_page: 1 });
             const compositeBody = `CI run: ${runUrl}\n\n${bodyBlock}\n\n#### Job logs\n${jobTable}`;
