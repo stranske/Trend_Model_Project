@@ -28,6 +28,7 @@ invalid_values = st.one_of(
     st.integers(), st.floats(), st.booleans(), st.lists(st.integers())
 )
 
+
 def _base_cfg() -> dict[str, object]:
     return {
         "version": "1",

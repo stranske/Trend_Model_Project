@@ -5,7 +5,6 @@ import pytest
 
 from trend_analysis.config import models as config_models
 
-
 _DATA_SECTION = {
     "managers_glob": "data/raw/managers/*.csv",
     "date_column": "Date",
