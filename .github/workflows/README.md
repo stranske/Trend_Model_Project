@@ -9,6 +9,7 @@ Core layers:
 - Autofix lane (`autofix.yml`): workflow_run follower that batches small hygiene fixes and trivial failure remediation using the composite autofix action.
 - Style Gate (`style-gate.yml`): authoritative style verification (black --check + ruff new-issue fail) running on PR & main branch pushes.
 - Agent routing & watchdog (`assign-to-agents.yml` + `agent-watchdog.yml`): label-driven assignment, Codex bootstrap, diagnostics.
+- Merge automation (`merge-manager.yml`): unified auto-approval and auto-merge decisions for safe agent PRs.
 - Governance & Health: `repo-health-self-check.yml`, labelers, dependency review, CodeQL.
 - Path Labeling: `pr-path-labeler.yml` auto-categorizes PRs.
 
@@ -68,6 +69,7 @@ All others use default `GITHUB_TOKEN`.
 | `style-gate.yml` | PR, push (main branches) | Style enforcement |
 | `assign-to-agents.yml` | issue/PR labels, dispatch | Agent assignment + Codex bootstrap |
 | `agent-watchdog.yml` | workflow dispatch | Codex PR presence diagnostic |
+| `merge-manager.yml` | PR target, workflow_run | Auto-approve + enable auto-merge when gates are satisfied |
 | `repo-health-self-check.yml` | schedule, manual | Governance audit |
 | `pr-path-labeler.yml` | PR events | Path labels |
 | `label-agent-prs.yml` | PR target | Origin + risk labels |
