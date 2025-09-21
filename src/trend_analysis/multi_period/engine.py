@@ -249,8 +249,9 @@ def run_schedule(
 
     for date in sorted(score_frames):
         sf = score_frames[date]
+        date_ts = pd.to_datetime(date)
         selected, _ = selector.select(sf)
-        target_weights = weighting.weight(selected)
+        target_weights = weighting.weight(selected, date_ts)
 
         # Apply legacy rebalancer (threshold-hold system) if configured
         if rebalancer is not None:
@@ -801,6 +802,7 @@ def run(
         return floored
 
     for pt in periods:
+        period_ts = pd.to_datetime(pt.out_end)
         in_df, out_df, fund_cols, _rf_col = _valid_universe(
             df, pt.in_start[:7], pt.in_end[:7], pt.out_start[:7], pt.out_end[:7]
         )
@@ -857,7 +859,7 @@ def run(
         if prev_weights is None:
             # Seed via rank selector
             selected, _ = selector.select(sf)
-            seed_weights = weighting.weight(selected)
+            seed_weights = weighting.weight(selected, period_ts)
             holdings = list(seed_weights.index)
             # Enforce one-per-firm on seed
             holdings = _dedupe_one_per_firm(sf, holdings, metric)
@@ -879,7 +881,7 @@ def run(
                     if len(keep) >= max_funds:
                         break
                 holdings = keep
-            weights_df = weighting.weight(sf.loc[holdings])
+            weights_df = weighting.weight(sf.loc[holdings], period_ts)
             prev_weights = weights_df["weight"].astype(float)
             # Log seed additions
             for f in holdings:
@@ -981,7 +983,7 @@ def run(
                             "detail": "reseeding empty portfolio",
                         }
                     )
-            weights_df = weighting.weight(sf.loc[holdings])
+            weights_df = weighting.weight(sf.loc[holdings], period_ts)
             prev_weights = weights_df["weight"].astype(float)
 
         # Natural weights (pre-bounds) for strikes on min threshold
@@ -1041,7 +1043,7 @@ def run(
                         }
                     )
             if holdings:
-                weights_df = weighting.weight(sf.loc[holdings])
+                weights_df = weighting.weight(sf.loc[holdings], period_ts)
                 nat_w = weights_df["weight"].astype(float)
                 prev_weights = nat_w.copy()
 

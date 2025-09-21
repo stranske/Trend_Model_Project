@@ -91,3 +91,54 @@ def test_run_simulation_sanitizes_details_and_combines_portfolio(
     assert isinstance(result.details_sanitized, dict)
     sanitized_keys = result.details_sanitized["weird_keys"].keys()
     assert all(isinstance(k, str) for k in sanitized_keys)
+
+
+def test_run_simulation_handles_unexpected_result_type(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = _DummyConfig()
+    returns = _make_returns()
+
+    monkeypatch.setattr(api, "_run_analysis", lambda *a, **k: object())
+
+    result = api.run_simulation(cfg, returns)
+
+    assert result.metrics.empty
+    assert result.details == {}
+
+
+class _StatsProxy:
+    def __init__(self) -> None:
+        self._store = {"FundA": SimpleNamespace(alpha=3.0, beta=4.0)}
+
+    def items(self):
+        return self._store.items()
+
+
+def test_run_simulation_handles_mapping_payload_and_logging_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = _DummyConfig()
+    returns = _make_returns()
+
+    payload = {
+        "out_sample_stats": _StatsProxy(),
+        "selected_funds": ["FundA"],
+        "weights_equal_weight": {"FundA": 1.0},
+    }
+
+    events: list[str] = []
+
+    def fake_log_step(run_id: str, event: str, message: str, **kwargs: object) -> None:
+        events.append(event)
+        if event == "selection":
+            raise RuntimeError("boom")
+
+    monkeypatch.setattr(api, "_run_analysis", lambda *a, **k: payload)
+    monkeypatch.setattr(api, "_log_step", fake_log_step)
+
+    result = api.run_simulation(cfg, returns)
+
+    assert "alpha" in result.metrics.columns
+    assert events[:2] == ["api_start", "analysis_start"]
+    assert "portfolio_equal_weight_combined" not in result.details

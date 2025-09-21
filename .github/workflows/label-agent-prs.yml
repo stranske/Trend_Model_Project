@@ -54,6 +54,9 @@ permissions:
 jobs:
   label:
     runs-on: ubuntu-latest
+    env:
+      TRUSTED_LABEL_RULE_PATHS: |
+        .github/agent-label-rules.json
     steps:
       - name: Select token (PAT fallback)
         id: token
@@ -69,22 +72,54 @@ jobs:
           ref: ${{ github.event.pull_request.base.ref }}
           persist-credentials: false
           fetch-depth: 1
+          sparse-checkout: ${{ env.TRUSTED_LABEL_RULE_PATHS }}
+          sparse-checkout-cone-mode: false
           path: trusted-config
-      - name: Sparse checkout agent label rules file
-        working-directory: trusted-config
-        run: |
-          git sparse-checkout set --no-cone .github/agent-label-rules.json
       - name: Assert sparse checkout scope (Issue #1140)
         run: |
           set -euo pipefail
-          # Only the agent label rules file should be present after sparse checkout.
-          EXPECTED_PATTERN=".github/agent-label-rules.json"
-          PATTERNS=$(git -C trusted-config sparse-checkout list)
-          if [ "$PATTERNS" != "$EXPECTED_PATTERN" ]; then
-            echo "::error::Unexpected sparse checkout patterns (expected $EXPECTED_PATTERN, found $PATTERNS)";
-            git -C trusted-config sparse-checkout list || true
-            exit 1
-          fi
+          python <<'PY'
+import os
+import sys
+from pathlib import Path
+
+allowed = {
+    line.strip()
+    for line in os.environ.get('TRUSTED_LABEL_RULE_PATHS', '').splitlines()
+    if line.strip()
+}
+if not allowed:
+    print('::error::No trusted label rule paths defined', file=sys.stderr)
+    sys.exit(1)
+
+root = Path('trusted-config')
+if not root.exists():
+    print('::error::trusted-config checkout missing', file=sys.stderr)
+    sys.exit(1)
+
+found = set()
+for path in root.rglob('*'):
+    if not path.is_file():
+        continue
+    try:
+        rel = path.relative_to(root).as_posix()
+    except ValueError:
+        continue
+    if '/.git/' in f'/{rel}/' or rel.startswith('.git/'):
+        continue
+    found.add(rel)
+
+missing = sorted(allowed - found)
+extra = sorted(found - allowed)
+
+if missing:
+    print('::error::Missing required trusted label file(s): ' + ', '.join(missing), file=sys.stderr)
+if extra:
+    print('::error::Unexpected file(s) in trusted-config checkout: ' + ', '.join(extra), file=sys.stderr)
+
+if missing or extra:
+    sys.exit(1)
+PY
       - uses: actions/github-script@v7
         with:
           github-token: ${{ steps.token.outputs.value }}

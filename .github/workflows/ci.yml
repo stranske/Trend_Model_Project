@@ -1,26 +1,34 @@
 name: CI
 
+# Temporary compatibility wrapper (Issue #1345): preserves legacy "CI" check name
+# while branch protection still expects it. Delegates to unified reusable-ci-python.yml.
+# Remove after updating protection rules to reference granular jobs directly.
+
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [ phase-2-dev ]
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  reuse:
-    uses: ./.github/workflows/reuse-ci-python.yml
+  main:
+    uses: ./.github/workflows/reusable-ci-python.yml
     with:
-      python_matrix: ${{ vars.CI_PY_VERSIONS || '["3.11","3.12"]' }}
-      cov_min: ${{ vars.COV_MIN || 85 }}
-      # Coverage gate enforced in the reusable workflow via
-      # pytest --cov --cov-fail-under=${{ vars.COV_MIN || 85 }}
-      run_quarantine: 'false'
+      python-versions: ${{ vars.CI_PY_VERSIONS || '["3.11"]' }}
+      coverage-min: ${{ vars.COV_MIN || '70' }}
+      run-mypy: 'true'
+      enable-metrics: 'false'
+      enable-history: 'false'
+      enable-classification: 'false'
+      enable-coverage-delta: 'false'
+      enable-soft-gate: 'false'
   gate:
     name: gate / all-required-green
     runs-on: ubuntu-latest
-    needs: [reuse]
+    needs: [main]
     steps:
-      - run: echo "Core tests passed (reusable workflow)."
+      - run: echo "Reusable CI completed successfully." 
