@@ -26,15 +26,15 @@ try:  # pragma: no cover - exercised indirectly via tests
 except ImportError:  # pragma: no cover - defensive fallback for test harness
     if sys.modules.get("pydantic") is None:
 
-        def validate_trend_config(_data: Mapping[str, Any], *, base_path: Path) -> None:  # type: ignore[override]
-            return None
+        def validate_trend_config(_data: Mapping[str, Any], *, base_path: Path) -> dict[str, Any]:  # type: ignore[override]
+            return {}
 
     else:
         try:
             from trend_analysis.config.model import validate_trend_config
         except ImportError:
-            def validate_trend_config(_data: Mapping[str, Any], *, base_path: Path) -> None:  # type: ignore[override]
-                return None
+            def validate_trend_config(_data: Mapping[str, Any], *, base_path: Path) -> dict[str, Any]:  # type: ignore[override]
+                return {}
 
 
 class ConfigProtocol(Protocol):
