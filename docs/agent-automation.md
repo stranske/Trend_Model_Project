@@ -1,6 +1,6 @@
 # Agent Automation & Telemetry Overview
 
-_Last updated: 2025-09-12_
+_Last updated: 2025-09-21_
 
 This document summarizes the GitHub Actions automation that powers agent assignment, labeling, formatting autofix, Codex bootstrap PR creation, and watchdog telemetry in this repository.
 
@@ -15,11 +15,11 @@ Issue Labeled agent:codex    ──▶ assign-to-agent.yml (issues) ──▶ se
                                                        │
 PR Opened/Updated               ──▶ label-agent-prs.yml (pull_request_target) → idempotent labeling
                                                        │
-PR (any)                        ──▶ autofix.yml (pull_request) → composite autofix action
+PR (any)                        ──▶ autofix-consumer.yml (pull_request) → composite autofix action
                                                        │
 Failing CI / Docker / Tests     ──▶ autofix-on-failure.yml (workflow_run) → composite autofix action
                                                        │
-Issue / PR lacks Codex PR       ──▶ agent-watchdog.yml (schedule or dispatch) → state telemetry
+Issue / PR lacks Codex PR       ──▶ reuse-agents.yml (schedule or dispatch, watchdog enabled) → state telemetry
 ```
 
 ## Key Workflows
@@ -78,10 +78,11 @@ Rationale for `pull_request_target`:
 
 Idempotent: computes label delta and applies only missing labels.
 
-### 4. `autofix.yml`
+### 4. `autofix-consumer.yml`
 Trigger: standard `pull_request` events.
 
 Logic:
+- Thin consumer that invokes `reuse-autofix.yml` with repository-specific defaults.
 - Skips drafts unless explicitly labeled `autofix`.
 - Uses composite action `.github/actions/autofix` to install pinned versions and run ruff/black/isort/docformatter.
 - Pushes changes only if formatter produced a diff (guard via `changed` output).
@@ -94,10 +95,11 @@ Steps:
 - Applies same composite autofix action (idempotent).
 - Commits with canonical message `chore(autofix): after failed checks` (loop guard in main autofix to avoid recursion).
 
-### 6. `agent-watchdog.yml`
-Purpose: Detect issues labeled for Codex where bootstrap PR not yet created OR gather fast telemetry.
+### 6. `reuse-agents.yml` (watchdog mode)
+Purpose: Detect issues labeled for Codex where bootstrap PR not yet created OR gather fast telemetry using the consolidated agent automation workflow.
 
 Enhancements:
+- Driven by `reuse-agents.yml` with `enable_watchdog: true` (other modes disabled unless explicitly set).
 - Fast-mode: detects marker file presence to short-circuit deeper polling.
 - Provides structured outputs (`state`) such as `FOUND` or `TIMEOUT`.
 - Step summary enumerates any pending items.
@@ -116,7 +118,7 @@ Encapsulates tool installation and formatting logic:
 |-------------------|--------|---------|
 | `agent_assignment.json` | `assign-to-agent.yml` | Auditable record of assignment decisions (inputs & outputs). |
 | Step Summary tables | All major workflows | Human-readable status in Actions UI. |
-| `state` output | `agent-watchdog.yml` | Programmatic detector for missing Codex bootstrap. |
+| `state` output | `reuse-agents.yml` (`enable_watchdog`) | Programmatic detector for missing Codex bootstrap. |
 | Marker files | Codex bootstrap job | Idempotency & external observable state via repo tree. |
 | JSON summary comment | `assign-to-agent.yml` (new) | Machine-readable evergreen comment (issue/PR) with assignment + (later) bootstrap snapshot. |
 

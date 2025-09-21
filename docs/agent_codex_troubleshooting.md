@@ -119,9 +119,9 @@ Failures after preflight indicate persistent issues (permissions, logic) rather 
 
 ## Future Hardening Ideas
 
-- Add a lightweight `verify-agent-task.yml` step to assert branch + marker invariants.
+- Add a lightweight `reuse-agents.yml` (`enable_verify_issue: true`) check to assert branch + marker invariants.
 - Emit a machine-readable JSON summary comment (reaction toggles rerun).
 - Add metrics export (counts of reused vs new bootstraps) to an org dashboard.
 
 ---
-*Last updated: 2025-09-13 (composite action + PAT gating update)*
+*Last updated: 2025-09-21 (reusable agents modes consolidation)*
