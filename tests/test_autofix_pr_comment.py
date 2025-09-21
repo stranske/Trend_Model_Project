@@ -92,7 +92,7 @@ def test_build_comment_full_flow(tmp_path: Path) -> None:
             "by_code": {"E001": 3, "W002": 1},
         },
     }
-    history_payload: Iterable[dict[str, int]] = [{"remaining": 4}, {"remaining": 3}]
+    history_payload: list[dict[str, int]] = [{"remaining": 4}, {"remaining": 3}]
     trend_payload = {
         "remaining_latest": 4,
         "new_latest": 2,
