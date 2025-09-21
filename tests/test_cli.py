@@ -2,6 +2,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pandas as pd
+import yaml
 
 from trend_analysis import cli
 from trend_analysis.api import RunResult
@@ -34,29 +35,41 @@ class TruthySeries:
         return getattr(self.series, name)
 
 
-def _write_cfg(path: Path, version: str) -> None:
-    path.write_text(
-        "\n".join(
-            [
-                f"version: '{version}'",
-                "data: {}",
-                "preprocessing: {}",
-                "vol_adjust: {}",
-                "sample_split: {}",
-                "portfolio: {}",
-                "metrics: {}",
-                "export: {}",
-                "run: {}",
-            ]
-        )
-    )
+def _write_cfg(path: Path, version: str, *, csv_path: Path) -> None:
+    try:
+        csv_value = str(csv_path.relative_to(path.parent))
+    except ValueError:
+        csv_value = str(csv_path)
+
+    config = {
+        "version": version,
+        "data": {
+            "csv_path": csv_value,
+            "date_column": "Date",
+            "frequency": "M",
+        },
+        "preprocessing": {},
+        "vol_adjust": {"target_vol": 0.15},
+        "sample_split": {},
+        "portfolio": {
+            "selection_mode": "all",
+            "rebalance_calendar": "NYSE",
+            "max_turnover": 0.25,
+            "transaction_cost_bps": 10,
+        },
+        "metrics": {},
+        "export": {},
+        "run": {},
+    }
+
+    path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
 
 
 def test_cli_version_custom(tmp_path, monkeypatch):
     cfg = tmp_path / "cfg.yml"
-    _write_cfg(cfg, "1.2.3")
     csv = tmp_path / "data.csv"
     csv.write_text("Date,RF\n2020-01-31,0.0\n")
+    _write_cfg(cfg, "1.2.3", csv_path=csv)
 
     captured: dict[str, str] = {}
 
@@ -77,9 +90,9 @@ def test_cli_version_custom(tmp_path, monkeypatch):
 
 def test_cli_default_json(tmp_path, capsys, monkeypatch):
     cfg = tmp_path / "cfg.yml"
-    _write_cfg(cfg, "1")
     csv = tmp_path / "data.csv"
     csv.write_text("Date,RF\n2020-01-31,0.0\n")
+    _write_cfg(cfg, "1", csv_path=csv)
 
     monkeypatch.setattr(cli.pipeline, "run", lambda cfg: pd.DataFrame())
     monkeypatch.setattr(cli.pipeline, "run_full", lambda cfg: None)

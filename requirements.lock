@@ -71,7 +71,7 @@ pygments==2.19.2
     # via
     #   ipython
     #   ipython-pygments-lexers
-pyparsing==3.2.4
+pyparsing==3.2.5
     # via matplotlib
 python-dateutil==2.9.0.post0
     # via

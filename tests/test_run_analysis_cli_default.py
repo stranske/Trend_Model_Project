@@ -10,12 +10,12 @@ def _write_cfg(path: Path, csv: Path, out_dir: Path) -> None:
         "\n".join(
             [
                 "version: '1'",
-                f"data: {{csv_path: '{csv}'}}",
+                f"data: {{csv_path: '{csv}', date_column: 'Date', frequency: 'M'}}",
                 "preprocessing: {}",
                 "vol_adjust: {target_vol: 1.0}",
                 "sample_split: {in_start: '2020-01', in_end: '2020-03', "
                 "out_start: '2020-04', out_end: '2020-06'}",
-                "portfolio: {}",
+                "portfolio: {selection_mode: all, rebalance_calendar: NYSE, max_turnover: 0.5, transaction_cost_bps: 10}",
                 "metrics: {}",
                 f"export: {{directory: '{out_dir}', formats: ['csv']}}",
                 "run: {}",

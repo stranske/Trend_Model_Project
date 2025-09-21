@@ -24,6 +24,7 @@ def _build_demo_config(tmp_path: Path, csv_path: Path) -> dict:
         "version": "1",
         "data": {
             "csv_path": str(csv_path),
+            "date_column": "Date",
             "frequency": "ME",
         },
         "vol_adjust": {"enabled": True, "target_vol": 1.0},
@@ -52,6 +53,9 @@ def _build_demo_config(tmp_path: Path, csv_path: Path) -> dict:
                 "max_weight": 0.6,
                 "min_weight": 0.05,
             },
+            "rebalance_calendar": "NYSE",
+            "max_turnover": 0.5,
+            "transaction_cost_bps": 10,
         },
         "benchmarks": {"spx": "SPX"},
         "metrics": {

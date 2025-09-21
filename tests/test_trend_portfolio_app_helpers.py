@@ -276,18 +276,22 @@ def test_merge_update_deep_merges_nested_dicts(monkeypatch: pytest.MonkeyPatch) 
     assert "z" not in nested_section
 
 
-def test_build_cfg_accepts_roundtrip_from_yaml(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_build_cfg_accepts_roundtrip_from_yaml(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     app_mod = _load_app(monkeypatch)
 
     defaults: dict[str, Any] = app_mod._read_defaults()
     data_section = defaults.setdefault("data", {})
     if not isinstance(data_section, dict):
         raise AssertionError("Expected mapping for defaults['data']")
-    data_section["csv_path"] = "demo.csv"
+    csv_file = tmp_path / "demo.csv"
+    csv_file.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
+    data_section["csv_path"] = str(csv_file)
     yaml_text = app_mod._to_yaml(defaults)
     reconstructed = app_mod._build_cfg(app_mod.yaml.safe_load(yaml_text))
 
-    assert reconstructed.data["csv_path"] == "demo.csv"
+    assert reconstructed.data["csv_path"] == str(csv_file)
 
 
 def test_summarise_run_df_rounds_numeric_columns(

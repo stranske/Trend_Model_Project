@@ -10,7 +10,11 @@ def make_cfg(tmp_path, df):
     df.to_csv(csv, index=False)
     cfg_dict = {
         "version": "1",
-        "data": {"csv_path": str(csv)},
+        "data": {
+            "csv_path": str(csv),
+            "date_column": "Date",
+            "frequency": "M",
+        },
         "preprocessing": {},
         "vol_adjust": {"target_vol": 1.0},
         "sample_split": {
@@ -19,7 +23,12 @@ def make_cfg(tmp_path, df):
             "out_start": "2020-04",
             "out_end": "2020-06",
         },
-        "portfolio": {},
+        "portfolio": {
+            "selection_mode": "all",
+            "rebalance_calendar": "NYSE",
+            "max_turnover": 0.5,
+            "transaction_cost_bps": 10,
+        },
         "metrics": {},
         "export": {},
         "run": {},
