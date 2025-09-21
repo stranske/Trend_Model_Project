@@ -48,7 +48,8 @@ def test_apply_constraints_requires_non_cash_assets_when_cash_weight_set() -> No
 
 
 def test_apply_constraints_rescales_weights_with_cash_and_cap() -> None:
-    """Cash allocation should be respected while the remainder obeys max weight."""
+    """Cash allocation should be respected while the remainder obeys max
+    weight."""
 
     weights = pd.Series({"Asset1": 2.0, "Asset2": 1.0, "CASH": 0.0})
     constraints = ConstraintSet(cash_weight=0.25, max_weight=0.6)
