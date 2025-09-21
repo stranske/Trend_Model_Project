@@ -10,8 +10,9 @@ entry points and the Streamlit UI before the heavy pipeline code is invoked.
 from __future__ import annotations
 
 import os
+import glob
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Iterable, Literal
 
 from pydantic import (
     BaseModel,
@@ -83,6 +84,59 @@ def _resolve_path(value: str | os.PathLike[str], *, base_dir: Path | None) -> Pa
 
 
 # ---------------------------------------------------------------------------
+# Glob helpers
+# ---------------------------------------------------------------------------
+
+
+def _candidate_roots(base_dir: Path | None) -> Iterable[Path]:
+    """Yield roots that should be considered when resolving relative paths."""
+
+    if base_dir is not None:
+        yield base_dir
+        yield base_dir.parent
+    yield Path.cwd()
+
+
+def _expand_pattern(pattern: str, *, base_dir: Path | None) -> list[Path]:
+    """Expand ``pattern`` relative to plausible search roots."""
+
+    raw_pattern = Path(os.path.expandvars(pattern)).expanduser()
+    if raw_pattern.is_absolute():
+        return [raw_pattern]
+
+    expanded: list[Path] = []
+    seen: set[Path] = set()
+    for root in _candidate_roots(base_dir):
+        candidate = root / raw_pattern
+        # Avoid duplicates when base_dir and cwd are identical.
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        expanded.append(candidate)
+    return expanded
+
+
+def _ensure_glob_matches(pattern: str, *, base_dir: Path | None) -> None:
+    """Ensure ``pattern`` matches at least one CSV file."""
+
+    expanded = _expand_pattern(pattern, base_dir=base_dir)
+    matched: list[Path] = []
+    recursive = "**" in pattern
+    for candidate in expanded:
+        matches = glob.glob(str(candidate), recursive=recursive)
+        matched.extend(Path(match) for match in matches)
+
+    files = [path for path in matched if path.is_file()]
+    if not files:
+        base_hint = base_dir or Path.cwd()
+        raise ValueError(
+            "data.managers_glob did not match any CSV files. "
+            f"Update the glob '{pattern}' relative to '{base_hint}' or "
+            "generate the manager inputs before running the analysis."
+        )
+
+
+# ---------------------------------------------------------------------------
 # Pydantic models covering the minimal runtime contract
 # ---------------------------------------------------------------------------
 
@@ -107,14 +161,25 @@ class DataSettings(BaseModel):
             base_dir = info.context.get("base_path")
         return _resolve_path(value, base_dir=base_dir)
 
-    @field_validator("managers_glob")
+    @field_validator("managers_glob", mode="before")
     @classmethod
-    def _validate_managers_glob(cls, value: Any) -> str | None:
+    def _validate_managers_glob(cls, value: Any, info: Any) -> str | None:
         if value in (None, ""):
             return None
-        if not isinstance(value, str):
+        if isinstance(value, os.PathLike):
+            pattern = str(Path(value))
+        elif isinstance(value, str):
+            pattern = value
+        else:
             raise ValueError("data.managers_glob must be a string if provided.")
-        return value
+        base_dir = None
+        if info.context:
+            base_dir = info.context.get("base_path")
+        if any(ch in pattern for ch in _GLOB_CHARS):
+            _ensure_glob_matches(pattern, base_dir=base_dir)
+            return pattern
+        resolved = _resolve_path(pattern, base_dir=base_dir)
+        return str(resolved)
 
     @field_validator("date_column")
     @classmethod
