@@ -56,6 +56,7 @@ jobs:
           # Basic sanity checks
           test -f coverage.xml || { echo 'coverage.xml missing'; exit 1; }
           test -f coverage.json || { echo 'coverage.json missing'; exit 1; }
+          mv coverage.json coverage-${{ matrix.python-version }}.json
         shell: bash
       - name: Upload coverage artifacts
         uses: actions/upload-artifact@v4
@@ -64,7 +65,7 @@ jobs:
           retention-days: ${{ inputs.coverage-artifact-retention-days }}
           path: |
             coverage.xml
-            coverage.json
+            coverage-${{ matrix.python-version }}.json
             htmlcov/**
             pytest-junit.xml
             pytest-report.xml
@@ -179,7 +180,10 @@ jobs:
         id: cov
         shell: python
         run: |
-          import json, glob, os
+          import glob, json
+
+          HOTSPOT_LIMIT = 15
+
           totals=[]; hotspots=[]
           for jf in glob.glob('coverage-*.json'):
               with open(jf,'r') as fh:
@@ -205,7 +209,7 @@ jobs:
           avg= round(sum(totals)/len(totals),2) if totals else 0.0
           worst= round(min(totals),2) if totals else 0.0
           lines=[f"**Coverage (avg across jobs): {avg}% | worst job: {worst}%**", "", "| File | % covered |", "|---|---:|"]
-          for fpct,f in hotspots[:15]:
+          for fpct,f in hotspots[:HOTSPOT_LIMIT]:
               lines.append(f"| `{f}` | {fpct:.1f}% |")
           with open('coverage_summary.md','w') as w: w.write("\n".join(lines)+"\n")
           print('\n'.join(lines[:6])+'\n...')

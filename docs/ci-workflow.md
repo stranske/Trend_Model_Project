@@ -126,7 +126,7 @@ jobs:
 The workflow writes a Markdown overview (artifacts presence + coverage stats) into the GitHub Actions run summary using `GITHUB_STEP_SUMMARY`.
 
 ### Universal Job Log Table (Issue #1344)
-A dedicated `logs_summary` job runs on every workflow execution (even if advanced phases are disabled) and appends a per‑job log links table plus a brief success/failure explanation. This makes it easy to jump directly to failing job logs without enabling any optional features. The soft coverage gate job no longer duplicates the table.
+A dedicated `logs_summary` job runs on every workflow execution (even if advanced phases are disabled) and appends a per-job log links table plus a brief success/failure explanation. This makes it easy to jump directly to failing job logs without enabling any optional features. The soft coverage gate job no longer duplicates the table.
 
 ### Design Principles
 1. Backward compatible defaults (all advanced phases off).
