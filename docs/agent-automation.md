@@ -153,7 +153,7 @@ Set the repository (or org) variable `CODEX_ALLOW_FALLBACK=true` only if you acc
 | PAT missing for Codex bootstrap | Early fail (exit 86) unless fallback explicitly allowed; issue comment provides remediation. |
 | Copilot not enabled (no `copilot-swe-agent`) | GraphQL result triggers explicit failure + breadcrumb guidance. |
 | Duplicate Codex label events | Marker file short-circuits re-bootstrap. |
-| Autofix loop risk | Guard: skip when PR title starts with `chore(autofix):` and auto-skip GitHub Actions runs when the head commit uses that prefix. |
+| Autofix loop risk | Guard: skip when GitHub Actions pushes a commit starting with `chore(autofix):`. |
 | Formatting version drift | Shared `autofix-versions.env` ensures uniform versions. |
 
 ## Operational Playbook

@@ -39,7 +39,26 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
 
+      - name: Guard against loops
+        id: guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          skip=false
+          if [ "${{ github.actor }}" = "github-actions" ] || [ "${{ github.actor }}" = "github-actions[bot]" ]; then
+            head_msg="$(git log -1 --pretty=%s 2>/dev/null || echo '')"
+            if printf '%s' "$head_msg" | grep -Eq '^chore\(autofix\):'; then
+              echo "Skipping: autofix commit detected"
+              skip=true
+            fi
+          fi
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+          if [ "$skip" = "true" ]; then
+            exit 0
+          fi
+
       - name: Detect same-repo PR
+        if: steps.guard.outputs.skip != 'true'
         id: same_repo
         uses: actions/github-script@v7
         with:
@@ -49,11 +68,12 @@ jobs:
             core.setOutput('same', String(same));
 
       - name: Autofix
+        if: steps.guard.outputs.skip != 'true'
         id: autofix
         uses: ./.github/actions/autofix
 
       - name: Commit changes (same-repo)
-        if: steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same == 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same == 'true'
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
@@ -62,7 +82,7 @@ jobs:
           git commit -m "${{ inputs.commit_prefix }} formatting/lint"
 
       - name: Push changes (same-repo with rebase+retry)
-        if: steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same == 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -85,7 +105,7 @@ jobs:
           exit 1
 
       - name: Create patch artifact (fork PR)
-        if: steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same != 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same != 'true'
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
@@ -95,7 +115,7 @@ jobs:
           git format-patch -1 --stdout > autofix.patch
 
       - name: Upload patch artifact
-        if: steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same != 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: autofix-patch-pr-${{ github.event.pull_request.number }}
@@ -103,7 +123,7 @@ jobs:
 
 
       - name: Manage clean/debt labels (same-repo)
-        if: steps.same_repo.outputs.same == 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -121,7 +141,7 @@ jobs:
             }
 
       - name: Update residual history (same-repo)
-        if: steps.same_repo.outputs.same == 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -143,14 +163,14 @@ jobs:
           exit 1
 
       - name: Generate trend sparkline (same-repo)
-        if: steps.same_repo.outputs.same == 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
         shell: bash
         run: |
           if [ -f scripts/generate_residual_trend.py ]; then python scripts/generate_residual_trend.py || true; fi
           if [ -f ci/autofix/trend.json ]; then echo "Trend:"; cat ci/autofix/trend.json; fi
 
       - name: Build consolidated PR comment (same-repo)
-        if: steps.same_repo.outputs.same == 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -159,7 +179,7 @@ jobs:
           sed -n '1,40p' autofix_pr_comment.md
 
       - name: Upsert consolidated PR comment (same-repo)
-        if: steps.same_repo.outputs.same == 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -179,7 +199,7 @@ jobs:
             }
 
       - name: Regression detector (same-repo)
-        if: steps.same_repo.outputs.same == 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -211,6 +231,7 @@ jobs:
             await github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title: issueTitle, body, labels:['autofix:regression'] });
 
       - name: Emit JSON report
+        if: steps.guard.outputs.skip != 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -230,13 +251,14 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
 
       - name: Upload JSON report
+        if: steps.guard.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: autofix-report-pr-${{ github.event.pull_request.number }}
           path: autofix_report.json
 
       - name: Comment with patch instructions
-        if: steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same != 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same != 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -262,6 +284,7 @@ jobs:
         if: always()
         run: |
           echo "### Reusable Autofix Summary" >> $GITHUB_STEP_SUMMARY
+          echo "Loop guard skip: ${{ steps.guard.outputs.skip || 'false' }}" >> $GITHUB_STEP_SUMMARY
           echo "Applied changes: ${{ steps.autofix.outputs.changed }}" >> $GITHUB_STEP_SUMMARY
           echo "Same repo: ${{ steps.same_repo.outputs.same }}" >> $GITHUB_STEP_SUMMARY
           echo "Remaining ruff issues: ${{ steps.autofix.outputs.remaining_issues }}" >> $GITHUB_STEP_SUMMARY
