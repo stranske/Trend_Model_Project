@@ -70,7 +70,7 @@ jobs:
         run: |
           last_msg=$(git log -1 --pretty=%B | tr -d '\r')
           echo "Last commit: $last_msg"
-          if echo "$last_msg" | grep -qi '^chore(autofix):'; then
+          if echo "$last_msg" | grep -qiE '^chore\(autofix\):'; then
             echo "already=true" >> $GITHUB_OUTPUT
           else
             echo "already=false" >> $GITHUB_OUTPUT
