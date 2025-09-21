@@ -40,7 +40,10 @@ class TrackingWeighting(BaseWeighting):
     def __init__(self) -> None:
         self.updates: list[tuple[pd.Series, int]] = []
 
-    def weight(self, selected: pd.DataFrame) -> pd.DataFrame:
+    def weight(
+        self, selected: pd.DataFrame, date: pd.Timestamp | None = None
+    ) -> pd.DataFrame:
+        del date
         if selected.empty:
             return pd.DataFrame(columns=["weight"])
         values = np.linspace(1.0, 0.6, num=len(selected), dtype=float)
