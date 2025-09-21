@@ -39,7 +39,7 @@ jobs:
         shell: bash
         run: |
           msg=$(git log -1 --pretty=%s || true)
-          if [ "${{ github.actor }}" = "github-actions" ] && echo "$msg" | grep -qiE "^${AUTOFIX_COMMIT_PREFIX}"; then
+          if [ "${{ github.actor }}" = "github-actions" ] && [ -n "$msg" ] && echo "$msg" | grep -qiE "^${AUTOFIX_COMMIT_PREFIX}"; then
             echo "[autofix] Skipping: detected prior autofix commit (${msg})"
             exit 0
           fi
