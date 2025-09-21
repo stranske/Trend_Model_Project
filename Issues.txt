@@ -1,336 +1,478 @@
 1) Consolidate autofix lanes into a single autofix.yml
 
-Suggested labels: workflows, devops, refactor, risk:low, priority: high, agent:codex
+Suggested labels: workflows, devops, autofix, refactor, risk:low, priority: high, agent:codex 
+GitHub
 
 Why
-Two separate autofixers compete and occasionally collide. One lane is enough: fewer races, fewer surprise pushes.
+Two separate autofixers can race and double‑push. One lane is simpler and safer.
 
 Scope
+Create a single autofix.yml triggered by workflow_run of your CI that has:
 
-Create a single autofix.yml triggered by workflow_run on your CI workflow.
+small-fixes job for formatting/lint/type hygiene on small diffs and safe globs.
 
-Inside, add two jobs guarded by light heuristics:
-
-small-fixes: run formatters/linters/type-hygiene on PRs under a size threshold and limited globs.
-
-fix-failing-checks: only if failing checks are from the “trivial” set (lint/format/type), then patch and push.
+fix-failing-checks job that runs only when failing checks are trivial (lint/format/type).
 
 Tasks
 
- Remove or archive the redundant autofix workflow(s) (commit to Old/ or Old/.github/workflows).
+ Remove or archive redundant autofix workflows under Old/.github/workflows/.
 
- Implement commit prefix chore(autofix): and a loop guard that skips when the last commit starts with that prefix.
+ Implement commit prefix chore(autofix): and a loop guard: skip if github.actor == 'github-actions' and HEAD message starts with that prefix.
 
- Push with the service bot PAT (not GITHUB_ACTIONS token) to avoid branch‑protection weirdness.
+ Push via service bot PAT, not GITHUB_TOKEN.
 
 Acceptance criteria
 
-Only one autofix workflow remains.
+Exactly one autofix workflow remains.
 
-Autofix runs once per PR, never self‑loops.
+Autofix runs at most once per PR per push and never self‑loops.
 
-PRs show a single, clear autofix commit when eligible.
+2) Unify approval and merge policy in one merge-manager.yml
 
-2) Merge policy: replace “auto‑approve” and “automerge minor” with one merge-manager.yml
-
-Suggested labels: workflows, devops, automerge, config, risk:low, priority: high, agent:codex
+Suggested labels: workflows, devops, automerge, config, risk:low, priority: high, agent:codex 
+GitHub
 
 Why
-Approval and auto‑merge logic lives in two places and fails too often. One policy brain is easier to reason about.
+Approval and auto‑merge logic is split across two workflows, causing brittle failures.
 
 Scope
-
 One workflow that:
 
-Auto‑approves when diffs are small and safe (docs/tests/format‑only).
+Auto‑approves safe PRs (docs/tests/format‑only, tiny diffs).
 
-Enables auto‑merge when the gate is green and the PR has automerge.
+Enables auto‑merge when the gate is green and PR has automerge.
 
-Leaves a single explanatory comment if it declines.
+Leaves one explanatory comment when declining.
 
 Tasks
 
- Remove the legacy auto‑approve workflow after parity is reached.
+ Replace legacy auto‑approve workflow after parity.
 
- Ensure pull-requests: write and contents: write permissions for the job that toggles auto‑merge.
+ Ensure permissions: pull-requests: write, contents: write.
 
- Respect CODEOWNERS, don’t self‑approve author PRs.
+ Respect CODEOWNERS; do not self‑approve author PRs.
 
 Acceptance criteria
 
-One workflow controls approval and auto‑merge decisions.
+Safe PRs merge unattended; all others get one clear rationale comment.
 
-Safe PRs merge without human clicks; others get a single, clear rationale comment.
+3) Collapse agent helpers to: assign-to-agents.yml + agent-watchdog.yml
 
-3) Branch protection alignment: make the gate the only required check (when ready)
-
-Suggested labels: workflows, config, risk:low, priority: high, agent:codex
+Suggested labels: workflows, devops, refactor, risk:low, priority: high, agent:codex 
+GitHub
 
 Why
-“Required: CI: missing” happens when protection expects a name your jobs no longer produce. The gate should be the single source of truth.
+Labelers/consumers overlap. Keep one assigner and one watcher.
 
 Scope
 
-Keep your gate job as the canonical pass/fail.
+assign-to-agents.yml handles Issues and PRs:
 
-Update branch protection to require only gate / all-required-green.
+Map agent:* labels to Copilot/Codex.
 
-Optionally keep a thin CI wrapper until you flip to gate.
+Assign appropriately; for Codex, post the trigger comment via service‑bot PAT.
+
+agent-watchdog.yml polls timeline for cross‑referenced PR and comments a clear diagnostic if none appears in a short window.
 
 Tasks
 
- Confirm gate job name is stable.
+ Remove/Archive other agent sidecar workflows.
 
- Update protection rules to require only the gate.
-
- Remove any stale required checks (like CI) once the switch is verified.
+ Shorten watchdog timeout to 5–10 minutes, with actionable messages.
 
 Acceptance criteria
 
-PRs show exactly one required status for merge.
+Labeling agent:codex on an Issue reliably creates a branch+PR and posts the trigger comment; missing PRs produce a concrete diagnostic.
 
-No more “Required: CI: missing” banners.
+4) PR summary: authoritative per‑job log links
 
-4) Coverage soft‑gate: file/update a single “Increase test coverage” issue instead of failing PRs
-
-Suggested labels: testing, tech:coverage, workflows, risk:low, priority:medium, agent:codex
-
-Why
-Blocking merges for coverage is noisy. Better: always capture the hotspots and create/update one tracking issue.
-
-Scope
-
-Tests still produce coverage.json|xml|html and JUnit.
-
-A coverage_soft_gate job runs always(), computes average/worst coverage, lists bottom ~15 files, and updates a single open issue titled “Increase test coverage (soft gate).”
-
-Append the same summary to the PR run summary.
-
-Tasks
-
- Ensure each test matrix job uploads coverage.json, coverage.xml, htmlcov/**, pytest-report.xml.
-
- Implement a soft‑gate job to download artifacts, compute the table, and upsert the issue labeled tech:coverage.
-
- Set artifact retention (e.g., 10 days).
-
-Acceptance criteria
-
-PRs don’t fail on coverage; a single open coverage issue gets updated with each run.
-
-The PR summary includes a coverage section with hotspots.
-
-5) PR summary: add authoritative table with per‑job log links
-
-Suggested labels: workflows, devops, risk:low, priority:medium, agent:codex
+Suggested labels: workflows, devops, ci, risk:low, priority: medium, agent:codex 
+GitHub
 
 Why
-Sometimes jobs are missing from your current summary. Use the Actions API for the current run and link each job’s logs directly.
+Your summary sometimes omits jobs. Enumerate jobs from the Actions API and link each job’s logs.
 
-Scope
+Scope & Tasks
 
-In the CI (or gate) workflow, after dependencies complete, enumerate jobs for the current run and write: Job | Result | [logs].
-
-Tasks
-
- Add a github-script step calling actions.listJobsForWorkflowRun and write a markdown table to $GITHUB_STEP_SUMMARY.
+ Add a github-script step that calls actions.listJobsForWorkflowRun and writes a table to $GITHUB_STEP_SUMMARY.
 
  Include matrix jobs as separate rows.
 
 Acceptance criteria
 
-Every CI run shows a complete log table; failures deep‑link to the correct page.
+Every run shows an accurate table with a working log link for each job.
 
-6) Agents: collapse to assign-to-agents.yml + agent-watchdog.yml; archive overlapping helpers
+5) Coverage soft‑gate: create/update a single “Increase test coverage” issue
 
-Suggested labels: workflows, devops, refactor, risk:low, priority: high, agent:codex
+Suggested labels: testing, tech:coverage, workflows, risk:low, priority: medium, agent:codex 
+GitHub
 
 Why
-Multiple helper workflows (labelers/consumers) overlap. Keep one assigner and one watcher for clarity.
+Don’t fail PRs on coverage. File/update one tracking issue with hotspots and run links.
 
 Scope
 
-Keep:
+Test jobs upload coverage.json|xml|html and pytest-report.xml.
 
-assign-to-agents.yml: map agent:* labels to Copilot/Codex, assign, and post the connector’s trigger comment as designed.
+A coverage_soft_gate job (runs always()) computes coverage, lists the bottom ~15 files, and updates a single issue labeled tech:coverage.
 
-agent-watchdog.yml: watch issue timeline for cross‑referenced PR; post a diagnostic if none appears in time.
-
-Archive other agent sidecars once these two cover behavior.
-
-Tasks
-
- Confirm the assigner handles Issues and PRs, and that it posts the correct start commands per agent policy.
-
- Set a short, sane watchdog timeout (e.g., 5–10 min) and a clear timeout comment.
-
- Move archived YAMLs to Old/.github/workflows (or delete) after parity test.
+Append the same summary to the PR run summary.
 
 Acceptance criteria
 
-Labeling an issue agent:codex creates a branch and PR, and posts the trigger command.
+PRs never fail purely on coverage; the tracking issue updates each run with hotspots and log links.
 
-The watchdog reports success (linked PR) or a precise failure message.
+6) Docker smoke reliability: buildx cache + 10‑minute timeout
 
-7) Single autofix guard and policy
-
-Suggested labels: workflows, devops, risk:low, priority:medium, agent:codex
+Suggested labels: workflows, devops, ci, risk:low, priority: medium, agent:codex 
+GitHub
 
 Why
-Autofix loops happen when bots edit and re‑trigger themselves.
+Cache misses and base image pulls cause flaky timeouts.
+
+Scope & Tasks
+
+ Use buildx with a cache keyed on Dockerfile + requirements.lock.
+
+ Add --pull and timeout-minutes: 10.
+
+ Surface cache hits/misses in the summary.
+
+Acceptance criteria
+
+The smoke job completes under the timeout and shows cache behavior in logs.
+
+7) Centralize failure→issue routing in check-failure-tracker
+
+Suggested labels: workflows, devops, risk:low, priority: medium, agent:codex 
+GitHub
+
+Why
+Scattered “file an issue” paths create duplicates.
+
+Scope & Tasks
+
+ Deduplicate by signature (workflow + job + top stack frame).
+
+ Update one issue per signature with run links and summary table.
+
+ Ensure no more than one open issue per signature.
+
+Acceptance criteria
+
+Repeat failures update the same issue; no duplicates.
+
+8) Branch protection alignment: switch to gate / all-required-green
+
+Suggested labels: workflows, config, risk:low, priority: high, agent:codex 
+GitHub
+
+Why
+Eliminate “Required: CI: missing” by using the gate as your single required status.
+
+Tasks
+
+ Confirm gate job name is stable.
+
+ Update branch protection to require only the gate.
+
+ Remove stale required checks.
+
+Acceptance criteria
+
+PRs show exactly one required status for merge; no “missing” warnings.
+
+9) Coverage artifacts: consistent naming + retention
+
+Suggested labels: testing, tech:coverage, workflows, risk:low, priority: low, agent:codex 
+GitHub
+
+Why
+Soft‑gate depends on predictable artifacts.
+
+Tasks
+
+ Upload artifacts as coverage-<python-version> with retention-days (e.g., 10).
+
+ Ensure every matrix job uploads the same files.
+
+Acceptance criteria
+
+Soft‑gate finds artifacts without conditional branches.
+
+10) Bulk create issues workflow (paste markdown → issues)
+
+Suggested labels: workflows, docs, risk:low, priority: low, agent:codex 
+GitHub
+
+Why
+Seed a backlog quickly from a single markdown spec.
+
+Scope & Tasks
+
+ Add .github/workflows/bulk-issues.yml with workflow_dispatch input that parses multiple ## Title sections, optional Labels: line, and bodies.
+
+ Create issues with parsed labels plus optional defaults.
+
+Acceptance criteria
+
+One run creates multiple issues correctly from a pasted spec.
+
+CODE & APP
+11) Introduce a minimal config model (Pydantic) and validate at startup
+
+Suggested labels: config, pipeline, docs, risk:low, priority: high, agent:copilot 
+GitHub
+
+Why
+Implicit CSV paths, date formats, calendars, and frequencies cause silent drift.
 
 Scope
 
-Standardize on a commit prefix and guard logic across all autofix steps.
+config/model.py with fields for input paths, date column, frequency (D/W/M), rebalancing calendar, turnover cap, transaction cost bps, risk target.
 
-Tasks
+Load from config/*.yml with TREND_CONFIG env override.
 
- Prefix: chore(autofix):.
-
- Guard: if github.actor == 'github-actions' and last commit starts with that prefix, skip.
-
- Document in .github/workflows/README.md.
+Hard validation errors with actionable messages.
 
 Acceptance criteria
 
-No self‑trigger storms; audit logs show the guard firing when expected.
+Runs fail fast on ambiguous/missing inputs; Streamlit uses the same model.
 
-8) Failure → Issue routing: centralize in check-failure-tracker
+12) Single CLI entrypoint for the whole pipeline
 
-Suggested labels: workflows, devops, risk:low, priority: medium, agent:codex
+Suggested labels: pipeline, engine, docs, risk:low, priority: high, agent:copilot 
+GitHub
 
 Why
-Scattered “file an issue on failure” logic creates duplicates.
+Too many one‑off scripts at repo root (portfolio_analysis_report.py, manager_attribution_analysis.py, demo_*). Provide one supported way to run. 
+GitHub
 
 Scope
 
-One tracker workflow owns opening/updating issues for repeatable failures.
+Console script trend = trend.cli:main with subcommands:
 
-Deduplicate by signature (workflow name + job + top stack line).
+trend run --config path.yml
 
-Tasks
+trend report --out perf/
 
- Normalize issue titles and labels (e.g., workflows, devops, priority: medium).
+trend stress --scenario 2008
 
- Update body with run links and the per‑job log table.
-
- Ensure it never creates more than one open issue per signature.
+trend app (starts Streamlit)
 
 Acceptance criteria
 
-Recurrent failures update the same issue with fresh context; no duplicates.
+A single command runs the analysis; scripts become thin wrappers around package APIs.
 
-9) Docker smoke reliability: buildx cache + timeout
+13) Enforce shift‑safe pipeline (no look‑ahead) and test it
 
-Suggested labels: workflows, devops, risk:low, priority:medium, agent:codex
+Suggested labels: pipeline, testing, tests, weights, selection, risk:low, priority: high, agent:copilot 
+GitHub
++1
 
 Why
-Pulls and cache misses cause flaky timeouts. Buildx caching and a cap keeps the lane predictable.
+Rolling transforms and vol targeting are prone to off‑by‑one errors.
 
 Scope
 
-Use buildx with cache keyed on Dockerfile + requirements.lock.
+compute_signal(df) returns a series explicitly shift(1).
 
-Always --pull and add timeout-minutes: 10 to the smoke job.
+position_from_signal() rebalances at t using info < t.
 
-Tasks
-
- Set up actions/cache for the buildx cache dir.
-
- Log cache hits/misses to the summary.
+Add a property test in tests/ that asserts all decision inputs at t come only from < t. Existing test files provide a home. 
+GitHub
 
 Acceptance criteria
 
-Smoke job completes under 10 minutes on repeat runs with visible cache hits.
+Tests fail if any step uses future information; passing tests document the alignment.
 
-10) Coverage artifact naming + retention
+14) Vol floor + warmup window + NaN policy
 
-Suggested labels: testing, tech:coverage, workflows, risk:low, priority: low, agent:codex
+Suggested labels: weights, pipeline, risk:low, priority: medium, agent:copilot 
+GitHub
 
 Why
-The soft‑gate depends on predictable artifacts.
+Tiny or NaN realized vol can blow up scaling or propagate junk.
 
 Scope
 
-Normalize artifact names to coverage-<python-version> and set retention-days (e.g., 10).
+Minimum vol floor (e.g., 10 bps daily) before scaling.
 
-Tasks
+Warmup period during which weights are 0.
 
- Upload coverage.json, coverage.xml, htmlcov/**, pytest-report.xml consistently across the matrix.
-
- Set retention on upload-artifact.
+NaNs convert to zero weight; no forward‑fill.
 
 Acceptance criteria
 
-Soft‑gate job finds artifacts without branching logic.
+No divide‑by‑zero or NaN weights; behavior documented in code comments.
 
-11) Bulk create Issues workflow (paste markdown → Issues)
+15) Cache expensive rolling ops
 
-Suggested labels: workflows, docs, risk:low, priority:low, agent:codex
+Suggested labels: engine, pipeline, metrics, risk:low, priority: medium, agent:copilot 
+GitHub
 
 Why
-You often seed a backlog. This turns one paste into multiple formatted issues.
+Re‑computing rolling stats across runs wastes time.
 
 Scope
 
-workflow_dispatch that parses a markdown input where each issue starts with ## Title, optional Labels: line, then body.
+Joblib or parquet cache keyed by (dataset_hash, window, freq, method).
 
-Creates issues and applies labels; supports extra default labels.
-
-Tasks
-
- Add .github/workflows/bulk-issues.yml with parser + creator.
-
- Document a short example in README.
+--no-cache CLI flag to bypass.
 
 Acceptance criteria
 
-A single run creates multiple correct issues from a pasted spec.
+Second run on the same config is materially faster; cache invalidates on param change.
 
-12) Update CODEOWNERS to current tree
+16) Streamlit guardrails and dry‑run
 
-Suggested labels: docs, config, risk:low, priority:medium, agent:codex
+Suggested labels: streamlit, ui, docs, risk:low, priority: medium, agent:copilot 
+GitHub
 
 Why
-Ownership needs to match today’s paths so reviews and auto‑merge rules behave.
+Non‑technical users need safe defaults and clear error messages.
 
 Scope
 
-Ensure patterns for src/**, tests/**, .github/**, agents/**, streamlit_app/** map to the right owners.
+Validate inputs against the Pydantic config.
 
-Tasks
+“Dry run” that loads a small sample, shows warnings if full run would exceed time/memory caps.
 
- Generate and review a proposed CODEOWNERS.
-
- Open a PR and verify that review requests route to expected owners.
+Disable options that introduce look‑ahead.
 
 Acceptance criteria
 
-PRs request the correct owners; small lanes can auto‑merge after approval.
+Invalid configs show inline validation errors; dry‑run finishes quickly with a small sample.
 
-13) Repo health nightly (lightweight)
+17) Refactor root scripts to call package APIs
 
-Suggested labels: workflows, devops, docs, risk:low, priority:low, agent:codex
+Suggested labels: refactor, pipeline, backend, docs, risk:low, priority: medium, agent:copilot 
+GitHub
 
 Why
-A tiny nightly pass catches configuration drift without enterprise bloat.
+Root scripts (manager_attribution_analysis.py, portfolio_analysis_report.py, demo_*) should not duplicate logic. 
+GitHub
 
 Scope
 
-Nightly workflow that runs:
+Move shared logic into src/trend/….
 
-Workflow lint (e.g., actionlint)
-
-Sanity check for required labels (agent:*, priority:*, workflows, tech:coverage)
-
-Optional ping if critical secrets/vars are missing
-
-Tasks
-
- Add nightly schedule.
-
- On failure, update a single “Ops” issue with details and links.
+Keep scripts as thin CLI wrappers.
 
 Acceptance criteria
 
-Nightly runs produce a green “OK” or update the single health issue with clear actions.
+No business logic lives only in scripts/ or repo root; scripts import package functions.
+
+18) Logs and data hygiene
+
+Suggested labels: data, devops, docs, config, risk:low, priority: medium, agent:copilot 
+GitHub
+
+Why
+tmp_logs/ is tracked and CSVs in root encourage hardcoded paths. 
+GitHub
+
+Scope
+
+Add/confirm .gitignore ignores tmp_logs/.
+
+Move example datasets into data/.
+
+data/loader.py that supports csv/parquet and an “example dataset” alias.
+
+Acceptance criteria
+
+Logs aren’t committed; all code loads data via the loader; Docker mounts /data.
+
+19) Built‑in walk‑forward evaluation
+
+Suggested labels: pipeline, metrics, enhancement, testing, risk:low, priority: medium, agent:copilot 
+GitHub
+
+Why
+Time‑aware cross‑validation is the sanity check you’ll actually use.
+
+Scope
+
+walk_forward(returns, params, windows=[…]) -> DataFrame returning out‑of‑sample stats by window.
+
+Plot stability bands; export JSON for the report.
+
+Acceptance criteria
+
+A single CLI call generates a walk‑forward table and chart; tests cover a tiny deterministic dataset.
+
+20) Turnover & TC modeling as first‑class params
+
+Suggested labels: weights, pipeline, enhancement, risk:low, priority: medium, agent:copilot 
+GitHub
+
+Why
+You already demo turnover caps and robust weighting; expose them in the main pipeline (demo_turnover_cap.py, demo_robust_weighting.py). 
+GitHub
+
+Scope
+
+Params: turnover_cap_bps, tc_bps, and robust_weighting dict.
+
+Wire into weight construction and performance calc.
+
+Acceptance criteria
+
+Changing these params impacts turnover and P&L as expected; documented in help.
+
+21) Scenario trays (2000–02, 2008–09, 2020Q1, 2022H1, rising‑rates)
+
+Suggested labels: pipeline, exports, ui, enhancement, risk:low, priority: low, agent:copilot 
+GitHub
+
+Why
+One dropdown to compare behavior across stress regimes is useful for non‑technical users.
+
+Scope
+
+Add scenario presets and date ranges to CLI and Streamlit.
+
+Output side‑by‑side stats and a small chart grid to perf/.
+
+Acceptance criteria
+
+Users can select a scenario and see the report without editing code.
+
+22) Attribution output (tidy DataFrame + report)
+
+Suggested labels: exports, metrics, pipeline, enhancement, risk:low, priority: medium, agent:copilot 
+GitHub
+
+Why
+manager_attribution_analysis.py should become a supported feature with consistent output. 
+GitHub
+
+Scope
+
+Expose attribute(nav, weights, returns, groups=...) -> DataFrame.
+
+Streamlit panel and CLI export (CSV + small HTML).
+
+Acceptance criteria
+
+A single function produces attribution; app and CLI share the same implementation.
+
+23) Unified reporting: single JSON ledger + optional HTML
+
+Suggested labels: exports, docs, pipeline, risk:low, priority: medium, agent:copilot 
+GitHub
+
+Why
+Have one canonical “results blob” both the CLI and Streamlit can render.
+
+Scope
+
+report.py writes JSON with key stats, curves, turnover, and attribution; optional HTML powered by the same data.
+
+portfolio_analysis_report.py becomes a thin wrapper. 
+GitHub
+
+Acceptance criteria
+
+Both CLI and app emit the same numbers and charts; tests compare JSON against golden outputs.
