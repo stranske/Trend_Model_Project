@@ -82,9 +82,9 @@ def _resolve_path(value: str | os.PathLike[str], *, base_dir: Path | None) -> Pa
 class DataSettings(BaseModel):
     """Data input configuration validated at startup."""
 
-    csv_path: Path = Field(alias="csv_path")
-    date_column: str = Field(alias="date_column")
-    frequency: Literal["D", "W", "M", "ME"] = Field(alias="frequency")
+    csv_path: Path = Field()
+    date_column: str = Field()
+    frequency: Literal["D", "W", "M", "ME"] = Field()
 
     model_config = ConfigDict(extra="ignore")
 
