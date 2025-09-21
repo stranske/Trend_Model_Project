@@ -35,22 +35,37 @@ jobs:
       - name: Set commit prefix env
         id: prefix
         run: echo "AUTOFIX_COMMIT_PREFIX=${{ inputs.commit_prefix }}" >> $GITHUB_ENV
-      - name: Guard against loops (Issue #1347)
-        shell: bash
-        run: |
-          msg=$(git log -1 --pretty=%s || true)
-          if [ "${{ github.actor }}" = "github-actions" ] && echo "$msg" | grep -qiE "^${AUTOFIX_COMMIT_PREFIX}"; then
-            echo "[autofix] Skipping: detected prior autofix commit (${msg})"
-            exit 0
-          fi
       - name: Checkout PR HEAD
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
           persist-credentials: true
+      - name: Guard against loops (Issue #1347)
+        id: guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          skip=false
+          if [ "${{ github.actor }}" = "github-actions" ] || [ "${{ github.actor }}" = "github-actions[bot]" ]; then
+            head_msg="$(git log -1 --pretty=%s 2>/dev/null || echo '')"
+            head_msg_lc=$(printf '%s' "$head_msg" | tr '[:upper:]' '[:lower:]')
+            prefix_lc=$(printf '%s' "${{ inputs.commit_prefix }}" | tr '[:upper:]' '[:lower:]')
+            if [ -n "$prefix_lc" ]; then
+              msg_prefix=$(printf '%.*s' "${#prefix_lc}" "$head_msg_lc")
+              if [ "$msg_prefix" = "$prefix_lc" ]; then
+                echo "[autofix] Skipping: detected prior autofix commit (${head_msg})"
+                skip=true
+              fi
+            fi
+          fi
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+          if [ "$skip" = "true" ]; then
+            exit 0
+          fi
 
       - name: Guard remove legacy autofix history file
+        if: steps.guard.outputs.skip != 'true'
         shell: bash
         run: |
           if [ -f ci/autofix/history.json ]; then

@@ -1,0 +1,7 @@
+ci/autofix/history.json merge=ours linguist-generated
+
+# Ensure merge driver 'ours' is defined by configuring in repo or user git config:
+#   git config merge.ours.driver true
+# (Git's built-in 'ours' strategy works when invoked via -s ours for a whole merge, but for a path-specific
+#  merge driver we map to a no-op driver. If not configured, this entry will be ignored; alternatively,
+#  we can simply rely on the file being removed so future merges skip it.)
