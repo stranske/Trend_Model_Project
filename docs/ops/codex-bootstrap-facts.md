@@ -2,7 +2,7 @@
 
 This page captures the established, validated facts about the Codex bootstrap and workflow wiring in this repository. It is the single source of truth so we don’t keep re‑asking for already‑confirmed details.
 
-Last updated: 2025‑09‑17
+Last updated: 2025‑09‑21
 
 ## Branches and Event Semantics
 - Default branch: `phase-2-dev`.
@@ -109,36 +109,36 @@ This catalog explains what each active workflow does, how it’s triggered, the 
      - The job summary reports whether changes were applied and whether this was a same‑repo or fork path. For forks, it includes the artifact name
 
 <a id="wf-autofix-on-failure"></a>
-6) [`autofix-on-failure.yml`](../../.github/workflows/autofix-on-failure.yml) — Attempt autofix when CI/Docker fail
+7) [`autofix-on-failure.yml`](../../.github/workflows/autofix-on-failure.yml) — Attempt autofix when CI/Docker fail
    - Triggers: `workflow_run` for `CI`, `Docker`, `Lint`, `Tests` (type: `completed`)
    - Jobs: `handle-failure`
      - Locates corresponding PR, checks out same-repo branches, runs autofix, commits, and pushes
 
 <a id="wf-ci"></a>
-7) [`ci.yml`](../../.github/workflows/ci.yml) — Test suite on pushes and PRs
+8) [`ci.yml`](../../.github/workflows/ci.yml) — Test suite on pushes and PRs
    - Triggers: `push` to `phase-2-dev`, `pull_request`
    - Jobs: `core-tests` (matrix on Python 3.11/3.12), `gate` (aggregates)
 
 <a id="wf-docker"></a>
-8) [`docker.yml`](../../.github/workflows/docker.yml) — Build, test, and push container image
+9) [`docker.yml`](../../.github/workflows/docker.yml) — Build, test, and push container image
    - Triggers: `push` to `phase-2-dev`, `pull_request`, `workflow_dispatch`
    - Jobs: `build`
      - Builds image, runs tests in container, health-checks a simple endpoint, pushes to GHCR
 
 <a id="wf-cleanup-codex-bootstrap"></a>
-9) [`cleanup-codex-bootstrap.yml`](../../.github/workflows/cleanup-codex-bootstrap.yml) — Prune stale bootstrap branches
+10) [`cleanup-codex-bootstrap.yml`](../../.github/workflows/cleanup-codex-bootstrap.yml) — Prune stale bootstrap branches
    - Triggers: `schedule` (daily), `workflow_dispatch`
    - Jobs: `prune`
      - Deletes old `agents/codex-issue-*` branches beyond TTL
 
 <a id="wf-quarantine-ttl"></a>
-10) [`quarantine-ttl.yml`](../../.github/workflows/quarantine-ttl.yml) — Enforce test quarantine expirations
+11) [`quarantine-ttl.yml`](../../.github/workflows/quarantine-ttl.yml) — Enforce test quarantine expirations
    - Triggers: `pull_request`, `push` to `phase-2-dev`
    - Jobs: `ttl`
      - Validates `tests/quarantine.yml` entries have not expired
 
 <a id="wf-verify-service-bot-pat"></a>
-11) [`verify-service-bot-pat.yml`](../../.github/workflows/verify-service-bot-pat.yml) — Verify `SERVICE_BOT_PAT` presence and scopes
+12) [`verify-service-bot-pat.yml`](../../.github/workflows/verify-service-bot-pat.yml) — Verify `SERVICE_BOT_PAT` presence and scopes
    - Triggers: `workflow_dispatch`
    - Jobs: `check-token`
      - Checks secret exists and minimally has `repo`/`workflow` scopes
@@ -155,7 +155,7 @@ This catalog explains what each active workflow does, how it’s triggered, the 
    - Notes: Only the requested modes run; schedule triggers typically enable `enable_watchdog` to provide periodic telemetry.
 
 <a id="wf-copilot-readiness"></a>
-13) [`copilot-readiness.yml`](../../.github/workflows/copilot-readiness.yml) — Copilot readiness probe
+12) [`copilot-readiness.yml`](../../.github/workflows/copilot-readiness.yml) — Copilot readiness probe
    - Triggers: `workflow_dispatch`
    - Jobs: `probe`
      - GraphQL `suggestedActors` check, temp issue assign attempt to `@copilot`, close, verdict
@@ -243,6 +243,7 @@ This section summarizes the differences between the failing Option 2 (manual/"cr
 
 - Composite action `.github/actions/autofix` no longer commits; it emits `outputs.changed` after running `ruff`, `black`, `isort`, `docformatter`, and light type‑hygiene steps.
 - Workflow `.github/workflows/autofix-consumer.yml` branches by PR provenance via `reuse-autofix.yml`:
+
   - Same‑repo: commit and push to the PR head branch.
   - Fork: create `autofix.patch`, upload as artifact `autofix-patch-pr-<num>`, and post a PR comment with local apply instructions.
 - Benefits: Same‑repo remains hands‑off; forks still get actionable fixes without elevated permissions.

@@ -31,7 +31,6 @@ If a regression is traced to consolidation:
 ## Follow-Up Tasks
 | Task | Owner | Priority |
 |------|-------|----------|
-| Remove `autofix.yml` after stabilization | TBD | P2 |
 | Consider refactor: `autofix-on-failure.yml` → call `reuse-autofix.yml` | TBD | P3 |
 | Unify `codex-issue-bridge.yml` with `reuse-agents.yml` bootstrap path | TBD | P3 |
 

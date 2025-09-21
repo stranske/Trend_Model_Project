@@ -84,7 +84,7 @@ Trigger: standard `pull_request` events.
 Logic:
 - Thin consumer that invokes `reuse-autofix.yml` with repository-specific defaults.
 - Skips drafts unless explicitly labeled `autofix`.
-- Uses composite action `.github/actions/autofix` to install pinned versions and run ruff/black/isort/docformatter.
+- Invokes the reusable workflow `.github/workflows/reuse-autofix.yml`, which installs pinned versions and runs ruff/black/isort/docformatter.
 - Pushes changes only if formatter produced a diff (guard via `changed` output).
 
 ### 5. `autofix-on-failure.yml`
@@ -97,6 +97,8 @@ Steps:
 
 ### 6. `reuse-agents.yml` (watchdog mode)
 Purpose: Detect issues labeled for Codex where bootstrap PR not yet created OR gather fast telemetry using the consolidated agent automation workflow.
+
+Activation: Enable by setting `enable_watchdog: true` on the `reuse-agents.yml` reusable workflow consumer.
 
 Enhancements:
 - Driven by `reuse-agents.yml` with `enable_watchdog: true` (other modes disabled unless explicitly set).

@@ -44,6 +44,7 @@ Update: `cleanup-codex-bootstrap.yml` confirmed – prunes stale `agents/codex-i
 - `autofix-consumer.yml` – Consumer invoking `reuse-autofix.yml` on PR events.
 - `autofix-on-failure.yml` – Reactive autofix on failing workflows (CI, Docker, Lint, Tests).
 - `verify-ci-stack.yml` – Manual trigger to validate CI/Docker/autofix interplay (observational harness).
+- *(Removed 2025-09-26)* `autofix.yml` – Legacy standalone workflow retired after stabilization window.
 
 ### 5. Release & Distribution
 - `release.yml` – Tag / manual-dispatch PyPI build & publish, changelog generation.
@@ -65,7 +66,7 @@ Update: `cleanup-codex-bootstrap.yml` confirmed – prunes stale `agents/codex-i
 - `dependency-review.yml` – (Also in Category 1; cross-cutting governance.)
 - `quarantine-ttl.yml` – (Also in Category 1; test governance.)
 
-## Deprecated / Superseded (Post-Archival Status)
+## Deprecated / Superseded (Post-Removal Status)
 | Workflow | Replacement | Status | Notes |
 |----------|-------------|--------|-------|
 | agent-readiness.yml | reuse-agents.yml (enable_readiness) | REMOVED (2025-09-21) | Archived copy retained under `.github/workflows/archive/`. |
@@ -107,9 +108,9 @@ Update: `cleanup-codex-bootstrap.yml` confirmed – prunes stale `agents/codex-i
 ## Next Steps (Proposed Execution Order)
 1. (DONE) Create `ARCHIVE_WORKFLOWS.md` summarizing removals.
 2. (DONE) Archive deprecated agent workflows & branch reuse guard.
-3. Patch `autofix-on-failure.yml` to invoke reusable logic (optional P2).
-4. Draft issue: "Unify codex bootstrap flows" capturing consolidation strategy.
-5. Schedule removal PR for `autofix.yml` after window expiry.
+3. (DONE) Remove legacy workflow files per consolidation plan.
+4. Patch `autofix-on-failure.yml` to invoke reusable logic (optional P2).
+5. Draft issue: "Unify codex bootstrap flows" capturing consolidation strategy.
 
 ## Open Questions
 - (Resolved) Stabilization window for `autofix.yml` concluded with its removal on 2025-09-21.
