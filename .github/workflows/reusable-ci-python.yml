@@ -273,8 +273,8 @@ jobs:
             m=re.search(r'avg across jobs\):\s*([0-9.]+)% \| worst job: ([0-9.]+)%', first)
             if m:
               avg=float(m.group(1)); worst=float(m.group(2))
-          except Exception as e:
-            print(f"Error extracting coverage metrics: {e}")
+          except Exception:
+            pass
           rec={
             'run_id': int(os.environ.get('GITHUB_RUN_ID','0')),
             'run_number': int(os.environ.get('GITHUB_RUN_NUMBER','0')),
