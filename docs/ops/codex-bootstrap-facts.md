@@ -105,7 +105,7 @@ This catalog explains what each active workflow does, how it’s triggered, the 
    - Triggers: `pull_request` (various types) on `phase-2-dev`/`main`
    - Jobs: `autofix`
      - Uses local composite `.github/actions/autofix` which only runs fixers and exposes `outputs.changed` (no internal commits)
-     - Same‑repo PRs: commits `ci: autofix formatting/lint` and pushes directly to the PR branch
+    - Same‑repo PRs: commits `chore(autofix): formatting/lint` and pushes directly to the PR branch
      - Fork PRs: generates `autofix.patch` (`git format-patch -1 --stdout`), uploads as an artifact named `autofix-patch-pr-<num>`, and comments on the PR with step‑by‑step apply instructions (`git am < autofix.patch`; push to branch)
      - The job summary reports whether changes were applied and whether this was a same‑repo or fork path. For forks, it includes the artifact name
 

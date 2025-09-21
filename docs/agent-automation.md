@@ -92,7 +92,7 @@ Trigger: `workflow_run` (CI, Docker, Lint, Tests) when conclusion != success.
 Steps:
 - Finds related open PR by head ref.
 - Applies same composite autofix action (idempotent).
-- Commits with canonical message `ci: autofix after failed checks` (loop guard in main autofix to avoid recursion).
+- Commits with canonical message `chore(autofix): after failed checks` (loop guard in main autofix to avoid recursion).
 
 ### 6. `agent-watchdog.yml`
 Purpose: Detect issues labeled for Codex where bootstrap PR not yet created OR gather fast telemetry.
@@ -153,7 +153,7 @@ Set the repository (or org) variable `CODEX_ALLOW_FALLBACK=true` only if you acc
 | PAT missing for Codex bootstrap | Early fail (exit 86) unless fallback explicitly allowed; issue comment provides remediation. |
 | Copilot not enabled (no `copilot-swe-agent`) | GraphQL result triggers explicit failure + breadcrumb guidance. |
 | Duplicate Codex label events | Marker file short-circuits re-bootstrap. |
-| Autofix loop risk | Guard: skip when PR title starts with `ci: autofix`. |
+| Autofix loop risk | Guard: skip when PR title starts with `chore(autofix):` and auto-skip GitHub Actions runs when the head commit uses that prefix. |
 | Formatting version drift | Shared `autofix-versions.env` ensures uniform versions. |
 
 ## Operational Playbook
