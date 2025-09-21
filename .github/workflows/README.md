@@ -11,6 +11,20 @@ Core layers:
 - Governance & Health: `repo-health-self-check.yml`, labelers, dependency review, CodeQL.
 - Path Labeling: `pr-path-labeler.yml` auto-categorizes PRs.
 
+### 1.1 Current CI Topology (Issue #1351)
+The CI stack now runs in distinct lanes so each concern can evolve independently:
+
+| Lane | Workflow(s) | Purpose | Required Status Today | Future Plan |
+|------|-------------|---------|-----------------------|-------------|
+| Core test/coverage | `reusable-ci-python.yml` (consumed by `ci.yml`) | Matrix tests, coverage report, style gates | Wrapper job "CI" (legacy) + gate job | Make gate job the only required check once stable |
+| Gate aggregation | `reusable-ci-python.yml` job: `gate / all-required-green` | Ensures upstream jobs passed (single source of truth) | Secondary (not yet sole required) | Will replace wrapper after burn‑in |
+| Coverage soft gate | `coverage_soft_gate` job (opt‑in) | Posts coverage & hotspots without failing builds | Disabled unless input `enable-soft-gate` true | Remains advisory; can be promoted later |
+| Universal logs | `logs_summary` job | Adds per‑job log table to run summary | Not required | Always-on helper |
+| Autofix lane | `reuse-autofix.yml` | Formatting, linting autofix patch | Not required | Remains optional |
+| Codex bootstrap | `codex-issue-bridge.yml` (+ verify & preflight) | Converts issues into branches/PRs | Not required | Hardens with additional diagnostics |
+
+Temporary state: `ci.yml` exists solely to preserve the historic required check name ("CI") while maintainers transition branch protection to the gate job. Once maintainers flip protection, delete `ci.yml` and mark the gate job required.
+
 Flow:
 1. PR opened → labelers apply path + agent labels.
 2. Labels / branch rules trigger CI, autofix, readiness.
@@ -119,6 +133,79 @@ Use a tagged ref when versioned.
 | No dependency review | Fork PR / disabled | `dependency-review.yml` |
 | No CodeQL alerts | First run indexing | `codeql.yml` |
 
+### 7.1 Autofix Loop Guard (Issue #1347)
+Autofix commits use the canonical prefix `ci: autofix` (e.g. `ci: autofix formatting/lint`).
+Loop prevention is achieved via three layers:
+1. Reusable Autofix job `if:` excludes automation actors (`github-actions`, `github-actions[bot]`).
+2. Downstream autofix / failure handler workflows detect prior commits whose subject starts with `ci: autofix` and short‑circuit to avoid re‑trigger storms.
+3. Commit message pattern is centralized through the `commit_prefix` input (default `ci: autofix`).
+
+Result: Each human push gets at most one autofix patch sequence; autofix commits do not recursively spawn new autofix runs. Original issue suggested `chore(autofix):`; project standardized on `ci: autofix` for CI-related automation consistency.
+
+---
+## 7.2 Codex Kickoff Flow (Issue #1351)
+End‑to‑end lifecycle for automation bootstrapped contributions:
+1. Maintainer opens Issue with label `codex-ready` (and optional spec details).
+2. `codex-issue-bridge.yml` triggers (label or manual dispatch) and resolves desired PR draft state via `codex_pr_draft` input (default: non‑draft).
+3. Workflow creates a branch (naming convention: sanitized issue title / id) and an associated PR, posting a kickoff comment outlining next steps for the agent.
+4. Subsequent agent workflows (`reuse-agents.yml` verify / diagnostic) run against that PR.
+5. When automation pushes commits, path labelers & readiness jobs re-evaluate.
+Troubleshooting: If branch/PR not created, verify the label `codex-ready`, permissions for `GITHUB_TOKEN` (write), and absence of conflicting existing branch name.
+
+---
+## 7.3 Coverage Soft Gate (Issue #1351)
+Purpose: Provide early visibility of coverage / hotspot data without failing PRs.
+
+Activation (consumer of `reusable-ci-python.yml`):
+```yaml
+with:
+  enable-soft-gate: 'true'
+```
+Outputs:
+- Run Summary section: "Coverage Soft Gate" with overall % (avg, worst) and hotspot list.
+- Artifacts: `coverage.xml` (raw), any generated per-lane reports. (Trend artifact optional – see future enhancements.)
+- Canonical Issue updates: If configured, the job appends run metrics to a designated coverage tracking Issue (see workflow inputs `coverage_issue_number`).
+
+Behavior: Non‑blocking (always succeeds). If parsing errors occur, job emits a warning and skips posting instead of failing.
+Hotspots: Derived by scanning per‑file coverage under threshold; sorted descending by uncovered lines.
+
+---
+## 7.4 Universal Logs Summary (Issue #1351)
+Source: `logs_summary` job inside `reusable-ci-python.yml` enumerates all jobs via the Actions API and writes a Markdown table to the run summary. Columns include Job, Status (emoji), Duration, and Log link.
+
+How to access logs:
+1. Open the PR → Checks tab → select the CI run.
+2. Scroll to the Run Summary table; click the log link for any job.
+3. Fallback: Use the GitHub UI Jobs list if the summary table is missing.
+
+If missing:
+- Confirm the `logs_summary` job executed (it is unconditional). If skipped, check for GitHub API rate limits in its step logs.
+
+---
+## 7.5 Temporary CI Wrapper & Migration Plan (Issue #1351)
+`ci.yml` wraps the reusable CI to maintain the historical required check label "CI".
+
+Migration steps to retire wrapper:
+1. Add `gate / all-required-green` job as a required status alongside "CI" in branch protection.
+2. Observe stability for N (suggested: 7–14) days (no unexplained gate misses).
+3. Remove "CI" from required list, leaving the gate job.
+4. Delete `ci.yml` in a dedicated PR referencing Issue #1351 (or follow-up) and update this README (remove this section).
+5. Re-run a test PR to ensure branch protection enforces the gate job.
+
+Rationale: Allows a staged transition without breaking existing protections.
+
+---
+## 7.6 Quick Reference – Coverage & Logs
+| Concern | Job / File | How to Enable | Artifact / Output | Fails Build? |
+|---------|------------|---------------|-------------------|--------------|
+| Coverage soft gate | Job: `coverage_soft_gate` in `reusable-ci-python.yml` | `enable-soft-gate: 'true'` | Run summary section, coverage artifacts | No |
+| Universal logs table | Job: `logs_summary` | Always on | Run summary Markdown table | No |
+| Gate aggregation | Job: `gate / all-required-green` | Always on | Single pass/fail gate | Yes (if made required) |
+| Legacy wrapper | `ci.yml` | N/A | Preserves required check name | N/A |
+
+Note: The gate job will become the only required status after successful observation window.
+
+
 ---
 ## 8. Extensibility
 - Add quarantine job via new inputs.
@@ -156,6 +243,23 @@ Tune via `days-before-pr-stale` / `days-before-pr-close`.
 Future (planned): telemetry summary, org-level TTL var.
 
 _Last updated: 2025-09-19 (Issue #1205)_
+
+---
+## 13. Future Enhancements (Advisory)
+Planned / optional improvements under consideration:
+| Enhancement | Status | Notes |
+|-------------|--------|-------|
+| Coverage trend artifact (JSON) | Planned | Would store last N run stats for trend charting |
+| Coverage trend history (NDJSON) | Implemented | `coverage-trend-history` artifact accumulates per-run records |
+| Centralized autofix commit prefix constant | Planned | Reduce drift; single env var reused across workflows |
+| Failing test count in logs summary | Planned | Surface # of failing test jobs inline |
+
+TODO (wrapper removal): After branch protection flips to require the gate job, remove `ci.yml` (see 7.5) and delete this TODO line.
+
+Adopt individually; update sections 7.3 / 7.4 when shipped.
+
+---
+_Addendum (Issue #1351): CI topology, kickoff flow, soft gate, logs summary, and migration plan documented. Wrapper removal pending future protection flip._
 
 ---
 ## 12. Agent Readiness Enhancements (Issue #1220)
