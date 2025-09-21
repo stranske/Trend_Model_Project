@@ -173,7 +173,7 @@ class PortfolioSettings(BaseModel):
 class RiskSettings(BaseModel):
     """Risk target configuration for volatility control."""
 
-    target_vol: float = Field(alias="target_vol")
+    target_vol: float = Field()
 
     model_config = ConfigDict(extra="ignore")
 
