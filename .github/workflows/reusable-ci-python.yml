@@ -183,7 +183,7 @@ jobs:
           echo ''
           echo '== Find coverage json candidates =='
           find . -maxdepth 2 -type f -name 'coverage*.json' -printf '%p\n' || true
-          echo '\n== Show first 40 lines of each coverage json =='
+          echo -e '\n== Show first 40 lines of each coverage json =='
           for f in $(find . -maxdepth 2 -type f -name 'coverage*.json' | head -5); do
             echo "--- $f ---";
             head -40 "$f" || true;
