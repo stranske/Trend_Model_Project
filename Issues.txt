@@ -1,669 +1,336 @@
-1) Coverage soft‑gate: create/update a single “Increase coverage” issue with hotspots and job log links
+1) Consolidate autofix lanes into a single autofix.yml
 
-Labels: agent:codex, tech:coverage, risk:low, automerge:eligible
+Suggested labels: workflows, devops, refactor, risk:low, priority: high, agent:codex
 
 Why
-Failing PRs for coverage is noisy. Instead, file or update a single coverage issue that lists where coverage is thinnest and links run/job logs.
+Two separate autofixers compete and occasionally collide. One lane is enough: fewer races, fewer surprise pushes.
+
+Scope
+
+Create a single autofix.yml triggered by workflow_run on your CI workflow.
+
+Inside, add two jobs guarded by light heuristics:
+
+small-fixes: run formatters/linters/type-hygiene on PRs under a size threshold and limited globs.
+
+fix-failing-checks: only if failing checks are from the “trivial” set (lint/format/type), then patch and push.
 
 Tasks
 
-Update test jobs to generate artifacts:
+ Remove or archive the redundant autofix workflow(s) (commit to Old/ or Old/.github/workflows).
 
-coverage.xml, coverage.json, htmlcov/**, pytest-report.xml.
+ Implement commit prefix chore(autofix): and a loop guard that skips when the last commit starts with that prefix.
 
-Add a coverage_soft_gate job that:
-
-Downloads coverage artifacts from all test matrix jobs.
-
-Computes average and worst coverage across jobs.
-
-Extracts the top 10–15 lowest‑covered files as a table.
-
-Lists per‑job log links using the Actions API.
-
-Creates or updates a single open issue titled “Increase test coverage (soft gate)” labeled tech:coverage.
-
-Posts a comment per run with the summary and links.
-
-Append the same summary table to the PR’s run summary for convenience.
-
-Do not fail the PR due to coverage.
+ Push with the service bot PAT (not GITHUB_ACTIONS token) to avoid branch‑protection weirdness.
 
 Acceptance criteria
 
-PRs no longer fail on coverage; a single open issue is created or updated with each run.
+Only one autofix workflow remains.
 
-The issue contains: coverage summary, hotspots table, and a “Logs for this run” table with one link per job.
+Autofix runs once per PR, never self‑loops.
 
-PR run summary shows the same coverage summary and job log links.
+PRs show a single, clear autofix commit when eligible.
 
-Implementation notes
+2) Merge policy: replace “auto‑approve” and “automerge minor” with one merge-manager.yml
 
-Test job tail:
-
-- name: Run tests with coverage & JUnit
-  run: |
-    pip install pytest pytest-cov coverage
-    pytest -q \
-      --cov=src --cov-report=term-missing:skip-covered \
-      --cov-report=xml --cov-report=json --cov-report=html \
-      --junitxml=pytest-report.xml
-- name: Upload coverage artifacts
-  uses: actions/upload-artifact@v4
-  with:
-    name: coverage-${{ matrix.python-version }}
-    path: |
-      coverage.xml
-      coverage.json
-      htmlcov/**
-      pytest-report.xml
-
-
-Soft‑gate job (new):
-
-coverage_soft_gate:
-  name: coverage soft gate (file/update issue)
-  needs: [core-tests]             # adjust to your test job id(s)
-  if: ${{ always() }}
-  runs-on: ubuntu-latest
-  permissions:
-    contents: read
-    issues: write
-    actions: read
-  steps:
-    - uses: actions/download-artifact@v4
-      with:
-        pattern: coverage-*
-        merge-multiple: true
-
-    - name: Compute coverage summary and hotspots
-      id: cov
-      shell: python
-      run: |
-        import json, glob
-        totals=[]; hotspots=[]
-        for jf in glob.glob("coverage.json"):
-            data=json.load(open(jf))
-            t=data.get("totals",{})
-            pct=float(t.get("percent_covered", t.get("percent_covered_display", 0) or 0))
-            totals.append(pct)
-            files=[]
-            for f,meta in (data.get("files") or {}).items():
-                s=meta.get("summary",{})
-                fpct=float(s.get("percent_covered", s.get("percent_covered_display", 0) or 0))
-                files.append((fpct,f))
-            files.sort(key=lambda x:x[0])
-            hotspots.extend(files[:10])
-        avg=round(sum(totals)/len(totals),2) if totals else 0.0
-        worst=round(min(totals),2) if totals else 0.0
-        with open("coverage_summary.md","w") as w:
-            w.write(f"**Coverage (avg across jobs): {avg}% | worst job: {worst}%**\n\n")
-            w.write("| File | % covered |\n|---|---:|\n")
-            for fpct,f in hotspots[:15]:
-                w.write(f"| `{f}` | {fpct:.1f}% |\n")
-
-    - name: Build job log links table
-      id: jobs
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const {owner, repo} = context.repo;
-          const run_id = context.runId;
-          const { data } = await github.rest.actions.listJobsForWorkflowRun({ owner, repo, run_id, per_page: 100 });
-          const rows = data.jobs.map(j => `| ${j.name} | ${j.conclusion || j.status} | [logs](${j.html_url}) |`);
-          const md = ["### Logs for this run","| Job | Result | Logs |","|---|---|---|",...rows].join("\n");
-          core.setOutput('table', md);
-
-    - name: Create or update coverage issue
-      uses: actions/github-script@v7
-      env:
-        TABLE: ${{ steps.jobs.outputs.table }}
-      with:
-        script: |
-          const {owner, repo} = context.repo;
-          const title = "Increase test coverage (soft gate)";
-          const label = "tech:coverage";
-          const runUrl = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`;
-          try { await github.rest.issues.getLabel({owner, repo, name: label}); }
-          catch { await github.rest.issues.createLabel({owner, repo, name: label, color: "0e8a16"}); }
-          const search = await github.rest.search.issuesAndPullRequests({
-            q: `repo:${owner}/${repo} is:issue is:open label:"${label}" in:title "${title}"`, per_page: 1
-          });
-          const fs = require('fs');
-          const body = `CI run: ${runUrl}\n\n${fs.readFileSync("coverage_summary.md","utf8")}\n\n#### Job logs\n${process.env.TABLE || ""}`;
-          if (search.data.items.length) {
-            const number = search.data.items[0].number;
-            await github.rest.issues.update({ owner, repo, issue_number: number, title });
-            await github.rest.issues.createComment({ owner, repo, issue_number: number, body });
-          } else {
-            await github.rest.issues.create({ owner, repo, title, body, labels: [label] });
-          }
-
-    - name: Publish summary to PR
-      if: ${{ github.event_name == 'pull_request' }}
-      run: cat coverage_summary.md >> $GITHUB_STEP_SUMMARY
-
-2) Add per‑job log links to the PR Summary for all CI runs
-
-Labels: agent:codex, risk:low, automerge:eligible
+Suggested labels: workflows, devops, automerge, config, risk:low, priority: high, agent:codex
 
 Why
-Your summary sometimes omits jobs. Use the API’s ground truth for the current run and link each job’s logs.
+Approval and auto‑merge logic lives in two places and fails too often. One policy brain is easier to reason about.
+
+Scope
+
+One workflow that:
+
+Auto‑approves when diffs are small and safe (docs/tests/format‑only).
+
+Enables auto‑merge when the gate is green and the PR has automerge.
+
+Leaves a single explanatory comment if it declines.
 
 Tasks
 
-In your main CI workflow(s), after all jobs finish, add a step that enumerates jobs in the current run via actions.listJobsForWorkflowRun.
+ Remove the legacy auto‑approve workflow after parity is reached.
 
-Write a markdown table of job name, result, and html_url for logs to $GITHUB_STEP_SUMMARY.
+ Ensure pull-requests: write and contents: write permissions for the job that toggles auto‑merge.
+
+ Respect CODEOWNERS, don’t self‑approve author PRs.
 
 Acceptance criteria
 
-Every CI run shows a “Logs for this run” table with a working log link per job.
+One workflow controls approval and auto‑merge decisions.
 
-Implementation notes
+Safe PRs merge without human clicks; others get a single, clear rationale comment.
 
-Reuse the “Build job log links table” step from Issue 1, but append directly to $GITHUB_STEP_SUMMARY.
+3) Branch protection alignment: make the gate the only required check (when ready)
 
-3) Restore the “CI” check name until the gate is turned on
-
-Labels: agent:codex, risk:low
+Suggested labels: workflows, config, risk:low, priority: high, agent:codex
 
 Why
-Branch protection still expects “CI,” but you moved to lane‑specific workflows. That’s why you see “Required: CI: missing.”
+“Required: CI: missing” happens when protection expects a name your jobs no longer produce. The gate should be the single source of truth.
+
+Scope
+
+Keep your gate job as the canonical pass/fail.
+
+Update branch protection to require only gate / all-required-green.
+
+Optionally keep a thin CI wrapper until you flip to gate.
 
 Tasks
 
-Add a thin wrapper workflow named CI that depends on your real jobs (or simply calls your main CI via workflow_call).
+ Confirm gate job name is stable.
 
-Make the wrapper run on pull_request and set a single success status when the underlying jobs pass.
+ Update protection rules to require only the gate.
 
-Keep the wrapper until you switch branch protection to the gate job.
+ Remove any stale required checks (like CI) once the switch is verified.
 
 Acceptance criteria
 
-New PRs no longer show “Required: CI: missing.”
+PRs show exactly one required status for merge.
 
-Wrapper is documented as temporary.
+No more “Required: CI: missing” banners.
 
-Implementation notes
+4) Coverage soft‑gate: file/update a single “Increase test coverage” issue instead of failing PRs
 
-name: CI
-on: { pull_request: {} }
-jobs:
-  run-main:
-    uses: ./.github/workflows/<your-main-ci>.yml   # or call the reusable workflow
-    with: {}
-
-4) Codex bootstrap PRs: default non‑draft with a toggle
-
-Labels: agent:codex, risk:low, automerge:eligible
+Suggested labels: testing, tech:coverage, workflows, risk:low, priority:medium, agent:codex
 
 Why
-Some agents ignore draft PRs. Default to non‑draft, keep an input to force draft if needed.
+Blocking merges for coverage is noisy. Better: always capture the hotspots and create/update one tracking issue.
+
+Scope
+
+Tests still produce coverage.json|xml|html and JUnit.
+
+A coverage_soft_gate job runs always(), computes average/worst coverage, lists bottom ~15 files, and updates a single open issue titled “Increase test coverage (soft gate).”
+
+Append the same summary to the PR run summary.
 
 Tasks
 
-In the Codex bootstrap step, set draft: false by default.
+ Ensure each test matrix job uploads coverage.json, coverage.xml, htmlcov/**, pytest-report.xml.
 
-Add an input/var CODEX_PR_DRAFT to allow drafts when explicitly requested.
+ Implement a soft‑gate job to download artifacts, compute the table, and upsert the issue labeled tech:coverage.
+
+ Set artifact retention (e.g., 10 days).
 
 Acceptance criteria
 
-agent:codex on an Issue creates a non‑draft PR by default.
+PRs don’t fail on coverage; a single open coverage issue gets updated with each run.
 
-Setting the toggle produces draft PRs.
+The PR summary includes a coverage section with hotspots.
 
-Implementation notes
+5) PR summary: add authoritative table with per‑job log links
 
-draft: ${{ fromJSON(env.CODEX_PR_DRAFT || 'false') }}
-
-5) Autofix loop guard to prevent re‑trigger storms
-
-Labels: agent:codex, risk:low, automerge:eligible
+Suggested labels: workflows, devops, risk:low, priority:medium, agent:codex
 
 Why
-Autofix commits can retrigger themselves forever. That’s cute until it isn’t.
+Sometimes jobs are missing from your current summary. Use the Actions API for the current run and link each job’s logs directly.
+
+Scope
+
+In the CI (or gate) workflow, after dependencies complete, enumerate jobs for the current run and write: Job | Result | [logs].
 
 Tasks
 
-Tag autofix commits with a fixed prefix, for example chore(autofix):.
+ Add a github-script step calling actions.listJobsForWorkflowRun and write a markdown table to $GITHUB_STEP_SUMMARY.
 
-Short‑circuit the autofix workflow when:
-
-github.actor == 'github-actions' and
-
-HEAD commit message starts with chore(autofix):.
-
-Document the behavior in .github/workflows/README.md.
+ Include matrix jobs as separate rows.
 
 Acceptance criteria
 
-Autofix jobs run once per human change; do not re‑run on their own commits.
+Every CI run shows a complete log table; failures deep‑link to the correct page.
 
-Implementation notes
+6) Agents: collapse to assign-to-agents.yml + agent-watchdog.yml; archive overlapping helpers
 
-- name: Guard against loops
-  run: |
-    if [ "${{ github.actor }}" = "github-actions" ] && git log -1 --pretty=%s | grep -q '^chore(autofix):'; then
-      echo "Skipping: autofix commit detected"
-      exit 0
-    fi
-
-6) Harden pull_request_target usage
-
-Labels: agent:codex, risk:low
+Suggested labels: workflows, devops, refactor, risk:low, priority: high, agent:codex
 
 Why
-Don’t execute untrusted fork code with secrets. Ever.
+Multiple helper workflows (labelers/consumers) overlap. Keep one assigner and one watcher for clarity.
+
+Scope
+
+Keep:
+
+assign-to-agents.yml: map agent:* labels to Copilot/Codex, assign, and post the connector’s trigger comment as designed.
+
+agent-watchdog.yml: watch issue timeline for cross‑referenced PR; post a diagnostic if none appears in time.
+
+Archive other agent sidecars once these two cover behavior.
 
 Tasks
 
-For all pull_request_target workflows:
+ Confirm the assigner handles Issues and PRs, and that it posts the correct start commands per agent policy.
 
-Use persist-credentials: false.
+ Set a short, sane watchdog timeout (e.g., 5–10 min) and a clear timeout comment.
 
-Use sparse checkout of only trusted paths (e.g., .github/agents.json).
-
-Ensure no steps execute PR code in these jobs.
-
-Move builds/tests of PR code to pull_request workflows without secrets.
+ Move archived YAMLs to Old/.github/workflows (or delete) after parity test.
 
 Acceptance criteria
 
-No pull_request_target job executes PR code.
+Labeling an issue agent:codex creates a branch and PR, and posts the trigger command.
 
-Privileged actions still work.
+The watchdog reports success (linked PR) or a precise failure message.
 
-Implementation notes
+7) Single autofix guard and policy
 
-- uses: actions/checkout@v4
-  with:
-    fetch-depth: 1
-    persist-credentials: false
-    sparse-checkout: |
-      .github/agents.json
-    sparse-checkout-cone-mode: false
-
-7) “Bulk create issues” workflow (paste markdown → issues)
-
-Labels: agent:codex, risk:low, automerge:eligible
+Suggested labels: workflows, devops, risk:low, priority:medium, agent:codex
 
 Why
-You want to paste content and get well‑formed issues without hand‑crafting each one.
+Autofix loops happen when bots edit and re‑trigger themselves.
+
+Scope
+
+Standardize on a commit prefix and guard logic across all autofix steps.
 
 Tasks
 
-Add .github/workflows/bulk-issues.yml (workflow_dispatch).
+ Prefix: chore(autofix):.
 
-Input: a markdown blob where each issue starts with ## Title, optional Labels: line, then body.
+ Guard: if github.actor == 'github-actions' and last commit starts with that prefix, skip.
 
-For each chunk, create an issue with parsed labels plus optional default_labels input.
+ Document in .github/workflows/README.md.
 
 Acceptance criteria
 
-Running the workflow with the sample spec creates the expected set of issues.
+No self‑trigger storms; audit logs show the guard firing when expected.
 
-Implementation notes
+8) Failure → Issue routing: centralize in check-failure-tracker
 
-name: Bulk create issues
-on:
-  workflow_dispatch:
-    inputs:
-      spec:
-        description: "Paste markdown: ## Title\\nLabels: a,b\\n\\nBody..."
-        required: true
-      default_labels:
-        description: "Comma-separated labels for every issue"
-        required: false
-        default: ""
-permissions:
-  issues: write
-jobs:
-  seed:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/github-script@v7
-        with:
-          script: |
-            const raw = context.payload.inputs.spec || "";
-            const extra = (context.payload.inputs.default_labels || "")
-              .split(",").map(s => s.trim()).filter(Boolean);
-            const { owner, repo } = context.repo;
-            const chunks = raw.split(/\n##\s+/).map((c,i)=> i===0 ? c : "## "+c).filter(s => s.trim().startsWith("## "));
-            if (!chunks.length) core.setFailed("No '## Title' sections found.");
-            for (const ch of chunks) {
-              const lines = ch.split("\n");
-              const title = lines[0].replace(/^##\s*/,"").trim();
-              let bodyLines = lines.slice(1);
-              let labels = [...extra];
-              if (/^labels:/i.test(bodyLines[0] || "")) {
-                labels = labels.concat(bodyLines[0].slice(7).split(",").map(s=>s.trim()).filter(Boolean));
-                bodyLines = bodyLines.slice(1);
-              }
-              const body = bodyLines.join("\n").trim();
-              const { data: issue } = await github.rest.issues.create({ owner, repo, title, body, labels });
-              core.info(`Created #${issue.number} ${title}`);
-            }
-
-8) Add job‑log links to the “Automated Status Summary” table
-
-Labels: agent:codex, risk:low, automerge:eligible
+Suggested labels: workflows, devops, risk:low, priority: medium, agent:codex
 
 Why
-Your current summary sometimes misses jobs and gives no direct log links. Make the table authoritative and clickable.
+Scattered “file an issue on failure” logic creates duplicates.
+
+Scope
+
+One tracker workflow owns opening/updating issues for repeatable failures.
+
+Deduplicate by signature (workflow name + job + top stack line).
 
 Tasks
 
-In the summary‑generation step, replace any hard‑coded job list with enumeration from the Actions API for the current run.
+ Normalize issue titles and labels (e.g., workflows, devops, priority: medium).
 
-Include one row per job: name, result, and a [logs](html_url) link.
+ Update body with run links and the per‑job log table.
+
+ Ensure it never creates more than one open issue per signature.
 
 Acceptance criteria
 
-The “Automated Status Summary” consistently lists every job, including matrix jobs, with working log links.
+Recurrent failures update the same issue with fresh context; no duplicates.
 
-Manual spot check: failing job links directly to the correct log page.
+9) Docker smoke reliability: buildx cache + timeout
 
-Implementation notes
-
-Reuse the actions.listJobsForWorkflowRun snippet from Issue 1.
-
-9) Document current CI topology and the plan to flip to gate
-
-Labels: agent:codex, docs, risk:low, automerge:eligible
+Suggested labels: workflows, devops, risk:low, priority:medium, agent:codex
 
 Why
-The layout changed (per‑lane workflows, Codex bootstrap, soft‑gate coverage). Document how it works now and when to make the gate check the only required status.
+Pulls and cache misses cause flaky timeouts. Buildx caching and a cap keeps the lane predictable.
+
+Scope
+
+Use buildx with cache keyed on Dockerfile + requirements.lock.
+
+Always --pull and add timeout-minutes: 10 to the smoke job.
 
 Tasks
 
-Update .github/workflows/README.md to cover:
+ Set up actions/cache for the buildx cache dir.
 
-Codex kickoff from Issues (branch/PR creation, command posting).
-
-Autofix lane and loop guard.
-
-Coverage soft‑gate and where artifacts live.
-
-Where the automated summary comes from and how to get logs.
-
-Temporary CI wrapper and the future switch to gate.
+ Log cache hits/misses to the summary.
 
 Acceptance criteria
 
-A new maintainer can follow the doc and understand how to label, where to look for logs, and how the soft‑gate behaves.
+Smoke job completes under 10 minutes on repeat runs with visible cache hits.
 
-The doc notes that gate will become the only required check once stable.
+10) Coverage artifact naming + retention
 
-10) Coverage artifact consistency and retention
-
-Labels: agent:codex, tech:coverage, risk:low, automerge:eligible
+Suggested labels: testing, tech:coverage, workflows, risk:low, priority: low, agent:codex
 
 Why
-Make sure the soft‑gate always finds what it needs and that artifacts stick around long enough to be useful.
+The soft‑gate depends on predictable artifacts.
+
+Scope
+
+Normalize artifact names to coverage-<python-version> and set retention-days (e.g., 10).
 
 Tasks
 
-Normalize artifact names to coverage-<pyver>.
+ Upload coverage.json, coverage.xml, htmlcov/**, pytest-report.xml consistently across the matrix.
 
-Set artifact retention (e.g., 7–14 days) to match your usual triage window.
-
-Ensure both Python versions upload the same files so the soft‑gate job doesn’t branch on presence/absence.
+ Set retention on upload-artifact.
 
 Acceptance criteria
 
-Soft‑gate job can run without conditional logic and always finds all artifacts.
+Soft‑gate job finds artifacts without branching logic.
 
-Old artifacts are available during triage but don’t accumulate indefinitely.
+11) Bulk create Issues workflow (paste markdown → Issues)
 
-Implementation notes
-
-- name: Upload coverage artifacts
-  uses: actions/upload-artifact@v4
-  with:
-    name: coverage-${{ matrix.python-version }}
-    retention-days: 10
-    path: |
-      coverage.xml
-      coverage.json
-      htmlcov/**
-      pytest-report.xml
-
-How to post these quickly
-
-If you want to seed them now with labels:
-
-gh issue create --title "Coverage soft‑gate: create/update a single coverage issue with hotspots and job log links" \
-  --body "<paste Issue 1 body>" --label agent:codex,tech:coverage,risk:low,automerge:eligible
-
-gh issue create --title "Add per‑job log links to PR Summary" \
-  --body "<paste Issue 2 body>" --label agent:codex,risk:low,automerge:eligible
-
-gh issue create --title "Restore CI check name until gate is on" \
-  --body "<paste Issue 3 body>" --label agent:codex,risk:low
-# …and so on for the rest.
-
-
-Append the same summary table to the PR’s run summary for convenience.
-
-Do not fail the PR due to coverage.
-
-Acceptance criteria
-
-PRs no longer fail on coverage; a single open issue is created or updated with each run.
-
-The issue contains: coverage summary, hotspots table, and a “Logs for this run” table with one link per job.
-
-PR run summary shows the same coverage summary and job log links.
-
-Implementation notes
-
-Test job tail:
-
-- name: Run tests with coverage & JUnit
-  run: |
-    pip install pytest pytest-cov coverage
-    pytest -q \
-      --cov=src --cov-report=term-missing:skip-covered \
-      --cov-report=xml --cov-report=json --cov-report=html \
-      --junitxml=pytest-report.xml
-- name: Upload coverage artifacts
-  uses: actions/upload-artifact@v4
-  with:
-    name: coverage-${{ matrix.python-version }}
-    path: |
-      coverage.xml
-      coverage.json
-      htmlcov/**
-      pytest-report.xml
-
-
-Soft‑gate job (new):
-
-coverage_soft_gate:
-  name: coverage soft gate (file/update issue)
-  needs: [core-tests]             # adjust to your test job id(s)
-  if: ${{ always() }}
-  runs-on: ubuntu-latest
-  permissions:
-    contents: read
-    issues: write
-    actions: read
-  steps:
-    - uses: actions/download-artifact@v4
-      with:
-        pattern: coverage-*
-        merge-multiple: true
-
-    - name: Compute coverage summary and hotspots
-      id: cov
-      shell: python
-      run: |
-        import json, glob
-        totals=[]; hotspots=[]
-        for jf in glob.glob("coverage.json"):
-            data=json.load(open(jf))
-            t=data.get("totals",{})
-            pct=float(t.get("percent_covered", t.get("percent_covered_display", 0) or 0))
-            totals.append(pct)
-            files=[]
-            for f,meta in (data.get("files") or {}).items():
-                s=meta.get("summary",{})
-                fpct=float(s.get("percent_covered", s.get("percent_covered_display", 0) or 0))
-                files.append((fpct,f))
-            files.sort(key=lambda x:x[0])
-            hotspots.extend(files[:10])
-        avg=round(sum(totals)/len(totals),2) if totals else 0.0
-        worst=round(min(totals),2) if totals else 0.0
-        with open("coverage_summary.md","w") as w:
-            w.write(f"**Coverage (avg across jobs): {avg}% | worst job: {worst}%**\n\n")
-            w.write("| File | % covered |\n|---|---:|\n")
-            for fpct,f in hotspots[:15]:
-                w.write(f"| `{f}` | {fpct:.1f}% |\n")
-
-    - name: Build job log links table
-      id: jobs
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const {owner, repo} = context.repo;
-          const run_id = context.runId;
-          const { data } = await github.rest.actions.listJobsForWorkflowRun({ owner, repo, run_id, per_page: 100 });
-          const rows = data.jobs.map(j => `| ${j.name} | ${j.conclusion || j.status} | [logs](${j.html_url}) |`);
-          const md = ["### Logs for this run","| Job | Result | Logs |","|---|---|---|",...rows].join("\n");
-          core.setOutput('table', md);
-
-    - name: Create or update coverage issue
-      uses: actions/github-script@v7
-      env:
-        TABLE: ${{ steps.jobs.outputs.table }}
-      with:
-        script: |
-          const {owner, repo} = context.repo;
-          const title = "Increase test coverage (soft gate)";
-          const label = "tech:coverage";
-          const runUrl = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`;
-          try { await github.rest.issues.getLabel({owner, repo, name: label}); }
-          catch { await github.rest.issues.createLabel({owner, repo, name: label, color: "0e8a16"}); }
-          const search = await github.rest.search.issuesAndPullRequests({
-            q: `repo:${owner}/${repo} is:issue is:open label:"${label}" in:title "${title}"`, per_page: 1
-          });
-          const fs = require('fs');
-          const body = `CI run: ${runUrl}\n\n${fs.readFileSync("coverage_summary.md","utf8")}\n\n#### Job logs\n${process.env.TABLE || ""}`;
-          if (search.data.items.length) {
-            const number = search.data.items[0].number;
-            await github.rest.issues.update({ owner, repo, issue_number: number, title });
-            await github.rest.issues.createComment({ owner, repo, issue_number: number, body });
-          } else {
-            await github.rest.issues.create({ owner, repo, title, body, labels: [label] });
-          }
-
-    - name: Publish summary to PR
-      if: ${{ github.event_name == 'pull_request' }}
-      run: cat coverage_summary.md >> $GITHUB_STEP_SUMMARY
-
-2) Add per‑job log links to the PR Summary for all CI runs
-
-Labels: agent:codex, risk:low, automerge:eligible
+Suggested labels: workflows, docs, risk:low, priority:low, agent:codex
 
 Why
-Your summary sometimes omits jobs. Use the API’s ground truth for the current run and link each job’s logs.
+You often seed a backlog. This turns one paste into multiple formatted issues.
+
+Scope
+
+workflow_dispatch that parses a markdown input where each issue starts with ## Title, optional Labels: line, then body.
+
+Creates issues and applies labels; supports extra default labels.
 
 Tasks
 
-In your main CI workflow(s), after all jobs finish, add a step that enumerates jobs in the current run via actions.listJobsForWorkflowRun.
+ Add .github/workflows/bulk-issues.yml with parser + creator.
 
-Write a markdown table of job name, result, and html_url for logs to $GITHUB_STEP_SUMMARY.
+ Document a short example in README.
 
 Acceptance criteria
 
-Every CI run shows a “Logs for this run” table with a working log link per job.
+A single run creates multiple correct issues from a pasted spec.
 
-Implementation notes
+12) Update CODEOWNERS to current tree
 
-Reuse the “Build job log links table” step from Issue 1, but append directly to $GITHUB_STEP_SUMMARY.
-
-3) Restore the “CI” check name until the gate is turned on
-
-Labels: agent:codex, risk:low
+Suggested labels: docs, config, risk:low, priority:medium, agent:codex
 
 Why
-Branch protection still expects “CI,” but you moved to lane‑specific workflows. That’s why you see “Required: CI: missing.”
+Ownership needs to match today’s paths so reviews and auto‑merge rules behave.
+
+Scope
+
+Ensure patterns for src/**, tests/**, .github/**, agents/**, streamlit_app/** map to the right owners.
 
 Tasks
 
-Add a thin wrapper workflow named CI that depends on your real jobs (or simply calls your main CI via workflow_call).
+ Generate and review a proposed CODEOWNERS.
 
-Make the wrapper run on pull_request and set a single success status when the underlying jobs pass.
-
-Keep the wrapper until you switch branch protection to the gate job.
+ Open a PR and verify that review requests route to expected owners.
 
 Acceptance criteria
 
-New PRs no longer show “Required: CI: missing.”
+PRs request the correct owners; small lanes can auto‑merge after approval.
 
-Wrapper is documented as temporary.
+13) Repo health nightly (lightweight)
 
-Implementation notes
-
-name: CI
-on: { pull_request: {} }
-jobs:
-  run-main:
-    uses: ./.github/workflows/<your-main-ci>.yml   # or call the reusable workflow
-    with: {}
-
-4) Codex bootstrap PRs: default non‑draft with a toggle
-
-Labels: agent:codex, risk:low, automerge:eligible
+Suggested labels: workflows, devops, docs, risk:low, priority:low, agent:codex
 
 Why
-Some agents ignore draft PRs. Default to non‑draft, keep an input to force draft if needed.
+A tiny nightly pass catches configuration drift without enterprise bloat.
+
+Scope
+
+Nightly workflow that runs:
+
+Workflow lint (e.g., actionlint)
+
+Sanity check for required labels (agent:*, priority:*, workflows, tech:coverage)
+
+Optional ping if critical secrets/vars are missing
 
 Tasks
 
-In the Codex bootstrap step, set draft: false by default.
+ Add nightly schedule.
 
-Add an input/var CODEX_PR_DRAFT to allow drafts when explicitly requested.
-
-Acceptance criteria
-
-agent:codex on an Issue creates a non‑draft PR by default.
-
-Setting the toggle produces draft PRs.
-
-Implementation notes
-
-draft: ${{ fromJSON(env.CODEX_PR_DRAFT || 'false') }}
-
-5) Autofix loop guard to prevent re‑trigger storms
-
-Labels: agent:codex, risk:low, automerge:eligible
-
-Why
-Autofix commits can retrigger themselves forever. That’s cute until it isn’t.
-
-Tasks
-
-Tag autofix commits with a fixed prefix, for example chore(autofix):.
-
-Short‑circuit the autofix workflow when:
-
-github.actor == 'github-actions' and
-
-HEAD commit message starts with chore(autofix):.
-
-Document the behavior in .github/workflows/README.md.
+ On failure, update a single “Ops” issue with details and links.
 
 Acceptance criteria
 
-Autofix jobs run once per human change; do not re‑run on their own commits.
-
-Implementation notes
-
-- name: Guard against loops
-  run: |
-    if [ "${{ github.actor }}" = "github-actions" ] && git log -1 --pretty=%s | grep -q '^chore(autofix):'; then
-      echo "Skipping: autofix commit detected"
-      exit 0
-    fi
+Nightly runs produce a green “OK” or update the single health issue with clear actions.
