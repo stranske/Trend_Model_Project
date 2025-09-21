@@ -158,8 +158,8 @@ Purpose: Provide early visibility of coverage / hotspot data without failing PRs
 
 
 Low Coverage Spotlight (follow-up Issue #1386):
-- A secondary table "Low Coverage (<50%)" appears when any parsed file has <50% line coverage.
-- Threshold is currently static (50%) to keep the workflow input surface minimal; can be elevated to a configurable input later.
+- A secondary table "Low Coverage (<X%)" appears when any parsed file has coverage below the configured threshold (default 50%).
+- Customize the threshold with the `low-coverage-threshold` workflow input when calling `reusable-ci-python.yml`.
 - Table is separately truncated to the hotspot limit (15) with a truncation notice if more remain.
 Implemented follow-ups (Issue #1352):
 - Normalized artifact naming: `coverage-<python-version>` (e.g. `coverage-3.11`).

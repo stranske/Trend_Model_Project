@@ -133,6 +133,50 @@ jobs:
               core.warning('Label management warning: ' + e.message);
             }
 
+      - name: Restore prior autofix history artifact (same-repo)
+        if: steps.same_repo.outputs.same == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          TARGET_REPO: ${{ github.repository }}
+          TARGET_RUN_ID: ${{ github.run_id }}
+          TARGET_PR: ${{ github.event.pull_request.number }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ci/autofix
+          rm -f ci/autofix/history.json
+          artifact_name="autofix-history-pr-${TARGET_PR}"
+          echo "[history] Attempting to restore ${artifact_name} from previous runs"
+          set +e
+          response=$(gh api repos/${TARGET_REPO}/actions/artifacts --paginate)
+          status=$?
+          set -e
+          if [ $status -ne 0 ] || [ -z "$response" ]; then
+            echo "[history] No prior artifact found"
+            exit 0
+          fi
+          artifact_lines=$(printf '%s' "$response" | jq -r --arg name "$artifact_name" --arg run "${TARGET_RUN_ID}" '.artifacts[]? | select(.name==$name and .expired==false and (.workflow_run.id|tostring)!=$run) | [.id, .created_at] | @tsv')
+          if [ -z "$artifact_lines" ]; then
+            echo "[history] No prior artifact found"
+            exit 0
+          fi
+          latest=$(printf '%s\n' "$artifact_lines" | sort -k2 | tail -n1)
+          artifact_id=${latest%%$'\t'*}
+          tmpdir=$(mktemp -d)
+          echo "[history] Downloading artifact id ${artifact_id}"
+          if ! gh api repos/${TARGET_REPO}/actions/artifacts/${artifact_id}/zip > "$tmpdir/artifact.zip"; then
+            echo "[history] Failed to download artifact ${artifact_id}"
+            exit 0
+          fi
+          if unzip -p "$tmpdir/artifact.zip" ci/autofix/history.json > ci/autofix/history.json 2>/dev/null; then
+            echo "[history] Restored previous history.json"
+          else
+            echo "[history] Artifact ${artifact_id} did not contain ci/autofix/history.json"
+            rm -f ci/autofix/history.json
+          fi
+          rm -rf "$tmpdir"
+
       - name: Update residual history (same-repo)
         if: steps.same_repo.outputs.same == 'true'
         shell: bash
