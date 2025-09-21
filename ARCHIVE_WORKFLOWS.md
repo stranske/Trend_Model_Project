@@ -1,12 +1,14 @@
 # Archived GitHub Workflows (2025-09-21)
 
+*Updated: 2025-09-21 — watchdog removal deferred pending parity in `reuse-agents.yml`.*
+
 This document records the archival and removal of legacy agent-related workflows now replaced by consolidated reusable pipelines.
 
 ## Archived Files
 | Legacy Workflow (removed) | Archived Copy | Replacement Path | Replacement Mode |
 |---------------------------|--------------|------------------|------------------|
 | `.github/workflows/agent-readiness.yml` | `archive/agent-readiness.yml` | `reuse-agents.yml` | `enable_readiness=true` |
-| `.github/workflows/agent-watchdog.yml` | `archive/agent-watchdog.yml` | `reuse-agents.yml` | `enable_watchdog=true` |
+| `.github/workflows/agent-watchdog.yml` | `archive/agent-watchdog.yml` | `reuse-agents.yml` | `enable_watchdog=true` (parity pending; workflow still active) |
 | `.github/workflows/codex-preflight.yml` | `archive/codex-preflight.yml` | `reuse-agents.yml` | `enable_preflight=true` |
 | `.github/workflows/codex-bootstrap-diagnostic.yml` | `archive/codex-bootstrap-diagnostic.yml` | `reuse-agents.yml` | `enable_diagnostic=true` |
 | `.github/workflows/verify-agent-task.yml` | `archive/verify-agent-task.yml` | `reuse-agents.yml` | `enable_verify_issue=true` |

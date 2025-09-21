@@ -8,7 +8,7 @@ The `.github/workflows` directory contains both new reusable workflows and sever
 | -------------------- | -------------------- | ----------------- |
 | `autofix.yml` | `reuse-autofix.yml` + `autofix-consumer.yml` | Eliminated duplication; stabilization period complete post PR #1257. |
 | `agent-readiness.yml` | `reuse-agents.yml` (enable_readiness) | Mode parameter covers readiness path. |
-| `agent-watchdog.yml` | `reuse-agents.yml` (watchdog enabled) | Consolidated into single orchestrated workflow. |
+| `agent-watchdog.yml` | `reuse-agents.yml` (watchdog enabled) | Removal deferred pending feature parity (issue polling + timeout comments). |
 | `codex-preflight.yml` | `reuse-agents.yml` (preflight mode) | Folded into parameterized preflight job. |
 | `codex-bootstrap-diagnostic.yml` | `reuse-agents.yml` (diagnostic mode) | Unified diagnostics with other agent operations. |
 | `verify-agent-task.yml` | `reuse-agents.yml` (verify_issue mode) | Verification now an on-demand mode.
@@ -23,7 +23,7 @@ The `.github/workflows` directory contains both new reusable workflows and sever
 Release, docker, auto-merge enablement, PR status summary, quarantine TTL, failure trackers remain orthogonal to the three reusable workflows.
 
 ## Consolidation Actions Executed
-All previously flagged legacy workflows have been deleted in alignment with Issue #1259. Consumers should transition to the reusable equivalents. This concludes the stabilization window referenced in PR #1257.
+All previously flagged legacy workflows except `agent-watchdog.yml` have been deleted in alignment with Issue #1259. The watchdog remains while parity work proceeds; consumers should otherwise transition to the reusable equivalents. This concludes the stabilization window referenced in PR #1257.
 
 ## Deletion Timetable (Superseded)
 Original timetable replaced by immediate removal once validation completed. Retained here for historical context only.
