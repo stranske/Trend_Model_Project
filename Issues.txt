@@ -122,7 +122,7 @@ The PR summary includes a coverage section with hotspots.
 
 5) PR summary: add authoritative table with per‑job log links
 
-Suggested labels: workflows, devops, risk:low, priority: medium, agent:codex
+Suggested labels: workflows, devops, risk:low, priority:medium, agent:codex
 
 Why
 Sometimes jobs are missing from your current summary. Use the Actions API for the current run and link each job’s logs directly.
