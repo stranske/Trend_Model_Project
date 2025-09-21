@@ -179,7 +179,7 @@ jobs:
         id: cov
         shell: python
         run: |
-          import json, glob, os, math
+          import json, glob, os
           totals=[]; hotspots=[]
           for jf in glob.glob('coverage-*.json'):
               with open(jf,'r') as fh:
