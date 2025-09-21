@@ -462,24 +462,7 @@ jobs:
 
       - name: Update residual history (same-repo)
         if: needs.context.outputs.same_repo == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ ! -f autofix_report_enriched.json ]; then
-            echo "[autofix] No enriched report found; skipping residual history update.";
-            exit 0;
-          fi
-          if [ -f scripts/update_residual_history.py ]; then
-            python scripts/update_residual_history.py || echo "[autofix] Residual history update failed";
-          else
-            echo "[autofix] scripts/update_residual_history.py not present; skipping";
-          fi
-          if [ -f ci/autofix/history.json ] && [ -s ci/autofix/history.json ] && jq empty ci/autofix/history.json >/dev/null 2>&1; then
-            echo "[autofix] Prepared ci/autofix/history.json artifact";
-          else
-            echo "[autofix] history.json missing or invalid; removing";
-            rm -f ci/autofix/history.json || true;
-          fi
+        uses: ./.github/actions/update-residual-history
 
       - name: Upload autofix history artifact (same-repo)
         if: needs.context.outputs.same_repo == 'true'
