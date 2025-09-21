@@ -7,7 +7,11 @@ Usage environment variables (set by workflow):
   RECORD_PATH: path to JSON record (default coverage-trend.json)
 """
 from __future__ import annotations
-import json, os, sys, tempfile
+
+import json
+import os
+import sys
+import tempfile
 from pathlib import Path
 
 
