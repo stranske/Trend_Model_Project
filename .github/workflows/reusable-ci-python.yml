@@ -24,6 +24,7 @@ on:
       enable-soft-gate: { description: 'Enable soft coverage gate (aggregate + issue update)', required: false, default: 'false', type: string }
       coverage-hard-fail: { description: 'Still fail build on coverage shortfall (true/false)', required: false, default: 'true', type: string }
       coverage-artifact-retention-days: { description: 'Retention days for coverage artifacts', required: false, default: '10', type: string }
+      low-coverage-threshold: { description: 'Percent threshold for low coverage spotlight table', required: false, default: '50', type: string }
 
 jobs:
   tests:
@@ -191,11 +192,16 @@ jobs:
       - name: Compute coverage summary & hotspots
         id: cov
         shell: python
+        env:
+          LOW_COVERAGE_THRESHOLD: ${{ inputs.low-coverage-threshold }}
         run: |
           import glob, json, os, sys
 
           HOTSPOT_LIMIT = 15
-          LOW_COVERAGE_THRESHOLD = 50.0  # Files below this percent get an explicit highlight table
+          try:
+              LOW_COVERAGE_THRESHOLD = float(os.environ.get('LOW_COVERAGE_THRESHOLD', '50.0'))
+          except ValueError:
+              LOW_COVERAGE_THRESHOLD = 50.0
           candidates = sorted(set(glob.glob('coverage-*.json') + glob.glob('**/coverage.json', recursive=True)))
           # Filter out duplicate same-path entries
           seen=set(); ordered=[]
@@ -254,8 +260,8 @@ jobs:
               lines.append("|---|---:|")
               for p,f in low_cov[:HOTSPOT_LIMIT]:  # cap separately to avoid huge tables
                   lines.append(f"| `{f}` | {p:.1f}% |")
-              if len(low_cov) > HOTSPOT_LIMIT:
-                  lines.append(f"| *(+{len(low_cov)-HOTSPOT_LIMIT} more below {LOW_COVERAGE_THRESHOLD:.0f}% – truncated)* |")
+               if len(low_cov) > HOTSPOT_LIMIT:
+                   lines.append(f"| *(+{len(low_cov)-HOTSPOT_LIMIT} more below {LOW_COVERAGE_THRESHOLD:.0f}% – truncated)* | — |")
           with open('coverage_summary.md','w') as w:
               w.write("\n".join(lines)+"\n")
           print('\n'.join(lines[:6])+'\n...')
@@ -388,6 +394,7 @@ jobs:
             const { data } = await github.rest.actions.listJobsForWorkflowRun({ owner, repo, run_id, per_page: 100 });
             const rows = data.jobs.map(j => `| ${j.name} | ${j.conclusion || j.status} | [logs](${j.html_url}) |`);
             const failed = data.jobs.filter(j => !['success','skipped'].includes((j.conclusion || '').toLowerCase())).map(j => j.name);
+            const failingTestJobs = failed.filter(n => /test/i.test(n));
             let explanation = '';
             if (failed.length) {
               explanation = `\n> ❗ ${failed.length} job(s) did not succeed: ${failed.join(', ')}.`;
