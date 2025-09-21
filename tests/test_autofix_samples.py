@@ -18,8 +18,13 @@ def test_violation_case2_compute_and_helpers() -> None:
     payload = _autofix_violation_case2.compute([2, 4, 6])
     assert payload == {"total": 12, "mean": 4.0, "count": 3}
 
+    # Exercise the default branch and the intentionally "unused" helper.
+    default_payload = _autofix_violation_case2.compute()
+    assert default_payload == {"total": 6, "mean": 2.0, "count": 3}
+
     assert _autofix_violation_case2.Example().method(3.5, 0.5) == 4.0
     assert "extravagantly" in _autofix_violation_case2.long_line_function()
+    assert _autofix_violation_case2.unused_func(1, 2, 3) is None
 
 
 def test_violation_case3_exposes_expected_behaviour() -> None:
