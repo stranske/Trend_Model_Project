@@ -32,6 +32,17 @@ jobs:
           !startsWith(github.event.pull_request.title, inputs.commit_prefix) &&
           ( !github.event.pull_request.draft || contains(github.event.pull_request.labels.*.name, inputs.opt_in_label) ) }}
     steps:
+      - name: Set commit prefix env
+        id: prefix
+        run: echo "AUTOFIX_COMMIT_PREFIX=${{ inputs.commit_prefix }}" >> $GITHUB_ENV
+      - name: Guard against loops (Issue #1347)
+        shell: bash
+        run: |
+          msg=$(git log -1 --pretty=%s || true)
+          if [ "${{ github.actor }}" = "github-actions" ] && echo "$msg" | grep -qiE "^${AUTOFIX_COMMIT_PREFIX}"; then
+            echo "[autofix] Skipping: detected prior autofix commit (${msg})"
+            exit 0
+          fi
       - name: Checkout PR HEAD
         uses: actions/checkout@v4
         with:
@@ -84,10 +95,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "${{ inputs.commit_prefix }} formatting/lint"
+          git commit -m "${AUTOFIX_COMMIT_PREFIX} formatting/lint"
 
       - name: Push changes (same-repo with rebase+retry)
-        if: steps.guard.outputs.skip != 'true' && steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same == 'true'
+        if: steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -116,7 +127,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "${{ inputs.commit_prefix }} formatting/lint (patch)" || true
+          git commit -m "${AUTOFIX_COMMIT_PREFIX} formatting/lint (patch)" || true
           git format-patch -1 --stdout > autofix.patch
 
       - name: Upload patch artifact
@@ -128,7 +139,7 @@ jobs:
 
 
       - name: Manage clean/debt labels (same-repo)
-        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
+        if: steps.same_repo.outputs.same == 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -146,7 +157,7 @@ jobs:
             }
 
       - name: Update residual history (same-repo)
-        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
+        if: steps.same_repo.outputs.same == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -157,7 +168,7 @@ jobs:
           git add ci/autofix/history.json
           if git diff --cached --quiet; then echo "[history] No updates to commit"; exit 0; fi
           branch="${{ github.event.pull_request.head.ref }}"
-          git commit -m "${{ inputs.commit_prefix }} update residual history"
+          git commit -m "${AUTOFIX_COMMIT_PREFIX} update residual history"
           for attempt in 1 2 3; do
             if git push origin HEAD:"$branch"; then echo "[history] Push succeeded"; exit 0; fi
             echo "[history] Push failed attempt $attempt; rebasing";
@@ -168,14 +179,14 @@ jobs:
           exit 1
 
       - name: Generate trend sparkline (same-repo)
-        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
+        if: steps.same_repo.outputs.same == 'true'
         shell: bash
         run: |
           if [ -f scripts/generate_residual_trend.py ]; then python scripts/generate_residual_trend.py || true; fi
           if [ -f ci/autofix/trend.json ]; then echo "Trend:"; cat ci/autofix/trend.json; fi
 
       - name: Build consolidated PR comment (same-repo)
-        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
+        if: steps.same_repo.outputs.same == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -184,7 +195,7 @@ jobs:
           sed -n '1,40p' autofix_pr_comment.md
 
       - name: Upsert consolidated PR comment (same-repo)
-        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
+        if: steps.same_repo.outputs.same == 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -204,7 +215,7 @@ jobs:
             }
 
       - name: Regression detector (same-repo)
-        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
+        if: steps.same_repo.outputs.same == 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -236,7 +247,6 @@ jobs:
             await github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title: issueTitle, body, labels:['autofix:regression'] });
 
       - name: Emit JSON report
-        if: steps.guard.outputs.skip != 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -256,7 +266,6 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
 
       - name: Upload JSON report
-        if: steps.guard.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: autofix-report-pr-${{ github.event.pull_request.number }}
