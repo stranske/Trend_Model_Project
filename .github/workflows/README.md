@@ -156,6 +156,11 @@ Troubleshooting: If branch/PR not created, verify the label `codex-ready`, permi
 ## 7.3 Coverage Soft Gate (Issues #1351, #1352)
 Purpose: Provide early visibility of coverage / hotspot data without failing PRs.
 
+
+Low Coverage Spotlight (follow-up Issue #1386):
+- A secondary table "Low Coverage (<50%)" appears when any parsed file has <50% line coverage.
+- Threshold is currently static (50%) to keep the workflow input surface minimal; can be elevated to a configurable input later.
+- Table is separately truncated to the hotspot limit (15) with a truncation notice if more remain.
 Implemented follow-ups (Issue #1352):
 - Normalized artifact naming: `coverage-<python-version>` (e.g. `coverage-3.11`).
 - Consistent file set per matrix job: `coverage.xml`, `coverage.json`, `htmlcov/**`, `pytest-junit.xml`, `pytest-report.xml`.
