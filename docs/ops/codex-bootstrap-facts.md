@@ -69,7 +69,7 @@ This catalog explains what each active workflow does, how it’s triggered, the 
      - Safe default-branch checkout, then calls the composite action (PAT-first)
      - Fallback path: creates branch, either invites human with compare link (invite) or opens PR (create)
      - Labels/assigns, optional `@codex start` comment, links PR back to issue
-   - Links to: `label-agent-prs.yml` (labels on PR), `reuse-agents.yml` (`enable_watchdog` telemetry), and auto-merge stack (`autoapprove.yml`, `enable-automerge.yml`)
+   - Links to: `label-agent-prs.yml` (labels on PR), `reuse-agents.yml` (watchdog mode for issue-to-PR parity tracking), and auto-merge stack (`autoapprove.yml`, `enable-automerge.yml`)
 
 <a id="wf-label-agent-prs"></a>
 2) [`label-agent-prs.yml`](../../.github/workflows/label-agent-prs.yml) — Apply agent labels to PRs (keeps downstream automation deterministic)
