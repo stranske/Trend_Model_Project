@@ -288,6 +288,30 @@ jobs:
         with:
           name: coverage-trend
           path: coverage-trend.json
+      - name: Download existing coverage trend history (if any)
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+            name: coverage-trend-history
+            path: coverage-history-pre
+      - name: Merge coverage trend history
+        shell: bash
+        run: |
+          set -euo pipefail
+          HIST=coverage-trend-history.ndjson
+          if [ -d coverage-history-pre ]; then
+            # Rehydrate prior artifact contents if present
+            if [ -f coverage-history-pre/coverage-trend-history.ndjson ]; then
+              cp coverage-history-pre/coverage-trend-history.ndjson "$HIST"
+            fi
+          fi
+          python scripts/coverage_history_append.py || echo "[history] append failed" >&2
+          ls -l "$HIST" || true
+      - name: Upload coverage trend history artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-trend-history
+          path: coverage-trend-history.ndjson
 
   # Universal logs summary (Issue #1344)
   # Ensures every CI run exposes a per-job logs table in the run summary even when

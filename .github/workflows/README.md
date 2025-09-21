@@ -247,8 +247,11 @@ Planned / optional improvements under consideration:
 | Enhancement | Status | Notes |
 |-------------|--------|-------|
 | Coverage trend artifact (JSON) | Planned | Would store last N run stats for trend charting |
+| Coverage trend history (NDJSON) | Implemented | `coverage-trend-history` artifact accumulates per-run records |
 | Centralized autofix commit prefix constant | Planned | Reduce drift; single env var reused across workflows |
 | Failing test count in logs summary | Planned | Surface # of failing test jobs inline |
+
+TODO (wrapper removal): After branch protection flips to require the gate job, remove `ci.yml` (see 7.5) and delete this TODO line.
 
 Adopt individually; update sections 7.3 / 7.4 when shipped.
 
