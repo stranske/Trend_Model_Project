@@ -93,7 +93,7 @@ No more “Required: CI: missing” banners.
 
 4) Coverage soft‑gate: file/update a single “Increase test coverage” issue instead of failing PRs
 
-Suggested labels: testing, tech:coverage, workflows, risk:low, priority: medium, agent:codex
+Suggested labels: testing, tech:coverage, workflows, risk:low, priority:medium, agent:codex
 
 Why
 Blocking merges for coverage is noisy. Better: always capture the hotspots and create/update one tracking issue.
