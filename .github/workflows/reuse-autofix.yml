@@ -141,10 +141,10 @@ jobs:
           if [ ! -f autofix_report_enriched.json ]; then echo "[history] missing enriched report"; exit 0; fi
           python scripts/update_residual_history.py || echo "[history] update failed"
           # No longer committing history.json (noise in PRs). It will be uploaded as an artifact instead.
-          if [ -f ci/autofix/history.json ]; then
+          if [ -f ci/autofix/history.json ] && [ -s ci/autofix/history.json ] && jq empty ci/autofix/history.json >/dev/null 2>&1; then
             echo "[history] Prepared updated history.json (artifact-only mode)"
           else
-            echo "[history] history.json not produced"
+            echo "[history] history.json not produced or invalid"
           fi
 
       - name: Upload autofix history artifact (same-repo)
