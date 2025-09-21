@@ -723,11 +723,26 @@ def position_from_signal(
     short_position: float = -1.0,
     neutral_position: float = 0.0,
 ) -> pd.Series:
-    """Convert a trading signal into positions using only past information."""
+    """
+    Convert a trading signal into positions using only past information.
 
-    if signal.empty:
-        return signal.astype(float)
+    This function maps a time series of trading signals to position values, using only
+    information available up to each point in time (no look-ahead bias).
 
+    Rules:
+        - The initial position is set to `neutral_position`.
+        - For each signal value:
+            - If the value is NaN or exactly zero, the position retains its previous value.
+            - If the value is positive, the position is set to `long_position`.
+            - If the value is negative, the position is set to `short_position`.
+    Parameters:
+        signal (pd.Series): The input trading signal.
+        long_position (float, optional): Position value for positive signals (default: 1.0).
+        short_position (float, optional): Position value for negative signals (default: -1.0).
+        neutral_position (float, optional): Initial position and value for zero/NaN signals (default: 0.0).
+    Returns:
+        pd.Series: Series of position values, named "position", indexed as the input signal.
+    """
     values = signal.astype(float).to_numpy()
     positions = np.empty_like(values, dtype=float)
     current = float(neutral_position)
