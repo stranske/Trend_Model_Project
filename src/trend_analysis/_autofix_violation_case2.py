@@ -38,7 +38,9 @@ class Example:  # extra internal spacing
         return x + y
 
 
-def long_line_function() -> str:  # docformatter should leave this comment but black may wrap return
+def long_line_function() -> (
+    str
+):  # docformatter should leave this comment but black may wrap return
     # black will re-wrap the following very long line (> 140 chars)
     return "This is a purposely extremely, extravagantly, unnecessarily, disproportionately, egregiously long string that black will wrap for demonstration purposes and diff generation."  # noqa: E501
 
@@ -48,7 +50,9 @@ def unused_func(
     b: int,
     c: int,
 ) -> None:  # parameters intentionally unused; add mutable default below (B006)
-    data: list[int] = []  # mutable list (not default param) but harmless; keeps function non-empty
+    data: list[int] = (
+        []
+    )  # mutable list (not default param) but harmless; keeps function non-empty
     return None  # explicit return for clarity
 
 
