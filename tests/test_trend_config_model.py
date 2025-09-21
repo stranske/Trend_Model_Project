@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 import yaml
-from trend_analysis.config import TrendConfig, load_trend_config
+from trend_analysis.config import TrendConfig, load_config, load_trend_config
 
 
 def _write_config(tmp_path: Path, csv_path: Path, **overrides: object) -> Path:
@@ -76,3 +76,25 @@ def test_trend_config_requires_existing_paths(tmp_path: Path) -> None:
     with pytest.raises(ValueError) as exc:
         load_trend_config(cfg_path)
     assert "does not exist" in str(exc.value)
+
+
+def test_load_config_mapping_requires_source(tmp_path: Path) -> None:
+    cfg = {
+        "version": "1",
+        "data": {"date_column": "Date", "frequency": "M"},
+        "portfolio": {
+            "rebalance_calendar": "NYSE",
+            "max_turnover": 0.5,
+            "transaction_cost_bps": 10,
+        },
+        "vol_adjust": {"target_vol": 0.1},
+        "preprocessing": {},
+        "sample_split": {},
+        "metrics": {},
+        "export": {},
+        "run": {},
+    }
+
+    with pytest.raises(ValueError) as exc:
+        load_config(cfg)
+    assert "data.csv_path" in str(exc.value)
