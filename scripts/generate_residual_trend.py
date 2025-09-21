@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import collections
 import json
-import math
 import pathlib
 
 HISTORY = pathlib.Path("ci/autofix/history.json")

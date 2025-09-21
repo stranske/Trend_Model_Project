@@ -1,4 +1,4 @@
-from typing import *
+from typing import List
 
 #  This file intentionally violates style conventions for test of autofix workflows.
 #  Issues included:
