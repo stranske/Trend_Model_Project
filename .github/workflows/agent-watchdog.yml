@@ -142,7 +142,8 @@ jobs:
                 await github.rest.issues.createComment({ owner, repo, issue_number: issueNumber, body });
               }
             } else {
-              const body = `${commentPrefix}: No pull request cross-reference detected for **${agentLabel}** within ${timeoutMinutes} minute${timeoutMinutes === 1 ? '' : 's'}.`; 
+              const body = `${commentPrefix}: No pull request cross-reference detected for **${agentLabel}** within `
+                + `${timeoutMinutes} minute${timeoutMinutes === 1 ? '' : 's'}.`;
               if (!alreadyCommented) {
                 await github.rest.issues.createComment({ owner, repo, issue_number: issueNumber, body });
               }
