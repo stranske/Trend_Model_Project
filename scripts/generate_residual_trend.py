@@ -9,7 +9,11 @@ Prints a one-line summary for workflow consumption.
 Sparkline chars chosen for good monotonic density distribution.
 """
 from __future__ import annotations
-import json, math, pathlib, collections
+
+import collections
+import json
+import math
+import pathlib
 
 HISTORY = pathlib.Path("ci/autofix/history.json")
 OUT = pathlib.Path("ci/autofix/trend.json")

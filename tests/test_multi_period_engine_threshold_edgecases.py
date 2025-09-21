@@ -74,7 +74,10 @@ class SequenceWeighting:
         self.calls = 0
         self.update_calls: list[tuple[pd.Series, int]] = []
 
-    def weight(self, selected: pd.DataFrame) -> pd.DataFrame:
+    def weight(
+        self, selected: pd.DataFrame, date: pd.Timestamp | None = None
+    ) -> pd.DataFrame:
+        del date
         seq = self._sequences[min(self.calls, len(self._sequences) - 1)]
         weights = pd.Series(
             {idx: seq.get(idx, 0.05) for idx in selected.index},
@@ -815,7 +818,10 @@ def test_threshold_hold_enforces_bounds_and_replacement_flow(
         def __init__(self, *_, **__) -> None:
             self.calls = 0
 
-        def weight(self, selected: pd.DataFrame) -> pd.DataFrame:
+        def weight(
+            self, selected: pd.DataFrame, date: pd.Timestamp | None = None
+        ) -> pd.DataFrame:
+            del date
             sequences = [
                 {
                     "Alpha One": 0.90,

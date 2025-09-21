@@ -9,8 +9,12 @@ Outputs:
   - Writes markdown to stdout (so caller can redirect) OR to file path provided via --out.
 Includes a stable HTML marker comment so workflow can update in-place.
 """
-from __future__ import annotations
-import json, pathlib, argparse, sys, datetime
+
+import argparse
+import datetime
+import json
+import pathlib
+import sys
 
 MARKER = "<!-- autofix-status: DO NOT EDIT -->"
 

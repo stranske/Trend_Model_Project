@@ -15,7 +15,11 @@ Rules:
   * Keeps ordering stable.
 """
 from __future__ import annotations
-import json, pathlib, argparse, sys
+
+import argparse
+import json
+import pathlib
+import sys
 
 ALLOW = pathlib.Path(".ruff-residual-allowlist.json")
 HISTORY = pathlib.Path("ci/autofix/history.json")

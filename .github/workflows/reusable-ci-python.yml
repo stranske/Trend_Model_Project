@@ -20,6 +20,10 @@ on:
       coverage-alert-drop: { description: 'Coverage drop alert threshold (pct pts)', required: false, default: '1', type: string }
       fail-on-coverage-drop: { description: 'Fail if drop >= threshold', required: false, default: 'false', type: string }
       coverage-drop-label: { description: 'Label to add on drop (future)', required: false, default: 'coverage-drop', type: string }
+      # Phase 4 – Soft coverage gate (Issue #1342)
+      enable-soft-gate: { description: 'Enable soft coverage gate (aggregate + issue update)', required: false, default: 'false', type: string }
+      coverage-hard-fail: { description: 'Still fail build on coverage shortfall (true/false)', required: false, default: 'true', type: string }
+      coverage-artifact-retention-days: { description: 'Retention days for coverage artifacts', required: false, default: '10', type: string }
 
 jobs:
   tests:
@@ -39,7 +43,31 @@ jobs:
           pip install pytest pytest-cov
       - name: Run tests with coverage
         run: |
-          pytest --junitxml=pytest-junit.xml --cov=src --cov-report=xml:coverage.xml --cov-report=term-missing --cov-branch
+          pytest --junitxml=pytest-junit.xml \
+            --cov=src --cov-branch \
+            --cov-report=xml:coverage.xml \
+            --cov-report=json:coverage.json \
+            --cov-report=html:htmlcov \
+            --cov-report=term-missing
+      - name: Prepare coverage ancillary files
+        run: |
+          # Create a second JUnit filename expected by soft gate snippet if needed
+          cp -f pytest-junit.xml pytest-report.xml || true
+          # Basic sanity checks
+          test -f coverage.xml || { echo 'coverage.xml missing'; exit 1; }
+          test -f coverage.json || { echo 'coverage.json missing'; exit 1; }
+        shell: bash
+      - name: Upload coverage artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.python-version }}
+          retention-days: ${{ inputs.coverage-artifact-retention-days }}
+          path: |
+            coverage.xml
+            coverage.json
+            htmlcov/**
+            pytest-junit.xml
+            pytest-report.xml
       - name: Extract test metrics
         if: ${{ inputs.enable-metrics == 'true' }}
         run: |
@@ -55,12 +83,13 @@ jobs:
         with:
           name: ci-metrics
           path: ci-metrics.json
-      - name: Enforce coverage minimum
+      - name: Enforce coverage minimum (hard gate)
+        if: ${{ inputs.coverage-hard-fail == 'true' }}
         run: |
           if [ ! -f coverage.xml ]; then echo 'coverage.xml missing'; exit 1; fi
           RAW=$(grep -Eo 'line-rate="[0-9.]+' coverage.xml | head -1 | sed -E 's/.*"([0-9.]+)$/\1/')
           PCT=$(python -c "print('{:.2f}'.format(float('$RAW')*100.0))")
-          echo "Current coverage: $PCT%"
+          echo "Current coverage: $PCT% (hard gate)"
           MIN=${{ inputs.coverage-min }}
           python -c "import sys; c=float('$PCT'); m=float('$MIN'); sys.exit(0 if c>=m else 1)" || { echo "Coverage $PCT% < min $MIN%" >&2; exit 1; }
       - name: Coverage delta
@@ -113,6 +142,7 @@ jobs:
           fi
           if [ -f classification.json ]; then echo "- Classification: present" >> $GITHUB_STEP_SUMMARY; else echo "- Classification: (disabled)" >> $GITHUB_STEP_SUMMARY; fi
           if [ -f ${{ inputs.history-artifact-name }} ]; then echo "- History: appended" >> $GITHUB_STEP_SUMMARY; else echo "- History: (disabled)" >> $GITHUB_STEP_SUMMARY; fi
+          if [ "${{ inputs.enable-soft-gate }}" = "true" ]; then echo "- Soft gate: enabled (see coverage_soft_gate job)" >> $GITHUB_STEP_SUMMARY; else echo "- Soft gate: (disabled)" >> $GITHUB_STEP_SUMMARY; fi
 
   mypy:
     if: ${{ inputs.run-mypy == 'true' }}
@@ -129,3 +159,153 @@ jobs:
           pip install mypy
       - name: Run mypy
         run: mypy src || (echo 'mypy failed' && exit 1)
+
+  coverage_soft_gate:
+    # Soft coverage gate aggregates artifacts and updates a canonical issue (Issue #1342 design).
+    if: ${{ inputs.enable-soft-gate == 'true' }}
+    needs: tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      actions: read
+    steps:
+      - name: Download coverage artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-*
+          merge-multiple: true
+      - name: Compute coverage summary & hotspots
+        id: cov
+        shell: python
+        run: |
+          import json, glob, os, math
+          totals=[]; hotspots=[]
+          for jf in glob.glob('coverage.json'):
+              with open(jf,'r') as fh:
+                  data=json.load(fh)
+              t=data.get('totals', {})
+              # Prefer numeric; fallback to display string
+              pct = t.get('percent_covered')
+              if pct is None:
+                  disp = t.get('percent_covered_display')
+                  try: pct=float(disp) if disp is not None else 0.0
+                  except: pct=0.0
+              totals.append(float(pct))
+              files=(data.get('files') or {})
+              for fpath, meta in files.items():
+                  s=meta.get('summary', {})
+                  fpct = s.get('percent_covered')
+                  if fpct is None:
+                      disp=s.get('percent_covered_display')
+                      try: fpct=float(disp) if disp is not None else 0.0
+                      except (ValueError, TypeError): fpct=0.0
+                  hotspots.append((float(fpct), fpath))
+          hotspots.sort(key=lambda x: x[0])
+          avg= round(sum(totals)/len(totals),2) if totals else 0.0
+          worst= round(min(totals),2) if totals else 0.0
+          lines=[f"**Coverage (avg across jobs): {avg}% | worst job: {worst}%**", "", "| File | % covered |", "|---|---:|"]
+          for fpct,f in hotspots[:15]:
+              lines.append(f"| `{f}` | {fpct:.1f}% |")
+          with open('coverage_summary.md','w') as w: w.write("\n".join(lines)+"\n")
+          print('\n'.join(lines[:6])+'\n...')
+      - name: Build job log links table
+        id: jobs
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const run_id = context.runId;
+            const { data } = await github.rest.actions.listJobsForWorkflowRun({ owner, repo, run_id, per_page: 100 });
+            const rows = data.jobs.map(j => `| ${j.name} | ${j.conclusion || j.status} | [logs](${j.html_url}) |`);
+            const md = ["### Logs for this run","| Job | Result | Logs |","|---|---|---|",...rows].join("\n");
+            core.setOutput('table', md);
+      - name: Create / update soft coverage issue
+        uses: actions/github-script@v7
+        env:
+          TABLE: ${{ steps.jobs.outputs.table }}
+        with:
+          script: |
+            const fs = require('fs');
+            const {owner, repo} = context.repo;
+            const title = 'Increase test coverage (soft gate)';
+            const label = 'tech:coverage';
+            const bodyBlock = fs.readFileSync('coverage_summary.md','utf8');
+            const jobTable = process.env.TABLE || '';
+            const runUrl = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`;
+            // Ensure label exists
+            try {
+              await github.rest.issues.getLabel({owner, repo, name: label});
+            } catch (error) {
+              if (error.status === 404) {
+                await github.rest.issues.createLabel({owner, repo, name: label, color: '0e8a16'});
+              } else {
+                core.error(`Failed to get label "${label}": ${error.message}`);
+                throw error;
+              }
+            }
+            const q = `repo:${owner}/${repo} is:issue is:open in:title "${title}" label:"${label}"`;
+            const search = await github.rest.search.issuesAndPullRequests({ q, per_page: 1 });
+            const compositeBody = `CI run: ${runUrl}\n\n${bodyBlock}\n\n#### Job logs\n${jobTable}`;
+            if (search.data.items.length) {
+              const num = search.data.items[0].number;
+              await github.rest.issues.update({owner, repo, issue_number: num, title});
+              await github.rest.issues.createComment({owner, repo, issue_number: num, body: compositeBody});
+              core.info(`Updated #${num}`);
+            } else {
+              const created = await github.rest.issues.create({owner, repo, title, body: compositeBody, labels:[label]});
+              core.info(`Created #${created.data.number}`);
+            }
+      - name: Append coverage summary to run summary
+        run: |
+          echo "## Soft Coverage Gate" >> $GITHUB_STEP_SUMMARY
+          cat coverage_summary.md >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          # (Per Issue #1344) Universal logs table now emitted by logs_summary job.
+          # Removed duplicate per-job logs table here to avoid redundancy.
+
+  # Universal logs summary (Issue #1344)
+  # Ensures every CI run exposes a per-job logs table in the run summary even when
+  # the soft coverage gate is disabled. Placed in its own job so it can depend on
+  # all earlier jobs completing (success, failure, or skip). We only require the
+  # mandatory 'tests' job so optional jobs (mypy, coverage_soft_gate) don't break
+  # dependency resolution when disabled or skipped. The GitHub API call enumerates
+  # ALL jobs for the workflow run, so the table naturally includes mypy / soft gate
+  # when present.
+  logs_summary:
+    if: ${{ always() }}
+    needs: [tests]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+    steps:
+      - name: Build universal job log links table
+        id: jobs
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Define job conclusion constants based on GitHub's official values
+            const JOB_CONCLUSION = {
+              SUCCESS: 'success',
+              SKIPPED: 'skipped'
+            };
+            const {owner, repo} = context.repo;
+            const run_id = context.runId;
+            const { data } = await github.rest.actions.listJobsForWorkflowRun({ owner, repo, run_id, per_page: 100 });
+            const rows = data.jobs.map(j => `| ${j.name} | ${j.conclusion || j.status} | [logs](${j.html_url}) |`);
+            const allowedConclusions = [JOB_CONCLUSION.SUCCESS, JOB_CONCLUSION.SKIPPED];
+            const failed = data.jobs
+              .filter(j => !allowedConclusions.includes((j.conclusion || '').toLowerCase()))
+              .map(j => j.name);
+            let explanation = '';
+            if (failed.length) {
+              explanation = `\n> ❗ ${failed.length} job(s) did not succeed: ${failed.join(', ')}.`;
+            } else {
+              explanation = `\n> ✅ All jobs succeeded.`;
+            }
+            const md = ["### Logs for this run","| Job | Result | Logs |","|---|---|---|",...rows, explanation].join("\n");
+            core.setOutput('table', md);
+      - name: Append logs table to summary
+        run: |
+          echo "${{ steps.jobs.outputs.table }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
