@@ -47,15 +47,22 @@ def test_multi_period_period_result_schema_matches_expected_contract() -> None:
     assert_mapping_union(hints["cache_stats"])
 
     assert hints["manager_changes"] == MutableSequence[dict[str, object]]
-    assert hints["turnover"] == float
-    assert hints["transaction_cost"] == float
+    assert hints["turnover"] is float
+    assert hints["transaction_cost"] is float
     cov_diag_hint = cast(Any, hints["cov_diag"])
     # ``TypeAlias`` annotations resolve to ``list[float]`` at runtime on
     # supported Python versions.  Comparing directly against the specialised
     # ``list`` keeps the assertion type-friendly while remaining precise about
     # the expected element type.
-    assert cov_diag_hint == list[float]
-    assert CovarianceDiagonal == list[float]
+    # Confirm the alias resolves to a parametrised list whose single argument is ``float``.
+    # Identity comparison is brittle across Python implementations; structural check instead.
+    from typing import get_args as _ga
+    from typing import get_origin as _go
+
+    assert _go(cov_diag_hint) is list
+    args = _ga(cov_diag_hint)
+    assert len(args) == 1 and args[0] is float
+    assert _go(CovarianceDiagonal) is list and _ga(CovarianceDiagonal) == (float,)
 
     stats_mapping_hint = cast(Any, hints["out_ew_stats"])
     assert stats_mapping_hint == StatsMapping
