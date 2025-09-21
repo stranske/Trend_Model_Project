@@ -95,8 +95,8 @@ def test_fallback_config_coerces_portfolio_controls(fallback_models: ModuleType)
             }
         )
     )
-    assert pytest.approx(cfg.portfolio["transaction_cost_bps"]) == 2.5
-    assert pytest.approx(cfg.portfolio["max_turnover"]) == 1.25
+    assert cfg.portfolio["transaction_cost_bps"] == pytest.approx(2.5)
+    assert cfg.portfolio["max_turnover"] == pytest.approx(1.25)
     assert cfg.output is None
     assert cfg.multi_period is None
 
