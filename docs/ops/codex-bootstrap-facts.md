@@ -103,7 +103,7 @@ This catalog explains what each active workflow does, how it’s triggered, the 
    - Triggers: `pull_request` (various types) on `phase-2-dev`/`main`
    - Jobs: `autofix`
      - Calls reusable workflow [`reuse-autofix.yml`](../../.github/workflows/reuse-autofix.yml) which runs the shared composite formatter and exposes `outputs.changed`.
-     - Same‑repo PRs: commits `autofix(ci): …` (prefix configurable) and pushes directly to the PR branch.
+     - Same‑repo PRs: commits `chore(autofix): …` (prefix configurable) and pushes directly to the PR branch.
      - Fork PRs: uploads `autofix.patch` artifact with application instructions; no direct pushes performed.
      - The job summary reports whether changes were applied and whether this was a same‑repo or fork path. For forks, it includes the artifact name.
 
