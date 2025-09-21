@@ -9,7 +9,6 @@ import pytest
 import yaml  # type: ignore[import-untyped]
 from pathlib import Path
 
-import pytest
 
 from trend_analysis.config import models
 
