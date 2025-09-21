@@ -124,10 +124,10 @@ def build_comment(
     new = coerce_int(classification.get("new"))
     allowed = coerce_int(classification.get("allowed"))
 
+    is_iterable = isinstance(history_obj, Iterable)
     history_points = (
         len(history_obj)
-        if isinstance(history_obj, Iterable)
-        and not isinstance(history_obj, (str, bytes))
+        if is_iterable and not isinstance(history_obj, (str, bytes))
         else 0
     )
 
