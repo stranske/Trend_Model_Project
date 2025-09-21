@@ -7,7 +7,11 @@ Usage environment variables (set by workflow):
   RECORD_PATH: path to JSON record (default coverage-trend.json)
 """
 from __future__ import annotations
-import json, os, sys, tempfile
+
+import json
+import os
+import sys
+import tempfile
 from pathlib import Path
 
 
@@ -22,7 +26,7 @@ def load_existing(path: Path) -> list[dict]:
                 continue
             try:
                 records.append(json.loads(line))
-            except Exception:
+            except json.JSONDecodeError:
                 # Skip corrupt lines but keep file usable
                 continue
     return records

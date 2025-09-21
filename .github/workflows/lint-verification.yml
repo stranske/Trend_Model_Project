@@ -52,7 +52,7 @@ jobs:
           echo "message<<END" >> $GITHUB_OUTPUT
           echo "$msg" >> $GITHUB_OUTPUT
           echo "END" >> $GITHUB_OUTPUT
-          if echo "$msg" | grep -qiE '^ci: autofix'; then
+          if echo "$msg" | grep -qiE '^chore\(autofix\):'; then
             echo "autofix=true" >> $GITHUB_OUTPUT
           else
             echo "autofix=false" >> $GITHUB_OUTPUT
