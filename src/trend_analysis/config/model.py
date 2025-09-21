@@ -13,7 +13,14 @@ import os
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 import yaml
 
@@ -83,7 +90,8 @@ def _resolve_path(value: str | os.PathLike[str], *, base_dir: Path | None) -> Pa
 class DataSettings(BaseModel):
     """Data input configuration validated at startup."""
 
-    csv_path: Path = Field()
+    csv_path: Path | None = Field(default=None)
+    managers_glob: str | None = Field(default=None)
     date_column: str = Field()
     frequency: Literal["D", "W", "M", "ME"] = Field()
 
@@ -91,13 +99,22 @@ class DataSettings(BaseModel):
 
     @field_validator("csv_path", mode="before")
     @classmethod
-    def _validate_csv_path(cls, value: Any, info: Any) -> Path:
+    def _validate_csv_path(cls, value: Any, info: Any) -> Path | None:
         if value in (None, ""):
-            raise ValueError("data.csv_path must point to the returns CSV file.")
+            return None
         base_dir = None
         if info.context:
             base_dir = info.context.get("base_path")
         return _resolve_path(value, base_dir=base_dir)
+
+    @field_validator("managers_glob")
+    @classmethod
+    def _validate_managers_glob(cls, value: Any) -> str | None:
+        if value in (None, ""):
+            return None
+        if not isinstance(value, str):
+            raise ValueError("data.managers_glob must be a string if provided.")
+        return value
 
     @field_validator("date_column")
     @classmethod
@@ -124,6 +141,16 @@ class DataSettings(BaseModel):
                 f"data.frequency '{value}' is not supported. Choose one of {allowed_list}."
             )
         return freq
+
+    @model_validator(mode="after")
+    def _ensure_source(self) -> "DataSettings":
+        if self.csv_path is None:
+            managers = (self.managers_glob or "").strip()
+            if not managers:
+                raise ValueError(
+                    "data.csv_path must point to the returns CSV file or provide data.managers_glob."
+                )
+        return self
 
 
 class PortfolioSettings(BaseModel):
@@ -206,13 +233,16 @@ class TrendConfig(BaseModel):
 
 
 def _resolve_config_path(candidate: str | os.PathLike[str] | None) -> Path:
-    if candidate in (None, ""):
+    candidate_value: str | os.PathLike[str]
+    if candidate is None or candidate == "":
         env_override = os.environ.get("TREND_CONFIG") or os.environ.get("TREND_CFG")
         if env_override:
-            candidate = env_override
+            candidate_value = env_override
         else:
-            candidate = "demo.yml"
-    path = Path(candidate)
+            candidate_value = "demo.yml"
+    else:
+        candidate_value = candidate
+    path = Path(candidate_value)
     if not path.suffix:
         path = path.with_suffix(".yml")
     if not path.is_absolute():
@@ -233,13 +263,16 @@ def validate_trend_config(data: dict[str, Any], *, base_path: Path) -> TrendConf
     try:
         return TrendConfig.model_validate(data, context={"base_path": base_path})
     except ValidationError as exc:
-        first_error = exc.errors()[0] if exc.errors() else {}
-        message = first_error.get("msg") or str(exc)
-        loc = first_error.get("loc") or ()
-        if loc:
-            joined = ".".join(str(part) for part in loc)
-            if joined:
-                message = f"{joined}: {message}"
+        errors = exc.errors()
+        message = str(exc)
+        if errors:
+            first_error = errors[0]
+            message = str(first_error.get("msg") or message)
+            loc = first_error.get("loc") or ()
+            if loc:
+                joined = ".".join(str(part) for part in loc)
+                if joined:
+                    message = f"{joined}: {message}"
         raise ValueError(message) from exc
 
 

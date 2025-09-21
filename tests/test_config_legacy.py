@@ -9,11 +9,20 @@ from trend_analysis.config import legacy
 def sample_config(tmp_path: Path) -> Path:
     data = {
         "version": "1",
-        "data": {},
+        "data": {
+            "managers_glob": "data/raw/managers/*.csv",
+            "date_column": "Date",
+            "frequency": "D",
+        },
         "preprocessing": {},
-        "vol_adjust": {},
+        "vol_adjust": {"target_vol": 0.1},
         "sample_split": {},
-        "portfolio": {},
+        "portfolio": {
+            "selection_mode": "all",
+            "rebalance_calendar": "NYSE",
+            "max_turnover": 1.0,
+            "transaction_cost_bps": 0,
+        },
         "metrics": {},
         "export": {},
         "run": {},

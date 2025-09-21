@@ -6,15 +6,29 @@ import pytest
 from trend_analysis.config import models as config_models
 
 
+_DATA_SECTION = {
+    "managers_glob": "data/raw/managers/*.csv",
+    "date_column": "Date",
+    "frequency": "D",
+}
+
+_PORTFOLIO_SECTION = {
+    "selection_mode": "all",
+    "rebalance_calendar": "NYSE",
+    "max_turnover": 1.0,
+    "transaction_cost_bps": 0,
+}
+
+
 @pytest.fixture()
 def base_config_dict():
     return {
         "version": "1.0",
-        "data": {},
+        "data": dict(_DATA_SECTION),
         "preprocessing": {},
-        "vol_adjust": {},
+        "vol_adjust": {"target_vol": 0.1},
         "sample_split": {},
-        "portfolio": {},
+        "portfolio": dict(_PORTFOLIO_SECTION),
         "metrics": {},
         "export": {},
         "run": {},
