@@ -676,7 +676,7 @@ def load(path: str | Path | None = None) -> ConfigProtocol:
 
     try:
         validate_trend_config(data, base_path=base_dir)
-    except Exception as exc:  # pragma: no cover - surface helpful error
+    except (ValueError, TypeError) as exc:  # pragma: no cover - surface helpful error
         raise ValueError(str(exc)) from exc
 
     return Config(**data)
