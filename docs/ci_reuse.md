@@ -125,16 +125,7 @@ Order of potential jobs (independent; may run in parallel):
 Only jobs with their enable flag set to `true` execute.
 
 ### Legacy Workflow Consolidation
-The following legacy workflows are now superseded by input‑gated modes:
-| Legacy Workflow | Replacement Mode |
-| ---------------- | ---------------- |
-| `agent-readiness.yml` | `enable_readiness` |
-| `codex-preflight.yml` | `enable_preflight` |
-| `codex-bootstrap-diagnostic.yml` | `enable_diagnostic` |
-| `verify-agent-task.yml` | `enable_verify_issue` |
-| `agent-watchdog.yml` | (partially) `enable_watchdog` (full parity pending) |
-
-Deprecation headers were added; removal can occur after a stability window.
+Single-purpose workflows (`agent-readiness.yml`, `codex-preflight.yml`, `codex-bootstrap-diagnostic.yml`, `verify-agent-task.yml`, `agent-watchdog.yml`) have been deleted. Their behaviour now lives behind the `enable_*` inputs documented above. Consumers should call the reusable workflow directly and toggle only the modes they require.
 
 ## 4. Adoption Guide (External Repos)
 1. Copy the three reusable files verbatim or add this repo as a submodule / template reference.
