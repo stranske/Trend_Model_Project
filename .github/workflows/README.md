@@ -83,7 +83,6 @@ Autofix commits always use the `chore(autofix):` prefix. When a run is triggered
 inspects the latest commit message and short-circuits if it already begins with that prefix. This guard stops autofix pushes
 from triggering another autofix loop.
 
-Agents (subset):
 ```yaml
 name: Agents
 on:
