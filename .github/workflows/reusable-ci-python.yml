@@ -255,7 +255,7 @@ jobs:
               for p,f in low_cov[:HOTSPOT_LIMIT]:  # cap separately to avoid huge tables
                   lines.append(f"| `{f}` | {p:.1f}% |")
               if len(low_cov) > HOTSPOT_LIMIT:
-                  lines.append(f"| *(+{len(low_cov)-HOTSPOT_LIMIT} more below {LOW_COVERAGE_THRESHOLD:.0f}% – truncated)* |  |")
+                  lines.append(f"| *(+{len(low_cov)-HOTSPOT_LIMIT} more below {LOW_COVERAGE_THRESHOLD:.0f}% – truncated)* | — |")
           with open('coverage_summary.md','w') as w:
               w.write("\n".join(lines)+"\n")
           print('\n'.join(lines[:6])+'\n...')
