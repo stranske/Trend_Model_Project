@@ -21,8 +21,9 @@ jobs:
         with:
           script: |
             const prefix = process.env.COMMIT_PREFIX || 'chore(autofix):';
-            const actor = context.actor;
-            if (actor !== 'github-actions[bot]') {
+            const actor = (context.actor || '').toLowerCase();
+            const isActionsActor = actor === 'github-actions' || actor === 'github-actions[bot]';
+            if (!isActionsActor) {
               core.setOutput('skip', 'false');
               return;
             }
