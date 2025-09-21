@@ -3,6 +3,7 @@ version: "1"
 
 data:
   csv_path: demo/extended_returns.csv
+  date_column: Date
   frequency: ME  # monthly data
 
 preprocessing:
@@ -33,6 +34,9 @@ portfolio:
     name: score_prop_bayes  # Use Bayesian score-proportional weighting
     params:
       shrink_tau: 0.25
+  rebalance_calendar: NYSE
+  transaction_cost_bps: 0
+  max_turnover: 1.0
 
 benchmarks:
   spx: SPX
