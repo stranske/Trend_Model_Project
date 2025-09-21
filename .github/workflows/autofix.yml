@@ -294,48 +294,15 @@ jobs:
     env:
       APPLIED_LABEL: ${{ vars.AUTOFIX_APPLIED_LABEL || 'autofix:applied' }}
     steps:
-      - name: Checkout PR head
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.context.outputs.head_ref }}
-          fetch-depth: 0
-          token: ${{ needs.context.outputs.same_repo == 'true' && secrets.SERVICE_BOT_PAT || github.token }}
-
-      - name: Configure service bot identity
-        if: needs.context.outputs.same_repo == 'true'
-        run: |
-          git config user.name "trend-model-service-bot"
-          git config user.email "trend-model-service-bot@users.noreply.github.com"
-
-      - name: Run autofix composite
+      - name: Autofix, commit, and push (composite)
         id: autofix
-        uses: ./.github/actions/autofix
-
-      - name: Commit changes (same-repo)
-        if: steps.autofix.outputs.changed == 'true' && needs.context.outputs.same_repo == 'true'
-        run: |
-          git add -A
-          git commit -m "${COMMIT_PREFIX} fix failing checks"
-
-      - name: Push changes (same-repo)
-        if: steps.autofix.outputs.changed == 'true' && needs.context.outputs.same_repo == 'true'
-        run: |
-          git push origin HEAD:${{ needs.context.outputs.head_ref }}
-
-      - name: Create patch artifact (fork)
-        if: steps.autofix.outputs.changed == 'true' && needs.context.outputs.same_repo != 'true'
-        run: |
-          git add -A || true
-          git commit -m "${COMMIT_PREFIX} fix failing checks (patch)" || true
-          git format-patch -1 --stdout > failing-checks-autofix.patch
-
-      - name: Upload patch artifact (fork)
-        if: steps.autofix.outputs.changed == 'true' && needs.context.outputs.same_repo != 'true'
-        uses: actions/upload-artifact@v4
+        uses: ./.github/actions/autofix-commit-push
         with:
-          name: failing-checks-autofix-pr-${{ needs.context.outputs.pr }}
-          path: failing-checks-autofix.patch
-
+          head_ref: ${{ needs.context.outputs.head_ref }}
+          token: ${{ needs.context.outputs.same_repo == 'true' && secrets.SERVICE_BOT_PAT || github.token }}
+          same_repo: ${{ needs.context.outputs.same_repo }}
+          commit_message: "${COMMIT_PREFIX} fix failing checks"
+          pr: ${{ needs.context.outputs.pr }}
       - name: Label PR (autofix applied)
         if: steps.autofix.outputs.changed == 'true' && needs.context.outputs.same_repo == 'true'
         uses: actions/github-script@v7
