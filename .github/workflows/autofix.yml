@@ -327,6 +327,7 @@ jobs:
         uses: ./.github/actions/build-pr-comment
         with:
           output: autofix_pr_comment.md
+          pr-number: ${{ needs.context.outputs.pr }}
       - name: Upsert consolidated PR comment (same-repo)
         if: needs.context.outputs.same_repo == 'true'
         uses: actions/github-script@v7
@@ -477,9 +478,10 @@ jobs:
 
       - name: Build consolidated PR comment (same-repo)
         if: needs.context.outputs.same_repo == 'true'
-        uses: ./.github/actions/build-consolidated-pr-comment
+        uses: ./.github/actions/build-pr-comment
         with:
           output: autofix_pr_comment.md
+          pr-number: ${{ needs.context.outputs.pr }}
 
       - name: Upsert consolidated PR comment (same-repo)
         if: needs.context.outputs.same_repo == 'true'
