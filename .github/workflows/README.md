@@ -116,6 +116,16 @@ Use a tagged ref when versioned.
 | No dependency review | Fork PR / disabled | `dependency-review.yml` |
 | No CodeQL alerts | First run indexing | `codeql.yml` |
 
+### 7.1 Autofix Loop Guard (Issue #1347)
+Autofix commits use the canonical prefix `ci: autofix` (e.g. `ci: autofix formatting/lint`).
+Loop prevention is achieved via three layers:
+1. Reusable Autofix job `if:` excludes automation actors (`github-actions`, `github-actions[bot]`).
+2. Downstream autofix / failure handler workflows detect prior commits whose subject starts with `ci: autofix` and short‑circuit to avoid re‑trigger storms.
+3. Commit message pattern is centralized through the `commit_prefix` input (default `ci: autofix`).
+
+Result: Each human push gets at most one autofix patch sequence; autofix commits do not recursively spawn new autofix runs. Original issue suggested `chore(autofix):`; project standardized on `ci: autofix` for CI-related automation consistency.
+
+
 ---
 ## 8. Extensibility
 - Add quarantine job via new inputs.
