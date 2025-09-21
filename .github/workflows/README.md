@@ -159,7 +159,9 @@ Purpose: Provide early visibility of coverage / hotspot data without failing PRs
 Implemented follow-ups (Issue #1352):
 - Normalized artifact naming: `coverage-<python-version>` (e.g. `coverage-3.11`).
 - Consistent file set per matrix job: `coverage.xml`, `coverage.json`, `htmlcov/**`, `pytest-junit.xml`, `pytest-report.xml`.
-- Retention window input `coverage-artifact-retention-days` (default 10) — chosen inside the recommended 7–14 day observation horizon so reviewers can compare multiple consecutive runs without long-term storage bloat. Adjust as needed (suggest: keep within 7–14 unless auditing trends).
+- Retention window input `coverage-artifact-retention-days` has a default value of 10.
+  This default is chosen to fall within the recommended 7–14 day observation horizon, allowing reviewers to compare multiple consecutive runs without long-term storage bloat.
+  Adjust as needed; it is suggested to keep the retention window within 7–14 days unless you are auditing longer-term trends.
 - Single canonical coverage tracking issue auto-updated with summary + hotspots + job log links.
 - Run Summary includes a single "Soft Coverage Gate" section (job log table de-duplicated into universal logs job).
 - Trend artifacts shipped: `coverage-trend.json` (single run) and cumulative `coverage-trend-history.ndjson` (history) for longitudinal analysis.
