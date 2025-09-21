@@ -1,0 +1,124 @@
+name: "Apply autofix and deliver"
+description: "Run the composite autofix action and either push with the service bot PAT or upload a patch artifact"
+inputs:
+  head_ref:
+    description: "Branch ref for the pull request head"
+    required: true
+  same_repo:
+    description: "Whether the PR head resides in the same repository"
+    required: true
+  commit_prefix:
+    description: "Commit prefix for autofix commits"
+    required: false
+    default: "chore(autofix):"
+  pr:
+    description: "Pull request number"
+    required: true
+  service_bot_pat:
+    description: "Service bot PAT used for pushes"
+    required: false
+  github_token:
+    description: "Fallback GitHub token for checkout"
+    required: true
+outputs:
+  changed:
+    description: "Whether any files were modified"
+    value: ${{ steps.collect.outputs.changed }}
+  remaining_issues:
+    description: "Remaining ruff issues after autofix"
+    value: ${{ steps.collect.outputs.remaining }}
+  new_issues:
+    description: "New (non-allowlisted) ruff issues"
+    value: ${{ steps.collect.outputs.new }}
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout PR head
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.head_ref }}
+        fetch-depth: 0
+        token: ${{ inputs.same_repo == 'true' && inputs.service_bot_pat || inputs.github_token }}
+
+    - name: Run composite autofix
+      id: autofix
+      uses: ./.github/actions/autofix
+
+    - name: Collect autofix outputs
+      id: collect
+      shell: bash
+      run: |
+        echo "changed=${{ steps.autofix.outputs.changed }}" >> "$GITHUB_OUTPUT"
+        echo "remaining=${{ steps.autofix.outputs.remaining_issues }}" >> "$GITHUB_OUTPUT"
+        echo "new=${{ steps.autofix.outputs.new_issues }}" >> "$GITHUB_OUTPUT"
+
+    - name: Commit changes
+      if: ${{ inputs.same_repo == 'true' && steps.autofix.outputs.changed == 'true' }}
+      shell: bash
+      env:
+        COMMIT_PREFIX: ${{ inputs.commit_prefix }}
+      run: |
+        set -euo pipefail
+        git config user.name "trend-service-bot"
+        git config user.email "trend-service-bot@users.noreply.github.com"
+        git add -A
+        if git diff --cached --quiet; then
+          echo "No staged changes after autofix; skipping commit."
+          exit 0
+        fi
+        prefix=${COMMIT_PREFIX:-chore(autofix):}
+        git commit -m "${prefix% } formatting/lint"
+
+    - name: Push changes
+      if: ${{ inputs.same_repo == 'true' && steps.autofix.outputs.changed == 'true' }}
+      shell: bash
+      env:
+        HEAD_REF: ${{ inputs.head_ref }}
+        PAT: ${{ inputs.service_bot_pat }}
+      run: |
+        set -euo pipefail
+        if [ -z "${PAT}" ]; then
+          echo "::error::SERVICE_BOT_PAT is required to push autofix commits." >&2
+          exit 1
+        fi
+        git remote set-url origin "https://x-access-token:${PAT}@github.com/${GITHUB_REPOSITORY}.git"
+        for attempt in 1 2 3; do
+          echo "[autofix] Push attempt ${attempt}"
+          if git push origin HEAD:"${HEAD_REF}"; then
+            exit 0
+          fi
+          echo "[autofix] Push failed; attempting rebase." >&2
+          git fetch origin "${HEAD_REF}" --prune
+          if git rebase --autostash --strategy-option theirs origin/"${HEAD_REF}"; then
+            continue
+          fi
+          git rebase --abort || true
+        done
+        echo "::error::Failed to push autofix changes after 3 attempts." >&2
+        exit 1
+
+    - name: Prepare patch artifact
+      if: ${{ inputs.same_repo != 'true' && steps.autofix.outputs.changed == 'true' }}
+      shell: bash
+      env:
+        COMMIT_PREFIX: ${{ inputs.commit_prefix }}
+      run: |
+        set -euo pipefail
+        git config user.name "trend-service-bot"
+        git config user.email "trend-service-bot@users.noreply.github.com"
+        git add -A
+        if git diff --cached --quiet; then
+          exit 0
+        fi
+        prefix=${COMMIT_PREFIX:-chore(autofix):}
+        git commit -m "${prefix% } formatting/lint (patch)" || true
+        git format-patch -1 --stdout > autofix.patch
+
+    - name: Upload patch artifact
+      if: ${{ inputs.same_repo != 'true' && steps.autofix.outputs.changed == 'true' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: autofix-patch-pr-${{ inputs.pr }}
+        path: autofix.patch
+        if-no-files-found: ignore
+        retention-days: 7
