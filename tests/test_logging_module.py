@@ -1,6 +1,6 @@
 """Tests for the structured logging helpers.
 
-These exercises the JSONL writer, read helpers and aggregation utilities
+These tests exercise the JSONL writer, read helpers and aggregation utilities
 implemented in :mod:`trend_analysis.logging`.  The module under test powers
 the pipeline run logging experience, so we focus on verifying that:
 
