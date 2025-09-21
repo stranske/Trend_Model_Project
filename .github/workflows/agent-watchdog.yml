@@ -118,16 +118,24 @@ jobs:
             core.setOutput('pr', found ? String(found.number) : '');
             core.setOutput('elapsed_minutes', friendlyElapsed);
 
+            const runId = process.env.GITHUB_RUN_ID || '';
+            const runUrl = runId ? `https://github.com/${owner}/${repo}/actions/runs/${runId}` : '';
+
             const summary = core.summary.addHeading('Agent Watchdog Result');
             if (found) {
               summary.addTable([
                 [{ data: 'Status', header: true }, { data: 'Details', header: true }],
-                ['✅ PR detected', `#${found.number} (${found.url}) in ${friendlyElapsed} minutes`]
+                ['✅ PR detected', `#${found.number} (${found.url}) in ${friendlyElapsed} minutes`],
+                ['Workflow run', runUrl ? `[${runId}](${runUrl})` : 'Unavailable']
               ]);
             } else {
+              const timeoutDetail = expectedPr
+                ? `Expected PR #${expectedPr} but none detected within ${timeoutMinutes} minute window`
+                : `No PR detected within ${timeoutMinutes} minute window`;
               summary.addTable([
                 [{ data: 'Status', header: true }, { data: 'Details', header: true }],
-                ['⚠️ Timeout', `No PR detected within ${timeoutMinutes} minute window`]
+                ['⚠️ Timeout', timeoutDetail],
+                ['Workflow run', runUrl ? `[${runId}](${runUrl})` : 'Unavailable']
               ]);
             }
             await summary.write();
@@ -137,13 +145,16 @@ jobs:
             const alreadyCommented = (comments || []).some(c => (c.body || '').startsWith(commentPrefix));
 
             if (found) {
-              const body = `${commentPrefix}: Detected PR #${found.number} referencing this issue after ${friendlyElapsed} minute${elapsedMinutes === 1 ? '' : 's'}.\n\nLink: ${found.url}`;
+              const body = `${commentPrefix}: Detected PR #${found.number} referencing this issue after ${friendlyElapsed} minute${elapsedMinutes === 1 ? '' : 's'}.\n\nLink: ${found.url}${runUrl ? `\nWatchdog run: ${runUrl}` : ''}`;
               if (!alreadyCommented) {
                 await github.rest.issues.createComment({ owner, repo, issue_number: issueNumber, body });
               }
             } else {
-              const body = `${commentPrefix}: No pull request cross-reference detected for **${agentLabel}** within `
-                + `${timeoutMinutes} minute${timeoutMinutes === 1 ? '' : 's'}.`;
+              let detail = `No pull request cross-reference detected for **${agentLabel}** within ${timeoutMinutes} minute${timeoutMinutes === 1 ? '' : 's'}.`;
+              if (expectedPr) {
+                detail += ` Expected PR #${expectedPr} never appeared.`;
+              }
+              const body = `${commentPrefix}: ${detail}${runUrl ? `\nWatchdog run: ${runUrl}` : ''}`;
               if (!alreadyCommented) {
                 await github.rest.issues.createComment({ owner, repo, issue_number: issueNumber, body });
               }

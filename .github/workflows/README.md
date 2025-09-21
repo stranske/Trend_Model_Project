@@ -142,7 +142,7 @@ Result: Each human push generates at most one autofix patch sequence; autofix co
 End‑to‑end lifecycle for automation bootstrapped contributions:
 1. Maintainer opens Issue with label `codex-ready` (and optional spec details).
 2. Labeling with `agent:codex` triggers `assign-to-agents.yml`, which creates a bootstrap branch/PR, assigns Codex, and posts the kickoff command.
-3. `agent-watchdog.yml` (dispatched by the assigner) waits ~7 minutes for the cross-referenced PR and posts a success or timeout diagnostic comment.
+3. `agent-watchdog.yml` (dispatched by the assigner) waits ~7 minutes for the cross-referenced PR and posts a success comment with a direct link to the PR (plus the watchdog run URL) or a timeout diagnostic that calls out the expected PR number when known.
 4. When automation pushes commits, path labelers, CI, and autofix re-evaluate.
 Troubleshooting: If branch/PR not created, verify the label `codex-ready`, confirm `assign-to-agents.yml` completed successfully with write permissions, and ensure no conflicting bootstrap branch already exists.
 
