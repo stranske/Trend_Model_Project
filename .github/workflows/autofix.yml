@@ -12,7 +12,8 @@ permissions:
   actions: read
 
 concurrency:
-  group: autofix-pr-${{ needs.context.outputs.pr }}
+  group: >-
+    autofix-pr-${{ github.event.workflow_run.pull_requests[0].number || github.event.workflow_run.head_branch || github.run_id }}
   cancel-in-progress: true
 
 env:
@@ -242,18 +243,30 @@ jobs:
     env:
       APPLIED_LABEL: ${{ vars.AUTOFIX_APPLIED_LABEL || 'autofix:applied' }}
     steps:
-      - name: Apply autofix and commit/push/patch/label
+      - name: Apply autofix and deliver changes
+        id: apply
         uses: ./.github/actions/apply-autofix
         with:
           head_ref: ${{ needs.context.outputs.head_ref }}
           same_repo: ${{ needs.context.outputs.same_repo }}
-          pat_available: ${{ needs.context.outputs.pat_available }}
-          pr: ${{ needs.context.outputs.pr }}
           commit_prefix: ${{ env.COMMIT_PREFIX }}
-          applied_label: ${{ env.APPLIED_LABEL }}
-          changed: ${{ steps.autofix.outputs.changed }}
+          pr: ${{ needs.context.outputs.pr }}
           service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
           github_token: ${{ github.token }}
+
+      - name: Label PR (autofix applied)
+        if: steps.apply.outputs.changed == 'true' && needs.context.outputs.same_repo == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const pr = Number('${{ needs.context.outputs.pr }}');
+            const label = process.env.APPLIED_LABEL || 'autofix:applied';
+            try {
+              await github.rest.issues.addLabels({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr, labels: [label] });
+            } catch (error) {
+              core.warning(`Failed to add label: ${error.message}`);
+            }
       - name: Manage clean/debt labels
         if: needs.context.outputs.same_repo == 'true'
         uses: actions/github-script@v7
@@ -261,7 +274,7 @@ jobs:
           github-token: ${{ secrets.SERVICE_BOT_PAT || github.token }}
           script: |
             const pr = Number('${{ needs.context.outputs.pr }}');
-            const remaining = Number("${{ steps.autofix.outputs.remaining_issues || '0' }}") || 0;
+            const remaining = Number("${{ steps.apply.outputs.remaining_issues || '0' }}") || 0;
             const cleanLabel = 'autofix:clean';
             const debtLabel = 'autofix:debt';
             const want = remaining === 0 ? cleanLabel : debtLabel;
@@ -279,8 +292,8 @@ jobs:
           echo "### Small fixes" >> "$GITHUB_STEP_SUMMARY"
           echo "PR: #${{ needs.context.outputs.pr }}" >> "$GITHUB_STEP_SUMMARY"
           echo "Files considered: ${{ needs.context.outputs.file_count }} (safe paths: ${{ needs.context.outputs.safe_paths }})" >> "$GITHUB_STEP_SUMMARY"
-          echo "Changes applied: ${{ steps.autofix.outputs.changed }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "Remaining ruff issues: ${{ steps.autofix.outputs.remaining_issues }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Changes applied: ${{ steps.apply.outputs.changed }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Remaining ruff issues: ${{ steps.apply.outputs.remaining_issues }}" >> "$GITHUB_STEP_SUMMARY"
 
   fix-failing-checks:
     name: Fix failing checks
