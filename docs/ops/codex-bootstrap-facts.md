@@ -2,7 +2,7 @@
 
 This page captures the established, validated facts about the Codex bootstrap and workflow wiring in this repository. It is the single source of truth so we don’t keep re‑asking for already‑confirmed details.
 
-Last updated: 2026‑02‑07
+Last updated: 2026-02-07
 
 ## Branches and Event Semantics
 - Default branch: `phase-2-dev`.
