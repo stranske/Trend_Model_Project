@@ -255,7 +255,7 @@ jobs:
               for p,f in low_cov[:HOTSPOT_LIMIT]:  # cap separately to avoid huge tables
                   lines.append(f"| `{f}` | {p:.1f}% |")
               if len(low_cov) > HOTSPOT_LIMIT:
-                  lines.append(f"| *(+{len(low_cov)-HOTSPOT_LIMIT} more below {LOW_COVERAGE_THRESHOLD:.0f}% – truncated)* |")
+          lines.append(f"| *(+{len(low_cov)-HOTSPOT_LIMIT} more below {LOW_COVERAGE_THRESHOLD:.0f}% – truncated)* | — |")
           with open('coverage_summary.md','w') as w:
               w.write("\n".join(lines)+"\n")
           print('\n'.join(lines[:6])+'\n...')
@@ -388,6 +388,7 @@ jobs:
             const { data } = await github.rest.actions.listJobsForWorkflowRun({ owner, repo, run_id, per_page: 100 });
             const rows = data.jobs.map(j => `| ${j.name} | ${j.conclusion || j.status} | [logs](${j.html_url}) |`);
             const failed = data.jobs.filter(j => !['success','skipped'].includes((j.conclusion || '').toLowerCase())).map(j => j.name);
+            const failingTestJobs = failed.filter(n => /test/i.test(n));
             let explanation = '';
             if (failed.length) {
               explanation = `\n> ❗ ${failed.length} job(s) did not succeed: ${failed.join(', ')}.`;
