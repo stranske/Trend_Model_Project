@@ -134,6 +134,13 @@ def _ensure_glob_matches(pattern: str, *, base_dir: Path | None) -> None:
             f"Update the glob '{pattern}' relative to '{base_hint}' or "
             "generate the manager inputs before running the analysis."
         )
+    csv_files = [path for path in files if path.suffix.lower() == ".csv"]
+    if not csv_files:
+        found = ", ".join(str(path.name) for path in files)
+        raise ValueError(
+            "data.managers_glob must resolve to CSV files. "
+            f"The pattern '{pattern}' matched non-CSV inputs: {found}."
+        )
 
 
 # ---------------------------------------------------------------------------

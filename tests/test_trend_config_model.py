@@ -150,3 +150,30 @@ def test_trend_config_requires_matching_managers_glob(tmp_path: Path) -> None:
     with pytest.raises(ValueError) as exc:
         validate_trend_config(cfg, base_path=tmp_path)
     assert "managers_glob" in str(exc.value)
+
+
+def test_trend_config_managers_glob_requires_csv_extension(tmp_path: Path) -> None:
+    data_dir = tmp_path / "inputs"
+    data_dir.mkdir()
+    (data_dir / "fund_a.txt").write_text("This is not a CSV file.", encoding="utf-8")
+
+    cfg = {
+        "version": "1",
+        "data": {
+            "managers_glob": str(data_dir / "*"),
+            "date_column": "Date",
+            "frequency": "M",
+        },
+        "portfolio": {
+            "rebalance_calendar": "NYSE",
+            "max_turnover": 0.5,
+            "transaction_cost_bps": 10,
+        },
+        "vol_adjust": {"target_vol": 0.1},
+    }
+
+    with pytest.raises(ValueError) as exc:
+        validate_trend_config(cfg, base_path=tmp_path)
+    message = str(exc.value)
+    assert "CSV" in message
+    assert "fund_a.txt" in message
