@@ -266,7 +266,7 @@ Soft‑gate job finds artifacts without branching logic.
 
 11) Bulk create Issues workflow (paste markdown → Issues)
 
-Suggested labels: workflows, docs, risk:low, priority: low, agent:codex
+Suggested labels: workflows, docs, risk:low, priority:low, agent:codex
 
 Why
 You often seed a backlog. This turns one paste into multiple formatted issues.
