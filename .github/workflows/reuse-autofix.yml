@@ -61,7 +61,7 @@ jobs:
             head_msg_lc=$(printf '%s' "$head_msg" | tr '[:upper:]' '[:lower:]')
             prefix_lc=$(printf '%s' "${{ inputs.commit_prefix }}" | tr '[:upper:]' '[:lower:]')
             if [ -n "$prefix_lc" ]; then
-              msg_prefix="${head_msg_lc:0:${#prefix_lc}}"
+              msg_prefix=$(printf '%.*s' "${#prefix_lc}" "$head_msg_lc")
               if [ "$msg_prefix" = "$prefix_lc" ]; then
                 echo "[autofix] Skipping: detected prior autofix commit (${head_msg})"
                 skip=true
