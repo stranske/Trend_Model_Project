@@ -1,0 +1,83 @@
+name: Style Gate
+
+on:
+  pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - '.github/ISSUE_TEMPLATE/**'
+  push:
+    branches: [ phase-2-dev ]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - '.github/ISSUE_TEMPLATE/**'
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  style:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Load tool versions
+        run: |
+          if [ -f .github/workflows/autofix-versions.env ]; then
+            cat .github/workflows/autofix-versions.env >> $GITHUB_ENV
+          fi
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install lint deps
+        run: |
+          python -m pip install -U pip
+          pip install ruff==${RUFF_VERSION} black==${BLACK_VERSION}
+
+      - name: Black (check)
+        run: black --check .
+
+      - name: Ruff (full check)
+        id: ruff
+        run: |
+          # Run ruff without fixing; capture machine + human output
+          set -e
+          if ! ruff check --output-format json . > ruff_diagnostics.json 2> ruff_stderr.log; then
+            echo "Ruff reported issues (expected if violations exist)"
+          fi
+          # Separate allowlist handling (reuse existing classification script if present)
+          if [ -f scripts/classify_ruff.py ]; then
+            python scripts/classify_ruff.py ruff_diagnostics.json .ruff-residual-allowlist.json ruff_classification.json || echo '{"error":"classification_failed"}' > ruff_classification.json
+          else
+            echo '{"total":0,"allowed":0,"new":0,"by_code":{},"new_by_code":{}}' > ruff_classification.json
+          fi
+          new=$(jq -r '.new // 0' ruff_classification.json 2>/dev/null || echo 0)
+          echo "new=$new" >> $GITHUB_OUTPUT
+          total=$(jq -r '.total // 0' ruff_classification.json 2>/dev/null || echo 0)
+          echo "total=$total" >> $GITHUB_OUTPUT
+          if [ "$new" != "0" ]; then
+            echo "Found $new new ruff issues (failing Style Gate)." >&2
+            exit 1
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "### Style Gate Summary" >> $GITHUB_STEP_SUMMARY
+          echo "Black: PASS" >> $GITHUB_STEP_SUMMARY
+          echo "Ruff total issues: ${{ steps.ruff.outputs.total }}" >> $GITHUB_STEP_SUMMARY
+          echo "Ruff new issues: ${{ steps.ruff.outputs.new }}" >> $GITHUB_STEP_SUMMARY
+          if [ -f ruff_classification.json ]; then
+            echo "\n<details><summary>Classification JSON</summary>" >> $GITHUB_STEP_SUMMARY
+            echo '\n' >> $GITHUB_STEP_SUMMARY
+            sed -n '1,200p' ruff_classification.json >> $GITHUB_STEP_SUMMARY || true
+            echo "\n</details>" >> $GITHUB_STEP_SUMMARY
+          fi

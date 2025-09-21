@@ -50,6 +50,16 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
 
+      - name: Guard remove legacy autofix history file
+        shell: bash
+        run: |
+          if [ -f ci/autofix/history.json ]; then
+            echo "[autofix-guard] Removing legacy tracked ci/autofix/history.json to prevent churn";
+            git rm -f ci/autofix/history.json || rm -f ci/autofix/history.json || true;
+          else
+            echo "[autofix-guard] No legacy history.json present";
+          fi
+
       - name: Detect same-repo PR
         if: steps.guard.outputs.skip != 'true'
         id: same_repo
