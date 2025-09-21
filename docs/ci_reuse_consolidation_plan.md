@@ -6,7 +6,7 @@ The `.github/workflows` directory contains both new reusable workflows and sever
 ### Redundant / Superseded (Removed in Cleanup PR for #1259)
 | Legacy (now removed) | Reusable Replacement | Removal Rationale |
 | -------------------- | -------------------- | ----------------- |
-| `autofix.yml` | `reuse-autofix.yml` + `autofix-consumer.yml` | Eliminated duplication; stabilization period complete post PR #1257. |
+| `autofix-consumer.yml` + `autofix-on-failure.yml` | `autofix.yml` (workflow_run follower) | Small-fix and failure remediation lanes collapsed into a single follower workflow that still delegates to `reuse-autofix.yml`. |
 | `agent-readiness.yml` | `reuse-agents.yml` (enable_readiness) | Mode parameter covers readiness path. |
 | `agent-watchdog.yml` | `reuse-agents.yml` (watchdog enabled) | Consolidated into single orchestrated workflow. |
 | `codex-preflight.yml` | `reuse-agents.yml` (preflight mode) | Folded into parameterized preflight job. |
@@ -23,7 +23,7 @@ The `.github/workflows` directory contains both new reusable workflows and sever
 Release, docker, auto-merge enablement, PR status summary, quarantine TTL, failure trackers remain orthogonal to the three reusable workflows.
 
 ## Consolidation Actions Executed
-All previously flagged legacy workflows were deleted in alignment with Issue #1259. Consumers now invoke the reusable equivalents (`reuse-autofix.yml`, `reuse-agents.yml`). This concludes the stabilization window referenced in PR #1257.
+All previously flagged legacy workflows were deleted in alignment with Issue #1259. As of 2026-02-15 the remaining autofix consumers were collapsed into `autofix.yml`, which still delegates to `reuse-autofix.yml` but now runs exclusively as a CI follower. This concludes the stabilization window referenced in PR #1257.
 
 ## Deletion Timetable (Superseded)
 Original timetable replaced by immediate removal once validation completed. Retained here for historical context only.
@@ -37,4 +37,4 @@ Original timetable replaced by immediate removal once validation completed. Reta
 All other workflows serve distinct concerns; consolidating now would add complexity without clear maintenance win.
 
 ---
-Last updated: 2025-09-21
+Last updated: 2026-02-15

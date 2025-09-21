@@ -1,4 +1,4 @@
-# Archived GitHub Workflows (updated 2025-09-21)
+# Archived GitHub Workflows (updated 2026-02-15)
 
 This document records the archival and eventual deletion of legacy agent-related workflows now replaced by consolidated reusable pipelines.
 
@@ -15,9 +15,11 @@ All deprecated agent automation workflows were deleted from `.github/workflows/`
 
 ## Additional Archived Workflows
 - `guard-no-reuse-pr-branches.yml` – Archived in place (no functional replacement required; governance policy only). Removal candidate after 2025-10-20.
+- `autofix-consumer.yml` – Removed after consolidating the autofix lane into `autofix.yml` (workflow_run follower).
+- `autofix-on-failure.yml` – Removed after consolidating the autofix lane into `autofix.yml` (workflow_run follower).
 
 ## Retired Autofix Wrapper
-- `autofix.yml` – Deleted in the same cleanup; consumers must use `autofix-consumer.yml` which calls `reuse-autofix.yml` directly.
+- Legacy `autofix.yml` (pre-2025) was deleted during the earlier cleanup. As of 2026-02-15 a new consolidated `autofix.yml` now drives both small fixes and trivial failure remediation; the former consumer wrappers have been removed.
 
 ## Rationale
 Consolidating agent probe, diagnostic, and verification logic into `reuse-agents.yml` reduces workflow sprawl, centralizes feature flags, and ensures consistent permissions and summary formatting.
