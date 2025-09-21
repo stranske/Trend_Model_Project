@@ -9,8 +9,8 @@ entry points and the Streamlit UI before the heavy pipeline code is invoked.
 
 from __future__ import annotations
 
-import os
 import glob
+import os
 from pathlib import Path
 from typing import Any, Iterable, Literal
 

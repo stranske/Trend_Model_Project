@@ -108,7 +108,9 @@ def test_load_config_mapping_requires_source(tmp_path: Path) -> None:
 def test_trend_config_accepts_valid_managers_glob(tmp_path: Path) -> None:
     managers_dir = tmp_path / "managers"
     managers_dir.mkdir()
-    (managers_dir / "fund_a.csv").write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
+    (managers_dir / "fund_a.csv").write_text(
+        "Date,A\n2020-01-31,0.1\n", encoding="utf-8"
+    )
 
     cfg = {
         "version": "1",
