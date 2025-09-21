@@ -1,5 +1,7 @@
 import numpy as np
 import pandas as pd
+import numpy as np
+import pandas as pd
 import pytest
 
 from trend_analysis.constants import NUMERICAL_TOLERANCE_HIGH
@@ -54,3 +56,31 @@ def test_empty_group_handling():
     assert np.isclose(out.sum(), 1.0)
     # Both assets should be in "existing" group, no constraint needed since cap is 1.0
     assert out.loc["a"] + out.loc["b"] <= 1.0 + NUMERICAL_TOLERANCE_HIGH
+
+
+def test_cash_weight_adds_cash_and_scales() -> None:
+    w = pd.Series([0.4, 0.6], index=["a", "b"])
+    out = apply_constraints(w, {"cash_weight": 0.2})
+    assert "CASH" in out.index
+    assert np.isclose(out.loc["CASH"], 0.2)
+    assert np.isclose(out.drop("CASH").sum(), 0.8)
+
+
+def test_cash_weight_infeasible_without_assets() -> None:
+    w = pd.Series([1.0], index=["CASH"])
+    with pytest.raises(ConstraintViolation, match="No assets available"):
+        apply_constraints(w, {"cash_weight": 0.3})
+
+
+def test_cash_weight_violates_max_weight_cap() -> None:
+    w = pd.Series([0.6, 0.4], index=["a", "b"])
+    constraints = {"cash_weight": 0.4, "max_weight": 0.3}
+    with pytest.raises(ConstraintViolation, match="exceeds max_weight"):
+        apply_constraints(w, constraints)
+
+
+def test_cash_weight_exceeds_max_weight_limit() -> None:
+    w = pd.Series([0.9, 0.1], index=["a", "b"])
+    constraints = {"cash_weight": 0.6, "max_weight": 0.5}
+    with pytest.raises(ConstraintViolation, match="cash_weight exceeds max_weight"):
+        apply_constraints(w, constraints)

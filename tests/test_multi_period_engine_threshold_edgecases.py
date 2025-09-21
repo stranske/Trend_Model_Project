@@ -915,3 +915,214 @@ def test_threshold_hold_enforces_bounds_and_replacement_flow(
     reasons = {event["reason"] for event in second_events}
     assert {"one_per_firm", "low_weight_strikes", "replacement"} <= reasons
     assert results[1]["turnover"] > 0
+
+
+def test_threshold_hold_weight_bounds_handles_uniform_minimum(monkeypatch):
+    """All holdings floored at the minimum weight trigger the excess branch."""
+
+    cfg = DummyConfig()
+    cfg.portfolio["threshold_hold"].update({"target_n": 3, "metric": "Sharpe"})
+    cfg.portfolio["constraints"].update(
+        {
+            "max_funds": 3,
+            "min_weight": 0.4,
+            "max_weight": 0.6,
+            "min_weight_strikes": 10,
+        }
+    )
+
+    dates = pd.to_datetime([
+        "2020-01-31",
+        "2020-02-29",
+        "2020-03-31",
+        "2020-04-30",
+    ])
+    df = pd.DataFrame(
+        {
+            "Date": dates,
+            "Alpha One": [0.05, 0.04, 0.03, 0.02],
+            "Bravo One": [0.02, 0.03, 0.01, 0.02],
+            "Charlie One": [0.01, 0.02, 0.01, 0.02],
+            "Cash": [0.0, 0.0, 0.0, 0.0],
+        }
+    )
+
+    periods = [
+        DummyPeriod("2020-01-31", "2020-03-31", "2020-04-30", "2020-04-30"),
+    ]
+
+    monkeypatch.setattr(mp_engine, "generate_periods", lambda _cfg: periods)
+
+    metrics = {
+        "AnnualReturn": {
+            "Alpha One": 0.18,
+            "Bravo One": 0.16,
+            "Charlie One": 0.15,
+        },
+        "Volatility": {
+            "Alpha One": 0.20,
+            "Bravo One": 0.22,
+            "Charlie One": 0.21,
+        },
+        "Sharpe": {
+            "Alpha One": 1.5,
+            "Bravo One": 1.1,
+            "Charlie One": 1.0,
+        },
+        "Sortino": {
+            "Alpha One": 1.6,
+            "Bravo One": 1.2,
+            "Charlie One": 1.1,
+        },
+        "InformationRatio": {
+            "Alpha One": 1.4,
+            "Bravo One": 1.0,
+            "Charlie One": 0.9,
+        },
+        "MaxDrawdown": {
+            "Alpha One": -0.10,
+            "Bravo One": -0.08,
+            "Charlie One": -0.07,
+        },
+    }
+
+    from trend_analysis.core import rank_selection as rank_mod
+
+    def fake_metric_series(frame: pd.DataFrame, metric: str, _cfg: Any) -> pd.Series:
+        vals = metrics[metric]
+        return pd.Series({col: vals[col] for col in frame.columns}, dtype=float)
+
+    monkeypatch.setattr(rank_mod, "_compute_metric_series", fake_metric_series)
+
+    selector = ScriptedSelector(["Alpha One", "Bravo One", "Charlie One"])
+    from trend_analysis import selector as selector_mod
+
+    monkeypatch.setattr(
+        selector_mod, "create_selector_by_name", lambda *a, **k: selector
+    )
+
+    weighting = SequenceWeighting(
+        [{"Alpha One": 0.01, "Bravo One": 0.02, "Charlie One": 0.03}]
+    )
+    monkeypatch.setattr(mp_engine, "EqualWeight", lambda: weighting)
+    monkeypatch.setattr(mp_engine, "Rebalancer", lambda *_: IdentityRebalancer())
+
+    call_log: list[Dict[str, Any]] = []
+    monkeypatch.setattr(mp_engine, "_run_analysis", _stub_run_analysis(call_log))
+
+    results = mp_engine.run(cfg, df=df)
+
+    assert len(results) == 1
+    assert call_log, "_run_analysis should receive custom weights"
+    weights = call_log[0]["custom_weights"]
+    assert set(weights) == {"Alpha One", "Bravo One", "Charlie One"}
+    assert pytest.approx(sum(weights.values()), rel=1e-9) == 120.0
+
+
+def test_threshold_hold_turnover_cap_scales_then_bounds(monkeypatch):
+    """Turnover scaling fires before bounds re-normalise the portfolio."""
+
+    cfg = DummyConfig()
+    cfg.portfolio["threshold_hold"].update({"target_n": 2, "metric": "Sharpe"})
+    cfg.portfolio["constraints"].update(
+        {
+            "max_funds": 2,
+            "min_weight": 0.05,
+            "max_weight": 0.3,
+            "min_weight_strikes": 1,
+        }
+    )
+    cfg.portfolio.update({"transaction_cost_bps": 25.0, "max_turnover": 0.2})
+
+    dates = pd.to_datetime(
+        [
+            "2020-01-31",
+            "2020-02-29",
+            "2020-03-31",
+            "2020-04-30",
+        ]
+    )
+    df = pd.DataFrame(
+        {
+            "Date": dates,
+            "Alpha One": [0.06, 0.05, 0.04, 0.03],
+            "Bravo One": [0.01, 0.02, 0.01, 0.02],
+            "Charlie One": [0.03, 0.025, 0.02, 0.03],
+            "Cash": [0.0, 0.0, 0.0, 0.0],
+        }
+    )
+
+    periods = [
+        DummyPeriod("2020-01-31", "2020-03-31", "2020-04-30", "2020-04-30"),
+    ]
+
+    monkeypatch.setattr(mp_engine, "generate_periods", lambda _cfg: periods)
+
+    metrics = {
+        "AnnualReturn": {
+            "Alpha One": 0.20,
+            "Bravo One": 0.05,
+            "Charlie One": 0.18,
+        },
+        "Volatility": {
+            "Alpha One": 0.18,
+            "Bravo One": 0.12,
+            "Charlie One": 0.15,
+        },
+        "Sharpe": {
+            "Alpha One": 1.7,
+            "Bravo One": 0.6,
+            "Charlie One": 1.4,
+        },
+        "Sortino": {
+            "Alpha One": 1.8,
+            "Bravo One": 0.7,
+            "Charlie One": 1.45,
+        },
+        "InformationRatio": {
+            "Alpha One": 1.5,
+            "Bravo One": 0.5,
+            "Charlie One": 1.2,
+        },
+        "MaxDrawdown": {
+            "Alpha One": -0.09,
+            "Bravo One": -0.04,
+            "Charlie One": -0.08,
+        },
+    }
+
+    from trend_analysis.core import rank_selection as rank_mod
+
+    def fake_metric_series(frame: pd.DataFrame, metric: str, _cfg: Any) -> pd.Series:
+        vals = metrics[metric]
+        return pd.Series({col: vals[col] for col in frame.columns}, dtype=float)
+
+    monkeypatch.setattr(rank_mod, "_compute_metric_series", fake_metric_series)
+
+    selector = ScriptedSelector(["Alpha One", "Bravo One", "Charlie One"])
+    from trend_analysis import selector as selector_mod
+
+    monkeypatch.setattr(
+        selector_mod, "create_selector_by_name", lambda *a, **k: selector
+    )
+
+    weighting = SequenceWeighting(
+        [
+            {"Alpha One": 0.9, "Bravo One": 0.01, "Charlie One": 0.05},
+            {"Alpha One": 0.9, "Bravo One": 0.01, "Charlie One": 0.05},
+            {"Alpha One": 0.9, "Charlie One": 0.9},
+        ]
+    )
+    monkeypatch.setattr(mp_engine, "EqualWeight", lambda: weighting)
+    monkeypatch.setattr(mp_engine, "Rebalancer", lambda *_: IdentityRebalancer())
+
+    call_log: list[Dict[str, Any]] = []
+    monkeypatch.setattr(mp_engine, "_run_analysis", _stub_run_analysis(call_log))
+
+    results = mp_engine.run(cfg, df=df)
+
+    assert len(results) == 1
+    weights = call_log[0]["custom_weights"]
+    assert pytest.approx(sum(weights.values()), rel=1e-9) == 60.0
+    assert results[0]["turnover"] == pytest.approx(0.6)
+    assert results[0]["transaction_cost"] == pytest.approx(0.0015, rel=1e-9)

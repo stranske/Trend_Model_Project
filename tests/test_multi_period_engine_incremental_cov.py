@@ -6,6 +6,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pandas as pd
+import pytest
 
 from trend_analysis.multi_period import engine as mp_engine
 from trend_analysis.perf import cache as cache_mod
@@ -112,6 +113,32 @@ def test_run_incremental_covariance_updates(monkeypatch):
     assert second_stats["incremental_updates"] == 1
 
 
+def test_run_incremental_covariance_shift_detection(monkeypatch):
+    """Ensure the incremental path applies sequential updates when shifts are detected."""
+
+    cfg = _Cfg()
+    df = _make_df()
+    periods = _make_periods()
+
+    monkeypatch.setattr(mp_engine, "generate_periods", lambda _cfg: periods)
+
+    run_calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+
+    def fake_run_analysis(*args, **kwargs):
+        run_calls.append((args, kwargs))
+        return {"out_ew_stats": {"sharpe": 1.0}}
+
+    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+
+    results = mp_engine.run(cfg, df=df)
+
+    assert len(results) == 2
+    assert len(run_calls) == 2
+    second_stats = results[1]["cache_stats"]
+    # Expect a single incremental update from the detected one-row shift.
+    assert second_stats["incremental_updates"] == 1
+
+
 def test_run_incremental_covariance_fallback_on_error(monkeypatch):
     """If incremental updates fail, the engine recomputes the covariance."""
 
@@ -189,3 +216,70 @@ def test_run_incremental_covariance_handles_bad_shift_and_strings(monkeypatch):
     # Invalid shift thresholds still compute covariance and expose diagnostics
     assert compute_calls[0] == 3
     assert all("cov_diag" in result for result in results)
+
+
+def test_run_incremental_covariance_multi_step_update(monkeypatch):
+    """Incremental covariance handles multi-row shifts via sequential updates."""
+
+    cfg = _Cfg()
+    dates = pd.to_datetime(
+        [
+            "2020-01-31",
+            "2020-02-29",
+            "2020-03-31",
+            "2020-04-30",
+            "2020-05-31",
+            "2020-06-30",
+        ]
+    )
+    df = pd.DataFrame(
+        {
+            "Date": dates,
+            "FundA": [0.01, 0.011, 0.012, 0.013, 0.014, 0.015],
+            "FundB": [0.005, 0.006, 0.007, 0.008, 0.009, 0.010],
+        }
+    )
+    periods = [
+        SimpleNamespace(
+            in_start="2020-01",
+            in_end="2020-04",
+            out_start="2020-05",
+            out_end="2020-05",
+        ),
+        SimpleNamespace(
+            in_start="2020-03",
+            in_end="2020-06",
+            out_start="2020-06",
+            out_end="2020-06",
+        ),
+    ]
+
+    monkeypatch.setattr(mp_engine, "generate_periods", lambda _cfg: periods)
+
+    def fake_run_analysis(*args, **kwargs):
+        return {"out_ew_stats": {"sharpe": 1.0}}
+
+    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+
+    real_incremental = cache_mod.incremental_cov_update
+    incremental_calls: list[tuple[pd.Series, pd.Series]] = []
+
+    def wrapped_incremental(prev, old_row, new_row):
+        incremental_calls.append((pd.Series(old_row), pd.Series(new_row)))
+        return real_incremental(prev, old_row, new_row)
+
+    monkeypatch.setattr(cache_mod, "incremental_cov_update", wrapped_incremental)
+
+    results = mp_engine.run(cfg, df=df)
+
+    assert len(results) == 2
+    assert len(incremental_calls) == 2
+    first_old, first_new = incremental_calls[0]
+    second_old, second_new = incremental_calls[1]
+    # Old rows roll off in chronological order while new data arrives at the tail.
+    assert list(first_old.index) == [0, 1]
+    assert list(second_old.index) == [0, 1]
+    assert first_new.iloc[0] == pytest.approx(0.014)
+    assert second_new.iloc[0] == pytest.approx(0.015)
+    stats = results[1]["cache_stats"]
+    assert stats["incremental_updates"] == 2
