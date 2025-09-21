@@ -222,7 +222,7 @@ Recurrent failures update the same issue with fresh context; no duplicates.
 
 9) Docker smoke reliability: buildx cache + timeout
 
-Suggested labels: workflows, devops, risk:low, priority: medium, agent:codex
+Suggested labels: workflows, devops, risk:low, priority:medium, agent:codex
 
 Why
 Pulls and cache misses cause flaky timeouts. Buildx caching and a cap keeps the lane predictable.
