@@ -79,6 +79,10 @@ jobs:
   call:
     uses: stranske/Trend_Model_Project/.github/workflows/reuse-autofix.yml@phase-2-dev
 ```
+Autofix commits always use the `chore(autofix):` prefix. When a run is triggered by `github-actions`, the reusable workflow
+inspects the latest commit message and short-circuits if it already begins with that prefix. This guard stops autofix pushes
+from triggering another autofix loop.
+
 Agents (subset):
 ```yaml
 name: Agents
