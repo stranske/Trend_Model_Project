@@ -5,7 +5,12 @@ from pathlib import Path
 import pytest
 
 import yaml
-from trend_analysis.config import TrendConfig, load_config, load_trend_config
+from trend_analysis.config import (
+    TrendConfig,
+    load_config,
+    load_trend_config,
+    validate_trend_config,
+)
 
 
 def _write_config(tmp_path: Path, csv_path: Path, **overrides: object) -> Path:
@@ -98,3 +103,48 @@ def test_load_config_mapping_requires_source(tmp_path: Path) -> None:
     with pytest.raises(ValueError) as exc:
         load_config(cfg)
     assert "data.csv_path" in str(exc.value)
+
+
+def test_trend_config_accepts_valid_managers_glob(tmp_path: Path) -> None:
+    managers_dir = tmp_path / "managers"
+    managers_dir.mkdir()
+    (managers_dir / "fund_a.csv").write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
+
+    cfg = {
+        "version": "1",
+        "data": {
+            "managers_glob": str(managers_dir / "*.csv"),
+            "date_column": "Date",
+            "frequency": "M",
+        },
+        "portfolio": {
+            "rebalance_calendar": "NYSE",
+            "max_turnover": 0.5,
+            "transaction_cost_bps": 10,
+        },
+        "vol_adjust": {"target_vol": 0.1},
+    }
+
+    validated = validate_trend_config(cfg, base_path=tmp_path)
+    assert validated.data.managers_glob == str(managers_dir / "*.csv")
+
+
+def test_trend_config_requires_matching_managers_glob(tmp_path: Path) -> None:
+    cfg = {
+        "version": "1",
+        "data": {
+            "managers_glob": str(tmp_path / "missing" / "*.csv"),
+            "date_column": "Date",
+            "frequency": "M",
+        },
+        "portfolio": {
+            "rebalance_calendar": "NYSE",
+            "max_turnover": 0.5,
+            "transaction_cost_bps": 10,
+        },
+        "vol_adjust": {"target_vol": 0.1},
+    }
+
+    with pytest.raises(ValueError) as exc:
+        validate_trend_config(cfg, base_path=tmp_path)
+    assert "managers_glob" in str(exc.value)
