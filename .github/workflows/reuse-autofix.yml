@@ -47,7 +47,7 @@ jobs:
           skip=false
           if [ "${{ github.actor }}" = "github-actions" ] || [ "${{ github.actor }}" = "github-actions[bot]" ]; then
             head_msg="$(git log -1 --pretty=%s 2>/dev/null || echo '')"
-            if printf '%s' "$head_msg" | grep -q '^chore(autofix):'; then
+            if printf '%s' "$head_msg" | grep -Eq '^chore\(autofix\):'; then
               echo "Skipping: autofix commit detected"
               skip=true
             fi
