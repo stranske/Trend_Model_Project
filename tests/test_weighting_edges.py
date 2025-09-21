@@ -21,6 +21,20 @@ def test_equal_weight_empty():
     assert out.empty
 
 
+def test_scoreprop_simple_empty_returns_empty_weight_frame():
+    df = pd.DataFrame(columns=["Sharpe"])
+    out = ScorePropSimple().weight(df)
+    assert out.empty
+    assert list(out.columns) == ["weight"]
+
+
+def test_scoreprop_bayesian_empty_returns_empty_weight_frame():
+    df = pd.DataFrame(columns=["Sharpe"])
+    out = ScorePropBayesian().weight(df)
+    assert out.empty
+    assert list(out.columns) == ["weight"]
+
+
 def test_base_weighting_is_abstract():
     class Dummy(BaseWeighting):
         pass
@@ -120,3 +134,37 @@ def test_adaptive_bayes_update_without_half_life_decay():
     # so the posterior precision equals the observational precision (=1.0).
     assert pytest.approx(weighting.tau.loc["A"], rel=1e-6) == pytest.approx(1.0)
     assert pytest.approx(weighting.mean.loc["B"], rel=1e-6) == 1.5
+
+
+def test_adaptive_bayes_weight_empty_candidates():
+    weighting = AdaptiveBayesWeighting()
+    df = pd.DataFrame(index=[], columns=["Sharpe"])
+    out = weighting.weight(df)
+    assert out.empty
+
+
+def test_adaptive_bayes_weight_zero_sum_defaults_to_equal_weights():
+    weighting = AdaptiveBayesWeighting(max_w=None)
+    weighting.set_state(
+        {
+            "mean": {"A": 0.0, "B": 0.0},
+            "tau": {"A": 1.0, "B": 1.0},
+        }
+    )
+    df = pd.DataFrame(index=["A", "B"])
+    out = weighting.weight(df)
+    assert np.allclose(out["weight"].values, [0.5, 0.5])
+
+
+def test_adaptive_bayes_cap_deficit_is_redistributed():
+    weighting = AdaptiveBayesWeighting(max_w=0.4)
+    weighting.set_state(
+        {
+            "mean": {"A": 0.6, "B": 0.3, "C": 0.1},
+            "tau": {"A": 1.0, "B": 1.0, "C": 1.0},
+        }
+    )
+    df = pd.DataFrame(index=["A", "B", "C"])
+    out = weighting.weight(df)
+    np.testing.assert_allclose(out.loc[["A", "B", "C"], "weight"], [0.4, 0.4, 0.2])
+    assert np.isclose(out["weight"].sum(), 1.0)
