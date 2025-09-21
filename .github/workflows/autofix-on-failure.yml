@@ -70,7 +70,7 @@ jobs:
         run: |
           last_msg=$(git log -1 --pretty=%B | tr -d '\r')
           echo "Last commit: $last_msg"
-          if echo "$last_msg" | grep -qi 'ci: autofix'; then
+          if echo "$last_msg" | grep -q '^chore(autofix):'; then
             echo "already=true" >> $GITHUB_OUTPUT
           else
             echo "already=false" >> $GITHUB_OUTPUT
@@ -95,7 +95,7 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "ci: autofix after failed checks"
+          git commit -m "chore(autofix): after failed checks"
           git push origin HEAD:${{ steps.find_pr.outputs.head_ref }}
       - name: Label PR (applied autofix)
         if: steps.fix.outputs.changed == 'true' && steps.find_pr.outputs.same_repo == 'true' && steps.guard.outputs.already != 'true'
@@ -115,7 +115,7 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A || true
-          git commit -m "ci: autofix after failed checks (patch)" || true
+          git commit -m "chore(autofix): after failed checks (patch)" || true
           git format-patch -1 --stdout > failure-autofix.patch
       - name: Upload fork patch
         if: steps.fix.outputs.changed == 'true' && steps.find_pr.outputs.same_repo != 'true' && steps.guard.outputs.already != 'true'

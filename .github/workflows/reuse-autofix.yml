@@ -11,7 +11,7 @@ on:
       commit_prefix:
         description: 'Commit message prefix'
         required: false
-        default: 'ci: autofix'
+        default: 'chore(autofix):'
         type: string
 
 permissions:
