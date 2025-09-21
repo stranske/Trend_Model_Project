@@ -7,7 +7,9 @@ Reads TRUSTED_CONFIG_PATHS from environment (newline separated) and ensures:
 Exits non‑zero on violation, emits ::error:: annotations for GitHub Actions.
 """
 from __future__ import annotations
-import os, sys
+
+import os
+import sys
 from pathlib import Path
 
 
