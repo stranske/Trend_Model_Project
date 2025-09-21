@@ -30,39 +30,62 @@ jobs:
             const pr = run.pull_requests[0];
             const { owner, repo } = context.repo;
 
-            // Fetch latest combined status for the head SHA
             const sha = run.head_sha;
-            const checks = await github.rest.checks.listForRef({ owner, repo, ref: sha });
-            const conclusions = {};
-            for (const chk of checks.data.check_runs) {
-              conclusions[chk.name] = chk.conclusion || chk.status;
-            }
 
-            // Determine overall state for required jobs (heuristic: CI + Docker if present)
+            // Authoritative job enumeration (includes matrix children)
+            const jobsResp = await github.rest.actions.listJobsForWorkflowRun({ owner, repo, run_id: run.id, per_page: 100 });
+            const jobs = jobsResp.data.jobs || [];
+
+            const badge = (state) => {
+              if (!state) return '⏳';
+              const s = state.toLowerCase();
+              if (['success'].includes(s)) return '✅';
+              if (['failure','cancelled','timed_out'].includes(s)) return '❌';
+              if (['skipped'].includes(s)) return '⏭️';
+              return '⏳';
+            };
+
+            // Determine required baseline heuristically (same logic as before using job names)
+            const nameSet = new Set(jobs.map(j => j.name));
             const required = ['CI'];
-            if ('Docker' in conclusions) required.push('Docker');
+            if (nameSet.has('Docker')) required.push('Docker');
+            const conclusions = Object.fromEntries(jobs.map(j => [j.name, j.conclusion || j.status]));
             const requiredStates = required.map(n => `${n}: ${conclusions[n] || 'missing'}`);
 
-            function badge(state){
-              if (state === 'success') return '✅';
-              if (state === 'failure' || state === 'cancelled' || state === 'timed_out') return '❌';
-              if (state === 'skipped') return '⏭️';
-              return '⏳';
-            }
+            // Build rows; highlight failed/cancelled at top (enhancement)
+            const priorityOrder = (state) => {
+              const s = (state || '').toLowerCase();
+              if (['failure','timed_out','cancelled'].includes(s)) return 0;
+              if (s === 'success') return 1;
+              if (s === 'skipped') return 2;
+              return 3; // pending / in_progress / unknown
+            };
 
-            const lines = Object.entries(conclusions)
-              .sort()
-              .map(([k,v]) => `| ${k} | ${badge(v)} ${v} |`);
+            const rows = jobs
+              .slice()
+              .sort((a,b) => {
+                const pa = priorityOrder(a.conclusion || a.status);
+                const pb = priorityOrder(b.conclusion || b.status);
+                if (pa !== pb) return pa - pb;
+                return a.name.localeCompare(b.name);
+              })
+              .map(j => {
+                const state = j.conclusion || j.status;
+                const b = badge(state);
+                // Failed rows bold for quick scanning
+                const jobName = ['failure','timed_out','cancelled'].includes((state||'').toLowerCase()) ? `**${j.name}**` : j.name;
+                return `| ${jobName} | ${b} ${state} | [logs](${j.html_url}) |`;
+              });
 
             const body = [
-              `### Automated Status Summary`,
+              '### Automated Status Summary',
               `**Workflow Run:** ${run.name} (#${run.id})`,
               `**Head SHA:** ${sha}`,
               `**Required:** ${requiredStates.join(', ')}`,
               '',
-              '| Job | Result |',
-              '|-----|--------|',
-              ...lines,
+              '| Job | Result | Logs |',
+              '|-----|--------|------|',
+              ...rows,
               '',
               '_Updated automatically; will refresh on subsequent CI/Docker completions._'
             ].join('\n');
