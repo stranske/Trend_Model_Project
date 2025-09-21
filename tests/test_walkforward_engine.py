@@ -292,6 +292,9 @@ def test_walk_forward_scalar_ir_without_metrics(monkeypatch):
 
     # No metric columns survive, so scalar information ratios are ignored and
     # regime aggregation yields an empty table rather than raising.
+    # The columns of result.oos_windows are expected to be a pandas MultiIndex
+    # with at least two levels: (window, metric_name). This assertion checks that
+    # no metric column named "information_ratio" survives, except for the "window" columns.
     assert all(
         col[1] != "information_ratio" for col in result.oos_windows.columns if col[0] != "window"
     )
