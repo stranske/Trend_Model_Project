@@ -242,62 +242,18 @@ jobs:
     env:
       APPLIED_LABEL: ${{ vars.AUTOFIX_APPLIED_LABEL || 'autofix:applied' }}
     steps:
-      - name: Checkout PR head
-        uses: actions/checkout@v4
+      - name: Apply autofix and commit/push/patch/label
+        uses: ./.github/actions/apply-autofix
         with:
-          ref: ${{ needs.context.outputs.head_ref }}
-          fetch-depth: 0
-          token: ${{ needs.context.outputs.same_repo == 'true' && secrets.SERVICE_BOT_PAT || github.token }}
-
-      - name: Configure service bot identity
-        if: needs.context.outputs.same_repo == 'true'
-        run: |
-          git config user.name "trend-model-service-bot"
-          git config user.email "trend-model-service-bot@users.noreply.github.com"
-
-      - name: Run autofix composite
-        id: autofix
-        uses: ./.github/actions/autofix
-
-      - name: Commit changes (same-repo)
-        if: steps.autofix.outputs.changed == 'true' && needs.context.outputs.same_repo == 'true'
-        run: |
-          git add -A
-          git commit -m "${COMMIT_PREFIX} apply small fixes"
-
-      - name: Push changes (same-repo)
-        if: steps.autofix.outputs.changed == 'true' && needs.context.outputs.same_repo == 'true'
-        run: |
-          git push origin HEAD:${{ needs.context.outputs.head_ref }}
-
-      - name: Create patch artifact (fork)
-        if: steps.autofix.outputs.changed == 'true' && needs.context.outputs.same_repo != 'true'
-        run: |
-          git add -A || true
-          git commit -m "${COMMIT_PREFIX} apply small fixes (patch)" || true
-          git format-patch -1 --stdout > small-autofix.patch
-
-      - name: Upload patch artifact (fork)
-        if: steps.autofix.outputs.changed == 'true' && needs.context.outputs.same_repo != 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: small-autofix-pr-${{ needs.context.outputs.pr }}
-          path: small-autofix.patch
-
-      - name: Label PR (autofix applied)
-        if: steps.autofix.outputs.changed == 'true' && needs.context.outputs.same_repo == 'true'
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.SERVICE_BOT_PAT || github.token }}
-          script: |
-            const pr = Number('${{ needs.context.outputs.pr }}');
-            const label = process.env.APPLIED_LABEL || 'autofix:applied';
-            try {
-              await github.rest.issues.addLabels({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr, labels: [label] });
-            } catch (error) {
-              core.warning(`Failed to add label: ${error.message}`);
-            }
-
+          head_ref: ${{ needs.context.outputs.head_ref }}
+          same_repo: ${{ needs.context.outputs.same_repo }}
+          pat_available: ${{ needs.context.outputs.pat_available }}
+          pr: ${{ needs.context.outputs.pr }}
+          commit_prefix: ${{ env.COMMIT_PREFIX }}
+          applied_label: ${{ env.APPLIED_LABEL }}
+          changed: ${{ steps.autofix.outputs.changed }}
+          service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
+          github_token: ${{ github.token }}
       - name: Manage clean/debt labels
         if: needs.context.outputs.same_repo == 'true'
         uses: actions/github-script@v7
