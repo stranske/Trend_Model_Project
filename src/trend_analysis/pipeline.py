@@ -674,13 +674,30 @@ def compute_signal(
     window: int = 3,
     min_periods: int | None = None,
 ) -> pd.Series:
-    """Return a trailing rolling-mean signal that is shift-safe.
+    """
+    Return a trailing rolling-mean signal that is shift-safe.
 
     The returned signal is *explicitly* shifted by one period so the value at
-    index ``t`` only depends on data strictly before ``t``.  This avoids the
+    index ``t`` only depends on data strictly before ``t``. This avoids the
     classic off-by-one bug where the latest observation leaks into the
     decision made at the same timestamp, which would introduce look-ahead
     bias in downstream portfolio simulations.
+
+    Args:
+        df (pd.DataFrame): Input DataFrame containing the data.
+        column (str, optional): Name of the column to compute the signal from.
+            Defaults to "returns".
+        window (int, optional): Size of the trailing window for the rolling mean.
+            Must be positive. Defaults to 3.
+        min_periods (int or None, optional): Minimum number of observations in window
+            required to have a value (otherwise result is NaN). If None, defaults to
+            the value of `window`.
+
+    Returns:
+        pd.Series: A float Series containing the trailing rolling mean of the specified
+            column, shifted by one period. The Series is named "<column>_signal" unless
+            the input column has a name. NaN values appear for the first `min_periods`
+            rows (or until enough data is available). The dtype is float.
     """
 
     if column not in df.columns:
