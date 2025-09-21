@@ -376,8 +376,6 @@ jobs:
             const { data } = await github.rest.actions.listJobsForWorkflowRun({ owner, repo, run_id, per_page: 100 });
             const rows = data.jobs.map(j => `| ${j.name} | ${j.conclusion || j.status} | [logs](${j.html_url}) |`);
             const failed = data.jobs.filter(j => !['success','skipped'].includes((j.conclusion || '').toLowerCase())).map(j => j.name);
-            // Count failing test jobs (heuristic: name contains 'test' case-insensitive)
-            const failingTestJobs = failed.filter(n => /test/i.test(n));
             let explanation = '';
             if (failed.length) {
               explanation = `\n> ❗ ${failed.length} job(s) did not succeed: ${failed.join(', ')}.`;

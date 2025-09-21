@@ -50,6 +50,29 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
 
+      - name: Guard against loops (Issue #1347)
+        id: guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          skip=false
+          if [ "${{ github.actor }}" = "github-actions" ] || [ "${{ github.actor }}" = "github-actions[bot]" ]; then
+            head_msg="$(git log -1 --pretty=%s 2>/dev/null || echo '')"
+            head_msg_lc=$(printf '%s' "$head_msg" | tr '[:upper:]' '[:lower:]')
+            prefix_lc=$(printf '%s' "${{ inputs.commit_prefix }}" | tr '[:upper:]' '[:lower:]')
+            if [ -n "$prefix_lc" ]; then
+              msg_prefix=$(printf '%.*s' "${#prefix_lc}" "$head_msg_lc")
+              if [ "$msg_prefix" = "$prefix_lc" ]; then
+                echo "[autofix] Skipping: detected prior autofix commit (${head_msg})"
+                skip=true
+              fi
+            fi
+          fi
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+          if [ "$skip" = "true" ]; then
+            exit 0
+          fi
+
       - name: Detect same-repo PR
         if: steps.guard.outputs.skip != 'true'
         id: same_repo
