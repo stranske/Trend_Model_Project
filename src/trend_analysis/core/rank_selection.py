@@ -259,8 +259,8 @@ def make_window_key(
 
 def get_window_metric_bundle(window_key: WindowKey) -> WindowMetricBundle | None:
     """Return the cached bundle for *window_key* if present."""
-
-    global _SELECTOR_CACHE_HITS, _SELECTOR_CACHE_MISSES
+    # Declare globals because we mutate (_SELECTOR_CACHE_HITS += 1) below.
+    global _SELECTOR_CACHE_HITS
 
     bundle = _WINDOW_METRIC_BUNDLES.get(window_key)
     if bundle is None:
