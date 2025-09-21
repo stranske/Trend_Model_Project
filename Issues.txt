@@ -310,7 +310,7 @@ PRs request the correct owners; small lanes can auto‑merge after approval.
 
 13) Repo health nightly (lightweight)
 
-Suggested labels: workflows, devops, docs, risk:low, priority: low, agent:codex
+Suggested labels: workflows, devops, docs, risk:low, priority:low, agent:codex
 
 Why
 A tiny nightly pass catches configuration drift without enterprise bloat.
