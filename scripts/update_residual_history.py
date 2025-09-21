@@ -6,7 +6,10 @@ Outputs:
   - ci/autofix/history.json (list of snapshots)
 """
 from __future__ import annotations
-import json, time, pathlib
+
+import json
+import pathlib
+import time
 
 report_path = pathlib.Path("autofix_report_enriched.json")
 hist_path = pathlib.Path("ci/autofix/history.json")
