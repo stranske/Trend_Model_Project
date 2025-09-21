@@ -37,7 +37,10 @@ def test_run_schedule_with_rebalance_strategies(
         def __init__(self) -> None:
             self.updates: list[tuple[pd.Series, int]] = []
 
-        def weight(self, selected: pd.DataFrame) -> pd.DataFrame:
+        def weight(
+            self, selected: pd.DataFrame, date: pd.Timestamp | None = None
+        ) -> pd.DataFrame:
+            del date
             weights = selected["score"].astype(float)
             weights = weights / weights.sum()
             return pd.DataFrame({"weight": weights})

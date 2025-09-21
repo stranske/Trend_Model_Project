@@ -122,7 +122,10 @@ def test_run_schedule_invokes_update_and_fast_turnover(
         def __init__(self) -> None:
             self.updates: list[tuple[pd.Series, int]] = []
 
-        def weight(self, selected: pd.DataFrame) -> pd.DataFrame:
+        def weight(
+            self, selected: pd.DataFrame, date: pd.Timestamp | None = None
+        ) -> pd.DataFrame:
+            del date
             weights = pd.Series(1.0 / len(selected), index=selected.index, dtype=float)
             return weights.to_frame("weight")
 

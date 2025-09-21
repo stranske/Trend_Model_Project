@@ -181,7 +181,7 @@ jobs:
         run: |
           import json, glob, os, math
           totals=[]; hotspots=[]
-          for jf in glob.glob('**/coverage.json', recursive=True):
+          for jf in glob.glob('coverage.json'):
               with open(jf,'r') as fh:
                   data=json.load(fh)
               t=data.get('totals', {})
@@ -237,11 +237,11 @@ jobs:
             try {
               await github.rest.issues.getLabel({owner, repo, name: label});
             } catch (error) {
-              try {
+              if (error.status === 404) {
                 await github.rest.issues.createLabel({owner, repo, name: label, color: '0e8a16'});
-              } catch (createError) {
-                core.error(`Failed to create label "${label}": ${createError.message}`);
-                throw createError;
+              } else {
+                core.error(`Failed to get label "${label}": ${error.message}`);
+                throw error;
               }
             }
             const q = `repo:${owner}/${repo} is:issue is:open in:title "${title}" label:"${label}"`;
@@ -261,5 +261,51 @@ jobs:
           echo "## Soft Coverage Gate" >> $GITHUB_STEP_SUMMARY
           cat coverage_summary.md >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Logs for this run" >> $GITHUB_STEP_SUMMARY
+          # (Per Issue #1344) Universal logs table now emitted by logs_summary job.
+          # Removed duplicate per-job logs table here to avoid redundancy.
+
+  # Universal logs summary (Issue #1344)
+  # Ensures every CI run exposes a per-job logs table in the run summary even when
+  # the soft coverage gate is disabled. Placed in its own job so it can depend on
+  # all earlier jobs completing (success, failure, or skip). We only require the
+  # mandatory 'tests' job so optional jobs (mypy, coverage_soft_gate) don't break
+  # dependency resolution when disabled or skipped. The GitHub API call enumerates
+  # ALL jobs for the workflow run, so the table naturally includes mypy / soft gate
+  # when present.
+  logs_summary:
+    if: ${{ always() }}
+    needs: [tests]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+    steps:
+      - name: Build universal job log links table
+        id: jobs
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Define job conclusion constants based on GitHub's official values
+            const JOB_CONCLUSION = {
+              SUCCESS: 'success',
+              SKIPPED: 'skipped'
+            };
+            const {owner, repo} = context.repo;
+            const run_id = context.runId;
+            const { data } = await github.rest.actions.listJobsForWorkflowRun({ owner, repo, run_id, per_page: 100 });
+            const rows = data.jobs.map(j => `| ${j.name} | ${j.conclusion || j.status} | [logs](${j.html_url}) |`);
+            const allowedConclusions = [JOB_CONCLUSION.SUCCESS, JOB_CONCLUSION.SKIPPED];
+            const failed = data.jobs
+              .filter(j => !allowedConclusions.includes((j.conclusion || '').toLowerCase()))
+              .map(j => j.name);
+            let explanation = '';
+            if (failed.length) {
+              explanation = `\n> ❗ ${failed.length} job(s) did not succeed: ${failed.join(', ')}.`;
+            } else {
+              explanation = `\n> ✅ All jobs succeeded.`;
+            }
+            const md = ["### Logs for this run","| Job | Result | Logs |","|---|---|---|",...rows, explanation].join("\n");
+            core.setOutput('table', md);
+      - name: Append logs table to summary
+        run: |
           echo "${{ steps.jobs.outputs.table }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
