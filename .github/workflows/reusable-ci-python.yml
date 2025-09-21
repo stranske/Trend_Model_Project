@@ -208,7 +208,7 @@ jobs:
               with open('coverage_summary.md','w') as w:
                   w.write('**Coverage data unavailable – see debug step output.**\n')
               # Continue (non-blocking) but set output flag
-              print('::notice ::'+msg)
+              print('::notice:: '+msg)
               sys.exit(0)
           totals=[]; hotspots=[]
           for jf in ordered:
