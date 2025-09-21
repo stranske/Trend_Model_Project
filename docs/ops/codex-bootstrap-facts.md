@@ -101,10 +101,10 @@ This catalog explains what each active workflow does, how it’s triggered, the 
 6) [`autofix.yml`](../../.github/workflows/autofix.yml) — Consolidated CI follower for hygiene + trivial failure remediation
    - Triggers: `workflow_run` for `CI` (types: `completed`)
    - Jobs:
-     - `context`: Resolves PR metadata, enforces loop guard (skip when actor is `github-actions` _and_ head commit subject starts with `chore(autofix):`), checks draft/label gating, and evaluates safe file heuristics (`AUTOFIX_MAX_FILES`, `AUTOFIX_MAX_CHANGES`, curated glob list).
+     - `context`: Resolves PR metadata, enforces loop guard (skips when actor is `github-actions` _or_ the service bot identity (e.g., `stranske-automation-bot`) _and_ head commit subject starts with `chore(autofix):`), checks draft/label gating, and evaluates safe file heuristics (`AUTOFIX_MAX_FILES`, `AUTOFIX_MAX_CHANGES`, curated glob list).
      - `small-fixes`: Runs when CI succeeded _and_ the diff stays within safe heuristics. Executes composite `.github/actions/autofix`, commits `chore(autofix): apply small fixes`, pushes with `SERVICE_BOT_PAT`, manages `autofix:clean`/`autofix:debt`, and uploads patches for fork PRs.
      - `fix-failing-checks`: Runs when CI failed but every failing job name matches lint/format/type keywords. Executes the composite, commits `chore(autofix): fix failing checks`, uploads fork patches, and labels the PR `needs-autofix-review` if no changes applied.
-   - Notes: Both jobs rely on the shared composite action and never push with `GITHUB_TOKEN`; fork flows receive patch artifacts instead.
+   - Notes: Both jobs rely on the shared composite action and never push with `GITHUB_TOKEN`; fork flows receive patch artifacts instead. The loop guard prevents runs triggered by either `github-actions` or the service bot identity when the commit subject starts with `chore(autofix):`, ensuring autofix loops are avoided.
 
 <a id="wf-ci"></a>
 7) [`ci.yml`](../../.github/workflows/ci.yml) — Test suite on pushes and PRs
