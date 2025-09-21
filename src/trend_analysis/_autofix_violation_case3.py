@@ -1,4 +1,6 @@
-from typing import *  # noqa: F403 (intentional wildcard & spacing)
+from typing import (
+    List,
+)  # explicit import; retains intentional style deviations elsewhere
 
 CONSTANT = 42  # spacing issues
 
@@ -20,16 +22,14 @@ def list_builder(values: list[int]) -> list[int]:
     return list(values)
 
 
-def ambiguous_types(
-    x: List[int], y: List[int]
-) -> List[int]:  # noqa: F405 (List from wildcard import)
+def ambiguous_types(x: List[int], y: List[int]) -> List[int]:
     """Function with partially annotated parameters to trigger typing hygiene
     checks."""
     return [i + j for i, j in zip(x, y)]
 
 
 class SomeContainer:
-    def __init__(self, data: List[int]):  # noqa: F405 spacing
+    def __init__(self, data: List[int]):  # spacing intentionally loose
         self._data = data
 
     def total(self) -> int:

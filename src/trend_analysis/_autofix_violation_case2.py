@@ -50,9 +50,8 @@ def unused_func(
     b: int,
     c: int,
 ) -> None:  # parameters intentionally unused; add mutable default below (B006)
-    data: list[int] = (
-        []
-    )  # mutable list (not default param) but harmless; keeps function non-empty
+    # Intentionally perform a trivial operation to keep function non-empty without unused variable
+    _ = (a, b, c)
     return None  # explicit return for clarity
 
 
