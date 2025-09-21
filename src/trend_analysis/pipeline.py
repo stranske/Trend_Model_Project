@@ -664,6 +664,68 @@ def run_full(cfg: Config) -> dict[str, object]:
     return {} if res is None else res
 
 
+# --- Shift-safe helpers ----------------------------------------------------
+
+
+def compute_signal(
+    df: pd.DataFrame,
+    *,
+    column: str = "returns",
+    window: int = 3,
+    min_periods: int | None = None,
+) -> pd.Series:
+    """Return a trailing rolling-mean signal that is shift-safe.
+
+    The returned signal is *explicitly* shifted by one period so the value at
+    index ``t`` only depends on data strictly before ``t``.  This avoids the
+    classic off-by-one bug where the latest observation leaks into the
+    decision made at the same timestamp, which would introduce look-ahead
+    bias in downstream portfolio simulations.
+    """
+
+    if column not in df.columns:
+        raise KeyError(column)
+    if window <= 0:
+        raise ValueError("window must be a positive integer")
+
+    base = df[column].astype(float)
+    effective_min_periods = window if min_periods is None else int(min_periods)
+    if effective_min_periods <= 0:
+        raise ValueError("min_periods must be positive")
+
+    rolling = base.rolling(window=window, min_periods=effective_min_periods).mean()
+    signal = rolling.shift(1)
+    signal.name = getattr(base, "name", None) or f"{column}_signal"
+    return signal
+
+
+def position_from_signal(
+    signal: pd.Series,
+    *,
+    long_position: float = 1.0,
+    short_position: float = -1.0,
+    neutral_position: float = 0.0,
+) -> pd.Series:
+    """Convert a trading signal into positions using only past information."""
+
+    if signal.empty:
+        return signal.astype(float)
+
+    values = signal.astype(float).to_numpy()
+    positions = np.empty_like(values, dtype=float)
+    current = float(neutral_position)
+
+    for idx, value in enumerate(values):
+        if np.isnan(value) or value == 0.0:
+            positions[idx] = current
+            continue
+        current = float(long_position if value > 0.0 else short_position)
+        positions[idx] = current
+
+    out = pd.Series(positions, index=signal.index, name="position")
+    return out
+
+
 # Export alias for backward compatibility
 Stats = _Stats
 
@@ -674,6 +736,8 @@ __all__ = [
     "run_analysis",
     "run",
     "run_full",
+    "compute_signal",
+    "position_from_signal",
 ]
 
 
