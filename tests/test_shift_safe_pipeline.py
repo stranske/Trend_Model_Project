@@ -63,7 +63,7 @@ def test_compute_signal_only_uses_past_data(returns):
     signal = compute_signal(df, window=3)
 
     for idx, value in enumerate(signal.to_numpy()):
-        history = df["returns"].iloc[max(0, idx - 3) : idx]
+        history = df["returns"].iloc[max(0, idx - 2) : idx + 1]
         if len(history) < 3:
             assert math.isnan(value)
             continue
