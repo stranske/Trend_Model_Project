@@ -195,6 +195,7 @@ jobs:
           import glob, json, os, sys
 
           HOTSPOT_LIMIT = 15
+          LOW_COVERAGE_THRESHOLD = 50.0  # Files below this percent get an explicit highlight table
           candidates = sorted(set(glob.glob('coverage-*.json') + glob.glob('**/coverage.json', recursive=True)))
           # Filter out duplicate same-path entries
           seen=set(); ordered=[]
@@ -244,6 +245,17 @@ jobs:
               lines.append(f"| `{f}` | {fpct:.1f}% |")
           if len(lines)==4:
               lines.append('| *(no files parsed)* | — |')
+          # Low coverage spotlight (below threshold) – reuse already sorted hotspot list
+          low_cov=[(p,f) for p,f in hotspots if p < LOW_COVERAGE_THRESHOLD]
+          if low_cov:
+              lines.append("")
+              lines.append(f"#### Low Coverage (<{LOW_COVERAGE_THRESHOLD:.0f}% )")
+              lines.append("| File | % covered |")
+              lines.append("|---|---:|")
+              for p,f in low_cov[:HOTSPOT_LIMIT]:  # cap separately to avoid huge tables
+                  lines.append(f"| `{f}` | {p:.1f}% |")
+              if len(low_cov) > HOTSPOT_LIMIT:
+                  lines.append(f"| *(+{len(low_cov)-HOTSPOT_LIMIT} more below {LOW_COVERAGE_THRESHOLD:.0f}% – truncated)* |")
           with open('coverage_summary.md','w') as w:
               w.write("\n".join(lines)+"\n")
           print('\n'.join(lines[:6])+'\n...')
