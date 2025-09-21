@@ -153,8 +153,18 @@ End‑to‑end lifecycle for automation bootstrapped contributions:
 Troubleshooting: If branch/PR not created, verify the label `codex-ready`, permissions for `GITHUB_TOKEN` (write), and absence of conflicting existing branch name.
 
 ---
-## 7.3 Coverage Soft Gate (Issue #1351)
+## 7.3 Coverage Soft Gate (Issues #1351, #1352)
 Purpose: Provide early visibility of coverage / hotspot data without failing PRs.
+
+Implemented follow-ups (Issue #1352):
+- Normalized artifact naming: `coverage-<python-version>` (e.g. `coverage-3.11`).
+- Consistent file set per matrix job: `coverage.xml`, `coverage.json`, `htmlcov/**`, `pytest-junit.xml`, `pytest-report.xml`.
+- Retention window input `coverage-artifact-retention-days` has a default value of 10.
+  This default is chosen to fall within the recommended 7–14 day observation horizon, allowing reviewers to compare multiple consecutive runs without long-term storage bloat.
+  Adjust as needed; it is suggested to keep the retention window within 7–14 days unless you are auditing longer-term trends.
+- Single canonical coverage tracking issue auto-updated with summary + hotspots + job log links.
+- Run Summary includes a single "Soft Coverage Gate" section (job log table de-duplicated into universal logs job).
+- Trend artifacts shipped: `coverage-trend.json` (single run) and cumulative `coverage-trend-history.ndjson` (history) for longitudinal analysis.
 
 Activation (consumer of `reusable-ci-python.yml`):
 ```yaml
@@ -162,12 +172,14 @@ with:
   enable-soft-gate: 'true'
 ```
 Outputs:
-- Run Summary section: "Coverage Soft Gate" with overall % (avg, worst) and hotspot list.
-- Artifacts: `coverage.xml` (raw), any generated per-lane reports. (Trend artifact optional – see future enhancements.)
-- Canonical Issue updates: If configured, the job appends run metrics to a designated coverage tracking Issue (see workflow inputs `coverage_issue_number`).
+- Run Summary section: "Soft Coverage Gate" with average coverage (across matrix), worst job, and top 15 lowest-covered files (hotspots).
+- Artifacts (per Python version): `coverage-<ver>` bundle (xml/json/htmlcov + JUnit variants) retained N days (default 10).
+- Aggregated artifacts: `coverage-trend` (JSON for this run), `coverage-trend-history` (NDJSON accumulating all runs).
+- Canonical coverage Issue comment (create-or-update) containing run link, summary, hotspots, and job log links (deduped from summary table).
 
-Behavior: Non‑blocking (always succeeds). If parsing errors occur, job emits a warning and skips posting instead of failing.
-Hotspots: Derived by scanning per‑file coverage under threshold; sorted descending by uncovered lines.
+Behavior: Non‑blocking (always succeeds). Parsing failures degrade gracefully (warning + skip) to avoid blocking unrelated PR progress.
+Hotspots: Sorted ascending by percent covered (lowest coverage first) limited to 15 entries for scannability.
+Retention Guidance: Use 7–14 days. Shorter (<7 days) risks losing comparison context for slower review cycles; longer (>14 days) increases storage without materially improving triage.
 
 ---
 ## 7.4 Universal Logs Summary (Issue #1351)
@@ -249,17 +261,17 @@ _Last updated: 2025-09-19 (Issue #1205)_
 Planned / optional improvements under consideration:
 | Enhancement | Status | Notes |
 |-------------|--------|-------|
-| Coverage trend artifact (JSON) | Planned | Would store last N run stats for trend charting |
-| Coverage trend history (NDJSON) | Implemented | `coverage-trend-history` artifact accumulates per-run records |
-| Centralized autofix commit prefix constant | Planned | Reduce drift; single env var reused across workflows |
-| Failing test count in logs summary | Planned | Surface # of failing test jobs inline |
+| Coverage trend artifact (JSON) | Implemented | `coverage-trend` provides run-level stats (Issue #1352) |
+| Coverage trend history (NDJSON) | Implemented | `coverage-trend-history` accumulates per-run records |
+| Centralized autofix commit prefix constant | Implemented | Standardized on `ci: autofix` env-configurable (Issue #1347) |
+| Failing test count in logs summary | Implemented | Universal logs job appends count inline |
 
 TODO (wrapper removal): After branch protection flips to require the gate job, remove `ci.yml` (see 7.5) and delete this TODO line.
 
 Adopt individually; update sections 7.3 / 7.4 when shipped.
 
 ---
-_Addendum (Issue #1351): CI topology, kickoff flow, soft gate, logs summary, and migration plan documented. Wrapper removal pending future protection flip._
+_Addendum (Issues #1351, #1352): CI topology, kickoff flow, soft gate, logs summary, coverage artifact normalization, trend history, and migration plan documented. Wrapper removal pending future protection flip._
 
 ---
 ## 12. Agent Readiness Enhancements (Issue #1220)
