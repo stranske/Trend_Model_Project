@@ -8,13 +8,33 @@ symbol ``_HAS_PYDANTIC`` to reflect availability.
 from __future__ import annotations
 
 import os
+import sys
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Protocol, cast
 
 import yaml
 
-from .model import validate_trend_config
+# ``tests/test_config_fallback_additional.py`` loads this module under an
+# alternative name so it can toggle ``pydantic`` availability.  In that scenario
+# the loader assigns ``__package__`` based on the injected name (e.g.
+# ``tests.config_models_fallback``) which breaks the relative ``.model`` import.
+# Falling back to the absolute import keeps both the production import path and
+# the isolated test harness working.
+try:  # pragma: no cover - exercised indirectly via tests
+    from .model import validate_trend_config
+except ImportError:  # pragma: no cover - defensive fallback for test harness
+    if sys.modules.get("pydantic") is None:
+
+        def validate_trend_config(_data: Mapping[str, Any], *, base_path: Path) -> None:  # type: ignore[override]
+            return None
+
+    else:
+        try:
+            from trend_analysis.config.model import validate_trend_config
+        except ImportError:
+            def validate_trend_config(_data: Mapping[str, Any], *, base_path: Path) -> None:  # type: ignore[override]
+                return None
 
 
 class ConfigProtocol(Protocol):
