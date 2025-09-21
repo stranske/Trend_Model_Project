@@ -3,8 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-import yaml
 
+import yaml
 from trend_analysis.config import TrendConfig, load_trend_config
 
 
@@ -42,7 +42,9 @@ def test_load_trend_config_defaults() -> None:
     assert isinstance(cfg, TrendConfig)
 
 
-def test_load_trend_config_env_override(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_load_trend_config_env_override(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     csv_file = tmp_path / "returns.csv"
     csv_file.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
     cfg_path = _write_config(tmp_path, csv_file)

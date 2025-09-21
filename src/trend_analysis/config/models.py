@@ -14,7 +14,7 @@ from typing import Any, ClassVar, Dict, List, Protocol, cast
 
 import yaml
 
-from .model import TrendConfig, validate_trend_config
+from .model import validate_trend_config
 
 
 class ConfigProtocol(Protocol):
