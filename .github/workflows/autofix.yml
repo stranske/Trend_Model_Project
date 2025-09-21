@@ -286,6 +286,115 @@ jobs:
               core.warning(`Label management warning: ${error.message}`);
             }
 
+      - name: Update residual history (same-repo)
+        if: needs.context.outputs.same_repo == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f autofix_report_enriched.json ]; then
+            echo "[autofix] No enriched report found; skipping residual history update.";
+            exit 0;
+          fi
+          if [ -f scripts/update_residual_history.py ]; then
+            python scripts/update_residual_history.py || echo "[autofix] Residual history update failed";
+          else
+            echo "[autofix] scripts/update_residual_history.py not present; skipping";
+          fi
+          if [ -f ci/autofix/history.json ] && [ -s ci/autofix/history.json ] && jq empty ci/autofix/history.json >/dev/null 2>&1; then
+            echo "[autofix] Prepared ci/autofix/history.json artifact";
+          else
+            echo "[autofix] history.json missing or invalid; removing";
+            rm -f ci/autofix/history.json || true;
+          fi
+
+      - name: Upload autofix history artifact (same-repo)
+        if: needs.context.outputs.same_repo == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: autofix-history-pr-${{ needs.context.outputs.pr }}
+          path: ci/autofix/history.json
+          if-no-files-found: ignore
+
+      - name: Generate trend sparkline (same-repo)
+        if: needs.context.outputs.same_repo == 'true'
+        shell: bash
+        run: |
+          if [ -f scripts/generate_residual_trend.py ]; then python scripts/generate_residual_trend.py || true; fi
+          if [ -f ci/autofix/trend.json ]; then echo "Trend:"; cat ci/autofix/trend.json; fi
+
+      - name: Build consolidated PR comment (same-repo)
+        if: needs.context.outputs.same_repo == 'true'
+        uses: ./.github/actions/build-pr-comment
+        with:
+          output: autofix_pr_comment.md
+      - name: Upsert consolidated PR comment (same-repo)
+        if: needs.context.outputs.same_repo == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- autofix-status: DO NOT EDIT -->';
+            const body = fs.readFileSync('autofix_pr_comment.md', 'utf8');
+            const pr = Number('${{ needs.context.outputs.pr }}');
+            const comments = await github.paginate(github.rest.issues.listComments, { owner: context.repo.owner, repo: context.repo.repo, issue_number: pr, per_page: 100 });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body });
+              core.info('Updated existing autofix status comment.');
+            } else {
+              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr, body });
+              core.info('Created new autofix status comment.');
+            }
+
+      - name: Emit JSON report
+        if: always()
+        shell: bash
+        env:
+          PR_NUMBER: ${{ needs.context.outputs.pr }}
+          CHANGED: ${{ steps.apply.outputs.changed }}
+          REMAINING: ${{ steps.apply.outputs.remaining_issues }}
+          NEW_ISSUES: ${{ steps.apply.outputs.new_issues }}
+        run: |
+          set -euo pipefail
+          ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          if [ -f autofix_report_enriched.json ]; then
+            python -c "import json,os;from datetime import datetime,timezone as TZ;meta={'pull_request':os.environ.get('PR_NUMBER'),'timestamp_utc':datetime.now(TZ.utc).strftime('%Y-%m-%dT%H:%M:%SZ')};\nimport pathlib;\ntry: data=json.load(open('autofix_report_enriched.json'));\nexcept Exception: data={};\nif isinstance(data, dict): data.update(meta);\nelse: data={'meta':meta,'raw':data};\njson.dump(data, open('autofix_report.json','w'), indent=2, sort_keys=True)" || printf '{\n  "error": "merge_failed"\n}\n' > autofix_report.json
+          else
+            printf '{\n  "changed": "%s",\n  "remaining_issues": "%s",\n  "new_issues": "%s",\n  "pull_request": "%s",\n  "timestamp_utc": "%s"\n}\n' \
+              "${CHANGED}" \
+              "${REMAINING}" \
+              "${NEW_ISSUES}" \
+              "${PR_NUMBER}" \
+              "$ts" > autofix_report.json
+          echo "Enriched report ready."
+
+      - name: Upload JSON report
+        uses: actions/upload-artifact@v4
+        with:
+          name: autofix-report-pr-${{ needs.context.outputs.pr }}
+          path: autofix_report.json
+
+      - name: Comment with patch instructions (fork)
+        if: needs.context.outputs.same_repo != 'true' && steps.apply.outputs.changed == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const pr = Number('${{ needs.context.outputs.pr }}');
+            const headRef = '${{ needs.context.outputs.head_ref }}';
+            const body = [
+              'I generated an autofix patch for this fork PR.',
+              '',
+              'How to apply locally:',
+              '1. Download the artifact "autofix-patch-pr-' + pr + '" from the Actions run.',
+              '2. In your repo root, run:',
+              '   git am < autofix.patch',
+              '3. Push the changes to your PR branch:',
+              '   git push origin HEAD:' + headRef,
+            ].join('\n');
+            await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr, body });
+
       - name: Summary
         if: always()
         run: |
@@ -294,6 +403,9 @@ jobs:
           echo "Files considered: ${{ needs.context.outputs.file_count }} (safe paths: ${{ needs.context.outputs.safe_paths }})" >> "$GITHUB_STEP_SUMMARY"
           echo "Changes applied: ${{ steps.apply.outputs.changed }}" >> "$GITHUB_STEP_SUMMARY"
           echo "Remaining ruff issues: ${{ steps.apply.outputs.remaining_issues }}" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.apply.outputs.changed }}" = "true" ] && [ "${{ needs.context.outputs.same_repo }}" != "true" ]; then
+            echo "Patch artifact: autofix-patch-pr-${{ needs.context.outputs.pr }}" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
   fix-failing-checks:
     name: Fix failing checks
@@ -344,6 +456,99 @@ jobs:
               core.warning(`Failed to add label: ${error.message}`);
             }
 
+      - name: Update residual history (same-repo)
+        if: needs.context.outputs.same_repo == 'true'
+        uses: ./.github/actions/update-residual-history
+
+      - name: Upload autofix history artifact (same-repo)
+        if: needs.context.outputs.same_repo == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: autofix-history-pr-${{ needs.context.outputs.pr }}
+          path: ci/autofix/history.json
+          if-no-files-found: ignore
+
+      - name: Generate trend sparkline (same-repo)
+        if: needs.context.outputs.same_repo == 'true'
+        shell: bash
+        run: |
+          if [ -f scripts/generate_residual_trend.py ]; then python scripts/generate_residual_trend.py || true; fi
+          if [ -f ci/autofix/trend.json ]; then echo "Trend:"; cat ci/autofix/trend.json; fi
+
+      - name: Build consolidated PR comment (same-repo)
+        if: needs.context.outputs.same_repo == 'true'
+        uses: ./.github/actions/build-consolidated-pr-comment
+        with:
+          output: autofix_pr_comment.md
+
+      - name: Upsert consolidated PR comment (same-repo)
+        if: needs.context.outputs.same_repo == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- autofix-status: DO NOT EDIT -->';
+            const body = fs.readFileSync('autofix_pr_comment.md', 'utf8');
+            const pr = Number('${{ needs.context.outputs.pr }}');
+            const comments = await github.paginate(github.rest.issues.listComments, { owner: context.repo.owner, repo: context.repo.repo, issue_number: pr, per_page: 100 });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body });
+              core.info('Updated existing autofix status comment.');
+            } else {
+              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr, body });
+              core.info('Created new autofix status comment.');
+            }
+
+      - name: Emit JSON report
+        if: always()
+        shell: bash
+        env:
+          PR_NUMBER: ${{ needs.context.outputs.pr }}
+          CHANGED: ${{ steps.autofix.outputs.changed }}
+          REMAINING: ${{ steps.autofix.outputs.remaining_issues }}
+          NEW_ISSUES: ${{ steps.autofix.outputs.new_issues }}
+        run: |
+          set -euo pipefail
+          ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          if [ -f autofix_report_enriched.json ]; then
+            python -c "import json,os;from datetime import datetime,timezone as TZ;meta={'pull_request':os.environ.get('PR_NUMBER'),'timestamp_utc':datetime.now(TZ.utc).strftime('%Y-%m-%dT%H:%M:%SZ')};\nimport pathlib;\ntry: data=json.load(open('autofix_report_enriched.json'));\nexcept Exception: data={};\nif isinstance(data, dict): data.update(meta);\nelse: data={'meta':meta,'raw':data};\njson.dump(data, open('autofix_report.json','w'), indent=2, sort_keys=True)" || printf '{\n  "error": "merge_failed"\n}\n' > autofix_report.json
+          else
+            printf '{\n  "changed": "%s",\n  "remaining_issues": "%s",\n  "new_issues": "%s",\n  "pull_request": "%s",\n  "timestamp_utc": "%s"\n}\n' \
+              "${CHANGED}" \
+              "${REMAINING}" \
+              "${NEW_ISSUES}" \
+              "${PR_NUMBER}" \
+              "$ts" > autofix_report.json
+          echo "Enriched report ready."
+
+      - name: Upload JSON report
+        uses: actions/upload-artifact@v4
+        with:
+          name: autofix-report-pr-${{ needs.context.outputs.pr }}
+          path: autofix_report.json
+
+      - name: Comment with patch instructions (fork)
+        if: needs.context.outputs.same_repo != 'true' && steps.autofix.outputs.changed == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const pr = Number('${{ needs.context.outputs.pr }}');
+            const headRef = '${{ needs.context.outputs.head_ref }}';
+            const body = [
+              'I generated an autofix patch for this fork PR.',
+              '',
+              'How to apply locally:',
+              '1. Download the artifact "autofix-patch-pr-' + pr + '" from the Actions run.',
+              '2. In your repo root, run:',
+              '   git am < autofix.patch',
+              '3. Push the changes to your PR branch:',
+              '   git push origin HEAD:' + headRef,
+            ].join('\n');
+            await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr, body });
+
       - name: Summary
         if: always()
         run: |
@@ -352,3 +557,6 @@ jobs:
           echo "Failing jobs: ${{ needs.context.outputs.failing_jobs }}" >> "$GITHUB_STEP_SUMMARY"
           echo "Changes applied: ${{ steps.autofix.outputs.changed }}" >> "$GITHUB_STEP_SUMMARY"
           echo "Remaining ruff issues: ${{ steps.autofix.outputs.remaining_issues }}" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.autofix.outputs.changed }}" = "true" ] && [ "${{ needs.context.outputs.same_repo }}" != "true" ]; then
+            echo "Patch artifact: autofix-patch-pr-${{ needs.context.outputs.pr }}" >> "$GITHUB_STEP_SUMMARY"
+          fi
