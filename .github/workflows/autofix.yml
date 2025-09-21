@@ -12,8 +12,8 @@ permissions:
   actions: read
 
 concurrency:
-  group: autofix-${{ github.event.workflow_run.id }}
-  cancel-in-progress: false
+  group: autofix-pr-${{ needs.context.outputs.pr }}
+  cancel-in-progress: true
 
 env:
   COMMIT_PREFIX: 'chore(autofix):'
