@@ -75,14 +75,28 @@ jobs:
           if [ "${RUN_QUAR}" != "true" ]; then
             MARK_EXPR="not quarantine and not slow"
           fi
+          # Soft gate mode: remove --cov-fail-under hard enforcement; gather rich reports
           pytest -m "$MARK_EXPR" \
             --reruns 1 --reruns-delay 1 \
-            --cov=src --cov-report=term-missing --cov-fail-under=${COV_MIN} --cov-branch
+            --cov=src --cov-report=term-missing:skip-covered \
+            --cov-report=xml --cov-report=json --cov-report=html \
+            --cov-branch \
+            --junitxml=pytest-report.xml || TEST_EXIT=$? ; TEST_EXIT=${TEST_EXIT:-0}; echo "Tests exit code: $TEST_EXIT"; exit $TEST_EXIT
       - name: Extract coverage
         id: cov_out
         run: |
           pct=$(grep -Eo 'TOTAL.+ [0-9]+%' <(coverage report 2>/dev/null || true) | awk '{print $NF}' | tr -d '%') || true
           echo "cov=${pct}" >> $GITHUB_OUTPUT
+      - name: Upload coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.py }}
+          path: |
+            coverage.xml
+            coverage.json
+            htmlcov/**
+            pytest-report.xml
       - name: Summary
         if: always()
         run: |
@@ -125,6 +139,99 @@ jobs:
             }
             await github.rest.issues.updateComment({ owner, repo, comment_id: target.id, body });
             core.info('Updated unified status comment with test results.');
+
+    coverage-soft-gate:
+      name: coverage soft gate (issue & summary)
+      runs-on: ubuntu-latest
+      needs: [core-tests]
+      if: always()
+      permissions:
+        contents: read
+        issues: write
+        actions: read
+      steps:
+        - name: Download coverage artifacts
+          uses: actions/download-artifact@v4
+          with:
+            pattern: coverage-*
+            merge-multiple: true
+        - name: Compute coverage summary & hotspots
+          id: cov
+          shell: python
+          run: |
+            import json, glob, os, textwrap
+            totals=[]; file_rows=[]
+            # Each coverage.json may include file-level data
+              # Collect percent per file and job-level aggregate
+            for jf in glob.glob('coverage.json'):
+                data=json.load(open(jf))
+                t=data.get('totals',{})
+                pct=float(t.get('percent_covered') or t.get('percent_covered_display') or 0)
+                if pct>0: totals.append(pct)
+                files=(data.get('files') or {})
+                for f, meta in files.items():
+                    s=meta.get('summary',{})
+                    fpct=float(s.get('percent_covered') or s.get('percent_covered_display') or 0)
+                    file_rows.append((fpct,f))
+            file_rows.sort(key=lambda x:x[0])
+            hotspots=file_rows[:15]
+            avg=round(sum(totals)/len(totals),2) if totals else 0.0
+                # worst per-job coverage approximated by min
+            worst=round(min(totals),2) if totals else 0.0
+            with open('coverage_summary.md','w') as w:
+                w.write(f"**Coverage (avg across jobs): {avg}% | worst job: {worst}%**\n\n")
+                w.write('| File | % covered |\n|---|---:|\n')
+                for fpct,f in hotspots:
+                    w.write(f'| `{f}` | {fpct:.1f}% |\n')
+            print(open('coverage_summary.md').read())
+        - name: Build job log links table
+          id: jobs
+          uses: actions/github-script@v7
+          with:
+            script: |
+              const { owner, repo } = context.repo;
+              const run_id = context.runId;
+              const { data } = await github.rest.actions.listJobsForWorkflowRun({ owner, repo, run_id, per_page: 100 });
+              const rows = data.jobs.map(j => `| ${j.name} | ${j.conclusion || j.status} | [logs](${j.html_url}) |`);
+              const md = ["### Logs for this run","| Job | Result | Logs |","|---|---|---|",...rows].join("\n");
+              core.setOutput('table', md);
+        - name: Create or update coverage issue
+          id: issue
+          uses: actions/github-script@v7
+          env:
+            TABLE: ${{ steps.jobs.outputs.table }}
+          with:
+            script: |
+              const { owner, repo } = context.repo;
+              const title = 'Increase test coverage (soft gate)';
+              const label = 'tech:coverage';
+              const runUrl = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`;
+              const summary = require('fs').readFileSync('coverage_summary.md','utf8');
+              const logsTable = process.env.TABLE || '';
+              // Ensure label exists
+              try { await github.rest.issues.getLabel({ owner, repo, name: label }); } catch { await github.rest.issues.createLabel({ owner, repo, name: label, color: '31a2bf' }); }
+              // Find existing issue
+              const search = await github.rest.search.issuesAndPullRequests({ q: `repo:${owner}/${repo} is:issue "${title}" in:title state:open` });
+              let bodySection = `\n---\n### Run ${new Date().toISOString()}\n${summary}\n${logsTable}\n[Workflow run](${runUrl})`;
+              if (search.data.items.length) {
+                const issue = search.data.items[0];
+                const current = (await github.rest.issues.get({ owner, repo, issue_number: issue.number })).data.body || '';
+                const updated = current + bodySection;
+                await github.rest.issues.update({ owner, repo, issue_number: issue.number, body: updated });
+                core.setOutput('issue_number', issue.number);
+                core.info(`Updated coverage issue #${issue.number}`);
+              } else {
+                const created = await github.rest.issues.create({ owner, repo, title, body: `Tracking test coverage hotspots.\n${bodySection}`, labels: [label] });
+                core.setOutput('issue_number', created.data.number);
+                core.info(`Created coverage issue #${created.data.number}`);
+              }
+        - name: Append run summary
+          if: always()
+          run: |
+            echo "### Coverage Soft Gate" >> $GITHUB_STEP_SUMMARY
+            cat coverage_summary.md >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "${{ steps.jobs.outputs.table }}" >> $GITHUB_STEP_SUMMARY
   remove-green-on-fail:
     name: strip ci:green on failure
     runs-on: ubuntu-latest
