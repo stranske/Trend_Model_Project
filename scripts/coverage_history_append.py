@@ -22,7 +22,7 @@ def load_existing(path: Path) -> list[dict]:
                 continue
             try:
                 records.append(json.loads(line))
-            except Exception:
+            except json.JSONDecodeError:
                 # Skip corrupt lines but keep file usable
                 continue
     return records
