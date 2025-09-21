@@ -128,9 +128,9 @@ class DataSettings(BaseModel):
 class PortfolioSettings(BaseModel):
     """Portfolio controls validated before running analyses."""
 
-    rebalance_calendar: str = Field(alias="rebalance_calendar")
-    max_turnover: float = Field(alias="max_turnover")
-    transaction_cost_bps: float = Field(alias="transaction_cost_bps")
+    rebalance_calendar: str
+    max_turnover: float
+    transaction_cost_bps: float
 
     model_config = ConfigDict(extra="ignore")
 
