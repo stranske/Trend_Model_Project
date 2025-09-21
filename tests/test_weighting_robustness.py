@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pandas as pd
 import pytest
-
-from typing import Any
 
 from trend_analysis.weights.equal_risk_contribution import EqualRiskContribution
 from trend_analysis.weights.hierarchical_risk_parity import HierarchicalRiskParity
@@ -185,7 +185,9 @@ class TestRobustMeanVariance:
         with pytest.raises(ValueError):
             engine.weight(cov)
 
-    def test_condition_number_returns_infinity_without_positive_eigenvalues(self) -> None:
+    def test_condition_number_returns_infinity_without_positive_eigenvalues(
+        self,
+    ) -> None:
         engine = RobustMeanVariance(shrinkage_method="none")
         cov = np.zeros((2, 2), dtype=float)
         assert engine._check_condition_number(cov) == np.inf
