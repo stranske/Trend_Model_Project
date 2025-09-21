@@ -289,7 +289,7 @@ A single run creates multiple correct issues from a pasted spec.
 
 12) Update CODEOWNERS to current tree
 
-Suggested labels: docs, config, risk:low, priority: medium, agent:codex
+Suggested labels: docs, config, risk:low, priority:medium, agent:codex
 
 Why
 Ownership needs to match today’s paths so reviews and auto‑merge rules behave.
