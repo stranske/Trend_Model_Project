@@ -20,7 +20,9 @@ def list_builder(values: list[int]) -> list[int]:
     return list(values)
 
 
-def ambiguous_types(x, y: List[int]):  # noqa: F405 (List from wildcard import)
+def ambiguous_types(
+    x: List[int], y: List[int]
+) -> List[int]:  # noqa: F405 (List from wildcard import)
     """Function with partially annotated parameters to trigger typing hygiene
     checks."""
     return [i + j for i, j in zip(x, y)]

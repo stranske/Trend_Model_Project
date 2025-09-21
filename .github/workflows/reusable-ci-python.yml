@@ -176,42 +176,76 @@ jobs:
         with:
           pattern: coverage-*
           merge-multiple: true
+      - name: Debug coverage artifact contents (Issue #1386)
+        run: |
+          echo '== Top-level listing =='
+          ls -al . || true
+          echo ''
+          echo '== Find coverage json candidates =='
+          find . -maxdepth 2 -type f -name 'coverage*.json' -print || true
+          echo -e '\n== Show first 40 lines of each coverage json =='
+          for f in $(find . -maxdepth 2 -type f -name 'coverage*.json' | head -5); do
+            echo "--- $f ---";
+            head -40 "$f" || true;
+          done
       - name: Compute coverage summary & hotspots
         id: cov
         shell: python
         run: |
-          import glob, json
+          import glob, json, os, sys
 
           HOTSPOT_LIMIT = 15
-
+          candidates = sorted(set(glob.glob('coverage-*.json') + glob.glob('**/coverage.json', recursive=True)))
+          # Filter out duplicate same-path entries
+          seen=set(); ordered=[]
+          for c in candidates:
+              p=os.path.relpath(c)
+              if p not in seen:
+                  seen.add(p); ordered.append(p)
+          if not ordered:
+              msg = 'No coverage JSON files found (Issue #1386 diagnostics)'
+              print('[warn]', msg)
+              with open('coverage_summary.md','w') as w:
+                  w.write('**Coverage data unavailable – see debug step output.**\n')
+              # Continue (non-blocking) but set output flag
+              print('::notice:: '+msg)
+              sys.exit(0)
           totals=[]; hotspots=[]
-          for jf in glob.glob('coverage-*.json'):
-              with open(jf,'r') as fh:
-                  data=json.load(fh)
-              t=data.get('totals', {})
-              # Prefer numeric; fallback to display string
+          for jf in ordered:
+              try:
+                  with open(jf,'r') as fh:
+                      data=json.load(fh)
+              except Exception as e:
+                  print(f'[warn] Failed to parse {jf}: {e}')
+                  continue
+              t=data.get('totals', {}) or {}
               pct = t.get('percent_covered')
               if pct is None:
                   disp = t.get('percent_covered_display')
                   try: pct=float(disp) if disp is not None else 0.0
-                  except: pct=0.0
+                  except Exception: pct=0.0
               totals.append(float(pct))
               files=(data.get('files') or {})
               for fpath, meta in files.items():
-                  s=meta.get('summary', {})
+                  s=meta.get('summary', {}) or {}
                   fpct = s.get('percent_covered')
                   if fpct is None:
                       disp=s.get('percent_covered_display')
                       try: fpct=float(disp) if disp is not None else 0.0
-                      except (ValueError, TypeError): fpct=0.0
+                      except Exception: fpct=0.0
                   hotspots.append((float(fpct), fpath))
           hotspots.sort(key=lambda x: x[0])
+          if not totals:
+              print('[warn] Coverage totals list empty after parsing candidates.')
           avg= round(sum(totals)/len(totals),2) if totals else 0.0
           worst= round(min(totals),2) if totals else 0.0
           lines=[f"**Coverage (avg across jobs): {avg}% | worst job: {worst}%**", "", "| File | % covered |", "|---|---:|"]
           for fpct,f in hotspots[:HOTSPOT_LIMIT]:
               lines.append(f"| `{f}` | {fpct:.1f}% |")
-          with open('coverage_summary.md','w') as w: w.write("\n".join(lines)+"\n")
+          if len(lines)==4:
+              lines.append('| *(no files parsed)* | — |')
+          with open('coverage_summary.md','w') as w:
+              w.write("\n".join(lines)+"\n")
           print('\n'.join(lines[:6])+'\n...')
       - name: Build job log links table
         id: jobs

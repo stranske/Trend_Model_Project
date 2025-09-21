@@ -17,7 +17,7 @@ def badly_formatted_function(x: int, y: int = 5) -> int:
     return temp
 
 
-def another_func(a: List[int], b: List[int]):
+def another_func(a: List[int], b: List[int]) -> List[int]:
     result = [i + j for i, j in zip(a, b)]
     return result
 
@@ -30,6 +30,6 @@ class Demo:
 CONSTANT_VALUE = 42  # unused constant for test
 
 
-def long_line():
+def long_line() -> str:
     # Next line deliberately exceeds 120 chars to exercise any length trimming expectations (though black will wrap appropriately on reformat)
     return "This is an intentionally overly verbose string whose primary purpose is to exceed the standard enforced line length so that formatting tools act."
