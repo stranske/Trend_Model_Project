@@ -107,6 +107,22 @@ def test_load_config_rejects_invalid_type() -> None:
         models.load_config(123)  # type: ignore[arg-type]
 
 
+def test_load_config_validates_mapping_paths(tmp_path: Path) -> None:
+    """``load_config`` validates mapping inputs via the minimal model."""
+
+    csv_file = tmp_path / "returns.csv"
+    csv_file.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
+    cfg = _base_config()
+    cfg["data"] = {
+        "csv_path": str(csv_file),
+        "date_column": "Date",
+        "frequency": "M",
+    }
+
+    loaded = models.load_config(cfg)
+    assert loaded.data["csv_path"] == str(csv_file)
+
+
 def test_list_available_presets_handles_missing_directory(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
