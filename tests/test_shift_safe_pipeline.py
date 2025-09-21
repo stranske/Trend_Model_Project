@@ -45,9 +45,4 @@ def test_shift_safe_pipeline_is_causal(returns):
     for idx in range(len(df)):
         partial = df.iloc[: idx + 1]
         partial_positions = position_from_signal(compute_signal(partial, window=3))
-        assert math.isclose(
-            float(global_positions.iloc[idx]),
-            float(partial_positions.iloc[-1]),
-            rel_tol=0,
-            abs_tol=0,
-        )
+        assert float(global_positions.iloc[idx]) == float(partial_positions.iloc[-1])
