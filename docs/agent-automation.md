@@ -15,11 +15,11 @@ Issue Labeled agent:codex    ──▶ assign-to-agent.yml (issues) ──▶ se
                                                        │
 PR Opened/Updated               ──▶ label-agent-prs.yml (pull_request_target) → idempotent labeling
                                                        │
-PR (any)                        ──▶ autofix-consumer.yml (pull_request) → reusable autofix job
+PR (any)                        ──▶ autofix-consumer.yml (pull_request) → composite autofix action
                                                        │
 Failing CI / Docker / Tests     ──▶ autofix-on-failure.yml (workflow_run) → composite autofix action
                                                        │
-Issue / PR lacks Codex PR       ──▶ reuse-agents.yml (enable_watchdog) → state telemetry
+Issue / PR lacks Codex PR       ──▶ reuse-agents.yml (schedule or dispatch, watchdog enabled) → state telemetry
 ```
 
 ## Key Workflows
@@ -82,6 +82,7 @@ Idempotent: computes label delta and applies only missing labels.
 Trigger: standard `pull_request` events.
 
 Logic:
+- Thin consumer that invokes `reuse-autofix.yml` with repository-specific defaults.
 - Skips drafts unless explicitly labeled `autofix`.
 - Invokes the reusable workflow `.github/workflows/reuse-autofix.yml`, which installs pinned versions and runs ruff/black/isort/docformatter.
 - Pushes changes only if formatter produced a diff (guard via `changed` output).
@@ -95,11 +96,12 @@ Steps:
 - Commits with canonical message `chore(autofix): after failed checks` (loop guard in main autofix to avoid recursion).
 
 ### 6. `reuse-agents.yml` (watchdog mode)
-Purpose: Detect issues labeled for Codex where bootstrap PR not yet created OR gather fast telemetry.
+Purpose: Detect issues labeled for Codex where bootstrap PR not yet created OR gather fast telemetry using the consolidated agent automation workflow.
 
 Activation: Enable by setting `enable_watchdog: true` on the `reuse-agents.yml` reusable workflow consumer.
 
 Enhancements:
+- Driven by `reuse-agents.yml` with `enable_watchdog: true` (other modes disabled unless explicitly set).
 - Fast-mode: detects marker file presence to short-circuit deeper polling.
 - Provides structured outputs (`state`) such as `FOUND` or `TIMEOUT`.
 - Step summary enumerates any pending items.
@@ -118,7 +120,7 @@ Encapsulates tool installation and formatting logic:
 |-------------------|--------|---------|
 | `agent_assignment.json` | `assign-to-agent.yml` | Auditable record of assignment decisions (inputs & outputs). |
 | Step Summary tables | All major workflows | Human-readable status in Actions UI. |
-| `state` output | `reuse-agents.yml` (watchdog) | Programmatic detector for missing Codex bootstrap. |
+| `state` output | `reuse-agents.yml` (`enable_watchdog`) | Programmatic detector for missing Codex bootstrap. |
 | Marker files | Codex bootstrap job | Idempotency & external observable state via repo tree. |
 | JSON summary comment | `assign-to-agent.yml` (new) | Machine-readable evergreen comment (issue/PR) with assignment + (later) bootstrap snapshot. |
 

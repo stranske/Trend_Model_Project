@@ -125,16 +125,16 @@ Order of potential jobs (independent; may run in parallel):
 Only jobs with their enable flag set to `true` execute.
 
 ### Legacy Workflow Consolidation
-The following legacy workflows were removed in favour of input‑gated modes within `reuse-agents.yml`:
-| Legacy Workflow (removed) | Replacement Mode |
-| ------------------------- | ---------------- |
+The standalone agent probe workflows were deleted on 2025-09-21. Use the inputs below when migrating from the historical files:
+| Removed Workflow | Replacement Mode |
+| ---------------- | ---------------- |
 | `agent-readiness.yml` | `enable_readiness` |
 | `codex-preflight.yml` | `enable_preflight` |
 | `codex-bootstrap-diagnostic.yml` | `enable_diagnostic` |
 | `verify-agent-task.yml` | `enable_verify_issue` |
-| `agent-watchdog.yml` | (partially) `enable_watchdog` (full parity pending) |
+| `agent-watchdog.yml` | `enable_watchdog` |
 
-Removal completed once the stabilization window closed (Issue #1259).
+The reusable workflow now provides the single entry point for these capabilities; archive copies exist only for reference.
 
 ## 4. Adoption Guide (External Repos)
 1. Copy the three reusable files verbatim or add this repo as a submodule / template reference.

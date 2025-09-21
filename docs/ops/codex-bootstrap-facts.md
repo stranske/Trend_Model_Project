@@ -43,15 +43,15 @@ Last updated: 2025‑09‑21
 - Label Agent PRs — [`label-agent-prs.yml`](../../.github/workflows/label-agent-prs.yml) · [jump](#wf-label-agent-prs)
 - Auto-approve Agent PRs — [`autoapprove.yml`](../../.github/workflows/autoapprove.yml) · [jump](#wf-autoapprove)
 - Enable Auto-merge — [`enable-automerge.yml`](../../.github/workflows/enable-automerge.yml) · [jump](#wf-enable-automerge)
-- Autofix Consumer — [`autofix-consumer.yml`](../../.github/workflows/autofix-consumer.yml) · [jump](#wf-autofix-consumer)
+- Autofix Trivial — [`autofix-consumer.yml`](../../.github/workflows/autofix-consumer.yml) · [jump](#wf-autofix-consumer)
 - Autofix on Failure — [`autofix-on-failure.yml`](../../.github/workflows/autofix-on-failure.yml) · [jump](#wf-autofix-on-failure)
 - CI — [`ci.yml`](../../.github/workflows/ci.yml) · [jump](#wf-ci)
 - Docker — [`docker.yml`](../../.github/workflows/docker.yml) · [jump](#wf-docker)
 - Cleanup Codex Bootstrap — [`cleanup-codex-bootstrap.yml`](../../.github/workflows/cleanup-codex-bootstrap.yml) · [jump](#wf-cleanup-codex-bootstrap)
 - Quarantine TTL — [`quarantine-ttl.yml`](../../.github/workflows/quarantine-ttl.yml) · [jump](#wf-quarantine-ttl)
 - Verify Service Bot PAT — [`verify-service-bot-pat.yml`](../../.github/workflows/verify-service-bot-pat.yml) · [jump](#wf-verify-service-bot-pat)
+- Agents Automation (modes) — [`reuse-agents.yml`](../../.github/workflows/reuse-agents.yml) · [jump](#wf-reuse-agents)
 - Copilot Readiness — [`copilot-readiness.yml`](../../.github/workflows/copilot-readiness.yml) · [jump](#wf-copilot-readiness)
-- Agents Automation — [`reuse-agents.yml`](../../.github/workflows/reuse-agents.yml) · [jump](#wf-reuse-agents)
 - Guard: No‑Reuse PR Branches — [`guard-no-reuse-pr-branches.yml`](../../.github/workflows/guard-no-reuse-pr-branches.yml) · [jump](#wf-guard-no-reuse)
 - Verify Codex Bootstrap Matrix — [`verify-codex-bootstrap-matrix.yml`](../../.github/workflows/verify-codex-bootstrap-matrix.yml) · [jump](#wf-verify-codex-bootstrap-matrix)
 - Check Failure Tracker — [`check-failure-tracker.yml`](../../.github/workflows/check-failure-tracker.yml) · [jump](#wf-check-failure-tracker)
@@ -69,7 +69,7 @@ This catalog explains what each active workflow does, how it’s triggered, the 
      - Safe default-branch checkout, then calls the composite action (PAT-first)
      - Fallback path: creates branch, either invites human with compare link (invite) or opens PR (create)
      - Labels/assigns, optional `@codex start` comment, links PR back to issue
-   - Links to: `label-agent-prs.yml` (labels on PR), `reuse-agents.yml` (watchdog mode for issue-to-PR parity), and auto-merge stack (`autoapprove.yml`, `enable-automerge.yml`)
+   - Links to: `label-agent-prs.yml` (labels on PR), `reuse-agents.yml` (watchdog mode for issue-to-PR parity tracking), and auto-merge stack (`autoapprove.yml`, `enable-automerge.yml`)
 
 <a id="wf-label-agent-prs"></a>
 2) [`label-agent-prs.yml`](../../.github/workflows/label-agent-prs.yml) — Apply agent labels to PRs (keeps downstream automation deterministic)
@@ -99,13 +99,14 @@ This catalog explains what each active workflow does, how it’s triggered, the 
      - Fails the run if the PR head branch previously backed a merged PR (prevents accidental reuse)
 
 <a id="wf-autofix-consumer"></a>
-6) [`autofix-consumer.yml`](../../.github/workflows/autofix-consumer.yml) — Trivial autofix on open PRs (fork‑friendly)
+5) [`autofix-consumer.yml`](../../.github/workflows/autofix-consumer.yml) — Thin wrapper around `reuse-autofix`
    - Triggers: `pull_request` (various types) on `phase-2-dev`/`main`
    - Jobs: `autofix`
-     - Calls reusable workflow [`reuse-autofix.yml`](../../.github/workflows/reuse-autofix.yml) which runs the shared composite formatter and exposes `outputs.changed`.
-     - Same‑repo PRs: commits `chore(autofix): …` (prefix configurable) and pushes directly to the PR branch.
-     - Fork PRs: uploads `autofix.patch` artifact with application instructions; no direct pushes performed.
-     - The job summary reports whether changes were applied and whether this was a same‑repo or fork path. For forks, it includes the artifact name.
+     - Calls reusable workflow `reuse-autofix.yml` with repo defaults (label, commit prefix)
+     - Uses local composite `.github/actions/autofix` which only runs fixers and exposes `outputs.changed`
+     - Same‑repo PRs: commits `autofix(ci): …` and pushes directly to the PR branch
+     - Fork PRs: generates `autofix.patch` (`git format-patch -1 --stdout`), uploads as `autofix-patch-pr-<num>`, and comments on the PR with apply instructions (`git am < autofix.patch`; push to branch)
+     - The job summary reports whether changes were applied and whether this was a same‑repo or fork path. For forks, it includes the artifact name
 
 <a id="wf-autofix-on-failure"></a>
 7) [`autofix-on-failure.yml`](../../.github/workflows/autofix-on-failure.yml) — Attempt autofix when CI/Docker fail
@@ -142,39 +143,37 @@ This catalog explains what each active workflow does, how it’s triggered, the 
    - Jobs: `check-token`
      - Checks secret exists and minimally has `repo`/`workflow` scopes
 
+<a id="wf-reuse-agents"></a>
+12) [`reuse-agents.yml`](../../.github/workflows/reuse-agents.yml) — Parameterised agents automation (readiness, preflight, diagnostic, watchdog, verify)
+   - Triggers: `schedule`, `workflow_dispatch`, selected label events (see inputs)
+   - Jobs: orchestrated by inputs (each mode is a separate job guarded by `enable_*` flags)
+     - `enable_readiness`: GraphQL assignability probe across configured agent logins (replaces `agent-readiness.yml`)
+     - `enable_preflight`: Creates a scratch issue, tests Codex assignability, and optionally posts an activation command (replaces `codex-preflight.yml`)
+     - `enable_diagnostic`: Exercises bootstrap diagnostics (token visibility, optional branch attempt) without creating PRs
+     - `enable_verify_issue`: Verifies a specific issue has an agent assignee (historically `verify-agent-task.yml`)
+     - `enable_watchdog`: Scans issues for missing bootstrap PRs and records `state` outputs (supersedes `agent-watchdog.yml`)
+   - Notes: Only the requested modes run; schedule triggers typically enable `enable_watchdog` to provide periodic telemetry.
+
 <a id="wf-copilot-readiness"></a>
 12) [`copilot-readiness.yml`](../../.github/workflows/copilot-readiness.yml) — Copilot readiness probe
    - Triggers: `workflow_dispatch`
    - Jobs: `probe`
      - GraphQL `suggestedActors` check, temp issue assign attempt to `@copilot`, close, verdict
 
-<a id="wf-reuse-agents"></a>
-14) [`reuse-agents.yml`](../../.github/workflows/reuse-agents.yml) — Parameterised agents automation (bootstrap, readiness, diagnostics, watchdog)
-   - Triggers: `workflow_call`
-   - Jobs: `agents`
-     - Controlled via boolean inputs:
-       1. `enable_readiness` — multi-agent assignability probe (`readiness_agents` input selects accounts).
-       2. `enable_preflight` — single-issue Codex preflight with optional command post.
-       3. `enable_diagnostic` — environment/token diagnostic with optional branch attempt (`diagnostic_attempt_branch`).
-       4. `enable_verify_issue` — verifies a specific issue has an agent assignee (`verify_issue_number`).
-       5. Codex bootstrap — opens PRs for issues with `bootstrap_issues_label` (default `agent:codex`).
-       6. `enable_watchdog` — lightweight issue/PR parity check and telemetry summary.
-     - Inputs gate execution; unset modes skip entirely. Consumer workflows (schedule, dispatch, PR) pass flags as needed.
-
 <a id="wf-verify-codex-bootstrap-matrix"></a>
-15) [`verify-codex-bootstrap-matrix.yml`](../../.github/workflows/verify-codex-bootstrap-matrix.yml) — End-to-end bootstrap scenario matrix
+14) [`verify-codex-bootstrap-matrix.yml`](../../.github/workflows/verify-codex-bootstrap-matrix.yml) — End-to-end bootstrap scenario matrix
    - Triggers: `workflow_dispatch`, `schedule`, `push` to specific paths
    - Jobs: `plan`, `matrix` (parallel), `sequential`
      - Runs `scripts/verify_codex_bootstrap.py` across scenarios; uploads artifacts and summaries
 
 <a id="wf-check-failure-tracker"></a>
-16) [`check-failure-tracker.yml`](../../.github/workflows/check-failure-tracker.yml) — Open/close CI failure issues
+15) [`check-failure-tracker.yml`](../../.github/workflows/check-failure-tracker.yml) — Open/close CI failure issues
    - Triggers: `workflow_run` for `CI` and `Docker`
    - Jobs: `failure`, `success`
      - Opens an issue on failures; closes the corresponding issue on subsequent success
 
 <a id="wf-release"></a>
-17) [`release.yml`](../../.github/workflows/release.yml) — Build/publish package and GitHub release
+16) [`release.yml`](../../.github/workflows/release.yml) — Build/publish package and GitHub release
    - Triggers: `push` tags `v*`, `workflow_dispatch`
    - Jobs: `build`, `test-install`, `test-pypi` (optional), `release`
      - Builds wheels/sdist, checks, tests install, creates GitHub Release, uploads assets, publishes to PyPI/TestPyPI
@@ -185,7 +184,7 @@ Archived / Removed (Issue #1140 hardening, 2025‑09‑18): Legacy agent assignm
 
 Use these when investigating bootstrap, authorization, or automation behaviours:
 
-- `reuse-agents.yml` (`enable_preflight: true`) — Codex preflight
+- `reuse-agents.yml` (`enable_preflight: true`) — Pre-check assignability/command
   - Purpose: Confirm the Codex connector account can be assigned here and optionally that its command phrase posts successfully.
   - Use when: Codex doesn’t react to issues/PRs; verify app installation/permissions.
 
@@ -201,9 +200,9 @@ Use these when investigating bootstrap, authorization, or automation behaviours:
   - Purpose: Inspect tokens present, base branch/sha, and optionally attempt branch creation with each token type.
   - Use when: Branch creation or PAT fallback behaves unexpectedly.
 
-- `reuse-agents.yml` (`enable_watchdog: true`) — Issue/PR parity telemetry
-  - Purpose: Detect issues labeled for Codex where bootstrap PR not yet created or summarize state telemetry.
-  - Use when: Monitoring automation health or investigating missing bootstrap PRs.
+- `reuse-agents.yml` (`enable_verify_issue: true`) — Verify agent assignment on a specific issue
+  - Purpose: Ensure escalation issues carry an agent assignee before automations proceed.
+  - Use when: Auditing issue state or debugging label/assignment mismatches.
 
 - `verify-codex-bootstrap-matrix.yml` (Scenario harness)
   - Purpose: Run curated end-to-end scenarios against the bootstrap (success/failure cases), collect artifacts, and produce a summary table.
@@ -243,7 +242,8 @@ This section summarizes the differences between the failing Option 2 (manual/"cr
 ### Autofix pipeline — fork‑friendly refactor
 
 - Composite action `.github/actions/autofix` no longer commits; it emits `outputs.changed` after running `ruff`, `black`, `isort`, `docformatter`, and light type‑hygiene steps.
-- Workflow `.github/workflows/autofix-consumer.yml` branches by PR provenance while delegating to `reuse-autofix.yml`:
+- Workflow `.github/workflows/autofix-consumer.yml` branches by PR provenance via `reuse-autofix.yml`:
+
   - Same‑repo: commit and push to the PR head branch.
   - Fork: create `autofix.patch`, upload as artifact `autofix-patch-pr-<num>`, and post a PR comment with local apply instructions.
 - Benefits: Same‑repo remains hands‑off; forks still get actionable fixes without elevated permissions.
