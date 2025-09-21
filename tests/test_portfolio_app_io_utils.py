@@ -7,6 +7,8 @@ import sys
 import zipfile
 from types import ModuleType
 
+import pytest
+
 from trend_portfolio_app import io_utils
 
 
@@ -98,6 +100,33 @@ def test_export_bundle_handles_export_failures(tmp_path):
     finally:
         io_utils.cleanup_bundle_file(bundle_path)
 
+    assert io_utils._TEMP_FILES_TO_CLEANUP == []
+
+
+def test_export_bundle_cleans_up_partial_zip_on_failure(tmp_path, monkeypatch):
+    io_utils._TEMP_FILES_TO_CLEANUP.clear()
+
+    portfolio = _SimpleCSV(["0.05"])
+    event_log = _SimpleCSV(["rebalance"])
+    results = _DummyResults(portfolio, event_log, {"gamma": 3})
+
+    partial_zip = tmp_path / "partial_bundle.zip"
+
+    def fake_mkstemp(*args, **kwargs):  # noqa: D401, ANN001, ARG002
+        fd = os.open(partial_zip, os.O_CREAT | os.O_RDWR)
+        return fd, str(partial_zip)
+
+    class BrokenZip:  # noqa: D401
+        def __init__(self, *args, **kwargs):  # noqa: ANN001, ARG002
+            raise RuntimeError("zip failed")
+
+    monkeypatch.setattr(io_utils.tempfile, "mkstemp", fake_mkstemp)
+    monkeypatch.setattr(io_utils.zipfile, "ZipFile", BrokenZip)
+
+    with pytest.raises(RuntimeError):
+        io_utils.export_bundle(results, {"mode": "broken"})
+
+    assert not partial_zip.exists()
     assert io_utils._TEMP_FILES_TO_CLEANUP == []
 
 
