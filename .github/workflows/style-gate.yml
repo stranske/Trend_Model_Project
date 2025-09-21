@@ -76,8 +76,8 @@ jobs:
           echo "Ruff total issues: ${{ steps.ruff.outputs.total }}" >> $GITHUB_STEP_SUMMARY
           echo "Ruff new issues: ${{ steps.ruff.outputs.new }}" >> $GITHUB_STEP_SUMMARY
           if [ -f ruff_classification.json ]; then
-            echo "\n<details><summary>Classification JSON</summary>" >> $GITHUB_STEP_SUMMARY
-            echo '\n' >> $GITHUB_STEP_SUMMARY
+            printf "\n<details><summary>Classification JSON</summary>\n" >> $GITHUB_STEP_SUMMARY
+            printf "\n" >> $GITHUB_STEP_SUMMARY
             sed -n '1,200p' ruff_classification.json >> $GITHUB_STEP_SUMMARY || true
-            echo "\n</details>" >> $GITHUB_STEP_SUMMARY
+            printf "\n</details>\n" >> $GITHUB_STEP_SUMMARY
           fi
