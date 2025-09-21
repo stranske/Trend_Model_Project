@@ -34,7 +34,10 @@ class SequenceWeighting:
         # not need to adjust any internal state here.
         pass
 
-    def weight(self, selected: pd.DataFrame) -> pd.DataFrame:
+    def weight(
+        self, selected: pd.DataFrame, date: pd.Timestamp | None = None
+    ) -> pd.DataFrame:
+        del date
         weights = self.sequences[self._idx]
         self._idx += 1
         ordered = pd.Series(weights, index=selected.index, dtype=float).fillna(0.0)

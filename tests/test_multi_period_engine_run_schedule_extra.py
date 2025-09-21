@@ -29,7 +29,10 @@ class _UpdatingWeighting(BaseWeighting):
     def __init__(self) -> None:
         self.update_calls: list[tuple[pd.Series, int]] = []
 
-    def weight(self, selected: pd.DataFrame) -> pd.DataFrame:
+    def weight(
+        self, selected: pd.DataFrame, date: pd.Timestamp | None = None
+    ) -> pd.DataFrame:
+        del date
         if selected.empty:
             return pd.DataFrame({"weight": []}, index=pd.Index([], dtype=object))
         n = len(selected)

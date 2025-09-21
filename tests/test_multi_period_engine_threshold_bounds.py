@@ -87,7 +87,10 @@ class ScriptedWeighting:
             {"Alpha One": 0.9, "Beta One": 0.4, "Gamma One": 0.35},
         ]
 
-    def weight(self, selected: pd.DataFrame) -> pd.DataFrame:
+    def weight(
+        self, selected: pd.DataFrame, date: pd.Timestamp | None = None
+    ) -> pd.DataFrame:
+        del date
         seq = self.sequences[min(self.calls, len(self.sequences) - 1)]
         self.calls += 1
         weights = pd.Series(
