@@ -1,6 +1,6 @@
 # Temporary Workflow Audit (Draft)
 
-Date: 2025-09-20
+Date: 2025-09-21
 
 ## Categorization Legend
 1. Pre-PR / Standard Checks (Quality & Security)
@@ -28,7 +28,7 @@ Additional categories added (5–8) to accommodate all workflows cleanly.
 - `codex-issue-bridge.yml` – Issue label → bootstrap PR logic (complex orchestrator).
 - `reuse-agents.yml` – Consolidated reusable agent pipeline (readiness, preflight, diagnostic, watchdog, bootstrap, verify issue).
 - `verify-codex-bootstrap-matrix.yml` – Scenario matrix harness for Codex bootstrap flows (validation / simulation). Potentially classed as debugging but retains agent-specific scope.
-- Legacy standalone probes (`agent-readiness.yml`, `agent-watchdog.yml`, `codex-preflight.yml`, `codex-bootstrap-diagnostic.yml`, `verify-agent-task.yml`) were removed on 2025-09-21; use the corresponding `reuse-agents.yml` flags instead.
+- Legacy standalone probes (`agent-readiness.yml`, `codex-preflight.yml`, `codex-bootstrap-diagnostic.yml`, `verify-agent-task.yml`) were removed on 2025-09-21; use the corresponding `reuse-agents.yml` flags instead. `agent-watchdog.yml` remains active until the reusable workflow reaches feature parity.
 
 ### 3. Repository Maintenance & Hygiene
 - `stale-prs.yml` – Marks & closes stale PRs.
@@ -70,7 +70,7 @@ Update: `cleanup-codex-bootstrap.yml` confirmed – prunes stale `agents/codex-i
 | Workflow | Replacement | Status | Notes |
 |----------|-------------|--------|-------|
 | agent-readiness.yml | reuse-agents.yml (enable_readiness) | REMOVED | Delete completed 2025-09-21 (see git history for archival copy). |
-| agent-watchdog.yml | reuse-agents.yml (enable_watchdog) | REMOVED | Delete completed 2025-09-21 (see git history for archival copy). |
+| agent-watchdog.yml | reuse-agents.yml (enable_watchdog) | ACTIVE (DEFERRED) | Retain until issue polling/notification parity exists in reusable workflow. |
 | codex-preflight.yml | reuse-agents.yml (enable_preflight) | REMOVED | Delete completed 2025-09-21 (see git history for archival copy). |
 | codex-bootstrap-diagnostic.yml | reuse-agents.yml (enable_diagnostic) | REMOVED | Delete completed 2025-09-21 (see git history for archival copy). |
 | verify-agent-task.yml | reuse-agents.yml (enable_verify_issue) | REMOVED | Delete completed 2025-09-21 (see git history for archival copy). |
