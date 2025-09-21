@@ -21,8 +21,9 @@ jobs:
         with:
           script: |
             const prefix = process.env.COMMIT_PREFIX || 'chore(autofix):';
-            const actor = context.actor;
-            if (actor !== 'github-actions[bot]') {
+            const actor = (context.actor || '').toLowerCase();
+            const isActionsActor = actor === 'github-actions' || actor === 'github-actions[bot]';
+            if (!isActionsActor) {
               core.setOutput('skip', 'false');
               return;
             }
@@ -60,11 +61,11 @@ jobs:
     uses: ./.github/workflows/reuse-autofix.yml
     with:
       opt_in_label: ${{ vars.AUTOFIX_OPT_IN_LABEL || 'autofix' }}
-      commit_prefix: 'chore(autofix):'
+      commit_prefix: 'ci: autofix'
   label-applied:
-    needs: [guard, call-reusable]
+    needs: call-reusable
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'pull_request' && needs.guard.outputs.skip != 'true' }}
+    if: ${{ github.event_name == 'pull_request' }}
     steps:
       - name: Checkout PR HEAD
         uses: actions/checkout@v4
@@ -79,7 +80,7 @@ jobs:
           echo "message<<END" >> $GITHUB_OUTPUT
           echo "$msg" >> $GITHUB_OUTPUT
           echo "END" >> $GITHUB_OUTPUT
-          if echo "$msg" | grep -qi '^chore(autofix):'; then echo "applied=true" >> $GITHUB_OUTPUT; else echo "applied=false" >> $GITHUB_OUTPUT; fi
+          if echo "$msg" | grep -qi 'ci: autofix'; then echo "applied=true" >> $GITHUB_OUTPUT; else echo "applied=false" >> $GITHUB_OUTPUT; fi
       - name: Add label
         if: steps.msg.outputs.applied == 'true'
         uses: actions/github-script@v7
