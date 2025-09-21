@@ -258,6 +258,40 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           # (Per Issue #1344) Universal logs table now emitted by logs_summary job.
           # Removed duplicate per-job logs table here to avoid redundancy.
+      - name: Emit coverage trend record
+        shell: python
+        run: |
+          import json, os, datetime
+          # Simple single-run JSON line; a downstream process or future enhancement can append history.
+          summary_path='coverage_summary.md'
+          avg=worst=None
+          try:
+            with open(summary_path,'r') as fh:
+              first=fh.readline().strip()
+            # Parse **Coverage (avg across jobs): X% | worst job: Y%**
+            import re
+            m=re.search(r'avg across jobs\):\s*([0-9.]+)% \| worst job: ([0-9.]+)%', first)
+            if m:
+              avg=float(m.group(1)); worst=float(m.group(2))
+          except Exception:
+            pass
+          rec={
+            'run_id': int(os.environ.get('GITHUB_RUN_ID','0')),
+            'run_number': int(os.environ.get('GITHUB_RUN_NUMBER','0')),
+            'repo': os.environ.get('GITHUB_REPOSITORY'),
+            'sha': os.environ.get('GITHUB_SHA'),
+            'ref': os.environ.get('GITHUB_REF'),
+            'avg_coverage': avg,
+            'worst_job_coverage': worst,
+            'timestamp_utc': datetime.datetime.utcnow().isoformat()+'Z'
+          }
+          with open('coverage-trend.json','w') as w: json.dump(rec,w,indent=2,sort_keys=True)
+          print('Wrote coverage-trend.json')
+      - name: Upload coverage trend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-trend
+          path: coverage-trend.json
 
   # Universal logs summary (Issue #1344)
   # Ensures every CI run exposes a per-job logs table in the run summary even when
@@ -283,10 +317,17 @@ jobs:
             const run_id = context.runId;
             const { data } = await github.rest.actions.listJobsForWorkflowRun({ owner, repo, run_id, per_page: 100 });
             const rows = data.jobs.map(j => `| ${j.name} | ${j.conclusion || j.status} | [logs](${j.html_url}) |`);
-            const failed = data.jobs.filter(j => !['success','skipped'].includes((j.conclusion || '').toLowerCase())).map(j => j.name);
+            const failed = data.jobs
+              .filter(j => ['failure', 'cancelled', 'timed_out'].includes((j.conclusion || '').toLowerCase()))
+              .map(j => j.name);
+            // Count failing test jobs (heuristic: name contains 'test' case-insensitive)
+            const failingTestJobs = failed.filter(n => /test/i.test(n));
             let explanation = '';
             if (failed.length) {
               explanation = `\n> ❗ ${failed.length} job(s) did not succeed: ${failed.join(', ')}.`;
+              if (failingTestJobs.length) {
+                explanation += ` Failing test jobs: ${failingTestJobs.length}.`;
+              }
             } else {
               explanation = `\n> ✅ All jobs succeeded.`;
             }
