@@ -1,6 +1,7 @@
 """Configuration package initialization."""
 
 # Re-export commonly used configuration models and helpers
+from .model import TrendConfig, load_trend_config, validate_trend_config
 from .models import (
     DEFAULTS,
     ColumnMapping,
@@ -24,7 +25,10 @@ __all__ = [
     "list_available_presets",
     "load",
     "load_config",
+    "load_trend_config",
+    "validate_trend_config",
     "Config",
     "ConfigType",
     "DEFAULTS",
+    "TrendConfig",
 ]

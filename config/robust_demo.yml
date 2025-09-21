@@ -9,7 +9,8 @@ version: "0.1.0"
 
 data:
   managers_glob: "demo/demo_returns.csv"
-  indices_glob: "data/raw/indices/*.csv"  
+  indices_glob: "data/raw/indices/*.csv"
+  csv_path: demo/demo_returns.csv
   date_column: "Date"
   price_column: "Adj_Close"
   frequency: "D"
@@ -31,6 +32,7 @@ preprocessing:
 
 vol_adjust:
   enabled: false  # Disable for cleaner robustness demonstration
+  target_vol: 0.10
 
 sample_split:
   method: "ratio"
@@ -44,6 +46,7 @@ portfolio:
   leverage_cap: 1.0
   transaction_cost_bps: 0
   max_turnover: 1.0
+  rebalance_calendar: NYSE
   
   # Enhanced robustness configuration
   robustness:
