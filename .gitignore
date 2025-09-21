@@ -38,9 +38,10 @@ results/
 *.xlsx
 *.csv
 *.json
-!ci/autofix/history.json
 !perf/perf_baseline.json
 !src/trend_analysis/export/manifest_schema.json
+# Stop tracking noisy autofix history (now artifact-only)
+ci/autofix/history.json
 *.txt
 
 # Python package build artifacts

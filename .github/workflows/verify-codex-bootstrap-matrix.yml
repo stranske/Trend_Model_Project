@@ -54,8 +54,18 @@ jobs:
           else
             LIST="$IN"
           fi
-          echo "scenario_list=$LIST" >> $GITHUB_OUTPUT
-          echo "Scenarios: $LIST"
+          LIST_JSON=$(LIST="$LIST" python - <<'PY'
+import json, os
+items = [s.strip() for s in os.environ["LIST"].split(",") if s.strip()]
+print(json.dumps(items))
+PY
+)
+          if [ -z "$LIST_JSON" ]; then
+            echo "::error::Failed to compute scenario list" >&2
+            exit 1
+          fi
+          echo "scenario_list=$LIST_JSON" >> $GITHUB_OUTPUT
+          echo "Scenarios: $LIST_JSON"
   matrix:
     needs: plan
     if: ${{ github.event.inputs.parallel == 'true' }}
@@ -67,7 +77,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        scenario: ${{ fromJson(format('["{0}"]', replace(needs.plan.outputs.scenario_list, ',', '","'))) }}
+        scenario: ${{ fromJson(needs.plan.outputs.scenario_list) }}
     steps:
         - name: Checkout
           uses: actions/checkout@v4
@@ -123,7 +133,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y jq
       - name: Run verification harness
         env:
-          SCENARIOS: ${{ needs.plan.outputs.scenario_list }}
+          SCENARIOS: ${{ join(fromJson(needs.plan.outputs.scenario_list), ',') }}
           FORCE_BRANCH_FAIL: ${{ github.event.inputs.force_branch_fail }}
           OVERRIDE_ALLOW_FALLBACK: ${{ github.event.inputs.override_allow_fallback }}
           OVERRIDE_CODEX_COMMAND: ${{ github.event.inputs.codex_command }}

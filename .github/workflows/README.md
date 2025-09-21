@@ -5,8 +5,9 @@ This guide enables a new maintainer to operate the CI + agent automation stack i
 ---
 ## 1. Architecture Snapshot
 Core layers:
-- Reusable CI (`reuse-ci-python.yml`): tests, coverage, style.
-- Reusable Autofix (`reuse-autofix.yml` + consumer): formatting & linting.
+- Reusable CI (`reuse-ci-python.yml`): tests, coverage, aggregated gate.
+- Reusable Autofix (`reuse-autofix.yml` + consumer): formatting & linting (ruff+black) with residual classification.
+- Style Gate (`style-gate.yml`): authoritative style verification (black --check + ruff new-issue fail) running on PR & main branch pushes.
 - Reusable Agents (`reuse-agents.yml` + consumer): readiness, preflight, diagnostic, verify, watchdog, bootstrap.
 - Governance & Health: `repo-health-self-check.yml`, labelers, dependency review, CodeQL.
 - Path Labeling: `pr-path-labeler.yml` auto-categorizes PRs.
@@ -16,12 +17,13 @@ The CI stack now runs in distinct lanes so each concern can evolve independently
 
 | Lane | Workflow(s) | Purpose | Required Status Today | Future Plan |
 |------|-------------|---------|-----------------------|-------------|
-| Core test/coverage | `reusable-ci-python.yml` (consumed by `ci.yml`) | Matrix tests, coverage report, style gates | Wrapper job "CI" (legacy) + gate job | Make gate job the only required check once stable |
-| Gate aggregation | `reusable-ci-python.yml` job: `gate / all-required-green` | Ensures upstream jobs passed (single source of truth) | Secondary (not yet sole required) | Will replace wrapper after burn‑in |
-| Coverage soft gate | `coverage_soft_gate` job (opt‑in) | Posts coverage & hotspots without failing builds | Disabled unless input `enable-soft-gate` true | Remains advisory; can be promoted later |
-| Universal logs | `logs_summary` job | Adds per‑job log table to run summary | Not required | Always-on helper |
-| Autofix lane | `reuse-autofix.yml` | Formatting, linting autofix patch | Not required | Remains optional |
-| Codex bootstrap | `codex-issue-bridge.yml` (+ verify & preflight) | Converts issues into branches/PRs | Not required | Hardens with additional diagnostics |
+| Core test/coverage | `reusable-ci-python.yml` (consumed by `ci.yml`) | Matrix tests, coverage report | Wrapper job "CI" (legacy) + gate job | Make gate job the only required check once stable |
+| Gate aggregation | `reusable-ci-python.yml` job: `gate / all-required-green` | Ensures upstream jobs passed (single source of truth) | Secondary | Will replace wrapper after burn‑in |
+| Coverage soft gate | `coverage_soft_gate` job (opt‑in) | Posts coverage & hotspots (non-blocking) | Advisory | Remains advisory |
+| Universal logs | `logs_summary` job | Per‑job log table in summary | Not required | Always-on helper |
+| Autofix lane | `reuse-autofix.yml` | Automated formatting/lint fixes (ruff+black+isort+docformatter) | Not required | Remains optional |
+| Style verification | `style-gate.yml` | Enforce black formatting + ruff cleanliness (fail on new issues) | Candidate required | Become required once stable |
+| Codex bootstrap | `codex-issue-bridge.yml` (+ verify & preflight) | Converts issues into branches/PRs | Not required | Harden diagnostics |
 
 Temporary state: `ci.yml` exists solely to preserve the historic required check name ("CI") while maintainers transition branch protection to the gate job. Once maintainers flip protection, delete `ci.yml` and mark the gate job required.
 
@@ -62,6 +64,7 @@ All others use default `GITHUB_TOKEN`.
 |----------|-----------|-------|
 | `reuse-ci-python.yml` | PR, push | Coverage & matrix |
 | `reuse-autofix.yml` | PR events | Formatting patch |
+| `style-gate.yml` | PR, push (main branches) | Style enforcement |
 | `reuse-agents.yml` | dispatch, labels | All agent modes |
 | `repo-health-self-check.yml` | schedule, manual | Governance audit |
 | `pr-path-labeler.yml` | PR events | Path labels |
@@ -93,9 +96,8 @@ jobs:
   call:
     uses: stranske/Trend_Model_Project/.github/workflows/reuse-autofix.yml@phase-2-dev
 ```
-Autofix commits always use the `chore(autofix):` prefix. When a run is triggered by `github-actions`, the reusable workflow
-inspects the latest commit message and short-circuits if it already begins with that prefix. This guard stops autofix pushes
-from triggering another autofix loop.
+Autofix commits use the configurable prefix (default `chore(autofix):`). The reusable workflow guards against loops by
+detecting automation actors + existing prefix.
 
 ```yaml
 name: Agents
@@ -134,13 +136,12 @@ Use a tagged ref when versioned.
 | No CodeQL alerts | First run indexing | `codeql.yml` |
 
 ### 7.1 Autofix Loop Guard (Issue #1347)
-Autofix commits use the canonical prefix `ci: autofix` (e.g. `ci: autofix formatting/lint`).
-Loop prevention is achieved via three layers:
-1. Reusable Autofix job `if:` excludes automation actors (`github-actions`, `github-actions[bot]`).
-2. Downstream autofix / failure handler workflows detect prior commits whose subject starts with `ci: autofix` and short‑circuit to avoid re‑trigger storms.
-3. Commit message pattern is centralized through the `commit_prefix` input (default `ci: autofix`).
+Loop prevention layers:
+1. Reusable Autofix job `if:` excludes automation actors.
+2. Guard step inspects latest commit subject for the configured prefix (default `chore(autofix):`).
+3. Style Gate runs independently and does not trigger autofix.
 
-Result: Each human push gets at most one autofix patch sequence; autofix commits do not recursively spawn new autofix runs. Original issue suggested `chore(autofix):`; project standardized on `ci: autofix` for CI-related automation consistency.
+Result: Each human push generates at most one autofix patch sequence; autofix commits do not recursively spawn new runs.
 
 ---
 ## 7.2 Codex Kickoff Flow (Issue #1351)
@@ -158,8 +159,8 @@ Purpose: Provide early visibility of coverage / hotspot data without failing PRs
 
 
 Low Coverage Spotlight (follow-up Issue #1386):
-- A secondary table "Low Coverage (<50%)" appears when any parsed file has <50% line coverage.
-- Threshold is currently static (50%) to keep the workflow input surface minimal; can be elevated to a configurable input later.
+- A secondary table "Low Coverage (<X%)" appears when any parsed file has coverage below the configured threshold (default 50%).
+- Customize the threshold with the `low-coverage-threshold` workflow input when calling `reusable-ci-python.yml`.
 - Table is separately truncated to the hotspot limit (15) with a truncation notice if more remain.
 Implemented follow-ups (Issue #1352):
 - Normalized artifact naming: `coverage-<python-version>` (e.g. `coverage-3.11`).
@@ -268,7 +269,8 @@ Planned / optional improvements under consideration:
 |-------------|--------|-------|
 | Coverage trend artifact (JSON) | Implemented | `coverage-trend` provides run-level stats (Issue #1352) |
 | Coverage trend history (NDJSON) | Implemented | `coverage-trend-history` accumulates per-run records |
-| Centralized autofix commit prefix constant | Implemented | Standardized on `ci: autofix` env-configurable (Issue #1347) |
+| Style Gate (ruff+black) | Implemented | Replaces legacy lint-verification (flake8/black) |
+| Centralized autofix commit prefix | Implemented | Configurable (default `chore(autofix):`) |
 | Failing test count in logs summary | Implemented | Universal logs job appends count inline |
 
 TODO (wrapper removal): After branch protection flips to require the gate job, remove `ci.yml` (see 7.5) and delete this TODO line.

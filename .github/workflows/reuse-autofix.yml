@@ -35,21 +35,12 @@ jobs:
       - name: Set commit prefix env
         id: prefix
         run: echo "AUTOFIX_COMMIT_PREFIX=${{ inputs.commit_prefix }}" >> $GITHUB_ENV
-      - name: Guard against loops (Issue #1347)
-        shell: bash
-        run: |
-          msg=$(git log -1 --pretty=%s || true)
-          if [ "${{ github.actor }}" = "github-actions" ] && echo "$msg" | grep -qiE "^${AUTOFIX_COMMIT_PREFIX}"; then
-            echo "[autofix] Skipping: detected prior autofix commit (${msg})"
-            exit 0
-          fi
       - name: Checkout PR HEAD
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
           persist-credentials: true
-
       - name: Guard against loops (Issue #1347)
         id: guard
         shell: bash
@@ -71,6 +62,17 @@ jobs:
           echo "skip=$skip" >> "$GITHUB_OUTPUT"
           if [ "$skip" = "true" ]; then
             exit 0
+          fi
+
+      - name: Guard remove legacy autofix history file
+        if: steps.guard.outputs.skip != 'true'
+        shell: bash
+        run: |
+          if [ -f ci/autofix/history.json ]; then
+            echo "[autofix-guard] Removing legacy tracked ci/autofix/history.json to prevent churn";
+            git rm -f ci/autofix/history.json || rm -f ci/autofix/history.json || true;
+          else
+            echo "[autofix-guard] No legacy history.json present";
           fi
 
       - name: Detect same-repo PR
@@ -156,6 +158,50 @@ jobs:
               core.warning('Label management warning: ' + e.message);
             }
 
+      - name: Restore prior autofix history artifact (same-repo)
+        if: steps.same_repo.outputs.same == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          TARGET_REPO: ${{ github.repository }}
+          TARGET_RUN_ID: ${{ github.run_id }}
+          TARGET_PR: ${{ github.event.pull_request.number }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ci/autofix
+          rm -f ci/autofix/history.json
+          artifact_name="autofix-history-pr-${TARGET_PR}"
+          echo "[history] Attempting to restore ${artifact_name} from previous runs"
+          set +e
+          response=$(gh api repos/${TARGET_REPO}/actions/artifacts --paginate)
+          status=$?
+          set -e
+          if [ $status -ne 0 ] || [ -z "$response" ]; then
+            echo "[history] No prior artifact found"
+            exit 0
+          fi
+          artifact_lines=$(printf '%s' "$response" | jq -r --arg name "$artifact_name" --arg run "${TARGET_RUN_ID}" '.artifacts[]? | select(.name==$name and .expired==false and (.workflow_run.id|tostring)!=$run) | [.id, .created_at] | @tsv')
+          if [ -z "$artifact_lines" ]; then
+            echo "[history] No prior artifact found"
+            exit 0
+          fi
+          latest=$(printf '%s\n' "$artifact_lines" | sort -k2 | tail -n1)
+          artifact_id=${latest%%$'\t'*}
+          tmpdir=$(mktemp -d)
+          echo "[history] Downloading artifact id ${artifact_id}"
+          if ! gh api repos/${TARGET_REPO}/actions/artifacts/${artifact_id}/zip > "$tmpdir/artifact.zip"; then
+            echo "[history] Failed to download artifact ${artifact_id}"
+            exit 0
+          fi
+          if unzip -p "$tmpdir/artifact.zip" ci/autofix/history.json > ci/autofix/history.json 2>/dev/null; then
+            echo "[history] Restored previous history.json"
+          else
+            echo "[history] Artifact ${artifact_id} did not contain ci/autofix/history.json"
+            rm -f ci/autofix/history.json
+          fi
+          rm -rf "$tmpdir"
+
       - name: Update residual history (same-repo)
         if: steps.same_repo.outputs.same == 'true'
         shell: bash
@@ -163,20 +209,20 @@ jobs:
           set -euo pipefail
           if [ ! -f autofix_report_enriched.json ]; then echo "[history] missing enriched report"; exit 0; fi
           python scripts/update_residual_history.py || echo "[history] update failed"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add ci/autofix/history.json
-          if git diff --cached --quiet; then echo "[history] No updates to commit"; exit 0; fi
-          branch="${{ github.event.pull_request.head.ref }}"
-          git commit -m "${AUTOFIX_COMMIT_PREFIX} update residual history"
-          for attempt in 1 2 3; do
-            if git push origin HEAD:"$branch"; then echo "[history] Push succeeded"; exit 0; fi
-            echo "[history] Push failed attempt $attempt; rebasing";
-            git fetch origin "$branch" --prune || true
-            git rebase --autostash origin/"$branch" || git rebase --abort || true
-          done
-          echo "[history] Failed to push history after retries" >&2
-          exit 1
+          # No longer committing history.json (noise in PRs). It will be uploaded as an artifact instead.
+          if [ -f ci/autofix/history.json ] && [ -s ci/autofix/history.json ] && jq empty ci/autofix/history.json >/dev/null 2>&1; then
+            echo "[history] Prepared updated history.json (artifact-only mode)"
+          else
+            echo "[history] history.json not produced or invalid"
+          fi
+
+      - name: Upload autofix history artifact (same-repo)
+        if: steps.same_repo.outputs.same == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: autofix-history-pr-${{ github.event.pull_request.number }}
+          path: ci/autofix/history.json
+          if-no-files-found: ignore
 
       - name: Generate trend sparkline (same-repo)
         if: steps.same_repo.outputs.same == 'true'
