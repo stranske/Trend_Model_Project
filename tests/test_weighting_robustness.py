@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -47,6 +49,30 @@ class TestEqualRiskContribution:
         weights = engine.weight(cov)
         assert weights.sum() == pytest.approx(1.0, rel=1e-9)
         assert (weights >= 0).all()
+
+    def test_weighting_handles_iteration_error_and_warns(
+        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Numerical errors mid-iteration should fall back to equal weights."""
+
+        cov = _make_covariance(
+            np.array([[0.05, 0.01], [0.01, 0.04]]), labels=["A", "B"]
+        )
+        engine = EqualRiskContribution(max_iter=32, tol=1e-9)
+
+        def exploding_max(*args: Any, **kwargs: Any) -> float:
+            raise FloatingPointError("boom")
+
+        monkeypatch.setattr(
+            "trend_analysis.weights.equal_risk_contribution.np.max", exploding_max
+        )
+
+        with caplog.at_level("WARNING"):
+            weights = engine.weight(cov)
+
+        assert np.allclose(weights.values, [0.5, 0.5])
+        assert "Numerical error in ERC iteration" in caplog.text
+        assert "did not converge" in caplog.text
 
 
 class TestHierarchicalRiskParity:
@@ -96,6 +122,12 @@ class TestShrinkageUtilities:
         loaded = diagonal_loading(cov, loading_factor=1e-2)
         assert loaded.shape == cov.shape
         assert np.trace(loaded) > np.trace(cov)
+
+    def test_diagonal_loading_empty_matrix_returns_empty(self) -> None:
+        empty = np.empty((0, 0), dtype=float)
+        loaded = diagonal_loading(empty, loading_factor=1e-2)
+        assert loaded.shape == (0, 0)
+        assert loaded.size == 0
 
 
 class TestRobustMeanVariance:
@@ -152,6 +184,66 @@ class TestRobustMeanVariance:
         )
         with pytest.raises(ValueError):
             engine.weight(cov)
+
+    def test_condition_number_returns_infinity_without_positive_eigenvalues(
+        self,
+    ) -> None:
+        engine = RobustMeanVariance(shrinkage_method="none")
+        cov = np.zeros((2, 2), dtype=float)
+        assert engine._check_condition_number(cov) == np.inf
+
+    def test_condition_number_handles_linalg_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        engine = RobustMeanVariance(shrinkage_method="none")
+
+        def explode(_: Any) -> np.ndarray:
+            raise np.linalg.LinAlgError("failure")
+
+        monkeypatch.setattr(
+            "trend_analysis.weights.robust_weighting.np.linalg.eigvalsh", explode
+        )
+
+        assert engine._check_condition_number(np.eye(2)) == np.inf
+
+    def test_safe_mode_hrp_triggers_when_condition_exceeds_threshold(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        cov = _make_covariance(
+            np.array([[1.0, 0.0, 0.0], [0.0, 1e-12, 0.0], [0.0, 0.0, 1e-13]]),
+            labels=["A", "B", "C"],
+        )
+        engine = RobustMeanVariance(
+            safe_mode="hrp",
+            condition_threshold=10.0,
+            shrinkage_method="none",
+        )
+
+        with caplog.at_level("WARNING"):
+            weights = engine.weight(cov)
+
+        assert weights.sum() == pytest.approx(1.0, rel=1e-9)
+        assert set(weights.index) == {"A", "B", "C"}
+        assert "safe mode: hrp" in caplog.text
+
+    def test_mean_variance_small_denominator_falls_back(
+        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        cov = _make_covariance(np.array([[0.1, 0.05], [0.05, 0.05]]), labels=["A", "B"])
+        engine = RobustMeanVariance(shrinkage_method="none")
+
+        def fake_inv(_: Any) -> np.ndarray:
+            return np.array([[1.0, -1.0], [-1.0, 1.0]], dtype=float)
+
+        monkeypatch.setattr(
+            "trend_analysis.weights.robust_weighting.np.linalg.inv", fake_inv
+        )
+
+        with caplog.at_level("WARNING"):
+            weights = engine._mean_variance_weights(cov)
+
+        assert np.allclose(weights.values, [0.5, 0.5])
+        assert "Matrix inversion failed in mean-variance" in caplog.text
 
 
 class TestRobustRiskParity:
