@@ -3,12 +3,12 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, cast
 
 import pandas as pd
 import streamlit as st
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 from trend_analysis import pipeline
 from trend_analysis.config import DEFAULTS as DEFAULT_CFG_PATH
 from trend_analysis.config import Config
@@ -30,7 +30,7 @@ class _NullContext:
     def __enter__(self) -> "_NullContext":  # pragma: no cover - trivial
         return self
 
-    def __exit__(self, *_exc: Any) -> bool:  # pragma: no cover - trivial
+    def __exit__(self, *_exc: Any) -> Literal[False]:  # pragma: no cover - trivial
         return False
 
 
@@ -63,8 +63,8 @@ def _read_defaults() -> Dict[str, Any]:
 def _to_yaml(d: Dict[str, Any]) -> str:
     """Serialise a mapping to YAML while preserving insertion order."""
 
-    dumped = yaml.safe_dump(d, sort_keys=False, allow_unicode=True)
-    return cast(str, dumped)
+    dumped: str = yaml.safe_dump(d, sort_keys=False, allow_unicode=True)
+    return dumped
 
 
 def _merge_update(base: Dict[str, Any], updates: Dict[str, Any]) -> Dict[str, Any]:
@@ -146,7 +146,7 @@ def _summarise_multi(results: List[Dict[str, Any]]) -> pd.DataFrame:
         if isinstance(period, (list, tuple)):
             return period[index] if len(period) > index else ""
         try:
-            seq = list(period)  # type: ignore[arg-type]
+            seq = list(period)
         except (TypeError, ValueError):
             return ""
         return seq[index] if len(seq) > index else ""

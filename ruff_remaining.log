@@ -8,7 +8,7 @@ src/trend_analysis/_autofix_trigger_sample.py:1:1: F403 `from typing import *` u
 
 src/trend_analysis/_autofix_trigger_sample.py:20:21: F405 `List` may be undefined, or defined from star imports
    |
-20 | def another_func(a: List[int], b: List[int]):
+20 | def another_func(a: List[int], b: List[int]) -> List[int]:
    |                     ^^^^ F405
 21 |     result = [i + j for i, j in zip(a, b)]
 22 |     return result
@@ -16,21 +16,48 @@ src/trend_analysis/_autofix_trigger_sample.py:20:21: F405 `List` may be undefine
 
 src/trend_analysis/_autofix_trigger_sample.py:20:35: F405 `List` may be undefined, or defined from star imports
    |
-20 | def another_func(a: List[int], b: List[int]):
+20 | def another_func(a: List[int], b: List[int]) -> List[int]:
    |                                   ^^^^ F405
 21 |     result = [i + j for i, j in zip(a, b)]
 22 |     return result
    |
 
-src/trend_analysis/_autofix_violation_case2.py:49:5: F841 Local variable `data` is assigned to but never used
+src/trend_analysis/_autofix_trigger_sample.py:20:49: F405 `List` may be undefined, or defined from star imports
    |
-47 |     a, b, c
-48 | ):  # parameters intentionally unused; add mutable default below (B006)
-49 |     data = []  # mutable list (not default param) but harmless; keeps function non-empty
+20 | def another_func(a: List[int], b: List[int]) -> List[int]:
+   |                                                 ^^^^ F405
+21 |     result = [i + j for i, j in zip(a, b)]
+22 |     return result
+   |
+
+src/trend_analysis/_autofix_violation_case2.py:53:5: F841 Local variable `data` is assigned to but never used
+   |
+51 |     c: int,
+52 | ) -> None:  # parameters intentionally unused; add mutable default below (B006)
+53 |     data: list[int] = (
    |     ^^^^ F841
-50 |     return None  # explicit return for clarity
+54 |         []
+55 |     )  # mutable list (not default param) but harmless; keeps function non-empty
    |
    = help: Remove assignment to unused variable `data`
+
+src/trend_analysis/_autofix_violation_case3.py:24:8: F405 `List` may be undefined, or defined from star imports
+   |
+23 | def ambiguous_types(
+24 |     x: List[int], y: List[int]
+   |        ^^^^ F405
+25 | ) -> List[int]:  # noqa: F405 (List from wildcard import)
+26 |     """Function with partially annotated parameters to trigger typing hygiene
+   |
+
+src/trend_analysis/_autofix_violation_case3.py:24:22: F405 `List` may be undefined, or defined from star imports
+   |
+23 | def ambiguous_types(
+24 |     x: List[int], y: List[int]
+   |                      ^^^^ F405
+25 | ) -> List[int]:  # noqa: F405 (List from wildcard import)
+26 |     """Function with partially annotated parameters to trigger typing hygiene
+   |
 
 tests/test_multi_period_engine_threshold_events_extended.py:109:28: F821 Undefined name `Tuple`
     |
@@ -61,5 +88,5 @@ tests/test_trend_analysis_typing_contract.py:51:12: E721 Use `is` and `is not` f
 53 |     # ``TypeAlias`` annotations resolve to ``list[float]`` at runtime on
    |
 
-Found 7 errors.
+Found 10 errors.
 No fixes available (1 hidden fix can be enabled with the `--unsafe-fixes` option).
