@@ -56,7 +56,8 @@ def test_multi_period_period_result_schema_matches_expected_contract() -> None:
     # the expected element type.
     # Confirm the alias resolves to a parametrised list whose single argument is ``float``.
     # Identity comparison is brittle across Python implementations; structural check instead.
-    from typing import get_origin as _go, get_args as _ga
+    from typing import get_args as _ga
+    from typing import get_origin as _go
 
     assert _go(cov_diag_hint) is list
     args = _ga(cov_diag_hint)
