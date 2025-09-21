@@ -181,7 +181,7 @@ jobs:
         run: |
           import json, glob, os, math
           totals=[]; hotspots=[]
-          for jf in glob.glob('**/coverage.json', recursive=True):
+          for jf in glob.glob('coverage*.json'):
               with open(jf,'r') as fh:
                   data=json.load(fh)
               t=data.get('totals', {})
@@ -237,11 +237,11 @@ jobs:
             try {
               await github.rest.issues.getLabel({owner, repo, name: label});
             } catch (error) {
-              try {
+              if (error.status === 404) {
                 await github.rest.issues.createLabel({owner, repo, name: label, color: '0e8a16'});
-              } catch (createError) {
-                core.error(`Failed to create label "${label}": ${createError.message}`);
-                throw createError;
+              } else {
+                core.error(`Failed to get label "${label}": ${error.message}`);
+                throw error;
               }
             }
             const q = `repo:${owner}/${repo} is:issue is:open in:title "${title}" label:"${label}"`;
