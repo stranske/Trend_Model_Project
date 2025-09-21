@@ -1,4 +1,4 @@
-# Archived GitHub Workflows (2025-09-20)
+# Archived GitHub Workflows (2025-09-21)
 
 This document records the archival and removal of legacy agent-related workflows now replaced by consolidated reusable pipelines.
 
