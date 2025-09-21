@@ -25,24 +25,53 @@ ALLOW = pathlib.Path(".ruff-residual-allowlist.json")
 HISTORY = pathlib.Path("ci/autofix/history.json")
 
 
+def _normalize_allow_entry(entry):
+    code = entry.get("code") if isinstance(entry, dict) else None
+    if not code:
+        return None
+    path = entry.get("path") if isinstance(entry, dict) else None
+    if path is not None:
+        path = str(path)
+    return {"code": str(code), "path": path}
+
+
 def load_allowlist():
     try:
-        data = json.loads(ALLOW.read_text())
+        raw = json.loads(ALLOW.read_text())
     except Exception:
-        return []
-    # Support both list of codes or object with 'codes'
-    if isinstance(data, dict) and "codes" in data:
-        codes = data["codes"]
-    elif isinstance(data, list):
-        codes = data
+        return {"allow": []}, []
+
+    template = {}
+    entries = []
+
+    if isinstance(raw, dict):
+        template = dict(raw)
+        allow_section = raw.get("allow")
+        if isinstance(allow_section, list):
+            for entry in allow_section:
+                norm = _normalize_allow_entry(entry)
+                if norm:
+                    entries.append(norm)
+        elif isinstance(raw.get("codes"), list):
+            entries = [{"code": str(code), "path": None} for code in raw["codes"] if code]
+            template.pop("codes", None)
+        else:
+            template = {"allow": []}
+    elif isinstance(raw, list):
+        entries = [{"code": str(code), "path": None} for code in raw if code]
     else:
-        codes = []
-    return codes
+        template = {"allow": []}
+
+    if "allow" not in template:
+        template["allow"] = entries.copy()
+
+    return template, entries
 
 
-def save_allowlist(codes):
-    # Persist using object form to allow future metadata
-    ALLOW.write_text(json.dumps({"codes": codes}, indent=2, sort_keys=True))
+def save_allowlist(template, entries):
+    data = dict(template)
+    data["allow"] = entries
+    ALLOW.write_text(json.dumps(data, indent=2, sort_keys=True))
 
 
 def main(argv=None) -> int:
@@ -55,8 +84,8 @@ def main(argv=None) -> int:
     )
     args = ap.parse_args(argv)
 
-    allow_codes = load_allowlist()
-    if not allow_codes:
+    template, allow_entries = load_allowlist()
+    if not allow_entries:
         print("No allowlist entries to prune.")
         return 0
     try:
@@ -71,8 +100,16 @@ def main(argv=None) -> int:
 
     streak = args.streak
     tail = hist[-streak:]
+    seen = set()
+    codes_in_order = []
+    for entry in allow_entries:
+        code = entry["code"]
+        if code not in seen:
+            seen.add(code)
+            codes_in_order.append(code)
+
     removal = []
-    for code in allow_codes:
+    for code in codes_in_order:
         # If code appears (count>0) in any of the tail snapshots, keep.
         if any((snap.get("by_code") or {}).get(code, 0) > 0 for snap in tail):
             continue
@@ -84,8 +121,9 @@ def main(argv=None) -> int:
         print("No allowlist codes eligible for pruning.")
         return 0
 
-    new_codes = [c for c in allow_codes if c not in removal]
-    save_allowlist(new_codes)
+    removal_set = set(removal)
+    new_entries = [entry for entry in allow_entries if entry["code"] not in removal_set]
+    save_allowlist(template, new_entries)
     print(f'Pruned {len(removal)} codes from allowlist: {", ".join(removal)}')
     return 0
 
