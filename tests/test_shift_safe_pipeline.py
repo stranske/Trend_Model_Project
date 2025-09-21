@@ -1,5 +1,3 @@
-import math
-
 import pandas as pd
 import pandas.testing as tm
 from hypothesis import given, settings
