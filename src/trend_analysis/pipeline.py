@@ -736,10 +736,12 @@ def compute_signal(
             the value of `window`.
 
     Returns:
-        pd.Series: A float Series containing the trailing rolling mean of the specified
-            column, shifted by one period. The Series is named "<column>_signal" unless
-            the input column has a name. NaN values appear for the first `min_periods`
-            rows (or until enough data is available). The dtype is float.
+        pd.Series: A float Series containing the strictly causal (look‑back only)
+            rolling mean of the specified column. Value at index t uses rows
+            (t-window) .. (t-1) and never the current row, enforcing shift‑safe
+            behaviour. The Series is named "<column>_signal". NaN values appear
+            until at least `min_periods` prior observations exist (plus one for
+            the shift). Dtype is float.
     """
 
     if column not in df.columns:
@@ -752,13 +754,34 @@ def compute_signal(
     if effective_min_periods <= 0:
         raise ValueError("min_periods must be positive")
 
-    # Trailing rolling mean excluding the current row to avoid look-ahead bias.
-    # Value at index ``i`` (for i >= window) is the mean of the previous ``window``
-    # observations. Earlier indices produce NaN until enough history is available.
-    rolling = base.rolling(window=window, min_periods=effective_min_periods).mean()
-    signal = rolling.shift(1)
-    signal.name = f"{column}_signal"
-    return signal
+    cache = get_cache()
+
+    def _compute() -> pd.Series:
+        rolling = base.rolling(window=window, min_periods=effective_min_periods).mean()
+        # Enforce causality: decision at t must not include value at t
+        signal = rolling.shift(1)
+        signal.name = f"{column}_signal"
+        return signal
+
+    if cache.is_enabled():
+        dataset_hash = compute_dataset_hash([base])
+        idx = base.index
+        # Best-effort frequency tag; keep simple to satisfy type checker
+        try:  # pragma: no cover - heuristic only
+            freq = getattr(idx, "freq", None)
+            if freq is not None:
+                freq = str(freq)
+            else:
+                freq = None
+        except Exception:  # noqa: BLE001
+            freq = None
+        freq_tag = freq or "unknown"
+        method_tag = f"rolling_mean_shifted_min{effective_min_periods}"
+        return cache.get_or_compute(
+            dataset_hash, int(window), freq_tag, method_tag, _compute
+        )
+
+    return _compute()
 
 
 def position_from_signal(
