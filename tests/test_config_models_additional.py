@@ -158,7 +158,7 @@ def test_load_config_skips_validation_without_pydantic(
     loaded = models.load_config(cfg)
 
     assert loaded.version == cfg["version"]
-    assert called is True
+    assert called is False
 
 
 def test_load_config_fallback_swallows_validation_errors(
