@@ -19,6 +19,7 @@ from .api import run_simulation
 from .config import load_config
 from .constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 from .data import load_csv
+from .perf.rolling_cache import set_cache_enabled
 
 APP_PATH = Path(__file__).resolve().parents[2] / "streamlit_app" / "app.py"
 LOCK_PATH = Path(__file__).resolve().parents[2] / "requirements.lock"
@@ -158,6 +159,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Disable structured JSONL logging for this run",
     )
+    run_p.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="Disable persistent caching for rolling computations",
+    )
 
     # Handle --check flag before parsing subcommands
     # This allows --check to work without requiring a subcommand
@@ -183,6 +189,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "run":
         cfg = load_config(args.config)
+        set_cache_enabled(not args.no_cache)
         cli_seed = args.seed
         env_seed = os.getenv("TREND_SEED")
         # Precedence: CLI flag > TREND_SEED > config.seed > default 42

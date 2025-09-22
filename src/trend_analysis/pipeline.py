@@ -23,6 +23,7 @@ from .metrics import (
     sortino_ratio,
     volatility,
 )
+from .perf.rolling_cache import compute_dataset_hash, get_cache
 
 logger = logging.getLogger(__name__)
 
@@ -751,13 +752,29 @@ def compute_signal(
     if effective_min_periods <= 0:
         raise ValueError("min_periods must be positive")
 
-    # Unshifted trailing rolling mean (option 2): value at index i (for i >= window-1)
-    # is the mean of the last ``window`` observations INCLUDING the current row.
-    # Earlier indices produce NaN until ``window`` observations are available.
-    rolling = base.rolling(window=window, min_periods=effective_min_periods).mean()
-    signal = rolling
-    signal.name = f"{column}_signal"
-    return signal
+    cache = get_cache()
+
+    def _compute() -> pd.Series:
+        rolling = base.rolling(window=window, min_periods=effective_min_periods).mean()
+        signal = rolling
+        signal.name = f"{column}_signal"
+        return signal
+
+    if cache.is_enabled():
+        dataset_hash = compute_dataset_hash([base])
+        idx = base.index
+        if hasattr(idx, "freqstr") and idx.freqstr:
+            freq = str(idx.freqstr)
+        else:
+            try:
+                freq = pd.infer_freq(idx)
+            except (ValueError, TypeError):
+                freq = None
+        freq_tag = freq or "unknown"
+        method_tag = f"rolling_mean_min{effective_min_periods}"
+        return cache.get_or_compute(dataset_hash, int(window), freq_tag, method_tag, _compute)
+
+    return _compute()
 
 
 def position_from_signal(
