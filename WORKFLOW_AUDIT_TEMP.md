@@ -55,8 +55,7 @@ Update: `cleanup-codex-bootstrap.yml` confirmed – prunes stale `agents/codex-i
 - `reuse-autofix.yml` – (Already listed; cross-category usage as building block.)
 
 ### 8. Governance / Policy Enforcement
-- `enable-automerge.yml` – Enables auto-merge when risk + from:agent labels present.
-- `autoapprove.yml` – Auto-approves small, allowlisted agent PRs.
+- `merge-manager.yml` – Approves and enables auto-merge when allowlist, label, quiet-period, and CI status gates pass (auto-syncs the `ci:green` label).
 - `label-agent-prs.yml` – Applies standardized agent labels (pull_request_target hardened).
 - `guard-no-reuse-pr-branches.yml` (ARCHIVED 2025-09-20) – Former branch reuse enforcement; policy-only now.
 - `pr-path-labeler.yml` – Path‑based labeling for PR taxonomy.

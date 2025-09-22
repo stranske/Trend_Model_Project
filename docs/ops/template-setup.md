@@ -50,11 +50,12 @@ Security posture: The `pull_request_target` workflows in this template do not ch
   ```
 - Composite action runs `ruff`, `black`, `isort`, `docformatter`, and optionally `scripts/auto_type_hygiene.py` when present.
 
-## 5. Auto-approve & Enable Auto-merge
+## 5. Merge Manager (Auto-approve + Auto-merge)
 
-- Auto-approve and enable auto-merge are gated by labels and file-change constraints.
+- The merge-manager workflow evaluates labels, file-change constraints, and quiet-period rules before approving and enabling auto-merge.
 - Customize labels via variables above. Adjust approvable file patterns and size cap via `APPROVE_PATTERNS` and `MAX_LINES_CHANGED`.
-- Auto-merge uses squash by default; can be changed in workflow inputs if desired.
+- The workflow now toggles the `ci:green` label automatically to mirror real check status; no manual relabeling is needed after CI reruns.
+- Auto-merge uses squash by default; change the merge method in the workflow if desired.
 
 ## 6. Docker Workflow
 
@@ -72,12 +73,12 @@ Security posture: The `pull_request_target` workflows in this template do not ch
 2. Add optional secrets in Section 2 (or skip if not needed).
 3. Verify default branch in workflows; adjust branch filters.
 4. If using Docker, set `IMAGE_NAME` and verify `HEALTH_*`.
-5. Run a small test PR to confirm labeling, auto-approve, enable auto-merge, and autofix flows.
+5. Run a small test PR to confirm labeling, merge manager automation, and autofix flows.
 
 ## 9. Troubleshooting
 
-- Auto-merge step fails with branch context error:
-  - Ensure `enable-automerge.yml` passes `pull-request-number` (template does).
+- Merge manager fails with branch context error:
+  - Ensure `.github/workflows/merge-manager.yml` passes `pull-request-number` when enabling auto-merge.
 - Labels not applied on fork PRs:
   - Ensure `label-agent-prs.yml` exists and `pull_request_target` triggers are enabled.
 - Autofix doesn’t push on forks:
