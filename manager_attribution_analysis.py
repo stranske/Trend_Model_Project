@@ -1,4 +1,44 @@
 #!/usr/bin/env python3
+"""DEPRECATED: Manager attribution legacy script.
+
+Replaced by unified `trend` CLI (issue #1437). Migrate to one of:
+
+    trend run --config config/demo.yml --returns demo/demo_returns.csv
+    trend report --out perf/
+
+Custom attribution / analytics should be implemented via the package
+APIs (`trend_analysis.pipeline`, forthcoming reporting hooks) rather than
+this script. This wrapper will be removed in a future minor release.
+"""
+
+from __future__ import annotations
+
+import sys
+import warnings
+from typing import List
+
+
+def _warn() -> None:
+    warnings.warn(
+        "manager_attribution_analysis.py is deprecated; use the `trend` CLI",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+
+
+def main(argv: List[str] | None = None) -> int:
+    _warn()
+    try:
+        from trend.cli import main as trend_main
+    except Exception as exc:  # pragma: no cover
+        print(f"Failed to import trend CLI: {exc}", file=sys.stderr)
+        return 1
+    return trend_main(argv or sys.argv[1:])
+
+
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(main())
+#!/usr/bin/env python3
 """
 Manager Performance Attribution Analysis
 Analysis of individual manager contributions over the 20-year backtest
