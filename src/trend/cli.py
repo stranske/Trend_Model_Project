@@ -7,7 +7,7 @@ import subprocess
 import sys
 import uuid
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable, Protocol
 
 import pandas as pd
 
@@ -18,16 +18,36 @@ from trend_analysis.config import load as load_config
 from trend_analysis.constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 from trend_analysis.data import load_csv
 
+LegacyExtractCacheStats = Callable[[object], dict[str, int] | None]
+
+
+class LegacyMaybeLogStep(Protocol):
+    def __call__(
+        self, enabled: bool, run_id: str, event: str, message: str, **fields: Any
+    ) -> None:
+        ...
+
+
+def _noop_maybe_log_step(
+    enabled: bool, run_id: str, event: str, message: str, **fields: Any
+) -> None:
+    return None
+
+
+_legacy_extract_cache_stats: LegacyExtractCacheStats | None
+_legacy_maybe_log_step: LegacyMaybeLogStep
+
 try:  # ``trend_analysis.cli`` is heavy but provides useful helpers
-    from trend_analysis.cli import (  # type: ignore
-        _extract_cache_stats as _legacy_extract_cache_stats,
-        maybe_log_step as _legacy_maybe_log_step,
+    from trend_analysis.cli import (
+        _extract_cache_stats as _import_extract_cache_stats,
+        maybe_log_step as _import_maybe_log_step,
     )
 except Exception:  # pragma: no cover - defensive fallback
     _legacy_extract_cache_stats = None
-
-    def _legacy_maybe_log_step(*_args: Any, **_kwargs: Any) -> None:
-        return None
+    _legacy_maybe_log_step = _noop_maybe_log_step
+else:
+    _legacy_extract_cache_stats = _import_extract_cache_stats
+    _legacy_maybe_log_step = _import_maybe_log_step
 
 
 APP_PATH = Path(__file__).resolve().parents[2] / "streamlit_app" / "app.py"
@@ -120,7 +140,7 @@ def _resolve_returns_path(
 
 
 def _ensure_dataframe(path: Path) -> pd.DataFrame:
-    df = load_csv(path)
+    df = load_csv(str(path))
     if df is None:
         raise FileNotFoundError(path)
     return df
@@ -303,7 +323,7 @@ def _print_summary(cfg: Any, result: RunResult) -> None:
         str(split.get("out_end", "")),
     )
     print(text)
-    if _legacy_extract_cache_stats:
+    if _legacy_extract_cache_stats is not None:
         cache_stats = _legacy_extract_cache_stats(result.details)
         if cache_stats:
             print("\nCache statistics:")
