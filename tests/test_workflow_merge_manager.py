@@ -45,7 +45,7 @@ def test_merge_manager_core_steps_present():
         "createReview" in content
         or "gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews"
         in content
-    ), "approval invocation missing (expected createReview call)"
+    ), "approval invocation missing (expected createReview call or gh api command)"
     assert "<!-- merge-manager-rationale -->" in content, "rationale marker missing"
 
 
