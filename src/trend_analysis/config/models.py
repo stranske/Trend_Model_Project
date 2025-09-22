@@ -15,14 +15,11 @@ from typing import Any, ClassVar, Dict, List, Protocol, cast
 
 import yaml
 
-# ``tests/test_config_fallback_additional.py`` loads this module under an
-# alternative name so it can toggle ``pydantic`` availability.  In that scenario
-# the loader assigns ``__package__`` based on the injected name (e.g.
-# ``tests.config_models_fallback``) which breaks the relative ``.model`` import.
-# Falling back to the absolute import keeps both the production import path and
-# the isolated test harness working.
-def _fallback_validate_trend_config(_data: Mapping[str, Any], *, base_path: Path) -> None:  # type: ignore[override]
-    return None
+# ``models.py`` is executed under different module names in the test suite so we
+# import ``validate_trend_config`` via its fully-qualified path to avoid
+# relative-import resolution against the temporary alias (for example when the
+# module is loaded as ``tests.config_models_fallback``).
+from trend_analysis.config.model import validate_trend_config
 
 try:  # pragma: no cover - exercised indirectly via tests
     from .model import validate_trend_config
@@ -639,8 +636,9 @@ def load_config(cfg: Mapping[str, Any] | str | Path) -> ConfigProtocol:
     if isinstance(cfg, Mapping):
         cfg_dict = dict(cfg)
         config_obj = Config(**cfg_dict)
+    if _HAS_PYDANTIC:
         validate_trend_config(cfg_dict, base_path=Path.cwd())
-        return config_obj
+    return config_obj
     raise TypeError("cfg must be a mapping or path")
 
 
@@ -697,10 +695,11 @@ def load(path: str | Path | None = None) -> ConfigProtocol:
             export_cfg.setdefault("directory", str(p.parent) if p.parent else ".")
             export_cfg.setdefault("filename", p.name)
 
-    try:
-        validate_trend_config(data, base_path=base_dir)
-    except (ValueError, TypeError) as exc:  # pragma: no cover - surface helpful error
-        raise ValueError(str(exc)) from exc
+    if _HAS_PYDANTIC:
+        try:
+            validate_trend_config(data, base_path=base_dir)
+        except (ValueError, TypeError) as exc:  # pragma: no cover - surface helpful error
+            raise ValueError(str(exc)) from exc
 
     return Config(**data)
 

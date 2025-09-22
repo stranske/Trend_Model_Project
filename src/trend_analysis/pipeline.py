@@ -664,6 +664,100 @@ def run_full(cfg: Config) -> dict[str, object]:
     return {} if res is None else res
 
 
+# --- Shift-safe helpers ----------------------------------------------------
+
+
+def compute_signal(
+    df: pd.DataFrame,
+    *,
+    column: str = "returns",
+    window: int = 3,
+    min_periods: int | None = None,
+) -> pd.Series:
+    """
+    Return a trailing rolling-mean signal that is shift-safe.
+
+    The returned signal is *explicitly* shifted by one period so the value at
+    index ``t`` only depends on data strictly before ``t``. This avoids the
+    classic off-by-one bug where the latest observation leaks into the
+    decision made at the same timestamp, which would introduce look-ahead
+    bias in downstream portfolio simulations.
+
+    Args:
+        df (pd.DataFrame): Input DataFrame containing the data.
+        column (str, optional): Name of the column to compute the signal from.
+            Defaults to "returns".
+        window (int, optional): Size of the trailing window for the rolling mean.
+            Must be positive. Defaults to 3.
+        min_periods (int or None, optional): Minimum number of observations in window
+            required to have a value (otherwise result is NaN). If None, defaults to
+            the value of `window`.
+
+    Returns:
+        pd.Series: A float Series containing the trailing rolling mean of the specified
+            column, shifted by one period. The Series is named "<column>_signal" unless
+            the input column has a name. NaN values appear for the first `min_periods`
+            rows (or until enough data is available). The dtype is float.
+    """
+
+    if column not in df.columns:
+        raise KeyError(column)
+    if window <= 0:
+        raise ValueError("window must be a positive integer")
+
+    base = df[column].astype(float)
+    effective_min_periods = window if min_periods is None else int(min_periods)
+    if effective_min_periods <= 0:
+        raise ValueError("min_periods must be positive")
+
+    rolling = base.rolling(window=window, min_periods=effective_min_periods).mean()
+    signal = rolling.shift(1)
+    signal.name = f"{column}_signal"
+    return signal
+
+
+def position_from_signal(
+    signal: pd.Series,
+    *,
+    long_position: float = 1.0,
+    short_position: float = -1.0,
+    neutral_position: float = 0.0,
+) -> pd.Series:
+    """
+    Convert a trading signal into positions using only past information.
+
+    This function maps a time series of trading signals to position values, using only
+    information available up to each point in time (no look-ahead bias).
+
+    Rules:
+        - The initial position is set to `neutral_position`.
+        - For each signal value:
+            - If the value is NaN or exactly zero, the position retains its previous value.
+            - If the value is positive, the position is set to `long_position`.
+            - If the value is negative, the position is set to `short_position`.
+    Parameters:
+        signal (pd.Series): The input trading signal.
+        long_position (float, optional): Position value for positive signals (default: 1.0).
+        short_position (float, optional): Position value for negative signals (default: -1.0).
+        neutral_position (float, optional): Initial position and value for zero/NaN signals (default: 0.0).
+    Returns:
+        pd.Series: Series of position values, named "position", indexed as the input signal.
+    """
+    values = signal.astype(float).to_numpy()
+    positions = np.empty_like(values, dtype=float)
+    current = float(neutral_position)
+
+    for idx, value in enumerate(values):
+        if np.isnan(value) or value == 0.0:
+            positions[idx] = current
+            continue
+        current = float(long_position if value > 0.0 else short_position)
+        positions[idx] = current
+
+    out = pd.Series(positions, index=signal.index, name="position")
+    return out
+
+
 # Export alias for backward compatibility
 Stats = _Stats
 
@@ -674,6 +768,8 @@ __all__ = [
     "run_analysis",
     "run",
     "run_full",
+    "compute_signal",
+    "position_from_signal",
 ]
 
 
