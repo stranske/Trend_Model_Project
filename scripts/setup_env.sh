@@ -17,7 +17,7 @@ if (return 0 2>/dev/null); then
 		pip install -e ".[dev]"
 		
 		# Try to install the package in editable mode for CLI access
-		pip install -e . || echo "Warning: Package installation failed, CLI available via scripts/trend-model"
+                pip install -e . || echo "Warning: Package installation failed, CLI available via scripts/trend"
 		
 		# Install pre-commit hooks
 		if ! pre-commit install --install-hooks; then
@@ -25,16 +25,19 @@ if (return 0 2>/dev/null); then
 		fi
 		
 		# Ensure CLI wrapper script is executable
-		if ! chmod +x scripts/trend-model; then
-			echo "::warning::chmod +x scripts/trend-model failed, but continuing. CLI wrapper may not be executable."
-		fi
+                if ! chmod +x scripts/trend; then
+                        echo "::warning::chmod +x scripts/trend failed, but continuing. CLI wrapper may not be executable."
+                fi
+                if ! chmod +x scripts/trend-model; then
+                        echo "::warning::chmod +x scripts/trend-model failed, but continuing. CLI wrapper may not be executable."
+                fi
 	)
 	# Now activate in the current shell so the user can keep working
 	# shellcheck disable=SC1091
 	. ".venv/bin/activate"
 	echo "Environment ready and activated."
-	echo "CLI available as: 'trend-model' (if installed) or './scripts/trend-model'"
-	return 0 2>/dev/null || exit 0
+        echo "CLI available as: 'trend' (if installed) or './scripts/trend' (legacy: './scripts/trend-model')"
+        return 0 2>/dev/null || exit 0
 fi
 
 # Executed normally (recommended): strict mode is safe here
@@ -51,7 +54,7 @@ pip install -r requirements.txt
 pip install -e ".[dev]"
 
 # Try to install the package in editable mode for CLI access
-pip install -e . || echo "Warning: Package installation failed, CLI available via scripts/trend-model"
+pip install -e . || echo "Warning: Package installation failed, CLI available via scripts/trend"
 
 # Install pre-commit hooks so formatting runs locally before commits
 if ! pre-commit install --install-hooks; then
@@ -59,9 +62,12 @@ if ! pre-commit install --install-hooks; then
 fi
 
 # Ensure CLI wrapper script is executable
+if ! chmod +x scripts/trend; then
+        echo "::warning::chmod +x scripts/trend failed, but continuing. CLI wrapper may not be executable."
+fi
 if ! chmod +x scripts/trend-model; then
-	echo "::warning::chmod +x scripts/trend-model failed, but continuing. CLI wrapper may not be executable."
+        echo "::warning::chmod +x scripts/trend-model failed, but continuing. CLI wrapper may not be executable."
 fi
 
 echo "Environment setup complete. Activate later with 'source $ENV_DIR/bin/activate'."
-echo "CLI available as: 'trend-model' (if installed) or './scripts/trend-model'"
+echo "CLI available as: 'trend' (if installed) or './scripts/trend' (legacy: './scripts/trend-model')"

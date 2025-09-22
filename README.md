@@ -45,11 +45,13 @@ Install the latest stable release from PyPI:
 pip install trend-model
 ```
 
-This provides the ``trend-model`` command with both GUI and pipeline modes:
+This provides both the legacy ``trend-model`` command and the new unified
+``trend`` entrypoint with pipeline, reporting, stress testing, and app launch
+modes:
 
 ```bash
-trend-model run --help
-trend-model gui
+trend run --help
+trend app
 ```
 
 ### Via ``pipx``
@@ -58,7 +60,7 @@ For an isolated installation without activating a virtual environment:
 
 ```bash
 pipx install trend-model
-trend-model gui
+trend app
 ```
 
 ### From Source
@@ -78,10 +80,10 @@ If package installation fails due to network issues, the CLI is still available 
 ```bash
 # Use the development wrapper script
 ./scripts/trend-model run --help
-./scripts/trend-model gui
+./scripts/trend app
 
-# Or run the module directly  
-PYTHONPATH="./src" python -m trend_analysis.cli run --help
+# Or run the module directly
+PYTHONPATH="./src" python -m trend.cli run --help
 ```
 
 ### Docker (Zero-Setup)
@@ -93,7 +95,7 @@ For the fastest setup with zero local dependencies:
 docker run -p 8501:8501 ghcr.io/stranske/trend-model:latest
 
 # Use the CLI
-docker run --rm ghcr.io/stranske/trend-model:latest trend-analysis --help
+docker run --rm ghcr.io/stranske/trend-model:latest trend --help
 ```
 
 Then visit http://localhost:8501 for the interactive web interface.
@@ -137,20 +139,29 @@ Replace `<patchfile>` with the patch you want to apply (for example `codex.patch
 
 ## Command-line usage
 
-The ``trend-model`` command wraps the pipeline and GUI. To run the analysis
-from a CSV file and YAML configuration:
+The ``trend`` command is the single entrypoint for the entire toolkit.  Each
+subcommand orchestrates a specific workflow:
 
 ```bash
-# If package is installed
-trend-model run -c path/to/config.yml -i returns.csv
+# Run the primary analysis pipeline (uses data.csv_path from the config)
+trend run --config config/demo.yml
 
-# During development (always works)
-./scripts/trend-model run -c path/to/config.yml -i returns.csv
+# Generate a structured report bundle in ./perf
+trend report --config config/demo.yml --out perf
+
+# Execute a canned stress scenario focused on the 2008 crisis window
+trend stress --config config/demo.yml --scenario 2008
+
+# Launch the Streamlit user interface
+trend app
 ```
 
-The configuration file **must** define `data.csv_path`, which is overridden by
-the ``-i`` option above. The `-c` option is **required**; you must specify a configuration file.
-If you wish to use the default configuration, provide `config/defaults.yml` as the argument to `-c`, or set the ``TREND_CFG`` environment variable to point to your desired config file.
+Provide ``--returns`` to override ``data.csv_path`` from the configuration when
+running in ad-hoc mode.  The ``TREND_SEED`` environment variable and ``--seed``
+flag follow the same precedence as the legacy CLI.
+
+The historical ``trend-model`` command remains available for backward
+compatibility and forwards to the new implementation.
 
 ## Reproducible Results
 
@@ -170,7 +181,7 @@ The CLI and Streamlit UI emit **structured JSONL logs** capturing each major pip
 ### CLI
 
 ```bash
-trend-model run -c config/demo.yml -i demo/demo_returns.csv --log-file logs/myrun.jsonl
+trend run --config config/demo.yml --returns demo/demo_returns.csv --log-file logs/myrun.jsonl
 ```
 
 If `--log-file` is omitted a file is created under `outputs/logs/run_<ID>.jsonl` where `<ID>` is a 12‑character run id.
@@ -178,7 +189,7 @@ If `--log-file` is omitted a file is created under `outputs/logs/run_<ID>.jsonl`
 Disable structured logging entirely:
 
 ```bash
-trend-model run -c config/demo.yml -i demo/demo_returns.csv --no-structured-log
+trend run --config config/demo.yml --returns demo/demo_returns.csv --no-structured-log
 ```
 
 ### Schema (one JSON object per line)

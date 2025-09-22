@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Development wrapper for the unified 'trend' CLI
+
+if [[ -z "${PYTHONHASHSEED:-}" ]]; then
+    export PYTHONHASHSEED=0
+fi
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+export PYTHONPATH="${PROJECT_ROOT}/src:${PYTHONPATH}"
+
+if [ -f "${PROJECT_ROOT}/.venv/bin/activate" ]; then
+    source "${PROJECT_ROOT}/.venv/bin/activate"
+fi
+
+PYTHON_EXEC="python"
+if [ -x "${PROJECT_ROOT}/.venv/bin/python" ]; then
+    PYTHON_EXEC="${PROJECT_ROOT}/.venv/bin/python"
+fi
+
+exec "$PYTHON_EXEC" -m trend.cli "$@"
