@@ -1,0 +1,118 @@
+"""Persistent cache for expensive rolling computations."""
+
+from __future__ import annotations
+
+import hashlib
+import os
+import re
+from pathlib import Path
+from typing import Callable, Sequence
+
+import pandas as pd
+from joblib import dump, load
+from pandas.util import hash_pandas_object
+
+_DEFAULT_CACHE_DIR = Path(os.getenv("TREND_ROLLING_CACHE", "~/.cache/trend_model/rolling"))
+
+
+def _normalise_component(component: str) -> str:
+    """Return a filesystem-safe version of ``component``."""
+
+    return re.sub(r"[^A-Za-z0-9_.-]", "_", component)
+
+
+def compute_dataset_hash(objects: Sequence[pd.Series | pd.DataFrame]) -> str:
+    """Return a stable SHA-256 hash for the provided pandas objects."""
+
+    hasher = hashlib.sha256()
+
+    def _update_from_series(series: pd.Series) -> None:
+        hashed = hash_pandas_object(series, index=True)
+        hasher.update(hashed.to_numpy().tobytes())
+        name = "" if series.name is None else str(series.name)
+        hasher.update(name.encode("utf-8", "ignore"))
+        hasher.update(str(series.dtype).encode("utf-8", "ignore"))
+
+    for obj in objects:
+        if isinstance(obj, pd.Series):
+            _update_from_series(obj)
+            continue
+        if isinstance(obj, pd.DataFrame):
+            for column in obj.columns:
+                _update_from_series(obj[column])
+            continue
+        raise TypeError("compute_dataset_hash accepts Series or DataFrame instances")
+
+    return hasher.hexdigest()
+
+
+class RollingCache:
+    """Filesystem-backed cache for rolling computations."""
+
+    def __init__(self, cache_dir: Path | None = None) -> None:
+        self.cache_dir = (cache_dir or _DEFAULT_CACHE_DIR).expanduser()
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        self._enabled = True
+
+    def set_enabled(self, enabled: bool) -> None:
+        self._enabled = bool(enabled)
+
+    def is_enabled(self) -> bool:
+        return self._enabled
+
+    def _build_path(self, dataset_hash: str, window: int, freq: str, method: str) -> Path:
+        safe_method = _normalise_component(method)
+        safe_freq = _normalise_component(freq)
+        file_name = f"{dataset_hash}_{safe_method}_{safe_freq}_{window}.joblib"
+        return self.cache_dir / file_name
+
+    def get_or_compute(
+        self,
+        dataset_hash: str,
+        window: int,
+        freq: str,
+        method: str,
+        compute_fn: Callable[[], pd.Series],
+    ) -> pd.Series:
+        """Return cached result or compute and persist the series."""
+
+        if not self._enabled:
+            return compute_fn()
+
+        cache_path = self._build_path(dataset_hash, window, freq, method)
+        if cache_path.exists():
+            try:
+                cached = load(cache_path)
+                if isinstance(cached, pd.Series):
+                    return cached
+            except Exception:  # pragma: no cover - cache corruption fallback
+                cache_path.unlink(missing_ok=True)
+
+        result = compute_fn()
+        if not isinstance(result, pd.Series):  # pragma: no cover - defensive
+            raise TypeError("compute_fn must return a pandas Series")
+        dump(result, cache_path)
+        return result
+
+
+_DEFAULT_ROLLING_CACHE = RollingCache()
+
+
+def get_cache() -> RollingCache:
+    """Return the process-wide rolling cache."""
+
+    return _DEFAULT_ROLLING_CACHE
+
+
+def set_cache_enabled(enabled: bool) -> None:
+    """Globally enable or disable rolling cache usage."""
+
+    _DEFAULT_ROLLING_CACHE.set_enabled(enabled)
+
+
+__all__ = [
+    "RollingCache",
+    "compute_dataset_hash",
+    "get_cache",
+    "set_cache_enabled",
+]
