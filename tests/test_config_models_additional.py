@@ -60,9 +60,11 @@ def test_column_mapping_defaults_and_validation(
     assert mapping.column_tickers == {}
 
 
-def test_load_merges_output_section(tmp_path: Path) -> None:
+def test_load_merges_output_section(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """``load`` should fold ``output`` metadata into the export settings."""
 
+    monkeypatch.setattr(models, "_HAS_PYDANTIC", False)
+    monkeypatch.setattr(models, "validate_trend_config", lambda data, *, base_path: data)
     export_target = tmp_path / "exports" / "report.xlsx"
     config_dict = _base_config()
     config_dict["export"] = {"formats": ("json",)}
@@ -83,6 +85,8 @@ def test_load_uses_environment_default(
 ) -> None:
     """When no path is provided, ``load`` should honour ``TREND_CFG``."""
 
+    monkeypatch.setattr(models, "_HAS_PYDANTIC", False)
+    monkeypatch.setattr(models, "validate_trend_config", lambda data, *, base_path: data)
     config_path = tmp_path / "custom.yml"
     payload = _base_config()
     payload["version"] = "from-env"
@@ -169,6 +173,22 @@ def test_load_config_fallback_swallows_validation_errors(
     monkeypatch.setattr(models, "validate_trend_config", boom)
 
     loaded = models.load_config(cfg)
+
+    assert loaded.version == cfg["version"]
+
+
+def test_load_mapping_fallback_handles_validation_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = _base_config()
+    monkeypatch.setattr(models, "_HAS_PYDANTIC", False)
+
+    def boom(*_args, **_kwargs) -> None:
+        raise RuntimeError("validation failure")
+
+    monkeypatch.setattr(models, "validate_trend_config", boom)
+
+    loaded = models.load(cfg)
 
     assert loaded.version == cfg["version"]
 

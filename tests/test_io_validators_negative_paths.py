@@ -52,6 +52,32 @@ def test_load_and_validate_upload_empty_file(monkeypatch: pytest.MonkeyPatch) ->
         validators.load_and_validate_upload(DummyFile())
 
 
+def test_load_and_validate_upload_permission_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    class DummyFile:
+        name = "restricted.csv"
+
+    def permission_denied(*_args: Any, **_kwargs: Any) -> pd.DataFrame:
+        raise PermissionError("denied")
+
+    monkeypatch.setattr(validators.pd, "read_csv", permission_denied)
+
+    with pytest.raises(ValueError, match="Permission denied accessing file"):
+        validators.load_and_validate_upload(DummyFile())
+
+
+def test_load_and_validate_upload_directory_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    class DummyFile:
+        name = "data.csv"
+
+    def directory_error(*_args: Any, **_kwargs: Any) -> pd.DataFrame:
+        raise IsADirectoryError("is directory")
+
+    monkeypatch.setattr(validators.pd, "read_csv", directory_error)
+
+    with pytest.raises(ValueError, match="Path is a directory"):
+        validators.load_and_validate_upload(DummyFile())
+
+
 def test_load_and_validate_upload_generic_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     class DummyFile:
         name = "weird.csv"
@@ -63,3 +89,10 @@ def test_load_and_validate_upload_generic_failure(monkeypatch: pytest.MonkeyPatc
 
     with pytest.raises(ValueError, match="Failed to read file: 'weird.csv'"):
         validators.load_and_validate_upload(DummyFile())
+
+
+def test_validate_returns_schema_reports_missing_date_column() -> None:
+    frame = pd.DataFrame({"FundA": [0.01, 0.02]})
+    result = validators.validate_returns_schema(frame)
+    assert result.is_valid is False
+    assert any("Missing required 'Date' column" in issue for issue in result.issues)

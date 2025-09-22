@@ -419,3 +419,58 @@ def test_run_incremental_covariance_column_change_triggers_recompute(monkeypatch
     assert compute_calls[1] == 2
     stats = results[1]["cache_stats"]
     assert stats["incremental_updates"] == 0
+
+
+def test_run_incremental_covariance_longer_window_forces_full_recompute(
+    monkeypatch,
+) -> None:
+    """When the in-sample window length changes, the engine recomputes covariance."""
+
+    cfg = _Cfg()
+    df = _make_df()
+    periods = [
+        SimpleNamespace(
+            in_start="2020-01",
+            in_end="2020-03",
+            out_start="2020-04",
+            out_end="2020-04",
+        ),
+        SimpleNamespace(
+            in_start="2020-01",
+            in_end="2020-04",
+            out_start="2020-05",
+            out_end="2020-05",
+        ),
+    ]
+
+    monkeypatch.setattr(mp_engine, "generate_periods", lambda _cfg: periods)
+
+    def fake_run_analysis(*args, **kwargs):
+        return {"out_ew_stats": {"sharpe": 1.0}}
+
+    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+
+    real_compute = cache_mod.compute_cov_payload
+    compute_calls: list[int] = []
+
+    def tracking_compute(frame: pd.DataFrame, *, materialise_aggregates: bool):
+        compute_calls.append(frame.shape[0])
+        return real_compute(frame, materialise_aggregates=materialise_aggregates)
+
+    monkeypatch.setattr(cache_mod, "compute_cov_payload", tracking_compute)
+
+    incremental_calls: list[int] = []
+    real_incremental = cache_mod.incremental_cov_update
+
+    def tracking_incremental(prev, old_row, new_row):
+        incremental_calls.append(1)
+        return real_incremental(prev, old_row, new_row)
+
+    monkeypatch.setattr(cache_mod, "incremental_cov_update", tracking_incremental)
+
+    results = mp_engine.run(cfg, df=df)
+
+    assert len(results) == 2
+    # First period computes covariance for 3 rows, second recomputes for 4 rows.
+    assert compute_calls == [3, 4]
+    assert not incremental_calls
