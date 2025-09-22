@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  COMMIT_PREFIX: 'chore(autofix):'
+  COMMIT_PREFIX: ${{ vars.AUTOFIX_COMMIT_PREFIX || 'chore(autofix):' }}
 
 jobs:
   context:

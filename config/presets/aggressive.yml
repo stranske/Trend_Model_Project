@@ -1,5 +1,6 @@
 # Aggressive preset configuration
-# Higher risk tolerance with performance-focused selection  
+# Higher risk tolerance with performance-focused selection
+version: "1"
 name: "Aggressive"
 description: "High risk-return profile for performance-oriented users"
 

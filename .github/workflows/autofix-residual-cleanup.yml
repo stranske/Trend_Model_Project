@@ -16,6 +16,9 @@ permissions:
   contents: write
   pull-requests: write
 
+env:
+  COMMIT_PREFIX: ${{ vars.AUTOFIX_COMMIT_PREFIX || 'chore(autofix):' }}
+
 jobs:
   cleanup:
     runs-on: ubuntu-latest
@@ -98,11 +101,11 @@ jobs:
           cp -r ci/autofix ci/autofix || true
           git add ci/autofix || true
           if ! git diff --cached --quiet; then
-            git commit -m 'ci: residual ruff report update'
+            git commit -m "${COMMIT_PREFIX} residual ruff report update"
             git push origin $branch || git push -f origin $branch
           fi
           if ! gh pr list --head "$branch" --json number --jq '.[0].number' >/dev/null 2>&1; then
-            gh pr create --head "$branch" --base "$base" --title 'ci: residual ruff cleanup' --body 'Automated residual cleanup scaffolding (assets only).'
+            gh pr create --head "$branch" --base "$base" --title "${COMMIT_PREFIX} residual ruff cleanup" --body 'Automated residual cleanup scaffolding (assets only).'
           fi
 
       - name: Summary
