@@ -30,6 +30,8 @@ ipywidgets==8.1.7
     # via trend-model (pyproject.toml)
 jedi==0.19.2
     # via ipython
+joblib==1.4.2
+    # via trend-model (pyproject.toml)
 jupyterlab-widgets==3.0.15
     # via ipywidgets
 kiwisolver==1.4.9

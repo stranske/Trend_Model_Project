@@ -23,6 +23,7 @@ from .metrics import (
     sortino_ratio,
     volatility,
 )
+from .perf.rolling_cache import compute_dataset_hash, get_cache
 
 logger = logging.getLogger(__name__)
 
