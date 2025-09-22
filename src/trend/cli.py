@@ -19,14 +19,17 @@ from trend_analysis.constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FO
 from trend_analysis.data import load_csv
 
 try:  # ``trend_analysis.cli`` is heavy but provides useful helpers
-    from trend_analysis.cli import (  # type: ignore
+    from trend_analysis.cli import (
         _extract_cache_stats as _legacy_extract_cache_stats,
         maybe_log_step as _legacy_maybe_log_step,
     )
 except Exception:  # pragma: no cover - defensive fallback
-    _legacy_extract_cache_stats = None
+    _legacy_extract_cache_stats = None  # type: ignore[assignment]
 
-    def _legacy_maybe_log_step(*_args: Any, **_kwargs: Any) -> None:
+    def _legacy_maybe_log_step(
+        enabled: bool, run_id: str, event: str, message: str, **fields: Any
+    ) -> None:  # noqa: D401 - simple noop
+        """Fallback when legacy helpers unavailable (signature matches maybe_log_step)."""
         return None
 
 
@@ -103,9 +106,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _resolve_returns_path(
-    config_path: Path, cfg: Any, override: str | None
-) -> Path:
+def _resolve_returns_path(config_path: Path, cfg: Any, override: str | None) -> Path:
     if override:
         path = Path(override)
     else:
@@ -120,7 +121,7 @@ def _resolve_returns_path(
 
 
 def _ensure_dataframe(path: Path) -> pd.DataFrame:
-    df = load_csv(path)
+    df = load_csv(str(path))
     if df is None:
         raise FileNotFoundError(path)
     return df
@@ -247,9 +248,7 @@ def _handle_exports(
             str(out_dir_path / f"{filename}.xlsx"),
             default_sheet_formatter=formatter,
         )
-        remaining = [
-            fmt for fmt in out_formats if fmt.lower() not in {"excel", "xlsx"}
-        ]
+        remaining = [fmt for fmt in out_formats if fmt.lower() not in {"excel", "xlsx"}]
         if remaining:
             export.export_data(
                 data,
@@ -303,7 +302,7 @@ def _print_summary(cfg: Any, result: RunResult) -> None:
         str(split.get("out_end", "")),
     )
     print(text)
-    if _legacy_extract_cache_stats:
+    if _legacy_extract_cache_stats is not None:
         cache_stats = _legacy_extract_cache_stats(result.details)
         if cache_stats:
             print("\nCache statistics:")
@@ -407,7 +406,9 @@ def main(argv: list[str] | None = None) -> int:
 
         if command == "report":
             if not args.out:
-                raise TrendCLIError("The --out option is required for the 'report' command")
+                raise TrendCLIError(
+                    "The --out option is required for the 'report' command"
+                )
             formats = args.formats or DEFAULT_REPORT_FORMATS
             _prepare_export_config(cfg, Path(args.out), formats)
             result, run_id, _ = _run_pipeline(
@@ -455,4 +456,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":  # pragma: no cover - manual invocation
     raise SystemExit(main())
-

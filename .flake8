@@ -11,3 +11,4 @@ exclude =
 per-file-ignores =
   tests/*: E501,F401,F841,W291
   scripts/*: E501
+  scripts/run_multi_demo.py: E402

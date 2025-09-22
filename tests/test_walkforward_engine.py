@@ -263,7 +263,9 @@ def test_walk_forward_scalar_ir_without_metrics(monkeypatch):
         lambda *a, **k: pd.DataFrame(),
     )
     monkeypatch.setattr(
-        walkforward, "_to_dataframe", lambda *a, **k: pd.DataFrame(),
+        walkforward,
+        "_to_dataframe",
+        lambda *a, **k: pd.DataFrame(),
     )
     monkeypatch.setattr(
         walkforward,
@@ -296,7 +298,9 @@ def test_walk_forward_scalar_ir_without_metrics(monkeypatch):
     # with at least two levels: (window, metric_name). This assertion checks that
     # no metric column named "information_ratio" survives, except for the "window" columns.
     assert all(
-        col[1] != "information_ratio" for col in result.oos_windows.columns if col[0] != "window"
+        col[1] != "information_ratio"
+        for col in result.oos_windows.columns
+        if col[0] != "window"
     )
     assert result.by_regime.empty
 

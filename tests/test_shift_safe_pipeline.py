@@ -1,6 +1,5 @@
 import math
 
-import numpy as np
 import pandas as pd
 import pandas.testing as tm
 import pytest
@@ -13,7 +12,8 @@ from trend_analysis.pipeline import compute_signal, position_from_signal
 def test_compute_signal_matches_shifted_trailing_mean():
     df = pd.DataFrame({"returns": [0.01, 0.03, 0.02, -0.01, 0.05]})
     signal = compute_signal(df, window=3)
-    expected = df["returns"].rolling(window=3, min_periods=3).mean().shift(1)
+    # Updated spec (Option 2): signal equals unshifted trailing mean
+    expected = df["returns"].rolling(window=3, min_periods=3).mean()
     tm.assert_series_equal(signal, expected.rename(signal.name))
 
 

@@ -31,5 +31,9 @@ CONSTANT_VALUE = 42  # unused constant for test
 
 
 def long_line() -> str:
-    # Next line deliberately exceeds 120 chars to exercise any length trimming expectations (though black will wrap appropriately on reformat)
-    return "This is an intentionally overly verbose string whose primary purpose is to exceed the standard enforced line length so that formatting tools act."
+    # Intentionally verbose string broken across lines to satisfy E501 while preserving content.
+    return (
+        "This is an intentionally overly verbose string whose primary purpose "
+        "is to exceed the standard enforced line length so that formatting "
+        "tools act."
+    )

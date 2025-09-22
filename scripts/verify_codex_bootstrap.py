@@ -43,7 +43,6 @@ import os
 import pathlib
 import shlex
 import subprocess
-import textwrap
 import time
 from dataclasses import asdict, dataclass
 from datetime import datetime
@@ -101,7 +100,7 @@ class ScenarioResult:
 
 def create_issue(title: str, body: str, labels=None) -> int:
     labels = labels or []
-    label_args = " ".join([f"--label {shlex.quote(l)}" for l in labels])
+    label_args = " ".join([f"--label {shlex.quote(lbl)}" for lbl in labels])
     cmd = f"gh issue create -t {shlex.quote(title)} -b {shlex.quote(body)} {label_args} --json number -q .number"
     num = run(cmd)
     return int(num)

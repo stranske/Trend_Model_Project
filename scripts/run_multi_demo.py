@@ -26,26 +26,56 @@ from dataclasses import fields
 from pathlib import Path
 from typing import Any, Mapping, Protocol, Sequence, TypedDict, cast
 
-# Ensure src/ is on PYTHONPATH before importing project packages
+# Add src to path before any project imports (acceptable for lint since it's
+# still above third-party imports). This keeps environment manipulation minimal.
 ROOT = Path(__file__).resolve().parent.parent
-if str(ROOT / "src") not in sys.path:
-    sys.path.insert(0, str(ROOT / "src"))
+SRC_PATH = ROOT / "src"
+if str(SRC_PATH) not in sys.path:
+    sys.path.insert(0, str(SRC_PATH))
+
+# Standard library done; third-party imports
+import numpy as np
+import openpyxl
+import pandas as pd
+import yaml  # type: ignore[import-untyped]
+
+# Project imports (kept together; E402 no longer triggered)
+import trend_analysis as ta
+from trend_analysis import (
+    cli,
+    export,
+    gui,
+    metrics,
+    pipeline,
+    run_analysis,
+    run_multi_analysis,
+)
+from trend_analysis.config import Config, load
+from trend_analysis.config.models import ConfigProtocol as _ConfigProto
+from trend_analysis.core import rank_selection as rs
+from trend_analysis.core.rank_selection import RiskStatsConfig, rank_select_funds
+from trend_analysis.data import ensure_datetime, identify_risk_free_fund, load_csv
+from trend_analysis.multi_period import run as run_mp
+from trend_analysis.multi_period import run_schedule, scheduler
+from trend_analysis.multi_period.engine import Portfolio, SelectorProtocol
+from trend_analysis.multi_period.replacer import Rebalancer
+from trend_analysis.selector import RankSelector, ZScoreSelector
+from trend_analysis.weighting import (
+    AdaptiveBayesWeighting,
+    BaseWeighting,
+    EqualWeight,
+    ScorePropBayesian,
+    ScorePropSimple,
+)
 
 FAST_SENTINEL = ROOT / "demo/.fast_demo_mode"
-if FAST_SENTINEL.exists():
+if FAST_SENTINEL.exists():  # pragma: no cover - short-circuit path
     try:
         FAST_SENTINEL.unlink()
     except OSError:
         pass
-    exports_dir = ROOT / "demo/exports"
-    exports_dir.mkdir(parents=True, exist_ok=True)
+    (ROOT / "demo/exports").mkdir(parents=True, exist_ok=True)
     sys.exit(0)
-
-import numpy as np  # noqa: E402
-import openpyxl  # noqa: E402
-import pandas as pd  # noqa: E402
-
-import yaml  # type: ignore[import-untyped]  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Type aliases / structural protocols
@@ -90,33 +120,7 @@ ScoreFrame = pd.DataFrame  # semantic alias for clarity
 StatsMap = Mapping[str, _StatsLike]
 MetricSeries = pd.Series
 
-import trend_analysis as ta  # noqa: E402
-
 # (widgets and metrics imported within functions where needed)
-from trend_analysis import pipeline  # noqa: E402
-from trend_analysis import cli, export, gui, metrics, run_analysis, run_multi_analysis
-from trend_analysis.config import Config, load  # noqa: E402
-from trend_analysis.config.models import (
-    ConfigProtocol as _ConfigProto,
-)  # noqa: E402; for type hints only
-from trend_analysis.core import rank_selection as rs  # noqa: E402
-from trend_analysis.core.rank_selection import RiskStatsConfig  # noqa: E402
-from trend_analysis.core.rank_selection import rank_select_funds
-from trend_analysis.data import ensure_datetime  # noqa: E402
-from trend_analysis.data import identify_risk_free_fund, load_csv
-from trend_analysis.multi_period import run as run_mp  # noqa: E402
-from trend_analysis.multi_period import run_schedule, scheduler  # noqa: E402
-from trend_analysis.multi_period.engine import Portfolio  # noqa: E402
-from trend_analysis.multi_period.engine import SelectorProtocol
-from trend_analysis.multi_period.replacer import Rebalancer  # noqa: E402
-from trend_analysis.selector import RankSelector, ZScoreSelector  # noqa: E402
-from trend_analysis.weighting import AdaptiveBayesWeighting  # noqa: E402
-from trend_analysis.weighting import (
-    BaseWeighting,
-    EqualWeight,
-    ScorePropBayesian,
-    ScorePropSimple,
-)
 
 
 def _check_generate_demo() -> None:

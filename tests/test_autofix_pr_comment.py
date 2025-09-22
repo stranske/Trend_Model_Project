@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Iterable
 
 import pytest
 
@@ -149,7 +148,9 @@ def test_build_comment_defaults_and_autofix_suffix(tmp_path: Path) -> None:
     assert "No additional artifacts" in comment
 
 
-def test_cli_entrypoint_writes_output(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_cli_entrypoint_writes_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     report = tmp_path / "report.json"
     trend = tmp_path / "trend.json"
     history = tmp_path / "history.json"

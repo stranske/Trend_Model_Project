@@ -23,4 +23,3 @@ def __getattr__(name: str) -> str:
 
 
 __all__ = ["__version__"]
-

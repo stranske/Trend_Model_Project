@@ -199,7 +199,9 @@ def test_load_merges_output_settings(monkeypatch: pytest.MonkeyPatch) -> None:
         sys.modules.pop("tests.config_models_fallback_load", None)
 
 
-def test_load_without_pydantic_when_model_cached(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_load_without_pydantic_when_model_cached(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Fallback load should succeed even if the real model module is cached."""
 
     import trend_analysis.config.model  # noqa: F401 - populate sys.modules

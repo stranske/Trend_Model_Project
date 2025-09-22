@@ -6,7 +6,7 @@ Usage:
       --threshold-pct 15
 
 Non-strict: regression must be strictly greater than threshold to fail.
-Monitored raw time metrics (nested keys flattened with '.'): 
+Monitored raw time metrics (nested keys flattened with '.'):
   - no_cache_mean_s
   - cache_mean_s
   - turnover_vectorization.python_mean_s

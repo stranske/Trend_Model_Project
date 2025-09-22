@@ -103,14 +103,18 @@ def build_comment(
     """Construct the autofix status markdown comment."""
 
     report = (
-        load_json(report_path) if report_path else None
-    ) or load_json(pathlib.Path("autofix_report_enriched.json")) or {}
-    history_obj = (
-        load_json(history_path) if history_path else None
-    ) or load_json(pathlib.Path("ci/autofix/history.json"))
+        (load_json(report_path) if report_path else None)
+        or load_json(pathlib.Path("autofix_report_enriched.json"))
+        or {}
+    )
+    history_obj = (load_json(history_path) if history_path else None) or load_json(
+        pathlib.Path("ci/autofix/history.json")
+    )
     trend = (
-        load_json(trend_path) if trend_path else None
-    ) or load_json(pathlib.Path("ci/autofix/trend.json")) or {}
+        (load_json(trend_path) if trend_path else None)
+        or load_json(pathlib.Path("ci/autofix/trend.json"))
+        or {}
+    )
 
     if not isinstance(report, Mapping):
         report = {}

@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from trend_portfolio_app.metrics_extra import AVAILABLE_METRICS
 from trend_portfolio_app.policy_engine import MetricSpec, PolicyConfig
+from trend_analysis.config.bridge import build_config_payload, validate_payload
 
 # Import our config models with fallback - use simpler approach
 try:
@@ -46,13 +47,13 @@ try:
             presets.append(preset_file.stem.title())
         return sorted(presets)
 
-except Exception:
-    # Ultimate fallback
+except Exception:  # pragma: no cover - defensive fallback
+
     def load_preset_direct(name: str) -> dict:  # type: ignore[no-redef]
         return {}
 
     def list_available_presets_direct() -> List[str]:  # type: ignore[no-redef]
-        return ["Conservative", "Balanced", "Aggressive"]
+        return []
 
 
 def initialize_session_state():
@@ -492,6 +493,43 @@ def main():
                     st.error(f"• {error}")
             else:
                 st.success("✅ Configuration is valid!")
+        if st.button("🧪 Validate Minimal Startup Config"):
+            mapping = st.session_state.config_state.get("column_mapping")
+            overrides = st.session_state.config_state.get("custom_overrides", {})
+            df = st.session_state.get("returns_df")
+            if mapping and df is not None:
+                date_col = mapping.get("date_column")
+                inferred_freq = "M"
+                try:
+                    dates = pd.to_datetime(df[date_col]) if date_col else None
+                    if dates is not None and len(dates) > 5:
+                        mdays = (dates.sort_values().diff().median()).days
+                        if mdays <= 2:
+                            inferred_freq = "D"
+                        elif mdays <= 8:
+                            inferred_freq = "W"
+                except Exception:  # pragma: no cover - heuristic only
+                    pass
+                payload = build_config_payload(
+                    csv_path=st.session_state.get("uploaded_file_path"),
+                    managers_glob=None,
+                    date_column=date_col or "Date",
+                    frequency=inferred_freq,
+                    rebalance_calendar="NYSE",
+                    max_turnover=0.5,
+                    transaction_cost_bps=10.0,
+                    target_vol=overrides.get("risk_target", 0.10),
+                )
+                validated, error = validate_payload(payload, base_path=Path.cwd())
+                if validated:
+                    st.success("Minimal config validated (TrendConfig).")
+                    st.session_state.config_state["validated_min_config"] = validated
+                    with st.expander("Validated Minimal Config", expanded=False):
+                        st.json(validated)
+                else:
+                    st.error(f"Minimal config validation failed: {error}")
+            else:
+                st.warning("Upload data and map columns first.")
 
     # Show validation messages if any
     if st.session_state.validation_messages:
