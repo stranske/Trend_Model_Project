@@ -186,6 +186,12 @@ class TestLoadAndValidateUpload:
             load_and_validate_upload("no_such_file.csv")
         assert "File not found" in str(exc_info.value)
 
+    def test_nonexistent_excel_file_raises(self):
+        with pytest.raises(ValueError) as exc_info:
+            load_and_validate_upload("missing.xlsx")
+
+        assert "File not found" in str(exc_info.value)
+
     def test_permission_error_raises(self, monkeypatch):
         def fake_read_csv(*args, **kwargs):  # pragma: no cover - patched
             raise PermissionError
@@ -193,6 +199,20 @@ class TestLoadAndValidateUpload:
         monkeypatch.setattr(pd, "read_csv", fake_read_csv)
         with pytest.raises(ValueError) as exc_info:
             load_and_validate_upload("test.csv")
+        assert "Permission denied" in str(exc_info.value)
+
+    def test_excel_permission_error_raises(self, monkeypatch):
+        buf = io.BytesIO(b"dummy")
+        buf.name = "protected.xlsx"
+
+        def fake_read_excel(*args, **kwargs):  # pragma: no cover - patched
+            raise PermissionError
+
+        monkeypatch.setattr(pd, "read_excel", fake_read_excel)
+
+        with pytest.raises(ValueError) as exc_info:
+            load_and_validate_upload(buf)
+
         assert "Permission denied" in str(exc_info.value)
 
     def test_directory_path_error(self):
@@ -226,6 +246,15 @@ class TestLoadAndValidateUpload:
             load_and_validate_upload("whatever.csv")
 
         assert "Failed to read file" in str(exc_info.value)
+
+    def test_parser_error_is_wrapped(self, monkeypatch):
+        def raise_parser(*args, **kwargs):
+            raise pd.errors.ParserError("bad parse")
+
+        monkeypatch.setattr(pd, "read_csv", raise_parser)
+
+        with pytest.raises(ValueError, match="Failed to parse file"):
+            load_and_validate_upload("broken.csv")
 
     def test_excel_pointer_reset(self):
         df = pd.DataFrame({"Date": ["2023-01-31"], "Fund1": [0.01]})

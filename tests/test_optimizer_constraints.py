@@ -179,6 +179,14 @@ def test_cash_weight_invalid_range_raises():
         apply_constraints(w, {"cash_weight": 0.0})
 
 
+def test_cash_weight_negative_value_rejected():
+    w = pd.Series([0.55, 0.45], index=["a", "b"], dtype=float)
+    with pytest.raises(
+        ConstraintViolation, match=r"cash_weight must be in \(0,1\) exclusive"
+    ):
+        apply_constraints(w, {"cash_weight": -0.1})
+
+
 def test_cash_weight_infeasible_with_max_weight():
     # With two assets, cash=0.3 leaves 0.7. Equal after scaling = 0.35 each which exceeds cap 0.3
     w = pd.Series([0.5, 0.5], index=["a", "b"], dtype=float)
@@ -203,3 +211,11 @@ def test_cash_weight_respects_max_weight_after_residual_scaling():
     np.testing.assert_allclose(out.loc["CASH"], 0.3)
     assert (out.drop("CASH") <= 0.4 + 1e-9).all()
     np.testing.assert_allclose(out.sum(), 1.0)
+
+
+def test_cash_weight_requires_non_cash_assets():
+    w = pd.Series([1.0], index=["CASH"], dtype=float)
+    with pytest.raises(
+        ConstraintViolation, match="No assets available for non-CASH allocation"
+    ):
+        apply_constraints(w, {"cash_weight": 0.2})

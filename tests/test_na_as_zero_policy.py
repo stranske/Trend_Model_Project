@@ -62,3 +62,34 @@ def test_na_as_zero_retains_and_fills():
     funds = res["selected_funds"]
     # Both A and B should be retained under the tolerance
     assert set(funds) == {"A", "B"}
+
+
+def test_na_as_zero_rejects_large_consecutive_gap():
+    df = make_df()
+    # Create a consecutive gap exceeding the configured tolerance while keeping
+    # the total number of missing points within the allowed budget.
+    df.loc[df.index[1:3], "A"] = np.nan  # two-period gap in-sample
+
+    stats_cfg = RiskStatsConfig(
+        metrics_to_run=canonical_metric_list(["annual_return", "volatility"]),
+        risk_free=0.0,
+    )
+    setattr(
+        stats_cfg,
+        "na_as_zero_cfg",
+        {"enabled": True, "max_missing_per_window": 2, "max_consecutive_gap": 1},
+    )
+
+    res = _run_analysis(
+        df,
+        "2020-01",
+        "2020-06",
+        "2020-07",
+        "2020-12",
+        1.0,
+        0.0,
+        stats_cfg=stats_cfg,
+    )
+
+    assert res is not None
+    assert res["selected_funds"] == ["B"]

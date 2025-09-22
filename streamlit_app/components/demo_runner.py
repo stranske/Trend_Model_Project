@@ -189,7 +189,11 @@ def _build_pipeline_config(
         version="1",
         data={},
         preprocessing={},
-        vol_adjust={"target_vol": float(sim_config.get("risk_target", 0.1))},
+        vol_adjust={
+            "target_vol": float(sim_config.get("risk_target", 0.1)),
+            "floor_vol": 0.015,
+            "warmup_periods": 0,
+        },
         sample_split=sample_split,
         portfolio=portfolio,
         benchmarks=benchmarks,

@@ -7,7 +7,7 @@ import subprocess
 import sys
 import uuid
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable, Protocol
 
 import pandas as pd
 
@@ -17,6 +17,25 @@ from trend_analysis.api import RunResult, run_simulation
 from trend_analysis.config import load as load_config
 from trend_analysis.constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 from trend_analysis.data import load_csv
+
+LegacyExtractCacheStats = Callable[[object], dict[str, int] | None]
+
+
+class LegacyMaybeLogStep(Protocol):
+    def __call__(
+        self, enabled: bool, run_id: str, event: str, message: str, **fields: Any
+    ) -> None:
+        ...
+
+
+def _noop_maybe_log_step(
+    enabled: bool, run_id: str, event: str, message: str, **fields: Any
+) -> None:
+    return None
+
+
+_legacy_extract_cache_stats: LegacyExtractCacheStats | None
+_legacy_maybe_log_step: LegacyMaybeLogStep
 
 try:  # ``trend_analysis.cli`` is heavy but provides useful helpers
     from trend_analysis.cli import (

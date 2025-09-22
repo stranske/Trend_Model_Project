@@ -32,6 +32,9 @@ except Exception:  # pragma: no cover - fallback when model unavailable
             "vol_adjust": data.get("vol_adjust", {}),
         }
 
+class _ValidateConfigFn(Protocol):
+    def __call__(self, data: dict[str, Any], *, base_path: Path) -> Any:
+        """Validate configuration data and optionally return a model."""
 
 class ConfigProtocol(Protocol):
     """Type protocol for Config class that works in both Pydantic and fallback
@@ -750,7 +753,9 @@ def load(path: str | Path | None = None) -> ConfigProtocol:
         except Exception:
             pass
 
-    return Config(**data)
+    if isinstance(validated, Mapping):
+        return Config(**dict(validated))
+    return config_obj
 
 
 __all__ = [

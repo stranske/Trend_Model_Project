@@ -115,3 +115,62 @@ def test_incremental_update_runs_with_invalid_shift_limit(
     assert incremental_calls == [1]
     assert "cov_diag" in results[-1]
     assert results[-1]["cache_stats"]["incremental_updates"] == 1
+
+
+def test_incremental_update_fallback_on_exception(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = _Cfg(
+        data={},
+        multi_period={"periods": []},
+        portfolio={
+            "selection_mode": "all",
+            "random_n": 4,
+            "custom_weights": None,
+            "rank": {},
+            "manual_list": None,
+            "indices_list": None,
+        },
+        vol_adjust={"target_vol": 1.0},
+        benchmarks={},
+        run={"monthly_cost": 0.0},
+        performance={"enable_cache": True, "incremental_cov": True},
+    )
+
+    periods: List[_Period] = [
+        _Period("2020-01-31", "2020-03-31", "2020-04-30", "2020-04-30"),
+        _Period("2020-02-29", "2020-04-30", "2020-05-31", "2020-05-31"),
+    ]
+    monkeypatch.setattr(mp_engine, "generate_periods", lambda _cfg: periods)
+
+    def fake_run(*args: Any, **kwargs: Any) -> Dict[str, Any]:
+        return {"out_ew_stats": {}, "out_user_stats": {}}
+
+    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run)
+
+    from trend_analysis.perf import cache as perf_cache
+
+    compute_calls: list[int] = []
+    original_compute = perf_cache.compute_cov_payload
+    monkeypatch.setattr(
+        "trend_analysis.perf.cache.compute_cov_payload",
+        lambda frame, *, materialise_aggregates: (
+            compute_calls.append(frame.shape[0])
+            or original_compute(frame, materialise_aggregates=materialise_aggregates)
+        ),
+    )
+
+    def boom(*_args: Any, **_kwargs: Any) -> Any:
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(
+        "trend_analysis.perf.cache.incremental_cov_update", boom
+    )
+
+    results = mp_engine.run(cfg, df=_make_df())
+
+    assert len(results) == len(periods)
+    # First window uses a full compute; second falls back to full recompute after failure.
+    assert compute_calls == [3, 3]
+    assert results[-1]["cache_stats"]["incremental_updates"] == 0
+    assert "cov_diag" in results[-1]
