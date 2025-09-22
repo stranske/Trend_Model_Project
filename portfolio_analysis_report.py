@@ -43,7 +43,7 @@ def main(argv: List[str] | None = None) -> int:
     """
     _warn()
     try:
-        from trend.cli import main as trend_main  # lazy import
+        from trend_analysis.cli import main as trend_main  # lazy import
     except Exception as exc:  # pragma: no cover - defensive
         print(f"Failed to import trend CLI: {exc}", file=sys.stderr)
         return 1
