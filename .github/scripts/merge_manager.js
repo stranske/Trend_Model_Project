@@ -260,7 +260,36 @@ async function upsertDecisionComment({ github, owner, repo, prNumber, marker, bo
   return 'created';
 }
 
+async function syncCiStatusLabel({ github, owner, repo, prNumber, labelName, desired, present }) {
+  if (!prNumber || !labelName) {
+    return 'skipped';
+  }
+
+  if (desired) {
+    if (present) {
+      return 'unchanged';
+    }
+    await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels: [labelName] });
+    return 'added';
+  }
+
+  if (!present) {
+    return 'unchanged';
+  }
+
+  try {
+    await github.rest.issues.removeLabel({ owner, repo, issue_number: prNumber, name: labelName });
+    return 'removed';
+  } catch (error) {
+    if (error.status === 404) {
+      return 'missing';
+    }
+    throw error;
+  }
+}
+
 module.exports = {
   evaluatePullRequest,
   upsertDecisionComment,
+  syncCiStatusLabel,
 };
