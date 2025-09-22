@@ -74,7 +74,7 @@ def main():
     try:
         config_state = st.session_state.get("config_state", {})
         estimate = config_state.get("resource_estimate")
-    except Exception:  # pragma: no cover - defensive fallback
+    except (TypeError, AttributeError):  # pragma: no cover - defensive fallback
         estimate = None
     if estimate is None:
         estimate = estimate_resource_usage(df.shape[0], df.shape[1])
