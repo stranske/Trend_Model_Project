@@ -109,6 +109,16 @@ jobs:
 ```
 Use a tagged ref when versioned.
 
+### Consolidation (Issue #1419)
+Active agent automation is intentionally reduced to two workflows:
+
+- `assign-to-agents.yml` – Assigns the appropriate agent on label, boots Codex issue branches, posts trigger commands, and dispatches the watchdog.
+- `agent-watchdog.yml` – Polls the issue timeline for a cross‑referenced PR and reports success or a precise timeout.
+
+Legacy orchestrators (`agents-consumer.yml`, `reuse-agents.yml`) are archived under `Old/.github/workflows/` and guarded by
+`tests/test_workflow_agents_consolidation.py` to prevent silent reintroduction. Any new agent helper must either extend the
+existing assigner or document a justification for a third workflow in this README.
+
 ---
 ## 6. Onboarding Checklist (~7m)
 1. Create labels `automerge`, `risk:low`, `agent:codex`, `agent:copilot`, `codex-ready`.
