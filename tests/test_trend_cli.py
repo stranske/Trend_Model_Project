@@ -17,10 +17,15 @@ from trend_analysis.api import RunResult
 
 def test_build_parser_contains_expected_subcommands() -> None:
     parser = build_parser()
-    subcommands = {name for name in parser._subparsers._group_actions[0].choices}  # type: ignore[attr-defined]
-    assert {"run", "report", "stress", "app"}.issubset(subcommands)
-
-
+    expected_subcommands = {"run", "report", "stress", "app"}
+    for subcommand in expected_subcommands:
+        # Should not raise SystemExit
+        try:
+            args = parser.parse_args([subcommand])
+        except SystemExit:
+            assert False, f"Subcommand '{subcommand}' not recognized by parser"
+        # The subcommand should be set in the namespace
+        assert getattr(args, "subcommand", None) == subcommand
 def test_resolve_returns_path_uses_config_directory(tmp_path: Path) -> None:
     cfg_path = tmp_path / "config.yml"
     cfg_path.write_text("", encoding="utf-8")
