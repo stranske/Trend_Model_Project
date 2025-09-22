@@ -24,13 +24,21 @@ def _make_streamlit(button_response: Any = False) -> MagicMock:
     st = MagicMock()
     st.session_state = {}
     st.title = MagicMock()
-    st.button = MagicMock(return_value=button_response)
+    if isinstance(button_response, list):
+        responses = list(button_response)
+    else:
+        responses = [button_response, button_response]
+    responses.extend([False, False, False])
+    st.button = MagicMock(side_effect=responses)
     st.error = MagicMock()
     st.warning = MagicMock(return_value=_ctx_mock())
     st.success = MagicMock()
     st.progress = MagicMock(return_value=_ctx_mock())
     st.write = MagicMock()
     st.rerun = MagicMock()
+    st.caption = MagicMock()
+    st.json = MagicMock()
+    st.spinner = MagicMock(return_value=_ctx_mock())
     return st
 
 
@@ -94,8 +102,37 @@ def test_main_exits_when_button_not_clicked() -> None:
     mock_st.error.assert_not_called()
 
 
+def test_main_supports_dry_run(monkeypatch: pytest.MonkeyPatch) -> None:
+    mock_st = _make_streamlit(button_response=[True, False])
+    module = _load_run_module(mock_st)
+
+    mock_returns = pd.DataFrame(
+        {"A": [0.01] * 24},
+        index=pd.date_range("2020-01-31", periods=24, freq="ME"),
+    )
+    mock_cfg = {
+        "start": pd.Timestamp("2020-06-30"),
+        "end": pd.Timestamp("2021-12-31"),
+        "lookback_months": 12,
+        "risk_target": 0.3,
+        "portfolio": {"weighting_scheme": "equal"},
+    }
+    mock_st.session_state.update({"returns_df": mock_returns, "sim_config": mock_cfg})
+
+    module.show_disclaimer = lambda: True
+    result = SimpleNamespace(metrics={}, fallback_info=None)
+    module.run_simulation = MagicMock(return_value=result)
+
+    with patch.dict("sys.modules", {"streamlit": mock_st}):
+        module.main()
+
+    module.run_simulation.assert_called_once()
+    mock_st.progress.assert_not_called()
+    mock_st.success.assert_called()
+
+
 def test_main_handles_invalid_dates_gracefully() -> None:
-    mock_st = _make_streamlit(button_response=True)
+    mock_st = _make_streamlit(button_response=[False, True])
     module = _load_run_module(mock_st)
 
     mock_returns = pd.DataFrame({"A": [0.1, -0.1]}, index=pd.Index([1, 2], name="Date"))
@@ -119,8 +156,8 @@ def test_main_handles_invalid_dates_gracefully() -> None:
 
 def test_main_runs_and_surfaces_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     mock_st = _make_streamlit()
-    # First button click starts the run, second corresponds to the dismiss button
-    mock_st.button.side_effect = [True, False]
+    # Simulate run button click followed by "do not dismiss" choice
+    mock_st.button.side_effect = [False, True, False]
 
     module = _load_run_module(mock_st)
 
@@ -198,7 +235,7 @@ def test_main_handles_non_iterable_session_state() -> None:
         def __getitem__(self, key: str) -> object:
             return self._store[key]
 
-    mock_st = _make_streamlit(button_response=True)
+    mock_st = _make_streamlit(button_response=[False, True])
     module = _load_run_module(mock_st)
 
     returns = pd.DataFrame(
@@ -244,7 +281,7 @@ def test_main_uses_default_weighting_when_portfolio_missing() -> None:
                 raise KeyError(key)
             return super().__getitem__(key)
 
-    mock_st = _make_streamlit(button_response=True)
+    mock_st = _make_streamlit(button_response=[False, True])
     module = _load_run_module(mock_st)
 
     mock_cfg = PortfolioFault(
@@ -279,7 +316,7 @@ def test_main_dismisses_weight_engine_warning() -> None:
     """Clicking the dismiss button should set state and rerun the app."""
 
     mock_st = _make_streamlit()
-    mock_st.button.side_effect = [True, True]
+    mock_st.button.side_effect = [False, True, True]
     module = _load_run_module(mock_st)
 
     mock_cfg = {

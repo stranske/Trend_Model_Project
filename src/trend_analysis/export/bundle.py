@@ -11,7 +11,12 @@ from typing import Any
 import matplotlib
 import pandas as pd
 
-from trend_analysis.util.hash import sha256_config, sha256_file, sha256_text
+from trend_analysis.util.hash import (
+    normalise_for_json,
+    sha256_config,
+    sha256_file,
+    sha256_text,
+)
 
 
 def _git_hash() -> str:
@@ -279,7 +284,7 @@ Git commit: {commit_short}
         # Attach outputs map and write the manifest
         meta["outputs"] = outputs
         with open(bundle_dir / "run_meta.json", "w", encoding="utf-8") as f:
-            json.dump(meta, f, indent=2)
+            json.dump(normalise_for_json(meta), f, indent=2)
 
         # ------------------------------------------------------------------
         # Zip everything

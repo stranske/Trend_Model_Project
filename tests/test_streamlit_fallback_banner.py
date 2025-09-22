@@ -50,7 +50,7 @@ def _mock_streamlit_module():  # noqa: D401 - helper
             self.session_state = {}
             self._button_calls: List[str] = []
             # First button (run) returns True, second (dismiss) returns False
-            self._button_side_effect = [True, False]
+            self._button_side_effect = [False, True, False]
 
         # Basic widgets
         def title(self, *_a, **_k):
@@ -80,6 +80,15 @@ def _mock_streamlit_module():  # noqa: D401 - helper
 
         def write(self, *_, **__):
             return None
+
+        def caption(self, *_, **__):
+            return None
+
+        def json(self, *_, **__):
+            return None
+
+        def spinner(self, *_a, **_k):
+            return _WarningCtx("spinner", warnings)
 
         def experimental_rerun(self):  # pragma: no cover - not triggered here
             return None

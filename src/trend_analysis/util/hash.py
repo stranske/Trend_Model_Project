@@ -46,11 +46,26 @@ def sha256_file(path: PathLike) -> str:
     return h.hexdigest()
 
 
-def sha256_config(cfg: Mapping[str, Any]) -> str:
+def normalise_for_json(value: Any) -> Any:
+    """Convert values to JSON-serialisable representations."""
+
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, Mapping):
+        return {k: normalise_for_json(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [normalise_for_json(item) for item in value]
+    if hasattr(value, "model_dump"):
+        return normalise_for_json(value.model_dump())
+    return value
+
+
+def sha256_config(cfg: Mapping[str, Any] | Any) -> str:
     """Return a deterministic SHA256 digest for a config mapping.
 
     The mapping is serialised to JSON with sorted keys to ensure
     consistent hashing irrespective of key order.
     """
-    text = json.dumps(cfg, sort_keys=True, separators=(",", ":"))
+    normalised = normalise_for_json(cfg)
+    text = json.dumps(normalised, sort_keys=True, separators=(",", ":"))
     return sha256_text(text)
