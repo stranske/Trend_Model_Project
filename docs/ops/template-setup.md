@@ -54,6 +54,7 @@ Security posture: The `pull_request_target` workflows in this template do not ch
 
 - The merge-manager workflow evaluates labels, file-change constraints, and quiet-period rules before approving and enabling auto-merge.
 - Customize labels via variables above. Adjust approvable file patterns and size cap via `APPROVE_PATTERNS` and `MAX_LINES_CHANGED`.
+- The workflow now toggles the `ci:green` label automatically to mirror real check status; no manual relabeling is needed after CI reruns.
 - Auto-merge uses squash by default; change the merge method in the workflow if desired.
 
 ## 6. Docker Workflow

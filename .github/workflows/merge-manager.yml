@@ -58,6 +58,38 @@ jobs:
               },
             });
 
+      - name: Sync CI status label
+        if: steps.evaluate.outputs.pr_number != ''
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ steps.evaluate.outputs.pr_number }}
+          CI_LABEL_NAME: ${{ vars.CI_LABEL || 'ci:green' }}
+          CI_LABEL_PRESENT: ${{ steps.evaluate.outputs.ci_label }}
+          CI_LABEL_DESIRED: ${{ steps.evaluate.outputs.ci_label_desired }}
+        with:
+          script: |
+            const prNumber = parseInt(process.env.PR_NUMBER || '0', 10);
+            const labelName = process.env.CI_LABEL_NAME;
+            if (!prNumber || !labelName) {
+              return;
+            }
+            const { owner, repo } = context.repo;
+            const desired = process.env.CI_LABEL_DESIRED === 'true';
+            const present = process.env.CI_LABEL_PRESENT === 'true';
+            if (desired && !present) {
+              await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels: [labelName] });
+              return;
+            }
+            if (!desired && present) {
+              try {
+                await github.rest.issues.removeLabel({ owner, repo, issue_number: prNumber, name: labelName });
+              } catch (error) {
+                if (error.status !== 404) {
+                  throw error;
+                }
+              }
+            }
+
       - name: Quiet & workflow gate
         if: steps.evaluate.outputs.should_run == 'true'
         id: quiet
@@ -149,6 +181,10 @@ jobs:
           FROM_LABEL: ${{ steps.evaluate.outputs.from_label }}
           RISK_LABEL: ${{ steps.evaluate.outputs.risk_label }}
           CI_LABEL: ${{ steps.evaluate.outputs.ci_label }}
+          CI_GREEN: ${{ steps.evaluate.outputs.ci_green }}
+          CI_PENDING: ${{ steps.evaluate.outputs.ci_pending }}
+          CI_FAILING: ${{ steps.evaluate.outputs.ci_failing }}
+          CI_SIGNAL: ${{ steps.evaluate.outputs.ci_signal }}
           QUIET_AVAILABLE: ${{ steps.quiet.outputs.proceed != '' }}
           QUIET_OK: ${{ steps.quiet.outputs.quiet_ok }}
           ACTIVE_OK: ${{ steps.quiet.outputs.active_ok }}
@@ -192,8 +228,16 @@ jobs:
               if (process.env.RISK_LABEL !== 'true') {
                 reasons.push('the `risk:low` label is missing');
               }
-              if (process.env.CI_LABEL !== 'true') {
-                reasons.push('the `ci:green` label is missing');
+              if (process.env.CI_GREEN !== 'true') {
+                if (process.env.CI_PENDING === 'true') {
+                  reasons.push('required CI checks are still running');
+                } else if (process.env.CI_FAILING === 'true') {
+                  reasons.push('one or more required CI checks have failed');
+                } else if (process.env.CI_SIGNAL !== 'true') {
+                  reasons.push('required CI checks have not reported results yet');
+                } else {
+                  reasons.push('required CI checks have not completed successfully');
+                }
               }
               if (process.env.QUIET_AVAILABLE === 'true') {
                 if (process.env.QUIET_OK !== 'true') {
@@ -279,6 +323,38 @@ jobs:
               },
             });
 
+      - name: Sync CI status label
+        if: steps.evaluate_post.outputs.pr_number != ''
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ steps.evaluate_post.outputs.pr_number }}
+          CI_LABEL_NAME: ${{ vars.CI_LABEL || 'ci:green' }}
+          CI_LABEL_PRESENT: ${{ steps.evaluate_post.outputs.ci_label }}
+          CI_LABEL_DESIRED: ${{ steps.evaluate_post.outputs.ci_label_desired }}
+        with:
+          script: |
+            const prNumber = parseInt(process.env.PR_NUMBER || '0', 10);
+            const labelName = process.env.CI_LABEL_NAME;
+            if (!prNumber || !labelName) {
+              return;
+            }
+            const { owner, repo } = context.repo;
+            const desired = process.env.CI_LABEL_DESIRED === 'true';
+            const present = process.env.CI_LABEL_PRESENT === 'true';
+            if (desired && !present) {
+              await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels: [labelName] });
+              return;
+            }
+            if (!desired && present) {
+              try {
+                await github.rest.issues.removeLabel({ owner, repo, issue_number: prNumber, name: labelName });
+              } catch (error) {
+                if (error.status !== 404) {
+                  throw error;
+                }
+              }
+            }
+
       - name: Quiet & workflow gate
         if: steps.evaluate_post.outputs.should_run == 'true'
         id: quiet_post
@@ -348,6 +424,10 @@ jobs:
           FROM_LABEL: ${{ steps.evaluate_post.outputs.from_label }}
           RISK_LABEL: ${{ steps.evaluate_post.outputs.risk_label }}
           CI_LABEL: ${{ steps.evaluate_post.outputs.ci_label }}
+          CI_GREEN: ${{ steps.evaluate_post.outputs.ci_green }}
+          CI_PENDING: ${{ steps.evaluate_post.outputs.ci_pending }}
+          CI_FAILING: ${{ steps.evaluate_post.outputs.ci_failing }}
+          CI_SIGNAL: ${{ steps.evaluate_post.outputs.ci_signal }}
           QUIET_AVAILABLE: ${{ steps.quiet_post.outputs.proceed != '' }}
           QUIET_OK: ${{ steps.quiet_post.outputs.quiet_ok }}
           ACTIVE_OK: ${{ steps.quiet_post.outputs.active_ok }}
@@ -391,8 +471,16 @@ jobs:
               if (process.env.RISK_LABEL !== 'true') {
                 reasons.push('the `risk:low` label is missing');
               }
-              if (process.env.CI_LABEL !== 'true') {
-                reasons.push('the `ci:green` label is missing');
+              if (process.env.CI_GREEN !== 'true') {
+                if (process.env.CI_PENDING === 'true') {
+                  reasons.push('required CI checks are still running');
+                } else if (process.env.CI_FAILING === 'true') {
+                  reasons.push('one or more required CI checks have failed');
+                } else if (process.env.CI_SIGNAL !== 'true') {
+                  reasons.push('required CI checks have not reported results yet');
+                } else {
+                  reasons.push('required CI checks have not completed successfully');
+                }
               }
               if (process.env.QUIET_AVAILABLE === 'true') {
                 if (process.env.QUIET_OK !== 'true') {
