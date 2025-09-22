@@ -91,6 +91,28 @@ def test_load_and_validate_upload_generic_failure(monkeypatch: pytest.MonkeyPatc
         validators.load_and_validate_upload(DummyFile())
 
 
+def test_load_and_validate_upload_excel_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+    class DummyExcel:
+        name = "broken.xlsx"
+
+        def __init__(self) -> None:
+            self._buffer = b"excel"
+
+        def read(self) -> bytes:
+            return self._buffer
+
+        def seek(self, _pos: int) -> None:
+            pass
+
+    def excel_failure(*_args: Any, **_kwargs: Any) -> pd.DataFrame:
+        raise pd.errors.EmptyDataError("no excel data")
+
+    monkeypatch.setattr(validators.pd, "read_excel", excel_failure)
+
+    with pytest.raises(ValueError, match="File contains no data: 'broken.xlsx'"):
+        validators.load_and_validate_upload(DummyExcel())
+
+
 def test_validate_returns_schema_reports_missing_date_column() -> None:
     frame = pd.DataFrame({"FundA": [0.01, 0.02]})
     result = validators.validate_returns_schema(frame)
