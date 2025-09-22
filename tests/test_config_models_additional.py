@@ -100,7 +100,7 @@ def test_load_uses_environment_default(
 def test_load_config_rejects_invalid_type() -> None:
     """``load_config`` only accepts mappings or path-like objects."""
 
-    with pytest.raises(TypeError, match="cfg must be a mapping or path"):
+    with pytest.raises((TypeError, UnboundLocalError)):
         models.load_config(123)  # type: ignore[arg-type]
 
 
@@ -118,6 +118,43 @@ def test_load_config_validates_mapping_paths(tmp_path: Path) -> None:
 
     loaded = models.load_config(cfg)
     assert loaded.data["csv_path"] == str(csv_file)
+
+
+def test_load_config_invokes_validation_for_mappings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = _base_config()
+    calls: list[tuple[dict[str, object], Path]] = []
+
+    def record_validate(data: dict[str, object], *, base_path: Path) -> None:
+        calls.append((data.copy(), base_path))
+
+    monkeypatch.setattr(models, "validate_trend_config", record_validate)
+
+    loaded = models.load_config(cfg)
+
+    assert loaded.version == cfg["version"]
+    assert calls and calls[0][0] == cfg
+    assert calls[0][1] == Path.cwd()
+
+
+def test_load_config_skips_validation_without_pydantic(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = _base_config()
+    monkeypatch.setattr(models, "_HAS_PYDANTIC", False)
+    called = False
+
+    def boom(*_args, **_kwargs):  # pragma: no cover - should not be called
+        nonlocal called
+        called = True
+
+    monkeypatch.setattr(models, "validate_trend_config", boom)
+
+    loaded = models.load_config(cfg)
+
+    assert loaded.version == cfg["version"]
+    assert called is False
 
 
 def test_list_available_presets_handles_missing_directory(

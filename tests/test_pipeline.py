@@ -3,6 +3,7 @@ import pytest
 
 from trend_analysis import config, pipeline
 from trend_analysis.config import Config
+from trend_analysis.core.rank_selection import RiskStatsConfig, canonical_metric_list
 
 
 def make_cfg(tmp_path, df):
@@ -248,3 +249,61 @@ def test_run_analysis_constraint_failure_falls_back(monkeypatch):
     assert res is not None
     # When constraints processing fails the pipeline should keep the equal weights.
     assert res["fund_weights"] == {"A": pytest.approx(0.5), "B": pytest.approx(0.5)}
+
+
+def test_run_analysis_injects_avg_corr_metric():
+    df = _make_two_fund_df()
+    stats_cfg = RiskStatsConfig(
+        metrics_to_run=canonical_metric_list(["annual_return", "volatility"]),
+        risk_free=0.0,
+    )
+    setattr(stats_cfg, "extra_metrics", ["AvgCorr"])
+
+    res = pipeline.run_analysis(
+        df,
+        "2020-01",
+        "2020-03",
+        "2020-04",
+        "2020-06",
+        1.0,
+        0.0,
+        stats_cfg=stats_cfg,
+    )
+
+    assert res is not None
+    score_frame = res["score_frame"]
+    assert "AvgCorr" in score_frame.columns
+    # The optional injection should provide finite correlation diagnostics when
+    # more than one fund is selected.
+    assert score_frame["AvgCorr"].notna().all()
+
+
+def test_run_analysis_benchmark_ir_fallback(monkeypatch):
+    df = _make_two_fund_df()
+    df["SPX"] = 0.01
+
+    original_ir = pipeline.information_ratio
+    raised = {"flag": False}
+
+    def selective_boom(series_a, series_b):
+        target_name = getattr(series_b, "name", "")
+        if target_name == "SPX" and getattr(series_a, "ndim", 1) == 1:
+            raised["flag"] = True
+            raise ZeroDivisionError("bad benchmark")
+        return original_ir(series_a, series_b)
+
+    monkeypatch.setattr("trend_analysis.pipeline.information_ratio", selective_boom)
+
+    res = pipeline.run_analysis(
+        df,
+        "2020-01",
+        "2020-03",
+        "2020-04",
+        "2020-06",
+        1.0,
+        0.0,
+        benchmarks={"spx": "SPX"},
+    )
+
+    assert res is not None
+    assert raised["flag"] is True

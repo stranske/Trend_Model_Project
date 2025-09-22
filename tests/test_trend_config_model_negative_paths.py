@@ -105,6 +105,35 @@ def test_data_settings_rejects_invalid_frequency(tmp_path):
     assert "data.frequency" in message
 
 
+def test_data_settings_normalises_frequency(tmp_path):
+    csv_path = tmp_path / "returns.csv"
+    csv_path.write_text("date,nav\n", encoding="utf-8")
+
+    cfg = config_model.DataSettings.model_validate(
+        {
+            "csv_path": str(csv_path),
+            "managers_glob": None,
+            "date_column": "Date",
+            "frequency": " m ",
+        },
+        context={"base_path": tmp_path},
+    )
+
+    assert cfg.frequency == "M"
+
+    cfg_me = config_model.DataSettings.model_validate(
+        {
+            "csv_path": str(csv_path),
+            "managers_glob": None,
+            "date_column": "Date",
+            "frequency": "me",
+        },
+        context={"base_path": tmp_path},
+    )
+
+    assert cfg_me.frequency == "ME"
+
+
 def test_data_settings_require_source(tmp_path):
     with pytest.raises(ValidationError) as exc:
         config_model.DataSettings.model_validate(
@@ -119,6 +148,31 @@ def test_data_settings_require_source(tmp_path):
 
     message = exc.value.errors()[0]["msg"]
     assert "data.csv_path must point" in message
+
+
+def test_validate_trend_config_formats_error_messages(tmp_path):
+    csv_path = tmp_path / "returns.csv"
+    csv_path.write_text("date,nav\n", encoding="utf-8")
+
+    raw = {
+        "data": {
+            "csv_path": str(csv_path),
+            "managers_glob": None,
+            "date_column": "Date",
+            "frequency": "M",
+        },
+        "portfolio": {
+            "rebalance_calendar": "NYSE",
+            "max_turnover": 0.5,
+            "transaction_cost_bps": -1,
+        },
+        "vol_adjust": {"target_vol": 1.0},
+    }
+
+    with pytest.raises(ValueError) as exc:
+        config_model.validate_trend_config(raw, base_path=tmp_path)
+
+    assert "portfolio.transaction_cost_bps" in str(exc.value)
 
 
 def test_portfolio_settings_enforce_turnover_bounds():
