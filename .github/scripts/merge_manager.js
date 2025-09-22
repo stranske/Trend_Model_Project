@@ -27,14 +27,49 @@ async function fetchAllowlist(github, owner, repo, path, ref) {
   return { found, patterns, maxLines };
 }
 
+const patternCache = new Map();
+
+function escapeRegexSegment(segment) {
+  return segment.replace(/([\\^$*+?.()|{}\[\]])/g, '\\$1');
+}
+
+function compileGlob(pattern) {
+  if (patternCache.has(pattern)) {
+    return patternCache.get(pattern);
+  }
+  let regex = '';
+  for (let i = 0; i < pattern.length; i += 1) {
+    const char = pattern[i];
+    if (char === '*') {
+      if (pattern[i + 1] === '*') {
+        if (pattern[i + 2] === '/') {
+          regex += '(?:.*/)?';
+          i += 2;
+        } else {
+          regex += '.*';
+          i += 1;
+        }
+      } else {
+        regex += '[^/]*';
+      }
+      continue;
+    }
+    if (char === '?') {
+      regex += '[^/]';
+      continue;
+    }
+    regex += escapeRegexSegment(char);
+  }
+  const compiled = new RegExp(`^${regex}$`);
+  patternCache.set(pattern, compiled);
+  return compiled;
+}
+
 function matchPattern(filename, pattern) {
-  if (pattern.endsWith('/**')) {
-    return filename.startsWith(pattern.slice(0, -3));
+  if (!pattern || !filename) {
+    return false;
   }
-  if (pattern.startsWith('**/*.')) {
-    return filename.endsWith(pattern.slice(4));
-  }
-  return filename === pattern;
+  return compileGlob(pattern).test(filename);
 }
 
 async function evaluatePullRequest({ github, core, owner, repo, prNumber, config }) {
@@ -105,7 +140,7 @@ async function evaluatePullRequest({ github, core, owner, repo, prNumber, config
     max_lines: String(maxLines),
     pattern_count: String(patternCount),
     pattern_source: patternSource,
-    should_auto_approve: String(safe && hasAutomerge && hasFrom && hasRisk && !pr.draft),
+    should_auto_approve: String(safe && hasFrom && hasRisk && !pr.draft),
     label_gate_ok: String(hasFrom && hasRisk && hasCi),
     should_run: String(hasAutomerge),
   };
