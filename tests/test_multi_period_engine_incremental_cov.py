@@ -330,3 +330,46 @@ def test_run_incremental_covariance_shift_detection_no_match(monkeypatch):
     assert len(results) == 2
     # Initial computation plus fallback recompute for the second period.
     assert compute_calls == [3, 3]
+
+
+def test_run_incremental_covariance_handles_allclose_failure(monkeypatch):
+    """Shift detection should fall back to ``np.array_equal`` if ``np.allclose`` fails."""
+
+    cfg = _Cfg()
+    df = _make_df()
+    periods = _make_periods()
+
+    monkeypatch.setattr(mp_engine, "generate_periods", lambda _cfg: periods)
+
+    def fake_run_analysis(*args, **kwargs):
+        return {"out_ew_stats": {"sharpe": 1.0}}
+
+    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+
+    calls: list[str] = []
+
+    def tracking_allclose(*args, **kwargs):
+        calls.append("allclose")
+        return False
+
+    def tracking_array_equal(*args, **kwargs):
+        calls.append("array_equal")
+        return True
+
+    monkeypatch.setattr(mp_engine.np, "allclose", tracking_allclose)
+    monkeypatch.setattr(mp_engine.np, "array_equal", tracking_array_equal)
+
+    real_incremental = cache_mod.incremental_cov_update
+    incremental_calls: list[int] = []
+
+    def wrapped_incremental(prev, old_row, new_row):
+        incremental_calls.append(1)
+        return real_incremental(prev, old_row, new_row)
+
+    monkeypatch.setattr(cache_mod, "incremental_cov_update", wrapped_incremental)
+
+    results = mp_engine.run(cfg, df=df)
+
+    assert len(results) == 2
+    assert incremental_calls == [1]
+    assert calls.count("array_equal") >= 1

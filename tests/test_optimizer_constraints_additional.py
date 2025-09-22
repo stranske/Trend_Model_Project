@@ -94,3 +94,32 @@ def test_apply_constraints_reapplies_cap_after_group_redistribution() -> None:
 
     assert pytest.approx(float(result.sum()), rel=1e-9) == 1.0
     assert (result <= 0.35 + 1e-9).all()
+
+
+def test_apply_constraints_mapping_input_hits_cash_guards() -> None:
+    """Mapping inputs exercise the dataclass conversion and cash guard rails."""
+
+    weights = pd.Series({"CASH": 1.0})
+
+    with pytest.raises(
+        ConstraintViolation, match="No assets available for non-CASH allocation"
+    ):
+        apply_constraints(weights, {"cash_weight": 0.2})
+
+
+def test_apply_constraints_group_caps_and_cash_respect_max_weight() -> None:
+    """A cash carve-out combined with group caps should keep all assets under ``max_weight``."""
+
+    weights = pd.Series({"A": 9.0, "B": 0.5, "C": 0.5})
+    constraints = {
+        "cash_weight": 0.2,
+        "max_weight": 0.35,
+        "group_caps": {"G1": 0.1},
+        "groups": {"A": "G1", "B": "G2", "C": "G2"},
+    }
+
+    result = apply_constraints(weights, constraints)
+
+    assert pytest.approx(result.loc["CASH"], rel=1e-9) == 0.2
+    assert pytest.approx(result.sum(), rel=1e-9) == 1.0
+    assert (result.drop("CASH") <= 0.35 + 1e-9).all()
