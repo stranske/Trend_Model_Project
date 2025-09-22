@@ -68,27 +68,17 @@ jobs:
           CI_LABEL_DESIRED: ${{ steps.evaluate.outputs.ci_label_desired }}
         with:
           script: |
-            const prNumber = parseInt(process.env.PR_NUMBER || '0', 10);
-            const labelName = process.env.CI_LABEL_NAME;
-            if (!prNumber || !labelName) {
-              return;
-            }
+            const { syncCiStatusLabel } = require('./.github/scripts/merge_manager.js');
             const { owner, repo } = context.repo;
-            const desired = process.env.CI_LABEL_DESIRED === 'true';
-            const present = process.env.CI_LABEL_PRESENT === 'true';
-            if (desired && !present) {
-              await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels: [labelName] });
-              return;
-            }
-            if (!desired && present) {
-              try {
-                await github.rest.issues.removeLabel({ owner, repo, issue_number: prNumber, name: labelName });
-              } catch (error) {
-                if (error.status !== 404) {
-                  throw error;
-                }
-              }
-            }
+            await syncCiStatusLabel({
+              github,
+              owner,
+              repo,
+              prNumber: parseInt(process.env.PR_NUMBER || '0', 10),
+              labelName: process.env.CI_LABEL_NAME,
+              desired: process.env.CI_LABEL_DESIRED === 'true',
+              present: process.env.CI_LABEL_PRESENT === 'true',
+            });
 
       - name: Quiet & workflow gate
         if: steps.evaluate.outputs.should_run == 'true'
