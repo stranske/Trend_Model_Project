@@ -44,20 +44,26 @@ def test_single_period_run_injects_avg_corr_metric() -> None:
             "FundB": [0.01, 0.012, 0.011],
         }
     )
+
     class RiskStatsConfigWithExtraMetrics(RiskStatsConfig):
         def __init__(self):
             super().__init__()
             self.extra_metrics = ["AvgCorr"]
+
     stats_cfg = RiskStatsConfigWithExtraMetrics()
 
-    score_frame = pipeline.single_period_run(df, "2020-01", "2020-03", stats_cfg=stats_cfg)
+    score_frame = pipeline.single_period_run(
+        df, "2020-01", "2020-03", stats_cfg=stats_cfg
+    )
 
     assert "AvgCorr" in score_frame.columns
     # AvgCorr column should contain finite values for the analysed funds.
     assert score_frame["AvgCorr"].notna().all()
 
 
-def test_single_period_run_swallows_avg_corr_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_single_period_run_swallows_avg_corr_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     df = pd.DataFrame(
         {
             "Date": pd.to_datetime(["2020-01-31", "2020-02-29", "2020-03-31"]),
@@ -145,7 +151,9 @@ def test_run_analysis_na_tolerant_filtering_drops_excessive_gaps() -> None:
     assert result is None or "FundA" not in (result or {}).get("selected_funds", [])
 
 
-def test_run_analysis_constraint_failure_falls_back(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_analysis_constraint_failure_falls_back(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     df = _clean_returns_frame()
     stats_cfg = RiskStatsConfig()
 
@@ -176,7 +184,9 @@ def test_run_analysis_constraint_failure_falls_back(monkeypatch: pytest.MonkeyPa
     assert weights["FundB"] == pytest.approx(0.4)
 
 
-def test_run_analysis_applies_constraints_on_success(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_analysis_applies_constraints_on_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     df = _clean_returns_frame()
     stats_cfg = RiskStatsConfig()
 
@@ -256,7 +266,9 @@ def test_run_analysis_benchmark_ir_best_effort(monkeypatch: pytest.MonkeyPatch) 
     assert "user_weight" not in ir_payload
 
 
-def test_run_analysis_benchmark_ir_handles_scalar_response(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_analysis_benchmark_ir_handles_scalar_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     df = _clean_returns_frame()
     stats_cfg = RiskStatsConfig()
 

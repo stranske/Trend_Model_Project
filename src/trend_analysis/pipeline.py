@@ -313,7 +313,8 @@ def _run_analysis(
         vols = vols.clip(lower=min_floor)
     vols = vols.replace(0.0, np.nan)
     scale_factors = (
-        pd.Series(target_vol, index=fund_cols, dtype=float).div(vols)
+        pd.Series(target_vol, index=fund_cols, dtype=float)
+        .div(vols)
         .replace([np.inf, -np.inf], 0.0)
         .fillna(0.0)
     )
