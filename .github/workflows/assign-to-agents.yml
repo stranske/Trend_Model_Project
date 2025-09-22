@@ -239,5 +239,40 @@ jobs:
       - name: Surface bootstrap failure
         if: steps.ctx.outputs.should_run == 'true' && steps.ctx.outputs.target_type == 'issue' && steps.ctx.outputs.agent == 'codex' && steps.bootstrap.outcome == 'failure'
         run: |
-          echo "::error::Codex bootstrap failed."
+          echo "::warning::Codex bootstrap step failed (non-fatal while fallback evaluated)."
+
+      - name: Fallback dispatch Codex Issue Bridge
+        id: fallback_dispatch
+        if: steps.ctx.outputs.should_run == 'true' && steps.ctx.outputs.target_type == 'issue' && steps.ctx.outputs.agent == 'codex' && steps.bootstrap.outcome == 'failure'
+        uses: actions/github-script@v7
+        env:
+          ISSUE: ${{ steps.ctx.outputs.number }}
+          REF: ${{ steps.ctx.outputs.default_branch }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issue = Number(process.env.ISSUE || '0');
+            const ref = (process.env.REF || '').trim() || (context.ref || 'main');
+            if (!issue) {
+              core.setFailed('Fallback dispatch aborted: missing issue number.');
+            } else {
+              await github.rest.actions.createWorkflowDispatch({
+                owner,
+                repo,
+                workflow_id: 'codex-issue-bridge.yml',
+                ref,
+                inputs: {
+                  test_issue: String(issue),
+                  pr_mode: 'create',
+                  post_codex_comment: 'true',
+                  codex_pr_draft: 'false'
+                }
+              });
+              core.info(`Dispatched codex-issue-bridge.yml (create mode) for issue #${issue} as fallback.`);
+            }
+
+      - name: Fail if both primary and fallback bootstrap failed
+        if: steps.ctx.outputs.should_run == 'true' && steps.ctx.outputs.target_type == 'issue' && steps.ctx.outputs.agent == 'codex' && steps.bootstrap.outcome == 'failure' && steps.fallback_dispatch.outcome == 'failure'
+        run: |
+          echo "::error::Both primary bootstrap and fallback dispatch failed."
           exit 1
