@@ -105,6 +105,26 @@ def test_data_settings_rejects_invalid_frequency(tmp_path):
     assert "data.frequency" in message
 
 
+def test_data_settings_invalid_frequency_lists_allowed_values(tmp_path):
+    csv_path = tmp_path / "returns.csv"
+    csv_path.write_text("date,nav\n", encoding="utf-8")
+
+    with pytest.raises(ValidationError) as exc:
+        config_model.DataSettings.model_validate(
+            {
+                "csv_path": str(csv_path),
+                "managers_glob": None,
+                "date_column": "Date",
+                "frequency": "quarterlyish",
+            },
+            context={"base_path": tmp_path},
+        )
+
+    message = exc.value.errors()[0]["msg"]
+    assert "Choose one of" in message
+    assert "quarterlyish" in message
+
+
 def test_data_settings_requires_frequency_value(tmp_path):
     csv_path = tmp_path / "returns.csv"
     csv_path.write_text("date,nav\n", encoding="utf-8")

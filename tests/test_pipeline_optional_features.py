@@ -180,6 +180,32 @@ def test_run_analysis_avg_corr_metrics_populate_stats() -> None:
     assert out_stats.is_avg_corr is None
 
 
+def test_run_analysis_skips_avg_corr_for_single_fund() -> None:
+    df = _clean_returns_frame()[["Date", "FundA", "Benchmark", "RF"]].copy()
+    stats_cfg = RiskStatsConfig()
+    stats_cfg.metrics_to_run = list(stats_cfg.metrics_to_run) + ["AvgCorr"]
+    setattr(stats_cfg, "extra_metrics", ["AvgCorr"])
+
+    result = pipeline._run_analysis(
+        df,
+        "2020-01",
+        "2020-02",
+        "2020-03",
+        "2020-04",
+        target_vol=1.0,
+        monthly_cost=0.0,
+        stats_cfg=stats_cfg,
+        indices_list=["Benchmark"],
+        benchmarks={"SPX": "Benchmark"},
+    )
+
+    assert result is not None
+    in_stats = result["in_sample_stats"]["FundA"]
+    out_stats = result["out_sample_stats"]["FundA"]
+    assert in_stats.is_avg_corr is None
+    assert out_stats.os_avg_corr is None
+
+
 def test_run_analysis_constraint_failure_falls_back(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -248,6 +274,37 @@ def test_run_analysis_applies_constraints_on_success(
     assert weights["FundA"] == pytest.approx(0.7)
     assert weights["FundB"] == pytest.approx(0.3)
     assert captured_inputs and list(captured_inputs[0].index) == ["FundA", "FundB"]
+
+
+def test_run_analysis_constraint_violation_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    df = _clean_returns_frame()
+    stats_cfg = RiskStatsConfig()
+
+    def raise_violation(*_args, **_kwargs):
+        raise optimizer_mod.ConstraintViolation("no feasible weights")
+
+    monkeypatch.setattr(optimizer_mod, "apply_constraints", raise_violation)
+
+    custom_weights = {"FundA": 70.0, "FundB": 30.0}
+    result = pipeline._run_analysis(
+        df,
+        "2020-01",
+        "2020-02",
+        "2020-03",
+        "2020-04",
+        target_vol=1.0,
+        monthly_cost=0.0,
+        stats_cfg=stats_cfg,
+        custom_weights=custom_weights,
+        indices_list=["Benchmark"],
+        benchmarks={"SPX": "Benchmark"},
+        constraints={"max_weight": 0.4},
+    )
+
+    assert result is not None
+    weights = result["fund_weights"]
+    assert weights["FundA"] == pytest.approx(0.7)
+    assert weights["FundB"] == pytest.approx(0.3)
 
 
 def test_run_analysis_benchmark_ir_best_effort(monkeypatch: pytest.MonkeyPatch) -> None:

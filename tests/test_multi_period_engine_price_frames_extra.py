@@ -59,6 +59,20 @@ def test_run_price_frames_validate_columns() -> None:
         mp_engine.run(cfg, df=df, price_frames=bad_frames)
 
 
+def test_run_price_frames_error_lists_required_and_available_columns() -> None:
+    cfg = DummyCfg()
+    df = pd.DataFrame({"Date": pd.to_datetime(["2020-01-31"])})
+    bad_frame = pd.DataFrame({"Foo": [1.0], "Bar": [2.0]})
+    price_frames = {"2020-01": bad_frame}
+
+    with pytest.raises(ValueError) as exc:
+        mp_engine.run(cfg, df=df, price_frames=price_frames)
+
+    message = str(exc.value)
+    assert "Required columns are: ['Date']" in message
+    assert "Available columns are: ['Foo', 'Bar']" in message
+
+
 def test_run_price_frames_error_mentions_available_columns() -> None:
     cfg = DummyCfg()
     df = pd.DataFrame({"Date": pd.to_datetime(["2020-01-31"])})
