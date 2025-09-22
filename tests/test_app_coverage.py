@@ -939,7 +939,7 @@ def test_build_step0_datagrid_callbacks(monkeypatch, tmp_path):
 
     cfg_dir = tmp_path / "cfg"
     cfg_dir.mkdir()
-    (cfg_dir / "demo.yml").write_text("alpha: 1\n")
+    (cfg_dir / "demo.yml").write_text("version: '1'\nalpha: 1\n")
     monkeypatch.setattr(app_module, "_find_config_directory", lambda: cfg_dir)
 
     store = ParamStore()
@@ -996,7 +996,7 @@ def test_build_step0_datagrid_missing_on(monkeypatch, tmp_path):
 
     cfg_dir = tmp_path / "cfg"
     cfg_dir.mkdir()
-    (cfg_dir / "demo.yml").write_text("alpha: 1\n")
+    (cfg_dir / "demo.yml").write_text("version: '1'\nalpha: 1\n")
     monkeypatch.setattr(app_module, "_find_config_directory", lambda: cfg_dir)
 
     monkeypatch.setattr(app_module.widgets, "FileUpload", DummyFileUpload)

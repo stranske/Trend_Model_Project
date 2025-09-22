@@ -129,8 +129,11 @@ jobs:
               const subject = (commit.data.commit.message || '').split('\n')[0];
               result.head_subject = subject;
               const actor = result.actor;
-              if (subject.toLowerCase().startsWith(prefix.toLowerCase())) {
-                core.info('Loop guard engaged: detected prior autofix commit.');
+              const isAutomation = actor === 'github-actions' || actor === 'github-actions[bot]';
+              const subjectLower = subject.toLowerCase();
+              const prefixLower = prefix.toLowerCase();
+              if (isAutomation && prefixLower && subjectLower.startsWith(prefixLower)) {
+                core.info(`Loop guard engaged for actor ${actor}: detected prior autofix commit.`);
                 result.loop_skip = 'true';
               }
             } catch (error) {
