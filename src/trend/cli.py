@@ -133,8 +133,11 @@ def _determine_seed(cfg: Any, override: int | None) -> int:
         seed = int(override)
     else:
         env_seed = os.getenv("TREND_SEED")
-        if env_seed and env_seed.isdigit():
-            seed = int(env_seed)
+        if env_seed is not None:
+            try:
+                seed = int(env_seed)
+            except (ValueError, TypeError):
+                seed = getattr(cfg, "seed", 42)
         else:
             seed = getattr(cfg, "seed", 42)
     try:
