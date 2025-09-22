@@ -8,4 +8,4 @@ This file exists solely to exercise the labeler and the unified merge-manager wo
 Runbook:
 - Labeler should add `from:codex`, `agent:codex`, `automerge`, and `risk:low` based on branch naming.
 - Merge manager should approve this PR if patterns and size are within thresholds.
-- Merge manager should enable squash auto-merge and merge after checks pass.
+- Merge manager should enable squash auto-merge and merge after checks pass, auto-syncing the `ci:green` label once runs finish.

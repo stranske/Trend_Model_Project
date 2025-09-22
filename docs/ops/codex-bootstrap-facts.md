@@ -93,6 +93,7 @@ This catalog explains what each active workflow does, how it’s triggered, the 
    - Jobs: `manage-on-pr-event`, `manage-post-status`
      - Validates allowlist patterns and change size before auto-approving eligible PRs.
      - Enforces label, quiet-period, and active-workflow gates before enabling squash auto-merge.
+     - Synchronizes the `ci:green` label with actual check status so pending/failing runs pause automation with a single status comment.
      - Posts (and updates) a single status comment when automation is paused, explaining the blocking condition.
 
 <a id="wf-guard-no-reuse"></a>
