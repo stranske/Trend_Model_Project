@@ -92,9 +92,11 @@ jobs:
       python_matrix: '"3.11"'
       cov_min: 70
 ```
-Autofix commits use the configurable prefix (default `chore(autofix):`). The consolidated workflow guards against loops by
-detecting automation actors + existing prefix and only running after the CI workflow completes. Scheduled cleanup and reusable
-autofix helpers consume the same prefix so the guard behaviour is identical no matter which workflow authored the last automation
+Autofix commits use the configurable prefix (default `chore(autofix):`). Set the repository variable
+`AUTOFIX_COMMIT_PREFIX` to change the prefix once and every workflow picks up the new value. The
+consolidated workflow guards against loops by detecting automation actors + existing prefix and only
+running after the CI workflow completes. Scheduled cleanup and reusable autofix helpers consume the
+same prefix so the guard behaviour is identical no matter which workflow authored the last automation
 commit.
 
 ```yaml

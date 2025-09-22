@@ -14,7 +14,7 @@ permissions:
   actions: read
 
 env:
-  COMMIT_PREFIX: "chore(autofix):"
+  COMMIT_PREFIX: ${{ vars.AUTOFIX_COMMIT_PREFIX || 'chore(autofix):' }}
   SAFE_LABEL_AUTOMERGE: ${{ vars.AUTOMERGE_LABEL || 'automerge' }}
   SAFE_LABEL_RISK: ${{ vars.RISK_LABEL || 'risk:low' }}
   SAFE_LABEL_CI: ${{ vars.CI_LABEL || 'ci:green' }}
