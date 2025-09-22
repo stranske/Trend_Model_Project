@@ -1,4 +1,58 @@
 #!/usr/bin/env python3
+"""DEPRECATED: Portfolio analysis legacy script.
+
+This script is retained temporarily for backward compatibility.
+
+It delegates to the unified CLI entrypoint provided by the `trend` console
+script (issue #1437). Please migrate to:
+
+    trend run --config config/demo.yml --returns demo/demo_returns.csv
+
+or generate reports via:
+
+    trend report --out outputs/
+
+All rich plotting and reporting should now be performed through
+library APIs or future dedicated subcommands. This file will be removed
+in a subsequent minor release. Importing or executing it emits a
+`DeprecationWarning`.
+"""
+
+from __future__ import annotations
+
+import sys
+import warnings
+from typing import List
+
+
+def _warn() -> None:
+    warnings.warn(
+        "portfolio_analysis_report.py is deprecated; use the `trend` CLI instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+
+
+def main(argv: List[str] | None = None) -> int:
+    """Entry point delegating to `trend.cli:main`.
+
+    Parameters
+    ----------
+    argv : list[str] | None
+        Optional argument vector. When None, `sys.argv[1:]` is used.
+    """
+    _warn()
+    try:
+        from trend_analysis.cli import main as trend_main  # lazy import
+    except Exception as exc:  # pragma: no cover - defensive
+        print(f"Failed to import trend CLI: {exc}", file=sys.stderr)
+        return 1
+    return trend_main(argv or sys.argv[1:])
+
+
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(main())
+#!/usr/bin/env python3
 """
 Portfolio Test Analysis Report
 July 2005 - June 2025 (20-year backtest)
