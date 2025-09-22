@@ -373,3 +373,49 @@ def test_run_incremental_covariance_handles_allclose_failure(monkeypatch):
     assert len(results) == 2
     assert incremental_calls == [1]
     assert calls.count("array_equal") >= 1
+
+
+def test_run_incremental_covariance_column_change_triggers_recompute(monkeypatch):
+    """Changing the column universe forces a fresh covariance computation."""
+
+    cfg = _Cfg()
+    df = _make_df().copy()
+    df["FundC"] = [0.003, 0.004, 0.002, 0.001, 0.0]
+    periods = _make_periods()
+
+    monkeypatch.setattr(mp_engine, "generate_periods", lambda _cfg: periods)
+
+    def fake_run_analysis(*args, **kwargs):
+        return {"out_ew_stats": {"sharpe": 1.0}}
+
+    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+
+    original_prepare = mp_engine._prepare_returns_frame
+    call_count = {"n": 0}
+
+    def dropping_prepare(frame: pd.DataFrame) -> pd.DataFrame:
+        call_count["n"] += 1
+        prepared = original_prepare(frame)
+        if call_count["n"] == 2 and "FundC" in prepared.columns:
+            return prepared.drop(columns=["FundC"])
+        return prepared
+
+    monkeypatch.setattr(mp_engine, "_prepare_returns_frame", dropping_prepare)
+
+    real_compute = cache_mod.compute_cov_payload
+    compute_calls: list[int] = []
+
+    def tracking_compute(frame: pd.DataFrame, *, materialise_aggregates: bool):
+        compute_calls.append(frame.shape[1])
+        return real_compute(frame, materialise_aggregates=materialise_aggregates)
+
+    monkeypatch.setattr(cache_mod, "compute_cov_payload", tracking_compute)
+
+    results = mp_engine.run(cfg, df=df)
+
+    assert len(results) == 2
+    # Initial computation plus forced recompute after the column drop.
+    assert compute_calls[0] == 3
+    assert compute_calls[1] == 2
+    stats = results[1]["cache_stats"]
+    assert stats["incremental_updates"] == 0

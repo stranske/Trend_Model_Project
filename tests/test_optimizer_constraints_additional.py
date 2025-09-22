@@ -123,3 +123,27 @@ def test_apply_constraints_group_caps_and_cash_respect_max_weight() -> None:
     assert pytest.approx(result.loc["CASH"], rel=1e-9) == 0.2
     assert pytest.approx(result.sum(), rel=1e-9) == 1.0
     assert (result.drop("CASH") <= 0.35 + 1e-9).all()
+
+
+def test_apply_constraints_cash_weight_infeasible_due_to_cap() -> None:
+    """If the remaining allocation breaches ``max_weight`` feasibility, raise ``ConstraintViolation``."""
+
+    weights = pd.Series({"Asset1": 1.0, "Asset2": 1.0})
+
+    with pytest.raises(
+        ConstraintViolation,
+        match="cash_weight infeasible: remaining allocation forces per-asset weight above max_weight",
+    ):
+        apply_constraints(weights, ConstraintSet(cash_weight=0.5, max_weight=0.2))
+
+
+def test_apply_constraints_cash_slice_respects_max_weight_cap() -> None:
+    """The dedicated CASH slice must honour ``max_weight`` once reintroduced."""
+
+    weights = pd.Series({"Asset1": 1.0, "Asset2": 1.0})
+
+    with pytest.raises(
+        ConstraintViolation,
+        match="cash_weight exceeds max_weight constraint",
+    ):
+        apply_constraints(weights, ConstraintSet(cash_weight=0.6, max_weight=0.5))
