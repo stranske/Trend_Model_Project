@@ -270,7 +270,7 @@ def render_parameter_forms(preset_config: Optional[Dict[str, Any]]):
                 st.warning(
                     "The data index could not be interpreted as dates. Please ensure the date column is properly configured."
                 )
-    min_lookback_allowed = 6 if total_months and total_months < 24 else 12
+    min_lookback_allowed = 6 if 0 < total_months < 24 else 12
     if total_months:
         max_lookback_allowed = max(min_lookback_allowed, total_months - 3)
     else:
