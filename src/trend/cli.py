@@ -24,8 +24,7 @@ LegacyExtractCacheStats = Callable[[object], dict[str, int] | None]
 class LegacyMaybeLogStep(Protocol):
     def __call__(
         self, enabled: bool, run_id: str, event: str, message: str, **fields: Any
-    ) -> None:
-        ...
+    ) -> None: ...
 
 
 def _noop_maybe_log_step(
@@ -43,7 +42,7 @@ try:  # ``trend_analysis.cli`` is heavy but provides useful helpers
         maybe_log_step as _legacy_maybe_log_step,
     )
 except Exception:  # pragma: no cover - defensive fallback
-    _legacy_extract_cache_stats = None  # type: ignore[assignment]
+    _legacy_extract_cache_stats = None
 
     def _legacy_maybe_log_step(
         enabled: bool, run_id: str, event: str, message: str, **fields: Any

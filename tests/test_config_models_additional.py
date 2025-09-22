@@ -157,6 +157,22 @@ def test_load_config_skips_validation_without_pydantic(
     assert called is False
 
 
+def test_load_config_fallback_swallows_validation_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = _base_config()
+    monkeypatch.setattr(models, "_HAS_PYDANTIC", False)
+
+    def boom(*_args, **_kwargs) -> None:
+        raise RuntimeError("validation failure")
+
+    monkeypatch.setattr(models, "validate_trend_config", boom)
+
+    loaded = models.load_config(cfg)
+
+    assert loaded.version == cfg["version"]
+
+
 def test_list_available_presets_handles_missing_directory(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

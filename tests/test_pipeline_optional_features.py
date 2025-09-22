@@ -44,20 +44,26 @@ def test_single_period_run_injects_avg_corr_metric() -> None:
             "FundB": [0.01, 0.012, 0.011],
         }
     )
+
     class RiskStatsConfigWithExtraMetrics(RiskStatsConfig):
         def __init__(self):
             super().__init__()
             self.extra_metrics = ["AvgCorr"]
+
     stats_cfg = RiskStatsConfigWithExtraMetrics()
 
-    score_frame = pipeline.single_period_run(df, "2020-01", "2020-03", stats_cfg=stats_cfg)
+    score_frame = pipeline.single_period_run(
+        df, "2020-01", "2020-03", stats_cfg=stats_cfg
+    )
 
     assert "AvgCorr" in score_frame.columns
     # AvgCorr column should contain finite values for the analysed funds.
     assert score_frame["AvgCorr"].notna().all()
 
 
-def test_single_period_run_swallows_avg_corr_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_single_period_run_swallows_avg_corr_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     df = pd.DataFrame(
         {
             "Date": pd.to_datetime(["2020-01-31", "2020-02-29", "2020-03-31"]),
@@ -145,7 +151,9 @@ def test_run_analysis_na_tolerant_filtering_drops_excessive_gaps() -> None:
     assert result is None or "FundA" not in (result or {}).get("selected_funds", [])
 
 
-def test_run_analysis_constraint_failure_falls_back(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_analysis_constraint_failure_falls_back(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     df = _clean_returns_frame()
     stats_cfg = RiskStatsConfig()
 
@@ -174,6 +182,43 @@ def test_run_analysis_constraint_failure_falls_back(monkeypatch: pytest.MonkeyPa
     weights = result["fund_weights"]
     assert weights["FundA"] == pytest.approx(0.6)
     assert weights["FundB"] == pytest.approx(0.4)
+
+
+def test_run_analysis_applies_constraints_on_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    df = _clean_returns_frame()
+    stats_cfg = RiskStatsConfig()
+
+    captured_inputs: list[pd.Series] = []
+
+    def succeed(weights: pd.Series, constraints: dict[str, object]) -> pd.Series:
+        captured_inputs.append(weights.copy())
+        # Return skewed weights that should propagate to the result payload.
+        return pd.Series({"FundA": 0.7, "FundB": 0.3}, dtype=float)
+
+    monkeypatch.setattr(optimizer_mod, "apply_constraints", succeed)
+
+    result = pipeline._run_analysis(
+        df,
+        "2020-01",
+        "2020-02",
+        "2020-03",
+        "2020-04",
+        target_vol=1.0,
+        monthly_cost=0.0,
+        stats_cfg=stats_cfg,
+        custom_weights={"FundA": 55.0, "FundB": 45.0},
+        indices_list=["Benchmark"],
+        benchmarks={"SPX": "Benchmark"},
+        constraints={"max_weight": 0.8},
+    )
+
+    assert result is not None
+    weights = result["fund_weights"]
+    assert weights["FundA"] == pytest.approx(0.7)
+    assert weights["FundB"] == pytest.approx(0.3)
+    assert captured_inputs and list(captured_inputs[0].index) == ["FundA", "FundB"]
 
 
 def test_run_analysis_benchmark_ir_best_effort(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -221,7 +266,9 @@ def test_run_analysis_benchmark_ir_best_effort(monkeypatch: pytest.MonkeyPatch) 
     assert "user_weight" not in ir_payload
 
 
-def test_run_analysis_benchmark_ir_handles_scalar_response(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_analysis_benchmark_ir_handles_scalar_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     df = _clean_returns_frame()
     stats_cfg = RiskStatsConfig()
 

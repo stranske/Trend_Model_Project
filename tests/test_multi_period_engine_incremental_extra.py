@@ -163,9 +163,7 @@ def test_incremental_update_fallback_on_exception(
     def boom(*_args: Any, **_kwargs: Any) -> Any:
         raise RuntimeError("boom")
 
-    monkeypatch.setattr(
-        "trend_analysis.perf.cache.incremental_cov_update", boom
-    )
+    monkeypatch.setattr("trend_analysis.perf.cache.incremental_cov_update", boom)
 
     results = mp_engine.run(cfg, df=_make_df())
 

@@ -60,11 +60,11 @@ def main() -> None:
         "carriage_returns": original.count("\r") - original.count("\r\n"),
         "crlf_pairs": original.count("\r\n"),
         "bom": 1 if original.startswith("\ufeff") else 0,
-        "nbsp": original.count("\u00A0"),
-        "zws": original.count("\u200B"),
+        "nbsp": original.count("\u00a0"),
+        "zws": original.count("\u200b"),
         "tabs": original.count("\t"),
         "other_zero_width": sum(
-            original.count(ch) for ch in ("\u200C", "\u200D", "\u2060", "\uFEFF")
+            original.count(ch) for ch in ("\u200c", "\u200d", "\u2060", "\ufeff")
         ),
     }
     # Remove BOM
@@ -73,13 +73,13 @@ def main() -> None:
     # Replace CRLF and CR
     original = original.replace("\r\n", "\n").replace("\r", "\n")
     # Replace NBSP with normal space
-    if "\u00A0" in original:
-        original = original.replace("\u00A0", " ")
+    if "\u00a0" in original:
+        original = original.replace("\u00a0", " ")
     # Remove zero-width spaces
-    if "\u200B" in original:
-        original = original.replace("\u200B", "")
+    if "\u200b" in original:
+        original = original.replace("\u200b", "")
     # Remove other zero-width characters
-    for ch in ("\u200C", "\u200D", "\u2060", "\uFEFF"):
+    for ch in ("\u200c", "\u200d", "\u2060", "\ufeff"):
         if ch in original:
             original = original.replace(ch, "")
     # Convert tabs to single space (avoid accidental code block breaks)
