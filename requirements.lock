@@ -20,7 +20,7 @@ executing==2.2.1
     # via stack-data
 fonttools==4.60.0
     # via matplotlib
-hypothesis==6.139.2
+hypothesis==6.140.0
     # via trend-model (pyproject.toml)
 ipython==9.5.0
     # via ipywidgets
