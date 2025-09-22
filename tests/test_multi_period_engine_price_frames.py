@@ -77,6 +77,18 @@ def test_run_rejects_empty_price_frames_collection() -> None:
         mp_engine.run(cfg, price_frames={})
 
 
+def test_run_reports_available_columns_when_date_missing() -> None:
+    cfg = DummyConfig()
+    bad_frame = pd.DataFrame({"Close": [1.0], "Open": [0.9]})
+
+    with pytest.raises(ValueError) as excinfo:
+        mp_engine.run(cfg, price_frames={"2020-01-31": bad_frame})
+
+    message = str(excinfo.value)
+    assert "Available columns" in message
+    assert "Close" in message and "Open" in message
+
+
 def test_run_combines_price_frames_and_invokes_analysis(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
