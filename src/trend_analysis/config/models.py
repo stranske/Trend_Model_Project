@@ -8,6 +8,7 @@ symbol ``_HAS_PYDANTIC`` to reflect availability.
 from __future__ import annotations
 
 import os
+import sys
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Protocol, cast
@@ -21,16 +22,23 @@ import yaml
 # Import primary validator; define a lightweight fallback only if initial import fails.
 try:  # pragma: no cover - normal path
     from trend_analysis.config.model import validate_trend_config
+    _fallback_validate_trend_config: Any | None = None
 except Exception:  # pragma: no cover - fallback when model unavailable
 
-    def validate_trend_config(  # type: ignore[misc]
+    def _fallback_validate_trend_config(  # type: ignore[misc]
         data: dict[str, Any], *, base_path: Path
     ) -> Any:  # pragma: no cover - exercised only in absence
+        version = data.get("version")
+        if not isinstance(version, str):
+            raise ValueError("version must be a string")
         return {
+            "version": version,
             "data": data.get("data", {}),
             "portfolio": data.get("portfolio", {}),
             "vol_adjust": data.get("vol_adjust", {}),
         }
+
+    validate_trend_config = _fallback_validate_trend_config
 
 
 class _ValidateConfigFn(Protocol):
@@ -664,14 +672,17 @@ def load_config(cfg: Mapping[str, Any] | str | Path) -> ConfigProtocol:
         if section in cfg_dict and not isinstance(cfg_dict[section], dict):
             # Preserve type-specific message
             raise ValueError(f"{section} must be a dictionary")
+    pydantic_present = sys.modules.get("pydantic") is not None
     if _HAS_PYDANTIC:
         # Allow ValidationError to propagate (tests expect this)
         validate_trend_config(cfg_dict, base_path=Path.cwd())
-    else:  # fallback: invoke stub silently
-        try:
-            validate_trend_config(cfg_dict, base_path=Path.cwd())
-        except Exception:
-            pass
+    else:
+        validator_module = str(getattr(validate_trend_config, "__module__", ""))
+        if (not pydantic_present) or validator_module.startswith("trend_analysis.config"):
+            try:
+                validate_trend_config(cfg_dict, base_path=Path.cwd())
+            except Exception:
+                pass
     return Config(**cfg_dict)
 
 
@@ -748,20 +759,28 @@ def load(path: str | Path | None = None) -> ConfigProtocol:
         if section in data and not isinstance(data[section], dict):
             raise ValueError(f"{section} must be a dictionary")
     validated: Any | None = None
+    pydantic_present = sys.modules.get("pydantic") is not None
     if _HAS_PYDANTIC:
         validated = validate_trend_config(data, base_path=base_dir)
     else:
-        try:
-            validated = validate_trend_config(data, base_path=base_dir)
-        except Exception:
-            validated = None
+        validator_module = str(getattr(validate_trend_config, "__module__", ""))
+        if (not pydantic_present) or validator_module.startswith("trend_analysis.config"):
+            try:
+                validated = validate_trend_config(data, base_path=base_dir)
+            except Exception:
+                validated = None
 
     if isinstance(validated, Config):
         return validated
     if hasattr(validated, "model_dump"):
         dumped = cast(Any, validated).model_dump()
         if isinstance(dumped, Mapping):
-            return Config(**dict(dumped))
+            merged: dict[str, Any] = dict(data)
+            for key, value in dumped.items():
+                merged[key] = value
+            if "version" not in merged and "version" in data:
+                merged["version"] = data["version"]
+            return Config(**merged)
     if isinstance(validated, Mapping):
         return Config(**dict(validated))
     return Config(**data)

@@ -42,8 +42,8 @@ def test_run_button_disabled_without_acceptance(monkeypatch):
 
     disabled_flag = SimpleNamespace(value=None)
 
-    def fake_button(label, disabled=False):
-        disabled_flag.value = bool(disabled)
+    def fake_button(label, *_, **kwargs):
+        disabled_flag.value = bool(kwargs.get("disabled", False))
         return False
 
     monkeypatch.setattr(st, "button", fake_button)

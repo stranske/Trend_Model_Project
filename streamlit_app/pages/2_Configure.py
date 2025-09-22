@@ -12,7 +12,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from trend_portfolio_app.metrics_extra import AVAILABLE_METRICS
 from trend_portfolio_app.policy_engine import MetricSpec, PolicyConfig
-from trend_analysis.config.bridge import build_config_payload, validate_payload
+from streamlit_app.components.guardrails import (
+    estimate_resource_usage,
+    validate_startup_payload,
+)
 
 # Import our config models with fallback - use simpler approach
 try:
@@ -66,9 +69,12 @@ def initialize_session_state():
             "custom_overrides": {},
             "validation_errors": [],
             "is_valid": False,
+            "resource_estimate": None,
         }
     if "validation_messages" not in st.session_state:
         st.session_state.validation_messages = []
+    if "validated_min_config" not in st.session_state:
+        st.session_state.validated_min_config = None
 
 
 def render_preset_selection():
@@ -197,6 +203,20 @@ def render_column_mapping(df: pd.DataFrame):
     }
 
     st.session_state.config_state["column_mapping"] = mapping
+    meta = st.session_state.get("schema_meta") or {}
+    if df is not None:
+        n_rows = int(meta.get("n_rows", df.shape[0]))
+    else:
+        n_rows = int(meta.get("n_rows", 0))
+    estimate = estimate_resource_usage(n_rows, len(mapping.get("return_columns", [])))
+    st.session_state.config_state["resource_estimate"] = estimate
+    if n_rows and mapping.get("return_columns"):
+        st.caption(
+            f"Resource estimate: ~{estimate.approx_memory_mb:.1f} MB in memory, "
+            f"~{estimate.estimated_runtime_s/60:.1f} min for full run."
+        )
+        for warn in estimate.warnings:
+            st.warning(f"Guardrail: {warn}")
     return mapping
 
 
@@ -352,10 +372,10 @@ def validate_configuration() -> List[str]:
         return errors
 
     # Check column mapping
-    if not config_state.get("column_mapping"):
+    mapping = config_state.get("column_mapping")
+    if not mapping:
         errors.append("Column mapping not configured.")
     else:
-        mapping = config_state["column_mapping"]
         if not mapping.get("date_column"):
             errors.append("Date column not selected.")
         if not mapping.get("return_columns"):
@@ -364,6 +384,9 @@ def validate_configuration() -> List[str]:
     # Check custom overrides
     if config_state.get("custom_overrides"):
         overrides = config_state["custom_overrides"]
+
+        return_cols = (mapping or {}).get("return_columns") or []
+        df = st.session_state.get("returns_df")
 
         # Check metric weights sum to approximately 1
         if overrides.get("metric_weights"):
@@ -380,9 +403,26 @@ def validate_configuration() -> List[str]:
         if overrides.get("selection_count", 0) <= 0:
             errors.append("Selection count must be positive.")
 
+        if return_cols and overrides.get("selection_count", 0) > len(return_cols):
+            errors.append(
+                "Selection count exceeds the number of mapped return columns."
+            )
+
         risk_target = overrides.get("risk_target", 0.10)
         if not 0.01 <= risk_target <= 0.50:
             errors.append("Risk target should be between 1% and 50%.")
+
+        if df is not None and not df.empty and mapping and mapping.get("date_column"):
+            unique_months = df.index.to_period("M").unique()
+            lookback = int(overrides.get("lookback_months", 0) or 0)
+            if lookback >= len(unique_months):
+                errors.append(
+                    "Lookback window consumes all available history. Reduce it to avoid look-ahead."
+                )
+            elif len(unique_months) - lookback < 3:
+                errors.append(
+                    "Leave at least three months of out-of-sample data to avoid look-ahead bias."
+                )
 
     return errors
 
@@ -419,6 +459,19 @@ def save_configuration():
 
     # Get date range from data
     df = st.session_state["returns_df"]
+    mapping = config_state.get("column_mapping", {})
+    validated_payload, payload_errors = validate_startup_payload(
+        csv_path=st.session_state.get("uploaded_file_path"),
+        date_column=mapping.get("date_column") or "Date",
+        risk_target=overrides.get("risk_target", 0.10),
+        timestamps=df.index,
+    )
+    if payload_errors:
+        st.session_state.validation_messages = payload_errors
+        config_state["is_valid"] = False
+        return False
+    st.session_state.validated_min_config = validated_payload
+    config_state["validated_min_config"] = validated_payload
 
     # Save to session state in expected format
     st.session_state["sim_config"] = {
@@ -498,36 +551,21 @@ def main():
             overrides = st.session_state.config_state.get("custom_overrides", {})
             df = st.session_state.get("returns_df")
             if mapping and df is not None:
-                date_col = mapping.get("date_column")
-                inferred_freq = "M"
-                try:
-                    dates = pd.to_datetime(df[date_col]) if date_col else None
-                    if dates is not None and len(dates) > 5:
-                        mdays = (dates.sort_values().diff().median()).days
-                        if mdays <= 2:
-                            inferred_freq = "D"
-                        elif mdays <= 8:
-                            inferred_freq = "W"
-                except Exception:  # pragma: no cover - heuristic only
-                    pass
-                payload = build_config_payload(
+                validated, payload_errors = validate_startup_payload(
                     csv_path=st.session_state.get("uploaded_file_path"),
-                    managers_glob=None,
-                    date_column=date_col or "Date",
-                    frequency=inferred_freq,
-                    rebalance_calendar="NYSE",
-                    max_turnover=0.5,
-                    transaction_cost_bps=10.0,
-                    target_vol=overrides.get("risk_target", 0.10),
+                    date_column=mapping.get("date_column") or "Date",
+                    risk_target=overrides.get("risk_target", 0.10),
+                    timestamps=df.index,
                 )
-                validated, error = validate_payload(payload, base_path=Path.cwd())
-                if validated:
+                if payload_errors:
+                    for err in payload_errors:
+                        st.error(f"Minimal config validation failed: {err}")
+                else:
                     st.success("Minimal config validated (TrendConfig).")
+                    st.session_state.validated_min_config = validated
                     st.session_state.config_state["validated_min_config"] = validated
                     with st.expander("Validated Minimal Config", expanded=False):
                         st.json(validated)
-                else:
-                    st.error(f"Minimal config validation failed: {error}")
             else:
                 st.warning("Upload data and map columns first.")
 
