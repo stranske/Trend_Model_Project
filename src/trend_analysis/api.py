@@ -104,6 +104,8 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         str(split.get("out_end")),
         config.vol_adjust.get("target_vol", 1.0),
         getattr(config, "run", {}).get("monthly_cost", 0.0),
+        floor_vol=config.vol_adjust.get("floor_vol"),
+        warmup_periods=int(config.vol_adjust.get("warmup_periods", 0) or 0),
         selection_mode=config.portfolio.get("selection_mode", "all"),
         random_n=config.portfolio.get("random_n", 8),
         custom_weights=config.portfolio.get("custom_weights"),

@@ -167,7 +167,11 @@ def test_build_pipeline_config_translates_weights() -> None:
         "MaxDrawdown": 0.2,
     }
     assert dumped["benchmarks"] == {"SPX": "SPX"}
-    assert dumped["vol_adjust"] == {"target_vol": 0.12}
+    assert dumped["vol_adjust"] == {
+        "target_vol": 0.12,
+        "floor_vol": 0.015,
+        "warmup_periods": 0,
+    }
 
 
 def test_prepare_demo_setup_builds_consistent_state(

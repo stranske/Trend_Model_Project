@@ -40,6 +40,7 @@ vol_adjust:
     decay: "ewma" # ewma | simple
     lambda: 0.94 # EWMA decay
   floor_vol: 0.04 # avoid 100× leverage
+  warmup_periods: 0 # zero weights for first N periods
 # ----------------------------------------------------------------------
 # 4. IN-SAMPLE / OUT-OF-SAMPLE SPLIT
 # ----------------------------------------------------------------------

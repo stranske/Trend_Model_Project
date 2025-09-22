@@ -636,9 +636,9 @@ def load_config(cfg: Mapping[str, Any] | str | Path) -> ConfigProtocol:
     if isinstance(cfg, Mapping):
         cfg_dict = dict(cfg)
         config_obj = Config(**cfg_dict)
-    if _HAS_PYDANTIC:
-        validate_trend_config(cfg_dict, base_path=Path.cwd())
-    return config_obj
+        if _HAS_PYDANTIC:
+            validate_trend_config(cfg_dict, base_path=Path.cwd())
+        return config_obj
     raise TypeError("cfg must be a mapping or path")
 
 
