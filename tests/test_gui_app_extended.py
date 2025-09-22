@@ -243,7 +243,7 @@ def test_template_loader_handles_error_paths(monkeypatch, tmp_path):
 
     fake_dir = _FakeDir(
         {
-            "valid": _FakePath("valid.yml", "alpha: 1"),
+            "valid": _FakePath("valid.yml", "version: '1'\nalpha: 1"),
             "missing": _FakePath("missing.yml", FileNotFoundError("missing")),
             "permission": _FakePath("permission.yml", PermissionError("denied")),
             "invalid": _FakePath("invalid.yml", yaml.YAMLError("bad yaml")),
@@ -276,7 +276,7 @@ def test_template_loader_handles_error_paths(monkeypatch, tmp_path):
     callback = template._callbacks[0]
 
     callback({"new": "valid"})
-    assert store.cfg == {"alpha": 1}
+    assert store.cfg == {"version": "1", "alpha": 1}
     assert grid.data == [store.cfg]
     assert reset_calls == [store]
 
