@@ -20,6 +20,28 @@ jobs:
       github.event.workflow_run.pull_requests[0].number
     runs-on: ubuntu-latest
     steps:
+      - name: Download coverage summary artifact
+        id: dl_coverage
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: coverage-summary
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: coverage-summary
+      - name: Capture coverage summary content
+        id: coverage
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILE="coverage-summary/coverage_summary.md"
+          if [ -f "$FILE" ]; then
+            {
+              echo 'body<<EOF'
+              cat "$FILE"
+              echo 'EOF'
+            } >> "$GITHUB_OUTPUT"
+          fi
       - name: Prepare summary body
         id: prep
         uses: actions/github-script@v7
@@ -77,6 +99,7 @@ jobs:
                 return `| ${jobName} | ${b} ${state} | [logs](${j.html_url}) |`;
               });
 
+            const coverageSection = (process.env.COVERAGE_SECTION || '').trim();
             const body = [
               '### Automated Status Summary',
               `**Workflow Run:** ${run.name} (#${run.id})`,
@@ -87,11 +110,14 @@ jobs:
               '|-----|--------|------|',
               ...rows,
               '',
+              ...(coverageSection ? ['### Coverage (soft gate)', coverageSection, ''] : []),
               '_Updated automatically; will refresh on subsequent CI/Docker completions._'
             ].join('\n');
 
             core.setOutput('body', body);
             core.setOutput('pr_number', pr.number);
+        env:
+          COVERAGE_SECTION: ${{ steps.coverage.outputs.body }}
       - name: Upsert summary comment
         uses: actions/github-script@v7
         with:
