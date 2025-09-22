@@ -1,9 +1,30 @@
+import uuid
+from typing import Dict
+
 import pandas as pd
 
 from streamlit_app.components.disclaimer import show_disclaimer
+from streamlit_app.components.guardrails import (
+    estimate_resource_usage,
+    prepare_dry_run_plan,
+)
 from trend_analysis.api import run_simulation
-from trend_analysis.config import Config
 from trend_analysis.logging import get_default_log_path, init_run_logger, log_step
+
+
+class StreamlitConfig:
+    def __init__(self, **data: object) -> None:
+        self.__dict__.update(data)
+
+    def model_dump(self) -> Dict[str, object]:
+        return dict(self.__dict__)
+
+
+Config = StreamlitConfig
+
+
+def _make_config(config_data: Dict[str, object]) -> StreamlitConfig:
+    return Config(**config_data)
 
 
 def main():
@@ -15,7 +36,8 @@ def main():
     st.title("Run")
     # Always render disclaimer + button first so tests can capture state
     accepted = show_disclaimer()
-    run_clicked = st.button("Run simulation", disabled=not accepted)
+    dry_run_clicked = st.button("Dry run (sample)", disabled=not accepted)
+    run_clicked = st.button("Run simulation", type="primary", disabled=not accepted)
     # Robust session_state checks (work in bare mode/tests where session_state
     # may be a Mock that isn't iterable)
     try:
@@ -35,8 +57,7 @@ def main():
     if not (has_returns and has_config):
         st.error("Upload data and set configuration first.")
         return
-    # If disclaimer isn't accepted or button not pressed, stop early
-    if not accepted or not run_clicked:
+    if not accepted and not dry_run_clicked and not run_clicked:
         return
 
     try:
@@ -50,9 +71,22 @@ def main():
         st.error("Upload data and set configuration first.")
         return
 
-    returns = df.reset_index().rename(columns={df.index.name or "index": "Date"})
+    try:
+        config_state = st.session_state.get("config_state", {})
+        estimate = config_state.get("resource_estimate")
+    except Exception:  # pragma: no cover - defensive fallback
+        estimate = None
+    if estimate is None:
+        estimate = estimate_resource_usage(df.shape[0], df.shape[1])
+    st.session_state["resource_estimate"] = estimate
+    st.caption(
+        f"Full run estimate: ~{estimate.approx_memory_mb:.1f} MB memory, "
+        f"~{estimate.estimated_runtime_s/60:.1f} min runtime."
+    )
+    for warn in getattr(estimate, "warnings", ()):  # type: ignore[arg-type]
+        st.warning(warn)
 
-    progress = st.progress(0, "Running simulation...")
+    returns = df.reset_index().rename(columns={df.index.name or "index": "Date"})
 
     def cfg_get(d, key, default=None):
         try:
@@ -95,28 +129,60 @@ def main():
         )
     }
 
-    config = Config(
-        version="1",
-        data={},
-        preprocessing={},
-        vol_adjust={"target_vol": cfg_get(cfg, "risk_target", 1.0)},
-        sample_split={
+    config_data = {
+        "version": "1",
+        "data": {},
+        "preprocessing": {},
+        "vol_adjust": {"target_vol": cfg_get(cfg, "risk_target", 1.0)},
+        "sample_split": {
             "in_start": (start - pd.DateOffset(months=lookback)).strftime("%Y-%m"),
             "in_end": (start - pd.DateOffset(months=1)).strftime("%Y-%m"),
             "out_start": start.strftime("%Y-%m"),
             "out_end": end.strftime("%Y-%m"),
         },
-        portfolio=portfolio_cfg,
-        metrics={},
-        export={},
-        run={},
-    )
+        "portfolio": portfolio_cfg,
+        "metrics": {},
+        "export": {},
+        "benchmarks": {},
+        "run": {},
+    }
+
+    if dry_run_clicked and not run_clicked:
+        try:
+            plan = prepare_dry_run_plan(df, lookback or 0)
+        except ValueError as exc:
+            st.error(f"Dry run unavailable: {exc}")
+            return
+        dry_returns = plan.frame.reset_index().rename(
+            columns={plan.frame.index.name or "index": "Date"}
+        )
+        dry_run_id = f"dry-{uuid.uuid4().hex[:10]}"
+        dry_config = _make_config(
+            {
+                **config_data,
+                "sample_split": plan.sample_split(),
+                "run_id": dry_run_id,
+            }
+        )
+        with st.spinner("Running dry run on a small sample..."):
+            result = run_simulation(dry_config, dry_returns)
+        st.session_state["dry_run_results"] = result
+        st.session_state["dry_run_summary"] = plan.summary()
+        st.success(
+            f"Dry run completed on {plan.frame.shape[0]} rows × {plan.frame.shape[1]} columns."
+        )
+        st.json(plan.summary())
+        return
+
+    if not run_clicked:
+        return
 
     # Assign / persist run_id in session
-    import uuid
-
+    progress = st.progress(0, "Running simulation...")
     run_id = st.session_state.get("run_id") or uuid.uuid4().hex[:12]
     st.session_state["run_id"] = run_id
+    config_data["run_id"] = run_id
+    config = _make_config(config_data)
     log_path = get_default_log_path(run_id)
     init_run_logger(run_id, log_path)
     log_step(run_id, "ui_start", "Streamlit run initiated")

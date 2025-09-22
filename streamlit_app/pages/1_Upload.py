@@ -1,5 +1,8 @@
 import os
+import tempfile
+import uuid
 from functools import lru_cache
+from pathlib import Path
 
 import streamlit as st
 
@@ -27,6 +30,7 @@ if os.path.exists(demo_path_csv) or os.path.exists(demo_path_xlsx):
             df, meta = _load_demo(path)
             st.session_state["returns_df"] = df
             st.session_state["schema_meta"] = meta
+            st.session_state["uploaded_file_path"] = str(Path(path).resolve())
             st.success(
                 f"Loaded demo: {df.shape[0]} rows × {df.shape[1]} cols. Range: {df.index.min().date()} → {df.index.max().date()}."
             )
@@ -43,6 +47,12 @@ if uploaded is not None:
         df, meta = load_and_validate_file(uploaded)
         st.session_state["returns_df"] = df
         st.session_state["schema_meta"] = meta
+        tmp_dir = Path(tempfile.gettempdir()) / "trend_app_uploads"
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+        tmp_path = tmp_dir / f"upload_{uuid.uuid4().hex}.csv"
+        reset = df.reset_index().rename(columns={df.index.name or "index": "Date"})
+        reset.to_csv(tmp_path, index=False)
+        st.session_state["uploaded_file_path"] = str(tmp_path)
         st.success(
             f"Loaded {df.shape[0]} rows × {df.shape[1]} columns. Range: {df.index.min().date()} to {df.index.max().date()}."
         )

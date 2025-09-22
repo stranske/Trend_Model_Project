@@ -721,8 +721,8 @@ def compute_signal(
     min_periods: int | None = None,
 ) -> pd.Series:
     """
-    Return a trailing rolling-mean signal using information up to and
-    including the current row.
+    Return a trailing rolling-mean signal using information strictly prior to the
+    current row.
 
     Args:
         df (pd.DataFrame): Input DataFrame containing the data.
@@ -751,11 +751,11 @@ def compute_signal(
     if effective_min_periods <= 0:
         raise ValueError("min_periods must be positive")
 
-    # Unshifted trailing rolling mean (option 2): value at index i (for i >= window-1)
-    # is the mean of the last ``window`` observations INCLUDING the current row.
-    # Earlier indices produce NaN until ``window`` observations are available.
+    # Trailing rolling mean excluding the current row to avoid look-ahead bias.
+    # Value at index ``i`` (for i >= window) is the mean of the previous ``window``
+    # observations. Earlier indices produce NaN until enough history is available.
     rolling = base.rolling(window=window, min_periods=effective_min_periods).mean()
-    signal = rolling
+    signal = rolling.shift(1)
     signal.name = f"{column}_signal"
     return signal
 
