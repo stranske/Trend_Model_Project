@@ -204,6 +204,31 @@ def test_list_available_presets_and_load_preset(
         fallback_models.load_preset("beta")  # type: ignore[attr-defined]
 
 
+def test_load_config_fallback_handles_validation_failure(
+    fallback_models: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[dict[str, Any]] = []
+
+    def boom(data: dict[str, Any], *, base_path: Path) -> None:
+        calls.append(copy.deepcopy(data))
+        raise RuntimeError("validator failure")
+
+    monkeypatch.setattr(
+        fallback_models,
+        "validate_trend_config",
+        boom,
+        raising=False,
+    )
+
+    payload = _base_config_payload()
+    cfg = fallback_models.load_config(payload)
+
+    assert isinstance(cfg, fallback_models.Config)  # type: ignore[attr-defined]
+    assert cfg.version == payload["version"]
+    # Ensure validation was attempted even though the error was swallowed.
+    assert calls and calls[0]["version"] == payload["version"]
+
+
 def test_list_available_presets_handles_missing_directory(
     fallback_models: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

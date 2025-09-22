@@ -59,6 +59,21 @@ def test_run_price_frames_validate_columns() -> None:
         mp_engine.run(cfg, df=df, price_frames=bad_frames)
 
 
+def test_run_price_frames_error_mentions_available_columns() -> None:
+    cfg = DummyCfg()
+    df = pd.DataFrame({"Date": pd.to_datetime(["2020-01-31"])})
+    bad_frames = {
+        "2020-01": pd.DataFrame({"Foo": [1.0], "Bar": [2.0]})
+    }
+
+    with pytest.raises(ValueError) as exc:
+        mp_engine.run(cfg, df=df, price_frames=bad_frames)
+
+    message = str(exc.value)
+    assert "Available columns" in message
+    assert "['Foo', 'Bar']" in message
+
+
 def test_run_price_frames_rejects_empty_mapping() -> None:
     cfg = DummyCfg()
 

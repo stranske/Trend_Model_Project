@@ -177,3 +177,51 @@ def test_trend_config_managers_glob_requires_csv_extension(tmp_path: Path) -> No
     message = str(exc.value)
     assert "CSV" in message
     assert "fund_a.txt" in message
+
+
+def test_validate_trend_config_normalises_month_end_frequency(tmp_path: Path) -> None:
+    csv_file = tmp_path / "returns.csv"
+    csv_file.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
+
+    cfg = {
+        "version": "1",
+        "data": {
+            "csv_path": str(csv_file),
+            "date_column": "Date",
+            "frequency": "me",
+        },
+        "portfolio": {
+            "rebalance_calendar": "NYSE",
+            "max_turnover": 0.5,
+            "transaction_cost_bps": 10,
+        },
+        "vol_adjust": {"target_vol": 0.1},
+    }
+
+    validated = validate_trend_config(cfg, base_path=tmp_path)
+    assert validated.data.frequency == "ME"
+
+
+def test_validate_trend_config_reports_frequency_error_message(tmp_path: Path) -> None:
+    csv_file = tmp_path / "returns.csv"
+    csv_file.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
+
+    cfg = {
+        "version": "1",
+        "data": {
+            "csv_path": str(csv_file),
+            "date_column": "Date",
+            "frequency": "quarterlyish",
+        },
+        "portfolio": {
+            "rebalance_calendar": "NYSE",
+            "max_turnover": 0.5,
+            "transaction_cost_bps": 10,
+        },
+        "vol_adjust": {"target_vol": 0.1},
+    }
+
+    with pytest.raises(ValueError) as exc:
+        validate_trend_config(cfg, base_path=tmp_path)
+
+    assert "data.frequency 'quarterlyish'" in str(exc.value)
