@@ -62,9 +62,7 @@ def test_run_price_frames_validate_columns() -> None:
 def test_run_price_frames_error_mentions_available_columns() -> None:
     cfg = DummyCfg()
     df = pd.DataFrame({"Date": pd.to_datetime(["2020-01-31"])})
-    bad_frames = {
-        "2020-01": pd.DataFrame({"Foo": [1.0], "Bar": [2.0]})
-    }
+    bad_frames = {"2020-01": pd.DataFrame({"Foo": [1.0], "Bar": [2.0]})}
 
     with pytest.raises(ValueError) as exc:
         mp_engine.run(cfg, df=df, price_frames=bad_frames)
