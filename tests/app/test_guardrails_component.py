@@ -55,3 +55,61 @@ def test_validate_startup_payload_requires_csv():
     )
     assert validated is None
     assert errors and "Upload" in errors[0]
+
+
+def test_validate_startup_payload_delegates_to_validator(tmp_path, monkeypatch):
+    csv_path = tmp_path / "data.csv"
+    frame = pd.DataFrame(
+        {"Date": pd.date_range("2022-01-31", periods=8, freq="M"), "A": 0.02}
+    )
+    frame.to_csv(csv_path, index=False)
+
+    captured: dict[str, object] = {}
+
+    def fake_validate(payload, *, base_path):
+        captured["payload"] = payload
+        captured["base_path"] = base_path
+        return ({**payload, "validated": True}, None)
+
+    monkeypatch.setattr(
+        "streamlit_app.components.guardrails.validate_payload", fake_validate
+    )
+
+    validated, errors = validate_startup_payload(
+        csv_path=str(csv_path),
+        date_column="Date",
+        risk_target=0.2,
+        timestamps=pd.to_datetime(frame["Date"]),
+    )
+
+    assert errors == []
+    assert validated is not None and validated.get("validated") is True
+    assert captured["base_path"] == csv_path.parent
+    assert captured["payload"]  # sanity check payload returned
+    assert captured["payload"]["data"]["csv_path"] == str(csv_path)
+
+
+def test_validate_startup_payload_surfaces_validator_errors(tmp_path, monkeypatch):
+    csv_path = tmp_path / "data.csv"
+    frame = pd.DataFrame(
+        {"Date": pd.date_range("2022-01-31", periods=8, freq="M"), "A": 0.02}
+    )
+    frame.to_csv(csv_path, index=False)
+
+    def fake_validate(payload, *, base_path):
+        return None, "vol_adjust -> target_vol\n must be greater than zero"
+
+    monkeypatch.setattr(
+        "streamlit_app.components.guardrails.validate_payload", fake_validate
+    )
+
+    validated, errors = validate_startup_payload(
+        csv_path=str(csv_path),
+        date_column="Date",
+        risk_target=0.2,
+        timestamps=pd.to_datetime(frame["Date"]),
+    )
+
+    assert validated is None
+    assert "vol_adjust" in errors[0]
+    assert "greater than zero" in errors[1]

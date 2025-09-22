@@ -19,6 +19,8 @@ from typing import Iterable, List, Tuple
 
 import pandas as pd
 
+from streamlit_app.config_bridge import build_config_payload, validate_payload
+
 @dataclass(frozen=True, slots=True)
 class ResourceEstimate:
     """Back-of-the-envelope resource estimate for a dataset."""
@@ -164,26 +166,24 @@ def validate_startup_payload(
     if errors:
         return None, errors
 
-    payload = {
-        "version": "1",
-        "data": {
-            "csv_path": str(csv_real) if csv_real is not None else None,
-            "managers_glob": None,
-            "date_column": date_column,
-            "frequency": frequency,
-        },
-        "portfolio": {
-            "rebalance_calendar": "NYSE",
-            "max_turnover": 0.5,
-            "transaction_cost_bps": 10.0,
-        },
-        "vol_adjust": {
-            "target_vol": risk_value,
-            "floor_vol": 0.015,
-            "warmup_periods": 0,
-        },
-    }
-    return payload, []
+    payload = build_config_payload(
+        csv_path=str(csv_real) if csv_real is not None else None,
+        managers_glob=None,
+        date_column=date_column,
+        frequency=frequency,
+        rebalance_calendar="NYSE",
+        max_turnover=0.5,
+        transaction_cost_bps=10.0,
+        target_vol=risk_value,
+    )
+    base_dir = csv_real.parent if csv_real is not None else Path.cwd()
+    validated, validation_error = validate_payload(payload, base_path=base_dir)
+    if validation_error:
+        error_lines = [line.strip() for line in validation_error.splitlines() if line.strip()]
+        if not error_lines:
+            error_lines = [validation_error]
+        return None, errors + error_lines
+    return validated, []
 
 
 def prepare_dry_run_plan(

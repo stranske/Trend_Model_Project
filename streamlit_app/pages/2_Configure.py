@@ -75,6 +75,16 @@ def initialize_session_state():
         st.session_state.validation_messages = []
     if "validated_min_config" not in st.session_state:
         st.session_state.validated_min_config = None
+    if "field_errors" not in st.session_state:
+        st.session_state.field_errors = {}
+
+
+def display_inline_errors(field: str) -> None:
+    """Render inline validation errors for a specific field."""
+
+    messages = (st.session_state.get("field_errors") or {}).get(field, [])
+    for message in messages:
+        st.markdown(f":red[⚠️ {message}]")
 
 
 def render_preset_selection():
@@ -125,6 +135,7 @@ def render_preset_selection():
 def render_column_mapping(df: pd.DataFrame):
     """Render column mapping UI."""
     st.subheader("🔗 Column Mapping")
+    display_inline_errors("column_mapping")
 
     # Initialize display names and tickers at function scope
     display_names = {}
@@ -140,6 +151,7 @@ def render_column_mapping(df: pd.DataFrame):
             index=0 if cols else None,
             help="Column containing date information",
         )
+        display_inline_errors("date_column")
 
         # Return columns selection
         return_cols = st.multiselect(
@@ -150,6 +162,7 @@ def render_column_mapping(df: pd.DataFrame):
             ],  # Default to first 10 non-date columns
             help="Columns containing return data for funds/assets",
         )
+        display_inline_errors("return_columns")
 
         # Benchmark and risk-free rate
         benchmark_col = st.selectbox(
@@ -238,18 +251,33 @@ def render_parameter_forms(preset_config: Optional[Dict[str, Any]]):
         default_selection = 10
         default_risk_target = 0.10
 
+    df = st.session_state.get("returns_df")
+    if isinstance(df, pd.DataFrame) and not df.empty:
+        total_months = len(df.index.to_period("M").unique())
+    else:
+        total_months = 0
+
+    min_lookback_allowed = 6 if total_months < 24 else 12
+    if total_months:
+        max_lookback_allowed = max(min_lookback_allowed, total_months - 3)
+    else:
+        max_lookback_allowed = min_lookback_allowed
+    lookback_default = min(default_lookback, max_lookback_allowed)
+    lookback_step = 6 if (max_lookback_allowed - min_lookback_allowed) >= 6 else 1
+
     col1, col2 = st.columns(2)
 
     with col1:
         st.markdown("**Time Windows**")
         lookback_months = st.number_input(
             "Lookback window (months)",
-            min_value=12,
-            max_value=240,
-            value=default_lookback,
-            step=6,
+            min_value=min_lookback_allowed,
+            max_value=max_lookback_allowed,
+            value=lookback_default,
+            step=lookback_step,
             help="Historical data period for analysis",
         )
+        display_inline_errors("lookback_months")
 
         min_track_months = st.number_input(
             "Minimum track record (months)",
@@ -269,6 +297,7 @@ def render_parameter_forms(preset_config: Optional[Dict[str, Any]]):
             step=1,
             help="Maximum number of funds in portfolio",
         )
+        display_inline_errors("selection_count")
 
     with col2:
         st.markdown("**Rebalancing**")
@@ -288,6 +317,7 @@ def render_parameter_forms(preset_config: Optional[Dict[str, Any]]):
             format="%.2f",
             help="Target portfolio volatility (e.g., 0.10 = 10%)",
         )
+        display_inline_errors("risk_target")
 
         cooldown_months = st.number_input(
             "Cooldown period (months)",
@@ -343,6 +373,7 @@ def render_parameter_forms(preset_config: Optional[Dict[str, Any]]):
                     format="%.2f",
                     key=f"weight_{metric}",
                 )
+        display_inline_errors("metric_weights")
 
     # Store custom overrides
     overrides = {
@@ -363,23 +394,34 @@ def render_parameter_forms(preset_config: Optional[Dict[str, Any]]):
 
 def validate_configuration() -> List[str]:
     """Validate the current configuration and return error messages."""
-    errors = []
+    errors: List[str] = []
+    field_errors: Dict[str, List[str]] = {}
     config_state = st.session_state.config_state
 
     # Check for required data
     if "returns_df" not in st.session_state:
         errors.append("No data uploaded. Please upload data first.")
+        st.session_state.field_errors = field_errors
         return errors
 
     # Check column mapping
     mapping = config_state.get("column_mapping")
     if not mapping:
         errors.append("Column mapping not configured.")
+        field_errors.setdefault("column_mapping", []).append(
+            "Map the date and return columns before continuing."
+        )
     else:
         if not mapping.get("date_column"):
             errors.append("Date column not selected.")
+            field_errors.setdefault("date_column", []).append(
+                "Select the column that contains your dates."
+            )
         if not mapping.get("return_columns"):
             errors.append("No return columns selected.")
+            field_errors.setdefault("return_columns", []).append(
+                "Choose at least one column with fund returns."
+            )
 
     # Check custom overrides
     if config_state.get("custom_overrides"):
@@ -395,22 +437,37 @@ def validate_configuration() -> List[str]:
                 errors.append(
                     f"Metric weights should sum to 1.0, currently {total_weight:.2f}"
                 )
+                field_errors.setdefault("metric_weights", []).append(
+                    "Adjust weights so they sum to 1.0."
+                )
 
         # Check reasonable parameter ranges
         if overrides.get("lookback_months", 0) < overrides.get("min_track_months", 0):
             errors.append("Lookback window should be >= minimum track record.")
+            field_errors.setdefault("lookback_months", []).append(
+                "Increase the lookback so it is at least the minimum track record."
+            )
 
         if overrides.get("selection_count", 0) <= 0:
             errors.append("Selection count must be positive.")
+            field_errors.setdefault("selection_count", []).append(
+                "Set a positive number of funds to select."
+            )
 
         if return_cols and overrides.get("selection_count", 0) > len(return_cols):
             errors.append(
                 "Selection count exceeds the number of mapped return columns."
             )
+            field_errors.setdefault("selection_count", []).append(
+                "Reduce the selection count or map more return columns."
+            )
 
         risk_target = overrides.get("risk_target", 0.10)
         if not 0.01 <= risk_target <= 0.50:
             errors.append("Risk target should be between 1% and 50%.")
+            field_errors.setdefault("risk_target", []).append(
+                "Enter a risk target between 0.01 and 0.50."
+            )
 
         if df is not None and not df.empty and mapping and mapping.get("date_column"):
             unique_months = df.index.to_period("M").unique()
@@ -419,11 +476,18 @@ def validate_configuration() -> List[str]:
                 errors.append(
                     "Lookback window consumes all available history. Reduce it to avoid look-ahead."
                 )
+                field_errors.setdefault("lookback_months", []).append(
+                    "Shorten the lookback to leave some out-of-sample data."
+                )
             elif len(unique_months) - lookback < 3:
                 errors.append(
                     "Leave at least three months of out-of-sample data to avoid look-ahead bias."
                 )
+                field_errors.setdefault("lookback_months", []).append(
+                    "Leave at least three months for the out-of-sample window."
+                )
 
+    st.session_state.field_errors = field_errors
     return errors
 
 
