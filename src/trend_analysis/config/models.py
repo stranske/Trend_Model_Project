@@ -19,21 +19,90 @@ import yaml
 # import ``validate_trend_config`` via its fully-qualified path to avoid
 # relative-import resolution against the temporary alias (for example when the
 # module is loaded as ``tests.config_models_fallback``).
-from trend_analysis.config.model import validate_trend_config
-
-try:  # pragma: no cover - exercised indirectly via tests
-    from .model import validate_trend_config
-except ImportError:  # pragma: no cover - defensive fallback for test harness
-    if sys.modules.get("pydantic") is None:
-
-        validate_trend_config = _fallback_validate_trend_config
 
 
-    else:
+def _fallback_validate_trend_config(
+    data: Mapping[str, Any] | None,
+    *,
+    base_path: Path,
+) -> None:
+    """Best-effort configuration validation used when Pydantic is unavailable.
+
+    The full :mod:`trend_analysis.config.model` helper performs rich validation
+    with Pydantic.  When that module cannot be imported (for example, during
+    unit tests that intentionally remove the dependency) we still want to catch
+    obvious schema issues so downstream code receives a sensible error instead
+    of failing later.  Only lightweight checks are performed here – the
+    fallback ``Config`` class below performs the detailed validation when it is
+    instantiated.
+    """
+
+    if not isinstance(data, Mapping):
+        raise TypeError("Configuration payload must be a mapping")
+
+    version = data.get("version")
+    if not isinstance(version, str):
+        raise ValueError("version must be a string")
+    if not version or not version.strip():
+        raise ValueError("Version field must be a non-empty string")
+
+    required_sections = [
+        "data",
+        "preprocessing",
+        "vol_adjust",
+        "sample_split",
+        "portfolio",
+        "metrics",
+        "export",
+        "run",
+    ]
+    missing = [section for section in required_sections if section not in data]
+    if missing:
+        raise ValueError(
+            "Missing required configuration sections: " + ", ".join(sorted(missing))
+        )
+
+    for section in required_sections:
+        value = data.get(section)
+        if not isinstance(value, Mapping):
+            raise ValueError(f"{section} must be a dictionary")
+
+
+class _ValidateConfigFn(Protocol):
+    def __call__(self, data: dict[str, Any], *, base_path: Path) -> Any:
+        """Validate configuration data and optionally return a model."""
+
+
+def _resolve_validate_trend_config() -> _ValidateConfigFn:
+    """Return the best available ``validate_trend_config`` implementation."""
+
+    try:
+        from trend_analysis.config.model import (
+            validate_trend_config as validate_trend_config_impl,
+        )
+
+        return cast(_ValidateConfigFn, validate_trend_config_impl)
+    except Exception:  # pragma: no cover - exercised in fallback tests
         try:
-            from trend_analysis.config.model import validate_trend_config
-        except ImportError:
-            validate_trend_config = _fallback_validate_trend_config
+            from .model import (
+                validate_trend_config as validate_trend_config_impl,
+            )
+
+            return cast(_ValidateConfigFn, validate_trend_config_impl)
+        except Exception:  # pragma: no cover - final fallback
+            return _fallback_validate_trend_config
+
+
+validate_trend_config: _ValidateConfigFn = _resolve_validate_trend_config()
+
+
+def _run_external_validator(data: dict[str, Any], base_path: Path) -> None:
+    """Invoke ``validate_trend_config`` and normalise raised errors."""
+
+    try:
+        validate_trend_config(data, base_path=base_path)
+    except (ValueError, TypeError) as exc:
+        raise ValueError(str(exc)) from exc
 class ConfigProtocol(Protocol):
     """Type protocol for Config class that works in both Pydantic and fallback
     modes."""
@@ -636,9 +705,8 @@ def load_config(cfg: Mapping[str, Any] | str | Path) -> ConfigProtocol:
     if isinstance(cfg, Mapping):
         cfg_dict = dict(cfg)
         config_obj = Config(**cfg_dict)
-    if _HAS_PYDANTIC:
-        validate_trend_config(cfg_dict, base_path=Path.cwd())
-    return config_obj
+        _run_external_validator(cfg_dict, Path.cwd())
+        return config_obj
     raise TypeError("cfg must be a mapping or path")
 
 
@@ -695,11 +763,10 @@ def load(path: str | Path | None = None) -> ConfigProtocol:
             export_cfg.setdefault("directory", str(p.parent) if p.parent else ".")
             export_cfg.setdefault("filename", p.name)
 
-    if _HAS_PYDANTIC:
-        try:
-            validate_trend_config(data, base_path=base_dir)
-        except (ValueError, TypeError) as exc:  # pragma: no cover - surface helpful error
-            raise ValueError(str(exc)) from exc
+    try:
+        _run_external_validator(data, base_dir)
+    except ValueError as exc:  # pragma: no cover - surface helpful error
+        raise ValueError(str(exc)) from exc
 
     return Config(**data)
 
