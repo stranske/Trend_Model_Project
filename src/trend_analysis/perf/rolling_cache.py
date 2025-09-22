@@ -12,9 +12,24 @@ import pandas as pd
 from joblib import dump, load
 from pandas.util import hash_pandas_object
 
-_DEFAULT_CACHE_DIR = Path(os.getenv("TREND_ROLLING_CACHE", "~/.cache/trend_model/rolling"))
+def _get_default_cache_dir() -> Path:
+    env_path = os.getenv("TREND_ROLLING_CACHE")
+    if env_path:
+        # Expand user and resolve to absolute path
+        cache_path = Path(env_path).expanduser().resolve()
+        # Optionally, ensure cache_path is within the user's home directory
+        try:
+            home = Path.home().resolve()
+            if not str(cache_path).startswith(str(home)):
+                # Fallback to safe default if outside home
+                cache_path = home / ".cache/trend_model/rolling"
+        except Exception:
+            cache_path = Path.home() / ".cache/trend_model/rolling"
+        return cache_path
+    else:
+        return Path.home() / ".cache/trend_model/rolling"
 
-
+_DEFAULT_CACHE_DIR = _get_default_cache_dir()
 def _normalise_component(component: str) -> str:
     """Return a filesystem-safe version of ``component``."""
 
