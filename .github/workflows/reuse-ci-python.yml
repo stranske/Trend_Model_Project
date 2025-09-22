@@ -220,10 +220,72 @@ jobs:
           script: |
             const { owner, repo } = context.repo;
             const run_id = context.runId;
-            const { data } = await github.rest.actions.listJobsForWorkflowRun({ owner, repo, run_id, per_page: 100 });
-            const rows = data.jobs.map(j => `| ${j.name} | ${j.conclusion || j.status} | [logs](${j.html_url}) |`);
-            const md = ["### Logs for this run","| Job | Result | Logs |","|---|---|---|",...rows].join("\n");
+            const jobs = [];
+            let page = 1;
+            while (true) {
+              const resp = await github.rest.actions.listJobsForWorkflowRun({ owner, repo, run_id, per_page: 100, page });
+              const pageJobs = resp.data.jobs || [];
+              jobs.push(...pageJobs);
+              const link = resp.headers.link || '';
+              if (!link.includes('rel="next"')) {
+                break;
+              }
+              page += 1;
+            }
+
+            const normalise = (value) => {
+              if (!value) return 'in_progress';
+              return String(value).toLowerCase();
+            };
+
+            const badge = (state) => {
+              switch (state) {
+                case 'success':
+                  return '✅';
+                case 'failure':
+                case 'timed_out':
+                case 'cancelled':
+                  return '❌';
+                case 'skipped':
+                  return '⏭️';
+                default:
+                  return '⏳';
+              }
+            };
+
+            const formatState = (state) => {
+              return state
+                .split('_')
+                .map(segment => segment ? segment.charAt(0).toUpperCase() + segment.slice(1) : segment)
+                .join(' ');
+            };
+
+            const rows = jobs
+              .slice()
+              .sort((a, b) => {
+                const aStart = a.started_at ? Date.parse(a.started_at) : 0;
+                const bStart = b.started_at ? Date.parse(b.started_at) : 0;
+                if (aStart !== bStart) return aStart - bStart;
+                return a.name.localeCompare(b.name);
+              })
+              .map(job => {
+                const state = normalise(job.conclusion || job.status);
+                const label = formatState(state);
+                const prefix = badge(state);
+                return `| ${job.name} | ${prefix} ${label} | [logs](${job.html_url}) |`;
+              });
+
+            const mdLines = [
+              '### Logs for this run',
+              '| Job | Result | Logs |',
+              '|-----|--------|------|',
+              ...(rows.length ? rows : ['| _No jobs found_ |  |  |'])
+            ];
+            const md = mdLines.join('\n');
             core.setOutput('table', md);
+
+            const fs = require('fs');
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${md}\n`);
       - name: Create or update coverage issue
         id: issue
         uses: actions/github-script@v7
@@ -277,10 +339,11 @@ jobs:
       - name: Append run summary
         if: always()
         run: |
-          echo "### Coverage Soft Gate" >> $GITHUB_STEP_SUMMARY
-          cat coverage_summary.md >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "${{ steps.jobs.outputs.table }}" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "### Coverage Soft Gate"
+            cat coverage_summary.md
+            echo ""
+          } >> $GITHUB_STEP_SUMMARY
   remove-green-on-fail:
     name: strip ci:green on failure
     runs-on: ubuntu-latest
