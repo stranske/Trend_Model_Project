@@ -225,3 +225,46 @@ def test_incremental_update_length_change_triggers_recompute(
     assert compute_calls == [3, 4]
     assert results[-1]["cache_stats"]["incremental_updates"] == 0
     assert "cov_diag" in results[-1]
+
+
+def test_incremental_cov_cache_instantiation_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    cfg = _Cfg(
+        data={},
+        multi_period={"periods": []},
+        portfolio={
+            "selection_mode": "all",
+            "random_n": 4,
+            "custom_weights": None,
+            "rank": {},
+            "manual_list": None,
+            "indices_list": None,
+        },
+        vol_adjust={"target_vol": 1.0},
+        benchmarks={},
+        run={"monthly_cost": 0.0},
+        performance={"enable_cache": True, "incremental_cov": True},
+    )
+
+    periods: List[_Period] = [
+        _Period("2020-01-31", "2020-03-31", "2020-04-30", "2020-04-30"),
+    ]
+    monkeypatch.setattr(mp_engine, "generate_periods", lambda _cfg: periods)
+
+    def fake_run(*_args: Any, **_kwargs: Any) -> Dict[str, Any]:
+        return {"out_ew_stats": {}, "out_user_stats": {}}
+
+    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run)
+
+    class ExplodingCovCache:
+        def __init__(self) -> None:
+            raise RuntimeError("no cache available")
+
+    monkeypatch.setattr("trend_analysis.perf.cache.CovCache", ExplodingCovCache)
+
+    results = mp_engine.run(cfg, df=_make_df())
+
+    assert len(results) == 1
+    payload = results[0]
+    # Cache instantiation failure should not attach cache_stats metadata
+    assert "cache_stats" not in payload
+    assert "cov_diag" in payload

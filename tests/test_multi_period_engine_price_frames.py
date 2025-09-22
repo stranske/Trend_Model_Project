@@ -63,6 +63,17 @@ def test_run_validates_price_frame_values_are_dataframes() -> None:
         mp_engine.run(cfg, price_frames=bad_frames)
 
 
+def test_run_price_frames_type_error_mentions_key() -> None:
+    cfg = DummyConfig()
+    bad_frames = {"2020-02-29": [1, 2, 3]}
+
+    with pytest.raises(TypeError) as excinfo:
+        mp_engine.run(cfg, price_frames=bad_frames)
+
+    message = str(excinfo.value)
+    assert "price_frames['2020-02-29']" in message
+
+
 def test_run_requires_date_column_in_price_frames() -> None:
     cfg = DummyConfig()
     missing_date = pd.DataFrame({"Value": [1.23]})
