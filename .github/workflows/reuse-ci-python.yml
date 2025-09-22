@@ -98,6 +98,7 @@ jobs:
             coverage-${{ matrix.py }}.json
             htmlcov-${{ matrix.py }}/**
             pytest-report-${{ matrix.py }}.xml
+          retention-days: 10
       - name: Summary
         if: always()
         run: |
