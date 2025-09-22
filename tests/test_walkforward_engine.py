@@ -1,3 +1,4 @@
+import builtins
 import numpy as np
 import pandas as pd
 import pytest
@@ -181,9 +182,16 @@ def test_agg_label_prefers_callable_name():
     def custom_metric(values):  # noqa: ARG001
         return values.mean()
 
+    class _CallableWithoutName:
+        def __call__(self, values):  # noqa: D401, ANN001
+            return float(values.mean())
+
     assert walkforward._agg_label("mean") == "mean"
     assert walkforward._agg_label(custom_metric) == "custom_metric"
     assert walkforward._agg_label(object()) == "value"
+    # Callable instances without a ``__name__`` attribute should fall back to
+    # the generic label.
+    assert walkforward._agg_label(_CallableWithoutName()) == "value"
 
 
 def test_infer_periods_per_year_branch_guards(monkeypatch):
@@ -233,6 +241,64 @@ def test_walk_forward_handles_empty_metric_columns():
         "window",
         "window",
     ]
+
+
+def test_walk_forward_scalar_ir_without_metrics(monkeypatch):
+    df = _monthly_frame(6)
+    regimes = pd.Series(
+        ["bull", "bear", "bull", "bear", "bull", "bear"],
+        index=pd.to_datetime(df["Date"]),
+    )
+
+    flagged: set[int] = set()
+
+    def fake_ir(frame, benchmark=0.0, periods_per_year=12):  # noqa: ARG001
+        flagged.add(id(frame.columns))
+        return 0.42
+
+    monkeypatch.setattr(walkforward, "information_ratio", fake_ir)
+    monkeypatch.setattr(
+        walkforward,
+        "_information_ratio_frame",
+        lambda *a, **k: pd.DataFrame(),
+    )
+    monkeypatch.setattr(
+        walkforward, "_to_dataframe", lambda *a, **k: pd.DataFrame(),
+    )
+    monkeypatch.setattr(
+        walkforward,
+        "_flatten_agg_result",
+        lambda *a, **k: pd.Series(dtype=float),
+    )
+    monkeypatch.setattr(
+        walkforward,
+        "len",
+        lambda obj, _orig=builtins.len: (  # type: ignore[arg-type]
+            0
+            if (obj_id := id(obj)) in flagged and not flagged.remove(obj_id)
+            else _orig(obj)
+        ),
+        raising=False,
+    )
+
+    result = walkforward.walk_forward(
+        df,
+        train_size=3,
+        test_size=1,
+        step_size=1,
+        metric_cols=["alpha", "beta"],
+        regimes=regimes,
+    )
+
+    # No metric columns survive, so scalar information ratios are ignored and
+    # regime aggregation yields an empty table rather than raising.
+    # The columns of result.oos_windows are expected to be a pandas MultiIndex
+    # with at least two levels: (window, metric_name). This assertion checks that
+    # no metric column named "information_ratio" survives, except for the "window" columns.
+    assert all(
+        col[1] != "information_ratio" for col in result.oos_windows.columns if col[0] != "window"
+    )
+    assert result.by_regime.empty
 
 
 def test_walk_forward_no_splits_yields_empty_windows():
