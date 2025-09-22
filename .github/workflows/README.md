@@ -119,6 +119,19 @@ Legacy orchestrators (`agents-consumer.yml`, `reuse-agents.yml`) are archived un
 `tests/test_workflow_agents_consolidation.py` to prevent silent reintroduction. Any new agent helper must either extend the
 existing assigner or document a justification for a third workflow in this README.
 
+### Merge Manager (Issue #1415)
+Unified approval + auto-merge policy lives in `merge-manager.yml`, replacing the legacy pair `autoapprove.yml` and
+`enable-automerge.yml` (now archived under `Old/.github/workflows/`). Guard test: `tests/test_workflow_merge_manager.py`.
+
+Design invariants:
+1. Single rationale comment per PR identified by marker `<!-- merge-manager-rationale -->`.
+2. Combined safety evaluation (allowlist patterns, size cap, quiet period, active workflow absence) before any approval.
+3. Conditional approval (GitHub Review API) + optional auto-merge enablement via `peter-evans/enable-pull-request-automerge@v3`.
+4. Loop guard: declines if last commit already bears the autofix prefix (`COMMIT_PREFIX`, default `chore(autofix):`).
+5. Idempotent: re-runs update / replace the existing rationale comment instead of spamming.
+
+Acceptance Criteria (Issue #1415) satisfied by: archival of legacy workflows, presence of guard test, README documentation, and operational unified workflow.
+
 ---
 ## 6. Onboarding Checklist (~7m)
 1. Create labels `automerge`, `risk:low`, `agent:codex`, `agent:copilot`, `codex-ready`.
