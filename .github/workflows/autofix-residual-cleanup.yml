@@ -29,11 +29,39 @@ jobs:
           ref: ${{ github.event.repository.default_branch || 'phase-2-dev' }}
           fetch-depth: 0
 
+      - name: Guard against autofix loops
+        id: guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          skip=false
+          actor="${{ github.actor }}"
+          if [ "$actor" = "github-actions" ] || [ "$actor" = "github-actions[bot]" ]; then
+            head_msg="$(git log -1 --pretty=%s 2>/dev/null || echo '')"
+            prefix="${COMMIT_PREFIX}"
+            if [ -n "$prefix" ] && [ -n "$head_msg" ]; then
+              head_norm=$(printf '%s' "$head_msg" | tr '[:upper:]' '[:lower:]')
+              prefix_norm=$(printf '%s' "$prefix" | tr '[:upper:]' '[:lower:]')
+              case "$head_norm" in
+                "$prefix_norm"*)
+                  echo "[cleanup] Loop guard engaged for commit: $head_msg"
+                  skip=true
+                  ;;
+              esac
+            fi
+          fi
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+          if [ "$skip" = "true" ]; then
+            echo "[cleanup] Skipping residual cleanup to avoid autofix loop."
+          fi
+
       - name: Run composite autofix (classification only)
+        if: steps.guard.outputs.skip != 'true'
         id: autofix
         uses: ./.github/actions/autofix
 
       - name: Evaluate residuals
+        if: steps.guard.outputs.skip != 'true'
         id: eval
         shell: bash
         run: |
@@ -43,6 +71,7 @@ jobs:
           echo "Remaining: ${{ steps.autofix.outputs.remaining_issues }} | New: ${{ steps.autofix.outputs.new_issues }}"
 
       - name: Generate residual report assets
+        if: steps.guard.outputs.skip != 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -52,11 +81,13 @@ jobs:
             if [ -f scripts/generate_residual_report.py ]; then python scripts/generate_residual_report.py; fi
 
       - name: Placeholder targeted cleanup (non-destructive)
+        if: steps.guard.outputs.skip != 'true'
         shell: bash
         run: |
           if [ -f scripts/residual_cleanup.py ]; then python scripts/residual_cleanup.py || true; fi
 
       - name: Prune stale allowlist entries
+        if: steps.guard.outputs.skip != 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -72,6 +103,7 @@ jobs:
           fi
 
       - name: Decide action
+        if: steps.guard.outputs.skip != 'true'
         id: decide
         shell: bash
         run: |
@@ -85,7 +117,7 @@ jobs:
           echo 'dry_run=false' >> $GITHUB_OUTPUT
 
       - name: Commit assets & open/update cleanup PR
-        if: steps.decide.outputs.dry_run != 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.decide.outputs.dry_run != 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -116,4 +148,5 @@ jobs:
             echo "Remaining: ${{ steps.autofix.outputs.remaining_issues }}"
             echo "New: ${{ steps.autofix.outputs.new_issues }}"
             echo "Dry run: ${{ github.event.inputs.dry_run || 'true' }}"
+            echo "Loop guard skip: ${{ steps.guard.outputs.skip || 'false' }}"
           } >> "$GITHUB_STEP_SUMMARY"

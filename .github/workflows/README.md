@@ -93,7 +93,9 @@ jobs:
       cov_min: 70
 ```
 Autofix commits use the configurable prefix (default `chore(autofix):`). The consolidated workflow guards against loops by
-detecting automation actors + existing prefix and only running after the CI workflow completes.
+detecting automation actors + existing prefix and only running after the CI workflow completes. Scheduled cleanup and reusable
+autofix helpers consume the same prefix so the guard behaviour is identical no matter which workflow authored the last automation
+commit.
 
 ```yaml
 name: Agents
@@ -158,7 +160,8 @@ Acceptance Criteria (Issue #1415) satisfied by: archival of legacy workflows, pr
 Loop prevention layers:
 1. The consolidated workflow only reacts to completed CI runs (no direct `push` trigger).
 2. Guard logic only fires when the workflow actor is `github-actions` (or `github-actions[bot]`) **and** the latest commit subject begins with the standardized prefix `chore(autofix):`.
-3. Style Gate runs independently and does not trigger autofix.
+3. Scheduled cleanup (`autofix-residual-cleanup.yml`) and reusable autofix consumers adopt the same prefix + actor guard, so automation commits short-circuit immediately instead of chaining runs.
+4. Style Gate runs independently and does not trigger autofix.
 
 Result: Each human push generates at most one autofix patch sequence; autofix commits do not recursively spawn new runs.
 
