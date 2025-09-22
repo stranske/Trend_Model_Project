@@ -19,7 +19,6 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
-import sys
 
 ALLOW = pathlib.Path(".ruff-residual-allowlist.json")
 HISTORY = pathlib.Path("ci/autofix/history.json")

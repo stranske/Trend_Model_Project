@@ -720,13 +720,8 @@ def compute_signal(
     min_periods: int | None = None,
 ) -> pd.Series:
     """
-    Return a trailing rolling-mean signal that is shift-safe.
-
-    The returned signal is *explicitly* shifted by one period so the value at
-    index ``t`` only depends on data strictly before ``t``. This avoids the
-    classic off-by-one bug where the latest observation leaks into the
-    decision made at the same timestamp, which would introduce look-ahead
-    bias in downstream portfolio simulations.
+    Return a trailing rolling-mean signal using information up to and
+    including the current row.
 
     Args:
         df (pd.DataFrame): Input DataFrame containing the data.
@@ -755,8 +750,11 @@ def compute_signal(
     if effective_min_periods <= 0:
         raise ValueError("min_periods must be positive")
 
+    # Unshifted trailing rolling mean (option 2): value at index i (for i >= window-1)
+    # is the mean of the last ``window`` observations INCLUDING the current row.
+    # Earlier indices produce NaN until ``window`` observations are available.
     rolling = base.rolling(window=window, min_periods=effective_min_periods).mean()
-    signal = rolling.shift(1)
+    signal = rolling
     signal.name = f"{column}_signal"
     return signal
 

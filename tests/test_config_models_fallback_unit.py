@@ -12,7 +12,9 @@ import yaml
 
 
 @pytest.fixture
-def fallback_models(monkeypatch: pytest.MonkeyPatch) -> Generator[ModuleType, None, None]:
+def fallback_models(
+    monkeypatch: pytest.MonkeyPatch,
+) -> Generator[ModuleType, None, None]:
     """Load ``trend_analysis.config.models`` with pydantic forcibly unavailable."""
 
     module_name = "trend_analysis.config.models_fallback_test"
@@ -85,7 +87,9 @@ def test_validate_version_helper_handles_errors(fallback_models: ModuleType) -> 
     assert fallback_models._validate_version_value("3.0") == "3.0"  # type: ignore[attr-defined]
 
 
-def test_fallback_config_coerces_portfolio_controls(fallback_models: ModuleType) -> None:
+def test_fallback_config_coerces_portfolio_controls(
+    fallback_models: ModuleType,
+) -> None:
     Config = fallback_models.Config  # type: ignore[attr-defined]
     cfg = Config(
         **_base_config_payload(
@@ -110,16 +114,10 @@ def test_fallback_config_rejects_invalid_portfolio_values(
         Config(**_base_config_payload(portfolio=[]))
 
     with pytest.raises(ValueError, match="transaction_cost_bps must be >= 0"):
-        Config(
-            **_base_config_payload(
-                portfolio={"transaction_cost_bps": -0.1}
-            )
-        )
+        Config(**_base_config_payload(portfolio={"transaction_cost_bps": -0.1}))
 
     with pytest.raises(ValueError, match="max_turnover must be <= 2.0"):
-        Config(
-            **_base_config_payload(portfolio={"max_turnover": 3.0})
-        )
+        Config(**_base_config_payload(portfolio={"max_turnover": 3.0}))
 
 
 def test_fallback_config_requires_dict_sections(fallback_models: ModuleType) -> None:
@@ -151,7 +149,9 @@ def test_column_mapping_defaults_and_validation(fallback_models: ModuleType) -> 
     with pytest.raises(ValueError, match="Date column must be specified"):
         ColumnMapping()
 
-    with pytest.raises(ValueError, match="At least one return column must be specified"):
+    with pytest.raises(
+        ValueError, match="At least one return column must be specified"
+    ):
         ColumnMapping(date_column="Date", return_columns=[])
 
     mapping = ColumnMapping(
@@ -281,5 +281,3 @@ def test_load_config_accepts_mapping_and_path(
 def test_load_config_rejects_unsupported_types(fallback_models: ModuleType) -> None:
     with pytest.raises(TypeError, match="cfg must be a mapping or path"):
         fallback_models.load_config(3.14)  # type: ignore[attr-defined]
-
-

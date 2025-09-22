@@ -182,4 +182,3 @@ def test_error_summary_empty_conditions(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     assert error_summary(info_only).empty
-

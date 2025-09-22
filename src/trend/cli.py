@@ -39,15 +39,17 @@ _legacy_maybe_log_step: LegacyMaybeLogStep
 
 try:  # ``trend_analysis.cli`` is heavy but provides useful helpers
     from trend_analysis.cli import (
-        _extract_cache_stats as _import_extract_cache_stats,
-        maybe_log_step as _import_maybe_log_step,
+        _extract_cache_stats as _legacy_extract_cache_stats,
+        maybe_log_step as _legacy_maybe_log_step,
     )
 except Exception:  # pragma: no cover - defensive fallback
-    _legacy_extract_cache_stats = None
-    _legacy_maybe_log_step = _noop_maybe_log_step
-else:
-    _legacy_extract_cache_stats = _import_extract_cache_stats
-    _legacy_maybe_log_step = _import_maybe_log_step
+    _legacy_extract_cache_stats = None  # type: ignore[assignment]
+
+    def _legacy_maybe_log_step(
+        enabled: bool, run_id: str, event: str, message: str, **fields: Any
+    ) -> None:  # noqa: D401 - simple noop
+        """Fallback when legacy helpers unavailable (signature matches maybe_log_step)."""
+        return None
 
 
 APP_PATH = Path(__file__).resolve().parents[2] / "streamlit_app" / "app.py"
@@ -123,9 +125,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _resolve_returns_path(
-    config_path: Path, cfg: Any, override: str | None
-) -> Path:
+def _resolve_returns_path(config_path: Path, cfg: Any, override: str | None) -> Path:
     if override:
         path = Path(override)
     else:
@@ -267,9 +267,7 @@ def _handle_exports(
             str(out_dir_path / f"{filename}.xlsx"),
             default_sheet_formatter=formatter,
         )
-        remaining = [
-            fmt for fmt in out_formats if fmt.lower() not in {"excel", "xlsx"}
-        ]
+        remaining = [fmt for fmt in out_formats if fmt.lower() not in {"excel", "xlsx"}]
         if remaining:
             export.export_data(
                 data,
@@ -427,7 +425,9 @@ def main(argv: list[str] | None = None) -> int:
 
         if command == "report":
             if not args.out:
-                raise TrendCLIError("The --out option is required for the 'report' command")
+                raise TrendCLIError(
+                    "The --out option is required for the 'report' command"
+                )
             formats = args.formats or DEFAULT_REPORT_FORMATS
             _prepare_export_config(cfg, Path(args.out), formats)
             result, run_id, _ = _run_pipeline(
@@ -475,4 +475,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":  # pragma: no cover - manual invocation
     raise SystemExit(main())
-

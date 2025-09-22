@@ -26,6 +26,8 @@ def test_build_parser_contains_expected_subcommands() -> None:
             assert False, f"Subcommand '{subcommand}' not recognized by parser"
         # The subcommand should be set in the namespace
         assert getattr(args, "subcommand", None) == subcommand
+
+
 def test_resolve_returns_path_uses_config_directory(tmp_path: Path) -> None:
     cfg_path = tmp_path / "config.yml"
     cfg_path.write_text("", encoding="utf-8")
@@ -145,4 +147,3 @@ def test_main_stress_passes_scenario(monkeypatch, tmp_path: Path) -> None:
 
     assert exit_code == 0
     assert captured["structured_log"] is False
-
