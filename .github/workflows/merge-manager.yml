@@ -122,7 +122,11 @@ jobs:
             if(totalChanges > maxLines) reasons.push(`exceeds size cap (${totalChanges}>${maxLines})`);
             if(!quietOk) reasons.push('quiet period not satisfied');
             if(!activeOk) reasons.push('active workflows running');
-            const approve = reasons.filter(r=>['non-allowlist file changes','exceeds size cap','draft PR'].includes(r)).length === 0 && allSafe && totalChanges <= maxLines && !meta.draft;
+            const hasBlockerReason = reasons.filter(r => ['non-allowlist file changes', 'exceeds size cap', 'draft PR'].includes(r)).length > 0;
+            const isSafe = allSafe;
+            const isWithinSize = totalChanges <= maxLines;
+            const isNotDraft = !meta.draft;
+            const approve = !hasBlockerReason && isSafe && isWithinSize && isNotDraft;
             const enableAutomerge = approve && reasons.length === 0;
             core.setOutput('approve', String(approve));
             core.setOutput('enable_automerge', String(enableAutomerge));
