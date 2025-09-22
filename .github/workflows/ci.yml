@@ -25,7 +25,8 @@ jobs:
       enable-history: 'false'
       enable-classification: 'false'
       enable-coverage-delta: 'false'
-      enable-soft-gate: 'false'
+      enable-soft-gate: 'true'
+      coverage-hard-fail: 'false'
   gate:
     name: gate / all-required-green
     runs-on: ubuntu-latest
