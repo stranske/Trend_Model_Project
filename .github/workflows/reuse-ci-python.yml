@@ -336,11 +336,20 @@ jobs:
             core.info('Injected coverage summary into unified PR comment');
       - name: Append run summary
         if: always()
+        env:
+          LOG_TABLE: ${{ steps.jobs.outputs.table }}
         run: |
           {
             echo "### Coverage Soft Gate"
             cat coverage_summary.md
             echo ""
+            if [ -n "$LOG_TABLE" ]; then
+              printf '%s\n' "$LOG_TABLE"
+              echo ""
+            else
+              echo "_No workflow jobs found to report._"
+              echo ""
+            fi
           } >> $GITHUB_STEP_SUMMARY
   remove-green-on-fail:
     name: strip ci:green on failure
