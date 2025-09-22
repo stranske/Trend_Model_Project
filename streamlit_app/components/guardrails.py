@@ -19,7 +19,7 @@ from typing import Iterable, List, Tuple
 
 import pandas as pd
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class ResourceEstimate:
     """Back-of-the-envelope resource estimate for a dataset."""
 
