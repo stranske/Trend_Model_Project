@@ -8,6 +8,7 @@ symbol ``_HAS_PYDANTIC`` to reflect availability.
 from __future__ import annotations
 
 import os
+import sys
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Protocol, cast
@@ -20,7 +21,19 @@ import yaml
 # module is loaded as ``tests.config_models_fallback``).
 from trend_analysis.config.model import validate_trend_config
 
+try:  # pragma: no cover - exercised indirectly via tests
+    from .model import validate_trend_config
+except ImportError:  # pragma: no cover - defensive fallback for test harness
+    if sys.modules.get("pydantic") is None:
 
+        validate_trend_config = _fallback_validate_trend_config
+
+
+    else:
+        try:
+            from trend_analysis.config.model import validate_trend_config
+        except ImportError:
+            validate_trend_config = _fallback_validate_trend_config
 class ConfigProtocol(Protocol):
     """Type protocol for Config class that works in both Pydantic and fallback
     modes."""

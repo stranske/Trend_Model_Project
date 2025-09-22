@@ -103,6 +103,7 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            // Enforce invite mode on issue events so the human is the PR author; allow inputs on workflow_dispatch
             const ev = context.eventName;
             let mode = 'invite';
             let reason = 'issues-event-enforced';
@@ -120,6 +121,7 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            // Issue #1137: Default to non-draft unless explicitly overridden by input
             const raw = (context.payload.inputs && context.payload.inputs.codex_pr_draft) || 'false';
             const val = String(raw).toLowerCase() === 'true';
             core.setOutput('draft', val ? 'true' : 'false');
@@ -128,6 +130,10 @@ jobs:
         run: |
           echo "Chosen PR mode: ${{ steps.mode.outputs.mode }} (reason: ${{ steps.mode.outputs.reason }})"
           echo "Resolved draft flag: ${{ steps.draft.outputs.draft }}"
+
+      - name: Log chosen mode
+        run: |
+          echo "Chosen PR mode: ${{ steps.mode.outputs.mode }} (reason: ${{ steps.mode.outputs.reason }})"
 
       - name: Try local composite Codex bootstrap (lite)
         id: local_action
@@ -183,6 +189,7 @@ jobs:
             const issue_number = Number('${{ steps.ctx.outputs.issue }}');
             const base = "${{ steps.def.outputs.default }}";
             const branch = process.env.BRANCH;
+            // Replicate issue for suggested PR body
             let issueTitle = '';
             let issueBody = '';
             try { const { data: is } = await github.rest.issues.get({ owner, repo, issue_number }); issueTitle = is.title || ''; issueBody = is.body || ''; } catch {}
@@ -214,19 +221,33 @@ jobs:
             const head = process.env.BRANCH;
             const draftFlag = "${{ steps.draft.outputs.draft }}" === 'true';
             if (!issue_number) { core.setFailed('Resolved issue number missing; cannot open PR.'); return; }
+
             const existing = await github.rest.pulls.list({ owner, repo, state: 'open', head: `${owner}:${head}` });
             let pr = existing.data[0];
             if (!pr) {
+              // Pull original issue details to replicate contents in PR body
               let issueTitle = '';
               let issueBody = '';
-              try { const { data: is } = await github.rest.issues.get({ owner, repo, issue_number }); issueTitle = is.title || ''; issueBody = is.body || ''; } catch (e) { core.warning(`Failed to fetch issue #${issue_number}: ${e.message}`); }
+              try {
+                const { data: is } = await github.rest.issues.get({ owner, repo, issue_number });
+                issueTitle = is.title || '';
+                issueBody = is.body || '';
+              } catch (e) {
+                core.warning(`Failed to fetch issue #${issue_number}: ${e.message}`);
+              }
               const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue_number}`;
               const header = `### Source Issue #${issue_number}: ${issueTitle}`;
               const quoted = (issueBody || '').split('\n').map(l => `> ${l}`).join('\n');
               const prBody = `${header}\n\nSource: ${issueUrl}\n\n${quoted}\n\n—\nPR created automatically to engage Codex.`;
-              ({ data: pr } = await github.rest.pulls.create({ owner, repo, head, base, draft: draftFlag, title: `Codex bootstrap for #${issue_number}`, body: prBody }));
+              ({ data: pr } = await github.rest.pulls.create({
+                owner, repo, head, base, draft: draftFlag,
+                title: `Codex bootstrap for #${issue_number}`,
+                body: prBody
+              }));
             }
             core.setOutput('number', String(pr.number));
+
+            // Assign PR and original issue
             const assignees = ['chatgpt-codex-connector', 'stranske-automation-bot'];
             try { await github.rest.issues.addAssignees({ owner, repo, issue_number: pr.number, assignees }); } catch (e) { core.warning(`PR assign failed: ${e.message}`); }
             try { await github.rest.issues.addAssignees({ owner, repo, issue_number, assignees }); } catch (e) { core.warning(`Issue assign failed: ${e.message}`); }
@@ -242,6 +263,7 @@ jobs:
             const prNumber = Number(process.env.PR);
             await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels: ['agent:codex'] });
 
+      # Prefer posting as a human service user so Codex sees the command
       - name: Post Codex command as service user
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.local_action.outcome == 'failure' && steps.mode.outputs.mode != 'invite' && env.SERVICE_BOT_PAT != '' && (inputs.post_codex_comment == 'true') }}
         uses: actions/github-script@v7
@@ -251,8 +273,12 @@ jobs:
             const {owner, repo} = context.repo;
             const prNumber = Number("${{ steps.pr.outputs.number }}");
             const cmd = '@codex start';
-            await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: `${cmd}\n\nPlease create commits on this branch, run tests, and keep the PR updated.` });
+            await github.rest.issues.createComment({
+              owner, repo, issue_number: prNumber,
+              body: `${cmd}\n\nPlease create commits on this branch, run tests, and keep the PR updated.`
+            });
 
+      # Fallback: still post with GITHUB_TOKEN if no PAT (Codex may ignore it)
       - name: Post Codex command (fallback as github-actions)
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.local_action.outcome == 'failure' && steps.mode.outputs.mode != 'invite' && env.SERVICE_BOT_PAT == '' && (inputs.post_codex_comment == 'true') }}
         uses: actions/github-script@v7
@@ -261,7 +287,10 @@ jobs:
             const {owner, repo} = context.repo;
             const prNumber = Number("${{ steps.pr.outputs.number }}");
             const cmd = '@codex start';
-            await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: `${cmd}\n\nPlease create commits on this branch, run tests, and keep the PR updated.` });
+            await github.rest.issues.createComment({
+              owner, repo, issue_number: prNumber,
+              body: `${cmd}\n\nPlease create commits on this branch, run tests, and keep the PR updated.`
+            });
 
       - name: Prompt human to post Codex command
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.local_action.outcome == 'failure' && steps.mode.outputs.mode != 'invite' && (inputs.post_codex_comment != 'true') }}
@@ -270,7 +299,10 @@ jobs:
           script: |
             const {owner, repo} = context.repo;
             const prNumber = Number("${{ steps.pr.outputs.number }}");
-            await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: `PR created. To engage Codex, the PR author must comment:\n\n\`@codex start\`` });
+            await github.rest.issues.createComment({
+              owner, repo, issue_number: prNumber,
+              body: `PR created. To engage Codex, the PR author must comment:\n\n\`@codex start\``
+            });
 
       - name: Link PR on original issue
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.local_action.outcome == 'failure' && steps.mode.outputs.mode != 'invite' }}
@@ -282,5 +314,8 @@ jobs:
             if (!issue_number) {
               core.warning('No issue context available to link PR back (workflow_dispatch without test_issue).');
             } else {
-              await github.rest.issues.createComment({ owner, repo, issue_number, body: `Opened PR #${{ steps.pr.outputs.number }} to engage Codex. Track work there.` });
+              await github.rest.issues.createComment({
+                owner, repo, issue_number,
+                body: `Opened PR #${{ steps.pr.outputs.number }} to engage Codex. Track work there.`
+              });
             }

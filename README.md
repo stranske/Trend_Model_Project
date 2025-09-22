@@ -8,7 +8,7 @@ This repository contains experiments and utilities for analyzing volatility-adju
 
 For a beginner-friendly overview, see [docs/UserGuide.md](docs/UserGuide.md).
 
-📦 **Reusable CI & Automation**: Standardise tests, autofix, and agent automation across repositories using the new reusable workflows documented in [docs/ci_reuse.md](docs/ci_reuse.md). Consumers call `reuse-ci-python.yml`, `reuse-autofix.yml`, and `reuse-agents.yml` via thin `uses:` wrappers.
+📦 **Reusable CI & Automation**: Standardise tests, autofix, and agent automation across repositories using the new reusable workflows documented in [docs/ci_reuse.md](docs/ci_reuse.md). Consumers call `reuse-ci-python.yml`, `reuse-autofix.yml`, plus the agent pair (`assign-to-agents.yml`, `agent-watchdog.yml`) via thin `uses:` wrappers.
 
 🔁 **Layered Test Workflow (Phases 1–3)**: The staged metrics → history/classification → coverage delta reusable workflow implemented in this repository is documented in [docs/ci-workflow.md](docs/ci-workflow.md). All advanced phases are disabled by default for back‑compat.
 

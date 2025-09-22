@@ -8,7 +8,7 @@ Core layers:
 - Reusable CI (`reuse-ci-python.yml`): tests, coverage, aggregated gate.
 - Autofix lane (`autofix.yml`): workflow_run follower that batches small hygiene fixes and trivial failure remediation using the composite autofix action.
 - Style Gate (`style-gate.yml`): authoritative style verification (black --check + ruff new-issue fail) running on PR & main branch pushes.
-- Reusable Agents (`reuse-agents.yml` + consumer): readiness, preflight, diagnostic, verify, watchdog, bootstrap.
+- Agent routing & watchdog (`assign-to-agents.yml` + `agent-watchdog.yml`): label-driven assignment, Codex bootstrap, diagnostics.
 - Governance & Health: `repo-health-self-check.yml`, labelers, dependency review, CodeQL.
 - Path Labeling: `pr-path-labeler.yml` auto-categorizes PRs.
 
@@ -23,7 +23,8 @@ The CI stack now runs in distinct lanes so each concern can evolve independently
 | Universal logs | `logs_summary` job | Per‑job log table in summary | Not required | Always-on helper |
 | Autofix lane | `autofix.yml` | Workflow_run follower that commits small hygiene fixes (success runs) and retries trivial CI failures | Not required | Remains optional |
 | Style verification | `style-gate.yml` | Enforce black formatting + ruff cleanliness (fail on new issues) | Candidate required | Become required once stable |
-| Codex bootstrap | `codex-issue-bridge.yml` (+ verify & preflight) | Converts issues into branches/PRs | Not required | Harden diagnostics |
+| Agent assignment | `assign-to-agents.yml` | Maps labels → assignees, creates Codex bootstrap PRs | Not required | Harden diagnostics |
+| Agent watchdog | `agent-watchdog.yml` | Confirms Codex PR cross-reference or posts timeout | Not required | Tune timeout post burn-in |
 
 Temporary state: `ci.yml` exists solely to preserve the historic required check name ("CI") while maintainers transition branch protection to the gate job. Once maintainers flip protection, delete `ci.yml` and mark the gate job required.
 
@@ -65,7 +66,8 @@ All others use default `GITHUB_TOKEN`.
 | `reuse-ci-python.yml` | PR, push | Coverage & matrix |
 | `autofix.yml` | workflow_run (`CI`) | Hygiene autofix + trivial failure remediation |
 | `style-gate.yml` | PR, push (main branches) | Style enforcement |
-| `reuse-agents.yml` | dispatch, labels | All agent modes |
+| `assign-to-agents.yml` | issue/PR labels, dispatch | Agent assignment + Codex bootstrap |
+| `agent-watchdog.yml` | workflow dispatch | Codex PR presence diagnostic |
 | `repo-health-self-check.yml` | schedule, manual | Governance audit |
 | `pr-path-labeler.yml` | PR events | Path labels |
 | `label-agent-prs.yml` | PR target | Origin + risk labels |
@@ -139,11 +141,10 @@ Result: Each human push generates at most one autofix patch sequence; autofix co
 ## 7.2 Codex Kickoff Flow (Issue #1351)
 End‑to‑end lifecycle for automation bootstrapped contributions:
 1. Maintainer opens Issue with label `codex-ready` (and optional spec details).
-2. `codex-issue-bridge.yml` triggers (label or manual dispatch) and resolves desired PR draft state via `codex_pr_draft` input (default: non‑draft).
-3. Workflow creates a branch (naming convention: sanitized issue title / id) and an associated PR, posting a kickoff comment outlining next steps for the agent.
-4. Subsequent agent workflows (`reuse-agents.yml` verify / diagnostic) run against that PR.
-5. When automation pushes commits, path labelers & readiness jobs re-evaluate.
-Troubleshooting: If branch/PR not created, verify the label `codex-ready`, permissions for `GITHUB_TOKEN` (write), and absence of conflicting existing branch name.
+2. Labeling with `agent:codex` triggers `assign-to-agents.yml`, which creates a bootstrap branch/PR, assigns Codex, and posts the kickoff command.
+3. `agent-watchdog.yml` (dispatched by the assigner) waits ~7 minutes for the cross-referenced PR and posts a success or timeout diagnostic comment.
+4. When automation pushes commits, path labelers, CI, and autofix re-evaluate.
+Troubleshooting: If branch/PR not created, verify the label `codex-ready`, confirm `assign-to-agents.yml` completed successfully with write permissions, and ensure no conflicting bootstrap branch already exists.
 
 ---
 ## 7.3 Coverage Soft Gate (Issues #1351, #1352)
