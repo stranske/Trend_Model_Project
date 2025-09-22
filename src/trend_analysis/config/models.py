@@ -32,9 +32,11 @@ except Exception:  # pragma: no cover - fallback when model unavailable
             "vol_adjust": data.get("vol_adjust", {}),
         }
 
+
 class _ValidateConfigFn(Protocol):
     def __call__(self, data: dict[str, Any], *, base_path: Path) -> Any:
         """Validate configuration data and optionally return a model."""
+
 
 class ConfigProtocol(Protocol):
     """Type protocol for Config class that works in both Pydantic and fallback
@@ -745,17 +747,24 @@ def load(path: str | Path | None = None) -> ConfigProtocol:
             raise ValueError(f"{section} section is required")
         if section in data and not isinstance(data[section], dict):
             raise ValueError(f"{section} must be a dictionary")
+    validated: Any | None = None
     if _HAS_PYDANTIC:
-        validate_trend_config(data, base_path=base_dir)
+        validated = validate_trend_config(data, base_path=base_dir)
     else:
         try:
-            validate_trend_config(data, base_path=base_dir)
+            validated = validate_trend_config(data, base_path=base_dir)
         except Exception:
-            pass
+            validated = None
 
+    if isinstance(validated, Config):
+        return validated
+    if hasattr(validated, "model_dump"):
+        dumped = cast(Any, validated).model_dump()
+        if isinstance(dumped, Mapping):
+            return Config(**dict(dumped))
     if isinstance(validated, Mapping):
         return Config(**dict(validated))
-    return config_obj
+    return Config(**data)
 
 
 __all__ = [
