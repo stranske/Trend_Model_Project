@@ -1,0 +1,57 @@
+"""Workflow guard regression tests for autofix automation."""
+
+from __future__ import annotations
+
+import pathlib
+from typing import Any, Dict, List
+
+import yaml
+
+WORKFLOWS = pathlib.Path(".github/workflows")
+
+
+def _load_yaml(name: str) -> Dict[str, Any]:
+    with (WORKFLOWS / name).open("r", encoding="utf-8") as handle:
+        return yaml.safe_load(handle)
+
+
+def _guarded_follow_up_steps(steps: List[Dict[str, Any]], guard_id: str = "guard") -> List[str]:
+    """Return the names of steps after ``guard_id`` lacking guard conditions."""
+    missing: List[str] = []
+    try:
+        guard_index = next(index for index, step in enumerate(steps) if step.get("id") == guard_id)
+    except StopIteration as exc:  # pragma: no cover - defensive: workflow must define guard
+        raise AssertionError(f"Guard step '{guard_id}' missing") from exc
+
+    for step in steps[guard_index + 1 :]:
+        condition = step.get("if")
+        # Summary/always steps are allowed to run regardless so they can document the skip.
+        if isinstance(condition, str) and "always()" in condition:
+            continue
+        if condition is None or "steps.guard.outputs.skip" not in str(condition):
+            missing.append(step.get("name", "<unnamed>"))
+    return missing
+
+
+def test_autofix_workflow_uses_repo_commit_prefix() -> None:
+    data = _load_yaml("autofix.yml")
+    prefix_expr = data.get("env", {}).get("COMMIT_PREFIX", "")
+    assert "AUTOFIX_COMMIT_PREFIX" in prefix_expr
+    assert "chore(autofix):" in prefix_expr
+
+
+def test_residual_cleanup_guard_gates_followups() -> None:
+    data = _load_yaml("autofix-residual-cleanup.yml")
+    prefix_expr = data.get("env", {}).get("COMMIT_PREFIX", "")
+    assert "AUTOFIX_COMMIT_PREFIX" in prefix_expr
+    assert "chore(autofix):" in prefix_expr
+    steps = data["jobs"]["cleanup"]["steps"]
+    missing = _guarded_follow_up_steps(steps)
+    assert not missing, f"Residual cleanup steps missing guard condition: {missing}"
+
+
+def test_reusable_autofix_guard_applies_to_all_steps() -> None:
+    data = _load_yaml("reuse-autofix.yml")
+    steps = data["jobs"]["autofix"]["steps"]
+    missing = _guarded_follow_up_steps(steps)
+    assert not missing, f"Reusable autofix steps missing guard condition: {missing}"
