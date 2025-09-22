@@ -172,3 +172,56 @@ def test_incremental_update_fallback_on_exception(
     assert compute_calls == [3, 3]
     assert results[-1]["cache_stats"]["incremental_updates"] == 0
     assert "cov_diag" in results[-1]
+
+
+def test_incremental_update_length_change_triggers_recompute(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = _Cfg(
+        data={},
+        multi_period={"periods": []},
+        portfolio={
+            "selection_mode": "all",
+            "random_n": 4,
+            "custom_weights": None,
+            "rank": {},
+            "manual_list": None,
+            "indices_list": None,
+        },
+        vol_adjust={"target_vol": 1.0},
+        benchmarks={},
+        run={"monthly_cost": 0.0},
+        performance={"enable_cache": True, "incremental_cov": True},
+    )
+
+    periods: List[_Period] = [
+        _Period("2020-01-31", "2020-03-31", "2020-04-30", "2020-04-30"),
+        _Period("2020-02-29", "2020-05-31", "2020-06-30", "2020-06-30"),
+    ]
+    monkeypatch.setattr(mp_engine, "generate_periods", lambda _cfg: periods)
+
+    def fake_run(*args: Any, **kwargs: Any) -> Dict[str, Any]:
+        return {"out_ew_stats": {}, "out_user_stats": {}}
+
+    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run)
+
+    from trend_analysis.perf import cache as perf_cache
+
+    compute_calls: list[int] = []
+    original_compute = perf_cache.compute_cov_payload
+
+    def tracking_compute(frame: pd.DataFrame, *, materialise_aggregates: bool) -> Any:
+        compute_calls.append(frame.shape[0])
+        return original_compute(frame, materialise_aggregates=materialise_aggregates)
+
+    monkeypatch.setattr(
+        "trend_analysis.perf.cache.compute_cov_payload", tracking_compute
+    )
+
+    results = mp_engine.run(cfg, df=_make_df())
+
+    assert len(results) == len(periods)
+    # Different window lengths should trigger a fresh covariance computation.
+    assert compute_calls == [3, 4]
+    assert results[-1]["cache_stats"]["incremental_updates"] == 0
+    assert "cov_diag" in results[-1]

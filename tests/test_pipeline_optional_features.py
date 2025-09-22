@@ -334,3 +334,31 @@ def test_run_analysis_benchmark_ir_handles_scalar_response(
     assert "FundB" not in ir_payload
     # Ensure follow-up portfolio enrichment ran (calls include Series for eq/user paths).
     assert "Series" in calls
+
+
+def test_run_analysis_constraints_missing_groups_fallbacks() -> None:
+    df = _clean_returns_frame()
+    stats_cfg = RiskStatsConfig()
+
+    custom_weights = {"FundA": 70.0, "FundB": 30.0}
+
+    result = pipeline._run_analysis(
+        df,
+        "2020-01",
+        "2020-02",
+        "2020-03",
+        "2020-04",
+        target_vol=1.0,
+        monthly_cost=0.0,
+        stats_cfg=stats_cfg,
+        custom_weights=custom_weights,
+        indices_list=["Benchmark"],
+        benchmarks={"SPX": "Benchmark"},
+        constraints={"group_caps": {"GroupA": 0.5}},
+    )
+
+    assert result is not None
+    weights = result["fund_weights"]
+    # Missing group mapping triggers the fallback branch so original weights survive.
+    assert weights["FundA"] == pytest.approx(0.7)
+    assert weights["FundB"] == pytest.approx(0.3)

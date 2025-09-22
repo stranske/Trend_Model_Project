@@ -135,3 +135,47 @@ def test_run_price_frames_combines_and_sorts(monkeypatch: pytest.MonkeyPatch) ->
     # Latest observation should win when de-duplicating on Date.
     assert pd.isna(dup_row["FundA"].iloc[0])
     assert dup_row["FundB"].iloc[0] == pytest.approx(0.03)
+
+
+def test_run_price_frames_overrides_dataframe(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Provided price frames should take precedence over ``df`` inputs."""
+
+    cfg = DummyCfg()
+
+    existing_df = pd.DataFrame(
+        {"Date": pd.to_datetime(["2020-01-31"]), "FundA": [0.99], "FundB": [0.88]}
+    )
+    frame_custom = pd.DataFrame(
+        {
+            "Date": pd.to_datetime(["2020-01-31", "2020-02-29"]),
+            "FundA": [0.01, 0.02],
+            "FundB": [0.03, 0.04],
+        }
+    )
+    price_frames = {"primary": frame_custom}
+
+    captured: dict[str, pd.DataFrame] = {}
+
+    def fake_generate_periods(_cfg: dict[str, object]) -> list[SimpleNamespace]:
+        return [
+            SimpleNamespace(
+                in_start="2020-01-01",
+                in_end="2020-02-01",
+                out_start="2020-03-01",
+                out_end="2020-04-01",
+            )
+        ]
+
+    def fake_run_analysis(*args, **kwargs):
+        captured["df"] = args[0]
+        return {"summary": "ok"}
+
+    monkeypatch.setattr(mp_engine, "generate_periods", fake_generate_periods)
+    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+
+    mp_engine.run(cfg, df=existing_df, price_frames=price_frames)
+
+    assert "df" in captured
+    used_df = captured["df"].reset_index(drop=True)
+    expected = frame_custom.sort_values("Date").reset_index(drop=True)
+    pd.testing.assert_frame_equal(used_df, expected)
