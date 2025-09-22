@@ -265,6 +265,12 @@ jobs:
           with open('coverage_summary.md','w') as w:
               w.write("\n".join(lines)+"\n")
           print('\n'.join(lines[:6])+'\n...')
+      - name: Upload coverage summary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-summary
+          retention-days: ${{ inputs.coverage-artifact-retention-days }}
+          path: coverage_summary.md
       - name: Build job log links table
         id: jobs
         uses: actions/github-script@v7
@@ -343,6 +349,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: coverage-trend
+          retention-days: ${{ inputs.coverage-artifact-retention-days }}
           path: coverage-trend.json
       - name: Download existing coverage trend history (if any)
         uses: actions/download-artifact@v4
@@ -367,6 +374,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: coverage-trend-history
+          retention-days: ${{ inputs.coverage-artifact-retention-days }}
           path: coverage-trend-history.ndjson
 
   # Universal logs summary (Issue #1344)
