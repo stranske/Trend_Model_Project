@@ -3,6 +3,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
+import trend_analysis.engine.optimizer as optimizer_mod
 from trend_analysis.engine.optimizer import (
     ConstraintSet,
     ConstraintViolation,
@@ -147,3 +148,39 @@ def test_apply_constraints_cash_slice_respects_max_weight_cap() -> None:
         match="cash_weight exceeds max_weight constraint",
     ):
         apply_constraints(weights, ConstraintSet(cash_weight=0.6, max_weight=0.5))
+
+
+def test_apply_constraints_enforces_cap_after_group_caps_with_cash(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Ensure max-weight caps run both before and after group redistribution."""
+
+    weights = pd.Series({"A": 9.0, "B": 0.5, "C": 0.5, "CASH": 0.0})
+    constraints = ConstraintSet(
+        long_only=True,
+        max_weight=0.4,
+        group_caps={"G1": 0.15},
+        groups={"A": "G1", "B": "G2", "C": "G2"},
+        cash_weight=0.2,
+    )
+
+    cap_calls = {"count": 0}
+    original_apply_cap = optimizer_mod._apply_cap
+
+    def tracking_cap(
+        series: pd.Series, cap: float, total: float | None = None
+    ) -> pd.Series:
+        cap_calls["count"] += 1
+        return original_apply_cap(series, cap, total=total)
+
+    monkeypatch.setattr(optimizer_mod, "_apply_cap", tracking_cap)
+
+    try:
+        result = apply_constraints(weights, constraints)
+    finally:
+        monkeypatch.setattr(optimizer_mod, "_apply_cap", original_apply_cap, raising=False)
+
+    assert cap_calls["count"] >= 2
+    assert pytest.approx(result.loc["CASH"], rel=1e-9) == 0.2
+    assert pytest.approx(result.sum(), rel=1e-9) == 1.0
+    assert (result.drop("CASH") <= 0.4 + 1e-9).all()

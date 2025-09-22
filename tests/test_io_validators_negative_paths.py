@@ -37,3 +37,29 @@ def test_load_and_validate_upload_schema_failure() -> None:
 
     with pytest.raises(ValueError, match="Schema validation failed"):
         validators.load_and_validate_upload(buffer)
+
+
+def test_load_and_validate_upload_empty_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    class DummyFile:
+        name = "empty.csv"
+
+    def empty_reader(*_args: Any, **_kwargs: Any) -> pd.DataFrame:
+        raise pd.errors.EmptyDataError("no data")
+
+    monkeypatch.setattr(validators.pd, "read_csv", empty_reader)
+
+    with pytest.raises(ValueError, match="File contains no data"):
+        validators.load_and_validate_upload(DummyFile())
+
+
+def test_load_and_validate_upload_generic_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    class DummyFile:
+        name = "weird.csv"
+
+    def boom(*_args: Any, **_kwargs: Any) -> pd.DataFrame:
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(validators.pd, "read_csv", boom)
+
+    with pytest.raises(ValueError, match="Failed to read file: 'weird.csv'"):
+        validators.load_and_validate_upload(DummyFile())
