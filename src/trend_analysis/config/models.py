@@ -155,8 +155,8 @@ class _ValidateConfigFn(Protocol):
 def _resolve_validate_trend_config() -> _ValidateConfigFn:
     """Return the best available ``validate_trend_config`` implementation."""
 
-    sentinel = sys.modules.get("pydantic", None)
-    if sentinel is None and "pydantic" in sys.modules:
+    pydantic_module = sys.modules.get("pydantic", None)
+    if pydantic_module is None and "pydantic" in sys.modules:
         stub_module = sys.modules.get("trend_analysis.config.model")
         if stub_module is not None:
             stub_validate = getattr(stub_module, "validate_trend_config", None)
