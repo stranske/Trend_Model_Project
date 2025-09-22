@@ -30,7 +30,7 @@ def rolling_information_ratio(
         Rolling information ratio named ``rolling_ir``.
     """
 
-    base_returns = returns.astype(float)
+    base_returns = returns
     if benchmark is None:
         bench = pd.Series(0.0, index=base_returns.index)
     elif isinstance(benchmark, pd.Series):
