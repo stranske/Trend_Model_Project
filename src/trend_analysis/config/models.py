@@ -37,8 +37,6 @@ def _fallback_validate_trend_config(
     instantiated.
     """
 
-    if data is None:
-        raise TypeError("Configuration payload must be a mapping")
     if not isinstance(data, Mapping):
         raise TypeError("Configuration payload must be a mapping")
 
