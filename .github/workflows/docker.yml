@@ -96,6 +96,13 @@ jobs:
         run: |
           rm -rf /tmp/.buildx-cache
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+      - name: Save buildx cache
+        if: steps.buildx-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ format('buildx-{0}-{1}', runner.os, hashFiles('Dockerfile', 'requirements.lock')) }}
       - name: Run test suite
         run: |
           # Use verbose output only for debug builds, quiet mode for production
