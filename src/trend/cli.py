@@ -48,10 +48,10 @@ def build_parser() -> argparse.ArgumentParser:
     """Construct the argument parser for the unified ``trend`` command."""
 
     parser = argparse.ArgumentParser(prog="trend")
-    sub = parser.add_subparsers(dest="command", required=True)
+    sub = parser.add_subparsers(dest="subcommand", required=True)
 
     run_p = sub.add_parser("run", help="Execute the analysis pipeline")
-    run_p.add_argument("-c", "--config", required=True, help="Path to YAML config")
+    run_p.add_argument("-c", "--config", help="Path to YAML config")
     run_p.add_argument("--returns", help="Override returns CSV path")
     run_p.add_argument("--seed", type=int, help="Force random seed for the run")
     run_p.add_argument(
@@ -70,11 +70,10 @@ def build_parser() -> argparse.ArgumentParser:
     report_p = sub.add_parser(
         "report", help="Generate summary artefacts for a configuration"
     )
-    report_p.add_argument("-c", "--config", required=True, help="Path to YAML config")
+    report_p.add_argument("-c", "--config", help="Path to YAML config")
     report_p.add_argument("--returns", help="Override returns CSV path")
     report_p.add_argument(
         "--out",
-        required=True,
         help="Directory where summary outputs will be written",
     )
     report_p.add_argument(
@@ -87,10 +86,9 @@ def build_parser() -> argparse.ArgumentParser:
     stress_p = sub.add_parser(
         "stress", help="Run the pipeline against a canned stress scenario"
     )
-    stress_p.add_argument("-c", "--config", required=True, help="Path to YAML config")
+    stress_p.add_argument("-c", "--config", help="Path to YAML config")
     stress_p.add_argument(
         "--scenario",
-        required=True,
         choices=sorted(SCENARIO_WINDOWS),
         help="Stress scenario identifier",
     )
@@ -375,9 +373,16 @@ def main(argv: list[str] | None = None) -> int:
     try:
         args = parser.parse_args(argv)
 
-        if args.command == "app":
+        command = args.subcommand
+
+        if command == "app":
             proc = subprocess.run(["streamlit", "run", str(APP_PATH)])
             return proc.returncode
+
+        if command in {"run", "report", "stress"} and not args.config:
+            raise TrendCLIError(
+                f"The --config option is required for the '{command}' command"
+            )
 
         cfg_path, cfg = _load_configuration(args.config)
         returns_path = _resolve_returns_path(
@@ -386,7 +391,7 @@ def main(argv: list[str] | None = None) -> int:
         returns_df = _ensure_dataframe(returns_path)
         seed = _determine_seed(cfg, getattr(args, "seed", None))
 
-        if args.command == "run":
+        if command == "run":
             result, run_id, log_path = _run_pipeline(
                 cfg,
                 returns_df,
@@ -400,7 +405,9 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"Structured log: {log_path}")
             return 0
 
-        if args.command == "report":
+        if command == "report":
+            if not args.out:
+                raise TrendCLIError("The --out option is required for the 'report' command")
             formats = args.formats or DEFAULT_REPORT_FORMATS
             _prepare_export_config(cfg, Path(args.out), formats)
             result, run_id, _ = _run_pipeline(
@@ -415,7 +422,11 @@ def main(argv: list[str] | None = None) -> int:
             _write_report_files(Path(args.out), cfg, result, run_id=run_id)
             return 0
 
-        if args.command == "stress":
+        if command == "stress":
+            if not args.scenario:
+                raise TrendCLIError(
+                    "The --scenario option is required for the 'stress' command"
+                )
             _adjust_for_scenario(cfg, args.scenario)
             export_dir = Path(args.out) if args.out else None
             _prepare_export_config(cfg, export_dir, None)
@@ -433,7 +444,7 @@ def main(argv: list[str] | None = None) -> int:
                 _write_report_files(export_dir, cfg, result, run_id=run_id)
             return 0
 
-        raise TrendCLIError(f"Unknown command: {args.command}")
+        raise TrendCLIError(f"Unknown command: {command}")
     except TrendCLIError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 2
