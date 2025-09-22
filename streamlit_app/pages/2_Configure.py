@@ -1,11 +1,14 @@
-"""Enhanced Configure page with presets and column mapping."""
+"""Enhanced Configure page with presets, guardrails, and inline validation."""
+
+from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Mapping, Optional
 
 import pandas as pd
 import streamlit as st
+import yaml
 
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
@@ -17,46 +20,52 @@ from streamlit_app.components.guardrails import (
     validate_startup_payload,
 )
 
-# Import our config models with fallback - use simpler approach
-try:
-    from pathlib import Path
 
-    import yaml
+def _resolve_presets_dir() -> Path:
+    """Return the absolute path to the presets directory."""
 
-    # Define preset loading functions directly to avoid circular imports
-    def load_preset_direct(preset_name: str) -> dict:
-        """Load a preset configuration from file."""
-        preset_path = (
-            Path(__file__).parent.parent.parent
-            / "config"
-            / "presets"
-            / f"{preset_name.lower()}.yml"
-        )
-        if not preset_path.exists():
-            return {}
+    return Path(__file__).parent.parent.parent / "config" / "presets"
 
-        with preset_path.open("r", encoding="utf-8") as f:
-            data = yaml.safe_load(f)
-        return data if isinstance(data, dict) else {}
 
-    def list_available_presets_direct() -> List[str]:
-        """List all available preset names."""
-        presets_dir = Path(__file__).parent.parent.parent / "config" / "presets"
-        if not presets_dir.exists():
-            return []
+def load_preset_direct(preset_name: str) -> dict:
+    """Load a preset configuration from file."""
 
-        presets = []
-        for preset_file in presets_dir.glob("*.yml"):
-            presets.append(preset_file.stem.title())
-        return sorted(presets)
-
-except Exception:  # pragma: no cover - defensive fallback
-
-    def load_preset_direct(name: str) -> dict:  # type: ignore[no-redef]
+    preset_path = _resolve_presets_dir() / f"{preset_name.lower()}.yml"
+    if not preset_path.exists():
         return {}
 
-    def list_available_presets_direct() -> List[str]:  # type: ignore[no-redef]
+    with preset_path.open("r", encoding="utf-8") as preset_file:
+        data = yaml.safe_load(preset_file)
+    return data if isinstance(data, dict) else {}
+
+
+def list_available_presets_direct() -> List[str]:
+    """List all available preset names."""
+
+    presets_dir = _resolve_presets_dir()
+    if not presets_dir.exists():
         return []
+    return sorted(preset.stem.title() for preset in presets_dir.glob("*.yml"))
+
+
+def _map_payload_errors(payload_errors: Iterable[str]) -> Dict[str, List[str]]:
+    """Translate validator error messages into inline field errors."""
+
+    field_mapping: Mapping[str, tuple[str, ...]] = {
+        "risk_target": ("target_vol", "vol_adjust", "risk target"),
+        "date_column": ("date_column", "date column"),
+        "return_columns": ("return_columns", "return columns"),
+        "column_mapping": ("csv_path", "managers_glob", "upload"),
+    }
+    mapped: Dict[str, List[str]] = {}
+    for raw_message in payload_errors:
+        message = raw_message.strip()
+        lowered = message.lower()
+        for field, keywords in field_mapping.items():
+            if any(keyword in lowered for keyword in keywords):
+                mapped.setdefault(field, []).append(message)
+                break
+    return mapped
 
 
 def initialize_session_state():
@@ -138,8 +147,8 @@ def render_column_mapping(df: pd.DataFrame):
     display_inline_errors("column_mapping")
 
     # Initialize display names and tickers at function scope
-    display_names = {}
-    tickers = {}
+    display_names: Dict[str, str] = {}
+    tickers: Dict[str, str] = {}
 
     cols = df.columns.tolist()
 
@@ -201,11 +210,6 @@ def render_column_mapping(df: pd.DataFrame):
                         help="Optional ticker symbol",
                     )
 
-    # Create column mapping object
-    # Ensure locals exist even if no return_cols
-    display_names = locals().get("display_names", {})
-    tickers = locals().get("tickers", {})
-
     mapping = {
         "date_column": date_col,
         "return_columns": return_cols,
@@ -252,6 +256,7 @@ def render_parameter_forms(preset_config: Optional[Dict[str, Any]]):
         default_risk_target = 0.10
 
     df = st.session_state.get("returns_df")
+    total_months = 0
     if isinstance(df, pd.DataFrame) and not df.empty:
         # Ensure index is datetime before calling to_period
         if isinstance(df.index, pd.DatetimeIndex):
@@ -265,7 +270,7 @@ def render_parameter_forms(preset_config: Optional[Dict[str, Any]]):
                 st.warning(
                     "The data index could not be interpreted as dates. Please ensure the date column is properly configured."
                 )
-    min_lookback_allowed = 6 if total_months < 24 else 12
+    min_lookback_allowed = 6 if 0 < total_months < 24 else 12
     if total_months:
         max_lookback_allowed = max(min_lookback_allowed, total_months - 3)
     else:
@@ -540,6 +545,12 @@ def save_configuration():
     )
     if payload_errors:
         st.session_state.validation_messages = payload_errors
+        payload_field_errors = _map_payload_errors(payload_errors)
+        if payload_field_errors:
+            field_errors = st.session_state.get("field_errors", {})
+            for field, messages in payload_field_errors.items():
+                field_errors.setdefault(field, []).extend(messages)
+            st.session_state.field_errors = field_errors
         config_state["is_valid"] = False
         return False
     st.session_state.validated_min_config = validated_payload
@@ -678,5 +689,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-else:
-    main()  # Run when imported as module
