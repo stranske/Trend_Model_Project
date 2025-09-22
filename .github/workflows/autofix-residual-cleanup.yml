@@ -111,7 +111,9 @@ jobs:
       - name: Summary
         if: always()
         run: |
-          echo "### Residual Cleanup Summary" >> $GITHUB_STEP_SUMMARY
-          echo "Remaining: ${{ steps.autofix.outputs.remaining_issues }}" >> $GITHUB_STEP_SUMMARY
-          echo "New: ${{ steps.autofix.outputs.new_issues }}" >> $GITHUB_STEP_SUMMARY
-          echo "Dry run: ${{ github.event.inputs.dry_run || 'true' }}" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "### Residual Cleanup Summary"
+            echo "Remaining: ${{ steps.autofix.outputs.remaining_issues }}"
+            echo "New: ${{ steps.autofix.outputs.new_issues }}"
+            echo "Dry run: ${{ github.event.inputs.dry_run || 'true' }}"
+          } >> "$GITHUB_STEP_SUMMARY"

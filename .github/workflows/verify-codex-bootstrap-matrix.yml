@@ -45,27 +45,29 @@ jobs:
     outputs:
       scenario_list: ${{ steps.compute.outputs.scenario_list }}
     steps:
-      - name: Compute scenario list
-        id: compute
-        run: |
-          IN="${{ github.event.inputs.scenarios }}"
-          if [ -z "$IN" ] || [ "$IN" = "all" ]; then
-            LIST="t01_basic,t02_reuse,t03_rebootstrap,t04_missing_label,t05_manual_sim,t06_manual_no_sim,t07_invalid_manual,t08_pat_missing_fallback,t09_pat_missing_block,t10_primary_403_fallback,t11_dual_fail,t12_manual_mode,t13_suppressed,t14_invalid_cmd,t15_corrupt_marker"
-          else
-            LIST="$IN"
-          fi
-          LIST_JSON=$(LIST="$LIST" python - <<'PY'
-import json, os
-items = [s.strip() for s in os.environ["LIST"].split(",") if s.strip()]
-print(json.dumps(items))
-PY
-)
-          if [ -z "$LIST_JSON" ]; then
-            echo "::error::Failed to compute scenario list" >&2
-            exit 1
-          fi
-          echo "scenario_list=$LIST_JSON" >> $GITHUB_OUTPUT
-          echo "Scenarios: $LIST_JSON"
+        - name: Compute scenario list
+          id: compute
+          run: |
+            IN="${{ github.event.inputs.scenarios }}"
+            if [ -z "$IN" ] || [ "$IN" = "all" ]; then
+              LIST="t01_basic,t02_reuse,t03_rebootstrap,t04_missing_label,t05_manual_sim,t06_manual_no_sim,t07_invalid_manual,t08_pat_missing_fallback,t09_pat_missing_block,t10_primary_403_fallback,t11_dual_fail,t12_manual_mode,t13_suppressed,t14_invalid_cmd,t15_corrupt_marker"
+            else
+              LIST="$IN"
+            fi
+            LIST_JSON=$(LIST="$LIST" python - <<'PY'
+            import json
+            import os
+
+            items = [s.strip() for s in os.environ["LIST"].split(",") if s.strip()]
+            print(json.dumps(items))
+            PY
+            )
+            if [ -z "$LIST_JSON" ]; then
+              echo "::error::Failed to compute scenario list" >&2
+              exit 1
+            fi
+            echo "scenario_list=$LIST_JSON" >> "$GITHUB_OUTPUT"
+            echo "Scenarios: $LIST_JSON"
   matrix:
     needs: plan
     if: ${{ github.event.inputs.parallel == 'true' }}
