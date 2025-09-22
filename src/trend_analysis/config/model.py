@@ -274,6 +274,8 @@ class RiskSettings(BaseModel):
     """Risk target configuration for volatility control."""
 
     target_vol: float = Field()
+    floor_vol: float = Field(default=0.015)
+    warmup_periods: int = Field(default=0)
 
     model_config = ConfigDict(extra="ignore")
 
@@ -287,6 +289,28 @@ class RiskSettings(BaseModel):
         if target <= 0:
             raise ValueError("vol_adjust.target_vol must be greater than zero.")
         return target
+
+    @field_validator("floor_vol", mode="before")
+    @classmethod
+    def _validate_floor(cls, value: Any) -> float:
+        try:
+            floor = float(value)
+        except (TypeError, ValueError) as exc:  # pragma: no cover - defensive
+            raise ValueError("vol_adjust.floor_vol must be numeric.") from exc
+        if floor < 0:
+            raise ValueError("vol_adjust.floor_vol cannot be negative.")
+        return floor
+
+    @field_validator("warmup_periods", mode="before")
+    @classmethod
+    def _validate_warmup(cls, value: Any) -> int:
+        try:
+            warmup = int(value)
+        except (TypeError, ValueError) as exc:  # pragma: no cover - defensive
+            raise ValueError("vol_adjust.warmup_periods must be an integer.") from exc
+        if warmup < 0:
+            raise ValueError("vol_adjust.warmup_periods cannot be negative.")
+        return warmup
 
 
 class TrendConfig(BaseModel):

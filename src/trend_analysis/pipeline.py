@@ -170,6 +170,9 @@ def _run_analysis(
     out_end: str,
     target_vol: float,
     monthly_cost: float,
+    *,
+    floor_vol: float | None = None,
+    warmup_periods: int = 0,
     selection_mode: str = "all",
     random_n: int = 8,
     custom_weights: dict[str, float] | None = None,
@@ -184,6 +187,22 @@ def _run_analysis(
 ) -> dict[str, object] | None:
     if df is None:
         return None
+
+    # Guard against negative configuration inputs.  ``floor_vol`` enforces the
+    # minimum realised volatility used for scaling so we never divide by zero,
+    # while ``warmup_periods`` zeroes the initial rows (Issue #1439).
+    try:
+        min_floor = float(floor_vol) if floor_vol is not None else 0.0
+    except (TypeError, ValueError):  # pragma: no cover - defensive
+        min_floor = 0.0
+    if min_floor < 0:
+        min_floor = 0.0
+    try:
+        warmup = int(warmup_periods)
+    except (TypeError, ValueError):  # pragma: no cover - defensive
+        warmup = 0
+    if warmup < 0:
+        warmup = 0
 
     date_col = "Date"
     if date_col not in df.columns:
@@ -290,16 +309,33 @@ def _run_analysis(
     )
 
     vols = in_df[fund_cols].std() * np.sqrt(12)
+    if min_floor > 0:
+        vols = vols.clip(lower=min_floor)
+    vols = vols.replace(0.0, np.nan)
     scale_factors = (
-        pd.Series(target_vol / vols, index=fund_cols)
-        .replace([np.inf, -np.inf], 1.0)
-        .fillna(1.0)
+        pd.Series(target_vol, index=fund_cols, dtype=float).div(vols)
+        .replace([np.inf, -np.inf], 0.0)
+        .fillna(0.0)
     )
 
     in_scaled = in_df[fund_cols].mul(scale_factors, axis=1) - monthly_cost
     out_scaled = out_df[fund_cols].mul(scale_factors, axis=1) - monthly_cost
     in_scaled = in_scaled.clip(lower=-1.0)
     out_scaled = out_scaled.clip(lower=-1.0)
+
+    if warmup > 0:
+        warmup_in = min(warmup, len(in_scaled))
+        warmup_out = min(warmup, len(out_scaled))
+        if warmup_in:
+            in_scaled.iloc[:warmup_in] = 0.0
+        if warmup_out:
+            out_scaled.iloc[:warmup_out] = 0.0
+
+    # NaN returns translate to zero weights with no forward-fill. This matches
+    # the acceptance criteria for Issue #1439 and prevents propagating NaNs
+    # downstream.
+    in_scaled = in_scaled.fillna(0.0)
+    out_scaled = out_scaled.fillna(0.0)
 
     rf_in = in_df[rf_col]
     rf_out = out_df[rf_col]
@@ -526,6 +562,9 @@ def run_analysis(
     out_end: str,
     target_vol: float,
     monthly_cost: float,
+    *,
+    floor_vol: float | None = None,
+    warmup_periods: int = 0,
     selection_mode: str = "all",
     random_n: int = 8,
     custom_weights: dict[str, float] | None = None,
@@ -547,17 +586,19 @@ def run_analysis(
         out_end,
         target_vol,
         monthly_cost,
-        selection_mode,
-        random_n,
-        custom_weights,
-        rank_kwargs,
-        manual_funds,
-        indices_list,
-        benchmarks,
-        seed,
-        stats_cfg,
-        weighting_scheme,
-        constraints,
+        floor_vol=floor_vol,
+        warmup_periods=warmup_periods,
+        selection_mode=selection_mode,
+        random_n=random_n,
+        custom_weights=custom_weights,
+        rank_kwargs=rank_kwargs,
+        manual_funds=manual_funds,
+        indices_list=indices_list,
+        benchmarks=benchmarks,
+        seed=seed,
+        stats_cfg=stats_cfg,
+        weighting_scheme=weighting_scheme,
+        constraints=constraints,
     )
 
 
@@ -590,6 +631,8 @@ def run(cfg: Config) -> pd.DataFrame:
         cast(str, split.get("out_end")),
         cfg.vol_adjust.get("target_vol", 1.0),
         getattr(cfg, "run", {}).get("monthly_cost", 0.0),
+        floor_vol=cfg.vol_adjust.get("floor_vol"),
+        warmup_periods=int(cfg.vol_adjust.get("warmup_periods", 0) or 0),
         selection_mode=cfg.portfolio.get("selection_mode", "all"),
         random_n=cfg.portfolio.get("random_n", 8),
         custom_weights=cfg.portfolio.get("custom_weights"),
@@ -649,6 +692,8 @@ def run_full(cfg: Config) -> dict[str, object]:
         cast(str, split.get("out_end")),
         cfg.vol_adjust.get("target_vol", 1.0),
         getattr(cfg, "run", {}).get("monthly_cost", 0.0),
+        floor_vol=cfg.vol_adjust.get("floor_vol"),
+        warmup_periods=int(cfg.vol_adjust.get("warmup_periods", 0) or 0),
         selection_mode=cfg.portfolio.get("selection_mode", "all"),
         random_n=cfg.portfolio.get("random_n", 8),
         custom_weights=cfg.portfolio.get("custom_weights"),

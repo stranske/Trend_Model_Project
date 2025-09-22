@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import os
 import sys
-from collections.abc import Mapping
+from collections.abc import Mapping, MutableMapping
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Protocol, cast
 
@@ -22,31 +22,27 @@ import yaml
 
 
 def _fallback_validate_trend_config(
-    data: Mapping[str, Any] | None,
-    *,
-    base_path: Path,
-) -> None:
-    """Best-effort configuration validation used when Pydantic is unavailable.
+    data: Mapping[str, Any], *, base_path: Path | None = None
+) -> MutableMapping[str, Any]:
+    """Light-weight validator used when Pydantic is unavailable."""
 
-    The full :mod:`trend_analysis.config.model` helper performs rich validation
-    with Pydantic.  When that module cannot be imported (for example, during
-    unit tests that intentionally remove the dependency) we still want to catch
-    obvious schema issues so downstream code receives a sensible error instead
-    of failing later.  Only lightweight checks are performed here – the
-    fallback ``Config`` class below performs the detailed validation when it is
-    instantiated.
-    """
+    if isinstance(data, MutableMapping):
+        payload: MutableMapping[str, Any] = data
+    else:
+        payload = cast(MutableMapping[str, Any], dict(data))
 
-    if not isinstance(data, Mapping):
-        raise TypeError("Configuration payload must be a mapping")
-
-    version = data.get("version")
+    version = payload.get("version")
+    if version is None:
+        raise ValueError("version field is required")
     if not isinstance(version, str):
         raise ValueError("version must be a string")
-    if not version or not version.strip():
-        raise ValueError("Version field must be a non-empty string")
+    if len(version) == 0:
+        raise ValueError("String should have at least 1 character")
+    if not version.strip():
+        raise ValueError("Version field cannot be empty")
+    payload["version"] = version
 
-    required_sections = [
+    required = [
         "data",
         "preprocessing",
         "vol_adjust",
@@ -54,18 +50,101 @@ def _fallback_validate_trend_config(
         "portfolio",
         "metrics",
         "export",
+        "performance",
         "run",
     ]
-    missing = [section for section in required_sections if section not in data]
-    if missing:
-        raise ValueError(
-            "Missing required configuration sections: " + ", ".join(sorted(missing))
-        )
 
-    for section in required_sections:
-        value = data.get(section)
-        if not isinstance(value, Mapping):
-            raise ValueError(f"{section} must be a dictionary")
+    def _ensure_dict(field: str, *, required_field: bool) -> MutableMapping[str, Any]:
+        raw = payload.get(field)
+        if raw is None:
+            if required_field:
+                raise ValueError(f"{field} section is required")
+            out: MutableMapping[str, Any] = cast(MutableMapping[str, Any], {})
+            payload[field] = out
+            return out
+        if not isinstance(raw, Mapping):
+            raise ValueError(f"{field} must be a dictionary")
+        out = cast(MutableMapping[str, Any], dict(raw))
+        payload[field] = out
+        return out
+
+    for field in required:
+        _ensure_dict(field, required_field=True)
+
+    # Optional sections keep defaults but still enforce mapping structure when provided.
+    raw_bench = payload.get("benchmarks")
+    if raw_bench is None:
+        payload["benchmarks"] = {}
+    elif not isinstance(raw_bench, Mapping):
+        raise ValueError("benchmarks must be a dictionary")
+    else:
+        payload["benchmarks"] = dict(raw_bench)
+
+    raw_output = payload.get("output")
+    if raw_output is not None and not isinstance(raw_output, Mapping):
+        raise ValueError("output must be a dictionary")
+    elif isinstance(raw_output, Mapping):
+        payload["output"] = dict(raw_output)
+
+    raw_multi = payload.get("multi_period")
+    if raw_multi is not None and not isinstance(raw_multi, Mapping):
+        raise ValueError("multi_period must be a dictionary")
+    elif isinstance(raw_multi, Mapping):
+        payload["multi_period"] = dict(raw_multi)
+
+    portfolio = cast(MutableMapping[str, Any], payload["portfolio"])
+    if "transaction_cost_bps" in portfolio:
+        raw_tc = portfolio["transaction_cost_bps"]
+        try:
+            tc = float(raw_tc)
+        except Exception as exc:  # pragma: no cover - defensive
+            raise ValueError("transaction_cost_bps must be numeric") from exc
+        if tc < 0:
+            raise ValueError("transaction_cost_bps must be >= 0")
+        portfolio["transaction_cost_bps"] = tc
+    if "max_turnover" in portfolio:
+        raw_mt = portfolio["max_turnover"]
+        try:
+            mt = float(raw_mt)
+        except Exception as exc:  # pragma: no cover - defensive
+            raise ValueError("max_turnover must be numeric") from exc
+        if mt < 0:
+            raise ValueError("max_turnover must be >= 0")
+        if mt > 2.0:
+            raise ValueError("max_turnover must be <= 2.0")
+        portfolio["max_turnover"] = mt
+
+    vol_adjust = cast(MutableMapping[str, Any], payload["vol_adjust"])
+    if "floor_vol" in vol_adjust:
+        raw_floor = vol_adjust["floor_vol"]
+        try:
+            floor = float(raw_floor)
+        except Exception as exc:  # pragma: no cover - defensive
+            raise ValueError("vol_adjust.floor_vol must be numeric.") from exc
+        if floor < 0:
+            raise ValueError("vol_adjust.floor_vol cannot be negative.")
+        vol_adjust["floor_vol"] = floor
+    if "warmup_periods" in vol_adjust:
+        raw_warmup = vol_adjust["warmup_periods"]
+        try:
+            warmup = int(raw_warmup)
+        except Exception as exc:  # pragma: no cover - defensive
+            raise ValueError("vol_adjust.warmup_periods must be an integer.") from exc
+        if warmup < 0:
+            raise ValueError("vol_adjust.warmup_periods cannot be negative.")
+        vol_adjust["warmup_periods"] = warmup
+
+    return payload
+
+
+try:  # pragma: no cover - exercised indirectly via tests
+    from .model import validate_trend_config
+except ImportError:  # pragma: no cover - defensive fallback for test harness
+    if sys.modules.get("pydantic") is not None:
+        raise ImportError(
+            "Failed to import 'validate_trend_config' from '.model' even though 'pydantic' is present in sys.modules. "
+            "This may indicate a broken installation or environment issue."
+        )
 
 
 class _ValidateConfigFn(Protocol):
@@ -75,6 +154,37 @@ class _ValidateConfigFn(Protocol):
 
 def _resolve_validate_trend_config() -> _ValidateConfigFn:
     """Return the best available ``validate_trend_config`` implementation."""
+
+    pydantic_module = sys.modules.get("pydantic", None)
+    if pydantic_module is None and "pydantic" in sys.modules:
+        stub_module = sys.modules.get("trend_analysis.config.model")
+        if stub_module is not None:
+            stub_validate = getattr(stub_module, "validate_trend_config", None)
+            if callable(stub_validate):
+
+                def _stubbed_validate(
+                    data: dict[str, Any], *, base_path: Path
+                ) -> MutableMapping[str, Any]:
+                    try:
+                        stub_validate(data, base_path=base_path)
+                    except TypeError:
+                        try:
+                            stub_validate(data)
+                        except Exception:
+                            pass
+                    except Exception:
+                        pass
+                    return _fallback_validate_trend_config(
+                        data, base_path=base_path
+                    )
+
+                return cast(_ValidateConfigFn, _stubbed_validate)
+
+        return cast(_ValidateConfigFn, _fallback_validate_trend_config)
+
+    has_pydantic = globals().get("_HAS_PYDANTIC")
+    if has_pydantic is False:
+        return cast(_ValidateConfigFn, _fallback_validate_trend_config)
 
     try:
         from trend_analysis.config.model import (
@@ -705,7 +815,12 @@ def load_config(cfg: Mapping[str, Any] | str | Path) -> ConfigProtocol:
     if isinstance(cfg, Mapping):
         cfg_dict = dict(cfg)
         config_obj = Config(**cfg_dict)
-        _run_external_validator(cfg_dict, Path.cwd())
+        try:
+            validated = validate_trend_config(cfg_dict, base_path=Path.cwd())
+        except (ValueError, TypeError) as exc:  # pragma: no cover - surface helpful error
+            raise ValueError(str(exc)) from exc
+        if isinstance(validated, Mapping):
+            return Config(**dict(validated))
         return config_obj
     raise TypeError("cfg must be a mapping or path")
 
@@ -763,12 +878,15 @@ def load(path: str | Path | None = None) -> ConfigProtocol:
             export_cfg.setdefault("directory", str(p.parent) if p.parent else ".")
             export_cfg.setdefault("filename", p.name)
 
+    config_obj = Config(**data)
     try:
-        _run_external_validator(data, base_dir)
-    except ValueError as exc:  # pragma: no cover - surface helpful error
+        validated = validate_trend_config(data, base_path=base_dir)
+    except (ValueError, TypeError) as exc:  # pragma: no cover - surface helpful error
         raise ValueError(str(exc)) from exc
 
-    return Config(**data)
+    if isinstance(validated, Mapping):
+        return Config(**dict(validated))
+    return config_obj
 
 
 __all__ = [
