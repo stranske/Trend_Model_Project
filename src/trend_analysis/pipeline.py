@@ -331,8 +331,9 @@ def _run_analysis(
         if warmup_out:
             out_scaled.iloc[:warmup_out] = 0.0
 
-    # NaN returns translate to zero weights.  This matches the acceptance
-    # criteria for Issue #1439 and prevents propagating NaNs downstream.
+    # NaN returns translate to zero weights with no forward-fill. This matches
+    # the acceptance criteria for Issue #1439 and prevents propagating NaNs
+    # downstream.
     in_scaled = in_scaled.fillna(0.0)
     out_scaled = out_scaled.fillna(0.0)
 

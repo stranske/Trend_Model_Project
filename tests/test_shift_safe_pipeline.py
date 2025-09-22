@@ -60,11 +60,12 @@ def test_shift_safe_pipeline_is_causal(returns):
 @settings(max_examples=50)
 def test_compute_signal_only_uses_past_data(returns):
     df = pd.DataFrame({"returns": returns})
-    signal = compute_signal(df, window=3)
+    window = 3
+    signal = compute_signal(df, window=window)
 
     for idx, value in enumerate(signal.to_numpy()):
-        history = df["returns"].iloc[max(0, idx - 2) : idx + 1]
-        if len(history) < 3:
+        history = df["returns"].iloc[max(0, idx - window) : idx]
+        if len(history) < window:
             assert math.isnan(value)
             continue
         expected = history.mean()
