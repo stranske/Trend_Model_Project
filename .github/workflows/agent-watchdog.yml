@@ -119,7 +119,8 @@ jobs:
             core.setOutput('elapsed_minutes', friendlyElapsed);
 
             const runId = process.env.GITHUB_RUN_ID || '';
-            const runUrl = runId ? `https://github.com/${owner}/${repo}/actions/runs/${runId}` : '';
+            const serverUrl = process.env.GITHUB_SERVER_URL || 'https://github.com';
+            const runUrl = runId ? `${serverUrl}/${owner}/${repo}/actions/runs/${runId}` : '';
 
             const summary = core.summary.addHeading('Agent Watchdog Result');
             if (found) {
