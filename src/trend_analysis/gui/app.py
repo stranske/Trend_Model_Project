@@ -14,6 +14,7 @@ from IPython.display import FileLink, Javascript, display
 import yaml
 
 from ..config import Config
+from ..config.models import DEFAULTS
 from .plugins import discover_plugins, iter_plugins
 from .store import ParamStore
 from .utils import _find_config_directory, debounce, list_builtin_cfgs
@@ -103,9 +104,39 @@ def build_config_dict(store: ParamStore) -> Dict[str, Any]:
     return cfg
 
 
+_DEFAULT_VERSION_CACHE: str | None = None
+
+
+def _ensure_version(cfg: Dict[str, Any]) -> None:
+    """Ensure ``cfg`` contains a ``version`` entry."""
+
+    if "version" in cfg and isinstance(cfg["version"], str) and cfg["version"].strip():
+        return
+
+    global _DEFAULT_VERSION_CACHE
+    if _DEFAULT_VERSION_CACHE is None:
+        default_version: str | None = None
+        try:
+            with DEFAULTS.open("r", encoding="utf-8") as fh:
+                data = yaml.safe_load(fh)
+            if isinstance(data, dict):
+                raw = data.get("version")
+                if isinstance(raw, str) and raw.strip():
+                    default_version = raw
+        except Exception:  # pragma: no cover - IO failures fall back to hardcoded value
+            default_version = None
+
+        if not default_version:
+            default_version = "1"
+        _DEFAULT_VERSION_CACHE = default_version
+
+    cfg.setdefault("version", _DEFAULT_VERSION_CACHE)
+
+
 def build_config_from_store(store: ParamStore) -> ConfigType:
     """Convert ``store`` into a :class:`Config` object."""
     cfg: Dict[str, Any] = build_config_dict(store)
+    _ensure_version(cfg)
     return Config(**cfg)
 
 

@@ -1,3 +1,4 @@
+version: "1"
 name: "Cash constrained"
 description: "Illustrative preset with max weight, group caps and cash sleeve"
 metrics:

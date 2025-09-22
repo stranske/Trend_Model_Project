@@ -1,5 +1,6 @@
-# Balanced preset configuration  
+# Balanced preset configuration
 # Moderate risk tolerance with balanced selection criteria
+version: "1"
 name: "Balanced"
 description: "Balanced risk-return profile suitable for most users"
 

@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  COMMIT_PREFIX: 'chore(autofix):'
+  COMMIT_PREFIX: ${{ vars.AUTOFIX_COMMIT_PREFIX || 'chore(autofix):' }}
 
 jobs:
   context:
@@ -371,6 +371,7 @@ jobs:
               "${NEW_ISSUES}" \
               "${PR_NUMBER}" \
               "$ts" > autofix_report.json
+          fi
           echo "Enriched report ready."
 
       - name: Upload JSON report
@@ -402,14 +403,16 @@ jobs:
       - name: Summary
         if: always()
         run: |
-          echo "### Small fixes" >> "$GITHUB_STEP_SUMMARY"
-          echo "PR: #${{ needs.context.outputs.pr }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "Files considered: ${{ needs.context.outputs.file_count }} (safe paths: ${{ needs.context.outputs.safe_paths }})" >> "$GITHUB_STEP_SUMMARY"
-          echo "Changes applied: ${{ steps.apply.outputs.changed }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "Remaining ruff issues: ${{ steps.apply.outputs.remaining_issues }}" >> "$GITHUB_STEP_SUMMARY"
-          if [ "${{ steps.apply.outputs.changed }}" = "true" ] && [ "${{ needs.context.outputs.same_repo }}" != "true" ]; then
-            echo "Patch artifact: autofix-patch-pr-${{ needs.context.outputs.pr }}" >> "$GITHUB_STEP_SUMMARY"
-          fi
+          {
+            echo "### Small fixes"
+            echo "PR: #${{ needs.context.outputs.pr }}"
+            echo "Files considered: ${{ needs.context.outputs.file_count }} (safe paths: ${{ needs.context.outputs.safe_paths }})"
+            echo "Changes applied: ${{ steps.apply.outputs.changed }}"
+            echo "Remaining ruff issues: ${{ steps.apply.outputs.remaining_issues }}"
+            if [ "${{ steps.apply.outputs.changed }}" = "true" ] && [ "${{ needs.context.outputs.same_repo }}" != "true" ]; then
+              echo "Patch artifact: autofix-patch-pr-${{ needs.context.outputs.pr }}"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
   fix-failing-checks:
     name: Fix failing checks
@@ -526,6 +529,7 @@ jobs:
               "${NEW_ISSUES}" \
               "${PR_NUMBER}" \
               "$ts" > autofix_report.json
+          fi
           echo "Enriched report ready."
 
       - name: Upload JSON report
