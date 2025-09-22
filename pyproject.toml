@@ -46,6 +46,7 @@ Issues = "https://github.com/stranske/Trend_Model_Project/issues"
 Documentation = "https://github.com/stranske/Trend_Model_Project#readme"
 
 [project.scripts]
+trend = "trend.cli:main"
 trend-analysis = "trend_analysis.run_analysis:main"
 trend-multi-analysis = "trend_analysis.run_multi_analysis:main"
 trend-model = "trend_analysis.cli:main"
