@@ -43,8 +43,11 @@ def test_single_period_run_injects_avg_corr_metric() -> None:
             "FundB": [0.01, 0.012, 0.011],
         }
     )
-    stats_cfg = RiskStatsConfig()
-    stats_cfg.extra_metrics = ["AvgCorr"]  # type: ignore[attr-defined]
+    class RiskStatsConfigWithExtraMetrics(RiskStatsConfig):
+        def __init__(self):
+            super().__init__()
+            self.extra_metrics = ["AvgCorr"]
+    stats_cfg = RiskStatsConfigWithExtraMetrics()
 
     score_frame = pipeline.single_period_run(df, "2020-01", "2020-03", stats_cfg=stats_cfg)
 
