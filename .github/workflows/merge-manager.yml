@@ -1,0 +1,414 @@
+name: merge manager
+
+on:
+  pull_request_target:
+    types: [opened, labeled, unlabeled, synchronize, ready_for_review, reopened]
+  workflow_run:
+    workflows: ["CI", "Docker"]
+    types: [completed]
+
+env:
+  GH_TOKEN: ${{ secrets.SERVICE_BOT_PAT || secrets.PERSONAL_ACCESS_TOKEN || secrets.GITHUB_TOKEN }}
+
+permissions:
+  pull-requests: write
+  contents: write
+  checks: read
+  actions: read
+
+jobs:
+  manage-on-pr-event:
+    if: github.event_name == 'pull_request_target'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Evaluate merge conditions
+        id: evaluate
+        uses: actions/github-script@v7
+        env:
+          ALLOWLIST_PATH: ${{ vars.ALLOWLIST_PATH || '.github/autoapprove-allowlist.json' }}
+          APPROVE_PATTERNS: ${{ vars.APPROVE_PATTERNS }}
+          MAX_LINES_CHANGED: ${{ vars.MAX_LINES_CHANGED }}
+          AUTOMERGE_LABEL: ${{ vars.AUTOMERGE_LABEL || 'automerge' }}
+          AGENT_FROM_LABEL: ${{ vars.AGENT_FROM_LABEL || 'from:copilot' }}
+          AGENT_FROM_LABEL_ALT: ${{ vars.AGENT_FROM_LABEL_ALT || 'from:codex' }}
+          RISK_LABEL: ${{ vars.RISK_LABEL || 'risk:low' }}
+          CI_LABEL: ${{ vars.CI_LABEL || 'ci:green' }}
+        with:
+          script: |
+            const { evaluatePullRequest } = require('./.github/scripts/merge_manager.js');
+            const { owner, repo } = context.repo;
+            const prNumber = context.payload.pull_request.number;
+            await evaluatePullRequest({
+              github,
+              core,
+              owner,
+              repo,
+              prNumber,
+              config: {
+                allowlistPath: process.env.ALLOWLIST_PATH,
+                approvePatterns: process.env.APPROVE_PATTERNS,
+                maxLinesOverride: process.env.MAX_LINES_CHANGED,
+                labels: {
+                  automerge: process.env.AUTOMERGE_LABEL,
+                  from: process.env.AGENT_FROM_LABEL,
+                  fromAlt: process.env.AGENT_FROM_LABEL_ALT,
+                  risk: process.env.RISK_LABEL,
+                  ci: process.env.CI_LABEL,
+                },
+              },
+            });
+
+      - name: Quiet & workflow gate
+        if: steps.evaluate.outputs.should_run == 'true'
+        id: quiet
+        uses: actions/github-script@v7
+        env:
+          QUIET_MINUTES: ${{ vars.QUIET_MINUTES || '3' }}
+          PR_NUMBER: ${{ steps.evaluate.outputs.pr_number }}
+        with:
+          script: |
+            const quietMinutes = parseInt(process.env.QUIET_MINUTES || '3', 10);
+            const prNumber = parseInt(process.env.PR_NUMBER || '0', 10);
+            if (!prNumber) {
+              core.setOutput('quiet_ok', 'false');
+              core.setOutput('active_ok', 'false');
+              core.setOutput('proceed', 'false');
+              return;
+            }
+            const { owner, repo } = context.repo;
+            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+            const sha = pr.head.sha;
+            const commit = await github.rest.repos.getCommit({ owner, repo, ref: sha });
+            const commitTime = new Date(commit.data.commit.author.date).getTime();
+            const ageMinutes = (Date.now() - commitTime) / 60000;
+            async function hasActive(workflowName) {
+              try {
+                const runs = await github.rest.actions.listWorkflowRunsForRepo({ owner, repo, per_page: 50, branch: pr.head.ref });
+                return runs.data.workflow_runs.some((run) => run.name === workflowName && ['in_progress', 'queued', 'waiting'].includes(run.status));
+              } catch (error) {
+                core.warning(`Failed to list runs for ${workflowName}: ${error.message}`);
+                return false;
+              }
+            }
+            const activeCI = await hasActive('CI');
+            const activeAutofix = await hasActive('Reusable Autofix');
+            const quietOk = ageMinutes >= quietMinutes;
+            const activeOk = !(activeCI || activeAutofix);
+            const proceed = quietOk && activeOk;
+            core.setOutput('quiet_ok', String(quietOk));
+            core.setOutput('active_ok', String(activeOk));
+            core.setOutput('proceed', String(proceed));
+            core.setOutput('age_min', ageMinutes.toFixed(2));
+
+      - name: Auto-approve PR
+        if: steps.evaluate.outputs.should_auto_approve == 'true'
+        id: approve
+        continue-on-error: true
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const prNumber = context.payload.pull_request.number;
+            const createReview = github?.rest?.pulls?.createReview || github?.pulls?.createReview;
+            if (!createReview) {
+              core.warning('Octokit pulls.createReview API is unavailable on this runner.');
+              return;
+            }
+            await createReview({
+              owner,
+              repo,
+              pull_number: prNumber,
+              event: 'APPROVE',
+              body: 'Auto-approving eligible low-risk changes.',
+            });
+
+      - name: Enable auto-merge
+        if: steps.evaluate.outputs.should_run == 'true' && steps.evaluate.outputs.safe == 'true' && steps.evaluate.outputs.label_gate_ok == 'true' && steps.quiet.outputs.proceed == 'true'
+        id: enable
+        continue-on-error: true
+        uses: peter-evans/enable-pull-request-automerge@v3
+        with:
+          token: ${{ env.GH_TOKEN }}
+          merge-method: squash
+          pull-request-number: ${{ steps.evaluate.outputs.pr_number }}
+
+      - name: Merge manager decision comment
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ steps.evaluate.outputs.pr_number }}
+          AUTOMERGE_LABEL: ${{ steps.evaluate.outputs.automerge_label }}
+          SAFE: ${{ steps.evaluate.outputs.safe }}
+          DRAFT: ${{ steps.evaluate.outputs.draft }}
+          ALLOWLIST_FOUND: ${{ steps.evaluate.outputs.allowlist_found }}
+          ALLOWLIST_OK: ${{ steps.evaluate.outputs.allowlist_ok }}
+          SIZE_OK: ${{ steps.evaluate.outputs.size_ok }}
+          PATTERN_COUNT: ${{ steps.evaluate.outputs.pattern_count }}
+          LINES_CHANGED: ${{ steps.evaluate.outputs.lines_changed }}
+          MAX_LINES: ${{ steps.evaluate.outputs.max_lines }}
+          FROM_LABEL: ${{ steps.evaluate.outputs.from_label }}
+          RISK_LABEL: ${{ steps.evaluate.outputs.risk_label }}
+          CI_LABEL: ${{ steps.evaluate.outputs.ci_label }}
+          QUIET_AVAILABLE: ${{ steps.quiet.outputs.proceed != '' }}
+          QUIET_OK: ${{ steps.quiet.outputs.quiet_ok }}
+          ACTIVE_OK: ${{ steps.quiet.outputs.active_ok }}
+          AGE_MIN: ${{ steps.quiet.outputs.age_min }}
+          QUIET_MINUTES: ${{ vars.QUIET_MINUTES || '3' }}
+          ENABLE_OUTCOME: ${{ steps.enable.outcome || '' }}
+        with:
+          script: |
+            const { upsertDecisionComment } = require('./.github/scripts/merge_manager.js');
+            const { owner, repo } = context.repo;
+            const prNumber = parseInt(process.env.PR_NUMBER || '0', 10);
+            if (!prNumber) {
+              return;
+            }
+            if (process.env.AUTOMERGE_LABEL !== 'true') {
+              await upsertDecisionComment({ github, owner, repo, prNumber, marker: '<!-- merge-manager -->', body: '' });
+              return;
+            }
+            const reasons = [];
+            if (process.env.DRAFT === 'true') {
+              reasons.push('the pull request is marked as draft');
+            }
+            if (process.env.SAFE !== 'true') {
+              if (process.env.ALLOWLIST_FOUND !== 'true') {
+                reasons.push('the auto-approval allowlist file could not be loaded from the base branch');
+              } else {
+                if (process.env.PATTERN_COUNT === '0') {
+                  reasons.push('no auto-approval patterns are configured for this repository');
+                } else if (process.env.ALLOWLIST_OK !== 'true') {
+                  reasons.push('the changed files fall outside the configured allowlist');
+                }
+                if (process.env.SIZE_OK !== 'true') {
+                  reasons.push(`the change size (${process.env.LINES_CHANGED} lines) exceeds the limit of ${process.env.MAX_LINES} lines`);
+                }
+              }
+            }
+            if (process.env.SAFE === 'true') {
+              if (process.env.FROM_LABEL !== 'true') {
+                reasons.push('the required provenance label (`from:copilot` or `from:codex`) is missing');
+              }
+              if (process.env.RISK_LABEL !== 'true') {
+                reasons.push('the `risk:low` label is missing');
+              }
+              if (process.env.CI_LABEL !== 'true') {
+                reasons.push('the `ci:green` label is missing');
+              }
+              if (process.env.QUIET_AVAILABLE === 'true') {
+                if (process.env.QUIET_OK !== 'true') {
+                  reasons.push(`the quiet period has not elapsed (age ${process.env.AGE_MIN || '?'} min < required ${process.env.QUIET_MINUTES} min)`);
+                }
+                if (process.env.ACTIVE_OK !== 'true') {
+                  reasons.push('CI or reusable autofix workflows are still running on this branch');
+                }
+              }
+              if (process.env.ENABLE_OUTCOME && process.env.ENABLE_OUTCOME !== 'success') {
+                reasons.push('auto-merge enabling failed; review the workflow logs for details');
+              }
+            }
+            if (!reasons.length) {
+              await upsertDecisionComment({ github, owner, repo, prNumber, marker: '<!-- merge-manager -->', body: '' });
+              return;
+            }
+            const body = `<!-- merge-manager -->\n\n### Merge manager status\n\nI could not complete automated merging for this pull request because:\n${reasons.map((reason) => `- ${reason}`).join('\n')}\n\nI'll try again when conditions change.`;
+            await upsertDecisionComment({ github, owner, repo, prNumber, marker: '<!-- merge-manager -->', body });
+
+  manage-post-status:
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Identify pull request
+        id: discover
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+            if (!run || !run.head_branch) {
+              core.setOutput('pr_number', '');
+              return;
+            }
+            const branch = run.head_branch;
+            const { owner, repo } = context.repo;
+            const prs = await github.rest.pulls.list({ owner, repo, state: 'open', head: `${owner}:${branch}` });
+            if (!prs.data.length) {
+              core.setOutput('pr_number', '');
+              return;
+            }
+            core.setOutput('pr_number', String(prs.data[0].number));
+
+      - name: Evaluate merge conditions
+        if: steps.discover.outputs.pr_number != ''
+        id: evaluate_post
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ steps.discover.outputs.pr_number }}
+          ALLOWLIST_PATH: ${{ vars.ALLOWLIST_PATH || '.github/autoapprove-allowlist.json' }}
+          APPROVE_PATTERNS: ${{ vars.APPROVE_PATTERNS }}
+          MAX_LINES_CHANGED: ${{ vars.MAX_LINES_CHANGED }}
+          AUTOMERGE_LABEL: ${{ vars.AUTOMERGE_LABEL || 'automerge' }}
+          AGENT_FROM_LABEL: ${{ vars.AGENT_FROM_LABEL || 'from:copilot' }}
+          AGENT_FROM_LABEL_ALT: ${{ vars.AGENT_FROM_LABEL_ALT || 'from:codex' }}
+          RISK_LABEL: ${{ vars.RISK_LABEL || 'risk:low' }}
+          CI_LABEL: ${{ vars.CI_LABEL || 'ci:green' }}
+        with:
+          script: |
+            const prNumber = parseInt(process.env.PR_NUMBER || '0', 10);
+            if (!prNumber) {
+              return;
+            }
+            const { evaluatePullRequest } = require('./.github/scripts/merge_manager.js');
+            const { owner, repo } = context.repo;
+            await evaluatePullRequest({
+              github,
+              core,
+              owner,
+              repo,
+              prNumber,
+              config: {
+                allowlistPath: process.env.ALLOWLIST_PATH,
+                approvePatterns: process.env.APPROVE_PATTERNS,
+                maxLinesOverride: process.env.MAX_LINES_CHANGED,
+                labels: {
+                  automerge: process.env.AUTOMERGE_LABEL,
+                  from: process.env.AGENT_FROM_LABEL,
+                  fromAlt: process.env.AGENT_FROM_LABEL_ALT,
+                  risk: process.env.RISK_LABEL,
+                  ci: process.env.CI_LABEL,
+                },
+              },
+            });
+
+      - name: Quiet & workflow gate
+        if: steps.evaluate_post.outputs.should_run == 'true'
+        id: quiet_post
+        uses: actions/github-script@v7
+        env:
+          QUIET_MINUTES: ${{ vars.QUIET_MINUTES || '3' }}
+          PR_NUMBER: ${{ steps.evaluate_post.outputs.pr_number }}
+        with:
+          script: |
+            const quietMinutes = parseInt(process.env.QUIET_MINUTES || '3', 10);
+            const prNumber = parseInt(process.env.PR_NUMBER || '0', 10);
+            if (!prNumber) {
+              core.setOutput('quiet_ok', 'false');
+              core.setOutput('active_ok', 'false');
+              core.setOutput('proceed', 'false');
+              return;
+            }
+            const { owner, repo } = context.repo;
+            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+            const sha = pr.head.sha;
+            const commit = await github.rest.repos.getCommit({ owner, repo, ref: sha });
+            const commitTime = new Date(commit.data.commit.author.date).getTime();
+            const ageMinutes = (Date.now() - commitTime) / 60000;
+            async function hasActive(workflowName) {
+              try {
+                const runs = await github.rest.actions.listWorkflowRunsForRepo({ owner, repo, per_page: 50, branch: pr.head.ref });
+                return runs.data.workflow_runs.some((run) => run.name === workflowName && ['in_progress', 'queued', 'waiting'].includes(run.status));
+              } catch (error) {
+                core.warning(`Failed to list runs for ${workflowName}: ${error.message}`);
+                return false;
+              }
+            }
+            const activeCI = await hasActive('CI');
+            const activeAutofix = await hasActive('Reusable Autofix');
+            const quietOk = ageMinutes >= quietMinutes;
+            const activeOk = !(activeCI || activeAutofix);
+            const proceed = quietOk && activeOk;
+            core.setOutput('quiet_ok', String(quietOk));
+            core.setOutput('active_ok', String(activeOk));
+            core.setOutput('proceed', String(proceed));
+            core.setOutput('age_min', ageMinutes.toFixed(2));
+
+      - name: Enable auto-merge
+        if: steps.evaluate_post.outputs.should_run == 'true' && steps.evaluate_post.outputs.safe == 'true' && steps.evaluate_post.outputs.label_gate_ok == 'true' && steps.quiet_post.outputs.proceed == 'true'
+        id: enable_post
+        continue-on-error: true
+        uses: peter-evans/enable-pull-request-automerge@v3
+        with:
+          token: ${{ env.GH_TOKEN }}
+          merge-method: squash
+          pull-request-number: ${{ steps.evaluate_post.outputs.pr_number }}
+
+      - name: Merge manager decision comment
+        if: steps.discover.outputs.pr_number != ''
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ steps.evaluate_post.outputs.pr_number }}
+          AUTOMERGE_LABEL: ${{ steps.evaluate_post.outputs.automerge_label }}
+          SAFE: ${{ steps.evaluate_post.outputs.safe }}
+          DRAFT: ${{ steps.evaluate_post.outputs.draft }}
+          ALLOWLIST_FOUND: ${{ steps.evaluate_post.outputs.allowlist_found }}
+          ALLOWLIST_OK: ${{ steps.evaluate_post.outputs.allowlist_ok }}
+          SIZE_OK: ${{ steps.evaluate_post.outputs.size_ok }}
+          PATTERN_COUNT: ${{ steps.evaluate_post.outputs.pattern_count }}
+          LINES_CHANGED: ${{ steps.evaluate_post.outputs.lines_changed }}
+          MAX_LINES: ${{ steps.evaluate_post.outputs.max_lines }}
+          FROM_LABEL: ${{ steps.evaluate_post.outputs.from_label }}
+          RISK_LABEL: ${{ steps.evaluate_post.outputs.risk_label }}
+          CI_LABEL: ${{ steps.evaluate_post.outputs.ci_label }}
+          QUIET_AVAILABLE: ${{ steps.quiet_post.outputs.proceed != '' }}
+          QUIET_OK: ${{ steps.quiet_post.outputs.quiet_ok }}
+          ACTIVE_OK: ${{ steps.quiet_post.outputs.active_ok }}
+          AGE_MIN: ${{ steps.quiet_post.outputs.age_min }}
+          QUIET_MINUTES: ${{ vars.QUIET_MINUTES || '3' }}
+          ENABLE_OUTCOME: ${{ steps.enable_post.outcome || '' }}
+        with:
+          script: |
+            const { upsertDecisionComment } = require('./.github/scripts/merge_manager.js');
+            const { owner, repo } = context.repo;
+            const prNumber = parseInt(process.env.PR_NUMBER || '0', 10);
+            if (!prNumber) {
+              return;
+            }
+            if (process.env.AUTOMERGE_LABEL !== 'true') {
+              await upsertDecisionComment({ github, owner, repo, prNumber, marker: '<!-- merge-manager -->', body: '' });
+              return;
+            }
+            const reasons = [];
+            if (process.env.DRAFT === 'true') {
+              reasons.push('the pull request is marked as draft');
+            }
+            if (process.env.SAFE !== 'true') {
+              if (process.env.ALLOWLIST_FOUND !== 'true') {
+                reasons.push('the auto-approval allowlist file could not be loaded from the base branch');
+              } else {
+                if (process.env.PATTERN_COUNT === '0') {
+                  reasons.push('no auto-approval patterns are configured for this repository');
+                } else if (process.env.ALLOWLIST_OK !== 'true') {
+                  reasons.push('the changed files fall outside the configured allowlist');
+                }
+                if (process.env.SIZE_OK !== 'true') {
+                  reasons.push(`the change size (${process.env.LINES_CHANGED} lines) exceeds the limit of ${process.env.MAX_LINES} lines`);
+                }
+              }
+            }
+            if (process.env.SAFE === 'true') {
+              if (process.env.FROM_LABEL !== 'true') {
+                reasons.push('the required provenance label (`from:copilot` or `from:codex`) is missing');
+              }
+              if (process.env.RISK_LABEL !== 'true') {
+                reasons.push('the `risk:low` label is missing');
+              }
+              if (process.env.CI_LABEL !== 'true') {
+                reasons.push('the `ci:green` label is missing');
+              }
+              if (process.env.QUIET_AVAILABLE === 'true') {
+                if (process.env.QUIET_OK !== 'true') {
+                  reasons.push(`the quiet period has not elapsed (age ${process.env.AGE_MIN || '?'} min < required ${process.env.QUIET_MINUTES} min)`);
+                }
+                if (process.env.ACTIVE_OK !== 'true') {
+                  reasons.push('CI or reusable autofix workflows are still running on this branch');
+                }
+              }
+              if (process.env.ENABLE_OUTCOME && process.env.ENABLE_OUTCOME !== 'success') {
+                reasons.push('auto-merge enabling failed; review the workflow logs for details');
+              }
+            }
+            if (!reasons.length) {
+              await upsertDecisionComment({ github, owner, repo, prNumber, marker: '<!-- merge-manager -->', body: '' });
+              return;
+            }
+            const body = `<!-- merge-manager -->\n\n### Merge manager status\n\nI could not complete automated merging for this pull request because:\n${reasons.map((reason) => `- ${reason}`).join('\n')}\n\nI'll try again when conditions change.`;
+            await upsertDecisionComment({ github, owner, repo, prNumber, marker: '<!-- merge-manager -->', body });

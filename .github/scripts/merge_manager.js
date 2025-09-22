@@ -1,0 +1,153 @@
+const { Buffer } = require('node:buffer');
+
+async function fetchAllowlist(github, owner, repo, path, ref) {
+  let found = false;
+  let patterns = [];
+  let maxLines;
+  try {
+    const response = await github.rest.repos.getContent({ owner, repo, path, ref });
+    if (!Array.isArray(response.data)) {
+      const encoding = response.data.encoding || 'base64';
+      const raw = Buffer.from(response.data.content || '', encoding).toString('utf8');
+      const parsed = JSON.parse(raw);
+      found = true;
+      if (Array.isArray(parsed.patterns)) {
+        patterns = parsed.patterns.filter((item) => typeof item === 'string');
+      }
+      if (Object.prototype.hasOwnProperty.call(parsed, 'max_lines_changed')) {
+        const numeric = Number(parsed.max_lines_changed);
+        if (!Number.isNaN(numeric)) {
+          maxLines = numeric;
+        }
+      }
+    }
+  } catch (error) {
+    found = false;
+  }
+  return { found, patterns, maxLines };
+}
+
+function matchPattern(filename, pattern) {
+  if (pattern.endsWith('/**')) {
+    return filename.startsWith(pattern.slice(0, -3));
+  }
+  if (pattern.startsWith('**/*.')) {
+    return filename.endsWith(pattern.slice(4));
+  }
+  return filename === pattern;
+}
+
+async function evaluatePullRequest({ github, core, owner, repo, prNumber, config }) {
+  const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+  const labels = pr.labels.map((label) => label.name);
+  const labelSet = new Set(labels);
+
+  const allowlistPath = config.allowlistPath || '.github/autoapprove-allowlist.json';
+  const allowlist = await fetchAllowlist(github, owner, repo, allowlistPath, pr.base.sha);
+
+  const overridePatterns = (config.approvePatterns || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+
+  const effectivePatterns = overridePatterns.length > 0 ? overridePatterns : allowlist.patterns;
+  const patternSource = overridePatterns.length > 0 ? 'env' : (allowlist.found ? 'allowlist' : 'none');
+  const patternCount = effectivePatterns.length;
+
+  const listFiles = github?.rest?.pulls?.listFiles || github?.pulls?.listFiles;
+  const files = listFiles ? await github.paginate(listFiles, { owner, repo, pull_number: prNumber }) : [];
+  const allowlistOk = patternCount > 0
+    ? files.every((file) => effectivePatterns.some((pattern) => matchPattern(file.filename, pattern)))
+    : false;
+
+  const totalChanges = files.reduce((sum, file) => sum + (file.changes || 0), 0);
+  let maxLinesCandidate;
+  if (config.maxLinesOverride !== undefined && String(config.maxLinesOverride).trim() !== '') {
+    const overrideValue = Number(config.maxLinesOverride);
+    if (!Number.isNaN(overrideValue)) {
+      maxLinesCandidate = overrideValue;
+    }
+  }
+  if (maxLinesCandidate === undefined && Number.isFinite(allowlist.maxLines)) {
+    maxLinesCandidate = allowlist.maxLines;
+  }
+  const maxLines = Number.isFinite(maxLinesCandidate) ? maxLinesCandidate : 1000;
+  const sizeOk = totalChanges <= maxLines;
+
+  const labelsConfig = config.labels || {};
+  const fromLabelName = labelsConfig.from || 'from:copilot';
+  const fromLabelAltName = labelsConfig.fromAlt || 'from:codex';
+  const automergeLabelName = labelsConfig.automerge || 'automerge';
+  const riskLabelName = labelsConfig.risk || 'risk:low';
+  const ciLabelName = labelsConfig.ci || 'ci:green';
+
+  const hasAutomerge = labelSet.has(automergeLabelName);
+  const hasFrom = labelSet.has(fromLabelName) || labelSet.has(fromLabelAltName);
+  const hasRisk = labelSet.has(riskLabelName);
+  const hasCi = labelSet.has(ciLabelName);
+
+  const safe = Boolean(allowlist.found && patternCount > 0 && allowlistOk && sizeOk);
+
+  const outputs = {
+    pr_number: String(prNumber),
+    automerge_label: String(hasAutomerge),
+    from_label: String(hasFrom),
+    risk_label: String(hasRisk),
+    ci_label: String(hasCi),
+    draft: String(pr.draft),
+    head_sha: pr.head.sha,
+    base_sha: pr.base.sha,
+    allowlist_found: String(allowlist.found),
+    allowlist_ok: String(allowlistOk),
+    size_ok: String(sizeOk),
+    safe: String(safe),
+    lines_changed: String(totalChanges),
+    max_lines: String(maxLines),
+    pattern_count: String(patternCount),
+    pattern_source: patternSource,
+    should_auto_approve: String(safe && hasAutomerge && hasFrom && hasRisk && !pr.draft),
+    label_gate_ok: String(hasFrom && hasRisk && hasCi),
+    should_run: String(hasAutomerge),
+  };
+
+  for (const [key, value] of Object.entries(outputs)) {
+    core.setOutput(key, value);
+  }
+
+  return {
+    pr,
+    labels,
+    allowlist,
+    effectivePatterns,
+    outputs,
+  };
+}
+
+async function upsertDecisionComment({ github, owner, repo, prNumber, marker, body }) {
+  const comments = await github.rest.issues.listComments({ owner, repo, issue_number: prNumber, per_page: 100 });
+  const existing = comments.data.find((comment) => typeof comment.body === 'string' && comment.body.includes(marker));
+
+  if (!body) {
+    if (existing) {
+      await github.rest.issues.deleteComment({ owner, repo, comment_id: existing.id });
+      return 'deleted';
+    }
+    return 'none';
+  }
+
+  if (existing) {
+    if (existing.body.trim() === body.trim()) {
+      return 'unchanged';
+    }
+    await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+    return 'updated';
+  }
+
+  await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
+  return 'created';
+}
+
+module.exports = {
+  evaluatePullRequest,
+  upsertDecisionComment,
+};
