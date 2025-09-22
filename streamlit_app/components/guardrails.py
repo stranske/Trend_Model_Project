@@ -21,6 +21,10 @@ import pandas as pd
 
 from streamlit_app.config_bridge import build_config_payload, validate_payload
 
+MAX_DRY_RUN_LOOKBACK_MONTHS = 12
+MAX_DRY_RUN_OUT_MONTHS = 3
+
+
 @dataclass(frozen=True, slots=True)
 class ResourceEstimate:
     """Back-of-the-envelope resource estimate for a dataset."""
@@ -207,8 +211,22 @@ def prepare_dry_run_plan(
     unique_periods = periods.unique().sort_values()
     if len(unique_periods) < 6:
         raise ValueError("Upload at least six months of returns to enable a dry run.")
-    horizon = max(1, min(int(horizon_months), len(unique_periods) // 3))
-    adjusted_lookback = max(3, min(int(lookback_months), len(unique_periods) - horizon))
+    horizon = max(
+        1,
+        min(
+            int(horizon_months),
+            MAX_DRY_RUN_OUT_MONTHS,
+            max(len(unique_periods) // 3, 1),
+        ),
+    )
+    adjusted_lookback = max(
+        3,
+        min(
+            int(lookback_months),
+            len(unique_periods) - horizon,
+            MAX_DRY_RUN_LOOKBACK_MONTHS,
+        ),
+    )
     total_needed = adjusted_lookback + horizon
     if total_needed > len(unique_periods):
         total_needed = len(unique_periods)

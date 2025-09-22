@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 import uuid
-from typing import Dict
+from typing import Any, Callable, Dict
 
 import pandas as pd
 
@@ -8,7 +10,6 @@ from streamlit_app.components.guardrails import (
     estimate_resource_usage,
     prepare_dry_run_plan,
 )
-from trend_analysis.api import run_simulation
 from trend_analysis.logging import get_default_log_path, init_run_logger, log_step
 
 
@@ -21,6 +22,19 @@ class StreamlitConfig:
 
 
 Config = StreamlitConfig
+
+RunSimulationFn = Callable[[StreamlitConfig, pd.DataFrame], Any]
+run_simulation: RunSimulationFn | None = None
+
+
+def _resolve_run_simulation() -> RunSimulationFn:
+    """Return the configured run_simulation callable, importing lazily if needed."""
+
+    if callable(run_simulation):
+        return run_simulation  # type: ignore[return-value]
+    from trend_analysis.api import run_simulation as run_simulation_impl
+
+    return run_simulation_impl
 
 
 def _make_config(config_data: Dict[str, object]) -> StreamlitConfig:
@@ -147,6 +161,8 @@ def main():
         "run": {},
     }
 
+    run_sim = _resolve_run_simulation()
+
     if dry_run_clicked and not run_clicked:
         try:
             plan = prepare_dry_run_plan(df, lookback or 0)
@@ -165,7 +181,7 @@ def main():
             }
         )
         with st.spinner("Running dry run on a small sample..."):
-            result = run_simulation(dry_config, dry_returns)
+            result = run_sim(dry_config, dry_returns)
         st.session_state["dry_run_results"] = result
         st.session_state["dry_run_summary"] = plan.summary()
         st.success(
@@ -188,7 +204,7 @@ def main():
     log_step(run_id, "ui_start", "Streamlit run initiated")
     config.run_id = run_id  # type: ignore[attr-defined]
     log_step(run_id, "api_call", "Dispatching run_simulation")
-    result = run_simulation(config, returns)
+    result = run_sim(config, returns)
     log_step(
         run_id,
         "api_return",
