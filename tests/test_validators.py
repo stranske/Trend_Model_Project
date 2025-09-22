@@ -247,6 +247,15 @@ class TestLoadAndValidateUpload:
 
         assert "Failed to read file" in str(exc_info.value)
 
+    def test_parser_error_is_wrapped(self, monkeypatch):
+        def raise_parser(*args, **kwargs):
+            raise pd.errors.ParserError("bad parse")
+
+        monkeypatch.setattr(pd, "read_csv", raise_parser)
+
+        with pytest.raises(ValueError, match="Failed to parse file"):
+            load_and_validate_upload("broken.csv")
+
     def test_excel_pointer_reset(self):
         df = pd.DataFrame({"Date": ["2023-01-31"], "Fund1": [0.01]})
         buf = io.BytesIO()

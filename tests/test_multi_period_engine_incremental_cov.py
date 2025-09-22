@@ -285,3 +285,48 @@ def test_run_incremental_covariance_multi_step_update(monkeypatch):
     assert second_new.iloc[0] == pytest.approx(0.015)
     stats = results[1]["cache_stats"]
     assert stats["incremental_updates"] == 2
+
+
+def test_run_incremental_covariance_shift_detection_no_match(monkeypatch):
+    """If no shift is detected within the configured window, fall back to a
+    full covariance recomputation."""
+
+    cfg = _Cfg()
+    cfg.performance["shift_detection_max_steps"] = 1
+    df = _make_df()
+    periods = [
+        SimpleNamespace(
+            in_start="2020-01",
+            in_end="2020-03",
+            out_start="2020-04",
+            out_end="2020-04",
+        ),
+        SimpleNamespace(
+            in_start="2020-03",
+            in_end="2020-05",
+            out_start="2020-05",
+            out_end="2020-05",
+        ),
+    ]
+
+    monkeypatch.setattr(mp_engine, "generate_periods", lambda _cfg: periods)
+
+    def fake_run_analysis(*args, **kwargs):
+        return {"out_ew_stats": {"sharpe": 1.0}}
+
+    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+
+    real_compute = cache_mod.compute_cov_payload
+    compute_calls: list[int] = []
+
+    def wrapped_compute(frame: pd.DataFrame, *, materialise_aggregates: bool):
+        compute_calls.append(frame.shape[0])
+        return real_compute(frame, materialise_aggregates=materialise_aggregates)
+
+    monkeypatch.setattr(cache_mod, "compute_cov_payload", wrapped_compute)
+
+    results = mp_engine.run(cfg, df=df)
+
+    assert len(results) == 2
+    # Initial computation plus fallback recompute for the second period.
+    assert compute_calls == [3, 3]
