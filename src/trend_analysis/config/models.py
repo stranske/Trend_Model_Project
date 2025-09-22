@@ -43,10 +43,8 @@ def _fallback_validate_trend_config(
     version = data.get("version")
     if not isinstance(version, str):
         raise ValueError("version must be a string")
-    if len(version) == 0:
-        raise ValueError("String should have at least 1 character")
-    if not version.strip():
-        raise ValueError("Version field cannot be empty")
+    if not version or not version.strip():
+        raise ValueError("Version field must be a non-empty string")
 
     required_sections = [
         "data",
