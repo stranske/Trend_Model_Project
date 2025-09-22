@@ -41,6 +41,15 @@ def test_run_price_frames_requires_mapping() -> None:
         mp_engine.run(cfg, df=df, price_frames="not-a-mapping")
 
 
+def test_run_price_frames_enforces_dataframe_members() -> None:
+    cfg = DummyCfg()
+    df = pd.DataFrame({"Date": pd.to_datetime(["2020-01-31"])})
+    bad_frames = {"2020-01": [1, 2, 3]}
+
+    with pytest.raises(TypeError, match="must be a pandas DataFrame"):
+        mp_engine.run(cfg, df=df, price_frames=bad_frames)
+
+
 def test_run_price_frames_validate_columns() -> None:
     cfg = DummyCfg()
     df = pd.DataFrame({"Date": pd.to_datetime(["2020-01-31"])})
@@ -48,6 +57,13 @@ def test_run_price_frames_validate_columns() -> None:
 
     with pytest.raises(ValueError, match="missing required columns"):
         mp_engine.run(cfg, df=df, price_frames=bad_frames)
+
+
+def test_run_price_frames_rejects_empty_mapping() -> None:
+    cfg = DummyCfg()
+
+    with pytest.raises(ValueError, match="price_frames is empty"):
+        mp_engine.run(cfg, df=None, price_frames={})
 
 
 def test_run_price_frames_combines_and_sorts(monkeypatch: pytest.MonkeyPatch) -> None:
