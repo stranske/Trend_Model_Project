@@ -141,7 +141,10 @@ try:  # pragma: no cover - exercised indirectly via tests
     from .model import validate_trend_config
 except ImportError:  # pragma: no cover - defensive fallback for test harness
     if sys.modules.get("pydantic") is not None:
-        raise
+        raise ImportError(
+            "Failed to import 'validate_trend_config' from '.model' even though 'pydantic' is present in sys.modules. "
+            "This may indicate a broken installation or environment issue."
+        )
 
 
 class _ValidateConfigFn(Protocol):
