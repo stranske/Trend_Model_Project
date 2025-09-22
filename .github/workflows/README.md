@@ -157,7 +157,7 @@ Acceptance Criteria (Issue #1415) satisfied by: archival of legacy workflows, pr
 ### 7.1 Autofix Loop Guard (Issue #1347)
 Loop prevention layers:
 1. The consolidated workflow only reacts to completed CI runs (no direct `push` trigger).
-2. Guard logic inspects the latest commit subject for the configured prefix (default `chore(autofix):`) when the actor is `github-actions`.
+2. Guard logic only fires when the workflow actor is `github-actions` (or `github-actions[bot]`) **and** the latest commit subject begins with the standardized prefix `chore(autofix):`.
 3. Style Gate runs independently and does not trigger autofix.
 
 Result: Each human push generates at most one autofix patch sequence; autofix commits do not recursively spawn new runs.
