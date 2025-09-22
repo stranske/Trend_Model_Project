@@ -151,6 +151,35 @@ def test_run_analysis_na_tolerant_filtering_drops_excessive_gaps() -> None:
     assert result is None or "FundA" not in (result or {}).get("selected_funds", [])
 
 
+def test_run_analysis_avg_corr_metrics_populate_stats() -> None:
+    df = _clean_returns_frame()
+    stats_cfg = RiskStatsConfig()
+    stats_cfg.metrics_to_run = list(stats_cfg.metrics_to_run) + ["AvgCorr"]
+    setattr(stats_cfg, "extra_metrics", ["AvgCorr"])
+
+    result = pipeline._run_analysis(
+        df,
+        "2020-01",
+        "2020-02",
+        "2020-03",
+        "2020-04",
+        target_vol=1.0,
+        monthly_cost=0.0,
+        stats_cfg=stats_cfg,
+        indices_list=["Benchmark"],
+        benchmarks={"SPX": "Benchmark"},
+    )
+
+    assert result is not None
+    in_stats = result["in_sample_stats"]["FundA"]
+    out_stats = result["out_sample_stats"]["FundA"]
+
+    assert in_stats.is_avg_corr is not None
+    assert in_stats.os_avg_corr is None
+    assert out_stats.os_avg_corr is not None
+    assert out_stats.is_avg_corr is None
+
+
 def test_run_analysis_constraint_failure_falls_back(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
