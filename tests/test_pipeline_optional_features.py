@@ -59,11 +59,15 @@ def test_single_period_run_injects_avg_corr_metric() -> None:
 def test_run_analysis_na_tolerant_filtering_preserves_funds() -> None:
     df = _base_returns_frame()
     stats_cfg = RiskStatsConfig()
-    stats_cfg.na_as_zero_cfg = {  # type: ignore[attr-defined]
-        "enabled": True,
-        "max_missing_per_window": 1,
-        "max_consecutive_gap": 1,
-    }
+    setattr(
+        stats_cfg,
+        "na_as_zero_cfg",
+        {
+            "enabled": True,
+            "max_missing_per_window": 1,
+            "max_consecutive_gap": 1,
+        },
+    )
 
     result = pipeline._run_analysis(
         df,
