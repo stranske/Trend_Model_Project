@@ -135,7 +135,7 @@ jobs:
               return;
             }
 
-            // Query for an existing open issue with this signature
+            // Query for existing signature issue
             const q = `repo:${owner}/${repo} is:issue is:open in:title "${signature}" label:ci-failure`;
             const search = await github.rest.search.issuesAndPullRequests({ q, per_page: 1 });
             if (search.data.items.length) {
