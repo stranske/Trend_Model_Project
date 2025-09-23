@@ -438,10 +438,10 @@ def test_summarise_multi_none_branch_coverage(monkeypatch: pytest.MonkeyPatch) -
     app_mod = _load_app(monkeypatch)
 
     app_mod.__dict__["container"] = None
-    code = "\n" * 154 + "if container is None:\n    probe_nan = float('nan')\n"
-    exec(compile(code, app_mod.__file__, "exec"), app_mod.__dict__)
-
-
+    # Directly call the function that should handle container=None
+    # Replace with a call to the relevant function, e.g. _summarise_multi, and assert expected behavior
+    result = app_mod._summarise_multi([])
+    assert result is not None  # or other appropriate assertion based on expected behavior
 def test_summarise_multi_handles_missing_columns(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
