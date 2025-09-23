@@ -4,6 +4,7 @@ from collections.abc import Mapping
 from typing import Any
 
 import numpy as np
+from ._typing import FloatArray
 import pandas as pd
 
 
@@ -83,7 +84,7 @@ class AdaptiveBayesWeighting(BaseWeighting):
         half_life: int = 90,
         obs_sigma: float = 0.25,
         max_w: float | None = 0.20,
-        prior_mean: str | np.ndarray = "equal",
+        prior_mean: str | FloatArray = "equal",
         prior_tau: float = 1.0,
     ) -> None:
         self.half_life = int(half_life)

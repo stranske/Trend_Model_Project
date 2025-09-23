@@ -38,9 +38,9 @@ repos:
     rev: v1.8.0
     hooks:
       - id: mypy
-        name: mypy (core package)
-        additional_dependencies: ["pydantic>=2"]
-        files: ^src/trend_analysis/
+        name: mypy (core + app)
+        additional_dependencies: ["pydantic>=2", "streamlit"]
+        files: ^src/(trend_analysis|trend_portfolio_app)/
         args: ["--config-file", "pyproject.toml", "--no-error-summary"]
 
   - repo: local
