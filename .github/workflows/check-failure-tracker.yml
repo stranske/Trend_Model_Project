@@ -25,6 +25,10 @@ jobs:
       DISABLE_FAILURE_ISSUES: 'false'       # If 'true', skip issue create/update (still summary)
       COOLDOWN_RETRY_MS: 3000               # Delay before second cooldown check (race mitigation)
       STACK_TOKEN_RAW: 'false'              # If 'true', disable normalization of stack tokens
+      COOLDOWN_SCOPE: global                # global | workflow | signature (controls cooldown append scope)
+      OCCURRENCE_ESCALATE_THRESHOLD: 0      # If >0, add ESCALATE_LABEL when occurrences >= threshold
+      ESCALATE_LABEL: 'priority: high'      # Label added on escalation when threshold met
+      ESCALATE_COMMENT: ''                  # Optional custom escalation comment
     steps:
       - name: Derive failure signature & update tracking issue
         id: tracker
@@ -117,6 +121,11 @@ jobs:
             const signature = `${workflowName}|${sigHash}`;
             const title = `Workflow Failure (${signature})`;
             const labels = ['ci-failure', 'workflows', 'devops', 'priority: medium'];
+            const COOLDOWN_SCOPE = (process.env.COOLDOWN_SCOPE || 'global').toLowerCase();
+            const ESC_THRESHOLD = parseInt(process.env.OCCURRENCE_ESCALATE_THRESHOLD || '0', 10);
+            const ESC_LABEL = process.env.ESCALATE_LABEL || 'priority: high';
+            const ESC_COMMENT_DEFAULT = `Escalation: occurrences reached threshold (>= ${ESC_THRESHOLD}).`;
+            const ESC_COMMENT = (process.env.ESCALATE_COMMENT && process.env.ESCALATE_COMMENT.trim()) || ESC_COMMENT_DEFAULT;
 
             // Ensure labels exist (best effort; ignore races)
             for (const lb of labels) {
@@ -206,6 +215,26 @@ jobs:
               }
               await github.rest.issues.update({ owner, repo, issue_number, title, body });
 
+              // Escalation logic when occurrence threshold reached
+              if (ESC_THRESHOLD > 0 && occ >= ESC_THRESHOLD) {
+                try {
+                  const existingLabels = (existing.data.labels || []).map(l => (typeof l === 'string' ? l : l.name));
+                  if (!existingLabels.includes(ESC_LABEL)) {
+                    try { await github.rest.issues.getLabel({ owner, repo, name: ESC_LABEL }); }
+                    catch { try { await github.rest.issues.createLabel({ owner, repo, name: ESC_LABEL, color: 'D93F0B' }); } catch {} }
+                    await github.rest.issues.addLabels({ owner, repo, issue_number, labels: [ESC_LABEL] });
+                    const commentsEsc = await github.rest.issues.listComments({ owner, repo, issue_number, per_page: 50 });
+                    const hasEsc = commentsEsc.data.some(c => c.body && c.body.includes(ESC_COMMENT.substring(0, 25)));
+                    if (!hasEsc) {
+                      await github.rest.issues.createComment({ owner, repo, issue_number, body: ESC_COMMENT });
+                    }
+                    core.info(`Escalated issue #${issue_number} (occ=${occ}) with label '${ESC_LABEL}'.`);
+                  }
+                } catch (e) {
+                  core.info(`Escalation label step failed: ${e.message}`);
+                }
+              }
+
               // Rate limiting duplicate or too-frequent comments
               const comments = await github.rest.issues.listComments({ owner, repo, issue_number, per_page: 50 });
               const runUrl = run.html_url;
@@ -237,7 +266,15 @@ jobs:
                 const cutoff = Date.now() - cooldownHours * 3600_000;
                 try {
                   const issuesResp = await github.rest.issues.listForRepo({ owner, repo, labels: 'ci-failure', state: 'open', per_page: 30, sort: 'created', direction: 'desc' });
-                  const recent = issuesResp.data.find(it => !it.pull_request && Date.parse(it.created_at) >= cutoff);
+                  const items = issuesResp.data.filter(it => !it.pull_request && Date.parse(it.created_at) >= cutoff);
+                  let recent;
+                  if (COOLDOWN_SCOPE === 'workflow') {
+                    recent = items.find(it => it.title.startsWith(`Workflow Failure (${workflowName}|`));
+                  } else if (COOLDOWN_SCOPE === 'signature') {
+                    recent = items.find(it => it.title.includes(`(${signature})`));
+                  } else { // global
+                    recent = items[0];
+                  }
                   if (recent) {
                     await github.rest.issues.createComment({ owner, repo, issue_number: recent.number, body: `Additional failure during cooldown (${stage}; no new issue).\n\n${bodyBlock}` });
                     core.info(`Cooldown active (${stage}); appended to #${recent.number}`);
