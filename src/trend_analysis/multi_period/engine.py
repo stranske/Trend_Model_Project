@@ -573,6 +573,7 @@ def run(
 
     # --- helpers --------------------------------------------------------
     def _parse_month(s: str) -> pd.Timestamp:
+        """Parse month string to end-of-month timestamp."""
         return pd.to_datetime(f"{s}-01") + pd.offsets.MonthEnd(0)
 
     def _valid_universe(
@@ -708,6 +709,7 @@ def run(
     low_weight_strikes: dict[str, int] = {}
 
     def _firm(name: str) -> str:
+        """Extract firm name from fund name."""
         return str(name).split()[0] if isinstance(name, str) and name else str(name)
 
     def _dedupe_one_per_firm(
