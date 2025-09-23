@@ -1,6 +1,6 @@
 # Trend Model Project
 
-[![Codex Verification (Latest)](https://github.com/stranske/Trend_Model_Project/actions/workflows/verify-codex-bootstrap-matrix.yml/badge.svg?branch=phase-2-dev)](https://github.com/stranske/Trend_Model_Project/actions/workflows/verify-codex-bootstrap-matrix.yml) [![Codex Verification Guide](https://img.shields.io/badge/codex--verification-docs-blueviolet)](docs/codex-simulation.md)
+[![Style Gate](https://github.com/stranske/Trend_Model_Project/actions/workflows/style-gate.yml/badge.svg?branch=phase-2-dev)](https://github.com/stranske/Trend_Model_Project/actions/workflows/style-gate.yml) [![Codex Verification (Latest)](https://github.com/stranske/Trend_Model_Project/actions/workflows/verify-codex-bootstrap-matrix.yml/badge.svg?branch=phase-2-dev)](https://github.com/stranske/Trend_Model_Project/actions/workflows/verify-codex-bootstrap-matrix.yml) [![Codex Verification Guide](https://img.shields.io/badge/codex--verification-docs-blueviolet)](docs/codex-simulation.md)
 
 > **🚀 New User?** → **[Quick Start Guide](docs/quickstart.md)** — Get your first analysis running in under 10 minutes!
 
