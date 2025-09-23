@@ -23,7 +23,7 @@ import yaml
 try:  # pragma: no cover - normal path
     from trend_analysis.config.model import validate_trend_config
 
-    _fallback_validate_trend_config: Any | None = None
+    _fallback_validate_trend_config_ref: _ValidateConfigFn | None = None
 except Exception:  # pragma: no cover - fallback when model unavailable
 
     def _fallback_validate_trend_config(

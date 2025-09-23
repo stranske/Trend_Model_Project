@@ -1,60 +1,53 @@
 name: Reusable Python CI
 
+# Clean rebuilt reusable workflow with debug instrumentation retained from strict-lint branch.
+# Inputs are feature flags controlling optional artifacts and gates.
+
 on:
   workflow_call:
     inputs:
       python-versions:
-        description: JSON list Python versions
+        description: JSON list of Python versions
         required: false
         default: '["3.11"]'
         type: string
       coverage-min:
-        description: Minimum coverage percent
+        description: Minimum coverage percent (hard gate)
         required: false
         default: '70'
         type: string
       run-mypy:
-        description: Run mypy job
+        description: Run mypy static type check
         required: false
-        default: true
-        type: boolean
+        default: 'true'
+        type: string
       enable-metrics:
-        description: Enable metrics extraction (ci-metrics.json)
+        description: Emit ci-metrics.json (test metrics)
         required: false
-        default: false
-        type: boolean
-      slow-test-top:
-        description: Count of slow tests to report
-        required: false
-        default: '15'
+        default: 'false'
         type: string
-      slow-test-min-seconds:
-        description: Min seconds for slow test list
-        required: false
-        default: '1'
-        type: string
-      enable-classification:
-        description: Enable failure classification
-        required: false
-        default: false
-        type: boolean
       enable-history:
-        description: Enable metrics history append
+        description: Append metrics history artifact
         required: false
-        default: false
-        type: boolean
+        default: 'false'
+        type: string
       history-artifact-name:
-        description: Artifact name for metrics history
+        description: Metrics history artifact filename
         required: false
         default: metrics-history.ndjson
         type: string
-      enable-coverage-delta:
-        description: Enable coverage delta evaluation
+      enable-classification:
+        description: Emit failure classification
         required: false
-        default: false
-        type: boolean
+        default: 'false'
+        type: string
+      enable-coverage-delta:
+        description: Compute coverage delta vs baseline
+        required: false
+        default: 'false'
+        type: string
       baseline-coverage:
-        description: Baseline coverage percent
+        description: Baseline coverage percent for delta
         required: false
         default: '0'
         type: string
@@ -64,60 +57,95 @@ on:
         default: '1'
         type: string
       fail-on-coverage-drop:
-        description: Fail if drop >= threshold
+        description: Fail if drop ≥ threshold
         required: false
         default: 'false'
         type: string
       coverage-drop-label:
-        description: Label to add on drop (future)
+        description: Optional label to apply when coverage drops
         required: false
         default: coverage-drop
         type: string
       enable-soft-gate:
-        description: Enable soft coverage gate (aggregate + issue update)
+        description: Aggregate coverage (soft gate job)
         required: false
-        default: false
-        type: boolean
+        default: 'false'
+        type: string
       coverage-hard-fail:
-        description: Still fail build on coverage shortfall (true/false)
+        description: Fail tests job if coverage < min
         required: false
-        default: true
-        type: boolean
+        default: 'true'
+        type: string
       coverage-artifact-retention-days:
         description: Retention days for coverage artifacts
         required: false
         default: '10'
         type: string
       low-coverage-threshold:
-        description: Percent threshold for low coverage spotlight table
+        description: Low coverage hotspot threshold (%)
         required: false
         default: '50'
+        type: string
+      slow-test-top:
+        description: Top N slow tests to report
+        required: false
+        default: '15'
+        type: string
+      slow-test-min-seconds:
+        description: Minimum seconds for a test to qualify as slow
+        required: false
+        default: '1'
+        type: string
+      artifact-prefix:
+        description: Prefix applied to uploaded artifact names
+        required: false
+        default: ''
         type: string
 
 jobs:
   tests:
     runs-on: ubuntu-latest
-    env:
-      RUN_MYPY_FLAG: ${{ inputs.run-mypy }}
-      ENABLE_METRICS_FLAG: ${{ inputs.enable-metrics }}
-      ENABLE_HISTORY_FLAG: ${{ inputs.enable-history }}
-      ENABLE_CLASSIFICATION_FLAG: ${{ inputs.enable-classification }}
-      ENABLE_COV_DELTA_FLAG: ${{ inputs.enable-coverage-delta }}
-      ENABLE_SOFT_GATE_FLAG: ${{ inputs.enable-soft-gate }}
-      COVERAGE_HARD_FAIL_FLAG: ${{ inputs.coverage-hard-fail }}
     strategy:
       matrix:
         python-version: ${{ fromJson(inputs.python-versions) }}
+        include:
+          - python-version: '3.11'
+            scenario: base
+          - python-version: '3.11'
+            scenario: metrics
+            enable-metrics: true
+          - python-version: '3.11'
+            scenario: metrics-history
+            enable-metrics: true
+            enable-history: true
+          - python-version: '3.11'
+            scenario: classification
+            enable-classification: true
+          - python-version: '3.11'
+            scenario: cov-delta
+            enable-coverage-delta: true
+            baseline-coverage: ${{ inputs.baseline-coverage }}
+            enable-soft-gate: true
+    continue-on-error: false
+    env:
+      ENABLE_METRICS_FLAG: ${{ matrix.enable-metrics || inputs.enable-metrics }}
+      ENABLE_HISTORY_FLAG: ${{ matrix.enable-history || inputs.enable-history }}
+      ENABLE_CLASSIFICATION_FLAG: ${{ matrix.enable-classification || inputs.enable-classification }}
+      ENABLE_COV_DELTA_FLAG: ${{ matrix.enable-coverage-delta || inputs.enable-coverage-delta }}
+      ENABLE_SOFT_GATE_FLAG: ${{ matrix.enable-soft-gate || inputs.enable-soft-gate }}
+      COVERAGE_HARD_FAIL_FLAG: ${{ inputs.coverage-hard-fail }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install deps
+      - name: Install dependencies
         run: |
           python -m pip install -U pip
           pip install -r requirements.txt
-          pip install pytest pytest-cov
+          pip install pytest pytest-cov jq
       - name: Run tests with coverage
         run: |
           pytest --junitxml=pytest-junit.xml \
@@ -126,19 +154,16 @@ jobs:
             --cov-report=json:coverage.json \
             --cov-report=html:htmlcov \
             --cov-report=term-missing
-      - name: Prepare coverage ancillary files
+      - name: Prepare coverage artifacts
         run: |
-          # Create a second JUnit filename expected by soft gate snippet if needed
           cp -f pytest-junit.xml pytest-report.xml || true
-          # Basic sanity checks
-          test -f coverage.xml || { echo 'coverage.xml missing'; exit 1; }
-          test -f coverage.json || { echo 'coverage.json missing'; exit 1; }
           mv coverage.json coverage-${{ matrix.python-version }}.json
-        shell: bash
+          test -f coverage-${{ matrix.python-version }}.json
+          test -f coverage.xml
       - name: Upload coverage artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-${{ matrix.python-version }}
+          name: ${{ inputs.artifact-prefix }}coverage-${{ matrix.python-version }}
           retention-days: ${{ inputs.coverage-artifact-retention-days }}
           path: |
             coverage.xml
@@ -148,8 +173,7 @@ jobs:
             pytest-report.xml
       - name: Extract test metrics
         if: ${{ env.ENABLE_METRICS_FLAG == 'true' }}
-        run: |
-          python scripts/ci_metrics.py || exit 1
+        run: python scripts/ci_metrics.py
         env:
           JUNIT_PATH: pytest-junit.xml
           OUTPUT_PATH: ci-metrics.json
@@ -159,52 +183,47 @@ jobs:
         if: ${{ env.ENABLE_METRICS_FLAG == 'true' }}
         uses: actions/upload-artifact@v4
         with:
-          name: ci-metrics
+          name: ${{ inputs.artifact-prefix }}ci-metrics
           path: ci-metrics.json
       - name: Enforce coverage minimum (hard gate)
         if: ${{ env.COVERAGE_HARD_FAIL_FLAG == 'true' }}
         run: |
-          if [ ! -f coverage.xml ]; then echo 'coverage.xml missing'; exit 1; fi
-          RAW=$(grep -Eo 'line-rate="[0-9.]+' coverage.xml | head -1 | sed -E 's/.*"([0-9.]+)$/\1/')
-          PCT=$(python -c "print('{:.2f}'.format(float('$RAW')*100.0))")
-          echo "Current coverage: $PCT% (hard gate)"
-          MIN=${{ inputs.coverage-min }}
-          python -c "import sys; c=float('$PCT'); m=float('$MIN'); sys.exit(0 if c>=m else 1)" || { echo "Coverage $PCT% < min $MIN%" >&2; exit 1; }
+          RAW=$(grep -Eo 'line-rate="[0-9.]+"' coverage.xml | head -1 | sed -E 's/.*"([0-9.]+)"/\1/')
+          PCT=$(python -c "print(float('$RAW')*100.0)")
+          echo "Coverage: ${PCT}% (min ${{ inputs.coverage-min }}%)"
+          python -c "import sys; cur=float('$PCT'); m=float('${{ inputs.coverage-min }}'); sys.exit(0 if cur>=m else 1)" || { echo 'Coverage below minimum' >&2; exit 1; }
       - name: Coverage delta
         if: ${{ env.ENABLE_COV_DELTA_FLAG == 'true' }}
-        run: |
-          python scripts/ci_coverage_delta.py || exit 1
+        run: python scripts/ci_coverage_delta.py
         env:
           BASELINE_COVERAGE: ${{ inputs.baseline-coverage }}
           ALERT_DROP: ${{ inputs.coverage-alert-drop }}
           FAIL_ON_DROP: ${{ inputs.fail-on-coverage-drop }}
-      - name: Upload coverage delta artifact
+      - name: Upload coverage delta
         if: ${{ env.ENABLE_COV_DELTA_FLAG == 'true' }}
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-delta
+          name: ${{ inputs.artifact-prefix }}coverage-delta
           path: coverage-delta.json
       - name: History & classification
         if: ${{ env.ENABLE_HISTORY_FLAG == 'true' || env.ENABLE_CLASSIFICATION_FLAG == 'true' }}
-        run: |
-          python scripts/ci_history.py || exit 1
+        run: python scripts/ci_history.py
         env:
           JUNIT_PATH: pytest-junit.xml
           METRICS_PATH: ci-metrics.json
           HISTORY_PATH: ${{ inputs.history-artifact-name }}
-          ENABLE_CLASSIFICATION: ${{ inputs.enable-classification }}
           CLASSIFICATION_OUT: classification.json
       - name: Upload history artifact
         if: ${{ env.ENABLE_HISTORY_FLAG == 'true' }}
         uses: actions/upload-artifact@v4
         with:
-          name: metrics-history
+          name: ${{ inputs.artifact-prefix }}metrics-history
           path: ${{ inputs.history-artifact-name }}
       - name: Upload classification artifact
         if: ${{ env.ENABLE_CLASSIFICATION_FLAG == 'true' }}
         uses: actions/upload-artifact@v4
         with:
-          name: classification
+          name: ${{ inputs.artifact-prefix }}classification
           path: classification.json
       - name: CI summary
         run: |
@@ -221,16 +240,26 @@ jobs:
           if [ -f classification.json ]; then echo "- Classification: present" >> $GITHUB_STEP_SUMMARY; else echo "- Classification: (disabled)" >> $GITHUB_STEP_SUMMARY; fi
           if [ -f ${{ inputs.history-artifact-name }} ]; then echo "- History: appended" >> $GITHUB_STEP_SUMMARY; else echo "- History: (disabled)" >> $GITHUB_STEP_SUMMARY; fi
           if [ "$ENABLE_SOFT_GATE_FLAG" = "true" ]; then echo "- Soft gate: enabled (see coverage_soft_gate job)" >> $GITHUB_STEP_SUMMARY; else echo "- Soft gate: (disabled)" >> $GITHUB_STEP_SUMMARY; fi
+      - name: Assert feature outputs
+        run: python scripts/ci_feature_assert.py
+        env:
+          EXPECT_METRICS: ${{ env.ENABLE_METRICS_FLAG }}
+          EXPECT_HISTORY: ${{ env.ENABLE_HISTORY_FLAG }}
+          EXPECT_CLASSIFICATION: ${{ env.ENABLE_CLASSIFICATION_FLAG }}
+          EXPECT_COV_DELTA: ${{ env.ENABLE_COV_DELTA_FLAG }}
+          HISTORY_ARTIFACT_NAME: ${{ inputs.history-artifact-name }}
 
   mypy:
     if: ${{ inputs.run-mypy == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Install deps
+      - name: Install mypy
         run: |
           python -m pip install -U pip
           pip install -r requirements.txt
@@ -239,7 +268,6 @@ jobs:
         run: mypy src || (echo 'mypy failed' && exit 1)
 
   coverage_soft_gate:
-    # Soft coverage gate aggregates artifacts and updates a canonical issue (Issue #1342 design).
     if: ${{ inputs.enable-soft-gate == 'true' }}
     needs: tests
     runs-on: ubuntu-latest
@@ -251,7 +279,7 @@ jobs:
       - name: Download coverage artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: coverage-*
+          pattern: ${{ inputs.artifact-prefix }}coverage-*
           merge-multiple: true
       - name: Debug coverage artifact contents (Issue #1386)
         run: |
@@ -271,28 +299,30 @@ jobs:
         env:
           LOW_COVERAGE_THRESHOLD: ${{ inputs.low-coverage-threshold }}
         run: |
-          import glob, json, os, sys
+          import glob, json, os, re, sys
 
           HOTSPOT_LIMIT = 15
           try:
               LOW_COVERAGE_THRESHOLD = float(os.environ.get('LOW_COVERAGE_THRESHOLD', '50.0'))
           except ValueError:
               LOW_COVERAGE_THRESHOLD = 50.0
+
           candidates = sorted(set(glob.glob('coverage-*.json') + glob.glob('**/coverage.json', recursive=True)))
-          # Filter out duplicate same-path entries
           seen=set(); ordered=[]
           for c in candidates:
               p=os.path.relpath(c)
               if p not in seen:
-                  seen.add(p); ordered.append(p)
+                  seen.add(p)
+                  ordered.append(p)
+
           if not ordered:
               msg = 'No coverage JSON files found (Issue #1386 diagnostics)'
               print('[warn]', msg)
               with open('coverage_summary.md','w') as w:
                   w.write('**Coverage data unavailable – see debug step output.**\n')
-              # Continue (non-blocking) but set output flag
               print('::notice:: '+msg)
               sys.exit(0)
+
           totals=[]; hotspots=[]
           for jf in ordered:
               try:
@@ -305,46 +335,49 @@ jobs:
               pct = t.get('percent_covered')
               if pct is None:
                   disp = t.get('percent_covered_display')
-                  try: pct=float(disp) if disp is not None else 0.0
-                  except Exception: pct=0.0
+                  try:
+                      pct = float(disp) if disp is not None else 0.0
+                  except Exception:
+                      pct = 0.0
               totals.append(float(pct))
-              files=(data.get('files') or {})
-              for fpath, meta in files.items():
+              for fpath, meta in (data.get('files') or {}).items():
                   s=meta.get('summary', {}) or {}
                   fpct = s.get('percent_covered')
                   if fpct is None:
                       disp=s.get('percent_covered_display')
-                      try: fpct=float(disp) if disp is not None else 0.0
-                      except Exception: fpct=0.0
+                      try:
+                          fpct=float(disp) if disp is not None else 0.0
+                      except Exception:
+                          fpct=0.0
                   hotspots.append((float(fpct), fpath))
+
           hotspots.sort(key=lambda x: x[0])
-          if not totals:
-              print('[warn] Coverage totals list empty after parsing candidates.')
-          avg= round(sum(totals)/len(totals),2) if totals else 0.0
-          worst= round(min(totals),2) if totals else 0.0
+          avg = round(sum(totals)/len(totals), 2) if totals else 0.0
+          worst = round(min(totals), 2) if totals else 0.0
           lines=[f"**Coverage (avg across jobs): {avg}% | worst job: {worst}%**", "", "| File | % covered |", "|---|---:|"]
           for fpct,f in hotspots[:HOTSPOT_LIMIT]:
               lines.append(f"| `{f}` | {fpct:.1f}% |")
-          if len(lines)==4:
+          if len(lines) == 4:
               lines.append('| *(no files parsed)* | *(n/a)* |')
-          # Low coverage spotlight (below threshold) – reuse already sorted hotspot list
           low_cov=[(p,f) for p,f in hotspots if p < LOW_COVERAGE_THRESHOLD]
           if low_cov:
-              lines.append("")
-              lines.append(f"#### Low Coverage (<{LOW_COVERAGE_THRESHOLD:.0f}% )")
-              lines.append("| File | % covered |")
-              lines.append("|---|---:|")
-              for p,f in low_cov[:HOTSPOT_LIMIT]:  # cap separately to avoid huge tables
+              lines += ['', f"#### Low Coverage (<{LOW_COVERAGE_THRESHOLD:.0f}% )", "| File | % covered |", "|---|---:|"]
+              for p,f in low_cov[:HOTSPOT_LIMIT]:
                   lines.append(f"| `{f}` | {p:.1f}% |")
               if len(low_cov) > HOTSPOT_LIMIT:
                   lines.append(f"| *(+{len(low_cov)-HOTSPOT_LIMIT} more below {LOW_COVERAGE_THRESHOLD:.0f}% – truncated)* | *(n/a)* |")
           with open('coverage_summary.md','w') as w:
-              w.write("\n".join(lines)+"\n")
-          print('\n'.join(lines[:6])+'\n...')
+              w.write('\n'.join(lines)+'\n')
+          first_line = lines[0]
+          match = re.search(r'avg across jobs\):\s*([0-9.]+)% \| worst job: ([0-9.]+)%', first_line)
+          if match:
+              print(first_line)
+          else:
+              print('[warn] Unable to parse coverage headline from summary header:', first_line)
       - name: Upload coverage summary artifact
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-summary
+          name: ${{ inputs.artifact-prefix }}coverage-summary
           retention-days: ${{ inputs.coverage-artifact-retention-days }}
           path: coverage_summary.md
       - name: Build job log links table
@@ -358,6 +391,8 @@ jobs:
             const rows = data.jobs.map(j => `| ${j.name} | ${j.conclusion || j.status} | [logs](${j.html_url}) |`);
             const md = ["### Logs for this run","| Job | Result | Logs |","|---|---|---|",...rows].join("\n");
             core.setOutput('table', md);
+            const failed = data.jobs.filter(j => !['success','skipped'].includes((j.conclusion || '').toLowerCase())).map(j => j.name);
+            core.setOutput('failed', failed.join(', '));
       - name: Create / update soft coverage issue
         uses: actions/github-script@v7
         env:
@@ -371,7 +406,6 @@ jobs:
             const bodyBlock = fs.readFileSync('coverage_summary.md','utf8');
             const jobTable = process.env.TABLE || '';
             const runUrl = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`;
-            // Ensure label exists
             try { await github.rest.issues.getLabel({owner, repo, name: label}); } catch { await github.rest.issues.createLabel({owner, repo, name: label, color: '0e8a16'}); }
             const q = `repo:${owner}/${repo} is:issue is:open in:title "${title}" label:"${label}"`;
             const search = await github.rest.search.issuesAndPullRequests({ q, per_page: 1 });
@@ -380,33 +414,29 @@ jobs:
               const num = search.data.items[0].number;
               await github.rest.issues.update({owner, repo, issue_number: num, title});
               await github.rest.issues.createComment({owner, repo, issue_number: num, body: compositeBody});
-              core.info(`Updated #${num}`);
             } else {
-              const created = await github.rest.issues.create({owner, repo, title, body: compositeBody, labels:[label]});
-              core.info(`Created #${created.data.number}`);
+              await github.rest.issues.create({owner, repo, title, body: compositeBody, labels:[label]});
             }
       - name: Append coverage summary to run summary
         run: |
           echo "## Soft Coverage Gate" >> $GITHUB_STEP_SUMMARY
           cat coverage_summary.md >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          # (Per Issue #1344) Universal logs table now emitted by logs_summary job.
-          # Removed duplicate per-job logs table here to avoid redundancy.
+          echo "${{ steps.jobs.outputs.table }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
       - name: Emit coverage trend record
         shell: python
         run: |
-          import json, os, datetime
-          # Simple single-run JSON line; a downstream process or future enhancement can append history.
+          import datetime, json, os, re
           summary_path='coverage_summary.md'
           avg=worst=None
           try:
             with open(summary_path,'r') as fh:
               first=fh.readline().strip()
-            # Parse **Coverage (avg across jobs): X% | worst job: Y%**
-            import re
             m=re.search(r'avg across jobs\):\s*([0-9.]+)% \| worst job: ([0-9.]+)%', first)
             if m:
-              avg=float(m.group(1)); worst=float(m.group(2))
+              avg=float(m.group(1))
+              worst=float(m.group(2))
           except Exception:
             pass
           rec={
@@ -419,27 +449,27 @@ jobs:
             'worst_job_coverage': worst,
             'timestamp_utc': datetime.datetime.utcnow().isoformat()+'Z'
           }
-          with open('coverage-trend.json','w') as w: json.dump(rec,w,indent=2,sort_keys=True)
+          with open('coverage-trend.json','w') as w:
+            json.dump(rec,w,indent=2,sort_keys=True)
           print('Wrote coverage-trend.json')
       - name: Upload coverage trend artifact
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-trend
+          name: ${{ inputs.artifact-prefix }}coverage-trend
           retention-days: ${{ inputs.coverage-artifact-retention-days }}
           path: coverage-trend.json
       - name: Download existing coverage trend history (if any)
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
-            name: coverage-trend-history
-            path: coverage-history-pre
+          name: ${{ inputs.artifact-prefix }}coverage-trend-history
+          path: coverage-history-pre
       - name: Merge coverage trend history
         shell: bash
         run: |
           set -euo pipefail
           HIST=coverage-trend-history.ndjson
           if [ -d coverage-history-pre ]; then
-            # Rehydrate prior artifact contents if present
             if [ -f coverage-history-pre/coverage-trend-history.ndjson ]; then
               cp coverage-history-pre/coverage-trend-history.ndjson "$HIST"
             fi
@@ -449,18 +479,10 @@ jobs:
       - name: Upload coverage trend history artifact
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-trend-history
+          name: ${{ inputs.artifact-prefix }}coverage-trend-history
           retention-days: ${{ inputs.coverage-artifact-retention-days }}
           path: coverage-trend-history.ndjson
 
-  # Universal logs summary (Issue #1344)
-  # Ensures every CI run exposes a per-job logs table in the run summary even when
-  # the soft coverage gate is disabled. Placed in its own job so it can depend on
-  # all earlier jobs completing (success, failure, or skip). We only require the
-  # mandatory 'tests' job so optional jobs (mypy, coverage_soft_gate) don't break
-  # dependency resolution when disabled or skipped. The GitHub API call enumerates
-  # ALL jobs for the workflow run, so the table naturally includes mypy / soft gate
-  # when present.
   logs_summary:
     if: ${{ always() }}
     needs: [tests]
@@ -468,7 +490,7 @@ jobs:
     permissions:
       actions: read
     steps:
-      - name: Build universal job log links table
+      - name: Enumerate jobs
         id: jobs
         uses: actions/github-script@v7
         with:
@@ -494,3 +516,6 @@ jobs:
         run: |
           echo "${{ steps.jobs.outputs.table }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+
+# End of workflow
+
