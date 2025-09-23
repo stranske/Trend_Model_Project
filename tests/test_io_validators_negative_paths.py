@@ -120,6 +120,13 @@ def test_validate_returns_schema_reports_missing_date_column() -> None:
     assert any("Missing required 'Date' column" in issue for issue in result.issues)
 
 
+def test_validate_returns_schema_requires_numeric_columns() -> None:
+    frame = pd.DataFrame({"Date": ["2020-01-31", "2020-02-29"]})
+    result = validators.validate_returns_schema(frame)
+    assert result.is_valid is False
+    assert any("No numeric return columns" in issue for issue in result.issues)
+
+
 def test_validate_returns_schema_detects_duplicate_dates() -> None:
     frame = pd.DataFrame(
         {
