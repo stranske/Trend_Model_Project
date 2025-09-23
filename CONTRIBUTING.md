@@ -75,3 +75,17 @@ Blocks pushes if style gate fails.
 Open a draft PR early for structural feedback or tag maintainers in issues. Provide reproduction steps, config snippet, and failing test name when reporting bugs.
 
 Happy contributing!
+
+## Typing Aliases (_typing.py)
+To standardise NumPy annotations and eliminate repetitive verbose generics, the module `src/trend_analysis/_typing.py` defines float64-focused aliases:
+
+- `FloatArray` / `VectorF` / `MatrixF`: canonical `np.ndarray` float64 shapes (shape not enforced statically)
+- `AnyArray`: unconstrained ndarray when dtype/shape truly agnostic
+
+Guidelines:
+- Prefer these aliases over raw `np.ndarray` or `np.floating` unions in new code.
+- Do not expand aliases unless a clear cross-module need emerges (keep surface minimal).
+- If you introduce structured (e.g. 2D-specific) semantics, document them via a dedicated alias instead of inline comments.
+- Avoid mixing old and new styles in the same diff—refactor locally if you touch a function signature.
+
+Rationale: cleans mypy output, stabilises CI typing surface, and accelerates future dtype specialization (e.g., int arrays) without sweeping edits.
