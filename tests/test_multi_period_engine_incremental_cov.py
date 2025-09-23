@@ -574,10 +574,8 @@ def test_run_incremental_covariance_handles_cov_cache_import_failure(monkeypatch
 
     monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
 
-    stub_cache = types.ModuleType("trend_analysis.perf.cache")
-    stub_cache.compute_cov_payload = cache_mod.compute_cov_payload
-    stub_cache.incremental_cov_update = cache_mod.incremental_cov_update
-    monkeypatch.setitem(sys.modules, "trend_analysis.perf.cache", stub_cache)
+    # Patch CovCache to raise ImportError when accessed
+    monkeypatch.setattr(cache_mod, "CovCache", property(lambda self: (_ for _ in ()).throw(ImportError("No module named 'CovCache'"))))
 
     results = mp_engine.run(cfg, df=df)
 
