@@ -214,7 +214,7 @@ def run_probe(repo: str, token: str) -> Dict[str, Any]:
     except URLError as exc:  # pragma: no cover - network errors in CI only.
         errors.append(f"Failed to list variables: {exc.reason}")
 
-    failures = [check for check in checks if not bool(check.get("ok"))]
+    failures = [check for check in checks if not check.get("ok")]
     results["ok"] = not failures and not errors
     results["failures"] = failures
     return results
