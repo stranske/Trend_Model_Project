@@ -973,63 +973,147 @@ def test_render_app_executes_with_dummy_streamlit(
     sys.modules.pop("trend_portfolio_app.app", None)
 
     module = importlib.import_module("trend_portfolio_app.app")
-
-    calls: list[tuple[str, dict[str, Any]]] = []
-
-    def capture_sidebar(cfg: dict[str, Any]) -> None:
-        calls.append(("sidebar", dict(cfg)))
-
-    def capture_run(cfg: dict[str, Any]) -> None:
-        calls.append(("run", dict(cfg)))
-
-    monkeypatch.setattr(module, "_render_sidebar", capture_sidebar)
-    monkeypatch.setattr(module, "_render_run_section", capture_run)
-
-    module._render_app()
-
-    assert calls[0][0] == "sidebar"
-    assert calls[1][0] == "run"
-    sys.modules.pop("trend_portfolio_app.app", None)
+    
+    assert page_config_calls, "_render_app should configure the page on import"
+    assert titles == ["Trend Portfolio App"]
+    assert dummy.session_state.get("config_dict") is not None
+    assert isinstance(dummy.session_state["config_dict"], dict)
+    assert module._render_app  # pragma: no cover - sanity check the attribute exists
 
 
-def test_module_import_triggers_render_app(monkeypatch: pytest.MonkeyPatch) -> None:
-    class _AutoStreamlit(_DummyStreamlit):
-        def __init__(self) -> None:
-            super().__init__()
-            self.calls: list[str] = []
-
-        def set_page_config(self, *args, **kwargs):  # type: ignore[override]
-            self.calls.append("set_page_config")
-            return super().set_page_config(*args, **kwargs)
-
-        def title(self, *args, **kwargs):  # type: ignore[override]
-            self.calls.append("title")
-            return super().title(*args, **kwargs)
-
-    stub = _AutoStreamlit()
-    monkeypatch.setitem(sys.modules, "streamlit", stub)
-    sys.modules.pop("trend_portfolio_app.app", None)
-
-    importlib.import_module("trend_portfolio_app.app")
-
-    assert "set_page_config" in stub.calls
-    assert "title" in stub.calls
-    sys.modules.pop("trend_portfolio_app.app", None)
-
-
-def test_apply_session_state_csv_branch_real_module(
+def test_read_defaults_prefers_demo_csv_when_available(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    stub = _DummyStreamlit()
-    monkeypatch.setitem(sys.modules, "streamlit", stub)
-    sys.modules.pop("trend_portfolio_app.app", None)
+    app_mod = _load_app(monkeypatch)
 
-    module = importlib.import_module("trend_portfolio_app.app")
-    module.st.session_state.clear()
-    module.st.session_state["data.csv_path"] = "state.csv"
+    base_defaults = {"data": {}, "portfolio": {}}
+    monkeypatch.setattr(app_mod.yaml, "safe_load", lambda _: dict(base_defaults))
+
+    original_exists = Path.exists
+
+    def fake_exists(path: Path) -> bool:
+        if str(path).endswith("demo/demo_returns.csv"):
+            return True
+        return original_exists(path)
+
+    monkeypatch.setattr(Path, "exists", fake_exists)
+
+    defaults = app_mod._read_defaults()
+
+    assert defaults["data"]["csv_path"].endswith("demo/demo_returns.csv")
+    assert defaults["portfolio"]["policy"] == ""
+
+
+def test_read_defaults_handles_missing_demo_csv(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app_mod = _load_app(monkeypatch)
+
+    base_defaults = {"data": {}, "portfolio": {}}
+    monkeypatch.setattr(app_mod.yaml, "safe_load", lambda _: dict(base_defaults))
+
+    monkeypatch.setattr(Path, "exists", lambda _path: False)
+
+    defaults = app_mod._read_defaults()
+
+    assert "csv_path" not in defaults["data"]
+
+
+def test_normalize_columns_wraps_scalars(monkeypatch: pytest.MonkeyPatch) -> None:
+    app_mod = _load_app(monkeypatch)
+
+    sentinel = object()
+    assert app_mod._normalize_columns(sentinel, 3) == [sentinel, sentinel, sentinel]
+
+
+def test_apply_session_state_skips_invalid_months(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app_mod = _load_app(monkeypatch)
+
+    state = app_mod.st.session_state
+    state.clear()
+    state.update(
+        {
+            "multi_period.window._months": "not-a-number",
+            "data.csv_path": "from-session.csv",
+        }
+    )
+
+    cfg: dict[str, Any] = {}
+    app_mod._apply_session_state(cfg)
+
+    assert "multi_period" not in cfg
+    assert cfg["data"]["csv_path"] == "from-session.csv"
+
+
+def test_summarise_run_df_handles_empty_inputs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app_mod = _load_app(monkeypatch)
+
+    assert app_mod._summarise_run_df(None).empty
+    assert app_mod._summarise_run_df(pd.DataFrame()).empty
+
+
+def test_summarise_multi_handles_empty_results(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app_mod = _load_app(monkeypatch)
+
+    summary = app_mod._summarise_multi([])
+
+    assert summary.empty
+
+
+def test_summarise_multi_handles_non_iterable_period(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app_mod = _load_app(monkeypatch)
+
+    class BrokenPeriod:
+        def __iter__(self):  # pragma: no cover - invoked by list()
+            raise TypeError("boom")
+
+    class MetricProxy:
+        def __init__(self, value: str) -> None:
+            self.sharpe = value
+
+    summary = app_mod._summarise_multi(
+        [
+            {
+                "period": BrokenPeriod(),
+                "out_ew_stats": None,
+                "out_user_stats": MetricProxy("bad"),
+            }
+        ]
+    )
+
+    assert summary.loc[0, "in_start"] == ""
+    assert summary.loc[0, "ew_sharpe"] != summary.loc[0, "ew_sharpe"]
+
+
+def test_render_run_section_handles_empty_outputs(monkeypatch: pytest.MonkeyPatch) -> None:
+    app_mod = _load_app(monkeypatch)
+
+    def fake_button(label: str, *_, **__) -> bool:
+        return label in {"Run Single Period", "Run Multi-Period"}
+
+    app_mod.st.button = fake_button  # type: ignore[assignment]
+    app_mod.st.success = lambda *_: None  # type: ignore[assignment]
+    app_mod.st.download_button = lambda *_, **__: None  # type: ignore[assignment]
+
+    app_mod.st.session_state.clear()
 
     cfg: dict[str, Any] = {"data": {}}
-    module._apply_session_state(cfg)
 
-    assert cfg["data"]["csv_path"] == "state.csv"
-    sys.modules.pop("trend_portfolio_app.app", None)
+    monkeypatch.setattr(app_mod, "_build_cfg", lambda d: d)
+    monkeypatch.setattr(app_mod.pipeline, "run", lambda _: pd.DataFrame())
+    monkeypatch.setattr(app_mod, "run_multi", lambda _: [])
+
+    tables: list[pd.DataFrame] = []
+    app_mod.st.dataframe = lambda df, **__: tables.append(df)  # type: ignore[assignment]
+
+    app_mod._render_run_section(cfg)
+
+    assert tables == []

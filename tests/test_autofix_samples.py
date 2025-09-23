@@ -1,9 +1,7 @@
 from __future__ import annotations
 
+import ast
 import runpy
-import sys
-
-import pytest
 
 from trend_analysis import (
     _autofix_trigger_sample,
@@ -49,6 +47,14 @@ def test_violation_case2_runs_as_script(capsys: "pytest.CaptureFixture[str]") ->
     assert "'total': 6" in captured.out
     assert "'mean': 2.0" in captured.out
     assert "'count': 3" in captured.out
+
+
+def test_violation_case2_runs_as_a_script(capsys) -> None:
+    runpy.run_module("trend_analysis._autofix_violation_case2", run_name="__main__")
+
+    captured = capsys.readouterr()
+    output = ast.literal_eval(captured.out.strip())
+    assert output == {"total": 6, "mean": 2.0, "count": 3}
 
 
 def test_violation_case3_exposes_expected_behaviour() -> None:
