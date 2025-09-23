@@ -309,7 +309,7 @@ def test_health_wrapper_runner_skips_existing_src_path(monkeypatch):
     module_path = src_path / "trend_portfolio_app" / "health_wrapper_runner.py"
     spec = importlib.util.spec_from_file_location(module_name, module_path)
     module = importlib.util.module_from_spec(spec)
-    assert spec and spec.loader  # pragma: no branch - sanity check
+    assert spec and spec.loader  # pragma: no cover
     sys.modules[module_name] = module
     spec.loader.exec_module(module)
 
