@@ -1,0 +1,19 @@
+name: CI Signature Guard
+
+on:
+  push:
+    branches: [ phase-2-dev, feat/*, chore/* ]
+  pull_request:
+    branches: [ phase-2-dev ]
+
+jobs:
+  verify-signature:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify signature (composite action)
+        uses: ./.github/actions/signature-verify
+        with:
+          jobs-json: |
+            $(cat .github/signature-fixtures/basic_jobs.json)
+          expected-hash: $(cat .github/signature-fixtures/basic_hash.txt)
