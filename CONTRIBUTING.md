@@ -89,3 +89,51 @@ Guidelines:
 - Avoid mixing old and new styles in the same diff—refactor locally if you touch a function signature.
 
 Rationale: cleans mypy output, stabilises CI typing surface, and accelerates future dtype specialization (e.g., int arrays) without sweeping edits.
+
+## Workflow & Docker Parity (Added Post Style Gate Enhancements)
+
+To prevent CI‑only failures (workflow lint, container smoke, type drift), the following helper scripts replicate CI jobs locally:
+
+| Purpose | CI Job | Local Script |
+|---------|--------|--------------|
+| Black/Ruff + pinned mypy | `Style Gate` | `scripts/style_gate_local.sh` |
+| Full quality (style + type + adaptive tests) | aggregate | `scripts/quality_gate.sh` |
+| Workflow syntax/semantic lint | `workflow lint (actionlint)` / `actionlint` | `scripts/workflow_lint.sh` |
+| Docker build + health smoke | `Docker` (smoke) | `scripts/docker_smoke.sh` |
+
+### Pinned Mypy
+The CI now pins mypy via `MYPY_VERSION` in `.github/workflows/autofix-versions.env`. Local scripts consume this env to avoid version drift. If you see differing results, ensure the env file includes the same version and re-run:
+```bash
+./scripts/style_gate_local.sh
+```
+
+### Running Workflow Lint Locally
+```bash
+./scripts/workflow_lint.sh
+```
+Run this before pushing when editing any file under `.github/workflows/`.
+
+### Optional Local Docker Smoke
+```bash
+./scripts/docker_smoke.sh
+```
+Triggers a minimal build and health endpoint probe matching CI expectations. Recommended when changing the `Dockerfile`, `requirements.lock`, or health handler.
+
+### Quality Gate Change Detection
+`scripts/quality_gate.sh` auto-runs workflow lint if workflow files changed and docker smoke if `Dockerfile` / `requirements.lock` changed (requires the scripts to be present and executable).
+
+### Pre-commit (Optional) Actionlint Hook
+You may add a local repo stanza (not committed) to `.pre-commit-config.yaml`:
+```yaml
+   - repo: local
+      hooks:
+         - id: actionlint
+            name: actionlint
+            entry: scripts/workflow_lint.sh
+            language: system
+            files: ".github/workflows/.*\\.yml$"
+```
+This is optional to avoid slowing unrelated commits.
+
+---
+With these parity scripts in place, any style, workflow, or container issue should be discoverable pre-push.

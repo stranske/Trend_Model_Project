@@ -37,4 +37,25 @@ if ! ruff check .; then
   exit 1
 fi
 
+# Run mypy using pinned version if available
+if [[ -n "${MYPY_VERSION:-}" ]]; then
+  echo "Ensuring pinned mypy==${MYPY_VERSION}" >&2
+  python -m pip install -q "mypy==${MYPY_VERSION}" pydantic streamlit >/dev/null || {
+    echo "Failed to install mypy ${MYPY_VERSION}" >&2
+    exit 1
+  }
+else
+  echo "MYPY_VERSION not exported; using existing mypy (if any)" >&2
+fi
+
+if command -v mypy >/dev/null 2>&1; then
+  echo "Running mypy (core + app)" >&2
+  if ! mypy --config-file pyproject.toml src/trend_analysis src/trend_portfolio_app; then
+    echo "mypy type check failed." >&2
+    exit 1
+  fi
+else
+  echo "mypy not found; skipping type check" >&2
+fi
+
 echo "Style Gate local mirror: PASS" >&2
