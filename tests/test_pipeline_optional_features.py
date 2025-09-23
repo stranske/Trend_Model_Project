@@ -206,6 +206,42 @@ def test_run_analysis_skips_avg_corr_for_single_fund() -> None:
     assert out_stats.os_avg_corr is None
 
 
+def test_run_analysis_does_not_duplicate_existing_avg_corr(monkeypatch: pytest.MonkeyPatch) -> None:
+    df = _clean_returns_frame()
+    stats_cfg = RiskStatsConfig()
+    stats_cfg.metrics_to_run = list(stats_cfg.metrics_to_run) + ["AvgCorr"]
+    setattr(stats_cfg, "extra_metrics", ["AvgCorr"])
+
+    def fake_single_period_run(*args, **kwargs) -> pd.DataFrame:
+        frame = pd.DataFrame(
+            {"Sharpe": [1.0, 0.5], "AvgCorr": [0.1, 0.2]},
+            index=["FundA", "FundB"],
+        )
+        frame.attrs["insample_len"] = 2
+        frame.attrs["period"] = ("2020-01", "2020-02")
+        return frame
+
+    monkeypatch.setattr(pipeline, "single_period_run", fake_single_period_run)
+
+    result = pipeline._run_analysis(
+        df,
+        "2020-01",
+        "2020-02",
+        "2020-03",
+        "2020-04",
+        target_vol=1.0,
+        monthly_cost=0.0,
+        stats_cfg=stats_cfg,
+        indices_list=["Benchmark"],
+        benchmarks={"SPX": "Benchmark"},
+    )
+
+    assert result is not None
+    score_frame = result["score_frame"]
+    assert list(score_frame.columns).count("AvgCorr") == 1
+    pd.testing.assert_index_equal(score_frame.index, pd.Index(["FundA", "FundB"]))
+
+
 def test_run_analysis_constraint_failure_falls_back(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

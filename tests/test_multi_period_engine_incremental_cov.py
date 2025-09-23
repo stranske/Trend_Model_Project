@@ -113,6 +113,49 @@ def test_run_incremental_covariance_updates(monkeypatch):
     assert second_stats["incremental_updates"] == 1
 
 
+def test_run_incremental_covariance_coerces_non_positive_shift_steps(monkeypatch):
+    """Non-positive shift step settings should coerce to at least one step."""
+
+    cfg = _Cfg()
+    cfg.performance["shift_detection_max_steps"] = 0  # force coercion branch
+    df = _make_df()
+    periods = _make_periods()
+
+    monkeypatch.setattr(mp_engine, "generate_periods", lambda _cfg: periods)
+    monkeypatch.setattr(mp_engine.np, "allclose", lambda *a, **kwargs: False)
+
+    def fake_run_analysis(*args, **kwargs):
+        return {"out_ew_stats": {"sharpe": 1.0}}
+
+    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+
+    real_incremental = cache_mod.incremental_cov_update
+    incremental_calls: list[int] = []
+
+    def wrapped_incremental(prev, old_row, new_row):
+        incremental_calls.append(1)
+        return real_incremental(prev, old_row, new_row)
+
+    monkeypatch.setattr(cache_mod, "incremental_cov_update", wrapped_incremental)
+
+    real_compute = cache_mod.compute_cov_payload
+    compute_calls: list[int] = []
+
+    def wrapped_compute(frame: pd.DataFrame, *, materialise_aggregates: bool):
+        compute_calls.append(frame.shape[0])
+        return real_compute(frame, materialise_aggregates=materialise_aggregates)
+
+    monkeypatch.setattr(cache_mod, "compute_cov_payload", wrapped_compute)
+
+    results = mp_engine.run(cfg, df=df)
+
+    assert len(results) == 2
+    # Coercing to one step still results in a full recomputation when the limit is non-positive.
+    assert incremental_calls == []
+    assert compute_calls == [3, 3]
+    assert results[1]["cache_stats"]["incremental_updates"] == 0
+
+
 def test_run_incremental_covariance_shift_detection(monkeypatch):
     """Ensure the incremental path applies sequential updates when shifts are
     detected."""
