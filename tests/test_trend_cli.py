@@ -74,10 +74,7 @@ def test_determine_seed_handles_invalid_env(monkeypatch) -> None:
 
     cfg = DummyCfg()
     monkeypatch.setenv("TREND_SEED", "not-an-int")
-    try:
-        value = _determine_seed(cfg, None)
-    finally:
-        monkeypatch.delenv("TREND_SEED", raising=False)
+    value = _determine_seed(cfg, None)
 
     assert value == 11
     assert cfg.seed == 11
