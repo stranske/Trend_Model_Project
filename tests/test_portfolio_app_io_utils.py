@@ -273,6 +273,54 @@ def test_health_wrapper_runner_injects_src_path(monkeypatch):
     sys.modules.pop(module_name, None)
 
 
+def test_health_wrapper_runner_skips_existing_src_path(monkeypatch):
+    """If the repository ``src`` directory is already present, the runner should
+    leave the order untouched instead of inserting a duplicate entry."""
+
+    import importlib.util
+    import sys
+    from pathlib import Path
+    from types import ModuleType
+
+    module_name = "trend_portfolio_app.health_wrapper_runner"
+
+    # Reset any prior import side effects before reloading the runner.
+    sys.modules.pop(module_name, None)
+
+    src_path = Path(__file__).resolve().parents[1] / "src"
+    preexisting = [str(src_path), "dummy-path"]
+    monkeypatch.setattr(sys, "path", preexisting.copy(), raising=False)
+
+    package = ModuleType("trend_portfolio_app")
+    package.__path__ = []  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "trend_portfolio_app", package)
+
+    invoked: dict[str, bool] = {}
+
+    def fake_main() -> None:  # noqa: D401
+        invoked["called"] = True
+
+    health_wrapper = ModuleType("trend_portfolio_app.health_wrapper")
+    health_wrapper.main = fake_main  # type: ignore[attr-defined]
+    monkeypatch.setitem(
+        sys.modules, "trend_portfolio_app.health_wrapper", health_wrapper
+    )
+
+    module_path = src_path / "trend_portfolio_app" / "health_wrapper_runner.py"
+    spec = importlib.util.spec_from_file_location(module_name, module_path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader  # pragma: no branch - sanity check
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+
+    # ``sys.path`` should remain unchanged when the src directory is already present.
+    assert sys.path == preexisting
+    module.main()
+    assert invoked == {"called": True}
+
+    sys.modules.pop(module_name, None)
+
+
 def test_portfolio_app_main_preserves_existing_src_path(monkeypatch):
     import importlib
     import sys
