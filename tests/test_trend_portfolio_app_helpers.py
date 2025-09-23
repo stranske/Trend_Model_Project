@@ -261,6 +261,30 @@ def test_read_defaults_populates_expected_keys(monkeypatch: pytest.MonkeyPatch) 
     assert "csv_path" in data_section
 
 
+def test_read_defaults_populates_demo_csv_when_available(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    app_mod = _load_app(monkeypatch)
+
+    demo_file = tmp_path / "demo" / "demo_returns.csv"
+    demo_file.parent.mkdir()
+    demo_file.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
+
+    original_path = app_mod.Path
+
+    def fake_path(value: str, *args: Any, **kwargs: Any) -> Path:
+        candidate = original_path(value, *args, **kwargs)
+        if candidate.as_posix() == "demo/demo_returns.csv":
+            return demo_file
+        return candidate
+
+    monkeypatch.setattr(app_mod, "Path", fake_path)
+
+    defaults = app_mod._read_defaults()
+    assert defaults["data"]["csv_path"] == str(demo_file)
+
+
 def test_merge_update_deep_merges_nested_dicts(monkeypatch: pytest.MonkeyPatch) -> None:
     app_mod = _load_app(monkeypatch)
 
@@ -308,6 +332,18 @@ def test_summarise_run_df_rounds_numeric_columns(
     assert summary["label"].tolist() == ["A", "B"]
 
 
+def test_summarise_run_df_handles_empty_payload(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app_mod = _load_app(monkeypatch)
+
+    empty = app_mod._summarise_run_df(None)
+    assert empty.empty
+
+    empty_df = app_mod._summarise_run_df(pd.DataFrame())
+    assert empty_df.empty
+
+
 def test_summarise_multi_handles_missing_sections(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -340,6 +376,46 @@ def test_summarise_multi_handles_missing_sections(
     assert summary.loc[1, "ew_cagr"] != summary.loc[1, "ew_cagr"]  # NaN
 
 
+def test_summarise_multi_coerces_problematic_period_sequences(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app_mod = _load_app(monkeypatch)
+
+    class _BadPeriod:
+        def __iter__(self) -> Iterable[str]:  # pragma: no cover - invoked via list()
+            raise TypeError("boom")
+
+    summary = app_mod._summarise_multi(
+        [{"period": _BadPeriod(), "out_ew_stats": None, "out_user_stats": None}]
+    )
+
+    assert summary.loc[0, "in_start"] == ""
+    assert summary.loc[0, "ew_sharpe"] != summary.loc[0, "ew_sharpe"]
+
+
+def test_summarise_multi_handles_iterable_period_objects(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app_mod = _load_app(monkeypatch)
+
+    class _Seq:
+        def __iter__(self) -> Iterable[str]:
+            yield from ("2021-01", "2021-06", "2021-07", "2021-12")
+
+    summary = app_mod._summarise_multi(
+        [
+            {
+                "period": _Seq(),
+                "out_ew_stats": {"sharpe": "1.0"},
+                "out_user_stats": {},
+            }
+        ]
+    )
+
+    assert summary.loc[0, "in_start"] == "2021-01"
+    assert summary.loc[0, "out_end"] == "2021-12"
+
+
 def test_expected_columns_handles_various_specs(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -365,6 +441,10 @@ def test_normalize_columns_supplies_placeholders(
     # When explicit columns exceed the requested count they should be truncated.
     trimmed = app_mod._normalize_columns([1, 2, 3], 2)
     assert trimmed == [1, 2]
+
+    # Non-iterable values should be wrapped and broadcast to the expected size.
+    wrapped = app_mod._normalize_columns("solo", 2)
+    assert wrapped == ["solo", "solo"]
 
 
 def test_columns_wraps_streamlit_columns(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -437,6 +517,28 @@ def test_apply_session_state_expands_session_keys(
     assert cfg["metrics"]["alpha"] == 0.75
     assert "custom" not in cfg
     assert "unrelated" not in cfg
+
+
+def test_apply_session_state_handles_invalid_month_values(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app_mod = _load_app(monkeypatch)
+
+    cfg: dict[str, Any] = {}
+    app_mod.st.session_state.clear()
+    app_mod.st.session_state.update(
+        {
+            "metrics.window._months": "oops",
+            "portfolio.window._months": 3,
+            "data.csv_path": "state.csv",
+        }
+    )
+
+    app_mod._apply_session_state(cfg)
+
+    assert "metrics" not in cfg
+    assert cfg["portfolio"]["window"]["length"] == 63
+    assert cfg["data"]["csv_path"] == "state.csv"
 
 
 def test_render_sidebar_resets_and_serialises(monkeypatch: pytest.MonkeyPatch) -> None:

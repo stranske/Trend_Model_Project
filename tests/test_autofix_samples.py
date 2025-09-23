@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import runpy
+
+import pytest
+
 from trend_analysis import (
     _autofix_trigger_sample,
     _autofix_violation_case2,
@@ -25,6 +29,16 @@ def test_violation_case2_compute_and_helpers() -> None:
     assert _autofix_violation_case2.Example().method(3.5, 0.5) == 4.0
     assert "extravagantly" in _autofix_violation_case2.long_line_function()
     assert _autofix_violation_case2.unused_func(1, 2, 3) is None
+
+
+def test_violation_case2_module_invocation(capsys: pytest.CaptureFixture[str]) -> None:
+    module = _autofix_violation_case2.__name__
+    # Importing via runpy ensures the module level ``__name__`` branch executes
+    # without spawning a subprocess, keeping the test hermetic.
+    runpy.run_module(module, run_name="__main__")
+
+    captured = capsys.readouterr()
+    assert captured.out.strip() == str(_autofix_violation_case2.compute())
 
 
 def test_violation_case3_exposes_expected_behaviour() -> None:
