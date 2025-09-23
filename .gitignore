@@ -40,11 +40,13 @@ results/
 !data/raw/managers/*.csv
 !data/raw/indices/*.csv
 *.json
+!/.github/signature-fixtures/basic_jobs.json
 !perf/perf_baseline.json
 !src/trend_analysis/export/manifest_schema.json
 # Stop tracking noisy autofix history (now artifact-only)
 ci/autofix/history.json
 *.txt
+!/.github/signature-fixtures/basic_hash.txt
 
 # Python package build artifacts
 *.egg-info/
