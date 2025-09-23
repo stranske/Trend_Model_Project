@@ -1,9 +1,7 @@
-{
-  "verify-signature": {
-    "runs-on": "ubuntu-latest",
-    "steps": [
-      {"uses": "actions/checkout@v4"},
-      {"name": "Read signature files", "run": "echo placeholder"}
-    ]
+[
+  {
+    "name": "verify-signature",
+    "step": "Run signature verification",
+    "stack": "SampleStack:placeholder"
   }
-}
+]
