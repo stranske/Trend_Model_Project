@@ -289,7 +289,7 @@ def test_health_wrapper_runner_skips_existing_src_path(monkeypatch):
 
     src_path = Path(__file__).resolve().parents[1] / "src"
     preexisting = [str(src_path), "dummy-path"]
-    monkeypatch.setattr(sys, "path", preexisting.copy(), raising=False)
+    monkeypatch.setattr(sys, "path", preexisting, raising=False)
 
     package = ModuleType("trend_portfolio_app")
     package.__path__ = []  # type: ignore[attr-defined]
