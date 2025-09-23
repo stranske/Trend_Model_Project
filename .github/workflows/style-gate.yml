@@ -68,6 +68,18 @@ jobs:
             exit 1
           fi
 
+      - name: Mypy (type check core)
+        run: |
+          echo "Installing mypy and minimal deps" >&2
+          pip install mypy pydantic
+          echo "Running mypy on src/trend_analysis" >&2
+          if ! mypy --config-file pyproject.toml src/trend_analysis > mypy_report.txt; then
+            echo "mypy failed" >&2
+            cat mypy_report.txt
+            exit 1
+          fi
+          echo "mypy: PASS" >> $GITHUB_STEP_SUMMARY
+
       - name: Summary
         if: always()
         run: |
@@ -75,6 +87,16 @@ jobs:
           echo "Black: PASS" >> $GITHUB_STEP_SUMMARY
           echo "Ruff total issues: ${{ steps.ruff.outputs.total }}" >> $GITHUB_STEP_SUMMARY
           echo "Ruff new issues: ${{ steps.ruff.outputs.new }}" >> $GITHUB_STEP_SUMMARY
+          if [ -f mypy_report.txt ]; then
+            if grep -q "error:" mypy_report.txt; then
+              echo "mypy: FAIL" >> $GITHUB_STEP_SUMMARY
+              printf "\n<details><summary>mypy report</summary>\n" >> $GITHUB_STEP_SUMMARY
+              sed -n '1,200p' mypy_report.txt >> $GITHUB_STEP_SUMMARY || true
+              printf "\n</details>\n" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "mypy: PASS" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
           if [ -f ruff_classification.json ]; then
             printf "\n<details><summary>Classification JSON</summary>\n" >> $GITHUB_STEP_SUMMARY
             printf "\n" >> $GITHUB_STEP_SUMMARY

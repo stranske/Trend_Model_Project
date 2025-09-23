@@ -8,9 +8,10 @@ Thank you for contributing to the Trend Model Project.
    ```bash
    ./scripts/dev_check.sh --changed --fix
    ```
-2. Local Style Gate (match CI pinned Black & Ruff):
+2. Local Style Gate (match CI pinned Black & Ruff) + types:
    ```bash
    ./scripts/style_gate_local.sh
+   python -m mypy --config-file pyproject.toml src/trend_analysis  # (or rely on quality_gate)
    ```
 3. Optional combined quality gate:
    ```bash
@@ -34,8 +35,8 @@ Thank you for contributing to the Trend Model Project.
 | 3 | `check_branch.sh --fast --fix` | 30–120s | Full formatting, lint, type, imports |
 | Full | `run_tests.sh` | 15–25s | Entire test suite + coverage |
 
-## Style Enforcement
-CI Style Gate pins versions in `.github/workflows/autofix-versions.env`. Always rely on `scripts/style_gate_local.sh` to avoid drift between local and CI tools.
+## Style & Type Enforcement
+CI Style Gate pins versions in `.github/workflows/autofix-versions.env`. Always rely on `scripts/style_gate_local.sh` to avoid drift between local and CI tools. The quality gate script also runs mypy; pre-commit now enforces mypy on `src/trend_analysis` so type regressions are caught pre-push.
 
 ## Pre-Push Hook (Optional but Recommended)
 Install once per clone:

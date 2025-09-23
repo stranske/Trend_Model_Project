@@ -34,6 +34,15 @@ repos:
       - id: ruff
         args: ["--fix"]
 
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.8.0
+    hooks:
+      - id: mypy
+        name: mypy (core package)
+        additional_dependencies: ["pydantic>=2"]
+        files: ^src/trend_analysis/
+        args: ["--config-file", "pyproject.toml", "--no-error-summary"]
+
   - repo: local
     hooks:
       - id: strip-notebook-outputs
