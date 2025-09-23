@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import io
+from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 import pytest
-
-from pathlib import Path
 
 from trend_analysis.io import validators
 
@@ -143,6 +143,31 @@ def test_validate_returns_schema_flags_non_numeric_columns() -> None:
     result = validators.validate_returns_schema(frame)
     assert result.is_valid is False
     assert any("Column 'FundA'" in issue for issue in result.issues)
+
+
+def test_validate_returns_schema_reports_malformed_dates() -> None:
+    frame = pd.DataFrame(
+        {
+            "Date": ["bad-date", "2020-02-29"],
+            "FundA": [0.01, 0.02],
+        }
+    )
+    result = validators.validate_returns_schema(frame)
+    assert result.is_valid is False
+    assert any("invalid dates" in issue for issue in result.issues)
+
+
+def test_validate_returns_schema_flags_all_missing_numeric_data() -> None:
+    frame = pd.DataFrame(
+        {
+            "Date": ["2020-01-31", "2020-02-29"],
+            "FundA": [np.nan, np.nan],
+            "FundB": [0.03, 0.04],
+        }
+    )
+    result = validators.validate_returns_schema(frame)
+    assert result.is_valid is False
+    assert any("contains no valid numeric data" in issue for issue in result.issues)
 
 
 def test_validate_returns_schema_emits_small_sample_warning() -> None:

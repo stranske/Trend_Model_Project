@@ -184,6 +184,44 @@ def test_run_incremental_covariance_shift_detection(monkeypatch):
     assert second_stats["incremental_updates"] == 1
 
 
+def test_run_incremental_covariance_shift_detection_via_allclose(monkeypatch):
+    """Shift detection should succeed when ``np.allclose`` alone finds the overlap."""
+
+    cfg = _Cfg()
+    df = _make_df()
+    periods = _make_periods()
+
+    monkeypatch.setattr(mp_engine, "generate_periods", lambda _cfg: periods)
+
+    def fake_run_analysis(*args, **kwargs):
+        return {"out_ew_stats": {"sharpe": 1.0}}
+
+    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+
+    real_incremental = cache_mod.incremental_cov_update
+    incremental_calls: list[int] = []
+
+    def tracking_incremental(prev, old_row, new_row):
+        incremental_calls.append(1)
+        return real_incremental(prev, old_row, new_row)
+
+    monkeypatch.setattr(cache_mod, "incremental_cov_update", tracking_incremental)
+
+    call_counter = {"calls": 0}
+
+    def tracking_allclose(*args, **kwargs):
+        call_counter["calls"] += 1
+        return True
+
+    monkeypatch.setattr(mp_engine.np, "allclose", tracking_allclose)
+
+    results = mp_engine.run(cfg, df=df)
+
+    assert len(results) == 2
+    assert incremental_calls == [1]
+    assert call_counter["calls"] >= 1
+
+
 def test_run_incremental_covariance_fallback_on_error(monkeypatch):
     """If incremental updates fail, the engine recomputes the covariance."""
 

@@ -342,6 +342,37 @@ def test_run_analysis_constraint_violation_fallback(monkeypatch: pytest.MonkeyPa
     assert weights["FundB"] == pytest.approx(0.3)
 
 
+def test_run_analysis_constraint_missing_groups_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    df = _clean_returns_frame()
+    stats_cfg = RiskStatsConfig()
+
+    def raise_key_error(*_args, **_kwargs):
+        raise KeyError("Missing group mapping for assets: FundA")
+
+    monkeypatch.setattr(optimizer_mod, "apply_constraints", raise_key_error)
+
+    custom_weights = {"FundA": 55.0, "FundB": 45.0}
+    result = pipeline._run_analysis(
+        df,
+        "2020-01",
+        "2020-02",
+        "2020-03",
+        "2020-04",
+        target_vol=1.0,
+        monthly_cost=0.0,
+        stats_cfg=stats_cfg,
+        custom_weights=custom_weights,
+        indices_list=["Benchmark"],
+        benchmarks={"SPX": "Benchmark"},
+        constraints={"group_caps": {"Tech": 0.6}},
+    )
+
+    assert result is not None
+    weights = result["fund_weights"]
+    assert weights["FundA"] == pytest.approx(0.55)
+    assert weights["FundB"] == pytest.approx(0.45)
+
+
 def test_run_analysis_benchmark_ir_best_effort(monkeypatch: pytest.MonkeyPatch) -> None:
     df = _clean_returns_frame()
     stats_cfg = RiskStatsConfig()
@@ -385,6 +416,36 @@ def test_run_analysis_benchmark_ir_best_effort(monkeypatch: pytest.MonkeyPatch) 
     # Fallback path should skip enriching the portfolio-level IR keys.
     assert "equal_weight" not in ir_payload
     assert "user_weight" not in ir_payload
+
+
+def test_run_analysis_benchmark_ir_handles_scalar_output(monkeypatch: pytest.MonkeyPatch) -> None:
+    df = _clean_returns_frame()
+    stats_cfg = RiskStatsConfig()
+
+    def scalar_information_ratio(*_args, **_kwargs):
+        return 0.42
+
+    monkeypatch.setattr(pipeline, "information_ratio", scalar_information_ratio)
+
+    result = pipeline._run_analysis(
+        df,
+        "2020-01",
+        "2020-02",
+        "2020-03",
+        "2020-04",
+        target_vol=1.0,
+        monthly_cost=0.0,
+        stats_cfg=stats_cfg,
+        custom_weights={"FundA": 55.0, "FundB": 45.0},
+        indices_list=["Benchmark"],
+        benchmarks={"SPX": "Benchmark"},
+    )
+
+    assert result is not None
+    ir_payload = result["benchmark_ir"].get("SPX", {})
+    assert ir_payload["FundA"] == pytest.approx(0.42)
+    assert ir_payload["equal_weight"] == pytest.approx(0.42)
+    assert ir_payload["user_weight"] == pytest.approx(0.42)
 
 
 def test_run_analysis_benchmark_ir_populates_portfolio_entries() -> None:
