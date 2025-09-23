@@ -89,7 +89,6 @@ Guidelines:
 - Avoid mixing old and new styles in the same diff—refactor locally if you touch a function signature.
 
 Rationale: cleans mypy output, stabilises CI typing surface, and accelerates future dtype specialization (e.g., int arrays) without sweeping edits.
-
 ## Workflow & Docker Parity (Added Post Style Gate Enhancements)
 
 To prevent CI‑only failures (workflow lint, container smoke, type drift), the following helper scripts replicate CI jobs locally:
