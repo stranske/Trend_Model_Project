@@ -118,3 +118,41 @@ def test_validate_returns_schema_reports_missing_date_column() -> None:
     result = validators.validate_returns_schema(frame)
     assert result.is_valid is False
     assert any("Missing required 'Date' column" in issue for issue in result.issues)
+
+
+def test_validate_returns_schema_detects_duplicate_dates() -> None:
+    frame = pd.DataFrame(
+        {
+            "Date": ["2020-01-31", "2020-01-31", "2020-02-29"],
+            "FundA": [0.01, 0.02, 0.03],
+        }
+    )
+    result = validators.validate_returns_schema(frame)
+    assert result.is_valid is False
+    assert any("Duplicate dates" in issue for issue in result.issues)
+
+
+def test_validate_returns_schema_flags_non_numeric_columns() -> None:
+    frame = pd.DataFrame(
+        {
+            "Date": ["2020-01-31", "2020-02-29"],
+            "FundA": ["bad", "data"],
+            "FundB": [0.1, 0.2],
+        }
+    )
+    result = validators.validate_returns_schema(frame)
+    assert result.is_valid is False
+    assert any("Column 'FundA'" in issue for issue in result.issues)
+
+
+def test_validate_returns_schema_emits_small_sample_warning() -> None:
+    frame = pd.DataFrame(
+        {
+            "Date": ["2020-01-31", "2020-02-29"],
+            "FundA": [0.01, 0.02],
+            "FundB": [0.03, 0.04],
+        }
+    )
+    result = validators.validate_returns_schema(frame)
+    assert result.is_valid is True
+    assert any("Dataset is quite small" in warning for warning in result.warnings)
