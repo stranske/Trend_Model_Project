@@ -66,7 +66,7 @@ def _paginated_get(url: str, token: str) -> List[Dict[str, object]]:
     next_url: Optional[str] = url
     while next_url:
         req = request.Request(next_url, headers=headers)
-        with request.urlopen(req) as resp:  # type: ignore[arg-type]
+        with request.urlopen(req, timeout=10) as resp:  # type: ignore[arg-type]
             data = json.loads(resp.read().decode("utf-8"))
             link = resp.headers.get("Link")
         if isinstance(data, dict):
