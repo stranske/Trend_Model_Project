@@ -49,6 +49,26 @@ def test_compute_contributions_total_mismatch(monkeypatch):
         attribution.compute_contributions(signals, rebal)
 
 
+def test_compute_contributions_uses_requested_tolerance(monkeypatch):
+    signals, rebal = _sample_data()
+    observed = {}
+
+    def fake_allclose(lhs, rhs, *, atol):
+        observed["lhs"] = lhs
+        observed["rhs"] = rhs
+        observed["atol"] = atol
+        return True
+
+    monkeypatch.setattr(attribution.np, "allclose", fake_allclose)
+
+    contrib = attribution.compute_contributions(signals, rebal, tolerance=0.123)
+
+    # allclose should see the row-wise totals and receive the caller supplied tolerance
+    assert np.array_equal(observed["lhs"], contrib.drop(columns="total").sum(axis=1).to_numpy())
+    assert np.array_equal(observed["rhs"], contrib["total"].to_numpy())
+    assert observed["atol"] == pytest.approx(0.123)
+
+
 def test_export_and_plot(tmp_path):
     signals, rebal = _sample_data()
     contrib = attribution.compute_contributions(signals, rebal)
