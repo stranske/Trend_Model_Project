@@ -23,8 +23,8 @@ jobs:
       FAILURE_INACTIVITY_HEAL_HOURS: 0      # (Reserved) would auto-close during failure path if >0
       NEW_ISSUE_COOLDOWN_HOURS: 24          # If >0, cooldown window for *new* failure issues (append instead)
       DISABLE_FAILURE_ISSUES: 'false'       # If 'true', skip issue create/update (still summary)
-    COOLDOWN_RETRY_MS: 3000               # Delay before second cooldown check (race mitigation)
-    STACK_TOKEN_RAW: 'false'              # If 'true', disable normalization of stack tokens
+      COOLDOWN_RETRY_MS: 3000               # Delay before second cooldown check (race mitigation)
+      STACK_TOKEN_RAW: 'false'              # If 'true', disable normalization of stack tokens
     steps:
       - name: Derive failure signature & update tracking issue
         id: tracker
