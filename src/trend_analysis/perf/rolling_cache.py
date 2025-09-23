@@ -12,6 +12,7 @@ import pandas as pd
 from joblib import dump, load
 from pandas.util import hash_pandas_object
 
+
 def _get_default_cache_dir() -> Path:
     env_path = os.getenv("TREND_ROLLING_CACHE")
     if env_path:
@@ -29,7 +30,10 @@ def _get_default_cache_dir() -> Path:
     else:
         return Path.home() / ".cache/trend_model/rolling"
 
+
 _DEFAULT_CACHE_DIR = _get_default_cache_dir()
+
+
 def _normalise_component(component: str) -> str:
     """Return a filesystem-safe version of ``component``."""
 
@@ -75,7 +79,9 @@ class RollingCache:
     def is_enabled(self) -> bool:
         return self._enabled
 
-    def _build_path(self, dataset_hash: str, window: int, freq: str, method: str) -> Path:
+    def _build_path(
+        self, dataset_hash: str, window: int, freq: str, method: str
+    ) -> Path:
         safe_method = _normalise_component(method)
         safe_freq = _normalise_component(freq)
         file_name = f"{dataset_hash}_{safe_method}_{safe_freq}_{window}.joblib"
