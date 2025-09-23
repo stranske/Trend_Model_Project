@@ -21,6 +21,8 @@ jobs:
       STACK_TOKEN_MAX_LEN: 160              # Max characters kept from extracted stack/error line
       AUTO_HEAL_INACTIVITY_HOURS: 24        # Used by success job for auto-heal closure
       FAILURE_INACTIVITY_HEAL_HOURS: 0      # (Reserved) would auto-close during failure path if >0
+      NEW_ISSUE_COOLDOWN_HOURS: 24          # If >0, cooldown window for *new* failure issues (append instead)
+      DISABLE_FAILURE_ISSUES: 'false'       # If 'true', skip issue create/update (still summary)
     steps:
       - name: Derive failure signature & update tracking issue
         id: tracker
@@ -124,6 +126,15 @@ jobs:
               `> NOTE: ${stackTokenNote}`
             ].join('\n');
 
+            // Optional global disable
+            if (/^true$/i.test(process.env.DISABLE_FAILURE_ISSUES || 'false')) {
+              core.info('Failure issue tracking disabled via DISABLE_FAILURE_ISSUES.');
+              core.summary.addHeading('Failure (tracking disabled)');
+              core.summary.addRaw('Issue creation disabled; diagnostics available in logs.');
+              await core.summary.write();
+              return;
+            }
+
             // Query for an existing open issue with this signature
             const q = `repo:${owner}/${repo} is:issue is:open in:title "${signature}" label:ci-failure`;
             const search = await github.rest.search.issuesAndPullRequests({ q, per_page: 1 });
@@ -196,6 +207,26 @@ jobs:
               }
               core.info(`Updated existing failure issue #${issue_number} (occurrence ${occ}).`);
             } else {
+              // Cooldown path for new issues
+              const cooldownHours = parseFloat(process.env.NEW_ISSUE_COOLDOWN_HOURS || '0');
+              if (cooldownHours > 0) {
+                const recent = await github.rest.search.issuesAndPullRequests({
+                  q: `repo:${owner}/${repo} is:issue label:ci-failure`,
+                  sort: 'created', order: 'desc', per_page: 1
+                });
+                if (recent.data.items.length) {
+                  const latest = recent.data.items[0];
+                  const createdAt = Date.parse(latest.created_at);
+                  if (!isNaN(createdAt)) {
+                    const age = (Date.now() - createdAt) / 3_600_000;
+                    if (age < cooldownHours) {
+                      await github.rest.issues.createComment({ owner, repo, issue_number: latest.number, body: `Additional failure during cooldown (no new issue).\n\n${bodyBlock}` });
+                      core.info(`Cooldown active (${age.toFixed(2)}h < ${cooldownHours}h). Appended to #${latest.number}`);
+                      return;
+                    }
+                  }
+                }
+              }
               // New issue: seed header meta fields
               const nowIso = new Date().toISOString();
               const headerMeta = [
