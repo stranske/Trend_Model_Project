@@ -31,7 +31,7 @@ jobs:
         with:
           dockerfile: Dockerfile
 
-  build:
+  smoke:
     needs: lint
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -62,17 +62,28 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /tmp/.buildx-cache
-          key: buildx-${{ hashFiles('Dockerfile', 'requirements.lock') }}-${{ github.sha }}
+          key: ${{ format('buildx-{0}-{1}', runner.os, hashFiles('Dockerfile', 'requirements.lock')) }}
           restore-keys: |
-            buildx-${{ hashFiles('Dockerfile', 'requirements.lock') }}
+            ${{ format('buildx-{0}-', runner.os) }}
 
-      - name: Note cache presence
+      - name: Summarize buildx cache
+        env:
+          CACHE_HIT: ${{ steps.buildx-cache.outputs.cache-hit }}
+          CACHE_KEY: ${{ format('buildx-{0}-{1}', runner.os, hashFiles('Dockerfile', 'requirements.lock')) }}
         run: |
-          if [ -d /tmp/.buildx-cache ]; then
-            echo "::notice title=BuildxCache::Cache restored (Issue #1153)"
+          if [ "$CACHE_HIT" = "true" ]; then
+            echo "::notice title=BuildxCache::Cache hit for ${CACHE_KEY}"
+            SUMMARY="✅ Cache hit for \`${CACHE_KEY}\`"
           else
-            echo "::notice title=BuildxCache::No existing cache (Issue #1153)"
+            echo "::notice title=BuildxCache::Cache miss for ${CACHE_KEY}"
+            SUMMARY="⚠️ Cache miss – priming \`${CACHE_KEY}\`"
           fi
+
+          {
+            echo "### Docker buildx cache"
+            echo ""
+            echo "$SUMMARY"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Build image (cached)
         run: |
@@ -85,6 +96,13 @@ jobs:
         run: |
           rm -rf /tmp/.buildx-cache
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+      - name: Save buildx cache
+        if: steps.buildx-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ format('buildx-{0}-{1}', runner.os, hashFiles('Dockerfile', 'requirements.lock')) }}
       - name: Run test suite
         run: |
           # Use verbose output only for debug builds, quiet mode for production

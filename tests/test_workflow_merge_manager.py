@@ -53,6 +53,6 @@ def test_commit_prefix_is_quoted():
     data = _load_yaml(WORKFLOWS / "merge-manager.yml")
     env = data.get("env", {})
     prefix = env.get("COMMIT_PREFIX")
-    assert isinstance(prefix, str) and prefix.startswith(
-        "chore("
-    ), "COMMIT_PREFIX must be a quoted string starting with 'chore('"
+    assert isinstance(prefix, str), "COMMIT_PREFIX must be configured as a string"
+    assert "AUTOFIX_COMMIT_PREFIX" in prefix, "COMMIT_PREFIX should defer to vars.AUTOFIX_COMMIT_PREFIX"
+    assert "chore(autofix):" in prefix, "COMMIT_PREFIX must fall back to 'chore(autofix):'"
