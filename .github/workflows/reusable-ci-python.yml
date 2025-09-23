@@ -17,20 +17,20 @@ on:
         default: '70'
         type: string
       run-mypy:
-        description: Run mypy static type check
+        description: Run mypy job
         required: false
-        default: 'true'
-        type: string
+        default: true
+        type: boolean
       enable-metrics:
         description: Emit ci-metrics.json (test metrics)
         required: false
-        default: 'false'
-        type: string
+        default: false
+        type: boolean
       enable-history:
         description: Append metrics history artifact
         required: false
-        default: 'false'
-        type: string
+        default: false
+        type: boolean
       history-artifact-name:
         description: Metrics history artifact filename
         required: false
@@ -39,13 +39,13 @@ on:
       enable-classification:
         description: Emit failure classification
         required: false
-        default: 'false'
-        type: string
+        default: false
+        type: boolean
       enable-coverage-delta:
         description: Compute coverage delta vs baseline
         required: false
-        default: 'false'
-        type: string
+        default: false
+        type: boolean
       baseline-coverage:
         description: Baseline coverage percent for delta
         required: false
@@ -57,7 +57,7 @@ on:
         default: '1'
         type: string
       fail-on-coverage-drop:
-        description: Fail if drop ≥ threshold
+        description: Fail if drop >= threshold
         required: false
         default: 'false'
         type: string
@@ -67,15 +67,15 @@ on:
         default: coverage-drop
         type: string
       enable-soft-gate:
-        description: Aggregate coverage (soft gate job)
+        description: Enable soft coverage gate (aggregate + issue update)
         required: false
-        default: 'false'
-        type: string
+        default: false
+        type: boolean
       coverage-hard-fail:
         description: Fail tests job if coverage < min
         required: false
-        default: 'true'
-        type: string
+        default: true
+        type: boolean
       coverage-artifact-retention-days:
         description: Retention days for coverage artifacts
         required: false
@@ -250,7 +250,7 @@ jobs:
           HISTORY_ARTIFACT_NAME: ${{ inputs.history-artifact-name }}
 
   mypy:
-    if: ${{ inputs.run-mypy == 'true' }}
+    if: ${{ inputs.run-mypy }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -268,7 +268,7 @@ jobs:
         run: mypy src || (echo 'mypy failed' && exit 1)
 
   coverage_soft_gate:
-    if: ${{ inputs.enable-soft-gate == 'true' }}
+    if: ${{ inputs.enable-soft-gate }}
     needs: tests
     runs-on: ubuntu-latest
     permissions:
