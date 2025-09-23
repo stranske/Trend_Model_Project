@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import ast
 import runpy
+import sys
+import pytest  # Added to satisfy type annotation reference (F821)
 
 from trend_analysis import (
     _autofix_trigger_sample,

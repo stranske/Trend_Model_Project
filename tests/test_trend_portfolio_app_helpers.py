@@ -990,50 +990,19 @@ def test_render_app_executes_with_dummy_streamlit(
     sys.modules.pop("trend_portfolio_app.app", None)
 
     module = importlib.import_module("trend_portfolio_app.app")
-    
-    assert page_config_calls, "_render_app should configure the page on import"
-    assert titles == ["Trend Portfolio App"]
-    assert dummy.session_state.get("config_dict") is not None
-    assert isinstance(dummy.session_state["config_dict"], dict)
+
+    # With a mocked streamlit module the production import guard skips
+    # execution; invoke the renderer explicitly for the instrumentation
+    # assertions.
+    module._render_app()  # type: ignore[attr-defined]
+
+    # Access instrumentation globals through the imported module to avoid
+    # relying on implicit star imports.
+    assert module.page_config_calls, "_render_app should configure the page on import"  # type: ignore[attr-defined]
+    assert module.titles == ["Trend Portfolio App"]  # type: ignore[attr-defined]
+    assert stub.session_state.get("config_dict") is not None
+    assert isinstance(stub.session_state["config_dict"], dict)
     assert module._render_app  # pragma: no cover - sanity check the attribute exists
-
-
-def test_read_defaults_prefers_demo_csv_when_available(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    app_mod = _load_app(monkeypatch)
-
-    base_defaults = {"data": {}, "portfolio": {}}
-    monkeypatch.setattr(app_mod.yaml, "safe_load", lambda _: dict(base_defaults))
-
-    original_exists = Path.exists
-
-    def fake_exists(path: Path) -> bool:
-        if str(path).endswith("demo/demo_returns.csv"):
-            return True
-        return original_exists(path)
-
-    monkeypatch.setattr(Path, "exists", fake_exists)
-
-    defaults = app_mod._read_defaults()
-
-    assert defaults["data"]["csv_path"].endswith("demo/demo_returns.csv")
-    assert defaults["portfolio"]["policy"] == ""
-
-
-def test_read_defaults_handles_missing_demo_csv(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    app_mod = _load_app(monkeypatch)
-
-    base_defaults = {"data": {}, "portfolio": {}}
-    monkeypatch.setattr(app_mod.yaml, "safe_load", lambda _: dict(base_defaults))
-
-    monkeypatch.setattr(Path, "exists", lambda _path: False)
-
-    defaults = app_mod._read_defaults()
-
-    assert "csv_path" not in defaults["data"]
 
 
 def test_normalize_columns_wraps_scalars(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1043,25 +1012,10 @@ def test_normalize_columns_wraps_scalars(monkeypatch: pytest.MonkeyPatch) -> Non
     assert app_mod._normalize_columns(sentinel, 3) == [sentinel, sentinel, sentinel]
 
 
-def test_apply_session_state_skips_invalid_months(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    app_mod = _load_app(monkeypatch)
-
-    state = app_mod.st.session_state
-    state.clear()
-    state.update(
-        {
-            "multi_period.window._months": "not-a-number",
-            "data.csv_path": "from-session.csv",
-        }
-    )
-
-    cfg: dict[str, Any] = {}
-    app_mod._apply_session_state(cfg)
-
-    assert "multi_period" not in cfg
-    assert cfg["data"]["csv_path"] == "from-session.csv"
+## Removed duplicate redefinitions of three earlier tests (F811):
+## - test_read_defaults_prefers_demo_csv_when_available
+## - test_read_defaults_handles_missing_demo_csv
+## - test_apply_session_state_skips_invalid_months
 
 
 def test_summarise_run_df_handles_empty_inputs(
@@ -1110,27 +1064,4 @@ def test_summarise_multi_handles_non_iterable_period(
     assert summary.loc[0, "ew_sharpe"] != summary.loc[0, "ew_sharpe"]
 
 
-def test_render_run_section_handles_empty_outputs(monkeypatch: pytest.MonkeyPatch) -> None:
-    app_mod = _load_app(monkeypatch)
-
-    def fake_button(label: str, *_, **__) -> bool:
-        return label in {"Run Single Period", "Run Multi-Period"}
-
-    app_mod.st.button = fake_button  # type: ignore[assignment]
-    app_mod.st.success = lambda *_: None  # type: ignore[assignment]
-    app_mod.st.download_button = lambda *_, **__: None  # type: ignore[assignment]
-
-    app_mod.st.session_state.clear()
-
-    cfg: dict[str, Any] = {"data": {}}
-
-    monkeypatch.setattr(app_mod, "_build_cfg", lambda d: d)
-    monkeypatch.setattr(app_mod.pipeline, "run", lambda _: pd.DataFrame())
-    monkeypatch.setattr(app_mod, "run_multi", lambda _: [])
-
-    tables: list[pd.DataFrame] = []
-    app_mod.st.dataframe = lambda df, **__: tables.append(df)  # type: ignore[assignment]
-
-    app_mod._render_run_section(cfg)
-
-    assert tables == []
+## Removed duplicate redefinition of test_render_run_section_handles_empty_outputs (F811)

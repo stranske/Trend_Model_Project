@@ -78,6 +78,22 @@ class ValidationResult:
 
         return "\n".join(lines)
 
+    # Backward compatibility: some tests historically treated the return
+    # value of ``validate_returns_schema`` as a list of issues. Provide the
+    # minimal sequence protocol so ``for issue in result`` and equality
+    # comparisons against ``[]`` continue to work without modifying the
+    # test expectations.
+    def __iter__(self):  # pragma: no cover - trivial
+        return iter(self.issues)
+
+    def __len__(self) -> int:  # pragma: no cover - trivial
+        return len(self.issues)
+
+    def __eq__(self, other: object) -> bool:  # pragma: no cover - trivial
+        if isinstance(other, (list, tuple)):
+            return list(self.issues) == list(other)
+        return object.__eq__(self, other)
+
 
 def detect_frequency(df: pd.DataFrame) -> str:
     """Detect the frequency of the time series data."""
