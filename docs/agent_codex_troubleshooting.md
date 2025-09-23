@@ -1,5 +1,7 @@
 # Codex Agent Labeling & Bootstrap Troubleshooting
 
+> Related: For CI failure tracker environment variable reference (cooldown, escalation, signature hashing) see `failure_tracker_env.md` in this directory.
+
 This guide helps diagnose why labeling an issue with `agent:codex` did **not** create (or update) a Codex bootstrap branch / draft PR.
 
 ## Quick Expectations
