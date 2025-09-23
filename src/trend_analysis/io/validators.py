@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import io
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Iterator
 
 import numpy as np
 import pandas as pd
@@ -83,7 +83,7 @@ class ValidationResult:
     # minimal sequence protocol so ``for issue in result`` and equality
     # comparisons against ``[]`` continue to work without modifying the
     # test expectations.
-    def __iter__(self):  # pragma: no cover - trivial
+    def __iter__(self) -> Iterator[str]:  # pragma: no cover - trivial
         return iter(self.issues)
 
     def __len__(self) -> int:  # pragma: no cover - trivial
