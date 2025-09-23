@@ -49,3 +49,35 @@ def test_rolling_cache_respects_disable(tmp_path):
     cache.get_or_compute(dataset_hash, 2, "unknown", "rolling_mean", compute)
 
     assert counter["calls"] == 2
+
+
+def test_rolling_cache_invalidation_on_param_change(tmp_path):
+    """Changing window or method should trigger recomputation (cache miss).
+
+    Acceptance (Issue #1440): cache invalidates on parameter change. We assert
+    that:
+        * same (hash, window, freq, method) -> single compute
+        * different window -> recompute
+        * same window but different method -> recompute
+    """
+    cache = RollingCache(cache_dir=tmp_path)
+    series = pd.Series([0.1, 0.2, 0.3, 0.4], name="sig")
+    dataset_hash = compute_dataset_hash([series])
+
+    calls = {"n": 0}
+
+    def compute() -> pd.Series:  # pragma: no cover - trivial
+        calls["n"] += 1
+        return series
+
+    # First call (window=3, method=a) -> miss
+    cache.get_or_compute(dataset_hash, 3, "M", "method_a", compute)
+    # Second identical call -> hit
+    cache.get_or_compute(dataset_hash, 3, "M", "method_a", compute)
+    assert calls["n"] == 1
+    # Change window -> miss
+    cache.get_or_compute(dataset_hash, 4, "M", "method_a", compute)
+    assert calls["n"] == 2
+    # Same window but different method -> miss
+    cache.get_or_compute(dataset_hash, 4, "M", "method_b", compute)
+    assert calls["n"] == 3

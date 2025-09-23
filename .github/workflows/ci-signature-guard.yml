@@ -1,0 +1,25 @@
+name: CI Signature Guard
+
+on:
+  push:
+    branches: [ phase-2-dev, feat/*, chore/* ]
+  pull_request:
+    branches: [ phase-2-dev ]
+
+jobs:
+  verify-signature:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read signature files
+        id: read_signature
+        run: |
+          echo "jobs_json<<EOF" >> $GITHUB_OUTPUT
+          cat .github/signature-fixtures/basic_jobs.json >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "expected_hash=$(cat .github/signature-fixtures/basic_hash.txt)" >> $GITHUB_OUTPUT
+      - name: Verify signature (composite action)
+        uses: ./.github/actions/signature-verify
+        with:
+          jobs-json: ${{ steps.read_signature.outputs.jobs_json }}
+          expected-hash: ${{ steps.read_signature.outputs.expected_hash }}

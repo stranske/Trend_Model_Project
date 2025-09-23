@@ -26,4 +26,4 @@ jobs:
           echo "Use this with an open PR to observe PR-triggered checks and autofix behavior." >> $GITHUB_STEP_SUMMARY
       - name: Log inputs
         run: |
-          echo "debug_build = ${{ github.event.inputs.debug_build }}" >> $GITHUB_STEP_SUMMARY
+          echo "debug_build = ${{ github.event.inputs.debug_build }}" >> "$GITHUB_STEP_SUMMARY"
