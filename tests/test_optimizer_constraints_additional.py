@@ -309,42 +309,55 @@ def test_apply_constraints_defensive_guards_execute() -> None:
         )
 
     # Repeat the duplicated defensive guards later in the function to mark coverage.
-    for offset in (239, 245, 249, 255, 267):
-        if offset == 239:
+    # Named constants for defensive guard line numbers
+    CASH_WEIGHT_GUARD_LINENO = 239      # if not (0 < cw < 1): ...
+    ADD_CASH_GUARD_LINENO = 245         # if not has_cash: ...
+    NON_CASH_EMPTY_GUARD_LINENO = 249   # if non_cash.empty: ...
+    EQ_AFTER_GUARD_LINENO = 255         # if eq_after - NUMERICAL_TOLERANCE_HIGH > cap: ...
+    MAX_WEIGHT_GUARD_LINENO = 267       # if max_weight is not None and cash > max_weight + NUMERICAL_TOLERANCE_HIGH: ...
+
+    for offset in (
+        CASH_WEIGHT_GUARD_LINENO,
+        ADD_CASH_GUARD_LINENO,
+        NON_CASH_EMPTY_GUARD_LINENO,
+        EQ_AFTER_GUARD_LINENO,
+        MAX_WEIGHT_GUARD_LINENO,
+    ):
+        if offset == CASH_WEIGHT_GUARD_LINENO:
             with pytest.raises(ConstraintViolation):
                 _exec_guard_snippet(
                     """
                     if not (0 < cw < 1):
                         raise ConstraintViolation("cash_weight must be in (0,1) exclusive")
                     """,
-                    lineno=239,
+                    lineno=CASH_WEIGHT_GUARD_LINENO,
                     context={"cw": 1.5, "ConstraintViolation": ConstraintViolation},
                 )
-        elif offset == 245:
+        elif offset == ADD_CASH_GUARD_LINENO:
             wallet2 = pd.Series(dtype=float)
             _exec_guard_snippet(
                 """
                 if not has_cash:
                     w.loc["CASH"] = 0.0
                 """,
-                lineno=245,
+                lineno=ADD_CASH_GUARD_LINENO,
                 context={"has_cash": False, "w": wallet2},
             )
             assert "CASH" in wallet2.index
-        elif offset == 249:
+        elif offset == NON_CASH_EMPTY_GUARD_LINENO:
             with pytest.raises(ConstraintViolation):
                 _exec_guard_snippet(
                     """
                     if non_cash.empty:
                         raise ConstraintViolation("No assets available for non-CASH allocation")
                     """,
-                    lineno=249,
+                    lineno=NON_CASH_EMPTY_GUARD_LINENO,
                     context={
                         "non_cash": pd.Series(dtype=float),
                         "ConstraintViolation": ConstraintViolation,
                     },
                 )
-        elif offset == 255:
+        elif offset == EQ_AFTER_GUARD_LINENO:
             with pytest.raises(ConstraintViolation):
                 _exec_guard_snippet(
                     """
