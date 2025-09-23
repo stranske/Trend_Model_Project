@@ -270,7 +270,7 @@ def test_read_defaults_populates_expected_keys(monkeypatch: pytest.MonkeyPatch) 
     data_section = cast(dict[str, Any], raw_data)
     assert "csv_path" in data_section
 
-
+    
 def test_read_defaults_prefers_demo_csv_when_available(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -491,6 +491,46 @@ def test_summarise_multi_handles_iterable_value_error(
     assert summary.loc[0, "ew_sharpe"] != summary.loc[0, "ew_sharpe"]
 
 
+def test_summarise_multi_coerces_problematic_period_sequences(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app_mod = _load_app(monkeypatch)
+
+    class _BadPeriod:
+        def __iter__(self) -> Iterable[str]:  # pragma: no cover - invoked via list()
+            raise TypeError("boom")
+
+    summary = app_mod._summarise_multi(
+        [{"period": _BadPeriod(), "out_ew_stats": None, "out_user_stats": None}]
+    )
+
+    assert summary.loc[0, "in_start"] == ""
+    assert summary.loc[0, "ew_sharpe"] != summary.loc[0, "ew_sharpe"]
+
+
+def test_summarise_multi_handles_iterable_period_objects(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app_mod = _load_app(monkeypatch)
+
+    class _Seq:
+        def __iter__(self) -> Iterable[str]:
+            yield from ("2021-01", "2021-06", "2021-07", "2021-12")
+
+    summary = app_mod._summarise_multi(
+        [
+            {
+                "period": _Seq(),
+                "out_ew_stats": {"sharpe": "1.0"},
+                "out_user_stats": {},
+            }
+        ]
+    )
+
+    assert summary.loc[0, "in_start"] == "2021-01"
+    assert summary.loc[0, "out_end"] == "2021-12"
+
+
 def test_expected_columns_handles_various_specs(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -516,6 +556,10 @@ def test_normalize_columns_supplies_placeholders(
     # When explicit columns exceed the requested count they should be truncated.
     trimmed = app_mod._normalize_columns([1, 2, 3], 2)
     assert trimmed == [1, 2]
+
+    # Non-iterable values should be wrapped and broadcast to the expected size.
+    wrapped = app_mod._normalize_columns("solo", 2)
+    assert wrapped == ["solo", "solo"]
 
 
 def test_normalize_columns_wraps_non_sequence(monkeypatch: pytest.MonkeyPatch) -> None:

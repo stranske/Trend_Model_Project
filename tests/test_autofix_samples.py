@@ -31,7 +31,6 @@ def test_violation_case2_compute_and_helpers() -> None:
     assert "extravagantly" in _autofix_violation_case2.long_line_function()
     assert _autofix_violation_case2.unused_func(1, 2, 3) is None
 
-
 def test_violation_case2_runs_as_script(capsys: "pytest.CaptureFixture[str]") -> None:
     """Ensure the module's ``__main__`` branch emits the expected payload."""
 
