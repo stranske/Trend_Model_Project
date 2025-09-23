@@ -398,7 +398,7 @@ def test_main_handles_errors(monkeypatch: pytest.MonkeyPatch) -> None:
     assert exit_code == 2
 
     monkeypatch.setattr(trend_cli, "_load_configuration", lambda *_: (Path("cfg.yml"), _make_config()))
-    monkeypatch.setattr(trend_cli, "_ensure_dataframe", lambda *_: (_ for _ in ()).throw(FileNotFoundError("missing")))
+    monkeypatch.setattr(trend_cli, "_ensure_dataframe", lambda *_: exec('raise FileNotFoundError("missing")'))
     exit_code = trend_cli.main(["run", "--config", "cfg.yml"])
     assert exit_code == 2
 
