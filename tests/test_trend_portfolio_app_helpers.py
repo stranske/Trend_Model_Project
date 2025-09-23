@@ -658,3 +658,141 @@ def test_full_app_bootstrap_runs_render(monkeypatch: pytest.MonkeyPatch) -> None
     assert dummy.session_state.get("config_dict") is not None
     assert isinstance(dummy.session_state["config_dict"], dict)
     assert module._render_app  # pragma: no cover - sanity check the attribute exists
+
+
+def test_read_defaults_prefers_demo_csv_when_available(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app_mod = _load_app(monkeypatch)
+
+    base_defaults = {"data": {}, "portfolio": {}}
+    monkeypatch.setattr(app_mod.yaml, "safe_load", lambda _: dict(base_defaults))
+
+    original_exists = Path.exists
+
+    def fake_exists(path: Path) -> bool:
+        if str(path).endswith("demo/demo_returns.csv"):
+            return True
+        return original_exists(path)
+
+    monkeypatch.setattr(Path, "exists", fake_exists)
+
+    defaults = app_mod._read_defaults()
+
+    assert defaults["data"]["csv_path"].endswith("demo/demo_returns.csv")
+    assert defaults["portfolio"]["policy"] == ""
+
+
+def test_read_defaults_handles_missing_demo_csv(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app_mod = _load_app(monkeypatch)
+
+    base_defaults = {"data": {}, "portfolio": {}}
+    monkeypatch.setattr(app_mod.yaml, "safe_load", lambda _: dict(base_defaults))
+
+    monkeypatch.setattr(Path, "exists", lambda _path: False)
+
+    defaults = app_mod._read_defaults()
+
+    assert "csv_path" not in defaults["data"]
+
+
+def test_normalize_columns_wraps_scalars(monkeypatch: pytest.MonkeyPatch) -> None:
+    app_mod = _load_app(monkeypatch)
+
+    sentinel = object()
+    assert app_mod._normalize_columns(sentinel, 3) == [sentinel, sentinel, sentinel]
+
+
+def test_apply_session_state_skips_invalid_months(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app_mod = _load_app(monkeypatch)
+
+    state = app_mod.st.session_state
+    state.clear()
+    state.update(
+        {
+            "multi_period.window._months": "not-a-number",
+            "data.csv_path": "from-session.csv",
+        }
+    )
+
+    cfg: dict[str, Any] = {}
+    app_mod._apply_session_state(cfg)
+
+    assert "multi_period" not in cfg
+    assert cfg["data"]["csv_path"] == "from-session.csv"
+
+
+def test_summarise_run_df_handles_empty_inputs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app_mod = _load_app(monkeypatch)
+
+    assert app_mod._summarise_run_df(None).empty
+    assert app_mod._summarise_run_df(pd.DataFrame()).empty
+
+
+def test_summarise_multi_handles_empty_results(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app_mod = _load_app(monkeypatch)
+
+    summary = app_mod._summarise_multi([])
+
+    assert summary.empty
+
+
+def test_summarise_multi_handles_non_iterable_period(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app_mod = _load_app(monkeypatch)
+
+    class BrokenPeriod:
+        def __iter__(self):  # pragma: no cover - invoked by list()
+            raise TypeError("boom")
+
+    class MetricProxy:
+        def __init__(self, value: str) -> None:
+            self.sharpe = value
+
+    summary = app_mod._summarise_multi(
+        [
+            {
+                "period": BrokenPeriod(),
+                "out_ew_stats": None,
+                "out_user_stats": MetricProxy("bad"),
+            }
+        ]
+    )
+
+    assert summary.loc[0, "in_start"] == ""
+    assert summary.loc[0, "ew_sharpe"] != summary.loc[0, "ew_sharpe"]
+
+
+def test_render_run_section_handles_empty_outputs(monkeypatch: pytest.MonkeyPatch) -> None:
+    app_mod = _load_app(monkeypatch)
+
+    def fake_button(label: str, *_, **__) -> bool:
+        return label in {"Run Single Period", "Run Multi-Period"}
+
+    app_mod.st.button = fake_button  # type: ignore[assignment]
+    app_mod.st.success = lambda *_: None  # type: ignore[assignment]
+    app_mod.st.download_button = lambda *_, **__: None  # type: ignore[assignment]
+
+    app_mod.st.session_state.clear()
+
+    cfg: dict[str, Any] = {"data": {}}
+
+    monkeypatch.setattr(app_mod, "_build_cfg", lambda d: d)
+    monkeypatch.setattr(app_mod.pipeline, "run", lambda _: pd.DataFrame())
+    monkeypatch.setattr(app_mod, "run_multi", lambda _: [])
+
+    tables: list[pd.DataFrame] = []
+    app_mod.st.dataframe = lambda df, **__: tables.append(df)  # type: ignore[assignment]
+
+    app_mod._render_run_section(cfg)
+
+    assert tables == []

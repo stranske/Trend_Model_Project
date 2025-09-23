@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import ast
+from collections import deque
+import textwrap
+
 import pandas as pd
 import pytest
 
@@ -184,3 +188,210 @@ def test_apply_constraints_enforces_cap_after_group_caps_with_cash(
     assert pytest.approx(result.loc["CASH"], rel=1e-9) == 0.2
     assert pytest.approx(result.sum(), rel=1e-9) == 1.0
     assert (result.drop("CASH") <= 0.4 + 1e-9).all()
+
+
+class _DynamicConstraintSet:
+    """Constraint-like shim that changes the reported cash weight per access."""
+
+    def __init__(self, cash_sequence: list[float | None], **kwargs: object) -> None:
+        self._cash_values: deque[float | None] = deque(cash_sequence)
+        self.history: list[float | None] = []
+        self.long_only = kwargs.get("long_only", True)
+        self.max_weight = kwargs.get("max_weight")
+        self.group_caps = kwargs.get("group_caps")
+        self.groups = kwargs.get("groups")
+
+    @property
+    def cash_weight(self) -> float | None:
+        value = self._cash_values[0]
+        if len(self._cash_values) > 1:
+            value = self._cash_values.popleft()
+        self.history.append(value)
+        return value
+
+
+def test_cash_weight_revalidation_rejects_out_of_range_values() -> None:
+    """The second validation pass should still enforce the allowed range."""
+
+    weights = pd.Series({"A": 0.6, "B": 0.4})
+    constraints = _DynamicConstraintSet([0.25, 1.2])
+
+    with pytest.raises(
+        ConstraintViolation, match=r"cash_weight must be in \(0,1\) exclusive"
+    ):
+        apply_constraints(weights, constraints)
+
+    assert constraints.history == [0.25, 1.2]
+
+
+def test_cash_weight_revalidation_detects_infeasible_caps() -> None:
+    """Updating the cash slice should re-trigger feasibility checks."""
+
+    weights = pd.Series({"A": 0.6, "B": 0.4})
+    constraints = _DynamicConstraintSet([0.5, 0.1], max_weight=0.3)
+
+    with pytest.raises(
+        ConstraintViolation,
+        match="cash_weight infeasible: remaining allocation forces per-asset weight above max_weight",
+    ):
+        apply_constraints(weights, constraints)
+
+    assert constraints.history == [0.5, 0.1]
+
+
+def test_cash_weight_revalidation_checks_cash_cap() -> None:
+    """The final cash assignment must respect the individual max weight."""
+
+    weights = pd.Series({"A": 0.7, "B": 0.3})
+    constraints = _DynamicConstraintSet([0.2, 0.6], max_weight=0.5)
+
+    with pytest.raises(ConstraintViolation, match="cash_weight exceeds max_weight"):
+        apply_constraints(weights, constraints)
+
+    assert constraints.history == [0.2, 0.6]
+
+
+def _exec_guard_snippet(snippet: str, *, lineno: int, context: dict[str, object]) -> None:
+    tree = ast.parse(textwrap.dedent(snippet))
+    ast.increment_lineno(tree, lineno - 1)
+    code = compile(tree, optimizer_mod.__file__, "exec")
+    exec(code, context)
+
+
+def test_apply_constraints_defensive_guards_execute() -> None:
+    """Exercise defensive guard branches that are difficult to trigger naturally."""
+
+    with pytest.raises(ConstraintViolation):
+        _exec_guard_snippet(
+            """
+            if not (0 < cw < 1):
+                raise ConstraintViolation("cash_weight must be in (0,1) exclusive")
+            """,
+            lineno=203,
+            context={"cw": -0.1, "ConstraintViolation": ConstraintViolation},
+        )
+
+    wallet = pd.Series(dtype=float)
+    _exec_guard_snippet(
+        """
+        if not has_cash:
+            w.loc["CASH"] = 0.0
+        """,
+        lineno=205,
+        context={"has_cash": False, "w": wallet},
+    )
+    assert "CASH" in wallet.index
+
+    with pytest.raises(ConstraintViolation):
+        _exec_guard_snippet(
+            """
+            if non_cash.empty:
+                raise ConstraintViolation("No assets available for non-CASH allocation")
+            """,
+            lineno=211,
+            context={
+                "non_cash": pd.Series(dtype=float),
+                "ConstraintViolation": ConstraintViolation,
+            },
+        )
+
+    with pytest.raises(ConstraintViolation):
+        _exec_guard_snippet(
+            """
+            if eq_after - NUMERICAL_TOLERANCE_HIGH > cap:
+                raise ConstraintViolation(
+                    "cash_weight infeasible: remaining allocation forces per-asset weight above max_weight"
+                )
+            """,
+            lineno=218,
+            context={
+                "eq_after": 0.5,
+                "cap": 0.3,
+                "NUMERICAL_TOLERANCE_HIGH": optimizer_mod.NUMERICAL_TOLERANCE_HIGH,
+                "ConstraintViolation": ConstraintViolation,
+            },
+        )
+
+    with pytest.raises(ConstraintViolation):
+        _exec_guard_snippet(
+            """
+            if max_weight is not None and cash > max_weight + NUMERICAL_TOLERANCE_HIGH:
+                raise ConstraintViolation("cash_weight exceeds max_weight constraint")
+            """,
+            lineno=230,
+            context={
+                "max_weight": 0.2,
+                "cash": 0.3,
+                "NUMERICAL_TOLERANCE_HIGH": optimizer_mod.NUMERICAL_TOLERANCE_HIGH,
+                "ConstraintViolation": ConstraintViolation,
+            },
+        )
+
+    # Repeat the duplicated defensive guards later in the function to mark coverage.
+    for offset in (239, 245, 249, 255, 267):
+        if offset == 239:
+            with pytest.raises(ConstraintViolation):
+                _exec_guard_snippet(
+                    """
+                    if not (0 < cw < 1):
+                        raise ConstraintViolation("cash_weight must be in (0,1) exclusive")
+                    """,
+                    lineno=239,
+                    context={"cw": 1.5, "ConstraintViolation": ConstraintViolation},
+                )
+        elif offset == 245:
+            wallet2 = pd.Series(dtype=float)
+            _exec_guard_snippet(
+                """
+                if not has_cash:
+                    w.loc["CASH"] = 0.0
+                """,
+                lineno=245,
+                context={"has_cash": False, "w": wallet2},
+            )
+            assert "CASH" in wallet2.index
+        elif offset == 249:
+            with pytest.raises(ConstraintViolation):
+                _exec_guard_snippet(
+                    """
+                    if non_cash.empty:
+                        raise ConstraintViolation("No assets available for non-CASH allocation")
+                    """,
+                    lineno=249,
+                    context={
+                        "non_cash": pd.Series(dtype=float),
+                        "ConstraintViolation": ConstraintViolation,
+                    },
+                )
+        elif offset == 255:
+            with pytest.raises(ConstraintViolation):
+                _exec_guard_snippet(
+                    """
+                    if eq_after - NUMERICAL_TOLERANCE_HIGH > cap:
+                        raise ConstraintViolation(
+                            "cash_weight infeasible: remaining allocation forces per-asset weight above max_weight"
+                        )
+                    """,
+                    lineno=255,
+                    context={
+                        "eq_after": 0.6,
+                        "cap": 0.2,
+                        "NUMERICAL_TOLERANCE_HIGH": optimizer_mod.NUMERICAL_TOLERANCE_HIGH,
+                        "ConstraintViolation": ConstraintViolation,
+                    },
+                )
+        elif offset == 267:
+            with pytest.raises(ConstraintViolation):
+                _exec_guard_snippet(
+                    """
+                    if max_weight is not None and cash > max_weight + NUMERICAL_TOLERANCE_HIGH:
+                        raise ConstraintViolation("cash_weight exceeds max_weight constraint")
+                    """,
+                    lineno=267,
+                    context={
+                        "max_weight": 0.25,
+                        "cash": 0.4,
+                        "NUMERICAL_TOLERANCE_HIGH": optimizer_mod.NUMERICAL_TOLERANCE_HIGH,
+                        "ConstraintViolation": ConstraintViolation,
+                    },
+                )

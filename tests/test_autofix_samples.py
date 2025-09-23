@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import ast
+import runpy
+
 from trend_analysis import (
     _autofix_trigger_sample,
     _autofix_violation_case2,
@@ -25,6 +28,14 @@ def test_violation_case2_compute_and_helpers() -> None:
     assert _autofix_violation_case2.Example().method(3.5, 0.5) == 4.0
     assert "extravagantly" in _autofix_violation_case2.long_line_function()
     assert _autofix_violation_case2.unused_func(1, 2, 3) is None
+
+
+def test_violation_case2_runs_as_a_script(capsys) -> None:
+    runpy.run_module("trend_analysis._autofix_violation_case2", run_name="__main__")
+
+    captured = capsys.readouterr()
+    output = ast.literal_eval(captured.out.strip())
+    assert output == {"total": 6, "mean": 2.0, "count": 3}
 
 
 def test_violation_case3_exposes_expected_behaviour() -> None:
