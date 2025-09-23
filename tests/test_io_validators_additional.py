@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import io
-from collections import deque
-from dataclasses import dataclass
 
 import pandas as pd
 import pytest
@@ -141,7 +139,9 @@ def test_validate_returns_schema_detects_duplicate_dates() -> None:
     assert any("Duplicate dates" in issue for issue in result.issues)
 
 
-def test_validate_returns_schema_numeric_conversion_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_validate_returns_schema_numeric_conversion_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     original = pd.to_numeric
 
     def flaky_to_numeric(values, *args, **kwargs):  # pragma: no cover - helper
@@ -199,7 +199,9 @@ def test_load_and_validate_upload_reads_csv(tmp_path: pd.Series) -> None:
     assert meta["validation"].is_valid is True
 
 
-def test_load_and_validate_upload_reads_excel_like_object(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_load_and_validate_upload_reads_excel_like_object(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     captured = {}
 
     def fake_read_excel(stream):
@@ -217,7 +219,9 @@ def test_load_and_validate_upload_reads_excel_like_object(monkeypatch: pytest.Mo
     assert "Fund" in df.columns
 
 
-def test_load_and_validate_upload_handles_parser_error(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_load_and_validate_upload_handles_parser_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     def broken_csv(_stream):
         raise pd.errors.ParserError("broken")
 
@@ -230,7 +234,9 @@ def test_load_and_validate_upload_handles_parser_error(monkeypatch: pytest.Monke
         load_and_validate_upload(buf)
 
 
-def test_load_and_validate_upload_reads_excel_path(monkeypatch: pytest.MonkeyPatch, tmp_path: pd.Series) -> None:
+def test_load_and_validate_upload_reads_excel_path(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pd.Series
+) -> None:
     captured = {}
 
     def fake_read_excel(path):
@@ -251,25 +257,30 @@ def test_load_and_validate_upload_reads_excel_path(monkeypatch: pytest.MonkeyPat
 def test_validate_returns_schema_exception_block_guard() -> None:
     # DataFrame with malformed dates
     df = pd.DataFrame({"Date": ["bad"] * 6, "Fund": [1.0] * 6, "Benchmark": [1.0] * 6})
-    issues = validate_returns_schema(df)
+    result = validate_returns_schema(df)
     # Should report issues about invalid dates
-    assert any("invalid dates" in issue or "malformed" in issue for issue in issues)
+    assert any(
+        "invalid dates" in issue or "malformed" in issue for issue in result.issues
+    )
 
 
 def test_validate_returns_schema_exception_block_guard_no_issues() -> None:
     # DataFrame with valid dates
-    df = pd.DataFrame({
-        "Date": ["2020-01-31", "2020-02-29"],
-        "Fund": [1.0, 2.0],
-        "Benchmark": [1.0, 2.0],
-    })
-    issues = validate_returns_schema(df)
+    df = pd.DataFrame(
+        {
+            "Date": ["2020-01-31", "2020-02-29"],
+            "Fund": [1.0, 2.0],
+            "Benchmark": [1.0, 2.0],
+        }
+    )
+    result = validate_returns_schema(df)
     # Should not report any issues
-    assert issues == []
+    assert result.is_valid is True
+    assert result.issues == []
+
 
 def test_create_sample_template_has_expected_shape() -> None:
     template = create_sample_template()
 
     assert "Date" in template.columns
     assert template.shape[1] >= 3
-
