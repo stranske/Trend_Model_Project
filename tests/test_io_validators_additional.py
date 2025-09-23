@@ -248,69 +248,23 @@ def test_load_and_validate_upload_reads_excel_path(monkeypatch: pytest.MonkeyPat
     assert "Fund" in df.columns
 
 
-def test_validate_returns_schema_exception_block_guard(monkeypatch: pytest.MonkeyPatch) -> None:
-    import ast
-    import textwrap
-
-    snippet = textwrap.dedent(
-        """
-        date_series = pd.to_datetime(df["Date"], errors="coerce")
-        if date_series.isna().any():
-            malformed_count = date_series.isna().sum()
-            malformed_mask = date_series.isna()
-            malformed_values = df.loc[malformed_mask, "Date"].tolist()
-            preview2 = malformed_values[:5]
-            tail2 = "..." if len(malformed_values) > 5 else ""
-            issues.append((
-                f"Found {malformed_count} invalid dates that could not be parsed: {preview2}{tail2}. "
-                f"These {malformed_count} malformed date(s) should be treated as validation errors, "
-                "not expiration failures."
-            ))
-        """
-    )
-
-    tree = ast.parse(snippet)
-    ast.increment_lineno(tree, 141)
-    code = compile(tree, "src/trend_analysis/io/validators.py", "exec")
-
-    df = pd.DataFrame({"Date": ["bad"] * 6})
-    issues: list[str] = []
-
-    exec(code, {"pd": pd, "df": df, "issues": issues})
-
-    assert issues
+def test_validate_returns_schema_exception_block_guard() -> None:
+    # DataFrame with malformed dates
+    df = pd.DataFrame({"Date": ["bad"] * 6, "Fund": [1.0] * 6, "Benchmark": [1.0] * 6})
+    issues = validate_returns_schema(df)
+    # Should report issues about invalid dates
+    assert any("invalid dates" in issue or "malformed" in issue for issue in issues)
 
 
 def test_validate_returns_schema_exception_block_guard_no_issues() -> None:
-    import ast
-    import textwrap
-
-    snippet = textwrap.dedent(
-        """
-        date_series = pd.to_datetime(df["Date"], errors="coerce")
-        if date_series.isna().any():
-            malformed_count = date_series.isna().sum()
-            malformed_mask = date_series.isna()
-            malformed_values = df.loc[malformed_mask, "Date"].tolist()
-            preview2 = malformed_values[:5]
-            tail2 = "..." if len(malformed_values) > 5 else ""
-            issues.append((
-                f"Found {malformed_count} invalid dates that could not be parsed: {preview2}{tail2}. "
-                f"These {malformed_count} malformed date(s) should be treated as validation errors, "
-                "not expiration failures."
-            ))
-        """
-    )
-
-    tree = ast.parse(snippet)
-    ast.increment_lineno(tree, 141)
-    code = compile(tree, "src/trend_analysis/io/validators.py", "exec")
-
-    df = pd.DataFrame({"Date": ["2020-01-31", "2020-02-29"]})
-    issues: list[str] = []
-
-    exec(code, {"pd": pd, "df": df, "issues": issues})
-
+    # DataFrame with valid dates
+    df = pd.DataFrame({
+        "Date": ["2020-01-31", "2020-02-29"],
+        "Fund": [1.0, 2.0],
+        "Benchmark": [1.0, 2.0],
+    })
+    issues = validate_returns_schema(df)
+    # Should not report any issues
     assert issues == []
 
 def test_create_sample_template_has_expected_shape() -> None:
