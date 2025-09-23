@@ -221,7 +221,10 @@ jobs:
                   const existingLabels = (existing.data.labels || []).map(l => (typeof l === 'string' ? l : l.name));
                   if (!existingLabels.includes(ESC_LABEL)) {
                     try { await github.rest.issues.getLabel({ owner, repo, name: ESC_LABEL }); }
-                    catch { try { await github.rest.issues.createLabel({ owner, repo, name: ESC_LABEL, color: 'D93F0B' }); } catch {} }
+                    catch { 
+                      try { await github.rest.issues.createLabel({ owner, repo, name: ESC_LABEL, color: 'D93F0B' }); } 
+                      catch (err) { core.info('Failed to create label: ' + (err && err.message ? err.message : err)); }
+                    }
                     await github.rest.issues.addLabels({ owner, repo, issue_number, labels: [ESC_LABEL] });
                     const commentsEsc = await github.rest.issues.listComments({ owner, repo, issue_number, per_page: 50 });
                     const hasEsc = commentsEsc.data.some(c => c.body && c.body.includes(ESC_COMMENT.substring(0, 25)));
