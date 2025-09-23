@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -351,3 +353,157 @@ def test_adjust_for_scenario_rejects_unknown() -> None:
 
     with pytest.raises(TrendCLIError):
         _adjust_for_scenario(cfg, "unknown")
+
+
+def test_prepare_export_config_partial_updates(tmp_path: Path) -> None:
+    cfg = SimpleNamespace(export={"directory": "existing"})
+
+    cli._prepare_export_config(cfg, None, ["csv"])
+
+    assert cfg.export == {"directory": "existing", "formats": ["csv"]}
+
+    cli._prepare_export_config(cfg, tmp_path, None)
+
+    assert cfg.export == {"directory": str(tmp_path), "formats": ["csv"]}
+
+
+def test_prepare_export_config_creates_export_attribute(tmp_path: Path) -> None:
+    cfg = SimpleNamespace()
+
+    cli._prepare_export_config(cfg, tmp_path, ["json"])
+
+    assert cfg.export == {"directory": str(tmp_path), "formats": ["json"]}
+
+
+def test_handle_exports_defaults_and_non_excel(monkeypatch, tmp_path: Path) -> None:
+    cfg = SimpleNamespace(export={})
+    metrics = pd.DataFrame({"value": [1.0]})
+    result = RunResult(metrics, {"details": {}}, 1, {})
+
+    monkeypatch.setattr(cli, "DEFAULT_OUTPUT_DIRECTORY", str(tmp_path / "exports"))
+    monkeypatch.setattr(cli, "DEFAULT_OUTPUT_FORMATS", ("csv", "json"))
+
+    recorded: dict[str, object] = {}
+
+    def fake_export_data(data, path, formats):  # type: ignore[override]
+        recorded["data"] = data
+        recorded["path"] = path
+        recorded["formats"] = tuple(formats)
+
+    monkeypatch.setattr(cli.export, "export_data", fake_export_data)
+    monkeypatch.setattr(cli.export, "make_summary_formatter", lambda *_: None)
+
+    cli._handle_exports(cfg, result, structured_log=False, run_id="abc123")
+
+    assert recorded["formats"] == ("csv", "json")
+    assert Path(recorded["path"]) == tmp_path / "exports" / "analysis"
+
+
+def test_handle_exports_requires_both_directory_and_formats(monkeypatch) -> None:
+    cfg = SimpleNamespace(export={"directory": "", "formats": ["csv"]})
+    result = RunResult(pd.DataFrame(), {}, 1, {})
+
+    events: list[str] = []
+    monkeypatch.setattr(cli, "_legacy_maybe_log_step", lambda *a, **k: events.append("x"))
+
+    cli._handle_exports(cfg, result, structured_log=True, run_id="rid")
+
+    assert events == []
+
+
+def test_write_bundle_appends_filename(monkeypatch, tmp_path: Path, capsys) -> None:
+    cfg = SimpleNamespace(__dict__={"a": 1})
+    result = RunResult(pd.DataFrame(), {}, 1, {})
+
+    captured: dict[str, object] = {}
+
+    def fake_export_bundle(res, path):  # type: ignore[override]
+        captured["result"] = res
+        captured["path"] = path
+
+    monkeypatch.setitem(sys.modules, "trend_analysis.export.bundle", SimpleNamespace(export_bundle=fake_export_bundle))
+    monkeypatch.setattr(cli, "_legacy_maybe_log_step", lambda *a, **k: None)
+
+    bundle_dir = tmp_path / "artifacts"
+    bundle_dir.mkdir()
+
+    cli._write_bundle(cfg, result, tmp_path / "source.csv", bundle_dir, True, "run42")
+
+    out = capsys.readouterr().out
+    expected_path = (bundle_dir / "analysis_bundle.zip").resolve()
+    assert f"Bundle written: {expected_path}" in out
+    assert captured["path"] == expected_path
+    assert getattr(result, "input_path") == tmp_path / "source.csv"
+    assert getattr(result, "config") == cfg.__dict__
+
+
+def test_print_summary_emits_cache_stats(monkeypatch, capsys) -> None:
+    result = RunResult(pd.DataFrame(), {"details": {}}, 1, {})
+    cfg = SimpleNamespace(sample_split={"in_start": "2020-01", "out_end": "2020-12"})
+
+    monkeypatch.setattr(cli.export, "format_summary_text", lambda *a: "Summary text")
+    monkeypatch.setattr(cli, "_legacy_extract_cache_stats", lambda *_: {"hits": 3})
+
+    cli._print_summary(cfg, result)
+
+    out = capsys.readouterr().out
+    assert "Summary text" in out
+    assert "Cache statistics" in out
+
+
+def test_write_report_files_creates_expected_outputs(monkeypatch, tmp_path: Path) -> None:
+    metrics = pd.DataFrame({"value": [1.0]})
+    result = RunResult(metrics, {"details": {}}, 1, {})
+    cfg = SimpleNamespace(sample_split={})
+
+    monkeypatch.setattr(cli.export, "format_summary_text", lambda *a: "Report summary")
+
+    cli._write_report_files(tmp_path, cfg, result, run_id="run7")
+
+    metrics_path = tmp_path / "metrics_run7.csv"
+    summary_path = tmp_path / "summary_run7.txt"
+    details_path = tmp_path / "details_run7.json"
+
+    assert metrics_path.exists()
+    assert summary_path.read_text(encoding="utf-8") == "Report summary"
+    assert json.loads(details_path.read_text(encoding="utf-8")) == {"details": {}}
+
+
+def test_json_default_handles_known_types(tmp_path: Path) -> None:
+    df = pd.DataFrame({"a": [1]})
+    series = df["a"]
+    path = tmp_path / "file.txt"
+
+    assert cli._json_default(df)["a"][0] == 1
+    assert cli._json_default(series)[0] == 1
+    assert cli._json_default(path) == str(path)
+
+    with pytest.raises(TypeError):
+        cli._json_default(123)
+
+
+def test_main_handles_file_not_found(monkeypatch, tmp_path: Path, capsys) -> None:
+    def fake_load_configuration(path: str):  # type: ignore[override]
+        raise FileNotFoundError(path)
+
+    monkeypatch.setattr(cli, "_load_configuration", fake_load_configuration)
+
+    exit_code = cli.main(["run", "--config", str(tmp_path / "missing.yml")])
+
+    assert exit_code == 2
+    assert "Error:" in capsys.readouterr().err
+
+
+def test_main_reports_unknown_command(monkeypatch, capsys) -> None:
+    parser = SimpleNamespace(parse_args=lambda _argv: SimpleNamespace(subcommand="mystery", config="cfg.yml"))
+
+    monkeypatch.setattr(cli, "build_parser", lambda: parser)
+    monkeypatch.setattr(cli, "_load_configuration", lambda path: (Path(path), SimpleNamespace(data={"csv_path": "returns.csv"})))
+    monkeypatch.setattr(cli, "_resolve_returns_path", lambda *_args: Path("returns.csv"))
+    monkeypatch.setattr(cli, "_ensure_dataframe", lambda *_args: pd.DataFrame())
+    monkeypatch.setattr(cli, "_determine_seed", lambda *_args: 0)
+
+    exit_code = cli.main(["mystery", "--config", "cfg.yml"])
+
+    assert exit_code == 2
+    assert "Unknown command" in capsys.readouterr().err
