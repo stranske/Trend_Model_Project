@@ -10,7 +10,7 @@ Core layers:
 - Style Gate (`style-gate.yml`): authoritative style verification (black --check + ruff new-issue fail) running on PR & main branch pushes.
 - Agent routing & watchdog (`assign-to-agents.yml` + `agent-watchdog.yml`): label-driven assignment, Codex bootstrap, diagnostics.
 - Merge automation (`merge-manager.yml`): unified auto-approval and auto-merge decisions for safe agent PRs.
-- Governance & Health: `repo-health-self-check.yml`, labelers, dependency review, CodeQL.
+- Governance & Health: `repo-health-nightly.yml`, labelers, dependency review, CodeQL.
 - Path Labeling: `pr-path-labeler.yml` auto-categorizes PRs.
 
 ### 1.1 Current CI Topology (Issue #1351)
@@ -57,6 +57,7 @@ Flow:
 | `RISK_LABEL` | Var | Opt | Customize risk label | Default `risk:low` |
 | `AGENT_LABEL` / `AGENT_LABEL_ALT` | Var | Opt | Agent classification synonyms | Cosmetic |
 | `AUTOFIX_OPT_IN_LABEL` | Var | Opt | Gate autofix | Falls back internally |
+| `OPS_HEALTH_ISSUE` | Var | Req | Issue number for nightly health updates | Workflow comments on this issue when checks fail |
 
 All others use default `GITHUB_TOKEN`.
 
@@ -70,7 +71,7 @@ All others use default `GITHUB_TOKEN`.
 | `assign-to-agents.yml` | issue/PR labels, dispatch | Agent assignment + Codex bootstrap |
 | `agent-watchdog.yml` | workflow dispatch | Codex PR presence diagnostic |
 | `merge-manager.yml` | PR target, workflow_run | Auto-approve + enable auto-merge when gates are satisfied |
-| `repo-health-self-check.yml` | schedule, manual | Governance audit |
+| `repo-health-nightly.yml` | schedule, manual | Governance audit |
 | `pr-path-labeler.yml` | PR events | Path labels |
 | `label-agent-prs.yml` | PR target | Origin + risk labels |
 | `codeql.yml` | push, PR, schedule | Code scanning |
