@@ -25,10 +25,10 @@ jobs:
       - name: Run actionlint
         id: actionlint
         continue-on-error: true
-        run: |
-          curl -sSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash | bash
-          echo "Running actionlint version: $(./actionlint -version)"
-          ./actionlint -color
+        uses: reviewdog/action-actionlint@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          reporter: github-check
 
       - name: Probe repository configuration
         id: probe
