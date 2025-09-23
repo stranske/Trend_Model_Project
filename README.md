@@ -591,6 +591,8 @@ To avoid CI Style Gate failures:
 
 The script `scripts/style_gate_local.sh` sources version pins from `.github/workflows/autofix-versions.env` ensuring local checks match CI. Add it to your pre-push routine (or a custom git hook) to eliminate format drift caused by differing global tool versions.
 
+---
+
 ## Contributing & Quality Gate
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full contributor workflow.

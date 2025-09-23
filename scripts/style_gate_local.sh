@@ -57,5 +57,5 @@ if command -v mypy >/dev/null 2>&1; then
 else
   echo "mypy not found; skipping type check" >&2
 fi
-
 echo "Style Gate local mirror: PASS" >&2
+
