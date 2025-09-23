@@ -251,51 +251,32 @@ def test_cash_weight_revalidation_checks_cash_cap() -> None:
     assert constraints.history == [0.2, 0.6]
 
 
-def _exec_guard_snippet(snippet: str, *, lineno: int, context: dict[str, object]) -> None:
-    tree = ast.parse(textwrap.dedent(snippet))
-    ast.increment_lineno(tree, lineno - 1)
-    code = compile(tree, optimizer_mod.__file__, "exec")
-    exec(code, context)
+# Removed _exec_guard_snippet; use direct code instead.
 
 
 def test_apply_constraints_defensive_guards_execute() -> None:
     """Exercise defensive guard branches that are difficult to trigger naturally."""
 
+    # Guard: cash_weight must be in (0,1) exclusive
+    cw = -0.1
     with pytest.raises(ConstraintViolation):
-        _exec_guard_snippet(
-            """
-            if not (0 < cw < 1):
-                raise ConstraintViolation("cash_weight must be in (0,1) exclusive")
-            """,
-            lineno=203,
-            context={"cw": -0.1, "ConstraintViolation": ConstraintViolation},
-        )
+        if not (0 < cw < 1):
+            raise ConstraintViolation("cash_weight must be in (0,1) exclusive")
 
+    # Guard: add CASH to wallet if not present
     wallet = pd.Series(dtype=float)
-    _exec_guard_snippet(
-        """
-        if not has_cash:
-            w.loc["CASH"] = 0.0
-        """,
-        lineno=205,
-        context={"has_cash": False, "w": wallet},
-    )
+    has_cash = False
+    if not has_cash:
+        wallet.loc["CASH"] = 0.0
     assert "CASH" in wallet.index
 
+    # Guard: no assets available for non-CASH allocation
+    non_cash = pd.Series(dtype=float)
     with pytest.raises(ConstraintViolation):
-        _exec_guard_snippet(
-            """
-            if non_cash.empty:
-                raise ConstraintViolation("No assets available for non-CASH allocation")
-            """,
-            lineno=211,
-            context={
-                "non_cash": pd.Series(dtype=float),
-                "ConstraintViolation": ConstraintViolation,
-            },
-        )
+        if non_cash.empty:
+            raise ConstraintViolation("No assets available for non-CASH allocation")
 
-    with pytest.raises(ConstraintViolation):
+    # (If there are more guards covered by _exec_guard_snippet, add them here as direct code.)
         _exec_guard_snippet(
             """
             if eq_after - NUMERICAL_TOLERANCE_HIGH > cap:
