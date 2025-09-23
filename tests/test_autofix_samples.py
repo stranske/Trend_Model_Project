@@ -37,13 +37,15 @@ def test_violation_case2_runs_as_script(capsys: "pytest.CaptureFixture[str]") ->
 
     module_name = "trend_analysis._autofix_violation_case2"
 
-    original = sys.modules[module_name]
+    # Guard: ensure module is present before popping; capture original for restoration
+    original = sys.modules.get(module_name)
     sys.modules.pop(module_name, None)
 
     try:
         runpy.run_module(module_name, run_name="__main__")
     finally:
-        sys.modules[module_name] = original
+        if original is not None:
+            sys.modules[module_name] = original
 
     captured = capsys.readouterr()
     assert captured.err == ""

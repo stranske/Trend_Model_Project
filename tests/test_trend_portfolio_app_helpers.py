@@ -988,6 +988,20 @@ def test_render_app_executes_with_dummy_streamlit(
     stub = _MockStreamlit()
     monkeypatch.setitem(sys.modules, "streamlit", stub)
     sys.modules.pop("trend_portfolio_app.app", None)
+    # Instrument calls
+    page_config_calls: list[tuple] = []
+    titles: list[str] = []
+
+    def track_page_config(*args, **kwargs):  # pragma: no cover - trivial
+        page_config_calls.append((args, tuple(kwargs.items())))
+        return None
+
+    def track_title(label: str, *_, **__):  # pragma: no cover - trivial
+        titles.append(label)
+        return None
+
+    stub.set_page_config = track_page_config  # type: ignore[assignment]
+    stub.title = track_title  # type: ignore[assignment]
 
     module = importlib.import_module("trend_portfolio_app.app")
 
