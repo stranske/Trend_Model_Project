@@ -34,7 +34,7 @@ def test_default_cache_dir_accepts_env_within_home(monkeypatch, tmp_path: Path) 
 
     assert rolling_cache._DEFAULT_CACHE_DIR == cache_path.resolve()
 
-
+  
 def test_normalise_component_replaces_invalid_characters() -> None:
     assert rolling_cache._normalise_component("risk@metric#1") == "risk_metric_1"
 
@@ -89,3 +89,10 @@ def test_set_cache_enabled_toggles_global(monkeypatch, tmp_path: Path) -> None:
     assert not cache.is_enabled()
     rolling_cache.set_cache_enabled(True)
     assert cache.is_enabled()
+
+
+def test_get_cache_returns_default_singleton(monkeypatch, tmp_path: Path) -> None:
+    cache = rolling_cache.RollingCache(cache_dir=tmp_path)
+    monkeypatch.setattr(rolling_cache, "_DEFAULT_ROLLING_CACHE", cache)
+
+    assert rolling_cache.get_cache() is cache
