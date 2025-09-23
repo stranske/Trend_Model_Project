@@ -113,11 +113,12 @@ def test_run_incremental_covariance_updates(monkeypatch):
     assert second_stats["incremental_updates"] == 1
 
 
-def test_run_incremental_covariance_coerces_non_positive_shift_steps(monkeypatch):
+@pytest.mark.parametrize("non_positive_value", [0, -1])
+def test_run_incremental_covariance_coerces_non_positive_shift_steps(monkeypatch, non_positive_value):
     """Non-positive shift step settings should coerce to at least one step."""
 
     cfg = _Cfg()
-    cfg.performance["shift_detection_max_steps"] = 0  # force coercion branch
+    cfg.performance["shift_detection_max_steps"] = non_positive_value  # force coercion branch
     df = _make_df()
     periods = _make_periods()
 
