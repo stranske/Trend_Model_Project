@@ -19,8 +19,8 @@ fi
 # Type checking (mypy) – fail fast if types regress (core + app)
 if command -v mypy >/dev/null 2>&1; then
   echo "Running mypy (core + app)..." >&2
-  if ! mypy --config-file pyproject.toml src/trend_analysis src/trend_portfolio_app >/dev/null; then
-    echo "mypy failed. To reproduce locally run: mypy --config-file pyproject.toml src/trend_analysis src/trend_portfolio_app" >&2
+  if ! python -m mypy --config-file pyproject.toml src/trend_analysis src/trend_portfolio_app >/dev/null; then
+    echo "mypy failed. Fix type errors or run: python -m mypy --config-file pyproject.toml src/trend_analysis src/trend_portfolio_app" >&2
     exit 1
   fi
 else
@@ -52,7 +52,6 @@ if git diff --name-only HEAD~1 2>/dev/null | grep -Eq '^(Dockerfile|requirements
     echo "Docker changes detected but scripts/docker_smoke.sh missing; skipping" >&2
   fi
 fi
-
 # Fast validation (adaptive)
 if [[ -x ./scripts/validate_fast.sh ]]; then
   echo "Running adaptive validation..." >&2
