@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import runpy
+import sys
 
 import pytest
 
@@ -30,15 +31,24 @@ def test_violation_case2_compute_and_helpers() -> None:
     assert "extravagantly" in _autofix_violation_case2.long_line_function()
     assert _autofix_violation_case2.unused_func(1, 2, 3) is None
 
+def test_violation_case2_runs_as_script(capsys: "pytest.CaptureFixture[str]") -> None:
+    """Ensure the module's ``__main__`` branch emits the expected payload."""
 
-def test_violation_case2_module_invocation(capsys: pytest.CaptureFixture[str]) -> None:
-    module = _autofix_violation_case2.__name__
-    # Importing via runpy ensures the module level ``__name__`` branch executes
-    # without spawning a subprocess, keeping the test hermetic.
-    runpy.run_module(module, run_name="__main__")
+    module_name = "trend_analysis._autofix_violation_case2"
+
+    original = sys.modules[module_name]
+    sys.modules.pop(module_name, None)
+
+    try:
+        runpy.run_module(module_name, run_name="__main__")
+    finally:
+        sys.modules[module_name] = original
 
     captured = capsys.readouterr()
-    assert captured.out.strip() == str(_autofix_violation_case2.compute())
+    assert captured.err == ""
+    assert "'total': 6" in captured.out
+    assert "'mean': 2.0" in captured.out
+    assert "'count': 3" in captured.out
 
 
 def test_violation_case3_exposes_expected_behaviour() -> None:
