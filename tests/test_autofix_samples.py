@@ -29,6 +29,25 @@ def test_violation_case2_compute_and_helpers() -> None:
     assert "extravagantly" in _autofix_violation_case2.long_line_function()
     assert _autofix_violation_case2.unused_func(1, 2, 3) is None
 
+def test_violation_case2_runs_as_script(capsys: "pytest.CaptureFixture[str]") -> None:
+    """Ensure the module's ``__main__`` branch emits the expected payload."""
+
+    module_name = "trend_analysis._autofix_violation_case2"
+
+    original = sys.modules[module_name]
+    sys.modules.pop(module_name, None)
+
+    try:
+        runpy.run_module(module_name, run_name="__main__")
+    finally:
+        sys.modules[module_name] = original
+
+    captured = capsys.readouterr()
+    assert captured.err == ""
+    assert "'total': 6" in captured.out
+    assert "'mean': 2.0" in captured.out
+    assert "'count': 3" in captured.out
+
 
 def test_violation_case2_runs_as_a_script(capsys) -> None:
     runpy.run_module("trend_analysis._autofix_violation_case2", run_name="__main__")
