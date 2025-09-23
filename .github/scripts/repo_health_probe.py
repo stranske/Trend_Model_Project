@@ -14,8 +14,10 @@ import os
 import sys
 import time
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional
-from urllib import error, request
+from http.client import HTTPResponse
+from typing import Any, Dict, Iterable, List, Optional, Sequence, cast
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 
 GITHUB_API = os.environ.get("GITHUB_API_URL", "https://api.github.com")
@@ -30,7 +32,7 @@ class CheckResult:
     description: str
     details: Optional[str] = None
 
-    def as_dict(self) -> Dict[str, Optional[str]]:
+    def as_dict(self) -> Dict[str, object]:
         return {
             "name": self.name,
             "ok": self.ok,
@@ -65,21 +67,26 @@ def _paginated_get(url: str, token: str) -> List[Dict[str, object]]:
     headers = _auth_headers(token)
     next_url: Optional[str] = url
     while next_url:
-        req = request.Request(next_url, headers=headers)
-        with request.urlopen(req, timeout=10) as resp:  # type: ignore[arg-type]
-            data = json.loads(resp.read().decode("utf-8"))
-            link = resp.headers.get("Link")
+        req = Request(next_url, headers=headers)
+        response = cast(HTTPResponse, urlopen(req, timeout=10))
+        try:
+            payload = response.read().decode("utf-8")
+            data: Any = json.loads(payload)
+            link = response.headers.get("Link")
+        finally:
+            response.close()
+
         if isinstance(data, dict):
             # GitHub secrets/variables APIs wrap results in an envelope.
             if "secrets" in data:
-                results.extend(data.get("secrets", []))
+                results.extend(cast(Sequence[Dict[str, object]], data.get("secrets", [])))
             elif "variables" in data:
-                results.extend(data.get("variables", []))
+                results.extend(cast(Sequence[Dict[str, object]], data.get("variables", [])))
             else:
                 # Unexpected payload – normalise to list where possible.
-                results.append(data)  # pragma: no cover - defensive branch.
+                results.append(cast(Dict[str, object], data))  # pragma: no cover - defensive branch.
         elif isinstance(data, list):
-            results.extend(data)
+            results.extend(cast(Sequence[Dict[str, object]], data))
         else:  # pragma: no cover - defensive branch.
             results.append({"value": data})
         next_url = _next_link(link)
@@ -89,19 +96,31 @@ def _paginated_get(url: str, token: str) -> List[Dict[str, object]]:
 def _collect_labels(repo: str, token: str) -> List[str]:
     base_url = f"{GITHUB_API}/repos/{repo}/labels?per_page=100"
     payload = _paginated_get(base_url, token)
-    return [entry.get("name", "") for entry in payload]
+    names: List[str] = []
+    for entry in payload:
+        name_value = entry.get("name")
+        names.append(name_value if isinstance(name_value, str) else "")
+    return names
 
 
 def _collect_secrets(repo: str, token: str) -> List[str]:
     base_url = f"{GITHUB_API}/repos/{repo}/actions/secrets"
     payload = _paginated_get(base_url, token)
-    return [entry.get("name", "") for entry in payload]
+    names: List[str] = []
+    for entry in payload:
+        name_value = entry.get("name")
+        names.append(name_value if isinstance(name_value, str) else "")
+    return names
 
 
 def _collect_variables(repo: str, token: str) -> List[str]:
     base_url = f"{GITHUB_API}/repos/{repo}/actions/variables"
     payload = _paginated_get(base_url, token)
-    return [entry.get("name", "") for entry in payload]
+    names: List[str] = []
+    for entry in payload:
+        name_value = entry.get("name")
+        names.append(name_value if isinstance(name_value, str) else "")
+    return names
 
 
 def _label_checks(labels: Iterable[str]) -> List[CheckResult]:
@@ -159,49 +178,45 @@ def _variable_checks(variables: Iterable[str]) -> List[CheckResult]:
     return []
 
 
-def run_probe(repo: str, token: str) -> Dict[str, object]:
-    results: Dict[str, object] = {
+def run_probe(repo: str, token: str) -> Dict[str, Any]:
+    checks: List[Dict[str, object]] = []
+    errors: List[str] = []
+    results: Dict[str, Any] = {
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "checks": [],
-        "errors": [],
+        "checks": checks,
+        "errors": errors,
     }
 
     try:
         label_names = _collect_labels(repo, token)
         results["labels"] = sorted(label_names)
-        results["checks"].extend(check.as_dict() for check in _label_checks(label_names))
-    except error.HTTPError as exc:  # pragma: no cover - network errors in CI only.
-        results.setdefault("errors", []).append(
-            f"Failed to list labels ({exc.code}): {exc.reason}"
-        )
-    except error.URLError as exc:  # pragma: no cover - network errors in CI only.
-        results.setdefault("errors", []).append(f"Failed to list labels: {exc.reason}")
+        checks.extend(check.as_dict() for check in _label_checks(label_names))
+    except HTTPError as exc:  # pragma: no cover - network errors in CI only.
+        errors.append(f"Failed to list labels ({exc.code}): {exc.reason}")
+    except URLError as exc:  # pragma: no cover - network errors in CI only.
+        errors.append(f"Failed to list labels: {exc.reason}")
 
     try:
         secret_names = _collect_secrets(repo, token)
         results["secrets"] = sorted(secret_names)
-        results["checks"].extend(check.as_dict() for check in _secret_checks(secret_names))
-    except error.HTTPError as exc:  # pragma: no cover - network errors in CI only.
-        results.setdefault("errors", []).append(
-            f"Failed to list secrets ({exc.code}): {exc.reason}"
-        )
-    except error.URLError as exc:  # pragma: no cover - network errors in CI only.
-        results.setdefault("errors", []).append(f"Failed to list secrets: {exc.reason}")
+        checks.extend(check.as_dict() for check in _secret_checks(secret_names))
+    except HTTPError as exc:  # pragma: no cover - network errors in CI only.
+        errors.append(f"Failed to list secrets ({exc.code}): {exc.reason}")
+    except URLError as exc:  # pragma: no cover - network errors in CI only.
+        errors.append(f"Failed to list secrets: {exc.reason}")
 
     try:
         variable_names = _collect_variables(repo, token)
         results["variables"] = sorted(variable_names)
-        results["checks"].extend(check.as_dict() for check in _variable_checks(variable_names))
-    except error.HTTPError as exc:  # pragma: no cover - network errors in CI only.
-        results.setdefault("errors", []).append(
-            f"Failed to list variables ({exc.code}): {exc.reason}"
-        )
-    except error.URLError as exc:  # pragma: no cover - network errors in CI only.
-        results.setdefault("errors", []).append(f"Failed to list variables: {exc.reason}")
+        checks.extend(check.as_dict() for check in _variable_checks(variable_names))
+    except HTTPError as exc:  # pragma: no cover - network errors in CI only.
+        errors.append(f"Failed to list variables ({exc.code}): {exc.reason}")
+    except URLError as exc:  # pragma: no cover - network errors in CI only.
+        errors.append(f"Failed to list variables: {exc.reason}")
 
-    failing_checks = [check for check in results.get("checks", []) if not check["ok"]]
-    results["ok"] = not failing_checks and not results["errors"]
-    results["failures"] = failing_checks
+    failures = [check for check in checks if not check.get("ok")]
+    results["ok"] = not failures and not errors
+    results["failures"] = failures
     return results
 
 
