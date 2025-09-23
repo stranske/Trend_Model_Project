@@ -75,7 +75,10 @@ def test_normalise_for_json_handles_nested_structures(tmp_path: Path) -> None:
     normalised = hash_utils.normalise_for_json(payload)
 
     assert normalised == {
-        "mapping": {"path": str(nested_path), "model": {"path": str(nested_path), "values": [1, 2]}},
+        "mapping": {
+            "path": str(nested_path),
+            "model": {"path": str(nested_path), "values": [1, 2]},
+        },
         "sequence": [
             {"path": str(nested_path), "values": [1, 2]},
             [str(nested_path), 3],

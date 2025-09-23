@@ -79,12 +79,18 @@ def _paginated_get(url: str, token: str) -> List[Dict[str, object]]:
         if isinstance(data, dict):
             # GitHub secrets/variables APIs wrap results in an envelope.
             if "secrets" in data:
-                results.extend(cast(Sequence[Dict[str, object]], data.get("secrets", [])))
+                results.extend(
+                    cast(Sequence[Dict[str, object]], data.get("secrets", []))
+                )
             elif "variables" in data:
-                results.extend(cast(Sequence[Dict[str, object]], data.get("variables", [])))
+                results.extend(
+                    cast(Sequence[Dict[str, object]], data.get("variables", []))
+                )
             else:
                 # Unexpected payload – normalise to list where possible.
-                results.append(cast(Dict[str, object], data))  # pragma: no cover - defensive branch.
+                results.append(
+                    cast(Dict[str, object], data)
+                )  # pragma: no cover - defensive branch.
         elif isinstance(data, list):
             results.extend(cast(Sequence[Dict[str, object]], data))
         else:  # pragma: no cover - defensive branch.
@@ -152,7 +158,9 @@ def _label_checks(labels: Iterable[str]) -> List[CheckResult]:
         ),
     ]
     return [
-        CheckResult(name=slug, ok=is_ok, description=desc, details=None if is_ok else guidance)
+        CheckResult(
+            name=slug, ok=is_ok, description=desc, details=None if is_ok else guidance
+        )
         for slug, desc, is_ok, guidance in checks
     ]
 
@@ -168,7 +176,9 @@ def _secret_checks(secrets: Iterable[str]) -> List[CheckResult]:
         ),
     ]
     return [
-        CheckResult(name=slug, ok=is_ok, description=desc, details=None if is_ok else guidance)
+        CheckResult(
+            name=slug, ok=is_ok, description=desc, details=None if is_ok else guidance
+        )
         for slug, desc, is_ok, guidance in checks
     ]
 

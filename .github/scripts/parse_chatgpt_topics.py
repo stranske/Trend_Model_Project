@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import os
 import json
 import re
 import sys
@@ -17,8 +18,6 @@ OUTPUT_PATH = Path("topics.json")
 # 2 = empty input file
 # 3 = no numbered topics detected (and fallback disabled)
 # 4 = parsed produced zero topic objects (should not normally occur)
-
-import os
 
 ALLOW_FALLBACK = os.environ.get("ALLOW_SINGLE_TOPIC", "0") in {"1", "true", "True"}
 

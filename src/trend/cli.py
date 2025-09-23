@@ -24,7 +24,9 @@ LegacyExtractCacheStats = Callable[[object], dict[str, int] | None]
 class LegacyMaybeLogStep(Protocol):
     def __call__(
         self, enabled: bool, run_id: str, event: str, message: str, **fields: Any
-    ) -> None: ...
+    ) -> None:
+        # Protocol method intentionally empty; implementors provide behaviour.
+        ...
 
 
 def _noop_maybe_log_step(

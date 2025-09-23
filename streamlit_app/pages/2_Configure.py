@@ -10,12 +10,18 @@ import pandas as pd
 import streamlit as st
 import yaml
 
-# Add src to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
-from trend_portfolio_app.metrics_extra import AVAILABLE_METRICS
-from trend_portfolio_app.policy_engine import MetricSpec, PolicyConfig
-from streamlit_app.components.guardrails import (
+def _ensure_src_path() -> None:
+    src_path = Path(__file__).parent.parent.parent / "src"
+    if str(src_path) not in sys.path:
+        sys.path.insert(0, str(src_path))
+
+
+_ensure_src_path()
+
+from trend_portfolio_app.metrics_extra import AVAILABLE_METRICS  # noqa: E402
+from trend_portfolio_app.policy_engine import MetricSpec, PolicyConfig  # noqa: E402
+from streamlit_app.components.guardrails import (  # noqa: E402
     estimate_resource_usage,
     validate_startup_payload,
 )
@@ -268,7 +274,8 @@ def render_parameter_forms(preset_config: Optional[Dict[str, Any]]):
             except Exception:
                 total_months = 0
                 st.warning(
-                    "The data index could not be interpreted as dates. Please ensure the date column is properly configured."
+                    "The data index could not be interpreted as dates. "
+                    "Please ensure the date column is properly configured."
                 )
     min_lookback_allowed = 6 if 0 < total_months < 24 else 12
     if total_months:

@@ -7,10 +7,7 @@ Verify that:
 3. The process iterates through all periods correctly
 """
 
-from pathlib import Path
-
-import numpy as np
-import pandas as pd
+from pathlib import Path  # noqa: F401 - retained for potential future path operations
 
 from trend_analysis.config import load
 from trend_analysis.data import load_csv
@@ -43,13 +40,13 @@ def test_multi_period_selection():
     print(f"Total months: {len(df)}")
 
     # Run multi-period analysis
-    print(f"\nRunning multi-period analysis...")
+    print("\nRunning multi-period analysis...")
     results = run_mp(cfg)
 
     print(f"Generated {len(results)} periods")
 
     # Analyze each period's selection
-    print(f"\nANALYZING MANAGER SELECTION BY PERIOD:")
+    print("\nANALYZING MANAGER SELECTION BY PERIOD:")
     print("=" * 70)
 
     all_selected_managers = set()
@@ -73,14 +70,14 @@ def test_multi_period_selection():
             # Show their Sharpe ratios (the ranking metric)
             if "Sharpe" in score_frame.columns:
                 sharpe_scores = score_frame["Sharpe"].sort_values(ascending=False)
-                print(f"  Sharpe Ratios:")
+                print("  Sharpe Ratios:")
                 for mgr, sharpe in sharpe_scores.items():
                     print(f"    {mgr}: {sharpe:6.2f}")
         else:
             print(f"\nPeriod {i+1:2d}: No score frame available")
 
     # Analysis summary
-    print(f"\n" + "=" * 70)
+    print("\n" + "=" * 70)
     print("SELECTION ANALYSIS SUMMARY")
     print("=" * 70)
 
@@ -118,7 +115,7 @@ def test_multi_period_selection():
             print("✅ GOOD: Manager selection is changing between periods")
 
     # Show performance of selected vs non-selected managers
-    print(f"\n" + "=" * 70)
+    print("\n" + "=" * 70)
     print("PERFORMANCE VERIFICATION")
     print("=" * 70)
 
@@ -142,7 +139,7 @@ def test_multi_period_selection():
             sharpe_data.sort(key=lambda x: x[1], reverse=True)
 
             selected = period_selections.get(i, [])
-            print(f"  Manager Rankings (by Sharpe):")
+            print("  Manager Rankings (by Sharpe):")
             for rank, (mgr, sharpe) in enumerate(sharpe_data[:12], 1):  # Show top 12
                 status = "SELECTED" if mgr in selected else "not selected"
                 print(f"    {rank:2d}. {mgr}: {sharpe:6.2f} - {status}")
@@ -152,7 +149,7 @@ def test_multi_period_selection():
         )
         if out_stats:
             selected = period_selections.get(i, [])
-            print(f"  Selected managers out-of-sample performance:")
+            print("  Selected managers out-of-sample performance:")
             for mgr in selected:
                 if mgr in out_stats:
                     stats = out_stats[mgr]
@@ -161,7 +158,7 @@ def test_multi_period_selection():
                     print(f"    {mgr}: {cagr:6.1f}% CAGR, {sharpe:5.2f} Sharpe")
 
     # Final verification
-    print(f"\n" + "=" * 70)
+    print("\n" + "=" * 70)
     print("PROCESS VERIFICATION")
     print("=" * 70)
 
@@ -207,7 +204,7 @@ def test_multi_period_selection():
 
     success = all("✅" in check for check in checks)
 
-    print(f"\n" + "=" * 70)
+    print("\n" + "=" * 70)
     if success:
         print("🎉 MULTI-PERIOD SELECTION PROCESS IS WORKING CORRECTLY!")
     else:

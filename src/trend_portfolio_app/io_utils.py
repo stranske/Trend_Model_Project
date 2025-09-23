@@ -15,9 +15,11 @@ _TEMP_FILES_TO_CLEANUP: list[str] = []
 class _HasPortfolioAndLog(Protocol):
     portfolio: Any
 
-    def event_log_df(self) -> Any: ...
+    def event_log_df(self) -> Any:  # noqa: D401
+        ...
 
-    def summary(self) -> Dict[str, Any]: ...
+    def summary(self) -> Dict[str, Any]:  # noqa: D401
+        ...
 
 
 def _cleanup_temp_files() -> None:
