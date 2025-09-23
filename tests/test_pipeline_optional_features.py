@@ -209,8 +209,7 @@ def test_run_analysis_skips_avg_corr_for_single_fund() -> None:
 def test_run_analysis_does_not_duplicate_existing_avg_corr(monkeypatch: pytest.MonkeyPatch) -> None:
     df = _clean_returns_frame()
     stats_cfg = RiskStatsConfig()
-    stats_cfg.metrics_to_run = list(stats_cfg.metrics_to_run) + ["AvgCorr"]
-    setattr(stats_cfg, "extra_metrics", ["AvgCorr"])
+    stats_cfg.metrics_to_run = list(stats_cfg.metrics_to_run) + ["AvgCorr", "AvgCorr"]
 
     def fake_single_period_run(*args, **kwargs) -> pd.DataFrame:
         frame = pd.DataFrame(
