@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import pandas as pd
+import pytest
 
+import trend.cli as cli
 from trend.cli import (
     SCENARIO_WINDOWS,
+    TrendCLIError,
     _adjust_for_scenario,
     _determine_seed,
     _resolve_returns_path,
@@ -39,6 +43,17 @@ def test_resolve_returns_path_uses_config_directory(tmp_path: Path) -> None:
     assert resolved == (tmp_path / "data" / "returns.csv").resolve()
 
 
+def test_resolve_returns_path_requires_csv(tmp_path: Path) -> None:
+    cfg_path = tmp_path / "config.yml"
+    cfg_path.write_text("", encoding="utf-8")
+
+    class DummyCfg:
+        data: dict[str, str] = {}
+
+    with pytest.raises(TrendCLIError):
+        _resolve_returns_path(cfg_path, DummyCfg(), None)
+
+
 def test_determine_seed_precedence(monkeypatch) -> None:
     class DummyCfg:
         seed = 7
@@ -51,6 +66,21 @@ def test_determine_seed_precedence(monkeypatch) -> None:
     monkeypatch.delenv("TREND_SEED")
     cfg_default = DummyCfg()
     assert _determine_seed(cfg_default, None) == 7
+
+
+def test_determine_seed_handles_invalid_env(monkeypatch) -> None:
+    class DummyCfg:
+        seed = 11
+
+    cfg = DummyCfg()
+    monkeypatch.setenv("TREND_SEED", "not-an-int")
+    try:
+        value = _determine_seed(cfg, None)
+    finally:
+        monkeypatch.delenv("TREND_SEED", raising=False)
+
+    assert value == 11
+    assert cfg.seed == 11
 
 
 def test_adjust_for_scenario_updates_sample_split() -> None:
@@ -90,6 +120,11 @@ def test_main_run_invokes_pipeline(monkeypatch, tmp_path: Path) -> None:
     assert pipeline_kwargs["structured_log"] is True
 
 
+def test_main_run_requires_config() -> None:
+    exit_code = main(["run"])
+    assert exit_code == 2
+
+
 def test_main_report_uses_requested_directory(monkeypatch, tmp_path: Path) -> None:
     dummy_result = RunResult(pd.DataFrame(), {}, 42, {})
 
@@ -121,6 +156,11 @@ def test_main_report_uses_requested_directory(monkeypatch, tmp_path: Path) -> No
     assert recorded["dir"] == out_dir
 
 
+def test_main_report_requires_output_directory() -> None:
+    exit_code = main(["report", "--config", "config/demo.yml"])
+    assert exit_code == 2
+
+
 def test_main_stress_passes_scenario(monkeypatch, tmp_path: Path) -> None:
     dummy_result = RunResult(pd.DataFrame(), {}, 42, {})
 
@@ -147,3 +187,170 @@ def test_main_stress_passes_scenario(monkeypatch, tmp_path: Path) -> None:
 
     assert exit_code == 0
     assert captured["structured_log"] is False
+
+
+def test_main_stress_requires_scenario() -> None:
+    exit_code = main(["stress", "--config", "config/demo.yml"])
+    assert exit_code == 2
+
+
+def test_main_app_invokes_streamlit(monkeypatch) -> None:
+    called: dict[str, int] = {}
+
+    class DummyProcess:
+        returncode = 0
+
+    def fake_run(cmd: list[str]) -> DummyProcess:  # type: ignore[override]
+        called["argc"] = len(cmd)
+        return DummyProcess()
+
+    monkeypatch.setattr(cli.subprocess, "run", fake_run)
+
+    exit_code = main(["app"])
+
+    assert exit_code == 0
+    assert called["argc"] == 3
+
+
+def test_prepare_export_config_updates_structure(tmp_path: Path) -> None:
+    cfg = SimpleNamespace(export={"directory": "old", "formats": ["csv"]})
+
+    cli._prepare_export_config(cfg, tmp_path, ["json", "txt"])
+
+    assert cfg.export["directory"] == str(tmp_path)
+    assert cfg.export["formats"] == ["json", "txt"]
+
+
+def test_ensure_dataframe_raises_when_missing(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(cli, "load_csv", lambda *_: None)
+
+    with pytest.raises(FileNotFoundError):
+        cli._ensure_dataframe(tmp_path / "missing.csv")
+
+
+def test_handle_exports_with_excel(monkeypatch, tmp_path: Path) -> None:
+    metrics = pd.DataFrame({"value": [1.0]})
+    details = {
+        "portfolio_user_weight": pd.Series([0.5], name="portfolio"),
+        "benchmarks": {"bench": pd.Series([1.0], name="bench")},
+        "weights_user_weight": pd.Series([0.5], name="w"),
+    }
+    result = RunResult(metrics, details, 1, {})
+
+    cfg = SimpleNamespace(
+        export={"directory": str(tmp_path), "formats": ["xlsx", "json"]},
+        sample_split={
+            "in_start": "2020-01",
+            "in_end": "2020-12",
+            "out_start": "2021-01",
+            "out_end": "2021-12",
+        },
+    )
+
+    recorded: list[tuple[str, str]] = []
+
+    monkeypatch.setattr(
+        cli.export,
+        "make_summary_formatter",
+        lambda *_: "formatter",
+    )
+    monkeypatch.setattr(
+        cli.export,
+        "summary_frame_from_result",
+        lambda *_: pd.DataFrame({"summary": [1]}),
+    )
+
+    def fake_export_to_excel(data, path, default_sheet_formatter):  # type: ignore[override]
+        recorded.append(("excel", str(path)))
+
+    def fake_export_data(data, path, formats):  # type: ignore[override]
+        recorded.append(("data", str(path)))
+
+    monkeypatch.setattr(cli.export, "export_to_excel", fake_export_to_excel)
+    monkeypatch.setattr(cli.export, "export_data", fake_export_data)
+
+    events: list[str] = []
+    monkeypatch.setattr(
+        cli,
+        "_legacy_maybe_log_step",
+        lambda *_args, **_kwargs: events.append("logged"),
+    )
+
+    cli._handle_exports(cfg, result, structured_log=True, run_id="run42")
+
+    assert ("excel", str(tmp_path / "analysis.xlsx")) in recorded
+    assert any(kind == "data" for kind, _ in recorded)
+    assert events
+
+
+def test_run_pipeline_sets_attributes(monkeypatch, tmp_path: Path) -> None:
+    cfg = SimpleNamespace(export={}, sample_split={}, run_id=None)
+    returns = pd.DataFrame({"Date": ["2020-01-31"], "A": [0.1]})
+
+    metrics = pd.DataFrame({"value": [1.0]})
+    details = {
+        "portfolio_user_weight": {"series": [0.5]},
+        "benchmarks": {"benchmark": pd.Series([0.1], name="bench")},
+        "weights_user_weight": pd.Series([0.4], name="weights"),
+    }
+    run_result = RunResult(metrics, details, 7, {})
+
+    monkeypatch.setattr(cli, "run_simulation", lambda *_: run_result)
+    monkeypatch.setattr(
+        cli.run_logging,
+        "get_default_log_path",
+        lambda run_id: tmp_path / f"{run_id}.json",
+    )
+
+    logs: list[str] = []
+    monkeypatch.setattr(
+        cli,
+        "_legacy_maybe_log_step",
+        lambda *_args, **_kwargs: logs.append("logged"),
+    )
+
+    handled: list[str] = []
+    monkeypatch.setattr(
+        cli,
+        "_handle_exports",
+        lambda *_args, **_kwargs: handled.append("exports"),
+    )
+
+    bundles: list[Path] = []
+
+    def fake_write_bundle(*args, **_kwargs):  # type: ignore[override]
+        bundles.append(Path(args[3]))
+
+    monkeypatch.setattr(cli, "_write_bundle", fake_write_bundle)
+    monkeypatch.setattr(
+        cli.uuid,
+        "uuid4",
+        lambda: SimpleNamespace(hex="abcdef1234567890"),
+    )
+
+    result, run_id, log_path = cli._run_pipeline(
+        cfg,
+        returns,
+        source_path=tmp_path / "returns.csv",
+        log_file=None,
+        structured_log=True,
+        bundle=tmp_path / "bundle.zip",
+    )
+
+    assert isinstance(result, RunResult)
+    assert run_id == "abcdef123456"
+    assert log_path == tmp_path / "abcdef123456.json"
+    assert hasattr(result, "portfolio")
+    assert hasattr(result, "benchmark")
+    assert hasattr(result, "weights")
+    assert cfg.run_id == run_id
+    assert logs
+    assert handled
+    assert bundles == [tmp_path / "bundle.zip"]
+
+
+def test_adjust_for_scenario_rejects_unknown() -> None:
+    cfg = SimpleNamespace(sample_split={})
+
+    with pytest.raises(TrendCLIError):
+        _adjust_for_scenario(cfg, "unknown")

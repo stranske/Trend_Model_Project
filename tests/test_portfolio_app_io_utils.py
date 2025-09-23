@@ -5,6 +5,7 @@ import os
 import runpy
 import sys
 import zipfile
+from pathlib import Path
 from types import ModuleType
 
 import pytest
@@ -270,3 +271,32 @@ def test_health_wrapper_runner_injects_src_path(monkeypatch):
 
     # Clean up the temporary module entry so future imports see the real package.
     sys.modules.pop(module_name, None)
+
+
+def test_portfolio_app_main_preserves_existing_src_path(monkeypatch):
+    import importlib
+    import sys
+    from types import ModuleType
+
+    module_name = "trend_portfolio_app.__main__"
+    module = importlib.import_module(module_name)
+
+    streamlit_mod = ModuleType("streamlit")
+    streamlit_web = ModuleType("streamlit.web")
+    streamlit_cli = ModuleType("streamlit.web.cli")
+    streamlit_cli.main = lambda: None
+    streamlit_web.cli = streamlit_cli
+    streamlit_mod.web = streamlit_web
+
+    monkeypatch.setitem(sys.modules, "streamlit", streamlit_mod)
+    monkeypatch.setitem(sys.modules, "streamlit.web", streamlit_web)
+    monkeypatch.setitem(sys.modules, "streamlit.web.cli", streamlit_cli)
+
+    src_path = str(Path(__file__).resolve().parents[1] / "src")
+    unique_path = [src_path, *[p for p in sys.path if p != src_path]]
+    monkeypatch.setattr(sys, "path", unique_path, raising=False)
+    monkeypatch.setattr(sys, "argv", ["python"])
+
+    module.main()
+
+    assert sys.path.count(src_path) == 1
