@@ -20,8 +20,22 @@ MODULE_PATH = Path(models.__file__)
 def _load_models_without_pydantic(
     monkeypatch: pytest.MonkeyPatch, name: str = "tests.config_models_fallback_cov"
 ):
-    """Load a fresh copy of the module with pydantic unavailable."""
+    """
+    Load a fresh copy of the `trend_analysis.config.models` module with `pydantic` unavailable.
 
+    This function simulates an environment where the `pydantic` package is not present,
+    by setting `sys.modules["pydantic"]` to `None` using the provided `monkeypatch`.
+    It then loads the module from disk under the given `name`, allowing tests to verify
+    fallback behavior when `pydantic` cannot be imported.
+
+    Parameters:
+        monkeypatch (pytest.MonkeyPatch): The pytest monkeypatch fixture for patching `sys.modules`.
+        name (str): The name to assign to the loaded module in `sys.modules`. Defaults to
+            "tests.config_models_fallback_cov".
+
+    Returns:
+        types.ModuleType: The loaded module object with `pydantic` unavailable.
+    """
     spec = importlib.util.spec_from_file_location(name, MODULE_PATH)
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
