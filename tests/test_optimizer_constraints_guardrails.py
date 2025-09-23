@@ -115,3 +115,17 @@ def test_apply_constraints_caps_after_cash_weight_with_mapping() -> None:
     assert pytest.approx(float(adjusted.sum()), rel=0, abs=1e-12) == 1.0
     non_cash = adjusted.drop("CASH")
     assert (non_cash <= 0.45 + 1e-12).all()
+
+
+def test_apply_constraints_rescales_existing_cash_row() -> None:
+    """Existing CASH allocations should be overridden and remaining weights capped."""
+
+    weights = pd.Series({"FundA": 0.9, "FundB": 0.05, "CASH": 0.05}, dtype=float)
+
+    adjusted = apply_constraints(weights, ConstraintSet(max_weight=0.6, cash_weight=0.2))
+
+    assert "CASH" in adjusted.index
+    assert adjusted.loc["CASH"] == pytest.approx(0.2)
+    non_cash = adjusted.drop("CASH")
+    assert pytest.approx(float(non_cash.sum()), rel=0, abs=1e-12) == 0.8
+    assert (non_cash <= 0.6 + 1e-12).all()

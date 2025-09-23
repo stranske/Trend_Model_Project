@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import inspect
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -239,6 +241,42 @@ def test_run_analysis_does_not_duplicate_existing_avg_corr(monkeypatch: pytest.M
     score_frame = result["score_frame"]
     assert list(score_frame.columns).count("AvgCorr") == 1
     pd.testing.assert_index_equal(score_frame.index, pd.Index(["FundA", "FundB"]))
+
+
+def test_run_analysis_avg_corr_corr_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    df = _clean_returns_frame()
+    stats_cfg = RiskStatsConfig()
+    stats_cfg.metrics_to_run = list(stats_cfg.metrics_to_run) + ["AvgCorr"]
+    setattr(stats_cfg, "extra_metrics", ["AvgCorr"])
+
+    original_corr = pd.DataFrame.corr
+
+    def flaky_corr(self, *args, **kwargs):  # type: ignore[override]
+        caller = inspect.stack()[1]
+        if caller.filename.endswith("pipeline.py"):
+            raise RuntimeError("corr failure")
+        return original_corr(self, *args, **kwargs)
+
+    monkeypatch.setattr(pd.DataFrame, "corr", flaky_corr)
+
+    result = pipeline._run_analysis(
+        df,
+        "2020-01",
+        "2020-02",
+        "2020-03",
+        "2020-04",
+        target_vol=1.0,
+        monthly_cost=0.0,
+        stats_cfg=stats_cfg,
+        indices_list=["Benchmark"],
+        benchmarks={"SPX": "Benchmark"},
+    )
+
+    assert result is not None
+    in_stats = result["in_sample_stats"]["FundA"]
+    out_stats = result["out_sample_stats"]["FundA"]
+    assert in_stats.is_avg_corr is None
+    assert out_stats.os_avg_corr is None
 
 
 def test_run_analysis_constraint_failure_falls_back(
