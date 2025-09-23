@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import builtins
 import importlib.util
-import sys
 from pathlib import Path
 
 import pytest
@@ -90,7 +89,9 @@ def test_fallback_loader_returns_minimal_payload(
     assert "extra" not in validated
 
 
-def test_fallback_loader_swallows_validation_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_fallback_loader_swallows_validation_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     module_path = (
         Path(__file__).resolve().parents[1]
         / "src"
@@ -144,7 +145,9 @@ def test_fallback_loader_swallows_validation_errors(monkeypatch: pytest.MonkeyPa
     assert cfg.metrics == {}
 
 
-def test_fallback_load_config_handles_validator_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_fallback_load_config_handles_validator_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     module_path = (
         Path(__file__).resolve().parents[1]
         / "src"

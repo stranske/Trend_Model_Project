@@ -1,12 +1,18 @@
 import pandas as pd
 import pytest
 
-from trend_analysis.engine.optimizer import ConstraintSet, ConstraintViolation, apply_constraints
+from trend_analysis.engine.optimizer import (
+    ConstraintSet,
+    ConstraintViolation,
+    apply_constraints,
+)
 
 
 def test_apply_constraints_rejects_cash_weight_outside_unit_interval() -> None:
     weights = pd.Series({"A": 0.6, "B": 0.4}, dtype=float)
-    with pytest.raises(ConstraintViolation, match=r"cash_weight must be in \(0,1\) exclusive"):
+    with pytest.raises(
+        ConstraintViolation, match=r"cash_weight must be in \(0,1\) exclusive"
+    ):
         apply_constraints(weights, ConstraintSet(cash_weight=1.0))
 
 
@@ -21,7 +27,9 @@ def test_apply_constraints_rejects_cash_weight_even_when_cash_present() -> None:
 
 def test_apply_constraints_requires_non_cash_assets_when_cash_weight_set() -> None:
     weights = pd.Series({"CASH": 1.0}, dtype=float)
-    with pytest.raises(ConstraintViolation, match="No assets available for non-CASH allocation"):
+    with pytest.raises(
+        ConstraintViolation, match="No assets available for non-CASH allocation"
+    ):
         apply_constraints(weights, ConstraintSet(cash_weight=0.2))
 
 
@@ -122,7 +130,9 @@ def test_apply_constraints_rescales_existing_cash_row() -> None:
 
     weights = pd.Series({"FundA": 0.9, "FundB": 0.05, "CASH": 0.05}, dtype=float)
 
-    adjusted = apply_constraints(weights, ConstraintSet(max_weight=0.6, cash_weight=0.2))
+    adjusted = apply_constraints(
+        weights, ConstraintSet(max_weight=0.6, cash_weight=0.2)
+    )
 
     assert "CASH" in adjusted.index
     assert adjusted.loc["CASH"] == pytest.approx(0.2)

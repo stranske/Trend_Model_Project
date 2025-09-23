@@ -86,7 +86,7 @@ def sample_bundle():
         key=None,
         start="2020-01",
         end="2020-04",
-        freq="M",
+        freq="ME",
         stats_cfg_hash=cfg_hash,
         universe=tuple(df.columns),
         in_sample_df=df,
@@ -408,7 +408,7 @@ def test_rank_select_funds_transform_alias_and_cache_storage():
         key=window_key,
         start="2020-01",
         end="2020-04",
-        freq="M",
+        freq="ME",
         stats_cfg_hash=rank_selection._stats_cfg_hash(cfg),
         universe=("Gamma",),
         in_sample_df=df,
@@ -505,7 +505,7 @@ def test_rank_select_funds_supports_blended_scores(monkeypatch):
 
 
 def test_select_funds_simple_modes(monkeypatch):
-    dates = pd.date_range("2021-01-31", periods=4, freq="M")
+    dates = pd.date_range("2021-01-31", periods=4, freq="ME")
     df = pd.DataFrame(
         {
             "Date": dates,
@@ -625,7 +625,7 @@ def test_rank_select_funds_uses_cached_bundle():
         key=window_key,
         start="2020-01",
         end="2020-03",
-        freq="M",
+        freq="ME",
         stats_cfg_hash=rank_selection._stats_cfg_hash(cfg),
         universe=tuple(df.columns),
         in_sample_df=df,

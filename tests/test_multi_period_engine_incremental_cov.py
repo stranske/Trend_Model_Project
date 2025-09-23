@@ -3,8 +3,6 @@ engine."""
 
 from __future__ import annotations
 
-import sys
-import types
 from types import SimpleNamespace
 
 import pandas as pd
@@ -116,11 +114,15 @@ def test_run_incremental_covariance_updates(monkeypatch):
 
 
 @pytest.mark.parametrize("non_positive_value", [0, -1])
-def test_run_incremental_covariance_coerces_non_positive_shift_steps(monkeypatch, non_positive_value):
+def test_run_incremental_covariance_coerces_non_positive_shift_steps(
+    monkeypatch, non_positive_value
+):
     """Non-positive shift step settings should coerce to at least one step."""
 
     cfg = _Cfg()
-    cfg.performance["shift_detection_max_steps"] = non_positive_value  # force coercion branch
+    cfg.performance["shift_detection_max_steps"] = (
+        non_positive_value  # force coercion branch
+    )
     df = _make_df()
     periods = _make_periods()
 
@@ -575,7 +577,15 @@ def test_run_incremental_covariance_handles_cov_cache_import_failure(monkeypatch
     monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
 
     # Patch CovCache to raise ImportError when accessed
-    monkeypatch.setattr(cache_mod, "CovCache", property(lambda self: (_ for _ in ()).throw(ImportError("No module named 'CovCache'"))))
+    monkeypatch.setattr(
+        cache_mod,
+        "CovCache",
+        property(
+            lambda self: (_ for _ in ()).throw(
+                ImportError("No module named 'CovCache'")
+            )
+        ),
+    )
 
     results = mp_engine.run(cfg, df=df)
 

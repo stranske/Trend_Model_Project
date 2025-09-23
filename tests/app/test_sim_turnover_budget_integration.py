@@ -32,7 +32,7 @@ def test_simulator_turnover_budget_integration():
     res = sim.run(
         start=dates[2],
         end=dates[-2],
-        freq="m",
+        freq="ME",
         lookback_months=2,
         policy=policy,
     )

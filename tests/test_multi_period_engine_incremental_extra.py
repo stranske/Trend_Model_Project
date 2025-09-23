@@ -227,7 +227,9 @@ def test_incremental_update_length_change_triggers_recompute(
     assert "cov_diag" in results[-1]
 
 
-def test_incremental_cov_cache_instantiation_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_incremental_cov_cache_instantiation_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     cfg = _Cfg(
         data={},
         multi_period={"periods": []},

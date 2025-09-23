@@ -111,7 +111,7 @@ def test_run_attaches_covariance_diagnostics(
 
     df = pd.DataFrame(
         {
-            "Date": pd.date_range("2020-01-31", periods=6, freq="M"),
+            "Date": pd.date_range("2020-01-31", periods=6, freq="ME"),
             "FundA": [0.01, 0.02, 0.03, 0.04, 0.05, 0.06],
             "FundB": [0.02, 0.01, 0.00, -0.01, -0.02, -0.03],
         }

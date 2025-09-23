@@ -31,7 +31,7 @@ def test_simulator_min_tenure_integration():
     res = sim.run(
         start=dates[0],
         end=dates[-2],  # stop before last to focus on steady state
-        freq="m",
+        freq="ME",
         lookback_months=3,
         policy=policy,
     )

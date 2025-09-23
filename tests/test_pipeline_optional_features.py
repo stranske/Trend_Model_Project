@@ -208,7 +208,9 @@ def test_run_analysis_skips_avg_corr_for_single_fund() -> None:
     assert out_stats.os_avg_corr is None
 
 
-def test_run_analysis_does_not_duplicate_existing_avg_corr(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_analysis_does_not_duplicate_existing_avg_corr(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     df = _clean_returns_frame()
     stats_cfg = RiskStatsConfig()
     stats_cfg.metrics_to_run = list(stats_cfg.metrics_to_run) + ["AvgCorr", "AvgCorr"]
@@ -349,7 +351,9 @@ def test_run_analysis_applies_constraints_on_success(
     assert captured_inputs and list(captured_inputs[0].index) == ["FundA", "FundB"]
 
 
-def test_run_analysis_constraint_violation_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_analysis_constraint_violation_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     df = _clean_returns_frame()
     stats_cfg = RiskStatsConfig()
 
@@ -380,7 +384,9 @@ def test_run_analysis_constraint_violation_fallback(monkeypatch: pytest.MonkeyPa
     assert weights["FundB"] == pytest.approx(0.3)
 
 
-def test_run_analysis_constraint_missing_groups_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_analysis_constraint_missing_groups_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     df = _clean_returns_frame()
     stats_cfg = RiskStatsConfig()
 
@@ -456,7 +462,9 @@ def test_run_analysis_benchmark_ir_best_effort(monkeypatch: pytest.MonkeyPatch) 
     assert "user_weight" not in ir_payload
 
 
-def test_run_analysis_benchmark_ir_handles_scalar_output(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_analysis_benchmark_ir_handles_scalar_output(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     df = _clean_returns_frame()
     stats_cfg = RiskStatsConfig()
 
@@ -580,7 +588,9 @@ def test_run_analysis_constraints_missing_groups_fallbacks() -> None:
     assert weights["FundB"] == pytest.approx(0.3)
 
 
-def test_run_analysis_benchmark_ir_non_numeric_enrichment(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_analysis_benchmark_ir_non_numeric_enrichment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     df = _clean_returns_frame()
     stats_cfg = RiskStatsConfig()
 

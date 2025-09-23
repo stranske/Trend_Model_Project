@@ -54,5 +54,9 @@ def test_commit_prefix_is_quoted():
     env = data.get("env", {})
     prefix = env.get("COMMIT_PREFIX")
     assert isinstance(prefix, str), "COMMIT_PREFIX must be configured as a string"
-    assert "AUTOFIX_COMMIT_PREFIX" in prefix, "COMMIT_PREFIX should defer to vars.AUTOFIX_COMMIT_PREFIX"
-    assert "chore(autofix):" in prefix, "COMMIT_PREFIX must fall back to 'chore(autofix):'"
+    assert (
+        "AUTOFIX_COMMIT_PREFIX" in prefix
+    ), "COMMIT_PREFIX should defer to vars.AUTOFIX_COMMIT_PREFIX"
+    assert (
+        "chore(autofix):" in prefix
+    ), "COMMIT_PREFIX must fall back to 'chore(autofix):'"
