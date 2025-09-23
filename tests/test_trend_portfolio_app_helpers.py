@@ -1,3 +1,4 @@
+import importlib
 import json
 import sys
 from pathlib import Path
@@ -634,3 +635,26 @@ def test_render_run_section_executes_multi_period(
     for item in payload:
         expected.append({**item, "period": list(item["period"])})
     assert decoded_payload == expected
+
+
+def test_full_app_bootstrap_runs_render(monkeypatch: pytest.MonkeyPatch) -> None:
+    dummy = _DummyStreamlit()
+
+    page_config_calls: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
+    dummy.set_page_config = lambda *args, **kwargs: page_config_calls.append(
+        (args, kwargs)
+    )
+
+    titles: list[str] = []
+    dummy.title = lambda title, **__: titles.append(title)
+
+    monkeypatch.setitem(sys.modules, "streamlit", dummy)
+    sys.modules.pop("trend_portfolio_app.app", None)
+
+    module = importlib.import_module("trend_portfolio_app.app")
+
+    assert page_config_calls, "_render_app should configure the page on import"
+    assert titles == ["Trend Portfolio App"]
+    assert dummy.session_state.get("config_dict") is not None
+    assert isinstance(dummy.session_state["config_dict"], dict)
+    assert module._render_app  # pragma: no cover - sanity check the attribute exists
