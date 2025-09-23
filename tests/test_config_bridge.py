@@ -21,6 +21,21 @@ def test_build_config_payload_minimal():
     assert payload["portfolio"]["rebalance_calendar"] == "NYSE"
 
 
+def test_build_config_payload_optional_entries() -> None:
+    payload = build_config_payload(
+        csv_path=None,
+        managers_glob="data/*.csv",
+        date_column="Date",
+        frequency="M",
+        rebalance_calendar="NYSE",
+        max_turnover=0.5,
+        transaction_cost_bps=5.0,
+        target_vol=0.1,
+    )
+    assert "csv_path" not in payload["data"]
+    assert payload["data"]["managers_glob"] == "data/*.csv"
+
+
 def test_validate_payload_success(tmp_path: Path):
     csv = tmp_path / "returns.csv"
     csv.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
@@ -38,6 +53,25 @@ def test_validate_payload_success(tmp_path: Path):
     assert error is None
     assert validated is not None
     assert validated["data"]["csv_path"].endswith("returns.csv")
+
+
+def test_validate_payload_normalises_path_objects(tmp_path: Path) -> None:
+    csv = tmp_path / "returns.csv"
+    csv.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
+    payload = build_config_payload(
+        csv_path=str(csv),
+        managers_glob=None,
+        date_column="Date",
+        frequency="M",
+        rebalance_calendar="NYSE",
+        max_turnover=0.5,
+        transaction_cost_bps=10.0,
+        target_vol=0.1,
+    )
+    payload["data"]["csv_path"] = csv  # emulate caller providing Path object
+    validated, error = validate_payload(payload, base_path=tmp_path)
+    assert error is None
+    assert isinstance(validated["data"]["csv_path"], str)
 
 
 def test_validate_payload_reports_error(tmp_path: Path):
