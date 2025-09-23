@@ -224,7 +224,7 @@ def test_run_incremental_covariance(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(engine, "_run_analysis", fake_run_analysis)
 
-    dates = pd.date_range("2020-01-31", periods=6, freq="M")
+    dates = pd.date_range("2020-01-31", periods=6, freq="ME")
     df = pd.DataFrame(
         {
             "Date": dates,

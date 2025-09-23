@@ -6,7 +6,7 @@ from trend_analysis.pipeline import _run_analysis
 
 
 def make_dummy_returns(n_months: int = 24) -> pd.DataFrame:
-    dates = pd.date_range("2022-01-31", periods=n_months, freq="M")
+    dates = pd.date_range("2022-01-31", periods=n_months, freq="ME")
     rng = np.random.default_rng(42)
     data = {
         "Date": dates,

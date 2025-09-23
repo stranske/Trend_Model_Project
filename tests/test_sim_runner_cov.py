@@ -186,7 +186,7 @@ def test_simulator_run_progress_and_fire(monkeypatch):
     res = sim.run(
         start=first,
         end=second,
-        freq="M",
+        freq="ME",
         lookback_months=1,
         policy=PolicyConfig(top_k=1, bottom_k=1, min_track_months=0),
         progress_cb=cb,
@@ -241,7 +241,7 @@ def test_simulator_run_max_weight_clip(monkeypatch):
     sim.run(
         start=index[0],
         end=index[-1],
-        freq="M",
+        freq="ME",
         lookback_months=1,
         policy=policy,
     )
@@ -280,7 +280,7 @@ def test_simulator_handles_equity_curve_update_failure(monkeypatch, caplog):
     sim.run(
         start=index[0],
         end=index[0],
-        freq="M",
+        freq="ME",
         lookback_months=1,
         policy=PolicyConfig(min_track_months=0),
     )
@@ -433,7 +433,7 @@ def test_simulator_equity_curve_warning(monkeypatch, caplog):
     sim.run(
         start=index[0],
         end=index[1],
-        freq="M",
+        freq="ME",
         lookback_months=1,
         policy=policy,
     )
@@ -465,7 +465,7 @@ def test_simulator_run_handles_missing_forward_month(monkeypatch):
     result = sim.run(
         start=pd.Timestamp("2020-01-31"),
         end=pd.Timestamp("2020-01-31"),
-        freq="M",
+        freq="ME",
         lookback_months=1,
         policy=policy,
     )

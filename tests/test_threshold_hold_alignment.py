@@ -32,7 +32,7 @@ def test_threshold_hold_results_align_with_periods():
     cfg = Config(**cfg_data)
 
     # Simple deterministic data set with enough funds
-    dates = pd.date_range("2020-01-31", periods=5, freq="M")
+    dates = pd.date_range("2020-01-31", periods=5, freq="ME")
     df = pd.DataFrame(
         {
             "Date": dates,

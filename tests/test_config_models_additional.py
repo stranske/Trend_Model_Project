@@ -60,11 +60,15 @@ def test_column_mapping_defaults_and_validation(
     assert mapping.column_tickers == {}
 
 
-def test_load_merges_output_section(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_load_merges_output_section(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """``load`` should fold ``output`` metadata into the export settings."""
 
     monkeypatch.setattr(models, "_HAS_PYDANTIC", False)
-    monkeypatch.setattr(models, "validate_trend_config", lambda data, *, base_path: data)
+    monkeypatch.setattr(
+        models, "validate_trend_config", lambda data, *, base_path: data
+    )
     export_target = tmp_path / "exports" / "report.xlsx"
     config_dict = _base_config()
     config_dict["export"] = {"formats": ("json",)}
@@ -86,7 +90,9 @@ def test_load_uses_environment_default(
     """When no path is provided, ``load`` should honour ``TREND_CFG``."""
 
     monkeypatch.setattr(models, "_HAS_PYDANTIC", False)
-    monkeypatch.setattr(models, "validate_trend_config", lambda data, *, base_path: data)
+    monkeypatch.setattr(
+        models, "validate_trend_config", lambda data, *, base_path: data
+    )
     config_path = tmp_path / "custom.yml"
     payload = _base_config()
     payload["version"] = "from-env"
