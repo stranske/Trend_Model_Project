@@ -3,6 +3,16 @@
 # Usage: ./scripts/docker_smoke.sh
 set -euo pipefail
 
+# Graceful skip if docker unavailable (local dev containers may lack daemon capabilities)
+if ! command -v docker >/dev/null 2>&1; then
+  echo "[docker-smoke] docker CLI not found; skipping." >&2
+  exit 0
+fi
+if ! docker info >/dev/null 2>&1; then
+  echo "[docker-smoke] docker daemon not available; skipping." >&2
+  exit 0
+fi
+
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 

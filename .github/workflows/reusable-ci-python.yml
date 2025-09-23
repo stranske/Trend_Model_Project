@@ -3,28 +3,96 @@ name: Reusable Python CI
 on:
   workflow_call:
     inputs:
-      python-versions: { description: 'JSON list Python versions', required: false, default: '["3.11"]', type: string }
-      coverage-min: { description: 'Minimum coverage percent', required: false, default: '70', type: string }
-      run-mypy: { description: 'Run mypy job', required: false, default: 'true', type: string }
-      # Phase 1 – Metrics extraction inputs
-      enable-metrics: { description: 'Enable metrics extraction (ci-metrics.json)', required: false, default: 'false', type: string }
-      slow-test-top: { description: 'Count of slow tests to report', required: false, default: '15', type: string }
-      slow-test-min-seconds: { description: 'Min seconds for slow test list', required: false, default: '1', type: string }
-      # Phase 2 – Classification & history logging
-      enable-classification: { description: 'Enable failure classification', required: false, default: 'false', type: string }
-      enable-history: { description: 'Enable metrics history append', required: false, default: 'false', type: string }
-      history-artifact-name: { description: 'Artifact name for metrics history', required: false, default: 'metrics-history.ndjson', type: string }
-      # Phase 3 – Coverage delta
-      enable-coverage-delta: { description: 'Enable coverage delta evaluation', required: false, default: 'false', type: string }
-      baseline-coverage: { description: 'Baseline coverage percent', required: false, default: '0', type: string }
-      coverage-alert-drop: { description: 'Coverage drop alert threshold (pct pts)', required: false, default: '1', type: string }
-      fail-on-coverage-drop: { description: 'Fail if drop >= threshold', required: false, default: 'false', type: string }
-      coverage-drop-label: { description: 'Label to add on drop (future)', required: false, default: 'coverage-drop', type: string }
-      # Phase 4 – Soft coverage gate (Issue #1342)
-      enable-soft-gate: { description: 'Enable soft coverage gate (aggregate + issue update)', required: false, default: 'false', type: string }
-      coverage-hard-fail: { description: 'Still fail build on coverage shortfall (true/false)', required: false, default: 'true', type: string }
-      coverage-artifact-retention-days: { description: 'Retention days for coverage artifacts', required: false, default: '10', type: string }
-      low-coverage-threshold: { description: 'Percent threshold for low coverage spotlight table', required: false, default: '50', type: string }
+      python-versions:
+        description: JSON list Python versions
+        required: false
+        default: '["3.11"]'
+        type: string
+      coverage-min:
+        description: Minimum coverage percent
+        required: false
+        default: '70'
+        type: string
+      run-mypy:
+        description: Run mypy job
+        required: false
+        default: true
+        type: boolean
+      enable-metrics:
+        description: Enable metrics extraction (ci-metrics.json)
+        required: false
+        default: false
+        type: boolean
+      slow-test-top:
+        description: Count of slow tests to report
+        required: false
+        default: '15'
+        type: string
+      slow-test-min-seconds:
+        description: Min seconds for slow test list
+        required: false
+        default: '1'
+        type: string
+      enable-classification:
+        description: Enable failure classification
+        required: false
+        default: false
+        type: boolean
+      enable-history:
+        description: Enable metrics history append
+        required: false
+        default: false
+        type: boolean
+      history-artifact-name:
+        description: Artifact name for metrics history
+        required: false
+        default: metrics-history.ndjson
+        type: string
+      enable-coverage-delta:
+        description: Enable coverage delta evaluation
+        required: false
+        default: false
+        type: boolean
+      baseline-coverage:
+        description: Baseline coverage percent
+        required: false
+        default: '0'
+        type: string
+      coverage-alert-drop:
+        description: Coverage drop alert threshold (pct pts)
+        required: false
+        default: '1'
+        type: string
+      fail-on-coverage-drop:
+        description: Fail if drop >= threshold
+        required: false
+        default: 'false'
+        type: string
+      coverage-drop-label:
+        description: Label to add on drop (future)
+        required: false
+        default: coverage-drop
+        type: string
+      enable-soft-gate:
+        description: Enable soft coverage gate (aggregate + issue update)
+        required: false
+        default: false
+        type: boolean
+      coverage-hard-fail:
+        description: Still fail build on coverage shortfall (true/false)
+        required: false
+        default: true
+        type: boolean
+      coverage-artifact-retention-days:
+        description: Retention days for coverage artifacts
+        required: false
+        default: '10'
+        type: string
+      low-coverage-threshold:
+        description: Percent threshold for low coverage spotlight table
+        required: false
+        default: '50'
+        type: string
 
 jobs:
   tests:
