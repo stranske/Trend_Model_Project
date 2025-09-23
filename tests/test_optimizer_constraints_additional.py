@@ -182,7 +182,9 @@ def test_apply_constraints_enforces_cap_after_group_caps_with_cash(
     try:
         result = apply_constraints(weights, constraints)
     finally:
-        monkeypatch.setattr(optimizer_mod, "_apply_cap", original_apply_cap, raising=False)
+        monkeypatch.setattr(
+            optimizer_mod, "_apply_cap", original_apply_cap, raising=False
+        )
 
     assert cap_calls["count"] >= 2
     assert pytest.approx(result.loc["CASH"], rel=1e-9) == 0.2

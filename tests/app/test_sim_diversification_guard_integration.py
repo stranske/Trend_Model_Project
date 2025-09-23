@@ -31,7 +31,7 @@ def test_simulator_diversification_guard_integration():
     res = sim.run(
         start=dates[1],
         end=dates[-2],
-        freq="m",
+        freq="ME",
         lookback_months=2,
         policy=policy,
     )

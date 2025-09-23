@@ -29,6 +29,14 @@ on:
 jobs:
   tests:
     runs-on: ubuntu-latest
+    env:
+      RUN_MYPY_FLAG: ${{ inputs.run-mypy }}
+      ENABLE_METRICS_FLAG: ${{ inputs.enable-metrics }}
+      ENABLE_HISTORY_FLAG: ${{ inputs.enable-history }}
+      ENABLE_CLASSIFICATION_FLAG: ${{ inputs.enable-classification }}
+      ENABLE_COV_DELTA_FLAG: ${{ inputs.enable-coverage-delta }}
+      ENABLE_SOFT_GATE_FLAG: ${{ inputs.enable-soft-gate }}
+      COVERAGE_HARD_FAIL_FLAG: ${{ inputs.coverage-hard-fail }}
     strategy:
       matrix:
         python-version: ${{ fromJson(inputs.python-versions) }}
@@ -71,7 +79,7 @@ jobs:
             pytest-junit.xml
             pytest-report.xml
       - name: Extract test metrics
-        if: ${{ inputs.enable-metrics == 'true' }}
+        if: ${{ env.ENABLE_METRICS_FLAG == 'true' }}
         run: |
           python scripts/ci_metrics.py || exit 1
         env:
@@ -80,13 +88,13 @@ jobs:
           TOP_N: ${{ inputs.slow-test-top }}
           MIN_SECONDS: ${{ inputs.slow-test-min-seconds }}
       - name: Upload metrics artifact
-        if: ${{ inputs.enable-metrics == 'true' }}
+        if: ${{ env.ENABLE_METRICS_FLAG == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: ci-metrics
           path: ci-metrics.json
       - name: Enforce coverage minimum (hard gate)
-        if: ${{ inputs.coverage-hard-fail == 'true' }}
+        if: ${{ env.COVERAGE_HARD_FAIL_FLAG == 'true' }}
         run: |
           if [ ! -f coverage.xml ]; then echo 'coverage.xml missing'; exit 1; fi
           RAW=$(grep -Eo 'line-rate="[0-9.]+' coverage.xml | head -1 | sed -E 's/.*"([0-9.]+)$/\1/')
@@ -95,7 +103,7 @@ jobs:
           MIN=${{ inputs.coverage-min }}
           python -c "import sys; c=float('$PCT'); m=float('$MIN'); sys.exit(0 if c>=m else 1)" || { echo "Coverage $PCT% < min $MIN%" >&2; exit 1; }
       - name: Coverage delta
-        if: ${{ inputs.enable-coverage-delta == 'true' }}
+        if: ${{ env.ENABLE_COV_DELTA_FLAG == 'true' }}
         run: |
           python scripts/ci_coverage_delta.py || exit 1
         env:
@@ -103,13 +111,13 @@ jobs:
           ALERT_DROP: ${{ inputs.coverage-alert-drop }}
           FAIL_ON_DROP: ${{ inputs.fail-on-coverage-drop }}
       - name: Upload coverage delta artifact
-        if: ${{ inputs.enable-coverage-delta == 'true' }}
+        if: ${{ env.ENABLE_COV_DELTA_FLAG == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: coverage-delta
           path: coverage-delta.json
       - name: History & classification
-        if: ${{ inputs.enable-history == 'true' || inputs.enable-classification == 'true' }}
+        if: ${{ env.ENABLE_HISTORY_FLAG == 'true' || env.ENABLE_CLASSIFICATION_FLAG == 'true' }}
         run: |
           python scripts/ci_history.py || exit 1
         env:
@@ -119,13 +127,13 @@ jobs:
           ENABLE_CLASSIFICATION: ${{ inputs.enable-classification }}
           CLASSIFICATION_OUT: classification.json
       - name: Upload history artifact
-        if: ${{ inputs.enable-history == 'true' }}
+        if: ${{ env.ENABLE_HISTORY_FLAG == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: metrics-history
           path: ${{ inputs.history-artifact-name }}
       - name: Upload classification artifact
-        if: ${{ inputs.enable-classification == 'true' }}
+        if: ${{ env.ENABLE_CLASSIFICATION_FLAG == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: classification
@@ -144,7 +152,7 @@ jobs:
           fi
           if [ -f classification.json ]; then echo "- Classification: present" >> $GITHUB_STEP_SUMMARY; else echo "- Classification: (disabled)" >> $GITHUB_STEP_SUMMARY; fi
           if [ -f ${{ inputs.history-artifact-name }} ]; then echo "- History: appended" >> $GITHUB_STEP_SUMMARY; else echo "- History: (disabled)" >> $GITHUB_STEP_SUMMARY; fi
-          if [ "${{ inputs.enable-soft-gate }}" = "true" ]; then echo "- Soft gate: enabled (see coverage_soft_gate job)" >> $GITHUB_STEP_SUMMARY; else echo "- Soft gate: (disabled)" >> $GITHUB_STEP_SUMMARY; fi
+          if [ "$ENABLE_SOFT_GATE_FLAG" = "true" ]; then echo "- Soft gate: enabled (see coverage_soft_gate job)" >> $GITHUB_STEP_SUMMARY; else echo "- Soft gate: (disabled)" >> $GITHUB_STEP_SUMMARY; fi
 
   mypy:
     if: ${{ inputs.run-mypy == 'true' }}

@@ -312,7 +312,7 @@ class TestRankSelectionInternals:
             key=key,
             start="2020-01",
             end="2020-02",
-            freq="M",
+            freq="ME",
             stats_cfg_hash=_stats_cfg_hash(cfg),
             universe=tuple(df.columns),
             in_sample_df=df,
@@ -369,7 +369,7 @@ class TestRankSelectionInternals:
             inclusion_approach="top_n",
             n=3,
             window_key=key,
-            freq="M",
+            freq="ME",
         )
         assert selected == ["ACME Growth", "Beta Alpha", "ACME Value"]
 
@@ -401,7 +401,7 @@ class TestRankSelectionInternals:
             key=None,
             start="",
             end="",
-            freq="M",
+            freq="ME",
             stats_cfg_hash=_stats_cfg_hash(cfg),
             universe=("Other",),
             in_sample_df=df,
@@ -414,7 +414,7 @@ class TestRankSelectionInternals:
             key=None,
             start="",
             end="",
-            freq="M",
+            freq="ME",
             stats_cfg_hash="not-the-same",
             universe=tuple(df.columns),
             in_sample_df=df,

@@ -722,7 +722,7 @@ def test_threshold_hold_enforces_bounds_and_replacement_flow(
         }
     )
 
-    dates = pd.date_range("2020-01-31", periods=6, freq="M")
+    dates = pd.date_range("2020-01-31", periods=6, freq="ME")
     df = pd.DataFrame(
         {
             "Date": [d.strftime("%Y-%m-%d") for d in dates],

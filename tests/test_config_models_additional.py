@@ -60,11 +60,15 @@ def test_column_mapping_defaults_and_validation(
     assert mapping.column_tickers == {}
 
 
-def test_load_merges_output_section(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_load_merges_output_section(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """``load`` should fold ``output`` metadata into the export settings."""
 
     monkeypatch.setattr(models, "_HAS_PYDANTIC", False)
-    monkeypatch.setattr(models, "validate_trend_config", lambda data, *, base_path: data)
+    monkeypatch.setattr(
+        models, "validate_trend_config", lambda data, *, base_path: data
+    )
     export_target = tmp_path / "exports" / "report.xlsx"
     config_dict = _base_config()
     config_dict["export"] = {"formats": ("json",)}
@@ -86,7 +90,9 @@ def test_load_uses_environment_default(
     """When no path is provided, ``load`` should honour ``TREND_CFG``."""
 
     monkeypatch.setattr(models, "_HAS_PYDANTIC", False)
-    monkeypatch.setattr(models, "validate_trend_config", lambda data, *, base_path: data)
+    monkeypatch.setattr(
+        models, "validate_trend_config", lambda data, *, base_path: data
+    )
     config_path = tmp_path / "custom.yml"
     payload = _base_config()
     payload["version"] = "from-env"
@@ -191,6 +197,45 @@ def test_load_mapping_fallback_handles_validation_failure(
     loaded = models.load(cfg)
 
     assert loaded.version == cfg["version"]
+
+
+def test_load_accepts_config_instance(monkeypatch: pytest.MonkeyPatch) -> None:
+    cfg = _base_config()
+    monkeypatch.setattr(models, "_HAS_PYDANTIC", False)
+
+    def return_config(data: dict[str, object], *, base_path: Path) -> models.Config:
+        return models.Config(**data)
+
+    return_config.__module__ = "trend_analysis.config.tests"
+    monkeypatch.setattr(models, "validate_trend_config", return_config)
+
+    loaded = models.load(cfg)
+
+    assert isinstance(loaded, models.Config)
+    assert loaded.portfolio == cfg["portfolio"]
+
+
+def test_load_merges_model_dump(monkeypatch: pytest.MonkeyPatch) -> None:
+    cfg = _base_config()
+    cfg["portfolio"] = {"rebalance_calendar": "NYSE", "max_turnover": 0.5}
+    monkeypatch.setattr(models, "_HAS_PYDANTIC", False)
+
+    class DummyModel:
+        def __init__(self, payload: dict[str, object]):
+            self._payload = payload
+
+        def model_dump(self) -> dict[str, object]:
+            return self._payload
+
+    def return_model(data: dict[str, object], *, base_path: Path) -> DummyModel:
+        return DummyModel({"portfolio": {"max_turnover": 0.9}})
+
+    return_model.__module__ = "trend_analysis.config.tests"
+    monkeypatch.setattr(models, "validate_trend_config", return_model)
+
+    loaded = models.load(cfg)
+
+    assert loaded.portfolio["max_turnover"] == pytest.approx(0.9)
 
 
 def test_list_available_presets_handles_missing_directory(

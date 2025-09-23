@@ -16,7 +16,7 @@ from trend_analysis.core.rank_selection import (
 
 
 def _dummy_frame(n=5, m=24):
-    idx = pd.date_range("2020-01-31", periods=m, freq="M")
+    idx = pd.date_range("2020-01-31", periods=m, freq="ME")
     data = {f"F{i}": np.random.randn(m) / 100 for i in range(n)}
     return pd.DataFrame(data, index=idx)
 
@@ -31,7 +31,7 @@ def test_metric_cache_hit_and_miss():
         key=None,
         start="2020-01",
         end="2021-12",
-        freq="M",
+        freq="ME",
         stats_cfg_hash="hashx",
         universe=tuple(df.columns.astype(str)),
         in_sample_df=df,
@@ -55,7 +55,7 @@ def test_metric_cache_toggle_off():
         key=None,
         start="2020-01",
         end="2021-12",
-        freq="M",
+        freq="ME",
         stats_cfg_hash="hashx",
         universe=tuple(df.columns.astype(str)),
         in_sample_df=df,
@@ -91,7 +91,7 @@ def test_metric_cache_key_differs_by_metric():
         key=None,
         start="2020-01",
         end="2021-12",
-        freq="M",
+        freq="ME",
         stats_cfg_hash="hashx",
         universe=tuple(df.columns.astype(str)),
         in_sample_df=df,

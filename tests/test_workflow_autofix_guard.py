@@ -15,12 +15,18 @@ def _load_yaml(name: str) -> Dict[str, Any]:
         return yaml.safe_load(handle)
 
 
-def _guarded_follow_up_steps(steps: List[Dict[str, Any]], guard_id: str = "guard") -> List[str]:
+def _guarded_follow_up_steps(
+    steps: List[Dict[str, Any]], guard_id: str = "guard"
+) -> List[str]:
     """Return the names of steps after ``guard_id`` lacking guard conditions."""
     missing: List[str] = []
     try:
-        guard_index = next(index for index, step in enumerate(steps) if step.get("id") == guard_id)
-    except StopIteration as exc:  # pragma: no cover - defensive: workflow must define guard
+        guard_index = next(
+            index for index, step in enumerate(steps) if step.get("id") == guard_id
+        )
+    except (
+        StopIteration
+    ) as exc:  # pragma: no cover - defensive: workflow must define guard
         raise AssertionError(f"Guard step '{guard_id}' missing") from exc
 
     for step in steps[guard_index + 1 :]:

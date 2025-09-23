@@ -1,0 +1,196 @@
+name: CI Matrix Summary
+
+on:
+  workflow_run:
+    workflows: ["CI", "Check Failure Tracker"]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+  issues: read
+
+jobs:
+  aggregate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo (for formatting or reference)
+        uses: actions/checkout@v4
+      - name: Gather artifacts & failure snapshot
+        uses: actions/github-script@v7
+        id: gather
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const run = context.payload.workflow_run;
+            const runId = run.id;
+            // We attempt to find artifacts from the triggering workflow (coverage summaries, snapshots)
+            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({ owner, repo, run_id: runId, per_page: 100 });
+            function pick(name){ return artifacts.data.artifacts.find(a=>a.name===name); }
+            const want = ['coverage-summary','coverage-trend','ci-failures-snapshot','coverage-trend-history'];
+            const meta = {};
+            for (const n of want) meta[n] = !!pick(n);
+            // Duration & conclusion
+            const started = new Date(run.run_started_at || run.created_at);
+            const updated = new Date(run.updated_at || run.completed_at || Date.now());
+            const durationSec = Math.max(0, Math.round((updated - started)/1000));
+            core.setOutput('run_duration_sec', String(durationSec));
+            core.setOutput('run_conclusion', run.conclusion || run.status || 'unknown');
+            core.setOutput('artifact_meta', JSON.stringify(meta));
+            core.setOutput('trigger_run_url', run.html_url);
+      - name: Download available artifacts
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: '*'
+          merge-multiple: true
+      - name: Initialize summary
+        run: |
+          set -euo pipefail
+          {
+            echo "# CI Matrix Summary"
+            echo "Trigger Run: ${{ steps.gather.outputs.trigger_run_url }}"
+            echo "Generated: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo
+          } > ci-matrix-summary.md
+      - name: Derive quick stats
+        id: stats
+        run: |
+          set -euo pipefail
+          OPEN_FAILURES=0
+          if [ -f ci_failures_snapshot.json ]; then
+            OPEN_FAILURES=$(jq '.issues|length' ci_failures_snapshot.json 2>/dev/null || echo 0)
+          fi
+          HIST_FILE=coverage-trend-history.ndjson
+          AVG_LATEST="null"; PREV="null"; DELTA="null"; HIST_LEN=0
+          WORST_LATEST="null"; WORST_PREV="null"; WORST_DELTA="null"
+          if [ -f "$HIST_FILE" ]; then
+            HIST_LEN=$(grep -c '.' "$HIST_FILE" || echo 0)
+            if [ "$HIST_LEN" -gt 0 ]; then
+              LAST_LINE=$(tail -n1 "$HIST_FILE")
+              AVG_LATEST=$(echo "$LAST_LINE" | jq -r '.avg_coverage // empty')
+              if [ -z "$AVG_LATEST" ]; then AVG_LATEST="null"; fi
+              WORST_LATEST=$(echo "$LAST_LINE" | jq -r '.worst_job_coverage // empty')
+              [ -z "$WORST_LATEST" ] && WORST_LATEST="null"
+            fi
+            if [ "$HIST_LEN" -ge 2 ]; then
+              PREV_LINE=$(tail -n2 "$HIST_FILE" | head -n1)
+              PREV=$(echo "$PREV_LINE" | jq -r '.avg_coverage // empty')
+              [ -z "$PREV" ] && PREV="null"
+              WORST_PREV=$(echo "$PREV_LINE" | jq -r '.worst_job_coverage // empty')
+              [ -z "$WORST_PREV" ] && WORST_PREV="null"
+            fi
+            if [ "$AVG_LATEST" != "null" ] && [ "$PREV" != "null" ]; then
+              DELTA=$(python -c "print(round(float('$AVG_LATEST')-float('$PREV'),2))" 2>/dev/null || echo "null")
+            fi
+            if [ "$WORST_LATEST" != "null" ] && [ "$WORST_PREV" != "null" ]; then
+              WORST_DELTA=$(python -c "print(round(float('$WORST_LATEST')-float('$WORST_PREV'),2))" 2>/dev/null || echo "null")
+            fi
+          fi
+          # Build JSON inline (numbers or null)
+          printf '%s\n' '{' \
+            "  \"open_failure_issues\": $OPEN_FAILURES," \
+            "  \"coverage_avg_latest\": $AVG_LATEST," \
+            "  \"coverage_avg_prev\": $PREV," \
+            "  \"coverage_avg_delta\": $DELTA," \
+            "  \"coverage_worst_latest\": $WORST_LATEST," \
+            "  \"coverage_worst_prev\": $WORST_PREV," \
+            "  \"coverage_worst_delta\": $WORST_DELTA," \
+            "  \"coverage_history_len\": $HIST_LEN" \
+          '}' > matrix-derived.json
+          DERIVED=$(tr -d '\n' < matrix-derived.json || echo '{}')
+          echo "derived=$DERIVED" >> "$GITHUB_OUTPUT"
+      - name: Append quick stats
+        if: ${{ always() }}
+        run: |
+          if [ -f matrix-derived.json ]; then
+            echo "## Quick Stats" >> ci-matrix-summary.md
+            jq -r '"- Open failure issues: \(.open_failure_issues)"' matrix-derived.json >> ci-matrix-summary.md 2>/dev/null || true
+            jq -e '.coverage_avg_latest != null' matrix-derived.json >/dev/null 2>&1 && jq -r '"- Coverage avg (latest): \(.coverage_avg_latest)%"' matrix-derived.json >> ci-matrix-summary.md || true
+            jq -e '(.coverage_avg_prev != null) and (.coverage_avg_delta != null)' matrix-derived.json >/dev/null 2>&1 && jq -r '"- Coverage delta vs prev: \(.coverage_avg_delta|if .>=0 then "+" else "" end)\(.) pp"' matrix-derived.json >> ci-matrix-summary.md || true
+            jq -e '.coverage_worst_latest != null' matrix-derived.json >/dev/null 2>&1 && jq -r '"- Worst job coverage (latest): \\(.coverage_worst_latest)%"' matrix-derived.json >> ci-matrix-summary.md || true
+            jq -e '(.coverage_worst_prev != null) and (.coverage_worst_delta != null)' matrix-derived.json >/dev/null 2>&1 && jq -r '"- Worst job coverage delta vs prev: \\(.coverage_worst_delta|if .>=0 then "+" else "" end)\\(.) pp"' matrix-derived.json >> ci-matrix-summary.md || true
+            jq -r '"- Coverage history entries: \(.coverage_history_len)"' matrix-derived.json >> ci-matrix-summary.md 2>/dev/null || true
+            echo "- Run duration (trigger workflow): ${{ steps.gather.outputs.run_duration_sec }}s (conclusion: ${{ steps.gather.outputs.run_conclusion }})" >> ci-matrix-summary.md
+            if [ -f ci_failures_snapshot.json ]; then
+              if [ $(jq '.issues|length' ci_failures_snapshot.json 2>/dev/null || echo 0) -gt 0 ]; then
+                jq -r '"- Open failure issue numbers: " + (.issues | map("#"+(.number|tostring)) | join(", "))' ci_failures_snapshot.json >> ci-matrix-summary.md || true
+              fi
+            fi
+            echo >> ci-matrix-summary.md
+          fi
+      - name: Append coverage summary
+        if: ${{ always() }}
+        run: |
+          if [ -f coverage_summary.md ]; then
+            echo "## Coverage Summary" >> ci-matrix-summary.md
+            sed -n '1,60p' coverage_summary.md >> ci-matrix-summary.md || true
+            echo >> ci-matrix-summary.md
+          fi
+      - name: Append failure signatures
+        if: ${{ always() }}
+        run: |
+          if [ -f ci_failures_snapshot.json ]; then
+            echo "## Open Failure Signatures" >> ci-matrix-summary.md
+            python -c "import json;d=json.load(open('ci_failures_snapshot.json'));print('| Issue | Occurrences | Last Seen | URL |');print('|---|---:|---|---|');[print(f\"| #{it['number']} | {it.get('occurrences') or ''} | {it.get('last_seen') or ''} | [link]({it['url']}) |\") for it in d.get('issues',[])]" >> ci-matrix-summary.md || true
+            echo >> ci-matrix-summary.md
+          fi
+      - name: Append raw coverage artifact note
+        if: ${{ always() }}
+        run: |
+          if ls coverage-*.json >/dev/null 2>&1; then
+            echo "## Raw Coverage Artifacts Present" >> ci-matrix-summary.md
+            echo >> ci-matrix-summary.md
+          fi
+      - name: Append coverage trend
+        if: ${{ always() }}
+        run: |
+          if [ -f coverage-trend.json ]; then
+            echo "## Coverage Trend Record" >> ci-matrix-summary.md
+            python -c "import json,sys;rec=json.load(open('coverage-trend.json'));[print(f'- {k}: {rec.get(k)}') for k in ['run_id','avg_coverage','worst_job_coverage','timestamp_utc']]" >> ci-matrix-summary.md || true
+            echo >> ci-matrix-summary.md
+          fi
+      - name: Append artifact presence meta
+        run: |
+          echo "## Artifact Presence" >> ci-matrix-summary.md
+          echo '${{ steps.gather.outputs.artifact_meta }}' >> ci-matrix-summary.md
+      - name: Publish summary to job summary
+        run: cat ci-matrix-summary.md >> $GITHUB_STEP_SUMMARY || true
+      - name: Upload matrix summary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-matrix-summary
+          path: ci-matrix-summary.md
+      - name: Build machine-readable JSON summary
+        if: ${{ always() }}
+        run: |
+          export RUN_DUR='${{ steps.gather.outputs.run_duration_sec }}'
+          export RUN_CONC='${{ steps.gather.outputs.run_conclusion }}'
+          export ART_META='${{ steps.gather.outputs.artifact_meta }}'
+          python <<'PY'
+          import json, os
+          try:
+              derived = json.load(open('matrix-derived.json'))
+          except Exception:
+              derived = {}
+          try:
+              artifacts = json.loads(os.environ.get('ART_META','{}'))
+          except Exception:
+              artifacts = {}
+          out = {
+              "run_duration_sec": int(os.environ.get('RUN_DUR') or 0),
+              "run_conclusion": os.environ.get('RUN_CONC') or 'unknown',
+              "derived": derived,
+              "artifacts": artifacts,
+          }
+          with open('ci-matrix-summary.json','w') as w:
+              json.dump(out, w, indent=2, sort_keys=True)
+          print(json.dumps(out, indent=2, sort_keys=True))
+          PY
+          cat ci-matrix-summary.json || true
+      - name: Upload JSON summary artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-matrix-summary-json
+          path: ci-matrix-summary.json

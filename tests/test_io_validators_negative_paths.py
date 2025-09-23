@@ -52,7 +52,9 @@ def test_load_and_validate_upload_empty_file(monkeypatch: pytest.MonkeyPatch) ->
         validators.load_and_validate_upload(DummyFile())
 
 
-def test_load_and_validate_upload_permission_error(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_load_and_validate_upload_permission_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     class DummyFile:
         name = "restricted.csv"
 
@@ -65,7 +67,9 @@ def test_load_and_validate_upload_permission_error(monkeypatch: pytest.MonkeyPat
         validators.load_and_validate_upload(DummyFile())
 
 
-def test_load_and_validate_upload_directory_error(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_load_and_validate_upload_directory_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     class DummyFile:
         name = "data.csv"
 
@@ -78,7 +82,9 @@ def test_load_and_validate_upload_directory_error(monkeypatch: pytest.MonkeyPatc
         validators.load_and_validate_upload(DummyFile())
 
 
-def test_load_and_validate_upload_generic_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_load_and_validate_upload_generic_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     class DummyFile:
         name = "weird.csv"
 
@@ -118,6 +124,13 @@ def test_validate_returns_schema_reports_missing_date_column() -> None:
     result = validators.validate_returns_schema(frame)
     assert result.is_valid is False
     assert any("Missing required 'Date' column" in issue for issue in result.issues)
+
+
+def test_validate_returns_schema_requires_numeric_columns() -> None:
+    frame = pd.DataFrame({"Date": ["2020-01-31", "2020-02-29"]})
+    result = validators.validate_returns_schema(frame)
+    assert result.is_valid is False
+    assert any("No numeric return columns" in issue for issue in result.issues)
 
 
 def test_validate_returns_schema_detects_duplicate_dates() -> None:

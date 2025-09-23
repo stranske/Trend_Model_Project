@@ -33,7 +33,7 @@ def test_prepare_dry_run_plan_builds_monotonic_windows():
 def test_validate_startup_payload_round_trip(tmp_path):
     csv_path = tmp_path / "data.csv"
     frame = pd.DataFrame(
-        {"Date": pd.date_range("2022-01-31", periods=12, freq="M"), "A": 0.01}
+        {"Date": pd.date_range("2022-01-31", periods=12, freq="ME"), "A": 0.01}
     )
     frame.to_csv(csv_path, index=False)
     validated, errors = validate_startup_payload(
@@ -60,7 +60,7 @@ def test_validate_startup_payload_requires_csv():
 def test_validate_startup_payload_delegates_to_validator(tmp_path, monkeypatch):
     csv_path = tmp_path / "data.csv"
     frame = pd.DataFrame(
-        {"Date": pd.date_range("2022-01-31", periods=8, freq="M"), "A": 0.02}
+        {"Date": pd.date_range("2022-01-31", periods=8, freq="ME"), "A": 0.02}
     )
     frame.to_csv(csv_path, index=False)
 
@@ -86,13 +86,15 @@ def test_validate_startup_payload_delegates_to_validator(tmp_path, monkeypatch):
     assert validated is not None and validated.get("validated") is True
     assert captured["base_path"] == csv_path.parent
     assert captured["payload"]  # sanity check payload returned
+    # mypy: captured["payload"] is stored as object; assert dict shape before indexing
+    assert isinstance(captured["payload"], dict)
     assert captured["payload"]["data"]["csv_path"] == str(csv_path)
 
 
 def test_validate_startup_payload_surfaces_validator_errors(tmp_path, monkeypatch):
     csv_path = tmp_path / "data.csv"
     frame = pd.DataFrame(
-        {"Date": pd.date_range("2022-01-31", periods=8, freq="M"), "A": 0.02}
+        {"Date": pd.date_range("2022-01-31", periods=8, freq="ME"), "A": 0.02}
     )
     frame.to_csv(csv_path, index=False)
 

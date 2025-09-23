@@ -2,7 +2,6 @@
 engine."""
 
 from __future__ import annotations
-
 from types import SimpleNamespace
 
 import pandas as pd
@@ -114,11 +113,15 @@ def test_run_incremental_covariance_updates(monkeypatch):
 
 
 @pytest.mark.parametrize("non_positive_value", [0, -1])
-def test_run_incremental_covariance_coerces_non_positive_shift_steps(monkeypatch, non_positive_value):
+def test_run_incremental_covariance_coerces_non_positive_shift_steps(
+    monkeypatch, non_positive_value
+):
     """Non-positive shift step settings should coerce to at least one step."""
 
     cfg = _Cfg()
-    cfg.performance["shift_detection_max_steps"] = non_positive_value  # force coercion branch
+    cfg.performance["shift_detection_max_steps"] = (
+        non_positive_value  # force coercion branch
+    )
     df = _make_df()
     periods = _make_periods()
 
@@ -556,3 +559,34 @@ def test_run_incremental_covariance_longer_window_forces_full_recompute(
     # First period computes covariance for 3 rows, second recomputes for 4 rows.
     assert compute_calls == [3, 4]
     assert not incremental_calls
+
+
+def test_run_incremental_covariance_handles_cov_cache_import_failure(monkeypatch):
+    """If CovCache cannot be imported the engine should proceed without cache stats."""
+
+    cfg = _Cfg()
+    df = _make_df()
+    periods = _make_periods()
+
+    monkeypatch.setattr(mp_engine, "generate_periods", lambda _cfg: periods)
+
+    def fake_run_analysis(*args, **kwargs):
+        return {"out_ew_stats": {"sharpe": 1.0}}
+
+    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+
+    # Patch CovCache to raise ImportError when accessed
+    monkeypatch.setattr(
+        cache_mod,
+        "CovCache",
+        property(
+            lambda self: (_ for _ in ()).throw(
+                ImportError("No module named 'CovCache'")
+            )
+        ),
+    )
+
+    results = mp_engine.run(cfg, df=df)
+
+    assert len(results) == 2
+    assert all("cache_stats" not in res for res in results)
