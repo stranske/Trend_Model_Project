@@ -128,7 +128,7 @@ def main() -> None:
             applied.append("sections")
         return rebuilt
 
-    text_before = text
+    # Removed unused variable (was: text_before) to satisfy flake8 F841
     if text and ("\n" not in text or text.count("\n") < 2):
         text = apply_enumerator_newlines(text)
         text = apply_section_headers(text)

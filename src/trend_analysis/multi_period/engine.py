@@ -138,9 +138,9 @@ class Portfolio:
 class SelectorProtocol(Protocol):
     """Minimal interface required of selectors."""
 
-    def select(
-        self, score_frame: pd.DataFrame
-    ) -> tuple[pd.DataFrame, pd.DataFrame]: ...
+    def select(self, score_frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+        # Protocol method signature only; concrete selectors implement logic.
+        ...
 
 
 def run_schedule(

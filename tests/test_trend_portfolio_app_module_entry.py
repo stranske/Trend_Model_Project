@@ -34,7 +34,11 @@ def test_main_inserts_src_path_and_invokes_streamlit(monkeypatch) -> None:
     module.main()
 
     assert module.sys.path[0] == str(expected_src)
-    assert module.sys.argv == ["streamlit", "run", str(Path(module.__file__).parent / "app.py")]
+    assert module.sys.argv == [
+        "streamlit",
+        "run",
+        str(Path(module.__file__).parent / "app.py"),
+    ]
     assert calls == ["run"]
 
 

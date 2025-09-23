@@ -38,15 +38,13 @@ def main(argv: List[str] | None = None) -> int:
 
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())
-#!/usr/bin/env python3
-"""
-Manager Performance Attribution Analysis
-Analysis of individual manager contributions over the 20-year backtest
-"""
 
-import matplotlib.pyplot as plt
-import numpy as np  # noqa: F401
-import pandas as pd
+# The analytical plotting section below is retained for reference only and is
+# intentionally placed after the main guard. It is not executed during normal
+# imports; flake8 E402 suppressed for these optional visualization imports.
+import matplotlib.pyplot as plt  # noqa: E402
+import numpy as np  # noqa: F401, E402
+import pandas as pd  # noqa: E402
 
 # Manager performance data from the single-period analysis (2005-2025)
 manager_data = {

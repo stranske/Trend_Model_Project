@@ -32,7 +32,8 @@ if os.path.exists(demo_path_csv) or os.path.exists(demo_path_xlsx):
             st.session_state["schema_meta"] = meta
             st.session_state["uploaded_file_path"] = str(Path(path).resolve())
             st.success(
-                f"Loaded demo: {df.shape[0]} rows × {df.shape[1]} cols. Range: {df.index.min().date()} → {df.index.max().date()}."
+                f"Loaded demo: {df.shape[0]} rows × {df.shape[1]} cols. Range: "
+                f"{df.index.min().date()} → {df.index.max().date()}."
             )
             st.dataframe(df.head(12))
             candidates = infer_benchmarks(list(df.columns))
@@ -54,7 +55,8 @@ if uploaded is not None:
         reset.to_csv(tmp_path, index=False)
         st.session_state["uploaded_file_path"] = str(tmp_path)
         st.success(
-            f"Loaded {df.shape[0]} rows × {df.shape[1]} columns. Range: {df.index.min().date()} to {df.index.max().date()}."
+            f"Loaded {df.shape[0]} rows × {df.shape[1]} columns. Range: "
+            f"{df.index.min().date()} to {df.index.max().date()}."
         )
         st.dataframe(df.head(12))
         candidates = infer_benchmarks(list(df.columns))

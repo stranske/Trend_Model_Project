@@ -101,13 +101,24 @@ def _assert_deps() -> None:
 
 @runtime_checkable
 class _SupportsWebSocket(Protocol):  # Minimal protocol slice
-    async def accept(self) -> None: ...  # noqa: D401
-    async def close(self, code: int) -> None: ...  # noqa: D401
+    async def accept(self) -> None:  # noqa: D401
+        ...
+
+    async def close(self, code: int) -> None:  # noqa: D401
+        ...
+
     @property
-    def url(self) -> Any: ...  # noqa: D401
-    async def receive(self) -> dict[str, Any]: ...  # noqa: D401
-    async def send_bytes(self, data: bytes) -> None: ...  # noqa: D401
-    async def send_text(self, data: str) -> None: ...  # noqa: D401
+    def url(self) -> Any:  # noqa: D401
+        ...
+
+    async def receive(self) -> dict[str, Any]:  # noqa: D401
+        ...
+
+    async def send_bytes(self, data: bytes) -> None:  # noqa: D401
+        ...
+
+    async def send_text(self, data: str) -> None:  # noqa: D401
+        ...
 
 
 class StreamlitProxy:

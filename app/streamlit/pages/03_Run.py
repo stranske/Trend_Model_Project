@@ -10,10 +10,17 @@ from typing import Optional
 import pandas as pd
 import streamlit as st
 
-# Add src to path for imports
-sys.path.append(str(Path(__file__).parent.parent.parent / "src"))
+# Prepare src path before lazy import
+_SRC_PATH = Path(__file__).parent.parent.parent / "src"
+if str(_SRC_PATH) not in sys.path:
+    sys.path.append(str(_SRC_PATH))
 
-from trend_analysis.api import RunResult, run_simulation
+
+def _api() -> tuple[object, object]:
+    from trend_analysis.api import RunResult, run_simulation  # type: ignore
+
+    return RunResult, run_simulation
+
 
 # Configure logging for the app
 logging.basicConfig(level=logging.INFO)
@@ -64,9 +71,15 @@ def format_error_message(error: Exception) -> str:
     # Try to provide more specific guidance
     if "Date" in error_msg:
         # Keep wording aligned with tests (no quotes around Date)
-        return "Data validation error: Your dataset must include a Date column with properly formatted dates."
+        return (
+            "Data validation error: Your dataset must include a Date column with "
+            "properly formatted dates."
+        )
     elif "sample_split" in error_msg:
-        return "Configuration error: Invalid date ranges specified. Please check your in-sample and out-of-sample periods."
+        return (
+            "Configuration error: Invalid date ranges specified. Please check "
+            "your in-sample and out-of-sample periods."
+        )
     elif "returns" in error_msg.lower():
         return "Data error: Invalid returns data format. Please ensure your data contains numeric return values."
     elif "config" in error_msg.lower():
@@ -166,7 +179,7 @@ def prepare_returns_data() -> Optional[pd.DataFrame]:
         return None
 
 
-def run_analysis_with_progress() -> Optional[RunResult]:
+def run_analysis_with_progress() -> Optional[object]:
     """Run the analysis with progress reporting and error handling."""
 
     # Initialize log handler
@@ -218,6 +231,8 @@ def run_analysis_with_progress() -> Optional[RunResult]:
         status_text.text("🚀 Running trend analysis...")
         progress_bar.progress(60, "Running trend analysis...")
 
+        # Lazy import API only after validation succeeds
+        RunResult, run_simulation = _api()
         result = run_simulation(config, returns_df)
 
         progress_bar.progress(90, "Analysis complete, finalizing results...")
@@ -260,7 +275,11 @@ def run_analysis_with_progress() -> Optional[RunResult]:
         st.error(f"**Analysis Failed**: {error_msg}")
 
         # Show detailed error (avoid context manager for test mocks)
-        details = f"Exception Type: {type(e).__name__}\n\nException Message:\n{str(e)}\n\nFull Traceback:\n{traceback.format_exc()}"
+        details = (
+            f"Exception Type: {type(e).__name__}\n\n"
+            f"Exception Message:\n{str(e)}\n\n"
+            f"Full Traceback:\n{traceback.format_exc()}"
+        )
         expander = st.expander("🔍 Show Technical Details", expanded=False)
         try:
             expander.code(details)

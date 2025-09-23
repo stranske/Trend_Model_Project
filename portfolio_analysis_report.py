@@ -52,15 +52,13 @@ def main(argv: List[str] | None = None) -> int:
 
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())
-#!/usr/bin/env python3
-"""
-Portfolio Test Analysis Report
-July 2005 - June 2025 (20-year backtest)
-"""
 
-import matplotlib.pyplot as plt
-import numpy as np  # noqa: F401
-import pandas as pd
+# Legacy plotting/reporting block kept for archival comparison. Not executed
+# by default. Imports appear below the executable section intentionally; E402
+# suppressed.
+import matplotlib.pyplot as plt  # noqa: E402
+import numpy as np  # noqa: F401, E402
+import pandas as pd  # noqa: E402
 
 # Portfolio performance data from multi-period analysis
 performance_data = {
