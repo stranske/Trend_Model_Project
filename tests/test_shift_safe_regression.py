@@ -32,7 +32,7 @@ def test_regression_compute_signal_no_current_row_dependency():
             continue
         df_alt = df.copy()
         orig_scalar = df_alt.loc[df_alt.index[i], "returns"]
-        orig_val = float(pd.Series([orig_scalar]).astype(float).iloc[0])
+        orig_val = float(orig_scalar)
         df_alt.loc[df_alt.index[i], "returns"] = (
             orig_val + 10.0
         )  # large shock at current row
