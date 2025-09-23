@@ -22,10 +22,11 @@ import yaml
 # Import primary validator; define a lightweight fallback only if initial import fails.
 try:  # pragma: no cover - normal path
     from trend_analysis.config.model import validate_trend_config
-    _fallback_validate_trend_config: Any | None = None
+
+    _fallback_validate_trend_config_ref: Any | None = None
 except Exception:  # pragma: no cover - fallback when model unavailable
 
-    def _fallback_validate_trend_config(  # type: ignore[misc]
+    def _fallback_validate_trend_config(
         data: dict[str, Any], *, base_path: Path
     ) -> Any:  # pragma: no cover - exercised only in absence
         version = data.get("version")
@@ -678,7 +679,9 @@ def load_config(cfg: Mapping[str, Any] | str | Path) -> ConfigProtocol:
         validate_trend_config(cfg_dict, base_path=Path.cwd())
     else:
         validator_module = str(getattr(validate_trend_config, "__module__", ""))
-        if (not pydantic_present) or validator_module.startswith("trend_analysis.config"):
+        if (not pydantic_present) or validator_module.startswith(
+            "trend_analysis.config"
+        ):
             try:
                 validate_trend_config(cfg_dict, base_path=Path.cwd())
             except Exception:
@@ -764,7 +767,9 @@ def load(path: str | Path | None = None) -> ConfigProtocol:
         validated = validate_trend_config(data, base_path=base_dir)
     else:
         validator_module = str(getattr(validate_trend_config, "__module__", ""))
-        if (not pydantic_present) or validator_module.startswith("trend_analysis.config"):
+        if (not pydantic_present) or validator_module.startswith(
+            "trend_analysis.config"
+        ):
             try:
                 validated = validate_trend_config(data, base_path=base_dir)
             except Exception:

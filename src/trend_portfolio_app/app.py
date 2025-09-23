@@ -35,9 +35,23 @@ class _NullContext:
 
 
 def _is_mock_streamlit(module: Any) -> bool:
-    """Detect the lightweight ``MagicMock`` used by helper unit tests."""
+    """Best‑effort detection for a real ``unittest.mock.MagicMock`` instance.
 
-    return type(module).__name__ == "MagicMock"
+    The previous implementation relied solely on ``type(module).__name__ ==
+    'MagicMock'`` which allowed tests (or any code) to suppress the application
+    bootstrap simply by reassigning ``__name__`` on an arbitrary stub class.
+    That made the import side‑effect (page configuration) disappear and caused
+    the ``test_render_app_executes_with_dummy_streamlit`` test to fail because
+    the app never ran.
+
+    We tighten the heuristic to only treat genuine ``unittest.mock`` MagicMock
+    objects as mocks. A lightweight subclass that merely renames its
+    ``__name__`` no longer short‑circuits the render path, restoring the
+    expected behaviour under test.
+    """
+
+    cls = type(module)
+    return cls.__module__ == "unittest.mock" and cls.__name__ == "MagicMock"
 
 
 def _read_defaults() -> Dict[str, Any]:

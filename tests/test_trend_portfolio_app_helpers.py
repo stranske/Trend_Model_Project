@@ -270,7 +270,7 @@ def test_read_defaults_populates_expected_keys(monkeypatch: pytest.MonkeyPatch) 
     data_section = cast(dict[str, Any], raw_data)
     assert "csv_path" in data_section
 
-    
+
 def test_read_defaults_prefers_demo_csv_when_available(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -283,7 +283,8 @@ def test_read_defaults_prefers_demo_csv_when_available(
     monkeypatch.setattr(
         app_mod.Path,
         "exists",
-        lambda self: str(self).endswith("demo/demo_returns.csv") or original_exists(self),
+        lambda self: str(self).endswith("demo/demo_returns.csv")
+        or original_exists(self),
     )
 
     defaults = app_mod._read_defaults()
@@ -291,7 +292,9 @@ def test_read_defaults_prefers_demo_csv_when_available(
     assert data_section["csv_path"].endswith("demo/demo_returns.csv")
 
 
-def test_read_defaults_handles_missing_demo_csv(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_read_defaults_handles_missing_demo_csv(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     app_mod = _load_app(monkeypatch)
 
     monkeypatch.setattr(app_mod.Path, "exists", lambda self: False)
@@ -369,7 +372,11 @@ def test_summarise_multi_handles_missing_sections(
             "out_ew_stats": {"sharpe": 1.23456, "cagr": 0.05678},
             "out_user_stats": {},
         },
-        {"period": ("2021-01", "2021-06"), "out_ew_stats": None, "out_user_stats": None},
+        {
+            "period": ("2021-01", "2021-06"),
+            "out_ew_stats": None,
+            "out_user_stats": None,
+        },
         {
             "period": _RepeatingSequence(["2022-01", "2022-06", "2022-07", "2022-12"]),
             "out_ew_stats": {"sharpe": "5.0"},
@@ -426,7 +433,9 @@ def test_summarise_multi_tolerates_non_iterable_period(
     assert summary.loc[0, "ew_sharpe"] != summary.loc[0, "ew_sharpe"]
 
 
-def test_summarise_multi_returns_empty_dataframe(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_summarise_multi_returns_empty_dataframe(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     app_mod = _load_app(monkeypatch)
 
     summary = app_mod._summarise_multi([])
@@ -441,7 +450,11 @@ def test_summarise_multi_none_branch_coverage(monkeypatch: pytest.MonkeyPatch) -
     # Directly call the function that should handle container=None
     # Replace with a call to the relevant function, e.g. _summarise_multi, and assert expected behavior
     result = app_mod._summarise_multi([])
-    assert result is not None  # or other appropriate assertion based on expected behavior
+    assert (
+        result is not None
+    )  # or other appropriate assertion based on expected behavior
+
+
 def test_summarise_multi_handles_missing_columns(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -643,7 +656,9 @@ def test_apply_session_state_expands_session_keys(
     assert "unrelated" not in cfg
 
 
-def test_apply_session_state_skips_invalid_months(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_apply_session_state_skips_invalid_months(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     app_mod = _load_app(monkeypatch)
 
     state = app_mod.st.session_state
@@ -819,7 +834,9 @@ def test_render_run_section_with_no_actions(monkeypatch: pytest.MonkeyPatch) -> 
     app_mod.st.button = lambda *_, **__: False  # type: ignore[assignment]
 
     calls: list[dict[str, Any]] = []
-    monkeypatch.setattr(app_mod, "_apply_session_state", lambda cfg: calls.append(dict(cfg)))
+    monkeypatch.setattr(
+        app_mod, "_apply_session_state", lambda cfg: calls.append(dict(cfg))
+    )
 
     cfg: dict[str, Any] = {"data": {}}
     app_mod._render_run_section(cfg)
@@ -971,9 +988,24 @@ def test_render_app_executes_with_dummy_streamlit(
     stub = _MockStreamlit()
     monkeypatch.setitem(sys.modules, "streamlit", stub)
     sys.modules.pop("trend_portfolio_app.app", None)
+    # Instrument calls
+    page_config_calls: list[tuple] = []
+    titles: list[str] = []
+
+    def track_page_config(*args, **kwargs):  # pragma: no cover - trivial
+        page_config_calls.append((args, tuple(kwargs.items())))
+        return None
+
+    def track_title(label: str, *_, **__):  # pragma: no cover - trivial
+        titles.append(label)
+        return None
+
+    stub.set_page_config = track_page_config  # type: ignore[assignment]
+    stub.title = track_title  # type: ignore[assignment]
 
     module = importlib.import_module("trend_portfolio_app.app")
-    
+    dummy = stub  # For semantic clarity with legacy assertions
+
     assert page_config_calls, "_render_app should configure the page on import"
     assert titles == ["Trend Portfolio App"]
     assert dummy.session_state.get("config_dict") is not None
@@ -981,70 +1013,11 @@ def test_render_app_executes_with_dummy_streamlit(
     assert module._render_app  # pragma: no cover - sanity check the attribute exists
 
 
-def test_read_defaults_prefers_demo_csv_when_available(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    app_mod = _load_app(monkeypatch)
-
-    base_defaults = {"data": {}, "portfolio": {}}
-    monkeypatch.setattr(app_mod.yaml, "safe_load", lambda _: dict(base_defaults))
-
-    original_exists = Path.exists
-
-    def fake_exists(path: Path) -> bool:
-        if str(path).endswith("demo/demo_returns.csv"):
-            return True
-        return original_exists(path)
-
-    monkeypatch.setattr(Path, "exists", fake_exists)
-
-    defaults = app_mod._read_defaults()
-
-    assert defaults["data"]["csv_path"].endswith("demo/demo_returns.csv")
-    assert defaults["portfolio"]["policy"] == ""
-
-
-def test_read_defaults_handles_missing_demo_csv(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    app_mod = _load_app(monkeypatch)
-
-    base_defaults = {"data": {}, "portfolio": {}}
-    monkeypatch.setattr(app_mod.yaml, "safe_load", lambda _: dict(base_defaults))
-
-    monkeypatch.setattr(Path, "exists", lambda _path: False)
-
-    defaults = app_mod._read_defaults()
-
-    assert "csv_path" not in defaults["data"]
-
-
 def test_normalize_columns_wraps_scalars(monkeypatch: pytest.MonkeyPatch) -> None:
     app_mod = _load_app(monkeypatch)
 
     sentinel = object()
     assert app_mod._normalize_columns(sentinel, 3) == [sentinel, sentinel, sentinel]
-
-
-def test_apply_session_state_skips_invalid_months(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    app_mod = _load_app(monkeypatch)
-
-    state = app_mod.st.session_state
-    state.clear()
-    state.update(
-        {
-            "multi_period.window._months": "not-a-number",
-            "data.csv_path": "from-session.csv",
-        }
-    )
-
-    cfg: dict[str, Any] = {}
-    app_mod._apply_session_state(cfg)
-
-    assert "multi_period" not in cfg
-    assert cfg["data"]["csv_path"] == "from-session.csv"
 
 
 def test_summarise_run_df_handles_empty_inputs(
@@ -1093,7 +1066,9 @@ def test_summarise_multi_handles_non_iterable_period(
     assert summary.loc[0, "ew_sharpe"] != summary.loc[0, "ew_sharpe"]
 
 
-def test_render_run_section_handles_empty_outputs(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_render_run_section_handles_empty_outputs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     app_mod = _load_app(monkeypatch)
 
     def fake_button(label: str, *_, **__) -> bool:

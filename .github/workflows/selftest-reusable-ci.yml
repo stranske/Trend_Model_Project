@@ -63,7 +63,7 @@ jobs:
             coverage-alert-drop: '2'
     steps:
       - name: Invoke reusable CI (matrix scenario)
-        uses: ./.github/workflows/reusable-ci-python.yml
+        uses: stranske/Trend_Model_Project/.github/workflows/reusable-ci-python.yml@phase-2-dev
         with:
           python-versions: '["3.11"]'
           artifact-prefix: "sf-${{ matrix.name }}-"

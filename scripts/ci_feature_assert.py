@@ -12,7 +12,7 @@ Exit codes:
   1 if any expectation violated
 """
 from __future__ import annotations
-import json, os, sys, glob
+import os, sys
 from pathlib import Path
 
 

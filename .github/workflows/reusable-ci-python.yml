@@ -31,12 +31,32 @@ jobs:
     strategy:
       matrix:
         python-version: ${{ fromJson(inputs.python-versions) }}
+        include:
+          - python-version: "3.11"
+            scenario: base
+          - python-version: "3.11"
+            scenario: metrics
+            enable-metrics: true
+          - python-version: "3.11"
+            scenario: metrics-history
+            enable-metrics: true
+            enable-history: true
+          - python-version: "3.11"
+            scenario: classification
+            enable-classification: true
+          - python-version: "3.11"
+            scenario: cov-delta
+            enable-coverage-delta: true
+            baseline-coverage: ${{ inputs.baseline-coverage }}
+            enable-soft-gate: true
+    continue-on-error: false
     env:
-      ENABLE_METRICS_FLAG: ${{ inputs.enable-metrics }}
-      ENABLE_HISTORY_FLAG: ${{ inputs.enable-history }}
-      ENABLE_CLASSIFICATION_FLAG: ${{ inputs.enable-classification }}
-      ENABLE_COV_DELTA_FLAG: ${{ inputs.enable-coverage-delta }}
-      ENABLE_SOFT_GATE_FLAG: ${{ inputs.enable-soft-gate }}
+      # Matrix values take precedence when defined
+      ENABLE_METRICS_FLAG: ${{ matrix.enable-metrics || inputs.enable-metrics }}
+      ENABLE_HISTORY_FLAG: ${{ matrix.enable-history || inputs.enable-history }}
+      ENABLE_CLASSIFICATION_FLAG: ${{ matrix.enable-classification || inputs.enable-classification }}
+      ENABLE_COV_DELTA_FLAG: ${{ matrix.enable-coverage-delta || inputs.enable-coverage-delta }}
+      ENABLE_SOFT_GATE_FLAG: ${{ matrix.enable-soft-gate || inputs.enable-soft-gate }}
       COVERAGE_HARD_FAIL_FLAG: ${{ inputs.coverage-hard-fail }}
     steps:
       - name: Checkout
@@ -93,7 +113,7 @@ jobs:
           echo "Coverage: ${PCT}% (min ${{ inputs.coverage-min }}%)"
           python -c "import sys; cur=float('$PCT'); m=float('${{ inputs.coverage-min }}'); sys.exit(0 if cur>=m else 1)" || { echo 'Coverage below minimum' >&2; exit 1; }
       - name: Coverage delta
-    # End of workflow
+        if: ${{ env.ENABLE_COV_DELTA_FLAG == 'true' }}
         run: python scripts/ci_coverage_delta.py
         env:
           BASELINE_COVERAGE: ${{ inputs.baseline-coverage }}

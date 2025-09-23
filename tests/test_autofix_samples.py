@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import ast
 import runpy
+import sys  # Added: required for module cache manipulation in script test
+import pytest
 
 from trend_analysis import (
     _autofix_trigger_sample,
@@ -29,18 +31,21 @@ def test_violation_case2_compute_and_helpers() -> None:
     assert "extravagantly" in _autofix_violation_case2.long_line_function()
     assert _autofix_violation_case2.unused_func(1, 2, 3) is None
 
+
 def test_violation_case2_runs_as_script(capsys: "pytest.CaptureFixture[str]") -> None:
     """Ensure the module's ``__main__`` branch emits the expected payload."""
 
     module_name = "trend_analysis._autofix_violation_case2"
 
-    original = sys.modules[module_name]
+    # Guard: ensure module is present before popping; capture original for restoration
+    original = sys.modules.get(module_name)
     sys.modules.pop(module_name, None)
 
     try:
         runpy.run_module(module_name, run_name="__main__")
     finally:
-        sys.modules[module_name] = original
+        if original is not None:
+            sys.modules[module_name] = original
 
     captured = capsys.readouterr()
     assert captured.err == ""
