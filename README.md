@@ -566,3 +566,30 @@ diff -u first.id second.id && echo "Deterministic ✅"
 If the diff command produces output, open an issue with the differing
 `run_meta.json` files so the source of non‑determinism can be traced.
 
+## Contributor Style & Lint Workflow
+
+To avoid CI Style Gate failures:
+
+1. Run the fast development validations during active editing:
+   ```bash
+   ./scripts/dev_check.sh --changed --fix
+   ./scripts/validate_fast.sh --fix
+   ```
+2. Before pushing a branch, mirror the CI style gate exactly (pinned Black/Ruff versions):
+   ```bash
+   ./scripts/style_gate_local.sh
+   ```
+   If it reports failures, fix them with:
+   ```bash
+   black .
+   ruff check --fix .
+   ```
+3. Only then run the comprehensive branch checks (optional for large changes):
+   ```bash
+   ./scripts/check_branch.sh --fast --fix
+   ```
+
+The script `scripts/style_gate_local.sh` sources version pins from `.github/workflows/autofix-versions.env` ensuring local checks match CI. Add it to your pre-push routine (or a custom git hook) to eliminate format drift caused by differing global tool versions.
+
+---
+
