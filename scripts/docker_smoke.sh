@@ -12,7 +12,6 @@ if ! docker info >/dev/null 2>&1; then
   echo "[docker-smoke] docker daemon not available; skipping." >&2
   exit 0
 fi
-
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
@@ -22,12 +21,12 @@ PORT="8000"
 HEALTH_PATH="/health"
 
 # Build (no push)
- echo "Building image ${REGISTRY}/${IMAGE_NAME}:latest" >&2
- docker build -t ${REGISTRY}/${IMAGE_NAME}:latest .
+echo "Building image ${REGISTRY}/${IMAGE_NAME}:latest" >&2
+docker build -t "${REGISTRY}/${IMAGE_NAME}:latest" .
 
 # Run container
 echo "Starting container for smoke test" >&2
-CID=$(docker run -d -p ${PORT}:${PORT} ${REGISTRY}/${IMAGE_NAME}:latest)
+CID=$(docker run -d -p "${PORT}:${PORT}" "${REGISTRY}/${IMAGE_NAME}:latest")
 trap 'docker rm -f "$CID" >/dev/null 2>&1 || true' EXIT
 
 # Probe health endpoint with retries

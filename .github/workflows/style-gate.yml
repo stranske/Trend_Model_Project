@@ -78,14 +78,8 @@ jobs:
 
       - name: Mypy (type check core + app)
         run: |
-<<<<<<< HEAD
           echo "Running pinned mypy==${MYPY_VERSION}" >&2
           pip install pydantic streamlit >/dev/null
-=======
-          echo "Installing mypy and minimal deps" >&2
-          pip install mypy pydantic streamlit
-          echo "Running mypy on src/trend_analysis and src/trend_portfolio_app" >&2
->>>>>>> refactor(types): introduce FloatArray aliases, remove np.floating generics, clean registry hints
           if ! mypy --config-file pyproject.toml src/trend_analysis src/trend_portfolio_app > mypy_report.txt; then
             echo "mypy failed" >&2
             cat mypy_report.txt
