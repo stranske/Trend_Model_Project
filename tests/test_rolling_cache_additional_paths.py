@@ -21,15 +21,8 @@ def test_default_cache_dir_rejects_paths_outside_home(monkeypatch, tmp_path: Pat
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
 
     _reload_cache_module()
-    try:
-        expected = tmp_path / ".cache/trend_model/rolling"
-        assert rolling_cache._DEFAULT_CACHE_DIR == expected
-    finally:
-        monkeypatch.delenv("TREND_ROLLING_CACHE", raising=False)
-        monkeypatch.setattr(Path, "home", original_home, raising=False)
-        _reload_cache_module()
-
-
+    expected = tmp_path / ".cache/trend_model/rolling"
+    assert rolling_cache._DEFAULT_CACHE_DIR == expected
 def test_normalise_component_replaces_invalid_characters() -> None:
     assert rolling_cache._normalise_component("risk@metric#1") == "risk_metric_1"
 
