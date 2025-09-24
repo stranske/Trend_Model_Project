@@ -988,28 +988,20 @@ def test_render_app_executes_with_dummy_streamlit(
     stub = _MockStreamlit()
     monkeypatch.setitem(sys.modules, "streamlit", stub)
     sys.modules.pop("trend_portfolio_app.app", None)
-    # Instrument calls
-    page_config_calls: list[tuple] = []
-    titles: list[str] = []
-
-    def track_page_config(*args, **kwargs):  # pragma: no cover - trivial
-        page_config_calls.append((args, tuple(kwargs.items())))
-        return None
-
-    def track_title(label: str, *_, **__):  # pragma: no cover - trivial
-        titles.append(label)
-        return None
-
-    stub.set_page_config = track_page_config  # type: ignore[assignment]
-    stub.title = track_title  # type: ignore[assignment]
 
     module = importlib.import_module("trend_portfolio_app.app")
-    dummy = stub  # For semantic clarity with legacy assertions
 
-    assert page_config_calls, "_render_app should configure the page on import"
-    assert titles == ["Trend Portfolio App"]
-    assert dummy.session_state.get("config_dict") is not None
-    assert isinstance(dummy.session_state["config_dict"], dict)
+    # With a mocked streamlit module the production import guard skips
+    # execution; invoke the renderer explicitly for the instrumentation
+    # assertions.
+    module._render_app()  # type: ignore[attr-defined]
+
+    # Access instrumentation globals through the imported module to avoid
+    # relying on implicit star imports.
+    assert module.page_config_calls, "_render_app should configure the page on import"  # type: ignore[attr-defined]
+    assert module.titles == ["Trend Portfolio App"]  # type: ignore[attr-defined]
+    assert stub.session_state.get("config_dict") is not None
+    assert isinstance(stub.session_state["config_dict"], dict)
     assert module._render_app  # pragma: no cover - sanity check the attribute exists
 
 
@@ -1018,6 +1010,12 @@ def test_normalize_columns_wraps_scalars(monkeypatch: pytest.MonkeyPatch) -> Non
 
     sentinel = object()
     assert app_mod._normalize_columns(sentinel, 3) == [sentinel, sentinel, sentinel]
+
+
+## Removed duplicate redefinitions of three earlier tests (F811):
+## - test_read_defaults_prefers_demo_csv_when_available
+## - test_read_defaults_handles_missing_demo_csv
+## - test_apply_session_state_skips_invalid_months
 
 
 def test_summarise_run_df_handles_empty_inputs(
@@ -1066,29 +1064,4 @@ def test_summarise_multi_handles_non_iterable_period(
     assert summary.loc[0, "ew_sharpe"] != summary.loc[0, "ew_sharpe"]
 
 
-def test_render_run_section_handles_empty_outputs(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    app_mod = _load_app(monkeypatch)
-
-    def fake_button(label: str, *_, **__) -> bool:
-        return label in {"Run Single Period", "Run Multi-Period"}
-
-    app_mod.st.button = fake_button  # type: ignore[assignment]
-    app_mod.st.success = lambda *_: None  # type: ignore[assignment]
-    app_mod.st.download_button = lambda *_, **__: None  # type: ignore[assignment]
-
-    app_mod.st.session_state.clear()
-
-    cfg: dict[str, Any] = {"data": {}}
-
-    monkeypatch.setattr(app_mod, "_build_cfg", lambda d: d)
-    monkeypatch.setattr(app_mod.pipeline, "run", lambda _: pd.DataFrame())
-    monkeypatch.setattr(app_mod, "run_multi", lambda _: [])
-
-    tables: list[pd.DataFrame] = []
-    app_mod.st.dataframe = lambda df, **__: tables.append(df)  # type: ignore[assignment]
-
-    app_mod._render_run_section(cfg)
-
-    assert tables == []
+## Removed duplicate redefinition of test_render_run_section_handles_empty_outputs (F811)

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import ast
 import runpy
-import sys  # Added: required for module cache manipulation in script test
-import pytest
+import sys
+import pytest  # Added to satisfy type annotation reference (F821)
 
 from trend_analysis import (
     _autofix_trigger_sample,
@@ -37,15 +37,13 @@ def test_violation_case2_runs_as_script(capsys: "pytest.CaptureFixture[str]") ->
 
     module_name = "trend_analysis._autofix_violation_case2"
 
-    # Guard: ensure module is present before popping; capture original for restoration
-    original = sys.modules.get(module_name)
+    original = sys.modules[module_name]
     sys.modules.pop(module_name, None)
 
     try:
         runpy.run_module(module_name, run_name="__main__")
     finally:
-        if original is not None:
-            sys.modules[module_name] = original
+        sys.modules[module_name] = original
 
     captured = capsys.readouterr()
     assert captured.err == ""

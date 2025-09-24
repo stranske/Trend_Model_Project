@@ -257,11 +257,9 @@ def test_load_and_validate_upload_reads_excel_path(
 def test_validate_returns_schema_exception_block_guard() -> None:
     # DataFrame with malformed dates
     df = pd.DataFrame({"Date": ["bad"] * 6, "Fund": [1.0] * 6, "Benchmark": [1.0] * 6})
-    result = validate_returns_schema(df)
+    issues = validate_returns_schema(df)
     # Should report issues about invalid dates
-    assert any(
-        "invalid dates" in issue or "malformed" in issue for issue in result.issues
-    )
+    assert any("invalid dates" in issue or "malformed" in issue for issue in issues)
 
 
 def test_validate_returns_schema_exception_block_guard_no_issues() -> None:
@@ -273,10 +271,9 @@ def test_validate_returns_schema_exception_block_guard_no_issues() -> None:
             "Benchmark": [1.0, 2.0],
         }
     )
-    result = validate_returns_schema(df)
+    issues = validate_returns_schema(df)
     # Should not report any issues
-    assert result.is_valid is True
-    assert result.issues == []
+    assert issues == []
 
 
 def test_create_sample_template_has_expected_shape() -> None:
