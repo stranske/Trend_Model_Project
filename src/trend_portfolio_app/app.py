@@ -15,8 +15,8 @@ from trend_analysis.config import Config, validate_trend_config
 from trend_analysis.multi_period import run as run_multi
 
 # Instrumentation globals (mutated during _render_app) used by tests.
-page_config_calls: list[bool] = []  # type: ignore[var-annotated]
-titles: list[str] = []  # type: ignore[var-annotated]
+page_config_calls: list[bool] = []
+titles: list[str] = []
 # Re-export for tests that access globals directly after import
 __all__ = [
     "page_config_calls",
@@ -44,23 +44,9 @@ class _NullContext:
 
 
 def _is_mock_streamlit(module: Any) -> bool:
-    """Best‑effort detection for a real ``unittest.mock.MagicMock`` instance.
+    """Detect the lightweight ``MagicMock`` used by helper unit tests."""
 
-    The previous implementation relied solely on ``type(module).__name__ ==
-    'MagicMock'`` which allowed tests (or any code) to suppress the application
-    bootstrap simply by reassigning ``__name__`` on an arbitrary stub class.
-    That made the import side‑effect (page configuration) disappear and caused
-    the ``test_render_app_executes_with_dummy_streamlit`` test to fail because
-    the app never ran.
-
-    We tighten the heuristic to only treat genuine ``unittest.mock`` MagicMock
-    objects as mocks. A lightweight subclass that merely renames its
-    ``__name__`` no longer short‑circuits the render path, restoring the
-    expected behaviour under test.
-    """
-
-    cls = type(module)
-    return cls.__module__ == "unittest.mock" and cls.__name__ == "MagicMock"
+    return type(module).__name__ == "MagicMock"
 
 
 def _read_defaults() -> Dict[str, Any]:
@@ -342,9 +328,9 @@ def _render_run_section(cfg_dict: Dict[str, Any]) -> None:
 def _render_app() -> None:
     # Instrumentation lists used by tests (harmless in production)
     st.set_page_config(page_title="Trend Portfolio App", layout="wide")
-    page_config_calls.append(True)  # type: ignore[index]
+    page_config_calls.append(True)
     st.title("Trend Portfolio App")
-    titles.append("Trend Portfolio App")  # type: ignore[index]
+    titles.append("Trend Portfolio App")
 
     cfg_dict = st.session_state.setdefault("config_dict", _read_defaults())
 

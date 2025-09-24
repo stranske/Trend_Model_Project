@@ -10,7 +10,6 @@ permissions:
   contents: read
   actions: read
   issues: write
-  metadata: read
 
 jobs:
   health:

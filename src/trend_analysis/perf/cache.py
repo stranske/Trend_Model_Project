@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, Iterable, Tuple
 
 import numpy as np
+from .._typing import FloatArray, MatrixF
 import pandas as pd
 
 Key = Tuple[str, str, int, str]
@@ -36,14 +37,14 @@ def _universe_hash(assets: Iterable[str]) -> int:
 
 @dataclass(slots=True)
 class CovPayload:
-    cov: np.ndarray
-    mean: np.ndarray
-    std: np.ndarray
+    cov: MatrixF
+    mean: FloatArray
+    std: FloatArray
     n: int
     assets: tuple[str, ...]
     # Optional aggregates enabling O(k^2) rolling updates (None unless requested)
-    s1: np.ndarray | None = None  # sum of rows (vector)
-    s2: np.ndarray | None = None  # sum of outer products (matrix)
+    s1: FloatArray | None = None  # sum of rows (vector)
+    s2: MatrixF | None = None  # sum of outer products (matrix)
 
     def as_dict(self) -> Dict[str, Any]:  # convenience for tests / debug
         return {
@@ -193,8 +194,8 @@ def _ensure_aggregates(payload: CovPayload) -> None:
 
 def incremental_cov_update(
     prev: CovPayload,
-    old_row: np.ndarray,
-    new_row: np.ndarray,
+    old_row: FloatArray,
+    new_row: FloatArray,
 ) -> CovPayload:
     """Incrementally update covariance for a sliding window.
 

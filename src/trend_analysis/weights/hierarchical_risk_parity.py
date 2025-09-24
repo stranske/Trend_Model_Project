@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 
 import numpy as np
+from .._typing import FloatArray
 import pandas as pd
 from scipy.cluster.hierarchy import leaves_list, linkage
 from scipy.spatial.distance import squareform
@@ -13,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 def _cov_to_corr(cov: pd.DataFrame) -> pd.DataFrame:
-    std: np.ndarray = np.sqrt(np.diag(cov))
+    std: FloatArray = np.sqrt(np.diag(cov))
 
     # Check for zero standard deviations
     if np.any(std == 0):
@@ -53,7 +54,7 @@ class HierarchicalRiskParity(WeightEngine):
                 )
 
             # Compute distance matrix as numpy array for typing clarity
-            dist_arr: np.ndarray = np.sqrt(0.5 * (1.0 - corr.values))
+            dist_arr: FloatArray = np.sqrt(0.5 * (1.0 - corr.values))
 
             # Ensure distance matrix is valid
             if np.any(~np.isfinite(dist_arr)) or np.any(dist_arr < 0):
@@ -61,7 +62,7 @@ class HierarchicalRiskParity(WeightEngine):
                 n = len(cov)
                 return pd.Series(np.ones(n) / n, index=cov.index)
 
-            condensed: np.ndarray = squareform(dist_arr, checks=False)
+            condensed: FloatArray = squareform(dist_arr, checks=False)
             link = linkage(condensed, method="single")
             sort_ix = corr.index[leaves_list(link)]
             cov_sorted = cov.loc[sort_ix, sort_ix]

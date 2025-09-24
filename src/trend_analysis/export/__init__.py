@@ -1388,7 +1388,9 @@ def export_multi_period_metrics(
     reset_formatters_excel()
 
     results_list = list(results)
-    frames = workbook_frames_from_results(results_list) if results_list else {}
+    frames: dict[str, pd.DataFrame] = (
+        dict(workbook_frames_from_results(results_list)) if results_list else {}
+    )
 
     if other_formats:
         other_data.update(flat_frames_from_results(results_list))

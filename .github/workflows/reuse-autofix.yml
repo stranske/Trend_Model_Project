@@ -19,7 +19,7 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: autofix-${{ github.event.pull_request.number || github.run_id }}
+  group: autofix-${{ github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -35,10 +35,18 @@ jobs:
       - name: Set commit prefix env
         id: prefix
         run: echo "AUTOFIX_COMMIT_PREFIX=${{ inputs.commit_prefix }}" >> $GITHUB_ENV
+      - name: Set sanitized PR head ref
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          RAW_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          # Copy untrusted head ref from expression context into environment variable safely
+          echo "PR_HEAD_REF=${RAW_HEAD_REF}" >> $GITHUB_ENV
       - name: Checkout PR HEAD
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
+          ref: ${{ env.PR_HEAD_REF || github.ref }}
           fetch-depth: 0
           persist-credentials: true
       - name: Guard against loops (Issue #1347)
@@ -104,7 +112,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          branch="${{ github.event.pull_request.head.ref }}"
+          branch="${PR_HEAD_REF}"
           for attempt in 1 2 3; do
             echo "[autofix] Push attempt $attempt"
             if git push origin HEAD:"$branch"; then
