@@ -147,7 +147,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
             context="style gate workflow",
         )
 
-    def test_syntax_demo_missing_colon(self)
+    def test_syntax_demo_missing_colon(self):
         self.assertTrue(True)
 
 
