@@ -61,7 +61,8 @@ def test_assert_no_invalid_period_aliases_in_source(tmp_path: Path) -> None:
 def test_assert_no_invalid_period_aliases_skips_known_false_positives(
     tmp_path: Path,
 ) -> None:
-    """Files under virtualenvs or this module itself are intentionally ignored."""
+    """Files under virtualenvs or this module itself are intentionally
+    ignored."""
 
     skipped_env = tmp_path / ".venv" / "lib" / "python.py"
     skipped_env.parent.mkdir(parents=True)
