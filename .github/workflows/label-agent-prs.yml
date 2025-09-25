@@ -57,6 +57,7 @@ jobs:
     env:
       TRUSTED_LABEL_RULE_PATHS: |
         .github/agent-label-rules.json
+        .github/scripts/label_rules_assert.py
     steps:
       - name: Select token (PAT fallback)
         id: token
@@ -78,7 +79,7 @@ jobs:
       - name: Assert sparse checkout scope (Issue #1140)
         run: |
           set -euo pipefail
-          python .github/scripts/label_rules_assert.py
+          python trusted-config/.github/scripts/label_rules_assert.py
       - uses: actions/github-script@v7
         with:
           github-token: ${{ steps.token.outputs.value }}
