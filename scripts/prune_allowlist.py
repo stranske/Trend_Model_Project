@@ -19,32 +19,37 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
+from typing import Sequence
 
 ALLOW = pathlib.Path(".ruff-residual-allowlist.json")
 HISTORY = pathlib.Path("ci/autofix/history.json")
 
 
-def load_allowlist():
+def load_allowlist() -> list[str]:
     try:
         data = json.loads(ALLOW.read_text())
     except Exception:
         return []
     # Support both list of codes or object with 'codes'
     if isinstance(data, dict) and "codes" in data:
-        codes = data["codes"]
+        codes_obj = data["codes"]
+        if isinstance(codes_obj, list):
+            codes = [str(code) for code in codes_obj]
+        else:
+            codes = []
     elif isinstance(data, list):
-        codes = data
+        codes = [str(code) for code in data]
     else:
         codes = []
     return codes
 
 
-def save_allowlist(codes):
+def save_allowlist(codes: Sequence[str]) -> None:
     # Persist using object form to allow future metadata
     ALLOW.write_text(json.dumps({"codes": codes}, indent=2, sort_keys=True))
 
 
-def main(argv=None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument(
         "--streak",
@@ -59,10 +64,13 @@ def main(argv=None) -> int:
         print("No allowlist entries to prune.")
         return 0
     try:
-        hist = json.loads(HISTORY.read_text())
-        if not isinstance(hist, list):
-            hist = []
+        hist_raw = json.loads(HISTORY.read_text())
     except Exception:
+        hist_raw = []
+    hist: list[dict[str, object]]
+    if isinstance(hist_raw, list):
+        hist = [snap for snap in hist_raw if isinstance(snap, dict)]
+    else:
         hist = []
     if not hist:
         print("No history snapshots; skipping pruning.")
@@ -70,15 +78,22 @@ def main(argv=None) -> int:
 
     streak = args.streak
     tail = hist[-streak:]
-    removal = []
+    removal: list[str] = []
     for code in allow_codes:
         # If code appears (count>0) in any of the tail snapshots, keep.
-        if any((snap.get("by_code") or {}).get(code, 0) > 0 for snap in tail):
+        by_code_maps = [snap.get("by_code") for snap in tail]
+        if any(
+            isinstance(by_code, dict) and int(by_code.get(code, 0)) > 0
+            for by_code in by_code_maps
+        ):
             continue
         # Additional guard: if code never appears in any snapshot we can prune too.
-        ever_present = any(code in (snap.get("by_code") or {}) for snap in hist)
-        if not ever_present or True:  # presence in tail already zero; prune
-            removal.append(code)
+        _ = any(
+            isinstance(by_code, dict) and code in by_code
+            for by_code in (snap.get("by_code") for snap in hist)
+        )
+        # presence in tail already zero; prune regardless of historical presence
+        removal.append(code)
     if not removal:
         print("No allowlist codes eligible for pruning.")
         return 0

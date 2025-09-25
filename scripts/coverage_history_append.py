@@ -12,12 +12,16 @@ import json
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 
-def load_existing(path: Path) -> list[dict]:
+JsonRecord = dict[str, Any]
+
+
+def load_existing(path: Path) -> list[JsonRecord]:
     if not path.exists():
         return []
-    records: list[dict] = []
+    records: list[JsonRecord] = []
     with path.open("r", encoding="utf-8") as fh:
         for line in fh:
             line = line.strip()
@@ -38,10 +42,14 @@ def main() -> int:
         print(f"[history] record file missing: {record_path}", file=sys.stderr)
         return 0
     try:
-        record = json.loads(record_path.read_text(encoding="utf-8"))
+        record_obj = json.loads(record_path.read_text(encoding="utf-8"))
     except Exception as e:
         print(f"[history] failed to parse record: {e}", file=sys.stderr)
         return 0
+    if not isinstance(record_obj, dict):
+        print("[history] record must be a JSON object", file=sys.stderr)
+        return 0
+    record: JsonRecord = record_obj
     existing = load_existing(history_path)
     # Replace any existing entry with same run_id
     run_id = record.get("run_id")
@@ -50,8 +58,10 @@ def main() -> int:
     existing.append(record)
 
     # Sort by run_number if available
-    def sort_key(r: dict):
-        return r.get("run_number") or r.get("run_id") or 0
+    def sort_key(r: JsonRecord) -> Any:
+        if "run_number" in r and r["run_number"] is not None:
+            return r["run_number"]
+        return r.get("run_id", 0)
 
     existing.sort(key=sort_key)
     tmp = history_path.with_suffix(".tmp")

@@ -39,6 +39,35 @@ if [[ -z "$VIRTUAL_ENV" && -f ".venv/bin/activate" ]]; then
     source .venv/bin/activate > /dev/null 2>&1
 fi
 
+# Ensure formatter tooling is available (black, isort, docformatter)
+ensure_python_packages() {
+    local missing=()
+    for package in "$@"; do
+        if python - <<PY 2>/dev/null
+import importlib.util, sys
+sys.exit(0 if importlib.util.find_spec("${package}") else 1)
+PY
+        then
+            continue
+        else
+            missing+=("$package")
+        fi
+    done
+
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        echo -e "${YELLOW}Installing formatter tooling: ${missing[*]}${NC}"
+        if python -m pip install --disable-pip-version-check --quiet "${missing[@]}" > /tmp/dev_check_install 2>&1; then
+            echo -e "${GREEN}✓ Formatter tooling ready${NC}"
+        else
+            echo -e "${RED}✗ Failed to install formatter tooling${NC}"
+            head -10 /tmp/dev_check_install | sed 's/^/  /'
+            exit 1
+        fi
+    fi
+}
+
+ensure_python_packages black isort docformatter
+
 # Determine files to check
 if [[ "$CHANGED_ONLY" == true ]]; then
     # Only check files changed in the last commit or working directory

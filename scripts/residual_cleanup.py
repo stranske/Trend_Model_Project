@@ -14,9 +14,10 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 
-def load_json(path: str):  # lightweight helper
+def load_json(path: str) -> Any:
     p = Path(path)
     if not p.exists():
         return None
@@ -27,10 +28,15 @@ def load_json(path: str):  # lightweight helper
 
 
 def main() -> int:
-    classification = load_json("ruff_classification.json") or {}
-    total = classification.get("total", 0)
-    new = classification.get("new", 0)
-    allowed = classification.get("allowed", 0)
+    classification_raw = load_json("ruff_classification.json")
+    classification: dict[str, Any]
+    if isinstance(classification_raw, dict):
+        classification = classification_raw
+    else:
+        classification = {}
+    total = int(classification.get("total", 0))
+    new = int(classification.get("new", 0))
+    allowed = int(classification.get("allowed", 0))
     print(f"[residual_cleanup] total={total} new={new} allowed={allowed}")
     # Placeholder: no mutations performed
     return 0

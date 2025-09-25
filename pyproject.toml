@@ -120,10 +120,6 @@ module = "tests.*"
 ignore_errors = true
 
 [[tool.mypy.overrides]]
-module = "scripts.*"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
 module = [
     "demo_malformed_date_fix",
     "demo_proxy",
@@ -141,15 +137,22 @@ module = "app.streamlit.*"
 ignore_errors = true
 
 [[tool.mypy.overrides]]
-module = ["integration_example", "debug_fund_selection", "test_multi_period_selection", "test_upload_app"]
+module = [
+    "scripts.verify_codex_bootstrap",
+    "scripts.run_multi_demo",
+    "scripts.run_real_model",
+    "scripts.run_threshold_churn_demo",
+    "scripts.benchmark_performance",
+    "integration_example",
+    "debug_fund_selection",
+    "test_multi_period_selection",
+]
 ignore_errors = true
 
-[[tool.mypy.overrides]]
-module = "tools.*"
-ignore_errors = true
 
 
 [tool.pytest.ini_options]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks integration tests that exercise external tooling",
 ]
