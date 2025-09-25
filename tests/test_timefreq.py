@@ -88,7 +88,9 @@ def test_assert_no_invalid_period_aliases_skips_known_false_positives(
     )
 
 
-def test_assert_no_invalid_period_aliases_handles_unreadable_files(tmp_path: Path) -> None:
+def test_assert_no_invalid_period_aliases_handles_unreadable_files(
+    tmp_path: Path,
+) -> None:
     unreadable_file = tmp_path / "missing.py"
     good_file = tmp_path / "good.py"
     good_file.write_text(
