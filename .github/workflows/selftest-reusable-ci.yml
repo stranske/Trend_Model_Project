@@ -85,10 +85,12 @@ jobs:
     steps:
       - name: Summarize run
         run: |
-          echo "## Self-Test Reusable CI Summary" >> $GITHUB_STEP_SUMMARY
-          echo "Scenarios executed: minimal, metrics_only, metrics_history, classification_only, coverage_delta, full_soft_gate" >> $GITHUB_STEP_SUMMARY
-          echo "Each scenario's internal ci_feature_assert.py step already enforced expectations." >> $GITHUB_STEP_SUMMARY
-          echo "This aggregate job can be extended to download & re-assert artifacts if needed." >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Self-Test Reusable CI Summary"
+            echo "Scenarios executed: minimal, metrics_only, metrics_history, classification_only, coverage_delta, full_soft_gate"
+            echo "Each scenario's internal ci_feature_assert.py step already enforced expectations."
+            echo "This aggregate job can be extended to download & re-assert artifacts if needed."
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Verify artifact inventory
         id: verify
         uses: actions/github-script@v7
@@ -159,8 +161,10 @@ jobs:
             require('fs').writeFileSync('selftest-report.json', JSON.stringify(summary, null, 2));
       - name: Append verification table
         run: |
-          echo "### Artifact Verification" >> $GITHUB_STEP_SUMMARY
-          echo "${{ steps.verify.outputs.table }}" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "### Artifact Verification"
+            echo "${{ steps.verify.outputs.table }}"
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload self-test report artifact
         uses: actions/upload-artifact@v4
         with:

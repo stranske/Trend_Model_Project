@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -404,7 +403,9 @@ def test_handle_exports_requires_both_directory_and_formats(monkeypatch) -> None
     result = RunResult(pd.DataFrame(), {}, 1, {})
 
     events: list[str] = []
-    monkeypatch.setattr(cli, "_legacy_maybe_log_step", lambda *a, **k: events.append("x"))
+    monkeypatch.setattr(
+        cli, "_legacy_maybe_log_step", lambda *a, **k: events.append("x")
+    )
 
     cli._handle_exports(cfg, result, structured_log=True, run_id="rid")
 
@@ -422,7 +423,10 @@ def test_write_bundle_appends_filename(monkeypatch, tmp_path: Path, capsys) -> N
         captured["path"] = path
 
     import trend_analysis.export.bundle
-    monkeypatch.setattr(trend_analysis.export.bundle, "export_bundle", fake_export_bundle)
+
+    monkeypatch.setattr(
+        trend_analysis.export.bundle, "export_bundle", fake_export_bundle
+    )
     monkeypatch.setattr(cli, "_legacy_maybe_log_step", lambda *a, **k: None)
 
     bundle_dir = tmp_path / "artifacts"
@@ -452,7 +456,9 @@ def test_print_summary_emits_cache_stats(monkeypatch, capsys) -> None:
     assert "Cache statistics" in out
 
 
-def test_write_report_files_creates_expected_outputs(monkeypatch, tmp_path: Path) -> None:
+def test_write_report_files_creates_expected_outputs(
+    monkeypatch, tmp_path: Path
+) -> None:
     metrics = pd.DataFrame({"value": [1.0]})
     result = RunResult(metrics, {"details": {}}, 1, {})
     cfg = SimpleNamespace(sample_split={})
@@ -496,11 +502,19 @@ def test_main_handles_file_not_found(monkeypatch, tmp_path: Path, capsys) -> Non
 
 
 def test_main_reports_unknown_command(monkeypatch, capsys) -> None:
-    parser = SimpleNamespace(parse_args=lambda _argv: SimpleNamespace(subcommand="mystery", config="cfg.yml"))
+    parser = SimpleNamespace(
+        parse_args=lambda _argv: SimpleNamespace(subcommand="mystery", config="cfg.yml")
+    )
 
     monkeypatch.setattr(cli, "build_parser", lambda: parser)
-    monkeypatch.setattr(cli, "_load_configuration", lambda path: (Path(path), SimpleNamespace(data={"csv_path": "returns.csv"})))
-    monkeypatch.setattr(cli, "_resolve_returns_path", lambda *_args: Path("returns.csv"))
+    monkeypatch.setattr(
+        cli,
+        "_load_configuration",
+        lambda path: (Path(path), SimpleNamespace(data={"csv_path": "returns.csv"})),
+    )
+    monkeypatch.setattr(
+        cli, "_resolve_returns_path", lambda *_args: Path("returns.csv")
+    )
     monkeypatch.setattr(cli, "_ensure_dataframe", lambda *_args: pd.DataFrame())
     monkeypatch.setattr(cli, "_determine_seed", lambda *_args: 0)
 

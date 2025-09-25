@@ -1,6 +1,6 @@
 # Trend Model Project
 
-[![Codex Verification (Latest)](https://github.com/stranske/Trend_Model_Project/actions/workflows/verify-codex-bootstrap-matrix.yml/badge.svg?branch=phase-2-dev)](https://github.com/stranske/Trend_Model_Project/actions/workflows/verify-codex-bootstrap-matrix.yml) [![Codex Verification Guide](https://img.shields.io/badge/codex--verification-docs-blueviolet)](docs/codex-simulation.md)
+[![Style Gate](https://github.com/stranske/Trend_Model_Project/actions/workflows/style-gate.yml/badge.svg?branch=phase-2-dev)](https://github.com/stranske/Trend_Model_Project/actions/workflows/style-gate.yml) [![Codex Verification (Latest)](https://github.com/stranske/Trend_Model_Project/actions/workflows/verify-codex-bootstrap-matrix.yml/badge.svg?branch=phase-2-dev)](https://github.com/stranske/Trend_Model_Project/actions/workflows/verify-codex-bootstrap-matrix.yml) [![Codex Verification Guide](https://img.shields.io/badge/codex--verification-docs-blueviolet)](docs/codex-simulation.md)
 
 > **🚀 New User?** → **[Quick Start Guide](docs/quickstart.md)** — Get your first analysis running in under 10 minutes!
 
@@ -565,4 +565,43 @@ diff -u first.id second.id && echo "Deterministic ✅"
 
 If the diff command produces output, open an issue with the differing
 `run_meta.json` files so the source of non‑determinism can be traced.
+
+## Contributor Style & Lint Workflow
+
+To avoid CI Style Gate failures:
+
+1. Run the fast development validations during active editing:
+   ```bash
+   ./scripts/dev_check.sh --changed --fix
+   ./scripts/validate_fast.sh --fix
+   ```
+2. Before pushing a branch, mirror the CI style gate exactly (pinned Black/Ruff versions):
+   ```bash
+   ./scripts/style_gate_local.sh
+   ```
+   If it reports failures, fix them with:
+   ```bash
+   black .
+   ruff check --fix .
+   ```
+3. Only then run the comprehensive branch checks (optional for large changes):
+   ```bash
+   ./scripts/check_branch.sh --fast --fix
+   ```
+
+The script `scripts/style_gate_local.sh` sources version pins from `.github/workflows/autofix-versions.env` ensuring local checks match CI. Add it to your pre-push routine (or a custom git hook) to eliminate format drift caused by differing global tool versions.
+
+## Contributing & Quality Gate
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full contributor workflow.
+Common local checks before pushing:
+```bash
+./scripts/quality_gate.sh        # style + adaptive validation
+./scripts/quality_gate.sh --full # adds comprehensive branch check
+```
+Install the optional pre-push hook:
+```bash
+./scripts/install_pre_push_style_gate.sh
+```
+This prevents accidental pushes that fail the CI Style Gate.
 

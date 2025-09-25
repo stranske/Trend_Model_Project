@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import tempfile
 from pathlib import Path
+import textwrap
 
 import streamlit as st
 
@@ -63,18 +64,20 @@ def _cached_export_bundle(cache_key: str, config_dict, _run):
 
 
 st.markdown(
-    """
-### Export Analysis Bundle
+    textwrap.dedent(
+        """
+        ### Export Analysis Bundle
 
-Create a comprehensive ZIP bundle containing all analysis results, charts, and metadata.
+        Create a comprehensive ZIP bundle containing all analysis results, charts, and metadata.
 
-**Bundle Contents:**
-- 📊 **Results**: Portfolio returns, benchmark data, and weights (CSV format)
-- 📈 **Charts**: Equity curve and drawdown visualizations (PNG format) 
-- 📋 **Summary**: Analysis metrics and performance data (Excel format)
-- 🔍 **Metadata**: Configuration, versions, git hash, and reproducibility receipt
-- 📄 **README**: Package description and contents guide
-"""
+        **Bundle Contents:**
+        - 📊 **Results**: Portfolio returns, benchmark data, and weights (CSV format)
+        - 📈 **Charts**: Equity curve and drawdown visualizations (PNG format)
+        - 📋 **Summary**: Analysis metrics and performance data (Excel format)
+        - 🔍 **Metadata**: Configuration, versions, git hash, and reproducibility receipt
+        - 📄 **README**: Package description and contents guide
+        """
+    )
 )
 
 # Generate cache key for current data
@@ -116,33 +119,35 @@ try:
     # Bundle details
     with st.expander("📋 Bundle Details", expanded=False):
         st.markdown(
-            f"""
-        **Bundle Information:**
-        - **Size**: {bundle_size_mb:.2f} MB
-        - **Format**: ZIP archive
-        - **Created**: Just now
-        
-        **Contents Preview:**
-        ```
-        analysis_bundle.zip
-        ├── results/
-        │   ├── portfolio.csv      # Portfolio returns
-        │   ├── benchmark.csv      # Benchmark returns (if available)
-        │   └── weights.csv        # Portfolio weights (if available)
-        ├── charts/
-        │   ├── equity_curve.png   # Cumulative returns chart
-        │   └── drawdown.png       # Drawdown analysis chart
-        ├── summary.xlsx           # Summary metrics workbook
-        ├── run_meta.json          # Configuration and metadata
-        └── README.txt             # Bundle description
-        ```
-        
-        **Reproducibility:**
-        - Configuration snapshot included
-        - Git commit hash recorded
-        - Environment versions captured
-        - Input file SHA256 hash (if available)
-        """
+            textwrap.dedent(
+                f"""
+                **Bundle Information:**
+                - **Size**: {bundle_size_mb:.2f} MB
+                - **Format**: ZIP archive
+                - **Created**: Just now
+
+                **Contents Preview:**
+                ```
+                analysis_bundle.zip
+                ├── results/
+                │   ├── portfolio.csv      # Portfolio returns
+                │   ├── benchmark.csv      # Benchmark returns (if available)
+                │   └── weights.csv        # Portfolio weights (if available)
+                ├── charts/
+                │   ├── equity_curve.png   # Cumulative returns chart
+                │   └── drawdown.png       # Drawdown analysis chart
+                ├── summary.xlsx           # Summary metrics workbook
+                ├── run_meta.json          # Configuration and metadata
+                └── README.txt             # Bundle description
+                ```
+
+                **Reproducibility:**
+                - Configuration snapshot included
+                - Git commit hash recorded
+                - Environment versions captured
+                - Input file SHA256 hash (if available)
+                """
+            )
         )
 
 except Exception as e:

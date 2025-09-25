@@ -608,7 +608,7 @@ class RiskStatsConfig:
     periods_per_year: int = 12
 
 
-METRIC_REGISTRY: Dict[str, Callable[..., float | pd.Series | np.floating]] = {}
+METRIC_REGISTRY: Dict[str, Callable[..., float | pd.Series]] = {}
 _METRIC_CONTEXT: ContextVar[dict[str, Any] | None] = ContextVar(
     "_TREND_METRIC_CONTEXT", default=None
 )
@@ -640,14 +640,14 @@ def canonical_metric_list(names: Iterable[str] | None = None) -> list[str]:
 def register_metric(
     name: str,
 ) -> Callable[
-    [Callable[..., float | pd.Series | np.floating]],
-    Callable[..., float | pd.Series | np.floating],
+    [Callable[..., float | pd.Series]],
+    Callable[..., float | pd.Series],
 ]:
     """Register ``fn`` under ``name`` in :data:`METRIC_REGISTRY`."""
 
     def decorator(
-        fn: Callable[..., float | pd.Series | np.floating],
-    ) -> Callable[..., float | pd.Series | np.floating]:
+        fn: Callable[..., float | pd.Series],
+    ) -> Callable[..., float | pd.Series]:
         METRIC_REGISTRY[name] = fn
         return fn
 

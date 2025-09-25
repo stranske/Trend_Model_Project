@@ -42,13 +42,11 @@ app = FastAPI(
 )
 
 
-@app.get("/health")
 async def health_check() -> dict[str, str]:
     """Health check endpoint."""
     return {"status": "ok"}
 
 
-@app.get("/")
 async def root() -> dict[str, str]:
     """Root endpoint with API information."""
     return {
@@ -57,6 +55,10 @@ async def root() -> dict[str, str]:
         "docs": "/docs",
         "health": "/health",
     }
+
+
+app.add_api_route("/health", health_check, methods=["GET"])
+app.add_api_route("/", root, methods=["GET"])
 
 
 def run(host: str = "127.0.0.1", port: int = 8000) -> Tuple[str, int]:

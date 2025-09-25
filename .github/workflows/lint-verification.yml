@@ -33,6 +33,8 @@ jobs:
           path: stub_status.txt
       - name: Summary
         run: |
-          echo "### Legacy Lint Verification Stub" >> $GITHUB_STEP_SUMMARY
-          echo "Result: PASS" >> $GITHUB_STEP_SUMMARY
-          echo "Next: Switch required check to Style Gate / style and remove this file." >> $GITHUB_STEP_SUMMARY
+          {
+            echo "### Legacy Lint Verification Stub"
+            echo "Result: PASS"
+            echo "Next: Switch required check to Style Gate / style and remove this file."
+          } >> "$GITHUB_STEP_SUMMARY"

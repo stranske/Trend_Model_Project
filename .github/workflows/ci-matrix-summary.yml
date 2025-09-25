@@ -57,63 +57,88 @@ jobs:
         id: stats
         run: |
           set -euo pipefail
-          OPEN_FAILURES=0
-          if [ -f ci_failures_snapshot.json ]; then
-            OPEN_FAILURES=$(jq '.issues|length' ci_failures_snapshot.json 2>/dev/null || echo 0)
-          fi
-          HIST_FILE=coverage-trend-history.ndjson
-          AVG_LATEST="null"; PREV="null"; DELTA="null"; HIST_LEN=0
-          WORST_LATEST="null"; WORST_PREV="null"; WORST_DELTA="null"
-          if [ -f "$HIST_FILE" ]; then
-            HIST_LEN=$(grep -c '.' "$HIST_FILE" || echo 0)
-            if [ "$HIST_LEN" -gt 0 ]; then
-              LAST_LINE=$(tail -n1 "$HIST_FILE")
-              AVG_LATEST=$(echo "$LAST_LINE" | jq -r '.avg_coverage // empty')
-              if [ -z "$AVG_LATEST" ]; then AVG_LATEST="null"; fi
-              WORST_LATEST=$(echo "$LAST_LINE" | jq -r '.worst_job_coverage // empty')
-              [ -z "$WORST_LATEST" ] && WORST_LATEST="null"
-            fi
-            if [ "$HIST_LEN" -ge 2 ]; then
-              PREV_LINE=$(tail -n2 "$HIST_FILE" | head -n1)
-              PREV=$(echo "$PREV_LINE" | jq -r '.avg_coverage // empty')
-              [ -z "$PREV" ] && PREV="null"
-              WORST_PREV=$(echo "$PREV_LINE" | jq -r '.worst_job_coverage // empty')
-              [ -z "$WORST_PREV" ] && WORST_PREV="null"
-            fi
-            if [ "$AVG_LATEST" != "null" ] && [ "$PREV" != "null" ]; then
-              DELTA=$(python -c "print(round(float('$AVG_LATEST')-float('$PREV'),2))" 2>/dev/null || echo "null")
-            fi
-            if [ "$WORST_LATEST" != "null" ] && [ "$WORST_PREV" != "null" ]; then
-              WORST_DELTA=$(python -c "print(round(float('$WORST_LATEST')-float('$WORST_PREV'),2))" 2>/dev/null || echo "null")
-            fi
-          fi
-          # Build JSON inline (numbers or null)
-          printf '%s\n' '{' \
-            "  \"open_failure_issues\": $OPEN_FAILURES," \
-            "  \"coverage_avg_latest\": $AVG_LATEST," \
-            "  \"coverage_avg_prev\": $PREV," \
-            "  \"coverage_avg_delta\": $DELTA," \
-            "  \"coverage_worst_latest\": $WORST_LATEST," \
-            "  \"coverage_worst_prev\": $WORST_PREV," \
-            "  \"coverage_worst_delta\": $WORST_DELTA," \
-            "  \"coverage_history_len\": $HIST_LEN" \
-          '}' > matrix-derived.json
-          DERIVED=$(tr -d '\n' < matrix-derived.json || echo '{}')
-          echo "derived=$DERIVED" >> "$GITHUB_OUTPUT"
+          python <<'PY'
+          import json
+          from pathlib import Path
+
+          def read_json(path: str):
+              file = Path(path)
+              if not file.is_file():
+                  return None
+              try:
+                  with file.open(encoding="utf-8") as handle:
+                      return json.load(handle)
+              except Exception:
+                  return None
+
+          failures = read_json("ci_failures_snapshot.json") or {}
+          open_failures = len(failures.get("issues", []))
+
+          trend = read_json("coverage-trend.json") or {}
+          history = read_json("coverage-trend-history.json")
+          if not isinstance(history, list):
+              history = []
+
+          avg_latest = trend.get("avg_coverage")
+          worst_latest = trend.get("worst_job_coverage")
+
+          avg_prev = None
+          worst_prev = None
+          if len(history) >= 2:
+              prev_entry = history[-2]
+              if isinstance(prev_entry, dict):
+                  avg_prev = prev_entry.get("avg_coverage")
+                  worst_prev = prev_entry.get("worst_job_coverage")
+
+          def delta(latest, prev):
+              try:
+                  if latest is None or prev is None:
+                      return None
+                  return round(float(latest) - float(prev), 2)
+              except Exception:
+                  return None
+
+          derived = {
+              "open_failure_issues": open_failures,
+              "coverage_avg_latest": avg_latest,
+              "coverage_avg_prev": avg_prev,
+              "coverage_avg_delta": delta(avg_latest, avg_prev),
+              "coverage_worst_latest": worst_latest,
+              "coverage_worst_prev": worst_prev,
+              "coverage_worst_delta": delta(worst_latest, worst_prev),
+              "coverage_history_len": len(history),
+          }
+
+          with open("matrix-derived.json", "w", encoding="utf-8") as handle:
+              json.dump(derived, handle, indent=2, sort_keys=True)
+
+          print(json.dumps(derived, indent=2, sort_keys=True))
+          PY
+          DERIVED=$(jq -c '.' matrix-derived.json 2>/dev/null || echo '{}')
+          printf 'derived=%s\n' "$DERIVED" >> "$GITHUB_OUTPUT"
       - name: Append quick stats
         if: ${{ always() }}
         run: |
           if [ -f matrix-derived.json ]; then
             echo "## Quick Stats" >> ci-matrix-summary.md
             jq -r '"- Open failure issues: \(.open_failure_issues)"' matrix-derived.json >> ci-matrix-summary.md 2>/dev/null || true
-            jq -e '.coverage_avg_latest != null' matrix-derived.json >/dev/null 2>&1 && jq -r '"- Coverage avg (latest): \(.coverage_avg_latest)%"' matrix-derived.json >> ci-matrix-summary.md || true
-            jq -e '(.coverage_avg_prev != null) and (.coverage_avg_delta != null)' matrix-derived.json >/dev/null 2>&1 && jq -r '"- Coverage delta vs prev: \(.coverage_avg_delta|if .>=0 then "+" else "" end)\(.) pp"' matrix-derived.json >> ci-matrix-summary.md || true
-            jq -e '.coverage_worst_latest != null' matrix-derived.json >/dev/null 2>&1 && jq -r '"- Worst job coverage (latest): \\(.coverage_worst_latest)%"' matrix-derived.json >> ci-matrix-summary.md || true
-            jq -e '(.coverage_worst_prev != null) and (.coverage_worst_delta != null)' matrix-derived.json >/dev/null 2>&1 && jq -r '"- Worst job coverage delta vs prev: \\(.coverage_worst_delta|if .>=0 then "+" else "" end)\\(.) pp"' matrix-derived.json >> ci-matrix-summary.md || true
+            if jq -e '.coverage_avg_latest != null' matrix-derived.json >/dev/null 2>&1; then
+              jq -r '"- Coverage avg (latest): \(.coverage_avg_latest)%"' matrix-derived.json >> ci-matrix-summary.md || true
+            fi
+            if jq -e '(.coverage_avg_prev != null) and (.coverage_avg_delta != null)' matrix-derived.json >/dev/null 2>&1; then
+              jq -r '"- Coverage delta vs prev: \(.coverage_avg_delta|if .>=0 then "+" else "" end)\(.) pp"' matrix-derived.json >> ci-matrix-summary.md || true
+            fi
+            if jq -e '.coverage_worst_latest != null' matrix-derived.json >/dev/null 2>&1; then
+              jq -r '"- Worst job coverage (latest): \(.coverage_worst_latest)%"' matrix-derived.json >> ci-matrix-summary.md || true
+            fi
+            if jq -e '(.coverage_worst_prev != null) and (.coverage_worst_delta != null)' matrix-derived.json >/dev/null 2>&1; then
+              jq -r '"- Worst job coverage delta vs prev: \(.coverage_worst_delta|if .>=0 then "+" else "" end)\(.) pp"' matrix-derived.json >> ci-matrix-summary.md || true
+            fi
             jq -r '"- Coverage history entries: \(.coverage_history_len)"' matrix-derived.json >> ci-matrix-summary.md 2>/dev/null || true
             echo "- Run duration (trigger workflow): ${{ steps.gather.outputs.run_duration_sec }}s (conclusion: ${{ steps.gather.outputs.run_conclusion }})" >> ci-matrix-summary.md
             if [ -f ci_failures_snapshot.json ]; then
-              if [ $(jq '.issues|length' ci_failures_snapshot.json 2>/dev/null || echo 0) -gt 0 ]; then
+              ISSUE_COUNT=$(jq '.issues|length' ci_failures_snapshot.json 2>/dev/null || echo 0)
+              if [ "$ISSUE_COUNT" -gt 0 ]; then
                 jq -r '"- Open failure issue numbers: " + (.issues | map("#"+(.number|tostring)) | join(", "))' ci_failures_snapshot.json >> ci-matrix-summary.md || true
               fi
             fi
@@ -155,7 +180,7 @@ jobs:
           echo "## Artifact Presence" >> ci-matrix-summary.md
           echo '${{ steps.gather.outputs.artifact_meta }}' >> ci-matrix-summary.md
       - name: Publish summary to job summary
-        run: cat ci-matrix-summary.md >> $GITHUB_STEP_SUMMARY || true
+        run: cat ci-matrix-summary.md >> "$GITHUB_STEP_SUMMARY" || true
       - name: Upload matrix summary artifact
         uses: actions/upload-artifact@v4
         with:

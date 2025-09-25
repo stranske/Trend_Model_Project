@@ -144,4 +144,43 @@ For the broader CI topology (gate aggregation job, temporary wrapper, Codex kick
 * Slack/Teams summarizer job (out-of-repo dispatch) using artifacts.
 
 ---
+
+### Local Style Gate Mirror
+
+To ensure your branch will pass the CI Style Gate (Black + Ruff with pinned versions), run:
+
+```bash
+./scripts/style_gate_local.sh
+```
+
+This script loads version pins from `.github/workflows/autofix-versions.env`, installs them in the active (or ad-hoc) environment, and performs:
+
+- `black --check .`
+- `ruff check .`
+
+If either fails, apply fixes:
+```bash
+black .
+ruff check --fix .
+```
+
+### Optional Pre-Push Hook
+
+Install a git pre-push hook that blocks pushes when the Style Gate fails:
+
+```bash
+mkdir -p .git/hooks
+cat > .git/hooks/pre-push <<'EOF'
+#!/usr/bin/env bash
+# Abort push if Style Gate fails
+scripts/style_gate_local.sh || {
+  echo "[pre-push] Style Gate failed; push aborted." >&2
+  exit 1
+}
+EOF
+chmod +x .git/hooks/pre-push
+```
+
+Add this to your personal workflow; we do not version-control the hook file itself to avoid surprising contributors. For team-wide enforcement, a wrapper installer can be added to `scripts/git_hooks.sh` (future enhancement).
+
 Last updated: YYYY-MM-DD (update when modifying workflow inputs or scripts).

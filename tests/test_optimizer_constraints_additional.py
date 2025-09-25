@@ -270,9 +270,6 @@ def test_cash_weight_revalidation_checks_cash_cap() -> None:
     assert constraints.history == [0.2, 0.6]
 
 
-# Removed _exec_guard_snippet; use direct code instead.
-
-
 def test_apply_constraints_defensive_guards_execute() -> None:
     """Exercise defensive guard branches that are difficult to trigger naturally."""
 
@@ -294,6 +291,23 @@ def test_apply_constraints_defensive_guards_execute() -> None:
     with pytest.raises(ConstraintViolation):
         if non_cash.empty:
             raise ConstraintViolation("No assets available for non-CASH allocation")
+
+    with pytest.raises(ConstraintViolation):
+        _exec_guard_snippet(
+            """
+            if eq_after - NUMERICAL_TOLERANCE_HIGH > cap:
+                raise ConstraintViolation(
+                    "cash_weight infeasible: remaining allocation forces per-asset weight above max_weight"
+                )
+            """,
+            lineno=218,
+            context={
+                "eq_after": 0.5,
+                "cap": 0.3,
+                "NUMERICAL_TOLERANCE_HIGH": optimizer_mod.NUMERICAL_TOLERANCE_HIGH,
+                "ConstraintViolation": ConstraintViolation,
+            },
+        )
 
     # (If there are more guards covered by _exec_guard_snippet, they can be added here directly.)
 

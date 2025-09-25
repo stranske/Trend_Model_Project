@@ -18,4 +18,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Success placeholder
-        run: echo "Follow-up success run" >> $GITHUB_STEP_SUMMARY
+        run: echo "Follow-up success run" >> "$GITHUB_STEP_SUMMARY"

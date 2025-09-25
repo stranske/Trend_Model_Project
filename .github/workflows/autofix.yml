@@ -147,30 +147,31 @@ jobs:
                 pull_number: pr.number,
                 per_page: 100,
               });
-              const { Minimatch } = require('minimatch');
-              const safeGlobs = [
-                '*.py',
-                '**/*.py',
-                '**/*.pyi',
-                '**/pyproject.toml',
-                '**/ruff.toml',
-                '**/.ruff.toml',
-                '**/mypy.ini',
-                '**/.pre-commit-config.yaml',
-                '**/pytest.ini',
-                '**/.coveragerc',
-                '**/*.cfg',
-                '**/*.ini',
-                '**/*.toml',
-                'src/**/*.py',
-                'tests/**/*.py',
-                'scripts/**/*.py',
-                'tools/**/*.py',
-              ];
-              const matchers = safeGlobs.map(pattern => new Minimatch(pattern, { dot: true, nocase: true, matchBase: true }));
+              const safeSuffixes = ['.py', '.pyi', '.toml', '.cfg', '.ini'];
+              const safeBasenames = new Set([
+                'pyproject.toml',
+                'ruff.toml',
+                '.ruff.toml',
+                'mypy.ini',
+                '.pre-commit-config.yaml',
+                'pytest.ini',
+                '.coveragerc',
+              ].map(name => name.toLowerCase()));
+              const isSafePath = (filepath) => {
+                const lower = filepath.toLowerCase();
+                if (safeSuffixes.some(suffix => lower.endsWith(suffix))) {
+                  return true;
+                }
+                for (const name of safeBasenames) {
+                  if (lower === name || lower.endsWith(`/${name}`)) {
+                    return true;
+                  }
+                }
+                return false;
+              };
               const totalFiles = files.length;
               const totalChanges = files.reduce((acc, file) => acc + (file.changes || 0), 0);
-              const allSafe = files.every(file => matchers.some(matcher => matcher.match(file.filename)));
+              const allSafe = files.every(file => isSafePath(file.filename));
               const limitFiles = Number(process.env.AUTOFIX_MAX_FILES || 40);
               const limitChanges = Number(process.env.AUTOFIX_MAX_CHANGES || 800);
               const baseEligible = pr.draft ? labels.includes(optLabel) : true;
@@ -561,11 +562,13 @@ jobs:
       - name: Summary
         if: always()
         run: |
-          echo "### Fix failing checks" >> "$GITHUB_STEP_SUMMARY"
-          echo "PR: #${{ needs.context.outputs.pr }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "Failing jobs: ${{ needs.context.outputs.failing_jobs }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "Changes applied: ${{ steps.autofix.outputs.changed }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "Remaining ruff issues: ${{ steps.autofix.outputs.remaining_issues }}" >> "$GITHUB_STEP_SUMMARY"
-          if [ "${{ steps.autofix.outputs.changed }}" = "true" ] && [ "${{ needs.context.outputs.same_repo }}" != "true" ]; then
-            echo "Patch artifact: autofix-patch-pr-${{ needs.context.outputs.pr }}" >> "$GITHUB_STEP_SUMMARY"
-          fi
+          {
+            echo "### Fix failing checks"
+            echo "PR: #${{ needs.context.outputs.pr }}"
+            echo "Failing jobs: ${{ needs.context.outputs.failing_jobs }}"
+            echo "Changes applied: ${{ steps.autofix.outputs.changed }}"
+            echo "Remaining ruff issues: ${{ steps.autofix.outputs.remaining_issues }}"
+            if [ "${{ steps.autofix.outputs.changed }}" = "true" ] && [ "${{ needs.context.outputs.same_repo }}" != "true" ]; then
+              echo "Patch artifact: autofix-patch-pr-${{ needs.context.outputs.pr }}"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

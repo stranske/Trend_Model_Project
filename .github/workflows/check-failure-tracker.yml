@@ -308,7 +308,7 @@ jobs:
               core.info(`Created new failure issue #${created.data.number}`);
             }
       - name: Emit summary
-        run: echo "Failure tracking step completed." >> $GITHUB_STEP_SUMMARY
+        run: echo "Failure tracking step completed." >> "$GITHUB_STEP_SUMMARY"
 
   success:
     name: success summary
@@ -380,4 +380,4 @@ jobs:
             name: ci-failures-snapshot
             path: artifacts/ci_failures_snapshot.json
       - name: Emit success summary
-        run: echo "Run succeeded – failure issues scanned for auto-heal." >> $GITHUB_STEP_SUMMARY
+        run: echo "Run succeeded – failure issues scanned for auto-heal." >> "$GITHUB_STEP_SUMMARY"

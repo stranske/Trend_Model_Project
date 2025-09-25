@@ -64,7 +64,9 @@ def test_compute_contributions_uses_requested_tolerance(monkeypatch):
     contrib = attribution.compute_contributions(signals, rebal, tolerance=0.123)
 
     # allclose should see the row-wise totals and receive the caller supplied tolerance
-    assert np.array_equal(observed["lhs"], contrib.drop(columns="total").sum(axis=1).to_numpy())
+    assert np.array_equal(
+        observed["lhs"], contrib.drop(columns="total").sum(axis=1).to_numpy()
+    )
     assert np.array_equal(observed["rhs"], contrib["total"].to_numpy())
     assert observed["atol"] == pytest.approx(0.123)
 
@@ -122,7 +124,10 @@ def test_type_checking_import_guard_covers_runtime_branch():
     original_flag = attribution.TYPE_CHECKING
     try:
         attribution.TYPE_CHECKING = True
-        guarded = "\n" * 86 + "if TYPE_CHECKING:\n    from matplotlib.axes import Axes as _Axes"
+        guarded = (
+            "\n" * 86
+            + "if TYPE_CHECKING:\n    from matplotlib.axes import Axes as _Axes"
+        )
         exec(compile(guarded, attribution.__file__, "exec"), attribution.__dict__)
     finally:
         attribution.TYPE_CHECKING = original_flag

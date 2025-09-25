@@ -1,6 +1,7 @@
 """Main Streamlit app for trend analysis."""
 
 import sys
+import textwrap
 from pathlib import Path
 
 import streamlit as st
@@ -20,18 +21,20 @@ def main():
     st.title("📈 Trend Analysis Application")
 
     st.markdown(
-        """
-    Welcome to the enhanced Trend Analysis application with unified execution and progress tracking.
-    
-    ### Getting Started:
-    1. **📤 Upload**: Load your returns data (CSV/Excel)
-    2. **⚙️ Configure**: Set analysis parameters and date ranges  
-    3. **🚀 Run**: Execute analysis with progress tracking
-    4. **📊 Results**: View detailed analysis results
-    5. **💾 Export**: Save your findings
-    
-    Use the sidebar navigation to move between sections.
-    """
+        textwrap.dedent(
+            """
+            Welcome to the enhanced Trend Analysis application with unified execution and progress tracking.
+
+            ### Getting Started:
+            1. **📤 Upload**: Load your returns data (CSV/Excel)
+            2. **⚙️ Configure**: Set analysis parameters and date ranges
+            3. **🚀 Run**: Execute analysis with progress tracking
+            4. **📊 Results**: View detailed analysis results
+            5. **💾 Export**: Save your findings
+
+            Use the sidebar navigation to move between sections.
+            """
+        )
     )
 
     # Status indicators
@@ -89,20 +92,22 @@ def main():
 
     with st.expander("ℹ️ Application Features", expanded=False):
         st.markdown(
-            """
-        **Enhanced Run Page Features:**
-        - 📊 **Progress Tracking**: Real-time progress bar with 5-phase analysis
-        - 📋 **Live Logging**: View analysis logs as they happen
-        - ❌ **Smart Error Handling**: Human-readable error messages with technical details on demand
-        - ✅ **Validation**: Comprehensive input validation before execution
-        - 🔧 **Session Management**: Persistent configuration and results
-        
-        **Key Improvements:**
-        - No more raw Python tracebacks for users
-        - Clear progress indication throughout analysis
-        - Expandable technical details for debugging
-        - Robust error recovery and user guidance
-        """
+            textwrap.dedent(
+                """
+                **Enhanced Run Page Features:**
+                - 📊 **Progress Tracking**: Real-time progress bar with 5-phase analysis
+                - 📋 **Live Logging**: View analysis logs as they happen
+                - ❌ **Smart Error Handling**: Human-readable error messages with technical details on demand
+                - ✅ **Validation**: Comprehensive input validation before execution
+                - 🔧 **Session Management**: Persistent configuration and results
+
+                **Key Improvements:**
+                - No more raw Python tracebacks for users
+                - Clear progress indication throughout analysis
+                - Expandable technical details for debugging
+                - Robust error recovery and user guidance
+                """
+            )
         )
 
 

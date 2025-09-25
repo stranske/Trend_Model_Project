@@ -20,13 +20,13 @@ jobs:
     with:
       python-versions: ${{ vars.CI_PY_VERSIONS || '["3.11"]' }}
       coverage-min: ${{ vars.COV_MIN || '70' }}
-      run-mypy: 'true'
-      enable-metrics: 'false'
-      enable-history: 'false'
-      enable-classification: 'false'
-      enable-coverage-delta: 'false'
-      enable-soft-gate: 'true'
-      coverage-hard-fail: 'false'
+      run-mypy: true
+      enable-metrics: false
+      enable-history: false
+      enable-classification: false
+      enable-coverage-delta: false
+      enable-soft-gate: true
+      coverage-hard-fail: false
   gate:
     name: gate / all-required-green
     runs-on: ubuntu-latest

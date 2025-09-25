@@ -61,13 +61,24 @@ def create_app() -> Any:
         redoc_url=None,
     )
 
-    @app_obj.get("/health", response_class=PlainTextResponse)
-    async def health_check() -> str:  # noqa: D401
+    async def _health_check() -> str:
         return "OK"
 
-    @app_obj.get("/", response_class=PlainTextResponse)
-    async def root_health_check() -> str:  # noqa: D401
+    async def _root_health_check() -> str:
         return "OK"
+
+    app_obj.add_api_route(
+        "/health",
+        _health_check,
+        methods=["GET"],
+        response_class=PlainTextResponse,
+    )
+    app_obj.add_api_route(
+        "/",
+        _root_health_check,
+        methods=["GET"],
+        response_class=PlainTextResponse,
+    )
 
     return app_obj
 

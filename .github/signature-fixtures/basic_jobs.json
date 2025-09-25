@@ -1,0 +1,7 @@
+[
+  {
+    "name": "verify-signature",
+    "step": "Run signature verification",
+    "stack": "SampleStack:placeholder"
+  }
+]

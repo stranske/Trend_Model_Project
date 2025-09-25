@@ -77,17 +77,20 @@ jobs:
             --cov=src --cov-report=term-missing:skip-covered \
             --cov-report=xml --cov-report=json --cov-report=html \
             --cov-branch \
-            --junitxml=pytest-report.xml || TEST_EXIT=$? ; TEST_EXIT=${TEST_EXIT:-0}; echo "Tests exit code: $TEST_EXIT"; exit $TEST_EXIT
+            --junitxml=pytest-report.xml || TEST_EXIT=$?
+          TEST_EXIT=${TEST_EXIT:-0}
+          echo "Tests exit code: $TEST_EXIT"
           # Rename artifacts uniquely per matrix job for downstream aggregation
           mv coverage.xml coverage-${{ matrix.py }}.xml || true
           mv coverage.json coverage-${{ matrix.py }}.json || true
           mv pytest-report.xml pytest-report-${{ matrix.py }}.xml || true
           if [ -d htmlcov ]; then mv htmlcov htmlcov-${{ matrix.py }}; fi
+          exit "$TEST_EXIT"
       - name: Extract coverage
         id: cov_out
         run: |
           pct=$(grep -Eo 'TOTAL.+ [0-9]+%' <(coverage report 2>/dev/null || true) | awk '{print $NF}' | tr -d '%') || true
-          echo "cov=${pct}" >> $GITHUB_OUTPUT
+          echo "cov=${pct}" >> "$GITHUB_OUTPUT"
       - name: Upload coverage artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -102,9 +105,11 @@ jobs:
       - name: Summary
         if: always()
         run: |
-          echo "### CI Python Summary" >> $GITHUB_STEP_SUMMARY
-          echo "Python: ${{ matrix.py }}" >> $GITHUB_STEP_SUMMARY
-          echo "Coverage: ${{ steps.cov_out.outputs.cov }}" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "### CI Python Summary"
+            echo "Python: ${{ matrix.py }}"
+            echo "Coverage: ${{ steps.cov_out.outputs.cov }}"
+          } >> "$GITHUB_STEP_SUMMARY"
   aggregate-and-label:
     name: aggregate & label
     runs-on: ubuntu-latest
@@ -161,7 +166,7 @@ jobs:
         id: cov
         shell: python
         run: |
-          import json, glob, os, xml.etree.ElementTree as ET
+          import glob, json, xml.etree.ElementTree as ET
           job_cov = []  # (job, pct)
           file_best = {}  # file -> min pct across jobs
           for jf in glob.glob('coverage-*.json'):
@@ -351,7 +356,7 @@ jobs:
               echo "_No workflow jobs found to report._"
               echo ""
             fi
-          } >> $GITHUB_STEP_SUMMARY
+          } >> "$GITHUB_STEP_SUMMARY"
   remove-green-on-fail:
     name: strip ci:green on failure
     runs-on: ubuntu-latest

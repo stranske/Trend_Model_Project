@@ -19,7 +19,7 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: autofix-${{ github.event.pull_request.number || github.run_id }}
+  group: autofix-${{ github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -34,11 +34,19 @@ jobs:
     steps:
       - name: Set commit prefix env
         id: prefix
-        run: echo "AUTOFIX_COMMIT_PREFIX=${{ inputs.commit_prefix }}" >> $GITHUB_ENV
+        run: echo "AUTOFIX_COMMIT_PREFIX=${{ inputs.commit_prefix }}" >> "$GITHUB_ENV"
+      - name: Set sanitized PR head ref
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          RAW_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          # Copy untrusted head ref from expression context into environment variable safely
+          echo "PR_HEAD_REF=${RAW_HEAD_REF}" >> "$GITHUB_ENV"
       - name: Checkout PR HEAD
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
+          ref: ${{ env.PR_HEAD_REF || github.ref }}
           fetch-depth: 0
           persist-credentials: true
       - name: Guard against loops (Issue #1347)
@@ -104,7 +112,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          branch="${{ github.event.pull_request.head.ref }}"
+          branch="${PR_HEAD_REF}"
           for attempt in 1 2 3; do
             echo "[autofix] Push attempt $attempt"
             if git push origin HEAD:"$branch"; then
@@ -174,7 +182,7 @@ jobs:
           artifact_name="autofix-history-pr-${TARGET_PR}"
           echo "[history] Attempting to restore ${artifact_name} from previous runs"
           set +e
-          response=$(gh api repos/${TARGET_REPO}/actions/artifacts --paginate)
+          response=$(gh api "repos/${TARGET_REPO}/actions/artifacts" --paginate)
           status=$?
           set -e
           if [ $status -ne 0 ] || [ -z "$response" ]; then
@@ -190,11 +198,13 @@ jobs:
           artifact_id=${latest%%$'\t'*}
           tmpdir=$(mktemp -d)
           echo "[history] Downloading artifact id ${artifact_id}"
-          if ! gh api repos/${TARGET_REPO}/actions/artifacts/${artifact_id}/zip > "$tmpdir/artifact.zip"; then
+          if ! gh api "repos/${TARGET_REPO}/actions/artifacts/${artifact_id}/zip" >"$tmpdir/artifact.zip"; then
             echo "[history] Failed to download artifact ${artifact_id}"
             exit 0
           fi
-          if unzip -p "$tmpdir/artifact.zip" ci/autofix/history.json > ci/autofix/history.json 2>/dev/null; then
+          target_tmp="$tmpdir/history.json"
+          if unzip -p "$tmpdir/artifact.zip" ci/autofix/history.json > "$target_tmp" 2>/dev/null; then
+            mv "$target_tmp" ci/autofix/history.json
             echo "[history] Restored previous history.json"
           else
             echo "[history] Artifact ${artifact_id} did not contain ci/autofix/history.json"
@@ -343,12 +353,14 @@ jobs:
       - name: Summary
         if: always()
         run: |
-          echo "### Reusable Autofix Summary" >> $GITHUB_STEP_SUMMARY
-          echo "Loop guard skip: ${{ steps.guard.outputs.skip || 'false' }}" >> $GITHUB_STEP_SUMMARY
-          echo "Applied changes: ${{ steps.autofix.outputs.changed }}" >> $GITHUB_STEP_SUMMARY
-          echo "Same repo: ${{ steps.same_repo.outputs.same }}" >> $GITHUB_STEP_SUMMARY
-          echo "Remaining ruff issues: ${{ steps.autofix.outputs.remaining_issues }}" >> $GITHUB_STEP_SUMMARY
-          echo "New (non-allowlisted) ruff issues: ${{ steps.autofix.outputs.new_issues }}" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ steps.autofix.outputs.changed }}" = "true" ] && [ "${{ steps.same_repo.outputs.same }}" != "true" ]; then
-            echo "Patch artifact: autofix-patch-pr-${{ github.event.pull_request.number }}" >> $GITHUB_STEP_SUMMARY
-          fi
+          {
+            echo "### Reusable Autofix Summary"
+            echo "Loop guard skip: ${{ steps.guard.outputs.skip || 'false' }}"
+            echo "Applied changes: ${{ steps.autofix.outputs.changed }}"
+            echo "Same repo: ${{ steps.same_repo.outputs.same }}"
+            echo "Remaining ruff issues: ${{ steps.autofix.outputs.remaining_issues }}"
+            echo "New (non-allowlisted) ruff issues: ${{ steps.autofix.outputs.new_issues }}"
+            if [ "${{ steps.autofix.outputs.changed }}" = "true" ] && [ "${{ steps.same_repo.outputs.same }}" != "true" ]; then
+              echo "Patch artifact: autofix-patch-pr-${{ github.event.pull_request.number }}"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -21,8 +21,9 @@ jobs:
       - name: Download actionlint
         run: |
           curl -sSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash | bash
-          echo "$(pwd)" >> $GITHUB_PATH
+          printf '%s\n' "$(pwd)" >> "$GITHUB_PATH"
       - name: Run actionlint
         run: |
-          echo "Running actionlint version: $(./actionlint -version)" 
+          version="$(./actionlint -version)"
+          printf 'Running actionlint version: %s\n' "$version"
           ./actionlint -color

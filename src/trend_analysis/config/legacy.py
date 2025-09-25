@@ -13,9 +13,11 @@ if TYPE_CHECKING:  # pragma: no cover - mypy only
     class BaseModel:
         """Minimal subset of :class:`pydantic.BaseModel` for type checking."""
 
-        def __init__(self, **data: Any) -> None: ...
+        def __init__(self, **data: Any) -> None:  # noqa: D401
+            ...
 
-        def model_dump_json(self) -> str: ...
+        def model_dump_json(self) -> str:  # noqa: D401
+            ...
 
 else:  # pragma: no cover - fallback when pydantic isn't installed during CI
     try:  # pragma: no cover - runtime import

@@ -15,8 +15,9 @@ def _reload_cache_module() -> None:
     importlib.reload(rolling_cache)
 
 
-def test_default_cache_dir_rejects_paths_outside_home(monkeypatch, tmp_path: Path) -> None:
-    original_home = Path.home
+def test_default_cache_dir_rejects_paths_outside_home(
+    monkeypatch, tmp_path: Path
+) -> None:
     monkeypatch.setenv("TREND_ROLLING_CACHE", "/var/tmp/trend-cache")
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
 
@@ -34,7 +35,7 @@ def test_default_cache_dir_accepts_env_within_home(monkeypatch, tmp_path: Path) 
 
     assert rolling_cache._DEFAULT_CACHE_DIR == cache_path.resolve()
 
-  
+
 def test_normalise_component_replaces_invalid_characters() -> None:
     assert rolling_cache._normalise_component("risk@metric#1") == "risk_metric_1"
 

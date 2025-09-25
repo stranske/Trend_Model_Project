@@ -19,7 +19,7 @@ from pandas import DataFrame, Series
 ###############################################################################
 # Registry helper                                                             #
 ###############################################################################
-_METRIC_REGISTRY: dict[str, Callable[..., float | pd.Series | np.floating]] = {}
+_METRIC_REGISTRY: dict[str, Callable[..., float | pd.Series]] = {}
 # Public alias for external access
 METRIC_REGISTRY = _METRIC_REGISTRY
 
@@ -27,14 +27,14 @@ METRIC_REGISTRY = _METRIC_REGISTRY
 def register_metric(
     name: str,
 ) -> Callable[
-    [Callable[..., float | pd.Series | np.floating]],
-    Callable[..., float | pd.Series | np.floating],
+    [Callable[..., float | pd.Series]],
+    Callable[..., float | pd.Series],
 ]:
     """Decorator that adds the function to the public registry."""
 
     def _deco(
-        fn: Callable[..., float | pd.Series | np.floating],
-    ) -> Callable[..., float | pd.Series | np.floating]:
+        fn: Callable[..., float | pd.Series],
+    ) -> Callable[..., float | pd.Series]:
         _METRIC_REGISTRY[name] = fn
         return fn
 
@@ -56,7 +56,7 @@ def _empty_like(obj: Series | DataFrame, name: str) -> float | pd.Series:
 
 
 def _is_zero_everywhere(
-    value: Series | DataFrame | float | int | np.ndarray,
+    value: Series | DataFrame | float | int | object,
     tol: float = 1e-15,
 ) -> bool:
     """Check if a value is zero everywhere.
@@ -95,7 +95,11 @@ def _is_zero_everywhere(
     # ``abs(value) <= tol`` may return a ``numpy.bool_`` when ``value`` is a NumPy
     # scalar.  Cast to ``bool`` so callers can rely on a plain Python ``bool`` and
     # identity checks like ``is True`` behave as expected.
-    return bool(abs(value) <= tol)
+    try:
+        return bool(abs(cast(float, value)) <= tol)
+    except Exception:
+        # Fallback: non-numeric scalar treated as non-zero
+        return False
 
 
 # ------------------------------------------------------------------------
@@ -127,7 +131,7 @@ def _compute_ratio_with_zero_handling(
     numerator: float | Series,
     denominator: float | Series,
     fn_name: str,
-) -> float | pd.Series | np.floating:
+) -> float | pd.Series:
     """Compute ratio with appropriate zero-division handling for Series vs
     DataFrame."""
     if isinstance(returns, Series):
@@ -152,7 +156,7 @@ def _compute_ratio_with_zero_handling(
 def annual_return(
     returns: Series | DataFrame,
     periods_per_year: int = 12,
-) -> float | pd.Series | np.floating | pd.Series:
+) -> float | pd.Series | pd.Series:
     """Annualise a vector of periodic *returns*.
 
     ▸ Series    → float ▸ DataFrame → Series (per-column)
@@ -193,7 +197,7 @@ def annual_return(
 def volatility(
     returns: Series | DataFrame,
     periods_per_year: int = 12,
-) -> float | pd.Series | np.floating:
+) -> float | pd.Series:
     _validate_input(returns, "volatility")
     if len(returns) < 2:
         return _empty_like(returns, "volatility")
@@ -209,7 +213,7 @@ def sharpe_ratio(
     returns: Series | DataFrame,
     risk_free: Series | DataFrame | float = 0.0,
     periods_per_year: int = 12,
-) -> float | pd.Series | np.floating:
+) -> float | pd.Series:
     _validate_input(returns, "sharpe_ratio")
     if isinstance(risk_free, (Series, DataFrame)) and isinstance(returns, DataFrame):
         raise ValueError("sharpe_ratio: DataFrame vs Series/DataFrame not supported")
@@ -238,7 +242,7 @@ def sortino_ratio(
     returns: Series | DataFrame,
     target: Series | DataFrame | float = 0.0,
     periods_per_year: int = 12,
-) -> float | pd.Series | np.floating:
+) -> float | pd.Series:
     _validate_input(returns, "sortino_ratio")
     if isinstance(returns, DataFrame) and isinstance(target, Series):
         raise ValueError("sortino_ratio: DataFrame vs Series not supported")
@@ -300,7 +304,7 @@ def sortino_ratio(
 # Maximum drawdown (positive magnitude)                                       #
 ###############################################################################
 @register_metric("max_drawdown")
-def max_drawdown(returns: pd.Series | pd.DataFrame) -> float | pd.Series | np.floating:
+def max_drawdown(returns: pd.Series | pd.DataFrame) -> float | pd.Series:
     """
     Maximum drawdown expressed as a *positive* fraction (0 → worst is 0%,
     0.35 → ‑35 % loss).  Legacy tests expect ≥ 0.
@@ -331,7 +335,7 @@ def information_ratio(
     returns: Series | DataFrame,
     benchmark: Series | DataFrame | float | None = None,
     periods_per_year: int = 12,
-) -> float | pd.Series | np.floating:
+) -> float | pd.Series:
     _validate_input(returns, "information_ratio")
 
     if returns.empty or len(returns) < 2:
@@ -342,7 +346,7 @@ def information_ratio(
 
     # --- scalar → broadcast -------------------------------------------------
     if np.isscalar(benchmark):
-        bval = float(cast(float | int | np.floating, benchmark))
+        bval = float(cast(float | int, benchmark))
         benchmark = (
             pd.Series(bval, index=returns.index, name="benchmark")
             if isinstance(returns, Series)

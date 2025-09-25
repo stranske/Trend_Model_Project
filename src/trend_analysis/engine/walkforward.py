@@ -97,7 +97,7 @@ def _flatten_agg_result(
 
 
 def _information_ratio_frame(
-    ir: float | np.floating | pd.Series,
+    ir: float | pd.Series,
     columns: pd.Index,
 ) -> pd.DataFrame:
     if isinstance(ir, pd.Series):

@@ -34,6 +34,15 @@ repos:
       - id: ruff
         args: ["--fix"]
 
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.8.0
+    hooks:
+      - id: mypy
+        name: mypy (core + app)
+        additional_dependencies: ["pydantic>=2", "streamlit"]
+        files: ^src/(trend_analysis|trend_portfolio_app)/
+        args: ["--config-file", "pyproject.toml", "--no-error-summary"]
+
   - repo: local
     hooks:
       - id: strip-notebook-outputs
@@ -42,3 +51,5 @@ repos:
         language: system
         files: '\\.ipynb$'
         pass_filenames: true
+# (Optional) You may add a local 'actionlint' hook pointing to scripts/workflow_lint.sh
+# to lint workflow changes pre-commit. Omitted by default to keep fast path lean.

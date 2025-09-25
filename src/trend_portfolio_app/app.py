@@ -14,6 +14,15 @@ from trend_analysis.config import DEFAULTS as DEFAULT_CFG_PATH
 from trend_analysis.config import Config, validate_trend_config
 from trend_analysis.multi_period import run as run_multi
 
+# Instrumentation globals (mutated during _render_app) used by tests.
+page_config_calls: list[bool] = []
+titles: list[str] = []
+# Re-export for tests that access globals directly after import
+__all__ = [
+    "page_config_calls",
+    "titles",
+]
+
 if TYPE_CHECKING:  # pragma: no cover - type-only alias for static checkers
     from trend_analysis.config.models import ConfigProtocol as ConfigType
 else:  # pragma: no cover - runtime fallback when pydantic models are optional
@@ -331,8 +340,11 @@ def _render_run_section(cfg_dict: Dict[str, Any]) -> None:
 
 
 def _render_app() -> None:
+    # Instrumentation lists used by tests (harmless in production)
     st.set_page_config(page_title="Trend Portfolio App", layout="wide")
+    page_config_calls.append(True)
     st.title("Trend Portfolio App")
+    titles.append("Trend Portfolio App")
 
     cfg_dict = st.session_state.setdefault("config_dict", _read_defaults())
 

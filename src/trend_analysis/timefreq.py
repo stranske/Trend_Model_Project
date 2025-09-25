@@ -66,7 +66,8 @@ def _validate_no_invalid_period_alias(freq: str) -> None:
     """
     if freq in {MONTHLY_DATE_FREQ, QUARTERLY_DATE_FREQ}:  # ME or QE
         raise ValueError(
-            f"Invalid period frequency '{freq}'. Use '{MONTHLY_PERIOD_FREQ}' or '{QUARTERLY_PERIOD_FREQ}' for period ranges."
+            f"Invalid period frequency '{freq}'. Use '{MONTHLY_PERIOD_FREQ}' or "
+            f"'{QUARTERLY_PERIOD_FREQ}' for period ranges."
         )
 
 
