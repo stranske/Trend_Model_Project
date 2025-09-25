@@ -7,6 +7,7 @@ Run this to see the improvements in temporary file handling.
 """
 
 import os
+from typing import Any, Dict, List
 from unittest import mock
 
 # Import the bundle utilities used in this demo
@@ -17,20 +18,20 @@ from trend_analysis.io.utils import (
 )
 
 
-def create_mock_results():
+def create_mock_results() -> mock.MagicMock:
     """Create a mock results object for testing."""
     mock_results = mock.MagicMock()
 
-    def mock_to_csv(path, header=None):
+    def mock_to_csv(path: str, header: Any | None = None) -> None:
         with open(path, "w") as f:
             f.write("return\n0.05\n0.03\n-0.01\n0.02\n")
 
     mock_results.portfolio.to_csv = mock_to_csv
 
-    def mock_event_log():
+    def mock_event_log() -> mock.MagicMock:
         log_mock = mock.MagicMock()
 
-        def mock_log_to_csv(path):
+        def mock_log_to_csv(path: str) -> None:
             with open(path, "w") as f:
                 f.write("event,timestamp\n")
                 f.write("rebalance,2023-01-01\n")
@@ -51,7 +52,7 @@ def create_mock_results():
     return mock_results
 
 
-def show_before_after_comparison():
+def show_before_after_comparison() -> List[str]:
     """Demonstrate the before vs after behavior."""
     print("=" * 60)
     print("EXPORT BUNDLE CLEANUP FIX - DEMONSTRATION")
@@ -78,7 +79,7 @@ def show_before_after_comparison():
 
     # Create test data
     mock_results = create_mock_results()
-    configs = [
+    configs: List[Dict[str, Any]] = [
         {"lookback_period": 252, "rebalance_freq": "monthly"},
         {"lookback_period": 126, "rebalance_freq": "weekly"},
         {"lookback_period": 60, "rebalance_freq": "daily"},
@@ -88,7 +89,7 @@ def show_before_after_comparison():
     print("🔧 CREATING EXPORT BUNDLES...")
     print()
 
-    bundle_paths = []
+    bundle_paths: List[str] = []
     for i, config in enumerate(configs):
         config["run_id"] = i + 1
         bundle_path = export_bundle(mock_results, config)

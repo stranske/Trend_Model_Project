@@ -9,11 +9,12 @@ stitched out-of-sample portfolio return series.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List, Sequence, cast
 
 import pandas as pd
 
-from trend_analysis.config import Config, load
+from trend_analysis.config import load
+from trend_analysis.config.models import ConfigProtocol
 from trend_analysis.data import load_csv
 from trend_analysis.multi_period import run as run_mp
 from trend_analysis.multi_period import run_schedule
@@ -26,10 +27,11 @@ def _ensure_dir(path: str | Path) -> None:
 
 
 def main(cfg_path: str = "config/long_backtest.yml") -> int:
-    cfg: Config = load(cfg_path)
-    csv_path = cfg.data.get("csv_path")
-    if not csv_path:
+    cfg: ConfigProtocol = load(cfg_path)
+    csv_path_obj = cfg.data.get("csv_path")
+    if not isinstance(csv_path_obj, str):
         raise KeyError("cfg.data['csv_path'] must be provided")
+    csv_path = csv_path_obj
 
     # Load data once for RF stitching later
     df_all = load_csv(csv_path)
@@ -40,7 +42,8 @@ def main(cfg_path: str = "config/long_backtest.yml") -> int:
     df_all.set_index("Date", inplace=True)
 
     # Run multi-period to get score_frames and out-of-sample returns per period
-    results: List[Dict[str, object]] = run_mp(cfg)
+    results_raw = run_mp(cfg)
+    results: List[Dict[str, Any]] = [cast(Dict[str, Any], res) for res in results_raw]
     if not results:
         print("No periods generated")
         return 0
@@ -48,20 +51,23 @@ def main(cfg_path: str = "config/long_backtest.yml") -> int:
     # Build score_frame map keyed by OOS start (hire/fire at rebalance date)
     score_frames: Dict[str, pd.DataFrame] = {}
     for res in results:
-        period = res["period"]  # (in_start, in_end, out_start, out_end)
-        out_start = str(period[2])  # type: ignore[index]
-        sf = res["score_frame"]  # type: ignore[index]
-        assert isinstance(sf, pd.DataFrame)
-        score_frames[out_start] = sf.astype(float)
+        period = cast(Sequence[str], res.get("period"))
+        if len(period) < 3:
+            raise ValueError("Result period tuple is incomplete")
+        out_start = str(period[2])
+        sf_obj = res.get("score_frame")
+        if not isinstance(sf_obj, pd.DataFrame):
+            raise ValueError("score_frame must be a DataFrame")
+        score_frames[out_start] = sf_obj.astype(float)
 
     # Selector and performance-based weighting
-    rank_cfg = cfg.portfolio.get("rank", {})
+    rank_cfg = cast(Dict[str, Any], cfg.portfolio.get("rank", {}))
     top_n = int(rank_cfg.get("n", 8))
     rank_col = str(rank_cfg.get("score_by", "Sharpe"))
     selector = RankSelector(top_n=top_n, rank_column=rank_col)
-    shrink_tau = float(
-        cfg.portfolio.get("weighting", {}).get("params", {}).get("shrink_tau", 0.25)
-    )
+    weighting_cfg = cast(Dict[str, Any], cfg.portfolio.get("weighting", {}))
+    params_cfg = cast(Dict[str, Any], weighting_cfg.get("params", {}))
+    shrink_tau = float(params_cfg.get("shrink_tau", 0.25))
     weighting = ScorePropBayesian(column=rank_col, shrink_tau=shrink_tau)
 
     # Generate the hire/fire schedule and weights
@@ -81,11 +87,17 @@ def main(cfg_path: str = "config/long_backtest.yml") -> int:
     # Compute stitched OOS portfolio returns using per-period out_sample_scaled
     port_series: list[pd.Series] = []
     for res in results:
-        in_s, in_e, out_s, out_e = res["period"]  # type: ignore[index]
-        out_df = res["out_sample_scaled"]  # type: ignore[index]
-        assert isinstance(out_df, pd.DataFrame)
+        in_s, in_e, out_s, out_e = cast(Sequence[str], res.get("period"))
+        out_df_obj = res.get("out_sample_scaled")
+        if not isinstance(out_df_obj, pd.DataFrame):
+            raise ValueError("out_sample_scaled must be a DataFrame")
+        out_df = out_df_obj
         # Weight vector at the rebalance date (OOS start)
-        w = pf.history[str(pd.to_datetime(out_s).date())]
+        rebalance_key = str(pd.to_datetime(out_s).date())
+        weight_series = pf.history.get(rebalance_key)
+        if weight_series is None:
+            continue
+        w = weight_series
         # Align and compute weighted return
         cols = [c for c in out_df.columns if c in w.index]
         if not cols:
@@ -103,11 +115,11 @@ def main(cfg_path: str = "config/long_backtest.yml") -> int:
         # Basic stats
         from trend_analysis.metrics import annual_return, sharpe_ratio, volatility
 
-        rf = df_all.get("Risk-Free Rate")
-        rf = rf.loc[portfolio.index] if rf is not None else 0.0
+        rf_series = df_all.get("Risk-Free Rate")
+        rf_aligned = rf_series.loc[portfolio.index] if rf_series is not None else 0.0
         cagr = annual_return(portfolio)
         vol = volatility(portfolio)
-        sr = sharpe_ratio(portfolio, rf)
+        sr = sharpe_ratio(portfolio, rf_aligned)
         msg = (
             f"OOS CAGR: {cagr*100:.2f}%  " f"Vol: {vol*100:.2f}%  " f"Sharpe: {sr:.2f}"
         )

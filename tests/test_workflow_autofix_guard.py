@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pathlib
+import re
 from typing import Any, Dict, List
 
 import yaml
@@ -62,3 +63,25 @@ def test_reusable_autofix_guard_applies_to_all_steps() -> None:
     steps = data["jobs"]["autofix"]["steps"]
     missing = _guarded_follow_up_steps(steps)
     assert not missing, f"Reusable autofix steps missing guard condition: {missing}"
+
+
+def _extract_trivial_keywords(script: str) -> set[str]:
+    match = re.search(r"TRIVIAL_KEYWORDS\s*\|\|\s*'([^']+)'", script)
+    if not match:
+        raise AssertionError(
+            "Default TRIVIAL_KEYWORDS clause missing from autofix workflow"
+        )
+    return {token.strip() for token in match.group(1).split(",") if token.strip()}
+
+
+def test_autofix_trivial_keywords_cover_lint_type_and_tests() -> None:
+    data = _load_yaml("autofix.yml")
+    failure_step = next(
+        step for step in data["jobs"]["context"]["steps"] if step.get("id") == "failure"
+    )
+    script = failure_step["with"]["script"]
+    keywords = _extract_trivial_keywords(script)
+    expected = {"lint", "mypy", "test"}
+    missing = expected.difference(keywords)
+    assert not missing, f"Autofix trivial keywords missing expected tokens: {missing}"
+    assert "label" in keywords, "Label failures should remain autofix-eligible"

@@ -19,16 +19,20 @@ import json
 import pathlib
 import sys
 from datetime import datetime, timezone
-from typing import Iterable, Mapping, Sequence
+from typing import Any, Mapping, Sequence, cast
 
 MARKER = "<!-- autofix-status: DO NOT EDIT -->"
+
+
+JsonMapping = Mapping[str, Any]
+JsonLike = JsonMapping | Sequence[Any]
 
 
 def load_json(path: pathlib.Path) -> object | None:
     """Read JSON from *path* if it exists, returning ``None`` on failure."""
 
     try:
-        return json.loads(path.read_text())
+        return cast(object, json.loads(path.read_text()))
     except Exception:
         return None
 
@@ -42,10 +46,16 @@ def coerce_bool(value: object) -> bool:
 
 
 def coerce_int(value: object, default: int = 0) -> int:
-    try:
-        return int(value)  # type: ignore[arg-type]
-    except (TypeError, ValueError):
-        return default
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, (int, float)):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(value.strip())
+        except ValueError:
+            return default
+    return default
 
 
 def format_timestamp(raw: str | None) -> str:
@@ -67,22 +77,31 @@ def format_spark(series: object | None) -> str:
     return "∅"
 
 
-def _top_code_lines(codes: Mapping[str, Mapping[str, object]] | None) -> Sequence[str]:
-    if not isinstance(codes, Mapping) or not codes:
+def _ensure_mapping(value: object) -> dict[str, Any]:
+    if isinstance(value, Mapping):
+        return dict(value)
+    return {}
+
+
+def _top_code_lines(codes: JsonMapping | None) -> Sequence[str]:
+    mapping = _ensure_mapping(codes)
+    if not mapping:
         return ()
     lines: list[str] = ["", "### Top residual codes", ""]
-    for code, payload in sorted(codes.items()):
-        latest = coerce_int(payload.get("latest"))  # type: ignore[union-attr]
-        spark = format_spark(payload.get("spark"))  # type: ignore[union-attr]
+    for code, payload_obj in sorted(mapping.items()):
+        payload = _ensure_mapping(payload_obj)
+        latest = coerce_int(payload.get("latest"))
+        spark = format_spark(payload.get("spark"))
         lines.append(f"- `{code}` latest: **{latest}**  `{spark}`")
     return lines
 
 
-def _snapshot_code_lines(snapshot: Mapping[str, object] | None) -> Sequence[str]:
-    if not isinstance(snapshot, Mapping) or not snapshot:
+def _snapshot_code_lines(snapshot: JsonMapping | None) -> Sequence[str]:
+    mapping = _ensure_mapping(snapshot)
+    if not mapping:
         return ()
     sortable: list[tuple[str, int]] = []
-    for code, count in snapshot.items():
+    for code, count in mapping.items():
         sortable.append((str(code), coerce_int(count)))
     sortable.sort(key=lambda item: (-item[1], item[0]))
     if not sortable:
@@ -102,7 +121,7 @@ def build_comment(
 ) -> str:
     """Construct the autofix status markdown comment."""
 
-    report = (
+    report_obj = (
         (load_json(report_path) if report_path else None)
         or load_json(pathlib.Path("autofix_report_enriched.json"))
         or {}
@@ -110,17 +129,15 @@ def build_comment(
     history_obj = (load_json(history_path) if history_path else None) or load_json(
         pathlib.Path("ci/autofix/history.json")
     )
-    trend = (
+    trend_obj = (
         (load_json(trend_path) if trend_path else None)
         or load_json(pathlib.Path("ci/autofix/trend.json"))
         or {}
     )
 
-    if not isinstance(report, Mapping):
-        report = {}
-    classification = report.get("classification")
-    if not isinstance(classification, Mapping):
-        classification = {}
+    report = _ensure_mapping(report_obj)
+    trend = _ensure_mapping(trend_obj)
+    classification = _ensure_mapping(report.get("classification"))
 
     changed = coerce_bool(report.get("changed"))
     changed_text = "True" if changed else "False"
@@ -128,12 +145,13 @@ def build_comment(
     new = coerce_int(classification.get("new"))
     allowed = coerce_int(classification.get("allowed"))
 
-    is_iterable = isinstance(history_obj, Iterable)
-    history_points = (
-        len(history_obj)
-        if is_iterable and not isinstance(history_obj, (str, bytes))
-        else 0
-    )
+    history_points = 0
+    if isinstance(history_obj, Mapping):
+        history_points = len(history_obj)
+    elif isinstance(history_obj, Sequence) and not isinstance(
+        history_obj, (str, bytes)
+    ):
+        history_points = len(history_obj)
 
     remaining_latest = coerce_int(trend.get("remaining_latest"), remaining)
     new_latest = coerce_int(trend.get("new_latest"), new)
@@ -172,12 +190,8 @@ def build_comment(
         f"New: **{new_latest}**  `{new_spark}`",
     ]
 
-    codes_section = _top_code_lines(
-        trend.get("codes") if isinstance(trend, Mapping) else None
-    )
-    snapshot_section = _snapshot_code_lines(
-        classification.get("by_code") if isinstance(classification, Mapping) else None
-    )
+    codes_section = _top_code_lines(trend.get("codes"))
+    snapshot_section = _snapshot_code_lines(classification.get("by_code"))
 
     artifacts: list[str] = []
     if pr_number:

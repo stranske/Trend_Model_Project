@@ -7,6 +7,7 @@ symbol ``_HAS_PYDANTIC`` to reflect availability.
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 from collections.abc import Mapping
@@ -66,6 +67,10 @@ class ConfigProtocol(Protocol):
     jobs: int | None
     checkpoint_dir: str | None
     seed: int
+
+    def model_dump(self, *args: Any, **kwargs: Any) -> dict[str, Any]: ...
+
+    def model_dump_json(self, *args: Any, **kwargs: Any) -> str: ...
 
 
 ConfigType = ConfigProtocol
@@ -482,6 +487,9 @@ else:  # Fallback mode for tests without pydantic
         # Provide a similar API surface to pydantic for callers
         def model_dump(self) -> Dict[str, Any]:
             return {k: getattr(self, k) for k in self.ALL_FIELDS}
+
+        def model_dump_json(self, *, indent: int | None = None) -> str:
+            return json.dumps(self.model_dump(), indent=indent, sort_keys=True)
 
     # Fallback does not modify package attributes at runtime
 

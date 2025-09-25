@@ -13,13 +13,27 @@ from __future__ import annotations
 import collections
 import json
 import pathlib
+from typing import Dict, List
 
 HISTORY = pathlib.Path("ci/autofix/history.json")
 OUT = pathlib.Path("ci/autofix/trend.json")
 SPARK_CHARS = "▁▂▃▄▅▆▇█"
 
 
-def sparkline(series: list[int]) -> str:
+def _coerce_int(value: object) -> int:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, (int, float)):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(value.strip())
+        except ValueError:
+            return 0
+    return 0
+
+
+def sparkline(series: List[int]) -> str:
     if not series:
         return ""
     mn = min(series)
@@ -36,26 +50,32 @@ def sparkline(series: list[int]) -> str:
 
 def main() -> int:
     try:
-        hist = json.loads(HISTORY.read_text())
-        if not isinstance(hist, list):
-            hist = []
+        hist_raw = json.loads(HISTORY.read_text())
     except Exception:
+        hist_raw = []
+    hist: List[dict[str, object]]
+    if isinstance(hist_raw, list):
+        hist = [snap for snap in hist_raw if isinstance(snap, dict)]
+    else:
         hist = []
-    remaining_series = [h.get("remaining", 0) for h in hist][-40:]  # last 40 points
-    new_series = [h.get("new", 0) for h in hist][-40:]
+    remaining_series = [_coerce_int(snap.get("remaining", 0)) for snap in hist][-40:]
+    new_series = [_coerce_int(snap.get("new", 0)) for snap in hist][-40:]
 
     # Build per-code time series (last 40) for top residual codes ranked by latest count
-    code_counts_latest = collections.Counter()
+    code_counts_latest: collections.Counter[str] = collections.Counter()
     for snap in hist[-1:]:  # only latest snapshot for ranking
-        for code, c in (snap.get("by_code") or {}).items():
-            if isinstance(c, int):
-                code_counts_latest[code] += c
+        by_code = snap.get("by_code")
+        if isinstance(by_code, dict):
+            for code, c in by_code.items():
+                if isinstance(code, str):
+                    code_counts_latest[code] += int(c)
     top_codes = [code for code, _ in code_counts_latest.most_common(6)]  # limit to 6
-    code_series = {code: [] for code in top_codes}
+    code_series: Dict[str, List[int]] = {code: [] for code in top_codes}
     for snap in hist[-40:]:
-        by_code = snap.get("by_code") or {}
+        by_code_obj = snap.get("by_code")
+        by_code = by_code_obj if isinstance(by_code_obj, dict) else {}
         for code in top_codes:
-            code_series[code].append(int(by_code.get(code, 0)))
+            code_series[code].append(_coerce_int(by_code.get(code, 0)))
 
     code_sparklines = {
         code: {"latest": series[-1] if series else 0, "spark": sparkline(series)}

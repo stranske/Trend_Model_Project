@@ -28,6 +28,7 @@ import importlib.util
 import os
 import re
 from pathlib import Path
+from typing import Iterator, List
 
 ROOT = Path(__file__).resolve().parent.parent
 SRC_DIRS = [ROOT / "src", ROOT / "tests"]
@@ -148,7 +149,7 @@ def process_file(path: Path) -> tuple[bool, list[str]]:
     return changed, new_lines
 
 
-def iter_python_files():
+def iter_python_files() -> Iterator[Path]:
     for base in SRC_DIRS:
         if not base.exists():
             continue
@@ -159,7 +160,7 @@ def iter_python_files():
 
 
 def main() -> int:
-    modified = []
+    modified: List[Path] = []
     for py_file in iter_python_files():
         changed, new_lines = process_file(py_file)
         if changed:

@@ -256,9 +256,10 @@ def test_validate_trend_config_locates_csv_relative_to_parent(tmp_path: Path) ->
     csv_file = tmp_path / "returns.csv"
     csv_file.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
 
+    relative_path = csv_file.relative_to(base_dir.parent)
     cfg_path = _write_config(
         base_dir,
-        csv_file.relative_to(base_dir),
+        relative_path,
     )
 
     cfg = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))

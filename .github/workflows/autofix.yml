@@ -202,7 +202,7 @@ jobs:
               return;
             }
 
-            const keywords = (process.env.TRIVIAL_KEYWORDS || 'lint,format,style,doc,ruff,mypy,type,black,isort,label').split(',')
+            const keywords = (process.env.TRIVIAL_KEYWORDS || 'lint,format,style,doc,ruff,mypy,type,black,isort,label,test').split(',')
               .map(str => str.trim().toLowerCase())
               .filter(Boolean);
 
