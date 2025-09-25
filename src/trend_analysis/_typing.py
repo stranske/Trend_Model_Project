@@ -12,6 +12,8 @@ expressions.  Keep minimal; extend only when additional dtypes become common.
 _F64 = np.float64
 
 FloatArray = np.ndarray[Any, np.dtype[_F64]]
+VectorF = FloatArray
+MatrixF = FloatArray
 AnyArray = np.ndarray[Any, Any]
 
-__all__ = ["FloatArray", "AnyArray"]
+__all__ = ["FloatArray", "VectorF", "MatrixF", "AnyArray"]
