@@ -356,7 +356,7 @@ jobs:
               echo "_No workflow jobs found to report._"
               echo ""
             fi
-          } >> $GITHUB_STEP_SUMMARY
+          } >> "$GITHUB_STEP_SUMMARY"
   remove-green-on-fail:
     name: strip ci:green on failure
     runs-on: ubuntu-latest

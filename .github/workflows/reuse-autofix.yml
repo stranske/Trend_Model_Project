@@ -182,7 +182,7 @@ jobs:
           artifact_name="autofix-history-pr-${TARGET_PR}"
           echo "[history] Attempting to restore ${artifact_name} from previous runs"
           set +e
-          response=$(gh api repos/${TARGET_REPO}/actions/artifacts --paginate)
+          response=$(gh api "repos/${TARGET_REPO}/actions/artifacts" --paginate)
           status=$?
           set -e
           if [ $status -ne 0 ] || [ -z "$response" ]; then
@@ -198,7 +198,7 @@ jobs:
           artifact_id=${latest%%$'\t'*}
           tmpdir=$(mktemp -d)
           echo "[history] Downloading artifact id ${artifact_id}"
-          if ! gh api repos/${TARGET_REPO}/actions/artifacts/${artifact_id}/zip > "$tmpdir/artifact.zip"; then
+          if ! gh api "repos/${TARGET_REPO}/actions/artifacts/${artifact_id}/zip" >"$tmpdir/artifact.zip"; then
             echo "[history] Failed to download artifact ${artifact_id}"
             exit 0
           fi

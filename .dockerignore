@@ -66,6 +66,9 @@ htmlcov/
 temp/
 tmp/
 Old/
+!Old/.github/
+!Old/.github/workflows/
+!Old/.github/workflows/**
 notebooks/old/
 
 # Docker
@@ -75,6 +78,8 @@ Dockerfile.dev
 
 # CI/CD
 .github/*
+!.github/workflows/
+!.github/workflows/**
 !.github/scripts/
 # Local configuration
 .env.local
