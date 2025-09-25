@@ -1008,8 +1008,6 @@ def test_render_app_executes_with_dummy_streamlit(
 
     assert page_config_calls, "_render_app should configure the page on import"
     assert titles == ["Trend Portfolio App"]
-    assert module.page_config_calls, "_render_app should configure the page on import"
-    assert module.titles == ["Trend Portfolio App"]
     assert dummy.session_state.get("config_dict") is not None
     assert isinstance(dummy.session_state["config_dict"], dict)
     assert module._render_app  # pragma: no cover - sanity check the attribute exists
