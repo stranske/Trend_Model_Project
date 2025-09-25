@@ -79,6 +79,7 @@ jobs:
         if: ${{ github.event.inputs.debug == 'true' }}
         run: |
           echo '--- DEBUG: file inventory ---'
+          # shellcheck disable=SC2012
           ls -al . | sed 's/^/  /'
           if [ -f raw_input.json ]; then
             echo "--- DEBUG: raw_input.json (size) ---"; wc -c raw_input.json
@@ -135,7 +136,11 @@ jobs:
                 python .github/scripts/fallback_split.py || true
                 if [ -f topics.json ]; then
                   tmp=$(mktemp)
-                  jq '. + {fallback_used: true}' decode_debug.json > "$tmp" && mv "$tmp" decode_debug.json || true
+                  if jq '. + {fallback_used: true}' decode_debug.json > "$tmp"; then
+                    mv "$tmp" decode_debug.json
+                  else
+                    rm -f "$tmp"
+                  fi
                   echo 'Fallback succeeded.'
                   ec=0
                 fi
@@ -151,7 +156,11 @@ jobs:
             topics_count=$(jq 'length' topics.json 2>/dev/null || echo 0)
             first_title=$(jq -r '.[0].title // ""' topics.json 2>/dev/null || echo "")
             tmp=$(mktemp)
-            jq --arg tc "$topics_count" --arg ft "$first_title" '. + {parsed_topics: ($tc|tonumber), first_title: $ft}' decode_debug.json > "$tmp" && mv "$tmp" decode_debug.json || true
+            if jq --arg tc "$topics_count" --arg ft "$first_title" '. + {parsed_topics: ($tc|tonumber), first_title: $ft}' decode_debug.json > "$tmp"; then
+              mv "$tmp" decode_debug.json
+            else
+              rm -f "$tmp"
+            fi
           fi
 
       - name: Sync issues

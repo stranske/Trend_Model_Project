@@ -34,7 +34,7 @@ jobs:
     steps:
       - name: Set commit prefix env
         id: prefix
-        run: echo "AUTOFIX_COMMIT_PREFIX=${{ inputs.commit_prefix }}" >> $GITHUB_ENV
+        run: echo "AUTOFIX_COMMIT_PREFIX=${{ inputs.commit_prefix }}" >> "$GITHUB_ENV"
       - name: Set sanitized PR head ref
         if: ${{ github.event_name == 'pull_request' }}
         env:
@@ -42,7 +42,7 @@ jobs:
         run: |
           set -euo pipefail
           # Copy untrusted head ref from expression context into environment variable safely
-          echo "PR_HEAD_REF=${RAW_HEAD_REF}" >> $GITHUB_ENV
+          echo "PR_HEAD_REF=${RAW_HEAD_REF}" >> "$GITHUB_ENV"
       - name: Checkout PR HEAD
         uses: actions/checkout@v4
         with:
@@ -351,12 +351,14 @@ jobs:
       - name: Summary
         if: always()
         run: |
-          echo "### Reusable Autofix Summary" >> $GITHUB_STEP_SUMMARY
-          echo "Loop guard skip: ${{ steps.guard.outputs.skip || 'false' }}" >> $GITHUB_STEP_SUMMARY
-          echo "Applied changes: ${{ steps.autofix.outputs.changed }}" >> $GITHUB_STEP_SUMMARY
-          echo "Same repo: ${{ steps.same_repo.outputs.same }}" >> $GITHUB_STEP_SUMMARY
-          echo "Remaining ruff issues: ${{ steps.autofix.outputs.remaining_issues }}" >> $GITHUB_STEP_SUMMARY
-          echo "New (non-allowlisted) ruff issues: ${{ steps.autofix.outputs.new_issues }}" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ steps.autofix.outputs.changed }}" = "true" ] && [ "${{ steps.same_repo.outputs.same }}" != "true" ]; then
-            echo "Patch artifact: autofix-patch-pr-${{ github.event.pull_request.number }}" >> $GITHUB_STEP_SUMMARY
-          fi
+          {
+            echo "### Reusable Autofix Summary"
+            echo "Loop guard skip: ${{ steps.guard.outputs.skip || 'false' }}"
+            echo "Applied changes: ${{ steps.autofix.outputs.changed }}"
+            echo "Same repo: ${{ steps.same_repo.outputs.same }}"
+            echo "Remaining ruff issues: ${{ steps.autofix.outputs.remaining_issues }}"
+            echo "New (non-allowlisted) ruff issues: ${{ steps.autofix.outputs.new_issues }}"
+            if [ "${{ steps.autofix.outputs.changed }}" = "true" ] && [ "${{ steps.same_repo.outputs.same }}" != "true" ]; then
+              echo "Patch artifact: autofix-patch-pr-${{ github.event.pull_request.number }}"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

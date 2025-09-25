@@ -25,6 +25,8 @@ FastAPI: Any | None = None
 StreamingResponse: Any | None = None
 BackgroundTask: Any | None = None
 
+_DEPS_AVAILABLE = False
+
 if TYPE_CHECKING:  # pragma: no cover - static type hints only
     from httpx import AsyncClient as _HTTPXAsyncClient  # noqa: F401
     from uvicorn import Config as _UvicornConfig  # noqa: F401
@@ -52,26 +54,17 @@ def _lazy_import_deps() -> bool:
         _DEPS_AVAILABLE = True
         return True
     except Exception:  # pragma: no cover
+        _DEPS_AVAILABLE = False
+        httpx = None
+        uvicorn = None
+        websockets = None
+        FastAPI = None
+        StreamingResponse = None
+        BackgroundTask = None
         return False
 
 
-try:  # Optional heavy deps (initial attempt)
-    import httpx  # noqa: F401
-    import uvicorn  # noqa: F401
-    import websockets  # noqa: F401
-    from fastapi import FastAPI
-    from fastapi.responses import StreamingResponse
-    from starlette.background import BackgroundTask
-
-    _DEPS_AVAILABLE = True
-except Exception:  # pragma: no cover
-    _DEPS_AVAILABLE = False
-    httpx = None
-    uvicorn = None
-    websockets = None
-    FastAPI = None
-    StreamingResponse = None
-    BackgroundTask = None
+_DEPS_AVAILABLE = _lazy_import_deps()
 
 
 def _assert_deps() -> None:

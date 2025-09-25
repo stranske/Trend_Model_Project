@@ -14,10 +14,12 @@ jobs:
       - name: Read signature files
         id: read_signature
         run: |
-          echo "jobs_json<<EOF" >> $GITHUB_OUTPUT
-          cat .github/signature-fixtures/basic_jobs.json >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-          echo "expected_hash=$(cat .github/signature-fixtures/basic_hash.txt)" >> $GITHUB_OUTPUT
+          {
+            echo "jobs_json<<EOF"
+            cat .github/signature-fixtures/basic_jobs.json
+            echo "EOF"
+            echo "expected_hash=$(cat .github/signature-fixtures/basic_hash.txt)"
+          } >> "$GITHUB_OUTPUT"
       - name: Verify signature (composite action)
         uses: ./.github/actions/signature-verify
         with:

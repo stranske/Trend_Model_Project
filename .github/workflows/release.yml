@@ -49,17 +49,17 @@ jobs:
           else
             VERSION="${GITHUB_REF#refs/tags/}"
           fi
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "Version: ${VERSION}"
           
       - name: Update version in pyproject.toml
         run: |
-          VERSION=${{ steps.version.outputs.version }}
+          VERSION="${{ steps.version.outputs.version }}"
           # Remove 'v' prefix if present
           VERSION=${VERSION#v}
           sed -i "s/version = \".*\"/version = \"${VERSION}\"/" pyproject.toml
           echo "Updated version to: ${VERSION}"
-          cat pyproject.toml | grep version
+          grep 'version' pyproject.toml
           
       - name: Build package
         run: |
@@ -159,9 +159,9 @@ jobs:
           PREV_TAG=$(git tag --sort=-version:refname | grep -v "^${{ needs.build.outputs.version }}$" | head -n1 || echo "")
           
           if [[ -n "$PREV_TAG" ]]; then
-            CHANGELOG=$(./git-cliff --tag ${{ needs.build.outputs.version }} ${PREV_TAG}..${{ needs.build.outputs.version }} --strip header)
+            CHANGELOG="$(./git-cliff --tag "${{ needs.build.outputs.version }}" "${PREV_TAG}..${{ needs.build.outputs.version }}" --strip header)"
           else
-            CHANGELOG=$(./git-cliff --tag ${{ needs.build.outputs.version }} --strip header)
+            CHANGELOG="$(./git-cliff --tag "${{ needs.build.outputs.version }}" --strip header)"
           fi
           
           # Save changelog to file for GitHub release
@@ -172,18 +172,18 @@ jobs:
             echo "changelog<<EOF"
             echo "$CHANGELOG"
             echo "EOF"
-          } >> $GITHUB_OUTPUT
+          } >> "$GITHUB_OUTPUT"
           
       - name: Extract clean version
         id: extract_version
         run: |
           VERSION=${{ needs.build.outputs.version }}
           CLEAN_VERSION=${VERSION#v}
-          echo "clean_version=${CLEAN_VERSION}" >> $GITHUB_OUTPUT
+          echo "clean_version=${CLEAN_VERSION}" >> "$GITHUB_OUTPUT"
           
       - name: Create GitHub Release
         id: create_release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: ${{ needs.build.outputs.version }}

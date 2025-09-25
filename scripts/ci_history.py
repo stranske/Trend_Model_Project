@@ -105,7 +105,10 @@ def main() -> int:
     junit_path = Path(os.environ.get("JUNIT_PATH", _DEFAULT_JUNIT))
     metrics_path = Path(os.environ.get("METRICS_PATH", _DEFAULT_METRICS))
     history_path = Path(os.environ.get("HISTORY_PATH", _DEFAULT_HISTORY))
-    classification_flag = _truthy(os.environ.get("ENABLE_CLASSIFICATION"))
+    classification_env = os.environ.get("ENABLE_CLASSIFICATION")
+    if classification_env is None:
+        classification_env = os.environ.get("ENABLE_CLASSIFICATION_FLAG")
+    classification_flag = _truthy(classification_env)
     classification_out = Path(
         os.environ.get("CLASSIFICATION_OUT", _DEFAULT_CLASSIFICATION)
     )

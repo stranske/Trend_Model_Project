@@ -29,7 +29,7 @@ jobs:
       - name: Load tool versions
         run: |
           if [ -f .github/workflows/autofix-versions.env ]; then
-            cat .github/workflows/autofix-versions.env >> $GITHUB_ENV
+            cat .github/workflows/autofix-versions.env >> "$GITHUB_ENV"
           fi
 
       - name: Setup Python
@@ -68,9 +68,9 @@ jobs:
             echo '{"total":0,"allowed":0,"new":0,"by_code":{},"new_by_code":{}}' > ruff_classification.json
           fi
           new=$(jq -r '.new // 0' ruff_classification.json 2>/dev/null || echo 0)
-          echo "new=$new" >> $GITHUB_OUTPUT
+          echo "new=$new" >> "$GITHUB_OUTPUT"
           total=$(jq -r '.total // 0' ruff_classification.json 2>/dev/null || echo 0)
-          echo "total=$total" >> $GITHUB_OUTPUT
+          echo "total=$total" >> "$GITHUB_OUTPUT"
           if [ "$new" != "0" ]; then
             echo "Found $new new ruff issues (failing Style Gate)." >&2
             exit 1
@@ -85,28 +85,30 @@ jobs:
             cat mypy_report.txt
             exit 1
           fi
-          echo "mypy: PASS" >> $GITHUB_STEP_SUMMARY
+          echo "mypy: PASS" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Summary
         if: always()
         run: |
-          echo "### Style Gate Summary" >> $GITHUB_STEP_SUMMARY
-          echo "Black: PASS" >> $GITHUB_STEP_SUMMARY
-          echo "Ruff total issues: ${{ steps.ruff.outputs.total }}" >> $GITHUB_STEP_SUMMARY
-          echo "Ruff new issues: ${{ steps.ruff.outputs.new }}" >> $GITHUB_STEP_SUMMARY
-          if [ -f mypy_report.txt ]; then
-            if grep -q "error:" mypy_report.txt; then
-              echo "mypy: FAIL" >> $GITHUB_STEP_SUMMARY
-              printf "\n<details><summary>mypy report</summary>\n" >> $GITHUB_STEP_SUMMARY
-              sed -n '1,200p' mypy_report.txt >> $GITHUB_STEP_SUMMARY || true
-              printf "\n</details>\n" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "mypy: PASS" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "### Style Gate Summary"
+            echo "Black: PASS"
+            echo "Ruff total issues: ${{ steps.ruff.outputs.total }}"
+            echo "Ruff new issues: ${{ steps.ruff.outputs.new }}"
+            if [ -f mypy_report.txt ]; then
+              if grep -q "error:" mypy_report.txt; then
+                echo "mypy: FAIL"
+                printf "\n<details><summary>mypy report</summary>\n"
+                sed -n '1,200p' mypy_report.txt || true
+                printf "\n</details>\n"
+              else
+                echo "mypy: PASS"
+              fi
             fi
-          fi
-          if [ -f ruff_classification.json ]; then
-            printf "\n<details><summary>Classification JSON</summary>\n" >> $GITHUB_STEP_SUMMARY
-            printf "\n" >> $GITHUB_STEP_SUMMARY
-            sed -n '1,200p' ruff_classification.json >> $GITHUB_STEP_SUMMARY || true
-            printf "\n</details>\n" >> $GITHUB_STEP_SUMMARY
-          fi
+            if [ -f ruff_classification.json ]; then
+              printf "\n<details><summary>Classification JSON</summary>\n"
+              printf "\n"
+              sed -n '1,200p' ruff_classification.json || true
+              printf "\n</details>\n"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

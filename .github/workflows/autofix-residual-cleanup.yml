@@ -66,8 +66,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "remaining=${{ steps.autofix.outputs.remaining_issues }}" >> $GITHUB_OUTPUT
-          echo "new=${{ steps.autofix.outputs.new_issues || '0' }}" >> $GITHUB_OUTPUT
+          echo "remaining=${{ steps.autofix.outputs.remaining_issues }}" >> "$GITHUB_OUTPUT"
+          echo "new=${{ steps.autofix.outputs.new_issues || '0' }}" >> "$GITHUB_OUTPUT"
           echo "Remaining: ${{ steps.autofix.outputs.remaining_issues }} | New: ${{ steps.autofix.outputs.new_issues }}"
 
       - name: Generate residual report assets
@@ -109,12 +109,12 @@ jobs:
         run: |
           set -euo pipefail
           if [ '${{ github.event.inputs.dry_run }}' = 'true' ]; then
-            echo 'dry_run=true' >> $GITHUB_OUTPUT
+            echo 'dry_run=true' >> "$GITHUB_OUTPUT"
             echo '[cleanup] Dry run requested; skipping PR creation.'
             exit 0
           fi
           echo '[cleanup] Proceeding to commit assets & ensure PR.'
-          echo 'dry_run=false' >> $GITHUB_OUTPUT
+          echo 'dry_run=false' >> "$GITHUB_OUTPUT"
 
       - name: Commit assets & open/update cleanup PR
         if: steps.guard.outputs.skip != 'true' && steps.decide.outputs.dry_run != 'true'
@@ -125,16 +125,16 @@ jobs:
           base='${{ github.event.repository.default_branch || 'phase-2-dev' }}'
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
-          if git show-ref --quiet refs/heads/$branch; then
-            git checkout $branch
+          if git show-ref --quiet "refs/heads/$branch"; then
+            git checkout "$branch"
           else
-            git checkout -b $branch
+            git checkout -b "$branch"
           fi
           cp -r ci/autofix ci/autofix || true
           git add ci/autofix || true
           if ! git diff --cached --quiet; then
             git commit -m "${COMMIT_PREFIX} residual ruff report update"
-            git push origin $branch || git push -f origin $branch
+            git push origin "$branch" || git push -f origin "$branch"
           fi
           if ! gh pr list --head "$branch" --json number --jq '.[0].number' >/dev/null 2>&1; then
             gh pr create --head "$branch" --base "$base" --title "${COMMIT_PREFIX} residual ruff cleanup" --body 'Automated residual cleanup scaffolding (assets only).'

@@ -227,19 +227,37 @@ jobs:
           path: classification.json
       - name: CI summary
         run: |
-          echo "## CI Summary" >> $GITHUB_STEP_SUMMARY
-          if [ -f ci-metrics.json ]; then echo "- Metrics: present" >> $GITHUB_STEP_SUMMARY; else echo "- Metrics: (disabled)" >> $GITHUB_STEP_SUMMARY; fi
-          if [ -f coverage-delta.json ]; then
-            CUR=$(jq -r .current coverage-delta.json 2>/dev/null || echo '?')
-            BASE=$(jq -r .baseline coverage-delta.json 2>/dev/null || echo '?')
-            DELTA=$(jq -r .delta coverage-delta.json 2>/dev/null || echo '?')
-            echo "- Coverage delta: current=$CUR baseline=$BASE delta=$DELTA" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "- Coverage delta: (disabled)" >> $GITHUB_STEP_SUMMARY
-          fi
-          if [ -f classification.json ]; then echo "- Classification: present" >> $GITHUB_STEP_SUMMARY; else echo "- Classification: (disabled)" >> $GITHUB_STEP_SUMMARY; fi
-          if [ -f ${{ inputs.history-artifact-name }} ]; then echo "- History: appended" >> $GITHUB_STEP_SUMMARY; else echo "- History: (disabled)" >> $GITHUB_STEP_SUMMARY; fi
-          if [ "$ENABLE_SOFT_GATE_FLAG" = "true" ]; then echo "- Soft gate: enabled (see coverage_soft_gate job)" >> $GITHUB_STEP_SUMMARY; else echo "- Soft gate: (disabled)" >> $GITHUB_STEP_SUMMARY; fi
+          {
+            echo "## CI Summary"
+            if [ -f ci-metrics.json ]; then
+              echo "- Metrics: present"
+            else
+              echo "- Metrics: (disabled)"
+            fi
+            if [ -f coverage-delta.json ]; then
+              CUR=$(jq -r .current coverage-delta.json 2>/dev/null || echo '?')
+              BASE=$(jq -r .baseline coverage-delta.json 2>/dev/null || echo '?')
+              DELTA=$(jq -r .delta coverage-delta.json 2>/dev/null || echo '?')
+              echo "- Coverage delta: current=$CUR baseline=$BASE delta=$DELTA"
+            else
+              echo "- Coverage delta: (disabled)"
+            fi
+            if [ -f classification.json ]; then
+              echo "- Classification: present"
+            else
+              echo "- Classification: (disabled)"
+            fi
+            if [ -f "${{ inputs.history-artifact-name }}" ]; then
+              echo "- History: appended"
+            else
+              echo "- History: (disabled)"
+            fi
+            if [ "$ENABLE_SOFT_GATE_FLAG" = "true" ]; then
+              echo "- Soft gate: enabled (see coverage_soft_gate job)"
+            else
+              echo "- Soft gate: (disabled)"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Assert feature outputs
         run: python scripts/ci_feature_assert.py
         env:
@@ -419,11 +437,13 @@ jobs:
             }
       - name: Append coverage summary to run summary
         run: |
-          echo "## Soft Coverage Gate" >> $GITHUB_STEP_SUMMARY
-          cat coverage_summary.md >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "${{ steps.jobs.outputs.table }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Soft Coverage Gate"
+            cat coverage_summary.md
+            echo
+            echo "${{ steps.jobs.outputs.table }}"
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Emit coverage trend record
         shell: python
         run: |
@@ -514,8 +534,10 @@ jobs:
             core.setOutput('table', md);
       - name: Append logs table to summary
         run: |
-          echo "${{ steps.jobs.outputs.table }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "${{ steps.jobs.outputs.table }}"
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
 
 # End of workflow
 

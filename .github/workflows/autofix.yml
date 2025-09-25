@@ -561,11 +561,13 @@ jobs:
       - name: Summary
         if: always()
         run: |
-          echo "### Fix failing checks" >> "$GITHUB_STEP_SUMMARY"
-          echo "PR: #${{ needs.context.outputs.pr }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "Failing jobs: ${{ needs.context.outputs.failing_jobs }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "Changes applied: ${{ steps.autofix.outputs.changed }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "Remaining ruff issues: ${{ steps.autofix.outputs.remaining_issues }}" >> "$GITHUB_STEP_SUMMARY"
-          if [ "${{ steps.autofix.outputs.changed }}" = "true" ] && [ "${{ needs.context.outputs.same_repo }}" != "true" ]; then
-            echo "Patch artifact: autofix-patch-pr-${{ needs.context.outputs.pr }}" >> "$GITHUB_STEP_SUMMARY"
-          fi
+          {
+            echo "### Fix failing checks"
+            echo "PR: #${{ needs.context.outputs.pr }}"
+            echo "Failing jobs: ${{ needs.context.outputs.failing_jobs }}"
+            echo "Changes applied: ${{ steps.autofix.outputs.changed }}"
+            echo "Remaining ruff issues: ${{ steps.autofix.outputs.remaining_issues }}"
+            if [ "${{ steps.autofix.outputs.changed }}" = "true" ] && [ "${{ needs.context.outputs.same_repo }}" != "true" ]; then
+              echo "Patch artifact: autofix-patch-pr-${{ needs.context.outputs.pr }}"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

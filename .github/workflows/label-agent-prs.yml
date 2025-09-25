@@ -62,9 +62,9 @@ jobs:
         id: token
         run: |
           if [ -n "${{ secrets.SERVICE_BOT_PAT }}" ]; then
-            echo "value=${{ secrets.SERVICE_BOT_PAT }}" >> $GITHUB_OUTPUT
+            echo "value=${{ secrets.SERVICE_BOT_PAT }}" >> "$GITHUB_OUTPUT"
           else
-            echo "value=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_OUTPUT
+            echo "value=${{ secrets.GITHUB_TOKEN }}" >> "$GITHUB_OUTPUT"
           fi
       - name: Checkout trusted config
         uses: actions/checkout@v4

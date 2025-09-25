@@ -56,22 +56,33 @@ jobs:
       - name: Derive quick stats
         id: stats
         run: |
-          set -euo pipefail
-          OPEN_FAILURES=0
-          if [ -f ci_failures_snapshot.json ]; then
-            OPEN_FAILURES=$(jq '.issues|length' ci_failures_snapshot.json 2>/dev/null || echo 0)
+          if [ -f matrix-derived.json ]; then
+            {
+              echo "## Quick Stats"
+              jq -r '"- Open failure issues: \\(.open_failure_issues)"' matrix-derived.json 2>/dev/null || true
+              if jq -e '.coverage_avg_latest != null' matrix-derived.json >/dev/null 2>&1; then
+                jq -r '"- Coverage avg (latest): \\(.coverage_avg_latest)%"' matrix-derived.json
+              fi
+              if jq -e '(.coverage_avg_prev != null) and (.coverage_avg_delta != null)' matrix-derived.json >/dev/null 2>&1; then
+                jq -r '"- Coverage delta vs prev: \\(.coverage_avg_delta|if .>=0 then "+" else "" end)\\(.) pp"' matrix-derived.json
+              fi
+              if jq -e '.coverage_worst_latest != null' matrix-derived.json >/dev/null 2>&1; then
+                jq -r '"- Worst job coverage (latest): \\(.coverage_worst_latest)%"' matrix-derived.json
+              fi
+              if jq -e '(.coverage_worst_prev != null) and (.coverage_worst_delta != null)' matrix-derived.json >/dev/null 2>&1; then
+                jq -r '"- Worst job coverage delta vs prev: \\(.coverage_worst_delta|if .>=0 then "+" else "" end)\\(.) pp"' matrix-derived.json
+              fi
+              jq -r '"- Coverage history entries: \\(.coverage_history_len)"' matrix-derived.json 2>/dev/null || true
+              echo "- Run duration (trigger workflow): ${{ steps.gather.outputs.run_duration_sec }}s (conclusion: ${{ steps.gather.outputs.run_conclusion }})"
+              if [ -f ci_failures_snapshot.json ]; then
+                issue_count=$(jq '.issues|length' ci_failures_snapshot.json 2>/dev/null || echo 0)
+                if [ "$issue_count" -gt 0 ]; then
+                  jq -r '"- Open failure issue numbers: " + (.issues | map("#"+(.number|tostring)) | join(", "))' ci_failures_snapshot.json
+                fi
+              fi
+              echo
+            } >> ci-matrix-summary.md
           fi
-          HIST_FILE=coverage-trend-history.ndjson
-          AVG_LATEST="null"; PREV="null"; DELTA="null"; HIST_LEN=0
-          WORST_LATEST="null"; WORST_PREV="null"; WORST_DELTA="null"
-          if [ -f "$HIST_FILE" ]; then
-            HIST_LEN=$(grep -c '.' "$HIST_FILE" || echo 0)
-            if [ "$HIST_LEN" -gt 0 ]; then
-              LAST_LINE=$(tail -n1 "$HIST_FILE")
-              AVG_LATEST=$(echo "$LAST_LINE" | jq -r '.avg_coverage // empty')
-              if [ -z "$AVG_LATEST" ]; then AVG_LATEST="null"; fi
-              WORST_LATEST=$(echo "$LAST_LINE" | jq -r '.worst_job_coverage // empty')
-              [ -z "$WORST_LATEST" ] && WORST_LATEST="null"
             fi
             if [ "$HIST_LEN" -ge 2 ]; then
               PREV_LINE=$(tail -n2 "$HIST_FILE" | head -n1)
@@ -155,7 +166,7 @@ jobs:
           echo "## Artifact Presence" >> ci-matrix-summary.md
           echo '${{ steps.gather.outputs.artifact_meta }}' >> ci-matrix-summary.md
       - name: Publish summary to job summary
-        run: cat ci-matrix-summary.md >> $GITHUB_STEP_SUMMARY || true
+        run: cat ci-matrix-summary.md >> "$GITHUB_STEP_SUMMARY" || true
       - name: Upload matrix summary artifact
         uses: actions/upload-artifact@v4
         with:

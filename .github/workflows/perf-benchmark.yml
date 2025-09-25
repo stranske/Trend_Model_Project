@@ -38,7 +38,7 @@ jobs:
         run: |
           python scripts/compare_perf.py --current perf_current.json \
             --baseline perf/perf_baseline.json \
-            --threshold-pct $PERF_REGRESSION_PCT
+            --threshold-pct "$PERF_REGRESSION_PCT"
       - name: Summarize key metrics
         if: always()
         run: |
