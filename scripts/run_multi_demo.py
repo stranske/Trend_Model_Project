@@ -37,10 +37,10 @@ if str(SRC_PATH) not in sys.path:
 import numpy as np
 import openpyxl
 import pandas as pd
-import yaml  # type: ignore[import-untyped]
 
 # Project imports (kept together; E402 no longer triggered)
 import trend_analysis as ta
+import yaml  # type: ignore[import-untyped]
 from trend_analysis import (
     cli,
     export,

@@ -22,9 +22,9 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Mapping, Protocol, cast
 
 import numpy as np
-from .._typing import FloatArray
 import pandas as pd
 
+from .._typing import FloatArray
 from ..constants import NUMERICAL_TOLERANCE_HIGH
 from ..core.rank_selection import ASCENDING_METRICS
 from ..data import load_csv

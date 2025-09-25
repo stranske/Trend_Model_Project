@@ -202,7 +202,7 @@ jobs:
               return;
             }
 
-            const keywords = (process.env.TRIVIAL_KEYWORDS || 'lint,format,style,doc,ruff,mypy,type,black,isort').split(',')
+            const keywords = (process.env.TRIVIAL_KEYWORDS || 'lint,format,style,doc,ruff,mypy,type,black,isort,label').split(',')
               .map(str => str.trim().toLowerCase())
               .filter(Boolean);
 
@@ -247,6 +247,10 @@ jobs:
     env:
       APPLIED_LABEL: ${{ vars.AUTOFIX_APPLIED_LABEL || 'autofix:applied' }}
     steps:
+      - name: Checkout workflow repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Apply autofix and deliver changes
         id: apply
         uses: ./.github/actions/apply-autofix
@@ -427,6 +431,10 @@ jobs:
     env:
       APPLIED_LABEL: ${{ vars.AUTOFIX_APPLIED_LABEL || 'autofix:applied' }}
     steps:
+      - name: Checkout workflow repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Autofix, commit, and push (composite)
         id: autofix
         uses: ./.github/actions/autofix-commit-push

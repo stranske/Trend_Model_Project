@@ -4,8 +4,9 @@ from collections.abc import Mapping
 from typing import Any
 
 import numpy as np
-from ._typing import FloatArray
 import pandas as pd
+
+from ._typing import FloatArray
 
 
 class BaseWeighting:

@@ -274,8 +274,8 @@ def test_health_wrapper_runner_injects_src_path(monkeypatch):
 
 
 def test_health_wrapper_runner_skips_existing_src_path(monkeypatch):
-    """If the repository ``src`` directory is already present, the runner should
-    leave the order untouched instead of inserting a duplicate entry."""
+    """If the repository ``src`` directory is already present, the runner
+    should leave the order untouched instead of inserting a duplicate entry."""
 
     import importlib.util
     import sys

@@ -8,6 +8,7 @@ from types import ModuleType
 from typing import Any, Generator
 
 import pytest
+
 import yaml
 
 
@@ -15,7 +16,8 @@ import yaml
 def fallback_models(
     monkeypatch: pytest.MonkeyPatch,
 ) -> Generator[ModuleType, None, None]:
-    """Load ``trend_analysis.config.models`` with pydantic forcibly unavailable."""
+    """Load ``trend_analysis.config.models`` with pydantic forcibly
+    unavailable."""
 
     module_name = "trend_analysis.config.models_fallback_test"
     module_path = (

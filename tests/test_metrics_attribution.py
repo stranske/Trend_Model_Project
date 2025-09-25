@@ -115,7 +115,8 @@ def test_plot_contributions_with_axis_sequence_and_labels():
 
 
 def test_type_checking_import_guard_covers_runtime_branch():
-    """Execute the TYPE_CHECKING block to drive coverage of the guarded import."""
+    """Execute the TYPE_CHECKING block to drive coverage of the guarded
+    import."""
 
     code = "\n" * 89 + "from matplotlib.axes import Axes as _Axes"
     exec(compile(code, attribution.__file__, "exec"), attribution.__dict__)

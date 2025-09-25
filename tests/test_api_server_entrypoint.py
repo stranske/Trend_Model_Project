@@ -7,7 +7,8 @@ from pathlib import Path
 
 
 def test_api_server_entrypoint_invokes_run(monkeypatch):
-    """Executing the module as ``python -m`` should call ``run`` with the CLI defaults."""
+    """Executing the module as ``python -m`` should call ``run`` with the CLI
+    defaults."""
 
     called: dict[str, object] = {}
 

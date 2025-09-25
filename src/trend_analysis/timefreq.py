@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from datetime import date
 from typing import Iterable
+
 import pandas as pd
 
 __all__ = [
@@ -59,10 +60,11 @@ def monthly_period_range(
 
 
 def _validate_no_invalid_period_alias(freq: str) -> None:
-    """Internal guard used by tests; raises if an invalid period alias is passed.
+    """Internal guard used by tests; raises if an invalid period alias is
+    passed.
 
-    Provided as a small reusable assertion should runtime validation ever be
-    required at ingestion boundaries.
+    Provided as a small reusable assertion should runtime validation
+    ever be required at ingestion boundaries.
     """
     if freq in {MONTHLY_DATE_FREQ, QUARTERLY_DATE_FREQ}:  # ME or QE
         raise ValueError(

@@ -11,10 +11,11 @@ the pipeline run logging experience, so we focus on verifying that:
 
 from __future__ import annotations
 
-import logging
 import json
+import logging
 from pathlib import Path
 from typing import Iterator
+
 import pytest
 
 from trend_analysis.logging import (
@@ -49,7 +50,8 @@ def isolated_run_logger() -> Iterator[None]:
 
 
 def test_log_step_without_handlers_is_noop(isolated_run_logger: None) -> None:
-    """Calling ``log_step`` without initialising the logger should not crash."""
+    """Calling ``log_step`` without initialising the logger should not
+    crash."""
 
     logger = logging.getLogger(RUN_LOGGER_NAME)
     assert not logger.handlers

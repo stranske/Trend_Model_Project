@@ -102,7 +102,8 @@ def test_apply_constraints_validates_cash_weight_for_mapping_input() -> None:
 
 
 def test_apply_constraints_requires_non_cash_assets_for_mapping_input() -> None:
-    """Providing only CASH still fails once the helper builds a constraint set."""
+    """Providing only CASH still fails once the helper builds a constraint
+    set."""
 
     weights = pd.Series({"CASH": 1.0}, dtype=float)
 
@@ -113,7 +114,8 @@ def test_apply_constraints_requires_non_cash_assets_for_mapping_input() -> None:
 
 
 def test_apply_constraints_caps_after_cash_weight_with_mapping() -> None:
-    """When supplied as a mapping the helper must still cap redistributed mass."""
+    """When supplied as a mapping the helper must still cap redistributed
+    mass."""
 
     weights = pd.Series({"FundA": 0.8, "FundB": 0.2}, dtype=float)
 
@@ -126,7 +128,8 @@ def test_apply_constraints_caps_after_cash_weight_with_mapping() -> None:
 
 
 def test_apply_constraints_rescales_existing_cash_row() -> None:
-    """Existing CASH allocations should be overridden and remaining weights capped."""
+    """Existing CASH allocations should be overridden and remaining weights
+    capped."""
 
     weights = pd.Series({"FundA": 0.9, "FundB": 0.05, "CASH": 0.05}, dtype=float)
 

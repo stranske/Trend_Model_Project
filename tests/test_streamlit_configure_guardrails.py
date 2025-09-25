@@ -6,7 +6,6 @@ import importlib.util
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
-
 from unittest.mock import patch
 
 

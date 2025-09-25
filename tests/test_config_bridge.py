@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
 from trend_analysis.config.bridge import build_config_payload, validate_payload
 
 

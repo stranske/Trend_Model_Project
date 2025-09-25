@@ -10,6 +10,8 @@ import pytest
 
 from scripts.build_autofix_pr_comment import (
     MARKER,
+    _snapshot_code_lines,
+    _top_code_lines,
     build_comment,
     coerce_bool,
     coerce_int,
@@ -17,8 +19,6 @@ from scripts.build_autofix_pr_comment import (
     format_timestamp,
     load_json,
     main,
-    _snapshot_code_lines,
-    _top_code_lines,
 )
 
 
