@@ -4,7 +4,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import os
 import pytest
 
 import scripts.auto_type_hygiene as auto_type_hygiene
