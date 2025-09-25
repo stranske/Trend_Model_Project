@@ -18,7 +18,8 @@ def _load_yaml(name: str) -> Dict[str, Any]:
 def _guarded_follow_up_steps(
     steps: List[Dict[str, Any]], guard_id: str = "guard"
 ) -> List[str]:
-    """Return the names of steps after ``guard_id`` lacking guard conditions."""
+    """Return the names of steps after ``guard_id`` lacking guard
+    conditions."""
     missing: List[str] = []
     try:
         guard_index = next(

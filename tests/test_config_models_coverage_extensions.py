@@ -13,15 +13,14 @@ import pytest
 
 from trend_analysis.config import models
 
-
 MODULE_PATH = Path(models.__file__)
 
 
 def _load_models_without_pydantic(
     monkeypatch: pytest.MonkeyPatch, name: str = "tests.config_models_fallback_cov"
 ):
-    """
-    Load a fresh copy of the `trend_analysis.config.models` module with `pydantic` unavailable.
+    """Load a fresh copy of the `trend_analysis.config.models` module with
+    `pydantic` unavailable.
 
     This function simulates an environment where the `pydantic` package is not present,
     by setting `sys.modules["pydantic"]` to `None` using the provided `monkeypatch`.

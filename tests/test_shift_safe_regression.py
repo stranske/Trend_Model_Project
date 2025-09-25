@@ -1,4 +1,5 @@
 import math
+
 import pandas as pd
 
 from trend_analysis.pipeline import compute_signal

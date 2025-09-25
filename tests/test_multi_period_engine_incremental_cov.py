@@ -2,6 +2,7 @@
 engine."""
 
 from __future__ import annotations
+
 from types import SimpleNamespace
 
 import pandas as pd
@@ -188,7 +189,8 @@ def test_run_incremental_covariance_shift_detection(monkeypatch):
 
 
 def test_run_incremental_covariance_shift_detection_via_allclose(monkeypatch):
-    """Shift detection should succeed when ``np.allclose`` alone finds the overlap."""
+    """Shift detection should succeed when ``np.allclose`` alone finds the
+    overlap."""
 
     cfg = _Cfg()
     df = _make_df()
@@ -418,7 +420,8 @@ def test_run_incremental_covariance_shift_detection_no_match(monkeypatch):
 
 
 def test_run_incremental_covariance_handles_allclose_failure(monkeypatch):
-    """Shift detection should fall back to ``np.array_equal`` if ``np.allclose`` fails."""
+    """Shift detection should fall back to ``np.array_equal`` if
+    ``np.allclose`` fails."""
 
     cfg = _Cfg()
     df = _make_df()
@@ -509,7 +512,8 @@ def test_run_incremental_covariance_column_change_triggers_recompute(monkeypatch
 def test_run_incremental_covariance_longer_window_forces_full_recompute(
     monkeypatch,
 ) -> None:
-    """When the in-sample window length changes, the engine recomputes covariance."""
+    """When the in-sample window length changes, the engine recomputes
+    covariance."""
 
     cfg = _Cfg()
     df = _make_df()
@@ -562,7 +566,8 @@ def test_run_incremental_covariance_longer_window_forces_full_recompute(
 
 
 def test_run_incremental_covariance_handles_cov_cache_import_failure(monkeypatch):
-    """If CovCache cannot be imported the engine should proceed without cache stats."""
+    """If CovCache cannot be imported the engine should proceed without cache
+    stats."""
 
     cfg = _Cfg()
     df = _make_df()

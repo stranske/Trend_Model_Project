@@ -721,9 +721,8 @@ def compute_signal(
     window: int = 3,
     min_periods: int | None = None,
 ) -> pd.Series:
-    """
-    Return a trailing rolling-mean signal using information strictly prior to the
-    current row.
+    """Return a trailing rolling-mean signal using information strictly prior
+    to the current row.
 
     Args:
         df (pd.DataFrame): Input DataFrame containing the data.
@@ -791,8 +790,7 @@ def position_from_signal(
     short_position: float = -1.0,
     neutral_position: float = 0.0,
 ) -> pd.Series:
-    """
-    Convert a trading signal into positions using only past information.
+    """Convert a trading signal into positions using only past information.
 
     This function maps a time series of trading signals to position values, using only
     information available up to each point in time (no look-ahead bias).
