@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import pytest
-
 import pandas as pd
+import pytest
 
 from trend_analysis.metrics import rolling
 
@@ -104,7 +103,8 @@ def test_rolling_information_ratio_uses_cache_when_enabled(
 def test_rolling_information_ratio_cache_handles_unknown_frequency(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """When frequency cannot be inferred the cache should fall back to ``unknown``."""
+    """When frequency cannot be inferred the cache should fall back to
+    ``unknown``."""
 
     returns = pd.Series(
         [0.02, -0.01, 0.015, -0.005],
