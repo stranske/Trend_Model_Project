@@ -605,17 +605,3 @@ Install the optional pre-push hook:
 ```
 This prevents accidental pushes that fail the CI Style Gate.
 
-## Contributing & Quality Gate
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the full contributor workflow.
-Common local checks before pushing:
-```bash
-./scripts/quality_gate.sh        # style + adaptive validation
-./scripts/quality_gate.sh --full # adds comprehensive branch check
-```
-Install the optional pre-push hook:
-```bash
-./scripts/install_pre_push_style_gate.sh
-```
-This prevents accidental pushes that fail the CI Style Gate.
-
