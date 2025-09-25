@@ -202,7 +202,9 @@ jobs:
             echo "[history] Failed to download artifact ${artifact_id}"
             exit 0
           fi
-          if unzip -p "$tmpdir/artifact.zip" ci/autofix/history.json > ci/autofix/history.json 2>/dev/null; then
+          target_tmp="$tmpdir/history.json"
+          if unzip -p "$tmpdir/artifact.zip" ci/autofix/history.json > "$target_tmp" 2>/dev/null; then
+            mv "$target_tmp" ci/autofix/history.json
             echo "[history] Restored previous history.json"
           else
             echo "[history] Artifact ${artifact_id} did not contain ci/autofix/history.json"
