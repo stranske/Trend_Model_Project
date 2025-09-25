@@ -80,8 +80,8 @@ TYPING_SYMBOLS = {
     "TypeVar",
     "Union",
     "Unpack",
-    "Awaitable",
     "Self",
+    "Required",
     "Required",
     "NotRequired",
 }
