@@ -1,9 +1,10 @@
 """Validation helper for the label-agent workflow.
 
-This script runs inside the "Label agent PRs" workflow after we fetch the
-trusted configuration via sparse checkout.  It verifies that the checkout only
-contains allowlisted files so the workflow never evaluates untrusted
-content.
+This guard runs inside the Label agent PRs workflow after we fetch the
+trusted configuration via sparse checkout.  It ensures that the checkout
+contains exactly the files we whitelisted through the
+``TRUSTED_LABEL_RULE_PATHS`` environment variable so the workflow never
+accidentally evaluates untrusted content.
 """
 
 from __future__ import annotations
@@ -19,17 +20,19 @@ def _parse_allowlist(raw: str) -> list[str]:
     for line in raw.splitlines():
         trimmed = line.strip()
         if trimmed:
+            # Normalise to POSIX style for easier comparisons later on.
             entries.append(trimmed.replace("\\", "/"))
     return entries
 
 
-def _iter_checkout_files(root: Path) -> Iterable[str]:
+def _list_checkout_files(root: Path) -> Iterable[tuple[str, Path]]:
     for path in root.rglob("*"):
         if path.is_dir():
             continue
+        # Skip Git metadata that checkout may leave behind.
         if any(part == ".git" for part in path.parts):
             continue
-        yield path.relative_to(root).as_posix()
+        yield path.relative_to(root).as_posix(), path
 
 
 def main() -> int:
@@ -59,8 +62,12 @@ def main() -> int:
         )
         return 1
 
-    allowset = set(allowlist)
-    extras = [rel for rel in _iter_checkout_files(checkout_root) if rel not in allowset]
+    allowlist_set = set(allowlist)
+    extras = [
+        rel
+        for rel, _ in _list_checkout_files(checkout_root)
+        if rel not in allowlist_set
+    ]
     if extras:
         print(
             "[label-rules-assert] Unexpected files present after sparse checkout:\n  - "

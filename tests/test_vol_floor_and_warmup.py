@@ -83,3 +83,42 @@ def test_nan_returns_become_zero_weight() -> None:
     out_scaled = res["out_sample_scaled"]
     # Row with injected NaN should be zero after scaling/fill.
     assert np.allclose(out_scaled.loc[out_scaled.index[1], "A"], 0.0)
+
+
+def test_negative_floor_and_warmup_inputs_are_clamped() -> None:
+    """Negative floor-vol or warmup inputs should behave like zero."""
+
+    df = _constant_df()
+
+    baseline = _run_analysis(
+        df,
+        "2020-01",
+        "2020-03",
+        "2020-04",
+        "2020-06",
+        target_vol=0.10,
+        monthly_cost=0.0,
+    )
+    assert baseline is not None
+
+    clamped = _run_analysis(
+        df,
+        "2020-01",
+        "2020-03",
+        "2020-04",
+        "2020-06",
+        target_vol=0.10,
+        monthly_cost=0.0,
+        floor_vol=-0.25,  # should clamp to zero instead of affecting scaling
+        warmup_periods=-5,
+    )
+    assert clamped is not None
+
+    np.testing.assert_allclose(
+        clamped["in_sample_scaled"].to_numpy(),
+        baseline["in_sample_scaled"].to_numpy(),
+    )
+    np.testing.assert_allclose(
+        clamped["out_sample_scaled"].to_numpy(),
+        baseline["out_sample_scaled"].to_numpy(),
+    )
