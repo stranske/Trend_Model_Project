@@ -101,17 +101,14 @@ def test_gather_missing_symbols_filters_nonexistent_paths(tmp_path: Path) -> Non
 def test_render_mypy_summary_renders_messages(tmp_path: Path) -> None:
     diag_path = tmp_path / "diag.json"
     diag_path.write_text(
-        "\n".join(
-            json.dumps(
-                {
-                    "path": "module.py",
-                    "line": 10,
-                    "column": 2,
-                    "severity": "error",
-                    "message": 'Name "Optional" is not defined',
-                }
-            )
-            for _ in [0]
+        json.dumps(
+            {
+                "path": "module.py",
+                "line": 10,
+                "column": 2,
+                "severity": "error",
+                "message": 'Name "Optional" is not defined',
+            }
         )
         + "\n",
         encoding="utf-8",
