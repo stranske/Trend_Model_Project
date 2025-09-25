@@ -8,6 +8,7 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional
 
 import pandas as pd
 import streamlit as st
+
 import yaml
 
 
@@ -19,12 +20,12 @@ def _ensure_src_path() -> None:
 
 _ensure_src_path()
 
-from trend_portfolio_app.metrics_extra import AVAILABLE_METRICS  # noqa: E402
-from trend_portfolio_app.policy_engine import MetricSpec, PolicyConfig  # noqa: E402
 from streamlit_app.components.guardrails import (  # noqa: E402
     estimate_resource_usage,
     validate_startup_payload,
 )
+from trend_portfolio_app.metrics_extra import AVAILABLE_METRICS  # noqa: E402
+from trend_portfolio_app.policy_engine import MetricSpec, PolicyConfig  # noqa: E402
 
 
 def _resolve_presets_dir() -> Path:

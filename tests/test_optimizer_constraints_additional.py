@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from collections import deque
 import textwrap
+from collections import deque
 
 import pandas as pd
 import pytest
@@ -100,7 +100,8 @@ def test_apply_constraints_rejects_invalid_cash_weight(cash_weight: float) -> No
 
 
 def test_apply_constraints_reapplies_cap_after_group_redistribution() -> None:
-    """Redistribution from group caps should still honour the individual max weight."""
+    """Redistribution from group caps should still honour the individual max
+    weight."""
 
     # Skewed starting weights force substantial redistribution after applying the
     # group cap.  ``max_weight`` must be reapplied to keep the non-capped assets
@@ -119,7 +120,8 @@ def test_apply_constraints_reapplies_cap_after_group_redistribution() -> None:
 
 
 def test_apply_constraints_mapping_input_hits_cash_guards() -> None:
-    """Mapping inputs exercise the dataclass conversion and cash guard rails."""
+    """Mapping inputs exercise the dataclass conversion and cash guard
+    rails."""
 
     weights = pd.Series({"CASH": 1.0})
 
@@ -130,7 +132,8 @@ def test_apply_constraints_mapping_input_hits_cash_guards() -> None:
 
 
 def test_apply_constraints_group_caps_and_cash_respect_max_weight() -> None:
-    """A cash carve-out combined with group caps should keep all assets under ``max_weight``."""
+    """A cash carve-out combined with group caps should keep all assets under
+    ``max_weight``."""
 
     weights = pd.Series({"A": 9.0, "B": 0.5, "C": 0.5})
     constraints = {
@@ -148,7 +151,8 @@ def test_apply_constraints_group_caps_and_cash_respect_max_weight() -> None:
 
 
 def test_apply_constraints_cash_weight_infeasible_due_to_cap() -> None:
-    """If the remaining allocation breaches ``max_weight`` feasibility, raise ``ConstraintViolation``."""
+    """If the remaining allocation breaches ``max_weight`` feasibility, raise
+    ``ConstraintViolation``."""
 
     weights = pd.Series({"Asset1": 1.0, "Asset2": 1.0})
 
@@ -160,7 +164,8 @@ def test_apply_constraints_cash_weight_infeasible_due_to_cap() -> None:
 
 
 def test_apply_constraints_cash_slice_respects_max_weight_cap() -> None:
-    """The dedicated CASH slice must honour ``max_weight`` once reintroduced."""
+    """The dedicated CASH slice must honour ``max_weight`` once
+    reintroduced."""
 
     weights = pd.Series({"Asset1": 1.0, "Asset2": 1.0})
 
@@ -174,7 +179,8 @@ def test_apply_constraints_cash_slice_respects_max_weight_cap() -> None:
 def test_apply_constraints_enforces_cap_after_group_caps_with_cash(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Ensure max-weight caps run both before and after group redistribution."""
+    """Ensure max-weight caps run both before and after group
+    redistribution."""
 
     weights = pd.Series({"A": 9.0, "B": 0.5, "C": 0.5, "CASH": 0.0})
     constraints = ConstraintSet(
@@ -210,7 +216,8 @@ def test_apply_constraints_enforces_cap_after_group_caps_with_cash(
 
 
 class _DynamicConstraintSet:
-    """Constraint-like shim that changes the reported cash weight per access."""
+    """Constraint-like shim that changes the reported cash weight per
+    access."""
 
     def __init__(self, cash_sequence: list[float | None], **kwargs: object) -> None:
         self._cash_values: deque[float | None] = deque(cash_sequence)
@@ -271,7 +278,8 @@ def test_cash_weight_revalidation_checks_cash_cap() -> None:
 
 
 def test_apply_constraints_defensive_guards_execute() -> None:
-    """Exercise defensive guard branches that are difficult to trigger naturally."""
+    """Exercise defensive guard branches that are difficult to trigger
+    naturally."""
 
     # Guard: cash_weight must be in (0,1) exclusive
     cw = -0.1

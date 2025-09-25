@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import runpy
 import sys  # Added: required for module cache manipulation in script test
+
 import pytest
 
 from trend_analysis import (

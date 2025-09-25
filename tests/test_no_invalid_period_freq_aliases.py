@@ -7,6 +7,7 @@ breaks period-based tests by introducing ValueError at runtime.
 from __future__ import annotations
 
 from pathlib import Path
+
 from trend_analysis.timefreq import assert_no_invalid_period_aliases_in_source
 
 
@@ -19,6 +20,7 @@ def test_no_invalid_period_freq_aliases() -> None:
 def test_period_and_date_range_examples() -> None:
     # Sanity check the documented behaviour
     import pandas as pd
+
     from trend_analysis import timefreq as tf
 
     ts_idx = pd.date_range("2024-01-31", periods=2, freq=tf.MONTHLY_DATE_FREQ)

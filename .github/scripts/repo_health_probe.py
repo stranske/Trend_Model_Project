@@ -19,7 +19,6 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, cast
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-
 GITHUB_API = os.environ.get("GITHUB_API_URL", "https://api.github.com")
 
 

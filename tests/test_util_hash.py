@@ -11,7 +11,8 @@ from trend_analysis.util import hash as hash_utils
 
 
 class _ModelDumpable:
-    """Lightweight stand-in for a pydantic model implementing ``model_dump``."""
+    """Lightweight stand-in for a pydantic model implementing
+    ``model_dump``."""
 
     def __init__(self, payload: dict[str, object]) -> None:
         self._payload = payload

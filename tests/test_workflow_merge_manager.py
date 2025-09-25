@@ -1,4 +1,5 @@
 import pathlib
+
 import yaml
 
 WORKFLOWS = pathlib.Path(".github/workflows")
