@@ -8,6 +8,7 @@ symbol ``_HAS_PYDANTIC`` to reflect availability.
 from __future__ import annotations
 
 import os
+import math
 import sys
 from collections.abc import Mapping
 from pathlib import Path
