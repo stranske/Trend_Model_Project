@@ -5,6 +5,8 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
+from trend_analysis._typing import FloatArray
+
 
 @dataclass
 class ReturnModelConfig:
@@ -17,7 +19,7 @@ class ReturnModel:
     def fit(self, panel: pd.DataFrame) -> None:
         raise NotImplementedError
 
-    def sample(self, n_periods: int, n_paths: int) -> np.ndarray:
+    def sample(self, n_periods: int, n_paths: int) -> FloatArray:
         raise NotImplementedError
 
 
@@ -31,13 +33,13 @@ class BlockBootstrapModel(ReturnModel):
     def fit(self, panel: pd.DataFrame) -> None:
         self.panel = panel.dropna(how="all")
 
-    def sample(self, n_periods: int, n_paths: int) -> np.ndarray:
+    def sample(self, n_periods: int, n_paths: int) -> FloatArray:
         if self.panel is None:
             raise RuntimeError("Model not fit.")
         vals = self.panel.values
         T, N = vals.shape
         B = self.cfg.block
-        out = np.zeros((n_paths, n_periods, N))
+        out: FloatArray = np.zeros((n_paths, n_periods, N))
         for p in range(n_paths):
             t = 0
             while t < n_periods:

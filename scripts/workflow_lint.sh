@@ -7,7 +7,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 CACHE_DIR=".cache/actionlint"
-VERSION="v1.6.27"
+VERSION="1.6.27"
 BIN="$CACHE_DIR/actionlint"
 
 mkdir -p "$CACHE_DIR"

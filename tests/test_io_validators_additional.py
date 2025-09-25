@@ -279,7 +279,6 @@ def test_validate_returns_schema_exception_block_guard_no_issues() -> None:
     assert result.issues == []
 
 
-
 def test_create_sample_template_has_expected_shape() -> None:
     template = create_sample_template()
 

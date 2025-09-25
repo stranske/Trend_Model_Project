@@ -161,7 +161,7 @@ jobs:
         id: cov
         shell: python
         run: |
-          import json, glob, os, xml.etree.ElementTree as ET
+          import glob, json, xml.etree.ElementTree as ET
           job_cov = []  # (job, pct)
           file_best = {}  # file -> min pct across jobs
           for jf in glob.glob('coverage-*.json'):
