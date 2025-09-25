@@ -18,8 +18,9 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, Iterable, Tuple
 
 import numpy as np
-from .._typing import FloatArray, MatrixF
 import pandas as pd
+
+from .._typing import FloatArray, MatrixF
 
 Key = Tuple[str, str, int, str]
 

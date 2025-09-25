@@ -39,17 +39,16 @@ _legacy_extract_cache_stats: LegacyExtractCacheStats | None
 _legacy_maybe_log_step: LegacyMaybeLogStep
 
 try:  # ``trend_analysis.cli`` is heavy but provides useful helpers
-    from trend_analysis.cli import (
-        _extract_cache_stats as _legacy_extract_cache_stats,
-        maybe_log_step as _legacy_maybe_log_step,
-    )
+    from trend_analysis.cli import _extract_cache_stats as _legacy_extract_cache_stats
+    from trend_analysis.cli import maybe_log_step as _legacy_maybe_log_step
 except Exception:  # pragma: no cover - defensive fallback
     _legacy_extract_cache_stats = None
 
     def _legacy_maybe_log_step(
         enabled: bool, run_id: str, event: str, message: str, **fields: Any
     ) -> None:  # noqa: D401 - simple noop
-        """Fallback when legacy helpers unavailable (signature matches maybe_log_step)."""
+        """Fallback when legacy helpers unavailable (signature matches
+        maybe_log_step)."""
         return None
 
 

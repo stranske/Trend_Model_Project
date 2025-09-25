@@ -3,11 +3,11 @@ from __future__ import annotations
 import logging
 
 import numpy as np
-from .._typing import FloatArray
 import pandas as pd
 from scipy.cluster.hierarchy import leaves_list, linkage
 from scipy.spatial.distance import squareform
 
+from .._typing import FloatArray
 from ..plugins import WeightEngine, weight_engine_registry
 
 logger = logging.getLogger(__name__)

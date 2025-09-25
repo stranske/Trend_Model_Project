@@ -45,6 +45,42 @@ def test_portfolio_rebalance_accepts_series_and_mapping() -> None:
     assert stored.tolist() == [0.5, 0.5]
 
 
+def test_portfolio_rebalance_prefers_weight_column_from_frame() -> None:
+    portfolio = Portfolio()
+    weights = pd.DataFrame(
+        {"weight": [0.6, 0.4], "other": [10, 20]}, index=["Alpha", "Beta"]
+    )
+
+    portfolio.rebalance("2020-03-31", weights, turnover=0.25, cost=2.0)
+
+    stored = portfolio.history["2020-03-31"]
+    pd.testing.assert_series_equal(
+        stored,
+        pd.Series([0.6, 0.4], index=["Alpha", "Beta"], dtype=float, name="weight"),
+    )
+    assert portfolio.turnover["2020-03-31"] == 0.25
+    assert portfolio.costs["2020-03-31"] == 2.0
+    assert portfolio.total_rebalance_costs == 2.0
+
+
+def test_portfolio_rebalance_uses_first_frame_column_when_weight_absent() -> None:
+    portfolio = Portfolio()
+    weights = pd.DataFrame(
+        {"first": [0.3, 0.7], "second": [1.0, 2.0]}, index=["Gamma", "Delta"]
+    )
+
+    portfolio.rebalance("2020-04-30", weights)
+
+    stored = portfolio.history["2020-04-30"]
+    pd.testing.assert_series_equal(
+        stored,
+        pd.Series([0.3, 0.7], index=["Gamma", "Delta"], dtype=float, name="first"),
+    )
+    assert portfolio.turnover["2020-04-30"] == 0.0
+    assert portfolio.costs["2020-04-30"] == 0.0
+    assert portfolio.total_rebalance_costs == 0.0
+
+
 def test_run_schedule_invokes_weighting_update() -> None:
     score_frames = {
         "2020-01-31": pd.DataFrame(

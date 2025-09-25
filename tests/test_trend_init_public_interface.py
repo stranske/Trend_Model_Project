@@ -30,7 +30,8 @@ def test_dunder_version_uses_package_metadata(monkeypatch):
 
 
 def test_dunder_version_falls_back_in_dev_mode(monkeypatch):
-    """Missing package metadata should trigger the development fallback string."""
+    """Missing package metadata should trigger the development fallback
+    string."""
 
     def raise_missing(_name: str) -> str:  # pragma: no cover - defensive guard
         raise metadata.PackageNotFoundError
@@ -41,7 +42,8 @@ def test_dunder_version_falls_back_in_dev_mode(monkeypatch):
 
 
 def test_unknown_attributes_raise_attribute_error(monkeypatch):
-    """Any attribute other than ``__version__`` should raise ``AttributeError``."""
+    """Any attribute other than ``__version__`` should raise
+    ``AttributeError``."""
 
     trend_module = _reload_trend(monkeypatch, lambda name: "1.2.3")
 
