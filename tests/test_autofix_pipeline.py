@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+import scripts.auto_type_hygiene as auto_type_hygiene
 from scripts.auto_type_hygiene import process_file
 
 
@@ -25,15 +26,21 @@ def _run(cmd: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
 
 
 @pytest.mark.integration
-def test_autofix_pipeline_fixes_trivial_ruff_issue(tmp_path: Path) -> None:
+def test_autofix_pipeline_fixes_trivial_ruff_issue(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     pytest.importorskip("ruff")
     pytest.importorskip("isort")
     pytest.importorskip("docformatter")
     pytest.importorskip("black")
 
+    # Ensure the type-hygiene helper treats ``yaml`` as untyped even if local
+    # test stubs exist elsewhere in the repository.
+    monkeypatch.setattr(auto_type_hygiene, "SRC_DIRS", [tmp_path], raising=False)
+
     sample = tmp_path / "bad_format.py"
     sample.write_text(
-        "import yaml\n\n\ndef add(a,b):\n    return  a + b\n",
+        'import os\nimport yaml\n\n\ndef add(a,b):\n    yaml.safe_load("[]")\n    return  a + b\n',
         encoding="utf-8",
     )
 
@@ -71,9 +78,15 @@ def test_autofix_pipeline_fixes_trivial_ruff_issue(tmp_path: Path) -> None:
     assert "return a + b" in content
 
 
-def test_auto_type_hygiene_adds_ignore(tmp_path: Path) -> None:
+def test_auto_type_hygiene_adds_ignore(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     sample = tmp_path / "module.py"
-    sample.write_text("import yaml\n", encoding="utf-8")
+    sample.write_text("import untyped_mod\n", encoding="utf-8")
+
+    module_name = "untyped_mod"
+    monkeypatch.setattr(auto_type_hygiene, "ALLOWLIST", [module_name])
+    monkeypatch.setattr(auto_type_hygiene, "SRC_DIRS", [], raising=False)
 
     changed, new_lines = process_file(sample)
     assert changed
