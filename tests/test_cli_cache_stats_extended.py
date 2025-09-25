@@ -47,3 +47,26 @@ def test_extract_cache_stats_returns_none_when_missing() -> None:
     }
 
     assert cli._extract_cache_stats(payload) is None
+
+
+def test_extract_cache_stats_skips_invalid_candidates_but_keeps_prior() -> None:
+    payload = {
+        "snapshots": [
+            {"entries": 1, "hits": 2, "misses": 3, "incremental_updates": 4},
+            {
+                "entries": "oops",
+                "hits": 6,
+                "misses": 7,
+                "incremental_updates": 8,
+            },
+        ]
+    }
+
+    stats = cli._extract_cache_stats(payload)
+
+    assert stats == {
+        "entries": 1,
+        "hits": 2,
+        "misses": 3,
+        "incremental_updates": 4,
+    }

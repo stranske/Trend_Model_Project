@@ -136,6 +136,22 @@ def test_run_analysis_no_funds():
     assert res is None
 
 
+def test_run_analysis_returns_none_when_window_missing():
+    df = make_df()
+
+    # In-sample window entirely before available data.
+    res_in_empty = pipeline.run_analysis(
+        df, "2019-01", "2019-03", "2020-04", "2020-06", 1.0, 0.0
+    )
+    assert res_in_empty is None
+
+    # Out-of-sample window after available data.
+    res_out_empty = pipeline.run_analysis(
+        df, "2020-01", "2020-03", "2021-01", "2021-03", 1.0, 0.0
+    )
+    assert res_out_empty is None
+
+
 def test_run_missing_csv_key(tmp_path):
     cfg = Config(
         version="1",

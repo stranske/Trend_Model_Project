@@ -41,6 +41,18 @@ def test_check_environment_missing_file(tmp_path, capsys):
     assert f"Lock file not found: {lock}" in out
 
 
+def test_check_environment_skips_non_pinned_lines(tmp_path, capsys):
+    lock = tmp_path / "req.lock"
+    lock.write_text("# comment\nwheel>=0.0\n\n", encoding="utf-8")
+
+    ret = cli.check_environment(lock)
+    out = capsys.readouterr().out
+
+    assert ret == 0
+    assert "wheel" not in out
+    assert "All packages match" in out
+
+
 def test_main_check_flag_without_subcommand(monkeypatch):
     called: dict[str, bool] = {}
 

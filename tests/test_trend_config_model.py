@@ -248,3 +248,137 @@ def test_validate_trend_config_reports_frequency_error_message(tmp_path: Path) -
         validate_trend_config(cfg, base_path=tmp_path)
 
     assert "data.frequency 'quarterlyish'" in str(exc.value)
+
+
+def test_validate_trend_config_locates_csv_relative_to_parent(tmp_path: Path) -> None:
+    base_dir = tmp_path / "configs"
+    base_dir.mkdir()
+    csv_file = tmp_path / "returns.csv"
+    csv_file.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
+
+    cfg_path = _write_config(
+        base_dir,
+        csv_file.relative_to(base_dir),
+    )
+
+    cfg = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
+    validated = validate_trend_config(cfg, base_path=base_dir)
+    assert validated.data.csv_path == csv_file.resolve()
+
+
+def test_validate_trend_config_rejects_directory_csv_path(tmp_path: Path) -> None:
+    csv_dir = tmp_path / "inputs"
+    csv_dir.mkdir()
+
+    cfg = {
+        "version": "1",
+        "data": {
+            "csv_path": str(csv_dir),
+            "date_column": "Date",
+            "frequency": "M",
+        },
+        "portfolio": {
+            "rebalance_calendar": "NYSE",
+            "max_turnover": 0.5,
+            "transaction_cost_bps": 10,
+        },
+        "vol_adjust": {"target_vol": 0.1},
+    }
+
+    with pytest.raises(ValueError) as exc:
+        validate_trend_config(cfg, base_path=tmp_path)
+
+    assert "points to a directory" in str(exc.value)
+
+
+def test_validate_trend_config_accepts_pathlike_managers_glob(tmp_path: Path) -> None:
+    manager_file = tmp_path / "fund.csv"
+    manager_file.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
+
+    cfg = {
+        "version": "1",
+        "data": {
+            "managers_glob": manager_file,
+            "date_column": "Date",
+            "frequency": "M",
+        },
+        "portfolio": {
+            "rebalance_calendar": "NYSE",
+            "max_turnover": 0.5,
+            "transaction_cost_bps": 10,
+        },
+        "vol_adjust": {"target_vol": 0.1},
+    }
+
+    validated = validate_trend_config(cfg, base_path=tmp_path)
+    assert validated.data.managers_glob == str(manager_file.resolve())
+
+
+def test_validate_trend_config_reports_validation_location(tmp_path: Path) -> None:
+    csv_file = tmp_path / "returns.csv"
+    csv_file.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
+
+    cfg = {
+        "version": "1",
+        "data": {
+            "csv_path": str(csv_file),
+            "date_column": "Date",
+            "frequency": "M",
+        },
+        "portfolio": {
+            "rebalance_calendar": "NYSE",
+            "max_turnover": 2,
+            "transaction_cost_bps": 10,
+        },
+        "vol_adjust": {"target_vol": 0.1},
+    }
+
+    with pytest.raises(ValueError) as exc:
+        validate_trend_config(cfg, base_path=tmp_path)
+
+    assert str(exc.value).startswith("portfolio.max_turnover")
+
+
+def test_load_trend_config_accepts_relative_file_without_suffix(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cfg_dir = tmp_path / "config"
+    cfg_dir.mkdir()
+    csv_file = tmp_path / "returns.csv"
+    csv_file.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
+
+    cfg_path = cfg_dir / "custom.yml"
+    cfg_path.write_text(
+        yaml.safe_dump(
+            {
+                "version": "1",
+                "data": {
+                    "csv_path": str(csv_file),
+                    "date_column": "Date",
+                    "frequency": "M",
+                },
+                "portfolio": {
+                    "rebalance_calendar": "NYSE",
+                    "max_turnover": 0.5,
+                    "transaction_cost_bps": 10,
+                },
+                "vol_adjust": {"target_vol": 0.1},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.chdir(cfg_dir)
+    cfg, resolved = load_trend_config("custom")
+    assert resolved == cfg_path.resolve()
+    assert cfg.data.csv_path == csv_file.resolve()
+
+
+def test_load_trend_config_rejects_non_mapping(tmp_path: Path) -> None:
+    cfg_path = tmp_path / "list.yml"
+    cfg_path.write_text("- item\n- other\n", encoding="utf-8")
+
+    with pytest.raises(TypeError) as exc:
+        load_trend_config(cfg_path)
+
+    assert "mapping" in str(exc.value)
