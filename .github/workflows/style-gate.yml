@@ -80,10 +80,14 @@ jobs:
         run: |
           echo "Running pinned mypy==${MYPY_VERSION}" >&2
           pip install pydantic streamlit >/dev/null
-          if ! mypy --config-file pyproject.toml src/trend_analysis src/trend_portfolio_app > mypy_report.txt; then
+          status=0
+          mypy --config-file pyproject.toml --show-column-numbers --error-format=json \
+            src/trend_analysis src/trend_portfolio_app > mypy_diagnostics.json || status=$?
+          python scripts/render_mypy_summary.py mypy_diagnostics.json mypy_report.txt
+          if [ "$status" -ne 0 ]; then
             echo "mypy failed" >&2
             cat mypy_report.txt
-            exit 1
+            exit "$status"
           fi
           echo "mypy: PASS" >> "$GITHUB_STEP_SUMMARY"
 
