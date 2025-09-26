@@ -20,9 +20,7 @@ def _run(
     result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
     if result.returncode not in ok_exit_codes:
         raise AssertionError(
-            "Command failed: {}\nReturn code: {}\nSTDOUT:\n{}\nSTDERR:\n{}".format(
-                " ".join(cmd), result.returncode, result.stdout, result.stderr
-            )
+            f"Command failed: {' '.join(cmd)}\nReturn code: {result.returncode}\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
         )
     return result
 
