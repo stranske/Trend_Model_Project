@@ -1,0 +1,44 @@
+name: "Update residual history"
+description: "Append the enriched residual classification snapshot to ci/autofix/history.json"
+inputs:
+  report:
+    description: "Path to the enriched residual report JSON"
+    required: false
+    default: autofix_report_enriched.json
+  script:
+    description: "Path to the Python updater script"
+    required: false
+    default: scripts/update_residual_history.py
+  history:
+    description: "Path to the residual history JSON"
+    required: false
+    default: ci/autofix/history.json
+runs:
+  using: "composite"
+  steps:
+    - name: Update residual history
+      shell: bash
+      run: |
+        set -euo pipefail
+        report="${{ inputs.report }}"
+        script="${{ inputs.script }}"
+        history="${{ inputs.history }}"
+        if [ ! -f "$report" ]; then
+          echo "[update-residual-history] Report $report not found; skipping history update."
+          exit 0
+        fi
+        if [ -f "$script" ]; then
+          if ! python "$script"; then
+            echo "[update-residual-history] Python updater failed; skipping artifact generation."
+            exit 0
+          fi
+        else
+          echo "[update-residual-history] Script $script not found; skipping history update."
+          exit 0
+        fi
+        if [ -f "$history" ] && [ -s "$history" ] && jq empty "$history" >/dev/null 2>&1; then
+          echo "[update-residual-history] Prepared $history artifact."
+        else
+          echo "[update-residual-history] History file missing or invalid; removing."
+          rm -f "$history" || true
+        fi
