@@ -465,6 +465,7 @@ jobs:
           else
             git diff > cosmetic-fixes.patch
             echo "has_patch=true" >> "$GITHUB_OUTPUT"
+          fi
       - name: Upload cosmetic patch
         if: steps.patch.outputs.has_patch == 'true'
         uses: actions/upload-artifact@v4
