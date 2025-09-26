@@ -4,6 +4,7 @@ import pathlib
 from typing import Any, Dict, Iterable
 
 import pytest
+
 import yaml
 
 WORKFLOWS = pathlib.Path(".github/workflows")

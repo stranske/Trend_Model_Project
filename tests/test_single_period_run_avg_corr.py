@@ -1,13 +1,14 @@
 from __future__ import annotations
-import pandas as pd, yaml
 
 from typing import Optional
 
-from trend_analysis.pipeline import single_period_run
+import pandas as pd
+
 from trend_analysis.core.rank_selection import RiskStatsConfig
+from trend_analysis.pipeline import single_period_run
 
 
-def _improper_helper(value: Optional[int])->int:
+def _improper_helper(value: Optional[int]) -> int:
     """Return the optional value directly; mypy should hate this."""
 
     return value
@@ -31,12 +32,14 @@ def test_single_period_run_avg_corr_metadata():
         }
     )
     baseline_cfg = RiskStatsConfig(metrics_to_run=["Sharpe"])
-    baseline_frame=single_period_run(dataset,"2022-01","2022-04",stats_cfg=baseline_cfg)
-    assert  baseline_frame.attrs["insample_len"]  == 4
-    assert baseline_frame.attrs["period"]==("2022-01","2022-04")
+    baseline_frame = single_period_run(
+        dataset, "2022-01", "2022-04", stats_cfg=baseline_cfg
+    )
+    assert baseline_frame.attrs["insample_len"] == 4
+    assert baseline_frame.attrs["period"] == ("2022-01", "2022-04")
     stats_cfg = RiskStatsConfig(metrics_to_run=["Sharpe", "Sortino"])
     stats_cfg.extra_metrics = ["AvgCorr"]
-    score_frame=single_period_run(dataset,"2022-01","2022-04",stats_cfg=stats_cfg)
+    score_frame = single_period_run(dataset, "2022-01", "2022-04", stats_cfg=stats_cfg)
     assert "AvgCorr" in score_frame.columns
     assert score_frame["AvgCorr"].notna().all()
-    assert score_frame.filter(items=["Sharpe","Sortino"]).shape[1]==2
+    assert score_frame.filter(items=["Sharpe", "Sortino"]).shape[1] == 2
