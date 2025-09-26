@@ -1,10 +1,10 @@
-tests/test_single_period_run_avg_corr.py:18:5: F841 Local variable `unused_marker` is assigned to but never used
+tests/test_pipeline_warmup_autofix.py:16:5: F841 Local variable `unused_marker` is assigned to but never used
    |
-17 | def test_single_period_run_avg_corr_metadata():
-18 |     unused_marker = "deliberately unused to trigger lint"
+15 | def test_run_analysis_warmup_zeroes_leading_rows() -> None:
+16 |     unused_marker = "lint should remove me"
    |     ^^^^^^^^^^^^^ F841
-19 |     dataset = pd.DataFrame(
-20 |         {
+17 |     dataset = pd.DataFrame(
+18 |         {
    |
    = help: Remove assignment to unused variable `unused_marker`
 
