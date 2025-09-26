@@ -121,9 +121,11 @@ def resolve_targets(paths: list[str] | None) -> list[Path]:
     return existing
 
 
-def run_mypy(config_file: str | None, targets: Iterable[Path]) -> tuple[str, str, int]:
+def run_mypy(
+    config_file: str | None, targets: Iterable[Path]
+) -> tuple[str, str, int, bool]:
     if mypy_api is None:  # pragma: no cover - happens only when mypy missing
-        return "", "mypy not available", 0
+        return "", "mypy not available", 0, True
 
     args: list[str] = [
         "--hide-error-context",
@@ -135,21 +137,49 @@ def run_mypy(config_file: str | None, targets: Iterable[Path]) -> tuple[str, str
         args += ["--config-file", str(cfg)]
     args += [str(path) for path in targets]
     stdout, stderr, status = mypy_api.run(args)
-    return stdout, stderr, status
+
+    if status == 2 and "--error-format=json" in (stderr or ""):
+        # Older mypy versions do not recognise --error-format=json. Retry using
+        # the default human-readable reporter and fall back to heuristic parsing.
+        fallback_args = [
+            "--hide-error-context",
+            "--show-column-numbers",
+        ]
+        if cfg and cfg.exists():
+            fallback_args += ["--config-file", str(cfg)]
+        fallback_args += [str(path) for path in targets]
+        stdout, stderr, status = mypy_api.run(fallback_args)
+        return stdout, stderr, status, False
+
+    return stdout, stderr, status, True
 
 
-def iter_diagnostics(output: str) -> Iterable[dict]:
+def iter_diagnostics(output: str, json_mode: bool) -> Iterable[dict]:
+    if json_mode:
+        for raw in output.splitlines():
+            line = raw.strip()
+            if not line:
+                continue
+            try:
+                data = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(data, dict):
+                continue
+            yield data
+        return
+
+    text_pattern = re.compile(
+        r"^(?P<path>[^:]+):(?P<line>\d+):(?P<column>\d+):\s*(?P<severity>error|warning):\s*(?P<message>.+)$"
+    )
     for raw in output.splitlines():
-        line = raw.strip()
-        if not line:
+        match = text_pattern.match(raw.strip())
+        if not match:
             continue
-        try:
-            data = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if not isinstance(data, dict):
-            continue
-        yield data
+        payload = match.groupdict()
+        payload["line"] = int(payload["line"])
+        payload["column"] = int(payload["column"])
+        yield payload
 
 
 def extract_missing_typing_symbol(message: str) -> str | None:
@@ -316,13 +346,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("[mypy_autofix] No targets to analyze; exiting.")
         return 0
 
-    stdout, stderr, exit_code = run_mypy(args.config_file, targets)
+    stdout, stderr, exit_code, json_mode = run_mypy(args.config_file, targets)
     if args.show_output and stdout:
         print(stdout)
     if stderr:
         print(stderr, file=sys.stderr)
 
-    diagnostics = list(iter_diagnostics(stdout))
+    diagnostics = list(iter_diagnostics(stdout, json_mode))
     missing_map = gather_missing_symbols(diagnostics)
 
     changed = False
