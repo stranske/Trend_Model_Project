@@ -27,7 +27,9 @@ requests
 # Development tools
 pre-commit
 black
+isort
 ruff
+docformatter
 mypy
 pytest-cov
 jsonschema
