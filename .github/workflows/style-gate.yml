@@ -108,15 +108,16 @@ jobs:
           echo "Running pinned mypy==${MYPY_VERSION}" >&2
           pip install pydantic streamlit >/dev/null
           status=0
-          mypy_version=$(mypy --version | awk '{print $2}')
-          if [ -z "$mypy_version" ]; then
-            mypy_version="${MYPY_VERSION}"
+          resolved_mypy_version=$(mypy --version | awk '{print $2}')
+          if [ -z "$resolved_mypy_version" ]; then
+            resolved_mypy_version="${MYPY_VERSION}"
           fi
-          if [ "$(printf '%s\n' "1.11.0" "$mypy_version" | sort -V | head -n1)" = "1.11.0" ]; then
+          if [ "$(printf '%s\n' "1.11.0" "$resolved_mypy_version" | sort -V | head -n1)" = "1.11.0" ]; then
             mypy --config-file pyproject.toml --show-column-numbers --error-format json \
               src/trend_analysis src/trend_portfolio_app > mypy_diagnostics.json 2> mypy_stderr.log || status=$?
             if [ "$status" -ne 0 ] && grep -q "unrecognized arguments: --error-format" mypy_stderr.log 2>/dev/null; then
-              echo "Detected mypy $mypy_version without JSON diagnostics support; falling back to text output" >&2
+              echo "Detected mypy $resolved_mypy_version without JSON diagnostics support; falling back to text output" >&2
+              status=0
               mypy --config-file pyproject.toml --show-column-numbers --show-error-codes --no-color-output \
                 src/trend_analysis src/trend_portfolio_app > mypy_plain.log 2>&1 || status=$?
               if [ "$status" -eq 0 ]; then
@@ -128,7 +129,7 @@ jobs:
               python scripts/render_mypy_summary.py mypy_diagnostics.json mypy_report.txt
             fi
           else
-            echo "Detected mypy $mypy_version without JSON diagnostics support; using text fallback" >&2
+            echo "Detected mypy $resolved_mypy_version without JSON diagnostics support; using text fallback" >&2
             mypy --config-file pyproject.toml --show-column-numbers --show-error-codes --no-color-output \
               src/trend_analysis src/trend_portfolio_app > mypy_plain.log 2>&1 || status=$?
             if [ "$status" -eq 0 ]; then
