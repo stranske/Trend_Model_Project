@@ -10,6 +10,9 @@ from scripts import build_autofix_pr_comment as comment_builder
 pytestmark = pytest.mark.cosmetic
 
 
+pytestmark = pytest.mark.cosmetic
+
+
 def test_build_comment_includes_metrics(tmp_path: pathlib.Path) -> None:
     report = {
         "changed": True,

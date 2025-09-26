@@ -16,6 +16,9 @@ from trend_analysis.export import (
 pytestmark = pytest.mark.cosmetic
 
 
+pytestmark = pytest.mark.cosmetic
+
+
 @pytest.fixture
 def formatters_excel_registry():
     """Yield with a clean FORMATTERS_EXCEL registry and restore afterward."""

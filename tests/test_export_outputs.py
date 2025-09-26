@@ -15,6 +15,9 @@ from trend_analysis.export import (
 pytestmark = pytest.mark.cosmetic
 
 
+pytestmark = pytest.mark.cosmetic
+
+
 @pytest.fixture(autouse=True)
 def restore_formatters():
     """Ensure tests do not leak formatter registrations."""

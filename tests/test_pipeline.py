@@ -8,6 +8,9 @@ from trend_analysis.core.rank_selection import RiskStatsConfig, canonical_metric
 pytestmark = pytest.mark.runtime
 
 
+pytestmark = pytest.mark.runtime
+
+
 def make_cfg(tmp_path, df):
     csv = tmp_path / "data.csv"
     df.to_csv(csv, index=False)
