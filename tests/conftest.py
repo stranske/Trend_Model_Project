@@ -36,11 +36,19 @@ if str(SRC) not in sys.path:
 
 def pytest_collection_modifyitems(config, items):
     qfile = pathlib.Path(__file__).with_name("quarantine.yml")
-    if not qfile.exists() or yaml is None:
-        return
-    data = yaml.safe_load(qfile.read_text()) or {}
-    bad = {t["id"] for t in data.get("tests", [])}
+    if qfile.exists() and yaml is not None:
+        data = yaml.safe_load(qfile.read_text()) or {}
+        bad = {t["id"] for t in data.get("tests", [])}
+        for it in items:
+            if it.nodeid in bad:
+                it.add_marker(pytest.mark.quarantine(reason="repo quarantine list"))
+                it.add_marker(pytest.mark.xfail(reason="quarantined", strict=False))
+
     for it in items:
-        if it.nodeid in bad:
-            it.add_marker(pytest.mark.quarantine(reason="repo quarantine list"))
-            it.add_marker(pytest.mark.xfail(reason="quarantined", strict=False))
+        markers = sorted({marker.name for marker in it.iter_markers()})
+        if not markers:
+            continue
+        existing_keys = {name for name, _ in getattr(it, "user_properties", [])}
+        if "test_markers" in existing_keys:
+            continue
+        it.user_properties.append(("test_markers", ",".join(markers)))

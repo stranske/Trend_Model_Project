@@ -152,6 +152,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: [core-tests]
     if: always()
+    outputs:
+      has_failures: ${{ steps.classify.outputs.has_failures }}
+      only_cosmetic: ${{ steps.classify.outputs.only_cosmetic }}
+      summary_b64: ${{ steps.classify.outputs.summary_b64 }}
     permissions:
       contents: read
       issues: write
@@ -162,6 +166,48 @@ jobs:
         with:
           pattern: coverage-*
           merge-multiple: true
+      - name: Classify test outcomes
+        id: classify
+        shell: python
+        run: |
+          import base64
+          import glob
+          import json
+          import os
+
+          from scripts.classify_test_failures import classify_reports
+
+          paths = sorted(glob.glob('pytest-report-*.xml'))
+          summary = classify_reports(paths)
+          with open('test-failure-summary.json', 'w', encoding='utf-8') as handle:
+            json.dump(summary, handle, indent=2)
+
+          if summary.get('has_failures'):
+            print('Detected failing tests:')
+            for bucket in ('runtime', 'cosmetic', 'unknown'):
+              entries = summary.get(bucket, []) or []
+              if not entries:
+                continue
+              print(f"  {bucket}: {len(entries)}")
+              for entry in entries:
+                print(f"    - {entry['id']} ({', '.join(entry.get('markers', [])) or 'unmarked'})")
+          else:
+            print('No failing tests detected across JUnit reports.')
+
+          encoded = base64.b64encode(json.dumps(summary).encode('utf-8')).decode('ascii')
+          out_path = os.environ.get('GITHUB_OUTPUT')
+          if out_path:
+            with open(out_path, 'a', encoding='utf-8') as fh:
+              fh.write(f"has_failures={'true' if summary.get('has_failures') else 'false'}\n")
+              fh.write(f"only_cosmetic={'true' if summary.get('only_cosmetic') else 'false'}\n")
+              fh.write(f"summary_b64={encoded}\n")
+      - name: Upload test failure summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-failure-summary
+          path: test-failure-summary.json
+          retention-days: 10
       - name: Compute coverage summary & hotspots
         id: cov
         shell: python
@@ -357,6 +403,114 @@ jobs:
               echo ""
             fi
           } >> "$GITHUB_STEP_SUMMARY"
+  cosmetic-followup:
+    name: cosmetic failure triage
+    runs-on: ubuntu-latest
+    needs: [core-tests, coverage-soft-gate]
+    if: needs.core-tests.result != 'success' && needs.coverage-soft-gate.outputs.has_failures == 'true' && needs.coverage-soft-gate.outputs.only_cosmetic == 'true'
+    permissions:
+      contents: read
+      pull-requests: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run cosmetic auto-hygiene
+        run: |
+          python scripts/auto_type_hygiene.py
+      - name: Summarise cosmetic failures
+        id: cosmetic
+        shell: python
+        env:
+          SUMMARY_B64: ${{ needs.coverage-soft-gate.outputs.summary_b64 }}
+        run: |
+          import base64
+          import json
+          import os
+
+          summary_data = {}
+          payload = os.environ.get('SUMMARY_B64')
+          if payload:
+            summary_data = json.loads(base64.b64decode(payload).decode('utf-8'))
+          cosmetic = summary_data.get('cosmetic', []) if isinstance(summary_data, dict) else []
+          lines = []
+          for entry in cosmetic:
+            markers = entry.get('markers') or []
+            marker_text = f" ({', '.join(markers)})" if markers else ''
+            message = entry.get('message', '')
+            if message:
+              message = message.splitlines()[0]
+              message = f" — {message}"
+            lines.append(f"- `{entry.get('id', '<unknown>')}`{marker_text}{message}")
+
+          if not lines:
+            lines.append('- No detailed cosmetic failures captured.')
+
+          with open('cosmetic_failures.md', 'w', encoding='utf-8') as fh:
+            fh.write("\n".join(lines) + "\n")
+
+          out = os.environ.get('GITHUB_OUTPUT')
+          if out:
+            with open(out, 'a', encoding='utf-8') as handle:
+              handle.write(f"has_details={'true' if cosmetic else 'false'}\n")
+      - name: Capture fixer diff
+        id: patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "has_patch=false" >> "$GITHUB_OUTPUT"
+          else
+            git diff > cosmetic-fixes.patch
+            echo "has_patch=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Upload cosmetic patch
+        if: steps.patch.outputs.has_patch == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cosmetic-fixes
+          path: cosmetic-fixes.patch
+          retention-days: 5
+      - name: Post advisory comment for cosmetic failures
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        env:
+          SUMMARY_B64: ${{ needs.coverage-soft-gate.outputs.summary_b64 }}
+          HAS_PATCH: ${{ steps.patch.outputs.has_patch }}
+        with:
+          script: |
+            const summaryPayload = process.env.SUMMARY_B64 || '';
+            if (!summaryPayload) {
+              core.info('No summary payload found; skipping cosmetic comment.');
+              return;
+            }
+            const summary = JSON.parse(Buffer.from(summaryPayload, 'base64').toString('utf8'));
+            const cosmetic = Array.isArray(summary.cosmetic) ? summary.cosmetic : [];
+            if (!cosmetic.length) {
+              core.info('No cosmetic failures detected; skipping comment.');
+              return;
+            }
+            const list = cosmetic.map(entry => {
+              const markers = entry.markers && entry.markers.length ? ` (${entry.markers.join(', ')})` : '';
+              return `- \`${entry.id}\`${markers}`;
+            }).join('\n');
+            const patchNote = process.env.HAS_PATCH === 'true'
+              ? '\nA cosmetic fix patch is available as an artifact on this run.'
+              : '';
+            const body = [
+              '⚠️ Detected cosmetic-only test failures. CI remains in advisory mode.',
+              '',
+              list,
+              '',
+              'Automation attempted to apply lightweight fixes. Please review the results and rerun the pipeline.',
+              patchNote.trim()
+            ].filter(Boolean).join('\n');
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            core.info('Posted cosmetic failure advisory comment.');
   remove-green-on-fail:
     name: strip ci:green on failure
     runs-on: ubuntu-latest
