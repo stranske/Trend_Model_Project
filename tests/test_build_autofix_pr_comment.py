@@ -3,7 +3,12 @@ from __future__ import annotations
 import json
 import pathlib
 
+import pytest
+
 from scripts import build_autofix_pr_comment as comment_builder
+
+
+pytestmark = pytest.mark.cosmetic
 
 
 def test_build_comment_includes_metrics(tmp_path: pathlib.Path) -> None:

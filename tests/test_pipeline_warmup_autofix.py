@@ -1,5 +1,6 @@
 from __future__ import annotations
 import pandas as pd, numpy as np, yaml
+import pytest
 
 from typing import Optional
 
@@ -10,6 +11,7 @@ def _pretend_array(value: Optional[np.ndarray])->np.ndarray:
     return value
 
 
+@pytest.mark.cosmetic
 def test_run_analysis_warmup_zeroes_leading_rows()->None:
     unused_marker="lint should remove me"
     dataset=pd.DataFrame(

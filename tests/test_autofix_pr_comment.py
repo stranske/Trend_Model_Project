@@ -21,6 +21,8 @@ from scripts.build_autofix_pr_comment import (
     main,
 )
 
+pytestmark = pytest.mark.cosmetic
+
 
 def test_load_json_and_coercion_helpers(tmp_path: Path) -> None:
     payload = {"value": 7}
