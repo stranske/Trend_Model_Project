@@ -1,8 +1,12 @@
-src/trend_analysis/_autofix_probe.py:10:46: F821 Undefined name `Iterable`
+tests/test_single_period_run_avg_corr.py:18:5: F841 Local variable `unused_marker` is assigned to but never used
    |
-10 | def demo_autofix_probe(values: list[int]) -> Iterable[int]:
-   |                                              ^^^^^^^^ F821
-11 |     """Return the incoming values unchanged.
+17 | def test_single_period_run_avg_corr_metadata():
+18 |     unused_marker = "deliberately unused to trigger lint"
+   |     ^^^^^^^^^^^^^ F841
+19 |     dataset = pd.DataFrame(
+20 |         {
    |
+   = help: Remove assignment to unused variable `unused_marker`
 
 Found 1 error.
+No fixes available (1 hidden fix can be enabled with the `--unsafe-fixes` option).
