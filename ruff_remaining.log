@@ -1,1 +1,8 @@
-All checks passed!
+src/trend_analysis/_autofix_probe.py:10:46: F821 Undefined name `Iterable`
+   |
+10 | def demo_autofix_probe(values: list[int]) -> Iterable[int]:
+   |                                              ^^^^^^^^ F821
+11 |     """Return the incoming values unchanged.
+   |
+
+Found 1 error.
