@@ -28,12 +28,15 @@ import re
 import sys
 from collections import defaultdict
 from pathlib import Path
-from typing import Iterable, Mapping, Sequence
+from typing import Any, DefaultDict, Iterable, Mapping, Sequence, cast
 
 try:  # pragma: no cover - exercised in integration contexts
-    from mypy import api as mypy_api
+    from mypy import api as _mypy_api
 except ImportError:  # pragma: no cover - mypy not installed
-    mypy_api = None
+    _mypy_api = cast(Any, None)
+mypy_api: Any | None = _mypy_api
+
+Diagnostic = dict[str, Any]
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_TARGETS = [ROOT / "src", ROOT / "tests"]
@@ -154,7 +157,7 @@ def run_mypy(
     return stdout, stderr, status, True
 
 
-def iter_diagnostics(output: str, json_mode: bool) -> Iterable[dict]:
+def iter_diagnostics(output: str, json_mode: bool) -> Iterable[Diagnostic]:
     if json_mode:
         for raw in output.splitlines():
             line = raw.strip()
@@ -166,7 +169,7 @@ def iter_diagnostics(output: str, json_mode: bool) -> Iterable[dict]:
                 continue
             if not isinstance(data, dict):
                 continue
-            yield data
+            yield cast(Diagnostic, data)
         return
 
     text_pattern = re.compile(
@@ -177,9 +180,14 @@ def iter_diagnostics(output: str, json_mode: bool) -> Iterable[dict]:
         if not match:
             continue
         payload = match.groupdict()
-        payload["line"] = int(payload["line"])
-        payload["column"] = int(payload["column"])
-        yield payload
+        diag: Diagnostic = {
+            "path": payload.get("path"),
+            "line": int(payload["line"]),
+            "column": int(payload["column"]),
+            "severity": payload.get("severity"),
+            "message": payload.get("message"),
+        }
+        yield diag
 
 
 def extract_missing_typing_symbol(message: str) -> str | None:
@@ -192,19 +200,21 @@ def extract_missing_typing_symbol(message: str) -> str | None:
     return None
 
 
-def gather_missing_symbols(diags: Iterable[dict]) -> Mapping[Path, set[str]]:
-    missing: dict[Path, set[str]] = defaultdict(set)
+def gather_missing_symbols(diags: Iterable[Diagnostic]) -> Mapping[Path, set[str]]:
+    missing: DefaultDict[Path, set[str]] = defaultdict(set)
     for diag in diags:
-        if diag.get("severity") not in {"error", "warning"}:
+        severity = diag.get("severity")
+        if not isinstance(severity, str) or severity not in {"error", "warning"}:
             continue
-        message = diag.get("message") or ""
+        message_obj = diag.get("message")
+        message = message_obj if isinstance(message_obj, str) else ""
         symbol = extract_missing_typing_symbol(message)
         if not symbol:
             continue
-        path_str = diag.get("path") or diag.get("file")
-        if not path_str:
+        path_candidate = diag.get("path") or diag.get("file")
+        if not isinstance(path_candidate, str):
             continue
-        path = Path(path_str)
+        path = Path(path_candidate)
         if not path.is_file():
             continue
         missing[path].add(symbol)

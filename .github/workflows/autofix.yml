@@ -296,24 +296,7 @@ jobs:
 
       - name: Update residual history (same-repo)
         if: needs.context.outputs.same_repo == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ ! -f autofix_report_enriched.json ]; then
-            echo "[autofix] No enriched report found; skipping residual history update.";
-            exit 0;
-          fi
-          if [ -f scripts/update_residual_history.py ]; then
-            python scripts/update_residual_history.py || echo "[autofix] Residual history update failed";
-          else
-            echo "[autofix] scripts/update_residual_history.py not present; skipping";
-          fi
-          if [ -f ci/autofix/history.json ] && [ -s ci/autofix/history.json ] && jq empty ci/autofix/history.json >/dev/null 2>&1; then
-            echo "[autofix] Prepared ci/autofix/history.json artifact";
-          else
-            echo "[autofix] history.json missing or invalid; removing";
-            rm -f ci/autofix/history.json || true;
-          fi
+        uses: ./.github/actions/update-residual-history
 
       - name: Upload autofix history artifact (same-repo)
         if: needs.context.outputs.same_repo == 'true'
@@ -368,14 +351,27 @@ jobs:
           set -euo pipefail
           ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           if [ -f autofix_report_enriched.json ]; then
-            python -c "import json,os;from datetime import datetime,timezone as TZ;meta={'pull_request':os.environ.get('PR_NUMBER'),'timestamp_utc':datetime.now(TZ.utc).strftime('%Y-%m-%dT%H:%M:%SZ')};\nimport pathlib;\ntry: data=json.load(open('autofix_report_enriched.json'));\nexcept Exception: data={};\nif isinstance(data, dict): data.update(meta);\nelse: data={'meta':meta,'raw':data};\njson.dump(data, open('autofix_report.json','w'), indent=2, sort_keys=True)" || printf '{\n  "error": "merge_failed"\n}\n' > autofix_report.json
+            if python scripts/merge_autofix_report.py \
+              --input autofix_report_enriched.json \
+              --output autofix_report.json \
+              --pr-number "${PR_NUMBER}" \
+              --timestamp "${ts}"; then
+              :
+            else
+              printf '{\n  "changed": "%s",\n  "remaining_issues": "%s",\n  "new_issues": "%s",\n  "pull_request": "%s",\n  "timestamp_utc": "%s"\n}\n' \
+                "${CHANGED}" \
+                "${REMAINING}" \
+                "${NEW_ISSUES}" \
+                "${PR_NUMBER}" \
+                "${ts}" > autofix_report.json
+            fi
           else
             printf '{\n  "changed": "%s",\n  "remaining_issues": "%s",\n  "new_issues": "%s",\n  "pull_request": "%s",\n  "timestamp_utc": "%s"\n}\n' \
               "${CHANGED}" \
               "${REMAINING}" \
               "${NEW_ISSUES}" \
               "${PR_NUMBER}" \
-              "$ts" > autofix_report.json
+              "${ts}" > autofix_report.json
           fi
           echo "Enriched report ready."
 
@@ -530,14 +526,27 @@ jobs:
           set -euo pipefail
           ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           if [ -f autofix_report_enriched.json ]; then
-            python -c "import json,os;from datetime import datetime,timezone as TZ;meta={'pull_request':os.environ.get('PR_NUMBER'),'timestamp_utc':datetime.now(TZ.utc).strftime('%Y-%m-%dT%H:%M:%SZ')};\nimport pathlib;\ntry: data=json.load(open('autofix_report_enriched.json'));\nexcept Exception: data={};\nif isinstance(data, dict): data.update(meta);\nelse: data={'meta':meta,'raw':data};\njson.dump(data, open('autofix_report.json','w'), indent=2, sort_keys=True)" || printf '{\n  "error": "merge_failed"\n}\n' > autofix_report.json
+            if python scripts/merge_autofix_report.py \
+              --input autofix_report_enriched.json \
+              --output autofix_report.json \
+              --pr-number "${PR_NUMBER}" \
+              --timestamp "${ts}"; then
+              :
+            else
+              printf '{\n  "changed": "%s",\n  "remaining_issues": "%s",\n  "new_issues": "%s",\n  "pull_request": "%s",\n  "timestamp_utc": "%s"\n}\n' \
+                "${CHANGED}" \
+                "${REMAINING}" \
+                "${NEW_ISSUES}" \
+                "${PR_NUMBER}" \
+                "${ts}" > autofix_report.json
+            fi
           else
             printf '{\n  "changed": "%s",\n  "remaining_issues": "%s",\n  "new_issues": "%s",\n  "pull_request": "%s",\n  "timestamp_utc": "%s"\n}\n' \
               "${CHANGED}" \
               "${REMAINING}" \
               "${NEW_ISSUES}" \
               "${PR_NUMBER}" \
-              "$ts" > autofix_report.json
+              "${ts}" > autofix_report.json
           fi
           echo "Enriched report ready."
 
