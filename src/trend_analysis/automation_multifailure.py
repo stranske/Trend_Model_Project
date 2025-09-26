@@ -1,7 +1,9 @@
 """Intentional type mismatch module for workflow automation validation.
 
-This module deliberately returns the wrong type so that mypy detects an error.
+This module deliberately returns the wrong type so that mypy detects an
+error.
 """
+
 from __future__ import annotations
 
 from typing import Iterable

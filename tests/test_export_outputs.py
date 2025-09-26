@@ -12,7 +12,6 @@ from trend_analysis.export import (
     export_to_txt,
 )
 
-
 pytestmark = pytest.mark.cosmetic
 
 
