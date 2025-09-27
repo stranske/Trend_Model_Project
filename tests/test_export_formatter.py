@@ -13,6 +13,8 @@ from trend_analysis.export import (
     make_summary_formatter,
 )
 
+pytestmark = pytest.mark.cosmetic
+
 
 pytestmark = pytest.mark.cosmetic
 

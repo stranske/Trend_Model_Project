@@ -7,6 +7,8 @@ import pytest
 
 from scripts import build_autofix_pr_comment as comment_builder
 
+pytestmark = pytest.mark.cosmetic
+
 
 pytestmark = pytest.mark.cosmetic
 
