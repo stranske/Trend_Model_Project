@@ -1,10 +1,10 @@
 from __future__ import annotations
-import pandas as pd
-import numpy as np
-import pytest
-import yaml
 
 from typing import Optional
+
+import numpy as np
+import pandas as pd
+import pytest
 
 from trend_analysis.pipeline import _run_analysis, run_analysis
 
