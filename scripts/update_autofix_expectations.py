@@ -9,12 +9,19 @@ update in-place.
 from __future__ import annotations
 
 import importlib
+import sys
 import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
+
+
+def _ensure_repo_on_path() -> None:
+    repo_root = str(ROOT)
+    if repo_root not in sys.path:
+        sys.path.insert(0, repo_root)
 
 
 @dataclass
@@ -55,6 +62,7 @@ def _update_constant(path: Path, constant: str, value: Any) -> bool:
 
 
 def main() -> int:
+    _ensure_repo_on_path()
     changed = False
     for target in TARGETS:
         module = importlib.import_module(target.module)
@@ -62,7 +70,10 @@ def main() -> int:
         if compute is None:
             continue
         value = compute()
-        module_path = Path(module.__file__).resolve()
+        module_file = getattr(module, "__file__", None)
+        if module_file is None:
+            continue
+        module_path = Path(module_file).resolve()
         if _update_constant(module_path, target.constant_name, value):
             print(
                 f"[update_autofix_expectations] Updated {target.constant_name} in"

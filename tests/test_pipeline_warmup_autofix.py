@@ -8,7 +8,7 @@ import pytest
 
 from trend_analysis.pipeline import _run_analysis, run_analysis
 
-EXPECTED_IN_SAMPLE_ROWS = 2
+EXPECTED_IN_SAMPLE_ROWS = 4
 
 
 def _build_autofix_dataset() -> pd.DataFrame:

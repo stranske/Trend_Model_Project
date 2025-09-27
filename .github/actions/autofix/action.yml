@@ -123,6 +123,25 @@ runs:
           echo "(skip) scripts/update_autofix_expectations.py not found"
         fi
 
+    - name: Rewrite unsafe NumPy equality asserts
+      id: numpyfix
+      shell: bash
+      run: |
+        echo "[autofix] Phase 2c: rewriting NumPy equality asserts"
+        if [ -f scripts/fix_numpy_asserts.py ]; then
+          python scripts/fix_numpy_asserts.py || true
+          if ! git diff --quiet; then
+            echo "[autofix] Snapshot after NumPy assert rewrite"
+            git status --short
+            echo "[autofix] Normalising formatting after NumPy rewrite"
+            isort tests || true
+            black tests || true
+            ruff check tests --fix --exit-zero || true
+          fi
+        else
+          echo "(skip) scripts/fix_numpy_asserts.py not found"
+        fi
+
     - name: Classify residual diagnostics
       id: classify
       shell: bash

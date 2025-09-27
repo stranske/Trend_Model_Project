@@ -18,7 +18,6 @@ The command can be run standalone and is idempotent.
 from __future__ import annotations
 
 import ast
-import json
 import os
 import re
 import subprocess
@@ -36,8 +35,7 @@ MYPY_CMD: list[str] = [
     "--hide-error-context",
     "--no-color-output",
     "--show-error-codes",
-    "--pretty",
-    "--error-format=json",
+    "--no-error-summary",
     "src",
     "tests",
 ]
@@ -99,19 +97,20 @@ def _collect_mypy_issues() -> list[MypyIssue]:
         check=False,
     )
     issues: list[MypyIssue] = []
+    pattern = re.compile(
+        r"^(?P<path>[^:]+):(?P<line>\d+)(?::\d+)?: error: (?P<message>.+?)\s+\[(?P<code>[^\]]+)\]$"
+    )
     for raw_line in proc.stdout.splitlines():
         raw_line = raw_line.strip()
         if not raw_line:
             continue
-        try:
-            payload = json.loads(raw_line)
-        except json.JSONDecodeError:
+        match_line = pattern.match(raw_line)
+        if not match_line:
             continue
-        if payload.get("type") != "error":
+        code = match_line.group("code")
+        if code not in SUPPORTED_CODES:
             continue
-        if payload.get("error_code") not in SUPPORTED_CODES:
-            continue
-        message = payload.get("message", "")
+        message = match_line.group("message")
         match = RETURN_RE.search(message) or ALT_RETURN_RE.search(message)
         if not match:
             continue
@@ -121,17 +120,13 @@ def _collect_mypy_issues() -> list[MypyIssue]:
             continue
         if actual.lower() == "any":
             continue
-        path = (
-            ROOT / payload["path"]
-            if "path" in payload
-            else ROOT / payload.get("file", "")
-        )
-        path = path.resolve()
+        rel_path = match_line.group("path")
+        path = (ROOT / rel_path).resolve()
         if not path.exists():
             continue
         if not any(path.is_relative_to(base) for base in PROJECT_DIRS if base.exists()):
             continue
-        line = int(payload.get("line", 0) or 0)
+        line = int(match_line.group("line"))
         if line <= 0:
             continue
         issues.append(MypyIssue(path=path, line=line, actual=actual, expected=expected))
