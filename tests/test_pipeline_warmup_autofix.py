@@ -8,7 +8,6 @@ import pytest
 
 from trend_analysis.pipeline import _run_analysis, run_analysis
 
-
 EXPECTED_IN_SAMPLE_ROWS = 2
 
 
@@ -54,7 +53,6 @@ def _pretend_array(value: Optional[np.ndarray]) -> np.ndarray:
 
 @pytest.mark.cosmetic
 def test_run_analysis_warmup_zeroes_leading_rows() -> None:
-    unused_marker = "lint should remove me"
     dataset = pd.DataFrame(
         {
             "Date": pd.to_datetime(
@@ -87,7 +85,6 @@ def test_run_analysis_warmup_zeroes_leading_rows() -> None:
 @pytest.mark.cosmetic
 def test_run_analysis_additional_metrics_coverages() -> None:
     """Intentional diagnostic additions for automation workflow coverage."""
-    unused_debug_marker = "automation should remove this variable"
     dataset = _build_autofix_dataset()
     result: int = run_analysis(
         dataset,
