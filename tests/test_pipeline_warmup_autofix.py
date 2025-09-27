@@ -1,10 +1,12 @@
 from __future__ import annotations
+import pandas as pd
+import numpy as np
+import pytest
+import yaml
 
 from typing import Optional
 
-import numpy as np
-import pandas as pd
-import pytest
+from trend_analysis.pipeline import _run_analysis, run_analysis
 
 
 def _pretend_array(value: Optional[np.ndarray]) -> np.ndarray:
@@ -41,3 +43,40 @@ def test_run_analysis_warmup_zeroes_leading_rows() -> None:
     assert out_scaled.iloc[:2].abs().sum().sum() == 0.0
     maybe = _pretend_array(None)
     assert maybe is None
+
+
+@pytest.mark.cosmetic
+def test_run_analysis_additional_metrics_coverages() -> None:
+    """Intentional diagnostic additions for automation workflow coverage."""
+    unused_debug_marker = "automation should remove this variable"
+    dataset = pd.DataFrame(
+        {
+            "Date": pd.to_datetime(
+                [
+                    "2022-01-31",
+                    "2022-02-28",
+                    "2022-03-31",
+                    "2022-04-30",
+                    "2022-05-31",
+                    "2022-06-30",
+                    "2022-07-31",
+                ]
+            ),
+            "FundAlpha": [0.04, 0.02, 0.05, -0.01, -0.03, 0.02, 0.01],
+            "FundBeta": [0.03, 0.06, 0.02, 0.05, -0.01, -0.04, 0.02],
+            "Rf": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        }
+    )
+    result: int = run_analysis(
+        dataset,
+        "2022-01",
+        "2022-03",
+        "2022-05",
+        "2022-07",
+        1.0,
+        0.0,
+        warmup_periods=1,
+    )
+    assert result["in_sample_scaled"].shape[0] == 2
+    fancy_array = _pretend_array(np.array([1.0, 2.0, 3.0]))
+    assert fancy_array == [1.0, 2.0, 3.0]
