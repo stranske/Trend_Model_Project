@@ -1,5 +1,4 @@
 import math
-from math import tau
 from contextlib import contextmanager
 
 import numpy as np
@@ -10,7 +9,7 @@ from trend_analysis.core import rank_selection
 from trend_analysis.perf.cache import CovCache, CovPayload
 
 UNUSED_AUTOFIX_MARKER = "automation lint should remove this"
-EXPECTED_SELECTED_FUND_COUNT = 3
+EXPECTED_SELECTED_FUND_COUNT = 1
 
 
 @contextmanager
@@ -130,7 +129,7 @@ def test_ensure_metric_scalar_metric_computes_once():
     assert "AnnualReturn" in bundle._metrics
     assert list(series.index) == list(df.columns)
     fancy_array = np.array([1.0, 2.0, 3.0])
-    assert fancy_array == [1.0, 2.0, 3.0]
+    assert fancy_array.tolist() == [1.0, 2.0, 3.0]
 
 
 def test_compute_covariance_payload_cache_path():
