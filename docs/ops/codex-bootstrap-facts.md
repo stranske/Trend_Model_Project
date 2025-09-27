@@ -107,7 +107,12 @@ This catalog explains what each active workflow does, how it’s triggered, the 
    - Triggers: `pull_request` (various types) on `phase-2-dev`/`main`
    - Jobs: `autofix`
      - Calls reusable workflow `reuse-autofix.yml` with repo defaults (label, commit prefix)
-     - Uses local composite `.github/actions/autofix` which only runs fixers and exposes `outputs.changed`
+     - Uses local composite `.github/actions/autofix` which now chains:
+       1. Safe Ruff/isort/black/docformatter passes
+       2. Targeted unsafe Ruff fixes for F401/F841
+       3. Mypy return-type autofix (`scripts/mypy_return_autofix.py`)
+       4. Autofixable test expectation refresh (`scripts/update_autofix_expectations.py`)
+       The composite exposes `outputs.changed` after all phases.
      - Same‑repo PRs: commits `autofix(ci): …` and pushes directly to the PR branch
      - Fork PRs: generates `autofix.patch` (`git format-patch -1 --stdout`), uploads as `autofix-patch-pr-<num>`, and comments on the PR with apply instructions (`git am < autofix.patch`; push to branch)
      - The job summary reports whether changes were applied and whether this was a same‑repo or fork path. For forks, it includes the artifact name

@@ -8,7 +8,7 @@ inputs:
 outputs:
   changed:
     description: "Whether any files were modified by the fixers"
-    value: ${{ steps.runfix.outputs.changed }}
+    value: ${{ steps.finalize.outputs.changed }}
   remaining_issues:
     description: "Count of unresolved ruff diagnostics after autofix phase"
     value: ${{ steps.classify.outputs.remaining_issues }}
@@ -52,6 +52,14 @@ runs:
         echo "[autofix] Phase 1b: second ruff pass to capture post-format unlocks"
         ruff check --fix --exit-zero .
 
+        echo "[autofix] Phase 1c: applying targeted unsafe fixes for lint-only issues"
+        # Allow Ruff to drop unused imports/variables (F401/F841) when safe fixes were insufficient.
+        ruff check --select F401,F841 --fix --unsafe-fixes --exit-zero .
+        # Normalise style after unsafe edits.
+        isort .
+        black .
+        ruff check --fix --exit-zero .
+
         echo "[autofix] Phase 2: collect remaining ruff diagnostics (non-fatal)"
         # Capture diagnostics (text + JSON); never fail this job here
         if ! ruff check . > ruff_remaining.log 2>&1; then
@@ -83,7 +91,56 @@ runs:
         # Optional warm cache (do not fail build)
         mypy src/ --ignore-missing-imports --follow-imports=silent > /dev/null 2>&1 || true
 
-        if ! git diff --quiet; then echo "changed=true" >> $GITHUB_OUTPUT; else echo "changed=false" >> $GITHUB_OUTPUT; fi
+    - name: Targeted mypy return autofix
+      id: mypyfix
+      shell: bash
+      run: |
+        echo "[autofix] Phase 2a: targeted return-type fixes"
+        if [ -f scripts/mypy_return_autofix.py ]; then
+          python scripts/mypy_return_autofix.py || true
+          if ! git diff --quiet; then
+            echo "[autofix] Post-mypy formatting sweep"
+            isort .
+            black .
+            ruff check --fix --exit-zero .
+          fi
+        else
+          echo "(skip) scripts/mypy_return_autofix.py not found"
+        fi
+
+    - name: Refresh autofixable test expectations
+      id: testfix
+      shell: bash
+      run: |
+        echo "[autofix] Phase 2b: refreshing autofix-enabled pytest expectations"
+        if [ -f scripts/update_autofix_expectations.py ]; then
+          python scripts/update_autofix_expectations.py || true
+          if ! git diff --quiet; then
+            echo "[autofix] Snapshot after expectation refresh"
+            git status --short
+          fi
+        else
+          echo "(skip) scripts/update_autofix_expectations.py not found"
+        fi
+
+    - name: Rewrite unsafe NumPy equality asserts
+      id: numpyfix
+      shell: bash
+      run: |
+        echo "[autofix] Phase 2c: rewriting NumPy equality asserts"
+        if [ -f scripts/fix_numpy_asserts.py ]; then
+          python scripts/fix_numpy_asserts.py || true
+          if ! git diff --quiet; then
+            echo "[autofix] Snapshot after NumPy assert rewrite"
+            git status --short
+            echo "[autofix] Normalising formatting after NumPy rewrite"
+            isort tests || true
+            black tests || true
+            ruff check tests --fix --exit-zero || true
+          fi
+        else
+          echo "(skip) scripts/fix_numpy_asserts.py not found"
+        fi
 
     - name: Classify residual diagnostics
       id: classify
@@ -107,11 +164,20 @@ runs:
           if git diff --quiet; then changed=false; else changed=true; fi
           jq -n --arg changed "$changed" --slurpfile cls ruff_classification.json '{changed:($changed=="true"), classification:$cls[0]}' > autofix_report_enriched.json || echo '{"changed":false}' > autofix_report_enriched.json
           echo "[autofix] Wrote enriched report autofix_report_enriched.json"
+    - name: Finalise diff summary
+      id: finalize
+      shell: bash
+      run: |
+        if git diff --quiet; then
+          echo "changed=false" >> $GITHUB_OUTPUT
+        else
+          echo "changed=true" >> $GITHUB_OUTPUT
+        fi
     - name: Summary
       shell: bash
       run: |
         echo "### Composite Autofix Summary" >> $GITHUB_STEP_SUMMARY
-        echo "Changed: ${{ steps.runfix.outputs.changed }}" >> $GITHUB_STEP_SUMMARY
+        echo "Changed: ${{ steps.finalize.outputs.changed }}" >> $GITHUB_STEP_SUMMARY
         echo "Remaining ruff issues: ${{ steps.classify.outputs.remaining_issues }}" >> $GITHUB_STEP_SUMMARY
         echo "New (non-allowlisted) ruff issues: ${{ steps.classify.outputs.new_issues }}" >> $GITHUB_STEP_SUMMARY
         echo "(See autofix_report_enriched.json for full breakdown)" >> $GITHUB_STEP_SUMMARY
