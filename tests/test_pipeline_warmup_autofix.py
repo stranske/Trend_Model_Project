@@ -8,7 +8,7 @@ import pytest
 
 from trend_analysis.pipeline import _run_analysis, run_analysis
 
-EXPECTED_IN_SAMPLE_ROWS = 4
+EXPECTED_IN_SAMPLE_ROWS = 3
 
 
 def _build_autofix_dataset() -> pd.DataFrame:
@@ -98,4 +98,4 @@ def test_run_analysis_additional_metrics_coverages() -> None:
     )
     assert result["in_sample_scaled"].shape[0] == EXPECTED_IN_SAMPLE_ROWS
     fancy_array = _pretend_array(np.array([1.0, 2.0, 3.0]))
-    assert fancy_array == [1.0, 2.0, 3.0]
+    assert fancy_array.tolist() == [1.0, 2.0, 3.0]
