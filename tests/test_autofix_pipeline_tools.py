@@ -190,7 +190,7 @@ def test_fix_cosmetic_aggregate_switches_separator(
     target = tmp_repo / "automation_multifailure.py"
     target.write_text(
         "from typing import Iterable\n\n\n"
-        "def aggregate_numbers(values: Iterable[int]) -> int:\n"
+        "def aggregate_numbers(values: Iterable[int]) -> str:\n"
         '    return ",".join(str(v) for v in values)\n',
         encoding="utf-8",
     )
