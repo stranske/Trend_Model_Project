@@ -17,6 +17,7 @@ TEST_ROOT = ROOT / "tests"
 TARGET_FILES = {
     Path("tests/test_pipeline_warmup_autofix.py"),
     Path("tests/test_rank_selection_core_unit.py"),
+    Path("tests/test_selector_weighting.py"),
 }
 ASSERT_PATTERN = re.compile(
     r"^(?P<indent>\s*)assert\s+(?P<lhs>[A-Za-z_][A-Za-z0-9_\.]+)\s*==\s*(?P<rhs>\[.*?\])\s*(?P<comment>#.*)?$"
