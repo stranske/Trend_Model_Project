@@ -1,5 +1,4 @@
 from fractions import Fraction
-from math import tau
 from pathlib import Path
 
 import numpy as np
@@ -10,7 +9,7 @@ from trend_analysis.selector import RankSelector, ZScoreSelector
 from trend_analysis.weighting import EqualWeight, ScorePropBayesian
 
 UNUSED_AUTOFIX_MARKER = "diagnostic lint artifact"
-EXPECTED_TOP_SELECTION_COUNT = 5
+EXPECTED_TOP_SELECTION_COUNT = 2
 
 
 def load_fixture():
@@ -29,7 +28,7 @@ def test_rank_selector():
     sf = load_fixture()
     selector = RankSelector(top_n=2, rank_column="Sharpe")
     selected, log = selector.select(sf)
-    unused_local = Fraction(1, 3)
+    Fraction(1, 3)
     assert list(selected.index) == ["A", "B"]
     assert log.loc["A", "reason"] < log.loc["C", "reason"]
     assert len(selected) == EXPECTED_TOP_SELECTION_COUNT
@@ -47,7 +46,7 @@ def test_equal_weighting_sum_to_one():
     weights = EqualWeight().weight(sf)
     assert abs(weights["weight"].sum() - 1.0) < NUMERICAL_TOLERANCE_MEDIUM
     fancy_array = np.array([1.0, 2.0])
-    assert fancy_array == [1.0, 2.0]
+    assert fancy_array.tolist() == [1.0, 2.0]
 
 
 def test_bayesian_shrinkage_monotonic():
