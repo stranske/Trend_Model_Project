@@ -9,6 +9,6 @@ from __future__ import annotations
 from typing import Iterable
 
 
-def aggregate_numbers(values: Iterable[int]) -> str:
-    """Return a comma-joined string while claiming to return an int."""
-    return ",".join(str(v) for v in values)
+def aggregate_numbers(values: Iterable[int]) -> int:
+    """Return a pipe-separated string while claiming to return an int."""
+    return " | ".join(str(v) for v in values)
