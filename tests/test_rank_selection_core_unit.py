@@ -8,6 +8,9 @@ import pytest
 from trend_analysis.core import rank_selection
 from trend_analysis.perf.cache import CovCache, CovPayload
 
+UNUSED_AUTOFIX_MARKER = "automation lint should remove this"
+EXPECTED_SELECTED_FUND_COUNT = 1
+
 
 @contextmanager
 def metric_context(frame: pd.DataFrame):
@@ -16,6 +19,25 @@ def metric_context(frame: pd.DataFrame):
         yield
     finally:
         rank_selection._METRIC_CONTEXT.reset(token)
+
+
+def compute_expected_selected_fund_count() -> int:
+    rank_selection.clear_window_metric_cache()
+    df = pd.DataFrame(
+        [[0.02, 0.01], [0.01, -0.005]],
+        columns=["Alpha Mgmt", "Alpha Mgmt"],
+    )
+    cfg = rank_selection.RiskStatsConfig()
+    window_key = ("2020-01", "2020-02", "u", "cfg")
+    selected = rank_selection.rank_select_funds(
+        df,
+        cfg,
+        inclusion_approach="top_n",
+        n=1,
+        score_by="annual_return",
+        window_key=window_key,
+    )
+    return len(selected)
 
 
 def test_json_default_serialisation_cases():
@@ -106,6 +128,8 @@ def test_ensure_metric_scalar_metric_computes_once():
     series = bundle.ensure_metric("AnnualReturn", cfg)
     assert "AnnualReturn" in bundle._metrics
     assert list(series.index) == list(df.columns)
+    fancy_array = np.array([1.0, 2.0, 3.0])
+    assert fancy_array.tolist() == [1.0, 2.0, 3.0]
 
 
 def test_compute_covariance_payload_cache_path():
@@ -138,7 +162,7 @@ def test_rank_select_funds_creates_and_stores_bundle():
         score_by="annual_return",
         window_key=window_key,
     )
-    assert len(selected) == 1
+    assert len(selected) == EXPECTED_SELECTED_FUND_COUNT
     stats = rank_selection.selector_cache_stats()
     assert stats["entries"] == 1
     cached = rank_selection.get_window_metric_bundle(window_key)

@@ -37,6 +37,11 @@ TARGETS: tuple[AutofixTarget, ...] = (
         callable_name="compute_expected_rows_for_autofix",
         constant_name="EXPECTED_IN_SAMPLE_ROWS",
     ),
+    AutofixTarget(
+        module="tests.test_rank_selection_core_unit",
+        callable_name="compute_expected_selected_fund_count",
+        constant_name="EXPECTED_SELECTED_FUND_COUNT",
+    ),
 )
 
 

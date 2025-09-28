@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Rewrite specific NumPy assertions for autofix workflows.
 
-This helper focuses on the diagnostic test introduced to exercise the
+This helper focuses on the diagnostic tests introduced to exercise the
 automation pipeline. It replaces ``assert fancy_array == [...]`` style checks
 with ``assert fancy_array.tolist() == [...]`` so NumPy no longer raises the
 ``truth value of an array is ambiguous`` error. Narrow scope keeps the script
@@ -14,7 +14,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 TEST_ROOT = ROOT / "tests"
-TARGET_FILES = {Path("tests/test_pipeline_warmup_autofix.py")}
+TARGET_FILES = {
+    Path("tests/test_pipeline_warmup_autofix.py"),
+    Path("tests/test_rank_selection_core_unit.py"),
+}
 ASSERT_PATTERN = re.compile(
     r"^(?P<indent>\s*)assert\s+(?P<lhs>[A-Za-z_][A-Za-z0-9_\.]+)\s*==\s*(?P<rhs>\[.*?\])\s*(?P<comment>#.*)?$"
 )
