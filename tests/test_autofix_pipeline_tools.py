@@ -149,10 +149,10 @@ def test_mypy_return_autofix_updates_annotation(
     module_rel = Path("src/strings.py")
     module_path = tmp_repo / module_rel
     module_path.write_text(
-    "from __future__ import annotations\n\n\n"
-    "def format_user(name: str) -> int:\n"
-    "    return f'hello {name}'\n",
-    encoding="utf-8",
+        "from __future__ import annotations\n\n\n"
+        "def format_user(name: str) -> int:\n"
+        "    return f'hello {name}'\n",
+        encoding="utf-8",
     )
 
     monkeypatch.setattr(mypy_return_autofix, "ROOT", tmp_repo)
@@ -189,10 +189,10 @@ def test_fix_cosmetic_aggregate_switches_separator(
 ) -> None:
     target = tmp_repo / "automation_multifailure.py"
     target.write_text(
-    "from typing import Iterable\n\n\n"
-    "def aggregate_numbers(values: Iterable[int]) -> int:\n"
-    '    return ",".join(str(v) for v in values)\n',
-    encoding="utf-8",
+        "from typing import Iterable\n\n\n"
+        "def aggregate_numbers(values: Iterable[int]) -> int:\n"
+        '    return ",".join(str(v) for v in values)\n',
+        encoding="utf-8",
     )
 
     monkeypatch.setattr(fix_cosmetic_aggregate, "ROOT", tmp_repo)

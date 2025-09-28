@@ -145,14 +145,18 @@ run_fast_check() {
         # Otherwise, append the file list at the end (for backward compatibility).
         if [[ "$command" == *"{files}"* ]]; then
             actual_command="${command//\{files\}/$sanitised_files}"
+        elif [[ "$command" == "black --check ." ]]; then
+            actual_command="black --check $sanitised_files"
         else
             actual_command="$command $sanitised_files"
         fi
-        if [[ -n "$fix_command" ]]; then
-            if [[ "$fix_command" == *"{files}"* ]]; then
-                actual_fix_command="${fix_command//\{files\}/$sanitised_files}"
+        if [[ -n "$actual_fix_command" ]]; then
+            if [[ "$actual_fix_command" == *"{files}"* ]]; then
+                actual_fix_command="${actual_fix_command//\{files\}/$sanitised_files}"
+            elif [[ "$actual_fix_command" == "black" ]]; then
+                actual_fix_command="black $sanitised_files"
             else
-                actual_fix_command="$fix_command $sanitised_files"
+                actual_fix_command="$actual_fix_command $sanitised_files"
             fi
         fi
     fi
@@ -203,7 +207,7 @@ FORMAT_SCOPE="$PYTHON_FILES"
 if [[ -z "$FORMAT_SCOPE" ]]; then
     FORMAT_SCOPE="src tests scripts"
 fi
-if ! run_fast_check "Code formatting" "black --check {files}" "black {files}" "$FORMAT_SCOPE"; then
+if ! run_fast_check "Code formatting" "black --check ." "black" "$FORMAT_SCOPE"; then
     VALIDATION_SUCCESS=false
     FAILED_CHECKS+=("Code formatting")
 fi
