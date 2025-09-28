@@ -42,6 +42,11 @@ TARGETS: tuple[AutofixTarget, ...] = (
         callable_name="compute_expected_selected_fund_count",
         constant_name="EXPECTED_SELECTED_FUND_COUNT",
     ),
+    AutofixTarget(
+        module="tests.test_selector_weighting",
+        callable_name="compute_expected_top_selection_count",
+        constant_name="EXPECTED_TOP_SELECTION_COUNT",
+    ),
 )
 
 
