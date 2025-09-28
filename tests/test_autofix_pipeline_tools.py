@@ -150,7 +150,7 @@ def test_mypy_return_autofix_updates_annotation(
     module_path = tmp_repo / module_rel
     module_path.write_text(
         "from __future__ import annotations\n\n\n"
-        "def format_user(name: str) -> int:\n"
+        "def format_user(name: str) -> str:\n"
         "    return f'hello {name}'\n",
         encoding="utf-8",
     )
