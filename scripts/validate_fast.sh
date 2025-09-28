@@ -78,6 +78,7 @@ CONFIG_FILES=$(echo "$CHANGED_FILES" | grep -E '\.(yml|yaml|toml|cfg|ini)$' 2>/d
 TEST_FILES=$(echo "$PYTHON_FILES" | grep -E '^tests/' 2>/dev/null || echo "")
 SRC_FILES=$(echo "$PYTHON_FILES" | grep -E '^src/' 2>/dev/null || echo "")
 SCRIPT_FILES=$(echo "$PYTHON_FILES" | grep -E '^scripts/' 2>/dev/null || echo "")
+AUTOFIX_FILES=$(echo "$CHANGED_FILES" | grep -E '^(scripts/(auto_type_hygiene|fix_cosmetic_aggregate|fix_numpy_asserts|mypy_return_autofix|update_autofix_expectations)\\.py|tests/test_autofix_pipeline_tools\\.py|\\.github/(actions|workflows)/.*autofix)' 2>/dev/null || echo "")
 
 # Count changes
 TOTAL_PYTHON=$(echo "$PYTHON_FILES" | grep -v '^$' | wc -l || echo 0)
@@ -90,6 +91,14 @@ echo "  Python files: $TOTAL_PYTHON"
 echo "  Config files: $TOTAL_CONFIG"
 echo "  Test files: $TOTAL_TEST"
 echo "  Source files: $TOTAL_SRC"
+if [[ -n "$AUTOFIX_FILES" ]]; then
+    echo -e "  Autofix-related changes detected:" 
+    echo "$AUTOFIX_FILES" | sed 's/^/    • /'
+fi
+RUN_AUTOFIX_TESTS=false
+if [[ -n "$AUTOFIX_FILES" ]]; then
+    RUN_AUTOFIX_TESTS=true
+fi
 
 if [[ $TOTAL_PYTHON -eq 0 && $TOTAL_CONFIG -eq 0 ]]; then
     echo -e "${GREEN}✓ No Python or config changes detected - validation not needed${NC}"
@@ -128,13 +137,23 @@ run_fast_check() {
     
     # Use specific files if provided and not in full mode
     local actual_command="$command"
+    local actual_fix_command="$fix_command"
     if [[ -n "$check_files" && "$VALIDATION_STRATEGY" != "full" ]]; then
+        local sanitised_files
+        sanitised_files=$(echo "$check_files" | tr '\n' ' ' | tr -s ' ')
         # If the command contains a {files} placeholder, replace it with the file list.
         # Otherwise, append the file list at the end (for backward compatibility).
         if [[ "$command" == *"{files}"* ]]; then
-            actual_command="${command//\{files\}/$check_files}"
+            actual_command="${command//\{files\}/$sanitised_files}"
         else
-            actual_command="$command $check_files"
+            actual_command="$command $sanitised_files"
+        fi
+        if [[ -n "$fix_command" ]]; then
+            if [[ "$fix_command" == *"{files}"* ]]; then
+                actual_fix_command="${fix_command//\{files\}/$sanitised_files}"
+            else
+                actual_fix_command="$fix_command $sanitised_files"
+            fi
         fi
     fi
     
@@ -147,9 +166,9 @@ run_fast_check() {
     else
         echo -e "${RED}✗ $name${NC}"
         
-        if [[ "$FIX_MODE" == true && -n "$fix_command" ]]; then
+        if [[ "$FIX_MODE" == true && -n "$actual_fix_command" ]]; then
             echo -e "${YELLOW}  Auto-fixing...${NC}"
-            if eval "$fix_command" > /tmp/fast_fix_output 2>&1; then
+            if eval "$actual_fix_command" > /tmp/fast_fix_output 2>&1; then
                 if eval "$actual_command" > /tmp/fast_recheck_output 2>&1; then
                     echo -e "${GREEN}✓ $name (fixed)${NC}"
                     return 0
@@ -180,7 +199,11 @@ fi
 profile_step "Import check complete"
 
 # Formatting (always run, very fast to check)
-if ! run_fast_check "Code formatting" "black --check ." "black ." "$PYTHON_FILES"; then
+FORMAT_SCOPE="$PYTHON_FILES"
+if [[ -z "$FORMAT_SCOPE" ]]; then
+    FORMAT_SCOPE="src tests scripts"
+fi
+if ! run_fast_check "Code formatting" "black --check {files}" "black {files}" "$FORMAT_SCOPE"; then
     VALIDATION_SUCCESS=false
     FAILED_CHECKS+=("Code formatting")
 fi
@@ -227,6 +250,14 @@ case "$VALIDATION_STRATEGY" in
                 FAILED_CHECKS+=("Basic type check")
             fi
         fi
+
+        if [[ "$RUN_AUTOFIX_TESTS" == true ]]; then
+            if ! run_fast_check "Autofix diagnostics" "pytest tests/test_autofix_pipeline_tools.py -q" ""; then
+                VALIDATION_SUCCESS=false
+                FAILED_CHECKS+=("Autofix diagnostics")
+            fi
+            RUN_AUTOFIX_TESTS=false
+        fi
         ;;
         
     "comprehensive")
@@ -257,6 +288,14 @@ case "$VALIDATION_STRATEGY" in
                 VALIDATION_SUCCESS=false
                 FAILED_CHECKS+=("Quick tests")
             fi
+        fi
+
+        if [[ "$RUN_AUTOFIX_TESTS" == true ]]; then
+            if ! run_fast_check "Autofix diagnostics" "pytest tests/test_autofix_pipeline_tools.py -q" ""; then
+                VALIDATION_SUCCESS=false
+                FAILED_CHECKS+=("Autofix diagnostics")
+            fi
+            RUN_AUTOFIX_TESTS=false
         fi
         ;;
         
@@ -291,6 +330,7 @@ case "$VALIDATION_STRATEGY" in
             VALIDATION_SUCCESS=false
             FAILED_CHECKS+=("Test coverage")
         fi
+        RUN_AUTOFIX_TESTS=false
         ;;
 esac
 

@@ -45,6 +45,7 @@ results/
 !src/trend_analysis/export/manifest_schema.json
 # Stop tracking noisy autofix history (now artifact-only)
 ci/autofix/history.json
+ci/autofix/diagnostics.json
 *.txt
 !/.github/signature-fixtures/basic_hash.txt
 

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import pathlib
 import sys
 from datetime import datetime, timezone
@@ -173,6 +174,12 @@ def build_comment(
         status_suffix = " autofix updates applied"
     status_value = f"{status_icon}{status_suffix}".strip()
 
+    trigger_conclusion = os.environ.get("AUTOFIX_TRIGGER_CONCLUSION")
+    trigger_class = os.environ.get("AUTOFIX_TRIGGER_CLASS")
+    trigger_reason = os.environ.get("AUTOFIX_TRIGGER_REASON")
+    trigger_head = os.environ.get("AUTOFIX_TRIGGER_PR_HEAD")
+    skip_reason = os.environ.get("AUTOFIX_SKIP_REASON")
+
     metrics_rows = [
         "| Metric | Value |",
         "|--------|-------|",
@@ -182,6 +189,13 @@ def build_comment(
         f"| New issues | {new} |",
         f"| Allowed (legacy) | {allowed} |",
     ]
+    if trigger_conclusion:
+        trigger_display = trigger_conclusion
+        if trigger_class and trigger_class != trigger_conclusion:
+            trigger_display = f"{trigger_conclusion} ({trigger_class})"
+        metrics_rows.append(f"| Trigger | {trigger_display} |")
+    if skip_reason:
+        metrics_rows.append(f"| Skip reason | {skip_reason} |")
     if history_points:
         metrics_rows.append(f"| History points | {history_points} |")
 
@@ -200,6 +214,17 @@ def build_comment(
             artifacts.append(f"- Residual history: `autofix-history-pr-{pr_number}`")
     if not artifacts:
         artifacts.append("- No additional artifacts published for this run.")
+
+    meta_segments: list[str] = []
+    if trigger_conclusion:
+        meta_segments.append(f"conclusion={trigger_conclusion}")
+    if trigger_reason:
+        meta_segments.append(f"reason={trigger_reason}")
+    if trigger_head:
+        meta_segments.append(f"head={trigger_head}")
+    meta_line = (
+        f"<!-- autofix-meta: {' '.join(meta_segments)} -->" if meta_segments else None
+    )
 
     lines = [
         MARKER,
@@ -223,6 +248,9 @@ def build_comment(
         MARKER,
         "",
     ]
+
+    if meta_line:
+        lines.insert(1, meta_line)
 
     return "\n".join(lines)
 

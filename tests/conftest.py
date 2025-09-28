@@ -19,6 +19,7 @@ from __future__ import annotations
 import pathlib
 import sys
 from pathlib import Path
+from typing import Iterator
 
 import pytest
 
@@ -27,11 +28,25 @@ try:
 except ImportError:
     yaml = None
 
+from ._autofix_diag import DiagnosticsRecorder, get_recorder
+
 # --- Ensure local ``src`` packages are importable ---------------------------------------
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _autofix_diagnostics_session() -> Iterator[DiagnosticsRecorder]:
+    recorder = get_recorder()
+    recorder.reset()
+    yield recorder
+
+
+@pytest.fixture()
+def autofix_recorder() -> DiagnosticsRecorder:
+    return get_recorder()
 
 
 def pytest_collection_modifyitems(config, items):
@@ -52,3 +67,14 @@ def pytest_collection_modifyitems(config, items):
         if "test_markers" in existing_keys:
             continue
         it.user_properties.append(("test_markers", ",".join(markers)))
+
+
+def pytest_sessionfinish(
+    session: pytest.Session, exitstatus: int
+) -> None:  # noqa: ARG001
+    recorder = get_recorder()
+    if not recorder.has_entries():
+        return
+    output_path = Path("ci/autofix/diagnostics.json")
+    recorder.flush(output_path)
+    setattr(session.config, "autofix_diagnostics_path", str(output_path))
