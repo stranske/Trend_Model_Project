@@ -7,7 +7,6 @@ from pathlib import Path
 import pytest
 
 from tests._autofix_diag import DiagnosticsRecorder
-
 from scripts import (
     auto_type_hygiene,
     fix_cosmetic_aggregate,
