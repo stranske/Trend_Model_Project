@@ -145,6 +145,7 @@ jobs:
         run: |
           python -m pip install -U pip
           pip install -r requirements.txt
+          pip install -e '.[dev]'
           pip install pytest pytest-cov jq
       - name: Run tests with coverage
         run: |
