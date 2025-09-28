@@ -34,6 +34,12 @@ jobs:
       file_count: ${{ steps.info.outputs.file_count }}
       change_count: ${{ steps.info.outputs.change_count }}
       safe_paths: ${{ steps.info.outputs.safe_paths }}
+      unsafe_paths: ${{ steps.info.outputs.unsafe_paths }}
+      safe_file_count: ${{ steps.info.outputs.safe_file_count }}
+      unsafe_file_count: ${{ steps.info.outputs.unsafe_file_count }}
+      safe_change_count: ${{ steps.info.outputs.safe_change_count }}
+      unsafe_change_count: ${{ steps.info.outputs.unsafe_change_count }}
+      all_safe: ${{ steps.info.outputs.all_safe }}
       has_opt_in: ${{ steps.info.outputs.has_opt_in }}
       is_draft: ${{ steps.info.outputs.is_draft }}
       run_conclusion: ${{ steps.info.outputs.run_conclusion }}
@@ -80,7 +86,13 @@ jobs:
               small_eligible: 'false',
               file_count: '0',
               change_count: '0',
-              safe_paths: 'false',
+              safe_paths: '',
+              unsafe_paths: '',
+              safe_file_count: '0',
+              unsafe_file_count: '0',
+              safe_change_count: '0',
+              unsafe_change_count: '0',
+              all_safe: 'false',
               has_opt_in: 'false',
               is_draft: run.event === 'pull_request' && run.head_repository ? (run.pull_requests?.[0]?.draft ? 'true' : 'false') : 'false',
               run_conclusion: run.conclusion || '',
@@ -171,15 +183,25 @@ jobs:
               };
               const totalFiles = files.length;
               const totalChanges = files.reduce((acc, file) => acc + (file.changes || 0), 0);
-              const allSafe = files.every(file => isSafePath(file.filename));
+              const safeFiles = files.filter(file => isSafePath(file.filename));
+              const unsafeFiles = files.filter(file => !isSafePath(file.filename));
+              const safeChanges = safeFiles.reduce((acc, file) => acc + (file.changes || 0), 0);
+              const unsafeChanges = totalChanges - safeChanges;
+              const allSafe = unsafeFiles.length === 0;
               const limitFiles = Number(process.env.AUTOFIX_MAX_FILES || 40);
               const limitChanges = Number(process.env.AUTOFIX_MAX_CHANGES || 800);
               const baseEligible = pr.draft ? labels.includes(optLabel) : true;
-              const eligible = baseEligible && allSafe && totalFiles <= limitFiles && totalChanges <= limitChanges;
-              result.small_eligible = eligible ? 'true' : 'false';
+              const safeEligible = baseEligible && safeFiles.length > 0 && safeFiles.length <= limitFiles && safeChanges <= limitChanges;
+              result.small_eligible = safeEligible ? 'true' : 'false';
               result.file_count = String(totalFiles);
               result.change_count = String(totalChanges);
-              result.safe_paths = allSafe ? 'true' : 'false';
+              result.safe_paths = safeFiles.map(file => file.filename).join('\n');
+              result.unsafe_paths = unsafeFiles.map(file => file.filename).join('\n');
+              result.safe_file_count = String(safeFiles.length);
+              result.unsafe_file_count = String(unsafeFiles.length);
+              result.safe_change_count = String(safeChanges);
+              result.unsafe_change_count = String(unsafeChanges);
+              result.all_safe = allSafe ? 'true' : 'false';
             }
 
             for (const [key, value] of Object.entries(result)) {
@@ -247,6 +269,30 @@ jobs:
     env:
       APPLIED_LABEL: ${{ vars.AUTOFIX_APPLIED_LABEL || 'autofix:applied' }}
     steps:
+      - name: Autofix path summary
+        shell: bash
+        env:
+          SAFE_COUNT: ${{ needs.context.outputs.safe_file_count }}
+          UNSAFE_COUNT: ${{ needs.context.outputs.unsafe_file_count }}
+          SAFE_PATHS: ${{ needs.context.outputs.safe_paths }}
+          UNSAFE_PATHS: ${{ needs.context.outputs.unsafe_paths }}
+        run: |
+          set -euo pipefail
+          echo "Safe autofix file count: ${SAFE_COUNT:-0}"
+          echo "Unsafe file count: ${UNSAFE_COUNT:-0}"
+          echo "--- Safe paths ---"
+          if [ -n "${SAFE_PATHS}" ]; then
+            printf '%s\n' "${SAFE_PATHS}"
+          else
+            echo "(none)"
+          fi
+          echo "--- Skipped paths ---"
+          if [ -n "${UNSAFE_PATHS}" ]; then
+            printf '%s\n' "${UNSAFE_PATHS}"
+          else
+            echo "(none)"
+          fi
+
       - name: Checkout workflow repository
         uses: actions/checkout@v4
         with:
@@ -259,6 +305,7 @@ jobs:
           same_repo: ${{ needs.context.outputs.same_repo }}
           commit_prefix: ${{ env.COMMIT_PREFIX }}
           pr: ${{ needs.context.outputs.pr }}
+          safe_paths: ${{ needs.context.outputs.safe_paths }}
           service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
           github_token: ${{ github.token }}
 

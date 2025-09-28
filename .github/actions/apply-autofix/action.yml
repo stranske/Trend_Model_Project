@@ -11,6 +11,10 @@ inputs:
     description: "Commit prefix for autofix commits"
     required: false
     default: "chore(autofix):"
+  safe_paths:
+    description: "Newline-separated list of files or directories that autofix may modify"
+    required: false
+    default: ""
   pr:
     description: "Pull request number"
     required: true
@@ -52,16 +56,66 @@ runs:
         echo "remaining=${{ steps.autofix.outputs.remaining_issues }}" >> "$GITHUB_OUTPUT"
         echo "new=${{ steps.autofix.outputs.new_issues }}" >> "$GITHUB_OUTPUT"
 
+    - name: Restrict changes to safe paths
+      if: ${{ inputs.safe_paths != '' }}
+      shell: bash
+      env:
+        SAFE_PATHS: ${{ inputs.safe_paths }}
+      run: |
+        set -euo pipefail
+        mapfile -t SAFE_LIST < <(printf '%s\n' "$SAFE_PATHS" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | sed '/^$/d')
+        if [ ${#SAFE_LIST[@]} -eq 0 ]; then
+          echo "[autofix] No safe paths provided after sanitisation; skipping restriction."
+          exit 0
+        fi
+        git ls-files -z -m -d -o --exclude-standard | while IFS= read -r -d '' path; do
+          allow=0
+          for safe in "${SAFE_LIST[@]}"; do
+            normalised_safe=${safe%/}
+            if [[ "$path" == "$normalised_safe" ]]; then
+              allow=1
+              break
+            fi
+            prefix="${normalised_safe}/"
+            if [[ "${path#"$prefix"}" != "$path" ]]; then
+              allow=1
+              break
+            fi
+          done
+          if [ $allow -eq 0 ]; then
+            echo "[autofix] Reverting disallowed path: $path"
+            if git ls-files --error-unmatch "$path" >/dev/null 2>&1; then
+              git restore --source=HEAD --worktree -- "$path" 2>/dev/null || git checkout -- "$path" 2>/dev/null || true
+              git restore --source=HEAD --staged -- "$path" 2>/dev/null || git reset HEAD -- "$path" 2>/dev/null || true
+            else
+              rm -rf -- "$path"
+            fi
+          fi
+        done
+
     - name: Commit changes
       if: ${{ inputs.same_repo == 'true' && steps.autofix.outputs.changed == 'true' }}
       shell: bash
       env:
         COMMIT_PREFIX: ${{ inputs.commit_prefix }}
+        SAFE_PATHS: ${{ inputs.safe_paths }}
       run: |
         set -euo pipefail
         git config user.name "trend-service-bot"
         git config user.email "trend-service-bot@users.noreply.github.com"
-        git add -A
+        tmp=$(mktemp)
+        printf '%s\n' "$SAFE_PATHS" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | sed '/^$/d' > "$tmp"
+        if [ -s "$tmp" ]; then
+          while IFS= read -r path; do
+            [ -z "$path" ] && continue
+            if git ls-files --error-unmatch "$path" >/dev/null 2>&1 || [ -e "$path" ]; then
+              git add -- "$path"
+            fi
+          done < "$tmp"
+        else
+          git add -A
+        fi
+        rm -f "$tmp"
         if git diff --cached --quiet; then
           echo "No staged changes after autofix; skipping commit."
           exit 0
@@ -102,11 +156,24 @@ runs:
       shell: bash
       env:
         COMMIT_PREFIX: ${{ inputs.commit_prefix }}
+        SAFE_PATHS: ${{ inputs.safe_paths }}
       run: |
         set -euo pipefail
         git config user.name "trend-service-bot"
         git config user.email "trend-service-bot@users.noreply.github.com"
-        git add -A
+        tmp=$(mktemp)
+        printf '%s\n' "$SAFE_PATHS" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | sed '/^$/d' > "$tmp"
+        if [ -s "$tmp" ]; then
+          while IFS= read -r path; do
+            [ -z "$path" ] && continue
+            if git ls-files --error-unmatch "$path" >/dev/null 2>&1 || [ -e "$path" ]; then
+              git add -- "$path"
+            fi
+          done < "$tmp"
+        else
+          git add -A
+        fi
+        rm -f "$tmp"
         if git diff --cached --quiet; then
           exit 0
         fi
