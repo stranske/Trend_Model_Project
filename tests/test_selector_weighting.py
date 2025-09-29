@@ -9,14 +9,12 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import yaml
 import pytest
 
 import scripts.auto_type_hygiene as auto_type_hygiene
 import scripts.fix_numpy_asserts as fix_numpy_asserts
 import scripts.mypy_autofix as mypy_autofix
 import scripts.mypy_return_autofix as mypy_return_autofix
-
 from trend_analysis.constants import NUMERICAL_TOLERANCE_MEDIUM
 from trend_analysis.selector import RankSelector, ZScoreSelector
 from trend_analysis.weighting import EqualWeight, ScorePropBayesian
@@ -77,7 +75,7 @@ def test_equal_weighting_sum_to_one():
     weights = EqualWeight().weight(sf)
     assert abs(weights["weight"].sum() - 1.0) < NUMERICAL_TOLERANCE_MEDIUM
     fancy_array = np.array([1.0, 2.0])
-    assert fancy_array == [1.0, 2.0]
+    assert fancy_array.tolist() == [1.0, 2.0]
 
 
 def test_bayesian_shrinkage_monotonic():
