@@ -6,7 +6,7 @@ This repository exposes three reusable GitHub Actions workflows (workflow_call) 
 | ------------------ | ---- | ------- |
 | Python CI          | `.github/workflows/reuse-ci-python.yml` | Tests + coverage gate + (optional) quarantine set |
 | Autofix            | `.github/workflows/reuse-autofix.yml`   | Formatting / lint autofix on PRs (opt‑in label) |
-| Agents Automation  | `.github/workflows/assign-to-agents.yml` + `.github/workflows/agent-watchdog.yml` | Codex issue bootstrap + watchdog diagnostics |
+| Agents Automation  | `.github/workflows/agents-41-assign.yml` + `.github/workflows/agents-42-watchdog.yml` | Codex issue bootstrap + watchdog diagnostics |
 
 ## 1. Python CI (`reuse-ci-python.yml`)
 Trigger via a consumer workflow:
@@ -74,11 +74,11 @@ jobs:
 2. Runs formatting & linting fix scripts (currently `./scripts/validate_fast.sh --fix`).
 3. Commits changes back to the PR branch (uses GitHub token). Fork safety: logic avoids committing if permissions insufficient.
 
-## 3. Agents Automation (`assign-to-agents.yml` + `agent-watchdog.yml`)
-Issue #1419 replaced the multi-flag `reuse-agents.yml` pipeline with a focused pair:
+## 3. Agents Automation (`agents-41-assign.yml` + `agents-42-watchdog.yml`)
+Issue #1419 replaced the multi-flag `reuse-agents.yml` pipeline with a focused pair. The reusable building block now lives at `reusable-90-agents.yml` for targeted consumers:
 
-- **`assign-to-agents.yml`** — Runs on `issues: [labeled]` / `pull_request_target: [labeled]`. Maps `agent:*` labels to automation accounts, posts the appropriate trigger command, and (for Codex issues) creates the bootstrap branch/PR via `.github/actions/codex-bootstrap-lite`.
-- **`agent-watchdog.yml`** — Triggered automatically by the assigner via `workflow_dispatch`. Polls the issue timeline for a cross-referenced PR and posts a ✅ success or ⚠️ timeout comment within ~7 minutes.
+- **`agents-41-assign.yml`** — Runs on `issues: [labeled]` / `pull_request_target: [labeled]`. Maps `agent:*` labels to automation accounts, posts the appropriate trigger command, and (for Codex issues) creates the bootstrap branch/PR via `.github/actions/codex-bootstrap-lite`.
+- **`agents-42-watchdog.yml`** — Triggered automatically by the assigner via `workflow_dispatch`. Polls the issue timeline for a cross-referenced PR and posts a ✅ success or ⚠️ timeout comment within ~7 minutes.
 
 ### Trigger Strategy
 - Subscribe the assigner to label events so automation reacts immediately to `agent:*` labels.
@@ -87,7 +87,7 @@ Issue #1419 replaced the multi-flag `reuse-agents.yml` pipeline with a focused p
 ### Notes
 - Bootstrap logic still honours PAT priority (`OWNER_PR_PAT` → `SERVICE_BOT_PAT` → `GITHUB_TOKEN`) and posts `@codex start` on newly created PRs.
 - Adjust watchdog behaviour (timeout, expected PR) by supplying overrides during manual dispatch.
-- Readiness, preflight, and verification probes from `reuse-agents.yml` are currently archived under `Old/.github/workflows/`; craft targeted GitHub Script snippets if similar diagnostics are needed.
+- Readiness, preflight, and verification probes from `reuse-agents.yml` are available via `reusable-90-agents.yml` (historical variants remain archived under `Old/.github/workflows/`). Craft targeted GitHub Script snippets if similar diagnostics are needed.
 
 ## 4. Adoption Guide (External Repos)
 1. Copy the three reusable files verbatim or add this repo as a submodule / template reference.

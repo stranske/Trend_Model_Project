@@ -25,8 +25,8 @@ Additional categories added (5–8) to accommodate all workflows cleanly.
 - `maint-34-quarantine-ttl.yml` – Ensures test quarantine entries not expired.
 
 ### 2. Agent Initiation & Support
-- `assign-to-agents.yml` – Label-driven assignment, Codex bootstrap branch/PR creation, trigger comment.
-- `agent-watchdog.yml` – Short-horizon diagnostic that confirms a Codex PR cross-reference (or posts a timeout report).
+- `agents-41-assign.yml` – Label-driven assignment, Codex bootstrap branch/PR creation, trigger comment.
+- `agents-42-watchdog.yml` – Short-horizon diagnostic that confirms a Codex PR cross-reference (or posts a timeout report).
 - `verify-codex-bootstrap-matrix.yml` – Scenario matrix harness for Codex bootstrap flows (validation / simulation). Potentially classed as debugging but retains agent-specific scope.
 - Legacy orchestrators (`codex-issue-bridge.yml`, `reuse-agents.yml`, plus older probes) now live under `Old/.github/workflows/` for reference after consolidation in Issue #1419.
 
@@ -65,13 +65,13 @@ Update: `cleanup-codex-bootstrap.yml` confirmed – prunes stale `agents/codex-i
 ## Deprecated / Superseded (Post-Removal Status)
 | Workflow | Replacement | Status | Notes |
 |----------|-------------|--------|-------|
-| agent-readiness.yml | reuse-agents.yml (enable_readiness) | REMOVED (2025-09-21) | Archived copy retained under `.github/workflows/archive/`; modern flow handled by `assign-to-agents.yml`. |
-| agent-watchdog.yml | reuse-agents.yml (enable_watchdog) | REMOVED (2025-09-21) | Watchdog functionality first moved into `reuse-agents.yml`, now superseded by `agent-watchdog.yml`. |
+| agent-readiness.yml | reuse-agents.yml (enable_readiness) | REMOVED (2025-09-21) | Archived copy retained under `.github/workflows/archive/`; modern flow handled by `agents-41-assign.yml`. |
+| agent-watchdog.yml | reuse-agents.yml (enable_watchdog) | REMOVED (2025-09-21) | Watchdog functionality first moved into `reuse-agents.yml`, now superseded by `agents-42-watchdog.yml`. |
 | codex-preflight.yml | reuse-agents.yml (enable_preflight) | REMOVED (2025-09-21) | Archived copy retained for reference; preflight folded into assigner if reintroduced. |
 | codex-bootstrap-diagnostic.yml | reuse-agents.yml (enable_diagnostic) | REMOVED (2025-09-21) | Archived copy retained for reference; diagnostics covered by assigner/watchdog pair. |
 | verify-agent-task.yml | reuse-agents.yml (enable_verify_issue) | REMOVED (2025-09-21) | Archived copy retained for reference; latest verification runs via watchdog comment. |
-| codex-issue-bridge.yml | assign-to-agents.yml | ARCHIVED (2026-02-07) | Moved to `Old/.github/workflows/` after Issue #1419 consolidation. |
-| reuse-agents.yml | assign-to-agents.yml + agent-watchdog.yml | ARCHIVED (2026-02-07) | Archived in `Old/.github/workflows/`; parameter matrix deprecated. |
+| codex-issue-bridge.yml | agents-41-assign.yml | ARCHIVED (2026-02-07) | Moved to `Old/.github/workflows/` after Issue #1419 consolidation. |
+| reuse-agents.yml | agents-41-assign.yml + agents-42-watchdog.yml | ARCHIVED (2026-02-07) | Archived in `Old/.github/workflows/`; parameter matrix deprecated. |
 | guard-no-reuse-pr-branches.yml | Policy (no automation) | ARCHIVED | In-place archived with no-op job. |
 | autofix-consumer.yml | `autofix.yml` | REMOVED (2026-02-15) | Small-fix lane now runs inside consolidated follower workflow. |
 | autofix-on-failure.yml | `autofix.yml` | REMOVED (2026-02-15) | Failure remediation merged into consolidated follower workflow. |
@@ -83,7 +83,7 @@ Update: `cleanup-codex-bootstrap.yml` confirmed – prunes stale `agents/codex-i
 - `verify-ci-stack.yml` does not run tests; observational. Keep distinct (diagnostic harness) but could merge into a generalized "ops diagnostics" workflow.
 
 ### Agent Workflows
-- Legacy probes previously converged on `reuse-agents.yml`; latest consolidation replaces that matrix with the focused pair `assign-to-agents.yml` + `agent-watchdog.yml`.
+- Legacy probes previously converged on `reuse-agents.yml`; latest consolidation replaces that matrix with the focused pair `agents-41-assign.yml` + `agents-42-watchdog.yml`.
 - Archived `codex-issue-bridge.yml` and `reuse-agents.yml` remain in `Old/.github/workflows/` for reference but should not receive new consumers.
 
 ### Autofix
@@ -97,7 +97,7 @@ Update: `cleanup-codex-bootstrap.yml` confirmed – prunes stale `agents/codex-i
 1. (DONE) Archive deprecated agent workflows (6 listed) with historical copies retained under `.github/workflows/archive/`.
 2. (DONE) Remove `autofix.yml` now that the stabilization window following PR #1257 has closed.
 3. Evaluate merging `verify-ci-stack.yml` and adding a diagnostics job into `pr-10-ci-python.yml` guarded by a manual `workflow_dispatch` input (optional enhancement).
-4. Long-term: monitor `assign-to-agents.yml` / `agent-watchdog.yml` telemetry; expand with optional readiness probes only if required (no plan to resurrect `reuse-agents.yml`).
+4. Long-term: monitor `agents-41-assign.yml` / `agents-42-watchdog.yml` telemetry; expand with optional readiness probes only if required (no plan to resurrect `reuse-agents.yml`).
 5. Refactor `autofix-on-failure.yml` to call `reuse-autofix.yml` for single source of truth (pass through head ref context). Not urgent.
 
 ## Archival Impact Analysis

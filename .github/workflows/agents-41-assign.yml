@@ -188,7 +188,7 @@ jobs:
               return;
             }
             const agent = process.env.AGENT || 'agent';
-            const body = `${command}\n\nAutomation engaged for **${agent}** by assign-to-agents workflow.`;
+            const body = `${command}\n\nAutomation engaged for **${agent}** by agents-41-assign workflow.`;
             await github.rest.issues.createComment({ owner, repo, issue_number: number, body });
             core.info('Posted trigger command.');
 
@@ -233,7 +233,7 @@ jobs:
               timeout_minutes: (process.env.TIMEOUT || '').trim() || '7',
               started_at: (process.env.STARTED_AT || '').trim() || new Date().toISOString()
             };
-            await github.rest.actions.createWorkflowDispatch({ owner, repo, workflow_id: 'agent-watchdog.yml', ref, inputs });
+            await github.rest.actions.createWorkflowDispatch({ owner, repo, workflow_id: 'agents-42-watchdog.yml', ref, inputs });
             core.info(`Watchdog dispatched for issue #${issue}.`);
 
       - name: Surface bootstrap failure

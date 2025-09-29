@@ -73,7 +73,7 @@ permissions:
 
 jobs:
   call-reusable:
-    uses: ./.github/workflows/reuse-agents.yml
+    uses: ./.github/workflows/reusable-90-agents.yml
     with:
       enable_readiness: ${{ inputs.enable_readiness || 'false' }}
       readiness_agents: ${{ inputs.readiness_agents || 'copilot,codex' }}
