@@ -42,8 +42,11 @@ def _ensure_joblib_external() -> None:
             f"stub at {resolved}."
         )
 
-    # The previous check for 'site-packages'/'dist-packages' was too restrictive
-    # and has been removed to allow for flexible installation patterns (e.g., conda, virtualenv).
+    if not any(part in SITE_INDICATORS for part in resolved.parts):
+        raise ImportError(
+            "joblib should resolve from site-packages/dist-packages but instead "
+            f"resolved to {resolved}."
+        )
 
 
 _ensure_src_on_sys_path()
