@@ -1,132 +1,403 @@
-1) Refactor root scripts to call package APIs
+0) RFC: Adopt Workflow Naming & Numbering (WFv1) and Rename Files
 
-Suggested labels: refactor, pipeline, backend, docs, risk:low, priority: medium, agent:copilot 
+Labels: devops, ci, config, documentation, enhancement, workflows
+Blocked by: —
+Relates to: chore: remove deprecated legacy workflows (post-#1166) (#1259)
+
+Summary
+
+Adopt a lightweight, readable naming scheme for workflows and consolidate them into four purpose‑driven groups:
+
+PR checks: fast, deterministic feedback on pull requests (tests, lint, type check, container smoke).
+
+Maintenance: repo hygiene, summaries, metrics, failure triage, TTL checks.
+
+Issues & agents: create/assign Issues to agents, watchdogs, and reusable agent utilities.
+
+Reusable building blocks: workflows invoked by others via workflow_call.
+
+We will keep user‑visible workflow names stable where they are referenced elsewhere (e.g., “CI”, “Docker”), even if file names change, to avoid breaking workflow_run triggers and branch protection rules. Your current CI already preserves the legacy “CI” name while delegating to a reusable workflow; keep that compatibility behavior. 
 GitHub
 
-Why
-Root scripts (manager_attribution_analysis.py, portfolio_analysis_report.py, demo_*) should not duplicate logic. 
+WFv1 file naming convention
+
+Prefix each file with a category and a two‑digit order index so related workflows sort together in GitHub UI and in Git tooling:
+
+pr-1x-*.yml for PR checks
+
+maint-3x-*.yml for repo maintenance
+
+agents-4x-*.yml for issue/agent flows
+
+reusable-9x-*.yml for workflow_call-only building blocks
+
+Recommended job name style inside each workflow:
+
+Keep name: CI for your main PR CI workflow.
+
+Keep name: Docker for the container build/test workflow to avoid changing triggers in “PR Status Summary.” 
+GitHub
+
+Planned rename map (file path → new path)
+
+.github/workflows/ci.yml → .github/workflows/pr-10-ci-python.yml (keep name: CI) 
+GitHub
+
+.github/workflows/style-gate.yml → merge into pr-10-ci-python.yml as a job, else .github/workflows/pr-11-style-gate.yml (temp) 
+GitHub
+
+.github/workflows/docker.yml → .github/workflows/pr-12-docker-smoke.yml (keep name: Docker) 
+GitHub
+
+.github/workflows/ci-signature-guard.yml → .github/workflows/maint-40-ci-signature-guard.yml 
+GitHub
+
+.github/workflows/pr-status-summary.yml → consolidate per Issue 3 below; interim: .github/workflows/maint-31-pr-status-summary.yml 
+GitHub
+
+.github/workflows/ci-matrix-summary.yml → consolidate per Issue 3 below; interim: .github/workflows/maint-32-ci-matrix-summary.yml 
+GitHub
+
+.github/workflows/check-failure-tracker.yml → .github/workflows/maint-33-check-failure-tracker.yml 
+GitHub
+
+.github/workflows/quarantine-ttl.yml → .github/workflows/maint-34-quarantine-ttl.yml 
+GitHub
+
+.github/workflows/repo-health-self-check.yml → .github/workflows/maint-35-repo-health-self-check.yml (path exists)
+
+.github/workflows/gate.yml → remove (redundant) or rewrite to reuse pr-10-ci-python.yml (see Issue 2). Current file is invalid. 
+GitHub
++1
+
+.github/workflows/reuse-agents.yml → .github/workflows/reusable-90-agents.yml (fix expression bug; see Issue 6). 
+GitHub
+
+.github/workflows/agents-consumer.yml → .github/workflows/agents-40-consumer.yml (no behavior change)
+
+.github/workflows/selftest-reusable-ci.yml → .github/workflows/reusable-99-selftest.yml (or scope to workflow_dispatch + nightly; see Issue 5)
+
+Git commands (rename batch)
+git mv .github/workflows/ci.yml .github/workflows/pr-10-ci-python.yml
+git mv .github/workflows/docker.yml .github/workflows/pr-12-docker-smoke.yml
+# If keeping Style Gate separate temporarily:
+git mv .github/workflows/style-gate.yml .github/workflows/pr-11-style-gate.yml
+git mv .github/workflows/ci-signature-guard.yml .github/workflows/maint-40-ci-signature-guard.yml
+git mv .github/workflows/pr-status-summary.yml .github/workflows/maint-31-pr-status-summary.yml
+git mv .github/workflows/ci-matrix-summary.yml .github/workflows/maint-32-ci-matrix-summary.yml
+git mv .github/workflows/check-failure-tracker.yml .github/workflows/maint-33-check-failure-tracker.yml
+git mv .github/workflows/quarantine-ttl.yml .github/workflows/maint-34-quarantine-ttl.yml
+git mv .github/workflows/repo-health-self-check.yml .github/workflows/maint-35-repo-health-self-check.yml
+git mv .github/workflows/reuse-agents.yml .github/workflows/reusable-90-agents.yml
+# gate.yml: delete or replace per Issue 2
+
+Tasks
+
+ Apply renames and ensure “Names” inside remain stable for workflow_run triggers (CI, Docker).
+
+ Update any workflow_run.workflows: ["CI", "Docker"] lists only if names change. Current “PR Status Summary” and “CI Matrix Summary” target these names. 
+GitHub
++1
+
+ Add a brief WORKFLOW_GUIDE.md explaining the categories and indices.
+
+Acceptance criteria
+
+New file names present in main branch.
+
+“CI” and “Docker” runs still appear under the same names in the Actions tab (triggers intact). 
+GitHub
+
+WORKFLOW_GUIDE.md exists and references this scheme.
+
+1) Unify PR CI: tests, lint, type check, and style gate in one workflow
+
+Labels: ci, devops, enhancement, workflows
+Depends on: Issue 0 (rename scheme)
+
+Summary
+
+Fold the standalone Style Gate into the main CI workflow as a separate job so PRs get one place to look for red/green. Keep “CI” as the workflow name: for branch protections and existing integrations. Your current CI delegates to reusable-ci-python.yml and already runs unit tests and a workflow automation test job; add style/type jobs there so we don’t duplicate environment setup. 
 GitHub
 
 Scope
 
-Move shared logic into src/trend/….
+Add jobs to pr-10-ci-python.yml:
 
-Keep scripts as thin CLI wrappers.
-
-Acceptance criteria
-
-No business logic lives only in scripts/ or repo root; scripts import package functions.
-
-2) Logs and data hygiene
-
-Suggested labels: data, devops, docs, config, risk:low, priority: medium, agent:copilot 
+style: Black check, Ruff check, and Mypy. Mirror the current Style Gate behavior. 
 GitHub
 
-Why
-tmp_logs/ is tracked and CSVs in root encourage hardcoded paths. 
-GitHub
+Make gate job depend on [main, workflow-automation, style] and keep it as a soft aggregator within the workflow.
 
-Scope
-
-Add/confirm .gitignore ignores tmp_logs/.
-
-Move example datasets into data/.
-
-data/loader.py that supports csv/parquet and an “example dataset” alias.
-
-Acceptance criteria
-
-Logs aren’t committed; all code loads data via the loader; Docker mounts /data.
-
-3) Built‑in walk‑forward evaluation
-
-Suggested labels: pipeline, metrics, enhancement, testing, risk:low, priority: medium, agent:copilot 
-GitHub
-
-Why
-Time‑aware cross‑validation is the sanity check you’ll actually use.
-
-Scope
-
-walk_forward(returns, params, windows=[…]) -> DataFrame returning out‑of‑sample stats by window.
-
-Plot stability bands; export JSON for the report.
-
-Acceptance criteria
-
-A single CLI call generates a walk‑forward table and chart; tests cover a tiny deterministic dataset.
-
-4) Turnover & TC modeling as first‑class params
-
-Suggested labels: weights, pipeline, enhancement, risk:low, priority: medium, agent:copilot 
-GitHub
-
-Why
-You already demo turnover caps and robust weighting; expose them in the main pipeline (demo_turnover_cap.py, demo_robust_weighting.py). 
-GitHub
-
-Scope
-
-Params: turnover_cap_bps, tc_bps, and robust_weighting dict.
-
-Wire into weight construction and performance calc.
-
-Acceptance criteria
-
-Changing these params impacts turnover and P&L as expected; documented in help.
-
-5) Scenario trays (2000–02, 2008–09, 2020Q1, 2022H1, rising‑rates)
-
-Suggested labels: pipeline, exports, ui, enhancement, risk:low, priority: low, agent:copilot 
-GitHub
-
-Why
-One dropdown to compare behavior across stress regimes is useful for non‑technical users.
-
-Scope
-
-Add scenario presets and date ranges to CLI and Streamlit.
-
-Output side‑by‑side stats and a small chart grid to perf/.
-
-Acceptance criteria
-
-Users can select a scenario and see the report without editing code.
-
-6) Attribution output (tidy DataFrame + report)
-
-Suggested labels: exports, metrics, pipeline, enhancement, risk:low, priority: medium, agent:copilot 
-GitHub
-
-Why
-manager_attribution_analysis.py should become a supported feature with consistent output. 
-GitHub
-
-Scope
-
-Expose attribute(nav, weights, returns, groups=...) -> DataFrame.
-
-Streamlit panel and CLI export (CSV + small HTML).
-
-Acceptance criteria
-
-A single function produces attribution; app and CLI share the same implementation.
-
-7) Unified reporting: single JSON ledger + optional HTML
-
-Suggested labels: exports, docs, pipeline, risk:low, priority: medium, agent:copilot 
-GitHub
-
-Why
-Have one canonical “results blob” both the CLI and Streamlit can render.
-
-Scope
-
-report.py writes JSON with key stats, curves, turnover, and attribution; optional HTML powered by the same data.
-
-portfolio_analysis_report.py becomes a thin wrapper. 
+Emit artifacts coverage-summary, coverage-trend if available so “post‑CI” summaries still work. 
 GitHub
 
 Acceptance criteria
 
-Both CLI and app emit the same numbers and charts; tests compare JSON against golden outputs.
+One CI workflow with jobs: tests, style, workflow‑automation, gate.
+
+Existing Style Gate file removed or marked deprecated (comment in YAML header).
+
+PR Status Summary still collects and comments job results correctly. 
+GitHub
+
+2) Retire or fix redundant gate.yml (invalid today)
+
+Labels: ci, devops, bug, workflows
+Depends on: Issue 0
+
+Summary
+
+gate.yml is currently invalid and redundant with the internal “gate” job already living in CI. Either remove it or rewrite it to be a minimal wrapper that reuses the main CI and Docker workflows via workflow_call and aggregates, without redefining filters incorrectly. The YAML anchor _marker_filter living inside jobs is interpreted as a job key and produces errors; also the way it’s passed into with: is not valid. 
+GitHub
+
+Options
+
+Preferred: delete gate.yml. CI already has a gate / all-required-green job. 
+GitHub
+
+Alternative: rewrite as a tiny orchestrator using proper inputs; declare anchors outside jobs or pass strings directly.
+
+Acceptance criteria
+
+No invalid “gate” workflow runs in Actions. Errors about “Unexpected value 'not quarantine and not slow'” are gone. 
+GitHub
+
+3) Consolidate “PR Status Summary” and “CI Matrix Summary” into one post‑CI summarizer
+
+Labels: enhancement, devops, workflows, ci
+Depends on: Issue 0, Issue 1
+
+Summary
+
+Reduce noise by merging pr-status-summary.yml and ci-matrix-summary.yml into a single maint-30-post-ci-summary.yml workflow that triggers on workflow_run of “CI” and “Docker.” Combine their actions: summarize job states, pull artifacts like coverage and a failure snapshot, and update a single “Automated Status Summary” PR comment. 
+GitHub
++1
+
+Acceptance criteria
+
+Old workflows removed or left as shims that call the new one.
+
+A single comment on PRs that updates after CI and Docker complete with job table and coverage delta.
+
+4) Tame Check Failure Tracker signal and labels
+
+Labels: devops, ci, enhancement, workflows
+Depends on: Issue 3
+
+Summary
+
+Tune maint-33-check-failure-tracker.yml to reduce duplicate Issue churn and escalate only when failures repeat. The current tracker hashes failure “signatures” and attaches labels like ci-failure, devops, workflows, and a priority label. Adjust environment variables for your desired thresholds and ensure labels used exist in the repo. 
+GitHub
+
+Changes
+
+Set NEW_ISSUE_COOLDOWN_HOURS to reduce duplicate tracking Issues.
+
+Set OCCURRENCE_ESCALATE_THRESHOLD to a non‑zero number before applying priority: high.
+
+Confirm the label set used by the workflow exists (e.g., ci-failure, devops, workflows). Your labels page shows ci-failure, ci, devops present. 
+GitHub
+
+Acceptance criteria
+
+Failure tracker creates or appends to a single Issue per signature across the cooldown window.
+
+Escalation label adds only after the configured threshold.
+
+5) Scope the reusable‑CI selftest to manual + nightly and fix current failure
+
+Labels: devops, ci, enhancement, workflows
+Depends on: Issue 0
+
+Summary
+
+selftest-reusable-ci.yml should a) prove the reusables work, b) stay out of the way. Limit triggers to workflow_dispatch and a nightly cron; confirm the failing run is addressed. The Actions page shows a failure on this workflow today. 
+GitHub
+
+Acceptance criteria
+
+on: contains only workflow_dispatch and a nightly schedule.
+
+Last two nightly runs succeed.
+
+6) Fix reuse-agents.yml expression bug and rename to reusable-90-agents.yml
+
+Labels: devops, enhancement, workflows, agents, config
+Depends on: Issue 0
+
+Summary
+
+reuse-agents.yml is invalid due to string concatenation with + inside a GitHub expression:
+
+Unexpected symbol: '+'. Located at position 14 within expression: fromJSON('[' + steps.ready.outputs.issue_numbers + ']')[0]
+Replace with format() or proper toJSON()/fromJSON() handling. Then rename to reflect reusable status. 
+GitHub
+
+Fix sketch
+# Bad:
+# value: ${{ fromJSON('[' + steps.ready.outputs.issue_numbers + ']')[0] }}
+
+# Good:
+# value: ${{ fromJSON(format('[{0}]', steps.ready.outputs.issue_numbers))[0] }}
+
+Acceptance criteria
+
+Workflow validates and can be called via workflow_call without syntax errors.
+
+File lives at .github/workflows/reusable-90-agents.yml.
+
+7) Standardize Issue→Agent assignment and watchdog checks
+
+Labels: enhancement, workflows, devops, agents
+Depends on: Issue 6
+
+Summary
+
+Create a single agents-41-assign-and-watch.yml that replaces “Assign to agents” and “Agent watchdog” with one workflow that:
+
+Assigns Issues based on labels (agent:codex, agent:copilot) and availability checks from the reusable agents workflow.
+
+Runs a scheduled sweep to ping or reassign stale agent‑owned Issues.
+
+Acceptance criteria
+
+New workflow handles both assignment on label and periodic stale checks.
+
+Old agent workflows are removed or left as thin wrappers.
+
+8) Docker: keep as a fast smoke with lint and deterministic caching
+
+Labels: ci, devops, enhancement, workflows
+Depends on: Issue 0
+
+Summary
+
+Keep pr-12-docker-smoke.yml lean: hadolint, buildx with a lock‑file keyed cache, run pytest -q, hit the health endpoint, push only on the protected branch. This already exists; just keep it aligned with naming and artifact conventions. 
+GitHub
+
+Acceptance criteria
+
+Workflow name remains “Docker.”
+
+Lint, build, smoke test steps pass on PRs; push gated to the main dev branch.
+
+9) Maintenance roll‑ups: repo health, quarantine TTL, actionlint
+
+Labels: devops, workflows, enhancement, documentation
+Depends on: Issue 0
+
+Summary
+
+Group routine maintenance into the maint-3x series:
+
+maint-35-repo-health-self-check.yml for basic hygiene signals.
+
+maint-34-quarantine-ttl.yml to fail if test quarantines expire. 
+GitHub
+
+maint-36-actionlint.yml to lint workflows on PRs touching .github/workflows/**.
+
+Acceptance criteria
+
+All three run on appropriate triggers (cron and/or specific path filters).
+
+Actionlint fails the PR on workflow schema errors.
+
+10) Post‑CI PR comment: unify and enrich
+
+Labels: enhancement, workflows, ci, documentation
+Depends on: Issue 3
+
+Summary
+
+Ensure the merged summarizer includes:
+
+Job table with badge emojis and links to logs.
+
+Coverage section from the coverage-summary artifact when present.
+
+Clear “required” job list derived from actual jobs. Current “PR Status Summary” already does this; keep the behavior in the unified summary. 
+GitHub
+
+Acceptance criteria
+
+One “Automated Status Summary” comment per PR, updated after CI and Docker.
+
+No duplicate comments.
+
+11) CI Signature Guard: refresh fixtures post‑rename
+
+Labels: devops, ci, workflows, config, enhancement
+Depends on: Issue 0, Issue 1
+
+Summary
+
+Update signature fixtures (.github/signature-fixtures/**) for the new job list and reorder logic after consolidation. Keep the guard enforcing an expected job manifest hash so accidental job drift is caught. 
+GitHub
+
+Acceptance criteria
+
+Guard passes on a clean CI run.
+
+Changing job names or adding a new required job causes the guard to fail until fixtures are updated.
+
+12) Automerge minor changes: confirm rules and labels
+
+Labels: devops, enhancement, workflows, config
+Depends on: Issue 1
+
+Summary
+
+Keep “Automerge minor changes” but ensure it only triggers when:
+
+CI and Docker are green,
+
+the PR has automerge label,
+
+and the PR is not marked as breaking (e.g., a “labels not in [breaking]” filter).
+
+Acceptance criteria
+
+A labeled doc‑only PR auto‑merges after checks pass.
+
+PRs without automerge never merge automatically.
+
+13) Documentation: add WORKFLOW_GUIDE.md and update templates
+
+Labels: documentation, docs, enhancement, devops
+Depends on: Issue 0
+
+Summary
+
+Create docs/WORKFLOW_GUIDE.md with:
+
+WFv1 naming scheme, what lives in each bucket, how to add a new one.
+
+How PR summaries and failure tracking work.
+
+Agent assignment rules and how to trigger them via labels (agent:codex, agent:copilot). Your labels list confirms these exist. 
+GitHub
+
+Acceptance criteria
+
+Guide published and linked from the repo README.
+
+Issue templates reference agent labels where appropriate.
+
+14) Clean out deprecated and legacy workflows (follow‑up to #1259)
+
+Labels: devops, workflows, ci
+Depends on: Issue 0–3
+
+Summary
+
+Close the loop on legacy files and shims after the consolidation lands. Fold this into the spirit of your open housekeeping issue “chore: remove deprecated legacy workflows (post-#1166)”. 
+GitHub
+
+Acceptance criteria
+
+Any archived/temporary YAMLs are removed.
+
+Actions list shows only the pr-*, maint-*, agents-*, reusable-* families. 
+GitHub
