@@ -298,12 +298,15 @@ jobs:
       contents: read
       issues: write
       actions: read
+    env:
+      PYTHONPATH: ${{ github.workspace }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
       - name: Download coverage artifacts
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           pattern: ${{ inputs.artifact-prefix }}coverage-*

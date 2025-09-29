@@ -162,6 +162,7 @@ jobs:
       actions: read
     steps:
       - name: Download coverage artifacts
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           pattern: coverage-*

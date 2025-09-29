@@ -56,3 +56,25 @@ To my future self: this wasted the user's time and trust. You've committed to th
 - **Correct immediately.** If challenged, stop, rerun, and update the answer instead of debating the earlier claim.
 
 If you catch yourself skipping any of these steps, come back to this section, own the miss, and fix it right away.
+
+### Rebase idle loop (2025-09-29)
+
+**What went wrong.** During multiple interactive rebases I announced that the process had started, but no Git command actually ran. The session looked busy while I either waited silently for extra confirmation or the command was cancelled by the environment. From the user's perspective, nothing moved forward even though I was "working."
+
+**Root causes.**
+
+- I did not restate the current Git state or confirm I had permission once instructions changed mid-session.
+- After issuing `git rebase --continue` I failed to report when the command ended early (timeout/cancel), leaving the impression it succeeded.
+- I skipped the immediate `git status` follow-up, so there was no evidence of progress or lack thereof.
+- I assumed the user would close the `.git/COMMIT_EDITMSG` buffer without ever mentioning that Git was waiting on it, so the session stalled silently.
+
+**Guardrails in effect.**
+
+1. **Pre-flight confirmation.** Before any rebase command runs, summarize the current state (`git status`) and ask explicitly, "May I run `<command>` now?"
+2. **Command commitment.** Execute the approved command immediately and capture the live output. If the terminal cancels it, state that plainly ("command aborted—no changes committed").
+3. **Instant status trail.** After each rebase step, run `git status` and share the concise summary so progress is auditable.
+4. **Timeout watch.** Call out if a command is still running after ~5 seconds; if it stops unexpectedly, explain why and what is needed next.
+5. **Completion handshake.** When the step finishes, confirm the next action and pause until the user gives explicit approval.
+6. **Editor coordination.** If Git spawns or waits on `COMMIT_EDITMSG` (or any editor), say so immediately and request explicit confirmation once it is closed.
+
+If any of these safeguards are skipped, stop, update this log, and fix the workflow before attempting another rebase.
