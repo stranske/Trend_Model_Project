@@ -103,6 +103,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         jobs = workflow.get("jobs", {})
         self.assertIn("tests", jobs)
         self.assertIn("mypy", jobs)
+        self.assertIn("coverage_soft_gate", jobs)
 
         test_steps = "\n".join(
             step["run"].strip()
@@ -128,6 +129,100 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
             mypy_steps,
             ["pip install mypy", "mypy src"],
             context="reusable-ci mypy job",
+        )
+
+    def test_coverage_soft_gate_checks_out_repo_before_python(self) -> None:
+        workflow = self._read_workflow("reusable-ci-python.yml")
+        jobs = workflow["jobs"]
+
+        def _assert_checkout_precedes_python(job_name: str) -> None:
+            steps = jobs[job_name].get("steps", [])
+            checkout_indices = [
+                index
+                for index, step in enumerate(steps)
+                if isinstance(step, dict)
+                and str(step.get("uses", "")).startswith("actions/checkout")
+            ]
+            self.assertTrue(
+                checkout_indices,
+                f"{job_name} job must checkout the repository before running helpers",
+            )
+
+            first_checkout = checkout_indices[0]
+            python_steps = [
+                index
+                for index, step in enumerate(steps)
+                if isinstance(step, dict)
+                and (
+                    step.get("shell") == "python"
+                    or (isinstance(step.get("run"), str) and "scripts/" in step["run"])
+                )
+            ]
+            self.assertTrue(
+                all(index > first_checkout for index in python_steps),
+                f"Python helper steps in {job_name} must run after checkout",
+            )
+
+        _assert_checkout_precedes_python("coverage_soft_gate")
+        _assert_checkout_precedes_python("cosmetic_followup")
+
+    def test_coverage_soft_gate_preserves_classification_and_summary_steps(
+        self,
+    ) -> None:
+        workflow = self._read_workflow("reusable-ci-python.yml")
+        steps = workflow["jobs"]["coverage_soft_gate"].get("steps", [])
+        names = {
+            step.get("name")
+            for step in steps
+            if isinstance(step, dict) and step.get("name")
+        }
+        expected = {
+            "Download coverage artifacts",
+            "Classify test outcomes",
+            "Compute coverage summary & hotspots",
+            "Create / update soft coverage issue",
+        }
+        missing = expected.difference(names)
+        self.assertFalse(
+            missing,
+            f"coverage_soft_gate missing critical steps: {sorted(missing)}",
+        )
+
+    def test_cosmetic_followup_job_depends_on_soft_gate_outputs(self) -> None:
+        workflow = self._read_workflow("reusable-ci-python.yml")
+        job = workflow["jobs"]["cosmetic_followup"]
+        condition = job.get("if", "")
+        self.assertIn(
+            "needs.tests.result != 'success'",
+            condition,
+            "cosmetic_followup must guard on failing tests",
+        )
+        self.assertIn(
+            "needs.coverage_soft_gate.outputs.has_failures == 'true'",
+            condition,
+            "cosmetic_followup must check coverage_soft_gate has failures",
+        )
+        self.assertIn(
+            "needs.coverage_soft_gate.outputs.only_cosmetic == 'true'",
+            condition,
+            "cosmetic_followup must only run for cosmetic failures",
+        )
+
+        steps = job.get("steps", [])
+        names = {
+            step.get("name")
+            for step in steps
+            if isinstance(step, dict) and step.get("name")
+        }
+        required_steps = {
+            "Summarise cosmetic failures",
+            "Capture fixer diff",
+            "Upload cosmetic patch",
+        }
+        missing = required_steps.difference(names)
+        self.assertFalse(
+            missing,
+            f"cosmetic_followup missing required helper steps: {sorted(missing)}",
         )
 
     def test_style_gate_enforces_black_ruff_and_mypy(self) -> None:

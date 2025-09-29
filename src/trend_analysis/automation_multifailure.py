@@ -1,7 +1,9 @@
-"""Intentional type mismatch module for workflow automation validation.
+"""Automation fixture used by diagnostic pipelines.
 
-This module deliberately returns the wrong type so that mypy detects an
-error.
+Historically this helper intentionally violated its return annotation so the
+automation demos could showcase mypy repairs. The real workflows now expect
+the implementation to be sound while still returning the pipe-delimited
+string consumed by downstream tests.
 """
 
 from __future__ import annotations
@@ -9,6 +11,6 @@ from __future__ import annotations
 from typing import Iterable
 
 
-def aggregate_numbers(values: Iterable[int]) -> int:
-    """Return a pipe-separated string while claiming to return an int."""
+def aggregate_numbers(values: Iterable[int]) -> str:
+    """Return the diagnostic pipe-separated string used in the demo suite."""
     return " | ".join(str(v) for v in values)

@@ -150,7 +150,7 @@ def test_mypy_return_autofix_updates_annotation(
     module_path = tmp_repo / module_rel
     module_path.write_text(
         "from __future__ import annotations\n\n\n"
-        "def format_user(name: str) -> str:\n"
+        "def format_user(name: str) -> int:\n"
         "    return f'hello {name}'\n",
         encoding="utf-8",
     )
@@ -190,7 +190,7 @@ def test_fix_cosmetic_aggregate_switches_separator(
     target = tmp_repo / "automation_multifailure.py"
     target.write_text(
         "from typing import Iterable\n\n\n"
-        "def aggregate_numbers(values: Iterable[int]) -> str:\n"
+        "def aggregate_numbers(values: Iterable[int]) -> int:\n"
         '    return ",".join(str(v) for v in values)\n',
         encoding="utf-8",
     )
