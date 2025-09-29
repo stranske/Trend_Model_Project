@@ -17,9 +17,9 @@ def test_joblib_import_resolves_outside_repo() -> None:
     # instead, so we accept either spelling while still requiring an external
     # location.
     site_indicator = {"site-packages", "dist-packages"}
-    assert any(part in joblib_path.parts for part in site_indicator), (
-        f"joblib resolved to unexpected location: {joblib_path!s}"
-    )
-    assert repo_root not in joblib_path.parents, (
-        "joblib import should not point inside the repository"
-    )
+    assert any(
+        part in joblib_path.parts for part in site_indicator
+    ), f"joblib resolved to unexpected location: {joblib_path!s}"
+    assert (
+        repo_root not in joblib_path.parents
+    ), "joblib import should not point inside the repository"
