@@ -12,6 +12,8 @@ import pickle
 from pathlib import Path
 from typing import Any
 
+__all__ = ["dump", "load"]
+
 
 def dump(obj: Any, filename: str | Path) -> None:
     path = Path(filename)
