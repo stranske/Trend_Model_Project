@@ -12,7 +12,7 @@ import os
 import sys
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Protocol, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Protocol, cast
 
 import yaml
 
@@ -176,7 +176,16 @@ if _HAS_PYDANTIC:
     import builtins as _bi
 
     _cached = getattr(_bi, "_TREND_CONFIG_CLASS", None)
-    PydanticConfigBase = cast(Any, BaseModel if _cached is None else _cached)
+    _runtime_base = BaseModel if _cached is None else _cached
+    if _cached is None:
+        setattr(_bi, "_TREND_CONFIG_CLASS", _runtime_base)
+
+    if TYPE_CHECKING:  # pragma: no cover - typing aid only
+        from pydantic import BaseModel as _TypedPydanticBaseModel
+
+        PydanticConfigBase = _TypedPydanticBaseModel
+    else:
+        PydanticConfigBase = cast(type[BaseModel], _runtime_base)
 
     # Provide a typed decorator wrapper to satisfy mypy in strict mode
     from typing import Callable, TypeVar
@@ -186,7 +195,7 @@ if _HAS_PYDANTIC:
     def _fv_typed(*args: Any, **kwargs: Any) -> Callable[[F], F]:
         return cast(Callable[[F], F], field_validator(*args, **kwargs))
 
-    class _PydanticConfigImpl(PydanticConfigBase):  # type: ignore[misc, valid-type]
+    class _PydanticConfigImpl(PydanticConfigBase):
         """Typed access to the YAML configuration (Pydantic mode)."""
 
         # Field lists generated dynamically from model fields to prevent maintenance burden

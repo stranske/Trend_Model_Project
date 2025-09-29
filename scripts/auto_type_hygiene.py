@@ -3,9 +3,8 @@
 
 Goals (automation-safe):
   * Install missing type stubs (handled by workflow separately) – this script only mutates source files.
-  * Inject `# type: ignore[import-untyped]` comments for a curated allowlist of known untyped imports
-    (currently only `yaml`).  If a stub file or `py.typed` marker is present, the script leaves the import
-    unchanged.
+    * Optionally inject `# type: ignore[import-untyped]` comments for a curated allowlist of known untyped
+        imports.  If a stub file or `py.typed` marker is present, the script leaves the import unchanged.
   * Idempotent: never duplicate ignore comments.
   * Skip legacy / excluded paths (Old/, notebooks/old/).
   * Avoid masking *semantic* errors – we only touch import lines that succeed at runtime but lack stubs.
@@ -37,9 +36,7 @@ EXCLUDE_PATTERNS = [
     re.compile(r"(^|/)notebooks/old(/|$)"),
 ]
 ALLOWLIST = [
-    m.strip()
-    for m in os.environ.get("AUTO_TYPE_ALLOWLIST", "yaml").split(",")
-    if m.strip()
+    m.strip() for m in os.environ.get("AUTO_TYPE_ALLOWLIST", "").split(",") if m.strip()
 ]
 DRY_RUN = os.environ.get("AUTO_TYPE_DRY_RUN") == "1"
 

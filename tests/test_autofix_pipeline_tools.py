@@ -123,6 +123,8 @@ def test_auto_type_hygiene_inserts_type_ignore(
         encoding="utf-8",
     )
 
+    monkeypatch.setenv("AUTO_TYPE_ALLOWLIST", "yaml")
+    monkeypatch.setattr(auto_type_hygiene, "ALLOWLIST", ["yaml"], raising=False)
     monkeypatch.setattr(auto_type_hygiene, "ROOT", tmp_repo)
     monkeypatch.setattr(auto_type_hygiene, "SRC_DIRS", [src_dir])
     monkeypatch.setattr(auto_type_hygiene, "DRY_RUN", False)
