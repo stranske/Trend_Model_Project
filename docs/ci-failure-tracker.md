@@ -3,7 +3,7 @@
 This document summarises the behaviour and configuration of the enhanced failure tracking workflow.
 
 ## Overview
-`check-failure-tracker.yml` listens to completed runs of the primary CI workflows (`CI`, `Docker`, and the manual `CI Selftest`). On failure it:
+`maint-33-check-failure-tracker.yml` listens to completed runs of the primary CI workflows (`CI`, `Docker`, and the manual `CI Selftest`). On failure it:
 
 1. Enumerates failed jobs and the first failing step.
 2. Optionally extracts a stack token (first exception or error line) per failed job.
@@ -60,7 +60,7 @@ python tools/test_failure_signature.py \
 Integrate into local pre-flight checks to ensure signature algorithm adjustments are deliberate.
 
 ## Signature Guard Workflow
-Workflow: `ci-signature-guard.yml` runs on pushes / PRs and validates that a canonical fixture (`.github/signature-fixtures/basic_jobs.json`) hashes to the expected value stored in `basic_hash.txt`. Any intentional algorithm change should update both fixture and expected hash in the same commit.
+Workflow: `maint-40-ci-signature-guard.yml` runs on pushes / PRs and validates that a canonical fixture (`.github/signature-fixtures/basic_jobs.json`) hashes to the expected value stored in `basic_hash.txt`. Any intentional algorithm change should update both fixture and expected hash in the same commit.
 
 ## Manual Self-Test
 You can manually validate behaviour:
@@ -73,7 +73,7 @@ You can manually validate behaviour:
 - Integrate stack token similarity clustering for noisy crash variants.
 
 ## CI Matrix Summary Aggregation (New Enhancement)
-The `ci-matrix-summary.yml` workflow (triggered via `workflow_run` on `CI` and
+The `maint-32-ci-matrix-summary.yml` workflow (triggered via `workflow_run` on `CI` and
 `Check Failure Tracker`) consolidates key observability signals into a single
 Markdown artifact (`ci-matrix-summary.md`) and job summary section:
 

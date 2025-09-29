@@ -47,15 +47,15 @@ Last updated: 2026-02-07
 - Label Agent PRs — [`label-agent-prs.yml`](../../.github/workflows/label-agent-prs.yml) · [jump](#wf-label-agent-prs)
 - Merge Manager — [`merge-manager.yml`](../../.github/workflows/merge-manager.yml) · [jump](#wf-merge-manager)
 - Autofix Lane — [`autofix.yml`](../../.github/workflows/autofix.yml) · [jump](#wf-autofix)
-- CI — [`ci.yml`](../../.github/workflows/ci.yml) · [jump](#wf-ci)
-- Docker — [`docker.yml`](../../.github/workflows/docker.yml) · [jump](#wf-docker)
+- CI — [`pr-10-ci-python.yml`](../../.github/workflows/pr-10-ci-python.yml) · [jump](#wf-ci)
+- Docker — [`pr-12-docker-smoke.yml`](../../.github/workflows/pr-12-docker-smoke.yml) · [jump](#wf-docker)
 - Cleanup Codex Bootstrap — [`cleanup-codex-bootstrap.yml`](../../.github/workflows/cleanup-codex-bootstrap.yml) · [jump](#wf-cleanup-codex-bootstrap)
-- Quarantine TTL — [`quarantine-ttl.yml`](../../.github/workflows/quarantine-ttl.yml) · [jump](#wf-quarantine-ttl)
+- Quarantine TTL — [`maint-34-quarantine-ttl.yml`](../../.github/workflows/maint-34-quarantine-ttl.yml) · [jump](#wf-quarantine-ttl)
 - Verify Service Bot PAT — [`verify-service-bot-pat.yml`](../../.github/workflows/verify-service-bot-pat.yml) · [jump](#wf-verify-service-bot-pat)
 - Copilot Readiness — [`copilot-readiness.yml`](../../.github/workflows/copilot-readiness.yml) · [jump](#wf-copilot-readiness)
 - Guard: No‑Reuse PR Branches — [`guard-no-reuse-pr-branches.yml`](../../.github/workflows/guard-no-reuse-pr-branches.yml) · [jump](#wf-guard-no-reuse)
 - Verify Codex Bootstrap Matrix — [`verify-codex-bootstrap-matrix.yml`](../../.github/workflows/verify-codex-bootstrap-matrix.yml) · [jump](#wf-verify-codex-bootstrap-matrix)
-- Check Failure Tracker — [`check-failure-tracker.yml`](../../.github/workflows/check-failure-tracker.yml) · [jump](#wf-check-failure-tracker)
+- Check Failure Tracker — [`maint-33-check-failure-tracker.yml`](../../.github/workflows/maint-33-check-failure-tracker.yml) · [jump](#wf-check-failure-tracker)
 - Release — [`release.yml`](../../.github/workflows/release.yml) · [jump](#wf-release)
 
 ## Workflow Catalog (purpose, triggers, jobs)
@@ -124,12 +124,12 @@ This catalog explains what each active workflow does, how it’s triggered, the 
      - Locates corresponding PR, checks out same-repo branches, runs autofix, commits, and pushes
 
 <a id="wf-ci"></a>
-8) [`ci.yml`](../../.github/workflows/ci.yml) — Test suite on pushes and PRs
+8) [`pr-10-ci-python.yml`](../../.github/workflows/pr-10-ci-python.yml) — Test suite on pushes and PRs
    - Triggers: `push` to `phase-2-dev`, `pull_request`
    - Jobs: `core-tests` (matrix on Python 3.11/3.12), `gate` (aggregates)
 
 <a id="wf-docker"></a>
-9) [`docker.yml`](../../.github/workflows/docker.yml) — Build, test, and push container image
+9) [`pr-12-docker-smoke.yml`](../../.github/workflows/pr-12-docker-smoke.yml) — Build, test, and push container image
    - Triggers: `push` to `phase-2-dev`, `pull_request`, `workflow_dispatch`
    - Jobs: `build`
      - Builds image, runs tests in container, health-checks a simple endpoint, pushes to GHCR
@@ -141,7 +141,7 @@ This catalog explains what each active workflow does, how it’s triggered, the 
      - Deletes old `agents/codex-issue-*` branches beyond TTL
 
 <a id="wf-quarantine-ttl"></a>
-11) [`quarantine-ttl.yml`](../../.github/workflows/quarantine-ttl.yml) — Enforce test quarantine expirations
+11) [`maint-34-quarantine-ttl.yml`](../../.github/workflows/maint-34-quarantine-ttl.yml) — Enforce test quarantine expirations
    - Triggers: `pull_request`, `push` to `phase-2-dev`
    - Jobs: `ttl`
      - Validates `tests/quarantine.yml` entries have not expired
@@ -165,7 +165,7 @@ This catalog explains what each active workflow does, how it’s triggered, the 
      - Runs `scripts/verify_codex_bootstrap.py` across scenarios; uploads artifacts and summaries
 
 <a id="wf-check-failure-tracker"></a>
-15) [`check-failure-tracker.yml`](../../.github/workflows/check-failure-tracker.yml) — Open/close CI failure issues
+15) [`maint-33-check-failure-tracker.yml`](../../.github/workflows/maint-33-check-failure-tracker.yml) — Open/close CI failure issues
    - Triggers: `workflow_run` for `CI` and `Docker`
    - Jobs: `failure`, `success`
      - Opens an issue on failures; closes the corresponding issue on subsequent success
