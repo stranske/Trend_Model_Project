@@ -298,6 +298,8 @@ jobs:
       contents: read
       issues: write
       actions: read
+    env:
+      PYTHONPATH: ${{ github.workspace }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
