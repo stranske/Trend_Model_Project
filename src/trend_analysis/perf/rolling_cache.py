@@ -11,7 +11,7 @@ from typing import Callable, Sequence
 import pandas as pd
 from pandas.util import hash_pandas_object
 
-from joblib import dump, load
+from trend_analysis.util.joblib_shim import dump, load
 
 
 def _get_default_cache_dir() -> Path:
