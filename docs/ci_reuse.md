@@ -11,7 +11,7 @@ This repository exposes three reusable GitHub Actions workflows (workflow_call) 
 ## 1. Python CI (`reuse-ci-python.yml`)
 Trigger via a consumer workflow:
 ```yaml
-# .github/workflows/ci.yml (consumer example)
+# .github/workflows/pr-10-ci-python.yml (consumer example)
 name: ci
 on:
   pull_request:
@@ -97,7 +97,7 @@ Issue #1419 replaced the multi-flag `reuse-agents.yml` pipeline with a focused p
 
 ### Example Badges
 ```markdown
-![CI](https://github.com/<org>/<repo>/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/<org>/<repo>/actions/workflows/pr-10-ci-python.yml/badge.svg)
 ![Autofix](https://github.com/<org>/<repo>/actions/workflows/autofix.yml/badge.svg)
 ```
 

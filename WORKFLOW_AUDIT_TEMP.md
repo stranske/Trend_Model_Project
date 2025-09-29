@@ -17,12 +17,12 @@ Additional categories added (5–8) to accommodate all workflows cleanly.
 ## Inventory by Category
 
 ### 1. Pre-PR / Standard Checks
-- `ci.yml` – Core test & coverage gate (consumes `reuse-ci-python.yml`).
+- `pr-10-ci-python.yml` – Core test & coverage gate (consumes `reuse-ci-python.yml`).
 - `codeql.yml` – Static security analysis.
 - `dependency-review.yml` – Dependency diff vulnerability screening.
 - `actionlint.yml` – Lints workflow syntax.
-- `docker.yml` – Docker image build + test; complements CI.
-- `quarantine-ttl.yml` – Ensures test quarantine entries not expired.
+- `pr-12-docker-smoke.yml` – Docker image build + test; complements CI.
+- `maint-34-quarantine-ttl.yml` – Ensures test quarantine entries not expired.
 
 ### 2. Agent Initiation & Support
 - `assign-to-agents.yml` – Label-driven assignment, Codex bootstrap branch/PR creation, trigger comment.
@@ -34,8 +34,8 @@ Additional categories added (5–8) to accommodate all workflows cleanly.
 - `stale-prs.yml` – Marks & closes stale PRs.
 - `cleanup-codex-bootstrap.yml` – (Not yet read in this draft: needs review; presumed maintenance.)
 - `perf-benchmark.yml` – Scheduled performance tracking (benchmark artifact & regression check) – could also fit Category 6.
-- `check-failure-tracker.yml` – Opens / closes CI failure issues.
-- `pr-status-summary.yml` – Consolidated status comment after CI/Docker runs.
+- `maint-33-check-failure-tracker.yml` – Opens / closes CI failure issues.
+- `maint-31-pr-status-summary.yml` – Consolidated status comment after CI/Docker runs.
 
 Update: `cleanup-codex-bootstrap.yml` confirmed – prunes stale `agents/codex-issue-*` bootstrap branches older than configurable age (default 14d). Category 3 (Maintenance). Keep; no overlap.
 
@@ -60,7 +60,7 @@ Update: `cleanup-codex-bootstrap.yml` confirmed – prunes stale `agents/codex-i
 - `guard-no-reuse-pr-branches.yml` (ARCHIVED 2025-09-20) – Former branch reuse enforcement; policy-only now.
 - `pr-path-labeler.yml` – Path‑based labeling for PR taxonomy.
 - `dependency-review.yml` – (Also in Category 1; cross-cutting governance.)
-- `quarantine-ttl.yml` – (Also in Category 1; test governance.)
+- `maint-34-quarantine-ttl.yml` – (Also in Category 1; test governance.)
 
 ## Deprecated / Superseded (Post-Removal Status)
 | Workflow | Replacement | Status | Notes |
@@ -79,7 +79,7 @@ Update: `cleanup-codex-bootstrap.yml` confirmed – prunes stale `agents/codex-i
 ## Potential Duplications / Overlaps
 
 ### CI / Test Execution
-- `ci.yml` vs `reusable-ci-python.yml`: `ci.yml` is a thin consumer wrapper. Keep both (consumer + reusable). No consolidation needed.
+- `pr-10-ci-python.yml` vs `reusable-ci-python.yml`: `pr-10-ci-python.yml` is a thin consumer wrapper. Keep both (consumer + reusable). No consolidation needed.
 - `verify-ci-stack.yml` does not run tests; observational. Keep distinct (diagnostic harness) but could merge into a generalized "ops diagnostics" workflow.
 
 ### Agent Workflows
@@ -91,12 +91,12 @@ Update: `cleanup-codex-bootstrap.yml` confirmed – prunes stale `agents/codex-i
 - `reuse-autofix.yml` remains the single implementation of fixer logic; no other direct consumers remain.
 
 ### Status & Failure Reporting
-- `pr-status-summary.yml` and `check-failure-tracker.yml` both respond to workflow_run. Distinct outputs (comment vs issue). Keep both; minimal overlap.
+- `maint-31-pr-status-summary.yml` and `maint-33-check-failure-tracker.yml` both respond to workflow_run. Distinct outputs (comment vs issue). Keep both; minimal overlap.
 
 ## Consolidation Recommendations
 1. (DONE) Archive deprecated agent workflows (6 listed) with historical copies retained under `.github/workflows/archive/`.
 2. (DONE) Remove `autofix.yml` now that the stabilization window following PR #1257 has closed.
-3. Evaluate merging `verify-ci-stack.yml` and adding a diagnostics job into `ci.yml` guarded by a manual `workflow_dispatch` input (optional enhancement).
+3. Evaluate merging `verify-ci-stack.yml` and adding a diagnostics job into `pr-10-ci-python.yml` guarded by a manual `workflow_dispatch` input (optional enhancement).
 4. Long-term: monitor `assign-to-agents.yml` / `agent-watchdog.yml` telemetry; expand with optional readiness probes only if required (no plan to resurrect `reuse-agents.yml`).
 5. Refactor `autofix-on-failure.yml` to call `reuse-autofix.yml` for single source of truth (pass through head ref context). Not urgent.
 

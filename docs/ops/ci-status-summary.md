@@ -24,7 +24,7 @@ Future refinement can externalise this list through repository variables.
 
 ### Docker Workflow Skip
 
-The Docker workflow (`.github/workflows/docker.yml`) is filtered using
+The Docker workflow (`.github/workflows/pr-12-docker-smoke.yml`) is filtered using
 `paths-ignore` so it **does not run** for documentation-only or metadata
 changes (patterns: `docs/**`, `**/*.md`, `.github/ISSUE_TEMPLATE/**`). This
 reduces CI noise and prevents non-critical failures (e.g. image build transients)
@@ -33,7 +33,7 @@ from appearing beside code-only validations.
 ### Adjusting Behaviour
 
 * Add / remove required jobs: edit the `requiredSet` in
-  `.github/workflows/pr-status-summary.yml`.
+  `.github/workflows/maint-31-pr-status-summary.yml`.
 * Force Docker build for a doc change: include a dummy change outside the
   ignored paths or temporarily comment the pattern locally (not recommended for
   normal operation).

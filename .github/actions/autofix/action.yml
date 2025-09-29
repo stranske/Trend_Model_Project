@@ -29,7 +29,11 @@ runs:
     - name: Install fixers
       shell: bash
       run: |
-        python -m pip install -U pip
+        python -m venv .autofix-venv
+        echo "${PWD}/.autofix-venv/bin" >> "$GITHUB_PATH"
+        echo "VIRTUAL_ENV=${PWD}/.autofix-venv" >> "$GITHUB_ENV"
+        source .autofix-venv/bin/activate
+        pip install -U pip
         pip install -e ".[dev]" \
           ruff==${RUFF_VERSION} \
           black==${BLACK_VERSION} \
@@ -147,23 +151,23 @@ runs:
       shell: bash
       run: |
         echo "[autofix] Phase 3: classification (allowlist vs new)"
-          ALLOWLIST_FILE=.ruff-residual-allowlist.json
-          if [ ! -f "$ALLOWLIST_FILE" ]; then echo '{"allow":[]}' > "$ALLOWLIST_FILE"; fi
-          if [ -f scripts/classify_ruff.py ]; then
-            python scripts/classify_ruff.py ruff_diagnostics.json $ALLOWLIST_FILE ruff_classification.json || echo '{"error":"classification_failed"}' > ruff_classification.json
-          else
-            echo "[autofix] No classify_ruff.py script; generating minimal classification"
-            ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-            echo '{"total":0,"allowed":0,"new":0,"by_code":{},"new_by_code":{},"timestamp":"'$ts'"}' > ruff_classification.json
-          fi
-          echo "[autofix] Classification output:"; cat ruff_classification.json || true
-          remaining=$(jq -r '.total' ruff_classification.json 2>/dev/null || echo 0)
-          new=$(jq -r '.new' ruff_classification.json 2>/dev/null || echo 0)
-          echo "remaining_issues=$remaining" >> $GITHUB_OUTPUT
-          echo "new_issues=$new" >> $GITHUB_OUTPUT
-          if git diff --quiet; then changed=false; else changed=true; fi
-          jq -n --arg changed "$changed" --slurpfile cls ruff_classification.json '{changed:($changed=="true"), classification:$cls[0]}' > autofix_report_enriched.json || echo '{"changed":false}' > autofix_report_enriched.json
-          echo "[autofix] Wrote enriched report autofix_report_enriched.json"
+        ALLOWLIST_FILE=.ruff-residual-allowlist.json
+        if [ ! -f "$ALLOWLIST_FILE" ]; then echo '{"allow":[]}' > "$ALLOWLIST_FILE"; fi
+        if [ -f scripts/classify_ruff.py ]; then
+          python scripts/classify_ruff.py ruff_diagnostics.json $ALLOWLIST_FILE ruff_classification.json || echo '{"error":"classification_failed"}' > ruff_classification.json
+        else
+          echo "[autofix] No classify_ruff.py script; generating minimal classification"
+          ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          echo '{"total":0,"allowed":0,"new":0,"by_code":{},"new_by_code":{},"timestamp":"'$ts'"}' > ruff_classification.json
+        fi
+        echo "[autofix] Classification output:"; cat ruff_classification.json || true
+        remaining=$(jq -r '.total' ruff_classification.json 2>/dev/null || echo 0)
+        new=$(jq -r '.new' ruff_classification.json 2>/dev/null || echo 0)
+        echo "remaining_issues=$remaining" >> $GITHUB_OUTPUT
+        echo "new_issues=$new" >> $GITHUB_OUTPUT
+        if git diff --quiet; then changed=false; else changed=true; fi
+        jq -n --arg changed "$changed" --slurpfile cls ruff_classification.json '{changed:($changed=="true"), classification:$cls[0]}' > autofix_report_enriched.json || echo '{"changed":false}' > autofix_report_enriched.json
+        echo "[autofix] Wrote enriched report autofix_report_enriched.json"
     - name: Finalise diff summary
       id: finalize
       shell: bash
