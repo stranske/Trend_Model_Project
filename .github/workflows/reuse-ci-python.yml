@@ -166,6 +166,7 @@ jobs:
         with:
           pattern: coverage-*
           merge-multiple: true
+          if-no-artifacts-found: ignore
       - name: Classify test outcomes
         id: classify
         shell: python

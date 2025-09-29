@@ -308,6 +308,7 @@ jobs:
         with:
           pattern: ${{ inputs.artifact-prefix }}coverage-*
           merge-multiple: true
+          if-no-artifacts-found: ignore
       - name: Debug coverage artifact contents (Issue #1386)
         run: |
           echo '== Top-level listing =='
