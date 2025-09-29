@@ -1,7 +1,7 @@
 # Repository Health Self-Check Workflow (Implements #1175)
 
 ## Overview
-The `repo-health-self-check.yml` workflow provides a scheduled, automated governance audit covering secrets, labels, and branch protection. It creates (or updates) a single tracking issue when deficiencies are detected and closes that issue automatically once all checks pass.
+The `maint-35-repo-health-self-check.yml` workflow provides a scheduled, automated governance audit covering secrets, labels, and branch protection. It creates (or updates) a single tracking issue when deficiencies are detected and closes that issue automatically once all checks pass.
 
 | Aspect | What It Verifies | Failure Handling |
 | ------ | ---------------- | ---------------- |
