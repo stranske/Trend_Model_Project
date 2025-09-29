@@ -7,7 +7,6 @@ from pathlib import Path
 
 import joblib
 
-
 SITE_INDICATOR = {"site-packages", "dist-packages"}
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
