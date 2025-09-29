@@ -7,12 +7,15 @@ import types
 from pathlib import Path
 
 import pytest
+
 import sitecustomize
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_sitecustomize_raises_when_joblib_points_inside_repo(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_sitecustomize_raises_when_joblib_points_inside_repo(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Reloading with a repository-local joblib should raise ImportError."""
 
     stub_spec = types.SimpleNamespace(origin=str(REPO_ROOT / "joblib.py"))
