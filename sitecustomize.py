@@ -1,24 +1,50 @@
-"""Test helper to ensure the repository's src/ is on sys.path early.
+"""Repository bootstrap hooks executed automatically during interpreter start.
 
-This allows subprocess `python -m trend_portfolio_app.health_wrapper` used in
-smoke tests to resolve the package without needing editable installs or
-explicit PYTHONPATH mangling inside each test.  Python automatically imports
-`sitecustomize` if it is present on the import path during interpreter start.
-The file is lightweight and safe in production environments.
+The helper keeps ``src/`` on ``sys.path`` for the test-suite subprocesses and
+verifies that ``joblib`` resolves to the third-party dependency rather than a
+repository-local module.  Python automatically imports :mod:`sitecustomize` if
+present on the import path during interpreter start.
 """
 
 from __future__ import annotations
 
+import importlib.util
 import sys
 from pathlib import Path
 
-try:
-    repo_root = Path(__file__).resolve().parent
-    src_dir = repo_root / "src"
-    if src_dir.exists():  # pragma: no cover - trivial branch
-        s = str(src_dir)
-        if s not in sys.path:
-            sys.path.insert(0, s)
-except Exception:  # pragma: no cover - defensive
-    # Silently ignore; test environment will surface import errors if any
-    pass
+SITE_INDICATORS = {"site-packages", "dist-packages"}
+REPO_ROOT = Path(__file__).resolve().parent
+SRC_DIR = REPO_ROOT / "src"
+
+
+def _ensure_src_on_sys_path() -> None:
+    """Prepend ``src`` to ``sys.path`` if the directory exists."""
+
+    if SRC_DIR.exists():  # pragma: no cover - trivial branch
+        src = str(SRC_DIR)
+        if src not in sys.path:
+            sys.path.insert(0, src)
+
+
+def _ensure_joblib_external() -> None:
+    """Fail fast if :mod:`joblib` resolves to a repository-local module."""
+
+    spec = importlib.util.find_spec("joblib")
+    if spec is None or not spec.origin:
+        # Dependency not installed yet (e.g. during bootstrapping); defer to the
+        # actual import which will raise a clearer ModuleNotFoundError.
+        return
+
+    resolved = Path(spec.origin).resolve()
+    if REPO_ROOT in resolved.parents or resolved == REPO_ROOT:
+        raise ImportError(
+            "The third-party 'joblib' package is required; found repository "
+            f"stub at {resolved}."
+        )
+
+    # The previous check for 'site-packages'/'dist-packages' was too restrictive
+    # and has been removed to allow for flexible installation patterns (e.g., conda, virtualenv).
+
+
+_ensure_src_on_sys_path()
+_ensure_joblib_external()
