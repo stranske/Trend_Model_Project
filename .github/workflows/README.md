@@ -10,7 +10,7 @@ Core layers:
 - Style Gate (`pr-11-style-gate.yml`): authoritative style verification (black --check + ruff new-issue fail) running on PR & main branch pushes.
 - Agent routing & watchdog (`assign-to-agents.yml` + `agent-watchdog.yml`): label-driven assignment, Codex bootstrap, diagnostics.
 - Merge automation (`merge-manager.yml`): unified auto-approval and auto-merge decisions for safe agent PRs.
-- Governance & Health: `maint-35-repo-health-nightly.yml`, labelers, dependency review, CodeQL.
+- Governance & Health: `maint-35-repo-health-self-check.yml`, labelers, dependency review, CodeQL.
 - Path Labeling: `pr-path-labeler.yml` auto-categorizes PRs.
 
 ### 1.1 Current CI Topology (Issue #1351)
@@ -71,7 +71,7 @@ All others use default `GITHUB_TOKEN`.
 | `assign-to-agents.yml` | issue/PR labels, dispatch | Agent assignment + Codex bootstrap |
 | `agent-watchdog.yml` | workflow dispatch | Codex PR presence diagnostic |
 | `merge-manager.yml` | PR target, workflow_run | Auto-approve + enable auto-merge when gates are satisfied |
-| `maint-35-repo-health-nightly.yml` | schedule, manual | Governance audit |
+| `maint-35-repo-health-self-check.yml` | schedule, manual | Governance audit |
 | `pr-path-labeler.yml` | PR events | Path labels |
 | `label-agent-prs.yml` | PR target | Origin + risk labels |
 | `codeql.yml` | push, PR, schedule | Code scanning |
