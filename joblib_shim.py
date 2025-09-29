@@ -1,4 +1,10 @@
-"""Lightweight joblib stub for test execution."""
+"""Lightweight helper mirroring the tiny subset of :mod:`joblib` we rely on.
+
+This module intentionally lives under a ``_shim`` name so ``import joblib``
+resolves to the real third-party package.  Code that still needs the
+lightweight pickle-based helpers should import them explicitly, e.g.
+``from joblib_shim import dump``.
+"""
 
 from __future__ import annotations
 
