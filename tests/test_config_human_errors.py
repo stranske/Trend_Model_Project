@@ -139,7 +139,7 @@ class TestHumanErrors:
 
         try:
             # YAML parsing will fail with specific error types
-            import yaml  # type: ignore[import-untyped, unused-ignore]
+            import yaml
 
             with pytest.raises((yaml.YAMLError, yaml.scanner.ScannerError, Exception)):
                 config.load_config(yaml_path)

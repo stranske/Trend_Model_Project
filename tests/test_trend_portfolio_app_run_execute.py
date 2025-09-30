@@ -9,7 +9,7 @@ import pandas as pd
 import pytest
 
 import trend_analysis.pipeline as pipeline_mod
-import yaml  # type: ignore[import-untyped, unused-ignore]
+import yaml
 from tests.test_trend_portfolio_app_helpers import _DummyStreamlit
 from trend_analysis.config import DEFAULTS as DEFAULT_CFG_PATH
 

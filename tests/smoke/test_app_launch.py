@@ -12,7 +12,7 @@ import time
 from pathlib import Path
 
 import pytest
-import requests  # type: ignore[import-untyped, unused-ignore]
+import requests
 
 pytestmark = pytest.mark.smoke
 
