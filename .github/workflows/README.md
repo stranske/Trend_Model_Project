@@ -7,7 +7,7 @@ This guide enables a new maintainer to operate the CI + agent automation stack i
 Core layers:
 - Reusable CI (`reuse-ci-python.yml`): tests, coverage, aggregated gate.
 - Autofix lane (`autofix.yml`): workflow_run follower that batches small hygiene fixes and trivial failure remediation using the composite autofix action.
-- Style Gate (`pr-11-style-gate.yml`): authoritative style verification (black --check + ruff new-issue fail) running on PR & main branch pushes.
+- CI style checks (`pr-10-ci-python.yml` job `style`): authoritative style verification (black --check + ruff new-issue fail) running on PR & main branch pushes.
 - Agent routing & watchdog (`agents-41-assign.yml` + `agents-42-watchdog.yml`): label-driven assignment, Codex bootstrap, diagnostics.
 - Merge automation (`merge-manager.yml`): unified auto-approval and auto-merge decisions for safe agent PRs.
 - Governance & Health: `maint-35-repo-health-self-check.yml`, labelers, dependency review, CodeQL.
@@ -23,7 +23,7 @@ The CI stack now runs in distinct lanes so each concern can evolve independently
 | Coverage soft gate | `coverage_soft_gate` job (opt‑in) | Posts coverage & hotspots (non-blocking) | Advisory | Remains advisory |
 | Universal logs | `logs_summary` job | Per‑job log table in summary | Not required | Always-on helper |
 | Autofix lane | `autofix.yml` | Workflow_run follower that commits small hygiene fixes (success runs) and retries trivial CI failures | Not required | Remains optional |
-| Style verification | `pr-11-style-gate.yml` | Enforce black formatting + ruff cleanliness (fail on new issues) | Candidate required | Become required once stable |
+| Style verification | `pr-10-ci-python.yml` job `style` | Enforce black formatting + ruff cleanliness (fail on new issues) | Candidate required | Become required once stable |
 | Agent assignment | `agents-41-assign.yml` | Maps labels → assignees, creates Codex bootstrap PRs | Not required | Harden diagnostics |
 | Agent watchdog | `agents-42-watchdog.yml` | Confirms Codex PR cross-reference or posts timeout | Not required | Tune timeout post burn-in |
 
@@ -67,7 +67,7 @@ All others use default `GITHUB_TOKEN`.
 |----------|-----------|-------|
 | `reuse-ci-python.yml` | PR, push | Coverage & matrix |
 | `autofix.yml` | workflow_run (`CI`) | Hygiene autofix + trivial failure remediation |
-| `pr-11-style-gate.yml` | PR, push (main branches) | Style enforcement |
+| `pr-10-ci-python.yml` job `style` | PR, push (main branches) | Style enforcement |
 | `agents-41-assign.yml` | issue/PR labels, dispatch | Agent assignment + Codex bootstrap |
 | `agents-42-watchdog.yml` | workflow dispatch | Codex PR presence diagnostic |
 | `merge-manager.yml` | PR target, workflow_run | Auto-approve + enable auto-merge when gates are satisfied |
@@ -161,7 +161,7 @@ Loop prevention layers:
 1. The consolidated workflow only reacts to completed CI runs (no direct `push` trigger).
 2. Guard logic only fires when the workflow actor is `github-actions` (or `github-actions[bot]`) **and** the latest commit subject begins with the standardized prefix `chore(autofix):`.
 3. Scheduled cleanup (`autofix-residual-cleanup.yml`) and reusable autofix consumers adopt the same prefix + actor guard, so automation commits short-circuit immediately instead of chaining runs.
-4. Style Gate runs independently and does not trigger autofix.
+4. The CI style job runs independently and does not trigger autofix.
 
 Result: Each human push generates at most one autofix patch sequence; autofix commits do not recursively spawn new runs.
 
@@ -290,7 +290,7 @@ Planned / optional improvements under consideration:
 |-------------|--------|-------|
 | Coverage trend artifact (JSON) | Implemented | `coverage-trend` provides run-level stats (Issue #1352) |
 | Coverage trend history (NDJSON) | Implemented | `coverage-trend-history` accumulates per-run records |
-| Style Gate (ruff+black) | Implemented | Replaces legacy lint-verification (flake8/black) |
+| CI style job (ruff+black+mypy) | Implemented | Replaces legacy lint-verification (flake8/black) |
 | Centralized autofix commit prefix | Implemented | Configurable (default `chore(autofix):`) |
 | Failing test count in logs summary | Implemented | Universal logs job appends count inline |
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Mirror of CI Style Gate (Black + Ruff) for local verification.
+# Mirror of CI style job (Black + Ruff) for local verification.
 # Ensures developers run the exact pinned versions before pushing.
 # Usage: ./scripts/style_gate_local.sh
 set -euo pipefail
@@ -57,5 +57,5 @@ if command -v mypy >/dev/null 2>&1; then
 else
   echo "mypy not found; skipping type check" >&2
 fi
-echo "Style Gate local mirror: PASS" >&2
+echo "CI style job local mirror: PASS" >&2
 

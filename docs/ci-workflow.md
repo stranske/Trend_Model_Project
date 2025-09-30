@@ -146,9 +146,9 @@ For the broader CI topology (gate aggregation job, temporary wrapper, Codex kick
 
 ---
 
-### Local Style Gate Mirror
+### Local Style Checks Mirror
 
-To ensure your branch will pass the CI Style Gate (Black + Ruff with pinned versions), run:
+To ensure your branch will pass the CI style job (Black + Ruff with pinned versions), run:
 
 ```bash
 ./scripts/style_gate_local.sh
@@ -167,15 +167,15 @@ ruff check --fix .
 
 ### Optional Pre-Push Hook
 
-Install a git pre-push hook that blocks pushes when the Style Gate fails:
+Install a git pre-push hook that blocks pushes when the CI style checks fail:
 
 ```bash
 mkdir -p .git/hooks
 cat > .git/hooks/pre-push <<'EOF'
 #!/usr/bin/env bash
-# Abort push if Style Gate fails
+# Abort push if CI style checks fail
 scripts/style_gate_local.sh || {
-  echo "[pre-push] Style Gate failed; push aborted." >&2
+  echo "[pre-push] CI style checks failed; push aborted." >&2
   exit 1
 }
 EOF
