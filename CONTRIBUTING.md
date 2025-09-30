@@ -8,10 +8,9 @@ Thank you for contributing to the Trend Model Project.
    ```bash
    ./scripts/dev_check.sh --changed --fix
    ```
-2. Local Style Gate (match CI pinned Black & Ruff) + types:
+2. Local CI style job mirror (pinned Black/Ruff/Mypy):
    ```bash
    ./scripts/style_gate_local.sh
-   python -m mypy --config-file pyproject.toml src/trend_analysis  # (or rely on quality_gate)
    ```
 3. Optional combined quality gate:
    ```bash
@@ -36,7 +35,7 @@ Thank you for contributing to the Trend Model Project.
 | Full | `run_tests.sh` | 15–25s | Entire test suite + coverage |
 
 ## Style & Type Enforcement
-CI Style Gate pins versions in `.github/workflows/autofix-versions.env`. Always rely on `scripts/style_gate_local.sh` to avoid drift between local and CI tools. The quality gate script also runs mypy; pre-commit now enforces mypy on `src/trend_analysis` so type regressions are caught pre-push.
+The CI style job pins versions in `.github/workflows/autofix-versions.env`. Always rely on `scripts/style_gate_local.sh` to avoid drift; it runs the same Black, Ruff, and mypy checks used in CI. The quality gate script also runs mypy, and pre-commit enforces mypy on `src/trend_analysis` so type regressions are caught pre-push.
 
 ## Pre-Push Hook (Optional but Recommended)
 Install once per clone:
@@ -95,7 +94,7 @@ To prevent CI‑only failures (workflow lint, container smoke, type drift), the 
 
 | Purpose | CI Job | Local Script |
 |---------|--------|--------------|
-| Black/Ruff + pinned mypy | `Style Gate` | `scripts/style_gate_local.sh` |
+| Black/Ruff/Mypy pinned | `pr-10-ci-python.yml` job `style` | `scripts/style_gate_local.sh` |
 | Full quality (style + type + adaptive tests) | aggregate | `scripts/quality_gate.sh` |
 | Workflow syntax/semantic lint | `workflow lint (actionlint)` / `actionlint` | `scripts/workflow_lint.sh` |
 | Docker build + health smoke | `Docker` (smoke) | `scripts/docker_smoke.sh` |

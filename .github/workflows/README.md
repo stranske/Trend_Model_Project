@@ -7,7 +7,7 @@ This guide enables a new maintainer to operate the CI + agent automation stack i
 Core layers:
 - Reusable CI (`reuse-ci-python.yml`): tests, coverage, aggregated gate.
 - Autofix lane (`autofix.yml`): workflow_run follower that batches small hygiene fixes and trivial failure remediation using the composite autofix action.
-- CI style checks (`pr-10-ci-python.yml` job `style`): authoritative style verification (black --check + ruff new-issue fail) running on PR & main branch pushes.
+- CI style checks (`pr-10-ci-python.yml` job `style`): authoritative style + mypy verification (black --check, ruff new-issue fail, pinned mypy) running on PR & main branch pushes.
 - Agent routing & watchdog (`agents-41-assign.yml` + `agents-42-watchdog.yml`): label-driven assignment, Codex bootstrap, diagnostics.
 - Merge automation (`merge-manager.yml`): unified auto-approval and auto-merge decisions for safe agent PRs.
 - Governance & Health: `maint-35-repo-health-self-check.yml`, labelers, dependency review, CodeQL.
@@ -23,7 +23,7 @@ The CI stack now runs in distinct lanes so each concern can evolve independently
 | Coverage soft gate | `coverage_soft_gate` job (opt‑in) | Posts coverage & hotspots (non-blocking) | Advisory | Remains advisory |
 | Universal logs | `logs_summary` job | Per‑job log table in summary | Not required | Always-on helper |
 | Autofix lane | `autofix.yml` | Workflow_run follower that commits small hygiene fixes (success runs) and retries trivial CI failures | Not required | Remains optional |
-| Style verification | `pr-10-ci-python.yml` job `style` | Enforce black formatting + ruff cleanliness (fail on new issues) | Candidate required | Become required once stable |
+| Style verification | `pr-10-ci-python.yml` job `style` | Enforce black formatting, Ruff cleanliness, and pinned mypy | Candidate required | Become required once stable |
 | Agent assignment | `agents-41-assign.yml` | Maps labels → assignees, creates Codex bootstrap PRs | Not required | Harden diagnostics |
 | Agent watchdog | `agents-42-watchdog.yml` | Confirms Codex PR cross-reference or posts timeout | Not required | Tune timeout post burn-in |
 
@@ -67,7 +67,7 @@ All others use default `GITHUB_TOKEN`.
 |----------|-----------|-------|
 | `reuse-ci-python.yml` | PR, push | Coverage & matrix |
 | `autofix.yml` | workflow_run (`CI`) | Hygiene autofix + trivial failure remediation |
-| `pr-10-ci-python.yml` job `style` | PR, push (main branches) | Style enforcement |
+| `pr-10-ci-python.yml` job `style` | PR, push (main branches) | Style + mypy enforcement |
 | `agents-41-assign.yml` | issue/PR labels, dispatch | Agent assignment + Codex bootstrap |
 | `agents-42-watchdog.yml` | workflow dispatch | Codex PR presence diagnostic |
 | `merge-manager.yml` | PR target, workflow_run | Auto-approve + enable auto-merge when gates are satisfied |

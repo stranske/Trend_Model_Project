@@ -8,3 +8,7 @@
 ## Iteration 2 Notes
 - Updated `requirements.lock` via `uv pip compile` so the lockfile consistency test passes with the refreshed dependency pins.
 - Fixed the local style gate script to call mypy against `src/trend_portfolio_app` (correct package path) using proper indentation.
+
+## Iteration 3 Notes
+- Synced contributor documentation so the unified CI style job is documented as running Black, Ruff, and pinned mypy locally and in CI.
+- Updated workflow guide tables to reference the `pr-10-ci-python.yml` style job instead of the removed standalone Style Gate workflow.
