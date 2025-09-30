@@ -3,7 +3,7 @@
 
 Goals (automation-safe):
   * Install missing type stubs (handled by workflow separately) – this script only mutates source files.
-    * Optionally inject `# type: ignore[import-untyped]` comments for a curated allowlist of known untyped
+    * Optionally inject `# type: ignore[import-untyped, unused-ignore]` comments for a curated allowlist of known untyped
         imports.  If a stub file or `py.typed` marker is present, the script leaves the import unchanged.
   * Idempotent: never duplicate ignore comments.
   * Skip legacy / excluded paths (Old/, notebooks/old/).
@@ -35,15 +35,28 @@ EXCLUDE_PATTERNS = [
     re.compile(r"(^|/)Old(/|$)"),
     re.compile(r"(^|/)notebooks/old(/|$)"),
 ]
-ALLOWLIST = [
-    m.strip() for m in os.environ.get("AUTO_TYPE_ALLOWLIST", "").split(",") if m.strip()
-]
+DEFAULT_ALLOWLIST = ["yaml"]
+
+
+def _load_allowlist() -> list[str]:
+    raw = os.environ.get("AUTO_TYPE_ALLOWLIST")
+    if raw is None:
+        return DEFAULT_ALLOWLIST.copy()
+
+    parsed = [segment.strip() for segment in raw.split(",") if segment.strip()]
+    if not parsed:
+        return DEFAULT_ALLOWLIST.copy()
+    return parsed
+
+
+ALLOWLIST = _load_allowlist()
 DRY_RUN = os.environ.get("AUTO_TYPE_DRY_RUN") == "1"
 
 IMPORT_PATTERN = re.compile(
     r"^(?P<indent>\s*)(import|from)\s+(?P<module>[a-zA-Z0-9_\.]+)(?P<rest>.*)$"
 )
-IGNORE_TOKEN = "# type: ignore[import-untyped]"
+IGNORE_CODES: tuple[str, ...] = ("import-untyped", "unused-ignore")
+IGNORE_TOKEN = f"# type: ignore[{', '.join(IGNORE_CODES)}]"
 
 
 def should_exclude(path: Path) -> bool:
@@ -86,9 +99,7 @@ def module_has_types(module: str) -> bool:
 
 def needs_ignore(module: str) -> bool:
     base = module.split(".")[0]
-    if base not in ALLOWLIST:
-        return False
-    return not module_has_types(module)
+    return base in ALLOWLIST
 
 
 def process_file(path: Path) -> tuple[bool, list[str]]:
@@ -108,6 +119,7 @@ def process_file(path: Path) -> tuple[bool, list[str]]:
             continue
         module = m.group("module")
         if needs_ignore(module):
+            target_codes = set(IGNORE_CODES)
             if IGNORE_TOKEN in line:
                 new_lines.append(line)
                 continue
@@ -118,7 +130,7 @@ def process_file(path: Path) -> tuple[bool, list[str]]:
             if ignore_match:
                 bracket = ignore_match.group("bracket")
                 if bracket is None:
-                    replacement = "# type: ignore[import-untyped]"
+                    replacement = IGNORE_TOKEN
                 else:
                     bracket_content = bracket[1:-1].strip()
                     if bracket_content:
@@ -129,11 +141,15 @@ def process_file(path: Path) -> tuple[bool, list[str]]:
                         ]
                     else:
                         codes = []
-                    if "import-untyped" in codes:
+                    codes_set = set(codes)
+                    if target_codes.issubset(codes_set):
                         new_lines.append(line)
                         continue
-                    codes.append("import-untyped")
-                    replacement = f"# type: ignore[{', '.join(codes)}]"
+                    merged = list(codes)
+                    for code in IGNORE_CODES:
+                        if code not in codes_set:
+                            merged.append(code)
+                    replacement = f"# type: ignore[{', '.join(merged)}]"
 
                 start, end = ignore_match.span()
                 line = f"{line[:start]}{replacement}{line[end:]}"

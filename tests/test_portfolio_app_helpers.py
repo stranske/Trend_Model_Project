@@ -10,7 +10,7 @@ from unittest import mock
 import pandas as pd
 import pytest
 
-import yaml  # type: ignore[import-untyped]
+import yaml  # type: ignore[import-untyped, unused-ignore]
 
 
 def load_helper_namespace() -> Dict[str, Any]:

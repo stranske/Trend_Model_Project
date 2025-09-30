@@ -1,7 +1,7 @@
 import warnings
 from pathlib import Path
 
-import yaml  # type: ignore[import-untyped]
+import yaml  # type: ignore[import-untyped, unused-ignore]
 from trend_analysis.multi_period.scheduler import generate_periods
 
 CFG = yaml.safe_load(Path("config/defaults.yml").read_text())

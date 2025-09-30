@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
-import requests  # type: ignore[import-untyped]
+import requests  # type: ignore[import-untyped, unused-ignore]
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
