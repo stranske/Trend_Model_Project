@@ -212,6 +212,21 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
             aggregated_script,
             "Gate job should use jq to read job results from the needs context",
         )
+        self.assertIn(
+            "Gate job missing needs context",
+            aggregated_script,
+            "Gate job should fail fast if the needs context is absent",
+        )
+        self.assertIn(
+            "type == \"object\" and (keys | length) > 0",
+            aggregated_script,
+            "Gate job should verify the needs context contains at least one upstream job",
+        )
+        self.assertIn(
+            "Gate requires at least one upstream job",
+            aggregated_script,
+            "Gate job should report a clear error when no dependencies are configured",
+        )
 
     def test_gate_workflow_file_is_absent(self) -> None:
         for suffix in (".yml", ".yaml"):
