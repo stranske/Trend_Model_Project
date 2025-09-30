@@ -52,6 +52,21 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
             return scalars
         return [node] if isinstance(node, str) else []
 
+    def _iter_mappings(self, node: object) -> list[dict]:
+        """Yield every mapping found in a nested YAML document."""
+
+        if isinstance(node, dict):
+            mappings: list[dict] = [node]
+            for value in node.values():
+                mappings.extend(self._iter_mappings(value))
+            return mappings
+        if isinstance(node, list):
+            mappings: list[dict] = []
+            for value in node:
+                mappings.extend(self._iter_mappings(value))
+            return mappings
+        return []
+
     def _assert_contains(
         self, haystack: str, needles: list[str], *, context: str
     ) -> None:
@@ -166,6 +181,28 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
                             "use shell commands (pytest -m) instead to avoid "
                             "invalid YAML filters."
                             % workflow_path.name
+                        )
+
+    def test_workflow_conditions_do_not_reintroduce_marker_expression(self) -> None:
+        """Ensure `if:` conditionals avoid the invalid pytest marker syntax."""
+
+        invalid_expr = "not quarantine and not slow"
+
+        for workflow_path in self._iter_workflow_files():
+            with self.subTest(workflow=workflow_path.name):
+                loaded = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+                if loaded is None:
+                    continue
+                for mapping in self._iter_mappings(loaded):
+                    if "if" not in mapping:
+                        continue
+                    condition = mapping["if"]
+                    if isinstance(condition, str) and condition.strip() == invalid_expr:
+                        self.fail(
+                            "Workflow %s defines `if: %s`; move the marker expression into "
+                            "a shell command (pytest -m) so GitHub Actions treats it as "
+                            "CLI arguments rather than workflow condition syntax."
+                            % (workflow_path.name, invalid_expr)
                         )
 
     def test_workflows_do_not_reference_retired_gate_wrapper(self) -> None:
