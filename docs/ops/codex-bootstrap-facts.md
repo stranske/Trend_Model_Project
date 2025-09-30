@@ -26,6 +26,13 @@ Last updated: 2026-02-07
   - `GITHUB_TOKEN`: Fallback; ensure repository Actions permissions are set to Read/Write.
 - The workflow avoids using `secrets.*` inside step‑level `if:` blocks; token decisions are propagated via `env` and inputs.
 
+## Interpreter Bootstrap Invariants
+- Repository-root `sitecustomize.py` remains a no-op shim until
+  `TREND_MODEL_SITE_CUSTOMIZE=1` is exported; wrapper scripts under `scripts/`
+  set this flag so CI/dev invocations still exercise the guarded bootstrap.
+- Reviewers should reject contributions that restore eager imports or side
+  effects at the repository root.
+
 - ## Workflows and Actions
 - Assigner workflow: `.github/workflows/agents-41-assign.yml`.
   - Triggers on Issues/PRs when `agent:*` labels are applied (manual `workflow_dispatch` supported for diagnostics).

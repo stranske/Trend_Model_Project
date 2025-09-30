@@ -33,6 +33,11 @@ SRC_PATH = ROOT / "src"
 if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
 
+# Opt into the guarded interpreter bootstrap unless explicitly disabled.
+def setup_trend_model_env():
+    os.environ.setdefault("TREND_MODEL_SITE_CUSTOMIZE", "1")
+
+setup_trend_model_env()
 # Standard library done; third-party imports
 import numpy as np
 import openpyxl
@@ -364,6 +369,7 @@ def _check_cli_env(cfg_path: str) -> None:
     env = os.environ.copy()
     env["TREND_CFG"] = cfg_path
     env["PYTHONPATH"] = f"{ROOT / 'src'}:{env.get('PYTHONPATH', '')}"
+    env.setdefault("TREND_MODEL_SITE_CUSTOMIZE", "1")
     subprocess.run(
         [sys.executable, "-m", "trend_analysis.run_analysis", "--detailed"],
         check=True,
@@ -382,6 +388,7 @@ def _check_cli_env_multi(cfg_path: str) -> None:
     env = os.environ.copy()
     env["TREND_CFG"] = cfg_path
     env["PYTHONPATH"] = f"{ROOT / 'src'}:{env.get('PYTHONPATH', '')}"
+    env.setdefault("TREND_MODEL_SITE_CUSTOMIZE", "1")
     subprocess.run(
         [sys.executable, "-m", "trend_analysis.run_multi_analysis", "--detailed"],
         check=True,
@@ -2154,6 +2161,7 @@ def _check_cli_help() -> None:
     """Ensure the CLI entry points print help and exit cleanly."""
     env = os.environ.copy()
     env["PYTHONPATH"] = f"{ROOT / 'src'}:{env.get('PYTHONPATH', '')}"
+    env.setdefault("TREND_MODEL_SITE_CUSTOMIZE", "1")
     subprocess.run(
         [sys.executable, "-m", "trend_analysis.run_analysis", "--help"],
         check=True,
@@ -2261,6 +2269,7 @@ print("Multi-period demo checks passed")
 # Run the CLI entry point in both modes to verify it behaves correctly
 _env = os.environ.copy()
 _env["PYTHONPATH"] = f"{ROOT / 'src'}:{_env.get('PYTHONPATH', '')}"
+_env.setdefault("TREND_MODEL_SITE_CUSTOMIZE", "1")
 subprocess.run(
     [
         sys.executable,
@@ -2308,6 +2317,7 @@ subprocess.run(
 
 env = os.environ.copy()
 env["TREND_CFG"] = "config/demo.yml"
+env.setdefault("TREND_MODEL_SITE_CUSTOMIZE", "1")
 subprocess.run(
     ["scripts/trend-model", "--check", "run"],
     check=True,
