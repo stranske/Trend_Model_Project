@@ -41,7 +41,7 @@ if [[ -z "$VIRTUAL_ENV" && -f ".venv/bin/activate" ]]; then
     source .venv/bin/activate > /dev/null 2>&1
 fi
 
-# Ensure formatter tooling is available (black, isort, docformatter)
+# Ensure formatter tooling is available (black, isort, docformatter) and include lint tooling.
 ensure_python_packages() {
     local missing=()
     for package in "$@"; do
@@ -68,7 +68,20 @@ PY
     fi
 }
 
-ensure_python_packages black isort docformatter
+# Ensure lint tooling (flake8) is also available for critical error checks.
+ensure_python_packages black isort docformatter flake8
+
+# Guarantee the Python scripts directory (where flake8 entry point lives) is on PATH.
+if ! command -v flake8 >/dev/null 2>&1; then
+    FLK_BIN=$(python - <<'PY'
+import sysconfig
+print(sysconfig.get_path('scripts') or '')
+PY
+)
+    if [[ -n "$FLK_BIN" ]]; then
+        export PATH="${FLK_BIN}:${PATH}"
+    fi
+fi
 
 # Determine files to check
 if [[ "$CHANGED_ONLY" == true ]]; then
