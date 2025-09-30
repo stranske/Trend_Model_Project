@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 
-import yaml  # type: ignore[import-untyped, unused-ignore]
+import yaml
 
 
 def test_cli_no_structured_log(tmp_path: Path):

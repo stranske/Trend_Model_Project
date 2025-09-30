@@ -26,6 +26,7 @@ from __future__ import annotations
 import importlib.util
 import os
 import re
+import sys
 from pathlib import Path
 from typing import Iterator, List
 
@@ -64,6 +65,24 @@ def should_exclude(path: Path) -> bool:
     return any(p.search(rel) for p in EXCLUDE_PATTERNS)
 
 
+def _has_stub_package(module: str) -> bool:
+    base = module.split(".")[0]
+    stub_dirname = f"{base}-stubs"
+    for entry in sys.path:
+        try:
+            path = Path(entry)
+        except TypeError:
+            continue
+        if not path.exists():
+            continue
+        candidate = path / stub_dirname
+        if not candidate.is_dir():
+            continue
+        if (candidate / "py.typed").exists():
+            return True
+    return False
+
+
 def module_has_types(module: str) -> bool:
     """Return ``True`` if ``module`` has typing support available."""
 
@@ -94,12 +113,12 @@ def module_has_types(module: str) -> bool:
             if location and Path(location).joinpath("py.typed").exists():
                 return True
 
-    return False
+    return _has_stub_package(module)
 
 
 def needs_ignore(module: str) -> bool:
     base = module.split(".")[0]
-    return base in ALLOWLIST
+    return base in ALLOWLIST and not module_has_types(module)
 
 
 def process_file(path: Path) -> tuple[bool, list[str]]:
