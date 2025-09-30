@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 import importlib.util
+import sys
 import types
 from pathlib import Path
 
@@ -12,6 +13,15 @@ import pytest
 import sitecustomize
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+FLAG = "TREND_MODEL_SITE_CUSTOMIZE"
+
+
+def _reload_with_opt_in(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Reload the shim after opting in to the bootstrap hooks."""
+
+    monkeypatch.setenv(FLAG, "1")
+    sys.modules.pop("trend_model._sitecustomize", None)
+    importlib.reload(sitecustomize)
 
 
 def test_sitecustomize_raises_when_joblib_points_inside_repo(
@@ -30,7 +40,7 @@ def test_sitecustomize_raises_when_joblib_points_inside_repo(
     with monkeypatch.context() as ctx:
         ctx.setattr(importlib.util, "find_spec", fake_find_spec)
         with pytest.raises(ImportError):
-            importlib.reload(sitecustomize)
+            _reload_with_opt_in(ctx)
 
     importlib.reload(sitecustomize)
 
@@ -60,7 +70,7 @@ def test_sitecustomize_allows_repo_virtualenv_site_packages(
 
     with monkeypatch.context() as ctx:
         ctx.setattr(importlib.util, "find_spec", virtualenv_find_spec)
-        importlib.reload(sitecustomize)
+        _reload_with_opt_in(ctx)
 
     importlib.reload(sitecustomize)
 
@@ -79,6 +89,19 @@ def test_sitecustomize_allows_missing_joblib(monkeypatch: pytest.MonkeyPatch) ->
         ctx.setattr(importlib.util, "find_spec", missing_find_spec)
         # No exception is expected because the guard should defer to the
         # subsequent import-time ModuleNotFoundError.
-        importlib.reload(sitecustomize)
+        _reload_with_opt_in(ctx)
 
     importlib.reload(sitecustomize)
+
+
+def test_importing_project_module_without_opt_in(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Importing project modules must not trigger the bootstrap by default."""
+
+    monkeypatch.delenv(FLAG, raising=False)
+    sys.modules.pop("trend_model._sitecustomize", None)
+
+    import trend_analysis.pipeline  # noqa: F401  (arbitrary project module)
+
+    assert "trend_model._sitecustomize" not in sys.modules

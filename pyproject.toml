@@ -54,7 +54,7 @@ trend-model = "trend_analysis.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["trend_analysis*", "trend_portfolio_app*"]
+include = ["trend_analysis*", "trend_portfolio_app*", "trend_model*"]
 
 [project.optional-dependencies]
 app = [
