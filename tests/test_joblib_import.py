@@ -2,14 +2,23 @@
 
 from __future__ import annotations
 
+import importlib
 import importlib.util
 from pathlib import Path
 
 import joblib
+import pytest
 
 SITE_INDICATOR = {"site-packages", "dist-packages"}
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ALLOWED_INTERNAL_PREFIXES = {REPO_ROOT / name for name in (".venv", "venv", ".tox")}
+
+ENTRYPOINT_MODULES = (
+    "trend.cli",
+    "trend_analysis.cli",
+    "trend_analysis.run_analysis",
+    "trend_analysis.run_multi_analysis",
+)
 
 
 def _is_under(path: Path, root: Path) -> bool:
@@ -45,3 +54,15 @@ def test_joblib_spec_origin_outside_repo() -> None:
     assert spec is not None, "joblib should be discoverable via importlib"
     assert spec.origin, "joblib should expose a filesystem origin"
     _assert_external(Path(spec.origin))
+
+
+@pytest.mark.parametrize("module_name", ENTRYPOINT_MODULES)
+def test_cli_entrypoints_expose_help_and_external_joblib(module_name: str) -> None:
+    module = importlib.import_module(module_name)
+    main = getattr(module, "main", None)
+    assert main is not None, f"Module '{module_name}' does not expose a 'main' function"
+    try:
+        main(["--help"])
+    except SystemExit as exc:  # argparse exits after printing help
+        assert exc.code == 0
+    _assert_external(Path(joblib.__file__))
