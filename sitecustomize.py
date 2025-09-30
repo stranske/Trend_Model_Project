@@ -36,17 +36,25 @@ def _ensure_joblib_external() -> None:
         return
 
     resolved = Path(spec.origin).resolve()
+    resolved_parts = resolved.parts
+
+    if any(part in SITE_INDICATORS for part in resolved_parts):
+        # Virtual environments often live inside the repository root (e.g.
+        # ``.venv/``). As long as the resolution path contains a recognised
+        # site-packages/dist-packages segment we accept it as the third-party
+        # dependency.
+        return
+
     if REPO_ROOT in resolved.parents or resolved == REPO_ROOT:
         raise ImportError(
             "The third-party 'joblib' package is required; found repository "
             f"stub at {resolved}."
         )
 
-    if not any(part in SITE_INDICATORS for part in resolved.parts):
-        raise ImportError(
-            "joblib should resolve from site-packages/dist-packages but instead "
-            f"resolved to {resolved}."
-        )
+    raise ImportError(
+        "joblib should resolve from site-packages/dist-packages but instead "
+        f"resolved to {resolved}."
+    )
 
 
 _ensure_src_on_sys_path()

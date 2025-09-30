@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install a git pre-push hook that enforces the local Style Gate mirror.
+# Install a git pre-push hook that enforces the local CI style job mirror.
 # Usage: ./scripts/install_pre_push_style_gate.sh
 set -euo pipefail
 
@@ -17,10 +17,10 @@ mkdir -p "$HOOK_DIR"
 
 cat > "$HOOK_PATH" <<'EOF'
 #!/usr/bin/env bash
-# Auto-generated pre-push hook: run the local Style Gate mirror.
+# Auto-generated pre-push hook: run the local CI style job mirror.
 if [[ -x scripts/style_gate_local.sh ]]; then
   scripts/style_gate_local.sh || {
-    echo "[pre-push] Style Gate failed; push blocked." >&2
+  echo "[pre-push] CI style checks failed; push blocked." >&2
     exit 1
   }
 else

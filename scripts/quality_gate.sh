@@ -13,7 +13,7 @@ if [[ "${1:-}" == "--full" ]]; then
   FULL=1
 fi
 
-# Style Gate mirror
+# CI style job mirror
 ./scripts/style_gate_local.sh
 
 # Type checking (mypy) – fail fast if types regress (core + app)
