@@ -575,7 +575,7 @@ To avoid CI style job failures:
    ./scripts/dev_check.sh --changed --fix
    ./scripts/validate_fast.sh --fix
    ```
-2. Before pushing a branch, mirror the CI style job exactly (pinned Black/Ruff versions used by the unified workflow):
+2. Before pushing a branch, mirror the CI style job exactly (pinned Black/Ruff/Mypy versions used by the unified workflow):
    ```bash
    ./scripts/style_gate_local.sh
    ```
@@ -583,6 +583,7 @@ To avoid CI style job failures:
    ```bash
    black .
    ruff check --fix .
+   # address any mypy errors reported by the script
    ```
 3. Only then run the comprehensive branch checks (optional for large changes):
    ```bash
