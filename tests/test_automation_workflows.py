@@ -150,9 +150,23 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
             {"tests", "workflow-automation", "style"},
             "Gate job must aggregate core CI jobs",
         )
+        self.assertEqual(
+            gate_job.get("if"),
+            "${{ always() }}",
+            "Gate job should run even when upstream jobs fail to report aggregate status",
+        )
         self.assertTrue(
             gate_job.get("steps"),
             "Gate job should include at least one confirmation step",
+        )
+        gate_step_runs = [
+            step.get("run", "")
+            for step in gate_job.get("steps", [])
+            if isinstance(step, dict)
+        ]
+        self.assertTrue(
+            any("GITHUB_STEP_SUMMARY" in run for run in gate_step_runs),
+            "Gate job should write a summary of upstream results to the job summary",
         )
 
     def test_gate_workflow_file_is_absent(self) -> None:
