@@ -7,11 +7,11 @@ This document summarizes the GitHub Actions automation that powers agent assignm
 ## High-Level Flow
 
 ```
-Issue labeled agent:copilot  ──▶ assign-to-agents.yml ──▶ assigns Copilot + posts trigger (if PR)
-Issue labeled agent:codex    ──▶ assign-to-agents.yml ──▶ bootstrap branch/PR via codex-bootstrap-lite
+Issue labeled agent:copilot  ──▶ agents-41-assign.yml ──▶ assigns Copilot + posts trigger (if PR)
+Issue labeled agent:codex    ──▶ agents-41-assign.yml ──▶ bootstrap branch/PR via codex-bootstrap-lite
                                                         │
                                                         ▼
-                                agent-watchdog.yml monitors for cross-referenced PR (7 min timeout)
+                                agents-42-watchdog.yml monitors for cross-referenced PR (7 min timeout)
                                                         │
 PR opened/updated              ──▶ label-agent-prs.yml (pull_request_target) → idempotent labeling
                                                         │
@@ -22,14 +22,14 @@ Failing CI / Docker / Tests    ──▶ autofix-on-failure.yml (workflow_run) �
 
 ## Key Workflows
 
-### 1. `assign-to-agents.yml`
+### 1. `agents-41-assign.yml`
 Triggers: `issues: [labeled]`, `pull_request_target: [labeled]`, manual `workflow_dispatch`.
 
 Responsibilities:
 - Resolve `agent:*` labels to registry entries (default + optional `.github/agents.json`).
 - Assign Copilot and other automation accounts via REST; post start command on PRs when missing.
 - For Codex issues, call the composite `.github/actions/codex-bootstrap-lite` to create a branch/PR and post `@codex start`.
-- Dispatch `agent-watchdog.yml` with context (issue number, expected PR, timeout) to confirm parity.
+- Dispatch `agents-42-watchdog.yml` with context (issue number, expected PR, timeout) to confirm parity.
 - Emit JSON assignment summary (future telemetry hook).
 
 Key outputs:
@@ -65,10 +65,10 @@ Other behavior:
 - Restores/updates `autofix:clean` vs `autofix:debt` labels based on residual diagnostics.
 - Uploads summary sections so maintainers can see eligibility decisions directly from the run.
 
-### 6. `agent-watchdog.yml`
+### 6. `agents-42-watchdog.yml`
 Purpose: Verify that Codex issues produce a linked PR within the expected timeframe and surface actionable diagnostics when they do not.
 
-Activation: Automatically dispatched by `assign-to-agents.yml`; can also be triggered manually via `workflow_dispatch` with custom timeout/PR inputs.
+Activation: Automatically dispatched by `agents-41-assign.yml`; can also be triggered manually via `workflow_dispatch` with custom timeout/PR inputs.
 
 Highlights:
 - Polls the issue timeline for cross-referenced PR events using the GitHub API (mockingbird preview).
@@ -87,11 +87,11 @@ Encapsulates tool installation and formatting logic:
 ## Telemetry & Artifacts
 | Artifact / Output | Source | Purpose |
 |-------------------|--------|---------|
-| `agent_assignment.json` | `assign-to-agents.yml` | Auditable record of assignment decisions (inputs & outputs). |
+| `agent_assignment.json` | `agents-41-assign.yml` | Auditable record of assignment decisions (inputs & outputs). |
 | Step Summary tables | All major workflows | Human-readable status in Actions UI. |
-| Watchdog summary | `agent-watchdog.yml` | Programmatic detector for missing Codex bootstrap (success/timeout). |
+| Watchdog summary | `agents-42-watchdog.yml` | Programmatic detector for missing Codex bootstrap (success/timeout). |
 | Marker files | Codex bootstrap job | Idempotency & external observable state via repo tree. |
-| JSON summary comment | `assign-to-agents.yml` (future) | Machine-readable evergreen comment (issue/PR) with assignment + bootstrap snapshot. |
+| JSON summary comment | `agents-41-assign.yml` (future) | Machine-readable evergreen comment (issue/PR) with assignment + bootstrap snapshot. |
 
 ## Security Posture
 - Principle of least privilege: `contents: write` only in `codex_bootstrap`; base assignment job uses `contents: read`.
@@ -134,7 +134,7 @@ Set the repository (or org) variable `CODEX_ALLOW_FALLBACK=true` only if you acc
 2. For Codex: expect draft PR within seconds; PR body mirrors issue content.
 3. Review `agent_assignment.json` artifact if automation outcome unclear.
 4. On failure to bootstrap: check issue comments for diagnostic message.
-5. Use `workflow_dispatch` on `assign-to-agents.yml` for historical backfill.
+5. Use `workflow_dispatch` on `agents-41-assign.yml` for historical backfill.
 6. Watchdog run (scheduled) should report `FOUND` for newly created bootstrap markers; investigate `TIMEOUT` states.
 
 ## Extensibility Hooks

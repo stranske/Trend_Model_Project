@@ -1,0 +1,9 @@
+#!/home/runner/work/Trend_Model_Project/Trend_Model_Project/.autofix-venv/bin/python
+import sys
+
+from docformatter.__main__ import main
+
+if __name__ == '__main__':
+    if sys.argv[0].endswith('.exe'):
+        sys.argv[0] = sys.argv[0][:-4]
+    sys.exit(main())

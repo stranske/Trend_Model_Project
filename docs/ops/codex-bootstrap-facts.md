@@ -27,11 +27,11 @@ Last updated: 2026-02-07
 - The workflow avoids using `secrets.*` inside step‑level `if:` blocks; token decisions are propagated via `env` and inputs.
 
 - ## Workflows and Actions
-- Assigner workflow: `.github/workflows/assign-to-agents.yml`.
+- Assigner workflow: `.github/workflows/agents-41-assign.yml`.
   - Triggers on Issues/PRs when `agent:*` labels are applied (manual `workflow_dispatch` supported for diagnostics).
   - Uses `.github/actions/codex-bootstrap-lite` to create Codex bootstrap branches/PRs and posts `@codex start` on the PR.
   - Assigns the appropriate automation account (Codex or Copilot) and dispatches the watchdog job for Codex issues.
-- Watchdog workflow: `.github/workflows/agent-watchdog.yml`.
+- Watchdog workflow: `.github/workflows/agents-42-watchdog.yml`.
   - Triggered via `workflow_dispatch` (automatically from the assigner) with issue context and timeout inputs.
   - Polls the issue timeline for a cross-referenced PR and posts a ✅/⚠️ diagnostic comment.
 - Composite action: `.github/actions/codex-bootstrap-lite/action.yml`.
@@ -42,8 +42,8 @@ Last updated: 2026-02-07
 
 ## Quick Index
 
-- Assign to Agents — [`assign-to-agents.yml`](../../.github/workflows/assign-to-agents.yml) · [jump](#wf-assign-to-agents)
-- Agent Watchdog — [`agent-watchdog.yml`](../../.github/workflows/agent-watchdog.yml) · [jump](#wf-agent-watchdog)
+- Assign to Agents — [`agents-41-assign.yml`](../../.github/workflows/agents-41-assign.yml) · [jump](#wf-assign-to-agents)
+- Agent Watchdog — [`agents-42-watchdog.yml`](../../.github/workflows/agents-42-watchdog.yml) · [jump](#wf-agent-watchdog)
 - Label Agent PRs — [`label-agent-prs.yml`](../../.github/workflows/label-agent-prs.yml) · [jump](#wf-label-agent-prs)
 - Merge Manager — [`merge-manager.yml`](../../.github/workflows/merge-manager.yml) · [jump](#wf-merge-manager)
 - Autofix Lane — [`autofix.yml`](../../.github/workflows/autofix.yml) · [jump](#wf-autofix)
@@ -63,21 +63,21 @@ Last updated: 2026-02-07
 This catalog explains what each active workflow does, how it’s triggered, the jobs it runs, and any notable relationships or token usage.
 
 <a id="wf-assign-to-agents"></a>
-1) [`assign-to-agents.yml`](../../.github/workflows/assign-to-agents.yml) — Agent label assignment + Codex bootstrap
+1) [`agents-41-assign.yml`](../../.github/workflows/agents-41-assign.yml) — Agent label assignment + Codex bootstrap
    - Triggers: `issues: [labeled]`, `pull_request_target: [labeled]`, `workflow_dispatch`
    - Jobs: `assign`
      - Maps `agent:*` labels to automation accounts and adds assignees on issues/PRs
      - Posts `@codex start` / `@copilot start` on labeled PRs when the command is absent
      - For Codex issues, uses the composite bootstrap action to create a branch + PR and dispatches the watchdog workflow
-  - Links to: `agent-watchdog.yml`, `label-agent-prs.yml`, `merge-manager.yml`
+  - Links to: `agents-42-watchdog.yml`, `label-agent-prs.yml`, `merge-manager.yml`
 
 <a id="wf-agent-watchdog"></a>
-2) [`agent-watchdog.yml`](../../.github/workflows/agent-watchdog.yml) — Codex PR parity diagnostic
+2) [`agents-42-watchdog.yml`](../../.github/workflows/agents-42-watchdog.yml) — Codex PR parity diagnostic
    - Triggers: `workflow_dispatch` (invoked automatically by assigner)
    - Jobs: `monitor`
      - Polls issue timeline for cross-referenced PRs within a ~7 minute window
      - Posts ✅ success with PR link or ⚠️ timeout diagnostic comment on the issue
-   - Links to: `assign-to-agents.yml` (dispatch), `cleanup-codex-bootstrap.yml` (branch hygiene)
+  - Links to: `agents-41-assign.yml` (dispatch), `cleanup-codex-bootstrap.yml` (branch hygiene)
 
 <a id="wf-label-agent-prs"></a>
 3) [`label-agent-prs.yml`](../../.github/workflows/label-agent-prs.yml) — Apply agent labels to PRs (keeps downstream automation deterministic)
@@ -182,11 +182,11 @@ Archived / Removed (Issue #1140 hardening, 2025‑09‑18): Legacy agent assignm
 
 Use these when investigating bootstrap, authorization, or automation behaviours:
 
-- `assign-to-agents.yml` (`workflow_dispatch`) — Re-run bootstrap/assignment logic for a specific issue or PR.
+- `agents-41-assign.yml` (`workflow_dispatch`) — Re-run bootstrap/assignment logic for a specific issue or PR.
   - Purpose: Validate that Codex bootstrap still succeeds end-to-end (branch, PR, command) and that Copilot assignment works.
   - Use when: Codex bootstrap stalls, or you need to replay assignment after changing labels/tokens.
 
-- `agent-watchdog.yml` (`workflow_dispatch`) — Inspect Codex PR parity.
+- `agents-42-watchdog.yml` (`workflow_dispatch`) — Inspect Codex PR parity.
   - Purpose: Confirm whether a linked PR appeared (success) or record a timeout window with a comment for follow-up.
   - Use when: Diagnosing missing PR links or verifying the watchdog timeout threshold.
 
