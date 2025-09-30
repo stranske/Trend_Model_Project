@@ -315,4 +315,4 @@ def test_selector_weighting_autofix_diagnostics(
     assert "def describe_selection(count: int) -> str:" in return_text
 
     yaml_text = yaml_probe.read_text(encoding="utf-8")
-    assert "import yaml  # type: ignore[import-untyped]" in yaml_text
+    assert "import yaml  # type: ignore[import-untyped, unused-ignore]" in yaml_text

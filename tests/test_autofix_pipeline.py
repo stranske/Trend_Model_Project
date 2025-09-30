@@ -74,7 +74,7 @@ def test_autofix_pipeline_fixes_trivial_ruff_issue(
     assert final.returncode == 0, final.stderr
 
     content = sample.read_text(encoding="utf-8")
-    assert "# type: ignore[import-untyped]" in content
+    assert "# type: ignore[import-untyped, unused-ignore]" in content
     assert "return a + b" in content
 
 
@@ -90,4 +90,4 @@ def test_auto_type_hygiene_adds_ignore(
 
     changed, new_lines = process_file(sample)
     assert changed
-    assert new_lines[0].endswith("# type: ignore[import-untyped]")
+    assert new_lines[0].endswith("# type: ignore[import-untyped, unused-ignore]")

@@ -67,7 +67,7 @@ All others use default `GITHUB_TOKEN`.
 |----------|-----------|-------|
 | `reuse-ci-python.yml` | PR, push | Coverage & matrix |
 | `autofix.yml` | workflow_run (`CI`) | Hygiene autofix + trivial failure remediation |
-| `style-gate.yml` | PR, push (main branches) | Style enforcement |
+| `pr-11-style-gate.yml` | PR, push (main branches) | Style enforcement |
 | `agents-41-assign.yml` | issue/PR labels, dispatch | Agent assignment + Codex bootstrap |
 | `agents-42-watchdog.yml` | workflow dispatch | Codex PR presence diagnostic |
 | `merge-manager.yml` | PR target, workflow_run | Auto-approve + enable auto-merge when gates are satisfied |
@@ -101,14 +101,12 @@ same prefix so the guard behaviour is identical no matter which workflow authore
 commit.
 
 ```yaml
-name: Agents
+name: Agents utilities
 on:
   workflow_dispatch:
-  pull_request:
-    types: [opened, synchronize]
 jobs:
   call:
-    uses: stranske/Trend_Model_Project/.github/workflows/reuse-agents.yml@phase-2-dev
+    uses: stranske/Trend_Model_Project/.github/workflows/reusable-90-agents.yml@phase-2-dev
     with:
       enable_readiness: true
       enable_preflight: true
@@ -117,14 +115,13 @@ jobs:
 Use a tagged ref when versioned.
 
 ### Consolidation (Issue #1419)
-Active agent automation is intentionally reduced to two workflows:
+Active agent automation lives under the WFv1 `agents-4x-*` prefix:
 
+- `agents-40-consumer.yml` – Hourly/dispatch wrapper around the reusable toolkit. Runs readiness, diagnostics, or bootstrap drills on demand by calling `reusable-90-agents.yml` with user-provided flags. This workflow supersedes the retired legacy orchestrator `agents-consumer.yml`.
 - `agents-41-assign.yml` – Assigns the appropriate agent on label, boots Codex issue branches, posts trigger commands, and dispatches the watchdog.
 - `agents-42-watchdog.yml` – Polls the issue timeline for a cross‑referenced PR and reports success or a precise timeout.
 
-Legacy orchestrators (`agents-consumer.yml`, `reuse-agents.yml`) are archived under `Old/.github/workflows/` and guarded by
-`tests/test_workflow_agents_consolidation.py` to prevent silent reintroduction. Any new agent helper must either extend the
-existing assigner or document a justification for a third workflow in this README.
+Legacy orchestrators previously named `agents-consumer.yml` and `reuse-agents.yml` were retired during the consolidation. `tests/test_workflow_agents_consolidation.py` guards against silently reviving those slugs. Any new agent helper must either extend this pair or document a justification for an additional workflow in this README.
 
 ### Merge Manager (Issue #1415)
 Unified approval + auto-merge policy lives in `merge-manager.yml`, replacing the legacy pair `autoapprove.yml` and

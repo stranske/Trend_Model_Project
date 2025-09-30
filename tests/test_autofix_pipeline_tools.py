@@ -131,7 +131,9 @@ def test_auto_type_hygiene_inserts_type_ignore(
 
     changed, new_lines = auto_type_hygiene.process_file(source_path)
     assert changed is True
-    assert new_lines[0].strip().endswith("# type: ignore[import-untyped]")
+    assert (
+        new_lines[0].strip().endswith("# type: ignore[import-untyped, unused-ignore]")
+    )
     autofix_recorder.record(
         tool="auto_type_hygiene",
         scenario="insert_type_ignore",

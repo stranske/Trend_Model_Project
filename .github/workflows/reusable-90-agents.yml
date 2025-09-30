@@ -171,17 +171,16 @@ jobs:
       - name: Summary
         if: always()
         run: |
-          echo "### Agent Readiness Report ${{ steps.try.outcome == 'failure' && '❌' || '✅' }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo '```json' >> $GITHUB_STEP_SUMMARY
-          echo '${{ steps.try.outputs.report }}' >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo '${{ steps.try.outputs.table }}' >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Require all: ${{ inputs.require_all }}" >> $GITHUB_STEP_SUMMARY
-          echo "Custom logins: ${{ inputs.readiness_custom_logins }}" >> $GITHUB_STEP_SUMMARY
-          echo "Overall: ${{ steps.try.outcome == 'failure' && 'failure (missing required agents)' || 'success' }}" >> $GITHUB_STEP_SUMMARY
+          {
+            printf '### Agent Readiness Report %s\n' "${{ steps.try.outcome == 'failure' && '❌' || '✅' }}"
+            printf '\n```json\n'
+            printf '%s\n' "${{ steps.try.outputs.report }}"
+            printf '```\n\n'
+            printf '%s\n\n' "${{ steps.try.outputs.table }}"
+            printf 'Require all: %s\n' "${{ inputs.require_all }}"
+            printf 'Custom logins: %s\n' "${{ inputs.readiness_custom_logins }}"
+            printf 'Overall: %s\n' "${{ steps.try.outcome == 'failure' && 'failure (missing required agents)' || 'success' }}"
+          } >>"$GITHUB_STEP_SUMMARY"
 
   preflight:
     if: inputs.enable_preflight == 'true'
@@ -277,7 +276,7 @@ jobs:
         if: steps.ready.outputs.issue_numbers != ''
         uses: ./.github/actions/codex-bootstrap-lite
         with:
-            issue: ${{ fromJSON('[' + steps.ready.outputs.issue_numbers + ']')[0] }}
+            issue: ${{ fromJSON(format('[{0}]', steps.ready.outputs.issue_numbers))[0] }}
             service_bot_pat: ${{ secrets.service_bot_pat || '' }}
             draft: ${{ inputs.draft_pr }}
 

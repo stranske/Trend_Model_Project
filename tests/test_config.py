@@ -1,4 +1,4 @@
-import yaml  # type: ignore[import-untyped]
+import yaml  # type: ignore[import-untyped, unused-ignore]
 from trend_analysis import config
 
 

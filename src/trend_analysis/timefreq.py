@@ -86,10 +86,12 @@ def assert_no_invalid_period_aliases_in_source(paths: Iterable[str]) -> None:
 
     pattern = re.compile(r"period_range\([^\n]*freq=\"(ME|QE)\"")
     bad: list[tuple[str, str]] = []
+    skip_tokens = {"/.venv/", "/.autofix-venv/", "/site-packages/"}
+
     for p in paths:
-        if "/.venv/" in p or p.endswith(
+        if any(token in p for token in skip_tokens) or p.endswith(
             "timefreq.py"
-        ):  # skip env + this file’s examples
+        ):  # skip envs + this file’s examples
             continue
         try:
             text = open(p, "r", encoding="utf-8").read()
