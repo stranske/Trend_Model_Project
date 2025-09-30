@@ -117,7 +117,7 @@ Use a tagged ref when versioned.
 ### Consolidation (Issue #1419)
 Active agent automation lives under the WFv1 `agents-4x-*` prefix:
 
-- `agents-40-consumer.yml` – Hourly/dispatch wrapper around the reusable toolkit. Runs readiness, diagnostics, or bootstrap drills on demand by calling `reusable-90-agents.yml` with user-provided flags.
+- `agents-40-consumer.yml` – Hourly/dispatch wrapper around the reusable toolkit. Runs readiness, diagnostics, or bootstrap drills on demand by calling `reusable-90-agents.yml` with user-provided flags. This workflow supersedes the retired legacy orchestrator `agents-consumer.yml`.
 - `agents-41-assign.yml` – Assigns the appropriate agent on label, boots Codex issue branches, posts trigger commands, and dispatches the watchdog.
 - `agents-42-watchdog.yml` – Polls the issue timeline for a cross‑referenced PR and reports success or a precise timeout.
 
