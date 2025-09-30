@@ -33,9 +33,11 @@ SRC_PATH = ROOT / "src"
 if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
 
+
 # Opt into the guarded interpreter bootstrap unless explicitly disabled.
 def setup_trend_model_env():
     os.environ.setdefault("TREND_MODEL_SITE_CUSTOMIZE", "1")
+
 
 setup_trend_model_env()
 # Standard library done; third-party imports
