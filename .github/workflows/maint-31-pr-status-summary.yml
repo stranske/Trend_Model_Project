@@ -67,12 +67,54 @@ jobs:
               return '⏳';
             };
 
-            // Determine required baseline heuristically (same logic as before using job names)
-            const nameSet = new Set(jobs.map(j => j.name));
-            const required = ['CI'];
-            if (nameSet.has('Docker')) required.push('Docker');
+            const combineStates = (states) => {
+              const normalized = states.map(s => (s || '').toLowerCase()).filter(Boolean);
+              if (!normalized.length) return 'missing';
+
+              const failureStates = ['failure', 'cancelled', 'timed_out', 'action_required'];
+              const pendingStates = ['in_progress', 'queued', 'waiting', 'pending'];
+
+              const failure = normalized.find(s => failureStates.includes(s));
+              if (failure) return failure;
+
+              const pending = normalized.find(s => pendingStates.includes(s));
+              if (pending) return pending;
+
+              if (normalized.every(s => s === 'skipped')) return 'skipped';
+              if (normalized.includes('success')) return 'success';
+
+              return normalized[0];
+            };
+
+            const formatRequirement = (label, predicate) => {
+              const matches = jobs.filter(job => predicate(job.name));
+              if (!matches.length) {
+                return `${label}: ${badge('missing')} missing`;
+              }
+
+              const combined = combineStates(matches.map(job => job.conclusion || job.status));
+              return `${label}: ${badge(combined)} ${combined}`;
+            };
+
             const conclusions = Object.fromEntries(jobs.map(j => [j.name, j.conclusion || j.status]));
-            const requiredStates = required.map(n => `${n}: ${conclusions[n] || 'missing'}`);
+            let requiredStates;
+
+            if ((run.name || '').toLowerCase() === 'ci') {
+              const ciGroups = [
+                { label: 'CI tests', predicate: (name) => name === 'main / tests' || name.startsWith('main / tests /') },
+                { label: 'CI workflow-automation', predicate: (name) => name.startsWith('workflow / automation-tests') },
+                { label: 'CI style', predicate: (name) => name === 'main / style' || name.startsWith('main / style /') },
+                { label: 'CI gate', predicate: (name) => name === 'gate / all-required-green' },
+              ];
+
+              requiredStates = ciGroups.map(group => formatRequirement(group.label, group.predicate));
+            } else {
+              const fallback = [run.name].filter(Boolean);
+              requiredStates = fallback.map(name => {
+                const state = conclusions[name] || 'missing';
+                return `${name}: ${badge(state)} ${state}`;
+              });
+            }
 
             // Build rows; highlight failed/cancelled at top (enhancement)
             const priorityOrder = (state) => {
