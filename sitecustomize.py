@@ -1,61 +1,19 @@
-"""Repository bootstrap hooks executed automatically during interpreter start.
-
-The helper keeps ``src/`` on ``sys.path`` for the test-suite subprocesses and
-verifies that ``joblib`` resolves to the third-party dependency rather than a
-repository-local module.  Python automatically imports :mod:`sitecustomize` if
-present on the import path during interpreter start.
-"""
+"""Opt-in shim for the Trend Model ``sitecustomize`` hooks."""
 
 from __future__ import annotations
 
-import importlib.util
-import sys
-from pathlib import Path
+import os
 
-SITE_INDICATORS = {"site-packages", "dist-packages"}
-REPO_ROOT = Path(__file__).resolve().parent
-SRC_DIR = REPO_ROOT / "src"
+_FLAG = "TREND_MODEL_SITE_CUSTOMIZE"
 
 
-def _ensure_src_on_sys_path() -> None:
-    """Prepend ``src`` to ``sys.path`` if the directory exists."""
+def _load_opt_in_module() -> None:
+    """Import and execute the Trend Model bootstrap when enabled."""
 
-    if SRC_DIR.exists():  # pragma: no cover - trivial branch
-        src = str(SRC_DIR)
-        if src not in sys.path:
-            sys.path.insert(0, src)
-
-
-def _ensure_joblib_external() -> None:
-    """Fail fast if :mod:`joblib` resolves to a repository-local module."""
-
-    spec = importlib.util.find_spec("joblib")
-    if spec is None or not spec.origin:
-        # Dependency not installed yet (e.g. during bootstrapping); defer to the
-        # actual import which will raise a clearer ModuleNotFoundError.
-        return
-
-    resolved = Path(spec.origin).resolve()
-    resolved_parts = resolved.parts
-
-    if any(part in SITE_INDICATORS for part in resolved_parts):
-        # Virtual environments often live inside the repository root (e.g.
-        # ``.venv/``). As long as the resolution path contains a recognised
-        # site-packages/dist-packages segment we accept it as the third-party
-        # dependency.
-        return
-
-    if REPO_ROOT in resolved.parents or resolved == REPO_ROOT:
-        raise ImportError(
-            "The third-party 'joblib' package is required; found repository "
-            f"stub at {resolved}."
-        )
-
-    raise ImportError(
-        "joblib should resolve from site-packages/dist-packages but instead "
-        f"resolved to {resolved}."
-    )
+    module = __import__("trend_model._sitecustomize", fromlist=["bootstrap"])
+    bootstrap = getattr(module, "bootstrap")
+    bootstrap()
 
 
-_ensure_src_on_sys_path()
-_ensure_joblib_external()
+if os.getenv(_FLAG) == "1":
+    _load_opt_in_module()

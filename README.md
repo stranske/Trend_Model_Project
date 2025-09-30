@@ -86,6 +86,23 @@ If package installation fails due to network issues, the CLI is still available 
 PYTHONPATH="./src" python -m trend.cli run --help
 ```
 
+#### Optional interpreter bootstrap (development only)
+
+The legacy repository-level ``sitecustomize.py`` shim has been replaced with an
+opt-in module living under ``trend_model._sitecustomize``.  To restore the
+previous behaviour (ensuring ``src/`` is on ``sys.path`` and validating that the
+third-party ``joblib`` dependency is used) set the environment variable
+``TREND_MODEL_SITE_CUSTOMIZE=1`` **before** launching Python:
+
+```bash
+export TREND_MODEL_SITE_CUSTOMIZE=1
+python -m trend.cli run --help
+```
+
+Without this flag the interpreter starts without any Trend Model-specific side
+effects, making it safe to put the repository on ``PYTHONPATH`` during
+toolchain bootstrap.
+
 ### Docker (Zero-Setup)
 
 For the fastest setup with zero local dependencies:
