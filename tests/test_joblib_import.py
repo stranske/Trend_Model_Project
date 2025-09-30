@@ -59,8 +59,8 @@ def test_joblib_spec_origin_outside_repo() -> None:
 @pytest.mark.parametrize("module_name", ENTRYPOINT_MODULES)
 def test_cli_entrypoints_expose_help_and_external_joblib(module_name: str) -> None:
     module = importlib.import_module(module_name)
-    main = getattr(module, "main")
-
+    main = getattr(module, "main", None)
+    assert main is not None, f"Module '{module_name}' does not expose a 'main' function"
     try:
         result = main(["--help"])
     except SystemExit as exc:  # argparse exits after printing help
