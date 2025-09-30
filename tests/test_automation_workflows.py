@@ -122,6 +122,38 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
             "Legacy gate.yml workflow should remain deleted; rely on pr-10 gate job",
         )
 
+    def test_workflows_do_not_define_invalid_marker_filters(self) -> None:
+        """Ensure pytest marker filters stay inside shell commands."""
+
+        invalid_expr = "not quarantine and not slow"
+
+        def _iter_scalars(node: object) -> list[str]:
+            if isinstance(node, dict):
+                scalars: list[str] = []
+                for value in node.values():
+                    scalars.extend(_iter_scalars(value))
+                return scalars
+            if isinstance(node, list):
+                scalars = []
+                for value in node:
+                    scalars.extend(_iter_scalars(value))
+                return scalars
+            return [node] if isinstance(node, str) else []
+
+        for workflow_path in sorted(self.workflows_dir.glob("*.yml")):
+            with self.subTest(workflow=workflow_path.name):
+                loaded = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+                if loaded is None:
+                    continue
+                for scalar in _iter_scalars(loaded):
+                    if scalar.strip() == invalid_expr:
+                        self.fail(
+                            "Detected bare pytest marker expression in %s; "
+                            "use shell commands (pytest -m) instead to avoid "
+                            "invalid YAML filters."
+                            % workflow_path.name
+                        )
+
     def test_reusable_ci_runs_tests_and_mypy(self) -> None:
         workflow = self._read_workflow("reusable-ci-python.yml")
         jobs = workflow.get("jobs", {})
