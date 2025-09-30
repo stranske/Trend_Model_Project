@@ -121,7 +121,7 @@ Active agent automation lives under the WFv1 `agents-4x-*` prefix:
 - `agents-41-assign.yml` – Assigns the appropriate agent on label, boots Codex issue branches, posts trigger commands, and dispatches the watchdog.
 - `agents-42-watchdog.yml` – Polls the issue timeline for a cross‑referenced PR and reports success or a precise timeout.
 
-Legacy orchestrators previously named `agents-consumer.yml` and `reuse-agents.yml` were retired during the consolidation. `tests/test_workflow_agents_consolidation.py` guards against silently reviving those slugs. Any new agent helper must either extend this trio or document a justification for an additional workflow in this README.
+Legacy orchestrators previously named `agents-consumer.yml` and `reuse-agents.yml` were retired during the consolidation. `tests/test_workflow_agents_consolidation.py` guards against silently reviving those slugs. Any new agent helper must either extend this pair or document a justification for an additional workflow in this README.
 
 ### Merge Manager (Issue #1415)
 Unified approval + auto-merge policy lives in `merge-manager.yml`, replacing the legacy pair `autoapprove.yml` and
