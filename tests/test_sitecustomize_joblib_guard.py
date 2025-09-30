@@ -110,7 +110,8 @@ def test_importing_project_module_without_opt_in(
 def test_sitecustomize_default_import_is_idle(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Reloading the shim without the flag must not import the bootstrap module."""
+    """Reloading the shim without the flag must not import the bootstrap
+    module."""
 
     monkeypatch.delenv(FLAG, raising=False)
     sys.modules.pop("trend_model._sitecustomize", None)
