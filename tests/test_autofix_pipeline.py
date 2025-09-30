@@ -63,6 +63,7 @@ def test_autofix_pipeline_fixes_trivial_ruff_issue(
         _run(cmd, cwd=tmp_path)
 
     changed, new_lines = process_file(sample)
+    assert changed is False
     if changed:
         sample.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
 
@@ -74,7 +75,7 @@ def test_autofix_pipeline_fixes_trivial_ruff_issue(
     assert final.returncode == 0, final.stderr
 
     content = sample.read_text(encoding="utf-8")
-    assert "# type: ignore[import-untyped, unused-ignore]" in content
+    assert "type: ignore" not in content
     assert "return a + b" in content
 
 

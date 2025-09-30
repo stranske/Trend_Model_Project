@@ -17,6 +17,8 @@ NC='\033[0m'
 FIX_MODE=false
 CHANGED_ONLY=false
 VERBOSE_MODE=false
+CHECK_TIMEOUT=${DEV_CHECK_TIMEOUT:-120}
+BLACK_TARGETS=${DEV_CHECK_BLACK_TARGETS:-"src tests scripts streamlit_app"}
 
 for arg in "$@"; do
     case $arg in
@@ -98,23 +100,41 @@ quick_check() {
     local name="$1"
     local command="$2"
     local fix_command="$3"
+    local output_file
+    output_file=$(mktemp -t "devcheck_${name// /_}.XXXX")
+    local fix_file
+    fix_file=$(mktemp -t "devcheck_${name// /_}_fix.XXXX")
+    local recheck_file
+    recheck_file=$(mktemp -t "devcheck_${name// /_}_re.XXXX")
     
     if [[ "$VERBOSE_MODE" == true ]]; then
         echo -e "${BLUE}Running: $command${NC}"
     fi
     
-    if eval "$command" > /tmp/quick_check_output 2>&1; then
+    if timeout "$CHECK_TIMEOUT" bash -c "$command" > "$output_file" 2>&1; then
         echo -e "${GREEN}✓ $name${NC}"
+        rm -f "$output_file" "$fix_file" "$recheck_file"
         return 0
     else
-        echo -e "${RED}✗ $name${NC}"
+        local exit_code=$?
+        local timed_out=false
+        if [[ $exit_code -eq 124 ]]; then
+            timed_out=true
+            echo -e "${RED}✗ $name (timed out after ${CHECK_TIMEOUT}s)${NC}"
+            if [[ "$VERBOSE_MODE" == false ]]; then
+                echo -e "${YELLOW}  Re-run with --verbose or increase DEV_CHECK_TIMEOUT to see details.${NC}"
+            fi
+        else
+            echo -e "${RED}✗ $name${NC}"
+        fi
         
-        if [[ "$FIX_MODE" == true && -n "$fix_command" ]]; then
+        if [[ "$FIX_MODE" == true && -n "$fix_command" && $timed_out == false ]]; then
             echo -e "${YELLOW}  Fixing...${NC}"
-            if eval "$fix_command" > /tmp/quick_fix_output 2>&1; then
+            if timeout "$CHECK_TIMEOUT" bash -c "$fix_command" > "$fix_file" 2>&1; then
                 # Re-check
-                if eval "$command" > /tmp/quick_recheck_output 2>&1; then
+                if timeout "$CHECK_TIMEOUT" bash -c "$command" > "$recheck_file" 2>&1; then
                     echo -e "${GREEN}✓ $name (fixed)${NC}"
+                    rm -f "$output_file" "$fix_file" "$recheck_file"
                     return 0
                 fi
             fi
@@ -123,8 +143,18 @@ quick_check() {
         
         if [[ "$VERBOSE_MODE" == true ]]; then
             echo -e "${YELLOW}Output:${NC}"
-            head -10 /tmp/quick_check_output | sed 's/^/  /'
+            if [[ -f "$output_file" ]]; then
+                head -10 "$output_file" | sed 's/^/  /'
+            fi
+            if [[ -f "$fix_file" ]]; then
+                echo -e "${YELLOW}Fix output:${NC}"
+                head -10 "$fix_file" | sed 's/^/  /'
+            fi
+            if [[ -f "$recheck_file" ]]; then
+                head -10 "$recheck_file" | sed 's/^/  /'
+            fi
         fi
+        rm -f "$output_file" "$fix_file" "$recheck_file"
         return 1
     fi
 }
@@ -158,8 +188,8 @@ if [[ "$CHANGED_ONLY" == true && -n "$ALL_FILES" ]]; then
     FMT_CMD="echo '$ALL_FILES' | xargs black --check"
     FIX_CMD="echo '$ALL_FILES' | xargs black"
 else
-    FMT_CMD="black --check ."
-    FIX_CMD="black ."
+    FMT_CMD="black --check ${BLACK_TARGETS}"
+    FIX_CMD="black ${BLACK_TARGETS}"
 fi
 quick_check "Black formatting" "$FMT_CMD" "$FIX_CMD"
 

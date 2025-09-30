@@ -118,13 +118,14 @@ def test_auto_type_hygiene_inserts_type_ignore(
     src_dir = tmp_repo / "src"
     src_dir.mkdir()
     source_path = src_dir / "demo.py"
+    module_name = "missing_stub_pkg"
     source_path.write_text(
-        "import yaml\n\nvalue = yaml.safe_load('{}')\n",
+        f"import {module_name}\n",
         encoding="utf-8",
     )
 
-    monkeypatch.setenv("AUTO_TYPE_ALLOWLIST", "yaml")
-    monkeypatch.setattr(auto_type_hygiene, "ALLOWLIST", ["yaml"], raising=False)
+    monkeypatch.setenv("AUTO_TYPE_ALLOWLIST", module_name)
+    monkeypatch.setattr(auto_type_hygiene, "ALLOWLIST", [module_name], raising=False)
     monkeypatch.setattr(auto_type_hygiene, "ROOT", tmp_repo)
     monkeypatch.setattr(auto_type_hygiene, "SRC_DIRS", [src_dir])
     monkeypatch.setattr(auto_type_hygiene, "DRY_RUN", False)

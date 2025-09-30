@@ -259,7 +259,8 @@ def test_autofix_pipeline_handles_diverse_errors(
 
     sample_text = sample_module.read_text(encoding="utf-8")
     assert "from typing import Iterable, Optional" in sample_text
-    assert "# type: ignore[arg-type, import-untyped, unused-ignore]" in sample_text
+    assert "# type: ignore[arg-type]" in sample_text
+    assert "import-untyped" not in sample_text
     assert "-> list[str]:" in sample_text
     assert "Docstring with inconsistent" in sample_text
     assert "Additional commentary missing newline." in sample_text
