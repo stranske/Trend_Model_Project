@@ -107,6 +107,21 @@ def test_importing_project_module_without_opt_in(
     assert "trend_model._sitecustomize" not in sys.modules
 
 
+@pytest.mark.parametrize("flag_value", ["0", "", "true", "yes"])
+def test_opt_in_requires_exact_flag(monkeypatch: pytest.MonkeyPatch, flag_value: str) -> None:
+    """Only the explicit opt-in value should trigger the bootstrap shim."""
+
+    with monkeypatch.context() as ctx:
+        ctx.setenv(FLAG, flag_value)
+        sys.modules.pop("trend_model._sitecustomize", None)
+
+        importlib.reload(sitecustomize)
+
+        assert "trend_model._sitecustomize" not in sys.modules
+
+    importlib.reload(sitecustomize)
+
+
 def test_bootstrap_inserts_src_once(monkeypatch: pytest.MonkeyPatch) -> None:
     """Opt-in bootstrap should prepend src/ exactly once."""
 
