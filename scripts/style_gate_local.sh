@@ -50,7 +50,7 @@ fi
 
 if command -v mypy >/dev/null 2>&1; then
   echo "Running mypy (core + app)" >&2
-  if ! mypy --config-file pyproject.toml src/trend_analysis src_trend_portfolio_app; then
+  if ! mypy --config-file pyproject.toml src/trend_analysis src/trend_portfolio_app; then
     echo "mypy type check failed." >&2
     exit 1
   fi

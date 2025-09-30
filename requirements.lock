@@ -18,11 +18,11 @@ et-xmlfile==2.0.0
     # via openpyxl
 executing==2.2.1
     # via stack-data
-fonttools==4.60.0
+fonttools==4.60.1
     # via matplotlib
-hypothesis==6.140.1
+hypothesis==6.140.2
     # via trend-model (pyproject.toml)
-ipython==9.5.0
+ipython==9.6.0
     # via ipywidgets
 ipython-pygments-lexers==1.1.1
     # via ipython
@@ -30,7 +30,7 @@ ipywidgets==8.1.7
     # via trend-model (pyproject.toml)
 jedi==0.19.2
     # via ipython
-joblib==1.4.2
+joblib==1.5.2
     # via trend-model (pyproject.toml)
 jupyterlab-widgets==3.0.15
     # via ipywidgets
@@ -51,7 +51,7 @@ openpyxl==3.1.5
     # via trend-model (pyproject.toml)
 packaging==25.0
     # via matplotlib
-pandas==2.3.2
+pandas==2.3.3
     # via trend-model (pyproject.toml)
 parso==0.8.5
     # via jedi
@@ -81,7 +81,7 @@ python-dateutil==2.9.0.post0
     #   pandas
 pytz==2025.2
     # via pandas
-pyyaml==6.0.2
+pyyaml==6.0.3
     # via trend-model (pyproject.toml)
 scipy==1.16.2
     # via trend-model (pyproject.toml)
