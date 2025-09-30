@@ -123,13 +123,17 @@ def test_auto_type_hygiene_inserts_type_ignore(
         encoding="utf-8",
     )
 
+    monkeypatch.setenv("AUTO_TYPE_ALLOWLIST", "yaml")
+    monkeypatch.setattr(auto_type_hygiene, "ALLOWLIST", ["yaml"], raising=False)
     monkeypatch.setattr(auto_type_hygiene, "ROOT", tmp_repo)
     monkeypatch.setattr(auto_type_hygiene, "SRC_DIRS", [src_dir])
     monkeypatch.setattr(auto_type_hygiene, "DRY_RUN", False)
 
     changed, new_lines = auto_type_hygiene.process_file(source_path)
     assert changed is True
-    assert new_lines[0].strip().endswith("# type: ignore[import-untyped]")
+    assert (
+        new_lines[0].strip().endswith("# type: ignore[import-untyped, unused-ignore]")
+    )
     autofix_recorder.record(
         tool="auto_type_hygiene",
         scenario="insert_type_ignore",

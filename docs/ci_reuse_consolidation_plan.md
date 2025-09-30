@@ -8,9 +8,9 @@ The `.github/workflows` directory contains both new reusable workflows and sever
 | -------------------- | -------------------- | ----------------- |
 | `autofix.yml` | `reuse-autofix.yml` + `autofix-consumer.yml` | Eliminated duplication; stabilization period complete post PR #1257. |
 | `agent-readiness.yml` | _(archived)_ | No direct replacement; run ad-hoc GitHub Script checks when needed. |
-| `agent-watchdog.yml` | `agent-watchdog.yml` | Standalone watchdog workflow introduced with Issue #1419. |
+| `agents-42-watchdog.yml` | `agents-42-watchdog.yml` | Standalone watchdog workflow introduced with Issue #1419. |
 | `codex-preflight.yml` | _(archived)_ | Manual diagnostics or future targeted scripts as needed. |
-| `codex-bootstrap-diagnostic.yml` | _(archived)_ | Superseded by assign-to-agents bootstrap + watchdog pairing. |
+| `codex-bootstrap-diagnostic.yml` | _(archived)_ | Superseded by agents-41 assign + agents-42 watchdog pairing. |
 | `verify-agent-task.yml` | _(archived)_ | Use issue audit scripts or custom GitHub Script snippets.
 
 ### Parallel / Candidate for Future Merge
@@ -23,13 +23,13 @@ The `.github/workflows` directory contains both new reusable workflows and sever
 Release, docker, auto-merge enablement, PR status summary, quarantine TTL, failure trackers remain orthogonal to the three reusable workflows.
 
 ## Consolidation Actions Executed
-All previously flagged legacy workflows were deleted in alignment with Issue #1259. Consumers now invoke the reusable equivalents (`reuse-autofix.yml`) alongside the new agent pair (`assign-to-agents.yml`, `agent-watchdog.yml`). This concludes the stabilization window referenced in PR #1257.
+All previously flagged legacy workflows were deleted in alignment with Issue #1259. Consumers now invoke the reusable equivalents (`reuse-autofix.yml`) alongside the new agent pair (`agents-41-assign.yml`, `agents-42-watchdog.yml`). This concludes the stabilization window referenced in PR #1257.
 
 ## Deletion Timetable (Superseded)
 Original timetable replaced by immediate removal once validation completed. Retained here for historical context only.
 
 ## Future Evolution Ideas
-- Monitor whether additional readiness/preflight scripts are required now that `reuse-agents.yml` has been retired in favour of the assigner/watchdog workflows.
+- Monitor whether additional readiness/preflight scripts are required now that `reuse-agents.yml` (now `reusable-90-agents.yml`) has been retired in favour of the assigner/watchdog workflows.
 - Expose versioned `@v1` tags for remote consumption (convert internal `uses:` paths to fully-qualified refs in downstream repos).
 - Add quarantine job implementation tied to `run_quarantine` input in `reuse-ci-python.yml`.
 

@@ -83,7 +83,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
     # -- workflow coverage --------------------------------------------------------
 
     def test_ci_workflow_invokes_reusable_stack(self) -> None:
-        workflow = self._read_workflow("ci.yml")
+        workflow = self._read_workflow("pr-10-ci-python.yml")
         jobs = workflow.get("jobs", {})
         self.assertIn("main", jobs, "CI workflow should define a main job")
         main_job = jobs["main"]
@@ -226,7 +226,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         )
 
     def test_style_gate_enforces_black_ruff_and_mypy(self) -> None:
-        workflow = self._read_workflow("style-gate.yml")
+        workflow = self._read_workflow("pr-11-style-gate.yml")
         steps = "\n".join(
             step["run"].strip()
             for step in workflow.get("jobs", {}).get("style", {}).get("steps", [])

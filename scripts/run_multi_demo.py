@@ -40,7 +40,7 @@ import pandas as pd
 
 # Project imports (kept together; E402 no longer triggered)
 import trend_analysis as ta
-import yaml  # type: ignore[import-untyped]
+import yaml  # type: ignore[import-untyped, unused-ignore]
 from trend_analysis import (
     cli,
     export,

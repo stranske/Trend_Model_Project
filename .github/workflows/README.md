@@ -7,10 +7,10 @@ This guide enables a new maintainer to operate the CI + agent automation stack i
 Core layers:
 - Reusable CI (`reuse-ci-python.yml`): tests, coverage, aggregated gate.
 - Autofix lane (`autofix.yml`): workflow_run follower that batches small hygiene fixes and trivial failure remediation using the composite autofix action.
-- Style Gate (`style-gate.yml`): authoritative style verification (black --check + ruff new-issue fail) running on PR & main branch pushes.
-- Agent routing & watchdog (`assign-to-agents.yml` + `agent-watchdog.yml`): label-driven assignment, Codex bootstrap, diagnostics.
+- Style Gate (`pr-11-style-gate.yml`): authoritative style verification (black --check + ruff new-issue fail) running on PR & main branch pushes.
+- Agent routing & watchdog (`agents-41-assign.yml` + `agents-42-watchdog.yml`): label-driven assignment, Codex bootstrap, diagnostics.
 - Merge automation (`merge-manager.yml`): unified auto-approval and auto-merge decisions for safe agent PRs.
-- Governance & Health: `repo-health-nightly.yml`, labelers, dependency review, CodeQL.
+- Governance & Health: `maint-35-repo-health-self-check.yml`, labelers, dependency review, CodeQL.
 - Path Labeling: `pr-path-labeler.yml` auto-categorizes PRs.
 
 ### 1.1 Current CI Topology (Issue #1351)
@@ -18,16 +18,16 @@ The CI stack now runs in distinct lanes so each concern can evolve independently
 
 | Lane | Workflow(s) | Purpose | Required Status Today | Future Plan |
 |------|-------------|---------|-----------------------|-------------|
-| Core test/coverage | `reusable-ci-python.yml` (consumed by `ci.yml`) | Matrix tests, coverage report | Wrapper job "CI" (legacy) + gate job | Make gate job the only required check once stable |
+| Core test/coverage | `reusable-ci-python.yml` (consumed by `pr-10-ci-python.yml`) | Matrix tests, coverage report | Wrapper job "CI" (legacy) + gate job | Make gate job the only required check once stable |
 | Gate aggregation | `reusable-ci-python.yml` job: `gate / all-required-green` | Ensures upstream jobs passed (single source of truth) | Secondary | Will replace wrapper after burn‑in |
 | Coverage soft gate | `coverage_soft_gate` job (opt‑in) | Posts coverage & hotspots (non-blocking) | Advisory | Remains advisory |
 | Universal logs | `logs_summary` job | Per‑job log table in summary | Not required | Always-on helper |
 | Autofix lane | `autofix.yml` | Workflow_run follower that commits small hygiene fixes (success runs) and retries trivial CI failures | Not required | Remains optional |
-| Style verification | `style-gate.yml` | Enforce black formatting + ruff cleanliness (fail on new issues) | Candidate required | Become required once stable |
-| Agent assignment | `assign-to-agents.yml` | Maps labels → assignees, creates Codex bootstrap PRs | Not required | Harden diagnostics |
-| Agent watchdog | `agent-watchdog.yml` | Confirms Codex PR cross-reference or posts timeout | Not required | Tune timeout post burn-in |
+| Style verification | `pr-11-style-gate.yml` | Enforce black formatting + ruff cleanliness (fail on new issues) | Candidate required | Become required once stable |
+| Agent assignment | `agents-41-assign.yml` | Maps labels → assignees, creates Codex bootstrap PRs | Not required | Harden diagnostics |
+| Agent watchdog | `agents-42-watchdog.yml` | Confirms Codex PR cross-reference or posts timeout | Not required | Tune timeout post burn-in |
 
-Temporary state: `ci.yml` exists solely to preserve the historic required check name ("CI") while maintainers transition branch protection to the gate job. Once maintainers flip protection, delete `ci.yml` and mark the gate job required.
+Temporary state: `pr-10-ci-python.yml` (formerly `ci.yml`) exists solely to preserve the historic required check name ("CI") while maintainers transition branch protection to the gate job. Once maintainers flip protection, delete `pr-10-ci-python.yml` and mark the gate job required.
 
 Flow:
 1. PR opened → labelers apply path + agent labels.
@@ -67,11 +67,11 @@ All others use default `GITHUB_TOKEN`.
 |----------|-----------|-------|
 | `reuse-ci-python.yml` | PR, push | Coverage & matrix |
 | `autofix.yml` | workflow_run (`CI`) | Hygiene autofix + trivial failure remediation |
-| `style-gate.yml` | PR, push (main branches) | Style enforcement |
-| `assign-to-agents.yml` | issue/PR labels, dispatch | Agent assignment + Codex bootstrap |
-| `agent-watchdog.yml` | workflow dispatch | Codex PR presence diagnostic |
+| `pr-11-style-gate.yml` | PR, push (main branches) | Style enforcement |
+| `agents-41-assign.yml` | issue/PR labels, dispatch | Agent assignment + Codex bootstrap |
+| `agents-42-watchdog.yml` | workflow dispatch | Codex PR presence diagnostic |
 | `merge-manager.yml` | PR target, workflow_run | Auto-approve + enable auto-merge when gates are satisfied |
-| `repo-health-nightly.yml` | schedule, manual | Governance audit |
+| `maint-35-repo-health-self-check.yml` | schedule, manual | Governance audit |
 | `pr-path-labeler.yml` | PR events | Path labels |
 | `label-agent-prs.yml` | PR target | Origin + risk labels |
 | `codeql.yml` | push, PR, schedule | Code scanning |
@@ -101,14 +101,12 @@ same prefix so the guard behaviour is identical no matter which workflow authore
 commit.
 
 ```yaml
-name: Agents
+name: Agents utilities
 on:
   workflow_dispatch:
-  pull_request:
-    types: [opened, synchronize]
 jobs:
   call:
-    uses: stranske/Trend_Model_Project/.github/workflows/reuse-agents.yml@phase-2-dev
+    uses: stranske/Trend_Model_Project/.github/workflows/reusable-90-agents.yml@phase-2-dev
     with:
       enable_readiness: true
       enable_preflight: true
@@ -117,14 +115,13 @@ jobs:
 Use a tagged ref when versioned.
 
 ### Consolidation (Issue #1419)
-Active agent automation is intentionally reduced to two workflows:
+Active agent automation lives under the WFv1 `agents-4x-*` prefix:
 
-- `assign-to-agents.yml` – Assigns the appropriate agent on label, boots Codex issue branches, posts trigger commands, and dispatches the watchdog.
-- `agent-watchdog.yml` – Polls the issue timeline for a cross‑referenced PR and reports success or a precise timeout.
+- `agents-40-consumer.yml` – Hourly/dispatch wrapper around the reusable toolkit. Runs readiness, diagnostics, or bootstrap drills on demand by calling `reusable-90-agents.yml` with user-provided flags. This workflow supersedes the retired legacy orchestrator `agents-consumer.yml`.
+- `agents-41-assign.yml` – Assigns the appropriate agent on label, boots Codex issue branches, posts trigger commands, and dispatches the watchdog.
+- `agents-42-watchdog.yml` – Polls the issue timeline for a cross‑referenced PR and reports success or a precise timeout.
 
-Legacy orchestrators (`agents-consumer.yml`, `reuse-agents.yml`) are archived under `Old/.github/workflows/` and guarded by
-`tests/test_workflow_agents_consolidation.py` to prevent silent reintroduction. Any new agent helper must either extend the
-existing assigner or document a justification for a third workflow in this README.
+Legacy orchestrators previously named `agents-consumer.yml` and `reuse-agents.yml` were retired during the consolidation. `tests/test_workflow_agents_consolidation.py` guards against silently reviving those slugs. Any new agent helper must either extend this pair or document a justification for an additional workflow in this README.
 
 ### Merge Manager (Issue #1415)
 Unified approval + auto-merge policy lives in `merge-manager.yml`, replacing the legacy pair `autoapprove.yml` and
@@ -172,10 +169,10 @@ Result: Each human push generates at most one autofix patch sequence; autofix co
 ## 7.2 Codex Kickoff Flow (Issue #1351)
 End‑to‑end lifecycle for automation bootstrapped contributions:
 1. Maintainer opens Issue with label `codex-ready` (and optional spec details).
-2. Labeling with `agent:codex` triggers `assign-to-agents.yml`, which creates a bootstrap branch/PR, assigns Codex, and posts the kickoff command.
-3. `agent-watchdog.yml` (dispatched by the assigner) waits ~7 minutes for the cross-referenced PR and posts a success or timeout diagnostic comment.
+2. Labeling with `agent:codex` triggers `agents-41-assign.yml`, which creates a bootstrap branch/PR, assigns Codex, and posts the kickoff command.
+3. `agents-42-watchdog.yml` (dispatched by the assigner) waits ~7 minutes for the cross-referenced PR and posts a success or timeout diagnostic comment.
 4. When automation pushes commits, path labelers, CI, and autofix re-evaluate.
-Troubleshooting: If branch/PR not created, verify the label `codex-ready`, confirm `assign-to-agents.yml` completed successfully with write permissions, and ensure no conflicting bootstrap branch already exists.
+Troubleshooting: If branch/PR not created, verify the label `codex-ready`, confirm `agents-41-assign.yml` completed successfully with write permissions, and ensure no conflicting bootstrap branch already exists.
 
 ---
 ## 7.3 Coverage Soft Gate (Issues #1351, #1352)
@@ -225,13 +222,13 @@ If missing:
 
 ---
 ## 7.5 Temporary CI Wrapper & Migration Plan (Issue #1351)
-`ci.yml` wraps the reusable CI to maintain the historical required check label "CI".
+`pr-10-ci-python.yml` wraps the reusable CI to maintain the historical required check label "CI".
 
 Migration steps to retire wrapper:
 1. Add `gate / all-required-green` job as a required status alongside "CI" in branch protection.
 2. Observe stability for N (suggested: 7–14) days (no unexplained gate misses).
 3. Remove "CI" from required list, leaving the gate job.
-4. Delete `ci.yml` in a dedicated PR referencing Issue #1351 (or follow-up) and update this README (remove this section).
+4. Delete `pr-10-ci-python.yml` in a dedicated PR referencing Issue #1351 (or follow-up) and update this README (remove this section).
 5. Re-run a test PR to ensure branch protection enforces the gate job.
 
 Rationale: Allows a staged transition without breaking existing protections.
@@ -243,7 +240,7 @@ Rationale: Allows a staged transition without breaking existing protections.
 | Coverage soft gate | Job: `coverage_soft_gate` in `reusable-ci-python.yml` | `enable-soft-gate: 'true'` | Run summary section, coverage artifacts | No |
 | Universal logs table | Job: `logs_summary` | Always on | Run summary Markdown table | No |
 | Gate aggregation | Job: `gate / all-required-green` | Always on | Single pass/fail gate | Yes (if made required) |
-| Legacy wrapper | `ci.yml` | N/A | Preserves required check name | N/A |
+| Legacy wrapper | `pr-10-ci-python.yml` | N/A | Preserves required check name | N/A |
 
 Note: The gate job will become the only required status after successful observation window.
 
@@ -297,7 +294,7 @@ Planned / optional improvements under consideration:
 | Centralized autofix commit prefix | Implemented | Configurable (default `chore(autofix):`) |
 | Failing test count in logs summary | Implemented | Universal logs job appends count inline |
 
-TODO (wrapper removal): After branch protection flips to require the gate job, remove `ci.yml` (see 7.5) and delete this TODO line.
+TODO (wrapper removal): After branch protection flips to require the gate job, remove `pr-10-ci-python.yml` (see 7.5) and delete this TODO line.
 
 Adopt individually; update sections 7.3 / 7.4 when shipped.
 

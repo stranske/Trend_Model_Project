@@ -121,7 +121,7 @@ Failures after preflight indicate persistent issues (permissions, logic) rather 
 
 ## Future Hardening Ideas
 
-- Use `assign-to-agents.yml` (manual `workflow_dispatch`) to replay bootstrap or run a targeted GitHub Script to assert branch + marker invariants.
+- Use `agents-41-assign.yml` (manual `workflow_dispatch`) to replay bootstrap or run a targeted GitHub Script to assert branch + marker invariants.
 - Emit a machine-readable JSON summary comment (reaction toggles rerun).
 - Add metrics export (counts of reused vs new bootstraps) to an org dashboard.
 

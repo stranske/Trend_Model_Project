@@ -1,0 +1,278 @@
+name: Assign to agents
+
+on:
+  issues:
+    types: [labeled]
+  pull_request_target:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      target_type:
+        description: "issue | pr"
+        required: false
+        default: "issue"
+      number:
+        description: "Issue or PR number"
+        required: false
+        default: ""
+      agent:
+        description: "codex | copilot"
+        required: false
+        default: ""
+      timeout_minutes:
+        description: "Override watchdog timeout"
+        required: false
+        default: ""
+      started_at:
+        description: "Override watchdog start timestamp (ISO)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  assign:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve assignment context
+        id: ctx
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const CONFIG = {
+              codex: {
+                labels: ['agent:codex', 'agents:codex'],
+                assignees: ['chatgpt-codex-connector'],
+                command: '@codex start',
+                watchdog_timeout: 7
+              },
+              copilot: {
+                labels: ['agent:copilot', 'agents:copilot'],
+                assignees: ['copilot'],
+                command: '@copilot start',
+                watchdog_timeout: 7
+              }
+            };
+
+            const labelToAgent = {};
+            for (const [key, cfg] of Object.entries(CONFIG)) {
+              for (const label of cfg.labels) {
+                labelToAgent[label.toLowerCase()] = key;
+              }
+            }
+
+            const { owner, repo } = context.repo;
+            const { data: repoInfo } = await github.rest.repos.get({ owner, repo });
+            const defaultBranch = repoInfo.default_branch || 'main';
+
+            const eventName = context.eventName;
+            const action = context.payload.action || '';
+            const inputs = context.payload.inputs || {};
+
+            let targetType = '';
+            let number = 0;
+            let agentKey = '';
+            let timeoutOverride = '';
+            let startedAt = '';
+
+            const normalize = (value) => (value || '').toString().trim().toLowerCase();
+            const normalizeLabel = (value) => normalize(value);
+
+            if (eventName === 'issues') {
+              targetType = 'issue';
+              number = context.payload.issue?.number || 0;
+              const eventLabel = normalizeLabel(context.payload.label?.name);
+              if (labelToAgent[eventLabel]) {
+                agentKey = labelToAgent[eventLabel];
+              }
+              if (!agentKey) {
+                const labels = (context.payload.issue?.labels || []).map(l => normalizeLabel(l.name));
+                for (const lbl of labels) {
+                  if (labelToAgent[lbl]) { agentKey = labelToAgent[lbl]; break; }
+                }
+              }
+            } else if (eventName === 'pull_request_target') {
+              targetType = 'pr';
+              number = context.payload.pull_request?.number || 0;
+              const eventLabel = normalizeLabel(context.payload.label?.name);
+              if (labelToAgent[eventLabel]) {
+                agentKey = labelToAgent[eventLabel];
+              }
+              if (!agentKey) {
+                const labels = (context.payload.pull_request?.labels || []).map(l => normalizeLabel(l.name));
+                for (const lbl of labels) {
+                  if (labelToAgent[lbl]) { agentKey = labelToAgent[lbl]; break; }
+                }
+              }
+            } else if (eventName === 'workflow_dispatch') {
+              targetType = normalize(inputs.target_type) === 'pr' ? 'pr' : 'issue';
+              number = Number(inputs.number || 0);
+              const agentInput = normalize(inputs.agent);
+              if (agentInput && CONFIG[agentInput]) {
+                agentKey = agentInput;
+              }
+              timeoutOverride = normalize(inputs.timeout_minutes);
+              startedAt = (inputs.started_at || '').trim();
+            }
+
+            const shouldRun = Boolean(number && agentKey);
+            const config = CONFIG[agentKey] || { assignees: [], command: '', watchdog_timeout: 7 };
+
+            core.setOutput('should_run', shouldRun ? 'true' : 'false');
+            core.setOutput('agent', agentKey);
+            core.setOutput('number', number ? String(number) : '');
+            core.setOutput('target_type', targetType || '');
+            core.setOutput('assignees', JSON.stringify(config.assignees || []));
+            core.setOutput('command', config.command || '');
+            core.setOutput('watchdog_timeout', timeoutOverride || String(config.watchdog_timeout || 7));
+            core.setOutput('default_branch', defaultBranch);
+            core.setOutput('started_at', startedAt || new Date().toISOString());
+
+            if (!shouldRun) {
+              core.info('No agent assignment detected for this event.');
+            } else {
+              core.info(`Preparing ${agentKey} assignment for ${targetType} #${number}.`);
+            }
+
+      - name: Abort when no agent label present
+        if: steps.ctx.outputs.should_run != 'true'
+        run: |
+          echo "No agent label detected. Nothing to do."
+
+      - name: Assign agent actor
+        if: steps.ctx.outputs.should_run == 'true'
+        uses: actions/github-script@v7
+        env:
+          NUMBER: ${{ steps.ctx.outputs.number }}
+          ASSIGNEES: ${{ steps.ctx.outputs.assignees }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const number = Number(process.env.NUMBER || '0');
+            const assignees = JSON.parse(process.env.ASSIGNEES || '[]').filter(Boolean);
+            if (!number || !assignees.length) {
+              core.info('No assignees resolved for this event.');
+              return;
+            }
+            try {
+              await github.rest.issues.addAssignees({ owner, repo, issue_number: number, assignees });
+              core.info(`Assigned ${assignees.join(', ')} to #${number}.`);
+            } catch (error) {
+              core.warning(`Failed to assign ${assignees.join(', ')} to #${number}: ${error.message}`);
+            }
+
+      - name: Post trigger command on PR
+        if: steps.ctx.outputs.should_run == 'true' && steps.ctx.outputs.target_type == 'pr' && steps.ctx.outputs.command != ''
+        uses: actions/github-script@v7
+        env:
+          NUMBER: ${{ steps.ctx.outputs.number }}
+          COMMAND: ${{ steps.ctx.outputs.command }}
+          AGENT: ${{ steps.ctx.outputs.agent }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const number = Number(process.env.NUMBER || '0');
+            const command = (process.env.COMMAND || '').trim();
+            if (!number || !command) {
+              core.info('No command to post.');
+              return;
+            }
+            const lower = command.toLowerCase();
+            const { data: comments } = await github.rest.issues.listComments({ owner, repo, issue_number: number, per_page: 50, page: 1 });
+            const already = (comments || []).some(c => (c.body || '').toLowerCase().includes(lower));
+            if (already) {
+              core.info('Trigger command already present on PR.');
+              return;
+            }
+            const agent = process.env.AGENT || 'agent';
+            const body = `${command}\n\nAutomation engaged for **${agent}** by agents-41-assign workflow.`;
+            await github.rest.issues.createComment({ owner, repo, issue_number: number, body });
+            core.info('Posted trigger command.');
+
+      - name: Bootstrap Codex issue branch
+        id: bootstrap
+        if: steps.ctx.outputs.should_run == 'true' && steps.ctx.outputs.target_type == 'issue' && steps.ctx.outputs.agent == 'codex'
+        continue-on-error: true
+        uses: ./.github/actions/codex-bootstrap-lite
+        with:
+          issue: ${{ steps.ctx.outputs.number }}
+          service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
+          allow_fallback: 'true'
+          codex_command: '@codex start'
+          draft: 'false'
+          auto_ready: 'true'
+          post_codex_comment: 'true'
+          pr_mode: 'create'
+
+      - name: Dispatch agent watchdog
+        if: steps.ctx.outputs.should_run == 'true' && steps.ctx.outputs.target_type == 'issue' && steps.ctx.outputs.agent == 'codex'
+        uses: actions/github-script@v7
+        env:
+          ISSUE: ${{ steps.ctx.outputs.number }}
+          AGENT: ${{ steps.ctx.outputs.agent }}
+          REF: ${{ steps.ctx.outputs.default_branch }}
+          TIMEOUT: ${{ steps.ctx.outputs.watchdog_timeout }}
+          STARTED_AT: ${{ steps.ctx.outputs.started_at }}
+          EXPECTED_PR: ${{ steps.bootstrap.outputs.pr }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issue = Number(process.env.ISSUE || '0');
+            if (!issue) {
+              core.info('No issue provided for watchdog dispatch.');
+              return;
+            }
+            const ref = (process.env.REF || '').trim() || (context.ref || 'main');
+            const inputs = {
+              issue: String(issue),
+              agent: process.env.AGENT || '',
+              expected_pr: (process.env.EXPECTED_PR || '').trim(),
+              timeout_minutes: (process.env.TIMEOUT || '').trim() || '7',
+              started_at: (process.env.STARTED_AT || '').trim() || new Date().toISOString()
+            };
+            await github.rest.actions.createWorkflowDispatch({ owner, repo, workflow_id: 'agents-42-watchdog.yml', ref, inputs });
+            core.info(`Watchdog dispatched for issue #${issue}.`);
+
+      - name: Surface bootstrap failure
+        if: steps.ctx.outputs.should_run == 'true' && steps.ctx.outputs.target_type == 'issue' && steps.ctx.outputs.agent == 'codex' && steps.bootstrap.outcome == 'failure'
+        run: |
+          echo "::warning::Codex bootstrap step failed (non-fatal while fallback evaluated)."
+
+      - name: Fallback dispatch Codex Issue Bridge
+        id: fallback_dispatch
+        if: steps.ctx.outputs.should_run == 'true' && steps.ctx.outputs.target_type == 'issue' && steps.ctx.outputs.agent == 'codex' && steps.bootstrap.outcome == 'failure'
+        uses: actions/github-script@v7
+        env:
+          ISSUE: ${{ steps.ctx.outputs.number }}
+          REF: ${{ steps.ctx.outputs.default_branch }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issue = Number(process.env.ISSUE || '0');
+            const ref = (process.env.REF || '').trim() || (context.ref || 'main');
+            if (!issue) {
+              core.setFailed('Fallback dispatch aborted: missing issue number.');
+            } else {
+              await github.rest.actions.createWorkflowDispatch({
+                owner,
+                repo,
+                workflow_id: 'codex-issue-bridge.yml',
+                ref,
+                inputs: {
+                  test_issue: String(issue),
+                  pr_mode: 'create',
+                  post_codex_comment: 'true',
+                  codex_pr_draft: 'false'
+                }
+              });
+              core.info(`Dispatched codex-issue-bridge.yml (create mode) for issue #${issue} as fallback.`);
+            }
+
+      - name: Fail if both primary and fallback bootstrap failed
+        if: steps.ctx.outputs.should_run == 'true' && steps.ctx.outputs.target_type == 'issue' && steps.ctx.outputs.agent == 'codex' && steps.bootstrap.outcome == 'failure' && steps.fallback_dispatch.outcome == 'failure'
+        run: |
+          echo "::error::Both primary bootstrap and fallback dispatch failed."
+          exit 1

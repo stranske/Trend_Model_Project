@@ -54,6 +54,10 @@ def test_autofix_pipeline_repairs_live_documents(
     trend_analysis_src = real_root / "src" / "trend_analysis"
     shutil.copytree(trend_analysis_src, src_dir / "trend_analysis")
 
+    yaml_stub_src = real_root / "src" / "yaml"
+    if yaml_stub_src.exists():
+        shutil.copytree(yaml_stub_src, src_dir / "yaml")
+
     expectation_module_src = real_root / "tests" / "test_autofix_repo_regressions.py"
     expectation_module_target = tests_dir / "test_autofix_repo_regressions.py"
     shutil.copy2(expectation_module_src, expectation_module_target)

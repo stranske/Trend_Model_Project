@@ -120,6 +120,8 @@ def test_autofix_pipeline_resolves_lint_and_typing(
     monkeypatch.setattr(auto_type_hygiene, "ROOT", tmp_path, raising=False)
     monkeypatch.setattr(auto_type_hygiene, "SRC_DIRS", [src_dir], raising=False)
     monkeypatch.setattr(auto_type_hygiene, "DRY_RUN", False, raising=False)
+    monkeypatch.setenv("AUTO_TYPE_ALLOWLIST", "yaml")
+    monkeypatch.setattr(auto_type_hygiene, "ALLOWLIST", ["yaml"], raising=False)
     auto_type_hygiene.main()
 
     # Mypy autofix should inject missing typing imports and normalise code again.
@@ -149,7 +151,7 @@ def test_autofix_pipeline_resolves_lint_and_typing(
 
     content = sample.read_text(encoding="utf-8")
     assert "from typing import Optional" in content
-    assert "import yaml  # type: ignore[import-untyped]" in content
+    assert "import yaml  # type: ignore[import-untyped, unused-ignore]" in content
     assert "if a > b" in content
     assert "return a + b" in content
     assert '"""Bad docstring spacing.\n\n' in content

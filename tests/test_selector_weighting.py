@@ -210,6 +210,8 @@ def test_selector_weighting_autofix_diagnostics(
         auto_type_hygiene, "SRC_DIRS", [src_dir, tests_dir], raising=False
     )
     monkeypatch.setattr(auto_type_hygiene, "DRY_RUN", False, raising=False)
+    monkeypatch.setenv("AUTO_TYPE_ALLOWLIST", "yaml")
+    monkeypatch.setattr(auto_type_hygiene, "ALLOWLIST", ["yaml"], raising=False)
 
     monkeypatch.setattr(fix_numpy_asserts, "ROOT", repo_root, raising=False)
     monkeypatch.setattr(fix_numpy_asserts, "TEST_ROOT", tests_dir, raising=False)
@@ -313,4 +315,4 @@ def test_selector_weighting_autofix_diagnostics(
     assert "def describe_selection(count: int) -> str:" in return_text
 
     yaml_text = yaml_probe.read_text(encoding="utf-8")
-    assert "import yaml  # type: ignore[import-untyped]" in yaml_text
+    assert "import yaml  # type: ignore[import-untyped, unused-ignore]" in yaml_text

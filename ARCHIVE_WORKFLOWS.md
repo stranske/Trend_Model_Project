@@ -7,21 +7,21 @@ All deprecated agent automation workflows were deleted from `.github/workflows/`
 
 | Legacy Workflow | Archived Copy | Replacement Path | Replacement Mode |
 |-----------------|---------------|------------------|------------------|
-| `agent-readiness.yml` | `archive/agent-readiness.yml` | `reuse-agents.yml` → `assign-to-agents.yml` | `enable_readiness=true` |
-| `agent-watchdog.yml` | `archive/agent-watchdog.yml` | `reuse-agents.yml` → `agent-watchdog.yml` | `enable_watchdog=true` |
+| `agent-readiness.yml` | `archive/agent-readiness.yml` | `reuse-agents.yml` → `agents-41-assign.yml` | `enable_readiness=true` |
+| `agent-watchdog.yml` | `archive/agent-watchdog.yml` | `reuse-agents.yml` → `agents-42-watchdog.yml` | `enable_watchdog=true` |
 | `codex-preflight.yml` | `archive/codex-preflight.yml` | `reuse-agents.yml` (legacy) | `enable_preflight=true` |
 | `codex-bootstrap-diagnostic.yml` | `archive/codex-bootstrap-diagnostic.yml` | `reuse-agents.yml` (legacy) | `enable_diagnostic=true` |
 | `verify-agent-task.yml` | `archive/verify-agent-task.yml` | `reuse-agents.yml` (legacy) | `enable_verify_issue=true` |
 
 ## Additional Archived Workflows
 - `guard-no-reuse-pr-branches.yml` – Archived in place (no functional replacement required; governance policy only). Removal candidate after 2025-10-20.
-- (2026-02-07) `codex-issue-bridge.yml`, `reuse-agents.yml`, and `agents-consumer.yml` moved to `Old/.github/workflows/` after assigner/watchdog consolidation.
+- (2026-02-07) `codex-issue-bridge.yml`, `reuse-agents.yml`, and `agents-consumer.yml` moved to `Old/.github/workflows/` after assigner/watchdog consolidation. In 2026-09 the agent utilities were renumbered under WFv1: `agents-40-consumer.yml`, `agents-41-assign.yml`, `agents-42-watchdog.yml`, and `reusable-90-agents.yml` now live in `.github/workflows/`.
 
 ## Retired Autofix Wrapper
 - Legacy `autofix.yml` (pre-2025) was deleted during the earlier cleanup. As of 2026-02-15 a new consolidated `autofix.yml` now drives both small fixes and trivial failure remediation; the former consumer wrappers have been removed.
 
 ## Rationale
-The 2025 cleanup centralized agent probe, diagnostic, and verification logic into `reuse-agents.yml`. In 2026 this was further simplified: `assign-to-agents.yml` handles label-driven assignment + Codex bootstrap while `agent-watchdog.yml` supplies the diagnostic signal, reducing optional flags and clarifying ownership.
+The 2025 cleanup centralized agent probe, diagnostic, and verification logic into `reuse-agents.yml`. In 2026 this was further simplified: `agents-41-assign.yml` handles label-driven assignment + Codex bootstrap while `agents-42-watchdog.yml` supplies the diagnostic signal, reducing optional flags and clarifying ownership.
 
 ## Rollback Procedure
 If a regression is traced to consolidation:
@@ -38,7 +38,7 @@ If a regression is traced to consolidation:
 ## Verification Checklist
 - [x] Archive directory created: `.github/workflows/archive/`
 - [x] Stub headers inserted in original workflows marking ARCHIVED status
-- [x] Replacements confirmed operational (`assign-to-agents.yml` + `agent-watchdog.yml` present)
+- [x] Replacements confirmed operational (`agents-41-assign.yml` + `agents-42-watchdog.yml` present)
 
 ---
 Generated as part of workflow hygiene initiative.

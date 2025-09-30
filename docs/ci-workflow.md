@@ -103,7 +103,8 @@ Output schema example:
 
 ### Example Invocation (Reusable Workflow)
 
-In a caller repository `.github/workflows/ci.yml`:
+In a caller repository `.github/workflows/pr-10-ci-python.yml` (or `ci.yml` for consumers that
+haven't adopted the WFv1 naming yet):
 ```yaml
 name: Project CI
 on: [push, pull_request]
