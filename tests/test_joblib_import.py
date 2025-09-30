@@ -9,14 +9,16 @@ from pathlib import Path
 
 import joblib
 
-SITE_INDICATOR = {"site-packages", "dist-packages"}
-REPO_ROOT = Path(__file__).resolve().parents[1]
+import sitecustomize
+
+SITE_INDICATORS = sitecustomize.SITE_INDICATORS
+REPO_ROOT = sitecustomize.REPO_ROOT
 
 
 def _assert_external(path: Path) -> None:
     resolved = path.resolve()
     assert any(
-        part in resolved.parts for part in SITE_INDICATOR
+        part in resolved.parts for part in SITE_INDICATORS
     ), f"joblib resolved to unexpected location: {resolved!s}"
     assert (
         REPO_ROOT not in resolved.parents
