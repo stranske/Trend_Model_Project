@@ -58,3 +58,12 @@ def test_joblib_import_subprocess() -> None:
     )
     resolved = Path(completed.stdout.strip())
     _assert_external(resolved)
+
+
+def test_repository_does_not_ship_joblib_stub() -> None:
+    """The legacy ``joblib.py`` shim should not exist at the repository root."""
+
+    assert not (REPO_ROOT / "joblib.py").exists(), (
+        "A legacy joblib.py stub was found in the repository root; "
+        "rename or remove it to avoid shadowing the third-party dependency."
+    )
