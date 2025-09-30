@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import os
-
 _FLAG = "TREND_MODEL_SITE_CUSTOMIZE"
 
 
