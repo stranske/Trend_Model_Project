@@ -1,7 +1,5 @@
 import io
 
-import io
-
 import pandas as pd
 import pytest
 
