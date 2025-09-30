@@ -18,6 +18,9 @@ outputs/
 .venv/
 .hypothesis/
 
+# auto-generated virtual environments
+.autofix-venv/
+
 # demo output
 demo/*.xlsx
 demo/*.json
