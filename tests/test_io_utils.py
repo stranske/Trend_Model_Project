@@ -225,7 +225,7 @@ def test_validate_returns_schema_non_numeric():
     df = pd.DataFrame({"Date": ["2023-01-31", "2023-02-28"], "Fund1": ["a", "b"]})
     result = validators.validate_returns_schema(df)
     assert not result.is_valid
-    assert "Column 'Fund1' contains no valid numeric data" in result.issues
+    assert any("Failed to coerce numeric data" in issue for issue in result.issues)
 
 
 def test_load_and_validate_upload_file_not_found(tmp_path):

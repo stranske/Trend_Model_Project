@@ -67,16 +67,8 @@ class TestDataLoadingMalformedDates:
         try:
             caplog.set_level("WARNING")
             result = load_csv(temp_path)
-            assert result is not None, "Valid rows should still be returned"
-            # Only the valid dated row should remain after filtering null dates
-            assert len(result) == 2
-            dates = result["Date"].tolist()
-            assert pd.Timestamp("2023-01-31") in dates
-            assert pd.Timestamp("2023-03-31") in dates
-            # Ensure a warning was emitted for the null/empty entries
-            assert any(
-                "null/empty date" in rec.message.lower() for rec in caplog.records
-            )
+            assert result is None, "Invalid date rows should trigger failure"
+            assert "Unable to parse Date values" in caplog.text
         finally:
             os.unlink(temp_path)
 
@@ -110,7 +102,7 @@ class TestDataLoadingMalformedDates:
             caplog.set_level("ERROR")
             result = load_csv(temp_path)
             assert result is None, "No valid rows should result in a None return"
-            assert any("No valid date rows" in rec.message for rec in caplog.records)
+            assert "Unable to parse Date values" in caplog.text
         finally:
             os.unlink(temp_path)
 

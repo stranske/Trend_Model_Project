@@ -610,9 +610,7 @@ def run(cfg: Config) -> pd.DataFrame:
     if csv_path is None:
         raise KeyError("cfg.data['csv_path'] must be provided")
 
-    df = load_csv(csv_path)
-    if df is None:
-        raise FileNotFoundError(csv_path)
+    df = load_csv(csv_path, errors="raise")
 
     split = cfg.sample_split
     metrics_list = cfg.metrics.get("registry")
@@ -671,9 +669,7 @@ def run_full(cfg: Config) -> dict[str, object]:
     if csv_path is None:
         raise KeyError("cfg.data['csv_path'] must be provided")
 
-    df = load_csv(csv_path)
-    if df is None:
-        raise FileNotFoundError(csv_path)
+    df = load_csv(csv_path, errors="raise")
 
     split = cfg.sample_split
     metrics_list = cfg.metrics.get("registry")

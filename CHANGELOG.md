@@ -7,6 +7,7 @@ The format is based on Keep a Changelog (https://keepachangelog.com/) and this p
 ## [Unreleased]
 ### Added
 - Regression tests (`test_shift_safe_pipeline.py`, `test_shift_safe_regression.py`) enforcing causal, no look‑ahead behavior in signal/position pipeline (Issue #1438).
+- Pandera-backed market data validator shared by CLI, Streamlit upload, and ingest helpers with consistent error messaging.
 
 ### Changed
 - `compute_signal` now returns a strictly causal rolling mean shifted by one period (previously included the current row). Prevents subtle look‑ahead bias in downstream position construction (Issue #1438).

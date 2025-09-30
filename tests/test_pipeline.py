@@ -84,7 +84,7 @@ def test_run_with_benchmarks(tmp_path):
 
 def test_run_returns_empty_when_no_funds(tmp_path, monkeypatch):
     df = pd.DataFrame(
-        {"Date": pd.date_range("2020-01-31", periods=1, freq="ME"), "RF": 0.0}
+        {"Date": pd.date_range("2020-01-31", periods=2, freq="ME"), "RF": 0.0}
     )
     cfg = make_cfg(tmp_path, df)
     result = pipeline.run(cfg)

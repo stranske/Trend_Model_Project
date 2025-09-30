@@ -51,7 +51,7 @@ def main() -> None:
             )
             st.dataframe(df.head(12))
         except Exception as e:
-            st.error(f"Demo load failed: {e}")
+            st.error(str(e))
 
     if uploaded is not None:
         try:
@@ -64,7 +64,7 @@ def main() -> None:
             )
             st.dataframe(df.head(12))
         except Exception as e:
-            st.error(f"Validation failed: {e}")
+            st.error(str(e))
     else:
         st.info("No file uploaded yet.")
 

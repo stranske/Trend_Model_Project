@@ -1,5 +1,7 @@
 import io
 
+import io
+
 import pandas as pd
 import pytest
 
@@ -13,13 +15,9 @@ from trend_portfolio_app.data_schema import (
 
 
 def test_validate_df_basic():
-    csv = "Date,A,B\n2020-02-01,3,4\n2020-01-01,1,2\n"
+    csv = "Date,A,B\n2020-01-01,0.01,0.02\n2020-02-01,0.03,0.04\n"
     df, meta = load_and_validate_csv(io.StringIO(csv))
-    # index should be month-end timestamps
-    expected = [
-        pd.Timestamp("2020-01-31").to_period("M").to_timestamp("M", how="end"),
-        pd.Timestamp("2020-02-29").to_period("M").to_timestamp("M", how="end"),
-    ]
+    expected = [pd.Timestamp("2020-01-01"), pd.Timestamp("2020-02-01")]
     assert list(df.index) == expected
     assert meta["original_columns"] == ["A", "B"]
     assert meta["n_rows"] == 2
@@ -43,14 +41,14 @@ def test_validate_df_errors():
 
 
 def test_load_and_validate_file_excel(tmp_path):
-    df = pd.DataFrame({"Date": ["2020-01-01"], "A": [1]})
+    df = pd.DataFrame({"Date": ["2020-01-01", "2020-02-01"], "A": [0.01, 0.02]})
     buf = io.BytesIO()
     df.to_excel(buf, index=False)
     buf.seek(0)
     buf.name = "test.xlsx"
     df2, meta = load_and_validate_file(buf)
     assert DATE_COL not in df2.columns
-    assert meta["n_rows"] == 1
+    assert meta["n_rows"] == 2
 
 
 def test_load_and_validate_file_seek_error():
@@ -58,10 +56,10 @@ def test_load_and_validate_file_seek_error():
         def seek(self, *args, **kwargs):
             raise RuntimeError("no seek")
 
-    buf = NoSeek("Date,A\n2020-01-01,1\n")
+    buf = NoSeek("Date,A\n2020-01-01,0.01\n2020-02-01,0.02\n")
     buf.name = "data.csv"
     df, meta = load_and_validate_file(buf)
-    assert meta["n_rows"] == 1
+    assert meta["n_rows"] == 2
 
 
 def test_load_and_validate_file_read_error():

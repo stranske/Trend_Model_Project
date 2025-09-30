@@ -37,7 +37,7 @@ def test_cli_emits_cache_stats(monkeypatch, capsys, tmp_path):
     )
 
     monkeypatch.setattr(cli, "load_config", lambda path: cfg)
-    monkeypatch.setattr(cli, "load_csv", lambda path: df.copy())
+    monkeypatch.setattr(cli, "load_csv", lambda path, **_: df.copy())
 
     log_calls: list[tuple[str, str, str, dict[str, object]]] = []
 

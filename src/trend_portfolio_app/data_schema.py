@@ -5,6 +5,11 @@ from typing import IO, Any, Dict, List, Tuple
 
 import pandas as pd
 
+from trend_analysis.io.market_data import (
+    MarketDataValidationError,
+    validate_market_data,
+)
+
 DATE_COL = "Date"
 
 
@@ -13,25 +18,25 @@ class SchemaMeta(Dict[str, Any]):
 
 
 def _validate_df(df: pd.DataFrame) -> Tuple[pd.DataFrame, SchemaMeta]:
-    if DATE_COL not in df.columns:
-        raise ValueError("Missing required 'Date' column.")
-    df[DATE_COL] = pd.to_datetime(df[DATE_COL])
-    df = df.set_index(DATE_COL).sort_index()
-    # Normalize to month-end timestamps
-    idx = pd.to_datetime(df.index)
-    df.index = pd.PeriodIndex(idx, freq="M").to_timestamp("M", how="end")
-    df = df.dropna(axis=1, how="all")
-    if df.shape[1] == 0:
-        raise ValueError("No return columns found after dropping empty columns.")
-    if df.columns.duplicated().any():
-        dups = df.columns[df.columns.duplicated()].tolist()
-        raise ValueError(f"Duplicate columns: {dups}")
-    for c in df.columns:
-        df[c] = pd.to_numeric(df[c], errors="coerce")
-    if not df.index.is_monotonic_increasing:
-        df = df.sort_index()
-    meta = SchemaMeta(original_columns=list(df.columns), n_rows=len(df))
-    return df, meta
+    try:
+        validated = validate_market_data(df, origin="streamlit upload")
+    except MarketDataValidationError as exc:
+        raise ValueError(str(exc)) from exc
+
+    meta = SchemaMeta(
+        original_columns=list(validated.columns),
+        n_rows=len(validated),
+    )
+    metadata = dict(validated.attrs.get("market_data", {}))
+    start = metadata.get("start")
+    end = metadata.get("end")
+    if isinstance(start, pd.Timestamp):
+        metadata["start"] = start.isoformat()
+    if isinstance(end, pd.Timestamp):
+        metadata["end"] = end.isoformat()
+    if metadata:
+        meta.update(metadata)
+    return validated, meta
 
 
 def load_and_validate_csv(file_like: IO[Any]) -> Tuple[pd.DataFrame, SchemaMeta]:
