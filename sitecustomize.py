@@ -18,9 +18,6 @@ def _load_opt_in_module() -> None:
 def _maybe_apply() -> None:
     """Execute the optional bootstrap when the flag is enabled."""
 
-    if os.getenv(_FLAG) != "1":
-        return
-
     _load_opt_in_module()
 
 
