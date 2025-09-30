@@ -98,6 +98,30 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
             inputs.get("enable-soft-gate"), "CI should enable coverage soft gate"
         )
 
+        self.assertIn("gate", jobs, "CI workflow should expose aggregate gate job")
+        gate_job = jobs["gate"]
+        self.assertEqual(
+            gate_job.get("name"),
+            "gate / all-required-green",
+            "Gate job name should match required check label",
+        )
+        self.assertEqual(
+            set(gate_job.get("needs", [])),
+            {"tests", "workflow-automation", "style"},
+            "Gate job must aggregate core CI jobs",
+        )
+        self.assertTrue(
+            gate_job.get("steps"),
+            "Gate job should include at least one confirmation step",
+        )
+
+    def test_gate_workflow_file_is_absent(self) -> None:
+        gate_path = self.workflows_dir / "gate.yml"
+        self.assertFalse(
+            gate_path.exists(),
+            "Legacy gate.yml workflow should remain deleted; rely on pr-10 gate job",
+        )
+
     def test_reusable_ci_runs_tests_and_mypy(self) -> None:
         workflow = self._read_workflow("reusable-ci-python.yml")
         jobs = workflow.get("jobs", {})
