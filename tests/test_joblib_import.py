@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import importlib.util
+import subprocess
+import sys
 from pathlib import Path
 
 import joblib
@@ -35,3 +37,22 @@ def test_joblib_spec_origin_outside_repo() -> None:
     assert spec is not None, "joblib should be discoverable via importlib"
     assert spec.origin, "joblib should expose a filesystem origin"
     _assert_external(Path(spec.origin))
+
+
+def test_joblib_import_subprocess() -> None:
+    """A fresh interpreter should resolve :mod:`joblib` from site-packages."""
+
+    script = (
+        "import pathlib, joblib; "
+        "path = pathlib.Path(joblib.__file__).resolve(); "
+        "print(path)"
+    )
+    completed = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    resolved = Path(completed.stdout.strip())
+    _assert_external(resolved)
