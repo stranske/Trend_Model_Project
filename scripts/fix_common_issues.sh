@@ -37,16 +37,8 @@ else
     echo -e "${YELLOW}⚠ Some type stubs couldn't be installed${NC}"
 fi
 
-# 3. Add common type ignore comments for known issues
-echo -e "${BLUE}Adding type ignore comments for common issues...${NC}"
-
-# Fix yaml import issues
-find src/ tests/ scripts/ -name "*.py" -exec grep -l "import yaml$" {} \; | while read file; do
-    if ! grep -q "import yaml  # type: ignore" "$file"; then
-        sed -i 's/import yaml$/import yaml  # type: ignore[import-untyped]/' "$file"
-        echo "  Fixed yaml import in $file"
-    fi
-done
+# 3. Stubs now cover yaml/requests, so no blanket ignores are added
+echo -e "${BLUE}Type ignore insertion skipped (stubs installed)${NC}"
 
 # 4. Fix simple line length issues (only for very long lines)
 echo -e "${BLUE}Fixing very long lines...${NC}"
