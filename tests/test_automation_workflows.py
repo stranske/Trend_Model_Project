@@ -85,7 +85,9 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
     def test_ci_workflow_invokes_reusable_stack(self) -> None:
         workflow = self._read_workflow("pr-10-ci-python.yml")
         jobs = workflow.get("jobs", {})
-        self.assertIn("tests", jobs, "CI workflow should delegate tests via reusable job")
+        self.assertIn(
+            "tests", jobs, "CI workflow should delegate tests via reusable job"
+        )
         tests_job = jobs["tests"]
         self.assertEqual(
             tests_job.get("uses"),
