@@ -29,6 +29,8 @@ The CI stack now runs in distinct lanes so each concern can evolve independently
 
 Temporary state: `pr-10-ci-python.yml` (formerly `ci.yml`) exists solely to preserve the historic required check name ("CI") while maintainers transition branch protection to the gate job. Once maintainers flip protection, delete `pr-10-ci-python.yml` and mark the gate job required.
 
+> ℹ️ **Gate wrapper retired (Issue #1657).** The invalid standalone `gate.yml` workflow was deleted; the `gate / all-required-green` job within `pr-10-ci-python.yml` is now the sole aggregation point. Do not recreate the wrapper—tests assert the file remains absent.
+
 Flow:
 1. PR opened → labelers apply path + agent labels.
 2. Labels / branch rules trigger CI, autofix, readiness.
