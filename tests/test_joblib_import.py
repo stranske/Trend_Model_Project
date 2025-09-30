@@ -9,6 +9,15 @@ import joblib
 
 SITE_INDICATOR = {"site-packages", "dist-packages"}
 REPO_ROOT = Path(__file__).resolve().parents[1]
+ALLOWED_INTERNAL_PREFIXES = {REPO_ROOT / name for name in (".venv", "venv", ".tox")}
+
+
+def _is_under(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+    except ValueError:
+        return False
+    return True
 
 
 def _assert_external(path: Path) -> None:
@@ -16,9 +25,10 @@ def _assert_external(path: Path) -> None:
     assert any(
         part in resolved.parts for part in SITE_INDICATOR
     ), f"joblib resolved to unexpected location: {resolved!s}"
-    assert (
-        REPO_ROOT not in resolved.parents
-    ), "joblib import should not point inside the repository"
+    if REPO_ROOT in resolved.parents:
+        if any(_is_under(resolved, prefix) for prefix in ALLOWED_INTERNAL_PREFIXES):
+            return
+        raise AssertionError("joblib import should not point inside the repository")
 
 
 def test_joblib_import_resolves_outside_repo() -> None:
