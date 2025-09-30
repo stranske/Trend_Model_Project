@@ -219,21 +219,16 @@ jobs:
     steps:
       - name: Evaluate upstream results
         env:
-          TESTS_RESULT: ${{ needs.tests.result }}
-          WORKFLOW_AUTOMATION_RESULT: ${{ needs['workflow-automation'].result }}
-          STYLE_RESULT: ${{ needs.style.result }}
+          NEEDS_CONTEXT: ${{ toJson(needs) }}
         run: |
           set -euo pipefail
 
           failures=""
           summary="### Gate summary\n"
 
-          for entry in \
-            "tests:${TESTS_RESULT}" \
-            "workflow-automation:${WORKFLOW_AUTOMATION_RESULT}" \
-            "style:${STYLE_RESULT}"; do
-            job="${entry%%:*}"
-            result="${entry#*:}"
+          # Iterate over all jobs in the needs context dynamically
+          for job in $(echo "$NEEDS_CONTEXT" | jq -r 'keys[]'); do
+            result=$(echo "$NEEDS_CONTEXT" | jq -r --arg job "$job" '.[$job].result')
             icon="✅"
             if [ "$result" != "success" ]; then
               icon="❌"
