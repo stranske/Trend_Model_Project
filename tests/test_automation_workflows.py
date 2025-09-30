@@ -85,14 +85,14 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
     def test_ci_workflow_invokes_reusable_stack(self) -> None:
         workflow = self._read_workflow("pr-10-ci-python.yml")
         jobs = workflow.get("jobs", {})
-        self.assertIn("main", jobs, "CI workflow should define a main job")
-        main_job = jobs["main"]
+        self.assertIn("tests", jobs, "CI workflow should delegate tests via reusable job")
+        tests_job = jobs["tests"]
         self.assertEqual(
-            main_job.get("uses"),
+            tests_job.get("uses"),
             "./.github/workflows/reusable-ci-python.yml",
-            "CI main job should delegate to reusable stack",
+            "CI tests job should delegate to reusable stack",
         )
-        inputs = main_job.get("with", {})
+        inputs = tests_job.get("with", {})
         self.assertTrue(inputs.get("run-mypy"), "CI should enable mypy job")
         self.assertTrue(
             inputs.get("enable-soft-gate"), "CI should enable coverage soft gate"
@@ -225,11 +225,12 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
             f"cosmetic_followup missing required helper steps: {sorted(missing)}",
         )
 
-    def test_style_gate_enforces_black_ruff_and_mypy(self) -> None:
-        workflow = self._read_workflow("pr-11-style-gate.yml")
+    def test_style_job_enforces_black_ruff_and_mypy(self) -> None:
+        workflow = self._read_workflow("pr-10-ci-python.yml")
+        style_job = workflow.get("jobs", {}).get("style", {})
         steps = "\n".join(
             step["run"].strip()
-            for step in workflow.get("jobs", {}).get("style", {}).get("steps", [])
+            for step in style_job.get("steps", [])
             if isinstance(step, dict) and "run" in step
         )
         self._assert_contains(
@@ -239,7 +240,15 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
                 "ruff check",
                 "mypy --config-file",
             ],
-            context="style gate workflow",
+            context="CI style job",
+        )
+
+        gate = workflow.get("jobs", {}).get("gate", {})
+        needs = gate.get("needs", [])
+        self.assertIn(
+            "style",
+            needs,
+            "gate job must wait for style checks before aggregating status",
         )
 
     def test_syntax_demo_missing_colon(self):

@@ -1,6 +1,6 @@
 # Trend Model Project
 
-[![Style Gate](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-11-style-gate.yml/badge.svg?branch=phase-2-dev)](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-11-style-gate.yml) [![Codex Verification (Latest)](https://github.com/stranske/Trend_Model_Project/actions/workflows/verify-codex-bootstrap-matrix.yml/badge.svg?branch=phase-2-dev)](https://github.com/stranske/Trend_Model_Project/actions/workflows/verify-codex-bootstrap-matrix.yml) [![Codex Verification Guide](https://img.shields.io/badge/codex--verification-docs-blueviolet)](docs/codex-simulation.md)
+[![CI](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-10-ci-python.yml/badge.svg?branch=phase-2-dev)](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-10-ci-python.yml) [![Codex Verification (Latest)](https://github.com/stranske/Trend_Model_Project/actions/workflows/verify-codex-bootstrap-matrix.yml/badge.svg?branch=phase-2-dev)](https://github.com/stranske/Trend_Model_Project/actions/workflows/verify-codex-bootstrap-matrix.yml) [![Codex Verification Guide](https://img.shields.io/badge/codex--verification-docs-blueviolet)](docs/codex-simulation.md)
 
 > **🚀 New User?** → **[Quick Start Guide](docs/quickstart.md)** — Get your first analysis running in under 10 minutes!
 
@@ -568,14 +568,14 @@ If the diff command produces output, open an issue with the differing
 
 ## Contributor Style & Lint Workflow
 
-To avoid CI Style Gate failures:
+To avoid CI style job failures:
 
 1. Run the fast development validations during active editing:
    ```bash
    ./scripts/dev_check.sh --changed --fix
    ./scripts/validate_fast.sh --fix
    ```
-2. Before pushing a branch, mirror the CI style gate exactly (pinned Black/Ruff versions):
+2. Before pushing a branch, mirror the CI style job exactly (pinned Black/Ruff versions used by the unified workflow):
    ```bash
    ./scripts/style_gate_local.sh
    ```
@@ -603,5 +603,5 @@ Install the optional pre-push hook:
 ```bash
 ./scripts/install_pre_push_style_gate.sh
 ```
-This prevents accidental pushes that fail the CI Style Gate.
+This prevents accidental pushes that fail the CI style checks.
 

@@ -18,23 +18,34 @@ if [[ -z "$VIRTUAL_ENV" && -f ".venv/bin/activate" ]]; then
     source .venv/bin/activate
 fi
 
-# Quick format check
-echo -e "${BLUE}Checking formatting...${NC}"
-if black --check . > /dev/null 2>&1; then
-    echo -e "${GREEN}✓ Formatting OK${NC}"
-else
-    echo -e "${RED}✗ Formatting issues (run: black .)${NC}"
-fi
-
-# Quick lint check on recent changes
-echo -e "${BLUE}Checking recent changes...${NC}"
+# Determine changed Python files (latest commit + working tree)
 CHANGED_FILES=$(git diff --name-only HEAD~1 2>/dev/null | grep -E '\.(py)$' 2>/dev/null | grep -v -E '^(Old/|notebooks/old/)' 2>/dev/null | head -5)
 if [[ $? -ne 0 ]]; then
     echo "::warning::git diff command failed, but continuing. Recent changes check may be incomplete."
     CHANGED_FILES=""
 fi
 if [[ -n "$CHANGED_FILES" ]]; then
-    if echo "$CHANGED_FILES" | xargs flake8 2>/dev/null; then
+    readarray -t CHANGED_FILES_ARRAY <<< "$CHANGED_FILES"
+else
+    CHANGED_FILES_ARRAY=()
+fi
+
+# Quick format check
+echo -e "${BLUE}Checking formatting...${NC}"
+if [[ ${#CHANGED_FILES_ARRAY[@]} -gt 0 ]]; then
+    if black --check "${CHANGED_FILES_ARRAY[@]}" > /dev/null 2>&1; then
+        echo -e "${GREEN}✓ Formatting OK${NC}"
+    else
+        echo -e "${RED}✗ Formatting issues (run: black ${CHANGED_FILES_ARRAY[*]})${NC}"
+    fi
+else
+    echo -e "${GREEN}✓ No Python files changed (skipping formatting check)${NC}"
+fi
+
+# Quick lint check on recent changes
+echo -e "${BLUE}Checking recent changes...${NC}"
+if [[ ${#CHANGED_FILES_ARRAY[@]} -gt 0 ]]; then
+    if flake8 "${CHANGED_FILES_ARRAY[@]}" 2>/dev/null; then
         echo -e "${GREEN}✓ Recent changes look good${NC}"
     else
         echo -e "${RED}✗ Linting issues in recent changes${NC}"

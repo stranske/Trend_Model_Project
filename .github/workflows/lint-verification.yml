@@ -1,7 +1,7 @@
 name: Lint Verification (post-autofix)
 
 # Temporary stub to satisfy existing required check name.
-# Remove this file after branch protection switches to Style Gate.
+# Remove this file after branch protection switches to the CI style job.
 
 on:
   push:
@@ -22,8 +22,8 @@ jobs:
     steps:
       - name: Stub notice
         run: |
-          echo "Legacy lint verification deprecated. Style Gate enforces ruff+black.";
-          echo "Update branch protection to require: Style Gate / style";
+          echo "Legacy lint verification deprecated. CI style job enforces ruff+black.";
+          echo "Update branch protection to require: CI / style";
           echo "Then delete .github/workflows/lint-verification.yml";
           echo PASS > stub_status.txt
       - name: Upload stub artifact
@@ -36,5 +36,5 @@ jobs:
           {
             echo "### Legacy Lint Verification Stub"
             echo "Result: PASS"
-            echo "Next: Switch required check to Style Gate / style and remove this file."
+            echo "Next: Switch required check to CI / style and remove this file."
           } >> "$GITHUB_STEP_SUMMARY"
