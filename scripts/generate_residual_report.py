@@ -20,9 +20,9 @@ lines = [
     "",
     f"Generated: {datetime.datetime.utcnow():%Y-%m-%d %H:%M:%S} UTC",
     "",
-    f"Total diagnostics: {cls.get('total',0)}",
-    f"New diagnostics: {cls.get('new',0)}",
-    f"Allowed diagnostics: {cls.get('allowed',0)}",
+    f"Total diagnostics: {cls.get('total', 0)}",
+    f"New diagnostics: {cls.get('new', 0)}",
+    f"Allowed diagnostics: {cls.get('allowed', 0)}",
 ]
 
 # If trend file exists, show overall sparklines and top code trends
@@ -36,14 +36,14 @@ if trend:
         "",
         "## Trend (last 40 runs)",
         "",
-        f"Remaining: {trend.get('remaining_latest',0)}  {trend.get('remaining_spark','')}",
-        f"New: {trend.get('new_latest',0)}  {trend.get('new_spark','')}",
+        f"Remaining: {trend.get('remaining_latest', 0)}  {trend.get('remaining_spark', '')}",
+        f"New: {trend.get('new_latest', 0)}  {trend.get('new_spark', '')}",
     ]
     codes = trend.get("codes") or {}
     if codes:
         lines += ["", "### Top Codes Trend"]
         for code, data in codes.items():
-            lines.append(f"- {code}: {data.get('latest',0)}  {data.get('spark','')}")
+            lines.append(f"- {code}: {data.get('latest', 0)}  {data.get('spark', '')}")
 
 lines += ["", "## Per-Code Breakdown"]
 by_code = cls.get("by_code", {})
