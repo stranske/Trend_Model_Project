@@ -7,6 +7,10 @@ set -euo pipefail
 # Set hash seed before Python starts for reproducible results
 export PYTHONHASHSEED=0
 
+if [[ -z "${TREND_MODEL_SITE_CUSTOMIZE:-}" ]]; then
+  export TREND_MODEL_SITE_CUSTOMIZE=1
+fi
+
 pip install -r requirements.txt pytest coverage
 
 # Select coverage profile (defaults to "core" if not provided)

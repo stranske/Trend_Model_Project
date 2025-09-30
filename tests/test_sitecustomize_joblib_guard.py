@@ -105,3 +105,36 @@ def test_importing_project_module_without_opt_in(
     import trend_analysis.pipeline  # noqa: F401  (arbitrary project module)
 
     assert "trend_model._sitecustomize" not in sys.modules
+
+
+def test_bootstrap_inserts_src_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Opt-in bootstrap should prepend src/ exactly once."""
+
+    module = importlib.import_module("trend_model._sitecustomize")
+    module = importlib.reload(module)
+    src_path = str(REPO_ROOT / "src")
+
+    with monkeypatch.context() as ctx:
+        ctx.setattr(sys, "path", [p for p in sys.path if p != src_path])
+
+        module.bootstrap()
+        assert sys.path[0] == src_path
+
+        module.bootstrap()
+        assert sys.path.count(src_path) == 1
+
+
+def test_bootstrap_noop_when_src_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bootstrap should not mutate sys.path if src/ is absent."""
+
+    module = importlib.import_module("trend_model._sitecustomize")
+    module = importlib.reload(module)
+    fake_src = REPO_ROOT / "_does_not_exist_src"
+
+    with monkeypatch.context() as ctx:
+        ctx.setattr(module, "SRC_DIR", fake_src)
+        ctx.setattr(sys, "path", [])
+
+        module.bootstrap()
+
+        assert sys.path == []

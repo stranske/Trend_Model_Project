@@ -19,9 +19,15 @@ if [ -f "${PROJECT_ROOT}/.venv/bin/activate" ]; then
     source "${PROJECT_ROOT}/.venv/bin/activate"
 fi
 
+# Opt into the guarded bootstrap unless explicitly disabled.
+if [[ -z "${TREND_MODEL_SITE_CUSTOMIZE:-}" ]]; then
+    export TREND_MODEL_SITE_CUSTOMIZE=1
+fi
+
 # Run the CLI module with all arguments passed through
 PYTHON_EXEC="python"
 if [ -x "${PROJECT_ROOT}/.venv/bin/python" ]; then
     PYTHON_EXEC="${PROJECT_ROOT}/.venv/bin/python"
 fi
+
 exec "$PYTHON_EXEC" -m trend_analysis.cli "$@"

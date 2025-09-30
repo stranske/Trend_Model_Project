@@ -17,6 +17,11 @@ elif [ -f ".venv/Scripts/activate" ]; then
 else
     echo "⚠️  No virtual environment found. Falling back to system Python."
 fi
+
+if [[ -z "${TREND_MODEL_SITE_CUSTOMIZE:-}" ]]; then
+    export TREND_MODEL_SITE_CUSTOMIZE=1
+fi
+
 PYTHONPATH="./src" python -m trend_portfolio_app.health_wrapper &
 HEALTH_PID=$!
 
