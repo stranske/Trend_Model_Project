@@ -1,52 +1,59 @@
-"""Optional interpreter bootstrap hooks for Trend Model development.
-
-The helpers in this module replicate the legacy ``sitecustomize`` behaviour
-while allowing callers to opt-in explicitly by setting the
-``TREND_MODEL_SITE_CUSTOMIZE`` environment variable to ``"1"`` prior to
-interpreter start.  Importing the module has no side effects; consumers should
-call :func:`bootstrap` to execute the hooks.
-"""
+"""Optional bootstrap helpers mirroring the legacy repository ``sitecustomize``."""
 
 from __future__ import annotations
 
 import importlib.util
+import os
 import sys
 from pathlib import Path
 
-__all__ = ["bootstrap"]
-
+ENV_FLAG = "TREND_MODEL_SITE_CUSTOMIZE"
 SITE_INDICATORS = {"site-packages", "dist-packages"}
 PACKAGE_ROOT = Path(__file__).resolve().parent
-REPO_ROOT = PACKAGE_ROOT.parents[1]
-SRC_DIR = REPO_ROOT / "src"
+SRC_DIR = PACKAGE_ROOT.parent
+REPO_ROOT = SRC_DIR.parent
+
+__all__: list[str] = ["ENV_FLAG", "SRC_DIR", "REPO_ROOT", "maybe_apply", "apply"]
+
+
+def maybe_apply() -> None:
+    """Apply the bootstrap helpers if the opt-in flag is enabled."""
+
+    if os.getenv(ENV_FLAG) != "1":
+        return
+    apply()
+
+
+def apply() -> None:
+    """Inject ``src`` and validate our dependency resolution."""
+
+    _ensure_src_on_sys_path()
+    _ensure_joblib_external()
 
 
 def _ensure_src_on_sys_path() -> None:
-    """Prepend ``src`` to ``sys.path`` if the directory exists."""
+    if not SRC_DIR.exists():  # pragma: no cover - defensive for packaged installs
+        return
 
-    if SRC_DIR.exists():  # pragma: no branch - trivial guard
-        src = str(SRC_DIR)
-        if src not in sys.path:
-            sys.path.insert(0, src)
+    src = str(SRC_DIR)
+    if src not in sys.path:
+        sys.path.insert(0, src)
 
 
 def _ensure_joblib_external() -> None:
-    """Fail fast if :mod:`joblib` resolves to a repository-local module."""
-
     spec = importlib.util.find_spec("joblib")
     if spec is None or not spec.origin:
         # Dependency not installed yet (e.g. during bootstrapping); defer to the
-        # actual import which will raise a clearer ModuleNotFoundError.
+        # eventual import which will raise a clearer ModuleNotFoundError.
         return
 
     resolved = Path(spec.origin).resolve()
-    resolved_parts = resolved.parts
 
-    if any(part in SITE_INDICATORS for part in resolved_parts):
-        # Virtual environments often live inside the repository root (e.g.
-        # ``.venv/``). As long as the resolution path contains a recognised
-        # site-packages/dist-packages segment we accept it as the third-party
-        # dependency.
+    if any(part in SITE_INDICATORS for part in resolved.parts):
+        # Virtual environments often live within the repository root (for
+        # example ``.venv/``).  As long as the resolution path contains a
+        # recognised site-packages/dist-packages segment we accept the module as
+        # third-party.
         return
 
     if REPO_ROOT in resolved.parents or resolved == REPO_ROOT:
@@ -59,10 +66,3 @@ def _ensure_joblib_external() -> None:
         "joblib should resolve from site-packages/dist-packages but instead "
         f"resolved to {resolved}."
     )
-
-
-def bootstrap() -> None:
-    """Execute the optional interpreter bootstrap hooks."""
-
-    _ensure_src_on_sys_path()
-    _ensure_joblib_external()
