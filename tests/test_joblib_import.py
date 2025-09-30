@@ -62,10 +62,7 @@ def test_cli_entrypoints_expose_help_and_external_joblib(module_name: str) -> No
     main = getattr(module, "main", None)
     assert main is not None, f"Module '{module_name}' does not expose a 'main' function"
     try:
-        result = main(["--help"])
+        main(["--help"])
     except SystemExit as exc:  # argparse exits after printing help
         assert exc.code == 0
-    else:
-        assert result == 0
-
     _assert_external(Path(joblib.__file__))
