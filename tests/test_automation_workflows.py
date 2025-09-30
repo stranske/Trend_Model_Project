@@ -177,8 +177,6 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
                 if loaded is None:
                     continue
                 for scalar in self._iter_scalars(loaded):
-                    if not isinstance(scalar, str):
-                        continue
                     if "gate.yml" in scalar:
                         self.fail(
                             "Workflow %s references the retired gate.yml wrapper via `%s`; "
