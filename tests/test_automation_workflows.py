@@ -140,6 +140,12 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
 
         self.assertIn("gate", jobs, "CI workflow should expose aggregate gate job")
         gate_job = jobs["gate"]
+        upstream_jobs = {name for name in jobs if name != "gate"}
+        self.assertEqual(
+            set(gate_job.get("needs", [])),
+            upstream_jobs,
+            "Gate job must aggregate every other CI job",
+        )
         self.assertEqual(
             gate_job.get("name"),
             "gate / all-required-green",
@@ -167,6 +173,14 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         self.assertTrue(
             any("GITHUB_STEP_SUMMARY" in run for run in gate_step_runs),
             "Gate job should write a summary of upstream results to the job summary",
+        )
+        self.assertTrue(
+            any("set -euo pipefail" in run for run in gate_step_runs),
+            "Gate job should harden its shell with `set -euo pipefail`",
+        )
+        self.assertTrue(
+            any("exit 1" in run for run in gate_step_runs),
+            "Gate job must exit non-zero when dependencies fail",
         )
 
     def test_gate_workflow_file_is_absent(self) -> None:
