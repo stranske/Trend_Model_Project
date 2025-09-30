@@ -118,13 +118,15 @@ def test_auto_type_hygiene_inserts_type_ignore(
     src_dir = tmp_repo / "src"
     src_dir.mkdir()
     source_path = src_dir / "demo.py"
+    module_name = "untyped_mod"
     source_path.write_text(
-        "import yaml\n\nvalue = yaml.safe_load('{}')\n",
+        f"import {module_name}\n\nvalue = {module_name}.safe_load('{{}}')\n",
         encoding="utf-8",
     )
 
     monkeypatch.setattr(auto_type_hygiene, "ROOT", tmp_repo)
     monkeypatch.setattr(auto_type_hygiene, "SRC_DIRS", [src_dir])
+    monkeypatch.setattr(auto_type_hygiene, "ALLOWLIST", [module_name])
     monkeypatch.setattr(auto_type_hygiene, "DRY_RUN", False)
 
     changed, new_lines = auto_type_hygiene.process_file(source_path)

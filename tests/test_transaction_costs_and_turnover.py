@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pandas as pd
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 from trend_analysis.config import Config
 from trend_analysis.export import combined_summary_result, summary_frame_from_result
 from trend_analysis.multi_period import run as run_mp

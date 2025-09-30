@@ -24,7 +24,7 @@ from typing import Iterator
 import pytest
 
 try:
-    import yaml  # type: ignore[import-untyped]
+    import yaml
 except ImportError:
     yaml = None
 

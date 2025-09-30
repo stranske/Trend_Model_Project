@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 
 
 class TestPresetLoading:

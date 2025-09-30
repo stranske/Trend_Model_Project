@@ -6,7 +6,7 @@ from typing import Any, Dict, List
 
 import pandas as pd
 import streamlit as st
-import yaml  # type: ignore[import-untyped]
+import yaml
 
 from trend_analysis import pipeline
 from trend_analysis.multi_period import run as run_multi

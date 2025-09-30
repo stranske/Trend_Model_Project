@@ -4,6 +4,7 @@ import os
 import pathlib
 import sys
 import tempfile
+import yaml
 
 import pytest
 from hypothesis import given
@@ -139,8 +140,6 @@ class TestHumanErrors:
 
         try:
             # YAML parsing will fail with specific error types
-            import yaml  # type: ignore[import-untyped]
-
             with pytest.raises((yaml.YAMLError, yaml.scanner.ScannerError, Exception)):
                 config.load_config(yaml_path)
         finally:

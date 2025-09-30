@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 from trend_analysis.config import models
 
 

@@ -15,7 +15,7 @@ import pandas as pd
 import pytest
 
 import trend_analysis.gui.app as app_module
-import yaml  # type: ignore[import-untyped]
+import yaml
 from trend_analysis.gui.app import (
     _build_rank_options,
     _build_step0,

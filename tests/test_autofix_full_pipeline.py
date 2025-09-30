@@ -149,7 +149,8 @@ def test_autofix_pipeline_resolves_lint_and_typing(
 
     content = sample.read_text(encoding="utf-8")
     assert "from typing import Optional" in content
-    assert "import yaml  # type: ignore[import-untyped]" in content
+    assert "import yaml" in content
+    assert "type: ignore" not in content
     assert "if a > b" in content
     assert "return a + b" in content
     assert '"""Bad docstring spacing.\n\n' in content
