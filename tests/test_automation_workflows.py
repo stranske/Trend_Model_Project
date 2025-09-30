@@ -241,6 +241,23 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
                             % workflow_path.name
                         )
 
+    def test_workflows_do_not_define_marker_filter_anchors(self) -> None:
+        """Block the legacy `_marker_filter` YAML anchor regression."""
+
+        for workflow_path in self._iter_workflow_files():
+            with self.subTest(workflow=workflow_path.name):
+                text = workflow_path.read_text(encoding="utf-8")
+                self.assertNotIn(
+                    "_marker_filter",
+                    text,
+                    (
+                        "Workflow %s contains `_marker_filter`; anchors defined inside jobs "
+                        "become invalid job keys. Keep marker filters embedded inside shell "
+                        "commands instead."
+                    )
+                    % workflow_path.name,
+                )
+
     def test_workflow_conditions_do_not_reintroduce_marker_expression(self) -> None:
         """Ensure `if:` conditionals avoid the invalid pytest marker syntax."""
 
