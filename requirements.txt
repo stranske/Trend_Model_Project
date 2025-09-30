@@ -4,6 +4,8 @@ xlsxwriter
 pydantic>=2
 openpyxl
 PyYAML
+types-PyYAML
+types-requests
 hypothesis
 matplotlib
 ipywidgets

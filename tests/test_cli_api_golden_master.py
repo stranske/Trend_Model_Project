@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pandas as pd
 
-import yaml  # type: ignore[import-untyped, unused-ignore]
+import yaml
 from trend_analysis import api
 from trend_analysis.config import Config
 
