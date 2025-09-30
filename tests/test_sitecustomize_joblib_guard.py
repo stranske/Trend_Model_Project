@@ -1,35 +1,43 @@
-"""Tests for the joblib guard enforced during interpreter bootstrap."""
+"""Tests covering the opt-in ``trend_model._sitecustomize`` helpers."""
 
 from __future__ import annotations
 
-import importlib
 import importlib.util
 import sys
-import types
 from pathlib import Path
+from types import SimpleNamespace
+from typing import Iterator
 
 import pytest
 
-import sitecustomize
+from trend_model import _sitecustomize as sitecustom
 
+SRC_PATH = str(sitecustom.SRC_DIR)
 REPO_ROOT = Path(__file__).resolve().parents[1]
-FLAG = "TREND_MODEL_SITE_CUSTOMIZE"
 
 
-def _reload_with_opt_in(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Reload the shim after opting in to the bootstrap hooks."""
+@pytest.fixture(autouse=True)
+def restore_sys_path() -> Iterator[None]:
+    original = list(sys.path)
+    yield
+    sys.path[:] = original
 
-    monkeypatch.setenv(FLAG, "1")
-    sys.modules.pop("trend_model._sitecustomize", None)
-    importlib.reload(sitecustomize)
+
+def test_maybe_apply_is_noop_without_opt_in(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv(sitecustom.ENV_FLAG, raising=False)
+
+    def boom(*args, **kwargs):  # pragma: no cover - executed only on failure
+        raise AssertionError("joblib resolution should not occur when flag disabled")
+
+    monkeypatch.setattr(importlib.util, "find_spec", boom)
+    sitecustom.maybe_apply()
+    assert SRC_PATH not in sys.path
 
 
-def test_sitecustomize_raises_when_joblib_points_inside_repo(
+def test_apply_raises_when_joblib_points_inside_repo(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Reloading with a repository-local joblib should raise ImportError."""
-
-    stub_spec = types.SimpleNamespace(origin=str(REPO_ROOT / "joblib.py"))
+    stub_spec = SimpleNamespace(origin=str(REPO_ROOT / "joblib.py"))
     original_find_spec = importlib.util.find_spec
 
     def fake_find_spec(name: str, *args, **kwargs):  # type: ignore[override]
@@ -37,30 +45,17 @@ def test_sitecustomize_raises_when_joblib_points_inside_repo(
             return stub_spec
         return original_find_spec(name, *args, **kwargs)
 
-    with monkeypatch.context() as ctx:
-        ctx.setattr(importlib.util, "find_spec", fake_find_spec)
-        with pytest.raises(ImportError):
-            _reload_with_opt_in(ctx)
+    monkeypatch.setattr(importlib.util, "find_spec", fake_find_spec)
 
-    importlib.reload(sitecustomize)
+    with pytest.raises(ImportError):
+        sitecustom.apply()
 
 
-def test_sitecustomize_allows_repo_virtualenv_site_packages(
+def test_apply_allows_repo_virtualenv_site_packages(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A virtualenv within the repository should be treated as third-party."""
-
-    venv_spec = types.SimpleNamespace(
-        origin=str(
-            REPO_ROOT
-            / ".venv"
-            / "lib"
-            / "python3.11"
-            / "site-packages"
-            / "joblib"
-            / "__init__.py"
-        )
-    )
+    candidate = REPO_ROOT / ".venv" / "lib" / "python3.11" / "site-packages" / "joblib"
+    venv_spec = SimpleNamespace(origin=str(candidate / "__init__.py"))
     original_find_spec = importlib.util.find_spec
 
     def virtualenv_find_spec(name: str, *args, **kwargs):  # type: ignore[override]
@@ -68,40 +63,24 @@ def test_sitecustomize_allows_repo_virtualenv_site_packages(
             return venv_spec
         return original_find_spec(name, *args, **kwargs)
 
-    with monkeypatch.context() as ctx:
-        ctx.setattr(importlib.util, "find_spec", virtualenv_find_spec)
-        _reload_with_opt_in(ctx)
-
-    importlib.reload(sitecustomize)
+    monkeypatch.setattr(importlib.util, "find_spec", virtualenv_find_spec)
+    sitecustom.apply()
 
 
-def test_sitecustomize_allows_missing_joblib(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The guard should defer to import-time error when joblib is absent."""
+def test_maybe_apply_inserts_src_when_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(sitecustom.ENV_FLAG, "1")
+    if SRC_PATH in sys.path:
+        sys.path.remove(SRC_PATH)
 
-    original_find_spec = importlib.util.find_spec
+    sitecustom.maybe_apply()
 
-    def missing_find_spec(name: str, *args, **kwargs):  # type: ignore[override]
-        if name == "joblib":
-            return None
-        return original_find_spec(name, *args, **kwargs)
-
-    with monkeypatch.context() as ctx:
-        ctx.setattr(importlib.util, "find_spec", missing_find_spec)
-        # No exception is expected because the guard should defer to the
-        # subsequent import-time ModuleNotFoundError.
-        _reload_with_opt_in(ctx)
-
-    importlib.reload(sitecustomize)
+    assert sys.path[0] == SRC_PATH
 
 
-def test_importing_project_module_without_opt_in(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Importing project modules must not trigger the bootstrap by default."""
+def test_random_import_has_no_side_effects(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv(sitecustom.ENV_FLAG, raising=False)
+    baseline = list(sys.path)
 
-    monkeypatch.delenv(FLAG, raising=False)
-    sys.modules.pop("trend_model._sitecustomize", None)
+    __import__("random")
 
-    import trend_analysis.pipeline  # noqa: F401  (arbitrary project module)
-
-    assert "trend_model._sitecustomize" not in sys.modules
+    assert sys.path == baseline
