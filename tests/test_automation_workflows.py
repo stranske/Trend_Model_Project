@@ -27,6 +27,31 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         self.assertTrue(path.exists(), f"Expected workflow to exist: {name}")
         return yaml.safe_load(path.read_text(encoding="utf-8"))
 
+    def _iter_workflow_files(self) -> list[Path]:
+        """Return all workflow definitions regardless of YAML suffix."""
+
+        return sorted(
+            {
+                *self.workflows_dir.glob("*.yml"),
+                *self.workflows_dir.glob("*.yaml"),
+            }
+        )
+
+    def _iter_scalars(self, node: object) -> list[str]:
+        """Flatten nested YAML structures into their scalar string values."""
+
+        if isinstance(node, dict):
+            scalars: list[str] = []
+            for value in node.values():
+                scalars.extend(self._iter_scalars(value))
+            return scalars
+        if isinstance(node, list):
+            scalars = []
+            for value in node:
+                scalars.extend(self._iter_scalars(value))
+            return scalars
+        return [node] if isinstance(node, str) else []
+
     def _assert_contains(
         self, haystack: str, needles: list[str], *, context: str
     ) -> None:
@@ -116,42 +141,49 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         )
 
     def test_gate_workflow_file_is_absent(self) -> None:
-        gate_path = self.workflows_dir / "gate.yml"
-        self.assertFalse(
-            gate_path.exists(),
-            "Legacy gate.yml workflow should remain deleted; rely on pr-10 gate job",
-        )
+        for suffix in (".yml", ".yaml"):
+            with self.subTest(extension=suffix):
+                gate_path = self.workflows_dir / f"gate{suffix}"
+                self.assertFalse(
+                    gate_path.exists(),
+                    "Legacy gate workflow should remain deleted; rely on pr-10 gate job",
+                )
 
     def test_workflows_do_not_define_invalid_marker_filters(self) -> None:
         """Ensure pytest marker filters stay inside shell commands."""
 
         invalid_expr = "not quarantine and not slow"
 
-        def _iter_scalars(node: object) -> list[str]:
-            if isinstance(node, dict):
-                scalars: list[str] = []
-                for value in node.values():
-                    scalars.extend(_iter_scalars(value))
-                return scalars
-            if isinstance(node, list):
-                scalars = []
-                for value in node:
-                    scalars.extend(_iter_scalars(value))
-                return scalars
-            return [node] if isinstance(node, str) else []
-
-        for workflow_path in sorted(self.workflows_dir.glob("*.yml")):
+        for workflow_path in self._iter_workflow_files():
             with self.subTest(workflow=workflow_path.name):
                 loaded = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
                 if loaded is None:
                     continue
-                for scalar in _iter_scalars(loaded):
+                for scalar in self._iter_scalars(loaded):
                     if scalar.strip() == invalid_expr:
                         self.fail(
                             "Detected bare pytest marker expression in %s; "
                             "use shell commands (pytest -m) instead to avoid "
                             "invalid YAML filters."
                             % workflow_path.name
+                        )
+
+    def test_workflows_do_not_reference_retired_gate_wrapper(self) -> None:
+        """Ensure no workflow tries to re-use the deleted gate.yml wrapper."""
+
+        for workflow_path in self._iter_workflow_files():
+            with self.subTest(workflow=workflow_path.name):
+                loaded = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+                if loaded is None:
+                    continue
+                for scalar in self._iter_scalars(loaded):
+                    if not isinstance(scalar, str):
+                        continue
+                    if "gate.yml" in scalar:
+                        self.fail(
+                            "Workflow %s references the retired gate.yml wrapper via `%s`; "
+                            "rely on the gate job inside pr-10-ci-python.yml instead."
+                            % (workflow_path.name, scalar)
                         )
 
     def test_reusable_ci_runs_tests_and_mypy(self) -> None:
