@@ -224,12 +224,12 @@ jobs:
           set -euo pipefail
 
           if [ -z "${NEEDS_CONTEXT:-}" ] || [ "${NEEDS_CONTEXT}" = "null" ]; then
-            echo "::error::Gate job missing needs context; ensure gate job declares dependencies via \`needs\`."
+            echo "::error::Gate job missing needs context; ensure gate job declares dependencies via 'needs'."
             exit 1
           fi
 
           if ! printf '%s' "$NEEDS_CONTEXT" | jq -e 'type == "object" and (keys | length) > 0' >/dev/null; then
-            echo "::error::Gate requires at least one upstream job; configure \`needs\` to include CI lanes."
+            echo "::error::Gate requires at least one upstream job; configure 'needs' to include CI lanes."
             exit 1
           fi
 
