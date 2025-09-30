@@ -1,1 +1,18 @@
-All checks passed!
+tests/test_sitecustomize_joblib_guard.py:96:20: F821 Undefined name `FLAG`
+   |
+95 |     with monkeypatch.context() as ctx:
+96 |         ctx.setenv(FLAG, flag_value)
+   |                    ^^^^ F821
+97 |         sys.modules.pop("trend_model._sitecustomize", None)
+   |
+
+tests/test_sitecustomize_joblib_guard.py:99:26: F821 Undefined name `sitecustomize`
+    |
+ 97 |         sys.modules.pop("trend_model._sitecustomize", None)
+ 98 | 
+ 99 |         importlib.reload(sitecustomize)
+    |                          ^^^^^^^^^^^^^ F821
+100 |         assert "trend_model._sitecustomize" not in sys.modules
+    |
+
+Found 2 errors.
