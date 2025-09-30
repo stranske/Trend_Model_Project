@@ -165,10 +165,24 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
             gate_job.get("steps"),
             "Gate job should include at least one confirmation step",
         )
-        gate_step_runs = [
-            step.get("run", "")
+        gate_steps = [
+            step
             for step in gate_job.get("steps", [])
             if isinstance(step, dict)
+        ]
+        self.assertTrue(gate_steps, "Gate job must define at least one run step")
+
+        first_gate_step = gate_steps[0]
+        env_block = first_gate_step.get("env", {})
+        self.assertEqual(
+            env_block.get("NEEDS_CONTEXT"),
+            "${{ toJson(needs) }}",
+            "Gate step should expose needs context as JSON for parsing",
+        )
+
+        gate_step_runs = [
+            step.get("run", "")
+            for step in gate_steps
         ]
         self.assertTrue(
             any("GITHUB_STEP_SUMMARY" in run for run in gate_step_runs),
@@ -181,6 +195,22 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         self.assertTrue(
             any("exit 1" in run for run in gate_step_runs),
             "Gate job must exit non-zero when dependencies fail",
+        )
+        aggregated_script = "\n".join(gate_step_runs)
+        self.assertIn(
+            "Gate summary",
+            aggregated_script,
+            "Gate job should emit a human-readable gate summary section",
+        )
+        self.assertIn(
+            "jq -r 'keys[]'",
+            aggregated_script,
+            "Gate job should enumerate upstream job names dynamically via jq",
+        )
+        self.assertIn(
+            "jq -r --arg job \"$job\" '.[$job].result'",
+            aggregated_script,
+            "Gate job should use jq to read job results from the needs context",
         )
 
     def test_gate_workflow_file_is_absent(self) -> None:
