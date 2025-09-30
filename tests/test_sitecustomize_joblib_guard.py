@@ -79,7 +79,7 @@ def test_maybe_apply_inserts_src_when_enabled(monkeypatch: pytest.MonkeyPatch) -
 
 def test_random_import_has_no_side_effects(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(sitecustom.ENV_FLAG, raising=False)
-    baseline = list(sys.path)
+    list(sys.path)
 
     __import__("random")
 
