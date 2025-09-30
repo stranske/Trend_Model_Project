@@ -1,4 +1,5 @@
-"""Optional bootstrap helpers mirroring the legacy repository ``sitecustomize``."""
+"""Optional bootstrap helpers mirroring the legacy repository
+``sitecustomize``."""
 
 from __future__ import annotations
 
