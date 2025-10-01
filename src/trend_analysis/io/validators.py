@@ -179,7 +179,9 @@ def _read_from_path(path: Path) -> pd.DataFrame:
     except FileNotFoundError:
         raise ValueError(f"File not found: '{path}'") from None
     except ImportError as exc:
-        raise ValueError(f"Missing optional dependency while reading '{path}': {exc}") from exc
+        raise ValueError(
+            f"Missing optional dependency while reading '{path}': {exc}"
+        ) from exc
     except Exception as exc:
         raise ValueError(f"Failed to read file: '{path}'") from exc
 

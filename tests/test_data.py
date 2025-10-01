@@ -20,7 +20,9 @@ def test_load_csv_success(tmp_path: Path) -> None:
     assert df.attrs["market_data_mode"] == "returns"
 
 
-def test_load_csv_returns_none_by_default(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_load_csv_returns_none_by_default(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     csv = tmp_path / "duplicate.csv"
     csv.write_text("Date,A\n2024-01-31,0.01\n2024-01-31,0.02\n")
 
@@ -59,7 +61,9 @@ def test_validate_dataframe_helper() -> None:
     dates = pd.date_range("2024-01-31", periods=3, freq="ME")
     frame = pd.DataFrame({"Date": dates, "Fund": [0.01, 0.02, -0.01]})
 
-    validated = data_mod.validate_dataframe(frame, include_date_column=False, errors="raise")
+    validated = data_mod.validate_dataframe(
+        frame, include_date_column=False, errors="raise"
+    )
     assert isinstance(validated.index, pd.DatetimeIndex)
     assert "market_data_mode" in validated.attrs
 

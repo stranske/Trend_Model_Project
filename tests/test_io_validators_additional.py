@@ -210,9 +210,7 @@ def test_load_and_validate_upload_reads_excel_like_object(
 
     def fake_read_excel(stream):
         captured["called"] = True
-        return pd.DataFrame(
-            {"Date": ["2020-01-31", "2020-02-29"], "Fund": [0.1, 0.2]}
-        )
+        return pd.DataFrame({"Date": ["2020-01-31", "2020-02-29"], "Fund": [0.1, 0.2]})
 
     monkeypatch.setattr(pd, "read_excel", fake_read_excel)
 
@@ -247,9 +245,7 @@ def test_load_and_validate_upload_reads_excel_path(
 
     def fake_read_excel(path):
         captured["path"] = path
-        return pd.DataFrame(
-            {"Date": ["2020-01-31", "2020-02-29"], "Fund": [0.1, 0.2]}
-        )
+        return pd.DataFrame({"Date": ["2020-01-31", "2020-02-29"], "Fund": [0.1, 0.2]})
 
     monkeypatch.setattr(pd, "read_excel", fake_read_excel)
 

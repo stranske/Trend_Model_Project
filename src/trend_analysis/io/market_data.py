@@ -8,7 +8,6 @@ import pandas as pd
 import pandera as pa
 from pandas.tseries.frequencies import to_offset
 
-
 FrequencyLabel = Literal[
     "daily",
     "business-daily",
@@ -69,7 +68,9 @@ _FRIENDLY_FREQUENCIES: dict[str, FrequencyLabel] = {
 }
 
 
-def _normalise_datetime_index(series: pd.Series, origin: str | None) -> pd.DatetimeIndex:
+def _normalise_datetime_index(
+    series: pd.Series, origin: str | None
+) -> pd.DatetimeIndex:
     try:
         coerced = _DATE_SCHEMA.validate(series)
     except pa.errors.SchemaError as exc:  # pragma: no cover - defensive
@@ -83,7 +84,8 @@ def _normalise_datetime_index(series: pd.Series, origin: str | None) -> pd.Datet
         tail = "…" if len(preview) == 5 and len(series) > 5 else ""
         raise MarketDataValidationError(
             (
-                "Unable to parse Date values" + (f" in {origin}" if origin else "")
+                "Unable to parse Date values"
+                + (f" in {origin}" if origin else "")
                 + f": {preview}{tail}."
             )
         ) from exc
@@ -207,7 +209,9 @@ def _validate_numeric_payload(df: pd.DataFrame, *, origin: str | None) -> pd.Dat
     return validated.astype(float)
 
 
-def _classify_column_mode(series: pd.Series) -> Literal["returns", "prices", "ambiguous"]:
+def _classify_column_mode(
+    series: pd.Series,
+) -> Literal["returns", "prices", "ambiguous"]:
     data = series.dropna()
     if data.empty:
         return "ambiguous"
@@ -236,7 +240,9 @@ def _infer_mode(values: pd.DataFrame) -> Literal["returns", "prices"]:
             "Unable to determine if the dataset is in returns or price mode."
         )
     if len(resolved) > 1:
-        returns_like = [col for col, mode in classifications.items() if mode == "returns"]
+        returns_like = [
+            col for col, mode in classifications.items() if mode == "returns"
+        ]
         price_like = [col for col, mode in classifications.items() if mode == "prices"]
         raise MarketDataValidationError(
             (
@@ -301,7 +307,9 @@ def validate_market_data(
 
     date_series, value_columns = _extract_date_series(data)
     if not value_columns:
-        raise MarketDataValidationError("No data columns provided alongside Date column.")
+        raise MarketDataValidationError(
+            "No data columns provided alongside Date column."
+        )
 
     idx = _normalise_datetime_index(date_series, origin)
     _ensure_monotonic(idx)
@@ -338,4 +346,3 @@ __all__ = [
     "MarketDataValidationError",
     "validate_market_data",
 ]
-
