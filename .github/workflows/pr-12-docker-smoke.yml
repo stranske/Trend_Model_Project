@@ -1,6 +1,13 @@
 name: Docker
 
 on:
+  workflow_call:
+    inputs:
+      debug_build:
+        description: 'Enable verbose test output for debugging'
+        required: false
+        default: false
+        type: boolean
   push:
     branches: [ phase-2-dev ]
     paths-ignore:
@@ -104,9 +111,12 @@ jobs:
           path: /tmp/.buildx-cache
           key: ${{ format('buildx-{0}-{1}', runner.os, hashFiles('Dockerfile', 'requirements.lock')) }}
       - name: Run test suite
+        env:
+          WF_CALL_DEBUG: ${{ inputs.debug_build && 'true' || '' }}
+          DISPATCH_DEBUG: ${{ github.event.inputs.debug_build || '' }}
         run: |
-          # Use verbose output only for debug builds, quiet mode for production
-          if [ "${{ github.event.inputs.debug_build }}" = "true" ]; then
+          debug_flag="${WF_CALL_DEBUG:-${DISPATCH_DEBUG:-false}}"
+          if [ "$debug_flag" = "true" ]; then
             echo "Running tests with verbose output for debugging..."
             docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest pytest -v --tb=short
           else

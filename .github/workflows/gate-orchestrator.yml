@@ -1,0 +1,34 @@
+name: Gate Orchestrator
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - '.github/ISSUE_TEMPLATE/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gate-orchestrator-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: orchestrator / ci-suite
+    uses: ./.github/workflows/pr-10-ci-python.yml
+
+  docker:
+    name: orchestrator / docker-smoke
+    uses: ./.github/workflows/pr-12-docker-smoke.yml
+
+  gate:
+    name: gate / all-required-green
+    runs-on: ubuntu-latest
+    needs: [ci, docker]
+    steps:
+      - name: Confirm orchestrator completion
+        run: echo "All orchestrated checks completed successfully."
