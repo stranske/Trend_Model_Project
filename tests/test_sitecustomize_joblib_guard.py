@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 import importlib.util
 import sys
 from pathlib import Path
@@ -10,10 +11,12 @@ from typing import Iterator
 
 import pytest
 
+import sitecustomize as sitecustom_shim
 from trend_model import _sitecustomize as sitecustom
 
 SRC_PATH = str(sitecustom.SRC_DIR)
 REPO_ROOT = Path(__file__).resolve().parents[1]
+ENV_FLAG = sitecustom_shim.ENV_FLAG
 
 
 @pytest.fixture(autouse=True)
@@ -30,8 +33,12 @@ def test_maybe_apply_is_noop_without_opt_in(monkeypatch: pytest.MonkeyPatch) -> 
         raise AssertionError("joblib resolution should not occur when flag disabled")
 
     monkeypatch.setattr(importlib.util, "find_spec", boom)
+    baseline = [entry for entry in sys.path if entry != SRC_PATH]
+    monkeypatch.setattr(sys, "path", list(baseline))
+
     sitecustom.maybe_apply()
-    assert SRC_PATH not in sys.path
+
+    assert sys.path == baseline
 
 
 def test_apply_raises_when_joblib_points_inside_repo(
@@ -69,9 +76,7 @@ def test_apply_allows_repo_virtualenv_site_packages(
 
 def test_maybe_apply_inserts_src_when_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(sitecustom.ENV_FLAG, "1")
-    if SRC_PATH in sys.path:
-        sys.path.remove(SRC_PATH)
-
+    monkeypatch.setattr(sys, "path", [])
     sitecustom.maybe_apply()
 
     assert sys.path[0] == SRC_PATH
@@ -79,8 +84,104 @@ def test_maybe_apply_inserts_src_when_enabled(monkeypatch: pytest.MonkeyPatch) -
 
 def test_random_import_has_no_side_effects(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(sitecustom.ENV_FLAG, raising=False)
-    baseline = list(sys.path)
+    sys.modules.pop("trend_model._sitecustomize", None)
+    list(sys.path)
 
     __import__("random")
 
-    assert sys.path == baseline
+    assert "trend_model._sitecustomize" not in sys.modules
+
+
+def test_sitecustomize_default_import_is_idle(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Reloading the shim without the flag must not import the bootstrap
+    module."""
+
+    monkeypatch.delenv(ENV_FLAG, raising=False)
+    sys.modules.pop("trend_model._sitecustomize", None)
+
+    importlib.reload(sitecustom_shim)
+
+    assert "trend_model._sitecustomize" not in sys.modules
+
+
+def test_sitecustomize_opt_in_triggers_bootstrap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Reloading the shim with the flag should apply the bootstrap helpers."""
+
+    sys.modules.pop("trend_model._sitecustomize", None)
+
+    with monkeypatch.context() as ctx:
+        ctx.setenv(ENV_FLAG, "1")
+        ctx.setattr(sys, "path", [str(REPO_ROOT)])
+
+        importlib.reload(sitecustom_shim)
+
+        assert sys.path[0] == SRC_PATH
+        assert "trend_model._sitecustomize" in sys.modules
+
+
+@pytest.mark.parametrize("flag_value", ["0", "", "true", "yes"])
+def test_opt_in_requires_exact_flag(
+    monkeypatch: pytest.MonkeyPatch, flag_value: str
+) -> None:
+    """Only the explicit opt-in value should trigger the bootstrap shim."""
+
+    with monkeypatch.context() as ctx:
+        ctx.setenv(ENV_FLAG, flag_value)
+        sys.modules.pop("trend_model._sitecustomize", None)
+
+        importlib.reload(sitecustom_shim)
+        assert "trend_model._sitecustomize" not in sys.modules
+
+
+def test_bootstrap_inserts_src_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Opt-in bootstrap should prepend src/ exactly once."""
+
+    module = importlib.import_module("trend_model._sitecustomize")
+    module = importlib.reload(module)
+    src_path = str(REPO_ROOT / "src")
+
+    with monkeypatch.context() as ctx:
+        ctx.setattr(sys, "path", [p for p in sys.path if p != src_path])
+
+        module.bootstrap()
+        assert sys.path[0] == src_path
+
+        module.bootstrap()
+        assert sys.path.count(src_path) == 1
+
+
+def test_bootstrap_noop_when_src_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bootstrap should not mutate sys.path if src/ is absent."""
+
+    module = importlib.import_module("trend_model._sitecustomize")
+    module = importlib.reload(module)
+    fake_src = REPO_ROOT / "_does_not_exist_src"
+
+    with monkeypatch.context() as ctx:
+        ctx.setattr(module, "SRC_DIR", fake_src)
+        ctx.setattr(sys, "path", [])
+
+        module.bootstrap()
+
+        assert sys.path == []
+
+
+def test_importing_opt_in_module_is_side_effect_free(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Importing the guarded module should not mutate interpreter globals."""
+
+    baseline = list(sys.path)
+
+    with monkeypatch.context() as ctx:
+        ctx.delenv(sitecustom.ENV_FLAG, raising=False)
+        ctx.setattr(sys, "path", list(baseline))
+        sys.modules.pop("trend_model._sitecustomize", None)
+
+        importlib.import_module("trend_model._sitecustomize")
+
+        assert sys.path == baseline
