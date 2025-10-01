@@ -46,6 +46,8 @@ def test_validate_market_data_unsorted_dates() -> None:
     with pytest.raises(MarketDataValidationError) as exc:
         validate_market_data(df)
     assert "sorted in ascending order" in str(exc.value)
+    assert exc.value.issues
+    assert any("sorted" in issue for issue in exc.value.issues)
 
 
 def test_validate_market_data_mixed_frequency() -> None:
@@ -97,6 +99,18 @@ def test_validate_market_data_ambiguous_mode() -> None:
     with pytest.raises(MarketDataValidationError) as exc:
         validate_market_data(df)
     assert "Unable to determine" in str(exc.value)
+    assert exc.value.issues
+    assert any("Unable to determine" in issue for issue in exc.value.issues)
+
+
+def test_validate_market_data_missing_date_column_reports_issue() -> None:
+    df = pd.DataFrame({"FundA": [0.01, 0.02, 0.03]})
+
+    with pytest.raises(MarketDataValidationError) as exc:
+        validate_market_data(df)
+
+    assert exc.value.issues
+    assert any("Missing a 'Date'" in issue for issue in exc.value.issues)
 
 
 def test_validate_market_data_accepts_datetime_index() -> None:

@@ -52,8 +52,10 @@ via `df.attrs["market_data"]["metadata"]` for convenience.
   builders to introspect the ingest metadata without recomputing it.
 
 Validation failures raise `MarketDataValidationError` with a single, bullet
-point formatted message.  This message is displayed verbatim in both the CLI
-and the Streamlit UI to satisfy the acceptance criteria.
+point formatted message alongside a populated `issues` list.  This message is
+displayed verbatim in both the CLI and the Streamlit UI, while callers that
+need structured details can read the `issues` attribute to satisfy the
+acceptance criteria.
 
 ## Integration points
 
