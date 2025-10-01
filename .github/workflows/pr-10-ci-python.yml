@@ -5,6 +5,7 @@ name: CI
 # Remove after updating protection rules to reference granular jobs directly.
 
 on:
+  workflow_call:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   push:
