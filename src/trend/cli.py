@@ -140,7 +140,12 @@ def _resolve_returns_path(config_path: Path, cfg: Any, override: str | None) -> 
 
 
 def _ensure_dataframe(path: Path) -> pd.DataFrame:
-    df = load_csv(str(path), errors="raise")
+    try:
+        df = load_csv(str(path), errors="raise")
+    except TypeError:
+        df = load_csv(str(path))
+    if df is None:
+        raise FileNotFoundError(str(path))
     return df
 
 

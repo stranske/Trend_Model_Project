@@ -10,6 +10,8 @@ import pytest
 from trend_analysis.io.market_data import MarketDataMode, MarketDataValidationError
 from trend_analysis.io.validators import (
     ValidationResult,
+    create_sample_template,
+    detect_frequency,
     load_and_validate_upload,
     validate_returns_schema,
 )

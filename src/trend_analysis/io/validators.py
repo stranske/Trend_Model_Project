@@ -204,6 +204,31 @@ def _read_uploaded_file(file_like: Any) -> Tuple[pd.DataFrame, str]:
     except Exception as exc:
         raise ValueError(f"Failed to read file: '{lower_name or file_like}'") from exc
 
+    if lower_name:
+        try:
+            frame = pd.read_csv(file_like)
+            return frame, lower_name
+        except FileNotFoundError:
+            raise ValueError(f"File not found: '{lower_name or file_like}'")
+        except PermissionError:
+            raise ValueError(
+                f"Permission denied accessing file: '{lower_name or file_like}'"
+            )
+        except IsADirectoryError:
+            raise ValueError(
+                f"Path is a directory, not a file: '{lower_name or file_like}'"
+            )
+        except pd.errors.EmptyDataError:
+            raise ValueError(f"File contains no data: '{lower_name or file_like}'")
+        except pd.errors.ParserError:
+            raise ValueError(
+                f"Failed to parse file (corrupted or invalid format): '{lower_name or file_like}'"
+            )
+        except Exception as exc:
+            raise ValueError(
+                f"Failed to read file: '{lower_name or file_like}'"
+            ) from exc
+
     raise ValueError("Unsupported upload source")
 
 

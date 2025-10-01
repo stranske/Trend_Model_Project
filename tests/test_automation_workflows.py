@@ -168,9 +168,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
             "Gate job should include at least one confirmation step",
         )
         gate_steps = [
-            step
-            for step in gate_job.get("steps", [])
-            if isinstance(step, dict)
+            step for step in gate_job.get("steps", []) if isinstance(step, dict)
         ]
         self.assertTrue(gate_steps, "Gate job must define at least one run step")
 
@@ -182,10 +180,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
             "Gate step should expose needs context as JSON for parsing",
         )
 
-        gate_step_runs = [
-            step.get("run", "")
-            for step in gate_steps
-        ]
+        gate_step_runs = [step.get("run", "") for step in gate_steps]
         self.assertTrue(
             any("GITHUB_STEP_SUMMARY" in run for run in gate_step_runs),
             "Gate job should write a summary of upstream results to the job summary",
@@ -220,7 +215,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
             "Gate job should fail fast if the needs context is absent",
         )
         self.assertIn(
-            "type == \"object\" and (keys | length) > 0",
+            'type == "object" and (keys | length) > 0',
             aggregated_script,
             "Gate job should verify the needs context contains at least one upstream job",
         )
@@ -254,8 +249,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
                         self.fail(
                             "Detected bare pytest marker expression in %s; "
                             "use shell commands (pytest -m) instead to avoid "
-                            "invalid YAML filters."
-                            % workflow_path.name
+                            "invalid YAML filters." % workflow_path.name
                         )
 
     def test_workflows_do_not_define_marker_filter_anchors(self) -> None:

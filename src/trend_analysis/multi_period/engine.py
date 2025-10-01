@@ -410,6 +410,8 @@ def run(
         if not csv_path:
             raise KeyError("cfg.data['csv_path'] must be provided")
         df = load_csv(csv_path, errors="raise")
+        if df is None:
+            raise ValueError(f"Failed to load CSV data from '{csv_path}'")
 
     # If policy is not threshold-hold, use the Phase‑1 style per-period runs.
     if str(cfg.portfolio.get("policy", "").lower()) != "threshold_hold":
