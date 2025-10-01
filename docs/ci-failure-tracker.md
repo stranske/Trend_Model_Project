@@ -72,37 +72,6 @@ You can manually validate behaviour:
 - Add PR comment summary for new signatures encountered in a PR context.
 - Integrate stack token similarity clustering for noisy crash variants.
 
-## Post-CI Status Summary (New Enhancement)
-`maint-30-post-ci-summary.yml` replaced the standalone matrix exporter with a
-single pull-request comment. The workflow listens to the `CI` and `Docker`
-`workflow_run` events, rehydrates the coverage and failure tracker artifacts,
-and renders the combined output via `tools/post_ci_summary.py`.
-
-**Highlights surfaced in the comment**
-- Required-check rollup for CI tests, workflow automation probes, style linting,
-  and the gate aggregator.
-- Job table spanning every CI and Docker job with log links; failures bubble to
-  the top automatically.
-- Coverage metrics (latest values plus deltas vs the previous history entry)
-  and the raw coverage summary table.
-- Open failure signatures sourced from `ci_failures_snapshot.json` when the
-  tracker reports active issues.
-
-**Artifacts consumed** (downloaded opportunistically; missing files are skipped)
-- `coverage_summary.md` or `coverage-summary/coverage_summary.md`
-- `coverage-trend.json`
-- `coverage-trend-history.json`
-- `ci_failures_snapshot.json`
-
-**Preview + integrations**
-- The rendered Markdown is stored in `summary_artifacts/comment_preview.md` for
-  quick review in the Actions UI.
-- Because the workflow now owns the PR comment directly, other tooling can read
-  or parse the output without chasing multiple artifacts.
-
-Extend the message by updating the helper functions in `tools/post_ci_summary.py`
-— for example, add another section for a new artifact and then adjust the tests
-under `tests/test_post_ci_summary.py` to lock the formatting down.
 
 ## Maintenance Checklist
 - If new workflows should be monitored, add their names to the `workflows:` array under the `workflow_run` trigger.
