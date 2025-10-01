@@ -11,9 +11,8 @@ from typing import Iterator
 
 import pytest
 
-from trend_model import _sitecustomize as sitecustom
-
 import sitecustomize as sitecustom_shim
+from trend_model import _sitecustomize as sitecustom
 
 SRC_PATH = str(sitecustom.SRC_DIR)
 REPO_ROOT = Path(__file__).resolve().parents[1]
