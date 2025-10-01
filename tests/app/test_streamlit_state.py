@@ -112,5 +112,8 @@ def test_record_upload_error_sets_error_state(session_state: dict) -> None:
     assert session_state["returns_df"] is None
     assert session_state["schema_meta"] is None
     assert session_state["benchmark_candidates"] == []
-    assert session_state["validation_report"] == "problem"
+    assert session_state["validation_report"] == {
+        "message": "problem",
+        "issues": [],
+    }
     assert session_state["upload_status"] == "error"

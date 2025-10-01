@@ -6,6 +6,7 @@ from pathlib import Path
 import streamlit as st
 
 from app.streamlit import state as app_state
+from trend_analysis.io.market_data import MarketDataValidationError
 from trend_portfolio_app.data_schema import infer_benchmarks, load_and_validate_file
 
 
@@ -38,9 +39,18 @@ def _handle_success(st_module, df, meta, source_path: Path | str) -> None:
         st_module.info("Possible benchmark columns: " + ", ".join(candidates))
 
 
+def _extract_validation_details(error: Exception) -> tuple[str, list[str]]:
+    if isinstance(error, MarketDataValidationError):
+        return error.user_message, list(error.issues)
+    cause = getattr(error, "__cause__", None)
+    if isinstance(cause, MarketDataValidationError):
+        return cause.user_message, list(cause.issues)
+    return str(error), []
+
+
 def _handle_failure(st_module, error: Exception) -> None:
-    message = str(error)
-    app_state.record_upload_error(message)
+    message, issues = _extract_validation_details(error)
+    app_state.record_upload_error(message, issues)
     st_module.error(message)
 
 
@@ -74,6 +84,8 @@ def render_upload_page(st_module=st) -> None:
     if uploaded is not None:
         try:
             df, meta = load_and_validate_file(uploaded)
+        except MarketDataValidationError as exc:
+            _handle_failure(st_module, exc)
         except ValueError as exc:
             _handle_failure(st_module, exc)
         except Exception as exc:  # pragma: no cover - unexpected parsing error

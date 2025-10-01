@@ -7,7 +7,6 @@ import pandas as pd
 
 from trend_analysis.io.market_data import (
     MarketDataMetadata,
-    MarketDataValidationError,
     ValidatedMarketData,
     validate_market_data,
 )
@@ -58,10 +57,7 @@ def _build_meta(validated: ValidatedMarketData) -> SchemaMeta:
 
 
 def _validate_df(df: pd.DataFrame) -> Tuple[pd.DataFrame, SchemaMeta]:
-    try:
-        validated = validate_market_data(df)
-    except MarketDataValidationError as exc:
-        raise ValueError(exc.user_message) from exc
+    validated = validate_market_data(df)
     meta = _build_meta(validated)
     return validated.frame, meta
 
