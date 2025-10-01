@@ -67,3 +67,4 @@ tests/test_validators.py:169:20: F821 Undefined name `create_sample_template`
     |
 
 Found 7 errors.
+

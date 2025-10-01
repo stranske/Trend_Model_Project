@@ -14,7 +14,14 @@ PACKAGE_ROOT = Path(__file__).resolve().parent
 SRC_DIR = PACKAGE_ROOT.parent
 REPO_ROOT = SRC_DIR.parent
 
-__all__: list[str] = ["ENV_FLAG", "SRC_DIR", "REPO_ROOT", "maybe_apply", "apply"]
+__all__: list[str] = [
+    "ENV_FLAG",
+    "SRC_DIR",
+    "REPO_ROOT",
+    "maybe_apply",
+    "apply",
+    "bootstrap",
+]
 
 
 def maybe_apply() -> None:
@@ -30,6 +37,12 @@ def apply() -> None:
 
     _ensure_src_on_sys_path()
     _ensure_joblib_external()
+
+
+def bootstrap() -> None:
+    """Backwards-compatible helper that only adjusts ``sys.path``."""
+
+    _ensure_src_on_sys_path()
 
 
 def _ensure_src_on_sys_path() -> None:
