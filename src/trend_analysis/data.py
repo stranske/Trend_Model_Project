@@ -103,7 +103,10 @@ def load_csv(
             raise IsADirectoryError(path)
         mode = p.stat().st_mode
         if not _is_readable(mode):
-            raise PermissionError(f"Permission denied accessing file: {path}")
+            if errors == "raise":
+                raise PermissionError(f"Permission denied accessing file: {path}")
+            logger.error(f"Permission denied accessing file: {path}")
+            return None
 
         validated: ValidatedMarketData = load_market_data_csv(str(p))
         return _finalise_validated_frame(
