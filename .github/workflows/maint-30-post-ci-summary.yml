@@ -88,15 +88,20 @@ jobs:
             const workflowTargetsRaw = process.env.WORKFLOW_TARGETS_JSON;
             const workflowTargetsInput = parseJsonInput(workflowTargetsRaw, defaultWorkflowTargets);
             const workflowTargetsSource = Array.isArray(workflowTargetsInput) ? workflowTargetsInput : defaultWorkflowTargets;
-            const workflowTargets = workflowTargetsSource
-              .map(target => ({
+            // Helper to normalize target properties
+            function normalizeTargetProps(target) {
+              return {
                 key: target.key,
                 displayName: target.display_name || target.displayName || target.key || 'workflow',
                 workflowPath: target.workflow_path || target.workflowPath || '',
                 workflowFile: target.workflow_file || target.workflowFile || target.workflow_id || target.workflowId || '',
                 workflowName: target.workflow_name || target.workflowName || '',
                 workflowIds: Array.isArray(target.workflow_ids) ? target.workflow_ids : (target.workflowIds && Array.isArray(target.workflowIds) ? target.workflowIds : []),
-              }))
+              };
+            }
+
+            const workflowTargets = workflowTargetsSource
+              .map(normalizeTargetProps)
               .filter(target => target && target.key);
 
             const normalizePath = (value) => {
