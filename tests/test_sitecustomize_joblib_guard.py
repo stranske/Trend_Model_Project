@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 import importlib.util
 import sys
 from pathlib import Path
@@ -12,8 +13,11 @@ import pytest
 
 from trend_model import _sitecustomize as sitecustom
 
+import sitecustomize as sitecustom_shim
+
 SRC_PATH = str(sitecustom.SRC_DIR)
 REPO_ROOT = Path(__file__).resolve().parents[1]
+ENV_FLAG = sitecustom_shim.ENV_FLAG
 
 
 @pytest.fixture(autouse=True)
@@ -30,8 +34,12 @@ def test_maybe_apply_is_noop_without_opt_in(monkeypatch: pytest.MonkeyPatch) -> 
         raise AssertionError("joblib resolution should not occur when flag disabled")
 
     monkeypatch.setattr(importlib.util, "find_spec", boom)
+    baseline = [entry for entry in sys.path if entry != SRC_PATH]
+    monkeypatch.setattr(sys, "path", list(baseline))
+
     sitecustom.maybe_apply()
-    assert SRC_PATH not in sys.path
+
+    assert sys.path == baseline
 
 
 def test_apply_raises_when_joblib_points_inside_repo(
@@ -69,9 +77,7 @@ def test_apply_allows_repo_virtualenv_site_packages(
 
 def test_maybe_apply_inserts_src_when_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(sitecustom.ENV_FLAG, "1")
-    if SRC_PATH in sys.path:
-        sys.path.remove(SRC_PATH)
-
+    monkeypatch.setattr(sys, "path", [])
     sitecustom.maybe_apply()
 
     assert sys.path[0] == SRC_PATH
@@ -79,6 +85,7 @@ def test_maybe_apply_inserts_src_when_enabled(monkeypatch: pytest.MonkeyPatch) -
 
 def test_random_import_has_no_side_effects(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(sitecustom.ENV_FLAG, raising=False)
+    sys.modules.pop("trend_model._sitecustomize", None)
     list(sys.path)
 
     __import__("random")
@@ -92,10 +99,10 @@ def test_sitecustomize_default_import_is_idle(
     """Reloading the shim without the flag must not import the bootstrap
     module."""
 
-    monkeypatch.delenv(FLAG, raising=False)
+    monkeypatch.delenv(ENV_FLAG, raising=False)
     sys.modules.pop("trend_model._sitecustomize", None)
 
-    importlib.reload(sitecustomize)
+    importlib.reload(sitecustom_shim)
 
     assert "trend_model._sitecustomize" not in sys.modules
 
@@ -107,10 +114,10 @@ def test_opt_in_requires_exact_flag(
     """Only the explicit opt-in value should trigger the bootstrap shim."""
 
     with monkeypatch.context() as ctx:
-        ctx.setenv(FLAG, flag_value)
+        ctx.setenv(ENV_FLAG, flag_value)
         sys.modules.pop("trend_model._sitecustomize", None)
 
-        importlib.reload(sitecustomize)
+        importlib.reload(sitecustom_shim)
         assert "trend_model._sitecustomize" not in sys.modules
 
 

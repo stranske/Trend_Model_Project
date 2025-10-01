@@ -6,12 +6,13 @@ import importlib
 import importlib.util
 from pathlib import Path
 
-import joblib
 import pytest
 
 SITE_INDICATOR = {"site-packages", "dist-packages"}
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ALLOWED_INTERNAL_PREFIXES = {REPO_ROOT / name for name in (".venv", "venv", ".tox")}
+
+joblib = pytest.importorskip("joblib")
 
 ENTRYPOINT_MODULES = (
     "trend.cli",
