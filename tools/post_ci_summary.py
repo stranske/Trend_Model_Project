@@ -226,7 +226,7 @@ def render_failure_section(snapshot: Optional[FailureSnapshot]) -> Optional[str]
         occurrences = issue.get("occurrences") or ""
         last_seen = issue.get("last_seen") or ""
         url = issue.get("url")
-        issue_label = f"#{number}" if number is not None else ""  # type: ignore[str-bytes-safe]
+        issue_label = f"#{str(number)}" if number is not None else ""
         link = f"[link]({url})" if url else ""
         lines.append(f"| {issue_label} | {occurrences} | {last_seen} | {link} |")
     return "\n".join(lines)
