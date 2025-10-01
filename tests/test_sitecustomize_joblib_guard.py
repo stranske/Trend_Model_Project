@@ -106,6 +106,23 @@ def test_sitecustomize_default_import_is_idle(
     assert "trend_model._sitecustomize" not in sys.modules
 
 
+def test_sitecustomize_opt_in_triggers_bootstrap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Reloading the shim with the flag should apply the bootstrap helpers."""
+
+    sys.modules.pop("trend_model._sitecustomize", None)
+
+    with monkeypatch.context() as ctx:
+        ctx.setenv(ENV_FLAG, "1")
+        ctx.setattr(sys, "path", [str(REPO_ROOT)])
+
+        importlib.reload(sitecustom_shim)
+
+        assert sys.path[0] == SRC_PATH
+        assert "trend_model._sitecustomize" in sys.modules
+
+
 @pytest.mark.parametrize("flag_value", ["0", "", "true", "yes"])
 def test_opt_in_requires_exact_flag(
     monkeypatch: pytest.MonkeyPatch, flag_value: str
@@ -151,3 +168,20 @@ def test_bootstrap_noop_when_src_missing(monkeypatch: pytest.MonkeyPatch) -> Non
         module.bootstrap()
 
         assert sys.path == []
+
+
+def test_importing_opt_in_module_is_side_effect_free(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Importing the guarded module should not mutate interpreter globals."""
+
+    baseline = list(sys.path)
+
+    with monkeypatch.context() as ctx:
+        ctx.delenv(sitecustom.ENV_FLAG, raising=False)
+        ctx.setattr(sys, "path", list(baseline))
+        sys.modules.pop("trend_model._sitecustomize", None)
+
+        importlib.import_module("trend_model._sitecustomize")
+
+        assert sys.path == baseline
