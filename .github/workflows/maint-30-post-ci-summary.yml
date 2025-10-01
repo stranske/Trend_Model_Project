@@ -78,18 +78,7 @@ jobs:
 
             const { owner, repo } = context.repo;
             const headSha = run.head_sha;
-            const parseJsonInput = (raw, fallback) => {
-              if (!raw) {
-                return fallback;
-              }
-              try {
-                const parsed = JSON.parse(raw);
-                return parsed;
-              } catch (error) {
-                core.warning(`Failed to parse JSON input: ${error}`);
-                return fallback;
-              }
-            };
+# (Remove these lines entirely; use the helper defined earlier in the script block)
 
             const defaultWorkflowTargets = [
               { key: 'ci', display_name: 'CI', workflow_path: '.github/workflows/pr-10-ci-python.yml' },
