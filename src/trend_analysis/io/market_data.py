@@ -134,7 +134,7 @@ def _check_monotonic_index(index: pd.DatetimeIndex) -> list[str]:
     if not index.is_monotonic_increasing:
         # Identify the first offending timestamp for actionable feedback
         sorted_index = index.sort_values()
-        for original, ordered in zip(index, sorted_index, strict=False):
+        for original, ordered in zip(index, sorted_index, strict=True):
             if original != ordered:
                 issues.append(
                     "Date index must be sorted ascending. "
