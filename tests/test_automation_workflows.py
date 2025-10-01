@@ -27,6 +27,46 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         self.assertTrue(path.exists(), f"Expected workflow to exist: {name}")
         return yaml.safe_load(path.read_text(encoding="utf-8"))
 
+    def _iter_workflow_files(self) -> list[Path]:
+        """Return all workflow definitions regardless of YAML suffix."""
+
+        return sorted(
+            {
+                *self.workflows_dir.glob("*.yml"),
+                *self.workflows_dir.glob("*.yaml"),
+            }
+        )
+
+    def _iter_scalars(self, node: object) -> list[str]:
+        """Flatten nested YAML structures into their scalar string values."""
+
+        if isinstance(node, dict):
+            scalars: list[str] = []
+            for value in node.values():
+                scalars.extend(self._iter_scalars(value))
+            return scalars
+        if isinstance(node, list):
+            scalars = []
+            for value in node:
+                scalars.extend(self._iter_scalars(value))
+            return scalars
+        return [node] if isinstance(node, str) else []
+
+    def _iter_mappings(self, node: object) -> list[dict]:
+        """Yield every mapping found in a nested YAML document."""
+
+        if isinstance(node, dict):
+            mappings: list[dict] = [node]
+            for value in node.values():
+                mappings.extend(self._iter_mappings(value))
+            return mappings
+        if isinstance(node, list):
+            mappings: list[dict] = []
+            for value in node:
+                mappings.extend(self._iter_mappings(value))
+            return mappings
+        return []
+
     def _assert_contains(
         self, haystack: str, needles: list[str], *, context: str
     ) -> None:
@@ -99,6 +139,179 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         self.assertTrue(
             inputs.get("enable-soft-gate"), "CI should enable coverage soft gate"
         )
+
+        self.assertIn("gate", jobs, "CI workflow should expose aggregate gate job")
+        gate_job = jobs["gate"]
+        upstream_jobs = {name for name in jobs if name != "gate"}
+        self.assertEqual(
+            set(gate_job.get("needs", [])),
+            upstream_jobs,
+            "Gate job must aggregate every other CI job",
+        )
+        self.assertEqual(
+            gate_job.get("name"),
+            "gate / all-required-green",
+            "Gate job name should match required check label",
+        )
+        self.assertEqual(
+            set(gate_job.get("needs", [])),
+            {"tests", "workflow-automation", "style"},
+            "Gate job must aggregate core CI jobs",
+        )
+        self.assertEqual(
+            gate_job.get("if"),
+            "${{ always() }}",
+            "Gate job should run even when upstream jobs fail to report aggregate status",
+        )
+        self.assertTrue(
+            gate_job.get("steps"),
+            "Gate job should include at least one confirmation step",
+        )
+        gate_steps = [
+            step
+            for step in gate_job.get("steps", [])
+            if isinstance(step, dict)
+        ]
+        self.assertTrue(gate_steps, "Gate job must define at least one run step")
+
+        first_gate_step = gate_steps[0]
+        env_block = first_gate_step.get("env", {})
+        self.assertEqual(
+            env_block.get("NEEDS_CONTEXT"),
+            "${{ toJson(needs) }}",
+            "Gate step should expose needs context as JSON for parsing",
+        )
+
+        gate_step_runs = [
+            step.get("run", "")
+            for step in gate_steps
+        ]
+        self.assertTrue(
+            any("GITHUB_STEP_SUMMARY" in run for run in gate_step_runs),
+            "Gate job should write a summary of upstream results to the job summary",
+        )
+        self.assertTrue(
+            any("set -euo pipefail" in run for run in gate_step_runs),
+            "Gate job should harden its shell with `set -euo pipefail`",
+        )
+        self.assertTrue(
+            any("exit 1" in run for run in gate_step_runs),
+            "Gate job must exit non-zero when dependencies fail",
+        )
+        aggregated_script = "\n".join(gate_step_runs)
+        self.assertIn(
+            "Gate summary",
+            aggregated_script,
+            "Gate job should emit a human-readable gate summary section",
+        )
+        self.assertIn(
+            "jq -r 'keys[]'",
+            aggregated_script,
+            "Gate job should enumerate upstream job names dynamically via jq",
+        )
+        self.assertIn(
+            "jq -r --arg job \"$job\" '.[$job].result'",
+            aggregated_script,
+            "Gate job should use jq to read job results from the needs context",
+        )
+        self.assertIn(
+            "Gate job missing needs context",
+            aggregated_script,
+            "Gate job should fail fast if the needs context is absent",
+        )
+        self.assertIn(
+            "type == \"object\" and (keys | length) > 0",
+            aggregated_script,
+            "Gate job should verify the needs context contains at least one upstream job",
+        )
+        self.assertIn(
+            "Gate requires at least one upstream job",
+            aggregated_script,
+            "Gate job should report a clear error when no dependencies are configured",
+        )
+
+    def test_gate_workflow_file_is_absent(self) -> None:
+        for suffix in (".yml", ".yaml"):
+            with self.subTest(extension=suffix):
+                gate_path = self.workflows_dir / f"gate{suffix}"
+                self.assertFalse(
+                    gate_path.exists(),
+                    "Legacy gate workflow should remain deleted; rely on pr-10 gate job",
+                )
+
+    def test_workflows_do_not_define_invalid_marker_filters(self) -> None:
+        """Ensure pytest marker filters stay inside shell commands."""
+
+        invalid_expr = "not quarantine and not slow"
+
+        for workflow_path in self._iter_workflow_files():
+            with self.subTest(workflow=workflow_path.name):
+                loaded = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+                if loaded is None:
+                    continue
+                for scalar in self._iter_scalars(loaded):
+                    if scalar.strip() == invalid_expr:
+                        self.fail(
+                            "Detected bare pytest marker expression in %s; "
+                            "use shell commands (pytest -m) instead to avoid "
+                            "invalid YAML filters."
+                            % workflow_path.name
+                        )
+
+    def test_workflows_do_not_define_marker_filter_anchors(self) -> None:
+        """Block the legacy `_marker_filter` YAML anchor regression."""
+
+        for workflow_path in self._iter_workflow_files():
+            with self.subTest(workflow=workflow_path.name):
+                text = workflow_path.read_text(encoding="utf-8")
+                self.assertNotIn(
+                    "_marker_filter",
+                    text,
+                    (
+                        "Workflow %s contains `_marker_filter`; anchors defined inside jobs "
+                        "become invalid job keys. Keep marker filters embedded inside shell "
+                        "commands instead."
+                    )
+                    % workflow_path.name,
+                )
+
+    def test_workflow_conditions_do_not_reintroduce_marker_expression(self) -> None:
+        """Ensure `if:` conditionals avoid the invalid pytest marker syntax."""
+
+        invalid_expr = "not quarantine and not slow"
+
+        for workflow_path in self._iter_workflow_files():
+            with self.subTest(workflow=workflow_path.name):
+                loaded = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+                if loaded is None:
+                    continue
+                for mapping in self._iter_mappings(loaded):
+                    if "if" not in mapping:
+                        continue
+                    condition = mapping["if"]
+                    if isinstance(condition, str) and condition.strip() == invalid_expr:
+                        self.fail(
+                            "Workflow %s defines `if: %s`; move the marker expression into "
+                            "a shell command (pytest -m) so GitHub Actions treats it as "
+                            "CLI arguments rather than workflow condition syntax."
+                            % (workflow_path.name, invalid_expr)
+                        )
+
+    def test_workflows_do_not_reference_retired_gate_wrapper(self) -> None:
+        """Ensure no workflow tries to re-use the deleted gate.yml wrapper."""
+
+        for workflow_path in self._iter_workflow_files():
+            with self.subTest(workflow=workflow_path.name):
+                loaded = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+                if loaded is None:
+                    continue
+                for scalar in self._iter_scalars(loaded):
+                    if "gate.yml" in scalar:
+                        self.fail(
+                            "Workflow %s references the retired gate.yml wrapper via `%s`; "
+                            "rely on the gate job inside pr-10-ci-python.yml instead."
+                            % (workflow_path.name, scalar)
+                        )
 
     def test_reusable_ci_runs_tests_and_mypy(self) -> None:
         workflow = self._read_workflow("reusable-ci-python.yml")

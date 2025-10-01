@@ -5,6 +5,7 @@ name: CI
 # Remove after updating protection rules to reference granular jobs directly.
 
 on:
+  workflow_call:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   push:
@@ -220,5 +221,43 @@ jobs:
     name: gate / all-required-green
     runs-on: ubuntu-latest
     needs: [tests, workflow-automation, style]
+    if: ${{ always() }}
     steps:
-      - run: echo "Reusable CI completed successfully."
+      - name: Evaluate upstream results
+        env:
+          NEEDS_CONTEXT: ${{ toJson(needs) }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${NEEDS_CONTEXT:-}" ] || [ "${NEEDS_CONTEXT}" = "null" ]; then
+            echo "::error::Gate job missing needs context; ensure gate job declares dependencies via 'needs'."
+            exit 1
+          fi
+
+          if ! printf '%s' "$NEEDS_CONTEXT" | jq -e 'type == "object" and (keys | length) > 0' >/dev/null; then
+            echo "::error::Gate requires at least one upstream job; configure 'needs' to include CI lanes."
+            exit 1
+          fi
+
+          failures=""
+          summary="### Gate summary\n"
+
+          # Iterate over all jobs in the needs context dynamically
+          for job in $(echo "$NEEDS_CONTEXT" | jq -r 'keys[]'); do
+            result=$(echo "$NEEDS_CONTEXT" | jq -r --arg job "$job" '.[$job].result')
+            icon="✅"
+            if [ "$result" != "success" ]; then
+              icon="❌"
+              failures+="${job}=${result};"
+            fi
+            summary+="- ${icon} ${job} (${result})\n"
+          done
+
+          printf '%b' "$summary" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ -n "$failures" ]; then
+            echo "::error::Gate detected failing jobs: ${failures%?}"
+            exit 1
+          fi
+
+          echo "All upstream jobs succeeded."
