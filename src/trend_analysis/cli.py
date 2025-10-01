@@ -18,7 +18,7 @@ from . import pipeline
 from .api import run_simulation
 from .config import load_config
 from .constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
-from .data import load_csv
+from .io.market_data import MarketDataValidationError, load_market_data_csv
 from .perf.rolling_cache import set_cache_enabled
 
 APP_PATH = Path(__file__).resolve().parents[2] / "streamlit_app" / "app.py"
@@ -197,8 +197,12 @@ def main(argv: list[str] | None = None) -> int:
             setattr(cfg, "seed", int(cli_seed))
         elif env_seed is not None and env_seed.isdigit():
             setattr(cfg, "seed", int(env_seed))
-        df = load_csv(args.input)
-        assert df is not None  # narrow type for type-checkers
+        try:
+            validated = load_market_data_csv(args.input)
+        except MarketDataValidationError as exc:
+            print(exc.user_message, file=sys.stderr)
+            return 1
+        df = validated.frame
         split = cfg.sample_split
         required_keys = {"in_start", "in_end", "out_start", "out_end"}
         import uuid

@@ -5,33 +5,34 @@ from typing import IO, Any, Dict, List, Tuple
 
 import pandas as pd
 
-DATE_COL = "Date"
+from trend_analysis.io.market_data import (
+    MarketDataMetadata,
+    MarketDataValidationError,
+    validate_market_data,
+)
 
 
 class SchemaMeta(Dict[str, Any]):
     pass
 
 
+def _build_meta(metadata: MarketDataMetadata) -> SchemaMeta:
+    meta = SchemaMeta()
+    meta["original_columns"] = list(metadata.columns)
+    meta["n_rows"] = metadata.rows
+    meta["mode"] = metadata.mode.value
+    meta["frequency"] = metadata.frequency_label
+    meta["date_range"] = metadata.date_range
+    return meta
+
+
 def _validate_df(df: pd.DataFrame) -> Tuple[pd.DataFrame, SchemaMeta]:
-    if DATE_COL not in df.columns:
-        raise ValueError("Missing required 'Date' column.")
-    df[DATE_COL] = pd.to_datetime(df[DATE_COL])
-    df = df.set_index(DATE_COL).sort_index()
-    # Normalize to month-end timestamps
-    idx = pd.to_datetime(df.index)
-    df.index = pd.PeriodIndex(idx, freq="M").to_timestamp("M", how="end")
-    df = df.dropna(axis=1, how="all")
-    if df.shape[1] == 0:
-        raise ValueError("No return columns found after dropping empty columns.")
-    if df.columns.duplicated().any():
-        dups = df.columns[df.columns.duplicated()].tolist()
-        raise ValueError(f"Duplicate columns: {dups}")
-    for c in df.columns:
-        df[c] = pd.to_numeric(df[c], errors="coerce")
-    if not df.index.is_monotonic_increasing:
-        df = df.sort_index()
-    meta = SchemaMeta(original_columns=list(df.columns), n_rows=len(df))
-    return df, meta
+    try:
+        validated = validate_market_data(df)
+    except MarketDataValidationError as exc:
+        raise ValueError(exc.user_message) from exc
+    meta = _build_meta(validated.metadata)
+    return validated.frame, meta
 
 
 def load_and_validate_csv(file_like: IO[Any]) -> Tuple[pd.DataFrame, SchemaMeta]:

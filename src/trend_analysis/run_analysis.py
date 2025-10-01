@@ -28,9 +28,7 @@ def main(argv: list[str] | None = None) -> int:
     if csv_path is None:
         raise KeyError("cfg.data['csv_path'] must be provided")
 
-    df = load_csv(csv_path)
-    if df is None:
-        raise FileNotFoundError(csv_path)
+    df = load_csv(csv_path, errors="raise")
 
     # Use unified API instead of direct pipeline calls
     result = api.run_simulation(cfg, df)
