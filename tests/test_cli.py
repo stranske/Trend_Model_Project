@@ -7,6 +7,7 @@ import yaml
 from trend_analysis import cli
 from trend_analysis.api import RunResult
 from trend_analysis.constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
+from trend_analysis.io.market_data import MarketDataValidationError
 
 cache_first = {
     "entries": 1,
@@ -68,7 +69,7 @@ def _write_cfg(path: Path, version: str, *, csv_path: Path) -> None:
 def test_cli_version_custom(tmp_path, monkeypatch):
     cfg = tmp_path / "cfg.yml"
     csv = tmp_path / "data.csv"
-    csv.write_text("Date,RF\n2020-01-31,0.0\n")
+    csv.write_text("Date,RF\n2020-01-31,0.0\n2020-02-29,0.1\n")
     _write_cfg(cfg, "1.2.3", csv_path=csv)
 
     captured: dict[str, str] = {}
@@ -91,7 +92,7 @@ def test_cli_version_custom(tmp_path, monkeypatch):
 def test_cli_default_json(tmp_path, capsys, monkeypatch):
     cfg = tmp_path / "cfg.yml"
     csv = tmp_path / "data.csv"
-    csv.write_text("Date,RF\n2020-01-31,0.0\n")
+    csv.write_text("Date,RF\n2020-01-31,0.0\n2020-02-29,0.1\n")
     _write_cfg(cfg, "1", csv_path=csv)
 
     monkeypatch.setattr(cli.pipeline, "run", lambda cfg: pd.DataFrame())
@@ -101,6 +102,23 @@ def test_cli_default_json(tmp_path, capsys, monkeypatch):
     out = capsys.readouterr().out.strip()
     assert rc == 0
     assert out == "No results"
+
+
+def test_cli_reports_validation_error(tmp_path, capsys, monkeypatch):
+    cfg = tmp_path / "cfg.yml"
+    csv = tmp_path / "data.csv"
+    csv.write_text("Date,Fund\n2024-01-31,0.1\n")
+    _write_cfg(cfg, "1", csv_path=csv)
+
+    def raise_validation(*_args: object, **_kwargs: object) -> pd.DataFrame:
+        raise MarketDataValidationError("Duplicate timestamps detected: 2024-01-31")
+
+    monkeypatch.setattr(cli, "load_csv", raise_validation)
+
+    rc = cli.main(["run", "-c", str(cfg), "-i", str(csv)])
+    captured = capsys.readouterr()
+    assert rc == 1
+    assert "Duplicate timestamps" in captured.err
 
 
 def test_cli_run_legacy_bundle_and_exports(tmp_path, capsys, monkeypatch):
@@ -126,7 +144,9 @@ def test_cli_run_legacy_bundle_and_exports(tmp_path, capsys, monkeypatch):
     monkeypatch.setattr(
         cli,
         "load_csv",
-        lambda path: pd.DataFrame({"Date": pd.to_datetime(["2020-01-31"]), "A": [0.0]}),
+        lambda path, **_: pd.DataFrame(
+            {"Date": pd.to_datetime(["2020-01-31", "2020-02-29"]), "A": [0.0, 0.1]}
+        ),
     )
     monkeypatch.setattr(cli.pipeline, "run", lambda cfg: metrics_df)
     monkeypatch.setattr(cli.pipeline, "run_full", lambda cfg: results_payload)
@@ -270,7 +290,9 @@ def test_cli_run_modern_bundle_attaches_payload(tmp_path, capsys, monkeypatch):
     monkeypatch.setattr(
         cli,
         "load_csv",
-        lambda path: pd.DataFrame({"Date": pd.to_datetime(["2020-01-31"]), "A": [0.0]}),
+        lambda path, **_: pd.DataFrame(
+            {"Date": pd.to_datetime(["2020-01-31", "2020-02-29"]), "A": [0.0, 0.1]}
+        ),
     )
     monkeypatch.setattr(cli, "run_simulation", fake_run_simulation)
     monkeypatch.setattr(cli.export, "format_summary_text", lambda *a, **k: "summary")
@@ -354,7 +376,9 @@ def test_cli_run_env_seed_and_default_exports(tmp_path, capsys, monkeypatch):
     monkeypatch.setattr(
         cli,
         "load_csv",
-        lambda path: pd.DataFrame({"Date": pd.to_datetime(["2019-01-31"]), "A": [0.0]}),
+        lambda path, **_: pd.DataFrame(
+            {"Date": pd.to_datetime(["2019-01-31", "2019-02-28"]), "A": [0.0, 0.1]}
+        ),
     )
     monkeypatch.setattr(cli, "run_simulation", fake_run_simulation)
     monkeypatch.setattr(cli.export, "format_summary_text", lambda *a, **k: "summary")
@@ -485,7 +509,9 @@ def test_cli_run_uses_env_seed_and_populates_run_result(tmp_path, capsys, monkey
     monkeypatch.setattr(
         cli,
         "load_csv",
-        lambda path: pd.DataFrame({"Date": pd.to_datetime(["2020-01-31"]), "A": [0.0]}),
+        lambda path, **_: pd.DataFrame(
+            {"Date": pd.to_datetime(["2020-01-31", "2020-02-29"]), "A": [0.0, 0.1]}
+        ),
     )
     monkeypatch.setattr(cli, "run_simulation", lambda cfg, df: run_result)
 

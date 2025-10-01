@@ -1,12 +1,65 @@
 import logging
 import stat
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 import pandas as pd
 from pandas.api.types import is_datetime64_any_dtype
 
+from .io.market_data import MarketDataValidationError, validate_market_data
+
 logger = logging.getLogger(__name__)
+
+ValidationErrorMode = Literal["raise", "log"]
+
+
+def _finalise_validated_frame(
+    frame: pd.DataFrame, *, include_date_column: bool
+) -> pd.DataFrame:
+    if include_date_column:
+        result = frame.reset_index()
+        result.attrs = frame.attrs.copy()
+        return result
+    return frame
+
+
+def _normalise_numeric_strings(df: pd.DataFrame) -> pd.DataFrame:
+    cleaned = df.copy()
+    for col in cleaned.columns:
+        if col == "Date":
+            continue
+        series = cleaned[col]
+        if pd.api.types.is_numeric_dtype(series):
+            continue
+        coerced = series.astype(str).str.strip()
+        has_percent = coerced.str.contains("%", na=False).any()
+        coerced = coerced.str.replace(",", "", regex=False)
+        coerced = coerced.str.replace(r"^\((.*)\)$", r"-\1", regex=True)
+        coerced = coerced.str.replace("%", "", regex=False)
+        numeric = pd.to_numeric(coerced, errors="coerce")
+        if has_percent:
+            numeric = numeric * 0.01
+        if numeric.notna().any():
+            cleaned[col] = numeric
+    return cleaned
+
+
+def _validate_payload(
+    payload: pd.DataFrame,
+    *,
+    origin: str,
+    errors: ValidationErrorMode,
+    include_date_column: bool,
+) -> Optional[pd.DataFrame]:
+    payload = _normalise_numeric_strings(payload)
+    try:
+        validated = validate_market_data(payload, origin=origin)
+    except MarketDataValidationError as exc:
+        if errors == "raise":
+            raise
+        logger.error(f"Validation failed ({origin}): {exc}")
+        return None
+    return _finalise_validated_frame(validated, include_date_column=include_date_column)
 
 
 def _is_readable(mode: int) -> bool:
@@ -26,20 +79,16 @@ def _is_readable(mode: int) -> bool:
     return (mode & (stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)) != 0
 
 
-def load_csv(path: str) -> Optional[pd.DataFrame]:
-    """Load a CSV expecting a 'Date' column.
+def load_csv(
+    path: str,
+    *,
+    errors: ValidationErrorMode = "log",
+    include_date_column: bool = True,
+) -> Optional[pd.DataFrame]:
+    """Load and validate market data from a CSV file."""
 
-    Parameters
-    ----------
-    path : str
-        Path to the CSV file.
-
-    Returns
-    -------
-    pandas.DataFrame or None
-        The loaded DataFrame if successful, otherwise ``None``.
-    """
     p = Path(path)
+    origin = f"CSV file '{p}'"
     try:
         if not p.exists():
             raise FileNotFoundError(path)
@@ -47,110 +96,128 @@ def load_csv(path: str) -> Optional[pd.DataFrame]:
             raise IsADirectoryError(path)
         mode = p.stat().st_mode
         if not _is_readable(mode):
-            logger.error(f"Permission denied accessing file: {path}")
+            message = f"Permission denied accessing file: {path}"
+            if errors == "raise":
+                raise PermissionError(message)
+            logger.error(message)
             return None
-
-        df = pd.read_csv(str(p))
-        if "Date" in df.columns:
-            try:
-                df["Date"] = pd.to_datetime(df["Date"], format="%m/%d/%y")
-            except ValueError:
-                # Try generic parsing, but detect malformed dates
-                parsed_dates = pd.to_datetime(df["Date"], errors="coerce")
-                if parsed_dates.isnull().any():
-                    # Distinguish between null/empty dates and malformed string dates
-                    malformed_mask = parsed_dates.isnull()
-                    malformed_values = df.loc[malformed_mask, "Date"].tolist()
-
-                    # Check if these are null/empty dates (empty strings, NaN) vs malformed strings
-                    null_dates = [v for v in malformed_values if v == "" or pd.isna(v)]
-                    malformed_strings = [
-                        v for v in malformed_values if v != "" and not pd.isna(v)
-                    ]
-
-                    if malformed_strings:
-                        # Strict handling: reject entire file for malformed string dates
-                        malformed_count = len(malformed_strings)
-                        preview = malformed_strings[:5]
-                        tail = "..." if len(malformed_strings) > 5 else ""
-                        logger.error(
-                            (
-                                f"Validation failed ({path}): {malformed_count} malformed date(s) "
-                                f"that cannot be parsed: {preview}{tail}"
-                            )
-                        )
-                        return None
-                    elif null_dates:
-                        # Graceful handling: filter out null/empty dates but continue
-                        null_count = len(null_dates)
-                        null_preview = null_dates[:5]
-                        null_tail = "..." if len(null_dates) > 5 else ""
-                        logger.warning(
-                            (
-                                f"Found {null_count} null/empty date(s): {null_preview}{null_tail}. "
-                                "Removing these rows from the dataset."
-                            )
-                        )
-                        # Filter out rows with null dates
-                        valid_mask = ~malformed_mask
-                        df = df.loc[valid_mask].copy()
-                        parsed_dates = parsed_dates.loc[valid_mask]
-
-                        # If no valid dates remain, then return None
-                        if len(df) == 0:
-                            logger.error(
-                                (
-                                    f"No valid date rows remaining in {path} "
-                                    "after filtering null dates"
-                                )
-                            )
-                            return None
-
-                df["Date"] = parsed_dates
-        # Coerce non-Date columns to numeric when they look like strings
-        # (e.g., "0.56%", "1,234", or parentheses for negatives).
-        for col in df.columns:
-            if col == "Date":
-                continue
-            if not pd.api.types.is_numeric_dtype(df[col]):
-                s = df[col].astype(str).str.strip()
-                # Detect if this column contains percentage values
-                has_percent = s.str.contains("%", na=False).any()
-                # Normalize common formats: remove commas, convert (x) to -x, drop %
-                s = s.str.replace(",", "", regex=False)
-                s = s.str.replace(r"^\((.*)\)$", r"-\1", regex=True)
-                s = s.str.replace("%", "", regex=False)
-                s = pd.to_numeric(s, errors="coerce")
-                if has_percent:
-                    # Use pandas-aware operation to satisfy type checkers
-                    s = getattr(s, "multiply")(0.01)
-                # If conversion produced some numbers, adopt it
-                if pd.api.types.is_numeric_dtype(s):
-                    df[col] = s
+        df = pd.read_csv(p)
     except FileNotFoundError:
-        logger.error(f"File not found: {path}")
+        message = f"File not found: {path}"
+        if errors == "raise":
+            raise
+        logger.error(message)
         return None
     except PermissionError:
-        logger.error(f"Permission denied accessing file: {path}")
+        message = f"Permission denied accessing file: {path}"
+        if errors == "raise":
+            raise
+        logger.error(message)
         return None
     except IsADirectoryError:
-        logger.error(f"Path is a directory, not a file: {path}")
+        message = f"Path is a directory, not a file: {path}"
+        if errors == "raise":
+            raise
+        logger.error(message)
         return None
     except pd.errors.EmptyDataError:
-        logger.error(f"No data in file: {path}")
+        message = f"No data in file: {path}"
+        if errors == "raise":
+            raise
+        logger.error(message)
         return None
     except pd.errors.ParserError as exc:
-        logger.error(f"Parsing error in {path}: {exc}")
+        message = f"Parsing error in {path}: {exc}"
+        if errors == "raise":
+            raise
+        logger.error(message)
         return None
 
-    if "Date" not in df.columns:
-        logger.error(f"Validation failed ({path}): missing 'Date' column")
+    return _validate_payload(
+        df,
+        origin=origin,
+        errors=errors,
+        include_date_column=include_date_column,
+    )
+
+
+def load_parquet(
+    path: str,
+    *,
+    errors: ValidationErrorMode = "log",
+    include_date_column: bool = True,
+) -> Optional[pd.DataFrame]:
+    """Load and validate market data from a Parquet file."""
+
+    p = Path(path)
+    origin = f"Parquet file '{p}'"
+    try:
+        if not p.exists():
+            raise FileNotFoundError(path)
+        if p.is_dir():
+            raise IsADirectoryError(path)
+        mode = p.stat().st_mode
+        if not _is_readable(mode):
+            message = f"Permission denied accessing file: {path}"
+            if errors == "raise":
+                raise PermissionError(message)
+            logger.error(message)
+            return None
+        df = pd.read_parquet(p)
+    except FileNotFoundError:
+        message = f"File not found: {path}"
+        if errors == "raise":
+            raise
+        logger.error(message)
+        return None
+    except PermissionError:
+        message = f"Permission denied accessing file: {path}"
+        if errors == "raise":
+            raise
+        logger.error(message)
+        return None
+    except IsADirectoryError:
+        message = f"Path is a directory, not a file: {path}"
+        if errors == "raise":
+            raise
+        logger.error(message)
+        return None
+    except ValueError as exc:
+        message = f"Unable to read Parquet file {path}: {exc}"
+        if errors == "raise":
+            raise
+        logger.error(message)
+        return None
+    except ImportError as exc:
+        message = f"Missing Parquet engine while reading {path}: {exc}"
+        if errors == "raise":
+            raise
+        logger.error(message)
         return None
 
-    if df["Date"].isnull().any():
-        logger.warning(f"Null values found in 'Date' column of {path}")
+    return _validate_payload(
+        df,
+        origin=origin,
+        errors=errors,
+        include_date_column=include_date_column,
+    )
 
-    return df
+
+def validate_dataframe(
+    frame: pd.DataFrame,
+    *,
+    errors: ValidationErrorMode = "log",
+    include_date_column: bool = False,
+    origin: str = "DataFrame input",
+) -> Optional[pd.DataFrame]:
+    """Validate an in-memory DataFrame using the market data contract."""
+
+    return _validate_payload(
+        frame,
+        origin=origin,
+        errors=errors,
+        include_date_column=include_date_column,
+    )
 
 
 def identify_risk_free_fund(df: pd.DataFrame) -> Optional[str]:
@@ -206,4 +273,10 @@ def ensure_datetime(df: pd.DataFrame, column: str = "Date") -> pd.DataFrame:
     return df
 
 
-__all__ = ["load_csv", "identify_risk_free_fund", "ensure_datetime"]
+__all__ = [
+    "load_csv",
+    "load_parquet",
+    "validate_dataframe",
+    "identify_risk_free_fund",
+    "ensure_datetime",
+]

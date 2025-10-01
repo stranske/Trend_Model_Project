@@ -32,7 +32,7 @@ def test_cli_respects_no_cache_flag(monkeypatch, tmp_path):
     )
 
     monkeypatch.setattr(cli, "load_config", lambda path: cfg)
-    monkeypatch.setattr(cli, "load_csv", lambda path: df.copy())
+    monkeypatch.setattr(cli, "load_csv", lambda path, **_: df.copy())
 
     toggles: list[bool] = []
     monkeypatch.setattr(

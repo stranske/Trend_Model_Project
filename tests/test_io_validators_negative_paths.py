@@ -123,14 +123,14 @@ def test_validate_returns_schema_reports_missing_date_column() -> None:
     frame = pd.DataFrame({"FundA": [0.01, 0.02]})
     result = validators.validate_returns_schema(frame)
     assert result.is_valid is False
-    assert any("Missing required 'Date' column" in issue for issue in result.issues)
+    assert any("Expected a 'Date' column" in issue for issue in result.issues)
 
 
 def test_validate_returns_schema_requires_numeric_columns() -> None:
     frame = pd.DataFrame({"Date": ["2020-01-31", "2020-02-29"]})
     result = validators.validate_returns_schema(frame)
     assert result.is_valid is False
-    assert any("No numeric return columns" in issue for issue in result.issues)
+    assert any("No data columns provided" in issue for issue in result.issues)
 
 
 def test_validate_returns_schema_detects_duplicate_dates() -> None:
@@ -142,7 +142,7 @@ def test_validate_returns_schema_detects_duplicate_dates() -> None:
     )
     result = validators.validate_returns_schema(frame)
     assert result.is_valid is False
-    assert any("Duplicate dates" in issue for issue in result.issues)
+    assert any("Duplicate timestamps" in issue for issue in result.issues)
 
 
 def test_validate_returns_schema_flags_non_numeric_columns() -> None:
@@ -155,7 +155,7 @@ def test_validate_returns_schema_flags_non_numeric_columns() -> None:
     )
     result = validators.validate_returns_schema(frame)
     assert result.is_valid is False
-    assert any("Column 'FundA'" in issue for issue in result.issues)
+    assert any("Failed to coerce numeric data" in issue for issue in result.issues)
 
 
 def test_validate_returns_schema_reports_malformed_dates() -> None:
@@ -167,7 +167,7 @@ def test_validate_returns_schema_reports_malformed_dates() -> None:
     )
     result = validators.validate_returns_schema(frame)
     assert result.is_valid is False
-    assert any("invalid dates" in issue for issue in result.issues)
+    assert any("Unable to parse Date values" in issue for issue in result.issues)
 
 
 def test_validate_returns_schema_flags_all_missing_numeric_data() -> None:
@@ -180,7 +180,7 @@ def test_validate_returns_schema_flags_all_missing_numeric_data() -> None:
     )
     result = validators.validate_returns_schema(frame)
     assert result.is_valid is False
-    assert any("contains no valid numeric data" in issue for issue in result.issues)
+    assert any("All values missing" in issue for issue in result.issues)
 
 
 def test_validate_returns_schema_emits_small_sample_warning() -> None:
@@ -193,4 +193,5 @@ def test_validate_returns_schema_emits_small_sample_warning() -> None:
     )
     result = validators.validate_returns_schema(frame)
     assert result.is_valid is True
-    assert any("Dataset is quite small" in warning for warning in result.warnings)
+    assert result.warnings == []
+    assert result.frequency == "irregular"

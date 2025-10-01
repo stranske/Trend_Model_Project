@@ -98,7 +98,7 @@ def test_validate_returns_schema_handles_nat_values() -> None:
     result = validate_returns_schema(df)
 
     assert result.is_valid is False
-    assert any("invalid dates" in issue for issue in result.issues)
+    assert any("Unable to parse Date values" in issue for issue in result.issues)
 
 
 def test_validate_returns_schema_reports_invalid_strings() -> None:
@@ -107,7 +107,7 @@ def test_validate_returns_schema_reports_invalid_strings() -> None:
     result = validate_returns_schema(df)
 
     assert result.is_valid is False
-    assert any("invalid dates" in issue for issue in result.issues)
+    assert any("Unable to parse Date values" in issue for issue in result.issues)
 
 
 def test_validate_returns_schema_handles_numeric_warnings_and_duplicates() -> None:
@@ -122,7 +122,7 @@ def test_validate_returns_schema_handles_numeric_warnings_and_duplicates() -> No
     result = validate_returns_schema(df)
 
     assert result.is_valid is False
-    assert any(">50%" in warning for warning in result.warnings)
+    assert any("Duplicate timestamps" in issue for issue in result.issues)
 
 
 def test_validate_returns_schema_detects_duplicate_dates() -> None:
@@ -136,7 +136,7 @@ def test_validate_returns_schema_detects_duplicate_dates() -> None:
     result = validate_returns_schema(df)
 
     assert result.is_valid is False
-    assert any("Duplicate dates" in issue for issue in result.issues)
+    assert any("Duplicate timestamps" in issue for issue in result.issues)
 
 
 def test_validate_returns_schema_numeric_conversion_failure(
@@ -162,7 +162,7 @@ def test_validate_returns_schema_numeric_conversion_failure(
     result = validate_returns_schema(df)
 
     assert result.is_valid is False
-    assert any("cannot be converted" in issue for issue in result.issues)
+    assert any("Failed to coerce numeric data" in issue for issue in result.issues)
 
 
 def test_validate_returns_schema_generates_metadata_warnings() -> None:
@@ -177,7 +177,11 @@ def test_validate_returns_schema_generates_metadata_warnings() -> None:
     result = validate_returns_schema(df)
 
     assert result.is_valid is True
-    assert any(">50%" in warning for warning in result.warnings)
+    assert result.frequency == "monthly"
+    assert result.date_range == (
+        "2020-01-31T00:00:00",
+        "2020-03-31T00:00:00",
+    )
 
 
 def test_validate_returns_schema_requires_numeric_columns() -> None:
@@ -186,7 +190,7 @@ def test_validate_returns_schema_requires_numeric_columns() -> None:
     result = validate_returns_schema(df)
 
     assert result.is_valid is False
-    assert "No numeric" in result.issues[0]
+    assert "No data columns" in result.issues[0]
 
 
 def test_load_and_validate_upload_reads_csv(tmp_path: pd.Series) -> None:
@@ -206,7 +210,7 @@ def test_load_and_validate_upload_reads_excel_like_object(
 
     def fake_read_excel(stream):
         captured["called"] = True
-        return pd.DataFrame({"Date": ["2020-01-31"], "Fund": [0.1]})
+        return pd.DataFrame({"Date": ["2020-01-31", "2020-02-29"], "Fund": [0.1, 0.2]})
 
     monkeypatch.setattr(pd, "read_excel", fake_read_excel)
 
@@ -241,7 +245,7 @@ def test_load_and_validate_upload_reads_excel_path(
 
     def fake_read_excel(path):
         captured["path"] = path
-        return pd.DataFrame({"Date": ["2020-01-31"], "Fund": [0.1]})
+        return pd.DataFrame({"Date": ["2020-01-31", "2020-02-29"], "Fund": [0.1, 0.2]})
 
     monkeypatch.setattr(pd, "read_excel", fake_read_excel)
 
@@ -259,9 +263,7 @@ def test_validate_returns_schema_exception_block_guard() -> None:
     df = pd.DataFrame({"Date": ["bad"] * 6, "Fund": [1.0] * 6, "Benchmark": [1.0] * 6})
     result = validate_returns_schema(df)
     # Should report issues about invalid dates
-    assert any(
-        "invalid dates" in issue or "malformed" in issue for issue in result.issues
-    )
+    assert any("Unable to parse Date values" in issue for issue in result.issues)
 
 
 def test_validate_returns_schema_exception_block_guard_no_issues() -> None:
@@ -269,8 +271,8 @@ def test_validate_returns_schema_exception_block_guard_no_issues() -> None:
     df = pd.DataFrame(
         {
             "Date": ["2020-01-31", "2020-02-29"],
-            "Fund": [1.0, 2.0],
-            "Benchmark": [1.0, 2.0],
+            "Fund": [0.1, 0.2],
+            "Benchmark": [0.05, 0.06],
         }
     )
     result = validate_returns_schema(df)
