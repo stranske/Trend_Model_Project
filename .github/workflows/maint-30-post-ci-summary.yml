@@ -1,0 +1,87 @@
+name: Post CI Summary
+
+on:
+  workflow_run:
+    workflows: ["CI", "Docker"]
+    types: [completed]
+
+concurrency:
+  group: post-ci-summary-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: read
+  actions: read
+
+jobs:
+  summarize:
+    if: >
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.pull_requests[0].number
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Discover workflow runs for head SHA
+        id: runs
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { owner, repo } = context.repo;
+            const headSha = context.payload.workflow_run.head_sha;
+
+            async function latestRun(workflowFile) {
+              const response = await github.rest.actions.listWorkflowRuns({
+                owner,
+                repo,
+                workflow_id: workflowFile,
+                head_sha: headSha,
+                event: 'pull_request',
+                per_page: 1,
+              });
+              return response.data.workflow_runs?.[0]?.id ?? '';
+            }
+
+            const ciRunId = await latestRun('pr-10-ci-python.yml');
+            const dockerRunId = await latestRun('pr-12-docker-smoke.yml');
+
+            core.setOutput('ci', String(ciRunId || ''));
+            core.setOutput('docker', String(dockerRunId || ''));
+
+      - name: Download CI artifacts
+        if: steps.runs.outputs.ci
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ steps.runs.outputs.ci }}
+          pattern: '*'
+          merge-multiple: true
+          path: summary_artifacts
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download Docker artifacts
+        if: steps.runs.outputs.docker && steps.runs.outputs.docker != steps.runs.outputs.ci
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ steps.runs.outputs.docker }}
+          pattern: '*'
+          merge-multiple: true
+          path: summary_artifacts
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Render and upsert Automated Status Summary
+        env:
+          SUMMARY_ARTIFACTS_DIR: summary_artifacts
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python tools/post_ci_summary.py
+
+      - name: Append comment preview to job summary
+        if: always()
+        run: |
+          if [ -f summary_artifacts/comment_preview.md ]; then
+            cat summary_artifacts/comment_preview.md >> "$GITHUB_STEP_SUMMARY"
+          fi
