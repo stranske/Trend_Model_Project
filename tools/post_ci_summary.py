@@ -72,7 +72,7 @@ def _priority(state: str | None) -> int:
 
 
 def _combine_states(states: Iterable[str | None]) -> str:
-    lowered: List[str] = [s.lower() for s in states if s]
+    lowered: List[str] = [s.lower() for s in states if isinstance(s, str) and s]
     if not lowered:
         return "missing"
     for candidate in ("failure", "cancelled", "timed_out", "action_required"):
