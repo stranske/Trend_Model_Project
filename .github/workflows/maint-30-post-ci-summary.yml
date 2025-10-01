@@ -78,7 +78,18 @@ jobs:
 
             const { owner, repo } = context.repo;
             const headSha = run.head_sha;
-# (Remove these lines entirely; use the helper defined earlier in the script block)
+
+            const parseJsonInput = (raw, fallback) => {
+              if (!raw) {
+                return fallback;
+              }
+              try {
+                return JSON.parse(raw);
+              } catch (error) {
+                core.warning(`Failed to parse JSON input: ${error}`);
+                return fallback;
+              }
+            };
 
             const defaultWorkflowTargets = [
               { key: 'ci', display_name: 'CI', workflow_path: '.github/workflows/pr-10-ci-python.yml' },
@@ -211,6 +222,8 @@ jobs:
             const dockerRun = runs.find(r => r.key === 'docker' && r.present);
             core.setOutput('ci_run_id', ciRun ? String(ciRun.id) : '');
             core.setOutput('docker_run_id', dockerRun ? String(dockerRun.id) : '');
+      - name: Check out repository
+        uses: actions/checkout@v4
       - name: Download coverage summary
         if: ${{ steps.gather.outputs.ci_run_id }}
         uses: actions/download-artifact@v4
@@ -333,232 +346,14 @@ jobs:
           fi
       - name: Prepare summary body
         id: prep
-        uses: actions/github-script@v7
+        run: |
+          python tools/post_ci_summary.py
         env:
           RUNS_JSON: ${{ steps.gather.outputs.runs }}
           HEAD_SHA: ${{ steps.gather.outputs.head_sha }}
           COVERAGE_SECTION: ${{ steps.coverage_summary.outputs.body }}
           COVERAGE_STATS: ${{ steps.coverage_stats.outputs.stats_json }}
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const runs = JSON.parse(process.env.RUNS_JSON || '[]');
-            const headSha = process.env.HEAD_SHA || '';
-            const coverageSection = (process.env.COVERAGE_SECTION || '').trim();
-            let coverageStats = {};
-            try {
-              coverageStats = JSON.parse(process.env.COVERAGE_STATS || '{}');
-            } catch (error) {
-              coverageStats = {};
-            }
-
-            const parseJsonInput = (raw, fallback) => {
-              if (!raw) {
-                return fallback;
-              }
-              try {
-                return JSON.parse(raw);
-              } catch (error) {
-                core.warning(`Failed to parse JSON input: ${error}`);
-                return fallback;
-              }
-            };
-
-            const defaultJobGroups = [
-              { label: 'CI tests', patterns: ['^main / tests(?: /|$)'] },
-              { label: 'CI workflow-automation', patterns: ['^workflow / automation-tests(?: /|$)'] },
-              { label: 'CI style', patterns: ['^main / style(?: /|$)'] },
-              { label: 'CI gate', patterns: ['^gate / all-required-green$'] },
-            ];
-
-            const jobGroupConfigsInput = parseJsonInput(process.env.REQUIRED_JOB_GROUPS_JSON, defaultJobGroups);
-            const jobGroupConfigsSource = Array.isArray(jobGroupConfigsInput) ? jobGroupConfigsInput : defaultJobGroups;
-            const jobGroupConfigs = jobGroupConfigsSource
-              .map((group) => {
-                const label = group.label || group.name || '';
-                const patternList = Array.isArray(group.patterns) ? group.patterns : [];
-                const regexes = [];
-                for (const pattern of patternList) {
-                  try {
-                    regexes.push(new RegExp(pattern));
-                  } catch (error) {
-                    core.warning(`Invalid required job pattern "${pattern}" for group "${label}": ${error}`);
-                  }
-                }
-                return { label, regexes };
-              })
-              .filter((group) => group.label && group.regexes.length);
-
-            const badge = (state) => {
-              if (!state) return '⏳';
-              const normalized = String(state).toLowerCase();
-              if (['success'].includes(normalized)) return '✅';
-              if (['failure', 'cancelled', 'timed_out', 'action_required'].includes(normalized)) return '❌';
-              if (['skipped'].includes(normalized)) return '⏭️';
-              if (['in_progress', 'queued', 'waiting', 'requested'].includes(normalized)) return '⏳';
-              return '⏳';
-            };
-
-            const combineStates = (states) => {
-              const list = states.map(s => (s || '').toLowerCase()).filter(Boolean);
-              if (!list.length) return 'missing';
-              const failureStates = ['failure', 'cancelled', 'timed_out', 'action_required'];
-              const pendingStates = ['in_progress', 'queued', 'waiting', 'requested'];
-              const failure = list.find(state => failureStates.includes(state));
-              if (failure) return failure;
-              const pending = list.find(state => pendingStates.includes(state));
-              if (pending) return pending;
-              if (list.every(state => state === 'skipped')) return 'skipped';
-              if (list.includes('success')) return 'success';
-              return list[0];
-            };
-
-            const priorityOrder = (state) => {
-              const normalized = (state || '').toLowerCase();
-              if (['failure', 'cancelled', 'timed_out', 'action_required'].includes(normalized)) return 0;
-              if (normalized === 'success') return 1;
-              if (normalized === 'skipped') return 2;
-              if (['in_progress', 'queued', 'waiting', 'requested'].includes(normalized)) return 3;
-              return 4;
-            };
-
-            const rows = [];
-            for (const run of runs) {
-              if (!run || !run.present || !Array.isArray(run.jobs)) {
-                continue;
-              }
-
-              for (const job of run.jobs) {
-                const state = job.conclusion || job.status;
-                const rowName = `${run.displayName} / ${job.name}`;
-                const highlight = ['failure', 'cancelled', 'timed_out', 'action_required'].includes((state || '').toLowerCase());
-                const safeName = highlight ? `**${rowName}**` : rowName;
-                rows.push({
-                  name: safeName,
-                  state,
-                  badge: badge(state),
-                  url: job.html_url,
-                });
-              }
-            }
-
-            rows.sort((a, b) => {
-              const order = priorityOrder(a.state) - priorityOrder(b.state);
-              if (order !== 0) return order;
-              return a.name.localeCompare(b.name);
-            });
-
-            const jobTable = rows.length
-              ? ['| Workflow / Job | Result | Logs |', '|----------------|--------|------|', ...rows.map(row => {
-                  const link = row.url ? `[logs](${row.url})` : '—';
-                  return `| ${row.name} | ${row.badge} ${row.state || 'unknown'} | ${link} |`;
-                })]
-              : ['| Workflow / Job | Result | Logs |', '|----------------|--------|------|', '| _(no jobs reported)_ | ⏳ pending | — |'];
-
-            const requiredSegments = [];
-
-            const ciRun = runs.find(r => r.key === 'ci');
-            if (ciRun && ciRun.present) {
-              const jobs = Array.isArray(ciRun.jobs) ? ciRun.jobs : [];
-              if (jobGroupConfigs.length) {
-                for (const group of jobGroupConfigs) {
-                  const matches = jobs.filter((job) => {
-                    const name = job.name || '';
-                    return group.regexes.some((regex) => regex.test(name));
-                  });
-                  const state = combineStates(matches.map(job => job.conclusion || job.status));
-                  requiredSegments.push(`${group.label}: ${badge(state)} ${state}`);
-                }
-              } else {
-                const overallState = combineStates(jobs.map(job => job.conclusion || job.status));
-                requiredSegments.push(`CI: ${badge(overallState)} ${overallState}`);
-              }
-            } else {
-              requiredSegments.push('CI: ⏳ pending');
-            }
-
-            const dockerRun = runs.find(r => r.key === 'docker');
-            if (dockerRun && dockerRun.present) {
-              const state = dockerRun.conclusion || dockerRun.status || 'unknown';
-              requiredSegments.push(`Docker: ${badge(state)} ${state}`);
-            } else {
-              requiredSegments.push('Docker: ⏳ pending');
-            }
-
-            const latestRunLine = runs.map(run => {
-              if (!run || !run.present) {
-                return `${run.displayName}: pending`;
-              }
-              const attemptSuffix = run.run_attempt && run.run_attempt > 1 ? ` (attempt ${run.run_attempt})` : '';
-              const label = `${run.displayName} (#${run.id}${attemptSuffix})`;
-              if (run.html_url) {
-                return `[${label}](${run.html_url})`;
-              }
-              return label;
-            }).join(' · ');
-
-            const coverageLines = [];
-            const fmtDelta = (value) => {
-              if (value === null || value === undefined) return null;
-              const num = Number(value);
-              if (Number.isNaN(num)) return null;
-              const sign = num > 0 ? '+' : '';
-              return `${sign}${num.toFixed(2)} pp`;
-            };
-
-            if (coverageStats && typeof coverageStats === 'object') {
-              const avgLineParts = [];
-              if (coverageStats.avg_latest !== undefined && coverageStats.avg_latest !== null) {
-                avgLineParts.push(`avg ${Number(coverageStats.avg_latest).toFixed(2)}%`);
-              }
-              const avgDelta = fmtDelta(coverageStats.avg_delta);
-              if (avgDelta) {
-                avgLineParts.push(`Δ ${avgDelta}`);
-              }
-              if (avgLineParts.length) {
-                coverageLines.push(`- Coverage (jobs): ${avgLineParts.join(' | ')}`);
-              }
-
-              const worstLineParts = [];
-              if (coverageStats.worst_latest !== undefined && coverageStats.worst_latest !== null) {
-                worstLineParts.push(`worst ${Number(coverageStats.worst_latest).toFixed(2)}%`);
-              }
-              const worstDelta = fmtDelta(coverageStats.worst_delta);
-              if (worstDelta) {
-                worstLineParts.push(`Δ ${worstDelta}`);
-              }
-              if (worstLineParts.length) {
-                coverageLines.push(`- Coverage (worst job): ${worstLineParts.join(' | ')}`);
-              }
-
-              if (typeof coverageStats.history_len === 'number') {
-                coverageLines.push(`- Coverage history entries: ${coverageStats.history_len}`);
-              }
-            }
-
-            const coverageBlock = [];
-            if (coverageLines.length) {
-              coverageBlock.push('### Coverage Overview', coverageLines.join('\n'));
-            }
-            if (coverageSection) {
-              coverageBlock.push(coverageSection);
-            }
-
-            const body = [
-              '<!-- post-ci-summary:do-not-edit -->',
-              '### Automated Status Summary',
-              headSha ? `**Head SHA:** ${headSha}` : null,
-              latestRunLine ? `**Latest Runs:** ${latestRunLine}` : null,
-              requiredSegments.length ? `**Required:** ${requiredSegments.join(', ')}` : null,
-              '',
-              ...jobTable,
-              '',
-              ...coverageBlock,
-              coverageBlock.length ? '' : null,
-              '_Updated automatically; will refresh on subsequent CI/Docker completions._',
-            ].filter(Boolean).join('\n');
-
-            core.setOutput('body', body);
+          REQUIRED_JOB_GROUPS_JSON: ${{ env.REQUIRED_JOB_GROUPS_JSON }}
       - name: Upsert summary comment
         uses: actions/github-script@v7
         env:
