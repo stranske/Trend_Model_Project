@@ -45,8 +45,8 @@ def _build_meta(validated: ValidatedMarketData) -> SchemaMeta:
     meta = SchemaMeta()
     meta["metadata"] = metadata
     meta["validation"] = _build_validation_report(validated)
-    meta["original_columns"] = list(metadata.columns)
-    meta["symbols"] = list(metadata.columns)
+    meta["original_columns"] = list(metadata.columns or metadata.symbols)
+    meta["symbols"] = list(metadata.symbols)
     meta["n_rows"] = metadata.rows
     meta["mode"] = metadata.mode.value
     meta["frequency"] = metadata.frequency_label

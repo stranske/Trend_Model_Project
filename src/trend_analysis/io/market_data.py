@@ -15,7 +15,7 @@ from typing import Any, Iterable, Iterator, List, Sequence, Tuple
 
 import pandas as pd
 from pandas.api.types import is_numeric_dtype
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 # ---------------------------------------------------------------------------
 # Frequency helpers
@@ -59,10 +59,21 @@ class MarketDataMetadata(BaseModel):
     end: datetime
     rows: int
     columns: List[str] = Field(default_factory=list)
+    symbols: List[str] = Field(default_factory=list)
 
     @property
     def date_range(self) -> Tuple[str, str]:
         return self.start.strftime("%Y-%m-%d"), self.end.strftime("%Y-%m-%d")
+
+    @model_validator(mode="after")
+    def _sync_symbols(self) -> "MarketDataMetadata":
+        """Keep the ``columns`` and ``symbols`` fields aligned."""
+
+        if not self.symbols and self.columns:
+            self.symbols = list(self.columns)
+        elif self.symbols and not self.columns:
+            self.columns = list(self.symbols)
+        return self
 
 
 @dataclass(slots=True, frozen=True)
@@ -357,6 +368,7 @@ def validate_market_data(
         end=numeric_frame.index.max().to_pydatetime(),
         rows=len(numeric_frame),
         columns=list(numeric_frame.columns),
+        symbols=list(numeric_frame.columns),
     )
 
     validated = numeric_frame.sort_index()
@@ -416,6 +428,7 @@ def attach_metadata(frame: pd.DataFrame, metadata: MarketDataMetadata) -> pd.Dat
             "end": metadata.end.isoformat(),
             "rows": metadata.rows,
             "columns": list(metadata.columns),
+            "symbols": list(metadata.symbols),
         }
     )
     return frame

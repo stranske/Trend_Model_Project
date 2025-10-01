@@ -29,6 +29,7 @@ def test_validate_market_data_happy_path_returns() -> None:
     assert meta["frequency"] == "monthly"
     assert pd.Timestamp(meta["start"]) == validated.index.min()
     assert pd.Timestamp(meta["end"]) == validated.index.max()
+    assert meta["symbols"] == ["FundA", "FundB"]
 
 
 def test_validate_market_data_duplicate_dates() -> None:
@@ -71,6 +72,7 @@ def test_validate_market_data_price_mode_detection() -> None:
     meta = validated.attrs.get("market_data", {})
     assert meta["mode"] == "prices"
     assert meta["frequency"] in {"daily", "business-daily"}
+    assert meta["symbols"] == ["Asset"]
 
 
 def test_validate_market_data_mixed_modes_detected() -> None:
