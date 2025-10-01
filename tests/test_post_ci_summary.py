@@ -1,4 +1,6 @@
 """Unit tests for the post-CI summary helpers."""
+from pathlib import Path
+
 from tools.post_ci_summary import (
     CoverageDetails,
     FailureSnapshot,
@@ -8,6 +10,8 @@ from tools.post_ci_summary import (
     WorkflowSummary,
     build_comment_body,
     combine_states,
+    load_coverage_details,
+    load_failure_snapshot,
     render_coverage_section,
     render_job_table,
     summarize_requirements,
@@ -90,3 +94,49 @@ def test_build_comment_body_combines_sections() -> None:
     assert "### Coverage (soft gate)" in body
     assert "### Open Failure Signatures" in body
     assert "deadbeef" in body
+
+
+def test_load_coverage_details_reads_latest_and_deltas(tmp_path: Path) -> None:
+    artifacts = tmp_path
+    (artifacts / "coverage_summary.md").write_text("| file | % |\n| a | 50 |", encoding="utf-8")
+    (artifacts / "coverage-trend.json").write_text(
+        '{"avg_coverage": 48.5, "worst_job_coverage": 20.0}',
+        encoding="utf-8",
+    )
+    (artifacts / "coverage-trend-history.json").write_text(
+        (
+            "[\n"
+            "  {\"avg_coverage\": 47.0, \"worst_job_coverage\": 18.0},\n"
+            "  {\"avg_coverage\": 48.5, \"worst_job_coverage\": 20.0}\n"
+            "]"
+        ),
+        encoding="utf-8",
+    )
+
+    details = load_coverage_details(artifacts)
+
+    assert details.table_markdown == "| file | % |\n| a | 50 |"
+    assert details.avg_latest == 48.5
+    assert details.worst_latest == 20.0
+    assert details.avg_delta == 1.5
+    assert details.worst_delta == 2.0
+
+
+def test_load_failure_snapshot_filters_invalid_entries(tmp_path: Path) -> None:
+    artifacts = tmp_path
+    (artifacts / "ci_failures_snapshot.json").write_text(
+        (
+            "{\n"
+            "  \"issues\": [\n"
+            "    {\"number\": 101, \"url\": \"https://example.com\"},\n"
+            "    \"not-a-dict\"\n"
+            "  ]\n"
+            "}\n"
+        ),
+        encoding="utf-8",
+    )
+
+    snapshot = load_failure_snapshot(artifacts)
+
+    assert snapshot is not None
+    assert snapshot.issues == [{"number": 101, "url": "https://example.com"}]
