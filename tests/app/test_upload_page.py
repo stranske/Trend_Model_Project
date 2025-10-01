@@ -141,7 +141,7 @@ def test_render_upload_page_success(monkeypatch: pytest.MonkeyPatch, upload_page
             "FundA": [0.01, 0.02, -0.01],
             "SPX Index": [0.03, -0.02, 0.01],
         },
-        index=pd.date_range("2024-01-31", periods=3, freq="M"),
+        index=pd.date_range("2024-01-31", periods=3, freq="ME"),
     )
     meta = _build_meta(df)
 

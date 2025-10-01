@@ -29,6 +29,7 @@ _HUMAN_FREQUENCY_LABELS = {
     "Q": "quarterly",
     "QE": "quarterly",
     "Y": "annual",
+    "YE": "annual",
 }
 
 
@@ -220,15 +221,15 @@ def _infer_frequency(index: pd.DatetimeIndex) -> Tuple[str, str]:
         if len(unique_deltas) == 1:
             freq = pd.tseries.frequencies.to_offset(unique_deltas[0]).freqstr
         else:
-            # Attempt common calendar-based frequencies (monthly/quarterly) even when
-            # day deltas differ because of calendar length variations.
-            for candidate in ("ME", "M", "QE", "Q", "A", "Y"):
+            # Attempt common calendar-based frequencies (monthly/quarterly/yearly)
+            # even when day deltas differ because of calendar length variations.
+            for candidate in ("ME", "M", "QE", "Q", "YE", "Y"):
                 try:
                     reconstructed = index.to_period(candidate).to_timestamp(how="end")
                 except Exception:  # pragma: no cover - defensive guard
                     continue
                 if reconstructed.equals(index.sort_values()):
-                    freq = candidate
+                    freq = "YE" if candidate == "Y" else candidate
                     break
         if freq is None:
             preview = ", ".join(str(delta) for delta in unique_deltas[:3])

@@ -21,7 +21,7 @@ def test_validation_result_failure_report() -> None:
 def test_price_mode_detection() -> None:
     frame = pd.DataFrame(
         {
-            "Date": pd.date_range("2023-01-31", periods=6, freq="M"),
+            "Date": pd.date_range("2023-01-31", periods=6, freq="ME"),
             "FundA": [100, 102, 101, 105, 107, 110],
             "FundB": [50, 51, 50.5, 52, 54, 55],
         }
@@ -34,7 +34,7 @@ def test_price_mode_detection() -> None:
 def test_ambiguous_mode_raises() -> None:
     frame = pd.DataFrame(
         {
-            "Date": pd.date_range("2023-01-31", periods=5, freq="M"),
+            "Date": pd.date_range("2023-01-31", periods=5, freq="ME"),
             "PriceFund": [100, 101, 102, 103, 104],
             "ReturnFund": [0.01, 0.02, -0.01, 0.03, 0.00],
         }
@@ -50,7 +50,7 @@ def test_load_and_validate_upload_parquet(tmp_path: Path) -> None:
     pytest.importorskip("pyarrow")
     frame = pd.DataFrame(
         {
-            "Date": pd.date_range("2023-01-31", periods=4, freq="M"),
+            "Date": pd.date_range("2023-01-31", periods=4, freq="ME"),
             "FundA": [0.01, -0.02, 0.03, 0.04],
         }
     )

@@ -95,7 +95,7 @@ class TestLoadAndValidateUpload:
     def _make_csv(self, tmp_path: Path) -> Path:
         frame = pd.DataFrame(
             {
-                "Date": pd.date_range("2023-01-31", periods=6, freq="M"),
+                "Date": pd.date_range("2023-01-31", periods=6, freq="ME"),
                 "FundA": [0.01, 0.02, -0.01, 0.03, 0.01, 0.005],
             }
         )
@@ -118,7 +118,7 @@ class TestLoadAndValidateUpload:
     def test_handles_excel_stream(self, tmp_path: Path) -> None:
         frame = pd.DataFrame(
             {
-                "Date": pd.date_range("2023-01-31", periods=3, freq="M"),
+                "Date": pd.date_range("2023-01-31", periods=3, freq="ME"),
                 "FundA": [0.01, -0.02, 0.03],
             }
         )
