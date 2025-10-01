@@ -1,142 +1,117 @@
-"""Unit tests for the post-CI summary helpers."""
-from pathlib import Path
+from __future__ import annotations
 
-from tools.post_ci_summary import (
-    CoverageDetails,
-    FailureSnapshot,
-    JobRecord,
-    Requirement,
-    WorkflowConfig,
-    WorkflowSummary,
-    build_comment_body,
-    combine_states,
-    load_coverage_details,
-    load_failure_snapshot,
-    render_coverage_section,
-    render_job_table,
-    summarize_requirements,
-)
+import json
+
+import pytest
+
+from tools.post_ci_summary import build_summary_comment
 
 
-def _make_summary(name: str, jobs: list[JobRecord]) -> WorkflowSummary:
-    config = WorkflowConfig(name=name, workflow_file=f"{name}.yml", requirements=(Requirement(f"{name} req", ("*",)),))
-    return WorkflowSummary(config=config, run_id=1, html_url=f"https://example.com/{name}", conclusion="success", status="completed", jobs=jobs)
+@pytest.fixture()
+def sample_runs() -> list[dict[str, object]]:
+    return [
+        {
+            "key": "ci",
+            "displayName": "CI",
+            "present": True,
+            "id": 101,
+            "run_attempt": 1,
+            "html_url": "https://example.test/ci/101",
+            "jobs": [
+                {
+                    "name": "main / tests (3.9)",
+                    "conclusion": "success",
+                    "html_url": "https://example.test/ci/101/tests",
+                },
+                {
+                    "name": "main / style",
+                    "conclusion": "success",
+                    "html_url": "https://example.test/ci/101/style",
+                },
+                {
+                    "name": "workflow / automation-tests",
+                    "status": "queued",
+                    "html_url": "https://example.test/ci/101/workflow",
+                },
+                {
+                    "name": "gate / all-required-green",
+                    "conclusion": "success",
+                    "html_url": "https://example.test/ci/101/gate",
+                },
+            ],
+        },
+        {
+            "key": "docker",
+            "displayName": "Docker",
+            "present": True,
+            "id": 202,
+            "run_attempt": 2,
+            "conclusion": "failure",
+            "html_url": "https://example.test/docker/202",
+            "jobs": [
+                {
+                    "name": "docker build",
+                    "conclusion": "failure",
+                    "html_url": "https://example.test/docker/202/build",
+                }
+            ],
+        },
+    ]
 
 
-def test_combine_states_prioritises_failure() -> None:
-    assert combine_states(["success", "failure", "success"]) == "failure"
-    assert combine_states(["success", "skipped"]) == "success"
-    assert combine_states(["skipped", "skipped"]) == "skipped"
+def test_build_summary_comment_renders_expected_sections(
+    sample_runs: list[dict[str, object]]
+) -> None:
+    coverage_stats = {
+        "avg_latest": 91.23,
+        "avg_delta": -0.77,
+        "worst_latest": 83.11,
+        "worst_delta": 1.02,
+        "history_len": 12,
+    }
+    coverage_section = "Extra metrics here"
 
-
-def test_summarize_requirements_uses_badges() -> None:
-    jobs = [JobRecord(name="job-1", conclusion="success", status="completed", html_url="https://example.com/job1")]
-    summary = _make_summary("ci", jobs)
-    lines = summarize_requirements(summary)
-    assert lines == ["ci req: ✅ success"]
-
-
-def test_render_job_table_orders_failed_rows_first() -> None:
-    failing = WorkflowSummary(
-        config=WorkflowConfig(name="CI", workflow_file="ci.yml", requirements=()),
-        run_id=10,
-        html_url="https://example.com/ci",
-        conclusion="completed",
-        status="completed",
-        jobs=[JobRecord(name="tests", conclusion="failure", status="completed", html_url="https://example.com/ci/tests")],
+    body = build_summary_comment(
+        runs=sample_runs,
+        head_sha="abc123",
+        coverage_stats=coverage_stats,
+        coverage_section=coverage_section,
+        required_groups_env=json.dumps(
+            [
+                {"label": "CI tests", "patterns": [r"^main / tests"]},
+                {"label": "CI gate", "patterns": [r"^gate /"]},
+            ]
+        ),
     )
-    passing = WorkflowSummary(
-        config=WorkflowConfig(name="Docker", workflow_file="docker.yml", requirements=()),
-        run_id=11,
-        html_url="https://example.com/docker",
-        conclusion="completed",
-        status="completed",
-        jobs=[JobRecord(name="smoke", conclusion="success", status="completed", html_url="https://example.com/docker/smoke")],
-    )
-    table = render_job_table([passing, failing])
-    lines = table.splitlines()
-    assert lines[2].startswith("| **CI — tests** | ❌ failure |")
-    assert lines[3].startswith("| Docker — smoke | ✅ success |")
 
-
-def test_render_coverage_section_includes_delta() -> None:
-    details = CoverageDetails(avg_latest=48.123, avg_delta=0.5, worst_latest=12.0, worst_delta=-0.25, table_markdown="| h | v |\n| - | - |")
-    section = render_coverage_section(details)
-    assert section is not None
-    assert "48.12%" in section
-    assert "+0.50pp" in section
-    assert "-0.25pp" in section
-    assert "| h | v |" in section
-
-
-def test_build_comment_body_combines_sections() -> None:
-    ci_summary = WorkflowSummary(
-        config=WorkflowConfig(name="CI", workflow_file="ci.yml", requirements=(Requirement("CI req", ("tests",)),)),
-        run_id=1,
-        html_url="https://example.com/ci",
-        conclusion="completed",
-        status="completed",
-        jobs=[JobRecord(name="tests", conclusion="success", status="completed", html_url="https://example.com/ci/tests")],
-    )
-    docker_summary = WorkflowSummary(
-        config=WorkflowConfig(name="Docker", workflow_file="docker.yml", requirements=(Requirement("Docker req", ("smoke",)),)),
-        run_id=2,
-        html_url="https://example.com/docker",
-        conclusion="completed",
-        status="completed",
-        jobs=[JobRecord(name="smoke", conclusion="success", status="completed", html_url="https://example.com/docker/smoke")],
-    )
-    coverage = CoverageDetails(avg_latest=50.0, avg_delta=1.0, worst_latest=40.0, worst_delta=0.0, table_markdown="| h | v |\n| - | - |")
-    snapshot = FailureSnapshot(issues=[{"number": 123, "occurrences": 2, "last_seen": "2024-01-01", "url": "https://example.com/issue/123"}])
-    body = build_comment_body("deadbeef", [ci_summary, docker_summary], coverage, snapshot, "CI")
+    assert "<!-- post-ci-summary:do-not-edit -->" in body
     assert "### Automated Status Summary" in body
-    assert "**Required:**" in body
-    assert "### Coverage (soft gate)" in body
-    assert "### Open Failure Signatures" in body
-    assert "deadbeef" in body
+    assert "**Head SHA:** abc123" in body
+    assert "**Latest Runs:**" in body
+    assert "CI tests: ✅ success" in body
+    assert "CI gate: ✅ success" in body
+    assert "Docker: ❌ failure" in body
+    assert "| CI / main / tests (3.9) | ✅ success |" in body
+    assert "| **Docker / docker build** | ❌ failure |" in body
+    # Coverage lines should render with percentages and deltas
+    assert "Coverage (jobs): 91.23%" in body
+    assert "Coverage (worst job): 83.11%" in body
+    assert "Δ -0.77 pp" in body
+    assert "Δ +1.02 pp" in body
+    assert coverage_section in body
 
 
-def test_load_coverage_details_reads_latest_and_deltas(tmp_path: Path) -> None:
-    artifacts = tmp_path
-    (artifacts / "coverage_summary.md").write_text("| file | % |\n| a | 50 |", encoding="utf-8")
-    (artifacts / "coverage-trend.json").write_text(
-        '{"avg_coverage": 48.5, "worst_job_coverage": 20.0}',
-        encoding="utf-8",
-    )
-    (artifacts / "coverage-trend-history.json").write_text(
-        (
-            "[\n"
-            "  {\"avg_coverage\": 47.0, \"worst_job_coverage\": 18.0},\n"
-            "  {\"avg_coverage\": 48.5, \"worst_job_coverage\": 20.0}\n"
-            "]"
-        ),
-        encoding="utf-8",
-    )
-
-    details = load_coverage_details(artifacts)
-
-    assert details.table_markdown == "| file | % |\n| a | 50 |"
-    assert details.avg_latest == 48.5
-    assert details.worst_latest == 20.0
-    assert details.avg_delta == 1.5
-    assert details.worst_delta == 2.0
-
-
-def test_load_failure_snapshot_filters_invalid_entries(tmp_path: Path) -> None:
-    artifacts = tmp_path
-    (artifacts / "ci_failures_snapshot.json").write_text(
-        (
-            "{\n"
-            "  \"issues\": [\n"
-            "    {\"number\": 101, \"url\": \"https://example.com\"},\n"
-            "    \"not-a-dict\"\n"
-            "  ]\n"
-            "}\n"
-        ),
-        encoding="utf-8",
+def test_build_summary_comment_handles_missing_runs_and_defaults() -> None:
+    body = build_summary_comment(
+        runs=[{"key": "ci", "displayName": "CI", "present": False}],
+        head_sha=None,
+        coverage_stats=None,
+        coverage_section=None,
+        required_groups_env=None,
     )
 
-    snapshot = load_failure_snapshot(artifacts)
-
-    assert snapshot is not None
-    assert snapshot.issues == [{"number": 101, "url": "https://example.com"}]
+    assert "CI: ⏳ pending" in body
+    assert "Docker: ⏳ pending" in body
+    assert "_Updated automatically; will refresh" in body
+    # When no jobs exist the fallback table entry is rendered
+    assert "_(no jobs reported)_" in body
