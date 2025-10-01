@@ -43,3 +43,34 @@ and failure tracking) continue to function without updates.
 
 For deeper operational context, see [`.github/workflows/README.md`](.github/workflows/README.md)
 for topology diagrams and orchestration details.
+
+## maint-30-post-ci-summary.yml — Post CI Summary
+
+**Trigger:** `workflow_run` on the `CI` and `Docker` workflows after completion. The
+workflow only acts on pull-request runs and de-duplicates executions by head
+SHA via concurrency control.
+
+**Responsibilities:**
+
+- Collect job status metadata for the latest CI and Docker workflow runs that
+  share the current head SHA.
+- Download shared artifacts from both runs (coverage trend + summary, failure
+  snapshot, etc.) so the resulting comment mirrors the legacy PR status and CI
+  matrix summaries.
+- Render a single "Automated Status Summary" Markdown block that merges the
+  job table, required-check rollup, coverage deltas, and open failure issue
+  details.
+- Upsert (create or update) the canonical pull-request comment and expose the
+  rendered body as a job summary preview for quick inspection in Actions logs.
+
+**Migration notes:**
+
+- Retires `maint-31-pr-status-summary.yml` and `maint-32-ci-matrix-summary.yml`.
+  Their responsibilities now live inside the unified `tools/post_ci_summary.py`
+  helper invoked by this workflow.
+- The `summary_artifacts/` directory retains a copy of the generated Markdown
+  (`comment_preview.md`) so other diagnostics can reuse the message without
+  hitting the GitHub API.
+- Regression coverage for comment formatting and artifact parsing lives in
+  `tests/test_post_ci_summary.py`; extend these tests when adjusting table
+  formats or coverage calculations.
