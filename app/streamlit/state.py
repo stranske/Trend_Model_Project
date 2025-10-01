@@ -39,7 +39,18 @@ def store_validated_data(df: pd.DataFrame, meta: dict):
     """Store validated data in session state."""
     st.session_state["returns_df"] = df
     st.session_state["schema_meta"] = meta
+    st.session_state["validation_report"] = meta.get("validation")
     st.session_state["upload_status"] = "success"
+
+
+def record_upload_error(message: str) -> None:
+    """Persist an upload failure and clear any stale data."""
+
+    st.session_state["returns_df"] = None
+    st.session_state["schema_meta"] = None
+    st.session_state["benchmark_candidates"] = []
+    st.session_state["validation_report"] = message
+    st.session_state["upload_status"] = "error"
 
 
 def get_uploaded_data() -> tuple[Optional[pd.DataFrame], Optional[dict]]:

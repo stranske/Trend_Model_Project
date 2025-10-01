@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import io
-from typing import IO, Any, Dict, List, Tuple
+from typing import IO, Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 
 from trend_analysis.io.market_data import (
     MarketDataMetadata,
     MarketDataValidationError,
+    ValidatedMarketData,
     validate_market_data,
 )
 
@@ -15,16 +16,44 @@ DATE_COL = "Date"
 
 
 class SchemaMeta(Dict[str, Any]):
-    pass
+    """Lightweight metadata structure shared with the Streamlit app."""
+
+    validation: Optional[Any]
+    metadata: Optional[MarketDataMetadata]
 
 
-def _build_meta(metadata: MarketDataMetadata) -> SchemaMeta:
+def _build_validation_report(validated: ValidatedMarketData) -> Dict[str, Any]:
+    metadata = validated.metadata
+    frame = validated.frame
+    warnings: list[str] = []
+    rows = metadata.rows
+    if rows < 12:
+        warnings.append(
+            f"Dataset is quite small ({rows} periods) – consider a longer history."
+        )
+    for column in frame.columns:
+        valid = frame[column].notna().sum()
+        if rows and valid / rows <= 0.5:
+            warnings.append(
+                f"Column '{column}' has >50% missing values ({valid}/{rows} valid)."
+            )
+    return {"issues": [], "warnings": warnings}
+
+
+def _build_meta(validated: ValidatedMarketData) -> SchemaMeta:
+    metadata = validated.metadata
     meta = SchemaMeta()
+    meta["metadata"] = metadata
+    meta["validation"] = _build_validation_report(validated)
     meta["original_columns"] = list(metadata.columns)
+    meta["symbols"] = list(metadata.columns)
     meta["n_rows"] = metadata.rows
     meta["mode"] = metadata.mode.value
     meta["frequency"] = metadata.frequency_label
+    meta["frequency_code"] = metadata.frequency
     meta["date_range"] = metadata.date_range
+    meta["start"] = metadata.start
+    meta["end"] = metadata.end
     return meta
 
 
@@ -33,7 +62,7 @@ def _validate_df(df: pd.DataFrame) -> Tuple[pd.DataFrame, SchemaMeta]:
         validated = validate_market_data(df)
     except MarketDataValidationError as exc:
         raise ValueError(exc.user_message) from exc
-    meta = _build_meta(validated.metadata)
+    meta = _build_meta(validated)
     return validated.frame, meta
 
 

@@ -30,10 +30,26 @@ guarantee type-safety for callers.
 5. **Mode detection** – classifies the dataset as price- or returns-based and
    prevents mixed representations.
 
-On success the helper returns the normalised frame and a
-`MarketDataMetadata` object which records mode, frequency, symbol list, row
-count, and the start/end timestamps.  The metadata is also attached to the
-returned DataFrame via `df.attrs["market_data"]["metadata"]` for convenience.
+On success the helper returns a `ValidatedMarketData` container pairing the
+normalised frame with a `MarketDataMetadata` model.  The metadata captures mode,
+frequency (label and canonical code), inferred symbols, row counts, and the
+start/end timestamps.  The metadata is also attached to the returned DataFrame
+via `df.attrs["market_data"]["metadata"]` for convenience.
+
+### Metadata propagation
+
+- `ValidatedMarketData.frame` always carries a timezone-naïve `DatetimeIndex`
+  named `Date`.  The `df.attrs["market_data"]` dictionary exposes:
+  - `metadata`: the raw `MarketDataMetadata` Pydantic model.
+  - `mode` / `mode_enum`: returns vs prices (string + enum).
+  - `frequency` / `frequency_code`: human label and pandas offset alias.
+  - `columns`, `rows`, and the `start`/`end` ISO-8601 timestamps.
+- The Streamlit helper (`trend_portfolio_app.data_schema.SchemaMeta`) mirrors
+  those fields and stores them in `st.session_state["schema_meta"]` together
+  with a lightweight validation report so downstream pages can surface mode and
+  cadence hints.
+- CLI entry points keep the attrs intact, enabling exporters and bundle
+  builders to introspect the ingest metadata without recomputing it.
 
 Validation failures raise `MarketDataValidationError` with a single, bullet
 point formatted message.  This message is displayed verbatim in both the CLI
@@ -44,11 +60,13 @@ and the Streamlit UI to satisfy the acceptance criteria.
 - `load_market_data_csv` / `load_market_data_parquet` power the CLI and the
   `trend_portfolio_app` upload helpers, returning validated frames and
   metadata.
-- The Streamlit upload flow catches `MarketDataValidationError` and renders a
-  single error banner containing the user-facing message.
+- The Streamlit upload flow funnels everything through `app.streamlit.state` so
+  a single error banner is shown when validation fails and successful uploads
+  persist metadata/validation reports in `st.session_state` for later pages.
 - CLI runs exit with status code `1` and echo the same message to `stderr` so
   scripted pipelines can fail fast.
 
-Refer to the unit tests in `tests/test_validators.py` and
-`tests/test_io_validators_additional.py` for examples covering both returns and
-price ingestion paths.
+Refer to the unit tests in `tests/test_validators.py`,
+`tests/test_io_validators_additional.py`, and
+`tests/app/test_upload_page.py` for examples covering returns vs price
+validation, failure messaging, and the Streamlit banner contract.

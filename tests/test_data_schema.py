@@ -3,6 +3,7 @@ import io
 import pandas as pd
 import pytest
 
+from trend_analysis.io.market_data import MarketDataMode
 from trend_portfolio_app.data_schema import (
     DATE_COL,
     _validate_df,
@@ -19,6 +20,12 @@ def test_validate_df_basic():
     assert list(df.index) == expected
     assert meta["original_columns"] == ["A", "B"]
     assert meta["n_rows"] == 2
+    assert meta["metadata"].mode == MarketDataMode.RETURNS
+    assert meta["frequency"] in {"monthly", "31D"}
+    assert meta["frequency_code"] in {"M", "31D"}
+    assert meta["symbols"] == ["A", "B"]
+    assert meta["validation"]["issues"] == []
+    assert any("Dataset is quite small" in w for w in meta["validation"]["warnings"])
 
 
 def test_validate_df_errors():
@@ -47,6 +54,8 @@ def test_load_and_validate_file_excel(tmp_path):
     df2, meta = load_and_validate_file(buf)
     assert DATE_COL not in df2.columns
     assert meta["n_rows"] == 2
+    assert meta["metadata"].mode == MarketDataMode.RETURNS
+    assert meta["validation"]["issues"] == []
 
 
 def test_load_and_validate_file_seek_error():
