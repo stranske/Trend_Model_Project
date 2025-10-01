@@ -72,28 +72,6 @@ You can manually validate behaviour:
 - Add PR comment summary for new signatures encountered in a PR context.
 - Integrate stack token similarity clustering for noisy crash variants.
 
-## Post CI Status Summary Aggregation
-`maint-30-post-ci-summary.yml` replaced the legacy matrix summary workflow. It
-listens to both the **CI** and **Docker** workflow completions and pushes all of
-the high-value signals directly into the PR comment that reviewers already use.
-
-**Signals merged into the comment**
-- CI + Docker job table with failure prioritisation.
-- Required-lane rollups (tests, automation, style, gate, Docker) with badges.
-- Latest coverage averages and worst-job metrics plus deltas vs the previous
-  recorded run (sourced from `coverage-trend.json` and history artifacts).
-- Rendered `coverage_summary.md` content for file-level hotspots whenever the
-  artifact exists.
-
-**Artifacts consumed** (downloaded opportunistically; missing files are skipped)
-- `coverage-summary`
-- `coverage-trend`
-- `coverage-trend-history`
-
-Extending the comment is straightforward: add an additional download step for
-the new artifact, parse it in the "Derive coverage stats" (or adjacent) step,
-and thread the result into the comment body builder. Keep each computation
-quick (<100 ms) because the workflow runs after every CI/Docker completion.
 
 ## Maintenance Checklist
 - If new workflows should be monitored, add their names to the `workflows:` array under the `workflow_run` trigger.

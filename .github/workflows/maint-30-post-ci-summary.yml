@@ -1,4 +1,4 @@
-name: Post CI Status Summary
+name: Post CI Summary
 
 on:
   workflow_run:
@@ -10,8 +10,9 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  pull-requests: write
   contents: read
+  pull-requests: write
+  issues: read
   actions: read
 
 jobs:
@@ -20,65 +21,30 @@ jobs:
       github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.pull_requests[0].number
     runs-on: ubuntu-latest
-    env:
-      WORKFLOW_TARGETS_JSON: |
-        [
-          {
-            "key": "ci",
-            "display_name": "CI",
-            "workflow_path": ".github/workflows/pr-10-ci-python.yml"
-          },
-          {
-            "key": "docker",
-            "display_name": "Docker",
-            "workflow_path": ".github/workflows/pr-12-docker-smoke.yml"
-          }
-        ]
-      REQUIRED_JOB_GROUPS_JSON: |
-        [
-          {
-            "label": "CI tests",
-            "patterns": [
-              "^main / tests(?: /|$)"
-            ]
-          },
-          {
-            "label": "CI workflow-automation",
-            "patterns": [
-              "^workflow / automation-tests(?: /|$)"
-            ]
-          },
-          {
-            "label": "CI style",
-            "patterns": [
-              "^main / style(?: /|$)"
-            ]
-          },
-          {
-            "label": "CI gate",
-            "patterns": [
-              "^gate / all-required-green$"
-            ]
-          }
-        ]
     steps:
-      - name: Gather workflow metadata
-        id: gather
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Discover workflow runs for head SHA
+        id: runs
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const run = context.payload.workflow_run;
-            const pr = (run.pull_requests || [])[0];
-
-            if (!pr) {
-              core.setOutput('should_skip', 'true');
-              return;
-            }
-
             const { owner, repo } = context.repo;
             const headSha = run.head_sha;
-# (Remove these lines entirely; use the helper defined earlier in the script block)
+
+            const parseJsonInput = (raw, fallback) => {
+              if (!raw) {
+                return fallback;
+              }
+              try {
+                return JSON.parse(raw);
+              } catch (error) {
+                core.warning(`Failed to parse JSON input: ${error}`);
+                return fallback;
+              }
+            };
 
             const defaultWorkflowTargets = [
               { key: 'ci', display_name: 'CI', workflow_path: '.github/workflows/pr-10-ci-python.yml' },
@@ -109,108 +75,27 @@ jobs:
               return String(value).replace(/^\.\//, '').replace(/^\/+/, '');
             };
 
-            const workflowMatchesRun = (target, candidate) => {
-              if (!candidate) return false;
-              const runPath = normalizePath(candidate.path);
-              const runWorkflowId = candidate.workflow_id;
-              const expectedPath = normalizePath(target.workflowPath);
-              const expectedFile = normalizePath(target.workflowFile);
-              if (expectedPath && runPath === normalizePath(expectedPath)) {
-                return true;
-              }
-              if (expectedFile && runPath.endsWith(`/${expectedFile}`)) {
-                return true;
-              }
-              if (target.workflowName && candidate.name === target.workflowName) {
-                return true;
-              }
-              if (Array.isArray(target.workflowIds) && target.workflowIds.length) {
-                return target.workflowIds.some(id => Number(id) === Number(runWorkflowId));
-              }
-              return false;
-            };
-
-            let repoRuns = [];
-            try {
-              repoRuns = await github.paginate(
-                github.rest.actions.listWorkflowRunsForRepo,
-                {
-                  owner,
-                  repo,
-                  head_sha: headSha,
-                  per_page: 100,
-                },
-                (response) => response.data.workflow_runs || [],
-              );
-            } catch (error) {
-              core.warning(`Failed to list workflow runs for repo: ${error}`);
-            }
-
-            const runs = [];
-
-            for (const wf of workflowTargets) {
-              let latest = null;
-              if (repoRuns.length) {
-                const matches = repoRuns
-                  .filter(candidate => workflowMatchesRun(wf, candidate))
-                  .sort((a, b) => {
-                    const aTime = a && a.created_at ? new Date(a.created_at).getTime() : 0;
-                    const bTime = b && b.created_at ? new Date(b.created_at).getTime() : 0;
-                    return bTime - aTime;
-                  });
-                latest = matches[0] || null;
-              }
-
-              if (!latest) {
-                runs.push({ key: wf.key, displayName: wf.displayName, present: false });
-                continue;
-              }
-
-              let jobs = [];
-              try {
-                jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
-                  owner,
-                  repo,
-                  run_id: latest.id,
-                  per_page: 100,
-                }, (response) => response.data.jobs || []);
-              } catch (error) {
-                core.warning(`Failed to list jobs for run ${latest.id}: ${error}`);
-              }
-
-              runs.push({
-                key: wf.key,
-                displayName: wf.displayName,
-                present: true,
-                id: latest.id,
-                name: latest.name || wf.displayName,
-                html_url: latest.html_url,
-                status: latest.status,
-                conclusion: latest.conclusion,
-                run_attempt: latest.run_attempt,
-                created_at: latest.created_at,
-                updated_at: latest.updated_at,
-                head_branch: latest.head_branch,
-                jobs: jobs.map(job => ({
-                  id: job.id,
-                  name: job.name,
-                  html_url: job.html_url,
-                  status: job.status,
-                  conclusion: job.conclusion,
-                  started_at: job.started_at,
-                  completed_at: job.completed_at,
-                })),
+            async function latestRun(workflowFile) {
+              const response = await github.rest.actions.listWorkflowRuns({
+                owner,
+                repo,
+                workflow_id: workflowFile,
+                head_sha: headSha,
+                event: 'pull_request',
+                per_page: 1,
               });
+              return response.data.workflow_runs?.[0]?.id ?? '';
             }
 
-            core.setOutput('pr_number', String(pr.number));
-            core.setOutput('head_sha', headSha);
-            core.setOutput('runs', JSON.stringify(runs));
+            const ciRunId = await latestRun('pr-10-ci-python.yml');
+            const dockerRunId = await latestRun('pr-12-docker-smoke.yml');
 
             const ciRun = runs.find(r => r.key === 'ci' && r.present);
             const dockerRun = runs.find(r => r.key === 'docker' && r.present);
             core.setOutput('ci_run_id', ciRun ? String(ciRun.id) : '');
             core.setOutput('docker_run_id', dockerRun ? String(dockerRun.id) : '');
+      - name: Check out repository
+        uses: actions/checkout@v4
       - name: Download coverage summary
         if: ${{ steps.gather.outputs.ci_run_id }}
         uses: actions/download-artifact@v4
@@ -223,88 +108,22 @@ jobs:
       - name: Download coverage trend
         if: ${{ steps.gather.outputs.ci_run_id }}
         uses: actions/download-artifact@v4
-        continue-on-error: true
         with:
-          name: coverage-trend
-          run-id: ${{ steps.gather.outputs.ci_run_id }}
+          run-id: ${{ steps.runs.outputs.ci }}
+          pattern: '*'
+          merge-multiple: true
+          path: summary_artifacts
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          path: artifacts/coverage-trend
-      - name: Download coverage trend history
-        if: ${{ steps.gather.outputs.ci_run_id }}
+
+      - name: Download Docker artifacts
+        if: steps.runs.outputs.docker && steps.runs.outputs.docker != steps.runs.outputs.ci
         uses: actions/download-artifact@v4
-        continue-on-error: true
         with:
-          name: coverage-trend-history
-          run-id: ${{ steps.gather.outputs.ci_run_id }}
+          run-id: ${{ steps.runs.outputs.docker }}
+          pattern: '*'
+          merge-multiple: true
+          path: summary_artifacts
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          path: artifacts/coverage-trend-history
-      - name: Capture coverage summary content
-        id: coverage_summary
-        shell: bash
-        run: |
-          set -euo pipefail
-          FILE="artifacts/coverage-summary/coverage_summary.md"
-          if [ -f "$FILE" ]; then
-            {
-              echo 'body<<EOF'
-              cat "$FILE"
-              echo 'EOF'
-            } >> "$GITHUB_OUTPUT"
-          fi
-      - name: Derive coverage stats
-        id: coverage_stats
-        run: |
-          python <<'PY'
-          import json
-          from pathlib import Path
-
-          def load_json(path: Path):
-              if not path.is_file():
-                  return None
-              try:
-                  text = path.read_text(encoding='utf-8').strip()
-              except Exception:
-                  return None
-              if not text:
-                  return None
-              try:
-                  return json.loads(text)
-              except json.JSONDecodeError:
-                  return None
-
-          def load_history(dir_path: Path):
-              json_path = dir_path / 'coverage-trend-history.json'
-              ndjson_path = dir_path / 'coverage-trend-history.ndjson'
-              data = load_json(json_path)
-              if isinstance(data, list):
-                  return data
-              if ndjson_path.is_file():
-                  try:
-                      lines = [ln for ln in ndjson_path.read_text(encoding='utf-8').splitlines() if ln.strip()]
-                      parsed = []
-                      for line in lines:
-                          try:
-                              parsed.append(json.loads(line))
-                          except json.JSONDecodeError:
-                              continue
-                      return parsed
-                  except Exception:
-                      return []
-              return []
-
-          trend = load_json(Path('artifacts/coverage-trend/coverage-trend.json')) or {}
-          history = load_history(Path('artifacts/coverage-trend-history'))
-
-          avg_latest = trend.get('avg_coverage')
-          worst_latest = trend.get('worst_job_coverage')
-
-          avg_prev = None
-          worst_prev = None
-          if len(history) >= 2:
-              prev = history[-2]
-              if isinstance(prev, dict):
-                  avg_prev = prev.get('avg_coverage')
-                  worst_prev = prev.get('worst_job_coverage')
 
           def delta(latest, prev):
               try:
@@ -333,232 +152,14 @@ jobs:
           fi
       - name: Prepare summary body
         id: prep
-        uses: actions/github-script@v7
+        run: |
+          python tools/post_ci_summary.py
         env:
           RUNS_JSON: ${{ steps.gather.outputs.runs }}
           HEAD_SHA: ${{ steps.gather.outputs.head_sha }}
           COVERAGE_SECTION: ${{ steps.coverage_summary.outputs.body }}
           COVERAGE_STATS: ${{ steps.coverage_stats.outputs.stats_json }}
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const runs = JSON.parse(process.env.RUNS_JSON || '[]');
-            const headSha = process.env.HEAD_SHA || '';
-            const coverageSection = (process.env.COVERAGE_SECTION || '').trim();
-            let coverageStats = {};
-            try {
-              coverageStats = JSON.parse(process.env.COVERAGE_STATS || '{}');
-            } catch (error) {
-              coverageStats = {};
-            }
-
-            const parseJsonInput = (raw, fallback) => {
-              if (!raw) {
-                return fallback;
-              }
-              try {
-                return JSON.parse(raw);
-              } catch (error) {
-                core.warning(`Failed to parse JSON input: ${error}`);
-                return fallback;
-              }
-            };
-
-            const defaultJobGroups = [
-              { label: 'CI tests', patterns: ['^main / tests(?: /|$)'] },
-              { label: 'CI workflow-automation', patterns: ['^workflow / automation-tests(?: /|$)'] },
-              { label: 'CI style', patterns: ['^main / style(?: /|$)'] },
-              { label: 'CI gate', patterns: ['^gate / all-required-green$'] },
-            ];
-
-            const jobGroupConfigsInput = parseJsonInput(process.env.REQUIRED_JOB_GROUPS_JSON, defaultJobGroups);
-            const jobGroupConfigsSource = Array.isArray(jobGroupConfigsInput) ? jobGroupConfigsInput : defaultJobGroups;
-            const jobGroupConfigs = jobGroupConfigsSource
-              .map((group) => {
-                const label = group.label || group.name || '';
-                const patternList = Array.isArray(group.patterns) ? group.patterns : [];
-                const regexes = [];
-                for (const pattern of patternList) {
-                  try {
-                    regexes.push(new RegExp(pattern));
-                  } catch (error) {
-                    core.warning(`Invalid required job pattern "${pattern}" for group "${label}": ${error}`);
-                  }
-                }
-                return { label, regexes };
-              })
-              .filter((group) => group.label && group.regexes.length);
-
-            const badge = (state) => {
-              if (!state) return '⏳';
-              const normalized = String(state).toLowerCase();
-              if (['success'].includes(normalized)) return '✅';
-              if (['failure', 'cancelled', 'timed_out', 'action_required'].includes(normalized)) return '❌';
-              if (['skipped'].includes(normalized)) return '⏭️';
-              if (['in_progress', 'queued', 'waiting', 'requested'].includes(normalized)) return '⏳';
-              return '⏳';
-            };
-
-            const combineStates = (states) => {
-              const list = states.map(s => (s || '').toLowerCase()).filter(Boolean);
-              if (!list.length) return 'missing';
-              const failureStates = ['failure', 'cancelled', 'timed_out', 'action_required'];
-              const pendingStates = ['in_progress', 'queued', 'waiting', 'requested'];
-              const failure = list.find(state => failureStates.includes(state));
-              if (failure) return failure;
-              const pending = list.find(state => pendingStates.includes(state));
-              if (pending) return pending;
-              if (list.every(state => state === 'skipped')) return 'skipped';
-              if (list.includes('success')) return 'success';
-              return list[0];
-            };
-
-            const priorityOrder = (state) => {
-              const normalized = (state || '').toLowerCase();
-              if (['failure', 'cancelled', 'timed_out', 'action_required'].includes(normalized)) return 0;
-              if (normalized === 'success') return 1;
-              if (normalized === 'skipped') return 2;
-              if (['in_progress', 'queued', 'waiting', 'requested'].includes(normalized)) return 3;
-              return 4;
-            };
-
-            const rows = [];
-            for (const run of runs) {
-              if (!run || !run.present || !Array.isArray(run.jobs)) {
-                continue;
-              }
-
-              for (const job of run.jobs) {
-                const state = job.conclusion || job.status;
-                const rowName = `${run.displayName} / ${job.name}`;
-                const highlight = ['failure', 'cancelled', 'timed_out', 'action_required'].includes((state || '').toLowerCase());
-                const safeName = highlight ? `**${rowName}**` : rowName;
-                rows.push({
-                  name: safeName,
-                  state,
-                  badge: badge(state),
-                  url: job.html_url,
-                });
-              }
-            }
-
-            rows.sort((a, b) => {
-              const order = priorityOrder(a.state) - priorityOrder(b.state);
-              if (order !== 0) return order;
-              return a.name.localeCompare(b.name);
-            });
-
-            const jobTable = rows.length
-              ? ['| Workflow / Job | Result | Logs |', '|----------------|--------|------|', ...rows.map(row => {
-                  const link = row.url ? `[logs](${row.url})` : '—';
-                  return `| ${row.name} | ${row.badge} ${row.state || 'unknown'} | ${link} |`;
-                })]
-              : ['| Workflow / Job | Result | Logs |', '|----------------|--------|------|', '| _(no jobs reported)_ | ⏳ pending | — |'];
-
-            const requiredSegments = [];
-
-            const ciRun = runs.find(r => r.key === 'ci');
-            if (ciRun && ciRun.present) {
-              const jobs = Array.isArray(ciRun.jobs) ? ciRun.jobs : [];
-              if (jobGroupConfigs.length) {
-                for (const group of jobGroupConfigs) {
-                  const matches = jobs.filter((job) => {
-                    const name = job.name || '';
-                    return group.regexes.some((regex) => regex.test(name));
-                  });
-                  const state = combineStates(matches.map(job => job.conclusion || job.status));
-                  requiredSegments.push(`${group.label}: ${badge(state)} ${state}`);
-                }
-              } else {
-                const overallState = combineStates(jobs.map(job => job.conclusion || job.status));
-                requiredSegments.push(`CI: ${badge(overallState)} ${overallState}`);
-              }
-            } else {
-              requiredSegments.push('CI: ⏳ pending');
-            }
-
-            const dockerRun = runs.find(r => r.key === 'docker');
-            if (dockerRun && dockerRun.present) {
-              const state = dockerRun.conclusion || dockerRun.status || 'unknown';
-              requiredSegments.push(`Docker: ${badge(state)} ${state}`);
-            } else {
-              requiredSegments.push('Docker: ⏳ pending');
-            }
-
-            const latestRunLine = runs.map(run => {
-              if (!run || !run.present) {
-                return `${run.displayName}: pending`;
-              }
-              const attemptSuffix = run.run_attempt && run.run_attempt > 1 ? ` (attempt ${run.run_attempt})` : '';
-              const label = `${run.displayName} (#${run.id}${attemptSuffix})`;
-              if (run.html_url) {
-                return `[${label}](${run.html_url})`;
-              }
-              return label;
-            }).join(' · ');
-
-            const coverageLines = [];
-            const fmtDelta = (value) => {
-              if (value === null || value === undefined) return null;
-              const num = Number(value);
-              if (Number.isNaN(num)) return null;
-              const sign = num > 0 ? '+' : '';
-              return `${sign}${num.toFixed(2)} pp`;
-            };
-
-            if (coverageStats && typeof coverageStats === 'object') {
-              const avgLineParts = [];
-              if (coverageStats.avg_latest !== undefined && coverageStats.avg_latest !== null) {
-                avgLineParts.push(`avg ${Number(coverageStats.avg_latest).toFixed(2)}%`);
-              }
-              const avgDelta = fmtDelta(coverageStats.avg_delta);
-              if (avgDelta) {
-                avgLineParts.push(`Δ ${avgDelta}`);
-              }
-              if (avgLineParts.length) {
-                coverageLines.push(`- Coverage (jobs): ${avgLineParts.join(' | ')}`);
-              }
-
-              const worstLineParts = [];
-              if (coverageStats.worst_latest !== undefined && coverageStats.worst_latest !== null) {
-                worstLineParts.push(`worst ${Number(coverageStats.worst_latest).toFixed(2)}%`);
-              }
-              const worstDelta = fmtDelta(coverageStats.worst_delta);
-              if (worstDelta) {
-                worstLineParts.push(`Δ ${worstDelta}`);
-              }
-              if (worstLineParts.length) {
-                coverageLines.push(`- Coverage (worst job): ${worstLineParts.join(' | ')}`);
-              }
-
-              if (typeof coverageStats.history_len === 'number') {
-                coverageLines.push(`- Coverage history entries: ${coverageStats.history_len}`);
-              }
-            }
-
-            const coverageBlock = [];
-            if (coverageLines.length) {
-              coverageBlock.push('### Coverage Overview', coverageLines.join('\n'));
-            }
-            if (coverageSection) {
-              coverageBlock.push(coverageSection);
-            }
-
-            const body = [
-              '<!-- post-ci-summary:do-not-edit -->',
-              '### Automated Status Summary',
-              headSha ? `**Head SHA:** ${headSha}` : null,
-              latestRunLine ? `**Latest Runs:** ${latestRunLine}` : null,
-              requiredSegments.length ? `**Required:** ${requiredSegments.join(', ')}` : null,
-              '',
-              ...jobTable,
-              '',
-              ...coverageBlock,
-              coverageBlock.length ? '' : null,
-              '_Updated automatically; will refresh on subsequent CI/Docker completions._',
-            ].filter(Boolean).join('\n');
-
-            core.setOutput('body', body);
+          REQUIRED_JOB_GROUPS_JSON: ${{ env.REQUIRED_JOB_GROUPS_JSON }}
       - name: Upsert summary comment
         uses: actions/github-script@v7
         env:
@@ -585,18 +186,9 @@ jobs:
 
             const existing = comments.find(comment => comment.body && comment.body.includes(marker));
 
-            if (existing) {
-              await github.rest.issues.updateComment({
-                owner,
-                repo,
-                comment_id: existing.id,
-                body,
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner,
-                repo,
-                issue_number: prNumber,
-                body,
-              });
-            }
+      - name: Append comment preview to job summary
+        if: always()
+        run: |
+          if [ -f summary_artifacts/comment_preview.md ]; then
+            cat summary_artifacts/comment_preview.md >> "$GITHUB_STEP_SUMMARY"
+          fi
