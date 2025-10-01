@@ -46,7 +46,7 @@ if os.path.exists(demo_path_csv) or os.path.exists(demo_path_xlsx):
             if candidates:
                 st.info("Possible benchmark columns: " + ", ".join(candidates))
         except Exception as e:
-            st.error(f"Demo load failed: {e}")
+            st.error(str(e))
 
 if uploaded is not None:
     try:
@@ -74,6 +74,6 @@ if uploaded is not None:
         if candidates:
             st.info("Possible benchmark columns: " + ", ".join(candidates))
     except Exception as e:
-        st.error(f"Validation failed: {e}")
+        st.error(str(e))
 else:
     st.warning("No file uploaded yet.")

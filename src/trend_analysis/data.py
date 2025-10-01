@@ -1,7 +1,7 @@
 import logging
 import stat
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 import pandas as pd
 from pandas.api.types import is_datetime64_any_dtype
@@ -13,6 +13,57 @@ from .io.market_data import (
 )
 
 logger = logging.getLogger(__name__)
+
+ValidationErrorMode = Literal["raise", "log"]
+
+
+def _finalise_validated_frame(
+    frame: pd.DataFrame, *, include_date_column: bool
+) -> pd.DataFrame:
+    if include_date_column:
+        result = frame.reset_index()
+        result.attrs = frame.attrs.copy()
+        return result
+    return frame
+
+
+def _normalise_numeric_strings(df: pd.DataFrame) -> pd.DataFrame:
+    cleaned = df.copy()
+    for col in cleaned.columns:
+        if col == "Date":
+            continue
+        series = cleaned[col]
+        if pd.api.types.is_numeric_dtype(series):
+            continue
+        coerced = series.astype(str).str.strip()
+        has_percent = coerced.str.contains("%", na=False).any()
+        coerced = coerced.str.replace(",", "", regex=False)
+        coerced = coerced.str.replace(r"^\((.*)\)$", r"-\1", regex=True)
+        coerced = coerced.str.replace("%", "", regex=False)
+        numeric = pd.to_numeric(coerced, errors="coerce")
+        if has_percent:
+            numeric = numeric * 0.01
+        if numeric.notna().any():
+            cleaned[col] = numeric
+    return cleaned
+
+
+def _validate_payload(
+    payload: pd.DataFrame,
+    *,
+    origin: str,
+    errors: ValidationErrorMode,
+    include_date_column: bool,
+) -> Optional[pd.DataFrame]:
+    payload = _normalise_numeric_strings(payload)
+    try:
+        validated = validate_market_data(payload, origin=origin)
+    except MarketDataValidationError as exc:
+        if errors == "raise":
+            raise
+        logger.error(f"Validation failed ({origin}): {exc}")
+        return None
+    return _finalise_validated_frame(validated, include_date_column=include_date_column)
 
 
 def _is_readable(mode: int) -> bool:
@@ -36,6 +87,7 @@ def load_csv(path: str) -> Optional[pd.DataFrame]:
     """Load a CSV expecting a 'Date' column."""
 
     p = Path(path)
+    origin = f"CSV file '{p}'"
     try:
         if not p.exists():
             raise FileNotFoundError(path)
@@ -43,7 +95,10 @@ def load_csv(path: str) -> Optional[pd.DataFrame]:
             raise IsADirectoryError(path)
         mode = p.stat().st_mode
         if not _is_readable(mode):
-            logger.error(f"Permission denied accessing file: {path}")
+            message = f"Permission denied accessing file: {path}"
+            if errors == "raise":
+                raise PermissionError(message)
+            logger.error(message)
             return None
 
         validated: ValidatedMarketData = load_market_data_csv(str(p))
@@ -114,4 +169,10 @@ def ensure_datetime(df: pd.DataFrame, column: str = "Date") -> pd.DataFrame:
     return df
 
 
-__all__ = ["load_csv", "identify_risk_free_fund", "ensure_datetime"]
+__all__ = [
+    "load_csv",
+    "load_parquet",
+    "validate_dataframe",
+    "identify_risk_free_fund",
+    "ensure_datetime",
+]

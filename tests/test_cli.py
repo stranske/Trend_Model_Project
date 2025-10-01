@@ -8,6 +8,7 @@ from trend_analysis import cli
 from trend_analysis.io.market_data import MarketDataValidationError
 from trend_analysis.api import RunResult
 from trend_analysis.constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
+from trend_analysis.io.market_data import MarketDataValidationError
 
 cache_first = {
     "entries": 1,
@@ -69,7 +70,7 @@ def _write_cfg(path: Path, version: str, *, csv_path: Path) -> None:
 def test_cli_version_custom(tmp_path, monkeypatch):
     cfg = tmp_path / "cfg.yml"
     csv = tmp_path / "data.csv"
-    csv.write_text("Date,RF\n2020-01-31,0.0\n")
+    csv.write_text("Date,RF\n2020-01-31,0.0\n2020-02-29,0.1\n")
     _write_cfg(cfg, "1.2.3", csv_path=csv)
 
     captured: dict[str, str] = {}
@@ -92,7 +93,7 @@ def test_cli_version_custom(tmp_path, monkeypatch):
 def test_cli_default_json(tmp_path, capsys, monkeypatch):
     cfg = tmp_path / "cfg.yml"
     csv = tmp_path / "data.csv"
-    csv.write_text("Date,RF\n2020-01-31,0.0\n")
+    csv.write_text("Date,RF\n2020-01-31,0.0\n2020-02-29,0.1\n")
     _write_cfg(cfg, "1", csv_path=csv)
 
     monkeypatch.setattr(cli.pipeline, "run", lambda cfg: pd.DataFrame())

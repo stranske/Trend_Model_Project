@@ -381,4 +381,3 @@ def attach_metadata(frame: pd.DataFrame, metadata: MarketDataMetadata) -> pd.Dat
     frame.attrs.setdefault("market_data", {})
     frame.attrs["market_data"]["metadata"] = metadata
     return frame
-

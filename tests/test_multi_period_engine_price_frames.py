@@ -162,8 +162,8 @@ def test_run_requires_csv_path_when_frame_not_provided() -> None:
 def test_run_raises_when_loader_returns_none(monkeypatch: pytest.MonkeyPatch) -> None:
     cfg = DummyConfig()
 
-    def fake_loader(path: str) -> pd.DataFrame | None:
-        return None
+    def fake_loader(path: str, **_: object) -> pd.DataFrame | None:
+        raise FileNotFoundError(path)
 
     monkeypatch.setattr(mp_engine, "load_csv", fake_loader)
 

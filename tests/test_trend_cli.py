@@ -220,7 +220,10 @@ def test_prepare_export_config_updates_structure(tmp_path: Path) -> None:
 
 
 def test_ensure_dataframe_raises_when_missing(monkeypatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(cli, "load_csv", lambda *_: None)
+    def raise_missing(*_args: object, **_kwargs: object) -> pd.DataFrame:
+        raise FileNotFoundError("missing.csv")
+
+    monkeypatch.setattr(cli, "load_csv", raise_missing)
 
     with pytest.raises(FileNotFoundError):
         cli._ensure_dataframe(tmp_path / "missing.csv")

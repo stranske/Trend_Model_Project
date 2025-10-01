@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, Iterator, List, Tuple
 
 import pandas as pd
+from pandas.tseries.frequencies import to_offset
 
 from .market_data import (
     MarketDataMetadata,
@@ -235,4 +236,3 @@ def create_sample_template() -> pd.DataFrame:
         data[f"Fund_{idx:02d}"] = rng.normal(0.008, 0.03, len(dates))
     data["SPX_Benchmark"] = rng.normal(0.007, 0.025, len(dates))
     return pd.DataFrame(data)
-
