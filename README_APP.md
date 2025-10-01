@@ -36,7 +36,10 @@ scripts/run_streamlit.sh
 Skeletons for multi-path generation and feature sweeps live under `src/trend_portfolio_app/monte_carlo/`.
 
 ## MVP Acceptance (Issue #367)
-- Load: CSV with `Date` column; basic validation via data schema.
+- Load: CSV with `Date` column; basic validation via data schema. See
+  [`docs/validation/market-data-contract.md`](docs/validation/market-data-contract.md)
+  for the full ingest contract and metadata propagation rules that the Streamlit
+  layer relies on.
 - Configure: YAML-like options exposed through UI; choose dates/freq/policy.
 - Run: Single and multi-period using existing modules where available.
 - View: Metrics tables and key charts (equity, drawdown, weights where applicable).
