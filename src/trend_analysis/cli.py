@@ -18,11 +18,30 @@ from . import pipeline
 from .api import run_simulation
 from .config import load_config
 from .constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
-from .io.market_data import MarketDataValidationError, load_market_data_csv
+from .data import load_csv
+from .io.market_data import MarketDataValidationError
 from .perf.rolling_cache import set_cache_enabled
 
 APP_PATH = Path(__file__).resolve().parents[2] / "streamlit_app" / "app.py"
 LOCK_PATH = Path(__file__).resolve().parents[2] / "requirements.lock"
+
+
+def load_market_data_csv(
+    path: str,
+    *,
+    errors: str | None = None,
+    include_date_column: bool | None = None,
+    **kwargs: Any,
+) -> pd.DataFrame | None:
+    """Backward-compatible shim retaining the legacy symbol for tests and CLI."""
+
+    effective_kwargs = dict(kwargs)
+    effective_kwargs.setdefault("errors", errors if errors is not None else "raise")
+    effective_kwargs.setdefault(
+        "include_date_column",
+        include_date_column if include_date_column is not None else True,
+    )
+    return load_csv(path, **effective_kwargs)
 
 
 def _log_step(
@@ -198,11 +217,14 @@ def main(argv: list[str] | None = None) -> int:
         elif env_seed is not None and env_seed.isdigit():
             setattr(cfg, "seed", int(env_seed))
         try:
-            validated = load_market_data_csv(args.input)
+            loaded = load_market_data_csv(args.input)
         except MarketDataValidationError as exc:
             print(exc.user_message, file=sys.stderr)
             return 1
-        df = validated.frame
+        if loaded is None:  # pragma: no cover - defensive fallback
+            print("Failed to load data", file=sys.stderr)
+            return 1
+        df = loaded.frame if hasattr(loaded, "frame") else loaded
         split = cfg.sample_split
         required_keys = {"in_start", "in_end", "out_start", "out_end"}
         import uuid
@@ -360,9 +382,8 @@ def main(argv: list[str] | None = None) -> int:
             if bundle_path.is_dir():
                 bundle_path = bundle_path / "analysis_bundle.zip"
             # Build a minimal RunResult-like shim if we executed legacy path
-            if "run_result" in locals():  # modern path
-                rr = run_result
-            else:
+            rr = locals().get("run_result")
+            if rr is None:  # legacy path
                 env = {
                     "python": sys.version.split()[0],
                     "numpy": np.__version__,

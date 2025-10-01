@@ -11,7 +11,7 @@ from __future__ import annotations
 import enum
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Iterable, List, Sequence, Tuple
+from typing import Any, Iterable, Iterator, List, Sequence, Tuple
 
 import pandas as pd
 from pandas.api.types import is_numeric_dtype
@@ -72,6 +72,29 @@ class ValidatedMarketData:
     frame: pd.DataFrame
     metadata: MarketDataMetadata
 
+    def __getattr__(self, name: str) -> Any:
+        # Delegate attribute access to the underlying DataFrame for
+        # backwards compatibility with callers expecting the validated
+        # payload itself.
+        return getattr(self.frame, name)
+
+    def __getitem__(self, key: Any) -> Any:
+        return self.frame.__getitem__(key)
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self.frame)
+
+    def __len__(self) -> int:  # pragma: no cover - passthrough delegation
+        return len(self.frame)
+
+    def __array__(self, *args: Any, **kwargs: Any) -> Any:  # pragma: no cover
+        return self.frame.__array__(*args, **kwargs)
+
+    def to_frame(self) -> pd.DataFrame:
+        """Return the underlying DataFrame."""
+
+        return self.frame
+
 
 def _format_issues(issues: Iterable[str]) -> str:
     lines = ["Data validation failed:"]
@@ -100,7 +123,21 @@ def _resolve_datetime_index(df: pd.DataFrame, *, source: str | None) -> pd.DataF
                     ]
                 )
             )
-        parsed = pd.to_datetime(working[date_col], errors="coerce")
+        try:
+            parsed = pd.to_datetime(working[date_col], errors="coerce")
+        except (TypeError, ValueError) as exc:
+            sample_values = working[date_col].astype(str).tolist()
+            preview = ", ".join(sample_values[:5])
+            if len(sample_values) > 5:
+                preview += " …"
+            raise MarketDataValidationError(
+                _format_issues(
+                    [
+                        "Found dates that could not be parsed. "
+                        f"Examples: {preview or 'n/a'}."
+                    ]
+                )
+            ) from exc
         if parsed.isna().any():
             bad_values = working.loc[parsed.isna(), date_col].astype(str).tolist()
             preview = ", ".join(bad_values[:5])
@@ -121,6 +158,21 @@ def _resolve_datetime_index(df: pd.DataFrame, *, source: str | None) -> pd.DataF
             )
         )
 
+    duplicated = working.columns[working.columns.duplicated()].unique()
+    if len(duplicated) > 0:
+        preview = ", ".join(str(col) for col in duplicated[:5])
+        if len(duplicated) > 5:  # pragma: no cover - defensive guard
+            preview += " …"
+        raise MarketDataValidationError(
+            _format_issues(
+                [
+                    "Detected duplicate column names after removing the Date column: "
+                    + preview
+                    + ". Each column must be uniquely labelled."
+                ]
+            )
+        )
+
     idx = idx.tz_localize(None)
     working.index = idx
     working.index.name = "Date"
@@ -135,7 +187,7 @@ def _check_monotonic_index(index: pd.DatetimeIndex) -> list[str]:
         for original, ordered in zip(index, sorted_index, strict=True):
             if original != ordered:
                 issues.append(
-                    "Date index must be sorted ascending. "
+                    "Date index must be sorted in ascending order. "
                     f"First out-of-order timestamp: {original.strftime('%Y-%m-%d')}"
                 )
                 break
@@ -144,7 +196,7 @@ def _check_monotonic_index(index: pd.DatetimeIndex) -> list[str]:
         preview = ", ".join(ts.strftime("%Y-%m-%d") for ts in duplicates[:5])
         if len(duplicates) > 5:
             preview += " …"
-        issues.append(f"Found duplicate timestamps: {preview}")
+        issues.append(f"Duplicate timestamps detected: {preview}")
     return issues
 
 
@@ -152,7 +204,20 @@ def _infer_frequency(index: pd.DatetimeIndex) -> Tuple[str, str]:
     if len(index) < 2:
         return "UNKNOWN", "unknown"
 
-    freq = pd.infer_freq(index)
+    try:
+        freq = pd.infer_freq(index)
+    except ValueError as exc:
+        # ``pd.infer_freq`` requires at least three timestamps. When users upload
+        # the minimum viable pair of observations, fall back to deriving the
+        # frequency from the observed delta instead of bubbling the pandas
+        # exception up to the UI. This mirrors legacy behaviour that accepted
+        # two-row samples during smoke tests.
+        message = str(exc)
+        if "at least 3" in message:
+            inferred_delta = index[1] - index[0]
+            freq = pd.tseries.frequencies.to_offset(inferred_delta).freqstr
+        else:  # pragma: no cover - defensive path for unexpected errors
+            raise
     if freq is None:
         diffs = index.to_series().diff().dropna()
         unique_deltas = diffs.unique()
@@ -176,7 +241,7 @@ def _infer_frequency(index: pd.DatetimeIndex) -> Tuple[str, str]:
             raise MarketDataValidationError(
                 _format_issues(
                     [
-                        "Unable to infer the sampling frequency. "
+                        "Mixed sampling cadence detected. Unable to infer the sampling frequency. "
                         "Detected spacing values: "
                         + preview
                         + ". Ensure the Date index is evenly spaced."
@@ -233,12 +298,15 @@ def _column_mode(series: pd.Series) -> MarketDataMode | None:
     median_abs = abs_values.median()
     max_abs = abs_values.max()
     neg_fraction = (values < 0).mean()
+    bounded_unit = max_abs <= 1
 
-    returns_like = (median_abs <= 0.5 and max_abs <= 5) or (
-        neg_fraction >= 0.05 and max_abs <= 10
+    returns_like = (
+        bounded_unit
+        or (median_abs <= 0.5 and max_abs <= 5)
+        or (neg_fraction >= 0.05 and max_abs <= 10)
     )
 
-    price_like = values.min() >= 0 and (median_abs >= 1 or max_abs >= 10)
+    price_like = values.min() >= 0 and (median_abs >= 10 or max_abs >= 20)
 
     if returns_like and not price_like:
         return MarketDataMode.RETURNS
@@ -274,7 +342,7 @@ def _infer_mode(df: pd.DataFrame) -> MarketDataMode:
         raise MarketDataValidationError(
             _format_issues(
                 [
-                    "Detected a mix of price-like and return-like columns. "
+                    "Detected a mix of returns-like and price-like columns. "
                     "Uploads must use a single representation."
                 ]
             )
@@ -322,8 +390,7 @@ def validate_market_data(
     )
 
     validated = numeric_frame.sort_index()
-    validated.attrs.setdefault("market_data", {})
-    validated.attrs["market_data"]["metadata"] = metadata
+    attach_metadata(validated, metadata)
 
     return ValidatedMarketData(frame=validated, metadata=metadata)
 
@@ -373,6 +440,18 @@ def load_market_data_parquet(path: str) -> ValidatedMarketData:
 def attach_metadata(frame: pd.DataFrame, metadata: MarketDataMetadata) -> pd.DataFrame:
     """Attach metadata to a DataFrame in-place and return it."""
 
-    frame.attrs.setdefault("market_data", {})
-    frame.attrs["market_data"]["metadata"] = metadata
+    payload = frame.attrs.setdefault("market_data", {})
+    payload.update(
+        {
+            "metadata": metadata,
+            "mode": "returns" if metadata.mode == MarketDataMode.RETURNS else "prices",
+            "mode_enum": metadata.mode,
+            "frequency": metadata.frequency_label,
+            "frequency_code": metadata.frequency,
+            "start": metadata.start.isoformat(),
+            "end": metadata.end.isoformat(),
+            "rows": metadata.rows,
+            "columns": list(metadata.columns),
+        }
+    )
     return frame

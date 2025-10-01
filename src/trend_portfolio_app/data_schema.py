@@ -11,6 +11,8 @@ from trend_analysis.io.market_data import (
     validate_market_data,
 )
 
+DATE_COL = "Date"
+
 
 class SchemaMeta(Dict[str, Any]):
     pass
