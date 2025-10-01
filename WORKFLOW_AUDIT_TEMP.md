@@ -35,7 +35,7 @@ Additional categories added (5–8) to accommodate all workflows cleanly.
 - `cleanup-codex-bootstrap.yml` – (Not yet read in this draft: needs review; presumed maintenance.)
 - `perf-benchmark.yml` – Scheduled performance tracking (benchmark artifact & regression check) – could also fit Category 6.
 - `maint-33-check-failure-tracker.yml` – Opens / closes CI failure issues.
-- `maint-31-pr-status-summary.yml` – Consolidated status comment after CI/Docker runs.
+- `maint-30-post-ci-summary.yml` – Consolidated status comment after CI/Docker runs.
 
 Update: `cleanup-codex-bootstrap.yml` confirmed – prunes stale `agents/codex-issue-*` bootstrap branches older than configurable age (default 14d). Category 3 (Maintenance). Keep; no overlap.
 
@@ -91,7 +91,7 @@ Update: `cleanup-codex-bootstrap.yml` confirmed – prunes stale `agents/codex-i
 - `reuse-autofix.yml` remains the single implementation of fixer logic; no other direct consumers remain.
 
 ### Status & Failure Reporting
-- `maint-31-pr-status-summary.yml` and `maint-33-check-failure-tracker.yml` both respond to workflow_run. Distinct outputs (comment vs issue). Keep both; minimal overlap.
+- `maint-30-post-ci-summary.yml` and `maint-33-check-failure-tracker.yml` both respond to workflow_run. Distinct outputs (comment vs issue). Keep both; minimal overlap.
 
 ## Consolidation Recommendations
 1. (DONE) Archive deprecated agent workflows (6 listed) with historical copies retained under `.github/workflows/archive/`.

@@ -72,36 +72,37 @@ You can manually validate behaviour:
 - Add PR comment summary for new signatures encountered in a PR context.
 - Integrate stack token similarity clustering for noisy crash variants.
 
-## CI Matrix Summary Aggregation (New Enhancement)
-The `maint-32-ci-matrix-summary.yml` workflow (triggered via `workflow_run` on `CI` and
-`Check Failure Tracker`) consolidates key observability signals into a single
-Markdown artifact (`ci-matrix-summary.md`) and job summary section:
+## Post-CI Status Summary (New Enhancement)
+`maint-30-post-ci-summary.yml` replaced the standalone matrix exporter with a
+single pull-request comment. The workflow listens to the `CI` and `Docker`
+`workflow_run` events, rehydrates the coverage and failure tracker artifacts,
+and renders the combined output via `tools/post_ci_summary.py`.
 
-**Quick Stats Section**
-- Open failure issues (live count from `ci_failures_snapshot.json`)
-- Latest aggregate coverage percentage (from `coverage-trend.json` / history)
-- Coverage delta vs previous run (if at least two history entries exist)
-- Coverage history entry count (lines in `coverage-trend-history.ndjson`)
-- Worst job coverage (latest + delta vs previous)
-- Trigger workflow run duration & conclusion state
+**Highlights surfaced in the comment**
+- Required-check rollup for CI tests, workflow automation probes, style linting,
+  and the gate aggregator.
+- Job table spanning every CI and Docker job with log links; failures bubble to
+  the top automatically.
+- Coverage metrics (latest values plus deltas vs the previous history entry)
+  and the raw coverage summary table.
+- Open failure signatures sourced from `ci_failures_snapshot.json` when the
+  tracker reports active issues.
 
-**Additional Sections**
-- Coverage summary (top N hotspot files + low coverage spotlight)
-- Open failure signature table (Issue number, occurrences, last seen, link)
-- Coverage trend record key fields (run id, avg, worst, timestamp)
-- Artifact presence summary (JSON map of discovered artifacts)
+**Artifacts consumed** (downloaded opportunistically; missing files are skipped)
+- `coverage_summary.md` or `coverage-summary/coverage_summary.md`
+- `coverage-trend.json`
+- `coverage-trend-history.json`
+- `ci_failures_snapshot.json`
 
-**Artifacts Consumed** (all downloaded opportunistically, absent files are skipped gracefully)
-`coverage-summary`, `coverage-trend`, `coverage-trend-history`, `ci-failures-snapshot`.
+**Preview + integrations**
+- The rendered Markdown is stored in `summary_artifacts/comment_preview.md` for
+  quick review in the Actions UI.
+- Because the workflow now owns the PR comment directly, other tooling can read
+  or parse the output without chasing multiple artifacts.
 
-**Output Artifacts Added**
-- `ci-matrix-summary` (Markdown)
-- `ci-matrix-summary-json` (machine-friendly JSON: derived stats, artifact presence, run metadata)
-
-**Extending the Summary**
-Add new derived fields by appending to `matrix-derived.json` in the `Derive quick stats` step and emitting them in the `Append quick stats` step. Keep computations lightweight ( <100ms ) to avoid bottlenecks on every workflow run.
-
-This aggregation provides a single glance view for maintainers without opening multiple artifacts or issues.
+Extend the message by updating the helper functions in `tools/post_ci_summary.py`
+— for example, add another section for a new artifact and then adjust the tests
+under `tests/test_post_ci_summary.py` to lock the formatting down.
 
 ## Maintenance Checklist
 - If new workflows should be monitored, add their names to the `workflows:` array under the `workflow_run` trigger.
