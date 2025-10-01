@@ -6,37 +6,33 @@ from typing import IO, Any, Dict, List, Tuple
 import pandas as pd
 
 from trend_analysis.io.market_data import (
+    MarketDataMetadata,
     MarketDataValidationError,
     validate_market_data,
 )
-
-DATE_COL = "Date"
 
 
 class SchemaMeta(Dict[str, Any]):
     pass
 
 
+def _build_meta(metadata: MarketDataMetadata) -> SchemaMeta:
+    meta = SchemaMeta()
+    meta["original_columns"] = list(metadata.columns)
+    meta["n_rows"] = metadata.rows
+    meta["mode"] = metadata.mode.value
+    meta["frequency"] = metadata.frequency_label
+    meta["date_range"] = metadata.date_range
+    return meta
+
+
 def _validate_df(df: pd.DataFrame) -> Tuple[pd.DataFrame, SchemaMeta]:
     try:
-        validated = validate_market_data(df, origin="streamlit upload")
+        validated = validate_market_data(df)
     except MarketDataValidationError as exc:
-        raise ValueError(str(exc)) from exc
-
-    meta = SchemaMeta(
-        original_columns=list(validated.columns),
-        n_rows=len(validated),
-    )
-    metadata = dict(validated.attrs.get("market_data", {}))
-    start = metadata.get("start")
-    end = metadata.get("end")
-    if isinstance(start, pd.Timestamp):
-        metadata["start"] = start.isoformat()
-    if isinstance(end, pd.Timestamp):
-        metadata["end"] = end.isoformat()
-    if metadata:
-        meta.update(metadata)
-    return validated, meta
+        raise ValueError(exc.user_message) from exc
+    meta = _build_meta(validated.metadata)
+    return validated.frame, meta
 
 
 def load_and_validate_csv(file_like: IO[Any]) -> Tuple[pd.DataFrame, SchemaMeta]:

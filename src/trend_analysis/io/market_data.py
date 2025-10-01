@@ -1,348 +1,378 @@
+"""Market data validation helpers.
+
+This module centralises the validation logic that backs every ingest
+entry point (CSV, Parquet, and in-memory DataFrames).  The goal is to
+enforce a single data contract so the application can provide
+deterministic feedback to users regardless of how data is supplied.
+"""
+
 from __future__ import annotations
 
-import math
-from dataclasses import asdict, dataclass
-from typing import Any, Dict, List, Literal, Tuple
+import enum
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Iterable, List, Sequence, Tuple
 
 import pandas as pd
-import pandera as pa
-from pandas.tseries.frequencies import to_offset
+from pandas.api.types import is_numeric_dtype
+from pydantic import BaseModel, Field
 
-FrequencyLabel = Literal[
-    "daily",
-    "business-daily",
-    "weekly",
-    "monthly",
-    "quarterly",
-    "annual",
-    "irregular",
-]
+# ---------------------------------------------------------------------------
+# Frequency helpers
+# ---------------------------------------------------------------------------
 
-
-@dataclass(frozen=True)
-class MarketDataMetadata:
-    """Metadata describing a validated market data frame."""
-
-    mode: Literal["returns", "prices"]
-    frequency: FrequencyLabel
-    frequency_code: str
-    start: pd.Timestamp
-    end: pd.Timestamp
-    columns: Tuple[str, ...]
-    origin: str | None = None
-
-
-class MarketDataValidationError(ValueError):
-    """Raised when market data does not satisfy the ingest contract."""
-
-    def __init__(self, message: str, *, details: Dict[str, Any] | None = None):
-        super().__init__(message)
-        self.details = details or {}
-
-
-_DATE_SCHEMA = pa.SeriesSchema(pa.DateTime, coerce=True, nullable=False)
-_NUMERIC_COLUMN_SCHEMA = pa.Column(pa.Float64, nullable=True, coerce=True)
-
-
-_FRIENDLY_FREQUENCIES: dict[str, FrequencyLabel] = {
+_HUMAN_FREQUENCY_LABELS = {
     "D": "daily",
-    "B": "business-daily",
-    "C": "business-daily",
     "W": "weekly",
-    "W-SUN": "weekly",
-    "W-MON": "weekly",
-    "W-TUE": "weekly",
-    "W-WED": "weekly",
-    "W-THU": "weekly",
-    "W-FRI": "weekly",
-    "W-SAT": "weekly",
     "M": "monthly",
-    "MS": "monthly",
     "ME": "monthly",
     "Q": "quarterly",
-    "QS": "quarterly",
     "QE": "quarterly",
-    "A": "annual",
-    "AS": "annual",
     "Y": "annual",
 }
 
 
-def _normalise_datetime_index(
-    series: pd.Series, origin: str | None
-) -> pd.DatetimeIndex:
-    try:
-        coerced = _DATE_SCHEMA.validate(series)
-    except pa.errors.SchemaError as exc:  # pragma: no cover - defensive
-        # ``failure_cases`` holds rows where coercion failed. Surface a concise
-        # error message with a preview of the offending values.
-        cases = getattr(exc, "failure_cases", pd.DataFrame())
-        if not cases.empty and {"index", "failure_case"}.issubset(cases.columns):
-            preview = cases.iloc[:5]["failure_case"].tolist()
-        else:
-            preview = series.iloc[:5].tolist()
-        tail = "…" if len(preview) == 5 and len(series) > 5 else ""
-        raise MarketDataValidationError(
-            (
-                "Unable to parse Date values"
-                + (f" in {origin}" if origin else "")
-                + f": {preview}{tail}."
-            )
-        ) from exc
+class MarketDataMode(str, enum.Enum):
+    """Supported representations for market data values."""
 
-    if coerced.isna().any():
-        bad_idx = coerced[coerced.isna()].index
-        preview_vals = series.loc[bad_idx][:5].tolist()
-        tail = "…" if len(preview_vals) == 5 and len(bad_idx) > 5 else ""
-        raise MarketDataValidationError(
-            (
-                "Found date values that could not be parsed"
-                + (f" in {origin}" if origin else "")
-                + f": {preview_vals}{tail}"
-            )
-        )
-
-    tz_aware = getattr(coerced.dt, "tz", None) is not None
-    if tz_aware:
-        coerced = coerced.dt.tz_convert(None)
-    return pd.DatetimeIndex(coerced.dt.tz_localize(None))
+    RETURNS = "returns"
+    PRICE = "price"
 
 
-def _ensure_monotonic(idx: pd.DatetimeIndex) -> None:
-    if idx.is_monotonic_increasing:
-        return
-    # Identify the first inversion to give the user actionable feedback.
-    for prev, nxt in zip(idx[:-1], idx[1:]):
-        if prev > nxt:
+class MarketDataValidationError(ValueError):
+    """Raised when uploaded market data fails validation checks."""
+
+    def __init__(self, message: str, issues: Sequence[str] | None = None) -> None:
+        formatted = message.strip()
+        super().__init__(formatted)
+        self.issues: list[str] = list(issues or [])
+        self.user_message = formatted
+
+
+class MarketDataMetadata(BaseModel):
+    """Metadata captured during validation."""
+
+    mode: MarketDataMode
+    frequency: str
+    frequency_label: str
+    start: datetime
+    end: datetime
+    rows: int
+    columns: List[str] = Field(default_factory=list)
+
+    @property
+    def date_range(self) -> Tuple[str, str]:
+        return self.start.strftime("%Y-%m-%d"), self.end.strftime("%Y-%m-%d")
+
+
+@dataclass(slots=True, frozen=True)
+class ValidatedMarketData:
+    """Container that pairs a validated frame with its metadata."""
+
+    frame: pd.DataFrame
+    metadata: MarketDataMetadata
+
+
+def _format_issues(issues: Iterable[str]) -> str:
+    lines = ["Data validation failed:"]
+    for issue in issues:
+        lines.append(f"• {issue}")
+    return "\n".join(lines)
+
+
+def _resolve_datetime_index(df: pd.DataFrame, *, source: str | None) -> pd.DataFrame:
+    working = df.copy()
+
+    if isinstance(working.index, pd.DatetimeIndex):
+        idx = working.index.tz_localize(None)
+    else:
+        date_col = None
+        for column in working.columns:
+            if str(column).lower() == "date":
+                date_col = column
+                break
+        if date_col is None:
             raise MarketDataValidationError(
-                (
-                    "Timestamps must be sorted in ascending order."
-                    f" Found {prev.strftime('%Y-%m-%d')} before {nxt.strftime('%Y-%m-%d')}."
+                _format_issues(
+                    [
+                        "Missing a 'Date' column or datetime index. "
+                        "Ensure the upload includes a timestamp column named 'Date'."
+                    ]
                 )
             )
-    # Fall back to a generic error if inversion detection failed.
-    raise MarketDataValidationError("Timestamps must be in ascending order.")
-
-
-def _ensure_unique(idx: pd.DatetimeIndex) -> None:
-    if not idx.has_duplicates:
-        return
-    dupes = idx[idx.duplicated()].unique()
-    preview = [ts.strftime("%Y-%m-%d") for ts in dupes[:5]]
-    tail = "…" if len(dupes) > 5 else ""
-    raise MarketDataValidationError(
-        f"Duplicate timestamps detected: {', '.join(preview)}{tail}."
-    )
-
-
-def _infer_frequency(idx: pd.DatetimeIndex) -> Tuple[str, FrequencyLabel]:
-    freq_code = idx.freqstr
-    if freq_code is None:
-        try:
-            freq_code = pd.infer_freq(idx)
-        except ValueError:
-            freq_code = None
-
-    if freq_code is None:
-        diffs = idx.to_series().diff().dropna()
-        if diffs.empty:
+        parsed = pd.to_datetime(working[date_col], errors="coerce")
+        if parsed.isna().any():
+            bad_values = working.loc[parsed.isna(), date_col].astype(str).tolist()
+            preview = ", ".join(bad_values[:5])
+            if len(bad_values) > 5:
+                preview += " …"
             raise MarketDataValidationError(
-                "Need at least two rows to infer data frequency."
-            )
-        counts = diffs.value_counts(normalize=True)
-        top_delta = counts.index[0]
-        consistency = float(counts.iloc[0])
-        if consistency < 0.8:
-            preview = ", ".join(str(delta) for delta in counts.index[:3])
-            raise MarketDataValidationError(
-                (
-                    "Mixed sampling cadence detected; unable to infer frequency."
-                    f" Observed intervals: {preview}."
+                _format_issues(
+                    ["Found dates that could not be parsed. " f"Examples: {preview}."]
                 )
             )
-        freq_code = to_offset(top_delta).freqstr
+        idx = pd.DatetimeIndex(parsed, name="Date")
+        working = working.drop(columns=[date_col])
 
-    freq_code = freq_code or "irregular"
-    label = _FRIENDLY_FREQUENCIES.get(freq_code, "irregular")
-    return freq_code, label
+    if working.empty:
+        raise MarketDataValidationError(
+            _format_issues(
+                ["No data columns detected after extracting the Date index."]
+            )
+        )
+
+    idx = idx.tz_localize(None)
+    working.index = idx
+    working.index.name = "Date"
+    return working
 
 
-def _validate_numeric_payload(df: pd.DataFrame, *, origin: str | None) -> pd.DataFrame:
-    if df.empty:
-        raise MarketDataValidationError("No data columns found after validation.")
+def _check_monotonic_index(index: pd.DatetimeIndex) -> list[str]:
+    issues: list[str] = []
+    if not index.is_monotonic_increasing:
+        # Identify the first offending timestamp for actionable feedback
+        sorted_index = index.sort_values()
+        for original, ordered in zip(index, sorted_index, strict=True):
+            if original != ordered:
+                issues.append(
+                    "Date index must be sorted ascending. "
+                    f"First out-of-order timestamp: {original.strftime('%Y-%m-%d')}"
+                )
+                break
+    duplicates = index[index.duplicated()].unique()
+    if len(duplicates) > 0:
+        preview = ", ".join(ts.strftime("%Y-%m-%d") for ts in duplicates[:5])
+        if len(duplicates) > 5:
+            preview += " …"
+        issues.append(f"Found duplicate timestamps: {preview}")
+    return issues
 
-    schema = pa.DataFrameSchema(
-        {col: _NUMERIC_COLUMN_SCHEMA for col in df.columns}, coerce=True
-    )
-    try:
-        validated = schema.validate(df)
-    except pa.errors.SchemaError as exc:
-        failure_cases = getattr(exc, "failure_cases", pd.DataFrame())
-        if not failure_cases.empty and {"column", "failure_case"}.issubset(
-            failure_cases.columns
-        ):
-            grouped: dict[str, List[Any]] = {}
-            for col, value in zip(
-                failure_cases["column"], failure_cases["failure_case"], strict=False
-            ):
-                grouped.setdefault(str(col), []).append(value)
-            fragments = [
-                f"{name}: {values[:3]}{'…' if len(values) > 3 else ''}"
-                for name, values in grouped.items()
-            ]
-            msg = ", ".join(fragments)
+
+def _infer_frequency(index: pd.DatetimeIndex) -> Tuple[str, str]:
+    if len(index) < 2:
+        return "UNKNOWN", "unknown"
+
+    freq = pd.infer_freq(index)
+    if freq is None:
+        diffs = index.to_series().diff().dropna()
+        unique_deltas = diffs.unique()
+        if len(unique_deltas) == 1:
+            freq = pd.tseries.frequencies.to_offset(unique_deltas[0]).freqstr
         else:
-            msg = "non-numeric values present"
-        raise MarketDataValidationError(
-            (
-                "Failed to coerce numeric data"
-                + (f" in {origin}" if origin else "")
-                + f": {msg}."
+            # Attempt common calendar-based frequencies (monthly/quarterly) even when
+            # day deltas differ because of calendar length variations.
+            for candidate in ("ME", "M", "QE", "Q", "A", "Y"):
+                try:
+                    reconstructed = index.to_period(candidate).to_timestamp(how="end")
+                except Exception:  # pragma: no cover - defensive guard
+                    continue
+                if reconstructed.equals(index.sort_values()):
+                    freq = candidate
+                    break
+        if freq is None:
+            preview = ", ".join(str(delta) for delta in unique_deltas[:3])
+            if len(unique_deltas) > 3:
+                preview += " …"
+            raise MarketDataValidationError(
+                _format_issues(
+                    [
+                        "Unable to infer the sampling frequency. "
+                        "Detected spacing values: "
+                        + preview
+                        + ". Ensure the Date index is evenly spaced."
+                    ]
+                )
             )
-        ) from exc
 
-    empty_columns = [col for col in validated.columns if validated[col].count() == 0]
-    if empty_columns:
+    canonical = pd.tseries.frequencies.to_offset(freq).freqstr.upper()
+    label = _HUMAN_FREQUENCY_LABELS.get(canonical, canonical)
+
+    expected = pd.date_range(index[0], index[-1], freq=canonical)
+    missing = expected.difference(index)
+    if len(missing) > 0:
+        preview = ", ".join(ts.strftime("%Y-%m-%d") for ts in missing[:5])
+        if len(missing) > 5:
+            preview += " …"
         raise MarketDataValidationError(
-            "All values missing in column(s): " + ", ".join(empty_columns)
-        )
-    return validated.astype(float)
-
-
-def _classify_column_mode(
-    series: pd.Series,
-) -> Literal["returns", "prices", "ambiguous"]:
-    data = series.dropna()
-    if data.empty:
-        return "ambiguous"
-
-    abs_vals = data.abs()
-    returns_share = (abs_vals <= 1.2).mean()
-    positive_share = (data >= 0).mean()
-    high_value_share = (abs_vals >= 5).mean()
-    median_val = float(abs_vals.median()) if not math.isnan(abs_vals.median()) else 0.0
-
-    if returns_share >= 0.9:
-        return "returns"
-    if positive_share >= 0.98 and (high_value_share >= 0.6 or median_val >= 5.0):
-        return "prices"
-    return "ambiguous"
-
-
-def _infer_mode(values: pd.DataFrame) -> Literal["returns", "prices"]:
-    classifications: Dict[str, Literal["returns", "prices", "ambiguous"]] = {}
-    for col in values.columns:
-        classifications[col] = _classify_column_mode(values[col])
-
-    resolved = {mode for mode in classifications.values() if mode != "ambiguous"}
-    if not resolved:
-        raise MarketDataValidationError(
-            "Unable to determine if the dataset is in returns or price mode."
-        )
-    if len(resolved) > 1:
-        returns_like = [
-            col for col, mode in classifications.items() if mode == "returns"
-        ]
-        price_like = [col for col, mode in classifications.items() if mode == "prices"]
-        raise MarketDataValidationError(
-            (
-                "Detected a mix of returns-like and price-like columns. "
-                f"Returns-like: {returns_like or 'none'}; "
-                f"Price-like: {price_like or 'none'}."
+            _format_issues(
+                [
+                    "Detected gaps in the Date index (missing timestamps: "
+                    + preview
+                    + ")."
+                ]
             )
         )
-    mode = resolved.pop()
-    ambiguous = [col for col, state in classifications.items() if state == "ambiguous"]
+
+    return canonical, label
+
+
+def _coerce_numeric(df: pd.DataFrame) -> Tuple[pd.DataFrame, list[str]]:
+    numeric = pd.DataFrame(index=df.index)
+    issues: list[str] = []
+
+    for column in df.columns:
+        series = df[column]
+        coerced = pd.to_numeric(series, errors="coerce")
+        if coerced.notna().sum() == 0:
+            issues.append(f"Column '{column}' contains no numeric data after coercion.")
+        numeric[column] = coerced
+
+    numeric = numeric.dropna(axis=1, how="all")
+    if numeric.shape[1] == 0:
+        issues.append("No numeric data columns remain after validation.")
+
+    return numeric, issues
+
+
+def _column_mode(series: pd.Series) -> MarketDataMode | None:
+    values = series.dropna().astype(float)
+    if values.empty:
+        return None
+
+    abs_values = values.abs()
+    median_abs = abs_values.median()
+    max_abs = abs_values.max()
+    neg_fraction = (values < 0).mean()
+
+    returns_like = (median_abs <= 0.5 and max_abs <= 5) or (
+        neg_fraction >= 0.05 and max_abs <= 10
+    )
+
+    price_like = values.min() >= 0 and (median_abs >= 1 or max_abs >= 10)
+
+    if returns_like and not price_like:
+        return MarketDataMode.RETURNS
+    if price_like and not returns_like:
+        return MarketDataMode.PRICE
+    return None
+
+
+def _infer_mode(df: pd.DataFrame) -> MarketDataMode:
+    modes: list[MarketDataMode] = []
+    ambiguous: list[str] = []
+    for column in df.columns:
+        if not is_numeric_dtype(df[column]):
+            continue
+        mode = _column_mode(df[column])
+        if mode is None:
+            ambiguous.append(column)
+        else:
+            modes.append(mode)
+
+    if not modes:
+        raise MarketDataValidationError(
+            _format_issues(
+                [
+                    "Unable to determine whether the data are prices or returns. "
+                    "Ensure numeric columns contain representative values."
+                ]
+            )
+        )
+
+    unique_modes = set(modes)
+    if len(unique_modes) > 1:
+        raise MarketDataValidationError(
+            _format_issues(
+                [
+                    "Detected a mix of price-like and return-like columns. "
+                    "Uploads must use a single representation."
+                ]
+            )
+        )
+
+    mode = modes[0]
     if ambiguous:
+        preview = ", ".join(ambiguous[:5])
         raise MarketDataValidationError(
-            (
-                "Unable to confidently classify column(s) as returns or prices: "
-                + ", ".join(ambiguous)
+            _format_issues(
+                ["Could not classify columns as price or return series: " + preview]
             )
         )
+
     return mode
 
 
-def _extract_date_series(df: pd.DataFrame) -> Tuple[pd.Series, List[str]]:
-    if "Date" in df.columns:
-        date_series = df["Date"]
-        value_columns = [col for col in df.columns if col != "Date"]
-    elif isinstance(df.index, (pd.DatetimeIndex, pd.PeriodIndex)):
-        if isinstance(df.index, pd.PeriodIndex):
-            date_series = df.index.to_timestamp(how="end")
-        else:
-            date_series = pd.Series(df.index)
-        value_columns = list(df.columns)
-    else:
-        raise MarketDataValidationError(
-            "Expected a 'Date' column or a datetime-like index with market data."
-        )
-    return pd.Series(date_series, name="Date"), value_columns
-
-
 def validate_market_data(
-    data: pd.DataFrame, *, origin: str | None = None
-) -> pd.DataFrame:
-    """Validate market data and return a normalised frame.
+    data: pd.DataFrame,
+    *,
+    source: str | None = None,
+) -> ValidatedMarketData:
+    """Validate market data according to the ingest contract."""
 
-    The returned DataFrame uses a ``DatetimeIndex`` named ``Date`` that is sorted,
-    unique, and timezone-naive. Columns are coerced to ``float`` and the ingest
-    mode (returns vs prices) together with the inferred sampling frequency are
-    stored in ``frame.attrs['market_data']``.
-    """
+    frame = _resolve_datetime_index(data, source=source)
+    issues = _check_monotonic_index(frame.index)
+    if issues:
+        raise MarketDataValidationError(_format_issues(issues), issues)
 
-    if not isinstance(data, pd.DataFrame):
-        raise MarketDataValidationError(
-            f"Expected a pandas DataFrame, received {type(data).__name__}."
-        )
+    numeric_frame, numeric_issues = _coerce_numeric(frame)
+    if numeric_issues:
+        raise MarketDataValidationError(_format_issues(numeric_issues), numeric_issues)
 
-    if data.empty:
-        raise MarketDataValidationError("Input dataset contains no rows.")
-
-    if data.columns.duplicated().any():
-        duplicates = sorted({str(c) for c in data.columns[data.columns.duplicated()]})
-        raise MarketDataValidationError(
-            "Duplicate column names detected: " + ", ".join(duplicates)
-        )
-
-    date_series, value_columns = _extract_date_series(data)
-    if not value_columns:
-        raise MarketDataValidationError(
-            "No data columns provided alongside Date column."
-        )
-
-    idx = _normalise_datetime_index(date_series, origin)
-    _ensure_monotonic(idx)
-    _ensure_unique(idx)
-    freq_code, freq_label = _infer_frequency(idx)
-
-    payload = data[value_columns].copy()
-    payload = _validate_numeric_payload(payload, origin=origin)
-
-    mode = _infer_mode(payload)
-
-    payload.index = idx
-    payload.index.name = "Date"
-    payload = payload.sort_index()
+    frequency, label = _infer_frequency(numeric_frame.index)
+    mode = _infer_mode(numeric_frame)
 
     metadata = MarketDataMetadata(
         mode=mode,
-        frequency=freq_label,
-        frequency_code=freq_code,
-        start=payload.index.min(),
-        end=payload.index.max(),
-        columns=tuple(str(c) for c in payload.columns),
-        origin=origin,
+        frequency=frequency,
+        frequency_label=label,
+        start=numeric_frame.index.min().to_pydatetime(),
+        end=numeric_frame.index.max().to_pydatetime(),
+        rows=len(numeric_frame),
+        columns=list(numeric_frame.columns),
     )
-    payload.attrs.setdefault("market_data", asdict(metadata))
-    payload.attrs["market_data_mode"] = mode
-    payload.attrs["market_data_frequency"] = freq_label
 
-    return payload
+    validated = numeric_frame.sort_index()
+    validated.attrs.setdefault("market_data", {})
+    validated.attrs["market_data"]["metadata"] = metadata
+
+    return ValidatedMarketData(frame=validated, metadata=metadata)
 
 
-__all__ = [
-    "MarketDataMetadata",
-    "MarketDataValidationError",
-    "validate_market_data",
-]
+def load_market_data_csv(path: str) -> ValidatedMarketData:
+    """Load a CSV file and validate its contents."""
+
+    try:
+        frame = pd.read_csv(path)
+    except FileNotFoundError as exc:  # pragma: no cover - defensive guard
+        raise MarketDataValidationError(
+            _format_issues([f"File not found: {path}"])
+        ) from exc
+    except PermissionError as exc:  # pragma: no cover - defensive guard
+        raise MarketDataValidationError(
+            _format_issues([f"Permission denied when reading: {path}"])
+        ) from exc
+    except pd.errors.EmptyDataError as exc:
+        raise MarketDataValidationError(
+            _format_issues([f"File contains no data: {path}"])
+        ) from exc
+    except pd.errors.ParserError as exc:
+        raise MarketDataValidationError(
+            _format_issues([f"Failed to parse file '{path}'"])
+        ) from exc
+
+    return validate_market_data(frame, source=path)
+
+
+def load_market_data_parquet(path: str) -> ValidatedMarketData:
+    """Load a Parquet file and validate its contents."""
+
+    try:
+        frame = pd.read_parquet(path)
+    except FileNotFoundError as exc:  # pragma: no cover - defensive guard
+        raise MarketDataValidationError(
+            _format_issues([f"File not found: {path}"])
+        ) from exc
+    except PermissionError as exc:  # pragma: no cover - defensive guard
+        raise MarketDataValidationError(
+            _format_issues([f"Permission denied when reading: {path}"])
+        ) from exc
+
+    return validate_market_data(frame, source=path)
+
+
+def attach_metadata(frame: pd.DataFrame, metadata: MarketDataMetadata) -> pd.DataFrame:
+    """Attach metadata to a DataFrame in-place and return it."""
+
+    frame.attrs.setdefault("market_data", {})
+    frame.attrs["market_data"]["metadata"] = metadata
+    return frame

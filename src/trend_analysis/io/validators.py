@@ -1,119 +1,71 @@
-"""Data validation helpers for uploaded market data."""
+"""Compatibility helpers for legacy validator entry points."""
 
 from __future__ import annotations
 
 import io
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Dict, Iterable, Iterator, List, Tuple
 
 import numpy as np
 import pandas as pd
-from pandas.tseries.frequencies import to_offset
 
-from .market_data import MarketDataValidationError, validate_market_data
-
-# Canonical mapping from human-readable frequency labels to pandas codes.
-FREQUENCY_MAP: Dict[str, str] = {
-    "daily": "D",
-    "business-daily": "B",
-    "weekly": "W",
-    "monthly": "M",
-    "quarterly": "Q",
-    "annual": "Y",
-    "irregular": "irregular",
-}
-
-REVERSE_FREQUENCY_MAP: Dict[str, str] = {
-    code: label for label, code in FREQUENCY_MAP.items()
-}
+from .market_data import (
+    MarketDataMetadata,
+    MarketDataMode,
+    MarketDataValidationError,
+    ValidatedMarketData,
+    attach_metadata,
+    validate_market_data,
+)
 
 
-def detect_frequency(df: pd.DataFrame) -> str:
-    """Best-effort frequency detection that mirrors legacy behaviour."""
+@dataclass(slots=True)
+class _ValidationSummary:
+    """Compute validation warnings reused across call sites."""
 
-    def _normalise_index(frame: pd.DataFrame) -> pd.DatetimeIndex:
-        if "Date" in frame.columns:
-            idx = pd.to_datetime(frame["Date"], errors="coerce")
-        elif isinstance(frame.index, pd.PeriodIndex):
-            idx = frame.index.to_timestamp(how="end")
-        elif isinstance(frame.index, pd.DatetimeIndex):
-            idx = frame.index
-        else:
-            return pd.DatetimeIndex([])
-        return pd.DatetimeIndex(idx.dropna())
+    metadata: MarketDataMetadata
+    frame: pd.DataFrame
 
-    try:
-        validated = validate_market_data(df)
-    except MarketDataValidationError:
-        idx = _normalise_index(df)
-        if len(idx) < 2:
-            return "unknown"
-
-        freq_code = idx.freqstr
-        if freq_code is None:
-            try:
-                freq_code = pd.infer_freq(idx)
-            except ValueError:
-                freq_code = None
-
-        if freq_code is None:
-            diffs = idx.to_series().diff().dropna()
-            if diffs.empty:
-                return "unknown"
-            counts = diffs.value_counts(normalize=True)
-            top_share = float(counts.iloc[0])
-            top_delta = counts.index[0]
-            if top_share < 0.8:
-                preview = ", ".join(str(delta) for delta in counts.index[:3])
-                return f"irregular ({preview})"
-            freq_code = to_offset(top_delta).freqstr
-
-        label = REVERSE_FREQUENCY_MAP.get(freq_code, "irregular")
-        if label == "irregular" and freq_code:
-            prefix = freq_code.split("-")[0]
-            label = REVERSE_FREQUENCY_MAP.get(prefix, label)
-            if label == "irregular" and prefix:
-                label = REVERSE_FREQUENCY_MAP.get(prefix[:1], label)
-        if label == "irregular" and freq_code not in {None, "irregular"}:
-            return f"irregular ({freq_code})"
-        return label
-
-    metadata = validated.attrs.get("market_data", {})
-    label = metadata.get("frequency")
-    if isinstance(label, str):
-        return label
-    freq_code = metadata.get("frequency_code")
-    if isinstance(freq_code, str):
-        label = REVERSE_FREQUENCY_MAP.get(freq_code, "irregular")
-        if label == "irregular" and freq_code:
-            prefix = freq_code.split("-")[0]
-            label = REVERSE_FREQUENCY_MAP.get(prefix, label)
-            if label == "irregular" and prefix:
-                label = REVERSE_FREQUENCY_MAP.get(prefix[:1], label)
-        return label if label != "irregular" else freq_code
-    return "unknown"
+    def warnings(self) -> List[str]:
+        warnings: list[str] = []
+        rows = self.metadata.rows
+        if rows < 12:
+            warnings.append(
+                f"Dataset is quite small ({rows} periods) – consider a longer history."
+            )
+        for column in self.frame.columns:
+            valid = self.frame[column].notna().sum()
+            if rows and valid / rows <= 0.5:
+                warnings.append(
+                    f"Column '{column}' has >50% missing values ({valid}/{rows} valid)."
+                )
+        return warnings
 
 
 class ValidationResult:
-    """Result of schema validation with detailed feedback."""
+    """Backwards-compatible structure returned by
+    ``validate_returns_schema``."""
 
     def __init__(
         self,
         is_valid: bool,
-        issues: List[str],
-        warnings: List[str],
-        frequency: Optional[str] = None,
-        date_range: Optional[Tuple[str, str]] = None,
-    ):
+        issues: Iterable[str] | None,
+        warnings: Iterable[str] | None,
+        frequency: str | None = None,
+        date_range: Tuple[str, str] | None = None,
+        metadata: MarketDataMetadata | None = None,
+    ) -> None:
         self.is_valid = is_valid
-        self.issues = issues
-        self.warnings = warnings
+        self.issues = list(issues or [])
+        self.warnings = list(warnings or [])
         self.frequency = frequency
         self.date_range = date_range
+        self.metadata = metadata
+        self.mode: MarketDataMode | None = metadata.mode if metadata else None
 
     def get_report(self) -> str:
-        """Generate a human-readable validation report."""
-        lines: List[str] = []
+        lines = []
         if self.is_valid:
             lines.append("✅ Schema validation passed!")
             if self.frequency:
@@ -122,6 +74,8 @@ class ValidationResult:
                 lines.append(
                     f"📅 Date range: {self.date_range[0]} to {self.date_range[1]}"
                 )
+            if self.mode:
+                lines.append(f"📈 Detected mode: {self.mode.value}")
         else:
             lines.append("❌ Schema validation failed!")
 
@@ -137,180 +91,152 @@ class ValidationResult:
 
         return "\n".join(lines)
 
-    def __iter__(self) -> Iterator[str]:  # pragma: no cover - trivial
+    def __iter__(self) -> Iterator[str]:  # pragma: no cover - compatibility shim
         return iter(self.issues)
 
-    def __len__(self) -> int:  # pragma: no cover - trivial
+    def __len__(self) -> int:  # pragma: no cover - compatibility shim
         return len(self.issues)
 
-    def __eq__(self, other: object) -> bool:  # pragma: no cover - trivial
+    def __eq__(self, other: object) -> bool:  # pragma: no cover - compatibility shim
         if isinstance(other, (list, tuple)):
             return list(self.issues) == list(other)
         return object.__eq__(self, other)
 
 
-def _serialise_timestamp(value: object) -> Optional[str]:
-    if isinstance(value, pd.Timestamp):
-        return value.tz_localize(None).isoformat()
-    return None
+def detect_frequency(df: pd.DataFrame) -> str:
+    """Best-effort frequency detection for legacy callers."""
+
+    if not isinstance(df.index, pd.DatetimeIndex) or len(df.index) < 2:
+        return "unknown"
+    diffs = df.index.to_series().diff().dropna()
+    if diffs.empty:
+        return "unknown"
+    median = diffs.dt.days.median()
+    if median <= 1:
+        return "daily"
+    if 6 <= median <= 8:
+        return "weekly"
+    if 28 <= median <= 32:
+        return "monthly"
+    if 85 <= median <= 95:
+        return "quarterly"
+    if 360 <= median <= 370:
+        return "annual"
+    return f"irregular ({median:.0f} days avg)"
 
 
-def _read_from_path(path: Path) -> pd.DataFrame:
-    if not path.exists():
-        raise ValueError(f"File not found: '{path}'")
-    if path.is_dir():
-        raise ValueError(f"Path is a directory, not a file: '{path}'")
-
-    suffix = path.suffix.lower()
-    try:
-        if suffix in {".xlsx", ".xls"}:
-            return pd.read_excel(path)
-        if suffix in {".parquet", ".pq"}:
-            return pd.read_parquet(path)
-        return pd.read_csv(path)
-    except PermissionError as exc:
-        raise ValueError(f"Permission denied accessing file: '{path}'") from exc
-    except pd.errors.EmptyDataError as exc:
-        raise ValueError(f"File contains no data: '{path}'") from exc
-    except pd.errors.ParserError as exc:
-        raise ValueError(
-            f"Failed to parse file (corrupted or invalid format): '{path}'"
-        ) from exc
-    except FileNotFoundError:
-        raise ValueError(f"File not found: '{path}'") from None
-    except ImportError as exc:
-        raise ValueError(
-            f"Missing optional dependency while reading '{path}': {exc}"
-        ) from exc
-    except Exception as exc:
-        raise ValueError(f"Failed to read file: '{path}'") from exc
-
-
-def _read_from_buffer(file_like: Any) -> Tuple[pd.DataFrame, str]:
-    name = getattr(file_like, "name", "") or "upload"
-    suffix = Path(name).suffix.lower()
-
-    try:
-        if suffix in {".xlsx", ".xls"}:
-            data = file_like.read()
-            df = pd.read_excel(io.BytesIO(data))
-        elif suffix in {".parquet", ".pq"}:
-            data = file_like.read()
-            df = pd.read_parquet(io.BytesIO(data))
-        else:
-            df = pd.read_csv(file_like)
-    except PermissionError as exc:
-        raise ValueError(f"Permission denied accessing file: '{name}'") from exc
-    except pd.errors.EmptyDataError as exc:
-        raise ValueError(f"File contains no data: '{name}'") from exc
-    except pd.errors.ParserError as exc:
-        raise ValueError(
-            f"Failed to parse file (corrupted or invalid format): '{name}'"
-        ) from exc
-    except IsADirectoryError as exc:
-        raise ValueError(f"Path is a directory, not a file: '{name}'") from exc
-    except ImportError as exc:
-        raise ValueError(
-            f"Missing optional dependency while reading '{name}': {exc}"
-        ) from exc
-    except Exception as exc:
-        raise ValueError(f"Failed to read file: '{name}'") from exc
-    finally:
-        try:
-            file_like.seek(0)
-        except Exception:  # pragma: no cover - best effort
-            pass
-
-    return df, name
+def _build_result(validated: ValidatedMarketData) -> ValidationResult:
+    summary = _ValidationSummary(validated.metadata, validated.frame)
+    warnings = summary.warnings()
+    return ValidationResult(
+        True,
+        [],
+        warnings,
+        frequency=validated.metadata.frequency_label,
+        date_range=validated.metadata.date_range,
+        metadata=validated.metadata,
+    )
 
 
 def validate_returns_schema(df: pd.DataFrame) -> ValidationResult:
-    """Validate that a DataFrame conforms to the expected returns schema."""
+    """Validate a DataFrame and return a legacy ``ValidationResult``."""
 
     try:
         validated = validate_market_data(df)
     except MarketDataValidationError as exc:
-        return ValidationResult(False, [str(exc)], [])
-
-    metadata = validated.attrs.get("market_data", {})
-    start = _serialise_timestamp(metadata.get("start"))
-    end = _serialise_timestamp(metadata.get("end"))
-    date_range = (start, end) if start and end else None
-    frequency = metadata.get("frequency")
-
-    return ValidationResult(True, [], [], frequency, date_range)
+        issues = list(exc.issues) or [exc.user_message]
+        return ValidationResult(False, issues, [])
+    return _build_result(validated)
 
 
-def load_and_validate_upload(file_like: Any) -> Tuple[pd.DataFrame, Dict[str, Any]]:
-    """Load an uploaded file (CSV, Excel, Parquet) and validate its schema."""
+def _read_uploaded_file(file_like: Any) -> Tuple[pd.DataFrame, str]:
+    name = getattr(file_like, "name", None)
+    lower_name = name.lower() if isinstance(name, str) else ""
 
     if isinstance(file_like, (str, Path)):
         path = Path(file_like)
-        df = _read_from_path(path)
-        origin = f"upload:{path}"
-        name = str(path)
-    else:
-        df, name = _read_from_buffer(file_like)
-        origin = name
+        if not path.exists():
+            raise ValueError(f"File not found: '{path}'")
+        if path.is_dir():
+            raise ValueError(f"Path is a directory, not a file: '{path}'")
+        try:
+            if path.suffix.lower() in {".xlsx", ".xls"}:
+                return pd.read_excel(path), str(path)
+            if path.suffix.lower() in {".parquet", ".pq"}:
+                return pd.read_parquet(path), str(path)
+            return pd.read_csv(path), str(path)
+        except Exception as exc:
+            raise ValueError(f"Failed to read file: '{path}'") from exc
 
     try:
-        validated = validate_market_data(df, origin=origin)
+        if hasattr(file_like, "read"):
+            if lower_name.endswith((".xlsx", ".xls")):
+                data = file_like.read()
+                buf = io.BytesIO(data)
+                frame = pd.read_excel(buf)
+            elif lower_name.endswith((".parquet", ".pq")):
+                data = file_like.read()
+                buf = io.BytesIO(data)
+                frame = pd.read_parquet(buf)
+            else:
+                frame = pd.read_csv(file_like)
+            try:
+                file_like.seek(0)
+            except Exception:  # pragma: no cover - not all streams support seek
+                pass
+            return frame, lower_name or "uploaded file"
+    except FileNotFoundError:
+        raise ValueError(f"File not found: '{lower_name or file_like}'")
+    except PermissionError:
+        raise ValueError(
+            f"Permission denied accessing file: '{lower_name or file_like}'"
+        )
+    except IsADirectoryError:
+        raise ValueError(
+            f"Path is a directory, not a file: '{lower_name or file_like}'"
+        )
+    except pd.errors.EmptyDataError:
+        raise ValueError(f"File contains no data: '{lower_name or file_like}'")
+    except pd.errors.ParserError:
+        raise ValueError(
+            f"Failed to parse file (corrupted or invalid format): '{lower_name or file_like}'"
+        )
+    except Exception as exc:
+        raise ValueError(f"Failed to read file: '{lower_name or file_like}'") from exc
+
+    raise ValueError("Unsupported upload source")
+
+
+def load_and_validate_upload(file_like: Any) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    """Load uploaded content, validate it, and attach metadata."""
+
+    frame, source = _read_uploaded_file(file_like)
+    try:
+        validated = validate_market_data(frame, source=source)
     except MarketDataValidationError as exc:
-        raise ValueError(f"Schema validation failed:\n{exc}") from exc
+        raise MarketDataValidationError(exc.user_message, issues=exc.issues) from exc
 
-    metadata = dict(validated.attrs.get("market_data", {}))
-    frequency = metadata.get("frequency")
-    freq_code = metadata.get("frequency_code")
-    start = _serialise_timestamp(metadata.get("start"))
-    end = _serialise_timestamp(metadata.get("end"))
-    date_range = (start, end) if start and end else None
-
-    if frequency and freq_code:
-        FREQUENCY_MAP.setdefault(frequency, freq_code)
-
-    validation = ValidationResult(True, [], [], frequency, date_range)
-
+    attach_metadata(validated.frame, validated.metadata)
+    result = _build_result(validated)
     meta: Dict[str, Any] = {
-        "original_columns": list(validated.columns),
-        "n_rows": len(validated),
-        "validation": validation,
+        "metadata": validated.metadata,
+        "validation": result,
+        "n_rows": validated.metadata.rows,
+        "original_columns": list(validated.metadata.columns),
+        "mode": validated.metadata.mode.value,
+        "frequency": validated.metadata.frequency_label,
+        "date_range": validated.metadata.date_range,
     }
-    if frequency:
-        meta["frequency"] = frequency
-    if freq_code:
-        meta["frequency_code"] = freq_code
-    if date_range:
-        meta["date_range"] = date_range
-    mode = metadata.get("mode")
-    if mode:
-        meta["mode"] = mode
-
-    return validated, meta
+    return validated.frame, meta
 
 
 def create_sample_template() -> pd.DataFrame:
-    """Create a sample returns template DataFrame."""
+    """Create a sample returns template with realistic data."""
 
-    dates = pd.date_range(start="2023-01-31", end="2023-12-31", freq="ME")
-    np.random.seed(42)
-    n_funds = 5
-    sample_data: Dict[str, Any] = {"Date": dates}
-
-    for i in range(1, n_funds + 1):
-        returns = np.random.normal(0.008, 0.03, len(dates))
-        sample_data[f"Fund_{i:02d}"] = returns
-
-    benchmark_returns = np.random.normal(0.007, 0.025, len(dates))
-    sample_data["SPX_Benchmark"] = benchmark_returns
-
-    return pd.DataFrame(sample_data)
-
-
-__all__ = [
-    "FREQUENCY_MAP",
-    "detect_frequency",
-    "ValidationResult",
-    "validate_returns_schema",
-    "load_and_validate_upload",
-    "create_sample_template",
-]
+    dates = pd.date_range(start="2023-01-31", periods=12, freq="M")
+    rng = np.random.default_rng(42)
+    data: Dict[str, Any] = {"Date": dates}
+    for idx in range(1, 6):
+        data[f"Fund_{idx:02d}"] = rng.normal(0.008, 0.03, len(dates))
+    data["SPX_Benchmark"] = rng.normal(0.007, 0.025, len(dates))
+    return pd.DataFrame(data)

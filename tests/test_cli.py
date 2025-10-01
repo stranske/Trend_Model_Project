@@ -104,21 +104,29 @@ def test_cli_default_json(tmp_path, capsys, monkeypatch):
     assert out == "No results"
 
 
-def test_cli_reports_validation_error(tmp_path, capsys, monkeypatch):
-    cfg = tmp_path / "cfg.yml"
-    csv = tmp_path / "data.csv"
-    csv.write_text("Date,Fund\n2024-01-31,0.1\n")
-    _write_cfg(cfg, "1", csv_path=csv)
+def test_cli_validation_error(monkeypatch, capsys):
+    config = SimpleNamespace(
+        seed=1,
+        sample_split={},
+        export={"directory": "outputs", "formats": ["csv"]},
+        run={},
+        vol_adjust={},
+        metrics={},
+        portfolio={},
+        benchmarks={},
+    )
 
-    def raise_validation(*_args: object, **_kwargs: object) -> pd.DataFrame:
-        raise MarketDataValidationError("Duplicate timestamps detected: 2024-01-31")
+    monkeypatch.setattr(cli, "load_config", lambda path: config)
 
-    monkeypatch.setattr(cli, "load_csv", raise_validation)
+    def raise_validation(path: str):
+        raise MarketDataValidationError("Data validation failed:\n• unsorted index")
 
-    rc = cli.main(["run", "-c", str(cfg), "-i", str(csv)])
+    monkeypatch.setattr(cli, "load_market_data_csv", raise_validation)
+
+    rc = cli.main(["run", "-c", "cfg.yml", "-i", "input.csv"])
     captured = capsys.readouterr()
     assert rc == 1
-    assert "Duplicate timestamps" in captured.err
+    assert "unsorted index" in captured.err
 
 
 def test_cli_run_legacy_bundle_and_exports(tmp_path, capsys, monkeypatch):
@@ -143,9 +151,9 @@ def test_cli_run_legacy_bundle_and_exports(tmp_path, capsys, monkeypatch):
     monkeypatch.setattr(cli, "load_config", lambda path: config)
     monkeypatch.setattr(
         cli,
-        "load_csv",
-        lambda path, **_: pd.DataFrame(
-            {"Date": pd.to_datetime(["2020-01-31", "2020-02-29"]), "A": [0.0, 0.1]}
+        "load_market_data_csv",
+        lambda path: SimpleNamespace(
+            frame=pd.DataFrame({"Date": pd.to_datetime(["2020-01-31"]), "A": [0.0]})
         ),
     )
     monkeypatch.setattr(cli.pipeline, "run", lambda cfg: metrics_df)
@@ -289,9 +297,9 @@ def test_cli_run_modern_bundle_attaches_payload(tmp_path, capsys, monkeypatch):
     monkeypatch.setattr(cli, "load_config", lambda path: config)
     monkeypatch.setattr(
         cli,
-        "load_csv",
-        lambda path, **_: pd.DataFrame(
-            {"Date": pd.to_datetime(["2020-01-31", "2020-02-29"]), "A": [0.0, 0.1]}
+        "load_market_data_csv",
+        lambda path: SimpleNamespace(
+            frame=pd.DataFrame({"Date": pd.to_datetime(["2020-01-31"]), "A": [0.0]})
         ),
     )
     monkeypatch.setattr(cli, "run_simulation", fake_run_simulation)
@@ -375,9 +383,9 @@ def test_cli_run_env_seed_and_default_exports(tmp_path, capsys, monkeypatch):
     monkeypatch.setattr(cli, "load_config", lambda path: config)
     monkeypatch.setattr(
         cli,
-        "load_csv",
-        lambda path, **_: pd.DataFrame(
-            {"Date": pd.to_datetime(["2019-01-31", "2019-02-28"]), "A": [0.0, 0.1]}
+        "load_market_data_csv",
+        lambda path: SimpleNamespace(
+            frame=pd.DataFrame({"Date": pd.to_datetime(["2019-01-31"]), "A": [0.0]})
         ),
     )
     monkeypatch.setattr(cli, "run_simulation", fake_run_simulation)
@@ -508,9 +516,9 @@ def test_cli_run_uses_env_seed_and_populates_run_result(tmp_path, capsys, monkey
     monkeypatch.setattr(cli, "load_config", lambda path: config)
     monkeypatch.setattr(
         cli,
-        "load_csv",
-        lambda path, **_: pd.DataFrame(
-            {"Date": pd.to_datetime(["2020-01-31", "2020-02-29"]), "A": [0.0, 0.1]}
+        "load_market_data_csv",
+        lambda path: SimpleNamespace(
+            frame=pd.DataFrame({"Date": pd.to_datetime(["2020-01-31"]), "A": [0.0]})
         ),
     )
     monkeypatch.setattr(cli, "run_simulation", lambda cfg, df: run_result)

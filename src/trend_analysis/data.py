@@ -6,7 +6,11 @@ from typing import Literal, Optional
 import pandas as pd
 from pandas.api.types import is_datetime64_any_dtype
 
-from .io.market_data import MarketDataValidationError, validate_market_data
+from .io.market_data import (
+    MarketDataValidationError,
+    ValidatedMarketData,
+    load_market_data_csv,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -79,16 +83,10 @@ def _is_readable(mode: int) -> bool:
     return (mode & (stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)) != 0
 
 
-def load_csv(
-    path: str,
-    *,
-    errors: ValidationErrorMode = "log",
-    include_date_column: bool = True,
-) -> Optional[pd.DataFrame]:
-    """Load and validate market data from a CSV file."""
+def load_csv(path: str) -> Optional[pd.DataFrame]:
+    """Load a CSV expecting a 'Date' column."""
 
     p = Path(path)
-    origin = f"CSV file '{p}'"
     try:
         if not p.exists():
             raise FileNotFoundError(path)
@@ -101,123 +99,20 @@ def load_csv(
                 raise PermissionError(message)
             logger.error(message)
             return None
-        df = pd.read_csv(p)
-    except FileNotFoundError:
-        message = f"File not found: {path}"
-        if errors == "raise":
-            raise
-        logger.error(message)
+
+        validated: ValidatedMarketData = load_market_data_csv(str(p))
+        frame = validated.frame
+    except (FileNotFoundError, PermissionError, IsADirectoryError) as exc:
+        logger.error(str(exc))
         return None
-    except PermissionError:
-        message = f"Permission denied accessing file: {path}"
-        if errors == "raise":
-            raise
-        logger.error(message)
+    except MarketDataValidationError as exc:
+        logger.error("Validation failed (%s): %s", path, exc.user_message)
         return None
-    except IsADirectoryError:
-        message = f"Path is a directory, not a file: {path}"
-        if errors == "raise":
-            raise
-        logger.error(message)
-        return None
-    except pd.errors.EmptyDataError:
-        message = f"No data in file: {path}"
-        if errors == "raise":
-            raise
-        logger.error(message)
-        return None
-    except pd.errors.ParserError as exc:
-        message = f"Parsing error in {path}: {exc}"
-        if errors == "raise":
-            raise
-        logger.error(message)
+    except Exception as exc:  # pragma: no cover - defensive guard
+        logger.error("Unexpected error loading %s: %s", path, exc)
         return None
 
-    return _validate_payload(
-        df,
-        origin=origin,
-        errors=errors,
-        include_date_column=include_date_column,
-    )
-
-
-def load_parquet(
-    path: str,
-    *,
-    errors: ValidationErrorMode = "log",
-    include_date_column: bool = True,
-) -> Optional[pd.DataFrame]:
-    """Load and validate market data from a Parquet file."""
-
-    p = Path(path)
-    origin = f"Parquet file '{p}'"
-    try:
-        if not p.exists():
-            raise FileNotFoundError(path)
-        if p.is_dir():
-            raise IsADirectoryError(path)
-        mode = p.stat().st_mode
-        if not _is_readable(mode):
-            message = f"Permission denied accessing file: {path}"
-            if errors == "raise":
-                raise PermissionError(message)
-            logger.error(message)
-            return None
-        df = pd.read_parquet(p)
-    except FileNotFoundError:
-        message = f"File not found: {path}"
-        if errors == "raise":
-            raise
-        logger.error(message)
-        return None
-    except PermissionError:
-        message = f"Permission denied accessing file: {path}"
-        if errors == "raise":
-            raise
-        logger.error(message)
-        return None
-    except IsADirectoryError:
-        message = f"Path is a directory, not a file: {path}"
-        if errors == "raise":
-            raise
-        logger.error(message)
-        return None
-    except ValueError as exc:
-        message = f"Unable to read Parquet file {path}: {exc}"
-        if errors == "raise":
-            raise
-        logger.error(message)
-        return None
-    except ImportError as exc:
-        message = f"Missing Parquet engine while reading {path}: {exc}"
-        if errors == "raise":
-            raise
-        logger.error(message)
-        return None
-
-    return _validate_payload(
-        df,
-        origin=origin,
-        errors=errors,
-        include_date_column=include_date_column,
-    )
-
-
-def validate_dataframe(
-    frame: pd.DataFrame,
-    *,
-    errors: ValidationErrorMode = "log",
-    include_date_column: bool = False,
-    origin: str = "DataFrame input",
-) -> Optional[pd.DataFrame]:
-    """Validate an in-memory DataFrame using the market data contract."""
-
-    return _validate_payload(
-        frame,
-        origin=origin,
-        errors=errors,
-        include_date_column=include_date_column,
-    )
+    return frame
 
 
 def identify_risk_free_fund(df: pd.DataFrame) -> Optional[str]:

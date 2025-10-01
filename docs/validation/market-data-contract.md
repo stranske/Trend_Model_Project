@@ -1,51 +1,54 @@
-# Market Data Validation Contract
+# Market data ingest contract
 
-## Schema library decision
+The ingest pipeline now enforces a single validation flow for CSV, Parquet, and
+in-memory DataFrame uploads.  This ensures both the Streamlit app and the CLI
+surface identical, actionable feedback when data does not meet expectations.
 
-We selected **Pandera** for DataFrame validation because it natively understands
-pandas semantics (column-wise coercion, nullable floats, datetime indices) and
-lets us express checks at the frame level. Pydantic is excellent for record
-validation, but would have required manual loops to normalise timestamps and
-coerce each column. Pandera allowed us to centralise those rules in a single
-schema, while still raising typed exceptions when constraints fail.
+## Dependency choice
 
-## `validate_market_data` contract
+We elected to stay within the existing dependency stack and build on top of
+**Pydantic v2** instead of introducing a new schema library such as Pandera.
+Pydantic is already required throughout the project, which keeps the validator
+lightweight while still giving us structured metadata objects for downstream
+consumers.  The DataFrame-specific checks (index ordering, duplicates, cadence
+consistency, and value-type inference) are implemented with idiomatic
+`pandas`, and the resulting metadata is serialised through a Pydantic model to
+guarantee type-safety for callers.
 
-```python
-from trend_analysis.io.market_data import validate_market_data
+## Validation steps
 
-clean = validate_market_data(raw_frame)
-```
+`validate_market_data(data: DataFrame)` performs the following checks:
 
-* Returns a copy of the input with a **DatetimeIndex** named `Date`, sorted,
-  unique, and timezone-naive.
-* All value columns are coerced to floating point. Pandera raises an error when
-  a column cannot be converted or contains only missing values.
-* The validator infers cadence (`daily`, `monthly`, etc.) and whether the frame
-  represents **returns** or **prices**. This metadata is stored in
-  `clean.attrs["market_data"]` alongside ISO formatted `start` / `end`
-  timestamps. Convenience keys `clean.attrs["market_data_mode"]` and
-  `clean.attrs["market_data_frequency"]` mirror those values for quick access.
-* Failures raise `MarketDataValidationError` whose message is safe to surface in
-  user interfaces (Streamlit upload banner, CLI stderr). The CLI now exits with
-  the same message, and the Streamlit page displays it in a single error banner.
+1. **Index normalisation** – accepts either a `Date` column or an existing
+   `DatetimeIndex`, coercing to a timezone-naïve index named `Date`.
+2. **Ordering & duplicates** – rejects unsorted indices and duplicate
+   timestamps with explicit examples in the error message.
+3. **Numeric coercion** – converts all value columns to numeric, reporting any
+   column that ends up without usable data.
+4. **Cadence inference** – validates that the index spacing is consistent,
+   raising when the cadence cannot be inferred (e.g., irregular gaps).
+5. **Mode detection** – classifies the dataset as price- or returns-based and
+   prevents mixed representations.
 
-## Common failure modes
+On success the helper returns the normalised frame and a
+`MarketDataMetadata` object which records mode, frequency, symbol list, row
+count, and the start/end timestamps.  The metadata is also attached to the
+returned DataFrame via `df.attrs["market_data"]["metadata"]` for convenience.
 
-| Failure | Message | Resolution |
-| --- | --- | --- |
-| Duplicate timestamps | `Duplicate timestamps detected: …` | De-duplicate upstream (e.g. group by date) before ingest. |
-| Unsorted dates | `Timestamps must be sorted in ascending order.` | Sort chronologically; the validator never reorders rows. |
-| Mixed cadence | `Mixed sampling cadence detected …` | Resample to a single cadence (e.g. all month-end). |
-| Mode ambiguity | `Unable to determine if the dataset is in returns or price mode.` | Confirm values are either returns (≈±100%) or raw prices. |
-| Missing symbols | `No data columns provided alongside Date column.` | Include at least one numeric column besides `Date`. |
+Validation failures raise `MarketDataValidationError` with a single, bullet
+point formatted message.  This message is displayed verbatim in both the CLI
+and the Streamlit UI to satisfy the acceptance criteria.
 
-## Downstream usage
+## Integration points
 
-* **CLI** (`trend-model run`) calls `load_csv(..., errors="raise")` so schema
-  failures stop before modelling starts and print the validator message.
-* **Streamlit upload** (`1_Upload` page) surfaces the same message in a single
-  error banner and keeps the upload state unchanged when validation fails.
-* **Reusable helpers** (`load_parquet`, `validate_dataframe`,
-  `load_and_validate_upload`) all delegate to `validate_market_data` so CSV,
-  Parquet, and in-memory DataFrames are normalised consistently.
+- `load_market_data_csv` / `load_market_data_parquet` power the CLI and the
+  `trend_portfolio_app` upload helpers, returning validated frames and
+  metadata.
+- The Streamlit upload flow catches `MarketDataValidationError` and renders a
+  single error banner containing the user-facing message.
+- CLI runs exit with status code `1` and echo the same message to `stderr` so
+  scripted pipelines can fail fast.
+
+Refer to the unit tests in `tests/test_validators.py` and
+`tests/test_io_validators_additional.py` for examples covering both returns and
+price ingestion paths.

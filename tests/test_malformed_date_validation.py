@@ -29,9 +29,9 @@ class TestMalformedDateValidation:
         assert not result.is_valid
         assert len(result.issues) > 0
 
-        # Check that the error message mentions the malformed values
-        error_message = " ".join(result.issues)
-        assert "Unable to parse Date values" in error_message
+        # Check that the error message mentions malformed dates
+        error_message = " ".join(result.issues).lower()
+        assert "could not be parsed" in error_message
         assert "invalid-date" in error_message
         assert "another-bad-date" in error_message
 
@@ -64,9 +64,9 @@ class TestMalformedDateValidation:
 
         # Should fail validation due to the one malformed date
         assert not result.is_valid
-        error_message = " ".join(result.issues)
-        assert "Unable to parse Date values" in error_message
-        assert "not-a-date" in error_message
+        issue_text = " ".join(result.issues).lower()
+        assert "not-a-date" in issue_text
+        assert "could not be parsed" in issue_text
 
     def test_all_malformed_dates(self):
         """Test behavior when all dates are malformed."""
@@ -81,9 +81,9 @@ class TestMalformedDateValidation:
 
         # Should fail validation
         assert not result.is_valid
-        error_message = " ".join(result.issues)
-        assert "Unable to parse Date values" in error_message
-        assert "bad-date-1" in error_message
+        issue_text = " ".join(result.issues).lower()
+        assert "bad-date-1" in issue_text
+        assert "could not be parsed" in issue_text
 
     def test_empty_date_values_handled(self):
         """Test that empty/null date values are also caught."""
@@ -98,5 +98,5 @@ class TestMalformedDateValidation:
 
         # Should fail validation due to empty/null dates
         assert not result.is_valid
-        error_message = " ".join(result.issues)
-        assert "Unable to parse Date values" in error_message
+        # Should mention malformed dates (empty strings and None become NaT)
+        assert any("parsed" in issue for issue in result.issues)

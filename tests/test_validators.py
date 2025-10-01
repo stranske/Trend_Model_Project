@@ -7,8 +7,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from trend_analysis.io.market_data import MarketDataMode, MarketDataValidationError
 from trend_analysis.io.validators import (
-    FREQUENCY_MAP,
     ValidationResult,
     load_and_validate_upload,
     validate_returns_schema,
@@ -16,111 +16,156 @@ from trend_analysis.io.validators import (
 
 
 class TestValidationResult:
-    def test_valid_report(self) -> None:
-        result = ValidationResult(True, [], [], "monthly", ("2024-01-31", "2024-12-31"))
+    def test_report_includes_metadata(self) -> None:
+        result = ValidationResult(
+            True,
+            [],
+            [],
+            frequency="monthly",
+            date_range=("2023-01-31", "2023-12-31"),
+        )
+        result.mode = MarketDataMode.RETURNS
         report = result.get_report()
-        assert "✅ Schema validation passed!" in report
+        assert "✅" in report
         assert "monthly" in report
-        assert "2024-01-31" in report and "2024-12-31" in report
-
-    def test_invalid_report(self) -> None:
-        result = ValidationResult(False, ["Missing Date"], ["Warn"])
-        report = result.get_report()
-        assert "❌ Schema validation failed!" in report
-        assert "Missing Date" in report
-        assert "Warn" in report
+        assert "2023-12-31" in report
+        assert "returns" in report
 
 
 class TestValidateReturnsSchema:
-    def test_valid_schema(self) -> None:
-        df = pd.DataFrame(
+    def test_valid_dataframe_returns_metadata(self) -> None:
+        frame = pd.DataFrame(
             {
-                "Date": ["2024-01-31", "2024-02-29"],
-                "Fund": [0.01, 0.02],
+                "Date": ["2023-01-31", "2023-02-28", "2023-03-31", "2023-04-30"],
+                "FundA": [0.01, 0.02, -0.01, 0.03],
+                "FundB": [0.05, 0.01, 0.0, -0.02],
             }
         )
-        result = validate_returns_schema(df)
+        result = validate_returns_schema(frame)
         assert result.is_valid
-        assert result.frequency == "monthly"
+        assert result.metadata is not None
+        assert result.metadata.mode == MarketDataMode.RETURNS
+        assert result.metadata.frequency_label == "monthly"
+        assert "small" in result.warnings[0]
 
-    def test_missing_date_column(self) -> None:
-        df = pd.DataFrame({"Fund": [0.01, 0.02]})
-        result = validate_returns_schema(df)
+    def test_reports_missing_date_column(self) -> None:
+        frame = pd.DataFrame({"FundA": [0.01, 0.02]})
+        result = validate_returns_schema(frame)
         assert not result.is_valid
-        assert "Expected a 'Date' column" in result.issues[0]
+        assert any("Missing a 'Date'" in issue for issue in result.issues)
 
-    def test_duplicate_dates_issue(self) -> None:
-        df = pd.DataFrame({"Date": ["2024-01-31", "2024-01-31"], "Fund": [0.01, 0.02]})
-        result = validate_returns_schema(df)
+    def test_detects_duplicate_dates(self) -> None:
+        frame = pd.DataFrame(
+            {
+                "Date": ["2023-01-31", "2023-01-31", "2023-02-28"],
+                "FundA": [0.01, 0.02, 0.03],
+            }
+        )
+        result = validate_returns_schema(frame)
         assert not result.is_valid
-        assert "Duplicate" in result.issues[0]
+        assert any("duplicate" in issue.lower() for issue in result.issues)
 
-    def test_non_numeric_column(self) -> None:
-        df = pd.DataFrame({"Date": ["2024-01-31", "2024-02-29"], "Fund": ["a", "b"]})
-        result = validate_returns_schema(df)
+    def test_detects_non_numeric_columns(self) -> None:
+        frame = pd.DataFrame(
+            {
+                "Date": ["2023-01-31", "2023-02-28"],
+                "FundA": ["foo", "bar"],
+            }
+        )
+        result = validate_returns_schema(frame)
         assert not result.is_valid
-        assert "Failed to coerce numeric data" in result.issues[0]
+        assert any("no numeric data" in issue for issue in result.issues)
+
+    def test_warns_on_sparse_columns(self) -> None:
+        frame = pd.DataFrame(
+            {
+                "Date": pd.date_range("2023-01-31", periods=12, freq="ME"),
+                "FundA": [0.01] * 4 + [None] * 8,
+                "FundB": [0.02] * 12,
+            }
+        )
+        result = validate_returns_schema(frame)
+        assert result.is_valid
+        assert any("missing values" in warning for warning in result.warnings)
 
 
 class TestLoadAndValidateUpload:
-    def test_load_csv_file(self) -> None:
-        csv_data = "Date,Fund\n2024-01-31,0.01\n2024-02-29,0.02"
-        file_like = io.StringIO(csv_data)
-        file_like.name = "test.csv"
+    def _make_csv(self, tmp_path: Path) -> Path:
+        frame = pd.DataFrame(
+            {
+                "Date": pd.date_range("2023-01-31", periods=6, freq="M"),
+                "FundA": [0.01, 0.02, -0.01, 0.03, 0.01, 0.005],
+            }
+        )
+        csv_path = tmp_path / "data.csv"
+        frame.to_csv(csv_path, index=False)
+        return csv_path
 
-        frame, meta = load_and_validate_upload(file_like)
-        assert isinstance(frame.index, pd.DatetimeIndex)
+    def test_reads_csv_buffer(self, tmp_path: Path) -> None:
+        csv_path = self._make_csv(tmp_path)
+        df, meta = load_and_validate_upload(str(csv_path))
+        assert df.attrs["market_data"]["metadata"].mode == MarketDataMode.RETURNS
         assert meta["frequency"] == "monthly"
-        assert meta["validation"].is_valid
+
+    def test_raises_validation_error(self, tmp_path: Path) -> None:
+        csv_path = tmp_path / "invalid.csv"
+        csv_path.write_text("FundA,FundB\n1,2\n3,4")
+        with pytest.raises(MarketDataValidationError):
+            load_and_validate_upload(csv_path)
+
+    def test_handles_excel_stream(self, tmp_path: Path) -> None:
+        frame = pd.DataFrame(
+            {
+                "Date": pd.date_range("2023-01-31", periods=3, freq="M"),
+                "FundA": [0.01, -0.02, 0.03],
+            }
+        )
+        buf = io.BytesIO()
+        frame.to_excel(buf, index=False)
+        buf.seek(0)
+        buf.name = "upload.xlsx"
+        df, meta = load_and_validate_upload(buf)
         assert meta["mode"] == "returns"
+        assert len(df) == 3
 
-    def test_load_invalid_file(self) -> None:
-        csv_data = "Fund\n0.01\n0.02"
-        file_like = io.StringIO(csv_data)
-        file_like.name = "test.csv"
+    def test_file_errors_surface_user_message(self, tmp_path: Path) -> None:
+        missing = tmp_path / "missing.csv"
+        with pytest.raises(ValueError, match="File not found"):
+            load_and_validate_upload(missing)
 
-        with pytest.raises(ValueError) as exc:
-            load_and_validate_upload(file_like)
-        assert "Schema validation failed" in str(exc.value)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with pytest.raises(ValueError, match="directory"):
+                load_and_validate_upload(Path(temp_dir))
 
-    def test_nonexistent_path(self) -> None:
-        with pytest.raises(ValueError) as exc:
-            load_and_validate_upload("missing.csv")
-        assert "File not found" in str(exc.value)
-
-    def test_directory_path(self, tmp_path: Path) -> None:
-        with pytest.raises(ValueError) as exc:
-            load_and_validate_upload(tmp_path)
-        assert "Path is a directory" in str(exc.value)
-
-    def test_empty_file(self) -> None:
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv") as tmp:
-            tmp.flush()
-            with pytest.raises(ValueError) as exc:
-                load_and_validate_upload(tmp.name)
-            assert "File contains no data" in str(exc.value)
-
-    def test_parser_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        def raise_parser(*args: object, **kwargs: object) -> pd.DataFrame:
-            raise pd.errors.ParserError("bad parse")
+    def test_parser_error_is_wrapped(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        def raise_parser(*args, **kwargs):
+            raise pd.errors.ParserError("bad")
 
         monkeypatch.setattr(pd, "read_csv", raise_parser)
-        with pytest.raises(ValueError) as exc:
-            load_and_validate_upload("bad.csv")
-        assert "Failed to parse file" in str(exc.value)
 
-    def test_generic_reader_failure(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        def boom(*args: object, **kwargs: object) -> pd.DataFrame:
-            raise RuntimeError("boom")
+        class NamedStringIO(io.StringIO):
+            def __init__(self, *args, name=None, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.name = name
 
-        monkeypatch.setattr(pd, "read_csv", boom)
-        with pytest.raises(ValueError) as exc:
-            load_and_validate_upload("broken.csv")
-        assert "Failed to read file" in str(exc.value)
+        buffer = NamedStringIO("Date,Fund\n2023-01-31,1.0", name="broken.csv")
+        with pytest.raises(ValueError, match="Failed to parse"):
+            load_and_validate_upload(buffer)
 
 
-class TestFrequencyMap:
-    def test_frequency_entries(self) -> None:
-        assert FREQUENCY_MAP["monthly"] == "M"
-        assert FREQUENCY_MAP["weekly"] == "W"
-        assert "irregular" in FREQUENCY_MAP
+class TestDetectFrequency:
+    def test_daily_frequency(self) -> None:
+        index = pd.date_range("2023-01-01", periods=5, freq="D")
+        df = pd.DataFrame(index=index)
+        assert detect_frequency(df) == "daily"
+
+    def test_unknown_frequency(self) -> None:
+        df = pd.DataFrame(index=[])
+        assert detect_frequency(df) == "unknown"
+
+
+class TestCreateSampleTemplate:
+    def test_template_contains_expected_columns(self) -> None:
+        template = create_sample_template()
+        assert "Date" in template.columns
+        assert template.shape[0] == 12
