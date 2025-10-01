@@ -6,7 +6,11 @@ from typing import Any, Callable
 import pandas as pd
 import pytest
 
-from trend_analysis.io.market_data import MarketDataMetadata, MarketDataMode
+from trend_analysis.io.market_data import (
+    MarketDataMetadata,
+    MarketDataMode,
+    MarketDataValidationError,
+)
 
 
 class DummyStreamlit:
@@ -166,7 +170,10 @@ def test_render_upload_page_failure(monkeypatch: pytest.MonkeyPatch, upload_page
     stub.uploaded = object()
 
     def raise_validation(_: Any) -> tuple[Any, Any]:
-        raise ValueError("Data validation failed:\n• unsorted index")
+        raise MarketDataValidationError(
+            "Data validation failed:\n• unsorted index",
+            issues=["unsorted index"],
+        )
 
     monkeypatch.setattr(page, "load_and_validate_file", raise_validation)
 
@@ -178,5 +185,8 @@ def test_render_upload_page_failure(monkeypatch: pytest.MonkeyPatch, upload_page
     assert st_module.session_state["upload_status"] == "error"
     assert st_module.session_state["returns_df"] is None
     assert st_module.session_state["schema_meta"] is None
-    assert st_module.session_state["validation_report"] == "Data validation failed:\n• unsorted index"
+    assert st_module.session_state["validation_report"] == {
+        "message": "Data validation failed:\n• unsorted index",
+        "issues": ["unsorted index"],
+    }
     assert st_module.session_state["benchmark_candidates"] == []

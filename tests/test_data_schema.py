@@ -3,7 +3,7 @@ import io
 import pandas as pd
 import pytest
 
-from trend_analysis.io.market_data import MarketDataMode
+from trend_analysis.io.market_data import MarketDataMode, MarketDataValidationError
 from trend_portfolio_app.data_schema import (
     DATE_COL,
     _validate_df,
@@ -30,18 +30,18 @@ def test_validate_df_basic():
 
 def test_validate_df_errors():
     # missing Date column
-    with pytest.raises(ValueError):
+    with pytest.raises(MarketDataValidationError):
         _validate_df(pd.DataFrame({"A": [1]}))
 
     # duplicate columns
     df = pd.DataFrame({"Date": ["2020-01-01"], "A": [1], "B": [2]})
     df.columns = ["Date", "A", "A"]
-    with pytest.raises(ValueError):
+    with pytest.raises(MarketDataValidationError):
         _validate_df(df)
 
     # all NA returns
     df = pd.DataFrame({"Date": ["2020-01-01"], "A": [float("nan")]})
-    with pytest.raises(ValueError):
+    with pytest.raises(MarketDataValidationError):
         _validate_df(df)
 
 
