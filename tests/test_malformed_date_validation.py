@@ -31,13 +31,9 @@ class TestMalformedDateValidation:
 
         # Check that the error message mentions malformed dates
         error_message = " ".join(result.issues).lower()
-        assert "malformed" in error_message
-        assert "validation errors" in error_message
-        assert "expiration failures" in error_message
-
-        # Should specifically mention the malformed values
-        assert "invalid-date" in " ".join(result.issues)
-        assert "another-bad-date" in " ".join(result.issues)
+        assert "could not be parsed" in error_message
+        assert "invalid-date" in error_message
+        assert "another-bad-date" in error_message
 
     def test_valid_dates_pass_validation(self):
         """Test that valid dates still pass validation."""
@@ -68,8 +64,9 @@ class TestMalformedDateValidation:
 
         # Should fail validation due to the one malformed date
         assert not result.is_valid
-        assert "1 malformed date(s)" in " ".join(result.issues)
-        assert "not-a-date" in " ".join(result.issues)
+        issue_text = " ".join(result.issues).lower()
+        assert "not-a-date" in issue_text
+        assert "could not be parsed" in issue_text
 
     def test_all_malformed_dates(self):
         """Test behavior when all dates are malformed."""
@@ -84,8 +81,9 @@ class TestMalformedDateValidation:
 
         # Should fail validation
         assert not result.is_valid
-        assert "3 malformed date(s)" in " ".join(result.issues)
-        assert "bad-date-1" in " ".join(result.issues)
+        issue_text = " ".join(result.issues).lower()
+        assert "bad-date-1" in issue_text
+        assert "could not be parsed" in issue_text
 
     def test_empty_date_values_handled(self):
         """Test that empty/null date values are also caught."""
@@ -101,4 +99,4 @@ class TestMalformedDateValidation:
         # Should fail validation due to empty/null dates
         assert not result.is_valid
         # Should mention malformed dates (empty strings and None become NaT)
-        assert any("malformed" in issue for issue in result.issues)
+        assert any("parsed" in issue for issue in result.issues)

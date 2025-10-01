@@ -5,6 +5,7 @@ import pandas as pd
 
 import yaml
 from trend_analysis import cli
+from trend_analysis.io.market_data import MarketDataValidationError
 from trend_analysis.api import RunResult
 from trend_analysis.constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 
@@ -103,6 +104,31 @@ def test_cli_default_json(tmp_path, capsys, monkeypatch):
     assert out == "No results"
 
 
+def test_cli_validation_error(monkeypatch, capsys):
+    config = SimpleNamespace(
+        seed=1,
+        sample_split={},
+        export={"directory": "outputs", "formats": ["csv"]},
+        run={},
+        vol_adjust={},
+        metrics={},
+        portfolio={},
+        benchmarks={},
+    )
+
+    monkeypatch.setattr(cli, "load_config", lambda path: config)
+
+    def raise_validation(path: str):
+        raise MarketDataValidationError("Data validation failed:\n• unsorted index")
+
+    monkeypatch.setattr(cli, "load_market_data_csv", raise_validation)
+
+    rc = cli.main(["run", "-c", "cfg.yml", "-i", "input.csv"])
+    captured = capsys.readouterr()
+    assert rc == 1
+    assert "unsorted index" in captured.err
+
+
 def test_cli_run_legacy_bundle_and_exports(tmp_path, capsys, monkeypatch):
     config = SimpleNamespace(
         seed=123,
@@ -125,8 +151,10 @@ def test_cli_run_legacy_bundle_and_exports(tmp_path, capsys, monkeypatch):
     monkeypatch.setattr(cli, "load_config", lambda path: config)
     monkeypatch.setattr(
         cli,
-        "load_csv",
-        lambda path: pd.DataFrame({"Date": pd.to_datetime(["2020-01-31"]), "A": [0.0]}),
+        "load_market_data_csv",
+        lambda path: SimpleNamespace(
+            frame=pd.DataFrame({"Date": pd.to_datetime(["2020-01-31"]), "A": [0.0]})
+        ),
     )
     monkeypatch.setattr(cli.pipeline, "run", lambda cfg: metrics_df)
     monkeypatch.setattr(cli.pipeline, "run_full", lambda cfg: results_payload)
@@ -269,8 +297,10 @@ def test_cli_run_modern_bundle_attaches_payload(tmp_path, capsys, monkeypatch):
     monkeypatch.setattr(cli, "load_config", lambda path: config)
     monkeypatch.setattr(
         cli,
-        "load_csv",
-        lambda path: pd.DataFrame({"Date": pd.to_datetime(["2020-01-31"]), "A": [0.0]}),
+        "load_market_data_csv",
+        lambda path: SimpleNamespace(
+            frame=pd.DataFrame({"Date": pd.to_datetime(["2020-01-31"]), "A": [0.0]})
+        ),
     )
     monkeypatch.setattr(cli, "run_simulation", fake_run_simulation)
     monkeypatch.setattr(cli.export, "format_summary_text", lambda *a, **k: "summary")
@@ -353,8 +383,10 @@ def test_cli_run_env_seed_and_default_exports(tmp_path, capsys, monkeypatch):
     monkeypatch.setattr(cli, "load_config", lambda path: config)
     monkeypatch.setattr(
         cli,
-        "load_csv",
-        lambda path: pd.DataFrame({"Date": pd.to_datetime(["2019-01-31"]), "A": [0.0]}),
+        "load_market_data_csv",
+        lambda path: SimpleNamespace(
+            frame=pd.DataFrame({"Date": pd.to_datetime(["2019-01-31"]), "A": [0.0]})
+        ),
     )
     monkeypatch.setattr(cli, "run_simulation", fake_run_simulation)
     monkeypatch.setattr(cli.export, "format_summary_text", lambda *a, **k: "summary")
@@ -484,8 +516,10 @@ def test_cli_run_uses_env_seed_and_populates_run_result(tmp_path, capsys, monkey
     monkeypatch.setattr(cli, "load_config", lambda path: config)
     monkeypatch.setattr(
         cli,
-        "load_csv",
-        lambda path: pd.DataFrame({"Date": pd.to_datetime(["2020-01-31"]), "A": [0.0]}),
+        "load_market_data_csv",
+        lambda path: SimpleNamespace(
+            frame=pd.DataFrame({"Date": pd.to_datetime(["2020-01-31"]), "A": [0.0]})
+        ),
     )
     monkeypatch.setattr(cli, "run_simulation", lambda cfg, df: run_result)
 
