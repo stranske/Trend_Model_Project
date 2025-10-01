@@ -10,6 +10,8 @@ from .io.market_data import (
     MarketDataValidationError,
     ValidatedMarketData,
     load_market_data_csv,
+    load_market_data_parquet,
+    validate_market_data,
 )
 
 logger = logging.getLogger(__name__)
@@ -57,13 +59,15 @@ def _validate_payload(
 ) -> Optional[pd.DataFrame]:
     payload = _normalise_numeric_strings(payload)
     try:
-        validated = validate_market_data(payload, origin=origin)
+        validated = validate_market_data(payload, source=origin)
     except MarketDataValidationError as exc:
         if errors == "raise":
             raise
-        logger.error(f"Validation failed ({origin}): {exc}")
+        logger.error("Validation failed (%s): %s", origin, exc.user_message)
         return None
-    return _finalise_validated_frame(validated, include_date_column=include_date_column)
+    return _finalise_validated_frame(
+        validated.frame, include_date_column=include_date_column
+    )
 
 
 def _is_readable(mode: int) -> bool:
@@ -83,8 +87,13 @@ def _is_readable(mode: int) -> bool:
     return (mode & (stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)) != 0
 
 
-def load_csv(path: str) -> Optional[pd.DataFrame]:
-    """Load a CSV expecting a 'Date' column."""
+def load_csv(
+    path: str,
+    *,
+    errors: ValidationErrorMode = "raise",
+    include_date_column: bool = False,
+) -> Optional[pd.DataFrame]:
+    """Load and validate a CSV expecting a ``Date`` column."""
 
     p = Path(path)
     try:
@@ -94,25 +103,79 @@ def load_csv(path: str) -> Optional[pd.DataFrame]:
             raise IsADirectoryError(path)
         mode = p.stat().st_mode
         if not _is_readable(mode):
-            message = f"Permission denied accessing file: {path}"
-            if errors == "raise":
-                raise PermissionError(message)
-            logger.error(message)
-            return None
+            raise PermissionError(f"Permission denied accessing file: {path}")
 
         validated: ValidatedMarketData = load_market_data_csv(str(p))
-        frame = validated.frame
+        return _finalise_validated_frame(
+            validated.frame, include_date_column=include_date_column
+        )
     except (FileNotFoundError, PermissionError, IsADirectoryError) as exc:
+        if errors == "raise":
+            raise
         logger.error(str(exc))
-        return None
     except MarketDataValidationError as exc:
+        if errors == "raise":
+            raise
         logger.error("Validation failed (%s): %s", path, exc.user_message)
-        return None
     except Exception as exc:  # pragma: no cover - defensive guard
+        if errors == "raise":
+            raise
         logger.error("Unexpected error loading %s: %s", path, exc)
-        return None
+    return None
 
-    return frame
+
+def load_parquet(
+    path: str,
+    *,
+    errors: ValidationErrorMode = "raise",
+    include_date_column: bool = False,
+) -> Optional[pd.DataFrame]:
+    """Load and validate a Parquet file containing market data."""
+
+    p = Path(path)
+    try:
+        if not p.exists():
+            raise FileNotFoundError(path)
+        if p.is_dir():
+            raise IsADirectoryError(path)
+        mode = p.stat().st_mode
+        if not _is_readable(mode):
+            raise PermissionError(f"Permission denied accessing file: {path}")
+
+        validated: ValidatedMarketData = load_market_data_parquet(str(p))
+        return _finalise_validated_frame(
+            validated.frame, include_date_column=include_date_column
+        )
+    except (FileNotFoundError, PermissionError, IsADirectoryError) as exc:
+        if errors == "raise":
+            raise
+        logger.error(str(exc))
+    except MarketDataValidationError as exc:
+        if errors == "raise":
+            raise
+        logger.error("Validation failed (%s): %s", path, exc.user_message)
+    except Exception as exc:  # pragma: no cover - defensive guard
+        if errors == "raise":
+            raise
+        logger.error("Unexpected error loading %s: %s", path, exc)
+    return None
+
+
+def validate_dataframe(
+    df: pd.DataFrame,
+    *,
+    errors: ValidationErrorMode = "raise",
+    include_date_column: bool = False,
+    origin: str = "dataframe",
+) -> Optional[pd.DataFrame]:
+    """Validate an in-memory DataFrame against the market data contract."""
+
+    return _validate_payload(
+        df,
+        origin=origin,
+        errors=errors,
+        include_date_column=include_date_column,
+    )
 
 
 def identify_risk_free_fund(df: pd.DataFrame) -> Optional[str]:
