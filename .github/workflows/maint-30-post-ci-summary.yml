@@ -20,6 +20,47 @@ jobs:
       github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.pull_requests[0].number
     runs-on: ubuntu-latest
+    env:
+      WORKFLOW_TARGETS_JSON: |
+        [
+          {
+            "key": "ci",
+            "display_name": "CI",
+            "workflow_path": ".github/workflows/pr-10-ci-python.yml"
+          },
+          {
+            "key": "docker",
+            "display_name": "Docker",
+            "workflow_path": ".github/workflows/pr-12-docker-smoke.yml"
+          }
+        ]
+      REQUIRED_JOB_GROUPS_JSON: |
+        [
+          {
+            "label": "CI tests",
+            "patterns": [
+              "^main / tests(?: /|$)"
+            ]
+          },
+          {
+            "label": "CI workflow-automation",
+            "patterns": [
+              "^workflow / automation-tests(?: /|$)"
+            ]
+          },
+          {
+            "label": "CI style",
+            "patterns": [
+              "^main / style(?: /|$)"
+            ]
+          },
+          {
+            "label": "CI gate",
+            "patterns": [
+              "^gate / all-required-green$"
+            ]
+          }
+        ]
     steps:
       - name: Gather workflow metadata
         id: gather
@@ -37,27 +78,87 @@ jobs:
 
             const { owner, repo } = context.repo;
             const headSha = run.head_sha;
+# (Remove these lines entirely; use the helper defined earlier in the script block)
 
-            const workflows = [
-              { key: 'ci', workflowId: 'pr-10-ci-python.yml', displayName: 'CI' },
-              { key: 'docker', workflowId: 'pr-12-docker-smoke.yml', displayName: 'Docker' },
+            const defaultWorkflowTargets = [
+              { key: 'ci', display_name: 'CI', workflow_path: '.github/workflows/pr-10-ci-python.yml' },
+              { key: 'docker', display_name: 'Docker', workflow_path: '.github/workflows/pr-12-docker-smoke.yml' },
             ];
+
+            const workflowTargetsRaw = process.env.WORKFLOW_TARGETS_JSON;
+            const workflowTargetsInput = parseJsonInput(workflowTargetsRaw, defaultWorkflowTargets);
+            const workflowTargetsSource = Array.isArray(workflowTargetsInput) ? workflowTargetsInput : defaultWorkflowTargets;
+            // Helper to normalize target properties
+            function normalizeTargetProps(target) {
+              return {
+                key: target.key,
+                displayName: target.display_name || target.displayName || target.key || 'workflow',
+                workflowPath: target.workflow_path || target.workflowPath || '',
+                workflowFile: target.workflow_file || target.workflowFile || target.workflow_id || target.workflowId || '',
+                workflowName: target.workflow_name || target.workflowName || '',
+                workflowIds: Array.isArray(target.workflow_ids) ? target.workflow_ids : (target.workflowIds && Array.isArray(target.workflowIds) ? target.workflowIds : []),
+              };
+            }
+
+            const workflowTargets = workflowTargetsSource
+              .map(normalizeTargetProps)
+              .filter(target => target && target.key);
+
+            const normalizePath = (value) => {
+              if (!value) return '';
+              return String(value).replace(/^\.\//, '').replace(/^\/+/, '');
+            };
+
+            const workflowMatchesRun = (target, candidate) => {
+              if (!candidate) return false;
+              const runPath = normalizePath(candidate.path);
+              const runWorkflowId = candidate.workflow_id;
+              const expectedPath = normalizePath(target.workflowPath);
+              const expectedFile = normalizePath(target.workflowFile);
+              if (expectedPath && runPath === normalizePath(expectedPath)) {
+                return true;
+              }
+              if (expectedFile && runPath.endsWith(`/${expectedFile}`)) {
+                return true;
+              }
+              if (target.workflowName && candidate.name === target.workflowName) {
+                return true;
+              }
+              if (Array.isArray(target.workflowIds) && target.workflowIds.length) {
+                return target.workflowIds.some(id => Number(id) === Number(runWorkflowId));
+              }
+              return false;
+            };
+
+            let repoRuns = [];
+            try {
+              repoRuns = await github.paginate(
+                github.rest.actions.listWorkflowRunsForRepo,
+                {
+                  owner,
+                  repo,
+                  head_sha: headSha,
+                  per_page: 100,
+                },
+                (response) => response.data.workflow_runs || [],
+              );
+            } catch (error) {
+              core.warning(`Failed to list workflow runs for repo: ${error}`);
+            }
 
             const runs = [];
 
-            for (const wf of workflows) {
+            for (const wf of workflowTargets) {
               let latest = null;
-              try {
-                const resp = await github.rest.actions.listWorkflowRuns({
-                  owner,
-                  repo,
-                  workflow_id: wf.workflowId,
-                  head_sha: headSha,
-                  per_page: 1,
-                });
-                latest = resp.data.workflow_runs?.[0] || null;
-              } catch (error) {
-                core.warning(`Failed to list runs for ${wf.workflowId}: ${error}`);
+              if (repoRuns.length) {
+                const matches = repoRuns
+                  .filter(candidate => workflowMatchesRun(wf, candidate))
+                  .sort((a, b) => {
+                    const aTime = a && a.created_at ? new Date(a.created_at).getTime() : 0;
+                    const bTime = b && b.created_at ? new Date(b.created_at).getTime() : 0;
+                    return bTime - aTime;
+                  });
+                latest = matches[0] || null;
               }
 
               if (!latest) {
@@ -251,6 +352,43 @@ jobs:
               coverageStats = {};
             }
 
+            const parseJsonInput = (raw, fallback) => {
+              if (!raw) {
+                return fallback;
+              }
+              try {
+                return JSON.parse(raw);
+              } catch (error) {
+                core.warning(`Failed to parse JSON input: ${error}`);
+                return fallback;
+              }
+            };
+
+            const defaultJobGroups = [
+              { label: 'CI tests', patterns: ['^main / tests(?: /|$)'] },
+              { label: 'CI workflow-automation', patterns: ['^workflow / automation-tests(?: /|$)'] },
+              { label: 'CI style', patterns: ['^main / style(?: /|$)'] },
+              { label: 'CI gate', patterns: ['^gate / all-required-green$'] },
+            ];
+
+            const jobGroupConfigsInput = parseJsonInput(process.env.REQUIRED_JOB_GROUPS_JSON, defaultJobGroups);
+            const jobGroupConfigsSource = Array.isArray(jobGroupConfigsInput) ? jobGroupConfigsInput : defaultJobGroups;
+            const jobGroupConfigs = jobGroupConfigsSource
+              .map((group) => {
+                const label = group.label || group.name || '';
+                const patternList = Array.isArray(group.patterns) ? group.patterns : [];
+                const regexes = [];
+                for (const pattern of patternList) {
+                  try {
+                    regexes.push(new RegExp(pattern));
+                  } catch (error) {
+                    core.warning(`Invalid required job pattern "${pattern}" for group "${label}": ${error}`);
+                  }
+                }
+                return { label, regexes };
+              })
+              .filter((group) => group.label && group.regexes.length);
+
             const badge = (state) => {
               if (!state) return '⏳';
               const normalized = String(state).toLowerCase();
@@ -322,16 +460,18 @@ jobs:
             const ciRun = runs.find(r => r.key === 'ci');
             if (ciRun && ciRun.present) {
               const jobs = Array.isArray(ciRun.jobs) ? ciRun.jobs : [];
-              const groups = [
-                { label: 'CI tests', predicate: (name) => name === 'main / tests' || name.startsWith('main / tests /') },
-                { label: 'CI workflow-automation', predicate: (name) => name.startsWith('workflow / automation-tests') },
-                { label: 'CI style', predicate: (name) => name === 'main / style' || name.startsWith('main / style /') },
-                { label: 'CI gate', predicate: (name) => name === 'gate / all-required-green' },
-              ];
-              for (const group of groups) {
-                const matches = jobs.filter(job => group.predicate(job.name || ''));
-                const state = combineStates(matches.map(job => job.conclusion || job.status));
-                requiredSegments.push(`${group.label}: ${badge(state)} ${state}`);
+              if (jobGroupConfigs.length) {
+                for (const group of jobGroupConfigs) {
+                  const matches = jobs.filter((job) => {
+                    const name = job.name || '';
+                    return group.regexes.some((regex) => regex.test(name));
+                  });
+                  const state = combineStates(matches.map(job => job.conclusion || job.status));
+                  requiredSegments.push(`${group.label}: ${badge(state)} ${state}`);
+                }
+              } else {
+                const overallState = combineStates(jobs.map(job => job.conclusion || job.status));
+                requiredSegments.push(`CI: ${badge(overallState)} ${overallState}`);
               }
             } else {
               requiredSegments.push('CI: ⏳ pending');
