@@ -293,12 +293,28 @@ def _github_json(method: str, api_url: str, token: str, endpoint: str, params: O
 
 
 def _paginated_get(api_url: str, token: str, endpoint: str, params: Optional[dict] = None) -> List[dict]:
+    # Map endpoint patterns to expected payload keys
+    endpoint_key_map = [
+        ("*/jobs", "jobs"),
+        ("*/comments", "comments"),
+        ("*/workflow_runs", "workflow_runs"),
+    ]
     results: List[dict] = []
     page = 1
     while True:
         page_params = dict(params or {}, page=page, per_page=100)
         payload = _github_json("GET", api_url, token, endpoint, params=page_params)
-        items = payload.get("jobs") or payload.get("comments") or payload.get("workflow_runs") or []
+        # Determine the expected key based on the endpoint
+        key = None
+        for pattern, k in endpoint_key_map:
+            if fnmatch.fnmatch(endpoint, pattern):
+                key = k
+                break
+        if key is not None:
+            items = payload.get(key, [])
+        else:
+            # Fallback: try all known keys, or empty list
+            items = payload.get("jobs") or payload.get("comments") or payload.get("workflow_runs") or []
         if not isinstance(items, list):
             break
         results.extend(items)
