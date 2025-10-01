@@ -84,7 +84,7 @@ class TestMalformedDateValidation:
         issue_text = " ".join(result.issues).lower()
         assert "bad-date-1" in issue_text
         assert "could not be parsed" in issue_text
-      
+
     def test_empty_date_values_handled(self):
         """Test that empty/null date values are also caught."""
         df = pd.DataFrame(

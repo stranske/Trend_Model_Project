@@ -5,7 +5,6 @@ import pandas as pd
 
 import yaml
 from trend_analysis import cli
-from trend_analysis.io.market_data import MarketDataValidationError
 from trend_analysis.api import RunResult
 from trend_analysis.constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 from trend_analysis.io.market_data import MarketDataValidationError

@@ -46,4 +46,3 @@ def test_permission_error_is_wrapped(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(validators.pd, "read_csv", deny)
     with pytest.raises(ValueError, match="Permission denied"):
         validators.load_and_validate_upload(DummyFile())
-

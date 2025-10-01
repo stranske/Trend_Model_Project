@@ -142,6 +142,7 @@ class TestLoadAndValidateUpload:
             raise pd.errors.ParserError("bad")
 
         monkeypatch.setattr(pd, "read_csv", raise_parser)
+
         class NamedStringIO(io.StringIO):
             def __init__(self, *args, name=None, **kwargs):
                 super().__init__(*args, **kwargs)

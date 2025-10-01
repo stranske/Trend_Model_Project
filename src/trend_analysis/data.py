@@ -87,7 +87,6 @@ def load_csv(path: str) -> Optional[pd.DataFrame]:
     """Load a CSV expecting a 'Date' column."""
 
     p = Path(path)
-    origin = f"CSV file '{p}'"
     try:
         if not p.exists():
             raise FileNotFoundError(path)

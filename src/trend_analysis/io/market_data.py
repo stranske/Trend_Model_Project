@@ -1,9 +1,9 @@
 """Market data validation helpers.
 
-This module centralises the validation logic that backs every ingest entry
-point (CSV, Parquet, and in-memory DataFrames).  The goal is to enforce a
-single data contract so the application can provide deterministic feedback to
-users regardless of how data is supplied.
+This module centralises the validation logic that backs every ingest
+entry point (CSV, Parquet, and in-memory DataFrames).  The goal is to
+enforce a single data contract so the application can provide
+deterministic feedback to users regardless of how data is supplied.
 """
 
 from __future__ import annotations
@@ -13,7 +13,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Iterable, List, Sequence, Tuple
 
-import numpy as np
 import pandas as pd
 from pandas.api.types import is_numeric_dtype
 from pydantic import BaseModel, Field
@@ -109,10 +108,7 @@ def _resolve_datetime_index(df: pd.DataFrame, *, source: str | None) -> pd.DataF
                 preview += " …"
             raise MarketDataValidationError(
                 _format_issues(
-                    [
-                        "Found dates that could not be parsed. "
-                        f"Examples: {preview}."
-                    ]
+                    ["Found dates that could not be parsed. " f"Examples: {preview}."]
                 )
             )
         idx = pd.DatetimeIndex(parsed, name="Date")
@@ -120,7 +116,9 @@ def _resolve_datetime_index(df: pd.DataFrame, *, source: str | None) -> pd.DataF
 
     if working.empty:
         raise MarketDataValidationError(
-            _format_issues(["No data columns detected after extracting the Date index."])
+            _format_issues(
+                ["No data columns detected after extracting the Date index."]
+            )
         )
 
     idx = idx.tz_localize(None)
@@ -287,10 +285,7 @@ def _infer_mode(df: pd.DataFrame) -> MarketDataMode:
         preview = ", ".join(ambiguous[:5])
         raise MarketDataValidationError(
             _format_issues(
-                [
-                    "Could not classify columns as price or return series: "
-                    + preview
-                ]
+                ["Could not classify columns as price or return series: " + preview]
             )
         )
 

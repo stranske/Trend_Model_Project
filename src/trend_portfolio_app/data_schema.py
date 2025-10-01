@@ -11,6 +11,7 @@ from trend_analysis.io.market_data import (
     validate_market_data,
 )
 
+
 class SchemaMeta(Dict[str, Any]):
     pass
 

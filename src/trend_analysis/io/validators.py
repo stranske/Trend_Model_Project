@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import io
-import numpy as np
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, Iterator, List, Tuple
 
+import numpy as np
 import pandas as pd
-from pandas.tseries.frequencies import to_offset
 
 from .market_data import (
     MarketDataMetadata,
@@ -45,7 +44,8 @@ class _ValidationSummary:
 
 
 class ValidationResult:
-    """Backwards-compatible structure returned by ``validate_returns_schema``."""
+    """Backwards-compatible structure returned by
+    ``validate_returns_schema``."""
 
     def __init__(
         self,
@@ -188,9 +188,13 @@ def _read_uploaded_file(file_like: Any) -> Tuple[pd.DataFrame, str]:
     except FileNotFoundError:
         raise ValueError(f"File not found: '{lower_name or file_like}'")
     except PermissionError:
-        raise ValueError(f"Permission denied accessing file: '{lower_name or file_like}'")
+        raise ValueError(
+            f"Permission denied accessing file: '{lower_name or file_like}'"
+        )
     except IsADirectoryError:
-        raise ValueError(f"Path is a directory, not a file: '{lower_name or file_like}'")
+        raise ValueError(
+            f"Path is a directory, not a file: '{lower_name or file_like}'"
+        )
     except pd.errors.EmptyDataError:
         raise ValueError(f"File contains no data: '{lower_name or file_like}'")
     except pd.errors.ParserError:
