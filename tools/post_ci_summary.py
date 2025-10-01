@@ -503,7 +503,7 @@ def main() -> None:
     summaries: List[WorkflowSummary] = []
     for config in WORKFLOW_CONFIGS:
         run_payload = None
-        if triggered_config and triggered_config is config:
+        if triggered_config and triggered_config == config:
             run_payload = run
         else:
             run_payload = fetch_latest_run(api_url, token, owner, repo, config.workflow_file, head_sha)
