@@ -258,7 +258,7 @@ def load_and_validate_upload(file_like: Any) -> Tuple[pd.DataFrame, Dict[str, An
 def create_sample_template() -> pd.DataFrame:
     """Create a sample returns template with realistic data."""
 
-    dates = pd.date_range(start="2023-01-31", periods=12, freq="M")
+    dates = pd.date_range(start="2023-01-31", periods=12, freq="ME")
     rng = np.random.default_rng(42)
     data: Dict[str, Any] = {"Date": dates}
     for idx in range(1, 6):

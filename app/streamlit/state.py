@@ -1,6 +1,6 @@
 """Session state management for Streamlit app."""
 
-from typing import Optional
+from typing import Optional, Sequence
 
 import pandas as pd
 import streamlit as st
@@ -39,7 +39,21 @@ def store_validated_data(df: pd.DataFrame, meta: dict):
     """Store validated data in session state."""
     st.session_state["returns_df"] = df
     st.session_state["schema_meta"] = meta
+    st.session_state["validation_report"] = meta.get("validation")
     st.session_state["upload_status"] = "success"
+
+
+def record_upload_error(message: str, issues: Sequence[str] | None = None) -> None:
+    """Persist an upload failure and clear any stale data."""
+
+    st.session_state["returns_df"] = None
+    st.session_state["schema_meta"] = None
+    st.session_state["benchmark_candidates"] = []
+    st.session_state["validation_report"] = {
+        "message": message,
+        "issues": list(issues or []),
+    }
+    st.session_state["upload_status"] = "error"
 
 
 def get_uploaded_data() -> tuple[Optional[pd.DataFrame], Optional[dict]]:

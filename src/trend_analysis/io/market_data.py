@@ -15,7 +15,7 @@ from typing import Any, Iterable, Iterator, List, Sequence, Tuple
 
 import pandas as pd
 from pandas.api.types import is_numeric_dtype
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 # ---------------------------------------------------------------------------
 # Frequency helpers
@@ -29,6 +29,7 @@ _HUMAN_FREQUENCY_LABELS = {
     "Q": "quarterly",
     "QE": "quarterly",
     "Y": "annual",
+    "YE": "annual",
 }
 
 
@@ -59,10 +60,21 @@ class MarketDataMetadata(BaseModel):
     end: datetime
     rows: int
     columns: List[str] = Field(default_factory=list)
+    symbols: List[str] = Field(default_factory=list)
 
     @property
     def date_range(self) -> Tuple[str, str]:
         return self.start.strftime("%Y-%m-%d"), self.end.strftime("%Y-%m-%d")
+
+    @model_validator(mode="after")
+    def _sync_symbols(self) -> "MarketDataMetadata":
+        """Keep the ``columns`` and ``symbols`` fields aligned."""
+
+        if not self.symbols and self.columns:
+            self.symbols = list(self.columns)
+        elif self.symbols and not self.columns:
+            self.columns = list(self.symbols)
+        return self
 
 
 @dataclass(slots=True, frozen=True)
@@ -115,14 +127,11 @@ def _resolve_datetime_index(df: pd.DataFrame, *, source: str | None) -> pd.DataF
                 date_col = column
                 break
         if date_col is None:
-            raise MarketDataValidationError(
-                _format_issues(
-                    [
-                        "Missing a 'Date' column or datetime index. "
-                        "Ensure the upload includes a timestamp column named 'Date'."
-                    ]
-                )
-            )
+            issues = [
+                "Missing a 'Date' column or datetime index. "
+                "Ensure the upload includes a timestamp column named 'Date'."
+            ]
+            raise MarketDataValidationError(_format_issues(issues), issues)
         try:
             parsed = pd.to_datetime(working[date_col], errors="coerce")
         except (TypeError, ValueError) as exc:
@@ -130,48 +139,36 @@ def _resolve_datetime_index(df: pd.DataFrame, *, source: str | None) -> pd.DataF
             preview = ", ".join(sample_values[:5])
             if len(sample_values) > 5:
                 preview += " …"
-            raise MarketDataValidationError(
-                _format_issues(
-                    [
-                        "Found dates that could not be parsed. "
-                        f"Examples: {preview or 'n/a'}."
-                    ]
-                )
-            ) from exc
+            issues = [
+                "Found dates that could not be parsed. "
+                f"Examples: {preview or 'n/a'}."
+            ]
+            raise MarketDataValidationError(_format_issues(issues), issues) from exc
         if parsed.isna().any():
             bad_values = working.loc[parsed.isna(), date_col].astype(str).tolist()
             preview = ", ".join(bad_values[:5])
             if len(bad_values) > 5:
                 preview += " …"
-            raise MarketDataValidationError(
-                _format_issues(
-                    ["Found dates that could not be parsed. " f"Examples: {preview}."]
-                )
-            )
+            issues = ["Found dates that could not be parsed. " f"Examples: {preview}."]
+            raise MarketDataValidationError(_format_issues(issues), issues)
         idx = pd.DatetimeIndex(parsed, name="Date")
         working = working.drop(columns=[date_col])
 
     if working.empty:
-        raise MarketDataValidationError(
-            _format_issues(
-                ["No data columns detected after extracting the Date index."]
-            )
-        )
+        issues = ["No data columns detected after extracting the Date index."]
+        raise MarketDataValidationError(_format_issues(issues), issues)
 
     duplicated = working.columns[working.columns.duplicated()].unique()
     if len(duplicated) > 0:
         preview = ", ".join(str(col) for col in duplicated[:5])
         if len(duplicated) > 5:  # pragma: no cover - defensive guard
             preview += " …"
-        raise MarketDataValidationError(
-            _format_issues(
-                [
-                    "Detected duplicate column names after removing the Date column: "
-                    + preview
-                    + ". Each column must be uniquely labelled."
-                ]
-            )
-        )
+        issues = [
+            "Detected duplicate column names after removing the Date column: "
+            + preview
+            + ". Each column must be uniquely labelled."
+        ]
+        raise MarketDataValidationError(_format_issues(issues), issues)
 
     idx = idx.tz_localize(None)
     working.index = idx
@@ -224,30 +221,27 @@ def _infer_frequency(index: pd.DatetimeIndex) -> Tuple[str, str]:
         if len(unique_deltas) == 1:
             freq = pd.tseries.frequencies.to_offset(unique_deltas[0]).freqstr
         else:
-            # Attempt common calendar-based frequencies (monthly/quarterly) even when
-            # day deltas differ because of calendar length variations.
-            for candidate in ("ME", "M", "QE", "Q", "A", "Y"):
+            # Attempt common calendar-based frequencies (monthly/quarterly/yearly)
+            # even when day deltas differ because of calendar length variations.
+            for candidate in ("ME", "M", "QE", "Q", "YE", "Y"):
                 try:
                     reconstructed = index.to_period(candidate).to_timestamp(how="end")
                 except Exception:  # pragma: no cover - defensive guard
                     continue
                 if reconstructed.equals(index.sort_values()):
-                    freq = candidate
+                    freq = "YE" if candidate == "Y" else candidate
                     break
         if freq is None:
             preview = ", ".join(str(delta) for delta in unique_deltas[:3])
             if len(unique_deltas) > 3:
                 preview += " …"
-            raise MarketDataValidationError(
-                _format_issues(
-                    [
-                        "Mixed sampling cadence detected. Unable to infer the sampling frequency. "
-                        "Detected spacing values: "
-                        + preview
-                        + ". Ensure the Date index is evenly spaced."
-                    ]
-                )
-            )
+            issues = [
+                "Mixed sampling cadence detected. Unable to infer the sampling frequency. "
+                "Detected spacing values: "
+                + preview
+                + ". Ensure the Date index is evenly spaced."
+            ]
+            raise MarketDataValidationError(_format_issues(issues), issues)
 
     canonical = pd.tseries.frequencies.to_offset(freq).freqstr.upper()
     label = _HUMAN_FREQUENCY_LABELS.get(canonical, canonical)
@@ -258,15 +252,12 @@ def _infer_frequency(index: pd.DatetimeIndex) -> Tuple[str, str]:
         preview = ", ".join(ts.strftime("%Y-%m-%d") for ts in missing[:5])
         if len(missing) > 5:
             preview += " …"
-        raise MarketDataValidationError(
-            _format_issues(
-                [
-                    "Detected gaps in the Date index (missing timestamps: "
-                    + preview
-                    + ")."
-                ]
-            )
-        )
+        issues = [
+            "Detected gaps in the Date index (missing timestamps: "
+            + preview
+            + ")."
+        ]
+        raise MarketDataValidationError(_format_issues(issues), issues)
 
     return canonical, label
 
@@ -328,34 +319,25 @@ def _infer_mode(df: pd.DataFrame) -> MarketDataMode:
             modes.append(mode)
 
     if not modes:
-        raise MarketDataValidationError(
-            _format_issues(
-                [
-                    "Unable to determine whether the data are prices or returns. "
-                    "Ensure numeric columns contain representative values."
-                ]
-            )
-        )
+        issues = [
+            "Unable to determine whether the data are prices or returns. "
+            "Ensure numeric columns contain representative values."
+        ]
+        raise MarketDataValidationError(_format_issues(issues), issues)
 
     unique_modes = set(modes)
     if len(unique_modes) > 1:
-        raise MarketDataValidationError(
-            _format_issues(
-                [
-                    "Detected a mix of returns-like and price-like columns. "
-                    "Uploads must use a single representation."
-                ]
-            )
-        )
+        issues = [
+            "Detected a mix of returns-like and price-like columns. "
+            "Uploads must use a single representation."
+        ]
+        raise MarketDataValidationError(_format_issues(issues), issues)
 
     mode = modes[0]
     if ambiguous:
         preview = ", ".join(ambiguous[:5])
-        raise MarketDataValidationError(
-            _format_issues(
-                ["Could not classify columns as price or return series: " + preview]
-            )
-        )
+        issues = ["Could not classify columns as price or return series: " + preview]
+        raise MarketDataValidationError(_format_issues(issues), issues)
 
     return mode
 
@@ -387,6 +369,7 @@ def validate_market_data(
         end=numeric_frame.index.max().to_pydatetime(),
         rows=len(numeric_frame),
         columns=list(numeric_frame.columns),
+        symbols=list(numeric_frame.columns),
     )
 
     validated = numeric_frame.sort_index()
@@ -401,21 +384,17 @@ def load_market_data_csv(path: str) -> ValidatedMarketData:
     try:
         frame = pd.read_csv(path)
     except FileNotFoundError as exc:  # pragma: no cover - defensive guard
-        raise MarketDataValidationError(
-            _format_issues([f"File not found: {path}"])
-        ) from exc
+        issues = [f"File not found: {path}"]
+        raise MarketDataValidationError(_format_issues(issues), issues) from exc
     except PermissionError as exc:  # pragma: no cover - defensive guard
-        raise MarketDataValidationError(
-            _format_issues([f"Permission denied when reading: {path}"])
-        ) from exc
+        issues = [f"Permission denied when reading: {path}"]
+        raise MarketDataValidationError(_format_issues(issues), issues) from exc
     except pd.errors.EmptyDataError as exc:
-        raise MarketDataValidationError(
-            _format_issues([f"File contains no data: {path}"])
-        ) from exc
+        issues = [f"File contains no data: {path}"]
+        raise MarketDataValidationError(_format_issues(issues), issues) from exc
     except pd.errors.ParserError as exc:
-        raise MarketDataValidationError(
-            _format_issues([f"Failed to parse file '{path}'"])
-        ) from exc
+        issues = [f"Failed to parse file '{path}'"]
+        raise MarketDataValidationError(_format_issues(issues), issues) from exc
 
     return validate_market_data(frame, source=path)
 
@@ -426,13 +405,11 @@ def load_market_data_parquet(path: str) -> ValidatedMarketData:
     try:
         frame = pd.read_parquet(path)
     except FileNotFoundError as exc:  # pragma: no cover - defensive guard
-        raise MarketDataValidationError(
-            _format_issues([f"File not found: {path}"])
-        ) from exc
+        issues = [f"File not found: {path}"]
+        raise MarketDataValidationError(_format_issues(issues), issues) from exc
     except PermissionError as exc:  # pragma: no cover - defensive guard
-        raise MarketDataValidationError(
-            _format_issues([f"Permission denied when reading: {path}"])
-        ) from exc
+        issues = [f"Permission denied when reading: {path}"]
+        raise MarketDataValidationError(_format_issues(issues), issues) from exc
 
     return validate_market_data(frame, source=path)
 
@@ -452,6 +429,7 @@ def attach_metadata(frame: pd.DataFrame, metadata: MarketDataMetadata) -> pd.Dat
             "end": metadata.end.isoformat(),
             "rows": metadata.rows,
             "columns": list(metadata.columns),
+            "symbols": list(metadata.symbols),
         }
     )
     return frame

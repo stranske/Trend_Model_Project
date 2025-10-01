@@ -68,7 +68,7 @@ def test_store_and_read_validated_data_updates_state(session_state: dict) -> Non
         {"value": [0.1, 0.2]},
         index=pd.to_datetime(["2024-01-31", "2024-02-29"]),
     )
-    meta = {"frequency": "Monthly"}
+    meta = {"frequency": "Monthly", "validation": {"issues": [], "warnings": []}}
 
     state.store_validated_data(df, meta)
 
@@ -76,6 +76,7 @@ def test_store_and_read_validated_data_updates_state(session_state: dict) -> Non
     assert stored_df is df
     assert stored_meta is meta
     assert state.has_valid_upload()
+    assert session_state["validation_report"] == meta["validation"]
 
 
 def test_has_valid_upload_requires_success_status(session_state: dict) -> None:
@@ -103,3 +104,16 @@ def test_get_upload_summary_formats_output(
     summary = state.get_upload_summary()
     base = "3 rows × 1 columns | Range: 2024-01-31 to 2024-03-31"
     assert summary == f"{base}{expected_suffix}"
+
+
+def test_record_upload_error_sets_error_state(session_state: dict) -> None:
+    state.record_upload_error("problem")
+
+    assert session_state["returns_df"] is None
+    assert session_state["schema_meta"] is None
+    assert session_state["benchmark_candidates"] == []
+    assert session_state["validation_report"] == {
+        "message": "problem",
+        "issues": [],
+    }
+    assert session_state["upload_status"] == "error"

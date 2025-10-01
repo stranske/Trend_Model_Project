@@ -1,4 +1,3 @@
-import os
 import tempfile
 import uuid
 from functools import lru_cache
@@ -6,74 +5,96 @@ from pathlib import Path
 
 import streamlit as st
 
+from app.streamlit import state as app_state
+from trend_analysis.io.market_data import MarketDataValidationError
 from trend_portfolio_app.data_schema import infer_benchmarks, load_and_validate_file
 
-st.title("Upload")
 
-uploaded = st.file_uploader(
-    "Upload returns (CSV or Excel). Requires a 'Date' column.",
-    type=["csv", "xlsx", "xls"],
-)
+def _persist_uploaded_copy(df) -> Path:
+    tmp_dir = Path(tempfile.gettempdir()) / "trend_app_uploads"
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+    tmp_path = tmp_dir / f"upload_{uuid.uuid4().hex}.csv"
+    reset = df.reset_index().rename(columns={df.index.name or "index": "Date"})
+    reset.to_csv(tmp_path, index=False)
+    return tmp_path
 
-demo_path_csv = "demo/demo_returns.csv"
-demo_path_xlsx = "demo/demo_returns.xlsx"
-if os.path.exists(demo_path_csv) or os.path.exists(demo_path_xlsx):
-    if st.button("Load demo data"):
-        path = demo_path_csv if os.path.exists(demo_path_csv) else demo_path_xlsx
-        try:
 
-            @lru_cache(maxsize=2)
-            def _load_demo(p: str):
-                with open(p, "rb") as f:
-                    return load_and_validate_file(f)
-
-            df, meta = _load_demo(path)
-            st.session_state["returns_df"] = df
-            st.session_state["schema_meta"] = meta
-            st.session_state["uploaded_file_path"] = str(Path(path).resolve())
-            st.success(
-                f"Loaded demo: {df.shape[0]} rows × {df.shape[1]} cols. Range: "
-                f"{df.index.min().date()} → {df.index.max().date()}."
-            )
-            meta_info = meta.get("metadata")
-            if meta_info:
-                st.info(
-                    f"Detected {meta_info.mode.value} data at {meta_info.frequency_label} cadence."
-                )
-            st.dataframe(df.head(12))
-            candidates = infer_benchmarks(list(df.columns))
-            st.session_state["benchmark_candidates"] = candidates
-            if candidates:
-                st.info("Possible benchmark columns: " + ", ".join(candidates))
-        except Exception as e:
-            st.error(str(e))
-
-if uploaded is not None:
-    try:
-        df, meta = load_and_validate_file(uploaded)
-        st.session_state["returns_df"] = df
-        st.session_state["schema_meta"] = meta
-        tmp_dir = Path(tempfile.gettempdir()) / "trend_app_uploads"
-        tmp_dir.mkdir(parents=True, exist_ok=True)
-        tmp_path = tmp_dir / f"upload_{uuid.uuid4().hex}.csv"
-        reset = df.reset_index().rename(columns={df.index.name or "index": "Date"})
-        reset.to_csv(tmp_path, index=False)
-        st.session_state["uploaded_file_path"] = str(tmp_path)
-        st.success(
-            f"Loaded {df.shape[0]} rows × {df.shape[1]} columns. Range: "
-            f"{df.index.min().date()} to {df.index.max().date()}."
+def _handle_success(st_module, df, meta, source_path: Path | str) -> None:
+    app_state.store_validated_data(df, meta)
+    st_module.session_state["uploaded_file_path"] = str(source_path)
+    start = df.index.min().date() if hasattr(df.index.min(), "date") else df.index.min()
+    end = df.index.max().date() if hasattr(df.index.max(), "date") else df.index.max()
+    st_module.success(
+        f"Loaded {df.shape[0]} rows × {df.shape[1]} columns. Range: {start} to {end}."
+    )
+    meta_info = meta.get("metadata") if isinstance(meta, dict) else None
+    if meta_info:
+        st_module.info(
+            f"Detected {meta_info.mode.value} data at {meta_info.frequency_label} cadence."
         )
-        meta_info = meta.get("metadata")
-        if meta_info:
-            st.info(
-                f"Detected {meta_info.mode.value} data at {meta_info.frequency_label} cadence."
-            )
-        st.dataframe(df.head(12))
-        candidates = infer_benchmarks(list(df.columns))
-        st.session_state["benchmark_candidates"] = candidates
-        if candidates:
-            st.info("Possible benchmark columns: " + ", ".join(candidates))
-    except Exception as e:
-        st.error(str(e))
-else:
-    st.warning("No file uploaded yet.")
+    st_module.dataframe(df.head(12))
+    candidates = infer_benchmarks(list(df.columns))
+    st_module.session_state["benchmark_candidates"] = candidates
+    if candidates:
+        st_module.info("Possible benchmark columns: " + ", ".join(candidates))
+
+
+def _extract_validation_details(error: Exception) -> tuple[str, list[str]]:
+    if isinstance(error, MarketDataValidationError):
+        return error.user_message, list(error.issues)
+    cause = getattr(error, "__cause__", None)
+    if isinstance(cause, MarketDataValidationError):
+        return cause.user_message, list(cause.issues)
+    return str(error), []
+
+
+def _handle_failure(st_module, error: Exception) -> None:
+    message, issues = _extract_validation_details(error)
+    app_state.record_upload_error(message, issues)
+    st_module.error(message)
+
+
+@lru_cache(maxsize=2)
+def _load_demo(path: str):
+    with open(path, "rb") as handle:
+        return load_and_validate_file(handle)
+
+
+def render_upload_page(st_module=st) -> None:
+    app_state.initialize_session_state()
+    st_module.title("Upload")
+
+    uploaded = st_module.file_uploader(
+        "Upload returns (CSV or Excel). Requires a 'Date' column.",
+        type=["csv", "xlsx", "xls"],
+    )
+
+    demo_path_csv = Path("demo/demo_returns.csv")
+    demo_path_xlsx = Path("demo/demo_returns.xlsx")
+    if demo_path_csv.exists() or demo_path_xlsx.exists():
+        if st_module.button("Load demo data"):
+            path = demo_path_csv if demo_path_csv.exists() else demo_path_xlsx
+            try:
+                df, meta = _load_demo(str(path))
+            except Exception as exc:  # pragma: no cover - defensive guard
+                _handle_failure(st_module, exc)
+            else:
+                _handle_success(st_module, df, meta, path.resolve())
+
+    if uploaded is not None:
+        try:
+            df, meta = load_and_validate_file(uploaded)
+        except MarketDataValidationError as exc:
+            _handle_failure(st_module, exc)
+        except ValueError as exc:
+            _handle_failure(st_module, exc)
+        except Exception as exc:  # pragma: no cover - unexpected parsing error
+            _handle_failure(st_module, exc)
+        else:
+            tmp_path = _persist_uploaded_copy(df)
+            _handle_success(st_module, df, meta, tmp_path)
+    elif not app_state.has_valid_upload():
+        st_module.warning("No file uploaded yet.")
+
+
+render_upload_page()
