@@ -43,7 +43,7 @@ via `df.attrs["market_data"]["metadata"]` for convenience.
   - `metadata`: the raw `MarketDataMetadata` Pydantic model.
   - `mode` / `mode_enum`: returns vs prices (string + enum).
   - `frequency` / `frequency_code`: human label and pandas offset alias.
-  - `columns`, `rows`, and the `start`/`end` ISO-8601 timestamps.
+  - `symbols`, `columns`, `rows`, and the `start`/`end` ISO-8601 timestamps.
 - The Streamlit helper (`trend_portfolio_app.data_schema.SchemaMeta`) mirrors
   those fields and stores them in `st.session_state["schema_meta"]` together
   with a lightweight validation report so downstream pages can surface mode and
