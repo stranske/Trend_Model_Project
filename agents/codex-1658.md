@@ -2,20 +2,35 @@
 
 ## Task Checklist
 
-- [x] Inventory legacy summarizer workflows and document their responsibilities.
-- [x] Design the unified follower (`maint-30-post-ci-summary.yml`) to listen for
-  `workflow_run` events from both CI and Docker.
-- [x] Implement artifact download, Markdown rendering, and comment upsert logic
-  in `tools/post_ci_summary.py`.
-- [x] Fetch and parse coverage and failure snapshot artifacts to feed the new
-  summary comment.
-- [x] Remove the legacy `maint-31-pr-status-summary.yml` /
-  `maint-32-ci-matrix-summary.yml` workflows in favour of the consolidated file.
-- [x] Add regression tests for the comment-building helpers and artifact
-  parsers.
-- [x] Update documentation (`WORKFLOW_GUIDE.md`, `docs/ops/ci-status-summary.md`,
-  `docs/ci-failure-tracker.md`, `WORKFLOW_AUDIT_TEMP.md`) to reflect the new
-  workflow topology.
+### Issue Comment Task List (2026-02-15)
+
+- [x] Inventory the legacy summarizer workflows under `.github/workflows/` and
+  capture their responsibilities. → Documented below in the workflow inventory
+  table (legacy `maint-31` / `maint-32` versus consolidated `maint-30`).
+- [x] Design the unified workflow (`maint-30-post-ci-summary.yml`) so it
+  triggers on `workflow_run` events for the "CI" and "Docker" pipelines and
+  scopes to pull-request runs. → Implemented in the workflow with concurrency
+  guard and head-SHA discovery.
+- [x] Implement shared steps that download artifacts, render the consolidated
+  Markdown, and upsert the PR comment. → See
+  `.github/workflows/maint-30-post-ci-summary.yml` plus
+  `tools/post_ci_summary.py` helpers.
+- [x] Fetch the required artifacts (coverage trend + summary, failure
+  snapshot) so the comment includes coverage deltas and failure listings. →
+  `load_coverage_details` / `load_failure_snapshot` consume the artifacts and
+  feed the comment builder.
+- [x] Render a consolidated Markdown summary combining the historic PR status
+  and CI matrix outputs. → `build_comment_body` merges requirement rollups,
+  job table, coverage, and failure sections.
+- [x] Update (create if missing) the single "Automated Status Summary" comment
+  idempotently on reruns. → `upsert_comment` locates the existing marker and
+  PATCHes or POSTs accordingly.
+- [x] Remove or shim the legacy workflows so duplicate summaries do not run. →
+  Legacy files deleted; only the consolidated workflow remains active.
+- [x] Add regression coverage for comment formatting and artifact parsing. →
+  `tests/test_post_ci_summary.py` exercises the renderers and loaders.
+- [x] Document the new workflow (trigger conditions, outputs, migration notes)
+  in `WORKFLOW_GUIDE.md` and companion ops docs.
 
 ## Workflow Inventory
 
