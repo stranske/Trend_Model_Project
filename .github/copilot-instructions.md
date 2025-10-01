@@ -8,6 +8,12 @@ Trend Analysis Project is a Python financial analysis application that provides 
 
 ## Working Effectively
 
+### Collaboration Rhythm (User Preference)
+- Plough through the active todo list continuously until a genuine blocker occurs or a decision point materially affects future work.
+- Do **not** pause or conclude a session without first asking the specific question needed to proceed or stating what information is required to continue.
+- Surface forks in the plan clearly, outlining the options and the inputs needed to choose between them.
+- Only yield control after receiving the missing info, resolving the blocker, or finishing every item on the todo list.
+
 ### Bootstrap Environment
 **NEVER CANCEL: Environment setup takes 60-180 seconds. Set timeout to 300+ seconds.**
 ```bash

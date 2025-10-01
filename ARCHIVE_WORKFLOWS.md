@@ -16,6 +16,7 @@ All deprecated agent automation workflows were deleted from `.github/workflows/`
 ## Additional Archived Workflows
 - `guard-no-reuse-pr-branches.yml` – Archived in place (no functional replacement required; governance policy only). Removal candidate after 2025-10-20.
 - (2026-02-07) `codex-issue-bridge.yml`, `reuse-agents.yml`, and `agents-consumer.yml` moved to `Old/.github/workflows/` after assigner/watchdog consolidation. In 2026-09 the agent utilities were renumbered under WFv1: `agents-40-consumer.yml`, `agents-41-assign.yml`, `agents-42-watchdog.yml`, and `reusable-90-agents.yml` now live in `.github/workflows/`.
+- (2026-09-30) Standalone `gate.yml` wrapper deleted (Issue #1657). Aggregation now lives exclusively in the `gate / all-required-green` job inside `pr-10-ci-python.yml`; no archived copy retained because the YAML was invalid.
 
 ## Retired Autofix Wrapper
 - Legacy `autofix.yml` (pre-2025) was deleted during the earlier cleanup. As of 2026-02-15 a new consolidated `autofix.yml` now drives both small fixes and trivial failure remediation; the former consumer wrappers have been removed.
