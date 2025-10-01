@@ -142,8 +142,12 @@ class TestLoadAndValidateUpload:
             raise pd.errors.ParserError("bad")
 
         monkeypatch.setattr(pd, "read_csv", raise_parser)
-        buffer = io.StringIO("Date,Fund\n2023-01-31,1.0")
-        buffer.name = "broken.csv"  # type: ignore[attr-defined]
+        class NamedStringIO(io.StringIO):
+            def __init__(self, *args, name=None, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.name = name
+
+        buffer = NamedStringIO("Date,Fund\n2023-01-31,1.0", name="broken.csv")
         with pytest.raises(ValueError, match="Failed to parse"):
             load_and_validate_upload(buffer)
 
