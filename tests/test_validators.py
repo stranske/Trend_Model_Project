@@ -79,7 +79,7 @@ class TestValidateReturnsSchema:
     def test_warns_on_sparse_columns(self) -> None:
         frame = pd.DataFrame(
             {
-                "Date": pd.date_range("2023-01-31", periods=12, freq="M"),
+                "Date": pd.date_range("2023-01-31", periods=12, freq="ME"),
                 "FundA": [0.01] * 4 + [None] * 8,
                 "FundB": [0.02] * 12,
             }
