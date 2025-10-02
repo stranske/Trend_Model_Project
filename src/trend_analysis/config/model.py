@@ -155,6 +155,8 @@ class DataSettings(BaseModel):
     managers_glob: str | None = Field(default=None)
     date_column: str = Field()
     frequency: Literal["D", "W", "M", "ME"] = Field()
+    missing_policy: Literal["drop", "ffill", "zero"] = Field(default="drop")
+    missing_fill_limit: int | None = Field(default=None)
 
     model_config = ConfigDict(extra="ignore")
 
@@ -213,6 +215,35 @@ class DataSettings(BaseModel):
                 f"data.frequency '{value}' is not supported. Choose one of {allowed_list}."
             )
         return freq
+
+    @field_validator("missing_policy", mode="before")
+    @classmethod
+    def _validate_missing_policy(cls, value: Any) -> str:
+        if value in (None, ""):
+            return "drop"
+        if isinstance(value, str):
+            policy = value.strip().lower()
+            allowed = {"drop", "ffill", "zero"}
+            if policy not in allowed:
+                allowed_list = ", ".join(sorted(allowed))
+                raise ValueError(
+                    f"data.missing_policy must be one of {allowed_list}."
+                )
+            return policy
+        raise ValueError("data.missing_policy must be a string")
+
+    @field_validator("missing_fill_limit", mode="before")
+    @classmethod
+    def _validate_missing_fill_limit(cls, value: Any) -> int | None:
+        if value in (None, ""):
+            return None
+        try:
+            limit = int(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("data.missing_fill_limit must be an integer") from exc
+        if limit < 0:
+            raise ValueError("data.missing_fill_limit cannot be negative")
+        return limit
 
     @model_validator(mode="after")
     def _ensure_source(self) -> "DataSettings":

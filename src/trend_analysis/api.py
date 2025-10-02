@@ -87,6 +87,10 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
     split = config.sample_split
     metrics_list = config.metrics.get("registry")
     stats_cfg = None
+    data_cfg = getattr(config, "data", {})
+    missing_policy = str(data_cfg.get("missing_policy", "drop"))
+    missing_limit_raw = data_cfg.get("missing_fill_limit")
+    missing_limit = None if missing_limit_raw in (None, "") else int(missing_limit_raw)
     if metrics_list:
         from .core.rank_selection import RiskStatsConfig, canonical_metric_list
 
@@ -117,6 +121,8 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         weighting_scheme=config.portfolio.get("weighting_scheme", "equal"),
         constraints=config.portfolio.get("constraints"),
         stats_cfg=stats_cfg,
+        missing_policy=missing_policy,
+        missing_limit=missing_limit,
     )
     if res is None:
         logger.warning("run_simulation produced no result")
