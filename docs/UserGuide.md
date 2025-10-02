@@ -24,6 +24,12 @@ If `-c` is omitted, the tool loads `config/defaults.yml` or the file specified b
 
 The metrics output is printed to the console and can also be written to Excel, CSV or JSON depending on `output.format` in the config.
 
+### 2.1 Input frequency and missing-data handling
+
+- The ingestion layer inspects the `Date` column and automatically classifies the cadence as daily, weekly or monthly. Holiday gaps and February shortfalls are tolerated and the series is resampled to month-end returns before modelling begins.
+- Missing-data behaviour is configured per asset via `data.missing_policy` (`drop`, `ffill` or `zero`). When forward-fill is selected the optional `data.missing_fill_limit` caps the length of consecutive gaps that will be filled.
+- Every report—console text, Excel summary and the JSON bundle—prints a one-line status showing the detected frequency and the applied missing-data policy so runs remain auditable.
+
 ## 3. Interactive GUI
 
 A graphical interface is available in Jupyter. Launch it by running:
@@ -47,6 +53,24 @@ python -m trend_analysis.run_analysis -c config/presets/balanced.yml
 
 Replace `balanced` with `conservative` or `aggressive` as needed. See
 [PresetStrategies.md](PresetStrategies.md) for a summary of each option.
+
+### 4.1 Frequency detection & missing-data policies
+
+The pipeline now inspects the `Date` column and automatically detects whether
+the input returns are daily, weekly or monthly. Daily and weekly data are
+compounded to month-end returns before the in/out-sample windows are sliced, so
+backtests remain comparable regardless of the original cadence.
+
+Missing observations are handled according to `preprocessing.missing_data` in
+the YAML configuration. The section supports:
+
+- `policy`: `drop`, `ffill` or `zero` (default is `drop`).
+- `limit`: maximum length of a forward-fill run (use `null` for unlimited).
+- `per_asset` / `per_asset_limit`: optional overrides per column, e.g.
+  `per_asset: {RF: zero}`.
+
+The effective cadence and policy are recorded in the results under
+`preprocessing.summary` and appear as a one-line note on Excel/TXT exports.
 
 ## 5. Selection modes and ranking
 
