@@ -3,10 +3,14 @@ name: Self-Test Reusable CI
 on:
   workflow_dispatch:
   schedule:
+<<<<<<< HEAD
     # Nightly verification run at 02:30 UTC to keep the reusable workflow healthy without
     # overlapping with the main CI rush hour. No other triggers (e.g. pull_request) should run
     # this workflow – Issue #1660 scopes it strictly to manual/nightly execution.
     - cron: '30 2 * * *'
+=======
+    - cron: '30 5 * * *'
+>>>>>>> 9fd2dc26 (Fix nightly cron syntax for reusable self-test)
 
 jobs:
   # Matrix of feature scenarios exercising the reusable workflow with different flag combinations.
