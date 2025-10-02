@@ -198,7 +198,7 @@ def apply_missing_policy(
             filled_counts[col] = filled_before - filled_after
             limit_used[col] = col_limit
             if series.isna().any():
-                has_alternative = len(cols) > 1 or bool(result_columns)
+                has_alternative = len(cols) > 1 or result_columns
                 if enforce_completeness and has_alternative:
                     dropped.append(col)
                     continue
