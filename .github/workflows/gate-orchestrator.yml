@@ -24,7 +24,7 @@ jobs:
   docker:
     name: orchestrator / docker-smoke
     uses: ./.github/workflows/pr-12-docker-smoke.yml
-    inputs:
+    with:
       debug_build: false
 
   gate:

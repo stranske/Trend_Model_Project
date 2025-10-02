@@ -26,13 +26,17 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Discover workflow runs for head SHA
-        id: runs
+        id: gather
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const { owner, repo } = context.repo;
-            const headSha = run.head_sha;
+            const workflowRun = context.payload.workflow_run || {};
+            const headSha = workflowRun.head_sha || context.sha || '';
+            const prNumber = Array.isArray(workflowRun.pull_requests) && workflowRun.pull_requests.length > 0
+              ? workflowRun.pull_requests[0].number
+              : '';
 
             const parseJsonInput = (raw, fallback) => {
               if (!raw) {
@@ -75,27 +79,115 @@ jobs:
               return String(value).replace(/^\.\//, '').replace(/^\/+/, '');
             };
 
-            async function latestRun(workflowFile) {
-              const response = await github.rest.actions.listWorkflowRuns({
-                owner,
-                repo,
-                workflow_id: workflowFile,
-                head_sha: headSha,
-                event: 'pull_request',
-                per_page: 1,
-              });
-              return response.data.workflow_runs?.[0]?.id ?? '';
+            async function loadWorkflowRun(identifier) {
+              if (!identifier) {
+                return null;
+              }
+              try {
+                const response = await github.rest.actions.listWorkflowRuns({
+                  owner,
+                  repo,
+                  workflow_id: identifier,
+                  head_sha: headSha || undefined,
+                  event: 'pull_request',
+                  per_page: 10,
+                });
+                const runs = response.data.workflow_runs || [];
+                if (!runs.length) {
+                  return null;
+                }
+                if (!headSha) {
+                  return runs[0];
+                }
+                const exact = runs.find(item => item.head_sha === headSha);
+                return exact || runs[0];
+              } catch (error) {
+                core.warning(`Failed to query workflow runs for "${identifier}": ${error}`);
+                return null;
+              }
             }
 
-            const ciRunId = await latestRun('pr-10-ci-python.yml');
-            const dockerRunId = await latestRun('pr-12-docker-smoke.yml');
+            async function loadJobs(runId) {
+              const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
+                owner,
+                repo,
+                run_id: runId,
+                per_page: 100,
+              });
+              return jobs.map(job => ({
+                name: job.name,
+                conclusion: job.conclusion,
+                status: job.status,
+                html_url: job.html_url,
+              }));
+            }
 
-            const ciRun = runs.find(r => r.key === 'ci' && r.present);
-            const dockerRun = runs.find(r => r.key === 'docker' && r.present);
+            async function resolveRun(target) {
+              const candidates = [];
+              if (Array.isArray(target.workflowIds) && target.workflowIds.length) {
+                for (const id of target.workflowIds) {
+                  if (id) {
+                    candidates.push(id);
+                  }
+                }
+              }
+              if (target.workflowPath) {
+                candidates.push(normalizePath(target.workflowPath));
+              }
+              if (target.workflowFile) {
+                candidates.push(normalizePath(target.workflowFile));
+              }
+              if (target.workflowName) {
+                candidates.push(target.workflowName);
+              }
+              if (!candidates.length) {
+                candidates.push(target.key);
+              }
+
+              for (const identifier of candidates) {
+                const run = await loadWorkflowRun(identifier);
+                if (run) {
+                  return run;
+                }
+              }
+              return null;
+            }
+
+            const collected = [];
+            for (const target of workflowTargets) {
+              const run = await resolveRun(target);
+              if (run) {
+                const jobs = await loadJobs(run.id);
+                collected.push({
+                  key: target.key,
+                  displayName: target.displayName,
+                  present: true,
+                  id: run.id,
+                  run_attempt: run.run_attempt,
+                  conclusion: run.conclusion,
+                  status: run.status,
+                  html_url: run.html_url,
+                  jobs,
+                });
+              } else {
+                collected.push({
+                  key: target.key,
+                  displayName: target.displayName,
+                  present: false,
+                  jobs: [],
+                });
+              }
+            }
+
+            const ciRun = collected.find(entry => entry.key === 'ci' && entry.present);
+            const dockerRun = collected.find(entry => entry.key === 'docker' && entry.present);
+
+            core.setOutput('runs', JSON.stringify(collected));
             core.setOutput('ci_run_id', ciRun ? String(ciRun.id) : '');
             core.setOutput('docker_run_id', dockerRun ? String(dockerRun.id) : '');
-      - name: Check out repository
-        uses: actions/checkout@v4
+            core.setOutput('head_sha', headSha || '');
+            core.setOutput('pr_number', prNumber ? String(prNumber) : '');
+            core.notice(`Collected ${collected.filter(entry => entry.present).length} workflow runs for head ${headSha}`);
       - name: Download coverage summary
         if: ${{ steps.gather.outputs.ci_run_id }}
         uses: actions/download-artifact@v4
@@ -109,21 +201,38 @@ jobs:
         if: ${{ steps.gather.outputs.ci_run_id }}
         uses: actions/download-artifact@v4
         with:
-          run-id: ${{ steps.runs.outputs.ci }}
+          run-id: ${{ steps.gather.outputs.ci_run_id }}
           pattern: '*'
           merge-multiple: true
           path: summary_artifacts
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download Docker artifacts
-        if: steps.runs.outputs.docker && steps.runs.outputs.docker != steps.runs.outputs.ci
+        if: ${{ steps.gather.outputs.docker_run_id && steps.gather.outputs.docker_run_id != steps.gather.outputs.ci_run_id }}
         uses: actions/download-artifact@v4
         with:
-          run-id: ${{ steps.runs.outputs.docker }}
+          run-id: ${{ steps.gather.outputs.docker_run_id }}
           pattern: '*'
           merge-multiple: true
           path: summary_artifacts
           github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Load coverage summary snippet
+        id: coverage_summary
+        run: |
+          set -euo pipefail
+          mkdir -p summary_artifacts
+          summary_file="artifacts/coverage-summary/coverage-summary.md"
+          if [ -f "$summary_file" ]; then
+            cp "$summary_file" summary_artifacts/coverage-summary.md
+            {
+              echo 'body<<EOF'
+              cat "$summary_file"
+              echo 'EOF'
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "No coverage summary markdown found; continuing without it."
+          fi
 
       - name: Compute coverage stats
         id: coverage_stats
@@ -239,6 +348,16 @@ jobs:
           COVERAGE_SECTION: ${{ steps.coverage_summary.outputs.body }}
           COVERAGE_STATS: ${{ steps.coverage_stats.outputs.stats_json }}
           REQUIRED_JOB_GROUPS_JSON: ${{ env.REQUIRED_JOB_GROUPS_JSON }}
+      - name: Persist comment preview
+        run: |
+          mkdir -p summary_artifacts
+          if [ -n "${COMMENT_BODY}" ]; then
+            printf '%s\n' "${COMMENT_BODY}" > summary_artifacts/comment_preview.md
+          else
+            echo "Comment body empty; skipping preview persistence."
+          fi
+        env:
+          COMMENT_BODY: ${{ steps.prep.outputs.body }}
       - name: Upsert summary comment
         uses: actions/github-script@v7
         env:
