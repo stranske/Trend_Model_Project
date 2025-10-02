@@ -1,16 +1,9 @@
 name: Self-Test Reusable CI
 
 on:
-  workflow_dispatch: {}
-  pull_request:
-    paths:
-      - '.github/workflows/reusable-ci-python.yml'
-      - '.github/workflows/selftest-reusable-ci.yml'
-      - 'scripts/ci_feature_assert.py'
-      - 'scripts/ci_metrics.py'
-      - 'scripts/ci_history.py'
-      - 'scripts/ci_coverage_delta.py'
-      - 'scripts/coverage_history_append.py'
+  workflow_dispatch:
+  schedule:
+    - cron: '30 05 * * *'
 
 jobs:
   # Matrix of feature scenarios exercising the reusable workflow with different flag combinations.
