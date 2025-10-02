@@ -47,6 +47,9 @@ On any successful monitored workflow run, open `ci-failure` issues are scanned. 
 ## Escalation Threshold
 Once an issue records its third occurrence (`OCCURRENCE_ESCALATE_THRESHOLD`), the workflow ensures the escalation label (`priority: high` by default) is applied and posts a single escalation comment. Earlier occurrences retain the medium-priority label so responders can distinguish first-time breakages from persistent regressions.
 
+### Label inventory check
+The repository currently exposes the following triage labels that ship with the workflow: `ci-failure`, `ci`, `devops`, and `priority: medium`. The escalation label (`priority: high` by default) is created automatically on demand. If any label gets renamed in the future, update the defaults in the workflow to match the new taxonomy so issues continue to aggregate correctly.
+
 ## JSON Snapshot Artifact
 Each successful run uploads `ci_failures_snapshot.json` containing an array of current open failure issues (number, occurrences, last_seen, timestamps). Use this for dashboards or external monitoring.
 
