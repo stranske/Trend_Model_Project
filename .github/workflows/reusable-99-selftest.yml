@@ -3,7 +3,7 @@ name: Self-Test Reusable CI
 on:
   workflow_dispatch:
   schedule:
-    - cron: '30 05 * * *'
+    - cron: '30 5 * * *'
 
 jobs:
   # Matrix of feature scenarios exercising the reusable workflow with different flag combinations.
