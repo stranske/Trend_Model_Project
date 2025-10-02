@@ -156,7 +156,7 @@ function createGithub(state, options) {
           };
         },
         async create({ title, body, labels }) {
-          const number = state.issue ? state.issue.number : state.nextIssueNumber;
+          const number = state.nextIssueNumber + state.issueCreationCount;
           state.issue = {
             number,
             title,
@@ -165,6 +165,7 @@ function createGithub(state, options) {
             created_at: new Date(state.now).toISOString(),
             updated_at: new Date(state.now).toISOString(),
           };
+          state.issueCreationCount += 1;
           state.log.push(`issue #${number} created`);
           return { data: state.issue };
         },
@@ -202,6 +203,7 @@ async function main() {
     baseTime: new Date('2025-01-01T00:00:00Z'),
     comments: [],
     issue: null,
+    issueCreationCount: 0,
     log: [],
     nextIssueNumber: 321,
     now: new Date('2025-01-01T00:00:00Z'),
@@ -270,6 +272,8 @@ async function main() {
   } finally {
     Date.now = realDateNow;
   }
+
+  assert.strictEqual(state.issueCreationCount, 1, 'Cooldown should prevent spawning duplicate issues.');
 
   const escalationComments = state.comments.filter((c) => c.body.includes('Escalation: occurrences reached threshold'));
   assert.strictEqual(escalationComments.length, 1, 'Escalation comment should be posted exactly once.');
