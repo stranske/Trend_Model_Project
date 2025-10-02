@@ -84,17 +84,13 @@ You can manually validate behaviour:
 2. Rerun it but edit the `ci-selftest.yml` to succeed (or manually re-run jobs) to test auto-heal logic after adjusting `INACTIVITY_HOURS`.
 
 ## Local Simulation Harness
-For deterministic verification without exercising GitHub Actions, run the bundled Node.js simulation harness. It executes the workflow script inside a mocked Actions runtime and asserts key behaviours such as:
+For a fast feedback loop without touching GitHub, run `node tools/simulate_failure_tracker.js`. The harness lifts the tracker script straight out of the workflow file and replays three sequential failures against an in-memory stub of the GitHub API. It asserts that:
 
-- Cooldown aggregation that appends to an existing failure issue during the configured `NEW_ISSUE_COOLDOWN_HOURS` window.
-- Occurrence counter updates and capped history table maintenance.
-- Escalation flow that adds the priority label only after `OCCURRENCE_ESCALATE_THRESHOLD` occurrences and emits a single escalation comment.
+- The tuned defaults (12-hour cooldown, three-occurrence escalation) are honoured.
+- Issues aggregate signatures instead of spawning duplicates across the cooldown window.
+- The escalation label and comment appear only after the third occurrence while the base triage labels remain intact.
 
-```bash
-node tools/simulate_failure_tracker.js
-```
-
-The script replays three sequential failures and prints each occurrence state, making it easy to confirm configuration changes before shipping them.
+Use this script whenever adjusting cooldown, label, or escalation logic to confirm the behaviour before pushing workflow changes.
 
 ## Future Extensions
 - Persist aggregated metrics (failure frequency) as JSON artifact.
