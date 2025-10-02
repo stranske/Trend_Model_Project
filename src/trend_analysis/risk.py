@@ -92,7 +92,10 @@ def realised_volatility(
         lam = float(window.ewma_lambda)
         alpha = 1.0 - lam
         if not (0.0 < alpha < 1.0):
-            raise ValueError("ewma_lambda must imply 0 < alpha < 1")
+            raise ValueError(
+                f"ewma_lambda must be between 0 and 1 (got {lam}); "
+                f"computed alpha = 1 - ewma_lambda = {alpha:.4f} must be between 0 and 1"
+            )
         vol = returns.ewm(alpha=alpha, adjust=False).std(bias=False)
     else:
         vol = returns.rolling(window=window.length, **rolling_kwargs).std(ddof=0)
