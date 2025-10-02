@@ -48,6 +48,33 @@ python -m trend_analysis.run_analysis -c config/presets/balanced.yml
 Replace `balanced` with `conservative` or `aggressive` as needed. See
 [PresetStrategies.md](PresetStrategies.md) for a summary of each option.
 
+### 4.1 Handling missing data
+
+Two configuration knobs control how sparse series are treated during ingest:
+
+| Setting | Type | Effect |
+|---------|------|--------|
+| `data.missing_policy` | string _or_ mapping | Choose `drop`, `ffill`, or `zero`. A mapping supports per-column overrides (use `"*"` for the default). |
+| `data.missing_limit` | integer _or_ mapping | Maximum length of consecutive gaps (in periods) that may be filled per column. `null` means unlimited. |
+
+Examples:
+
+```yaml
+data:
+   missing_policy: "ffill"         # forward-fill short gaps everywhere
+   missing_limit: 2                 # tolerate up to two consecutive missing months
+
+   # Override: drop FundZ instead of filling
+   missing_policy:
+      "*": "ffill"
+      FundZ: "drop"
+   missing_limit:
+      "*": 2
+      FundZ: 0
+```
+
+The validator records the applied policy in the metadata (including dropped columns and fill counts) and surfaces the summary in CLI and Streamlit reports. Frequency detection also respects the configured limits, allowing—for example—multi-week holiday gaps when `missing_limit` is large enough.
+
 ## 5. Selection modes and ranking
 
 `portfolio.selection_mode` supports `all`, `random`, `manual` and `rank` values. In rank mode you can keep the top funds by score or apply a threshold. Scores come from metrics defined under `metrics.registry` and may be combined with z‑scored weights.

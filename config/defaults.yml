@@ -13,7 +13,8 @@ data:
   frequency: "D" # D | W | M
   timezone: "UTC" # for parsing
   currency: "USD"
-  nan_policy: "ffill" # drop | ffill | bfill | both
+  missing_policy: "ffill" # drop | ffill | zero
+  missing_limit: null      # Optional int (per-column overrides supported)
   lookback_required: 756 # minimum obs (≈3 yrs daily)
 # ----------------------------------------------------------------------
 # 2. PRE-PROCESSING OPTIONS

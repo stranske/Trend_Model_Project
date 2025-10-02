@@ -57,7 +57,7 @@ def test_validate_market_data_mixed_frequency() -> None:
 
     with pytest.raises(MarketDataValidationError) as exc:
         validate_market_data(df)
-    assert "Mixed sampling cadence" in str(exc.value)
+    assert "irregular sampling" in str(exc.value).lower()
 
 
 def test_validate_market_data_price_mode_detection() -> None:
@@ -103,6 +103,119 @@ def test_validate_market_data_ambiguous_mode() -> None:
     assert "Unable to determine" in str(exc.value)
     assert exc.value.issues
     assert any("Unable to determine" in issue for issue in exc.value.issues)
+
+
+def test_validate_market_data_allows_weekend_gap() -> None:
+    dates = pd.date_range("2024-01-02", periods=7, freq="B")
+    df = pd.DataFrame(
+        {
+            "Date": dates,
+            "FundA": [0.01, 0.02, -0.005, 0.004, 0.003, -0.002, 0.001],
+        }
+    )
+    validated = validate_market_data(df)
+    meta = validated.attrs.get("market_data", {})
+    assert meta["frequency_code"] == "D"
+    assert meta["frequency_missing_periods"] >= 2
+    assert meta["frequency_max_gap_periods"] == 2
+    assert meta["frequency_tolerance_periods"] >= 3
+
+
+def test_missing_policy_drops_sparse_columns() -> None:
+    dates = pd.date_range("2024-01-31", periods=4, freq="ME")
+    df = pd.DataFrame(
+        {
+            "Date": dates,
+            "FundA": [0.01, 0.02, 0.015, 0.03],
+            "FundB": [0.01, None, None, 0.02],
+        }
+    )
+    validated = validate_market_data(df, missing_policy="drop")
+    assert list(validated.columns) == ["FundA"]
+    meta = validated.attrs["market_data"]
+    assert meta["missing_policy"] == "drop"
+    assert meta["missing_policy_dropped"] == ["FundB"]
+    assert "FundB" in meta["missing_policy_summary"]
+
+
+def test_missing_policy_ffill_with_limit() -> None:
+    dates = pd.date_range("2024-01-31", periods=4, freq="ME")
+    df = pd.DataFrame(
+        {
+            "Date": dates,
+            "FundA": [0.01, 0.015, 0.02, 0.025],
+            "FundB": [None, 0.02, 0.025, None],
+        }
+    )
+    validated = validate_market_data(df, missing_policy="ffill", missing_limit=2)
+    assert list(validated.columns) == ["FundA", "FundB"]
+    assert validated["FundB"].isna().sum() == 0
+    meta = validated.attrs["market_data"]
+    assert meta["missing_policy"] == "ffill"
+    assert meta["missing_policy_filled"]["FundB"]["count"] == 2
+    assert "FundB" in (meta["missing_policy_summary"] or "")
+
+
+def test_missing_policy_respects_limit() -> None:
+    dates = pd.date_range("2024-01-01", periods=6, freq="D")
+    df = pd.DataFrame(
+        {
+            "Date": dates,
+            "FundA": [
+                0.01,
+                None,
+                None,
+                None,
+                0.015,
+                0.02,
+            ],
+        }
+    )
+    with pytest.raises(MarketDataValidationError) as exc:
+        validate_market_data(df, missing_policy="ffill", missing_limit=2)
+    assert "policy" in str(exc.value).lower()
+
+
+def test_missing_policy_per_column_overrides() -> None:
+    dates = pd.date_range("2024-01-31", periods=4, freq="ME")
+    df = pd.DataFrame(
+        {
+            "Date": dates,
+            "FundA": [0.01, None, 0.012, 0.013],
+            "FundB": [0.02, None, 0.018, 0.017],
+        }
+    )
+    policy = {"*": "drop", "FundB": "ffill"}
+    limits = {"*": 0, "FundB": 1}
+    validated = validate_market_data(df, missing_policy=policy, missing_limit=limits)
+    assert list(validated.columns) == ["FundB"]
+    meta = validated.attrs["market_data"]
+    assert meta["missing_policy_overrides"] == {"FundB": "ffill"}
+    assert meta["missing_policy_limits"]["FundB"] == 1
+    assert meta["missing_policy_filled"]["FundB"]["count"] == 1
+    assert meta["missing_policy_dropped"] == ["FundA"]
+
+
+def test_missing_limit_extends_frequency_tolerance() -> None:
+    df = pd.DataFrame(
+        {
+            "Date": [
+                "2024-01-31",
+                "2024-02-29",
+                "2024-05-31",
+                "2024-06-30",
+            ],
+            "FundA": [0.01, 0.015, 0.02, 0.025],
+        }
+    )
+
+    with pytest.raises(MarketDataValidationError):
+        validate_market_data(df)
+
+    validated = validate_market_data(df, missing_limit=2)
+    meta = validated.attrs["market_data"]
+    assert meta["frequency_missing_periods"] == 2
+    assert meta["frequency_tolerance_periods"] == 2
 
 
 def test_validate_market_data_missing_date_column_reports_issue() -> None:

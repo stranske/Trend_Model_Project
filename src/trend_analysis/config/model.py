@@ -12,7 +12,7 @@ from __future__ import annotations
 import glob
 import os
 from pathlib import Path
-from typing import Any, Iterable, Literal
+from typing import Any, Iterable, Literal, Mapping
 
 from pydantic import (
     BaseModel,
@@ -155,6 +155,8 @@ class DataSettings(BaseModel):
     managers_glob: str | None = Field(default=None)
     date_column: str = Field()
     frequency: Literal["D", "W", "M", "ME"] = Field()
+    missing_policy: str | Mapping[str, str] | None = Field(default=None)
+    missing_limit: int | Mapping[str, int | None] | None = Field(default=None)
 
     model_config = ConfigDict(extra="ignore")
 
@@ -213,6 +215,31 @@ class DataSettings(BaseModel):
                 f"data.frequency '{value}' is not supported. Choose one of {allowed_list}."
             )
         return freq
+
+    @field_validator("missing_policy", mode="before")
+    @classmethod
+    def _validate_missing_policy(cls, value: Any) -> str | Mapping[str, str] | None:
+        if value in (None, ""):
+            return None
+        if isinstance(value, (str, Mapping)):
+            return value
+        raise ValueError("data.missing_policy must be a string or mapping.")
+
+    @field_validator("missing_limit", mode="before")
+    @classmethod
+    def _validate_missing_limit(
+        cls, value: Any
+    ) -> int | Mapping[str, int | None] | None:
+        if value in (None, "", "null"):
+            return None
+        if isinstance(value, Mapping):
+            return value
+        try:
+            return int(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "data.missing_limit must be an integer, mapping, or null."
+            ) from exc
 
     @model_validator(mode="after")
     def _ensure_source(self) -> "DataSettings":

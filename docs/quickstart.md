@@ -169,6 +169,8 @@ Advanced users can modify:
 - Check data covers at least 24 months
 - Make sure returns are in decimal format (0.05 = 5%)
 - Remove any missing data or text in numeric columns
+- Configure `data.missing_policy` (`drop`, `ffill`, or `zero`) and `data.missing_limit`
+	in your YAML file if you want the loader to auto-fill or drop sparse series
 
 **Poor analysis results**
 - Try different in-sample/out-of-sample time periods
