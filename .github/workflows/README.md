@@ -216,7 +216,8 @@ Retention Guidance: Use 7–14 days. Shorter (<7 days) risks losing comparison c
 
 - **Trigger scope:** Manual dispatch plus a nightly cron (`02:30 UTC`). This keeps reusable pipeline coverage fresh without
   consuming PR minutes. Dispatch from the Actions tab under **Self-Test Reusable CI** when validating changes to
-  `.github/workflows/reusable-ci-python.yml` or its helper scripts.
+  `.github/workflows/reusable-ci-python.yml` or its helper scripts. The legacy PR-comment notifier was removed because the
+  workflow no longer runs on pull_request events.
 - **Latest remediation:** The October 2025 failure stemmed from `typing-inspection` drifting from `0.4.1` to `0.4.2`, causing
   `tests/test_lockfile_consistency.py` to fail during the reusable matrix runs. Refresh `requirements.lock` with
   `uv pip compile --upgrade pyproject.toml -o requirements.lock` before re-running the workflow. The matrix now completes when
