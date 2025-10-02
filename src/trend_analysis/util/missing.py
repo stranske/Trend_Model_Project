@@ -102,7 +102,7 @@ def _resolve_mapping(
 
 
 def _resolve_limits(
-    limit: int | Mapping[str, int | None] | None
+    limit: int | Mapping[str, int | None] | None,
 ) -> tuple[int | None, dict[str, int | None]]:
     if isinstance(limit, Mapping):
         resolved = {k: _coerce_limit(v) for k, v in limit.items() if k != "default"}
