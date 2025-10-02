@@ -88,13 +88,13 @@ class SignalFrame:
         )
         self._frame = frame.reindex(columns=target_columns)
 
-    def __getattr__(self, item: str):  # pragma: no cover - thin delegation
+    def __getattr__(self, item: str) -> object:  # pragma: no cover - thin delegation
         return getattr(self._frame, item)
 
-    def __getitem__(self, key):  # pragma: no cover - thin delegation
+    def __getitem__(self, key) -> object:  # pragma: no cover - thin delegation
         return self._frame.__getitem__(key)
 
-    def __iter__(self):  # pragma: no cover - thin delegation
+    def __iter__(self) -> Iterable:  # pragma: no cover - thin delegation
         return iter(self._frame)
 
     def __repr__(self) -> str:  # pragma: no cover - formatting helper
