@@ -234,10 +234,7 @@ Retention Guidance: Use 7–14 days. Shorter (<7 days) risks losing comparison c
   ```
 
   Inspect `selftest-artifacts/selftest-report/selftest-report.json` for mismatched artifacts and reproduce dependency drift
-  issues locally with `pytest tests/test_lockfile_consistency.py -k "up_to_date" -q`.
-- **Local reproduction:** To validate the lockfile drift fix locally, execute `pytest tests/test_lockfile_consistency.py -k
-  "up_to_date" -q`. This mirrors the failure that blocked the latest nightly run.
-
+  issues locally or to validate lockfile drift fixes with `pytest tests/test_lockfile_consistency.py -k "up_to_date" -q`.
 ## 7.5 Universal Logs Summary (Issue #1351)
 Source: `logs_summary` job inside `reusable-ci-python.yml` enumerates all jobs via the Actions API and writes a Markdown table to the run summary. Columns include Job, Status (emoji), Duration, and Log link.
 
