@@ -276,9 +276,9 @@ jobs:
         if: steps.ready.outputs.issue_numbers != ''
         uses: ./.github/actions/codex-bootstrap-lite
         with:
-            issue: ${{ fromJSON(format('[{0}]', steps.ready.outputs.issue_numbers))[0] }}
-            service_bot_pat: ${{ secrets.service_bot_pat || '' }}
-            draft: ${{ inputs.draft_pr }}
+          issue: ${{ fromJSON(format('[{0}]', steps.ready.outputs.issue_numbers))[0] }}
+          service_bot_pat: ${{ secrets.service_bot_pat || '' }}
+          draft: ${{ inputs.draft_pr }}
 
   watchdog:
     if: inputs.enable_watchdog == 'true'
