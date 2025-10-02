@@ -74,7 +74,7 @@ class SignalFrame:
     _STAGES = ("raw_momentum", "vol_adjusted", "normalized", "signal")
 
     def __init__(self, frame: pd.DataFrame):
-        if not isinstance(frame, pd.DataFrame):  # pragma: no cover - guard rail
+        if not isinstance(frame, pd.DataFrame):  # pragma: no cover - guardrail
             raise TypeError("frame must be a pandas DataFrame")
         if frame.columns.nlevels != 2:
             raise ValueError("SignalFrame requires a two-level column index")
