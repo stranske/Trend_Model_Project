@@ -15,7 +15,7 @@ function extractTrackerScript() {
   }
   const scriptLines = [];
   if (start + 1 >= lines.length) {
-    return '';
+    throw new Error('Tracker script block is empty or malformed.');
   }
   const firstLine = lines[start + 1];
   const indentMatch = firstLine.match(/^(\s*)/);
