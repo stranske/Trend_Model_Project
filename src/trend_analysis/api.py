@@ -16,7 +16,7 @@ else:  # Runtime: avoid importing typing-only names
     from typing import Any as ConfigType
 
 from .logging import log_step as _log_step  # lightweight import
-from .pipeline import _run_analysis
+from .pipeline import _policy_from_config, _run_analysis
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +95,16 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
             risk_free=0.0,
         )
 
+    preprocessing_section = getattr(config, "preprocessing", {}) or {}
+    missing_section = (
+        preprocessing_section.get("missing_data")
+        if isinstance(preprocessing_section, Mapping)
+        else None
+    )
+    policy_spec, limit_spec = _policy_from_config(
+        missing_section if isinstance(missing_section, Mapping) else None
+    )
+
     _log_step(run_id, "analysis_start", "_run_analysis dispatch")
     res = _run_analysis(
         returns,
@@ -117,6 +127,8 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         weighting_scheme=config.portfolio.get("weighting_scheme", "equal"),
         constraints=config.portfolio.get("constraints"),
         stats_cfg=stats_cfg,
+        missing_policy=policy_spec,
+        missing_limit=limit_spec,
     )
     if res is None:
         logger.warning("run_simulation produced no result")

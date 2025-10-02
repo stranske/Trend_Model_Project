@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Mapping, cast
 
 import numpy as np
 import pandas as pd
@@ -24,6 +24,9 @@ from .metrics import (
     volatility,
 )
 from .perf.rolling_cache import compute_dataset_hash, get_cache
+from .timefreq import MONTHLY_DATE_FREQ
+from .util.frequency import detect_frequency
+from .util.missing import apply_missing_policy
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +54,55 @@ class _Stats:
     information_ratio: float
     is_avg_corr: float | None = None
     os_avg_corr: float | None = None
+
+
+def _frequency_label(code: str) -> str:
+    return {"D": "Daily", "W": "Weekly", "M": "Monthly"}.get(code, code)
+
+
+def _preprocessing_summary(
+    freq_code: str, *, normalised: bool, missing_summary: str | None
+) -> str:
+    cadence = _frequency_label(freq_code)
+    cadence_text = f"Cadence: {cadence}"
+    if normalised and freq_code != "M":
+        cadence_text += " → monthly"
+    elif freq_code == "M":
+        cadence_text += " (month-end)"
+    parts = [cadence_text]
+    if missing_summary:
+        parts.append(f"Missing data: {missing_summary}")
+    return "; ".join(parts)
+
+
+def _policy_from_config(
+    cfg: Mapping[str, Any] | None,
+) -> tuple[str | Mapping[str, str] | None, int | Mapping[str, int | None] | None]:
+    if not cfg:
+        return None, None
+    policy_base = cfg.get("policy")
+    per_asset = cfg.get("per_asset")
+    policy_spec: str | Mapping[str, str] | None
+    if isinstance(per_asset, Mapping):
+        policy_spec = {str(k): str(v) for k, v in per_asset.items()}
+        if policy_base is not None:
+            policy_spec = {"default": str(policy_base), **policy_spec}
+    elif policy_base is not None:
+        policy_spec = str(policy_base)
+    else:
+        policy_spec = None
+
+    limit_base = cfg.get("limit")
+    per_asset_limit = cfg.get("per_asset_limit")
+    if isinstance(per_asset_limit, Mapping):
+        limit_spec: Mapping[str, int | None] | None = {
+            str(k): v for k, v in per_asset_limit.items()
+        }
+        if limit_base is not None:
+            limit_spec = {"default": limit_base, **limit_spec}
+    else:
+        limit_spec = limit_base
+    return policy_spec, limit_spec
 
 
 def calc_portfolio_returns(
@@ -185,6 +237,8 @@ def _run_analysis(
     stats_cfg: "RiskStatsConfig" | None = None,
     weighting_scheme: str | None = None,
     constraints: dict[str, Any] | None = None,
+    missing_policy: str | Mapping[str, str] | None = None,
+    missing_limit: int | Mapping[str, int | None] | None = None,
 ) -> dict[str, object] | None:
     if df is None:
         return None
@@ -213,6 +267,49 @@ def _run_analysis(
     if not pd.api.types.is_datetime64_any_dtype(df[date_col].dtype):
         df[date_col] = pd.to_datetime(df[date_col])
     df.sort_values(date_col, inplace=True)
+
+    value_cols_all = [c for c in df.columns if c != date_col]
+    if not value_cols_all:
+        return None
+
+    freq_code = detect_frequency(df[date_col])
+    values = df[value_cols_all].apply(pd.to_numeric, errors="coerce")
+    values.index = pd.DatetimeIndex(df[date_col])
+
+    if freq_code in {"D", "W"}:
+        resampled = (1 + values).resample(MONTHLY_DATE_FREQ).prod(min_count=1) - 1
+        normalised = True
+    else:
+        resampled = values.resample(MONTHLY_DATE_FREQ).last()
+        normalised = False
+
+    resampled = resampled.dropna(how="all")
+    resampled.index.name = date_col
+
+    policy_spec: str | Mapping[str, str] | None = missing_policy or "drop"
+    filled, missing_meta = apply_missing_policy(
+        resampled,
+        policy=policy_spec,
+        limit=missing_limit,
+    )
+    filled = filled.dropna(how="all")
+    if filled.empty or filled.shape[1] == 0:
+        return None
+
+    monthly_df = filled.reset_index().rename(columns={"index": date_col})
+    monthly_df[date_col] = pd.to_datetime(monthly_df[date_col])
+    df = monthly_df.sort_values(date_col)
+
+    preprocess_info = {
+        "input_frequency": freq_code,
+        "resampled_to_monthly": normalised,
+        "missing": missing_meta,
+    }
+    preprocess_info["summary"] = _preprocessing_summary(
+        freq_code,
+        normalised=normalised,
+        missing_summary=missing_meta.get("summary"),
+    )
 
     def _parse_month(s: str) -> pd.Timestamp:
         return pd.to_datetime(f"{s}-01") + pd.offsets.MonthEnd(0)
@@ -553,6 +650,8 @@ def _run_analysis(
         "benchmark_ir": benchmark_ir,
         "score_frame": score_frame,
         "weight_engine_fallback": weight_engine_fallback,
+        "preprocessing": preprocess_info,
+        "preprocessing_summary": preprocess_info.get("summary"),
     }
 
 
@@ -578,6 +677,8 @@ def run_analysis(
     stats_cfg: "RiskStatsConfig" | None = None,
     weighting_scheme: str | None = None,
     constraints: dict[str, Any] | None = None,
+    missing_policy: str | Mapping[str, str] | None = None,
+    missing_limit: int | Mapping[str, int | None] | None = None,
 ) -> dict[str, object] | None:
     """Backward-compatible wrapper around ``_run_analysis``."""
     return _run_analysis(
@@ -601,6 +702,8 @@ def run_analysis(
         stats_cfg=stats_cfg,
         weighting_scheme=weighting_scheme,
         constraints=constraints,
+        missing_policy=missing_policy,
+        missing_limit=missing_limit,
     )
 
 
@@ -623,6 +726,16 @@ def run(cfg: Config) -> pd.DataFrame:
             risk_free=0.0,
         )
 
+    preprocessing_section = getattr(cfg, "preprocessing", {}) or {}
+    missing_section = (
+        preprocessing_section.get("missing_data")
+        if isinstance(preprocessing_section, Mapping)
+        else None
+    )
+    policy_spec, limit_spec = _policy_from_config(
+        missing_section if isinstance(missing_section, Mapping) else None
+    )
+
     res = _run_analysis(
         df,
         cast(str, split.get("in_start")),
@@ -644,6 +757,8 @@ def run(cfg: Config) -> pd.DataFrame:
         constraints=cfg.portfolio.get("constraints"),
         stats_cfg=stats_cfg,
         weighting_scheme=cfg.portfolio.get("weighting_scheme"),
+        missing_policy=policy_spec,
+        missing_limit=limit_spec,
     )
     if res is None:
         return pd.DataFrame()
@@ -682,6 +797,16 @@ def run_full(cfg: Config) -> dict[str, object]:
             risk_free=0.0,
         )
 
+    preprocessing_section = getattr(cfg, "preprocessing", {}) or {}
+    missing_section = (
+        preprocessing_section.get("missing_data")
+        if isinstance(preprocessing_section, Mapping)
+        else None
+    )
+    policy_spec, limit_spec = _policy_from_config(
+        missing_section if isinstance(missing_section, Mapping) else None
+    )
+
     res = _run_analysis(
         df,
         cast(str, split.get("in_start")),
@@ -703,6 +828,8 @@ def run_full(cfg: Config) -> dict[str, object]:
         weighting_scheme=cfg.portfolio.get("weighting_scheme", "equal"),
         constraints=cfg.portfolio.get("constraints"),
         stats_cfg=stats_cfg,
+        missing_policy=policy_spec,
+        missing_limit=limit_spec,
     )
     return {} if res is None else res
 

@@ -8,6 +8,9 @@ data:
 
 preprocessing:
   steps: []                     # none for a synthetic demo
+  missing_data:
+    policy: ffill
+    limit: 2
 
 vol_adjust:
   enabled: false                # keep it off for speed
