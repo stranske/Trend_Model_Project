@@ -144,7 +144,9 @@ jobs:
               report.push({scenario: s.name, expected: exp, missing, unexpected, ok});
             }
             // Detect stray artifacts from scenarios not defined (defensive)
-            const stray = [...names].filter(n=>n.startsWith('sf-') && !expectedAll.has(n.split(/sf-[^-]+-/).length>1 ? n : n));
+            // Defensive catch-all: if a reusable scenario starts emitting new artifact names that
+            // are not declared in the matrix above, flag them so the self-test can evolve in lockstep.
+            const stray = [...names].filter(n => n.startsWith('sf-') && !expectedAll.has(n));
             if(stray.length){
               rows.push(`| (stray) | (n/a) | (n/a) | ${stray.join('<br>')} | ❌ |`);
               report.push({scenario:'_stray_', expected:[], missing:[], unexpected:stray, ok:false});

@@ -222,6 +222,10 @@ Retention Guidance: Use 7–14 days. Shorter (<7 days) risks losing comparison c
   `tests/test_lockfile_consistency.py` to fail during the reusable matrix runs. Refresh `requirements.lock` with
   `uv pip compile --upgrade pyproject.toml -o requirements.lock` before re-running the workflow. The matrix now completes when
   invoked manually or on schedule.
+- **Diagnostics:** Each run uploads a `selftest-report` artifact summarising scenario coverage and any unexpected or missing
+  artifacts. Use it alongside the job logs to validate new reusable features before promoting changes.
+- **Local reproduction:** To validate the lockfile drift fix locally, execute `pytest tests/test_lockfile_consistency.py -k
+  "up_to_date" -q`. This mirrors the failure that blocked the latest nightly run.
 
 ## 7.5 Universal Logs Summary (Issue #1351)
 Source: `logs_summary` job inside `reusable-ci-python.yml` enumerates all jobs via the Actions API and writes a Markdown table to the run summary. Columns include Job, Status (emoji), Duration, and Log link.
