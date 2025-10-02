@@ -129,6 +129,9 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         stats_cfg=stats_cfg,
         missing_policy=policy_spec,
         missing_limit=limit_spec,
+        risk_window=config.vol_adjust.get("window"),
+        previous_weights=config.portfolio.get("previous_weights"),
+        max_turnover=config.portfolio.get("max_turnover"),
     )
     if res is None:
         logger.warning("run_simulation produced no result")
