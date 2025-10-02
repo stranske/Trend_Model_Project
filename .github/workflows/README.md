@@ -225,6 +225,16 @@ Retention Guidance: Use 7–14 days. Shorter (<7 days) risks losing comparison c
   invoked manually or on schedule.
 - **Diagnostics:** Each run uploads a `selftest-report` artifact summarising scenario coverage and any unexpected or missing
   artifacts. Use it alongside the job logs to validate new reusable features before promoting changes.
+- **Failure triage workflow:** When a nightly run fails, open the run in the Actions tab and download diagnostics with the
+  GitHub CLI:
+
+  ```bash
+  gh run download <run-id> --dir selftest-artifacts
+  gh run view <run-id> --log
+  ```
+
+  Inspect `selftest-artifacts/selftest-report/selftest-report.json` for mismatched artifacts and reproduce dependency drift
+  issues locally with `pytest tests/test_lockfile_consistency.py -k "up_to_date" -q`.
 - **Local reproduction:** To validate the lockfile drift fix locally, execute `pytest tests/test_lockfile_consistency.py -k
   "up_to_date" -q`. This mirrors the failure that blocked the latest nightly run.
 
