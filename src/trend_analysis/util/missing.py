@@ -25,8 +25,8 @@ class MissingPolicyResult(Mapping[str, Any]):
     _mapping: dict[str, Any] = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
-        policy = {k: v for k, v in self.policy.items()}
-        limit = {k: v for k, v in self.limit.items()}
+        policy = dict(self.policy)
+        limit = dict(self.limit)
         filled = {k: int(v) for k, v in self.filled.items()}
         dropped = tuple(self.dropped_assets)
         total_filled = sum(filled.values())
