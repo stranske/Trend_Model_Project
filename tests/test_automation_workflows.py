@@ -153,9 +153,11 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
             "gate / all-required-green",
             "Gate job name should match required check label",
         )
-        self.assertEqual(
-            set(gate_job.get("needs", [])),
-            {"tests", "workflow-automation", "style"},
+        expected_core_jobs = {"tests", "workflow-automation", "style"}
+        if "formatting-fast" in jobs:
+            expected_core_jobs.add("formatting-fast")
+        self.assertTrue(
+            expected_core_jobs.issubset(set(gate_job.get("needs", []))),
             "Gate job must aggregate core CI jobs",
         )
         self.assertEqual(

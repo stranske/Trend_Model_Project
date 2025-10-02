@@ -47,7 +47,11 @@ class TestValidateReturnsSchema:
         assert result.is_valid
         assert result.metadata is not None
         assert result.metadata.mode == MarketDataMode.RETURNS
+        assert result.metadata.frequency == "M"
+        assert result.metadata.frequency_detected == "M"
         assert result.metadata.frequency_label == "monthly"
+        assert result.metadata.frequency_missing_periods == 0
+        assert result.metadata.frequency_tolerance_periods >= 0
         assert "small" in result.warnings[0]
 
     def test_reports_missing_date_column(self) -> None:
@@ -121,6 +125,9 @@ class TestLoadAndValidateUpload:
         csv_path = self._make_csv(tmp_path)
         df, meta = load_and_validate_upload(str(csv_path))
         assert df.attrs["market_data"]["metadata"].mode == MarketDataMode.RETURNS
+        metadata = meta["metadata"]
+        assert metadata.frequency_label == "monthly"
+        assert metadata.frequency_detected == "M"
         assert meta["frequency"] == "monthly"
 
     def test_raises_validation_error(self, tmp_path: Path) -> None:

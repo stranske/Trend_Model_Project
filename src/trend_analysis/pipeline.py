@@ -25,8 +25,8 @@ from .metrics import (
 )
 from .perf.rolling_cache import compute_dataset_hash, get_cache
 from .timefreq import MONTHLY_DATE_FREQ
-from .util.frequency import detect_frequency
-from .util.missing import apply_missing_policy
+from .util.frequency import FrequencySummary, detect_frequency
+from .util.missing import MissingPolicyResult, apply_missing_policy
 
 logger = logging.getLogger(__name__)
 
@@ -95,15 +95,70 @@ def _policy_from_config(
     limit_base = cfg.get("limit")
     per_asset_limit = cfg.get("per_asset_limit")
     if isinstance(per_asset_limit, Mapping):
-        limit_spec: Mapping[str, int | None] | None = {
+        limit_map: dict[str, int | None] = {
             str(k): v for k, v in per_asset_limit.items()
         }
         if limit_base is not None:
-            limit_spec = {"default": limit_base, **limit_spec}
+            limit_map = {"default": limit_base, **limit_map}
+        limit_spec: Mapping[str, int | None] | None = limit_map
     else:
         limit_spec = limit_base
     return policy_spec, limit_spec
-  
+
+
+def _prepare_input_data(
+    df: pd.DataFrame,
+    *,
+    date_col: str,
+    missing_policy: str | Mapping[str, str] | None,
+    missing_limit: int | Mapping[str, int | None] | None,
+    enforce_completeness: bool = True,
+) -> tuple[pd.DataFrame, FrequencySummary, MissingPolicyResult, bool]:
+    if date_col not in df.columns:
+        raise ValueError(f"DataFrame must contain a '{date_col}' column")
+
+    work = df.copy()
+    if not pd.api.types.is_datetime64_any_dtype(work[date_col].dtype):
+        work[date_col] = pd.to_datetime(work[date_col])
+    work.sort_values(date_col, inplace=True)
+
+    freq_summary = detect_frequency(work[date_col])
+
+    value_cols = [c for c in work.columns if c != date_col]
+    if value_cols:
+        numeric = work[value_cols].apply(pd.to_numeric, errors="coerce")
+    else:
+        numeric = work[value_cols]
+    numeric.index = pd.DatetimeIndex(work[date_col])
+
+    if freq_summary.resampled:
+        resampled = (1 + numeric).resample(MONTHLY_DATE_FREQ).prod(min_count=1) - 1
+        normalised = True
+    else:
+        resampled = numeric.resample(MONTHLY_DATE_FREQ).last()
+        normalised = False
+
+    resampled = resampled.dropna(how="all")
+    resampled.index.name = date_col
+
+    policy_spec: str | Mapping[str, str] | None = missing_policy or "drop"
+    filled, missing_result = apply_missing_policy(
+        resampled,
+        policy=policy_spec,
+        limit=missing_limit,
+        enforce_completeness=enforce_completeness,
+    )
+    filled = filled.dropna(how="all")
+
+    if filled.empty:
+        monthly_df = pd.DataFrame(columns=[date_col])
+    else:
+        monthly_df = filled.reset_index().rename(columns={"index": date_col})
+        monthly_df[date_col] = pd.to_datetime(monthly_df[date_col])
+        monthly_df.sort_values(date_col, inplace=True)
+
+    return monthly_df, freq_summary, missing_result, normalised
+
 
 def calc_portfolio_returns(
     weights: NDArray[Any], returns_df: pd.DataFrame
@@ -229,7 +284,7 @@ def _run_analysis(
     selection_mode: str = "all",
     random_n: int = 8,
     custom_weights: dict[str, float] | None = None,
-    rank_kwargs: dict[str, object] | None = None,
+    rank_kwargs: Mapping[str, Any] | None = None,
     manual_funds: list[str] | None = None,
     indices_list: list[str] | None = None,
     benchmarks: dict[str, str] | None = None,
@@ -263,61 +318,58 @@ def _run_analysis(
     if date_col not in df.columns:
         raise ValueError("DataFrame must contain a 'Date' column")
 
-    df_prepared, freq_summary, missing_result = _prepare_input_data(
+    na_cfg = getattr(stats_cfg, "na_as_zero_cfg", None) if stats_cfg else None
+    enforce_complete = not (na_cfg and bool(na_cfg.get("enabled", False)))
+
+    df_prepared, freq_summary, missing_result, normalised = _prepare_input_data(
         df,
         date_col=date_col,
         missing_policy=missing_policy,
         missing_limit=missing_limit,
+        enforce_completeness=enforce_complete,
     )
     if df_prepared.empty:
         return None
 
     df = df_prepared.copy()
-    if not pd.api.types.is_datetime64_any_dtype(df[date_col].dtype):
-        df[date_col] = pd.to_datetime(df[date_col])
-    df.sort_values(date_col, inplace=True)
-
     value_cols_all = [c for c in df.columns if c != date_col]
     if not value_cols_all:
         return None
 
-    freq_code = detect_frequency(df[date_col])
-    values = df[value_cols_all].apply(pd.to_numeric, errors="coerce")
-    values.index = pd.DatetimeIndex(df[date_col])
-
-    if freq_code in {"D", "W"}:
-        resampled = (1 + values).resample(MONTHLY_DATE_FREQ).prod(min_count=1) - 1
-        normalised = True
-    else:
-        resampled = values.resample(MONTHLY_DATE_FREQ).last()
-        normalised = False
-
-    resampled = resampled.dropna(how="all")
-    resampled.index.name = date_col
-
-    policy_spec: str | Mapping[str, str] | None = missing_policy or "drop"
-    filled, missing_meta = apply_missing_policy(
-        resampled,
-        policy=policy_spec,
-        limit=missing_limit,
-    )
-    filled = filled.dropna(how="all")
-    if filled.empty or filled.shape[1] == 0:
+    if df.empty or df.shape[1] <= 1:
         return None
 
-    monthly_df = filled.reset_index().rename(columns={"index": date_col})
-    monthly_df[date_col] = pd.to_datetime(monthly_df[date_col])
-    df = monthly_df.sort_values(date_col)
+    freq_code = freq_summary.code
+    missing_meta = missing_result
+
+    frequency_payload = {
+        "code": freq_summary.code,
+        "label": freq_summary.label,
+        "target": freq_summary.target,
+        "target_label": freq_summary.target_label,
+        "resampled": freq_summary.resampled,
+    }
+    missing_payload = {
+        "policy": missing_result.default_policy,
+        "policy_map": missing_result.policy,
+        "limit": missing_result.default_limit,
+        "limit_map": missing_result.limit,
+        "dropped_assets": list(missing_result.dropped_assets),
+        "filled_assets": {asset: count for asset, count in missing_result.filled_cells},
+        "total_filled": missing_result.total_filled,
+    }
 
     preprocess_info = {
-        "input_frequency": freq_code,
+        "input_frequency": frequency_payload["code"],
+        "input_frequency_details": frequency_payload,
         "resampled_to_monthly": normalised,
         "missing": missing_meta,
+        "missing_data_policy": missing_payload,
     }
     preprocess_info["summary"] = _preprocessing_summary(
         freq_code,
         normalised=normalised,
-        missing_summary=missing_meta.get("summary"),
+        missing_summary=missing_meta.summary,
     )
 
     def _parse_month(s: str) -> pd.Timestamp:
@@ -398,10 +450,11 @@ def _run_analysis(
         sub = df.loc[mask, fund_cols]
         window_key = make_window_key(in_start, in_end, fund_cols, stats_cfg)
         bundle = get_window_metric_bundle(window_key)
+        rank_options: dict[str, Any] = dict(rank_kwargs or {})
         fund_cols = rank_select_funds(
             sub,
             stats_cfg,
-            **(rank_kwargs or {}),  # type: ignore[arg-type]
+            **rank_options,
             window_key=window_key,
             bundle=bundle,
         )
@@ -642,21 +695,6 @@ def _run_analysis(
             pass
         benchmark_ir[label] = ir_dict
 
-    frequency_payload = {
-        "code": freq_summary.code,
-        "label": freq_summary.label,
-        "target": freq_summary.target,
-        "target_label": freq_summary.target_label,
-        "resampled": freq_summary.resampled,
-    }
-    missing_payload = {
-        "policy": missing_result.policy,
-        "limit": missing_result.limit,
-        "dropped_assets": list(missing_result.dropped_assets),
-        "filled_assets": {asset: count for asset, count in missing_result.filled_cells},
-        "total_filled": missing_result.total_filled,
-    }
-
     return {
         "selected_funds": fund_cols,
         "in_sample_scaled": in_scaled,
@@ -695,7 +733,7 @@ def run_analysis(
     selection_mode: str = "all",
     random_n: int = 8,
     custom_weights: dict[str, float] | None = None,
-    rank_kwargs: dict[str, object] | None = None,
+    rank_kwargs: Mapping[str, Any] | None = None,
     manual_funds: list[str] | None = None,
     indices_list: list[str] | None = None,
     benchmarks: dict[str, str] | None = None,
@@ -757,10 +795,6 @@ def run(cfg: Config) -> pd.DataFrame:
     split = cfg.sample_split
     metrics_list = cfg.metrics.get("registry")
     stats_cfg = None
-    data_cfg = getattr(cfg, "data", {})
-    missing_policy = str(data_cfg.get("missing_policy", "drop"))
-    missing_limit_raw = data_cfg.get("missing_fill_limit")
-    missing_limit = None if missing_limit_raw in (None, "") else int(missing_limit_raw)
     if metrics_list:
         from .core.rank_selection import RiskStatsConfig, canonical_metric_list
 
@@ -844,10 +878,6 @@ def run_full(cfg: Config) -> dict[str, object]:
     split = cfg.sample_split
     metrics_list = cfg.metrics.get("registry")
     stats_cfg = None
-    data_cfg = getattr(cfg, "data", {})
-    missing_policy = str(data_cfg.get("missing_policy", "drop"))
-    missing_limit_raw = data_cfg.get("missing_fill_limit")
-    missing_limit = None if missing_limit_raw in (None, "") else int(missing_limit_raw)
     if metrics_list:
         from .core.rank_selection import RiskStatsConfig, canonical_metric_list
 
@@ -886,6 +916,7 @@ def run_full(cfg: Config) -> dict[str, object]:
         seed=getattr(cfg, "seed", 42),
         weighting_scheme=cfg.portfolio.get("weighting_scheme", "equal"),
         constraints=cfg.portfolio.get("constraints"),
+        stats_cfg=stats_cfg,
         missing_policy=policy_spec,
         missing_limit=limit_spec,
     )
