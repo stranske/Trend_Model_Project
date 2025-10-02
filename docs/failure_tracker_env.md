@@ -10,13 +10,23 @@ Central reference for all environment variables used by `.github/workflows/maint
 | `STACK_TOKEN_RAW` | `false` | bool | Stack token normalization | If `true`, skips normalization (only truncation) | Raw mode may fragment signatures across similar failures |
 | `AUTO_HEAL_INACTIVITY_HOURS` | 24 | int/float | Success path (healer job) | Hours of no recurrence before closing failure issue | Applied only in `success` job – separates detection from healing |
 | `FAILURE_INACTIVITY_HEAL_HOURS` | 0 | int/float | (Reserved) failure path | Would allow healing during failure workflow if >0 | Currently unused placeholder for future inline healing |
-| `NEW_ISSUE_COOLDOWN_HOURS` | 24 | int/float | New issue creation path | If >0, within window try to append to an existing issue instead of creating a new one | Combats duplicate bursts from concurrent failing runs |
+| `NEW_ISSUE_COOLDOWN_HOURS` | 12 | int/float | New issue creation path | If >0, within window try to append to an existing issue instead of creating a new one | Tuned lower to curb duplicate issues while staying responsive |
 | `COOLDOWN_SCOPE` | `global` | enum (`global`,`workflow`,`signature`) | Cooldown selection | Controls which existing issue is eligible for append under cooldown | `global` → most recent; `workflow` → same workflow name; `signature` → only exact signature |
 | `COOLDOWN_RETRY_MS` | 3000 | int (ms) | Race mitigation | Wait then re-check candidate issues before creating a new one | Reduces TOCTOU window between parallel runs |
 | `DISABLE_FAILURE_ISSUES` | `false` | bool | All failure tracking | If `true` skips create/update (summary still written) | Use for dry-runs or temporary silence |
-| `OCCURRENCE_ESCALATE_THRESHOLD` | 0 | int | Existing issue update | If >0 and occurrences ≥ threshold → escalation branch | 0 disables escalation logic |
+| `OCCURRENCE_ESCALATE_THRESHOLD` | 3 | int | Existing issue update | If >0 and occurrences ≥ threshold → escalation branch | Escalate on the third occurrence |
 | `ESCALATE_LABEL` | `priority: high` | string | Escalation | Label added once threshold crossed | Auto-created if missing |
 | `ESCALATE_COMMENT` | (empty) | string | Escalation | Optional custom escalation comment body | Falls back to auto-generated message |
+
+## Default Labels
+The workflow seeds each failure issue with the following labels to aid triage:
+
+- `ci-failure`
+- `ci`
+- `devops`
+- `priority: medium`
+
+All labels are created on-demand if they are missing from the repository so the automation remains resilient across new forks.
 
 ## Signature Construction
 Signature hash = SHA-256( sorted failed jobs mapped to `jobName::firstFailingStep::stackToken`) truncated to 12 hex chars. Workflow name + hash produce the issue title: `Workflow Failure (<workflow>|<hash>)`.

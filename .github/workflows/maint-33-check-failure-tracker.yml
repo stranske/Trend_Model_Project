@@ -21,12 +21,12 @@ jobs:
       STACK_TOKEN_MAX_LEN: 160              # Max characters kept from extracted stack/error line
       AUTO_HEAL_INACTIVITY_HOURS: 24        # Used by success job for auto-heal closure
       FAILURE_INACTIVITY_HEAL_HOURS: 0      # (Reserved) would auto-close during failure path if >0
-      NEW_ISSUE_COOLDOWN_HOURS: 24          # If >0, cooldown window for *new* failure issues (append instead)
+      NEW_ISSUE_COOLDOWN_HOURS: 12          # Tuned window to curb duplicate issues while remaining responsive
       DISABLE_FAILURE_ISSUES: 'false'       # If 'true', skip issue create/update (still summary)
       COOLDOWN_RETRY_MS: 3000               # Delay before second cooldown check (race mitigation)
       STACK_TOKEN_RAW: 'false'              # If 'true', disable normalization of stack tokens
       COOLDOWN_SCOPE: global                # global | workflow | signature (controls cooldown append scope)
-      OCCURRENCE_ESCALATE_THRESHOLD: 0      # If >0, add ESCALATE_LABEL when occurrences >= threshold
+      OCCURRENCE_ESCALATE_THRESHOLD: 3      # Escalate only after the third recorded occurrence
       ESCALATE_LABEL: 'priority: high'      # Label added on escalation when threshold met
       ESCALATE_COMMENT: ''                  # Optional custom escalation comment
     steps:
@@ -120,7 +120,7 @@ jobs:
             const workflowName = run.name;
             const signature = `${workflowName}|${sigHash}`;
             const title = `Workflow Failure (${signature})`;
-            const labels = ['ci-failure', 'workflows', 'devops', 'priority: medium'];
+            const labels = ['ci-failure', 'ci', 'devops', 'priority: medium'];
             const COOLDOWN_SCOPE = (process.env.COOLDOWN_SCOPE || 'global').toLowerCase();
             const ESC_THRESHOLD = parseInt(process.env.OCCURRENCE_ESCALATE_THRESHOLD || '0', 10);
             const ESC_LABEL = process.env.ESCALATE_LABEL || 'priority: high';

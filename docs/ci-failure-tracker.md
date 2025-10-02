@@ -8,7 +8,7 @@ This document summarises the behaviour and configuration of the enhanced failure
 1. Enumerates failed jobs and the first failing step.
 2. Optionally extracts a stack token (first exception or error line) per failed job.
 3. Builds a deterministic signature: `workflow|sha256(job::step::stackToken...)[:12]`.
-4. Opens or updates a single GitHub Issue per signature (labels: `ci-failure`, `workflows`, `devops`, `priority: medium`).
+4. Opens or updates a single GitHub Issue per signature (labels: `ci-failure`, `ci`, `devops`, `priority: medium`).
 5. Maintains metadata header: Occurrences, Last seen, Healing threshold.
 6. Appends a failure comment (rate-limited) with job + stack token tables.
 7. On successful runs, scans for inactive issues and auto-closes those with no reoccurrence for the configured inactivity window.
@@ -19,20 +19,36 @@ This document summarises the behaviour and configuration of the enhanced failure
 | `RATE_LIMIT_MINUTES` | Minimum minutes between new comments for same issue | 15 |
 | `STACK_TOKENS_ENABLED` | Toggle stack token hashing (`true`/`false`) | true |
 | `STACK_TOKEN_MAX_LEN` | Max chars retained from a stack/error line | 160 |
+| `STACK_TOKEN_RAW` | Skip stack token normalisation when `true` | false |
 | `AUTO_HEAL_INACTIVITY_HOURS` | Hours of stability before success path auto-heal closes issue | 24 |
 | `FAILURE_INACTIVITY_HEAL_HOURS` | (Reserved) Close during failure path if inactive for this many hours | 0 (disabled) |
+| `NEW_ISSUE_COOLDOWN_HOURS` | Cooldown window before creating *new* failure issues | 12 |
+| `COOLDOWN_SCOPE` | Which issue to target during cooldown (`global`, `workflow`, `signature`) | global |
+| `COOLDOWN_RETRY_MS` | Delay before retrying the cooldown append logic | 3000 |
+| `DISABLE_FAILURE_ISSUES` | If `true`, skip failure issue create/update (summary only) | false |
+| `OCCURRENCE_ESCALATE_THRESHOLD` | Escalation trigger once occurrences reach this count | 3 |
+| `ESCALATE_LABEL` | Label applied during escalation | `priority: high` |
+| `ESCALATE_COMMENT` | Custom escalation comment body | (empty) |
 
 ## Signature Evolution
 - Phase-1: job + first failing step.
 - Phase-2: adds first stack/error line token (or `no-stack` / `stacks-off`).
 
-## Rate Limiting
-A run comment is suppressed if:
+## Cooldown & Rate Limiting
+A newly-detected signature that would otherwise open a new issue first checks for recent failures within the `NEW_ISSUE_COOLDOWN_HOURS` window. When the cooldown is active, the run appends a comment to the selected issue instead of opening a duplicate. The default twelve-hour window balances duplicate suppression with timely visibility of unrelated failures.
+
+A run comment is additionally suppressed if:
 - The run URL already appears in an existing comment, OR
 - The last comment is younger than `RATE_LIMIT_MINUTES`.
 
 ## Auto-Heal (Success Path)
 On any successful monitored workflow run, open `ci-failure` issues are scanned. If `Last seen` is older than `AUTO_HEAL_INACTIVITY_HOURS`, the issue is commented on and closed.
+
+## Escalation Threshold
+Once an issue records its third occurrence (`OCCURRENCE_ESCALATE_THRESHOLD`), the workflow ensures the escalation label (`priority: high` by default) is applied and posts a single escalation comment. Earlier occurrences retain the medium-priority label so responders can distinguish first-time breakages from persistent regressions.
+
+### Label inventory check
+The repository currently exposes the following triage labels that ship with the workflow: `ci-failure`, `ci`, `devops`, and `priority: medium`. The escalation label (`priority: high` by default) is created automatically on demand. If any label gets renamed in the future, update the defaults in the workflow to match the new taxonomy so issues continue to aggregate correctly.
 
 ## JSON Snapshot Artifact
 Each successful run uploads `ci_failures_snapshot.json` containing an array of current open failure issues (number, occurrences, last_seen, timestamps). Use this for dashboards or external monitoring.
@@ -66,6 +82,15 @@ Workflow: `maint-40-ci-signature-guard.yml` runs on pushes / PRs and validates t
 You can manually validate behaviour:
 1. Dispatch `CI Selftest` (will create a failing issue).
 2. Rerun it but edit the `ci-selftest.yml` to succeed (or manually re-run jobs) to test auto-heal logic after adjusting `INACTIVITY_HOURS`.
+
+## Local Simulation Harness
+For a fast feedback loop without touching GitHub, run `node tools/simulate_failure_tracker.js`. The harness lifts the tracker script straight out of the workflow file and replays three sequential failures against an in-memory stub of the GitHub API. It asserts that:
+
+- The tuned defaults (12-hour cooldown, three-occurrence escalation) are honoured.
+- Issues aggregate signatures instead of spawning duplicates across the cooldown window.
+- The escalation label and comment appear only after the third occurrence while the base triage labels remain intact.
+
+Use this script whenever adjusting cooldown, label, or escalation logic to confirm the behaviour before pushing workflow changes.
 
 ## Future Extensions
 - Persist aggregated metrics (failure frequency) as JSON artifact.
