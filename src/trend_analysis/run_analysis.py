@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import inspect
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 from . import api, export
 from .config import load
@@ -28,6 +29,8 @@ def main(argv: list[str] | None = None) -> int:
     if csv_path is None:
         raise KeyError("cfg.data['csv_path'] must be provided")
 
+    csv_path = str(csv_path)
+
     data_settings = getattr(cfg, "data", {}) or {}
     missing_policy_cfg = data_settings.get("missing_policy")
     if missing_policy_cfg is None:
@@ -36,19 +39,24 @@ def main(argv: list[str] | None = None) -> int:
     if missing_limit_cfg is None:
         missing_limit_cfg = data_settings.get("nan_limit")
 
-    try:
-        df = load_csv(
-            csv_path,
-            errors="raise",
-            missing_policy=missing_policy_cfg,
-            missing_limit=missing_limit_cfg,
-        )
-    except TypeError:  # Legacy monkeypatched shims without keyword support
-        df = load_csv(
-            csv_path,
-            missing_policy=missing_policy_cfg,
-            missing_limit=missing_limit_cfg,
-        )
+    load_csv_signature = inspect.signature(load_csv)
+    load_csv_params = load_csv_signature.parameters
+
+    load_kwargs: dict[str, Any] = {}
+    if "errors" in load_csv_params:
+        load_kwargs["errors"] = "raise"
+    if missing_policy_cfg is not None:
+        if "missing_policy" in load_csv_params:
+            load_kwargs["missing_policy"] = missing_policy_cfg
+        elif "nan_policy" in load_csv_params:
+            load_kwargs["nan_policy"] = missing_policy_cfg
+    if missing_limit_cfg is not None:
+        if "missing_limit" in load_csv_params:
+            load_kwargs["missing_limit"] = missing_limit_cfg
+        elif "nan_limit" in load_csv_params:
+            load_kwargs["nan_limit"] = missing_limit_cfg
+
+    df = load_csv(csv_path, **cast(Any, load_kwargs))
 
     if df is None:
         raise FileNotFoundError(csv_path)

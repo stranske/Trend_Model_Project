@@ -21,6 +21,8 @@ def test_detect_frequency_daily_with_holiday_gap():
     assert summary.code == "D"
     assert summary.label == FREQUENCY_LABELS["D"]
     assert summary.resampled is True
+    assert summary.target == "M"
+    assert summary.target_label == FREQUENCY_LABELS["M"]
 
 
 def test_detect_frequency_weekly_series():
@@ -29,6 +31,8 @@ def test_detect_frequency_weekly_series():
     assert summary.code == "W"
     assert summary.label == FREQUENCY_LABELS["W"]
     assert summary.resampled is True
+    assert summary.target == "M"
+    assert summary.target_label == FREQUENCY_LABELS["M"]
 
 
 def test_detect_frequency_monthly_series():
@@ -37,6 +41,8 @@ def test_detect_frequency_monthly_series():
     assert summary.code == "M"
     assert summary.label == FREQUENCY_LABELS["M"]
     assert summary.resampled is False
+    assert summary.target == "M"
+    assert summary.target_label == FREQUENCY_LABELS["M"]
 
 
 def test_detect_frequency_irregular_raises():

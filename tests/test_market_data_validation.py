@@ -32,6 +32,40 @@ def test_validate_market_data_happy_path_returns() -> None:
     assert meta["symbols"] == ["FundA", "FundB"]
 
 
+def test_validate_market_data_quarterly_frequency() -> None:
+    dates = pd.date_range("2021-03-31", periods=5, freq="QE")
+    df = pd.DataFrame(
+        {
+            "Date": dates,
+            "FundA": [0.02, -0.01, 0.015, 0.01, 0.005],
+            "FundB": [0.03, 0.025, -0.005, 0.0, 0.01],
+        }
+    )
+
+    validated = validate_market_data(df)
+    meta = validated.attrs["market_data"]
+    assert meta["frequency_code"] == "Q"
+    assert meta["frequency"] == "quarterly"
+    assert meta["frequency_detected"] == "Q"
+
+
+def test_validate_market_data_annual_frequency() -> None:
+    dates = pd.date_range("2018-12-31", periods=4, freq="YE")
+    df = pd.DataFrame(
+        {
+            "Date": dates,
+            "FundA": [0.1, 0.08, -0.02, 0.05],
+            "FundB": [0.12, 0.09, 0.0, 0.07],
+        }
+    )
+
+    validated = validate_market_data(df)
+    meta = validated.attrs["market_data"]
+    assert meta["frequency_code"] == "Y"
+    assert meta["frequency"] == "annual"
+    assert meta["frequency_detected"] == "Y"
+
+
 def test_validate_market_data_duplicate_dates() -> None:
     df = _build_returns_frame()
     df.loc[3, "Date"] = df.loc[2, "Date"]

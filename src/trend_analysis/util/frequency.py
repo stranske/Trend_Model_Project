@@ -2,16 +2,39 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
-from typing import Iterable as TypingIterable
-from typing import Literal
+from dataclasses import dataclass
+from typing import Iterable, Literal, cast
 
 import numpy as np
 import pandas as pd
+from numpy.typing import NDArray
 
-__all__ = ["detect_frequency", "FrequencyCode"]
+__all__ = [
+    "FrequencyCode",
+    "FrequencySummary",
+    "FREQUENCY_LABELS",
+    "detect_frequency",
+]
 
-FrequencyCode = Literal["D", "W", "M"]
+FrequencyCode = Literal["D", "W", "M", "Q", "Y"]
+FREQUENCY_LABELS: dict[FrequencyCode, str] = {
+    "D": "Daily",
+    "W": "Weekly",
+    "M": "Monthly",
+    "Q": "Quarterly",
+    "Y": "Annual",
+}
+
+
+@dataclass(frozen=True, slots=True)
+class FrequencySummary:
+    """Structured result produced by :func:`detect_frequency`."""
+
+    code: FrequencyCode
+    label: str
+    resampled: bool
+    target: FrequencyCode
+    target_label: str
 
 
 def _as_datetime_index(index: Iterable[object]) -> pd.DatetimeIndex:
@@ -22,8 +45,10 @@ def _as_datetime_index(index: Iterable[object]) -> pd.DatetimeIndex:
     try:
         idx = pd.DatetimeIndex(index)
     except (TypeError, ValueError):
-        idx = pd.to_datetime(list(index), errors="coerce")
-        if getattr(idx, "isna", lambda: True)().any():
+        values = list(index)
+        idx = pd.to_datetime(values, errors="coerce")
+        mask = pd.isna(idx)
+        if bool(np.asarray(mask).any()):
             raise ValueError("detect_frequency requires datetime-like inputs")
         idx = pd.DatetimeIndex(idx)
     return idx.sort_values()
@@ -39,12 +64,64 @@ def _map_inferred(freq: str | None) -> FrequencyCode | None:
         return "D"
     if any(freq.startswith(prefix) for prefix in ("M", "SM", "BM")):
         return "M"
-    if any(freq.startswith(prefix) for prefix in ("Q", "A", "Y")):
-        return "M"
+    if freq.startswith("Q"):
+        return "Q"
+    if any(freq.startswith(prefix) for prefix in ("A", "Y")):
+        return "Y"
     return None
 
 
-def detect_frequency(index: TypingIterable[object]) -> FrequencyCode:
+def _intervals_in_days(idx: pd.DatetimeIndex) -> NDArray[np.float64]:
+    diffs: NDArray[np.int64] = np.diff(idx.view("i8"))
+    return diffs.astype(np.float64) / 86_400_000_000_000.0  # ns -> days
+
+
+def _classify_from_diffs(diffs_days: NDArray[np.float64]) -> FrequencyCode:
+    if diffs_days.size == 0:
+        return "M"
+
+    daily = (diffs_days > 0) & (diffs_days <= 4.0)
+    weekly = (diffs_days >= 4.5) & (diffs_days <= 9.0)
+    monthly = (diffs_days > 9.0) & (diffs_days <= 45.0)
+    quarterly = (diffs_days > 45.0) & (diffs_days <= 120.0)
+    yearly = diffs_days > 120.0
+
+    buckets = {
+        "D": int(daily.sum()),
+        "W": int(weekly.sum()),
+        "M": int(monthly.sum()),
+        "Q": int(quarterly.sum()),
+        "Y": int(yearly.sum()),
+    }
+
+    best_code = max(buckets, key=lambda code: buckets[code])
+    best_count = buckets[best_code]
+    total = diffs_days.size
+
+    if best_count == 0:
+        raise ValueError("Unable to determine series frequency from irregular spacing")
+
+    if total >= 2 and (best_count / total) < 0.6:
+        raise ValueError("Series cadence is too irregular to classify confidently")
+
+    return cast(FrequencyCode, best_code)
+
+
+def _summary_from_code(code: FrequencyCode) -> FrequencySummary:
+    target: FrequencyCode = "M"
+    resampled = code != target
+    target_label = FREQUENCY_LABELS[target]
+    label = FREQUENCY_LABELS[code]
+    return FrequencySummary(
+        code=code,
+        label=label,
+        resampled=resampled,
+        target=target,
+        target_label=target_label if resampled else label,
+    )
+
+
+def detect_frequency(index: Iterable[object]) -> FrequencySummary:
     """Classify a date index as daily, weekly or monthly.
 
     Parameters
@@ -55,29 +132,24 @@ def detect_frequency(index: TypingIterable[object]) -> FrequencyCode:
 
     Returns
     -------
-    Literal["D", "W", "M"]
-        Canonicalised frequency code representing daily, weekly or monthly
-        cadence.  The detector tolerates gaps introduced by market holidays and
-        short calendar months by relying on the median interval once
-        :func:`pandas.infer_freq` cannot produce a definitive answer.
+    FrequencySummary
+        Summary describing the detected cadence together with human-readable
+        labelling and whether the series should be resampled to monthly.
     """
 
     idx = _as_datetime_index(index).drop_duplicates()
     if len(idx) < 2:
-        return "M"
+        return _summary_from_code("M")
 
-    detected = _map_inferred(pd.infer_freq(idx))
+    try:
+        inferred = pd.infer_freq(idx)
+    except ValueError:
+        inferred = None
+
+    detected = _map_inferred(inferred)
     if detected is not None:
-        return detected
+        return _summary_from_code(detected)
 
-    diffs = np.diff(idx.view("i8"))  # nanoseconds
-    if diffs.size == 0:
-        return "M"
-    diffs_days = diffs / 86_400_000_000_000  # ns -> days
-    median = float(np.median(diffs_days))
-    if median <= 3.5:
-        return "D"
-    if median <= 12:
-        return "W"
-    return "M"
-
+    diffs_days = _intervals_in_days(idx)
+    code = _classify_from_diffs(diffs_days)
+    return _summary_from_code(code)

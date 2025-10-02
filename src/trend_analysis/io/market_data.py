@@ -399,15 +399,27 @@ def classify_frequency(
         label = _HUMAN_FREQUENCY_LABELS.get(canonical, "weekly")
         tolerance_default = 1
         base_days = 7.0
-    elif median_days <= 35.0:
+    elif median_days <= 45.0:
         code = "M"
         canonical = "M"
         label = _HUMAN_FREQUENCY_LABELS.get(canonical, "monthly")
         tolerance_default = 1
         base_days = 30.0
+    elif median_days <= 120.0:
+        code = "Q"
+        canonical = "Q"
+        label = _HUMAN_FREQUENCY_LABELS.get(canonical, "quarterly")
+        tolerance_default = 1
+        base_days = 91.0
+    elif median_days <= 500.0:
+        code = "Y"
+        canonical = "Y"
+        label = _HUMAN_FREQUENCY_LABELS.get(canonical, "annual")
+        tolerance_default = 0
+        base_days = 365.0
     else:
         raise MarketDataValidationError(
-            "Unable to infer frequency. Data spacing appears longer than monthly.",
+            "Unable to infer frequency. Data spacing appears longer than annual.",
         )
 
     tolerance_limit = tolerance_default

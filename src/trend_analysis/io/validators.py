@@ -144,7 +144,10 @@ def detect_frequency(df: pd.DataFrame) -> str:
         return "unknown"
     try:
         info = classify_frequency(df.index)
-    except MarketDataValidationError:
+    except MarketDataValidationError as exc:
+        user_msg = getattr(exc, "user_message", str(exc)) or ""
+        if "irregular" in user_msg.lower():
+            return f"irregular ({user_msg})"
         return "unknown"
     label = str(info.get("label") or "unknown")
     code = str(info.get("code") or "")

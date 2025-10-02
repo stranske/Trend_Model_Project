@@ -1,23 +1,58 @@
 import pandas as pd
 
-from trend_analysis.util.frequency import detect_frequency
+from trend_analysis.util.frequency import FREQUENCY_LABELS, detect_frequency
 from trend_analysis.util.missing import apply_missing_policy
 
 
 def test_detect_frequency_daily_with_gaps():
     idx = pd.date_range("2024-01-01", periods=10, freq="B")
     idx = idx.delete([2, 5])  # simulate holidays
-    assert detect_frequency(idx) == "D"
+    summary = detect_frequency(idx)
+    assert summary.code == "D"
+    assert summary.label == FREQUENCY_LABELS["D"]
+    assert summary.resampled is True
+    assert summary.target == "M"
+    assert summary.target_label == FREQUENCY_LABELS["M"]
 
 
 def test_detect_frequency_weekly():
     idx = pd.date_range("2024-01-05", periods=6, freq="W-FRI")
-    assert detect_frequency(idx) == "W"
+    summary = detect_frequency(idx)
+    assert summary.code == "W"
+    assert summary.label == FREQUENCY_LABELS["W"]
+    assert summary.resampled is True
+    assert summary.target == "M"
+    assert summary.target_label == FREQUENCY_LABELS["M"]
 
 
 def test_detect_frequency_monthly():
     idx = pd.to_datetime(["2024-01-31", "2024-02-29", "2024-03-29", "2024-04-30"])
-    assert detect_frequency(idx) == "M"
+    summary = detect_frequency(idx)
+    assert summary.code == "M"
+    assert summary.label == FREQUENCY_LABELS["M"]
+    assert summary.resampled is False
+    assert summary.target == "M"
+    assert summary.target_label == FREQUENCY_LABELS["M"]
+
+
+def test_detect_frequency_quarterly():
+    idx = pd.date_range("2023-03-31", periods=5, freq="QE")
+    summary = detect_frequency(idx)
+    assert summary.code == "Q"
+    assert summary.label == FREQUENCY_LABELS["Q"]
+    assert summary.resampled is True
+    assert summary.target == "M"
+    assert summary.target_label == FREQUENCY_LABELS["M"]
+
+
+def test_detect_frequency_annual():
+    idx = pd.date_range("2018-12-31", periods=4, freq="YE")
+    summary = detect_frequency(idx)
+    assert summary.code == "Y"
+    assert summary.label == FREQUENCY_LABELS["Y"]
+    assert summary.resampled is True
+    assert summary.target == "M"
+    assert summary.target_label == FREQUENCY_LABELS["M"]
 
 
 def test_apply_missing_policy_drop():

@@ -297,14 +297,14 @@ def _format_frequency_policy_line(res: Mapping[str, Any]) -> str:
     if policy_name == "ffill" and limit is not None:
         extras.append(f"limit={limit}")
     total_filled = policy.get("total_filled")
-    try:
-        filled_int = int(total_filled)
-    except (TypeError, ValueError):
-        filled_int = 0
+    filled_int = 0
+    if total_filled is not None:
+        try:
+            filled_int = int(total_filled)
+        except (TypeError, ValueError):
+            filled_int = 0
     if filled_int:
-        extras.append(
-            f"filled {filled_int} cell{'s' if filled_int != 1 else ''}"
-        )
+        extras.append(f"filled {filled_int} cell{'s' if filled_int != 1 else ''}")
     dropped_assets = policy.get("dropped_assets")
     dropped_count = len(dropped_assets) if isinstance(dropped_assets, list) else 0
     if dropped_count:
@@ -369,9 +369,10 @@ def _build_summary_formatter(
             or cast(Mapping[str, Any], res.get("preprocessing", {})).get("summary"),
         )
         if summary_text:
-            ws.write_row(3, 0, [summary_text])
+            meta_summary = summary_text
         else:
-            ws.write_row(3, 0, [""])
+            meta_summary = "Frequency: Unknown; Missing data: (not specified)"
+        ws.write_row(3, 0, [meta_summary])
         bench_labels = list(res.get("benchmark_ir", {}))
         headers = [
             "Name",
@@ -631,7 +632,6 @@ def format_summary_text(
 
     df = pd.DataFrame(rows, columns=columns)
     df_formatted = df.map(safe)
-    meta_line = _format_frequency_policy_line(res)
     header = [
         "Vol-Adj Trend Analysis",
         f"In:  {in_start} → {in_end}",
@@ -644,10 +644,15 @@ def format_summary_text(
     )
     if summary_text:
         header.append(summary_text)
-    header.extend([
-        "",
-        df_formatted.to_string(index=False),
-    ])
+    meta_line = _format_frequency_policy_line(res)
+    if meta_line:
+        header.append(meta_line)
+    header.extend(
+        [
+            "",
+            df_formatted.to_string(index=False),
+        ]
+    )
     return "\n".join(header)
 
 

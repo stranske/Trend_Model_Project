@@ -30,6 +30,7 @@ from ..core.rank_selection import ASCENDING_METRICS
 from ..data import load_csv
 from ..pipeline import _run_analysis
 from ..rebalancing import apply_rebalancing_strategies
+from ..util.missing import apply_missing_policy
 from ..weighting import (
     AdaptiveBayesWeighting,
     BaseWeighting,
@@ -426,6 +427,52 @@ def run(
         if df is None:
             raise ValueError(f"Failed to load CSV data from '{csv_path}'")
 
+    if df is None:
+        raise ValueError("Multi-period engine requires a DataFrame to operate")
+
+    if "Date" not in df.columns:
+        raise ValueError("Input DataFrame must contain a 'Date' column")
+
+    # Normalise Date column for consistent slicing downstream
+    df = df.copy()
+    if not pd.api.types.is_datetime64_any_dtype(df["Date"]):
+        df["Date"] = pd.to_datetime(df["Date"])
+
+    # Apply missing-data policy before entering the analysis pipeline so that
+    # incremental covariance runs over forward-filled data when requested.
+    data_settings = getattr(cfg, "data", {}) or {}
+    missing_policy_cfg = data_settings.get("missing_policy")
+    if missing_policy_cfg is None:
+        missing_policy_cfg = data_settings.get("nan_policy")
+    missing_limit_cfg = data_settings.get("missing_limit")
+    if missing_limit_cfg is None:
+        missing_limit_cfg = data_settings.get("nan_limit")
+
+    original_returns = df.set_index("Date")
+    skip_missing_policy = (
+        price_frames is not None
+        and missing_policy_cfg is None
+        and missing_limit_cfg is None
+    )
+
+    if skip_missing_policy:
+        policy_spec: str | Mapping[str, str] | None = None
+        cleaned = original_returns
+        _missing_summary = None
+    else:
+        policy_spec = missing_policy_cfg or "ffill"
+        cleaned, _missing_summary = apply_missing_policy(
+            original_returns,
+            policy=policy_spec,
+            limit=missing_limit_cfg,
+        )
+
+    cleaned = cleaned.dropna(how="all")
+    if cleaned.empty:
+        raise ValueError("Missing-data policy removed all assets for analysis")
+    # Restore Date column for downstream consumers
+    df = cleaned.reset_index()
+
     # If policy is not threshold-hold, use the Phase‑1 style per-period runs.
     if str(cfg.portfolio.get("policy", "").lower()) != "threshold_hold":
         periods = generate_periods(cfg.model_dump())
@@ -464,6 +511,8 @@ def run(
                 indices_list=cfg.portfolio.get("indices_list"),
                 benchmarks=cfg.benchmarks,
                 seed=getattr(cfg, "seed", 42),
+                missing_policy=policy_spec,
+                missing_limit=missing_limit_cfg,
             )
             if res is None:
                 continue
