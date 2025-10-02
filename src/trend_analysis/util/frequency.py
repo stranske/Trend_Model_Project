@@ -48,7 +48,7 @@ def _as_datetime_index(index: Iterable[object]) -> pd.DatetimeIndex:
         values = list(index)
         idx = pd.to_datetime(values, errors="coerce")
         mask = pd.isna(idx)
-        if bool(np.asarray(mask).any()):
+        if np.asarray(mask).any():
             raise ValueError("detect_frequency requires datetime-like inputs")
         idx = pd.DatetimeIndex(idx)
     return idx.sort_values()
