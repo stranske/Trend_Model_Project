@@ -12,7 +12,7 @@ signals reach the caller.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable, Sequence
+from typing import Any, Iterable, Iterator, Sequence
 
 import numpy as np
 import pandas as pd
@@ -88,13 +88,13 @@ class SignalFrame:
         )
         self._frame = frame.reindex(columns=target_columns)
 
-    def __getattr__(self, item: str) -> object:  # pragma: no cover - thin delegation
+    def __getattr__(self, item: str) -> Any:  # pragma: no cover - thin delegation
         return getattr(self._frame, item)
 
-    def __getitem__(self, key) -> object:  # pragma: no cover - thin delegation
+    def __getitem__(self, key) -> Any:  # pragma: no cover - thin delegation
         return self._frame.__getitem__(key)
 
-    def __iter__(self) -> Iterable:  # pragma: no cover - thin delegation
+    def __iter__(self) -> Iterator[str]:  # pragma: no cover - thin delegation
         return iter(self._frame)
 
     def __repr__(self) -> str:  # pragma: no cover - formatting helper

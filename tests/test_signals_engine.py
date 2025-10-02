@@ -69,9 +69,10 @@ def test_signal_frame_columns_are_consistent(sample_prices: pd.DataFrame) -> Non
     vol_spec = TrendSpec(lookback=1, vol_lookback=2, use_vol_adjust=True, execution_lag=0)
     zscore_spec = TrendSpec(lookback=1, use_zscore=True, execution_lag=0)
 
-    frames = [
-        generate_signals(sample_prices, spec).frame for spec in (base_spec, vol_spec, zscore_spec)
-    ]
+    base_frame = generate_signals(sample_prices, base_spec).frame
+    vol_frame = generate_signals(sample_prices, vol_spec).frame
+    zscore_frame = generate_signals(sample_prices, zscore_spec).frame
+    frames = [base_frame, vol_frame, zscore_frame]
 
     for frame in frames:
         assert isinstance(frame, pd.DataFrame)
