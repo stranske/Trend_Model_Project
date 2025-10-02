@@ -188,6 +188,18 @@ def test_run_analysis_custom_weights():
     assert res["fund_weights"]["A"] == 1.0
 
 
+def test_run_full_includes_risk_diagnostics(tmp_path):
+    cfg = make_cfg(tmp_path, _make_two_fund_df())
+    res = pipeline.run_full(cfg)
+    assert "risk_diagnostics" in res
+    diag = res["risk_diagnostics"]
+    assert "asset_volatility" in diag
+    assert "turnover_value" in diag
+    asset_vol = diag["asset_volatility"]
+    assert isinstance(asset_vol, pd.DataFrame)
+    assert not asset_vol.empty
+
+
 def _make_two_fund_df() -> pd.DataFrame:
     dates = pd.date_range("2020-01-31", periods=6, freq="ME")
     return pd.DataFrame(
