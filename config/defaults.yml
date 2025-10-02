@@ -30,6 +30,11 @@ preprocessing:
     target: "D" # keep None to skip
     method: "last" # last | mean | sum | pad
     business_only: true
+  missing_data:
+    policy: drop           # drop | ffill | zero
+    limit: null            # max consecutive periods to forward-fill (None = unlimited)
+    per_asset: {}          # optional overrides, e.g. {RF: zero}
+    per_asset_limit: {}    # optional forward-fill window overrides per asset
 # ----------------------------------------------------------------------
 # 3. VOLATILITY ADJUSTMENT
 # ----------------------------------------------------------------------

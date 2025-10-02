@@ -5,9 +5,14 @@ data:
   csv_path: demo/demo_returns.csv   # <– written by generate_demo.py
   date_column: Date
   frequency: ME                 # monthly data
+  missing_policy: drop
+  missing_fill_limit: null
 
 preprocessing:
   steps: []                     # none for a synthetic demo
+  missing_data:
+    policy: ffill
+    limit: 2
 
 vol_adjust:
   enabled: false                # keep it off for speed
