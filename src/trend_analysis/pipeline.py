@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from typing import TYPE_CHECKING, Any, Mapping, cast
 
 import numpy as np
@@ -23,6 +23,7 @@ from .metrics import (
     sortino_ratio,
     volatility,
 )
+from .risk import RiskConfig, apply_risk_controls, summarize_turnover
 from .perf.rolling_cache import compute_dataset_hash, get_cache
 from .timefreq import MONTHLY_DATE_FREQ
 from .util.frequency import FrequencySummary, detect_frequency
@@ -294,6 +295,8 @@ def _run_analysis(
     constraints: dict[str, Any] | None = None,
     missing_policy: str | Mapping[str, str] | None = None,
     missing_limit: int | Mapping[str, int | None] | None = None,
+    vol_window: int | None = None,
+    turnover_cap: float | None = None,
 ) -> dict[str, object] | None:
     if df is None:
         return None
@@ -470,35 +473,116 @@ def _run_analysis(
         df[[date_col] + fund_cols], in_start, in_end, stats_cfg=stats_cfg
     )
 
-    vols = in_df[fund_cols].std() * np.sqrt(12)
-    if min_floor > 0:
-        vols = vols.clip(lower=min_floor)
-    vols = vols.replace(0.0, np.nan)
-    scale_factors = (
-        pd.Series(target_vol, index=fund_cols, dtype=float)
-        .div(vols)
-        .replace([np.inf, -np.inf], 0.0)
-        .fillna(0.0)
+    weight_engine_fallback: dict[str, str] | None = None
+    if (
+        custom_weights is None
+        and weighting_scheme
+        and weighting_scheme.lower() != "equal"
+    ):
+        try:
+            from .plugins import create_weight_engine
+
+            cov = in_df[fund_cols].cov()
+            engine = create_weight_engine(weighting_scheme.lower())
+            w_series = engine.weight(cov).reindex(fund_cols).fillna(0.0)
+            custom_weights = {c: float(w_series.get(c, 0.0) * 100.0) for c in fund_cols}
+            logger.setLevel(logging.DEBUG)
+            logger.debug("Successfully created %s weight engine", weighting_scheme)
+        except Exception as e:  # pragma: no cover - exercised via tests
+            msg = (
+                "Weight engine '%s' failed (%s: %s); falling back to equal weights"
+                % (weighting_scheme, type(e).__name__, e)
+            )
+            logger.warning(msg)
+            logger.debug(
+                "Weight engine creation failed, falling back to equal weights: %s", e
+            )
+            weight_engine_fallback = {
+                "engine": str(weighting_scheme),
+                "error_type": type(e).__name__,
+                "error": str(e),
+            }
+            custom_weights = None
+
+    if custom_weights is None:
+        custom_weights = {c: 100 / len(fund_cols) for c in fund_cols}
+
+    equal_weights_series = pd.Series(
+        1.0 / len(fund_cols), index=fund_cols, dtype=float
+    )
+    base_user_weights = pd.Series(
+        {c: float(custom_weights.get(c, 0.0)) / 100.0 for c in fund_cols},
+        index=fund_cols,
+        dtype=float,
     )
 
-    in_scaled = in_df[fund_cols].mul(scale_factors, axis=1) - monthly_cost
-    out_scaled = out_df[fund_cols].mul(scale_factors, axis=1) - monthly_cost
-    in_scaled = in_scaled.clip(lower=-1.0)
-    out_scaled = out_scaled.clip(lower=-1.0)
+    constraints_cfg = constraints or {}
+    prev_user_weights = None
+    prev_equal_weights = None
+    long_only = True
+    max_weight_val: float | None = None
+    if isinstance(constraints_cfg, Mapping):
+        long_only = bool(constraints_cfg.get("long_only", True))
+        max_w_raw = constraints_cfg.get("max_weight")
+        try:
+            max_weight_val = float(max_w_raw) if max_w_raw is not None else None
+        except (TypeError, ValueError):
+            max_weight_val = None
+        prev_map = constraints_cfg.get("previous_weights")
+        if isinstance(prev_map, Mapping):
+            prev_user_weights = (
+                pd.Series({str(k): float(v) for k, v in prev_map.items()}, dtype=float)
+                .reindex(fund_cols)
+                .fillna(0.0)
+            )
+        prev_eq_map = constraints_cfg.get("previous_equal_weights")
+        if isinstance(prev_eq_map, Mapping):
+            prev_equal_weights = (
+                pd.Series({str(k): float(v) for k, v in prev_eq_map.items()}, dtype=float)
+                .reindex(fund_cols)
+                .fillna(0.0)
+            )
 
-    if warmup > 0:
-        warmup_in = min(warmup, len(in_scaled))
-        warmup_out = min(warmup, len(out_scaled))
-        if warmup_in:
-            in_scaled.iloc[:warmup_in] = 0.0
-        if warmup_out:
-            out_scaled.iloc[:warmup_out] = 0.0
+    annualisation_map = {"D": 252.0, "W": 52.0, "M": 12.0, "Q": 4.0, "Y": 1.0}
+    annualisation = annualisation_map.get(freq_summary.target, 12.0)
+    lookback = vol_window if vol_window and vol_window > 0 else len(in_df)
+    if lookback <= 0:
+        lookback = len(fund_cols)
 
-    # NaN returns translate to zero weights with no forward-fill. This matches
-    # the acceptance criteria for Issue #1439 and prevents propagating NaNs
-    # downstream.
-    in_scaled = in_scaled.fillna(0.0)
-    out_scaled = out_scaled.fillna(0.0)
+    risk_cfg = RiskConfig(
+        target_vol=float(target_vol),
+        floor_vol=min_floor if min_floor > 0 else None,
+        warmup_periods=warmup,
+        lookback=lookback,
+        annualisation=annualisation,
+        long_only=long_only,
+        max_weight=max_weight_val,
+        turnover_cap=turnover_cap,
+        transaction_cost=float(monthly_cost),
+    )
+
+    turnover_date = out_df.index.min() if not out_df.empty else None
+    risk_result = apply_risk_controls(
+        in_returns=in_df[fund_cols],
+        out_returns=out_df[fund_cols],
+        base_equal_weights=equal_weights_series,
+        base_user_weights=base_user_weights,
+        cfg=risk_cfg,
+        prev_equal_weights=prev_equal_weights,
+        prev_user_weights=prev_user_weights,
+        turnover_timestamp=turnover_date,
+    )
+
+    in_scaled = risk_result.in_scaled
+    out_scaled = risk_result.out_scaled
+
+    eq_weights_series = risk_result.equal_weights.reindex(fund_cols).fillna(0.0)
+    ew_weights = eq_weights_series.to_numpy(dtype=float)
+    ew_w_dict = {c: float(eq_weights_series.loc[c]) for c in fund_cols}
+
+    user_weights_series = risk_result.user_weights.reindex(fund_cols).fillna(0.0)
+    user_w = user_weights_series.to_numpy(dtype=float)
+    user_w_dict = {c: float(user_weights_series.loc[c]) for c in fund_cols}
 
     rf_in = in_df[rf_col]
     rf_out = out_df[rf_col]
@@ -553,8 +637,6 @@ def _run_analysis(
         out_sample_avg_corr=os_avg_corr,
     )
 
-    ew_weights = np.repeat(1.0 / len(fund_cols), len(fund_cols))
-    ew_w_dict = {c: w for c, w in zip(fund_cols, ew_weights)}
     in_ew = calc_portfolio_returns(ew_weights, in_scaled)
     out_ew = calc_portfolio_returns(ew_weights, out_scaled)
     out_ew_raw = calc_portfolio_returns(ew_weights, out_df[fund_cols])
@@ -562,82 +644,6 @@ def _run_analysis(
     in_ew_stats = _compute_stats(pd.DataFrame({"ew": in_ew}), rf_in)["ew"]
     out_ew_stats = _compute_stats(pd.DataFrame({"ew": out_ew}), rf_out)["ew"]
     out_ew_stats_raw = _compute_stats(pd.DataFrame({"ew": out_ew_raw}), rf_out)["ew"]
-
-    # Optionally compute plugin-based weights on in-sample covariance
-    # Track whether a plugin engine failed so downstream (CLI/UI) can surface
-    # a single prominent warning.  Store minimal structured info.
-    weight_engine_fallback: dict[str, str] | None = None
-    if (
-        custom_weights is None
-        and weighting_scheme
-        and weighting_scheme.lower() != "equal"
-    ):
-        try:
-            from .plugins import create_weight_engine
-
-            cov = in_df[fund_cols].cov()
-            engine = create_weight_engine(weighting_scheme.lower())
-            w_series = engine.weight(cov).reindex(fund_cols).fillna(0.0)
-            # Convert to percent mapping expected by downstream logic
-            custom_weights = {c: float(w_series.get(c, 0.0) * 100.0) for c in fund_cols}
-            # Ensure debug logs are emitted even if previous tests altered the logger's
-            # level.  This helps `caplog` capture the success message reliably.
-            logger.setLevel(logging.DEBUG)
-            logger.debug("Successfully created %s weight engine", weighting_scheme)
-        except Exception as e:  # pragma: no cover - exercised via tests
-            # Promote to WARNING (single emission) for visibility while also
-            # retaining a DEBUG breadcrumb for detailed CI logs.
-            msg = (
-                "Weight engine '%s' failed (%s: %s); falling back to equal weights"
-                % (weighting_scheme, type(e).__name__, e)
-            )
-            logger.warning(msg)
-            logger.debug(
-                "Weight engine creation failed, falling back to equal weights: %s", e
-            )
-            weight_engine_fallback = {
-                "engine": str(weighting_scheme),
-                "error_type": type(e).__name__,
-                "error": str(e),
-            }
-            custom_weights = None
-
-    if custom_weights is None:
-        custom_weights = {c: 100 / len(fund_cols) for c in fund_cols}
-    # Convert provided weights mapping (percent) to decimal ndarray
-    user_w = np.array([custom_weights.get(c, 0) / 100 for c in fund_cols], dtype=float)
-    # Apply portfolio constraints if configured
-    try:
-        constraints_cfg = constraints or {}
-        if isinstance(constraints_cfg, dict) and constraints_cfg:
-            from .engine.optimizer import apply_constraints
-
-            w_series = pd.Series(user_w, index=fund_cols, dtype=float)
-            # Build minimal constraint dict; group_caps require a mapping of asset->group
-            cons: dict[str, Any] = {}
-            if "long_only" in constraints_cfg:
-                cons["long_only"] = bool(constraints_cfg.get("long_only", True))
-            if "max_weight" in constraints_cfg:
-                _mw = constraints_cfg.get("max_weight")
-                if _mw is not None:
-                    cons["max_weight"] = float(_mw)
-            if constraints_cfg.get("group_caps"):
-                cons["group_caps"] = constraints_cfg.get("group_caps")
-                if constraints_cfg.get("groups"):
-                    cons["groups"] = constraints_cfg.get("groups")
-            if cons:
-                w_series = apply_constraints(w_series, cons)
-            user_w = (
-                w_series.reindex(fund_cols)
-                .fillna(0.0)
-                .to_numpy(dtype=float, copy=False)
-            )
-    except Exception:
-        # If constraints application fails, fall back silently to original user weights
-        pass
-
-    # Keep a dictionary for result payload (already in decimals 0..1)
-    user_w_dict = {c: float(w) for c, w in zip(fund_cols, user_w)}
 
     in_user = calc_portfolio_returns(user_w, in_scaled)
     out_user = calc_portfolio_returns(user_w, out_scaled)
@@ -695,6 +701,16 @@ def _run_analysis(
             pass
         benchmark_ir[label] = ir_dict
 
+    risk_payload = {
+        "config": asdict(risk_cfg),
+        "scale_factors": risk_result.diagnostics.scale_factors,
+        "realized_vol": risk_result.diagnostics.realized_vol,
+        "turnover": risk_result.diagnostics.turnover,
+        "turnover_summary": summarize_turnover(risk_result.diagnostics.turnover),
+    }
+    if turnover_cap is not None:
+        risk_payload["turnover_cap"] = float(turnover_cap)
+
     return {
         "selected_funds": fund_cols,
         "in_sample_scaled": in_scaled,
@@ -716,6 +732,7 @@ def _run_analysis(
         "weight_engine_fallback": weight_engine_fallback,
         "preprocessing": preprocess_info,
         "preprocessing_summary": preprocess_info.get("summary"),
+        "risk": risk_payload,
     }
 
 
@@ -743,6 +760,8 @@ def run_analysis(
     constraints: dict[str, Any] | None = None,
     missing_policy: str | Mapping[str, str] | None = None,
     missing_limit: int | Mapping[str, int | None] | None = None,
+    vol_window: int | None = None,
+    turnover_cap: float | None = None,
 ) -> dict[str, object] | None:
     """Backward-compatible wrapper around ``_run_analysis``."""
     return _run_analysis(
@@ -768,6 +787,8 @@ def run_analysis(
         constraints=constraints,
         missing_policy=missing_policy,
         missing_limit=missing_limit,
+        vol_window=vol_window,
+        turnover_cap=turnover_cap,
     )
 
 
@@ -813,6 +834,40 @@ def run(cfg: Config) -> pd.DataFrame:
         missing_section if isinstance(missing_section, Mapping) else None
     )
 
+    window_cfg = getattr(cfg, "vol_adjust", {}).get("window")
+    vol_window = None
+    if isinstance(window_cfg, Mapping):
+        try:
+            vol_window = int(window_cfg.get("length", 0) or 0)
+        except (TypeError, ValueError):  # pragma: no cover - defensive
+            vol_window = None
+        if vol_window is not None and vol_window <= 0:
+            vol_window = None
+
+    turnover_cap_val = cfg.portfolio.get("max_turnover")
+    try:
+        turnover_cap_float = float(turnover_cap_val) if turnover_cap_val is not None else None
+    except (TypeError, ValueError):  # pragma: no cover - defensive
+        turnover_cap_float = None
+
+    window_cfg = getattr(cfg, "vol_adjust", {}).get("window")
+    vol_window = None
+    if isinstance(window_cfg, Mapping):
+        try:
+            vol_window = int(window_cfg.get("length", 0) or 0)
+        except (TypeError, ValueError):  # pragma: no cover - defensive
+            vol_window = None
+        if vol_window is not None and vol_window <= 0:
+            vol_window = None
+
+    turnover_cap_val = cfg.portfolio.get("max_turnover")
+    try:
+        turnover_cap_float = (
+            float(turnover_cap_val) if turnover_cap_val is not None else None
+        )
+    except (TypeError, ValueError):  # pragma: no cover - defensive
+        turnover_cap_float = None
+
     res = _run_analysis(
         df,
         cast(str, split.get("in_start")),
@@ -835,6 +890,8 @@ def run(cfg: Config) -> pd.DataFrame:
         stats_cfg=stats_cfg,
         missing_policy=policy_spec,
         missing_limit=limit_spec,
+        vol_window=vol_window,
+        turnover_cap=turnover_cap_float,
     )
     if res is None:
         return pd.DataFrame()
@@ -896,6 +953,24 @@ def run_full(cfg: Config) -> dict[str, object]:
         missing_section if isinstance(missing_section, Mapping) else None
     )
 
+    window_cfg = getattr(cfg, "vol_adjust", {}).get("window")
+    vol_window = None
+    if isinstance(window_cfg, Mapping):
+        try:
+            vol_window = int(window_cfg.get("length", 0) or 0)
+        except (TypeError, ValueError):  # pragma: no cover - defensive
+            vol_window = None
+        if vol_window is not None and vol_window <= 0:
+            vol_window = None
+
+    turnover_cap_val = cfg.portfolio.get("max_turnover")
+    try:
+        turnover_cap_float = (
+            float(turnover_cap_val) if turnover_cap_val is not None else None
+        )
+    except (TypeError, ValueError):  # pragma: no cover - defensive
+        turnover_cap_float = None
+
     res = _run_analysis(
         df,
         cast(str, split.get("in_start")),
@@ -919,6 +994,8 @@ def run_full(cfg: Config) -> dict[str, object]:
         stats_cfg=stats_cfg,
         missing_policy=policy_spec,
         missing_limit=limit_spec,
+        vol_window=vol_window,
+        turnover_cap=turnover_cap_float,
     )
     return {} if res is None else res
 

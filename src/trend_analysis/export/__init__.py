@@ -647,13 +647,53 @@ def format_summary_text(
     meta_line = _format_frequency_policy_line(res)
     if meta_line:
         header.append(meta_line)
-    header.extend(
-        [
-            "",
-            df_formatted.to_string(index=False),
-        ]
-    )
+    header.extend(["", df_formatted.to_string(index=False)])
+
+    risk_block = _format_risk_block(res.get("risk"))
+    if risk_block:
+        header.extend(["", *risk_block])
     return "\n".join(header)
+
+
+def _format_risk_block(risk_info: Any) -> list[str]:
+    if not isinstance(risk_info, Mapping):
+        return []
+
+    lines: list[str] = []
+    config = risk_info.get("config")
+    if isinstance(config, Mapping):
+        target_vol = config.get("target_vol")
+        if isinstance(target_vol, (int, float)):
+            lines.append(f"Target volatility: {float(target_vol):.2%}")
+
+    realized = risk_info.get("realized_vol")
+    if isinstance(realized, pd.DataFrame) and not realized.empty:
+        last = realized.iloc[-1].dropna()
+        if not last.empty:
+            avg_vol = float(last.mean())
+            lines.append(f"Latest realised vol (avg): {avg_vol:.2%}")
+
+    scale = risk_info.get("scale_factors")
+    if isinstance(scale, pd.Series) and not scale.empty:
+        median_scale = float(scale.median())
+        lines.append(f"Median scale factor: {median_scale:.2f}")
+
+    turnover_cap = risk_info.get("turnover_cap")
+    if isinstance(turnover_cap, (int, float)):
+        lines.append(f"Turnover cap: {float(turnover_cap):.2%}")
+
+    summary = risk_info.get("turnover_summary")
+    if isinstance(summary, Mapping) and summary:
+        formatted: list[str] = []
+        for key, value in summary.items():
+            try:
+                formatted.append(f"{key}: {float(value):.2%}")
+            except (TypeError, ValueError):  # pragma: no cover - defensive
+                continue
+        if formatted:
+            lines.append("Mean turnover → " + ", ".join(formatted))
+
+    return ["Risk diagnostics:", *lines] if lines else []
 
 
 def _ensure_dir(path: Path) -> None:

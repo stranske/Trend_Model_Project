@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Mapping, cast
 
 import pandas as pd
 import streamlit as st
@@ -303,18 +303,39 @@ def _render_run_section(cfg_dict: Dict[str, Any]) -> None:
 
     if go_single and cfg_obj is not None:
         with st.spinner("Running single-period analysis..."):
-            out_df = pipeline.run(cfg_obj)
-        summary = _summarise_run_df(out_df)
-        st.success(f"Completed. {len(summary)} rows.")
-        if not summary.empty:
-            st.dataframe(summary, use_container_width=True)
-            csv_bytes = summary.to_csv(index=False).encode("utf-8")
-            st.download_button(
-                "Download CSV",
-                data=csv_bytes,
-                file_name="single_period_summary.csv",
-                mime="text/csv",
+            res = pipeline.run_full(cfg_obj)
+        if not res:
+            st.warning("No results returned by the analysis.")
+        else:
+            out_stats = res.get("out_sample_stats")
+            summary = _summarise_run_df(
+                pd.DataFrame({k: vars(v) for k, v in (out_stats or {}).items()}).T
+                if isinstance(out_stats, Mapping)
+                else None
             )
+            st.success(f"Completed. {len(summary)} rows.")
+            if not summary.empty:
+                st.dataframe(summary, use_container_width=True)
+                csv_bytes = summary.to_csv(index=False).encode("utf-8")
+                st.download_button(
+                    "Download CSV",
+                    data=csv_bytes,
+                    file_name="single_period_summary.csv",
+                    mime="text/csv",
+                )
+
+            risk_info = res.get("risk") if isinstance(res, Mapping) else None
+            realized = None
+            turnover = None
+            if isinstance(risk_info, Mapping):
+                realized = risk_info.get("realized_vol")
+                turnover = risk_info.get("turnover")
+            if isinstance(realized, pd.DataFrame) and not realized.empty:
+                st.subheader("Realised volatility")
+                st.line_chart(realized)
+            if isinstance(turnover, pd.DataFrame) and not turnover.empty:
+                st.subheader("Turnover")
+                st.bar_chart(turnover)
 
     if go_multi and cfg_obj is not None:
         with st.spinner("Running multi-period analysis..."):

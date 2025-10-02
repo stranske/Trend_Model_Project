@@ -200,6 +200,31 @@ def _make_two_fund_df() -> pd.DataFrame:
     )
 
 
+def test_run_full_includes_risk_diagnostics(tmp_path):
+    df = _make_two_fund_df()
+    cfg = make_cfg(tmp_path, df)
+    cfg.vol_adjust["window"] = {"length": 3}
+    cfg.portfolio.setdefault("constraints", {})
+    cfg.portfolio["constraints"]["long_only"] = True
+
+    res = pipeline.run_full(cfg)
+    assert res
+    risk = res.get("risk")
+    assert isinstance(risk, dict)
+
+    realized = risk.get("realized_vol")
+    assert isinstance(realized, pd.DataFrame)
+    assert not realized.empty
+
+    scale = risk.get("scale_factors")
+    assert hasattr(scale, "shape")
+    assert set(scale.index) == {"A", "B"}
+
+    turnover = risk.get("turnover")
+    assert isinstance(turnover, pd.DataFrame)
+    assert set(turnover.columns) == {"equal_weight", "user_weight"}
+
+
 def test_run_analysis_applies_constraints(monkeypatch):
     df = _make_two_fund_df()
     captured: dict[str, object] = {}

@@ -306,3 +306,38 @@ print(projected)
 
 To ignore all constraints (legacy behaviour), omit the `portfolio.constraints` block.
 
+## Lightweight risk controls & diagnostics
+
+Issue #1680 introduced a shared `risk.py` module so the CLI and Streamlit app
+apply identical risk plumbing. The key knobs are:
+
+- `vol_adjust.target_vol` – annualised target volatility applied to each asset.
+- `vol_adjust.window.length` – lookback window (periods) for realised volatility.
+- `vol_adjust.floor_vol` – optional floor to avoid excessive leverage.
+- `portfolio.constraints.long_only` – clip negative weights when `true`.
+- `portfolio.constraints.max_weight` – cap individual position weights (decimal).
+- `portfolio.max_turnover` – soft L1 turnover cap per rebalance (decimal).
+
+Both front-ends now emit diagnostics showing the trailing realised volatility
+(averaged across the selected assets) and any turnover incurred when moving from
+previous to current weights. The CLI summary appends a “Risk diagnostics” block
+and the app renders matching line/bar charts in the single-period run panel.
+
+Example excerpt:
+
+```yaml
+vol_adjust:
+  target_vol: 0.10
+  window:
+    length: 36
+  floor_vol: 0.04
+portfolio:
+  max_turnover: 0.25
+  constraints:
+    long_only: true
+    max_weight: 0.30
+```
+
+The diagnostics payload is also exposed through `pipeline.run_full(...)` so
+custom exporters can tap into the same realised-volatility and turnover series.
+
