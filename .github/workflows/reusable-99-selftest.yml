@@ -1,16 +1,12 @@
 name: Self-Test Reusable CI
 
 on:
-  workflow_dispatch: {}
-  pull_request:
-    paths:
-      - '.github/workflows/reusable-ci-python.yml'
-      - '.github/workflows/selftest-reusable-ci.yml'
-      - 'scripts/ci_feature_assert.py'
-      - 'scripts/ci_metrics.py'
-      - 'scripts/ci_history.py'
-      - 'scripts/ci_coverage_delta.py'
-      - 'scripts/coverage_history_append.py'
+  workflow_dispatch:
+  schedule:
+    # Nightly verification run at 02:30 UTC to keep the reusable workflow healthy without
+    # overlapping with the main CI rush hour. No other triggers (e.g. pull_request) should run
+    # this workflow – Issue #1660 scopes it strictly to manual/nightly execution.
+    - cron: '30 2 * * *'
 
 jobs:
   # Matrix of feature scenarios exercising the reusable workflow with different flag combinations.
@@ -89,6 +85,9 @@ jobs:
             echo "## Self-Test Reusable CI Summary"
             echo "Scenarios executed: minimal, metrics_only, metrics_history, classification_only, coverage_delta, full_soft_gate"
             echo "Each scenario's internal ci_feature_assert.py step already enforced expectations."
+            echo "Download the \`selftest-report\` artifact for a JSON summary of expected vs. actual uploads."
+            echo "Reproduce the October 2025 lockfile failure locally with:"
+            echo "\`pytest tests/test_lockfile_consistency.py -k \"up_to_date\" -q\`"
             echo "This aggregate job can be extended to download & re-assert artifacts if needed."
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Verify artifact inventory
@@ -148,7 +147,9 @@ jobs:
               report.push({scenario: s.name, expected: exp, missing, unexpected, ok});
             }
             // Detect stray artifacts from scenarios not defined (defensive)
-            const stray = [...names].filter(n=>n.startsWith('sf-') && !expectedAll.has(n.split(/sf-[^-]+-/).length>1 ? n : n));
+            // Defensive catch-all: if a reusable scenario starts emitting new artifact names that
+            // are not declared in the matrix above, flag them so the self-test can evolve in lockstep.
+            const stray = [...names].filter(n => n.startsWith('sf-') && !expectedAll.has(n));
             if(stray.length){
               rows.push(`| (stray) | (n/a) | (n/a) | ${stray.join('<br>')} | ❌ |`);
               report.push({scenario:'_stray_', expected:[], missing:[], unexpected:stray, ok:false});
@@ -176,44 +177,3 @@ jobs:
           echo "Artifact expectation mismatches detected." >&2
           exit 1
 
-  pr_comment:
-    name: PR Comment (Self-Test Summary)
-    if: ${{ github.event_name == 'pull_request' && always() }}
-    needs: [aggregate]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download self-test report
-        uses: actions/download-artifact@v4
-        with:
-          name: selftest-report
-          path: .
-        continue-on-error: true
-      - name: Post / update PR comment
-        uses: actions/github-script@v7
-        env:
-          TABLE: ${{ needs.aggregate.outputs.verification_table }}
-          FAILURES: ${{ needs.aggregate.outputs.failures }}
-        with:
-          script: |
-            const marker = '<!-- selftest-reusable-ci -->';
-            const failures = process.env.FAILURES || '0';
-            let summaryJson = '';
-            try { summaryJson = require('fs').readFileSync('selftest-report.json','utf8'); } catch(e) {}
-            let parsed;
-            try { parsed = JSON.parse(summaryJson); } catch(e) { parsed = null; }
-            const table = process.env.TABLE || '*No table available*';
-            const statusLine = failures === '0' ? '✅ **Self-test passed** (all scenarios matched expected artifacts).'
-              : `❌ **Self-test found ${failures} scenario mismatch(es)**.`;
-            const body = `${marker}\n${statusLine}\n\n${table}\n\n<details><summary>Raw JSON report</summary>\n\n\n\n${parsed ? '```json\n'+JSON.stringify(parsed,null,2)+'\n```' : '_Report not available_'}\n\n</details>`;
-            const {owner, repo} = context.repo;
-            const issue_number = context.payload.pull_request.number;
-            // list existing comments and find marker
-            const comments = await github.rest.issues.listComments({owner, repo, issue_number, per_page:100});
-            const existing = comments.data.find(c => c.body && c.body.includes(marker));
-            if (existing) {
-              await github.rest.issues.updateComment({owner, repo, comment_id: existing.id, body});
-              core.info(`Updated PR comment #${existing.id}`);
-            } else {
-              const created = await github.rest.issues.createComment({owner, repo, issue_number, body});
-              core.info(`Created PR comment #${created.data.id}`);
-            }
