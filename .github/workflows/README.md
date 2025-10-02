@@ -215,7 +215,7 @@ Retention Guidance: Use 7–14 days. Shorter (<7 days) risks losing comparison c
 ## 7.4 Self-Test Reusable CI (Issue #1660)
 
 - **Trigger scope:** Manual dispatch plus a nightly cron (`02:30 UTC`). This keeps reusable pipeline coverage fresh without
-  consuming PR minutes. Dispatch from the Actions tab under **Self-Test Reusable CI** when validating changes to
+  consuming PR minutes. Dispatch from the Actions tab under **Self-Test Reusable CI** or via CLI when validating changes to
   `.github/workflows/reusable-ci-python.yml` or its helper scripts. The legacy PR-comment notifier was removed because the
   workflow no longer runs on pull_request events. After shipping a change, monitor the next two nightly runs and confirm
   their success in the self-test health issue before considering the work complete.
@@ -235,6 +235,19 @@ Retention Guidance: Use 7–14 days. Shorter (<7 days) risks losing comparison c
 
   Inspect `selftest-artifacts/selftest-report/selftest-report.json` for mismatched artifacts and reproduce dependency drift
   issues locally or to validate lockfile drift fixes with `pytest tests/test_lockfile_consistency.py -k "up_to_date" -q`.
+
+- **CLI helpers:**
+
+  ```bash
+  # Manual dispatch (requires `gh auth login` with workflow scope)
+  gh workflow run "Self-Test Reusable CI"
+
+  # Monitor most recent nightly outcomes
+  gh run list --workflow "Self-Test Reusable CI" --limit 2 --json conclusion,headBranch,runNumber,startedAt
+  ```
+
+  Use the `gh run list` output to confirm two consecutive nightly runs have concluded with `success` before closing out
+  Issue #1660 follow-up tasks.
 ## 7.5 Universal Logs Summary (Issue #1351)
 Source: `logs_summary` job inside `reusable-ci-python.yml` enumerates all jobs via the Actions API and writes a Markdown table to the run summary. Columns include Job, Status (emoji), Duration, and Log link.
 
