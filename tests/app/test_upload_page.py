@@ -133,7 +133,9 @@ def _build_meta(df: pd.DataFrame) -> dict[str, Any]:
     }
 
 
-def test_render_upload_page_success(monkeypatch: pytest.MonkeyPatch, upload_page) -> None:
+def test_render_upload_page_success(
+    monkeypatch: pytest.MonkeyPatch, upload_page
+) -> None:
     page, stub, st_module = upload_page
 
     df = pd.DataFrame(
@@ -158,13 +160,13 @@ def test_render_upload_page_success(monkeypatch: pytest.MonkeyPatch, upload_page
     assert st_module.session_state["upload_status"] == "success"
     assert st_module.session_state["schema_meta"] is meta
     assert st_module.session_state["returns_df"] is df
-    assert (
-        st_module.session_state["validation_report"] == meta["validation"]
-    )
+    assert st_module.session_state["validation_report"] == meta["validation"]
     assert st_module.session_state["benchmark_candidates"] == ["SPX Index"]
 
 
-def test_render_upload_page_failure(monkeypatch: pytest.MonkeyPatch, upload_page) -> None:
+def test_render_upload_page_failure(
+    monkeypatch: pytest.MonkeyPatch, upload_page
+) -> None:
     page, stub, st_module = upload_page
 
     stub.uploaded = object()

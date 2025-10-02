@@ -11,6 +11,8 @@ on:
 
 permissions:
   contents: read
+  actions: read
+  checks: read
 
 concurrency:
   group: gate-orchestrator-${{ github.ref }}
@@ -20,12 +22,14 @@ jobs:
   ci:
     name: orchestrator / ci-suite
     uses: ./.github/workflows/pr-10-ci-python.yml
+    secrets: inherit
 
   docker:
     name: orchestrator / docker-smoke
     uses: ./.github/workflows/pr-12-docker-smoke.yml
     with:
       debug_build: false
+    secrets: inherit
 
   gate:
     name: gate / all-required-green

@@ -253,9 +253,7 @@ def _infer_frequency(index: pd.DatetimeIndex) -> Tuple[str, str]:
         if len(missing) > 5:
             preview += " …"
         issues = [
-            "Detected gaps in the Date index (missing timestamps: "
-            + preview
-            + ")."
+            "Detected gaps in the Date index (missing timestamps: " + preview + ")."
         ]
         raise MarketDataValidationError(_format_issues(issues), issues)
 
