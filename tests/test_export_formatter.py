@@ -128,6 +128,8 @@ def test_make_summary_formatter_registers_and_runs(formatters_excel_registry):
     wb = DummyWB()
     fmt(ws, wb)
     assert ws.rows[0][2][0] == "Vol-Adj Trend Analysis"
+    meta_rows = [row for row in ws.rows if row[0] == 3]
+    assert meta_rows and meta_rows[0][2][0].startswith("Frequency:")
 
 
 @pytest.mark.parametrize("as_dataframe", [False, True])

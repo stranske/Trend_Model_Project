@@ -270,6 +270,52 @@ def reset_formatters_excel() -> None:
     FORMATTERS_EXCEL.clear()
 
 
+def _format_frequency_policy_line(res: Mapping[str, Any]) -> str:
+    freq = cast(Mapping[str, Any], res.get("input_frequency", {}))
+    policy = cast(Mapping[str, Any], res.get("missing_data_policy", {}))
+
+    freq_label = cast(str | None, freq.get("label"))
+    target_label = cast(str | None, freq.get("target_label")) or freq_label
+    resampled = bool(freq.get("resampled"))
+    if freq_label:
+        if resampled and target_label and target_label != freq_label:
+            freq_part = f"{freq_label} → {target_label}"
+        else:
+            freq_part = freq_label
+    else:
+        freq_part = "Unknown"
+
+    policy_name = str(policy.get("policy", "drop")).lower()
+    policy_labels = {
+        "drop": "Drop",
+        "ffill": "Forward-fill",
+        "zero": "Zero-fill",
+    }
+    policy_part = policy_labels.get(policy_name, policy_name.title())
+    extras: list[str] = []
+    limit = policy.get("limit")
+    if policy_name == "ffill" and limit is not None:
+        extras.append(f"limit={limit}")
+    total_filled = policy.get("total_filled")
+    try:
+        filled_int = int(total_filled)
+    except (TypeError, ValueError):
+        filled_int = 0
+    if filled_int:
+        extras.append(
+            f"filled {filled_int} cell{'s' if filled_int != 1 else ''}"
+        )
+    dropped_assets = policy.get("dropped_assets")
+    dropped_count = len(dropped_assets) if isinstance(dropped_assets, list) else 0
+    if dropped_count:
+        extras.append(
+            f"dropped {dropped_count} asset{'s' if dropped_count != 1 else ''}"
+        )
+    if extras:
+        policy_part = f"{policy_part} ({', '.join(extras)})"
+    return f"Frequency: {freq_part}; NA policy: {policy_part}"
+
+
 def _build_summary_formatter(
     res: Mapping[str, Any],
     in_start: str,
@@ -317,6 +363,8 @@ def _build_summary_formatter(
         ws.write_row(0, 0, ["Vol-Adj Trend Analysis"], bold)
         ws.write_row(1, 0, [f"In:  {in_start} → {in_end}"], bold)
         ws.write_row(2, 0, [f"Out: {out_start} → {out_end}"], bold)
+        meta_line = _format_frequency_policy_line(res)
+        ws.write_row(3, 0, [meta_line], bold)
         bench_labels = list(res.get("benchmark_ir", {}))
         headers = [
             "Name",
@@ -576,10 +624,12 @@ def format_summary_text(
 
     df = pd.DataFrame(rows, columns=columns)
     df_formatted = df.map(safe)
+    meta_line = _format_frequency_policy_line(res)
     header = [
         "Vol-Adj Trend Analysis",
         f"In:  {in_start} → {in_end}",
         f"Out: {out_start} → {out_end}",
+        meta_line,
         "",
         df_formatted.to_string(index=False),
     ]
