@@ -103,7 +103,7 @@ def _policy_from_config(
     else:
         limit_spec = limit_base
     return policy_spec, limit_spec
-
+  
 
 def calc_portfolio_returns(
     weights: NDArray[Any], returns_df: pd.DataFrame
@@ -263,7 +263,16 @@ def _run_analysis(
     if date_col not in df.columns:
         raise ValueError("DataFrame must contain a 'Date' column")
 
-    df = df.copy()
+    df_prepared, freq_summary, missing_result = _prepare_input_data(
+        df,
+        date_col=date_col,
+        missing_policy=missing_policy,
+        missing_limit=missing_limit,
+    )
+    if df_prepared.empty:
+        return None
+
+    df = df_prepared.copy()
     if not pd.api.types.is_datetime64_any_dtype(df[date_col].dtype):
         df[date_col] = pd.to_datetime(df[date_col])
     df.sort_values(date_col, inplace=True)
@@ -328,6 +337,8 @@ def _run_analysis(
         return None
 
     ret_cols = [c for c in df.columns if c != date_col]
+    if not ret_cols:
+        return None
     if indices_list:
         idx_set = set(indices_list)  # pragma: no cover - seldom used
         ret_cols = [c for c in ret_cols if c not in idx_set]  # pragma: no cover
@@ -631,6 +642,21 @@ def _run_analysis(
             pass
         benchmark_ir[label] = ir_dict
 
+    frequency_payload = {
+        "code": freq_summary.code,
+        "label": freq_summary.label,
+        "target": freq_summary.target,
+        "target_label": freq_summary.target_label,
+        "resampled": freq_summary.resampled,
+    }
+    missing_payload = {
+        "policy": missing_result.policy,
+        "limit": missing_result.limit,
+        "dropped_assets": list(missing_result.dropped_assets),
+        "filled_assets": {asset: count for asset, count in missing_result.filled_cells},
+        "total_filled": missing_result.total_filled,
+    }
+
     return {
         "selected_funds": fund_cols,
         "in_sample_scaled": in_scaled,
@@ -718,6 +744,10 @@ def run(cfg: Config) -> pd.DataFrame:
     split = cfg.sample_split
     metrics_list = cfg.metrics.get("registry")
     stats_cfg = None
+    data_cfg = getattr(cfg, "data", {})
+    missing_policy = str(data_cfg.get("missing_policy", "drop"))
+    missing_limit_raw = data_cfg.get("missing_fill_limit")
+    missing_limit = None if missing_limit_raw in (None, "") else int(missing_limit_raw)
     if metrics_list:
         from .core.rank_selection import RiskStatsConfig, canonical_metric_list
 
@@ -756,7 +786,6 @@ def run(cfg: Config) -> pd.DataFrame:
         seed=getattr(cfg, "seed", 42),
         constraints=cfg.portfolio.get("constraints"),
         stats_cfg=stats_cfg,
-        weighting_scheme=cfg.portfolio.get("weighting_scheme"),
         missing_policy=policy_spec,
         missing_limit=limit_spec,
     )
@@ -789,6 +818,10 @@ def run_full(cfg: Config) -> dict[str, object]:
     split = cfg.sample_split
     metrics_list = cfg.metrics.get("registry")
     stats_cfg = None
+    data_cfg = getattr(cfg, "data", {})
+    missing_policy = str(data_cfg.get("missing_policy", "drop"))
+    missing_limit_raw = data_cfg.get("missing_fill_limit")
+    missing_limit = None if missing_limit_raw in (None, "") else int(missing_limit_raw)
     if metrics_list:
         from .core.rank_selection import RiskStatsConfig, canonical_metric_list
 
@@ -827,7 +860,6 @@ def run_full(cfg: Config) -> dict[str, object]:
         seed=getattr(cfg, "seed", 42),
         weighting_scheme=cfg.portfolio.get("weighting_scheme", "equal"),
         constraints=cfg.portfolio.get("constraints"),
-        stats_cfg=stats_cfg,
         missing_policy=policy_spec,
         missing_limit=limit_spec,
     )

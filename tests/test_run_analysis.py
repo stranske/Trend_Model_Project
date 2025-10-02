@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import pytest
 
 from trend_analysis.core.rank_selection import RiskStatsConfig
 from trend_analysis.metrics import (
@@ -21,6 +22,29 @@ def make_df():
         "B": [0.01, 0.02, -0.02, 0.03, 0.02, 0.0],
     }
     return pd.DataFrame(data)
+
+
+def make_daily_df(monthly_df: pd.DataFrame) -> pd.DataFrame:
+    records: list[dict[str, float | pd.Timestamp]] = []
+    for _, row in monthly_df.iterrows():
+        period = row["Date"].to_period("M")
+        days = pd.date_range(period.to_timestamp(), period.to_timestamp("M"), freq="B")
+        count = len(days)
+        for day in days:
+            record: dict[str, float | pd.Timestamp] = {"Date": day}
+            for column in monthly_df.columns:
+                if column == "Date":
+                    continue
+                value = row[column]
+                if pd.isna(value):
+                    record[column] = float("nan")
+                    continue
+                if column == "RF":
+                    record[column] = float(value) / count
+                else:
+                    record[column] = float((1.0 + value) ** (1.0 / count) - 1.0)
+            records.append(record)
+    return pd.DataFrame(records)
 
 
 def test_metrics_roundtrip():

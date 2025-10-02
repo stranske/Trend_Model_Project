@@ -14,6 +14,8 @@ data:
   timezone: "UTC" # for parsing
   currency: "USD"
   nan_policy: "ffill" # drop | ffill | bfill | both
+  missing_policy: "drop" # drop | ffill | zero
+  missing_fill_limit: null # optional forward-fill limit per asset
   lookback_required: 756 # minimum obs (≈3 yrs daily)
 # ----------------------------------------------------------------------
 # 2. PRE-PROCESSING OPTIONS

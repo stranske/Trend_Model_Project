@@ -80,3 +80,4 @@ def detect_frequency(index: TypingIterable[object]) -> FrequencyCode:
     if median <= 12:
         return "W"
     return "M"
+
