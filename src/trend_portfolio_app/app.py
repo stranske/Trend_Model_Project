@@ -339,7 +339,7 @@ def _render_run_section(cfg_dict: Dict[str, Any]) -> None:
             full_result = pipeline.run_full(cfg_obj)
 
         if not full_result:
-            st.warning("No results returned for the configured period.")
+            st.warning("Analysis failed for the configured period. Please check your data and configuration settings.")
         else:
             summary_raw = _build_summary_from_result(full_result)
             summary = _summarise_run_df(summary_raw)
