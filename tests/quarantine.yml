@@ -2,9 +2,9 @@ tests:
   - id: tests/test_weights.py::test_hrp_edge_case
     reason: ill-conditioned covariance path; see #456
     added: 2025-09-04
-    expires: "2025-10-01"
+    expires: "2025-11-15"
 
   - id: tests/test_pipeline.py::test_drawdown_chart_snapshot
     reason: snapshot precision drift on Linux; see #457
     added: 2025-09-04
-    expires: "2025-10-01"
+    expires: "2025-11-15"

@@ -60,7 +60,7 @@ def sample_runs() -> list[dict[str, object]]:
 
 
 def test_build_summary_comment_renders_expected_sections(
-    sample_runs: list[dict[str, object]]
+    sample_runs: list[dict[str, object]],
 ) -> None:
     coverage_stats = {
         "avg_latest": 91.23,

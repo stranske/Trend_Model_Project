@@ -288,7 +288,8 @@ case "$VALIDATION_STRATEGY" in
                 PYTEST_VERBOSITY="-q -x"
             fi
             
-            if ! run_fast_check "Quick tests" "pytest $TEST_FILES $PYTEST_VERBOSITY" ""; then
+            TEST_ARGS=$(echo "$TEST_FILES" | tr '\n' ' ' | tr -s ' ')
+            if ! run_fast_check "Quick tests" "pytest $TEST_ARGS $PYTEST_VERBOSITY" ""; then
                 VALIDATION_SUCCESS=false
                 FAILED_CHECKS+=("Quick tests")
             fi
