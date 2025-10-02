@@ -34,6 +34,10 @@ for arg in "$@"; do
     esac
 done
 
+if [[ "$CHANGED_ONLY" == true && -z "${DEV_CHECK_TIMEOUT:-}" ]]; then
+    CHECK_TIMEOUT=25
+fi
+
 echo -e "${CYAN}=== Ultra-Fast Development Check ===${NC}"
 
 # Activate virtual environment if needed
@@ -219,8 +223,8 @@ quick_check "Critical lint errors" "$LINT_CMD" ""
 # Type hints (basic check)
 echo -e "${BLUE}5. Basic type check...${NC}"
 if [[ "$CHANGED_ONLY" == true && -n "$ALL_FILES" ]]; then
-    # For changed files only, run a lighter mypy check
-    TYPE_CMD="echo '$ALL_FILES' | head -3 | xargs mypy --follow-imports=silent --ignore-missing-imports"
+    # For changed files only, run a lighter mypy check that skips deep import traversal
+    TYPE_CMD="printf '%s\n' '$ALL_FILES' | head -3 | xargs -r mypy --follow-imports=silent --ignore-missing-imports"
 else
     TYPE_CMD="mypy src/ --follow-imports=silent --ignore-missing-imports"
 fi

@@ -125,7 +125,87 @@ jobs:
           path: summary_artifacts
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-          def delta(latest, prev):
+      - name: Compute coverage stats
+        id: coverage_stats
+        run: |
+          set -euo pipefail
+          python <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path('summary_artifacts')
+
+          def find_one(pattern: str) -> Path | None:
+              if not root.exists():
+                  return None
+              for candidate in root.rglob(pattern):
+                  if candidate.is_file():
+                      return candidate
+              return None
+
+          record_path = find_one('coverage-trend.json')
+          history_path = find_one('coverage-trend-history.ndjson')
+
+          def load_record(path: Path | None) -> dict[str, object] | None:
+              if not path:
+                  return None
+              try:
+                  data = json.loads(path.read_text(encoding='utf-8'))
+              except Exception:
+                  return None
+              return data if isinstance(data, dict) else None
+
+          latest_record = load_record(record_path)
+
+          history: list[dict[str, object]] = []
+          if history_path and history_path.exists():
+              for raw in history_path.read_text(encoding='utf-8').splitlines():
+                  line = raw.strip()
+                  if not line:
+                      continue
+                  try:
+                      parsed = json.loads(line)
+                  except json.JSONDecodeError:
+                      continue
+                  if isinstance(parsed, dict):
+                      history.append(parsed)
+
+          def run_identifier(record: dict[str, object] | None) -> tuple[object | None, object | None]:
+              if not isinstance(record, dict):
+                  return (None, None)
+              return (record.get('run_id'), record.get('run_number'))
+
+          latest_id = run_identifier(latest_record)
+
+          if latest_record is None and history:
+              latest_record = history[-1]
+              latest_id = run_identifier(latest_record)
+
+          previous_record: dict[str, object] | None = None
+          if history:
+              for candidate in reversed(history):
+                  if run_identifier(candidate) == latest_id:
+                      continue
+                  previous_record = candidate
+                  break
+              if previous_record is None and len(history) > 1:
+                  previous_record = history[-2]
+
+          def extract(record: dict[str, object] | None, key: str) -> float | None:
+              if not isinstance(record, dict):
+                  return None
+              value = record.get(key)
+              try:
+                  return float(value) if value is not None else None
+              except (TypeError, ValueError):
+                  return None
+
+          avg_latest = extract(latest_record, 'avg_coverage')
+          worst_latest = extract(latest_record, 'worst_job_coverage')
+          avg_prev = extract(previous_record, 'avg_coverage')
+          worst_prev = extract(previous_record, 'worst_job_coverage')
+
+          def delta(latest: float | None, prev: float | None) -> float | None:
               try:
                   if latest is None or prev is None:
                       return None
@@ -144,8 +224,7 @@ jobs:
           }
 
           print(json.dumps(stats))
-          with open('coverage-stats.json', 'w', encoding='utf-8') as handle:
-              json.dump(stats, handle)
+          Path('coverage-stats.json').write_text(json.dumps(stats), encoding='utf-8')
           PY
           if [ -f coverage-stats.json ]; then
             printf 'stats_json=%s\n' "$(cat coverage-stats.json)" >> "$GITHUB_OUTPUT"
