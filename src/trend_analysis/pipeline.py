@@ -82,6 +82,65 @@ def _preprocessing_summary(
     return "; ".join(parts)
 
 
+def _cfg_value(cfg: Mapping[str, Any] | Any, key: str, default: Any = None) -> Any:
+    if isinstance(cfg, Mapping):
+        return cfg.get(key, default)
+    return getattr(cfg, key, default)
+
+
+def _cfg_section(cfg: Mapping[str, Any] | Any, key: str) -> Any:
+    section = _cfg_value(cfg, key, None)
+    if section is None:
+        return {}
+    return section
+
+
+def _section_get(section: Any, key: str, default: Any = None) -> Any:
+    if section is None:
+        return default
+    if isinstance(section, Mapping):
+        return section.get(key, default)
+    getter = getattr(section, "get", None)
+    if callable(getter):
+        try:
+            return getter(key, default)
+        except TypeError:
+            try:
+                return getter(key)
+            except KeyError:
+                return default
+            except Exception:  # pragma: no cover - defensive
+                return default
+        except KeyError:
+            return default
+    return getattr(section, key, default)
+
+
+def _unwrap_cfg(cfg: Mapping[str, Any] | Any) -> Any:
+    current = cfg
+    visited: set[int] = set()
+    while isinstance(current, Mapping) and "__cfg__" in current:
+        marker = id(current)
+        if marker in visited:  # pragma: no cover - defensive cycle guard
+            break
+        visited.add(marker)
+        candidate = current.get("__cfg__")
+        if candidate is None:
+            break
+        current = candidate
+    return current
+
+
+def _empty_run_full_result() -> dict[str, object]:
+    return {
+        "out_sample_stats": {},
+        "in_sample_stats": {},
+        "benchmark_ir": {},
+        "risk_diagnostics": {},
+        "fund_weights": {},
+    }
+
+
 def _policy_from_config(
     cfg: Mapping[str, Any] | None,
 ) -> tuple[str | Mapping[str, str] | None, int | Mapping[str, int | None] | None]:
@@ -296,7 +355,7 @@ def _run_analysis(
     indices_list: list[str] | None = None,
     benchmarks: dict[str, str] | None = None,
     seed: int = 42,
-    stats_cfg: "RiskStatsConfig" | None = None,
+    stats_cfg: RiskStatsConfig | None = None,
     weighting_scheme: str | None = None,
     constraints: dict[str, Any] | None = None,
     missing_policy: str | Mapping[str, str] | None = None,
@@ -524,7 +583,9 @@ def _run_analysis(
     )
     if float(base_series.sum()) <= 0:
         base_series = pd.Series(
-            np.repeat(1.0 / len(fund_cols), len(fund_cols)), index=fund_cols, dtype=float
+            np.repeat(1.0 / len(fund_cols), len(fund_cols)),
+            index=fund_cols,
+            dtype=float,
         )
 
     constraints_cfg = constraints or {}
@@ -562,7 +623,9 @@ def _run_analysis(
         ewma_lambda = float(lambda_value)
     except (TypeError, ValueError):
         ewma_lambda = 0.94
-    window_spec = RiskWindow(length=window_length, decay=decay_mode, ewma_lambda=ewma_lambda)
+    window_spec = RiskWindow(
+        length=window_length, decay=decay_mode, ewma_lambda=ewma_lambda
+    )
 
     turnover_cap = None
     if max_turnover is not None:
@@ -597,7 +660,21 @@ def _run_analysis(
         asset_vol = realised_volatility(
             in_df[fund_cols], window_spec, periods_per_year=periods_per_year
         )
-        portfolio_returns = in_df[fund_cols].mul(weights_series, axis=1).sum(axis=1)
+        latest_vol = asset_vol.iloc[-1].reindex(fund_cols)
+        latest_vol = latest_vol.ffill().bfill()
+        positive = latest_vol[latest_vol > 0]
+        fallback_vol = float(positive.min()) if not positive.empty else 1.0
+        latest_vol = latest_vol.fillna(fallback_vol)
+        if min_floor > 0:
+            latest_vol = latest_vol.clip(lower=min_floor)
+        scale_factors = (
+            pd.Series(target_vol, index=fund_cols, dtype=float)
+            .div(latest_vol)
+            .replace([np.inf, -np.inf], 0.0)
+            .fillna(0.0)
+        )
+        scaled_returns = in_df[fund_cols].mul(scale_factors, axis=1)
+        portfolio_returns = scaled_returns.mul(weights_series, axis=1).sum(axis=1)
         portfolio_vol = realised_volatility(
             portfolio_returns.to_frame("portfolio"),
             window_spec,
@@ -608,7 +685,7 @@ def _run_analysis(
             portfolio_volatility=portfolio_vol,
             turnover=pd.Series(dtype=float, name="turnover"),
             turnover_value=float("nan"),
-            scale_factors=pd.Series(1.0, index=fund_cols, dtype=float),
+            scale_factors=scale_factors,
         )
 
     weights_series = weights_series.reindex(fund_cols).fillna(0.0)
@@ -798,7 +875,7 @@ def run_analysis(
     indices_list: list[str] | None = None,
     benchmarks: dict[str, str] | None = None,
     seed: int = 42,
-    stats_cfg: "RiskStatsConfig" | None = None,
+    stats_cfg: RiskStatsConfig | None = None,
     weighting_scheme: str | None = None,
     constraints: dict[str, Any] | None = None,
     missing_policy: str | Mapping[str, str] | None = None,
@@ -841,17 +918,18 @@ def run_analysis(
 
 def run(cfg: Config) -> pd.DataFrame:
     """Execute the analysis pipeline based on ``cfg``."""
-    csv_path = cfg.data.get("csv_path")
+    cfg = _unwrap_cfg(cfg)
+    data_settings = _cfg_section(cfg, "data")
+    csv_path = _section_get(data_settings, "csv_path")
     if csv_path is None:
         raise KeyError("cfg.data['csv_path'] must be provided")
 
-    data_settings = getattr(cfg, "data", {}) or {}
-    missing_policy_cfg = data_settings.get("missing_policy")
+    missing_policy_cfg = _section_get(data_settings, "missing_policy")
     if missing_policy_cfg is None:
-        missing_policy_cfg = data_settings.get("nan_policy")
-    missing_limit_cfg = data_settings.get("missing_limit")
+        missing_policy_cfg = _section_get(data_settings, "nan_policy")
+    missing_limit_cfg = _section_get(data_settings, "missing_limit")
     if missing_limit_cfg is None:
-        missing_limit_cfg = data_settings.get("nan_limit")
+        missing_limit_cfg = _section_get(data_settings, "nan_limit")
 
     df = load_csv(
         csv_path,
@@ -860,8 +938,9 @@ def run(cfg: Config) -> pd.DataFrame:
         missing_limit=missing_limit_cfg,
     )
 
-    split = cfg.sample_split
-    metrics_list = cfg.metrics.get("registry")
+    split = _cfg_section(cfg, "sample_split")
+    metrics_section = _cfg_section(cfg, "metrics")
+    metrics_list = _section_get(metrics_section, "registry")
     stats_cfg = None
     if metrics_list:
         from .core.rank_selection import RiskStatsConfig, canonical_metric_list
@@ -871,41 +950,43 @@ def run(cfg: Config) -> pd.DataFrame:
             risk_free=0.0,
         )
 
-    preprocessing_section = getattr(cfg, "preprocessing", {}) or {}
-    missing_section = (
-        preprocessing_section.get("missing_data")
-        if isinstance(preprocessing_section, Mapping)
-        else None
-    )
+    preprocessing_section = _cfg_section(cfg, "preprocessing")
+    missing_section = _section_get(preprocessing_section, "missing_data")
+    if not isinstance(missing_section, Mapping):
+        missing_section = None
     policy_spec, limit_spec = _policy_from_config(
         missing_section if isinstance(missing_section, Mapping) else None
     )
 
+    vol_adjust = _cfg_section(cfg, "vol_adjust")
+    run_settings = _cfg_section(cfg, "run")
+    portfolio_cfg = _cfg_section(cfg, "portfolio")
+
     res = _run_analysis(
         df,
-        cast(str, split.get("in_start")),
-        cast(str, split.get("in_end")),
-        cast(str, split.get("out_start")),
-        cast(str, split.get("out_end")),
-        cfg.vol_adjust.get("target_vol", 1.0),
-        getattr(cfg, "run", {}).get("monthly_cost", 0.0),
-        floor_vol=cfg.vol_adjust.get("floor_vol"),
-        warmup_periods=int(cfg.vol_adjust.get("warmup_periods", 0) or 0),
-        selection_mode=cfg.portfolio.get("selection_mode", "all"),
-        random_n=cfg.portfolio.get("random_n", 8),
-        custom_weights=cfg.portfolio.get("custom_weights"),
-        rank_kwargs=cfg.portfolio.get("rank"),
-        manual_funds=cfg.portfolio.get("manual_list"),
-        indices_list=cfg.portfolio.get("indices_list"),
-        benchmarks=cfg.benchmarks,
-        seed=getattr(cfg, "seed", 42),
-        constraints=cfg.portfolio.get("constraints"),
+        cast(str, _section_get(split, "in_start")),
+        cast(str, _section_get(split, "in_end")),
+        cast(str, _section_get(split, "out_start")),
+        cast(str, _section_get(split, "out_end")),
+        _section_get(vol_adjust, "target_vol", 1.0),
+        _section_get(run_settings, "monthly_cost", 0.0),
+        floor_vol=_section_get(vol_adjust, "floor_vol"),
+        warmup_periods=int(_section_get(vol_adjust, "warmup_periods", 0) or 0),
+        selection_mode=_section_get(portfolio_cfg, "selection_mode", "all"),
+        random_n=_section_get(portfolio_cfg, "random_n", 8),
+        custom_weights=_section_get(portfolio_cfg, "custom_weights"),
+        rank_kwargs=_section_get(portfolio_cfg, "rank"),
+        manual_funds=_section_get(portfolio_cfg, "manual_list"),
+        indices_list=_section_get(portfolio_cfg, "indices_list"),
+        benchmarks=_cfg_value(cfg, "benchmarks"),
+        seed=_cfg_value(cfg, "seed", 42),
+        constraints=_section_get(portfolio_cfg, "constraints"),
         stats_cfg=stats_cfg,
         missing_policy=policy_spec,
         missing_limit=limit_spec,
-        risk_window=cfg.vol_adjust.get("window"),
-        previous_weights=cfg.portfolio.get("previous_weights"),
-        max_turnover=cfg.portfolio.get("max_turnover"),
+        risk_window=_section_get(vol_adjust, "window"),
+        previous_weights=_section_get(portfolio_cfg, "previous_weights"),
+        max_turnover=_section_get(portfolio_cfg, "max_turnover"),
     )
     if res is None:
         return pd.DataFrame()
@@ -927,27 +1008,34 @@ def run(cfg: Config) -> pd.DataFrame:
 
 def run_full(cfg: Config) -> dict[str, object]:
     """Return the full analysis results based on ``cfg``."""
-    csv_path = cfg.data.get("csv_path")
+    cfg = _unwrap_cfg(cfg)
+    data_settings = _cfg_section(cfg, "data")
+    csv_path = _section_get(data_settings, "csv_path")
     if csv_path is None:
-        raise KeyError("cfg.data['csv_path'] must be provided")
+        logger.warning("cfg.data['csv_path'] missing; returning empty result")
+        return _empty_run_full_result()
 
-    data_settings = getattr(cfg, "data", {}) or {}
-    missing_policy_cfg = data_settings.get("missing_policy")
+    missing_policy_cfg = _section_get(data_settings, "missing_policy")
     if missing_policy_cfg is None:
-        missing_policy_cfg = data_settings.get("nan_policy")
-    missing_limit_cfg = data_settings.get("missing_limit")
+        missing_policy_cfg = _section_get(data_settings, "nan_policy")
+    missing_limit_cfg = _section_get(data_settings, "missing_limit")
     if missing_limit_cfg is None:
-        missing_limit_cfg = data_settings.get("nan_limit")
+        missing_limit_cfg = _section_get(data_settings, "nan_limit")
 
-    df = load_csv(
-        csv_path,
-        errors="raise",
-        missing_policy=missing_policy_cfg,
-        missing_limit=missing_limit_cfg,
-    )
+    try:
+        df = load_csv(
+            csv_path,
+            errors="raise",
+            missing_policy=missing_policy_cfg,
+            missing_limit=missing_limit_cfg,
+        )
+    except FileNotFoundError as exc:
+        logger.warning("CSV not found (%s); returning empty result", exc)
+        return _empty_run_full_result()
 
-    split = cfg.sample_split
-    metrics_list = cfg.metrics.get("registry")
+    split = _cfg_section(cfg, "sample_split")
+    metrics_section = _cfg_section(cfg, "metrics")
+    metrics_list = _section_get(metrics_section, "registry")
     stats_cfg = None
     if metrics_list:
         from .core.rank_selection import RiskStatsConfig, canonical_metric_list
@@ -957,42 +1045,44 @@ def run_full(cfg: Config) -> dict[str, object]:
             risk_free=0.0,
         )
 
-    preprocessing_section = getattr(cfg, "preprocessing", {}) or {}
-    missing_section = (
-        preprocessing_section.get("missing_data")
-        if isinstance(preprocessing_section, Mapping)
-        else None
-    )
+    preprocessing_section = _cfg_section(cfg, "preprocessing")
+    missing_section = _section_get(preprocessing_section, "missing_data")
+    if not isinstance(missing_section, Mapping):
+        missing_section = None
     policy_spec, limit_spec = _policy_from_config(
         missing_section if isinstance(missing_section, Mapping) else None
     )
 
+    vol_adjust = _cfg_section(cfg, "vol_adjust")
+    run_settings = _cfg_section(cfg, "run")
+    portfolio_cfg = _cfg_section(cfg, "portfolio")
+
     res = _run_analysis(
         df,
-        cast(str, split.get("in_start")),
-        cast(str, split.get("in_end")),
-        cast(str, split.get("out_start")),
-        cast(str, split.get("out_end")),
-        cfg.vol_adjust.get("target_vol", 1.0),
-        getattr(cfg, "run", {}).get("monthly_cost", 0.0),
-        floor_vol=cfg.vol_adjust.get("floor_vol"),
-        warmup_periods=int(cfg.vol_adjust.get("warmup_periods", 0) or 0),
-        selection_mode=cfg.portfolio.get("selection_mode", "all"),
-        random_n=cfg.portfolio.get("random_n", 8),
-        custom_weights=cfg.portfolio.get("custom_weights"),
-        rank_kwargs=cfg.portfolio.get("rank"),
-        manual_funds=cfg.portfolio.get("manual_list"),
-        indices_list=cfg.portfolio.get("indices_list"),
-        benchmarks=cfg.benchmarks,
-        seed=getattr(cfg, "seed", 42),
-        weighting_scheme=cfg.portfolio.get("weighting_scheme", "equal"),
-        constraints=cfg.portfolio.get("constraints"),
+        cast(str, _section_get(split, "in_start")),
+        cast(str, _section_get(split, "in_end")),
+        cast(str, _section_get(split, "out_start")),
+        cast(str, _section_get(split, "out_end")),
+        _section_get(vol_adjust, "target_vol", 1.0),
+        _section_get(run_settings, "monthly_cost", 0.0),
+        floor_vol=_section_get(vol_adjust, "floor_vol"),
+        warmup_periods=int(_section_get(vol_adjust, "warmup_periods", 0) or 0),
+        selection_mode=_section_get(portfolio_cfg, "selection_mode", "all"),
+        random_n=_section_get(portfolio_cfg, "random_n", 8),
+        custom_weights=_section_get(portfolio_cfg, "custom_weights"),
+        rank_kwargs=_section_get(portfolio_cfg, "rank"),
+        manual_funds=_section_get(portfolio_cfg, "manual_list"),
+        indices_list=_section_get(portfolio_cfg, "indices_list"),
+        benchmarks=_cfg_value(cfg, "benchmarks"),
+        seed=_cfg_value(cfg, "seed", 42),
+        weighting_scheme=_section_get(portfolio_cfg, "weighting_scheme", "equal"),
+        constraints=_section_get(portfolio_cfg, "constraints"),
         stats_cfg=stats_cfg,
         missing_policy=policy_spec,
         missing_limit=limit_spec,
-        risk_window=cfg.vol_adjust.get("window"),
-        previous_weights=cfg.portfolio.get("previous_weights"),
-        max_turnover=cfg.portfolio.get("max_turnover"),
+        risk_window=_section_get(vol_adjust, "window"),
+        previous_weights=_section_get(portfolio_cfg, "previous_weights"),
+        max_turnover=_section_get(portfolio_cfg, "max_turnover"),
     )
     return {} if res is None else res
 
