@@ -199,7 +199,7 @@ async function main() {
   const wrapped = `(async () => {\n${script}\n})()`;
 
   const state = {
-    availableLabels: new Set(['ci-failure', 'ci', 'devops', 'priority: medium', 'priority: high']),
+    availableLabels: new Set(['ci-failure', 'ci', 'devops', 'priority: medium']),
     baseTime: new Date('2025-01-01T00:00:00Z'),
     comments: [],
     issue: null,
@@ -279,6 +279,13 @@ async function main() {
   assert.strictEqual(escalationComments.length, 1, 'Escalation comment should be posted exactly once.');
   assert.ok(state.issue.labels.has('priority: high'), 'Escalation label was not applied at the threshold.');
   assert.ok(state.issue.labels.has('priority: medium'), 'Base priority label should remain alongside escalation label.');
+
+  const createdLabelLogs = state.log.filter((entry) => entry.startsWith('label created: '));
+  assert(
+    createdLabelLogs.some((entry) => entry.includes('priority: high')),
+    'Escalation label should be auto-created when missing.'
+  );
+  assert.ok(state.availableLabels.has('priority: high'), 'Escalation label should remain available after creation.');
 
   console.log('Escalation comment posted:', escalationComments[0].body.trim());
   console.log('Simulation completed successfully.');
