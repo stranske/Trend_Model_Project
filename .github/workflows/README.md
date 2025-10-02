@@ -74,6 +74,7 @@ All others use default `GITHUB_TOKEN`.
 | `agents-42-watchdog.yml` | workflow dispatch | Codex PR presence diagnostic |
 | `merge-manager.yml` | PR target, workflow_run | Auto-approve + enable auto-merge when gates are satisfied |
 | `maint-35-repo-health-self-check.yml` | schedule, manual | Governance audit |
+| `reusable-99-selftest.yml` | workflow_dispatch, schedule (02:30 UTC nightly) | Matrix smoke-test of `reusable-ci-python.yml` feature flags |
 | `pr-path-labeler.yml` | PR events | Path labels |
 | `label-agent-prs.yml` | PR target | Origin + risk labels |
 | `codeql.yml` | push, PR, schedule | Code scanning |
@@ -211,7 +212,17 @@ Hotspots: Sorted ascending by percent covered (lowest coverage first) limited to
 Retention Guidance: Use 7–14 days. Shorter (<7 days) risks losing comparison context for slower review cycles; longer (>14 days) increases storage without materially improving triage.
 
 ---
-## 7.4 Universal Logs Summary (Issue #1351)
+## 7.4 Self-Test Reusable CI (Issue #1660)
+
+- **Trigger scope:** Manual dispatch plus a nightly cron (`02:30 UTC`). This keeps reusable pipeline coverage fresh without
+  consuming PR minutes. Dispatch from the Actions tab under **Self-Test Reusable CI** when validating changes to
+  `.github/workflows/reusable-ci-python.yml` or its helper scripts.
+- **Latest remediation:** The October 2025 failure stemmed from `typing-inspection` drifting from `0.4.1` to `0.4.2`, causing
+  `tests/test_lockfile_consistency.py` to fail during the reusable matrix runs. Refresh `requirements.lock` with
+  `uv pip compile --upgrade pyproject.toml -o requirements.lock` before re-running the workflow. The matrix now completes when
+  invoked manually or on schedule.
+
+## 7.5 Universal Logs Summary (Issue #1351)
 Source: `logs_summary` job inside `reusable-ci-python.yml` enumerates all jobs via the Actions API and writes a Markdown table to the run summary. Columns include Job, Status (emoji), Duration, and Log link.
 
 How to access logs:
@@ -223,7 +234,7 @@ If missing:
 - Confirm the `logs_summary` job executed (it is unconditional). If skipped, check for GitHub API rate limits in its step logs.
 
 ---
-## 7.5 Temporary CI Wrapper & Migration Plan (Issue #1351)
+## 7.6 Temporary CI Wrapper & Migration Plan (Issue #1351)
 `pr-10-ci-python.yml` wraps the reusable CI to maintain the historical required check label "CI".
 
 Migration steps to retire wrapper:
@@ -236,7 +247,7 @@ Migration steps to retire wrapper:
 Rationale: Allows a staged transition without breaking existing protections.
 
 ---
-## 7.6 Quick Reference – Coverage & Logs
+## 7.7 Quick Reference – Coverage & Logs
 | Concern | Job / File | How to Enable | Artifact / Output | Fails Build? |
 |---------|------------|---------------|-------------------|--------------|
 | Coverage soft gate | Job: `coverage_soft_gate` in `reusable-ci-python.yml` | `enable-soft-gate: 'true'` | Run summary section, coverage artifacts | No |
@@ -296,9 +307,9 @@ Planned / optional improvements under consideration:
 | Centralized autofix commit prefix | Implemented | Configurable (default `chore(autofix):`) |
 | Failing test count in logs summary | Implemented | Universal logs job appends count inline |
 
-TODO (wrapper removal): After branch protection flips to require the gate job, remove `pr-10-ci-python.yml` (see 7.5) and delete this TODO line.
+TODO (wrapper removal): After branch protection flips to require the gate job, remove `pr-10-ci-python.yml` (see 7.6) and delete this TODO line.
 
-Adopt individually; update sections 7.3 / 7.4 when shipped.
+Adopt individually; update sections 7.3 / 7.5 when shipped.
 
 ---
 _Addendum (Issues #1351, #1352): CI topology, kickoff flow, soft gate, logs summary, coverage artifact normalization, trend history, and migration plan documented. Wrapper removal pending future protection flip._
