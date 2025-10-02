@@ -36,6 +36,26 @@ def _build_validation_report(validated: ValidatedMarketData) -> Dict[str, Any]:
             warnings.append(
                 f"Column '{column}' has >50% missing values ({valid}/{rows} valid)."
             )
+    if metadata.frequency_missing_periods > 0:
+        warnings.append(
+            "Date index contains "
+            f"{metadata.frequency_missing_periods} missing {metadata.frequency_label} periods "
+            f"(max gap {metadata.frequency_max_gap_periods})."
+        )
+    if metadata.missing_policy_dropped:
+        dropped = ", ".join(sorted(metadata.missing_policy_dropped))
+        warnings.append(
+            "Missing-data policy dropped columns: "
+            f"{dropped} (policy={metadata.missing_policy})."
+        )
+    if metadata.missing_policy_summary and (
+        metadata.frequency_missing_periods > 0
+        or bool(metadata.missing_policy_filled)
+        or bool(metadata.missing_policy_dropped)
+    ):
+        warnings.append(
+            "Missing-data policy applied: " f"{metadata.missing_policy_summary}."
+        )
     return {"issues": [], "warnings": warnings}
 
 
@@ -50,6 +70,13 @@ def _build_meta(validated: ValidatedMarketData) -> SchemaMeta:
     meta["mode"] = metadata.mode.value
     meta["frequency"] = metadata.frequency_label
     meta["frequency_code"] = metadata.frequency
+    meta["frequency_detected"] = metadata.frequency_detected
+    meta["frequency_missing_periods"] = metadata.frequency_missing_periods
+    meta["frequency_max_gap_periods"] = metadata.frequency_max_gap_periods
+    meta["frequency_tolerance_periods"] = metadata.frequency_tolerance_periods
+    meta["missing_policy"] = metadata.missing_policy
+    meta["missing_policy_limit"] = metadata.missing_policy_limit
+    meta["missing_policy_summary"] = metadata.missing_policy_summary
     meta["date_range"] = metadata.date_range
     meta["start"] = metadata.start
     meta["end"] = metadata.end

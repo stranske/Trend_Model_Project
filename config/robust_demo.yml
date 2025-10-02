@@ -16,7 +16,8 @@ data:
   frequency: "D"
   timezone: "UTC"
   currency: "USD"
-  nan_policy: "ffill"
+  missing_policy: "ffill"
+  missing_limit: null
   lookback_required: 252  # 1 year minimum for demo
 
 preprocessing:

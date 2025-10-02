@@ -1,7 +1,7 @@
 import logging
 import stat
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Any, Literal, Mapping, Optional
 
 import pandas as pd
 from pandas.api.types import is_datetime64_any_dtype
@@ -11,6 +11,60 @@ from .io.market_data import (
     ValidatedMarketData,
     validate_market_data,
 )
+
+DEFAULT_POLICY_FALLBACK = "drop"
+
+
+def _normalise_policy_alias(value: str | None) -> str:
+    if value is None:
+        return DEFAULT_POLICY_FALLBACK
+    policy = value.strip().lower()
+    if not policy:
+        return DEFAULT_POLICY_FALLBACK
+    if policy in {"both", "bfill", "backfill"}:
+        return "ffill"
+    if policy in {"zeros", "zero_fill", "fillzero"}:
+        return "zero"
+    return policy
+
+
+def _coerce_limit_entry(value: Any) -> Optional[int]:
+    if value in (None, "", "none"):
+        return None
+    try:
+        limit_int = int(value)
+    except (TypeError, ValueError):
+        raise ValueError("Missing-data limit values must be integers or null.")
+    if limit_int < 0:
+        raise ValueError("Missing-data limits cannot be negative.")
+    return limit_int
+
+
+def _coerce_policy_kwarg(value: Any) -> str | Mapping[str, str] | None:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value
+    if isinstance(value, Mapping):
+        return value
+    raise TypeError("missing_policy must be a string, mapping, or None.")
+
+
+def _coerce_limit_kwarg(value: Any) -> int | Mapping[str, int | None] | None:
+    if value is None:
+        return None
+    if isinstance(value, Mapping):
+        return value
+    if isinstance(value, (int, float)) and float(value).is_integer():
+        return int(value)
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in {"", "none", "null"}:
+            return None
+        if lowered.isdigit():
+            return int(lowered)
+    raise TypeError("missing_limit must be an integer, mapping, or None.")
+
 
 logger = logging.getLogger(__name__)
 
@@ -31,10 +85,28 @@ def _finalise_validated_frame(
     attrs["market_data"]["metadata"] = validated.metadata
     attrs["market_data_mode"] = validated.metadata.mode.value
     attrs["market_data_frequency"] = validated.metadata.frequency
+    attrs["market_data_frequency_code"] = validated.metadata.frequency_detected
     attrs["market_data_frequency_label"] = validated.metadata.frequency_label
+    attrs["market_data_frequency_median_spacing_days"] = (
+        validated.metadata.frequency_median_spacing_days
+    )
+    attrs["market_data_frequency_missing_periods"] = (
+        validated.metadata.frequency_missing_periods
+    )
+    attrs["market_data_frequency_max_gap_periods"] = (
+        validated.metadata.frequency_max_gap_periods
+    )
+    attrs["market_data_frequency_tolerance_periods"] = (
+        validated.metadata.frequency_tolerance_periods
+    )
     attrs["market_data_columns"] = list(validated.metadata.columns)
     attrs["market_data_rows"] = validated.metadata.rows
     attrs["market_data_date_range"] = validated.metadata.date_range
+    attrs["market_data_missing_policy"] = validated.metadata.missing_policy
+    attrs["market_data_missing_policy_limit"] = validated.metadata.missing_policy_limit
+    attrs["market_data_missing_policy_summary"] = (
+        validated.metadata.missing_policy_summary
+    )
     result.attrs = attrs
     return result
 
@@ -66,10 +138,41 @@ def _validate_payload(
     origin: str,
     errors: ValidationErrorMode,
     include_date_column: bool,
+    missing_policy: str | Mapping[str, str] | None = None,
+    missing_limit: int | Mapping[str, int | None] | None = None,
 ) -> Optional[pd.DataFrame]:
     payload = _normalise_numeric_strings(payload)
+    policy_param: str | dict[str, str] | None
+    if isinstance(missing_policy, Mapping):
+        policy_param = {}
+        for key, value in missing_policy.items():
+            key_str = str(key)
+            if value is None:
+                policy_param[key_str] = DEFAULT_POLICY_FALLBACK
+            elif isinstance(value, str):
+                policy_param[key_str] = _normalise_policy_alias(value)
+            else:
+                policy_param[key_str] = _normalise_policy_alias(str(value))
+        if "*" in missing_policy and "*" not in policy_param:
+            policy_param["*"] = DEFAULT_POLICY_FALLBACK
+    else:
+        policy_param = _normalise_policy_alias(missing_policy)
+
+    limit_param: int | dict[str, Optional[int]] | None
+    if isinstance(missing_limit, Mapping):
+        limit_param = {
+            str(key): _coerce_limit_entry(value) for key, value in missing_limit.items()
+        }
+    else:
+        limit_param = _coerce_limit_entry(missing_limit)
+
     try:
-        validated = validate_market_data(payload, source=origin)
+        validated = validate_market_data(
+            payload,
+            source=origin,
+            missing_policy=policy_param,
+            missing_limit=limit_param,
+        )
     except MarketDataValidationError as exc:
         if errors == "raise":
             raise
@@ -104,9 +207,18 @@ def load_csv(
     *,
     errors: ValidationErrorMode = "log",
     include_date_column: bool = True,
+    missing_policy: str | Mapping[str, str] | None = None,
+    missing_limit: int | Mapping[str, int | None] | None = None,
     **_legacy_kwargs: object,
 ) -> Optional[pd.DataFrame]:
     """Load and validate a CSV expecting a ``Date`` column."""
+
+    if missing_policy is None and "nan_policy" in _legacy_kwargs:
+        missing_policy = _coerce_policy_kwarg(_legacy_kwargs.pop("nan_policy"))
+    if missing_limit is None and "nan_limit" in _legacy_kwargs:
+        missing_limit = _coerce_limit_kwarg(_legacy_kwargs.pop("nan_limit"))
+    if missing_limit is None and "missing_limit" in _legacy_kwargs:
+        missing_limit = _coerce_limit_kwarg(_legacy_kwargs.pop("missing_limit"))
 
     p = Path(path)
     try:
@@ -127,6 +239,8 @@ def load_csv(
             origin=str(p),
             errors=errors,
             include_date_column=include_date_column,
+            missing_policy=missing_policy,
+            missing_limit=missing_limit,
         )
     except (
         FileNotFoundError,
@@ -158,9 +272,18 @@ def load_parquet(
     *,
     errors: ValidationErrorMode = "log",
     include_date_column: bool = True,
+    missing_policy: str | Mapping[str, str] | None = None,
+    missing_limit: int | Mapping[str, int | None] | None = None,
     **_legacy_kwargs: object,
 ) -> Optional[pd.DataFrame]:
     """Load and validate a Parquet file containing market data."""
+
+    if missing_policy is None and "nan_policy" in _legacy_kwargs:
+        missing_policy = _coerce_policy_kwarg(_legacy_kwargs.pop("nan_policy"))
+    if missing_limit is None and "nan_limit" in _legacy_kwargs:
+        missing_limit = _coerce_limit_kwarg(_legacy_kwargs.pop("nan_limit"))
+    if missing_limit is None and "missing_limit" in _legacy_kwargs:
+        missing_limit = _coerce_limit_kwarg(_legacy_kwargs.pop("missing_limit"))
 
     p = Path(path)
     try:
@@ -178,6 +301,8 @@ def load_parquet(
             origin=str(p),
             errors=errors,
             include_date_column=include_date_column,
+            missing_policy=missing_policy,
+            missing_limit=missing_limit,
         )
     except (
         FileNotFoundError,

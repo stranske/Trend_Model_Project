@@ -11,7 +11,18 @@ from __future__ import annotations
 import enum
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Iterable, Iterator, List, Sequence, Tuple
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+    cast,
+)
 
 import pandas as pd
 from pandas.api.types import is_numeric_dtype
@@ -23,6 +34,7 @@ from pydantic import BaseModel, Field, model_validator
 
 _HUMAN_FREQUENCY_LABELS = {
     "D": "daily",
+    "B": "daily",
     "W": "weekly",
     "M": "monthly",
     "ME": "monthly",
@@ -31,6 +43,9 @@ _HUMAN_FREQUENCY_LABELS = {
     "Y": "annual",
     "YE": "annual",
 }
+
+_DEFAULT_MISSING_POLICY = "drop"
+_VALID_MISSING_POLICIES = {"drop", "ffill", "zero"}
 
 
 class MarketDataMode(str, enum.Enum):
@@ -50,17 +65,38 @@ class MarketDataValidationError(ValueError):
         self.user_message = formatted
 
 
+class MissingPolicyFillDetails(BaseModel):
+    """Details about how missing data were imputed for a column."""
+
+    method: str
+    count: int = 0
+
+
 class MarketDataMetadata(BaseModel):
     """Metadata captured during validation."""
 
     mode: MarketDataMode
     frequency: str
+    frequency_detected: str = ""
     frequency_label: str
+    frequency_median_spacing_days: float = 0.0
+    frequency_missing_periods: int = 0
+    frequency_max_gap_periods: int = 0
+    frequency_tolerance_periods: int = 0
     start: datetime
     end: datetime
     rows: int
     columns: List[str] = Field(default_factory=list)
     symbols: List[str] = Field(default_factory=list)
+    missing_policy: str = Field(default=_DEFAULT_MISSING_POLICY)
+    missing_policy_limit: Optional[int] = None
+    missing_policy_overrides: Dict[str, str] = Field(default_factory=dict)
+    missing_policy_limits: Dict[str, Optional[int]] = Field(default_factory=dict)
+    missing_policy_filled: Dict[str, MissingPolicyFillDetails] = Field(
+        default_factory=dict
+    )
+    missing_policy_dropped: List[str] = Field(default_factory=list)
+    missing_policy_summary: Optional[str] = None
 
     @property
     def date_range(self) -> Tuple[str, str]:
@@ -113,6 +149,313 @@ def _format_issues(issues: Iterable[str]) -> str:
     for issue in issues:
         lines.append(f"• {issue}")
     return "\n".join(lines)
+
+
+def _normalise_policy_value(value: str | None) -> str:
+    policy = (value or _DEFAULT_MISSING_POLICY).strip().lower()
+    if policy not in _VALID_MISSING_POLICIES:
+        allowed = ", ".join(sorted(_VALID_MISSING_POLICIES))
+        raise ValueError(
+            f"Unknown missing-data policy '{value}'. Choose one of {allowed}."
+        )
+    return policy
+
+
+def _coerce_limit_value(value: Any) -> Optional[int]:
+    if value is None or value == "":
+        return None
+    try:
+        limit_int = int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Missing-data limit must be an integer or null.") from exc
+    if limit_int < 0:
+        raise ValueError("Missing-data limit cannot be negative.")
+    return limit_int
+
+
+def _build_policy_maps(
+    columns: Iterable[Any],
+    policy: str | Mapping[str, str] | None,
+    limit: int | Mapping[str, int | None] | None,
+) -> tuple[Dict[str, str], str, Dict[str, Optional[int]], Optional[int]]:
+    cols = [str(col) for col in columns]
+    if isinstance(policy, Mapping):
+        raw_policy = {str(k): v for k, v in policy.items()}
+        default_policy = _normalise_policy_value(raw_policy.get("*"))
+        policy_map = {
+            col: _normalise_policy_value(raw_policy.get(col, default_policy))
+            for col in cols
+        }
+    else:
+        default_policy = _normalise_policy_value(policy)
+        policy_map = {col: default_policy for col in cols}
+
+    if isinstance(limit, Mapping):
+        raw_limit = {str(k): v for k, v in limit.items()}
+        default_limit = _coerce_limit_value(raw_limit.get("*"))
+        limit_map = {
+            col: _coerce_limit_value(raw_limit.get(col, default_limit)) for col in cols
+        }
+    else:
+        default_limit = _coerce_limit_value(limit)
+        limit_map = {col: default_limit for col in cols}
+
+    return policy_map, default_policy, limit_map, default_limit
+
+
+def _max_consecutive_nans(series: pd.Series) -> int:
+    if series.isna().sum() == 0:
+        return 0
+    is_na = series.isna()
+    groups = is_na.ne(is_na.shift()).cumsum()
+    runs = (is_na.groupby(groups).cumcount() + 1) * is_na
+    return int(runs.max() or 0)
+
+
+def apply_missing_policy(
+    frame: pd.DataFrame,
+    policy: str | Mapping[str, str] | None,
+    *,
+    limit: int | Mapping[str, int | None] | None = None,
+) -> tuple[pd.DataFrame, Dict[str, Any]]:
+    if frame.empty:
+        return frame.copy(), {
+            "policy": _DEFAULT_MISSING_POLICY,
+            "policy_map": {},
+            "limit": None,
+            "limit_map": {},
+            "filled": {},
+            "dropped": [],
+            "missing_counts": {},
+            "max_consecutive_gaps": {},
+        }
+
+    policy_map, default_policy, limit_map, default_limit = _build_policy_maps(
+        frame.columns, policy, limit
+    )
+
+    result = frame.copy()
+    dropped: list[str] = []
+    filled: dict[str, MissingPolicyFillDetails] = {}
+    missing_counts: dict[str, int] = {}
+    max_gaps: dict[str, int] = {}
+
+    for column in frame.columns:
+        col_policy = policy_map[column]
+        col_limit = limit_map[column]
+        series = result[column]
+        na_mask = series.isna()
+        missing_total = int(na_mask.sum())
+        missing_counts[column] = missing_total
+        max_gap = _max_consecutive_nans(series)
+        max_gaps[column] = max_gap
+
+        if missing_total == 0:
+            continue
+
+        if col_policy == "drop":
+            dropped.append(column)
+            continue
+
+        limit_for_fill = col_limit if col_limit is not None else None
+
+        if limit_for_fill is not None and max_gap > limit_for_fill:
+            dropped.append(column)
+            continue
+
+        if col_policy == "ffill":
+            filled_series = series.ffill(limit=limit_for_fill)
+            # Handle leading NaNs that ffill cannot reach
+            filled_series = filled_series.bfill(limit=limit_for_fill)
+            if filled_series.isna().any():
+                dropped.append(column)
+                continue
+            result[column] = filled_series
+            filled[column] = MissingPolicyFillDetails(
+                method="ffill", count=missing_total
+            )
+            continue
+
+        if col_policy == "zero":
+            result[column] = series.fillna(0.0)
+            filled[column] = MissingPolicyFillDetails(
+                method="zero", count=missing_total
+            )
+            continue
+
+        raise ValueError(f"Unhandled missing-data policy '{col_policy}'.")
+
+    if dropped:
+        result = result.drop(columns=dropped, errors="ignore")
+
+    summary = {
+        "policy": default_policy,
+        "policy_map": policy_map,
+        "limit": default_limit,
+        "limit_map": limit_map,
+        "filled": filled,
+        "dropped": dropped,
+        "missing_counts": missing_counts,
+        "max_consecutive_gaps": max_gaps,
+    }
+
+    return result, summary
+
+
+def _summarise_missing_policy(info: Mapping[str, Any]) -> str:
+    policy = info.get("policy", _DEFAULT_MISSING_POLICY)
+    limit = info.get("limit")
+    limit_text = f"limit={limit}" if limit is not None else "unlimited"
+
+    overrides: Dict[str, str] = {}
+    policy_map = cast(Mapping[str, str], info.get("policy_map", {}))
+    default_policy = policy
+    for column, value in policy_map.items():
+        if value != default_policy:
+            overrides[column] = value
+
+    filled = cast(Mapping[str, Any], info.get("filled", {}))
+    filled_chunks = []
+    for column, details in filled.items():
+        method: str
+        count: int
+        if isinstance(details, MissingPolicyFillDetails):
+            method = details.method
+            count = details.count
+        elif isinstance(details, Mapping):
+            raw_method = details.get("method", "fill")
+            raw_count = details.get("count", 0)
+            method = str(raw_method) if raw_method is not None else "fill"
+            try:
+                count = int(raw_count) if raw_count is not None else 0
+            except (TypeError, ValueError):
+                count = 0
+        else:
+            method = "fill"
+            count = 0
+        filled_chunks.append(f"{column} ({method}: {count})")
+
+    dropped = list(info.get("dropped", []))
+
+    parts = [f"policy={policy}", limit_text]
+    if overrides:
+        overrides_text = ", ".join(
+            f"{col}:{val}" for col, val in sorted(overrides.items())
+        )
+        parts.append(f"overrides={overrides_text}")
+    if filled_chunks:
+        parts.append("filled=" + ", ".join(sorted(filled_chunks)))
+    if dropped:
+        parts.append("dropped=" + ", ".join(sorted(dropped)))
+    return "; ".join(parts)
+
+
+def classify_frequency(
+    index: pd.DatetimeIndex,
+    *,
+    max_gap_limit: Optional[int] = None,
+) -> Dict[str, Any]:
+    if not isinstance(index, pd.DatetimeIndex) or len(index) < 2:
+        return {
+            "canonical": "UNKNOWN",
+            "code": "UNKNOWN",
+            "label": "unknown",
+            "median_days": 0.0,
+            "max_missing_periods": 0,
+            "total_missing_periods": 0,
+            "tolerance_periods": 0,
+        }
+
+    idx = index.sort_values()
+    diffs = idx.to_series().diff().dropna()
+    if diffs.empty:
+        return {
+            "canonical": "UNKNOWN",
+            "code": "UNKNOWN",
+            "label": "unknown",
+            "median_days": 0.0,
+            "max_missing_periods": 0,
+            "total_missing_periods": 0,
+            "tolerance_periods": 0,
+        }
+
+    delta_days = diffs / pd.Timedelta(days=1)
+    median_days = float(delta_days.median())
+
+    if median_days <= 0:
+        raise MarketDataValidationError(
+            "Unable to infer frequency because date offsets are zero or negative.",
+        )
+
+    if median_days <= 2.5:
+        code = "D"
+        canonical = "D"
+        label = _HUMAN_FREQUENCY_LABELS.get(canonical, "daily")
+        tolerance_default = 3
+        base_days = 1.0
+    elif median_days <= 10.0:
+        code = "W"
+        canonical = "W"
+        label = _HUMAN_FREQUENCY_LABELS.get(canonical, "weekly")
+        tolerance_default = 1
+        base_days = 7.0
+    elif median_days <= 35.0:
+        code = "M"
+        canonical = "M"
+        label = _HUMAN_FREQUENCY_LABELS.get(canonical, "monthly")
+        tolerance_default = 1
+        base_days = 30.0
+    else:
+        raise MarketDataValidationError(
+            "Unable to infer frequency. Data spacing appears longer than monthly.",
+        )
+
+    tolerance_limit = tolerance_default
+    if max_gap_limit is not None:
+        tolerance_limit = max(tolerance_default, max_gap_limit)
+
+    with pd.option_context("mode.use_inf_as_na", True):
+        raw_ratio = delta_days / base_days
+        nearest = raw_ratio.round().clip(lower=1)
+
+    deviation = (raw_ratio - nearest).abs()
+    irregular_mask = (nearest == 1) & (deviation > 0.34)
+    if irregular_mask.any():
+        samples = delta_days[irregular_mask].sort_values()
+        preview = ", ".join(f"{float(value):.1f}d" for value in samples.iloc[:3])
+        if len(samples) > 3:
+            preview += " …"
+        issues = [
+            "Detected irregular sampling intervals that do not align with the "
+            f"identified {label} cadence (example gaps: {preview})."
+        ]
+        raise MarketDataValidationError(_format_issues(issues), issues)
+
+    nearest_int = nearest.astype(int)
+    missing_periods = (nearest_int - 1).clip(lower=0)
+    max_missing_periods = int(missing_periods.max() or 0)
+    total_missing_periods = int(missing_periods.sum())
+
+    if max_missing_periods > tolerance_limit:
+        raise MarketDataValidationError(
+            "Detected gaps in the date index that exceed the configured tolerance.",
+            issues=[
+                (
+                    f"Largest gap spans {max_missing_periods} {label} periods "
+                    f"(allowed <= {tolerance_limit})."
+                )
+            ],
+        )
+
+    return {
+        "canonical": canonical,
+        "code": code,
+        "label": label,
+        "median_days": median_days,
+        "max_missing_periods": max_missing_periods,
+        "total_missing_periods": total_missing_periods,
+        "tolerance_periods": tolerance_limit,
+    }
 
 
 def _resolve_datetime_index(df: pd.DataFrame, *, source: str | None) -> pd.DataFrame:
@@ -197,67 +540,13 @@ def _check_monotonic_index(index: pd.DatetimeIndex) -> list[str]:
     return issues
 
 
-def _infer_frequency(index: pd.DatetimeIndex) -> Tuple[str, str]:
-    if len(index) < 2:
-        return "UNKNOWN", "unknown"
-
-    try:
-        freq = pd.infer_freq(index)
-    except ValueError as exc:
-        # ``pd.infer_freq`` requires at least three timestamps. When users upload
-        # the minimum viable pair of observations, fall back to deriving the
-        # frequency from the observed delta instead of bubbling the pandas
-        # exception up to the UI. This mirrors legacy behaviour that accepted
-        # two-row samples during smoke tests.
-        message = str(exc)
-        if "at least 3" in message:
-            inferred_delta = index[1] - index[0]
-            freq = pd.tseries.frequencies.to_offset(inferred_delta).freqstr
-        else:  # pragma: no cover - defensive path for unexpected errors
-            raise
-    if freq is None:
-        diffs = index.to_series().diff().dropna()
-        unique_deltas = diffs.unique()
-        if len(unique_deltas) == 1:
-            freq = pd.tseries.frequencies.to_offset(unique_deltas[0]).freqstr
-        else:
-            # Attempt common calendar-based frequencies (monthly/quarterly/yearly)
-            # even when day deltas differ because of calendar length variations.
-            for candidate in ("ME", "M", "QE", "Q", "YE", "Y"):
-                try:
-                    reconstructed = index.to_period(candidate).to_timestamp(how="end")
-                except Exception:  # pragma: no cover - defensive guard
-                    continue
-                if reconstructed.equals(index.sort_values()):
-                    freq = "YE" if candidate == "Y" else candidate
-                    break
-        if freq is None:
-            preview = ", ".join(str(delta) for delta in unique_deltas[:3])
-            if len(unique_deltas) > 3:
-                preview += " …"
-            issues = [
-                "Mixed sampling cadence detected. Unable to infer the sampling frequency. "
-                "Detected spacing values: "
-                + preview
-                + ". Ensure the Date index is evenly spaced."
-            ]
-            raise MarketDataValidationError(_format_issues(issues), issues)
-
-    canonical = pd.tseries.frequencies.to_offset(freq).freqstr.upper()
-    label = _HUMAN_FREQUENCY_LABELS.get(canonical, canonical)
-
-    expected = pd.date_range(index[0], index[-1], freq=canonical)
-    missing = expected.difference(index)
-    if len(missing) > 0:
-        preview = ", ".join(ts.strftime("%Y-%m-%d") for ts in missing[:5])
-        if len(missing) > 5:
-            preview += " …"
-        issues = [
-            "Detected gaps in the Date index (missing timestamps: " + preview + ")."
-        ]
-        raise MarketDataValidationError(_format_issues(issues), issues)
-
-    return canonical, label
+def _infer_frequency(
+    index: pd.DatetimeIndex,
+    *,
+    max_gap_limit: Optional[int] = None,
+) -> Tuple[str, str, Dict[str, Any]]:
+    info = classify_frequency(index, max_gap_limit=max_gap_limit)
+    return info["canonical"], info["label"], info
 
 
 def _coerce_numeric(df: pd.DataFrame) -> Tuple[pd.DataFrame, list[str]]:
@@ -344,6 +633,8 @@ def validate_market_data(
     data: pd.DataFrame,
     *,
     source: str | None = None,
+    missing_policy: str | Mapping[str, str] | None = None,
+    missing_limit: int | Mapping[str, int | None] | None = None,
 ) -> ValidatedMarketData:
     """Validate market data according to the ingest contract."""
 
@@ -356,21 +647,59 @@ def validate_market_data(
     if numeric_issues:
         raise MarketDataValidationError(_format_issues(numeric_issues), numeric_issues)
 
-    frequency, label = _infer_frequency(numeric_frame.index)
-    mode = _infer_mode(numeric_frame)
+    policy_frame, policy_info = apply_missing_policy(
+        numeric_frame, missing_policy, limit=missing_limit
+    )
+
+    if policy_frame.empty:
+        dropped = policy_info.get("dropped", [])
+        detail = f" (dropped columns: {', '.join(dropped)})" if dropped else ""
+        issues = [
+            "Missing-data policy removed every column. "
+            "Adjust the policy or limits to retain at least one series." + detail
+        ]
+        raise MarketDataValidationError(_format_issues(issues), issues)
+
+    limit_candidates = [
+        value
+        for value in policy_info.get("limit_map", {}).values()
+        if value is not None
+    ]
+    max_gap_limit = max(limit_candidates) if limit_candidates else None
+
+    frequency, label, frequency_info = _infer_frequency(
+        policy_frame.index, max_gap_limit=max_gap_limit
+    )
+    mode = _infer_mode(policy_frame)
 
     metadata = MarketDataMetadata(
         mode=mode,
         frequency=frequency,
+        frequency_detected=frequency_info.get("code", ""),
         frequency_label=label,
+        frequency_median_spacing_days=frequency_info.get("median_days", 0.0),
+        frequency_missing_periods=frequency_info.get("total_missing_periods", 0),
+        frequency_max_gap_periods=frequency_info.get("max_missing_periods", 0),
+        frequency_tolerance_periods=frequency_info.get("tolerance_periods", 0),
         start=numeric_frame.index.min().to_pydatetime(),
         end=numeric_frame.index.max().to_pydatetime(),
-        rows=len(numeric_frame),
-        columns=list(numeric_frame.columns),
-        symbols=list(numeric_frame.columns),
+        rows=len(policy_frame),
+        columns=list(policy_frame.columns),
+        symbols=list(policy_frame.columns),
+        missing_policy=policy_info.get("policy", _DEFAULT_MISSING_POLICY),
+        missing_policy_limit=policy_info.get("limit"),
+        missing_policy_overrides={
+            column: value
+            for column, value in policy_info.get("policy_map", {}).items()
+            if value != policy_info.get("policy", _DEFAULT_MISSING_POLICY)
+        },
+        missing_policy_limits=policy_info.get("limit_map", {}),
+        missing_policy_filled=policy_info.get("filled", {}),
+        missing_policy_dropped=list(policy_info.get("dropped", [])),
+        missing_policy_summary=_summarise_missing_policy(policy_info),
     )
 
-    validated = numeric_frame.sort_index()
+    validated = policy_frame.sort_index()
     attach_metadata(validated, metadata)
 
     return ValidatedMarketData(frame=validated, metadata=metadata)
@@ -423,11 +752,30 @@ def attach_metadata(frame: pd.DataFrame, metadata: MarketDataMetadata) -> pd.Dat
             "mode_enum": metadata.mode,
             "frequency": metadata.frequency_label,
             "frequency_code": metadata.frequency,
+            "frequency_detected": metadata.frequency_detected,
+            "frequency_median_spacing_days": metadata.frequency_median_spacing_days,
+            "frequency_missing_periods": metadata.frequency_missing_periods,
+            "frequency_max_gap_periods": metadata.frequency_max_gap_periods,
+            "frequency_tolerance_periods": metadata.frequency_tolerance_periods,
             "start": metadata.start.isoformat(),
             "end": metadata.end.isoformat(),
             "rows": metadata.rows,
             "columns": list(metadata.columns),
             "symbols": list(metadata.symbols),
+            "missing_policy": metadata.missing_policy,
+            "missing_policy_limit": metadata.missing_policy_limit,
+            "missing_policy_overrides": dict(metadata.missing_policy_overrides),
+            "missing_policy_limits": dict(metadata.missing_policy_limits),
+            "missing_policy_filled": {
+                column: (
+                    details.model_dump()
+                    if hasattr(details, "model_dump")
+                    else dict(details)
+                )
+                for column, details in metadata.missing_policy_filled.items()
+            },
+            "missing_policy_dropped": list(metadata.missing_policy_dropped),
+            "missing_policy_summary": metadata.missing_policy_summary,
         }
     )
     return frame

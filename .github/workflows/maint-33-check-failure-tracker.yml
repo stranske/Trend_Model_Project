@@ -25,8 +25,8 @@ jobs:
       DISABLE_FAILURE_ISSUES: 'false'       # If 'true', skip issue create/update (still summary)
       COOLDOWN_RETRY_MS: 3000               # Delay before second cooldown check (race mitigation)
       STACK_TOKEN_RAW: 'false'              # If 'true', disable normalization of stack tokens
-      COOLDOWN_SCOPE: global                # global | workflow | signature (controls cooldown append scope)
-      OCCURRENCE_ESCALATE_THRESHOLD: 3      # Escalate only after the third recorded occurrence
+      COOLDOWN_SCOPE: signature             # global | workflow | signature (controls cooldown append scope)
+      OCCURRENCE_ESCALATE_THRESHOLD: 3      # If >0, add ESCALATE_LABEL when occurrences >= threshold
       ESCALATE_LABEL: 'priority: high'      # Label added on escalation when threshold met
       ESCALATE_COMMENT: ''                  # Optional custom escalation comment
     steps:

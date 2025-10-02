@@ -54,23 +54,32 @@ python -m trend_analysis.run_analysis -c config/presets/balanced.yml
 Replace `balanced` with `conservative` or `aggressive` as needed. See
 [PresetStrategies.md](PresetStrategies.md) for a summary of each option.
 
-### 4.1 Frequency detection & missing-data policies
+### 4.1 Handling missing data
 
-The pipeline now inspects the `Date` column and automatically detects whether
-the input returns are daily, weekly or monthly. Daily and weekly data are
-compounded to month-end returns before the in/out-sample windows are sliced, so
-backtests remain comparable regardless of the original cadence.
+Two configuration knobs control how sparse series are treated during ingest:
 
-Missing observations are handled according to `preprocessing.missing_data` in
-the YAML configuration. The section supports:
+| Setting | Type | Effect |
+|---------|------|--------|
+| `data.missing_policy` | string _or_ mapping | Choose `drop`, `ffill`, or `zero`. A mapping supports per-column overrides (use `"*"` for the default). |
+| `data.missing_limit` | integer _or_ mapping | Maximum length of consecutive gaps (in periods) that may be filled per column. `null` means unlimited. |
 
-- `policy`: `drop`, `ffill` or `zero` (default is `drop`).
-- `limit`: maximum length of a forward-fill run (use `null` for unlimited).
-- `per_asset` / `per_asset_limit`: optional overrides per column, e.g.
-  `per_asset: {RF: zero}`.
+Examples:
 
-The effective cadence and policy are recorded in the results under
-`preprocessing.summary` and appear as a one-line note on Excel/TXT exports.
+```yaml
+data:
+   missing_policy: "ffill"         # forward-fill short gaps everywhere
+   missing_limit: 2                 # tolerate up to two consecutive missing months
+
+   # Override: drop FundZ instead of filling
+   missing_policy:
+      "*": "ffill"
+      FundZ: "drop"
+   missing_limit:
+      "*": 2
+      FundZ: 0
+```
+
+The validator records the applied policy in the metadata (including dropped columns and fill counts) and surfaces the summary in CLI and Streamlit reports. Frequency detection also respects the configured limits, allowing—for example—multi-week holiday gaps when `missing_limit` is large enough.
 
 ## 5. Selection modes and ranking
 

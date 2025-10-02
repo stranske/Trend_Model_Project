@@ -739,7 +739,20 @@ def run(cfg: Config) -> pd.DataFrame:
     if csv_path is None:
         raise KeyError("cfg.data['csv_path'] must be provided")
 
-    df = load_csv(csv_path, errors="raise")
+    data_settings = getattr(cfg, "data", {}) or {}
+    missing_policy_cfg = data_settings.get("missing_policy")
+    if missing_policy_cfg is None:
+        missing_policy_cfg = data_settings.get("nan_policy")
+    missing_limit_cfg = data_settings.get("missing_limit")
+    if missing_limit_cfg is None:
+        missing_limit_cfg = data_settings.get("nan_limit")
+
+    df = load_csv(
+        csv_path,
+        errors="raise",
+        missing_policy=missing_policy_cfg,
+        missing_limit=missing_limit_cfg,
+    )
 
     split = cfg.sample_split
     metrics_list = cfg.metrics.get("registry")
@@ -813,7 +826,20 @@ def run_full(cfg: Config) -> dict[str, object]:
     if csv_path is None:
         raise KeyError("cfg.data['csv_path'] must be provided")
 
-    df = load_csv(csv_path, errors="raise")
+    data_settings = getattr(cfg, "data", {}) or {}
+    missing_policy_cfg = data_settings.get("missing_policy")
+    if missing_policy_cfg is None:
+        missing_policy_cfg = data_settings.get("nan_policy")
+    missing_limit_cfg = data_settings.get("missing_limit")
+    if missing_limit_cfg is None:
+        missing_limit_cfg = data_settings.get("nan_limit")
+
+    df = load_csv(
+        csv_path,
+        errors="raise",
+        missing_policy=missing_policy_cfg,
+        missing_limit=missing_limit_cfg,
+    )
 
     split = cfg.sample_split
     metrics_list = cfg.metrics.get("registry")

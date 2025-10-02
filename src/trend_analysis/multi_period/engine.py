@@ -409,7 +409,20 @@ def run(
         csv_path = cfg.data.get("csv_path")
         if not csv_path:
             raise KeyError("cfg.data['csv_path'] must be provided")
-        df = load_csv(csv_path, errors="raise")
+        data_settings = getattr(cfg, "data", {}) or {}
+        missing_policy_cfg = data_settings.get("missing_policy")
+        if missing_policy_cfg is None:
+            missing_policy_cfg = data_settings.get("nan_policy")
+        missing_limit_cfg = data_settings.get("missing_limit")
+        if missing_limit_cfg is None:
+            missing_limit_cfg = data_settings.get("nan_limit")
+
+        df = load_csv(
+            csv_path,
+            errors="raise",
+            missing_policy=missing_policy_cfg,
+            missing_limit=missing_limit_cfg,
+        )
         if df is None:
             raise ValueError(f"Failed to load CSV data from '{csv_path}'")
 

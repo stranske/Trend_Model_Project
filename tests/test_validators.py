@@ -88,7 +88,21 @@ class TestValidateReturnsSchema:
         )
         result = validate_returns_schema(frame)
         assert result.is_valid
-        assert any("missing values" in warning for warning in result.warnings)
+        assert any("Missing-data policy" in warning for warning in result.warnings)
+        assert result.metadata is not None
+        assert result.metadata.columns == ["FundB"]
+
+    def test_report_mentions_missing_policy(self) -> None:
+        frame = pd.DataFrame(
+            {
+                "Date": pd.date_range("2023-01-31", periods=6, freq="ME"),
+                "FundA": [0.01, None, None, 0.02, 0.015, 0.01],
+                "FundB": [0.02] * 6,
+            }
+        )
+        result = validate_returns_schema(frame)
+        report = result.get_report()
+        assert "Missing data policy" in report
 
 
 class TestLoadAndValidateUpload:

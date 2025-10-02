@@ -15,6 +15,7 @@ from .market_data import (
     MarketDataMode,
     MarketDataValidationError,
     ValidatedMarketData,
+    classify_frequency,
     attach_metadata,
     validate_market_data,
 )
@@ -40,6 +41,27 @@ class _ValidationSummary:
                 warnings.append(
                     f"Column '{column}' has >50% missing values ({valid}/{rows} valid)."
                 )
+        if self.metadata.frequency_missing_periods > 0:
+            warnings.append(
+                "Date index contains "
+                f"{self.metadata.frequency_missing_periods} missing {self.metadata.frequency_label} periods "
+                f"(max gap {self.metadata.frequency_max_gap_periods})."
+            )
+        if self.metadata.missing_policy_dropped:
+            dropped = ", ".join(sorted(self.metadata.missing_policy_dropped))
+            warnings.append(
+                "Missing-data policy dropped columns: "
+                f"{dropped} (policy={self.metadata.missing_policy})."
+            )
+        if self.metadata.missing_policy_summary and (
+            self.metadata.frequency_missing_periods > 0
+            or bool(self.metadata.missing_policy_filled)
+            or bool(self.metadata.missing_policy_dropped)
+        ):
+            warnings.append(
+                "Missing-data policy applied: "
+                f"{self.metadata.missing_policy_summary}."
+            )
         return warnings
 
 
@@ -76,6 +98,18 @@ class ValidationResult:
                 )
             if self.mode:
                 lines.append(f"📈 Detected mode: {self.mode.value}")
+            if (
+                self.metadata
+                and self.metadata.missing_policy_summary
+                and (
+                    self.metadata.frequency_missing_periods > 0
+                    or bool(self.metadata.missing_policy_filled)
+                    or bool(self.metadata.missing_policy_dropped)
+                )
+            ):
+                lines.append(
+                    "🧹 Missing data policy: " f"{self.metadata.missing_policy_summary}"
+                )
         else:
             lines.append("❌ Schema validation failed!")
 
@@ -108,21 +142,16 @@ def detect_frequency(df: pd.DataFrame) -> str:
 
     if not isinstance(df.index, pd.DatetimeIndex) or len(df.index) < 2:
         return "unknown"
-    diffs = df.index.to_series().diff().dropna()
-    if diffs.empty:
+    try:
+        info = classify_frequency(df.index)
+    except MarketDataValidationError:
         return "unknown"
-    median = diffs.dt.days.median()
-    if median <= 1:
-        return "daily"
-    if 6 <= median <= 8:
-        return "weekly"
-    if 28 <= median <= 32:
-        return "monthly"
-    if 85 <= median <= 95:
-        return "quarterly"
-    if 360 <= median <= 370:
-        return "annual"
-    return f"irregular ({median:.0f} days avg)"
+    label = str(info.get("label") or "unknown")
+    code = str(info.get("code") or "")
+    if label == "unknown" and code not in {"", "UNKNOWN"}:
+        # Provide the compact code if available (e.g. D/W/M)
+        return code
+    return label
 
 
 def _build_result(validated: ValidatedMarketData) -> ValidationResult:
