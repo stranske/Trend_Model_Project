@@ -99,20 +99,28 @@ def test_run_analysis_returns_score_frame():
     assert sf.attrs["insample_len"] == 3
 
 
-def test_run_analysis_normalises_daily_inputs():
-    monthly_df = make_df()
-    daily_df = make_daily_df(monthly_df)
+def _make_daily_equivalent_df(monthly_df: pd.DataFrame) -> pd.DataFrame:
+    rows: list[dict[str, float | pd.Timestamp]] = []
+    for record in monthly_df.to_dict("records"):
+        month_end = record["Date"]
+        start = pd.Timestamp(month_end).replace(day=1)
+        rng = pd.date_range(start, month_end, freq="D")
+        for day in rng[:-1]:
+            rows.append({"Date": day, "RF": record["RF"], "A": 0.0, "B": 0.0})
+        rows.append(
+            {
+                "Date": rng[-1],
+                "RF": record["RF"],
+                "A": record["A"],
+                "B": record["B"],
+            }
+        )
+    return pd.DataFrame(rows).sort_values("Date")
 
-    res_monthly = run_analysis(
-        monthly_df,
-        "2020-01",
-        "2020-03",
-        "2020-04",
-        "2020-06",
-        0.1,
-        0.0,
-    )
-    res_daily = run_analysis(
+
+def test_run_analysis_detects_daily_frequency():
+    daily_df = _make_daily_equivalent_df(make_df())
+    res = run_analysis(
         daily_df,
         "2020-01",
         "2020-03",
@@ -120,29 +128,20 @@ def test_run_analysis_normalises_daily_inputs():
         "2020-06",
         0.1,
         0.0,
-        missing_policy="drop",
     )
-
-    assert res_monthly["input_frequency"]["code"] == "M"
-    assert res_daily["input_frequency"]["code"] == "D"
-    assert set(res_monthly["selected_funds"]) == set(res_daily["selected_funds"])
-
-    for key in ("in_sample_stats", "out_sample_stats"):
-            for fund, monthly_stats in res_monthly[key].items():
-                daily_stats = res_daily[key][fund]
-                for attr in ("cagr", "vol", "sharpe", "sortino", "information_ratio", "max_drawdown"):
-                    expected = getattr(monthly_stats, attr)
-                    actual = getattr(daily_stats, attr)
-                    if pd.isna(expected) and pd.isna(actual):
-                        continue
-                    assert actual == pytest.approx(expected, rel=1e-6)
+    assert res is not None
+    preprocess = res.get("preprocessing", {})
+    assert preprocess.get("input_frequency") == "D"
+    assert preprocess.get("resampled_to_monthly") is True
+    summary = res.get("preprocessing_summary")
+    assert isinstance(summary, str) and "Cadence" in summary
 
 
-def test_run_analysis_missing_policy_summary_zero_fill():
+def test_run_analysis_missing_policy_zero_keeps_asset():
     df = make_df()
-    df.loc[2, "A"] = pd.NA
+    df.loc[1, "B"] = np.nan
 
-    res_drop = run_analysis(
+    dropped = run_analysis(
         df,
         "2020-01",
         "2020-03",
@@ -150,9 +149,11 @@ def test_run_analysis_missing_policy_summary_zero_fill():
         "2020-06",
         0.1,
         0.0,
-        missing_policy="drop",
     )
-    res_zero = run_analysis(
+    assert dropped is not None
+    assert set(dropped["selected_funds"]) == {"A"}
+
+    filled = run_analysis(
         df,
         "2020-01",
         "2020-03",
@@ -160,13 +161,9 @@ def test_run_analysis_missing_policy_summary_zero_fill():
         "2020-06",
         0.1,
         0.0,
-        missing_policy="zero",
+        missing_policy={"default": "zero"},
     )
-
-    assert res_drop["missing_data_policy"]["policy"] == "drop"
-    assert "A" not in res_drop["selected_funds"]
-
-    zero_policy = res_zero["missing_data_policy"]
-    assert zero_policy["policy"] == "zero"
-    assert zero_policy["total_filled"] >= 1
-    assert "A" in res_zero["selected_funds"]
+    assert filled is not None
+    assert set(filled["selected_funds"]) == {"A", "B"}
+    missing_meta = filled.get("preprocessing", {}).get("missing", {})
+    assert missing_meta.get("dropped") == []

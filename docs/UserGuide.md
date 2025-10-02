@@ -54,6 +54,24 @@ python -m trend_analysis.run_analysis -c config/presets/balanced.yml
 Replace `balanced` with `conservative` or `aggressive` as needed. See
 [PresetStrategies.md](PresetStrategies.md) for a summary of each option.
 
+### 4.1 Frequency detection & missing-data policies
+
+The pipeline now inspects the `Date` column and automatically detects whether
+the input returns are daily, weekly or monthly. Daily and weekly data are
+compounded to month-end returns before the in/out-sample windows are sliced, so
+backtests remain comparable regardless of the original cadence.
+
+Missing observations are handled according to `preprocessing.missing_data` in
+the YAML configuration. The section supports:
+
+- `policy`: `drop`, `ffill` or `zero` (default is `drop`).
+- `limit`: maximum length of a forward-fill run (use `null` for unlimited).
+- `per_asset` / `per_asset_limit`: optional overrides per column, e.g.
+  `per_asset: {RF: zero}`.
+
+The effective cadence and policy are recorded in the results under
+`preprocessing.summary` and appear as a one-line note on Excel/TXT exports.
+
 ## 5. Selection modes and ranking
 
 `portfolio.selection_mode` supports `all`, `random`, `manual` and `rank` values. In rank mode you can keep the top funds by score or apply a threshold. Scores come from metrics defined under `metrics.registry` and may be combined with z‑scored weights.

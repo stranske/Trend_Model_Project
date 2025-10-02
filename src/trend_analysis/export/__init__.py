@@ -363,8 +363,15 @@ def _build_summary_formatter(
         ws.write_row(0, 0, ["Vol-Adj Trend Analysis"], bold)
         ws.write_row(1, 0, [f"In:  {in_start} → {in_end}"], bold)
         ws.write_row(2, 0, [f"Out: {out_start} → {out_end}"], bold)
-        meta_line = _format_frequency_policy_line(res)
-        ws.write_row(3, 0, [meta_line], bold)
+        summary_text = cast(
+            str,
+            res.get("preprocessing_summary")
+            or cast(Mapping[str, Any], res.get("preprocessing", {})).get("summary"),
+        )
+        if summary_text:
+            ws.write_row(3, 0, [summary_text])
+        else:
+            ws.write_row(3, 0, [""])
         bench_labels = list(res.get("benchmark_ir", {}))
         headers = [
             "Name",
@@ -629,10 +636,18 @@ def format_summary_text(
         "Vol-Adj Trend Analysis",
         f"In:  {in_start} → {in_end}",
         f"Out: {out_start} → {out_end}",
-        meta_line,
+    ]
+    summary_text = cast(
+        str,
+        res.get("preprocessing_summary")
+        or cast(Mapping[str, Any], res.get("preprocessing", {})).get("summary"),
+    )
+    if summary_text:
+        header.append(summary_text)
+    header.extend([
         "",
         df_formatted.to_string(index=False),
-    ]
+    ])
     return "\n".join(header)
 
 
