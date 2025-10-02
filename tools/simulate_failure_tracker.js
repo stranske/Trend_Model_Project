@@ -156,7 +156,7 @@ function createGithub(state, options) {
           };
         },
         async create({ title, body, labels }) {
-          const number = state.nextIssueNumber + state.issueCreationCount;
+          const number = state.issue ? state.issue.number : state.nextIssueNumber;
           state.issue = {
             number,
             title,
