@@ -513,6 +513,9 @@ def run(
                 seed=getattr(cfg, "seed", 42),
                 missing_policy=policy_spec,
                 missing_limit=missing_limit_cfg,
+                risk_window=cfg.vol_adjust.get("window"),
+                previous_weights=cfg.portfolio.get("previous_weights"),
+                max_turnover=cfg.portfolio.get("max_turnover"),
             )
             if res is None:
                 continue
@@ -1166,6 +1169,7 @@ def run(
             indices_list=cfg.portfolio.get("indices_list"),
             benchmarks=cfg.benchmarks,
             seed=getattr(cfg, "seed", 42),
+            risk_window=cfg.vol_adjust.get("window"),
         )
         if res is None:
             continue
