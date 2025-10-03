@@ -45,7 +45,7 @@ permissions:
   actions: write
 
 concurrency:
-  group: agents-assign-and-watch-${{ github.event.inputs.issue || github.event.inputs.event_payload || github.run_id }}
+  group: agents-assign-and-watch-${{ github.event.inputs.issue || github.run_id }}
   cancel-in-progress: false
 
 jobs:
