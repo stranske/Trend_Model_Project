@@ -77,6 +77,9 @@ def test_rolling_and_expanding_windows_diverge() -> None:
 
     summary = expanding.summary()
     assert summary["window_mode"] == "expanding"
+    assert summary["calendar"]
+    first_calendar_entry = summary["calendar"][0]
+    assert isinstance(first_calendar_entry, str)
     assert "metrics" in summary and "cagr" in summary["metrics"]
     assert "rolling_sharpe" in summary
     assert "turnover" in summary
