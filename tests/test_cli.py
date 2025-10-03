@@ -2,6 +2,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pandas as pd
+import pytest
 
 import yaml
 from trend_analysis import cli
@@ -64,6 +65,68 @@ def _write_cfg(path: Path, version: str, *, csv_path: Path) -> None:
     }
 
     path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+
+
+def test_cli_run_with_preset_applies_signals(tmp_path, monkeypatch):
+    cfg = tmp_path / "cfg.yml"
+    csv = tmp_path / "data.csv"
+    csv.write_text("Date,A\n2020-01-31,0.0\n")
+    _write_cfg(cfg, "1", csv_path=csv)
+
+    captured: dict[str, object] = {}
+
+    def fake_run_simulation(cfg_obj, df):
+        captured["signals"] = getattr(cfg_obj, "signals", {})
+        captured["vol_adjust"] = getattr(cfg_obj, "vol_adjust", {})
+        captured["run"] = getattr(cfg_obj, "run", {})
+        return RunResult(pd.DataFrame(), {"out_sample_stats": {}}, 42, {})
+
+    original_load_config = cli.load_config
+
+    def fake_load_config(path):
+        cfg_obj = original_load_config(path)
+        setattr(
+            cfg_obj,
+            "sample_split",
+            {
+                "in_start": "2020-01",
+                "in_end": "2020-02",
+                "out_start": "2020-03",
+                "out_end": "2020-04",
+            },
+        )
+        return cfg_obj
+
+    monkeypatch.setattr(cli, "load_config", fake_load_config)
+
+    frame = pd.DataFrame({"Date": pd.to_datetime(["2020-01-31"]), "A": [0.0]})
+    monkeypatch.setattr(
+        cli,
+        "load_market_data_csv",
+        lambda path: SimpleNamespace(frame=frame),
+    )
+    monkeypatch.setattr(cli, "run_simulation", fake_run_simulation)
+    monkeypatch.setattr(cli.export, "format_summary_text", lambda *a, **k: "")
+    monkeypatch.setattr(cli.export, "export_to_excel", lambda *a, **k: None)
+    monkeypatch.setattr(cli.export, "export_data", lambda *a, **k: None)
+    monkeypatch.setattr(cli.run_logging, "init_run_logger", lambda *a, **k: None)
+
+    rc = cli.main(["run", "-c", str(cfg), "-i", str(csv), "--preset", "conservative"])
+
+    assert rc == 0
+    signals = captured["signals"]
+    assert isinstance(signals, dict)
+    assert signals["window"] == 126
+    assert signals["vol_adjust"] is True
+    assert pytest.approx(signals["vol_target"], rel=1e-6) == 0.08
+
+    vol_adjust = captured["vol_adjust"]
+    assert isinstance(vol_adjust, dict)
+    assert vol_adjust["window"]["length"] == 126
+
+    run_section = captured["run"]
+    assert isinstance(run_section, dict)
+    assert run_section.get("trend_preset") == "conservative"
 
 
 def test_cli_version_custom(tmp_path, monkeypatch):

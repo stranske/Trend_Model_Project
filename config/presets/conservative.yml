@@ -20,6 +20,15 @@ metrics:
   volatility: 0.2
   return_ann: 0.1
 
+# Trend signal configuration
+signals:
+  window: 126          # ≈6 months of trading days
+  min_periods: 84      # Require at least 4 months of history
+  lag: 1               # One-period execution delay
+  vol_adjust: true
+  vol_target: 0.08
+  zscore: false
+
 # Conservative portfolio construction
 portfolio:
   max_weight: 0.25  # Higher concentration allowed for conservative picks

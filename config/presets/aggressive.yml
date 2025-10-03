@@ -20,6 +20,15 @@ metrics:
   max_drawdown: 0.15  # Lower concern for drawdowns
   volatility: 0.15
 
+# Trend signal configuration
+signals:
+  window: 42           # ≈2 months of trading days
+  min_periods: 30      # Require at least ~1.5 months of history
+  lag: 1
+  vol_adjust: true
+  vol_target: 0.15
+  zscore: true
+
 # Aggressive portfolio construction
 portfolio:
   max_weight: 0.10  # Lower max weight for diversification

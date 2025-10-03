@@ -16,9 +16,18 @@ risk_target: 0.10  # Standard target volatility (10%)
 # Balanced metrics weighting
 metrics:
   sharpe_ratio: 0.3
-  return_ann: 0.3  
+  return_ann: 0.3
   max_drawdown: 0.25
   volatility: 0.15
+
+# Trend signal configuration
+signals:
+  window: 84           # ≈4 months of trading days
+  min_periods: 63
+  lag: 1
+  vol_adjust: true
+  vol_target: 0.10
+  zscore: false
 
 # Balanced portfolio construction
 portfolio:

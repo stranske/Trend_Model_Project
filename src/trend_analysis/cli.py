@@ -26,6 +26,7 @@ from .constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 from .data import load_csv
 from .io.market_data import MarketDataValidationError
 from .perf.rolling_cache import set_cache_enabled
+from .presets import apply_trend_preset, get_trend_preset, list_preset_slugs
 
 APP_PATH = Path(__file__).resolve().parents[2] / "streamlit_app" / "app.py"
 LOCK_PATH = Path(__file__).resolve().parents[2] / "requirements.lock"
@@ -219,7 +220,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     run_p.add_argument(
         "--preset",
-        help="TrendSpec preset to apply (e.g. Conservative, Aggressive)",
+        help="Apply a named trend preset to signal generation",
     )
 
     # Handle --check flag before parsing subcommands
@@ -258,6 +259,17 @@ def main(argv: list[str] | None = None) -> int:
                 return 2
             _apply_trend_spec_preset(cfg, preset)
         set_cache_enabled(not args.no_cache)
+        if getattr(args, "preset", None):
+            try:
+                preset = get_trend_preset(args.preset)
+            except KeyError:
+                available = ", ".join(list_preset_slugs())
+                print(
+                    f"Unknown preset '{args.preset}'. Available: {available}",
+                    file=sys.stderr,
+                )
+                return 2
+            apply_trend_preset(cfg, preset)
         cli_seed = args.seed
         env_seed = os.getenv("TREND_SEED")
         # Precedence: CLI flag > TREND_SEED > config.seed > default 42
