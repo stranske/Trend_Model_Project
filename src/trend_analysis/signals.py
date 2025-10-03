@@ -136,9 +136,10 @@ def generate_signals(
         Configuration object describing the requested signal transformations.
     rebalance_dates:
         Optional sequence of timestamps indicating when the strategy rebalances.
-        Execution lag is applied on these dates. If none of the provided
-        timestamps align with ``prices.index`` a :class:`ValueError` is raised to
-        avoid returning an unlagged signal.
+        Execution lag is applied on these dates. If any provided timestamp is
+        absent from ``prices.index`` a :class:`ValueError` is raised to avoid
+        returning an incorrectly aligned signal.  When omitted the lag is applied
+        uniformly to the full series.
     """
 
     if not isinstance(prices, pd.DataFrame):
@@ -231,12 +232,23 @@ def _apply_execution_lag(
     if periods <= 0:
         return frame
 
+    rebal_dates = pd.DatetimeIndex(list(rebalance_dates))
     shifted = frame.shift(periods)
-    rebal_index = frame.index.intersection(pd.DatetimeIndex(list(rebalance_dates)))
+    rebal_index = frame.index.intersection(rebal_dates)
     if not len(rebal_index):
         raise ValueError(
             "None of the provided rebalance_dates overlap with the price index; "
             "execution lag cannot be applied."
+        )
+
+    missing = rebal_dates.difference(rebal_index)
+    if len(missing):
+        missing_str = ", ".join(ts.isoformat() for ts in missing[:5])
+        if len(missing) > 5:
+            missing_str += ", …"
+        raise ValueError(
+            "Rebalance dates missing from price index; cannot guarantee lag "
+            f"alignment: {missing_str}"
         )
 
     result = frame.copy()
