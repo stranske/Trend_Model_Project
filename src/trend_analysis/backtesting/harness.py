@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Callable, Dict, Literal, Mapping, Sequence
+from typing import Any, Callable, Dict, Literal, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
@@ -54,7 +54,7 @@ class BacktestResult:
             },
         }
 
-    def to_json(self, **dumps_kwargs: object) -> str:
+    def to_json(self, **dumps_kwargs: Any) -> str:
         """Serialise :meth:`summary` to JSON for downstream consumers."""
 
         return json.dumps(self.summary(), default=_json_default, **dumps_kwargs)
@@ -89,7 +89,9 @@ def run_backtest(
         raise ValueError("rebalance calendar produced no dates – check frequency")
 
     periods_per_year = _infer_periods_per_year(data.index)
-    roll_window = rolling_sharpe_window or min(window_size, max(1, periods_per_year // 3))
+    roll_window = rolling_sharpe_window or min(
+        window_size, max(1, periods_per_year // 3)
+    )
 
     asset_columns = list(data.columns)
     portfolio_returns = pd.Series(index=data.index, dtype=float)
@@ -101,11 +103,7 @@ def run_backtest(
     prev_weights = _initial_weights(asset_columns, initial_weights)
     data_values = data.values
 
-    eligible_dates = [
-        date
-        for date in calendar
-        if len(data.loc[:date]) >= window_size
-    ]
+    eligible_dates = [date for date in calendar if len(data.loc[:date]) >= window_size]
     if not eligible_dates:
         raise ValueError("window_size too large – no eligible rebalance dates")
 
@@ -142,7 +140,10 @@ def run_backtest(
             stop = len(data.index)
 
         apply_slice = slice(start_idx + 1, stop)
-        if apply_slice.start >= len(data.index) or apply_slice.start >= apply_slice.stop:
+        if (
+            apply_slice.start >= len(data.index)
+            or apply_slice.start >= apply_slice.stop
+        ):
             continue
 
         pending_cost = float(cost)
@@ -194,7 +195,9 @@ def _prepare_returns(df: pd.DataFrame) -> pd.DataFrame:
     if "Date" in df.columns:
         df = df.set_index("Date")
     if not isinstance(df.index, pd.DatetimeIndex):
-        raise ValueError("returns index must be a DatetimeIndex or include a 'Date' column")
+        raise ValueError(
+            "returns index must be a DatetimeIndex or include a 'Date' column"
+        )
     df = df.sort_index()
     numeric_df = df.select_dtypes(include=["number"]).astype(float)
     if numeric_df.empty:
@@ -246,7 +249,9 @@ def _infer_periods_per_year(index: pd.DatetimeIndex) -> int:
     return max(1, approx)
 
 
-def _initial_weights(columns: Sequence[str], initial: Mapping[str, float] | None) -> pd.Series:
+def _initial_weights(
+    columns: Sequence[str], initial: Mapping[str, float] | None
+) -> pd.Series:
     base = pd.Series(0.0, index=columns, dtype=float)
     if initial is None:
         return base
@@ -272,7 +277,9 @@ def _compute_drawdown(equity_curve: pd.Series) -> pd.Series:
     return drawdown
 
 
-def _rolling_sharpe(returns: pd.Series, periods_per_year: int, window: int) -> pd.Series:
+def _rolling_sharpe(
+    returns: pd.Series, periods_per_year: int, window: int
+) -> pd.Series:
     if window <= 1:
         window = 2
     rolling_mean = returns.rolling(window=window).mean()
@@ -310,13 +317,13 @@ def _compute_metrics(
         if active_returns.std(ddof=0)
         else float("nan")
     )
-    sortino = (
-        active_returns.mean() / downside_std
-        if downside_std
+    sortino = active_returns.mean() / downside_std if downside_std else float("nan")
+    max_drawdown = float(drawdown.min()) if len(drawdown) else float("nan")
+    calmar = (
+        cagr / abs(max_drawdown)
+        if max_drawdown and not np.isnan(cagr)
         else float("nan")
     )
-    max_drawdown = float(drawdown.min()) if len(drawdown) else float("nan")
-    calmar = cagr / abs(max_drawdown) if max_drawdown and not np.isnan(cagr) else float("nan")
 
     return {
         "cagr": _to_float(cagr),
@@ -359,7 +366,7 @@ def _json_default(obj: object) -> object:
     raise TypeError(f"Object of type {type(obj)!r} is not JSON serializable")
 
 
-def _to_float(value: float | np.floating | np.integer) -> float:
+def _to_float(value: float | np.floating[Any] | np.integer[Any]) -> float:
     return float(value) if value is not None and not pd.isna(value) else float("nan")
 
 

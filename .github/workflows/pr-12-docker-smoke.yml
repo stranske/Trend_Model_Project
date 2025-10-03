@@ -53,12 +53,11 @@ jobs:
       HEALTH_PATH: ${{ vars.HEALTH_PATH || '/health' }}
       BUILD_CACHE_PATH: /tmp/.buildx-cache
       BUILD_CACHE_TEMP: /tmp/.buildx-cache-new
-      BUILD_CACHE_KEY: docker-smoke-buildx-${{ hashFiles('requirements.lock') }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
       - name: Log in to container registry
         if: github.event_name == 'push' && github.ref == 'refs/heads/phase-2-dev'
         uses: docker/login-action@v3
@@ -74,18 +73,22 @@ jobs:
           mkdir -p "${BUILD_CACHE_PATH}"
           rm -rf "${BUILD_CACHE_TEMP}"
 
+      - name: Compute buildx cache key
+        id: compute-buildx-key
+        run: echo "value=docker-smoke-buildx-${{ hashFiles('requirements.lock') }}" >> "$GITHUB_OUTPUT"
+
       - name: Restore buildx cache
         # Deterministic cache keyed solely by the lock file to keep smoke builds reproducible.
         id: restore-buildx-cache
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.BUILD_CACHE_PATH }}
-          key: ${{ env.BUILD_CACHE_KEY }}
+          key: ${{ steps.compute-buildx-key.outputs.value }}
 
       - name: Summarize buildx cache
         env:
           CACHE_HIT: ${{ steps.restore-buildx-cache.outputs.cache-hit }}
-          CACHE_KEY: ${{ env.BUILD_CACHE_KEY }}
+          CACHE_KEY: ${{ steps.compute-buildx-key.outputs.value }}
         run: |
           if [ "$CACHE_HIT" = "true" ]; then
             echo "::notice title=BuildxCache::Cache hit for ${CACHE_KEY}"
@@ -118,7 +121,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: ${{ env.BUILD_CACHE_PATH }}
-          key: ${{ env.BUILD_CACHE_KEY }}
+          key: ${{ steps.compute-buildx-key.outputs.value }}
       - name: Run test suite (reuses cached image)
         env:
           WF_CALL_DEBUG: ${{ inputs.debug_build && 'true' || '' }}
