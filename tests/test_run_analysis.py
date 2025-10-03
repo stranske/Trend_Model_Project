@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-import pytest
 
 from trend_analysis.core.rank_selection import RiskStatsConfig
 from trend_analysis.metrics import (
