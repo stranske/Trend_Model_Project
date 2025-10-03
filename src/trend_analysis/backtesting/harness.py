@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Callable, Dict, Literal, Mapping, Sequence
+from typing import Any, Callable, Dict, Literal, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
@@ -54,7 +54,7 @@ class BacktestResult:
             },
         }
 
-    def to_json(self, **dumps_kwargs: object) -> str:
+    def to_json(self, **dumps_kwargs: Any) -> str:
         """Serialise :meth:`summary` to JSON for downstream consumers."""
 
         return json.dumps(self.summary(), default=_json_default, **dumps_kwargs)
