@@ -79,6 +79,15 @@ def test_rolling_and_expanding_windows_diverge() -> None:
     assert summary["window_mode"] == "expanding"
     assert "metrics" in summary and "cagr" in summary["metrics"]
     assert "rolling_sharpe" in summary
+    assert "turnover" in summary
+    assert "transaction_costs" in summary
+    assert "weights" in summary
+    if summary["weights"]:
+        first_weight_entry = next(iter(summary["weights"].values()))
+        assert isinstance(first_weight_entry, dict)
+        if first_weight_entry:
+            first_weight_value = next(iter(first_weight_entry.values()))
+            assert isinstance(first_weight_value, float)
     assert json.loads(expanding.to_json())["window_mode"] == "expanding"
 
 

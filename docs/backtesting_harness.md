@@ -18,8 +18,9 @@ walk-forward portfolio evaluation with:
 
 Downstream integrations can serialise the result via
 `BacktestResult.to_json()`, which emits a JSON payload containing the summary
-metrics, rolling Sharpe series, drawdown path, and rebalance calendar so that UI
-layers can present the walk-forward evaluation without bespoke post-processing.
+metrics, rolling Sharpe series, drawdown path, rebalance calendar, turnover,
+transaction-cost ledger, and sparse weight history so that UI layers can present
+the walk-forward evaluation without bespoke post-processing.
 
 See `tests/backtesting/test_harness.py` for end-to-end usage examples covering
 window switching and transaction-cost verification.

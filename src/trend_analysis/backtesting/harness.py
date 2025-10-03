@@ -41,6 +41,9 @@ class BacktestResult:
             "rolling_sharpe": _series_to_dict(self.rolling_sharpe),
             "drawdown": _series_to_dict(self.drawdown),
             "equity_curve": _series_to_dict(self.equity_curve),
+            "turnover": _series_to_dict(self.turnover),
+            "transaction_costs": _series_to_dict(self.transaction_costs),
+            "weights": _weights_to_dict(self.weights),
         }
 
     def to_json(self, **dumps_kwargs: object) -> str:
@@ -323,6 +326,21 @@ def _series_to_dict(series: pd.Series) -> Dict[str, float]:
         return {}
     cleaned = series.dropna()
     return {idx.isoformat(): _to_float(val) for idx, val in cleaned.items()}
+
+
+def _weights_to_dict(weights: pd.DataFrame) -> Dict[str, Dict[str, float]]:
+    if weights.empty:
+        return {}
+    result: Dict[str, Dict[str, float]] = {}
+    for timestamp, row in weights.dropna(how="all").iterrows():
+        cleaned_row = {
+            col: _to_float(val)
+            for col, val in row.items()
+            if not pd.isna(val) and not np.isclose(val, 0.0)
+        }
+        if cleaned_row:
+            result[timestamp.isoformat()] = cleaned_row
+    return result
 
 
 def _json_default(obj: object) -> object:
