@@ -165,12 +165,15 @@ def generate_signals(
         normalized = vol_adjusted
 
     executed = normalized
-    if rebalance_dates is not None and spec.execution_lag > 0:
-        executed = _apply_execution_lag(
-            normalized,
-            rebalance_dates=rebalance_dates,
-            periods=spec.execution_lag,
-        )
+    if spec.execution_lag > 0:
+        if rebalance_dates is None:
+            executed = normalized.shift(spec.execution_lag)
+        else:
+            executed = _apply_execution_lag(
+                normalized,
+                rebalance_dates=rebalance_dates,
+                periods=spec.execution_lag,
+            )
 
     frame = _assemble_frame(
         index=prices.index,
