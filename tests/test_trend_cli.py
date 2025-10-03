@@ -106,6 +106,15 @@ def test_main_run_invokes_pipeline(monkeypatch, tmp_path: Path) -> None:
         return RunResult(pd.DataFrame(), {}, 42, {}), "run123", Path("log.json")
 
     monkeypatch.setattr("trend.cli._ensure_dataframe", fake_ensure_dataframe)
+    config_obj = SimpleNamespace(
+        sample_split={},
+        vol_adjust={},
+        portfolio={},
+        run={},
+        benchmarks={},
+        export={},
+    )
+    monkeypatch.setattr(cli, "load_config", lambda path: config_obj)
     monkeypatch.setattr("trend.cli._run_pipeline", fake_run_pipeline)
     monkeypatch.setattr("trend.cli._print_summary", lambda *args, **kwargs: None)
 
@@ -130,14 +139,33 @@ def test_main_report_uses_requested_directory(monkeypatch, tmp_path: Path) -> No
         return dummy_result, "runABC", None
 
     monkeypatch.setattr("trend.cli._ensure_dataframe", lambda _p: pd.DataFrame())
+    config_obj = SimpleNamespace(
+        sample_split={},
+        vol_adjust={},
+        portfolio={},
+        run={},
+        benchmarks={},
+        export={},
+    )
+    monkeypatch.setattr(cli, "load_config", lambda path: config_obj)
     monkeypatch.setattr("trend.cli._run_pipeline", fake_run_pipeline)
     monkeypatch.setattr("trend.cli._print_summary", lambda *args, **kwargs: None)
     recorded: dict[str, Path] = {}
+    captured_report: dict[str, object] = {}
 
     def fake_write(out_dir: Path, *args, **kwargs) -> None:
         recorded["dir"] = out_dir
 
     monkeypatch.setattr("trend.cli._write_report_files", fake_write)
+    monkeypatch.setattr(
+        "trend.cli._resolve_returns_path", lambda *args, **kwargs: tmp_path / "returns.csv"
+    )
+    monkeypatch.setattr(
+        "trend.cli.generate_unified_report",
+        lambda *args, **kwargs: (
+            captured_report.update(kwargs) or SimpleNamespace(html="<html>ok</html>", pdf_bytes=None, context={})
+        ),
+    )
 
     out_dir = tmp_path / "reports"
     exit_code = main(
@@ -152,6 +180,41 @@ def test_main_report_uses_requested_directory(monkeypatch, tmp_path: Path) -> No
 
     assert exit_code == 0
     assert recorded["dir"] == out_dir
+    html_path = out_dir / "trend_report_runABC.html"
+    assert html_path.read_text(encoding="utf-8") == "<html>ok</html>"
+    assert captured_report["include_pdf"] is False
+    assert captured_report["run_id"] == "runABC"
+
+
+def test_main_report_supports_output_file_only(monkeypatch, tmp_path: Path) -> None:
+    dummy_result = RunResult(pd.DataFrame(), {}, 42, {})
+
+    def fake_run_pipeline(*args, **kwargs):  # type: ignore[override]
+        return dummy_result, "xyz", None
+
+    monkeypatch.setattr("trend.cli._ensure_dataframe", lambda _p: pd.DataFrame())
+    monkeypatch.setattr("trend.cli._run_pipeline", fake_run_pipeline)
+    monkeypatch.setattr("trend.cli._print_summary", lambda *args, **kwargs: None)
+    monkeypatch.setattr("trend.cli._write_report_files", lambda *a, **k: None)
+    monkeypatch.setattr(
+        "trend.cli._resolve_returns_path", lambda *args, **kwargs: tmp_path / "returns.csv"
+    )
+    monkeypatch.setattr(
+        "trend.cli.generate_unified_report",
+        lambda *a, **k: SimpleNamespace(html="<html>report</html>", pdf_bytes=None, context={}),
+    )
+
+    target = tmp_path / "custom-report.html"
+    exit_code = main([
+        "report",
+        "--config",
+        "config/demo.yml",
+        "--output",
+        str(target),
+    ])
+
+    assert exit_code == 0
+    assert target.read_text(encoding="utf-8") == "<html>report</html>"
 
 
 def test_main_report_requires_output_directory() -> None:
