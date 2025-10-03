@@ -1,4 +1,4 @@
-name: Agent watchdog
+name: Agent watchdog (wrapper)
 
 on:
   workflow_dispatch:
@@ -24,38 +24,19 @@ on:
         default: ""
 
 permissions:
+  actions: write
   contents: read
-  issues: write
+  issues: read
   pull-requests: read
 
 jobs:
-  monitor:
+  forward:
     runs-on: ubuntu-latest
     steps:
-      - name: Watch for cross-referenced PR
-        id: monitor
+      - name: Dispatch unified watchdog
         uses: actions/github-script@v7
         with:
           script: |
-            const issueNumber = Number(core.getInput('issue'));
-            if (!issueNumber) {
-              core.setFailed('Missing issue number input.');
-              return;
-            }
-            const agent = core.getInput('agent') || '';
-            const expectedPrRaw = core.getInput('expected_pr') || '';
-            const expectedPr = expectedPrRaw ? Number(expectedPrRaw) : 0;
-            const timeoutInput = core.getInput('timeout_minutes') || '7';
-            const timeoutMinutes = Number(timeoutInput) > 0 ? Number(timeoutInput) : 7;
-            const startInput = core.getInput('started_at') || '';
-            let startTime = startInput ? new Date(startInput) : new Date();
-            if (Number.isNaN(startTime.getTime())) {
-              startTime = new Date();
-            }
-            const startMs = startTime.getTime();
-            const pollMs = 30000;
-            const deadline = startMs + timeoutMinutes * 60000;
-            const threshold = startMs - 5000;
             const { owner, repo } = context.repo;
 
             const findCrossReference = async () => {
@@ -149,4 +130,5 @@ jobs:
               if (!alreadyCommented) {
                 await github.rest.issues.createComment({ owner, repo, issue_number: issueNumber, body });
               }
-            }
+            });
+            core.info('Dispatched watch operation to agents-41-assign-and-watch.yml.');

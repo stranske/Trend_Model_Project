@@ -7,30 +7,36 @@ def _load_yaml_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def test_assign_workflow_present_and_minimal():
+def test_unified_agents_workflow_structure():
+    wf = WORKFLOWS_DIR / "agents-41-assign-and-watch.yml"
+    assert wf.exists(), "agents-41-assign-and-watch.yml must exist (unified orchestrator guard)"
+    text = _load_yaml_text(wf)
+    assert "workflow_dispatch:" in text, "Unified workflow must expose workflow_dispatch trigger"
+    assert "schedule:" in text, "Unified workflow must include scheduled watchdog sweep"
+    assert "reusable-90-agents.yml" in text, "Unified workflow must reuse reusable-90-agents for readiness checks"
+    assert "codex-bootstrap-lite" in text, "Unified workflow must invoke codex bootstrap composite"
+    assert "watchdog_sweep" in text, "Unified workflow must define the watchdog sweep job"
+    assert "✅ Agent Watchdog" in text, "Unified workflow must preserve success watchdog messaging"
+    assert "🚨 Watchdog escalation" in text, "Unified workflow must emit escalation prefix for stale issues"
+
+
+def test_assign_wrapper_forwards_events():
     wf = WORKFLOWS_DIR / "agents-41-assign.yml"
-    assert wf.exists(), "agents-41-assign.yml must exist (agents consolidation guard)"
+    assert wf.exists(), "agents-41-assign.yml wrapper must remain present"
     text = _load_yaml_text(wf)
-    assert (
-        "on:" in text and "issues:" in text
-    ), "agents-41-assign.yml must listen to issue events"
-    assert (
-        "pull_request_target:" in text
-    ), "agents-41-assign.yml must handle PR labeling events"
-    assert (
-        "codex-bootstrap-lite" in text
-    ), "Codex bootstrap composite action must be invoked"
-    assert "@codex start" in text, "Trigger command for Codex must be present"
-    assert "agents-42-watchdog.yml" in text, "Watchdog dispatch must remain wired"
+    assert "issues:" in text, "Wrapper must still listen to issue events"
+    assert "createWorkflowDispatch" in text, "Wrapper must forward via workflow dispatch"
+    assert "workflow_id: 'agents-41-assign-and-watch.yml'" in text, "Wrapper must delegate to unified workflow"
+    assert "event_payload" in text, "Wrapper must forward raw event payload"
 
 
-def test_agent_watchdog_timeout_and_messages():
+def test_watchdog_wrapper_dispatches_mode():
     wf = WORKFLOWS_DIR / "agents-42-watchdog.yml"
-    assert wf.exists(), "agents-42-watchdog.yml must exist (agents consolidation guard)"
+    assert wf.exists(), "agents-42-watchdog.yml wrapper must remain present"
     text = _load_yaml_text(wf)
-    assert "timeout_minutes" in text, "Watchdog input timeout_minutes missing"
-    assert "✅ Agent Watchdog" in text, "Success message prefix missing"
-    assert "⚠️ Agent Watchdog" in text, "Timeout message prefix missing"
+    assert "workflow_dispatch:" in text, "Watchdog wrapper must keep manual trigger"
+    assert "mode: 'watch'" in text, "Watchdog wrapper must call unified workflow with mode=watch"
+    assert "event_payload" in text, "Watchdog wrapper must forward payload context"
 
 
 def test_no_active_legacy_agent_workflows():

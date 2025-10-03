@@ -8,7 +8,7 @@ The `.github/workflows` directory contains both new reusable workflows and sever
 | -------------------- | -------------------- | ----------------- |
 | `autofix.yml` | `reuse-autofix.yml` + `autofix-consumer.yml` | Eliminated duplication; stabilization period complete post PR #1257. |
 | `agent-readiness.yml` | _(archived)_ | No direct replacement; run ad-hoc GitHub Script checks when needed. |
-| `agents-42-watchdog.yml` | `agents-42-watchdog.yml` | Standalone watchdog workflow introduced with Issue #1419. |
+| `agents-42-watchdog.yml` | `agents-41-assign-and-watch.yml` | Manual watchdog wrapper retained; core logic migrated to unified workflow. |
 | `codex-preflight.yml` | _(archived)_ | Manual diagnostics or future targeted scripts as needed. |
 | `codex-bootstrap-diagnostic.yml` | _(archived)_ | Superseded by agents-41 assign + agents-42 watchdog pairing. |
 | `verify-agent-task.yml` | _(archived)_ | Use issue audit scripts or custom GitHub Script snippets.
@@ -23,7 +23,7 @@ The `.github/workflows` directory contains both new reusable workflows and sever
 Release, docker, auto-merge enablement, PR status summary, quarantine TTL, failure trackers remain orthogonal to the three reusable workflows.
 
 ## Consolidation Actions Executed
-All previously flagged legacy workflows were deleted in alignment with Issue #1259. Consumers now invoke the reusable equivalents (`reuse-autofix.yml`) alongside the new agent pair (`agents-41-assign.yml`, `agents-42-watchdog.yml`). This concludes the stabilization window referenced in PR #1257.
+All previously flagged legacy workflows were deleted in alignment with Issue #1259. Consumers now invoke the reusable equivalents (`reuse-autofix.yml`) alongside the unified agent orchestrator (`agents-41-assign-and-watch.yml`, surfaced through the thin wrappers). This concludes the stabilization window referenced in PR #1257.
 
 ## Deletion Timetable (Superseded)
 Original timetable replaced by immediate removal once validation completed. Retained here for historical context only.
