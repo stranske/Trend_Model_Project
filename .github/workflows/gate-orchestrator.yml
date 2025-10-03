@@ -88,6 +88,7 @@ jobs:
 
   gate:
     name: gate / all-required-green
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     needs: [ci, docker, actionlint, quarantine_ttl]
     steps:
