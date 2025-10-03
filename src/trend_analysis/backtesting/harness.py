@@ -330,7 +330,7 @@ def _json_default(obj: object) -> object:
         return obj.isoformat()
     if isinstance(obj, (np.floating, np.integer)):
         return float(obj)
-    raise TypeError(f"Object of type {type(obj)!r} is not JSON serialisable")
+    raise TypeError(f"Object of type {type(obj)!r} is not JSON serializable")
 
 
 def _to_float(value: float | np.floating | np.integer) -> float:
