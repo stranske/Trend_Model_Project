@@ -64,6 +64,19 @@ files move or new ones are introduced:
 5. **Stage via branch + PR.** Push the branch and open a PR. The CI suite and
    post-CI summary will validate the workflow wiring before merge.
 
+### Quick staging checklist
+
+- [ ] New or renamed workflow listed in `.github/workflows/README.md` and this
+      guide.
+- [ ] Downstream `workflow_run` consumers updated (`maint-30`, `maint-33`,
+      `merge-manager.yml`, and any custom followers).
+- [ ] Tests that lock workflow names (for example, `tests/test_workflow_*.py`)
+      updated when introducing or retiring slugs.
+- [ ] Failure-tracker label taxonomy confirmed or refreshed if new failure
+      signatures are expected.
+- [ ] Manual workflow dispatches (if applicable) verified in a fork before
+      requesting review.
+
 ## Post-CI status summaries & failure tracking
 
 Two maintenance workflows keep pull requests informed about CI health:
