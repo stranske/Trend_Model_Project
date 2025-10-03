@@ -1,3 +1,4 @@
+# Docker smoke workflow (Issue #1663) – keep lint + smoke lean while using deterministic caching
 name: Docker
 
 on:
@@ -64,19 +65,21 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Ensure buildx cache directory exists
+        run: mkdir -p /tmp/.buildx-cache
+
       - name: Restore buildx cache
-        id: buildx-cache
-        uses: actions/cache@v4
+        # Deterministic cache keyed solely by the lock file to keep smoke builds reproducible.
+        id: restore-buildx-cache
+        uses: actions/cache/restore@v4
         with:
           path: /tmp/.buildx-cache
-          key: ${{ format('buildx-{0}-{1}', runner.os, hashFiles('Dockerfile', 'requirements.lock')) }}
-          restore-keys: |
-            ${{ format('buildx-{0}-', runner.os) }}
+          key: docker-smoke-buildx-${{ hashFiles('requirements.lock') }}
 
       - name: Summarize buildx cache
         env:
-          CACHE_HIT: ${{ steps.buildx-cache.outputs.cache-hit }}
-          CACHE_KEY: ${{ format('buildx-{0}-{1}', runner.os, hashFiles('Dockerfile', 'requirements.lock')) }}
+          CACHE_HIT: ${{ steps.restore-buildx-cache.outputs.cache-hit }}
+          CACHE_KEY: docker-smoke-buildx-${{ hashFiles('requirements.lock') }}
         run: |
           if [ "$CACHE_HIT" = "true" ]; then
             echo "::notice title=BuildxCache::Cache hit for ${CACHE_KEY}"
@@ -105,11 +108,11 @@ jobs:
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
       - name: Save buildx cache
-        if: steps.buildx-cache.outputs.cache-hit != 'true'
+        if: steps.restore-buildx-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: /tmp/.buildx-cache
-          key: ${{ format('buildx-{0}-{1}', runner.os, hashFiles('Dockerfile', 'requirements.lock')) }}
+          key: docker-smoke-buildx-${{ hashFiles('requirements.lock') }}
       - name: Run test suite
         env:
           WF_CALL_DEBUG: ${{ inputs.debug_build && 'true' || '' }}
@@ -152,5 +155,6 @@ jobs:
             exit 1
           fi
       - name: Push image
+        # Only publish from the protected main development branch per Issue #1663.
         if: github.event_name == 'push' && github.ref == 'refs/heads/phase-2-dev'
         run: docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
