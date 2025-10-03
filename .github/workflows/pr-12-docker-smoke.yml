@@ -1,3 +1,4 @@
+# Docker smoke workflow (Issue #1663) – keep lint + smoke lean while using deterministic caching
 name: Docker
 
 on:
@@ -50,12 +51,16 @@ jobs:
       IMAGE_NAME: ${{ vars.IMAGE_NAME || format('{0}/{1}', github.repository_owner, 'trend-model') }}
       HEALTH_PORT: ${{ vars.HEALTH_PORT || '8000' }}
       HEALTH_PATH: ${{ vars.HEALTH_PATH || '/health' }}
+      BUILD_CACHE_PATH: /tmp/.buildx-cache
+      BUILD_CACHE_TEMP: /tmp/.buildx-cache-new
+      BUILD_CACHE_KEY: docker-smoke-buildx-${{ hashFiles('requirements.lock') }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Log in to container registry
+        if: github.event_name == 'push' && github.ref == 'refs/heads/phase-2-dev'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -64,26 +69,30 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Ensure buildx cache directory exists
+        run: |
+          mkdir -p "${BUILD_CACHE_PATH}"
+          rm -rf "${BUILD_CACHE_TEMP}"
+
       - name: Restore buildx cache
-        id: buildx-cache
-        uses: actions/cache@v4
+        # Deterministic cache keyed solely by the lock file to keep smoke builds reproducible.
+        id: restore-buildx-cache
+        uses: actions/cache/restore@v4
         with:
-          path: /tmp/.buildx-cache
-          key: ${{ format('buildx-{0}-{1}', runner.os, hashFiles('Dockerfile', 'requirements.lock')) }}
-          restore-keys: |
-            ${{ format('buildx-{0}-', runner.os) }}
+          path: ${{ env.BUILD_CACHE_PATH }}
+          key: ${{ env.BUILD_CACHE_KEY }}
 
       - name: Summarize buildx cache
         env:
-          CACHE_HIT: ${{ steps.buildx-cache.outputs.cache-hit }}
-          CACHE_KEY: ${{ format('buildx-{0}-{1}', runner.os, hashFiles('Dockerfile', 'requirements.lock')) }}
+          CACHE_HIT: ${{ steps.restore-buildx-cache.outputs.cache-hit }}
+          CACHE_KEY: ${{ env.BUILD_CACHE_KEY }}
         run: |
           if [ "$CACHE_HIT" = "true" ]; then
             echo "::notice title=BuildxCache::Cache hit for ${CACHE_KEY}"
             SUMMARY=" Cache hit for \`${CACHE_KEY}\`"
           else
             echo "::notice title=BuildxCache::Cache miss for ${CACHE_KEY}"
-            SUMMARY=" Cache miss  priming \`${CACHE_KEY}\`"
+            SUMMARY=" Cache miss priming \`${CACHE_KEY}\`"
           fi
 
           {
@@ -95,26 +104,27 @@ jobs:
       - name: Build image (cached)
         run: |
           docker buildx build --pull --load \
-            --cache-from type=local,src=/tmp/.buildx-cache \
-            --cache-to type=local,dest=/tmp/.buildx-cache-new,mode=max \
+            --cache-from type=local,src=${{ env.BUILD_CACHE_PATH }} \
+            --cache-to type=local,dest=${{ env.BUILD_CACHE_TEMP }},mode=max \
             -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest .
 
       - name: Finalize cache
         run: |
-          rm -rf /tmp/.buildx-cache
-          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+          rm -rf "${BUILD_CACHE_PATH}"
+          mv "${BUILD_CACHE_TEMP}" "${BUILD_CACHE_PATH}"
 
       - name: Save buildx cache
-        if: steps.buildx-cache.outputs.cache-hit != 'true'
+        if: github.event_name != 'pull_request' && steps.restore-buildx-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
-          path: /tmp/.buildx-cache
-          key: ${{ format('buildx-{0}-{1}', runner.os, hashFiles('Dockerfile', 'requirements.lock')) }}
-      - name: Run test suite
+          path: ${{ env.BUILD_CACHE_PATH }}
+          key: ${{ env.BUILD_CACHE_KEY }}
+      - name: Run test suite (reuses cached image)
         env:
           WF_CALL_DEBUG: ${{ inputs.debug_build && 'true' || '' }}
           DISPATCH_DEBUG: ${{ github.event.inputs.debug_build || '' }}
         run: |
+          # Pytest executes inside the freshly built container to mirror production smoke coverage.
           debug_flag="${WF_CALL_DEBUG:-${DISPATCH_DEBUG:-false}}"
           if [ "$debug_flag" = "true" ]; then
             echo "Running tests with verbose output for debugging..."
@@ -125,6 +135,7 @@ jobs:
           fi
       - name: Smoke test health endpoint
         run: |
+          # Launch the image and poll its health endpoint to validate runtime readiness.
           echo " Testing health endpoint with retry logic..."
           CONTAINER_ID=$(docker run -d -p ${{ env.HEALTH_PORT }}:${{ env.HEALTH_PORT }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest)
           echo "Started container: $CONTAINER_ID"
@@ -152,5 +163,6 @@ jobs:
             exit 1
           fi
       - name: Push image
+        # Only publish from the protected main development branch per Issue #1663.
         if: github.event_name == 'push' && github.ref == 'refs/heads/phase-2-dev'
         run: docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
