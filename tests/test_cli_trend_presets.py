@@ -11,7 +11,13 @@ from trend_analysis.signal_presets import get_trend_spec_preset
 
 @pytest.fixture()
 def base_config() -> object:
-    sample_csv = Path(__file__).parent.parent / "data" / "raw" / "managers" / "sample_manager.csv"
+    sample_csv = (
+        Path(__file__).parent.parent
+        / "data"
+        / "raw"
+        / "managers"
+        / "sample_manager.csv"
+    )
     cfg_dict = {
         "version": "0.1",
         "data": {

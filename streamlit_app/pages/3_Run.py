@@ -247,6 +247,8 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
 def _build_signals_config(values: Mapping[str, Any] | None) -> Dict[str, object]:
     if not isinstance(values, Mapping) or not values:
         return {}
