@@ -20,6 +20,8 @@ executing==2.2.1
     # via stack-data
 fonttools==4.60.1
     # via matplotlib
+fpdf2==2.8.1
+    # via trend-model (pyproject.toml)
 hypothesis==6.140.2
     # via trend-model (pyproject.toml)
 ipython==9.6.0

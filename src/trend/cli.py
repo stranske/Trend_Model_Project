@@ -11,6 +11,7 @@ from typing import Any, Callable, Iterable, Protocol
 
 import pandas as pd
 
+from trend.reporting import generate_unified_report
 from trend_analysis import export
 from trend_analysis import logging as run_logging
 from trend_analysis.api import RunResult, run_simulation
@@ -99,10 +100,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="Directory where summary outputs will be written",
     )
     report_p.add_argument(
+        "--output",
+        help="Path to the unified HTML report (file or directory)",
+    )
+    report_p.add_argument(
         "--formats",
         nargs="+",
         choices=DEFAULT_REPORT_FORMATS,
         help="Subset of export formats (default: csv json xlsx txt)",
+    )
+    report_p.add_argument(
+        "--pdf",
+        action="store_true",
+        help="Also generate a PDF report alongside the HTML output",
     )
 
     stress_p = sub.add_parser(
@@ -354,6 +364,22 @@ def _write_report_files(
     print(f"Report artefacts written to {out_dir}")
 
 
+def _resolve_report_output_path(
+    output: str | None, export_dir: Path | None, run_id: str
+) -> Path:
+    if output:
+        base = Path(output).expanduser()
+        if base.exists() and base.is_dir():
+            return base / f"trend_report_{run_id}.html"
+        if base.suffix.lower() in {".html", ".htm"}:
+            return base
+        if base.suffix:
+            return base
+        return base / f"trend_report_{run_id}.html"
+    base_dir = export_dir if export_dir is not None else Path.cwd()
+    return base_dir / f"trend_report_{run_id}.html"
+
+
 def _json_default(obj: Any) -> Any:  # pragma: no cover - helper
     if isinstance(obj, (pd.Series, pd.DataFrame)):
         return obj.to_dict()
@@ -427,12 +453,13 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         if command == "report":
-            if not args.out:
+            export_dir = Path(args.out).resolve() if args.out else None
+            if export_dir is None and not args.output:
                 raise TrendCLIError(
-                    "The --out option is required for the 'report' command"
+                    "The 'report' command requires --out for artefacts or --output for the HTML report"
                 )
             formats = args.formats or DEFAULT_REPORT_FORMATS
-            _prepare_export_config(cfg, Path(args.out), formats)
+            _prepare_export_config(cfg, export_dir, formats if export_dir is not None else None)
             result, run_id, _ = _run_pipeline(
                 cfg,
                 returns_df,
@@ -442,7 +469,26 @@ def main(argv: list[str] | None = None) -> int:
                 bundle=None,
             )
             _print_summary(cfg, result)
-            _write_report_files(Path(args.out), cfg, result, run_id=run_id)
+            if export_dir is not None:
+                _write_report_files(export_dir, cfg, result, run_id=run_id)
+            report_path = _resolve_report_output_path(args.output, export_dir, run_id)
+            report_path.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                artifacts = generate_unified_report(
+                    result, cfg, run_id=run_id, include_pdf=args.pdf
+                )
+            except RuntimeError as exc:
+                raise TrendCLIError(str(exc)) from exc
+            report_path.write_text(artifacts.html, encoding="utf-8")
+            print(f"Report written: {report_path}")
+            if args.pdf:
+                if artifacts.pdf_bytes is None:
+                    raise TrendCLIError(
+                        "PDF generation failed – install the 'fpdf2' dependency to enable --pdf output"
+                    )
+                pdf_path = report_path.with_suffix(".pdf")
+                pdf_path.write_bytes(artifacts.pdf_bytes)
+                print(f"PDF report written: {pdf_path}")
             return 0
 
         if command == "stress":

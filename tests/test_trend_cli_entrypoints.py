@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import types
 from pathlib import Path
+from types import SimpleNamespace
 
 import pandas as pd
 import pytest
@@ -383,6 +384,11 @@ def test_main_report_command(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
         trend_cli,
         "_write_report_files",
         lambda out, cfg, result, run_id: created.append(out),
+    )
+    monkeypatch.setattr(
+        trend_cli,
+        "generate_unified_report",
+        lambda *a, **k: SimpleNamespace(html="<html>report</html>", pdf_bytes=None, context={}),
     )
 
     exit_code = trend_cli.main(
