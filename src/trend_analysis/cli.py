@@ -417,3 +417,75 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":  # pragma: no cover - manual invocation
     raise SystemExit(main())
+
+
+# ---------------------------------------------------------------------------
+# Unified CLI compatibility layer
+# ---------------------------------------------------------------------------
+
+
+def _load_configuration(path: str) -> tuple[Path, Any]:
+    """Delegate to the unified CLI loader for backwards-compatibility."""
+
+    from trend.cli import _load_configuration as unified_load_configuration
+
+    return unified_load_configuration(path)
+
+
+def _resolve_returns_path(
+    config_path: Path, cfg: Any, override: str | None
+) -> Path:
+    """Reuse the unified CLI's returns resolution helper."""
+
+    from trend.cli import _resolve_returns_path as unified_resolve_returns_path
+
+    return unified_resolve_returns_path(config_path, cfg, override)
+
+
+def _ensure_dataframe(path: Path) -> pd.DataFrame:
+    """Proxy to the unified CLI dataframe loader."""
+
+    from trend.cli import _ensure_dataframe as unified_ensure_dataframe
+
+    return unified_ensure_dataframe(path)
+
+
+def _run_pipeline(
+    cfg: Any,
+    returns_df: pd.DataFrame,
+    *,
+    source_path: Path | None,
+    log_file: Path | None,
+    structured_log: bool,
+    bundle: Path | None,
+) -> tuple[Any, str, Path | None]:
+    """Call the unified CLI pipeline execution helper."""
+
+    from trend.cli import _run_pipeline as unified_run_pipeline
+
+    return unified_run_pipeline(
+        cfg,
+        returns_df,
+        source_path=source_path,
+        log_file=log_file,
+        structured_log=structured_log,
+        bundle=bundle,
+    )
+
+
+def _print_summary(cfg: Any, result: Any) -> None:
+    """Defer to the shared summary printer used by ``trend.cli``."""
+
+    from trend.cli import _print_summary as unified_print_summary
+
+    return unified_print_summary(cfg, result)
+
+
+def _write_report_files(
+    out_dir: Path, cfg: Any, result: Any, *, run_id: str
+) -> None:
+    """Forward report artefact writes to the unified CLI implementation."""
+
+    from trend.cli import _write_report_files as unified_write_report_files
+
+    return unified_write_report_files(out_dir, cfg, result, run_id=run_id)
