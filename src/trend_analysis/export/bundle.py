@@ -6,7 +6,7 @@ import sys
 import tempfile
 import zipfile
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable, List
 
 import matplotlib
 import pandas as pd
@@ -177,12 +177,15 @@ def export_bundle(run: Any, path: Path) -> Path:
         # ------------------------------------------------------------------
         # Charts PNGs
         # ------------------------------------------------------------------
+        def _to_list(values: Iterable[Any]) -> List[Any]:
+            return list(values)
+
         def _plot_x(index: pd.Index) -> list[Any]:
             if isinstance(index, pd.PeriodIndex):
-                return index.to_timestamp().to_pydatetime().tolist()
+                return _to_list(index.to_timestamp().to_pydatetime())
             if isinstance(index, pd.DatetimeIndex):
-                return index.to_pydatetime().tolist()
-            return index.tolist()
+                return _to_list(index.to_pydatetime())
+            return index.to_list()
 
         def _write_charts(eq: pd.Series, band: pd.DataFrame | None) -> None:
             # Configure non-interactive backend and import pyplot lazily
