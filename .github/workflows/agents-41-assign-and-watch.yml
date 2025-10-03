@@ -266,13 +266,13 @@ jobs:
     name: Agent availability check
     uses: ./.github/workflows/reusable-90-agents.yml
     with:
-      enable_readiness: 'true'
+      enable_readiness: ${{ 'true' }}
       readiness_agents: ${{ needs.resolve.outputs.readiness_agents }}
       require_all: ${{ needs.resolve.outputs.operation == 'assign' && 'true' || 'false' }}
-      enable_preflight: 'false'
-      enable_diagnostic: 'false'
-      enable_verify_issue: 'false'
-      enable_watchdog: 'false'
+      enable_preflight: ${{ 'false' }}
+      enable_diagnostic: ${{ 'false' }}
+      enable_verify_issue: ${{ 'false' }}
+      enable_watchdog: ${{ 'false' }}
     secrets:
       service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
 
