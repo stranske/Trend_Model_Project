@@ -62,11 +62,11 @@ def _priority(state: str | None) -> int:
     normalized = (state or "").lower()
     if normalized in {"failure", "cancelled", "timed_out", "action_required"}:
         return 0
-    if normalized == "success":
-        return 1
-    if normalized == "skipped":
-        return 2
     if normalized in {"in_progress", "queued", "waiting", "requested"}:
+        return 1
+    if normalized == "success":
+        return 2
+    if normalized == "skipped":
         return 3
     return 4
 
