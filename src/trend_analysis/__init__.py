@@ -17,6 +17,7 @@ _EAGER_SUBMODULES = [
     "pipeline",
     "export",
     "signals",
+    "backtesting",
 ]
 
 # Modules that may drag optional / heavy deps; imported on first attribute access.
@@ -95,6 +96,7 @@ __all__ = [
     "config",
     "data",
     "pipeline",
+    "backtesting",
     "api",
     "export",
     "signals",
