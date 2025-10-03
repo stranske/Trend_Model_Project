@@ -34,13 +34,13 @@ Last updated: 2026-02-07
   effects at the repository root.
 
 - ## Workflows and Actions
-- Assigner workflow: `.github/workflows/agents-41-assign.yml`.
-  - Triggers on Issues/PRs when `agent:*` labels are applied (manual `workflow_dispatch` supported for diagnostics).
-  - Uses `.github/actions/codex-bootstrap-lite` to create Codex bootstrap branches/PRs and posts `@codex start` on the PR.
-  - Assigns the appropriate automation account (Codex or Copilot) and dispatches the watchdog job for Codex issues.
-- Watchdog workflow: `.github/workflows/agents-42-watchdog.yml`.
-  - Triggered via `workflow_dispatch` (automatically from the assigner) with issue context and timeout inputs.
-  - Polls the issue timeline for a cross-referenced PR and posts a ✅/⚠️ diagnostic comment.
+- Unified orchestrator: `.github/workflows/agents-41-assign-and-watch.yml`.
+  - Handles label-triggered assignment, Codex bootstrap, manual watchdog runs, and the scheduled stale sweep.
+  - Shares readiness probes via `reusable-90-agents.yml` so availability checks remain single-sourced.
+- Wrapper (labels): `.github/workflows/agents-41-assign.yml`.
+  - Forwards Issue/PR label events into the unified workflow without duplicating logic.
+- Wrapper (manual watchdog): `.github/workflows/agents-42-watchdog.yml`.
+  - Preserves the historical manual `workflow_dispatch` interface while delegating to the unified workflow.
 - Composite action: `.github/actions/codex-bootstrap-lite/action.yml`.
   - PAT‑first, fallback to `GITHUB_TOKEN` if allowed.
   - Creates a new branch with deterministic prefix `agents/codex-issue-<num>-<runid>`.
@@ -49,8 +49,9 @@ Last updated: 2026-02-07
 
 ## Quick Index
 
-- Assign to Agents — [`agents-41-assign.yml`](../../.github/workflows/agents-41-assign.yml) · [jump](#wf-assign-to-agents)
-- Agent Watchdog — [`agents-42-watchdog.yml`](../../.github/workflows/agents-42-watchdog.yml) · [jump](#wf-agent-watchdog)
+- Agents Assign + Watch — [`agents-41-assign-and-watch.yml`](../../.github/workflows/agents-41-assign-and-watch.yml) · [jump](#wf-assign-and-watch)
+- Assign Wrapper — [`agents-41-assign.yml`](../../.github/workflows/agents-41-assign.yml) · [jump](#wf-assign-wrapper)
+- Watchdog Wrapper — [`agents-42-watchdog.yml`](../../.github/workflows/agents-42-watchdog.yml) · [jump](#wf-watchdog-wrapper)
 - Label Agent PRs — [`label-agent-prs.yml`](../../.github/workflows/label-agent-prs.yml) · [jump](#wf-label-agent-prs)
 - Merge Manager — [`merge-manager.yml`](../../.github/workflows/merge-manager.yml) · [jump](#wf-merge-manager)
 - Autofix Lane — [`autofix.yml`](../../.github/workflows/autofix.yml) · [jump](#wf-autofix)
@@ -69,22 +70,29 @@ Last updated: 2026-02-07
 
 This catalog explains what each active workflow does, how it’s triggered, the jobs it runs, and any notable relationships or token usage.
 
-<a id="wf-assign-to-agents"></a>
-1) [`agents-41-assign.yml`](../../.github/workflows/agents-41-assign.yml) — Agent label assignment + Codex bootstrap
-   - Triggers: `issues: [labeled]`, `pull_request_target: [labeled]`, `workflow_dispatch`
-   - Jobs: `assign`
-     - Maps `agent:*` labels to automation accounts and adds assignees on issues/PRs
-     - Posts `@codex start` / `@copilot start` on labeled PRs when the command is absent
-     - For Codex issues, uses the composite bootstrap action to create a branch + PR and dispatches the watchdog workflow
-  - Links to: `agents-42-watchdog.yml`, `label-agent-prs.yml`, `merge-manager.yml`
+<a id="wf-assign-and-watch"></a>
+1) [`agents-41-assign-and-watch.yml`](../../.github/workflows/agents-41-assign-and-watch.yml) — Unified agent orchestration
+   - Triggers: `workflow_dispatch`, `schedule`
+   - Jobs: `resolve`, `readiness_probe`, `assign_issue`, `clear_assignment`, `watch_pr`, `watchdog_sweep`
+     - Resolves incoming events (manual, forwarded label events, scheduled sweeps)
+     - Calls `reusable-90-agents.yml` for availability checks before assignment or stale sweeps
+     - Assigns automation accounts, boots Codex PRs, and starts cross-reference watchdog monitoring
+     - Clears assignments when labels are removed and escalates stale issues when agents are unavailable
+  - Links to: `.github/actions/codex-bootstrap-lite`, `codex-issue-bridge.yml` (fallback), wrappers below
 
-<a id="wf-agent-watchdog"></a>
-2) [`agents-42-watchdog.yml`](../../.github/workflows/agents-42-watchdog.yml) — Codex PR parity diagnostic
-   - Triggers: `workflow_dispatch` (invoked automatically by assigner)
-   - Jobs: `monitor`
-     - Polls issue timeline for cross-referenced PRs within a ~7 minute window
-     - Posts ✅ success with PR link or ⚠️ timeout diagnostic comment on the issue
-  - Links to: `agents-41-assign.yml` (dispatch), `cleanup-codex-bootstrap.yml` (branch hygiene)
+<a id="wf-assign-wrapper"></a>
+2) [`agents-41-assign.yml`](../../.github/workflows/agents-41-assign.yml) — Compatibility wrapper
+   - Triggers: `issues: [labeled, unlabeled]`, `pull_request_target: [labeled]`, `workflow_dispatch`
+   - Jobs: `forward`
+     - Captures historical triggers and forwards payloads into `agents-41-assign-and-watch.yml`
+  - Links to: Unified orchestrator (above)
+
+<a id="wf-watchdog-wrapper"></a>
+3) [`agents-42-watchdog.yml`](../../.github/workflows/agents-42-watchdog.yml) — Manual watchdog wrapper
+   - Triggers: `workflow_dispatch`
+   - Jobs: `forward`
+     - Forwards manual watchdog requests into `agents-41-assign-and-watch.yml`
+  - Links to: Unified orchestrator (above)
 
 <a id="wf-label-agent-prs"></a>
 3) [`label-agent-prs.yml`](../../.github/workflows/label-agent-prs.yml) — Apply agent labels to PRs (keeps downstream automation deterministic)
