@@ -4,7 +4,18 @@ on:
   schedule:
     # 04:17 UTC every day provides a stable, low-traffic window.
     - cron: '17 4 * * *'
+    # Monday 06:45 UTC generates a longer-form weekly snapshot for Ops.
+    - cron: '45 6 * * 1'
   workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/maint-35-repo-health-self-check.yml'
+      - 'tools/repo_health_probe.py'
+  push:
+    branches: [phase-2-dev]
+    paths:
+      - '.github/workflows/maint-35-repo-health-self-check.yml'
+      - 'tools/repo_health_probe.py'
 
 permissions:
   contents: read
@@ -28,74 +39,50 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           reporter: github-check
+          fail_level: error
 
       - name: Probe repository configuration
         id: probe
         continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python .github/scripts/repo_health_probe.py repo-health-report.json
+          python -m tools.repo_health_probe repo-health-report.json
 
       - name: Evaluate results
         id: evaluate
         env:
-          ACTIONLINT_OUTCOME: ${{ steps.actionlint.outcome }}
-          PROBE_OUTCOME: ${{ steps.probe.outcome }}
+          ACTIONLINT_STATUS: ${{ steps.actionlint.outcome }}
+          OPS_ISSUE_NUMBER: ${{ env.OPS_ISSUE_NUMBER }}
         run: |
           python - <<'PY'
           import json
           import os
           import pathlib
+          from tools.repo_health_probe import build_summary
 
           report_path = pathlib.Path("repo-health-report.json")
-          report = {}
           if report_path.exists():
-            try:
-              report = json.loads(report_path.read_text(encoding="utf-8"))
-            except json.JSONDecodeError as exc:
-              report = {"errors": [f"Invalid report JSON: {exc}"], "failures": []}
+            report = json.loads(report_path.read_text(encoding="utf-8"))
           else:
-            report = {"errors": ["Report file repo-health-report.json is missing."], "failures": []}
+            report = {"failures": [], "errors": ["Report file repo-health-report.json is missing."]}
 
-          issue_lines = []
+          actionlint_ok = os.environ.get("ACTIONLINT_STATUS") == "success"
+          issue_id_present = bool(os.environ.get("OPS_ISSUE_NUMBER"))
 
-          if os.environ.get("ACTIONLINT_OUTCOME") != "success":
-            issue_lines.append("- Workflow lint (`actionlint`) failed. Inspect the job logs for errors.")
+          summary = build_summary(report, actionlint_ok=actionlint_ok, issue_id_present=issue_id_present)
+          summary_path = pathlib.Path("repo-health-summary.md")
+          summary_path.write_text(summary.summary_markdown + "\n", encoding="utf-8")
 
-          for failure in report.get("failures", []) or []:
-            description = failure.get("description") or "Repository configuration check failed."
-            detail = failure.get("details")
-            if detail:
-              issue_lines.append(f"- {description}  {detail}")
-            else:
-              issue_lines.append(f"- {description}")
-
-          for api_error in report.get("errors", []) or []:
-            issue_lines.append(f"- API error: {api_error}")
-
-          status = "success" if not issue_lines else "failure"
-
-          summary_lines = []
-          if status == "success":
-            summary_lines.append(" Repo health nightly checks passed.")
-            summary_lines.append("- Workflow lint (`actionlint`) succeeded.")
-            summary_lines.append("- Required labels and secrets are present.")
-          else:
-            summary_lines.append(" Repo health nightly checks found issues:")
-            summary_lines.extend(issue_lines)
-
-          summary = "\n".join(summary_lines)
-          issues_markdown = "\n".join(issue_lines)
-
+          issues_payload = "\n".join(summary.issue_lines)
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
-            print(f"status={status}", file=fh)
+            print(f"status={summary.status}", file=fh)
             print("summary<<EOF", file=fh)
-            print(summary, file=fh)
+            print(summary.summary_markdown, file=fh)
             print("EOF", file=fh)
             print("issues<<EOF", file=fh)
-            print(issues_markdown, file=fh)
+            print(issues_payload, file=fh)
             print("EOF", file=fh)
-
-          pathlib.Path("repo-health-summary.md").write_text(summary, encoding="utf-8")
           PY
 
       - name: Publish run summary
@@ -146,7 +133,7 @@ jobs:
             }
 
       - name: Fail job on issues
-        if: steps.evaluate.outputs.status == 'failure'
+        if: steps.evaluate.outputs.status == 'failure' && github.event_name != 'pull_request'
         run: |
           echo "Repository health checks reported issues." >&2
           exit 1

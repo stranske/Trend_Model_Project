@@ -10,7 +10,7 @@ GitHub’s UI and in git diffs.
 | Prefix | Scope | Typical Triggers | Examples |
 |--------|-------|------------------|----------|
 | `pr-1x-*` | Pull request checks and fast feedback | `pull_request`, `push` to default branches | `pr-10-ci-python.yml`, `pr-12-docker-smoke.yml` |
-| `maint-3x-*` | Repository maintenance, hygiene, and reporting | `schedule`, `workflow_run`, governance automations | `maint-30-post-ci-summary.yml`, `maint-33-check-failure-tracker.yml`, `maint-35-repo-health-self-check.yml`, `maint-40-ci-signature-guard.yml` |
+| `maint-3x-*` | Repository maintenance, hygiene, and reporting | `schedule`, `workflow_run`, governance automations | `maint-30-post-ci-summary.yml`, `maint-33-check-failure-tracker.yml`, `maint-34-quarantine-ttl.yml`, `maint-35-repo-health-self-check.yml`, `maint-36-actionlint.yml`, `maint-40-ci-signature-guard.yml` |
 | `agents-4x-*` | Issue and agent orchestration workflows | `issues`, `pull_request_target`, manual diagnostics | `agents-40-consumer.yml`, `agents-41-assign-and-watch.yml` (+ wrappers `agents-41-assign.yml` / `agents-42-watchdog.yml`) |
 | `reusable-9x-*` | Reusable building blocks invoked via `workflow_call` | `workflow_call`, `workflow_dispatch` | `reusable-90-agents.yml`, `reusable-ci-python.yml`, `reusable-99-selftest.yml` |
 
@@ -76,3 +76,56 @@ SHA via concurrency control.
 - Regression coverage for comment formatting and artifact parsing lives in
   `tests/test_post_ci_summary.py`; extend these tests when adjusting table
   formats, coverage calculations, or artifact names.
+
+## maint-34-quarantine-ttl.yml — Quarantine Expiry Guard
+
+**Triggers:**
+
+- Nightly schedule at 04:30 UTC so expired quarantines are flagged without
+  waiting for a PR.
+- `workflow_dispatch` for manual dry runs (e.g., before large refactors).
+- Scoped `pull_request` / `push` triggers keyed to `tests/quarantine.yml` and the
+  supporting validator so PRs touching the quarantine list receive immediate
+  feedback.
+
+**Responsibilities:**
+
+- Parse `tests/quarantine.yml` via `tools/validate_quarantine_ttl.py` and fail
+  fast when entries are expired or malformed.
+- Publish a concise step summary (IDs + expiry dates) so maintainers can triage
+  without digging through raw logs.
+- Surface actionable failures to the gate orchestrator (job
+  `orchestrator / quarantine-ttl`) so expired quarantines block merges.
+
+## maint-35-repo-health-self-check.yml — Repository Health Audit
+
+**Trigger set:** Daily cron at 04:17 UTC, weekly cron (Monday 06:45 UTC), manual
+invocation, and scoped PR/push triggers when the probe or workflow definition
+changes.
+
+**Responsibilities:**
+
+- Run actionlint with a pinned version prior to probing so workflow schema
+  regressions are caught alongside governance gaps.
+- Execute `tools.repo_health_probe` to verify labels, secrets, and variables
+  (including `OPS_HEALTH_ISSUE`).
+- Emit a Markdown summary and—on failure—update the Ops issue configured via
+  `OPS_HEALTH_ISSUE`. When the variable is unset, the workflow warns in the step
+  summary instead of attempting an API call.
+- Provide fixtures for offline smoke tests (see `scripts/workflow_smoke_tests.py`)
+  so CI can exercise the probe without GitHub API access.
+
+## maint-36-actionlint.yml — Workflow Schema Lint
+
+**Triggers:** PRs and pushes that touch `.github/workflows/**`, a weekly Monday
+cron, and manual dispatch.
+
+**Responsibilities:**
+
+- Run `reviewdog/action-actionlint@v1` with a pinned `actionlint` version so
+  schema changes are deterministic.
+- Use reviewdog's PR review reporter to add inline annotations when the workflow
+  is triggered from a pull request.
+- Publish a short step summary echoing the job outcome for dashboards.
+- Mirror the same lint in the gate orchestrator so workflow syntax errors block
+  merges even if the maint-36 schedule has not executed yet.

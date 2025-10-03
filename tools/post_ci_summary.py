@@ -214,9 +214,7 @@ def _collect_required_segments(
                 if any(regex.search(name) for regex in regexes):
                     matched_states.append(job.get("conclusion") or job.get("status"))
             state = _combine_states(matched_states)
-            segments.append(
-                f"{label}: {_badge(state)} {_display_state(state)}"
-            )
+            segments.append(f"{label}: {_badge(state)} {_display_state(state)}")
     else:
         segments.append("CI: ⏳ pending")
 

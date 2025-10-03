@@ -148,12 +148,20 @@ def test_job_table_prioritises_failing_and_pending_jobs(sample_runs):
     table_lines = [
         line
         for line in body.splitlines()
-        if line.startswith("| ") and "Workflow / Job" not in line and "------" not in line
+        if line.startswith("| ")
+        and "Workflow / Job" not in line
+        and "------" not in line
     ]
 
-    docker_index = next((i for i, line in enumerate(table_lines) if "docker build" in line), None)
-    flaky_index = next((i for i, line in enumerate(table_lines) if "flaky-suite" in line), None)
-    docs_index = next((i for i, line in enumerate(table_lines) if "main / docs" in line), None)
+    docker_index = next(
+        (i for i, line in enumerate(table_lines) if "docker build" in line), None
+    )
+    flaky_index = next(
+        (i for i, line in enumerate(table_lines) if "flaky-suite" in line), None
+    )
+    docs_index = next(
+        (i for i, line in enumerate(table_lines) if "main / docs" in line), None
+    )
     optional_index = next(
         (i for i, line in enumerate(table_lines) if "main / optional" in line), None
     )

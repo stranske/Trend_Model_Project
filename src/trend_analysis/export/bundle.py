@@ -96,7 +96,9 @@ def export_bundle(run: Any, path: Path) -> Path:
             # Attempt to preserve temporal structure if possible
             if isinstance(portfolio, dict):
                 # Use dict keys as index
-                portfolio = pd.Series(list(portfolio.values()), index=list(portfolio.keys()))
+                portfolio = pd.Series(
+                    list(portfolio.values()), index=list(portfolio.keys())
+                )
             elif isinstance(portfolio, (list, tuple)):
                 raise ValueError(
                     "Cannot convert portfolio of type list/tuple to pandas Series without an index. "
@@ -105,6 +107,7 @@ def export_bundle(run: Any, path: Path) -> Path:
             else:
                 # Fallback: try to convert, but warn user
                 import warnings
+
                 warnings.warn(
                     f"Converting portfolio of type {type(portfolio)} to pandas Series without specifying an index. "
                     "This may result in loss of temporal structure.",
@@ -185,7 +188,7 @@ def export_bundle(run: Any, path: Path) -> Path:
                 return _to_list(index.to_timestamp().to_pydatetime())
             if isinstance(index, pd.DatetimeIndex):
                 return _to_list(index.to_pydatetime())
-            return index.to_list()
+            return _to_list(index.to_list())
 
         def _write_charts(eq: pd.Series, band: pd.DataFrame | None) -> None:
             # Configure non-interactive backend and import pyplot lazily
