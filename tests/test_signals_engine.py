@@ -119,6 +119,18 @@ def test_execution_lag_errors_when_rebalance_dates_missing_from_index(
         generate_signals(sample_prices, spec, rebalance_dates=missing_dates)
 
 
+def test_execution_lag_errors_when_rebalance_dates_partially_missing(
+    sample_prices: pd.DataFrame,
+) -> None:
+    spec = TrendSpec(lookback=1, execution_lag=1)
+    partial_dates = sample_prices.index[:3].union(
+        pd.DatetimeIndex([pd.Timestamp("2020-02-01")])
+    )
+
+    with pytest.raises(ValueError, match="Rebalance dates missing from price index"):
+        generate_signals(sample_prices, spec, rebalance_dates=partial_dates)
+
+
 def test_trend_spec_toggles_modify_signal(sample_prices: pd.DataFrame) -> None:
     base_spec = TrendSpec(lookback=1, execution_lag=0)
     vol_spec = TrendSpec(lookback=1, vol_lookback=2, use_vol_adjust=True, execution_lag=0)
