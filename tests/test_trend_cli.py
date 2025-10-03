@@ -217,6 +217,84 @@ def test_main_report_supports_output_file_only(monkeypatch, tmp_path: Path) -> N
     assert target.read_text(encoding="utf-8") == "<html>report</html>"
 
 
+def test_main_report_writes_pdf_when_requested(monkeypatch, tmp_path: Path) -> None:
+    dummy_result = RunResult(pd.DataFrame(), {}, 42, {})
+
+    def fake_run_pipeline(*args, **kwargs):  # type: ignore[override]
+        return dummy_result, "pdf001", None
+
+    pdf_bytes = b"%PDF-1.4\n..."
+    recorded: dict[str, object] = {}
+
+    monkeypatch.setattr("trend.cli._ensure_dataframe", lambda _p: pd.DataFrame())
+    monkeypatch.setattr("trend.cli._run_pipeline", fake_run_pipeline)
+    monkeypatch.setattr("trend.cli._print_summary", lambda *args, **kwargs: None)
+    monkeypatch.setattr("trend.cli._write_report_files", lambda *a, **k: None)
+    monkeypatch.setattr(
+        "trend.cli._resolve_returns_path",
+        lambda *args, **kwargs: tmp_path / "returns.csv",
+    )
+    def fake_generate_unified_report(*a, **k):
+        recorded.update(k)
+        return SimpleNamespace(
+            html="<html>with-pdf</html>", pdf_bytes=pdf_bytes, context={}
+        )
+    monkeypatch.setattr(
+        "trend.cli.generate_unified_report",
+        fake_generate_unified_report,
+    )
+
+    target = tmp_path / "report-output.html"
+    exit_code = main([
+        "report",
+        "--config",
+        "config/demo.yml",
+        "--output",
+        str(target),
+        "--pdf",
+    ])
+
+    assert exit_code == 0
+    assert target.read_text(encoding="utf-8") == "<html>with-pdf</html>"
+    pdf_path = target.with_suffix(".pdf")
+    assert pdf_path.read_bytes() == pdf_bytes
+    assert recorded["include_pdf"] is True
+
+
+def test_main_report_pdf_dependency_error(monkeypatch, tmp_path: Path, capsys) -> None:
+    dummy_result = RunResult(pd.DataFrame(), {}, 42, {})
+
+    def fake_run_pipeline(*args, **kwargs):  # type: ignore[override]
+        return dummy_result, "pdf001", None
+
+    monkeypatch.setattr("trend.cli._ensure_dataframe", lambda _p: pd.DataFrame())
+    monkeypatch.setattr("trend.cli._run_pipeline", fake_run_pipeline)
+    monkeypatch.setattr("trend.cli._print_summary", lambda *args, **kwargs: None)
+    monkeypatch.setattr("trend.cli._write_report_files", lambda *a, **k: None)
+    monkeypatch.setattr(
+        "trend.cli._resolve_returns_path",
+        lambda *args, **kwargs: tmp_path / "returns.csv",
+    )
+    monkeypatch.setattr(
+        "trend.cli.generate_unified_report",
+        lambda *a, **k: SimpleNamespace(html="<html>ok</html>", pdf_bytes=None, context={}),
+    )
+
+    target = tmp_path / "report-output.html"
+    exit_code = main([
+        "report",
+        "--config",
+        "config/demo.yml",
+        "--output",
+        str(target),
+        "--pdf",
+    ])
+
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "PDF generation failed" in captured.err
+
+
 def test_main_report_requires_output_directory() -> None:
     exit_code = main(["report", "--config", "config/demo.yml"])
     assert exit_code == 2
