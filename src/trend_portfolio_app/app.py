@@ -336,14 +336,37 @@ def _render_run_section(cfg_dict: Dict[str, Any]) -> None:
 
     if go_single and cfg_obj is not None:
         with st.spinner("Running single-period analysis..."):
-            full_result = pipeline.run_full(cfg_obj)
+            try:
+                summary_frame = pipeline.run(cfg_obj)
+            except Exception:  # pragma: no cover - UI fallthrough
+                summary_frame = None
+            run_full_error: Exception | None = None
+            try:
+                full_result = pipeline.run_full(cfg_obj)
+            except (FileNotFoundError, KeyError) as exc:
+                run_full_error = exc
+                full_result = {}
+            except Exception as exc:  # pragma: no cover - defensive logging
+                run_full_error = exc
+                full_result = {}
 
-        if not full_result:
-            st.warning("Analysis failed for the configured period. Please check your data and configuration settings.")
+        summary = _summarise_run_df(
+            summary_frame if isinstance(summary_frame, pd.DataFrame) else None
+        )
+        has_summary = isinstance(summary, pd.DataFrame)
+        summary_rows = len(summary) if has_summary else 0
+
+        if not full_result and not has_summary:
+            message = "Analysis failed for the configured period. Please check your data and configuration settings."
+            if run_full_error is not None:
+                message = f"{message} ({run_full_error})"
+            st.warning(message)
         else:
-            summary_raw = _build_summary_from_result(full_result)
-            summary = _summarise_run_df(summary_raw)
-            st.success(f"Completed. {len(summary)} rows.")
+            if summary.empty and full_result:
+                summary_raw = _build_summary_from_result(full_result)
+                summary = _summarise_run_df(summary_raw)
+                summary_rows = len(summary)
+            st.success(f"Completed. {summary_rows} rows.")
             if not summary.empty:
                 st.dataframe(summary, use_container_width=True)
                 csv_bytes = summary.to_csv(index=False).encode("utf-8")
@@ -354,41 +377,50 @@ def _render_run_section(cfg_dict: Dict[str, Any]) -> None:
                     mime="text/csv",
                 )
 
-            risk_diag = full_result.get("risk_diagnostics")
-            if isinstance(risk_diag, Mapping) and risk_diag:
-                st.subheader("Risk diagnostics")
-                line_chart = getattr(st, "line_chart", None)
-                bar_chart = getattr(st, "bar_chart", None)
+            if full_result:
+                risk_diag = full_result.get("risk_diagnostics")
+                if isinstance(risk_diag, Mapping) and risk_diag:
+                    st.subheader("Risk diagnostics")
+                    line_chart = getattr(st, "line_chart", None)
+                    bar_chart = getattr(st, "bar_chart", None)
 
-                asset_vol = risk_diag.get("asset_volatility")
-                if isinstance(asset_vol, pd.DataFrame) and not asset_vol.empty:
-                    st.caption("Realised asset volatility")
-                    if callable(line_chart):
-                        line_chart(asset_vol)
-                    else:
-                        st.dataframe(asset_vol)
+                    asset_vol = risk_diag.get("asset_volatility")
+                    if isinstance(asset_vol, pd.DataFrame) and not asset_vol.empty:
+                        st.caption("Realised asset volatility")
+                        if callable(line_chart):
+                            line_chart(asset_vol)
+                        else:
+                            st.dataframe(asset_vol)
 
-                port_vol = risk_diag.get("portfolio_volatility")
-                if isinstance(port_vol, pd.Series) and not port_vol.empty:
-                    st.caption("Portfolio volatility")
-                    port_df = port_vol.to_frame("portfolio_volatility")
-                    if callable(line_chart):
-                        line_chart(port_df)
-                    else:
-                        st.dataframe(port_df)
+                    port_vol = risk_diag.get("portfolio_volatility")
+                    if isinstance(port_vol, pd.Series) and not port_vol.empty:
+                        st.caption("Portfolio volatility")
+                        port_df = port_vol.to_frame("portfolio_volatility")
+                        if callable(line_chart):
+                            line_chart(port_df)
+                        else:
+                            st.dataframe(port_df)
 
-                turnover_series = risk_diag.get("turnover")
-                if isinstance(turnover_series, pd.Series) and not turnover_series.empty:
-                    st.caption("Turnover per rebalance")
-                    turnover_df = turnover_series.to_frame("turnover")
-                    if callable(bar_chart):
-                        bar_chart(turnover_df)
-                    else:
-                        st.dataframe(turnover_df)
+                    turnover_series = risk_diag.get("turnover")
+                    if (
+                        isinstance(turnover_series, pd.Series)
+                        and not turnover_series.empty
+                    ):
+                        st.caption("Turnover per rebalance")
+                        turnover_df = turnover_series.to_frame("turnover")
+                        if callable(bar_chart):
+                            bar_chart(turnover_df)
+                        else:
+                            st.dataframe(turnover_df)
 
-                turnover_value = risk_diag.get("turnover_value")
-                if isinstance(turnover_value, (float, int)):
-                    st.caption(f"Turnover applied: {turnover_value:.4f}")
+                    turnover_value = risk_diag.get("turnover_value")
+                    if isinstance(turnover_value, (float, int)):
+                        st.caption(f"Turnover applied: {turnover_value:.4f}")
+            elif run_full_error is not None:
+                st.info(
+                    "Partial results shown. Full diagnostics are unavailable because the detailed analysis failed: "
+                    f"{run_full_error}"
+                )
 
     if go_multi and cfg_obj is not None:
         with st.spinner("Running multi-period analysis..."):

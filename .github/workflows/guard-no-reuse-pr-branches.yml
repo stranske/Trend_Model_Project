@@ -1,10 +1,10 @@
-name: Guard — No PR Branch Reuse (ARCHIVED 2025-09-20 – consolidated)
+name: Guard  No PR Branch Reuse (ARCHIVED 2025-09-20  consolidated)
 
 # ARCHIVED WORKFLOW
 # This guard has been archived in favour of repository governance guidance and
 # consolidated CI checks. It no longer needs to block PR events. Retained only
 # for historical reference; remove after 2025-10-20 if no rollback required.
-# Replacement: documented policy (no automated job required) – branch reuse
+# Replacement: documented policy (no automated job required)  branch reuse
 # detection deemed low-value compared to noise.
 
 on:

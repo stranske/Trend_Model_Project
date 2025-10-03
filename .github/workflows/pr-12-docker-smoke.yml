@@ -80,10 +80,10 @@ jobs:
         run: |
           if [ "$CACHE_HIT" = "true" ]; then
             echo "::notice title=BuildxCache::Cache hit for ${CACHE_KEY}"
-            SUMMARY="✅ Cache hit for \`${CACHE_KEY}\`"
+            SUMMARY=" Cache hit for \`${CACHE_KEY}\`"
           else
             echo "::notice title=BuildxCache::Cache miss for ${CACHE_KEY}"
-            SUMMARY="⚠️ Cache miss – priming \`${CACHE_KEY}\`"
+            SUMMARY=" Cache miss  priming \`${CACHE_KEY}\`"
           fi
 
           {
@@ -125,7 +125,7 @@ jobs:
           fi
       - name: Smoke test health endpoint
         run: |
-          echo "🔍 Testing health endpoint with retry logic..."
+          echo " Testing health endpoint with retry logic..."
           CONTAINER_ID=$(docker run -d -p ${{ env.HEALTH_PORT }}:${{ env.HEALTH_PORT }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest)
           echo "Started container: $CONTAINER_ID"
           
@@ -134,7 +134,7 @@ jobs:
           attempt=1
           while [ $attempt -le $max_attempts ]; do
             if curl -fs http://localhost:${{ env.HEALTH_PORT }}${{ env.HEALTH_PATH }} | grep -q "OK"; then
-              echo "✅ Health check passed on attempt $attempt"
+              echo " Health check passed on attempt $attempt"
               break
             else
               echo "Attempt $attempt failed, retrying..."
@@ -148,7 +148,7 @@ jobs:
           docker rm "$CONTAINER_ID"
           
           if [ $attempt -gt $max_attempts ]; then
-            echo "❌ Health check failed after $max_attempts attempts"
+            echo " Health check failed after $max_attempts attempts"
             exit 1
           fi
       - name: Push image

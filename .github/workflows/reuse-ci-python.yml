@@ -137,14 +137,14 @@ jobs:
           script: |
             const pr = context.payload.pull_request.number;
             const { owner, repo } = context.repo;
-            const bodyAdd = `\n\n**Tests:** ✅ All matrix jobs succeeded (see CI checks).`;
+            const bodyAdd = `\n\n**Tests:**  All matrix jobs succeeded (see CI checks).`;
             const marker = '<!-- autofix-status: DO NOT EDIT -->';
             const comments = await github.rest.issues.listComments({ owner, repo, issue_number: pr, per_page: 100 });
             const target = comments.data.find(c=>c.body && c.body.includes(marker));
             if (!target) { core.info('Unified comment not found; skipping update'); return; }
             let body = target.body;
             if (body.includes('**Tests:**')) {
-              body = body.replace(/\*\*Tests:\*\*[\s\S]*?(?=\n\n|$)/, '**Tests:** ✅ All matrix jobs succeeded (see CI checks).');
+              body = body.replace(/\*\*Tests:\*\*[\s\S]*?(?=\n\n|$)/, '**Tests:**  All matrix jobs succeeded (see CI checks).');
             } else {
               body += bodyAdd;
             }
@@ -298,15 +298,15 @@ jobs:
             const badge = (state) => {
               switch (state) {
                 case 'success':
-                  return '✅';
+                  return '';
                 case 'failure':
                 case 'timed_out':
                 case 'cancelled':
-                  return '❌';
+                  return '';
                 case 'skipped':
-                  return '⏭️';
+                  return '';
                 default:
-                  return '⏳';
+                  return '';
               }
             };
 
@@ -447,7 +447,7 @@ jobs:
             message = entry.get('message', '')
             if message:
               message = message.splitlines()[0]
-              message = f" — {message}"
+              message = f"  {message}"
             lines.append(f"- `{entry.get('id', '<unknown>')}`{marker_text}{message}")
 
           if not lines:
@@ -505,7 +505,7 @@ jobs:
               ? '\nA cosmetic fix patch is available as an artifact on this run.'
               : '';
             const body = [
-              '⚠️ Detected cosmetic-only test failures. CI remains in advisory mode.',
+              ' Detected cosmetic-only test failures. CI remains in advisory mode.',
               '',
               list,
               '',

@@ -658,9 +658,13 @@ def format_summary_text(
                 header.append(f"  {name}: {float(value):.2%}")
         port_vol = risk_diag.get("portfolio_volatility")
         if isinstance(port_vol, pd.Series) and not port_vol.empty:
-            header.append(f"Portfolio volatility (latest): {float(port_vol.iloc[-1]):.2%}")
+            header.append(
+                f"Portfolio volatility (latest): {float(port_vol.iloc[-1]):.2%}"
+            )
         turnover_value = risk_diag.get("turnover_value")
-        if isinstance(turnover_value, (float, int)) and not math.isnan(float(turnover_value)):
+        if isinstance(turnover_value, (float, int)) and not math.isnan(
+            float(turnover_value)
+        ):
             header.append(f"Turnover applied: {float(turnover_value):.2%}")
     header.extend(
         [

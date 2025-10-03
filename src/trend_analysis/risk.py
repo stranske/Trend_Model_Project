@@ -16,7 +16,7 @@ from typing import Iterable, Mapping, MutableMapping
 import numpy as np
 import pandas as pd
 
-from .engine.optimizer import ConstraintSet, apply_constraints
+from .engine import optimizer as optimizer_mod
 
 PERIODS_PER_YEAR: Mapping[str, float] = {
     "D": 252.0,
@@ -181,15 +181,17 @@ def compute_constrained_weights(
     scale_factors = _scale_factors(latest, target_vol, floor_vol=floor_vol)
     scaled = base.mul(scale_factors)
 
-    constraint = ConstraintSet(
-        long_only=bool(long_only),
-        max_weight=max_weight,
-        group_caps=group_caps,
-        groups=groups,
-    )
-    constrained = apply_constraints(scaled, constraint)
+    constraint_payload = {
+        "long_only": bool(long_only),
+        "max_weight": max_weight,
+        "group_caps": group_caps,
+        "groups": groups,
+    }
+    constrained = optimizer_mod.apply_constraints(scaled, constraint_payload)
 
-    prev_series = _ensure_series(previous_weights) if previous_weights is not None else None
+    prev_series = (
+        _ensure_series(previous_weights) if previous_weights is not None else None
+    )
     constrained, turnover_value = _enforce_turnover_cap(
         constrained, prev_series, max_turnover
     )
@@ -199,7 +201,9 @@ def compute_constrained_weights(
     aligned_returns = returns.reindex(columns=constrained.index, fill_value=0.0)
     portfolio_returns = aligned_returns.mul(constrained, axis=1).sum(axis=1)
     portfolio_vol = realised_volatility(
-        portfolio_returns.to_frame("portfolio"), window, periods_per_year=periods_per_year
+        portfolio_returns.to_frame("portfolio"),
+        window,
+        periods_per_year=periods_per_year,
     )["portfolio"]
 
     turnover_index: Iterable[pd.Timestamp]
@@ -209,7 +213,9 @@ def compute_constrained_weights(
         turnover_index = [pd.Timestamp("1970-01-01")]  # dummy timestamp
 
     turnover_series = pd.Series(
-        [turnover_value], index=pd.Index(turnover_index, name="rebalance"), name="turnover"
+        [turnover_value],
+        index=pd.Index(turnover_index, name="rebalance"),
+        name="turnover",
     )
 
     diagnostics = RiskDiagnostics(

@@ -122,17 +122,19 @@ jobs:
             if (found) {
               summary.addTable([
                 [{ data: 'Status', header: true }, { data: 'Details', header: true }],
-                ['✅ PR detected', `#${found.number} (${found.url}) in ${friendlyElapsed} minutes`]
+                ['✅ Agent Watchdog', `PR #${found.number} (${found.url}) detected in ${friendlyElapsed} minutes`]
               ]);
             } else {
               summary.addTable([
                 [{ data: 'Status', header: true }, { data: 'Details', header: true }],
-                ['⚠️ Timeout', `No PR detected within ${timeoutMinutes} minute window`]
+                ['⚠️ Agent Watchdog', `No PR detected within ${timeoutMinutes} minute window`]
               ]);
             }
             await summary.write();
 
-            const commentPrefix = found ? '✅ Agent Watchdog' : '⚠️ Agent Watchdog';
+            const successPrefix = '✅ Agent Watchdog';
+            const timeoutPrefix = '⚠️ Agent Watchdog';
+            const commentPrefix = found ? successPrefix : timeoutPrefix;
             const { data: comments } = await github.rest.issues.listComments({ owner, repo, issue_number: issueNumber, per_page: 100, page: 1 });
             const alreadyCommented = (comments || []).some(c => (c.body || '').startsWith(commentPrefix));
 

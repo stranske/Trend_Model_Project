@@ -16,7 +16,7 @@ else:  # Runtime: avoid importing typing-only names
     from typing import Any as ConfigType
 
 from .logging import log_step as _log_step  # lightweight import
-from .pipeline import _policy_from_config, _run_analysis
+from .pipeline import _policy_from_config, _resolve_sample_split, _run_analysis
 
 logger = logging.getLogger(__name__)
 
@@ -106,12 +106,14 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
     )
 
     _log_step(run_id, "analysis_start", "_run_analysis dispatch")
+    resolved_split = _resolve_sample_split(returns, split)
+
     res = _run_analysis(
         returns,
-        str(split.get("in_start")),
-        str(split.get("in_end")),
-        str(split.get("out_start")),
-        str(split.get("out_end")),
+        resolved_split["in_start"],
+        resolved_split["in_end"],
+        resolved_split["out_start"],
+        resolved_split["out_end"],
         config.vol_adjust.get("target_vol", 1.0),
         getattr(config, "run", {}).get("monthly_cost", 0.0),
         floor_vol=config.vol_adjust.get("floor_vol"),

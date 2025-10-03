@@ -65,7 +65,7 @@ jobs:
             description = failure.get("description") or "Repository configuration check failed."
             detail = failure.get("details")
             if detail:
-              issue_lines.append(f"- {description} — {detail}")
+              issue_lines.append(f"- {description}  {detail}")
             else:
               issue_lines.append(f"- {description}")
 
@@ -76,11 +76,11 @@ jobs:
 
           summary_lines = []
           if status == "success":
-            summary_lines.append("✅ Repo health nightly checks passed.")
+            summary_lines.append(" Repo health nightly checks passed.")
             summary_lines.append("- Workflow lint (`actionlint`) succeeded.")
             summary_lines.append("- Required labels and secrets are present.")
           else:
-            summary_lines.append("❌ Repo health nightly checks found issues:")
+            summary_lines.append(" Repo health nightly checks found issues:")
             summary_lines.extend(issue_lines)
 
           summary = "\n".join(summary_lines)

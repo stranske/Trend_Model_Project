@@ -397,7 +397,7 @@ jobs:
               msg = 'No coverage JSON files found (Issue #1386 diagnostics)'
               print('[warn]', msg)
               with open('coverage_summary.md','w') as w:
-                  w.write('**Coverage data unavailable – see debug step output.**\n')
+                  w.write('**Coverage data unavailable  see debug step output.**\n')
               print('::notice:: '+msg)
               sys.exit(0)
 
@@ -443,7 +443,7 @@ jobs:
               for p,f in low_cov[:HOTSPOT_LIMIT]:
                   lines.append(f"| `{f}` | {p:.1f}% |")
               if len(low_cov) > HOTSPOT_LIMIT:
-                  lines.append(f"| *(+{len(low_cov)-HOTSPOT_LIMIT} more below {LOW_COVERAGE_THRESHOLD:.0f}% – truncated)* | *(n/a)* |")
+                  lines.append(f"| *(+{len(low_cov)-HOTSPOT_LIMIT} more below {LOW_COVERAGE_THRESHOLD:.0f}%  truncated)* | *(n/a)* |")
           with open('coverage_summary.md','w') as w:
               w.write('\n'.join(lines)+'\n')
           first_line = lines[0]
@@ -603,7 +603,7 @@ jobs:
               message = entry.get('message', '')
               if message:
                   message = message.splitlines()[0]
-                  message = f" — {message}"
+                  message = f"  {message}"
               lines.append(f"- `{entry.get('id', '<unknown>')}`{marker_text}{message}")
 
           if not lines:
@@ -661,7 +661,7 @@ jobs:
               ? '\nA cosmetic fix patch is available as an artifact on this run.'
               : '';
             const body = [
-              '⚠️ Detected cosmetic-only test failures. CI remains in advisory mode.',
+              ' Detected cosmetic-only test failures. CI remains in advisory mode.',
               '',
               list,
               '',
@@ -693,12 +693,12 @@ jobs:
             const failingTestJobs = failed.filter(n => /test/i.test(n));
             let explanation = '';
             if (failed.length) {
-              explanation = `\n> ❗ ${failed.length} job(s) did not succeed: ${failed.join(', ')}.`;
+              explanation = `\n>  ${failed.length} job(s) did not succeed: ${failed.join(', ')}.`;
               if (failingTestJobs.length) {
                 explanation += ` Failing test jobs: ${failingTestJobs.length}.`;
               }
             } else {
-              explanation = `\n> ✅ All jobs succeeded.`;
+              explanation = `\n>  All jobs succeeded.`;
             }
             const md = ["### Logs for this run","| Job | Result | Logs |","|---|---|---|",...rows, explanation].join("\n");
             core.setOutput('table', md);

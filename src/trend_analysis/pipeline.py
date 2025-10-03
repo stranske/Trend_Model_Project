@@ -31,6 +31,7 @@ from .risk import (
     realised_volatility,
 )
 from .perf.rolling_cache import compute_dataset_hash, get_cache
+from .signals import TrendSpec, compute_trend_signals
 from .timefreq import MONTHLY_DATE_FREQ
 from .util.frequency import FrequencySummary, detect_frequency
 from .util.missing import MissingPolicyResult, apply_missing_policy
@@ -141,6 +142,57 @@ def _empty_run_full_result() -> dict[str, object]:
     }
 
 
+def _build_trend_spec(
+    cfg: Mapping[str, Any] | Any,
+    vol_adjust_cfg: Mapping[str, Any] | Any,
+) -> TrendSpec:
+    signals_cfg = _cfg_section(cfg, "signals")
+    kind = str(_section_get(signals_cfg, "kind", "tsmom") or "tsmom").lower()
+    if kind != "tsmom":  # pragma: no cover - future extension guard
+        raise ValueError(f"Unsupported trend signal kind: {kind}")
+
+    try:
+        window_raw = _section_get(signals_cfg, "window", 63)
+        window = int(window_raw)
+    except (TypeError, ValueError):
+        window = 63
+    min_periods_raw = _section_get(signals_cfg, "min_periods")
+    try:
+        min_periods = int(min_periods_raw) if min_periods_raw is not None else None
+    except (TypeError, ValueError):
+        min_periods = None
+
+    try:
+        lag_raw = _section_get(signals_cfg, "lag", 1)
+        lag = max(1, int(lag_raw))
+    except (TypeError, ValueError):
+        lag = 1
+
+    vol_adjust_default = bool(_section_get(vol_adjust_cfg, "enabled", False))
+    vol_adjust_flag = bool(_section_get(signals_cfg, "vol_adjust", vol_adjust_default))
+    vol_target_raw = _section_get(signals_cfg, "vol_target")
+    if vol_target_raw is None and vol_adjust_flag:
+        vol_target_raw = _section_get(vol_adjust_cfg, "target_vol")
+    try:
+        vol_target = float(vol_target_raw) if vol_target_raw is not None else None
+        if vol_target is not None and vol_target <= 0:
+            vol_target = None
+    except (TypeError, ValueError):
+        vol_target = None
+
+    zscore_flag = bool(_section_get(signals_cfg, "zscore", False))
+
+    return TrendSpec(
+        kind="tsmom",
+        window=max(1, window),
+        min_periods=min_periods,
+        lag=lag,
+        vol_adjust=vol_adjust_flag,
+        vol_target=vol_target,
+        zscore=zscore_flag,
+    )
+
+
 def _policy_from_config(
     cfg: Mapping[str, Any] | None,
 ) -> tuple[str | Mapping[str, str] | None, int | Mapping[str, int | None] | None]:
@@ -170,6 +222,128 @@ def _policy_from_config(
     else:
         limit_spec = limit_base
     return policy_spec, limit_spec
+
+
+def _format_period(period: pd.Period) -> str:
+    return f"{period.year:04d}-{period.month:02d}"
+
+
+def _derive_split_from_periods(
+    periods: pd.PeriodIndex,
+    *,
+    method: str,
+    boundary: pd.Period | None,
+    ratio: float,
+) -> dict[str, str]:
+    if len(periods) == 0:
+        raise ValueError("Unable to derive sample splits without any observations")
+    if len(periods) == 1:
+        period = periods[0]
+        formatted = _format_period(period)
+        return {
+            "in_start": formatted,
+            "in_end": formatted,
+            "out_start": formatted,
+            "out_end": formatted,
+        }
+
+    # Attempt date-based split first when boundary provided.
+    if method == "date" and boundary is not None:
+        in_mask = periods <= boundary
+        out_mask = periods > boundary
+        if in_mask.any() and out_mask.any():
+            in_periods = periods[in_mask]
+            out_periods = periods[out_mask]
+            return {
+                "in_start": _format_period(in_periods[0]),
+                "in_end": _format_period(in_periods[-1]),
+                "out_start": _format_period(out_periods[0]),
+                "out_end": _format_period(out_periods[-1]),
+            }
+
+    # Fallback to ratio-based split when date split is unavailable or invalid.
+    try:
+        ratio_val = float(ratio)
+    except (TypeError, ValueError):
+        ratio_val = 0.7
+    if not np.isfinite(ratio_val) or ratio_val <= 0:
+        ratio_val = 0.5
+    if ratio_val >= 1:
+        ratio_val = 0.9
+    in_count = int(round(len(periods) * ratio_val))
+    if in_count <= 0:
+        in_count = 1
+    if in_count >= len(periods):
+        in_count = len(periods) - 1
+
+    in_periods = periods[:in_count]
+    out_periods = periods[in_count:]
+    if len(out_periods) == 0:
+        raise ValueError("Unable to derive out-of-sample window from ratio split")
+    return {
+        "in_start": _format_period(in_periods[0]),
+        "in_end": _format_period(in_periods[-1]),
+        "out_start": _format_period(out_periods[0]),
+        "out_end": _format_period(out_periods[-1]),
+    }
+
+
+def _resolve_sample_split(
+    df: pd.DataFrame,
+    split_cfg: Mapping[str, Any] | Any,
+) -> dict[str, str]:
+    required_keys = ("in_start", "in_end", "out_start", "out_end")
+    resolved: dict[str, str] = {}
+    for key in required_keys:
+        value = _section_get(split_cfg, key)
+        if value not in (None, ""):
+            resolved[key] = str(value)
+
+    missing = [key for key in required_keys if key not in resolved]
+    if not missing:
+        return resolved
+
+    if "Date" not in df.columns:
+        raise ValueError(
+            "Input data must contain a 'Date' column to derive sample splits"
+        )
+
+    date_series = pd.to_datetime(df["Date"], errors="coerce")
+    date_series = date_series.dropna()
+    if date_series.empty:
+        raise ValueError("Input data contains no valid dates to derive sample splits")
+
+    sorted_periods = date_series.dt.to_period("M").sort_values()
+    periods = pd.PeriodIndex(sorted_periods.unique())
+
+    method_raw = _section_get(split_cfg, "method", "date")
+    method = str(method_raw or "date").lower()
+    boundary: pd.Period | None = None
+    if method == "date":
+        raw_boundary = _section_get(split_cfg, "date")
+        if raw_boundary not in (None, ""):
+            try:
+                boundary = pd.Period(str(raw_boundary), freq="M")
+            except Exception:
+                boundary = None
+    ratio_value = _section_get(split_cfg, "ratio", 0.7)
+
+    derived = _derive_split_from_periods(
+        periods,
+        method=method,
+        boundary=boundary,
+        ratio=ratio_value,
+    )
+
+    for key, value in derived.items():
+        resolved.setdefault(key, value)
+
+    still_missing = [key for key in required_keys if key not in resolved]
+    if still_missing:
+        raise ValueError(
+            f"Unable to derive sample split values for: {', '.join(still_missing)}"
+        )
+    return resolved
 
 
 def _prepare_input_data(
@@ -364,6 +538,7 @@ def _run_analysis(
     periods_per_year_override: float | None = None,
     previous_weights: Mapping[str, float] | None = None,
     max_turnover: float | None = None,
+    signal_spec: TrendSpec | None = None,
 ) -> dict[str, object] | None:
     if df is None:
         return None
@@ -637,6 +812,25 @@ def _run_analysis(
             turnover_cap = mt
 
     risk_diagnostics: RiskDiagnostics
+
+    effective_signal_spec = signal_spec or TrendSpec(
+        window=window_spec.length,
+        min_periods=None,
+        lag=1,
+        vol_adjust=False,
+        vol_target=None,
+        zscore=False,
+    )
+    signal_inputs = (
+        df.set_index(date_col)[fund_cols].astype(float)
+        if fund_cols
+        else pd.DataFrame(dtype=float)
+    )
+    if not signal_inputs.empty:
+        signal_frame = compute_trend_signals(signal_inputs, effective_signal_spec)
+    else:
+        signal_frame = pd.DataFrame(dtype=float)
+
     try:
         weights_series, risk_diagnostics = compute_constrained_weights(
             base_series,
@@ -724,12 +918,16 @@ def _run_analysis(
             corr_in = in_scaled[fund_cols].corr()
             corr_out = out_scaled[fund_cols].corr()
             n_f = len(fund_cols)
-            is_avg_corr = {
-                f: float((corr_in.loc[f].sum() - 1.0) / (n_f - 1)) for f in fund_cols
-            }
-            os_avg_corr = {
-                f: float((corr_out.loc[f].sum() - 1.0) / (n_f - 1)) for f in fund_cols
-            }
+            is_avg_corr = {}
+            os_avg_corr = {}
+            denominator = float(n_f - 1) if n_f > 1 else 1.0
+            for f in fund_cols:
+                in_sum = cast(float, corr_in.loc[f].sum())
+                out_sum = cast(float, corr_out.loc[f].sum())
+                in_val = (in_sum - 1.0) / denominator
+                out_val = (out_sum - 1.0) / denominator
+                is_avg_corr[f] = float(in_val)
+                os_avg_corr[f] = float(out_val)
         except Exception:  # pragma: no cover - defensive
             is_avg_corr = None
             os_avg_corr = None
@@ -853,6 +1051,8 @@ def _run_analysis(
         "preprocessing": preprocess_info,
         "preprocessing_summary": preprocess_info.get("summary"),
         "risk_diagnostics": risk_payload,
+        "signal_frame": signal_frame,
+        "signal_spec": effective_signal_spec,
     }
 
 
@@ -884,6 +1084,7 @@ def run_analysis(
     periods_per_year: float | None = None,
     previous_weights: Mapping[str, float] | None = None,
     max_turnover: float | None = None,
+    signal_spec: TrendSpec | None = None,
 ) -> dict[str, object] | None:
     """Backward-compatible wrapper around ``_run_analysis``."""
     return _run_analysis(
@@ -913,6 +1114,7 @@ def run_analysis(
         periods_per_year_override=periods_per_year,
         previous_weights=previous_weights,
         max_turnover=max_turnover,
+        signal_spec=signal_spec,
     )
 
 
@@ -937,8 +1139,10 @@ def run(cfg: Config) -> pd.DataFrame:
         missing_policy=missing_policy_cfg,
         missing_limit=missing_limit_cfg,
     )
+    df = cast(pd.DataFrame, df)
 
-    split = _cfg_section(cfg, "sample_split")
+    split_cfg = _cfg_section(cfg, "sample_split")
+    resolved_split = _resolve_sample_split(df, split_cfg)
     metrics_section = _cfg_section(cfg, "metrics")
     metrics_list = _section_get(metrics_section, "registry")
     stats_cfg = None
@@ -961,13 +1165,14 @@ def run(cfg: Config) -> pd.DataFrame:
     vol_adjust = _cfg_section(cfg, "vol_adjust")
     run_settings = _cfg_section(cfg, "run")
     portfolio_cfg = _cfg_section(cfg, "portfolio")
+    trend_spec = _build_trend_spec(cfg, vol_adjust)
 
     res = _run_analysis(
         df,
-        cast(str, _section_get(split, "in_start")),
-        cast(str, _section_get(split, "in_end")),
-        cast(str, _section_get(split, "out_start")),
-        cast(str, _section_get(split, "out_end")),
+        resolved_split["in_start"],
+        resolved_split["in_end"],
+        resolved_split["out_start"],
+        resolved_split["out_end"],
         _section_get(vol_adjust, "target_vol", 1.0),
         _section_get(run_settings, "monthly_cost", 0.0),
         floor_vol=_section_get(vol_adjust, "floor_vol"),
@@ -987,6 +1192,7 @@ def run(cfg: Config) -> pd.DataFrame:
         risk_window=_section_get(vol_adjust, "window"),
         previous_weights=_section_get(portfolio_cfg, "previous_weights"),
         max_turnover=_section_get(portfolio_cfg, "max_turnover"),
+        signal_spec=trend_spec,
     )
     if res is None:
         return pd.DataFrame()
@@ -1012,8 +1218,7 @@ def run_full(cfg: Config) -> dict[str, object]:
     data_settings = _cfg_section(cfg, "data")
     csv_path = _section_get(data_settings, "csv_path")
     if csv_path is None:
-        logger.warning("cfg.data['csv_path'] missing; returning empty result")
-        return _empty_run_full_result()
+        raise KeyError("cfg.data['csv_path'] must be provided")
 
     missing_policy_cfg = _section_get(data_settings, "missing_policy")
     if missing_policy_cfg is None:
@@ -1022,18 +1227,16 @@ def run_full(cfg: Config) -> dict[str, object]:
     if missing_limit_cfg is None:
         missing_limit_cfg = _section_get(data_settings, "nan_limit")
 
-    try:
-        df = load_csv(
-            csv_path,
-            errors="raise",
-            missing_policy=missing_policy_cfg,
-            missing_limit=missing_limit_cfg,
-        )
-    except FileNotFoundError as exc:
-        logger.warning("CSV not found (%s); returning empty result", exc)
-        return _empty_run_full_result()
+    df = load_csv(
+        csv_path,
+        errors="raise",
+        missing_policy=missing_policy_cfg,
+        missing_limit=missing_limit_cfg,
+    )
+    df = cast(pd.DataFrame, df)
 
-    split = _cfg_section(cfg, "sample_split")
+    split_cfg = _cfg_section(cfg, "sample_split")
+    resolved_split = _resolve_sample_split(df, split_cfg)
     metrics_section = _cfg_section(cfg, "metrics")
     metrics_list = _section_get(metrics_section, "registry")
     stats_cfg = None
@@ -1056,13 +1259,14 @@ def run_full(cfg: Config) -> dict[str, object]:
     vol_adjust = _cfg_section(cfg, "vol_adjust")
     run_settings = _cfg_section(cfg, "run")
     portfolio_cfg = _cfg_section(cfg, "portfolio")
+    trend_spec = _build_trend_spec(cfg, vol_adjust)
 
     res = _run_analysis(
         df,
-        cast(str, _section_get(split, "in_start")),
-        cast(str, _section_get(split, "in_end")),
-        cast(str, _section_get(split, "out_start")),
-        cast(str, _section_get(split, "out_end")),
+        resolved_split["in_start"],
+        resolved_split["in_end"],
+        resolved_split["out_start"],
+        resolved_split["out_end"],
         _section_get(vol_adjust, "target_vol", 1.0),
         _section_get(run_settings, "monthly_cost", 0.0),
         floor_vol=_section_get(vol_adjust, "floor_vol"),
@@ -1083,6 +1287,7 @@ def run_full(cfg: Config) -> dict[str, object]:
         risk_window=_section_get(vol_adjust, "window"),
         previous_weights=_section_get(portfolio_cfg, "previous_weights"),
         max_turnover=_section_get(portfolio_cfg, "max_turnover"),
+        signal_spec=trend_spec,
     )
     return {} if res is None else res
 
@@ -1132,11 +1337,16 @@ def compute_signal(
     cache = get_cache()
 
     def _compute() -> pd.Series:
-        rolling = base.rolling(window=window, min_periods=effective_min_periods).mean()
-        # Enforce causality: decision at t must not include value at t
-        signal = rolling.shift(1)
-        signal.name = f"{column}_signal"
-        return signal
+        spec = TrendSpec(
+            window=window,
+            min_periods=effective_min_periods,
+            lag=1,
+            vol_adjust=False,
+            zscore=False,
+        )
+        frame = compute_trend_signals(df[[column]].astype(float), spec)
+        series = frame[column].rename(f"{column}_signal")
+        return series.astype(float)
 
     if cache.is_enabled():
         dataset_hash = compute_dataset_hash([base])
@@ -1151,7 +1361,7 @@ def compute_signal(
         except Exception:  # noqa: BLE001
             freq = None
         freq_tag = freq or "unknown"
-        method_tag = f"rolling_mean_shifted_min{effective_min_periods}"
+        method_tag = f"trend_spec_window{window}_min{effective_min_periods}"
         return cache.get_or_compute(
             dataset_hash, int(window), freq_tag, method_tag, _compute
         )

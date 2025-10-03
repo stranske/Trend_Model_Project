@@ -151,7 +151,7 @@ jobs:
             // Build markdown table
             const header = '| Agent | Kind | Requested | Assignable | Resolved Login |';
             const sep = '|-------|------|-----------|-----------|---------------|';
-            const mdRows = rows.map(r => `| ${r.label} | ${r.type} | yes | ${r.ok? '✅':'❌'} | ${r.used} |`);
+            const mdRows = rows.map(r => `| ${r.label} | ${r.type} | yes | ${r.ok? '':''} | ${r.used} |`);
             const table = [header, sep, ...mdRows].join('\n');
             core.setOutput('report', JSON.stringify(report));
             core.setOutput('table', table);
@@ -172,7 +172,7 @@ jobs:
         if: always()
         run: |
           {
-            printf '### Agent Readiness Report %s\n' "${{ steps.try.outcome == 'failure' && '❌' || '✅' }}"
+            printf '### Agent Readiness Report %s\n' "${{ steps.try.outcome == 'failure' && '' || '' }}"
             printf '\n```json\n'
             printf '%s\n' "${{ steps.try.outputs.report }}"
             printf '```\n\n'
