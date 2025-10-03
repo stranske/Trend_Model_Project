@@ -18,6 +18,55 @@ from trend.cli import (
     main,
 )
 from trend_analysis.api import RunResult
+from trend_analysis.reporting import generate_unified_report
+
+
+def _sample_result() -> RunResult:
+    metrics = pd.DataFrame({"Sharpe": [0.82], "CAGR": [0.11]}, index=["FundA"])
+    turnover = pd.Series(
+        [0.18, 0.22, 0.2],
+        index=pd.to_datetime(["2021-01-31", "2021-02-28", "2021-03-31"]),
+    )
+    final_weights = pd.Series({"FundA": 0.55, "FundB": 0.45})
+    portfolio = pd.Series(
+        [0.012, -0.004, 0.01],
+        index=pd.to_datetime(["2021-01-31", "2021-02-28", "2021-03-31"]),
+    )
+    stats = SimpleNamespace(
+        cagr=0.11,
+        vol=0.08,
+        sharpe=1.05,
+        sortino=0.9,
+        max_drawdown=-0.18,
+        information_ratio=0.35,
+    )
+    details = {
+        "out_user_stats": stats,
+        "out_ew_stats": stats,
+        "selected_funds": ["FundA", "FundB"],
+        "risk_diagnostics": {
+            "turnover": turnover,
+            "final_weights": final_weights,
+        },
+    }
+    result = RunResult(metrics=metrics, details=details, seed=13, environment={})
+    setattr(result, "portfolio", portfolio)
+    return result
+
+
+def _sample_config() -> SimpleNamespace:
+    return SimpleNamespace(
+        sample_split={
+            "in_start": "2020-01",
+            "in_end": "2020-12",
+            "out_start": "2021-01",
+            "out_end": "2021-12",
+        },
+        vol_adjust={"target_vol": 0.15},
+        portfolio={"selection_mode": "all", "weighting_scheme": "equal"},
+        run={},
+        benchmarks={},
+    )
 
 
 def test_build_parser_contains_expected_subcommands() -> None:
@@ -293,6 +342,58 @@ def test_main_report_pdf_dependency_error(monkeypatch, tmp_path: Path, capsys) -
     captured = capsys.readouterr()
     assert exit_code == 2
     assert "PDF generation failed" in captured.err
+
+
+def test_cli_report_matches_shared_generator(monkeypatch, tmp_path: Path) -> None:
+    expected_result = _sample_result()
+    expected_config = _sample_config()
+    expected_artifacts = generate_unified_report(
+        expected_result,
+        expected_config,
+        run_id="cli-run",
+        include_pdf=False,
+    )
+
+    cli_result = _sample_result()
+    cli_config = _sample_config()
+
+    config_path = tmp_path / "config.yml"
+    config_path.write_text("{}\n", encoding="utf-8")
+    returns_path = tmp_path / "returns.csv"
+    returns_path.write_text("Date,Value\n2021-01-31,0.01\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        "trend_analysis.cli._load_configuration",
+        lambda path: (config_path.resolve(), cli_config),
+    )
+    monkeypatch.setattr(
+        "trend_analysis.cli._resolve_returns_path",
+        lambda *args, **kwargs: returns_path,
+    )
+    monkeypatch.setattr(
+        "trend_analysis.cli._ensure_dataframe", lambda _p: pd.DataFrame({"Date": ["2021-01-31"], "Value": [0.01]})
+    )
+    monkeypatch.setattr("trend_analysis.cli._print_summary", lambda *args, **kwargs: None)
+    monkeypatch.setattr("trend_analysis.cli._write_report_files", lambda *args, **kwargs: None)
+
+    def fake_run_pipeline(*args, **kwargs):  # type: ignore[override]
+        return cli_result, "cli-run", None
+
+    monkeypatch.setattr("trend_analysis.cli._run_pipeline", fake_run_pipeline)
+
+    report_path = tmp_path / "report.html"
+    exit_code = main(
+        [
+            "report",
+            "--config",
+            str(config_path),
+            "--output",
+            str(report_path),
+        ]
+    )
+
+    assert exit_code == 0
+    assert report_path.read_text(encoding="utf-8") == expected_artifacts.html
 
 
 def test_main_report_requires_output_directory() -> None:
