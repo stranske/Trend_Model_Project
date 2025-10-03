@@ -48,7 +48,7 @@ jobs:
             function has(l){ return labelSet.has(l); }
             const need = (envName, fallback) => process.env[envName] || fallback;
             const breakingLabelName = need('SAFE_LABEL_BREAKING','breaking');
-            const hasBreaking = has(breakingLabelName);
+            const hasBreaking = has(breakingLabelName) || labels.some(label => (label || '').toLowerCase().includes('breaking'));
             const meta = {
               draft: pr.draft,
               hasAgent: has(need('SAFE_LABEL_AGENT1','from:copilot')) || has(need('SAFE_LABEL_AGENT2','from:codex')),

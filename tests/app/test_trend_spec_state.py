@@ -23,8 +23,15 @@ def configure_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
             self[key] = value
 
     stub.session_state = SessionState()
-    noop = lambda *args, **kwargs: None
-    selectable = lambda label, options, index=0, **kwargs: options[index]
+
+    def noop(*args: Any, **kwargs: Any) -> None:  # pragma: no cover - trivial stub
+        return None
+
+    def selectable(
+        _label: str, options: list[Any], *, index: int = 0, **kwargs: Any
+    ) -> Any:  # pragma: no cover - trivial stub
+        return options[index]
+
     setattr(stub, "selectbox", selectable)
     for attr in [
         "subheader",
@@ -43,7 +50,9 @@ def configure_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     ]:
         setattr(stub, attr, noop)
     monkeypatch.setitem(sys.modules, "streamlit", stub)
-    module = importlib.reload(importlib.import_module("streamlit_app.pages.2_Configure"))
+    module = importlib.reload(
+        importlib.import_module("streamlit_app.pages.2_Configure")
+    )
     return module
 
 

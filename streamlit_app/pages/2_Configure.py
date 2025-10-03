@@ -10,7 +10,6 @@ import pandas as pd
 import streamlit as st
 
 
-
 def _ensure_src_path() -> None:
     src_path = Path(__file__).parent.parent.parent / "src"
     if str(src_path) not in sys.path:
@@ -196,7 +195,11 @@ def _sync_trend_spec_widget_state(values: Mapping[str, Any]) -> None:
 
     vol_target_raw = values.get("vol_target", defaults["vol_target"])
     try:
-        vol_target = float(vol_target_raw) if vol_target_raw is not None else defaults["vol_target"]
+        vol_target = (
+            float(vol_target_raw)
+            if vol_target_raw is not None
+            else defaults["vol_target"]
+        )
     except (TypeError, ValueError):
         vol_target = defaults["vol_target"]
     if vol_target <= 0.0:
@@ -478,17 +481,21 @@ def render_trend_spec_settings(selected_preset_label: Optional[str]) -> None:
             f"• Window: **{summary_values['window']}** trading days",
             f"• Minimum periods: **{min_periods_display}**",
             f"• Lag: **{summary_values['lag']}**",
-            "• Volatility adjustment: **on**"
-            if summary_values["vol_adjust"]
-            else "• Volatility adjustment: **off**",
+            (
+                "• Volatility adjustment: **on**"
+                if summary_values["vol_adjust"]
+                else "• Volatility adjustment: **off**"
+            ),
             (
                 f"• Volatility target: **{vol_target_summary:.2f}**"
                 if summary_values["vol_adjust"] and vol_target_summary is not None
                 else "• Volatility target: _not used_"
             ),
-            "• Z-score normalisation: **enabled**"
-            if summary_values["zscore"]
-            else "• Z-score normalisation: **disabled**",
+            (
+                "• Z-score normalisation: **enabled**"
+                if summary_values["zscore"]
+                else "• Z-score normalisation: **disabled**"
+            ),
         ]
         st.markdown("\n".join(summary_lines))
 
@@ -739,9 +746,15 @@ def render_parameter_forms(preset: Optional[TrendPreset]):
 
     preset_metrics = defaults.get("metrics") if defaults else {}
     if isinstance(preset_metrics, Mapping) and preset_metrics:
-        filtered_preset_metrics = {metric: weight for metric, weight in preset_metrics.items() if metric in metric_names}
+        filtered_preset_metrics = {
+            metric: weight
+            for metric, weight in preset_metrics.items()
+            if metric in metric_names
+        }
         default_metrics = list(filtered_preset_metrics.keys())
-        preset_weights = {metric: float(weight) for metric, weight in filtered_preset_metrics.items()}
+        preset_weights = {
+            metric: float(weight) for metric, weight in filtered_preset_metrics.items()
+        }
     else:
         default_metrics = ["sharpe", "return_ann", "drawdown"]
         preset_weights = {}
@@ -789,11 +802,19 @@ def render_parameter_forms(preset: Optional[TrendPreset]):
 
     default_trend_values = config_state.get("trend_spec_defaults") or {}
     # Cache normalized default values to avoid repeated expensive normalization
-    if "trend_spec_defaults_normalised" not in config_state or config_state.get("trend_spec_defaults_last") != default_trend_values:
-        config_state["trend_spec_defaults_normalised"] = _normalise_trend_spec_values(default_trend_values)
+    if (
+        "trend_spec_defaults_normalised" not in config_state
+        or config_state.get("trend_spec_defaults_last") != default_trend_values
+    ):
+        config_state["trend_spec_defaults_normalised"] = _normalise_trend_spec_values(
+            default_trend_values
+        )
         config_state["trend_spec_defaults_last"] = default_trend_values
     default_trend_values_normalised = config_state["trend_spec_defaults_normalised"]
-    if config_state.get("trend_spec_preset") and default_trend_values_normalised != trend_spec_normalised:
+    if (
+        config_state.get("trend_spec_preset")
+        and default_trend_values_normalised != trend_spec_normalised
+    ):
         config_state["trend_spec_preset"] = None
 
     signals_override = {
@@ -939,7 +960,9 @@ def validate_configuration() -> List[str]:
             if bool(signals.get("vol_adjust")):
                 vol_target_raw = signals.get("vol_target")
                 try:
-                    vol_target_val = float(vol_target_raw) if vol_target_raw is not None else None
+                    vol_target_val = (
+                        float(vol_target_raw) if vol_target_raw is not None else None
+                    )
                 except (TypeError, ValueError):
                     vol_target_val = None
                 if vol_target_val is None or vol_target_val <= 0:
