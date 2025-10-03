@@ -93,7 +93,7 @@ def test_rolling_and_expanding_windows_diverge() -> None:
     first_calendar_entry = summary["calendar"][0]
     assert isinstance(first_calendar_entry, str)
     assert "metrics" in summary
-    assert summary["metrics"].keys() >= expected_metrics
+    assert expected_metrics.issubset(summary["metrics"].keys())
     assert "rolling_sharpe" in summary
     assert "turnover" in summary
     assert "transaction_costs" in summary
