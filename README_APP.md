@@ -28,6 +28,14 @@ Or use the repo launcher which ensures the venv and extras are present:
 scripts/run_streamlit.sh
 ```
 
+### Unified report downloads
+
+The Results page now exposes "Download report" buttons for HTML and, when the
+optional ``fpdf2`` dependency is installed, PDF output. Both use the same
+`trend.reporting.generate_unified_report` helper that powers the CLI, ensuring
+reports downloaded from the UI are byte-identical to those produced via
+``trend report --output``.
+
 ## Integration with your pipeline
 - If available, the code calls `trend_analysis.pipeline.single_period_run(...)` to compute the score frame.
 - If import fails, it falls back to a local metrics implementation so the app still runs.
