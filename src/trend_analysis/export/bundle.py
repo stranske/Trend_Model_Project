@@ -185,7 +185,7 @@ def export_bundle(run: Any, path: Path) -> Path:
                 return _to_list(index.to_timestamp().to_pydatetime())
             if isinstance(index, pd.DatetimeIndex):
                 return _to_list(index.to_pydatetime())
-            return _to_list(index.to_list())
+            return index.to_list()
 
         def _write_charts(eq: pd.Series, band: pd.DataFrame | None) -> None:
             # Configure non-interactive backend and import pyplot lazily
