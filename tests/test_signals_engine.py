@@ -76,6 +76,7 @@ def test_signal_frame_columns_are_consistent(sample_prices: pd.DataFrame) -> Non
 
     for frame in frames:
         assert isinstance(frame, pd.DataFrame)
+        assert frame.index.equals(sample_prices.index)
         assert frame.columns.names == ["stage", "asset"]
         assert tuple(frame.columns.get_level_values(0).unique()) == SignalFrame._STAGES
 
