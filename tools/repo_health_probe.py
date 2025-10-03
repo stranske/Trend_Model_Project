@@ -390,7 +390,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             md.write(summary.summary_markdown + "\n")
         _append_step_summary(summary.summary_markdown + "\n", summary_path)
 
-    print(json.dumps(report, indent=2))
+    # Redact secrets from stdout print; still present in report file.
+    sanitized_report = dict(report)
+    sanitized_report.pop("secrets", None)
+    print(json.dumps(sanitized_report, indent=2))
     return 0 if report.get("ok", False) else 1
 
 
