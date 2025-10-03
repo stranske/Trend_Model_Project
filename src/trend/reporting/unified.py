@@ -605,7 +605,7 @@ def _render_pdf(context: Mapping[str, Any]) -> bytes:
     pdf.cell(0, 8, "Executive summary", ln=True)
     pdf.set_font("Helvetica", "", 11)
     for item in context["exec_summary"]:
-        pdf.multi_cell(0, 6, f"• {item}")
+        pdf.multi_cell(0, 6, f"- {item}")
     pdf.ln(2)
     pdf.set_font("Helvetica", "B", 13)
     pdf.cell(0, 8, "Narrative", ln=True)
@@ -628,7 +628,7 @@ def _render_pdf(context: Mapping[str, Any]) -> bytes:
     pdf.cell(0, 8, "Caveats", ln=True)
     pdf.set_font("Helvetica", "", 10)
     for caveat in context["caveats"]:
-        pdf.multi_cell(0, 5, f"• {caveat}")
+        pdf.multi_cell(0, 5, f"- {caveat}")
     if context["turnover_chart"]:
         pdf.add_page()
         pdf.set_font("Helvetica", "B", 13)
