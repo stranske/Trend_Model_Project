@@ -164,7 +164,7 @@ def test_job_table_prioritises_failing_and_pending_jobs(sample_runs):
     assert optional_index is not None, "'main / optional' job not found in table_lines"
     assert "❌ failure" in table_lines[docker_index]
     assert "❌ failure" in table_lines[flaky_index]
-    assert "⏳ in_progress" in table_lines[docs_index]
+    assert "⏳ in progress" in table_lines[docs_index]
     assert "⏭️ skipped" in table_lines[optional_index]
 
     assert max(flaky_index, docker_index) < optional_index

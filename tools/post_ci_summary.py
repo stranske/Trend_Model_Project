@@ -58,6 +58,15 @@ def _badge(state: str | None) -> str:
     return "⏳"
 
 
+def _display_state(state: str | None) -> str:
+    if not state:
+        return "pending"
+    text = str(state).strip()
+    if not text:
+        return "pending"
+    return text.replace("_", " ").lower()
+
+
 def _priority(state: str | None) -> int:
     normalized = (state or "").lower()
     if normalized in {"failure", "cancelled", "timed_out", "action_required"}:
@@ -166,7 +175,7 @@ def _format_jobs_table(rows: Sequence[JobRecord]) -> List[str]:
         return header + ["| _(no jobs reported)_ | ⏳ pending | — |"]
     body = []
     for record in rows:
-        state_display = record.state or "unknown"
+        state_display = _display_state(record.state)
         link = f"[logs]({record.url})" if record.url else "—"
         body.append(
             f"| {record.name} | {_badge(record.state)} {state_display} | {link} |"
@@ -205,14 +214,16 @@ def _collect_required_segments(
                 if any(regex.search(name) for regex in regexes):
                     matched_states.append(job.get("conclusion") or job.get("status"))
             state = _combine_states(matched_states)
-            segments.append(f"{label}: {_badge(state)} {state}")
+            segments.append(
+                f"{label}: {_badge(state)} {_display_state(state)}"
+            )
     else:
         segments.append("CI: ⏳ pending")
 
     docker_run = run_lookup.get("docker")
     if isinstance(docker_run, Mapping) and docker_run.get("present"):
-        state = docker_run.get("conclusion") or docker_run.get("status") or "unknown"
-        segments.append(f"Docker: {_badge(state)} {state}")
+        state = docker_run.get("conclusion") or docker_run.get("status") or None
+        segments.append(f"Docker: {_badge(state)} {_display_state(state)}")
     else:
         segments.append("Docker: ⏳ pending")
     return segments
