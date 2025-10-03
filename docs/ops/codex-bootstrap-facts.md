@@ -95,7 +95,7 @@ This catalog explains what each active workflow does, how it’s triggered, the 
   - Links to: Unified orchestrator (above)
 
 <a id="wf-label-agent-prs"></a>
-3) [`label-agent-prs.yml`](../../.github/workflows/label-agent-prs.yml) — Apply agent labels to PRs (keeps downstream automation deterministic)
+4) [`label-agent-prs.yml`](../../.github/workflows/label-agent-prs.yml) — Apply agent labels to PRs (keeps downstream automation deterministic)
    - Triggers: `pull_request_target: [opened, synchronize, reopened]`
    - Jobs: `label`
      - Computes desired labels based on actor/head-ref; adds `from:codex|copilot`, `agent:codex|copilot`, `automerge`, `risk:low`
