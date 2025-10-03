@@ -133,6 +133,18 @@ need:
 Only one agent label should be present on an issue at a time. Remove any stale
 label before switching to the other agent to prevent conflicting assignments.
 
+### Quick reference: agent request checklist
+
+When filing an issue that requires Codex or Copilot support:
+
+- [ ] Pick the issue template that matches your request (bug vs. feature).
+- [ ] Ensure the sidebar shows exactly one agent label
+      (`agent:codex` **or** `agent:copilot`).
+- [ ] Remove the other agent label if it was auto-applied from a previous
+      request so assignment does not stall.
+- [ ] Submit the form only after the confirmation checkbox passes—automation
+      will fail fast when both agent labels are present.
+
 ## Cross-references & additional resources
 
 - `.github/workflows/README.md` – Architectural overview and onboarding
