@@ -87,10 +87,10 @@ def bootstrap_equity(
     sampled = _bootstrap_paths(realised, n_paths=n, block=block, rng=rng)
     equity_paths = np.cumprod(1.0 + sampled, axis=1)
 
-    first_active = realised.index[0]
+    first_return_date = realised.index[0]
     first_return = float(realised.iloc[0])
     try:
-        equity_after_first = float(result.equity_curve.loc[first_active])
+        equity_after_first = float(result.equity_curve.loc[first_return_date])
     except KeyError:  # pragma: no cover - defensive alignment fallback
         eq_non_na = result.equity_curve.dropna()
         equity_after_first = float(eq_non_na.iloc[0]) if not eq_non_na.empty else 1.0
