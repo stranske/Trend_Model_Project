@@ -388,7 +388,9 @@ def test_main_report_command(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
     monkeypatch.setattr(
         trend_cli,
         "generate_unified_report",
-        lambda *a, **k: SimpleNamespace(html="<html>report</html>", pdf_bytes=None, context={}),
+        lambda *a, **k: SimpleNamespace(
+            html="<html>report</html>", pdf_bytes=None, context={}
+        ),
     )
 
     exit_code = trend_cli.main(

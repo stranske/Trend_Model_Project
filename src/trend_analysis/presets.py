@@ -138,9 +138,7 @@ class TrendPreset:
             "lookback_months": _coerce_int(
                 preset.get("lookback_months"), default=36, minimum=1
             ),
-            "rebalance_frequency": str(
-                preset.get("rebalance_frequency", "monthly")
-            ),
+            "rebalance_frequency": str(preset.get("rebalance_frequency", "monthly")),
             "min_track_months": _coerce_int(
                 preset.get("min_track_months"), default=24, minimum=1
             ),
@@ -333,4 +331,3 @@ __all__ = [
     "UI_METRIC_ALIASES",
     "PIPELINE_METRIC_ALIASES",
 ]
-

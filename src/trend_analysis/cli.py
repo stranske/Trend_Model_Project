@@ -493,9 +493,7 @@ def _load_configuration(path: str) -> tuple[Path, Any]:
     return unified_load_configuration(path)
 
 
-def _resolve_returns_path(
-    config_path: Path, cfg: Any, override: str | None
-) -> Path:
+def _resolve_returns_path(config_path: Path, cfg: Any, override: str | None) -> Path:
     """Reuse the unified CLI's returns resolution helper."""
 
     from trend.cli import _resolve_returns_path as unified_resolve_returns_path
@@ -542,9 +540,7 @@ def _print_summary(cfg: Any, result: Any) -> None:
     return unified_print_summary(cfg, result)
 
 
-def _write_report_files(
-    out_dir: Path, cfg: Any, result: Any, *, run_id: str
-) -> None:
+def _write_report_files(out_dir: Path, cfg: Any, result: Any, *, run_id: str) -> None:
     """Forward report artefact writes to the unified CLI implementation."""
 
     from trend.cli import _write_report_files as unified_write_report_files
