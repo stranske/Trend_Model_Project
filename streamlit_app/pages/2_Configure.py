@@ -399,12 +399,9 @@ def render_parameter_forms(preset: TrendPreset | None):
 
     preset_metrics = defaults.get("metrics") if defaults else {}
     if isinstance(preset_metrics, Mapping) and preset_metrics:
-        default_metrics = [m for m in preset_metrics if m in metric_names]
-        preset_weights = {
-            metric: float(weight)
-            for metric, weight in preset_metrics.items()
-            if metric in metric_names
-        }
+        filtered_preset_metrics = {metric: weight for metric, weight in preset_metrics.items() if metric in metric_names}
+        default_metrics = list(filtered_preset_metrics.keys())
+        preset_weights = {metric: float(weight) for metric, weight in filtered_preset_metrics.items()}
     else:
         default_metrics = ["sharpe", "return_ann", "drawdown"]
         preset_weights = {}
