@@ -43,6 +43,8 @@ Key parameters:
   deterministic bands.
 
 Any leading `NaN` values in the original return series are reinserted so charts
-and exports align with the point where the strategy becomes live.  See
+and exports align with the point where the strategy becomes live.  The helper
+also honours the realised equity scale (e.g. starting capital of 100) so the
+resulting quantiles overlay correctly on absolute-dollar curves.  See
 `tests/backtesting/test_bootstrap.py` for worked examples and edge-case
 coverage.
