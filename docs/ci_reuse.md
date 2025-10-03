@@ -6,7 +6,7 @@ This repository exposes three reusable GitHub Actions workflows (workflow_call) 
 | ------------------ | ---- | ------- |
 | Python CI          | `.github/workflows/reuse-ci-python.yml` | Tests + coverage gate + (optional) quarantine set |
 | Autofix            | `.github/workflows/reuse-autofix.yml`   | Formatting / lint autofix on PRs (opt‑in label) |
-| Agents Automation  | `.github/workflows/agents-41-assign.yml` + `.github/workflows/agents-42-watchdog.yml` | Codex issue bootstrap + watchdog diagnostics |
+| Agents Automation  | `.github/workflows/agents-41-assign-and-watch.yml` | Unified agent assignment, Codex bootstrap, watchdog diagnostics, stale sweep |
 
 ## 1. Python CI (`reuse-ci-python.yml`)
 Trigger via a consumer workflow:
@@ -74,20 +74,22 @@ jobs:
 2. Runs formatting & linting fix scripts (currently `./scripts/validate_fast.sh --fix`).
 3. Commits changes back to the PR branch (uses GitHub token). Fork safety: logic avoids committing if permissions insufficient.
 
-## 3. Agents Automation (`agents-41-assign.yml` + `agents-42-watchdog.yml`)
-Issue #1419 replaced the multi-flag `reuse-agents.yml` pipeline with a focused pair. The reusable building block now lives at `reusable-90-agents.yml` for targeted consumers:
+## 3. Agents Automation (`agents-41-assign-and-watch.yml`)
+Issue #1662 consolidated the assigner/watchdog pair into a single orchestrator. The reusable building block still lives at `reusable-90-agents.yml`, but `agents-41-assign-and-watch.yml` now owns:
 
-- **`agents-41-assign.yml`** — Runs on `issues: [labeled]` / `pull_request_target: [labeled]`. Maps `agent:*` labels to automation accounts, posts the appropriate trigger command, and (for Codex issues) creates the bootstrap branch/PR via `.github/actions/codex-bootstrap-lite`.
-- **`agents-42-watchdog.yml`** — Triggered automatically by the assigner via `workflow_dispatch`. Polls the issue timeline for a cross-referenced PR and posts a ✅ success or ⚠️ timeout comment within ~7 minutes.
+- Label-triggered assignment (via `agents-41-assign.yml` wrapper) with Codex bootstrap + fallback handling.
+- Manual watchdog requests (via `agents-42-watchdog.yml` wrapper) and cross-reference polling for fresh PRs.
+- A scheduled stale sweep that pings idle agents or escalates when availability probes fail.
 
 ### Trigger Strategy
-- Subscribe the assigner to label events so automation reacts immediately to `agent:*` labels.
-- The assigner dispatches the watchdog with the issue number, expected PR (if available), and timeout. Manual runs remain available for diagnostics by invoking `workflow_dispatch` with custom inputs.
+- Forward label/unlabel events from `agents-41-assign.yml` into the unified workflow to keep compatibility with existing notifications.
+- Manual watchdog runs call `agents-42-watchdog.yml`, which delegates to the unified workflow with `mode: watch`.
+- The unified workflow schedules its own stale sweep (default every 30 minutes) and shares readiness checks through `reusable-90-agents.yml` to avoid duplicating GraphQL probes.
 
 ### Notes
 - Bootstrap logic still honours PAT priority (`OWNER_PR_PAT` → `SERVICE_BOT_PAT` → `GITHUB_TOKEN`) and posts `@codex start` on newly created PRs.
 - Adjust watchdog behaviour (timeout, expected PR) by supplying overrides during manual dispatch.
-- Readiness, preflight, and verification probes from `reuse-agents.yml` are available via `reusable-90-agents.yml` (historical variants remain archived under `Old/.github/workflows/`). Craft targeted GitHub Script snippets if similar diagnostics are needed.
+- Readiness, preflight, and verification probes from `reuse-agents.yml` remain available via `reusable-90-agents.yml` (historical variants stay archived under `Old/.github/workflows/`).
 
 ## 4. Adoption Guide (External Repos)
 1. Copy the three reusable files verbatim or add this repo as a submodule / template reference.
