@@ -97,6 +97,18 @@ def test_execution_lag_applied_only_on_rebalance_dates(sample_prices: pd.DataFra
     pd.testing.assert_frame_equal(frame.final, expected)
 
 
+def test_execution_lag_without_rebalance_dates_shifts_all_periods(
+    sample_prices: pd.DataFrame,
+) -> None:
+    spec = TrendSpec(lookback=1, execution_lag=1)
+    frame = generate_signals(sample_prices, spec, rebalance_dates=None)
+
+    normalized = frame.stage("normalized")
+    expected = normalized.shift(spec.execution_lag)
+
+    pd.testing.assert_frame_equal(frame.final, expected)
+
+
 def test_trend_spec_toggles_modify_signal(sample_prices: pd.DataFrame) -> None:
     base_spec = TrendSpec(lookback=1, execution_lag=0)
     vol_spec = TrendSpec(lookback=1, vol_lookback=2, use_vol_adjust=True, execution_lag=0)
