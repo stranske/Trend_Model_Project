@@ -40,14 +40,18 @@ class AlternatingStrategy:
 def _synthetic_returns(start: str, periods: int, freq: str = "B") -> pd.DataFrame:
     index = pd.date_range(start=start, periods=periods, freq=freq)
     half = periods // 2
-    a_returns = np.concatenate([
-        np.full(half, 0.001),
-        np.full(periods - half, 0.01),
-    ])
-    b_returns = np.concatenate([
-        np.full(half, 0.015),
-        np.full(periods - half, -0.004),
-    ])
+    a_returns = np.concatenate(
+        [
+            np.full(half, 0.001),
+            np.full(periods - half, 0.01),
+        ]
+    )
+    b_returns = np.concatenate(
+        [
+            np.full(half, 0.015),
+            np.full(periods - half, -0.004),
+        ]
+    )
     return pd.DataFrame({"A": a_returns, "B": b_returns}, index=index)
 
 
