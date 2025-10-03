@@ -342,7 +342,7 @@ results/
   portfolio.csv      - Portfolio returns time series
   benchmark.csv      - Benchmark returns (if available)
   weights.csv        - Portfolio weights over time (if available)
-  equity_bootstrap.csv - Bootstrap equity quantiles (5th/median/95th) if computed
+  equity_bootstrap.csv - Bootstrap equity quantiles (5th percentile/median/95th percentile) if computed
 
 charts/
   equity_curve.png   - Cumulative performance with optional bootstrap band
