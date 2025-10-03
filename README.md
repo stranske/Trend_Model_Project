@@ -166,6 +166,9 @@ trend run --config config/demo.yml
 # Generate a structured report bundle in ./perf
 trend report --config config/demo.yml --out perf
 
+# Produce a unified HTML report (and optional PDF) alongside artefacts
+trend report --config config/demo.yml --out perf --output reports --pdf
+
 # Execute a canned stress scenario focused on the 2008 crisis window
 trend stress --config config/demo.yml --scenario 2008
 
@@ -175,7 +178,12 @@ trend app
 
 Provide ``--returns`` to override ``data.csv_path`` from the configuration when
 running in ad-hoc mode.  The ``TREND_SEED`` environment variable and ``--seed``
-flag follow the same precedence as the legacy CLI.
+flag follow the same precedence as the legacy CLI.  The ``trend report``
+command accepts ``--output`` to write the unified HTML report to a specific
+file or directory and ``--pdf`` to request a matching PDF copy (requires the
+``fpdf2`` dependency).  These downloads match the Streamlit "Download report"
+buttons byte-for-byte so analysts receive identical content regardless of the
+interface they use.
 
 The historical ``trend-model`` command remains available for backward
 compatibility and forwards to the new implementation.
