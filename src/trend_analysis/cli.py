@@ -17,10 +17,16 @@ from . import logging as run_logging
 from . import pipeline
 from .api import run_simulation
 from .config import load_config
+from .signal_presets import (
+    TrendSpecPreset,
+    get_trend_spec_preset,
+    list_trend_spec_presets,
+)
 from .constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 from .data import load_csv
 from .io.market_data import MarketDataValidationError
 from .perf.rolling_cache import set_cache_enabled
+from .presets import apply_trend_preset, get_trend_preset, list_preset_slugs
 
 APP_PATH = Path(__file__).resolve().parents[2] / "streamlit_app" / "app.py"
 LOCK_PATH = Path(__file__).resolve().parents[2] / "requirements.lock"
@@ -42,6 +48,35 @@ def load_market_data_csv(
         include_date_column if include_date_column is not None else True,
     )
     return load_csv(path, **effective_kwargs)
+
+
+def _apply_trend_spec_preset(cfg: Any, preset: TrendSpecPreset) -> None:
+    """Merge TrendSpec preset parameters into ``cfg`` in-place."""
+
+    payload = preset.as_signal_config()
+    if isinstance(cfg, dict):
+        existing = cfg.get("signals")
+        merged = dict(existing) if isinstance(existing, Mapping) else {}
+        merged.update(payload)
+        cfg["signals"] = merged
+        cfg["trend_spec_preset"] = preset.name
+        return
+
+    existing = getattr(cfg, "signals", None)
+    if isinstance(existing, Mapping):
+        merged = dict(existing)
+        merged.update(payload)
+    else:
+        merged = dict(payload)
+
+    try:
+        setattr(cfg, "signals", merged)
+    except ValueError:
+        object.__setattr__(cfg, "signals", merged)
+    try:
+        setattr(cfg, "trend_spec_preset", preset.name)
+    except ValueError:
+        object.__setattr__(cfg, "trend_spec_preset", preset.name)
 
 
 def _log_step(
@@ -183,6 +218,10 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Disable persistent caching for rolling computations",
     )
+    run_p.add_argument(
+        "--preset",
+        help="Apply a named trend preset to signal generation",
+    )
 
     # Handle --check flag before parsing subcommands
     # This allows --check to work without requiring a subcommand
@@ -208,7 +247,29 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "run":
         cfg = load_config(args.config)
+        if args.preset:
+            try:
+                preset = get_trend_spec_preset(args.preset)
+            except KeyError:
+                available = ", ".join(list_trend_spec_presets())
+                print(
+                    f"Unknown preset '{args.preset}'. Available presets: {available}",
+                    file=sys.stderr,
+                )
+                return 2
+            _apply_trend_spec_preset(cfg, preset)
         set_cache_enabled(not args.no_cache)
+        if getattr(args, "preset", None):
+            try:
+                preset = get_trend_preset(args.preset)
+            except KeyError:
+                available = ", ".join(list_preset_slugs())
+                print(
+                    f"Unknown preset '{args.preset}'. Available: {available}",
+                    file=sys.stderr,
+                )
+                return 2
+            apply_trend_preset(cfg, preset)
         cli_seed = args.seed
         env_seed = os.getenv("TREND_SEED")
         # Precedence: CLI flag > TREND_SEED > config.seed > default 42

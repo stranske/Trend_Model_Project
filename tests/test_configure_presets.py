@@ -48,6 +48,12 @@ class TestPresetLoading:
                 0.01 <= data["risk_target"] <= 0.50
             ), "risk_target should be reasonable"
 
+            signals = data.get("signals")
+            assert isinstance(signals, dict), f"Preset {preset_file.name} missing signals"
+            assert "window" in signals, f"Preset {preset_file.name} missing signal window"
+            assert "lag" in signals, f"Preset {preset_file.name} missing signal lag"
+            assert int(signals["window"]) > 0, "Signal window must be positive"
+
     def test_preset_content_differences(self):
         """Test that presets have meaningfully different configurations."""
         presets_dir = Path(__file__).parent.parent / "config" / "presets"

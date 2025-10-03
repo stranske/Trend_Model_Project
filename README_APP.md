@@ -40,6 +40,23 @@ reports downloaded from the UI are byte-identical to those produced via
 - If available, the code calls `trend_analysis.pipeline.single_period_run(...)` to compute the score frame.
 - If import fails, it falls back to a local metrics implementation so the app still runs.
 
+## Trend presets in the UI and CLI
+
+The Configure page surfaces curated signal presets so users can quickly load
+the "Conservative" or "Aggressive" trend settings without tuning every slider.
+Selecting a preset updates the trend signal lookback, minimum periods, lag, and
+volatility scaling controls alongside the existing portfolio inputs.
+
+The same registry powers the CLI. Run the analysis with a preset by supplying
+`--preset`:
+
+```bash
+trend-model run --preset conservative -c my_config.yml -i returns.csv
+```
+
+Both surfaces share the underlying `TrendSpec` parameters, keeping the Streamlit
+app and CLI in sync.
+
 ## Monte Carlo
 Skeletons for multi-path generation and feature sweeps live under `src/trend_portfolio_app/monte_carlo/`.
 

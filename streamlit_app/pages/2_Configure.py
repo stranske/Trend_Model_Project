@@ -9,7 +9,6 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional
 import pandas as pd
 import streamlit as st
 
-import yaml
 
 
 def _ensure_src_path() -> None:
@@ -24,35 +23,9 @@ from streamlit_app.components.guardrails import (  # noqa: E402
     estimate_resource_usage,
     validate_startup_payload,
 )
+from trend_analysis.presets import TrendPreset, list_trend_presets  # noqa: E402
 from trend_portfolio_app.metrics_extra import AVAILABLE_METRICS  # noqa: E402
 from trend_portfolio_app.policy_engine import MetricSpec, PolicyConfig  # noqa: E402
-
-
-def _resolve_presets_dir() -> Path:
-    """Return the absolute path to the presets directory."""
-
-    return Path(__file__).parent.parent.parent / "config" / "presets"
-
-
-def load_preset_direct(preset_name: str) -> dict:
-    """Load a preset configuration from file."""
-
-    preset_path = _resolve_presets_dir() / f"{preset_name.lower()}.yml"
-    if not preset_path.exists():
-        return {}
-
-    with preset_path.open("r", encoding="utf-8") as preset_file:
-        data = yaml.safe_load(preset_file)
-    return data if isinstance(data, dict) else {}
-
-
-def list_available_presets_direct() -> List[str]:
-    """List all available preset names."""
-
-    presets_dir = _resolve_presets_dir()
-    if not presets_dir.exists():
-        return []
-    return sorted(preset.stem.title() for preset in presets_dir.glob("*.yml"))
 
 
 def _map_payload_errors(payload_errors: Iterable[str]) -> Dict[str, List[str]]:
@@ -83,6 +56,10 @@ def initialize_session_state():
             "preset_config": None,
             "column_mapping": None,
             "custom_overrides": {},
+            "trend_spec_values": {},
+            "trend_spec_defaults": {},
+            "trend_spec_preset": None,
+            "trend_spec_config": {},
             "validation_errors": [],
             "is_valid": False,
             "resource_estimate": None,
@@ -103,49 +80,45 @@ def display_inline_errors(field: str) -> None:
         st.markdown(f":red[⚠️ {message}]")
 
 
-def render_preset_selection():
+def render_preset_selection() -> TrendPreset | None:
     """Render preset selection UI."""
+
     st.subheader("📋 Configuration Preset")
 
-    available_presets = list_available_presets_direct()
-    if not available_presets:
+    presets = list_trend_presets()
+    if not presets:
         st.warning("No presets found in config/presets/")
         return None
 
-    preset_options = ["Custom"] + available_presets
-
-    # Get current selection
-    current_preset = st.session_state.config_state.get("preset_name") or "Custom"
+    preset_options = ["Custom"] + [preset.label for preset in presets]
+    current_label = st.session_state.config_state.get("preset_name") or "Custom"
     try:
-        current_index = preset_options.index(current_preset)
+        current_index = preset_options.index(current_label)
     except ValueError:
         current_index = 0
 
-    selected_preset = st.selectbox(
+    selected_label = st.selectbox(
         "Choose a configuration preset:",
         options=preset_options,
         index=current_index,
         help="Presets provide sensible defaults for different risk profiles",
     )
 
-    if selected_preset != "Custom":
-        try:
-            preset_config = load_preset_direct(selected_preset)
-            st.session_state.config_state["preset_name"] = selected_preset
-            st.session_state.config_state["preset_config"] = preset_config
-
-            # Display preset info
-            if preset_config.get("description"):
-                st.info(f"**{selected_preset}**: {preset_config['description']}")
-
-            return preset_config
-        except Exception as e:
-            st.error(f"Failed to load preset '{selected_preset}': {e}")
-            return None
-    else:
+    if selected_label == "Custom":
         st.session_state.config_state["preset_name"] = None
         st.session_state.config_state["preset_config"] = None
         return None
+
+    selected = next((p for p in presets if p.label == selected_label), None)
+    if selected is None:
+        st.error(f"Unknown preset '{selected_label}'")
+        return None
+
+    st.session_state.config_state["preset_name"] = selected.label
+    st.session_state.config_state["preset_config"] = selected
+    if selected.description:
+        st.info(f"**{selected.label}**: {selected.description}")
+    return selected
 
 
 def render_column_mapping(df: pd.DataFrame):
@@ -244,23 +217,32 @@ def render_column_mapping(df: pd.DataFrame):
     return mapping
 
 
-def render_parameter_forms(preset_config: Optional[Dict[str, Any]]):
+def render_parameter_forms(preset: TrendPreset | None):
     """Render parameter configuration forms."""
     st.subheader("⚙️ Analysis Parameters")
 
-    # Get default values from preset or use fallback defaults
-    if preset_config:
-        default_lookback = preset_config.get("lookback_months", 36)
-        default_rebalance = preset_config.get("rebalance_frequency", "monthly")
-        default_min_track = preset_config.get("min_track_months", 24)
-        default_selection = preset_config.get("selection_count", 10)
-        default_risk_target = preset_config.get("risk_target", 0.10)
-    else:
-        default_lookback = 36
-        default_rebalance = "monthly"
-        default_min_track = 24
-        default_selection = 10
-        default_risk_target = 0.10
+    defaults = preset.form_defaults() if preset else {}
+    default_lookback = int(defaults.get("lookback_months", 36))
+    default_rebalance = str(defaults.get("rebalance_frequency", "monthly"))
+    default_min_track = int(defaults.get("min_track_months", 24))
+    default_selection = int(defaults.get("selection_count", 10))
+    default_risk_target = float(defaults.get("risk_target", 0.10))
+
+    signal_spec = preset.trend_spec if preset else None
+    default_signal_window = int(signal_spec.window if signal_spec else 63)
+    default_signal_min = (
+        int(signal_spec.min_periods)
+        if signal_spec and signal_spec.min_periods is not None
+        else default_signal_window
+    )
+    default_signal_lag = int(signal_spec.lag if signal_spec else 1)
+    default_signal_vol_adjust = bool(signal_spec.vol_adjust if signal_spec else False)
+    default_signal_vol_target = (
+        float(signal_spec.vol_target)
+        if signal_spec and signal_spec.vol_target is not None
+        else 0.10
+    )
+    default_signal_zscore = bool(signal_spec.zscore if signal_spec else False)
 
     df = st.session_state.get("returns_df")
     total_months = 0
@@ -357,14 +339,73 @@ def render_parameter_forms(preset_config: Optional[Dict[str, Any]]):
             help="How to allocate weights across selected funds",
         )
 
+    # Trend signal configuration
+    st.markdown("**Trend Signal Parameters**")
+    sig_col1, sig_col2 = st.columns(2)
+    with sig_col1:
+        signal_window = st.number_input(
+            "Signal lookback (trading days)",
+            min_value=10,
+            max_value=504,
+            value=default_signal_window,
+            step=5,
+            help="Rolling window length used to compute the trend signal.",
+        )
+        display_inline_errors("signal_window")
+
+        signal_min_periods = st.number_input(
+            "Minimum periods for signal",
+            min_value=0,
+            max_value=int(signal_window),
+            value=default_signal_min,
+            step=1,
+            help="Required history before the trend signal becomes active.",
+        )
+        display_inline_errors("signal_min_periods")
+
+        signal_lag = st.number_input(
+            "Signal lag (periods)",
+            min_value=1,
+            max_value=12,
+            value=default_signal_lag,
+            step=1,
+            help="Execution delay applied to the computed signal.",
+        )
+
+    with sig_col2:
+        signal_vol_adjust = st.checkbox(
+            "Volatility adjust signals",
+            value=default_signal_vol_adjust,
+            help="Scale signals by recent volatility to stabilise exposures.",
+        )
+        signal_vol_target = None
+        if signal_vol_adjust:
+            signal_vol_target = st.number_input(
+                "Signal volatility target",
+                min_value=0.0,
+                max_value=1.0,
+                value=default_signal_vol_target,
+                step=0.01,
+                format="%.2f",
+                help="Target volatility used when rescaling the signal.",
+            )
+        display_inline_errors("signal_vol_target")
+
+        signal_zscore = st.checkbox(
+            "Apply row-wise z-score normalisation",
+            value=default_signal_zscore,
+            help="Normalise signals across assets for each period.",
+        )
+
     # Metrics selection
     st.markdown("**Selection Metrics**")
     metric_names = list(AVAILABLE_METRICS.keys())
 
-    if preset_config and preset_config.get("metrics"):
-        # Use preset metrics if available
-        default_metrics = list(preset_config["metrics"].keys())
-        preset_weights = preset_config["metrics"]
+    preset_metrics = defaults.get("metrics") if defaults else {}
+    if isinstance(preset_metrics, Mapping) and preset_metrics:
+        filtered_preset_metrics = {metric: weight for metric, weight in preset_metrics.items() if metric in metric_names}
+        default_metrics = list(filtered_preset_metrics.keys())
+        preset_weights = {metric: float(weight) for metric, weight in filtered_preset_metrics.items()}
     else:
         default_metrics = ["sharpe", "return_ann", "drawdown"]
         preset_weights = {}
@@ -397,6 +438,23 @@ def render_parameter_forms(preset_config: Optional[Dict[str, Any]]):
         display_inline_errors("metric_weights")
 
     # Store custom overrides
+    signals_override = {
+        "window": int(signal_window),
+        "lag": int(signal_lag),
+        "vol_adjust": bool(signal_vol_adjust),
+        "zscore": bool(signal_zscore),
+    }
+    min_periods_val = int(signal_min_periods)
+    if min_periods_val > 0:
+        signals_override["min_periods"] = min_periods_val
+    vol_target_val = (
+        float(signal_vol_target)
+        if signal_vol_target is not None and signal_vol_adjust
+        else None
+    )
+    if vol_target_val is not None:
+        signals_override["vol_target"] = vol_target_val
+
     overrides = {
         "lookback_months": lookback_months,
         "rebalance_frequency": rebalance_freq,
@@ -407,7 +465,18 @@ def render_parameter_forms(preset_config: Optional[Dict[str, Any]]):
         "selected_metrics": selected_metrics,
         "metric_weights": weights,
         "weighting_scheme": weighting_scheme,
+        "signals": signals_override,
     }
+
+    trend_spec_values = config_state.get("trend_spec_values") or {}
+    if not trend_spec_values:
+        trend_spec_values = _trend_spec_defaults_from_preset(
+            config_state.get("trend_spec_preset")
+        )
+    trend_spec_normalised = _normalise_trend_spec_values(trend_spec_values)
+    config_state["trend_spec_values"] = dict(trend_spec_normalised)
+    config_state["trend_spec_config"] = _trend_spec_values_to_config(trend_spec_normalised)
+    overrides["trend_spec"] = dict(trend_spec_normalised)
 
     st.session_state.config_state["custom_overrides"] = overrides
     return overrides
@@ -490,6 +559,54 @@ def validate_configuration() -> List[str]:
                 "Enter a risk target between 0.01 and 0.50."
             )
 
+        signals = overrides.get("signals", {}) or {}
+        if signals:
+            window_val = signals.get("window", 0)
+            try:
+                window_int = int(window_val)
+            except (TypeError, ValueError):
+                window_int = 0
+            if window_int <= 0:
+                errors.append("Signal window must be a positive integer.")
+                field_errors.setdefault("signal_window", []).append(
+                    "Set a positive number of periods for the signal window."
+                )
+
+            min_periods_raw = signals.get("min_periods")
+            if min_periods_raw is not None:
+                try:
+                    min_periods_int = int(min_periods_raw)
+                except (TypeError, ValueError):
+                    min_periods_int = None
+                if min_periods_int is None or min_periods_int <= 0:
+                    errors.append(
+                        "Minimum periods must be a positive integer when provided."
+                    )
+                    field_errors.setdefault("signal_min_periods", []).append(
+                        "Enter a positive number of periods or leave blank."
+                    )
+                elif window_int and min_periods_int > window_int:
+                    errors.append(
+                        "Signal minimum periods cannot exceed the signal window."
+                    )
+                    field_errors.setdefault("signal_min_periods", []).append(
+                        "Reduce minimum periods so it is not greater than the signal window."
+                    )
+
+            if bool(signals.get("vol_adjust")):
+                vol_target_raw = signals.get("vol_target")
+                try:
+                    vol_target_val = float(vol_target_raw) if vol_target_raw is not None else None
+                except (TypeError, ValueError):
+                    vol_target_val = None
+                if vol_target_val is None or vol_target_val <= 0:
+                    errors.append(
+                        "Provide a positive signal volatility target when volatility adjustment is enabled."
+                    )
+                    field_errors.setdefault("signal_vol_target", []).append(
+                        "Set a positive target or disable volatility adjustment."
+                    )
+
         if df is not None and not df.empty and mapping and mapping.get("date_column"):
             unique_months = df.index.to_period("M").unique()
             lookback = int(overrides.get("lookback_months", 0) or 0)
@@ -565,6 +682,9 @@ def save_configuration():
     config_state["validated_min_config"] = validated_payload
 
     # Save to session state in expected format
+    preset_config = config_state.get("preset_config")
+    preset_slug = preset_config.slug if isinstance(preset_config, TrendPreset) else None
+
     st.session_state["sim_config"] = {
         "start": pd.Timestamp(df.index.min()),
         "end": pd.Timestamp(df.index.max()),
@@ -581,6 +701,8 @@ def save_configuration():
         "risk_target": overrides.get("risk_target", 0.10),
         "column_mapping": config_state.get("column_mapping"),
         "preset_name": config_state.get("preset_name"),
+        "trend_preset": preset_slug,
+        "signals": overrides.get("signals", {}),
         "portfolio": {
             "weighting_scheme": overrides.get("weighting_scheme", "equal"),
         },
@@ -610,6 +732,9 @@ def main():
     st.divider()
 
     render_column_mapping(df)
+    st.divider()
+
+    render_trend_spec_settings(st.session_state.config_state.get("preset_name"))
     st.divider()
 
     render_parameter_forms(preset_config)
@@ -684,6 +809,7 @@ def main():
                         for k, v in config_state.get("custom_overrides", {}).items()
                         if k not in ["selected_metrics", "metric_weights"]
                     },
+                    "trend_spec": config_state.get("trend_spec_values", {}),
                     "metrics": list(
                         config_state.get("custom_overrides", {})
                         .get("metric_weights", {})
