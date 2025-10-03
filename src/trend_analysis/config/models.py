@@ -199,7 +199,7 @@ if _HAS_PYDANTIC:
         """Typed access to the YAML configuration (Pydantic mode)."""
 
         # Field lists generated dynamically from model fields to prevent maintenance burden
-        OPTIONAL_DICT_FIELDS: ClassVar[set[str]] = {"performance"}
+        OPTIONAL_DICT_FIELDS: ClassVar[set[str]] = {"performance", "signals"}
 
         @classmethod
         def _dict_field_names(cls) -> List[str]:
@@ -279,6 +279,7 @@ if _HAS_PYDANTIC:
         portfolio: dict[str, Any] = Field(default_factory=dict)
         benchmarks: dict[str, str] = Field(default_factory=dict)
         metrics: dict[str, Any] = Field(default_factory=dict)
+        signals: dict[str, Any] = Field(default_factory=dict)
         export: dict[str, Any] = Field(default_factory=dict)
         performance: dict[str, Any] = Field(default_factory=dict)
         output: dict[str, Any] | None = None
@@ -394,6 +395,7 @@ else:  # Fallback mode for tests without pydantic
             "portfolio",
             "benchmarks",
             "metrics",
+            "signals",
             "export",
             "performance",
             "output",
@@ -404,7 +406,7 @@ else:  # Fallback mode for tests without pydantic
             "seed",
         ]
 
-        OPTIONAL_DICT_FIELDS: ClassVar[set[str]] = {"performance"}
+        OPTIONAL_DICT_FIELDS: ClassVar[set[str]] = {"performance", "signals"}
 
         # Attribute declarations for linters/type-checkers
         version: str
@@ -415,6 +417,7 @@ else:  # Fallback mode for tests without pydantic
         portfolio: Dict[str, Any]
         benchmarks: Dict[str, str]
         metrics: Dict[str, Any]
+        signals: Dict[str, Any]
         export: Dict[str, Any]
         performance: Dict[str, Any]
         output: Dict[str, Any] | None
@@ -433,6 +436,7 @@ else:  # Fallback mode for tests without pydantic
                 "portfolio": {},
                 "benchmarks": {},
                 "metrics": {},
+                "signals": {},
                 "export": {},
                 "performance": {},
                 "output": None,
@@ -520,6 +524,7 @@ class PresetConfig(SimpleBaseModel):
         "sample_split",
         "portfolio",
         "metrics",
+        "signals",
         "export",
         "run",
     ]

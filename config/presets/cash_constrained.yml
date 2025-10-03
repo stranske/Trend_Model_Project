@@ -24,3 +24,12 @@ rebalance_frequency: monthly
 min_track_months: 24
 selection_count: 8
 risk_target: 0.10
+
+# Trend signal configuration
+signals:
+  window: 63
+  min_periods: 42
+  lag: 1
+  vol_adjust: true
+  vol_target: 0.10
+  zscore: false

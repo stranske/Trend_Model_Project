@@ -148,6 +148,7 @@ def main():
         "data": {},
         "preprocessing": {},
         "vol_adjust": {"target_vol": cfg_get(cfg, "risk_target", 1.0)},
+        "signals": cfg_get(cfg, "signals", {}),
         "sample_split": {
             "in_start": (start - pd.DateOffset(months=lookback)).strftime("%Y-%m"),
             "in_end": (start - pd.DateOffset(months=1)).strftime("%Y-%m"),
@@ -158,7 +159,7 @@ def main():
         "metrics": {},
         "export": {},
         "benchmarks": {},
-        "run": {},
+        "run": {"trend_preset": cfg_get(cfg, "trend_preset")},
     }
 
     run_sim = _resolve_run_simulation()
