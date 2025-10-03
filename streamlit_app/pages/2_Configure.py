@@ -54,6 +54,190 @@ def _map_payload_errors(payload_errors: Iterable[str]) -> Dict[str, List[str]]:
     return mapped
 
 
+def _trend_spec_defaults_from_spec(spec: Optional[TrendSpec] = None) -> Dict[str, Any]:
+    """Return form defaults derived from a ``TrendSpec`` instance."""
+
+    spec = spec or TrendSpec()
+    return {
+        "window": int(spec.window),
+        "min_periods": int(spec.min_periods) if spec.min_periods is not None else 0,
+        "lag": int(spec.lag),
+        "vol_adjust": bool(spec.vol_adjust),
+        "vol_target": float(spec.vol_target) if spec.vol_target is not None else 0.10,
+        "zscore": bool(spec.zscore),
+    }
+
+
+def _trend_spec_defaults_from_preset(preset_name: Optional[str]) -> Dict[str, Any]:
+    """Return trend signal defaults for the given preset (or baseline)."""
+
+    if not preset_name:
+        return _trend_spec_defaults_from_spec()
+
+    try:
+        preset = get_trend_spec_preset(preset_name)
+    except KeyError:
+        return _trend_spec_defaults_from_spec()
+    return dict(preset.form_defaults())
+
+
+def _coerce_positive_int(value: Any, default: int, *, minimum: int = 1) -> int:
+    """Coerce ``value`` into a positive integer with bounds checking."""
+
+    try:
+        coerced = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(coerced, minimum)
+
+
+def _coerce_bool(value: Any) -> bool:
+    """Coerce common truthy/falsey representations into a boolean."""
+
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in {"0", "false", "no", "off"}:
+            return False
+        if lowered in {"1", "true", "yes", "on"}:
+            return True
+    return bool(value)
+
+
+def _normalise_trend_spec_values(values: Mapping[str, Any]) -> Dict[str, Any]:
+    """Normalise raw TrendSpec form values for storage and config output."""
+
+    defaults = _trend_spec_defaults_from_spec()
+
+    window = _coerce_positive_int(values.get("window"), defaults["window"], minimum=1)
+    lag = _coerce_positive_int(values.get("lag"), defaults["lag"], minimum=1)
+
+    min_periods_raw = values.get("min_periods")
+    try:
+        min_periods = int(min_periods_raw)
+    except (TypeError, ValueError):
+        min_periods = 0
+    if min_periods < 0:
+        min_periods = 0
+    if min_periods > window:
+        min_periods = window
+
+    vol_adjust = _coerce_bool(values.get("vol_adjust", False))
+
+    vol_target_raw = values.get("vol_target")
+    vol_target: Optional[float]
+    try:
+        vol_target_candidate = float(vol_target_raw)
+    except (TypeError, ValueError):
+        vol_target_candidate = 0.0
+    if not vol_adjust or vol_target_candidate <= 0.0:
+        vol_target = None
+    else:
+        vol_target = vol_target_candidate
+
+    zscore = _coerce_bool(values.get("zscore", False))
+
+    return {
+        "window": window,
+        "min_periods": min_periods if min_periods > 0 else None,
+        "lag": lag,
+        "vol_adjust": vol_adjust,
+        "vol_target": vol_target,
+        "zscore": zscore,
+    }
+
+
+def _trend_spec_values_to_config(values: Mapping[str, Any]) -> Dict[str, Any]:
+    """Convert normalised TrendSpec form values into config mapping."""
+
+    normalised = _normalise_trend_spec_values(values)
+    config: Dict[str, Any] = {
+        "kind": "tsmom",
+        "window": normalised["window"],
+        "lag": normalised["lag"],
+        "vol_adjust": normalised["vol_adjust"],
+        "zscore": normalised["zscore"],
+    }
+    if normalised["min_periods"] is not None:
+        config["min_periods"] = normalised["min_periods"]
+    if normalised["vol_target"] is not None:
+        config["vol_target"] = normalised["vol_target"]
+    return config
+
+
+def _sync_trend_spec_widget_state(values: Mapping[str, Any]) -> None:
+    """Synchronise Streamlit widget defaults with the supplied trend spec values."""
+
+    defaults = _trend_spec_defaults_from_spec()
+
+    window = _coerce_positive_int(values.get("window"), defaults["window"], minimum=1)
+    st.session_state["trend_signal_window"] = window
+
+    min_periods_raw = values.get("min_periods")
+    if min_periods_raw is None:
+        min_periods = window
+    else:
+        try:
+            min_periods = int(min_periods_raw)
+        except (TypeError, ValueError):
+            min_periods = window
+        else:
+            if min_periods < 0:
+                min_periods = 0
+            if min_periods > window:
+                min_periods = window
+    st.session_state["trend_signal_min_periods"] = min_periods
+
+    st.session_state["trend_signal_lag"] = _coerce_positive_int(
+        values.get("lag"), defaults["lag"], minimum=1
+    )
+
+    vol_adjust = _coerce_bool(values.get("vol_adjust"))
+    st.session_state["trend_signal_vol_adjust"] = vol_adjust
+
+    vol_target_raw = values.get("vol_target", defaults["vol_target"])
+    try:
+        vol_target = float(vol_target_raw) if vol_target_raw is not None else defaults["vol_target"]
+    except (TypeError, ValueError):
+        vol_target = defaults["vol_target"]
+    if vol_target <= 0.0:
+        vol_target = defaults["vol_target"]
+    st.session_state["trend_signal_vol_target"] = vol_target
+
+    st.session_state["trend_signal_zscore"] = _coerce_bool(values.get("zscore"))
+
+
+def _apply_trend_spec_preset_to_state(
+    state: MutableMapping[str, Any], preset_name: Optional[str]
+) -> Dict[str, Any]:
+    """Apply a trend spec preset to session ``state`` and return defaults."""
+
+    state.setdefault("trend_spec_defaults", {})
+    state.setdefault("trend_spec_values", {})
+    state.setdefault("trend_spec_config", {})
+
+    if preset_name:
+        try:
+            preset: TrendSpecPreset = get_trend_spec_preset(preset_name)
+        except KeyError:
+            preset = None
+        if preset is not None:
+            defaults = dict(preset.form_defaults())
+            state["trend_spec_defaults"] = dict(defaults)
+            state["trend_spec_values"] = dict(defaults)
+            state["trend_spec_preset"] = preset.name
+            state["trend_spec_config"] = preset.as_signal_config()
+            _sync_trend_spec_widget_state(defaults)
+            return defaults
+
+    defaults = _trend_spec_defaults_from_spec()
+    state["trend_spec_defaults"] = dict(defaults)
+    state["trend_spec_values"] = dict(defaults)
+    state["trend_spec_preset"] = None
+    state["trend_spec_config"] = _trend_spec_values_to_config(defaults)
+    _sync_trend_spec_widget_state(defaults)
+    return defaults
+
+
 def initialize_session_state():
     """Initialize session state variables."""
     if "config_state" not in st.session_state:
@@ -86,7 +270,7 @@ def display_inline_errors(field: str) -> None:
         st.markdown(f":red[⚠️ {message}]")
 
 
-def render_preset_selection() -> TrendPreset | None:
+def render_preset_selection() -> Optional[TrendPreset]:
     """Render preset selection UI."""
 
     st.subheader("📋 Configuration Preset")
@@ -279,32 +463,41 @@ def render_trend_spec_settings(selected_preset_label: Optional[str]) -> None:
         if choice != current_preset:
             current_values = _apply_trend_spec_preset_to_state(config_state, choice)
             current_defaults = config_state.get("trend_spec_defaults") or {}
+        else:
+            current_values = config_state.get("trend_spec_values") or current_values
         preset = get_trend_spec_preset(choice)
         if preset.description:
             st.caption(preset.description)
+        summary_source = config_state.get("trend_spec_values") or current_values or {}
+        summary_values = _normalise_trend_spec_values(summary_source)
+        min_periods_display = summary_values.get("min_periods")
+        if min_periods_display is None:
+            min_periods_display = summary_values["window"]
+        vol_target_summary = summary_values.get("vol_target")
         summary_lines = [
-            f"• Window: **{current_values.get('window')}** trading days",
-            f"• Minimum periods: **{current_values.get('min_periods', 0)}**",
-            f"• Lag: **{current_values.get('lag')}**",
+            f"• Window: **{summary_values['window']}** trading days",
+            f"• Minimum periods: **{min_periods_display}**",
+            f"• Lag: **{summary_values['lag']}**",
             "• Volatility adjustment: **on**"
-            if current_values.get("vol_adjust")
+            if summary_values["vol_adjust"]
             else "• Volatility adjustment: **off**",
             (
-                f"• Volatility target: **{current_values.get('vol_target', 0.0):.2f}**"
-                if current_values.get("vol_adjust")
+                f"• Volatility target: **{vol_target_summary:.2f}**"
+                if summary_values["vol_adjust"] and vol_target_summary is not None
                 else "• Volatility target: _not used_"
             ),
             "• Z-score normalisation: **enabled**"
-            if current_values.get("zscore")
+            if summary_values["zscore"]
             else "• Z-score normalisation: **disabled**",
         ]
         st.markdown("\n".join(summary_lines))
 
 
-def render_parameter_forms(preset: TrendPreset | None):
+def render_parameter_forms(preset: Optional[TrendPreset]):
     """Render parameter configuration forms."""
     st.subheader("⚙️ Analysis Parameters")
 
+    config_state = st.session_state.config_state
     defaults = preset.form_defaults() if preset else {}
     default_lookback = int(defaults.get("lookback_months", 36))
     default_rebalance = str(defaults.get("rebalance_frequency", "monthly"))
@@ -312,21 +505,53 @@ def render_parameter_forms(preset: TrendPreset | None):
     default_selection = int(defaults.get("selection_count", 10))
     default_risk_target = float(defaults.get("risk_target", 0.10))
 
-    signal_spec = preset.trend_spec if preset else None
-    default_signal_window = int(signal_spec.window if signal_spec else 63)
-    default_signal_min = (
-        int(signal_spec.min_periods)
-        if signal_spec and signal_spec.min_periods is not None
-        else default_signal_window
+    trend_spec_state = dict(config_state.get("trend_spec_values") or {})
+    if not trend_spec_state:
+        fallback_preset = config_state.get("trend_spec_preset")
+        if not fallback_preset and preset is not None:
+            fallback_preset = getattr(preset, "label", None)
+        trend_spec_state = _trend_spec_defaults_from_preset(fallback_preset)
+        config_state.setdefault("trend_spec_defaults", dict(trend_spec_state))
+        config_state["trend_spec_values"] = dict(trend_spec_state)
+        if not config_state.get("trend_spec_config"):
+            config_state["trend_spec_config"] = _trend_spec_values_to_config(
+                trend_spec_state
+            )
+        _sync_trend_spec_widget_state(trend_spec_state)
+
+    trend_spec_defaults = _trend_spec_defaults_from_spec()
+    default_signal_window = _coerce_positive_int(
+        trend_spec_state.get("window"), trend_spec_defaults["window"], minimum=1
     )
-    default_signal_lag = int(signal_spec.lag if signal_spec else 1)
-    default_signal_vol_adjust = bool(signal_spec.vol_adjust if signal_spec else False)
-    default_signal_vol_target = (
-        float(signal_spec.vol_target)
-        if signal_spec and signal_spec.vol_target is not None
-        else 0.10
+    min_periods_raw = trend_spec_state.get("min_periods")
+    if min_periods_raw is None:
+        default_signal_min = default_signal_window
+    else:
+        try:
+            default_signal_min = int(min_periods_raw)
+        except (TypeError, ValueError):
+            default_signal_min = default_signal_window
+        else:
+            if default_signal_min < 0:
+                default_signal_min = 0
+            if default_signal_min > default_signal_window:
+                default_signal_min = default_signal_window
+    default_signal_lag = _coerce_positive_int(
+        trend_spec_state.get("lag"), trend_spec_defaults["lag"], minimum=1
     )
-    default_signal_zscore = bool(signal_spec.zscore if signal_spec else False)
+    default_signal_vol_adjust = _coerce_bool(trend_spec_state.get("vol_adjust"))
+    raw_vol_target = trend_spec_state.get("vol_target")
+    try:
+        default_signal_vol_target = (
+            float(raw_vol_target)
+            if raw_vol_target is not None
+            else trend_spec_defaults["vol_target"]
+        )
+    except (TypeError, ValueError):
+        default_signal_vol_target = trend_spec_defaults["vol_target"]
+    if default_signal_vol_target <= 0.0:
+        default_signal_vol_target = trend_spec_defaults["vol_target"]
+    default_signal_zscore = _coerce_bool(trend_spec_state.get("zscore"))
 
     df = st.session_state.get("returns_df")
     total_months = 0
@@ -434,6 +659,7 @@ def render_parameter_forms(preset: TrendPreset | None):
             value=default_signal_window,
             step=5,
             help="Rolling window length used to compute the trend signal.",
+            key="trend_signal_window",
         )
         display_inline_errors("signal_window")
 
@@ -444,6 +670,7 @@ def render_parameter_forms(preset: TrendPreset | None):
             value=default_signal_min,
             step=1,
             help="Required history before the trend signal becomes active.",
+            key="trend_signal_min_periods",
         )
         display_inline_errors("signal_min_periods")
 
@@ -454,6 +681,7 @@ def render_parameter_forms(preset: TrendPreset | None):
             value=default_signal_lag,
             step=1,
             help="Execution delay applied to the computed signal.",
+            key="trend_signal_lag",
         )
 
     with sig_col2:
@@ -461,6 +689,7 @@ def render_parameter_forms(preset: TrendPreset | None):
             "Volatility adjust signals",
             value=default_signal_vol_adjust,
             help="Scale signals by recent volatility to stabilise exposures.",
+            key="trend_signal_vol_adjust",
         )
         signal_vol_target = None
         if signal_vol_adjust:
@@ -472,6 +701,7 @@ def render_parameter_forms(preset: TrendPreset | None):
                 step=0.01,
                 format="%.2f",
                 help="Target volatility used when rescaling the signal.",
+                key="trend_signal_vol_target",
             )
         display_inline_errors("signal_vol_target")
 
@@ -479,7 +709,29 @@ def render_parameter_forms(preset: TrendPreset | None):
             "Apply row-wise z-score normalisation",
             value=default_signal_zscore,
             help="Normalise signals across assets for each period.",
+            key="trend_signal_zscore",
         )
+
+    stored_vol_target = st.session_state.get(
+        "trend_signal_vol_target", default_signal_vol_target
+    )
+    try:
+        stored_vol_target_value = float(stored_vol_target)
+    except (TypeError, ValueError):
+        stored_vol_target_value = default_signal_vol_target
+    if signal_vol_adjust:
+        if signal_vol_target is None:
+            vol_target_input = stored_vol_target_value
+        else:
+            try:
+                vol_target_input = float(signal_vol_target)
+            except (TypeError, ValueError):
+                vol_target_input = stored_vol_target_value
+    else:
+        vol_target_input = stored_vol_target_value
+    if vol_target_input <= 0.0:
+        vol_target_input = default_signal_vol_target
+    st.session_state["trend_signal_vol_target"] = vol_target_input
 
     # Metrics selection
     st.markdown("**Selection Metrics**")
@@ -521,23 +773,36 @@ def render_parameter_forms(preset: TrendPreset | None):
                 )
         display_inline_errors("metric_weights")
 
-    # Store custom overrides
-    signals_override = {
+    trend_spec_form_values = {
         "window": int(signal_window),
+        "min_periods": int(signal_min_periods),
         "lag": int(signal_lag),
         "vol_adjust": bool(signal_vol_adjust),
+        "vol_target": float(vol_target_input),
         "zscore": bool(signal_zscore),
     }
-    min_periods_val = int(signal_min_periods)
-    if min_periods_val > 0:
-        signals_override["min_periods"] = min_periods_val
-    vol_target_val = (
-        float(signal_vol_target)
-        if signal_vol_target is not None and signal_vol_adjust
-        else None
-    )
-    if vol_target_val is not None:
-        signals_override["vol_target"] = vol_target_val
+    trend_spec_normalised = _normalise_trend_spec_values(trend_spec_form_values)
+    trend_spec_config = _trend_spec_values_to_config(trend_spec_form_values)
+
+    config_state["trend_spec_values"] = dict(trend_spec_form_values)
+    config_state["trend_spec_config"] = dict(trend_spec_config)
+
+    default_trend_values = config_state.get("trend_spec_defaults") or {}
+    if config_state.get("trend_spec_preset") and _normalise_trend_spec_values(
+        default_trend_values
+    ) != trend_spec_normalised:
+        config_state["trend_spec_preset"] = None
+
+    signals_override = {
+        "window": trend_spec_normalised["window"],
+        "lag": trend_spec_normalised["lag"],
+        "vol_adjust": trend_spec_normalised["vol_adjust"],
+        "zscore": trend_spec_normalised["zscore"],
+    }
+    if trend_spec_normalised["min_periods"] is not None:
+        signals_override["min_periods"] = trend_spec_normalised["min_periods"]
+    if trend_spec_normalised["vol_target"] is not None:
+        signals_override["vol_target"] = trend_spec_normalised["vol_target"]
 
     overrides = {
         "lookback_months": lookback_months,
@@ -551,15 +816,6 @@ def render_parameter_forms(preset: TrendPreset | None):
         "weighting_scheme": weighting_scheme,
         "signals": signals_override,
     }
-
-    trend_spec_values = config_state.get("trend_spec_values") or {}
-    if not trend_spec_values:
-        trend_spec_values = _trend_spec_defaults_from_preset(
-            config_state.get("trend_spec_preset")
-        )
-    trend_spec_normalised = _normalise_trend_spec_values(trend_spec_values)
-    config_state["trend_spec_values"] = dict(trend_spec_normalised)
-    config_state["trend_spec_config"] = _trend_spec_values_to_config(trend_spec_normalised)
     overrides["trend_spec"] = dict(trend_spec_normalised)
 
     st.session_state.config_state["custom_overrides"] = overrides
@@ -907,140 +1163,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-def _trend_spec_defaults_from_spec(spec: TrendSpec) -> Dict[str, Any]:
-    """Return form defaults derived from a ``TrendSpec`` instance."""
-
-    return {
-        "window": int(spec.window),
-        "min_periods": int(spec.min_periods) if spec.min_periods is not None else 0,
-        "lag": int(spec.lag),
-        "vol_adjust": bool(spec.vol_adjust),
-        "vol_target": float(spec.vol_target) if spec.vol_target is not None else 0.0,
-        "zscore": bool(spec.zscore),
-    }
-
-
-def _trend_spec_defaults_from_preset(preset_name: Optional[str]) -> Dict[str, Any]:
-    """Return trend signal defaults for the given preset (or baseline)."""
-
-    if not preset_name:
-        return _trend_spec_defaults_from_spec(TrendSpec())
-
-    try:
-        preset = get_trend_spec_preset(preset_name)
-    except KeyError:
-        return _trend_spec_defaults_from_spec(TrendSpec())
-    return dict(preset.form_defaults())
-
-
-def _coerce_positive_int(value: Any, default: int, *, minimum: int = 1) -> int:
-    """Coerce ``value`` into a positive integer with bounds checking."""
-
-    try:
-        coerced = int(value)
-    except (TypeError, ValueError):
-        return default
-    return max(coerced, minimum)
-
-
-def _coerce_bool(value: Any) -> bool:
-    """Coerce common truthy/falsey representations into a boolean."""
-
-    if isinstance(value, str):
-        lowered = value.strip().lower()
-        if lowered in {"0", "false", "no", "off"}:
-            return False
-        if lowered in {"1", "true", "yes", "on"}:
-            return True
-    return bool(value)
-
-
-def _normalise_trend_spec_values(values: Mapping[str, Any]) -> Dict[str, Any]:
-    """Normalise raw TrendSpec form values for storage and config output."""
-
-    defaults = _trend_spec_defaults_from_spec(TrendSpec())
-
-    window = _coerce_positive_int(values.get("window"), defaults["window"], minimum=1)
-    lag = _coerce_positive_int(values.get("lag"), defaults["lag"], minimum=1)
-
-    min_periods_raw = values.get("min_periods")
-    try:
-        min_periods = int(min_periods_raw)
-    except (TypeError, ValueError):
-        min_periods = 0
-    if min_periods < 0:
-        min_periods = 0
-    if min_periods > window:
-        min_periods = window
-
-    vol_adjust = _coerce_bool(values.get("vol_adjust", False))
-
-    vol_target_raw = values.get("vol_target")
-    vol_target: Optional[float]
-    try:
-        vol_target_candidate = float(vol_target_raw)
-    except (TypeError, ValueError):
-        vol_target_candidate = 0.0
-    if not vol_adjust or vol_target_candidate <= 0.0:
-        vol_target = None
-    else:
-        vol_target = vol_target_candidate
-
-    zscore = _coerce_bool(values.get("zscore", False))
-
-    return {
-        "window": window,
-        "min_periods": min_periods if min_periods > 0 else None,
-        "lag": lag,
-        "vol_adjust": vol_adjust,
-        "vol_target": vol_target,
-        "zscore": zscore,
-    }
-
-
-def _trend_spec_values_to_config(values: Mapping[str, Any]) -> Dict[str, Any]:
-    """Convert normalised TrendSpec form values into config mapping."""
-
-    normalised = _normalise_trend_spec_values(values)
-    config: Dict[str, Any] = {
-        "kind": "tsmom",
-        "window": normalised["window"],
-        "lag": normalised["lag"],
-        "vol_adjust": normalised["vol_adjust"],
-        "zscore": normalised["zscore"],
-    }
-    if normalised["min_periods"] is not None:
-        config["min_periods"] = normalised["min_periods"]
-    if normalised["vol_target"] is not None:
-        config["vol_target"] = normalised["vol_target"]
-    return config
-
-
-def _apply_trend_spec_preset_to_state(
-    state: MutableMapping[str, Any], preset_name: Optional[str]
-) -> Dict[str, Any]:
-    """Apply a trend spec preset to session ``state`` and return defaults."""
-
-    state.setdefault("trend_spec_defaults", {})
-    state.setdefault("trend_spec_values", {})
-    state.setdefault("trend_spec_config", {})
-
-    if preset_name:
-        try:
-            preset: TrendSpecPreset = get_trend_spec_preset(preset_name)
-        except KeyError:
-            preset = None
-        if preset is not None:
-            defaults = dict(preset.form_defaults())
-            state["trend_spec_defaults"] = dict(defaults)
-            state["trend_spec_values"] = dict(defaults)
-            state["trend_spec_preset"] = preset.name
-            state["trend_spec_config"] = preset.as_signal_config()
-            return defaults
-
-    defaults = _trend_spec_defaults_from_spec(TrendSpec())
-    state["trend_spec_defaults"] = dict(defaults)
-    state["trend_spec_values"] = dict(defaults)
-    state["trend_spec_preset"] = None
-    state["trend_spec_config"] = _trend_spec_values_to_config(defaults)
-    return defaults
