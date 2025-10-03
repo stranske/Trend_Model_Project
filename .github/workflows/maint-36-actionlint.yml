@@ -1,0 +1,47 @@
+name: maint-36-actionlint
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/**/*.yml'
+  push:
+    branches: [phase-2-dev]
+    paths:
+      - '.github/workflows/**/*.yml'
+  schedule:
+    - cron: '5 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  lint:
+    name: workflow lint (maint-36)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run actionlint via reviewdog
+        id: actionlint
+        uses: reviewdog/action-actionlint@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          reporter: ${{ github.event_name == 'pull_request' && 'github-pr-review' || 'github-check' }}
+          filter_mode: nofilter
+          level: warning
+          fail_on_error: true
+          actionlint_version: v1.7.7
+
+      - name: Publish lint summary
+        if: always()
+        run: |
+          if [ -n "${{ steps.actionlint.outcome }}" ]; then
+            cat <<'SUMMARY' >> "$GITHUB_STEP_SUMMARY"
+## maint-36 actionlint
+- Outcome: ${{ steps.actionlint.outcome }}
+- Reporter: ${{ github.event_name == 'pull_request' && 'github-pr-review' || 'github-check' }}
+SUMMARY
+          fi

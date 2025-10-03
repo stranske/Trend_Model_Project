@@ -10,7 +10,7 @@ Core layers:
 - CI style checks (`pr-10-ci-python.yml` job `style`): authoritative style + mypy verification (black --check, ruff new-issue fail, pinned mypy) running on PR & main branch pushes.
 - Agent routing & watchdog (`agents-41-assign.yml` + `agents-42-watchdog.yml`): label-driven assignment, Codex bootstrap, diagnostics.
 - Merge automation (`merge-manager.yml`): unified auto-approval and auto-merge decisions for safe agent PRs.
-- Governance & Health: `maint-35-repo-health-self-check.yml`, labelers, dependency review, CodeQL.
+- Governance & Health: `maint-34-quarantine-ttl.yml`, `maint-35-repo-health-self-check.yml`, `maint-36-actionlint.yml`, labelers, dependency review, CodeQL.
 - Path Labeling: `pr-path-labeler.yml` auto-categorizes PRs.
 
 ### 1.1 Current CI Topology (Issue #1351)
@@ -59,7 +59,7 @@ Flow:
 | `RISK_LABEL` | Var | Opt | Customize risk label | Default `risk:low` |
 | `AGENT_LABEL` / `AGENT_LABEL_ALT` | Var | Opt | Agent classification synonyms | Cosmetic |
 | `AUTOFIX_OPT_IN_LABEL` | Var | Opt | Gate autofix | Falls back internally |
-| `OPS_HEALTH_ISSUE` | Var | Req | Issue number for nightly health updates | Workflow comments on this issue when checks fail |
+| `OPS_HEALTH_ISSUE` | Var | Req | Issue number for nightly health updates | Validate the value exists in every environment; repo-health skips issue updates when unset. |
 
 All others use default `GITHUB_TOKEN`.
 
@@ -73,7 +73,9 @@ All others use default `GITHUB_TOKEN`.
 | `agents-41-assign.yml` | issue/PR labels, dispatch | Agent assignment + Codex bootstrap |
 | `agents-42-watchdog.yml` | workflow dispatch | Codex PR presence diagnostic |
 | `merge-manager.yml` | PR target, workflow_run | Auto-approve + enable auto-merge when gates are satisfied |
-| `maint-35-repo-health-self-check.yml` | schedule, manual | Governance audit |
+| `maint-34-quarantine-ttl.yml` | schedule, workflow_dispatch, PR/push (quarantine tooling) | Nightly TTL guardrail; posts actionable summary listing expired IDs. |
+| `maint-35-repo-health-self-check.yml` | schedule (daily + weekly), workflow_dispatch, PR/push (probe updates) | Governance audit with Ops issue updates. |
+| `maint-36-actionlint.yml` | PR (workflows path), push (phase-2-dev), weekly schedule, manual | Workflow schema lint with reviewdog annotations. |
 | `reusable-99-selftest.yml` | workflow_dispatch, schedule (02:30 UTC nightly) | Matrix smoke-test of `reusable-ci-python.yml` feature flags |
 | `pr-path-labeler.yml` | PR events | Path labels |
 | `label-agent-prs.yml` | PR target | Origin + risk labels |
