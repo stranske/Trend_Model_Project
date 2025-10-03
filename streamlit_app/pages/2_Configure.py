@@ -788,9 +788,12 @@ def render_parameter_forms(preset: Optional[TrendPreset]):
     config_state["trend_spec_config"] = dict(trend_spec_config)
 
     default_trend_values = config_state.get("trend_spec_defaults") or {}
-    if config_state.get("trend_spec_preset") and _normalise_trend_spec_values(
-        default_trend_values
-    ) != trend_spec_normalised:
+    # Cache normalized default values to avoid repeated expensive normalization
+    if "trend_spec_defaults_normalised" not in config_state or config_state.get("trend_spec_defaults_last") != default_trend_values:
+        config_state["trend_spec_defaults_normalised"] = _normalise_trend_spec_values(default_trend_values)
+        config_state["trend_spec_defaults_last"] = default_trend_values
+    default_trend_values_normalised = config_state["trend_spec_defaults_normalised"]
+    if config_state.get("trend_spec_preset") and default_trend_values_normalised != trend_spec_normalised:
         config_state["trend_spec_preset"] = None
 
     signals_override = {
