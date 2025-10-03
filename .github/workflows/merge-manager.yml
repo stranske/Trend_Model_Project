@@ -46,15 +46,58 @@ jobs:
             const labelSet = new Set(labels);
             function has(l){ return labelSet.has(l); }
             const need = (envName, fallback) => process.env[envName] || fallback;
+            const hasBreaking = labels.some(label => (label || '').toLowerCase().includes('breaking'));
             const meta = {
               draft: pr.draft,
               hasAgent: has(need('SAFE_LABEL_AGENT1','from:copilot')) || has(need('SAFE_LABEL_AGENT2','from:codex')),
               hasRisk: has(need('SAFE_LABEL_RISK','risk:low')),
               hasAutomerge: has(need('SAFE_LABEL_AUTOMERGE','automerge')),
               hasCI: has(need('SAFE_LABEL_CI','ci:green')),
+              hasBreaking,
             };
             core.setOutput('labels', labels.join(','));
             core.setOutput('meta', JSON.stringify(meta));
+      - name: Check required workflows
+        id: checks
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const { owner, repo } = context.repo;
+            async function findRun(workflowName){
+              try {
+                const response = await github.rest.actions.listWorkflowRunsForRepo({
+                  owner,
+                  repo,
+                  branch: pr.head.ref,
+                  per_page: 100,
+                });
+                const run = (response.data.workflow_runs || []).find(candidate => candidate.name === workflowName && candidate.head_sha === pr.head.sha);
+                if(!run){
+                  return { found: false, status: 'missing', conclusion: '', url: '' };
+                }
+                return {
+                  found: true,
+                  status: run.status || '',
+                  conclusion: run.conclusion || '',
+                  url: run.html_url || run.url || '',
+                };
+              } catch (error) {
+                core.warning(`Failed to list workflow runs for ${workflowName}: ${error.message}`);
+                return { found: false, status: 'error', conclusion: '', url: '', error: error.message };
+              }
+            }
+            function isGreen(info){
+              if(!info.found){ return false; }
+              if((info.status || '').toLowerCase() !== 'completed'){ return false; }
+              return (info.conclusion || '').toLowerCase() === 'success';
+            }
+            const ci = await findRun('CI');
+            const docker = await findRun('Docker');
+            core.setOutput('ci', JSON.stringify(ci));
+            core.setOutput('docker', JSON.stringify(docker));
+            core.setOutput('ci_green', String(isGreen(ci)));
+            core.setOutput('docker_green', String(isGreen(docker)));
       - name: Inspect file diff & size
         id: diff
         uses: actions/github-script@v7
@@ -121,18 +164,54 @@ jobs:
               hasRisk: false,
               hasAutomerge: false,
               hasCI: false,
+              hasBreaking: false,
             });
             const allSafe = (process.env.all_safe || '').toLowerCase() === 'true';
             const totalChanges = parseInt(process.env.total_changes || '0', 10);
             const maxLines = parseInt(process.env.MAX_LINES_CHANGED || '1000', 10);
             const quietOk = (process.env.quiet_ok || '').toLowerCase() === 'true';
             const activeOk = (process.env.active_ok || '').toLowerCase() === 'true';
+            const ciGreen = (process.env.ci_green || '').toLowerCase() === 'true';
+            const dockerGreen = (process.env.docker_green || '').toLowerCase() === 'true';
+            const parseStatus = (value) => {
+              try {
+                return JSON.parse(value || '{}');
+              } catch (error) {
+                core.warning(`Failed to parse workflow status payload: ${error.message}`);
+                return { found: false, status: 'error', conclusion: '', url: '' };
+              }
+            };
+            const ciInfo = parseStatus(process.env.ci_status || '{}');
+            const dockerInfo = parseStatus(process.env.docker_status || '{}');
+            function workflowReason(info, name){
+              if(!info.found){
+                return `${name} workflow has not completed for this commit`;
+              }
+              const status = (info.status || '').toLowerCase();
+              if(status !== 'completed'){
+                return `${name} workflow status ${status || 'pending'}`;
+              }
+              const conclusion = (info.conclusion || '').toLowerCase();
+              if(conclusion !== 'success'){
+                return `${name} workflow conclusion ${conclusion || 'unknown'}`;
+              }
+              return '';
+            }
             const reasons = [];
             if(meta.draft) reasons.push('draft PR');
             if(!meta.hasAgent) reasons.push('missing agent label');
             if(!meta.hasRisk) reasons.push('missing risk label');
             if(!meta.hasAutomerge) reasons.push('missing automerge label');
-            if(!meta.hasCI) reasons.push('CI not green');
+            if(meta.hasBreaking) reasons.push('breaking label present');
+            if(!ciGreen){
+              const msg = workflowReason(ciInfo, 'CI');
+              reasons.push(msg || 'CI workflow not green');
+            }
+            if(!dockerGreen){
+              const msg = workflowReason(dockerInfo, 'Docker');
+              reasons.push(msg || 'Docker workflow not green');
+            }
+            if(!meta.hasCI) reasons.push('missing ci:green label');
             if(!allSafe) reasons.push('non-allowlist file changes');
             if(totalChanges > maxLines) reasons.push(`exceeds size cap (${totalChanges}>${maxLines})`);
             if(!quietOk) reasons.push('quiet period not satisfied');
@@ -152,6 +231,10 @@ jobs:
           total_changes: ${{ steps.diff.outputs.total_changes }}
           quiet_ok: ${{ steps.gate.outputs.quiet_ok }}
           active_ok: ${{ steps.gate.outputs.active_ok }}
+          ci_status: ${{ steps.checks.outputs.ci }}
+          docker_status: ${{ steps.checks.outputs.docker }}
+          ci_green: ${{ steps.checks.outputs.ci_green }}
+          docker_green: ${{ steps.checks.outputs.docker_green }}
       - name: Approve PR
         if: steps.decide.outputs.approve == 'true'
         uses: actions/github-script@v7
