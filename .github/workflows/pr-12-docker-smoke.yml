@@ -109,7 +109,7 @@ jobs:
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
       - name: Save buildx cache
-        if: steps.restore-buildx-cache.outputs.cache-hit != 'true'
+        if: github.event_name != 'pull_request' && steps.restore-buildx-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: /tmp/.buildx-cache
@@ -119,6 +119,7 @@ jobs:
           WF_CALL_DEBUG: ${{ inputs.debug_build && 'true' || '' }}
           DISPATCH_DEBUG: ${{ github.event.inputs.debug_build || '' }}
         run: |
+          # Pytest executes inside the freshly built container to mirror production smoke coverage.
           debug_flag="${WF_CALL_DEBUG:-${DISPATCH_DEBUG:-false}}"
           if [ "$debug_flag" = "true" ]; then
             echo "Running tests with verbose output for debugging..."
@@ -129,6 +130,7 @@ jobs:
           fi
       - name: Smoke test health endpoint
         run: |
+          # Launch the image and poll its health endpoint to validate runtime readiness.
           echo " Testing health endpoint with retry logic..."
           CONTAINER_ID=$(docker run -d -p ${{ env.HEALTH_PORT }}:${{ env.HEALTH_PORT }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest)
           echo "Started container: $CONTAINER_ID"
