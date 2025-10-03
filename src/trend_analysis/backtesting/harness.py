@@ -15,7 +15,7 @@ WindowMode = Literal["rolling", "expanding"]
 
 @dataclass
 class BacktestResult:
-    """Container for backtest artefacts and computed performance statistics."""
+    """Container for backtest artifacts and computed performance statistics."""
 
     returns: pd.Series
     equity_curve: pd.Series
