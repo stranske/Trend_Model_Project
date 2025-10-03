@@ -31,7 +31,7 @@ scripts/run_streamlit.sh
 ### Unified report downloads
 
 The Results page now exposes "Download report" buttons for HTML and, when the
-optional ``fpdf2`` dependency is installed, PDF output.  Both use the same
+optional ``fpdf2`` dependency is installed, PDF output. Both use the same
 `trend.reporting.generate_unified_report` helper that powers the CLI, ensuring
 reports downloaded from the UI are byte-identical to those produced via
 ``trend report --output``.
