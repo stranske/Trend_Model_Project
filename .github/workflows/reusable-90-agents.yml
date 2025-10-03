@@ -81,6 +81,13 @@ on:
     secrets:
       service_bot_pat:
         required: false
+    outputs:
+      readiness_report:
+        description: 'JSON report emitted by the readiness probe when enabled'
+        value: ${{ jobs.readiness.outputs.report_json }}
+      readiness_table:
+        description: 'Markdown table emitted by the readiness probe when enabled'
+        value: ${{ jobs.readiness.outputs.table_md }}
 
 permissions:
   contents: write
@@ -92,6 +99,9 @@ jobs:
     if: inputs.enable_readiness == 'true'
     name: Agent Readiness Probe
     runs-on: ubuntu-latest
+    outputs:
+      report_json: ${{ steps.try.outputs.report || '{}' }}
+      table_md: ${{ steps.try.outputs.table || '' }}
     permissions:
       contents: read
       issues: write
