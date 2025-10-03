@@ -177,6 +177,13 @@ def export_bundle(run: Any, path: Path) -> Path:
         # ------------------------------------------------------------------
         # Charts PNGs
         # ------------------------------------------------------------------
+        def _plot_x(index: pd.Index) -> list[Any]:
+            if isinstance(index, pd.PeriodIndex):
+                return index.to_timestamp().to_pydatetime().tolist()
+            if isinstance(index, pd.DatetimeIndex):
+                return index.to_pydatetime().tolist()
+            return index.tolist()
+
         def _write_charts(eq: pd.Series, band: pd.DataFrame | None) -> None:
             # Configure non-interactive backend and import pyplot lazily
             matplotlib.use("Agg")
@@ -188,20 +195,26 @@ def export_bundle(run: Any, path: Path) -> Path:
             fig = plt.figure()
             ax = fig.add_subplot(1, 1, 1)
             if not eq.empty:
-                eq.plot(ax=ax, label="Realised")
+                x = _plot_x(eq.index)
+                ax.plot(x, eq.values, label="Realised")
                 if band is not None:
-                    valid = band[["p05", "p95"]].notna().all(axis=1)
+                    band_aligned = band.reindex(eq.index)
+                    valid = band_aligned[["p05", "p95"]].notna().all(axis=1)
                     if valid.any():
+                        x_band = [x_i for x_i, ok in zip(x, valid) if ok]
+                        p05 = band_aligned.loc[valid, "p05"].to_numpy()
+                        p95 = band_aligned.loc[valid, "p95"].to_numpy()
+                        median = band_aligned.loc[valid, "median"].to_numpy()
                         ax.fill_between(
-                            band.index[valid],
-                            band.loc[valid, "p05"],
-                            band.loc[valid, "p95"],
+                            x_band,
+                            p05,
+                            p95,
                             alpha=0.2,
                             label="Bootstrap 5–95%",
                         )
                         ax.plot(
-                            band.index[valid],
-                            band.loc[valid, "median"],
+                            x_band,
+                            median,
                             linestyle="--",
                             label="Bootstrap median",
                         )
@@ -223,7 +236,7 @@ def export_bundle(run: Any, path: Path) -> Path:
             fig = plt.figure()
             ax = fig.add_subplot(1, 1, 1)
             if not dd.empty:
-                dd.plot(ax=ax)
+                ax.plot(_plot_x(dd.index), dd.values)
             else:  # pragma: no cover - visual placeholder for empty data
                 ax.set_axis_off()
             ax.set_title("Drawdown")
@@ -296,7 +309,11 @@ def export_bundle(run: Any, path: Path) -> Path:
             "seed": seed,
             "environment": env,
             "git_hash": _git_hash(),
-            "receipt": {"created": _dt.datetime.utcnow().isoformat() + "Z"},
+            "receipt": {
+                "created": _dt.datetime.now(_dt.timezone.utc)
+                .isoformat()
+                .replace("+00:00", "Z")
+            },
             "input_sha256": input_sha256,
         }
         # Pass through structured log reference if present on the run object
@@ -334,7 +351,7 @@ def export_bundle(run: Any, path: Path) -> Path:
 This bundle contains the complete results of a trend analysis run, including data,
 charts, and metadata necessary for reproducibility and sharing.
 
-Generated: {_dt.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+Generated: {_dt.datetime.now(_dt.timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} UTC
 
 Contents:
 ---------
