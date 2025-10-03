@@ -117,6 +117,32 @@ def test_simresult_helpers():
     assert "total_return" in summary
 
 
+def test_simresult_bootstrap_band_cached():
+    idx = pd.date_range("2020-01-31", periods=6, freq="ME")
+    returns = pd.Series([0.01, -0.005, 0.012, -0.003, 0.0, 0.008], index=idx)
+    sr = SimResult(
+        dates=list(idx),
+        portfolio=returns,
+        weights={},
+        event_log=EventLog(),
+        benchmark=None,
+    )
+
+    sr._bootstrap_cache.clear()
+    band_a = sr.bootstrap_band(n=20, block=2, random_state=123)
+    assert len(sr._bootstrap_cache) == 1
+    band_b = sr.bootstrap_band(n=20, block=2, random_state=123)
+    assert len(sr._bootstrap_cache) == 1
+
+    assert band_a.equals(band_b)
+    assert band_a is not band_b
+    assert list(band_a.columns) == ["p05", "median", "p95"]
+    assert list(band_a.index) == list(sr.portfolio.index)
+
+    band_c = sr.bootstrap_band(n=20, block=2, random_state=456)
+    assert not band_c.equals(band_a)
+
+
 def test_event_log_to_frame_handles_empty_and_sorting():
     """The EventLog frame output preserves shape and ordering."""
 

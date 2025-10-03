@@ -1,10 +1,13 @@
 import io
+from __future__ import annotations
+
 import json
 from pathlib import Path as _Path
 
 import numpy as np
 import pandas as pd
 import streamlit as st
+from matplotlib import pyplot as plt
 
 from trend_analysis.engine.walkforward import walk_forward
 from trend_analysis.logging import error_summary, logfile_to_frame
@@ -63,7 +66,51 @@ if fb_info and not st.session_state.get("dismiss_weight_engine_fallback"):
 c1, c2 = st.columns(2)
 with c1:
     st.subheader("Equity curve")
-    st.line_chart(res.portfolio_curve())
+    show_band = st.toggle(
+        "Show bootstrap uncertainty band",
+        value=False,
+        help="Estimate a 5–95% confidence band via block bootstrap sampling.",
+    )
+    curve = res.portfolio_curve()
+    fig, ax = plt.subplots()
+    if not curve.empty:
+        ax.plot(curve.index, curve.values, label="Realised")
+    ax.set_ylabel("Equity")
+    ax.set_xlabel("Date")
+
+    bootstrap_error: str | None = None
+    if show_band:
+        try:
+            band = res.bootstrap_band()
+            band = band.reindex(curve.index)
+            if band is None or band.empty:
+                raise ValueError("bootstrap returned no data")
+            valid = band[["p05", "p95"]].notna().all(axis=1)
+            if valid.any():
+                ax.fill_between(
+                    band.index[valid],
+                    band.loc[valid, "p05"],
+                    band.loc[valid, "p95"],
+                    alpha=0.2,
+                    label="Bootstrap 5–95%",
+                )
+                ax.plot(
+                    band.index[valid],
+                    band.loc[valid, "median"],
+                    linestyle="--",
+                    label="Bootstrap median",
+                )
+            else:
+                raise ValueError("insufficient in-sample history")
+        except Exception as exc:  # pragma: no cover - defensive UX branch
+            bootstrap_error = str(exc)
+
+    if ax.has_data():
+        ax.legend(loc="best")
+    st.pyplot(fig)
+    plt.close(fig)
+    if bootstrap_error:
+        st.info(f"Bootstrap band unavailable: {bootstrap_error}")
 with c2:
     st.subheader("Drawdown")
     st.line_chart(res.drawdown_curve())
