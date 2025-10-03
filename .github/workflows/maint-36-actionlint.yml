@@ -32,16 +32,15 @@ jobs:
           reporter: ${{ github.event_name == 'pull_request' && 'github-pr-review' || 'github-check' }}
           filter_mode: nofilter
           level: warning
-          fail_on_error: true
-          actionlint_version: v1.7.7
+          fail_level: error
 
       - name: Publish lint summary
         if: always()
         run: |
           if [ -n "${{ steps.actionlint.outcome }}" ]; then
-            cat <<'SUMMARY' >> "$GITHUB_STEP_SUMMARY"
-## maint-36 actionlint
-- Outcome: ${{ steps.actionlint.outcome }}
-- Reporter: ${{ github.event_name == 'pull_request' && 'github-pr-review' || 'github-check' }}
-SUMMARY
+            {
+              echo '## maint-36 actionlint'
+              echo "- Outcome: ${{ steps.actionlint.outcome }}"
+              echo "- Reporter: ${{ github.event_name == 'pull_request' && 'github-pr-review' || 'github-check' }}"
+            } >> "$GITHUB_STEP_SUMMARY"
           fi

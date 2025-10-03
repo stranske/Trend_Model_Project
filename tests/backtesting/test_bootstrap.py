@@ -41,7 +41,9 @@ def test_bootstrap_equity_constant_returns_aligns_with_realised():
     realised_curve = result.equity_curve
     active_mask = returns.notna()
     for col in ["p05", "median", "p95"]:
-        np.testing.assert_allclose(band.loc[active_mask, col], realised_curve.loc[active_mask])
+        np.testing.assert_allclose(
+            band.loc[active_mask, col], realised_curve.loc[active_mask]
+        )
 
 
 def test_bootstrap_equity_invalid_inputs():

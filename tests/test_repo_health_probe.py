@@ -60,7 +60,9 @@ def test_build_summary_failure_paths():
         ),
     ],
 )
-def test_main_with_fixtures(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fixture_payload, expected_ok):
+def test_main_with_fixtures(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fixture_payload, expected_ok
+):
     fixture_file = tmp_path / "fixture.json"
     fixture_file.write_text(json.dumps(fixture_payload), encoding="utf-8")
     report_path = tmp_path / "report.json"

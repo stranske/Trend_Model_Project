@@ -7,7 +7,17 @@ import sys
 import time
 from dataclasses import dataclass
 from http.client import HTTPResponse
-from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, cast
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    cast,
+)
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -295,7 +305,9 @@ def build_summary(
         )
 
     for failure in failures:
-        description = str(failure.get("description") or "Repository configuration check failed.")
+        description = str(
+            failure.get("description") or "Repository configuration check failed."
+        )
         details = failure.get("details")
         if details:
             issue_lines.append(f"{description} — {details}")
@@ -312,7 +324,9 @@ def build_summary(
 
     if status == "success":
         summary_lines.append("- ✅ Workflow lint (`actionlint`) succeeded.")
-        summary_lines.append("- ✅ Required labels, variables, and secrets are present.")
+        summary_lines.append(
+            "- ✅ Required labels, variables, and secrets are present."
+        )
     else:
         summary_lines.append("- ❌ Issues detected during the nightly probe:")
         summary_lines.extend(f"  - {line}" for line in issue_lines)
@@ -395,10 +409,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     sanitized_report.pop("secrets", None)
     # Redact secret checks and secret failures.
     sanitized_report["checks"] = [
-        check for check in sanitized_report.get("checks", []) if check.get("type") != "secret"
+        check
+        for check in sanitized_report.get("checks", [])
+        if check.get("type") != "secret"
     ]
     sanitized_report["failures"] = [
-        check for check in sanitized_report.get("failures", []) if check.get("type") != "secret"
+        check
+        for check in sanitized_report.get("failures", [])
+        if check.get("type") != "secret"
     ]
     print(json.dumps(sanitized_report, indent=2))
     return 0 if report.get("ok", False) else 1

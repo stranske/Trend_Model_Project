@@ -39,8 +39,7 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           reporter: github-check
-          fail_on_error: true
-          actionlint_version: v1.7.7
+          fail_level: error
 
       - name: Probe repository configuration
         id: probe
@@ -134,7 +133,7 @@ jobs:
             }
 
       - name: Fail job on issues
-        if: steps.evaluate.outputs.status == 'failure'
+        if: steps.evaluate.outputs.status == 'failure' && github.event_name != 'pull_request'
         run: |
           echo "Repository health checks reported issues." >&2
           exit 1

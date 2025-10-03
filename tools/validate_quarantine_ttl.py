@@ -33,7 +33,9 @@ class ValidationReport:
         return not self.expired and not self.invalid
 
 
-def _parse_date(raw_value: Any, *, entry_id: str) -> Tuple[Optional[dt.date], Optional[str]]:
+def _parse_date(
+    raw_value: Any, *, entry_id: str
+) -> Tuple[Optional[dt.date], Optional[str]]:
     if raw_value is None:
         return None, f"Entry `{entry_id or '<missing id>'}` has no expires field."
     if isinstance(raw_value, dt.date):
@@ -42,8 +44,14 @@ def _parse_date(raw_value: Any, *, entry_id: str) -> Tuple[Optional[dt.date], Op
         try:
             return dt.date.fromisoformat(raw_value), None
         except ValueError:
-            return None, f"Entry `{entry_id or '<missing id>'}` uses non-ISO expires `{raw_value}`."
-    return None, f"Entry `{entry_id or '<missing id>'}` uses unsupported expires value {raw_value!r}."
+            return (
+                None,
+                f"Entry `{entry_id or '<missing id>'}` uses non-ISO expires `{raw_value}`.",
+            )
+    return (
+        None,
+        f"Entry `{entry_id or '<missing id>'}` uses unsupported expires value {raw_value!r}.",
+    )
 
 
 def load_records(path: Path) -> Tuple[List[QuarantineRecord], List[str]]:
@@ -68,7 +76,9 @@ def load_records(path: Path) -> Tuple[List[QuarantineRecord], List[str]]:
         if not isinstance(expires, dt.date):
             invalid.append(f"Entry `{identifier}` missing valid expires date.")
             continue
-        records.append(QuarantineRecord(identifier=identifier, expires=expires, raw=entry))
+        records.append(
+            QuarantineRecord(identifier=identifier, expires=expires, raw=entry)
+        )
     return records, invalid
 
 

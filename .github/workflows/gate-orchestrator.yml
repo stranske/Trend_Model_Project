@@ -49,8 +49,7 @@ jobs:
           reporter: github-pr-review
           filter_mode: nofilter
           level: warning
-          fail_on_error: true
-          actionlint_version: v1.7.7
+          fail_level: error
 
   quarantine_ttl:
     name: orchestrator / quarantine-ttl
