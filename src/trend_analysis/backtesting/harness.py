@@ -38,6 +38,7 @@ class BacktestResult:
             "window_size": self.window_size,
             "calendar": [ts.isoformat() for ts in self.calendar],
             "metrics": {k: _to_float(v) for k, v in self.metrics.items()},
+            "returns": _series_to_dict(self.returns),
             "rolling_sharpe": _series_to_dict(self.rolling_sharpe),
             "drawdown": _series_to_dict(self.drawdown),
             "equity_curve": _series_to_dict(self.equity_curve),

@@ -103,6 +103,12 @@ def test_rolling_and_expanding_windows_diverge() -> None:
     assert "rolling_sharpe" in summary
     assert "turnover" in summary
     assert "transaction_costs" in summary
+    assert "returns" in summary
+    returns_summary = summary["returns"]
+    assert isinstance(returns_summary, dict)
+    if returns_summary:
+        first_return_value = next(iter(returns_summary.values()))
+        assert isinstance(first_return_value, float)
     assert "weights" in summary
     if summary["weights"]:
         first_weight_entry = next(iter(summary["weights"].values()))
