@@ -56,6 +56,10 @@ def initialize_session_state():
             "preset_config": None,
             "column_mapping": None,
             "custom_overrides": {},
+            "trend_spec_values": {},
+            "trend_spec_defaults": {},
+            "trend_spec_preset": None,
+            "trend_spec_config": {},
             "validation_errors": [],
             "is_valid": False,
             "resource_estimate": None,
@@ -464,6 +468,16 @@ def render_parameter_forms(preset: TrendPreset | None):
         "signals": signals_override,
     }
 
+    trend_spec_values = config_state.get("trend_spec_values") or {}
+    if not trend_spec_values:
+        trend_spec_values = _trend_spec_defaults_from_preset(
+            config_state.get("trend_spec_preset")
+        )
+    trend_spec_normalised = _normalise_trend_spec_values(trend_spec_values)
+    config_state["trend_spec_values"] = dict(trend_spec_normalised)
+    config_state["trend_spec_config"] = _trend_spec_values_to_config(trend_spec_normalised)
+    overrides["trend_spec"] = dict(trend_spec_normalised)
+
     st.session_state.config_state["custom_overrides"] = overrides
     return overrides
 
@@ -720,6 +734,9 @@ def main():
     render_column_mapping(df)
     st.divider()
 
+    render_trend_spec_settings(st.session_state.config_state.get("preset_name"))
+    st.divider()
+
     render_parameter_forms(preset_config)
     st.divider()
 
@@ -792,6 +809,7 @@ def main():
                         for k, v in config_state.get("custom_overrides", {}).items()
                         if k not in ["selected_metrics", "metric_weights"]
                     },
+                    "trend_spec": config_state.get("trend_spec_values", {}),
                     "metrics": list(
                         config_state.get("custom_overrides", {})
                         .get("metric_weights", {})

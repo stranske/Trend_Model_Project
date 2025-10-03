@@ -17,6 +17,11 @@ from . import logging as run_logging
 from . import pipeline
 from .api import run_simulation
 from .config import load_config
+from .signal_presets import (
+    TrendSpecPreset,
+    get_trend_spec_preset,
+    list_trend_spec_presets,
+)
 from .constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 from .data import load_csv
 from .io.market_data import MarketDataValidationError
@@ -43,6 +48,35 @@ def load_market_data_csv(
         include_date_column if include_date_column is not None else True,
     )
     return load_csv(path, **effective_kwargs)
+
+
+def _apply_trend_spec_preset(cfg: Any, preset: TrendSpecPreset) -> None:
+    """Merge TrendSpec preset parameters into ``cfg`` in-place."""
+
+    payload = preset.as_signal_config()
+    if isinstance(cfg, dict):
+        existing = cfg.get("signals")
+        merged = dict(existing) if isinstance(existing, Mapping) else {}
+        merged.update(payload)
+        cfg["signals"] = merged
+        cfg["trend_spec_preset"] = preset.name
+        return
+
+    existing = getattr(cfg, "signals", None)
+    if isinstance(existing, Mapping):
+        merged = dict(existing)
+        merged.update(payload)
+    else:
+        merged = dict(payload)
+
+    try:
+        setattr(cfg, "signals", merged)
+    except ValueError:
+        object.__setattr__(cfg, "signals", merged)
+    try:
+        setattr(cfg, "trend_spec_preset", preset.name)
+    except ValueError:
+        object.__setattr__(cfg, "trend_spec_preset", preset.name)
 
 
 def _log_step(
@@ -213,6 +247,17 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "run":
         cfg = load_config(args.config)
+        if args.preset:
+            try:
+                preset = get_trend_spec_preset(args.preset)
+            except KeyError:
+                available = ", ".join(list_trend_spec_presets())
+                print(
+                    f"Unknown preset '{args.preset}'. Available presets: {available}",
+                    file=sys.stderr,
+                )
+                return 2
+            _apply_trend_spec_preset(cfg, preset)
         set_cache_enabled(not args.no_cache)
         if getattr(args, "preset", None):
             try:
