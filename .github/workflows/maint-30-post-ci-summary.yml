@@ -231,14 +231,14 @@ jobs:
           search_roots = [root, Path('artifacts')]
 
           summary_path: Path | None = None
+          candidates = []
           for base in search_roots:
               if not base.exists():
                   continue
-              for candidate in base.rglob('coverage-summary.md'):
-                  summary_path = candidate
-                  break
-              if summary_path:
-                  break
+              candidates.extend(base.rglob('coverage-summary.md'))
+          if candidates:
+              # Prefer files in earlier search_roots; if multiple, pick the first found
+              summary_path = candidates[0]
 
           if summary_path is None:
               print('No coverage summary markdown found; continuing without it.')
