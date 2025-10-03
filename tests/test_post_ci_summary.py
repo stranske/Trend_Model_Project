@@ -115,3 +115,73 @@ def test_build_summary_comment_handles_missing_runs_and_defaults() -> None:
     assert "_Updated automatically; will refresh" in body
     # When no jobs exist the fallback table entry is rendered
     assert "_(no jobs reported)_" in body
+
+
+def test_job_table_prioritises_failing_and_pending_jobs(sample_runs):
+    flaky_job = {
+        "name": "main / flaky-suite",
+        "conclusion": "failure",
+        "html_url": "https://example.test/ci/101/flaky",
+    }
+    pending_job = {
+        "name": "main / docs",
+        "status": "in_progress",
+        "html_url": "https://example.test/ci/101/docs",
+    }
+    skipped_job = {
+        "name": "main / optional",
+        "conclusion": "skipped",
+        "html_url": "https://example.test/ci/101/optional",
+    }
+
+    # Inject additional jobs to exercise ordering logic.
+    sample_runs[0]["jobs"].extend([flaky_job, pending_job, skipped_job])
+
+    body = build_summary_comment(
+        runs=sample_runs,
+        head_sha="abc123",
+        coverage_stats=None,
+        coverage_section=None,
+        required_groups_env=None,
+    )
+
+    table_lines = [
+        line
+        for line in body.splitlines()
+        if line.startswith("| ") and "Workflow / Job" not in line and "------" not in line
+    ]
+
+    docker_index = next((i for i, line in enumerate(table_lines) if "docker build" in line), None)
+    flaky_index = next((i for i, line in enumerate(table_lines) if "flaky-suite" in line), None)
+    docs_index = next((i for i, line in enumerate(table_lines) if "main / docs" in line), None)
+    optional_index = next(
+        (i for i, line in enumerate(table_lines) if "main / optional" in line), None
+    )
+
+    assert docker_index is not None, "'docker build' job not found in table_lines"
+    assert flaky_index is not None, "'flaky-suite' job not found in table_lines"
+    assert docs_index is not None, "'main / docs' job not found in table_lines"
+    assert optional_index is not None, "'main / optional' job not found in table_lines"
+    assert "❌ failure" in table_lines[docker_index]
+    assert "❌ failure" in table_lines[flaky_index]
+    assert "⏳ in_progress" in table_lines[docs_index]
+    assert "⏭️ skipped" in table_lines[optional_index]
+
+    assert max(flaky_index, docker_index) < optional_index
+    assert docs_index < optional_index
+
+
+def test_coverage_section_handles_snippet_without_stats() -> None:
+    snippet = "\nCoverage snippet from artifact.\n"
+
+    body = build_summary_comment(
+        runs=[],
+        head_sha=None,
+        coverage_stats=None,
+        coverage_section=snippet,
+        required_groups_env=None,
+    )
+
+    assert "### Coverage Overview" in body
+    assert "Coverage snippet from artifact." in body
+    assert body.count("### Coverage Overview") == 1
