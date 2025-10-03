@@ -363,23 +363,23 @@ def test_cli_report_matches_shared_generator(monkeypatch, tmp_path: Path) -> Non
     returns_path.write_text("Date,Value\n2021-01-31,0.01\n", encoding="utf-8")
 
     monkeypatch.setattr(
-        "trend.cli._load_configuration",
+        "trend_analysis.cli._load_configuration",
         lambda path: (config_path.resolve(), cli_config),
     )
     monkeypatch.setattr(
-        "trend.cli._resolve_returns_path",
+        "trend_analysis.cli._resolve_returns_path",
         lambda *args, **kwargs: returns_path,
     )
     monkeypatch.setattr(
-        "trend.cli._ensure_dataframe", lambda _p: pd.DataFrame({"Date": ["2021-01-31"], "Value": [0.01]})
+        "trend_analysis.cli._ensure_dataframe", lambda _p: pd.DataFrame({"Date": ["2021-01-31"], "Value": [0.01]})
     )
-    monkeypatch.setattr("trend.cli._print_summary", lambda *args, **kwargs: None)
-    monkeypatch.setattr("trend.cli._write_report_files", lambda *args, **kwargs: None)
+    monkeypatch.setattr("trend_analysis.cli._print_summary", lambda *args, **kwargs: None)
+    monkeypatch.setattr("trend_analysis.cli._write_report_files", lambda *args, **kwargs: None)
 
     def fake_run_pipeline(*args, **kwargs):  # type: ignore[override]
         return cli_result, "cli-run", None
 
-    monkeypatch.setattr("trend.cli._run_pipeline", fake_run_pipeline)
+    monkeypatch.setattr("trend_analysis.cli._run_pipeline", fake_run_pipeline)
 
     report_path = tmp_path / "report.html"
     exit_code = main(
