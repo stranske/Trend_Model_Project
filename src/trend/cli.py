@@ -46,9 +46,9 @@ try:  # ``trend_analysis.cli`` is heavy but provides useful helpers
 except Exception:  # pragma: no cover - defensive fallback
     _legacy_cli_module = None
 else:
-    maybe_log = getattr(_legacy_cli_module, "maybe_log_step", None)
-    if callable(maybe_log):
-        _legacy_maybe_log_step = maybe_log  # type: ignore[assignment]
+    maybe_log_step_fn = getattr(_legacy_cli_module, "maybe_log_step", None)
+    if callable(maybe_log_step_fn):
+        _legacy_maybe_log_step = maybe_log_step_fn  # type: ignore[assignment]
     _legacy_extract_cache_stats = getattr(
         _legacy_cli_module, "_extract_cache_stats", None
     )
