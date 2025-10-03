@@ -207,12 +207,14 @@ def test_main_report_uses_requested_directory(monkeypatch, tmp_path: Path) -> No
 
     monkeypatch.setattr("trend.cli._write_report_files", fake_write)
     monkeypatch.setattr(
-        "trend.cli._resolve_returns_path", lambda *args, **kwargs: tmp_path / "returns.csv"
+        "trend.cli._resolve_returns_path",
+        lambda *args, **kwargs: tmp_path / "returns.csv",
     )
     monkeypatch.setattr(
         "trend.cli.generate_unified_report",
         lambda *args, **kwargs: (
-            captured_report.update(kwargs) or SimpleNamespace(html="<html>ok</html>", pdf_bytes=None, context={})
+            captured_report.update(kwargs)
+            or SimpleNamespace(html="<html>ok</html>", pdf_bytes=None, context={})
         ),
     )
 
@@ -246,21 +248,26 @@ def test_main_report_supports_output_file_only(monkeypatch, tmp_path: Path) -> N
     monkeypatch.setattr("trend.cli._print_summary", lambda *args, **kwargs: None)
     monkeypatch.setattr("trend.cli._write_report_files", lambda *a, **k: None)
     monkeypatch.setattr(
-        "trend.cli._resolve_returns_path", lambda *args, **kwargs: tmp_path / "returns.csv"
+        "trend.cli._resolve_returns_path",
+        lambda *args, **kwargs: tmp_path / "returns.csv",
     )
     monkeypatch.setattr(
         "trend.cli.generate_unified_report",
-        lambda *a, **k: SimpleNamespace(html="<html>report</html>", pdf_bytes=None, context={}),
+        lambda *a, **k: SimpleNamespace(
+            html="<html>report</html>", pdf_bytes=None, context={}
+        ),
     )
 
     target = tmp_path / "custom-report.html"
-    exit_code = main([
-        "report",
-        "--config",
-        "config/demo.yml",
-        "--output",
-        str(target),
-    ])
+    exit_code = main(
+        [
+            "report",
+            "--config",
+            "config/demo.yml",
+            "--output",
+            str(target),
+        ]
+    )
 
     assert exit_code == 0
     assert target.read_text(encoding="utf-8") == "<html>report</html>"
@@ -283,25 +290,29 @@ def test_main_report_writes_pdf_when_requested(monkeypatch, tmp_path: Path) -> N
         "trend.cli._resolve_returns_path",
         lambda *args, **kwargs: tmp_path / "returns.csv",
     )
+
     def fake_generate_unified_report(*a, **k):
         recorded.update(k)
         return SimpleNamespace(
             html="<html>with-pdf</html>", pdf_bytes=pdf_bytes, context={}
         )
+
     monkeypatch.setattr(
         "trend.cli.generate_unified_report",
         fake_generate_unified_report,
     )
 
     target = tmp_path / "report-output.html"
-    exit_code = main([
-        "report",
-        "--config",
-        "config/demo.yml",
-        "--output",
-        str(target),
-        "--pdf",
-    ])
+    exit_code = main(
+        [
+            "report",
+            "--config",
+            "config/demo.yml",
+            "--output",
+            str(target),
+            "--pdf",
+        ]
+    )
 
     assert exit_code == 0
     assert target.read_text(encoding="utf-8") == "<html>with-pdf</html>"
@@ -326,18 +337,22 @@ def test_main_report_pdf_dependency_error(monkeypatch, tmp_path: Path, capsys) -
     )
     monkeypatch.setattr(
         "trend.cli.generate_unified_report",
-        lambda *a, **k: SimpleNamespace(html="<html>ok</html>", pdf_bytes=None, context={}),
+        lambda *a, **k: SimpleNamespace(
+            html="<html>ok</html>", pdf_bytes=None, context={}
+        ),
     )
 
     target = tmp_path / "report-output.html"
-    exit_code = main([
-        "report",
-        "--config",
-        "config/demo.yml",
-        "--output",
-        str(target),
-        "--pdf",
-    ])
+    exit_code = main(
+        [
+            "report",
+            "--config",
+            "config/demo.yml",
+            "--output",
+            str(target),
+            "--pdf",
+        ]
+    )
 
     captured = capsys.readouterr()
     assert exit_code == 2
@@ -371,10 +386,15 @@ def test_cli_report_matches_shared_generator(monkeypatch, tmp_path: Path) -> Non
         lambda *args, **kwargs: returns_path,
     )
     monkeypatch.setattr(
-        "trend_analysis.cli._ensure_dataframe", lambda _p: pd.DataFrame({"Date": ["2021-01-31"], "Value": [0.01]})
+        "trend_analysis.cli._ensure_dataframe",
+        lambda _p: pd.DataFrame({"Date": ["2021-01-31"], "Value": [0.01]}),
     )
-    monkeypatch.setattr("trend_analysis.cli._print_summary", lambda *args, **kwargs: None)
-    monkeypatch.setattr("trend_analysis.cli._write_report_files", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        "trend_analysis.cli._print_summary", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(
+        "trend_analysis.cli._write_report_files", lambda *args, **kwargs: None
+    )
 
     def fake_run_pipeline(*args, **kwargs):  # type: ignore[override]
         return cli_result, "cli-run", None
