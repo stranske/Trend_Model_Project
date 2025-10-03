@@ -103,7 +103,7 @@ def test_cli_run_with_preset_applies_signals(tmp_path, monkeypatch):
     monkeypatch.setattr(
         cli,
         "load_market_data_csv",
-        lambda path: SimpleNamespace(frame=frame.copy()),
+        lambda path: SimpleNamespace(frame=frame),
     )
     monkeypatch.setattr(cli, "run_simulation", fake_run_simulation)
     monkeypatch.setattr(cli.export, "format_summary_text", lambda *a, **k: "")
