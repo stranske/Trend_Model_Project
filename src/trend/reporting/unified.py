@@ -71,10 +71,17 @@ def _stats_to_dict(stats: Any) -> dict[str, float | None]:
         return {field: None for field in fields}
     if hasattr(stats, "_asdict"):
         mapping = stats._asdict()  # type: ignore[call-arg]
-        return {field: float(mapping.get(field)) if mapping.get(field) is not None else None for field in fields}
+        return {
+            field: float(mapping.get(field)) if mapping.get(field) is not None else None
+            for field in fields
+        }
     if hasattr(stats, "__dict__"):
         return {
-            field: (float(getattr(stats, field)) if getattr(stats, field) is not None else None)
+            field: (
+                float(getattr(stats, field))
+                if getattr(stats, field) is not None
+                else None
+            )
             for field in fields
         }
     if isinstance(stats, Mapping):
@@ -175,7 +182,11 @@ def _build_backtest(result: Any) -> BacktestResult | None:
     final_weights = None
     rolling_sharpe = pd.Series(dtype=float)
     metrics: dict[str, float] = {}
-    risk_diag = getattr(result, "details", {}).get("risk_diagnostics") if isinstance(getattr(result, "details", None), Mapping) else None
+    risk_diag = (
+        getattr(result, "details", {}).get("risk_diagnostics")
+        if isinstance(getattr(result, "details", None), Mapping)
+        else None
+    )
     if isinstance(risk_diag, Mapping):
         turnover_series = _maybe_series(risk_diag.get("turnover"))
         final_weights = _maybe_series(risk_diag.get("final_weights"))
@@ -184,13 +195,23 @@ def _build_backtest(result: Any) -> BacktestResult | None:
     if final_weights is None:
         weights_df = pd.DataFrame(dtype=float)
     else:
-        weights_df = pd.DataFrame([final_weights], index=[series.index[-1] if len(series.index) else "latest"])
-    periods = _periods_per_year(series.index if isinstance(series.index, (pd.DatetimeIndex, pd.PeriodIndex)) else pd.RangeIndex(len(series)))
+        weights_df = pd.DataFrame(
+            [final_weights], index=[series.index[-1] if len(series.index) else "latest"]
+        )
+    periods = _periods_per_year(
+        series.index
+        if isinstance(series.index, (pd.DatetimeIndex, pd.PeriodIndex))
+        else pd.RangeIndex(len(series))
+    )
     filled = series.fillna(0.0)
     total_return = float((1.0 + filled).prod() - 1.0)
     n_periods = max(len(filled), 1)
     ann_return = float((1.0 + total_return) ** (periods / n_periods) - 1.0)
-    volatility = float(filled.std(ddof=0) * math.sqrt(periods)) if len(filled.dropna()) > 1 else 0.0
+    volatility = (
+        float(filled.std(ddof=0) * math.sqrt(periods))
+        if len(filled.dropna()) > 1
+        else 0.0
+    )
     annualised_mean = float(filled.mean() * periods)
     sharpe = annualised_mean / (volatility + 1e-12) if volatility else 0.0
     drawdown_min = float(drawdown.min()) if not drawdown.empty else 0.0
@@ -200,10 +221,20 @@ def _build_backtest(result: Any) -> BacktestResult | None:
         "volatility": volatility,
         "sharpe_ratio": sharpe,
         "max_drawdown": drawdown_min,
-        "turnover_mean": float(turnover_series.mean()) if not turnover_series.empty else 0.0,
+        "turnover_mean": (
+            float(turnover_series.mean()) if not turnover_series.empty else 0.0
+        ),
     }
-    window_mode = getattr(result, "details", {}).get("window_mode") if isinstance(getattr(result, "details", None), Mapping) else None
-    window_size = getattr(result, "details", {}).get("window_size") if isinstance(getattr(result, "details", None), Mapping) else None
+    window_mode = (
+        getattr(result, "details", {}).get("window_mode")
+        if isinstance(getattr(result, "details", None), Mapping)
+        else None
+    )
+    window_size = (
+        getattr(result, "details", {}).get("window_size")
+        if isinstance(getattr(result, "details", None), Mapping)
+        else None
+    )
     if not isinstance(window_mode, str):
         window_mode = "rolling"
     if not isinstance(window_size, int):
@@ -249,7 +280,11 @@ def _format_number(value: float | None) -> str:
 
 
 def _build_exec_summary(result: Any, backtest: BacktestResult | None) -> list[str]:
-    details = getattr(result, "details", {}) if isinstance(getattr(result, "details", None), Mapping) else {}
+    details = (
+        getattr(result, "details", {})
+        if isinstance(getattr(result, "details", None), Mapping)
+        else {}
+    )
     out_stats = _stats_to_dict(details.get("out_user_stats"))
     ew_stats = _stats_to_dict(details.get("out_ew_stats"))
     selected = details.get("selected_funds")
@@ -263,15 +298,15 @@ def _build_exec_summary(result: Any, backtest: BacktestResult | None) -> list[st
         )
     )
     bullets.append(
-        (
-            "Equal-weight baseline recorded {_cagr} CAGR with Sharpe {_sharpe}."
-        ).format(
+        ("Equal-weight baseline recorded {_cagr} CAGR with Sharpe {_sharpe}.").format(
             _cagr=_format_percent(ew_stats.get("cagr")),
             _sharpe=_format_ratio(ew_stats.get("sharpe")),
         )
     )
     if manager_count is not None:
-        bullets.append(f"Selection size: {manager_count} funds; diversification assessed below.")
+        bullets.append(
+            f"Selection size: {manager_count} funds; diversification assessed below."
+        )
     if backtest is not None:
         metrics = backtest.metrics
         bullets.append(
@@ -306,7 +341,9 @@ def _build_param_summary(config: Any) -> list[tuple[str, str]]:
     if in_start or in_end:
         params.append(("In-sample window", f"{in_start or '—'} → {in_end or '—'}"))
     if out_start or out_end:
-        params.append(("Out-of-sample window", f"{out_start or '—'} → {out_end or '—'}"))
+        params.append(
+            ("Out-of-sample window", f"{out_start or '—'} → {out_end or '—'}")
+        )
     target_vol = _get(vol_adj, "target_vol")
     if isinstance(target_vol, (int, float)):
         params.append(("Target volatility", _format_percent(float(target_vol))))
@@ -342,16 +379,26 @@ def _build_caveats(result: Any, backtest: BacktestResult | None) -> list[str]:
     fallback = getattr(result, "fallback_info", None)
     if isinstance(fallback, Mapping) and fallback:
         engine = fallback.get("engine") or "unknown"
-        reason = fallback.get("error") or fallback.get("error_type") or "unspecified error"
+        reason = (
+            fallback.get("error") or fallback.get("error_type") or "unspecified error"
+        )
         caveats.append(f"Weight engine fallback engaged ({engine}): {reason}.")
-    details = getattr(result, "details", {}) if isinstance(getattr(result, "details", None), Mapping) else {}
+    details = (
+        getattr(result, "details", {})
+        if isinstance(getattr(result, "details", None), Mapping)
+        else {}
+    )
     if not getattr(result, "metrics", pd.DataFrame()).size:
-        caveats.append("Metrics table is empty – verify scoring inputs and configuration.")
+        caveats.append(
+            "Metrics table is empty – verify scoring inputs and configuration."
+        )
     selected = details.get("selected_funds")
     if isinstance(selected, Sequence) and not selected:
         caveats.append("No funds selected after preprocessing filters.")
     if backtest is None:
-        caveats.append("Backtest result unavailable – narrative derived from limited data.")
+        caveats.append(
+            "Backtest result unavailable – narrative derived from limited data."
+        )
     return caveats
 
 
@@ -399,7 +446,9 @@ def _metrics_table_html(metrics: pd.DataFrame) -> tuple[str, list[str]]:
     display = metrics.copy()
     for column in display.columns:
         if pd.api.types.is_numeric_dtype(display[column]):
-            display[column] = display[column].map(lambda val: "" if pd.isna(val) else f"{val:,.4f}")
+            display[column] = display[column].map(
+                lambda val: "" if pd.isna(val) else f"{val:,.4f}"
+            )
         else:
             display[column] = display[column].astype(str)
     display.index = display.index.astype(str)
@@ -431,10 +480,16 @@ def _narrative(backtest: BacktestResult | None) -> str:
         end_text = pd.Timestamp(end).strftime("%b %Y")
     else:
         end_text = str(end)
-    top_alloc = backtest.weights.iloc[-1] if not backtest.weights.empty else pd.Series(dtype=float)
+    top_alloc = (
+        backtest.weights.iloc[-1]
+        if not backtest.weights.empty
+        else pd.Series(dtype=float)
+    )
     if not top_alloc.empty:
         top_alloc = top_alloc.sort_values(ascending=False).head(3)
-        alloc_text = ", ".join(f"{name}: {_format_percent(weight)}" for name, weight in top_alloc.items())
+        alloc_text = ", ".join(
+            f"{name}: {_format_percent(weight)}" for name, weight in top_alloc.items()
+        )
         alloc_sentence = f" Key allocations: {alloc_text}."
     else:
         alloc_sentence = ""
@@ -453,14 +508,18 @@ def _narrative(backtest: BacktestResult | None) -> str:
 def _render_html(context: Mapping[str, Any]) -> str:
     title = html.escape(context["title"])
     run_id = html.escape(context["run_id"])
-    exec_items = "\n".join(f"      <li>{html.escape(item)}</li>" for item in context["exec_summary"])
+    exec_items = "\n".join(
+        f"      <li>{html.escape(item)}</li>" for item in context["exec_summary"]
+    )
     narrative = html.escape(context["narrative"])
     metrics_html = context["metrics_html"]
     params_rows = "\n".join(
         f"      <tr><th>{html.escape(k)}</th><td>{html.escape(v)}</td></tr>"
         for k, v in context["parameters"]
     )
-    caveats_items = "\n".join(f"      <li>{html.escape(item)}</li>" for item in context["caveats"])
+    caveats_items = "\n".join(
+        f"      <li>{html.escape(item)}</li>" for item in context["caveats"]
+    )
     turnover_img = (
         f'<img src="data:image/png;base64,{context["turnover_chart"]}" alt="Turnover chart" />'
         if context["turnover_chart"]
@@ -474,9 +533,9 @@ def _render_html(context: Mapping[str, Any]) -> str:
     footer = html.escape(context["footer"])
     return (
         "<!DOCTYPE html>\n"
-        "<html lang=\"en\">\n"
+        '<html lang="en">\n'
         "<head>\n"
-        "  <meta charset=\"utf-8\" />\n"
+        '  <meta charset="utf-8" />\n'
         f"  <title>{title}</title>\n"
         "  <style>\n"
         "    body { font-family: 'Segoe UI', Arial, sans-serif; margin: 2rem; color: #111; }\n"
@@ -491,33 +550,33 @@ def _render_html(context: Mapping[str, Any]) -> str:
         "</head>\n"
         "<body>\n"
         f"  <header><h1>{title}</h1><p>Run ID: {run_id}</p></header>\n"
-        "  <section id=\"executive-summary\">\n"
+        '  <section id="executive-summary">\n'
         "    <h2>Executive summary</h2>\n"
         "    <ul>\n"
         f"{exec_items}\n"
         "    </ul>\n"
         "  </section>\n"
-        "  <section id=\"narrative\">\n"
+        '  <section id="narrative">\n'
         "    <h2>Narrative</h2>\n"
         f"    <p>{narrative}</p>\n"
         "  </section>\n"
-        "  <section id=\"metrics\">\n"
+        '  <section id="metrics">\n'
         "    <h2>Metrics</h2>\n"
         f"    {metrics_html}\n"
         "  </section>\n"
-        "  <section id=\"charts\" class=\"two-column\">\n"
+        '  <section id="charts" class="two-column">\n'
         "    <div><h2>Turnover</h2>\n"
         f"    {turnover_img}</div>\n"
         "    <div><h2>Exposures</h2>\n"
         f"    {exposure_img}</div>\n"
         "  </section>\n"
-        "  <section id=\"parameters\">\n"
+        '  <section id="parameters">\n'
         "    <h2>Parameter summary</h2>\n"
-        "    <table class=\"report-table\">\n"
+        '    <table class="report-table">\n'
         f"{params_rows}\n"
         "    </table>\n"
         "  </section>\n"
-        "  <section id=\"caveats\">\n"
+        '  <section id="caveats">\n'
         "    <h2>Caveats</h2>\n"
         "    <ul>\n"
         f"{caveats_items}\n"
@@ -617,7 +676,8 @@ def generate_unified_report(
         "metrics_html": metrics_html,
         "metrics_text": metrics_text,
         "parameters": params,
-        "caveats": caveats or [
+        "caveats": caveats
+        or [
             "Review risk diagnostics and configuration assumptions before acting on these results."
         ],
         "turnover_chart": turnover_chart,
@@ -629,4 +689,3 @@ def generate_unified_report(
     if include_pdf:
         pdf_bytes = _render_pdf(context)
     return ReportArtifacts(html=html_output, pdf_bytes=pdf_bytes, context=context)
-

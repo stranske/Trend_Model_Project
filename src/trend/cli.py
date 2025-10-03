@@ -445,9 +445,7 @@ def main(argv: list[str] | None = None) -> int:
         resolve_returns = _legacy_callable(
             "_resolve_returns_path", _resolve_returns_path
         )
-        returns_path = resolve_returns(
-            cfg_path, cfg, getattr(args, "returns", None)
-        )
+        returns_path = resolve_returns(cfg_path, cfg, getattr(args, "returns", None))
         ensure_df = _legacy_callable("_ensure_dataframe", _ensure_dataframe)
         returns_df = ensure_df(returns_path)
         seed = _determine_seed(cfg, getattr(args, "seed", None))
@@ -475,7 +473,9 @@ def main(argv: list[str] | None = None) -> int:
                     "The 'report' command requires --out for artefacts or --output for the HTML report"
                 )
             formats = args.formats or DEFAULT_REPORT_FORMATS
-            _prepare_export_config(cfg, export_dir, formats if export_dir is not None else None)
+            _prepare_export_config(
+                cfg, export_dir, formats if export_dir is not None else None
+            )
             run_pipeline = _legacy_callable("_run_pipeline", _run_pipeline)
             result, run_id, _ = run_pipeline(
                 cfg,
