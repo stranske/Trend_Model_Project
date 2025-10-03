@@ -44,6 +44,13 @@ class BacktestResult:
             "turnover": _series_to_dict(self.turnover),
             "transaction_costs": _series_to_dict(self.transaction_costs),
             "weights": _weights_to_dict(self.weights),
+            "training_windows": {
+                ts.isoformat(): {
+                    "start": window[0].isoformat(),
+                    "end": window[1].isoformat(),
+                }
+                for ts, window in self.training_windows.items()
+            },
         }
 
     def to_json(self, **dumps_kwargs: object) -> str:
