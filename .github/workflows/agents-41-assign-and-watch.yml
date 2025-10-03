@@ -177,6 +177,46 @@ jobs:
               }
             };
 
+            const resolveFromPullRequestPayload = (payload, actionOverride = '') => {
+              if (!payload) { return; }
+              const action = (actionOverride || payload.action || '').toLowerCase();
+              const pullRequest = payload.pull_request || {};
+              const number = Number(pullRequest.number || payload.number || 0);
+              const labelName = (payload.label?.name || '').toLowerCase();
+              const labels = (pullRequest.labels || []).map(l => (l.name || '').toLowerCase());
+
+              if (!number) {
+                return;
+              }
+
+              if (action === 'labeled') {
+                const directAgent = labelToAgent[labelName];
+                if (directAgent) {
+                  issueNumber = number;
+                  agentKey = directAgent;
+                  operation = 'assign';
+                  expectedPr = String(number);
+                }
+              } else if (action === 'unlabeled') {
+                const removedAgent = labelToAgent[labelName];
+                if (removedAgent) {
+                  issueNumber = number;
+                  agentKey = removedAgent;
+                  operation = 'clear';
+                }
+              } else if (!action && labels.length) {
+                for (const lbl of labels) {
+                  if (labelToAgent[lbl]) {
+                    issueNumber = number;
+                    agentKey = labelToAgent[lbl];
+                    operation = 'assign';
+                    expectedPr = String(number);
+                    break;
+                  }
+                }
+              }
+            };
+
             if (context.eventName === 'schedule') {
               operation = 'sweep';
               readinessAgents = Object.keys(CONFIG).join(',');
@@ -208,6 +248,8 @@ jobs:
               }
             } else if (eventName === 'issues') {
               resolveFromIssuePayload(forwardedPayload || context.payload);
+            } else if (eventName === 'pull_request_target') {
+              resolveFromPullRequestPayload(forwardedPayload || context.payload);
             }
 
             if (operation === 'assign' || operation === 'watch') {

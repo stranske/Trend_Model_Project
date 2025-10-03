@@ -9,15 +9,29 @@ def _load_yaml_text(path: Path) -> str:
 
 def test_unified_agents_workflow_structure():
     wf = WORKFLOWS_DIR / "agents-41-assign-and-watch.yml"
-    assert wf.exists(), "agents-41-assign-and-watch.yml must exist (unified orchestrator guard)"
+    assert (
+        wf.exists()
+    ), "agents-41-assign-and-watch.yml must exist (unified orchestrator guard)"
     text = _load_yaml_text(wf)
-    assert "workflow_dispatch:" in text, "Unified workflow must expose workflow_dispatch trigger"
+    assert (
+        "workflow_dispatch:" in text
+    ), "Unified workflow must expose workflow_dispatch trigger"
     assert "schedule:" in text, "Unified workflow must include scheduled watchdog sweep"
-    assert "reusable-90-agents.yml" in text, "Unified workflow must reuse reusable-90-agents for readiness checks"
-    assert "codex-bootstrap-lite" in text, "Unified workflow must invoke codex bootstrap composite"
-    assert "watchdog_sweep" in text, "Unified workflow must define the watchdog sweep job"
-    assert "✅ Agent Watchdog" in text, "Unified workflow must preserve success watchdog messaging"
-    assert "🚨 Watchdog escalation" in text, "Unified workflow must emit escalation prefix for stale issues"
+    assert (
+        "reusable-90-agents.yml" in text
+    ), "Unified workflow must reuse reusable-90-agents for readiness checks"
+    assert (
+        "codex-bootstrap-lite" in text
+    ), "Unified workflow must invoke codex bootstrap composite"
+    assert (
+        "watchdog_sweep" in text
+    ), "Unified workflow must define the watchdog sweep job"
+    assert (
+        "✅ Agent Watchdog" in text
+    ), "Unified workflow must preserve success watchdog messaging"
+    assert (
+        "🚨 Watchdog escalation" in text
+    ), "Unified workflow must emit escalation prefix for stale issues"
 
 
 def test_assign_wrapper_forwards_events():
@@ -25,8 +39,12 @@ def test_assign_wrapper_forwards_events():
     assert wf.exists(), "agents-41-assign.yml wrapper must remain present"
     text = _load_yaml_text(wf)
     assert "issues:" in text, "Wrapper must still listen to issue events"
-    assert "createWorkflowDispatch" in text, "Wrapper must forward via workflow dispatch"
-    assert "workflow_id: 'agents-41-assign-and-watch.yml'" in text, "Wrapper must delegate to unified workflow"
+    assert (
+        "createWorkflowDispatch" in text
+    ), "Wrapper must forward via workflow dispatch"
+    assert (
+        "workflow_id: 'agents-41-assign-and-watch.yml'" in text
+    ), "Wrapper must delegate to unified workflow"
     assert "event_payload" in text, "Wrapper must forward raw event payload"
 
 
@@ -35,7 +53,9 @@ def test_watchdog_wrapper_dispatches_mode():
     assert wf.exists(), "agents-42-watchdog.yml wrapper must remain present"
     text = _load_yaml_text(wf)
     assert "workflow_dispatch:" in text, "Watchdog wrapper must keep manual trigger"
-    assert "mode: 'watch'" in text, "Watchdog wrapper must call unified workflow with mode=watch"
+    assert (
+        "mode: 'watch'" in text
+    ), "Watchdog wrapper must call unified workflow with mode=watch"
     assert "event_payload" in text, "Watchdog wrapper must forward payload context"
 
 
@@ -61,7 +81,8 @@ def test_agents_consumer_and_reusable_present():
         "workflow_call:" in reusable_text
     ), "reusable-90-agents.yml must expose a workflow_call trigger"
     assert (
-        "fromJSON(format('[{0}]', steps.ready.outputs.issue_numbers))[0]" in reusable_text
+        "fromJSON(format('[{0}]', steps.ready.outputs.issue_numbers))[0]"
+        in reusable_text
     ), "Bootstrap expression must parse issue numbers via format()"
     assert (
         "'[' + steps.ready.outputs.issue_numbers + ']'" not in reusable_text
