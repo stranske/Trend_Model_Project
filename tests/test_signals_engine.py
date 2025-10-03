@@ -104,7 +104,7 @@ def test_execution_lag_without_rebalance_dates_shifts_all_periods(
     frame = generate_signals(sample_prices, spec, rebalance_dates=None)
 
     normalized = frame.stage("normalized")
-    expected = normalized.shift(1)
+    expected = normalized.shift(spec.execution_lag)
 
     pd.testing.assert_frame_equal(frame.final, expected)
 
