@@ -9,6 +9,7 @@ import pandas as pd
 import streamlit as st
 from matplotlib import pyplot as plt
 
+from trend.reporting import generate_unified_report
 from trend_analysis.engine.walkforward import walk_forward
 from trend_analysis.logging import error_summary, logfile_to_frame
 from trend_analysis.metrics import attribution
@@ -481,3 +482,55 @@ with col3:
         file_name="summary.json",
         mime="application/json",
     )
+
+report_error: str | None = None
+report_artifacts = None
+try:
+    cfg_payload = st.session_state.get("sim_config")
+except Exception:  # pragma: no cover - defensive access
+    cfg_payload = None
+
+run_identifier = getattr(res, "run_id", None)
+if not run_identifier:
+    run_identifier = getattr(res, "seed", "app")
+run_identifier = str(run_identifier)
+
+try:
+    report_artifacts = generate_unified_report(
+        res,
+        cfg_payload if cfg_payload is not None else {},
+        run_id=run_identifier,
+        include_pdf=True,
+    )
+except RuntimeError as exc:
+    report_error = str(exc)
+    try:
+        report_artifacts = generate_unified_report(
+            res,
+            cfg_payload if cfg_payload is not None else {},
+            run_id=run_identifier,
+            include_pdf=False,
+        )
+    except Exception as inner_exc:  # pragma: no cover - defensive fallback
+        report_artifacts = None
+        report_error = str(inner_exc)
+except Exception as exc:  # pragma: no cover - defensive fallback
+    report_artifacts = None
+    report_error = str(exc)
+
+if report_artifacts is not None:
+    st.download_button(
+        label="Download report (HTML)",
+        data=report_artifacts.html.encode("utf-8"),
+        file_name=f"trend_report_{run_identifier}.html",
+        mime="text/html",
+    )
+    if report_artifacts.pdf_bytes:
+        st.download_button(
+            label="Download report (PDF)",
+            data=report_artifacts.pdf_bytes,
+            file_name=f"trend_report_{run_identifier}.pdf",
+            mime="application/pdf",
+        )
+elif report_error:
+    st.info(f"Report download unavailable: {report_error}")

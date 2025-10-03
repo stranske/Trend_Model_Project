@@ -35,6 +35,7 @@ dependencies = [
     "pydantic>=2",
     "hypothesis",
     "matplotlib",
+    "fpdf2",
     "ipywidgets",
     "joblib>=1.4",
     "scipy",

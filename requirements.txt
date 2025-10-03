@@ -9,6 +9,7 @@ types-requests
 hypothesis
 pandera==0.20.4
 matplotlib
+fpdf2
 ipywidgets
 joblib>=1.4
 nbformat
