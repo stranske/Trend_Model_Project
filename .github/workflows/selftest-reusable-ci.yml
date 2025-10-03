@@ -179,17 +179,19 @@ jobs:
 
   pr_comment:
     name: PR Comment (Self-Test Summary)
-    if: ${{ github.event_name == 'pull_request' && always() }}
+    if: ${{ always() }}
     needs: [aggregate]
     runs-on: ubuntu-latest
     steps:
       - name: Download self-test report
+        if: ${{ github.event_name == 'pull_request' }}
         uses: actions/download-artifact@v4
         with:
           name: selftest-report
           path: .
         continue-on-error: true
       - name: Post / update PR comment
+        if: ${{ github.event_name == 'pull_request' }}
         uses: actions/github-script@v7
         env:
           TABLE: ${{ needs.aggregate.outputs.verification_table }}
