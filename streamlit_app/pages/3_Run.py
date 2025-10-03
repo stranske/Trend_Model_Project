@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Mapping
 from typing import Any, Callable, Dict
 
 import pandas as pd
@@ -11,6 +12,7 @@ from streamlit_app.components.guardrails import (
     prepare_dry_run_plan,
 )
 from trend_analysis.logging import get_default_log_path, init_run_logger, log_step
+from trend_analysis.signals import TrendSpec
 
 
 class StreamlitConfig:
@@ -143,6 +145,11 @@ def main():
         )
     }
 
+    signals_input = cfg_get(cfg, "signals", {})
+    if not isinstance(signals_input, Mapping) or not signals_input:
+        signals_input = cfg_get(cfg, "trend_spec", {})
+    signals_cfg = _build_signals_config(signals_input)
+
     config_data = {
         "version": "1",
         "data": {},
@@ -155,6 +162,7 @@ def main():
             "out_end": end.strftime("%Y-%m"),
         },
         "portfolio": portfolio_cfg,
+        "signals": signals_cfg,
         "metrics": {},
         "export": {},
         "benchmarks": {},
@@ -238,3 +246,55 @@ def main():
 
 if __name__ == "__main__":
     main()
+def _build_signals_config(values: Mapping[str, Any] | None) -> Dict[str, object]:
+    if not isinstance(values, Mapping) or not values:
+        return {}
+    base = TrendSpec()
+    window = values.get("window", base.window)
+    try:
+        window_int = int(window)
+    except (TypeError, ValueError):
+        window_int = base.window
+    try:
+        min_val = values.get("min_periods")
+        min_periods = int(min_val) if min_val not in (None, "") else None
+    except (TypeError, ValueError):
+        min_periods = None
+    if min_periods is not None and min_periods <= 0:
+        min_periods = None
+    if min_periods is not None and min_periods > window_int:
+        min_periods = window_int
+    try:
+        lag_val = int(values.get("lag", base.lag))
+    except (TypeError, ValueError):
+        lag_val = base.lag
+    if lag_val < 1:
+        lag_val = 1
+    vol_adjust = bool(values.get("vol_adjust", base.vol_adjust))
+    try:
+        vol_target_val = float(values.get("vol_target", 0.0) or 0.0)
+    except (TypeError, ValueError):
+        vol_target_val = 0.0
+    vol_target = vol_target_val if (vol_adjust and vol_target_val > 0) else None
+    zscore = bool(values.get("zscore", base.zscore))
+
+    spec = TrendSpec(
+        window=window_int,
+        min_periods=min_periods,
+        lag=lag_val,
+        vol_adjust=vol_adjust,
+        vol_target=vol_target,
+        zscore=zscore,
+    )
+    payload: Dict[str, object] = {
+        "kind": spec.kind,
+        "window": spec.window,
+        "lag": spec.lag,
+        "vol_adjust": spec.vol_adjust,
+        "zscore": spec.zscore,
+    }
+    if spec.min_periods is not None:
+        payload["min_periods"] = spec.min_periods
+    if spec.vol_target is not None:
+        payload["vol_target"] = spec.vol_target
+    return payload

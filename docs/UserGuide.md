@@ -54,6 +54,20 @@ python -m trend_analysis.run_analysis -c config/presets/balanced.yml
 Replace `balanced` with `conservative` or `aggressive` as needed. See
 [PresetStrategies.md](PresetStrategies.md) for a summary of each option.
 
+The CLI also supports merging signal presets into any configuration without
+swapping YAML files. Supply `--preset` to `trend-model run` and the TrendSpec
+parameters (window, lag, volatility scaling, and z-score toggle) are injected
+before the analysis starts:
+
+```bash
+trend-model run -c config/demo.yml -i data/returns.csv --preset Aggressive
+```
+
+On the Streamlit side the **Trend Signal Settings** card mirrors the registry.
+Selecting “Conservative” or “Aggressive” updates the window, minimum period,
+volatility scaling and target sliders immediately so the form and CLI stay in
+sync.
+
 ### 4.1 Handling missing data
 
 Two configuration knobs control how sparse series are treated during ingest:
