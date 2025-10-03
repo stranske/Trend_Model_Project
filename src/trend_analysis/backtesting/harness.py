@@ -366,7 +366,7 @@ def _json_default(obj: object) -> object:
     raise TypeError(f"Object of type {type(obj)!r} is not JSON serializable")
 
 
-def _to_float(value: float | np.floating | np.integer) -> float:  # type: ignore[type-arg]
+def _to_float(value: float | np.floating[Any] | np.integer[Any]) -> float:
     return float(value) if value is not None and not pd.isna(value) else float("nan")
 
 
