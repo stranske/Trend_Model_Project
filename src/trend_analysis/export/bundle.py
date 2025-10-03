@@ -93,7 +93,24 @@ def export_bundle(run: Any, path: Path) -> Path:
                 "but was not found in the provided 'run' object."
             )
         if not isinstance(portfolio, pd.Series):
-            portfolio = pd.Series(portfolio)
+            # Attempt to preserve temporal structure if possible
+            if isinstance(portfolio, dict):
+                # Use dict keys as index
+                portfolio = pd.Series(list(portfolio.values()), index=list(portfolio.keys()))
+            elif isinstance(portfolio, (list, tuple)):
+                raise ValueError(
+                    "Cannot convert portfolio of type list/tuple to pandas Series without an index. "
+                    "Please provide a portfolio with a temporal index (e.g., dict or pandas Series)."
+                )
+            else:
+                # Fallback: try to convert, but warn user
+                import warnings
+                warnings.warn(
+                    f"Converting portfolio of type {type(portfolio)} to pandas Series without specifying an index. "
+                    "This may result in loss of temporal structure.",
+                    UserWarning,
+                )
+                portfolio = pd.Series(portfolio)
         portfolio = portfolio.astype(float)
         equity_curve = (1 + portfolio.fillna(0)).cumprod()
 
