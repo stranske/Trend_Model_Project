@@ -109,6 +109,16 @@ def test_execution_lag_without_rebalance_dates_shifts_all_periods(
     pd.testing.assert_frame_equal(frame.final, expected)
 
 
+def test_execution_lag_errors_when_rebalance_dates_missing_from_index(
+    sample_prices: pd.DataFrame,
+) -> None:
+    spec = TrendSpec(lookback=1, execution_lag=1)
+    missing_dates = pd.date_range("2019-12-01", periods=3, freq="D")
+
+    with pytest.raises(ValueError, match="execution lag cannot be applied"):
+        generate_signals(sample_prices, spec, rebalance_dates=missing_dates)
+
+
 def test_trend_spec_toggles_modify_signal(sample_prices: pd.DataFrame) -> None:
     base_spec = TrendSpec(lookback=1, execution_lag=0)
     vol_spec = TrendSpec(lookback=1, vol_lookback=2, use_vol_adjust=True, execution_lag=0)
