@@ -24,6 +24,8 @@ from streamlit_app.components.guardrails import (  # noqa: E402
     estimate_resource_usage,
     validate_startup_payload,
 )
+from trend_analysis.signal_presets import get_trend_spec_preset  # noqa: E402
+from trend_analysis.signals import TrendSpec  # noqa: E402
 from trend_portfolio_app.metrics_extra import AVAILABLE_METRICS  # noqa: E402
 from trend_portfolio_app.policy_engine import MetricSpec, PolicyConfig  # noqa: E402
 
@@ -55,6 +57,113 @@ def list_available_presets_direct() -> List[str]:
     return sorted(preset.stem.title() for preset in presets_dir.glob("*.yml"))
 
 
+def _coerce_int(value: Any, default: int, *, minimum: int | None = None, maximum: int | None = None) -> int:
+    try:
+        candidate = int(value)
+    except (TypeError, ValueError):
+        candidate = int(default)
+    if minimum is not None and candidate < minimum:
+        candidate = minimum
+    if maximum is not None and candidate > maximum:
+        candidate = maximum
+    return candidate
+
+
+def _trend_spec_base_defaults() -> Dict[str, object]:
+    spec = TrendSpec()
+    return {
+        "window": spec.window,
+        "min_periods": spec.min_periods or 0,
+        "lag": spec.lag,
+        "vol_adjust": spec.vol_adjust,
+        "vol_target": spec.vol_target or 0.0,
+        "zscore": spec.zscore,
+    }
+
+
+def _trend_spec_defaults_from_preset(preset_name: Optional[str]) -> Dict[str, object]:
+    if not preset_name:
+        return _trend_spec_base_defaults()
+    try:
+        preset = get_trend_spec_preset(preset_name)
+    except KeyError:
+        return _trend_spec_base_defaults()
+    return preset.form_defaults()
+
+
+def _build_trend_spec_from_values(values: Mapping[str, Any]) -> TrendSpec:
+    base = TrendSpec()
+    window = _coerce_int(values.get("window"), base.window, minimum=1)
+    raw_min = values.get("min_periods")
+    if raw_min in (None, ""):
+        min_periods = None
+    else:
+        min_periods = _coerce_int(raw_min, base.min_periods or base.window, minimum=0)
+        if min_periods <= 0:
+            min_periods = None
+        elif min_periods > window:
+            min_periods = window
+    lag = _coerce_int(values.get("lag"), base.lag, minimum=1)
+    vol_adjust = bool(values.get("vol_adjust", base.vol_adjust))
+    raw_target = values.get("vol_target")
+    try:
+        vol_target = float(raw_target)
+    except (TypeError, ValueError):
+        vol_target = base.vol_target
+    if vol_target is None or vol_target <= 0:
+        vol_target = None
+    if not vol_adjust:
+        vol_target = None
+    zscore = bool(values.get("zscore", base.zscore))
+    return TrendSpec(
+        window=window,
+        min_periods=min_periods,
+        lag=lag,
+        vol_adjust=vol_adjust,
+        vol_target=vol_target,
+        zscore=zscore,
+    )
+
+
+def _normalise_trend_spec_values(values: Mapping[str, Any]) -> Dict[str, object]:
+    spec = _build_trend_spec_from_values(values)
+    return {
+        "window": spec.window,
+        "min_periods": spec.min_periods or 0,
+        "lag": spec.lag,
+        "vol_adjust": spec.vol_adjust,
+        "vol_target": spec.vol_target or 0.0,
+        "zscore": spec.zscore,
+    }
+
+
+def _trend_spec_values_to_config(values: Mapping[str, Any]) -> Dict[str, object]:
+    spec = _build_trend_spec_from_values(values)
+    payload: Dict[str, object] = {
+        "kind": spec.kind,
+        "window": spec.window,
+        "lag": spec.lag,
+        "vol_adjust": spec.vol_adjust,
+        "zscore": spec.zscore,
+    }
+    if spec.min_periods is not None:
+        payload["min_periods"] = spec.min_periods
+    if spec.vol_target is not None:
+        payload["vol_target"] = spec.vol_target
+    return payload
+
+
+def _apply_trend_spec_preset_to_state(
+    config_state: Dict[str, Any], preset_name: Optional[str]
+) -> Dict[str, object]:
+    defaults = _trend_spec_defaults_from_preset(preset_name)
+    config_state["trend_spec_defaults"] = dict(defaults)
+    config_state["trend_spec_values"] = dict(defaults)
+    config_state["trend_spec_preset"] = preset_name
+    config_state["trend_spec_config"] = _trend_spec_values_to_config(defaults)
+    return defaults
+
+
 def _map_payload_errors(payload_errors: Iterable[str]) -> Dict[str, List[str]]:
     """Translate validator error messages into inline field errors."""
 
@@ -83,6 +192,10 @@ def initialize_session_state():
             "preset_config": None,
             "column_mapping": None,
             "custom_overrides": {},
+            "trend_spec_values": {},
+            "trend_spec_defaults": {},
+            "trend_spec_preset": None,
+            "trend_spec_config": {},
             "validation_errors": [],
             "is_valid": False,
             "resource_estimate": None,
@@ -115,7 +228,10 @@ def render_preset_selection():
     preset_options = ["Custom"] + available_presets
 
     # Get current selection
-    current_preset = st.session_state.config_state.get("preset_name") or "Custom"
+    config_state = st.session_state.config_state
+    stored_name = config_state.get("preset_name")
+    current_preset = stored_name if stored_name in available_presets else "Custom"
+    previous_selection = stored_name or "Custom"
     try:
         current_index = preset_options.index(current_preset)
     except ValueError:
@@ -131,8 +247,12 @@ def render_preset_selection():
     if selected_preset != "Custom":
         try:
             preset_config = load_preset_direct(selected_preset)
-            st.session_state.config_state["preset_name"] = selected_preset
-            st.session_state.config_state["preset_config"] = preset_config
+            config_state["preset_name"] = selected_preset
+            config_state["preset_config"] = preset_config
+            if previous_selection != selected_preset or not config_state.get(
+                "trend_spec_values"
+            ):
+                _apply_trend_spec_preset_to_state(config_state, selected_preset)
 
             # Display preset info
             if preset_config.get("description"):
@@ -143,8 +263,11 @@ def render_preset_selection():
             st.error(f"Failed to load preset '{selected_preset}': {e}")
             return None
     else:
-        st.session_state.config_state["preset_name"] = None
-        st.session_state.config_state["preset_config"] = None
+        config_state["preset_name"] = None
+        config_state["preset_config"] = None
+        config_state["trend_spec_preset"] = None
+        if not config_state.get("trend_spec_values"):
+            _apply_trend_spec_preset_to_state(config_state, None)
         return None
 
 
@@ -242,6 +365,96 @@ def render_column_mapping(df: pd.DataFrame):
         for warn in estimate.warnings:
             st.warning(f"Guardrail: {warn}")
     return mapping
+
+
+def render_trend_spec_settings(preset_name: Optional[str]) -> Dict[str, object]:
+    """Render TrendSpec configuration controls."""
+
+    st.subheader("📈 Trend Signal Settings")
+    config_state = st.session_state.config_state
+    defaults = config_state.get("trend_spec_defaults")
+    if not isinstance(defaults, Mapping) or not defaults:
+        defaults = _trend_spec_defaults_from_preset(preset_name)
+        config_state["trend_spec_defaults"] = dict(defaults)
+    values = config_state.get("trend_spec_values")
+    if not isinstance(values, Mapping) or not values:
+        values = dict(defaults)
+        config_state["trend_spec_values"] = dict(values)
+
+    window_default = _coerce_int(values.get("window"), defaults.get("window", 63), minimum=1)
+    window = st.number_input(
+        "Signal window (periods)",
+        min_value=1,
+        max_value=360,
+        value=window_default,
+        step=1,
+        help="Rolling lookback length used for the trend signal.",
+    )
+    display_inline_errors("trend_window")
+
+    min_default = _coerce_int(values.get("min_periods"), defaults.get("min_periods", 0), minimum=0)
+    min_periods = st.number_input(
+        "Minimum periods (0 = auto)",
+        min_value=0,
+        max_value=window,
+        value=min_default,
+        step=1,
+        help="Require at least this many observations before emitting a signal.",
+    )
+    display_inline_errors("trend_min_periods")
+
+    lag_default = _coerce_int(values.get("lag"), defaults.get("lag", 1), minimum=1)
+    lag = st.number_input(
+        "Signal lag (periods)",
+        min_value=1,
+        max_value=12,
+        value=lag_default,
+        step=1,
+        help="Delay applied to avoid look-ahead when reading signals.",
+    )
+    display_inline_errors("trend_lag")
+
+    vol_adjust = bool(values.get("vol_adjust", defaults.get("vol_adjust", False)))
+    vol_adjust = st.checkbox(
+        "Scale signals by volatility",
+        value=vol_adjust,
+        help="Normalise signals by their recent volatility to keep position sizes comparable.",
+    )
+
+    vol_target_default = float(values.get("vol_target", defaults.get("vol_target", 0.0)) or 0.0)
+    if vol_adjust:
+        vol_target = st.number_input(
+            "Volatility target (0 = realised)",
+            min_value=0.0,
+            max_value=1.0,
+            value=vol_target_default,
+            step=0.01,
+            format="%.2f",
+            help="Optional volatility target for the signal normalisation.",
+        )
+        display_inline_errors("trend_vol_target")
+    else:
+        vol_target = 0.0
+
+    zscore = st.checkbox(
+        "Z-score signals across assets",
+        value=bool(values.get("zscore", defaults.get("zscore", False))),
+        help="Standardise the signal cross-section each period to emphasise relative strength.",
+    )
+
+    updated = {
+        "window": int(window),
+        "min_periods": int(min_periods),
+        "lag": int(lag),
+        "vol_adjust": vol_adjust,
+        "vol_target": float(vol_target) if vol_adjust else 0.0,
+        "zscore": bool(zscore),
+    }
+
+    normalised = _normalise_trend_spec_values(updated)
+    config_state["trend_spec_values"] = dict(normalised)
+    config_state["trend_spec_config"] = _trend_spec_values_to_config(normalised)
+    return normalised
 
 
 def render_parameter_forms(preset_config: Optional[Dict[str, Any]]):
@@ -409,6 +622,16 @@ def render_parameter_forms(preset_config: Optional[Dict[str, Any]]):
         "weighting_scheme": weighting_scheme,
     }
 
+    trend_spec_values = config_state.get("trend_spec_values") or {}
+    if not trend_spec_values:
+        trend_spec_values = _trend_spec_defaults_from_preset(
+            config_state.get("trend_spec_preset")
+        )
+    trend_spec_normalised = _normalise_trend_spec_values(trend_spec_values)
+    config_state["trend_spec_values"] = dict(trend_spec_normalised)
+    config_state["trend_spec_config"] = _trend_spec_values_to_config(trend_spec_normalised)
+    overrides["trend_spec"] = dict(trend_spec_normalised)
+
     st.session_state.config_state["custom_overrides"] = overrides
     return overrides
 
@@ -489,6 +712,40 @@ def validate_configuration() -> List[str]:
             field_errors.setdefault("risk_target", []).append(
                 "Enter a risk target between 0.01 and 0.50."
             )
+
+        trend_spec_overrides = overrides.get("trend_spec", {})
+        window_val = _coerce_int(trend_spec_overrides.get("window"), 0, minimum=0)
+        if window_val <= 0:
+            errors.append("Trend signal window must be a positive integer.")
+            field_errors.setdefault("trend_window", []).append(
+                "Set the signal window to at least 1 period."
+            )
+        min_val = _coerce_int(
+            trend_spec_overrides.get("min_periods"), 0, minimum=0, maximum=window_val or None
+        )
+        if window_val and min_val > window_val:
+            errors.append("Trend minimum periods cannot exceed the window length.")
+            field_errors.setdefault("trend_min_periods", []).append(
+                "Reduce the minimum periods or increase the window length."
+            )
+        lag_val = _coerce_int(trend_spec_overrides.get("lag"), 0, minimum=0)
+        if lag_val < 1:
+            errors.append("Trend signal lag must be at least 1 period.")
+            field_errors.setdefault("trend_lag", []).append(
+                "Increase the lag to 1 or more periods."
+            )
+        if trend_spec_overrides.get("vol_adjust"):
+            try:
+                vol_target_val = float(trend_spec_overrides.get("vol_target", 0.0) or 0.0)
+            except (TypeError, ValueError):
+                vol_target_val = -1.0
+            if vol_target_val < 0.0 or vol_target_val > 1.0:
+                errors.append("Trend volatility target must be between 0 and 1.")
+                field_errors.setdefault("trend_vol_target", []).append(
+                    "Provide a volatility target between 0.00 and 1.00."
+                )
+        else:
+            field_errors.pop("trend_vol_target", None)
 
         if df is not None and not df.empty and mapping and mapping.get("date_column"):
             unique_months = df.index.to_period("M").unique()
@@ -581,6 +838,9 @@ def save_configuration():
         "risk_target": overrides.get("risk_target", 0.10),
         "column_mapping": config_state.get("column_mapping"),
         "preset_name": config_state.get("preset_name"),
+        "trend_spec_preset": config_state.get("trend_spec_preset"),
+        "trend_spec": dict(config_state.get("trend_spec_values", {})),
+        "signals": dict(config_state.get("trend_spec_config", {})),
         "portfolio": {
             "weighting_scheme": overrides.get("weighting_scheme", "equal"),
         },
@@ -610,6 +870,9 @@ def main():
     st.divider()
 
     render_column_mapping(df)
+    st.divider()
+
+    render_trend_spec_settings(st.session_state.config_state.get("preset_name"))
     st.divider()
 
     render_parameter_forms(preset_config)
@@ -684,6 +947,7 @@ def main():
                         for k, v in config_state.get("custom_overrides", {}).items()
                         if k not in ["selected_metrics", "metric_weights"]
                     },
+                    "trend_spec": config_state.get("trend_spec_values", {}),
                     "metrics": list(
                         config_state.get("custom_overrides", {})
                         .get("metric_weights", {})
