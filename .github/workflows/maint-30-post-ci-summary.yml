@@ -222,17 +222,39 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p summary_artifacts
-          summary_file="artifacts/coverage-summary/coverage-summary.md"
-          if [ -f "$summary_file" ]; then
-            cp "$summary_file" summary_artifacts/coverage-summary.md
-            {
-              echo 'body<<EOF'
-              cat "$summary_file"
-              echo 'EOF'
-            } >> "$GITHUB_OUTPUT"
-          else
-            echo "No coverage summary markdown found; continuing without it."
-          fi
+          python <<'PY'
+          import os
+          from pathlib import Path
+
+          output_path = os.environ.get('GITHUB_OUTPUT')
+          root = Path('summary_artifacts')
+          search_roots = [root, Path('artifacts')]
+
+          summary_path: Path | None = None
+          candidates = []
+          for base in search_roots:
+              if not base.exists():
+                  continue
+              candidates.extend(base.rglob('coverage-summary.md'))
+          if candidates:
+              # Prefer files in earlier search_roots; if multiple, pick the first found
+              summary_path = candidates[0]
+
+          if summary_path is None:
+              print('No coverage summary markdown found; continuing without it.')
+          else:
+              text = summary_path.read_text(encoding='utf-8')
+              dest = root / 'coverage-summary.md'
+              dest.write_text(text, encoding='utf-8')
+              if output_path:
+                  with Path(output_path).open('a', encoding='utf-8') as handle:
+                      handle.write('body<<EOF\n')
+                      handle.write(text)
+                      if not text.endswith('\n'):
+                          handle.write('\n')
+                      handle.write('EOF\n')
+              print(f'Embedded coverage summary from {summary_path}')
+          PY
 
       - name: Compute coverage stats
         id: coverage_stats
@@ -374,7 +396,8 @@ jobs:
               return;
             }
 
-            const marker = 'Automated Status Summary';
+            const marker = '<!-- post-ci-summary:do-not-edit -->';
+            const heading = 'Automated Status Summary';
             const { data: comments } = await github.rest.issues.listComments({
               owner,
               repo,
@@ -382,7 +405,36 @@ jobs:
               per_page: 100,
             });
 
-            const existing = comments.find(comment => comment.body && comment.body.includes(marker));
+            const hasMarker = comment =>
+              Boolean(comment && comment.body && comment.body.includes(marker));
+            const hasHeading = comment =>
+              Boolean(comment && comment.body && comment.body.includes(heading));
+
+            const existing =
+              comments.find(hasMarker) || comments.find(hasHeading);
+
+            if (existing) {
+              if ((existing.body || '').trim() === body.trim()) {
+                core.info(`Existing summary comment (${existing.id}) already up to date.`);
+                return;
+              }
+
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body,
+              });
+              core.info(`Updated existing summary comment (${existing.id}).`);
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: prNumber,
+                body,
+              });
+              core.info('Created new summary comment.');
+            }
 
       - name: Append comment preview to job summary
         if: always()
