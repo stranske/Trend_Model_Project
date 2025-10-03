@@ -50,6 +50,17 @@ def test_merge_manager_core_steps_present():
     assert "<!-- merge-manager-rationale -->" in content, "rationale marker missing"
 
 
+def test_merge_manager_enforces_automerge_guards():
+    content = (WORKFLOWS / "merge-manager.yml").read_text(encoding="utf-8")
+    assert "Check required workflows" in content, "workflow status gate missing"
+    assert "findRun('CI')" in content, "CI workflow lookup missing"
+    assert "findRun('Docker')" in content, "Docker workflow lookup missing"
+    assert "ci_green" in content, "ci_green output missing"
+    assert "docker_green" in content, "docker_green output missing"
+    assert "breaking label present" in content, "breaking label guard missing"
+    assert "missing automerge label" in content, "automerge label guard missing"
+
+
 def test_commit_prefix_is_quoted():
     data = _load_yaml(WORKFLOWS / "merge-manager.yml")
     env = data.get("env", {})
