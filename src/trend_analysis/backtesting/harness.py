@@ -336,7 +336,7 @@ def _weights_to_dict(weights: pd.DataFrame) -> Dict[str, Dict[str, float]]:
         cleaned_row = {
             col: _to_float(val)
             for col, val in row.items()
-            if not np.isclose(val, 0.0)
+            if not pd.isna(val) and not np.isclose(val, 0.0)
         }
         if cleaned_row:
             result[timestamp.isoformat()] = cleaned_row
