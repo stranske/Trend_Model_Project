@@ -2,6 +2,18 @@ name: Feature request
 description: Small, single-scope feature for the Streamlit app or sim layer
 labels: ["type:feature","risk:low","agent:codex","automerge","codex-ready"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        **Agent routing:** This request queues Codex by default. Change the label to `agent:copilot` before submitting if you need the Copilot team instead.
+  - type: checkboxes
+    id: agent_label
+    attributes:
+      label: Agent label confirmation
+      description: Confirm the issue shows the correct agent label so assignment automation runs without delay.
+      options:
+        - label: I confirmed the labels sidebar shows the appropriate agent (`agent:codex` or `agent:copilot`).
+          required: true
   - type: textarea
     id: summary
     attributes:

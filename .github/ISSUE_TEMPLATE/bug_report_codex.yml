@@ -2,6 +2,18 @@ name: Bug report
 description: Something broke. Keep it factual.
 labels: ["type:bug","risk:low","agent:codex","automerge","codex-ready"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        **Agent routing:** This form defaults to the `agent:codex` label. Switch the label to `agent:copilot` in the sidebar if Copilot should own the request instead.
+  - type: checkboxes
+    id: agent_label
+    attributes:
+      label: Agent label confirmation
+      description: Confirm the sidebar shows the right agent label so automation can assign the issue immediately.
+      options:
+        - label: I verified the issue uses either `agent:codex` or `agent:copilot`, whichever matches the help I need.
+          required: true
   - type: input
     id: env
     attributes:

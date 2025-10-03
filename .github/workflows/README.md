@@ -1,6 +1,6 @@
 # Workflow & Agent Automation Quick Start (Issue #1204)
 
-This guide enables a new maintainer to operate the CI + agent automation stack in under 10 minutes.
+This guide enables a new maintainer to operate the CI + agent automation stack in under 10 minutes. For a reference catalogue of naming rules, workflow buckets, and agent label guidance see [docs/WORKFLOW_GUIDE.md](../../docs/WORKFLOW_GUIDE.md).
 
 ---
 ## 1. Architecture Snapshot
