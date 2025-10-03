@@ -32,7 +32,7 @@ jobs:
           reporter: ${{ github.event_name == 'pull_request' && 'github-pr-review' || 'github-check' }}
           filter_mode: nofilter
           level: warning
-          fail_level: error
+          fail_on_error: true
 
       - name: Publish lint summary
         if: always()

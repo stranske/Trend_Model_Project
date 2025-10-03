@@ -20,6 +20,7 @@ env:
   SAFE_LABEL_CI: ${{ vars.CI_LABEL || 'ci:green' }}
   SAFE_LABEL_AGENT1: ${{ vars.AGENT_FROM_LABEL || 'from:copilot' }}
   SAFE_LABEL_AGENT2: ${{ vars.AGENT_FROM_LABEL_ALT || 'from:codex' }}
+  SAFE_LABEL_BREAKING: ${{ vars.BREAKING_LABEL || 'breaking' }}
   QUIET_MINUTES: ${{ vars.QUIET_MINUTES || '3' }}
   MAX_LINES_CHANGED: ${{ vars.MAX_LINES_CHANGED || '1000' }}
   APPROVE_PATTERNS: ${{ vars.APPROVE_PATTERNS || '' }}
@@ -46,7 +47,8 @@ jobs:
             const labelSet = new Set(labels);
             function has(l){ return labelSet.has(l); }
             const need = (envName, fallback) => process.env[envName] || fallback;
-            const hasBreaking = labels.some(label => (label || '').toLowerCase().includes('breaking'));
+            const breakingLabelName = need('SAFE_LABEL_BREAKING','breaking');
+            const hasBreaking = has(breakingLabelName);
             const meta = {
               draft: pr.draft,
               hasAgent: has(need('SAFE_LABEL_AGENT1','from:copilot')) || has(need('SAFE_LABEL_AGENT2','from:codex')),
@@ -216,7 +218,7 @@ jobs:
             if(totalChanges > maxLines) reasons.push(`exceeds size cap (${totalChanges}>${maxLines})`);
             if(!quietOk) reasons.push('quiet period not satisfied');
             if(!activeOk) reasons.push('active workflows running');
-            const hasBlockerReason = reasons.filter(r => ['non-allowlist file changes', 'exceeds size cap', 'draft PR'].includes(r)).length > 0;
+            const hasBlockerReason = reasons.filter(r => ['non-allowlist file changes', 'exceeds size cap', 'draft PR', 'breaking label present'].includes(r)).length > 0;
             const isSafe = allSafe;
             const isWithinSize = totalChanges <= maxLines;
             const isNotDraft = !meta.draft;
