@@ -393,6 +393,13 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     # Redact secrets from stdout print; still present in report file.
     sanitized_report = dict(report)
     sanitized_report.pop("secrets", None)
+    # Redact secret checks and secret failures.
+    sanitized_report["checks"] = [
+        check for check in sanitized_report.get("checks", []) if check.get("type") != "secret"
+    ]
+    sanitized_report["failures"] = [
+        check for check in sanitized_report.get("failures", []) if check.get("type") != "secret"
+    ]
     print(json.dumps(sanitized_report, indent=2))
     return 0 if report.get("ok", False) else 1
 
