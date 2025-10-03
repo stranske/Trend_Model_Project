@@ -260,6 +260,8 @@ jobs:
             }
 
   readiness_probe:
+    needs:
+      - resolve
     if: needs.resolve.outputs.should_run == 'true' && (needs.resolve.outputs.operation == 'assign' || needs.resolve.outputs.operation == 'sweep')
     name: Agent availability check
     uses: ./.github/workflows/reusable-90-agents.yml
