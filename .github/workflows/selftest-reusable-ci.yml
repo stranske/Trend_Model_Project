@@ -6,7 +6,21 @@ on:
     # Nightly verification run at 02:30 UTC to keep the reusable workflow healthy without
     # overlapping with the main CI rush hour. No other triggers (e.g. pull_request) should run
     # this workflow – Issue #1660 scopes it strictly to manual/nightly execution.
-    - cron: '30 2 * * *'
+    - cron: '30 02 * * *'
+  workflow_call:
+    outputs:
+      verification_table:
+        description: Markdown table describing artifact coverage by scenario
+        value: ${{ jobs.aggregate.outputs.verification_table }}
+      failures:
+        description: Count of scenarios with artifact mismatches
+        value: ${{ jobs.aggregate.outputs.failures }}
+      run_id:
+        description: Run identifier for downloading generated artifacts
+        value: ${{ jobs.aggregate.outputs.run_id }}
+    secrets:
+      GITHUB_TOKEN:
+        required: false
 
 jobs:
   # Matrix of feature scenarios exercising the reusable workflow with different flag combinations.
@@ -78,6 +92,7 @@ jobs:
     outputs:
       verification_table: ${{ steps.verify.outputs.table }}
       failures: ${{ steps.verify.outputs.failures }}
+      run_id: ${{ steps.run_meta.outputs.run_id }}
     steps:
       - name: Summarize run
         run: |
@@ -143,7 +158,7 @@ jobs:
               const unexpected = scenarioActual.filter(n=>!exp.includes(n));
               const ok = missing.length===0 && unexpected.length===0;
               if(!ok) failures++;
-              rows.push(`| ${s.name} | ${exp.join('<br>')} | ${missing.join('<br>') || '—'} | ${unexpected.join('<br>') || '—'} | ${ok? '✅':'❌'} |`);
+              rows.push(`| ${s.name} | ${exp.join('<br>')} | ${missing.join('<br>') || '—'} | ${unexpected.join('<br>') || '—'} | ${ok ? '✅' : '❌'} |`);
               report.push({scenario: s.name, expected: exp, missing, unexpected, ok});
             }
             // Detect stray artifacts from scenarios not defined (defensive)
@@ -160,6 +175,10 @@ jobs:
             core.setOutput('failures', String(failures));
             const summary = { run_id, artifact_count: artifacts.length, failures, scenarios: report };
             require('fs').writeFileSync('selftest-report.json', JSON.stringify(summary, null, 2));
+      - name: Capture run metadata
+        id: run_meta
+        run: |
+          echo "run_id=${GITHUB_RUN_ID}" >> "$GITHUB_OUTPUT"
       - name: Append verification table
         run: |
           {

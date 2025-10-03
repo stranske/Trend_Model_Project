@@ -38,23 +38,97 @@ jobs:
         with:
           script: |
             const { owner, repo } = context.repo;
-            const { data: repoInfo } = await github.rest.repos.get({ owner, repo });
-            const ref = repoInfo.default_branch || 'main';
-            const inputs = context.payload?.inputs || {};
-            await github.rest.actions.createWorkflowDispatch({
-              owner,
-              repo,
-              workflow_id: 'agents-41-assign-and-watch.yml',
-              ref,
-              inputs: {
-                mode: 'watch',
-                issue: (inputs.issue || '').toString(),
-                agent: (inputs.agent || '').toString(),
-                expected_pr: (inputs.expected_pr || '').toString(),
-                timeout_minutes: (inputs.timeout_minutes || '').toString(),
-                started_at: (inputs.started_at || '').toString(),
-                event_name: 'workflow_dispatch',
-                event_payload: JSON.stringify({ inputs })
+
+            const findCrossReference = async () => {
+              const events = await github.paginate(
+                github.request,
+                {
+                  method: 'GET',
+                  url: '/repos/{owner}/{repo}/issues/{issue_number}/timeline',
+                  owner,
+                  repo,
+                  issue_number: issueNumber,
+                  per_page: 100,
+                  headers: { 'accept': 'application/vnd.github.mockingbird-preview+json' }
+                }
+              );
+              for (const event of events) {
+                if ((event.event || '') !== 'cross-referenced') {
+                  continue;
+                }
+                const sourceIssue = event.source?.issue;
+                if (!sourceIssue || !sourceIssue.pull_request) {
+                  continue;
+                }
+                const prNumber = Number(sourceIssue.number || 0);
+                if (!prNumber) {
+                  continue;
+                }
+                if (expectedPr && prNumber !== expectedPr) {
+                  continue;
+                }
+                const createdAt = new Date(event.created_at || '').getTime();
+                if (Number.isNaN(createdAt) || createdAt < threshold) {
+                  continue;
+                }
+                return {
+                  number: prNumber,
+                  url: sourceIssue.html_url || `https://github.com/${owner}/${repo}/pull/${prNumber}`,
+                  title: sourceIssue.title || '',
+                  createdAt
+                };
+              }
+              return null;
+            };
+
+            let found = null;
+            while (Date.now() < deadline) {
+              found = await findCrossReference();
+              if (found) {
+                break;
+              }
+              await new Promise(resolve => setTimeout(resolve, pollMs));
+            }
+
+            const elapsedMs = found ? Math.max(0, found.createdAt - startMs) : Math.max(0, Date.now() - startMs);
+            const elapsedMinutes = elapsedMs / 60000;
+            const friendlyElapsed = elapsedMinutes.toFixed(2);
+            const agentLabel = agent ? agent : 'agent';
+
+            core.setOutput('found', found ? 'true' : 'false');
+            core.setOutput('pr', found ? String(found.number) : '');
+            core.setOutput('elapsed_minutes', friendlyElapsed);
+
+            const summary = core.summary.addHeading('Agent Watchdog Result');
+            if (found) {
+              summary.addTable([
+                [{ data: 'Status', header: true }, { data: 'Details', header: true }],
+                ['✅ Agent Watchdog', `PR #${found.number} (${found.url}) detected in ${friendlyElapsed} minutes`]
+              ]);
+            } else {
+              summary.addTable([
+                [{ data: 'Status', header: true }, { data: 'Details', header: true }],
+                ['⚠️ Agent Watchdog', `No PR detected within ${timeoutMinutes} minute window`]
+              ]);
+            }
+            await summary.write();
+
+            const successPrefix = '✅ Agent Watchdog';
+            const timeoutPrefix = '⚠️ Agent Watchdog';
+            const commentPrefix = found ? successPrefix : timeoutPrefix;
+            const { data: comments } = await github.rest.issues.listComments({ owner, repo, issue_number: issueNumber, per_page: 100, page: 1 });
+            const alreadyCommented = (comments || []).some(c => (c.body || '').startsWith(commentPrefix));
+
+            if (found) {
+              const body = `${commentPrefix}: Detected PR #${found.number} referencing this issue after ${friendlyElapsed} minute${elapsedMinutes === 1 ? '' : 's'}.\n\nLink: ${found.url}`;
+              if (!alreadyCommented) {
+                await github.rest.issues.createComment({ owner, repo, issue_number: issueNumber, body });
+              }
+            } else {
+              const body = `${commentPrefix}: No pull request cross-reference detected for **${agentLabel}** within `
+                + `${timeoutMinutes} minute${timeoutMinutes === 1 ? '' : 's'}.`;
+              if (!alreadyCommented) {
+                await github.rest.issues.createComment({ owner, repo, issue_number: issueNumber, body });
               }
             });
             core.info('Dispatched watch operation to agents-41-assign-and-watch.yml.');

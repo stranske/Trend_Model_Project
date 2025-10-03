@@ -50,11 +50,11 @@ jobs:
             const jobsResp = await github.rest.actions.listJobsForWorkflowRun({ owner, repo, run_id: runId, per_page: 100 });
             const failedJobs = jobsResp.data.jobs.filter(j => (j.conclusion || '').toLowerCase() !== 'success');
             if (!failedJobs.length) {
-              core.info('No failed jobs found despite run-level failure – aborting.');
+              core.info('No failed jobs found despite run-level failure  aborting.');
               return;
             }
 
-            // Phase‑2 enhancement: include a stable token from the first error / stack line in logs (if obtainable)
+            // Phase2 enhancement: include a stable token from the first error / stack line in logs (if obtainable)
             let stackTokenNote = 'Stack tokens disabled';
             if (STACK_TOKENS_ENABLED) {
               const zlib = require('zlib');
@@ -150,7 +150,7 @@ jobs:
               '### Failed Jobs',
               table,
               '',
-              '### Stack Tokens (Phase‑2)',
+              '### Stack Tokens (Phase2)',
               stackTable,
               '',
               `> NOTE: ${stackTokenNote}`
@@ -296,7 +296,7 @@ jobs:
               }
               if (appendedViaCooldown) return;
 
-              // No cooldown append → create new issue
+              // No cooldown append  create new issue
               const nowIso = new Date().toISOString();
               const headerMeta = [
                 'Occurrences: 1',
@@ -380,4 +380,4 @@ jobs:
             name: ci-failures-snapshot
             path: artifacts/ci_failures_snapshot.json
       - name: Emit success summary
-        run: echo "Run succeeded – failure issues scanned for auto-heal." >> "$GITHUB_STEP_SUMMARY"
+        run: echo "Run succeeded  failure issues scanned for auto-heal." >> "$GITHUB_STEP_SUMMARY"

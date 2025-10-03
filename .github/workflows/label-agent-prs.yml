@@ -9,37 +9,37 @@ name: Label agent PRs
 # DESIGN NOTE (2025-09-12)
 # We intentionally use `pull_request_target` instead of `pull_request` here because:
 #   1. The workflow needs to apply labels with a PAT fallback (SERVICE_BOT_PAT) for
-#      cross‑fork agent PRs. `pull_request_target` executes in the base repo context
-#      so secrets are available (GitHub’s standard permission model blocks secrets
+#      crossfork agent PRs. `pull_request_target` executes in the base repo context
+#      so secrets are available (GitHubs standard permission model blocks secrets
 #      on arbitrary fork code when using plain `pull_request`).
-#   2. This job is read‑only with respect to the fork’s code; it never checks out
+#   2. This job is readonly with respect to the forks code; it never checks out
 #      or executes untrusted fork contents. All logic operates solely on the event
 #      payload metadata (actor login, head ref name, existing labels). This mitigates
-#      the primary supply‑chain risk of `pull_request_target` (i.e. running attacker
+#      the primary supplychain risk of `pull_request_target` (i.e. running attacker
 #      code with elevated secrets).
 #   3. Labels must be applied before other guarded workflows (assignment/autofix)
 #      evaluate label predicates; using `pull_request_target` guarantees the labeler
-#      runs even for first‑time contributors whose PRs would otherwise lack secret
+#      runs even for firsttime contributors whose PRs would otherwise lack secret
 #      access, keeping downstream automation deterministic.
 #
-# Guard‑rails implemented:
-#   • No repository write operations beyond issue/PR label mutation.
-#   • No checkout of fork code (avoids executing attacker code path).
-#   • Optional PAT fallback only when SERVICE_BOT_PAT is defined; otherwise the
+# Guardrails implemented:
+#    No repository write operations beyond issue/PR label mutation.
+#    No checkout of fork code (avoids executing attacker code path).
+#    Optional PAT fallback only when SERVICE_BOT_PAT is defined; otherwise the
 #     ephemeral GITHUB_TOKEN is used (principle of least privilege by default).
-#   • Idempotent logic: computes missing labels and only adds the delta, reducing
+#    Idempotent logic: computes missing labels and only adds the delta, reducing
 #     audit noise.
 #
 # Migration criteria for reconsidering `pull_request_target`:
-#   • If GitHub enables secure label mutation with secrets on `pull_request` for
+#    If GitHub enables secure label mutation with secrets on `pull_request` for
 #     forks (current limitation removed), OR
-#   • If we drop PAT usage entirely and rely solely on GITHUB_TOKEN with sufficient
+#    If we drop PAT usage entirely and rely solely on GITHUB_TOKEN with sufficient
 #     scopes, making secret access unnecessary, OR
-#   • If threat modeling changes and we decide to centralize labeling within the
-#     broader assignment workflow (already split‑permission aware).
+#    If threat modeling changes and we decide to centralize labeling within the
+#     broader assignment workflow (already splitpermission aware).
 #
 # Until one of those conditions is satisfied, retaining `pull_request_target` here
-# keeps cross‑fork agent labeling reliable without expanding the attack surface.
+# keeps crossfork agent labeling reliable without expanding the attack surface.
 # ----------------------------------------------------------------------------------
 
 on:

@@ -94,13 +94,13 @@ jobs:
       - name: Test wheel installation
         run: |
           pip install dist/*.whl
-          python -c "import trend_analysis; print('✓ Package imported successfully')"
+          python -c "import trend_analysis; print(' Package imported successfully')"
           
       - name: Test source distribution
         run: |
           pip uninstall -y trend-analysis
           pip install dist/*.tar.gz
-          python -c "import trend_analysis; print('✓ Source distribution works')"
+          python -c "import trend_analysis; print(' Source distribution works')"
 
   test-pypi:
     if: ${{ inputs.dry_run == true }}

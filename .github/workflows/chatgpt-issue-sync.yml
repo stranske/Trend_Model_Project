@@ -235,7 +235,7 @@ jobs:
               const newName=canonicalizeNewLabel(trimmed);
               const already=findMatchingLabel(newName); if(already) return already;
               const color=generateColor(newName);
-              try { const created=await github.rest.issues.createLabel({owner,repo,name:newName,color,description:`Synthesized from ChatGPT import for “${trimmed}”`}); labelsCache.push(created.data); return created.data.name; }
+              try { const created=await github.rest.issues.createLabel({owner,repo,name:newName,color,description:`Synthesized from ChatGPT import for ${trimmed}`}); labelsCache.push(created.data); return created.data.name; }
               catch(e){ core.warning(`Failed to create label for \"${trimmed}\": ${e.message}`); return null; }
             };
             const formatTasks = (text) => {

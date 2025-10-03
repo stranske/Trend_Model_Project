@@ -23,7 +23,15 @@ from .metrics import (
     sortino_ratio,
     volatility,
 )
+from .risk import (
+    RiskDiagnostics,
+    RiskWindow,
+    compute_constrained_weights,
+    periods_per_year_from_code,
+    realised_volatility,
+)
 from .perf.rolling_cache import compute_dataset_hash, get_cache
+from .signals import TrendSpec, compute_trend_signals
 from .timefreq import MONTHLY_DATE_FREQ
 from .util.frequency import FrequencySummary, detect_frequency
 from .util.missing import MissingPolicyResult, apply_missing_policy
@@ -75,6 +83,116 @@ def _preprocessing_summary(
     return "; ".join(parts)
 
 
+def _cfg_value(cfg: Mapping[str, Any] | Any, key: str, default: Any = None) -> Any:
+    if isinstance(cfg, Mapping):
+        return cfg.get(key, default)
+    return getattr(cfg, key, default)
+
+
+def _cfg_section(cfg: Mapping[str, Any] | Any, key: str) -> Any:
+    section = _cfg_value(cfg, key, None)
+    if section is None:
+        return {}
+    return section
+
+
+def _section_get(section: Any, key: str, default: Any = None) -> Any:
+    if section is None:
+        return default
+    if isinstance(section, Mapping):
+        return section.get(key, default)
+    getter = getattr(section, "get", None)
+    if callable(getter):
+        try:
+            return getter(key, default)
+        except TypeError:
+            try:
+                return getter(key)
+            except KeyError:
+                return default
+            except Exception:  # pragma: no cover - defensive
+                return default
+        except KeyError:
+            return default
+    return getattr(section, key, default)
+
+
+def _unwrap_cfg(cfg: Mapping[str, Any] | Any) -> Any:
+    current = cfg
+    visited: set[int] = set()
+    while isinstance(current, Mapping) and "__cfg__" in current:
+        marker = id(current)
+        if marker in visited:  # pragma: no cover - defensive cycle guard
+            break
+        visited.add(marker)
+        candidate = current.get("__cfg__")
+        if candidate is None:
+            break
+        current = candidate
+    return current
+
+
+def _empty_run_full_result() -> dict[str, object]:
+    return {
+        "out_sample_stats": {},
+        "in_sample_stats": {},
+        "benchmark_ir": {},
+        "risk_diagnostics": {},
+        "fund_weights": {},
+    }
+
+
+def _build_trend_spec(
+    cfg: Mapping[str, Any] | Any,
+    vol_adjust_cfg: Mapping[str, Any] | Any,
+) -> TrendSpec:
+    signals_cfg = _cfg_section(cfg, "signals")
+    kind = str(_section_get(signals_cfg, "kind", "tsmom") or "tsmom").lower()
+    if kind != "tsmom":  # pragma: no cover - future extension guard
+        raise ValueError(f"Unsupported trend signal kind: {kind}")
+
+    try:
+        window_raw = _section_get(signals_cfg, "window", 63)
+        window = int(window_raw)
+    except (TypeError, ValueError):
+        window = 63
+    min_periods_raw = _section_get(signals_cfg, "min_periods")
+    try:
+        min_periods = int(min_periods_raw) if min_periods_raw is not None else None
+    except (TypeError, ValueError):
+        min_periods = None
+
+    try:
+        lag_raw = _section_get(signals_cfg, "lag", 1)
+        lag = max(1, int(lag_raw))
+    except (TypeError, ValueError):
+        lag = 1
+
+    vol_adjust_default = bool(_section_get(vol_adjust_cfg, "enabled", False))
+    vol_adjust_flag = bool(_section_get(signals_cfg, "vol_adjust", vol_adjust_default))
+    vol_target_raw = _section_get(signals_cfg, "vol_target")
+    if vol_target_raw is None and vol_adjust_flag:
+        vol_target_raw = _section_get(vol_adjust_cfg, "target_vol")
+    try:
+        vol_target = float(vol_target_raw) if vol_target_raw is not None else None
+        if vol_target is not None and vol_target <= 0:
+            vol_target = None
+    except (TypeError, ValueError):
+        vol_target = None
+
+    zscore_flag = bool(_section_get(signals_cfg, "zscore", False))
+
+    return TrendSpec(
+        kind="tsmom",
+        window=max(1, window),
+        min_periods=min_periods,
+        lag=lag,
+        vol_adjust=vol_adjust_flag,
+        vol_target=vol_target,
+        zscore=zscore_flag,
+    )
+
+
 def _policy_from_config(
     cfg: Mapping[str, Any] | None,
 ) -> tuple[str | Mapping[str, str] | None, int | Mapping[str, int | None] | None]:
@@ -104,6 +222,128 @@ def _policy_from_config(
     else:
         limit_spec = limit_base
     return policy_spec, limit_spec
+
+
+def _format_period(period: pd.Period) -> str:
+    return f"{period.year:04d}-{period.month:02d}"
+
+
+def _derive_split_from_periods(
+    periods: pd.PeriodIndex,
+    *,
+    method: str,
+    boundary: pd.Period | None,
+    ratio: float,
+) -> dict[str, str]:
+    if len(periods) == 0:
+        raise ValueError("Unable to derive sample splits without any observations")
+    if len(periods) == 1:
+        period = periods[0]
+        formatted = _format_period(period)
+        return {
+            "in_start": formatted,
+            "in_end": formatted,
+            "out_start": formatted,
+            "out_end": formatted,
+        }
+
+    # Attempt date-based split first when boundary provided.
+    if method == "date" and boundary is not None:
+        in_mask = periods <= boundary
+        out_mask = periods > boundary
+        if in_mask.any() and out_mask.any():
+            in_periods = periods[in_mask]
+            out_periods = periods[out_mask]
+            return {
+                "in_start": _format_period(in_periods[0]),
+                "in_end": _format_period(in_periods[-1]),
+                "out_start": _format_period(out_periods[0]),
+                "out_end": _format_period(out_periods[-1]),
+            }
+
+    # Fallback to ratio-based split when date split is unavailable or invalid.
+    try:
+        ratio_val = float(ratio)
+    except (TypeError, ValueError):
+        ratio_val = 0.7
+    if not np.isfinite(ratio_val) or ratio_val <= 0:
+        ratio_val = 0.5
+    if ratio_val >= 1:
+        ratio_val = 0.9
+    in_count = int(round(len(periods) * ratio_val))
+    if in_count <= 0:
+        in_count = 1
+    if in_count >= len(periods):
+        in_count = len(periods) - 1
+
+    in_periods = periods[:in_count]
+    out_periods = periods[in_count:]
+    if len(out_periods) == 0:
+        raise ValueError("Unable to derive out-of-sample window from ratio split")
+    return {
+        "in_start": _format_period(in_periods[0]),
+        "in_end": _format_period(in_periods[-1]),
+        "out_start": _format_period(out_periods[0]),
+        "out_end": _format_period(out_periods[-1]),
+    }
+
+
+def _resolve_sample_split(
+    df: pd.DataFrame,
+    split_cfg: Mapping[str, Any] | Any,
+) -> dict[str, str]:
+    required_keys = ("in_start", "in_end", "out_start", "out_end")
+    resolved: dict[str, str] = {}
+    for key in required_keys:
+        value = _section_get(split_cfg, key)
+        if value not in (None, ""):
+            resolved[key] = str(value)
+
+    missing = [key for key in required_keys if key not in resolved]
+    if not missing:
+        return resolved
+
+    if "Date" not in df.columns:
+        raise ValueError(
+            "Input data must contain a 'Date' column to derive sample splits"
+        )
+
+    date_series = pd.to_datetime(df["Date"], errors="coerce")
+    date_series = date_series.dropna()
+    if date_series.empty:
+        raise ValueError("Input data contains no valid dates to derive sample splits")
+
+    sorted_periods = date_series.dt.to_period("M").sort_values()
+    periods = pd.PeriodIndex(sorted_periods.unique())
+
+    method_raw = _section_get(split_cfg, "method", "date")
+    method = str(method_raw or "date").lower()
+    boundary: pd.Period | None = None
+    if method == "date":
+        raw_boundary = _section_get(split_cfg, "date")
+        if raw_boundary not in (None, ""):
+            try:
+                boundary = pd.Period(str(raw_boundary), freq="M")
+            except Exception:
+                boundary = None
+    ratio_value = _section_get(split_cfg, "ratio", 0.7)
+
+    derived = _derive_split_from_periods(
+        periods,
+        method=method,
+        boundary=boundary,
+        ratio=ratio_value,
+    )
+
+    for key, value in derived.items():
+        resolved.setdefault(key, value)
+
+    still_missing = [key for key in required_keys if key not in resolved]
+    if still_missing:
+        raise ValueError(
+            f"Unable to derive sample split values for: {', '.join(still_missing)}"
+        )
+    return resolved
 
 
 def _prepare_input_data(
@@ -289,11 +529,16 @@ def _run_analysis(
     indices_list: list[str] | None = None,
     benchmarks: dict[str, str] | None = None,
     seed: int = 42,
-    stats_cfg: "RiskStatsConfig" | None = None,
+    stats_cfg: RiskStatsConfig | None = None,
     weighting_scheme: str | None = None,
     constraints: dict[str, Any] | None = None,
     missing_policy: str | Mapping[str, str] | None = None,
     missing_limit: int | Mapping[str, int | None] | None = None,
+    risk_window: Mapping[str, Any] | None = None,
+    periods_per_year_override: float | None = None,
+    previous_weights: Mapping[str, float] | None = None,
+    max_turnover: float | None = None,
+    signal_spec: TrendSpec | None = None,
 ) -> dict[str, object] | None:
     if df is None:
         return None
@@ -349,6 +594,9 @@ def _run_analysis(
         "target_label": freq_summary.target_label,
         "resampled": freq_summary.resampled,
     }
+    periods_per_year = periods_per_year_override or periods_per_year_from_code(
+        freq_summary.target
+    )
     missing_payload = {
         "policy": missing_result.default_policy,
         "policy_map": missing_result.policy,
@@ -470,16 +718,172 @@ def _run_analysis(
         df[[date_col] + fund_cols], in_start, in_end, stats_cfg=stats_cfg
     )
 
-    vols = in_df[fund_cols].std() * np.sqrt(12)
-    if min_floor > 0:
-        vols = vols.clip(lower=min_floor)
-    vols = vols.replace(0.0, np.nan)
-    scale_factors = (
-        pd.Series(target_vol, index=fund_cols, dtype=float)
-        .div(vols)
-        .replace([np.inf, -np.inf], 0.0)
-        .fillna(0.0)
+    weight_engine_fallback: dict[str, str] | None = None
+    if (
+        custom_weights is None
+        and weighting_scheme
+        and weighting_scheme.lower() != "equal"
+    ):
+        try:
+            from .plugins import create_weight_engine
+
+            cov = in_df[fund_cols].cov()
+            engine = create_weight_engine(weighting_scheme.lower())
+            w_series = engine.weight(cov).reindex(fund_cols).fillna(0.0)
+            custom_weights = {c: float(w_series.get(c, 0.0) * 100.0) for c in fund_cols}
+            logger.setLevel(logging.DEBUG)
+            logger.debug("Successfully created %s weight engine", weighting_scheme)
+        except Exception as e:  # pragma: no cover - exercised via tests
+            msg = (
+                "Weight engine '%s' failed (%s: %s); falling back to equal weights"
+                % (weighting_scheme, type(e).__name__, e)
+            )
+            logger.warning(msg)
+            logger.debug(
+                "Weight engine creation failed, falling back to equal weights: %s", e
+            )
+            weight_engine_fallback = {
+                "engine": str(weighting_scheme),
+                "error_type": type(e).__name__,
+                "error": str(e),
+            }
+            custom_weights = None
+
+    if custom_weights is None:
+        custom_weights = {c: 100 / len(fund_cols) for c in fund_cols}
+
+    base_series = pd.Series(
+        {c: float(custom_weights.get(c, 0.0)) / 100.0 for c in fund_cols},
+        dtype=float,
     )
+    if float(base_series.sum()) <= 0:
+        base_series = pd.Series(
+            np.repeat(1.0 / len(fund_cols), len(fund_cols)),
+            index=fund_cols,
+            dtype=float,
+        )
+
+    constraints_cfg = constraints or {}
+    if not isinstance(constraints_cfg, Mapping):
+        constraints_cfg = {}
+    long_only = bool(constraints_cfg.get("long_only", True))
+    raw_max_weight = constraints_cfg.get("max_weight")
+    try:
+        max_weight_val = float(raw_max_weight) if raw_max_weight is not None else None
+    except (TypeError, ValueError):
+        max_weight_val = None
+    raw_group_caps = constraints_cfg.get("group_caps")
+    group_caps_map = (
+        {str(k): float(v) for k, v in raw_group_caps.items()}
+        if isinstance(raw_group_caps, Mapping)
+        else None
+    )
+    raw_groups = constraints_cfg.get("groups")
+    groups_map = (
+        {str(k): str(v) for k, v in raw_groups.items()}
+        if isinstance(raw_groups, Mapping)
+        else None
+    )
+
+    window_cfg = dict(risk_window or {})
+    try:
+        window_length = int(window_cfg.get("length", len(in_df)))
+    except (TypeError, ValueError):
+        window_length = len(in_df)
+    if window_length <= 0:
+        window_length = max(len(in_df), 1)
+    decay_mode = str(window_cfg.get("decay", "simple"))
+    lambda_value = window_cfg.get("lambda", window_cfg.get("ewma_lambda", 0.94))
+    try:
+        ewma_lambda = float(lambda_value)
+    except (TypeError, ValueError):
+        ewma_lambda = 0.94
+    window_spec = RiskWindow(
+        length=window_length, decay=decay_mode, ewma_lambda=ewma_lambda
+    )
+
+    turnover_cap = None
+    if max_turnover is not None:
+        try:
+            mt = float(max_turnover)
+        except (TypeError, ValueError):
+            mt = None
+        if mt is not None and mt > 0:
+            turnover_cap = mt
+
+    risk_diagnostics: RiskDiagnostics
+
+    effective_signal_spec = signal_spec or TrendSpec(
+        window=window_spec.length,
+        min_periods=None,
+        lag=1,
+        vol_adjust=False,
+        vol_target=None,
+        zscore=False,
+    )
+    signal_inputs = (
+        df.set_index(date_col)[fund_cols].astype(float)
+        if fund_cols
+        else pd.DataFrame(dtype=float)
+    )
+    if not signal_inputs.empty:
+        signal_frame = compute_trend_signals(signal_inputs, effective_signal_spec)
+    else:
+        signal_frame = pd.DataFrame(dtype=float)
+
+    try:
+        weights_series, risk_diagnostics = compute_constrained_weights(
+            base_series,
+            in_df[fund_cols],
+            window=window_spec,
+            target_vol=target_vol,
+            periods_per_year=periods_per_year,
+            floor_vol=min_floor if min_floor > 0 else None,
+            long_only=long_only,
+            max_weight=max_weight_val,
+            previous_weights=previous_weights,
+            max_turnover=turnover_cap,
+            group_caps=group_caps_map,
+            groups=groups_map,
+        )
+    except Exception as exc:  # pragma: no cover - defensive fallback
+        logger.warning(
+            "Risk controls failed; falling back to base weights: %s", exc, exc_info=True
+        )
+        weights_series = base_series.copy()
+        asset_vol = realised_volatility(
+            in_df[fund_cols], window_spec, periods_per_year=periods_per_year
+        )
+        latest_vol = asset_vol.iloc[-1].reindex(fund_cols)
+        latest_vol = latest_vol.ffill().bfill()
+        positive = latest_vol[latest_vol > 0]
+        fallback_vol = float(positive.min()) if not positive.empty else 1.0
+        latest_vol = latest_vol.fillna(fallback_vol)
+        if min_floor > 0:
+            latest_vol = latest_vol.clip(lower=min_floor)
+        scale_factors = (
+            pd.Series(target_vol, index=fund_cols, dtype=float)
+            .div(latest_vol)
+            .replace([np.inf, -np.inf], 0.0)
+            .fillna(0.0)
+        )
+        scaled_returns = in_df[fund_cols].mul(scale_factors, axis=1)
+        portfolio_returns = scaled_returns.mul(weights_series, axis=1).sum(axis=1)
+        portfolio_vol = realised_volatility(
+            portfolio_returns.to_frame("portfolio"),
+            window_spec,
+            periods_per_year=periods_per_year,
+        )["portfolio"]
+        risk_diagnostics = RiskDiagnostics(
+            asset_volatility=asset_vol,
+            portfolio_volatility=portfolio_vol,
+            turnover=pd.Series(dtype=float, name="turnover"),
+            turnover_value=float("nan"),
+            scale_factors=scale_factors,
+        )
+
+    weights_series = weights_series.reindex(fund_cols).fillna(0.0)
+    scale_factors = risk_diagnostics.scale_factors.reindex(fund_cols).fillna(0.0)
 
     in_scaled = in_df[fund_cols].mul(scale_factors, axis=1) - monthly_cost
     out_scaled = out_df[fund_cols].mul(scale_factors, axis=1) - monthly_cost
@@ -494,18 +898,12 @@ def _run_analysis(
         if warmup_out:
             out_scaled.iloc[:warmup_out] = 0.0
 
-    # NaN returns translate to zero weights with no forward-fill. This matches
-    # the acceptance criteria for Issue #1439 and prevents propagating NaNs
-    # downstream.
     in_scaled = in_scaled.fillna(0.0)
     out_scaled = out_scaled.fillna(0.0)
 
     rf_in = in_df[rf_col]
     rf_out = out_df[rf_col]
 
-    # Optional average pairwise correlation (Issue #1160). Compute only if requested
-    # via metrics registry including 'AvgCorr'. Definition: for each fund, the
-    # mean of its correlations with all other selected funds (excluding self).
     want_avg_corr = False
     try:
         reg = getattr(stats_cfg, "metrics_to_run", []) or []
@@ -513,33 +911,33 @@ def _run_analysis(
     except Exception:  # pragma: no cover - defensive
         want_avg_corr = False
 
-    # Compute average correlations for in-sample and out-of-sample
-    is_avg_corr: dict[str, float] | None = None  # in-sample average correlation
-    os_avg_corr: dict[str, float] | None = None  # out-of-sample average correlation
+    is_avg_corr: dict[str, float] | None = None
+    os_avg_corr: dict[str, float] | None = None
     if want_avg_corr and len(fund_cols) > 1:
         try:
             corr_in = in_scaled[fund_cols].corr()
             corr_out = out_scaled[fund_cols].corr()
-            # Exclude self by taking sum of row minus 1, divided by (n-1)
             n_f = len(fund_cols)
-            is_avg_corr = {
-                f: float((corr_in.loc[f].sum() - 1.0) / (n_f - 1)) for f in fund_cols
-            }
-            os_avg_corr = {
-                f: float((corr_out.loc[f].sum() - 1.0) / (n_f - 1)) for f in fund_cols
-            }
-        except Exception:  # pragma: no cover - defensive (fallback to None)
+            is_avg_corr = {}
+            os_avg_corr = {}
+            denominator = float(n_f - 1) if n_f > 1 else 1.0
+            for f in fund_cols:
+                in_sum = cast(float, corr_in.loc[f].sum())
+                out_sum = cast(float, corr_out.loc[f].sum())
+                in_val = (in_sum - 1.0) / denominator
+                out_val = (out_sum - 1.0) / denominator
+                is_avg_corr[f] = float(in_val)
+                os_avg_corr[f] = float(out_val)
+        except Exception:  # pragma: no cover - defensive
             is_avg_corr = None
             os_avg_corr = None
 
-    # For in-sample stats, only pass in-sample average correlation
     in_stats = _compute_stats(
         in_scaled,
         rf_in,
         in_sample_avg_corr=is_avg_corr,
         out_sample_avg_corr=None,
     )
-    # For out-of-sample stats, only pass out-of-sample average correlation
     out_stats = _compute_stats(
         out_scaled,
         rf_out,
@@ -563,81 +961,8 @@ def _run_analysis(
     out_ew_stats = _compute_stats(pd.DataFrame({"ew": out_ew}), rf_out)["ew"]
     out_ew_stats_raw = _compute_stats(pd.DataFrame({"ew": out_ew_raw}), rf_out)["ew"]
 
-    # Optionally compute plugin-based weights on in-sample covariance
-    # Track whether a plugin engine failed so downstream (CLI/UI) can surface
-    # a single prominent warning.  Store minimal structured info.
-    weight_engine_fallback: dict[str, str] | None = None
-    if (
-        custom_weights is None
-        and weighting_scheme
-        and weighting_scheme.lower() != "equal"
-    ):
-        try:
-            from .plugins import create_weight_engine
-
-            cov = in_df[fund_cols].cov()
-            engine = create_weight_engine(weighting_scheme.lower())
-            w_series = engine.weight(cov).reindex(fund_cols).fillna(0.0)
-            # Convert to percent mapping expected by downstream logic
-            custom_weights = {c: float(w_series.get(c, 0.0) * 100.0) for c in fund_cols}
-            # Ensure debug logs are emitted even if previous tests altered the logger's
-            # level.  This helps `caplog` capture the success message reliably.
-            logger.setLevel(logging.DEBUG)
-            logger.debug("Successfully created %s weight engine", weighting_scheme)
-        except Exception as e:  # pragma: no cover - exercised via tests
-            # Promote to WARNING (single emission) for visibility while also
-            # retaining a DEBUG breadcrumb for detailed CI logs.
-            msg = (
-                "Weight engine '%s' failed (%s: %s); falling back to equal weights"
-                % (weighting_scheme, type(e).__name__, e)
-            )
-            logger.warning(msg)
-            logger.debug(
-                "Weight engine creation failed, falling back to equal weights: %s", e
-            )
-            weight_engine_fallback = {
-                "engine": str(weighting_scheme),
-                "error_type": type(e).__name__,
-                "error": str(e),
-            }
-            custom_weights = None
-
-    if custom_weights is None:
-        custom_weights = {c: 100 / len(fund_cols) for c in fund_cols}
-    # Convert provided weights mapping (percent) to decimal ndarray
-    user_w = np.array([custom_weights.get(c, 0) / 100 for c in fund_cols], dtype=float)
-    # Apply portfolio constraints if configured
-    try:
-        constraints_cfg = constraints or {}
-        if isinstance(constraints_cfg, dict) and constraints_cfg:
-            from .engine.optimizer import apply_constraints
-
-            w_series = pd.Series(user_w, index=fund_cols, dtype=float)
-            # Build minimal constraint dict; group_caps require a mapping of asset->group
-            cons: dict[str, Any] = {}
-            if "long_only" in constraints_cfg:
-                cons["long_only"] = bool(constraints_cfg.get("long_only", True))
-            if "max_weight" in constraints_cfg:
-                _mw = constraints_cfg.get("max_weight")
-                if _mw is not None:
-                    cons["max_weight"] = float(_mw)
-            if constraints_cfg.get("group_caps"):
-                cons["group_caps"] = constraints_cfg.get("group_caps")
-                if constraints_cfg.get("groups"):
-                    cons["groups"] = constraints_cfg.get("groups")
-            if cons:
-                w_series = apply_constraints(w_series, cons)
-            user_w = (
-                w_series.reindex(fund_cols)
-                .fillna(0.0)
-                .to_numpy(dtype=float, copy=False)
-            )
-    except Exception:
-        # If constraints application fails, fall back silently to original user weights
-        pass
-
-    # Keep a dictionary for result payload (already in decimals 0..1)
-    user_w_dict = {c: float(w) for c, w in zip(fund_cols, user_w)}
+    user_w = weights_series.to_numpy(dtype=float, copy=False)
+    user_w_dict = {c: float(weights_series[c]) for c in fund_cols}
 
     in_user = calc_portfolio_returns(user_w, in_scaled)
     out_user = calc_portfolio_returns(user_w, out_scaled)
@@ -657,6 +982,15 @@ def _run_analysis(
     for idx in valid_indices:
         if idx not in all_benchmarks:
             all_benchmarks[idx] = idx
+
+    risk_payload = {
+        "asset_volatility": risk_diagnostics.asset_volatility,
+        "portfolio_volatility": risk_diagnostics.portfolio_volatility,
+        "turnover": risk_diagnostics.turnover,
+        "turnover_value": risk_diagnostics.turnover_value,
+        "scale_factors": scale_factors,
+        "final_weights": weights_series,
+    }
 
     for label, col in all_benchmarks.items():
         if col not in in_df.columns or col not in out_df.columns:
@@ -716,6 +1050,9 @@ def _run_analysis(
         "weight_engine_fallback": weight_engine_fallback,
         "preprocessing": preprocess_info,
         "preprocessing_summary": preprocess_info.get("summary"),
+        "risk_diagnostics": risk_payload,
+        "signal_frame": signal_frame,
+        "signal_spec": effective_signal_spec,
     }
 
 
@@ -738,11 +1075,16 @@ def run_analysis(
     indices_list: list[str] | None = None,
     benchmarks: dict[str, str] | None = None,
     seed: int = 42,
-    stats_cfg: "RiskStatsConfig" | None = None,
+    stats_cfg: RiskStatsConfig | None = None,
     weighting_scheme: str | None = None,
     constraints: dict[str, Any] | None = None,
     missing_policy: str | Mapping[str, str] | None = None,
     missing_limit: int | Mapping[str, int | None] | None = None,
+    risk_window: Mapping[str, Any] | None = None,
+    periods_per_year: float | None = None,
+    previous_weights: Mapping[str, float] | None = None,
+    max_turnover: float | None = None,
+    signal_spec: TrendSpec | None = None,
 ) -> dict[str, object] | None:
     """Backward-compatible wrapper around ``_run_analysis``."""
     return _run_analysis(
@@ -768,22 +1110,28 @@ def run_analysis(
         constraints=constraints,
         missing_policy=missing_policy,
         missing_limit=missing_limit,
+        risk_window=risk_window,
+        periods_per_year_override=periods_per_year,
+        previous_weights=previous_weights,
+        max_turnover=max_turnover,
+        signal_spec=signal_spec,
     )
 
 
 def run(cfg: Config) -> pd.DataFrame:
     """Execute the analysis pipeline based on ``cfg``."""
-    csv_path = cfg.data.get("csv_path")
+    cfg = _unwrap_cfg(cfg)
+    data_settings = _cfg_section(cfg, "data")
+    csv_path = _section_get(data_settings, "csv_path")
     if csv_path is None:
         raise KeyError("cfg.data['csv_path'] must be provided")
 
-    data_settings = getattr(cfg, "data", {}) or {}
-    missing_policy_cfg = data_settings.get("missing_policy")
+    missing_policy_cfg = _section_get(data_settings, "missing_policy")
     if missing_policy_cfg is None:
-        missing_policy_cfg = data_settings.get("nan_policy")
-    missing_limit_cfg = data_settings.get("missing_limit")
+        missing_policy_cfg = _section_get(data_settings, "nan_policy")
+    missing_limit_cfg = _section_get(data_settings, "missing_limit")
     if missing_limit_cfg is None:
-        missing_limit_cfg = data_settings.get("nan_limit")
+        missing_limit_cfg = _section_get(data_settings, "nan_limit")
 
     df = load_csv(
         csv_path,
@@ -791,9 +1139,12 @@ def run(cfg: Config) -> pd.DataFrame:
         missing_policy=missing_policy_cfg,
         missing_limit=missing_limit_cfg,
     )
+    df = cast(pd.DataFrame, df)
 
-    split = cfg.sample_split
-    metrics_list = cfg.metrics.get("registry")
+    split_cfg = _cfg_section(cfg, "sample_split")
+    resolved_split = _resolve_sample_split(df, split_cfg)
+    metrics_section = _cfg_section(cfg, "metrics")
+    metrics_list = _section_get(metrics_section, "registry")
     stats_cfg = None
     if metrics_list:
         from .core.rank_selection import RiskStatsConfig, canonical_metric_list
@@ -803,38 +1154,45 @@ def run(cfg: Config) -> pd.DataFrame:
             risk_free=0.0,
         )
 
-    preprocessing_section = getattr(cfg, "preprocessing", {}) or {}
-    missing_section = (
-        preprocessing_section.get("missing_data")
-        if isinstance(preprocessing_section, Mapping)
-        else None
-    )
+    preprocessing_section = _cfg_section(cfg, "preprocessing")
+    missing_section = _section_get(preprocessing_section, "missing_data")
+    if not isinstance(missing_section, Mapping):
+        missing_section = None
     policy_spec, limit_spec = _policy_from_config(
         missing_section if isinstance(missing_section, Mapping) else None
     )
 
+    vol_adjust = _cfg_section(cfg, "vol_adjust")
+    run_settings = _cfg_section(cfg, "run")
+    portfolio_cfg = _cfg_section(cfg, "portfolio")
+    trend_spec = _build_trend_spec(cfg, vol_adjust)
+
     res = _run_analysis(
         df,
-        cast(str, split.get("in_start")),
-        cast(str, split.get("in_end")),
-        cast(str, split.get("out_start")),
-        cast(str, split.get("out_end")),
-        cfg.vol_adjust.get("target_vol", 1.0),
-        getattr(cfg, "run", {}).get("monthly_cost", 0.0),
-        floor_vol=cfg.vol_adjust.get("floor_vol"),
-        warmup_periods=int(cfg.vol_adjust.get("warmup_periods", 0) or 0),
-        selection_mode=cfg.portfolio.get("selection_mode", "all"),
-        random_n=cfg.portfolio.get("random_n", 8),
-        custom_weights=cfg.portfolio.get("custom_weights"),
-        rank_kwargs=cfg.portfolio.get("rank"),
-        manual_funds=cfg.portfolio.get("manual_list"),
-        indices_list=cfg.portfolio.get("indices_list"),
-        benchmarks=cfg.benchmarks,
-        seed=getattr(cfg, "seed", 42),
-        constraints=cfg.portfolio.get("constraints"),
+        resolved_split["in_start"],
+        resolved_split["in_end"],
+        resolved_split["out_start"],
+        resolved_split["out_end"],
+        _section_get(vol_adjust, "target_vol", 1.0),
+        _section_get(run_settings, "monthly_cost", 0.0),
+        floor_vol=_section_get(vol_adjust, "floor_vol"),
+        warmup_periods=int(_section_get(vol_adjust, "warmup_periods", 0) or 0),
+        selection_mode=_section_get(portfolio_cfg, "selection_mode", "all"),
+        random_n=_section_get(portfolio_cfg, "random_n", 8),
+        custom_weights=_section_get(portfolio_cfg, "custom_weights"),
+        rank_kwargs=_section_get(portfolio_cfg, "rank"),
+        manual_funds=_section_get(portfolio_cfg, "manual_list"),
+        indices_list=_section_get(portfolio_cfg, "indices_list"),
+        benchmarks=_cfg_value(cfg, "benchmarks"),
+        seed=_cfg_value(cfg, "seed", 42),
+        constraints=_section_get(portfolio_cfg, "constraints"),
         stats_cfg=stats_cfg,
         missing_policy=policy_spec,
         missing_limit=limit_spec,
+        risk_window=_section_get(vol_adjust, "window"),
+        previous_weights=_section_get(portfolio_cfg, "previous_weights"),
+        max_turnover=_section_get(portfolio_cfg, "max_turnover"),
+        signal_spec=trend_spec,
     )
     if res is None:
         return pd.DataFrame()
@@ -856,17 +1214,18 @@ def run(cfg: Config) -> pd.DataFrame:
 
 def run_full(cfg: Config) -> dict[str, object]:
     """Return the full analysis results based on ``cfg``."""
-    csv_path = cfg.data.get("csv_path")
+    cfg = _unwrap_cfg(cfg)
+    data_settings = _cfg_section(cfg, "data")
+    csv_path = _section_get(data_settings, "csv_path")
     if csv_path is None:
         raise KeyError("cfg.data['csv_path'] must be provided")
 
-    data_settings = getattr(cfg, "data", {}) or {}
-    missing_policy_cfg = data_settings.get("missing_policy")
+    missing_policy_cfg = _section_get(data_settings, "missing_policy")
     if missing_policy_cfg is None:
-        missing_policy_cfg = data_settings.get("nan_policy")
-    missing_limit_cfg = data_settings.get("missing_limit")
+        missing_policy_cfg = _section_get(data_settings, "nan_policy")
+    missing_limit_cfg = _section_get(data_settings, "missing_limit")
     if missing_limit_cfg is None:
-        missing_limit_cfg = data_settings.get("nan_limit")
+        missing_limit_cfg = _section_get(data_settings, "nan_limit")
 
     df = load_csv(
         csv_path,
@@ -874,9 +1233,12 @@ def run_full(cfg: Config) -> dict[str, object]:
         missing_policy=missing_policy_cfg,
         missing_limit=missing_limit_cfg,
     )
+    df = cast(pd.DataFrame, df)
 
-    split = cfg.sample_split
-    metrics_list = cfg.metrics.get("registry")
+    split_cfg = _cfg_section(cfg, "sample_split")
+    resolved_split = _resolve_sample_split(df, split_cfg)
+    metrics_section = _cfg_section(cfg, "metrics")
+    metrics_list = _section_get(metrics_section, "registry")
     stats_cfg = None
     if metrics_list:
         from .core.rank_selection import RiskStatsConfig, canonical_metric_list
@@ -886,39 +1248,46 @@ def run_full(cfg: Config) -> dict[str, object]:
             risk_free=0.0,
         )
 
-    preprocessing_section = getattr(cfg, "preprocessing", {}) or {}
-    missing_section = (
-        preprocessing_section.get("missing_data")
-        if isinstance(preprocessing_section, Mapping)
-        else None
-    )
+    preprocessing_section = _cfg_section(cfg, "preprocessing")
+    missing_section = _section_get(preprocessing_section, "missing_data")
+    if not isinstance(missing_section, Mapping):
+        missing_section = None
     policy_spec, limit_spec = _policy_from_config(
         missing_section if isinstance(missing_section, Mapping) else None
     )
 
+    vol_adjust = _cfg_section(cfg, "vol_adjust")
+    run_settings = _cfg_section(cfg, "run")
+    portfolio_cfg = _cfg_section(cfg, "portfolio")
+    trend_spec = _build_trend_spec(cfg, vol_adjust)
+
     res = _run_analysis(
         df,
-        cast(str, split.get("in_start")),
-        cast(str, split.get("in_end")),
-        cast(str, split.get("out_start")),
-        cast(str, split.get("out_end")),
-        cfg.vol_adjust.get("target_vol", 1.0),
-        getattr(cfg, "run", {}).get("monthly_cost", 0.0),
-        floor_vol=cfg.vol_adjust.get("floor_vol"),
-        warmup_periods=int(cfg.vol_adjust.get("warmup_periods", 0) or 0),
-        selection_mode=cfg.portfolio.get("selection_mode", "all"),
-        random_n=cfg.portfolio.get("random_n", 8),
-        custom_weights=cfg.portfolio.get("custom_weights"),
-        rank_kwargs=cfg.portfolio.get("rank"),
-        manual_funds=cfg.portfolio.get("manual_list"),
-        indices_list=cfg.portfolio.get("indices_list"),
-        benchmarks=cfg.benchmarks,
-        seed=getattr(cfg, "seed", 42),
-        weighting_scheme=cfg.portfolio.get("weighting_scheme", "equal"),
-        constraints=cfg.portfolio.get("constraints"),
+        resolved_split["in_start"],
+        resolved_split["in_end"],
+        resolved_split["out_start"],
+        resolved_split["out_end"],
+        _section_get(vol_adjust, "target_vol", 1.0),
+        _section_get(run_settings, "monthly_cost", 0.0),
+        floor_vol=_section_get(vol_adjust, "floor_vol"),
+        warmup_periods=int(_section_get(vol_adjust, "warmup_periods", 0) or 0),
+        selection_mode=_section_get(portfolio_cfg, "selection_mode", "all"),
+        random_n=_section_get(portfolio_cfg, "random_n", 8),
+        custom_weights=_section_get(portfolio_cfg, "custom_weights"),
+        rank_kwargs=_section_get(portfolio_cfg, "rank"),
+        manual_funds=_section_get(portfolio_cfg, "manual_list"),
+        indices_list=_section_get(portfolio_cfg, "indices_list"),
+        benchmarks=_cfg_value(cfg, "benchmarks"),
+        seed=_cfg_value(cfg, "seed", 42),
+        weighting_scheme=_section_get(portfolio_cfg, "weighting_scheme", "equal"),
+        constraints=_section_get(portfolio_cfg, "constraints"),
         stats_cfg=stats_cfg,
         missing_policy=policy_spec,
         missing_limit=limit_spec,
+        risk_window=_section_get(vol_adjust, "window"),
+        previous_weights=_section_get(portfolio_cfg, "previous_weights"),
+        max_turnover=_section_get(portfolio_cfg, "max_turnover"),
+        signal_spec=trend_spec,
     )
     return {} if res is None else res
 
@@ -968,11 +1337,16 @@ def compute_signal(
     cache = get_cache()
 
     def _compute() -> pd.Series:
-        rolling = base.rolling(window=window, min_periods=effective_min_periods).mean()
-        # Enforce causality: decision at t must not include value at t
-        signal = rolling.shift(1)
-        signal.name = f"{column}_signal"
-        return signal
+        spec = TrendSpec(
+            window=window,
+            min_periods=effective_min_periods,
+            lag=1,
+            vol_adjust=False,
+            zscore=False,
+        )
+        frame = compute_trend_signals(df[[column]].astype(float), spec)
+        series = frame[column].rename(f"{column}_signal")
+        return series.astype(float)
 
     if cache.is_enabled():
         dataset_hash = compute_dataset_hash([base])
@@ -987,7 +1361,7 @@ def compute_signal(
         except Exception:  # noqa: BLE001
             freq = None
         freq_tag = freq or "unknown"
-        method_tag = f"rolling_mean_shifted_min{effective_min_periods}"
+        method_tag = f"trend_spec_window{window}_min{effective_min_periods}"
         return cache.get_or_compute(
             dataset_hash, int(window), freq_tag, method_tag, _compute
         )

@@ -61,7 +61,8 @@ def test_agents_consumer_and_reusable_present():
         "workflow_call:" in reusable_text
     ), "reusable-90-agents.yml must expose a workflow_call trigger"
     assert (
-        "fromJSON(format('[{0}]', steps.ready.outputs.issue_numbers))[0]" in reusable_text
+        "fromJSON(format('[{0}]', steps.ready.outputs.issue_numbers))[0]"
+        in reusable_text
     ), "Bootstrap expression must parse issue numbers via format()"
     assert (
         "'[' + steps.ready.outputs.issue_numbers + ']'" not in reusable_text
