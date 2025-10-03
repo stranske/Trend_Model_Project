@@ -57,6 +57,7 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Log in to container registry
+        if: github.event_name == 'push' && github.ref == 'refs/heads/phase-2-dev'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -86,7 +87,7 @@ jobs:
             SUMMARY=" Cache hit for \`${CACHE_KEY}\`"
           else
             echo "::notice title=BuildxCache::Cache miss for ${CACHE_KEY}"
-            SUMMARY=" Cache miss  priming \`${CACHE_KEY}\`"
+            SUMMARY=" Cache miss priming \`${CACHE_KEY}\`"
           fi
 
           {
@@ -113,7 +114,7 @@ jobs:
         with:
           path: /tmp/.buildx-cache
           key: docker-smoke-buildx-${{ hashFiles('requirements.lock') }}
-      - name: Run test suite
+      - name: Run test suite (reuses cached image)
         env:
           WF_CALL_DEBUG: ${{ inputs.debug_build && 'true' || '' }}
           DISPATCH_DEBUG: ${{ github.event.inputs.debug_build || '' }}
