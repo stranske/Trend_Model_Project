@@ -57,3 +57,6 @@ def test_agents_consumer_and_reusable_present():
     assert (
         "fromJSON(format('[{0}]', steps.ready.outputs.issue_numbers))[0]" in reusable_text
     ), "Bootstrap expression must parse issue numbers via format()"
+    assert (
+        "'[' + steps.ready.outputs.issue_numbers + ']'" not in reusable_text
+    ), "Legacy string concatenation pattern must not remain in reusable-90-agents.yml"
