@@ -234,11 +234,14 @@ def test_main_report_writes_pdf_when_requested(monkeypatch, tmp_path: Path) -> N
         "trend.cli._resolve_returns_path",
         lambda *args, **kwargs: tmp_path / "returns.csv",
     )
+    def fake_generate_unified_report(*a, **k):
+        recorded.update(k)
+        return SimpleNamespace(
+            html="<html>with-pdf</html>", pdf_bytes=pdf_bytes, context={}
+        )
     monkeypatch.setattr(
         "trend.cli.generate_unified_report",
-        lambda *a, **k: recorded.update(k) or SimpleNamespace(
-            html="<html>with-pdf</html>", pdf_bytes=pdf_bytes, context={}
-        ),
+        fake_generate_unified_report,
     )
 
     target = tmp_path / "report-output.html"
