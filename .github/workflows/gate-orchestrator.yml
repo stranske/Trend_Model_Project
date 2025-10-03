@@ -49,7 +49,7 @@ jobs:
           reporter: github-pr-review
           filter_mode: nofilter
           level: warning
-          fail_level: error
+          fail_on_error: true
 
   quarantine_ttl:
     name: orchestrator / quarantine-ttl
