@@ -7,6 +7,7 @@ import subprocess
 import sys
 import uuid
 from pathlib import Path
+from types import ModuleType
 from typing import Any, Callable, Iterable, Protocol
 
 import pandas as pd
@@ -36,21 +37,21 @@ def _noop_maybe_log_step(
     return None
 
 
-_legacy_extract_cache_stats: LegacyExtractCacheStats | None
-_legacy_maybe_log_step: LegacyMaybeLogStep
+_legacy_cli_module: ModuleType | None = None
+_legacy_extract_cache_stats: LegacyExtractCacheStats | None = None
+_legacy_maybe_log_step: LegacyMaybeLogStep = _noop_maybe_log_step
 
 try:  # ``trend_analysis.cli`` is heavy but provides useful helpers
-    from trend_analysis.cli import _extract_cache_stats as _legacy_extract_cache_stats
-    from trend_analysis.cli import maybe_log_step as _legacy_maybe_log_step
+    import trend_analysis.cli as _legacy_cli_module
 except Exception:  # pragma: no cover - defensive fallback
-    _legacy_extract_cache_stats = None
-
-    def _legacy_maybe_log_step(
-        enabled: bool, run_id: str, event: str, message: str, **fields: Any
-    ) -> None:  # noqa: D401 - simple noop
-        """Fallback when legacy helpers unavailable (signature matches
-        maybe_log_step)."""
-        return None
+    _legacy_cli_module = None
+else:
+    maybe_log_step_fn = getattr(_legacy_cli_module, "maybe_log_step", None)
+    if callable(maybe_log_step_fn):
+        _legacy_maybe_log_step = maybe_log_step_fn  # type: ignore[assignment]
+    _legacy_extract_cache_stats = getattr(
+        _legacy_cli_module, "_extract_cache_stats", None
+    )
 
 
 APP_PATH = Path(__file__).resolve().parents[2] / "streamlit_app" / "app.py"
@@ -61,6 +62,14 @@ SCENARIO_WINDOWS: dict[str, tuple[tuple[str, str], tuple[str, str]]] = {
     "2008": (("2006-01", "2007-12"), ("2008-01", "2009-12")),
     "2020": (("2018-01", "2019-12"), ("2020-01", "2021-12")),
 }
+
+
+def _legacy_callable(name: str, fallback: Callable[..., Any]) -> Callable[..., Any]:
+    if _legacy_cli_module is not None:
+        attr = getattr(_legacy_cli_module, name, None)
+        if callable(attr):
+            return attr
+    return fallback
 
 
 class TrendCLIError(RuntimeError):
@@ -431,15 +440,21 @@ def main(argv: list[str] | None = None) -> int:
                 f"The --config option is required for the '{command}' command"
             )
 
-        cfg_path, cfg = _load_configuration(args.config)
-        returns_path = _resolve_returns_path(
+        load_config_fn = _legacy_callable("_load_configuration", _load_configuration)
+        cfg_path, cfg = load_config_fn(args.config)
+        resolve_returns = _legacy_callable(
+            "_resolve_returns_path", _resolve_returns_path
+        )
+        returns_path = resolve_returns(
             cfg_path, cfg, getattr(args, "returns", None)
         )
-        returns_df = _ensure_dataframe(returns_path)
+        ensure_df = _legacy_callable("_ensure_dataframe", _ensure_dataframe)
+        returns_df = ensure_df(returns_path)
         seed = _determine_seed(cfg, getattr(args, "seed", None))
 
         if command == "run":
-            result, run_id, log_path = _run_pipeline(
+            run_pipeline = _legacy_callable("_run_pipeline", _run_pipeline)
+            result, run_id, log_path = run_pipeline(
                 cfg,
                 returns_df,
                 source_path=returns_path,
@@ -447,7 +462,8 @@ def main(argv: list[str] | None = None) -> int:
                 structured_log=not args.no_structured_log,
                 bundle=Path(args.bundle) if args.bundle else None,
             )
-            _print_summary(cfg, result)
+            print_summary = _legacy_callable("_print_summary", _print_summary)
+            print_summary(cfg, result)
             if log_path:
                 print(f"Structured log: {log_path}")
             return 0
@@ -460,7 +476,8 @@ def main(argv: list[str] | None = None) -> int:
                 )
             formats = args.formats or DEFAULT_REPORT_FORMATS
             _prepare_export_config(cfg, export_dir, formats if export_dir is not None else None)
-            result, run_id, _ = _run_pipeline(
+            run_pipeline = _legacy_callable("_run_pipeline", _run_pipeline)
+            result, run_id, _ = run_pipeline(
                 cfg,
                 returns_df,
                 source_path=returns_path,
@@ -468,9 +485,13 @@ def main(argv: list[str] | None = None) -> int:
                 structured_log=False,
                 bundle=None,
             )
-            _print_summary(cfg, result)
+            print_summary = _legacy_callable("_print_summary", _print_summary)
+            print_summary(cfg, result)
             if export_dir is not None:
-                _write_report_files(export_dir, cfg, result, run_id=run_id)
+                write_report = _legacy_callable(
+                    "_write_report_files", _write_report_files
+                )
+                write_report(export_dir, cfg, result, run_id=run_id)
             report_path = _resolve_report_output_path(args.output, export_dir, run_id)
             report_path.parent.mkdir(parents=True, exist_ok=True)
             try:
@@ -499,7 +520,8 @@ def main(argv: list[str] | None = None) -> int:
             _adjust_for_scenario(cfg, args.scenario)
             export_dir = Path(args.out) if args.out else None
             _prepare_export_config(cfg, export_dir, None)
-            result, run_id, _ = _run_pipeline(
+            run_pipeline = _legacy_callable("_run_pipeline", _run_pipeline)
+            result, run_id, _ = run_pipeline(
                 cfg,
                 returns_df,
                 source_path=returns_path,
@@ -508,9 +530,13 @@ def main(argv: list[str] | None = None) -> int:
                 bundle=None,
             )
             print(f"Stress scenario '{args.scenario}' completed (seed={seed}).")
-            _print_summary(cfg, result)
+            print_summary = _legacy_callable("_print_summary", _print_summary)
+            print_summary(cfg, result)
             if export_dir:
-                _write_report_files(export_dir, cfg, result, run_id=run_id)
+                write_report = _legacy_callable(
+                    "_write_report_files", _write_report_files
+                )
+                write_report(export_dir, cfg, result, run_id=run_id)
             return 0
 
         raise TrendCLIError(f"Unknown command: {command}")
