@@ -222,17 +222,39 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p summary_artifacts
-          summary_file="artifacts/coverage-summary/coverage-summary.md"
-          if [ -f "$summary_file" ]; then
-            cp "$summary_file" summary_artifacts/coverage-summary.md
-            {
-              echo 'body<<EOF'
-              cat "$summary_file"
-              echo 'EOF'
-            } >> "$GITHUB_OUTPUT"
-          else
-            echo "No coverage summary markdown found; continuing without it."
-          fi
+          python <<'PY'
+          import os
+          from pathlib import Path
+
+          output_path = os.environ.get('GITHUB_OUTPUT')
+          root = Path('summary_artifacts')
+          search_roots = [root, Path('artifacts')]
+
+          summary_path: Path | None = None
+          for base in search_roots:
+              if not base.exists():
+                  continue
+              for candidate in base.rglob('coverage-summary.md'):
+                  summary_path = candidate
+                  break
+              if summary_path:
+                  break
+
+          if summary_path is None:
+              print('No coverage summary markdown found; continuing without it.')
+          else:
+              text = summary_path.read_text(encoding='utf-8')
+              dest = root / 'coverage-summary.md'
+              dest.write_text(text, encoding='utf-8')
+              if output_path:
+                  with Path(output_path).open('a', encoding='utf-8') as handle:
+                      handle.write('body<<EOF\n')
+                      handle.write(text)
+                      if not text.endswith('\n'):
+                          handle.write('\n')
+                      handle.write('EOF\n')
+              print(f'Embedded coverage summary from {summary_path}')
+          PY
 
       - name: Compute coverage stats
         id: coverage_stats
