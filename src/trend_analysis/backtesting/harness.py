@@ -31,7 +31,7 @@ class BacktestResult:
     training_windows: Mapping[pd.Timestamp, tuple[pd.Timestamp, pd.Timestamp]]
 
     def summary(self) -> Dict[str, object]:
-        """Return a JSON-serialisable summary of the backtest metrics."""
+        """Return a JSON-serializable summary of the backtest metrics."""
 
         return {
             "window_mode": self.window_mode,
