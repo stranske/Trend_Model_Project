@@ -76,11 +76,24 @@ def test_rolling_and_expanding_windows_diverge() -> None:
         assert window_end == date
 
     summary = expanding.summary()
+    expected_metrics = {
+        "cagr",
+        "volatility",
+        "sortino",
+        "calmar",
+        "max_drawdown",
+        "final_value",
+        "sharpe",
+    }
+
+    assert expanding.metrics.keys() >= expected_metrics
+
     assert summary["window_mode"] == "expanding"
     assert summary["calendar"]
     first_calendar_entry = summary["calendar"][0]
     assert isinstance(first_calendar_entry, str)
-    assert "metrics" in summary and "cagr" in summary["metrics"]
+    assert "metrics" in summary
+    assert summary["metrics"].keys() >= expected_metrics
     assert "rolling_sharpe" in summary
     assert "turnover" in summary
     assert "transaction_costs" in summary
