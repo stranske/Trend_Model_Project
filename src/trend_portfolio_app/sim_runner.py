@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import importlib
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 
 import numpy as np
