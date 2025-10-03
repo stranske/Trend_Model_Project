@@ -164,7 +164,7 @@ def test_job_table_prioritises_failing_and_pending_jobs(sample_runs):
     assert "⏭️ skipped" in table_lines[optional_index]
 
     assert max(flaky_index, docker_index) < optional_index
-    assert optional_index < docs_index
+    assert docs_index < optional_index
 
 
 def test_coverage_section_handles_snippet_without_stats() -> None:
