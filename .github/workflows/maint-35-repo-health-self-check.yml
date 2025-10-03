@@ -9,13 +9,11 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - '.github/scripts/repo_health_probe.py'
       - '.github/workflows/maint-35-repo-health-self-check.yml'
       - 'tools/repo_health_probe.py'
   push:
     branches: [phase-2-dev]
     paths:
-      - '.github/scripts/repo_health_probe.py'
       - '.github/workflows/maint-35-repo-health-self-check.yml'
       - 'tools/repo_health_probe.py'
 
