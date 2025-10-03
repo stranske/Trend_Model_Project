@@ -9,9 +9,10 @@ The project ships with three configuration presets that provide sensible default
 | **Aggressive** | High risk tolerance | 24‑month lookback, monthly rebalancing, target volatility 15%, emphasises return and agility |
 
 The trend-signal presets follow the same spectrum. Conservative applies a 126-period
-window with heavier smoothing (min 90 periods, z-scored, 8% volatility target),
-Balanced uses an 84-period window with moderate smoothing and a 10% target, while
-Aggressive drops to 42 periods with minimal smoothing and a 15% volatility cap.
+window with heavier smoothing (minimum 90 periods, row-wise z-score normalisation, and an 8%
+volatility target). Balanced uses an 84-period window with a 63-period minimum, z-scoring, and
+a 10% target, while Aggressive drops to 42 periods with a 30-period minimum, disables z-scoring,
+and keeps a 15% volatility cap for responsiveness.
 
 ## When to use each preset
 
