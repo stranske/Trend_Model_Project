@@ -46,8 +46,9 @@ The workflow collects status data from three places:
 
 * The workflow uses a concurrency group keyed by the head SHA to cancel stale
   runs.
-* Comment discovery matches the `### Automated Status Summary` heading, so
-  reruns patch the original comment instead of posting duplicates.
+* Comment discovery prefers the hidden `<!-- post-ci-summary:do-not-edit -->`
+  marker (with the heading as a fallback), so reruns patch the original comment
+  instead of posting duplicates.
 * If neither CI nor Docker has produced artifacts yet, the helper still posts a
   pending table so reviewers can see progress.
 
