@@ -351,6 +351,64 @@ def _append_step_summary(summary: str, step_summary_path: Optional[str]) -> None
             handle.write("\n")
 
 
+def _summarize_checks(entries: Sequence[Any]) -> List[Dict[str, Any]]:
+    summarized: List[Dict[str, Any]] = []
+    for entry in entries:
+        if isinstance(entry, Mapping) and entry.get("type") != "secret":
+            summarized.append(
+                {
+                    "name": str(entry.get("name", "")),
+                    "ok": bool(entry.get("ok", False)),
+                    "description": str(entry.get("description", "")),
+                }
+            )
+    return summarized
+
+
+def _string_list(value: Any) -> List[str]:
+    if isinstance(value, (str, bytes, bytearray)):
+        return [str(value)]
+    if isinstance(value, Sequence):
+        return [str(item) for item in value]
+    return []
+
+
+def _public_report(report: Mapping[str, Any]) -> Dict[str, Any]:
+    public: Dict[str, Any] = {}
+
+    generated_at = report.get("generated_at")
+    if isinstance(generated_at, str):
+        public["generated_at"] = generated_at
+
+    public["ok"] = bool(report.get("ok", False))
+
+    labels = _string_list(report.get("labels"))
+    if labels:
+        public["labels"] = labels
+
+    variables = _string_list(report.get("variables"))
+    if variables:
+        public["variables"] = variables
+
+    checks = report.get("checks")
+    if isinstance(checks, Sequence):
+        summarized_checks = _summarize_checks(checks)
+        if summarized_checks:
+            public["checks"] = summarized_checks
+
+    failures = report.get("failures")
+    if isinstance(failures, Sequence):
+        summarized_failures = _summarize_checks(failures)
+        if summarized_failures:
+            public["failures"] = summarized_failures
+
+    errors = report.get("errors")
+    if isinstance(errors, Sequence):
+        public["errors"] = [str(error) for error in errors]
+
+    return public
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Repository health governance probe")
     parser.add_argument(
@@ -404,21 +462,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             md.write(summary.summary_markdown + "\n")
         _append_step_summary(summary.summary_markdown + "\n", summary_path)
 
-    # Redact secrets from stdout print; still present in report file.
-    sanitized_report = dict(report)
-    sanitized_report.pop("secrets", None)
-    # Redact secret checks and secret failures.
-    sanitized_report["checks"] = [
-        check
-        for check in sanitized_report.get("checks", [])
-        if check.get("type") != "secret"
-    ]
-    sanitized_report["failures"] = [
-        check
-        for check in sanitized_report.get("failures", [])
-        if check.get("type") != "secret"
-    ]
-    print(json.dumps(sanitized_report, indent=2))
+    public_report = _public_report(report)
+    print(json.dumps(public_report, indent=2))
     return 0 if report.get("ok", False) else 1
 
 
