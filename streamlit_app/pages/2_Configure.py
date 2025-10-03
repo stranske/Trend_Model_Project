@@ -976,7 +976,7 @@ def _normalise_trend_spec_values(values: Mapping[str, Any]) -> Dict[str, Any]:
     vol_adjust = _coerce_bool(values.get("vol_adjust", False))
 
     vol_target_raw = values.get("vol_target")
-    vol_target: float | None
+    vol_target: Optional[float]
     try:
         vol_target_candidate = float(vol_target_raw)
     except (TypeError, ValueError):
