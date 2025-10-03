@@ -1,37 +1,58 @@
-# Repository Health Self-Check Workflow (Implements #1175)
+# Repository Health Self-Check Workflow (maint-35)
 
-## Overview
-The `maint-35-repo-health-self-check.yml` workflow provides a scheduled, automated governance audit covering secrets, labels, and branch protection. It creates (or updates) a single tracking issue when deficiencies are detected and closes that issue automatically once all checks pass.
+The `maint-35-repo-health-self-check.yml` workflow keeps the repository's
+baseline governance assets (labels, secrets, and Ops issue plumbing) healthy.
+It runs nightly with a weekly deep-dive, can be dispatched manually, and
+re-executes automatically whenever the probe or workflow definition changes in a
+PR.
+
+## What it verifies
 
 | Aspect | What It Verifies | Failure Handling |
 | ------ | ---------------- | ---------------- |
-| Secrets | Presence of required secrets (configurable list inline in workflow) | Missing names appended to tracking issue body |
-| PAT Probe | Validity/permissions of service bot token (if configured) | Notes failure cause (403/404/timeout) |
-| Labels | Required label set exists (e.g., `autofix`, `ci: quarantine`) | Missing labels enumerated |
-| Branch Protection | Protection rules for `phase-2-dev` & `main` retrievable | Logs API retrieval failure or absence |
+| Workflow lint | `actionlint` pinned at v1.7.7 | Fails the job and records the failure in the Ops summary |
+| Labels | Presence of required labels (`agent:*`, `priority:*`, `tech:coverage`, `workflows`) | Missing labels are listed in the Ops issue comment |
+| Secrets | `SERVICE_BOT_PAT` repository secret exists | Missing secret is reported in summary + Ops issue |
+| Variables | `OPS_HEALTH_ISSUE` repository variable exists | Summary warns and Ops issue update is skipped when absent |
 
-## Trigger Modes
-- `schedule`: Daily cron (early UTC window) for unattended governance.
-- `workflow_dispatch`: Manual on-demand validation.
+## Trigger modes
 
-## Issue Lifecycle
-- Opens (or updates) a single canonical issue titled: `Repository Health Failing Checks`.
-- Adds or replaces a machine section delimited by HTML comments for idempotent updates.
-- Closes the issue automatically when all checks pass (adds a success summary comment first).
+- **Daily cron** — 04:17 UTC for routine hygiene.
+- **Weekly cron** — Monday 06:45 UTC for the extended Ops report.
+- **workflow_dispatch** — Manual runs for smoke tests or post-incident
+  verification.
+- **Scoped PR / push triggers** — Changes to `tools/repo_health_probe.py` or the
+  workflow definition automatically re-run the probe.
 
-## Extending Checks
-1. Add a new step producing a JSON or line-delimited output file under `.health/`.
-2. Append its parsing to the aggregation script block that builds the issue body segment.
-3. Keep parsing logic deterministic and side-effect free.
+## Sample step summary
 
-## Local Dry Run
-You can replicate most logic locally using the `actions/github-script` fragments converted to a Node.js script with a `GITHUB_TOKEN` environment variable.
+```
+## Repo health nightly checks
 
-## Relationship to Other Workflows
-- Complements reusable CI by ensuring structural prerequisites (labels, secrets) are continuously present.
-- Differs from feature-specific watchdogs by focusing on static repository hygiene rather than dynamic runtime states.
+- ✅ Workflow lint (`actionlint`) succeeded.
+- ✅ Required labels, variables, and secrets are present.
+```
 
-## Closure of #1175
-This document plus the merged workflow address the previously identified gap: lack of a unified scheduled self-check. After first successful scheduled run (no failures), close #1175 referencing commit SHAs introducing the workflow and this documentation file.
+When the probe encounters missing artefacts, the summary switches to an error
+list and (if `OPS_HEALTH_ISSUE` is set) the workflow posts an update to the Ops
+tracking issue via a replace-in-place comment (`<!-- repo-health-nightly -->`).
 
-_Last updated: 2025-09-19_
+## OPS_HEALTH_ISSUE maintenance
+
+The probe expects the repository variable (or secret) `OPS_HEALTH_ISSUE` to
+contain the numeric identifier of the Operations tracking issue. Confirm the
+variable is defined in production and staging forks — the workflow will warn in
+its summary and skip the comment update if the value is missing or malformed.
+
+## Offline smoke coverage
+
+`scripts/workflow_smoke_tests.py` exercises `tools.repo_health_probe` using a
+fixture payload so CI validates the probe without GitHub API access. Run the
+smoke harness locally with:
+
+```bash
+python scripts/workflow_smoke_tests.py
+```
+
+The command prints the same Markdown summary that appears in Actions logs,
+providing a quick regression check when adjusting probe logic.
