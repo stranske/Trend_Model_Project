@@ -49,8 +49,12 @@ class TestPresetLoading:
             ), "risk_target should be reasonable"
 
             signals = data.get("signals")
-            assert isinstance(signals, dict), f"Preset {preset_file.name} missing signals"
-            assert "window" in signals, f"Preset {preset_file.name} missing signal window"
+            assert isinstance(
+                signals, dict
+            ), f"Preset {preset_file.name} missing signals"
+            assert (
+                "window" in signals
+            ), f"Preset {preset_file.name} missing signal window"
             assert "lag" in signals, f"Preset {preset_file.name} missing signal lag"
             assert int(signals["window"]) > 0, "Signal window must be positive"
 

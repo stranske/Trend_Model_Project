@@ -15,7 +15,8 @@ def _make_result() -> RunResult:
     )
     final_weights = pd.Series({"FundA": 0.6, "FundB": 0.4})
     portfolio = pd.Series(
-        [0.01, -0.005, 0.012], index=pd.to_datetime(["2021-01-31", "2021-02-28", "2021-03-31"])
+        [0.01, -0.005, 0.012],
+        index=pd.to_datetime(["2021-01-31", "2021-02-28", "2021-03-31"]),
     )
     stats = SimpleNamespace(
         cagr=0.12,
@@ -58,7 +59,9 @@ def test_generate_unified_report_produces_expected_sections() -> None:
     result = _make_result()
     config = _make_config()
 
-    artifacts = generate_unified_report(result, config, run_id="test123", include_pdf=False)
+    artifacts = generate_unified_report(
+        result, config, run_id="test123", include_pdf=False
+    )
 
     assert "Vol-Adj Trend Analysis Report" in artifacts.html
     assert "Executive summary" in artifacts.html
