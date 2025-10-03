@@ -22,12 +22,12 @@ metrics:
 
 # Trend signal configuration
 signals:
-  window: 126          # ≈6 months of trading days
-  min_periods: 84      # Require at least 4 months of history
-  lag: 1               # One-period execution delay
-  vol_adjust: true
-  vol_target: 0.08
-  zscore: false
+    window: 126          # ≈6 months of trading days
+    min_periods: 90      # Require at least ~4.5 months of history
+    lag: 1               # One-period execution delay
+    vol_adjust: true
+    vol_target: 0.08
+    zscore: true
 
 # Conservative portfolio construction
 portfolio:

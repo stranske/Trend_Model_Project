@@ -22,12 +22,12 @@ metrics:
 
 # Trend signal configuration
 signals:
-  window: 84           # ≈4 months of trading days
-  min_periods: 63
-  lag: 1
-  vol_adjust: true
-  vol_target: 0.10
-  zscore: false
+    window: 84           # ≈4 months of trading days
+    min_periods: 63
+    lag: 1
+    vol_adjust: true
+    vol_target: 0.10
+    zscore: true
 
 # Balanced portfolio construction
 portfolio:

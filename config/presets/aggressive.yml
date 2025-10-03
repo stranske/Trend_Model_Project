@@ -22,12 +22,12 @@ metrics:
 
 # Trend signal configuration
 signals:
-  window: 42           # ≈2 months of trading days
-  min_periods: 30      # Require at least ~1.5 months of history
-  lag: 1
-  vol_adjust: true
-  vol_target: 0.15
-  zscore: true
+    window: 42           # ≈2 months of trading days
+    min_periods: 30      # Require at least ~1.5 months of history
+    lag: 1
+    vol_adjust: true
+    vol_target: 0.15
+    zscore: false
 
 # Aggressive portfolio construction
 portfolio:
@@ -43,5 +43,5 @@ vol_adjust:
     
 # Earlier sample split for more out-of-sample data
 sample_split:
-  method: "date"  
+  method: "date"
   date: "2016-12-31"  # Earlier split for more testing
