@@ -179,7 +179,6 @@ jobs:
 
   pr_comment:
     name: PR Comment (Self-Test Summary)
-    if: ${{ always() }}
     needs: [aggregate]
     runs-on: ubuntu-latest
     steps:
