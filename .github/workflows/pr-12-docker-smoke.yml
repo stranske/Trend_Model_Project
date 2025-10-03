@@ -51,6 +51,9 @@ jobs:
       IMAGE_NAME: ${{ vars.IMAGE_NAME || format('{0}/{1}', github.repository_owner, 'trend-model') }}
       HEALTH_PORT: ${{ vars.HEALTH_PORT || '8000' }}
       HEALTH_PATH: ${{ vars.HEALTH_PATH || '/health' }}
+      BUILD_CACHE_PATH: /tmp/.buildx-cache
+      BUILD_CACHE_TEMP: /tmp/.buildx-cache-new
+      BUILD_CACHE_KEY: docker-smoke-buildx-${{ hashFiles('requirements.lock') }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -67,20 +70,22 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Ensure buildx cache directory exists
-        run: mkdir -p /tmp/.buildx-cache
+        run: |
+          mkdir -p "${BUILD_CACHE_PATH}"
+          rm -rf "${BUILD_CACHE_TEMP}"
 
       - name: Restore buildx cache
         # Deterministic cache keyed solely by the lock file to keep smoke builds reproducible.
         id: restore-buildx-cache
         uses: actions/cache/restore@v4
         with:
-          path: /tmp/.buildx-cache
-          key: docker-smoke-buildx-${{ hashFiles('requirements.lock') }}
+          path: ${{ env.BUILD_CACHE_PATH }}
+          key: ${{ env.BUILD_CACHE_KEY }}
 
       - name: Summarize buildx cache
         env:
           CACHE_HIT: ${{ steps.restore-buildx-cache.outputs.cache-hit }}
-          CACHE_KEY: docker-smoke-buildx-${{ hashFiles('requirements.lock') }}
+          CACHE_KEY: ${{ env.BUILD_CACHE_KEY }}
         run: |
           if [ "$CACHE_HIT" = "true" ]; then
             echo "::notice title=BuildxCache::Cache hit for ${CACHE_KEY}"
@@ -99,21 +104,21 @@ jobs:
       - name: Build image (cached)
         run: |
           docker buildx build --pull --load \
-            --cache-from type=local,src=/tmp/.buildx-cache \
-            --cache-to type=local,dest=/tmp/.buildx-cache-new,mode=max \
+            --cache-from type=local,src=${{ env.BUILD_CACHE_PATH }} \
+            --cache-to type=local,dest=${{ env.BUILD_CACHE_TEMP }},mode=max \
             -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest .
 
       - name: Finalize cache
         run: |
-          rm -rf /tmp/.buildx-cache
-          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+          rm -rf "${BUILD_CACHE_PATH}"
+          mv "${BUILD_CACHE_TEMP}" "${BUILD_CACHE_PATH}"
 
       - name: Save buildx cache
         if: github.event_name != 'pull_request' && steps.restore-buildx-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
-          path: /tmp/.buildx-cache
-          key: docker-smoke-buildx-${{ hashFiles('requirements.lock') }}
+          path: ${{ env.BUILD_CACHE_PATH }}
+          key: ${{ env.BUILD_CACHE_KEY }}
       - name: Run test suite (reuses cached image)
         env:
           WF_CALL_DEBUG: ${{ inputs.debug_build && 'true' || '' }}
