@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import importlib
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 
 import numpy as np
 import pandas as pd
+
+from trend_analysis.backtesting import BacktestResult, bootstrap_equity
 
 from .event_log import Event, EventLog
 from .metrics_extra import AVAILABLE_METRICS
@@ -102,6 +104,9 @@ class SimResult:
     weights: Dict[pd.Timestamp, pd.Series]
     event_log: EventLog
     benchmark: Optional[pd.Series]
+    _bootstrap_cache: Dict[tuple[int, int, int | None], pd.DataFrame] = field(
+        default_factory=dict, init=False, repr=False
+    )
 
     def portfolio_curve(self) -> pd.Series:
         return (1 + self.portfolio.fillna(0)).cumprod()
@@ -109,6 +114,50 @@ class SimResult:
     def drawdown_curve(self) -> pd.Series:
         curve = self.portfolio_curve()
         return curve / curve.cummax() - 1.0
+
+    def bootstrap_band(
+        self,
+        *,
+        n: int = 500,
+        block: int = 20,
+        random_state: np.random.Generator | int | None = None,
+    ) -> pd.DataFrame:
+        """Compute (and cache) bootstrap equity quantiles for the portfolio."""
+
+        cache_key: tuple[int, int, int | None] | None
+        if random_state is None or isinstance(random_state, (int, np.integer)):
+            seed_val = int(random_state) if random_state is not None else None
+            cache_key = (n, block, seed_val)
+            cached = self._bootstrap_cache.get(cache_key)
+            if cached is not None:
+                return cached.copy()
+        else:
+            cache_key = None
+
+        returns = self.portfolio.astype(float)
+        equity = (1.0 + returns.fillna(0.0)).cumprod()
+        drawdown = equity / equity.cummax() - 1.0 if not equity.empty else equity
+        calendar = pd.DatetimeIndex(self.dates) if self.dates else pd.DatetimeIndex([])
+
+        backtest = BacktestResult(
+            returns=returns,
+            equity_curve=equity,
+            weights=pd.DataFrame(dtype=float),
+            turnover=pd.Series(dtype=float),
+            transaction_costs=pd.Series(dtype=float),
+            rolling_sharpe=pd.Series(dtype=float),
+            drawdown=drawdown,
+            metrics={},
+            calendar=calendar,
+            window_mode="rolling",
+            window_size=max(len(calendar), 1) if len(calendar) else 1,
+            training_windows={},
+        )
+
+        band = bootstrap_equity(backtest, n=n, block=block, random_state=random_state)
+        if cache_key is not None:
+            self._bootstrap_cache[cache_key] = band.copy()
+        return band
 
     def event_log_df(self) -> pd.DataFrame:
         return self.event_log.to_frame()

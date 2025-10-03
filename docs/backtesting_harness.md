@@ -26,3 +26,25 @@ window bookkeeping.
 
 See `tests/backtesting/test_harness.py` for end-to-end usage examples covering
 window switching and transaction-cost verification.
+
+## Bootstrap uncertainty bands
+
+Call `trend_analysis.backtesting.bootstrap_equity(result, n=500, block=20)` to
+estimate a median equity path together with the 5th and 95th percentile bands
+for a realised backtest.  The helper consumes a `BacktestResult`, applies a
+circular block bootstrap to the `returns` series, and returns a DataFrame
+indexed like `result.equity_curve` with `p05`, `median`, and `p95` columns.
+
+Key parameters:
+
+* `n`: number of sampled paths (at least 1).
+* `block`: bootstrap block length in periods (must be positive).
+* `random_state`: optional seed/generator so tests and exports can reproduce
+  deterministic bands.
+
+Any leading `NaN` values in the original return series are reinserted so charts
+and exports align with the point where the strategy becomes live.  The helper
+also honours the realised equity scale (e.g. starting capital of 100) so the
+resulting quantiles overlay correctly on absolute-dollar curves.  See
+`tests/backtesting/test_bootstrap.py` for worked examples and edge-case
+coverage.

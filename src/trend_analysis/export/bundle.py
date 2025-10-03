@@ -6,10 +6,12 @@ import sys
 import tempfile
 import zipfile
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable, List
 
 import matplotlib
 import pandas as pd
+
+from trend_analysis.backtesting import BacktestResult, bootstrap_equity
 
 from trend_analysis.util.hash import (
     normalise_for_json,
@@ -90,6 +92,70 @@ def export_bundle(run: Any, path: Path) -> Path:
                 "The 'portfolio' attribute is required for bundle creation "
                 "but was not found in the provided 'run' object."
             )
+        if not isinstance(portfolio, pd.Series):
+            # Attempt to preserve temporal structure if possible
+            if isinstance(portfolio, dict):
+                # Use dict keys as index
+                portfolio = pd.Series(list(portfolio.values()), index=list(portfolio.keys()))
+            elif isinstance(portfolio, (list, tuple)):
+                raise ValueError(
+                    "Cannot convert portfolio of type list/tuple to pandas Series without an index. "
+                    "Please provide a portfolio with a temporal index (e.g., dict or pandas Series)."
+                )
+            else:
+                # Fallback: try to convert, but warn user
+                import warnings
+                warnings.warn(
+                    f"Converting portfolio of type {type(portfolio)} to pandas Series without specifying an index. "
+                    "This may result in loss of temporal structure.",
+                    UserWarning,
+                )
+                portfolio = pd.Series(portfolio)
+        portfolio = portfolio.astype(float)
+        equity_curve = (1 + portfolio.fillna(0)).cumprod()
+
+        bootstrap_band: pd.DataFrame | None = None
+        bootstrap_fn = getattr(run, "bootstrap_band", None)
+        if callable(bootstrap_fn):
+            try:
+                bootstrap_band = bootstrap_fn()
+            except Exception:  # pragma: no cover - defensive fallback
+                bootstrap_band = None
+        if bootstrap_band is None:
+            try:
+                dates_attr = getattr(run, "dates", None)
+                if dates_attr is not None:
+                    try:
+                        calendar = pd.DatetimeIndex(dates_attr)
+                    except Exception:
+                        calendar = pd.DatetimeIndex([])
+                else:
+                    calendar = pd.DatetimeIndex([])
+                drawdown = (
+                    equity_curve / equity_curve.cummax() - 1
+                    if not equity_curve.empty
+                    else equity_curve
+                )
+                backtest = BacktestResult(
+                    returns=portfolio,
+                    equity_curve=equity_curve,
+                    weights=pd.DataFrame(dtype=float),
+                    turnover=pd.Series(dtype=float),
+                    transaction_costs=pd.Series(dtype=float),
+                    rolling_sharpe=pd.Series(dtype=float),
+                    drawdown=drawdown,
+                    metrics={},
+                    calendar=calendar,
+                    window_mode="rolling",
+                    window_size=max(len(calendar), 1) if len(calendar) else 1,
+                    training_windows={},
+                )
+                bootstrap_band = bootstrap_equity(backtest)
+            except Exception:  # pragma: no cover - defensive fallback
+                bootstrap_band = None
+        if bootstrap_band is not None:
+            bootstrap_band = bootstrap_band.reindex(equity_curve.index).copy()
+
         with open(results_dir / "portfolio.csv", "w", encoding="utf-8") as f:
             f.write(f"# run_id: {run_id}\n")
             portfolio.to_csv(f, header=["return"])
@@ -103,16 +169,28 @@ def export_bundle(run: Any, path: Path) -> Path:
             with open(results_dir / "weights.csv", "w", encoding="utf-8") as f:
                 f.write(f"# run_id: {run_id}\n")
                 pd.DataFrame(weights).to_csv(f)
+        if bootstrap_band is not None and not bootstrap_band.dropna(how="all").empty:
+            with open(results_dir / "equity_bootstrap.csv", "w", encoding="utf-8") as f:
+                f.write(f"# run_id: {run_id}\n")
+                bootstrap_band.to_csv(f)
 
         # ------------------------------------------------------------------
         # Charts PNGs
         # ------------------------------------------------------------------
-        def _write_charts() -> None:
+        def _to_list(values: Iterable[Any]) -> List[Any]:
+            return list(values)
+
+        def _plot_x(index: pd.Index) -> list[Any]:
+            if isinstance(index, pd.PeriodIndex):
+                return _to_list(index.to_timestamp().to_pydatetime())
+            if isinstance(index, pd.DatetimeIndex):
+                return _to_list(index.to_pydatetime())
+            return index.to_list()
+
+        def _write_charts(eq: pd.Series, band: pd.DataFrame | None) -> None:
             # Configure non-interactive backend and import pyplot lazily
             matplotlib.use("Agg")
             from matplotlib import pyplot as plt  # locally scoped import
-
-            eq = (1 + portfolio.fillna(0)).cumprod()
 
             # ------------------------------------------------------------------
             # Equity curve
@@ -120,7 +198,31 @@ def export_bundle(run: Any, path: Path) -> Path:
             fig = plt.figure()
             ax = fig.add_subplot(1, 1, 1)
             if not eq.empty:
-                eq.plot(ax=ax)
+                x = _plot_x(eq.index)
+                ax.plot(x, eq.values, label="Realised")
+                if band is not None:
+                    band_aligned = band.reindex(eq.index)
+                    valid = band_aligned[["p05", "p95"]].notna().all(axis=1)
+                    if valid.any():
+                        x_band = [x_i for x_i, ok in zip(x, valid) if ok]
+                        p05 = band_aligned.loc[valid, "p05"].to_numpy()
+                        p95 = band_aligned.loc[valid, "p95"].to_numpy()
+                        median = band_aligned.loc[valid, "median"].to_numpy()
+                        ax.fill_between(
+                            x_band,
+                            p05,
+                            p95,
+                            alpha=0.2,
+                            label="Bootstrap 5–95%",
+                        )
+                        ax.plot(
+                            x_band,
+                            median,
+                            linestyle="--",
+                            label="Bootstrap median",
+                        )
+                if ax.has_data():
+                    ax.legend(loc="best")
             else:  # pragma: no cover - visual placeholder for empty data
                 ax.set_axis_off()
             ax.set_title("Equity Curve")
@@ -137,14 +239,14 @@ def export_bundle(run: Any, path: Path) -> Path:
             fig = plt.figure()
             ax = fig.add_subplot(1, 1, 1)
             if not dd.empty:
-                dd.plot(ax=ax)
+                ax.plot(_plot_x(dd.index), dd.values)
             else:  # pragma: no cover - visual placeholder for empty data
                 ax.set_axis_off()
             ax.set_title("Drawdown")
             fig.savefig(charts_dir / "drawdown.png", metadata={"run_id": run_id})
             plt.close(fig)
 
-        _write_charts()
+        _write_charts(equity_curve, bootstrap_band)
 
         # ------------------------------------------------------------------
         # Summary workbook
@@ -177,7 +279,11 @@ def export_bundle(run: Any, path: Path) -> Path:
             bundle_dir / "receipt.txt",  # written below, but path reserved
         ]
         # Optionals if present
-        opt_files = [results_dir / "benchmark.csv", results_dir / "weights.csv"]
+        opt_files = [
+            results_dir / "benchmark.csv",
+            results_dir / "weights.csv",
+            results_dir / "equity_bootstrap.csv",
+        ]
         for fp in opt_files:
             if fp.exists():
                 files_to_hash.append(fp)
@@ -206,7 +312,11 @@ def export_bundle(run: Any, path: Path) -> Path:
             "seed": seed,
             "environment": env,
             "git_hash": _git_hash(),
-            "receipt": {"created": _dt.datetime.utcnow().isoformat() + "Z"},
+            "receipt": {
+                "created": _dt.datetime.now(_dt.timezone.utc)
+                .isoformat()
+                .replace("+00:00", "Z")
+            },
             "input_sha256": input_sha256,
         }
         # Pass through structured log reference if present on the run object
@@ -244,7 +354,7 @@ def export_bundle(run: Any, path: Path) -> Path:
 This bundle contains the complete results of a trend analysis run, including data,
 charts, and metadata necessary for reproducibility and sharing.
 
-Generated: {_dt.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+Generated: {_dt.datetime.now(_dt.timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} UTC
 
 Contents:
 ---------
@@ -252,9 +362,10 @@ results/
   portfolio.csv      - Portfolio returns time series
   benchmark.csv      - Benchmark returns (if available)
   weights.csv        - Portfolio weights over time (if available)
+  equity_bootstrap.csv - Bootstrap equity quantiles (5th percentile/median/95th percentile) if computed
 
 charts/
-  equity_curve.png   - Cumulative portfolio performance visualization
+  equity_curve.png   - Cumulative performance with optional bootstrap band
   drawdown.png       - Drawdown analysis chart
 
 summary.xlsx         - Summary metrics and performance statistics

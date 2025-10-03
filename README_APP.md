@@ -43,6 +43,7 @@ Skeletons for multi-path generation and feature sweeps live under `src/trend_por
 - Configure: YAML-like options exposed through UI; choose dates/freq/policy.
 - Run: Single and multi-period using existing modules where available.
 - View: Metrics tables and key charts (equity, drawdown, weights where applicable).
+- View: Results page includes a toggle to overlay a bootstrap 5–95% equity band.
 - Export: Zip bundle with returns, events, summary, and a config snapshot.
 
 Matches CLI outputs within normal tolerance; avoids blocking exceptions in demo flow.

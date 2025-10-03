@@ -54,6 +54,7 @@ def test_export_bundle(tmp_path):
     with zipfile.ZipFile(out) as z:
         names = set(z.namelist())
         assert "results/portfolio.csv" in names
+        assert "results/equity_bootstrap.csv" in names
         assert "charts/equity_curve.png" in names
         assert "summary.xlsx" in names
         assert "run_meta.json" in names
@@ -62,6 +63,12 @@ def test_export_bundle(tmp_path):
         with z.open("run_meta.json") as f:
             meta = json.load(f)
         receipt = z.read("receipt.txt").decode("utf-8")
+        bootstrap_df = pd.read_csv(
+            z.open("results/equity_bootstrap.csv"), comment="#", index_col=0
+        )
+
+    assert list(bootstrap_df.columns) == ["p05", "median", "p95"]
+    assert not bootstrap_df.empty
 
     input_sha = sha256_file(input_path)
     cfg_sha = sha256_config({"foo": 1})
@@ -83,6 +90,7 @@ def test_export_bundle(tmp_path):
     # Must include at least these files
     for required in [
         "results/portfolio.csv",
+        "results/equity_bootstrap.csv",
         "charts/equity_curve.png",
         "charts/drawdown.png",
         "summary.xlsx",
@@ -159,6 +167,7 @@ def test_export_bundle_optional_outputs(tmp_path):
     with zipfile.ZipFile(out) as z:
         names = set(z.namelist())
         assert {"results/benchmark.csv", "results/weights.csv"}.issubset(names)
+        assert "results/equity_bootstrap.csv" in names
         meta = json.load(z.open("run_meta.json"))
 
     assert meta["seed"] is None
@@ -166,6 +175,7 @@ def test_export_bundle_optional_outputs(tmp_path):
     outputs = meta["outputs"]
     assert outputs["results/benchmark.csv"]
     assert outputs["results/weights.csv"]
+    assert outputs["results/equity_bootstrap.csv"]
 
 
 def test_export_bundle_summary_default_when_not_callable(tmp_path):

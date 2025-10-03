@@ -9,6 +9,7 @@ The format is based on Keep a Changelog (https://keepachangelog.com/) and this p
 - Regression tests (`test_shift_safe_pipeline.py`, `test_shift_safe_regression.py`) enforcing causal, no look‑ahead behavior in signal/position pipeline (Issue #1438).
 - Centralised market-data validation enforcing a shared ingest contract across the CLI and Streamlit app, including cadence
 inference and return/price mode detection (Issue #1677).
+- Bootstrap equity-band helper with Streamlit toggle and export bundle integration for uncertainty visualisation (Issue #1682).
 
 ### Changed
 - `compute_signal` now returns a strictly causal rolling mean shifted by one period (previously included the current row). Prevents subtle look‑ahead bias in downstream position construction (Issue #1438).
