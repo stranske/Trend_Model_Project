@@ -167,7 +167,7 @@ trend run --config config/demo.yml
 trend report --config config/demo.yml --out perf
 
 # Produce a unified HTML report (and optional PDF) alongside artefacts
-trend report --config config/demo.yml --out perf --output reports --pdf
+trend report --config config/demo.yml --output reports --pdf
 
 # Execute a canned stress scenario focused on the 2008 crisis window
 trend stress --config config/demo.yml --scenario 2008
