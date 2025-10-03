@@ -85,18 +85,23 @@ Two maintenance workflows keep pull requests informed about CI health:
   `CI` and `Docker` workflows. It aggregates the latest runs for the head SHA
   and posts (or updates) a summary comment containing each job's result and log
   link. It cancels redundant runs per SHA to avoid spam and can be tuned via the
-  `WORKFLOW_TARGETS_JSON` environment variable.
+  `WORKFLOW_TARGETS_JSON` environment variable. The comment carries the marker
+  `<!-- post-ci-summary:do-not-edit -->`; reruns replace the same comment so the
+  conversation stays tidy.
 - **`maint-33-check-failure-tracker.yml`** also subscribes to CI/Docker
   `workflow_run` events. When a run fails it calculates a stable signature from
   the failed jobs, ensures the `ci-failure` issue label taxonomy exists, and
   opens or updates a tracking issue with the failure table and stack-token
   hints. The issue auto-heals once a succeeding run clears the signature for 24
-  hours.
+  hours. Each tracker update links back to the PR and run that produced the
+  signature so regressions can be followed across branches.
 
 Because the gate workflow (`gate / all-required-green`) depends on upstream jobs
 being green, a failed `lint / black-fast` job will cause both the gate check and
 post-CI summary to report failures. Use the summary comment to jump directly to
-logs, and watch the failure-tracker issue for cross-run history.
+logs, and watch the failure-tracker issue for cross-run history. Once the gate
+check flips to ✅ the failure tracker will close automatically on the next
+passing cycle.
 
 ## Agent orchestration & labels
 
