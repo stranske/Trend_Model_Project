@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -81,3 +83,21 @@ def test_bootstrap_equity_deterministic_seed():
 
     assert first.equals(second)
     assert not first.equals(third)
+
+
+def test_bootstrap_equity_respects_equity_scale():
+    idx = pd.date_range("2023-01-31", periods=6, freq="ME")
+    returns = pd.Series([0.01, -0.02, 0.015, -0.01, 0.005, 0.012], index=idx)
+    base_result = _make_result(returns)
+
+    scaled_equity = base_result.equity_curve * 250.0
+    scaled_result = replace(base_result, equity_curve=scaled_equity)
+
+    band_base = bootstrap_equity(base_result, n=200, block=3, random_state=0)
+    band_scaled = bootstrap_equity(scaled_result, n=200, block=3, random_state=0)
+
+    active_mask = returns.notna()
+    pd.testing.assert_frame_equal(
+        band_scaled.loc[active_mask].div(250.0),
+        band_base.loc[active_mask],
+    )

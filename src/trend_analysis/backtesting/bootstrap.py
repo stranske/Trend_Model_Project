@@ -87,6 +87,26 @@ def bootstrap_equity(
     sampled = _bootstrap_paths(realised, n_paths=n, block=block, rng=rng)
     equity_paths = np.cumprod(1.0 + sampled, axis=1)
 
+    first_return_date = realised.index[0]
+    first_return = float(realised.iloc[0])
+    try:
+        equity_after_first = float(result.equity_curve.loc[first_return_date])
+    except KeyError:  # pragma: no cover - defensive alignment fallback
+        eq_non_na = result.equity_curve.dropna()
+        equity_after_first = float(eq_non_na.iloc[0]) if not eq_non_na.empty else 1.0
+    if not np.isfinite(equity_after_first):
+        equity_after_first = 1.0
+
+    denom = 1.0 + first_return
+    if not np.isfinite(denom) or abs(denom) < 1e-12:
+        base_value = 1.0
+    else:
+        base_value = equity_after_first / denom
+        if not np.isfinite(base_value):
+            base_value = 1.0
+
+    equity_paths *= base_value
+
     quantiles = np.percentile(equity_paths, [5, 50, 95], axis=0)
     index = realised.index
     data = pd.DataFrame(
