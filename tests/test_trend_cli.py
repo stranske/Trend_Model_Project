@@ -18,7 +18,7 @@ from trend.cli import (
     main,
 )
 from trend_analysis.api import RunResult
-from trend.reporting import generate_unified_report
+from trend_analysis.reporting import generate_unified_report
 
 
 def _sample_result() -> RunResult:
