@@ -129,8 +129,14 @@ def _rolling_volatility_signal(
     periods_per_year: float | None,
     annualise: bool,
 ) -> pd.Series:
-    """Return rolling realised volatility optionally annualised."""
+    """
+    Return rolling realised volatility optionally annualised.
 
+    Note:
+        The rolling standard deviation is calculated with ``ddof=0`` (population standard deviation),
+        which differs from the pandas default of ``ddof=1`` (sample standard deviation).
+        This choice affects the volatility calculation and may not be obvious to users.
+    """
     if window <= 0:
         raise ValueError("window must be positive")
     vol = series.rolling(window).std(ddof=0)
