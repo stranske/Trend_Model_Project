@@ -13,6 +13,38 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
+# Load shared formatter/tool version pins (align with CI defaults)
+if [[ -f ".github/workflows/autofix-versions.env" ]]; then
+    # shellcheck disable=SC1091
+    source .github/workflows/autofix-versions.env
+fi
+BLACK_VERSION=${BLACK_VERSION:-24.8.0}
+
+ensure_package_version() {
+    local package_name="$1"
+    local pinned_version="$2"
+    local module_name="${3:-$1}"
+
+    if [[ -z "$pinned_version" ]]; then
+        return 0
+    fi
+
+    local current_version
+    current_version=$(python - <<PY 2>/dev/null
+try:
+    import ${module_name} as _pkg  # type: ignore[import]
+    print(getattr(_pkg, "__version__", ""))
+except Exception:
+    print("")
+PY
+)
+
+    if [[ "$current_version" != "$pinned_version" ]]; then
+        echo -e "${YELLOW}Installing ${package_name}==${pinned_version} to match CI${NC}"
+        python -m pip install --disable-pip-version-check --quiet "${package_name}==${pinned_version}"
+    fi
+}
+
 # Command line options
 FIX_MODE=false
 CHANGED_ONLY=false
@@ -74,6 +106,7 @@ PY
 
 # Ensure lint tooling (flake8) is also available for critical error checks.
 ensure_python_packages black isort docformatter flake8
+ensure_package_version black "$BLACK_VERSION"
 
 # Guarantee the Python scripts directory (where flake8 entry point lives) is on PATH.
 if ! command -v flake8 >/dev/null 2>&1; then

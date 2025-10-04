@@ -69,7 +69,9 @@ def _month_end(ts: pd.Timestamp) -> pd.Timestamp:
     return period.to_timestamp("M", how="end")
 
 
-def _build_sample_split(index: pd.DatetimeIndex, config: Mapping[str, Any]) -> dict[str, str]:
+def _build_sample_split(
+    index: pd.DatetimeIndex, config: Mapping[str, Any]
+) -> dict[str, str]:
     if index.empty:
         raise ValueError("Dataset is empty")
 
@@ -106,7 +108,9 @@ def _build_signals_config(config: Mapping[str, Any]) -> dict[str, Any]:
     lag = _coerce_positive_int(config.get("lag"), default=base.lag)
     min_periods_raw = config.get("min_periods")
     try:
-        min_periods = int(min_periods_raw) if min_periods_raw not in (None, "") else None
+        min_periods = (
+            int(min_periods_raw) if min_periods_raw not in (None, "") else None
+        )
     except (TypeError, ValueError):
         min_periods = None
     if min_periods is not None and min_periods <= 0:
@@ -164,7 +168,9 @@ def _normalise_metric_weights(raw: Mapping[str, Any]) -> dict[str, float]:
     return {name: weight / total for name, weight in weights.items()}
 
 
-def _build_portfolio_config(config: Mapping[str, Any], weights: Mapping[str, float]) -> dict[str, Any]:
+def _build_portfolio_config(
+    config: Mapping[str, Any], weights: Mapping[str, float]
+) -> dict[str, Any]:
     selection_count = _coerce_positive_int(
         config.get("selection_count"), default=10, minimum=1
     )
@@ -199,6 +205,14 @@ def _build_config(payload: AnalysisPayload) -> Config:
     if payload.benchmark:
         benchmark_map[payload.benchmark] = payload.benchmark
 
+    random_seed_raw = state.get("random_seed")
+    seed = 42
+    try:
+        if random_seed_raw is not None:
+            seed = int(random_seed_raw)
+    except (TypeError, ValueError):
+        seed = 42
+
     return Config(
         version="1",
         data={},
@@ -210,10 +224,12 @@ def _build_config(payload: AnalysisPayload) -> Config:
         },
         sample_split=sample_split,
         portfolio=portfolio_cfg,
+        signals=signals_cfg,
         benchmarks=benchmark_map,
         metrics={"registry": metrics_registry},
         export={},
         run={"trend_preset": state.get("trend_spec_preset")},
+        seed=seed,
     )
 
 
@@ -235,7 +251,9 @@ def _hashable_model_state(state: Mapping[str, Any]) -> str:
     return json.dumps(state, sort_keys=True, default=str)
 
 
-@st.cache_data(show_spinner="Running analysis…", hash_funcs={pd.DataFrame: cache_key_for_frame})
+@st.cache_data(
+    show_spinner="Running analysis…", hash_funcs={pd.DataFrame: cache_key_for_frame}
+)
 def run_cached_analysis(
     returns: pd.DataFrame, model_state_blob: str, benchmark: str | None
 ):
@@ -265,7 +283,9 @@ def run_cached_analysis(
     return _run_analysis(payload)
 
 
-def run_analysis(df: pd.DataFrame, model_state: Mapping[str, Any], benchmark: str | None):
+def run_analysis(
+    df: pd.DataFrame, model_state: Mapping[str, Any], benchmark: str | None
+):
     """Execute the cached analysis pipeline."""
 
     blob = _hashable_model_state(model_state)
@@ -278,4 +298,3 @@ def clear_cached_analysis() -> None:
     clear_fn = getattr(run_cached_analysis, "clear", None)
     if callable(clear_fn):
         clear_fn()
-

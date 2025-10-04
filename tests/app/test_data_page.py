@@ -155,8 +155,12 @@ def test_data_page_autoloads_sample(monkeypatch: pytest.MonkeyPatch, data_page) 
     sample = page.data_cache.SampleDataset("demo.csv", Path("demo/demo_returns.csv"))
 
     monkeypatch.setattr(page.data_cache, "default_sample_dataset", lambda: sample)
-    monkeypatch.setattr(page.data_cache, "dataset_choices", lambda: {sample.label: sample})
-    monkeypatch.setattr(page.data_cache, "load_dataset_from_path", lambda path: (df, meta))
+    monkeypatch.setattr(
+        page.data_cache, "dataset_choices", lambda: {sample.label: sample}
+    )
+    monkeypatch.setattr(
+        page.data_cache, "load_dataset_from_path", lambda path: (df, meta)
+    )
 
     stub.selectbox_map["Choose a sample"] = sample.label
     stub.selectbox_map["Benchmark column (optional)"] = "SPX Index"
@@ -230,4 +234,3 @@ def test_data_page_handles_generic_failure_with_plain_message(
     assert stub.captions[-1] == "Traceback: raw parser failure"
     report = page.st.session_state["validation_report"]
     assert report["detail"] == "Traceback: raw parser failure"
-

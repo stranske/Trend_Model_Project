@@ -44,7 +44,9 @@ def _render_validation(meta: SchemaMeta | dict[str, Any]) -> None:
             st.write(f"• {warning}")
 
 
-def _store_dataset(df: pd.DataFrame, meta: SchemaMeta | dict[str, Any], key: str) -> None:
+def _store_dataset(
+    df: pd.DataFrame, meta: SchemaMeta | dict[str, Any], key: str
+) -> None:
     app_state.store_validated_data(df, meta)
     st.session_state["data_loaded_key"] = key
     st.session_state["data_fingerprint"] = data_cache.cache_key_for_frame(df)
@@ -66,9 +68,7 @@ def _store_dataset(df: pd.DataFrame, meta: SchemaMeta | dict[str, Any], key: str
 def _handle_failure(error: Exception) -> None:
     issues: list[str] | None = None
     detail: str | None = None
-    message = (
-        "We couldn't process the file. Please confirm the format and try again."
-    )
+    message = "We couldn't process the file. Please confirm the format and try again."
     if isinstance(error, MarketDataValidationError):
         message = error.user_message
         issues = list(error.issues)
@@ -136,7 +136,11 @@ def render_data_page() -> None:
         options.append("Sample dataset")
     options.append("Upload your own")
 
-    default_index = 0 if st.session_state.get("data_source", "Sample dataset") == "Sample dataset" else 1
+    default_index = (
+        0
+        if st.session_state.get("data_source", "Sample dataset") == "Sample dataset"
+        else 1
+    )
     source = st.radio("Data source", options, index=default_index)
     st.session_state["data_source"] = source
 
@@ -168,19 +172,32 @@ def render_data_page() -> None:
         if uploaded is not None:
             _load_uploaded_dataset(uploaded)
         elif not app_state.has_valid_upload():
-            st.info("No dataset loaded yet. Switch to the sample tab for a quick start.")
+            st.info(
+                "No dataset loaded yet. Switch to the sample tab for a quick start."
+            )
 
     if app_state.has_valid_upload():
         df, meta = app_state.get_uploaded_data()
         if df is not None:
             candidates = st.session_state.get("benchmark_candidates", [])
             if candidates:
-                default_bench = st.session_state.get("selected_benchmark", candidates[0])
-                bench = st.selectbox("Benchmark column (optional)", ["None"] + candidates, index=(candidates.index(default_bench) + 1 if default_bench in candidates else 0))
-                st.session_state["selected_benchmark"] = None if bench == "None" else bench
+                default_bench = st.session_state.get(
+                    "selected_benchmark", candidates[0]
+                )
+                bench = st.selectbox(
+                    "Benchmark column (optional)",
+                    ["None"] + candidates,
+                    index=(
+                        candidates.index(default_bench) + 1
+                        if default_bench in candidates
+                        else 0
+                    ),
+                )
+                st.session_state["selected_benchmark"] = (
+                    None if bench == "None" else bench
+                )
             else:
                 st.caption("No benchmark columns detected.")
 
 
 render_data_page()
-

@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Mapping, MutableMapping, Optional
+from collections import defaultdict
+from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Optional
 
 import streamlit as st
 
@@ -12,6 +13,64 @@ from trend_analysis.signal_presets import (
     list_trend_spec_presets,
 )
 from trend_analysis.signals import TrendSpec
+
+
+def _normalise_identifier(token: str) -> str:
+    return token.strip().lower().replace(" ", "_")
+
+
+_ERROR_FIELD_ALIASES: Dict[str, str] = {
+    "target_vol": "risk_target",
+    "target_volatility": "risk_target",
+    "risk_target": "risk_target",
+    "csv_path": "column_mapping",
+    "file_path": "column_mapping",
+    "column_mapping": "column_mapping",
+    "date_column": "date_column",
+    "date": "date_column",
+}
+
+_ERROR_SECTION_DEFAULTS: Dict[str, str] = {
+    "vol_adjust": "risk_target",
+    "volatility": "risk_target",
+    "vol": "risk_target",
+    "data": "column_mapping",
+}
+
+
+def _resolve_error_target(path_tokens: Iterable[str]) -> str:
+    tokens: List[str] = [_normalise_identifier(tok) for tok in path_tokens]
+    for token in reversed(tokens):
+        if token in _ERROR_FIELD_ALIASES:
+            return _ERROR_FIELD_ALIASES[token]
+    for token in tokens:
+        if token in _ERROR_SECTION_DEFAULTS:
+            return _ERROR_SECTION_DEFAULTS[token]
+    return "general"
+
+
+def _map_payload_errors(messages: Iterable[str]) -> Dict[str, List[str]]:
+    """Map backend validation errors to Configure page input fields."""
+
+    mapped: Dict[str, List[str]] = defaultdict(list)
+    for raw in messages:
+        if not raw:
+            continue
+        text = str(raw).strip()
+        if not text:
+            continue
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        if not lines:
+            continue
+        path_line = lines[0]
+        if "->" in path_line:
+            path_tokens = [seg.strip() for seg in path_line.split("->") if seg.strip()]
+        else:
+            path_tokens = [path_line]
+        field = _resolve_error_target(path_tokens)
+        message_text = text
+        mapped[field].append(message_text)
+    return dict(mapped)
 
 
 def _trend_spec_defaults_from_spec(spec: Optional[TrendSpec] = None) -> Dict[str, Any]:
@@ -60,10 +119,13 @@ def _normalise_trend_spec_values(values: Mapping[str, Any]) -> Dict[str, Any]:
     lag = _coerce_positive_int(values.get("lag"), defaults["lag"], minimum=1)
 
     min_periods_raw = values.get("min_periods")
-    try:
-        min_periods = int(min_periods_raw)
-    except (TypeError, ValueError):
+    if min_periods_raw is None:
         min_periods = 0
+    else:
+        try:
+            min_periods = int(min_periods_raw)
+        except (TypeError, ValueError):
+            min_periods = 0
     if min_periods < 0:
         min_periods = 0
     if min_periods > window:
@@ -71,10 +133,13 @@ def _normalise_trend_spec_values(values: Mapping[str, Any]) -> Dict[str, Any]:
 
     vol_adjust = _coerce_bool(values.get("vol_adjust", False))
     vol_target_raw = values.get("vol_target")
-    try:
-        vol_candidate = float(vol_target_raw)
-    except (TypeError, ValueError):
+    if vol_target_raw is None:
         vol_candidate = 0.0
+    else:
+        try:
+            vol_candidate = float(vol_target_raw)
+        except (TypeError, ValueError):
+            vol_candidate = 0.0
     if not vol_adjust or vol_candidate <= 0.0:
         vol_target = None
     else:
@@ -144,5 +209,6 @@ __all__ = [
     "render_trend_spec_settings",
     "_apply_trend_spec_preset_to_state",
     "_trend_spec_values_to_config",
+    "_map_payload_errors",
     "TrendSpec",
 ]

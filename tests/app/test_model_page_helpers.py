@@ -68,7 +68,9 @@ def model_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     return module
 
 
-def test_preset_defaults_uses_preset(monkeypatch: pytest.MonkeyPatch, model_module: ModuleType) -> None:
+def test_preset_defaults_uses_preset(
+    monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
+) -> None:
     fake = model_module.TrendSpecPreset(
         name="Test",
         description="",
@@ -153,4 +155,3 @@ def test_render_model_page_clears_cached_results(
     assert stub.clear_calls == initial_clears + 1
     for key in ["analysis_result", "analysis_result_key", "analysis_error"]:
         assert key not in stub.session_state
-

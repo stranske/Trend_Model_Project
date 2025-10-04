@@ -15,6 +15,38 @@ CYAN='\033[0;36m'
 MAGENTA='\033[0;35m'
 NC='\033[0m'
 
+# Load shared formatter/tool version pins so local checks mirror CI
+if [[ -f ".github/workflows/autofix-versions.env" ]]; then
+    # shellcheck disable=SC1091
+    source .github/workflows/autofix-versions.env
+fi
+BLACK_VERSION=${BLACK_VERSION:-24.8.0}
+
+ensure_package_version() {
+    local package_name="$1"
+    local pinned_version="$2"
+    local module_name="${3:-$1}"
+
+    if [[ -z "$pinned_version" ]]; then
+        return 0
+    fi
+
+    local current_version
+    current_version=$(python - <<PY 2>/dev/null
+try:
+    import ${module_name} as _pkg  # type: ignore[import]
+    print(getattr(_pkg, "__version__", ""))
+except Exception:
+    print("")
+PY
+)
+
+    if [[ "$current_version" != "$pinned_version" ]]; then
+        echo -e "${YELLOW}Installing ${package_name}==${pinned_version} to match CI${NC}"
+        python -m pip install --disable-pip-version-check --quiet "${package_name}==${pinned_version}"
+    fi
+}
+
 # Configuration
 FULL_CHECK=false
 FIX_MODE=false
@@ -63,6 +95,8 @@ if [[ -z "$VIRTUAL_ENV" && -f ".venv/bin/activate" ]]; then
     source .venv/bin/activate > /dev/null 2>&1
     profile_step "Virtual environment activated"
 fi
+
+ensure_package_version black "$BLACK_VERSION"
 
 # When running under pytest, exit early to keep test suite fast
 if [[ -n "${PYTEST_CURRENT_TEST:-}" ]]; then
