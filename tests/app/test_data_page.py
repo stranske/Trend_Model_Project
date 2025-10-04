@@ -121,6 +121,16 @@ def data_page(monkeypatch: pytest.MonkeyPatch) -> tuple[ModuleType, DummyStreaml
 
     monkeypatch.setitem(sys.modules, "streamlit", module)
 
+    stub.clear_calls = 0
+
+    def mark_clear() -> None:
+        stub.clear_calls += 1
+
+    monkeypatch.setattr(
+        "streamlit_app.components.analysis_runner.clear_cached_analysis",
+        mark_clear,
+    )
+
     from app.streamlit import state as app_state
 
     monkeypatch.setattr(app_state, "st", module)
@@ -132,6 +142,9 @@ def data_page(monkeypatch: pytest.MonkeyPatch) -> tuple[ModuleType, DummyStreaml
 
 def test_data_page_autoloads_sample(monkeypatch: pytest.MonkeyPatch, data_page) -> None:
     page, stub = data_page
+
+    stub.session_state.clear()
+    stub.clear_calls = 0
 
     df = pd.DataFrame(
         {"FundA": [0.01, 0.02, -0.01], "SPX Index": [0.03, -0.02, 0.01]},
@@ -149,6 +162,8 @@ def test_data_page_autoloads_sample(monkeypatch: pytest.MonkeyPatch, data_page) 
     stub.selectbox_map["Benchmark column (optional)"] = "SPX Index"
     monkeypatch.setattr(page, "infer_benchmarks", lambda columns: ["SPX Index"])
 
+    initial_clears = stub.clear_calls
+
     page.render_data_page()
 
     assert stub.success_messages
@@ -156,10 +171,16 @@ def test_data_page_autoloads_sample(monkeypatch: pytest.MonkeyPatch, data_page) 
     assert page.app_state.has_valid_upload()
     assert page.st.session_state["selected_benchmark"] == "SPX Index"
     assert page.st.session_state["data_loaded_key"].startswith("sample::")
+    assert stub.clear_calls == initial_clears + 1
+    for key in ["analysis_result", "analysis_result_key", "analysis_error"]:
+        assert key not in page.st.session_state
 
 
 def test_data_page_upload_failure(monkeypatch: pytest.MonkeyPatch, data_page) -> None:
     page, stub = data_page
+
+    stub.session_state.clear()
+    stub.clear_calls = 0
 
     stub.radio_value = "Upload your own"
     stub.uploaded = DummyUpload("bad.csv", b"bad,data")
@@ -172,10 +193,13 @@ def test_data_page_upload_failure(monkeypatch: pytest.MonkeyPatch, data_page) ->
 
     monkeypatch.setattr(page.data_cache, "load_dataset_from_bytes", raise_error)
 
+    initial_clears = stub.clear_calls
+
     page.render_data_page()
 
     assert stub.error_messages
     assert page.st.session_state["upload_status"] == "error"
     assert page.st.session_state["returns_df"] is None
     assert page.st.session_state["validation_report"]["issues"] == ["unsorted index"]
+    assert stub.clear_calls == initial_clears
 

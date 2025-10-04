@@ -39,6 +39,9 @@ def test_clear_upload_data_removes_payload_but_resets_status(
             "benchmark_candidates": ["Bench"],
             "validation_report": {"ok": True},
             "upload_status": "success",
+            "analysis_result": "cached",
+            "analysis_result_key": "key",
+            "analysis_error": {"message": "boom"},
             "other": "keep-me",
         }
     )
@@ -54,6 +57,8 @@ def test_clear_upload_data_removes_payload_but_resets_status(
         assert key not in session_state
     assert session_state["upload_status"] == "pending"
     assert session_state["other"] == "keep-me"
+    for key in ["analysis_result", "analysis_result_key", "analysis_error"]:
+        assert key not in session_state
 
 
 def test_clear_upload_data_without_existing_payload(session_state: dict) -> None:
@@ -70,6 +75,14 @@ def test_store_and_read_validated_data_updates_state(session_state: dict) -> Non
     )
     meta = {"frequency": "Monthly", "validation": {"issues": [], "warnings": []}}
 
+    session_state.update(
+        {
+            "analysis_result": "stale",
+            "analysis_result_key": "old",
+            "analysis_error": {"message": "old"},
+        }
+    )
+
     state.store_validated_data(df, meta)
 
     stored_df, stored_meta = state.get_uploaded_data()
@@ -77,6 +90,8 @@ def test_store_and_read_validated_data_updates_state(session_state: dict) -> Non
     assert stored_meta is meta
     assert state.has_valid_upload()
     assert session_state["validation_report"] == meta["validation"]
+    for key in ["analysis_result", "analysis_result_key", "analysis_error"]:
+        assert key not in session_state
 
 
 def test_has_valid_upload_requires_success_status(session_state: dict) -> None:
@@ -107,6 +122,14 @@ def test_get_upload_summary_formats_output(
 
 
 def test_record_upload_error_sets_error_state(session_state: dict) -> None:
+    session_state.update(
+        {
+            "analysis_result": "cached",
+            "analysis_result_key": "key",
+            "analysis_error": {"message": "old"},
+        }
+    )
+
     state.record_upload_error("problem")
 
     assert session_state["returns_df"] is None
@@ -117,3 +140,22 @@ def test_record_upload_error_sets_error_state(session_state: dict) -> None:
         "issues": [],
     }
     assert session_state["upload_status"] == "error"
+    for key in ["analysis_result", "analysis_result_key", "analysis_error"]:
+        assert key not in session_state
+
+
+def test_clear_analysis_results_removes_cached_outputs(session_state: dict) -> None:
+    session_state.update(
+        {
+            "analysis_result": "cached",
+            "analysis_result_key": "key",
+            "analysis_error": {"message": "problem"},
+            "other": "stay",
+        }
+    )
+
+    state.clear_analysis_results()
+
+    for key in ["analysis_result", "analysis_result_key", "analysis_error"]:
+        assert key not in session_state
+    assert session_state["other"] == "stay"

@@ -14,6 +14,8 @@ from trend_analysis.signal_presets import (
 )
 from trend_analysis.signals import TrendSpec
 
+from streamlit_app.components import analysis_runner
+
 METRIC_FIELDS = [
     ("Sharpe", "sharpe"),
     ("Annual return", "return_ann"),
@@ -253,6 +255,8 @@ def render_model_page() -> None:
                 st.error("\n".join(f"• {err}" for err in errors))
             else:
                 st.session_state["model_state"] = candidate_state
+                analysis_runner.clear_cached_analysis()
+                app_state.clear_analysis_results()
                 st.success("Model configuration saved.")
 
 

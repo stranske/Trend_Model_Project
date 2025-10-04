@@ -39,13 +39,29 @@ def model_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
 
     monkeypatch.setitem(sys.modules, "streamlit", stub)
 
+    stub.clear_calls = 0
+
+    def mark_clear() -> None:
+        stub.clear_calls += 1
+
+    monkeypatch.setattr(
+        "streamlit_app.components.analysis_runner.clear_cached_analysis",
+        mark_clear,
+    )
+
     from app.streamlit import state as app_state
 
     monkeypatch.setattr(app_state, "initialize_session_state", lambda: None)
+    monkeypatch.setattr(app_state, "st", stub)
     monkeypatch.setattr(
         app_state,
         "get_uploaded_data",
-        lambda: (pd.DataFrame({"A": [0.01, 0.02]}), {}),
+        lambda: (
+            pd.DataFrame(
+                {f"A{i}": [0.01 + i * 0.001, 0.02 + i * 0.001] for i in range(12)}
+            ),
+            {},
+        ),
     )
 
     module = importlib.reload(importlib.import_module("streamlit_app.pages.2_Model"))
@@ -110,4 +126,31 @@ def test_validate_model_catches_errors(model_module: ModuleType) -> None:
     assert any("Minimum periods" in err for err in errors)
     assert any("positive metric weight" in err for err in errors)
     assert any("volatility target" in err for err in errors)
+
+
+def test_render_model_page_clears_cached_results(
+    monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
+) -> None:
+    stub = model_module.st
+
+    stub.session_state.clear()
+    stub.clear_calls = 0
+
+    stub.form_submit_button = lambda *_args, **_kwargs: True
+
+    stub.session_state.update(
+        {
+            "analysis_result": "cached",
+            "analysis_result_key": "old",
+            "analysis_error": {"message": "previous"},
+        }
+    )
+
+    initial_clears = stub.clear_calls
+
+    model_module.render_model_page()
+
+    assert stub.clear_calls == initial_clears + 1
+    for key in ["analysis_result", "analysis_result_key", "analysis_error"]:
+        assert key not in stub.session_state
 

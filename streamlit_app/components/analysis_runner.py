@@ -255,3 +255,11 @@ def run_analysis(df: pd.DataFrame, model_state: Mapping[str, Any], benchmark: st
     blob = _hashable_model_state(model_state)
     return run_cached_analysis(df, blob, benchmark)
 
+
+def clear_cached_analysis() -> None:
+    """Invalidate any cached analysis results."""
+
+    clear_fn = getattr(run_cached_analysis, "clear", None)
+    if callable(clear_fn):
+        clear_fn()
+
