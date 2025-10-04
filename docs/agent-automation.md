@@ -17,7 +17,7 @@ Issue labeled agent:codex    ──▶ agents-41-assign.yml (wrapper)
                               ▼
                 agents-42-watchdog.yml (wrapper) ──▶ delegates manual watchdog runs when needed
                               │
-PR opened/updated            ──▶ label-agent-prs.yml (pull_request_target) → idempotent labeling
+PR opened/updated            ──▶ agents-46-label-agent-prs.yml (pull_request_target) → idempotent labeling
                               │
 PR (any)                     ──▶ autofix-consumer.yml (pull_request) → composite autofix action
                               │
@@ -32,7 +32,7 @@ Triggers: `workflow_dispatch`, scheduled sweep (`*/30 * * * *`). Label events ar
 Responsibilities:
 - Resolve incoming events (manual overrides, forwarded label/unlabel payloads, scheduled sweeps) and determine the required operation.
 - Call `reusable-90-agents.yml` for readiness probes so assignment and stale sweeps share a single availability check path.
-- Assign Copilot / Codex automation accounts, post trigger commands, and run Codex bootstrap via `.github/actions/codex-bootstrap-lite` with fallback to `codex-issue-bridge.yml` when required.
+- Assign Copilot / Codex automation accounts, post trigger commands, and run Codex bootstrap via `.github/actions/codex-bootstrap-lite` with fallback to `agents-43-codex-issue-bridge.yml` when required.
 - Monitor for cross-referenced PRs (when requested) and emit ✅/⚠️ watchdog comments.
 - Clear assignments when agent labels are removed and sweep for stale issues; ping active agents or escalate when they are unavailable.
 
@@ -62,7 +62,7 @@ Highlights:
 - Interface-compatible with the previous direct watchdog run (issue, agent, timeout, expected PR inputs).
 - Keeps historical links and documentation stable while centralising logic in the unified workflow.
 
-### 4. `label-agent-prs.yml`
+### 4. `agents-46-label-agent-prs.yml`
 Trigger: `pull_request_target` (opened, synchronize, reopened).
 
 Rationale for `pull_request_target`:
@@ -72,7 +72,7 @@ Rationale for `pull_request_target`:
 
 Idempotent: computes label delta and applies only missing labels.
 
-### 5. `autofix.yml`
+### 5. `maint-32-autofix.yml`
 Trigger: `workflow_run` for the `CI` workflow (types: `completed`).
 
 Jobs:
@@ -85,7 +85,7 @@ Other behavior:
 - Restores/updates `autofix:clean` vs `autofix:debt` labels based on residual diagnostics.
 - Uploads summary sections so maintainers can see eligibility decisions directly from the run.
 
-### 6. `cleanup-codex-bootstrap.yml`
+### 6. `maint-31-codex-bootstrap-cleanup.yml`
 Scheduled cleanup of stale `agents/codex-issue-*` branches beyond age threshold.
 
 ## Composite Action: `.github/actions/autofix`

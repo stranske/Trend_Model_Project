@@ -26,7 +26,7 @@ which is the same payload surfaced in the gate orchestrator job.
 
 ## Gate integration
 
-`gate-orchestrator.yml` job `orchestrator / quarantine-ttl` imports the same
+`pr-18-gate-orchestrator.yml` job `orchestrator / quarantine-ttl` imports the same
 validator so expired entries fail the PR gate immediately. The gate job emits a
 message such as:
 

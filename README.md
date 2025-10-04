@@ -1,6 +1,6 @@
 # Trend Model Project
 
-[![CI](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-10-ci-python.yml/badge.svg?branch=phase-2-dev)](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-10-ci-python.yml) [![Codex Verification (Latest)](https://github.com/stranske/Trend_Model_Project/actions/workflows/verify-codex-bootstrap-matrix.yml/badge.svg?branch=phase-2-dev)](https://github.com/stranske/Trend_Model_Project/actions/workflows/verify-codex-bootstrap-matrix.yml) [![Codex Verification Guide](https://img.shields.io/badge/codex--verification-docs-blueviolet)](docs/codex-simulation.md)
+[![CI](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-10-ci-python.yml/badge.svg?branch=phase-2-dev)](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-10-ci-python.yml) [![Codex Verification (Latest)](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-47-verify-codex-bootstrap-matrix.yml/badge.svg?branch=phase-2-dev)](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-47-verify-codex-bootstrap-matrix.yml) [![Codex Verification Guide](https://img.shields.io/badge/codex--verification-docs-blueviolet)](docs/codex-simulation.md)
 
 > **🚀 New User?** → **[Quick Start Guide](docs/quickstart.md)** — Get your first analysis running in under 10 minutes!
 
@@ -8,7 +8,7 @@ This repository contains experiments and utilities for analyzing volatility-adju
 
 For a beginner-friendly overview, see [docs/UserGuide.md](docs/UserGuide.md).
 
-📦 **Reusable CI & Automation**: Standardise tests, autofix, and agent automation across repositories using the new reusable workflows documented in [docs/ci_reuse.md](docs/ci_reuse.md). Consumers call `reuse-ci-python.yml`, `reuse-autofix.yml`, and the unified agent orchestrator `agents-41-assign-and-watch.yml` (invoked via the lightweight wrappers `agents-41-assign.yml` / `agents-42-watchdog.yml`).
+📦 **Reusable CI & Automation**: Standardise tests, autofix, and agent automation across repositories using the new reusable workflows documented in [docs/ci_reuse.md](docs/ci_reuse.md). Consumers call `reusable-92-ci-python.yml`, `reusable-91-autofix.yml`, and the unified agent orchestrator `agents-41-assign-and-watch.yml` (invoked via the lightweight wrappers `agents-41-assign.yml` / `agents-42-watchdog.yml`).
 
 🔁 **Layered Test Workflow (Phases 1–3)**: The staged metrics → history/classification → coverage delta reusable workflow implemented in this repository is documented in [docs/ci-workflow.md](docs/ci-workflow.md). All advanced phases are disabled by default for back‑compat.
 

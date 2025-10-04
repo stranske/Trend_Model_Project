@@ -35,7 +35,7 @@ maint-3x maintenance series introduced for Issue 1664.
    identify the offending file and push a corrective PR. The gate orchestrator
    runs the same lint, so broken syntax will also block merges.
 3. **Version drift** — actionlint is pinned; if you need a newer version, update
-   both `maint-36-actionlint.yml` and `gate-orchestrator.yml` in the same PR and
+   both `maint-36-actionlint.yml` and `pr-18-gate-orchestrator.yml` in the same PR and
    record the change in `docs/workflow`.
 
 ## Common tooling
