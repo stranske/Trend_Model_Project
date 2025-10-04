@@ -52,16 +52,24 @@ def store_validated_data(df: pd.DataFrame, meta: dict):
     clear_analysis_results()
 
 
-def record_upload_error(message: str, issues: Sequence[str] | None = None) -> None:
+def record_upload_error(
+    message: str,
+    issues: Sequence[str] | None = None,
+    *,
+    detail: str | None = None,
+) -> None:
     """Persist an upload failure and clear any stale data."""
 
     st.session_state["returns_df"] = None
     st.session_state["schema_meta"] = None
     st.session_state["benchmark_candidates"] = []
-    st.session_state["validation_report"] = {
+    report = {
         "message": message,
         "issues": list(issues or []),
     }
+    if detail:
+        report["detail"] = detail
+    st.session_state["validation_report"] = report
     st.session_state["upload_status"] = "error"
     clear_analysis_results()
 
