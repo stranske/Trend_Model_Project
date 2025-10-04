@@ -358,6 +358,11 @@ def aggregate_performance_by_regime(
                 max_drawdown(subset_all)
             )
             table.loc["Hit Rate", (portfolio, "All")] = _format_hit_rate(subset_all)
+        else:
+            notes.append(
+                f"All-period aggregate for {portfolio} has fewer than "
+                f"{settings.min_obs} observations; metrics shown as N/A."
+            )
 
     if notes:
         # Deduplicate while preserving order

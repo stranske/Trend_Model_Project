@@ -70,6 +70,7 @@ def test_build_regime_payload_notes_for_insufficient_observations() -> None:
     )
     notes = payload["notes"]
     assert any("fewer than" in note.lower() for note in notes)
+    assert any("all-period aggregate" in note.lower() for note in notes)
 
 
 def test_build_regime_payload_volatility_method() -> None:
