@@ -119,7 +119,7 @@ Issue #1662 consolidated the assigner/watchdog pair into a single orchestrator. 
 - [ ] Identify old CI workflows to retire.
 - [ ] Introduce new consumer pointing at `reusable-ci-python.yml`.
 - [ ] Validate coverage gate matches previous policy.
-- [ ] Enable the autofix follower (`autofix.yml`) if policy allows automated commits.
+- [ ] Enable the autofix follower (`maint-32-autofix.yml`) if policy allows automated commits.
 - [ ] Add agents consumer (if using Codex automation).
 - [ ] Remove redundant workflows.
 
