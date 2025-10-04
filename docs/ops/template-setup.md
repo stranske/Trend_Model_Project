@@ -73,14 +73,14 @@ Security posture: The `pull_request_target` workflows in this template do not ch
 2. Add optional secrets in Section 2 (or skip if not needed).
 3. Verify default branch in workflows; adjust branch filters.
 4. If using Docker, set `IMAGE_NAME` and verify `HEALTH_*`.
-5. Run a small test PR to confirm labeling, merge manager automation, and autofix flows.
+5. Run a small test PR to confirm CI and autofix flows.
 
 ## 9. Troubleshooting
 
-- Merge manager fails with branch context error:
-  - Ensure `.github/workflows/maint-45-merge-manager.yml` passes `pull-request-number` when enabling auto-merge.
-- Labels not applied on fork PRs:
-  - Ensure `pr-02-label-agent-prs.yml` exists and `pull_request_target` triggers are enabled.
+- Merge automation removed:
+  - Issue #2190 retired `.github/workflows/maint-45-merge-manager.yml`; rely on manual reviews or add a custom workflow if automation is reintroduced.
+- Labels not auto-applied on fork PRs:
+  - The labeler workflow was removed in Issue #2190; apply labels manually or add a bespoke workflow if needed.
 - Autofix doesn’t push on forks:
   - This is intentional – download the patch artifact and apply locally.
 

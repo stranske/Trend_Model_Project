@@ -1,4 +1,4 @@
-name: Self-Test Reusable CI
+name: Reusable 99 Selftest
 
 on:
   workflow_dispatch:

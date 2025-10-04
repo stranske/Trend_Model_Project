@@ -7,14 +7,14 @@ All deprecated agent automation workflows were deleted from `.github/workflows/`
 
 | Legacy Workflow | Historical Archive Path | Replacement Path | Replacement Mode |
 |-----------------|-------------------------|------------------|------------------|
-| `agent-readiness.yml` | `archive/agent-readiness.yml` (deleted 2026-10-07) | `reuse-agents.yml` → `agents-41-assign-and-watch.yml` | `enable_readiness=true` |
-| `agent-watchdog.yml` | `archive/agent-watchdog.yml` (deleted 2026-10-07) | `reuse-agents.yml` → `agents-41-assign-and-watch.yml` | `enable_watchdog=true` |
+| `agent-readiness.yml` | `archive/agent-readiness.yml` (deleted 2026-10-07) | `reuse-agents.yml` → `agents-70-orchestrator.yml` | `enable_readiness=true` |
+| `agent-watchdog.yml` | `archive/agent-watchdog.yml` (deleted 2026-10-07) | `reuse-agents.yml` → `agents-70-orchestrator.yml` | `enable_watchdog=true` |
 | `codex-preflight.yml` | `archive/codex-preflight.yml` (deleted 2026-10-07) | `reuse-agents.yml` (legacy) | `enable_preflight=true` |
 | `codex-bootstrap-diagnostic.yml` | `archive/codex-bootstrap-diagnostic.yml` (deleted 2026-10-07) | `reuse-agents.yml` (legacy) | `enable_diagnostic=true` |
 | `verify-agent-task.yml` | `archive/verify-agent-task.yml` (deleted 2026-10-07) | `reuse-agents.yml` (legacy) | `enable_verify_issue=true` |
 
 ## Additional Archived Workflows
-- (2026-02-07) `codex-issue-bridge.yml`, `reuse-agents.yml`, and `agents-consumer.yml` moved to the archive before the assigner/watchdog consolidation. The WFv1 renumbering landed in 2026-09 (`agents-40-consumer.yml`, `agents-41-assign-and-watch.yml`, wrappers, plus `reusable-90-agents.yml`).
+- (2026-02-07) `codex-issue-bridge.yml`, `reuse-agents.yml`, and `agents-consumer.yml` moved to the archive before the assigner/watchdog consolidation. The WFv1 renumbering landed in 2026-09 (`agents-40-consumer.yml`, `agents-41-assign-and-watch.yml`, wrappers, plus `reusable-90-agents.yml`) and was superseded by Issue #2190 (`agents-70-orchestrator.yml`, `reusable-70-agents.yml`).
 - (2026-09-30) Standalone `gate.yml` wrapper deleted (Issue #1657). Aggregation now lives exclusively in the `gate / all-required-green` job inside `pr-10-ci-python.yml`; no archived copy retained because the YAML was invalid.
 - (2026-10-05) `autoapprove.yml` and `enable-automerge.yml` permanently retired once `maint-45-merge-manager.yml` proved stable (guard test asserts documentation coverage).
 - (2026-10-05) `guard-no-reuse-pr-branches.yml` and `lint-verification.yml` removed after governance documentation and branch protection policies caught up with the consolidated CI stack.
@@ -28,7 +28,7 @@ All deprecated agent automation workflows were deleted from `.github/workflows/`
 - Legacy `autofix.yml` (pre-2025) was deleted during the earlier cleanup. As of 2026-02-15 a new consolidated `maint-32-autofix.yml` now drives both small fixes and trivial failure remediation; the former consumer wrappers have been removed.
 
 ## Rationale
-The 2025 cleanup centralized agent probe, diagnostic, and verification logic into `reuse-agents.yml`. In 2026 this was further simplified: `agents-41-assign-and-watch.yml` now owns assignment, bootstrap, watchdog, and stale sweep duties with thin wrappers preserved for backwards compatibility.
+The 2025 cleanup centralized agent probe, diagnostic, and verification logic into `reuse-agents.yml`. In 2026 this was further simplified: `agents-41-assign-and-watch.yml` and its wrappers gave way to the single `agents-70-orchestrator.yml` entry point that calls `reusable-70-agents.yml`.
 
 ## Rollback Procedure
 If a regression is traced to consolidation:
@@ -44,7 +44,7 @@ If a regression is traced to consolidation:
 ## Verification Checklist
 - [x] Archive index maintained: `ARCHIVE_WORKFLOWS.md`
 - [x] Stub headers inserted in original workflows marking ARCHIVED status
-- [x] Replacements confirmed operational (`agents-41-assign-and-watch.yml` present, wrappers maintained)
+- [x] Replacements confirmed operational (`agents-70-orchestrator.yml` present; legacy wrappers retired)
 - [x] 2026-10-08 audit logged (see "Verification log" in `WORKFLOW_AUDIT_TEMP.md`)
 
 ---
