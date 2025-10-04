@@ -11,11 +11,13 @@ st.set_page_config(
 st.title("Trend Portfolio Simulator")
 st.markdown(
     """
-Upload a CSV of manager returns and step through **Data → Model → Results**.
-The new layout guides you from dataset validation to configuration and analysis without touching Python.
+Welcome! Start on **Data** to load a CSV or try the bundled sample dataset,
+move to **Model** to choose presets and portfolio settings, then open
+**Results** for performance charts. Use **Export** to download outputs when
+you're happy with the configuration.
     """
 )
-st.info("Start with the Data tab to upload or load the bundled sample dataset.")
+st.info("Open '1_Data' in the sidebar to get started.")
 
 st.markdown("---")
 st.subheader("Quick start")

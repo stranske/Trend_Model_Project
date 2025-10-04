@@ -1,17 +1,20 @@
-"""Helpers for preparing inputs and running cached preprocessing for the app."""
+"""Helpers to execute the Trend analysis pipeline from the Streamlit UI."""
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, Mapping, Sequence
+from typing import Any, Mapping
 
 import pandas as pd
 import streamlit as st
 
-from trend_analysis.config import Config
-from trend_portfolio_app.policy_engine import MetricSpec, PolicyConfig
+from trend_analysis.config.legacy import Config
+from trend_analysis.signals import TrendSpec as TrendSpecModel
+from .data_cache import cache_key_for_frame
 
-PIPELINE_METRIC_ALIASES: Mapping[str, str] = {
+
+METRIC_REGISTRY = {
     "sharpe": "Sharpe",
     "return_ann": "AnnualReturn",
     "drawdown": "MaxDrawdown",
@@ -19,163 +22,236 @@ PIPELINE_METRIC_ALIASES: Mapping[str, str] = {
 }
 
 
-@dataclass(frozen=True)
-class ModelSettings:
-    """Persistent model settings captured from the Model page."""
+@dataclass
+class AnalysisPayload:
+    """Container describing the data required to run the analysis."""
 
-    lookback_months: int
-    rebalance_frequency: str
-    selection_count: int
-    risk_target: float
-    weighting_scheme: str
-    cooldown_months: int
-    min_track_months: int
-    metric_weights: Mapping[str, float]
-    trend_spec: Mapping[str, Any]
+    returns: pd.DataFrame
+    model_state: Mapping[str, Any]
     benchmark: str | None
 
 
-@st.cache_data(show_spinner=False)
-def prepare_returns_panel(
-    df: pd.DataFrame,
-    *,
-    date_index_name: str | None,
-    return_columns: Sequence[str],
-    benchmark_column: str | None,
-) -> pd.DataFrame:
-    """Return a returns panel ready for the simulation pipeline."""
-
-    work = df.copy()
-    work.index = pd.to_datetime(work.index)
-    work = work.sort_index()
-
-    keep_cols = list(return_columns)
-    if benchmark_column and benchmark_column not in keep_cols:
-        keep_cols.append(benchmark_column)
-    panel = work[keep_cols].copy()
-    panel.reset_index(inplace=True)
-    panel.rename(columns={panel.columns[0]: date_index_name or "Date"}, inplace=True)
-    panel[panel.columns[0]] = pd.to_datetime(panel[panel.columns[0]]).dt.normalize()
-    return panel
+def _coerce_positive_int(value: Any, *, default: int, minimum: int = 1) -> int:
+    try:
+        as_int = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(as_int, minimum)
 
 
-def _normalise_metric_weights(weights: Mapping[str, float]) -> Dict[str, float]:
-    normed: Dict[str, float] = {}
-    for metric, weight in weights.items():
-        try:
-            val = float(weight)
-        except (TypeError, ValueError):
-            continue
-        if val <= 0:
-            continue
-        key = str(metric).lower()
-        normed[key] = val
-    total = float(sum(normed.values()))
-    if total <= 0:
-        default = 1.0 / 3
-        return {"sharpe": default, "return_ann": default, "drawdown": default}
-    return {name: val / total for name, val in normed.items()}
+def _coerce_positive_float(value: Any, *, default: float) -> float:
+    try:
+        as_float = float(value)
+    except (TypeError, ValueError):
+        return default
+    return max(as_float, 0.0)
 
 
-def build_policy_config(settings: ModelSettings) -> PolicyConfig:
-    weights = _normalise_metric_weights(settings.metric_weights)
-    metrics = [
-        MetricSpec(name=metric, weight=weight)
-        for metric, weight in weights.items()
-    ]
-    return PolicyConfig(
-        top_k=settings.selection_count,
-        bottom_k=0,
-        cooldown_months=settings.cooldown_months,
-        min_track_months=settings.min_track_months,
-        max_active=max(settings.selection_count * 2, 50),
-        max_weight=0.15,
-        metrics=metrics,
+def _month_end(ts: pd.Timestamp) -> pd.Timestamp:
+    stamp = pd.Timestamp(ts)
+    period = stamp.to_period("M")
+    return period.to_timestamp("M", how="end")
+
+
+def _build_sample_split(index: pd.DatetimeIndex, config: Mapping[str, Any]) -> dict[str, str]:
+    if index.empty:
+        raise ValueError("Dataset is empty")
+
+    lookback_months = _coerce_positive_int(
+        config.get("lookback_months"), default=36, minimum=1
+    )
+    evaluation_months = _coerce_positive_int(
+        config.get("evaluation_months"), default=12, minimum=1
     )
 
+    last = _month_end(index.max())
+    first = _month_end(index.min())
+    out_start = _month_end(last - pd.DateOffset(months=evaluation_months - 1))
+    if out_start < first:
+        out_start = first
+    in_end = _month_end(out_start - pd.DateOffset(months=1))
+    if in_end < first:
+        in_end = first
+    in_start = _month_end(in_end - pd.DateOffset(months=lookback_months - 1))
+    if in_start < first:
+        in_start = first
 
-@st.cache_data(show_spinner=False)
-def derive_analysis_window(
-    index: Iterable[pd.Timestamp], *, lookback_months: int
-) -> tuple[pd.Timestamp, pd.Timestamp]:
-    """Determine the analysis window given an index and lookback."""
-
-    index = pd.to_datetime(pd.Index(list(index))).sort_values()
-    if index.empty:
-        raise ValueError("Dataset has no rows")
-    periods = index.to_period("M")
-    unique = periods.unique().sort_values()
-    if len(unique) <= lookback_months + 2:
-        raise ValueError(
-            "Not enough history for the selected lookback. Reduce the window length."
-        )
-    # Find the first date in the index matching the start period
-    start_period = unique[lookback_months]
-    end_period = unique[-1]
-    start = index[periods == start_period][0]
-    end = index[periods == end_period][-1]
-    return start, end
-
-
-def build_pipeline_config(
-    *,
-    settings: ModelSettings,
-    policy: PolicyConfig,
-    start: pd.Timestamp,
-    end: pd.Timestamp,
-    benchmark: str | None,
-) -> Config:
-    """Construct a Trend pipeline ``Config`` for the run."""
-
-    lookback = int(settings.lookback_months)
-    sample_split = {
-        "in_start": (start - pd.DateOffset(months=lookback)).strftime("%Y-%m"),
-        "in_end": (start - pd.DateOffset(months=1)).strftime("%Y-%m"),
-        "out_start": start.strftime("%Y-%m"),
-        "out_end": end.strftime("%Y-%m"),
+    return {
+        "in_start": in_start.strftime("%Y-%m"),
+        "in_end": in_end.strftime("%Y-%m"),
+        "out_start": out_start.strftime("%Y-%m"),
+        "out_end": last.strftime("%Y-%m"),
     }
 
-    weights = _normalise_metric_weights(settings.metric_weights)
-    blended_weights = {
-        PIPELINE_METRIC_ALIASES.get(metric, metric): float(weight)
+
+def _build_signals_config(config: Mapping[str, Any]) -> dict[str, Any]:
+    base = TrendSpecModel()
+    window = _coerce_positive_int(config.get("window"), default=base.window)
+    lag = _coerce_positive_int(config.get("lag"), default=base.lag)
+    min_periods_raw = config.get("min_periods")
+    try:
+        min_periods = int(min_periods_raw) if min_periods_raw not in (None, "") else None
+    except (TypeError, ValueError):
+        min_periods = None
+    if min_periods is not None and min_periods <= 0:
+        min_periods = None
+    if min_periods is not None and min_periods > window:
+        min_periods = window
+
+    vol_adjust = bool(config.get("vol_adjust", base.vol_adjust))
+    vol_target_raw = config.get("vol_target")
+    try:
+        vol_target = float(vol_target_raw) if vol_target_raw is not None else None
+    except (TypeError, ValueError):
+        vol_target = None
+    if vol_target is not None and vol_target <= 0:
+        vol_target = None
+    if not vol_adjust:
+        vol_target = None
+
+    zscore = bool(config.get("zscore", base.zscore))
+
+    payload: dict[str, Any] = {
+        "kind": base.kind,
+        "window": window,
+        "lag": lag,
+        "vol_adjust": vol_adjust,
+        "zscore": zscore,
+    }
+    if min_periods is not None:
+        payload["min_periods"] = min_periods
+    if vol_target is not None:
+        payload["vol_target"] = vol_target
+    return payload
+
+
+def _normalise_metric_weights(raw: Mapping[str, Any]) -> dict[str, float]:
+    weights: dict[str, float] = {}
+    for name, value in raw.items():
+        if name not in METRIC_REGISTRY:
+            continue
+        try:
+            weight = float(value)
+        except (TypeError, ValueError):
+            continue
+        if weight <= 0:
+            continue
+        weights[name] = weight
+    if not weights:
+        default = 1.0 / 3
+        return {
+            "sharpe": default,
+            "return_ann": default,
+            "drawdown": default,
+        }
+    total = sum(weights.values())
+    return {name: weight / total for name, weight in weights.items()}
+
+
+def _build_portfolio_config(config: Mapping[str, Any], weights: Mapping[str, float]) -> dict[str, Any]:
+    selection_count = _coerce_positive_int(
+        config.get("selection_count"), default=10, minimum=1
+    )
+    weighting_scheme = str(config.get("weighting_scheme", "equal") or "equal")
+    registry_weights = {
+        METRIC_REGISTRY.get(metric, metric): float(weight)
         for metric, weight in weights.items()
     }
-
-    registry = list(blended_weights.keys())
-    portfolio = {
+    return {
         "selection_mode": "rank",
         "rank": {
             "inclusion_approach": "top_n",
-            "n": settings.selection_count,
+            "n": selection_count,
             "score_by": "blended",
-            "blended_weights": blended_weights,
+            "blended_weights": registry_weights,
         },
-        "weighting_scheme": settings.weighting_scheme,
+        "weighting_scheme": weighting_scheme,
     }
-    benchmarks = {benchmark: benchmark} if benchmark else {}
 
-    config = Config(
+
+def _build_config(payload: AnalysisPayload) -> Config:
+    state = payload.model_state
+    weights = _normalise_metric_weights(state.get("metric_weights", {}))
+    sample_split = _build_sample_split(payload.returns.index, state)
+    vol_target = _coerce_positive_float(state.get("risk_target"), default=0.1)
+    signals_cfg = _build_signals_config(state.get("trend_spec", {}))
+    portfolio_cfg = _build_portfolio_config(state, weights)
+
+    metrics_registry = [METRIC_REGISTRY.get(name, name) for name in weights]
+
+    benchmark_map: dict[str, str] = {}
+    if payload.benchmark:
+        benchmark_map[payload.benchmark] = payload.benchmark
+
+    return Config(
         version="1",
         data={},
-        preprocessing={"trend": dict(settings.trend_spec)},
+        preprocessing={},
         vol_adjust={
-            "target_vol": float(settings.risk_target),
+            "target_vol": vol_target,
             "floor_vol": 0.015,
-            "warmup_periods": 0,
+            "warmup_periods": int(state.get("warmup_periods", 0) or 0),
         },
         sample_split=sample_split,
-        portfolio=portfolio,
-        benchmarks=benchmarks,
-        metrics={"registry": registry},
+        portfolio=portfolio_cfg,
+        benchmarks=benchmark_map,
+        metrics={"registry": metrics_registry},
         export={},
-        run={"trend_preset": None},
+        run={"trend_preset": state.get("trend_spec_preset")},
     )
-    config.policy = policy.dict()
-    return config
 
 
-def clear_preprocessing_caches() -> None:
-    """Clear cached preprocessing helpers."""
+def _prepare_returns(df: pd.DataFrame) -> pd.DataFrame:
+    reset = df.reset_index()
+    index_name = df.index.name or "Date"
+    return reset.rename(columns={index_name: "Date"})
 
-    prepare_returns_panel.clear()
-    derive_analysis_window.clear()
+
+def _run_analysis(payload: AnalysisPayload):
+    from trend_analysis.api import run_simulation
+
+    config = _build_config(payload)
+    returns = _prepare_returns(payload.returns)
+    return run_simulation(config, returns)
+
+
+def _hashable_model_state(state: Mapping[str, Any]) -> str:
+    return json.dumps(state, sort_keys=True, default=str)
+
+
+@st.cache_data(show_spinner="Running analysis…", hash_funcs={pd.DataFrame: cache_key_for_frame})
+def run_cached_analysis(
+    returns: pd.DataFrame, model_state_blob: str, benchmark: str | None
+):
+    """
+    Run the analysis pipeline with caching.
+
+    Parameters
+    ----------
+    returns : pd.DataFrame
+        DataFrame containing asset returns, indexed by date.
+    model_state_blob : str
+        JSON-serialized model state containing analysis configuration.
+    benchmark : str or None
+        Optional benchmark identifier for the analysis.
+
+    Returns
+    -------
+    Any
+        The result of the analysis pipeline, as returned by `run_simulation`.
+    """
+    model_state = json.loads(model_state_blob)
+    payload = AnalysisPayload(
+        returns=returns,
+        model_state=model_state,
+        benchmark=benchmark,
+    )
+    return _run_analysis(payload)
+
+
+def run_analysis(df: pd.DataFrame, model_state: Mapping[str, Any], benchmark: str | None):
+    """Execute the cached analysis pipeline."""
+
+    blob = _hashable_model_state(model_state)
+    return run_cached_analysis(df, blob, benchmark)
+

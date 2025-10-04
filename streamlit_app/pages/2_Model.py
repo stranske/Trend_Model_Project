@@ -1,329 +1,260 @@
-"""Model configuration page with TrendSpec presets and validation."""
+"""Model configuration page for the Streamlit application."""
 
 from __future__ import annotations
 
-from typing import Any, Dict, Mapping
+from typing import Any, Mapping
 
 import streamlit as st
 
 from app.streamlit import state as app_state
-from streamlit_app.components.analysis_runner import (
-    ModelSettings,
-    clear_preprocessing_caches,
+from trend_analysis.signal_presets import (
+    TrendSpecPreset,
+    get_trend_spec_preset,
+    list_trend_spec_presets,
 )
-from trend_analysis.signal_presets import get_trend_spec_preset, list_trend_spec_presets
 from trend_analysis.signals import TrendSpec
-from trend_portfolio_app.metrics_extra import AVAILABLE_METRICS
+
+METRIC_FIELDS = [
+    ("Sharpe", "sharpe"),
+    ("Annual return", "return_ann"),
+    ("Max drawdown", "drawdown"),
+]
 
 
-DEFAULT_METRIC_WEIGHTS: Dict[str, float] = {
-    "sharpe": 0.5,
-    "return_ann": 0.3,
-    "drawdown": 0.2,
-}
+def _baseline_trend_spec() -> TrendSpec:
+    return TrendSpec()
 
 
-def _trend_defaults(preset_name: str | None) -> Dict[str, Any]:
-    if preset_name:
-        try:
-            preset = get_trend_spec_preset(preset_name)
-        except KeyError:
-            preset = None
-        if preset is not None:
-            return dict(preset.form_defaults())
-    spec = TrendSpec()
-    return {
-        "window": int(spec.window),
-        "min_periods": int(spec.min_periods) if spec.min_periods else spec.window,
-        "lag": int(spec.lag),
-        "vol_adjust": bool(spec.vol_adjust),
-        "vol_target": float(spec.vol_target) if spec.vol_target else 0.1,
-        "zscore": bool(spec.zscore),
-    }
-
-
-def _build_trend_payload(values: Mapping[str, Any]) -> Dict[str, Any]:
-    spec = TrendSpec(
-        window=int(values.get("window", 126)),
-        min_periods=int(values.get("min_periods", 0)) or None,
-        lag=max(int(values.get("lag", 1)), 1),
-        vol_adjust=bool(values.get("vol_adjust", False)),
-        vol_target=(
-            float(values.get("vol_target", 0.0))
-            if bool(values.get("vol_adjust", False))
-            else None
-        ),
-        zscore=bool(values.get("zscore", False)),
-    )
-    payload: Dict[str, Any] = {
-        "kind": spec.kind,
+def _preset_defaults(name: str | None) -> dict[str, Any]:
+    if not name or name.lower() in {"baseline", "custom"}:
+        spec = _baseline_trend_spec()
+        return {
+            "window": spec.window,
+            "lag": spec.lag,
+            "min_periods": spec.min_periods or spec.window,
+            "vol_adjust": spec.vol_adjust,
+            "vol_target": spec.vol_target or 0.0,
+            "zscore": spec.zscore,
+        }
+    try:
+        preset = get_trend_spec_preset(name)
+    except KeyError:
+        return _preset_defaults(None)
+    spec = preset.spec if isinstance(preset, TrendSpecPreset) else TrendSpec()
+    defaults = {
         "window": spec.window,
         "lag": spec.lag,
+        "min_periods": spec.min_periods or spec.window,
         "vol_adjust": spec.vol_adjust,
+        "vol_target": spec.vol_target or 0.0,
         "zscore": spec.zscore,
     }
-    if spec.min_periods is not None:
-        payload["min_periods"] = spec.min_periods
-    if spec.vol_target is not None:
-        payload["vol_target"] = spec.vol_target
-    return payload
+    return defaults
 
 
-def _normalise_weights(raw: Mapping[str, float]) -> Dict[str, float]:
-    weights = {str(k).lower(): float(v) for k, v in raw.items() if float(v) > 0}
-    total = sum(weights.values())
-    if total <= 0:
-        return dict(DEFAULT_METRIC_WEIGHTS)
-    return {metric: value / total for metric, value in weights.items()}
+def _coerce_positive_int(value: Any, *, default: int, minimum: int = 1) -> int:
+    try:
+        coerced = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(coerced, minimum)
 
 
-def _existing_settings() -> ModelSettings | None:
-    value = st.session_state.get("model_settings")
-    return value if isinstance(value, ModelSettings) else None
+def _coerce_non_negative_float(value: Any, *, default: float) -> float:
+    try:
+        coerced = float(value)
+    except (TypeError, ValueError):
+        return default
+    return max(coerced, 0.0)
 
 
-def _existing_mapping(df: pd.DataFrame) -> Dict[str, Any]:
-    mapping = st.session_state.get("model_column_mapping")
-    if isinstance(mapping, dict) and mapping.get("return_columns"):
-        return dict(mapping)
-    benchmark = st.session_state.get("selected_benchmark")
+def _trend_spec_from_form(values: Mapping[str, Any]) -> dict[str, Any]:
+    window = _coerce_positive_int(values.get("window"), default=63, minimum=1)
+    lag = _coerce_positive_int(values.get("lag"), default=1, minimum=1)
+    if lag > window:
+        lag = window
+    min_periods = _coerce_positive_int(
+        values.get("min_periods"), default=window, minimum=1
+    )
+    if min_periods > window:
+        min_periods = window
+    vol_adjust = bool(values.get("vol_adjust", False))
+    vol_target = _coerce_non_negative_float(values.get("vol_target"), default=0.0)
+    if not vol_adjust or vol_target <= 0:
+        vol_target = 0.0
+    zscore = bool(values.get("zscore", False))
     return {
-        "date_column": df.index.name or "Date",
-        "return_columns": [col for col in df.columns if col != benchmark],
-        "benchmark_column": benchmark,
+        "window": window,
+        "lag": lag,
+        "min_periods": min_periods,
+        "vol_adjust": vol_adjust,
+        "vol_target": vol_target,
+        "zscore": zscore,
     }
 
 
-def main() -> None:
+def _validate_model(values: Mapping[str, Any], column_count: int) -> list[str]:
+    errors: list[str] = []
+    trend_spec = values.get("trend_spec", {})
+    window = trend_spec.get("window", 63)
+    lag = trend_spec.get("lag", 1)
+    if lag > window:
+        errors.append("Lag must be less than or equal to the lookback window.")
+    min_periods = trend_spec.get("min_periods", window)
+    if min_periods > window:
+        errors.append("Minimum periods cannot exceed the window length.")
+    selection = values.get("selection_count", 10)
+    if column_count and selection > column_count:
+        errors.append(
+            f"Selection count ({selection}) cannot exceed available assets ({column_count})."
+        )
+    weights = values.get("metric_weights", {})
+    if not any(float(w or 0) > 0 for w in weights.values()):
+        errors.append("Provide at least one positive metric weight.")
+    if trend_spec.get("vol_adjust") and trend_spec.get("vol_target", 0.0) <= 0:
+        errors.append("Set a positive volatility target when volatility adjustment is on.")
+    return errors
+
+
+def _initial_model_state() -> dict[str, Any]:
+    defaults = _preset_defaults("Baseline")
+    return {
+        "trend_spec_preset": "Baseline",
+        "trend_spec": defaults,
+        "lookback_months": 36,
+        "evaluation_months": 12,
+        "selection_count": 10,
+        "weighting_scheme": "equal",
+        "metric_weights": {code: 1.0 for _, code in METRIC_FIELDS},
+        "risk_target": 0.1,
+        "warmup_periods": 0,
+    }
+
+
+def render_model_page() -> None:
     app_state.initialize_session_state()
-    st.title("🧠 Model")
-    df = st.session_state.get("returns_df")
+    st.title("Model")
+
+    df, _ = app_state.get_uploaded_data()
     if df is None:
-        st.error("Load a dataset on the Data page before configuring the model.")
-        st.stop()
+        st.error("Load data on the Data page before configuring the model.")
+        return
 
-    mapping_defaults = _existing_mapping(df)
-    settings_defaults = _existing_settings()
+    model_state = st.session_state.setdefault("model_state", _initial_model_state())
 
-    st.caption(
-        "Choose how the Trend model should behave. Presets provide sensible TrendSpec values, "
-        "and validation guards against impossible combinations."
-    )
+    preset_options = ["Baseline"] + sorted(list_trend_spec_presets()) + ["Custom"]
+    current_preset = model_state.get("trend_spec_preset")
+    if not current_preset:
+        current_preset = "Custom" if model_state.get("trend_spec") else "Baseline"
+    try:
+        preset_index = preset_options.index(current_preset)
+    except ValueError:
+        preset_index = 0
 
-    preset_options = ["Custom"] + list(list_trend_spec_presets())
-    preset_default = settings_defaults.trend_spec.get("preset") if settings_defaults else None
-    preset_index = (
-        preset_options.index(preset_default)
-        if preset_default in preset_options
-        else 0
-    )
+    with st.form("model_settings", clear_on_submit=False):
+        st.subheader("Trend signal")
+        preset = st.selectbox("Preset", preset_options, index=preset_index)
+        if preset != model_state.get("trend_spec_preset") and preset != "Custom":
+            model_state["trend_spec"] = _preset_defaults(preset)
+            model_state["trend_spec_preset"] = preset
 
-    with st.form("model_form"):
-        st.subheader("Column mapping")
-        cols = df.columns.tolist()
-        return_columns = mapping_defaults.get("return_columns", cols)
-        benchmark_column = mapping_defaults.get("benchmark_column")
-
-        selected_returns = st.multiselect(
-            "Return columns",
-            options=cols,
-            default=return_columns,
-            help="Assets or managers to include in the simulation.",
-        )
-        candidate_benchmarks = st.session_state.get("benchmark_candidates", [])
-        benchmark_choice = None
-        if candidate_benchmarks:
-            default_idx = (
-                candidate_benchmarks.index(benchmark_column)
-                if benchmark_column in candidate_benchmarks
-                else 0
+        defaults = model_state.get("trend_spec", _preset_defaults(preset))
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            window = st.number_input(
+                "Window (months)", min_value=1, value=int(defaults.get("window", 63))
             )
-            benchmark_choice = st.selectbox(
-                "Benchmark (optional)",
-                options=["<none>"] + candidate_benchmarks,
-                index=default_idx + 1,
+            min_periods = st.number_input(
+                "Minimum periods",
+                min_value=1,
+                value=int(defaults.get("min_periods", defaults.get("window", 63))),
             )
-            if benchmark_choice == "<none>":
-                benchmark_choice = None
-        else:
-            benchmark_choice = benchmark_column if benchmark_column in cols else None
-
-        st.divider()
-
-        st.subheader("TrendSpec")
-        preset_choice = st.selectbox("Preset", options=preset_options, index=preset_index)
-        trend_defaults = _trend_defaults(preset_choice if preset_choice != "Custom" else None)
-        window = st.number_input(
-            "Window (days)", min_value=20, max_value=520, value=int(trend_defaults["window"])
-        )
-        min_periods = st.number_input(
-            "Minimum periods", min_value=0, max_value=int(window), value=int(trend_defaults["min_periods"])
-        )
-        lag = st.number_input("Lag", min_value=1, max_value=12, value=int(trend_defaults["lag"]))
-        vol_adjust = st.checkbox(
-            "Apply volatility targeting",
-            value=bool(trend_defaults.get("vol_adjust", False)),
-        )
-        vol_target = 0.10
-        if vol_adjust:
+        with c2:
+            lag = st.number_input("Lag", min_value=1, value=int(defaults.get("lag", 1)))
+            vol_adjust = st.checkbox(
+                "Volatility adjust",
+                value=bool(defaults.get("vol_adjust", False)),
+            )
+        with c3:
             vol_target = st.number_input(
-                "Target volatility",
-                min_value=0.01,
-                max_value=1.0,
-                value=float(trend_defaults.get("vol_target", 0.10)),
+                "Volatility target",
+                min_value=0.0,
+                value=float(defaults.get("vol_target", 0.0)),
                 step=0.01,
                 format="%.2f",
             )
-        zscore = st.checkbox(
-            "Normalise with z-scores",
-            value=bool(trend_defaults.get("zscore", False)),
-        )
+            zscore = st.checkbox("Row z-score", value=bool(defaults.get("zscore", False)))
 
         st.divider()
-        st.subheader("Portfolio policy")
-        max_return_cols = max(len(selected_returns), 1)
-        lookback_months = st.number_input(
-            "Lookback window (months)",
-            min_value=12,
-            max_value=120,
-            value=settings_defaults.lookback_months if settings_defaults else 36,
-            step=3,
-        )
-        selection_count = st.number_input(
-            "Selection count",
-            min_value=1,
-            max_value=max_return_cols,
-            value=min(
-                settings_defaults.selection_count if settings_defaults else 10,
-                max_return_cols,
-            ),
-            step=1,
-        )
-        risk_target = st.number_input(
-            "Portfolio risk target",
-            min_value=0.01,
-            max_value=0.50,
-            value=settings_defaults.risk_target if settings_defaults else 0.10,
-            step=0.01,
-            format="%.2f",
-        )
-        cooldown_months = st.number_input(
-            "Cooldown (months)",
-            min_value=0,
-            max_value=12,
-            value=settings_defaults.cooldown_months if settings_defaults else 3,
-            step=1,
-        )
-        min_track_months = st.number_input(
-            "Minimum track record (months)",
-            min_value=6,
-            max_value=60,
-            value=settings_defaults.min_track_months if settings_defaults else 24,
-            step=6,
-        )
-        weighting_scheme = st.selectbox(
+        st.subheader("Portfolio")
+        c4, c5, c6 = st.columns(3)
+        with c4:
+            lookback = st.number_input("Lookback months", min_value=12, value=int(model_state.get("lookback_months", 36)))
+        with c5:
+            evaluation = st.number_input("Evaluation window (months)", min_value=3, value=int(model_state.get("evaluation_months", 12)))
+        with c6:
+            selection = st.number_input(
+                "Selection count",
+                min_value=1,
+                value=int(model_state.get("selection_count", 10)),
+            )
+
+        weighting = st.selectbox(
             "Weighting scheme",
-            options=["equal", "risk_budget"],
-            index=(0 if not settings_defaults else ["equal", "risk_budget"].index(settings_defaults.weighting_scheme) if settings_defaults.weighting_scheme in ["equal", "risk_budget"] else 0),
+            ["equal", "vol_target"],
+            index=0 if model_state.get("weighting_scheme") == "equal" else 1,
+            help="Equal weights or volatility targeting in the portfolio stage.",
         )
 
         st.divider()
-        st.subheader("Selection metrics")
-        metric_names = list(AVAILABLE_METRICS.keys())
-        metric_default = (
-            list(settings_defaults.metric_weights.keys())
-            if settings_defaults
-            else list(DEFAULT_METRIC_WEIGHTS.keys())
+        st.subheader("Metric weights")
+        metric_weights: dict[str, float] = {}
+        cols = st.columns(len(METRIC_FIELDS))
+        for (label, code), col in zip(METRIC_FIELDS, cols):
+            with col:
+                metric_weights[code] = st.number_input(
+                    label,
+                    min_value=0.0,
+                    value=float(model_state.get("metric_weights", {}).get(code, 1.0)),
+                    step=0.1,
+                )
+
+        st.divider()
+        risk_target = st.number_input(
+            "Target volatility", min_value=0.0, value=float(model_state.get("risk_target", 0.1)), step=0.01
         )
-        chosen_metrics = st.multiselect(
-            "Metrics",
-            options=metric_names,
-            default=[m for m in metric_default if m in metric_names],
-        )
-        weights_input: Dict[str, float] = {}
-        if chosen_metrics:
-            cols_metrics = st.columns(min(len(chosen_metrics), 3))
-            for idx, metric in enumerate(chosen_metrics):
-                with cols_metrics[idx % len(cols_metrics)]:
-                    default_weight = (
-                        settings_defaults.metric_weights.get(metric)
-                        if settings_defaults and metric in settings_defaults.metric_weights
-                        else DEFAULT_METRIC_WEIGHTS.get(metric, 1.0 / len(chosen_metrics))
-                    )
-                    weights_input[metric] = st.number_input(
-                        f"{metric} weight",
-                        min_value=0.0,
-                        max_value=1.0,
-                        value=float(default_weight),
-                        step=0.05,
-                        format="%.2f",
-                    )
 
-        submitted = st.form_submit_button("Save model settings", type="primary")
+        submitted = st.form_submit_button("Save model", type="primary")
 
-    if not submitted:
-        if settings_defaults:
-            st.success("Existing model settings loaded. Adjust values and save to update.")
-        return
-
-    errors: list[str] = []
-    if not selected_returns:
-        errors.append("Select at least one return column.")
-    if selection_count > len(selected_returns):
-        errors.append("Selection count cannot exceed the number of return columns.")
-    if risk_target <= 0 or risk_target > 0.5:
-        errors.append("Risk target must sit between 0.01 and 0.50.")
-    if lookback_months <= min_track_months:
-        errors.append("Lookback window should exceed the minimum track record.")
-    if chosen_metrics and sum(weights_input.values()) <= 0:
-        errors.append("Metric weights must contain at least one positive value.")
-    if lookback_months >= len(df):
-        errors.append("Lookback window consumes all available history. Reduce the window.")
-
-    if errors:
-        st.error("Please address the following:")
-        for msg in errors:
-            st.write("•", msg)
-        return
-
-    trend_payload = _build_trend_payload(
-        {
-            "window": window,
-            "min_periods": min_periods,
-            "lag": lag,
-            "vol_adjust": vol_adjust,
-            "vol_target": vol_target,
-            "zscore": zscore,
-        }
-    )
-    if preset_choice != "Custom":
-        trend_payload["preset"] = preset_choice
-
-    metric_weights = _normalise_weights(weights_input or DEFAULT_METRIC_WEIGHTS)
-    mapping = {
-        "date_column": df.index.name or "Date",
-        "return_columns": selected_returns,
-        "benchmark_column": benchmark_choice,
-    }
-
-    settings = ModelSettings(
-        lookback_months=int(lookback_months),
-        rebalance_frequency="monthly",
-        selection_count=int(selection_count),
-        risk_target=float(risk_target),
-        weighting_scheme=weighting_scheme,
-        cooldown_months=int(cooldown_months),
-        min_track_months=int(min_track_months),
-        metric_weights=metric_weights,
-        trend_spec=trend_payload,
-        benchmark=benchmark_choice,
-    )
-
-    st.session_state["model_settings"] = settings
-    st.session_state["model_column_mapping"] = mapping
-    clear_preprocessing_caches()
-    st.session_state.pop("sim_results", None)
-    st.success("Model settings saved. Proceed to Results to run the analysis.")
+        if submitted:
+            trend_spec = _trend_spec_from_form(
+                {
+                    "window": window,
+                    "lag": lag,
+                    "min_periods": min_periods,
+                    "vol_adjust": vol_adjust,
+                    "vol_target": vol_target,
+                    "zscore": zscore,
+                }
+            )
+            candidate_state = {
+                "trend_spec_preset": None if preset == "Custom" else preset,
+                "trend_spec": trend_spec,
+                "lookback_months": lookback,
+                "evaluation_months": evaluation,
+                "selection_count": selection,
+                "weighting_scheme": weighting,
+                "metric_weights": metric_weights,
+                "risk_target": risk_target,
+                "warmup_periods": model_state.get("warmup_periods", 0),
+            }
+            errors = _validate_model(candidate_state, len(df.columns))
+            if errors:
+                st.error("\n".join(f"• {err}" for err in errors))
+            else:
+                st.session_state["model_state"] = candidate_state
+                st.success("Model configuration saved.")
 
 
-main()
+render_model_page()
+
