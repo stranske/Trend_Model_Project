@@ -8,3 +8,4 @@ on:
 jobs:
   selftest:
     uses: ./.github/workflows/reusable-99-selftest.yml
+    secrets: inherit
