@@ -144,6 +144,16 @@ def test_record_upload_error_sets_error_state(session_state: dict) -> None:
         assert key not in session_state
 
 
+def test_record_upload_error_records_detail(session_state: dict) -> None:
+    state.record_upload_error("problem", ["issue"], detail="raw message")
+
+    assert session_state["validation_report"] == {
+        "message": "problem",
+        "issues": ["issue"],
+        "detail": "raw message",
+    }
+
+
 def test_clear_analysis_results_removes_cached_outputs(session_state: dict) -> None:
     session_state.update(
         {

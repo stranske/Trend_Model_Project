@@ -64,13 +64,24 @@ def _store_dataset(df: pd.DataFrame, meta: SchemaMeta | dict[str, Any], key: str
 
 
 def _handle_failure(error: Exception) -> None:
-    message = str(error)
     issues: list[str] | None = None
+    detail: str | None = None
+    message = (
+        "We couldn't process the file. Please confirm the format and try again."
+    )
     if isinstance(error, MarketDataValidationError):
         message = error.user_message
         issues = list(error.issues)
-    app_state.record_upload_error(message, issues)
+    else:
+        detail = str(error).strip() or None
+
+    app_state.record_upload_error(message, issues, detail=detail)
     st.error(message)
+    if issues:
+        for issue in issues:
+            st.write(f"• {issue}")
+    if detail and not issues:
+        st.caption(detail)
 
 
 def _load_sample_dataset(label: str, path: Path) -> None:

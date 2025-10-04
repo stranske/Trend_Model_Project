@@ -44,19 +44,28 @@ def _handle_success(st_module, df, meta, source_path: Path | str) -> None:
         st_module.info("Possible benchmark columns: " + ", ".join(candidates))
 
 
-def _extract_validation_details(error: Exception) -> tuple[str, list[str]]:
+_GENERIC_FAILURE_MESSAGE = (
+    "We couldn't process the file. Please confirm the format and try again."
+)
+
+
+def _extract_validation_details(error: Exception) -> tuple[str, list[str], str | None]:
     if isinstance(error, MarketDataValidationError):
-        return error.user_message, list(error.issues)
+        return error.user_message, list(error.issues), None
     cause = getattr(error, "__cause__", None)
     if isinstance(cause, MarketDataValidationError):
-        return cause.user_message, list(cause.issues)
-    return str(error), []
+        return cause.user_message, list(cause.issues), str(error).strip() or None
+    return _GENERIC_FAILURE_MESSAGE, [], str(error).strip() or None
 
 
 def _handle_failure(st_module, error: Exception) -> None:
-    message, issues = _extract_validation_details(error)
-    app_state.record_upload_error(message, issues)
+    message, issues, detail = _extract_validation_details(error)
+    app_state.record_upload_error(message, issues, detail=detail)
     st_module.error(message)
+    for issue in issues:
+        st_module.write(f"• {issue}")
+    if detail and not issues:
+        st_module.caption(detail)
 
 
 @lru_cache(maxsize=2)

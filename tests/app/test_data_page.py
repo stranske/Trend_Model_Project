@@ -198,8 +198,36 @@ def test_data_page_upload_failure(monkeypatch: pytest.MonkeyPatch, data_page) ->
     page.render_data_page()
 
     assert stub.error_messages
+    assert any("unsorted index" in call for call in stub.write_calls)
     assert page.st.session_state["upload_status"] == "error"
     assert page.st.session_state["returns_df"] is None
     assert page.st.session_state["validation_report"]["issues"] == ["unsorted index"]
     assert stub.clear_calls == initial_clears
+
+
+def test_data_page_handles_generic_failure_with_plain_message(
+    monkeypatch: pytest.MonkeyPatch, data_page
+) -> None:
+    page, stub = data_page
+
+    stub.session_state.clear()
+    stub.radio_value = "Upload your own"
+    stub.uploaded = DummyUpload("bad.csv", b"bad,data")
+
+    monkeypatch.setattr(page.data_cache, "default_sample_dataset", lambda: None)
+    monkeypatch.setattr(page.data_cache, "dataset_choices", lambda: {})
+
+    def raise_error(*_args: Any, **_kwargs: Any) -> None:
+        raise ValueError("Traceback: raw parser failure")
+
+    monkeypatch.setattr(page.data_cache, "load_dataset_from_bytes", raise_error)
+
+    page.render_data_page()
+
+    assert stub.error_messages[-1] == (
+        "We couldn't process the file. Please confirm the format and try again."
+    )
+    assert stub.captions[-1] == "Traceback: raw parser failure"
+    report = page.st.session_state["validation_report"]
+    assert report["detail"] == "Traceback: raw parser failure"
 
