@@ -262,11 +262,14 @@ Disable logging only if you have strict I/O limits or are micro‑benchmarking; 
 ## 14. Regime tagging and reporting
 
 The default configuration now ships with a `regime` block that tags each
-out-of-sample period as **Risk-On** or **Risk-Off** using the rolling return of
-the `SPX` proxy. The engine compounds six months of index returns, optionally
-smooths the signal, and compares the result with the configured threshold.
-Positive or neutral readings map to Risk-On while negative readings map to
-Risk-Off. All controls can be tuned without touching the code:
+out-of-sample period as **Risk-On** or **Risk-Off**. By default the engine
+compounds six months of index returns, optionally smooths the signal, and
+compares the result with the configured threshold. Positive or neutral readings
+map to Risk-On while negative readings map to Risk-Off. Switching `method` to
+`volatility` instead evaluates a rolling realised-volatility filter: returns are
+converted to standard deviation (optionally annualised) and periods below the
+threshold are tagged as Risk-On. All controls can be tuned without touching the
+code:
 
 ```yaml
 regime:
@@ -278,6 +281,7 @@ regime:
   threshold: 0.0         # shift the cut-over between regimes
   neutral_band: 0.001    # treat small deviations as neutral noise
   min_observations: 4    # minimum rows required to compute metrics
+  annualise_volatility: true  # only used when method: volatility
 ```
 
 When `regime.enabled` is true the CLI summary, Excel workbook, JSON/CSV/TXT
@@ -293,7 +297,9 @@ The `regime_notes` entry in the result dictionary carries the collected
 footnotes; they are exported as a one-column table for easy auditing alongside
 the numeric breakdown. Supplying your own proxy is as simple as adding the
 column to the input data or pointing `regime.proxy` at a custom series in the
-indices bundle.
+indices bundle. When using the volatility method the threshold is interpreted as
+annualised volatility when `annualise_volatility: true` (set to `false` to work
+with per-period figures).
 
 ## 15. Further help
 
