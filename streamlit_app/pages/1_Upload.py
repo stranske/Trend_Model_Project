@@ -1,7 +1,12 @@
+"""Compatibility shim preserving the legacy Upload page behaviour for tests."""
+
+from __future__ import annotations
+
 import tempfile
 import uuid
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
 import streamlit as st
 
