@@ -1,6 +1,6 @@
 # Temporary Workflow Audit (Draft)
 
-Date: 2026-10-09
+Date: 2026-10-10
 
 ## Categorization Legend
 1. Pre-PR / Standard Checks (Quality & Security)
@@ -15,6 +15,10 @@ Date: 2026-10-09
 Additional categories retained so every workflow has a single primary home.
 
 ### Verification log (Issue #1669 follow-up)
+- ✅ (2026-10-10) Reran `pytest tests/test_workflow_*.py` after the latest sweep; guard coverage for WFv1 naming, archive
+  absence, and inventory parity remains green.
+- ✅ (2026-10-10) Re-enumerated `.github/workflows/*.yml` with a quick `pathlib` snippet to double-check that only the
+  `pr-*`, `maint-*`, `agents-*`, and `reusable-*` families remain.
 - ✅ (2026-10-09) `pytest tests/test_workflow_*.py` (local guard suite) – WFv1 naming, archive absence, and inventory coverage checks are still green.
 - ✅ (2026-10-09) Re-generated the workflow inventory with a short Python `pathlib` enumeration to confirm every `.github/workflows/*.yml` slug starts with `pr-`, `maint-`, `agents-`, or `reusable-`.
 - ⚠️ `gh workflow list` spot-check noted in the task list – run on a workstation with the GitHub CLI installed to cross-verify the Actions tab if needed.
