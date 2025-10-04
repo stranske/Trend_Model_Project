@@ -22,6 +22,7 @@ from streamlit_app.components.guardrails import (  # noqa: E402
     estimate_resource_usage,
     validate_startup_payload,
 )
+from streamlit_app.components.run_section import render_run_section  # noqa: E402
 from trend_analysis.presets import TrendPreset, list_trend_presets  # noqa: E402
 from trend_analysis.signal_presets import (  # noqa: E402
     TrendSpecPreset,
@@ -1080,18 +1081,25 @@ def save_configuration():
 
 # Main UI
 def main():
-    st.title("📊 Configure Analysis")
+    st.title("Model")
+    st.write(
+        "Shape how the engine behaves before you run the simulation. Configure the "
+        "inputs below, save the model, then launch a run when you're ready."
+    )
 
     # Initialize session state
     initialize_session_state()
 
     # Check for uploaded data
-    if "returns_df" not in st.session_state:
-        st.error("⚠️ Upload data first on the Upload page.")
+    df = st.session_state.get("returns_df")
+    if df is None:
+        st.warning("Load data in the Data step to continue.")
         st.stop()
 
-    df = st.session_state["returns_df"]
-    st.success(f"✅ Data loaded: {df.shape[0]} rows, {df.shape[1]} columns")
+    source = st.session_state.get("data_source") or "unknown source"
+    st.success(
+        f"Data ready from {source}: {df.shape[0]} rows × {df.shape[1]} columns."
+    )
 
     # Render UI sections
     preset_config = render_preset_selection()
@@ -1123,9 +1131,9 @@ def main():
         if st.button("🔍 Validate Configuration"):
             errors = validate_configuration()
             if errors:
-                st.error("❌ Configuration errors found:")
-                for error in errors:
-                    st.error(f"• {error}")
+                with st.status("Review configuration issues", state="error"):
+                    for error in errors:
+                        st.markdown(f"- {error}")
             else:
                 st.success("✅ Configuration is valid!")
         if st.button("🧪 Validate Minimal Startup Config"):
@@ -1149,7 +1157,7 @@ def main():
                     with st.expander("Validated Minimal Config", expanded=False):
                         st.json(validated)
             else:
-                st.warning("Upload data and map columns first.")
+                st.warning("Load data and map columns first.")
 
     # Show validation messages if any
     if st.session_state.validation_messages:
@@ -1160,7 +1168,7 @@ def main():
     # Show current configuration status
     config_state = st.session_state.config_state
     if config_state.get("is_valid"):
-        st.success("✅ Ready to proceed to Run analysis")
+        st.success("Model saved – you're ready to run the simulation.")
 
         # Show summary
         with st.expander("Configuration Details", expanded=False):
@@ -1185,6 +1193,10 @@ def main():
             )
     else:
         st.info("Configure the settings above and save to proceed.")
+
+    st.divider()
+    st.subheader("🚀 Run the model")
+    render_run_section(config_state)
 
 
 if __name__ == "__main__":

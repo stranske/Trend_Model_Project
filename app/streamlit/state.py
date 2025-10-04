@@ -14,6 +14,7 @@ def initialize_session_state():
         "benchmark_candidates": [],
         "validation_report": None,
         "upload_status": "pending",  # pending, success, error
+        "data_source": None,
     }
 
     for key, default_value in defaults.items():
@@ -33,14 +34,16 @@ def clear_upload_data():
         if key in st.session_state:
             del st.session_state[key]
     st.session_state["upload_status"] = "pending"
+    st.session_state["data_source"] = None
 
 
-def store_validated_data(df: pd.DataFrame, meta: dict):
+def store_validated_data(df: pd.DataFrame, meta: dict, *, source: str = "upload"):
     """Store validated data in session state."""
     st.session_state["returns_df"] = df
     st.session_state["schema_meta"] = meta
     st.session_state["validation_report"] = meta.get("validation")
     st.session_state["upload_status"] = "success"
+    st.session_state["data_source"] = source
 
 
 def record_upload_error(message: str, issues: Sequence[str] | None = None) -> None:
@@ -54,6 +57,7 @@ def record_upload_error(message: str, issues: Sequence[str] | None = None) -> No
         "issues": list(issues or []),
     }
     st.session_state["upload_status"] = "error"
+    st.session_state["data_source"] = None
 
 
 def get_uploaded_data() -> tuple[Optional[pd.DataFrame], Optional[dict]]:

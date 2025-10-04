@@ -1,16 +1,19 @@
 from __future__ import annotations
 import io
-
 import json
+import hashlib
+import os
 from pathlib import Path as _Path
 
+import altair as alt
 import numpy as np
 import pandas as pd
+from pandas.api import types as ptypes
 import streamlit as st
-from matplotlib import pyplot as plt
 
 from trend.reporting import generate_unified_report
 from trend_analysis.engine.walkforward import walk_forward
+from trend_analysis.io import export_bundle
 from trend_analysis.logging import error_summary, logfile_to_frame
 from trend_analysis.metrics import attribution
 
@@ -29,6 +32,161 @@ def _flatten_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+CHART_PALETTE = ["#2563EB", "#EA580C", "#16A34A", "#9333EA", "#0891B2", "#F59E0B"]
+
+
+def _prepare_chart_frame(df: pd.DataFrame) -> tuple[pd.DataFrame, str, bool]:
+    frame = df.copy()
+    index_name = frame.index.name or "Date"
+    frame = frame.reset_index()
+    is_datetime = ptypes.is_datetime64_any_dtype(frame[index_name])
+    if not is_datetime:
+        try:
+            frame[index_name] = pd.to_datetime(frame[index_name])
+        except Exception:
+            pass
+        else:
+            is_datetime = True
+    return frame.rename(columns={index_name: "Date"}), "Date", is_datetime
+
+
+def _render_single_line(
+    series: pd.Series | pd.DataFrame,
+    *,
+    label: str,
+    color: str = CHART_PALETTE[0],
+    y_title: str,
+) -> None:
+    frame = series.to_frame(name=label) if isinstance(series, pd.Series) else series
+    frame = frame.rename(columns={frame.columns[0]: label})
+    prepared, date_col, is_datetime = _prepare_chart_frame(frame)
+    chart = (
+        alt.Chart(prepared)
+        .mark_line(color=color, strokeWidth=2)
+        .encode(
+            x=alt.X(
+                f"{date_col}:{'T' if is_datetime else 'O'}",
+                title="Date" if is_datetime else date_col,
+            ),
+            y=alt.Y(f"{label}:Q", title=y_title),
+            tooltip=[f"{date_col}:{'T' if is_datetime else 'O'}", alt.Tooltip(f"{label}:Q", title=y_title)],
+        )
+    )
+    st.altair_chart(chart.interactive(), use_container_width=True)
+
+
+def _render_multi_line(df: pd.DataFrame, *, y_title: str) -> None:
+    if df.empty:
+        st.caption("No data available.")
+        return
+    prepared, date_col, is_datetime = _prepare_chart_frame(df)
+    melted = prepared.melt(id_vars=[date_col], var_name="Series", value_name="value")
+    chart = (
+        alt.Chart(melted)
+        .mark_line(strokeWidth=2)
+        .encode(
+            x=alt.X(
+                f"{date_col}:{'T' if is_datetime else 'O'}",
+                title="Date" if is_datetime else date_col,
+            ),
+            y=alt.Y("value:Q", title=y_title),
+            color=alt.Color("Series:N", scale=alt.Scale(range=CHART_PALETTE)),
+            tooltip=[
+                f"{date_col}:{'T' if is_datetime else 'O'}",
+                alt.Tooltip("Series:N", title="Series"),
+                alt.Tooltip("value:Q", title=y_title),
+            ],
+        )
+    )
+    st.altair_chart(chart.interactive(), use_container_width=True)
+
+
+def _render_stacked_area(df: pd.DataFrame, *, y_title: str) -> None:
+    if df.empty:
+        st.caption("No data available.")
+        return
+    prepared, date_col, is_datetime = _prepare_chart_frame(df)
+    melted = prepared.melt(id_vars=[date_col], var_name="Series", value_name="value")
+    chart = (
+        alt.Chart(melted)
+        .mark_area(opacity=0.75)
+        .encode(
+            x=alt.X(
+                f"{date_col}:{'T' if is_datetime else 'O'}",
+                title="Date" if is_datetime else date_col,
+            ),
+            y=alt.Y("value:Q", title=y_title, stack="normalize" if "Weight" in y_title else "zero"),
+            color=alt.Color("Series:N", scale=alt.Scale(range=CHART_PALETTE)),
+            tooltip=[
+                f"{date_col}:{'T' if is_datetime else 'O'}",
+                alt.Tooltip("Series:N", title="Series"),
+                alt.Tooltip("value:Q", title=y_title),
+            ],
+        )
+    )
+    st.altair_chart(chart.interactive(), use_container_width=True)
+
+
+def _render_bar(df: pd.DataFrame, *, value_label: str) -> None:
+    if df.empty:
+        st.caption("No data available.")
+        return
+    frame = df.reset_index()
+    if frame.shape[1] == 2:
+        category_col = frame.columns[0]
+        value_col = frame.columns[1]
+        renamed = frame.rename(columns={category_col: "Category", value_col: "value"})
+        chart = (
+            alt.Chart(renamed)
+            .mark_bar(color=CHART_PALETTE[2])
+            .encode(
+                x=alt.X("Category:N", title=""),
+                y=alt.Y("value:Q", title=value_label),
+                tooltip=[
+                    alt.Tooltip("Category:N", title="Category"),
+                    alt.Tooltip("value:Q", title=value_label),
+                ],
+            )
+        )
+    else:
+        category = frame.columns[0]
+        melted = frame.melt(id_vars=[category], var_name="Series", value_name="value")
+        chart = (
+            alt.Chart(melted)
+            .mark_bar()
+            .encode(
+                x=alt.X("Series:N", title="Series"),
+                y=alt.Y("value:Q", title=value_label),
+                color=alt.Color("Series:N", scale=alt.Scale(range=CHART_PALETTE)),
+                column=alt.Column(f"{category}:N", title=category),
+                tooltip=[
+                    alt.Tooltip(f"{category}:N", title=category),
+                    alt.Tooltip("Series:N", title="Series"),
+                    alt.Tooltip("value:Q", title=value_label),
+                ],
+            )
+        )
+    st.altair_chart(chart.interactive(), use_container_width=True)
+
+
+def _generate_cache_key(results, config_dict) -> str:
+    portfolio_hash = hashlib.sha256(results.portfolio.to_csv().encode("utf-8")).hexdigest()[
+        :16
+    ]
+    config_hash = hashlib.sha256(str(sorted(config_dict.items())).encode("utf-8")).hexdigest()[
+        :16
+    ]
+    return f"export_bundle_{portfolio_hash}_{config_hash}"
+
+
+@st.cache_data(ttl=300)
+def _cached_export_bundle(
+    results_cache_key: str, config_dict, _results
+) -> tuple[bytes, str]:
+    path = export_bundle(_results, config_dict)
+    with open(path, "rb") as handle:
+        bundle_data = handle.read()
+    return bundle_data, os.path.basename(path)
 st.title("Results")
 
 if "sim_results" not in st.session_state:
@@ -38,10 +196,7 @@ if "sim_results" not in st.session_state:
 res = st.session_state["sim_results"]
 
 if st.session_state.pop("demo_show_export_prompt", False):
-    st.success("Demo run complete! Download bundle from the Export tab when ready.")
-    if st.button("Go to Export", key="btn_demo_go_export", type="primary"):
-        st.switch_page("pages/5_Export.py")
-        st.stop()
+    st.success("Demo run complete! Scroll to Downloads to grab the bundle and reports.")
 
 # One-time banner for weight engine fallback
 try:
@@ -73,48 +228,80 @@ with c1:
         help="Estimate a 5–95% confidence band via block bootstrap sampling.",
     )
     curve = res.portfolio_curve()
-    fig, ax = plt.subplots()
-    if not curve.empty:
-        ax.plot(curve.index, curve.values, label="Realised")
-    ax.set_ylabel("Equity")
-    ax.set_xlabel("Date")
-
-    bootstrap_error: str | None = None
-    if show_band:
-        try:
-            band = res.bootstrap_band()
-            band = band.reindex(curve.index)
-            if band is None or band.empty:
-                raise ValueError("bootstrap returned no data")
-            valid = band[["p05", "p95"]].notna().all(axis=1)
-            if valid.any():
-                ax.fill_between(
-                    band.index[valid],
-                    band.loc[valid, "p05"],
-                    band.loc[valid, "p95"],
-                    alpha=0.2,
-                    label="Bootstrap 5–95%",
+    if curve.empty:
+        st.caption("No equity data available.")
+    else:
+        base_frame = curve.to_frame("Equity")
+        prepared, date_col, is_datetime = _prepare_chart_frame(base_frame)
+        x_encoding = alt.X(
+            f"{date_col}:{'T' if is_datetime else 'O'}",
+            title="Date" if is_datetime else date_col,
+        )
+        base_chart = (
+            alt.Chart(prepared)
+            .mark_line(color=CHART_PALETTE[0], strokeWidth=2)
+            .encode(
+                x=x_encoding,
+                y=alt.Y("Equity:Q", title="Equity"),
+                tooltip=[
+                    f"{date_col}:{'T' if is_datetime else 'O'}",
+                    alt.Tooltip("Equity:Q", title="Equity"),
+                ],
+            )
+        )
+        chart = base_chart
+        bootstrap_error: str | None = None
+        if show_band:
+            try:
+                band = res.bootstrap_band()
+                if band is None or band.empty:
+                    raise ValueError("bootstrap returned no data")
+                band = band.reindex(curve.index)
+                valid = band[["p05", "p95"]].notna().all(axis=1)
+                if not valid.any():
+                    raise ValueError("insufficient in-sample history")
+                band_valid = band.loc[valid, ["p05", "p95", "median"]]
+                band_frame, band_date_col, band_is_datetime = _prepare_chart_frame(
+                    band_valid
                 )
-                ax.plot(
-                    band.index[valid],
-                    band.loc[valid, "median"],
-                    linestyle="--",
-                    label="Bootstrap median",
+                band_x = alt.X(
+                    f"{band_date_col}:{'T' if band_is_datetime else 'O'}",
+                    title="Date" if band_is_datetime else band_date_col,
                 )
-            else:
-                raise ValueError("insufficient in-sample history")
-        except Exception as exc:  # pragma: no cover - defensive UX branch
-            bootstrap_error = str(exc)
-
-    if ax.has_data():
-        ax.legend(loc="best")
-    st.pyplot(fig)
-    plt.close(fig)
-    if bootstrap_error:
-        st.info(f"Bootstrap band unavailable: {bootstrap_error}")
+                band_chart = (
+                    alt.Chart(band_frame)
+                    .mark_area(color=CHART_PALETTE[0], opacity=0.18)
+                    .encode(
+                        x=band_x,
+                        y=alt.Y("p05:Q", title="Equity"),
+                        y2="p95:Q",
+                    )
+                )
+                median_chart = (
+                    alt.Chart(band_frame)
+                    .mark_line(color=CHART_PALETTE[0], strokeDash=[6, 4])
+                    .encode(
+                        x=band_x,
+                        y=alt.Y("median:Q", title="Equity"),
+                        tooltip=[
+                            f"{band_date_col}:{'T' if band_is_datetime else 'O'}",
+                            alt.Tooltip("median:Q", title="Bootstrap median"),
+                        ],
+                    )
+                )
+                chart = band_chart + median_chart + base_chart
+            except Exception as exc:  # pragma: no cover - defensive UX branch
+                bootstrap_error = str(exc)
+        st.altair_chart(chart.interactive(), use_container_width=True)
+        if bootstrap_error:
+            st.info(f"Bootstrap band unavailable: {bootstrap_error}")
 with c2:
     st.subheader("Drawdown")
-    st.line_chart(res.drawdown_curve())
+    drawdown = res.drawdown_curve()
+    if drawdown.empty:
+        st.caption("No drawdown data available.")
+    else:
+        _render_single_line(drawdown, label="Drawdown", color=CHART_PALETTE[1], y_title="Drawdown")
 
 st.subheader("Weights")
 try:
@@ -129,7 +316,7 @@ try:
             .fillna(0.0)
         )
     if w_df is not None and not w_df.empty:
-        st.area_chart(w_df)
+        _render_stacked_area(w_df, y_title="Portfolio Weight")
     else:
         st.caption("No weights recorded.")
 except (KeyError, ValueError, TypeError, AttributeError, ImportError):
@@ -301,7 +488,7 @@ with st.expander("Run walk-forward (rolling OOS) analysis"):
                     )
                     chart_df = res_wf.full.loc[[full_stat]].T
                     chart_df.columns = [full_stat]
-                    st.bar_chart(chart_df)
+                    _render_bar(chart_df, value_label=full_stat)
             elif view == "OOS only":
                 st.write("Out-of-sample summary:")
                 st.dataframe(res_wf.oos)
@@ -328,7 +515,7 @@ with st.expander("Run walk-forward (rolling OOS) analysis"):
                             chart_df = chart_df.copy()
                             chart_df.index = res_wf.oos_windows["window", "test_end"]
                             chart_df.index.name = "test_end"
-                        st.line_chart(chart_df)
+                        _render_multi_line(chart_df, y_title=oos_stat)
                 else:
                     st.caption("No OOS windows generated for the selected parameters.")
             else:
@@ -349,7 +536,7 @@ with st.expander("Run walk-forward (rolling OOS) analysis"):
                         chart_df = res_wf.by_regime.xs(
                             regime_stat, axis=1, level="statistic"
                         )
-                        st.bar_chart(chart_df)
+                        _render_bar(chart_df, value_label=regime_stat)
                 else:
                     st.caption("No regime data available.")
         else:
@@ -440,7 +627,7 @@ with st.expander("Compute contributions by signal and rebalancing"):
             cum = contrib.drop(
                 columns=[c for c in ["total"] if c in contrib.columns]
             ).cumsum()
-            st.line_chart(cum)
+            _render_multi_line(cum, y_title="Cumulative contribution")
             st.dataframe(contrib.tail(20))
 
             # Download CSV
@@ -456,6 +643,31 @@ with st.expander("Compute contributions by signal and rebalancing"):
             st.warning(f"Attribution failed: {e}")
 
 st.subheader("Downloads")
+bundle_data = None
+bundle_filename = None
+bundle_error: str | None = None
+cfg = st.session_state.get("sim_config")
+if cfg is not None:
+    try:
+        cache_key = _generate_cache_key(res, cfg)
+        bundle_data, bundle_filename = _cached_export_bundle(cache_key, cfg, res)
+    except Exception as exc:  # pragma: no cover - defensive guard
+        bundle_error = str(exc)
+else:
+    bundle_error = "Configuration payload missing; rerun the model to enable bundle download."
+
+if bundle_data and bundle_filename:
+    bundle_size = len(bundle_data) / (1024 * 1024)
+    st.download_button(
+        label=f"Results bundle (ZIP) — {bundle_size:.2f} MB",
+        data=bundle_data,
+        file_name=bundle_filename,
+        mime="application/zip",
+        type="primary",
+    )
+elif bundle_error:
+    st.info(f"Bundle unavailable: {bundle_error}")
+
 col1, col2, col3 = st.columns(3)
 with col1:
     csv_buf = io.StringIO()

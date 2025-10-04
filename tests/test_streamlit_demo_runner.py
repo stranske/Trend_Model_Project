@@ -81,6 +81,19 @@ def test_app_demo_button_triggers_navigation(monkeypatch):
         def subheader(self, *_, **__):  # noqa: D401 - stub
             return None
 
+        def write(self, *_, **__):  # noqa: D401 - stub
+            return None
+
+        class _Container:
+            def __enter__(self):  # noqa: D401 - context helper
+                return None
+
+            def __exit__(self, exc_type, exc, tb):  # noqa: D401 - context helper
+                return False
+
+        def container(self, *_, **__):  # noqa: D401 - stub
+            return self._Container()
+
         class _Spinner:
             def __enter__(self):  # noqa: D401 - context helper
                 return None
@@ -121,7 +134,7 @@ def test_app_demo_button_triggers_navigation(monkeypatch):
     module = importlib.import_module("streamlit_app.app")
     assert module is not None
     assert called.get("triggered") is True
-    assert st_mock.switch_targets == ["pages/4_Results.py"]
-    assert any("Run demo" in text for text in st_mock.button_calls)
+    assert st_mock.switch_targets == ["pages/3_Results.py"]
+    assert any("Run guided demo" in text for text in st_mock.button_calls)
 
     sys.modules.pop("streamlit_app.app", None)

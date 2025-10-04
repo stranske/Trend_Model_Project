@@ -27,6 +27,7 @@ def test_initialize_session_state_preserves_existing_values(
     assert session_state["benchmark_candidates"] == []
     assert session_state["validation_report"] is None
     assert session_state["upload_status"] == "pending"
+    assert session_state["data_source"] is None
 
 
 def test_clear_upload_data_removes_payload_but_resets_status(
@@ -39,6 +40,7 @@ def test_clear_upload_data_removes_payload_but_resets_status(
             "benchmark_candidates": ["Bench"],
             "validation_report": {"ok": True},
             "upload_status": "success",
+            "data_source": "upload",
             "other": "keep-me",
         }
     )
@@ -53,6 +55,7 @@ def test_clear_upload_data_removes_payload_but_resets_status(
     ]:
         assert key not in session_state
     assert session_state["upload_status"] == "pending"
+    assert session_state["data_source"] is None
     assert session_state["other"] == "keep-me"
 
 
@@ -61,6 +64,7 @@ def test_clear_upload_data_without_existing_payload(session_state: dict) -> None
 
     assert session_state["upload_status"] == "pending"
     assert session_state.get("returns_df") is None
+    assert session_state.get("data_source") is None
 
 
 def test_store_and_read_validated_data_updates_state(session_state: dict) -> None:
@@ -77,6 +81,7 @@ def test_store_and_read_validated_data_updates_state(session_state: dict) -> Non
     assert stored_meta is meta
     assert state.has_valid_upload()
     assert session_state["validation_report"] == meta["validation"]
+    assert session_state["data_source"] == "upload"
 
 
 def test_has_valid_upload_requires_success_status(session_state: dict) -> None:
