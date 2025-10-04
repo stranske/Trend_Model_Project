@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Local workflow lint using actionlint (mirrors CI workflow-lint job)
+# Local workflow lint using actionlint (mirrors maint-36-actionlint.yml)
 # Usage: ./scripts/workflow_lint.sh
 set -euo pipefail
 

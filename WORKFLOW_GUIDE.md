@@ -12,16 +12,16 @@ GitHub’s UI and in git diffs.
 | `pr-1x-*` | Pull request checks and fast feedback | `pull_request`, `push` to default branches | `pr-10-ci-python.yml`, `pr-12-docker-smoke.yml` |
 | `maint-3x-*` | Repository maintenance, hygiene, and reporting | `schedule`, `workflow_run`, governance automations | `maint-30-post-ci-summary.yml`, `maint-33-check-failure-tracker.yml`, `maint-34-quarantine-ttl.yml`, `maint-35-repo-health-self-check.yml`, `maint-36-actionlint.yml`, `maint-40-ci-signature-guard.yml` |
 | `agents-4x-*` | Issue and agent orchestration workflows | `issues`, `pull_request_target`, manual diagnostics | `agents-40-consumer.yml`, `agents-41-assign-and-watch.yml` (+ wrappers `agents-41-assign.yml` / `agents-42-watchdog.yml`) |
-| `reusable-9x-*` | Reusable building blocks invoked via `workflow_call` | `workflow_call`, `workflow_dispatch` | `reusable-90-agents.yml`, `reusable-ci-python.yml`, `reusable-99-selftest.yml` |
+| `reusable-9x-*` | Reusable building blocks invoked via `workflow_call` | `workflow_call`, `workflow_dispatch` | `reusable-90-agents.yml`, `reusable-91-autofix.yml`, `reusable-92-ci-python.yml`, `reusable-99-selftest.yml` |
 
 > **Numbering tips**
 > * Use the first digit (`1`, `3`, `4`, `9`) to select the category.
 > * The second digit groups related flows (e.g. `pr-10`, `pr-12` for the
 >   primary PR lane).
 > * Leave gaps when possible so future additions can slot in without renumbering.
-> * `reusable-ci-python.yml` keeps its legacy slug temporarily for consumer
->   compatibility; future reusable additions should follow the `reusable-9x-*`
->   format directly.
+> * `reusable-ci-python.yml` remains as a compatibility alias that forwards to
+>   the WFv1 implementation. New reusable workflows should adopt the numbered
+>   `reusable-9x-*` format directly.
 
 ## Stable Workflow Names
 

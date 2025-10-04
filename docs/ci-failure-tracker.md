@@ -81,7 +81,7 @@ Workflow: `maint-40-ci-signature-guard.yml` runs on pushes / PRs and validates t
 ## Manual Self-Test
 You can manually validate behaviour:
 1. Dispatch `CI Selftest` (will create a failing issue).
-2. Rerun it but edit the `ci-selftest.yml` to succeed (or manually re-run jobs) to test auto-heal logic after adjusting `INACTIVITY_HOURS`.
+2. Rerun it but edit the `maint-41-ci-selftest.yml` to succeed (or manually re-run jobs) to test auto-heal logic after adjusting `INACTIVITY_HOURS`.
 
 ## Local Simulation Harness
 For a fast feedback loop without touching GitHub, run `node tools/simulate_failure_tracker.js`. The harness lifts the tracker script straight out of the workflow file and replays three sequential failures against an in-memory stub of the GitHub API. It asserts that:

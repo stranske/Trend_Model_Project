@@ -35,7 +35,7 @@ on:
     - cron: '17 3 * * *'
   push:
     paths:
-      - '.github/workflows/verify-codex-bootstrap-matrix.yml'
+      - '.github/workflows/agents-47-verify-codex-bootstrap-matrix.yml'
       - 'scripts/verify_codex_bootstrap.py'
       - 'docs/codex-simulation.md'
 

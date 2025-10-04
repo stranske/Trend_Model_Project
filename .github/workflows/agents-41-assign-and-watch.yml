@@ -341,7 +341,7 @@ jobs:
             await github.rest.actions.createWorkflowDispatch({
               owner,
               repo,
-              workflow_id: 'codex-issue-bridge.yml',
+              workflow_id: 'agents-43-codex-issue-bridge.yml',
               ref,
               inputs: {
                 test_issue: String(issue),

@@ -12,8 +12,8 @@ def _load_yaml(path: pathlib.Path):
 
 
 def test_merge_manager_exists():
-    mm = WORKFLOWS / "merge-manager.yml"
-    assert mm.exists(), "merge-manager.yml must exist as unified merge policy workflow"
+    mm = WORKFLOWS / "maint-46-merge-manager.yml"
+    assert mm.exists(), "maint-46-merge-manager.yml must exist as unified merge policy workflow"
     data = mm.read_text(encoding="utf-8")
     assert (
         MARKER in data
@@ -35,7 +35,7 @@ def test_legacy_merge_workflows_archived():
 
 
 def test_merge_manager_core_steps_present():
-    content = (WORKFLOWS / "merge-manager.yml").read_text(encoding="utf-8")
+    content = (WORKFLOWS / "maint-46-merge-manager.yml").read_text(encoding="utf-8")
     # Basic heuristic checks for critical steps / actions
     assert "actions/checkout" in content, "checkout step missing"
     assert (
@@ -51,7 +51,7 @@ def test_merge_manager_core_steps_present():
 
 
 def test_merge_manager_enforces_automerge_guards():
-    content = (WORKFLOWS / "merge-manager.yml").read_text(encoding="utf-8")
+    content = (WORKFLOWS / "maint-46-merge-manager.yml").read_text(encoding="utf-8")
     assert "Check required workflows" in content, "workflow status gate missing"
     assert "findRun('CI')" in content, "CI workflow lookup missing"
     assert "findRun('Docker')" in content, "Docker workflow lookup missing"
@@ -62,7 +62,7 @@ def test_merge_manager_enforces_automerge_guards():
 
 
 def test_commit_prefix_is_quoted():
-    data = _load_yaml(WORKFLOWS / "merge-manager.yml")
+    data = _load_yaml(WORKFLOWS / "maint-46-merge-manager.yml")
     env = data.get("env", {})
     prefix = env.get("COMMIT_PREFIX")
     assert isinstance(prefix, str), "COMMIT_PREFIX must be configured as a string"
