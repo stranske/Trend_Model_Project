@@ -157,7 +157,14 @@ jobs:
           ISSUE: ${{ steps.ctx.outputs.issue }}
         run: |
           set -euo pipefail
-          BR=agents/codex-issue-${ISSUE}-${GITHUB_RUN_ID}
+          PREFIX="agents/codex-issue-${ISSUE}-"
+          EXISTING=$(git ls-remote --heads origin | awk -v prefix="refs/heads/${PREFIX}" '$2 ~ prefix { sub("refs/heads/", "", $2); print $2 }' | head -n1)
+          if [ -n "${EXISTING}" ]; then
+            echo "Reusing existing Codex branch ${EXISTING} for issue #${ISSUE}."
+            echo "branch=${EXISTING}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          BR=${PREFIX}${GITHUB_RUN_ID}
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BR"
