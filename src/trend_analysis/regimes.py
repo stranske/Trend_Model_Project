@@ -143,7 +143,7 @@ def _rolling_volatility_signal(
     if smoothing > 1:
         vol = vol.rolling(smoothing).mean()
     if annualise and periods_per_year and periods_per_year > 0:
-        vol = vol * float(np.sqrt(float(periods_per_year)))
+        vol = vol * np.sqrt(periods_per_year)
     return vol
 
 
