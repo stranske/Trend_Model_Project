@@ -1,4 +1,4 @@
-# Archived GitHub Workflows (updated 2026-10-08)
+# Archived GitHub Workflows (updated 2026-10-09)
 
 This document records the archival and eventual deletion of legacy agent-related workflows now replaced by consolidated reusable pipelines. The most recent sweep (Issue #1419) retired the reusable agent matrix in favour of the focused assigner/watchdog pair. The follow-up sweep for Issue #1669 removed the on-disk archive directory so the history now lives exclusively in git along with this ledger.
 
@@ -21,6 +21,7 @@ All deprecated agent automation workflows were deleted from `.github/workflows/`
 - (2026-10-05) Remaining stub archives under `Old/.github/workflows/` were deleted; historical copies are available via git history and the references below.
 - (2026-10-07) `.github/workflows/archive/` removed entirely; Issue #1669 ledger (this file) is now the canonical index for prior workflow names.
 - (2026-10-08) Issue #1669 verification sweep confirmed both archive directories remain absent and no additional workflows required archival.
+- (2026-10-09) Follow-up audit reran the guard suite and filesystem checks; `.github/workflows/archive/` and `Old/.github/workflows/` remain deleted with inventory logged in `WORKFLOW_AUDIT_TEMP.md`.
 
 ## Retired Autofix Wrapper
 - Legacy `autofix.yml` (pre-2025) was deleted during the earlier cleanup. As of 2026-02-15 a new consolidated `maint-32-autofix.yml` now drives both small fixes and trivial failure remediation; the former consumer wrappers have been removed.
