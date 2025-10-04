@@ -14,10 +14,28 @@ from app.streamlit import state as app_state
 from streamlit_app.components import analysis_runner, charts
 
 
-def _current_run_key(model_state: dict[str, Any]) -> str:
+def _analysis_error_messages(error: Exception) -> tuple[str, str | None]:
+    """Return a user-friendly summary and optional detail for analysis failures."""
+
+    detail = str(error).strip() or None
+    if isinstance(error, ValueError):
+        summary = (
+            "We couldn't run the analysis with the current data or settings. "
+            "Please review the configuration and try again."
+        )
+    else:
+        summary = (
+            "We ran into an unexpected problem while generating the report. "
+            "Please try again or adjust your configuration."
+        )
+    return summary, detail
+
+
+def _current_run_key(model_state: dict[str, Any], benchmark: str | None) -> str:
     fingerprint = st.session_state.get("data_fingerprint", "unknown")
     model_blob = json.dumps(model_state, sort_keys=True, default=str)
-    return f"{fingerprint}:{model_blob}"
+    bench = benchmark or "__none__"
+    return f"{fingerprint}:{bench}:{model_blob}"
 
 
 def _prepare_equity_series(returns: pd.Series) -> pd.Series:
@@ -111,7 +129,7 @@ def render_results_page() -> None:
         return
 
     benchmark = st.session_state.get("selected_benchmark")
-    run_key = _current_run_key(model_state)
+    run_key = _current_run_key(model_state, benchmark)
     cached_key = st.session_state.get("analysis_result_key")
     result = st.session_state.get("analysis_result") if cached_key == run_key else None
 
@@ -123,10 +141,20 @@ def render_results_page() -> None:
             try:
                 result = analysis_runner.run_analysis(df, model_state, benchmark)
             except Exception as exc:  # pragma: no cover - defensive guard
-                st.error(f"Analysis failed: {exc}")
+                summary, detail = _analysis_error_messages(exc)
+                st.error(summary)
+                if detail:
+                    st.caption(detail)
+                st.session_state["analysis_result"] = None
+                st.session_state["analysis_result_key"] = None
+                st.session_state["analysis_error"] = {
+                    "message": summary,
+                    "detail": detail,
+                }
                 return
         st.session_state["analysis_result"] = result
         st.session_state["analysis_result_key"] = run_key
+        st.session_state.pop("analysis_error", None)
 
     if result is None:
         st.info("Click run analysis to generate a report.")
