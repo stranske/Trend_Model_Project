@@ -4,11 +4,11 @@ This repository exposes three reusable GitHub Actions workflows (workflow_call) 
 
 | Reusable Workflow | File | Purpose |
 | ------------------ | ---- | ------- |
-| Python CI          | `.github/workflows/reuse-ci-python.yml` | Tests + coverage gate + (optional) quarantine set |
-| Autofix            | `.github/workflows/reuse-autofix.yml`   | Formatting / lint autofix on PRs (opt‑in label) |
+| Python CI          | `.github/workflows/reusable-ci-python.yml` | Tests + coverage gate + (optional) quarantine set |
+| Autofix            | `.github/workflows/reusable-autofix.yml`   | Formatting / lint autofix on PRs (opt‑in label) |
 | Agents Automation  | `.github/workflows/agents-41-assign-and-watch.yml` | Unified agent assignment, Codex bootstrap, watchdog diagnostics, stale sweep |
 
-## 1. Python CI (`reuse-ci-python.yml`)
+## 1. Python CI (`reusable-ci-python.yml`)
 Trigger via a consumer workflow:
 ```yaml
 # .github/workflows/pr-10-ci-python.yml (consumer example)
@@ -20,7 +20,7 @@ on:
 
 jobs:
   core:
-    uses: ./.github/workflows/reuse-ci-python.yml
+    uses: ./.github/workflows/reusable-ci-python.yml
     with:
       python_matrix: '"3.11"'          # JSON-ish string parsed by the workflow
       cov_min: 70                       # Coverage threshold percent
@@ -45,7 +45,7 @@ jobs:
 ### Required Repository Settings
 None mandatory beyond standard Actions permissions. If using Codecov or artifact upload, extend consumer workflow after the `uses:` job with dependent jobs.
 
-## 2. Autofix (`reuse-autofix.yml`)
+## 2. Autofix (`reusable-autofix.yml`)
 Applies code formatting / lint autofixes only when an opt‑in label is present (avoids surprise pushes).
 
 ### Typical Consumer
@@ -57,7 +57,7 @@ on:
 
 jobs:
   autofix:
-    uses: ./.github/workflows/reuse-autofix.yml
+    uses: ./.github/workflows/reusable-autofix.yml
     with:
       opt_in_label: bot:autofix
       commit_prefix: "autofix(ci):"
@@ -89,7 +89,7 @@ Issue #1662 consolidated the assigner/watchdog pair into a single orchestrator. 
 ### Notes
 - Bootstrap logic still honours PAT priority (`OWNER_PR_PAT` → `SERVICE_BOT_PAT` → `GITHUB_TOKEN`) and posts `@codex start` on newly created PRs.
 - Adjust watchdog behaviour (timeout, expected PR) by supplying overrides during manual dispatch.
-- Readiness, preflight, and verification probes from `reuse-agents.yml` remain available via `reusable-90-agents.yml` (historical variants stay archived under `Old/.github/workflows/`).
+- Readiness, preflight, and verification probes from `reuse-agents.yml` remain available via `reusable-90-agents.yml` (historical variants can be recovered from git history; see `ARCHIVE_WORKFLOWS.md`).
 
 ## 4. Adoption Guide (External Repos)
 1. Copy the three reusable files verbatim or add this repo as a submodule / template reference.
@@ -100,7 +100,7 @@ Issue #1662 consolidated the assigner/watchdog pair into a single orchestrator. 
 ### Example Badges
 ```markdown
 ![CI](https://github.com/<org>/<repo>/actions/workflows/pr-10-ci-python.yml/badge.svg)
-![Autofix](https://github.com/<org>/<repo>/actions/workflows/autofix.yml/badge.svg)
+![Autofix](https://github.com/<org>/<repo>/actions/workflows/maint-32-autofix.yml/badge.svg)
 ```
 
 ## 5. Customisation Points
@@ -113,11 +113,11 @@ Issue #1662 consolidated the assigner/watchdog pair into a single orchestrator. 
 
 ## 6. Security & Permissions
 - Minimal default `permissions: contents: read` in CI; elevate only where required (e.g. `contents: write` for autofix commits).
-- Autofix now runs via `workflow_run` follower (`autofix.yml`) and pushes with `SERVICE_BOT_PAT`; avoid falling back to `GITHUB_TOKEN`.
+- Autofix now runs via `workflow_run` follower (`maint-32-autofix.yml`) and pushes with `SERVICE_BOT_PAT`; avoid falling back to `GITHUB_TOKEN`.
 
 ## 7. Migration Checklist (Existing Repo)
 - [ ] Identify old CI workflows to retire.
-- [ ] Introduce new consumer pointing at `reuse-ci-python.yml`.
+- [ ] Introduce new consumer pointing at `reusable-ci-python.yml`.
 - [ ] Validate coverage gate matches previous policy.
 - [ ] Enable the autofix follower (`autofix.yml`) if policy allows automated commits.
 - [ ] Add agents consumer (if using Codex automation).

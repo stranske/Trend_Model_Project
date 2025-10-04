@@ -5,11 +5,11 @@ This guide enables a new maintainer to operate the CI + agent automation stack i
 ---
 ## 1. Architecture Snapshot
 Core layers:
-- Reusable CI (`reuse-ci-python.yml`): tests, coverage, aggregated gate.
-- Autofix lane (`autofix.yml`): workflow_run follower that batches small hygiene fixes and trivial failure remediation using the composite autofix action.
+- Reusable CI (`reusable-ci-python.yml`): tests, coverage, aggregated gate.
+- Autofix lane (`maint-32-autofix.yml`): workflow_run follower that batches small hygiene fixes and trivial failure remediation using the composite autofix action.
 - CI style checks (`pr-10-ci-python.yml` job `style`): authoritative style + mypy verification (black --check, ruff new-issue fail, pinned mypy) running on PR & main branch pushes.
 - Agent routing & watchdog (`agents-41-assign.yml` + `agents-42-watchdog.yml`): label-driven assignment, Codex bootstrap, diagnostics.
-- Merge automation (`merge-manager.yml`): unified auto-approval and auto-merge decisions for safe agent PRs.
+- Merge automation (`maint-45-merge-manager.yml`): unified auto-approval and auto-merge decisions for safe agent PRs.
 - Governance & Health: `maint-34-quarantine-ttl.yml`, `maint-35-repo-health-self-check.yml`, `maint-36-actionlint.yml`, labelers, dependency review, CodeQL.
 - Path Labeling: `pr-path-labeler.yml` auto-categorizes PRs.
 
@@ -22,7 +22,7 @@ The CI stack now runs in distinct lanes so each concern can evolve independently
 | Gate aggregation | `reusable-ci-python.yml` job: `gate / all-required-green` | Ensures upstream jobs passed (single source of truth) | Secondary | Will replace wrapper after burn‑in |
 | Coverage soft gate | `coverage_soft_gate` job (opt‑in) | Posts coverage & hotspots (non-blocking) | Advisory | Remains advisory |
 | Universal logs | `logs_summary` job | Per‑job log table in summary | Not required | Always-on helper |
-| Autofix lane | `autofix.yml` | Workflow_run follower that commits small hygiene fixes (success runs) and retries trivial CI failures | Not required | Remains optional |
+| Autofix lane | `maint-32-autofix.yml` | Workflow_run follower that commits small hygiene fixes (success runs) and retries trivial CI failures | Not required | Remains optional |
 | Style verification | `pr-10-ci-python.yml` job `style` | Enforce black formatting, Ruff cleanliness, and pinned mypy | Candidate required | Become required once stable |
 | Agent assignment | `agents-41-assign.yml` | Maps labels → assignees, creates Codex bootstrap PRs | Not required | Harden diagnostics |
 | Agent watchdog | `agents-42-watchdog.yml` | Confirms Codex PR cross-reference or posts timeout | Not required | Tune timeout post burn-in |
@@ -67,20 +67,20 @@ All others use default `GITHUB_TOKEN`.
 ## 4. Trigger Matrix
 | Workflow | Trigger(s) | Notes |
 |----------|-----------|-------|
-| `reuse-ci-python.yml` | PR, push | Coverage & matrix |
-| `autofix.yml` | workflow_run (`CI`) | Hygiene autofix + trivial failure remediation |
+| `reusable-ci-python.yml` | PR, push | Coverage & matrix |
+| `maint-32-autofix.yml` | workflow_run (`CI`) | Hygiene autofix + trivial failure remediation |
 | `pr-10-ci-python.yml` job `style` | PR, push (main branches) | Style + mypy enforcement |
 | `agents-41-assign.yml` | issue/PR labels, dispatch | Agent assignment + Codex bootstrap |
 | `agents-42-watchdog.yml` | workflow dispatch | Codex PR presence diagnostic |
-| `merge-manager.yml` | PR target, workflow_run | Auto-approve + enable auto-merge when gates are satisfied |
+| `maint-45-merge-manager.yml` | PR target, workflow_run | Auto-approve + enable auto-merge when gates are satisfied |
 | `maint-34-quarantine-ttl.yml` | schedule, workflow_dispatch, PR/push (quarantine tooling) | Nightly TTL guardrail; posts actionable summary listing expired IDs. |
 | `maint-35-repo-health-self-check.yml` | schedule (daily + weekly), workflow_dispatch, PR/push (probe updates) | Governance audit with Ops issue updates. |
 | `maint-36-actionlint.yml` | PR (workflows path), push (phase-2-dev), weekly schedule, manual | Workflow schema lint with reviewdog annotations. |
 | `reusable-99-selftest.yml` | workflow_dispatch, schedule (02:30 UTC nightly) | Matrix smoke-test of `reusable-ci-python.yml` feature flags |
 | `pr-path-labeler.yml` | PR events | Path labels |
-| `label-agent-prs.yml` | PR target | Origin + risk labels |
-| `codeql.yml` | push, PR, schedule | Code scanning |
-| `dependency-review.yml` | PR | Dependency diff gate |
+| `pr-02-label-agent-prs.yml` | PR target | Origin + risk labels |
+| `pr-30-codeql.yml` | push, PR, schedule | Code scanning |
+| `pr-31-dependency-review.yml` | PR | Dependency diff gate |
 
 ---
 ## 5. Adopt Reusable Workflows
@@ -93,7 +93,7 @@ on:
     branches: [ main ]
 jobs:
   call:
-    uses: stranske/Trend_Model_Project/.github/workflows/reuse-ci-python.yml@phase-2-dev
+    uses: stranske/Trend_Model_Project/.github/workflows/reusable-ci-python.yml@phase-2-dev
     with:
       python_matrix: '"3.11"'
       cov_min: 70
@@ -129,8 +129,8 @@ Active agent automation lives under the WFv1 `agents-4x-*` prefix:
 Legacy orchestrators previously named `agents-consumer.yml` and `reuse-agents.yml` were retired during the consolidation. `tests/test_workflow_agents_consolidation.py` guards against silently reviving those slugs. Any new agent helper must either extend this pair or document a justification for an additional workflow in this README.
 
 ### Merge Manager (Issue #1415)
-Unified approval + auto-merge policy lives in `merge-manager.yml`, replacing the legacy pair `autoapprove.yml` and
-`enable-automerge.yml` (now archived under `Old/.github/workflows/`). Guard test: `tests/test_workflow_merge_manager.py`.
+Unified approval + auto-merge policy lives in `maint-45-merge-manager.yml`, replacing the legacy pair `autoapprove.yml` and
+`enable-automerge.yml` (retired; historical details tracked in `ARCHIVE_WORKFLOWS.md`). Guard test: `tests/test_workflow_merge_manager.py`.
 
 Design invariants:
 1. Single rationale comment per PR identified by marker `<!-- merge-manager-rationale -->`.
@@ -155,17 +155,17 @@ Acceptance Criteria (Issue #1415) satisfied by: archival of legacy workflows, pr
 ## 7. Troubleshooting
 | Symptom | Cause | Ref |
 |---------|-------|-----|
-| No labels | Labeler/perms missing | `label-agent-prs.yml` |
+| No labels | Labeler/perms missing | `pr-02-label-agent-prs.yml` |
 | Bootstrap blocked | PAT missing & fallback off | troubleshooting doc |
 | Autofix skipped | Title match / opt-in absent | Autofix README |
-| No dependency review | Fork PR / disabled | `dependency-review.yml` |
-| No CodeQL alerts | First run indexing | `codeql.yml` |
+| No dependency review | Fork PR / disabled | `pr-31-dependency-review.yml` |
+| No CodeQL alerts | First run indexing | `pr-30-codeql.yml` |
 
 ### 7.1 Autofix Loop Guard (Issue #1347)
 Loop prevention layers:
 1. The consolidated workflow only reacts to completed CI runs (no direct `push` trigger).
 2. Guard logic only fires when the workflow actor is `github-actions` (or `github-actions[bot]`) **and** the latest commit subject begins with the standardized prefix `chore(autofix):`.
-3. Scheduled cleanup (`autofix-residual-cleanup.yml`) and reusable autofix consumers adopt the same prefix + actor guard, so automation commits short-circuit immediately instead of chaining runs.
+3. Scheduled cleanup (`maint-31-autofix-residual-cleanup.yml`) and reusable autofix consumers adopt the same prefix + actor guard, so automation commits short-circuit immediately instead of chaining runs.
 4. The CI style job runs independently and does not trigger autofix.
 
 Result: Each human push generates at most one autofix patch sequence; autofix commits do not recursively spawn new runs.
