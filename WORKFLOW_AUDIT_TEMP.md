@@ -36,7 +36,7 @@ Only the workflows listed below remain visible in the Actions tab. Reusable comp
 | Workflow | Triggers | Notes |
 |----------|----------|-------|
 | `reusable-70-agents.yml` | workflow_call | Reusable agents stack used by `agents-70-orchestrator.yml`.
-| `reusable-99-selftest.yml` | workflow_dispatch, schedule | Matrix smoke-test for the reusable CI executor.
+| `reusable-99-selftest.yml` | workflow_call | Matrix smoke-test for the reusable CI executor.
 | `reusable-ci-python.yml` | workflow_call | Primary reusable CI implementation.
 | `reusable-autofix.yml` | workflow_call | Autofix composite consumed by `maint-32-autofix.yml`.
 | `reusable-legacy-ci-python.yml` | workflow_call | Legacy CI contract retained for downstream consumers.
