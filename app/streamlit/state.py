@@ -33,6 +33,14 @@ def clear_upload_data():
         if key in st.session_state:
             del st.session_state[key]
     st.session_state["upload_status"] = "pending"
+    clear_analysis_results()
+
+
+def clear_analysis_results() -> None:
+    """Remove any cached analysis outputs from session state."""
+
+    for key in ("analysis_result", "analysis_result_key", "analysis_error"):
+        st.session_state.pop(key, None)
 
 
 def store_validated_data(df: pd.DataFrame, meta: dict):
@@ -41,6 +49,7 @@ def store_validated_data(df: pd.DataFrame, meta: dict):
     st.session_state["schema_meta"] = meta
     st.session_state["validation_report"] = meta.get("validation")
     st.session_state["upload_status"] = "success"
+    clear_analysis_results()
 
 
 def record_upload_error(message: str, issues: Sequence[str] | None = None) -> None:
@@ -54,6 +63,7 @@ def record_upload_error(message: str, issues: Sequence[str] | None = None) -> No
         "issues": list(issues or []),
     }
     st.session_state["upload_status"] = "error"
+    clear_analysis_results()
 
 
 def get_uploaded_data() -> tuple[Optional[pd.DataFrame], Optional[dict]]:
