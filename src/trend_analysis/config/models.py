@@ -524,10 +524,11 @@ class PresetConfig(SimpleBaseModel):
         "sample_split",
         "portfolio",
         "metrics",
-        "signals",
         "export",
         "run",
     ]
+
+    OPTIONAL_DICT_FIELDS: ClassVar[set[str]] = {"signals"}
 
     name: str
     description: str
@@ -537,11 +538,15 @@ class PresetConfig(SimpleBaseModel):
     sample_split: Dict[str, Any]
     portfolio: Dict[str, Any]
     metrics: Dict[str, Any]
+    signals: Dict[str, Any]
     export: Dict[str, Any]
     run: Dict[str, Any]
 
     def _get_defaults(self) -> Dict[str, Any]:
-        return {field: {} for field in self.PRESET_DICT_FIELDS}
+        defaults: Dict[str, Any] = {field: {} for field in self.PRESET_DICT_FIELDS}
+        for optional_field in self.OPTIONAL_DICT_FIELDS:
+            defaults.setdefault(optional_field, {})
+        return defaults
 
     def _validate(self) -> None:
         """Validate preset configuration."""

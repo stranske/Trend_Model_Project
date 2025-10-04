@@ -114,7 +114,9 @@ def _validate_model(values: Mapping[str, Any], column_count: int) -> list[str]:
     if not any(float(w or 0) > 0 for w in weights.values()):
         errors.append("Provide at least one positive metric weight.")
     if trend_spec.get("vol_adjust") and trend_spec.get("vol_target", 0.0) <= 0:
-        errors.append("Set a positive volatility target when volatility adjustment is on.")
+        errors.append(
+            "Set a positive volatility target when volatility adjustment is on."
+        )
     return errors
 
 
@@ -185,15 +187,25 @@ def render_model_page() -> None:
                 step=0.01,
                 format="%.2f",
             )
-            zscore = st.checkbox("Row z-score", value=bool(defaults.get("zscore", False)))
+            zscore = st.checkbox(
+                "Row z-score", value=bool(defaults.get("zscore", False))
+            )
 
         st.divider()
         st.subheader("Portfolio")
         c4, c5, c6 = st.columns(3)
         with c4:
-            lookback = st.number_input("Lookback months", min_value=12, value=int(model_state.get("lookback_months", 36)))
+            lookback = st.number_input(
+                "Lookback months",
+                min_value=12,
+                value=int(model_state.get("lookback_months", 36)),
+            )
         with c5:
-            evaluation = st.number_input("Evaluation window (months)", min_value=3, value=int(model_state.get("evaluation_months", 12)))
+            evaluation = st.number_input(
+                "Evaluation window (months)",
+                min_value=3,
+                value=int(model_state.get("evaluation_months", 12)),
+            )
         with c6:
             selection = st.number_input(
                 "Selection count",
@@ -223,7 +235,10 @@ def render_model_page() -> None:
 
         st.divider()
         risk_target = st.number_input(
-            "Target volatility", min_value=0.0, value=float(model_state.get("risk_target", 0.1)), step=0.01
+            "Target volatility",
+            min_value=0.0,
+            value=float(model_state.get("risk_target", 0.1)),
+            step=0.01,
         )
 
         submitted = st.form_submit_button("Save model", type="primary")
@@ -261,4 +276,3 @@ def render_model_page() -> None:
 
 
 render_model_page()
-

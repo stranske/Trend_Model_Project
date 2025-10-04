@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+from numpy.typing import NDArray
 
 from .harness import BacktestResult
 
@@ -31,13 +32,16 @@ def _validate_inputs(result: BacktestResult, n: int, block: int) -> pd.Series:
     return realised.astype(float)
 
 
+FloatArray = NDArray[np.float64]
+
+
 def _bootstrap_paths(
     returns: pd.Series,
     *,
     n_paths: int,
     block: int,
     rng: np.random.Generator,
-) -> np.ndarray:
+) -> FloatArray:
     values = returns.to_numpy(dtype=float, copy=False)
     periods = len(values)
     out = np.empty((n_paths, periods), dtype=float)

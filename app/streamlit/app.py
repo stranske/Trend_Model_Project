@@ -55,7 +55,10 @@ def main():
             st.info("⚙️ Configure Model")
 
     with col3:
-        if "analysis_result" in st.session_state and st.session_state["analysis_result"] is not None:
+        if (
+            "analysis_result" in st.session_state
+            and st.session_state["analysis_result"] is not None
+        ):
             st.success("📊 Analysis Complete")
         else:
             st.info("🚀 Run Analysis")
@@ -76,7 +79,7 @@ def main():
 
     with action_col3:
         if st.button("📊 Go to Results", use_container_width=True):
-            st.switch_page("pages/3_Results.py")
+            st.switch_page("pages/4_Results.py")
 
     with action_col4:
         if st.button("💾 Go to Export", use_container_width=True):

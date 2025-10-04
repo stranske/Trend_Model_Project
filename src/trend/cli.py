@@ -8,7 +8,7 @@ import sys
 import uuid
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Callable, Iterable, Protocol
+from typing import Any, Callable, Iterable, Protocol, cast
 
 import pandas as pd
 
@@ -48,7 +48,7 @@ except Exception:  # pragma: no cover - defensive fallback
 else:
     maybe_log_step_fn = getattr(_legacy_cli_module, "maybe_log_step", None)
     if callable(maybe_log_step_fn):
-        _legacy_maybe_log_step = maybe_log_step_fn  # type: ignore[assignment]
+        _legacy_maybe_log_step = cast(LegacyMaybeLogStep, maybe_log_step_fn)
     _legacy_extract_cache_stats = getattr(
         _legacy_cli_module, "_extract_cache_stats", None
     )
@@ -68,7 +68,7 @@ def _legacy_callable(name: str, fallback: Callable[..., Any]) -> Callable[..., A
     if _legacy_cli_module is not None:
         attr = getattr(_legacy_cli_module, name, None)
         if callable(attr):
-            return attr
+            return cast(Callable[..., Any], attr)
     return fallback
 
 

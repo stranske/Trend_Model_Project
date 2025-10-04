@@ -7,7 +7,7 @@ import sys
 from collections.abc import Mapping, Sequence
 from importlib import metadata
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -249,7 +249,7 @@ def main(argv: list[str] | None = None) -> int:
         cfg = load_config(args.config)
         if args.preset:
             try:
-                preset = get_trend_spec_preset(args.preset)
+                spec_preset = get_trend_spec_preset(args.preset)
             except KeyError:
                 available = ", ".join(list_trend_spec_presets())
                 print(
@@ -257,11 +257,11 @@ def main(argv: list[str] | None = None) -> int:
                     file=sys.stderr,
                 )
                 return 2
-            _apply_trend_spec_preset(cfg, preset)
+            _apply_trend_spec_preset(cfg, spec_preset)
         set_cache_enabled(not args.no_cache)
         if getattr(args, "preset", None):
             try:
-                preset = get_trend_preset(args.preset)
+                portfolio_preset = get_trend_preset(args.preset)
             except KeyError:
                 available = ", ".join(list_preset_slugs())
                 print(
@@ -269,7 +269,7 @@ def main(argv: list[str] | None = None) -> int:
                     file=sys.stderr,
                 )
                 return 2
-            apply_trend_preset(cfg, preset)
+            apply_trend_preset(cfg, portfolio_preset)
         cli_seed = args.seed
         env_seed = os.getenv("TREND_SEED")
         # Precedence: CLI flag > TREND_SEED > config.seed > default 42
@@ -490,7 +490,8 @@ def _load_configuration(path: str) -> tuple[Path, Any]:
 
     from trend.cli import _load_configuration as unified_load_configuration
 
-    return unified_load_configuration(path)
+    result = unified_load_configuration(path)
+    return cast(tuple[Path, Any], result)
 
 
 def _resolve_returns_path(config_path: Path, cfg: Any, override: str | None) -> Path:

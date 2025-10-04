@@ -44,6 +44,8 @@ class Config(BaseModel):
     sample_split: dict[str, Any]
     portfolio: dict[str, Any]
     benchmarks: dict[str, str] = {}
+    signals: dict[str, Any] = {}
+    performance: dict[str, Any] = {}
     metrics: dict[str, Any]
     export: dict[str, Any]
     output: dict[str, Any] | None = None
@@ -52,6 +54,7 @@ class Config(BaseModel):
     jobs: int | None = None
     checkpoint_dir: str | None = None
     random_seed: int | None = None
+    seed: int | None = None
 
     def __init__(self, **data: Any) -> None:  # pragma: no cover - simple assign
         """Populate attributes from ``data`` regardless of ``BaseModel``."""

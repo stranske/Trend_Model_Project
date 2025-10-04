@@ -13,7 +13,9 @@ def _load_yaml(path: pathlib.Path):
 
 def test_merge_manager_exists():
     mm = WORKFLOWS / "maint-45-merge-manager.yml"
-    assert mm.exists(), "maint-45-merge-manager.yml must exist as unified merge policy workflow"
+    assert (
+        mm.exists()
+    ), "maint-45-merge-manager.yml must exist as unified merge policy workflow"
     data = mm.read_text(encoding="utf-8")
     assert (
         MARKER in data

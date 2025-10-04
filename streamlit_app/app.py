@@ -26,4 +26,4 @@ if st.button("🚀 Run demo", type="primary"):
         success = run_one_click_demo()
     if success:
         st.success("Demo ready! Redirecting to Results…")
-        st.switch_page("pages/3_Results.py")
+        st.switch_page("pages/4_Results.py")

@@ -67,7 +67,9 @@ def load_dataset_from_path(path: str) -> tuple[pd.DataFrame, SchemaMeta]:
 
 
 @st.cache_data(show_spinner="Validating upload…")
-def load_dataset_from_bytes(data: bytes, filename: str) -> tuple[pd.DataFrame, SchemaMeta]:
+def load_dataset_from_bytes(
+    data: bytes, filename: str
+) -> tuple[pd.DataFrame, SchemaMeta]:
     """Load and validate a dataset from uploaded file bytes."""
 
     buffer = io.BytesIO(data)
@@ -99,4 +101,3 @@ def dataset_choices() -> Mapping[str, SampleDataset]:
     """Return a mapping from human readable label to dataset metadata."""
 
     return {dataset.label: dataset for dataset in list_sample_datasets()}
-

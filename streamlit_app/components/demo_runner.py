@@ -297,14 +297,22 @@ def _update_session_state(
         trend_payload = dict(trend_payload)
         trend_payload["preset"] = setup.config_state.get("preset_name")
     model_settings = ModelSettings(
-        lookback_months=int(overrides.get("lookback_months", setup.sim_config.get("lookback_months", 36))),
+        lookback_months=int(
+            overrides.get(
+                "lookback_months", setup.sim_config.get("lookback_months", 36)
+            )
+        ),
         rebalance_frequency=str(setup.sim_config.get("freq", "monthly")),
         selection_count=int(overrides.get("selection_count", 10)),
         risk_target=float(overrides.get("risk_target", 0.10)),
-        weighting_scheme=str(setup.sim_config.get("portfolio", {}).get("weighting_scheme", "equal")),
+        weighting_scheme=str(
+            setup.sim_config.get("portfolio", {}).get("weighting_scheme", "equal")
+        ),
         cooldown_months=int(overrides.get("cooldown_months", 3)),
         min_track_months=int(overrides.get("min_track_months", 24)),
-        metric_weights={k: float(v) for k, v in (overrides.get("metric_weights", {}) or {}).items()},
+        metric_weights={
+            k: float(v) for k, v in (overrides.get("metric_weights", {}) or {}).items()
+        },
         trend_spec=trend_payload if isinstance(trend_payload, Mapping) else {},
         benchmark=setup.benchmark,
     )
