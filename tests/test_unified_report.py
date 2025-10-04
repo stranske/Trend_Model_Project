@@ -26,6 +26,13 @@ def _make_result() -> RunResult:
         max_drawdown=-0.2,
         information_ratio=0.4,
     )
+    regime_table = pd.DataFrame(
+        {
+            ("User", "Risk-On"): [0.12, 1.1, -0.2, 0.62, 36],
+            ("User", "Risk-Off"): [0.04, 0.4, -0.1, 0.45, 18],
+        },
+        index=["CAGR", "Sharpe", "Max Drawdown", "Hit Rate", "Observations"],
+    )
     details = {
         "out_user_stats": stats,
         "out_ew_stats": stats,
@@ -34,6 +41,9 @@ def _make_result() -> RunResult:
             "turnover": turnover,
             "final_weights": final_weights,
         },
+        "performance_by_regime": regime_table,
+        "regime_summary": "Risk-On windows delivered 12.0% CAGR versus 4.0% in risk-off.",
+        "regime_notes": ["Synthetic regime sample"],
     }
     result = RunResult(metrics=metrics, details=details, seed=7, environment={})
     setattr(result, "portfolio", portfolio)
@@ -66,6 +76,7 @@ def test_generate_unified_report_produces_expected_sections() -> None:
     assert "Vol-Adj Trend Analysis Report" in artifacts.html
     assert "Executive summary" in artifacts.html
     assert "Turnover" in artifacts.html
+    assert "Performance by Regime" in artifacts.html
     assert "Parameter summary" in artifacts.html
     assert "Past performance does not guarantee future results" in artifacts.html
     assert artifacts.pdf_bytes is None

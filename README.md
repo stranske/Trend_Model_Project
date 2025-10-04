@@ -8,6 +8,12 @@ This repository contains experiments and utilities for analyzing volatility-adju
 
 For a beginner-friendly overview, see [docs/UserGuide.md](docs/UserGuide.md).
 
+Latest addition: the pipeline now tags market regimes (Risk-On / Risk-Off) via
+a configurable rolling return filter and adds a "Performance by Regime" table to
+the CLI, exports, and unified HTML/PDF report. Tweak lookback, smoothing, and
+thresholds under the new `regime` section in `config/defaults.yml` to align the
+analysis with your preferred market proxy.
+
 📦 **Reusable CI & Automation**: Standardise tests, autofix, and agent automation across repositories using the new reusable workflows documented in [docs/ci_reuse.md](docs/ci_reuse.md). Consumers call `reusable-ci-python.yml`, `reusable-autofix.yml`, and the unified agent orchestrator `agents-41-assign-and-watch.yml` (invoked via the lightweight wrappers `agents-41-assign.yml` / `agents-42-watchdog.yml`).
 
 🧭 **Workflow topology & agent routing**: Learn how workflow buckets, naming, post-CI summaries, and agent labels fit together in [docs/WORKFLOW_GUIDE.md](docs/WORKFLOW_GUIDE.md).

@@ -95,6 +95,8 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
             risk_free=0.0,
         )
 
+    regime_cfg = getattr(config, "regime", {}) or {}
+
     preprocessing_section = getattr(config, "preprocessing", {}) or {}
     missing_section = (
         preprocessing_section.get("missing_data")
@@ -134,6 +136,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         risk_window=config.vol_adjust.get("window"),
         previous_weights=config.portfolio.get("previous_weights"),
         max_turnover=config.portfolio.get("max_turnover"),
+        regime_cfg=regime_cfg,
     )
     if res is None:
         logger.warning("run_simulation produced no result")

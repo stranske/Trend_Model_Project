@@ -259,11 +259,47 @@ print(error_summary(log_path))
 
 Disable logging only if you have strict I/O limits or are micro‑benchmarking; overhead is negligible (dozens of lines per run).
 
-## 14. Further help
+## 14. Regime tagging and reporting
+
+The default configuration now ships with a `regime` block that tags each
+out-of-sample period as **Risk-On** or **Risk-Off** using the rolling return of
+the `SPX` proxy. The engine compounds six months of index returns, optionally
+smooths the signal, and compares the result with the configured threshold.
+Positive or neutral readings map to Risk-On while negative readings map to
+Risk-Off. All controls can be tuned without touching the code:
+
+```yaml
+regime:
+  enabled: true          # disable to skip regime analysis entirely
+  proxy: "SPX"           # column in the returns frame or uploaded index file
+  method: "rolling_return"
+  lookback: 126          # number of observations to compound
+  smoothing: 3           # optional moving average over the rolling return
+  threshold: 0.0         # shift the cut-over between regimes
+  neutral_band: 0.001    # treat small deviations as neutral noise
+  min_observations: 4    # minimum rows required to compute metrics
+```
+
+When `regime.enabled` is true the CLI summary, Excel workbook, JSON/CSV/TXT
+exports, and the unified HTML/PDF report include a **Performance by Regime**
+table. It lists CAGR, Sharpe, max drawdown, hit rate, and the observation count
+for the user-weight portfolio (and equal-weight baseline when available) across
+Risk-On, Risk-Off and aggregate windows. Any regime with fewer than
+`min_observations` samples is shown as `N/A` and annotated with a descriptive
+footnote. The unified report also appends a sentence to the executive summary
+and narrative highlighting the relative performance between regimes.
+
+The `regime_notes` entry in the result dictionary carries the collected
+footnotes; they are exported as a one-column table for easy auditing alongside
+the numeric breakdown. Supplying your own proxy is as simple as adding the
+column to the input data or pointing `regime.proxy` at a custom series in the
+indices bundle.
+
+## 15. Further help
 
 See `README.md` for a short overview of the repository structure and the example notebooks for end‑to‑end demonstrations.
 
-## 15. Turnover and Transaction Cost Controls
+## 16. Turnover and Transaction Cost Controls
 
 Two optional portfolio execution controls make simulation results closer to
 realistic implementation:
@@ -289,7 +325,7 @@ to each result dictionary. These appear in a separate execution metrics export
 (`execution_metrics` sheet / file) so the legacy Phase‑1 summary schema remains
 unchanged.
 
-## 16. Portfolio Constraint Set (advanced)
+## 17. Portfolio Constraint Set (advanced)
 
 The engine can project preliminary weights onto a feasible region defined by a constraint set:
 

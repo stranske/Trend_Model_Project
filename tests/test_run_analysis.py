@@ -166,3 +166,29 @@ def test_run_analysis_missing_policy_zero_keeps_asset():
     assert set(filled["selected_funds"]) == {"A", "B"}
     missing_meta = filled.get("preprocessing", {}).get("missing", {})
     assert missing_meta.get("dropped") == []
+
+
+def test_run_analysis_includes_regime_breakdown() -> None:
+    df = make_df()
+    df["SPX"] = [0.04, 0.03, -0.02, -0.01, 0.025, 0.03]
+    res = run_analysis(
+        df,
+        "2020-01",
+        "2020-03",
+        "2020-04",
+        "2020-06",
+        0.1,
+        0.0,
+        indices_list=["SPX"],
+        regime_cfg={
+            "enabled": True,
+            "proxy": "SPX",
+            "lookback": 2,
+            "smoothing": 1,
+            "min_observations": 1,
+        },
+    )
+    assert res is not None
+    table = res.get("performance_by_regime")
+    assert isinstance(table, pd.DataFrame)
+    assert ("User", "Risk-On") in table.columns
