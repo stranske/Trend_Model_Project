@@ -612,6 +612,18 @@ def _wrap_pdf_text(
     initial_indent: str = "",
     subsequent_indent: str = "",
 ) -> str:
+    """
+    Wrap and format text for PDF output, ensuring lines do not exceed a specified width.
+
+    Parameters:
+        text (str): The input text to wrap.
+        width (int): Maximum line width in characters. Defaults to 90.
+        initial_indent (str): String to prepend to the first line. Defaults to "".
+        subsequent_indent (str): String to prepend to all subsequent lines. Defaults to "".
+
+    Returns:
+        str: The wrapped and formatted text suitable for PDF rendering.
+    """
     raw = str(text).replace("\n", " ").strip()
     if not raw:
         return initial_indent.rstrip() if initial_indent else ""
