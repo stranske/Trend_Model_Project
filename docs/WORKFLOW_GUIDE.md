@@ -16,14 +16,11 @@ UI and makes diffs easier to scan.
 
 | Prefix | Purpose | Examples |
 | ------ | ------- | -------- |
-| `pr-`  | Pull-request facing CI wrappers that call reusable jobs | `pr-10-ci-python.yml`, `pr-12-docker-smoke.yml` |
-| `agents-` | Agent assignment, watchdogs, and helper utilities | `agents-41-assign.yml`, `agents-42-watchdog.yml`, `agents-40-consumer.yml` |
-| `maint-` | Maintenance, reporting, governance, and health monitors (indices cluster by theme: `maint-30` post-CI, `maint-33` failure tracking, `maint-34` quarantine, etc.) | `maint-30-post-ci-summary.yml`, `maint-33-check-failure-tracker.yml`, `maint-35-repo-health-self-check.yml`, `maint-36-actionlint.yml` |
-| `autofix-` | Autofix infrastructure (composite inputs, environment pins) | `autofix.yml`, `autofix-versions.env`, `autofix-residual-cleanup.yml` |
-| `reuse-` | Reusable workflow entrypoints consumed by wrappers | `reusable-ci-python.yml`, `reusable-90-agents.yml` |
-| `verify-` | Manual probes or validation suites | `verify-ci-stack.yml`, `verify-codex-bootstrap-matrix.yml` |
-| `codeql` / `dependency-review` / `workflow-lint` | Security & linting workflows that retain legacy slugs for integration | `codeql.yml`, `dependency-review.yml`, `workflow-lint.yml` |
-| `release` / `stale` / `cleanup` / `perf` | Operational jobs that predate WFv1 but retain canonical names | `release.yml`, `stale-prs.yml`, `cleanup-codex-bootstrap.yml`, `perf-benchmark.yml` |
+| `pr-`  | Pull-request facing CI wrappers that call reusable jobs | `pr-01-gate-orchestrator.yml`, `pr-10-ci-python.yml`, `pr-12-docker-smoke.yml`, `pr-30-codeql.yml`, `pr-31-dependency-review.yml`, `pr-18-workflow-lint.yml` |
+| `agents-` | Agent assignment, watchdogs, and helper utilities | `agents-40-consumer.yml`, `agents-41-assign.yml`, `agents-41-assign-and-watch.yml`, `agents-42-watchdog.yml`, `agents-43-codex-issue-bridge.yml`, `agents-45-verify-codex-bootstrap-matrix.yml` |
+| `maint-` | Maintenance, reporting, governance, and health monitors (indices cluster by theme: `maint-30` post-CI, `maint-32` autofix, `maint-34` quarantine/governance, `maint-40` signature guard, etc.) | `maint-30-post-ci-summary.yml`, `maint-31-autofix-residual-cleanup.yml`, `maint-32-autofix.yml`, `maint-34-quarantine-ttl.yml`, `maint-35-repo-health-self-check.yml`, `maint-36-actionlint.yml`, `maint-41-chatgpt-issue-sync.yml`, `maint-45-merge-manager.yml`, `maint-49-stale-prs.yml`, `maint-60-release.yml` |
+| `reusable-` | Reusable workflow entrypoints consumed by wrappers | `reusable-ci-python.yml`, `reusable-legacy-ci-python.yml`, `reusable-autofix.yml`, `reusable-90-agents.yml`, `reusable-99-selftest.yml` |
+| `autofix-` assets | Shared configuration artifacts for autofix tooling | `autofix-versions.env` |
 
 Follow these buckets when adding new workflows. Reuse an existing prefix when
 possible; introduce a new bucket only when a new lifecycle warrants it.
@@ -37,6 +34,11 @@ possible; introduce a new bucket only when a new lifecycle warrants it.
    "post-ci-summary").
 4. Update the workflow inventory documentation (this guide and
    `.github/workflows/README.md`) when adding, renaming, or retiring workflows.
+
+### Compliance guardrails (Issue #1669)
+- Tests under `tests/test_workflow_*.py` (notably `test_workflow_naming.py`) fail if a workflow filename falls outside the `pr-*`, `maint-*`, `agents-*`, or `reusable-*` families.
+- Historical archives were removed; lean on [ARCHIVE_WORKFLOWS.md](../ARCHIVE_WORKFLOWS.md) for disposition history and on [WORKFLOW_AUDIT_TEMP.md](../WORKFLOW_AUDIT_TEMP.md) for the authoritative inventory snapshot.
+- When retiring a workflow, ensure the corresponding table entries in those docs reflect the removal to keep audits fast for the next cleanup.
 
 ## Staging new or renamed workflows
 
@@ -55,7 +57,7 @@ files move or new ones are introduced:
    tracker, autofix) update the `workflows:` list so the new producer job is
    observed. When renaming a workflow, update any downstream consumers—
    especially `maint-30-post-ci-summary.yml`,
-   `maint-33-check-failure-tracker.yml`, and `merge-manager.yml`—to point to the
+   `maint-33-check-failure-tracker.yml`, and `maint-45-merge-manager.yml`—to point to the
    new name. Treat the gate job (`gate / all-required-green` inside
    `pr-10-ci-python.yml`) as the single source of truth for CI requirements.
 4. **Update documentation.** Add a note to this guide and cross-link it from
@@ -69,7 +71,7 @@ files move or new ones are introduced:
 - [ ] New or renamed workflow listed in `.github/workflows/README.md` and this
       guide.
 - [ ] Downstream `workflow_run` consumers updated (`maint-30`, `maint-33`,
-      `merge-manager.yml`, and any custom followers).
+      `maint-45-merge-manager.yml`, and any custom followers).
 - [ ] Tests that lock workflow names (for example, `tests/test_workflow_*.py`)
       updated when introducing or retiring slugs.
 - [ ] Failure-tracker label taxonomy confirmed or refreshed if new failure

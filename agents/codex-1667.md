@@ -16,7 +16,7 @@ This document outlines the acceptance criteria and implementation details for au
 - Quiet period elapsed and no active CI/Autofix workflow executions
 
 ## Task List
-- [x] Audit automerge and supporting workflows to confirm they enforce the label and status rules from Issue #1667 (`.github/workflows/merge-manager.yml`).
+- [x] Audit automerge and supporting workflows to confirm they enforce the label and status rules from Issue #1667 (`.github/workflows/maint-45-merge-manager.yml`).
 - [x] Update automerge workflow logic so it requires successful CI and Docker runs for the PR head commit (see "Check required workflows" gate).
 - [x] Require the `automerge` label before auto-merge can be enabled (reason logged as "missing automerge label").
 - [x] Block auto-merge when any label containing `breaking` is applied (reason logged as "breaking label present").
@@ -28,7 +28,7 @@ This document outlines the acceptance criteria and implementation details for au
 - **Relevant workflow files:**
   - `.github/workflows/pr-10-ci-python.yml` (primary CI jobs)
   - `.github/workflows/pr-12-docker-smoke.yml` (Docker build/test checks)
-  - `.github/workflows/merge-manager.yml` (automerge orchestration)
+  - `.github/workflows/maint-45-merge-manager.yml` (automerge orchestration)
 - **Labels involved:**
   - `automerge` (required for merge automation)
   - Any label containing `breaking` (must be absent)

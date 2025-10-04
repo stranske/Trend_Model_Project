@@ -1,6 +1,6 @@
 # Performance Benchmark CI
 
-This workflow (perf-benchmark.yml) enforces a regression budget for key
+This workflow (maint-52-perf-benchmark.yml) enforces a regression budget for key
 vectorised performance hotspots.
 
 ## Monitored Metrics

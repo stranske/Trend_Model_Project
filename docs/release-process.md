@@ -13,7 +13,7 @@ The repository includes an automated CI/CD pipeline that:
 
 ## Workflow Triggers
 
-The release workflow (`.github/workflows/release.yml`) can be triggered in two ways:
+The release workflow (`.github/workflows/maint-60-release.yml`) can be triggered in two ways:
 
 ### 1. Automatic Release on Version Tags
 
@@ -85,12 +85,12 @@ For enhanced security, configure PyPI trusted publishing:
 
 1. Create publisher on PyPI:
    - Repository: `stranske/Trend_Model_Project`
-   - Workflow: `release.yml`
+   - Workflow: `maint-60-release.yml`
    - Environment: `pypi`
 
 2. Create publisher on TestPyPI (for testing):
    - Repository: `stranske/Trend_Model_Project` 
-   - Workflow: `release.yml`
+   - Workflow: `maint-60-release.yml`
    - Environment: `test-pypi`
 
 ## Changelog Generation
@@ -120,7 +120,7 @@ Test the release process without affecting production:
 ```bash
 # Trigger via GitHub UI with dry_run=true
 # Or manually via GitHub CLI:
-gh workflow run release.yml -f tag=v0.1.0-test -f dry_run=true
+gh workflow run maint-60-release.yml -f tag=v0.1.0-test -f dry_run=true
 ```
 
 ### Local Testing
