@@ -132,6 +132,7 @@ regime:
   risk_on_label: "Risk-On"
   risk_off_label: "Risk-Off"
   cache: true
+  annualise_volatility: true   # applies when method: volatility
 
 # ----------------------------------------------------------------------
 # 7. PERFORMANCE METRICS

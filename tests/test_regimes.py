@@ -70,3 +70,41 @@ def test_build_regime_payload_notes_for_insufficient_observations() -> None:
     )
     notes = payload["notes"]
     assert any("fewer than" in note.lower() for note in notes)
+
+
+def test_build_regime_payload_volatility_method() -> None:
+    dates = pd.date_range("2020-01-31", periods=6, freq="ME")
+    proxy = [0.01, 0.015, 0.20, 0.18, 0.19, 0.21]
+    data = pd.DataFrame(
+        {
+            "Date": dates,
+            "FundA": [0.02, 0.03, -0.01, 0.01, 0.02, 0.015],
+            "FundB": [0.01, 0.02, -0.015, 0.0, 0.018, 0.012],
+            "RF": 0.0,
+            "SPX": proxy,
+        }
+    )
+    index = pd.DatetimeIndex(data["Date"])
+    returns_map = {"User": data.set_index("Date")["FundA"]}
+    payload = build_regime_payload(
+        data=data,
+        out_index=index,
+        returns_map=returns_map,
+        risk_free=0.0,
+        config={
+            "enabled": True,
+            "proxy": "SPX",
+            "method": "volatility",
+            "lookback": 2,
+            "smoothing": 1,
+            "threshold": 0.05,
+            "annualise_volatility": False,
+            "min_observations": 1,
+        },
+        freq_code="M",
+        periods_per_year=12,
+    )
+    labels = payload["labels"].dropna()
+    assert not labels.empty
+    assert {"Risk-On", "Risk-Off"}.issuperset(set(labels.unique()))
+    assert payload["table"].shape[1] > 0

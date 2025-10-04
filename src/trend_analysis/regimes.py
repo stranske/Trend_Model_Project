@@ -28,6 +28,7 @@ class RegimeSettings:
     risk_off_label: str = "Risk-Off"
     default_label: str = "Risk-On"
     cache: bool = True
+    annualise_volatility: bool = True
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -61,9 +62,16 @@ def normalise_settings(cfg: Mapping[str, Any] | None) -> RegimeSettings:
     if proxy is not None:
         proxy = str(proxy).strip() or None
 
-    method = str(cfg.get("method", "rolling_return") or "rolling_return").lower()
-    if method not in {"rolling_return", "return", "rolling"}:
-        method = "rolling_return"
+    method_raw = str(cfg.get("method", "rolling_return") or "rolling_return").strip().lower()
+    method_lookup = {
+        "rolling_return": "rolling_return",
+        "rolling": "rolling_return",
+        "return": "rolling_return",
+        "volatility": "volatility",
+        "vol": "volatility",
+        "std": "volatility",
+    }
+    method = method_lookup.get(method_raw, "rolling_return")
 
     lookback = _coerce_positive_int(cfg.get("lookback"), 126)
     smoothing = _coerce_positive_int(cfg.get("smoothing"), 3)
@@ -71,6 +79,7 @@ def normalise_settings(cfg: Mapping[str, Any] | None) -> RegimeSettings:
     neutral_band = abs(_coerce_float(cfg.get("neutral_band"), 0.001))
     min_obs = _coerce_positive_int(cfg.get("min_observations"), 6, minimum=1)
     cache = bool(cfg.get("cache", True))
+    annualise_volatility = bool(cfg.get("annualise_volatility", True))
 
     risk_on_label = str(cfg.get("risk_on_label", "Risk-On") or "Risk-On").strip()
     risk_off_label = str(cfg.get("risk_off_label", "Risk-Off") or "Risk-Off").strip()
@@ -97,6 +106,7 @@ def normalise_settings(cfg: Mapping[str, Any] | None) -> RegimeSettings:
         risk_off_label=risk_off_label,
         default_label=default_label,
         cache=cache,
+        annualise_volatility=annualise_volatility,
     )
 
 
@@ -111,11 +121,49 @@ def _rolling_return_signal(series: pd.Series, *, window: int, smoothing: int) ->
     return compounded
 
 
+def _rolling_volatility_signal(
+    series: pd.Series,
+    *,
+    window: int,
+    smoothing: int,
+    periods_per_year: float | None,
+    annualise: bool,
+) -> pd.Series:
+    """Return rolling realised volatility optionally annualised."""
+
+    if window <= 0:
+        raise ValueError("window must be positive")
+    vol = series.rolling(window).std(ddof=0)
+    if smoothing > 1:
+        vol = vol.rolling(smoothing).mean()
+    if annualise and periods_per_year and periods_per_year > 0:
+        vol = vol * float(np.sqrt(float(periods_per_year)))
+    return vol
+
+
+def _default_periods_per_year(freq: str) -> float:
+    """Best-effort mapping from frequency code to periods-per-year."""
+
+    freq_upper = (freq or "").upper()
+    if freq_upper.startswith(("A", "Y")):
+        return 1.0
+    if freq_upper.startswith("Q"):
+        return 4.0
+    if freq_upper.startswith("M"):
+        return 12.0
+    if freq_upper.startswith("W"):
+        return 52.0
+    if freq_upper.startswith(("B", "D")):
+        return 252.0
+    return 252.0
+
+
 def _compute_regime_series(
     proxy: pd.Series,
     settings: RegimeSettings,
     *,
     freq: str,
+    periods_per_year: float | None,
 ) -> pd.Series:
     """Classify ``proxy`` observations into regimes using ``settings``."""
 
@@ -129,8 +177,24 @@ def _compute_regime_series(
     window = max(int(settings.lookback), 1)
     smoothing = max(int(settings.smoothing), 1)
 
-    signal = _rolling_return_signal(clean, window=window, smoothing=smoothing)
-    signal = signal - settings.threshold
+    periods = None
+    if periods_per_year is not None and periods_per_year > 0:
+        periods = float(periods_per_year)
+    elif settings.method == "volatility":
+        periods = _default_periods_per_year(freq)
+
+    if settings.method == "volatility":
+        signal = _rolling_volatility_signal(
+            clean,
+            window=window,
+            smoothing=smoothing,
+            periods_per_year=periods,
+            annualise=settings.annualise_volatility,
+        )
+        signal = settings.threshold - signal
+    else:
+        signal = _rolling_return_signal(clean, window=window, smoothing=smoothing)
+        signal = signal - settings.threshold
 
     labels = pd.Series(settings.default_label, index=clean.index, dtype="string")
     upper = settings.neutral_band
@@ -156,6 +220,12 @@ def _compute_regime_series(
         f"regime_{settings.method}_thr{settings.threshold:.6f}_"
         f"smooth{smoothing}_band{settings.neutral_band:.6f}"
     )
+    if settings.method == "volatility":
+        method_tag = (
+            f"{method_tag}_annual{int(settings.annualise_volatility)}"
+        )
+        if periods:
+            method_tag = f"{method_tag}_ppy{periods:.6f}"
 
     def _compute() -> pd.Series:
         return labels
@@ -168,12 +238,15 @@ def compute_regimes(
     settings: RegimeSettings,
     *,
     freq: str,
+    periods_per_year: float | None = None,
 ) -> pd.Series:
     """Return per-period regime labels for ``proxy`` respecting ``settings``."""
 
     if not settings.enabled:
         return pd.Series(dtype="string")
-    return _compute_regime_series(proxy, settings, freq=freq)
+    return _compute_regime_series(
+        proxy, settings, freq=freq, periods_per_year=periods_per_year
+    )
 
 
 def _format_hit_rate(series: pd.Series) -> float:
@@ -330,7 +403,12 @@ def build_regime_payload(
         return payload
 
     proxy_series = data.set_index("Date")[settings.proxy].astype(float)
-    regimes = compute_regimes(proxy_series, settings, freq=freq_code)
+    regimes = compute_regimes(
+        proxy_series,
+        settings,
+        freq=freq_code,
+        periods_per_year=periods_per_year,
+    )
     if regimes.empty:
         payload["notes"] = [
             "Market proxy series did not produce regime labels for the requested window.",
