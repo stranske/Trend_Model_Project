@@ -1,6 +1,7 @@
 name: Reusable 99 Selftest
 
 on:
+  workflow_call:
   workflow_dispatch:
   schedule:
     # Nightly verification run at 02:30 UTC to keep the reusable workflow healthy without
