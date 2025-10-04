@@ -109,8 +109,11 @@ def derive_analysis_window(
         raise ValueError(
             "Not enough history for the selected lookback. Reduce the window length."
         )
-    start = unique[lookback_months].to_timestamp("M", how="end")
-    end = unique[-1].to_timestamp("M", how="end")
+    # Find the first date in the index matching the start period
+    start_period = unique[lookback_months]
+    end_period = unique[-1]
+    start = index[periods == start_period][0]
+    end = index[periods == end_period][-1]
     return start, end
 
 
