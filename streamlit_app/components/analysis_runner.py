@@ -223,6 +223,23 @@ def _hashable_model_state(state: Mapping[str, Any]) -> str:
 def run_cached_analysis(
     returns: pd.DataFrame, model_state_blob: str, benchmark: str | None
 ):
+    """
+    Run the analysis pipeline with caching.
+
+    Parameters
+    ----------
+    returns : pd.DataFrame
+        DataFrame containing asset returns, indexed by date.
+    model_state_blob : str
+        JSON-serialized model state containing analysis configuration.
+    benchmark : str or None
+        Optional benchmark identifier for the analysis.
+
+    Returns
+    -------
+    Any
+        The result of the analysis pipeline, as returned by `run_simulation`.
+    """
     model_state = json.loads(model_state_blob)
     payload = AnalysisPayload(
         returns=returns,
