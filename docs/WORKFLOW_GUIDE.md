@@ -35,6 +35,11 @@ possible; introduce a new bucket only when a new lifecycle warrants it.
 4. Update the workflow inventory documentation (this guide and
    `.github/workflows/README.md`) when adding, renaming, or retiring workflows.
 
+### Compliance guardrails (Issue #1669)
+- Tests under `tests/test_workflow_*.py` (notably `test_workflow_naming.py`) fail if a workflow filename falls outside the `pr-*`, `maint-*`, `agents-*`, or `reusable-*` families.
+- Historical archives were removed; lean on [ARCHIVE_WORKFLOWS.md](../ARCHIVE_WORKFLOWS.md) for disposition history and on [WORKFLOW_AUDIT_TEMP.md](../WORKFLOW_AUDIT_TEMP.md) for the authoritative inventory snapshot.
+- When retiring a workflow, ensure the corresponding table entries in those docs reflect the removal to keep audits fast for the next cleanup.
+
 ## Staging new or renamed workflows
 
 Maintaining trigger fidelity requires a bit of bookkeeping whenever workflow

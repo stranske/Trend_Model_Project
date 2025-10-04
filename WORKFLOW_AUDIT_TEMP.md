@@ -16,6 +16,66 @@ Additional categories retained so every workflow has a single primary home.
 
 ## Inventory by Category
 
+### Naming Compliance Snapshot (Issue #1669)
+- ✅ **All active workflows comply with the WFv1 families** (`pr-*`, `maint-*`, `agents-*`, `reusable-*`). No stragglers remain under legacy slugs.
+- 📁 Historical directories `Old/.github/workflows/` and `.github/workflows/archive/` were deleted; disposition now lives solely in [ARCHIVE_WORKFLOWS.md](ARCHIVE_WORKFLOWS.md).
+- 🧾 The tables below enumerate every workflow with its triggers and the primary consumer so future audits start from an authoritative inventory.
+
+#### Agents family
+| Workflow | Triggers | Primary consumers / notes |
+|----------|----------|----------------------------|
+| `agents-40-consumer.yml` | schedule, workflow_dispatch | Hourly/adhoc entry point that calls `reusable-90-agents.yml` for readiness, diagnostics, or verification drills. |
+| `agents-41-assign-and-watch.yml` | workflow_dispatch, schedule | Unified assigner/watchdog orchestrator invoked by wrappers; handles bootstrap, stale sweeps, and diagnostics. |
+| `agents-41-assign.yml` | issues, pull_request_target, workflow_dispatch | Label-driven wrapper that forwards issue/PR events to the assign-and-watch orchestrator. |
+| `agents-42-watchdog.yml` | workflow_dispatch | Manual watchdog wrapper that redispatches requests through the assign-and-watch workflow. |
+| `agents-43-codex-issue-bridge.yml` | issues, workflow_dispatch | Compatibility shim translating historical Codex bootstrap commands into the unified orchestrator. |
+| `agents-44-copilot-readiness.yml` | workflow_dispatch | Manual readiness probe for Copilot assignments, implemented as a thin wrapper around the reusable agents stack. |
+| `agents-45-verify-codex-bootstrap-matrix.yml` | workflow_dispatch, schedule, push | Scenario matrix validating Codex bootstrap paths on dispatch, nightly schedule, and repository pushes. |
+
+#### Maintenance family
+| Workflow | Triggers | Primary consumers / notes |
+|----------|----------|----------------------------|
+| `maint-30-post-ci-summary.yml` | workflow_run | Posts the consolidated CI/Docker status comment after pipeline completion. |
+| `maint-31-autofix-residual-cleanup.yml` | schedule, workflow_dispatch | Removes stale autofix branches/patch artifacts on schedule or manual dispatch. |
+| `maint-32-autofix.yml` | workflow_run | Consolidated autofix follower that applies hygiene fixes and retries trivial CI failures via `reusable-autofix.yml`. |
+| `maint-33-check-failure-tracker.yml` | workflow_run | Opens/closes CI failure issues once the gate runner finishes. |
+| `maint-34-quarantine-ttl.yml` | schedule, workflow_dispatch, pull_request, push | Governs quarantine TTL enforcement and provides manual diagnostics. |
+| `maint-35-repo-health-self-check.yml` | schedule, workflow_dispatch, pull_request, push | Nightly/weekly ops health probe with manual override support. |
+| `maint-36-actionlint.yml` | pull_request, push, schedule, workflow_dispatch | Actionlint guard for workflow edits, phase-2-dev pushes, and the weekly sweep. |
+| `maint-37-ci-selftest.yml` | workflow_dispatch | Intentional success/failure pair to keep Merge Manager guardrails exercised. |
+| `maint-38-cleanup-codex-bootstrap.yml` | schedule, workflow_dispatch | Prunes stale Codex bootstrap branches and temporary artifacts. |
+| `maint-40-ci-signature-guard.yml` | push, pull_request | Signature verification for CI job manifests; fails if fixtures drift. |
+| `maint-41-chatgpt-issue-sync.yml` | workflow_dispatch | Synchronises ChatGPT topic lists into GitHub issues on demand. |
+| `maint-43-verify-service-bot-pat.yml` | workflow_dispatch | Scheduled/manual check ensuring the automation PAT remains valid. |
+| `maint-44-verify-ci-stack.yml` | workflow_dispatch | Manual diagnostics harness to validate CI/Docker/autofix interplay. |
+| `maint-45-merge-manager.yml` | pull_request, workflow_run | Unified auto-approval + auto-merge gate checking CI, Docker, allowlists, and quiet-period constraints. |
+| `maint-48-selftest-reusable-ci.yml` | workflow_dispatch, schedule, workflow_call | Nightly and ad-hoc self-test of the reusable CI workflow matrix. |
+| `maint-49-stale-prs.yml` | schedule, workflow_dispatch | Stale PR triage/closure. |
+| `maint-52-perf-benchmark.yml` | push, schedule, workflow_dispatch | Performance regression benchmarking with optional manual kicks. |
+| `maint-60-release.yml` | push, workflow_dispatch | Release promotion flow for tagged/main pushes and manual dispatches. |
+
+#### PR family
+| Workflow | Triggers | Primary consumers / notes |
+|----------|----------|----------------------------|
+| `pr-01-gate-orchestrator.yml` | pull_request, workflow_dispatch | Aggregates CI/Docker/actionlint/quarantine status into a single gate job. |
+| `pr-02-label-agent-prs.yml` | pull_request_target | Hardened PR labeler that applies agent origin and risk labels. |
+| `pr-10-ci-python.yml` | workflow_call, pull_request, push | Legacy required-check wrapper invoking `reusable-ci-python.yml` while branch protection migrates. |
+| `pr-12-docker-smoke.yml` | workflow_call, push, pull_request, workflow_dispatch | Docker build + smoke test wrapper over reusable Docker matrix. |
+| `pr-18-workflow-lint.yml` | pull_request, push | Actionlint validation for workflow edits. |
+| `pr-20-selftest-pr-comment.yml` | pull_request | Self-test harness for PR summary bot comment paths. |
+| `pr-30-codeql.yml` | push, pull_request, schedule, workflow_dispatch | CodeQL scanning with manual rerun support. |
+| `pr-31-dependency-review.yml` | pull_request | Dependency diff vulnerability check. |
+| `pr-path-labeler.yml` | pull_request | Path-based labeling for taxonomy/enforcement. |
+
+#### Reusable family
+| Workflow | Triggers | Primary consumers / notes |
+|----------|----------|----------------------------|
+| `reusable-90-agents.yml` | workflow_call | Reusable agent orchestration stack called by the `agents-4x-*` wrappers. |
+| `reusable-99-selftest.yml` | workflow_dispatch, schedule | Nightly/adhoc smoke-test matrix for reusable CI features. |
+| `reusable-autofix.yml` | workflow_call | Reusable autofix logic consumed by `maint-32-autofix.yml`. |
+| `reusable-ci-python.yml` | workflow_call | WFv1 reusable CI executor referenced by PR and maintenance workflows. |
+| `reusable-legacy-ci-python.yml` | workflow_call | Legacy reusable CI contract retained for downstream consumers migrating to WFv1. |
+
 ### 1. Pre-PR / Standard Checks
 - `pr-01-gate-orchestrator.yml` – Aggregates CI, Docker, actionlint, and quarantine TTL for PR events.
 - `pr-10-ci-python.yml` – Core test & coverage gate (consumes `reusable-ci-python.yml`).
