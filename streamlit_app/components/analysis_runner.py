@@ -22,6 +22,22 @@ METRIC_REGISTRY = {
 }
 
 
+@dataclass(frozen=True)
+class ModelSettings:
+    """Compatibility shim for legacy demo code expecting ``ModelSettings``."""
+
+    lookback_months: int
+    rebalance_frequency: str
+    selection_count: int
+    risk_target: float
+    weighting_scheme: str
+    cooldown_months: int
+    min_track_months: int
+    metric_weights: Mapping[str, float]
+    trend_spec: Mapping[str, Any]
+    benchmark: str | None = None
+
+
 @dataclass
 class AnalysisPayload:
     """Container describing the data required to run the analysis."""
