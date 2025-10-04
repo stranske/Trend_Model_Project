@@ -26,11 +26,10 @@ def main():
             Welcome to the enhanced Trend Analysis application with unified execution and progress tracking.
 
             ### Getting Started:
-            1. **📤 Upload**: Load your returns data (CSV/Excel)
-            2. **⚙️ Configure**: Set analysis parameters and date ranges
-            3. **🚀 Run**: Execute analysis with progress tracking
-            4. **📊 Results**: View detailed analysis results
-            5. **💾 Export**: Save your findings
+            1. **📥 Data**: Load your returns data (CSV/Excel or sample)
+            2. **⚙️ Model**: Choose presets and portfolio settings
+            3. **📊 Results**: View performance charts and diagnostics
+            4. **💾 Export**: Save your findings
 
             Use the sidebar navigation to move between sections.
             """
@@ -50,16 +49,13 @@ def main():
             st.info("📤 Upload Data")
 
     with col2:
-        if "sim_config" in st.session_state and st.session_state["sim_config"]:
-            st.success("⚙️ Configuration Set")
+        if "model_state" in st.session_state and st.session_state["model_state"]:
+            st.success("⚙️ Model Configured")
         else:
-            st.info("⚙️ Configure Analysis")
+            st.info("⚙️ Configure Model")
 
     with col3:
-        if (
-            "sim_results" in st.session_state
-            and st.session_state["sim_results"] is not None
-        ):
+        if "analysis_result" in st.session_state and st.session_state["analysis_result"] is not None:
             st.success("📊 Analysis Complete")
         else:
             st.info("🚀 Run Analysis")
@@ -71,20 +67,20 @@ def main():
     action_col1, action_col2, action_col3, action_col4 = st.columns(4)
 
     with action_col1:
-        if st.button("📤 Go to Upload", use_container_width=True):
-            st.switch_page("pages/01_Upload.py")
+        if st.button("📥 Go to Data", use_container_width=True):
+            st.switch_page("pages/1_Data.py")
 
     with action_col2:
-        if st.button("⚙️ Go to Configure", use_container_width=True):
-            st.switch_page("pages/02_Configure.py")
+        if st.button("⚙️ Go to Model", use_container_width=True):
+            st.switch_page("pages/2_Model.py")
 
     with action_col3:
-        if st.button("🚀 Go to Run", use_container_width=True):
-            st.switch_page("pages/03_Run.py")
+        if st.button("📊 Go to Results", use_container_width=True):
+            st.switch_page("pages/3_Results.py")
 
     with action_col4:
-        if st.button("📊 Go to Results", use_container_width=True):
-            st.switch_page("pages/04_Results.py")
+        if st.button("💾 Go to Export", use_container_width=True):
+            st.switch_page("pages/5_Export.py")
 
     # App info
     st.markdown("---")
