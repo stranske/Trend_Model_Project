@@ -1,17 +1,17 @@
-# Archived GitHub Workflows (updated 2026-10-05)
+# Archived GitHub Workflows (updated 2026-10-07)
 
-This document records the archival and eventual deletion of legacy agent-related workflows now replaced by consolidated reusable pipelines. The most recent sweep (Issue #1419) retired the reusable agent matrix in favour of the focused assigner/watchdog pair.
+This document records the archival and eventual deletion of legacy agent-related workflows now replaced by consolidated reusable pipelines. The most recent sweep (Issue #1419) retired the reusable agent matrix in favour of the focused assigner/watchdog pair. The follow-up sweep for Issue #1669 removed the on-disk archive directory so the history now lives exclusively in git along with this ledger.
 
 ## Removed Legacy Files (Cleanup PR for Issue #1259)
-All deprecated agent automation workflows were deleted from `.github/workflows/` on 2025-09-21 once the stabilization window for the reusable equivalents closed. Historical copies remain under `.github/workflows/archive/` for reference.
+All deprecated agent automation workflows were deleted from `.github/workflows/` on 2025-09-21 once the stabilization window for the reusable equivalents closed. Historical copies formerly lived under `.github/workflows/archive/` but that directory was removed on 2026-10-07 as part of the Issue #1669 cleanup. Retrieve any prior YAML from git history when needed.
 
-| Legacy Workflow | Archived Copy | Replacement Path | Replacement Mode |
-|-----------------|---------------|------------------|------------------|
-| `agent-readiness.yml` | `archive/agent-readiness.yml` | `reuse-agents.yml` → `agents-41-assign-and-watch.yml` | `enable_readiness=true` |
-| `agent-watchdog.yml` | `archive/agent-watchdog.yml` | `reuse-agents.yml` → `agents-41-assign-and-watch.yml` | `enable_watchdog=true` |
-| `codex-preflight.yml` | `archive/codex-preflight.yml` | `reuse-agents.yml` (legacy) | `enable_preflight=true` |
-| `codex-bootstrap-diagnostic.yml` | `archive/codex-bootstrap-diagnostic.yml` | `reuse-agents.yml` (legacy) | `enable_diagnostic=true` |
-| `verify-agent-task.yml` | `archive/verify-agent-task.yml` | `reuse-agents.yml` (legacy) | `enable_verify_issue=true` |
+| Legacy Workflow | Historical Archive Path | Replacement Path | Replacement Mode |
+|-----------------|-------------------------|------------------|------------------|
+| `agent-readiness.yml` | `archive/agent-readiness.yml` (deleted 2026-10-07) | `reuse-agents.yml` → `agents-41-assign-and-watch.yml` | `enable_readiness=true` |
+| `agent-watchdog.yml` | `archive/agent-watchdog.yml` (deleted 2026-10-07) | `reuse-agents.yml` → `agents-41-assign-and-watch.yml` | `enable_watchdog=true` |
+| `codex-preflight.yml` | `archive/codex-preflight.yml` (deleted 2026-10-07) | `reuse-agents.yml` (legacy) | `enable_preflight=true` |
+| `codex-bootstrap-diagnostic.yml` | `archive/codex-bootstrap-diagnostic.yml` (deleted 2026-10-07) | `reuse-agents.yml` (legacy) | `enable_diagnostic=true` |
+| `verify-agent-task.yml` | `archive/verify-agent-task.yml` (deleted 2026-10-07) | `reuse-agents.yml` (legacy) | `enable_verify_issue=true` |
 
 ## Additional Archived Workflows
 - (2026-02-07) `codex-issue-bridge.yml`, `reuse-agents.yml`, and `agents-consumer.yml` moved to the archive before the assigner/watchdog consolidation. The WFv1 renumbering landed in 2026-09 (`agents-40-consumer.yml`, `agents-41-assign-and-watch.yml`, wrappers, plus `reusable-90-agents.yml`).
@@ -19,6 +19,7 @@ All deprecated agent automation workflows were deleted from `.github/workflows/`
 - (2026-10-05) `autoapprove.yml` and `enable-automerge.yml` permanently retired once `maint-45-merge-manager.yml` proved stable (guard test asserts documentation coverage).
 - (2026-10-05) `guard-no-reuse-pr-branches.yml` and `lint-verification.yml` removed after governance documentation and branch protection policies caught up with the consolidated CI stack.
 - (2026-10-05) Remaining stub archives under `Old/.github/workflows/` were deleted; historical copies are available via git history and the references below.
+- (2026-10-07) `.github/workflows/archive/` removed entirely; Issue #1669 ledger (this file) is now the canonical index for prior workflow names.
 
 ## Retired Autofix Wrapper
 - Legacy `autofix.yml` (pre-2025) was deleted during the earlier cleanup. As of 2026-02-15 a new consolidated `maint-32-autofix.yml` now drives both small fixes and trivial failure remediation; the former consumer wrappers have been removed.

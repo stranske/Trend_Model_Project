@@ -31,6 +31,11 @@ Temporary state: `pr-10-ci-python.yml` (formerly `ci.yml`) exists solely to pres
 
 > ℹ️ **Gate wrapper retired (Issue #1657).** The invalid standalone `gate.yml` workflow was deleted; the `gate / all-required-green` job within `pr-10-ci-python.yml` is now the sole aggregation point. Do not recreate the wrapper—tests assert the file remains absent.
 
+### 1.2 Naming policy & archive status (Issue #1669)
+- Active workflows **must** use one of the WFv1 prefixes: `pr-*`, `maint-*`, `agents-*`, or `reusable-*`. Guard tests (`tests/test_workflow_naming.py`) enforce this policy.
+- Historical directories `Old/.github/workflows/` and `.github/workflows/archive/` were removed. Reference [ARCHIVE_WORKFLOWS.md](../../ARCHIVE_WORKFLOWS.md) when you need the legacy slugs.
+- New workflows should document their purpose in this README and in [WORKFLOW_AUDIT_TEMP.md](../../WORKFLOW_AUDIT_TEMP.md) so future audits inherit a complete inventory.
+
 Flow:
 1. PR opened → labelers apply path + agent labels.
 2. Labels / branch rules trigger CI, autofix, readiness.
