@@ -1,4 +1,4 @@
-name: CI
+name: PR 10 CI Python
 
 # Temporary compatibility wrapper (Issue #1345): preserves legacy "CI" check name
 # while branch protection still expects it. Delegates to unified reusable-ci-python.yml.
