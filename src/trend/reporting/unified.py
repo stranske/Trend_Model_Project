@@ -747,7 +747,9 @@ def _render_pdf(context: Mapping[str, Any]) -> bytes:
         return output
     if isinstance(output, bytearray):
         return bytes(output)
-    return str(output).encode("latin-1", "ignore")
+    import logging
+    logging.warning("PDF output fallback: encoding with 'latin-1' and 'replace'. Some characters may be replaced.")
+    return str(output).encode("latin-1", "replace")
 
 
 def generate_unified_report(
