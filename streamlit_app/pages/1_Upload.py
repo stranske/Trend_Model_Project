@@ -6,7 +6,6 @@ import tempfile
 import uuid
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
 
 import streamlit as st
 
