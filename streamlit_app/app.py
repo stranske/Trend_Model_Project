@@ -11,11 +11,11 @@ st.set_page_config(
 st.title("Trend Portfolio Simulator")
 st.markdown(
     """
-Upload a CSV of manager returns and run a hiring/firing simulation across decades.
-Use the sidebar to step through: Upload → Configure → Run → Results → Export.
+Upload a CSV of manager returns and step through **Data → Model → Results**.
+The new layout guides you from dataset validation to configuration and analysis without touching Python.
     """
 )
-st.info("Open '1_Upload' in the sidebar to get started.")
+st.info("Start with the Data tab to upload or load the bundled sample dataset.")
 
 st.markdown("---")
 st.subheader("Quick start")
@@ -24,4 +24,4 @@ if st.button("🚀 Run demo", type="primary"):
         success = run_one_click_demo()
     if success:
         st.success("Demo ready! Redirecting to Results…")
-        st.switch_page("pages/4_Results.py")
+        st.switch_page("pages/3_Results.py")

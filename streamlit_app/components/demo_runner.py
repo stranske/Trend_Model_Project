@@ -16,6 +16,7 @@ from trend_portfolio_app.data_schema import (
     infer_benchmarks,
     load_and_validate_file,
 )
+from streamlit_app.components.analysis_runner import ModelSettings
 from trend_portfolio_app.policy_engine import MetricSpec, PolicyConfig
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -284,6 +285,30 @@ def _update_session_state(
         "rows": df.shape[0],
         "cols": df.shape[1],
     }
+    column_mapping = setup.config_state.get("column_mapping", {})
+    if column_mapping:
+        state["model_column_mapping"] = column_mapping
+    overrides = setup.config_state.get("custom_overrides", {})
+    trend_payload = {}
+    preprocessing = getattr(setup.pipeline_config, "preprocessing", {}) or {}
+    if isinstance(preprocessing, Mapping):
+        trend_payload = preprocessing.get("trend", {}) or {}
+    if setup.config_state.get("preset_name") and isinstance(trend_payload, dict):
+        trend_payload = dict(trend_payload)
+        trend_payload["preset"] = setup.config_state.get("preset_name")
+    model_settings = ModelSettings(
+        lookback_months=int(overrides.get("lookback_months", setup.sim_config.get("lookback_months", 36))),
+        rebalance_frequency=str(setup.sim_config.get("freq", "monthly")),
+        selection_count=int(overrides.get("selection_count", 10)),
+        risk_target=float(overrides.get("risk_target", 0.10)),
+        weighting_scheme=str(setup.sim_config.get("portfolio", {}).get("weighting_scheme", "equal")),
+        cooldown_months=int(overrides.get("cooldown_months", 3)),
+        min_track_months=int(overrides.get("min_track_months", 24)),
+        metric_weights={k: float(v) for k, v in (overrides.get("metric_weights", {}) or {}).items()},
+        trend_spec=trend_payload if isinstance(trend_payload, Mapping) else {},
+        benchmark=setup.benchmark,
+    )
+    state["model_settings"] = model_settings
 
 
 def run_one_click_demo(st_module: Any | None = None) -> bool:
