@@ -166,10 +166,28 @@ jobs:
             }
 
             // Query for existing signature issue
-            const q = `repo:${owner}/${repo} is:issue is:open in:title "${signature}" label:ci-failure`;
-            const search = await github.rest.search.issuesAndPullRequests({ q, per_page: 1 });
-            if (search.data.items.length) {
-              const issue_number = search.data.items[0].number;
+            const qOpen = `repo:${owner}/${repo} is:issue is:open in:title "${signature}" label:ci-failure`;
+            const searchOpen = await github.rest.search.issuesAndPullRequests({ q: qOpen, per_page: 1 });
+            let issue_number = null;
+            let reopened = false;
+            if (searchOpen.data.items.length) {
+              issue_number = searchOpen.data.items[0].number;
+            } else {
+              const qClosed = `repo:${owner}/${repo} is:issue is:closed in:title "${signature}" label:ci-failure`;
+              const searchClosed = await github.rest.search.issuesAndPullRequests({ q: qClosed, per_page: 1 });
+              if (searchClosed.data.items.length) {
+                issue_number = searchClosed.data.items[0].number;
+                try {
+                  await github.rest.issues.update({ owner, repo, issue_number, state: 'open' });
+                  reopened = true;
+                  core.info(`Reopened failure issue #${issue_number} for signature ${signature}.`);
+                } catch (e) {
+                  core.warning(`Failed to reopen prior failure issue #${issue_number}: ${e.message}`);
+                  issue_number = null;
+                }
+              }
+            }
+            if (issue_number) {
               // Fetch existing issue body for occurrence tracking
               const existing = await github.rest.issues.get({ owner, repo, issue_number });
               let body = existing.data.body || '';
@@ -240,7 +258,6 @@ jobs:
 
               // Rate limiting duplicate or too-frequent comments
               const comments = await github.rest.issues.listComments({ owner, repo, issue_number, per_page: 50 });
-              const runUrl = run.html_url;
               const alreadyCommented = comments.data.some(c => c.body && c.body.includes(runUrl));
               let postComment = !alreadyCommented;
               if (postComment && comments.data.length) {
@@ -254,8 +271,9 @@ jobs:
                   }
                 }
               }
+              const commentPayload = reopened ? `Failure reoccurred after auto-heal; issue reopened.\n\n${bodyBlock}` : bodyBlock;
               if (postComment) {
-                await github.rest.issues.createComment({ owner, repo, issue_number, body: bodyBlock });
+                await github.rest.issues.createComment({ owner, repo, issue_number, body: commentPayload });
                 core.info(`Appended failure instance comment to #${issue_number}`);
               }
               core.info(`Updated existing failure issue #${issue_number} (occurrence ${occ}).`);
