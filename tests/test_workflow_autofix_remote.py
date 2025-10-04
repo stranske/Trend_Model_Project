@@ -32,7 +32,7 @@ def _step_by_name(steps: Iterable[Dict[str, Any]], name: str) -> Dict[str, Any]:
 def test_autofix_remote_repo_path_posts_patch_instructions(
     job: str, changed_step: str
 ) -> None:
-    data = _load_workflow("autofix.yml")
+    data = _load_workflow("maint-32-autofix.yml")
     steps = data["jobs"][job]["steps"]
 
     comment_step = _step_by_name(steps, "Comment with patch instructions (fork)")

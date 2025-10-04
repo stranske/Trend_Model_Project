@@ -1,13 +1,13 @@
 import re
 from pathlib import Path
 
-WORKFLOW_PATH = Path(".github/workflows/codex-issue-bridge.yml")
+WORKFLOW_PATH = Path(".github/workflows/agents-43-codex-issue-bridge.yml")
 
 
 def test_codex_issue_bridge_workflow_exists():
     assert (
         WORKFLOW_PATH.exists()
-    ), "Codex Issue Bridge workflow missing; restore codex-issue-bridge.yml"
+    ), "Codex Issue Bridge workflow missing; restore agents-43-codex-issue-bridge.yml"
 
 
 def test_codex_issue_bridge_core_triggers_and_steps():

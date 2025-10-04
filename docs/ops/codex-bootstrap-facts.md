@@ -2,7 +2,7 @@
 
 This page captures the established, validated facts about the Codex bootstrap and workflow wiring in this repository. It is the single source of truth so we don’t keep re‑asking for already‑confirmed details.
 
-Last updated: 2026-02-07
+Last updated: 2026-10-05
 
 ## Branches and Event Semantics
 - Default branch: `phase-2-dev`.
@@ -52,19 +52,18 @@ Last updated: 2026-02-07
 - Agents Assign + Watch — [`agents-41-assign-and-watch.yml`](../../.github/workflows/agents-41-assign-and-watch.yml) · [jump](#wf-assign-and-watch)
 - Assign Wrapper — [`agents-41-assign.yml`](../../.github/workflows/agents-41-assign.yml) · [jump](#wf-assign-wrapper)
 - Watchdog Wrapper — [`agents-42-watchdog.yml`](../../.github/workflows/agents-42-watchdog.yml) · [jump](#wf-watchdog-wrapper)
-- Label Agent PRs — [`label-agent-prs.yml`](../../.github/workflows/label-agent-prs.yml) · [jump](#wf-label-agent-prs)
-- Merge Manager — [`merge-manager.yml`](../../.github/workflows/merge-manager.yml) · [jump](#wf-merge-manager)
-- Autofix Lane — [`autofix.yml`](../../.github/workflows/autofix.yml) · [jump](#wf-autofix)
+- Label Agent PRs — [`pr-02-label-agent-prs.yml`](../../.github/workflows/pr-02-label-agent-prs.yml) · [jump](#wf-label-agent-prs)
+- Merge Manager — [`maint-45-merge-manager.yml`](../../.github/workflows/maint-45-merge-manager.yml) · [jump](#wf-merge-manager)
+- Autofix Lane — [`maint-32-autofix.yml`](../../.github/workflows/maint-32-autofix.yml) · [jump](#wf-autofix)
 - CI — [`pr-10-ci-python.yml`](../../.github/workflows/pr-10-ci-python.yml) · [jump](#wf-ci)
 - Docker — [`pr-12-docker-smoke.yml`](../../.github/workflows/pr-12-docker-smoke.yml) · [jump](#wf-docker)
-- Cleanup Codex Bootstrap — [`cleanup-codex-bootstrap.yml`](../../.github/workflows/cleanup-codex-bootstrap.yml) · [jump](#wf-cleanup-codex-bootstrap)
+- Cleanup Codex Bootstrap — [`maint-38-cleanup-codex-bootstrap.yml`](../../.github/workflows/maint-38-cleanup-codex-bootstrap.yml) · [jump](#wf-cleanup-codex-bootstrap)
 - Quarantine TTL — [`maint-34-quarantine-ttl.yml`](../../.github/workflows/maint-34-quarantine-ttl.yml) · [jump](#wf-quarantine-ttl)
-- Verify Service Bot PAT — [`verify-service-bot-pat.yml`](../../.github/workflows/verify-service-bot-pat.yml) · [jump](#wf-verify-service-bot-pat)
-- Copilot Readiness — [`copilot-readiness.yml`](../../.github/workflows/copilot-readiness.yml) · [jump](#wf-copilot-readiness)
-- Guard: No‑Reuse PR Branches — [`guard-no-reuse-pr-branches.yml`](../../.github/workflows/guard-no-reuse-pr-branches.yml) · [jump](#wf-guard-no-reuse)
-- Verify Codex Bootstrap Matrix — [`verify-codex-bootstrap-matrix.yml`](../../.github/workflows/verify-codex-bootstrap-matrix.yml) · [jump](#wf-verify-codex-bootstrap-matrix)
+- Verify Service Bot PAT — [`maint-43-verify-service-bot-pat.yml`](../../.github/workflows/maint-43-verify-service-bot-pat.yml) · [jump](#wf-verify-service-bot-pat)
+- Copilot Readiness — [`agents-44-copilot-readiness.yml`](../../.github/workflows/agents-44-copilot-readiness.yml) · [jump](#wf-copilot-readiness)
+- Verify Codex Bootstrap Matrix — [`agents-45-verify-codex-bootstrap-matrix.yml`](../../.github/workflows/agents-45-verify-codex-bootstrap-matrix.yml) · [jump](#wf-verify-codex-bootstrap-matrix)
 - Check Failure Tracker — [`maint-33-check-failure-tracker.yml`](../../.github/workflows/maint-33-check-failure-tracker.yml) · [jump](#wf-check-failure-tracker)
-- Release — [`release.yml`](../../.github/workflows/release.yml) · [jump](#wf-release)
+- Release — [`maint-60-release.yml`](../../.github/workflows/maint-60-release.yml) · [jump](#wf-release)
 
 ## Workflow Catalog (purpose, triggers, jobs)
 
@@ -78,7 +77,7 @@ This catalog explains what each active workflow does, how it’s triggered, the 
      - Calls `reusable-90-agents.yml` for availability checks before assignment or stale sweeps
      - Assigns automation accounts, boots Codex PRs, and starts cross-reference watchdog monitoring
      - Clears assignments when labels are removed and escalates stale issues when agents are unavailable
-  - Links to: `.github/actions/codex-bootstrap-lite`, `codex-issue-bridge.yml` (fallback), wrappers below
+  - Links to: `.github/actions/codex-bootstrap-lite`, `agents-43-codex-issue-bridge.yml` (fallback), wrappers below
 
 <a id="wf-assign-wrapper"></a>
 2) [`agents-41-assign.yml`](../../.github/workflows/agents-41-assign.yml) — Compatibility wrapper
@@ -95,15 +94,15 @@ This catalog explains what each active workflow does, how it’s triggered, the 
   - Links to: Unified orchestrator (above)
 
 <a id="wf-label-agent-prs"></a>
-4) [`label-agent-prs.yml`](../../.github/workflows/label-agent-prs.yml) — Apply agent labels to PRs (keeps downstream automation deterministic)
+4) [`pr-02-label-agent-prs.yml`](../../.github/workflows/pr-02-label-agent-prs.yml) — Apply agent labels to PRs (keeps downstream automation deterministic)
    - Triggers: `pull_request_target: [opened, synchronize, reopened]`
    - Jobs: `label`
      - Computes desired labels based on actor/head-ref; adds `from:codex|copilot`, `agent:codex|copilot`, `automerge`, `risk:low`
      - Uses `SERVICE_BOT_PAT` if available; otherwise `GITHUB_TOKEN`
-  - Links to: `merge-manager.yml`, `autofix.yml` (they predicate on these labels)
+  - Links to: `maint-45-merge-manager.yml`, `maint-32-autofix.yml` (they predicate on these labels)
 
 <a id="wf-merge-manager"></a>
-4) [`merge-manager.yml`](../../.github/workflows/merge-manager.yml) — Unified merge automation
+4) [`maint-45-merge-manager.yml`](../../.github/workflows/maint-45-merge-manager.yml) — Unified merge automation
    - Triggers: `pull_request_target: [opened, labeled, unlabeled, synchronize, ready_for_review, reopened]`, `workflow_run: ["CI", "Docker"] (completed)`
    - Jobs: `manage-on-pr-event`, `manage-post-status`
      - Validates allowlist patterns and change size before auto-approving eligible PRs.
@@ -111,32 +110,21 @@ This catalog explains what each active workflow does, how it’s triggered, the 
      - Synchronizes the `ci:green` label with actual check status so pending/failing runs pause automation with a single status comment.
      - Posts (and updates) a single status comment when automation is paused, explaining the blocking condition.
 
-<a id="wf-guard-no-reuse"></a>
-5) [`guard-no-reuse-pr-branches.yml`](../../.github/workflows/guard-no-reuse-pr-branches.yml) — Enforce no reuse of merged PR branches
-   - Triggers: `pull_request_target: [opened, reopened, synchronize]`
-   - Jobs: `guard`
-     - Fails the run if the PR head branch previously backed a merged PR (prevents accidental reuse)
+<a id="wf-autofix"></a>
+5) [`maint-32-autofix.yml`](../../.github/workflows/maint-32-autofix.yml) — Consolidated autofix follower
+   - Triggers: `workflow_run` for `CI` (type: `completed`)
+   - Jobs: `context`, `small-fixes`, `fix-failing-checks`
+     - Resolves the target PR, applies loop guards (skip when actor is `github-actions` and head commit already has the autofix prefix), and inspects changed files against size/pattern heuristics.
+     - Runs the composite autofix action for hygiene fixes when CI succeeded within safe thresholds.
+     - Re-attempts trivial failure remediation when CI failed due to style/type issues; uploads patches for forks.
+     - Restores/updates autofix labels (`autofix:clean`, `autofix:debt`) and posts eligibility details to the job summary.
 
-<a id="wf-autofix-consumer"></a>
-6) [`autofix-consumer.yml`](../../.github/workflows/autofix-consumer.yml) — Thin wrapper around `reuse-autofix`
-   - Triggers: `pull_request` (various types) on `phase-2-dev`/`main`
-   - Jobs: `autofix`
-     - Calls reusable workflow `reuse-autofix.yml` with repo defaults (label, commit prefix)
-     - Uses local composite `.github/actions/autofix` which now chains:
-       1. Safe Ruff/isort/black/docformatter passes
-       2. Targeted unsafe Ruff fixes for F401/F841
-       3. Mypy return-type autofix (`scripts/mypy_return_autofix.py`)
-       4. Autofixable test expectation refresh (`scripts/update_autofix_expectations.py`)
-       The composite exposes `outputs.changed` after all phases.
-     - Same‑repo PRs: commits `autofix(ci): …` and pushes directly to the PR branch
-     - Fork PRs: generates `autofix.patch` (`git format-patch -1 --stdout`), uploads as `autofix-patch-pr-<num>`, and comments on the PR with apply instructions (`git am < autofix.patch`; push to branch)
-     - The job summary reports whether changes were applied and whether this was a same‑repo or fork path. For forks, it includes the artifact name
-
-<a id="wf-autofix-on-failure"></a>
-7) [`autofix-on-failure.yml`](../../.github/workflows/autofix-on-failure.yml) — Attempt autofix when CI/Docker fail
-   - Triggers: `workflow_run` for `CI`, `Docker`, `Lint`, `Tests` (type: `completed`)
-   - Jobs: `handle-failure`
-     - Locates corresponding PR, checks out same-repo branches, runs autofix, commits, and pushes
+<a id="wf-autofix-cleanup"></a>
+6) [`maint-31-autofix-residual-cleanup.yml`](../../.github/workflows/maint-31-autofix-residual-cleanup.yml) — Scheduled autofix hygiene
+   - Triggers: `schedule`, `workflow_dispatch`
+   - Jobs: `cleanup`
+     - Scans for stale `autofix/` branches, residual patches, and uploaded artifacts beyond the retention window.
+     - Removes stale resources and posts a summary of the cleanup decisions.
 
 <a id="wf-ci"></a>
 8) [`pr-10-ci-python.yml`](../../.github/workflows/pr-10-ci-python.yml) — Test suite on pushes and PRs
@@ -150,7 +138,7 @@ This catalog explains what each active workflow does, how it’s triggered, the 
      - Builds image, runs tests in container, health-checks a simple endpoint, pushes to GHCR
 
 <a id="wf-cleanup-codex-bootstrap"></a>
-10) [`cleanup-codex-bootstrap.yml`](../../.github/workflows/cleanup-codex-bootstrap.yml) — Prune stale bootstrap branches
+10) [`maint-38-cleanup-codex-bootstrap.yml`](../../.github/workflows/maint-38-cleanup-codex-bootstrap.yml) — Prune stale bootstrap branches
    - Triggers: `schedule` (daily), `workflow_dispatch`
    - Jobs: `prune`
      - Deletes old `agents/codex-issue-*` branches beyond TTL
@@ -162,19 +150,19 @@ This catalog explains what each active workflow does, how it’s triggered, the 
      - Validates `tests/quarantine.yml` entries have not expired
 
 <a id="wf-verify-service-bot-pat"></a>
-12) [`verify-service-bot-pat.yml`](../../.github/workflows/verify-service-bot-pat.yml) — Verify `SERVICE_BOT_PAT` presence and scopes
+12) [`maint-43-verify-service-bot-pat.yml`](../../.github/workflows/maint-43-verify-service-bot-pat.yml) — Verify `SERVICE_BOT_PAT` presence and scopes
    - Triggers: `workflow_dispatch`
    - Jobs: `check-token`
      - Checks secret exists and minimally has `repo`/`workflow` scopes
 
 <a id="wf-copilot-readiness"></a>
-13) [`copilot-readiness.yml`](../../.github/workflows/copilot-readiness.yml) — Copilot readiness probe
+13) [`agents-44-copilot-readiness.yml`](../../.github/workflows/agents-44-copilot-readiness.yml) — Copilot readiness probe
    - Triggers: `workflow_dispatch`
    - Jobs: `probe`
      - GraphQL `suggestedActors` check, temp issue assign attempt to `@copilot`, close, verdict
 
 <a id="wf-verify-codex-bootstrap-matrix"></a>
-14) [`verify-codex-bootstrap-matrix.yml`](../../.github/workflows/verify-codex-bootstrap-matrix.yml) — End-to-end bootstrap scenario matrix
+14) [`agents-45-verify-codex-bootstrap-matrix.yml`](../../.github/workflows/agents-45-verify-codex-bootstrap-matrix.yml) — End-to-end bootstrap scenario matrix
    - Triggers: `workflow_dispatch`, `schedule`, `push` to specific paths
    - Jobs: `plan`, `matrix` (parallel), `sequential`
      - Runs `scripts/verify_codex_bootstrap.py` across scenarios; uploads artifacts and summaries
@@ -186,12 +174,12 @@ This catalog explains what each active workflow does, how it’s triggered, the 
      - Opens an issue on failures; closes the corresponding issue on subsequent success
 
 <a id="wf-release"></a>
-16) [`release.yml`](../../.github/workflows/release.yml) — Build/publish package and GitHub release
+16) [`maint-60-release.yml`](../../.github/workflows/maint-60-release.yml) — Build/publish package and GitHub release
    - Triggers: `push` tags `v*`, `workflow_dispatch`
    - Jobs: `build`, `test-install`, `test-pypi` (optional), `release`
      - Builds wheels/sdist, checks, tests install, creates GitHub Release, uploads assets, publishes to PyPI/TestPyPI
 
-Archived / Removed (Issue #1140 hardening, 2025‑09‑18): Legacy agent assignment/bootstrap experiments were deleted to reduce attack surface and maintenance overhead. See `Old/.github/workflows/archive/README.md` for a historical list.
+Archived / Removed (Issue #1140 hardening, 2025‑09‑18): Legacy agent assignment/bootstrap experiments were deleted to reduce attack surface and maintenance overhead. See `ARCHIVE_WORKFLOWS.md` for the historical list.
 
 ## Diagnostics Workflows — purposes and use cases
 
@@ -205,11 +193,11 @@ Use these when investigating bootstrap, authorization, or automation behaviours:
   - Purpose: Confirm whether a linked PR appeared (success) or record a timeout window with a comment for follow-up.
   - Use when: Diagnosing missing PR links or verifying the watchdog timeout threshold.
 
-- `copilot-readiness.yml` (Probe Copilot assignability)
+- `agents-44-copilot-readiness.yml` (Probe Copilot assignability)
   - Purpose: Validate that `@copilot` is assignable via GraphQL and REST.
   - Use when: Copilot agent appears inactive or assignment fails silently.
 
-- `verify-codex-bootstrap-matrix.yml` (Scenario harness)
+- `agents-45-verify-codex-bootstrap-matrix.yml` (Scenario harness)
   - Purpose: Run curated end-to-end scenarios against the bootstrap (success/failure cases), collect artifacts, and produce a summary table.
   - Use when: Regression testing the bootstrap after changes or verifying environment constraints (e.g., missing PAT, disallowed commands).
 
@@ -247,7 +235,7 @@ This section summarizes the differences between the failing Option 2 (manual/"cr
 ### Autofix pipeline — CI follower consolidation
 
 - Composite action `.github/actions/autofix` no longer commits; it emits `outputs.changed` after running `ruff`, `black`, `isort`, `docformatter`, and light type‑hygiene steps.
-- Workflow `.github/workflows/autofix.yml` executes after CI completes and coordinates two lanes:
+- Workflow `.github/workflows/maint-32-autofix.yml` executes after CI completes and coordinates two lanes:
 
   - `small-fixes` (CI success + safe diff): commits `chore(autofix): apply small fixes` with `SERVICE_BOT_PAT` for same-repo PRs; forks receive a `small-autofix.patch` artifact.
   - `fix-failing-checks` (CI failure w/ trivial job names): commits `chore(autofix): fix failing checks` when format/lint/type jobs fail; forks receive `failing-checks-autofix.patch`; adds `needs-autofix-review` when no diff produced.

@@ -6,7 +6,7 @@ The `.github/workflows` directory contains both new reusable workflows and sever
 ### Redundant / Superseded (Removed in Cleanup PR for #1259)
 | Legacy (now removed) | Reusable Replacement | Removal Rationale |
 | -------------------- | -------------------- | ----------------- |
-| `autofix.yml` | `reuse-autofix.yml` + `autofix-consumer.yml` | Eliminated duplication; stabilization period complete post PR #1257. |
+| `maint-32-autofix.yml` | `reusable-autofix.yml` | Eliminated duplication; stabilization period complete post PR #1257. |
 | `agent-readiness.yml` | _(archived)_ | No direct replacement; run ad-hoc GitHub Script checks when needed. |
 | `agents-42-watchdog.yml` | `agents-41-assign-and-watch.yml` | Manual watchdog wrapper retained; core logic migrated to unified workflow. |
 | `codex-preflight.yml` | _(archived)_ | Manual diagnostics or future targeted scripts as needed. |
@@ -31,7 +31,7 @@ Original timetable replaced by immediate removal once validation completed. Reta
 ## Future Evolution Ideas
 - Monitor whether additional readiness/preflight scripts are required now that `reuse-agents.yml` (now `reusable-90-agents.yml`) has been retired in favour of the assigner/watchdog workflows.
 - Expose versioned `@v1` tags for remote consumption (convert internal `uses:` paths to fully-qualified refs in downstream repos).
-- Add quarantine job implementation tied to `run_quarantine` input in `reuse-ci-python.yml`.
+- Add quarantine job implementation tied to `run_quarantine` input in `reusable-ci-python.yml`.
 
 ## No Immediate Action Files
 All other workflows serve distinct concerns; consolidating now would add complexity without clear maintenance win.

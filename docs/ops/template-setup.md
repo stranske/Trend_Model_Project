@@ -80,7 +80,7 @@ Security posture: The `pull_request_target` workflows in this template do not ch
 - Merge manager fails with branch context error:
   - Ensure `.github/workflows/merge-manager.yml` passes `pull-request-number` when enabling auto-merge.
 - Labels not applied on fork PRs:
-  - Ensure `label-agent-prs.yml` exists and `pull_request_target` triggers are enabled.
+  - Ensure `pr-02-label-agent-prs.yml` exists and `pull_request_target` triggers are enabled.
 - Autofix doesn’t push on forks:
   - This is intentional – download the patch artifact and apply locally.
 
