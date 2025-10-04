@@ -2,20 +2,32 @@
 
 from __future__ import annotations
 
-try:
+from dataclasses import dataclass
+from typing import Any, Mapping, TYPE_CHECKING
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
     from trend.reporting import ReportArtifacts, generate_unified_report
-except ImportError:
+else:
+    try:
+        from trend.reporting import ReportArtifacts, generate_unified_report
+    except ImportError:
 
-    class ReportArtifacts:
-        def __init__(self, *args, **kwargs):
+        @dataclass(slots=True)
+        class ReportArtifacts:
+            html: str
+            pdf_bytes: bytes | None
+            context: Mapping[str, Any]
+
+        def generate_unified_report(
+            result: Any,
+            config: Any,
+            *,
+            run_id: str | None = None,
+            include_pdf: bool = False,
+        ) -> ReportArtifacts:
             raise ImportError(
-                "trend.reporting.ReportArtifacts not found. Please ensure trend.reporting is available."
+                "trend.reporting.generate_unified_report not found. Please ensure trend.reporting is available."
             )
-
-    def generate_unified_report(*args, **kwargs):
-        raise ImportError(
-            "trend.reporting.generate_unified_report not found. Please ensure trend.reporting is available."
-        )
 
 
 __all__ = ["ReportArtifacts", "generate_unified_report"]

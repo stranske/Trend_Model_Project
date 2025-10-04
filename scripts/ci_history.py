@@ -113,6 +113,10 @@ def main() -> int:
         os.environ.get("CLASSIFICATION_OUT", _DEFAULT_CLASSIFICATION)
     )
 
+    if not junit_path.is_file():
+        print(f"JUnit report not found: {junit_path}", file=sys.stderr)
+        return 1
+
     try:
         metrics, from_file = _load_metrics(junit_path, metrics_path)
     except FileNotFoundError as exc:

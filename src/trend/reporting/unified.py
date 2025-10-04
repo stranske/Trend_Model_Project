@@ -4,32 +4,35 @@ from __future__ import annotations
 
 import base64
 import html
+import importlib
 import io
 import math
+import textwrap
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Mapping, Sequence
-import pandas as pd
+from typing import Any, Literal, Mapping, Sequence, cast
 
 import matplotlib
+import pandas as pd
 
-matplotlib.use("Agg")
-matplotlib.rcParams["savefig.facecolor"] = "white"
-matplotlib.rcParams["savefig.edgecolor"] = "white"
-matplotlib.rcParams["savefig.bbox"] = "tight"
-matplotlib.rcParams["savefig.pad_inches"] = 0.1
-matplotlib.rcParams["savefig.dpi"] = 160
-matplotlib.rcParams["savefig.transparent"] = False
-matplotlib.rcParams["savefig.format"] = "png"
 
-from matplotlib import pyplot as plt
+def _init_matplotlib() -> Any:
+    matplotlib.use("Agg")
+    from matplotlib import pyplot as _pyplot  # noqa: E402
 
-from trend_analysis.backtesting import BacktestResult
+    matplotlib.rcParams["savefig.facecolor"] = "white"
+    matplotlib.rcParams["savefig.edgecolor"] = "white"
+    matplotlib.rcParams["savefig.bbox"] = "tight"
+    matplotlib.rcParams["savefig.pad_inches"] = 0.1
+    matplotlib.rcParams["savefig.dpi"] = 160
+    matplotlib.rcParams["savefig.transparent"] = False
+    matplotlib.rcParams["savefig.format"] = "png"
+    return _pyplot
 
-try:  # pragma: no cover - optional dependency
-    from fpdf import FPDF
-except Exception:  # pragma: no cover - optional dependency missing
-    FPDF = None  # type: ignore[assignment]
+
+plt = _init_matplotlib()
+
+from trend_analysis.backtesting import BacktestResult  # noqa: E402
 
 
 @dataclass(slots=True)
@@ -58,6 +61,15 @@ def _maybe_series(value: Any) -> pd.Series | None:
         return None
 
 
+def _safe_float(value: Any) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _stats_to_dict(stats: Any) -> dict[str, float | None]:
     fields = (
         "cagr",
@@ -67,41 +79,27 @@ def _stats_to_dict(stats: Any) -> dict[str, float | None]:
         "max_drawdown",
         "information_ratio",
     )
+    values: dict[str, float | None] = {field: None for field in fields}
     if stats is None:
-        return {field: None for field in fields}
-    if hasattr(stats, "_asdict"):
-        mapping = stats._asdict()  # type: ignore[call-arg]
-        return {
-            field: float(mapping.get(field)) if mapping.get(field) is not None else None
-            for field in fields
-        }
-    if hasattr(stats, "__dict__"):
-        return {
-            field: (
-                float(getattr(stats, field))
-                if getattr(stats, field) is not None
-                else None
-            )
-            for field in fields
-        }
-    if isinstance(stats, Mapping):
-        return {
-            field: float(stats.get(field)) if stats.get(field) is not None else None
-            for field in fields
-        }
-    if isinstance(stats, Sequence):
-        seq = list(stats)
-        values = {field: None for field in fields}
-        for field, value in zip(fields, seq):
-            if value is None:
-                values[field] = None
-            else:
-                try:
-                    values[field] = float(value)
-                except Exception:
-                    values[field] = None
         return values
-    return {field: None for field in fields}
+    mapping: Mapping[str, Any] | None = None
+    if hasattr(stats, "_asdict"):
+        try:
+            mapping = cast(Mapping[str, Any], stats._asdict())
+        except Exception:
+            mapping = None
+    if mapping is None and hasattr(stats, "__dict__"):
+        mapping = cast(Mapping[str, Any], vars(stats))
+    if mapping is None and isinstance(stats, Mapping):
+        mapping = stats
+    if mapping is not None:
+        for field in fields:
+            values[field] = _safe_float(mapping.get(field))
+        return values
+    if isinstance(stats, Sequence) and not isinstance(stats, (str, bytes)):
+        for field, value in zip(fields, stats):
+            values[field] = _safe_float(value)
+    return values
 
 
 def _periods_per_year(index: pd.Index) -> float:
@@ -160,10 +158,24 @@ def _drawdown_curve(returns: pd.Series) -> pd.Series:
     return curve / curve.cummax() - 1.0
 
 
+WindowMode = Literal["rolling", "expanding"]
+
+
+def _coerce_window_mode(value: Any) -> WindowMode:
+    if isinstance(value, str):
+        lowered = value.lower()
+        if lowered.startswith("exp"):
+            return "expanding"
+        if lowered.startswith("roll"):
+            return "rolling"
+    return "rolling"
+
+
 def _build_backtest(result: Any) -> BacktestResult | None:
+    details_obj = getattr(result, "details", None)
+    details: Mapping[str, Any] = details_obj if isinstance(details_obj, Mapping) else {}
     portfolio = getattr(result, "portfolio", None)
-    if portfolio is None and isinstance(getattr(result, "details", None), Mapping):
-        details = result.details  # type: ignore[assignment]
+    if portfolio is None:
         portfolio = details.get("portfolio_equal_weight_combined")
         if portfolio is None:
             portfolio = details.get("portfolio")
@@ -171,22 +183,19 @@ def _build_backtest(result: Any) -> BacktestResult | None:
     if series is None or series.empty:
         return None
     series = series.sort_index()
-    calendar = (
-        pd.DatetimeIndex(series.index)
-        if isinstance(series.index, (pd.DatetimeIndex, pd.PeriodIndex))
-        else pd.DatetimeIndex([])
-    )
+    if isinstance(series.index, pd.PeriodIndex):
+        calendar = series.index.to_timestamp()
+    elif isinstance(series.index, pd.DatetimeIndex):
+        calendar = series.index
+    else:
+        calendar = pd.DatetimeIndex([])
     equity_curve = (1.0 + series.fillna(0.0)).cumprod()
     drawdown = _drawdown_curve(series)
     turnover_series = None
     final_weights = None
     rolling_sharpe = pd.Series(dtype=float)
     metrics: dict[str, float] = {}
-    risk_diag = (
-        getattr(result, "details", {}).get("risk_diagnostics")
-        if isinstance(getattr(result, "details", None), Mapping)
-        else None
-    )
+    risk_diag = details.get("risk_diagnostics") if details else None
     if isinstance(risk_diag, Mapping):
         turnover_series = _maybe_series(risk_diag.get("turnover"))
         final_weights = _maybe_series(risk_diag.get("final_weights"))
@@ -198,11 +207,12 @@ def _build_backtest(result: Any) -> BacktestResult | None:
         weights_df = pd.DataFrame(
             [final_weights], index=[series.index[-1] if len(series.index) else "latest"]
         )
-    periods = _periods_per_year(
-        series.index
-        if isinstance(series.index, (pd.DatetimeIndex, pd.PeriodIndex))
-        else pd.RangeIndex(len(series))
-    )
+    index_for_periods: pd.Index
+    if isinstance(series.index, (pd.DatetimeIndex, pd.PeriodIndex)):
+        index_for_periods = series.index
+    else:
+        index_for_periods = pd.RangeIndex(len(series))
+    periods = _periods_per_year(index_for_periods)
     filled = series.fillna(0.0)
     total_return = float((1.0 + filled).prod() - 1.0)
     n_periods = max(len(filled), 1)
@@ -225,19 +235,12 @@ def _build_backtest(result: Any) -> BacktestResult | None:
             float(turnover_series.mean()) if not turnover_series.empty else 0.0
         ),
     }
-    window_mode = (
-        getattr(result, "details", {}).get("window_mode")
-        if isinstance(getattr(result, "details", None), Mapping)
-        else None
-    )
-    window_size = (
-        getattr(result, "details", {}).get("window_size")
-        if isinstance(getattr(result, "details", None), Mapping)
-        else None
-    )
-    if not isinstance(window_mode, str):
-        window_mode = "rolling"
-    if not isinstance(window_size, int):
+    window_mode_value = details.get("window_mode") if details else None
+    window_mode = _coerce_window_mode(window_mode_value)
+    window_size_value = details.get("window_size") if details else None
+    if isinstance(window_size_value, (int, float)):
+        window_size = max(int(window_size_value), 1)
+    else:
         window_size = max(min(len(series), 120), 1)
     rolling_window = min(len(series), max(int(periods // 4), 1))
     if rolling_window >= 2:
@@ -254,7 +257,7 @@ def _build_backtest(result: Any) -> BacktestResult | None:
         rolling_sharpe=rolling_sharpe,
         drawdown=drawdown,
         metrics=metrics,
-        calendar=calendar,
+        calendar=pd.DatetimeIndex(calendar),
         window_mode=window_mode,
         window_size=window_size,
         training_windows={},
@@ -310,7 +313,11 @@ def _build_exec_summary(result: Any, backtest: BacktestResult | None) -> list[st
     if backtest is not None:
         metrics = backtest.metrics
         bullets.append(
-            "Portfolio compounded to {total} total return ({annual} annualised) with realised volatility {vol} and Sharpe {sharpe}.".format(
+            (
+                "Portfolio compounded to {total} total return "
+                "({annual} annualised) with realised volatility {vol} "
+                "and Sharpe {sharpe}."
+            ).format(
                 total=_format_percent(metrics.get("total_return")),
                 annual=_format_percent(metrics.get("annual_return")),
                 vol=_format_percent(metrics.get("volatility")),
@@ -402,7 +409,7 @@ def _build_caveats(result: Any, backtest: BacktestResult | None) -> list[str]:
     return caveats
 
 
-def _render_chart(fig: plt.Figure) -> str:
+def _render_chart(fig: Any) -> str:
     buf = io.BytesIO()
     fig.savefig(buf, format="png", metadata={"Software": "trend-report"})
     plt.close(fig)
@@ -415,7 +422,12 @@ def _turnover_chart(backtest: BacktestResult | None) -> str | None:
         return None
     series = backtest.turnover.sort_index()
     fig, ax = plt.subplots(figsize=(8, 3))
-    ax.plot(series.index, series.values, color="#1f77b4", linewidth=2)
+    x_values = (
+        series.index.to_pydatetime()
+        if isinstance(series.index, pd.DatetimeIndex)
+        else list(series.index)
+    )
+    ax.plot(x_values, series.to_numpy(dtype=float), color="#1f77b4", linewidth=2)
     ax.set_title("Turnover per rebalance")
     ax.set_ylabel("Turnover")
     ax.grid(alpha=0.25)
@@ -431,7 +443,7 @@ def _exposure_chart(backtest: BacktestResult | None) -> str | None:
     if latest.empty:
         return None
     fig, ax = plt.subplots(figsize=(8, 3))
-    ax.bar(latest.index.astype(str), latest.values, color="#ff7f0e")
+    ax.bar(latest.index.astype(str), latest.to_numpy(dtype=float), color="#ff7f0e")
     ax.set_title("Latest portfolio weights")
     ax.set_ylabel("Weight")
     ax.set_ylim(0, max(0.0001, latest.max() * 1.2))
@@ -458,7 +470,7 @@ def _metrics_table_html(metrics: pd.DataFrame) -> tuple[str, list[str]]:
     text_rows.append(" | ".join(header))
     text_rows.append("-" * len(text_rows[0]))
     for idx, row in display.iterrows():
-        values = [idx] + [str(row[col]) for col in display.columns]
+        values = [str(idx)] + [str(row[col]) for col in display.columns]
         text_rows.append(" | ".join(values))
     return html_table, text_rows
 
@@ -588,47 +600,115 @@ def _render_html(context: Mapping[str, Any]) -> str:
     )
 
 
+def _pdf_safe(text: str) -> str:
+    cleaned = text.replace("\r", " ").replace("\x00", "")
+    return cleaned.encode("latin-1", "replace").decode("latin-1")
+
+
+def _wrap_pdf_text(
+    text: str,
+    *,
+    width: int = 90,
+    initial_indent: str = "",
+    subsequent_indent: str = "",
+) -> str:
+    raw = str(text).replace("\n", " ").strip()
+    if not raw:
+        return initial_indent.rstrip() if initial_indent else ""
+    wrapper = textwrap.TextWrapper(
+        width=width,
+        initial_indent=initial_indent,
+        subsequent_indent=subsequent_indent,
+        break_long_words=True,
+        break_on_hyphens=False,
+        replace_whitespace=True,
+        drop_whitespace=True,
+    )
+    lines = wrapper.wrap(raw)
+    return "\n".join(lines) if lines else raw
+
+
+def _load_fpdf() -> type[Any] | None:
+    try:
+        module = importlib.import_module("fpdf")
+    except ModuleNotFoundError:  # pragma: no cover - optional dependency missing
+        return None
+    except Exception:  # pragma: no cover - unexpected import failure
+        return None
+    pdf_cls = getattr(module, "FPDF", None)
+    return pdf_cls if isinstance(pdf_cls, type) else None
+
+
 def _render_pdf(context: Mapping[str, Any]) -> bytes:
-    if FPDF is None:  # pragma: no cover - optional dependency
+    pdf_cls = _load_fpdf()
+    if pdf_cls is None:  # pragma: no cover - optional dependency
         raise RuntimeError(
             "PDF generation requires the 'fpdf2' package. Install trend-model with PDF extras."
         )
-    pdf = FPDF()
+    pdf = pdf_cls()
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
+    usable_width = max(pdf.w - pdf.l_margin - pdf.r_margin, 10)
+
     pdf.set_font("Helvetica", "B", 16)
-    pdf.cell(0, 10, context["title"], ln=True)
+    pdf.cell(0, 10, _pdf_safe(str(context["title"])), ln=True)
     pdf.set_font("Helvetica", "", 11)
-    pdf.cell(0, 8, f"Run ID: {context['run_id']}", ln=True)
+    pdf.cell(0, 8, _pdf_safe(f"Run ID: {context['run_id']}"), ln=True)
     pdf.ln(2)
+
     pdf.set_font("Helvetica", "B", 13)
     pdf.cell(0, 8, "Executive summary", ln=True)
     pdf.set_font("Helvetica", "", 11)
     for item in context["exec_summary"]:
-        pdf.multi_cell(0, 6, f"- {item}")
+        wrapped = _wrap_pdf_text(
+            item, initial_indent="- ", subsequent_indent="  ", width=84
+        )
+        pdf.multi_cell(usable_width, 6, _pdf_safe(wrapped))
     pdf.ln(2)
+
     pdf.set_font("Helvetica", "B", 13)
     pdf.cell(0, 8, "Narrative", ln=True)
     pdf.set_font("Helvetica", "", 11)
-    pdf.multi_cell(0, 6, context["narrative"])
+    pdf.multi_cell(
+        usable_width,
+        6,
+        _pdf_safe(_wrap_pdf_text(context["narrative"], width=84)),
+    )
     pdf.ln(2)
+
     pdf.set_font("Helvetica", "B", 13)
     pdf.cell(0, 8, "Metrics", ln=True)
     pdf.set_font("Helvetica", "", 10)
     for row in context["metrics_text"]:
-        pdf.multi_cell(0, 5, row)
+        pdf.multi_cell(usable_width, 5, _pdf_safe(_wrap_pdf_text(row, width=84)))
     pdf.ln(2)
+
     pdf.set_font("Helvetica", "B", 13)
     pdf.cell(0, 8, "Parameter summary", ln=True)
     pdf.set_font("Helvetica", "", 10)
     for key, value in context["parameters"]:
-        pdf.multi_cell(0, 5, f"{key}: {value}")
+        pdf.multi_cell(
+            usable_width,
+            5,
+            _pdf_safe(
+                _wrap_pdf_text(
+                    f"{key}: {value}",
+                    width=84,
+                    initial_indent="",
+                    subsequent_indent="    ",
+                )
+            ),
+        )
     pdf.ln(2)
+
     pdf.set_font("Helvetica", "B", 13)
     pdf.cell(0, 8, "Caveats", ln=True)
     pdf.set_font("Helvetica", "", 10)
     for caveat in context["caveats"]:
-        pdf.multi_cell(0, 5, f"- {caveat}")
+        wrapped_caveat = _wrap_pdf_text(
+            caveat, initial_indent="- ", subsequent_indent="  ", width=84
+        )
+        pdf.multi_cell(usable_width, 5, _pdf_safe(wrapped_caveat))
     if context["turnover_chart"]:
         pdf.add_page()
         pdf.set_font("Helvetica", "B", 13)
@@ -645,8 +725,17 @@ def _render_pdf(context: Mapping[str, Any]) -> bytes:
         pdf.image(io.BytesIO(chart_bytes), x=pdf.l_margin, w=180)
     pdf.ln(4)
     pdf.set_font("Helvetica", "I", 9)
-    pdf.multi_cell(0, 5, context["footer"])
-    return bytes(pdf.output(dest="S"))
+    pdf.multi_cell(
+        usable_width,
+        5,
+        _pdf_safe(_wrap_pdf_text(context["footer"], width=84)),
+    )
+    output = pdf.output(dest="S")
+    if isinstance(output, bytes):
+        return output
+    if isinstance(output, bytearray):
+        return bytes(output)
+    return str(output).encode("latin-1", "ignore")
 
 
 def generate_unified_report(
@@ -668,7 +757,7 @@ def generate_unified_report(
     turnover_chart = _turnover_chart(backtest)
     exposure_chart = _exposure_chart(backtest)
     footer = "Past performance does not guarantee future results."
-    context = {
+    context: dict[str, Any] = {
         "title": "Vol-Adj Trend Analysis Report",
         "run_id": run_id or getattr(result, "seed", "n/a"),
         "exec_summary": exec_summary,
