@@ -55,7 +55,13 @@ def test_installed_trend_model_gui_help():
 
 def test_console_scripts_entry_points():
     """Smoke test: All expected console_scripts are available after installation."""
-    expected_commands = ["trend-model", "trend-analysis", "trend-multi-analysis"]
+    expected_commands = [
+        "trend-model",
+        "trend-analysis",
+        "trend-multi-analysis",
+        "trend-app",
+        "trend-run",
+    ]
 
     available_commands = []
     missing_commands = []
