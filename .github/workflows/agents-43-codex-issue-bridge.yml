@@ -80,8 +80,7 @@ jobs:
       - name: Fail fast on missing issue (manual run)
         if: ${{ github.event_name == 'workflow_dispatch' && steps.ctx.outputs.has_issue != 'true' }}
         run: |
-          echo "::error::Missing input test_issue for workflow_dispatch. Provide an issue number when manually running this workflow."
-          exit 1
+          echo "::error::Missing input test_issue for workflow_dispatch. Provide an issue number when manually running this workflow." && exit 1
 
       - name: Get default branch
         id: def
@@ -172,6 +171,49 @@ jobs:
         run: |
           echo "Composite outputs: pr=${{ steps.local_action.outputs.pr }} branch=${{ steps.local_action.outputs.branch }}"
 
+      - name: Post copyable PR template (composite)
+        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.local_action.outcome == 'success' && steps.mode.outputs.mode != 'invite' && steps.local_action.outputs.pr != '' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issue_number = (context.payload.issue && context.payload.issue.number) || Number(context.payload.inputs && context.payload.inputs.test_issue);
+            if (!issue_number) {
+              core.warning('No issue context available to annotate.');
+              return;
+            }
+            const prNumber = Number('${{ steps.local_action.outputs.pr }}');
+            if (!prNumber) {
+              core.warning('Composite returned empty PR number; skipping snippet comment.');
+              return;
+            }
+            let issueTitle = '';
+            let issueBody = '';
+            try {
+              const { data: is } = await github.rest.issues.get({ owner, repo, issue_number });
+              issueTitle = is.title || '';
+              issueBody = is.body || '';
+            } catch (e) {
+              core.warning(`Failed to fetch issue #${issue_number}: ${e.message}`);
+            }
+            const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue_number}`;
+            const header = `### Source Issue #${issue_number}: ${issueTitle}`.trim();
+            const quoted = (issueBody || '')
+              .split('\n')
+              .map((line) => `> ${line}`)
+              .join('\n');
+            const snippet = [header, '', `Source: ${issueUrl}`, '', quoted].join('\n');
+            const message = [
+              `Opened PR #${prNumber} to engage Codex.`,
+              '',
+              'Copy/paste the snippet below into the PR description if needed, then comment `@codex start` when you are ready for Codex to work:',
+              '',
+              '```markdown',
+              snippet,
+              '```'
+            ].join('\n');
+            await github.rest.issues.createComment({ owner, repo, issue_number, body: message });
+
       - name: Create branch and bootstrap file
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.local_action.outcome == 'failure' }}
         id: mk
@@ -180,9 +222,13 @@ jobs:
         run: |
           set -euo pipefail
           PREFIX="agents/codex-issue-${ISSUE}-"
-          HEADS=$(git ls-remote --heads origin)
-          MATCHED=$(echo "$HEADS" | awk -v prefix="refs/heads/${PREFIX}" '$2 ~ prefix { sub("refs/heads/", "", $2); print $2 }')
-          EXISTING=$(echo "$MATCHED" | head -n1)
+          # List all remote heads, filter for branches matching the prefix, and extract the branch name.
+          # This finds the first branch matching agents/codex-issue-${ISSUE}-*
+          EXISTING=$(git ls-remote --heads origin \
+            | grep "refs/heads/${PREFIX}" \
+            | head -n1 \
+            | awk '{print $2}' \
+            | sed 's|refs/heads/||')
           if [ -n "${EXISTING}" ]; then
             echo "Reusing existing Codex branch ${EXISTING} for issue #${ISSUE}."
             echo "branch=${EXISTING}" >> "$GITHUB_OUTPUT"
@@ -216,7 +262,13 @@ jobs:
             const branch = process.env.BRANCH;
             let issueTitle = '';
             let issueBody = '';
-            try { const { data: is } = await github.rest.issues.get({ owner, repo, issue_number }); issueTitle = is.title || ''; issueBody = is.body || ''; } catch (error) { core.warning(`Failed to fetch issue data: ${error}`); /* Proceeding with empty title/body */ }
+            try { 
+              const { data: is } = await github.rest.issues.get({ owner, repo, issue_number }); 
+              issueTitle = is.title || ''; 
+              issueBody = is.body || ''; 
+            } catch (err) { 
+              core.error('Failed to fetch issue: ' + err); 
+            }
             const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue_number}`;
             const header = `### Source Issue #${issue_number}: ${issueTitle}`;
             const quoted = (issueBody || '').split('\n').map(l => `> ${l}`).join('\n');
@@ -250,13 +302,7 @@ jobs:
             if (!pr) {
               let issueTitle = '';
               let issueBody = '';
-              try {
-                const { data: is } = await github.rest.issues.get({ owner, repo, issue_number });
-                issueTitle = is.title || '';
-                issueBody = is.body || '';
-              } catch (e) {
-                core.warning(`Failed to fetch issue #${issue_number}: ${e.message}`);
-              }
+              try { const { data: is } = await github.rest.issues.get({ owner, repo, issue_number }); issueTitle = is.title || ''; issueBody = is.body || ''; } catch (e) { core.warning(`Failed to fetch issue #${issue_number}: ${e.message}`); }
               const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue_number}`;
               const header = `### Source Issue #${issue_number}: ${issueTitle}`;
               const quoted = (issueBody || '').split('\n').map(l => `> ${l}`).join('\n');
@@ -319,5 +365,31 @@ jobs:
             if (!issue_number) {
               core.warning('No issue context available to link PR back (workflow_dispatch without test_issue).');
             } else {
-              await github.rest.issues.createComment({ owner, repo, issue_number, body: `Opened PR #${{ steps.pr.outputs.number }} to engage Codex. Track work there.` });
+              let issueTitle = '';
+              let issueBody = '';
+              try {
+                const { data: is } = await github.rest.issues.get({ owner, repo, issue_number });
+                issueTitle = is.title || '';
+                issueBody = is.body || '';
+              } catch (e) {
+                core.warning(`Failed to fetch issue #${issue_number}: ${e.message}`);
+              }
+              const prNumber = Number('${{ steps.pr.outputs.number }}');
+              const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue_number}`;
+              const header = `### Source Issue #${issue_number}: ${issueTitle}`.trim();
+              const quoted = (issueBody || '')
+                .split('\n')
+                .map((line) => `> ${line}`)
+                .join('\n');
+              const snippet = [header, '', `Source: ${issueUrl}`, '', quoted].join('\n');
+              const message = [
+                `Opened PR #${prNumber} to engage Codex.`,
+                '',
+                'Copy/paste the snippet below into the PR description if needed, then comment `@codex start` when you are ready for Codex to work:',
+                '',
+                '```markdown',
+                snippet,
+                '```'
+              ].join('\n');
+              await github.rest.issues.createComment({ owner, repo, issue_number, body: message });
             }
