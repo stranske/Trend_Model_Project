@@ -2,7 +2,7 @@ name: Maint 30 Post CI Summary
 
 on:
   workflow_run:
-    workflows: ["PR 10 CI Python", "PR 12 Docker Smoke"]
+    workflows: ["PR 10 CI Python", "PR 12 Docker Smoke", "Maint 90 Selftest"]
     types: [completed]
 
 concurrency:
@@ -53,6 +53,7 @@ jobs:
             const defaultWorkflowTargets = [
               { key: 'ci', display_name: 'CI', workflow_path: '.github/workflows/pr-10-ci-python.yml' },
               { key: 'docker', display_name: 'Docker', workflow_path: '.github/workflows/pr-12-docker-smoke.yml' },
+              { key: 'selftest', display_name: 'Maint Selftest', workflow_path: '.github/workflows/maint-90-selftest.yml' },
             ];
 
             const workflowTargetsRaw = process.env.WORKFLOW_TARGETS_JSON;

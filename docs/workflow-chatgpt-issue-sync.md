@@ -2,6 +2,9 @@
 
 _Last updated: 2025-09-20_
 
+> **Status:** Workflow removed as part of Issue #2190. Documentation retained
+> for historical troubleshooting and potential future reinstatement.
+
 This document explains how to use and operate the `maint-41-chatgpt-issue-sync.yml` GitHub Actions workflow that ingests ChatGPT topic lists and synchronizes them to GitHub Issues with strong normalization, diagnostics, and fallback behavior.
 
 ## Purpose
