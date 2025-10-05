@@ -80,7 +80,8 @@ jobs:
       - name: Fail fast on missing issue (manual run)
         if: ${{ github.event_name == 'workflow_dispatch' && steps.ctx.outputs.has_issue != 'true' }}
         run: |
-          echo "::error::Missing input test_issue for workflow_dispatch. Provide an issue number when manually running this workflow." && exit 1
+          echo "::error::Missing input test_issue for workflow_dispatch. Provide an issue number when manually running this workflow."
+          exit 1
 
       - name: Get default branch
         id: def
