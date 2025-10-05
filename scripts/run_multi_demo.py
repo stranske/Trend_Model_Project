@@ -989,6 +989,7 @@ _check_generate_demo_help()
 
 
 cfg = load("config/demo.yml")
+regime_cfg = getattr(cfg, "regime", {}) or {}
 demo_df = _check_demo_data(cfg)
 if cfg.export.get("filename") != "alias_demo.csv":
     raise SystemExit("Output alias not parsed")
@@ -1628,6 +1629,15 @@ if sf is None or sf.empty:
 b_ir = full_res.get("benchmark_ir", {})
 if "spx" not in b_ir or "equal_weight" not in b_ir.get("spx", {}):
     raise SystemExit("pipeline.run_full benchmark_ir missing")
+regime_table_full = full_res.get("performance_by_regime")
+if not isinstance(regime_table_full, pd.DataFrame) or regime_table_full.empty:
+    raise SystemExit("pipeline.run_full missing regime table")
+regime_summary_full = str(full_res.get("regime_summary", ""))
+regime_notes_full = full_res.get("regime_notes") or []
+if not regime_summary_full.strip() and not any(
+    str(note).strip() for note in regime_notes_full
+):
+    raise SystemExit("pipeline.run_full missing regime insight")
 _oss = full_res.get("out_sample_stats", {})
 _oss = _oss if isinstance(_oss, dict) else {}
 for obj in _oss.values():
@@ -1647,9 +1657,17 @@ analysis_res = pipeline.run_analysis(
     getattr(cfg, "run", {}).get("monthly_cost", 0.0),
     selection_mode="rank",
     rank_kwargs={"n": 5, "score_by": "Sharpe", "inclusion_approach": "top_n"},
+    regime_cfg=regime_cfg,
 )
 if analysis_res is None or analysis_res.get("score_frame") is None:
     raise SystemExit("pipeline.run_analysis failed")
+analysis_table = analysis_res.get("performance_by_regime")
+if not isinstance(analysis_table, pd.DataFrame) or analysis_table.empty:
+    raise SystemExit("pipeline.run_analysis missing regime table")
+analysis_summary = str(analysis_res.get("regime_summary", ""))
+analysis_notes = analysis_res.get("regime_notes") or []
+if not analysis_summary.strip() and not any(str(n).strip() for n in analysis_notes):
+    raise SystemExit("pipeline.run_analysis missing regime insight")
 analysis_idx = pipeline.run_analysis(
     df_full,
     str(split.get("in_start")),
@@ -1659,6 +1677,7 @@ analysis_idx = pipeline.run_analysis(
     cfg.vol_adjust.get("target_vol", 1.0),
     getattr(cfg, "run", {}).get("monthly_cost", 0.0),
     indices_list=["Mgr_01", "Mgr_02"],
+    regime_cfg=regime_cfg,
 )
 if analysis_idx is None or not analysis_idx.get("benchmark_stats"):
     raise SystemExit("pipeline.run_analysis with indices_list failed")

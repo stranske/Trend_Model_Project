@@ -1219,6 +1219,7 @@ def run(cfg: Config) -> pd.DataFrame:
         previous_weights=_section_get(portfolio_cfg, "previous_weights"),
         max_turnover=_section_get(portfolio_cfg, "max_turnover"),
         signal_spec=trend_spec,
+        regime_cfg=_cfg_section(cfg, "regime"),
     )
     if res is None:
         return pd.DataFrame()
