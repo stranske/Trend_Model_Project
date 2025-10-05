@@ -672,6 +672,64 @@ def format_summary_text(
             df_formatted.to_string(index=False),
         ]
     )
+
+    regime_summary = res.get("regime_summary")
+    regime_table = res.get("performance_by_regime")
+    if isinstance(regime_table, pd.DataFrame) and not regime_table.empty:
+        header.append("")
+        header.append("Performance by regime (CAGR / Sharpe / MaxDD / Hit / Obs):")
+
+        def _fmt_pct(value: Any, digits: int = 1) -> str:
+            if pd.isna(value):
+                return "N/A"
+            return f"{float(value):.{digits}%}"
+
+        def _fmt_ratio(value: Any, digits: int = 2) -> str:
+            if pd.isna(value):
+                return "N/A"
+            return f"{float(value):.{digits}f}"
+
+        def _fmt_count(value: Any) -> str:
+            if pd.isna(value):
+                return "N/A"
+            return f"{float(value):.0f}"
+
+        def _has_metrics(series: pd.Series) -> bool:
+            return any(
+                pd.notna(series.get(metric))
+                for metric in ("CAGR", "Sharpe", "Max Drawdown", "Hit Rate")
+            )
+
+        for portfolio in dict.fromkeys(col[0] for col in regime_table.columns):
+            header.append(f"  {portfolio}:")
+            for _, regime in [
+                col for col in regime_table.columns if col[0] == portfolio
+            ]:
+                series = regime_table[(portfolio, regime)]
+                if not _has_metrics(series):
+                    header.append(f"    {regime}: insufficient data")
+                    continue
+                header.append(
+                    "    {regime}: {cagr} CAGR, Sharpe {sharpe}, MaxDD {mdd}, "
+                    "Hit {hit}, Obs {obs}".format(
+                        regime=regime,
+                        cagr=_fmt_pct(series.get("CAGR")),
+                        sharpe=_fmt_ratio(series.get("Sharpe")),
+                        mdd=_fmt_pct(series.get("Max Drawdown")),
+                        hit=_fmt_pct(series.get("Hit Rate")),
+                        obs=_fmt_count(series.get("Observations")),
+                    )
+                )
+
+    regime_notes = [str(note).strip() for note in res.get("regime_notes", [])]
+    regime_notes = [note for note in regime_notes if note]
+    summary_text = regime_summary.strip() if isinstance(regime_summary, str) else ""
+    if summary_text:
+        header.append("")
+        header.append(f"Regime insight: {summary_text}")
+    if regime_notes:
+        header.append("Regime notes:")
+        header.extend(f"  - {note}" for note in regime_notes)
     return "\n".join(header)
 
 
