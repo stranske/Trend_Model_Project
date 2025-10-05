@@ -6,8 +6,9 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Sequence
+import importlib.resources
 
-APP_PATH = Path(__file__).resolve().parents[2] / "streamlit_app" / "app.py"
+APP_PATH = importlib.resources.files('trend_model.streamlit_app') / 'app.py'
 
 
 def main(argv: Sequence[str] | None = None) -> int:
