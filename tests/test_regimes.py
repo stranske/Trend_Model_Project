@@ -75,6 +75,36 @@ def test_build_regime_payload_notes_for_insufficient_observations() -> None:
     assert any("all-period aggregate" in note.lower() for note in notes)
 
 
+def test_build_regime_payload_deduplicates_repeated_notes() -> None:
+    data = _sample_frame()
+    index = pd.DatetimeIndex(data["Date"])
+    returns_map = {
+        "User": data.set_index("Date")["FundA"],
+        "Equal-Weight": data.set_index("Date")["FundB"],
+    }
+    risk_free = pd.Series(0.0, index=index)
+    payload = build_regime_payload(
+        data=data,
+        out_index=index,
+        returns_map=returns_map,
+        risk_free=risk_free,
+        config={
+            "enabled": True,
+            "proxy": "SPX",
+            "lookback": 3,
+            "smoothing": 1,
+            "min_observations": 10,
+        },
+        freq_code="M",
+        periods_per_year=12,
+    )
+    notes = payload["notes"]
+    risk_on_notes = [note for note in notes if "risk-on regime" in note.lower()]
+    risk_off_notes = [note for note in notes if "risk-off regime" in note.lower()]
+    assert len(risk_on_notes) == 1
+    assert len(risk_off_notes) == 1
+
+
 def test_build_regime_payload_volatility_method() -> None:
     dates = pd.date_range("2020-01-31", periods=6, freq="ME")
     proxy = [0.01, 0.015, 0.20, 0.18, 0.19, 0.21]
