@@ -180,7 +180,9 @@ jobs:
         run: |
           set -euo pipefail
           PREFIX="agents/codex-issue-${ISSUE}-"
-          EXISTING=$(git ls-remote --heads origin | awk -v prefix="refs/heads/${PREFIX}" '$2 ~ prefix { sub("refs/heads/", "", $2); print $2 }' | head -n1)
+          HEADS=$(git ls-remote --heads origin)
+          MATCHED=$(echo "$HEADS" | awk -v prefix="refs/heads/${PREFIX}" '$2 ~ prefix { sub("refs/heads/", "", $2); print $2 }')
+          EXISTING=$(echo "$MATCHED" | head -n1)
           if [ -n "${EXISTING}" ]; then
             echo "Reusing existing Codex branch ${EXISTING} for issue #${ISSUE}."
             echo "branch=${EXISTING}" >> "$GITHUB_OUTPUT"
