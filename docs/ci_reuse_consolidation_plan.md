@@ -1,40 +1,31 @@
-# CI Workflow Consolidation Plan (Optional Enhancements for #1166)
+# CI Workflow Consolidation Plan — Post Issue #2190 Snapshot
 
-## Audit Summary (2025-09-19)
-The `.github/workflows` directory contains both new reusable workflows and several legacy / overlapping automation files.
+Last updated: 2026-10-12
 
-### Redundant / Superseded (Removed in Cleanup PR for #1259)
-| Legacy (now removed) | Reusable Replacement | Removal Rationale |
-| -------------------- | -------------------- | ----------------- |
-| `autofix.yml` | `maint-32-autofix.yml` + `reusable-autofix.yml` | Eliminated duplication; stabilization period complete post PR #1257. |
-| `agent-readiness.yml` | _(archived)_ | No direct replacement; run ad-hoc GitHub Script checks when needed. |
-| `agents-42-watchdog.yml` | `agents-41-assign-and-watch.yml` | Manual watchdog wrapper retained; core logic migrated to unified workflow. |
-| `codex-preflight.yml` | _(archived)_ | Manual diagnostics or future targeted scripts as needed. |
-| `codex-bootstrap-diagnostic.yml` | _(archived)_ | Superseded by agents-41 assign + agents-42 watchdog pairing. |
-| `verify-agent-task.yml` | _(archived)_ | Use issue audit scripts or custom GitHub Script snippets.
+Issue #2190 completed the consolidation roadmap that began in #1166/#1259. The repository now exposes only the reusable
+workflows required by the trimmed automation surface.
 
-### Parallel / Candidate for Future Merge
-| Workflow | Notes |
-| -------- | ----- |
-| `verify-codex-bootstrap-matrix.yml` | Specialized matrix verification; keep separate (long-running, matrix heavy). |
-| `maint-52-perf-benchmark.yml` | Performance regression; intentionally standalone (different triggers, resource profile). |
+## Current State
+- Only five reusable workflows remain (`reusable-90-ci-python.yml`, `reusable-94-legacy-ci-python.yml`, `reusable-92-autofix.yml`,
+  `reusable-70-agents.yml`, `reusable-99-selftest.yml`).
+- Visible workflows in the Actions tab were reduced to the final set documented in `WORKFLOW_AUDIT_TEMP.md` and `docs/ci/WORKFLOWS.md`.
+- All auxiliary wrappers (gate orchestrators, labelers, watchdog forwards, etc.) were deleted.
 
-### Keep As-Is
-Release, docker, auto-merge enablement, PR status summary, quarantine TTL, failure trackers remain orthogonal to the three reusable workflows.
+## Completed Consolidation Actions
+| Area | Action |
+|------|--------|
+| Agent automation | Removed `agents-41*`, `agents-42-watchdog.yml`, `agents-43-codex-issue-bridge.yml`, `agents-44-copilot-readiness.yml`, and `agents-45-verify-codex-bootstrap-matrix.yml`; replaced with `agents-70-orchestrator.yml` + `reusable-70-agents.yml`.
+| Maintenance | Deleted legacy hygiene/self-test workflows (`maint-31`, `maint-34`, `maint-37`, `maint-38`, `maint-41`, `maint-43`, `maint-44`, `maint-45`, `maint-48`, `maint-49`, `maint-52`, `maint-60`) and introduced `maint-90-selftest.yml` as the single self-test caller.
+| PR checks | Removed auxiliary PR workflows (gate orchestrator, labeler, workflow lint, CodeQL, dependency review, path labeler) to align with the two final checks.
 
-## Consolidation Actions Executed
-All previously flagged legacy workflows were deleted in alignment with Issue #1259. Consumers now invoke the reusable equivalents (`reusable-autofix.yml`) alongside the unified agent orchestrator (`agents-41-assign-and-watch.yml`, surfaced through the thin wrappers). This concludes the stabilization window referenced in PR #1257.
+## Follow-Up Guardrails
+- `tests/test_workflow_naming.py` enforces the `<area>-<NN>-<slug>.yml` convention and inventory coverage.
+- `tests/test_workflow_agents_consolidation.py` verifies the orchestrator inputs and ensures legacy agent workflows do not return.
+- `docs/ci/WORKFLOWS.md` is the authoritative description of the remaining automation footprint.
 
-## Deletion Timetable (Superseded)
-Original timetable replaced by immediate removal once validation completed. Retained here for historical context only.
+## Future Considerations
+1. Monitor downstream consumers of `reusable-94-legacy-ci-python.yml`; retire it once all repos migrate to the WFv1 interface.
+2. Keep `maint-90-selftest.yml` schedule under review—switch to manual-only if weekly coverage is unnecessary.
+3. Revisit CodeQL or dependency review if security tooling is reintroduced in a dedicated follow-up issue.
 
-## Future Evolution Ideas
-- Monitor whether additional readiness/preflight scripts are required now that `reuse-agents.yml` (now `reusable-90-agents.yml`) has been retired in favour of the assigner/watchdog workflows.
-- Expose versioned `@v1` tags for remote consumption (convert internal `uses:` paths to fully-qualified refs in downstream repos).
-- Add quarantine job implementation tied to `run_quarantine` input in `reusable-ci-python.yml`.
-
-## No Immediate Action Files
-All other workflows serve distinct concerns; consolidating now would add complexity without clear maintenance win.
-
----
-Last updated: 2026-02-15
+No additional consolidation actions are planned at this time.

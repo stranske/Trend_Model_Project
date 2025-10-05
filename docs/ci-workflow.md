@@ -110,7 +110,7 @@ name: Project CI
 on: [push, pull_request]
 jobs:
   ci:
-    uses: owner-or-fork/Trend_Model_Project/.github/workflows/reusable-ci-python.yml@phase-2-dev
+    uses: owner-or-fork/Trend_Model_Project/.github/workflows/reusable-90-ci-python.yml@phase-2-dev
     with:
       python-versions: '["3.11", "3.12"]'
       coverage-min: '72'

@@ -1,6 +1,6 @@
 # Trend Model Project
 
-[![CI](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-10-ci-python.yml/badge.svg?branch=phase-2-dev)](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-10-ci-python.yml) [![Codex Verification (Latest)](https://github.com/stranske/Trend_Model_Project/actions/workflows/verify-codex-bootstrap-matrix.yml/badge.svg?branch=phase-2-dev)](https://github.com/stranske/Trend_Model_Project/actions/workflows/verify-codex-bootstrap-matrix.yml) [![Codex Verification Guide](https://img.shields.io/badge/codex--verification-docs-blueviolet)](docs/codex-simulation.md)
+[![CI](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-10-ci-python.yml/badge.svg?branch=phase-2-dev)](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-10-ci-python.yml) [![Codex Verification Guide](https://img.shields.io/badge/codex--verification-docs-blueviolet)](docs/codex-simulation.md)
 
 > **🚀 New User?** → **[Quick Start Guide](docs/quickstart.md)** — Get your first analysis running in under 10 minutes!
 
@@ -8,7 +8,7 @@ This repository contains experiments and utilities for analyzing volatility-adju
 
 For a beginner-friendly overview, see [docs/UserGuide.md](docs/UserGuide.md).
 
-📦 **Reusable CI & Automation**: Standardise tests, autofix, and agent automation across repositories using the new reusable workflows documented in [docs/ci_reuse.md](docs/ci_reuse.md). Consumers call `reusable-ci-python.yml`, `reusable-autofix.yml`, and the unified agent orchestrator `agents-41-assign-and-watch.yml` (invoked via the lightweight wrappers `agents-41-assign.yml` / `agents-42-watchdog.yml`).
+📦 **Reusable CI & Automation**: Standardise tests, autofix, and agent automation across repositories using the reusable workflows documented in [docs/ci_reuse.md](docs/ci_reuse.md). Consumers call `reusable-90-ci-python.yml`, `reusable-92-autofix.yml`, and the unified agents toolkit (`agents-70-orchestrator.yml` → `reusable-70-agents.yml`).
 
 🧭 **Workflow topology & agent routing**: Learn how workflow buckets, naming, post-CI summaries, and agent labels fit together in [docs/WORKFLOW_GUIDE.md](docs/WORKFLOW_GUIDE.md).
 

@@ -1,8 +1,8 @@
-name: Check Failure Tracker
+name: Maint 33 Check Failure Tracker
 
-"on":
+on:
   workflow_run:
-    workflows: ["CI", "Docker", "CI Selftest"]
+    workflows: ["PR 10 CI Python", "PR 12 Docker Smoke", "Maint 90 Selftest"]
     types: [completed]
 
 permissions:

@@ -48,18 +48,8 @@ def test_autofix_workflow_uses_repo_commit_prefix() -> None:
     assert "chore(autofix):" in prefix_expr
 
 
-def test_residual_cleanup_guard_gates_followups() -> None:
-    data = _load_yaml("maint-31-autofix-residual-cleanup.yml")
-    prefix_expr = data.get("env", {}).get("COMMIT_PREFIX", "")
-    assert "AUTOFIX_COMMIT_PREFIX" in prefix_expr
-    assert "chore(autofix):" in prefix_expr
-    steps = data["jobs"]["cleanup"]["steps"]
-    missing = _guarded_follow_up_steps(steps)
-    assert not missing, f"Residual cleanup steps missing guard condition: {missing}"
-
-
 def test_reusable_autofix_guard_applies_to_all_steps() -> None:
-    data = _load_yaml("reusable-autofix.yml")
+    data = _load_yaml("reusable-92-autofix.yml")
     steps = data["jobs"]["autofix"]["steps"]
     missing = _guarded_follow_up_steps(steps)
     assert not missing, f"Reusable autofix steps missing guard condition: {missing}"

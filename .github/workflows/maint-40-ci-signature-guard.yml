@@ -1,4 +1,4 @@
-name: CI Signature Guard
+name: Maint 40 CI Signature Guard
 
 on:
   push:

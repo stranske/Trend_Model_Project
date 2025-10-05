@@ -1,6 +1,6 @@
-# Repository Health Self-Check Workflow (maint-35)
+# Repository Health Workflow (maint-02)
 
-The `maint-35-repo-health-self-check.yml` workflow keeps the repository's
+The `maint-02-repo-health.yml` workflow keeps the repository's
 baseline governance assets (labels, secrets, and Ops issue plumbing) healthy.
 It runs nightly with a weekly deep-dive, can be dispatched manually, and
 re-executes automatically whenever the probe or workflow definition changes in a
@@ -22,7 +22,8 @@ PR.
 - **workflow_dispatch** — Manual runs for smoke tests or post-incident
   verification.
 - **Scoped PR / push triggers** — Changes to `tools/repo_health_probe.py` or the
-  workflow definition automatically re-run the probe.
+  workflow definition automatically re-run the probe on the
+  `phase-2-dev` branch.
 
 ## Sample step summary
 
