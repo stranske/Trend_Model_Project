@@ -60,6 +60,7 @@ class ConfigProtocol(Protocol):
     portfolio: dict[str, Any]
     benchmarks: dict[str, str]
     metrics: dict[str, Any]
+    regime: dict[str, Any]
     export: dict[str, Any]
     output: dict[str, Any] | None
     run: dict[str, Any]
@@ -199,7 +200,7 @@ if _HAS_PYDANTIC:
         """Typed access to the YAML configuration (Pydantic mode)."""
 
         # Field lists generated dynamically from model fields to prevent maintenance burden
-        OPTIONAL_DICT_FIELDS: ClassVar[set[str]] = {"performance", "signals"}
+        OPTIONAL_DICT_FIELDS: ClassVar[set[str]] = {"performance", "signals", "regime"}
 
         @classmethod
         def _dict_field_names(cls) -> List[str]:
@@ -279,6 +280,7 @@ if _HAS_PYDANTIC:
         portfolio: dict[str, Any] = Field(default_factory=dict)
         benchmarks: dict[str, str] = Field(default_factory=dict)
         metrics: dict[str, Any] = Field(default_factory=dict)
+        regime: dict[str, Any] = Field(default_factory=dict)
         signals: dict[str, Any] = Field(default_factory=dict)
         export: dict[str, Any] = Field(default_factory=dict)
         performance: dict[str, Any] = Field(default_factory=dict)
@@ -301,6 +303,7 @@ if _HAS_PYDANTIC:
             "sample_split",
             "portfolio",
             "metrics",
+            "regime",
             "export",
             "run",
             mode="before",
@@ -395,6 +398,7 @@ else:  # Fallback mode for tests without pydantic
             "portfolio",
             "benchmarks",
             "metrics",
+            "regime",
             "signals",
             "export",
             "performance",
@@ -406,7 +410,7 @@ else:  # Fallback mode for tests without pydantic
             "seed",
         ]
 
-        OPTIONAL_DICT_FIELDS: ClassVar[set[str]] = {"performance", "signals"}
+        OPTIONAL_DICT_FIELDS: ClassVar[set[str]] = {"performance", "signals", "regime"}
 
         # Attribute declarations for linters/type-checkers
         version: str
@@ -417,6 +421,7 @@ else:  # Fallback mode for tests without pydantic
         portfolio: Dict[str, Any]
         benchmarks: Dict[str, str]
         metrics: Dict[str, Any]
+        regime: Dict[str, Any]
         signals: Dict[str, Any]
         export: Dict[str, Any]
         performance: Dict[str, Any]
@@ -436,6 +441,7 @@ else:  # Fallback mode for tests without pydantic
                 "portfolio": {},
                 "benchmarks": {},
                 "metrics": {},
+                "regime": {},
                 "signals": {},
                 "export": {},
                 "performance": {},
@@ -464,6 +470,7 @@ else:  # Fallback mode for tests without pydantic
                 "sample_split",
                 "portfolio",
                 "metrics",
+                "regime",
                 "export",
                 "performance",
                 "run",

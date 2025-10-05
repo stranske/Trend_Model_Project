@@ -324,6 +324,9 @@ def _build_exec_summary(result: Any, backtest: BacktestResult | None) -> list[st
                 sharpe=_format_ratio(metrics.get("sharpe_ratio")),
             )
         )
+    regime_summary = details.get("regime_summary")
+    if isinstance(regime_summary, str) and regime_summary.strip():
+        bullets.append(regime_summary.strip())
     return bullets
 
 
@@ -475,12 +478,56 @@ def _metrics_table_html(metrics: pd.DataFrame) -> tuple[str, list[str]]:
     return html_table, text_rows
 
 
-def _narrative(backtest: BacktestResult | None) -> str:
+def _format_regime_table(table: pd.DataFrame) -> tuple[str, list[str]]:
+    if table is None or table.empty:
+        return "<p>Regime analysis unavailable.</p>", []
+
+    display = table.copy().astype(object)
+    idx_names = ["CAGR", "Max Drawdown", "Hit Rate", "Sharpe", "Observations"]
+    for metric in display.index:
+        if metric not in idx_names:
+            continue
+        series = display.loc[metric]
+        if metric in {"CAGR", "Max Drawdown", "Hit Rate"}:
+            display.loc[metric] = series.map(
+                lambda val: "—" if pd.isna(val) else f"{float(val):.1%}"
+            )
+        elif metric == "Sharpe":
+            display.loc[metric] = series.map(
+                lambda val: "—" if pd.isna(val) else f"{float(val):.2f}"
+            )
+        elif metric == "Observations":
+            display.loc[metric] = series.map(
+                lambda val: "—" if pd.isna(val) else f"{int(round(float(val)))}"
+            )
+
+    if isinstance(display.columns, pd.MultiIndex):
+        column_labels = [" / ".join(map(str, col)).strip() for col in display.columns]
+    else:
+        column_labels = [str(col) for col in display.columns]
+
+    html_table = display.to_html(classes=["report-table"], border=0, escape=False)
+    text_rows: list[str] = []
+    header = ["Metric"] + column_labels
+    text_rows.append(" | ".join(header))
+    text_rows.append("-" * len(text_rows[0]))
+    for metric, row in display.iterrows():
+        values = [str(metric)] + [str(row[col]) for col in display.columns]
+        text_rows.append(" | ".join(values))
+    return html_table, text_rows
+
+
+def _narrative(
+    backtest: BacktestResult | None, regime_summary: str | None = None
+) -> str:
     if backtest is None or backtest.returns.empty:
-        return (
+        base = (
             "Backtest metrics were unavailable; please review the configuration and ensure "
             "that portfolio returns were produced."
         )
+        if regime_summary:
+            return f"{base} {regime_summary}".strip()
+        return base
     metrics = backtest.metrics
     start = backtest.returns.index[0]
     end = backtest.returns.index[-1]
@@ -506,7 +553,7 @@ def _narrative(backtest: BacktestResult | None) -> str:
     else:
         alloc_sentence = ""
     turnover = metrics.get("turnover_mean", 0.0)
-    return (
+    narrative = (
         f"From {start_text} through {end_text}, the portfolio compounded to "
         f"{_format_percent(metrics.get('total_return'))} overall "
         f"({_format_percent(metrics.get('annual_return'))} annualised). Volatility averaged "
@@ -515,6 +562,9 @@ def _narrative(backtest: BacktestResult | None) -> str:
         f"{_format_percent(metrics.get('max_drawdown'))}, and mean turnover per rebalance was "
         f"{_format_percent(turnover)}.{alloc_sentence}"
     )
+    if regime_summary:
+        narrative = f"{narrative} {regime_summary}".strip()
+    return narrative
 
 
 def _render_html(context: Mapping[str, Any]) -> str:
@@ -525,6 +575,20 @@ def _render_html(context: Mapping[str, Any]) -> str:
     )
     narrative = html.escape(context["narrative"])
     metrics_html = context["metrics_html"]
+    regime_table_html = context["regime_html"]
+    regime_summary_text = context.get("regime_summary") or ""
+    regime_summary_html = (
+        f"    <p>{html.escape(regime_summary_text)}</p>\n"
+        if regime_summary_text
+        else ""
+    )
+    regime_notes = context.get("regime_notes", [])
+    regime_notes_html = ""
+    if regime_notes:
+        items = "\n".join(
+            f"      <li>{html.escape(note)}</li>" for note in regime_notes
+        )
+        regime_notes_html = f"    <ul>\n{items}\n    </ul>\n"
     params_rows = "\n".join(
         f"      <tr><th>{html.escape(k)}</th><td>{html.escape(v)}</td></tr>"
         for k, v in context["parameters"]
@@ -575,6 +639,12 @@ def _render_html(context: Mapping[str, Any]) -> str:
         '  <section id="metrics">\n'
         "    <h2>Metrics</h2>\n"
         f"    {metrics_html}\n"
+        "  </section>\n"
+        '  <section id="regimes">\n'
+        "    <h2>Performance by Regime</h2>\n"
+        f"{regime_summary_html}"
+        f"    {regime_table_html}\n"
+        f"{regime_notes_html}"
         "  </section>\n"
         '  <section id="charts" class="two-column">\n'
         "    <div><h2>Turnover</h2>\n"
@@ -696,6 +766,26 @@ def _render_pdf(context: Mapping[str, Any]) -> bytes:
     pdf.ln(2)
 
     pdf.set_font("Helvetica", "B", 13)
+    pdf.cell(0, 8, "Performance by Regime", ln=True)
+    pdf.set_font("Helvetica", "", 10)
+    regime_summary = context.get("regime_summary")
+    if regime_summary:
+        pdf.multi_cell(
+            usable_width,
+            5,
+            _pdf_safe(_wrap_pdf_text(str(regime_summary), width=84)),
+        )
+    for row in context.get("regime_text", []):
+        pdf.multi_cell(usable_width, 5, _pdf_safe(_wrap_pdf_text(row, width=84)))
+    regime_notes = context.get("regime_notes", [])
+    for note in regime_notes:
+        wrapped_note = _wrap_pdf_text(
+            note, initial_indent="- ", subsequent_indent="  ", width=84
+        )
+        pdf.multi_cell(usable_width, 5, _pdf_safe(wrapped_note))
+    pdf.ln(2)
+
+    pdf.set_font("Helvetica", "B", 13)
     pdf.cell(0, 8, "Parameter summary", ln=True)
     pdf.set_font("Helvetica", "", 10)
     for key, value in context["parameters"]:
@@ -770,7 +860,23 @@ def generate_unified_report(
     metrics_html, metrics_text = _metrics_table_html(metrics_df)
     params = _build_param_summary(config)
     caveats = _build_caveats(result, backtest)
-    narrative = _narrative(backtest)
+    details_mapping = (
+        getattr(result, "details", {})
+        if isinstance(getattr(result, "details", None), Mapping)
+        else {}
+    )
+    raw_regime_table = details_mapping.get("performance_by_regime")
+    regime_table = (
+        raw_regime_table
+        if isinstance(raw_regime_table, pd.DataFrame)
+        else pd.DataFrame()
+    )
+    regime_html, regime_text = _format_regime_table(regime_table)
+    regime_notes = list(details_mapping.get("regime_notes", []))
+    regime_summary = details_mapping.get("regime_summary")
+    narrative = _narrative(
+        backtest, regime_summary if isinstance(regime_summary, str) else None
+    )
     turnover_chart = _turnover_chart(backtest)
     exposure_chart = _exposure_chart(backtest)
     footer = "Past performance does not guarantee future results."
@@ -781,6 +887,10 @@ def generate_unified_report(
         "narrative": narrative,
         "metrics_html": metrics_html,
         "metrics_text": metrics_text,
+        "regime_html": regime_html,
+        "regime_text": regime_text,
+        "regime_notes": regime_notes,
+        "regime_summary": regime_summary,
         "parameters": params,
         "caveats": caveats
         or [

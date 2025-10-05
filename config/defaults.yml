@@ -118,7 +118,24 @@ benchmarks:
   tsx: TSX
 
 # ----------------------------------------------------------------------
-# 6. PERFORMANCE METRICS
+# 6. REGIME ANALYSIS
+# ----------------------------------------------------------------------
+regime:
+  enabled: true
+  proxy: "SPX"
+  method: "rolling_return"
+  lookback: 126
+  smoothing: 3
+  threshold: 0.0
+  neutral_band: 0.001
+  min_observations: 4
+  risk_on_label: "Risk-On"
+  risk_off_label: "Risk-Off"
+  cache: true
+  annualise_volatility: true   # applies when method: volatility
+
+# ----------------------------------------------------------------------
+# 7. PERFORMANCE METRICS
 # ----------------------------------------------------------------------
 metrics:
   rf_rate_annual:     0.02            # flat rf or link to series
@@ -146,7 +163,7 @@ metrics:
     n_iter: 2000
     ci_level: 0.95
 # ----------------------------------------------------------------------
-# 7. EXPORT OPTIONS
+# 8. EXPORT OPTIONS
 # ----------------------------------------------------------------------
 export:
   directory: "results/"
@@ -161,7 +178,7 @@ export:
   include_vol_adj: true
   include_figures: false # Phase-2
 # ----------------------------------------------------------------------
-# 8. LOGGING & EXECUTION
+# 9. LOGGING & EXECUTION
 # ----------------------------------------------------------------------
 performance:
   enable_cache: true

@@ -8,7 +8,15 @@ This repository contains experiments and utilities for analyzing volatility-adju
 
 For a beginner-friendly overview, see [docs/UserGuide.md](docs/UserGuide.md).
 
-📦 **Reusable CI & Automation**: Standardise tests, autofix, and agent automation across repositories using the reusable workflows documented in [docs/ci_reuse.md](docs/ci_reuse.md). Consumers call `reusable-90-ci-python.yml`, `reusable-92-autofix.yml`, and the unified agents toolkit (`agents-70-orchestrator.yml` → `reusable-70-agents.yml`).
+Latest addition: the pipeline now tags market regimes (Risk-On / Risk-Off) via
+configurable rolling-return or volatility filters and adds a "Performance by
+Regime" table to the CLI, exports, and unified HTML/PDF report. The narrative
+summary automatically calls out whichever regime outperforms (or notes when the
+strategy behaves similarly across regimes). Tweak lookback, smoothing,
+thresholds, and the annualisation flag under the new `regime` section in
+`config/defaults.yml` to align the analysis with your preferred market proxy.
+
+📦 **Reusable CI & Automation**: Standardise tests, autofix, and agent automation across repositories using the new reusable workflows documented in [docs/ci_reuse.md](docs/ci_reuse.md). Consumers call `reusable-ci-python.yml`, `reusable-autofix.yml`, and the unified agent orchestrator `agents-41-assign-and-watch.yml` (invoked via the lightweight wrappers `agents-41-assign.yml` / `agents-42-watchdog.yml`).
 
 🧭 **Workflow topology & agent routing**: Learn how workflow buckets, naming, post-CI summaries, and agent labels fit together in [docs/WORKFLOW_GUIDE.md](docs/WORKFLOW_GUIDE.md).
 
