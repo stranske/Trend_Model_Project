@@ -989,7 +989,7 @@ _check_generate_demo_help()
 
 
 cfg = load("config/demo.yml")
-regime_cfg = getattr(cfg, "regime", {}) or {}
+regime_cfg = getattr(cfg, "regime", {})
 demo_df = _check_demo_data(cfg)
 if cfg.export.get("filename") != "alias_demo.csv":
     raise SystemExit("Output alias not parsed")
