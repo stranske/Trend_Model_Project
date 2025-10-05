@@ -1,20 +1,13 @@
-<!--
-Bootstrap for Codex on Issue #1687
+<!-- bootstrap for codex on issue #1687 (see: https://github.com/stranske/Trend_Model_Project/issues/1687) -->
 
 ## Scope
-Implement CLI entry points for trend-app and trend-run, including configuration and output options, and provide documentation/examples.
+<!-- Describe the scope of issue #1687 here. What is included/excluded? -->
 
 ## Acceptance Criteria
-- `trend-app` and `trend-run` are available as console scripts via `pyproject.toml`.
-- `trend_model/app.py:main` and `trend_model/cli.py:run` are implemented and accept `-c/--config` and `-o/--output` arguments.
-- Documentation/examples for CLI usage are added to `docs/CLI.md`.
+<!-- List the criteria that must be met for issue #1687 to be considered complete. -->
 
 ## Checklist
-- [ ] Add `console_scripts` for `trend-app` and `trend-run` in `pyproject.toml`
-- [ ] Implement `trend_model/app.py:main`
-- [ ] Implement `trend_model/cli.py:run` with `-c/--config` and `-o/--output`
-- [ ] Add CLI usage examples to `docs/CLI.md`
+<!-- Provide a checklist of tasks or steps to implement issue #1687. -->
 
 ## References
-- [Source Issue #1687](https://github.com/your-org/your-repo/issues/1687)
--->
+<!-- Add links or references relevant to issue #1687 (e.g., related issues, documentation). -->
