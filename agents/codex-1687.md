@@ -1,4 +1,4 @@
-<!-- bootstrap for codex on issue #1687 -->
+<!-- bootstrap for codex on issue #1687 (see: https://github.com/stranske/Trend_Model_Project/issues/1687) -->
 
 ## Scope
 <!-- Describe the scope of issue #1687 here. What is included/excluded? -->
