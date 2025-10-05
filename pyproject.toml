@@ -30,6 +30,7 @@ dependencies = [
     "pandas",
     "numpy",
     "PyYAML",
+    "types-PyYAML",
     "xlsxwriter",
     "openpyxl",
     "pydantic>=2",
@@ -53,6 +54,8 @@ trend = "trend.cli:main"
 trend-analysis = "trend_analysis.run_analysis:main"
 trend-multi-analysis = "trend_analysis.run_multi_analysis:main"
 trend-model = "trend_analysis.cli:main"
+trend-app = "trend_model.app:main"
+trend-run = "trend_model.cli:run"
 
 [tool.setuptools.packages.find]
 where = ["src"]
