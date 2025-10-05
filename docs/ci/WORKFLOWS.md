@@ -42,4 +42,9 @@ Only these workflows appear in the Actions UI; everything else is a reusable com
 - [x] Tests updated (`tests/test_workflow_agents_consolidation.py`) to guard the new structure.
 - [x] Documentation updated (`docs/agent-automation.md`, `docs/ops/codex-bootstrap-facts.md`, `docs/WORKFLOW_GUIDE.md`, `WORKFLOW_AUDIT_TEMP.md`).
 
+## Quick Validation Commands
+- `pytest tests/test_workflow_naming.py` — Ensures filenames and `name:` fields stay aligned with the WFv1 convention.
+- `pytest tests/test_automation_workflows.py -k agents` — Spot-checks the agents orchestrator wiring after edits.
+- `gh workflow list --limit 20` — Confirm the Actions tab only exposes the workflows listed above.
+
 Run `pytest tests/test_workflow_naming.py` after any workflow change to ensure the guardrails stay green.
