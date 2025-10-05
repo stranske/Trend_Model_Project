@@ -216,7 +216,7 @@ jobs:
             const branch = process.env.BRANCH;
             let issueTitle = '';
             let issueBody = '';
-            try { const { data: is } = await github.rest.issues.get({ owner, repo, issue_number }); issueTitle = is.title || ''; issueBody = is.body || ''; } catch {}
+            try { const { data: is } = await github.rest.issues.get({ owner, repo, issue_number }); issueTitle = is.title || ''; issueBody = is.body || ''; } catch (error) { core.warning(`Failed to fetch issue data: ${error}`); /* Proceeding with empty title/body */ }
             const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue_number}`;
             const header = `### Source Issue #${issue_number}: ${issueTitle}`;
             const quoted = (issueBody || '').split('\n').map(l => `> ${l}`).join('\n');
