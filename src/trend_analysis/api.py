@@ -259,29 +259,37 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         from pandas import DataFrame as _DataFrame
         from pandas import Series as _Series
 
+        def _stringify_key(value: Any) -> str | int | float | bool | None:
+            """Return a JSON-friendly representation of ``value``."""
+
+            if isinstance(value, (str, int, float, bool)) or value is None:
+                return value
+            if isinstance(value, tuple):
+                parts = [_stringify_key(part) for part in value]
+                return " / ".join("" if part is None else str(part) for part in parts)
+            try:
+                iso = getattr(value, "isoformat")
+            except AttributeError:
+                pass
+            else:
+                try:
+                    return str(iso())
+                except Exception:  # pragma: no cover - defensive
+                    return str(value)
+            return str(value)
+
         def _sanitize_keys(obj: Any) -> Any:
             if isinstance(obj, _Series):
-                return {
-                    (
-                        str(getattr(i, "isoformat", lambda: i)())
-                        if not isinstance(i, (str, int, float, bool, type(None)))
-                        else i
-                    ): _sanitize_keys(v)
-                    for i, v in obj.items()
-                }
+                return {_stringify_key(i): _sanitize_keys(v) for i, v in obj.items()}
             if isinstance(obj, _DataFrame):
-                return {col: _sanitize_keys(obj[col]) for col in obj.columns}
+                sanitized: dict[str | int | float | bool | None, Any] = {}
+                for col in obj.columns:
+                    sanitized[_stringify_key(col)] = _sanitize_keys(obj[col])
+                return sanitized
             if isinstance(obj, dict):
                 new: dict[str | int | float | bool | None, Any] = {}
                 for k, v in obj.items():
-                    if isinstance(k, (str, int, float, bool)) or k is None:
-                        new_key: str | int | float | bool | None = k
-                    else:
-                        try:
-                            new_key = str(getattr(k, "isoformat", lambda: k)())
-                        except Exception:  # pragma: no cover
-                            new_key = str(k)
-                    new[new_key] = _sanitize_keys(v)
+                    new[_stringify_key(k)] = _sanitize_keys(v)
                 return new
             if isinstance(obj, (list, tuple)):
                 return [_sanitize_keys(x) for x in obj]
