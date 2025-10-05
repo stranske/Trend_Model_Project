@@ -193,6 +193,35 @@ def test_format_summary_text_basic():
     assert "fund" in text
 
 
+def test_format_summary_text_includes_regime_breakdown():
+    regime_table = pd.DataFrame(
+        {
+            ("User", "Risk-On"): [0.12, 1.2, -0.18, 0.58, 24],
+            ("User", "Risk-Off"): [0.03, 0.3, -0.25, 0.42, 8],
+        },
+        index=["CAGR", "Sharpe", "Max Drawdown", "Hit Rate", "Observations"],
+    )
+    res = {
+        "in_ew_stats": (1, 1, 1, 1, 1, 1),
+        "out_ew_stats": (2, 2, 2, 2, 2, 2),
+        "in_user_stats": (3, 3, 3, 3, 3, 3),
+        "out_user_stats": (4, 4, 4, 4, 4, 4),
+        "in_sample_stats": {"fund": (5, 5, 5, 5, 5, 5)},
+        "out_sample_stats": {"fund": (6, 6, 6, 6, 6, 6)},
+        "fund_weights": {"fund": 0.5},
+        "performance_by_regime": regime_table,
+        "regime_summary": "Risk-On windows delivered 12% CAGR versus 3% in risk-off.",
+        "regime_notes": ["Risk-Off windows have limited observations."],
+    }
+    text = format_summary_text(res, "a", "b", "c", "d")
+
+    assert "Performance by regime" in text
+    assert "Risk-On" in text
+    assert "Risk-Off" in text
+    assert "Regime insight:" in text
+    assert "Regime notes:" in text
+
+
 def test_export_to_excel_invokes_formatter(tmp_path):
     df = pd.DataFrame({"A": [1]})
     called = []

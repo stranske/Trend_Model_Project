@@ -31,6 +31,7 @@ from .risk import (
     realised_volatility,
 )
 from .perf.rolling_cache import compute_dataset_hash, get_cache
+from .regimes import build_regime_payload
 from .signals import TrendSpec, compute_trend_signals
 from .timefreq import MONTHLY_DATE_FREQ
 from .util.frequency import FrequencySummary, detect_frequency
@@ -539,6 +540,7 @@ def _run_analysis(
     previous_weights: Mapping[str, float] | None = None,
     max_turnover: float | None = None,
     signal_spec: TrendSpec | None = None,
+    regime_cfg: Mapping[str, Any] | None = None,
 ) -> dict[str, object] | None:
     if df is None:
         return None
@@ -1029,6 +1031,20 @@ def _run_analysis(
             pass
         benchmark_ir[label] = ir_dict
 
+    regime_returns_map: dict[str, pd.Series] = {
+        "User": out_user.astype(float, copy=False),
+        "Equal-Weight": out_ew.astype(float, copy=False),
+    }
+    regime_payload = build_regime_payload(
+        data=df,
+        out_index=out_df.index,
+        returns_map=regime_returns_map,
+        risk_free=rf_out,
+        config=regime_cfg,
+        freq_code=freq_summary.target,
+        periods_per_year=periods_per_year,
+    )
+
     return {
         "selected_funds": fund_cols,
         "in_sample_scaled": in_scaled,
@@ -1053,6 +1069,14 @@ def _run_analysis(
         "risk_diagnostics": risk_payload,
         "signal_frame": signal_frame,
         "signal_spec": effective_signal_spec,
+        "performance_by_regime": regime_payload.get("table", pd.DataFrame()),
+        "regime_labels": regime_payload.get("labels", pd.Series(dtype="string")),
+        "regime_labels_out": regime_payload.get(
+            "out_labels", pd.Series(dtype="string")
+        ),
+        "regime_notes": regime_payload.get("notes", []),
+        "regime_settings": regime_payload.get("settings", {}),
+        "regime_summary": regime_payload.get("summary"),
     }
 
 
@@ -1085,6 +1109,7 @@ def run_analysis(
     previous_weights: Mapping[str, float] | None = None,
     max_turnover: float | None = None,
     signal_spec: TrendSpec | None = None,
+    regime_cfg: Mapping[str, Any] | None = None,
 ) -> dict[str, object] | None:
     """Backward-compatible wrapper around ``_run_analysis``."""
     return _run_analysis(
@@ -1115,6 +1140,7 @@ def run_analysis(
         previous_weights=previous_weights,
         max_turnover=max_turnover,
         signal_spec=signal_spec,
+        regime_cfg=regime_cfg,
     )
 
 
@@ -1193,6 +1219,7 @@ def run(cfg: Config) -> pd.DataFrame:
         previous_weights=_section_get(portfolio_cfg, "previous_weights"),
         max_turnover=_section_get(portfolio_cfg, "max_turnover"),
         signal_spec=trend_spec,
+        regime_cfg=_cfg_section(cfg, "regime"),
     )
     if res is None:
         return pd.DataFrame()
@@ -1288,6 +1315,7 @@ def run_full(cfg: Config) -> dict[str, object]:
         previous_weights=_section_get(portfolio_cfg, "previous_weights"),
         max_turnover=_section_get(portfolio_cfg, "max_turnover"),
         signal_spec=trend_spec,
+        regime_cfg=_cfg_section(cfg, "regime"),
     )
     return {} if res is None else res
 

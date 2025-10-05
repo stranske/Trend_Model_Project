@@ -5,6 +5,8 @@ import inspect
 from pathlib import Path
 from typing import Any, cast
 
+import pandas as pd
+
 from . import api, export
 from .config import load
 from .constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
@@ -91,6 +93,12 @@ def main(argv: list[str] | None = None) -> int:
                 out_formats = DEFAULT_OUTPUT_FORMATS
             if out_dir and out_formats:  # pragma: no cover - file output
                 data = {"metrics": result.metrics}
+                regime_table = result.details.get("performance_by_regime")
+                if isinstance(regime_table, pd.DataFrame) and not regime_table.empty:
+                    data["performance_by_regime"] = regime_table
+                regime_notes = result.details.get("regime_notes")
+                if regime_notes:
+                    data["regime_notes"] = pd.DataFrame({"note": list(regime_notes)})
                 if any(
                     f.lower() in {"excel", "xlsx"} for f in out_formats
                 ):  # pragma: no cover - file I/O
