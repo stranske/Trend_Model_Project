@@ -1661,8 +1661,8 @@ analysis_res = pipeline.run_analysis(
 )
 if analysis_res is None or analysis_res.get("score_frame") is None:
     raise SystemExit("pipeline.run_analysis failed")
-analysis_table = analysis_res.get("performance_by_regime")
-if not isinstance(analysis_table, pd.DataFrame) or analysis_table.empty:
+analysis_regime_table = analysis_res.get("performance_by_regime")
+if not isinstance(analysis_regime_table, pd.DataFrame) or analysis_regime_table.empty:
     raise SystemExit("pipeline.run_analysis missing regime table")
 analysis_summary = str(analysis_res.get("regime_summary", ""))
 analysis_notes = analysis_res.get("regime_notes") or []
