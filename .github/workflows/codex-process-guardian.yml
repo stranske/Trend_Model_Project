@@ -7,6 +7,9 @@ on:
   issue_comment:
     types:
       - created
+  schedule:
+    - cron: "*/20 * * * *"
+  workflow_dispatch:
 
 permissions:
   pull-requests: write
@@ -167,3 +170,106 @@ jobs:
               'Keep updating the checklist after each iteration so the agent can pick up your progress.'
             ].join('\n');
             await github.rest.issues.createComment({ owner, repo, issue_number: issueNumber, body: ack });
+
+  keepalive:
+    if: >-
+      github.repository == 'stranske/Trend_Model_Project' &&
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resume Codex on unattended checklists
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.SERVICE_BOT_PAT || secrets.GITHUB_TOKEN }}
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const now = Date.now();
+            const MIN_IDLE_MINUTES = 10;
+            const MIN_REPEAT_MINUTES = 30;
+            const triggered = [];
+
+            const paginatePulls = github.paginate.iterator(
+              github.rest.pulls.list,
+              { owner, repo, state: 'open', per_page: 50 }
+            );
+
+            for await (const page of paginatePulls) {
+              for (const pr of page.data) {
+                const labels = (pr.labels || []).map((label) => {
+                  if (typeof label === 'string') {
+                    return label.toLowerCase();
+                  }
+                  return (label?.name || '').toLowerCase();
+                });
+                if (!labels.includes('agent:codex')) {
+                  continue;
+                }
+
+                const prNumber = pr.number;
+                const { data: comments } = await github.rest.issues.listComments({ owner, repo, issue_number: prNumber, per_page: 100 });
+                if (!comments.length) {
+                  continue;
+                }
+
+                const planConfirmed = comments.some((c) => (c.body || '').includes('codex-plan-confirmed'));
+                if (!planConfirmed) {
+                  continue;
+                }
+
+                const codexComments = comments.filter((c) => (c.user?.login || '').toLowerCase() === 'chatgpt-codex-connector');
+                const checklistComments = codexComments
+                  .map((c) => {
+                    const body = c.body || '';
+                    const unchecked = (body.match(/- \[ \]/g) || []).length;
+                    const total = unchecked + (body.match(/- \[x\]/gi) || []).length;
+                    return { comment: c, unchecked, total };
+                  })
+                  .filter((entry) => entry.total > 0 && entry.unchecked > 0)
+                  .sort((a, b) => new Date(b.comment.updated_at) - new Date(a.comment.updated_at));
+
+                if (!checklistComments.length) {
+                  continue;
+                }
+
+                const target = checklistComments[0];
+                const lastCodexTs = new Date(target.comment.updated_at).getTime();
+                const minutesSinceCodex = (now - lastCodexTs) / 60000;
+                if (minutesSinceCodex < MIN_IDLE_MINUTES) {
+                  continue;
+                }
+
+                const commandComments = comments.filter((c) => (c.body || '').toLowerCase().includes('@codex plan-and-execute'));
+                if (!commandComments.length) {
+                  continue;
+                }
+                const lastCommand = commandComments[commandComments.length - 1];
+                const lastCommandTs = new Date(lastCommand.created_at).getTime();
+                if (lastCommandTs > lastCodexTs) {
+                  continue; // already waiting on Codex response
+                }
+
+                const keepaliveComments = comments
+                  .filter((c) => (c.body || '').includes('<!-- codex-keepalive -->'))
+                  .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                if (keepaliveComments.length) {
+                  const lastKeepaliveTs = new Date(keepaliveComments[0].created_at).getTime();
+                  const minutesSinceKeepalive = (now - lastKeepaliveTs) / 60000;
+                  if (minutesSinceKeepalive < MIN_REPEAT_MINUTES) {
+                    continue; // recently nudged; avoid tight loop
+                  }
+                }
+
+                const body = '@codex plan-and-execute\n\n<!-- codex-keepalive -->';
+                await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
+                triggered.push(`#${prNumber} – resume requested (unchecked ${target.unchecked})`);
+              }
+            }
+
+            if (triggered.length) {
+              core.summary.addHeading('Codex Keepalive Triggered');
+              core.summary.addList(triggered);
+            } else {
+              core.summary.addHeading('Codex Keepalive');
+              core.summary.addRaw('No unattended Codex tasks detected.');
+            }
