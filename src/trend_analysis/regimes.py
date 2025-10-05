@@ -264,6 +264,58 @@ def _format_hit_rate(series: pd.Series) -> float:
     return float((series > 0).sum() / total)
 
 
+def _summarise_regime_outcome(
+    settings: RegimeSettings,
+    risk_on: pd.Series | None,
+    risk_off: pd.Series | None,
+) -> str | None:
+    """Return a human-readable comparison between risk-on and risk-off results."""
+
+    def _extract_cagr(series: pd.Series | None) -> float | None:
+        if not isinstance(series, pd.Series):
+            return None
+        value = series.get("CAGR")
+        if pd.isna(value):
+            return None
+        return float(value)
+
+    cagr_on = _extract_cagr(risk_on)
+    cagr_off = _extract_cagr(risk_off)
+    if cagr_on is None and cagr_off is None:
+        return None
+
+    on_label = settings.risk_on_label
+    off_label = settings.risk_off_label
+
+    if cagr_on is None:
+        return (
+            f"{off_label} windows delivered {cagr_off:.1%} CAGR; insufficient data "
+            f"for {on_label.lower()} periods."
+        )
+    if cagr_off is None:
+        return (
+            f"{on_label} windows delivered {cagr_on:.1%} CAGR; insufficient data "
+            f"for {off_label.lower()} periods."
+        )
+
+    tolerance = 0.001  # ≈10 bps difference treated as "similar"
+    delta = cagr_on - cagr_off
+    if abs(delta) <= tolerance:
+        return (
+            f"Performance was similar across regimes ({on_label} ~{cagr_on:.1%} "
+            f"versus {off_label.lower()} {cagr_off:.1%})."
+        )
+    if delta > 0:
+        return (
+            f"{on_label} windows delivered {cagr_on:.1%} CAGR, outpacing "
+            f"{off_label.lower()} periods at {cagr_off:.1%}."
+        )
+    return (
+        f"{off_label} windows outperformed {on_label.lower()} stretches "
+        f"({cagr_off:.1%} vs {cagr_on:.1%} CAGR)."
+    )
+
+
 def aggregate_performance_by_regime(
     returns_map: Mapping[str, pd.Series],
     risk_free: pd.Series | float,
@@ -459,17 +511,13 @@ def build_regime_payload(
         user_cols = [col for col in table.columns if col[1] != "All"]
         if user_cols:
             first = user_cols[0]
-            regime = first[1]
-            risk_on = table.get((first[0], settings.risk_on_label))
-            risk_off = table.get((first[0], settings.risk_off_label))
-            if isinstance(risk_on, pd.Series) and isinstance(risk_off, pd.Series):
-                ro = risk_on.get("CAGR")
-                rf = risk_off.get("CAGR")
-                if pd.notna(ro) and pd.notna(rf):
-                    payload["summary"] = (
-                        f"{settings.risk_on_label} windows delivered {ro:.1%} CAGR "
-                        f"versus {rf:.1%} during {settings.risk_off_label.lower()} periods."
-                    )
+            summary_text = _summarise_regime_outcome(
+                settings,
+                table.get((first[0], settings.risk_on_label)),
+                table.get((first[0], settings.risk_off_label)),
+            )
+            if summary_text:
+                payload["summary"] = summary_text
 
     if payload["summary"] is None and notes:
         payload["summary"] = notes[0]
