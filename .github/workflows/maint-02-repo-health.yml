@@ -1,4 +1,4 @@
-name: Repo health nightly
+name: Maint 02 Repo Health
 
 on:
   schedule:
@@ -9,12 +9,12 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - '.github/workflows/maint-35-repo-health-self-check.yml'
+      - '.github/workflows/maint-02-repo-health.yml'
       - 'tools/repo_health_probe.py'
   push:
     branches: [phase-2-dev]
     paths:
-      - '.github/workflows/maint-35-repo-health-self-check.yml'
+      - '.github/workflows/maint-02-repo-health.yml'
       - 'tools/repo_health_probe.py'
 
 permissions:

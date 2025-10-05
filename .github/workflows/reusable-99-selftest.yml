@@ -1,12 +1,15 @@
-name: Self-Test Reusable CI
+name: Reusable 99 Selftest
 
 on:
-  workflow_dispatch:
-  schedule:
-    # Nightly verification run at 02:30 UTC to keep the reusable workflow healthy without
-    # overlapping with the main CI rush hour. No other triggers (e.g. pull_request) should run
-    # this workflow – Issue #1660 scopes it strictly to manual/nightly execution.
-    - cron: '30 02 * * *'
+  workflow_call:
+    inputs:
+      python-versions:
+        description: >-
+          JSON array of Python versions forwarded to `reusable-90-ci-python.yml`. Leave empty to
+          exercise the default 3.11 matrix used by Maint 90 Selftest.
+        required: false
+        type: string
+        default: '["3.11"]'
 
 jobs:
   # Matrix of feature scenarios exercising the reusable workflow with different flag combinations.
@@ -59,9 +62,9 @@ jobs:
             coverage-alert-drop: '2'
     steps:
       - name: Invoke reusable CI (matrix scenario)
-        uses: stranske/Trend_Model_Project/.github/workflows/reusable-ci-python.yml@phase-2-dev
+        uses: stranske/Trend_Model_Project/.github/workflows/reusable-90-ci-python.yml@phase-2-dev
         with:
-          python-versions: '["3.11"]'
+          python-versions: ${{ inputs.python-versions }}
           artifact-prefix: "sf-${{ matrix.name }}-"
           enable-metrics: ${{ matrix.enable-metrics }}
           enable-history: ${{ matrix.enable-history }}

@@ -1,5 +1,8 @@
 # Quarantine TTL Monitoring (maint-34)
 
+> **Status:** Workflow retired during Issue #2190. The notes below remain for
+> historical context should a replacement hygiene check be reintroduced.
+
 `maint-34-quarantine-ttl.yml` enforces the "quarantine entries must expire"
 policy by linting `tests/quarantine.yml` on a schedule and during relevant PRs.
 It uses the shared validator `tools/validate_quarantine_ttl.py` so automation

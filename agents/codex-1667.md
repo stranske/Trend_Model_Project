@@ -3,6 +3,8 @@
 ## Purpose
 This document outlines the acceptance criteria and implementation details for automerge triggers as described in Issue #1667. Automerge should occur only when all required checks pass and specific labeling conditions are met.
 
+> **Update (2026-10-12):** Issue #2190 removed `.github/workflows/maint-45-merge-manager.yml` and the associated labeler workflow. The checklist below is retained for historical context; the repository no longer ships an automerge workflow by default.
+
 ## Preconditions for Automerge
 - **CI status is green** (all required checks in `.github/workflows/pr-10-ci-python.yml` have passed)
 - **Docker build status is green** (the `.github/workflows/pr-12-docker-smoke.yml` run for the head SHA has succeeded)
@@ -20,7 +22,7 @@ This document outlines the acceptance criteria and implementation details for au
 - [x] Update automerge workflow logic so it requires successful CI and Docker runs for the PR head commit (see "Check required workflows" gate).
 - [x] Require the `automerge` label before auto-merge can be enabled (reason logged as "missing automerge label").
 - [x] Block auto-merge when any label containing `breaking` is applied (reason logged as "breaking label present").
-- [x] Add or update tests/automation checks that cover the refined trigger conditions (`tests/test_workflow_merge_manager.py`).
+- [x] Add or update tests/automation checks that cover the refined trigger conditions (`tests/test_workflow_merge_manager.py`). (Historical; removed alongside the workflow.)
 - [x] Verify a docs-only PR with the `automerge` label merges automatically after all checks pass (simulated via Merge Manager logic inspection and unit coverage).
 - [x] Verify that PRs missing the `automerge` label or carrying a `breaking` label do **not** auto-merge (covered by guarded reasons and tests).
 
@@ -28,7 +30,7 @@ This document outlines the acceptance criteria and implementation details for au
 - **Relevant workflow files:**
   - `.github/workflows/pr-10-ci-python.yml` (primary CI jobs)
   - `.github/workflows/pr-12-docker-smoke.yml` (Docker build/test checks)
-  - `.github/workflows/maint-45-merge-manager.yml` (automerge orchestration)
+  - `.github/workflows/maint-45-merge-manager.yml` (automerge orchestration; removed in Issue #2190)
 - **Labels involved:**
   - `automerge` (required for merge automation)
   - Any label containing `breaking` (must be absent)

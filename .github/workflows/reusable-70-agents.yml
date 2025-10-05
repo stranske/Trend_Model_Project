@@ -1,4 +1,4 @@
-name: Reusable Agents Pipeline
+name: Reusable 70 Agents
 
 on:
   workflow_call:

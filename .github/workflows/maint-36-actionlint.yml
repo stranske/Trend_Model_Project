@@ -1,4 +1,4 @@
-name: maint-36-actionlint
+name: Maint 36 Actionlint
 
 on:
   pull_request:

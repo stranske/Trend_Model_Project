@@ -1,140 +1,83 @@
 # Reusable CI & Automation Workflows
 
-This repository exposes three reusable GitHub Actions workflows (workflow_call) so other repos – or thin consumer workflows inside this repo – can standardise on a single CI / automation implementation.
+Issue #2190 leaves five reusable GitHub Actions workflows in this repository. They provide CI, autofix, and agent automation
+building blocks that thin wrappers (or downstream repositories) can consume.
 
 | Reusable Workflow | File | Purpose |
 | ------------------ | ---- | ------- |
-| Python CI          | `.github/workflows/reusable-ci-python.yml` | Tests + coverage gate + (optional) quarantine set |
-| Autofix            | `.github/workflows/reusable-autofix.yml`   | Formatting / lint autofix on PRs (opt‑in label) |
-| Agents Automation  | `.github/workflows/agents-41-assign-and-watch.yml` | Unified agent assignment, Codex bootstrap, watchdog diagnostics, stale sweep |
+| Python CI | `.github/workflows/reusable-90-ci-python.yml` | Tests + coverage gate + optional feature flags.
+| Legacy Python CI | `.github/workflows/reusable-94-legacy-ci-python.yml` | Compatibility contract for consumers still on the pre-WFv1 interface.
+| Autofix | `.github/workflows/reusable-92-autofix.yml` | Formatting / lint autofix harness used by `maint-32-autofix.yml`.
+| Agents Toolkit | `.github/workflows/reusable-70-agents.yml` | Readiness, Codex bootstrap, verification, and watchdog routines.
+| Self-Test Matrix | `.github/workflows/reusable-99-selftest.yml` | Exercises the reusable CI executor across feature combinations.
 
-## 1. Python CI (`reusable-ci-python.yml`)
-Trigger via a consumer workflow:
+## 1. Python CI (`reusable-90-ci-python.yml`)
+Consumer example:
+
 ```yaml
-# .github/workflows/pr-10-ci-python.yml (consumer example)
-name: ci
+name: PR 10 CI Python
 on:
   pull_request:
   push:
-    branches: [ phase-2-dev, main ]
+    branches: [ phase-2-dev ]
 
 jobs:
   core:
-    uses: ./.github/workflows/reusable-ci-python.yml
+    uses: ./.github/workflows/reusable-90-ci-python.yml
     with:
-      python_matrix: '"3.11"'          # JSON-ish string parsed by the workflow
-      cov_min: 70                       # Coverage threshold percent
-      run_quarantine: false             # Set true to also run slow / flaky set
+      python-versions: '["3.11"]'
+      enable-metrics: 'true'
+      enable-history: 'true'
 ```
 
-### Inputs
-| Name | Type | Default | Description |
-| ---- | ---- | ------- | ----------- |
-| `python_matrix` | string | `"3.11"` | Comma or JSON-like string interpreted as matrix versions. |
-| `cov_min` | number | `70` | Minimum overall coverage percentage (branch-aware). |
-| `run_quarantine` | boolean | `false` | If true, runs quarantined / slow tests job. |
+Key inputs include optional coverage gates, history/metrics toggles, and the Python version matrix. The workflow emits gate,
+coverage, and summary jobs that downstream consumers can depend upon.
 
-### Behaviour
-1. Checks out repository with full history.
-2. Sets up matrix Python versions.
-3. Installs dependencies via `pip install -r requirements.txt` (adjust inside reusable file if pyproject lock strategy added later).
-4. Runs pytest with coverage: `pytest --cov trend_analysis --cov-branch`.
-5. Extracts total coverage; fails if below `cov_min`.
-6. Optionally executes a quarantine job (future expansion; input present for forward compatibility).
+## 2. Autofix (`reusable-92-autofix.yml`)
+Used by `maint-32-autofix.yml` to apply hygiene fixes once CI succeeds. Inputs gate behaviour behind opt-in labels and allow
+custom commit prefixes. The composite enforces size/path heuristics before pushing changes with `SERVICE_BOT_PAT`.
 
-### Required Repository Settings
-None mandatory beyond standard Actions permissions. If using Codecov or artifact upload, extend consumer workflow after the `uses:` job with dependent jobs.
+## 3. Agents Toolkit (`reusable-70-agents.yml`)
+Exposes the agent automation stack as a reusable component. Inputs include readiness toggles, optional Codex preflight, issue
+verification, watchdog control, and convenience flags such as `readiness_custom_logins`.
 
-## 2. Autofix (`reusable-autofix.yml`)
-Applies code formatting / lint autofixes only when an opt‑in label is present (avoids surprise pushes).
+Example consumer snippet:
 
-### Typical Consumer
 ```yaml
-name: autofix
-on:
-  pull_request:
-    types: [labeled, synchronize]
-
 jobs:
-  autofix:
-    uses: ./.github/workflows/reusable-autofix.yml
+  orchestrate:
+    uses: ./.github/workflows/reusable-70-agents.yml
     with:
-      opt_in_label: bot:autofix
-      commit_prefix: "autofix(ci):"
+      enable_readiness: 'true'
+      readiness_agents: 'copilot,codex'
+      require_all: 'true'
+      enable_preflight: 'true'
+      enable_watchdog: 'true'
+      draft_pr: 'false'
 ```
 
-### Inputs
-| Name | Default | Description |
-| ---- | ------- | ----------- |
-| `opt_in_label` | `bot:autofix` | Label required on the PR to activate autofix. |
-| `commit_prefix` | `autofix:` | Prefix for generated commit messages. |
+The caller may also pass `options_json` (in the orchestration workflow) to layer additional toggles without exceeding GitHub's
+input limit.
 
-### Behaviour
-1. Skips entirely if label not present.
-2. Runs formatting & linting fix scripts (currently `./scripts/validate_fast.sh --fix`).
-3. Commits changes back to the PR branch (uses GitHub token). Fork safety: logic avoids committing if permissions insufficient.
+## 4. Self-Test Matrix (`reusable-99-selftest.yml`)
+Exposes the matrix that validates the reusable CI executor across feature combinations (coverage delta, soft gate, metrics, history, classification). The workflow no longer declares its own cron or manual triggers; `maint-90-selftest.yml` is the thin caller for ad-hoc dispatches or weekly checks.
 
-## 3. Agents Automation (`agents-41-assign-and-watch.yml`)
-Issue #1662 consolidated the assigner/watchdog pair into a single orchestrator. The reusable building block still lives at `reusable-90-agents.yml`, but `agents-41-assign-and-watch.yml` now owns:
+## Adoption Notes
+1. Reference the files directly via `uses: stranske/Trend_Model_Project/.github/workflows/<file>@phase-2-dev` in external repos.
+2. Pin versions or branch references explicitly; do not rely on floating defaults.
+3. When adopting the agents toolkit, review the security posture—supply `SERVICE_BOT_PAT` and configure repository variables for
+   fallback behaviour.
 
-- Label-triggered assignment (via `agents-41-assign.yml` wrapper) with Codex bootstrap + fallback handling.
-- Manual watchdog requests (via `agents-42-watchdog.yml` wrapper) and cross-reference polling for fresh PRs.
-- A scheduled stale sweep that pings idle agents or escalates when availability probes fail.
-
-### Trigger Strategy
-- Forward label/unlabel events from `agents-41-assign.yml` into the unified workflow to keep compatibility with existing notifications.
-- Manual watchdog runs call `agents-42-watchdog.yml`, which delegates to the unified workflow with `mode: watch`.
-- The unified workflow schedules its own stale sweep (default every 30 minutes) and shares readiness checks through `reusable-90-agents.yml` to avoid duplicating GraphQL probes.
-
-### Notes
-- Bootstrap logic still honours PAT priority (`OWNER_PR_PAT` → `SERVICE_BOT_PAT` → `GITHUB_TOKEN`) and posts `@codex start` on newly created PRs.
-- Adjust watchdog behaviour (timeout, expected PR) by supplying overrides during manual dispatch.
-- Readiness, preflight, and verification probes from `reuse-agents.yml` remain available via `reusable-90-agents.yml` (historical variants can be recovered from git history; see `ARCHIVE_WORKFLOWS.md`).
-
-## 4. Adoption Guide (External Repos)
-1. Copy the three reusable files verbatim or add this repo as a submodule / template reference.
-2. Create thin consumer workflows calling each `uses: ./.github/workflows/<file>.yml`.
-3. Adjust inputs to match language versions and coverage policy.
-4. (Optional) Add status badges (see below).
-
-### Example Badges
-```markdown
-![CI](https://github.com/<org>/<repo>/actions/workflows/pr-10-ci-python.yml/badge.svg)
-![Autofix](https://github.com/<org>/<repo>/actions/workflows/maint-32-autofix.yml/badge.svg)
-```
-
-## 5. Customisation Points
+## Customisation Points
 | Area | How to Extend | Notes |
 | ---- | ------------- | ----- |
-| Dependency install | Edit reusable CI workflow to introduce caching or lockfiles | Keep interface stable (inputs) when possible. |
-| Coverage tooling | Add Codecov upload job after core test job | Use `needs: core`. |
-| Autofix steps | Replace script call with ruff/black invocation | Maintain exit codes; keep label gate. |
-| Agents watchdog | Add steps under conditional `if: inputs.enable_watchdog == 'true'` | Avoid long-running tasks; add timeouts. |
+| Coverage reporting | Chain an additional job that depends on the reusable CI job to upload coverage artifacts. | Keep job IDs stable when referencing outputs. |
+| Autofix heuristics | Update `maint-32-autofix.yml` to widen size limits or adjust glob filters. | Avoid editing the reusable composite unless behaviour must change globally. |
+| Agents options | Provide extra keys inside `options_json` and update the reusable workflow to honour them. | Remember GitHub only supports 10 dispatch inputs; keep new flags in JSON. |
 
-## 6. Security & Permissions
-- Minimal default `permissions: contents: read` in CI; elevate only where required (e.g. `contents: write` for autofix commits).
-- Autofix now runs via `workflow_run` follower (`maint-32-autofix.yml`) and pushes with `SERVICE_BOT_PAT`; avoid falling back to `GITHUB_TOKEN`.
+## Security & Permissions
+- CI workflows default to `permissions: contents: read`; escalate only when artifacts require elevated scopes.
+- Autofix pushes require `SERVICE_BOT_PAT`; keep fallback disabled unless intentionally allowing `github-actions[bot]` commits.
+- Agents automation exercises repository write scopes and will continue to fail fast if secrets are missing.
 
-## 7. Migration Checklist (Existing Repo)
-- [ ] Identify old CI workflows to retire.
-- [ ] Introduce new consumer pointing at `reusable-ci-python.yml`.
-- [ ] Validate coverage gate matches previous policy.
-- [ ] Enable the autofix follower (`maint-32-autofix.yml`) if policy allows automated commits.
-- [ ] Add agents consumer (if using Codex automation).
-- [ ] Remove redundant workflows.
-
-## 8. FAQ
-**Q:** Why not expose these as remote reusable workflows via `owner/repo/.github/workflows/file.yml@ref`?
-**A:** Keeping them in-tree eases iteration while they stabilise. Once stable, tag versions and switch `uses:` to a remote ref in downstream repos.
-
-**Q:** How do I pass multiple Python versions?
-**A:** Provide a JSON-like string: `"[\"3.11\", \"3.12\"]"`. The workflow parses it into a matrix; see file comments.
-
-**Q:** Where is quarantine implemented?
-**A:** Placeholder input now for forward compatibility; implement a second job keyed off `run_quarantine == 'true'` later.
-
-## 9. Status
-These docs accompany PR #1257 (Issue #1166). Optional future enhancements: remote versioned usage, quarantine job, extended watchdog metrics.
-
----
-Last updated: 2026-02-15
+Keep this document aligned with the final workflow roster; update it whenever inputs or defaults change.

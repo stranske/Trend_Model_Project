@@ -1,156 +1,68 @@
 # Workflow Topology & Agent Routing Guide (WFv1)
 
-This guide documents how GitHub Actions workflows are organized under the WFv1
-naming scheme, how to stage new or renamed workflows without breaking triggers,
-and how post-CI reporting and agent orchestration work. Use it when reviewing
-workflow contributions or opening issues that need Codex or Copilot support.
+This guide describes the slimmed-down GitHub Actions footprint after Issue #2190. Every workflow now follows the
+`<area>-<NN>-<slug>.yml` naming convention with 10-point number gaps so future additions slot in cleanly.
 
-## WFv1 naming scheme
+## WFv1 Naming Scheme
 
-The repository follows the "Workflow File naming v1" (WFv1) convention: each
-workflow filename starts with a category prefix followed by a two-digit index
-and a descriptive slug. The pattern keeps related workflows grouped in GitHub's
-UI and makes diffs easier to scan.
+| Prefix | Purpose | Active Examples |
+| ------ | ------- | ---------------- |
+| `pr-` | Pull-request CI wrappers | `pr-10-ci-python.yml`, `pr-12-docker-smoke.yml` |
+| `maint-` | Maintenance, governance, and self-tests | `maint-02-repo-health.yml`, `maint-30-post-ci-summary.yml`, `maint-32-autofix.yml`, `maint-33-check-failure-tracker.yml`, `maint-36-actionlint.yml`, `maint-40-ci-signature-guard.yml`, `maint-90-selftest.yml` |
+| `agents-` | Agent orchestration entry points | `agents-70-orchestrator.yml` |
+| `reusable-` | Reusable composites invoked by other workflows | `reusable-90-ci-python.yml`, `reusable-94-legacy-ci-python.yml`, `reusable-92-autofix.yml`, `reusable-70-agents.yml`, `reusable-99-selftest.yml` |
+| `autofix-` assets | Shared configuration for autofix tooling | `autofix-versions.env` |
 
-### Category buckets
+**Naming checklist**
+1. Choose the correct prefix for the workflow's scope.
+2. Select a two-digit block that leaves room for future additions (e.g. use another `maint-3x` slot for maintenance jobs).
+3. Title-case the workflow name so it matches the filename (`maint-32-autofix.yml` → `Maint 32 Autofix`).
+4. Update this guide and `WORKFLOW_AUDIT_TEMP.md` whenever workflows are added, renamed, or removed.
 
-| Prefix | Purpose | Examples |
-| ------ | ------- | -------- |
-| `pr-`  | Pull-request facing CI wrappers that call reusable jobs | `pr-01-gate-orchestrator.yml`, `pr-10-ci-python.yml`, `pr-12-docker-smoke.yml`, `pr-30-codeql.yml`, `pr-31-dependency-review.yml`, `pr-18-workflow-lint.yml` |
-| `agents-` | Agent assignment, watchdogs, and helper utilities | `agents-40-consumer.yml`, `agents-41-assign.yml`, `agents-41-assign-and-watch.yml`, `agents-42-watchdog.yml`, `agents-43-codex-issue-bridge.yml`, `agents-45-verify-codex-bootstrap-matrix.yml` |
-| `maint-` | Maintenance, reporting, governance, and health monitors (indices cluster by theme: `maint-30` post-CI, `maint-32` autofix, `maint-34` quarantine/governance, `maint-40` signature guard, etc.) | `maint-30-post-ci-summary.yml`, `maint-31-autofix-residual-cleanup.yml`, `maint-32-autofix.yml`, `maint-34-quarantine-ttl.yml`, `maint-35-repo-health-self-check.yml`, `maint-36-actionlint.yml`, `maint-41-chatgpt-issue-sync.yml`, `maint-45-merge-manager.yml`, `maint-49-stale-prs.yml`, `maint-60-release.yml` |
-| `reusable-` | Reusable workflow entrypoints consumed by wrappers | `reusable-ci-python.yml`, `reusable-legacy-ci-python.yml`, `reusable-autofix.yml`, `reusable-90-agents.yml`, `reusable-99-selftest.yml` |
-| `autofix-` assets | Shared configuration artifacts for autofix tooling | `autofix-versions.env` |
+Tests under `tests/test_workflow_naming.py` enforce the naming policy and inventory parity.
 
-Follow these buckets when adding new workflows. Reuse an existing prefix when
-possible; introduce a new bucket only when a new lifecycle warrants it.
+## Final Workflow Set
 
-### Naming checklist for new workflows
+### PR Checks
+- **`pr-10-ci-python.yml`** — Unified CI wrapper that calls `reusable-90-ci-python.yml`. Jobs include tests, coverage, style/type gates, and the `gate / all-required-green` fan-in.
+- **`pr-12-docker-smoke.yml`** — Docker build and smoke test pipeline. Keeps deterministic caching and publishes summary logs.
 
-1. Pick the prefix that matches the workflow's scope.
-2. Use a two-digit index that slots into the existing sequence (e.g. the next
-   available `maint-3x` number for new maintenance automation).
-3. Keep the remainder of the slug concise but descriptive ("ci-python", "assign",
-   "post-ci-summary").
-4. Update the workflow inventory documentation (this guide and
-   `.github/workflows/README.md`) when adding, renaming, or retiring workflows.
+### Maintenance & Governance
+- **`maint-02-repo-health.yml`** — Nightly/weekly repository health probe with optional workflow_dispatch reruns.
+- **`maint-30-post-ci-summary.yml`** — Subscribes to `workflow_run` events from the PR and Docker workflows. Posts a single summary comment per head SHA.
+- **`maint-32-autofix.yml`** — Follower that applies autofix commits or uploads patches after CI completes successfully or fails for lint-only reasons.
+- **`maint-33-check-failure-tracker.yml`** — Opens and resolves CI failure tracker issues using signatures derived from the two PR workflows and the self-test caller.
+- **`maint-36-actionlint.yml`** — Sole workflow-lint gate. Runs actionlint via reviewdog on PR edits, pushes, weekly cron, and manual dispatch.
+- **`maint-40-ci-signature-guard.yml`** — Guards the CI manifest with signed fixture checks.
+- **`maint-90-selftest.yml`** — Manual/weekly caller that delegates to `reusable-99-selftest.yml`.
 
-### Compliance guardrails (Issue #1669)
-- Tests under `tests/test_workflow_*.py` (notably `test_workflow_naming.py`) fail if a workflow filename falls outside the `pr-*`, `maint-*`, `agents-*`, or `reusable-*` families.
-- Historical archives were removed; lean on [ARCHIVE_WORKFLOWS.md](../ARCHIVE_WORKFLOWS.md) for disposition history and on [WORKFLOW_AUDIT_TEMP.md](../WORKFLOW_AUDIT_TEMP.md) for the authoritative inventory snapshot.
-- When retiring a workflow, ensure the corresponding table entries in those docs reflect the removal to keep audits fast for the next cleanup.
+### Agents
+- **`agents-70-orchestrator.yml`** — Hourly + manual dispatch entry point for readiness, Codex bootstrap, issue verification, and watchdog sweeps. Delegates to `reusable-70-agents.yml` and accepts extended options via `options_json`.
 
-## Staging new or renamed workflows
+### Reusable Composites
+- **`reusable-90-ci-python.yml`** — Reusable CI implementation consumed by `pr-10-ci-python.yml` and self-test scenarios.
+- **`reusable-94-legacy-ci-python.yml`** — Compatibility shim retained for downstream repositories yet to migrate.
+- **`reusable-92-autofix.yml`** — Autofix harness used by `maint-32-autofix.yml`.
+- **`reusable-70-agents.yml`** — Reusable agent automation stack.
+- **`reusable-99-selftest.yml`** — Matrix self-test covering reusable CI feature flags.
 
-Maintaining trigger fidelity requires a bit of bookkeeping whenever workflow
-files move or new ones are introduced:
+## Trigger Wiring Tips
+1. When renaming a workflow, update any `workflow_run` consumers. In this roster that includes `maint-30-post-ci-summary.yml`, `maint-32-autofix.yml`, and `maint-33-check-failure-tracker.yml`.
+2. The orchestrator relies on the workflow names, not just filenames. Keep `name:` fields synchronized with filenames to avoid missing triggers.
+3. Reusable workflows stay invisible in the Actions tab; top-level consumers should include summary steps for observability.
 
-1. **Draft the workflow under WFv1.** Create the file in `.github/workflows/`
-   using the naming checklist above. Co-locate supporting files (composite
-   actions, environment manifests) under the same prefix family when possible.
-2. **Run schema and repository linting.** Commit the file locally and run
-   `gh workflow lint` or push to a branch to let `maint-36-actionlint.yml`
-   validate the syntax. For major refactors, run
-   `pytest tests/test_workflow_*.py` to exercise guard rails that protect
-   required slugs.
-3. **Wire the triggers.** For workflow_run followers (post-CI summary, failure
-   tracker, autofix) update the `workflows:` list so the new producer job is
-   observed. When renaming a workflow, update any downstream consumers—
-   especially `maint-30-post-ci-summary.yml`,
-   `maint-33-check-failure-tracker.yml`, and `maint-45-merge-manager.yml`—to point to the
-   new name. Treat the gate job (`gate / all-required-green` inside
-   `pr-10-ci-python.yml`) as the single source of truth for CI requirements.
-4. **Update documentation.** Add a note to this guide and cross-link it from
-   `.github/workflows/README.md`. Mention behavior changes in the PR summary so
-   automation reviewers can spot them.
-5. **Stage via branch + PR.** Push the branch and open a PR. The CI suite and
-   post-CI summary will validate the workflow wiring before merge.
+## Agent Operations
+- All historical wrappers were removed. Use **Agents 70 Orchestrator** directly for readiness checks, Codex bootstrap, or watchdog sweeps.
+- Optional flags beyond the standard inputs belong in the `options_json` payload; the orchestrator parses it with `fromJson()`.
+- The orchestrator maintains PAT priority (`OWNER_PR_PAT` → `SERVICE_BOT_PAT` → `GITHUB_TOKEN`) via the reusable composite.
 
-### Quick staging checklist
+## Maintenance Playbook
+1. PRs rely on the two CI workflows listed above. Keep them green; the post-CI summary will report their status automatically.
+2. Monitor `Maint 33 Check Failure Tracker` issues for recurring failures. Closing the issue or re-running the failing workflow clears the tracker.
+3. Run `Maint 90 Selftest` manually when tweaking reusable CI inputs to confirm the matrix still passes.
+4. Use `Maint 36 Actionlint` workflow_dispatch for ad-hoc validation of complex workflow edits before pushing.
 
-- [ ] New or renamed workflow listed in `.github/workflows/README.md` and this
-      guide.
-- [ ] Downstream `workflow_run` consumers updated (`maint-30`, `maint-33`,
-      `maint-45-merge-manager.yml`, and any custom followers).
-- [ ] Tests that lock workflow names (for example, `tests/test_workflow_*.py`)
-      updated when introducing or retiring slugs.
-- [ ] Failure-tracker label taxonomy confirmed or refreshed if new failure
-      signatures are expected.
-- [ ] Manual workflow dispatches (if applicable) verified in a fork before
-      requesting review.
-
-## Post-CI status summaries & failure tracking
-
-Two maintenance workflows keep pull requests informed about CI health:
-
-- **`maint-30-post-ci-summary.yml`** listens for `workflow_run` events from the
-  `CI` and `Docker` workflows. It aggregates the latest runs for the head SHA
-  and posts (or updates) a summary comment containing each job's result and log
-  link. It cancels redundant runs per SHA to avoid spam and can be tuned via the
-  `WORKFLOW_TARGETS_JSON` environment variable. The comment carries the marker
-  `<!-- post-ci-summary:do-not-edit -->`; reruns replace the same comment so the
-  conversation stays tidy.
-- **`maint-33-check-failure-tracker.yml`** also subscribes to CI/Docker
-  `workflow_run` events. When a run fails it calculates a stable signature from
-  the failed jobs, ensures the `ci-failure` issue label taxonomy exists, and
-  opens or updates a tracking issue with the failure table and stack-token
-  hints. The issue auto-heals once a succeeding run clears the signature for 24
-  hours. Each tracker update links back to the PR and run that produced the
-  signature so regressions can be followed across branches.
-
-Because the gate workflow (`gate / all-required-green`) depends on upstream jobs
-being green, a failed `lint / black-fast` job will cause both the gate check and
-post-CI summary to report failures. Use the summary comment to jump directly to
-logs, and watch the failure-tracker issue for cross-run history. Once the gate
-check flips to ✅ the failure tracker will close automatically on the next
-passing cycle.
-
-## Agent orchestration & labels
-
-Agent automation relies on label-driven routing:
-
-- **Assignment.** `agents-41-assign.yml` forwards issue and PR label events to
-  the unified orchestrator `agents-41-assign-and-watch.yml`. When a maintainer
-  applies `agent:codex` or `agent:copilot`, the orchestrator assigns the
-  corresponding triage team, boots Codex issue branches when needed, and kicks
-  off the watchdog timer.
-- **Watchdog.** `agents-42-watchdog.yml` preserves the historical manual
-  watchdog interface while delegating to the unified workflow. It ensures a PR
-  is linked to the issue within the configured timeout; otherwise it posts a
-  diagnostic comment and can escalate.
-- **Readiness & drills.** `agents-40-consumer.yml` wraps the reusable
-  `reusable-90-agents.yml` so operators can run readiness checks or diagnostic
-  drills on demand.
-- **Label origins.** `.github/agent-label-rules.json` ensures automation-created
-  PRs receive both `from:codex`/`from:copilot` and the matching `agent:*`
-  labels. Manual issues should set the right agent label up front so the
-  assigner triggers immediately.
-
-When opening a new issue, pick the agent label that matches the assistance you
-need:
-
-- `agent:codex` → Codex authored or assisted work.
-- `agent:copilot` → Copilot authored or assisted work.
-
-Only one agent label should be present on an issue at a time. Remove any stale
-label before switching to the other agent to prevent conflicting assignments.
-
-### Quick reference: agent request checklist
-
-When filing an issue that requires Codex or Copilot support:
-
-- [ ] Pick the issue template that matches your request (bug vs. feature).
-- [ ] Ensure the sidebar shows exactly one agent label
-      (`agent:codex` **or** `agent:copilot`).
-- [ ] Remove the other agent label if it was auto-applied from a previous
-      request so assignment does not stall.
-- [ ] Submit the form only after the confirmation checkbox passes—automation
-      will fail fast when both agent labels are present.
-
-## Cross-references & additional resources
-
-- `.github/workflows/README.md` – Architectural overview and onboarding
-  checklist for CI, agents, and maintenance workflows.
-- `docs/ci-failure-tracker.md` – Deep dive into the failure-tracker issue flow.
-- `docs/agent-automation.md` – Additional agent automation internals and guard
-  rails.
+## Additional References
+- `.github/workflows/README.md` — Architecture snapshot for the CI + agent stack.
+- `docs/ci/WORKFLOWS.md` — Acceptance-criteria checklist for the final workflow set.
+- `docs/agent-automation.md` — Detailed description of the agent orchestrator and options.

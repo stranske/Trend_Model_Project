@@ -1,5 +1,5 @@
 # Docker smoke workflow (Issue #1663) – keep lint + smoke lean while using deterministic caching
-name: Docker
+name: PR 12 Docker Smoke
 
 on:
   workflow_call:

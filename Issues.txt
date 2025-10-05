@@ -1,383 +1,388 @@
-1) Fix import shadowing: rename joblib.py to avoid hijacking third‑party joblib
+1) Adopt workflow naming/numbering + rename files to match
 
-Labels: bug, refactor, backend, priority: high
+Labels: workflows, ci, devops, documentation, priority: high, status: ready
+Body:
 
-Summary
-The repository includes a top‑level joblib.py. Any import joblib will import this local file rather than the package, causing hard‑to‑diagnose failures. Rename the file and fix local imports. Context: joblib.py exists at repo root. 
+Convention
+
+Filename: <area>-<NN>-<slug>.yml
+
+pr-10-* PR checks
+
+maint-3x..5x-* maintenance
+
+agents-7x-* agents + issue helpers
+
+reusable-9x-* reusable composites
+
+Keep 10‑point gaps to allow insertions.
+
+name: field mirrors filename title‑cased.
+
+Final set (target)
+
+PR checks:
+
+pr-10-ci-python.yml (keep; update only if needed)
+
+pr-12-docker-smoke.yml (keep) 
+GitHub
++1
+
+Maintenance:
+
+maint-30-post-ci-summary.yml (keep) 
 GitHub
 
-Why it matters
-Shadowing a core dependency breaks caching/parallelization quietly and inconsistently across environments.
-
-Scope / Tasks
-
- Rename joblib.py to joblib_shim.py (or remove if unused).
-
- Grep for import joblib and ensure they import the real package. If the local code is needed, update to from .joblib_shim import ... or relocate into src/....
-
- Add a safety test: assert "site-packages" appears in joblib.__file__ at runtime.
-
-Acceptance criteria
-
-Importing joblib resolves to the third‑party package across app, CLI, tests.
-
-CI tests (local) confirm joblib.__file__ path is outside the repo.
-
-Out of scope
-Performance tuning or swapping joblib for alternatives.
-
-2) Contain global side effects: relocate/gate sitecustomize.py
-
-Labels: bug, config, priority: high
-
-Summary
-sitecustomize.py at the repo root is auto‑imported by Python if the repo is on PYTHONPATH. Move it under src/trend_model/_sitecustomize.py and require an explicit opt‑in env var before any code runs. Context: sitecustomize.py exists at repo root. 
+maint-32-autofix.yml (keep) 
 GitHub
 
-Scope / Tasks
-
- Move file to src/trend_model/_sitecustomize.py or delete if obsolete.
-
- If behavior is still needed, guard with if os.getenv("TREND_MODEL_SITE_CUSTOMIZE") == "1": ....
-
- Add a unit test that ensures importing a random module does not execute any repo global side effects.
-
-Acceptance criteria
-
-No implicit imports or side effects occur just by importing the package.
-
-Running tests shows zero references to top‑level sitecustomize.py.
-
-3) Define the public API: TrendSpec, SignalFrame, BacktestSpec, BacktestResult
-
-Labels: engine, enhancement, refactor
-
-Summary
-Introduce four dataclasses that become the only inputs/outputs across library, CLI, and app. This stabilizes interfaces and reduces copy‑paste parameter drift.
-
-Scope / Tasks
-
- Add TrendSpec (model params: lookbacks, vol adjustment, execution lag, rebalance frequency, TC bps default, etc.).
-
- Add SignalFrame wrapper (DataFrame with columns: signal, vol_target, optional confidence, plus index alignment to prices).
-
- Add BacktestSpec (evaluation params: rolling vs expanding, rebalancing calendar, TC model, cash rate, position limits).
-
- Add BacktestResult (returns, equity, drawdown, exposures, turnover, summary stats).
-
- Update downstream functions to accept these objects rather than ad‑hoc dicts.
-
-Acceptance criteria
-
-A minimal end‑to‑end run uses only TrendSpec + BacktestSpec and yields a BacktestResult.
-
-App and CLI call the same public API in src/trend_model/.
-
-4) Enforce a data contract at ingest (CSV, Parquet, DataFrame)
-
-Labels: data, enhancement, documentation
-
-Summary
-Hard‑fail early on schema problems: index monotonicity, duplicate timestamps, return vs price mode, symbol presence, and frequency.
-
-Scope / Tasks
-
- Implement validate_market_data(data: DataFrame) -> DataFrame with checks: sorted Date index, no dupes, consistent frequency, and either price or return mode clearly inferred.
-
- Decide simple dependency: pandera for DataFrame schema or pydantic for record‑level schema; document the choice.
-
- Integrate into app upload flow and CLI input path with clear error messages.
-
-Acceptance criteria
-
-Invalid uploads surface a single, descriptive error banner in the app; CLI exits non‑zero with the same message.
-
-Validation runs automatically before any modeling.
-
-5) Frequency detection and missing‑data policy
-
-Labels: data, pipeline, enhancement
-
-Summary
-Detect daily/weekly/monthly automatically. Force a policy for missing data per asset (drop, FFILL with max window, or zero return). Show the choice in the final report.
-
-Scope / Tasks
-
- Implement detect_frequency(index) -> Literal["D","W","M"] with tolerance for holidays and short months.
-
- Implement apply_missing_policy(df, policy, limit) with per‑asset option.
-
- Add a one‑liner summary to the report of frequency and NA policy.
-
-Acceptance criteria
-
-Backtests are consistent no matter the input frequency, with a visible record of the policy applied.
-
-6) One signal engine to rule them all
-
-Labels: engine, enhancement
-
-Summary
-Unify trend extraction variants behind signals.py. Enforce lag discipline by construction.
-
-Scope / Tasks
-
- Implement baseline time‑series momentum with optional vol‑adjustment and z‑score normalization.
-
- Enforce execution lag by shifting the signal prior to rebalance_date.
-
- Return SignalFrame with consistent columns and index alignment.
-
-Acceptance criteria
-
-Swapping parameters in TrendSpec changes behavior without touching downstream code.
-
-All signals pass a unit test that forbids look‑ahead.
-
-7) Lightweight risk engine: vol targeting, turnover caps, max weights
-
-Labels: weights, engine, enhancement
-
-Summary
-Add a small risk.py that standardizes volatility targeting and basic constraints.
-
-Scope / Tasks
-
- Vol targeting: compute realized vol per asset and scale to portfolio target.
-
- Constraints: turnover cap per rebalance, max position weight, long‑only toggle, sum‑to‑one normalization.
-
- Produce a diagnostic panel: realized vol and turnover series.
-
-Acceptance criteria
-
-Risk controls are applied the same way in CLI and app.
-
-Report includes turnover and realized vol charts.
-
-8) Honest backtesting harness: walk‑forward, costs, and calendar
-
-Labels: engine, pipeline, testing, enhancement
-
-Summary
-Create backtest.py with rolling/expanding windows and a fixed rebalancing calendar. Include a simple transaction cost model.
-
-Scope / Tasks
-
- Implement calendar logic for rebalance frequency.
-
- Implement transaction cost model (bps per trade) applied to absolute changes in weights.
-
- Return BacktestResult with rolling Sharpe, drawdown, CAGR, vol, Sortino, Calmar.
-
-Acceptance criteria
-
-Changing from expanding to rolling materially changes outcomes; tests verify no look‑ahead.
-
-A JSON summary of metrics can be emitted for the app to consume.
-
-9) Bootstrap uncertainty bands for the equity curve
-
-Labels: engine, ui, enhancement
-
-Summary
-Add block bootstrap to estimate uncertainty around the cumulative return path.
-
-Scope / Tasks
-
- Implement bootstrap_equity(result: BacktestResult, n=500, block=20) returning median and 5–95% band.
-
- App toggle to display the band on the main chart.
-
-Acceptance criteria
-
-Bands appear in the app and export correctly in the report.
-
-10) One report builder (HTML/PDF) shared by CLI and app
-
-Labels: exports, documentation, ui, enhancement
-
-Summary
-Single report generator producing HTML and optional PDF with the same content users see in the app.
-
-Scope / Tasks
-
- Sections: executive summary; metrics table; turnover/exposure charts; parameter summary; caveats.
-
- Deterministic narrative paragraph from BacktestResult and specs (no LLM).
-
- CLI --output path and Streamlit “Download report” button.
-
- Include a small “Past performance…” footer.
-
-Acceptance criteria
-
-Running the CLI produces an HTML report identical to the app download.
-
-11) Make the Streamlit app the front door
-
-Labels: streamlit, ui, enhancement
-
-Summary
-Restructure the app into three screens, add a sample dataset default, cache expensive steps, and polish error handling.
-
-Scope / Tasks
-
- Pages: Data (upload or sample + validation results), Model (compact TrendSpec form with presets), Results (equity, drawdown, rolling Sharpe, turnover, exposures).
-
- Default sample dataset path points to repo sample data.
-
- Use st.cache_data for loads/transforms; clear banners for validation failures.
-
- Consistent chart style and palette across pages.
-
-Acceptance criteria
-
-A non‑technical user can upload a CSV and get a report without touching Python.
-
-No stack traces are shown to users; errors are summarized in plain English.
-
-Context
-streamlit_app/ already exists; this issue formalizes it as the primary UX. 
+maint-33-check-failure-tracker.yml (keep) 
 GitHub
 
-12) Add two strategy presets: “Conservative” and “Aggressive”
-
-Labels: engine, enhancement, ui
-
-Summary
-Ship two named presets wired to TrendSpec so users don’t face a wall of sliders.
-
-Scope / Tasks
-
- Define preset parameter sets in a small registry.
-
- Surface preset selector in the app and CLI.
-
-Acceptance criteria
-
-Selecting a preset updates forms and parameters consistently across app and CLI.
-
-13) Regime tagging and breakdown table
-
-Labels: engine, enhancement
-
-Summary
-Tag months as risk‑on/off using a simple market filter and show performance by regime.
-
-Scope / Tasks
-
- Implement regime tagging (e.g., sign of rolling market return or vol threshold).
-
- Add a table to the report showing performance by regime.
-
-Acceptance criteria
-
-Report highlights when the strategy tends to work or struggle.
-
-14) CLI: trend-app and trend-run
-
-Labels: config, documentation, enhancement
-
-Summary
-Provide a console entry point for the app and a headless runner that reads a config and produces a report.
-
-Scope / Tasks
-
- In pyproject.toml, add scripts:
-
-trend-app = trend_model.app:main (launches Streamlit entry)
-
-trend-run = trend_model.cli:run (reads a TOML/YAML config, runs backtest, writes report)
-
- Add docs/CLI.md with examples.
-
-Acceptance criteria
-
-pip install -e . then trend-app launches the GUI; trend-run -c config/trend.toml -o reports/run.html produces a report.
-
-Context
-pyproject.toml is present in the repo. 
+maint-36-actionlint.yml (keep; becomes sole workflow linter) 
 GitHub
 
-15) Standardize config: TOML spec for model and backtest
-
-Labels: config, documentation, enhancement
-
-Summary
-Use a single config file format feeding directly into TrendSpec and BacktestSpec.
-
-Scope / Tasks
-
- Create config/trend.toml example with comments.
-
- Implement loader that validates and instantiates the dataclasses.
-
- Render the resolved spec into the report for provenance.
-
-Acceptance criteria
-
-App and CLI both accept the same config file and produce identical runs.
-
-16) Move sample data under data/raw and wire the app default path
-
-Labels: data, documentation
-
-Summary
-Reduce root clutter and make sample data easy to discover.
-
-Scope / Tasks
-
- Move Trend Universe Data.csv, hedge_fund_returns_with_indexes.csv, and similar into data/raw/.
-
- Update app “Use sample dataset” to point there.
-
-Acceptance criteria
-
-No CSVs remain at repo root; app “sample” loads successfully.
-
-Context
-Those CSVs currently live at the repo root. 
+maint-40-ci-signature-guard.yml (keep) 
 GitHub
 
-17) Tests that matter: E2E, NA‑robustness, and spec round‑trip
+maint-02-repo-health.yml (rename from repo-health-self-check.yml)
 
-Labels: tests, testing
+Agents:
 
-Summary
-Keep tests focused on behavior, not internals.
-
-Scope / Tasks
-
- E2E: CSV → validate → signals → backtest → report; assert key metrics exist and are reasonable.
-
- NA‑robustness: inject NaNs and confirm the app path renders results without crashing.
-
- Spec round‑trip: serialize/deserialize TrendSpec and BacktestSpec from TOML unchanged.
-
-Acceptance criteria
-
-All three tests pass locally.
-
-Regressions in data validation or reporting are caught.
-
-Context
-There are already tests like test_multi_period_selection.py and test_upload_app.py in the repo. 
+agents-70-orchestrator.yml (rename from agents-consumer.yml; fix inputs per Issue 3) 
 GitHub
 
-18) Optional fast‑path: Polars acceleration behind a feature flag
+Reusable:
 
-Labels: backend, enhancement
+reusable-70-agents.yml (rename from reuse-agents.yml, update callers) 
+GitHub
 
-Summary
-Offer optional polars implementations for the heaviest transforms when users have large universes.
+reusable-99-selftest.yml (keep; becomes the only self‑test composite)
 
-Scope / Tasks
+Files to remove
 
- Add a small adapter layer: TREND_USE_POLARS=1 to enable, otherwise default to pandas.
+gate.yml (invalid; superseded by explicit “needs” in CI) 
+GitHub
 
- Implement fast versions of rolling stats and joins used in signals and backtest.
+pr-18-workflow-lint.yml (duplicate of maint‑36 in practice) 
+GitHub
++1
+
+pr-20-selftest-pr-comment.yml, maint-43-selftest-pr-comment.yml, maint-44-selftest-reusable-ci.yml, maint-48-selftest-reusable-ci.yml, selftest-pr-comment.yml (collapse into a single caller; see Issue 4). 
+GitHub
+
+Tasks
+
+ git mv .github/workflows/repo-health-self-check.yml .github/workflows/maint-02-repo-health.yml
+
+ git mv .github/workflows/agents-consumer.yml .github/workflows/agents-70-orchestrator.yml
+
+ git mv .github/workflows/reuse-agents.yml .github/workflows/reusable-70-agents.yml and update any uses: ./.github/workflows/reuse-agents.yml to the new path. 
+GitHub
+
+ Delete the obsolete files above.
+
+ Update internal references (e.g., any scripts or summary jobs listing explicit workflow paths). Post‑CI Summary currently references pr-10-ci-python.yml and pr-12-docker-smoke.yml so keep those stable. 
+GitHub
+
+ Add docs/ci/WORKFLOWS.md describing the scheme.
 
 Acceptance criteria
 
-Enabling the flag yields identical outputs to pandas within tolerance on sample data.
+All filenames follow the convention.
+
+No broken uses: references.
+
+Actions tab only shows the “Final set.”
+
+2) Remove broken umbrella: delete .github/workflows/gate.yml
+
+Labels: workflows, ci, devops, priority: high, status: ready
+Body:
+
+Background
+gate.yml is invalid: YAML anchor trick + marker string under jobs causes a validation failure: “Unexpected value 'not quarantine and not slow'.” It provides no value while failing constantly. 
+GitHub
+
+Tasks
+
+ Delete .github/workflows/gate.yml.
+
+ If you still want a “gate,” rely on explicit needs: inside pr-10-ci-python.yml and pr-12-docker-smoke.yml or use a small, valid fan‑in job in CI instead.
+
+Acceptance criteria
+
+No further runs of gate.yml; PRs rely on normal needs: to fan‑in.
+
+3) Fix agents-consumer input explosion and rename to agents-70-orchestrator.yml
+
+Labels: workflows, agents, devops, enhancement, priority: high, status: ready
+Body:
+
+Background
+workflow_dispatch allows max 10 inputs. Current file defines >10 and fails validation. It also calls reuse-agents.yml by path. We’ll cap inputs and pass an options_json to cover long‑tail toggles. 
+GitHub
+
+Scope
+
+Rename to agents-70-orchestrator.yml (Issue 1).
+
+Reduce dispatch inputs to ≤10: keep the primary toggles, move rare flags into options_json (JSON string parsed via actions/github-script).
+
+Update callsite to uses: ./.github/workflows/reusable-70-agents.yml. 
+GitHub
+
+Tasks
+
+ Inputs to keep: enable_readiness, readiness_agents, require_all, enable_preflight, codex_user, enable_verify_issue, verify_issue_number, enable_watchdog, draft_pr, plus options_json.
+
+ Add a step to parse options_json into env vars with sane defaults.
+
+ Update uses: path to the renamed reusable workflow. 
+GitHub
+
+ Document the JSON schema in the job description.
+
+Acceptance criteria
+
+Manual dispatch form renders successfully.
+
+Reusable call works under the new path.
+
+Agents jobs cover readiness, preflight, diagnostic, verify‑issue, and watchdog without validation errors.
+
+4) Consolidate self‑tests into one caller; keep a single reusable composite
+
+Labels: workflows, ci, devops, refactor, priority: medium, status: ready
+Body:
+
+Background
+Multiple similarly‑named self‑test workflows exist and add noise: pr-20-selftest-pr-comment.yml, maint-43-*, maint-44-*, maint-48-*, selftest-pr-comment.yml, plus reusable-99-selftest.yml. Collapse to one human‑facing caller that invokes the single composite. 
+GitHub
+
+Tasks
+
+ Delete the five redundant selftest caller workflows.
+
+ Add one caller: maint-90-selftest.yml that only runs on workflow_dispatch and (optionally) a weekly schedule.
+
+ Ensure it calls reusable-99-selftest.yml with the minimal input set.
+
+Acceptance criteria
+
+Only one visible self‑test caller + one reusable composite remain.
+
+5) Make maint-36-actionlint.yml the only workflow-lint and remove pr-18-workflow-lint.yml
+
+Labels: workflows, ci, devops, refactor, priority: medium, status: ready
+Body:
+
+Background
+Two linters exist: pr-18-workflow-lint.yml and maint-36-actionlint.yml. Keep the reviewdog‑based maint‑36 and drop pr‑18 to avoid duplicate runs. 
+GitHub
++1
+
+Tasks
+
+ Delete .github/workflows/pr-18-workflow-lint.yml.
+
+ Confirm maint-36-actionlint.yml runs on PRs, pushes, and weekly cron. 
+GitHub
+
+Acceptance criteria
+
+Exactly one workflow‑lint run per PR/push.
+
+6) CI Python: unify style gate + type check + coverage into pr-10-ci-python.yml
+
+Labels: ci, workflows, testing, tech:coverage, priority: high, status: ready
+Body:
+
+Scope
+
+Ensure the CI job includes:
+
+Format check (Black), lint (Ruff), type check (Mypy), unit tests, coverage.
+
+Concurrency: cancel in progress per PR head SHA.
+
+Path filters: ignore docs/**, **/*.md, .github/ISSUE_TEMPLATE/** like Docker already does. 
+GitHub
+
+Coverage posted to step summary.
+
+Keep filename stable to avoid breaking Post CI Summary lookups. 
+GitHub
+
+Tasks
+
+ Add/update paths-ignore to match Docker’s ignores. 
+GitHub
+
+ Add concurrency: group: ci-${{ github.ref }}-${{ github.event.pull_request.number || github.sha }}.
+
+ Ensure pinned versions loaded from a shared env file (see Issue 7).
+
+Acceptance criteria
+
+One CI job enforces style, types, tests + coverage.
+
+Docs‑only PRs don’t spend cycles.
+
+7) Pin formatter/type versions once via env file used by CI and Autofix
+
+Labels: ci, workflows, devops, refactor, priority: medium, status: ready
+Body:
+
+Scope
+
+Create .github/workflows/autofix-versions.env (or confirm it exists) and load it in pr-10-ci-python.yml and maint-32-autofix.yml so local scripts/style_gate_local.sh and CI stay in lock‑step. 
+GitHub
++1
+
+Tasks
+
+ Add the env file with Black/Ruff/Mypy precise pins.
+
+ Source it in both workflows.
+
+ Document in docs/ci/WORKFLOWS.md.
+
+Acceptance criteria
+
+Local “style gate” outputs match CI exactly.
+
+No formatter drift PRs.
+
+8) Harden Post CI Summary
+
+Labels: workflows, ci, enhancement, priority: medium, status: ready
+Body:
+
+Background
+Post‑CI Summary enumerates target workflows by path and writes a PR summary. Keep the two stable targets and defensively handle missing runs. 
+GitHub
+
+Tasks
+
+ Keep targets: pr-10-ci-python.yml, pr-12-docker-smoke.yml.
+
+ Robustify null checks and summary formatting; no PR comments, only step summary.
+
+ Confirm it only runs for PR events via workflow_run filter. 
+GitHub
+
+Acceptance criteria
+
+Exactly one summary per PR. No loops, no duplicate comments.
+
+9) Failure Tracker: tighten scope and labeling
+
+Labels: workflows, ci, ci-failure, enhancement, priority: medium, status: ready
+Body:
+
+Background
+You already have maint-33-check-failure-tracker.yml firing on workflow_run. Keep it, but: only PR events, label failed PRs ci-failure, and attach one small artifact snapshot. 
+GitHub
+
+Tasks
+
+ Filter to PR‑only workflow_run.
+
+ Auto‑label the PR with ci-failure when any required job fails.
+
+ Keep the tiny “ci‑failures‑snapshot” artifact. 
+GitHub
+
+Acceptance criteria
+
+Failing PRs get exactly one label and one small artifact per run.
+
+10) Docker smoke: keep caching, add guard rails
+
+Labels: ci, workflows, devops, priority: medium, status: ready
+Body:
+
+Background
+pr-12-docker-smoke.yml is sound: hadolint, buildx cache keyed on requirements.lock, path‑ignores, optional registry login on push. Add a couple of safety checks. 
+GitHub
+
+Tasks
+
+ Add an explicit health check step using ${{ env.HEALTH_PORT }} and ${{ env.HEALTH_PATH }} after the build to fail fast if the app doesn’t come up.
+
+ Ensure job‐level timeout stays ≤10 min.
+
+ Make the cache save step conditional on non‑PR events (already present). 
+GitHub
+
+Acceptance criteria
+
+Smoke job fails in seconds on a bad image rather than minutes later.
+
+11) Repo Health: rename and schedule light weekly sweep
+
+Labels: workflows, devops, enhancement, priority: low, status: ready
+Body:
+
+Scope
+
+Rename repo-health-self-check.yml to maint-02-repo-health.yml (Issue 1).
+
+Trigger weekly schedule; collect simple signals (stale branches, unowned Issues) and write to the run summary only.
+
+Tasks
+
+ Add a cron schedule.
+
+ Use actions/github-script to emit a tidy summary table.
+
+ No PR comments.
+
+Acceptance criteria
+
+Single weekly report in the job summary.
+
+12) CI Signature Guard: reduce noise and document
+
+Labels: workflows, devops, documentation, priority: low, status: ready
+Body:
+
+Background
+maint-40-ci-signature-guard.yml validates expected jobs using fixtures and a composite action. Keep it, but limit branches to the ones you actually use and document. 
+GitHub
+
+Tasks
+
+ Confirm branch filters only include active ones (e.g., phase-2-dev and PRs). 
+GitHub
+
+ Add a short section to docs/ci/WORKFLOWS.md explaining the signature files.
+
+Acceptance criteria
+
+Guard runs only where relevant and has a link to docs.
+
+13) Docs: add docs/ci/WORKFLOWS.md and contributor quick‑start
+
+Labels: documentation, docs, workflows, help wanted, priority: low, status: ready
+Body:
+
+Scope
+
+Minimal docs page describing:
+
+The naming scheme and number ranges (Issue 1)
+
+Which workflows are required/optional
+
+How to run local “style gate” so PRs don’t fail in CI
+
+Where to add new workflows and how to choose an NN slot
+
+Agents dispatch JSON schema (Issue 3)
+
+Acceptance criteria
+
+One markdown file, linked from README.
