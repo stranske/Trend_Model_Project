@@ -48,6 +48,17 @@ portfolio:
 benchmarks:
   spx: SPX
 
+regime:
+  enabled: true
+  proxy: "SPX"
+  method: rolling_return
+  lookback: 24            # two-year lookback keeps demo responsive
+  smoothing: 3
+  threshold: 0.0
+  neutral_band: 0.0015    # small buffer around zero to avoid flapping
+  min_observations: 3
+  annualise_volatility: true
+
 metrics:
   registry:
     - annual_return
