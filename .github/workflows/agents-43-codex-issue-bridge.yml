@@ -171,6 +171,49 @@ jobs:
         run: |
           echo "Composite outputs: pr=${{ steps.local_action.outputs.pr }} branch=${{ steps.local_action.outputs.branch }}"
 
+      - name: Post copyable PR template (composite)
+        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.local_action.outcome == 'success' && steps.mode.outputs.mode != 'invite' && steps.local_action.outputs.pr != '' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issue_number = (context.payload.issue && context.payload.issue.number) || Number(context.payload.inputs && context.payload.inputs.test_issue);
+            if (!issue_number) {
+              core.warning('No issue context available to annotate.');
+              return;
+            }
+            const prNumber = Number('${{ steps.local_action.outputs.pr }}');
+            if (!prNumber) {
+              core.warning('Composite returned empty PR number; skipping snippet comment.');
+              return;
+            }
+            let issueTitle = '';
+            let issueBody = '';
+            try {
+              const { data: is } = await github.rest.issues.get({ owner, repo, issue_number });
+              issueTitle = is.title || '';
+              issueBody = is.body || '';
+            } catch (e) {
+              core.warning(`Failed to fetch issue #${issue_number}: ${e.message}`);
+            }
+            const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue_number}`;
+            const header = `### Source Issue #${issue_number}: ${issueTitle}`.trim();
+            const quoted = (issueBody || '')
+              .split('\n')
+              .map((line) => `> ${line}`)
+              .join('\n');
+            const snippet = [header, '', `Source: ${issueUrl}`, '', quoted].join('\n');
+            const message = [
+              `Opened PR #${prNumber} to engage Codex.`,
+              '',
+              'Copy/paste the snippet below into the PR description if needed, then comment `@codex start` when you are ready for Codex to work:',
+              '',
+              '```markdown',
+              snippet,
+              '```'
+            ].join('\n');
+            await github.rest.issues.createComment({ owner, repo, issue_number, body: message });
+
       - name: Create branch and bootstrap file
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.local_action.outcome == 'failure' }}
         id: mk
@@ -310,5 +353,31 @@ jobs:
             if (!issue_number) {
               core.warning('No issue context available to link PR back (workflow_dispatch without test_issue).');
             } else {
-              await github.rest.issues.createComment({ owner, repo, issue_number, body: `Opened PR #${{ steps.pr.outputs.number }} to engage Codex. Track work there.` });
+              let issueTitle = '';
+              let issueBody = '';
+              try {
+                const { data: is } = await github.rest.issues.get({ owner, repo, issue_number });
+                issueTitle = is.title || '';
+                issueBody = is.body || '';
+              } catch (e) {
+                core.warning(`Failed to fetch issue #${issue_number}: ${e.message}`);
+              }
+              const prNumber = Number('${{ steps.pr.outputs.number }}');
+              const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue_number}`;
+              const header = `### Source Issue #${issue_number}: ${issueTitle}`.trim();
+              const quoted = (issueBody || '')
+                .split('\n')
+                .map((line) => `> ${line}`)
+                .join('\n');
+              const snippet = [header, '', `Source: ${issueUrl}`, '', quoted].join('\n');
+              const message = [
+                `Opened PR #${prNumber} to engage Codex.`,
+                '',
+                'Copy/paste the snippet below into the PR description if needed, then comment `@codex start` when you are ready for Codex to work:',
+                '',
+                '```markdown',
+                snippet,
+                '```'
+              ].join('\n');
+              await github.rest.issues.createComment({ owner, repo, issue_number, body: message });
             }
