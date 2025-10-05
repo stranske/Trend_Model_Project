@@ -222,7 +222,13 @@ jobs:
         run: |
           set -euo pipefail
           PREFIX="agents/codex-issue-${ISSUE}-"
-          EXISTING=$(git ls-remote --heads origin | awk -v prefix="refs/heads/${PREFIX}" '$2 ~ prefix { sub("refs/heads/", "", $2); print $2 }' | head -n1)
+          # List all remote heads, filter for branches matching the prefix, and extract the branch name.
+          # This finds the first branch matching agents/codex-issue-${ISSUE}-*
+          EXISTING=$(git ls-remote --heads origin \
+            | grep "refs/heads/${PREFIX}" \
+            | head -n1 \
+            | awk '{print $2}' \
+            | sed 's|refs/heads/||')
           if [ -n "${EXISTING}" ]; then
             echo "Reusing existing Codex branch ${EXISTING} for issue #${ISSUE}."
             echo "branch=${EXISTING}" >> "$GITHUB_OUTPUT"
