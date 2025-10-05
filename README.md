@@ -8,7 +8,7 @@ This repository contains experiments and utilities for analyzing volatility-adju
 
 For a beginner-friendly overview, see [docs/UserGuide.md](docs/UserGuide.md).
 
-📦 **Reusable CI & Automation**: Standardise tests, autofix, and agent automation across repositories using the reusable workflows documented in [docs/ci_reuse.md](docs/ci_reuse.md). Consumers call `reusable-ci-python.yml`, `reusable-autofix.yml`, and the unified agents toolkit (`agents-70-orchestrator.yml` → `reusable-70-agents.yml`).
+📦 **Reusable CI & Automation**: Standardise tests, autofix, and agent automation across repositories using the reusable workflows documented in [docs/ci_reuse.md](docs/ci_reuse.md). Consumers call `reusable-90-ci-python.yml`, `reusable-92-autofix.yml`, and the unified agents toolkit (`agents-70-orchestrator.yml` → `reusable-70-agents.yml`).
 
 🧭 **Workflow topology & agent routing**: Learn how workflow buckets, naming, post-CI summaries, and agent labels fit together in [docs/WORKFLOW_GUIDE.md](docs/WORKFLOW_GUIDE.md).
 

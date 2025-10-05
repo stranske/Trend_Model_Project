@@ -5,7 +5,7 @@ on:
     inputs:
       python-versions:
         description: >-
-          JSON array of Python versions forwarded to `reusable-ci-python.yml`. Leave empty to
+          JSON array of Python versions forwarded to `reusable-90-ci-python.yml`. Leave empty to
           exercise the default 3.11 matrix used by Maint 90 Selftest.
         required: false
         type: string
@@ -62,7 +62,7 @@ jobs:
             coverage-alert-drop: '2'
     steps:
       - name: Invoke reusable CI (matrix scenario)
-        uses: stranske/Trend_Model_Project/.github/workflows/reusable-ci-python.yml@phase-2-dev
+        uses: stranske/Trend_Model_Project/.github/workflows/reusable-90-ci-python.yml@phase-2-dev
         with:
           python-versions: ${{ inputs.python-versions }}
           artifact-prefix: "sf-${{ matrix.name }}-"

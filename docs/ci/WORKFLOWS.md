@@ -26,9 +26,9 @@ Only these workflows appear in the Actions UI; everything else is a reusable com
 ## Reusable Composites
 | Filename | `name:` | Notes |
 |----------|---------|-------|
-| `.github/workflows/reusable-ci-python.yml` | `Reusable CI Python` | Matrix CI executor used by the PR workflows and self-test matrix. |
-| `.github/workflows/reusable-legacy-ci-python.yml` | `Reusable Legacy CI Python` | Compatibility shim for downstream consumers. |
-| `.github/workflows/reusable-autofix.yml` | `Reusable Autofix` | Autofix harness consumed by `maint-32-autofix.yml`. |
+| `.github/workflows/reusable-90-ci-python.yml` | `Reusable 90 CI Python` | Matrix CI executor used by the PR workflows and self-test matrix. |
+| `.github/workflows/reusable-94-legacy-ci-python.yml` | `Reusable 94 Legacy CI Python` | Compatibility shim for downstream consumers. |
+| `.github/workflows/reusable-92-autofix.yml` | `Reusable 92 Autofix` | Autofix harness consumed by `maint-32-autofix.yml`. |
 | `.github/workflows/reusable-70-agents.yml` | `Reusable 70 Agents` | Readiness, Codex bootstrap, verification, watchdog jobs. |
 | `.github/workflows/reusable-99-selftest.yml` | `Reusable 99 Selftest` | Matrix smoke-test of reusable CI features. |
 

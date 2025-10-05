@@ -10,7 +10,7 @@ This guide describes the slimmed-down GitHub Actions footprint after Issue #2190
 | `pr-` | Pull-request CI wrappers | `pr-10-ci-python.yml`, `pr-12-docker-smoke.yml` |
 | `maint-` | Maintenance, governance, and self-tests | `maint-02-repo-health.yml`, `maint-30-post-ci-summary.yml`, `maint-32-autofix.yml`, `maint-33-check-failure-tracker.yml`, `maint-36-actionlint.yml`, `maint-40-ci-signature-guard.yml`, `maint-90-selftest.yml` |
 | `agents-` | Agent orchestration entry points | `agents-70-orchestrator.yml` |
-| `reusable-` | Reusable composites invoked by other workflows | `reusable-ci-python.yml`, `reusable-legacy-ci-python.yml`, `reusable-autofix.yml`, `reusable-70-agents.yml`, `reusable-99-selftest.yml` |
+| `reusable-` | Reusable composites invoked by other workflows | `reusable-90-ci-python.yml`, `reusable-94-legacy-ci-python.yml`, `reusable-92-autofix.yml`, `reusable-70-agents.yml`, `reusable-99-selftest.yml` |
 | `autofix-` assets | Shared configuration for autofix tooling | `autofix-versions.env` |
 
 **Naming checklist**
@@ -24,7 +24,7 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 ## Final Workflow Set
 
 ### PR Checks
-- **`pr-10-ci-python.yml`** — Unified CI wrapper that calls `reusable-ci-python.yml`. Jobs include tests, coverage, style/type gates, and the `gate / all-required-green` fan-in.
+- **`pr-10-ci-python.yml`** — Unified CI wrapper that calls `reusable-90-ci-python.yml`. Jobs include tests, coverage, style/type gates, and the `gate / all-required-green` fan-in.
 - **`pr-12-docker-smoke.yml`** — Docker build and smoke test pipeline. Keeps deterministic caching and publishes summary logs.
 
 ### Maintenance & Governance
@@ -40,9 +40,9 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 - **`agents-70-orchestrator.yml`** — Hourly + manual dispatch entry point for readiness, Codex bootstrap, issue verification, and watchdog sweeps. Delegates to `reusable-70-agents.yml` and accepts extended options via `options_json`.
 
 ### Reusable Composites
-- **`reusable-ci-python.yml`** — Reusable CI implementation consumed by `pr-10-ci-python.yml` and self-test scenarios.
-- **`reusable-legacy-ci-python.yml`** — Compatibility shim retained for downstream repositories yet to migrate.
-- **`reusable-autofix.yml`** — Autofix harness used by `maint-32-autofix.yml`.
+- **`reusable-90-ci-python.yml`** — Reusable CI implementation consumed by `pr-10-ci-python.yml` and self-test scenarios.
+- **`reusable-94-legacy-ci-python.yml`** — Compatibility shim retained for downstream repositories yet to migrate.
+- **`reusable-92-autofix.yml`** — Autofix harness used by `maint-32-autofix.yml`.
 - **`reusable-70-agents.yml`** — Reusable agent automation stack.
 - **`reusable-99-selftest.yml`** — Matrix self-test covering reusable CI feature flags.
 

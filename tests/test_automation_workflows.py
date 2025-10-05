@@ -131,7 +131,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         tests_job = jobs["tests"]
         self.assertEqual(
             tests_job.get("uses"),
-            "./.github/workflows/reusable-ci-python.yml",
+            "./.github/workflows/reusable-90-ci-python.yml",
             "CI tests job should delegate to reusable stack",
         )
         inputs = tests_job.get("with", {})
@@ -310,7 +310,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
                         )
 
     def test_reusable_ci_runs_tests_and_mypy(self) -> None:
-        workflow = self._read_workflow("reusable-ci-python.yml")
+        workflow = self._read_workflow("reusable-90-ci-python.yml")
         jobs = workflow.get("jobs", {})
         self.assertIn("tests", jobs)
         self.assertIn("mypy", jobs)
@@ -343,7 +343,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         )
 
     def test_coverage_soft_gate_checks_out_repo_before_python(self) -> None:
-        workflow = self._read_workflow("reusable-ci-python.yml")
+        workflow = self._read_workflow("reusable-90-ci-python.yml")
         jobs = workflow["jobs"]
 
         def _assert_checkout_precedes_python(job_name: str) -> None:
@@ -380,7 +380,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
     def test_coverage_soft_gate_preserves_classification_and_summary_steps(
         self,
     ) -> None:
-        workflow = self._read_workflow("reusable-ci-python.yml")
+        workflow = self._read_workflow("reusable-90-ci-python.yml")
         steps = workflow["jobs"]["coverage_soft_gate"].get("steps", [])
         names = {
             step.get("name")
@@ -400,7 +400,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         )
 
     def test_cosmetic_followup_job_depends_on_soft_gate_outputs(self) -> None:
-        workflow = self._read_workflow("reusable-ci-python.yml")
+        workflow = self._read_workflow("reusable-90-ci-python.yml")
         job = workflow["jobs"]["cosmetic_followup"]
         condition = job.get("if", "")
         self.assertIn(

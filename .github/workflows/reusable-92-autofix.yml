@@ -1,4 +1,4 @@
-name: Reusable Autofix
+name: Reusable 92 Autofix
 
 on:
   workflow_call:

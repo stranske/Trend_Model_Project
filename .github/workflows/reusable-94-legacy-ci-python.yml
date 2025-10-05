@@ -1,4 +1,4 @@
-name: Reusable Legacy CI Python
+name: Reusable 94 Legacy CI Python
 
 on:
   workflow_call:
