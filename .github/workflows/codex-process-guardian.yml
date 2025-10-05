@@ -75,7 +75,6 @@ jobs:
   handle_start_comment:
     if: >-
       github.event_name == 'issue_comment' &&
-      contains(github.event.comment.body, '@codex start') &&
       github.event.issue.pull_request
     runs-on: ubuntu-latest
     steps:
