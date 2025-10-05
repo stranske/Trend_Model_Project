@@ -291,7 +291,10 @@ for the user-weight portfolio (and equal-weight baseline when available) across
 Risk-On, Risk-Off and aggregate windows. Any regime with fewer than
 `min_observations` samples is shown as `N/A` and annotated with a descriptive
 footnote. The unified report also appends a sentence to the executive summary
-and narrative highlighting the relative performance between regimes.
+and narrative highlighting the relative performance between regimes. When the
+strategy excels during Risk-Off periods, the copy explicitly calls out the
+outperformance; if both environments trade in line, the message notes that the
+regimes behaved similarly.
 
 The `regime_notes` entry in the result dictionary carries the collected
 footnotes; they are exported as a one-column table for easy auditing alongside

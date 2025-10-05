@@ -45,7 +45,9 @@ def test_build_regime_payload_produces_labels_and_table() -> None:
     assert not table.empty
     assert ("User", "Risk-On") in table.columns
     assert payload["labels"].dtype == "string"
-    assert payload["summary"]
+    summary = payload["summary"]
+    assert isinstance(summary, str)
+    assert "CAGR" in summary
 
 
 def test_build_regime_payload_notes_for_insufficient_observations() -> None:
@@ -109,3 +111,38 @@ def test_build_regime_payload_volatility_method() -> None:
     assert not labels.empty
     assert {"Risk-On", "Risk-Off"}.issuperset(set(labels.unique()))
     assert payload["table"].shape[1] > 0
+
+
+def test_regime_summary_highlights_stronger_regime() -> None:
+    dates = pd.date_range("2021-01-31", periods=6, freq="ME")
+    proxy = [0.02, -0.03, 0.01, -0.02, 0.03, -0.01]
+    data = pd.DataFrame(
+        {
+            "Date": dates,
+            "FundA": [0.01, 0.04, 0.015, 0.05, 0.02, 0.045],
+            "RF": 0.0,
+            "SPX": proxy,
+        }
+    )
+    index = pd.DatetimeIndex(data["Date"])
+    returns_map = {"User": data.set_index("Date")["FundA"]}
+    payload = build_regime_payload(
+        data=data,
+        out_index=index,
+        returns_map=returns_map,
+        risk_free=0.0,
+        config={
+            "enabled": True,
+            "proxy": "SPX",
+            "lookback": 1,
+            "smoothing": 1,
+            "threshold": 0.0,
+            "min_observations": 1,
+        },
+        freq_code="M",
+        periods_per_year=12,
+    )
+    summary = payload["summary"]
+    assert isinstance(summary, str)
+    assert "outperformed" in summary.lower()
+    assert "risk-off" in summary.lower()
