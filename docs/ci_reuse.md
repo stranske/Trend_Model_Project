@@ -5,13 +5,13 @@ building blocks that thin wrappers (or downstream repositories) can consume.
 
 | Reusable Workflow | File | Purpose |
 | ------------------ | ---- | ------- |
-| Python CI | `.github/workflows/reusable-ci-python.yml` | Tests + coverage gate + optional feature flags.
-| Legacy Python CI | `.github/workflows/reusable-legacy-ci-python.yml` | Compatibility contract for consumers still on the pre-WFv1 interface.
-| Autofix | `.github/workflows/reusable-autofix.yml` | Formatting / lint autofix harness used by `maint-32-autofix.yml`.
+| Python CI | `.github/workflows/reusable-90-ci-python.yml` | Tests + coverage gate + optional feature flags.
+| Legacy Python CI | `.github/workflows/reusable-94-legacy-ci-python.yml` | Compatibility contract for consumers still on the pre-WFv1 interface.
+| Autofix | `.github/workflows/reusable-92-autofix.yml` | Formatting / lint autofix harness used by `maint-32-autofix.yml`.
 | Agents Toolkit | `.github/workflows/reusable-70-agents.yml` | Readiness, Codex bootstrap, verification, and watchdog routines.
 | Self-Test Matrix | `.github/workflows/reusable-99-selftest.yml` | Exercises the reusable CI executor across feature combinations.
 
-## 1. Python CI (`reusable-ci-python.yml`)
+## 1. Python CI (`reusable-90-ci-python.yml`)
 Consumer example:
 
 ```yaml
@@ -23,7 +23,7 @@ on:
 
 jobs:
   core:
-    uses: ./.github/workflows/reusable-ci-python.yml
+    uses: ./.github/workflows/reusable-90-ci-python.yml
     with:
       python-versions: '["3.11"]'
       enable-metrics: 'true'
@@ -33,7 +33,7 @@ jobs:
 Key inputs include optional coverage gates, history/metrics toggles, and the Python version matrix. The workflow emits gate,
 coverage, and summary jobs that downstream consumers can depend upon.
 
-## 2. Autofix (`reusable-autofix.yml`)
+## 2. Autofix (`reusable-92-autofix.yml`)
 Used by `maint-32-autofix.yml` to apply hygiene fixes once CI succeeds. Inputs gate behaviour behind opt-in labels and allow
 custom commit prefixes. The composite enforces size/path heuristics before pushing changes with `SERVICE_BOT_PAT`.
 

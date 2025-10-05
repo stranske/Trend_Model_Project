@@ -1,4 +1,4 @@
-name: Reusable CI Python
+name: Reusable 90 CI Python
 
 # Clean rebuilt reusable workflow with debug instrumentation retained from strict-lint branch.
 # Inputs are feature flags controlling optional artifacts and gates.

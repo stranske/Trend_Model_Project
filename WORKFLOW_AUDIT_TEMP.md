@@ -13,7 +13,7 @@ Only the workflows listed below remain visible in the Actions tab. Reusable comp
 ### PR Checks
 | Workflow | Triggers | Notes |
 |----------|----------|-------|
-| `pr-10-ci-python.yml` | pull_request, push | Wrapper around `reusable-ci-python.yml` that preserves the full CI matrix + style/type gates.
+| `pr-10-ci-python.yml` | pull_request, push | Wrapper around `reusable-90-ci-python.yml` that preserves the full CI matrix + style/type gates.
 | `pr-12-docker-smoke.yml` | pull_request, push, workflow_call | Deterministic Docker build + smoke test harness.
 
 ### Maintenance & Governance
@@ -37,9 +37,9 @@ Only the workflows listed below remain visible in the Actions tab. Reusable comp
 |----------|----------|-------|
 | `reusable-70-agents.yml` | workflow_call | Reusable agents stack used by `agents-70-orchestrator.yml`.
 | `reusable-99-selftest.yml` | workflow_call | Matrix smoke-test for the reusable CI executor.
-| `reusable-ci-python.yml` | workflow_call | Primary reusable CI implementation.
-| `reusable-autofix.yml` | workflow_call | Autofix composite consumed by `maint-32-autofix.yml`.
-| `reusable-legacy-ci-python.yml` | workflow_call | Legacy CI contract retained for downstream consumers.
+| `reusable-90-ci-python.yml` | workflow_call | Primary reusable CI implementation.
+| `reusable-92-autofix.yml` | workflow_call | Autofix composite consumed by `maint-32-autofix.yml`.
+| `reusable-94-legacy-ci-python.yml` | workflow_call | Legacy CI contract retained for downstream consumers.
 
 ## Removed in Issue #2190
 | Workflow | Status |

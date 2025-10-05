@@ -1,7 +1,7 @@
 name: PR 10 CI Python
 
 # Temporary compatibility wrapper (Issue #1345): preserves legacy "CI" check name
-# while branch protection still expects it. Delegates to unified reusable-ci-python.yml.
+# while branch protection still expects it. Delegates to unified reusable-90-ci-python.yml.
 # Remove after updating protection rules to reference granular jobs directly.
 
 on:
@@ -52,7 +52,7 @@ jobs:
   tests:
     name: main / tests
     needs: formatting-fast
-    uses: ./.github/workflows/reusable-ci-python.yml
+    uses: ./.github/workflows/reusable-90-ci-python.yml
     with:
       python-versions: ${{ vars.CI_PY_VERSIONS || '["3.11"]' }}
       coverage-min: ${{ vars.COV_MIN || '70' }}
