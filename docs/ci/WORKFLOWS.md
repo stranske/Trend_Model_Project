@@ -19,6 +19,7 @@ This document tracks the acceptance criteria for Issue #2190. Use it as the auth
 | `.github/workflows/maint-36-actionlint.yml` | `Maint 36 Actionlint` | Sole workflow-lint gate (actionlint via reviewdog). |
 | `.github/workflows/maint-40-ci-signature-guard.yml` | `Maint 40 CI Signature Guard` | Validates signed CI manifests. |
 | `.github/workflows/maint-90-selftest.yml` | `Maint 90 Selftest` | Manual/weekly caller for `reusable-99-selftest.yml`. |
+| `.github/workflows/agents-43-codex-issue-bridge.yml` | `Agents 43 Codex Issue Bridge` | Issue label trigger that bootstraps Codex branches/PRs automatically. |
 | `.github/workflows/agents-70-orchestrator.yml` | `Agents 70 Orchestrator` | Unified agents toolkit entry point. |
 
 Only these workflows appear in the Actions UI; everything else is a reusable composite.
@@ -35,6 +36,7 @@ Only these workflows appear in the Actions UI; everything else is a reusable com
 ## Trigger Dependencies
 - `maint-30-post-ci-summary.yml`, `maint-32-autofix.yml`, and `maint-33-check-failure-tracker.yml` listen for `workflow_run` events from `PR 10 CI Python`, `PR 12 Docker Smoke`, and `Maint 90 Selftest`.
 - `Agents 70 Orchestrator` dispatches to `Reusable 70 Agents` and parses extended options via `options_json` to stay under GitHub's 10 input limit.
+- `Agents 43 Codex Issue Bridge` acts on `agent:codex` issue labels or manual dispatch to prepare Codex-ready branches and PRs.
 
 ## Verification Checklist
 - [x] Filenames and `name:` values verified.

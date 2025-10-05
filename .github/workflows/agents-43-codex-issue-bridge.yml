@@ -1,4 +1,4 @@
-name: Codex Issue Bridge (label  draft PR + human command)
+name: Agents 43 Codex Issue Bridge
 
 on:
   issues:
