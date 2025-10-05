@@ -42,9 +42,7 @@ def test_reusable_agents_workflow_structure():
         "enable_verify_issue",
         "enable_watchdog",
     ]:
-        assert (
-            f"{key}:" in text
-        ), f"Reusable agents workflow must expose input: {key}"
+        assert f"{key}:" in text, f"Reusable agents workflow must expose input: {key}"
 
 
 def test_legacy_agent_workflows_removed():
