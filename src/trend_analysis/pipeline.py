@@ -1315,6 +1315,7 @@ def run_full(cfg: Config) -> dict[str, object]:
         previous_weights=_section_get(portfolio_cfg, "previous_weights"),
         max_turnover=_section_get(portfolio_cfg, "max_turnover"),
         signal_spec=trend_spec,
+        regime_cfg=_cfg_section(cfg, "regime"),
     )
     return {} if res is None else res
 
