@@ -29,12 +29,31 @@ def test_archive_directories_removed():
     assert not legacy_dir.exists(), "Old/.github/workflows/ should remain deleted"
 
 
-def test_inventory_doc_lists_all_workflows():
-    audit_doc = pathlib.Path("WORKFLOW_AUDIT_TEMP.md").read_text(encoding="utf-8")
-    missing = [
-        path.name for path in _workflow_paths() if f"`{path.name}`" not in audit_doc
-    ]
-    assert not missing, f"Workflow inventory missing entries for: {missing}"
+def test_inventory_docs_list_all_workflows():
+    docs = {
+        "WORKFLOW_AUDIT_TEMP.md": pathlib.Path("WORKFLOW_AUDIT_TEMP.md").read_text(
+            encoding="utf-8"
+        ),
+        "docs/ci/WORKFLOWS.md": pathlib.Path("docs/ci/WORKFLOWS.md").read_text(
+            encoding="utf-8"
+        ),
+    }
+
+    def _listed(contents: str, slug: str) -> bool:
+        options = (
+            f"`{slug}`",
+            f"`.github/workflows/{slug}`",
+        )
+        return any(option in contents for option in options)
+
+    missing_by_doc = {
+        doc_name: [
+            path.name for path in _workflow_paths() if not _listed(contents, path.name)
+        ]
+        for doc_name, contents in docs.items()
+    }
+    failures = {doc: names for doc, names in missing_by_doc.items() if names}
+    assert not failures, f"Workflow inventory missing entries: {failures}"
 
 
 def test_workflow_names_match_filename_convention():
