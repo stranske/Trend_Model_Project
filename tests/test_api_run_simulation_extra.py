@@ -67,6 +67,14 @@ def test_run_simulation_sanitizes_details_and_combines_portfolio(
 
     stats_obj = SimpleNamespace(alpha=1.0, beta=2.0)
     bench_ir = {"bench": {"FundA": 0.5, "FundB": 0.2, "equal_weight": 0.1}}
+    regime_table = pd.DataFrame(
+        {
+            ("User", "Risk-On"): [0.12, 1.1, 5],
+            ("User", "Risk-Off"): [0.04, 0.8, 2],
+        },
+        index=["CAGR", "Sharpe", "Observations"],
+    )
+
     payload = UserDict(
         {
             "out_sample_stats": {"FundA": stats_obj, "FundB": stats_obj},
@@ -78,6 +86,7 @@ def test_run_simulation_sanitizes_details_and_combines_portfolio(
             "ew_weights": {"FundA": 0.5, "FundB": 0.5},
             "weight_engine_fallback": {"engine": "test"},
             "weird_keys": {pd.Timestamp("2020-01-31"): {"value": 1}},
+            "performance_by_regime": regime_table,
         }
     )
 
@@ -91,6 +100,12 @@ def test_run_simulation_sanitizes_details_and_combines_portfolio(
     assert isinstance(result.details_sanitized, dict)
     sanitized_keys = result.details_sanitized["weird_keys"].keys()
     assert all(isinstance(k, str) for k in sanitized_keys)
+    regime_sanitized = result.details_sanitized["performance_by_regime"]
+    assert all(isinstance(col, str) for col in regime_sanitized.keys())
+    assert "User / Risk-On" in regime_sanitized
+    assert all(
+        isinstance(metric, str) for metric in regime_sanitized["User / Risk-On"].keys()
+    )
 
 
 def test_run_simulation_handles_unexpected_result_type(
