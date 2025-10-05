@@ -578,12 +578,16 @@ def _render_html(context: Mapping[str, Any]) -> str:
     regime_table_html = context["regime_html"]
     regime_summary_text = context.get("regime_summary") or ""
     regime_summary_html = (
-        f"    <p>{html.escape(regime_summary_text)}</p>\n" if regime_summary_text else ""
+        f"    <p>{html.escape(regime_summary_text)}</p>\n"
+        if regime_summary_text
+        else ""
     )
     regime_notes = context.get("regime_notes", [])
     regime_notes_html = ""
     if regime_notes:
-        items = "\n".join(f"      <li>{html.escape(note)}</li>" for note in regime_notes)
+        items = "\n".join(
+            f"      <li>{html.escape(note)}</li>" for note in regime_notes
+        )
         regime_notes_html = f"    <ul>\n{items}\n    </ul>\n"
     params_rows = "\n".join(
         f"      <tr><th>{html.escape(k)}</th><td>{html.escape(v)}</td></tr>"
@@ -862,11 +866,17 @@ def generate_unified_report(
         else {}
     )
     raw_regime_table = details_mapping.get("performance_by_regime")
-    regime_table = raw_regime_table if isinstance(raw_regime_table, pd.DataFrame) else pd.DataFrame()
+    regime_table = (
+        raw_regime_table
+        if isinstance(raw_regime_table, pd.DataFrame)
+        else pd.DataFrame()
+    )
     regime_html, regime_text = _format_regime_table(regime_table)
     regime_notes = list(details_mapping.get("regime_notes", []))
     regime_summary = details_mapping.get("regime_summary")
-    narrative = _narrative(backtest, regime_summary if isinstance(regime_summary, str) else None)
+    narrative = _narrative(
+        backtest, regime_summary if isinstance(regime_summary, str) else None
+    )
     turnover_chart = _turnover_chart(backtest)
     exposure_chart = _exposure_chart(backtest)
     footer = "Past performance does not guarantee future results."
