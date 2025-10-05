@@ -137,9 +137,9 @@ jobs:
         with:
           script: |
             const ev = context.eventName;
-            let raw = 'true';
+            let raw = 'false';
             if (ev === 'workflow_dispatch') {
-              raw = (context.payload.inputs && context.payload.inputs.post_codex_comment) || 'true';
+              raw = (context.payload.inputs && context.payload.inputs.post_codex_comment) || 'false';
             }
             const val = String(raw).toLowerCase() === 'true';
             core.setOutput('post', val ? 'true' : 'false');

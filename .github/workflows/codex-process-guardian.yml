@@ -1,0 +1,168 @@
+name: Codex Process Guardian
+
+on:
+  pull_request_target:
+    types:
+      - labeled
+  issue_comment:
+    types:
+      - created
+
+permissions:
+  pull-requests: write
+  issues: write
+  contents: read
+
+jobs:
+  handle_label:
+    if: >-
+      github.event_name == 'pull_request_target' &&
+      github.event.action == 'labeled' &&
+      github.event.label.name == 'agent:codex'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post Codex engagement instructions
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            if (!pr) {
+              core.notice('No pull request context available.');
+              return;
+            }
+            const { owner, repo } = context.repo;
+            const prNumber = pr.number;
+            const author = pr.user?.login;
+            if (!author) {
+              core.notice('Pull request author missing; skipping.');
+              return;
+            }
+            const { data: comments } = await github.rest.issues.listComments({ owner, repo, issue_number: prNumber, per_page: 100 });
+            const already = comments.find((c) => (c.user?.login || '').toLowerCase() === 'github-actions[bot]' && (c.body || '').includes('Codex engagement instructions'));
+            if (already) {
+              core.info('Instruction comment already present; nothing to do.');
+              return;
+            }
+            const planBlockLines = [
+              '@codex plan-and-execute',
+              '',
+              'Please follow this loop for this pull request:',
+              '',
+              'Draft detailed acceptance criteria for resolving CLI: trend-app and trend-run #1687 and post them as a numbered list.',
+              'Convert those criteria into a Markdown task checklist that fully covers all required work (code, tests, docs, validation). Include the checklist in your response so we can track progress.',
+              'Begin executing the tasks immediately. After each iteration, update the checklist (checking off completed items) and describe what changed, any follow-up tasks you created, and blockers if you hit them. If new work is revealed, append additional checklist items and continue.',
+              'Keep working through the checklist, automatically resuming with the next incomplete task until every box is checked or you are blocked. If blocked, clearly state the blocker and wait for guidance.',
+              'Make sure the acceptance criteria and checklist stay in sync. Confirm once all tasks are complete and acceptance criteria are satisfied.'
+            ];
+            const planBlock = planBlockLines.join('\n');
+            const message = [
+              '<!-- Codex engagement instructions -->',
+              `👋 @${author} Codex has been assigned to this pull request.`,
+              '',
+              'Please complete the two-comment handshake yourself so the agent can begin:',
+              '1. Post `@codex start` as the PR author.',
+              '2. Post the plan-and-execute block below to kick off the acceptance-criteria loop.',
+              '',
+              '```markdown',
+              planBlock.trim(),
+              '```',
+              '',
+              'Once both comments are in place I will confirm and Codex will iterate on the checklist until every box is checked. '
+                + 'If you need to revise the plan later, edit the checklist comment and Codex will pick up the changes.'
+            ].join('\n');
+            await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: message });
+
+  handle_start_comment:
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate @codex start author
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issueNumber = context.payload.issue.number;
+            const comment = context.payload.comment;
+            if (!issueNumber) {
+              core.notice('Missing issue number context.');
+              return;
+            }
+            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: issueNumber });
+            const prAuthor = (pr.user?.login || '').toLowerCase();
+            const commenter = (comment.user?.login || '').toLowerCase();
+            const isBot = (comment.user?.type || '').toLowerCase() === 'bot' || commenter.endsWith('[bot]');
+            if (!comment.body || !comment.body.toLowerCase().includes('@codex start')) {
+              core.info('Comment does not contain @codex start (case-insensitive); skipping.');
+              return;
+            }
+            if (isBot || commenter !== prAuthor) {
+              const message = `Thanks for helping! To engage Codex, the pull request author (@${pr.user?.login}) must post the \"@codex start\" comment personally.`;
+              await github.rest.issues.createComment({ owner, repo, issue_number: issueNumber, body: message });
+              return;
+            }
+            const { data: comments } = await github.rest.issues.listComments({ owner, repo, issue_number: issueNumber, per_page: 100 });
+            const already = comments.find((c) => (c.body || '').includes('codex-start-confirmed'));
+            if (already) {
+              core.info('Start already confirmed; nothing to do.');
+              return;
+            }
+            const ack = [
+              '<!-- codex-start-confirmed -->',
+              `✅ Step 1 recorded. Thanks @${pr.user?.login}!`,
+              '',
+              'Please paste the plan-and-execute block next so Codex can build the acceptance-criteria checklist.'
+            ].join('\n');
+            await github.rest.issues.createComment({ owner, repo, issue_number: issueNumber, body: ack });
+
+  handle_plan_comment:
+    if: >-
+      github.event_name == 'issue_comment' &&
+      contains(github.event.comment.body, '@codex plan-and-execute') &&
+      github.event.issue.pull_request
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate @codex plan-and-execute author
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issueNumber = context.payload.issue.number;
+            const comment = context.payload.comment;
+            if (!issueNumber) {
+              core.notice('Missing issue number context.');
+              return;
+            }
+            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: issueNumber });
+            const prAuthor = (pr.user?.login || '').toLowerCase();
+            const commenter = (comment.user?.login || '').toLowerCase();
+            const isBot = (comment.user?.type || '').toLowerCase() === 'bot' || commenter.endsWith('[bot]');
+            if (!comment.body || !comment.body.toLowerCase().includes('@codex plan-and-execute')) {
+              core.info('Comment does not contain @codex plan-and-execute (case-insensitive); skipping.');
+              return;
+            }
+            const { data: comments } = await github.rest.issues.listComments({ owner, repo, issue_number: issueNumber, per_page: 100 });
+            const startConfirmed = comments.some((c) => (c.body || '').includes('codex-start-confirmed'));
+            if (isBot || commenter !== prAuthor) {
+              const message = `Appreciate the nudge! The pull request author (@${pr.user?.login}) needs to post the plan-and-execute comment so Codex can proceed.`;
+              await github.rest.issues.createComment({ owner, repo, issue_number: issueNumber, body: message });
+              return;
+            }
+            if (!startConfirmed) {
+              const message = `Looks like we haven't seen @${pr.user?.login} post \"@codex start\" yet. Please do that first so Codex can begin the checklist loop.`;
+              await github.rest.issues.createComment({ owner, repo, issue_number: issueNumber, body: message });
+              return;
+            }
+            const already = comments.find((c) => (c.body || '').includes('codex-plan-confirmed'));
+            if (already) {
+              core.info('Plan already confirmed; nothing to do.');
+              return;
+            }
+            const ack = [
+              '<!-- codex-plan-confirmed -->',
+              `🚀 Plan captured. Codex will now iterate on the checklist until every acceptance criterion is satisfied.`,
+              '',
+              'Keep updating the checklist after each iteration so the agent can pick up your progress.'
+            ].join('\n');
+            await github.rest.issues.createComment({ owner, repo, issue_number: issueNumber, body: ack });

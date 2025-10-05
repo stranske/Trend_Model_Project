@@ -32,7 +32,7 @@ inputs:
   post_codex_comment:
     description: "Whether to auto-post '@codex start' as the actor (true|false)"
     required: false
-    default: "true"
+    default: "false"
   pr_mode:
     description: "create | invite (invite = prepare branch and ask human to open PR)"
     required: false
