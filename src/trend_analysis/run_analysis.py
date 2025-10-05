@@ -98,9 +98,7 @@ def main(argv: list[str] | None = None) -> int:
                     data["performance_by_regime"] = regime_table
                 regime_notes = result.details.get("regime_notes")
                 if regime_notes:
-                    data["regime_notes"] = pd.DataFrame(
-                        {"note": list(regime_notes)}
-                    )
+                    data["regime_notes"] = pd.DataFrame({"note": list(regime_notes)})
                 if any(
                     f.lower() in {"excel", "xlsx"} for f in out_formats
                 ):  # pragma: no cover - file I/O

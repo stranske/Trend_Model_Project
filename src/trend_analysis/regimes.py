@@ -62,7 +62,9 @@ def normalise_settings(cfg: Mapping[str, Any] | None) -> RegimeSettings:
     if proxy is not None:
         proxy = str(proxy).strip() or None
 
-    method_raw = str(cfg.get("method", "rolling_return") or "rolling_return").strip().lower()
+    method_raw = (
+        str(cfg.get("method", "rolling_return") or "rolling_return").strip().lower()
+    )
     method_lookup = {
         "rolling_return": "rolling_return",
         "rolling": "rolling_return",
@@ -83,9 +85,9 @@ def normalise_settings(cfg: Mapping[str, Any] | None) -> RegimeSettings:
 
     risk_on_label = str(cfg.get("risk_on_label", "Risk-On") or "Risk-On").strip()
     risk_off_label = str(cfg.get("risk_off_label", "Risk-Off") or "Risk-Off").strip()
-    default_label = (
-        str(cfg.get("default_label", risk_on_label) or risk_on_label).strip()
-    )
+    default_label = str(
+        cfg.get("default_label", risk_on_label) or risk_on_label
+    ).strip()
     if not risk_on_label:
         risk_on_label = "Risk-On"
     if not risk_off_label:
@@ -110,7 +112,9 @@ def normalise_settings(cfg: Mapping[str, Any] | None) -> RegimeSettings:
     )
 
 
-def _rolling_return_signal(series: pd.Series, *, window: int, smoothing: int) -> pd.Series:
+def _rolling_return_signal(
+    series: pd.Series, *, window: int, smoothing: int
+) -> pd.Series:
     """Return rolling compounded returns smoothed by ``smoothing`` window."""
 
     if window <= 0:
@@ -227,9 +231,7 @@ def _compute_regime_series(
         f"smooth{smoothing}_band{settings.neutral_band:.6f}"
     )
     if settings.method == "volatility":
-        method_tag = (
-            f"{method_tag}_annual{int(settings.annualise_volatility)}"
-        )
+        method_tag = f"{method_tag}_annual{int(settings.annualise_volatility)}"
         if periods:
             method_tag = f"{method_tag}_ppy{periods:.6f}"
 
@@ -330,12 +332,16 @@ def aggregate_performance_by_regime(
         return pd.DataFrame(), []
 
     if regimes.empty:
-        return pd.DataFrame(), ["Regime labels were unavailable for the analysis window."]
+        return pd.DataFrame(), [
+            "Regime labels were unavailable for the analysis window."
+        ]
 
     # Ensure string dtype for comparisons and align to returns index
     regimes = regimes.astype("string")
 
-    portfolios = {str(name): series.astype(float) for name, series in returns_map.items()}
+    portfolios = {
+        str(name): series.astype(float) for name, series in returns_map.items()
+    }
     all_index = pd.Index([])
     for series in portfolios.values():
         all_index = all_index.union(series.index)
@@ -384,12 +390,16 @@ def aggregate_performance_by_regime(
                 annual_return(subset.dropna(), periods_per_year=int(periods_per_year))
             )
             table.loc["Sharpe", (portfolio, regime)] = float(
-                sharpe_ratio(subset.dropna(), rf_subset, periods_per_year=int(periods_per_year))
+                sharpe_ratio(
+                    subset.dropna(), rf_subset, periods_per_year=int(periods_per_year)
+                )
             )
             table.loc["Max Drawdown", (portfolio, regime)] = float(
                 max_drawdown(subset.dropna())
             )
-            table.loc["Hit Rate", (portfolio, regime)] = _format_hit_rate(subset.dropna())
+            table.loc["Hit Rate", (portfolio, regime)] = _format_hit_rate(
+                subset.dropna()
+            )
 
         # All periods aggregate
         subset_all = aligned.dropna()
@@ -456,7 +466,9 @@ def build_regime_payload(
         return payload
 
     if not settings.proxy:
-        payload["notes"] = ["Regime proxy column not specified; skipping regime analysis."]
+        payload["notes"] = [
+            "Regime proxy column not specified; skipping regime analysis."
+        ]
         return payload
 
     if settings.proxy not in data.columns:
