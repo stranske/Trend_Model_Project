@@ -47,6 +47,7 @@ def test_autofix_workflow_uses_repo_commit_prefix() -> None:
     assert "AUTOFIX_COMMIT_PREFIX" in prefix_expr
     assert "chore(autofix):" in prefix_expr
 
+
 def test_reusable_autofix_guard_applies_to_all_steps() -> None:
     data = _load_yaml("reusable-92-autofix.yml")
     steps = data["jobs"]["autofix"]["steps"]

@@ -49,6 +49,8 @@ def test_workflow_names_match_filename_convention():
         if actual != expected:
             mismatches[path.name] = actual
     assert not mismatches, f"Workflow name mismatch detected: {mismatches}"
+
+
 EXPECTED_NAMES = {
     "agents-70-orchestrator.yml": "Agents 70 Orchestrator",
     "maint-02-repo-health.yml": "Maint 02 Repo Health",
@@ -66,4 +68,3 @@ EXPECTED_NAMES = {
     "reusable-94-legacy-ci-python.yml": "Reusable 94 Legacy CI Python",
     "reusable-99-selftest.yml": "Reusable 99 Selftest",
 }
-
