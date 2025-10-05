@@ -1,6 +1,10 @@
 import pandas as pd
 
-from trend_analysis.regimes import build_regime_payload
+from trend_analysis.regimes import (
+    RegimeSettings,
+    _summarise_regime_outcome,
+    build_regime_payload,
+)
 
 
 def _sample_frame() -> pd.DataFrame:
@@ -175,4 +179,17 @@ def test_regime_summary_highlights_stronger_regime() -> None:
     summary = payload["summary"]
     assert isinstance(summary, str)
     assert "outperformed" in summary.lower()
+    assert "risk-off" in summary.lower()
+
+
+def test_regime_summary_identifies_similar_performance() -> None:
+    settings = RegimeSettings(risk_on_label="Risk-On", risk_off_label="Risk-Off")
+    risk_on = pd.Series({"CAGR": 0.105, "Sharpe": 1.1})
+    risk_off = pd.Series({"CAGR": 0.1045, "Sharpe": 0.9})
+
+    summary = _summarise_regime_outcome(settings, risk_on, risk_off)
+
+    assert isinstance(summary, str)
+    assert "similar" in summary.lower()
+    assert "risk-on" in summary.lower()
     assert "risk-off" in summary.lower()
