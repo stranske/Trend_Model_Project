@@ -71,6 +71,7 @@ def test_workflow_names_match_filename_convention():
 
 
 EXPECTED_NAMES = {
+    "agents-43-codex-issue-bridge.yml": "Agents 43 Codex Issue Bridge",
     "agents-70-orchestrator.yml": "Agents 70 Orchestrator",
     "maint-02-repo-health.yml": "Maint 02 Repo Health",
     "maint-30-post-ci-summary.yml": "Maint 30 Post CI Summary",

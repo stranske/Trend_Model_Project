@@ -26,6 +26,9 @@ remain true after the cleanup.
   variables to the reusable composite.
 
 ## Active Workflows & Actions
+- **Codex issue bridge:** `.github/workflows/agents-43-codex-issue-bridge.yml`
+  - Reacts to `agent:codex` (and `agents:codex`) labels plus manual dispatch.
+  - Creates or reuses Codex bootstrap branches/PRs and posts copyable issue snippets + `@codex start` instructions.
 - **Orchestrator:** `.github/workflows/agents-70-orchestrator.yml`
   - Hourly schedule + manual dispatch.
   - Inputs: readiness toggles, Codex preflight, watchdog controls, issue verification, `options_json` for extended flags.
@@ -37,7 +40,8 @@ remain true after the cleanup.
   - Handles PAT selection, branch creation (`agents/codex-issue-<num>-<runid>`), marker files, PR authoring, and notification
     comments.
 
-All previous wrappers (`agents-41-assign*.yml`, `agents-42-watchdog.yml`, `agents-43-codex-issue-bridge.yml`, etc.) were deleted.
+Legacy wrappers (`agents-41-assign*.yml`, `agents-42-watchdog.yml`, `agents-44-copilot-readiness.yml`, etc.) remain deleted as
+part of Issue #2190; the dedicated Codex issue bridge was reinstated to restore the label-driven workflow.
 
 ## Quick Index
 

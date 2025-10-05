@@ -52,10 +52,16 @@ def test_legacy_agent_workflows_removed():
         "agents-41-assign-and-watch.yml",
         "agents-41-assign.yml",
         "agents-42-watchdog.yml",
-        "agents-43-codex-issue-bridge.yml",
         "agents-44-copilot-readiness.yml",
         "agents-45-verify-codex-bootstrap-matrix.yml",
     }
     assert not (
         present & forbidden
     ), f"Legacy agent workflows still present: {present & forbidden}"
+
+
+def test_codex_issue_bridge_present():
+    bridge = WORKFLOWS_DIR / "agents-43-codex-issue-bridge.yml"
+    assert (
+        bridge.exists()
+    ), "agents-43-codex-issue-bridge.yml must exist after Codex bridge restoration"
