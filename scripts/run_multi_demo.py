@@ -1629,8 +1629,8 @@ if sf is None or sf.empty:
 b_ir = full_res.get("benchmark_ir", {})
 if "spx" not in b_ir or "equal_weight" not in b_ir.get("spx", {}):
     raise SystemExit("pipeline.run_full benchmark_ir missing")
-regime_table_full = full_res.get("performance_by_regime")
-if not isinstance(regime_table_full, pd.DataFrame) or regime_table_full.empty:
+performance_by_regime = full_res.get("performance_by_regime")
+if not isinstance(performance_by_regime, pd.DataFrame) or performance_by_regime.empty:
     raise SystemExit("pipeline.run_full missing regime table")
 regime_summary_full = str(full_res.get("regime_summary", ""))
 regime_notes_full = full_res.get("regime_notes") or []
