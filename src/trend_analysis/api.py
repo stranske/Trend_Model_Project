@@ -266,7 +266,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
                 return value
             if isinstance(value, tuple):
                 parts = [_stringify_key(part) for part in value]
-                return " / ".join("" if part is None else str(part) for part in parts)
+                return " / ".join(str(part) for part in parts)
             try:
                 iso = getattr(value, "isoformat")
             except AttributeError:
