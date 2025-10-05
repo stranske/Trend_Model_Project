@@ -3,7 +3,7 @@
 This document summarises the behaviour and configuration of the enhanced failure tracking workflow.
 
 ## Overview
-`maint-33-check-failure-tracker.yml` listens to completed runs of the primary CI workflows (`CI`, `Docker`, and the manual `CI Selftest`). On failure it:
+`maint-33-check-failure-tracker.yml` listens to completed runs of the primary CI workflows (`PR 10 CI Python`, `PR 12 Docker Smoke`, and the manual `Maint 90 Selftest`). On failure it:
 
 1. Enumerates failed jobs and the first failing step.
 2. Optionally extracts a stack token (first exception or error line) per failed job.
@@ -80,8 +80,8 @@ Workflow: `maint-40-ci-signature-guard.yml` runs on pushes / PRs and validates t
 
 ## Manual Self-Test
 You can manually validate behaviour:
-1. Dispatch `CI Selftest` (will create a failing issue).
-2. Rerun it but edit the `maint-37-ci-selftest.yml` workflow to succeed (or manually re-run jobs) to test auto-heal logic after adjusting `INACTIVITY_HOURS`.
+1. Dispatch `Maint 90 Selftest` (will create a failing issue).
+2. Rerun it but edit the `maint-90-selftest.yml` workflow to succeed (or manually re-run jobs) to test auto-heal logic after adjusting `INACTIVITY_HOURS`.
 
 ## Local Simulation Harness
 For a fast feedback loop without touching GitHub, run `node tools/simulate_failure_tracker.js`. The harness lifts the tracker script straight out of the workflow file and replays three sequential failures against an in-memory stub of the GitHub API. It asserts that:
