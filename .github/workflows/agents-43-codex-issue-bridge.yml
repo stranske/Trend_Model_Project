@@ -55,7 +55,7 @@ jobs:
             const label = (context.payload.label && context.payload.label.name) || '(none)';
             const issueNo = context.payload.issue && context.payload.issue.number;
             const manualIssue = context.payload.inputs && context.payload.inputs.test_issue;
-            core.summary.addHeading('Codex Bridge  Event Summary').addTable([
+            core.summary.addHeading('Codex Bridge Event Summary').addTable([
               [
                 {data:'Action',header:true},
                 {data:'Label',header:true},
