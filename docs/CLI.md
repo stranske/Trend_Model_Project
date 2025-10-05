@@ -27,15 +27,7 @@ trend-run -c config/trend.yml -o reports/run.html
 ```
 
 To override the returns CSV declared in the configuration, provide the
-`--returns` option. When you want CSV/JSON/XLSX/TXT artefacts alongside the
-HTML report, pass an output directory via `--artefacts` and optionally narrow
+`--returns` option. When you want CSV/JSON/XLSX/TXT artifacts alongside the
+HTML report, pass an output directory via `--artifacts` and optionally narrow
 the formats with `--formats`:
 
-```
-trend-run -c config/trend.toml --returns data/returns.csv \
-          --artefacts build/artefacts --formats csv json \
-          --pdf -o build/report.html
-```
-
-The example above demonstrates TOML loading, overrides the returns CSV, writes
-selected artefacts and also emits a PDF version of the report.
