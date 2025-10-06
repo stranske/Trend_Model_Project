@@ -25,7 +25,21 @@ runs:
     - name: Load tool versions
       shell: bash
       run: |
-        cat .github/workflows/autofix-versions.env >> $GITHUB_ENV
+        set -euo pipefail
+        pin_file=".github/workflows/autofix-versions.env"
+        if [[ ! -f "${pin_file}" ]]; then
+          echo "Missing ${pin_file}; aborting." >&2
+          exit 1
+        fi
+        # shellcheck disable=SC1090
+        source "${pin_file}"
+        for var in RUFF_VERSION BLACK_VERSION ISORT_VERSION DOCFORMATTER_VERSION MYPY_VERSION; do
+          if [[ -z "${!var:-}" ]]; then
+            echo "${pin_file} is missing a value for ${var}" >&2
+            exit 1
+          fi
+        done
+        cat "${pin_file}" >> "${GITHUB_ENV}"
     - name: Install fixers
       shell: bash
       run: |

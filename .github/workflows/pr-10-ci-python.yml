@@ -25,11 +25,24 @@ jobs:
         with:
           fetch-depth: 2
 
-      - name: Load tool versions
+      - name: Load formatter pins
+        shell: bash
         run: |
-          if [ -f .github/workflows/autofix-versions.env ]; then
-            cat .github/workflows/autofix-versions.env >> "$GITHUB_ENV"
+          set -euo pipefail
+          pin_file=".github/workflows/autofix-versions.env"
+          if [[ ! -f "${pin_file}" ]]; then
+            echo "Missing ${pin_file}; aborting." >&2
+            exit 1
           fi
+          # shellcheck disable=SC1090
+          source "${pin_file}"
+          for var in RUFF_VERSION BLACK_VERSION MYPY_VERSION; do
+            if [[ -z "${!var:-}" ]]; then
+              echo "${pin_file} is missing a value for ${var}" >&2
+              exit 1
+            fi
+          done
+          cat "${pin_file}" >> "${GITHUB_ENV}"
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -98,50 +111,37 @@ jobs:
           # checkout time from ~8 minutes to a few seconds on CI runners.
           fetch-depth: 2
 
-      - name: Load tool versions
+      - name: Load formatter pins
+        shell: bash
         run: |
-          if [ -f .github/workflows/autofix-versions.env ]; then
-            cat .github/workflows/autofix-versions.env >> "$GITHUB_ENV"
+          set -euo pipefail
+          pin_file=".github/workflows/autofix-versions.env"
+          if [[ ! -f "${pin_file}" ]]; then
+            echo "Missing ${pin_file}; aborting." >&2
+            exit 1
           fi
+          # shellcheck disable=SC1090
+          source "${pin_file}"
+          for var in RUFF_VERSION BLACK_VERSION MYPY_VERSION; do
+            if [[ -z "${!var:-}" ]]; then
+              echo "${pin_file} is missing a value for ${var}" >&2
+              exit 1
+            fi
+          done
+          cat "${pin_file}" >> "${GITHUB_ENV}"
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: Resolve latest mypy version
-        run: |
-          latest=$(python - <<'PY'
-          import json
-          import sys
-          import urllib.request
-
-          URL = "https://pypi.org/pypi/mypy/json"
-          try:
-              with urllib.request.urlopen(URL, timeout=30) as response:
-                  payload = json.load(response)
-              version = payload.get("info", {}).get("version")
-          except Exception as exc:  # pragma: no cover - network failure fallback
-              print(f"Failed to resolve latest mypy version: {exc}", file=sys.stderr)
-              version = None
-
-          if version:
-              print(version)
-          PY
-          )
-          if [ -n "$latest" ]; then
-            echo "Resolved mypy version $latest" >&2
-            echo "MYPY_VERSION=$latest" >> "$GITHUB_ENV"
-          else
-            echo "Using fallback mypy version ${MYPY_VERSION:-system default}" >&2
-          fi
-
       - name: Cache mypy
         uses: actions/cache@v4
         with:
           path: .mypy_cache
-          key: mypy-${{ runner.os }}-${{ hashFiles('pyproject.toml') }}-${{ hashFiles('src/**.py') }}
+          key: mypy-${{ runner.os }}-${{ env.MYPY_VERSION }}-${{ hashFiles('pyproject.toml') }}-${{ hashFiles('src/**.py') }}
           restore-keys: |
+            mypy-${{ runner.os }}-${{ env.MYPY_VERSION }}-
             mypy-${{ runner.os }}-
 
       - name: Install lint deps
