@@ -3,8 +3,16 @@ name: Maint 40 CI Signature Guard
 on:
   push:
     branches: [ phase-2-dev ]
+    paths:
+      - .github/workflows/pr-10-ci-python.yml
+      - .github/signature-fixtures/**
+      - .github/actions/signature-verify/**
   pull_request:
     branches: [ phase-2-dev ]
+    paths:
+      - .github/workflows/pr-10-ci-python.yml
+      - .github/signature-fixtures/**
+      - .github/actions/signature-verify/**
 
 jobs:
   verify-signature:
