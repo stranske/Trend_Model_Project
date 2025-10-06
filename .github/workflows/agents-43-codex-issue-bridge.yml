@@ -353,7 +353,17 @@ jobs:
           script: |
             const {owner, repo} = context.repo;
             const prNumber = Number("${{ steps.pr.outputs.number }}");
-            await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: `PR created. To engage Codex, the PR author must comment:\n\n\`@codex start\`` });
+            const message = [
+              'PR created. Before Codex can engage, the PR author must post a comment that:',
+              '',
+              '1. Provides a fully scoped Issue summary with complete acceptance criteria.',
+              '2. Includes a task checklist that ensures every acceptance criterion will be met.',
+              '',
+              'Finish that comment with the trigger below so Codex can begin:',
+              '',
+              '`@codex start`',
+            ].join('\n');
+            await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: message });
 
       - name: Link PR on original issue
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.local_action.outcome == 'failure' && steps.mode.outputs.mode != 'invite' }}
