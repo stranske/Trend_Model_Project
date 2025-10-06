@@ -64,20 +64,26 @@ while [[ $attempt -le $max_attempts ]]; do
 
   if [[ $curl_status -eq 0 ]]; then
     last_health_response="$curl_output"
-    if printf '%s\n' \
-      "import json, os, sys" \
-      "payload = os.environ.get(\"HEALTH_RESPONSE\", \"\").strip()" \
-      "if not payload:" \
-      "    sys.exit(1)" \
-      "if payload.lower() == \"ok\":" \
-      "    sys.exit(0)" \
-      "try:" \
-      "    data = json.loads(payload)" \
-      "except json.JSONDecodeError:" \
-      "    sys.exit(1)" \
-      "status = str(data.get(\"status\", \"\")).lower()" \
-      "sys.exit(0 if status == \"ok\" else 1)" \
-      | HEALTH_RESPONSE="$curl_output" python -; then
+    if HEALTH_RESPONSE="$curl_output" python - <<'PY'; then
+import json
+import os
+import sys
+
+payload = os.environ.get("HEALTH_RESPONSE", "").strip()
+if not payload:
+    sys.exit(1)
+
+if payload.lower() == "ok":
+    sys.exit(0)
+
+try:
+    data = json.loads(payload)
+except json.JSONDecodeError:
+    sys.exit(1)
+
+status = str(data.get("status", "")).lower()
+sys.exit(0 if status == "ok" else 1)
+PY
       echo "Smoke health check passed on attempt $attempt" >&2
       echo "Docker smoke: PASS" >&2
       health_ready=1
