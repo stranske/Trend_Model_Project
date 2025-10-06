@@ -16,15 +16,23 @@ MAGENTA='\033[0;35m'
 NC='\033[0m'
 
 # Load shared formatter/tool version pins so local checks mirror CI
-if [[ -f ".github/workflows/autofix-versions.env" ]]; then
-    # shellcheck disable=SC1091
-    source .github/workflows/autofix-versions.env
+PIN_FILE=".github/workflows/autofix-versions.env"
+if [[ ! -f "${PIN_FILE}" ]]; then
+    echo -e "${RED}✗ Missing ${PIN_FILE}; run from repository root and ensure the pin file exists.${NC}" >&2
+    exit 1
 fi
-BLACK_VERSION=${BLACK_VERSION:-24.8.0}
-RUFF_VERSION=${RUFF_VERSION:-0.6.3}
-ISORT_VERSION=${ISORT_VERSION:-5.12.0}
-DOCFORMATTER_VERSION=${DOCFORMATTER_VERSION:-1.7.4}
-MYPY_VERSION=${MYPY_VERSION:-1.8.0}
+
+# shellcheck disable=SC1091
+set -a
+source "${PIN_FILE}"
+set +a
+
+for required_var in BLACK_VERSION RUFF_VERSION ISORT_VERSION DOCFORMATTER_VERSION MYPY_VERSION; do
+    if [[ -z "${!required_var:-}" ]]; then
+        echo -e "${RED}✗ ${PIN_FILE} is missing a value for ${required_var}.${NC}" >&2
+        exit 1
+    fi
+done
 
 ensure_package_version() {
     local package_name="$1"

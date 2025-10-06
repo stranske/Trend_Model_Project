@@ -36,7 +36,7 @@ Only these workflows appear in the Actions UI; everything else is a reusable com
 ## Formatter & Type Checker Pins
 - `.github/workflows/autofix-versions.env` is the single source of truth for formatter/type tooling versions (Ruff, Black, isort, docformatter, mypy).
 - `pr-10-ci-python.yml`, `reusable-90-ci-python.yml`, and the autofix composite action all load and validate this env file before installing tools; they will fail fast if the file is missing or incomplete.
-- Local mirrors (`scripts/style_gate_local.sh`, `scripts/dev_check.sh`, `scripts/validate_fast.sh`) `source` the same env file so contributors run the identical versions before pushing.
+- Local mirrors (`scripts/style_gate_local.sh`, `scripts/dev_check.sh`, `scripts/validate_fast.sh`) `source` the same env file so contributors run the identical versions before pushing. These scripts now fail fast if the env file is missing or incomplete to keep the pins authoritative.
 - When bumping any formatter, update the env file first, rerun `./scripts/style_gate_local.sh`, and let CI confirm the new version. This keeps CI, autofix, and local developer flows in lock-step.
 
 ## Trigger Dependencies
