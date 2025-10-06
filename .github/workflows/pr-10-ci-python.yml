@@ -1,8 +1,5 @@
 name: PR 10 CI Python
 
-# Unified Python CI workflow that enforces formatting, linting, typing, tests,
-# and coverage within a single job to simplify gating for pull requests.
-
 on:
   workflow_call:
   pull_request:
@@ -23,14 +20,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ci-python:
-    name: main / python (style, types, tests, coverage)
+  python:
+    name: ci / python
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     env:
-      PYTHON_VERSION: ${{ fromJson(vars.CI_PY_VERSIONS || '["3.11"]')[0] }}
-      COVERAGE_MIN: ${{ vars.COV_MIN || '70' }}
+      COVERAGE_MINIMUM: ${{ vars.COV_MIN || env.COVERAGE_MINIMUM || '70' }}
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           # Fetch only the minimal history needed to compute PR diffs.
@@ -40,161 +38,146 @@ jobs:
 
       - name: Load pinned tool versions
         run: |
-          if [ -f .github/workflows/autofix-versions.env ]; then
-            while IFS= read -r line; do
-              if [ -n "$line" ]; then
-                echo "$line" >> "$GITHUB_ENV"
-              fi
-            done < .github/workflows/autofix-versions.env
+          if [ -f .github/workflows/ci-python-versions.env ]; then
+            cat .github/workflows/ci-python-versions.env >> "$GITHUB_ENV"
           fi
 
-      - name: Setup Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ env.CI_PYTHON_VERSION || '3.11' }}
 
-      - name: Prepare virtualenv and install dependencies
+      - name: Create virtual environment
         run: |
           python -m venv .venv
           echo "${{ github.workspace }}/.venv/bin" >> "$GITHUB_PATH"
           echo "VIRTUAL_ENV=${{ github.workspace }}/.venv" >> "$GITHUB_ENV"
-          source .venv/bin/activate
+
+      - name: Install dependencies
+        run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install -e '.[dev]'
-          pip install pytest pytest-cov jq
-          pip install "black==${BLACK_VERSION}" "ruff==${RUFF_VERSION}" "mypy==${MYPY_VERSION}"
-          pip install pydantic streamlit
+          pip install -e '.[dev]' || pip install -e .
+          pip install \
+            "black==${BLACK_VERSION}" \
+            "ruff==${RUFF_VERSION}" \
+            "mypy==${MYPY_VERSION}" \
+            "pytest==${PYTEST_VERSION}" \
+            "pytest-cov==${PYTEST_COV_VERSION}" \
+            "coverage==${COVERAGE_VERSION}" \
+            jq
 
-      - name: Black (check)
+      - name: Black (format check)
         run: |
           if git ls-files '*.py' >/dev/null 2>&1; then
             black --check .
           else
-            echo "No Python files detected for Black check."
+            echo 'No Python files to format check'
           fi
 
-      - name: Ruff (check with allowlist)
-        id: ruff
+      - name: Ruff (lint)
         run: |
-          set -e
-          if ! ruff check --output-format json . > ruff_diagnostics.json 2> ruff_stderr.log; then
-            echo "Ruff reported issues (expected if violations exist)"
-          fi
-          if [ -f scripts/classify_ruff.py ]; then
-            python scripts/classify_ruff.py ruff_diagnostics.json .ruff-residual-allowlist.json ruff_classification.json || echo '{"error":"classification_failed"}' > ruff_classification.json
-          else
-            echo '{"total":0,"allowed":0,"new":0,"by_code":{},"new_by_code":{}}' > ruff_classification.json
-          fi
-          new=$(jq -r '.new // 0' ruff_classification.json 2>/dev/null || echo 0)
-          echo "new=$new" >> "$GITHUB_OUTPUT"
-          total=$(jq -r '.total // 0' ruff_classification.json 2>/dev/null || echo 0)
-          echo "total=$total" >> "$GITHUB_OUTPUT"
-          if [ "$new" != "0" ]; then
-            echo "Found $new new ruff issues (failing CI job)." >&2
-            exit 1
-          fi
+          ruff check --output-format text .
 
-      - name: Mypy (type check core + app)
+      - name: Mypy (type check)
         run: |
-          echo "Running pinned mypy==${MYPY_VERSION}" >&2
-          status=0
-          resolved_mypy_version=$(mypy --version | awk '{print $2}')
-          if [ -z "$resolved_mypy_version" ]; then
-            resolved_mypy_version="${MYPY_VERSION}"
-          fi
-          if [ "$(printf '%s\n' "1.11.0" "$resolved_mypy_version" | sort -V | head -n1)" = "1.11.0" ]; then
-            mypy --config-file pyproject.toml --show-column-numbers --error-format json \
-              src/trend_analysis src/trend_portfolio_app > mypy_diagnostics.json 2> mypy_stderr.log || status=$?
-            if [ "$status" -ne 0 ] && grep -q "unrecognized arguments: --error-format" mypy_stderr.log 2>/dev/null; then
-              echo "Detected mypy $resolved_mypy_version without JSON diagnostics support; falling back to text output" >&2
-              status=0
-              mypy --config-file pyproject.toml --show-column-numbers --show-error-codes --no-color-output \
-                src/trend_analysis src/trend_portfolio_app > mypy_plain.log 2>&1 || status=$?
-              if [ "$status" -eq 0 ]; then
-                echo "Success: no mypy issues detected." > mypy_report.txt
-              else
-                cat mypy_plain.log > mypy_report.txt
-              fi
-            else
-              python scripts/render_mypy_summary.py mypy_diagnostics.json mypy_report.txt
-            fi
-          else
-            echo "Detected mypy $resolved_mypy_version without JSON diagnostics support; using text fallback" >&2
-            mypy --config-file pyproject.toml --show-column-numbers --show-error-codes --no-color-output \
-              src/trend_analysis src/trend_portfolio_app > mypy_plain.log 2>&1 || status=$?
-            if [ "$status" -eq 0 ]; then
-              echo "Success: no mypy issues detected." > mypy_report.txt
-            else
-              cat mypy_plain.log > mypy_report.txt
-            fi
-          fi
-          if [ "$status" -ne 0 ]; then
-            echo "mypy failed" >&2
-            cat mypy_report.txt
-            exit "$status"
-          fi
-          echo "mypy: PASS" >> "$GITHUB_STEP_SUMMARY"
+          mypy --config-file pyproject.toml src/trend_analysis src/trend_portfolio_app
 
-      - name: Run unit tests with coverage
+      - name: Pytest (unit tests with coverage)
         env:
-          PYTHONPATH: ./src
+          PYTEST_ADDOPTS: "-ra"
         run: |
           pytest --junitxml=pytest-junit.xml \
-            --cov=src --cov-branch \
-            --cov-report=xml:coverage.xml \
-            --cov-report=json:coverage.json \
-            --cov-report=html:htmlcov \
-            --cov-report=term-missing
+            --cov=src --cov-report=xml:coverage.xml \
+            --cov-report=term-missing --cov-report=json:coverage.json
 
-      - name: Prepare coverage artifacts
+      - name: Capture artifacts
+        if: always()
         run: |
-          cp -f pytest-junit.xml pytest-report.xml || true
+          mkdir -p artifacts
+          cp -f pytest-junit.xml artifacts/pytest-junit.xml || true
+          cp -f coverage.xml artifacts/coverage.xml || true
+          cp -f coverage.json artifacts/coverage.json || true
 
-      - name: Upload coverage artifacts
+      - name: Upload diagnostics
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-${{ env.PYTHON_VERSION }}
-          retention-days: 10
-          path: |
-            coverage.xml
-            coverage.json
-            htmlcov/**
-            pytest-junit.xml
-            pytest-report.xml
+          name: ci-python-diagnostics
+          path: artifacts
+          retention-days: 14
+
+      - name: Publish coverage summary
+        if: always()
+        env:
+          SUMMARY_PATH: ${{ github.step_summary }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          summary = Path(os.environ.get('SUMMARY_PATH', ''))
+          coverage_xml = Path('coverage.xml')
+          coverage_json = Path('coverage.json')
+          line_pct = None
+          if coverage_xml.exists():
+              try:
+                  root = ET.parse(coverage_xml).getroot()
+                  rate = root.get('line-rate')
+                  if rate is not None:
+                      line_pct = float(rate) * 100.0
+              except ET.ParseError:
+                  pass
+          if line_pct is None and coverage_json.exists():
+              try:
+                  payload = json.loads(coverage_json.read_text(encoding='utf-8'))
+                  totals = payload.get('totals') or {}
+                  covered = float(totals.get('covered_lines', 0))
+                  total = float(totals.get('num_statements', 0))
+                  if total:
+                      line_pct = covered / total * 100.0
+              except Exception:
+                  pass
+          lines = ["### Coverage Overview"]
+          if line_pct is not None:
+              lines.append(f"- Coverage: {line_pct:.2f}%")
+          else:
+              lines.append("- Coverage data unavailable")
+          minimum = os.environ.get('COVERAGE_MINIMUM')
+          if minimum:
+              lines.append(f"- Required minimum: {minimum}%")
+          if summary:
+              with summary.open('a', encoding='utf-8') as handle:
+                  handle.write("\n".join(lines) + "\n")
+          else:
+              print("\n".join(lines))
+          PY
 
       - name: Enforce coverage minimum
         run: |
-          RAW=$(grep -Eo 'line-rate="[0-9.]+"' coverage.xml | head -1 | sed -E 's/.*"([0-9.]+)"/\1/')
-          PCT=$(python -c "print(float('$RAW')*100.0)")
-          echo "Coverage: ${PCT}% (min ${COVERAGE_MIN}%)"
-          python -c "import sys; cur=float('$PCT'); m=float('${COVERAGE_MIN}'); sys.exit(0 if cur>=m else 1)" || { echo 'Coverage below minimum' >&2; exit 1; }
+          python - <<'PY'
+          import os
+          import sys
+          import xml.etree.ElementTree as ET
 
-      - name: Publish coverage summary
-        run: |
-          RAW=$(grep -Eo 'line-rate="[0-9.]+"' coverage.xml | head -1 | sed -E 's/.*"([0-9.]+)"/\1/')
-          PCT=$(python -c "print(round(float('$RAW')*100.0, 2))")
-          {
-            echo "## Test Coverage"
-            echo ""
-            echo "- Python: ${PYTHON_VERSION}"
-            echo "- Line coverage: ${PCT}%"
-            echo "- Minimum required: ${COVERAGE_MIN}%"
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Summarize lint results
-        if: always()
-        run: |
-          {
-            echo "### CI Style Summary"
-            echo "Black: PASS"
-            echo "Ruff total issues: ${{ steps.ruff.outputs.total }}"
-            echo "Ruff new issues: ${{ steps.ruff.outputs.new }}"
-            if [ -f mypy_report.txt ]; then
-              if grep -q "error:" mypy_report.txt; then
-                echo "mypy: FAIL"
-              else
-                echo "mypy: PASS"
-              fi
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
+          minimum = float(os.environ.get('COVERAGE_MINIMUM', '0'))
+          try:
+              root = ET.parse('coverage.xml').getroot()
+          except FileNotFoundError:
+              print('coverage.xml not found; cannot enforce coverage minimum', file=sys.stderr)
+              sys.exit(1)
+          except ET.ParseError as exc:
+              print(f'Failed to parse coverage.xml: {exc}', file=sys.stderr)
+              sys.exit(1)
+          rate = root.get('line-rate')
+          if rate is None:
+              print('Missing line-rate attribute in coverage.xml', file=sys.stderr)
+              sys.exit(1)
+          current = float(rate) * 100.0
+          if current + 1e-9 < minimum:
+              print(f'Coverage {current:.2f}% is below required minimum {minimum:.2f}%', file=sys.stderr)
+              sys.exit(1)
+          print(f'Coverage {current:.2f}% meets minimum {minimum:.2f}%')
+          PY

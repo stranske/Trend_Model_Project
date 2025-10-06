@@ -33,13 +33,7 @@ class RunRecord:
 
 
 DEFAULT_REQUIRED_JOB_GROUPS = [
-    {"label": "CI tests", "patterns": [r"^main / tests(?: /|$)"]},
-    {
-        "label": "CI workflow-automation",
-        "patterns": [r"^workflow / automation-tests(?: /|$)"],
-    },
-    {"label": "CI style", "patterns": [r"^main / style(?: /|$)"]},
-    {"label": "CI gate", "patterns": [r"^gate / all-required-green$"]},
+    {"label": "CI python", "patterns": [r"^ci / python(?: /|$)"]},
 ]
 
 

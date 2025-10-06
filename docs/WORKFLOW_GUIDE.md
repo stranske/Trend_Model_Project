@@ -24,7 +24,7 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 ## Final Workflow Set
 
 ### PR Checks
-- **`pr-10-ci-python.yml`** — Unified CI wrapper that calls `reusable-90-ci-python.yml`. Jobs include tests, coverage, style/type gates, and the `gate / all-required-green` fan-in.
+- **`pr-10-ci-python.yml`** — Single `ci / python` job that runs Black, Ruff, mypy, pytest with coverage, uploads diagnostics, and enforces a coverage minimum while writing a job summary.
 - **`pr-12-docker-smoke.yml`** — Docker build and smoke test pipeline. Keeps deterministic caching and publishes summary logs.
 
 ### Maintenance & Governance
@@ -40,7 +40,7 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 - **`agents-70-orchestrator.yml`** — Hourly + manual dispatch entry point for readiness, Codex bootstrap, issue verification, and watchdog sweeps. Delegates to `reusable-70-agents.yml` and accepts extended options via `options_json`.
 
 ### Reusable Composites
-- **`reusable-90-ci-python.yml`** — Reusable CI implementation consumed by `pr-10-ci-python.yml` and self-test scenarios.
+- **`reusable-90-ci-python.yml`** — Legacy reusable CI matrix retained for self-test coverage while downstream consumers migrate to the single-job workflow.
 - **`reusable-94-legacy-ci-python.yml`** — Compatibility shim retained for downstream repositories yet to migrate.
 - **`reusable-92-autofix.yml`** — Autofix harness used by `maint-32-autofix.yml`.
 - **`reusable-70-agents.yml`** — Reusable agent automation stack.
