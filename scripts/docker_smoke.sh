@@ -41,6 +41,8 @@ CONTAINER_ID=$(docker run -d \
 echo "Container id: $CONTAINER_ID" >&2
 
 # Probe health endpoint with retries mirroring the CI workflow behaviour.
+HEALTH_PARSER_SCRIPT=$'import json\nimport os\nimport sys\n\npayload = os.environ.get("HEALTH_RESPONSE", "").strip()\nif not payload:\n    sys.exit(1)\n\nif payload.lower() == "ok":\n    sys.exit(0)\n\ntry:\n    data = json.loads(payload)\nexcept json.JSONDecodeError:\n    sys.exit(1)\n\nstatus = str(data.get("status", "")).lower()\nsys.exit(0 if status == "ok" else 1)'
+
 max_attempts=5
 attempt=1
 last_curl_status=0
@@ -64,26 +66,7 @@ while [[ $attempt -le $max_attempts ]]; do
 
   if [[ $curl_status -eq 0 ]]; then
     last_health_response="$curl_output"
-    if HEALTH_RESPONSE="$curl_output" python - <<'PY'
-import json
-import os
-import sys
-
-payload = os.environ.get("HEALTH_RESPONSE", "").strip()
-if not payload:
-    sys.exit(1)
-
-if payload.lower() == "ok":
-    sys.exit(0)
-
-try:
-    data = json.loads(payload)
-except json.JSONDecodeError:
-    sys.exit(1)
-
-status = str(data.get("status", "")).lower()
-sys.exit(0 if status == "ok" else 1)
-PY
+    if HEALTH_RESPONSE="$curl_output" python -c "$HEALTH_PARSER_SCRIPT"
     then
       echo "Smoke health check passed on attempt $attempt" >&2
       echo "Docker smoke: PASS" >&2
