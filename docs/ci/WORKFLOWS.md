@@ -55,22 +55,29 @@ The helper installs the pinned versions from `.github/workflows/autofix-versions
 - `Agents 70 Orchestrator` dispatches to `Reusable 70 Agents` and parses extended options via `options_json` to stay under GitHub's 10 input limit.
 - `Agents 43 Codex Issue Bridge` acts on `agent:codex` issue labels or manual dispatch to prepare Codex-ready branches and PRs.
 
-### `options_json` schema for agents workflows
+## CI Signature Guard Fixtures
+`maint-40-ci-signature-guard.yml` enforces a manifest "signature" for the PR Python workflow by comparing two fixture files stored in `.github/signature-fixtures/`:
 
-The orchestrator and reusable composite accept a JSON object with optional keys:
+- `basic_jobs.json` – canonical list of jobs (name, concurrency label, and selected metadata) that must exist in `pr-10-ci-python.yml`.
+- `basic_hash.txt` – precomputed hash of the JSON payload used by the composite action `.github/actions/signature-verify` to detect unauthorized job changes.
 
-| Key | Type | Description |
-|-----|------|-------------|
-| `diagnostic_mode` | string (`"off"`, `"dry-run"`, `"full"`) | Enables deeper Codex diagnostics (`full` attempts a real bootstrap dry run). |
-| `readiness_custom_logins` | string | Comma-separated GitHub usernames for readiness probes beyond the defaults. |
-| `codex_command_phrase` | string | Custom trigger phrase for Codex keepalive comments. |
-| `enable_keepalive` | boolean (string form) | Toggles Codex keepalive nudges (`"true"`/`"false"`). |
-| `keepalive_idle_minutes` | number | Minutes of inactivity before a keepalive ping is posted. |
-| `keepalive_repeat_minutes` | number | Cooldown between keepalive pings. |
-| `keepalive_labels` | string | Comma-separated labels to filter candidate PRs. |
-| `keepalive_command` | string | Override for the command body sent during keepalive. |
+When adding, removing, or renaming CI jobs intentionally, regenerate `basic_jobs.json` with the approved structure, compute the new hash (the composite action prints it when the comparison fails), and update both files in the same commit. The workflow should be rerun to confirm the new fixtures are accepted.
 
-When invoking `agents-70-orchestrator.yml`, pass the JSON via the `options_json` input; the workflow converts it with `fromJson()` and falls back to safe defaults when a key is omitted.
+Use `tools/test_failure_signature.py` to derive the hash locally while refreshing the fixtures:
+
+```bash
+# After updating basic_jobs.json with the new job manifest
+python tools/test_failure_signature.py \
+  --jobs "$(cat .github/signature-fixtures/basic_jobs.json)" \
+  > .github/signature-fixtures/basic_hash.txt
+
+# Sanity-check that both files agree before committing
+python tools/test_failure_signature.py \
+  --jobs "$(cat .github/signature-fixtures/basic_jobs.json)" \
+  --expected "$(cat .github/signature-fixtures/basic_hash.txt)"
+```
+
+To avoid noisy runs, the guard only triggers on pushes to `phase-2-dev` and on pull requests targeting that branch. It is further limited to changes that touch the signed workflow, fixture directory, or the composite verifier itself so unrelated commits on the branch do not run the guard. Every run publishes a step summary with a direct link back to this section for quick reference while updating the fixtures. The link resolves against the active branch or PR base automatically so maintainers always land on the correct documentation revision.
 
 ## Formatter & Type Checker Pinning
 - The canonical formatter/type versions live in `.github/workflows/autofix-versions.env`. The file is sourced by CI workflows (`pr-10-ci-python.yml`, `reusable-90-ci-python.yml`, `maint-32-autofix.yml`) and the local mirror `scripts/style_gate_local.sh`.

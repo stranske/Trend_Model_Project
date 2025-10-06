@@ -2,9 +2,17 @@ name: Maint 40 CI Signature Guard
 
 on:
   push:
-    branches: [ phase-2-dev, feat/*, chore/* ]
+    branches: [ phase-2-dev ]
+    paths:
+      - .github/workflows/pr-10-ci-python.yml
+      - .github/signature-fixtures/**
+      - .github/actions/signature-verify/**
   pull_request:
     branches: [ phase-2-dev ]
+    paths:
+      - .github/workflows/pr-10-ci-python.yml
+      - .github/signature-fixtures/**
+      - .github/actions/signature-verify/**
 
 jobs:
   verify-signature:
@@ -25,3 +33,18 @@ jobs:
         with:
           jobs-json: ${{ steps.read_signature.outputs.jobs_json }}
           expected-hash: ${{ steps.read_signature.outputs.expected_hash }}
+      - name: Reference documentation
+        if: always()
+        run: |
+          ref_name="${GITHUB_REF_NAME}"
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ] && [ -n "${GITHUB_BASE_REF}" ]; then
+            ref_name="${GITHUB_BASE_REF}"
+          fi
+          ref_name="${ref_name:-phase-2-dev}"
+
+          cat <<EOF >> "$GITHUB_STEP_SUMMARY"
+          ## Maint 40 CI Signature Guard
+
+          Review the [CI signature guard docs](https://github.com/${GITHUB_REPOSITORY}/blob/${ref_name}/docs/ci/WORKFLOWS.md#ci-signature-guard-fixtures)
+          for guidance on updating the fixtures when CI job definitions change.
+          EOF
