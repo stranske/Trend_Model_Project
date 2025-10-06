@@ -215,8 +215,6 @@ jobs:
               '- Scope / key constraints',
               '- Acceptance criteria / definition of done',
               '- Initial task checklist to iterate through',
-              '',
-              'Use the issue context below to draft the plan, then continue with implementation.',
               '```',
               '',
               'Issue context (optional: copy into the PR body if needed):',
