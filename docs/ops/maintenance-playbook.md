@@ -19,11 +19,11 @@ maintenance workflows that remain after Issue 2190. The roster now consists of
 
 ## maint-30-post-ci-summary.yml
 
-1. **Check the comment thread** — the workflow edits/creates a single summary
-   comment per head SHA. Read the consolidated status to understand which jobs
-   failed.
+1. **Check the job summary** — the workflow writes a single consolidated block
+   to the GitHub Actions step summary for the run. Read the rendered Markdown to
+   understand which jobs failed or are still pending.
 2. **Re-run after fixes** — once the underlying CI run passes, manually re-run
-   the workflow (or re-run the source CI) to refresh the summary comment.
+   the workflow (or re-run the source CI) to refresh the step summary output.
 3. **Keep paths aligned** — if this workflow starts failing to locate artifacts
    ensure `pr-10-ci-python.yml` and `pr-12-docker-smoke.yml` still expose the
    expected outputs.

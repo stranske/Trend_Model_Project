@@ -1,12 +1,12 @@
 ## Automated Post-CI Status Summary
 
-The repository maintains a single, continuously updated pull-request comment
-that surfaces CI and Docker results once both workflows finish. The
+The repository maintains a continuously updated **step summary** that surfaces
+CI and Docker results once both workflows finish. The
 `maint-30-post-ci-summary.yml` follower reacts to `workflow_run` events for the
 `CI` and `Docker` workflows, downloads shared artifacts, and renders a unified
 Markdown block headed by `### Automated Status Summary`.
 
-### Comment Contents
+### Summary Contents
 
 Each refresh includes:
 
@@ -23,9 +23,9 @@ Each refresh includes:
   Markdown snippet published as the `coverage-summary` artifact.
 
 The helper stores the rendered Markdown as
-`summary_artifacts/comment_preview.md` so maintainers can inspect the message
-directly from the Actions UI. Re-runs overwrite the same preview file and update
-the existing PR comment in place.
+`summary_artifacts/summary_preview.md` so maintainers can inspect the message
+directly from the Actions UI. Re-runs overwrite the same preview file and append
+an updated block to the job summary output of the workflow run.
 
 ### Data sources
 
@@ -43,11 +43,10 @@ The workflow collects status data from three places:
 
 ### Idempotency & Anti-Spam
 
-* The workflow uses a concurrency group keyed by the head SHA to cancel stale
-  runs.
-* Comment discovery prefers the hidden `<!-- post-ci-summary:do-not-edit -->`
-  marker (with the heading as a fallback), so reruns patch the original comment
-  instead of posting duplicates.
+* The workflow uses a concurrency group keyed by the PR number (falling back to
+  the head SHA when the PR metadata is unavailable) to cancel stale runs.
+* Only the GitHub Actions job summary is updated; there are no PR comments,
+  status checks, or other side-channel notifications.
 * If neither CI nor Docker has produced artifacts yet, the helper still posts a
   pending table so reviewers can see progress.
 
@@ -67,4 +66,5 @@ The workflow collects status data from three places:
 
 Delete or rename `.github/workflows/maint-30-post-ci-summary.yml` to disable the
 follower. The consolidated helper is only invoked from that workflow, so no
-other automation will recreate the comment once the file is removed.
+other automation will append the CI/Docker status summary once the file is
+removed.
