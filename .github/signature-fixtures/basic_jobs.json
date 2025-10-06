@@ -1,43 +1,13 @@
 [
   {
-    "name": "gate / all-required-green",
-    "step": "Confirm orchestrator completion",
-    "stack": "StackToken:gate"
-  },
-  {
-    "name": "lint / black-fast",
-    "step": "Black (check, fast gate)",
-    "stack": "StackToken:lint-black-fast"
+    "name": "ci / python",
+    "step": "Enforce coverage minimum",
+    "stack": "StackToken:ci-python"
   },
   {
     "name": "Lint Dockerfile",
     "step": "Run hadolint",
     "stack": "StackToken:docker-lint"
-  },
-  {
-    "name": "main / style",
-    "step": "Mypy (type check core + app)",
-    "stack": "StackToken:main-style"
-  },
-  {
-    "name": "main / tests / coverage_soft_gate",
-    "step": "Classify test outcomes",
-    "stack": "StackToken:coverage-soft-gate"
-  },
-  {
-    "name": "main / tests / logs_summary",
-    "step": "Enumerate jobs",
-    "stack": "StackToken:logs-summary"
-  },
-  {
-    "name": "main / tests / mypy",
-    "step": "Run mypy",
-    "stack": "StackToken:tests-mypy"
-  },
-  {
-    "name": "main / tests / tests (3.11)",
-    "step": "Run tests with coverage",
-    "stack": "StackToken:tests-311"
   },
   {
     "name": "orchestrator / actionlint",
