@@ -2,138 +2,166 @@ name: Maint 02 Repo Health
 
 on:
   schedule:
-    # 04:17 UTC every day provides a stable, low-traffic window.
-    - cron: '17 4 * * *'
-    # Monday 06:45 UTC generates a longer-form weekly snapshot for Ops.
-    - cron: '45 6 * * 1'
+    # 07:15 UTC each Monday keeps results inside a quiet window.
+    - cron: '15 7 * * 1'
   workflow_dispatch:
-  pull_request:
-    paths:
-      - '.github/workflows/maint-02-repo-health.yml'
-      - 'tools/repo_health_probe.py'
-  push:
-    branches: [phase-2-dev]
-    paths:
-      - '.github/workflows/maint-02-repo-health.yml'
-      - 'tools/repo_health_probe.py'
 
 permissions:
   contents: read
-  actions: read
-  issues: write
+  issues: read
 
 jobs:
-  health:
-    name: Nightly repository health checks
+  weekly-sweep:
+    name: Weekly repository health sweep
     runs-on: ubuntu-latest
     env:
-      OPS_ISSUE_NUMBER: ${{ vars.OPS_HEALTH_ISSUE || secrets.OPS_HEALTH_ISSUE || '' }}
+      STALE_BRANCH_DAYS: ${{ vars.REPO_HEALTH_STALE_BRANCH_DAYS || '30' }}
+      MAX_TABLE_ROWS: '20'
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Run actionlint
-        id: actionlint
-        continue-on-error: true
-        uses: reviewdog/action-actionlint@v1
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          reporter: github-check
-          fail_on_error: true
-
-      - name: Probe repository configuration
-        id: probe
-        continue-on-error: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          python -m tools.repo_health_probe repo-health-report.json
-
-      - name: Evaluate results
-        id: evaluate
-        env:
-          ACTIONLINT_STATUS: ${{ steps.actionlint.outcome }}
-          OPS_ISSUE_NUMBER: ${{ env.OPS_ISSUE_NUMBER }}
-        run: |
-          python - <<'PY'
-          import json
-          import os
-          import pathlib
-          from tools.repo_health_probe import build_summary
-
-          report_path = pathlib.Path("repo-health-report.json")
-          if report_path.exists():
-            report = json.loads(report_path.read_text(encoding="utf-8"))
-          else:
-            report = {"failures": [], "errors": ["Report file repo-health-report.json is missing."]}
-
-          actionlint_ok = os.environ.get("ACTIONLINT_STATUS") == "success"
-          issue_id_present = bool(os.environ.get("OPS_ISSUE_NUMBER"))
-
-          summary = build_summary(report, actionlint_ok=actionlint_ok, issue_id_present=issue_id_present)
-          summary_path = pathlib.Path("repo-health-summary.md")
-          summary_path.write_text(summary.summary_markdown + "\n", encoding="utf-8")
-
-          issues_payload = "\n".join(summary.issue_lines)
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
-            print(f"status={summary.status}", file=fh)
-            print("summary<<EOF", file=fh)
-            print(summary.summary_markdown, file=fh)
-            print("EOF", file=fh)
-            print("issues<<EOF", file=fh)
-            print(issues_payload, file=fh)
-            print("EOF", file=fh)
-          PY
-
-      - name: Publish run summary
-        run: |
-          cat repo-health-summary.md >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Update Ops issue on failure
-        if: steps.evaluate.outputs.status == 'failure' && env.OPS_ISSUE_NUMBER != ''
+      - name: Summarise repository health signals
         uses: actions/github-script@v7
-        env:
-          OPS_ISSUE_NUMBER: ${{ env.OPS_ISSUE_NUMBER }}
-          ISSUE_LINES: ${{ steps.evaluate.outputs.issues }}
         with:
           script: |
-            const issueNumber = parseInt(process.env.OPS_ISSUE_NUMBER, 10);
-            if (!issueNumber) {
-              core.warning('OPS_ISSUE_NUMBER is not a valid integer.');
-              return;
-            }
+            const core = require('@actions/core');
 
-            const marker = '<!-- repo-health-nightly -->';
-            const runLink = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const issueLines = process.env.ISSUE_LINES?.trim() || 'No additional details available.';
-            const body = `${marker}\n### Repo health nightly alert\n\n${issueLines}\n\n- Workflow run: ${runLink}`;
+            const staleBranchDays = parseInt(process.env.STALE_BRANCH_DAYS || '30', 10);
+            const maxRows = parseInt(process.env.MAX_TABLE_ROWS || '20', 10);
+            const now = new Date();
+            const staleCutoff = new Date(now.getTime() - staleBranchDays * 24 * 60 * 60 * 1000);
 
-            const comments = await github.paginate(github.rest.issues.listComments, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issueNumber,
+            const repoInfo = await github.rest.repos.get(context.repo);
+            const defaultBranch = repoInfo.data.default_branch;
+
+            const branches = await github.paginate(github.rest.repos.listBranches, {
+              ...context.repo,
               per_page: 100,
             });
 
-            const existing = comments.find(comment => comment.body && comment.body.includes(marker));
-            if (existing) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: existing.id,
-                body,
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issueNumber,
-                body,
-              });
+            const staleBranches = [];
+            for (const branch of branches) {
+              if (!branch || branch.name === defaultBranch) {
+                continue;
+              }
+
+              try {
+                const commitSha = branch.commit?.sha;
+                if (!commitSha) {
+                  continue;
+                }
+
+                const commit = await github.rest.repos.getCommit({
+                  ...context.repo,
+                  ref: commitSha,
+                });
+
+                const commitDateRaw = commit.data.commit?.committer?.date || commit.data.commit?.author?.date;
+                if (!commitDateRaw) {
+                  continue;
+                }
+
+                const commitDate = new Date(commitDateRaw);
+                if (Number.isNaN(commitDate.getTime())) {
+                  continue;
+                }
+
+                if (commitDate <= staleCutoff) {
+                  const ageDays = Math.floor((now.getTime() - commitDate.getTime()) / (24 * 60 * 60 * 1000));
+                  staleBranches.push({
+                    name: branch.name,
+                    lastCommit: commitDate.toISOString().slice(0, 10),
+                    ageDays,
+                  });
+                }
+              } catch (error) {
+                core.warning(`Failed to inspect branch ${branch.name}: ${error.message}`);
+              }
             }
 
-      - name: Fail job on issues
-        if: steps.evaluate.outputs.status == 'failure' && github.event_name != 'pull_request'
-        run: |
-          echo "Repository health checks reported issues." >&2
-          exit 1
+            staleBranches.sort((a, b) => b.ageDays - a.ageDays);
+
+            const openItems = await github.paginate(github.rest.issues.listForRepo, {
+              ...context.repo,
+              per_page: 100,
+              state: 'open',
+              filter: 'all',
+            });
+
+            const unassignedIssues = openItems
+              .filter(item => !item.pull_request)
+              .filter(issue => !issue.assignees || issue.assignees.length === 0)
+              .map(issue => ({
+                number: issue.number,
+                title: issue.title || '(no title)',
+                url: issue.html_url,
+                updatedAt: issue.updated_at,
+              }))
+              .sort((a, b) => new Date(a.updatedAt) - new Date(b.updatedAt));
+
+            const summary = core.summary;
+            summary.addHeading('Repository health weekly sweep', 1);
+            summary.addRaw(`Generated on ${now.toUTCString()}`, true);
+            summary.addBreak();
+            summary.addTable([
+              [
+                { data: 'Signal', header: true },
+                { data: 'Count', header: true },
+              ],
+              [
+                `Stale branches (>${staleBranchDays}d)`,
+                `${staleBranches.length}`,
+              ],
+              [
+                'Open issues without assignees',
+                `${unassignedIssues.length}`,
+              ],
+            ]);
+
+            if (staleBranches.length > 0) {
+              summary.addHeading('Stale branches', 2);
+              const branchRows = staleBranches.slice(0, maxRows).map(branch => [
+                branch.name,
+                branch.lastCommit,
+                branch.ageDays.toString(),
+              ]);
+              summary.addTable([
+                [
+                  { data: 'Branch', header: true },
+                  { data: 'Last commit (UTC)', header: true },
+                  { data: 'Age (days)', header: true },
+                ],
+                ...branchRows,
+              ]);
+
+              if (staleBranches.length > maxRows) {
+                summary.addRaw(`…and ${staleBranches.length - maxRows} more branches.`, true);
+              }
+            } else {
+              summary.addHeading('Stale branches', 2);
+              summary.addRaw('No stale branches detected 🎉', true);
+            }
+
+            if (unassignedIssues.length > 0) {
+              summary.addHeading('Open issues without assignees', 2);
+              const issueRows = unassignedIssues.slice(0, maxRows).map(issue => [
+                `[#${issue.number}](${issue.url})`,
+                issue.title,
+              ]);
+              summary.addTable([
+                [
+                  { data: 'Issue', header: true },
+                  { data: 'Title', header: true },
+                ],
+                ...issueRows,
+              ]);
+
+              if (unassignedIssues.length > maxRows) {
+                summary.addRaw(`…and ${unassignedIssues.length - maxRows} more issues.`, true);
+              }
+            } else {
+              summary.addHeading('Open issues without assignees', 2);
+              summary.addRaw('All open issues have at least one assignee ✅', true);
+            }
+
+            await summary.write();
+
+            core.info('Repository health summary written to workflow run.');
