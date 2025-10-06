@@ -40,7 +40,8 @@ Only these workflows appear in the Actions UI; everything else is a reusable com
 - When bumping any formatter, update the env file first, rerun `./scripts/style_gate_local.sh`, and let CI confirm the new version. This keeps CI, autofix, and local developer flows in lock-step.
 
 ## Trigger Dependencies
-- `maint-30-post-ci-summary.yml`, `maint-32-autofix.yml`, and `maint-33-check-failure-tracker.yml` listen for `workflow_run` events from `PR 10 CI Python`, `PR 12 Docker Smoke`, and `Maint 90 Selftest`.
+- `maint-30-post-ci-summary.yml` listens for `workflow_run` events from `PR 10 CI Python` and `PR 12 Docker Smoke`, keeping the consolidated status comment in sync with the active PR head.
+- `maint-32-autofix.yml` and `maint-33-check-failure-tracker.yml` subscribe to the same CI workflows and also monitor the manual `Maint 90 Selftest` caller.
 - `Agents 70 Orchestrator` dispatches to `Reusable 70 Agents` and parses extended options via `options_json` to stay under GitHub's 10 input limit.
 - `Agents 43 Codex Issue Bridge` acts on `agent:codex` issue labels or manual dispatch to prepare Codex-ready branches and PRs.
 

@@ -48,6 +48,8 @@ The workflow collects status data from three places:
 * Comment discovery prefers the hidden `<!-- post-ci-summary:do-not-edit -->`
   marker (with the heading as a fallback), so reruns patch the original comment
   instead of posting duplicates.
+* Any stray duplicate comments containing the marker are removed automatically
+  during each refresh to keep the PR thread tidy.
 * If neither CI nor Docker has produced artifacts yet, the helper still posts a
   pending table so reviewers can see progress.
 
