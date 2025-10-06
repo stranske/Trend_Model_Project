@@ -42,8 +42,17 @@ jobs:
           if [[ ! -f "${pin_file}" ]]; then
             echo "Missing ${pin_file}; aborting." >&2
             exit 1
+          fi
+          echo "PIN_FILE=${pin_file}" >> "$GITHUB_ENV"
       - name: Load pinned tool versions
+        shell: bash
         run: |
+          set -euo pipefail
+          pin_file="${PIN_FILE:-.github/workflows/autofix-versions.env}"
+          if [[ ! -f "${pin_file}" ]]; then
+            echo "Missing ${pin_file}; aborting." >&2
+            exit 1
+          fi
           if [ -f .github/workflows/ci-python-versions.env ]; then
             cat .github/workflows/ci-python-versions.env >> "$GITHUB_ENV"
           fi
