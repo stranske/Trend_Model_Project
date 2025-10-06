@@ -118,7 +118,7 @@ jobs:
             let pr = null;
             let prNumber = null;
 
-            const payloadPr = Array.isArray(run.pull_requests)
+            const payloadPr = run && Array.isArray(run.pull_requests)
               ? run.pull_requests.find(item => item && typeof item.number === 'number')
               : null;
 
