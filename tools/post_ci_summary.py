@@ -6,11 +6,11 @@ so regressions can be caught without executing the workflow on GitHub.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Iterable, List, Mapping, MutableSequence, Sequence
 import json
 import os
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Iterable, List, Mapping, MutableSequence, Sequence
 
 
 @dataclass(frozen=True)
@@ -33,13 +33,7 @@ class RunRecord:
 
 
 DEFAULT_REQUIRED_JOB_GROUPS = [
-    {"label": "CI tests", "patterns": [r"^main / tests(?: /|$)"]},
-    {
-        "label": "CI workflow-automation",
-        "patterns": [r"^workflow / automation-tests(?: /|$)"],
-    },
-    {"label": "CI style", "patterns": [r"^main / style(?: /|$)"]},
-    {"label": "CI gate", "patterns": [r"^gate / all-required-green$"]},
+    {"label": "CI python", "patterns": [r"^ci / python(?: /|$)"]},
 ]
 
 

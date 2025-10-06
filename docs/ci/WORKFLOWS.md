@@ -10,7 +10,7 @@ This document tracks the acceptance criteria for Issue #2190. Use it as the auth
 ## Visible Workflows (Actions Tab)
 | Filename | `name:` | Purpose |
 |----------|---------|---------|
-| `.github/workflows/pr-10-ci-python.yml` | `PR 10 CI Python` | Primary CI wrapper (tests, style/type checks, gate aggregation). |
+| `.github/workflows/pr-10-ci-python.yml` | `PR 10 CI Python` | Unified job that runs Black, Ruff, mypy, pytest with coverage, uploads diagnostics, and enforces coverage minimums. |
 | `.github/workflows/pr-12-docker-smoke.yml` | `PR 12 Docker Smoke` | Deterministic Docker build + smoke tests. |
 | `.github/workflows/maint-02-repo-health.yml` | `Maint 02 Repo Health` | Nightly/weekly repository health probe. |
 | `.github/workflows/maint-30-post-ci-summary.yml` | `Maint 30 Post CI Summary` | Posts CI/Docker run summaries on `workflow_run`. |
@@ -27,7 +27,7 @@ Only these workflows appear in the Actions UI; everything else is a reusable com
 ## Reusable Composites
 | Filename | `name:` | Notes |
 |----------|---------|-------|
-| `.github/workflows/reusable-90-ci-python.yml` | `Reusable 90 CI Python` | Matrix CI executor used by the PR workflows and self-test matrix. |
+| `.github/workflows/reusable-90-ci-python.yml` | `Reusable 90 CI Python` | Legacy matrix executor retained for self-tests while consumers migrate to the single-job workflow. |
 | `.github/workflows/reusable-94-legacy-ci-python.yml` | `Reusable 94 Legacy CI Python` | Compatibility shim for downstream consumers. |
 | `.github/workflows/reusable-92-autofix.yml` | `Reusable 92 Autofix` | Autofix harness consumed by `maint-32-autofix.yml`. |
 | `.github/workflows/reusable-70-agents.yml` | `Reusable 70 Agents` | Readiness, Codex bootstrap, verification, watchdog jobs. |

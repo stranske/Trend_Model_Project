@@ -5,31 +5,24 @@ This guide enables a new maintainer to operate the CI + agent automation stack i
 ---
 ## 1. Architecture Snapshot
 Core layers:
-- Reusable CI (`reusable-90-ci-python.yml`): tests, coverage, aggregated gate.
+- CI python (`pr-10-ci-python.yml`): single job that installs the pinned toolchain, runs Black, Ruff, mypy, pytest with coverage, uploads diagnostics, and publishes a coverage summary.
 - Autofix lane (`maint-32-autofix.yml`): workflow_run follower that batches small hygiene fixes and trivial failure remediation using the composite autofix action.
-- CI style checks (`pr-10-ci-python.yml` job `style`): authoritative style + mypy verification (black --check, ruff new-issue fail, pinned mypy) running on PR & main branch pushes.
 - Agent routing & watchdog (`agents-41-assign.yml` + `agents-42-watchdog.yml`): label-driven assignment, Codex bootstrap, diagnostics.
 - Merge automation (`maint-45-merge-manager.yml`): unified auto-approval and auto-merge decisions for safe agent PRs.
 - Governance & Health: `maint-34-quarantine-ttl.yml`, `maint-35-repo-health-self-check.yml`, `maint-36-actionlint.yml`, labelers, dependency review, CodeQL.
 - Path Labeling: `pr-path-labeler.yml` auto-categorizes PRs.
 
-### 1.1 Current CI Topology (Issue #1351)
-The CI stack now runs in distinct lanes so each concern can evolve independently:
+### 1.1 Current CI Topology (Issue #2195)
+The CI stack now keeps the Python checks inside a single job while the supporting lanes remain independent:
 
 | Lane | Workflow(s) | Purpose | Required Status Today | Future Plan |
 |------|-------------|---------|-----------------------|-------------|
-| Core test/coverage | `reusable-90-ci-python.yml` (consumed by `pr-10-ci-python.yml`) | Matrix tests, coverage report | Wrapper job "CI" (legacy) + gate job | Make gate job the only required check once stable |
-| Gate aggregation | `reusable-90-ci-python.yml` job: `gate / all-required-green` | Ensures upstream jobs passed (single source of truth) | Secondary | Will replace wrapper after burn‑in |
-| Coverage soft gate | `coverage_soft_gate` job (opt‑in) | Posts coverage & hotspots (non-blocking) | Advisory | Remains advisory |
-| Universal logs | `logs_summary` job | Per‑job log table in summary | Not required | Always-on helper |
+| Core python | `pr-10-ci-python.yml` job `ci / python` | Black, Ruff, mypy, pytest, coverage summary & threshold | Required (`CI python`) | Remains the authoritative CI gate |
 | Autofix lane | `maint-32-autofix.yml` | Workflow_run follower that commits small hygiene fixes (success runs) and retries trivial CI failures | Not required | Remains optional |
-| Style verification | `pr-10-ci-python.yml` job `style` | Enforce black formatting, Ruff cleanliness, and pinned mypy | Candidate required | Become required once stable |
 | Agent assignment | `agents-41-assign.yml` | Maps labels → assignees, creates Codex bootstrap PRs | Not required | Harden diagnostics |
 | Agent watchdog | `agents-42-watchdog.yml` | Confirms Codex PR cross-reference or posts timeout | Not required | Tune timeout post burn-in |
 
-Temporary state: `pr-10-ci-python.yml` (formerly `ci.yml`) exists solely to preserve the historic required check name ("CI") while maintainers transition branch protection to the gate job. Once maintainers flip protection, delete `pr-10-ci-python.yml` and mark the gate job required.
-
-> ℹ️ **Gate wrapper retired (Issue #1657).** The invalid standalone `gate.yml` workflow was deleted; the `gate / all-required-green` job within `pr-10-ci-python.yml` is now the sole aggregation point. Do not recreate the wrapper—tests assert the file remains absent.
+The historical multi-job topology (style/type gate + matrix tests feeding a `gate / all-required-green` aggregator) has been replaced by the single `ci / python` job. Documentation and automation that referenced the old job names were updated in this PR to prevent drift.
 
 ### 1.2 Naming policy & archive status (Issue #1669)
 - Active workflows **must** use one of the WFv1 prefixes: `pr-*`, `maint-*`, `agents-*`, or `reusable-*`. Guard tests (`tests/test_workflow_naming.py`) enforce this policy.
@@ -72,9 +65,8 @@ All others use default `GITHUB_TOKEN`.
 ## 4. Trigger Matrix
 | Workflow | Trigger(s) | Notes |
 |----------|-----------|-------|
-| `reusable-90-ci-python.yml` | PR, push | Coverage & matrix |
+| `pr-10-ci-python.yml` | PR, push, workflow_call | Unified Python checks (Black, Ruff, mypy, pytest, coverage summary) |
 | `maint-32-autofix.yml` | workflow_run (`CI`) | Hygiene autofix + trivial failure remediation |
-| `pr-10-ci-python.yml` job `style` | PR, push (main branches) | Style + mypy enforcement |
 | `agents-41-assign.yml` | issue/PR labels, dispatch | Agent assignment + Codex bootstrap |
 | `agents-42-watchdog.yml` | workflow dispatch | Codex PR presence diagnostic |
 | `maint-45-merge-manager.yml` | PR target, workflow_run | Auto-approve + enable auto-merge when gates are satisfied |
@@ -98,10 +90,7 @@ on:
     branches: [ main ]
 jobs:
   call:
-    uses: stranske/Trend_Model_Project/.github/workflows/reusable-90-ci-python.yml@phase-2-dev
-    with:
-      python_matrix: '"3.11"'
-      cov_min: 70
+    uses: stranske/Trend_Model_Project/.github/workflows/pr-10-ci-python.yml@phase-2-dev
 ```
 Autofix commits use the configurable prefix (default `chore(autofix):`). Set the repository variable
 `AUTOFIX_COMMIT_PREFIX` to change the prefix once and every workflow picks up the new value. The

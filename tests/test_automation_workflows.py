@@ -122,109 +122,75 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
 
     # -- workflow coverage --------------------------------------------------------
 
-    def test_ci_workflow_invokes_reusable_stack(self) -> None:
+    def test_ci_workflow_runs_single_python_job(self) -> None:
         workflow = self._read_workflow("pr-10-ci-python.yml")
+
+        triggers = workflow.get("on") or workflow.get(True, {}) or {}
+
+        # Paths-ignore must ensure docs-only updates skip the workflow entirely.
+        pull_request = triggers.get("pull_request", {})
+        ignores = pull_request.get("paths-ignore", [])
+        self.assertIn("docs/**", ignores)
+        self.assertIn("**/*.md", ignores)
+        self.assertIn(".github/ISSUE_TEMPLATE/**", ignores)
+
+        # Concurrency must cancel superseded runs per PR head SHA.
+        concurrency = workflow.get("concurrency", {})
+        self.assertEqual(
+            concurrency.get("group"),
+            "ci-${{ github.ref }}-${{ github.event.pull_request.number || github.sha }}",
+        )
+        self.assertTrue(concurrency.get("cancel-in-progress"))
+
         jobs = workflow.get("jobs", {})
-        self.assertIn(
-            "tests", jobs, "CI workflow should delegate tests via reusable job"
-        )
-        tests_job = jobs["tests"]
-        self.assertEqual(
-            tests_job.get("uses"),
-            "./.github/workflows/reusable-90-ci-python.yml",
-            "CI tests job should delegate to reusable stack",
-        )
-        inputs = tests_job.get("with", {})
-        self.assertTrue(inputs.get("run-mypy"), "CI should enable mypy job")
-        self.assertTrue(
-            inputs.get("enable-soft-gate"), "CI should enable coverage soft gate"
+        self.assertEqual(set(jobs.keys()), {"python"})
+
+        job = jobs["python"]
+        self.assertEqual(job.get("name"), "ci / python")
+
+        steps = "\n".join(
+            step["run"].strip()
+            for step in job.get("steps", [])
+            if isinstance(step, dict) and "run" in step
         )
 
-        self.assertIn("gate", jobs, "CI workflow should expose aggregate gate job")
-        gate_job = jobs["gate"]
-        upstream_jobs = {name for name in jobs if name != "gate"}
-        self.assertEqual(
-            set(gate_job.get("needs", [])),
-            upstream_jobs,
-            "Gate job must aggregate every other CI job",
+        self._assert_contains(
+            steps,
+            [
+                "black --check .",
+                "ruff check",
+                "mypy --config-file pyproject.toml",
+                "pytest --junitxml=pytest-junit.xml \\",
+                "--cov=src",
+                "coverage.xml",
+            ],
+            context="ci / python job",
         )
-        self.assertEqual(
-            gate_job.get("name"),
-            "gate / all-required-green",
-            "Gate job name should match required check label",
-        )
-        expected_core_jobs = {"tests", "workflow-automation", "style"}
-        if "formatting-fast" in jobs:
-            expected_core_jobs.add("formatting-fast")
-        self.assertTrue(
-            expected_core_jobs.issubset(set(gate_job.get("needs", []))),
-            "Gate job must aggregate core CI jobs",
-        )
-        self.assertEqual(
-            gate_job.get("if"),
-            "${{ always() }}",
-            "Gate job should run even when upstream jobs fail to report aggregate status",
-        )
-        self.assertTrue(
-            gate_job.get("steps"),
-            "Gate job should include at least one confirmation step",
-        )
-        gate_steps = [
-            step for step in gate_job.get("steps", []) if isinstance(step, dict)
+
+        upload_steps = [
+            step
+            for step in job.get("steps", [])
+            if isinstance(step, dict)
+            and step.get("uses", "").startswith("actions/upload-artifact@v4")
         ]
-        self.assertTrue(gate_steps, "Gate job must define at least one run step")
+        self.assertTrue(
+            upload_steps, "ci / python job must upload diagnostics artifact"
+        )
 
-        first_gate_step = gate_steps[0]
-        env_block = first_gate_step.get("env", {})
+        summary_step = next(
+            (
+                step
+                for step in job.get("steps", [])
+                if step.get("name") == "Publish coverage summary"
+            ),
+            {},
+        )
+        self.assertTrue(summary_step, "coverage summary step must be present")
+        env_block = summary_step.get("env", {})
         self.assertEqual(
-            env_block.get("NEEDS_CONTEXT"),
-            "${{ toJson(needs) }}",
-            "Gate step should expose needs context as JSON for parsing",
-        )
-
-        gate_step_runs = [step.get("run", "") for step in gate_steps]
-        self.assertTrue(
-            any("GITHUB_STEP_SUMMARY" in run for run in gate_step_runs),
-            "Gate job should write a summary of upstream results to the job summary",
-        )
-        self.assertTrue(
-            any("set -euo pipefail" in run for run in gate_step_runs),
-            "Gate job should harden its shell with `set -euo pipefail`",
-        )
-        self.assertTrue(
-            any("exit 1" in run for run in gate_step_runs),
-            "Gate job must exit non-zero when dependencies fail",
-        )
-        aggregated_script = "\n".join(gate_step_runs)
-        self.assertIn(
-            "Gate summary",
-            aggregated_script,
-            "Gate job should emit a human-readable gate summary section",
-        )
-        self.assertIn(
-            "jq -r 'keys[]'",
-            aggregated_script,
-            "Gate job should enumerate upstream job names dynamically via jq",
-        )
-        self.assertIn(
-            "jq -r --arg job \"$job\" '.[$job].result'",
-            aggregated_script,
-            "Gate job should use jq to read job results from the needs context",
-        )
-        self.assertIn(
-            "Gate job missing needs context",
-            aggregated_script,
-            "Gate job should fail fast if the needs context is absent",
-        )
-        self.assertIn(
-            'type == "object" and (keys | length) > 0',
-            aggregated_script,
-            "Gate job should verify the needs context contains at least one upstream job",
-        )
-        self.assertIn(
-            "Gate requires at least one upstream job",
-            aggregated_script,
-            "Gate job should report a clear error when no dependencies are configured",
+            env_block.get("SUMMARY_PATH"),
+            "${{ github.step_summary }}",
+            "coverage summary step should append to the GitHub job summary",
         )
 
     def test_gate_workflow_file_is_absent(self) -> None:
@@ -309,158 +275,18 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
                             % (workflow_path.name, scalar)
                         )
 
-    def test_reusable_ci_runs_tests_and_mypy(self) -> None:
-        workflow = self._read_workflow("reusable-90-ci-python.yml")
-        jobs = workflow.get("jobs", {})
-        self.assertIn("tests", jobs)
-        self.assertIn("mypy", jobs)
-        self.assertIn("coverage_soft_gate", jobs)
-
-        test_steps = "\n".join(
-            step["run"].strip()
-            for step in jobs["tests"].get("steps", [])
-            if isinstance(step, dict) and "run" in step
-        )
-        self._assert_contains(
-            test_steps,
-            [
-                "pip install -r requirements.txt",
-                "pytest --junitxml=pytest-junit.xml \\",
-                "--cov=src",
-            ],
-            context="reusable-ci tests job",
-        )
-
-        mypy_steps = "\n".join(
-            step["run"].strip()
-            for step in jobs["mypy"].get("steps", [])
-            if isinstance(step, dict) and "run" in step
-        )
-        self._assert_contains(
-            mypy_steps,
-            ["pip install mypy", "mypy src"],
-            context="reusable-ci mypy job",
-        )
-
-    def test_coverage_soft_gate_checks_out_repo_before_python(self) -> None:
-        workflow = self._read_workflow("reusable-90-ci-python.yml")
-        jobs = workflow["jobs"]
-
-        def _assert_checkout_precedes_python(job_name: str) -> None:
-            steps = jobs[job_name].get("steps", [])
-            checkout_indices = [
-                index
-                for index, step in enumerate(steps)
-                if isinstance(step, dict)
-                and str(step.get("uses", "")).startswith("actions/checkout")
-            ]
-            self.assertTrue(
-                checkout_indices,
-                f"{job_name} job must checkout the repository before running helpers",
-            )
-
-            first_checkout = checkout_indices[0]
-            python_steps = [
-                index
-                for index, step in enumerate(steps)
-                if isinstance(step, dict)
-                and (
-                    step.get("shell") == "python"
-                    or (isinstance(step.get("run"), str) and "scripts/" in step["run"])
-                )
-            ]
-            self.assertTrue(
-                all(index > first_checkout for index in python_steps),
-                f"Python helper steps in {job_name} must run after checkout",
-            )
-
-        _assert_checkout_precedes_python("coverage_soft_gate")
-        _assert_checkout_precedes_python("cosmetic_followup")
-
-    def test_coverage_soft_gate_preserves_classification_and_summary_steps(
-        self,
-    ) -> None:
-        workflow = self._read_workflow("reusable-90-ci-python.yml")
-        steps = workflow["jobs"]["coverage_soft_gate"].get("steps", [])
-        names = {
-            step.get("name")
-            for step in steps
-            if isinstance(step, dict) and step.get("name")
-        }
-        expected = {
-            "Download coverage artifacts",
-            "Classify test outcomes",
-            "Compute coverage summary & hotspots",
-            "Create / update soft coverage issue",
-        }
-        missing = expected.difference(names)
-        self.assertFalse(
-            missing,
-            f"coverage_soft_gate missing critical steps: {sorted(missing)}",
-        )
-
-    def test_cosmetic_followup_job_depends_on_soft_gate_outputs(self) -> None:
-        workflow = self._read_workflow("reusable-90-ci-python.yml")
-        job = workflow["jobs"]["cosmetic_followup"]
-        condition = job.get("if", "")
-        self.assertIn(
-            "needs.tests.result != 'success'",
-            condition,
-            "cosmetic_followup must guard on failing tests",
-        )
-        self.assertIn(
-            "needs.coverage_soft_gate.outputs.has_failures == 'true'",
-            condition,
-            "cosmetic_followup must check coverage_soft_gate has failures",
-        )
-        self.assertIn(
-            "needs.coverage_soft_gate.outputs.only_cosmetic == 'true'",
-            condition,
-            "cosmetic_followup must only run for cosmetic failures",
-        )
-
-        steps = job.get("steps", [])
-        names = {
-            step.get("name")
-            for step in steps
-            if isinstance(step, dict) and step.get("name")
-        }
-        required_steps = {
-            "Summarise cosmetic failures",
-            "Capture fixer diff",
-            "Upload cosmetic patch",
-        }
-        missing = required_steps.difference(names)
-        self.assertFalse(
-            missing,
-            f"cosmetic_followup missing required helper steps: {sorted(missing)}",
-        )
-
-    def test_style_job_enforces_black_ruff_and_mypy(self) -> None:
+    def test_ci_workflow_enforces_coverage_threshold(self) -> None:
         workflow = self._read_workflow("pr-10-ci-python.yml")
-        style_job = workflow.get("jobs", {}).get("style", {})
-        steps = "\n".join(
-            step["run"].strip()
-            for step in style_job.get("steps", [])
-            if isinstance(step, dict) and "run" in step
+        job = workflow.get("jobs", {}).get("python", {})
+        steps = job.get("steps", [])
+        coverage_step = next(
+            (step for step in steps if step.get("name") == "Enforce coverage minimum"),
+            {},
         )
-        self._assert_contains(
-            steps,
-            [
-                "black --check .",
-                "ruff check",
-                "mypy --config-file",
-            ],
-            context="CI style job",
-        )
-
-        gate = workflow.get("jobs", {}).get("gate", {})
-        needs = gate.get("needs", [])
-        self.assertIn(
-            "style",
-            needs,
-            "gate job must wait for style checks before aggregating status",
-        )
+        self.assertTrue(coverage_step, "ci / python job must enforce coverage minimum")
+        run_block = coverage_step.get("run", "")
+        self.assertIn("coverage.xml", run_block)
+        self.assertIn("COVERAGE_MINIMUM", run_block)
 
     def test_syntax_demo_missing_colon(self):
         self.assertTrue(True)
