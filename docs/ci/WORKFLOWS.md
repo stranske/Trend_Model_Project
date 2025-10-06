@@ -38,6 +38,11 @@ Only these workflows appear in the Actions UI; everything else is a reusable com
 - `Agents 70 Orchestrator` dispatches to `Reusable 70 Agents` and parses extended options via `options_json` to stay under GitHub's 10 input limit.
 - `Agents 43 Codex Issue Bridge` acts on `agent:codex` issue labels or manual dispatch to prepare Codex-ready branches and PRs.
 
+## Formatter & Type Checker Pinning
+- The canonical formatter/type versions live in `.github/workflows/autofix-versions.env`. The file is sourced by CI workflows (`pr-10-ci-python.yml`, `reusable-90-ci-python.yml`, `maint-32-autofix.yml`) and the local mirror `scripts/style_gate_local.sh`.
+- Update the env file when bumping `black`, `ruff`, `mypy`, `isort`, or `docformatter`; commit the change with the workflow/doc updates in the same PR.
+- After editing the pins, run `./scripts/style_gate_local.sh` to confirm the local checks match CI output. CI workflows fail fast if the env file is missing or omits any required variable.
+
 ## Verification Checklist
 - [x] Filenames and `name:` values verified.
 - [x] Redundant workflows removed (`agents-4x`, `maint-3x/4x/5x` variants, gate orchestrators, CodeQL, dependency review, labelers).
