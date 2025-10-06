@@ -98,7 +98,9 @@ def test_generate_unified_report_can_emit_pdf() -> None:
 def test_generate_unified_report_includes_spec_summary() -> None:
     result = _make_result()
     config = _make_config()
-    trend_spec = TrendSpec(window=45, lag=2, vol_adjust=True, vol_target=0.2, zscore=True)
+    trend_spec = TrendSpec(
+        window=45, lag=2, vol_adjust=True, vol_target=0.2, zscore=True
+    )
     backtest_spec = BacktestSpec(
         window=SampleWindow("2020-01", "2020-12", "2021-01", "2021-12"),
         selection_mode="rank",
@@ -134,7 +136,9 @@ def test_generate_unified_report_includes_spec_summary() -> None:
     spec_bundle = TrendRunSpec(trend=trend_spec, backtest=backtest_spec, config=config)
     config._trend_run_spec = spec_bundle
 
-    artifacts = generate_unified_report(result, config, run_id="spec", include_pdf=False)
+    artifacts = generate_unified_report(
+        result, config, run_id="spec", include_pdf=False
+    )
     params = dict(artifacts.context["parameters"])
 
     assert "Trend window" in params

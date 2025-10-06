@@ -360,15 +360,6 @@ def test_main_report_pdf_dependency_error(monkeypatch, tmp_path: Path, capsys) -
 
 
 def test_cli_report_matches_shared_generator(monkeypatch, tmp_path: Path) -> None:
-    expected_result = _sample_result()
-    expected_config = _sample_config()
-    expected_artifacts = generate_unified_report(
-        expected_result,
-        expected_config,
-        run_id="cli-run",
-        include_pdf=False,
-    )
-
     cli_result = _sample_result()
     cli_config = _sample_config()
 
@@ -413,6 +404,12 @@ def test_cli_report_matches_shared_generator(monkeypatch, tmp_path: Path) -> Non
     )
 
     assert exit_code == 0
+    expected_artifacts = generate_unified_report(
+        cli_result,
+        cli_config,
+        run_id="cli-run",
+        include_pdf=False,
+    )
     assert report_path.read_text(encoding="utf-8") == expected_artifacts.html
 
 
