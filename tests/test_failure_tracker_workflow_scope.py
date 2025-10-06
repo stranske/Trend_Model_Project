@@ -14,7 +14,9 @@ import yaml
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "maint-33-check-failure-tracker.yml"
+WORKFLOW_PATH = (
+    REPO_ROOT / ".github" / "workflows" / "maint-33-check-failure-tracker.yml"
+)
 
 
 def _load_workflow() -> dict:
@@ -47,7 +49,9 @@ def test_failure_job_uploads_single_snapshot_artifact():
         for step in failure_job.get("steps", [])
         if step.get("uses", "").startswith("actions/upload-artifact@")
     ]
-    assert len(artifact_steps) == 1, "Expected exactly one artifact upload in failure job"
+    assert (
+        len(artifact_steps) == 1
+    ), "Expected exactly one artifact upload in failure job"
 
     upload_step = artifact_steps[0]
     with_section = upload_step.get("with", {})
@@ -59,7 +63,9 @@ def test_failure_job_labels_pull_request_once():
     workflow = _load_workflow()
     failure_job = workflow["jobs"]["failure"]
     label_step = _get_step(failure_job, "Label pull request as ci-failure")
-    assert label_step["uses"].startswith("actions/github-script@"), "Label step must call github-script"
+    assert label_step["uses"].startswith(
+        "actions/github-script@"
+    ), "Label step must call github-script"
 
 
 def test_success_job_removes_label_only_for_prs():
@@ -68,6 +74,9 @@ def test_success_job_removes_label_only_for_prs():
     condition = " ".join(success_job.get("if", "").split())
     assert "workflow_run.event == 'pull_request'" in condition
 
-    remove_label_step = _get_step(success_job, "Remove ci-failure label from pull request")
-    assert remove_label_step["uses"].startswith("actions/github-script@"), "Success job must remove label via github-script"
-
+    remove_label_step = _get_step(
+        success_job, "Remove ci-failure label from pull request"
+    )
+    assert remove_label_step["uses"].startswith(
+        "actions/github-script@"
+    ), "Success job must remove label via github-script"
