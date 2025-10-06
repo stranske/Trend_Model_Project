@@ -14,8 +14,8 @@ jobs:
   failure:
     name: track failures
     if: >
-      github.event.workflow_run.conclusion == 'failure' &&
       github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'failure' &&
       github.event.workflow_run.pull_requests[0] &&
       github.event.workflow_run.pull_requests[0].number
     runs-on: ubuntu-latest
@@ -379,7 +379,7 @@ jobs:
               "generated_at": os.environ.get("GENERATED_AT"),
           }
 
-          Path("artifacts/ci_failure_snapshot.json").write_text(
+          Path("artifacts/ci_failures_snapshot.json").write_text(
               json.dumps(payload, indent=2),
               encoding="utf-8",
           )
@@ -397,8 +397,8 @@ jobs:
           github.event.workflow_run.pull_requests[0].number
         uses: actions/upload-artifact@v4
         with:
-          name: ci-failure-${{ github.event.workflow_run.id }}
-          path: artifacts/ci_failure_snapshot.json
+          name: ci-failures-snapshot
+          path: artifacts/ci_failures_snapshot.json
           retention-days: 7
       - name: Emit summary
         run: echo "Failure tracking step completed." >> "$GITHUB_STEP_SUMMARY"
