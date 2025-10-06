@@ -158,7 +158,7 @@ jobs:
 
       - name: Ruff (lint)
         run: |
-          ruff check --output-format text .
+          ruff check --output-format full .
 
       - name: Mypy (type check)
         run: |
