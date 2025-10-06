@@ -2,9 +2,15 @@ from __future__ import annotations
 
 import json
 
+from typing import Sequence
+
 import pytest
 
-from tools.post_ci_summary import build_summary_comment
+from tools.post_ci_summary import (
+    DEFAULT_REQUIRED_JOB_GROUPS,
+    _load_required_groups,
+    build_summary_comment,
+)
 
 
 @pytest.fixture()
@@ -224,3 +230,24 @@ def test_latest_runs_handles_partial_metadata() -> None:
     assert "⏳ in progress — ci" in latest_line.lower()
     assert "⏳ queued — [docker (#42)](https://example.test/docker/42)" in latest_line
     assert "⏳ pending — lint" in latest_line
+
+
+def test_load_required_groups_handles_invalid_inputs() -> None:
+    # Invalid JSON should fall back to defaults rather than raising.
+    assert _load_required_groups("{invalid json}") == DEFAULT_REQUIRED_JOB_GROUPS
+
+    # Non-list payloads also fall back to defaults.
+    assert _load_required_groups(json.dumps({"label": "ignored"})) == DEFAULT_REQUIRED_JOB_GROUPS
+
+
+def test_load_required_groups_filters_incomplete_entries() -> None:
+    custom: Sequence[dict[str, object]] = [
+        {"label": "Lint", "patterns": [r"^lint /"]},
+        {"label": "", "patterns": [r"^empty"]},
+        {"label": "Broken", "patterns": []},
+        {"label": "Invalid", "patterns": [123]},
+        {"patterns": [r"^missing label"]},
+    ]
+
+    parsed = _load_required_groups(json.dumps(custom))
+    assert parsed == [{"label": "Lint", "patterns": [r"^lint /"]}]
