@@ -43,8 +43,8 @@ The workflow collects status data from three places:
 
 ### Idempotency & Anti-Spam
 
-* The workflow uses a concurrency group keyed by the head SHA to cancel stale
-  runs.
+* The workflow uses a concurrency group keyed by the PR number (falling back to
+  the head SHA when the PR metadata is unavailable) to cancel stale runs.
 * Only the GitHub Actions job summary is updated; there are no PR comments,
   status checks, or other side-channel notifications.
 * If neither CI nor Docker has produced artifacts yet, the helper still posts a

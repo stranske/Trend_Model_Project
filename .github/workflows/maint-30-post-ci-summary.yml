@@ -6,13 +6,12 @@ on:
     types: [completed]
 
 concurrency:
-  group: post-ci-summary-${{ github.event.workflow_run.head_sha }}
+  group: ${{ format('post-ci-summary-{0}', github.event.workflow_run.pull_requests && github.event.workflow_run.pull_requests[0] && github.event.workflow_run.pull_requests[0].number || github.event.workflow_run.head_sha || github.event.workflow_run.id || github.run_id) }}
   cancel-in-progress: true
 
 permissions:
   contents: read
-  pull-requests: write
-  issues: read
+  pull-requests: read
   actions: read
 
 jobs:
