@@ -1,3 +1,14 @@
 # Default coverage configuration to ensure consistent branch data collection.
 [run]
 branch = True
+source =
+	src
+relative_files = True
+omit =
+	/tmp/pytest-of-*/**
+	*/pytest-of-*/**
+
+[report]
+omit =
+	/tmp/pytest-of-*/**
+	*/pytest-of-*/**
