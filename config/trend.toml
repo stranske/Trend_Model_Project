@@ -90,5 +90,3 @@ out_sample_len = 12
 start = "2018-01"
 end = "2024-12"
 
-jobs = 1
-checkpoint_dir = "../demo/checkpoints"
