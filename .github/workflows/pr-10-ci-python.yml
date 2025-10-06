@@ -136,6 +136,8 @@ jobs:
         run: black --check .
       - name: Install dependencies
         run: |
+          set -euo pipefail
+          source .venv/bin/activate
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -e '.[dev]' || pip install -e .
@@ -147,6 +149,8 @@ jobs:
             "pytest-cov==${PYTEST_COV_VERSION}" \
             "coverage==${COVERAGE_VERSION}" \
             jq
+          echo "${GITHUB_WORKSPACE}/.venv/bin" >> "$GITHUB_PATH"
+          echo "VIRTUAL_ENV=${GITHUB_WORKSPACE}/.venv" >> "$GITHUB_ENV"
 
       - name: Black (format check)
         run: |
