@@ -14,11 +14,23 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 
 # Load shared formatter/tool version pins (align with CI defaults)
-if [[ -f ".github/workflows/autofix-versions.env" ]]; then
-    # shellcheck disable=SC1091
-    source .github/workflows/autofix-versions.env
+PIN_FILE=".github/workflows/autofix-versions.env"
+if [[ ! -f "${PIN_FILE}" ]]; then
+    echo -e "${RED}✗ Missing ${PIN_FILE}; run from repository root and ensure the pin file exists.${NC}" >&2
+    exit 1
 fi
-BLACK_VERSION=${BLACK_VERSION:-24.8.0}
+
+# shellcheck disable=SC1091
+set -a
+source "${PIN_FILE}"
+set +a
+
+for required_var in BLACK_VERSION RUFF_VERSION ISORT_VERSION DOCFORMATTER_VERSION MYPY_VERSION; do
+    if [[ -z "${!required_var:-}" ]]; then
+        echo -e "${RED}✗ ${PIN_FILE} is missing a value for ${required_var}.${NC}" >&2
+        exit 1
+    fi
+done
 
 ensure_package_version() {
     local package_name="$1"
@@ -77,7 +89,7 @@ if [[ -z "$VIRTUAL_ENV" && -f ".venv/bin/activate" ]]; then
     source .venv/bin/activate > /dev/null 2>&1
 fi
 
-# Ensure formatter tooling is available (black, isort, docformatter) and include lint tooling.
+# Ensure formatter tooling is available (black, isort, docformatter, ruff) and include lint tooling.
 ensure_python_packages() {
     local missing=()
     for package in "$@"; do
@@ -105,8 +117,12 @@ PY
 }
 
 # Ensure lint tooling (flake8) is also available for critical error checks.
-ensure_python_packages black isort docformatter flake8
+ensure_python_packages black isort docformatter ruff flake8
 ensure_package_version black "$BLACK_VERSION"
+ensure_package_version ruff "$RUFF_VERSION"
+ensure_package_version isort "$ISORT_VERSION"
+ensure_package_version docformatter "$DOCFORMATTER_VERSION"
+ensure_package_version mypy "$MYPY_VERSION"
 
 # Guarantee the Python scripts directory (where flake8 entry point lives) is on PATH.
 if ! command -v flake8 >/dev/null 2>&1; then

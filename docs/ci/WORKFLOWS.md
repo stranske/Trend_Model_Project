@@ -33,10 +33,21 @@ Only these workflows appear in the Actions UI; everything else is a reusable com
 | `.github/workflows/reusable-70-agents.yml` | `Reusable 70 Agents` | Readiness, Codex bootstrap, verification, watchdog jobs. |
 | `.github/workflows/reusable-99-selftest.yml` | `Reusable 99 Selftest` | Matrix smoke-test of reusable CI features. |
 
+## Formatter & Type Checker Pins
+- `.github/workflows/autofix-versions.env` is the single source of truth for formatter/type tooling versions (Ruff, Black, isort, docformatter, mypy).
+- `pr-10-ci-python.yml`, `reusable-90-ci-python.yml`, and the autofix composite action all load and validate this env file before installing tools; they will fail fast if the file is missing or incomplete.
+- Local mirrors (`scripts/style_gate_local.sh`, `scripts/dev_check.sh`, `scripts/validate_fast.sh`) `source` the same env file so contributors run the identical versions before pushing. These scripts now fail fast if the env file is missing or incomplete to keep the pins authoritative.
+- When bumping any formatter, update the env file first, rerun `./scripts/style_gate_local.sh`, and let CI confirm the new version. This keeps CI, autofix, and local developer flows in lock-step.
+
 ## Trigger Dependencies
 - `maint-30-post-ci-summary.yml`, `maint-32-autofix.yml`, and `maint-33-check-failure-tracker.yml` listen for `workflow_run` events from `PR 10 CI Python`, `PR 12 Docker Smoke`, and `Maint 90 Selftest`.
 - `Agents 70 Orchestrator` dispatches to `Reusable 70 Agents` and parses extended options via `options_json` to stay under GitHub's 10 input limit.
 - `Agents 43 Codex Issue Bridge` acts on `agent:codex` issue labels or manual dispatch to prepare Codex-ready branches and PRs.
+
+## Formatter & Type Checker Pinning
+- The canonical formatter/type versions live in `.github/workflows/autofix-versions.env`. The file is sourced by CI workflows (`pr-10-ci-python.yml`, `reusable-90-ci-python.yml`, `maint-32-autofix.yml`) and the local mirror `scripts/style_gate_local.sh`.
+- Update the env file when bumping `black`, `ruff`, `mypy`, `isort`, or `docformatter`; commit the change with the workflow/doc updates in the same PR.
+- After editing the pins, run `./scripts/style_gate_local.sh` to confirm the local checks match CI output. CI workflows fail fast if the env file is missing or omits any required variable.
 
 ## Verification Checklist
 - [x] Filenames and `name:` values verified.
