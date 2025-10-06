@@ -6,7 +6,7 @@ import contextlib
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Iterator, Mapping, Sequence
+from typing import Any, Callable, Iterator, Mapping, Sequence, cast
 
 try:  # Python 3.11+
     import tomllib  # pragma: no cover - exercised in production
@@ -86,8 +86,13 @@ def _as_mapping(section: Any) -> Mapping[str, Any]:
         return section
     getter = getattr(section, "model_dump", None)
     if callable(getter):
-        return getter()
-    return getattr(section, "__dict__", {})
+        dumped = getter()
+        if isinstance(dumped, Mapping):
+            return cast(Mapping[str, Any], dumped)
+    attrs = getattr(section, "__dict__", None)
+    if isinstance(attrs, Mapping):
+        return cast(Mapping[str, Any], attrs)
+    return cast(Mapping[str, Any], {})
 
 
 def _cfg_value(cfg: Any, key: str, default: Any = None) -> Any:
@@ -186,13 +191,18 @@ def _build_backtest_spec(cfg: Any, *, base_path: Path | None) -> BacktestSpec:
     indices = _section_get(portfolio, "indices_list")
     export_dir = _maybe_path(_section_get(export_cfg, "directory"), base_path=base_path)
     output_path = _maybe_path(_section_get(output_cfg, "path"), base_path=base_path)
-    checkpoint = _maybe_path(_section_get(run_cfg, "checkpoint_dir"), base_path=base_path)
+    checkpoint = _maybe_path(
+        _section_get(run_cfg, "checkpoint_dir"), base_path=base_path
+    )
     return BacktestSpec(
         window=window,
         selection_mode=str(_section_get(portfolio, "selection_mode", "all")),
         random_n=_coerce_int(_section_get(portfolio, "random_n", 0), default=0),
         rebalance_calendar=_section_get(portfolio, "rebalance_calendar"),
-        transaction_cost_bps=float(_coerce_float(_section_get(portfolio, "transaction_cost_bps", 0.0), 0.0) or 0.0),
+        transaction_cost_bps=float(
+            _coerce_float(_section_get(portfolio, "transaction_cost_bps", 0.0), 0.0)
+            or 0.0
+        ),
         max_turnover=_coerce_float(_section_get(portfolio, "max_turnover")),
         rank=rank_cfg,
         selector=selector_cfg,
@@ -205,12 +215,18 @@ def _build_backtest_spec(cfg: Any, *, base_path: Path | None) -> BacktestSpec:
         missing=missing,
         target_vol=_coerce_float(_section_get(vol_adjust, "target_vol")),
         floor_vol=_coerce_float(_section_get(vol_adjust, "floor_vol")),
-        warmup_periods=_coerce_int(_section_get(vol_adjust, "warmup_periods", 0), default=0),
-        monthly_cost=float(_coerce_float(_section_get(run_cfg, "monthly_cost", 0.0), 0.0) or 0.0),
+        warmup_periods=_coerce_int(
+            _section_get(vol_adjust, "warmup_periods", 0), default=0
+        ),
+        monthly_cost=float(
+            _coerce_float(_section_get(run_cfg, "monthly_cost", 0.0), 0.0) or 0.0
+        ),
         previous_weights=_section_get(portfolio, "previous_weights"),
         regime=_cfg_section(cfg, "regime"),
         metrics=_as_tuple(_section_get(metrics, "registry", ())),
-        seed=_coerce_int(_cfg_value(cfg, "seed", _section_get(run_cfg, "seed", 42)), default=42),
+        seed=_coerce_int(
+            _cfg_value(cfg, "seed", _section_get(run_cfg, "seed", 42)), default=42
+        ),
         jobs=_coerce_int(_section_get(run_cfg, "jobs", None), default=0) or None,
         checkpoint_dir=checkpoint,
         export_directory=export_dir,
@@ -283,7 +299,7 @@ def ensure_run_spec(cfg: Any, *, base_path: Path | None = None) -> TrendRunSpec 
             try:
                 # Fallback: forcibly set attribute even if cfg is a frozen dataclass or has custom __setattr__.
                 # This bypasses attribute access controls and should only be used when normal setattr fails.
-                object.__setattr__(cfg, attr, value)  # type: ignore[misc]
+                object.__setattr__(cfg, attr, value)
             except Exception:
                 continue
     return spec
