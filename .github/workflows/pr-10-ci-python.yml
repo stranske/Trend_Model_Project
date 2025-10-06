@@ -31,6 +31,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          # Fetch only the minimal history needed to compute PR diffs.
+          # Depth=2 grabs the merge commit plus its immediate parents, cutting
+          # checkout time from ~8 minutes to a few seconds on CI runners.
           fetch-depth: 2
 
       - name: Load pinned tool versions
