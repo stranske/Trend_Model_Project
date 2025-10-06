@@ -1,0 +1,94 @@
+version = "1"
+
+[data]
+csv_path = "../demo/demo_returns.csv"
+date_column = "Date"
+frequency = "ME"
+missing_policy = "drop"
+
+[preprocessing]
+steps = []
+
+[preprocessing.missing_data]
+policy = "ffill"
+limit = 2
+
+[vol_adjust]
+enabled = false
+target_vol = 0.10
+
+[sample_split]
+in_start = "2015-01"
+in_end = "2022-12"
+out_start = "2023-01"
+out_end = "2024-12"
+
+[portfolio]
+selection_mode = "rank"
+rebalance_calendar = "NYSE"
+transaction_cost_bps = 0.0
+max_turnover = 1.0
+
+[portfolio.rank]
+inclusion_approach = "top_n"
+n = 5
+score_by = "Sharpe"
+
+[portfolio.selector]
+name = "rank"
+
+[portfolio.selector.params]
+top_n = 5
+rank_column = "Sharpe"
+
+[portfolio.weighting]
+name = "equal"
+
+[portfolio.weighting.params]
+
+[benchmarks]
+spx = "SPX"
+
+[regime]
+enabled = true
+proxy = "SPX"
+method = "rolling_return"
+lookback = 24
+smoothing = 3
+threshold = 0.0
+neutral_band = 0.0015
+min_observations = 3
+annualise_volatility = true
+
+[metrics]
+registry = [
+  "annual_return",
+  "volatility",
+  "sharpe_ratio",
+  "sortino_ratio",
+  "information_ratio",
+  "max_drawdown",
+]
+
+[export]
+directory = "../demo/exports"
+formats = ["csv", "xlsx", "json", "txt"]
+
+[output]
+format = "csv"
+path = "../demo/exports/cli_demo.csv"
+
+[run]
+seed = 42
+jobs = 1
+checkpoint_dir = "../demo/checkpoints"
+
+[multi_period]
+frequency = "ME"
+in_sample_len = 36
+out_sample_len = 12
+start = "2018-01"
+end = "2024-12"
+
+jobs = 1
+checkpoint_dir = "../demo/checkpoints"
