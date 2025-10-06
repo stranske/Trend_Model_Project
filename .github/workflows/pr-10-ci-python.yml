@@ -64,7 +64,7 @@ jobs:
               exit 1
             fi
           done
-          cat "${pin_file}" >> "${GITHUB_ENV}"
+          grep -E '^[A-Za-z_][A-Za-z0-9_]*=' "${pin_file}" >> "${GITHUB_ENV}"
 
       - name: Ensure coverage minimum
         run: |
@@ -102,7 +102,7 @@ jobs:
               exit 1
             fi
           done
-          cat "${pin_file}" >> "${GITHUB_ENV}"
+          grep -E '^[A-Za-z_][A-Za-z0-9_]*=' "${pin_file}" >> "${GITHUB_ENV}"
 
       - name: Setup Python
         uses: actions/setup-python@v5
