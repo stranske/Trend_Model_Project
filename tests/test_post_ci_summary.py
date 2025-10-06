@@ -19,25 +19,10 @@ def sample_runs() -> list[dict[str, object]]:
             "html_url": "https://example.test/ci/101",
             "jobs": [
                 {
-                    "name": "main / tests (3.9)",
+                    "name": "ci / python",
                     "conclusion": "success",
-                    "html_url": "https://example.test/ci/101/tests",
-                },
-                {
-                    "name": "main / style",
-                    "conclusion": "success",
-                    "html_url": "https://example.test/ci/101/style",
-                },
-                {
-                    "name": "workflow / automation-tests",
-                    "status": "queued",
-                    "html_url": "https://example.test/ci/101/workflow",
-                },
-                {
-                    "name": "gate / all-required-green",
-                    "conclusion": "success",
-                    "html_url": "https://example.test/ci/101/gate",
-                },
+                    "html_url": "https://example.test/ci/101/python",
+                }
             ],
         },
         {
@@ -78,8 +63,8 @@ def test_build_summary_comment_renders_expected_sections(
         coverage_section=coverage_section,
         required_groups_env=json.dumps(
             [
-                {"label": "CI tests", "patterns": [r"^main / tests"]},
-                {"label": "CI gate", "patterns": [r"^gate /"]},
+                {"label": "CI python", "patterns": [r"^ci / python"]},
+                {"label": "Docker", "patterns": [r"^docker "]},
             ]
         ),
     )
@@ -88,10 +73,10 @@ def test_build_summary_comment_renders_expected_sections(
     assert "### Automated Status Summary" in body
     assert "**Head SHA:** abc123" in body
     assert "**Latest Runs:**" in body
-    assert "CI tests: ✅ success" in body
-    assert "CI gate: ✅ success" in body
+    assert "CI python: ✅ success" in body
     assert "Docker: ❌ failure" in body
-    assert "| CI / main / tests (3.9) | ✅ success |" in body
+    assert "Docker: ❌ failure" in body
+    assert "| CI / ci / python | ✅ success |" in body
     assert "| **Docker / docker build** | ❌ failure |" in body
     # Coverage lines should render with percentages and deltas
     assert "Coverage (jobs): 91.23%" in body

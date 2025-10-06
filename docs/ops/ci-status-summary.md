@@ -13,8 +13,8 @@ Each refresh includes:
 * Head commit SHA and a roll-up of the most recent workflow runs that were
   queried for the PR head commit.
 * A required-check summary derived from the actual CI job list. The default
-  patterns cover the main test matrix, workflow automation probes, style gate,
-  and the `gate / all-required-green` aggregator.
+  pattern now targets the unified `ci / python` job to match the consolidated
+  workflow structure.
 * A job-by-job table covering the latest CI and Docker runs, complete with
   badge emojis indicating state and deep links to the workflow/job logs. Failing
   rows are bolded for quick scanning.
@@ -34,13 +34,12 @@ The workflow collects status data from three places:
 1. **Workflow run metadata** – `actions/github-script` queries the REST API to
    locate the most recent CI and Docker runs for the PR head SHA, then expands
    each run's job list so the summary reflects the real workflow structure.
-2. **Coverage summary artifact** – if the CI workflow uploads a
-   `coverage-summary` artifact, its Markdown payload is embedded verbatim below
-   the coverage headline metrics.
+2. **Coverage summary artifact** – the CI workflow now writes coverage metrics
+   directly to the job summary, but any uploaded Markdown snippet is still
+   embedded below the headline metrics when present.
 3. **Coverage trend records** – JSON and NDJSON artifacts
-   (`coverage-trend.json` and `coverage-trend-history.ndjson`) are used to derive
-   the latest and previous coverage values, enabling the delta calculations in
-   the summary.
+   (`coverage-trend.json` and `coverage-trend-history.ndjson`) continue to drive
+   the latest and previous coverage values when available.
 
 ### Idempotency & Anti-Spam
 
