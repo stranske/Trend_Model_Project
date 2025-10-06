@@ -173,7 +173,11 @@ jobs:
             result.same_repo = pr.head?.repo?.full_name === `${owner}/${repo}` ? 'true' : 'false';
             result.is_draft = pr.draft ? 'true' : 'false';
 
-            const labels = Array.isArray(pr.labels) ? pr.labels.map(label => label.name) : [];
+            const labels = Array.isArray(pr.labels)
+              ? pr.labels
+                  .filter(label => label && typeof label.name === 'string')
+                  .map(label => label.name)
+              : [];
             const optLabel = process.env.AUTOFIX_OPT_IN_LABEL || 'autofix';
             const patchLabel = process.env.AUTOFIX_PATCH_LABEL || 'autofix:patch';
             result.has_opt_in = labels.includes(optLabel) ? 'true' : 'false';
