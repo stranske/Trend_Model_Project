@@ -1,94 +1,34 @@
 name: PR 10 CI Python
 
-# Temporary compatibility wrapper (Issue #1345): preserves legacy "CI" check name
-# while branch protection still expects it. Delegates to unified reusable-90-ci-python.yml.
-# Remove after updating protection rules to reference granular jobs directly.
+# Unified Python CI workflow that enforces formatting, linting, typing, tests,
+# and coverage within a single job to simplify gating for pull requests.
 
 on:
   workflow_call:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - '.github/ISSUE_TEMPLATE/**'
   push:
     branches: [ phase-2-dev ]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - '.github/ISSUE_TEMPLATE/**'
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.ref }}-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
 
 jobs:
-  formatting-fast:
-    name: lint / black-fast
+  ci-python:
+    name: main / python (style, types, tests, coverage)
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
-
-      - name: Load tool versions
-        run: |
-          if [ -f .github/workflows/autofix-versions.env ]; then
-            cat .github/workflows/autofix-versions.env >> "$GITHUB_ENV"
-          fi
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install Black
-        run: |
-          python -m pip install --upgrade pip
-          pip install "black==${BLACK_VERSION}"
-
-      - name: Black (check, fast gate)
-        run: |
-          if git ls-files '*.py' >/dev/null 2>&1; then
-            black --check .
-          else
-            echo "No Python files detected for Black check."
-          fi
-
-  tests:
-    name: main / tests
-    uses: ./.github/workflows/reusable-90-ci-python.yml
-    with:
-      python-versions: ${{ vars.CI_PY_VERSIONS || '["3.11"]' }}
-      coverage-min: ${{ vars.COV_MIN || '70' }}
-      run-mypy: true
-      enable-metrics: false
-      enable-history: false
-      enable-classification: false
-      enable-coverage-delta: false
-      enable-soft-gate: true
-      coverage-hard-fail: false
-  workflow-automation:
-    name: workflow / automation-tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - name: Install dependencies
-        run: |
-          python -m venv .venv
-          echo "${{ github.workspace }}/.venv/bin" >> "$GITHUB_PATH"
-          echo "VIRTUAL_ENV=${{ github.workspace }}/.venv" >> "$GITHUB_ENV"
-          source .venv/bin/activate
-          pip install -U pip
-          pip install -r requirements.txt
-          pip install -e '.[dev]'
-      - name: Run workflow automation tests
-        run: |
-          PYTHONPATH=./src pytest \
-            tests/test_automation_workflows.py \
-            tests/test_workflow_autofix_guard.py \
-            tests/test_workflow_autofix_remote.py \
-            -q
-  style:
-    name: main / style
-    runs-on: ubuntu-latest
+    env:
+      PYTHON_VERSION: ${{ fromJson(vars.CI_PY_VERSIONS || '["3.11"]')[0] }}
+      COVERAGE_MIN: ${{ vars.COV_MIN || '70' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -98,75 +38,49 @@ jobs:
           # checkout time from ~8 minutes to a few seconds on CI runners.
           fetch-depth: 2
 
-      - name: Load tool versions
+      - name: Load pinned tool versions
         run: |
           if [ -f .github/workflows/autofix-versions.env ]; then
-            cat .github/workflows/autofix-versions.env >> "$GITHUB_ENV"
+            while IFS= read -r line; do
+              if [ -n "$line" ]; then
+                echo "$line" >> "$GITHUB_ENV"
+              fi
+            done < .github/workflows/autofix-versions.env
           fi
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Resolve latest mypy version
+      - name: Prepare virtualenv and install dependencies
         run: |
-          latest=$(python - <<'PY'
-          import json
-          import sys
-          import urllib.request
-
-          URL = "https://pypi.org/pypi/mypy/json"
-          try:
-              with urllib.request.urlopen(URL, timeout=30) as response:
-                  payload = json.load(response)
-              version = payload.get("info", {}).get("version")
-          except Exception as exc:  # pragma: no cover - network failure fallback
-              print(f"Failed to resolve latest mypy version: {exc}", file=sys.stderr)
-              version = None
-
-          if version:
-              print(version)
-          PY
-          )
-          if [ -n "$latest" ]; then
-            echo "Resolved mypy version $latest" >&2
-            echo "MYPY_VERSION=$latest" >> "$GITHUB_ENV"
-          else
-            echo "Using fallback mypy version ${MYPY_VERSION:-system default}" >&2
-          fi
-
-      - name: Cache mypy
-        uses: actions/cache@v4
-        with:
-          path: .mypy_cache
-          key: mypy-${{ runner.os }}-${{ hashFiles('pyproject.toml') }}-${{ hashFiles('src/**.py') }}
-          restore-keys: |
-            mypy-${{ runner.os }}-
-
-      - name: Install lint deps
-        run: |
-          STYLE_VENV="${RUNNER_TEMP}/venv-style"
-          python -m venv "$STYLE_VENV"
-          echo "${STYLE_VENV}/bin" >> "$GITHUB_PATH"
-          echo "VIRTUAL_ENV=${STYLE_VENV}" >> "$GITHUB_ENV"
-          echo "STYLE_VENV=${STYLE_VENV}" >> "$GITHUB_ENV"
-          source "$STYLE_VENV/bin/activate"
-          pip install -U pip
-          pip install "ruff==${RUFF_VERSION}" "black==${BLACK_VERSION}" "mypy==${MYPY_VERSION}"
+          python -m venv .venv
+          echo "${{ github.workspace }}/.venv/bin" >> "$GITHUB_PATH"
+          echo "VIRTUAL_ENV=${{ github.workspace }}/.venv" >> "$GITHUB_ENV"
+          source .venv/bin/activate
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e '.[dev]'
+          pip install pytest pytest-cov jq
+          pip install "black==${BLACK_VERSION}" "ruff==${RUFF_VERSION}" "mypy==${MYPY_VERSION}"
+          pip install pydantic streamlit
 
       - name: Black (check)
-        run: black --check .
+        run: |
+          if git ls-files '*.py' >/dev/null 2>&1; then
+            black --check .
+          else
+            echo "No Python files detected for Black check."
+          fi
 
-      - name: Ruff (full check)
+      - name: Ruff (check with allowlist)
         id: ruff
         run: |
-          # Run ruff without fixing; capture machine + human output
           set -e
           if ! ruff check --output-format json . > ruff_diagnostics.json 2> ruff_stderr.log; then
             echo "Ruff reported issues (expected if violations exist)"
           fi
-          # Separate allowlist handling (reuse existing classification script if present)
           if [ -f scripts/classify_ruff.py ]; then
             python scripts/classify_ruff.py ruff_diagnostics.json .ruff-residual-allowlist.json ruff_classification.json || echo '{"error":"classification_failed"}' > ruff_classification.json
           else
@@ -177,15 +91,13 @@ jobs:
           total=$(jq -r '.total // 0' ruff_classification.json 2>/dev/null || echo 0)
           echo "total=$total" >> "$GITHUB_OUTPUT"
           if [ "$new" != "0" ]; then
-            echo "Found $new new ruff issues (failing CI style job)." >&2
+            echo "Found $new new ruff issues (failing CI job)." >&2
             exit 1
           fi
 
       - name: Mypy (type check core + app)
         run: |
-          source "${STYLE_VENV:-$VIRTUAL_ENV}/bin/activate"
           echo "Running pinned mypy==${MYPY_VERSION}" >&2
-          pip install pydantic streamlit >/dev/null
           status=0
           resolved_mypy_version=$(mypy --version | awk '{print $2}')
           if [ -z "$resolved_mypy_version" ]; then
@@ -224,7 +136,53 @@ jobs:
           fi
           echo "mypy: PASS" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Summary
+      - name: Run unit tests with coverage
+        env:
+          PYTHONPATH: ./src
+        run: |
+          pytest --junitxml=pytest-junit.xml \
+            --cov=src --cov-branch \
+            --cov-report=xml:coverage.xml \
+            --cov-report=json:coverage.json \
+            --cov-report=html:htmlcov \
+            --cov-report=term-missing
+
+      - name: Prepare coverage artifacts
+        run: |
+          cp -f pytest-junit.xml pytest-report.xml || true
+
+      - name: Upload coverage artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ env.PYTHON_VERSION }}
+          retention-days: 10
+          path: |
+            coverage.xml
+            coverage.json
+            htmlcov/**
+            pytest-junit.xml
+            pytest-report.xml
+
+      - name: Enforce coverage minimum
+        run: |
+          RAW=$(grep -Eo 'line-rate="[0-9.]+"' coverage.xml | head -1 | sed -E 's/.*"([0-9.]+)"/\1/')
+          PCT=$(python -c "print(float('$RAW')*100.0)")
+          echo "Coverage: ${PCT}% (min ${COVERAGE_MIN}%)"
+          python -c "import sys; cur=float('$PCT'); m=float('${COVERAGE_MIN}'); sys.exit(0 if cur>=m else 1)" || { echo 'Coverage below minimum' >&2; exit 1; }
+
+      - name: Publish coverage summary
+        run: |
+          RAW=$(grep -Eo 'line-rate="[0-9.]+"' coverage.xml | head -1 | sed -E 's/.*"([0-9.]+)"/\1/')
+          PCT=$(python -c "print(round(float('$RAW')*100.0, 2))")
+          {
+            echo "## Test Coverage"
+            echo ""
+            echo "- Python: ${PYTHON_VERSION}"
+            echo "- Line coverage: ${PCT}%"
+            echo "- Minimum required: ${COVERAGE_MIN}%"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Summarize lint results
         if: always()
         run: |
           {
@@ -235,62 +193,8 @@ jobs:
             if [ -f mypy_report.txt ]; then
               if grep -q "error:" mypy_report.txt; then
                 echo "mypy: FAIL"
-                printf "\n<details><summary>mypy report</summary>\n"
-                sed -n '1,200p' mypy_report.txt || true
-                printf "\n</details>\n"
               else
                 echo "mypy: PASS"
               fi
             fi
-            if [ -f ruff_classification.json ]; then
-              printf "\n<details><summary>Classification JSON</summary>\n"
-              printf "\n"
-              sed -n '1,200p' ruff_classification.json || true
-              printf "\n</details>\n"
-            fi
           } >> "$GITHUB_STEP_SUMMARY"
-
-  gate:
-    name: gate / all-required-green
-    runs-on: ubuntu-latest
-    needs: [formatting-fast, tests, workflow-automation, style]
-    if: ${{ always() }}
-    steps:
-      - name: Evaluate upstream results
-        env:
-          NEEDS_CONTEXT: ${{ toJson(needs) }}
-        run: |
-          set -euo pipefail
-
-          if [ -z "${NEEDS_CONTEXT:-}" ] || [ "${NEEDS_CONTEXT}" = "null" ]; then
-            echo "::error::Gate job missing needs context; ensure gate job declares dependencies via 'needs'."
-            exit 1
-          fi
-
-          if ! printf '%s' "$NEEDS_CONTEXT" | jq -e 'type == "object" and (keys | length) > 0' >/dev/null; then
-            echo "::error::Gate requires at least one upstream job; configure 'needs' to include CI lanes."
-            exit 1
-          fi
-
-          failures=""
-          summary="### Gate summary\n"
-
-          # Iterate over all jobs in the needs context dynamically
-          for job in $(echo "$NEEDS_CONTEXT" | jq -r 'keys[]'); do
-            result=$(echo "$NEEDS_CONTEXT" | jq -r --arg job "$job" '.[$job].result')
-            icon=""
-            if [ "$result" != "success" ]; then
-              icon=""
-              failures+="${job}=${result};"
-            fi
-            summary+="- ${icon} ${job} (${result})\n"
-          done
-
-          printf '%b' "$summary" >> "$GITHUB_STEP_SUMMARY"
-
-          if [ -n "$failures" ]; then
-            echo "::error::Gate detected failing jobs: ${failures%?}"
-            exit 1
-          fi
-
-          echo "All upstream jobs succeeded."
