@@ -114,31 +114,70 @@ jobs:
               return;
             }
 
-            const prs = await github.paginate(github.rest.pulls.list, {
-              owner,
-              repo,
-              state: 'open',
-              head: `${owner}:${branch}`,
-              per_page: 100,
-            });
+            const headShaLower = (headSha || '').toLowerCase();
+            let pr = null;
+            let prNumber = null;
 
-            if (!prs.length) {
-              core.info(`No open PR detected for branch ${branch}`);
+            const payloadPr = run && Array.isArray(run.pull_requests)
+              ? run.pull_requests.find(item => item && typeof item.number === 'number')
+              : null;
+
+            if (payloadPr) {
+              prNumber = Number(payloadPr.number);
+              if (!Number.isNaN(prNumber)) {
+                try {
+                  const prResponse = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+                  pr = prResponse.data;
+                } catch (error) {
+                  core.warning(`Failed to load PR #${prNumber} from workflow payload: ${error.message}`);
+                }
+              }
+            }
+
+            let openPrs = [];
+            if (!pr) {
+              openPrs = await github.paginate(github.rest.pulls.list, {
+                owner,
+                repo,
+                state: 'open',
+                per_page: 100,
+              });
+
+              if (headShaLower) {
+                pr = openPrs.find(item => (item.head?.sha || '').toLowerCase() === headShaLower) || null;
+              }
+
+              if (!pr && branch) {
+                const branchLower = branch.toLowerCase();
+                pr = openPrs.find(item => (item.head?.ref || '').toLowerCase() === branchLower) || null;
+              }
+
+              if (!pr && openPrs.length) {
+                pr = openPrs[0];
+              }
+            }
+
+            if (!pr) {
+              core.info(`Unable to locate an open PR for workflow run (head_sha=${headSha}, branch=${branch || 'n/a'})`);
               for (const [key, value] of Object.entries(result)) {
                 core.setOutput(key, value);
               }
               return;
             }
 
-            const pr = prs.find(p => (p.head?.sha || '').toLowerCase() === headSha.toLowerCase()) || prs[0];
+            prNumber = Number(pr.number);
             result.found = 'true';
-            result.pr = String(pr.number);
+            result.pr = String(prNumber);
             result.head_ref = pr.head?.ref || branch;
             result.head_sha = pr.head?.sha || headSha;
             result.same_repo = pr.head?.repo?.full_name === `${owner}/${repo}` ? 'true' : 'false';
             result.is_draft = pr.draft ? 'true' : 'false';
 
-            const labels = (pr.labels || []).map(label => label.name);
+            const labels = Array.isArray(pr.labels)
+              ? pr.labels
+                  .filter(label => label && typeof label.name === 'string')
+                  .map(label => label.name)
+              : [];
             const optLabel = process.env.AUTOFIX_OPT_IN_LABEL || 'autofix';
             const patchLabel = process.env.AUTOFIX_PATCH_LABEL || 'autofix:patch';
             result.has_opt_in = labels.includes(optLabel) ? 'true' : 'false';
