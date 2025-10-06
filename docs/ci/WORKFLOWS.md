@@ -12,7 +12,7 @@ This document tracks the acceptance criteria for Issue #2190. Use it as the auth
 |----------|---------|---------|
 | `.github/workflows/pr-10-ci-python.yml` | `PR 10 CI Python` | Unified job that runs Black, Ruff, mypy, pytest with coverage, uploads diagnostics, and enforces coverage minimums. |
 | `.github/workflows/pr-12-docker-smoke.yml` | `PR 12 Docker Smoke` | Deterministic Docker build + smoke tests. |
-| `.github/workflows/maint-02-repo-health.yml` | `Maint 02 Repo Health` | Nightly/weekly repository health probe. |
+| `.github/workflows/maint-02-repo-health.yml` | `Maint 02 Repo Health` | Weekly sweep that reports stale branches and unassigned issues in the run summary. |
 | `.github/workflows/maint-30-post-ci-summary.yml` | `Maint 30 Post CI Summary` | Publishes CI/Docker run summaries to the workflow run log on `workflow_run`. |
 | `.github/workflows/maint-32-autofix.yml` | `Maint 32 Autofix` | Applies autofix commits after CI completes. |
 | `.github/workflows/maint-33-check-failure-tracker.yml` | `Maint 33 Check Failure Tracker` | Manages CI failure tracker issues. |

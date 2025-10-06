@@ -7,15 +7,20 @@ maintenance workflows that remain after Issue 2190. The roster now consists of
 
 ## maint-02-repo-health.yml
 
-1. **Read the Ops issue update** — failures append to the canonical issue marked
-   `<!-- repo-health-nightly -->`. If `OPS_HEALTH_ISSUE` is unset the workflow
-   will warn in the summary instead.
-2. **Diagnose quickly** — the summary highlights missing labels, secrets, or
-   workflow lint failures. Re-run the workflow via `workflow_dispatch` after
-   remediation to confirm the fix.
-3. **Update governance assets** — add the missing label/secret/variable via the
-   repository settings UI. For actionlint failures, follow the inline reviewdog
-   comments on the relevant PR.
+1. **Open the run summary** — the weekly sweep writes a single report that
+   lists stale branches (older than the configured threshold) and open issues
+   without assignees. The heading `Repository health weekly sweep` marks the
+   latest results.
+2. **Handle stale branches** — follow the table entries to prune abandoned
+   branches or push a fresh commit if the branch is still active. The table is
+   capped at 20 rows; the summary includes an overflow note when additional
+   branches are hidden.
+3. **Triage unassigned issues** — assign an owner or update labels for the
+   surfaced issues so they no longer show up in the next run. Issues are sorted
+   by oldest activity first.
+4. **Adjust the threshold if needed** — update the repository variable
+   `REPO_HEALTH_STALE_BRANCH_DAYS` when the stale-branch window should change.
+   Re-run the workflow via `workflow_dispatch` to validate the new threshold.
 
 ## maint-30-post-ci-summary.yml
 
@@ -85,7 +90,5 @@ maintenance workflows that remain after Issue 2190. The roster now consists of
 
 ## Common tooling
 
-- `python scripts/workflow_smoke_tests.py` exercises the repo-health probe
-  offline.
 - All workflows append Markdown to `$GITHUB_STEP_SUMMARY`, making it easy
   to snapshot their state in dashboards or incident notes.
