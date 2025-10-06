@@ -1,4 +1,4 @@
-"""Helpers for building the consolidated post-CI summary comment.
+"""Helpers for building the consolidated post-CI run summary.
 
 This module is used by the maint-30-post-ci-summary workflow and is unit tested
 so regressions can be caught without executing the workflow on GitHub.
@@ -397,10 +397,7 @@ def build_summary_comment(
             coverage_block.append("### Coverage Overview")
         coverage_block.append(coverage_section_clean)
 
-    body_parts: MutableSequence[str] = [
-        "<!-- post-ci-summary:do-not-edit -->",
-        "### Automated Status Summary",
-    ]
+    body_parts: MutableSequence[str] = ["## Automated Status Summary"]
     if head_sha:
         body_parts.append(f"**Head SHA:** {head_sha}")
     if latest_runs_line:

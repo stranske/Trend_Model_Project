@@ -1,10 +1,10 @@
 ## Automated Post-CI Status Summary
 
-The repository maintains a continuously updated **step summary** that surfaces
-CI and Docker results once both workflows finish. The
-`maint-30-post-ci-summary.yml` follower reacts to `workflow_run` events for the
-`CI` and `Docker` workflows, downloads shared artifacts, and renders a unified
-Markdown block headed by `### Automated Status Summary`.
+The repository publishes a consolidated status block to the run summary whenever
+the `maint-30-post-ci-summary.yml` follower completes. The workflow subscribes
+to `workflow_run` events for the `CI` and `Docker` workflows, downloads shared
+artifacts, and renders Markdown headed by `## Automated Status Summary` before
+appending it to `$GITHUB_STEP_SUMMARY`.
 
 ### Summary Contents
 
@@ -24,8 +24,8 @@ Each refresh includes:
 
 The helper stores the rendered Markdown as
 `summary_artifacts/summary_preview.md` so maintainers can inspect the message
-directly from the Actions UI. Re-runs overwrite the same preview file and append
-an updated block to the job summary output of the workflow run.
+directly from the Actions UI. Re-runs overwrite the same preview file with the
+latest content.
 
 ### Data sources
 
@@ -41,13 +41,20 @@ The workflow collects status data from three places:
    (`coverage-trend.json` and `coverage-trend-history.ndjson`) continue to drive
    the latest and previous coverage values when available.
 
+Missing artifacts now fail soft: the workflow marks the related sections as
+pending and logs a notice instead of erroring out when coverage or Docker
+bundles have not been published yet.
+
 ### Idempotency & Anti-Spam
 
-* The workflow uses a concurrency group keyed by the PR number (falling back to
-  the head SHA when the PR metadata is unavailable) to cancel stale runs.
-* Only the GitHub Actions job summary is updated; there are no PR comments,
-  status checks, or other side-channel notifications.
-* If neither CI nor Docker has produced artifacts yet, the helper still posts a
+* The workflow uses a concurrency group keyed by the PR number when Actions
+  provides it, falling back to the head SHA and ultimately the
+  `workflow_run` identifier, so stale runs are cancelled without clobbering
+  other PRs even when GitHub omits the commit hash.
+* Because the summary is appended to `$GITHUB_STEP_SUMMARY`, reruns simply
+  overwrite the section within the same workflow execution instead of creating
+  duplicate PR noise.
+* If neither CI nor Docker has produced artifacts yet, the helper still writes a
   pending table so reviewers can see progress.
 
 ### Adjusting Behaviour
@@ -66,5 +73,4 @@ The workflow collects status data from three places:
 
 Delete or rename `.github/workflows/maint-30-post-ci-summary.yml` to disable the
 follower. The consolidated helper is only invoked from that workflow, so no
-other automation will append the CI/Docker status summary once the file is
-removed.
+other automation will recreate the run-summary entry once the file is removed.

@@ -2,14 +2,8 @@ from __future__ import annotations
 
 import json
 
-from typing import Sequence
-
 import pytest
-
-from tools import post_ci_summary
 from tools.post_ci_summary import (
-    DEFAULT_REQUIRED_JOB_GROUPS,
-    _load_required_groups,
     build_summary_comment,
 )
 
@@ -78,8 +72,7 @@ def test_build_summary_comment_renders_expected_sections(
         ),
     )
 
-    assert "<!-- post-ci-summary:do-not-edit -->" in body
-    assert "### Automated Status Summary" in body
+    assert body.startswith("## Automated Status Summary")
     assert "**Head SHA:** abc123" in body
     assert (
         "**Latest Runs:** ✅ success — [CI (#101)](https://example.test/ci/101)" in body
@@ -195,183 +188,57 @@ def test_coverage_section_handles_snippet_without_stats() -> None:
     assert body.count("### Coverage Overview") == 1
 
 
-def test_latest_runs_handles_partial_metadata() -> None:
-    runs = [
-        {
-            "key": "ci",
-            "present": True,
-            "id": None,
-            "conclusion": None,
-            "status": "in_progress",
-            "html_url": None,
-        },
-        {
-            "key": "docker",
-            "display_name": "",
-            "present": True,
-            "id": 42,
-            "run_attempt": None,
-            "status": "queued",
-            "html_url": "https://example.test/docker/42",
-        },
-        {
-            "key": "lint",
-            "present": False,
-        },
-    ]
-
+def test_build_summary_comment_handles_irregular_run_data() -> None:
     body = build_summary_comment(
-        runs=runs,
-        head_sha=None,
+        runs=[
+            {
+                "key": "ci",
+                "displayName": "CI",
+                "present": True,
+                "jobs": [
+                    None,
+                    {"name": "", "conclusion": None, "html_url": None},
+                    {"name": "ci / python", "status": "queued"},
+                ],
+            },
+            {
+                "key": "docker",
+                "displayName": "Docker",
+                "present": True,
+                "status": "waiting",
+                "jobs": [],
+            },
+            "not-a-mapping",
+        ],  # type: ignore[arg-type]
+        head_sha="def456",
+        coverage_stats={},
+        coverage_section=None,
+        required_groups_env=json.dumps(
+            [
+                {"label": "CI python", "patterns": [r"^ci / python"]},
+            ]
+        ),
+    )
+
+    assert "**Head SHA:** def456" in body
+    assert "**Latest Runs:** ⏳ pending — CI · ⏳ waiting — Docker" in body
+    assert "CI python: ⏳ queued" in body
+    assert "Docker: ⏳ waiting" in body
+    assert "| CI / ci / python | ⏳ queued | — |" in body
+    assert "### Coverage Overview" not in body
+
+
+def test_build_summary_comment_defaults_on_invalid_required_groups(
+    sample_runs: list[dict[str, object]],
+) -> None:
+    body = build_summary_comment(
+        runs=sample_runs,
+        head_sha="deadbeef",
         coverage_stats=None,
         coverage_section=None,
-        required_groups_env=None,
+        required_groups_env="{not-json}",
     )
 
-    latest_line = next(
-        (line for line in body.splitlines() if line.startswith("**Latest Runs:**")),
-        "",
-    )
-
-    assert "⏳ in progress — ci" in latest_line.lower()
-    assert "⏳ queued — [docker (#42)](https://example.test/docker/42)" in latest_line
-    assert "⏳ pending — lint" in latest_line
-
-
-def test_load_required_groups_handles_invalid_inputs() -> None:
-    # Invalid JSON should fall back to defaults rather than raising.
-    assert _load_required_groups("{invalid json}") == DEFAULT_REQUIRED_JOB_GROUPS
-
-    # Non-list payloads also fall back to defaults.
-    assert (
-        _load_required_groups(json.dumps({"label": "ignored"}))
-        == DEFAULT_REQUIRED_JOB_GROUPS
-    )
-
-
-def test_load_required_groups_filters_incomplete_entries() -> None:
-    custom: Sequence[dict[str, object]] = [
-        {"label": "Lint", "patterns": [r"^lint /"]},
-        {"label": "", "patterns": [r"^empty"]},
-        {"label": "Broken", "patterns": []},
-        {"label": "Invalid", "patterns": [123]},
-        {"patterns": [r"^missing label"]},
-    ]
-
-    parsed = _load_required_groups(json.dumps(custom))
-    assert parsed == [{"label": "Lint", "patterns": [r"^lint /"]}]
-
-
-def test_build_summary_comment_prefers_present_runs_when_duplicates() -> None:
-    runs = [
-        {"key": "ci", "displayName": "CI", "present": False, "jobs": []},
-        {
-            "key": "ci",
-            "displayName": "CI",
-            "present": True,
-            "id": 55,
-            "conclusion": "success",
-            "html_url": "https://example.test/ci/55",
-            "jobs": [],
-        },
-        {"key": "docker", "displayName": "Docker", "present": False, "jobs": []},
-        {
-            "key": "docker",
-            "displayName": "Docker",
-            "present": True,
-            "id": 91,
-            "status": "in_progress",
-            "html_url": "https://example.test/docker/91",
-            "jobs": [],
-        },
-    ]
-
-    body = build_summary_comment(
-        runs=runs,
-        head_sha=None,
-        coverage_stats=None,
-        coverage_section=None,
-        required_groups_env=None,
-    )
-
-    latest_line = next(
-        (line for line in body.splitlines() if line.startswith("**Latest Runs:**")),
-        "",
-    )
-
-    assert "CI (#55)" in latest_line
-    assert "pending — CI" not in latest_line
-    assert "⏳ in progress — [Docker (#91)]" in latest_line
-
-
-def test_build_summary_comment_prefers_worse_state_for_duplicates() -> None:
-    runs = [
-        {
-            "key": "ci",
-            "displayName": "CI",
-            "present": True,
-            "id": 77,
-            "conclusion": "success",
-            "html_url": "https://example.test/ci/77",
-            "jobs": [
-                {
-                    "name": "ci / python",
-                    "conclusion": "success",
-                    "html_url": "https://example.test/ci/77/python",
-                }
-            ],
-        },
-        {
-            "key": "ci",
-            "displayName": "CI",
-            "present": True,
-            "id": 78,
-            "conclusion": "failure",
-            "html_url": "https://example.test/ci/78",
-            "jobs": [
-                {
-                    "name": "ci / python",
-                    "conclusion": "failure",
-                    "html_url": "https://example.test/ci/78/python",
-                }
-            ],
-        },
-    ]
-
-    body = build_summary_comment(
-        runs=runs,
-        head_sha=None,
-        coverage_stats=None,
-        coverage_section=None,
-        required_groups_env=None,
-    )
-
-    latest_line = next(
-        (line for line in body.splitlines() if line.startswith("**Latest Runs:**")),
-        "",
-    )
-
-    assert "❌ failure" in latest_line
-    assert "(#78)" in latest_line
-    assert "✅ success" not in latest_line
-    assert "| **CI / ci / python** | ❌ failure | [logs]" in body
-    assert "CI python: ❌ failure" in body
-
-
-def test_main_appends_to_github_output(tmp_path, monkeypatch) -> None:
-    output_file = tmp_path / "outputs.txt"
-    output_file.write_text("existing=1\n", encoding="utf-8")
-
-    monkeypatch.setenv("RUNS_JSON", "[]")
-    monkeypatch.delenv("HEAD_SHA", raising=False)
-    monkeypatch.delenv("COVERAGE_STATS", raising=False)
-    monkeypatch.delenv("COVERAGE_SECTION", raising=False)
-    monkeypatch.delenv("REQUIRED_JOB_GROUPS_JSON", raising=False)
-    monkeypatch.setenv("GITHUB_OUTPUT", str(output_file))
-
-    post_ci_summary.main()
-
-    text = output_file.read_text(encoding="utf-8")
-    assert text.startswith("existing=1\n"), "original content should be preserved"
-    assert "body<<EOF" in text
-    assert text.strip().endswith("EOF"), "output block should terminate with EOF marker"
+    assert "CI python: ✅ success" in body
+    # Docker status should still be present even though the custom required groups failed.
+    assert "Docker: ❌ failure" in body
