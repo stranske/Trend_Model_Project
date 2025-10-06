@@ -39,6 +39,16 @@ Only these workflows appear in the Actions UI; everything else is a reusable com
 - Local mirrors (`scripts/style_gate_local.sh`, `scripts/dev_check.sh`, `scripts/validate_fast.sh`) `source` the same env file so contributors run the identical versions before pushing. These scripts now fail fast if the env file is missing or incomplete to keep the pins authoritative.
 - When bumping any formatter, update the env file first, rerun `./scripts/style_gate_local.sh`, and let CI confirm the new version. This keeps CI, autofix, and local developer flows in lock-step.
 
+### Local style gate quickstart
+
+Run the same style/type bundle that CI enforces with:
+
+```bash
+./scripts/style_gate_local.sh
+```
+
+The helper installs the pinned versions from `.github/workflows/autofix-versions.env`, runs Black/Ruff checks, and finishes with a mypy pass over `src/trend_analysis` and `src/trend_portfolio_app`. Fix any reported issues locally before pushing to keep `pr-10-ci-python.yml` green.
+
 ## Trigger Dependencies
 - `maint-30-post-ci-summary.yml` listens for `workflow_run` events from `PR 10 CI Python` and `PR 12 Docker Smoke`, writing a consolidated status block to the run summary for the active PR head.
 - `maint-32-autofix.yml` and `maint-33-check-failure-tracker.yml` subscribe to the same CI workflows and also monitor the manual `Maint 90 Selftest` caller.
