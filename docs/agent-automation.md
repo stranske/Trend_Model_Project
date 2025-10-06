@@ -59,7 +59,7 @@ Manual dispatch / 20-minute schedule ──▶ agents-70-orchestrator.yml
 While the agent wrappers were removed, maintenance automation still supports the broader workflow stack:
 
 - `maint-32-autofix.yml` continues to follow the CI pipeline and apply low-risk fixes.
-- `maint-30-post-ci-summary.yml` posts consolidated run summaries once `pr-10-ci-python.yml` and `pr-12-docker-smoke.yml` finish.
+- `maint-30-post-ci-summary.yml` writes consolidated run summaries to the workflow step summary once `pr-10-ci-python.yml` and `pr-12-docker-smoke.yml` finish.
 - `maint-33-check-failure-tracker.yml` opens or resolves CI failure issues based on those runs.
 
 ## Operational Playbook

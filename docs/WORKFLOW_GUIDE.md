@@ -29,7 +29,7 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 
 ### Maintenance & Governance
 - **`maint-02-repo-health.yml`** — Nightly/weekly repository health probe with optional workflow_dispatch reruns.
-- **`maint-30-post-ci-summary.yml`** — Subscribes to `workflow_run` events from the PR and Docker workflows. Posts a single summary comment per head SHA.
+- **`maint-30-post-ci-summary.yml`** — Subscribes to `workflow_run` events from the PR and Docker workflows. Writes a single step-summary block per head SHA.
 - **`maint-32-autofix.yml`** — Follower that applies autofix commits or uploads patches after CI completes successfully or fails for lint-only reasons.
 - **`maint-33-check-failure-tracker.yml`** — Opens and resolves CI failure tracker issues using signatures derived from the two PR workflows and the self-test caller.
 - **`maint-36-actionlint.yml`** — Sole workflow-lint gate. Runs actionlint via reviewdog on PR edits, pushes, weekly cron, and manual dispatch.
