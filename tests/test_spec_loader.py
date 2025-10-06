@@ -22,7 +22,16 @@ def test_ensure_run_spec_attaches_attributes() -> None:
     spec = load_run_spec_from_file(cfg_path)
     cfg = spec.config
     # Simulate loader attaching to a clone of the config object
-    clone = cfg.__class__(**cfg.model_dump()) if hasattr(cfg, "model_dump") else cfg
+    if hasattr(cfg, "model_dump"):
+        try:
+            clone = cfg.__class__(**cfg.model_dump())
+        except TypeError as e:
+            raise RuntimeError(
+                f"Failed to clone config object: {e}. "
+                "Ensure that model_dump() returns keys compatible with the constructor."
+            )
+    else:
+        clone = cfg
     original_cwd = Path.cwd()
     try:
         os.chdir(cfg_path.parent)
