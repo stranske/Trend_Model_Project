@@ -6,6 +6,7 @@ from typing import Sequence
 
 import pytest
 
+from tools import post_ci_summary
 from tools.post_ci_summary import (
     DEFAULT_REQUIRED_JOB_GROUPS,
     _load_required_groups,
@@ -355,3 +356,22 @@ def test_build_summary_comment_prefers_worse_state_for_duplicates() -> None:
     assert "✅ success" not in latest_line
     assert "| **CI / ci / python** | ❌ failure | [logs]" in body
     assert "CI python: ❌ failure" in body
+
+
+def test_main_appends_to_github_output(tmp_path, monkeypatch) -> None:
+    output_file = tmp_path / "outputs.txt"
+    output_file.write_text("existing=1\n", encoding="utf-8")
+
+    monkeypatch.setenv("RUNS_JSON", "[]")
+    monkeypatch.delenv("HEAD_SHA", raising=False)
+    monkeypatch.delenv("COVERAGE_STATS", raising=False)
+    monkeypatch.delenv("COVERAGE_SECTION", raising=False)
+    monkeypatch.delenv("REQUIRED_JOB_GROUPS_JSON", raising=False)
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output_file))
+
+    post_ci_summary.main()
+
+    text = output_file.read_text(encoding="utf-8")
+    assert text.startswith("existing=1\n"), "original content should be preserved"
+    assert "body<<EOF" in text
+    assert text.strip().endswith("EOF"), "output block should terminate with EOF marker"

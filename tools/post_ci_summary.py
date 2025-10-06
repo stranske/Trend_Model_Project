@@ -454,7 +454,9 @@ def main() -> None:
 
     output_path = os.environ.get("GITHUB_OUTPUT")
     if output_path:
-        Path(output_path).write_text(f"body<<EOF\n{body}\nEOF\n", encoding="utf-8")
+        handle_path = Path(output_path)
+        with handle_path.open("a", encoding="utf-8") as handle:
+            handle.write(f"body<<EOF\n{body}\nEOF\n")
     else:
         print(body)
 
