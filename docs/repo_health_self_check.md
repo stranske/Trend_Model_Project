@@ -3,7 +3,10 @@
 The `maint-02-repo-health.yml` workflow runs a light-touch sweep of repository
 hygiene each Monday at 07:15 UTC. It records a single Markdown report in the job
 summary highlighting stale branches and open issues without an assignee so the
-on-call maintainer can triage them quickly.
+on-call maintainer can triage them quickly. The report is generated directly
+with `actions/github-script`, so the former `.github/scripts/repo_health_probe.py`
+wrapper has been removed and there is no Python probe helper to maintain
+alongside the workflow.
 
 ## What it reports
 
