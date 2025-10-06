@@ -217,7 +217,18 @@ jobs:
                   continue;
                 }
 
-                const codexComments = comments.filter((c) => (c.user?.login || '').toLowerCase() === 'chatgpt-codex-connector');
+                const codexComments = comments
+                  .filter((c) => (c.user?.login || '').toLowerCase() === 'chatgpt-codex-connector')
+                  .sort((a, b) => new Date(a.updated_at) - new Date(b.updated_at));
+                if (!codexComments.length) {
+                  continue;
+                }
+
+                const lastAgentCommentTs = new Date(codexComments[codexComments.length - 1].updated_at || codexComments[codexComments.length - 1].created_at).getTime();
+                if (Number.isNaN(lastAgentCommentTs)) {
+                  continue;
+                }
+
                 const checklistComments = codexComments
                   .map((c) => {
                     const body = c.body || '';
@@ -233,8 +244,7 @@ jobs:
                 }
 
                 const target = checklistComments[0];
-                const lastCodexTs = new Date(target.comment.updated_at).getTime();
-                const minutesSinceCodex = (now - lastCodexTs) / 60000;
+                const minutesSinceCodex = (now - lastAgentCommentTs) / 60000;
                 if (minutesSinceCodex < MIN_IDLE_MINUTES) {
                   continue;
                 }
@@ -245,7 +255,7 @@ jobs:
                 }
                 const lastCommand = commandComments[commandComments.length - 1];
                 const lastCommandTs = new Date(lastCommand.created_at).getTime();
-                if (lastCommandTs > lastCodexTs) {
+                if (lastCommandTs > lastAgentCommentTs) {
                   continue; // already waiting on Codex response
                 }
 
