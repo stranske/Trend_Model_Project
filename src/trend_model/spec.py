@@ -192,8 +192,7 @@ def _build_backtest_spec(cfg: Any, *, base_path: Path | None) -> BacktestSpec:
         selection_mode=str(_section_get(portfolio, "selection_mode", "all")),
         random_n=_coerce_int(_section_get(portfolio, "random_n", 0), default=0),
         rebalance_calendar=_section_get(portfolio, "rebalance_calendar"),
-        transaction_cost_bps=
-            float(_coerce_float(_section_get(portfolio, "transaction_cost_bps", 0.0), 0.0) or 0.0),
+        transaction_cost_bps=float(_coerce_float(_section_get(portfolio, "transaction_cost_bps", 0.0), 0.0) or 0.0),
         max_turnover=_coerce_float(_section_get(portfolio, "max_turnover")),
         rank=rank_cfg,
         selector=selector_cfg,
