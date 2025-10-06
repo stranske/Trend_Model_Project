@@ -27,6 +27,7 @@ from trend.cli import (
 )
 from trend.reporting import generate_unified_report
 from trend_analysis.config import load_config
+from trend_model.spec import ensure_run_spec
 
 _toml_module: ModuleType | None
 try:  # Python 3.11+
@@ -75,10 +76,12 @@ def _load_configuration(path: str) -> tuple[Path, Any]:
         payload = _load_toml_payload(cfg_path)
         with _temporary_cwd(cfg_path.parent):
             cfg = load_config(payload)
+            ensure_run_spec(cfg, base_path=cfg_path.parent)
         return cfg_path, cfg
     resolved_path, cfg_obj = cast(
         tuple[Path, Any], _load_yaml_configuration(str(cfg_path))
     )
+    ensure_run_spec(cfg_obj, base_path=cfg_path.parent)
     return resolved_path, cfg_obj
 
 
@@ -175,6 +178,7 @@ def run(argv: Sequence[str] | None = None) -> int:
             cfg,
             run_id=run_id,
             include_pdf=args.pdf,
+            spec=getattr(cfg, "_trend_run_spec", None),
         )
         report_path.write_text(artefacts.html, encoding="utf-8")
         print(f"Report written: {report_path}")
