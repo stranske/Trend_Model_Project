@@ -47,9 +47,10 @@ bundles have not been published yet.
 
 ### Idempotency & Anti-Spam
 
-* The workflow uses a concurrency group keyed by the head SHA (falling back to
-  the `workflow_run` identifier) to cancel stale runs without clobbering other
-  PRs when the SHA is unavailable.
+* The workflow uses a concurrency group keyed by the PR number when Actions
+  provides it, falling back to the head SHA and ultimately the
+  `workflow_run` identifier, so stale runs are cancelled without clobbering
+  other PRs even when GitHub omits the commit hash.
 * Because the summary is appended to `$GITHUB_STEP_SUMMARY`, reruns simply
   overwrite the section within the same workflow execution instead of creating
   duplicate PR noise.
