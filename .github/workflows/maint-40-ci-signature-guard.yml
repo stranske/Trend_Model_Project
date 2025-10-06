@@ -36,9 +36,15 @@ jobs:
       - name: Reference documentation
         if: always()
         run: |
-          cat <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          ref_name="${GITHUB_REF_NAME}"
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ] && [ -n "${GITHUB_BASE_REF}" ]; then
+            ref_name="${GITHUB_BASE_REF}"
+          fi
+          ref_name="${ref_name:-phase-2-dev}"
+
+          cat <<EOF >> "$GITHUB_STEP_SUMMARY"
           ## Maint 40 CI Signature Guard
 
-          Review the [CI signature guard docs](https://github.com/${{ github.repository }}/blob/phase-2-dev/docs/ci/WORKFLOWS.md#ci-signature-guard-fixtures)
+          Review the [CI signature guard docs](https://github.com/${GITHUB_REPOSITORY}/blob/${ref_name}/docs/ci/WORKFLOWS.md#ci-signature-guard-fixtures)
           for guidance on updating the fixtures when CI job definitions change.
           EOF

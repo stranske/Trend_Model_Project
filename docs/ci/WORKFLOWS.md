@@ -63,6 +63,20 @@ The helper installs the pinned versions from `.github/workflows/autofix-versions
 
 When adding, removing, or renaming CI jobs intentionally, regenerate `basic_jobs.json` with the approved structure, compute the new hash (the composite action prints it when the comparison fails), and update both files in the same commit. The workflow should be rerun to confirm the new fixtures are accepted.
 
+Use `tools/test_failure_signature.py` to derive the hash locally while refreshing the fixtures:
+
+```bash
+# After updating basic_jobs.json with the new job manifest
+python tools/test_failure_signature.py \
+  --jobs "$(cat .github/signature-fixtures/basic_jobs.json)" \
+  > .github/signature-fixtures/basic_hash.txt
+
+# Sanity-check that both files agree before committing
+python tools/test_failure_signature.py \
+  --jobs "$(cat .github/signature-fixtures/basic_jobs.json)" \
+  --expected "$(cat .github/signature-fixtures/basic_hash.txt)"
+```
+
 To avoid noisy runs, the guard only triggers on pushes to `phase-2-dev` and on pull requests targeting that branch. It is further limited to changes that touch the signed workflow, fixture directory, or the composite verifier itself so unrelated commits on the branch do not run the guard. Every run publishes a step summary with a direct link back to this section for quick reference while updating the fixtures.
 
 ## Formatter & Type Checker Pinning
