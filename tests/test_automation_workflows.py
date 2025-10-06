@@ -173,10 +173,16 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
             if isinstance(step, dict)
             and step.get("uses", "").startswith("actions/upload-artifact@v4")
         ]
-        self.assertTrue(upload_steps, "ci / python job must upload diagnostics artifact")
+        self.assertTrue(
+            upload_steps, "ci / python job must upload diagnostics artifact"
+        )
 
         summary_step = next(
-            (step for step in job.get("steps", []) if step.get("name") == "Publish coverage summary"),
+            (
+                step
+                for step in job.get("steps", [])
+                if step.get("name") == "Publish coverage summary"
+            ),
             {},
         )
         self.assertTrue(summary_step, "coverage summary step must be present")

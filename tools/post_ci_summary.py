@@ -6,11 +6,11 @@ so regressions can be caught without executing the workflow on GitHub.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Iterable, List, Mapping, MutableSequence, Sequence
 import json
 import os
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Iterable, List, Mapping, MutableSequence, Sequence
 
 
 @dataclass(frozen=True)
