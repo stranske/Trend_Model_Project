@@ -124,7 +124,9 @@ jobs:
           echo "Testing health endpoint with retry logic..."
 
           RUN_ID="${GITHUB_RUN_ID:-manual}"
-          HEALTH_CONTAINER_NAME="smoke-health-${RUN_ID}"
+          RUN_ATTEMPT="${GITHUB_RUN_ATTEMPT:-0}"
+          JOB_NAME="${GITHUB_JOB:-smoke}"
+          HEALTH_CONTAINER_NAME="smoke-health-${JOB_NAME}-${RUN_ID}-${RUN_ATTEMPT}"
           HEALTH_URL="http://127.0.0.1:${HEALTH_PORT}${HEALTH_PATH}"
 
           cleanup() {
@@ -142,6 +144,8 @@ jobs:
           max_attempts=5
           attempt=1
           health_ready=0
+          last_curl_status=0
+          last_health_response=""
           while [ $attempt -le $max_attempts ]; do
             running=$(docker inspect -f '{{.State.Running}}' "$CONTAINER_ID" 2>/dev/null || echo "false")
             if [ "$running" != "true" ]; then
@@ -150,10 +154,43 @@ jobs:
               exit 1
             fi
 
-            if curl --fail --silent --show-error --max-time 2 "$HEALTH_URL" | grep -q "OK"; then
-              echo "Health check passed on attempt $attempt"
-              health_ready=1
-              break
+            curl_output=""
+            curl_status=0
+            if ! curl_output=$(curl --fail --silent --show-error --max-time 2 "$HEALTH_URL"); then
+              curl_status=$?
+            fi
+            last_curl_status=$curl_status
+
+            if [ "$curl_status" -eq 0 ]; then
+              last_health_response="$curl_output"
+              if (
+                HEALTH_RESPONSE="$curl_output" python - <<'PY'
+import json
+import os
+import sys
+
+payload = os.environ.get("HEALTH_RESPONSE", "").strip()
+if not payload:
+    sys.exit(1)
+
+if payload.lower() == "ok":
+    sys.exit(0)
+
+try:
+    data = json.loads(payload)
+except json.JSONDecodeError:
+    sys.exit(1)
+
+status = str(data.get("status", "")).lower()
+sys.exit(0 if status == "ok" else 1)
+PY
+              ); then
+                echo "Health check passed on attempt $attempt"
+                health_ready=1
+                break
+              fi
+            else
+              last_health_response=""
             fi
 
             echo "Attempt $attempt/$max_attempts failed, retrying in 2s..."
@@ -162,7 +199,11 @@ jobs:
           done
 
           if [ "$health_ready" -ne 1 ]; then
-            echo "Health check failed after $max_attempts attempts"
+            echo "Health check failed after $max_attempts attempts (last curl exit: $last_curl_status)"
+            if [ -n "$last_health_response" ]; then
+              echo "Last health response:"
+              printf '%s\n' "$last_health_response"
+            fi
             docker logs "$CONTAINER_ID" || true
             exit 1
           fi

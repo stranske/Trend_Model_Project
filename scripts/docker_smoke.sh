@@ -32,16 +32,56 @@ trap 'docker rm -f "$CID" >/dev/null 2>&1 || true' EXIT
 # Probe health endpoint with retries
 max_attempts=15
 attempt=1
+last_curl_status=0
+last_health_response=""
 while [[ $attempt -le $max_attempts ]]; do
-  if curl -fs "http://localhost:${PORT}${HEALTH_PATH}" | grep -q "OK"; then
-    echo "Smoke health check passed on attempt $attempt" >&2
-    echo "Docker smoke: PASS" >&2
-    exit 0
+  curl_output=""
+  curl_status=0
+  if ! curl_output=$(curl --fail --silent --show-error --max-time 2 "http://localhost:${PORT}${HEALTH_PATH}"); then
+    curl_status=$?
   fi
+  last_curl_status=$curl_status
+
+  if [[ $curl_status -eq 0 ]]; then
+    last_health_response="$curl_output"
+    if (
+      HEALTH_RESPONSE="$curl_output" python - <<'PY'
+import json
+import os
+import sys
+
+payload = os.environ.get("HEALTH_RESPONSE", "").strip()
+if not payload:
+    sys.exit(1)
+
+if payload.lower() == "ok":
+    sys.exit(0)
+
+try:
+    data = json.loads(payload)
+except json.JSONDecodeError:
+    sys.exit(1)
+
+status = str(data.get("status", "")).lower()
+sys.exit(0 if status == "ok" else 1)
+PY
+    ); then
+      echo "Smoke health check passed on attempt $attempt" >&2
+      echo "Docker smoke: PASS" >&2
+      exit 0
+    fi
+  else
+    last_health_response=""
+  fi
+
   sleep 1
   attempt=$((attempt+1))
   echo "Retry $attempt..." >&2
 done
 
-echo "Health check failed after ${max_attempts} attempts" >&2
+echo "Health check failed after ${max_attempts} attempts (last curl exit: ${last_curl_status})" >&2
+if [[ -n "$last_health_response" ]]; then
+  printf 'Last health response:%s%s' "\n" "$last_health_response" >&2
+  printf '\n' >&2
+fi
 exit 1
