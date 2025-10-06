@@ -80,8 +80,13 @@ def test_build_summary_comment_renders_expected_sections(
     assert "<!-- post-ci-summary:do-not-edit -->" in body
     assert "### Automated Status Summary" in body
     assert "**Head SHA:** abc123" in body
-    assert "**Latest Runs:** ✅ success — [CI (#101)](https://example.test/ci/101)" in body
-    assert "· ❌ failure — [Docker (#202 (attempt 2))](https://example.test/docker/202)" in body
+    assert (
+        "**Latest Runs:** ✅ success — [CI (#101)](https://example.test/ci/101)" in body
+    )
+    assert (
+        "· ❌ failure — [Docker (#202 (attempt 2))](https://example.test/docker/202)"
+        in body
+    )
     assert "CI python: ✅ success" in body
     assert "Docker: ❌ failure" in body
     assert "| CI / ci / python | ✅ success |" in body
@@ -237,7 +242,10 @@ def test_load_required_groups_handles_invalid_inputs() -> None:
     assert _load_required_groups("{invalid json}") == DEFAULT_REQUIRED_JOB_GROUPS
 
     # Non-list payloads also fall back to defaults.
-    assert _load_required_groups(json.dumps({"label": "ignored"})) == DEFAULT_REQUIRED_JOB_GROUPS
+    assert (
+        _load_required_groups(json.dumps({"label": "ignored"}))
+        == DEFAULT_REQUIRED_JOB_GROUPS
+    )
 
 
 def test_load_required_groups_filters_incomplete_entries() -> None:

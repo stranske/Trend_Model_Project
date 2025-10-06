@@ -10,7 +10,7 @@ import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List, Mapping, MutableSequence, Sequence
+from typing import Any, Iterable, List, Mapping, MutableSequence, Sequence, TypedDict
 
 
 @dataclass(frozen=True)
@@ -32,9 +32,23 @@ class RunRecord:
     url: str | None
 
 
-DEFAULT_REQUIRED_JOB_GROUPS = [
+class RequiredJobGroup(TypedDict):
+    label: str
+    patterns: List[str]
+
+
+DEFAULT_REQUIRED_JOB_GROUPS: List[RequiredJobGroup] = [
     {"label": "CI python", "patterns": [r"^ci / python(?: /|$)"]},
 ]
+
+
+def _copy_required_groups(
+    groups: Sequence[RequiredJobGroup],
+) -> List[RequiredJobGroup]:
+    return [
+        {"label": group["label"], "patterns": list(group["patterns"])}
+        for group in groups
+    ]
 
 
 def _badge(state: str | None) -> str:
@@ -91,28 +105,32 @@ def _combine_states(states: Iterable[str | None]) -> str:
     return lowered[0]
 
 
-def _load_required_groups(env_value: str | None) -> List[Mapping[str, str]]:
+def _load_required_groups(env_value: str | None) -> List[RequiredJobGroup]:
     if not env_value:
-        return DEFAULT_REQUIRED_JOB_GROUPS.copy()
+        return _copy_required_groups(DEFAULT_REQUIRED_JOB_GROUPS)
     try:
         parsed = json.loads(env_value)
     except json.JSONDecodeError:
-        return DEFAULT_REQUIRED_JOB_GROUPS.copy()
+        return _copy_required_groups(DEFAULT_REQUIRED_JOB_GROUPS)
     if not isinstance(parsed, list):
-        return DEFAULT_REQUIRED_JOB_GROUPS.copy()
-    result: List[Mapping[str, str]] = []
+        return _copy_required_groups(DEFAULT_REQUIRED_JOB_GROUPS)
+    result: List[RequiredJobGroup] = []
     for item in parsed:
         if not isinstance(item, Mapping):
             continue
         label = str(item.get("label") or item.get("name") or "").strip()
         patterns = item.get("patterns")
-        if not label or not isinstance(patterns, Sequence):
+        if (
+            not label
+            or not isinstance(patterns, Sequence)
+            or isinstance(patterns, (str, bytes))
+        ):
             continue
-        cleaned = [p for p in patterns if isinstance(p, str) and p]
+        cleaned: List[str] = [p for p in patterns if isinstance(p, str) and p]
         if not cleaned:
             continue
         result.append({"label": label, "patterns": cleaned})
-    return result or DEFAULT_REQUIRED_JOB_GROUPS.copy()
+    return result or _copy_required_groups(DEFAULT_REQUIRED_JOB_GROUPS)
 
 
 def _build_job_rows(runs: Sequence[Mapping[str, object]]) -> List[JobRecord]:
@@ -179,7 +197,7 @@ def _format_jobs_table(rows: Sequence[JobRecord]) -> List[str]:
 
 def _collect_required_segments(
     runs: Sequence[Mapping[str, object]],
-    groups: Sequence[Mapping[str, Sequence[str]]],
+    groups: Sequence[RequiredJobGroup],
 ) -> List[str]:
     import re
 
@@ -190,8 +208,8 @@ def _collect_required_segments(
         jobs = ci_run.get("jobs")
         job_list = jobs if isinstance(jobs, Sequence) else []
         for group in groups:
-            label = group.get("label")
-            patterns = group.get("patterns") or []
+            label = group["label"].strip()
+            patterns = group["patterns"]
             regexes = []
             for pattern in patterns:
                 try:
@@ -200,13 +218,16 @@ def _collect_required_segments(
                     continue
             if not label or not regexes:
                 continue
-            matched_states = []
+            matched_states: List[str | None] = []
             for job in job_list:
                 if not isinstance(job, Mapping):
                     continue
                 name = str(job.get("name") or "")
                 if any(regex.search(name) for regex in regexes):
-                    matched_states.append(job.get("conclusion") or job.get("status"))
+                    state_value = job.get("conclusion") or job.get("status")
+                    matched_states.append(
+                        str(state_value) if state_value is not None else None
+                    )
             state = _combine_states(matched_states)
             segments.append(f"{label}: {_badge(state)} {_display_state(state)}")
     else:
@@ -214,8 +235,9 @@ def _collect_required_segments(
 
     docker_run = run_lookup.get("docker")
     if isinstance(docker_run, Mapping) and docker_run.get("present"):
-        state = docker_run.get("conclusion") or docker_run.get("status") or None
-        segments.append(f"Docker: {_badge(state)} {_display_state(state)}")
+        state_value = docker_run.get("conclusion") or docker_run.get("status")
+        state_str = str(state_value) if state_value is not None else None
+        segments.append(f"Docker: {_badge(state_str)} {_display_state(state_str)}")
     else:
         segments.append("Docker: ⏳ pending")
     return segments
@@ -226,12 +248,15 @@ def _format_latest_runs(runs: Sequence[Mapping[str, object]]) -> str:
     for run in runs:
         if not isinstance(run, Mapping):
             continue
-        display = str(
-            run.get("displayName")
-            or run.get("display_name")
-            or run.get("key")
+        display = (
+            str(
+                run.get("displayName")
+                or run.get("display_name")
+                or run.get("key")
+                or "workflow"
+            ).strip()
             or "workflow"
-        ).strip() or "workflow"
+        )
 
         state = run.get("conclusion") or run.get("status")
         state_str = str(state) if state is not None else None
@@ -260,13 +285,13 @@ def _format_coverage_lines(stats: Mapping[str, object] | None) -> List[str]:
     if not isinstance(stats, Mapping):
         return []
 
-    def fmt_percent(value: object) -> str | None:
+    def fmt_percent(value: Any) -> str | None:
         try:
             return f"{float(value):.2f}%"
         except (TypeError, ValueError):
             return None
 
-    def fmt_delta(value: object) -> str | None:
+    def fmt_delta(value: Any) -> str | None:
         try:
             number = float(value)
         except (TypeError, ValueError):
