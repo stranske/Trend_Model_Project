@@ -116,6 +116,77 @@ jobs:
           rm -rf "${BUILD_CACHE_PATH}"
           mv "${BUILD_CACHE_TEMP}" "${BUILD_CACHE_PATH}"
 
+      - name: Smoke test health endpoint
+        run: |
+          set -euo pipefail
+
+          # Launch the image and poll its health endpoint to validate runtime readiness before running tests.
+          echo "Testing health endpoint with retry logic..."
+
+          RUN_ID="${GITHUB_RUN_ID:-manual}"
+          RUN_ATTEMPT="${GITHUB_RUN_ATTEMPT:-0}"
+          JOB_NAME="${GITHUB_JOB:-smoke}"
+          HEALTH_CONTAINER_NAME="smoke-health-${JOB_NAME}-${RUN_ID}-${RUN_ATTEMPT}"
+          HEALTH_URL="http://127.0.0.1:${HEALTH_PORT}${HEALTH_PATH}"
+
+          cleanup() {
+            docker rm -f "$HEALTH_CONTAINER_NAME" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          docker rm -f "$HEALTH_CONTAINER_NAME" >/dev/null 2>&1 || true
+          CONTAINER_ID=$(docker run -d \
+            --name "$HEALTH_CONTAINER_NAME" \
+            -p "${HEALTH_PORT}:${HEALTH_PORT}" \
+            "${REGISTRY}/${IMAGE_NAME}:latest")
+          echo "Started container: $CONTAINER_ID"
+
+          max_attempts=5
+          attempt=1
+          health_ready=0
+          last_curl_status=0
+          last_health_response=""
+          while [ $attempt -le $max_attempts ]; do
+            running=$(docker inspect -f '{{.State.Running}}' "$CONTAINER_ID" 2>/dev/null || echo "false")
+            if [ "$running" != "true" ]; then
+              echo "Container exited before health check succeeded. Capturing logs..."
+              docker logs "$CONTAINER_ID" || true
+              exit 1
+            fi
+
+            curl_output=""
+            curl_status=0
+            if ! curl_output=$(curl --fail --silent --show-error --max-time 2 "$HEALTH_URL"); then
+              curl_status=$?
+            fi
+            last_curl_status=$curl_status
+
+            if [ "$curl_status" -eq 0 ]; then
+              last_health_response="$curl_output"
+              if HEALTH_RESPONSE="$curl_output" python scripts/docker_health_response.py
+              then
+                echo "Health check passed on attempt $attempt"
+                health_ready=1
+                break
+              fi
+            else
+              last_health_response=""
+            fi
+
+            echo "Attempt $attempt/$max_attempts failed, retrying in 2s..."
+            sleep 2
+            attempt=$((attempt + 1))
+          done
+
+          if [ "$health_ready" -ne 1 ]; then
+            echo "Health check failed after $max_attempts attempts (last curl exit: $last_curl_status)"
+            if [ -n "$last_health_response" ]; then
+              echo "Last health response:"
+              printf '%s\n' "$last_health_response"
+            fi
+            docker logs "$CONTAINER_ID" || true
+            exit 1
+          fi
       - name: Save buildx cache
         if: github.event_name != 'pull_request' && steps.restore-buildx-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
@@ -135,35 +206,6 @@ jobs:
           else
             echo "Running tests with quiet output for production build..."
             docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest pytest -q
-          fi
-      - name: Smoke test health endpoint
-        run: |
-          # Launch the image and poll its health endpoint to validate runtime readiness.
-          echo " Testing health endpoint with retry logic..."
-          CONTAINER_ID=$(docker run -d -p ${{ env.HEALTH_PORT }}:${{ env.HEALTH_PORT }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest)
-          echo "Started container: $CONTAINER_ID"
-          
-          # Wait for container startup with backoff
-          max_attempts=10
-          attempt=1
-          while [ $attempt -le $max_attempts ]; do
-            if curl -fs http://localhost:${{ env.HEALTH_PORT }}${{ env.HEALTH_PATH }} | grep -q "OK"; then
-              echo " Health check passed on attempt $attempt"
-              break
-            else
-              echo "Attempt $attempt failed, retrying..."
-              sleep 1
-            fi
-            attempt=$((attempt+1))
-          done
-          
-          # Cleanup
-          docker stop "$CONTAINER_ID"
-          docker rm "$CONTAINER_ID"
-          
-          if [ $attempt -gt $max_attempts ]; then
-            echo " Health check failed after $max_attempts attempts"
-            exit 1
           fi
       - name: Push image
         # Only publish from the protected main development branch per Issue #1663.
