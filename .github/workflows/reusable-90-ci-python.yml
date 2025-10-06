@@ -279,17 +279,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Load formatter pins
+        shell: bash
         run: |
           set -euo pipefail
           pin_file=".github/workflows/autofix-versions.env"
-          if [ ! -f "$pin_file" ]; then
-            echo "::error::Missing $pin_file" >&2
+          if [[ ! -f "${pin_file}" ]]; then
+            echo "Missing ${pin_file}; aborting." >&2
             exit 1
           fi
-          # shellcheck source=/dev/null
-          source "$pin_file"
-          : "${MYPY_VERSION:?Missing MYPY_VERSION}"
-          cat "$pin_file" >> "$GITHUB_ENV"
+          # shellcheck disable=SC1090
+          source "${pin_file}"
+          if [[ -z "${MYPY_VERSION:-}" ]]; then
+            echo "${pin_file} is missing a value for MYPY_VERSION" >&2
+            exit 1
+          fi
+          cat "${pin_file}" >> "${GITHUB_ENV}"
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -302,7 +306,6 @@ jobs:
           source .venv/bin/activate
           pip install -U pip
           pip install -r requirements.txt
-          : "${MYPY_VERSION:?Missing MYPY_VERSION}"
           pip install "mypy==${MYPY_VERSION}"
       - name: Run mypy
         run: mypy src || (echo 'mypy failed' && exit 1)
