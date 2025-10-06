@@ -42,8 +42,17 @@ jobs:
           if [[ ! -f "${pin_file}" ]]; then
             echo "Missing ${pin_file}; aborting." >&2
             exit 1
+          fi
+          echo "PIN_FILE=${pin_file}" >> "$GITHUB_ENV"
       - name: Load pinned tool versions
+        shell: bash
         run: |
+          set -euo pipefail
+          pin_file="${PIN_FILE:-.github/workflows/autofix-versions.env}"
+          if [[ ! -f "${pin_file}" ]]; then
+            echo "Missing ${pin_file}; aborting." >&2
+            exit 1
+          fi
           if [ -f .github/workflows/ci-python-versions.env ]; then
             cat .github/workflows/ci-python-versions.env >> "$GITHUB_ENV"
           fi
@@ -55,7 +64,7 @@ jobs:
               exit 1
             fi
           done
-          cat "${pin_file}" >> "${GITHUB_ENV}"
+          grep -E '^[A-Za-z_][A-Za-z0-9_]*=' "${pin_file}" >> "${GITHUB_ENV}"
 
       - name: Ensure coverage minimum
         run: |
@@ -93,7 +102,7 @@ jobs:
               exit 1
             fi
           done
-          cat "${pin_file}" >> "${GITHUB_ENV}"
+          grep -E '^[A-Za-z_][A-Za-z0-9_]*=' "${pin_file}" >> "${GITHUB_ENV}"
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -127,6 +136,8 @@ jobs:
         run: black --check .
       - name: Install dependencies
         run: |
+          set -euo pipefail
+          source .venv/bin/activate
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -e '.[dev]' || pip install -e .
@@ -138,6 +149,8 @@ jobs:
             "pytest-cov==${PYTEST_COV_VERSION}" \
             "coverage==${COVERAGE_VERSION}" \
             jq
+          echo "${GITHUB_WORKSPACE}/.venv/bin" >> "$GITHUB_PATH"
+          echo "VIRTUAL_ENV=${GITHUB_WORKSPACE}/.venv" >> "$GITHUB_ENV"
 
       - name: Black (format check)
         run: |
@@ -149,7 +162,7 @@ jobs:
 
       - name: Ruff (lint)
         run: |
-          ruff check --output-format text .
+          ruff check --output-format full .
 
       - name: Mypy (type check)
         run: |
