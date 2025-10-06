@@ -41,6 +41,10 @@ The workflow collects status data from three places:
    (`coverage-trend.json` and `coverage-trend-history.ndjson`) continue to drive
    the latest and previous coverage values when available.
 
+Missing artifacts now fail soft: the workflow marks the related sections as
+pending and logs a notice instead of erroring out when coverage or Docker
+bundles have not been published yet.
+
 ### Idempotency & Anti-Spam
 
 * The workflow uses a concurrency group keyed by the head SHA (falling back to
