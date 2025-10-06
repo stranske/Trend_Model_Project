@@ -163,7 +163,7 @@ jobs:
 
             if [ "$curl_status" -eq 0 ]; then
               last_health_response="$curl_output"
-              if HEALTH_RESPONSE="$curl_output" python - <<'PY'; then
+              if HEALTH_RESPONSE="$curl_output" python - <<'PY'
 import json
 import os
 import sys
@@ -183,6 +183,7 @@ except json.JSONDecodeError:
 status = str(data.get("status", "")).lower()
 sys.exit(0 if status == "ok" else 1)
 PY
+              then
                 echo "Health check passed on attempt $attempt"
                 health_ready=1
                 break

@@ -64,7 +64,7 @@ while [[ $attempt -le $max_attempts ]]; do
 
   if [[ $curl_status -eq 0 ]]; then
     last_health_response="$curl_output"
-    if HEALTH_RESPONSE="$curl_output" python - <<'PY'; then
+    if HEALTH_RESPONSE="$curl_output" python - <<'PY'
 import json
 import os
 import sys
@@ -84,6 +84,7 @@ except json.JSONDecodeError:
 status = str(data.get("status", "")).lower()
 sys.exit(0 if status == "ok" else 1)
 PY
+    then
       echo "Smoke health check passed on attempt $attempt" >&2
       echo "Docker smoke: PASS" >&2
       health_ready=1
