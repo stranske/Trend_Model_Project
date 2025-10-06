@@ -2,14 +2,8 @@ from __future__ import annotations
 
 import json
 
-from typing import Sequence
-
 import pytest
-
-from tools import post_ci_summary
 from tools.post_ci_summary import (
-    DEFAULT_REQUIRED_JOB_GROUPS,
-    _load_required_groups,
     build_summary_comment,
 )
 
@@ -215,7 +209,7 @@ def test_build_summary_comment_handles_irregular_run_data() -> None:
                 "jobs": [],
             },
             "not-a-mapping",
-        ],
+        ],  # type: ignore[arg-type]
         head_sha="def456",
         coverage_stats={},
         coverage_section=None,
@@ -227,7 +221,7 @@ def test_build_summary_comment_handles_irregular_run_data() -> None:
     )
 
     assert "**Head SHA:** def456" in body
-    assert "**Latest Runs:** CI · Docker" in body
+    assert "**Latest Runs:** ⏳ pending — CI · ⏳ waiting — Docker" in body
     assert "CI python: ⏳ queued" in body
     assert "Docker: ⏳ waiting" in body
     assert "| CI / ci / python | ⏳ queued | — |" in body
