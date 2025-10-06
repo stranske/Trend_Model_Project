@@ -1,59 +1,48 @@
 # Repository Health Workflow (maint-02)
 
-The `maint-02-repo-health.yml` workflow keeps the repository's
-baseline governance assets (labels, secrets, and Ops issue plumbing) healthy.
-It runs nightly with a weekly deep-dive, can be dispatched manually, and
-re-executes automatically whenever the probe or workflow definition changes in a
-PR.
+The `maint-02-repo-health.yml` workflow runs a light-touch sweep of repository
+hygiene each Monday at 07:15 UTC. It records a single Markdown report in the job
+summary highlighting stale branches and open issues without an assignee so the
+on-call maintainer can triage them quickly.
 
-## What it verifies
+## What it reports
 
-| Aspect | What It Verifies | Failure Handling |
-| ------ | ---------------- | ---------------- |
-| Workflow lint | `actionlint` pinned at v1.7.7 | Fails the job and records the failure in the Ops summary |
-| Labels | Presence of required labels (`agent:*`, `priority:*`, `tech:coverage`, `workflows`) | Missing labels are listed in the Ops issue comment |
-| Secrets | `SERVICE_BOT_PAT` repository secret exists | Missing secret is reported in summary + Ops issue |
-| Variables | `OPS_HEALTH_ISSUE` repository variable exists | Summary warns and Ops issue update is skipped when absent |
+| Signal | What it captures | Notes |
+| ------ | ---------------- | ----- |
+| Stale branches | Branches (excluding the default) whose latest commit is older than `REPO_HEALTH_STALE_BRANCH_DAYS`. | Sorted by oldest commit first and capped at 20 rows. |
+| Unassigned issues | Open issues without assignees ordered by last update. | Includes links so triage is one click away. |
+
+The summary also surfaces aggregate counts for each signal at the top of the
+report.
 
 ## Trigger modes
 
-- **Daily cron** — 04:17 UTC for routine hygiene.
-- **Weekly cron** — Monday 06:45 UTC for the extended Ops report.
-- **workflow_dispatch** — Manual runs for smoke tests or post-incident
-  verification.
-- **Scoped PR / push triggers** — Changes to `tools/repo_health_probe.py` or the
-  workflow definition automatically re-run the probe on the
-  `phase-2-dev` branch.
+- **Weekly cron** — Monday 07:15 UTC keeps the sweep in a quiet window.
+- **`workflow_dispatch`** — Run manually after pruning branches or assigning
+  issues to verify the report clears.
 
-## Sample step summary
+## Sample run summary
 
 ```
-## Repo health nightly checks
+# Repository health weekly sweep
+Generated on Mon, 03 Feb 2025 07:15:32 GMT
 
-- ✅ Workflow lint (`actionlint`) succeeded.
-- ✅ Required labels, variables, and secrets are present.
+| Signal | Count |
+| ------ | ----- |
+| Stale branches (>30d) | 2 |
+| Open issues without assignees | 3 |
 ```
 
-When the probe encounters missing artefacts, the summary switches to an error
-list and (if `OPS_HEALTH_ISSUE` is set) the workflow posts an update to the Ops
-tracking issue via a replace-in-place comment (`<!-- repo-health-nightly -->`).
+Each section expands into a table with the specific branches or issues. When
+more than 20 entries exist, the summary notes how many were omitted so you know
+whether further cleanup is required.
 
-## OPS_HEALTH_ISSUE maintenance
+## Tuning the sweep
 
-The probe expects the repository variable (or secret) `OPS_HEALTH_ISSUE` to
-contain the numeric identifier of the Operations tracking issue. Confirm the
-variable is defined in production and staging forks — the workflow will warn in
-its summary and skip the comment update if the value is missing or malformed.
+The workflow reads the optional repository variable `REPO_HEALTH_STALE_BRANCH_DAYS`
+to decide how old a branch must be before it is reported. Increase the value for
+long-lived release branches or decrease it to surface drift sooner. The `MAX_TABLE_ROWS`
+setting is hard-coded to 20 inside the workflow for concise reports.
 
-## Offline smoke coverage
-
-`scripts/workflow_smoke_tests.py` exercises `tools.repo_health_probe` using a
-fixture payload so CI validates the probe without GitHub API access. Run the
-smoke harness locally with:
-
-```bash
-python scripts/workflow_smoke_tests.py
-```
-
-The command prints the same Markdown summary that appears in Actions logs,
-providing a quick regression check when adjusting probe logic.
+After updating the threshold, dispatch the workflow manually to confirm the new
+window behaves as expected.
