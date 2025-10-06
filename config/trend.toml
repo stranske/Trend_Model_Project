@@ -1,0 +1,126 @@
+version = "1"
+
+# ---------------------------------------------------------------------------
+# Data source: CSV file produced by ``scripts/generate_demo.py``
+# ---------------------------------------------------------------------------
+[data]
+csv_path = "../demo/demo_returns.csv"  # relative paths resolve from this file
+date_column = "Date"                    # column containing ISO-8601 dates
+frequency = "ME"                        # returns are month-end observations
+missing_policy = "drop"                 # initial policy before preprocessing
+
+# ---------------------------------------------------------------------------
+# Lightweight preprocessing. The demo only forward-fills short gaps.
+# ---------------------------------------------------------------------------
+[preprocessing]
+steps = []  # reserved for future pipeline stages
+
+[preprocessing.missing_data]
+policy = "ffill"  # forward-fill short gaps created during resampling
+limit = 2         # up to two consecutive NaNs filled per asset
+
+# ---------------------------------------------------------------------------
+# Volatility adjustment applied to the trend signal.
+# ---------------------------------------------------------------------------
+[vol_adjust]
+enabled = false        # enable to target a fixed realised volatility
+target_vol = 0.10      # 10% annualised target when ``enabled = true``
+
+# ---------------------------------------------------------------------------
+# In/out sample windows feeding the backtest.
+# ---------------------------------------------------------------------------
+[sample_split]
+in_start = "2015-01"
+in_end = "2022-12"
+out_start = "2023-01"
+out_end = "2024-12"
+
+# ---------------------------------------------------------------------------
+# Portfolio construction parameters used by the pipeline.
+# ---------------------------------------------------------------------------
+[portfolio]
+selection_mode = "rank"      # new rank-based selector
+rebalance_calendar = "NYSE"  # trading calendar driving rebalance dates
+transaction_cost_bps = 0.0   # demo assumes frictionless trades
+max_turnover = 1.0           # set <1.0 to enforce turnover caps
+
+[portfolio.rank]
+inclusion_approach = "top_n"  # keep the best N funds each rebalance
+n = 5
+score_by = "Sharpe"           # metric used to rank candidates
+
+[portfolio.selector]
+name = "rank"
+
+[portfolio.selector.params]
+top_n = 5
+rank_column = "Sharpe"
+
+[portfolio.weighting]
+name = "equal"               # equal-weighting across selected funds
+
+[portfolio.weighting.params]
+# Equal weighting has no tunable parameters
+
+# ---------------------------------------------------------------------------
+# Benchmarks appear in the report for relative performance.
+# ---------------------------------------------------------------------------
+[benchmarks]
+spx = "SPX"
+
+# ---------------------------------------------------------------------------
+# Regime analysis overlays market state on portfolio results.
+# ---------------------------------------------------------------------------
+[regime]
+enabled = true
+proxy = "SPX"
+method = "rolling_return"
+lookback = 24
+smoothing = 3
+threshold = 0.0
+neutral_band = 0.0015
+min_observations = 3
+annualise_volatility = true
+
+# ---------------------------------------------------------------------------
+# Metrics calculated for both score frames and report tables.
+# ---------------------------------------------------------------------------
+[metrics]
+registry = [
+  "annual_return",
+  "volatility",
+  "sharpe_ratio",
+  "sortino_ratio",
+  "information_ratio",
+  "max_drawdown",
+]
+
+# ---------------------------------------------------------------------------
+# Export settings for CLI artefacts and report downloads.
+# ---------------------------------------------------------------------------
+[export]
+directory = "../demo/exports"
+formats = ["csv", "xlsx", "json", "txt"]
+
+[output]
+format = "csv"                      # default CLI export when --output is used
+path = "../demo/exports/cli_demo.csv"
+
+# ---------------------------------------------------------------------------
+# Execution guardrails and deterministic seed.
+# ---------------------------------------------------------------------------
+[run]
+seed = 42
+jobs = 1
+checkpoint_dir = "../demo/checkpoints"
+
+# ---------------------------------------------------------------------------
+# Multi-period demo defaults used by the walk-forward scripts.
+# ---------------------------------------------------------------------------
+[multi_period]
+frequency = "ME"
+in_sample_len = 36
+out_sample_len = 12
+start = "2018-01"
+end = "2024-12"
+

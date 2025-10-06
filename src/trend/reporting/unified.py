@@ -10,7 +10,7 @@ import math
 import textwrap
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Literal, Mapping, Sequence, cast
+from typing import TYPE_CHECKING, Any, Literal, Mapping, Sequence, cast
 
 import matplotlib
 import pandas as pd
@@ -33,6 +33,11 @@ def _init_matplotlib() -> Any:
 plt = _init_matplotlib()
 
 from trend_analysis.backtesting import BacktestResult  # noqa: E402
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from trend_model.spec import TrendRunSpec
+else:  # pragma: no cover - runtime fallback when trend_model unavailable
+    TrendRunSpec = Any
 
 
 @dataclass(slots=True)
@@ -330,7 +335,96 @@ def _build_exec_summary(result: Any, backtest: BacktestResult | None) -> list[st
     return bullets
 
 
-def _build_param_summary(config: Any) -> list[tuple[str, str]]:
+def _extend_params(
+    params: list[tuple[str, str]], entries: Sequence[tuple[str, str]]
+) -> None:
+    existing = {key for key, _ in params}
+    for key, value in entries:
+        if key in existing:
+            continue
+        params.append((key, value))
+
+
+def _trend_spec_summary(spec: Any | None) -> list[tuple[str, str]]:
+    if spec is None:
+        return []
+    entries: list[tuple[str, str]] = []
+    entries.append(("Trend window", f"{spec.window} periods"))
+    entries.append(("Signal lag", str(spec.lag)))
+    if getattr(spec, "min_periods", None):
+        entries.append(("Min periods", str(spec.min_periods)))
+    scaling = "Vol-adjusted" if spec.vol_adjust else "Raw"
+    entries.append(("Signal scaling", scaling))
+    target = getattr(spec, "vol_target", None)
+    if spec.vol_adjust and isinstance(target, (int, float)):
+        entries.append(("Signal vol target", _format_percent(float(target))))
+    entries.append(("Signal z-score", "Enabled" if spec.zscore else "Disabled"))
+    return entries
+
+
+def _rank_summary(rank_cfg: Mapping[str, Any]) -> str:
+    if not rank_cfg:
+        return ""
+    approach = str(rank_cfg.get("inclusion_approach", "")) or "unspecified"
+    parts = [approach]
+    if approach == "top_n" and rank_cfg.get("n") is not None:
+        try:
+            parts.append(f"n={int(rank_cfg['n'])}")
+        except (TypeError, ValueError, KeyError):
+            pass
+    if approach == "top_pct" and rank_cfg.get("pct") is not None:
+        try:
+            parts.append(f"pct={float(rank_cfg['pct']):.0%}")
+        except (TypeError, ValueError, KeyError):
+            pass
+    if approach == "threshold" and rank_cfg.get("threshold") is not None:
+        try:
+            parts.append(f"≥ {float(rank_cfg['threshold']):.2f}")
+        except (TypeError, ValueError, KeyError):
+            pass
+    score_by = rank_cfg.get("score_by")
+    if score_by:
+        parts.append(f"score={score_by}")
+    return ", ".join(parts)
+
+
+def _backtest_spec_summary(spec: Any | None) -> list[tuple[str, str]]:
+    if spec is None:
+        return []
+    entries: list[tuple[str, str]] = []
+    rank_cfg = getattr(spec, "rank", {})
+    if isinstance(rank_cfg, Mapping):
+        rank_desc = _rank_summary(rank_cfg)
+        if rank_desc:
+            entries.append(("Rank inclusion", rank_desc))
+    metrics = getattr(spec, "metrics", ())
+    if metrics:
+        metric_text = ", ".join(str(item) for item in metrics)
+        entries.append(("Metric registry", metric_text))
+    regime = getattr(spec, "regime", {})
+    if isinstance(regime, Mapping) and regime:
+        enabled = bool(regime.get("enabled", True))
+        if not enabled:
+            entries.append(("Regime analysis", "Disabled"))
+        else:
+            method = regime.get("method")
+            proxy = regime.get("proxy")
+            parts = []
+            if method:
+                parts.append(str(method))
+            if proxy:
+                parts.append(f"proxy={proxy}")
+            entries.append(("Regime analysis", ", ".join(parts) or "Enabled"))
+    multi = getattr(spec, "multi_period", {})
+    if isinstance(multi, Mapping) and multi.get("frequency"):
+        freq = str(multi.get("frequency"))
+        entries.append(("Multi-period frequency", freq))
+    return entries
+
+
+def _build_param_summary(
+    config: Any, spec: TrendRunSpec | None = None
+) -> list[tuple[str, str]]:
     def _get(section: Any, key: str, default: Any = None) -> Any:
         if section is None:
             return default
@@ -381,6 +475,17 @@ def _build_param_summary(config: Any) -> list[tuple[str, str]]:
     bench_count = len(benchmarks) if isinstance(benchmarks, Mapping) else 0
     if bench_count:
         params.append(("Benchmarks", str(bench_count)))
+    resolved_spec = spec or getattr(config, "_trend_run_spec", None)
+    trend_spec_obj = getattr(resolved_spec, "trend", None) if resolved_spec else None
+    if trend_spec_obj is None:
+        trend_spec_obj = getattr(config, "trend_spec", None)
+    backtest_spec_obj = (
+        getattr(resolved_spec, "backtest", None) if resolved_spec else None
+    )
+    if backtest_spec_obj is None:
+        backtest_spec_obj = getattr(config, "backtest_spec", None)
+    _extend_params(params, _trend_spec_summary(trend_spec_obj))
+    _extend_params(params, _backtest_spec_summary(backtest_spec_obj))
     return params
 
 
@@ -851,6 +956,7 @@ def generate_unified_report(
     *,
     run_id: str | None = None,
     include_pdf: bool = False,
+    spec: TrendRunSpec | None = None,
 ) -> ReportArtifacts:
     """Produce HTML (and optional PDF) report artifacts for a simulation result."""
 
@@ -858,7 +964,7 @@ def generate_unified_report(
     exec_summary = _build_exec_summary(result, backtest)
     metrics_df = getattr(result, "metrics", pd.DataFrame())
     metrics_html, metrics_text = _metrics_table_html(metrics_df)
-    params = _build_param_summary(config)
+    params = _build_param_summary(config, spec)
     caveats = _build_caveats(result, backtest)
     details_mapping = (
         getattr(result, "details", {})
@@ -900,6 +1006,10 @@ def generate_unified_report(
         "exposure_chart": exposure_chart,
         "footer": footer,
     }
+    if spec is None:
+        spec = getattr(config, "_trend_run_spec", None)
+    if spec is not None:
+        context["resolved_spec"] = spec
     html_output = _render_html(context)
     pdf_bytes = None
     if include_pdf:

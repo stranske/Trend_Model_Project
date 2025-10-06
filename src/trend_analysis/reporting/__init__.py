@@ -24,6 +24,7 @@ else:
             *,
             run_id: str | None = None,
             include_pdf: bool = False,
+            spec: Any | None = None,
         ) -> ReportArtifacts:
             raise ImportError(
                 "trend.reporting.generate_unified_report not found. Please ensure trend.reporting is available."

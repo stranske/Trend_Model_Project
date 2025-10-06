@@ -9,16 +9,19 @@ label forwarding, watchdog wrappers, or Codex bootstrap fallbacks has been remov
 ## High-Level Flow
 
 ```
-Manual dispatch / hourly schedule ──▶ agents-70-orchestrator.yml
-                                     │
-                                     ├─ Readiness probes (GraphQL assignability)
-                                     ├─ Optional Codex preflight diagnostics
-                                     ├─ Optional issue verification (label + assignment parity)
-                                     └─ Watchdog sweep for Codex bootstrap health
+Manual dispatch / 20-minute schedule ──▶ agents-70-orchestrator.yml
+                                        │
+                                        ├─ Readiness probes (GraphQL assignability)
+                                        ├─ Optional Codex preflight diagnostics
+                                        ├─ Optional issue verification (label + assignment parity)
+                                        ├─ Watchdog sweep for Codex bootstrap health
+                                        └─ Codex keepalive sweep (checklist nudge)
 ```
 
 - No automatic label forwarding remains. Maintainers trigger the orchestrator directly from the Actions tab (manual
   `workflow_dispatch`) or allow the hourly schedule to run readiness + watchdog checks.
+- Codex keepalive now runs as part of the orchestrator invocation. Configure thresholds or disable it entirely via the
+  `options_json` payload (e.g. `{ "enable_keepalive": false }`).
 - Bootstrap PR creation, diagnostics, and stale issue escalation now live entirely inside `agents-70-orchestrator.yml` and the
   `reusable-70-agents.yml` composite it calls. Historical wrappers (`agents-41-assign*.yml`, `agents-42-watchdog.yml`, etc.) were
   deleted.
@@ -27,10 +30,11 @@ Manual dispatch / hourly schedule ──▶ agents-70-orchestrator.yml
 
 ### `agents-70-orchestrator.yml`
 
-- **Triggers:** `schedule` (top of every hour) and manual `workflow_dispatch` with curated inputs.
+- **Triggers:** `schedule` (every 20 minutes) and manual `workflow_dispatch` with curated inputs.
 - **Inputs:** `enable_readiness`, `readiness_agents`, `require_all`, `enable_preflight`, `codex_user`,
   `enable_verify_issue`, `verify_issue_number`, `enable_watchdog`, `draft_pr`, plus an extensible `options_json` string for long
-  tail toggles (currently `diagnostic_mode`, `readiness_custom_logins`, `codex_command_phrase`).
+  tail toggles (currently `diagnostic_mode`, `readiness_custom_logins`, `codex_command_phrase`, `enable_keepalive`,
+  `keepalive_idle_minutes`, `keepalive_repeat_minutes`, `keepalive_labels`, `keepalive_command`).
 - **Behaviour:** delegates directly to `reusable-70-agents.yml`, which orchestrates readiness probes, Codex bootstrap, issue
   verification, and watchdog sweeps. The JSON options map is parsed via `fromJson()` so new flags can be layered without
   exploding the dispatch form beyond GitHub's 10-input limit.
@@ -44,7 +48,10 @@ Manual dispatch / hourly schedule ──▶ agents-70-orchestrator.yml
 
 - exposes a `workflow_call` interface so the orchestrator can exercise readiness, preflight, verification, and watchdog routines.
 - keeps compatibility inputs such as `readiness_custom_logins`, `require_all`, `enable_preflight`, `enable_verify_issue`,
-  `enable_watchdog`, and `draft_pr`.
+  `enable_watchdog`, `draft_pr`, and the pass-through `options_json` for additional toggles.
+- emits a Codex keepalive sweep that looks for stalled checklists on `agent:codex` PRs and republishes the
+  `@codex plan-and-execute` command when the agent has been idle longer than the configured threshold (defaults: 10 minute
+  idle threshold, 30 minute cooldown between nudges).
 - writes summarized Markdown + JSON artifacts for readiness probes and watchdog runs.
 
 ## Related Automation
@@ -57,13 +64,16 @@ While the agent wrappers were removed, maintenance automation still supports the
 
 ## Operational Playbook
 
-1. Use the **Agents 70 Orchestrator** workflow to run readiness checks, Codex bootstrap diagnostics, or watchdog sweeps on demand.
+1. Use the **Agents 70 Orchestrator** workflow to run readiness checks, Codex bootstrap diagnostics, keepalive sweeps, or
+  watchdog checks on demand.
 2. Supply additional toggles via `options_json`, for example:
    ```json
    {
      "readiness_custom_logins": "my-bot,backup-bot",
      "diagnostic_mode": "full",
-     "codex_command_phrase": "@codex start"
+     "codex_command_phrase": "@codex start",
+     "keepalive_idle_minutes": 10,
+     "keepalive_repeat_minutes": 30
    }
    ```
 3. Review the run summary for readiness tables, watchdog escalation indicators, and Codex bootstrap status.

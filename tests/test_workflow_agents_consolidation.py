@@ -41,6 +41,7 @@ def test_reusable_agents_workflow_structure():
         "enable_preflight",
         "enable_verify_issue",
         "enable_watchdog",
+        "options_json",
     ]:
         assert f"{key}:" in text, f"Reusable agents workflow must expose input: {key}"
 
@@ -65,3 +66,17 @@ def test_codex_issue_bridge_present():
     assert (
         bridge.exists()
     ), "agents-43-codex-issue-bridge.yml must exist after Codex bridge restoration"
+
+
+def test_keepalive_job_present():
+    reusable = WORKFLOWS_DIR / "reusable-70-agents.yml"
+    text = reusable.read_text(encoding="utf-8")
+    assert (
+        "Codex Keepalive Sweep" in text
+    ), "Keepalive job must exist in reusable agents workflow"
+    assert (
+        "enable_keepalive" in text
+    ), "Keepalive job must document enable_keepalive option"
+    assert (
+        "<!-- codex-keepalive -->" in text
+    ), "Keepalive marker must be retained for duplicate suppression"
