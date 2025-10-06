@@ -394,61 +394,62 @@ jobs:
             }
 
             const candidates = [];
-            const issues = await github.paginate(github.rest.issues.listForRepo, issueParams);
+            // Use github.paginate.iterator to fetch issues page by page and break early
+            outer: for await (const { data: issues } of github.paginate.iterator(github.rest.issues.listForRepo, issueParams)) {
+              for (const issue of issues) {
+                if (candidates.length >= keepalive.max_candidates) {
+                  break outer;
+                }
 
-            for (const issue of issues) {
-              if (candidates.length >= keepalive.max_candidates) {
-                break;
-              }
-
-              if (!keepalive.include_prs && issue.pull_request) {
-                continue;
-              }
-
-              const issueLabels = (issue.labels || []).map((label) => (typeof label === 'string' ? label : label.name || '').toLowerCase());
-              if (keepalive.exclude_labels.some((label) => issueLabels.includes(label.toLowerCase()))) {
-                continue;
-              }
-
-              if (keepalive.assignees.length) {
-                const assignees = (issue.assignees || []).map((as) => (as.login || '').toLowerCase());
-                const hasAssignee = keepalive.assignees.some((target) => assignees.includes(target.toLowerCase()));
-                if (!hasAssignee) {
+                if (!keepalive.include_prs && issue.pull_request) {
                   continue;
                 }
-              }
 
-              const updatedAt = new Date(issue.updated_at).getTime();
-              if (Number.isFinite(updatedAt) && now - updatedAt < idleMs) {
-                continue;
-              }
-
-              const comments = await github.paginate(github.rest.issues.listComments, {
-                owner,
-                repo,
-                issue_number: issue.number,
-                per_page: 100
-              });
-
-              let lastCommand = null;
-              for (const comment of comments) {
-                if (commandRegex.test(comment.body || '')) {
-                  lastCommand = comment;
-                }
-              }
-
-              if (lastCommand) {
-                const lastCommandAt = new Date(lastCommand.created_at).getTime();
-                if (Number.isFinite(lastCommandAt) && now - lastCommandAt < cooldownMs) {
+                const issueLabels = (issue.labels || []).map((label) => (typeof label === 'string' ? label : label.name || '').toLowerCase());
+                if (keepalive.exclude_labels.some((label) => issueLabels.includes(label.toLowerCase()))) {
                   continue;
                 }
-              }
 
-              candidates.push({
-                issue,
-                lastCommandAt: lastCommand ? lastCommand.created_at : null,
-                idleMinutes: Math.floor((now - updatedAt) / 60000)
-              });
+                if (keepalive.assignees.length) {
+                  const assignees = (issue.assignees || []).map((as) => (as.login || '').toLowerCase());
+                  const hasAssignee = keepalive.assignees.some((target) => assignees.includes(target.toLowerCase()));
+                  if (!hasAssignee) {
+                    continue;
+                  }
+                }
+
+                const updatedAt = new Date(issue.updated_at).getTime();
+                if (Number.isFinite(updatedAt) && now - updatedAt < idleMs) {
+                  continue;
+                }
+
+                const comments = await github.paginate(github.rest.issues.listComments, {
+                  owner,
+                  repo,
+                  issue_number: issue.number,
+                  per_page: 100
+                });
+
+                let lastCommand = null;
+                for (const comment of comments) {
+                  if (commandRegex.test(comment.body || '')) {
+                    lastCommand = comment;
+                  }
+                }
+
+                if (lastCommand) {
+                  const lastCommandAt = new Date(lastCommand.created_at).getTime();
+                  if (Number.isFinite(lastCommandAt) && now - lastCommandAt < cooldownMs) {
+                    continue;
+                  }
+                }
+
+                candidates.push({
+                  issue,
+                  lastCommandAt: lastCommand ? lastCommand.created_at : null,
+                  idleMinutes: Math.floor((now - updatedAt) / 60000)
+                });
+              }
             }
 
             if (!candidates.length) {
