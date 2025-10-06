@@ -283,7 +283,7 @@ jobs:
             const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue_number}`;
             const header = `### Source Issue #${issue_number}: ${issueTitle}`;
             const quoted = (issueBody || '').split('\n').map(l => `> ${l}`).join('\n');
-            const suggestion = `${header}\n\nSource: ${issueUrl}\n\n${quoted}\n\n\n@codex start\n\nCodex, please derive and propose:\n- Scope / key constraints\n- Acceptance criteria / definition of done\n- Initial task checklist to iterate through`;
+            const suggestion = `${header}\n\nSource: ${issueUrl}\n\n${quoted}\n\n\n@codex start\n\nCodex, please derive and propose:\n- Scope / key constraints\n- Acceptance criteria / definition of done\n- Initial task checklist to iterate through\n\nUse the issue details above to draft the plan, then proceed with implementation.`;
             const compareUrl = `https://github.com/${owner}/${repo}/compare/${base}...${branch}?expand=1`;
             if (!issue_number) { core.setFailed('Resolved issue number missing; cannot post invite.'); return; }
             await github.rest.issues.createComment({ owner, repo, issue_number, body: `Branch \`${branch}\` created from \`${base}\`.\n\nOption 1 (Invite) is enforced on issue events. PR creation is disabled by design so you are the PR author. Codex only engages on human-authored PRs.\n\nPlease open the PR as the author so Codex can work on it:\n\n- Compare link: ${compareUrl}\n- Suggested title: \`Codex bootstrap for #${issue_number}\`\n- Suggested body (copy/paste):\n\n\n${'```markdown'}\n${suggestion}\n${'```'}` });
