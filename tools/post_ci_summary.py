@@ -231,10 +231,17 @@ def _format_latest_runs(runs: Sequence[Mapping[str, object]]) -> str:
             or run.get("display_name")
             or run.get("key")
             or "workflow"
-        )
+        ).strip() or "workflow"
+
+        state = run.get("conclusion") or run.get("status")
+        state_str = str(state) if state is not None else None
+        badge = _badge(state_str)
+        state_display = _display_state(state_str)
+
         if not run.get("present"):
-            parts.append(f"{display}: pending")
+            parts.append(f"{badge} {state_display} — {display}")
             continue
+
         run_id = run.get("id")
         attempt = run.get("run_attempt")
         attempt_suffix = (
@@ -243,9 +250,9 @@ def _format_latest_runs(runs: Sequence[Mapping[str, object]]) -> str:
         label = f"{display} (#{run_id}{attempt_suffix})" if run_id else display
         url = run.get("html_url")
         if url:
-            parts.append(f"[{label}]({url})")
-        else:
-            parts.append(label)
+            label = f"[{label}]({url})"
+
+        parts.append(f"{badge} {state_display} — {label}")
     return " · ".join(parts)
 
 

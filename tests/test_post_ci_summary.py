@@ -16,6 +16,7 @@ def sample_runs() -> list[dict[str, object]]:
             "present": True,
             "id": 101,
             "run_attempt": 1,
+            "conclusion": "success",
             "html_url": "https://example.test/ci/101",
             "jobs": [
                 {
@@ -32,6 +33,7 @@ def sample_runs() -> list[dict[str, object]]:
             "id": 202,
             "run_attempt": 2,
             "conclusion": "failure",
+            "status": "completed",
             "html_url": "https://example.test/docker/202",
             "jobs": [
                 {
@@ -72,7 +74,8 @@ def test_build_summary_comment_renders_expected_sections(
     assert "<!-- post-ci-summary:do-not-edit -->" in body
     assert "### Automated Status Summary" in body
     assert "**Head SHA:** abc123" in body
-    assert "**Latest Runs:**" in body
+    assert "**Latest Runs:** ✅ success — [CI (#101)](https://example.test/ci/101)" in body
+    assert "· ❌ failure — [Docker (#202 (attempt 2))](https://example.test/docker/202)" in body
     assert "CI python: ✅ success" in body
     assert "Docker: ❌ failure" in body
     assert "| CI / ci / python | ✅ success |" in body
@@ -95,6 +98,7 @@ def test_build_summary_comment_handles_missing_runs_and_defaults() -> None:
     )
 
     assert "CI: ⏳ pending" in body
+    assert "**Latest Runs:** ⏳ pending — CI" in body
     assert "Docker: ⏳ pending" in body
     assert "_Updated automatically; will refresh" in body
     # When no jobs exist the fallback table entry is rendered
@@ -177,3 +181,46 @@ def test_coverage_section_handles_snippet_without_stats() -> None:
     assert "### Coverage Overview" in body
     assert "Coverage snippet from artifact." in body
     assert body.count("### Coverage Overview") == 1
+
+
+def test_latest_runs_handles_partial_metadata() -> None:
+    runs = [
+        {
+            "key": "ci",
+            "present": True,
+            "id": None,
+            "conclusion": None,
+            "status": "in_progress",
+            "html_url": None,
+        },
+        {
+            "key": "docker",
+            "display_name": "",
+            "present": True,
+            "id": 42,
+            "run_attempt": None,
+            "status": "queued",
+            "html_url": "https://example.test/docker/42",
+        },
+        {
+            "key": "lint",
+            "present": False,
+        },
+    ]
+
+    body = build_summary_comment(
+        runs=runs,
+        head_sha=None,
+        coverage_stats=None,
+        coverage_section=None,
+        required_groups_env=None,
+    )
+
+    latest_line = next(
+        (line for line in body.splitlines() if line.startswith("**Latest Runs:**")),
+        "",
+    )
+
+    assert "⏳ in progress — ci" in latest_line.lower()
+    assert "⏳ queued — [docker (#42)](https://example.test/docker/42)" in latest_line
+    assert "⏳ pending — lint" in latest_line
