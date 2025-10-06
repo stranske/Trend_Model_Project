@@ -16,8 +16,14 @@
 6. **Verification Evidence** – Provide replay or dry-run notes showing at least one failing and one passing scenario, including label and artifact results.
 
 ## Initial Task Checklist
-- [ ] Audit `maint-33-check-failure-tracker.yml` triggers and add guard clauses to ensure the job exits early unless the source event is a PR.
-- [ ] Implement or refine logic that detects failed required jobs and adds/removes the `ci-failure` label accordingly.
-- [ ] Confirm the artifact upload step reuses the `ci-failures-snapshot` name and enforce size/content constraints.
-- [ ] Update documentation (this plan plus any operator guides) to capture scope, label expectations, and artifact lifecycle.
+- [x] Audit `maint-33-check-failure-tracker.yml` triggers and add guard clauses to ensure the job exits early unless the source event is a PR.
+- [x] Implement or refine logic that detects failed required jobs and adds/removes the `ci-failure` label accordingly.
+- [x] Confirm the artifact upload step reuses the `ci-failures-snapshot` name and enforce size/content constraints.
+- [x] Update documentation (this plan plus any operator guides) to capture scope, label expectations, and artifact lifecycle.
 - [ ] Validate behaviour via `workflow_run` replays or local action runners, capturing evidence for both passing and failing PR scenarios.
+
+## Verification Notes
+- **Failing run replay** – Re-run a failing PR workflow and confirm the failure tracker job emits a single `ci-failures-snapshot` artifact and applies (or retains) a lone `ci-failure` label on the PR timeline.
+- **Passing run replay** – Trigger a successful re-run for the same PR and confirm the success job removes the `ci-failure` label and no additional artifacts are emitted beyond the summary snapshot.
+- **Label hygiene** – Inspect the PR event log to ensure the label add/remove operations occur only once per run, matching the acceptance criteria for singular labeling.
+- **Artifact audit** – Download the `ci-failures-snapshot` artifact from both scenarios to verify the payload contains only the expected JSON keys and remains under the size threshold.
