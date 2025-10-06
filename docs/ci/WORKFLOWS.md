@@ -77,7 +77,7 @@ python tools/test_failure_signature.py \
   --expected "$(cat .github/signature-fixtures/basic_hash.txt)"
 ```
 
-To avoid noisy runs, the guard only triggers on pushes to `phase-2-dev` and on pull requests targeting that branch. It is further limited to changes that touch the signed workflow, fixture directory, or the composite verifier itself so unrelated commits on the branch do not run the guard. Every run publishes a step summary with a direct link back to this section for quick reference while updating the fixtures.
+To avoid noisy runs, the guard only triggers on pushes to `phase-2-dev` and on pull requests targeting that branch. It is further limited to changes that touch the signed workflow, fixture directory, or the composite verifier itself so unrelated commits on the branch do not run the guard. Every run publishes a step summary with a direct link back to this section for quick reference while updating the fixtures. The link resolves against the active branch or PR base automatically so maintainers always land on the correct documentation revision.
 
 ## Formatter & Type Checker Pinning
 - The canonical formatter/type versions live in `.github/workflows/autofix-versions.env`. The file is sourced by CI workflows (`pr-10-ci-python.yml`, `reusable-90-ci-python.yml`, `maint-32-autofix.yml`) and the local mirror `scripts/style_gate_local.sh`.

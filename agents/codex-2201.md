@@ -17,3 +17,6 @@
 - [x] Add/confirm a run summary note that links to the CI signature guard documentation.
 - [x] Expand the documentation to describe the trigger scope and update workflow reference.
 - [x] Validate workflow metadata with `pytest tests/test_workflow_naming.py`.
+
+## Validation
+- 2025-10-06: `pytest tests/test_workflow_naming.py`
