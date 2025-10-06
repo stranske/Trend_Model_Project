@@ -19,6 +19,10 @@ if [[ -f ".github/workflows/autofix-versions.env" ]]; then
     source .github/workflows/autofix-versions.env
 fi
 BLACK_VERSION=${BLACK_VERSION:-24.8.0}
+RUFF_VERSION=${RUFF_VERSION:-0.6.3}
+ISORT_VERSION=${ISORT_VERSION:-5.12.0}
+DOCFORMATTER_VERSION=${DOCFORMATTER_VERSION:-1.7.4}
+MYPY_VERSION=${MYPY_VERSION:-1.8.0}
 
 ensure_package_version() {
     local package_name="$1"
@@ -77,7 +81,7 @@ if [[ -z "$VIRTUAL_ENV" && -f ".venv/bin/activate" ]]; then
     source .venv/bin/activate > /dev/null 2>&1
 fi
 
-# Ensure formatter tooling is available (black, isort, docformatter) and include lint tooling.
+# Ensure formatter tooling is available (black, isort, docformatter, ruff) and include lint tooling.
 ensure_python_packages() {
     local missing=()
     for package in "$@"; do
@@ -105,8 +109,12 @@ PY
 }
 
 # Ensure lint tooling (flake8) is also available for critical error checks.
-ensure_python_packages black isort docformatter flake8
+ensure_python_packages black isort docformatter ruff flake8
 ensure_package_version black "$BLACK_VERSION"
+ensure_package_version ruff "$RUFF_VERSION"
+ensure_package_version isort "$ISORT_VERSION"
+ensure_package_version docformatter "$DOCFORMATTER_VERSION"
+ensure_package_version mypy "$MYPY_VERSION"
 
 # Guarantee the Python scripts directory (where flake8 entry point lives) is on PATH.
 if ! command -v flake8 >/dev/null 2>&1; then
