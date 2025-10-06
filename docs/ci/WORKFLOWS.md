@@ -63,6 +63,8 @@ The helper installs the pinned versions from `.github/workflows/autofix-versions
 
 When adding, removing, or renaming CI jobs intentionally, regenerate `basic_jobs.json` with the approved structure, compute the new hash (the composite action prints it when the comparison fails), and update both files in the same commit. The workflow should be rerun to confirm the new fixtures are accepted.
 
+To avoid noisy runs, the guard only triggers on pushes to `phase-2-dev` and on pull requests targeting that branch. Every run publishes a step summary with a direct link back to this section for quick reference while updating the fixtures.
+
 ## Formatter & Type Checker Pinning
 - The canonical formatter/type versions live in `.github/workflows/autofix-versions.env`. The file is sourced by CI workflows (`pr-10-ci-python.yml`, `reusable-90-ci-python.yml`, `maint-32-autofix.yml`) and the local mirror `scripts/style_gate_local.sh`.
 - Update the env file when bumping `black`, `ruff`, `mypy`, `isort`, or `docformatter`; commit the change with the workflow/doc updates in the same PR.
