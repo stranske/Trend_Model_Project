@@ -371,75 +371,22 @@ jobs:
           COVERAGE_SECTION: ${{ steps.coverage_summary.outputs.body }}
           COVERAGE_STATS: ${{ steps.coverage_stats.outputs.stats_json }}
           REQUIRED_JOB_GROUPS_JSON: ${{ env.REQUIRED_JOB_GROUPS_JSON }}
-      - name: Persist comment preview
+      - name: Persist summary preview
         run: |
           mkdir -p summary_artifacts
-          if [ -n "${COMMENT_BODY}" ]; then
-            printf '%s\n' "${COMMENT_BODY}" > summary_artifacts/comment_preview.md
+          if [ -n "${SUMMARY_BODY}" ]; then
+            printf '%s\n' "${SUMMARY_BODY}" > summary_artifacts/summary_preview.md
           else
-            echo "Comment body empty; skipping preview persistence."
+            echo "Summary body empty; skipping preview persistence."
           fi
         env:
-          COMMENT_BODY: ${{ steps.prep.outputs.body }}
-      - name: Upsert summary comment
-        uses: actions/github-script@v7
-        env:
-          PR_NUMBER: ${{ steps.gather.outputs.pr_number }}
-          BODY: ${{ steps.prep.outputs.body }}
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const prNumber = Number(process.env.PR_NUMBER);
-            const body = process.env.BODY || '';
-            const { owner, repo } = context.repo;
-            if (!prNumber || !body) {
-              core.info('No PR number or body computed; skipping comment update.');
-              return;
-            }
-
-            const marker = '<!-- post-ci-summary:do-not-edit -->';
-            const heading = 'Automated Status Summary';
-            const { data: comments } = await github.rest.issues.listComments({
-              owner,
-              repo,
-              issue_number: prNumber,
-              per_page: 100,
-            });
-
-            const hasMarker = comment =>
-              Boolean(comment && comment.body && comment.body.includes(marker));
-            const hasHeading = comment =>
-              Boolean(comment && comment.body && comment.body.includes(heading));
-
-            const existing =
-              comments.find(hasMarker) || comments.find(hasHeading);
-
-            if (existing) {
-              if ((existing.body || '').trim() === body.trim()) {
-                core.info(`Existing summary comment (${existing.id}) already up to date.`);
-                return;
-              }
-
-              await github.rest.issues.updateComment({
-                owner,
-                repo,
-                comment_id: existing.id,
-                body,
-              });
-              core.info(`Updated existing summary comment (${existing.id}).`);
-            } else {
-              await github.rest.issues.createComment({
-                owner,
-                repo,
-                issue_number: prNumber,
-                body,
-              });
-              core.info('Created new summary comment.');
-            }
-
-      - name: Append comment preview to job summary
-        if: always()
+          SUMMARY_BODY: ${{ steps.prep.outputs.body }}
+      - name: Publish run summary
         run: |
-          if [ -f summary_artifacts/comment_preview.md ]; then
-            cat summary_artifacts/comment_preview.md >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "${SUMMARY_BODY}" ]; then
+            printf '## Automated Status Summary\n\n%s\n' "${SUMMARY_BODY}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Automated status summary was empty." >> "$GITHUB_STEP_SUMMARY"
           fi
+        env:
+          SUMMARY_BODY: ${{ steps.prep.outputs.body }}
