@@ -133,6 +133,53 @@ def _load_required_groups(env_value: str | None) -> List[RequiredJobGroup]:
     return result or _copy_required_groups(DEFAULT_REQUIRED_JOB_GROUPS)
 
 
+def _dedupe_runs(runs: Sequence[Mapping[str, object]]) -> List[Mapping[str, object]]:
+    deduped: List[Mapping[str, object]] = []
+    index_by_key: dict[str, int] = {}
+
+    for run in runs:
+        if not isinstance(run, Mapping):
+            continue
+
+        key_value = run.get("key")
+        key_str: str | None
+        if isinstance(key_value, str):
+            key_str = key_value.strip() or None
+        elif key_value is None:
+            key_str = None
+        else:
+            key_str = str(key_value)
+
+        if not key_str:
+            deduped.append(run)
+            continue
+
+        existing_index = index_by_key.get(key_str)
+        if existing_index is None:
+            index_by_key[key_str] = len(deduped)
+            deduped.append(run)
+            continue
+
+        existing = deduped[existing_index]
+        existing_present = bool(existing.get("present"))
+        candidate_present = bool(run.get("present"))
+
+        if candidate_present and not existing_present:
+            deduped[existing_index] = run
+            continue
+
+        if candidate_present == existing_present:
+            existing_state = existing.get("conclusion") or existing.get("status")
+            candidate_state = run.get("conclusion") or run.get("status")
+
+            if (candidate_state and not existing_state) or (
+                _priority(candidate_state) < _priority(existing_state)
+            ):
+                deduped[existing_index] = run
+
+    return deduped
+
+
 def _build_job_rows(runs: Sequence[Mapping[str, object]]) -> List[JobRecord]:
     rows: List[JobRecord] = []
     for run in runs:
@@ -332,11 +379,12 @@ def build_summary_comment(
     coverage_section: str | None,
     required_groups_env: str | None,
 ) -> str:
-    rows = _build_job_rows(runs)
+    deduped_runs = _dedupe_runs(runs)
+    rows = _build_job_rows(deduped_runs)
     job_table_lines = _format_jobs_table(rows)
     groups = _load_required_groups(required_groups_env)
-    required_segments = _collect_required_segments(runs, groups)
-    latest_runs_line = _format_latest_runs(runs)
+    required_segments = _collect_required_segments(deduped_runs, groups)
+    latest_runs_line = _format_latest_runs(deduped_runs)
     coverage_lines = _format_coverage_lines(coverage_stats)
 
     coverage_block: List[str] = []
