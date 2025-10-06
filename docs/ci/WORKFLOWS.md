@@ -13,7 +13,7 @@ This document tracks the acceptance criteria for Issue #2190. Use it as the auth
 | `.github/workflows/pr-10-ci-python.yml` | `PR 10 CI Python` | Unified job that runs Black, Ruff, mypy, pytest with coverage, uploads diagnostics, and enforces coverage minimums. |
 | `.github/workflows/pr-12-docker-smoke.yml` | `PR 12 Docker Smoke` | Deterministic Docker build + smoke tests. |
 | `.github/workflows/maint-02-repo-health.yml` | `Maint 02 Repo Health` | Nightly/weekly repository health probe. |
-| `.github/workflows/maint-30-post-ci-summary.yml` | `Maint 30 Post CI Summary` | Posts CI/Docker run summaries on `workflow_run`. |
+| `.github/workflows/maint-30-post-ci-summary.yml` | `Maint 30 Post CI Summary` | Publishes CI/Docker run summaries to the workflow run log on `workflow_run`. |
 | `.github/workflows/maint-32-autofix.yml` | `Maint 32 Autofix` | Applies autofix commits after CI completes. |
 | `.github/workflows/maint-33-check-failure-tracker.yml` | `Maint 33 Check Failure Tracker` | Manages CI failure tracker issues. |
 | `.github/workflows/maint-36-actionlint.yml` | `Maint 36 Actionlint` | Sole workflow-lint gate (actionlint via reviewdog). |
@@ -40,7 +40,7 @@ Only these workflows appear in the Actions UI; everything else is a reusable com
 - When bumping any formatter, update the env file first, rerun `./scripts/style_gate_local.sh`, and let CI confirm the new version. This keeps CI, autofix, and local developer flows in lock-step.
 
 ## Trigger Dependencies
-- `maint-30-post-ci-summary.yml` listens for `workflow_run` events from `PR 10 CI Python` and `PR 12 Docker Smoke`, keeping the consolidated status comment in sync with the active PR head.
+- `maint-30-post-ci-summary.yml` listens for `workflow_run` events from `PR 10 CI Python` and `PR 12 Docker Smoke`, writing a consolidated status block to the run summary for the active PR head.
 - `maint-32-autofix.yml` and `maint-33-check-failure-tracker.yml` subscribe to the same CI workflows and also monitor the manual `Maint 90 Selftest` caller.
 - `Agents 70 Orchestrator` dispatches to `Reusable 70 Agents` and parses extended options via `options_json` to stay under GitHub's 10 input limit.
 - `Agents 43 Codex Issue Bridge` acts on `agent:codex` issue labels or manual dispatch to prepare Codex-ready branches and PRs.

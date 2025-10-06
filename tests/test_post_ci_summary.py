@@ -69,8 +69,7 @@ def test_build_summary_comment_renders_expected_sections(
         ),
     )
 
-    assert "<!-- post-ci-summary:do-not-edit -->" in body
-    assert "### Automated Status Summary" in body
+    assert body.startswith("## Automated Status Summary")
     assert "**Head SHA:** abc123" in body
     assert "**Latest Runs:**" in body
     assert "CI python: ✅ success" in body
