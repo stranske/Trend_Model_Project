@@ -5,6 +5,8 @@ import pytest
 
 from trend.reporting import generate_unified_report
 from trend_analysis.api import RunResult
+from trend_analysis.signals import TrendSpec
+from trend_model.spec import BacktestSpec, SampleWindow, TrendRunSpec
 
 
 def _make_result() -> RunResult:
@@ -91,3 +93,49 @@ def test_generate_unified_report_can_emit_pdf() -> None:
 
     assert artifacts.pdf_bytes is not None
     assert artifacts.pdf_bytes.startswith(b"%PDF")
+
+
+def test_generate_unified_report_includes_spec_summary() -> None:
+    result = _make_result()
+    config = _make_config()
+    trend_spec = TrendSpec(window=45, lag=2, vol_adjust=True, vol_target=0.2, zscore=True)
+    backtest_spec = BacktestSpec(
+        window=SampleWindow("2020-01", "2020-12", "2021-01", "2021-12"),
+        selection_mode="rank",
+        random_n=5,
+        rebalance_calendar="NYSE",
+        transaction_cost_bps=10.0,
+        max_turnover=None,
+        rank={"inclusion_approach": "top_n", "n": 5, "score_by": "Sharpe"},
+        selector={},
+        weighting={},
+        weighting_scheme="equal",
+        custom_weights=None,
+        manual_list=(),
+        indices_list=(),
+        benchmarks={},
+        missing={},
+        target_vol=0.15,
+        floor_vol=None,
+        warmup_periods=0,
+        monthly_cost=0.0,
+        previous_weights=None,
+        regime={"enabled": True, "method": "rolling_return", "proxy": "SPX"},
+        metrics=("Sharpe", "CAGR"),
+        seed=42,
+        jobs=None,
+        checkpoint_dir=None,
+        export_directory=None,
+        export_formats=("csv",),
+        output_path=None,
+        output_format="csv",
+        multi_period={"frequency": "ME"},
+    )
+    spec_bundle = TrendRunSpec(trend=trend_spec, backtest=backtest_spec, config=config)
+    config._trend_run_spec = spec_bundle
+
+    artifacts = generate_unified_report(result, config, run_id="spec", include_pdf=False)
+    params = dict(artifacts.context["parameters"])
+
+    assert "Trend window" in params
+    assert "Rank inclusion" in params

@@ -19,6 +19,7 @@ from trend_analysis.api import RunResult, run_simulation
 from trend_analysis.config import load as load_config
 from trend_analysis.constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 from trend_analysis.data import load_csv
+from trend_model.spec import ensure_run_spec
 
 LegacyExtractCacheStats = Callable[[object], dict[str, int] | None]
 
@@ -421,7 +422,9 @@ def _load_configuration(path: str) -> Any:
     cfg_path = Path(path).resolve()
     if not cfg_path.exists():
         raise FileNotFoundError(cfg_path)
-    return cfg_path, load_config(cfg_path)
+    cfg = load_config(cfg_path)
+    ensure_run_spec(cfg, base_path=cfg_path.parent)
+    return cfg_path, cfg
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -442,6 +445,7 @@ def main(argv: list[str] | None = None) -> int:
 
         load_config_fn = _legacy_callable("_load_configuration", _load_configuration)
         cfg_path, cfg = load_config_fn(args.config)
+        ensure_run_spec(cfg, base_path=cfg_path.parent)
         resolve_returns = _legacy_callable(
             "_resolve_returns_path", _resolve_returns_path
         )
@@ -496,7 +500,11 @@ def main(argv: list[str] | None = None) -> int:
             report_path.parent.mkdir(parents=True, exist_ok=True)
             try:
                 artifacts = generate_unified_report(
-                    result, cfg, run_id=run_id, include_pdf=args.pdf
+                    result,
+                    cfg,
+                    run_id=run_id,
+                    include_pdf=args.pdf,
+                    spec=getattr(cfg, "_trend_run_spec", None),
                 )
             except RuntimeError as exc:
                 raise TrendCLIError(str(exc)) from exc
