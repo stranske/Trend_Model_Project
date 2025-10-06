@@ -112,10 +112,17 @@ jobs:
 | Rollout | 0.5 day | Merge after reviewer sign-off, monitor initial runs. |
 
 ## 11. Definition of Done Checklist
-- [ ] `pr-10-ci-python.yml` uses `paths-ignore` mirroring Docker workflow.
-- [ ] Workflow defines concurrency group `ci-${{ github.ref }}-${{ github.event.pull_request.number || github.sha }}` with cancellation.
-- [ ] Single `ci-python` job executes Black, Ruff, Mypy, Pytest, and coverage steps.
-- [ ] Versions pulled from shared env file (added or reused) and documented.
-- [ ] Coverage percentage posted to `$GITHUB_STEP_SUMMARY`.
-- [ ] Docs-only PR path filter scenario validated.
-- [ ] Supporting documentation updated and communicated to stakeholders.
+- [x] `pr-10-ci-python.yml` uses `paths-ignore` mirroring Docker workflow.
+- [x] Workflow defines concurrency group `ci-${{ github.ref }}-${{ github.event.pull_request.number || github.sha }}` with cancellation.
+- [x] Single `ci-python` job executes Black, Ruff, Mypy, Pytest, and coverage steps.
+- [x] Versions pulled from shared env file (added or reused) and documented.
+- [x] Coverage percentage posted to `$GITHUB_STEP_SUMMARY`.
+- [x] Docs-only PR path filter scenario validated.
+- [x] Supporting documentation updated and communicated to stakeholders.
+
+## 12. Completion Notes
+- Unified workflow landed in `.github/workflows/pr-10-ci-python.yml`, fulfilling the consolidation design with coverage gating and summary publication.
+- Shared pins resolved via `.github/workflows/ci-python-versions.env`, which is referenced by both the workflow and maintainer docs.
+- Post-CI summary tooling, workflow automation tests, and operational guides were updated to recognize the new single-job topology.
+- Path-ignore alignment verified against `pr-12-docker-smoke.yml`; docs-only change simulations confirm the job is skipped while keeping push protection intact.
+- Local test suite (`pytest tests/test_automation_workflows.py tests/test_post_ci_summary.py -q`) passes, covering automation behaviour required by the acceptance criteria.
