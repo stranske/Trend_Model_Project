@@ -75,7 +75,6 @@ def test_build_summary_comment_renders_expected_sections(
     assert "**Latest Runs:**" in body
     assert "CI python: ✅ success" in body
     assert "Docker: ❌ failure" in body
-    assert "Docker: ❌ failure" in body
     assert "| CI / ci / python | ✅ success |" in body
     assert "| **Docker / docker build** | ❌ failure |" in body
     # Coverage lines should render with percentages and deltas
