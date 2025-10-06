@@ -281,6 +281,8 @@ def ensure_run_spec(cfg: Any, *, base_path: Path | None = None) -> TrendRunSpec 
             setattr(cfg, attr, value)
         except Exception:
             try:
+                # Fallback: forcibly set attribute even if cfg is a frozen dataclass or has custom __setattr__.
+                # This bypasses attribute access controls and should only be used when normal setattr fails.
                 object.__setattr__(cfg, attr, value)  # type: ignore[misc]
             except Exception:
                 continue
