@@ -444,6 +444,24 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Load formatter pins
+        if: steps.rerun.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          pin_file=".github/workflows/autofix-versions.env"
+          if [ ! -f "$pin_file" ]; then
+            echo "::error::Missing $pin_file" >&2
+            exit 1
+          fi
+          # shellcheck source=/dev/null
+          source "$pin_file"
+          for var in BLACK_VERSION RUFF_VERSION ISORT_VERSION DOCFORMATTER_VERSION MYPY_VERSION; do
+            if [ -z "${!var:-}" ]; then
+              echo "::error::Missing ${var} in $pin_file" >&2
+              exit 1
+            fi
+          done
+          cat "$pin_file" >> "$GITHUB_ENV"
       - name: Apply autofix and deliver changes
         id: apply
         if: steps.rerun.outputs.skip != 'true'
@@ -644,6 +662,23 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Load formatter pins
+        run: |
+          set -euo pipefail
+          pin_file=".github/workflows/autofix-versions.env"
+          if [ ! -f "$pin_file" ]; then
+            echo "::error::Missing $pin_file" >&2
+            exit 1
+          fi
+          # shellcheck source=/dev/null
+          source "$pin_file"
+          for var in BLACK_VERSION RUFF_VERSION ISORT_VERSION DOCFORMATTER_VERSION MYPY_VERSION; do
+            if [ -z "${!var:-}" ]; then
+              echo "::error::Missing ${var} in $pin_file" >&2
+              exit 1
+            fi
+          done
+          cat "$pin_file" >> "$GITHUB_ENV"
       - name: Autofix, commit, and push (composite)
         id: autofix
         uses: ./.github/actions/autofix-commit-push

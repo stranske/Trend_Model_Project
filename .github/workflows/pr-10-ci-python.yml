@@ -153,6 +153,9 @@ jobs:
           echo "STYLE_VENV=${STYLE_VENV}" >> "$GITHUB_ENV"
           source "$STYLE_VENV/bin/activate"
           pip install -U pip
+          : "${RUFF_VERSION:?Missing RUFF_VERSION}"
+          : "${BLACK_VERSION:?Missing BLACK_VERSION}"
+          : "${MYPY_VERSION:?Missing MYPY_VERSION}"
           pip install "ruff==${RUFF_VERSION}" "black==${BLACK_VERSION}" "mypy==${MYPY_VERSION}"
 
       - name: Black (check)
