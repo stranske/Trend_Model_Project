@@ -51,7 +51,6 @@ jobs:
 
   tests:
     name: main / tests
-    needs: formatting-fast
     uses: ./.github/workflows/reusable-90-ci-python.yml
     with:
       python-versions: ${{ vars.CI_PY_VERSIONS || '["3.11"]' }}
@@ -65,7 +64,6 @@ jobs:
       coverage-hard-fail: false
   workflow-automation:
     name: workflow / automation-tests
-    needs: formatting-fast
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -90,7 +88,6 @@ jobs:
             -q
   style:
     name: main / style
-    needs: formatting-fast
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
