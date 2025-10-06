@@ -20,7 +20,7 @@ Only the workflows listed below remain visible in the Actions tab. Reusable comp
 | Workflow | Triggers | Notes |
 |----------|----------|-------|
 | `maint-02-repo-health.yml` | schedule, workflow_dispatch, pull_request, push | Nightly/weekly repository health probe with OPS issue updates.
-| `maint-30-post-ci-summary.yml` | workflow_run | Posts consolidated CI/Docker run summaries as PR comments.
+| `maint-30-post-ci-summary.yml` | workflow_run | Posts consolidated CI/Docker run summaries to the workflow step summary.
 | `maint-32-autofix.yml` | workflow_run | Follower that applies low-risk autofix commits after CI succeeds.
 | `maint-33-check-failure-tracker.yml` | workflow_run | Opens and resolves CI failure tracker issues based on run outcomes.
 | `maint-36-actionlint.yml` | pull_request, push, schedule, workflow_dispatch | Sole workflow lint gate (actionlint via reviewdog).

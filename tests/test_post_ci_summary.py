@@ -2,9 +2,16 @@ from __future__ import annotations
 
 import json
 
+from typing import Sequence
+
 import pytest
 
-from tools.post_ci_summary import build_summary_comment
+from tools import post_ci_summary
+from tools.post_ci_summary import (
+    DEFAULT_REQUIRED_JOB_GROUPS,
+    _load_required_groups,
+    build_summary_comment,
+)
 
 
 @pytest.fixture()
@@ -16,6 +23,7 @@ def sample_runs() -> list[dict[str, object]]:
             "present": True,
             "id": 101,
             "run_attempt": 1,
+            "conclusion": "success",
             "html_url": "https://example.test/ci/101",
             "jobs": [
                 {
@@ -32,6 +40,7 @@ def sample_runs() -> list[dict[str, object]]:
             "id": 202,
             "run_attempt": 2,
             "conclusion": "failure",
+            "status": "completed",
             "html_url": "https://example.test/docker/202",
             "jobs": [
                 {
@@ -71,7 +80,13 @@ def test_build_summary_comment_renders_expected_sections(
 
     assert body.startswith("## Automated Status Summary")
     assert "**Head SHA:** abc123" in body
-    assert "**Latest Runs:**" in body
+    assert (
+        "**Latest Runs:** ✅ success — [CI (#101)](https://example.test/ci/101)" in body
+    )
+    assert (
+        "· ❌ failure — [Docker (#202 (attempt 2))](https://example.test/docker/202)"
+        in body
+    )
     assert "CI python: ✅ success" in body
     assert "Docker: ❌ failure" in body
     assert "| CI / ci / python | ✅ success |" in body
@@ -94,6 +109,7 @@ def test_build_summary_comment_handles_missing_runs_and_defaults() -> None:
     )
 
     assert "CI: ⏳ pending" in body
+    assert "**Latest Runs:** ⏳ pending — CI" in body
     assert "Docker: ⏳ pending" in body
     assert "_Updated automatically; will refresh" in body
     # When no jobs exist the fallback table entry is rendered
