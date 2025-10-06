@@ -108,18 +108,31 @@ jobs:
             }
 
             async function loadJobs(runId) {
-              const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
-                owner,
-                repo,
-                run_id: runId,
-                per_page: 100,
-              });
-              return jobs.map(job => ({
-                name: job.name,
-                conclusion: job.conclusion,
-                status: job.status,
-                html_url: job.html_url,
-              }));
+              if (!runId) {
+                return [];
+              }
+              try {
+                const jobs = await github.paginate(
+                  github.rest.actions.listJobsForWorkflowRun,
+                  {
+                    owner,
+                    repo,
+                    run_id: runId,
+                    per_page: 100,
+                  },
+                );
+                return jobs
+                  .filter(job => job)
+                  .map(job => ({
+                    name: job.name,
+                    conclusion: job.conclusion,
+                    status: job.status,
+                    html_url: job.html_url,
+                  }));
+              } catch (error) {
+                core.warning(`Failed to query jobs for workflow run ${runId}: ${error}`);
+                return [];
+              }
             }
 
             async function resolveRun(target) {

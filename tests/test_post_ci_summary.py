@@ -177,3 +177,43 @@ def test_coverage_section_handles_snippet_without_stats() -> None:
     assert "### Coverage Overview" in body
     assert "Coverage snippet from artifact." in body
     assert body.count("### Coverage Overview") == 1
+
+
+def test_build_summary_comment_handles_irregular_run_data() -> None:
+    body = build_summary_comment(
+        runs=[
+            {
+                "key": "ci",
+                "displayName": "CI",
+                "present": True,
+                "jobs": [
+                    None,
+                    {"name": "", "conclusion": None, "html_url": None},
+                    {"name": "ci / python", "status": "queued"},
+                ],
+            },
+            {
+                "key": "docker",
+                "displayName": "Docker",
+                "present": True,
+                "status": "waiting",
+                "jobs": [],
+            },
+            "not-a-mapping",
+        ],
+        head_sha="def456",
+        coverage_stats={},
+        coverage_section=None,
+        required_groups_env=json.dumps(
+            [
+                {"label": "CI python", "patterns": [r"^ci / python"]},
+            ]
+        ),
+    )
+
+    assert "**Head SHA:** def456" in body
+    assert "**Latest Runs:** CI · Docker" in body
+    assert "CI python: ⏳ queued" in body
+    assert "Docker: ⏳ waiting" in body
+    assert "| CI / ci / python | ⏳ queued | — |" in body
+    assert "### Coverage Overview" not in body
