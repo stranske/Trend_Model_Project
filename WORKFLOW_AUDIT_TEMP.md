@@ -31,7 +31,7 @@ Only the workflows listed below remain visible in the Actions tab. Reusable comp
 | Workflow | Triggers | Notes |
 |----------|----------|-------|
 | `agents-43-codex-issue-bridge.yml` | issues, workflow_dispatch | Restored Codex bootstrap automation for label-driven issue handling. |
-| `agents-70-orchestrator.yml` | schedule, workflow_dispatch | Unified agents toolkit entry point (readiness, preflight, verification, watchdog).
+| `agents-70-orchestrator.yml` | schedule (*/20), workflow_dispatch | Unified agents toolkit entry point (readiness, preflight, verification, watchdog, Codex keepalive).
 
 ### Reusable Composites
 | Workflow | Triggers | Notes |

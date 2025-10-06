@@ -2,7 +2,7 @@ name: Agents 70 Orchestrator
 
 on:
   schedule:
-    - cron: '0 * * * *'
+    - cron: '*/20 * * * *'
   workflow_dispatch:
     inputs:
       enable_readiness:
@@ -77,3 +77,4 @@ jobs:
       enable_watchdog: ${{ inputs.enable_watchdog || 'true' }}
       bootstrap_issues_label: 'agent:codex'
       draft_pr: ${{ inputs.draft_pr || 'false' }}
+      options_json: ${{ inputs.options_json || '{}' }}
