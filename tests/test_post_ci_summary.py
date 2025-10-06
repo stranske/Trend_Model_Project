@@ -251,3 +251,99 @@ def test_load_required_groups_filters_incomplete_entries() -> None:
 
     parsed = _load_required_groups(json.dumps(custom))
     assert parsed == [{"label": "Lint", "patterns": [r"^lint /"]}]
+
+
+def test_build_summary_comment_prefers_present_runs_when_duplicates() -> None:
+    runs = [
+        {"key": "ci", "displayName": "CI", "present": False, "jobs": []},
+        {
+            "key": "ci",
+            "displayName": "CI",
+            "present": True,
+            "id": 55,
+            "conclusion": "success",
+            "html_url": "https://example.test/ci/55",
+            "jobs": [],
+        },
+        {"key": "docker", "displayName": "Docker", "present": False, "jobs": []},
+        {
+            "key": "docker",
+            "displayName": "Docker",
+            "present": True,
+            "id": 91,
+            "status": "in_progress",
+            "html_url": "https://example.test/docker/91",
+            "jobs": [],
+        },
+    ]
+
+    body = build_summary_comment(
+        runs=runs,
+        head_sha=None,
+        coverage_stats=None,
+        coverage_section=None,
+        required_groups_env=None,
+    )
+
+    latest_line = next(
+        (line for line in body.splitlines() if line.startswith("**Latest Runs:**")),
+        "",
+    )
+
+    assert "CI (#55)" in latest_line
+    assert "pending — CI" not in latest_line
+    assert "⏳ in progress — [Docker (#91)]" in latest_line
+
+
+def test_build_summary_comment_prefers_worse_state_for_duplicates() -> None:
+    runs = [
+        {
+            "key": "ci",
+            "displayName": "CI",
+            "present": True,
+            "id": 77,
+            "conclusion": "success",
+            "html_url": "https://example.test/ci/77",
+            "jobs": [
+                {
+                    "name": "ci / python",
+                    "conclusion": "success",
+                    "html_url": "https://example.test/ci/77/python",
+                }
+            ],
+        },
+        {
+            "key": "ci",
+            "displayName": "CI",
+            "present": True,
+            "id": 78,
+            "conclusion": "failure",
+            "html_url": "https://example.test/ci/78",
+            "jobs": [
+                {
+                    "name": "ci / python",
+                    "conclusion": "failure",
+                    "html_url": "https://example.test/ci/78/python",
+                }
+            ],
+        },
+    ]
+
+    body = build_summary_comment(
+        runs=runs,
+        head_sha=None,
+        coverage_stats=None,
+        coverage_section=None,
+        required_groups_env=None,
+    )
+
+    latest_line = next(
+        (line for line in body.splitlines() if line.startswith("**Latest Runs:**")),
+        "",
+    )
+
+    assert "❌ failure" in latest_line
+    assert "(#78)" in latest_line
+    assert "✅ success" not in latest_line
+    assert "| **CI / ci / python** | ❌ failure | [logs]" in body
+    assert "CI python: ❌ failure" in body
