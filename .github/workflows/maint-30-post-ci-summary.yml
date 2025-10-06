@@ -403,10 +403,39 @@ jobs:
           SUMMARY_BODY: ${{ steps.prep.outputs.body }}
       - name: Publish run summary
         run: |
-          if [ -n "${SUMMARY_BODY}" ]; then
-            printf '%s\n' "${SUMMARY_BODY}" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "Automated status summary was empty." >> "$GITHUB_STEP_SUMMARY"
-          fi
+          python <<'PY'
+          import os
+          import re
+
+          summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+          raw_body = os.environ.get("SUMMARY_BODY") or ""
+          body = raw_body.strip()
+          is_empty = False
+          if not body:
+              is_empty = True
+              body = "## Automated Status Summary\nAutomated status summary was empty."
+
+          if not summary_path:
+              raise SystemExit("GITHUB_STEP_SUMMARY environment variable is not set")
+
+          existing = ""
+          if os.path.exists(summary_path):
+              with open(summary_path, "r", encoding="utf-8") as handle:
+                  existing = handle.read()
+
+          marker = "## Automated Status Summary"
+          pattern = re.compile(rf"\n?{re.escape(marker)}.*?(?=\n## |\Z)", re.DOTALL)
+          cleaned = pattern.sub("", existing).strip()
+
+          parts = [segment for segment in (cleaned, body) if segment]
+
+          with open(summary_path, "w", encoding="utf-8") as handle:
+              if parts:
+                  handle.write("\n\n".join(parts))
+                  handle.write("\n")
+
+          if is_empty:
+              print("Automated status summary was empty.")
+          PY
         env:
           SUMMARY_BODY: ${{ steps.prep.outputs.body }}
