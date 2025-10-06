@@ -216,3 +216,19 @@ def test_build_summary_comment_handles_irregular_run_data() -> None:
     assert "Docker: ⏳ waiting" in body
     assert "| CI / ci / python | ⏳ queued | — |" in body
     assert "### Coverage Overview" not in body
+
+
+def test_build_summary_comment_defaults_on_invalid_required_groups(
+    sample_runs: list[dict[str, object]],
+) -> None:
+    body = build_summary_comment(
+        runs=sample_runs,
+        head_sha="deadbeef",
+        coverage_stats=None,
+        coverage_section=None,
+        required_groups_env="{not-json}",
+    )
+
+    assert "CI python: ✅ success" in body
+    # Docker status should still be present even though the custom required groups failed.
+    assert "Docker: ❌ failure" in body

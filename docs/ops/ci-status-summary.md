@@ -43,8 +43,9 @@ The workflow collects status data from three places:
 
 ### Idempotency & Anti-Spam
 
-* The workflow uses a concurrency group keyed by the head SHA to cancel stale
-  runs.
+* The workflow uses a concurrency group keyed by the head SHA (falling back to
+  the `workflow_run` identifier) to cancel stale runs without clobbering other
+  PRs when the SHA is unavailable.
 * Because the summary is appended to `$GITHUB_STEP_SUMMARY`, reruns simply
   overwrite the section within the same workflow execution instead of creating
   duplicate PR noise.

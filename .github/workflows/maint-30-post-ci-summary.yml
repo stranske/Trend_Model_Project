@@ -6,7 +6,12 @@ on:
     types: [completed]
 
 concurrency:
-  group: post-ci-summary-${{ github.event.workflow_run.head_sha }}
+  group: >-
+    post-ci-summary-${{
+      github.event.workflow_run.head_sha ||
+      github.event.workflow_run.id ||
+      github.run_id
+    }}
   cancel-in-progress: true
 
 permissions:
