@@ -69,6 +69,8 @@ Old/
 !Old/.github/
 !Old/.github/workflows/
 !Old/.github/workflows/**
+!Old/workflows/
+!Old/workflows/**
 notebooks/old/
 
 # Docker

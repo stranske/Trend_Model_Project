@@ -45,12 +45,12 @@ listen to their `workflow_run` events.
 |----------|------------|---------|
 | `maint-02-repo-health.yml` (`Maint 02 Repo Health`) | Weekly cron, manual | Reports stale branches & unassigned issues.
 | `maint-30-post-ci-summary.yml` (`Maint 30 Post CI Summary`) | `workflow_run` (PR 10/12) | Publishes consolidated CI status for active PRs.
-| `maint-32-autofix.yml` (`Maint 32 Autofix`) | `workflow_run` (PR 10/12 & Maint 90) | Applies formatter/type-hygiene autofixes after CI completes.
-| `maint-33-check-failure-tracker.yml` (`Maint 33 Check Failure Tracker`) | `workflow_run` (PR 10/12 & Maint 90) | Manages CI failure-tracker issues.
+| `maint-32-autofix.yml` (`Maint 32 Autofix`) | `workflow_run` (PR 10/12) | Applies formatter/type-hygiene autofixes after CI completes.
+| `maint-33-check-failure-tracker.yml` (`Maint 33 Check Failure Tracker`) | `workflow_run` (PR 10/12) | Manages CI failure-tracker issues.
+| `maint-35-repo-health-self-check.yml` (`Maint 35 Repo Health Self Check`) | Daily + weekly cron, manual | Verifies label inventory, PAT availability, and branch protection; files/updates a tracking issue on failure.
 | `maint-36-actionlint.yml` (`Maint 36 Actionlint`) | `pull_request`, weekly cron, manual | Sole workflow-lint gate (actionlint via reviewdog).
 | `maint-40-ci-signature-guard.yml` (`Maint 40 CI Signature Guard`) | `push`/`pull_request` targeting `phase-2-dev` | Validates the signed job manifest for `pr-10-ci-python.yml`.
 | `maint-41-chatgpt-issue-sync.yml` (`Maint 41 ChatGPT Issue Sync`) | `workflow_dispatch` (manual) | Fans out curated topic lists (e.g. `Issues.txt`) into labeled GitHub issues. ⚠️ Repository policy: do not remove without a functionally equivalent replacement. |
-| `maint-90-selftest.yml` (`Maint 90 Selftest`) | Weekly cron, manual | Thin wrapper that dispatches the reusable CI self-test matrix.
 
 ### Agent automation entry points
 
@@ -64,12 +64,30 @@ listen to their `workflow_run` events.
 | Workflow | Consumed by | Notes |
 |----------|-------------|-------|
 | `reusable-70-agents.yml` (`Reusable 70 Agents`) | `agents-70-orchestrator.yml` | Implements readiness, bootstrap, diagnostics, and watchdog jobs.
-| `reusable-90-ci-python.yml` (`Reusable 90 CI Python`) | `maint-90-selftest.yml` | Legacy matrix executor retained for self-tests while consumers migrate to the single-job workflow.
+| `reusable-90-ci-python.yml` (`Reusable 90 CI Python`) | Internal callers (`pr-10`, downstream reuse) | Unified CI executor for the Python stack.
 | `reusable-92-autofix.yml` (`Reusable 92 Autofix`) | `maint-32-autofix.yml` | Autofix harness invoked after CI gates finish.
 | `reusable-94-legacy-ci-python.yml` (`Reusable 94 Legacy CI Python`) | Downstream consumers | Compatibility shim for repositories that still need the old matrix layout.
 | `reusable-99-selftest.yml` (`Reusable 99 Selftest`) | `maint-90-selftest.yml` | Matrix smoke-test covering reusable CI feature combinations.
 | `reusable-ci.yml` (`Reusable CI`) | `pr-gate.yml` | Single-job Ruff → mypy → pytest executor with coverage artifacts.
 | `reusable-docker.yml` (`Reusable Docker Smoke`) | `pr-gate.yml` | Composite Docker build + health-check loop powering the PR gate.
+
+### Archived self-test workflows
+
+Issue #2378 removed the noisy self-test suite from active runs. Two files were preserved under
+`Old/workflows/` for future reference and the remaining wrappers were deleted outright after their
+experiments concluded:
+
+- `Old/workflows/maint-90-selftest.yml` – former weekly wrapper around the CI self-test matrix.
+- `Old/workflows/reusable-99-selftest.yml` – archived composite covering reusable CI feature combinations.
+- `maint-43-selftest-pr-comment.yml` – deleted; previously posted PR comments summarising self-test matrices.
+- `maint-44-selftest-reusable-ci.yml` – deleted reusable-integration cron (matrix coverage moved to the
+  main CI jobs).
+- `maint-48-selftest-reusable-ci.yml` – deleted; short-lived variant of the reusable matrix exerciser.
+- `pr-20-selftest-pr-comment.yml` – deleted; PR-triggered comment bot that duplicated the maintenance
+  wrapper.
+
+See [ARCHIVE_WORKFLOWS.md](../../ARCHIVE_WORKFLOWS.md) for the full ledger of retired workflows and
+rationale, including notes on the removed files.
 
 ## Contributor Quick Start
 
