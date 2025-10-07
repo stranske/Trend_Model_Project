@@ -11,6 +11,14 @@ on:
         description: Python version to use for pytest
         default: '3.11'
         required: false
+      dry-run:
+        description: Run the repair helper in dry-run mode without creating commits
+        default: 'false'
+        required: false
+      branch-suffix:
+        description: Optional suffix appended to the repair branch name
+        default: ''
+        required: false
 
 permissions:
   contents: write
@@ -73,18 +81,18 @@ jobs:
         run: |
           if [ -f .cosmetic-repair-summary.json ]; then
             python - <<'PY'
-import json
-import os
-from pathlib import Path
+              import json
+              import os
+              from pathlib import Path
 
-summary = Path('.cosmetic-repair-summary.json')
-data = json.loads(summary.read_text(encoding='utf-8'))
-with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as handle:
-    for key in ('status', 'branch', 'pr_url'):
-        value = data.get(key)
-        if value:
-            handle.write(f"{key}={value}\n")
-PY
+              summary = Path('.cosmetic-repair-summary.json')
+              data = json.loads(summary.read_text(encoding='utf-8'))
+              with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as handle:
+                  for key in ('status', 'branch', 'pr_url'):
+                      value = data.get(key)
+                      if value:
+                          handle.write(f"{key}={value}\n")
+            PY
           fi
 
       - name: Upload pytest report
@@ -103,30 +111,30 @@ PY
           PYTEST_EXIT_CODE: ${{ steps.pytest.outputs.exit_code }}
         run: |
           python <<'PY'
-import json
-import os
-from pathlib import Path
+            import json
+            import os
+            from pathlib import Path
 
-exit_code = int(os.environ.get("PYTEST_EXIT_CODE") or 0)
-summary_path = Path("tmp_logs/cosmetic_repair_summary.json")
-should_fail = False
-reason = ""
+            exit_code = int(os.environ.get("PYTEST_EXIT_CODE") or 0)
+            summary_path = Path("tmp_logs/cosmetic_repair_summary.json")
+            should_fail = False
+            reason = ""
 
-if exit_code != 0:
-    if summary_path.exists():
-        summary = json.loads(summary_path.read_text(encoding="utf-8"))
-        if summary.get("applied", 0) == 0:
-            should_fail = True
-            reason = "Pytest failures detected but no cosmetic fixes were applied."
-    else:
-        should_fail = True
-        reason = "Pytest failures detected but repair summary was not generated."
+            if exit_code != 0:
+                if summary_path.exists():
+                    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+                    if summary.get("applied", 0) == 0:
+                        should_fail = True
+                        reason = "Pytest failures detected but no cosmetic fixes were applied."
+                else:
+                    should_fail = True
+                    reason = "Pytest failures detected but repair summary was not generated."
 
-with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
-    fh.write(f"should_fail={'true' if should_fail else 'false'}\n")
-    if reason:
-        fh.write(f"reason={reason}\n")
-PY
+            with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+                fh.write(f"should_fail={'true' if should_fail else 'false'}\n")
+                if reason:
+                    fh.write(f"reason={reason}\n")
+          PY
 
       - name: Create cosmetic repair PR
         uses: peter-evans/create-pull-request@v6
@@ -154,32 +162,32 @@ PY
             echo
             if [ -f "$summary_file" ]; then
               python - <<'PY'
-import json
-from pathlib import Path
+                import json
+                from pathlib import Path
 
-data = json.loads(Path('.cosmetic-repair-summary.json').read_text(encoding='utf-8'))
-status = data.get('status', 'unknown')
-print(f"- Status: **{status}**")
-changed = data.get('changed_files') or []
-if changed:
-    print(f"- Changed files ({len(changed)}):")
-    for path in changed:
-        print(f"  - `{path}`")
-else:
-    print("- No file changes detected.")
-pr_url = data.get('pr_url')
-if pr_url:
-    print(f"- PR: {pr_url}")
-instructions = data.get('instructions') or []
-if instructions:
-    print("- Instructions processed:")
-    for entry in instructions:
-        kind = entry.get('kind', 'unknown')
-        path = entry.get('path', '?')
-        guard = entry.get('guard', '')
-        extra = f" ({guard})" if guard else ""
-        print(f"  - `{kind}` → `{path}`{extra}")
-PY
+                data = json.loads(Path('.cosmetic-repair-summary.json').read_text(encoding='utf-8'))
+                status = data.get('status', 'unknown')
+                print(f"- Status: **{status}**")
+                changed = data.get('changed_files') or []
+                if changed:
+                    print(f"- Changed files ({len(changed)}):")
+                    for path in changed:
+                        print(f"  - `{path}`")
+                else:
+                    print("- No file changes detected.")
+                pr_url = data.get('pr_url')
+                if pr_url:
+                    print(f"- PR: {pr_url}")
+                instructions = data.get('instructions') or []
+                if instructions:
+                    print("- Instructions processed:")
+                    for entry in instructions:
+                        kind = entry.get('kind', 'unknown')
+                        path = entry.get('path', '?')
+                        guard = entry.get('guard', '')
+                        extra = f" ({guard})" if guard else ""
+                        print(f"  - `{kind}` → `{path}`{extra}")
+            PY
             else
               git status --short || true
             fi
