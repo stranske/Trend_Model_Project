@@ -2,18 +2,52 @@ name: PR 10 CI Python
 
 on:
   workflow_call:
+    inputs:
+      python-version:
+        description: Python version to run under
+        required: false
+        default: "3.11"
+        type: string
+      marker:
+        description: Optional pytest marker expression
+        required: false
+        default: ""
+        type: string
+      coverage-min:
+        description: Minimum coverage percentage required
+        required: false
+        default: "70"
+        type: string
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths-ignore:
-      - 'docs/**'
-      - '**/*.md'
-      - '.github/ISSUE_TEMPLATE/**'
+      - "docs/**"
+      - "**/*.md"
+      - ".github/ISSUE_TEMPLATE/**"
   push:
-    branches: [ phase-2-dev ]
+    branches: [phase-2-dev]
     paths-ignore:
-      - 'docs/**'
-      - '**/*.md'
-      - '.github/ISSUE_TEMPLATE/**'
+      - "docs/**"
+      - "**/*.md"
+      - ".github/ISSUE_TEMPLATE/**"
+  workflow_dispatch:
+    inputs:
+      python-version:
+        description: Python version to run under
+        required: false
+        default: "3.11"
+        type: choice
+        options: ["3.11", "3.12"]
+      marker:
+        description: Optional pytest marker expression
+        required: false
+        default: ""
+        type: string
+      coverage-min:
+        description: Minimum coverage percentage required
+        required: false
+        default: "70"
+        type: string
 
 concurrency:
   group: ci-${{ github.ref }}-${{ github.event.pull_request.number || github.sha }}
@@ -22,247 +56,8 @@ concurrency:
 jobs:
   python:
     name: ci / python
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          # Fetch only the minimal history needed to compute PR diffs.
-          # Depth=2 grabs the merge commit plus its immediate parents, cutting
-          # checkout time from ~8 minutes to a few seconds on CI runners.
-          fetch-depth: 2
-
-      - name: Load formatter pins
-        shell: bash
-        run: |
-          set -euo pipefail
-          pin_file=".github/workflows/autofix-versions.env"
-          if [[ ! -f "${pin_file}" ]]; then
-            echo "Missing ${pin_file}; aborting." >&2
-            exit 1
-          fi
-          echo "PIN_FILE=${pin_file}" >> "$GITHUB_ENV"
-      - name: Load pinned tool versions
-        shell: bash
-        run: |
-          set -euo pipefail
-          pin_file="${PIN_FILE:-.github/workflows/autofix-versions.env}"
-          if [[ ! -f "${pin_file}" ]]; then
-            echo "Missing ${pin_file}; aborting." >&2
-            exit 1
-          fi
-          if [ -f .github/workflows/ci-python-versions.env ]; then
-            cat .github/workflows/ci-python-versions.env >> "$GITHUB_ENV"
-          fi
-          # shellcheck disable=SC1090
-          source "${pin_file}"
-          for var in RUFF_VERSION BLACK_VERSION MYPY_VERSION; do
-            if [[ -z "${!var:-}" ]]; then
-              echo "${pin_file} is missing a value for ${var}" >&2
-              exit 1
-            fi
-          done
-          grep -E '^[A-Za-z_][A-Za-z0-9_]*=' "${pin_file}" >> "${GITHUB_ENV}"
-
-      - name: Ensure coverage minimum
-        run: |
-          if [ -z "${COVERAGE_MINIMUM:-}" ]; then
-            echo "COVERAGE_MINIMUM=${{ vars.COV_MIN || '70' }}" >> "$GITHUB_ENV"
-          else
-            echo "COVERAGE_MINIMUM=$COVERAGE_MINIMUM" >> "$GITHUB_ENV"
-          fi
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.CI_PYTHON_VERSION || '3.11' }}
-
-      - name: Create virtual environment
-        run: |
-          python -m venv .venv
-          echo "${{ github.workspace }}/.venv/bin" >> "$GITHUB_PATH"
-          echo "VIRTUAL_ENV=${{ github.workspace }}/.venv" >> "$GITHUB_ENV"
-
-      - name: Load formatter pins
-        shell: bash
-        run: |
-          set -euo pipefail
-          pin_file=".github/workflows/autofix-versions.env"
-          if [[ ! -f "${pin_file}" ]]; then
-            echo "Missing ${pin_file}; aborting." >&2
-            exit 1
-          fi
-          # shellcheck disable=SC1090
-          source "${pin_file}"
-          for var in RUFF_VERSION BLACK_VERSION MYPY_VERSION; do
-            if [[ -z "${!var:-}" ]]; then
-              echo "${pin_file} is missing a value for ${var}" >&2
-              exit 1
-            fi
-          done
-          grep -E '^[A-Za-z_][A-Za-z0-9_]*=' "${pin_file}" >> "${GITHUB_ENV}"
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Cache mypy
-        uses: actions/cache@v4
-        with:
-          path: .mypy_cache
-          key: mypy-${{ runner.os }}-${{ env.MYPY_VERSION }}-${{ hashFiles('pyproject.toml') }}-${{ hashFiles('src/**.py') }}
-          restore-keys: |
-            mypy-${{ runner.os }}-${{ env.MYPY_VERSION }}-
-            mypy-${{ runner.os }}-
-
-      - name: Install lint deps
-        run: |
-          STYLE_VENV="${RUNNER_TEMP}/venv-style"
-          python -m venv "$STYLE_VENV"
-          echo "${STYLE_VENV}/bin" >> "$GITHUB_PATH"
-          echo "VIRTUAL_ENV=${STYLE_VENV}" >> "$GITHUB_ENV"
-          echo "STYLE_VENV=${STYLE_VENV}" >> "$GITHUB_ENV"
-          source "$STYLE_VENV/bin/activate"
-          pip install -U pip
-          : "${RUFF_VERSION:?Missing RUFF_VERSION}"
-          : "${BLACK_VERSION:?Missing BLACK_VERSION}"
-          : "${MYPY_VERSION:?Missing MYPY_VERSION}"
-          pip install "ruff==${RUFF_VERSION}" "black==${BLACK_VERSION}" "mypy==${MYPY_VERSION}"
-
-      - name: Black (check)
-        run: black --check .
-      - name: Install dependencies
-        run: |
-          set -euo pipefail
-          source .venv/bin/activate
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -e '.[dev]' || pip install -e .
-          pip install \
-            "black==${BLACK_VERSION}" \
-            "ruff==${RUFF_VERSION}" \
-            "mypy==${MYPY_VERSION}" \
-            "pytest==${PYTEST_VERSION}" \
-            "pytest-cov==${PYTEST_COV_VERSION}" \
-            "coverage==${COVERAGE_VERSION}" \
-            jq
-          echo "${GITHUB_WORKSPACE}/.venv/bin" >> "$GITHUB_PATH"
-          echo "VIRTUAL_ENV=${GITHUB_WORKSPACE}/.venv" >> "$GITHUB_ENV"
-
-      - name: Black (format check)
-        run: |
-          if git ls-files '*.py' >/dev/null 2>&1; then
-            black --check .
-          else
-            echo 'No Python files to format check'
-          fi
-
-      - name: Ruff (lint)
-        run: |
-          ruff check --output-format full .
-
-      - name: Mypy (type check)
-        run: |
-          mypy --config-file pyproject.toml src/trend_analysis src/trend_portfolio_app
-
-      - name: Pytest (unit tests with coverage)
-        env:
-          PYTEST_ADDOPTS: "-ra"
-        run: |
-          pytest --junitxml=pytest-junit.xml \
-            --cov=src --cov-report=xml:coverage.xml \
-            --cov-report=term-missing --cov-report=json:coverage.json
-
-      - name: Capture artifacts
-        if: always()
-        run: |
-          mkdir -p artifacts
-          cp -f pytest-junit.xml artifacts/pytest-junit.xml || true
-          cp -f coverage.xml artifacts/coverage.xml || true
-          cp -f coverage.json artifacts/coverage.json || true
-
-      - name: Upload diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ci-python-diagnostics
-          path: artifacts
-          retention-days: 14
-
-      - name: Publish coverage summary
-        if: always()
-        env:
-          SUMMARY_PATH: ${{ github.step_summary }}
-        run: |
-          python - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-          import xml.etree.ElementTree as ET
-
-          summary = Path(os.environ.get('SUMMARY_PATH', ''))
-          coverage_xml = Path('coverage.xml')
-          coverage_json = Path('coverage.json')
-          line_pct = None
-          if coverage_xml.exists():
-              try:
-                  root = ET.parse(coverage_xml).getroot()
-                  rate = root.get('line-rate')
-                  if rate is not None:
-                      line_pct = float(rate) * 100.0
-              except ET.ParseError:
-                  pass
-          if line_pct is None and coverage_json.exists():
-              try:
-                  payload = json.loads(coverage_json.read_text(encoding='utf-8'))
-                  totals = payload.get('totals') or {}
-                  covered = float(totals.get('covered_lines', 0))
-                  total = float(totals.get('num_statements', 0))
-                  if total:
-                      line_pct = covered / total * 100.0
-              except Exception:
-                  pass
-          lines = ["### Coverage Overview"]
-          if line_pct is not None:
-              lines.append(f"- Coverage: {line_pct:.2f}%")
-          else:
-              lines.append("- Coverage data unavailable")
-          minimum = os.environ.get('COVERAGE_MINIMUM')
-          if minimum:
-              lines.append(f"- Required minimum: {minimum}%")
-          if summary:
-              with summary.open('a', encoding='utf-8') as handle:
-                  handle.write("\n".join(lines) + "\n")
-          else:
-              print("\n".join(lines))
-          PY
-
-      - name: Enforce coverage minimum
-        run: |
-          python - <<'PY'
-          import os
-          import sys
-          import xml.etree.ElementTree as ET
-
-          minimum = float(os.environ.get('COVERAGE_MINIMUM', '0'))
-          try:
-              root = ET.parse('coverage.xml').getroot()
-          except FileNotFoundError:
-              print('coverage.xml not found; cannot enforce coverage minimum', file=sys.stderr)
-              sys.exit(1)
-          except ET.ParseError as exc:
-              print(f'Failed to parse coverage.xml: {exc}', file=sys.stderr)
-              sys.exit(1)
-          rate = root.get('line-rate')
-          if rate is None:
-              print('Missing line-rate attribute in coverage.xml', file=sys.stderr)
-              sys.exit(1)
-          current = float(rate) * 100.0
-          if current + 1e-9 < minimum:
-              print(f'Coverage {current:.2f}% is below required minimum {minimum:.2f}%', file=sys.stderr)
-              sys.exit(1)
-          print(f'Coverage {current:.2f}% meets minimum {minimum:.2f}%')
-          PY
+    uses: ./.github/workflows/reusable-96-ci-lite.yml
+    with:
+      python-version: ${{ inputs['python-version'] || '3.11' }}
+      marker: ${{ inputs.marker || '' }}
+      coverage-min: ${{ inputs['coverage-min'] || '70' }}
