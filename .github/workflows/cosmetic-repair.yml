@@ -60,17 +60,19 @@ jobs:
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
+          DRY_RUN_INPUT: ${{ inputs['dry-run'] }}
+          BRANCH_SUFFIX_INPUT: ${{ inputs['branch-suffix'] }}
         run: |
           set -euo pipefail
           source .venv/bin/activate
           cmd=("python" "scripts/ci_cosmetic_repair.py")
-          if [ "${{ inputs['dry-run'] }}" = "true" ]; then
+          if [ "${DRY_RUN_INPUT}" = "true" ]; then
             cmd+=("--dry-run" "--skip-pr")
           else
             cmd+=("--apply")
           fi
-          if [ -n "${{ inputs['branch-suffix'] }}" ]; then
-            cmd+=("--branch-suffix" "${{ inputs['branch-suffix'] }}")
+          if [ -n "${BRANCH_SUFFIX_INPUT}" ]; then
+            cmd+=("--branch-suffix" "${BRANCH_SUFFIX_INPUT}")
           fi
           cmd+=("--base" "${{ env.BASE_BRANCH }}")
           echo "Running: ${cmd[*]}"
@@ -87,16 +89,25 @@ jobs:
         env:
           SUMMARY_FILE: .cosmetic-repair-summary.json
         run: |
-          python -c "import json, os; from pathlib import Path; summary = Path(os.environ['SUMMARY_FILE']); \
-          if summary.exists(): \
-              data = json.loads(summary.read_text(encoding='utf-8')); \
-              with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as handle: \
-                  for key, value in data.items(): \
-                      if value: \
-                          if isinstance(value, (list, tuple)): \
-                              handle.write(f"{key}={'|'.join(value)}\\n"); \
-                          else: \
-                              handle.write(f\"{key}={value}\\n\")"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          summary = Path(os.environ['SUMMARY_FILE'])
+          if not summary.exists():
+              raise SystemExit(0)
+
+          data = json.loads(summary.read_text(encoding='utf-8'))
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as handle:
+              for key, value in data.items():
+                  if not value:
+                      continue
+                  if isinstance(value, (list, tuple)):
+                      handle.write(f"{key}={'|'.join(value)}\n")
+                  else:
+                      handle.write(f"{key}={value}\n")
+          PY
 
       - name: Upload pytest report
         if: always()
@@ -114,27 +125,34 @@ jobs:
           SUMMARY_FILE: .cosmetic-repair-summary.json
           REPAIR_EXIT_CODE: ${{ steps.repair.outputs.exit_code }}
         run: |
-          python -c "import json, os; from pathlib import Path; \
-          exit_code = int(os.environ.get('REPAIR_EXIT_CODE') or 0); \
-          summary_path = Path(os.environ['SUMMARY_FILE']); \
-          should_fail = exit_code != 0; \
-          reason = ''; \
-          status = 'unknown'; \
-          if summary_path.exists(): \
-              data = json.loads(summary_path.read_text(encoding='utf-8')); \
-              status = data.get('status', status); \
-              if exit_code == 0 and status in {'clean', 'dry-run', 'no-changes', 'pr-created', 'applied-no-pr'}: \
-                  should_fail = False; \
-              elif not reason: \
-                  reason = data.get('reason', reason); \
-          elif exit_code == 0: \
-              should_fail = True; \
-              reason = 'Cosmetic repair summary was not generated.'; \
-          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as fh: \
-              fh.write(f\"should_fail={'true' if should_fail else 'false'}\\n\"); \
-              fh.write(f\"status={status}\\n\"); \
-              if reason: \
-                  fh.write(f\"reason={reason}\\n\")"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          exit_code = int(os.environ.get('REPAIR_EXIT_CODE') or 0)
+          summary_path = Path(os.environ['SUMMARY_FILE'])
+          should_fail = exit_code != 0
+          reason = ''
+          status = 'unknown'
+
+          if summary_path.exists():
+              data = json.loads(summary_path.read_text(encoding='utf-8'))
+              status = data.get('status', status)
+              if exit_code == 0 and status in {'clean', 'dry-run', 'no-changes', 'pr-created', 'applied-no-pr'}:
+                  should_fail = False
+              elif not reason:
+                  reason = data.get('reason', reason)
+          elif exit_code == 0:
+              should_fail = True
+              reason = 'Cosmetic repair summary was not generated.'
+
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as fh:
+              fh.write(f"should_fail={'true' if should_fail else 'false'}\n")
+              fh.write(f"status={status}\n")
+              if reason:
+                  fh.write(f"reason={reason}\n")
+          PY
 
       - name: Fail if unresolved failures remain
         if: steps.outcome.outputs.should_fail == 'true'
@@ -143,10 +161,11 @@ jobs:
           {
             echo "### Cosmetic repair summary"
             echo
-            if [ -f "$summary_file" ]; then
-              python scripts/cosmetic_repair_workflow.py render \
-                --summary-file "$summary_file"
-            else
-              git status --short || true
-            fi
           } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ -f "$summary_file" ]; then
+            python scripts/cosmetic_repair_workflow.py render \
+              --summary-file "$summary_file" >> "$GITHUB_STEP_SUMMARY"
+          else
+            git status --short || true >> "$GITHUB_STEP_SUMMARY"
+          fi
