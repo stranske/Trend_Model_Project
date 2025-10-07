@@ -106,8 +106,27 @@ jobs:
       - name: Verify artifact inventory
         id: verify
         uses: actions/github-script@v7
+        env:
+          PYTHON_VERSIONS: ${{ inputs.python-versions }}
         with:
           script: |
+            const defaultPythonVersions = ['3.11'];
+            let pythonVersions = defaultPythonVersions;
+            const rawPythonVersions = process.env.PYTHON_VERSIONS;
+
+            if (rawPythonVersions && rawPythonVersions.trim()) {
+              try {
+                const parsed = JSON.parse(rawPythonVersions.trim());
+                if (Array.isArray(parsed) && parsed.length) {
+                  pythonVersions = parsed.map(String);
+                } else {
+                  core.warning(`Parsed python-versions input is empty; falling back to ${defaultPythonVersions.join(', ')}`);
+                }
+              } catch (error) {
+                core.warning(`Unable to parse python-versions input (${rawPythonVersions}); using ${defaultPythonVersions.join(', ')}. Error: ${error}`);
+              }
+            }
+
             const scenarios = [
               { name: 'minimal', metrics:false, history:false, classification:false, covDelta:false, soft:false },
               { name: 'metrics_only', metrics:true, history:false, classification:false, covDelta:false, soft:false },
@@ -140,7 +159,12 @@ jobs:
 
             function expectedFor(s) {
               const prefix = (suffix) => `sf-${s.name}-${suffix}`;
-              const expected = [prefix('coverage-3.11')];
+              const expected = [];
+
+              pythonVersions.forEach((version) => {
+                expected.push(prefix(`coverage-${version}`));
+              });
+
               if (s.metrics) expected.push(prefix('ci-metrics'));
               if (s.history) expected.push(prefix('metrics-history'));
               if (s.classification) expected.push(prefix('classification'));
