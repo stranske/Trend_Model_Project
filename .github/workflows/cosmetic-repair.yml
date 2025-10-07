@@ -79,21 +79,26 @@ jobs:
         if: always()
         id: cosmetic-summary
         run: |
-          if [ -f .cosmetic-repair-summary.json ]; then
-            python <<'PY'
-import json
-import os
-from pathlib import Path
+          python -c 'from textwrap import dedent; exec(dedent("""
+              import json
+              import os
+              from pathlib import Path
 
-summary = Path('.cosmetic-repair-summary.json')
-data = json.loads(summary.read_text(encoding='utf-8'))
-with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as handle:
-    for key in ('status', 'branch', 'pr_url'):
-        value = data.get(key)
-        if value:
-            handle.write(f"{key}={value}\n")
-PY
-          fi
+              summary = Path(".cosmetic-repair-summary.json")
+              if not summary.exists():
+                  raise SystemExit(0)
+
+              data = json.loads(summary.read_text(encoding="utf-8"))
+              output_path = os.environ.get("GITHUB_OUTPUT")
+              if not output_path:
+                  raise SystemExit(0)
+
+              with open(output_path, "a", encoding="utf-8") as handle:
+                  for key in ("status", "branch", "pr_url"):
+                      value = data.get(key)
+                      if value:
+                          handle.write(f"{key}={value}\\n")
+          """))'
 
       - name: Upload pytest report
         if: always()
@@ -102,7 +107,7 @@ PY
           name: cosmetic-repair-artifacts
           path: |
             pytest-report.xml
-            tmp_logs/cosmetic_repair_summary.json
+            .cosmetic-repair-summary.json
           if-no-files-found: ignore
 
       - name: Evaluate repair outcome
@@ -110,31 +115,33 @@ PY
         env:
           PYTEST_EXIT_CODE: ${{ steps.pytest.outputs.exit_code }}
         run: |
-          python <<'PY'
-import json
-import os
-from pathlib import Path
+          python -c 'from textwrap import dedent; exec(dedent("""
+              import json
+              import os
+              from pathlib import Path
 
-exit_code = int(os.environ.get("PYTEST_EXIT_CODE") or 0)
-summary_path = Path("tmp_logs/cosmetic_repair_summary.json")
-should_fail = False
-reason = ""
+              exit_code = int(os.environ.get("PYTEST_EXIT_CODE") or 0)
+              summary_path = Path(".cosmetic-repair-summary.json")
+              should_fail = False
+              reason = ""
 
-if exit_code != 0:
-    if summary_path.exists():
-        summary = json.loads(summary_path.read_text(encoding="utf-8"))
-        if summary.get("applied", 0) == 0:
-            should_fail = True
-            reason = "Pytest failures detected but no cosmetic fixes were applied."
-    else:
-        should_fail = True
-        reason = "Pytest failures detected but repair summary was not generated."
+              if exit_code != 0:
+                  if summary_path.exists():
+                      summary = json.loads(summary_path.read_text(encoding="utf-8"))
+                      if summary.get("applied", 0) == 0:
+                          should_fail = True
+                          reason = "Pytest failures detected but no cosmetic fixes were applied."
+                  else:
+                      should_fail = True
+                      reason = "Pytest failures detected but repair summary was not generated."
 
-with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
-    fh.write(f"should_fail={'true' if should_fail else 'false'}\n")
-    if reason:
-        fh.write(f"reason={reason}\n")
-PY
+              output = os.environ["GITHUB_OUTPUT"]
+              with open(output, "a", encoding="utf-8") as handle:
+                  result = "true" if should_fail else "false"
+                  handle.write(f"should_fail={result}\\n")
+                  if reason:
+                      handle.write(f"reason={reason}\\n")
+          """))'
 
       - name: Create cosmetic repair PR
         uses: peter-evans/create-pull-request@v6
@@ -143,7 +150,7 @@ PY
           base: ${{ env.BASE_BRANCH }}
           title: "Cosmetic repair: pytest drift"
           commit-message: "ci: apply cosmetic repairs"
-          labels: testing,autofix:applied,autofix
+          labels: 'testing,autofix:applied,autofix'
           body: |
             ## Cosmetic repair summary
 
@@ -161,33 +168,33 @@ PY
             echo "### Cosmetic repair summary"
             echo
             if [ -f "$summary_file" ]; then
-              python <<'PY'
-import json
-from pathlib import Path
+              python -c 'from textwrap import dedent; exec(dedent("""
+                  import json
+                  from pathlib import Path
 
-data = json.loads(Path('.cosmetic-repair-summary.json').read_text(encoding='utf-8'))
-status = data.get('status', 'unknown')
-print(f"- Status: **{status}**")
-changed = data.get('changed_files') or []
-if changed:
-    print(f"- Changed files ({len(changed)}):")
-    for path in changed:
-        print(f"  - `{path}`")
-else:
-    print("- No file changes detected.")
-pr_url = data.get('pr_url')
-if pr_url:
-    print(f"- PR: {pr_url}")
-instructions = data.get('instructions') or []
-if instructions:
-    print("- Instructions processed:")
-    for entry in instructions:
-        kind = entry.get('kind', 'unknown')
-        path = entry.get('path', '?')
-        guard = entry.get('guard', '')
-        extra = f" ({guard})" if guard else ""
-        print(f"  - `{kind}` → `{path}`{extra}")
-PY
+                  data = json.loads(Path(".cosmetic-repair-summary.json").read_text(encoding="utf-8"))
+                  status = data.get("status", "unknown")
+                  print(f"- Status: **{status}**")
+                  changed = data.get("changed_files") or []
+                  if changed:
+                      print(f"- Changed files ({len(changed)}):")
+                      for path in changed:
+                          print(f"  - `{path}`")
+                  else:
+                      print("- No file changes detected.")
+                  pr_url = data.get("pr_url")
+                  if pr_url:
+                      print(f"- PR: {pr_url}")
+                  instructions = data.get("instructions") or []
+                  if instructions:
+                      print("- Instructions processed:")
+                      for entry in instructions:
+                          kind = entry.get("kind", "unknown")
+                          path = entry.get("path", "?")
+                          guard = entry.get("guard", "")
+                          extra = f" ({guard})" if guard else ""
+                          print(f"  - `{kind}` → `{path}`{extra}")
+              """))'
             else
               git status --short || true
             fi
