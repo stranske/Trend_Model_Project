@@ -130,7 +130,9 @@ def test_agents_consumer_concurrency_and_defaults():
     data = _load_workflow_yaml("agents-consumer.yml")
 
     concurrency = data.get("concurrency") or {}
-    assert concurrency.get("group") == "agents-consumer", "Consumer must lock to agents-consumer group"
+    assert (
+        concurrency.get("group") == "agents-consumer"
+    ), "Consumer must lock to agents-consumer group"
     assert (
         concurrency.get("cancel-in-progress") is True
     ), "Consumer concurrency must cancel in-progress runs"
@@ -146,22 +148,28 @@ def test_agents_consumer_concurrency_and_defaults():
 
     dispatch_config = _workflow_on_section(data).get("workflow_dispatch", {})
     params_default = (
-        dispatch_config.get("inputs", {})
-        .get("params_json", {})
-        .get("default")
+        dispatch_config.get("inputs", {}).get("params_json", {}).get("default")
     )
     assert params_default, "params_json default payload must be defined"
 
     payload = json.loads(params_default)
-    assert payload.get("enable_readiness") is True, "Readiness should remain enabled by default"
-    assert payload.get("enable_watchdog") is True, "Watchdog should remain enabled by default"
+    assert (
+        payload.get("enable_readiness") is True
+    ), "Readiness should remain enabled by default"
+    assert (
+        payload.get("enable_watchdog") is True
+    ), "Watchdog should remain enabled by default"
     assert payload.get("enable_preflight") is False, "Preflight must stay opt-in"
     assert payload.get("enable_bootstrap") is False, "Bootstrap must stay opt-in"
 
     options = json.loads(payload.get("options_json", "{}"))
-    assert options.get("enable_keepalive") is False, "Keepalive must be disabled by default"
+    assert (
+        options.get("enable_keepalive") is False
+    ), "Keepalive must be disabled by default"
     nested_keepalive = options.get("keepalive", {})
-    assert nested_keepalive.get("enabled") is False, "Nested keepalive.enabled should default to false"
+    assert (
+        nested_keepalive.get("enabled") is False
+    ), "Nested keepalive.enabled should default to false"
 
 
 def test_reusable_agents_jobs_have_timeouts():
@@ -170,8 +178,6 @@ def test_reusable_agents_jobs_have_timeouts():
     missing_timeouts = [
         name
         for name, job in jobs.items()
-        if isinstance(job, dict)
-        and job.get("runs-on")
-        and "timeout-minutes" not in job
+        if isinstance(job, dict) and job.get("runs-on") and "timeout-minutes" not in job
     ]
     assert not missing_timeouts, f"Jobs missing timeout-minutes: {missing_timeouts}"
