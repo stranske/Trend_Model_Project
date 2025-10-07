@@ -49,7 +49,7 @@ def test_agents_consumer_uses_params_json():
     header_section = text.split("jobs:", 1)[0]
     for key in forbidden:
         assert (
-            key not in header_section or key == "params_json:"
+            key not in header_section
         ), f"Consumer dispatch header should not expose discrete input {key}"
     assert (
         "./.github/workflows/reuse-agents.yml" in text
@@ -109,6 +109,4 @@ def test_keepalive_job_present():
     assert (
         "issue_numbers_json" in text
     ), "Ready issues step must emit issue_numbers_json output"
-    assert (
-        "first_issue" in text
-    ), "Ready issues step must emit first_issue output"
+    assert "first_issue" in text, "Ready issues step must emit first_issue output"
