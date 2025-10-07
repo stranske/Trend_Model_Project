@@ -9,10 +9,9 @@ import pandas as pd
 import streamlit as st
 
 from app.streamlit import state as app_state
+from streamlit_app.components import analysis_runner, data_cache
 from trend_analysis.io.market_data import MarketDataValidationError
 from trend_portfolio_app.data_schema import SchemaMeta, infer_benchmarks
-
-from streamlit_app.components import analysis_runner, data_cache
 
 
 def _dataset_summary(df: pd.DataFrame, meta: SchemaMeta | dict[str, Any]) -> str:

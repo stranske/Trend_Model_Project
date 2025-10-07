@@ -17,16 +17,16 @@ from . import logging as run_logging
 from . import pipeline
 from .api import run_simulation
 from .config import load_config
-from .signal_presets import (
-    TrendSpecPreset,
-    get_trend_spec_preset,
-    list_trend_spec_presets,
-)
 from .constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 from .data import load_csv
 from .io.market_data import MarketDataValidationError
 from .perf.rolling_cache import set_cache_enabled
 from .presets import apply_trend_preset, get_trend_preset, list_preset_slugs
+from .signal_presets import (
+    TrendSpecPreset,
+    get_trend_spec_preset,
+    list_trend_spec_presets,
+)
 
 APP_PATH = Path(__file__).resolve().parents[2] / "streamlit_app" / "app.py"
 LOCK_PATH = Path(__file__).resolve().parents[2] / "requirements.lock"
@@ -39,7 +39,8 @@ def load_market_data_csv(
     include_date_column: bool | None = None,
     **kwargs: Any,
 ) -> pd.DataFrame | None:
-    """Backward-compatible shim retaining the legacy symbol for tests and CLI."""
+    """Backward-compatible shim retaining the legacy symbol for tests and
+    CLI."""
 
     effective_kwargs = dict(kwargs)
     effective_kwargs.setdefault("errors", errors if errors is not None else "raise")

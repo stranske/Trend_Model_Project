@@ -37,6 +37,8 @@ Thank you for contributing to the Trend Model Project.
 ## Style & Type Enforcement
 The CI style job pins versions in `.github/workflows/autofix-versions.env`. Always rely on `scripts/style_gate_local.sh` to avoid drift; it runs the same Black, Ruff, and mypy checks used in CI. The quality gate script also runs mypy, and pre-commit enforces mypy on `src/trend_analysis` so type regressions are caught pre-push.
 
+Pull requests also trigger `.github/workflows/autofix.yml`, which delegates to the reusable autofix composite. When safe fixes are found it pushes a `chore(autofix): …` commit (or publishes a patch artifact for forked PRs) and tags the PR with `autofix`, `autofix:applied`, plus the relevant clean/debt label. Always fetch/rebase before adding new commits if the bot amends your branch.
+
 ## Pre-Push Hook (Optional but Recommended)
 Install once per clone:
 ```bash

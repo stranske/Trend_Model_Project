@@ -39,7 +39,7 @@ runs:
             exit 1
           fi
         done
-        cat "${pin_file}" >> "${GITHUB_ENV}"
+        grep -Ev '^\s*(#.*)?$' "${pin_file}" >> "${GITHUB_ENV}"
     - name: Install fixers
       shell: bash
       run: |

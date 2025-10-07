@@ -101,17 +101,14 @@ jobs:
         shell: bash
         run: |
           source .venv/bin/activate
-          pytest_args=(
-            "--junitxml=pytest-junit.xml"
-            "--cov=src"
-            "--cov-report=xml:coverage.xml"
-            "--cov-report=term-missing"
-            "--cov-report=json:coverage.json"
-          )
+          marker_flag=""
           if [[ -n "${PYTEST_MARKER}" ]]; then
-            pytest_args+=("-m" "${PYTEST_MARKER}")
+            marker_flag="-m ${PYTEST_MARKER}"
           fi
-          pytest "${pytest_args[@]}"
+          pytest --junitxml=pytest-junit.xml \
+            --cov=src --cov-report=xml:coverage.xml \
+            --cov-report=term-missing --cov-report=json:coverage.json \
+            ${marker_flag}
 
       - name: Capture artifacts
         if: always()

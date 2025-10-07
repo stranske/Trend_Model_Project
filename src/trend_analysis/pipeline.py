@@ -23,6 +23,8 @@ from .metrics import (
     sortino_ratio,
     volatility,
 )
+from .perf.rolling_cache import compute_dataset_hash, get_cache
+from .regimes import build_regime_payload
 from .risk import (
     RiskDiagnostics,
     RiskWindow,
@@ -30,8 +32,6 @@ from .risk import (
     periods_per_year_from_code,
     realised_volatility,
 )
-from .perf.rolling_cache import compute_dataset_hash, get_cache
-from .regimes import build_regime_payload
 from .signals import TrendSpec, compute_trend_signals
 from .timefreq import MONTHLY_DATE_FREQ
 from .util.frequency import FrequencySummary, detect_frequency

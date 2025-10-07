@@ -787,8 +787,8 @@ def _wrap_pdf_text(
     initial_indent: str = "",
     subsequent_indent: str = "",
 ) -> str:
-    """
-    Wrap and format text for PDF output, ensuring lines do not exceed a specified width.
+    """Wrap and format text for PDF output, ensuring lines do not exceed a
+    specified width.
 
     Parameters:
         text (str): The input text to wrap.
@@ -958,7 +958,8 @@ def generate_unified_report(
     include_pdf: bool = False,
     spec: TrendRunSpec | None = None,
 ) -> ReportArtifacts:
-    """Produce HTML (and optional PDF) report artifacts for a simulation result."""
+    """Produce HTML (and optional PDF) report artifacts for a simulation
+    result."""
 
     backtest = _build_backtest(result)
     exec_summary = _build_exec_summary(result, backtest)

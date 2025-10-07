@@ -1,0 +1,23 @@
+name: Autofix
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+      - labeled
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: autofix-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    uses: ./.github/workflows/reusable-92-autofix.yml
+    secrets: inherit

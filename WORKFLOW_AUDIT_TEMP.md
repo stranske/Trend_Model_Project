@@ -3,7 +3,7 @@
 Date: 2026-10-12
 
 ## Naming Compliance Snapshot
-- ✅ All active workflows follow the `<area>-<NN>-<slug>.yml` convention with 10-point spacing per family.
+- ✅ All active workflows follow the `<area>-<NN>-<slug>.yml` convention with 10-point spacing per family (exception: `autofix.yml`, reinstated per Issue #2380 as the PR autofix runner).
 - ✅ Each workflow's `name:` field mirrors its filename (title-cased with numeric block preserved).
 - ✅ `.github/workflows/archive/` remains absent; legacy self-test wrappers were relocated to `Old/workflows/` for historical reference.
 
@@ -15,7 +15,8 @@ Only the workflows listed below remain visible in the Actions tab. Reusable comp
 |----------|----------|-------|
 | `pr-10-ci-python.yml` | pull_request, push, workflow_call, workflow_dispatch | Delegates to `reusable-96-ci-lite.yml` for style/type/test coverage plus manual dispatch support.
 | `pr-12-docker-smoke.yml` | workflow_call, workflow_dispatch | Deterministic Docker build + smoke test harness.
-| `pr-gate.yml` | pull_request, workflow_dispatch | Aggregated gate that fans into `reusable-ci.yml` (Python 3.11/3.12) and `reusable-docker.yml`, then summarises the run.
+| `pr-gate.yml` | workflow_call | Aggregates reusable CI/Docker composites into a single gate used by downstream repositories.
+| `autofix.yml` | pull_request | Direct PR autofix runner that delegates to `reusable-92-autofix.yml` and pushes formatting/type hygiene commits when safe.
 
 ### Maintenance & Governance
 | Workflow | Triggers | Notes |
@@ -41,14 +42,14 @@ Only the workflows listed below remain visible in the Actions tab. Reusable comp
 |----------|----------|-------|
 | `reuse-agents.yml` | workflow_call | Bridges consumer JSON payloads to the reusable stack.
 | `reusable-70-agents.yml` | workflow_call | Reusable agents stack used by `agents-70-orchestrator.yml` and `reuse-agents.yml`.
+| `reusable-ci.yml` | workflow_call | General-purpose CI composite (lint, type-check, pytest) for downstream repositories.
+| `reusable-99-selftest.yml` | workflow_call | Matrix smoke-test for the reusable CI executor.
 | `reusable-90-ci-python.yml` | workflow_call | Primary reusable CI implementation.
-| `reusable-92-autofix.yml` | workflow_call | Autofix composite consumed by `maint-32-autofix.yml`.
+| `reusable-92-autofix.yml` | workflow_call | Autofix composite consumed by `maint-32-autofix.yml` and the direct `autofix.yml` PR runner.
 | `reusable-94-legacy-ci-python.yml` | workflow_call | Legacy CI contract retained for downstream consumers.
 | `reusable-96-ci-lite.yml` | workflow_call | Single-job Ruff/mypy/pytest runner used by `pr-10-ci-python.yml` and future gate orchestrators.
 | `reusable-97-docker-smoke.yml` | workflow_call | Wrapper that exposes the Docker smoke workflow to orchestration jobs.
-| `reusable-99-selftest.yml` | workflow_call, workflow_dispatch | Matrix smoke-test for the reusable CI executor with multi-scenario artifact verification.
-| `reusable-ci.yml` | workflow_call | Parameterised Ruff → mypy → pytest runner used by `pr-gate.yml` and other downstream callers.
-| `reusable-docker.yml` | workflow_call | Build + smoke reusable invoked by `pr-gate.yml`.
+| `reusable-docker.yml` | workflow_call | Standalone Docker smoke composite (build + health check) for external consumers.
 
 ## Removed in Issue #2190
 | Workflow | Status |

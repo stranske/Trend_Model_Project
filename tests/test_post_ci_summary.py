@@ -3,9 +3,8 @@ from __future__ import annotations
 import json
 
 import pytest
-from tools.post_ci_summary import (
-    build_summary_comment,
-)
+
+from tools.post_ci_summary import build_summary_comment
 
 
 @pytest.fixture()

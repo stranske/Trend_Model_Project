@@ -4,7 +4,6 @@ from pathlib import Path
 
 import yaml
 
-
 WORKFLOW_DIR = Path(".github/workflows")
 ARCHIVE_DIR = Path("Old/workflows")
 SELFTEST_PATH = WORKFLOW_DIR / "reusable-99-selftest.yml"

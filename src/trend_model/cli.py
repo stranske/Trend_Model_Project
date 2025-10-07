@@ -17,13 +17,15 @@ from trend.cli import (
     TrendCLIError,
     _determine_seed,
     _ensure_dataframe,
+)
+from trend.cli import _load_configuration as _load_yaml_configuration
+from trend.cli import (
     _prepare_export_config,
     _print_summary,
     _resolve_report_output_path,
     _resolve_returns_path,
     _run_pipeline,
     _write_report_files,
-    _load_configuration as _load_yaml_configuration,
 )
 from trend.reporting import generate_unified_report
 from trend_analysis.config import load_config

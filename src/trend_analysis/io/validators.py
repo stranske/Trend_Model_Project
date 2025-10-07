@@ -15,8 +15,8 @@ from .market_data import (
     MarketDataMode,
     MarketDataValidationError,
     ValidatedMarketData,
-    classify_frequency,
     attach_metadata,
+    classify_frequency,
     validate_market_data,
 )
 

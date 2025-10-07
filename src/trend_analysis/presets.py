@@ -41,7 +41,8 @@ PIPELINE_METRIC_ALIASES: Mapping[str, str] = MappingProxyType(
 
 
 def _freeze_mapping(data: Mapping[str, Any]) -> Mapping[str, Any]:
-    """Return an immutable view over ``data`` suitable for storage on presets."""
+    """Return an immutable view over ``data`` suitable for storage on
+    presets."""
 
     return MappingProxyType({k: data[k] for k in data})
 

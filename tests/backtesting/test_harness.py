@@ -11,7 +11,8 @@ from trend_analysis.backtesting import run_backtest
 
 
 class MeanWinnerStrategy:
-    """Allocate all weight to the asset with the highest trailing mean return."""
+    """Allocate all weight to the asset with the highest trailing mean
+    return."""
 
     def __call__(self, window: pd.DataFrame) -> pd.Series:
         means = window.mean()

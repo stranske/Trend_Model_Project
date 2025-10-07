@@ -1,6 +1,6 @@
 # Automated Autofix & Type Hygiene Pipeline
 
-This repository includes an extended **autofix** workflow that standardises style and performs *lightweight* type hygiene automatically on pull requests.
+This repository includes an extended **autofix** workflow that standardises style and performs *lightweight* type hygiene automatically on pull requests. The entrypoint is `.github/workflows/autofix.yml` (PR trigger), which shares the same reusable composite used by the post-CI follower `maint-32-autofix.yml`.
 
 ## What It Does (Scope)
 1. Code formatting & style

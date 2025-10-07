@@ -34,7 +34,8 @@ the agents toolkit.
 |----------|------------|----------------|
 | `pr-10-ci-python.yml` (`PR 10 CI Python`) | `pull_request`, `push`, `workflow_call`, `workflow_dispatch` | Wrapper around `reusable-96-ci-lite.yml` providing the unified style/type/test gate with coverage reporting.
 | `pr-12-docker-smoke.yml` (`PR 12 Docker Smoke`) | `workflow_call`, `workflow_dispatch` | Deterministic Docker build followed by image smoke tests.
-| `pr-gate.yml` (`Gate`) | `pull_request`, `workflow_dispatch` | Aggregated merge gate that runs dual-version Python suites via `reusable-ci.yml` and a Docker smoke test before surfacing a summary step.
+| `pr-gate.yml` (`Gate`) | `workflow_call` | Composite orchestrator that chains the reusable CI and Docker smoke jobs for downstream repositories.
+| `autofix.yml` (`Autofix`) | `pull_request` | Lightweight formatting/type-hygiene runner that auto-commits safe fixes or publishes a patch artifact for forked PRs.
 
 These jobs must stay green for PRs to merge. The post-CI maintenance jobs below
 listen to their `workflow_run` events.
@@ -66,20 +67,14 @@ listen to their `workflow_run` events.
 |----------|-------------|-------|
 | `reuse-agents.yml` (`Reuse Agents`) | `agents-consumer.yml` | Bridges `params_json` inputs to the reusable toolkit while preserving defaults.
 | `reusable-70-agents.yml` (`Reusable 70 Agents`) | `agents-70-orchestrator.yml`, `reuse-agents.yml` | Implements readiness, bootstrap, diagnostics, and watchdog jobs.
-| `reusable-90-ci-python.yml` (`Reusable 90 CI Python`) | Legacy downstreams | Matrix executor retained for repositories that still rely on the older layout (including historical self-test wrappers).
-| `reusable-92-autofix.yml` (`Reusable 92 Autofix`) | `maint-32-autofix.yml` | Autofix harness invoked after CI gates finish.
+| `reusable-90-ci-python.yml` (`Reusable 90 CI Python`) | Legacy downstreams | Matrix executor retained for repositories that still rely on the older layout.
+| `reusable-92-autofix.yml` (`Reusable 92 Autofix`) | `maint-32-autofix.yml`, `autofix.yml` | Autofix harness used both by the PR-time autofix workflow and the post-CI maintenance listener.
 | `reusable-94-legacy-ci-python.yml` (`Reusable 94 Legacy CI Python`) | Downstream consumers | Compatibility shim for repositories that still need the old matrix layout.
 | `reusable-96-ci-lite.yml` (`Reusable 96 CI Lite`) | `pr-10-ci-python.yml`, future gate orchestrators | Single-job Ruff → mypy → pytest runner with coverage enforcement and artifact uploads.
 | `reusable-97-docker-smoke.yml` (`Reusable 97 Docker Smoke`) | Gate workflows | Exposes the Docker smoke test pipeline via `workflow_call` inputs.
-| `reusable-99-selftest.yml` (`Reusable 99 Selftest`) | Legacy maintenance callers | Matrix smoke-test for the reusable CI executor with multi-scenario artifact verification.
-| `reusable-ci.yml` (`Reusable CI`) | `pr-gate.yml` | Minimal Ruff → mypy → pytest composite with artifact uploads parameterised by Python version and optional markers.
-| `reusable-docker.yml` (`Reusable Docker Smoke`) | `pr-gate.yml` | Shared Docker build → health-check harness supporting optional debug output.
-
-### Manual self-test workflows
-
-| Workflow | Trigger(s) | Scenarios exercised |
-|----------|------------|---------------------|
-| `reusable-99-selftest.yml` (`Reusable 99 Selftest`) | `workflow_call`, `workflow_dispatch` | `minimal`, `metrics_only`, `metrics_history`, `classification_only`, `coverage_delta`, `full_soft_gate` (kept in sync with guard rails and artifact verifier).
+| `reusable-99-selftest.yml` (`Reusable 99 Selftest`) | `maint-` self-test orchestration | Scenario matrix that validates the reusable CI executor and artifact inventory.
+| `reusable-ci.yml` (`Reusable CI`) | External repositories | General-purpose CI composite (lint, type-check, pytest, coverage) with minimal configuration.
+| `reusable-docker.yml` (`Reusable Docker Smoke`) | External repositories | Standalone Docker SMOKE composite combining build + health check.
 
 ### Archived self-test workflows
 
