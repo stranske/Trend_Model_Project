@@ -1,6 +1,19 @@
+import json
 from pathlib import Path
 
+import yaml
+
 WORKFLOWS_DIR = Path(".github/workflows")
+
+
+def _load_workflow_yaml(name: str) -> dict:
+    path = WORKFLOWS_DIR / name
+    assert path.exists(), f"Workflow {name} must exist"
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
+def _workflow_on_section(data: dict) -> dict:
+    return data.get("on") or data.get(True) or {}
 
 
 def test_agents_orchestrator_inputs_and_uses():
@@ -111,3 +124,54 @@ def test_keepalive_job_present():
         "issue_numbers_json" in text
     ), "Ready issues step must emit issue_numbers_json output"
     assert "first_issue" in text, "Ready issues step must emit first_issue output"
+
+
+def test_agents_consumer_concurrency_and_defaults():
+    data = _load_workflow_yaml("agents-consumer.yml")
+
+    concurrency = data.get("concurrency") or {}
+    assert concurrency.get("group") == "agents-consumer", "Consumer must lock to agents-consumer group"
+    assert (
+        concurrency.get("cancel-in-progress") is True
+    ), "Consumer concurrency must cancel in-progress runs"
+
+    jobs = data.get("jobs", {})
+    resolve_params = jobs.get("resolve-params", {})
+    assert (
+        resolve_params.get("timeout-minutes") == 15
+    ), "Resolve Parameters job should enforce a 15 minute timeout"
+
+    dispatch = jobs.get("dispatch", {})
+    assert dispatch.get("uses"), "Dispatch job should call the reusable workflow"
+
+    dispatch_config = _workflow_on_section(data).get("workflow_dispatch", {})
+    params_default = (
+        dispatch_config.get("inputs", {})
+        .get("params_json", {})
+        .get("default")
+    )
+    assert params_default, "params_json default payload must be defined"
+
+    payload = json.loads(params_default)
+    assert payload.get("enable_readiness") is True, "Readiness should remain enabled by default"
+    assert payload.get("enable_watchdog") is True, "Watchdog should remain enabled by default"
+    assert payload.get("enable_preflight") is False, "Preflight must stay opt-in"
+    assert payload.get("enable_bootstrap") is False, "Bootstrap must stay opt-in"
+
+    options = json.loads(payload.get("options_json", "{}"))
+    assert options.get("enable_keepalive") is False, "Keepalive must be disabled by default"
+    nested_keepalive = options.get("keepalive", {})
+    assert nested_keepalive.get("enabled") is False, "Nested keepalive.enabled should default to false"
+
+
+def test_reusable_agents_jobs_have_timeouts():
+    data = _load_workflow_yaml("reusable-70-agents.yml")
+    jobs = data.get("jobs", {})
+    missing_timeouts = [
+        name
+        for name, job in jobs.items()
+        if isinstance(job, dict)
+        and job.get("runs-on")
+        and "timeout-minutes" not in job
+    ]
+    assert not missing_timeouts, f"Jobs missing timeout-minutes: {missing_timeouts}"

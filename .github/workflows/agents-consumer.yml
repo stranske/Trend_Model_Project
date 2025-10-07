@@ -9,7 +9,7 @@ on:
         description: >-
           JSON configuration for the agents toolkit (example: {"enable_readiness":true,"readiness_agents":"copilot,codex","enable_watchdog":true})
         required: false
-        default: '{"enable_readiness":true,"enable_watchdog":true,"enable_preflight":false,"enable_bootstrap":false,"bootstrap_issues_label":"agent:codex","draft_pr":false,"options_json":"{\\"enable_keepalive\\":false,\\"keepalive\\":{\\"enabled\\":false}}"}'
+        default: '{"enable_readiness":true,"enable_watchdog":true,"enable_preflight":false,"enable_bootstrap":false,"bootstrap_issues_label":"agent:codex","draft_pr":false,"options_json":"{\"enable_keepalive\":false,\"keepalive\":{\"enabled\":false}}"}'
         type: string
 
 permissions:
