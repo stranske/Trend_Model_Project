@@ -1,0 +1,171 @@
+name: Cosmetic Repair
+
+on:
+  workflow_dispatch:
+    inputs:
+      base-branch:
+        description: Base branch to target when opening the repair PR
+        default: main
+        required: false
+      python-version:
+        description: Python version to use for pytest
+        default: '3.11'
+        required: false
+      dry-run:
+        description: Run the repair helper in dry-run mode without creating commits
+        default: 'false'
+        required: false
+      branch-suffix:
+        description: Optional suffix appended to the repair branch name
+        default: ''
+        required: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    env:
+      PYTHON_VERSION: ${{ inputs.python-version }}
+      BASE_BRANCH: ${{ inputs.base-branch }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ env.BASE_BRANCH }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e '.[dev]'
+
+      - name: Configure git user
+        run: |
+          git config user.name "cosmetic-repair bot"
+          git config user.email "cosmetic-repair-bot@users.noreply.github.com"
+
+      - name: Run cosmetic repair script
+        id: repair
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DRY_RUN_INPUT: ${{ inputs['dry-run'] }}
+          BRANCH_SUFFIX_INPUT: ${{ inputs['branch-suffix'] }}
+        run: |
+          set -euo pipefail
+          source .venv/bin/activate
+          cmd=("python" "scripts/ci_cosmetic_repair.py")
+          if [ "${DRY_RUN_INPUT}" = "true" ]; then
+            cmd+=("--dry-run" "--skip-pr")
+          else
+            cmd+=("--apply")
+          fi
+          if [ -n "${BRANCH_SUFFIX_INPUT}" ]; then
+            cmd+=("--branch-suffix" "${BRANCH_SUFFIX_INPUT}")
+          fi
+          cmd+=("--base" "${{ env.BASE_BRANCH }}")
+          echo "Running: ${cmd[*]}"
+          set +e
+          "${cmd[@]}"
+          status=$?
+          set -e
+          echo "exit_code=${status}" >> "$GITHUB_OUTPUT"
+          exit ${status}
+
+      - name: Capture cosmetic summary outputs
+        if: always()
+        id: cosmetic-summary
+        env:
+          SUMMARY_FILE: .cosmetic-repair-summary.json
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          summary = Path(os.environ['SUMMARY_FILE'])
+          if not summary.exists():
+              raise SystemExit(0)
+
+          data = json.loads(summary.read_text(encoding='utf-8'))
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as handle:
+              for key, value in data.items():
+                  if not value:
+                      continue
+                  if isinstance(value, (list, tuple)):
+                      handle.write(f"{key}={'|'.join(value)}\n")
+                  else:
+                      handle.write(f"{key}={value}\n")
+          PY
+
+      - name: Upload pytest report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cosmetic-repair-artifacts
+          path: |
+            .pytest-cosmetic-report.xml
+            .cosmetic-repair-summary.json
+          if-no-files-found: ignore
+
+      - name: Evaluate repair outcome
+        id: outcome
+        env:
+          SUMMARY_FILE: .cosmetic-repair-summary.json
+          REPAIR_EXIT_CODE: ${{ steps.repair.outputs.exit_code }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          exit_code = int(os.environ.get('REPAIR_EXIT_CODE') or 0)
+          summary_path = Path(os.environ['SUMMARY_FILE'])
+          should_fail = exit_code != 0
+          reason = ''
+          status = 'unknown'
+
+          if summary_path.exists():
+              data = json.loads(summary_path.read_text(encoding='utf-8'))
+              status = data.get('status', status)
+              if exit_code == 0 and status in {'clean', 'dry-run', 'no-changes', 'pr-created', 'applied-no-pr'}:
+                  should_fail = False
+              elif not reason:
+                  reason = data.get('reason', reason)
+          elif exit_code == 0:
+              should_fail = True
+              reason = 'Cosmetic repair summary was not generated.'
+
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as fh:
+              fh.write(f"should_fail={'true' if should_fail else 'false'}\n")
+              fh.write(f"status={status}\n")
+              if reason:
+                  fh.write(f"reason={reason}\n")
+          PY
+
+      - name: Fail if unresolved failures remain
+        if: steps.outcome.outputs.should_fail == 'true'
+        run: |
+          summary_file=".cosmetic-repair-summary.json"
+          {
+            echo "### Cosmetic repair summary"
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ -f "$summary_file" ]; then
+            python scripts/cosmetic_repair_workflow.py render \
+              --summary-file "$summary_file" >> "$GITHUB_STEP_SUMMARY"
+          else
+            git status --short || true >> "$GITHUB_STEP_SUMMARY"
+          fi

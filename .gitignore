@@ -1,6 +1,8 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
 .pytest_cache/
+.cosmetic-repair-summary.json
+.pytest-cosmetic-report.xml
 *.pyc
 *.py[cod]
 
