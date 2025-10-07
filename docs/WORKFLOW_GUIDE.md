@@ -35,6 +35,7 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 - **`maint-36-actionlint.yml`** — Sole workflow-lint gate. Runs actionlint via reviewdog on PR edits, pushes, weekly cron, and manual dispatch.
 - **`maint-40-ci-signature-guard.yml`** — Guards the CI manifest with signed fixture checks.
 - **`maint-90-selftest.yml`** — Manual/weekly caller that delegates to `reusable-99-selftest.yml`.
+- **`cosmetic-repair.yml`** — Manual dispatch utility that runs `pytest -q`, applies guard-gated cosmetic fixes via `scripts/ci_cosmetic_repair.py`, and opens a labelled PR when changes exist.
 
 ### Agents
 - **`agents-70-orchestrator.yml`** — Hourly + manual dispatch entry point for readiness, Codex bootstrap, issue verification, and watchdog sweeps. Delegates to `reusable-70-agents.yml` and accepts extended options via `options_json`.

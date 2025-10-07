@@ -28,12 +28,12 @@
    - Provide instructions for running the repair script locally (including prerequisites) and how to simulate the workflow behavior.
 
 ## Initial Task Checklist
-- [ ] Audit existing CI helpers to reuse environment bootstrap logic (actions, scripts, or caching patterns).
-- [ ] Design repairable-case inventory (identify fixture files, tolerance definitions, formatting targets) and codify guard comment conventions.
-- [ ] Implement `scripts/ci_cosmetic_repair.py` with CLI flags for `--dry-run`, `--apply`, and logging verbosity.
-- [ ] Write targeted unit tests for the repair script under `tests/` (include at least one success and one refusal scenario).
-- [ ] Create `.github/workflows/cosmetic-repair.yml` with dispatch inputs (e.g., optional branch name suffix, dry-run toggle) and integrate the script + pytest run.
-- [ ] Ensure the workflow sets the required labels when opening PRs and posts a concise job summary (detected issues, files changed).
-- [ ] Document usage in `docs/ops/cosmetic-repair.md` (or equivalent) and link from contributor guides if necessary.
-- [ ] Validate idempotency by running the script twice on synthetic drift and confirming the second run exits cleanly.
-- [ ] Perform end-to-end dry run (locally or via workflow) to confirm branch naming, labeling, and guard comments meet expectations.
+- [x] Audit existing CI helpers to reuse environment bootstrap logic (actions, scripts, or caching patterns).
+- [x] Design repairable-case inventory (identify fixture files, tolerance definitions, formatting targets) and codify guard comment conventions.
+- [x] Implement `scripts/ci_cosmetic_repair.py` with CLI flags for `--dry-run`, `--apply`, and logging verbosity.
+- [x] Write targeted unit tests for the repair script under `tests/` (include at least one success and one refusal scenario).
+- [x] Create `.github/workflows/cosmetic-repair.yml` with dispatch inputs (e.g., optional branch name suffix, dry-run toggle) and integrate the script + pytest run.
+- [x] Ensure the workflow sets the required labels when opening PRs and posts a concise job summary (detected issues, files changed).
+- [x] Document usage in `docs/ops/cosmetic-repair.md` (or equivalent) and link from contributor guides if necessary.
+- [x] Validate idempotency by running the script twice on synthetic drift and confirming the second run exits cleanly.
+- [x] Perform end-to-end dry run (locally or via workflow) to confirm branch naming, labeling, and guard comments meet expectations.

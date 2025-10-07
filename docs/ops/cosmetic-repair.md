@@ -31,7 +31,9 @@ standard fix PR instead.
 5. When changes exist, the script commits them on a branch named
    `autofix/cosmetic-repair-<timestamp>` (or with the provided suffix), pushes
 the branch, and opens a pull request labelled `testing` and `autofix:applied`.
-6. The workflow summary lists touched files and links to the created PR.
+6. The workflow writes `.cosmetic-repair-summary.json`, which feeds the job
+   summary with the execution status, changed files, and PR link (when one is
+   created).
 
 If re-run after the drift is already repaired, the script exits cleanly without
 creating a new branch or PR.
