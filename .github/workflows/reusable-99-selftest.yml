@@ -1,0 +1,203 @@
+name: Reusable 99 Selftest
+
+on:
+  workflow_call:
+    inputs:
+      python-versions:
+        description: >-
+          JSON array of Python versions forwarded to `reusable-90-ci-python.yml`.
+          Leave empty to exercise the default 3.11 matrix used by Maint 90 Selftest.
+        required: false
+        type: string
+        default: '["3.11"]'
+  workflow_dispatch:
+    inputs:
+      python-versions:
+        description: >-
+          JSON array of Python versions forwarded to `reusable-90-ci-python.yml`.
+          Leave empty to exercise the default 3.11 matrix used by Maint 90 Selftest.
+        required: false
+        default: '["3.11"]'
+
+jobs:
+  scenario:
+    name: Scenario - ${{ matrix.name }}
+    uses: ./.github/workflows/reusable-90-ci-python.yml
+    secrets: inherit
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: minimal
+            enable-metrics: false
+            enable-history: false
+            enable-classification: false
+            enable-coverage-delta: false
+            enable-soft-gate: false
+          - name: metrics_only
+            enable-metrics: true
+            enable-history: false
+            enable-classification: false
+            enable-coverage-delta: false
+            enable-soft-gate: false
+          - name: metrics_history
+            enable-metrics: true
+            enable-history: true
+            enable-classification: false
+            enable-coverage-delta: false
+            enable-soft-gate: false
+          - name: classification_only
+            enable-metrics: false
+            enable-history: false
+            enable-classification: true
+            enable-coverage-delta: false
+            enable-soft-gate: false
+          - name: coverage_delta
+            enable-metrics: false
+            enable-history: false
+            enable-classification: false
+            enable-coverage-delta: true
+            enable-soft-gate: false
+            baseline-coverage: '65'
+            coverage-alert-drop: '2'
+          - name: full_soft_gate
+            enable-metrics: true
+            enable-history: true
+            enable-classification: true
+            enable-coverage-delta: true
+            enable-soft-gate: true
+            baseline-coverage: '65'
+            coverage-alert-drop: '2'
+    with:
+      python-versions: ${{ inputs.python-versions }}
+      artifact-prefix: 'sf-${{ matrix.name }}-'
+      enable-metrics: ${{ matrix.enable-metrics }}
+      enable-history: ${{ matrix.enable-history }}
+      enable-classification: ${{ matrix.enable-classification }}
+      enable-coverage-delta: ${{ matrix.enable-coverage-delta }}
+      enable-soft-gate: ${{ matrix.enable-soft-gate }}
+      baseline-coverage: ${{ matrix.baseline-coverage || '0' }}
+      coverage-alert-drop: ${{ matrix.coverage-alert-drop || '1' }}
+
+  aggregate:
+    name: Aggregate Verification
+    if: ${{ always() }}
+    needs: scenario
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      verification_table: ${{ steps.verify.outputs.table }}
+      failures: ${{ steps.verify.outputs.failures }}
+    env:
+      SCENARIO_LIST: minimal, metrics_only, metrics_history, classification_only, coverage_delta, full_soft_gate
+    steps:
+      - name: Summarize matrix execution
+        run: |
+          {
+            echo "## Self-Test Matrix Summary"
+            echo "Scenario job result: ${{ needs.scenario.result }}"
+            echo "Scenarios executed: ${SCENARIO_LIST}"
+            echo "Workflow dispatch input (python-versions): ${{ inputs.python-versions }}"
+            echo "Each reusable run uploads artifacts prefixed with \`sf-<scenario>-\`."
+            echo "The verification step checks that every expected artifact exists and that no stray uploads are present."
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Verify artifact inventory
+        id: verify
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const scenarios = [
+              { name: 'minimal', metrics:false, history:false, classification:false, covDelta:false, soft:false },
+              { name: 'metrics_only', metrics:true, history:false, classification:false, covDelta:false, soft:false },
+              { name: 'metrics_history', metrics:true, history:true, classification:false, covDelta:false, soft:false },
+              { name: 'classification_only', metrics:false, history:false, classification:true, covDelta:false, soft:false },
+              { name: 'coverage_delta', metrics:false, history:false, classification:false, covDelta:true, soft:false },
+              { name: 'full_soft_gate', metrics:true, history:true, classification:true, covDelta:true, soft:true },
+            ];
+
+            const run_id = context.runId;
+            const { owner, repo } = context.repo;
+
+            async function listArtifacts() {
+              const collected = [];
+              let page = 1;
+              while (true) {
+                const resp = await github.rest.actions.listWorkflowRunArtifacts({ owner, repo, run_id, per_page: 100, page });
+                const batch = resp.data.artifacts || [];
+                collected.push(...batch);
+                if (batch.length < 100) {
+                  break;
+                }
+                page += 1;
+              }
+              return collected;
+            }
+
+            const artifacts = await listArtifacts();
+            const names = new Set(artifacts.map(a => a.name));
+
+            function expectedFor(s) {
+              const prefix = (suffix) => `sf-${s.name}-${suffix}`;
+              const expected = [prefix('coverage-3.11')];
+              if (s.metrics) expected.push(prefix('ci-metrics'));
+              if (s.history) expected.push(prefix('metrics-history'));
+              if (s.classification) expected.push(prefix('classification'));
+              if (s.covDelta) expected.push(prefix('coverage-delta'));
+              if (s.soft) {
+                expected.push(prefix('coverage-summary'));
+                expected.push(prefix('coverage-trend'));
+                expected.push(prefix('coverage-trend-history'));
+              }
+              return expected;
+            }
+
+            const expectedGlobal = new Set();
+            scenarios.forEach((s) => expectedFor(s).forEach((name) => expectedGlobal.add(name)));
+
+            const rows = ['| Scenario | Expected Artifacts | Missing | Unexpected Present | Status |', '|---|---|---|---|---|'];
+            const report = [];
+            let failures = 0;
+
+            for (const scenario of scenarios) {
+              const expected = expectedFor(scenario);
+              const missing = expected.filter((name) => !names.has(name));
+              const prefix = `sf-${scenario.name}-`;
+              const actual = [...names].filter((name) => name.startsWith(prefix));
+              const unexpected = actual.filter((name) => !expected.includes(name));
+              const ok = missing.length === 0 && unexpected.length === 0;
+              if (!ok) {
+                failures += 1;
+              }
+              rows.push(`| ${scenario.name} | ${expected.join('<br>')} | ${missing.join('<br>') || '—'} | ${unexpected.join('<br>') || '—'} | ${ok ? '✅' : '❌'} |`);
+              report.push({ scenario: scenario.name, expected, missing, unexpected, ok });
+            }
+
+            const stray = [...names].filter((name) => name.startsWith('sf-') && !expectedGlobal.has(name));
+            if (stray.length) {
+              rows.push(`| (stray) | (n/a) | (n/a) | ${stray.join('<br>')} | ❌ |`);
+              report.push({ scenario: '_stray_', expected: [], missing: [], unexpected: stray, ok: false });
+              failures += 1;
+            }
+
+            core.setOutput('table', rows.join('\n'));
+            core.setOutput('failures', String(failures));
+            const summary = { run_id, artifact_count: artifacts.length, failures, scenarios: report };
+            require('fs').writeFileSync('selftest-report.json', JSON.stringify(summary, null, 2));
+      - name: Append verification table
+        run: |
+          {
+            echo "### Artifact Verification"
+            echo "${{ steps.verify.outputs.table }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload self-test report
+        uses: actions/upload-artifact@v4
+        with:
+          name: selftest-report
+          path: selftest-report.json
+      - name: Fail on verification errors
+        if: ${{ steps.verify.outputs.failures != '0' }}
+        run: |
+          echo "Artifact expectation mismatches detected." >&2
+          exit 1

@@ -28,7 +28,7 @@ All deprecated agent automation workflows were deleted from `.github/workflows/`
 ## Archived in Issue #2378
 
 - `maint-90-selftest.yml` – moved to `Old/workflows/maint-90-selftest.yml`.
-- `reusable-99-selftest.yml` – moved to `Old/workflows/reusable-99-selftest.yml`.
+- `reusable-99-selftest.yml` – moved to `Old/workflows/reusable-99-selftest.yml`; reinstated in `.github/workflows/` by Issue #2379 after being rewritten to use `jobs.<id>.uses`.
 - `maint-43-selftest-pr-comment.yml` – removed from the tree; consult git history for the final experiment snapshot.
 - `maint-44-selftest-reusable-ci.yml` – removed; coverage folded into the reusable CI pipeline consumed by production workflows.
 - `maint-48-selftest-reusable-ci.yml` – removed after the reusable matrix stabilised.
