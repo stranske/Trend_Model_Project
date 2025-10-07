@@ -14,11 +14,15 @@
 - Content is reviewed for clarity, follows repository documentation style (headings, bullet points, command formatting), and includes cross-links to related guides when helpful.
 
 ## Initial Task Checklist
-1. Inventory existing workflow files and naming/numbering conventions within `.github/workflows/`.
-2. Identify which workflows are mandatory for PR merges versus optional or informational, using README/CI docs and workflow configuration as sources.
-3. Document the commands or scripts that run the local style gate (e.g., linting, formatting, static analysis) and validate they align with CI checks.
-4. Research how new workflows are added, including any automation around NN slot allocation, by reviewing docs, scripts, or configuration files.
-5. Summarize the Agents dispatch JSON schema fields relevant to CI triggers; confirm details with existing schema files or documentation.
-6. Draft `docs/ci/WORKFLOWS.md` incorporating findings, ensuring concise explanations and cross-references.
-7. Update `README.md` (or another entry point) to link to the new CI workflows documentation section.
-8. Circulate the draft for review, incorporate feedback, and confirm it meets the acceptance criteria.
+- [x] Inventory existing workflow files and naming/numbering conventions within `.github/workflows/`.
+- [x] Identify which workflows are mandatory for PR merges versus optional or informational, using README/CI docs and workflow configuration as sources.
+- [x] Document the commands or scripts that run the local style gate (e.g., linting, formatting, static analysis) and validate they align with CI checks.
+- [x] Research how new workflows are added, including any automation around NN slot allocation, by reviewing docs, scripts, or configuration files.
+- [x] Summarize the Agents dispatch JSON schema fields relevant to CI triggers; confirm details with existing schema files or documentation.
+- [x] Draft `docs/ci/WORKFLOWS.md` incorporating findings, ensuring concise explanations and cross-references.
+- [x] Update `README.md` (or another entry point) to link to the new CI workflows documentation section.
+- [x] Circulate the draft for review, incorporate feedback, and confirm it meets the acceptance criteria.
+
+## Status
+
+All acceptance criteria for Issue #2202 are satisfied. `docs/ci/WORKFLOWS.md` now documents naming/numbering rules, required and optional workflow inventories, local style-gate mirroring, guidance for adding new workflows, and the agents `options_json` schema, and it is linked from the project README.
