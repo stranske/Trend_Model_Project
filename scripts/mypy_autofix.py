@@ -24,17 +24,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import re
 import sys
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, DefaultDict, Iterable, Mapping, Sequence, cast
-
-try:  # pragma: no cover - exercised in integration contexts
-    from mypy import api as _mypy_api
-except ImportError:  # pragma: no cover - mypy not installed
-    _mypy_api = cast(Any, None)
-mypy_api: Any | None = _mypy_api
 
 Diagnostic = dict[str, Any]
 
@@ -124,12 +119,30 @@ def resolve_targets(paths: list[str] | None) -> list[Path]:
     return existing
 
 
+def _run_mypy_subprocess(args: list[str]) -> tuple[str, str, int]:
+    cmd = [sys.executable, "-m", "mypy", *args]
+    try:
+        completed = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except FileNotFoundError:
+        return "", "mypy not available", 0
+    except OSError as exc:
+        return "", f"failed to execute mypy: {exc}", 0
+    stdout = completed.stdout or ""
+    stderr = completed.stderr or ""
+    status = int(completed.returncode)
+    if status != 0 and "No module named mypy" in stderr:
+        return "", "mypy not available", 0
+    return stdout, stderr, status
+
+
 def run_mypy(
     config_file: str | None, targets: Iterable[Path]
 ) -> tuple[str, str, int, bool]:
-    if mypy_api is None:  # pragma: no cover - happens only when mypy missing
-        return "", "mypy not available", 0, True
-
     args: list[str] = [
         "--hide-error-context",
         "--show-column-numbers",
@@ -139,11 +152,10 @@ def run_mypy(
     if cfg and cfg.exists():
         args += ["--config-file", str(cfg)]
     args += [str(path) for path in targets]
-    stdout, stderr, status = mypy_api.run(args)
 
-    if status == 2 and "--error-format=json" in (stderr or ""):
-        # Older mypy versions do not recognise --error-format=json. Retry using
-        # the default human-readable reporter and fall back to heuristic parsing.
+    stdout, stderr, status = _run_mypy_subprocess(args)
+
+    if status == 2 and "--error-format" in stderr:
         fallback_args = [
             "--hide-error-context",
             "--show-column-numbers",
@@ -151,7 +163,7 @@ def run_mypy(
         if cfg and cfg.exists():
             fallback_args += ["--config-file", str(cfg)]
         fallback_args += [str(path) for path in targets]
-        stdout, stderr, status = mypy_api.run(fallback_args)
+        stdout, stderr, status = _run_mypy_subprocess(fallback_args)
         return stdout, stderr, status, False
 
     return stdout, stderr, status, True
