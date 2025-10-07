@@ -27,6 +27,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # Keep the scenario definitions in sync with:
+        # * aggregate.env.SCENARIO_LIST below (used for run summaries)
+        # * docs/ci/WORKFLOWS.md (manual self-test catalog)
+        # * tests/test_workflow_selftest_consolidation.py (guard rails)
+        # Update all three when adding/removing scenarios so the
+        # aggregate verification job and documentation remain aligned.
         include:
           - name: minimal
             enable-metrics: false
@@ -94,6 +100,9 @@ jobs:
       SCENARIO_LIST: minimal, metrics_only, metrics_history, classification_only, coverage_delta, full_soft_gate
     steps:
       - name: Summarize matrix execution
+        # Summaries surface the matrix result to the Actions UI and hint at
+        # where the verification logic expects artifacts to land. Keep the
+        # messaging concise so self-test runs remain readable.
         run: |
           {
             echo "## Self-Test Matrix Summary"
@@ -109,6 +118,11 @@ jobs:
         env:
           PYTHON_VERSIONS: ${{ inputs.python-versions }}
         with:
+          # The script cross-checks every artifact uploaded by the matrix
+          # scenarios against the expected inventory for each feature toggle.
+          # When adjusting scenario outputs, update the logic here and the
+          # guard test in tests/test_workflow_selftest_consolidation.py so the
+          # aggregate step continues to fail fast on mismatches.
           script: |
             const defaultPythonVersions = ['3.11'];
             let pythonVersions = defaultPythonVersions;

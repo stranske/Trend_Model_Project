@@ -17,11 +17,11 @@
 6. CI dry-run or linting (if available) confirms the workflow syntax is valid (e.g., `act` or `workflow-lint` if part of repo tooling).
 
 ## Initial Task Checklist
-- [ ] Inspect current `.github/workflows/reusable-99-selftest.yml` to capture existing triggers, inputs, scenario definitions, and artifact handling.
-- [ ] Review `.github/workflows/reusable-90-ci-python.yml` to enumerate required inputs, outputs, and permissions for job-level reuse.
-- [ ] Draft the new `jobs.scenario` matrix structure, mapping per-scenario inputs to the reusable workflow.
-- [ ] Update the workflow file to replace step-level `uses` calls with `jobs.scenario.uses`, wiring matrix-provided values into the reusable workflow inputs.
-- [ ] Adjust aggregator job to consume `needs.scenario.outputs`, ensure artifact checks operate on matrix results, and refine summary messaging.
-- [ ] Add or update inline documentation within the workflow describing the matrix configuration and aggregation expectations.
-- [ ] Execute available workflow validation tooling (e.g., `workflow-lint`, `act` dry run) or perform manual syntax validation.
-- [ ] Capture follow-up notes or TODOs if additional automation or secrets configuration is required outside the workflow file.
+- [x] Inspect current `.github/workflows/reusable-99-selftest.yml` to capture existing triggers, inputs, scenario definitions, and artifact handling.
+- [x] Review `.github/workflows/reusable-90-ci-python.yml` to enumerate required inputs, outputs, and permissions for job-level reuse.
+- [x] Draft the new `jobs.scenario` matrix structure, mapping per-scenario inputs to the reusable workflow.
+- [x] Update the workflow file to replace step-level `uses` calls with `jobs.scenario.uses`, wiring matrix-provided values into the reusable workflow inputs.
+- [x] Adjust aggregator job to consume `needs.scenario.outputs`, ensure artifact checks operate on matrix results, and refine summary messaging.
+- [x] Add or update inline documentation within the workflow describing the matrix configuration and aggregation expectations.
+- [x] Execute available workflow validation tooling (e.g., `workflow-lint`, `act` dry run) or perform manual syntax validation.
+- [x] Capture follow-up notes or TODOs if additional automation or secrets configuration is required outside the workflow file.
