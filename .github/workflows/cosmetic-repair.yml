@@ -116,6 +116,7 @@ jobs:
         id: outcome
         env:
           PYTEST_EXIT_CODE: ${{ steps.pytest.outputs.exit_code }}
+          SUMMARY_FILE: .cosmetic-repair-summary.json
         run: |
           python - <<'PYCODE'
           import json
