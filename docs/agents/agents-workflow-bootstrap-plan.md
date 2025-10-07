@@ -24,3 +24,12 @@
 - [x] Patch `.github/workflows/reuse-agents.yml` to remove invalid string concatenation in expressions, ensuring JSON parsing works with the new outputs.
 - [x] Document an example `params_json` payload (see `.github/workflows/README.md`) so operators can easily trigger the workflow.
 - [x] Smoke-test workflow syntax locally (pytest guard suite) and verify no secrets are required for dry-run paths.
+
+## Verification Log
+
+- 2025-03-04 – `pytest tests/test_workflow_agents_consolidation.py tests/test_workflow_naming.py`
+  confirms the consumer/orchestrator/bridge workflows parse and document the
+  consolidated `params_json` contract without re-introducing legacy dispatch
+  inputs.
+- README references for the JSON payload and operators' checklist are current
+  as of this verification run.
