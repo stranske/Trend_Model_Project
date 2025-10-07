@@ -89,6 +89,7 @@ permissions:
 
 jobs:
   call:
+    timeout-minutes: 60
     uses: ./.github/workflows/reusable-70-agents.yml
     secrets: inherit
     with:
