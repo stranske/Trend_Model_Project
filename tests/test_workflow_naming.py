@@ -1,6 +1,6 @@
 import pathlib
 
-ALLOWED_PREFIXES = ("pr-", "maint-", "agents-", "reusable-")
+ALLOWED_PREFIXES = ("pr-", "maint-", "agents-", "reusable-", "reuse-")
 WORKFLOW_DIR = pathlib.Path(".github/workflows")
 
 
@@ -88,8 +88,10 @@ def test_chatgpt_issue_sync_workflow_present_and_intact():
 
 
 EXPECTED_NAMES = {
+    "agents-consumer.yml": "Agents Consumer",
     "agents-43-codex-issue-bridge.yml": "Agents 43 Codex Issue Bridge",
     "agents-70-orchestrator.yml": "Agents 70 Orchestrator",
+    "reuse-agents.yml": "Reuse Agents",
     "maint-02-repo-health.yml": "Maint 02 Repo Health",
     "maint-30-post-ci-summary.yml": "Maint 30 Post CI Summary",
     "maint-32-autofix.yml": "Maint 32 Autofix",

@@ -30,6 +30,32 @@ def test_agents_orchestrator_inputs_and_uses():
     ), "Orchestrator must call the reusable agents workflow"
 
 
+def test_agents_consumer_uses_params_json():
+    wf = WORKFLOWS_DIR / "agents-consumer.yml"
+    assert wf.exists(), "agents-consumer.yml must exist"
+    text = wf.read_text(encoding="utf-8")
+    assert "workflow_dispatch:" in text, "Consumer must allow manual dispatch"
+    assert "params_json:" in text, "Consumer must consolidate inputs into params_json"
+    # Ensure legacy discrete inputs are not reintroduced at the dispatch boundary
+    forbidden = [
+        "enable_readiness:",
+        "readiness_agents:",
+        "require_all:",
+        "enable_preflight:",
+        "enable_verify_issue:",
+        "enable_watchdog:",
+        "draft_pr:",
+    ]
+    header_section = text.split("jobs:", 1)[0]
+    for key in forbidden:
+        assert (
+            key not in header_section or key == "params_json:"
+        ), f"Consumer dispatch header should not expose discrete input {key}"
+    assert (
+        "./.github/workflows/reuse-agents.yml" in text
+    ), "Consumer must call reuse-agents.yml"
+
+
 def test_reusable_agents_workflow_structure():
     reusable = WORKFLOWS_DIR / "reusable-70-agents.yml"
     assert reusable.exists(), "reusable-70-agents.yml must exist"
@@ -80,3 +106,9 @@ def test_keepalive_job_present():
     assert (
         "<!-- codex-keepalive -->" in text
     ), "Keepalive marker must be retained for duplicate suppression"
+    assert (
+        "issue_numbers_json" in text
+    ), "Ready issues step must emit issue_numbers_json output"
+    assert (
+        "first_issue" in text
+    ), "Ready issues step must emit first_issue output"

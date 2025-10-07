@@ -55,6 +55,7 @@ listen to their `workflow_run` events.
 
 | Workflow | Trigger(s) | Purpose |
 |----------|------------|---------|
+| `agents-consumer.yml` (`Agents Consumer`) | Hourly cron, manual | Consolidated wrapper that accepts a JSON payload and calls `reuse-agents.yml` to run readiness, preflight, verification, and bootstrap flows.
 | `agents-43-codex-issue-bridge.yml` (`Agents 43 Codex Issue Bridge`) | `issues`, manual | Prepares Codex-ready branches/PRs when an `agent:codex` label is applied.
 | `agents-70-orchestrator.yml` (`Agents 70 Orchestrator`) | 20-minute cron, manual | Unified agents toolkit (readiness probes, Codex bootstrap, watchdogs) delegating to `reusable-70-agents.yml`.
 
@@ -62,7 +63,8 @@ listen to their `workflow_run` events.
 
 | Workflow | Consumed by | Notes |
 |----------|-------------|-------|
-| `reusable-70-agents.yml` (`Reusable 70 Agents`) | `agents-70-orchestrator.yml` | Implements readiness, bootstrap, diagnostics, and watchdog jobs.
+| `reuse-agents.yml` (`Reuse Agents`) | `agents-consumer.yml` | Bridges `params_json` inputs to the reusable toolkit while preserving defaults.
+| `reusable-70-agents.yml` (`Reusable 70 Agents`) | `agents-70-orchestrator.yml`, `reuse-agents.yml` | Implements readiness, bootstrap, diagnostics, and watchdog jobs.
 | `reusable-90-ci-python.yml` (`Reusable 90 CI Python`) | `maint-90-selftest.yml` | Legacy matrix executor retained for self-tests while consumers migrate to the single-job workflow.
 | `reusable-92-autofix.yml` (`Reusable 92 Autofix`) | `maint-32-autofix.yml` | Autofix harness invoked after CI gates finish.
 | `reusable-94-legacy-ci-python.yml` (`Reusable 94 Legacy CI Python`) | Downstream consumers | Compatibility shim for repositories that still need the old matrix layout.
