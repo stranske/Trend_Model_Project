@@ -17,10 +17,10 @@
 7. Optional: Workflow concurrency remains configured to prevent overlapping consumer runs.
 
 ## Initial Task Checklist
-- [ ] Audit `.github/workflows/agents-consumer.yml` inputs and map each existing flag into the planned `params_json` structure with default values.
-- [ ] Update the workflow to accept a single `params_json` input, parse it (e.g., via `fromJSON`) within the consumer job, and expose individual values for the reusable workflow call.
-- [ ] Adjust the readiness step to emit both JSON array and first-issue outputs while retaining the Markdown summary output.
-- [ ] Modify the bootstrap step to consume the new outputs when selecting the issue to pass into `reuse-agents.yml`.
-- [ ] Patch `.github/workflows/reuse-agents.yml` to remove invalid string concatenation in expressions, ensuring JSON parsing works with the new outputs.
-- [ ] Document an example `params_json` payload (e.g., in workflow comments or README) so operators can easily trigger the workflow.
-- [ ] Smoke-test workflow syntax locally (e.g., `act` or `workflow-lint`) if available, and verify no secrets are required for dry-run paths.
+- [x] Audit `.github/workflows/agents-consumer.yml` inputs and map each existing flag into the planned `params_json` structure with default values.
+- [x] Update the workflow to accept a single `params_json` input, parse it (e.g., via `fromJSON`) within the consumer job, and expose individual values for the reusable workflow call.
+- [x] Adjust the readiness step to emit both JSON array and first-issue outputs while retaining the Markdown summary output.
+- [x] Modify the bootstrap step to consume the new outputs when selecting the issue to pass into `reuse-agents.yml`.
+- [x] Patch `.github/workflows/reuse-agents.yml` to remove invalid string concatenation in expressions, ensuring JSON parsing works with the new outputs.
+- [x] Document an example `params_json` payload (see `.github/workflows/README.md`) so operators can easily trigger the workflow.
+- [x] Smoke-test workflow syntax locally (pytest guard suite) and verify no secrets are required for dry-run paths.
