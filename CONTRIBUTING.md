@@ -37,7 +37,23 @@ Thank you for contributing to the Trend Model Project.
 ## Style & Type Enforcement
 The CI style job pins versions in `.github/workflows/autofix-versions.env`. Always rely on `scripts/style_gate_local.sh` to avoid drift; it runs the same Black, Ruff, and mypy checks used in CI. The quality gate script also runs mypy, and pre-commit enforces mypy on `src/trend_analysis` so type regressions are caught pre-push.
 
-Pull requests also trigger `.github/workflows/autofix.yml`, which delegates to the reusable autofix composite. When safe fixes are found it pushes a `chore(autofix): …` commit (or publishes a patch artifact for forked PRs) and tags the PR with `autofix`, `autofix:applied`, plus the relevant clean/debt label. Always fetch/rebase before adding new commits if the bot amends your branch.
+### Pull Request Autofix Workflow
+
+Every pull request triggers the `autofix` GitHub workflow. It performs a very small, deterministic cleanup pass so reviewers do not need to chase trivial nits:
+
+- Formats Python files with `ruff format` (no Black/isort/docformatter sweep).
+- Runs `ruff check --fix --unsafe-fixes` limited to `F401`, `F841`, and the safe `E1/E2/E3/E4/E7/W1/W2/W3` families.
+- Re-runs `ruff check --output-format json` to record any remaining diagnostics.
+- Applies the changes directly to the PR branch when the source repository matches this repo; otherwise it pushes a follow-up branch and opens an `autofix` PR.
+- Updates labels on the originating PR: `autofix` always, `autofix:applied` when edits land, and either `autofix:clean` or `autofix:debt` depending on whether Ruff still reports issues.
+
+What the workflow **will not** do:
+
+- Introduce formatting from Black or import sorting from isort.
+- Attempt broad Ruff rule families outside the codes listed above.
+- Force push to contributor forks—the follow-up branch/PR flow preserves the original branch untouched.
+
+If the workflow opens a follow-up PR, reviewers can merge that helper PR to pull in the formatting fixes and keep the original contribution focused on functional changes.
 
 ## Pre-Push Hook (Optional but Recommended)
 Install once per clone:
