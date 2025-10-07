@@ -55,6 +55,7 @@ jobs:
   orchestrate:
     name: Dispatch Agents Toolkit
     uses: ./.github/workflows/reusable-70-agents.yml
+    timeout-minutes: 45
     # options_json schema (strings, defaults shown):
     # {
     #   "diagnostic_mode": "off" | "dry-run" | "full",
