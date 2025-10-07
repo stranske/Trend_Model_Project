@@ -21,7 +21,6 @@ so that maintainers can review them manually.
 from __future__ import annotations
 
 import argparse
-import datetime as _dt
 import json
 import os
 import re
@@ -565,7 +564,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         base=ns.base,
         title=title,
         body=body,
-        labels=("testing", "autofix:applied"),
+        labels=("testing", "autofix:applied", "autofix"),
         root=ns.root,
     )
     write_summary(
