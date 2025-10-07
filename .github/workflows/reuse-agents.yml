@@ -90,7 +90,6 @@ permissions:
 jobs:
   call:
     uses: ./.github/workflows/reusable-70-agents.yml
-    timeout-minutes: 45
     secrets: inherit
     with:
       enable_readiness: ${{ inputs.enable_readiness }}

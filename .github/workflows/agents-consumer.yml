@@ -175,7 +175,6 @@ jobs:
     name: Dispatch Agents Toolkit
     needs: resolve-params
     uses: ./.github/workflows/reuse-agents.yml
-    timeout-minutes: 45
     secrets: inherit
     with:
       enable_readiness: ${{ needs.resolve-params.outputs.enable_readiness }}
