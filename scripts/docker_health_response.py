@@ -12,7 +12,17 @@ import os
 import sys
 from collections.abc import Iterable, Mapping
 
-SUCCESS_VALUES = {"ok", "healthy", "pass", "passed", "true", "1", "up", "ready", "success"}
+SUCCESS_VALUES = {
+    "ok",
+    "healthy",
+    "pass",
+    "passed",
+    "true",
+    "1",
+    "up",
+    "ready",
+    "success",
+}
 KEYS_TO_CHECK = ("status", "state", "health", "message", "detail")
 
 

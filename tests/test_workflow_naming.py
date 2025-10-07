@@ -70,6 +70,23 @@ def test_workflow_names_match_filename_convention():
     assert not mismatches, f"Workflow name mismatch detected: {mismatches}"
 
 
+def test_chatgpt_issue_sync_workflow_present_and_intact():
+    path = WORKFLOW_DIR / "maint-41-chatgpt-issue-sync.yml"
+    assert (
+        path.exists()
+    ), "maint-41-chatgpt-issue-sync.yml must remain in the workflow inventory"
+    text = path.read_text(encoding="utf-8")
+    assert (
+        ".github/scripts/decode_raw_input.py" in text
+    ), "Workflow must normalize input using decode_raw_input.py"
+    assert (
+        ".github/scripts/parse_chatgpt_topics.py" in text
+    ), "Workflow must parse topics via parse_chatgpt_topics.py"
+    assert (
+        "github.rest.issues.create" in text
+    ), "Workflow must create or update GitHub issues"
+
+
 EXPECTED_NAMES = {
     "agents-43-codex-issue-bridge.yml": "Agents 43 Codex Issue Bridge",
     "agents-70-orchestrator.yml": "Agents 70 Orchestrator",
@@ -79,6 +96,7 @@ EXPECTED_NAMES = {
     "maint-33-check-failure-tracker.yml": "Maint 33 Check Failure Tracker",
     "maint-36-actionlint.yml": "Maint 36 Actionlint",
     "maint-40-ci-signature-guard.yml": "Maint 40 CI Signature Guard",
+    "maint-41-chatgpt-issue-sync.yml": "Maint 41 ChatGPT Issue Sync",
     "maint-90-selftest.yml": "Maint 90 Selftest",
     "pr-10-ci-python.yml": "PR 10 CI Python",
     "pr-12-docker-smoke.yml": "PR 12 Docker Smoke",
