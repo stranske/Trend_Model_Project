@@ -81,7 +81,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .pytest_cache
-          key: pytest-${{ runner.os }}-${{ inputs.python-version }}-${{ hashFiles('pyproject.toml') }}-${{ hashFiles('requirements.txt') }}
+          key: pytest-${{ runner.os }}-${{ inputs.python-version }}-${{ hashFiles('pyproject.toml') }}-${{ hashFiles('requirements.txt') }}-${{ hashFiles('requirements.lock') }}
           restore-keys: |
             pytest-${{ runner.os }}-${{ inputs.python-version }}-
             pytest-${{ runner.os }}-
