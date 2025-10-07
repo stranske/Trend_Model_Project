@@ -109,4 +109,7 @@ EXPECTED_NAMES = {
     "reusable-94-legacy-ci-python.yml": "Reusable 94 Legacy CI Python",
     "reusable-96-ci-lite.yml": "Reusable 96 CI Lite",
     "reusable-97-docker-smoke.yml": "Reusable 97 Docker Smoke",
+    "reusable-99-selftest.yml": "Reusable 99 Selftest",
+    "reusable-ci.yml": "Reusable CI",
+    "reusable-docker.yml": "Reusable Docker Smoke",
 }
