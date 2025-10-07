@@ -104,6 +104,7 @@ jobs:
     if: inputs.enable_readiness == 'true'
     name: Agent Readiness Probe
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     outputs:
       report_json: ${{ steps.try.outputs.report || '{}' }}
       table_md: ${{ steps.try.outputs.table || '' }}
@@ -201,6 +202,7 @@ jobs:
     if: inputs.enable_preflight == 'true'
     name: Codex Preflight
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Preflight probe
         uses: actions/github-script@v7
@@ -222,6 +224,7 @@ jobs:
     if: inputs.enable_diagnostic == 'true'
     name: Bootstrap Diagnostic
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - name: Token / Env Probe
@@ -252,6 +255,7 @@ jobs:
     if: inputs.enable_verify_issue == 'true' && inputs.verify_issue_number != ''
     name: Verify Agent Issue Assignment
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Check assignees
         uses: actions/github-script@v7
@@ -268,6 +272,7 @@ jobs:
   bootstrap-codex:
     name: Bootstrap Codex PRs
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - name: Find Ready Issues
@@ -302,6 +307,7 @@ jobs:
     name: Codex Keepalive Sweep
     runs-on: ubuntu-latest
     if: ${{ always() }}
+    timeout-minutes: 20
     steps:
       - name: Sweep stalled checklists
         id: sweep
@@ -515,6 +521,7 @@ jobs:
     if: inputs.enable_watchdog == 'true'
     name: Agent Watchdog
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - name: Basic Repo Sanity
@@ -525,6 +532,7 @@ jobs:
   keepalive:
     name: Codex Keepalive Sweep
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Resume Codex on unattended checklists
         uses: actions/github-script@v7

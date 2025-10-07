@@ -154,7 +154,6 @@ jobs:
     needs: resolve-params
     uses: ./.github/workflows/reuse-agents.yml
     secrets: inherit
-    timeout-minutes: 60
     with:
       enable_readiness: ${{ needs.resolve-params.outputs.enable_readiness }}
       readiness_agents: ${{ needs.resolve-params.outputs.readiness_agents }}
