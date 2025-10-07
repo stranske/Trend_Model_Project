@@ -91,8 +91,7 @@ jobs:
           if summary.exists(): \
               data = json.loads(summary.read_text(encoding='utf-8')); \
               with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as handle: \
-                  for key in ('status', 'branch', 'pr_url', 'changed_files'): \
-                      value = data.get(key); \
+                  for key, value in data.items(): \
                       if value: \
                           if isinstance(value, (list, tuple)): \
                               handle.write(f"{key}={'|'.join(value)}\\n"); \
