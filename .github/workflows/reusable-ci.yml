@@ -55,7 +55,7 @@ jobs:
             pip install -r requirements.txt
           fi
           if [ -f pyproject.toml ]; then
-            pip install -e . || pip install .
+            pip install -e '.[app,dev]' || pip install -e . || pip install .
           elif [ -f setup.cfg ] || [ -f setup.py ]; then
             pip install -e . || pip install .
           fi
