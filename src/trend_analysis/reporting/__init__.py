@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Mapping, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Mapping
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from trend.reporting import ReportArtifacts, generate_unified_report

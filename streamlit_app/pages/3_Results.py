@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import importlib
 
-
 _results_module = importlib.import_module("streamlit_app.pages.4_Results")
 _results_module = importlib.reload(_results_module)
 

@@ -9,6 +9,7 @@ from typing import Any, Dict, Iterable, Mapping, MutableMapping, Tuple
 import pandas as pd
 
 import yaml
+from streamlit_app.components.analysis_runner import ModelSettings
 from trend_analysis.api import run_simulation
 from trend_analysis.config import Config
 from trend_portfolio_app.data_schema import (
@@ -16,7 +17,6 @@ from trend_portfolio_app.data_schema import (
     infer_benchmarks,
     load_and_validate_file,
 )
-from streamlit_app.components.analysis_runner import ModelSettings
 from trend_portfolio_app.policy_engine import MetricSpec, PolicyConfig
 
 REPO_ROOT = Path(__file__).resolve().parents[2]

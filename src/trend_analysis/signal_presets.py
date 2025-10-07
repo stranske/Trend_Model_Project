@@ -33,7 +33,8 @@ class TrendSpecPreset:
         return payload
 
     def form_defaults(self) -> Dict[str, object]:
-        """Return defaults for interactive forms (min periods/vol target optional)."""
+        """Return defaults for interactive forms (min periods/vol target
+        optional)."""
 
         defaults: Dict[str, object] = {
             "window": self.spec.window,
@@ -116,7 +117,8 @@ def get_trend_spec_preset(name: str) -> TrendSpecPreset:
 
 
 def resolve_trend_spec(name: str | None) -> TrendSpecPreset:
-    """Return preset by name falling back to the default when ``name`` is falsy."""
+    """Return preset by name falling back to the default when ``name`` is
+    falsy."""
 
     if not name:
         return _PRESETS[_DEFAULT_PRESET_NAME.lower()]

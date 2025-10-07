@@ -1,0 +1,202 @@
+name: Reusable 96 CI Lite
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        description: Python version to run under
+        required: false
+        default: "3.11"
+        type: string
+      marker:
+        description: Optional pytest marker expression
+        required: false
+        default: ""
+        type: string
+      coverage-min:
+        description: Minimum coverage percentage required
+        required: false
+        default: "70"
+        type: string
+
+jobs:
+  tests:
+    name: ci / python (${{ inputs.python-version }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      PYTHON_VERSION: ${{ inputs['python-version'] }}
+      PYTEST_MARKER: ${{ inputs.marker }}
+      COVERAGE_MINIMUM: ${{ inputs['coverage-min'] }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Load formatter pins
+        shell: bash
+        run: |
+          set -euo pipefail
+          pin_file=".github/workflows/autofix-versions.env"
+          if [[ ! -f "${pin_file}" ]]; then
+            echo "Missing ${pin_file}; aborting." >&2
+            exit 1
+          fi
+          echo "PIN_FILE=${pin_file}" >> "$GITHUB_ENV"
+          # shellcheck disable=SC1090
+          source "${pin_file}"
+          for var in RUFF_VERSION BLACK_VERSION MYPY_VERSION PYTEST_VERSION PYTEST_COV_VERSION COVERAGE_VERSION; do
+            if [[ -z "${!var:-}" ]]; then
+              echo "${pin_file} is missing a value for ${var}" >&2
+              exit 1
+            fi
+          done
+          grep -E '^[A-Za-z_][A-Za-z0-9_]*=' "${pin_file}" >> "${GITHUB_ENV}"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+          cache-dependency-path: |
+            requirements.txt
+            pyproject.toml
+
+      - name: Create virtual environment
+        run: |
+          python -m venv .venv
+          echo "${{ github.workspace }}/.venv/bin" >> "$GITHUB_PATH"
+          echo "VIRTUAL_ENV=${{ github.workspace }}/.venv" >> "$GITHUB_ENV"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          source .venv/bin/activate
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e '.[dev]' || pip install -e .
+          pip install \
+            "black==${BLACK_VERSION}" \
+            "ruff==${RUFF_VERSION}" \
+            "mypy==${MYPY_VERSION}" \
+            "pytest==${PYTEST_VERSION}" \
+            "pytest-cov==${PYTEST_COV_VERSION}" \
+            "coverage==${COVERAGE_VERSION}" \
+            jq
+
+      - name: Ruff (lint)
+        run: |
+          source .venv/bin/activate
+          ruff check --output-format github .
+
+      - name: Mypy (type check)
+        run: |
+          source .venv/bin/activate
+          mypy --config-file pyproject.toml src/trend_analysis src/trend_portfolio_app
+
+      - name: Pytest (unit tests with coverage)
+        env:
+          PYTEST_ADDOPTS: "-ra"
+        shell: bash
+        run: |
+          source .venv/bin/activate
+          marker_flag=""
+          if [[ -n "${PYTEST_MARKER}" ]]; then
+            marker_flag="-m ${PYTEST_MARKER}"
+          fi
+          pytest --junitxml=pytest-junit.xml \
+            --cov=src --cov-report=xml:coverage.xml \
+            --cov-report=term-missing --cov-report=json:coverage.json \
+            ${marker_flag}
+
+      - name: Capture artifacts
+        if: always()
+        run: |
+          mkdir -p artifacts
+          cp -f pytest-junit.xml artifacts/pytest-junit.xml || true
+          cp -f coverage.xml artifacts/coverage.xml || true
+          cp -f coverage.json artifacts/coverage.json || true
+
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ inputs['python-version'] }}
+          path: artifacts
+          retention-days: 14
+
+      - name: Publish coverage summary
+        if: always()
+        env:
+          SUMMARY_PATH: ${{ github.step_summary }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          summary = Path(os.environ.get('SUMMARY_PATH', ''))
+          coverage_xml = Path('coverage.xml')
+          coverage_json = Path('coverage.json')
+          line_pct = None
+          if coverage_xml.exists():
+              try:
+                  root = ET.parse(coverage_xml).getroot()
+                  rate = root.get('line-rate')
+                  if rate is not None:
+                      line_pct = float(rate) * 100.0
+              except ET.ParseError:
+                  pass
+          if line_pct is None and coverage_json.exists():
+              try:
+                  payload = json.loads(coverage_json.read_text(encoding='utf-8'))
+                  totals = payload.get('totals') or {}
+                  covered = float(totals.get('covered_lines', 0))
+                  total = float(totals.get('num_statements', 0))
+                  if total:
+                      line_pct = covered / total * 100.0
+              except Exception:
+                  pass
+          lines = ["### Coverage Overview"]
+          if line_pct is not None:
+              lines.append(f"- Coverage: {line_pct:.2f}%")
+          else:
+              lines.append("- Coverage data unavailable")
+          minimum = os.environ.get('COVERAGE_MINIMUM')
+          if minimum:
+              lines.append(f"- Required minimum: {minimum}%")
+          if summary:
+              with summary.open('a', encoding='utf-8') as handle:
+                  handle.write("\n".join(lines) + "\n")
+          else:
+              print("\n".join(lines))
+          PY
+
+      - name: Enforce coverage minimum
+        run: |
+          python - <<'PY'
+          import os
+          import sys
+          import xml.etree.ElementTree as ET
+
+          minimum = float(os.environ.get('COVERAGE_MINIMUM', '0'))
+          try:
+              root = ET.parse('coverage.xml').getroot()
+          except FileNotFoundError:
+              print('coverage.xml not found; cannot enforce coverage minimum', file=sys.stderr)
+              sys.exit(1)
+          except ET.ParseError as exc:
+              print(f'Failed to parse coverage.xml: {exc}', file=sys.stderr)
+              sys.exit(1)
+          rate = root.get('line-rate')
+          if rate is None:
+              print('Missing line-rate attribute in coverage.xml', file=sys.stderr)
+              sys.exit(1)
+          current = float(rate) * 100.0
+          if current + 1e-9 < minimum:
+              print(f'Coverage {current:.2f}% is below required minimum {minimum:.2f}%', file=sys.stderr)
+              sys.exit(1)
+          print(f'Coverage {current:.2f}% meets minimum {minimum:.2f}%')
+          PY

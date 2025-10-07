@@ -3,19 +3,20 @@
 Date: 2026-10-12
 
 ## Naming Compliance Snapshot
-- ✅ All active workflows follow the `<area>-<NN>-<slug>.yml` convention with 10-point spacing per family.
+- ✅ All active workflows follow the `<area>-<NN>-<slug>.yml` convention with 10-point spacing per family (exception: `autofix.yml`, reinstated per Issue #2380 as the PR autofix runner).
 - ✅ Each workflow's `name:` field mirrors its filename (title-cased with numeric block preserved).
 - ✅ `.github/workflows/archive/` remains absent; legacy self-test wrappers were relocated to `Old/workflows/` for historical reference.
 
-## Final Workflow Set (Issue #2190)
+## Final Workflow Set (Issue #2190 + Issue #2379 refresh)
 Only the workflows listed below remain visible in the Actions tab. Reusable composites without direct triggers are grouped separately.
 
 ### PR Checks
 | Workflow | Triggers | Notes |
 |----------|----------|-------|
-| `pr-10-ci-python.yml` | pull_request, push | Wrapper around `reusable-90-ci-python.yml` that preserves the full CI matrix + style/type gates.
-| `pr-12-docker-smoke.yml` | pull_request, push, workflow_call | Deterministic Docker build + smoke test harness.
-| `pr-gate.yml` | pull_request, workflow_dispatch | Orchestrates reusable CI (3.11/3.12) and Docker smoke jobs, aggregates coverage, and fails fast on downstream errors.
+| `pr-10-ci-python.yml` | pull_request, push, workflow_call, workflow_dispatch | Delegates to `reusable-96-ci-lite.yml` for style/type/test coverage plus manual dispatch support.
+| `pr-12-docker-smoke.yml` | workflow_call, workflow_dispatch | Deterministic Docker build + smoke test harness.
+| `pr-gate.yml` | workflow_call | Aggregates reusable CI/Docker composites into a single gate used by downstream repositories.
+| `autofix.yml` | pull_request | Direct PR autofix runner that delegates to `reusable-92-autofix.yml` and pushes formatting/type hygiene commits when safe.
 
 ### Maintenance & Governance
 | Workflow | Triggers | Notes |
@@ -41,12 +42,14 @@ Only the workflows listed below remain visible in the Actions tab. Reusable comp
 |----------|----------|-------|
 | `reuse-agents.yml` | workflow_call | Bridges consumer JSON payloads to the reusable stack.
 | `reusable-70-agents.yml` | workflow_call | Reusable agents stack used by `agents-70-orchestrator.yml` and `reuse-agents.yml`.
+| `reusable-ci.yml` | workflow_call | General-purpose CI composite (lint, type-check, pytest) for downstream repositories.
 | `reusable-99-selftest.yml` | workflow_call | Matrix smoke-test for the reusable CI executor.
 | `reusable-90-ci-python.yml` | workflow_call | Primary reusable CI implementation.
-| `reusable-92-autofix.yml` | workflow_call | Autofix composite consumed by `maint-32-autofix.yml`.
+| `reusable-92-autofix.yml` | workflow_call | Autofix composite consumed by `maint-32-autofix.yml` and the direct `autofix.yml` PR runner.
 | `reusable-94-legacy-ci-python.yml` | workflow_call | Legacy CI contract retained for downstream consumers.
-| `reusable-ci.yml` | workflow_call | Single-job Ruff/mypy/pytest executor consumed by `pr-gate.yml`.
-| `reusable-docker.yml` | workflow_call | Docker build + health-check composite consumed by `pr-gate.yml`.
+| `reusable-96-ci-lite.yml` | workflow_call | Single-job Ruff/mypy/pytest runner used by `pr-10-ci-python.yml` and future gate orchestrators.
+| `reusable-97-docker-smoke.yml` | workflow_call | Wrapper that exposes the Docker smoke workflow to orchestration jobs.
+| `reusable-docker.yml` | workflow_call | Standalone Docker smoke composite (build + health check) for external consumers.
 
 ## Removed in Issue #2190
 | Workflow | Status |
@@ -58,7 +61,7 @@ Only the workflows listed below remain visible in the Actions tab. Reusable comp
 
 ## Archived in Issue #2378
 
-- `maint-90-selftest.yml` and `reusable-99-selftest.yml` relocated to `Old/workflows/` for historical reference while retiring the self-test cron matrix. Guard tests confirm no `*selftest*.yml` files remain under `.github/workflows/`.
+- `maint-90-selftest.yml` relocated to `Old/workflows/` for historical reference when the cron wrapper was retired. `reusable-99-selftest.yml` returned to `.github/workflows/` in Issue #2379 once converted to job-level reuse; the archived copy remains for archaeology.
 
 
 ## Verification

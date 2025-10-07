@@ -12,7 +12,6 @@ import matplotlib
 import pandas as pd
 
 from trend_analysis.backtesting import BacktestResult, bootstrap_equity
-
 from trend_analysis.util.hash import (
     normalise_for_json,
     sha256_config,

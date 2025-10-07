@@ -11,8 +11,8 @@ import streamlit as st
 
 from trend_analysis.config.legacy import Config
 from trend_analysis.signals import TrendSpec as TrendSpecModel
-from .data_cache import cache_key_for_frame
 
+from .data_cache import cache_key_for_frame
 
 METRIC_REGISTRY = {
     "sharpe": "Sharpe",
