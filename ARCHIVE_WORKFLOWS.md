@@ -35,7 +35,7 @@ All deprecated agent automation workflows were deleted from `.github/workflows/`
 - `pr-20-selftest-pr-comment.yml` – removed; PR-triggered comment bot superseded by the repository health self-check issue updates.
 
 ## Retired Autofix Wrapper
-- Legacy `autofix.yml` (pre-2025) was deleted during the earlier cleanup. As of 2026-02-15 a new consolidated `maint-32-autofix.yml` now drives both small fixes and trivial failure remediation; the former consumer wrappers have been removed.
+- Legacy `autofix.yml` (pre-2025) was deleted during the earlier cleanup. As of 2026-02-15 the consolidated `maint-32-autofix.yml` began handling small fixes and trivial failure remediation. In 2026-10 the streamlined PR-facing `autofix.yml` workflow was reinstated (Issue #2380) and now delegates to the same reusable composite used by `maint-32-autofix.yml`.
 
 ## Rationale
 The 2025 cleanup centralized agent probe, diagnostic, and verification logic into `reuse-agents.yml`. In 2026 this was further simplified: `agents-41-assign-and-watch.yml` and its wrappers gave way to the single `agents-70-orchestrator.yml` entry point that calls `reusable-70-agents.yml`.

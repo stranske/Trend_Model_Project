@@ -1,6 +1,6 @@
 import pathlib
 
-ALLOWED_PREFIXES = ("pr-", "maint-", "agents-", "reusable-", "reuse-")
+ALLOWED_PREFIXES = ("pr-", "maint-", "agents-", "reusable-", "reuse-", "autofix")
 WORKFLOW_DIR = pathlib.Path(".github/workflows")
 
 
@@ -112,4 +112,5 @@ EXPECTED_NAMES = {
     "reusable-99-selftest.yml": "Reusable 99 Selftest",
     "reusable-ci.yml": "Reusable CI",
     "reusable-docker.yml": "Reusable Docker Smoke",
+    "autofix.yml": "Autofix",
 }
