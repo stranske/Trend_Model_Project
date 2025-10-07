@@ -40,14 +40,17 @@ _LOG_PATH = ROOT / "docs" / "COSMETIC_REPAIR_LOG.md"
 _GUARD_START = "<!-- cosmetic-repair:start -->"
 _GUARD_END = "<!-- cosmetic-repair:end -->"
 
-_EXPECTATION_MODULES: tuple[str, ...] = (
-    "tests.test_pipeline_warmup_autofix",
-    "tests.test_rank_selection_core_unit",
-    "tests.test_selector_weighting",
-    "tests.test_autofix_repo_regressions",
-)
+def _discover_expectation_modules() -> tuple[str, ...]:
+    """Dynamically discover test modules for expectation drift repairs."""
+    test_dir = ROOT / "tests"
+    modules = []
+    for path in test_dir.glob("test_*.py"):
+        # Convert path to module name, e.g. tests/test_foo.py -> tests.test_foo
+        module_name = f"tests.{path.stem}"
+        modules.append(module_name)
+    return tuple(modules)
 
-
+_EXPECTATION_MODULES: tuple[str, ...] = _discover_expectation_modules()
 @dataclass
 class FixResult:
     """Metadata describing an attempted repair."""
