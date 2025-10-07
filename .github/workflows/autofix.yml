@@ -1,0 +1,331 @@
+name: autofix
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  AUTOFIX_COMMIT_PREFIX: ${{ vars.AUTOFIX_COMMIT_PREFIX || 'chore(autofix):' }}
+  SAFE_RUFF_CODES: "F401,F841,E1,E2,E3,E4,E7,W1,W2,W3"
+  PYTHON_VERSION: ${{ vars.AUTOFIX_PYTHON_VERSION || '3.11' }}
+
+jobs:
+  autofix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Gather pull request metadata
+        id: meta
+        env:
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.repository }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          head_repo="$HEAD_REPO"
+          base_repo="$BASE_REPO"
+          head_ref="$HEAD_REF"
+          head_sha="$HEAD_SHA"
+          base_ref="$BASE_REF"
+          pr_number="$PR_NUMBER"
+          if [ -z "$head_repo" ] || [ -z "$head_ref" ]; then
+            echo "::error::Unable to resolve pull request head repository/ref." >&2
+            exit 1
+          fi
+          same_repo=false
+          if [ "$head_repo" = "$base_repo" ]; then
+            same_repo=true
+          fi
+          echo "same_repo=$same_repo" >>"$GITHUB_OUTPUT"
+          echo "head_repo=$head_repo" >>"$GITHUB_OUTPUT"
+          echo "head_ref=$head_ref" >>"$GITHUB_OUTPUT"
+          echo "head_sha=$head_sha" >>"$GITHUB_OUTPUT"
+          echo "base_ref=$base_ref" >>"$GITHUB_OUTPUT"
+          echo "pr_number=$pr_number" >>"$GITHUB_OUTPUT"
+
+      - name: Checkout pull request head
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.meta.outputs.head_repo }}
+          ref: ${{ steps.meta.outputs.head_ref }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Loop guard
+        id: guard
+        run: |
+          set -euo pipefail
+          skip=false
+          actor="${{ github.actor }}"
+          prefix="${AUTOFIX_COMMIT_PREFIX:-chore(autofix):}"
+          if [ "$actor" = "github-actions" ] || [ "$actor" = "github-actions[bot]" ]; then
+            if [ -n "$prefix" ]; then
+              last_msg="$(git log -1 --pretty=%s 2>/dev/null || echo '')"
+              last_lc=$(printf '%s' "$last_msg" | tr '[:upper:]' '[:lower:]')
+              prefix_lc=$(printf '%s' "$prefix" | tr '[:upper:]' '[:lower:]')
+              if [ -n "$prefix_lc" ] && [ "${last_lc#"$prefix_lc"}" != "$last_lc" ]; then
+                skip=true
+                echo "Autofix commit detected; skipping rerun." >&2
+              fi
+            fi
+          fi
+          echo "skip=$skip" >>"$GITHUB_OUTPUT"
+
+      - name: Configure credentials (same-repo)
+        if: steps.guard.outputs.skip != 'true' && steps.meta.outputs.same_repo == 'true'
+        run: |
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ steps.meta.outputs.head_repo }}.git"
+
+      - name: Configure base remote (fork)
+        if: steps.guard.outputs.skip != 'true' && steps.meta.outputs.same_repo != 'true'
+        run: |
+          git remote add base "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git"
+
+      - name: Set up Python
+        if: steps.guard.outputs.skip != 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Ruff
+        if: steps.guard.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          pin_file=".github/workflows/autofix-versions.env"
+          ruff_version=""
+          if [ -f "$pin_file" ]; then
+            ruff_version="$(grep '^RUFF_VERSION=' "$pin_file" | head -n1 | cut -d'=' -f2)"
+          fi
+          if [ -z "$ruff_version" ]; then
+            ruff_version="0.6.3"
+          fi
+          python -m pip install --upgrade pip
+          python -m pip install "ruff==${ruff_version}"
+          echo "RUFF_VERSION=$ruff_version" >> "$GITHUB_ENV"
+
+      - name: Ruff format
+        if: steps.guard.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          ruff format .
+
+      - name: Ruff targeted autofix
+        if: steps.guard.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          IFS=',' read -ra codes <<< "${SAFE_RUFF_CODES}"
+          args=()
+          for code in "${codes[@]}"; do
+            trimmed=$(printf '%s' "$code" | tr -d '[:space:]')
+            if [ -n "$trimmed" ]; then
+              args+=("--select" "$trimmed")
+            fi
+          done
+          if [ ${#args[@]} -eq 0 ]; then
+            args=("--select" "F401" "--select" "F841")
+          fi
+          ruff check "${args[@]}" --fix --unsafe-fixes . || true
+
+      - name: Capture diff and diagnostics
+        if: steps.guard.outputs.skip != 'true'
+        id: results
+        run: |
+          set -euo pipefail
+          ruff check --output-format json . > ruff_diagnostics.json || true
+          remaining=$(jq 'length' ruff_diagnostics.json 2>/dev/null || echo 0)
+          if git diff --quiet; then
+            changed=false
+          else
+            changed=true
+          fi
+          echo "remaining=$remaining" >>"$GITHUB_OUTPUT"
+          echo "changed=$changed" >>"$GITHUB_OUTPUT"
+
+      - name: Commit and push autofix (same-repo)
+        if: steps.guard.outputs.skip != 'true' && steps.results.outputs.changed == 'true' && steps.meta.outputs.same_repo == 'true'
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "${AUTOFIX_COMMIT_PREFIX:-chore(autofix):} apply ruff autofixes"
+          git push origin HEAD:"${{ steps.meta.outputs.head_ref }}"
+
+      - name: Commit and push autofix branch (fork)
+        if: steps.guard.outputs.skip != 'true' && steps.results.outputs.changed == 'true' && steps.meta.outputs.same_repo != 'true'
+        id: fork_push
+        env:
+          PR_NUMBER: ${{ steps.meta.outputs.pr_number }}
+          HEAD_SHA: ${{ steps.meta.outputs.head_sha }}
+        run: |
+          set -euo pipefail
+          base_branch="autofix/pr-${PR_NUMBER}-$(printf '%s' "$HEAD_SHA" | cut -c1-7)"
+          candidate="$base_branch"
+          if git ls-remote --exit-code base "refs/heads/$candidate" >/dev/null 2>&1; then
+            candidate="${base_branch}-$(date -u +%Y%m%d%H%M%S)"
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$candidate"
+          git add -A
+          git commit -m "${AUTOFIX_COMMIT_PREFIX:-chore(autofix):} apply ruff autofixes"
+          git push base HEAD:"$candidate"
+          echo "branch=$candidate" >>"$GITHUB_OUTPUT"
+
+      - name: Open autofix follow-up PR (fork)
+        if: steps.guard.outputs.skip != 'true' && steps.fork_push.outputs.branch != ''
+        id: follow_up_pr
+        uses: actions/github-script@v7
+        env:
+          BRANCH_NAME: ${{ steps.fork_push.outputs.branch }}
+          BASE_REF: ${{ steps.meta.outputs.base_ref }}
+          SOURCE_PR: ${{ steps.meta.outputs.pr_number }}
+          REMAINING: ${{ steps.results.outputs.remaining || '0' }}
+        with:
+          script: |
+            const branch = process.env.BRANCH_NAME;
+            if (!branch) {
+              core.warning('Missing branch name for autofix follow-up PR.');
+              return;
+            }
+            const baseRef = process.env.BASE_REF || '${{ steps.meta.outputs.base_ref }}';
+            const sourcePr = Number(process.env.SOURCE_PR || '0');
+            const remaining = Number(process.env.REMAINING || '0');
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const prefix = process.env.AUTOFIX_COMMIT_PREFIX || 'chore(autofix):';
+            const title = `${prefix} apply ruff autofixes for #${sourcePr}`;
+            const body = [
+              `This automated PR applies Ruff formatting and safe autofixes for #${sourcePr}.`,
+              '',
+              'Included commands:',
+              '- `ruff format`',
+              `- \`ruff check\` with \`--unsafe-fixes\` for ${process.env.SAFE_RUFF_CODES}`,
+              '',
+              `Original PR: #${sourcePr}`,
+            ].join('\n');
+            const existing = await github.paginate(github.rest.pulls.list, {
+              owner,
+              repo,
+              state: 'open',
+              head: `${owner}:${branch}`,
+            });
+            let prNumber;
+            if (existing.length > 0) {
+              prNumber = existing[0].number;
+              core.info(`Reusing existing autofix PR #${prNumber}`);
+            } else {
+              const response = await github.rest.pulls.create({
+                owner,
+                repo,
+                head: branch,
+                base: baseRef,
+                title,
+                body,
+                maintainer_can_modify: true,
+              });
+              prNumber = response.data.number;
+            }
+            core.setOutput('pr', String(prNumber));
+            try {
+              await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels: ['autofix', 'autofix:applied'] });
+            } catch (error) {
+              core.warning(`Failed to label autofix PR: ${error.message}`);
+            }
+            const cleanLabel = 'autofix:clean';
+            const debtLabel = 'autofix:debt';
+            const want = remaining === 0 ? cleanLabel : debtLabel;
+            const drop = remaining === 0 ? debtLabel : cleanLabel;
+            try {
+              await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels: [want] });
+            } catch (error) {
+              core.warning(`Unable to add ${want}: ${error.message}`);
+            }
+            try {
+              await github.rest.issues.removeLabel({ owner, repo, issue_number: prNumber, name: drop });
+            } catch (error) {
+              core.debug(`No ${drop} label to remove: ${error.message}`);
+            }
+
+      - name: Comment on source PR (fork follow-up)
+        if: steps.guard.outputs.skip != 'true' && steps.follow_up_pr.outputs.pr != ''
+        uses: actions/github-script@v7
+        env:
+          SOURCE_PR: ${{ steps.meta.outputs.pr_number }}
+          FOLLOW_UP: ${{ steps.follow_up_pr.outputs.pr }}
+          REMAINING: ${{ steps.results.outputs.remaining || '0' }}
+        with:
+          script: |
+            const parent = Number(process.env.SOURCE_PR || '0');
+            const followUp = Number(process.env.FOLLOW_UP || '0');
+            const remaining = Number(process.env.REMAINING || '0');
+            const lines = [
+              `Opened autofix follow-up in #${followUp}.`,
+              remaining === 0
+                ? 'Ruff reports no remaining issues after autofix.'
+                : `Ruff reports ${remaining} remaining issue(s) after autofix.`,
+            ];
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: parent,
+              body: lines.join('\n'),
+            });
+
+      - name: Update labels on source PR
+        if: steps.guard.outputs.skip != 'true'
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ steps.meta.outputs.pr_number }}
+          CHANGED: ${{ steps.results.outputs.changed || 'false' }}
+          REMAINING: ${{ steps.results.outputs.remaining || '0' }}
+        with:
+          script: |
+            const prNumber = Number(process.env.PR_NUMBER || '0');
+            if (!prNumber) {
+              core.warning('No PR number available for labeling.');
+              return;
+            }
+            const changed = process.env.CHANGED === 'true';
+            const remaining = Number(process.env.REMAINING || '0');
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const labelsToAdd = new Set(['autofix']);
+            if (changed) {
+              labelsToAdd.add('autofix:applied');
+            }
+            if (remaining === 0) {
+              labelsToAdd.add('autofix:clean');
+            } else {
+              labelsToAdd.add('autofix:debt');
+            }
+            try {
+              await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels: Array.from(labelsToAdd) });
+            } catch (error) {
+              core.warning(`Failed to add autofix labels: ${error.message}`);
+            }
+            if (!changed) {
+              try {
+                await github.rest.issues.removeLabel({ owner, repo, issue_number: prNumber, name: 'autofix:applied' });
+              } catch (error) {
+                core.debug(`No autofix:applied label to remove: ${error.message}`);
+              }
+            }
+            const cleanLabel = 'autofix:clean';
+            const debtLabel = 'autofix:debt';
+            const drop = remaining === 0 ? debtLabel : cleanLabel;
+            try {
+              await github.rest.issues.removeLabel({ owner, repo, issue_number: prNumber, name: drop });
+            } catch (error) {
+              core.debug(`No ${drop} label to remove: ${error.message}`);
+            }
