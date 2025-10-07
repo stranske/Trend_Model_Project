@@ -1,0 +1,80 @@
+name: Gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'assets/**'
+  workflow_dispatch:
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number || github.ref_name }}-gate
+  cancel-in-progress: true
+
+jobs:
+  core-tests-311:
+    name: core tests (3.11)
+    uses: ./.github/workflows/reusable-ci.yml
+    with:
+      python-version: '3.11'
+      marker: "not quarantine and not slow"
+
+  core-tests-312:
+    name: core tests (3.12)
+    uses: ./.github/workflows/reusable-ci.yml
+    with:
+      python-version: '3.12'
+      marker: "not quarantine and not slow"
+
+  docker-smoke:
+    name: docker smoke
+    uses: ./.github/workflows/reusable-docker.yml
+
+  gate:
+    name: gate
+    needs:
+      - core-tests-311
+      - core-tests-312
+      - docker-smoke
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download coverage (3.11)
+        if: ${{ needs.core-tests-311.result == 'success' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-3.11
+          path: coverage/core-tests-311
+
+      - name: Download coverage (3.12)
+        if: ${{ needs.core-tests-312.result == 'success' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-3.12
+          path: coverage/core-tests-312
+
+      - name: Summarize results
+        run: |
+          cat <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          ### Gate status
+          | Job | Result |
+          | --- | ------ |
+          | core-tests-311 | ${{ needs.core-tests-311.result }} |
+          | core-tests-312 | ${{ needs.core-tests-312.result }} |
+          | docker-smoke | ${{ needs.docker-smoke.result }} |
+          EOF
+
+          if [ "${{ needs.core-tests-311.result }}" != "success" ]; then
+            echo "core-tests-311 did not succeed" >&2
+            exit 1
+          fi
+          if [ "${{ needs.core-tests-312.result }}" != "success" ]; then
+            echo "core-tests-312 did not succeed" >&2
+            exit 1
+          fi
+          if [ "${{ needs.docker-smoke.result }}" != "success" ]; then
+            echo "docker-smoke did not succeed" >&2
+            exit 1
+          fi
