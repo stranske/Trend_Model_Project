@@ -26,12 +26,15 @@ import importlib
 import json
 import sys
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Iterable, Sequence
 
 ROOT = Path(__file__).resolve().parent.parent
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+GUARD_PREFIX = "# cosmetic-repair:"
+BRANCH_PREFIX = "autofix/cosmetic-repair"
+DEFAULT_REPORT = Path(".pytest-cosmetic-report.xml")
+SUMMARY_FILE = Path(".cosmetic-repair-summary.json")
 
 from scripts.classify_test_failures import FailureRecord  # noqa: E402
 from scripts.classify_test_failures import classify_reports  # noqa: E402
@@ -63,18 +66,6 @@ class FixResult:
     fixer: str
     status: str
     detail: str | None = None
-
-
-class CosmeticFixer:
-    """Base class for targeted cosmetic repairs."""
-
-    name: str
-
-    def matches(self, record: FailureRecord) -> bool:
-        raise NotImplementedError
-
-    def apply(self, record: FailureRecord) -> FixResult:
-        raise NotImplementedError
 
 
 def _run(
@@ -295,7 +286,11 @@ def working_tree_changes(*, root: Path) -> list[str]:
 
 
 def stage_and_commit(
-    paths: Sequence[Path], *, root: Path, summary: str, branch_suffix: str | None
+    paths: Sequence[Path],
+    *,
+    root: Path,
+    summary: str,
+    branch_suffix: str | None,
 ) -> str:
     branch_suffix = branch_suffix or datetime.utcnow().strftime("%Y%m%d%H%M%S")
     branch = f"{BRANCH_PREFIX}-{branch_suffix}"
@@ -307,8 +302,14 @@ def stage_and_commit(
 
 
 def push_and_open_pr(
-    *, branch: str, base: str, title: str, body: str, labels: Sequence[str], root: Path
-) -> None:
+    *,
+    branch: str,
+    base: str,
+    title: str,
+    body: str,
+    labels: Sequence[str],
+    root: Path,
+) -> str:
     _run(["git", "push", "--force", "origin", branch], cwd=root)
     cmd = [
         "gh",
@@ -325,7 +326,41 @@ def push_and_open_pr(
     ]
     for label in labels:
         cmd.extend(["--label", label])
-    _run(cmd, cwd=root)
+    result = _run(cmd, cwd=root)
+    stdout = (result.stdout or "").strip()
+    for line in reversed(stdout.splitlines()):
+        line = line.strip()
+        if line:
+            return line
+    return stdout
+
+
+def _serialise_instructions(
+    instructions: Sequence[RepairInstruction],
+) -> list[dict[str, object]]:
+    payload: list[dict[str, object]] = []
+    for instruction in instructions:
+        payload.append(
+            {
+                "kind": instruction.kind,
+                "path": str(instruction.path),
+                "guard": instruction.guard,
+                "key": instruction.key,
+                "source": instruction.source,
+                "metadata": instruction.metadata,
+            }
+        )
+    return payload
+
+
+def write_summary(root: Path, payload: dict[str, object]) -> None:
+    summary_path = root / SUMMARY_FILE
+    timestamp = datetime.now(UTC).replace(microsecond=0).isoformat()
+    payload = {
+        **payload,
+        "timestamp": timestamp,
+    }
+    summary_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def build_pr_body(
@@ -468,12 +503,24 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    ns = _parse_args(argv)
-    reports: list[str] = []
-    if ns.junit.exists():
-        reports.append(str(ns.junit))
-    if not reports:
-        print(f"[ci_cosmetic_repair] JUnit report {ns.junit} not found; nothing to do.")
+    ns = parse_args(argv)
+    mode = "dry-run"
+    if ns.apply:
+        mode = "apply"
+    report_path = ns.report or (ns.root / DEFAULT_REPORT)
+    pytest_result = None
+    if ns.report is None:
+        pytest_result = run_pytest(report_path, ns.pytest_args)
+    if pytest_result and pytest_result.returncode == 0:
+        print("pytest completed successfully; no cosmetic repairs needed.")
+        write_summary(
+            ns.root,
+            {
+                "status": "clean",
+                "mode": mode,
+                "report": str(report_path),
+            },
+        )
         return 0
     if not report_path.exists():
         raise CosmeticRepairError(f"JUnit report not found: {report_path}")
@@ -481,19 +528,53 @@ def main(argv: Sequence[str] | None = None) -> int:
     instructions = collect_instructions(records)
     if not instructions:
         if pytest_result is not None and pytest_result.returncode != 0:
-            raise CosmeticRepairError(
-                "pytest failed but no cosmetic instructions were detected"
+            write_summary(
+                ns.root,
+                {
+                    "status": "error",
+                    "mode": mode,
+                    "reason": "pytest_failed_without_cosmetic_instructions",
+                    "report": str(report_path),
+                    "pytest_returncode": pytest_result.returncode,
+                },
             )
+            raise CosmeticRepairError("pytest failed but no cosmetic instructions were detected")
         print("No cosmetic repairs detected.")
+        write_summary(
+            ns.root,
+            {
+                "status": "clean",
+                "mode": mode,
+                "report": str(report_path),
+            },
+        )
         return 0
     if mode == "dry-run":
         for instr in instructions:
             print(f"[dry-run] {instr.kind} -> {instr.path}")
+        write_summary(
+            ns.root,
+            {
+                "status": "dry-run",
+                "mode": mode,
+                "report": str(report_path),
+                "instructions": _serialise_instructions(instructions),
+            },
+        )
         return 0
 
     changed_paths = apply_instructions(instructions, root=ns.root)
     if not changed_paths:
         print("Cosmetic repairs already up to date; no file changes required.")
+        write_summary(
+            ns.root,
+            {
+                "status": "no-changes",
+                "mode": mode,
+                "report": str(report_path),
+                "instructions": _serialise_instructions(instructions),
+            },
+        )
         return 0
 
     status = working_tree_changes(root=ns.root)
@@ -502,6 +583,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"  {line}")
 
     if ns.skip_pr:
+        write_summary(
+            ns.root,
+            {
+                "status": "applied-no-pr",
+                "mode": mode,
+                "report": str(report_path),
+                "instructions": _serialise_instructions(instructions),
+                "changed_files": [str(path.relative_to(ns.root)) for path in changed_paths],
+            },
+        )
         return 0
 
     branch = stage_and_commit(
@@ -512,13 +603,25 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     title = "Cosmetic test repairs"
     body = build_pr_body(changed_paths, instructions, root=ns.root)
-    push_and_open_pr(
+    pr_url = push_and_open_pr(
         branch=branch,
         base=ns.base,
         title=title,
         body=body,
         labels=("testing", "autofix:applied"),
         root=ns.root,
+    )
+    write_summary(
+        ns.root,
+        {
+            "status": "pr-created",
+            "mode": mode,
+            "report": str(report_path),
+            "branch": branch,
+            "pr_url": pr_url,
+            "instructions": _serialise_instructions(instructions),
+            "changed_files": [str(path.relative_to(ns.root)) for path in changed_paths],
+        },
     )
     return 0
 
