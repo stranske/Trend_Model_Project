@@ -286,12 +286,41 @@ jobs:
               per_page: 30
             });
             const ready = issues.filter(i => !i.pull_request && !i.title.toLowerCase().includes('wip'));
-            core.setOutput('issue_numbers', ready.map(r => r.number).join(','));
+            const numbers = ready.map(r => r.number);
+            core.setOutput('issue_numbers', numbers.join(','));
+            core.setOutput('issue_numbers_json', JSON.stringify(numbers));
+            core.setOutput('first_issue', numbers.length ? String(numbers[0]) : '');
+
+            if (ready.length) {
+              const rows = ready.map((issue) => [
+                `#${issue.number}`,
+                issue.title.length > 80 ? `${issue.title.slice(0, 77)}…` : issue.title,
+                new Date(issue.updated_at || issue.created_at).toISOString()
+              ]);
+              const summary = core.summary;
+              summary
+                .addHeading('Codex Bootstrap Candidates', 3)
+                .addTable([
+                  [
+                    { data: 'Issue', header: true },
+                    { data: 'Title', header: true },
+                    { data: 'Last Updated (UTC)', header: true }
+                  ],
+                  ...rows
+                ]);
+              await summary.write();
+            } else {
+              core.summary
+                .addHeading('Codex Bootstrap Candidates', 3)
+                .addRaw('No ready issues found.')
+                .addEOL();
+              await core.summary.write();
+            }
       - name: Bootstrap First Issue (if any)
-        if: steps.ready.outputs.issue_numbers != ''
+        if: steps.ready.outputs.first_issue != ''
         uses: ./.github/actions/codex-bootstrap-lite
         with:
-          issue: ${{ fromJSON(format('[{0}]', steps.ready.outputs.issue_numbers))[0] }}
+          issue: ${{ steps.ready.outputs.first_issue }}
           service_bot_pat: ${{ secrets.service_bot_pat || '' }}
           draft: ${{ inputs.draft_pr }}
 

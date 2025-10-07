@@ -8,23 +8,16 @@ def test_agents_orchestrator_inputs_and_uses():
     assert wf.exists(), "agents-70-orchestrator.yml must exist"
     text = wf.read_text(encoding="utf-8")
     assert "workflow_dispatch:" in text, "Orchestrator must allow manual dispatch"
-    expected_inputs = {
-        "enable_readiness",
-        "readiness_agents",
-        "require_all",
-        "enable_preflight",
-        "codex_user",
-        "enable_verify_issue",
-        "verify_issue_number",
-        "enable_watchdog",
-        "draft_pr",
-        "options_json",
-    }
-    for key in expected_inputs:
-        assert f"{key}:" in text, f"Missing workflow_dispatch input: {key}"
+    assert "params_json:" in text, "params_json input must be documented"
     assert (
-        "fromJson(inputs.options_json || '{}')" in text
-    ), "options_json must be parsed via fromJson()"
+        "Parse params_json" in text
+    ), "Parsing step must exist to unpack consolidated payload"
+    assert (
+        "needs: parse" in text
+    ), "Reusable workflow call must depend on the parse job"
+    assert (
+        "needs.parse.outputs.enable_readiness" in text
+    ), "Parsed outputs must be threaded into the reusable workflow"
     assert (
         "./.github/workflows/reusable-70-agents.yml" in text
     ), "Orchestrator must call the reusable agents workflow"
@@ -44,6 +37,10 @@ def test_reusable_agents_workflow_structure():
         "options_json",
     ]:
         assert f"{key}:" in text, f"Reusable agents workflow must expose input: {key}"
+    for output in ["issue_numbers_json", "first_issue"]:
+        assert (
+            output in text
+        ), f"Find Ready Issues step must emit {output} output for bootstrap consumers"
 
 
 def test_legacy_agent_workflows_removed():

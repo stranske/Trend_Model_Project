@@ -113,14 +113,33 @@ jobs:
 ```
 Use a tagged ref when versioned.
 
-### Consolidation (Issue #1419)
-Active agent automation lives under the WFv1 `agents-4x-*` prefix:
+### Consolidation (Issue #1419, refreshed by Issue #2377)
+Active agent automation lives under the WFv1 `agents-*` prefix:
 
-- `agents-40-consumer.yml` – Hourly/dispatch wrapper around the reusable toolkit. Runs readiness, diagnostics, or bootstrap drills on demand by calling `reusable-90-agents.yml` with user-provided flags. This workflow supersedes the retired legacy orchestrator `agents-consumer.yml`.
-- `agents-41-assign.yml` – Assigns the appropriate agent on label, boots Codex issue branches, posts trigger commands, and dispatches the watchdog.
-- `agents-42-watchdog.yml` – Polls the issue timeline for a cross‑referenced PR and reports success or a precise timeout.
+- `agents-70-orchestrator.yml` – Scheduled/dispatch wrapper around `reusable-70-agents.yml`. Dispatch uses a single `params_json` input that bundles the historical booleans and strings into a JSON payload. The workflow parses the payload in a dedicated job before invoking the reusable toolkit. Copy/paste payload for common "readiness + bootstrap" runs:
 
-Legacy orchestrators previously named `agents-consumer.yml` and `reuse-agents.yml` were retired during the consolidation. `tests/test_workflow_agents_consolidation.py` guards against silently reviving those slugs. Any new agent helper must either extend this pair or document a justification for an additional workflow in this README.
+  ```json
+  {
+    "enable_readiness": true,
+    "readiness_agents": "copilot,codex",
+    "custom_logins": "",
+    "require_all": false,
+    "enable_preflight": false,
+    "codex_user": "chatgpt-codex-connector",
+    "codex_command_phrase": "@codex start",
+    "enable_verify_issue": false,
+    "verify_issue_number": "",
+    "enable_watchdog": true,
+    "bootstrap_issues_label": "agent:codex",
+    "draft_pr": false
+  }
+  ```
+
+  Optional keys: `diagnostic_mode` (`off` | `dry-run` | `full`) and `options_json` (stringified nested JSON for keepalive/advanced tuning). Omit keys to fall back to the defaults shown above.
+- `agents-43-codex-issue-bridge.yml` – Bridges GitHub issues to Codex bootstrap automation with optional manual overrides.
+- `reusable-70-agents.yml` – Houses readiness, preflight, bootstrap, verification, watchdog, keepalive, and diagnostic logic invoked by the orchestrator.
+
+Legacy orchestrators previously named `agents-consumer.yml` and `reuse-agents.yml` remain retired. `tests/test_workflow_agents_consolidation.py` guards against reviving those slugs. Any new agent helper must either extend this pair or document a justification for an additional workflow in this README.
 
 ### Merge Manager (Issue #1415)
 Unified approval + auto-merge policy lives in `maint-45-merge-manager.yml`, replacing the legacy pair `autoapprove.yml` and

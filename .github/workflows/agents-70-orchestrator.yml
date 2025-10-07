@@ -5,46 +5,18 @@ on:
     - cron: '*/20 * * * *'
   workflow_dispatch:
     inputs:
-      enable_readiness:
-        description: 'Run readiness probe (true/false)'
+      params_json:
+        description: >-
+          JSON payload of agent toggles (enable_readiness, readiness_agents, custom_logins,
+          require_all, enable_preflight, codex_user, codex_command_phrase, enable_verify_issue,
+          verify_issue_number, enable_watchdog, bootstrap_issues_label, draft_pr, options_json,
+          diagnostic_mode).
         required: false
-        default: 'false'
-      readiness_agents:
-        description: 'Agents to probe (copilot,codex)'
-        required: false
-        default: 'copilot,codex'
-      require_all:
-        description: 'Fail readiness if any requested agent missing (true/false)'
-        required: false
-        default: 'false'
-      enable_preflight:
-        description: 'Run Codex preflight diagnostics (true/false)'
-        required: false
-        default: 'false'
-      codex_user:
-        description: 'Override Codex connector login'
-        required: false
-        default: ''
-      enable_verify_issue:
-        description: 'Verify a specific issue has an agent assignee (true/false)'
-        required: false
-        default: 'false'
-      verify_issue_number:
-        description: 'Issue number for verification (blank to skip)'
-        required: false
-        default: ''
-      enable_watchdog:
-        description: 'Run watchdog sanity checks (true/false)'
-        required: false
-        default: 'true'
-      draft_pr:
-        description: 'Open bootstrap PRs as draft (true/false)'
-        required: false
-        default: 'false'
-      options_json:
-        description: 'Additional toggles as JSON (diagnostic_mode, readiness_custom_logins, codex_command_phrase, ... )'
-        required: false
-        default: '{}'
+        default: '{"enable_watchdog":true,"bootstrap_issues_label":"agent:codex","draft_pr":false}'
+
+concurrency:
+  group: agents-70-orchestrator
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -52,29 +24,136 @@ permissions:
   issues: write
 
 jobs:
+  parse:
+    name: Parse params_json
+    runs-on: ubuntu-latest
+    outputs:
+      enable_readiness: ${{ steps.params.outputs.enable_readiness }}
+      readiness_agents: ${{ steps.params.outputs.readiness_agents }}
+      readiness_custom_logins: ${{ steps.params.outputs.readiness_custom_logins }}
+      require_all: ${{ steps.params.outputs.require_all }}
+      enable_preflight: ${{ steps.params.outputs.enable_preflight }}
+      codex_user: ${{ steps.params.outputs.codex_user }}
+      codex_command_phrase: ${{ steps.params.outputs.codex_command_phrase }}
+      enable_diagnostic: ${{ steps.params.outputs.enable_diagnostic }}
+      diagnostic_attempt_branch: ${{ steps.params.outputs.diagnostic_attempt_branch }}
+      diagnostic_dry_run: ${{ steps.params.outputs.diagnostic_dry_run }}
+      enable_verify_issue: ${{ steps.params.outputs.enable_verify_issue }}
+      verify_issue_number: ${{ steps.params.outputs.verify_issue_number }}
+      enable_watchdog: ${{ steps.params.outputs.enable_watchdog }}
+      bootstrap_issues_label: ${{ steps.params.outputs.bootstrap_issues_label }}
+      draft_pr: ${{ steps.params.outputs.draft_pr }}
+      options_json: ${{ steps.params.outputs.options_json }}
+    steps:
+      - name: Parse params_json
+        id: params
+        uses: actions/github-script@v7
+        env:
+          RAW_JSON: ${{ inputs.params_json || '{}' }}
+        with:
+          script: |
+            const raw = process.env.RAW_JSON || '{}';
+            let parsed = {};
+            try {
+              parsed = raw ? JSON.parse(raw) : {};
+            } catch (error) {
+              core.setFailed(`Invalid params_json provided: ${error.message}`);
+              return;
+            }
+
+            const readString = (value, fallback = '') => {
+              if (typeof value === 'string') {
+                return value;
+              }
+              if (typeof value === 'number' || typeof value === 'boolean') {
+                return String(value);
+              }
+              return fallback;
+            };
+
+            const readBool = (value, fallback = false) => {
+              if (typeof value === 'boolean') {
+                return value;
+              }
+              if (typeof value === 'string') {
+                const v = value.toLowerCase();
+                if (v === 'true') return true;
+                if (v === 'false') return false;
+              }
+              return fallback;
+            };
+
+            const readinessAgents = readString(parsed.readiness_agents, 'copilot,codex');
+            const customLogins = readString(parsed.custom_logins, '');
+            const codexUser = readString(parsed.codex_user, '');
+            const codexCommand = readString(parsed.codex_command_phrase, '');
+            const verifyIssueNumber = readString(parsed.verify_issue_number, '');
+            const bootstrapLabel = readString(parsed.bootstrap_issues_label, 'agent:codex');
+            const draftPr = readBool(parsed.draft_pr, false);
+            const enableVerifyIssueRaw = parsed.enable_verify_issue;
+
+            const optionsRaw = parsed.options_json;
+            const optionsJson = (() => {
+              if (!optionsRaw || optionsRaw === '{}') {
+                return '{}';
+              }
+              if (typeof optionsRaw === 'string') {
+                return optionsRaw;
+              }
+              try {
+                return JSON.stringify(optionsRaw);
+              } catch (error) {
+                core.warning(`Failed to stringify options_json override: ${error.message}`);
+                return '{}';
+              }
+            })();
+
+            const diagnosticMode = readString(parsed.diagnostic_mode, 'off') || 'off';
+
+            const enableVerifyIssue = readBool(
+              enableVerifyIssueRaw,
+              verifyIssueNumber.trim() !== ''
+            );
+
+            core.setOutput('enable_readiness', readBool(parsed.enable_readiness, false) ? 'true' : 'false');
+            core.setOutput('readiness_agents', readinessAgents || 'copilot,codex');
+            core.setOutput('readiness_custom_logins', customLogins);
+            core.setOutput('require_all', readBool(parsed.require_all, false) ? 'true' : 'false');
+            core.setOutput('enable_preflight', readBool(parsed.enable_preflight, false) ? 'true' : 'false');
+            core.setOutput('codex_user', codexUser);
+            core.setOutput('codex_command_phrase', codexCommand);
+            core.setOutput('enable_verify_issue', enableVerifyIssue ? 'true' : 'false');
+            core.setOutput('verify_issue_number', verifyIssueNumber);
+            core.setOutput('enable_watchdog', readBool(parsed.enable_watchdog, true) ? 'true' : 'false');
+            core.setOutput('bootstrap_issues_label', bootstrapLabel || 'agent:codex');
+            core.setOutput('draft_pr', draftPr ? 'true' : 'false');
+            core.setOutput('options_json', optionsJson || '{}');
+
+            const diagMode = diagnosticMode.toLowerCase();
+            const enableDiagnostic = diagMode !== 'off';
+            core.setOutput('enable_diagnostic', enableDiagnostic ? 'true' : 'false');
+            core.setOutput('diagnostic_attempt_branch', diagMode === 'full' ? 'true' : 'false');
+            core.setOutput('diagnostic_dry_run', diagMode === 'full' ? 'false' : 'true');
+
   orchestrate:
     name: Dispatch Agents Toolkit
+    needs: parse
     uses: ./.github/workflows/reusable-70-agents.yml
-    # options_json schema (strings, defaults shown):
-    # {
-    #   "diagnostic_mode": "off" | "dry-run" | "full",
-    #   "readiness_custom_logins": "login-a,login-b",
-    #   "codex_command_phrase": "@codex start"
-    # }
     with:
-      enable_readiness: ${{ inputs.enable_readiness || 'false' }}
-      readiness_agents: ${{ inputs.readiness_agents || 'copilot,codex' }}
-      readiness_custom_logins: ${{ fromJson(inputs.options_json || '{}').readiness_custom_logins || '' }}
-      require_all: ${{ inputs.require_all || 'false' }}
-      enable_preflight: ${{ inputs.enable_preflight || 'false' }}
-      codex_user: ${{ inputs.codex_user || '' }}
-      codex_command_phrase: ${{ fromJson(inputs.options_json || '{}').codex_command_phrase || '' }}
-      enable_diagnostic: ${{ (fromJson(inputs.options_json || '{}').diagnostic_mode || 'off') != 'off' && 'true' || 'false' }}
-      diagnostic_attempt_branch: ${{ (fromJson(inputs.options_json || '{}').diagnostic_mode || 'off') == 'full' && 'true' || 'false' }}
-      diagnostic_dry_run: ${{ (fromJson(inputs.options_json || '{}').diagnostic_mode || 'off') == 'full' && 'false' || 'true' }}
-      enable_verify_issue: ${{ inputs.enable_verify_issue || ((inputs.verify_issue_number || '') != '' && 'true' || 'false') }}
-      verify_issue_number: ${{ inputs.verify_issue_number || '' }}
-      enable_watchdog: ${{ inputs.enable_watchdog || 'true' }}
-      bootstrap_issues_label: 'agent:codex'
-      draft_pr: ${{ inputs.draft_pr || 'false' }}
-      options_json: ${{ inputs.options_json || '{}' }}
+      enable_readiness: ${{ needs.parse.outputs.enable_readiness }}
+      readiness_agents: ${{ needs.parse.outputs.readiness_agents }}
+      readiness_custom_logins: ${{ needs.parse.outputs.readiness_custom_logins }}
+      require_all: ${{ needs.parse.outputs.require_all }}
+      enable_preflight: ${{ needs.parse.outputs.enable_preflight }}
+      codex_user: ${{ needs.parse.outputs.codex_user }}
+      codex_command_phrase: ${{ needs.parse.outputs.codex_command_phrase }}
+      enable_diagnostic: ${{ needs.parse.outputs.enable_diagnostic }}
+      diagnostic_attempt_branch: ${{ needs.parse.outputs.diagnostic_attempt_branch }}
+      diagnostic_dry_run: ${{ needs.parse.outputs.diagnostic_dry_run }}
+      enable_verify_issue: ${{ needs.parse.outputs.enable_verify_issue }}
+      verify_issue_number: ${{ needs.parse.outputs.verify_issue_number }}
+      enable_watchdog: ${{ needs.parse.outputs.enable_watchdog }}
+      bootstrap_issues_label: ${{ needs.parse.outputs.bootstrap_issues_label }}
+      draft_pr: ${{ needs.parse.outputs.draft_pr }}
+      options_json: ${{ needs.parse.outputs.options_json }}
+
