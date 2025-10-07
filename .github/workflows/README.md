@@ -123,9 +123,11 @@ Two entry points now exist:
 
 - `agents-consumer.yml` – Hourly cron + manual dispatch wrapper that accepts a
   single `params_json` string, parses it, and forwards normalized values to
-  `reuse-agents.yml`. Scheduled runs only execute readiness + watchdog probes;
-  set `enable_bootstrap` to `true` in the JSON payload to opt into Codex
-  bootstraps (preflight stays disabled unless explicitly enabled).
+  `reuse-agents.yml`. The workflow declares `concurrency: agents-consumer` and
+  introduces job-level `timeout-minutes` so overlapping runs are cancelled and
+  stalled executions end automatically. Scheduled runs only execute readiness +
+  watchdog probes; set `enable_bootstrap` to `true` in the JSON payload to opt
+  into Codex bootstraps (preflight stays disabled unless explicitly enabled).
 - `agents-70-orchestrator.yml` – Unified scheduled/dispatch orchestrator for
   readiness probes, diagnostics, bootstrap, watchdog, and keepalive flows. It
   passes discrete inputs directly to `reusable-70-agents.yml`.
