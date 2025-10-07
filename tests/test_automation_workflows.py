@@ -204,19 +204,64 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
                 "coverage summary step should append to the GitHub job summary",
             )
 
-    def test_gate_workflow_file_is_absent(self) -> None:
-        for suffix in (".yml", ".yaml"):
-            with self.subTest(extension=suffix):
-                gate_path = self.workflows_dir / f"gate{suffix}"
-                self.assertFalse(
-                    gate_path.exists(),
-                    "Legacy gate workflow should remain deleted; rely on pr-10 gate job",
-                )
+    def test_gate_workflow_orchestrates_reusable_jobs(self) -> None:
+        workflow = self._read_workflow("pr-gate.yml")
+
+        triggers = workflow.get("on") or workflow.get(True) or {}
+        pull_request = triggers.get("pull_request", {})
+        ignores = pull_request.get("paths-ignore", [])
+        self.assertIn("docs/**", ignores)
+        self.assertIn("**/*.md", ignores)
+        self.assertIn("assets/**", ignores)
+
+        concurrency = workflow.get("concurrency", {})
+        self.assertEqual(
+            concurrency.get("group"),
+            "pr-${{ github.event.pull_request.number || github.ref_name }}-gate",
+        )
+        self.assertTrue(concurrency.get("cancel-in-progress"))
+
+        jobs = workflow.get("jobs", {})
+        self.assertEqual(
+            set(jobs.keys()),
+            {"core-tests-311", "core-tests-312", "docker-smoke", "gate"},
+        )
+
+        job_311 = jobs["core-tests-311"]
+        self.assertEqual(job_311.get("uses"), "./.github/workflows/reusable-ci.yml")
+        with_block_311 = job_311.get("with", {})
+        self.assertEqual(with_block_311.get("python-version"), "3.11")
+        self.assertEqual(with_block_311.get("marker"), "not quarantine and not slow")
+
+        job_312 = jobs["core-tests-312"]
+        self.assertEqual(job_312.get("uses"), "./.github/workflows/reusable-ci.yml")
+        with_block_312 = job_312.get("with", {})
+        self.assertEqual(with_block_312.get("python-version"), "3.12")
+        self.assertEqual(with_block_312.get("marker"), "not quarantine and not slow")
+
+        job_smoke = jobs["docker-smoke"]
+        self.assertEqual(
+            job_smoke.get("uses"), "./.github/workflows/reusable-docker.yml"
+        )
+
+        job_gate = jobs["gate"]
+        self.assertEqual(
+            job_gate.get("needs"),
+            ["core-tests-311", "core-tests-312", "docker-smoke"],
+        )
+        steps = job_gate.get("steps", [])
+        summary_step = next(
+            (step for step in steps if step.get("name") == "Summarize results"),
+            {},
+        )
+        self.assertTrue(summary_step, "gate job must summarize downstream results")
 
     def test_workflows_do_not_define_invalid_marker_filters(self) -> None:
         """Ensure pytest marker filters stay inside shell commands."""
 
         invalid_expr = "not quarantine and not slow"
+
+        found_in_gate = False
 
         for workflow_path in self._iter_workflow_files():
             with self.subTest(workflow=workflow_path.name):
@@ -225,11 +270,19 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
                     continue
                 for scalar in self._iter_scalars(loaded):
                     if scalar.strip() == invalid_expr:
+                        if workflow_path.name == "pr-gate.yml":
+                            found_in_gate = True
+                            continue
                         self.fail(
                             "Detected bare pytest marker expression in %s; "
                             "use shell commands (pytest -m) instead to avoid "
                             "invalid YAML filters." % workflow_path.name
                         )
+
+        self.assertTrue(
+            found_in_gate,
+            "pr-gate.yml should pass the marker literal to the reusable CI workflow",
+        )
 
     def test_workflows_do_not_define_marker_filter_anchors(self) -> None:
         """Block the legacy `_marker_filter` YAML anchor regression."""
@@ -268,22 +321,6 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
                             "a shell command (pytest -m) so GitHub Actions treats it as "
                             "CLI arguments rather than workflow condition syntax."
                             % (workflow_path.name, invalid_expr)
-                        )
-
-    def test_workflows_do_not_reference_retired_gate_wrapper(self) -> None:
-        """Ensure no workflow tries to re-use the deleted gate.yml wrapper."""
-
-        for workflow_path in self._iter_workflow_files():
-            with self.subTest(workflow=workflow_path.name):
-                loaded = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
-                if loaded is None:
-                    continue
-                for scalar in self._iter_scalars(loaded):
-                    if "gate.yml" in scalar:
-                        self.fail(
-                            "Workflow %s references the retired gate.yml wrapper via `%s`; "
-                            "rely on the gate job inside pr-10-ci-python.yml instead."
-                            % (workflow_path.name, scalar)
                         )
 
     def test_ci_workflow_enforces_coverage_threshold(self) -> None:

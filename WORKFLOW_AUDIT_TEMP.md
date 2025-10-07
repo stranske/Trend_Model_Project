@@ -7,7 +7,7 @@ Date: 2026-10-12
 - ✅ Each workflow's `name:` field mirrors its filename (title-cased with numeric block preserved).
 - ✅ `.github/workflows/archive/` remains absent; legacy self-test wrappers were relocated to `Old/workflows/` for historical reference.
 
-## Final Workflow Set (Issue #2190)
+## Final Workflow Set (Issue #2190 + Issue #2379 refresh)
 Only the workflows listed below remain visible in the Actions tab. Reusable composites without direct triggers are grouped separately.
 
 ### PR Checks
@@ -57,7 +57,7 @@ Only the workflows listed below remain visible in the Actions tab. Reusable comp
 
 ## Archived in Issue #2378
 
-- `maint-90-selftest.yml` and `reusable-99-selftest.yml` relocated to `Old/workflows/` for historical reference while retiring the self-test cron matrix. Guard tests confirm no `*selftest*.yml` files remain under `.github/workflows/`.
+- `maint-90-selftest.yml` relocated to `Old/workflows/` for historical reference when the cron wrapper was retired. `reusable-99-selftest.yml` returned to `.github/workflows/` in Issue #2379 once converted to job-level reuse; the archived copy remains for archaeology.
 
 
 ## Verification
