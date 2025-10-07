@@ -100,6 +100,7 @@ EXPECTED_NAMES = {
     "maint-41-chatgpt-issue-sync.yml": "Maint 41 ChatGPT Issue Sync",
     "pr-10-ci-python.yml": "PR 10 CI Python",
     "pr-12-docker-smoke.yml": "PR 12 Docker Smoke",
+    "pr-gate.yml": "Gate",
     "reusable-70-agents.yml": "Reusable 70 Agents",
     "reusable-90-ci-python.yml": "Reusable 90 CI Python",
     "reusable-92-autofix.yml": "Reusable 92 Autofix",

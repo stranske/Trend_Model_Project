@@ -15,6 +15,7 @@ Only the workflows listed below remain visible in the Actions tab. Reusable comp
 |----------|----------|-------|
 | `pr-10-ci-python.yml` | pull_request, push | Wrapper around `reusable-90-ci-python.yml` that preserves the full CI matrix + style/type gates.
 | `pr-12-docker-smoke.yml` | pull_request, push, workflow_call | Deterministic Docker build + smoke test harness.
+| `pr-gate.yml` | pull_request, workflow_dispatch | Orchestrates reusable CI (3.11/3.12) and Docker smoke jobs, aggregates coverage, and fails fast on downstream errors.
 
 ### Maintenance & Governance
 | Workflow | Triggers | Notes |
@@ -41,6 +42,8 @@ Only the workflows listed below remain visible in the Actions tab. Reusable comp
 | `reusable-90-ci-python.yml` | workflow_call | Primary reusable CI implementation.
 | `reusable-92-autofix.yml` | workflow_call | Autofix composite consumed by `maint-32-autofix.yml`.
 | `reusable-94-legacy-ci-python.yml` | workflow_call | Legacy CI contract retained for downstream consumers.
+| `reusable-ci.yml` | workflow_call | Single-job Ruff/mypy/pytest executor consumed by `pr-gate.yml`.
+| `reusable-docker.yml` | workflow_call | Docker build + health-check composite consumed by `pr-gate.yml`.
 
 ### Manual self-tests
 | Workflow | Triggers | Notes |

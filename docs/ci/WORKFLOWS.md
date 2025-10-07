@@ -34,6 +34,7 @@ the agents toolkit.
 |----------|------------|----------------|
 | `pr-10-ci-python.yml` (`PR 10 CI Python`) | `pull_request`, `workflow_dispatch` | Unified style/type/test gate (Black, Ruff, mypy, pytest + coverage upload).
 | `pr-12-docker-smoke.yml` (`PR 12 Docker Smoke`) | `pull_request`, `workflow_dispatch` | Deterministic Docker build followed by image smoke tests.
+| `pr-gate.yml` (`Gate`) | `pull_request`, `workflow_dispatch` | Aggregates the reusable CI (Python 3.11/3.12) and Docker smoke composites, downloads coverage, and fails fast on downstream errors.
 
 These jobs must stay green for PRs to merge. The post-CI maintenance jobs below
 listen to their `workflow_run` events.
@@ -66,6 +67,9 @@ listen to their `workflow_run` events.
 | `reusable-90-ci-python.yml` (`Reusable 90 CI Python`) | Internal callers (`pr-10`, downstream reuse) | Unified CI executor for the Python stack.
 | `reusable-92-autofix.yml` (`Reusable 92 Autofix`) | `maint-32-autofix.yml` | Autofix harness invoked after CI gates finish.
 | `reusable-94-legacy-ci-python.yml` (`Reusable 94 Legacy CI Python`) | Downstream consumers | Compatibility shim for repositories that still need the old matrix layout.
+| `reusable-99-selftest.yml` (`Reusable 99 Selftest`) | `maint-90-selftest.yml` | Matrix smoke-test covering reusable CI feature combinations.
+| `reusable-ci.yml` (`Reusable CI`) | `pr-gate.yml` | Single-job Ruff → mypy → pytest executor with coverage artifacts.
+| `reusable-docker.yml` (`Reusable Docker Smoke`) | `pr-gate.yml` | Composite Docker build + health-check loop powering the PR gate.
 
 ### Manual self-test workflows
 
