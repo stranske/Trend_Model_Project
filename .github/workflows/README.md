@@ -123,7 +123,9 @@ Two entry points now exist:
 
 - `agents-consumer.yml` – Hourly cron + manual dispatch wrapper that accepts a
   single `params_json` string, parses it, and forwards normalized values to
-  `reuse-agents.yml`.
+  `reuse-agents.yml`. Scheduled runs only execute readiness + watchdog probes;
+  set `enable_bootstrap` to `true` in the JSON payload to opt into Codex
+  bootstraps (preflight stays disabled unless explicitly enabled).
 - `agents-70-orchestrator.yml` – Unified scheduled/dispatch orchestrator for
   readiness probes, diagnostics, bootstrap, watchdog, and keepalive flows. It
   passes discrete inputs directly to `reusable-70-agents.yml`.
@@ -148,14 +150,17 @@ paste payload:
   "enable_verify_issue": false,
   "verify_issue_number": "",
   "enable_watchdog": true,
+  "enable_bootstrap": false,
   "bootstrap_issues_label": "agent:codex",
   "draft_pr": false,
-  "options_json": "{}"
+  "options_json": "{\"keepalive\":{\"enabled\":false}}"
 }
 ```
 
-Omit any keys to fall back to defaults. `options_json` remains available for
-advanced keepalive tuning (dry run, alternate labels, idle thresholds, etc.).
+Omit any keys to fall back to defaults. `enable_bootstrap: true` unlocks Codex
+PR bootstraps; leave it `false` for the minimal readiness + watchdog run.
+`options_json` remains available for advanced keepalive tuning (dry run,
+alternate labels, idle thresholds, etc.).
 
 The guard test `tests/test_workflow_agents_consolidation.py` enforces the
 reduced input surface and ensures the consumer continues to call the bridge
