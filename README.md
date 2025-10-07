@@ -19,6 +19,7 @@ thresholds, and the annualisation flag under the new `regime` section in
 📦 **Reusable CI & Automation**: Standardise tests, autofix, and agent automation across repositories using the new reusable workflows documented in [docs/ci_reuse.md](docs/ci_reuse.md). Consumers call `reusable-ci-python.yml`, `reusable-autofix.yml`, and the consolidated `agents-70-orchestrator.yml` entry point (which delegates to `reusable-70-agents.yml`).
 
 🧭 **Workflow topology & agent routing**: Learn how workflow buckets, naming, post-CI summaries, and agent labels fit together in [docs/WORKFLOW_GUIDE.md](docs/WORKFLOW_GUIDE.md).
+🛠️ **Automation catalog & contributor quick-start**: Find the canonical workflow inventory, naming ranges, required vs optional gates, and local style-gate instructions in [docs/ci/WORKFLOWS.md](docs/ci/WORKFLOWS.md).
 
 🗂️ **Workflow catalog & naming policy**: See [docs/ci/WORKFLOWS.md](docs/ci/WORKFLOWS.md) for the authoritative workflow list, naming conventions, contributor quick start, and agents JSON schema.
 
