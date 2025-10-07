@@ -17,6 +17,7 @@ The script intentionally avoids over-reaching.  Failures that are not
 recognised remain untouched and are reported in the JSON summary output
 so that maintainers can review them manually.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -104,11 +105,7 @@ def _append_guard_entries(entries: Iterable[str]) -> None:
         if entry in body:
             continue
         body.append(entry)
-    new_lines = (
-        lines[: start_idx + 1]
-        + body
-        + lines[end_idx:]
-    )
+    new_lines = lines[: start_idx + 1] + body + lines[end_idx:]
     _LOG_PATH.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
 
 
@@ -202,7 +199,9 @@ def _load_failures(reports: Iterable[str | Path]) -> list[FailureRecord]:
     runtime = summary.get("runtime", [])
     unknown = summary.get("unknown", [])
     if runtime or unknown:
-        print("[ci_cosmetic_repair] Runtime or unknown failures detected; skipping repair.")
+        print(
+            "[ci_cosmetic_repair] Runtime or unknown failures detected; skipping repair."
+        )
         return []
     records: list[FailureRecord] = []
     for payload in cosmetic_records:
@@ -293,7 +292,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     summary = _summarise(results)
     _append_log_entries(results)
     if ns.summary:
-        ns.summary.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        ns.summary.write_text(
+            json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
     print("[ci_cosmetic_repair] Summary:")
     print(json.dumps(summary, indent=2, sort_keys=True))
     return 0
