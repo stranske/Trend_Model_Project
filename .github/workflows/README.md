@@ -116,14 +116,51 @@ jobs:
 ```
 Use a tagged ref when versioned.
 
-### Consolidation (Issue #1419)
-Active agent automation lives under the WFv1 `agents-4x-*` prefix:
+### Agents Orchestration (Issue #2377)
+Issue #2377 rebuilt the agents automation stack to stay under the GitHub
+`workflow_dispatch` input cap while restoring legacy consumer behaviour.
+Two entry points now exist:
 
-- `agents-40-consumer.yml` – Hourly/dispatch wrapper around the reusable toolkit. Runs readiness, diagnostics, or bootstrap drills on demand by calling `reusable-90-agents.yml` with user-provided flags. This workflow supersedes the retired legacy orchestrator `agents-consumer.yml`.
-- `agents-41-assign.yml` – Assigns the appropriate agent on label, boots Codex issue branches, posts trigger commands, and dispatches the watchdog.
-- `agents-42-watchdog.yml` – Polls the issue timeline for a cross‑referenced PR and reports success or a precise timeout.
+- `agents-consumer.yml` – Hourly cron + manual dispatch wrapper that accepts a
+  single `params_json` string, parses it, and forwards normalized values to
+  `reuse-agents.yml`.
+- `agents-70-orchestrator.yml` – Unified scheduled/dispatch orchestrator for
+  readiness probes, diagnostics, bootstrap, watchdog, and keepalive flows. It
+  passes discrete inputs directly to `reusable-70-agents.yml`.
 
-Legacy orchestrators previously named `agents-consumer.yml` and `reuse-agents.yml` were retired during the consolidation. `tests/test_workflow_agents_consolidation.py` guards against silently reviving those slugs. Any new agent helper must either extend this pair or document a justification for an additional workflow in this README.
+`reuse-agents.yml` bridges the consumer JSON payload into the reusable toolkit
+without re-exposing more than 10 dispatch inputs. Both entry points ultimately
+invoke `reusable-70-agents.yml`, which emits Markdown readiness summaries,
+`issue_numbers_json`, and `first_issue` outputs for Codex bootstraps.
+
+Manual dispatch for the consumer now uses a single JSON textarea. A ready to
+paste payload:
+
+```json
+{
+  "enable_readiness": true,
+  "readiness_agents": "copilot,codex",
+  "custom_logins": "",
+  "require_all": false,
+  "enable_preflight": false,
+  "codex_user": "",
+  "codex_command_phrase": "",
+  "enable_verify_issue": false,
+  "verify_issue_number": "",
+  "enable_watchdog": true,
+  "bootstrap_issues_label": "agent:codex",
+  "draft_pr": false,
+  "options_json": "{}"
+}
+```
+
+Omit any keys to fall back to defaults. `options_json` remains available for
+advanced keepalive tuning (dry run, alternate labels, idle thresholds, etc.).
+
+The guard test `tests/test_workflow_agents_consolidation.py` enforces the
+reduced input surface and ensures the consumer continues to call the bridge
+workflow. Update the README whenever adding new JSON keys so operators have an
+accurate dispatch reference.
 
 ### Merge Manager (Issue #1415)
 Unified approval + auto-merge policy lives in `maint-45-merge-manager.yml`, replacing the legacy pair `autoapprove.yml` and
