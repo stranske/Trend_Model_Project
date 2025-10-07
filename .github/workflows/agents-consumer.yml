@@ -9,7 +9,7 @@ on:
         description: >-
           JSON configuration for the agents toolkit (example: {"enable_readiness":true,"readiness_agents":"copilot,codex","enable_watchdog":true})
         required: false
-        default: '{"enable_readiness":true,"enable_watchdog":true,"enable_preflight":false,"enable_bootstrap":false,"bootstrap_issues_label":"agent:codex","draft_pr":false,"options_json":"{\\"keepalive\\":{\\"enabled\\":false}}"}'
+        default: '{"enable_readiness":true,"enable_watchdog":true,"enable_preflight":false,"enable_bootstrap":false,"bootstrap_issues_label":"agent:codex","draft_pr":false,"options_json":"{\\"enable_keepalive\\":false,\\"keepalive\\":{\\"enabled\\":false}}"}'
         type: string
 
 permissions:
@@ -63,7 +63,7 @@ jobs:
               enable_watchdog: true,
               bootstrap_issues_label: 'agent:codex',
               draft_pr: false,
-              options_json: '{"keepalive":{"enabled":false}}',
+              options_json: '{"enable_keepalive":false,"keepalive":{"enabled":false}}',
             };
 
             const raw = process.env.PARAMS_JSON ?? '';
@@ -165,6 +165,7 @@ jobs:
       enable_verify_issue: ${{ needs.resolve-params.outputs.enable_verify_issue }}
       verify_issue_number: ${{ needs.resolve-params.outputs.verify_issue_number }}
       enable_watchdog: ${{ needs.resolve-params.outputs.enable_watchdog }}
+      enable_bootstrap: ${{ needs.resolve-params.outputs.enable_bootstrap }}
       bootstrap_issues_label: ${{ needs.resolve-params.outputs.bootstrap_issues_label }}
       draft_pr: ${{ needs.resolve-params.outputs.draft_pr }}
       options_json: ${{ needs.resolve-params.outputs.options_json }}

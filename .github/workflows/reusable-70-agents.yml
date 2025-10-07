@@ -68,6 +68,11 @@ on:
         required: false
         default: 'true'
         type: string
+      enable_bootstrap:
+        description: 'Run Codex bootstrap job (true/false)'
+        required: false
+        default: 'false'
+        type: string
       bootstrap_issues_label:
         description: 'Label to trigger Codex bootstrap'
         required: false
@@ -270,6 +275,7 @@ jobs:
             } else { core.info('Agent assigned: '+assignees.join(',')); }
 
   bootstrap-codex:
+    if: inputs.enable_bootstrap == 'true'
     name: Bootstrap Codex PRs
     runs-on: ubuntu-latest
     timeout-minutes: 30

@@ -153,7 +153,7 @@ paste payload:
   "enable_bootstrap": false,
   "bootstrap_issues_label": "agent:codex",
   "draft_pr": false,
-  "options_json": "{\"keepalive\":{\"enabled\":false}}"
+  "options_json": "{\"enable_keepalive\":false,\"keepalive\":{\"enabled\":false}}"
 }
 ```
 
