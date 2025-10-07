@@ -49,11 +49,10 @@ jobs:
             export PIP_INDEX_URL="https://__token__:${PRIVATE_PYPI_TOKEN}@pypi.org/simple"
           fi
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then
-            pip install -r requirements.txt
-          fi
           if [ -f requirements.lock ]; then
-            pip install -r requirements.lock || true
+            pip install -r requirements.lock
+          elif [ -f requirements.txt ]; then
+            pip install -r requirements.txt
           fi
           if [ -f pyproject.toml ]; then
             pip install -e . || pip install .
