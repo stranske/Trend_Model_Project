@@ -13,7 +13,7 @@ the agents toolkit.
 
   | Prefix | Number slots | Usage | Notes |
   |--------|--------------|-------|-------|
-  | `pr-` | `10–19` | Pull-request gates | `pr-10-ci-python.yml` is the primary style/test gate; keep space for specialised PR jobs (Docker, docs).
+  | `pr-` | `10–19` | Pull-request gates | `pr-10-ci-python.yml` is the primary style/test gate; keep space for specialized PR jobs (Docker, docs).
   | `maint-` | `00–49` and `90s` | Scheduled/background maintenance | Low numbers for repo hygiene, 30s/40s for post-CI and guards, 90 for self-tests calling reusable matrices.
   | `agents-` | `40s` & `70s` | Agent bootstrap/orchestration | `43` bridges issues to Codex; `70` is the manual/scheduled orchestrator.
   | `reusable-` | `70s` & `90s` | Composite workflows invoked by others | Keep 90s for CI executors, 70s for agent composites.
