@@ -249,7 +249,7 @@ def _summarise(results: Sequence[FixResult]) -> dict[str, object]:
 
 
 def _append_log_entries(results: Sequence[FixResult]) -> None:
-    timestamp = _dt.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+    timestamp = _dt.datetime.now(_dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     entries = []
     for result in results:
         if result.status != "applied":
