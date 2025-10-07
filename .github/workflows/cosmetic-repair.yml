@@ -50,18 +50,19 @@ jobs:
           pip install -r requirements.txt
           pip install -e '.[dev]'
 
-      - name: Run pytest (allow failures)
-        id: pytest
+      - name: Configure git user
         run: |
-          set +e
-          source .venv/bin/activate
-          pytest -q --junitxml=pytest-report.xml
-          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
-          exit 0
+          git config user.name "cosmetic-repair bot"
+          git config user.email "cosmetic-repair-bot@users.noreply.github.com"
 
       - name: Run cosmetic repair script
+        id: repair
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          source .venv/bin/activate
           cmd=("python" "scripts/ci_cosmetic_repair.py")
           if [ "${{ inputs['dry-run'] }}" = "true" ]; then
             cmd+=("--dry-run" "--skip-pr")
@@ -71,9 +72,14 @@ jobs:
           if [ -n "${{ inputs['branch-suffix'] }}" ]; then
             cmd+=("--branch-suffix" "${{ inputs['branch-suffix'] }}")
           fi
-          cmd+=("--base" "${{ github.event.repository.default_branch }}")
+          cmd+=("--base" "${{ env.BASE_BRANCH }}")
           echo "Running: ${cmd[*]}"
+          set +e
           "${cmd[@]}"
+          status=$?
+          set -e
+          echo "exit_code=${status}" >> "$GITHUB_OUTPUT"
+          exit ${status}
 
       - name: Capture cosmetic summary outputs
         if: always()
@@ -81,8 +87,16 @@ jobs:
         env:
           SUMMARY_FILE: .cosmetic-repair-summary.json
         run: |
-          python scripts/cosmetic_repair_workflow.py capture \
-            --summary-file "$SUMMARY_FILE"
+          python -c "import json, os; from pathlib import Path; summary = Path(os.environ['SUMMARY_FILE']); \
+          if summary.exists(): \
+              data = json.loads(summary.read_text(encoding='utf-8')); \
+              with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as handle: \
+                  for key, value in data.items(): \
+                      if value: \
+                          if isinstance(value, (list, tuple)): \
+                              handle.write(f"{key}={'|'.join(value)}\\n"); \
+                          else: \
+                              handle.write(f\"{key}={value}\\n\")"
 
       - name: Upload pytest report
         if: always()
@@ -90,36 +104,37 @@ jobs:
         with:
           name: cosmetic-repair-artifacts
           path: |
-            pytest-report.xml
+            .pytest-cosmetic-report.xml
             .cosmetic-repair-summary.json
           if-no-files-found: ignore
 
       - name: Evaluate repair outcome
         id: outcome
         env:
-          PYTEST_EXIT_CODE: ${{ steps.pytest.outputs.exit_code }}
           SUMMARY_FILE: .cosmetic-repair-summary.json
+          REPAIR_EXIT_CODE: ${{ steps.repair.outputs.exit_code }}
         run: |
-          python scripts/cosmetic_repair_workflow.py evaluate \
-            --summary-file "$SUMMARY_FILE" \
-            --pytest-exit-code "${PYTEST_EXIT_CODE:-0}"
-
-      - name: Create cosmetic repair PR
-        uses: peter-evans/create-pull-request@v6
-        with:
-          branch: cosmetic-repair/${{ github.run_id }}
-          base: ${{ env.BASE_BRANCH }}
-          title: "Cosmetic repair: pytest drift"
-          commit-message: "ci: apply cosmetic repairs"
-          labels: 'testing,autofix:applied,autofix'
-          body: |
-            ## Cosmetic repair summary
-
-            * Pytest exit code: `${{ steps.pytest.outputs.exit_code }}`
-            * Workflow run: ${{ github.run_id }}
-
-            The cosmetic repair job detected cosmetic-only failures and attempted
-            automated fixes using `scripts/ci_cosmetic_repair.py`.
+          python -c "import json, os; from pathlib import Path; \
+          exit_code = int(os.environ.get('REPAIR_EXIT_CODE') or 0); \
+          summary_path = Path(os.environ['SUMMARY_FILE']); \
+          should_fail = exit_code != 0; \
+          reason = ''; \
+          status = 'unknown'; \
+          if summary_path.exists(): \
+              data = json.loads(summary_path.read_text(encoding='utf-8')); \
+              status = data.get('status', status); \
+              if exit_code == 0 and status in {'clean', 'dry-run', 'no-changes', 'pr-created', 'applied-no-pr'}: \
+                  should_fail = False; \
+              elif not reason: \
+                  reason = data.get('reason', reason); \
+          elif exit_code == 0: \
+              should_fail = True; \
+              reason = 'Cosmetic repair summary was not generated.'; \
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as fh: \
+              fh.write(f\"should_fail={'true' if should_fail else 'false'}\\n\"); \
+              fh.write(f\"status={status}\\n\"); \
+              if reason: \
+                  fh.write(f\"reason={reason}\\n\")"
 
       - name: Fail if unresolved failures remain
         if: steps.outcome.outputs.should_fail == 'true'
