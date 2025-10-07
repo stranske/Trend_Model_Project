@@ -65,7 +65,7 @@ listen to their `workflow_run` events.
 |----------|-------------|-------|
 | `reuse-agents.yml` (`Reuse Agents`) | `agents-consumer.yml` | Bridges `params_json` inputs to the reusable toolkit while preserving defaults.
 | `reusable-70-agents.yml` (`Reusable 70 Agents`) | `agents-70-orchestrator.yml`, `reuse-agents.yml` | Implements readiness, bootstrap, diagnostics, and watchdog jobs.
-| `reusable-90-ci-python.yml` (`Reusable 90 CI Python`) | `maint-90-selftest.yml` | Legacy matrix executor retained for self-tests while consumers migrate to the single-job workflow.
+| `reusable-90-ci-python.yml` (`Reusable 90 CI Python`) | Legacy downstreams | Matrix executor retained for repositories that still rely on the older layout.
 | `reusable-92-autofix.yml` (`Reusable 92 Autofix`) | `maint-32-autofix.yml` | Autofix harness invoked after CI gates finish.
 | `reusable-94-legacy-ci-python.yml` (`Reusable 94 Legacy CI Python`) | Downstream consumers | Compatibility shim for repositories that still need the old matrix layout.
 | `reusable-96-ci-lite.yml` (`Reusable 96 CI Lite`) | `pr-10-ci-python.yml`, future gate orchestrators | Single-job Ruff → mypy → pytest runner with coverage enforcement and artifact uploads.
