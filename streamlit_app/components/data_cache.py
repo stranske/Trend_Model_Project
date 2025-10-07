@@ -11,10 +11,7 @@ from typing import Mapping
 import pandas as pd
 import streamlit as st
 
-from trend_portfolio_app.data_schema import (
-    SchemaMeta,
-    load_and_validate_file,
-)
+from trend_portfolio_app.data_schema import SchemaMeta, load_and_validate_file
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEMO_DIR = REPO_ROOT / "demo"

@@ -12,7 +12,6 @@ from pathlib import Path
 
 import yaml
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW_PATH = (
     REPO_ROOT / ".github" / "workflows" / "maint-33-check-failure-tracker.yml"

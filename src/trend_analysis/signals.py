@@ -1,9 +1,9 @@
 """Signal generation primitives for trend-following strategies.
 
-This module centralises the construction of strictly causal trading signals so
-all execution paths (CLI, Streamlit UI, unit tests) rely on the exact same
-implementation.  The helpers are intentionally vectorised to keep the
-computation fast even for large universes.
+This module centralises the construction of strictly causal trading
+signals so all execution paths (CLI, Streamlit UI, unit tests) rely on
+the exact same implementation.  The helpers are intentionally vectorised
+to keep the computation fast even for large universes.
 """
 
 from __future__ import annotations

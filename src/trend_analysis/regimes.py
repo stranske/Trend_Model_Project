@@ -133,8 +133,7 @@ def _rolling_volatility_signal(
     periods_per_year: float | None,
     annualise: bool,
 ) -> pd.Series:
-    """
-    Return rolling realised volatility optionally annualised.
+    """Return rolling realised volatility optionally annualised.
 
     Note:
         The rolling standard deviation is calculated with ``ddof=0`` (population standard deviation),
@@ -248,7 +247,8 @@ def compute_regimes(
     freq: str,
     periods_per_year: float | None = None,
 ) -> pd.Series:
-    """Return per-period regime labels for ``proxy`` respecting ``settings``."""
+    """Return per-period regime labels for ``proxy`` respecting
+    ``settings``."""
 
     if not settings.enabled:
         return pd.Series(dtype="string")
@@ -271,7 +271,8 @@ def _summarise_regime_outcome(
     risk_on: pd.Series | None,
     risk_off: pd.Series | None,
 ) -> str | None:
-    """Return a human-readable comparison between risk-on and risk-off results."""
+    """Return a human-readable comparison between risk-on and risk-off
+    results."""
 
     def _extract_cagr(series: pd.Series | None) -> float | None:
         if not isinstance(series, pd.Series):

@@ -72,8 +72,8 @@ def realised_volatility(
 ) -> pd.DataFrame:
     """Compute realised volatility per asset across ``returns``.
 
-    The helper supports both simple rolling windows and an EWMA variant that
-    mirrors common risk engines.
+    The helper supports both simple rolling windows and an EWMA variant
+    that mirrors common risk engines.
     """
 
     if returns.empty:

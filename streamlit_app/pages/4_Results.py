@@ -10,7 +10,6 @@ import pandas as pd
 import streamlit as st
 
 from app.streamlit import state as app_state
-
 from streamlit_app.components import analysis_runner, charts
 
 
