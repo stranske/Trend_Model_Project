@@ -81,14 +81,8 @@ jobs:
         env:
           SUMMARY_FILE: .cosmetic-repair-summary.json
         run: |
-          python -c "import json, os; from pathlib import Path; summary = Path(os.environ['SUMMARY_FILE']); \
-          if summary.exists(): \
-              data = json.loads(summary.read_text(encoding='utf-8')); \
-              with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as handle: \
-                  for key in ('status', 'branch', 'pr_url'): \
-                      value = data.get(key); \
-                      if value: \
-                          handle.write(f'{key}={value}\\n')"
+          python scripts/cosmetic_repair_workflow.py capture \
+            --summary-file "$SUMMARY_FILE"
 
       - name: Upload pytest report
         if: always()
@@ -97,31 +91,18 @@ jobs:
           name: cosmetic-repair-artifacts
           path: |
             pytest-report.xml
-            tmp_logs/cosmetic_repair_summary.json
+            .cosmetic-repair-summary.json
           if-no-files-found: ignore
 
       - name: Evaluate repair outcome
         id: outcome
         env:
           PYTEST_EXIT_CODE: ${{ steps.pytest.outputs.exit_code }}
+          SUMMARY_FILE: .cosmetic-repair-summary.json
         run: |
-          python -c "import json, os; from pathlib import Path; exit_code = int(os.environ.get('PYTEST_EXIT_CODE') or 0); \
-          summary_path = Path('tmp_logs/cosmetic_repair_summary.json'); \
-          should_fail = False; \
-          reason = ''; \
-          if exit_code != 0: \
-              if summary_path.exists(): \
-                  summary = json.loads(summary_path.read_text(encoding='utf-8')); \
-                  if summary.get('applied', 0) == 0: \
-                      should_fail = True; \
-                      reason = 'Pytest failures detected but no cosmetic fixes were applied.'; \
-              else: \
-                  should_fail = True; \
-                  reason = 'Pytest failures detected but repair summary was not generated.'; \
-          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as fh: \
-              fh.write('should_fail={}\n'.format('true' if should_fail else 'false')); \
-              if reason: \
-                  fh.write('reason={}\n'.format(reason))"
+          python scripts/cosmetic_repair_workflow.py evaluate \
+            --summary-file "$SUMMARY_FILE" \
+            --pytest-exit-code "${PYTEST_EXIT_CODE:-0}"
 
       - name: Create cosmetic repair PR
         uses: peter-evans/create-pull-request@v6
@@ -148,28 +129,8 @@ jobs:
             echo "### Cosmetic repair summary"
             echo
             if [ -f "$summary_file" ]; then
-              python -c "import json, pathlib; summary = pathlib.Path('$summary_file'); \
-              data = json.loads(summary.read_text(encoding='utf-8')); \
-              status = data.get('status', 'unknown'); \
-              print(f'- Status: **{status}**'); \
-              changed = data.get('changed_files') or []; \
-              if changed: \
-                  print(f'- Changed files ({len(changed)}):'); \
-                  print('\\n'.join(f'  - {path}' for path in changed)); \
-              else: \
-                  print('- No file changes detected.'); \
-              pr_url = data.get('pr_url'); \
-              if pr_url: \
-                  print(f'- PR: {pr_url}'); \
-              instructions = data.get('instructions') or []; \
-              if instructions: \
-                  print('- Instructions processed:'); \
-                  for entry in instructions: \
-                      kind = entry.get('kind', 'unknown'); \
-                      path = entry.get('path', '?'); \
-                      guard = entry.get('guard', ''); \
-                      extra = f' ({guard})' if guard else ''; \
-                      print(f'  - {kind} -> {path}{extra}')"
+              python scripts/cosmetic_repair_workflow.py render \
+                --summary-file "$summary_file"
             else
               git status --short || true
             fi
