@@ -65,19 +65,22 @@ All others use default `GITHUB_TOKEN`.
 ## 4. Trigger Matrix
 | Workflow | Trigger(s) | Notes |
 |----------|-----------|-------|
-| `pr-10-ci-python.yml` | PR, push, workflow_call | Unified Python checks (Black, Ruff, mypy, pytest, coverage summary) |
-| `maint-32-autofix.yml` | workflow_run (`CI`) | Hygiene autofix + trivial failure remediation |
-| `agents-41-assign.yml` | issue/PR labels, dispatch | Agent assignment + Codex bootstrap |
-| `agents-42-watchdog.yml` | workflow dispatch | Codex PR presence diagnostic |
-| `maint-45-merge-manager.yml` | PR target, workflow_run | Auto-approve + enable auto-merge when gates are satisfied |
-| `maint-34-quarantine-ttl.yml` | schedule, workflow_dispatch, PR/push (quarantine tooling) | Nightly TTL guardrail; posts actionable summary listing expired IDs. |
-| `maint-35-repo-health-self-check.yml` | schedule (daily + weekly), workflow_dispatch, PR/push (probe updates) | Governance audit with Ops issue updates. |
-| `maint-36-actionlint.yml` | PR (workflows path), push (phase-2-dev), weekly schedule, manual | Workflow schema lint with reviewdog annotations. |
-| `reusable-99-selftest.yml` | workflow_dispatch, schedule (02:30 UTC nightly) | Matrix smoke-test of `reusable-90-ci-python.yml` feature flags |
-| `pr-path-labeler.yml` | PR events | Path labels |
-| `pr-02-label-agent-prs.yml` | PR target | Origin + risk labels |
-| `pr-30-codeql.yml` | push, PR, schedule | Code scanning |
-| `pr-31-dependency-review.yml` | PR | Dependency diff gate |
+| `pr-10-ci-python.yml` | pull_request, push, workflow_call | Unified Python checks (Black, Ruff, mypy, pytest, coverage summary).
+| `pr-12-docker-smoke.yml` | pull_request, push | Deterministic Docker build followed by a health endpoint smoke test.
+| `maint-02-repo-health.yml` | schedule (weekly), workflow_dispatch | Monday hygiene summary of stale branches and unassigned issues.
+| `maint-30-post-ci-summary.yml` | workflow_run (`pr-10`, `pr-12`) | Publishes consolidated CI status for active PRs.
+| `maint-32-autofix.yml` | workflow_run (`pr-10`, `pr-12`) | Hygiene autofix plus trivial failure remediation once CI passes.
+| `maint-33-check-failure-tracker.yml` | workflow_run (`pr-10`, `pr-12`) | Opens/resolves CI failure-tracker issues based on run outcomes.
+| `maint-35-repo-health-self-check.yml` | schedule (daily + weekly), workflow_dispatch | Governance audit that validates labels, PAT availability, and branch protection; maintains a single failure issue when checks fail.
+| `maint-36-actionlint.yml` | pull_request (workflows), push (`phase-2-dev`), schedule, workflow_dispatch | Workflow schema lint with reviewdog annotations.
+| `maint-40-ci-signature-guard.yml` | pull_request/push (`phase-2-dev`) | Validates the signed job manifest for `pr-10-ci-python.yml`.
+| `maint-41-chatgpt-issue-sync.yml` | workflow_dispatch | Curated topic lists (e.g. `Issues.txt`) → labeled GitHub issues.
+| `agents-43-codex-issue-bridge.yml` | issues, workflow_dispatch | Prepares Codex-ready branches/PRs when an `agent:codex` label is applied.
+| `agents-70-orchestrator.yml` | schedule (*/20), workflow_dispatch | Unified agents toolkit entry point delegating to `reusable-70-agents.yml`.
+| `reusable-70-agents.yml` | workflow_call | Composite implementing readiness, bootstrap, diagnostics, and watchdog jobs.
+| `reusable-90-ci-python.yml` | workflow_call | Unified CI executor for the Python stack.
+| `reusable-92-autofix.yml` | workflow_call | Autofix composite consumed by `maint-32-autofix.yml`.
+| `reusable-94-legacy-ci-python.yml` | workflow_call | Compatibility shim for repositories that still need the legacy matrix layout.
 
 ---
 ## 5. Adopt Reusable Workflows
