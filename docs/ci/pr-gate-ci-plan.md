@@ -23,14 +23,14 @@
 8. **Branch Protection**: Repository settings updated so that the `gate` status is the sole required check (tracked externally but noted here).
 
 ## Initial Task Checklist
-- [ ] Update `.github/workflows/gate.yml`:
-  - [ ] Replace YAML anchor usage with inline marker strings.
-  - [ ] Add `concurrency` configuration and `paths-ignore` filters.
-  - [ ] Ensure jobs invoke reusable workflows and add a final `gate` aggregation job.
-- [ ] Modify `.github/workflows/ci.yml`:
-  - [ ] Add Python setup with caching (actions/setup-python@v5).
-  - [ ] Insert sequential steps for Ruff, MyPy, then Pytest with fail-fast behaviour.
-  - [ ] Publish coverage artifact named `coverage-<python-version>`.
-- [ ] Verify `.github/workflows/docker.yml` compatibility with gate reuse (no changes expected).
-- [ ] Coordinate with repository settings to require only the new `gate` status.
-- [ ] Document any additional follow-up tasks or gaps discovered during implementation.
+- [x] Update `.github/workflows/gate.yml`:
+  - [x] Replace YAML anchor usage with inline marker strings.
+  - [x] Add `concurrency` configuration and `paths-ignore` filters.
+  - [x] Ensure jobs invoke reusable workflows and add a final `gate` aggregation job.
+- [x] Modify `.github/workflows/ci.yml`:
+  - [x] Add Python setup with caching (actions/setup-python@v5).
+  - [x] Insert sequential steps for Ruff, MyPy, then Pytest with fail-fast behaviour.
+  - [x] Publish coverage artifact named `coverage-<python-version>`.
+- [x] Verify `.github/workflows/docker.yml` compatibility with gate reuse (no changes expected).
+- [x] Coordinate with repository settings to require only the new `gate` status.
+- [x] Document any additional follow-up tasks or gaps discovered during implementation.
