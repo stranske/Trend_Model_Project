@@ -162,7 +162,9 @@ def test_cosmetic_snapshot_updates_file(tmp_path: Path) -> None:
     repo_root = tmp_path
     target = repo_root / "tests" / "fixtures" / "snapshot.txt"
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text("old snapshot\n# cosmetic-repair: snapshot baseline\n", encoding="utf-8")
+    target.write_text(
+        "old snapshot\n# cosmetic-repair: snapshot baseline\n", encoding="utf-8"
+    )
     replacement = "new snapshot\n# cosmetic-repair: snapshot baseline\n"
     message = "COSMETIC_SNAPSHOT " + json.dumps(
         {

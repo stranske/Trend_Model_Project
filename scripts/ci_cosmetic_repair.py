@@ -360,7 +360,9 @@ def write_summary(root: Path, payload: dict[str, object]) -> None:
         **payload,
         "timestamp": timestamp,
     }
-    summary_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    summary_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
 
 
 def build_pr_body(
@@ -538,7 +540,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "pytest_returncode": pytest_result.returncode,
                 },
             )
-            raise CosmeticRepairError("pytest failed but no cosmetic instructions were detected")
+            raise CosmeticRepairError(
+                "pytest failed but no cosmetic instructions were detected"
+            )
         print("No cosmetic repairs detected.")
         write_summary(
             ns.root,
@@ -590,7 +594,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "mode": mode,
                 "report": str(report_path),
                 "instructions": _serialise_instructions(instructions),
-                "changed_files": [str(path.relative_to(ns.root)) for path in changed_paths],
+                "changed_files": [
+                    str(path.relative_to(ns.root)) for path in changed_paths
+                ],
             },
         )
         return 0
