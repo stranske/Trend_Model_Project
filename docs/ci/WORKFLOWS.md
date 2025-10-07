@@ -69,12 +69,21 @@ listen to their `workflow_run` events.
 
 ### Archived self-test workflows
 
-The legacy self-test wrappers were retired in Issue #2378 and moved under `Old/workflows/` for historical reference:
+Issue #2378 removed the noisy self-test suite from active runs. Two files were preserved under
+`Old/workflows/` for future reference and the remaining wrappers were deleted outright after their
+experiments concluded:
 
 - `Old/workflows/maint-90-selftest.yml` – former weekly wrapper around the CI self-test matrix.
 - `Old/workflows/reusable-99-selftest.yml` – archived composite covering reusable CI feature combinations.
+- `maint-43-selftest-pr-comment.yml` – deleted; previously posted PR comments summarising self-test matrices.
+- `maint-44-selftest-reusable-ci.yml` – deleted reusable-integration cron (matrix coverage moved to the
+  main CI jobs).
+- `maint-48-selftest-reusable-ci.yml` – deleted; short-lived variant of the reusable matrix exerciser.
+- `pr-20-selftest-pr-comment.yml` – deleted; PR-triggered comment bot that duplicated the maintenance
+  wrapper.
 
-See [ARCHIVE_WORKFLOWS.md](../../ARCHIVE_WORKFLOWS.md) for the full ledger of retired workflows and rationale.
+See [ARCHIVE_WORKFLOWS.md](../../ARCHIVE_WORKFLOWS.md) for the full ledger of retired workflows and
+rationale, including notes on the removed files.
 
 ## Contributor Quick Start
 
