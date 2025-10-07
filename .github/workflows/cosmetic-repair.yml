@@ -78,6 +78,8 @@ jobs:
       - name: Capture cosmetic summary outputs
         if: always()
         id: cosmetic-summary
+        env:
+          SUMMARY_FILE: .cosmetic-repair-summary.json
         run: |
           python -c 'from textwrap import dedent; exec(dedent("""
               import json
