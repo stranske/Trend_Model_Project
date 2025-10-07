@@ -24,7 +24,9 @@ def _write_junit(tmp_path: Path, message: str) -> Path:
             </failure>
           </testcase>
         </testsuite>
-    """.strip().format(message=escape(message, {'"': "&quot;"}))
+    """.strip().format(
+        message=escape(message, {'"': "&quot;"})
+    )
     path = tmp_path / "report.xml"
     path.write_text(junit, encoding="utf-8")
     return path
@@ -40,12 +42,12 @@ def test_cosmetic_repair_updates_guarded_value(tmp_path: Path) -> None:
     )
     message = (
         "COSMETIC_TOLERANCE "
-        "{"\
-        "\"path\": \"tests/fixtures/baseline.py\", "
-        "\"guard\": \"float\", "
-        "\"key\": \"EXPECTED_ALPHA\", "
-        "\"actual\": 1.23456, "
-        "\"digits\": 5}"
+        "{"
+        '"path": "tests/fixtures/baseline.py", '
+        '"guard": "float", '
+        '"key": "EXPECTED_ALPHA", '
+        '"actual": 1.23456, '
+        '"digits": 5}'
     )
     report = _write_junit(repo_root, message)
 
@@ -73,12 +75,12 @@ def test_cosmetic_repair_refuses_without_guard(tmp_path: Path) -> None:
     target.write_text("EXPECTED_ALPHA = 1.23\n", encoding="utf-8")
     message = (
         "COSMETIC_TOLERANCE "
-        "{"\
-        "\"path\": \"tests/fixtures/baseline.py\", "
-        "\"guard\": \"float\", "
-        "\"key\": \"EXPECTED_ALPHA\", "
-        "\"actual\": 1.23456, "
-        "\"digits\": 5}"
+        "{"
+        '"path": "tests/fixtures/baseline.py", '
+        '"guard": "float", '
+        '"key": "EXPECTED_ALPHA", '
+        '"actual": 1.23456, '
+        '"digits": 5}'
     )
     report = _write_junit(repo_root, message)
 
