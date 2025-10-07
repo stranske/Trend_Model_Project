@@ -1,0 +1,382 @@
+name: Maint 41 ChatGPT Issue Sync
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo_file:
+        description: "Primary: path (in repo) to topics file (preferred for large lists)"
+        required: false
+        type: string
+      raw_input:
+        description: "Secondary: small pasted topic list (may truncate around 1KB)"
+        required: false
+        type: string
+      source_url:
+        description: "Fallback: raw text URL (raw.githubusercontent.com / Gist raw)"
+        required: false
+        type: string
+      debug:
+        description: Enable verbose debug diagnostics
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  sync:
+    name: Normalize ChatGPT topics into GitHub issues
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Echo received inputs
+        run: |
+          echo "Inputs JSON:" '${{ toJson(github.event.inputs) }}'
+          echo "Selected ref: ${GITHUB_REF}"
+
+      - name: Prepare topic source
+        env:
+          RAW_INPUT_JSON: ${{ toJson(github.event.inputs.raw_input) }}
+          SOURCE_URL: ${{ github.event.inputs.source_url }}
+          REPO_FILE: ${{ github.event.inputs.repo_file }}
+          DEBUG_FLAG: ${{ github.event.inputs.debug }}
+        run: |
+          set -euo pipefail
+          echo "Ref: ${GITHUB_REF} Commit: ${GITHUB_SHA}" >&2
+          echo "Debug input (raw): '${DEBUG_FLAG}'" >&2
+          # Precedence: repo_file > raw_input > source_url
+          if [ -n "${REPO_FILE}" ]; then
+            if [ -f "${REPO_FILE}" ]; then
+              python .github/scripts/decode_raw_input.py --passthrough --in "${REPO_FILE}" --source repo_file
+            else
+              echo "::error::repo_file '${REPO_FILE}' not found in repository." >&2; exit 1
+            fi
+          elif [ -n "${RAW_INPUT_JSON}" ] && [ "${RAW_INPUT_JSON}" != "null" ]; then
+            printf '%s' "${RAW_INPUT_JSON}" > raw_input.json
+            python .github/scripts/decode_raw_input.py --source raw_input || python .github/scripts/decode_raw_input.py
+          elif [ -n "${SOURCE_URL}" ]; then
+            tmp_dl=$(mktemp)
+            if ! curl -fsSL "${SOURCE_URL}" -o "$tmp_dl"; then
+              echo "::error::Failed to download content from ${SOURCE_URL}" >&2; exit 1
+            fi
+            python .github/scripts/decode_raw_input.py --passthrough --in "$tmp_dl" --source source_url
+          else
+            echo "::error::Provide one of repo_file, raw_input, or source_url when dispatching this workflow." >&2; exit 1
+          fi
+          if ! [ -s input.txt ]; then
+            echo "::error::The provided input was empty." >&2
+            exit 1
+          fi
+          if [ -f raw_input.json ]; then
+            size=$(wc -c < raw_input.json || echo 0)
+            if [ "$size" -ge 1024 ]; then
+              echo "::warning::raw_input size is $size bytes (possible truncation). Prefer repo_file or source_url." >&2
+            fi
+          fi
+
+      - name: Debug artifacts (raw/decoded)
+        if: ${{ github.event.inputs.debug == 'true' }}
+        run: |
+          echo '--- DEBUG: file inventory ---'
+          # shellcheck disable=SC2012
+          ls -al . | sed 's/^/  /'
+          if [ -f raw_input.json ]; then
+            echo "--- DEBUG: raw_input.json (size) ---"; wc -c raw_input.json
+            echo '--- DEBUG: raw_input.json (first 240 chars) ---'
+            head -c 240 raw_input.json | sed 's/[[:cntrl:]]/./g'; echo
+            echo '--- DEBUG: raw_input.json (hexdump first 256 bytes) ---'
+            head -c 256 raw_input.json | hexdump -C || true
+          else
+            echo 'raw_input.json missing'
+          fi
+          if [ -f input.txt ]; then
+            echo "--- DEBUG: input.txt (size + line count) ---"; wc -cl input.txt
+            echo '--- DEBUG: input.txt (first 240 chars) ---'
+            head -c 240 input.txt | sed 's/[[:cntrl:]]/./g'; echo
+          else
+            echo 'input.txt missing'
+          fi
+
+      - name: Upload debug artifacts
+        if: ${{ always() && github.event.inputs.debug == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-sync-debug
+          path: |
+            raw_input.json
+            input.txt
+            topics.json
+            decode_debug.json
+          if-no-files-found: ignore
+
+      - name: Parse topics
+        env:
+          ALLOW_SINGLE_TOPIC: '1'
+        run: |
+          set -euo pipefail
+          echo '--- INPUT PREVIEW (first 200 chars) ---'
+          head -c 200 input.txt 2>/dev/null | sed 's/[[:cntrl:]]/./g' || true
+          printf '\n--------------------------------------\n'
+          if python .github/scripts/parse_chatgpt_topics.py; then
+            echo 'Parser succeeded.'
+          else
+            ec=$?
+            case "$ec" in
+              2) echo '::error::Exit 2 (empty after trimming). Ensure raw_input or source_url contains non-whitespace content.' ;;
+              3) echo '::error::Exit 3 (no enumerated topics). Provide numbered lines.' ;;
+              4) echo '::error::Exit 4 (parsed zero topics unexpectedly).' ;;
+              *) echo "::error::Parser failed with exit code $ec." ;;
+            esac
+            # Fallback: if enumerators detected by decoder (decode_debug.json) and code==3, attempt naive split
+            if [ "$ec" -eq 3 ] && [ -f decode_debug.json ]; then
+              enum_count=$(jq '.rebuilt_enum_count // 0' decode_debug.json 2>/dev/null || echo 0)
+              if [ "$enum_count" -gt 0 ]; then
+                echo '::warning::Structured parser failed; invoking fallback enumerator splitter.'
+                python .github/scripts/fallback_split.py || true
+                if [ -f topics.json ]; then
+                  tmp=$(mktemp)
+                  if jq '. + {fallback_used: true}' decode_debug.json > "$tmp"; then
+                    mv "$tmp" decode_debug.json
+                  else
+                    rm -f "$tmp"
+                  fi
+                  echo 'Fallback succeeded.'
+                  ec=0
+                fi
+              fi
+            fi
+            if [ "$ec" -ne 0 ]; then
+              exit $ec
+            fi
+          fi
+          echo 'Topics length:'
+          if [ -f topics.json ]; then jq 'length' topics.json || true; fi
+          if [ -f decode_debug.json ] && [ -f topics.json ]; then
+            topics_count=$(jq 'length' topics.json 2>/dev/null || echo 0)
+            first_title=$(jq -r '.[0].title // ""' topics.json 2>/dev/null || echo "")
+            tmp=$(mktemp)
+            if jq --arg tc "$topics_count" --arg ft "$first_title" '. + {parsed_topics: ($tc|tonumber), first_title: $ft}' decode_debug.json > "$tmp"; then
+              mv "$tmp" decode_debug.json
+            else
+              rm -f "$tmp"
+            fi
+          fi
+
+      - name: Sync issues
+        uses: actions/github-script@v7
+        env:
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const fs = require('fs');
+            const crypto = require('crypto');
+            const topics = JSON.parse(fs.readFileSync('topics.json', 'utf8'));
+            if (!Array.isArray(topics) || topics.length === 0) {
+              core.setFailed('No topics to process.');
+              return;
+            }
+            const { owner, repo } = context.repo;
+            const normalize = (name) => name.toLowerCase().replace(/[^a-z0-9]+/g, '');
+            const canonicalizeNewLabel = (name) => {
+              let cleaned = name.trim().toLowerCase();
+              cleaned = cleaned.replace(/[_\u2013\u2014]/g, ' ');
+              cleaned = cleaned.replace(/[^a-z0-9: ]+/g, ' ').replace(/\s+/g, ' ').trim();
+              if (!cleaned) return name.trim();
+              if (cleaned.includes(':')) {
+                return cleaned
+                  .split(':')
+                  .map((s) => s.trim().replace(/\s+/g, '-'))
+                  .join(':');
+              }
+              const parts = cleaned.split(' ');
+              if (parts.length > 1) return `${parts[0]}:${parts.slice(1).join('-')}`;
+              return cleaned.replace(/\s+/g, '-');
+            };
+            const levenshtein = (a, b) => {
+              const dp = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0));
+              for (let i = 0; i <= a.length; i++) dp[i][0] = i;
+              for (let j = 0; j <= b.length; j++) dp[0][j] = j;
+              for (let i = 1; i <= a.length; i++)
+                for (let j = 1; j <= b.length; j++) {
+                  const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+                  dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
+                }
+              return dp[a.length][b.length];
+            };
+            const labelsCache = await github.paginate(
+              github.rest.issues.listLabelsForRepo,
+              { owner, repo, per_page: 100 },
+            );
+            const usedColors = new Set(labelsCache.map((l) => l.color.toLowerCase()));
+            const findMatchingLabel = (input) => {
+              const candidates = [input];
+              if (!input.includes(':')) candidates.push(canonicalizeNewLabel(input));
+              for (const cand of candidates) {
+                const norm = normalize(cand);
+                if (!norm) continue;
+                for (const label of labelsCache) {
+                  if (normalize(label.name) === norm) return label.name;
+                }
+                const partial = labelsCache
+                  .map((label) => ({ label, norm: normalize(label.name) }))
+                  .filter((o) => o.norm && (o.norm.includes(norm) || norm.includes(o.norm)));
+                if (partial.length === 1) return partial[0].label.name;
+                if (partial.length > 1) {
+                  let best = null;
+                  let bestScore = Infinity;
+                  for (const m of partial) {
+                    const d = levenshtein(m.norm, norm);
+                    const r = d / Math.max(m.norm.length, norm.length);
+                    if (r < bestScore) {
+                      best = m.label.name;
+                      bestScore = r;
+                    }
+                  }
+                  if (best !== null && bestScore <= 0.35) return best;
+                }
+              }
+              return null;
+            };
+            const generateColor = (name) => {
+              const base = crypto.createHash('md5').update(name.toLowerCase()).digest('hex').slice(0, 6);
+              if (!usedColors.has(base)) {
+                usedColors.add(base);
+                return base;
+              }
+              let c = 1;
+              while (c < 4096) {
+                const val = (parseInt(base, 16) + c * 0x111111) % 0xffffff;
+                const cand = val.toString(16).padStart(6, '0');
+                if (!usedColors.has(cand)) {
+                  usedColors.add(cand);
+                  return cand;
+                }
+                c++;
+              }
+              usedColors.add('777777');
+              return '777777';
+            };
+            const ensureLabel = async (input) => {
+              const trimmed = input.trim();
+              if (!trimmed) return null;
+              const existing = findMatchingLabel(trimmed);
+              if (existing) return existing;
+              const newName = canonicalizeNewLabel(trimmed);
+              const already = findMatchingLabel(newName);
+              if (already) return already;
+              const color = generateColor(newName);
+              try {
+                const created = await github.rest.issues.createLabel({
+                  owner,
+                  repo,
+                  name: newName,
+                  color,
+                  description: `Synthesized from ChatGPT import for ${trimmed}`,
+                });
+                labelsCache.push(created.data);
+                return created.data.name;
+              } catch (e) {
+                core.warning(`Failed to create label for "${trimmed}": ${e.message}`);
+                return null;
+              }
+            };
+            const formatTasks = (text) => {
+              if (!text || !text.trim()) return '_Not provided._';
+              const lines = text.split('\n');
+              const out = [];
+              let inFence = false;
+              for (const raw of lines) {
+                const tr = raw.trim();
+                if (tr.startsWith('```')) {
+                  inFence = !inFence;
+                  out.push(raw);
+                  continue;
+                }
+                if (!inFence && /^[-*]\s+/.test(tr)) {
+                  out.push(raw.replace(/^\s*[-*]\s+/, '- [ ] '));
+                } else {
+                  out.push(raw);
+                }
+              }
+              return out.join('\n').trim() || '_Not provided._';
+            };
+            const ensureContent = (t) => (t && t.trim() ? t.trim() : '_Not provided._');
+            const buildBody = (topic) => {
+              const lines = [];
+              lines.push(`Topic GUID: ${topic.guid}`, '', '## Why');
+              const why =
+                (topic.sections?.why && topic.sections.why.trim()) ||
+                topic.extras?.trim() ||
+                '_Not provided._';
+              lines.push(why, '', '## Tasks', formatTasks(topic.sections?.tasks || ''));
+              lines.push('', '## Acceptance criteria', ensureContent(topic.sections?.acceptance_criteria || ''));
+              lines.push('', '## Implementation notes', ensureContent(topic.sections?.implementation_notes || ''));
+              lines.push('', '---', `Synced by [workflow run](${process.env.RUN_URL}).`);
+              return lines.join('\n');
+            };
+            for (const topic of topics) {
+              try {
+                const desired = [];
+                for (const rawLabel of topic.labels || []) {
+                  const resolved = await ensureLabel(rawLabel);
+                  if (resolved) desired.push(resolved);
+                  else core.warning(`Skipped label "${rawLabel}" for ${topic.title}.`);
+                }
+                const unique = Array.from(new Set(desired));
+                const body = buildBody(topic);
+                const title = topic.title;
+                const guid = topic.guid;
+                let issueNumber = null;
+                let state = 'open';
+                const searchOpen = await github.rest.search.issuesAndPullRequests({
+                  q: `repo:${owner}/${repo} "${guid}" in:body is:issue is:open`,
+                  per_page: 1,
+                });
+                if (searchOpen.data.items.length) {
+                  issueNumber = searchOpen.data.items[0].number;
+                } else {
+                  const searchAny = await github.rest.search.issuesAndPullRequests({
+                    q: `repo:${owner}/${repo} "${guid}" in:body is:issue`,
+                    per_page: 1,
+                  });
+                  if (searchAny.data.items.length) {
+                    issueNumber = searchAny.data.items[0].number;
+                    state = searchAny.data.items[0].state;
+                  }
+                }
+                if (issueNumber) {
+                  const issueData = await github.rest.issues.get({ owner, repo, issue_number: issueNumber });
+                  const current = (issueData.data.labels || [])
+                    .map((l) => l.name)
+                    .filter(Boolean);
+                  const final = Array.from(new Set([...current, ...unique]));
+                  const payload = { owner, repo, issue_number: issueNumber, title, body, labels: final };
+                  if (issueData.data.state === 'closed') payload.state = 'open';
+                  await github.rest.issues.update(payload);
+                  try {
+                    await github.rest.issues.createComment({
+                      owner,
+                      repo,
+                      issue_number: issueNumber,
+                      body: `Updated by [workflow run](${process.env.RUN_URL}).`,
+                    });
+                  } catch (e) {
+                    core.warning(`Failed to comment on issue #${issueNumber}: ${e.message}`);
+                  }
+                } else {
+                  const created = await github.rest.issues.create({
+                    owner,
+                    repo,
+                    title,
+                    body,
+                    labels: unique,
+                  });
+                  core.info(`Created issue #${created.data.number} for ${title}.`);
+                }
+              } catch (e) {
+                core.warning(`Failed to process topic "${topic.title}": ${e.message}`);
+              }
+            }
