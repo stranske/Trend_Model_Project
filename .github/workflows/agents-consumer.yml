@@ -1,0 +1,163 @@
+name: Agents Consumer
+
+on:
+  schedule:
+    - cron: '15 * * * *'
+  workflow_dispatch:
+    inputs:
+      params_json:
+        description: >-
+          JSON configuration for the agents toolkit (example: {"enable_readiness":true,"readiness_agents":"copilot,codex","enable_watchdog":true})
+        required: false
+        default: '{"enable_readiness":false,"enable_watchdog":true,"bootstrap_issues_label":"agent:codex","draft_pr":false}'
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: agents-consumer
+  cancel-in-progress: false
+
+jobs:
+  resolve-params:
+    name: Resolve Parameters
+    runs-on: ubuntu-latest
+    outputs:
+      enable_readiness: ${{ steps.parse.outputs.enable_readiness }}
+      readiness_agents: ${{ steps.parse.outputs.readiness_agents }}
+      custom_logins: ${{ steps.parse.outputs.custom_logins }}
+      require_all: ${{ steps.parse.outputs.require_all }}
+      enable_preflight: ${{ steps.parse.outputs.enable_preflight }}
+      codex_user: ${{ steps.parse.outputs.codex_user }}
+      codex_command_phrase: ${{ steps.parse.outputs.codex_command_phrase }}
+      enable_verify_issue: ${{ steps.parse.outputs.enable_verify_issue }}
+      verify_issue_number: ${{ steps.parse.outputs.verify_issue_number }}
+      enable_watchdog: ${{ steps.parse.outputs.enable_watchdog }}
+      bootstrap_issues_label: ${{ steps.parse.outputs.bootstrap_issues_label }}
+      draft_pr: ${{ steps.parse.outputs.draft_pr }}
+      options_json: ${{ steps.parse.outputs.options_json }}
+    steps:
+      - name: Parse params_json
+        id: parse
+        uses: actions/github-script@v7
+        with:
+          params_json: ${{ inputs.params_json || '' }}
+          script: |
+            const defaults = {
+              enable_readiness: false,
+              readiness_agents: 'copilot,codex',
+              custom_logins: '',
+              require_all: false,
+              enable_preflight: false,
+              codex_user: '',
+              codex_command_phrase: '',
+              enable_verify_issue: false,
+              verify_issue_number: '',
+              enable_watchdog: true,
+              bootstrap_issues_label: 'agent:codex',
+              draft_pr: false,
+              options_json: '{}',
+            };
+
+            const raw = core.getInput('params_json');
+            let parsed = {};
+            if (raw && raw.trim()) {
+              try {
+                parsed = JSON.parse(raw);
+              } catch (error) {
+                core.warning(`Invalid params_json payload (${error.message}). Falling back to defaults.`);
+              }
+            }
+
+            const asString = (value, fallback = '') => {
+              if (value === undefined || value === null) {
+                return fallback;
+              }
+              if (Array.isArray(value)) {
+                return value.map((item) => String(item).trim()).filter(Boolean).join(',');
+              }
+              return String(value);
+            };
+
+            const asBoolString = (value, fallback) => {
+              const candidate = value === undefined ? fallback : value;
+              if (typeof candidate === 'boolean') {
+                return candidate ? 'true' : 'false';
+              }
+              if (typeof candidate === 'number') {
+                return candidate !== 0 ? 'true' : 'false';
+              }
+              if (typeof candidate === 'string') {
+                const norm = candidate.trim().toLowerCase();
+                if (['true', '1', 'yes', 'y', 'on'].includes(norm)) {
+                  return 'true';
+                }
+                if (['false', '0', 'no', 'n', 'off', ''].includes(norm)) {
+                  return 'false';
+                }
+              }
+              return fallback ? 'true' : 'false';
+            };
+
+            const get = (key) => parsed[key] ?? defaults[key];
+
+            const readinessAgents = asString(get('readiness_agents'), defaults.readiness_agents);
+            const customLogins = asString(get('custom_logins'), defaults.custom_logins);
+            const codexUser = asString(get('codex_user'), defaults.codex_user);
+            const codexCommandPhrase = asString(get('codex_command_phrase'), defaults.codex_command_phrase);
+            const bootstrapLabel = asString(get('bootstrap_issues_label'), defaults.bootstrap_issues_label);
+            const verifyIssueNumber = asString(get('verify_issue_number'), defaults.verify_issue_number).trim();
+            const optionsJson = asString(get('options_json'), defaults.options_json) || '{}';
+
+            const outputs = {
+              enable_readiness: asBoolString(get('enable_readiness'), defaults.enable_readiness),
+              readiness_agents: readinessAgents,
+              custom_logins: customLogins,
+              require_all: asBoolString(get('require_all'), defaults.require_all),
+              enable_preflight: asBoolString(get('enable_preflight'), defaults.enable_preflight),
+              codex_user: codexUser,
+              codex_command_phrase: codexCommandPhrase,
+              enable_verify_issue: asBoolString(
+                get('enable_verify_issue'),
+                defaults.enable_verify_issue || verifyIssueNumber !== ''
+              ),
+              verify_issue_number: verifyIssueNumber,
+              enable_watchdog: asBoolString(get('enable_watchdog'), defaults.enable_watchdog),
+              bootstrap_issues_label: bootstrapLabel,
+              draft_pr: asBoolString(get('draft_pr'), defaults.draft_pr),
+              options_json: optionsJson.trim() ? optionsJson : '{}',
+            };
+
+            for (const [key, value] of Object.entries(outputs)) {
+              core.setOutput(key, value);
+            }
+
+            const summary = core.summary;
+            summary.addHeading('Agents Consumer Parameters');
+            summary.addTable([
+              [{ data: 'Key', header: true }, { data: 'Value', header: true }],
+              ...Object.entries(outputs).map(([key, value]) => [key, String(value)])
+            ]);
+            await summary.write();
+  dispatch:
+    name: Dispatch Agents Toolkit
+    needs: resolve-params
+    uses: ./.github/workflows/reuse-agents.yml
+    secrets: inherit
+    with:
+      enable_readiness: ${{ needs.resolve-params.outputs.enable_readiness }}
+      readiness_agents: ${{ needs.resolve-params.outputs.readiness_agents }}
+      custom_logins: ${{ needs.resolve-params.outputs.custom_logins }}
+      require_all: ${{ needs.resolve-params.outputs.require_all }}
+      enable_preflight: ${{ needs.resolve-params.outputs.enable_preflight }}
+      codex_user: ${{ needs.resolve-params.outputs.codex_user }}
+      codex_command_phrase: ${{ needs.resolve-params.outputs.codex_command_phrase }}
+      enable_verify_issue: ${{ needs.resolve-params.outputs.enable_verify_issue }}
+      verify_issue_number: ${{ needs.resolve-params.outputs.verify_issue_number }}
+      enable_watchdog: ${{ needs.resolve-params.outputs.enable_watchdog }}
+      bootstrap_issues_label: ${{ needs.resolve-params.outputs.bootstrap_issues_label }}
+      draft_pr: ${{ needs.resolve-params.outputs.draft_pr }}
+      options_json: ${{ needs.resolve-params.outputs.options_json }}
