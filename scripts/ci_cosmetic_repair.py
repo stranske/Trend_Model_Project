@@ -22,8 +22,10 @@ from __future__ import annotations
 
 import argparse
 import datetime as _dt
-import importlib
 import json
+import os
+import re
+import subprocess
 import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -58,14 +60,26 @@ def _discover_expectation_modules() -> tuple[str, ...]:
 _EXPECTATION_MODULES: tuple[str, ...] = _discover_expectation_modules()
 
 
-@dataclass
-class FixResult:
-    """Metadata describing an attempted repair."""
+class CosmeticRepairError(RuntimeError):
+    """Raised when a cosmetic repair cannot be completed safely."""
 
-    test_id: str
-    fixer: str
-    status: str
-    detail: str | None = None
+
+@dataclass(slots=True)
+class RepairInstruction:
+    """Structured representation of a cosmetic repair request."""
+
+    kind: str
+    path: Path
+    guard: str
+    key: str | None
+    value: object
+    metadata: dict[str, object]
+    source: str
+
+    def absolute_path(self, root: Path) -> Path:
+        """Return the absolute path for this instruction relative to *root*."""
+
+        return root / self.path
 
 
 def _run(
@@ -180,11 +194,25 @@ def _format_value(data: dict[str, object]) -> str:
 
 
 def load_failure_records(report_path: Path) -> list[FailureRecord]:
-    summary = classify_test_failures.classify_reports([report_path])
+    summary = classify_reports([report_path])
+    cosmetic_entries = summary.get("cosmetic", [])
+    runtime_entries = summary.get("runtime", [])
+    unknown_entries = summary.get("unknown", [])
+    if runtime_entries or unknown_entries:
+        raise CosmeticRepairError(
+            "Cosmetic repair only supports reports with cosmetic failures"
+        )
     records: list[FailureRecord] = []
-    for bucket in ("cosmetic",):
-        for item in summary[bucket]:
-            records.append(FailureRecord(id=item["id"], message=item["message"]))
+    for item in cosmetic_entries:
+        records.append(
+            FailureRecord(
+                id=item.get("id", ""),
+                file=item.get("file", ""),
+                markers=tuple(item.get("markers", ())),
+                message=item.get("message", ""),
+                failure_type=item.get("failure_type", "failure"),
+            )
+        )
     return records
 
 
@@ -385,84 +413,7 @@ def build_pr_body(
     )
 
 
-_FIXERS: tuple[CosmeticFixer, ...] = (
-    AggregateNumbersFixer(),
-    ExpectationUpdateFixer(),
-)
-
-
-def _load_failures(reports: Iterable[str | Path]) -> list[FailureRecord]:
-    summary = classify_reports(reports)
-    cosmetic_records = summary.get("cosmetic", [])
-    runtime = summary.get("runtime", [])
-    unknown = summary.get("unknown", [])
-    if runtime or unknown:
-        print(
-            "[ci_cosmetic_repair] Runtime or unknown failures detected; skipping repair."
-        )
-        return []
-    records: list[FailureRecord] = []
-    for payload in cosmetic_records:
-        records.append(
-            FailureRecord(
-                id=payload["id"],
-                file=payload["file"],
-                markers=tuple(payload.get("markers", ())),
-                message=payload.get("message", ""),
-                failure_type=payload.get("failure_type", "failure"),
-            )
-        )
-    return records
-
-
-def _run_fixers(records: Sequence[FailureRecord]) -> list[FixResult]:
-    results: list[FixResult] = []
-    for record in records:
-        handled = False
-        for fixer in _FIXERS:
-            if fixer.matches(record):
-                result = fixer.apply(record)
-                results.append(result)
-                handled = True
-                break
-        if not handled:
-            results.append(
-                FixResult(
-                    test_id=record.id,
-                    fixer="unhandled",
-                    status="skipped",
-                    detail="No fixer registered for this failure",
-                )
-            )
-    return results
-
-
-def _summarise(results: Sequence[FixResult]) -> dict[str, object]:
-    applied = [r for r in results if r.status == "applied"]
-    return {
-        "total": len(results),
-        "applied": len(applied),
-        "results": [r.__dict__ for r in results],
-    }
-
-
-def _append_log_entries(results: Sequence[FixResult]) -> None:
-    timestamp = (
-        _dt.datetime.now(_dt.timezone.utc)
-        .replace(microsecond=0)
-        .isoformat()
-        .replace("+00:00", "Z")
-    )
-    entries = []
-    for result in results:
-        if result.status != "applied":
-            continue
-        detail = f" – {result.detail}" if result.detail else ""
-        entries.append(f"- {timestamp} – {result.fixer} for {result.test_id}{detail}")
-    _append_guard_entries(entries)
-
-
-def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
+def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument(
