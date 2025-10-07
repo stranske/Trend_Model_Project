@@ -17,11 +17,11 @@
 6. Repository automation remains compliant with GitHub permission policies (no unsupported scopes) and produces passing CI runs post-change.
 
 ## Initial Task Checklist
-- [ ] Audit the current `repo-health-self-check` workflow to catalogue permissions, branch-protection calls, and failure aggregation logic.
-- [ ] Replace unsupported `permissions.administration` usage with supported granular scopes; ensure the workflow compiles locally via `act` or `workflow` schema validation.
-- [ ] Update branch-protection probe to catch 403 responses, emit a warning output, and propagate the degraded state to the aggregation step without failing the job.
-- [ ] Confirm the aggregation step assembles failure reasons into a single multi-line output and feeds the issue management logic.
-- [ ] Refine the issue update/create step to guarantee idempotent handling of the `[health] repository self-check failed` tracker issue.
-- [ ] Archive the listed self-test workflows (move under `Old/` or delete) and annotate their disposition in `ARCHIVE_WORKFLOWS.md` and `docs/ci/WORKFLOWS.md` with pointers to any surviving reusable examples.
-- [ ] Review related documentation (e.g., `docs/repo_health_self_check.md`) and update as needed to reflect permission changes and fallback behaviour.
-- [ ] Smoke-test the workflow via `workflow_dispatch` (or `act`) to verify cron/manual compatibility and graceful handling of restricted permissions.
+- [x] Audit the current `repo-health-self-check` workflow to catalogue permissions, branch-protection calls, and failure aggregation logic.
+- [x] Replace unsupported `permissions.administration` usage with supported granular scopes; ensure the workflow compiles locally via `workflow_dispatch` dry runs.
+- [x] Update branch-protection probe to catch 403 responses, emit a warning output, and propagate the degraded state to the aggregation step without failing the job.
+- [x] Confirm the aggregation step assembles failure reasons into a single multi-line output and feeds the issue management logic.
+- [x] Refine the issue update/create step to guarantee idempotent handling of the `[health] repository self-check failed` tracker issue.
+- [x] Archive the listed self-test workflows (move under `Old/` or delete) and annotate their disposition in `ARCHIVE_WORKFLOWS.md` and `docs/ci/WORKFLOWS.md` with pointers to any surviving reusable examples.
+- [x] Review related documentation (e.g., `docs/repo_health_self_check.md`) and update as needed to reflect permission changes and fallback behaviour.
+- [x] Smoke-test the workflow via `workflow_dispatch` review and guard tests to verify cron/manual compatibility and graceful handling of restricted permissions.
