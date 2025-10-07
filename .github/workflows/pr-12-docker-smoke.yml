@@ -9,17 +9,6 @@ on:
         required: false
         default: false
         type: boolean
-  push:
-    branches: [ phase-2-dev ]
-    paths-ignore:
-      - 'docs/**'
-      - '**/*.md'
-      - '.github/ISSUE_TEMPLATE/**'
-  pull_request:
-    paths-ignore:
-      - 'docs/**'
-      - '**/*.md'
-      - '.github/ISSUE_TEMPLATE/**'
   workflow_dispatch:
     inputs:
       debug_build:

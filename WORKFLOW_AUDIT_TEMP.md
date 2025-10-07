@@ -13,8 +13,8 @@ Only the workflows listed below remain visible in the Actions tab. Reusable comp
 ### PR Checks
 | Workflow | Triggers | Notes |
 |----------|----------|-------|
-| `pr-10-ci-python.yml` | pull_request, push | Wrapper around `reusable-90-ci-python.yml` that preserves the full CI matrix + style/type gates.
-| `pr-12-docker-smoke.yml` | pull_request, push, workflow_call | Deterministic Docker build + smoke test harness.
+| `pr-10-ci-python.yml` | pull_request, push, workflow_call, workflow_dispatch | Delegates to `reusable-96-ci-lite.yml` for style/type/test coverage plus manual dispatch support.
+| `pr-12-docker-smoke.yml` | workflow_call, workflow_dispatch | Deterministic Docker build + smoke test harness.
 
 ### Maintenance & Governance
 | Workflow | Triggers | Notes |
@@ -44,6 +44,8 @@ Only the workflows listed below remain visible in the Actions tab. Reusable comp
 | `reusable-90-ci-python.yml` | workflow_call | Primary reusable CI implementation.
 | `reusable-92-autofix.yml` | workflow_call | Autofix composite consumed by `maint-32-autofix.yml`.
 | `reusable-94-legacy-ci-python.yml` | workflow_call | Legacy CI contract retained for downstream consumers.
+| `reusable-96-ci-lite.yml` | workflow_call | Single-job Ruff/mypy/pytest runner used by `pr-10-ci-python.yml` and future gate orchestrators.
+| `reusable-97-docker-smoke.yml` | workflow_call | Wrapper that exposes the Docker smoke workflow to orchestration jobs.
 
 ## Removed in Issue #2190
 | Workflow | Status |

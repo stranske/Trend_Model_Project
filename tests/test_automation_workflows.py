@@ -148,50 +148,61 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         job = jobs["python"]
         self.assertEqual(job.get("name"), "ci / python")
 
-        steps = "\n".join(
-            step["run"].strip()
-            for step in job.get("steps", [])
-            if isinstance(step, dict) and "run" in step
-        )
+        if "uses" in job:
+            self.assertEqual(
+                job["uses"],
+                "./.github/workflows/reusable-96-ci-lite.yml",
+                "pr-10 must delegate to the lightweight reusable CI workflow",
+            )
+            with_block = job.get("with", {})
+            self.assertIn("coverage-min", with_block)
+            self.assertIn("python-version", with_block)
+            self.assertIn("marker", with_block)
+        else:
+            steps = "\n".join(
+                step["run"].strip()
+                for step in job.get("steps", [])
+                if isinstance(step, dict) and "run" in step
+            )
 
-        self._assert_contains(
-            steps,
-            [
-                "black --check .",
-                "ruff check",
-                "mypy --config-file pyproject.toml",
-                "pytest --junitxml=pytest-junit.xml \\",
-                "--cov=src",
-                "coverage.xml",
-            ],
-            context="ci / python job",
-        )
+            self._assert_contains(
+                steps,
+                [
+                    "black --check .",
+                    "ruff check",
+                    "mypy --config-file pyproject.toml",
+                    "pytest --junitxml=pytest-junit.xml \\",
+                    "--cov=src",
+                    "coverage.xml",
+                ],
+                context="ci / python job",
+            )
 
-        upload_steps = [
-            step
-            for step in job.get("steps", [])
-            if isinstance(step, dict)
-            and step.get("uses", "").startswith("actions/upload-artifact@v4")
-        ]
-        self.assertTrue(
-            upload_steps, "ci / python job must upload diagnostics artifact"
-        )
-
-        summary_step = next(
-            (
+            upload_steps = [
                 step
                 for step in job.get("steps", [])
-                if step.get("name") == "Publish coverage summary"
-            ),
-            {},
-        )
-        self.assertTrue(summary_step, "coverage summary step must be present")
-        env_block = summary_step.get("env", {})
-        self.assertEqual(
-            env_block.get("SUMMARY_PATH"),
-            "${{ github.step_summary }}",
-            "coverage summary step should append to the GitHub job summary",
-        )
+                if isinstance(step, dict)
+                and step.get("uses", "").startswith("actions/upload-artifact@v4")
+            ]
+            self.assertTrue(
+                upload_steps, "ci / python job must upload diagnostics artifact"
+            )
+
+            summary_step = next(
+                (
+                    step
+                    for step in job.get("steps", [])
+                    if step.get("name") == "Publish coverage summary"
+                ),
+                {},
+            )
+            self.assertTrue(summary_step, "coverage summary step must be present")
+            env_block = summary_step.get("env", {})
+            self.assertEqual(
+                env_block.get("SUMMARY_PATH"),
+                "${{ github.step_summary }}",
+                "coverage summary step should append to the GitHub job summary",
+            )
 
     def test_gate_workflow_file_is_absent(self) -> None:
         for suffix in (".yml", ".yaml"):
@@ -279,14 +290,39 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         workflow = self._read_workflow("pr-10-ci-python.yml")
         job = workflow.get("jobs", {}).get("python", {})
         steps = job.get("steps", [])
-        coverage_step = next(
-            (step for step in steps if step.get("name") == "Enforce coverage minimum"),
-            {},
-        )
-        self.assertTrue(coverage_step, "ci / python job must enforce coverage minimum")
-        run_block = coverage_step.get("run", "")
-        self.assertIn("coverage.xml", run_block)
-        self.assertIn("COVERAGE_MINIMUM", run_block)
+        if "uses" in job:
+            reusable = self._read_workflow("reusable-96-ci-lite.yml")
+            reusable_steps = reusable.get("jobs", {}).get("tests", {}).get("steps", [])
+            coverage_step = next(
+                (
+                    step
+                    for step in reusable_steps
+                    if step.get("name") == "Enforce coverage minimum"
+                ),
+                {},
+            )
+            self.assertTrue(
+                coverage_step,
+                "Reusable CI workflow must enforce coverage minimum",
+            )
+            run_block = coverage_step.get("run", "")
+            self.assertIn("coverage.xml", run_block)
+            self.assertIn("COVERAGE_MINIMUM", run_block)
+        else:
+            coverage_step = next(
+                (
+                    step
+                    for step in steps
+                    if step.get("name") == "Enforce coverage minimum"
+                ),
+                {},
+            )
+            self.assertTrue(
+                coverage_step, "ci / python job must enforce coverage minimum"
+            )
+            run_block = coverage_step.get("run", "")
+            self.assertIn("coverage.xml", run_block)
+            self.assertIn("COVERAGE_MINIMUM", run_block)
 
     def test_syntax_demo_missing_colon(self):
         self.assertTrue(True)
