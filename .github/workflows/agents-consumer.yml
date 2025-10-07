@@ -43,8 +43,9 @@ jobs:
       - name: Parse params_json
         id: parse
         uses: actions/github-script@v7
+        env:
+          PARAMS_JSON: ${{ github.event.inputs.params_json || '' }}
         with:
-          params_json: ${{ inputs.params_json || '' }}
           script: |
             const defaults = {
               enable_readiness: false,
@@ -62,7 +63,7 @@ jobs:
               options_json: '{}',
             };
 
-            const raw = core.getInput('params_json');
+            const raw = process.env.PARAMS_JSON ?? '';
             let parsed = {};
             if (raw && raw.trim()) {
               try {
