@@ -129,7 +129,7 @@ When intentionally editing CI jobs, regenerate `basic_jobs.json`, compute the ne
 hash, and update both files in the same commit. Use
 `tools/test_failure_signature.py` locally to recompute and verify the hash before
 pushing. The guard only runs on pushes/PRs targeting `phase-2-dev` and publishes
- a step summary linking back here.
+a step summary linking back here.
 
 ## Agents `options_json` Schema
 
