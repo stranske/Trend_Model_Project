@@ -22,7 +22,7 @@ thresholds, and the annualisation flag under the new `regime` section in
 
 🗂️ **Workflow catalog & naming policy**: See [docs/ci/WORKFLOWS.md](docs/ci/WORKFLOWS.md) for the authoritative workflow list, naming conventions, contributor quick start, and agents JSON schema.
 
-�🔁 **Layered Test Workflow (Phases 1–3)**: The staged metrics → history/classification → coverage delta reusable workflow implemented in this repository is documented in [docs/ci-workflow.md](docs/ci-workflow.md). All advanced phases are disabled by default for back‑compat.
+🔁 **Layered Test Workflow (Phases 1–3)**: The staged metrics → history/classification → coverage delta reusable workflow implemented in this repository is documented in [docs/ci-workflow.md](docs/ci-workflow.md). All advanced phases are disabled by default for back‑compat.
 
 ➡️ **Codex Bootstrap Simulation & Verification Guide:** See [docs/codex-simulation.md](docs/codex-simulation.md) for the hardened workflow design, simulation labels, forced-failure controls, and scenario matrix (T01–T15).
 
