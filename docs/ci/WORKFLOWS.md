@@ -93,6 +93,9 @@ Follow this sequence before pushing workflow changes or large code edits:
 
 1. Pick the correct prefix/number band (see Naming Policy) and choose the lowest
    unused slot.
+   - Treat the `NN` portion as a zero-padded two-digit identifier within the
+     band (`pr-10`, `maint-36`, etc.). Check the tables above before reusing a
+     number so future contributors can infer gaps at a glance.
 2. Place the workflow in `.github/workflows/` with the matching Title Case
    `name:`.
 3. Update any trigger dependencies (`workflow_run` consumers) so maintenance jobs
