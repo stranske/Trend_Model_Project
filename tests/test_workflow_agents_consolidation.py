@@ -67,6 +67,7 @@ def test_reusable_agents_workflow_structure():
         "enable_preflight",
         "enable_verify_issue",
         "enable_watchdog",
+        "enable_keepalive",
         "options_json",
     ]:
         assert f"{key}:" in text, f"Reusable agents workflow must expose input: {key}"

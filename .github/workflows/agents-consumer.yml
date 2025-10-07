@@ -40,6 +40,7 @@ jobs:
       enable_bootstrap: ${{ steps.parse.outputs.enable_bootstrap }}
       bootstrap_issues_label: ${{ steps.parse.outputs.bootstrap_issues_label }}
       draft_pr: ${{ steps.parse.outputs.draft_pr }}
+      enable_keepalive: ${{ steps.parse.outputs.enable_keepalive }}
       options_json: ${{ steps.parse.outputs.options_json }}
     steps:
       - name: Parse params_json
@@ -118,6 +119,26 @@ jobs:
             const verifyIssueNumber = asString(get('verify_issue_number'), defaults.verify_issue_number).trim();
             const optionsJson = asString(get('options_json'), defaults.options_json) || '{}';
 
+            const parseOptionsJson = (raw) => {
+              if (!raw || !raw.trim()) {
+                return {};
+              }
+              try {
+                return JSON.parse(raw);
+              } catch (error) {
+                core.warning(`Invalid options_json payload (${error.message}). Falling back to defaults.`);
+                return {};
+              }
+            };
+
+            const options = parseOptionsJson(optionsJson);
+            const keepaliveRoot = options.enable_keepalive;
+            const keepaliveNested = options.keepalive && options.keepalive.enabled;
+            const keepaliveEnabled = asBoolString(
+              keepaliveRoot !== undefined ? keepaliveRoot : keepaliveNested,
+              false
+            );
+
             const outputs = {
               enable_readiness: asBoolString(get('enable_readiness'), defaults.enable_readiness),
               readiness_agents: readinessAgents,
@@ -135,6 +156,7 @@ jobs:
               enable_bootstrap: bootstrapEnabled,
               bootstrap_issues_label: bootstrapLabel,
               draft_pr: asBoolString(get('draft_pr'), defaults.draft_pr),
+              enable_keepalive: keepaliveEnabled,
               options_json: optionsJson.trim() ? optionsJson : '{}',
             };
 
@@ -168,4 +190,5 @@ jobs:
       enable_bootstrap: ${{ needs.resolve-params.outputs.enable_bootstrap }}
       bootstrap_issues_label: ${{ needs.resolve-params.outputs.bootstrap_issues_label }}
       draft_pr: ${{ needs.resolve-params.outputs.draft_pr }}
+      enable_keepalive: ${{ needs.resolve-params.outputs.enable_keepalive }}
       options_json: ${{ needs.resolve-params.outputs.options_json }}

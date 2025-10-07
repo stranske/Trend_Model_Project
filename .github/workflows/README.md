@@ -160,7 +160,9 @@ paste payload:
 Omit any keys to fall back to defaults. `enable_bootstrap: true` unlocks Codex
 PR bootstraps; leave it `false` for the minimal readiness + watchdog run.
 `options_json` remains available for advanced keepalive tuning (dry run,
-alternate labels, idle thresholds, etc.).
+alternate labels, idle thresholds, etc.). Leave `enable_keepalive` (or
+`keepalive.enabled`) set to `false` to keep the sweep disabled for scheduled
+consumer runs.
 
 The guard test `tests/test_workflow_agents_consolidation.py` enforces the
 reduced input surface and ensures the consumer continues to call the bridge

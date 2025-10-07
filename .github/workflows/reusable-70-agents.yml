@@ -68,6 +68,11 @@ on:
         required: false
         default: 'true'
         type: string
+      enable_keepalive:
+        description: 'Run Codex keepalive sweeps (true/false)'
+        required: false
+        default: 'true'
+        type: string
       enable_bootstrap:
         description: 'Run Codex bootstrap job (true/false)'
         required: false
@@ -312,7 +317,7 @@ jobs:
   keepalive-sweep:
     name: Codex Keepalive Sweep
     runs-on: ubuntu-latest
-    if: ${{ always() }}
+    if: ${{ always() && inputs.enable_keepalive == 'true' }}
     timeout-minutes: 20
     steps:
       - name: Sweep stalled checklists
@@ -538,6 +543,7 @@ jobs:
   keepalive:
     name: Codex Keepalive Sweep
     runs-on: ubuntu-latest
+    if: ${{ always() && inputs.enable_keepalive == 'true' }}
     timeout-minutes: 20
     steps:
       - name: Resume Codex on unattended checklists
