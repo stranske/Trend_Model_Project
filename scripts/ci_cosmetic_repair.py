@@ -40,6 +40,7 @@ _LOG_PATH = ROOT / "docs" / "COSMETIC_REPAIR_LOG.md"
 _GUARD_START = "<!-- cosmetic-repair:start -->"
 _GUARD_END = "<!-- cosmetic-repair:end -->"
 
+
 def _discover_expectation_modules() -> tuple[str, ...]:
     """Dynamically discover test modules for expectation drift repairs."""
     test_dir = ROOT / "tests"
@@ -50,7 +51,10 @@ def _discover_expectation_modules() -> tuple[str, ...]:
         modules.append(module_name)
     return tuple(modules)
 
+
 _EXPECTATION_MODULES: tuple[str, ...] = _discover_expectation_modules()
+
+
 @dataclass
 class FixResult:
     """Metadata describing an attempted repair."""
@@ -406,7 +410,12 @@ def _summarise(results: Sequence[FixResult]) -> dict[str, object]:
 
 
 def _append_log_entries(results: Sequence[FixResult]) -> None:
-    timestamp = _dt.datetime.now(_dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    timestamp = (
+        _dt.datetime.now(_dt.timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
     entries = []
     for result in results:
         if result.status != "applied":
