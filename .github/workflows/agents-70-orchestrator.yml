@@ -75,17 +75,7 @@ jobs:
       enable_verify_issue: ${{ inputs.enable_verify_issue || ((inputs.verify_issue_number || '') != '' && 'true' || 'false') }}
       verify_issue_number: ${{ inputs.verify_issue_number || '' }}
       enable_watchdog: ${{ inputs.enable_watchdog || 'true' }}
-      enable_keepalive: ${{ (
-        fromJson(inputs.options_json || '{}').enable_keepalive == false ||
-        fromJson(inputs.options_json || '{}').enable_keepalive == 'false' ||
-        (
-          fromJson(inputs.options_json || '{}').keepalive &&
-          (
-            fromJson(inputs.options_json || '{}').keepalive.enabled == false ||
-            fromJson(inputs.options_json || '{}').keepalive.enabled == 'false'
-          )
-        )
-      ) && 'false' || 'true' }}
+      enable_keepalive: ${{ (fromJson(inputs.options_json || '{}').enable_keepalive == false || fromJson(inputs.options_json || '{}').enable_keepalive == 'false' || (fromJson(inputs.options_json || '{}').keepalive && (fromJson(inputs.options_json || '{}').keepalive.enabled == false || fromJson(inputs.options_json || '{}').keepalive.enabled == 'false'))) && 'false' || 'true' }}
       bootstrap_issues_label: 'agent:codex'
       draft_pr: ${{ inputs.draft_pr || 'false' }}
       options_json: ${{ inputs.options_json || '{}' }}
