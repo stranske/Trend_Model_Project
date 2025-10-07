@@ -73,14 +73,24 @@ listen to their `workflow_run` events.
 | `reusable-ci.yml` (`Reusable CI`) | `pr-gate.yml` | Single-job Ruff → mypy → pytest executor with coverage artifacts.
 | `reusable-docker.yml` (`Reusable Docker Smoke`) | `pr-gate.yml` | Composite Docker build + health-check loop powering the PR gate.
 
+### Manual self-test workflows
+
+| Workflow | Trigger(s) | Purpose |
+|----------|------------|---------|
+| `reusable-99-selftest.yml` (`Reusable 99 Selftest`) | `workflow_dispatch`, `workflow_call` | Opt-in matrix that replays `reusable-90-ci-python.yml` across feature toggles and verifies artifact coverage via an aggregate job. |
+
+The matrix exercises the minimal run, metrics/history permutations, the classification toggle, the
+coverage delta flow, and the full soft-gate path. The aggregate verification job appends a run
+summary, asserts that every scenario uploaded the expected artifacts, and fails if discrepancies are
+detected. Dispatch it manually whenever `reusable-90-ci-python.yml` gains new optional outputs or when
+verifying fixes to artifact handling.
+
 ### Archived self-test workflows
 
-Issue #2378 removed the noisy self-test suite from active runs. Two files were preserved under
-`Old/workflows/` for future reference and the remaining wrappers were deleted outright after their
-experiments concluded:
+`Old/workflows/maint-90-selftest.yml` remains available as the historical wrapper that previously
+scheduled the self-test cron. The retired PR comment and maintenance wrappers listed below stay
+removed; consult git history if you need their YAML for archaeology:
 
-- `Old/workflows/maint-90-selftest.yml` – former weekly wrapper around the CI self-test matrix.
-- `Old/workflows/reusable-99-selftest.yml` – archived composite covering reusable CI feature combinations.
 - `maint-43-selftest-pr-comment.yml` – deleted; previously posted PR comments summarising self-test matrices.
 - `maint-44-selftest-reusable-ci.yml` – deleted reusable-integration cron (matrix coverage moved to the
   main CI jobs).
