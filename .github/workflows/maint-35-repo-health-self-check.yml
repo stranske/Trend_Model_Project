@@ -1,0 +1,221 @@
+name: Maint 35 Repo Health Self Check
+
+on:
+  schedule:
+    - cron: '30 5 * * *'
+    - cron: '0 8 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  self-check:
+    name: Repository self-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe repository signals
+        id: probe
+        uses: actions/github-script@v7
+        env:
+          REQUIRED_LABELS: agent:codex,agent:copilot,automerge,risk:low,codex-ready
+          SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
+        with:
+          script: |
+            const core = require('@actions/core');
+
+            const { owner, repo } = context.repo;
+            const requiredLabels = (process.env.REQUIRED_LABELS || '')
+              .split(',')
+              .map(label => label.trim())
+              .filter(Boolean);
+
+            const missingLabels = [];
+            for (const label of requiredLabels) {
+              try {
+                await github.rest.issues.getLabel({ owner, repo, name: label });
+              } catch (error) {
+                if (error.status === 404) {
+                  missingLabels.push(label);
+                } else {
+                  throw error;
+                }
+              }
+            }
+
+            const hasPat = Boolean(process.env.SERVICE_BOT_PAT);
+
+            const repoInfo = await github.rest.repos.get({ owner, repo });
+            const defaultBranch = repoInfo.data.default_branch;
+
+            let branchProtectionStatus = 'ok';
+            let protectionIssue = '';
+            try {
+              await github.rest.repos.getBranchProtection({
+                owner,
+                repo,
+                branch: defaultBranch,
+              });
+            } catch (error) {
+              if (error.status === 403) {
+                branchProtectionStatus = 'forbidden';
+                protectionIssue = `Unable to verify branch protection for ${defaultBranch} – insufficient permissions (${error.message}).`;
+                core.warning(protectionIssue);
+              } else if (error.status === 404) {
+                branchProtectionStatus = 'missing';
+                protectionIssue = `Branch protection is not configured for ${defaultBranch}.`;
+              } else {
+                branchProtectionStatus = 'error';
+                protectionIssue = `Branch protection check failed: ${error.message}`;
+                core.warning(protectionIssue);
+              }
+            }
+
+            const timestamp = new Date().toISOString();
+
+            core.setOutput('default_branch', defaultBranch);
+            core.setOutput('missing_labels', JSON.stringify(missingLabels));
+            core.setOutput('has_pat', hasPat ? 'true' : 'false');
+            core.setOutput('branch_protection_status', branchProtectionStatus);
+            core.setOutput('protection_issue', protectionIssue);
+            core.setOutput('timestamp', timestamp);
+
+      - name: Aggregate findings
+        id: aggregate
+        uses: actions/github-script@v7
+        env:
+          MISSING_LABELS: ${{ steps.probe.outputs.missing_labels }}
+          HAS_PAT: ${{ steps.probe.outputs.has_pat }}
+          DEFAULT_BRANCH: ${{ steps.probe.outputs.default_branch }}
+          BRANCH_PROTECTION_STATUS: ${{ steps.probe.outputs.branch_protection_status }}
+          PROTECTION_ISSUE: ${{ steps.probe.outputs.protection_issue }}
+          TIMESTAMP: ${{ steps.probe.outputs.timestamp }}
+        with:
+          script: |
+            const core = require('@actions/core');
+
+            const missingLabels = JSON.parse(process.env.MISSING_LABELS || '[]');
+            const hasPat = process.env.HAS_PAT === 'true';
+            const defaultBranch = process.env.DEFAULT_BRANCH || '(unknown)';
+            const branchProtectionStatus = process.env.BRANCH_PROTECTION_STATUS || 'unknown';
+            const protectionIssue = process.env.PROTECTION_ISSUE || '';
+            const timestampIso = process.env.TIMESTAMP || new Date().toISOString();
+            const timestamp = new Date(timestampIso);
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+
+            const failureReasons = [];
+            if (missingLabels.length > 0) {
+              const labelList = missingLabels.map(label => `\`${label}\``).join(', ');
+              failureReasons.push(`Missing repository labels: ${labelList}.`);
+            }
+            if (!hasPat) {
+              failureReasons.push('`SERVICE_BOT_PAT` secret is not configured.');
+            }
+            if (branchProtectionStatus === 'missing') {
+              failureReasons.push(`Branch protection is not configured for \`${defaultBranch}\`.`);
+            }
+            if (branchProtectionStatus === 'error') {
+              failureReasons.push(protectionIssue || 'Branch protection probe encountered an unexpected error.');
+            }
+
+            const summary = core.summary;
+            summary.addHeading('Repository self-check', 1);
+            summary.addRaw(`Run completed at ${timestamp.toUTCString()}`, true);
+            summary.addBreak();
+
+            if (failureReasons.length === 0) {
+              summary.addRaw('All required signals are healthy ✅', true);
+            } else {
+              summary.addHeading('Detected issues', 2);
+              summary.addList(failureReasons);
+            }
+
+            if (branchProtectionStatus === 'forbidden' && protectionIssue) {
+              summary.addHeading('Branch protection note', 2);
+              summary.addRaw(protectionIssue, true);
+            }
+
+            await summary.write();
+
+            let failureBody = '';
+            if (failureReasons.length > 0) {
+              const lines = [
+                `Repository self-check detected issues on ${timestamp.toUTCString()}:`,
+                '',
+                ...failureReasons.map(reason => `- ${reason}`),
+                '',
+                `**Workflow run:** ${runUrl}`,
+              ];
+              failureBody = lines.join('\n');
+            }
+
+            core.setOutput('has_failures', failureReasons.length > 0 ? 'true' : 'false');
+            core.setOutput('failure_body', failureBody);
+
+      - name: Update failure issue
+        if: ${{ steps.aggregate.outputs.has_failures == 'true' }}
+        uses: actions/github-script@v7
+        env:
+          FAILURE_BODY: ${{ steps.aggregate.outputs.failure_body }}
+        with:
+          script: |
+            const body = process.env.FAILURE_BODY || '';
+            const title = '[health] repository self-check failed';
+            const { owner, repo } = context.repo;
+
+            const openIssues = await github.paginate(github.rest.issues.listForRepo, {
+              owner,
+              repo,
+              state: 'open',
+              per_page: 100,
+            });
+
+            const existing = openIssues.find(issue => issue.title === title);
+
+            if (existing) {
+              await github.rest.issues.update({
+                owner,
+                repo,
+                issue_number: existing.number,
+                body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner,
+                repo,
+                title,
+                body,
+              });
+            }
+
+      - name: Resolve failure issue when clear
+        if: ${{ steps.aggregate.outputs.has_failures != 'true' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = '[health] repository self-check failed';
+            const { owner, repo } = context.repo;
+
+            const openIssues = await github.paginate(github.rest.issues.listForRepo, {
+              owner,
+              repo,
+              state: 'open',
+              per_page: 100,
+            });
+
+            const existing = openIssues.find(issue => issue.title === title);
+            if (existing) {
+              await github.rest.issues.update({
+                owner,
+                repo,
+                issue_number: existing.number,
+                state: 'closed',
+              });
+            }
+
+      - name: Mark workflow failed when issues remain
+        if: ${{ steps.aggregate.outputs.has_failures == 'true' }}
+        run: |
+          echo 'Repository self-check detected issues.'
+          exit 1
