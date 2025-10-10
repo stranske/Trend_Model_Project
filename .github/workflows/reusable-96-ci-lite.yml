@@ -110,6 +110,161 @@ jobs:
             --cov-report=term-missing --cov-report=json:coverage.json \
             ${marker_flag}
 
+      - name: Analyze coverage trend
+        if: always()
+        id: coverage_trend
+        env:
+          BASELINE_PATH: config/coverage-baseline.json
+          SUMMARY_PATH: ${{ github.step_summary }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          workspace = Path.cwd()
+          coverage_xml = workspace / "coverage.xml"
+          coverage_json = workspace / "coverage.json"
+          baseline_path = Path(os.environ.get("BASELINE_PATH", ""))
+          summary_path = Path(os.environ.get("SUMMARY_PATH", ""))
+          artifacts_dir = workspace / "artifacts"
+          artifacts_dir.mkdir(exist_ok=True)
+
+          def read_coverage():
+              if coverage_xml.exists():
+                  try:
+                      root = ET.parse(coverage_xml).getroot()
+                  except ET.ParseError as exc:
+                      print(f"Failed to parse {coverage_xml}: {exc}", file=sys.stderr)
+                  else:
+                      rate = root.get("line-rate")
+                      if rate is not None:
+                          try:
+                              return float(rate) * 100.0
+                          except ValueError:
+                              print(f"Invalid line-rate value: {rate}", file=sys.stderr)
+              if coverage_json.exists():
+                  try:
+                      payload = json.loads(coverage_json.read_text(encoding="utf-8"))
+                      totals = payload.get("totals") or {}
+                      covered = float(totals.get("covered_lines", 0))
+                      total = float(totals.get("num_statements", 0))
+                  except Exception as exc:  # noqa: BLE001
+                      print(f"Failed to read {coverage_json}: {exc}", file=sys.stderr)
+                  else:
+                      if total:
+                          return covered / total * 100.0
+              return None
+
+          current = read_coverage()
+          baseline = None
+          warn_drop = 1.0
+          if baseline_path.is_file():
+              try:
+                  data = json.loads(baseline_path.read_text(encoding="utf-8"))
+              except json.JSONDecodeError as exc:
+                  print(f"Unable to parse baseline file {baseline_path}: {exc}", file=sys.stderr)
+              else:
+                  value = data.get("line")
+                  if isinstance(value, (int, float)):
+                      baseline = float(value)
+                  else:
+                      print(f"Baseline file {baseline_path} missing numeric 'line' entry", file=sys.stderr)
+                  warn_val = data.get("warn_drop")
+                  if isinstance(warn_val, (int, float)) and warn_val >= 0:
+                      warn_drop = float(warn_val)
+          else:
+              if baseline_path:
+                  print(f"Baseline file {baseline_path} not found", file=sys.stderr)
+
+          delta = None
+          status = "no-data"
+          if current is not None and baseline is not None:
+              delta = current - baseline
+              if delta < -warn_drop:
+                  status = "warn"
+              else:
+                  status = "ok"
+          elif current is not None:
+              status = "no-baseline"
+
+          summary_lines = ["### Coverage Trend"]
+          if current is not None:
+              summary_lines.append(f"- Current: {current:.2f}%")
+          else:
+              summary_lines.append("- Current: unavailable")
+          if baseline is not None:
+              summary_lines.append(f"- Baseline: {baseline:.2f}%")
+          else:
+              summary_lines.append("- Baseline: unavailable")
+          if delta is not None:
+              summary_lines.append(f"- Change: {delta:+.2f} pts")
+              if status == "warn":
+                  summary_lines.append(f"- Warning: drop exceeds {warn_drop:.2f}-pt soft limit")
+          elif status == "no-baseline" and warn_drop is not None:
+              summary_lines.append(f"- Soft drop limit: {warn_drop:.2f} pts")
+          minimum = os.environ.get("COVERAGE_MINIMUM")
+          if minimum:
+              summary_lines.append(f"- Required minimum: {minimum}%")
+
+          if summary_path:
+              with summary_path.open("a", encoding="utf-8") as handle:
+                  handle.write("\n".join(summary_lines) + "\n")
+          else:
+              print("\n".join(summary_lines))
+
+          artifact_payload = {
+              "current": current,
+              "baseline": baseline,
+              "delta": delta,
+              "warn_drop": warn_drop,
+              "status": status,
+          }
+          (artifacts_dir / "coverage-trend.json").write_text(
+              json.dumps(artifact_payload, indent=2, sort_keys=True),
+              encoding="utf-8",
+          )
+
+          comment_text = ""
+          if status == "warn" and delta is not None and current is not None and baseline is not None:
+              comment_lines = [
+                  "🔶 Coverage drop alert",
+                  "",
+                  f"Baseline coverage: {baseline:.2f}%",
+                  f"Current coverage: {current:.2f}%",
+                  f"Change: {delta:+.2f} percentage points",
+                  "",
+                  f"The drop exceeds the soft limit of {warn_drop:.2f} points. This is a warning only; CI remains green.",
+                  "",
+                  "Update config/coverage-baseline.json if the new level is expected.",
+              ]
+              comment_text = "\n".join(comment_lines)
+
+          output_lines = []
+          if current is not None:
+              output_lines.append(f"current={current:.2f}")
+          if baseline is not None:
+              output_lines.append(f"baseline={baseline:.2f}")
+          if delta is not None:
+              output_lines.append(f"delta={delta:.2f}")
+          if warn_drop is not None:
+              output_lines.append(f"warn_drop={warn_drop:.2f}")
+          output_lines.append(f"status={status}")
+
+          output_path = Path(os.environ.get("GITHUB_OUTPUT", ""))
+          if output_path:
+              with output_path.open("a", encoding="utf-8") as handle:
+                  for line in output_lines:
+                      handle.write(line + "\n")
+                  if comment_text:
+                      handle.write("comment<<EOF\n")
+                      handle.write(comment_text + "\n")
+                      handle.write("EOF\n")
+
+          PY
+
       - name: Capture artifacts
         if: always()
         run: |
@@ -126,53 +281,28 @@ jobs:
           path: artifacts
           retention-days: 14
 
-      - name: Publish coverage summary
-        if: always()
+      - name: Post soft coverage alert
+        if: >
+          always() &&
+          github.event_name == 'pull_request' &&
+          steps.coverage_trend.outputs.status == 'warn' &&
+          steps.coverage_trend.outputs.comment != ''
+        uses: actions/github-script@v7
         env:
-          SUMMARY_PATH: ${{ github.step_summary }}
-        run: |
-          python - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-          import xml.etree.ElementTree as ET
-
-          summary = Path(os.environ.get('SUMMARY_PATH', ''))
-          coverage_xml = Path('coverage.xml')
-          coverage_json = Path('coverage.json')
-          line_pct = None
-          if coverage_xml.exists():
-              try:
-                  root = ET.parse(coverage_xml).getroot()
-                  rate = root.get('line-rate')
-                  if rate is not None:
-                      line_pct = float(rate) * 100.0
-              except ET.ParseError:
-                  pass
-          if line_pct is None and coverage_json.exists():
-              try:
-                  payload = json.loads(coverage_json.read_text(encoding='utf-8'))
-                  totals = payload.get('totals') or {}
-                  covered = float(totals.get('covered_lines', 0))
-                  total = float(totals.get('num_statements', 0))
-                  if total:
-                      line_pct = covered / total * 100.0
-              except Exception:
-                  pass
-          lines = ["### Coverage Overview"]
-          if line_pct is not None:
-              lines.append(f"- Coverage: {line_pct:.2f}%")
-          else:
-              lines.append("- Coverage data unavailable")
-          minimum = os.environ.get('COVERAGE_MINIMUM')
-          if minimum:
-              lines.append(f"- Required minimum: {minimum}%")
-          if summary:
-              with summary.open('a', encoding='utf-8') as handle:
-                  handle.write("\n".join(lines) + "\n")
-          else:
-              print("\n".join(lines))
-          PY
+          COVERAGE_COMMENT: ${{ steps.coverage_trend.outputs.comment }}
+        with:
+          script: |
+            const body = process.env.COVERAGE_COMMENT || '';
+            if (!body.trim()) {
+              core.info('No coverage alert comment to post.');
+              return;
+            }
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
 
       - name: Enforce coverage minimum
         run: |
