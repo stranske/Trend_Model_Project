@@ -34,6 +34,24 @@ class TrendResult:
 
     def summary_lines(self) -> list[str]:
         lines = ["### Coverage Trend"]
+        if (
+            self.current is not None
+            and self.baseline is not None
+            and self.delta is not None
+        ):
+            lines.append(
+                f"- Trend: {self.baseline:.2f}% → {self.current:.2f}% ({self.delta:+.2f} pts)"
+            )
+        elif self.current is not None and self.baseline is None:
+            lines.append(
+                f"- Trend: current {self.current:.2f}% (no baseline configured)"
+            )
+        elif self.current is None and self.baseline is not None:
+            lines.append(
+                f"- Trend: baseline {self.baseline:.2f}% (no coverage data)"
+            )
+        else:
+            lines.append("- Trend: coverage unavailable")
         if self.current is not None:
             lines.append(f"- Current: {self.current:.2f}%")
         else:

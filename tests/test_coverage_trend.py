@@ -134,6 +134,9 @@ def test_main_generates_summary_and_artifacts(tmp_path: Path) -> None:
     assert exit_code == 0
     summary = summary_path.read_text(encoding="utf-8").strip().splitlines()
     assert summary[0] == "### Coverage Trend"
+    assert any(
+        line.startswith("- Trend: 90.00% → 90.00% (+0.00 pts)") for line in summary
+    )
     assert any("Current: 90.00%" in line for line in summary)
     assert any("Baseline: 90.00%" in line for line in summary)
     assert any("Required minimum: 85.00%" in line for line in summary)
