@@ -47,9 +47,7 @@ class TrendResult:
                 f"- Trend: current {self.current:.2f}% (no baseline configured)"
             )
         elif self.current is None and self.baseline is not None:
-            lines.append(
-                f"- Trend: baseline {self.baseline:.2f}% (no coverage data)"
-            )
+            lines.append(f"- Trend: baseline {self.baseline:.2f}% (no coverage data)")
         else:
             lines.append("- Trend: coverage unavailable")
         if self.current is not None:
