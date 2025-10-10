@@ -66,7 +66,8 @@ jobs:
         with:
           script: |
             // Post a single friendly notice explaining why heavier gates were skipped.
-            const body = 'Doc-only change detected; gate skipped by path filters.';
+            const core = require('@actions/core');
+            const body = 'Doc‑only change detected; gate skipped by path filters.';
 
             const existingComments = await github.paginate(github.rest.issues.listComments, {
               owner: context.repo.owner,
