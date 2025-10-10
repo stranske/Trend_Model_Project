@@ -145,6 +145,9 @@ def test_agents_consumer_concurrency_and_defaults():
 
     dispatch = jobs.get("dispatch", {})
     assert dispatch.get("uses"), "Dispatch job should call the reusable workflow"
+    assert (
+        dispatch.get("timeout-minutes") == 30
+    ), "Dispatch job should enforce a 30 minute timeout"
 
     dispatch_config = _workflow_on_section(data).get("workflow_dispatch", {})
     params_default = (
