@@ -13,11 +13,11 @@ on:
       - 'assets/**'
 
 jobs:
-  docs-only:
+  detect-doc-changes:
     if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
-    permissions:
-      pull-requests: write
+    outputs:
+      doc_only: ${{ steps.detect.outputs.doc_only }}
     steps:
       - name: Detect doc-only changes
         id: detect
@@ -53,8 +53,14 @@ jobs:
               core.info(`Non documentation files changed: ${nonDocFiles.join(', ')}`);
             }
 
+  docs-only:
+    needs: detect-doc-changes
+    if: ${{ needs.detect-doc-changes.outputs.doc_only == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
       - name: Post doc-only notice
-        if: ${{ steps.detect.outputs.doc_only == 'true' }}
         uses: actions/github-script@v7
         with:
           script: |
