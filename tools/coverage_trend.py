@@ -68,14 +68,20 @@ class TrendResult:
             f"Baseline coverage: {self.baseline:.2f}%",
             f"Current coverage: {self.current:.2f}%",
             f"Change: {self.delta:+.2f} percentage points",
-            "",
-            (
-                "The drop exceeds the soft limit of "
-                f"{self.warn_drop:.2f} points. This is a warning only; CI remains green."
-            ),
-            "",
-            "Update config/coverage-baseline.json if the new level is expected.",
         ]
+        if self.minimum is not None:
+            lines.append(f"Hard minimum: {self.minimum:.2f}%")
+        lines.extend(
+            [
+                "",
+                (
+                    "The drop exceeds the soft limit of "
+                    f"{self.warn_drop:.2f} points. This is a warning only; CI remains green."
+                ),
+                "",
+                "Update config/coverage-baseline.json if the new level is expected.",
+            ]
+        )
         return "\n".join(lines)
 
 

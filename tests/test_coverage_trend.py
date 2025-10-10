@@ -95,6 +95,9 @@ def test_dump_artifact_and_outputs(tmp_path: Path) -> None:
     assert "status=warn" in output
     assert "minimum=85.00" in output
     assert any(line.startswith("comment<<EOF") for line in output)
+    comment_index = output.index("comment<<EOF") + 1
+    comment_lines = output[comment_index : comment_index + 6]
+    assert any(line.strip() == "Hard minimum: 85.00%" for line in comment_lines)
 
 
 def test_main_generates_summary_and_artifacts(tmp_path: Path) -> None:
