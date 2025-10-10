@@ -15,6 +15,7 @@ Only the workflows listed below remain visible in the Actions tab. Reusable comp
 |----------|----------|-------|
 | `pr-10-ci-python.yml` | pull_request, push, workflow_call, workflow_dispatch | Delegates to `reusable-96-ci-lite.yml` for style/type/test coverage plus manual dispatch support.
 | `pr-12-docker-smoke.yml` | workflow_call, workflow_dispatch | Deterministic Docker build + smoke test harness.
+| `pr-14-docs-only.yml` | pull_request (doc paths) | Detects documentation-only diffs and posts a skip notice via comment instead of launching heavier CI.
 | `pr-gate.yml` | workflow_call | Aggregates reusable CI/Docker composites into a single gate used by downstream repositories.
 | `autofix.yml` | pull_request | Direct PR autofix runner that delegates to `reusable-92-autofix.yml` and pushes formatting/type hygiene commits when safe.
 
