@@ -10,6 +10,7 @@ from tools.coverage_trend import (
     TrendResult,
     dump_artifact,
     evaluate_trend,
+    main,
     load_baseline,
     read_coverage,
     write_github_output,
@@ -92,3 +93,50 @@ def test_dump_artifact_and_outputs(tmp_path: Path) -> None:
     output = output_path.read_text(encoding="utf-8").strip().splitlines()
     assert "status=warn" in output
     assert any(line.startswith("comment<<EOF") for line in output)
+
+
+def test_main_generates_summary_and_artifacts(tmp_path: Path) -> None:
+    coverage_xml = tmp_path / "coverage.xml"
+    write_file(
+        coverage_xml,
+        """<?xml version='1.0'?><coverage line-rate='0.90'></coverage>""",
+    )
+    baseline_path = tmp_path / "baseline.json"
+    write_file(baseline_path, json.dumps({"line": 90.0, "warn_drop": 1.5}))
+    summary_path = tmp_path / "summary.md"
+    artifact_path = tmp_path / "artifact.json"
+    output_path = tmp_path / "github.txt"
+
+    exit_code = main(
+        [
+            "--coverage-xml",
+            str(coverage_xml),
+            "--coverage-json",
+            str(tmp_path / "coverage.json"),
+            "--baseline",
+            str(baseline_path),
+            "--summary-path",
+            str(summary_path),
+            "--artifact-path",
+            str(artifact_path),
+            "--github-output",
+            str(output_path),
+            "--minimum",
+            "85",
+        ]
+    )
+
+    assert exit_code == 0
+    summary = summary_path.read_text(encoding="utf-8").strip().splitlines()
+    assert summary[0] == "### Coverage Trend"
+    assert any("Current: 90.00%" in line for line in summary)
+    assert any("Baseline: 90.00%" in line for line in summary)
+    assert any("Required minimum: 85.00%" in line for line in summary)
+
+    artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+    assert artifact["status"] == "ok"
+    assert artifact["delta"] == pytest.approx(0.0, abs=1e-9)
+
+    github_output = output_path.read_text(encoding="utf-8").strip().splitlines()
+    assert "status=ok" in github_output
+    assert all(not line.startswith("comment<<EOF") for line in github_output)
