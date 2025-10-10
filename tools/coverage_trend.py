@@ -177,6 +177,7 @@ def dump_artifact(path: Path, result: TrendResult) -> None:
         "baseline": result.baseline,
         "delta": result.delta,
         "warn_drop": result.warn_drop,
+        "minimum": result.minimum,
         "status": result.status,
     }
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -194,6 +195,8 @@ def write_github_output(path: Optional[Path], result: TrendResult) -> None:
     if result.delta is not None:
         outputs.append(f"delta={result.delta:.2f}")
     outputs.append(f"warn_drop={result.warn_drop:.2f}")
+    if result.minimum is not None:
+        outputs.append(f"minimum={result.minimum:.2f}")
     outputs.append(f"status={result.status}")
     comment = result.comment_body()
     if comment:
