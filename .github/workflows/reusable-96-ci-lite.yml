@@ -101,14 +101,40 @@ jobs:
         shell: bash
         run: |
           source .venv/bin/activate
-          marker_flag=""
-          if [[ -n "${PYTEST_MARKER}" ]]; then
-            marker_flag="-m ${PYTEST_MARKER}"
+          marker_args=()
+          if [[ -n "${PYTEST_MARKER:-}" ]]; then
+            marker_args+=("-m" "${PYTEST_MARKER}")
           fi
           pytest --junitxml=pytest-junit.xml \
             --cov=src --cov-report=xml:coverage.xml \
             --cov-report=term-missing --cov-report=json:coverage.json \
-            ${marker_flag}
+            "${marker_args[@]}"
+
+      - name: Analyze coverage trend
+        if: always()
+        id: coverage_trend
+        env:
+          BASELINE_PATH: config/coverage-baseline.json
+          SUMMARY_PATH: ${{ github.step_summary }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          args=(
+            --coverage-xml "coverage.xml"
+            --coverage-json "coverage.json"
+            --baseline "${BASELINE_PATH}"
+            --artifact-path "artifacts/coverage-trend.json"
+          )
+          if [[ -n "${SUMMARY_PATH:-}" ]]; then
+            args+=(--summary-path "${SUMMARY_PATH}")
+          fi
+          if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+            args+=(--github-output "${GITHUB_OUTPUT}")
+          fi
+          if [[ -n "${COVERAGE_MINIMUM:-}" ]]; then
+            args+=(--minimum "${COVERAGE_MINIMUM}")
+          fi
+          python tools/coverage_trend.py "${args[@]}"
 
       - name: Capture artifacts
         if: always()
@@ -118,61 +144,108 @@ jobs:
           cp -f coverage.xml artifacts/coverage.xml || true
           cp -f coverage.json artifacts/coverage.json || true
 
-      - name: Upload diagnostics
+      - name: Upload coverage summary
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-${{ inputs['python-version'] }}
+          name: coverage-summary-${{ inputs['python-version'] }}
           path: artifacts
           retention-days: 14
 
-      - name: Publish coverage summary
-        if: always()
+      - name: Post soft coverage alert
+        if: >
+          always() &&
+          github.event_name == 'pull_request' &&
+          steps.coverage_trend.outputs.status == 'warn' &&
+          steps.coverage_trend.outputs.comment != ''
+        uses: actions/github-script@v7
         env:
-          SUMMARY_PATH: ${{ github.step_summary }}
-        run: |
-          python - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-          import xml.etree.ElementTree as ET
+          COVERAGE_COMMENT: ${{ steps.coverage_trend.outputs.comment }}
+        with:
+          script: |
+            const body = (process.env.COVERAGE_COMMENT || '').trim();
+            if (!body) {
+              core.info('No coverage alert comment to post.');
+              return;
+            }
+            const marker = '🔶 Coverage drop alert';
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.paginate(
+              github.rest.issues.listComments,
+              {
+                owner,
+                repo,
+                issue_number,
+                per_page: 100,
+              },
+            );
+            const existing = comments.find(
+              (comment) =>
+                comment.body &&
+                comment.body.startsWith(marker) &&
+                comment.user &&
+                comment.user.type === 'Bot',
+            );
+            if (existing) {
+              if (existing.body.trim() === body) {
+                core.info(`Coverage alert comment ${existing.id} already up to date.`);
+              } else {
+                await github.rest.issues.updateComment({
+                  owner,
+                  repo,
+                  comment_id: existing.id,
+                  body,
+                });
+                core.info(`Updated coverage alert comment ${existing.id}.`);
+              }
+            } else {
+              const response = await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
+                body,
+              });
+              core.info(`Created coverage alert comment ${response.data.id}.`);
+            }
 
-          summary = Path(os.environ.get('SUMMARY_PATH', ''))
-          coverage_xml = Path('coverage.xml')
-          coverage_json = Path('coverage.json')
-          line_pct = None
-          if coverage_xml.exists():
-              try:
-                  root = ET.parse(coverage_xml).getroot()
-                  rate = root.get('line-rate')
-                  if rate is not None:
-                      line_pct = float(rate) * 100.0
-              except ET.ParseError:
-                  pass
-          if line_pct is None and coverage_json.exists():
-              try:
-                  payload = json.loads(coverage_json.read_text(encoding='utf-8'))
-                  totals = payload.get('totals') or {}
-                  covered = float(totals.get('covered_lines', 0))
-                  total = float(totals.get('num_statements', 0))
-                  if total:
-                      line_pct = covered / total * 100.0
-              except Exception:
-                  pass
-          lines = ["### Coverage Overview"]
-          if line_pct is not None:
-              lines.append(f"- Coverage: {line_pct:.2f}%")
-          else:
-              lines.append("- Coverage data unavailable")
-          minimum = os.environ.get('COVERAGE_MINIMUM')
-          if minimum:
-              lines.append(f"- Required minimum: {minimum}%")
-          if summary:
-              with summary.open('a', encoding='utf-8') as handle:
-                  handle.write("\n".join(lines) + "\n")
-          else:
-              print("\n".join(lines))
-          PY
+      - name: Remove resolved coverage alert
+        if: >
+          always() &&
+          github.event_name == 'pull_request' &&
+          (steps.coverage_trend.outputs.status != 'warn' || steps.coverage_trend.outputs.comment == '')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const marker = '🔶 Coverage drop alert';
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.paginate(
+              github.rest.issues.listComments,
+              {
+                owner,
+                repo,
+                issue_number,
+                per_page: 100,
+              },
+            );
+            const existing = comments.find(
+              (comment) =>
+                comment.body &&
+                comment.body.startsWith(marker) &&
+                comment.user &&
+                comment.user.type === 'Bot',
+            );
+            if (!existing) {
+              core.info('No coverage alert comment to remove.');
+              return;
+            }
+            await github.rest.issues.deleteComment({
+              owner,
+              repo,
+              comment_id: existing.id,
+            });
+            core.info(`Removed coverage alert comment ${existing.id}.`);
 
       - name: Enforce coverage minimum
         run: |
