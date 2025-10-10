@@ -34,6 +34,7 @@ the agents toolkit.
 |----------|------------|----------------|
 | `pr-10-ci-python.yml` (`PR 10 CI Python`) | `pull_request`, `push`, `workflow_call`, `workflow_dispatch` | Wrapper around `reusable-96-ci-lite.yml` providing the unified style/type/test gate with coverage reporting.
 | `pr-12-docker-smoke.yml` (`PR 12 Docker Smoke`) | `workflow_call`, `workflow_dispatch` | Deterministic Docker build followed by image smoke tests.
+| `pr-14-docs-only.yml` (`PR 14 Docs Only`) | `pull_request` (doc paths) | Detects documentation-only diffs and posts a friendly skip notice instead of running heavier gates.
 | `pr-gate.yml` (`Gate`) | `workflow_call` | Composite orchestrator that chains the reusable CI and Docker smoke jobs for downstream repositories.
 | `autofix.yml` (`Autofix`) | `pull_request` | Lightweight formatting/type-hygiene runner that auto-commits safe fixes or publishes a patch artifact for forked PRs.
 

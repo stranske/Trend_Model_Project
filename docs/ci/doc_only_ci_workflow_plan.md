@@ -16,9 +16,9 @@
 - Documentation describing the workflow purpose and limitations is added to the repository.
 
 ## Initial Task Checklist
-- [ ] Draft workflow YAML (`.github/workflows/doc-only-comment.yml`) with appropriate event triggers and path filters.
-- [ ] Implement `actions/github-script@v7` step that locates any previous automation comment and updates/creates the doc-only notification.
-- [ ] Add inline comments explaining how the doc-only detection works and how to modify paths if documentation scope evolves.
-- [ ] Document the workflow in `docs/ci/` (summary, triggers, comment behavior, and maintenance tips).
-- [ ] Run a workflow linter or `act -n` dry run to validate syntax and guard conditions.
-- [ ] Request review/approval and confirm comment appears as expected on a doc-only PR.
+- [x] Draft workflow YAML (`.github/workflows/pr-14-docs-only.yml`) with appropriate event triggers and path filters.
+- [x] Implement `actions/github-script@v7` steps that locate any previous automation comment and create or update the doc-only notification.
+- [x] Add inline comments explaining how the doc-only detection works and how to modify paths if documentation scope evolves.
+- [x] Document the workflow in `docs/ci/` (summary, triggers, comment behavior, and maintenance tips).
+- [x] Run a workflow linter (`scripts/workflow_lint.sh`) to validate syntax and guard conditions.
+- [x] Request review/approval and confirm comment appears as expected on a doc-only PR.

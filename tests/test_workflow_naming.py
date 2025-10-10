@@ -103,6 +103,7 @@ EXPECTED_NAMES = {
     "maint-45-cosmetic-repair.yml": "Maint 45 Cosmetic Repair",
     "pr-10-ci-python.yml": "PR 10 CI Python",
     "pr-12-docker-smoke.yml": "PR 12 Docker Smoke",
+    "pr-14-docs-only.yml": "PR 14 Docs Only",
     "pr-gate.yml": "Gate",
     "reusable-70-agents.yml": "Reusable 70 Agents",
     "reusable-90-ci-python.yml": "Reusable 90 CI Python",

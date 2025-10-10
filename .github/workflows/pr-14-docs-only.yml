@@ -1,4 +1,4 @@
-name: Docs-only notice
+name: PR 14 Docs Only
 
 on:
   pull_request:
@@ -24,6 +24,7 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            // Classify files without checkout to keep the workflow lightweight.
             const core = require('@actions/core');
 
             const files = await github.paginate(github.rest.pulls.listFiles, {
@@ -64,6 +65,7 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            // Post a single friendly notice explaining why heavier gates were skipped.
             const body = 'Doc-only change detected; gate skipped by path filters.';
 
             const existingComments = await github.paginate(github.rest.issues.listComments, {
