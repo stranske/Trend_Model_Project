@@ -135,6 +135,7 @@ def test_main_generates_summary_and_artifacts(tmp_path: Path) -> None:
     baseline_path = tmp_path / "baseline.json"
     write_file(baseline_path, json.dumps({"line": 90.0, "warn_drop": 1.5}))
     summary_path = tmp_path / "summary.md"
+    job_summary_path = tmp_path / "job_summary.md"
     artifact_path = tmp_path / "artifact.json"
     output_path = tmp_path / "github.txt"
 
@@ -148,6 +149,8 @@ def test_main_generates_summary_and_artifacts(tmp_path: Path) -> None:
             str(baseline_path),
             "--summary-path",
             str(summary_path),
+            "--job-summary",
+            str(job_summary_path),
             "--artifact-path",
             str(artifact_path),
             "--github-output",
@@ -177,3 +180,7 @@ def test_main_generates_summary_and_artifacts(tmp_path: Path) -> None:
     assert "status=ok" in github_output
     assert "minimum=85.00" in github_output
     assert all(not line.startswith("comment<<EOF") for line in github_output)
+
+    job_summary = job_summary_path.read_text(encoding="utf-8").strip().splitlines()
+    assert job_summary[0] == "### Coverage Trend"
+    assert any("Trend: 90.00% → 90.00%" in line for line in job_summary)

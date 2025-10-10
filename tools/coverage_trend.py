@@ -185,10 +185,11 @@ def evaluate_trend(
     )
 
 
-def write_lines(path: Optional[Path], lines: Iterable[str]) -> None:
+def write_lines(path: Optional[Path], lines: Iterable[str], *, append: bool) -> None:
     if not path:
         return
-    with path.open("a", encoding="utf-8") as handle:
+    mode = "a" if append else "w"
+    with path.open(mode, encoding="utf-8") as handle:
         handle.write("\n".join(lines) + "\n")
 
 
@@ -237,6 +238,7 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
         "--baseline", type=Path, default=Path("config/coverage-baseline.json")
     )
     parser.add_argument("--summary-path", type=Path, default=None)
+    parser.add_argument("--job-summary", type=Path, default=None)
     parser.add_argument("--artifact-path", type=Path, required=True)
     parser.add_argument("--github-output", type=Path, default=None)
     parser.add_argument("--minimum", type=float, default=None)
@@ -248,8 +250,11 @@ def main(argv: Optional[list[str]] = None) -> int:
     current = read_coverage(args.coverage_xml, args.coverage_json)
     baseline = load_baseline(args.baseline)
     result = evaluate_trend(current, baseline, minimum=args.minimum)
+    summary_lines = result.summary_lines()
     if args.summary_path:
-        write_lines(args.summary_path, result.summary_lines())
+        write_lines(args.summary_path, summary_lines, append=False)
+    if args.job_summary:
+        write_lines(args.job_summary, summary_lines, append=True)
     dump_artifact(args.artifact_path, result)
     write_github_output(args.github_output, result)
     return 0

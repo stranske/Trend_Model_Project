@@ -124,9 +124,10 @@ jobs:
             --coverage-json "coverage.json"
             --baseline "${BASELINE_PATH}"
             --artifact-path "artifacts/coverage-trend.json"
+            --summary-path "artifacts/coverage-summary.md"
           )
           if [[ -n "${SUMMARY_PATH:-}" ]]; then
-            args+=(--summary-path "${SUMMARY_PATH}")
+            args+=(--job-summary "${SUMMARY_PATH}")
           fi
           if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
             args+=(--github-output "${GITHUB_OUTPUT}")
