@@ -3,7 +3,9 @@
 Use this page as the canonical reference for CI workflow naming, inventory, and
 local guardrails. It consolidates the requirements from Issues #2190 and #2202
 and adds guidance for contributors who need to stage new workflows or dispatch
-the agents toolkit.
+the agents toolkit. The quick catalog below spells out **purpose, triggers,
+required permissions, and status/label effects** for every merge gate and agent
+automation entry point currently in service.
 
 ## CI & agents quick catalog
 
