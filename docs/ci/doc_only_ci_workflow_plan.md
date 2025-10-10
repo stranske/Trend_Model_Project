@@ -9,10 +9,13 @@
 
 ## Acceptance Criteria / Definition of Done
 - A GitHub Actions workflow file exists under `.github/workflows/` defining the `docs-only` job.
-- The job triggers for pull request events and is limited by `paths` and `paths-ignore` filters so it runs only on doc-only changes.
+- The job triggers for pull request events and is limited by documentation path filters. A follow-on detection step keeps the
+  commenting job dormant when any non-doc files are present in the diff.
 - When executed, the workflow posts exactly one comment on the pull request containing the message: `Doc‑only change detected; gate skipped by path filters.`
 - The workflow avoids posting duplicate comments if rerun on the same PR by updating an existing comment or ensuring idempotent logic.
 - The workflow has been linted/validated (e.g., via `act -n` or GitHub Actions workflow syntax check) to confirm there are no YAML or logic errors.
+- When running the broader `scripts/workflow_lint.sh` helper, expect unrelated legacy findings; targeted invocations such as
+  `./.cache/actionlint/actionlint .github/workflows/pr-14-docs-only.yml` keep validation noise-free for this workflow.
 - Documentation describing the workflow purpose and limitations is added to the repository.
 
 ## Initial Task Checklist
