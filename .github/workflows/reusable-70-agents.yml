@@ -263,21 +263,10 @@ jobs:
 
   verify_issue:
     if: inputs.enable_verify_issue == 'true' && inputs.verify_issue_number != ''
-    name: Verify Agent Issue Assignment
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Check assignees
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { owner, repo } = context.repo;
-            const issue_num = Number('${{ inputs.verify_issue_number }}');
-            const { data: issue } = await github.rest.issues.get({ owner, repo, issue_number: issue_num });
-            const assignees = (issue.assignees||[]).map(a => (a.login||'').toLowerCase());
-            if (!assignees.includes('copilot') && !assignees.includes('chatgpt-codex-connector')) {
-              core.setFailed(`Issue #${issue_num} has no agent assignee`);
-            } else { core.info('Agent assigned: '+assignees.join(',')); }
+    uses: ./.github/workflows/verify-agent-assignment.yml
+    secrets: inherit
+    with:
+      issue_number: ${{ inputs.verify_issue_number }}
 
   bootstrap-codex:
     if: inputs.enable_bootstrap == 'true'
