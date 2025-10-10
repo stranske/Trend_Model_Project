@@ -25,9 +25,6 @@ jobs:
         with:
           script: |
             const core = require('@actions/core');
-            const minimatch = require('minimatch');
-
-            const allowedPatterns = ['**/*.md', 'docs/**', 'assets/**'];
 
             const files = await github.paginate(github.rest.pulls.listFiles, {
               owner: context.repo.owner,
@@ -36,9 +33,18 @@ jobs:
               per_page: 100,
             });
 
+            const classify = filename => {
+              const normalised = filename.toLowerCase();
+              return (
+                normalised.endsWith('.md') ||
+                normalised.startsWith('docs/') ||
+                normalised.startsWith('assets/')
+              );
+            };
+
             const nonDocFiles = files
               .map(file => file.filename)
-              .filter(filename => !allowedPatterns.some(pattern => minimatch(filename, pattern)));
+              .filter(filename => !classify(filename));
 
             const docOnly = nonDocFiles.length === 0;
 
