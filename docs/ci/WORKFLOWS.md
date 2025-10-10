@@ -52,6 +52,12 @@ automation entry point currently in service.
 | `pr-gate.yml` (`Gate`) | `workflow_call` | Composite orchestrator that chains the reusable CI and Docker smoke jobs for downstream repositories.
 | `autofix.yml` (`Autofix`) | `pull_request` | Lightweight formatting/type-hygiene runner that auto-commits safe fixes or publishes a patch artifact for forked PRs.
 
+**Operational details**
+- **PR 10 CI Python** – Permissions: default read-only (`contents: read`). Secrets: inherits `GITHUB_TOKEN`. Status output: single `ci / python` check produced by `reusable-96-ci-lite` with coverage gating.
+- **PR 12 Docker Smoke** – Permissions: lint job uses defaults; smoke job elevates to `contents: read`, `packages: write` for cached pushes. Secrets: uses `GITHUB_TOKEN` for registry auth when pushing from `phase-2-dev`. Status outputs: `Lint Dockerfile` and `smoke` checks plus a Buildx cache summary in the run log.
+- **Gate** – Permissions: defaults (read scope). Secrets: relies on `GITHUB_TOKEN` only. Status outputs: `core tests (3.11)`, `core tests (3.12)`, `docker smoke`, and the aggregator job `gate`, which fails if any dependency fails.
+- **Autofix** – Permissions: `contents: write`, `pull-requests: write`. Secrets: inherits `GITHUB_TOKEN` (sufficient for label + comment updates). Status outputs: `autofix` job; labels applied include `autofix`, `autofix:applied`/`autofix:patch`, and cleanliness toggles (`autofix:clean`/`autofix:debt`).
+
 These jobs must stay green for PRs to merge. The post-CI maintenance jobs below
 listen to their `workflow_run` events.
 
@@ -69,6 +75,9 @@ listen to their `workflow_run` events.
 | `maint-41-chatgpt-issue-sync.yml` (`Maint 41 ChatGPT Issue Sync`) | `workflow_dispatch` (manual) | Fans out curated topic lists (e.g. `Issues.txt`) into labeled GitHub issues. ⚠️ Repository policy: do not remove without a functionally equivalent replacement. |
 | `maint-45-cosmetic-repair.yml` (`Maint 45 Cosmetic Repair`) | `workflow_dispatch` | Manual pytest + guardrail fixer that applies tolerance/snapshot updates and opens a labelled PR when drift is detected. |
 
+**Operational details**
+- **Maint 02 Repo Health** – Permissions: `contents: read`, `issues: read`. Secrets: uses `GITHUB_TOKEN` only. Output: publishes a step summary (“Repository health weekly sweep”) with stale branches and unassigned-issue tables.
+
 ### Agent automation entry points
 
 | Workflow | Trigger(s) | Purpose |
@@ -76,6 +85,9 @@ listen to their `workflow_run` events.
 | `agents-consumer.yml` (`Agents Consumer`) | Hourly cron, manual | Consolidated wrapper that accepts a JSON payload and calls `reuse-agents.yml` to run readiness, preflight, verification, and bootstrap flows.
 | `agents-43-codex-issue-bridge.yml` (`Agents 43 Codex Issue Bridge`) | `issues`, manual | Prepares Codex-ready branches/PRs when an `agent:codex` label is applied.
 | `agents-70-orchestrator.yml` (`Agents 70 Orchestrator`) | 20-minute cron, manual | Unified agents toolkit (readiness probes, Codex bootstrap, watchdogs) delegating to `reusable-70-agents.yml`.
+
+**Operational details**
+- **Agents Consumer** – Permissions: `contents: write`, `pull-requests: write`, `issues: write`. Secrets: inherits `GITHUB_TOKEN` and forwards `secrets.SERVICE_BOT_PAT` when available so downstream automation may push branches/comments. Output: emits `Resolve Parameters` summary and a `Dispatch Agents Toolkit` reusable call that surfaces Codex readiness/watchdog diagnostics.
 
 ### Reusable composites
 
@@ -91,6 +103,9 @@ listen to their `workflow_run` events.
 | `reusable-99-selftest.yml` (`Reusable 99 Selftest`) | `maint-` self-test orchestration | Scenario matrix that validates the reusable CI executor and artifact inventory.
 | `reusable-ci.yml` (`Reusable CI`) | External repositories | General-purpose CI composite (lint, type-check, pytest, coverage) with minimal configuration.
 | `reusable-docker.yml` (`Reusable Docker Smoke`) | External repositories | Standalone Docker SMOKE composite combining build + health check.
+
+**Operational details**
+- **Reuse Agents** – Permissions: `contents: write`, `pull-requests: write`, `issues: write`. Secrets: optional `service_bot_pat` (forwarded to `reusable-70-agents`) plus `GITHUB_TOKEN`. Outputs: single `call` job exposes reusable outputs such as `triggered` keepalive list and watchdog diagnostics for upstream orchestrators.
 
 ### Archived self-test workflows
 
