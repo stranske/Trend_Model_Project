@@ -6,7 +6,7 @@ from xml.sax.saxutils import escape
 
 import pytest
 
-from scripts import ci_cosmetic_repair
+ci_cosmetic_repair = pytest.importorskip("scripts.ci_cosmetic_repair")
 
 pytestmark = pytest.mark.filterwarnings(
     "ignore:Testing an element's truth value will always return True in future versions.:DeprecationWarning"

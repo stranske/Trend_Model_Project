@@ -75,7 +75,7 @@ All others use default `GITHUB_TOKEN`.
 | `maint-36-actionlint.yml` | pull_request (workflows), push (`phase-2-dev`), schedule, workflow_dispatch | Workflow schema lint with reviewdog annotations.
 | `maint-40-ci-signature-guard.yml` | pull_request/push (`phase-2-dev`) | Validates the signed job manifest for `pr-10-ci-python.yml`.
 | `maint-41-chatgpt-issue-sync.yml` | workflow_dispatch | Curated topic lists (e.g. `Issues.txt`) → labeled GitHub issues.
-| `cosmetic-repair.yml` | workflow_dispatch | Manual pytest + cosmetic fixer that raises guard-gated PRs for tolerated drift.
+| `maint-45-cosmetic-repair.yml` | workflow_dispatch | Manual pytest + cosmetic fixer that raises guard-gated PRs for tolerated drift.
 | `agents-43-codex-issue-bridge.yml` | issues, workflow_dispatch | Prepares Codex-ready branches/PRs when an `agent:codex` label is applied.
 | `agents-70-orchestrator.yml` | schedule (*/20), workflow_dispatch | Unified agents toolkit entry point delegating to `reusable-70-agents.yml`.
 | `reusable-70-agents.yml` | workflow_call | Composite implementing readiness, bootstrap, diagnostics, and watchdog jobs.
@@ -124,7 +124,11 @@ Two entry points now exist:
 
 - `agents-consumer.yml` – Hourly cron + manual dispatch wrapper that accepts a
   single `params_json` string, parses it, and forwards normalized values to
-  `reuse-agents.yml`.
+  `reuse-agents.yml`. The workflow declares `concurrency: agents-consumer` and
+  introduces job-level `timeout-minutes` so overlapping runs are cancelled and
+  stalled executions end automatically. Scheduled runs only execute readiness +
+  watchdog probes; set `enable_bootstrap` to `true` in the JSON payload to opt
+  into Codex bootstraps (preflight stays disabled unless explicitly enabled).
 - `agents-70-orchestrator.yml` – Unified scheduled/dispatch orchestrator for
   readiness probes, diagnostics, bootstrap, watchdog, and keepalive flows. It
   passes discrete inputs directly to `reusable-70-agents.yml`.
@@ -149,14 +153,19 @@ paste payload:
   "enable_verify_issue": false,
   "verify_issue_number": "",
   "enable_watchdog": true,
+  "enable_bootstrap": false,
   "bootstrap_issues_label": "agent:codex",
   "draft_pr": false,
-  "options_json": "{}"
+  "options_json": "{\"enable_keepalive\":false,\"keepalive\":{\"enabled\":false}}"
 }
 ```
 
-Omit any keys to fall back to defaults. `options_json` remains available for
-advanced keepalive tuning (dry run, alternate labels, idle thresholds, etc.).
+Omit any keys to fall back to defaults. `enable_bootstrap: true` unlocks Codex
+PR bootstraps; leave it `false` for the minimal readiness + watchdog run.
+`options_json` remains available for advanced keepalive tuning (dry run,
+alternate labels, idle thresholds, etc.). Leave `enable_keepalive` (or
+`keepalive.enabled`) set to `false` to keep the sweep disabled for scheduled
+consumer runs.
 
 The guard test `tests/test_workflow_agents_consolidation.py` enforces the
 reduced input surface and ensures the consumer continues to call the bridge
