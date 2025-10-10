@@ -44,6 +44,7 @@ results/
 !data/raw/managers/*.csv
 !data/raw/indices/*.csv
 *.json
+!config/coverage-baseline.json
 !/.github/signature-fixtures/basic_jobs.json
 !perf/perf_baseline.json
 !src/trend_analysis/export/manifest_schema.json

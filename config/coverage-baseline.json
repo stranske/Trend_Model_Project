@@ -1,0 +1,6 @@
+{
+  "line": 85.0,
+  "warn_drop": 1.0,
+  "updated": "2024-12-01",
+  "notes": "Baseline coverage percentage used for soft alerts. Update after significant test changes."
+}
