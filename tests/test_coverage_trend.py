@@ -139,6 +139,7 @@ def test_main_generates_summary_and_artifacts(tmp_path: Path) -> None:
     )
     assert any("Current: 90.00%" in line for line in summary)
     assert any("Baseline: 90.00%" in line for line in summary)
+    assert any("Soft drop limit: 1.50 pts" in line for line in summary)
     assert any("Required minimum: 85.00%" in line for line in summary)
 
     artifact = json.loads(artifact_path.read_text(encoding="utf-8"))

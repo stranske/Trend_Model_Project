@@ -66,8 +66,7 @@ class TrendResult:
                 lines.append(
                     f"- Warning: drop exceeds {self.warn_drop:.2f}-pt soft limit"
                 )
-        elif self.status == "no-baseline":
-            lines.append(f"- Soft drop limit: {self.warn_drop:.2f} pts")
+        lines.append(f"- Soft drop limit: {self.warn_drop:.2f} pts")
         if self.minimum is not None:
             lines.append(f"- Required minimum: {self.minimum:.2f}%")
         return lines
