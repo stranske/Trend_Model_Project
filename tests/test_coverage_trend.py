@@ -86,12 +86,14 @@ def test_dump_artifact_and_outputs(tmp_path: Path) -> None:
         "baseline": 90.0,
         "delta": -2.0,
         "warn_drop": 1.0,
+        "minimum": 85.0,
         "status": "warn",
     }
     output_path = tmp_path / "output.txt"
     write_github_output(output_path, result)
     output = output_path.read_text(encoding="utf-8").strip().splitlines()
     assert "status=warn" in output
+    assert "minimum=85.00" in output
     assert any(line.startswith("comment<<EOF") for line in output)
 
 
@@ -136,7 +138,9 @@ def test_main_generates_summary_and_artifacts(tmp_path: Path) -> None:
     artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
     assert artifact["status"] == "ok"
     assert artifact["delta"] == pytest.approx(0.0, abs=1e-9)
+    assert artifact["minimum"] == pytest.approx(85.0)
 
     github_output = output_path.read_text(encoding="utf-8").strip().splitlines()
     assert "status=ok" in github_output
+    assert "minimum=85.00" in github_output
     assert all(not line.startswith("comment<<EOF") for line in github_output)
