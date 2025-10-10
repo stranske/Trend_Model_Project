@@ -100,6 +100,7 @@ EXPECTED_NAMES = {
     "maint-36-actionlint.yml": "Maint 36 Actionlint",
     "maint-40-ci-signature-guard.yml": "Maint 40 CI Signature Guard",
     "maint-41-chatgpt-issue-sync.yml": "Maint 41 ChatGPT Issue Sync",
+    "maint-45-cosmetic-repair.yml": "Maint 45 Cosmetic Repair",
     "pr-10-ci-python.yml": "PR 10 CI Python",
     "pr-12-docker-smoke.yml": "PR 12 Docker Smoke",
     "pr-gate.yml": "Gate",

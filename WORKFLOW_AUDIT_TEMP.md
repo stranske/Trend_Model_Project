@@ -29,7 +29,7 @@ Only the workflows listed below remain visible in the Actions tab. Reusable comp
 | `maint-36-actionlint.yml` | pull_request, push, schedule, workflow_dispatch | Sole workflow lint gate (actionlint via reviewdog).
 | `maint-40-ci-signature-guard.yml` | pull_request, push | Verifies signed CI manifests to guard against tampering.
 | `maint-41-chatgpt-issue-sync.yml` | workflow_dispatch | Fans out curated topic lists (e.g. `Issues.txt`) into GitHub issues with automatic labeling. |
-| `cosmetic-repair.yml` | workflow_dispatch | Manual pytest run that feeds `scripts/ci_cosmetic_repair.py` to patch guard-gated tolerances/snapshots and open labelled PRs. |
+| `maint-45-cosmetic-repair.yml` | workflow_dispatch | Manual pytest run that feeds `scripts/ci_cosmetic_repair.py` to patch guard-gated tolerances/snapshots and open labelled PRs. |
 
 ### Agents
 | Workflow | Triggers | Notes |
