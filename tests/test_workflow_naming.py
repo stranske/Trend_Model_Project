@@ -90,6 +90,7 @@ def test_chatgpt_issue_sync_workflow_present_and_intact():
 EXPECTED_NAMES = {
     "agents-consumer.yml": "Agents Consumer",
     "agents-43-codex-issue-bridge.yml": "Agents 43 Codex Issue Bridge",
+    "agents-44-verify-agent-assignment.yml": "Agents 44 Verify Agent Assignment",
     "agents-70-orchestrator.yml": "Agents 70 Orchestrator",
     "reuse-agents.yml": "Reuse Agents",
     "maint-02-repo-health.yml": "Maint 02 Repo Health",
