@@ -6,7 +6,7 @@ on:
       issue_number:
         description: 'Numeric issue identifier to inspect'
         required: true
-        type: number
+        type: string
     outputs:
       status:
         description: 'Validation outcome (pass, fail, skipped, error)'
@@ -31,7 +31,7 @@ on:
       issue_number:
         description: 'Numeric issue identifier to inspect'
         required: true
-        type: number
+        type: string
 
 permissions:
   issues: read
