@@ -84,6 +84,7 @@ listen to their `workflow_run` events.
 |----------|------------|---------|
 | `agents-consumer.yml` (`Agents Consumer`) | Hourly cron, manual | Consolidated wrapper that accepts a JSON payload and calls `reuse-agents.yml` to run readiness, preflight, verification, and bootstrap flows.
 | `agents-43-codex-issue-bridge.yml` (`Agents 43 Codex Issue Bridge`) | `issues`, manual | Prepares Codex-ready branches/PRs when an `agent:codex` label is applied.
+| `agents-44-verify-agent-assignment.yml` (`Agents 44 Verify Agent Assignment`) | `workflow_call`, manual | Checks that `agent:codex` issues remain assigned to an approved automation account before downstream workflows act.
 | `agents-70-orchestrator.yml` (`Agents 70 Orchestrator`) | 20-minute cron, manual | Unified agents toolkit (readiness probes, Codex bootstrap, watchdogs) delegating to `reusable-70-agents.yml`.
 
 **Operational details**

@@ -37,6 +37,7 @@ Only the workflows listed below remain visible in the Actions tab. Reusable comp
 |----------|----------|-------|
 | `agents-consumer.yml` | schedule (hourly), workflow_dispatch | JSON-configurable wrapper that forwards options to `reuse-agents.yml`.
 | `agents-43-codex-issue-bridge.yml` | issues, workflow_dispatch | Restored Codex bootstrap automation for label-driven issue handling. |
+| `agents-44-verify-agent-assignment.yml` | workflow_call, workflow_dispatch | Validates that `agent:codex` issues remain assigned to an approved agent account before automation runs. |
 | `agents-70-orchestrator.yml` | schedule (*/20), workflow_dispatch | Unified agents toolkit entry point (readiness, diagnostics, Codex keepalive). |
 
 ### Reusable Composites
