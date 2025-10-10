@@ -55,6 +55,7 @@ jobs:
             }
 
   docs-only:
+    name: docs-only
     needs: detect-doc-changes
     if: ${{ needs.detect-doc-changes.outputs.doc_only == 'true' }}
     runs-on: ubuntu-latest
