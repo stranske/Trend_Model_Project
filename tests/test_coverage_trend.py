@@ -10,8 +10,8 @@ from tools.coverage_trend import (
     TrendResult,
     dump_artifact,
     evaluate_trend,
-    main,
     load_baseline,
+    main,
     read_coverage,
     write_github_output,
 )
