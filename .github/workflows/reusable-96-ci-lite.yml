@@ -163,17 +163,89 @@ jobs:
           COVERAGE_COMMENT: ${{ steps.coverage_trend.outputs.comment }}
         with:
           script: |
-            const body = process.env.COVERAGE_COMMENT || '';
-            if (!body.trim()) {
+            const body = (process.env.COVERAGE_COMMENT || '').trim();
+            if (!body) {
               core.info('No coverage alert comment to post.');
               return;
             }
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body,
+            const marker = '🔶 Coverage drop alert';
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.paginate(
+              github.rest.issues.listComments,
+              {
+                owner,
+                repo,
+                issue_number,
+                per_page: 100,
+              },
+            );
+            const existing = comments.find(
+              (comment) =>
+                comment.body &&
+                comment.body.startsWith(marker) &&
+                comment.user &&
+                comment.user.type === 'Bot',
+            );
+            if (existing) {
+              if (existing.body.trim() === body) {
+                core.info(`Coverage alert comment ${existing.id} already up to date.`);
+              } else {
+                await github.rest.issues.updateComment({
+                  owner,
+                  repo,
+                  comment_id: existing.id,
+                  body,
+                });
+                core.info(`Updated coverage alert comment ${existing.id}.`);
+              }
+            } else {
+              const response = await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
+                body,
+              });
+              core.info(`Created coverage alert comment ${response.data.id}.`);
+            }
+
+      - name: Remove resolved coverage alert
+        if: >
+          always() &&
+          github.event_name == 'pull_request' &&
+          (steps.coverage_trend.outputs.status != 'warn' || steps.coverage_trend.outputs.comment == '')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const marker = '🔶 Coverage drop alert';
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.paginate(
+              github.rest.issues.listComments,
+              {
+                owner,
+                repo,
+                issue_number,
+                per_page: 100,
+              },
+            );
+            const existing = comments.find(
+              (comment) =>
+                comment.body &&
+                comment.body.startsWith(marker) &&
+                comment.user &&
+                comment.user.type === 'Bot',
+            );
+            if (!existing) {
+              core.info('No coverage alert comment to remove.');
+              return;
+            }
+            await github.rest.issues.deleteComment({
+              owner,
+              repo,
+              comment_id: existing.id,
             });
+            core.info(`Removed coverage alert comment ${existing.id}.`);
 
       - name: Enforce coverage minimum
         run: |

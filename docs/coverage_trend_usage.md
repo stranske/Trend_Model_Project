@@ -8,7 +8,7 @@ This project tracks code coverage trends in CI so coverage regressions are surfa
 2. **Baseline comparison** – The script reads `config/coverage-baseline.json` to determine the expected baseline (`line`) and soft warning drop (`warn_drop`, in percentage points).
 3. **Job summary** – Every run appends a "Coverage Trend" section to the GitHub Actions job summary, listing the current coverage, baseline, delta, soft drop limit, and any configured hard minimum.
 4. **Artifacts** – The reusable workflow writes `artifacts/coverage-trend.json` and uploads the entire `coverage-summary-<python>` artifact so coverage snapshots can be inspected locally.
-5. **Soft warnings** – On pull requests, if the coverage delta is lower than `-warn_drop`, the workflow posts a 🔶 coverage alert comment instead of failing CI.
+5. **Soft warnings** – On pull requests, if the coverage delta is lower than `-warn_drop`, the workflow posts or updates a 🔶 coverage alert comment instead of failing CI, and removes the comment once coverage returns within tolerance.
 
 ## Updating the baseline
 
