@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from tools.coverage_trend import (
+    DEFAULT_WARN_DROP,
     Baseline,
     TrendResult,
     dump_artifact,
@@ -52,6 +53,17 @@ def test_load_baseline_missing_file_uses_defaults(tmp_path: Path) -> None:
     assert baseline.warn_drop == pytest.approx(1.0)
 
 
+def test_load_baseline_negative_warn_drop_resets_to_default(tmp_path: Path) -> None:
+    baseline_path = tmp_path / "baseline.json"
+    write_file(
+        baseline_path,
+        json.dumps({"line": 88.0, "warn_drop": -2}),
+    )
+    baseline = load_baseline(baseline_path)
+    assert baseline.line == pytest.approx(88.0)
+    assert baseline.warn_drop == pytest.approx(DEFAULT_WARN_DROP)
+
+
 def test_evaluate_trend_warns_on_drop() -> None:
     baseline = Baseline(line=92.0, warn_drop=0.5)
     result = evaluate_trend(90.9, baseline)
@@ -59,6 +71,20 @@ def test_evaluate_trend_warns_on_drop() -> None:
     assert result.delta == pytest.approx(-1.1, rel=1e-3)
     comment = result.comment_body()
     assert "Coverage drop alert" in comment
+
+
+def test_summary_lines_include_warning_details() -> None:
+    baseline = Baseline(line=91.0, warn_drop=1.0)
+    result = evaluate_trend(89.4, baseline, minimum=85.0)
+    summary = result.summary_lines()
+    assert summary[0] == "### Coverage Trend"
+    assert "- Trend: 91.00% → 89.40% (-1.60 pts)" in summary
+    assert "- Current: 89.40%" in summary
+    assert "- Baseline: 91.00%" in summary
+    assert "- Change: -1.60 pts" in summary
+    assert "- Warning: drop exceeds 1.00-pt soft limit" in summary
+    assert "- Soft drop limit: 1.00 pts" in summary
+    assert "- Required minimum: 85.00%" in summary
 
 
 def test_evaluate_trend_ok_when_within_tolerance() -> None:
