@@ -6,11 +6,11 @@ from xml.sax.saxutils import escape
 
 import pytest
 
+from scripts import ci_cosmetic_repair
+
 pytestmark = pytest.mark.filterwarnings(
     "ignore:Testing an element's truth value will always return True in future versions.:DeprecationWarning"
 )
-
-from scripts import ci_cosmetic_repair
 
 
 def _read_summary(repo_root: Path) -> dict[str, object]:

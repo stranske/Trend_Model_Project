@@ -564,7 +564,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         base=ns.base,
         title=title,
         body=body,
-        labels=("testing", "autofix:applied", "autofix"),
+        labels=("testing", "autofix:applied"),
         root=ns.root,
     )
     write_summary(
