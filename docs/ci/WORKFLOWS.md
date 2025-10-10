@@ -3,7 +3,21 @@
 Use this page as the canonical reference for CI workflow naming, inventory, and
 local guardrails. It consolidates the requirements from Issues #2190 and #2202
 and adds guidance for contributors who need to stage new workflows or dispatch
-the agents toolkit.
+the agents toolkit. The quick catalog below spells out **purpose, triggers,
+required permissions, and status/label effects** for every merge gate and agent
+automation entry point currently in service.
+
+## CI & agents quick catalog
+
+| Workflow | File | What it does | When it runs | Required secrets / permissions | Status outputs & labels |
+| --- | --- | --- | --- | --- | --- |
+| **Gate** | `.github/workflows/pr-gate.yml` | Fan-out orchestrator that reuses the Python CI matrix and Docker smoke reusable workflows, then enforces all downstream results. | `pull_request` (non-doc paths) and `workflow_dispatch`. | Default `GITHUB_TOKEN` (`contents: read`) for all jobs; delegated reusable workflows do not request additional scopes when called from Gate. | <ul><li>**Status checks:** `core tests (3.11)`, `core tests (3.12)`, `docker smoke`, aggregate `gate`.</li><li>**Labels:** _none_.</li></ul> |
+| **CI (PR 10 CI Python)** | `.github/workflows/pr-10-ci-python.yml` | Primary style/type/test runner calling `reusable-96-ci-lite.yml` with coverage enforcement. | `pull_request`, `push` to `phase-2-dev`, `workflow_dispatch`, and `workflow_call`. | Default `GITHUB_TOKEN` with `contents: read`; no PATs or extra secrets required. | <ul><li>**Status checks:** `ci / python (3.11)` by default; additional invocations surface matching suffixes (for example `ci / python (3.12)` when dispatched with that version).</li><li>**Labels:** _none_.</li></ul> |
+| **Docker Smoke (PR 12)** | `.github/workflows/pr-12-docker-smoke.yml` | Lints the Dockerfile, builds a cached image, runs container health checks, and executes the bundled pytest suite. | `workflow_call` (used by Gate and other orchestrators) and `workflow_dispatch`. | Lint job uses default `contents: read`; `smoke` job elevates to `packages: write` so pushes from `phase-2-dev` can publish to `${{ vars.REGISTRY || ghcr.io }}` with `GITHUB_TOKEN`. | <ul><li>**Status checks:** `Lint Dockerfile`, `smoke`.</li><li>**Labels:** _none_.</li></ul> |
+| **Autofix** | `.github/workflows/autofix.yml` | Lightweight formatting/type hygiene runner that auto-commits fixes for same-repo PRs or uploads a patch for forks. | `pull_request` (including label changes). | `contents: write`, `pull-requests: write`; inherits repository secrets but does not require extra PATs. | <ul><li>**Status checks:** top-level `apply` job delegating to the `autofix` composite.</li><li>**Labels:** `autofix`, `autofix:applied`/`autofix:patch`, mutually exclusive `autofix:clean` vs `autofix:debt`.</li></ul> |
+| **Repo Health (Maint 02)** | `.github/workflows/maint-02-repo-health.yml` | Weekly sweep that summarises stale branches and unassigned issues in the run summary. | Monday cron (`15 7 * * 1`) plus `workflow_dispatch`. | `contents: read`, `issues: read`; no secrets required. | <ul><li>**Status checks:** `Weekly repository health sweep`.</li><li>**Labels:** _none_.</li></ul> |
+| **Agents Consumer** | `.github/workflows/agents-consumer.yml` | Hourly/adhoc entry point that parses JSON input then dispatches to the reusable agents toolkit for readiness, bootstrap, watchdog, and keepalive tasks. | Hourly cron (`15 * * * *`) and `workflow_dispatch` with `params_json`. | `contents`, `pull-requests`, `issues`: `write`; optional `service_bot_pat` forwarded to downstream jobs. | <ul><li>**Status checks:** `Resolve Parameters`, `Dispatch Agents Toolkit`, and whichever delegated runs are enabled (e.g., `Agent Readiness Probe`, `Codex Preflight`, `Bootstrap Codex PRs`, `Codex Keepalive Sweep`, `Agent Watchdog`).</li><li>**Labels:** Bootstrap runs add `agent:codex` to spawned PRs.</li></ul> |
+| **Reuse Agents** | `.github/workflows/reuse-agents.yml` | Workflow-call wrapper so other repositories or orchestrators can invoke the agents toolkit with consistent inputs. | `workflow_call` only. | Same as Agents Consumer (`contents`, `pull-requests`, `issues`: `write`) and can accept a `service_bot_pat` secret for Codex bootstrap. | <ul><li>**Status checks:** Top-level `call` job plus the same delegated checks from `Reusable 70 Agents` (readiness, preflight, bootstrap, watchdog, keepalive) when requested.</li><li>**Labels:** Mirrors `codex-bootstrap-lite` (e.g., `agent:codex` for created PRs).</li></ul> |
 
 ## Naming Policy & Number Ranges
 
@@ -34,6 +48,7 @@ the agents toolkit.
 |----------|------------|----------------|
 | `pr-10-ci-python.yml` (`PR 10 CI Python`) | `pull_request`, `push`, `workflow_call`, `workflow_dispatch` | Wrapper around `reusable-96-ci-lite.yml` providing the unified style/type/test gate with coverage reporting.
 | `pr-12-docker-smoke.yml` (`PR 12 Docker Smoke`) | `workflow_call`, `workflow_dispatch` | Deterministic Docker build followed by image smoke tests.
+| `pr-14-docs-only.yml` (`PR 14 Docs Only`) | `pull_request` (doc paths) | Detects documentation-only diffs and posts a friendly skip notice instead of running heavier gates.
 | `pr-gate.yml` (`Gate`) | `workflow_call` | Composite orchestrator that chains the reusable CI and Docker smoke jobs for downstream repositories.
 | `autofix.yml` (`Autofix`) | `pull_request` | Lightweight formatting/type-hygiene runner that auto-commits safe fixes or publishes a patch artifact for forked PRs.
 
@@ -58,7 +73,7 @@ listen to their `workflow_run` events.
 | `maint-36-actionlint.yml` (`Maint 36 Actionlint`) | `pull_request`, weekly cron, manual | Sole workflow-lint gate (actionlint via reviewdog).
 | `maint-40-ci-signature-guard.yml` (`Maint 40 CI Signature Guard`) | `push`/`pull_request` targeting `phase-2-dev` | Validates the signed job manifest for `pr-10-ci-python.yml`.
 | `maint-41-chatgpt-issue-sync.yml` (`Maint 41 ChatGPT Issue Sync`) | `workflow_dispatch` (manual) | Fans out curated topic lists (e.g. `Issues.txt`) into labeled GitHub issues. ⚠️ Repository policy: do not remove without a functionally equivalent replacement. |
-| `cosmetic-repair.yml` (`Cosmetic Repair`) | `workflow_dispatch` | Manual pytest + guardrail fixer that applies tolerance/snapshot updates and opens a labelled PR when drift is detected. |
+| `maint-45-cosmetic-repair.yml` (`Maint 45 Cosmetic Repair`) | `workflow_dispatch` | Manual pytest + guardrail fixer that applies tolerance/snapshot updates and opens a labelled PR when drift is detected. |
 
 **Operational details**
 - **Maint 02 Repo Health** – Permissions: `contents: read`, `issues: read`. Secrets: uses `GITHUB_TOKEN` only. Output: publishes a step summary (“Repository health weekly sweep”) with stale branches and unassigned-issue tables.

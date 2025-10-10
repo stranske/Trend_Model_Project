@@ -53,6 +53,16 @@ on:
         required: false
         default: 'true'
         type: string
+      enable_keepalive:
+        description: 'Run Codex keepalive sweeps (true/false)'
+        required: false
+        default: 'true'
+        type: string
+      enable_bootstrap:
+        description: 'Run Codex bootstrap workflow (true/false)'
+        required: false
+        default: 'false'
+        type: string
       bootstrap_issues_label:
         description: 'Label used to locate Codex-ready issues'
         required: false
@@ -92,6 +102,8 @@ jobs:
       enable_verify_issue: ${{ inputs.enable_verify_issue }}
       verify_issue_number: ${{ inputs.verify_issue_number }}
       enable_watchdog: ${{ inputs.enable_watchdog }}
+      enable_keepalive: ${{ inputs.enable_keepalive }}
+      enable_bootstrap: ${{ inputs.enable_bootstrap }}
       bootstrap_issues_label: ${{ inputs.bootstrap_issues_label }}
       draft_pr: ${{ inputs.draft_pr }}
       options_json: ${{ inputs.options_json }}
