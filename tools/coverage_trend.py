@@ -1,14 +1,14 @@
 """Utilities for computing coverage trend information for CI workflows."""
+
 from __future__ import annotations
 
 import argparse
 import json
 import sys
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Optional
-import xml.etree.ElementTree as ET
-
 
 DEFAULT_WARN_DROP = 1.0
 
@@ -127,7 +127,11 @@ def load_baseline(path: Path) -> Baseline:
     line_value = data.get("line")
     warn_value = data.get("warn_drop", DEFAULT_WARN_DROP)
     line = float(line_value) if isinstance(line_value, (int, float)) else None
-    warn = float(warn_value) if isinstance(warn_value, (int, float)) and warn_value >= 0 else DEFAULT_WARN_DROP
+    warn = (
+        float(warn_value)
+        if isinstance(warn_value, (int, float)) and warn_value >= 0
+        else DEFAULT_WARN_DROP
+    )
     if line is None:
         print(
             f"Baseline file {path} missing numeric 'line' entry",
@@ -205,7 +209,9 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Compute coverage trend data.")
     parser.add_argument("--coverage-xml", type=Path, default=Path("coverage.xml"))
     parser.add_argument("--coverage-json", type=Path, default=Path("coverage.json"))
-    parser.add_argument("--baseline", type=Path, default=Path("config/coverage-baseline.json"))
+    parser.add_argument(
+        "--baseline", type=Path, default=Path("config/coverage-baseline.json")
+    )
     parser.add_argument("--summary-path", type=Path, default=None)
     parser.add_argument("--artifact-path", type=Path, required=True)
     parser.add_argument("--github-output", type=Path, default=None)

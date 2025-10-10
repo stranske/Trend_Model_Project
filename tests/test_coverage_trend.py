@@ -27,7 +27,9 @@ def test_read_coverage_prefers_xml(tmp_path: Path) -> None:
         """<?xml version='1.0'?><coverage line-rate='0.875'></coverage>""",
     )
     json_path = tmp_path / "coverage.json"
-    write_file(json_path, json.dumps({"totals": {"covered_lines": 30, "num_statements": 40}}))
+    write_file(
+        json_path, json.dumps({"totals": {"covered_lines": 30, "num_statements": 40}})
+    )
     current = read_coverage(xml, json_path)
     assert current == pytest.approx(87.5, rel=1e-4)
 
@@ -35,7 +37,9 @@ def test_read_coverage_prefers_xml(tmp_path: Path) -> None:
 def test_read_coverage_falls_back_to_json(tmp_path: Path) -> None:
     xml = tmp_path / "coverage.xml"
     json_path = tmp_path / "coverage.json"
-    write_file(json_path, json.dumps({"totals": {"covered_lines": 45, "num_statements": 50}}))
+    write_file(
+        json_path, json.dumps({"totals": {"covered_lines": 45, "num_statements": 50}})
+    )
     current = read_coverage(xml, json_path)
     assert current == pytest.approx(90.0, rel=1e-4)
 
