@@ -1,0 +1,1506 @@
+name: Maint Post CI
+
+on:
+  workflow_run:
+    workflows: ["Gate"]
+    types: [completed]
+
+concurrency:
+  group: >-
+    maint-post-ci-${{
+      (
+        github.event.workflow_run.pull_requests &&
+        github.event.workflow_run.pull_requests[0] &&
+        github.event.workflow_run.pull_requests[0].number
+      ) ||
+      github.event.workflow_run.head_sha ||
+      github.event.workflow_run.id ||
+      github.run_id
+    }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+  actions: read
+
+env:
+  COMMIT_PREFIX: ${{ vars.AUTOFIX_COMMIT_PREFIX || 'chore(autofix):' }}
+
+jobs:
+  summarize:
+    if: >
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.pull_requests &&
+      github.event.workflow_run.pull_requests[0] &&
+      github.event.workflow_run.pull_requests[0].number
+    runs-on: ubuntu-latest
+    outputs:
+      summary_body: ${{ steps.prep.outputs.body }}
+      head_sha: ${{ steps.gather.outputs.head_sha }}
+      runs: ${{ steps.gather.outputs.runs }}
+      coverage_stats: ${{ steps.coverage_stats.outputs.stats_json }}
+      coverage_section: ${{ steps.coverage_summary.outputs.body }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Discover workflow runs for head SHA
+        id: gather
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { owner, repo } = context.repo;
+            const workflowRun = context.payload.workflow_run || {};
+            const headSha = workflowRun.head_sha || context.sha || '';
+
+            const parseJsonInput = (raw, fallback) => {
+              if (!raw) {
+                return fallback;
+              }
+              try {
+                return JSON.parse(raw);
+              } catch (error) {
+                core.warning(`Failed to parse JSON input: ${error}`);
+                return fallback;
+              }
+            };
+
+            const defaultWorkflowTargets = [
+              { key: 'gate', display_name: 'Gate', workflow_path: '.github/workflows/pr-gate.yml' },
+            ];
+
+            const workflowTargetsRaw = process.env.WORKFLOW_TARGETS_JSON;
+            const workflowTargetsInput = parseJsonInput(workflowTargetsRaw, defaultWorkflowTargets);
+            const workflowTargetsSource = Array.isArray(workflowTargetsInput) ? workflowTargetsInput : defaultWorkflowTargets;
+            // Helper to normalize target properties
+            function normalizeTargetProps(target) {
+              return {
+                key: target.key,
+                displayName: target.display_name || target.displayName || target.key || 'workflow',
+                workflowPath: target.workflow_path || target.workflowPath || '',
+                workflowFile: target.workflow_file || target.workflowFile || target.workflow_id || target.workflowId || '',
+                workflowName: target.workflow_name || target.workflowName || '',
+                workflowIds: Array.isArray(target.workflow_ids) ? target.workflow_ids : (target.workflowIds && Array.isArray(target.workflowIds) ? target.workflowIds : []),
+              };
+            }
+
+            const workflowTargets = workflowTargetsSource
+              .map(normalizeTargetProps)
+              .filter(target => target && target.key);
+
+            const normalizePath = (value) => {
+              if (!value) return '';
+              return String(value).replace(/^\.\//, '').replace(/^\/+/, '');
+            };
+
+            async function loadWorkflowRun(identifier) {
+              if (!identifier) {
+                return null;
+              }
+              try {
+                const response = await github.rest.actions.listWorkflowRuns({
+                  owner,
+                  repo,
+                  workflow_id: identifier,
+                  head_sha: headSha || undefined,
+                  event: 'pull_request',
+                  per_page: 10,
+                });
+                const runs = response.data.workflow_runs || [];
+                if (!runs.length) {
+                  return null;
+                }
+                if (!headSha) {
+                  return runs[0];
+                }
+                const exact = runs.find(item => item.head_sha === headSha);
+                return exact || runs[0];
+              } catch (error) {
+                core.warning(`Failed to query workflow runs for "${identifier}": ${error}`);
+                return null;
+              }
+            }
+
+            async function loadJobs(runId) {
+              if (!runId) {
+                return [];
+              }
+              try {
+                const jobs = await github.paginate(
+                  github.rest.actions.listJobsForWorkflowRun,
+                  {
+                    owner,
+                    repo,
+                    run_id: runId,
+                    per_page: 100,
+                  },
+                );
+                return jobs
+                  .filter(job => job)
+                  .map(job => ({
+                    name: job.name,
+                    conclusion: job.conclusion,
+                    status: job.status,
+                    html_url: job.html_url,
+                  }));
+              } catch (error) {
+                core.warning(`Failed to query jobs for workflow run ${runId}: ${error}`);
+                return [];
+              }
+            }
+
+            async function resolveRun(target) {
+              const candidates = [];
+              if (Array.isArray(target.workflowIds) && target.workflowIds.length) {
+                for (const id of target.workflowIds) {
+                  if (id) {
+                    candidates.push(id);
+                  }
+                }
+              }
+              if (target.workflowPath) {
+                candidates.push(normalizePath(target.workflowPath));
+              }
+              if (target.workflowFile) {
+                candidates.push(normalizePath(target.workflowFile));
+              }
+              if (target.workflowName) {
+                candidates.push(target.workflowName);
+              }
+              if (!candidates.length) {
+                candidates.push(target.key);
+              }
+
+              for (const identifier of candidates) {
+                const run = await loadWorkflowRun(identifier);
+                if (run) {
+                  return run;
+                }
+              }
+              return null;
+            }
+
+            const collected = [];
+            for (const target of workflowTargets) {
+              const run = await resolveRun(target);
+              if (run) {
+                const jobs = await loadJobs(run.id);
+                collected.push({
+                  key: target.key,
+                  displayName: target.displayName,
+                  present: true,
+                  id: run.id,
+                  run_attempt: run.run_attempt,
+                  conclusion: run.conclusion,
+                  status: run.status,
+                  html_url: run.html_url,
+                  jobs,
+                });
+              } else {
+                collected.push({
+                  key: target.key,
+                  displayName: target.displayName,
+                  present: false,
+                  jobs: [],
+                });
+              }
+            }
+
+            const gateRun = collected.find(entry => entry.key === 'gate' && entry.present);
+            const gateRunId = gateRun ? String(gateRun.id) : '';
+
+            core.setOutput('runs', JSON.stringify(collected));
+            core.setOutput('ci_run_id', gateRunId);
+            core.setOutput('gate_run_id', gateRunId);
+            core.setOutput('head_sha', headSha || '');
+            core.notice(`Collected ${collected.filter(entry => entry.present).length} Gate workflow runs for head ${headSha}`);
+      - name: Download coverage summary
+        if: ${{ steps.gather.outputs.ci_run_id }}
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: coverage-summary
+          run-id: ${{ steps.gather.outputs.ci_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: artifacts/coverage-summary
+      - name: Download coverage trend
+        if: ${{ steps.gather.outputs.ci_run_id }}
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          run-id: ${{ steps.gather.outputs.ci_run_id }}
+          pattern: '*'
+          merge-multiple: true
+          path: summary_artifacts
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Load coverage summary snippet
+        id: coverage_summary
+        run: |
+          set -euo pipefail
+          mkdir -p summary_artifacts
+          python <<'PY'
+          import os
+          from pathlib import Path
+
+          output_path = os.environ.get('GITHUB_OUTPUT')
+          root = Path('summary_artifacts')
+          search_roots = [root, Path('artifacts')]
+
+          summary_path: Path | None = None
+          candidates = []
+          for base in search_roots:
+              if not base.exists():
+                  continue
+              candidates.extend(base.rglob('coverage-summary.md'))
+          if candidates:
+              # Prefer files in earlier search_roots; if multiple, pick the first found
+              summary_path = candidates[0]
+
+          if summary_path is None:
+              print('No coverage summary markdown found; continuing without it.')
+          else:
+              text = summary_path.read_text(encoding='utf-8')
+              dest = root / 'coverage-summary.md'
+              dest.write_text(text, encoding='utf-8')
+              if output_path:
+                  with Path(output_path).open('a', encoding='utf-8') as handle:
+                      handle.write('body<<EOF\n')
+                      handle.write(text)
+                      if not text.endswith('\n'):
+                          handle.write('\n')
+                      handle.write('EOF\n')
+              print(f'Embedded coverage summary from {summary_path}')
+          PY
+
+      - name: Compute coverage stats
+        id: coverage_stats
+        run: |
+          set -euo pipefail
+          python <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path('summary_artifacts')
+
+          def find_one(pattern: str) -> Path | None:
+              if not root.exists():
+                  return None
+              for candidate in root.rglob(pattern):
+                  if candidate.is_file():
+                      return candidate
+              return None
+
+          record_path = find_one('coverage-trend.json')
+          history_path = find_one('coverage-trend-history.ndjson')
+
+          def load_record(path: Path | None) -> dict[str, object] | None:
+              if not path:
+                  return None
+              try:
+                  data = json.loads(path.read_text(encoding='utf-8'))
+              except Exception:
+                  return None
+              return data if isinstance(data, dict) else None
+
+          latest_record = load_record(record_path)
+
+          history: list[dict[str, object]] = []
+          if history_path and history_path.exists():
+              for raw in history_path.read_text(encoding='utf-8').splitlines():
+                  line = raw.strip()
+                  if not line:
+                      continue
+                  try:
+                      parsed = json.loads(line)
+                  except json.JSONDecodeError:
+                      continue
+                  if isinstance(parsed, dict):
+                      history.append(parsed)
+
+          def run_identifier(record: dict[str, object] | None) -> tuple[object | None, object | None]:
+              if not isinstance(record, dict):
+                  return (None, None)
+              return (record.get('run_id'), record.get('run_number'))
+
+          latest_id = run_identifier(latest_record)
+
+          if latest_record is None and history:
+              latest_record = history[-1]
+              latest_id = run_identifier(latest_record)
+
+          previous_record: dict[str, object] | None = None
+          if history:
+              for candidate in reversed(history):
+                  if run_identifier(candidate) == latest_id:
+                      continue
+                  previous_record = candidate
+                  break
+              if previous_record is None and len(history) > 1:
+                  previous_record = history[-2]
+
+          def extract(record: dict[str, object] | None, key: str) -> float | None:
+              if not isinstance(record, dict):
+                  return None
+              value = record.get(key)
+              try:
+                  return float(value) if value is not None else None
+              except (TypeError, ValueError):
+                  return None
+
+          avg_latest = extract(latest_record, 'avg_coverage')
+          worst_latest = extract(latest_record, 'worst_job_coverage')
+          avg_prev = extract(previous_record, 'avg_coverage')
+          worst_prev = extract(previous_record, 'worst_job_coverage')
+
+          def delta(latest: float | None, prev: float | None) -> float | None:
+              try:
+                  if latest is None or prev is None:
+                      return None
+                  return round(float(latest) - float(prev), 2)
+              except Exception:
+                  return None
+
+          stats = {
+              'avg_latest': avg_latest,
+              'avg_previous': avg_prev,
+              'avg_delta': delta(avg_latest, avg_prev),
+              'worst_latest': worst_latest,
+              'worst_previous': worst_prev,
+              'worst_delta': delta(worst_latest, worst_prev),
+              'history_len': len(history),
+          }
+
+          print(json.dumps(stats))
+          Path('coverage-stats.json').write_text(json.dumps(stats), encoding='utf-8')
+          PY
+          if [ -f coverage-stats.json ]; then
+            printf 'stats_json=%s\n' "$(cat coverage-stats.json)" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Prepare summary body
+        id: prep
+        run: |
+          python tools/post_ci_summary.py
+        env:
+          RUNS_JSON: ${{ steps.gather.outputs.runs }}
+          HEAD_SHA: ${{ steps.gather.outputs.head_sha }}
+          COVERAGE_SECTION: ${{ steps.coverage_summary.outputs.body }}
+          COVERAGE_STATS: ${{ steps.coverage_stats.outputs.stats_json }}
+          REQUIRED_JOB_GROUPS_JSON: ${{ env.REQUIRED_JOB_GROUPS_JSON }}
+      - name: Persist summary preview
+        run: |
+          mkdir -p summary_artifacts
+          if [ -n "${SUMMARY_BODY}" ]; then
+            printf '%s\n' "${SUMMARY_BODY}" > summary_artifacts/summary_preview.md
+          else
+            echo "Summary body empty; skipping preview persistence."
+          fi
+        env:
+          SUMMARY_BODY: ${{ steps.prep.outputs.body }}
+      - name: Upload coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-summary
+          path: |
+            summary_artifacts/coverage-summary.md
+            coverage-stats.json
+            summary_artifacts/summary_preview.md
+          if-no-files-found: ignore
+      - name: Publish run summary
+        run: |
+          python <<'PY'
+          import os
+          import re
+
+          summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+          raw_body = os.environ.get("SUMMARY_BODY") or ""
+          body = raw_body.strip()
+          is_empty = False
+          if not body:
+              is_empty = True
+              body = "## Automated Status Summary\nAutomated status summary was empty."
+
+          if not summary_path:
+              raise SystemExit("GITHUB_STEP_SUMMARY environment variable is not set")
+
+          existing = ""
+          if os.path.exists(summary_path):
+              with open(summary_path, "r", encoding="utf-8") as handle:
+                  existing = handle.read()
+
+          marker = "## Automated Status Summary"
+          pattern = re.compile(rf"\n?{re.escape(marker)}.*?(?=\n## |\Z)", re.DOTALL)
+          cleaned = pattern.sub("", existing).strip()
+
+          parts = [segment for segment in (cleaned, body) if segment]
+
+          with open(summary_path, "w", encoding="utf-8") as handle:
+              if parts:
+                  handle.write("\n\n".join(parts))
+                  handle.write("\n")
+
+          if is_empty:
+              print("Automated status summary was empty.")
+          PY
+        env:
+          SUMMARY_BODY: ${{ steps.prep.outputs.body }}
+
+  context:
+    name: Gather context
+    if: >
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.pull_requests &&
+      github.event.workflow_run.pull_requests[0] &&
+      github.event.workflow_run.pull_requests[0].number
+    runs-on: ubuntu-latest
+    outputs:
+      found: ${{ steps.info.outputs.found }}
+      pr: ${{ steps.info.outputs.pr }}
+      head_ref: ${{ steps.info.outputs.head_ref }}
+      head_sha: ${{ steps.info.outputs.head_sha }}
+      same_repo: ${{ steps.info.outputs.same_repo }}
+      loop_skip: ${{ steps.info.outputs.loop_skip }}
+      small_eligible: ${{ steps.info.outputs.small_eligible }}
+      file_count: ${{ steps.info.outputs.file_count }}
+      change_count: ${{ steps.info.outputs.change_count }}
+      safe_paths: ${{ steps.info.outputs.safe_paths }}
+      unsafe_paths: ${{ steps.info.outputs.unsafe_paths }}
+      safe_file_count: ${{ steps.info.outputs.safe_file_count }}
+      unsafe_file_count: ${{ steps.info.outputs.unsafe_file_count }}
+      safe_change_count: ${{ steps.info.outputs.safe_change_count }}
+      unsafe_change_count: ${{ steps.info.outputs.unsafe_change_count }}
+      all_safe: ${{ steps.info.outputs.all_safe }}
+      has_opt_in: ${{ steps.info.outputs.has_opt_in }}
+      has_patch_label: ${{ steps.info.outputs.has_patch_label }}
+      is_draft: ${{ steps.info.outputs.is_draft }}
+      run_conclusion: ${{ steps.info.outputs.run_conclusion }}
+      actor: ${{ steps.info.outputs.actor }}
+      head_subject: ${{ steps.info.outputs.head_subject }}
+      pat_available: ${{ steps.pat.outputs.available }}
+      trivial_failure: ${{ steps.failure.outputs.trivial }}
+      failing_jobs: ${{ steps.failure.outputs.names }}
+      failing_count: ${{ steps.failure.outputs.count }}
+      failure_incomplete: ${{ steps.failure.outputs.incomplete }}
+      failure_has_jobs: ${{ steps.failure.outputs.has_jobs }}
+    env:
+      AUTOFIX_OPT_IN_LABEL: ${{ vars.AUTOFIX_OPT_IN_LABEL || 'autofix' }}
+      AUTOFIX_PATCH_LABEL: ${{ vars.AUTOFIX_PATCH_LABEL || 'autofix:patch' }}
+      AUTOFIX_TRIVIAL_KEYWORDS: ${{ vars.AUTOFIX_TRIVIAL_KEYWORDS || 'lint,format,style,doc,ruff,mypy,type,black,isort,label,test' }}
+      AUTOFIX_MAX_FILES: ${{ vars.AUTOFIX_MAX_FILES || '40' }}
+      AUTOFIX_MAX_CHANGES: ${{ vars.AUTOFIX_MAX_CHANGES || '800' }}
+    steps:
+      - name: Check PAT availability
+        id: pat
+        shell: bash
+        run: |
+          if [ -z "${{ secrets.SERVICE_BOT_PAT }}" ]; then
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Resolve workflow context
+        id: info
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const prefix = process.env.COMMIT_PREFIX || 'chore(autofix):';
+            const branch = run.head_branch;
+            const headSha = run.head_sha;
+
+            const result = {
+              found: 'false',
+              pr: '',
+              head_ref: branch || '',
+              head_sha: headSha || '',
+              same_repo: 'false',
+              loop_skip: 'false',
+              small_eligible: 'false',
+              file_count: '0',
+              change_count: '0',
+              safe_paths: '',
+              unsafe_paths: '',
+              safe_file_count: '0',
+              unsafe_file_count: '0',
+              safe_change_count: '0',
+              unsafe_change_count: '0',
+              all_safe: 'false',
+              has_opt_in: 'false',
+              has_patch_label: 'false',
+              is_draft: run.event === 'pull_request' && run.head_repository ? (run.pull_requests?.[0]?.draft ? 'true' : 'false') : 'false',
+              run_conclusion: run.conclusion || '',
+              actor: (run.triggering_actor?.login || run.actor?.login || '').toLowerCase(),
+              head_subject: '',
+            };
+
+            if (!branch || !headSha) {
+              core.info('Workflow run missing branch or head SHA; skipping.');
+              for (const [key, value] of Object.entries(result)) {
+                core.setOutput(key, value);
+              }
+              return;
+            }
+
+            const headShaLower = (headSha || '').toLowerCase();
+            let pr = null;
+            let prNumber = null;
+
+            const payloadPr = run && Array.isArray(run.pull_requests)
+              ? run.pull_requests.find(item => item && typeof item.number === 'number')
+              : null;
+
+            if (payloadPr) {
+              prNumber = Number(payloadPr.number);
+              if (!Number.isNaN(prNumber)) {
+                try {
+                  const prResponse = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+                  pr = prResponse.data;
+                } catch (error) {
+                  core.warning(`Failed to load PR #${prNumber} from workflow payload: ${error.message}`);
+                }
+              }
+            }
+
+            let openPrs = [];
+            if (!pr) {
+              openPrs = await github.paginate(github.rest.pulls.list, {
+                owner,
+                repo,
+                state: 'open',
+                per_page: 100,
+              });
+
+              if (headShaLower) {
+                pr = openPrs.find(item => (item.head?.sha || '').toLowerCase() === headShaLower) || null;
+              }
+
+              if (!pr && branch) {
+                const branchLower = branch.toLowerCase();
+                pr = openPrs.find(item => (item.head?.ref || '').toLowerCase() === branchLower) || null;
+              }
+
+              if (!pr && openPrs.length) {
+                pr = openPrs[0];
+              }
+            }
+
+            if (!pr) {
+              core.info(`Unable to locate an open PR for workflow run (head_sha=${headSha}, branch=${branch || 'n/a'})`);
+              for (const [key, value] of Object.entries(result)) {
+                core.setOutput(key, value);
+              }
+              return;
+            }
+
+            prNumber = Number(pr.number);
+            result.found = 'true';
+            result.pr = String(prNumber);
+            result.head_ref = pr.head?.ref || branch;
+            result.head_sha = pr.head?.sha || headSha;
+            result.same_repo = pr.head?.repo?.full_name === `${owner}/${repo}` ? 'true' : 'false';
+            result.is_draft = pr.draft ? 'true' : 'false';
+
+            const labels = Array.isArray(pr.labels)
+              ? pr.labels
+                  .filter(label => label && typeof label.name === 'string')
+                  .map(label => label.name)
+              : [];
+            const optLabel = process.env.AUTOFIX_OPT_IN_LABEL || 'autofix';
+            const patchLabel = process.env.AUTOFIX_PATCH_LABEL || 'autofix:patch';
+            result.has_opt_in = labels.includes(optLabel) ? 'true' : 'false';
+            result.has_patch_label = labels.includes(patchLabel) ? 'true' : 'false';
+
+            try {
+              const commit = await github.rest.repos.getCommit({ owner, repo, ref: result.head_sha });
+              const subject = (commit.data.commit.message || '').split('\n')[0];
+              result.head_subject = subject;
+              const actor = result.actor;
+              const isAutomation = actor === 'github-actions' || actor === 'github-actions[bot]';
+              const subjectLower = subject.toLowerCase();
+              const prefixLower = prefix.toLowerCase();
+              if (isAutomation && prefixLower && subjectLower.startsWith(prefixLower)) {
+                core.info(`Loop guard engaged for actor ${actor}: detected prior autofix commit.`);
+                result.loop_skip = 'true';
+              }
+            } catch (error) {
+              core.warning(`Unable to inspect commit message for loop guard: ${error.message}`);
+            }
+
+            if (result.found === 'true') {
+              const files = await github.paginate(github.rest.pulls.listFiles, {
+                owner,
+                repo,
+                pull_number: pr.number,
+                per_page: 100,
+              });
+              const safeSuffixes = ['.py', '.pyi', '.toml', '.cfg', '.ini'];
+              const safeBasenames = new Set([
+                'pyproject.toml',
+                'ruff.toml',
+                '.ruff.toml',
+                'mypy.ini',
+                '.pre-commit-config.yaml',
+                'pytest.ini',
+                '.coveragerc',
+              ].map(name => name.toLowerCase()));
+              const isSafePath = (filepath) => {
+                const lower = filepath.toLowerCase();
+                if (safeSuffixes.some(suffix => lower.endsWith(suffix))) {
+                  return true;
+                }
+                for (const name of safeBasenames) {
+                  if (lower === name || lower.endsWith(`/${name}`)) {
+                    return true;
+                  }
+                }
+                return false;
+              };
+              const totalFiles = files.length;
+              const totalChanges = files.reduce((acc, file) => acc + (file.changes || 0), 0);
+              const safeFiles = files.filter(file => isSafePath(file.filename));
+              const unsafeFiles = files.filter(file => !isSafePath(file.filename));
+              const safeChanges = safeFiles.reduce((acc, file) => acc + (file.changes || 0), 0);
+              const unsafeChanges = totalChanges - safeChanges;
+              const allSafe = unsafeFiles.length === 0;
+              const limitFiles = Number(process.env.AUTOFIX_MAX_FILES || 40);
+              const limitChanges = Number(process.env.AUTOFIX_MAX_CHANGES || 800);
+              const baseEligible = pr.draft ? labels.includes(optLabel) : true;
+              const safeEligible = baseEligible && safeFiles.length > 0 && safeFiles.length <= limitFiles && safeChanges <= limitChanges;
+              result.small_eligible = safeEligible ? 'true' : 'false';
+              result.file_count = String(totalFiles);
+              result.change_count = String(totalChanges);
+              result.safe_paths = safeFiles.map(file => file.filename).join('\n');
+              result.unsafe_paths = unsafeFiles.map(file => file.filename).join('\n');
+              result.safe_file_count = String(safeFiles.length);
+              result.unsafe_file_count = String(unsafeFiles.length);
+              result.safe_change_count = String(safeChanges);
+              result.unsafe_change_count = String(unsafeChanges);
+              result.all_safe = allSafe ? 'true' : 'false';
+            }
+
+            for (const [key, value] of Object.entries(result)) {
+              core.setOutput(key, value ?? '');
+            }
+
+      - name: Inspect failing jobs
+        id: failure
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const conclusion = (run.conclusion || '').toLowerCase();
+            const setOutputs = ({
+              trivial = 'false',
+              names = '',
+              count = '0',
+              incomplete = 'false',
+              hasJobs = 'false',
+            } = {}) => {
+              core.setOutput('trivial', trivial);
+              core.setOutput('names', names);
+              core.setOutput('count', count);
+              core.setOutput('incomplete', incomplete);
+              core.setOutput('has_jobs', hasJobs);
+            };
+
+            if (!run.id) {
+              setOutputs({ incomplete: 'true' });
+              return;
+            }
+
+            if (conclusion === 'success') {
+              setOutputs();
+              return;
+            }
+
+            if (conclusion && conclusion !== 'failure') {
+              setOutputs({ incomplete: 'true' });
+              return;
+            }
+
+            const keywords = (process.env.AUTOFIX_TRIVIAL_KEYWORDS || 'lint,format,style,doc,ruff,mypy,type,black,isort,label,test').split(',')
+              .map(str => str.trim().toLowerCase())
+              .filter(Boolean);
+
+            const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
+              owner,
+              repo,
+              run_id: run.id,
+              per_page: 100,
+            });
+
+            const failing = jobs.filter(job => {
+              const c = (job.conclusion || '').toLowerCase();
+              return c && c !== 'success' && c !== 'skipped';
+            });
+
+            if (!failing.length) {
+              setOutputs();
+              return;
+            }
+
+            const actionableConclusions = new Set(['failure']);
+            const incomplete = failing.some(job => !actionableConclusions.has((job.conclusion || '').toLowerCase()));
+            const allTrivial = failing.every(job => {
+              const name = (job.name || '').toLowerCase();
+              return keywords.some(keyword => name.includes(keyword));
+            });
+
+            setOutputs({
+              trivial: allTrivial ? 'true' : 'false',
+              names: failing.map(job => job.name).join(', '),
+              count: String(failing.length),
+              incomplete: incomplete ? 'true' : 'false',
+              hasJobs: 'true',
+            });
+
+  small-fixes:
+    name: Small hygiene fixes
+    needs: context
+    if: |
+      needs.context.outputs.found == 'true' &&
+      needs.context.outputs.loop_skip != 'true' &&
+      needs.context.outputs.small_eligible == 'true' &&
+      (
+        github.event.workflow_run.conclusion == 'success' ||
+        (
+          github.event.workflow_run.conclusion == 'failure' &&
+          needs.context.outputs.trivial_failure == 'true' &&
+          needs.context.outputs.failure_incomplete != 'true' &&
+          needs.context.outputs.failure_has_jobs == 'true'
+        )
+      ) &&
+      github.event.workflow_run.conclusion != 'cancelled' &&
+      github.event.workflow_run.conclusion != 'timed_out' &&
+      (needs.context.outputs.same_repo != 'true' || needs.context.outputs.pat_available == 'true')
+    runs-on: ubuntu-latest
+    env:
+      APPLIED_LABEL: ${{ vars.AUTOFIX_APPLIED_LABEL || 'autofix:applied' }}
+      PATCH_LABEL: ${{ vars.AUTOFIX_PATCH_LABEL || 'autofix:patch' }}
+      AUTOFIX_TRIGGER_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+      AUTOFIX_TRIGGER_CLASS: ${{ github.event.workflow_run.conclusion == 'failure' && needs.context.outputs.trivial_failure == 'true' && 'trivial-failure' || github.event.workflow_run.conclusion }}
+      AUTOFIX_TRIGGER_PR_HEAD: ${{ needs.context.outputs.head_sha }}
+      AUTOFIX_TRIGGER_REASON: ${{ github.event.workflow_run.conclusion == 'failure' && needs.context.outputs.trivial_failure == 'true' && 'trivial-failure' || github.event.workflow_run.conclusion }}
+    outputs:
+      ran: ${{ steps.capture.outputs.ran }}
+      changed: ${{ steps.capture.outputs.changed }}
+      remaining: ${{ steps.capture.outputs.remaining }}
+      new: ${{ steps.capture.outputs.new }}
+      patch_available: ${{ steps.capture.outputs.patch_available }}
+      skip_reason: ${{ steps.capture.outputs.skip_reason }}
+      trigger_conclusion: ${{ steps.capture.outputs.trigger_conclusion }}
+      trigger_class: ${{ steps.capture.outputs.trigger_class }}
+      trigger_reason: ${{ steps.capture.outputs.trigger_reason }}
+      trigger_head: ${{ steps.capture.outputs.trigger_head }}
+    steps:
+      - name: Autofix path summary
+        shell: bash
+        env:
+          SAFE_COUNT: ${{ needs.context.outputs.safe_file_count }}
+          UNSAFE_COUNT: ${{ needs.context.outputs.unsafe_file_count }}
+          SAFE_PATHS: ${{ needs.context.outputs.safe_paths }}
+          UNSAFE_PATHS: ${{ needs.context.outputs.unsafe_paths }}
+        run: |
+          set -euo pipefail
+          echo "Safe autofix file count: ${SAFE_COUNT:-0}"
+          echo "Unsafe file count: ${UNSAFE_COUNT:-0}"
+          echo "--- Safe paths ---"
+          if [ -n "${SAFE_PATHS}" ]; then
+            printf '%s\n' "${SAFE_PATHS}"
+          else
+            echo "(none)"
+          fi
+          echo "--- Skipped paths ---"
+          if [ -n "${UNSAFE_PATHS}" ]; then
+            printf '%s\n' "${UNSAFE_PATHS}"
+          else
+            echo "(none)"
+          fi
+
+      - name: Determine rerun eligibility
+        id: rerun
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const prNumber = Number('${{ needs.context.outputs.pr }}');
+            const headSha = ('${{ needs.context.outputs.head_sha }}' || '').toLowerCase();
+            const sameRepo = '${{ needs.context.outputs.same_repo }}' === 'true';
+            const hasPatchLabel = '${{ needs.context.outputs.has_patch_label }}' === 'true';
+            const markerPrefix = '<!-- autofix-meta:';
+
+            const setSkip = (reason) => {
+              core.setOutput('skip', 'true');
+              if (reason) {
+                core.exportVariable('AUTOFIX_SKIP_REASON', reason);
+              }
+            };
+
+            core.exportVariable('AUTOFIX_SKIP_REASON', '');
+
+            if (!prNumber || !headSha) {
+              core.setOutput('skip', 'false');
+              return;
+            }
+
+            if (sameRepo || !hasPatchLabel) {
+              core.setOutput('skip', 'false');
+              return;
+            }
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              per_page: 100,
+            });
+
+            let storedHead = '';
+            for (const comment of comments) {
+              const body = comment.body || '';
+              if (!body.includes(markerPrefix)) {
+                continue;
+              }
+              const match = body.match(/<!--\s*autofix-meta:[^>]*head=([0-9a-f]+)/i);
+              if (match) {
+                storedHead = match[1].toLowerCase();
+                break;
+              }
+            }
+
+            if (storedHead && storedHead === headSha) {
+              core.info(`Autofix patch already generated for commit ${headSha}; skipping rerun.`);
+              setSkip('duplicate-patch');
+            } else {
+              core.setOutput('skip', 'false');
+            }
+
+      - name: Checkout workflow repository
+        if: steps.rerun.outputs.skip != 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Load formatter pins
+        if: steps.rerun.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          pin_file=".github/workflows/autofix-versions.env"
+          if [ ! -f "$pin_file" ]; then
+            echo "::error::Missing $pin_file" >&2
+            exit 1
+          fi
+          # shellcheck source=/dev/null
+          source "$pin_file"
+          for var in BLACK_VERSION RUFF_VERSION ISORT_VERSION DOCFORMATTER_VERSION MYPY_VERSION; do
+            if [ -z "${!var:-}" ]; then
+              echo "::error::Missing ${var} in $pin_file" >&2
+              exit 1
+            fi
+          done
+          cat "$pin_file" >> "$GITHUB_ENV"
+      - name: Apply autofix and deliver changes
+        id: apply
+        if: steps.rerun.outputs.skip != 'true'
+        uses: ./.github/actions/apply-autofix
+        with:
+          head_ref: ${{ needs.context.outputs.head_ref }}
+          same_repo: ${{ needs.context.outputs.same_repo }}
+          commit_prefix: ${{ env.COMMIT_PREFIX }}
+          pr: ${{ needs.context.outputs.pr }}
+          safe_paths: ${{ needs.context.outputs.safe_paths }}
+          service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
+          github_token: ${{ github.token }}
+
+      - name: Label PR (autofix applied)
+        if: steps.rerun.outputs.skip != 'true' && steps.apply.outputs.changed == 'true' && needs.context.outputs.same_repo == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const pr = Number('${{ needs.context.outputs.pr }}');
+            const label = process.env.APPLIED_LABEL || 'autofix:applied';
+            try {
+              await github.rest.issues.addLabels({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr, labels: [label] });
+            } catch (error) {
+              core.warning(`Failed to add label: ${error.message}`);
+            }
+      - name: Label PR (autofix patch available)
+        if: steps.rerun.outputs.skip != 'true' && steps.apply.outputs.changed == 'true' && needs.context.outputs.same_repo != 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const pr = Number('${{ needs.context.outputs.pr }}');
+            const label = process.env.PATCH_LABEL || 'autofix:patch';
+            try {
+              await github.rest.issues.addLabels({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr, labels: [label] });
+            } catch (error) {
+              core.warning(`Failed to add patch label: ${error.message}`);
+            }
+      - name: Manage clean/debt labels
+        if: steps.rerun.outputs.skip != 'true' && needs.context.outputs.same_repo == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const pr = Number('${{ needs.context.outputs.pr }}');
+            const remaining = Number("${{ steps.apply.outputs.remaining_issues || '0' }}") || 0;
+            const cleanLabel = 'autofix:clean';
+            const debtLabel = 'autofix:debt';
+            const patchLabel = process.env.PATCH_LABEL || 'autofix:patch';
+            const want = remaining === 0 ? cleanLabel : debtLabel;
+            const drop = remaining === 0 ? debtLabel : cleanLabel;
+            try {
+              await github.rest.issues.removeLabel({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr, name: drop }).catch(() => {});
+              await github.rest.issues.addLabels({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr, labels: [want] });
+              await github.rest.issues.removeLabel({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr, name: patchLabel }).catch(() => {});
+            } catch (error) {
+              core.warning(`Label management warning: ${error.message}`);
+            }
+
+      - name: Update residual history (same-repo)
+        if: |
+          steps.rerun.outputs.skip != 'true' &&
+          needs.context.outputs.same_repo == 'true' &&
+          hashFiles('.github/actions/update-residual-history/action.yml') != ''
+        uses: ./.github/actions/update-residual-history
+
+      - name: Upload autofix history artifact (same-repo)
+        if: steps.rerun.outputs.skip != 'true' && needs.context.outputs.same_repo == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: autofix-history-pr-${{ needs.context.outputs.pr }}
+          path: ci/autofix/history.json
+          if-no-files-found: ignore
+
+      - name: Generate trend sparkline (same-repo)
+        if: steps.rerun.outputs.skip != 'true' && needs.context.outputs.same_repo == 'true'
+        shell: bash
+        run: |
+          if [ -f scripts/generate_residual_trend.py ]; then python scripts/generate_residual_trend.py || true; fi
+          if [ -f ci/autofix/trend.json ]; then echo "Trend:"; cat ci/autofix/trend.json; fi
+
+      - name: Emit JSON report
+        if: always()
+        shell: bash
+        env:
+          PR_NUMBER: ${{ needs.context.outputs.pr }}
+          CHANGED: ${{ steps.apply.outputs.changed }}
+          REMAINING: ${{ steps.apply.outputs.remaining_issues }}
+          NEW_ISSUES: ${{ steps.apply.outputs.new_issues }}
+        run: |
+          set -euo pipefail
+          ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          if [ -f autofix_report_enriched.json ]; then
+            if python scripts/merge_autofix_report.py \
+              --input autofix_report_enriched.json \
+              --output autofix_report.json \
+              --pr-number "${PR_NUMBER}" \
+              --timestamp "${ts}"; then
+              :
+            else
+              printf '{\n  "changed": "%s",\n  "remaining_issues": "%s",\n  "new_issues": "%s",\n  "pull_request": "%s",\n  "timestamp_utc": "%s"\n}\n' \
+                "${CHANGED}" \
+                "${REMAINING}" \
+                "${NEW_ISSUES}" \
+                "${PR_NUMBER}" \
+                "${ts}" > autofix_report.json
+            fi
+          else
+            printf '{\n  "changed": "%s",\n  "remaining_issues": "%s",\n  "new_issues": "%s",\n  "pull_request": "%s",\n  "timestamp_utc": "%s"\n}\n' \
+              "${CHANGED}" \
+              "${REMAINING}" \
+              "${NEW_ISSUES}" \
+              "${PR_NUMBER}" \
+              "${ts}" > autofix_report.json
+          fi
+          echo "Enriched report ready."
+
+      - name: Upload JSON report
+        uses: actions/upload-artifact@v4
+        with:
+          name: autofix-report-pr-${{ needs.context.outputs.pr }}
+          path: autofix_report.json
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Small fixes"
+            echo "PR: #${{ needs.context.outputs.pr }}"
+            echo "Files considered: ${{ needs.context.outputs.file_count }} (safe paths: ${{ needs.context.outputs.safe_paths }})"
+            echo "Changes applied: ${{ steps.apply.outputs.changed }}"
+            echo "Remaining ruff issues: ${{ steps.apply.outputs.remaining_issues }}"
+            if [ "${{ steps.apply.outputs.changed }}" = "true" ] && [ "${{ needs.context.outputs.same_repo }}" != "true" ]; then
+              echo "Patch artifact: autofix-patch-pr-${{ needs.context.outputs.pr }}"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Capture job summary
+        id: capture
+        if: always()
+        run: |
+          set -euo pipefail
+          changed="${APPLY_CHANGED:-false}"
+          remaining="${APPLY_REMAINING:-0}"
+          new_issues="${APPLY_NEW:-0}"
+          skip_flag="${RERUN_SKIP:-}"
+          same_repo="${SAME_REPO:-false}"
+          ran="false"
+          if [ "${skip_flag}" != "true" ]; then
+            ran="true"
+          fi
+          patch="false"
+          if [ "${ran}" = "true" ] && [ "${changed}" = "true" ] && [ "${same_repo}" != "true" ]; then
+            patch="true"
+          fi
+          {
+            echo "ran=${ran}"
+            echo "changed=${changed:-false}"
+            echo "remaining=${remaining:-0}"
+            echo "new=${new_issues:-0}"
+            echo "patch_available=${patch}"
+            echo "skip_reason=${AUTOFIX_SKIP_REASON:-}"
+            echo "trigger_conclusion=${AUTOFIX_TRIGGER_CONCLUSION:-}"
+            echo "trigger_class=${AUTOFIX_TRIGGER_CLASS:-}"
+            echo "trigger_reason=${AUTOFIX_TRIGGER_REASON:-}"
+            echo "trigger_head=${AUTOFIX_TRIGGER_PR_HEAD:-}"
+          } >> "$GITHUB_OUTPUT"
+        env:
+          APPLY_CHANGED: ${{ steps.apply.outputs.changed }}
+          APPLY_REMAINING: ${{ steps.apply.outputs.remaining_issues }}
+          APPLY_NEW: ${{ steps.apply.outputs.new_issues }}
+          RERUN_SKIP: ${{ steps.rerun.outputs.skip }}
+          SAME_REPO: ${{ needs.context.outputs.same_repo }}
+          AUTOFIX_SKIP_REASON: ${{ env.AUTOFIX_SKIP_REASON }}
+          AUTOFIX_TRIGGER_CONCLUSION: ${{ env.AUTOFIX_TRIGGER_CONCLUSION }}
+          AUTOFIX_TRIGGER_CLASS: ${{ env.AUTOFIX_TRIGGER_CLASS }}
+          AUTOFIX_TRIGGER_REASON: ${{ env.AUTOFIX_TRIGGER_REASON }}
+          AUTOFIX_TRIGGER_PR_HEAD: ${{ env.AUTOFIX_TRIGGER_PR_HEAD }}
+
+  fix-failing-checks:
+    name: Fix failing checks
+    needs: context
+    if: |
+      needs.context.outputs.found == 'true' &&
+      needs.context.outputs.loop_skip != 'true' &&
+      needs.context.outputs.trivial_failure == 'true' &&
+      (needs.context.outputs.same_repo != 'true' || needs.context.outputs.pat_available == 'true')
+    runs-on: ubuntu-latest
+    env:
+      APPLIED_LABEL: ${{ vars.AUTOFIX_APPLIED_LABEL || 'autofix:applied' }}
+      AUTOFIX_TRIGGER_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+      AUTOFIX_TRIGGER_CLASS: ${{ github.event.workflow_run.conclusion == 'failure' && needs.context.outputs.trivial_failure == 'true' && 'trivial-failure' || github.event.workflow_run.conclusion }}
+      AUTOFIX_TRIGGER_PR_HEAD: ${{ needs.context.outputs.head_sha }}
+      AUTOFIX_TRIGGER_REASON: ${{ github.event.workflow_run.conclusion == 'failure' && needs.context.outputs.trivial_failure == 'true' && 'trivial-failure' || github.event.workflow_run.conclusion }}
+    outputs:
+      ran: ${{ steps.capture.outputs.ran }}
+      changed: ${{ steps.capture.outputs.changed }}
+      remaining: ${{ steps.capture.outputs.remaining }}
+      new: ${{ steps.capture.outputs.new }}
+      patch_available: ${{ steps.capture.outputs.patch_available }}
+      skip_reason: ${{ steps.capture.outputs.skip_reason }}
+      trigger_conclusion: ${{ steps.capture.outputs.trigger_conclusion }}
+      trigger_class: ${{ steps.capture.outputs.trigger_class }}
+      trigger_reason: ${{ steps.capture.outputs.trigger_reason }}
+      trigger_head: ${{ steps.capture.outputs.trigger_head }}
+    steps:
+      - name: Checkout workflow repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Load formatter pins
+        run: |
+          set -euo pipefail
+          pin_file=".github/workflows/autofix-versions.env"
+          if [ ! -f "$pin_file" ]; then
+            echo "::error::Missing $pin_file" >&2
+            exit 1
+          fi
+          # shellcheck source=/dev/null
+          source "$pin_file"
+          for var in BLACK_VERSION RUFF_VERSION ISORT_VERSION DOCFORMATTER_VERSION MYPY_VERSION; do
+            if [ -z "${!var:-}" ]; then
+              echo "::error::Missing ${var} in $pin_file" >&2
+              exit 1
+            fi
+          done
+          cat "$pin_file" >> "$GITHUB_ENV"
+      - name: Autofix, commit, and push (composite)
+        id: autofix
+        uses: ./.github/actions/autofix-commit-push
+        with:
+          head_ref: ${{ needs.context.outputs.head_ref }}
+          token: ${{ needs.context.outputs.same_repo == 'true' && secrets.SERVICE_BOT_PAT || github.token }}
+          same_repo: ${{ needs.context.outputs.same_repo }}
+          commit_message: "${COMMIT_PREFIX} fix failing checks"
+          pr: ${{ needs.context.outputs.pr }}
+      - name: Label PR (autofix applied)
+        if: steps.autofix.outputs.changed == 'true' && needs.context.outputs.same_repo == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const pr = Number('${{ needs.context.outputs.pr }}');
+            const label = process.env.APPLIED_LABEL || 'autofix:applied';
+            try {
+              await github.rest.issues.addLabels({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr, labels: [label] });
+            } catch (error) {
+              core.warning(`Failed to add label: ${error.message}`);
+            }
+
+      - name: Tag PR for manual review
+        if: steps.autofix.outputs.changed != 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const pr = Number('${{ needs.context.outputs.pr }}');
+            const label = 'needs-autofix-review';
+            try {
+              await github.rest.issues.addLabels({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr, labels: [label] });
+            } catch (error) {
+              core.warning(`Failed to add label: ${error.message}`);
+            }
+
+      - name: Update residual history (same-repo)
+        if: |
+          needs.context.outputs.same_repo == 'true' &&
+          hashFiles('.github/actions/update-residual-history/action.yml') != ''
+        uses: ./.github/actions/update-residual-history
+
+      - name: Upload autofix history artifact (same-repo)
+        if: needs.context.outputs.same_repo == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: autofix-history-pr-${{ needs.context.outputs.pr }}
+          path: ci/autofix/history.json
+          if-no-files-found: ignore
+
+      - name: Generate trend sparkline (same-repo)
+        if: needs.context.outputs.same_repo == 'true'
+        shell: bash
+        run: |
+          if [ -f scripts/generate_residual_trend.py ]; then python scripts/generate_residual_trend.py || true; fi
+          if [ -f ci/autofix/trend.json ]; then echo "Trend:"; cat ci/autofix/trend.json; fi
+
+      - name: Emit JSON report
+        if: always()
+        shell: bash
+        env:
+          PR_NUMBER: ${{ needs.context.outputs.pr }}
+          CHANGED: ${{ steps.autofix.outputs.changed }}
+          REMAINING: ${{ steps.autofix.outputs.remaining_issues }}
+          NEW_ISSUES: ${{ steps.autofix.outputs.new_issues }}
+        run: |
+          set -euo pipefail
+          ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          if [ -f autofix_report_enriched.json ]; then
+            if python scripts/merge_autofix_report.py \
+              --input autofix_report_enriched.json \
+              --output autofix_report.json \
+              --pr-number "${PR_NUMBER}" \
+              --timestamp "${ts}"; then
+              :
+            else
+              printf '{\n  "changed": "%s",\n  "remaining_issues": "%s",\n  "new_issues": "%s",\n  "pull_request": "%s",\n  "timestamp_utc": "%s"\n}\n' \
+                "${CHANGED}" \
+                "${REMAINING}" \
+                "${NEW_ISSUES}" \
+                "${PR_NUMBER}" \
+                "${ts}" > autofix_report.json
+            fi
+          else
+            printf '{\n  "changed": "%s",\n  "remaining_issues": "%s",\n  "new_issues": "%s",\n  "pull_request": "%s",\n  "timestamp_utc": "%s"\n}\n' \
+              "${CHANGED}" \
+              "${REMAINING}" \
+              "${NEW_ISSUES}" \
+              "${PR_NUMBER}" \
+              "${ts}" > autofix_report.json
+          fi
+          echo "Enriched report ready."
+
+      - name: Upload JSON report
+        uses: actions/upload-artifact@v4
+        with:
+          name: autofix-report-pr-${{ needs.context.outputs.pr }}
+          path: autofix_report.json
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Fix failing checks"
+            echo "PR: #${{ needs.context.outputs.pr }}"
+            echo "Changes applied: ${{ steps.autofix.outputs.changed }}"
+            echo "Remaining ruff issues: ${{ steps.autofix.outputs.remaining_issues }}"
+            echo "New ruff issues: ${{ steps.autofix.outputs.new_issues }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Capture job summary
+        id: capture
+        if: always()
+        run: |
+          set -euo pipefail
+          changed="${AUTOFIX_CHANGED:-false}"
+          remaining="${AUTOFIX_REMAINING:-0}"
+          new_issues="${AUTOFIX_NEW:-0}"
+          same_repo="${SAME_REPO:-false}"
+          ran="true"
+          patch="false"
+          if [ "${changed}" = "true" ] && [ "${same_repo}" != "true" ]; then
+            patch="true"
+          fi
+          {
+            echo "ran=${ran}"
+            echo "changed=${changed:-false}"
+            echo "remaining=${remaining:-0}"
+            echo "new=${new_issues:-0}"
+            echo "patch_available=${patch}"
+            echo "skip_reason="
+            echo "trigger_conclusion=${AUTOFIX_TRIGGER_CONCLUSION:-}"
+            echo "trigger_class=${AUTOFIX_TRIGGER_CLASS:-}"
+            echo "trigger_reason=${AUTOFIX_TRIGGER_REASON:-}"
+            echo "trigger_head=${AUTOFIX_TRIGGER_PR_HEAD:-}"
+          } >> "$GITHUB_OUTPUT"
+        env:
+          AUTOFIX_CHANGED: ${{ steps.autofix.outputs.changed }}
+          AUTOFIX_REMAINING: ${{ steps.autofix.outputs.remaining_issues }}
+          AUTOFIX_NEW: ${{ steps.autofix.outputs.new_issues }}
+          SAME_REPO: ${{ needs.context.outputs.same_repo }}
+          AUTOFIX_TRIGGER_CONCLUSION: ${{ env.AUTOFIX_TRIGGER_CONCLUSION }}
+          AUTOFIX_TRIGGER_CLASS: ${{ env.AUTOFIX_TRIGGER_CLASS }}
+          AUTOFIX_TRIGGER_REASON: ${{ env.AUTOFIX_TRIGGER_REASON }}
+          AUTOFIX_TRIGGER_PR_HEAD: ${{ env.AUTOFIX_TRIGGER_PR_HEAD }}
+
+  post-comment:
+    name: Publish consolidated status
+    needs:
+      - summarize
+      - context
+      - small-fixes
+      - fix-failing-checks
+    if: >
+      always() &&
+      needs.context.result == 'success' &&
+      needs.context.outputs.found == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write summary body
+        run: |
+          cat <<'EOF' > summary_body.md
+          ${{ needs.summarize.outputs.summary_body }}
+          EOF
+
+      - name: Prepare consolidated comment
+        id: prepare
+        env:
+          SUMMARY_PATH: summary_body.md
+          HEAD_SHA: ${{ needs.summarize.outputs.head_sha }}
+          PR_NUMBER: ${{ needs.context.outputs.pr }}
+          SMALL_RESULT: ${{ needs.small-fixes.result }}
+          SMALL_RAN: ${{ needs.small-fixes.outputs.ran }}
+          SMALL_CHANGED: ${{ needs.small-fixes.outputs.changed }}
+          SMALL_REMAINING: ${{ needs.small-fixes.outputs.remaining }}
+          SMALL_NEW: ${{ needs.small-fixes.outputs.new }}
+          SMALL_PATCH: ${{ needs.small-fixes.outputs.patch_available }}
+          SMALL_SKIP: ${{ needs.small-fixes.outputs.skip_reason }}
+          SMALL_TRIGGER_CONCLUSION: ${{ needs.small-fixes.outputs.trigger_conclusion }}
+          SMALL_TRIGGER_CLASS: ${{ needs.small-fixes.outputs.trigger_class }}
+          SMALL_TRIGGER_REASON: ${{ needs.small-fixes.outputs.trigger_reason }}
+          SMALL_TRIGGER_HEAD: ${{ needs.small-fixes.outputs.trigger_head }}
+          FIX_RESULT: ${{ needs.fix-failing-checks.result }}
+          FIX_RAN: ${{ needs.fix-failing-checks.outputs.ran }}
+          FIX_CHANGED: ${{ needs.fix-failing-checks.outputs.changed }}
+          FIX_REMAINING: ${{ needs.fix-failing-checks.outputs.remaining }}
+          FIX_NEW: ${{ needs.fix-failing-checks.outputs.new }}
+          FIX_PATCH: ${{ needs.fix-failing-checks.outputs.patch_available }}
+          FIX_SKIP: ${{ needs.fix-failing-checks.outputs.skip_reason }}
+          FIX_TRIGGER_CONCLUSION: ${{ needs.fix-failing-checks.outputs.trigger_conclusion }}
+          FIX_TRIGGER_CLASS: ${{ needs.fix-failing-checks.outputs.trigger_class }}
+          FIX_TRIGGER_REASON: ${{ needs.fix-failing-checks.outputs.trigger_reason }}
+          FIX_TRIGGER_HEAD: ${{ needs.fix-failing-checks.outputs.trigger_head }}
+        run: |
+          python <<'PY'
+          from __future__ import annotations
+
+          import os
+          import pathlib
+          import re
+          from typing import Any, Dict, List
+
+          summary_path = pathlib.Path(os.environ.get("SUMMARY_PATH", "summary_body.md"))
+          summary_text = summary_path.read_text(encoding="utf-8") if summary_path.exists() else ""
+          summary_text = summary_text.strip()
+
+          footer = "_Updated automatically; will refresh on subsequent CI/Docker completions._"
+          prefix = summary_text
+          suffix = ""
+          if footer and footer in summary_text:
+              parts = summary_text.split(footer, 1)
+              prefix = parts[0].rstrip()
+              suffix = (footer + parts[1]).strip()
+
+          def parse_bool(value: str | None) -> bool:
+              if value is None:
+                  return False
+              return value.strip().lower() == "true"
+
+          def parse_int(value: str | None) -> int:
+              if value is None or not value.strip():
+                  return 0
+              try:
+                  return int(float(value.strip()))
+              except ValueError:
+                  return 0
+
+          def clean_reason(reason: str | None) -> str:
+              if not reason:
+                  return ""
+              value = reason.strip()
+              if not value:
+                  return ""
+              mapping = {
+                  "duplicate-patch": "duplicate patch",
+                  "not-applicable": "not applicable",
+              }
+              return mapping.get(value.lower(), re.sub(r"[-_]+", " ", value))
+
+          def build_entry(prefix_key: str, title: str, result: str | None) -> Dict[str, Any]:
+              env = os.environ
+              ran = parse_bool(env.get(f"{prefix_key}_RAN"))
+              changed = parse_bool(env.get(f"{prefix_key}_CHANGED"))
+              remaining = parse_int(env.get(f"{prefix_key}_REMAINING"))
+              new = parse_int(env.get(f"{prefix_key}_NEW"))
+              patch = parse_bool(env.get(f"{prefix_key}_PATCH"))
+              skip_raw = env.get(f"{prefix_key}_SKIP")
+              trigger_conclusion = (env.get(f"{prefix_key}_TRIGGER_CONCLUSION") or "").strip()
+              trigger_class = (env.get(f"{prefix_key}_TRIGGER_CLASS") or "").strip()
+              trigger_reason = (env.get(f"{prefix_key}_TRIGGER_REASON") or "").strip()
+              trigger_head = (env.get(f"{prefix_key}_TRIGGER_HEAD") or "").strip()
+              skip_reason = clean_reason(skip_raw)
+              job_result = (result or "").lower()
+              if job_result == "skipped" and not skip_reason and not ran:
+                  skip_reason = "not applicable"
+              status: str
+              if ran:
+                  status = "✅ completed" if changed else "✅ no changes"
+              else:
+                  status = "⏭️ skipped"
+                  if skip_reason:
+                      status = f"{status} ({skip_reason})"
+              notes: List[str] = []
+              pr_number = os.environ.get("PR_NUMBER", "").strip()
+              if patch and pr_number:
+                  notes.append(f"Patch artifact: `autofix-patch-pr-{pr_number}`")
+              if trigger_conclusion:
+                  trigger_label = trigger_conclusion
+                  if trigger_class and trigger_class != trigger_conclusion:
+                      trigger_label = f"{trigger_conclusion} ({trigger_class})"
+                  if trigger_reason and trigger_reason not in {trigger_conclusion, trigger_class}:
+                      trigger_label = f"{trigger_label}; reason={trigger_reason}"
+                  notes.append(f"Trigger: {trigger_label}")
+              if trigger_head:
+                  notes.append(f"Head: `{trigger_head}`")
+              if not notes:
+                  notes.append("—")
+              return {
+                  "title": title,
+                  "status": status,
+                  "changed": "Yes" if changed else "No",
+                  "remaining": remaining,
+                  "new": new,
+                  "notes": "<br/>".join(notes),
+                  "ran": ran,
+                  "patch": patch,
+              }
+
+          entries = [
+              build_entry("SMALL", "Small hygiene fixes", os.environ.get("SMALL_RESULT")),
+              build_entry("FIX", "Fix failing checks", os.environ.get("FIX_RESULT")),
+          ]
+
+          autopatch_present = any(entry["patch"] for entry in entries)
+
+          table_lines: List[str] = [
+              "### Autofix Summary",
+              "",
+              "| Flow | Status | Changed | Remaining | New | Notes |",
+              "|------|--------|---------|-----------|-----|-------|",
+          ]
+          for entry in entries:
+              table_lines.append(
+                  f"| {entry['title']} | {entry['status']} | {entry['changed']} | {entry['remaining']} | {entry['new']} | {entry['notes']} |"
+              )
+
+          if autopatch_present:
+              pr_number = os.environ.get("PR_NUMBER", "").strip()
+              table_lines.extend(
+                  [
+                      "",
+                      "Fork contributors: download the patch artifact above and apply it locally:",
+                      "```bash",
+                      "git am < autofix.patch",
+                      "```",
+                  ]
+              )
+
+          sections: List[str] = ["<!-- maint-post-ci: DO NOT EDIT -->"]
+          if prefix:
+              sections.append(prefix.strip())
+          sections.append("")
+          sections.extend(table_lines)
+          if suffix:
+              sections.append("")
+              sections.append(suffix)
+
+          comment_body = "\n".join(part for part in sections if part is not None)
+          pathlib.Path("maint_post_ci_comment.md").write_text(comment_body.strip() + "\n", encoding="utf-8")
+          PY
+
+      - name: Upsert consolidated PR comment
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- maint-post-ci: DO NOT EDIT -->';
+            const body = fs.readFileSync('maint_post_ci_comment.md', 'utf8');
+            const pr = Number('${{ needs.context.outputs.pr }}');
+            if (!pr) {
+              core.warning('PR number missing; skipping comment update.');
+              return;
+            }
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr,
+              per_page: 100,
+            });
+            const existing = comments.find(comment => comment.body && comment.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+              core.info('Updated existing consolidated status comment.');
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr,
+                body,
+              });
+              core.info('Created consolidated status comment.');
+            }

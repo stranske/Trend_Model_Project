@@ -6,7 +6,7 @@ This guide enables a new maintainer to operate the CI + agent automation stack i
 ## 1. Architecture Snapshot
 Core layers:
 - Gate orchestrator (`pr-gate.yml`): single required check that fans out to Python 3.11/3.12 CI and the Docker smoke test using the reusable workflows, then enforces that every leg succeeds.
-- Autofix lane (`maint-32-autofix.yml`): workflow_run follower that batches small hygiene fixes and trivial failure remediation using the composite autofix action.
+- Autofix lane (`maint-post-ci.yml`): workflow_run follower that batches small hygiene fixes, posts Gate summaries, and manages trivial failure remediation using the composite autofix action.
 - Agent routing & watchdog (`agents-41-assign.yml` + `agents-42-watchdog.yml`): label-driven assignment, Codex bootstrap, diagnostics.
 - Merge automation (`maint-45-merge-manager.yml`): unified auto-approval and auto-merge decisions for safe agent PRs.
 - Governance & Health: `maint-34-quarantine-ttl.yml`, `maint-35-repo-health-self-check.yml`, `maint-36-actionlint.yml`, labelers, dependency review, CodeQL.
@@ -20,7 +20,7 @@ The CI stack now routes every pull request through a single Gate workflow that o
 | Gate orchestrator | `pr-gate.yml` job `gate` | Coordinates Python (3.11 + 3.12) and Docker smoke runs, fails fast if any leg fails | Required (`Gate / gate`) | Remains the authoritative CI gate |
 | Reusable CI | `reusable-ci.yml` via `pr-gate.yml` | Standard Python toolchain (Black, Ruff, mypy, pytest, coverage upload) used by Gate | Called by Gate | Continue to be the single CI entry point |
 | Reusable Docker smoke | `reusable-docker.yml` via `pr-gate.yml` | Deterministic Docker build and smoke probe | Called by Gate | Continue to be the single Docker entry point |
-| Autofix lane | `maint-32-autofix.yml` | Workflow_run follower that commits small hygiene fixes (success runs) and retries trivial CI failures | Not required | Remains optional |
+| Autofix lane | `maint-post-ci.yml` | Workflow_run follower that posts Gate summaries, commits small hygiene fixes (success runs), and retries trivial CI failures | Not required | Remains optional |
 
 Legacy wrappers (`pr-10-ci-python.yml`, `pr-12-docker-smoke.yml`) have been removed now that branch protection enforces the Gate job directly.
 
@@ -67,8 +67,7 @@ All others use default `GITHUB_TOKEN`.
 |----------|-----------|-------|
 | `pr-gate.yml` | pull_request, workflow_dispatch | Orchestrates reusable Python 3.11/3.12 CI and Docker smoke tests, then enforces all-success before reporting `gate`.
 | `maint-02-repo-health.yml` | schedule (weekly), workflow_dispatch | Monday hygiene summary of stale branches and unassigned issues.
-| `maint-30-post-ci-summary.yml` | workflow_run (`Gate`) | Publishes consolidated Gate status for active PRs.
-| `maint-32-autofix.yml` | workflow_run (`Gate`) | Hygiene autofix plus trivial failure remediation once CI passes.
+| `maint-post-ci.yml` | workflow_run (`Gate`) | Consolidated Gate follower for summaries, hygiene autofix, and trivial failure remediation once CI passes.
 | `maint-33-check-failure-tracker.yml` | workflow_run (`Gate`) | Opens/resolves CI failure-tracker issues based on run outcomes.
 | `maint-35-repo-health-self-check.yml` | schedule (daily + weekly), workflow_dispatch | Governance audit that validates labels, PAT availability, and branch protection; maintains a single failure issue when checks fail.
 | `maint-36-actionlint.yml` | pull_request (workflows), push (`phase-2-dev`), schedule, workflow_dispatch | Workflow schema lint with reviewdog annotations.
@@ -80,7 +79,7 @@ All others use default `GITHUB_TOKEN`.
 | `reusable-70-agents.yml` | workflow_call | Composite implementing readiness, bootstrap, diagnostics, and watchdog jobs.
 | `reusable-ci.yml` | workflow_call | Unified CI executor for the Python stack.
 | `reusable-docker.yml` | workflow_call | Docker smoke reusable consumed by `pr-gate.yml`.
-| `reusable-92-autofix.yml` | workflow_call | Autofix composite consumed by `maint-32-autofix.yml`.
+| `reusable-92-autofix.yml` | workflow_call | Autofix composite consumed by `maint-post-ci.yml`.
 
 ---
 ## 5. Adopt Reusable Workflows

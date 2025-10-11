@@ -1,7 +1,7 @@
 """Helpers for building the consolidated post-CI run summary.
 
-This module is used by the maint-30-post-ci-summary workflow and is unit tested
-so regressions can be caught without executing the workflow on GitHub.
+This module feeds the maint-post-ci workflow and is unit tested so regressions
+can be caught without executing the workflow on GitHub.
 """
 
 from __future__ import annotations
