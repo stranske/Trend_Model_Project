@@ -70,7 +70,9 @@ def test_maint_post_ci_listens_to_gate_run() -> None:
     assert trigger is not None, "Maint Post CI should define workflow_run trigger"
 
     workflow_run = trigger.get("workflow_run")
-    assert workflow_run is not None, "Maint Post CI should listen to workflow_run events"
+    assert (
+        workflow_run is not None
+    ), "Maint Post CI should listen to workflow_run events"
 
     assert workflow_run.get("types") == ["completed"]
     assert workflow_run.get("workflows") == ["Gate"]
