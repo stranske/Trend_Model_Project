@@ -116,6 +116,8 @@ def test_post_ci_failure_tracker_handles_failure_path() -> None:
 
     label_step = _get_step(job, "Label pull request as ci-failure")
     assert label_step["uses"].startswith("actions/github-script@")
+    label_condition = label_step.get("if", "").strip()
+    assert "github.event.workflow_run.conclusion == 'failure'" in label_condition
     label_script = label_step.get("with", {}).get("script", "")
     assert "'ci-failure'" in label_script
     assert "github.rest.issues.addLabels" in label_script
@@ -160,6 +162,8 @@ def test_post_ci_failure_tracker_handles_success_path() -> None:
 
     remove_label_step = _get_step(job, "Remove ci-failure label from pull request")
     assert remove_label_step["uses"].startswith("actions/github-script@")
+    remove_condition = remove_label_step.get("if", "").strip()
+    assert "github.event.workflow_run.conclusion == 'success'" in remove_condition
     remove_script = remove_label_step.get("with", {}).get("script", "")
     assert "ci-failure" in remove_script
     assert "github.rest.issues.removeLabel" in remove_script
