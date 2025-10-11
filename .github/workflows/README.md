@@ -5,24 +5,24 @@ This guide enables a new maintainer to operate the CI + agent automation stack i
 ---
 ## 1. Architecture Snapshot
 Core layers:
-- CI python (`pr-10-ci-python.yml`): single job that installs the pinned toolchain, runs Black, Ruff, mypy, pytest with coverage, uploads diagnostics, and publishes a coverage summary.
+- Gate orchestrator (`pr-gate.yml`): single required check that fans out to Python 3.11/3.12 CI and the Docker smoke test using the reusable workflows, then enforces that every leg succeeds.
 - Autofix lane (`maint-32-autofix.yml`): workflow_run follower that batches small hygiene fixes and trivial failure remediation using the composite autofix action.
 - Agent routing & watchdog (`agents-41-assign.yml` + `agents-42-watchdog.yml`): label-driven assignment, Codex bootstrap, diagnostics.
 - Merge automation (`maint-45-merge-manager.yml`): unified auto-approval and auto-merge decisions for safe agent PRs.
 - Governance & Health: `maint-34-quarantine-ttl.yml`, `maint-35-repo-health-self-check.yml`, `maint-36-actionlint.yml`, labelers, dependency review, CodeQL.
 - Path Labeling: `pr-path-labeler.yml` auto-categorizes PRs.
 
-### 1.1 Current CI Topology (Issue #2195)
-The CI stack now keeps the Python checks inside a single job while the supporting lanes remain independent:
+### 1.1 Current CI Topology (Issue #2439)
+The CI stack now routes every pull request through a single Gate workflow that orchestrates the reusable CI and Docker checks:
 
 | Lane | Workflow(s) | Purpose | Required Status Today | Future Plan |
 |------|-------------|---------|-----------------------|-------------|
-| Core python | `pr-10-ci-python.yml` job `ci / python` | Black, Ruff, mypy, pytest, coverage summary & threshold | Required (`CI python`) | Remains the authoritative CI gate |
+| Gate orchestrator | `pr-gate.yml` job `gate` | Coordinates Python (3.11 + 3.12) and Docker smoke runs, fails fast if any leg fails | Required (`Gate / gate`) | Remains the authoritative CI gate |
+| Reusable CI | `reusable-ci.yml` via `pr-gate.yml` | Standard Python toolchain (Black, Ruff, mypy, pytest, coverage upload) used by Gate | Called by Gate | Continue to be the single CI entry point |
+| Reusable Docker smoke | `reusable-docker.yml` via `pr-gate.yml` | Deterministic Docker build and smoke probe | Called by Gate | Continue to be the single Docker entry point |
 | Autofix lane | `maint-32-autofix.yml` | Workflow_run follower that commits small hygiene fixes (success runs) and retries trivial CI failures | Not required | Remains optional |
-| Agent assignment | `agents-41-assign.yml` | Maps labels → assignees, creates Codex bootstrap PRs | Not required | Harden diagnostics |
-| Agent watchdog | `agents-42-watchdog.yml` | Confirms Codex PR cross-reference or posts timeout | Not required | Tune timeout post burn-in |
 
-The historical multi-job topology (style/type gate + matrix tests feeding a `gate / all-required-green` aggregator) has been replaced by the single `ci / python` job. Documentation and automation that referenced the old job names were updated in this PR to prevent drift.
+Legacy wrappers (`pr-10-ci-python.yml`, `pr-12-docker-smoke.yml`) have been removed now that branch protection enforces the Gate job directly.
 
 ### 1.2 Naming policy & archive status (Issue #1669)
 - Active workflows **must** use one of the WFv1 prefixes: `pr-*`, `maint-*`, `agents-*`, or `reusable-*`. Guard tests (`tests/test_workflow_naming.py`) enforce this policy.
@@ -65,23 +65,22 @@ All others use default `GITHUB_TOKEN`.
 ## 4. Trigger Matrix
 | Workflow | Trigger(s) | Notes |
 |----------|-----------|-------|
-| `pr-10-ci-python.yml` | pull_request, push, workflow_call | Unified Python checks (Black, Ruff, mypy, pytest, coverage summary).
-| `pr-12-docker-smoke.yml` | pull_request, push | Deterministic Docker build followed by a health endpoint smoke test.
+| `pr-gate.yml` | pull_request, workflow_dispatch | Orchestrates reusable Python 3.11/3.12 CI and Docker smoke tests, then enforces all-success before reporting `gate`.
 | `maint-02-repo-health.yml` | schedule (weekly), workflow_dispatch | Monday hygiene summary of stale branches and unassigned issues.
-| `maint-30-post-ci-summary.yml` | workflow_run (`pr-10`, `pr-12`) | Publishes consolidated CI status for active PRs.
-| `maint-32-autofix.yml` | workflow_run (`pr-10`, `pr-12`) | Hygiene autofix plus trivial failure remediation once CI passes.
-| `maint-33-check-failure-tracker.yml` | workflow_run (`pr-10`, `pr-12`) | Opens/resolves CI failure-tracker issues based on run outcomes.
+| `maint-30-post-ci-summary.yml` | workflow_run (`Gate`) | Publishes consolidated Gate status for active PRs.
+| `maint-32-autofix.yml` | workflow_run (`Gate`) | Hygiene autofix plus trivial failure remediation once CI passes.
+| `maint-33-check-failure-tracker.yml` | workflow_run (`Gate`) | Opens/resolves CI failure-tracker issues based on run outcomes.
 | `maint-35-repo-health-self-check.yml` | schedule (daily + weekly), workflow_dispatch | Governance audit that validates labels, PAT availability, and branch protection; maintains a single failure issue when checks fail.
 | `maint-36-actionlint.yml` | pull_request (workflows), push (`phase-2-dev`), schedule, workflow_dispatch | Workflow schema lint with reviewdog annotations.
-| `maint-40-ci-signature-guard.yml` | pull_request/push (`phase-2-dev`) | Validates the signed job manifest for `pr-10-ci-python.yml`.
+| `maint-40-ci-signature-guard.yml` | pull_request/push (`phase-2-dev`) | Validates the signed job manifest for `pr-gate.yml`.
 | `maint-41-chatgpt-issue-sync.yml` | workflow_dispatch | Curated topic lists (e.g. `Issues.txt`) → labeled GitHub issues.
 | `maint-45-cosmetic-repair.yml` | workflow_dispatch | Manual pytest + cosmetic fixer that raises guard-gated PRs for tolerated drift.
 | `agents-43-codex-issue-bridge.yml` | issues, workflow_dispatch | Prepares Codex-ready branches/PRs when an `agent:codex` label is applied.
 | `agents-70-orchestrator.yml` | schedule (*/20), workflow_dispatch | Unified agents toolkit entry point delegating to `reusable-70-agents.yml`.
 | `reusable-70-agents.yml` | workflow_call | Composite implementing readiness, bootstrap, diagnostics, and watchdog jobs.
-| `reusable-90-ci-python.yml` | workflow_call | Unified CI executor for the Python stack.
+| `reusable-ci.yml` | workflow_call | Unified CI executor for the Python stack.
+| `reusable-docker.yml` | workflow_call | Docker smoke reusable consumed by `pr-gate.yml`.
 | `reusable-92-autofix.yml` | workflow_call | Autofix composite consumed by `maint-32-autofix.yml`.
-| `reusable-94-legacy-ci-python.yml` | workflow_call | Compatibility shim for repositories that still need the legacy matrix layout.
 
 ---
 ## 5. Adopt Reusable Workflows
@@ -89,19 +88,25 @@ CI consumer:
 ```yaml
 name: CI
 on:
-  pull_request:
-  push:
-    branches: [ main ]
+  workflow_call:
+    inputs:
+      marker:
+        type: string
+        default: "not quarantine and not slow"
+      python-version:
+        type: string
+        default: "3.12"
 jobs:
-  call:
-    uses: stranske/Trend_Model_Project/.github/workflows/pr-10-ci-python.yml@phase-2-dev
+  ci:
+    uses: stranske/Trend_Model_Project/.github/workflows/reusable-ci.yml@phase-2-dev
+    with:
+      marker: ${{ inputs.marker }}
+      python-version: ${{ inputs["python-version"] }}
 ```
 Autofix commits use the configurable prefix (default `chore(autofix):`). Set the repository variable
 `AUTOFIX_COMMIT_PREFIX` to change the prefix once and every workflow picks up the new value. The
-consolidated workflow guards against loops by detecting automation actors + existing prefix and only
-running after the CI workflow completes. Scheduled cleanup and reusable autofix helpers consume the
-same prefix so the guard behaviour is identical no matter which workflow authored the last automation
-commit.
+consolidated Gate workflow consumes the same reusable entry points, so any new repository can call
+`reusable-ci.yml` and `reusable-docker.yml` directly without needing an intermediate wrapper.
 
 ```yaml
 name: Agents utilities
@@ -230,7 +235,7 @@ Purpose: Provide early visibility of coverage / hotspot data without failing PRs
 
 Low Coverage Spotlight (follow-up Issue #1386):
 - A secondary table "Low Coverage (<X%)" appears when any parsed file has coverage below the configured threshold (default 50%).
-- Customize the threshold with the `low-coverage-threshold` workflow input when calling `reusable-90-ci-python.yml`.
+- Customize the threshold with the `low-coverage-threshold` workflow input when calling `reusable-ci.yml`.
 - Table is separately truncated to the hotspot limit (15) with a truncation notice if more remain.
 Implemented follow-ups (Issue #1352):
 - Normalized artifact naming: `coverage-<python-version>` (e.g. `coverage-3.11`).
@@ -242,7 +247,7 @@ Implemented follow-ups (Issue #1352):
 - Run Summary includes a single "Soft Coverage Gate" section (job log table de-duplicated into universal logs job).
 - Trend artifacts shipped: `coverage-trend.json` (single run) and cumulative `coverage-trend-history.ndjson` (history) for longitudinal analysis.
 
-Activation (consumer of `reusable-90-ci-python.yml`):
+Activation (consumer of `reusable-ci.yml`):
 ```yaml
 with:
   enable-soft-gate: 'true'
@@ -262,7 +267,7 @@ Retention Guidance: Use 7–14 days. Shorter (<7 days) risks losing comparison c
 
 - **Trigger scope:** Manual dispatch plus a nightly cron (`02:30 UTC`). This keeps reusable pipeline coverage fresh without
   consuming PR minutes. Dispatch from the Actions tab under **Self-Test Reusable CI** or via CLI when validating changes to
-  `.github/workflows/reusable-90-ci-python.yml` or its helper scripts. The legacy PR-comment notifier was removed because the
+  `.github/workflows/reusable-ci.yml` or its helper scripts. The legacy PR-comment notifier was removed because the
   workflow no longer runs on pull_request events. After shipping a change, monitor the next two nightly runs and confirm
   their success in the self-test health issue before considering the work complete.
 - **Latest remediation:** The October 2025 failure stemmed from `typing-inspection` drifting from `0.4.1` to `0.4.2`, causing
@@ -295,7 +300,7 @@ Retention Guidance: Use 7–14 days. Shorter (<7 days) risks losing comparison c
   Use the `gh run list` output to confirm two consecutive nightly runs have concluded with `success` before closing out
   Issue #1660 follow-up tasks.
 ## 7.5 Universal Logs Summary (Issue #1351)
-Source: `logs_summary` job inside `reusable-90-ci-python.yml` enumerates all jobs via the Actions API and writes a Markdown table to the run summary. Columns include Job, Status (emoji), Duration, and Log link.
+Source: `logs_summary` job inside `reusable-ci.yml` enumerates all jobs via the Actions API and writes a Markdown table to the run summary. Columns include Job, Status (emoji), Duration, and Log link.
 
 How to access logs:
 1. Open the PR → Checks tab → select the CI run.
@@ -306,26 +311,16 @@ If missing:
 - Confirm the `logs_summary` job executed (it is unconditional). If skipped, check for GitHub API rate limits in its step logs.
 
 ---
-## 7.6 Temporary CI Wrapper & Migration Plan (Issue #1351)
-`pr-10-ci-python.yml` wraps the reusable CI to maintain the historical required check label "CI".
-
-Migration steps to retire wrapper:
-1. Add `gate / all-required-green` job as a required status alongside "CI" in branch protection.
-2. Observe stability for N (suggested: 7–14) days (no unexplained gate misses).
-3. Remove "CI" from required list, leaving the gate job.
-4. Delete `pr-10-ci-python.yml` in a dedicated PR referencing Issue #1351 (or follow-up) and update this README (remove this section).
-5. Re-run a test PR to ensure branch protection enforces the gate job.
-
-Rationale: Allows a staged transition without breaking existing protections.
+## 7.6 Gate-Only Protection (Issue #2439)
+Branch protection now requires the `Gate / gate` job directly. The historical wrappers have been removed and all automation listens to the Gate workflow via `workflow_run` triggers. No further action is required beyond keeping the reusable workflows healthy.
 
 ---
 ## 7.7 Quick Reference – Coverage & Logs
 | Concern | Job / File | How to Enable | Artifact / Output | Fails Build? |
 |---------|------------|---------------|-------------------|--------------|
-| Coverage soft gate | Job: `coverage_soft_gate` in `reusable-90-ci-python.yml` | `enable-soft-gate: 'true'` | Run summary section, coverage artifacts | No |
+| Coverage soft gate | Job: `coverage_soft_gate` in `reusable-ci.yml` | `enable-soft-gate: 'true'` | Run summary section, coverage artifacts | No |
 | Universal logs table | Job: `logs_summary` | Always on | Run summary Markdown table | No |
-| Gate aggregation | Job: `gate / all-required-green` | Always on | Single pass/fail gate | Yes (if made required) |
-| Legacy wrapper | `pr-10-ci-python.yml` | N/A | Preserves required check name | N/A |
+| Gate aggregation | Job: `gate` in `pr-gate.yml` | Always on | Single pass/fail gate | Yes (required) |
 
 Note: The gate job will become the only required status after successful observation window.
 

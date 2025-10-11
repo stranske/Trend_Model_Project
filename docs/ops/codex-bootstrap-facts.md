@@ -50,8 +50,7 @@ part of Issue #2190; the dedicated Codex issue bridge was reinstated to restore 
 | Agent orchestrator | [`agents-70-orchestrator.yml`](../../.github/workflows/agents-70-orchestrator.yml) |
 | Reusable agent stack | [`reusable-70-agents.yml`](../../.github/workflows/reusable-70-agents.yml) |
 | Codex bootstrap composite action | [`.github/actions/codex-bootstrap-lite`](../../.github/actions/codex-bootstrap-lite/action.yml) |
-| CI wrapper | [`pr-10-ci-python.yml`](../../.github/workflows/pr-10-ci-python.yml) |
-| Docker smoke | [`pr-12-docker-smoke.yml`](../../.github/workflows/pr-12-docker-smoke.yml) |
+| Gate workflow | [`pr-gate.yml`](../../.github/workflows/pr-gate.yml) |
 | Autofix follower | [`maint-32-autofix.yml`](../../.github/workflows/maint-32-autofix.yml) |
 | Failure tracker | [`maint-33-check-failure-tracker.yml`](../../.github/workflows/maint-33-check-failure-tracker.yml) |
 

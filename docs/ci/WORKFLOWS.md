@@ -12,8 +12,6 @@ automation entry point currently in service.
 | Workflow | File | What it does | When it runs | Required secrets / permissions | Status outputs & labels |
 | --- | --- | --- | --- | --- | --- |
 | **Gate** | `.github/workflows/pr-gate.yml` | Fan-out orchestrator that reuses the Python CI matrix and Docker smoke reusable workflows, then enforces all downstream results. | `pull_request` (non-doc paths) and `workflow_dispatch`. | Default `GITHUB_TOKEN` (`contents: read`) for all jobs; delegated reusable workflows do not request additional scopes when called from Gate. | <ul><li>**Status checks:** `core tests (3.11)`, `core tests (3.12)`, `docker smoke`, aggregate `gate`.</li><li>**Labels:** _none_.</li></ul> |
-| **CI (PR 10 CI Python)** | `.github/workflows/pr-10-ci-python.yml` | Primary style/type/test runner calling `reusable-96-ci-lite.yml` with coverage enforcement. | `pull_request`, `push` to `phase-2-dev`, `workflow_dispatch`, and `workflow_call`. | Default `GITHUB_TOKEN` with `contents: read`; no PATs or extra secrets required. | <ul><li>**Status checks:** `ci / python (3.11)` by default; additional invocations surface matching suffixes (for example `ci / python (3.12)` when dispatched with that version).</li><li>**Labels:** _none_.</li></ul> |
-| **Docker Smoke (PR 12)** | `.github/workflows/pr-12-docker-smoke.yml` | Lints the Dockerfile, builds a cached image, runs container health checks, and executes the bundled pytest suite. | `workflow_call` (used by Gate and other orchestrators) and `workflow_dispatch`. | Lint job uses default `contents: read`; `smoke` job elevates to `packages: write` so pushes from `phase-2-dev` can publish to `${{ vars.REGISTRY || ghcr.io }}` with `GITHUB_TOKEN`. | <ul><li>**Status checks:** `Lint Dockerfile`, `smoke`.</li><li>**Labels:** _none_.</li></ul> |
 | **Autofix** | `.github/workflows/autofix.yml` | Lightweight formatting/type hygiene runner that auto-commits fixes for same-repo PRs or uploads a patch for forks. | `pull_request` (including label changes). | `contents: write`, `pull-requests: write`; inherits repository secrets but does not require extra PATs. | <ul><li>**Status checks:** top-level `apply` job delegating to the `autofix` composite.</li><li>**Labels:** `autofix`, `autofix:applied`/`autofix:patch`, mutually exclusive `autofix:clean` vs `autofix:debt`.</li></ul> |
 | **Repo Health (Maint 02)** | `.github/workflows/maint-02-repo-health.yml` | Weekly sweep that summarises stale branches and unassigned issues in the run summary. | Monday cron (`15 7 * * 1`) plus `workflow_dispatch`. | `contents: read`, `issues: read`; no secrets required. | <ul><li>**Status checks:** `Weekly repository health sweep`.</li><li>**Labels:** _none_.</li></ul> |
 | **Agents Consumer** | `.github/workflows/agents-consumer.yml` | Hourly/adhoc entry point that parses JSON input then dispatches to the reusable agents toolkit for readiness, bootstrap, watchdog, and keepalive tasks. | Hourly cron (`15 * * * *`) and `workflow_dispatch` with `params_json`. | `contents`, `pull-requests`, `issues`: `write`; optional `service_bot_pat` forwarded to downstream jobs. | <ul><li>**Status checks:** `Resolve Parameters`, `Dispatch Agents Toolkit`, and whichever delegated runs are enabled (e.g., `Agent Readiness Probe`, `Codex Preflight`, `Bootstrap Codex PRs`, `Codex Keepalive Sweep`, `Agent Watchdog`).</li><li>**Labels:** Bootstrap runs add `agent:codex` to spawned PRs.</li></ul> |
@@ -27,13 +25,13 @@ automation entry point currently in service.
 
   | Prefix | Number slots | Usage | Notes |
   |--------|--------------|-------|-------|
-  | `pr-` | `10–19` | Pull-request gates | `pr-10-ci-python.yml` is the primary style/test gate; keep space for specialized PR jobs (Docker, docs).
+  | `pr-` | `10–19` | Pull-request gates | `pr-gate.yml` is the primary orchestrator; keep space for specialized PR jobs (docs, optional helpers).
   | `maint-` | `00–49` and `90s` | Scheduled/background maintenance | Low numbers for repo hygiene, 30s/40s for post-CI and guards, 90 for self-tests calling reusable matrices.
   | `agents-` | `40s` & `70s` | Agent bootstrap/orchestration | `43` bridges issues to Codex; `70` is the manual/scheduled orchestrator.
   | `reusable-` | `70s` & `90s` | Composite workflows invoked by others | Keep 90s for CI executors, 70s for agent composites.
 
 - Match the `name:` field to the filename rendered in Title Case
-  (`pr-10-ci-python.yml` → `PR 10 CI Python`).
+  (`pr-gate.yml` → `Gate`).
 - `tests/test_workflow_naming.py` enforces this policy—rerun it after modifying
   or adding workflows.
 - When introducing a new workflow choose the lowest unused slot inside the
@@ -46,15 +44,11 @@ automation entry point currently in service.
 
 | Workflow | Trigger(s) | Why it matters |
 |----------|------------|----------------|
-| `pr-10-ci-python.yml` (`PR 10 CI Python`) | `pull_request`, `push`, `workflow_call`, `workflow_dispatch` | Wrapper around `reusable-96-ci-lite.yml` providing the unified style/type/test gate with coverage reporting.
-| `pr-12-docker-smoke.yml` (`PR 12 Docker Smoke`) | `workflow_call`, `workflow_dispatch` | Deterministic Docker build followed by image smoke tests.
+| `pr-gate.yml` (`Gate`) | `pull_request`, `workflow_dispatch` | Composite orchestrator that chains the reusable CI and Docker smoke jobs and enforces that every leg succeeds.
 | `pr-14-docs-only.yml` (`PR 14 Docs Only`) | `pull_request` (doc paths) | Detects documentation-only diffs and posts a friendly skip notice instead of running heavier gates.
-| `pr-gate.yml` (`Gate`) | `workflow_call` | Composite orchestrator that chains the reusable CI and Docker smoke jobs for downstream repositories.
 | `autofix.yml` (`Autofix`) | `pull_request` | Lightweight formatting/type-hygiene runner that auto-commits safe fixes or publishes a patch artifact for forked PRs.
 
 **Operational details**
-- **PR 10 CI Python** – Permissions: default read-only (`contents: read`). Secrets: inherits `GITHUB_TOKEN`. Status output: single `ci / python` check produced by `reusable-96-ci-lite` with coverage gating.
-- **PR 12 Docker Smoke** – Permissions: lint job uses defaults; smoke job elevates to `contents: read`, `packages: write` for cached pushes. Secrets: uses `GITHUB_TOKEN` for registry auth when pushing from `phase-2-dev`. Status outputs: `Lint Dockerfile` and `smoke` checks plus a Buildx cache summary in the run log.
 - **Gate** – Permissions: defaults (read scope). Secrets: relies on `GITHUB_TOKEN` only. Status outputs: `core tests (3.11)`, `core tests (3.12)`, `docker smoke`, and the aggregator job `gate`, which fails if any dependency fails.
 - **Autofix** – Permissions: `contents: write`, `pull-requests: write`. Secrets: inherits `GITHUB_TOKEN` (sufficient for label + comment updates). Status outputs: `autofix` job; labels applied include `autofix`, `autofix:applied`/`autofix:patch`, and cleanliness toggles (`autofix:clean`/`autofix:debt`).
 
@@ -66,12 +60,12 @@ listen to their `workflow_run` events.
 | Workflow | Trigger(s) | Purpose |
 |----------|------------|---------|
 | `maint-02-repo-health.yml` (`Maint 02 Repo Health`) | Weekly cron, manual | Reports stale branches & unassigned issues.
-| `maint-30-post-ci-summary.yml` (`Maint 30 Post CI Summary`) | `workflow_run` (PR 10/12) | Publishes consolidated CI status for active PRs.
-| `maint-32-autofix.yml` (`Maint 32 Autofix`) | `workflow_run` (PR 10/12) | Applies formatter/type-hygiene autofixes after CI completes.
-| `maint-33-check-failure-tracker.yml` (`Maint 33 Check Failure Tracker`) | `workflow_run` (PR 10/12) | Manages CI failure-tracker issues.
+| `maint-30-post-ci-summary.yml` (`Maint 30 Post CI Summary`) | `workflow_run` (Gate) | Publishes consolidated Gate status for active PRs.
+| `maint-32-autofix.yml` (`Maint 32 Autofix`) | `workflow_run` (Gate) | Applies formatter/type-hygiene autofixes after Gate completes.
+| `maint-33-check-failure-tracker.yml` (`Maint 33 Check Failure Tracker`) | `workflow_run` (Gate) | Manages Gate failure-tracker issues.
 | `maint-35-repo-health-self-check.yml` (`Maint 35 Repo Health Self Check`) | Daily + weekly cron, manual | Verifies label inventory, PAT availability, and branch protection; files/updates a tracking issue on failure.
 | `maint-36-actionlint.yml` (`Maint 36 Actionlint`) | `pull_request`, weekly cron, manual | Sole workflow-lint gate (actionlint via reviewdog).
-| `maint-40-ci-signature-guard.yml` (`Maint 40 CI Signature Guard`) | `push`/`pull_request` targeting `phase-2-dev` | Validates the signed job manifest for `pr-10-ci-python.yml`.
+| `maint-40-ci-signature-guard.yml` (`Maint 40 CI Signature Guard`) | `push`/`pull_request` targeting `phase-2-dev` | Validates the signed job manifest for `pr-gate.yml`.
 | `maint-41-chatgpt-issue-sync.yml` (`Maint 41 ChatGPT Issue Sync`) | `workflow_dispatch` (manual) | Fans out curated topic lists (e.g. `Issues.txt`) into labeled GitHub issues. ⚠️ Repository policy: do not remove without a functionally equivalent replacement. |
 | `maint-45-cosmetic-repair.yml` (`Maint 45 Cosmetic Repair`) | `workflow_dispatch` | Manual pytest + guardrail fixer that applies tolerance/snapshot updates and opens a labelled PR when drift is detected. |
 
@@ -96,14 +90,10 @@ listen to their `workflow_run` events.
 |----------|-------------|-------|
 | `reuse-agents.yml` (`Reuse Agents`) | `agents-consumer.yml` | Bridges `params_json` inputs to the reusable toolkit while preserving defaults.
 | `reusable-70-agents.yml` (`Reusable 70 Agents`) | `agents-70-orchestrator.yml`, `reuse-agents.yml` | Implements readiness, bootstrap, diagnostics, and watchdog jobs.
-| `reusable-90-ci-python.yml` (`Reusable 90 CI Python`) | Legacy downstreams | Matrix executor retained for repositories that still rely on the older layout.
 | `reusable-92-autofix.yml` (`Reusable 92 Autofix`) | `maint-32-autofix.yml`, `autofix.yml` | Autofix harness used both by the PR-time autofix workflow and the post-CI maintenance listener.
-| `reusable-94-legacy-ci-python.yml` (`Reusable 94 Legacy CI Python`) | Downstream consumers | Compatibility shim for repositories that still need the old matrix layout.
-| `reusable-96-ci-lite.yml` (`Reusable 96 CI Lite`) | `pr-10-ci-python.yml`, future gate orchestrators | Single-job Ruff → mypy → pytest runner with coverage enforcement and artifact uploads.
-| `reusable-97-docker-smoke.yml` (`Reusable 97 Docker Smoke`) | Gate workflows | Exposes the Docker smoke test pipeline via `workflow_call` inputs.
 | `reusable-99-selftest.yml` (`Reusable 99 Selftest`) | `maint-` self-test orchestration | Scenario matrix that validates the reusable CI executor and artifact inventory.
-| `reusable-ci.yml` (`Reusable CI`) | External repositories | General-purpose CI composite (lint, type-check, pytest, coverage) with minimal configuration.
-| `reusable-docker.yml` (`Reusable Docker Smoke`) | External repositories | Standalone Docker SMOKE composite combining build + health check.
+| `reusable-ci.yml` (`Reusable CI`) | Gate, downstream repositories | Single source for Python lint/type/test coverage runs.
+| `reusable-docker.yml` (`Reusable Docker Smoke`) | Gate, downstream repositories | Docker build + smoke reusable consumed by Gate and external callers.
 
 **Operational details**
 - **Reuse Agents** – Permissions: `contents: write`, `pull-requests: write`, `issues: write`. Secrets: optional `service_bot_pat` (forwarded to `reusable-70-agents`) plus `GITHUB_TOKEN`. Outputs: single `call` job exposes reusable outputs such as `triggered` keepalive list and watchdog diagnostics for upstream orchestrators.
@@ -139,7 +129,7 @@ Follow this sequence before pushing workflow changes or large code edits:
    The script sources `.github/workflows/autofix-versions.env`, installs the
    pinned formatter/type versions, runs Ruff/Black, and finishes with a mypy pass
    over `src/trend_analysis` and `src/trend_portfolio_app`. Fix any reported
-   issues to keep `PR 10 CI Python` green.
+   issues to keep the Gate workflow green.
 3. **Targeted tests** – add `pytest tests/test_workflow_naming.py` after editing
    workflow files to ensure naming conventions hold. For agents changes, also run
    `pytest tests/test_automation_workflows.py -k agents`.
@@ -165,7 +155,7 @@ Follow this sequence before pushing workflow changes or large code edits:
 
 - `.github/workflows/autofix-versions.env` is the single source of truth for
   formatter/type tooling versions (Ruff, Black, isort, docformatter, mypy).
-- `pr-10-ci-python.yml`, `reusable-90-ci-python.yml`, and the autofix composite
+- `reusable-ci.yml`, `reusable-docker.yml`, and the autofix composite
   action all load and validate this env file before installing tools; they fail
   fast if the file is missing or incomplete.
 - Local mirrors (`scripts/style_gate_local.sh`, `scripts/dev_check.sh`,
@@ -177,11 +167,11 @@ Follow this sequence before pushing workflow changes or large code edits:
 
 ## CI Signature Guard Fixtures
 
-`maint-40-ci-signature-guard.yml` enforces a manifest signature for the PR Python
+`maint-40-ci-signature-guard.yml` enforces a manifest signature for the Gate
 workflow by comparing two fixture files stored in `.github/signature-fixtures/`:
 
 - `basic_jobs.json` – canonical list of jobs (name, concurrency label, metadata)
-  that must exist in `pr-10-ci-python.yml`.
+  that must exist in `pr-gate.yml`.
 - `basic_hash.txt` – precomputed hash of the JSON payload used by
   `.github/actions/signature-verify` to detect unauthorized job changes.
 

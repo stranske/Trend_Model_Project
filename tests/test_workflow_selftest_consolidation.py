@@ -48,8 +48,8 @@ def test_selftest_matrix_and_aggregate_contract() -> None:
         scenario_job is not None
     ), "Scenario job missing from reusable-99-selftest.yml"
     assert (
-        scenario_job.get("uses") == "./.github/workflows/reusable-90-ci-python.yml"
-    ), "Scenario job must invoke reusable-90-ci-python.yml via jobs.<id>.uses"
+        scenario_job.get("uses") == "./.github/workflows/reusable-ci.yml"
+    ), "Scenario job must invoke reusable-ci.yml via jobs.<id>.uses"
 
     matrix = scenario_job.get("strategy", {}).get("matrix", {}).get("include", [])
     scenario_names = [entry.get("name") for entry in matrix]

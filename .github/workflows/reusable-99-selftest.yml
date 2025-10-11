@@ -5,7 +5,7 @@ on:
     inputs:
       python-versions:
         description: >-
-          JSON array of Python versions forwarded to `reusable-90-ci-python.yml`.
+          JSON array of Python versions forwarded to `reusable-ci.yml`.
           Leave empty to exercise the default 3.11 matrix used by Maint 90 Selftest.
         required: false
         type: string
@@ -14,7 +14,7 @@ on:
     inputs:
       python-versions:
         description: >-
-          JSON array of Python versions forwarded to `reusable-90-ci-python.yml`.
+          JSON array of Python versions forwarded to `reusable-ci.yml`.
           Leave empty to exercise the default 3.11 matrix used by Maint 90 Selftest.
         required: false
         default: '["3.11"]'
@@ -22,7 +22,7 @@ on:
 jobs:
   scenario:
     name: Scenario - ${{ matrix.name }}
-    uses: ./.github/workflows/reusable-90-ci-python.yml
+    uses: ./.github/workflows/reusable-ci.yml
     secrets: inherit
     strategy:
       fail-fast: false

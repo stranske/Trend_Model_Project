@@ -13,19 +13,17 @@ Only the workflows listed below remain visible in the Actions tab. Reusable comp
 ### PR Checks
 | Workflow | Triggers | Notes |
 |----------|----------|-------|
-| `pr-10-ci-python.yml` | pull_request, push, workflow_call, workflow_dispatch | Delegates to `reusable-96-ci-lite.yml` for style/type/test coverage plus manual dispatch support.
-| `pr-12-docker-smoke.yml` | workflow_call, workflow_dispatch | Deterministic Docker build + smoke test harness.
+| `pr-gate.yml` | pull_request, workflow_dispatch | Aggregates reusable CI/Docker composites into a single required gate for PRs.
 | `pr-14-docs-only.yml` | pull_request (doc paths) | Detects documentation-only diffs and posts a skip notice via comment instead of launching heavier CI.
-| `pr-gate.yml` | workflow_call | Aggregates reusable CI/Docker composites into a single gate used by downstream repositories.
 | `autofix.yml` | pull_request | Direct PR autofix runner that delegates to `reusable-92-autofix.yml` and pushes formatting/type hygiene commits when safe.
 
 ### Maintenance & Governance
 | Workflow | Triggers | Notes |
 |----------|----------|-------|
 | `maint-02-repo-health.yml` | schedule, workflow_dispatch | Weekly repository health sweep that records a single run-summary report.
-| `maint-30-post-ci-summary.yml` | workflow_run | Posts consolidated CI/Docker run summaries to the workflow step summary.
-| `maint-32-autofix.yml` | workflow_run | Follower that applies low-risk autofix commits after CI succeeds.
-| `maint-33-check-failure-tracker.yml` | workflow_run | Opens and resolves CI failure tracker issues based on run outcomes.
+| `maint-30-post-ci-summary.yml` | workflow_run | Posts consolidated Gate run summaries to the workflow step summary.
+| `maint-32-autofix.yml` | workflow_run | Follower that applies low-risk autofix commits after Gate succeeds.
+| `maint-33-check-failure-tracker.yml` | workflow_run | Opens and resolves CI failure tracker issues based on Gate outcomes.
 | `maint-35-repo-health-self-check.yml` | schedule, workflow_dispatch | Governance audit that validates labels/PAT/branch protection and maintains a single failure issue.
 | `maint-36-actionlint.yml` | pull_request, push, schedule, workflow_dispatch | Sole workflow lint gate (actionlint via reviewdog).
 | `maint-40-ci-signature-guard.yml` | pull_request, push | Verifies signed CI manifests to guard against tampering.
@@ -45,12 +43,11 @@ Only the workflows listed below remain visible in the Actions tab. Reusable comp
 |----------|----------|-------|
 | `reuse-agents.yml` | workflow_call | Bridges consumer JSON payloads to the reusable stack.
 | `reusable-70-agents.yml` | workflow_call | Reusable agents stack used by `agents-70-orchestrator.yml` and `reuse-agents.yml`.
-| `reusable-ci.yml` | workflow_call | General-purpose CI composite (lint, type-check, pytest) for downstream repositories.
+| `reusable-ci.yml` | workflow_call | General-purpose CI composite (lint, type-check, pytest) for downstream repositories and Gate.
 | `reusable-99-selftest.yml` | workflow_call | Matrix smoke-test for the reusable CI executor.
-| `reusable-90-ci-python.yml` | workflow_call | Primary reusable CI implementation.
 | `reusable-92-autofix.yml` | workflow_call | Autofix composite consumed by `maint-32-autofix.yml` and the direct `autofix.yml` PR runner.
 | `reusable-94-legacy-ci-python.yml` | workflow_call | Legacy CI contract retained for downstream consumers.
-| `reusable-96-ci-lite.yml` | workflow_call | Single-job Ruff/mypy/pytest runner used by `pr-10-ci-python.yml` and future gate orchestrators.
+| `reusable-96-ci-lite.yml` | workflow_call | Single-job Ruff/mypy/pytest runner retained for legacy PR 10 experiments and prototype gate research.
 | `reusable-97-docker-smoke.yml` | workflow_call | Wrapper that exposes the Docker smoke workflow to orchestration jobs.
 | `reusable-docker.yml` | workflow_call | Standalone Docker smoke composite (build + health check) for external consumers.
 

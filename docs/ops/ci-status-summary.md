@@ -2,9 +2,9 @@
 
 The repository publishes a consolidated status block to the run summary whenever
 the `maint-30-post-ci-summary.yml` follower completes. The workflow subscribes
-to `workflow_run` events for the `CI` and `Docker` workflows, downloads shared
-artifacts, and renders Markdown headed by `## Automated Status Summary` before
-appending it to `$GITHUB_STEP_SUMMARY`.
+to `workflow_run` events for the Gate workflow, downloads shared artifacts, and
+renders Markdown headed by `## Automated Status Summary` before appending it to
+`$GITHUB_STEP_SUMMARY`.
 
 ### Summary Contents
 
@@ -12,12 +12,13 @@ Each refresh includes:
 
 * Head commit SHA and a roll-up of the most recent workflow runs that were
   queried for the PR head commit.
-* A required-check summary derived from the actual CI job list. The default
-  pattern now targets the unified `ci / python` job to match the consolidated
-  workflow structure.
-* A job-by-job table covering the latest CI and Docker runs, complete with
-  badge emojis indicating state and deep links to the workflow/job logs. Failing
-  rows are bolded for quick scanning.
+* A required-check summary derived from the Gate job list. The default patterns
+  track the three fan-out jobs (`core tests (3.11)`, `core tests (3.12)`,
+  `docker smoke`) plus the `gate` aggregator so reviewers can see which leg
+  failed.
+* A job-by-job table covering the latest Gate run, complete with badge emojis
+  indicating state and deep links to the workflow/job logs. Failing rows are
+  bolded for quick scanning.
 * Coverage headline metrics – latest averages, worst-job coverage, and deltas
   vs the previous recorded run when history is available – along with any
   Markdown snippet published as the `coverage-summary` artifact.
@@ -32,8 +33,8 @@ latest content.
 The workflow collects status data from three places:
 
 1. **Workflow run metadata** – `actions/github-script` queries the REST API to
-   locate the most recent CI and Docker runs for the PR head SHA, then expands
-   each run's job list so the summary reflects the real workflow structure.
+   locate the most recent Gate run for the PR head SHA, then expands its job
+   list so the summary reflects the real workflow structure.
 2. **Coverage summary artifact** – the CI workflow now writes coverage metrics
    directly to the job summary, but any uploaded Markdown snippet is still
    embedded below the headline metrics when present.
@@ -66,8 +67,8 @@ bundles have not been published yet.
   in `maint-30-post-ci-summary.yml` and updating the Markdown rendering helpers
   inside `tools/post_ci_summary.py`.
 * To force Docker to run on documentation-only changes, tweak the `paths-ignore`
-  list in `.github/workflows/pr-12-docker-smoke.yml` (the skip rules are
-  unchanged by this consolidation).
+  list in `.github/workflows/pr-gate.yml` (the skip rules are unchanged by this
+  consolidation).
 
 ### Disabling the Summary
 

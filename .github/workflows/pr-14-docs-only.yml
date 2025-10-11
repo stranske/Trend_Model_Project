@@ -65,7 +65,7 @@ jobs:
         with:
           script: |
             // Post a single friendly notice explaining why heavier gates were skipped.
-            const body = 'Doc‑only change detected; gate skipped by path filters.';
+            const body = 'Doc‑only change detected; Gate will still run as the required check.';
 
             const existingComments = await github.paginate(github.rest.issues.listComments, {
               owner: context.repo.owner,

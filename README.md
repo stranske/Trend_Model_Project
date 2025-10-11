@@ -1,6 +1,6 @@
 # Trend Model Project
 
-[![CI](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-10-ci-python.yml/badge.svg?branch=phase-2-dev)](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-10-ci-python.yml) [![Codex Verification Guide](https://img.shields.io/badge/codex--verification-docs-blueviolet)](docs/codex-simulation.md)
+[![Gate](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-gate.yml/badge.svg?branch=phase-2-dev)](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-gate.yml) [![Codex Verification Guide](https://img.shields.io/badge/codex--verification-docs-blueviolet)](docs/codex-simulation.md)
 
 > **🚀 New User?** → **[Quick Start Guide](docs/quickstart.md)** — Get your first analysis running in under 10 minutes!
 

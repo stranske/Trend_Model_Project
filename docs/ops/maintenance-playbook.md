@@ -30,8 +30,8 @@ maintenance workflows that remain after Issue 2190. The roster now consists of
 2. **Re-run after fixes** — once the underlying CI run passes, manually re-run
    the workflow (or re-run the source CI) to refresh the run summary entry.
 3. **Keep paths aligned** — if this workflow starts failing to locate artifacts
-   ensure `pr-10-ci-python.yml` and `pr-12-docker-smoke.yml` still expose the
-   expected outputs.
+   ensure `pr-gate.yml` still exposes the expected coverage and smoke artifacts
+   via its reusable jobs.
 
 ## maint-32-autofix.yml
 

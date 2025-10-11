@@ -4,25 +4,136 @@ on:
   workflow_call:
     inputs:
       python-version:
-        description: Python version to use for the job
-        required: true
+        description: Primary Python version to use when `python-versions` is not provided.
+        required: false
+        default: '3.11'
+        type: string
+      python-versions:
+        description: JSON array of Python versions to execute. Takes precedence when non-empty.
+        required: false
+        default: '[]'
         type: string
       marker:
-        description: Optional pytest marker expression
+        description: Optional pytest marker expression.
+        required: false
+        default: ''
+        type: string
+      coverage-min:
+        description: Minimum coverage percentage required to pass.
+        required: false
+        default: '70'
+        type: string
+      run-mypy:
+        description: Toggle mypy execution.
+        required: false
+        default: true
+        type: boolean
+      enable-metrics:
+        description: Enable metrics artifact generation.
+        required: false
+        default: false
+        type: boolean
+      slow-test-top:
+        description: Maximum number of slow tests to record when metrics are enabled.
+        required: false
+        default: '15'
+        type: string
+      slow-test-min-seconds:
+        description: Minimum duration (in seconds) for slow test tracking.
+        required: false
+        default: '1'
+        type: string
+      enable-history:
+        description: Append metrics history NDJSON artifact.
+        required: false
+        default: false
+        type: boolean
+      enable-classification:
+        description: Emit failure classification payload alongside metrics history.
+        required: false
+        default: false
+        type: boolean
+      history-artifact-name:
+        description: Artifact filename for metrics history output.
+        required: false
+        default: 'metrics-history.ndjson'
+        type: string
+      enable-coverage-delta:
+        description: Compute coverage delta vs baseline configuration.
+        required: false
+        default: false
+        type: boolean
+      baseline-coverage:
+        description: Coverage baseline percentage for delta calculations.
+        required: false
+        default: '0'
+        type: string
+      coverage-alert-drop:
+        description: Coverage drop threshold (percentage points) that triggers an alert.
+        required: false
+        default: '1'
+        type: string
+      fail-on-coverage-drop:
+        description: Fail the job when the coverage drop meets or exceeds the threshold.
+        required: false
+        default: false
+        type: boolean
+      coverage-drop-label:
+        description: Reserved label hook for downstream automation reacting to coverage drops.
+        required: false
+        default: 'coverage-drop'
+        type: string
+      enable-soft-gate:
+        description: Publish coverage trend and summary artifacts.
+        required: false
+        default: false
+        type: boolean
+      artifact-prefix:
+        description: Optional prefix applied to all uploaded artifact names.
         required: false
         default: ''
         type: string
     secrets:
       pypi-token:
-        description: Optional token for private dependencies
+        description: Optional token for private dependencies.
         required: false
+  workflow_dispatch:
+    inputs:
+      python-versions:
+        description: JSON array of Python versions to execute.
+        required: false
+        default: '["3.11"]'
+      enable-metrics:
+        description: Enable metrics artifact generation.
+        required: false
+        default: false
+        type: boolean
+      enable-history:
+        description: Append metrics history NDJSON artifact.
+        required: false
+        default: false
+        type: boolean
+      enable-coverage-delta:
+        description: Compute coverage delta vs baseline configuration.
+        required: false
+        default: false
+        type: boolean
+      enable-soft-gate:
+        description: Publish coverage trend and summary artifacts.
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   tests:
-    name: python ${{ inputs.python-version }}
+    name: python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ${{ fromJson((inputs.python-versions != '' && inputs.python-versions != '[]') && inputs.python-versions || format('["{0}"]', inputs.python-version)) }}
     defaults:
       run:
         shell: bash
@@ -30,11 +141,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python ${{ inputs.python-version }}
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ inputs.python-version }}
-          cache: 'pip'
+          python-version: ${{ matrix.python-version }}
+          cache: pip
           cache-dependency-path: |
             requirements.txt
             requirements.lock
@@ -67,6 +178,7 @@ jobs:
           ruff check --output-format github .
 
       - name: Mypy (type check)
+        if: ${{ inputs.run-mypy }}
         run: |
           set -euo pipefail
           args=()
@@ -83,9 +195,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .pytest_cache
-          key: pytest-${{ runner.os }}-${{ inputs.python-version }}-${{ hashFiles('pyproject.toml') }}-${{ hashFiles('requirements.txt') }}-${{ hashFiles('requirements.lock') }}
+          key: pytest-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}-${{ hashFiles('requirements.txt') }}-${{ hashFiles('requirements.lock') }}
           restore-keys: |
-            pytest-${{ runner.os }}-${{ inputs.python-version }}-
+            pytest-${{ runner.os }}-${{ matrix.python-version }}-
             pytest-${{ runner.os }}-
 
       - name: Pytest (unit tests with coverage)
@@ -103,14 +215,231 @@ jobs:
           fi
           pytest "${args[@]}"
 
+      - name: Enforce coverage minimum
+        if: ${{ inputs.coverage-min != '' }}
+        run: |
+          python - <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          target = float("${{ inputs.coverage-min }}")
+          path = Path("coverage.xml")
+          if not path.is_file():
+            print("coverage.xml not found", file=sys.stderr)
+            sys.exit(1)
+          rate_attr = ET.parse(path).getroot().get("line-rate")
+          if rate_attr is None:
+            print("coverage.xml missing line-rate attribute", file=sys.stderr)
+            sys.exit(1)
+          rate = float(rate_attr) * 100.0
+          if rate + 1e-6 < target:
+            print(f"Coverage {rate:.2f}% below minimum {target:.2f}%", file=sys.stderr)
+            sys.exit(1)
+          print(f"Coverage {rate:.2f}% meets minimum {target:.2f}%")
+          PY
+
       - name: Upload coverage artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-${{ inputs.python-version }}
+          name: ${{ inputs.artifact-prefix }}coverage-${{ matrix.python-version }}
           path: |
             coverage.xml
             coverage.json
             pytest-junit.xml
           if-no-files-found: warn
           retention-days: 7
+
+      - name: Build CI metrics payload
+        if: ${{ inputs.enable-metrics || inputs.enable-history || inputs.enable-classification }}
+        run: |
+          python scripts/ci_metrics.py
+        env:
+          JUNIT_PATH: pytest-junit.xml
+          OUTPUT_PATH: ci-metrics.json
+          TOP_N: ${{ inputs.slow-test-top }}
+          MIN_SECONDS: ${{ inputs.slow-test-min-seconds }}
+
+      - name: Upload metrics artifact
+        if: ${{ inputs.enable-metrics }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact-prefix }}ci-metrics
+          path: ci-metrics.json
+          if-no-files-found: warn
+
+      - name: Append metrics history
+        if: ${{ inputs.enable-history }}
+        run: |
+          python scripts/ci_history.py
+        env:
+          JUNIT_PATH: pytest-junit.xml
+          METRICS_PATH: ci-metrics.json
+          HISTORY_PATH: ${{ inputs.history-artifact-name }}
+          ENABLE_CLASSIFICATION: ${{ inputs.enable-classification }}
+          CLASSIFICATION_OUT: classification.json
+
+      - name: Upload metrics history artifact
+        if: ${{ inputs.enable-history }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact-prefix }}metrics-history
+          path: ${{ inputs.history-artifact-name }}
+          if-no-files-found: warn
+
+      - name: Upload classification artifact
+        if: ${{ inputs.enable-classification }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact-prefix }}classification
+          path: classification.json
+          if-no-files-found: warn
+
+      - name: Compute coverage delta
+        if: ${{ inputs.enable-coverage-delta }}
+        run: |
+          python scripts/ci_coverage_delta.py
+        env:
+          COVERAGE_XML_PATH: coverage.xml
+          OUTPUT_PATH: coverage-delta.json
+          BASELINE_COVERAGE: ${{ inputs.baseline-coverage }}
+          ALERT_DROP: ${{ inputs.coverage-alert-drop }}
+          FAIL_ON_DROP: ${{ inputs.fail-on-coverage-drop }}
+
+      - name: Upload coverage delta artifact
+        if: ${{ inputs.enable-coverage-delta }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact-prefix }}coverage-delta
+          path: coverage-delta.json
+          if-no-files-found: warn
+
+      - name: Generate coverage trend summary
+        if: ${{ inputs.enable-soft-gate }}
+        run: |
+          python tools/coverage_trend.py \
+            --coverage-xml coverage.xml \
+            --coverage-json coverage.json \
+            --baseline config/coverage-baseline.json \
+            --summary-path coverage-summary.md \
+            --job-summary "$GITHUB_STEP_SUMMARY" \
+            --artifact-path coverage-trend.json \
+            --github-output coverage-trend.env \
+            --minimum ${{ inputs.coverage-min }}
+
+      - name: Annotate coverage trend record
+        if: ${{ inputs.enable-soft-gate }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          record_path = Path("coverage-trend.json")
+          if not record_path.exists():
+            raise SystemExit(0)
+          data = json.loads(record_path.read_text(encoding="utf-8"))
+          data.setdefault("run_id", os.environ.get("GITHUB_RUN_ID"))
+          data.setdefault("run_number", os.environ.get("GITHUB_RUN_NUMBER"))
+          record_path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
+          PY
+
+      - name: Append coverage trend history
+        if: ${{ inputs.enable-soft-gate }}
+        run: |
+          python scripts/coverage_history_append.py
+        env:
+          HISTORY_PATH: coverage-trend-history.ndjson
+          RECORD_PATH: coverage-trend.json
+
+      - name: Upload coverage summary artifact
+        if: ${{ inputs.enable-soft-gate }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact-prefix }}coverage-summary
+          path: coverage-summary.md
+          if-no-files-found: warn
+
+      - name: Upload coverage trend artifact
+        if: ${{ inputs.enable-soft-gate }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact-prefix }}coverage-trend
+          path: coverage-trend.json
+          if-no-files-found: warn
+
+      - name: Upload coverage trend history artifact
+        if: ${{ inputs.enable-soft-gate }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact-prefix }}coverage-trend-history
+          path: coverage-trend-history.ndjson
+          if-no-files-found: warn
+
+  logs_summary:
+    name: logs summary
+    needs:
+      - tests
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Summarize workflow jobs
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const run_id = context.runId;
+            const jobs = await github.paginate(
+              github.rest.actions.listJobsForWorkflowRun,
+              { owner, repo, run_id, per_page: 100 },
+            );
+            const statusEmoji = (conclusion) => {
+              switch (conclusion) {
+                case 'success':
+                  return '✅';
+                case 'failure':
+                  return '❌';
+                case 'cancelled':
+                  return '⏹️';
+                case 'skipped':
+                  return '⏭️';
+                case 'timed_out':
+                  return '⏱️';
+                default:
+                  return '❔';
+              }
+            };
+            const duration = (job) => {
+              if (!job.started_at || !job.completed_at) {
+                return '—';
+              }
+              const start = new Date(job.started_at);
+              const end = new Date(job.completed_at);
+              const seconds = Math.max(0, Math.round((end - start) / 1000));
+              const minutes = Math.floor(seconds / 60);
+              const remaining = seconds % 60;
+              if (minutes === 0) {
+                return `${seconds}s`;
+              }
+              return `${minutes}m ${remaining.toString().padStart(2, '0')}s`;
+            };
+            const table = [['Job', 'Status', 'Duration', 'Logs']];
+            for (const job of jobs) {
+              const conclusion = job.conclusion || job.status || 'unknown';
+              const emoji = statusEmoji(job.conclusion);
+              const logLink = job.html_url ? `[logs](${job.html_url})` : '—';
+              table.push([
+                job.name,
+                `${emoji} ${conclusion}`,
+                duration(job),
+                logLink,
+              ]);
+            }
+            await core.summary
+              .addHeading('Workflow job summary', 3)
+              .addTable(table)
+              .write()
