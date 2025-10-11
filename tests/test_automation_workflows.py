@@ -123,7 +123,8 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
     # -- workflow coverage --------------------------------------------------------
 
     def test_legacy_pr_ci_wrappers_removed(self) -> None:
-        """PR 10/12 wrappers should be retired in favour of the Gate workflow."""
+        """PR 10/12 wrappers should be retired in favour of the Gate
+        workflow."""
 
         for legacy in ("pr-10-ci-python.yml", "pr-12-docker-smoke.yml"):
             with self.subTest(slug=legacy):
