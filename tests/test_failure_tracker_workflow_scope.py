@@ -41,7 +41,9 @@ def test_tracker_shell_performs_no_issue_writes() -> None:
     redirect_job = workflow["jobs"]["redirect"]
 
     for step in redirect_job.get("steps", []):
-        assert step.get("uses") is None, "Delegation shell should not invoke external actions"
+        assert (
+            step.get("uses") is None
+        ), "Delegation shell should not invoke external actions"
         script = step.get("run", "")
         assert "github.rest.issues" not in script
 
