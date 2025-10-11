@@ -39,7 +39,7 @@ def test_tracker_workflow_is_now_thin_shell() -> None:
 def test_tracker_workflow_triggers_from_gate_run() -> None:
     workflow = _load_workflow(TRACKER_PATH)
 
-    trigger = workflow.get("on") or workflow.get(True)
+    trigger = workflow.get("on")
     assert trigger is not None, "Expected workflow_run trigger to be defined"
 
     workflow_run = trigger.get("workflow_run")
