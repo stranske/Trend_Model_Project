@@ -88,10 +88,13 @@ def test_archived_selftest_inventory() -> None:
 
 
 def test_archived_selftests_retain_manual_triggers() -> None:
-    """Archived self-test wrappers should stay manual-first to avoid regressions."""
+    """Archived self-test wrappers should stay manual-first to avoid
+    regressions."""
 
     archived_files = sorted(ARCHIVE_DIR.glob("*selftest*.yml"))
-    assert archived_files, "Expected archived self-test workflows to remain in Old/workflows/."
+    assert (
+        archived_files
+    ), "Expected archived self-test workflows to remain in Old/workflows/."
 
     disallowed_triggers = {"pull_request", "pull_request_target", "push"}
     required_manual_trigger = "workflow_dispatch"
