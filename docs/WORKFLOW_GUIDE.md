@@ -30,8 +30,8 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 
 ### Maintenance & Governance
 - **`maint-02-repo-health.yml`** — Weekly repository health sweep that writes a single run-summary report, with optional `workflow_dispatch` reruns.
-- **`maint-post-ci.yml`** — Follower triggered by the Gate `workflow_run` event that posts consolidated status updates and applies autofix commits or uploads patches after Gate completes successfully or fails for lint-only reasons.
-- **`maint-33-check-failure-tracker.yml`** — Opens and resolves Gate failure tracker issues using signatures derived from Gate runs and the self-test caller.
+- **`maint-post-ci.yml`** — Follower triggered by the Gate `workflow_run` event that posts consolidated status updates, applies autofix commits or uploads patches, and now owns the CI failure-tracker issue/label lifecycle.
+- **`maint-33-check-failure-tracker.yml`** — Lightweight compatibility shell that documents the delegation to `maint-post-ci.yml` while legacy listeners migrate.
 - **`maint-36-actionlint.yml`** — Sole workflow-lint gate. Runs actionlint via reviewdog on PR edits, pushes, weekly cron, and manual dispatch.
 - **`maint-40-ci-signature-guard.yml`** — Guards the CI manifest with signed fixture checks.
 - **`maint-90-selftest.yml`** — Manual/weekly caller that delegates to `reusable-99-selftest.yml`.
@@ -59,7 +59,7 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 
 ## Maintenance Playbook
 1. PRs rely on the Gate workflow listed above. Keep it green; the post-CI summary will report its status automatically.
-2. Monitor `Maint 33 Check Failure Tracker` issues for recurring failures. Closing the issue or re-running the failing workflow clears the tracker.
+2. Monitor failure tracker issues surfaced by `Maint Post CI`; the legacy `Maint 33` shell simply records the delegation notice.
 3. Run `Maint 90 Selftest` manually when tweaking reusable CI inputs to confirm the matrix still passes.
 4. Use `Maint 36 Actionlint` workflow_dispatch for ad-hoc validation of complex workflow edits before pushing.
 

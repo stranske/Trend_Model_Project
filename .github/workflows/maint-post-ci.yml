@@ -1,6 +1,6 @@
 name: Maint Post CI
 
-on:
+'on':
   workflow_run:
     workflows: ["Gate"]
     types: [completed]
@@ -24,6 +24,7 @@ permissions:
   pull-requests: write
   checks: read
   actions: read
+  issues: write
 
 env:
   COMMIT_PREFIX: ${{ vars.AUTOFIX_COMMIT_PREFIX || 'chore(autofix):' }}
@@ -480,6 +481,7 @@ jobs:
       run_conclusion: ${{ steps.info.outputs.run_conclusion }}
       actor: ${{ steps.info.outputs.actor }}
       head_subject: ${{ steps.info.outputs.head_subject }}
+      failure_tracker_skip: ${{ steps.info.outputs.failure_tracker_skip }}
       pat_available: ${{ steps.pat.outputs.available }}
       trivial_failure: ${{ steps.failure.outputs.trivial }}
       failing_jobs: ${{ steps.failure.outputs.names }}
@@ -538,6 +540,7 @@ jobs:
               run_conclusion: run.conclusion || '',
               actor: (run.triggering_actor?.login || run.actor?.login || '').toLowerCase(),
               head_subject: '',
+              failure_tracker_skip: 'false',
             };
 
             if (!branch || !headSha) {
@@ -606,6 +609,12 @@ jobs:
             result.head_sha = pr.head?.sha || headSha;
             result.same_repo = pr.head?.repo?.full_name === `${owner}/${repo}` ? 'true' : 'false';
             result.is_draft = pr.draft ? 'true' : 'false';
+
+            const failureTrackerSkipPrs = new Set([10, 12]);
+            if (failureTrackerSkipPrs.has(prNumber)) {
+              core.info(`PR #${prNumber} flagged to skip failure tracker updates (legacy duplicate).`);
+              result.failure_tracker_skip = 'true';
+            }
 
             const labels = Array.isArray(pr.labels)
               ? pr.labels
@@ -1292,7 +1301,9 @@ jobs:
     if: >
       always() &&
       needs.context.result == 'success' &&
-      needs.context.outputs.found == 'true'
+      needs.context.outputs.found == 'true' &&
+      needs.context.outputs.failure_tracker_skip != 'true' &&
+      needs.context.outputs.failure_incomplete != 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Write summary body
@@ -1504,3 +1515,469 @@ jobs:
               });
               core.info('Created consolidated status comment.');
             }
+  failure-tracker:
+    name: Update failure tracker
+    needs: context
+    if: >
+      needs.context.result == 'success' &&
+      needs.context.outputs.found == 'true' &&
+      needs.context.outputs.failure_incomplete != 'true' &&
+      needs.context.outputs.failure_tracker_skip != 'true' &&
+      github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    env:
+      RATE_LIMIT_MINUTES: 15
+      STACK_TOKENS_ENABLED: 'true'
+      STACK_TOKEN_MAX_LEN: 160
+      AUTO_HEAL_INACTIVITY_HOURS: 24
+      FAILURE_INACTIVITY_HEAL_HOURS: 0
+      NEW_ISSUE_COOLDOWN_HOURS: 12
+      DISABLE_FAILURE_ISSUES: 'false'
+      COOLDOWN_RETRY_MS: 3000
+      STACK_TOKEN_RAW: 'false'
+      COOLDOWN_SCOPE: signature
+      OCCURRENCE_ESCALATE_THRESHOLD: 3
+      ESCALATE_LABEL: 'priority: high'
+      ESCALATE_COMMENT: ''
+    steps:
+      - name: Derive failure signature & update tracking issue
+        if: github.event.workflow_run.conclusion == 'failure'
+        id: tracker
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+            const { owner, repo } = context.repo;
+            const runId = run.id;
+
+            const RATE_LIMIT_MINUTES = parseInt(process.env.RATE_LIMIT_MINUTES || '15', 10);
+            const STACK_TOKENS_ENABLED = /^true$/i.test(process.env.STACK_TOKENS_ENABLED || 'true');
+            const STACK_TOKEN_MAX_LEN = parseInt(process.env.STACK_TOKEN_MAX_LEN || '160', 10);
+            const FAILURE_INACTIVITY_HEAL_HOURS = parseFloat(process.env.FAILURE_INACTIVITY_HEAL_HOURS || '0');
+            const HEAL_THRESHOLD_DESC = `Auto-heal after ${process.env.AUTO_HEAL_INACTIVITY_HOURS || '24'}h stability (success path)`;
+
+            const jobsResp = await github.rest.actions.listJobsForWorkflowRun({ owner, repo, run_id: runId, per_page: 100 });
+            const failedJobs = jobsResp.data.jobs.filter(j => (j.conclusion || '').toLowerCase() !== 'success');
+            if (!failedJobs.length) {
+              core.info('No failed jobs found despite run-level failure — aborting.');
+              return;
+            }
+
+            let stackTokenNote = 'Stack tokens disabled';
+            if (STACK_TOKENS_ENABLED) {
+              const zlib = require('zlib');
+              const STACK_TOKEN_RAW = /^true$/i.test(process.env.STACK_TOKEN_RAW || 'false');
+              function normalizeToken(raw, maxLen) {
+                if (STACK_TOKEN_RAW) return (raw || 'no-stack').slice(0, maxLen);
+                if (!raw) return 'no-stack';
+                let t = raw;
+                const ISO_TIMESTAMP_START_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z\s*/;
+                t = t.replace(ISO_TIMESTAMP_START_REGEX, '');
+                t = t.replace(/\s+\[[0-9]{1,3}%\]\s*/g, ' ');
+                t = t.replace(/\s+/g, ' ').trim();
+                const m = t.match(/^[^:]+: [^:]+/);
+                if (m) t = m[0];
+                if (!t) t = 'no-stack';
+                return t.slice(0, maxLen);
+              }
+              async function extractStackToken(job) {
+                try {
+                  const logResp = await github.request('GET /repos/{owner}/{repo}/actions/jobs/{job_id}/logs', {
+                    owner, repo, job_id: job.id,
+                    request: { decompress: false }
+                  });
+                  const gz = Buffer.from(logResp.data);
+                  let text;
+                  try { text = zlib.gunzipSync(gz).toString('utf8'); }
+                  catch { text = gz.toString('utf8'); }
+                  const lines = text.split(/\r?\n/);
+                  const idxTraceback = lines.findIndex(l => /Traceback (most recent call last)/i.test(l));
+                  if (idxTraceback !== -1) {
+                    for (let k = idxTraceback + 1; k < Math.min(lines.length, idxTraceback + 15); k++) {
+                      if (/^[A-Za-z_][A-Za-z0-9_\.]*: /.test(lines[k])) {
+                        return normalizeToken(lines[k].trim(), STACK_TOKEN_MAX_LEN);
+                      }
+                    }
+                  }
+                  const errLine = lines.find(l => /error/i.test(l));
+                  if (errLine) return normalizeToken(errLine.trim(), STACK_TOKEN_MAX_LEN);
+                } catch (e) {
+                  core.info(`Log parse skipped for job ${job.name}: ${e.message}`);
+                }
+                return normalizeToken('no-stack', STACK_TOKEN_MAX_LEN);
+              }
+              for (const job of failedJobs) {
+                job.__stackToken = await extractStackToken(job);
+              }
+              stackTokenNote = 'Stack token = first exception or error line (fallback no-stack).';
+            } else {
+              for (const job of failedJobs) job.__stackToken = 'stacks-off';
+            }
+
+            const sigParts = failedJobs.map(j => {
+              const failingStep = (j.steps || []).find(s => (s.conclusion || '').toLowerCase() !== 'success');
+              return `${j.name}::${failingStep ? failingStep.name : 'no-step'}::${j.__stackToken}`;
+            }).sort();
+            const crypto = require('crypto');
+            const sigHash = crypto.createHash('sha256').update(sigParts.join('|')).digest('hex').slice(0, 12);
+            const workflowName = run.name;
+            const signature = `${workflowName}|${sigHash}`;
+            const title = `Workflow Failure (${signature})`;
+            const labels = ['ci-failure', 'ci', 'devops', 'priority: medium'];
+            const COOLDOWN_SCOPE = (process.env.COOLDOWN_SCOPE || 'global').toLowerCase();
+            const ESC_THRESHOLD = parseInt(process.env.OCCURRENCE_ESCALATE_THRESHOLD || '0', 10);
+            const ESC_LABEL = process.env.ESCALATE_LABEL || 'priority: high';
+            const ESC_COMMENT_DEFAULT = `Escalation: occurrences reached threshold (>= ${ESC_THRESHOLD}).`;
+            const ESC_COMMENT = (process.env.ESCALATE_COMMENT && process.env.ESCALATE_COMMENT.trim()) || ESC_COMMENT_DEFAULT;
+
+            for (const lb of labels) {
+              try { await github.rest.issues.getLabel({ owner, repo, name: lb }); }
+              catch { try { await github.rest.issues.createLabel({ owner, repo, name: lb, color: 'BFDADC' }); } catch {} }
+            }
+
+            const rows = failedJobs.map(j => `| ${j.name} | ${(j.conclusion || j.status)} | [logs](${j.html_url}) |`);
+            const table = ['| Job | Result | Logs |', '|---|---|---|', ...rows].join('\n');
+            const runUrl = run.html_url;
+            const stackRows = failedJobs.map(j => `| ${j.name} | ${j.__stackToken.replace(/\|/g,'\\|')} |`).join('\n');
+            const stackTable = ['| Job | Stack Token |','|---|---|', stackRows].join('\n');
+
+            const bodyBlock = [
+              `Workflow: **${workflowName}**`,
+              `Run: ${runUrl}`,
+              '',
+              `**Failure signature:** \`${signature}\` (hash over failed job + first failing step names + first stack line token)`,
+              '',
+              '### Failed Jobs',
+              table,
+              '',
+              '### Stack Tokens (Phase2)',
+              stackTable,
+              '',
+              `> NOTE: ${stackTokenNote}`
+            ].join('\n');
+
+            if (/^true$/i.test(process.env.DISABLE_FAILURE_ISSUES || 'false')) {
+              core.info('Failure issue tracking disabled via DISABLE_FAILURE_ISSUES.');
+              core.summary.addHeading('Failure (tracking disabled)');
+              core.summary.addRaw('Issue creation disabled; diagnostics available in logs.');
+              await core.summary.write();
+              return;
+            }
+
+            const qOpen = `repo:${owner}/${repo} is:issue is:open in:title "${signature}" label:ci-failure`;
+            const searchOpen = await github.rest.search.issuesAndPullRequests({ q: qOpen, per_page: 1 });
+            let issue_number = null;
+            let reopened = false;
+            if (searchOpen.data.items.length) {
+              issue_number = searchOpen.data.items[0].number;
+            } else {
+              const qClosed = `repo:${owner}/${repo} is:issue is:closed in:title "${signature}" label:ci-failure`;
+              const searchClosed = await github.rest.search.issuesAndPullRequests({ q: qClosed, per_page: 1 });
+              if (searchClosed.data.items.length) {
+                issue_number = searchClosed.data.items[0].number;
+                try {
+                  await github.rest.issues.update({ owner, repo, issue_number, state: 'open' });
+                  reopened = true;
+                  core.info(`Reopened failure issue #${issue_number} for signature ${signature}.`);
+                } catch (e) {
+                  core.warning(`Failed to reopen prior failure issue #${issue_number}: ${e.message}`);
+                  issue_number = null;
+                }
+              }
+            }
+            if (issue_number) {
+              const existing = await github.rest.issues.get({ owner, repo, issue_number });
+              let body = existing.data.body || '';
+              const nowIso = new Date().toISOString();
+              const occMatch = body.match(/Occurrences:\s*(\d+)/i);
+              let occ = occMatch ? parseInt(occMatch[1], 10) : 0;
+              occ += 1;
+              if (/Occurrences:/i.test(body)) {
+                body = body.replace(/Occurrences:\s*\d+/i, `Occurrences: ${occ}`);
+              } else {
+                body = `Occurrences: ${occ}\n${body}`;
+              }
+              if (/Last seen:/i.test(body)) {
+                body = body.replace(/Last seen:.*/i, `Last seen: ${nowIso}`);
+              } else {
+                body = `Last seen: ${nowIso}\n${body}`;
+              }
+              if (!/Healing threshold:/i.test(body)) {
+                body = `Healing threshold: ${HEAL_THRESHOLD_DESC}\n${body}`;
+              }
+
+              const HISTORY_START = '<!-- occurrence-history-start -->';
+              const HISTORY_END = '<!-- occurrence-history-end -->';
+              const MAX_HISTORY = 10;
+              const runUrlHist = run.html_url;
+              const newRow = `| ${nowIso} | [run](${runUrlHist}) | ${sigHash} | ${failedJobs.length} |`;
+              let historySection = `${HISTORY_START}\n| Timestamp | Run | Sig Hash | Failed Jobs |\n|---|---|---|---|\n${newRow}\n${HISTORY_END}`;
+              if (body.includes(HISTORY_START) && body.includes(HISTORY_END)) {
+                const pre = body.split(HISTORY_START)[0];
+                const midPlus = body.split(HISTORY_START)[1];
+                const after = midPlus.split(HISTORY_END)[1];
+                const existingBlock = midPlus.split(HISTORY_END)[0];
+                const lines = existingBlock.split(/\n/).filter(l => l.trim() && !l.startsWith('| Timestamp'));
+                const rowsHistory = lines.filter(l => l.startsWith('|')).map(l => l.trim());
+                const filtered = [newRow, ...rowsHistory.filter(r => r !== newRow)].slice(0, MAX_HISTORY);
+                historySection = `${HISTORY_START}\n| Timestamp | Run | Sig Hash | Failed Jobs |\n|---|---|---|---|\n${filtered.join('\n')}\n${HISTORY_END}`;
+                body = pre + historySection + after;
+              } else {
+                body = historySection + '\n' + body;
+              }
+              await github.rest.issues.update({ owner, repo, issue_number, title, body });
+
+              if (ESC_THRESHOLD > 0 && occ >= ESC_THRESHOLD) {
+                try {
+                  const existingLabels = (existing.data.labels || []).map(l => (typeof l === 'string' ? l : l.name));
+                  if (!existingLabels.includes(ESC_LABEL)) {
+                    try { await github.rest.issues.getLabel({ owner, repo, name: ESC_LABEL }); }
+                    catch {
+                      try { await github.rest.issues.createLabel({ owner, repo, name: ESC_LABEL, color: 'D93F0B' }); }
+                      catch (err) { core.info('Failed to create label: ' + (err && err.message ? err.message : err)); }
+                    }
+                    await github.rest.issues.addLabels({ owner, repo, issue_number, labels: [ESC_LABEL] });
+                    const commentsEsc = await github.rest.issues.listComments({ owner, repo, issue_number, per_page: 50 });
+                    const hasEsc = commentsEsc.data.some(c => c.body && c.body.includes(ESC_COMMENT.substring(0, 25)));
+                    if (!hasEsc) {
+                      await github.rest.issues.createComment({ owner, repo, issue_number, body: ESC_COMMENT });
+                    }
+                    core.info(`Escalated issue #${issue_number} (occ=${occ}) with label '${ESC_LABEL}'.`);
+                  }
+                } catch (e) {
+                  core.info(`Escalation label step failed: ${e.message}`);
+                }
+              }
+
+              const comments = await github.rest.issues.listComments({ owner, repo, issue_number, per_page: 50 });
+              const alreadyCommented = comments.data.some(c => c.body && c.body.includes(runUrl));
+              let postComment = !alreadyCommented;
+              if (postComment && comments.data.length) {
+                const last = comments.data[comments.data.length - 1];
+                const lastTs = Date.parse(last.created_at);
+                if (!isNaN(lastTs)) {
+                  const minutesAgo = (Date.now() - lastTs) / 60000;
+                  if (minutesAgo < RATE_LIMIT_MINUTES) {
+                    postComment = false;
+                    core.info(`Skipping comment due to rate limit (${minutesAgo.toFixed(1)} < ${RATE_LIMIT_MINUTES}m).`);
+                  }
+                }
+              }
+              const commentPayload = reopened ? `Failure reoccurred after auto-heal; issue reopened.\n\n${bodyBlock}` : bodyBlock;
+              if (postComment) {
+                await github.rest.issues.createComment({ owner, repo, issue_number, body: commentPayload });
+                core.info(`Appended failure instance comment to #${issue_number}`);
+              }
+              core.info(`Updated existing failure issue #${issue_number} (occurrence ${occ}).`);
+            } else {
+              const cooldownHours = parseFloat(process.env.NEW_ISSUE_COOLDOWN_HOURS || '0');
+              let appendedViaCooldown = false;
+              const retryMs = parseInt(process.env.COOLDOWN_RETRY_MS || '3000', 10);
+              async function attemptCooldownAppend(stage) {
+                if (cooldownHours <= 0) return false;
+                const cutoff = Date.now() - cooldownHours * 3600_000;
+                try {
+                  const issuesResp = await github.rest.issues.listForRepo({ owner, repo, labels: 'ci-failure', state: 'open', per_page: 30, sort: 'created', direction: 'desc' });
+                  const items = issuesResp.data.filter(it => !it.pull_request && Date.parse(it.created_at) >= cutoff);
+                  let recent;
+                  if (COOLDOWN_SCOPE === 'workflow') {
+                    recent = items.find(it => it.title.startsWith(`Workflow Failure (${workflowName}|`));
+                  } else if (COOLDOWN_SCOPE === 'signature') {
+                    recent = items.find(it => it.title.includes(`(${signature})`));
+                  } else {
+                    recent = items[0];
+                  }
+                  if (recent) {
+                    await github.rest.issues.createComment({ owner, repo, issue_number: recent.number, body: `Additional failure during cooldown (${stage}; no new issue).\n\n${bodyBlock}` });
+                    core.info(`Cooldown active (${stage}); appended to #${recent.number}`);
+                    return true;
+                  }
+                } catch (e) {
+                  core.info(`Cooldown list retrieval failed (${stage}): ${e.message}`);
+                }
+                return false;
+              }
+              appendedViaCooldown = await attemptCooldownAppend('initial');
+              if (!appendedViaCooldown && cooldownHours > 0 && retryMs > 0) {
+                await new Promise(r => setTimeout(r, retryMs));
+                appendedViaCooldown = await attemptCooldownAppend('retry');
+              }
+              if (appendedViaCooldown) return;
+
+              const nowIso = new Date().toISOString();
+              const headerMeta = [
+                'Occurrences: 1',
+                `Last seen: ${nowIso}`,
+                `Healing threshold: ${HEAL_THRESHOLD_DESC}`,
+                ''
+              ].join('\n');
+              const created = await github.rest.issues.create({ owner, repo, title, body: headerMeta + bodyBlock, labels });
+              core.info(`Created new failure issue #${created.data.number}`);
+            }
+      - name: Label pull request as ci-failure
+        if: >
+          github.event.workflow_run.conclusion == 'failure' &&
+          needs.context.outputs.pr
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ needs.context.outputs.pr }}
+        with:
+          script: |
+            const pr = Number(process.env.PR_NUMBER || 0);
+            if (!pr) {
+              core.info('No PR number detected; skipping label.');
+              return;
+            }
+            try {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr,
+                labels: ['ci-failure'],
+              });
+              core.info(`Applied ci-failure label to PR #${pr}.`);
+            } catch (error) {
+              if (error.status === 422) {
+                core.info(`ci-failure label already present on PR #${pr}.`);
+              } else {
+                throw error;
+              }
+            }
+      - name: Emit failure snapshot artifact
+        if: github.event.workflow_run.conclusion == 'failure'
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          payload = {
+              "workflow": os.environ.get("WORKFLOW_NAME"),
+              "run_id": os.environ.get("RUN_ID"),
+              "run_url": os.environ.get("RUN_URL"),
+              "pr_number": os.environ.get("PR_NUMBER"),
+              "run_conclusion": os.environ.get("RUN_CONCLUSION"),
+              "generated_at": os.environ.get("GENERATED_AT"),
+          }
+
+          Path("artifacts/ci_failures_snapshot.json").write_text(
+              json.dumps(payload, indent=2),
+              encoding="utf-8",
+          )
+          PY
+        env:
+          WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          PR_NUMBER: ${{ needs.context.outputs.pr }}
+          RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          GENERATED_AT: ${{ github.event.workflow_run.updated_at }}
+      - name: Upload failure snapshot artifact
+        if: github.event.workflow_run.conclusion == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-failures-snapshot
+          path: artifacts/ci_failures_snapshot.json
+          retention-days: 7
+      - name: Emit failure summary
+        if: github.event.workflow_run.conclusion == 'failure'
+        run: echo "Failure tracking step completed." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Auto-heal stale failure issues & note success
+        if: github.event.workflow_run.conclusion == 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const INACTIVITY_HOURS = parseFloat(process.env.AUTO_HEAL_INACTIVITY_HOURS || '24');
+            const now = Date.now();
+            const q = `repo:${owner}/${repo} is:issue is:open label:ci-failure`;
+            const search = await github.rest.search.issuesAndPullRequests({ q, per_page: 100 });
+            for (const item of search.data.items) {
+              const issue_number = item.number;
+              const issue = await github.rest.issues.get({ owner, repo, issue_number });
+              const body = issue.data.body || '';
+              const m = body.match(/Last seen:\s*(.+)/i);
+              if (!m) continue;
+              const lastSeenTs = Date.parse(m[1].trim());
+              if (isNaN(lastSeenTs)) continue;
+              const hours = (now - lastSeenTs) / 3_600_000;
+              if (hours >= INACTIVITY_HOURS) {
+                const comment = `Auto-heal: no reoccurrence for ${hours.toFixed(1)}h (>= ${INACTIVITY_HOURS}h). Closing.`;
+                await github.rest.issues.createComment({ owner, repo, issue_number, body: comment });
+                await github.rest.issues.update({ owner, repo, issue_number, state: 'closed' });
+                core.info(`Closed healed failure issue #${issue_number}`);
+              }
+            }
+            core.summary.addHeading('Success Run Summary');
+            core.summary.addRaw('Checked for stale failure issues and applied auto-heal where applicable.');
+            await core.summary.write();
+      - name: Remove ci-failure label from pull request
+        if: >
+          github.event.workflow_run.conclusion == 'success' &&
+          needs.context.outputs.pr
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ needs.context.outputs.pr }}
+        with:
+          script: |
+            const pr = Number(process.env.PR_NUMBER || 0);
+            if (!pr) {
+              core.info('No PR number detected; skipping label removal.');
+              return;
+            }
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr,
+                name: 'ci-failure',
+              });
+              core.info(`Removed ci-failure label from PR #${pr}.`);
+            } catch (error) {
+              if (error.status === 404) {
+                core.info(`ci-failure label not present on PR #${pr}.`);
+              } else {
+                throw error;
+              }
+            }
+      - name: Snapshot open failure issues (JSON)
+        if: github.event.workflow_run.conclusion == 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const q = `repo:${owner}/${repo} is:issue is:open label:ci-failure`;
+            const search = await github.rest.search.issuesAndPullRequests({ q, per_page: 100 });
+            const issues = [];
+            for (const item of search.data.items) {
+              const issue = await github.rest.issues.get({ owner, repo, issue_number: item.number });
+              const body = issue.data.body || '';
+              const occ = (body.match(/Occurrences:\s*(\d+)/i)||[])[1] || null;
+              const lastSeen = (body.match(/Last seen:\s*(.*)/i)||[])[1] || null;
+              issues.push({
+                number: issue.data.number,
+                title: issue.data.title,
+                occurrences: occ ? parseInt(occ,10) : null,
+                last_seen: lastSeen,
+                url: issue.data.html_url,
+                created_at: issue.data.created_at,
+                updated_at: issue.data.updated_at
+              });
+            }
+            const fs = require('fs');
+            fs.mkdirSync('artifacts', { recursive: true });
+            fs.writeFileSync('artifacts/ci_failures_snapshot.json', JSON.stringify({ generated_at: new Date().toISOString(), issues }, null, 2));
+            core.info(`Snapshot written with ${issues.length} open failure issues.`);
+      - name: Upload snapshot artifact
+        if: github.event.workflow_run.conclusion == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-failures-snapshot
+          path: artifacts/ci_failures_snapshot.json
+      - name: Emit success summary
+        if: github.event.workflow_run.conclusion == 'success'
+        run: echo "Run succeeded — failure issues scanned for auto-heal." >> "$GITHUB_STEP_SUMMARY"
+
