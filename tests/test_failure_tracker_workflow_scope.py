@@ -43,7 +43,9 @@ def test_tracker_workflow_triggers_from_gate_run() -> None:
     assert trigger is not None, "Expected workflow_run trigger to be defined"
 
     workflow_run = trigger.get("workflow_run")
-    assert workflow_run is not None, "Failure tracker should listen to workflow_run events"
+    assert (
+        workflow_run is not None
+    ), "Failure tracker should listen to workflow_run events"
 
     assert workflow_run.get("types") == ["completed"]
     assert workflow_run.get("workflows") == ["Gate"]
