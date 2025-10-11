@@ -15,10 +15,14 @@
 - Automated health checks surface actionable failure reasons, and successful runs confirm repository health without raising false alarms.
 
 ## Initial Task Checklist
-- [ ] Audit the existing `repo-health-self-check.yml` to document current jobs, steps, and failing permissions.
-- [ ] Remove unsupported permission scopes and confirm remaining permissions satisfy required API calls.
-- [ ] Isolate any step that needs elevated permissions; gate it behind an `if: env.SERVICE_BOT_PAT != ''` (or equivalent) check and wire the PAT through environment variables only within that step.
-- [ ] Add logging that distinguishes between “PAT missing, skipped privileged checks” and actual errors to aid diagnostics.
-- [ ] Implement or update a final step that writes an actionable summary to `$GITHUB_STEP_SUMMARY`, covering overall status and follow-up actions.
+- [x] Audit the existing `repo-health-self-check.yml` to document current jobs, steps, and failing permissions.
+- [x] Remove unsupported permission scopes and confirm remaining permissions satisfy required API calls.
+- [x] Isolate any step that needs elevated permissions; gate it behind an `if: env.SERVICE_BOT_PAT != ''` (or equivalent) check and wire the PAT through environment variables only within that step.
+- [x] Add logging that distinguishes between “PAT missing, skipped privileged checks” and actual errors to aid diagnostics.
+- [x] Implement or update a final step that writes an actionable summary to `$GITHUB_STEP_SUMMARY`, covering overall status and follow-up actions.
 - [ ] Run the workflow via `workflow_dispatch` (and optionally `act`) to ensure it completes without permission errors and fails correctly on simulated regressions.
-- [ ] Document any remaining follow-up work or open questions needed for full rollout.
+- [x] Document any remaining follow-up work or open questions needed for full rollout.
+
+## Follow-up Notes
+- `SERVICE_BOT_PAT` remains optional; when unset the workflow records a skipped branch-protection probe and guides maintainers to add the secret for full coverage.
+- Hands-on validation via `workflow_dispatch`/`act` is still outstanding because the automation environment does not have GitHub token access; perform a dry-run in the repository once credentials are available.
