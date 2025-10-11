@@ -181,6 +181,12 @@ def test_post_comment_job_upserts_single_pr_comment() -> None:
     workflow = _load_workflow(POST_CI_PATH)
     job = workflow["jobs"]["post-comment"]
 
+    condition = " ".join(job.get("if", "").split())
+    assert "needs.context.result == 'success'" in condition
+    assert "needs.context.outputs.found == 'true'" in condition
+    assert "needs.context.outputs.failure_tracker_skip != 'true'" in condition
+    assert "needs.context.outputs.failure_incomplete != 'true'" in condition
+
     comment_step = _get_step(job, "Upsert consolidated PR comment")
     script = comment_step.get("with", {}).get("script", "")
 
