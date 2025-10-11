@@ -20,15 +20,16 @@ post-processing workflow:
   [`maint-post-ci.yml`](.github/workflows/maint-post-ci.yml) workflow
   posts a single PR summary comment (Gate status + coverage), attempts
   the same autofix sweep using the composite action, and files tracker
-  issues when hygiene regressions persist. That consolidated comment is
-  the canonical place to monitor overall CI health for the PR.
+  issues when hygiene regressions persist. Treat that consolidated
+  comment as the canonical health dashboard; rerun Gate or Maint
+  Post-CI if you need the summary refreshed.
 - **Agent automation** – Scheduled (cron) and on-demand dispatchers
   ([`agents-70-orchestrator.yml`](.github/workflows/agents-70-orchestrator.yml)
   and [`agents-consumer.yml`](.github/workflows/agents-consumer.yml))
   invoke [`reuse-agents.yml`](.github/workflows/reuse-agents.yml) to run
   readiness checks, watchdogs, and Codex bootstrapping. Applying the
-  `agent:codex` label flags an issue for bootstrap handling by these
-  runs.
+  `agent:codex` label flags an issue for bootstrap handling in the next
+  run; remove the label to opt out before the dispatcher cycles.
 
 ## Quick Checklist (Before Every Push)
 

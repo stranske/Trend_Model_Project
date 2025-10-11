@@ -20,10 +20,10 @@
 - PR passes Gate (documentation-only change should still satisfy the required check).
 
 ## Initial Task Checklist
-1. Review existing documentation to confirm where a "CI & Automation" section best fits within `CONTRIBUTING.md`.
-2. Audit the latest workflow files to verify names, labels, and behaviors (Gate, Maint Post-CI, orchestrator/consumer, reuse includes, autofix opt-in/out).
-3. Draft the new section content covering required points (Gate, autofix timing & opt-in/out, agent automation triggers, consolidated Maint Post-CI summary).
-4. Add inline links to the relevant workflow YAML files and ensure paths are correct.
-5. Proofread for clarity, consistency, and adherence to documentation tone/style.
-6. Run formatting or linting checks if applicable for Markdown (none expected, but ensure no trailing whitespace and valid Markdown syntax).
-7. Commit changes, run the Gate check if needed, and submit PR for review.
+1. [x] Review existing documentation to confirm where a "CI & Automation" section best fits within `CONTRIBUTING.md`.
+2. [x] Audit the latest workflow files to verify names, labels, and behaviors (Gate, Maint Post-CI, orchestrator/consumer, reuse includes, autofix opt-in/out).
+3. [x] Draft the new section content covering required points (Gate, autofix timing & opt-in/out, agent automation triggers, consolidated Maint Post-CI summary).
+4. [x] Add inline links to the relevant workflow YAML files and ensure paths are correct.
+5. [x] Proofread for clarity, consistency, and adherence to documentation tone/style.
+6. [x] Run formatting or linting checks if applicable for Markdown (none expected, but ensure no trailing whitespace and valid Markdown syntax).
+7. [x] Commit changes, run the Gate check if needed, and submit PR for review.
