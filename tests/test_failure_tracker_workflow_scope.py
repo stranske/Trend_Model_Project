@@ -63,6 +63,19 @@ def test_tracker_workflow_triggers_from_gate_run() -> None:
     assert workflow_run.get("workflows") == ["Gate"]
 
 
+def test_maint_post_ci_listens_to_gate_run() -> None:
+    workflow = _load_workflow(POST_CI_PATH)
+
+    trigger = workflow.get("on")
+    assert trigger is not None, "Maint Post CI should define workflow_run trigger"
+
+    workflow_run = trigger.get("workflow_run")
+    assert workflow_run is not None, "Maint Post CI should listen to workflow_run events"
+
+    assert workflow_run.get("types") == ["completed"]
+    assert workflow_run.get("workflows") == ["Gate"]
+
+
 def test_context_exposes_failure_tracker_skip_for_legacy_prs() -> None:
     workflow = _load_workflow(POST_CI_PATH)
     context_job = workflow["jobs"]["context"]
