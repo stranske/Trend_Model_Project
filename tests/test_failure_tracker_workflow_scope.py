@@ -146,6 +146,14 @@ def test_post_ci_failure_tracker_handles_success_path() -> None:
     assert "github.rest.issues.removeLabel" in remove_script
 
 
+def test_post_ci_requires_issue_permissions() -> None:
+    workflow = _load_workflow(POST_CI_PATH)
+    permissions = workflow.get("permissions", {})
+
+    assert permissions.get("issues") == "write"
+    assert permissions.get("pull-requests") == "write"
+
+
 def test_post_comment_job_upserts_single_pr_comment() -> None:
     workflow = _load_workflow(POST_CI_PATH)
     job = workflow["jobs"]["post-comment"]
