@@ -136,7 +136,9 @@ Two entry points now exist:
   into Codex bootstraps (preflight stays disabled unless explicitly enabled).
 - `agents-70-orchestrator.yml` – Unified scheduled/dispatch orchestrator for
   readiness probes, diagnostics, bootstrap, watchdog, and keepalive flows. It
-  passes discrete inputs directly to `reusable-70-agents.yml`.
+  passes discrete inputs directly to `reusable-70-agents.yml` and derives
+  Codex bootstrap toggles/labels from the `options_json` payload so the
+  dispatch form stays under the 10-input limit.
 
 `reuse-agents.yml` bridges the consumer JSON payload into the reusable toolkit
 without re-exposing more than 10 dispatch inputs. Both entry points ultimately
@@ -168,9 +170,11 @@ paste payload:
 Omit any keys to fall back to defaults. `enable_bootstrap: true` unlocks Codex
 PR bootstraps; leave it `false` for the minimal readiness + watchdog run.
 `options_json` remains available for advanced keepalive tuning (dry run,
-alternate labels, idle thresholds, etc.). Leave `enable_keepalive` (or
-`keepalive.enabled`) set to `false` to keep the sweep disabled for scheduled
-consumer runs.
+alternate labels, idle thresholds, etc.). Set `enable_bootstrap: true`
+alongside an optional `bootstrap_issues_label` (or `bootstrap: { "label":
+"..." }`) in `options_json` to turn on Codex bootstraps for orchestrator
+dispatches. Leave `enable_keepalive` (or `keepalive.enabled`) set to `false`
+to keep the sweep disabled for scheduled consumer runs.
 
 The guard test `tests/test_workflow_agents_consolidation.py` enforces the
 reduced input surface and ensures the consumer continues to call the bridge

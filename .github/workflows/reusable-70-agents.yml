@@ -263,7 +263,7 @@ jobs:
 
   verify_issue:
     if: inputs.enable_verify_issue == 'true' && inputs.verify_issue_number != ''
-    uses: ./.github/workflows/verify-agent-assignment.yml
+    uses: ./.github/workflows/agents-44-verify-agent-assignment.yml
     secrets: inherit
     with:
       issue_number: ${{ inputs.verify_issue_number }}
@@ -299,7 +299,7 @@ jobs:
         if: steps.ready.outputs.first_issue != ''
         uses: ./.github/actions/codex-bootstrap-lite
         with:
-          issue: ${{ steps.ready.outputs.first_issue }}
+          issue: ${{ fromJson(steps.ready.outputs.issue_numbers_json)[0] }}
           service_bot_pat: ${{ secrets.service_bot_pat || '' }}
           draft: ${{ inputs.draft_pr }}
 
