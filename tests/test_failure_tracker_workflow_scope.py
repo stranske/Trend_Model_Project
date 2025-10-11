@@ -36,6 +36,16 @@ def test_tracker_workflow_is_now_thin_shell() -> None:
     assert "maint-post-ci.yml" in summary_body
 
 
+def test_tracker_shell_performs_no_issue_writes() -> None:
+    workflow = _load_workflow(TRACKER_PATH)
+    redirect_job = workflow["jobs"]["redirect"]
+
+    for step in redirect_job.get("steps", []):
+        assert step.get("uses") is None, "Delegation shell should not invoke external actions"
+        script = step.get("run", "")
+        assert "github.rest.issues" not in script
+
+
 def test_tracker_workflow_triggers_from_gate_run() -> None:
     workflow = _load_workflow(TRACKER_PATH)
 
@@ -84,6 +94,10 @@ def test_post_ci_failure_tracker_handles_failure_path() -> None:
     assert label_step["uses"].startswith("actions/github-script@")
     label_script = label_step.get("with", {}).get("script", "")
     assert "'ci-failure'" in label_script
+
+    tracker_script = tracker_step.get("with", {}).get("script", "")
+    assert "github.rest.issues.update({" in tracker_script
+    assert "github.rest.issues.createComment" in tracker_script
 
     artifact_steps = [
         step
