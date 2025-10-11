@@ -87,6 +87,57 @@ def test_archived_selftest_inventory() -> None:
     )
 
 
+def test_archived_selftests_retain_manual_triggers() -> None:
+    """Archived self-test wrappers should stay manual-first to avoid regressions."""
+
+    archived_files = sorted(ARCHIVE_DIR.glob("*selftest*.yml"))
+    assert archived_files, "Expected archived self-test workflows to remain in Old/workflows/."
+
+    disallowed_triggers = {"pull_request", "pull_request_target", "push"}
+    required_manual_trigger = "workflow_dispatch"
+    optional_triggers = {"schedule", "workflow_call"}
+    allowed_triggers = {required_manual_trigger} | optional_triggers
+
+    for workflow_file in archived_files:
+        data = yaml.safe_load(workflow_file.read_text()) or {}
+
+        triggers_raw = data.get("on")
+        if triggers_raw is None and True in data:
+            triggers_raw = data[True]
+        if triggers_raw is None:
+            triggers_raw = {}
+
+        if isinstance(triggers_raw, list):
+            triggers = {str(event): {} for event in triggers_raw}
+        elif isinstance(triggers_raw, str):
+            triggers = {triggers_raw: {}}
+        elif isinstance(triggers_raw, dict):
+            triggers = triggers_raw
+        else:
+            raise AssertionError(
+                f"Unexpected trigger configuration in {workflow_file.name}: {type(triggers_raw)!r}"
+            )
+
+        trigger_keys = set(triggers)
+
+        unexpected = sorted(trigger_keys & disallowed_triggers)
+        assert not unexpected, (
+            f"{workflow_file.name} exposes disallowed triggers: {unexpected}. "
+            "Archived self-tests should remain manual/cron only."
+        )
+
+        unsupported = sorted(trigger_keys - allowed_triggers)
+        assert not unsupported, (
+            f"{workflow_file.name} declares unsupported triggers: {unsupported}. "
+            "Only workflow_dispatch, schedule, or workflow_call are permitted."
+        )
+
+        assert required_manual_trigger in trigger_keys, (
+            f"{workflow_file.name} must retain a {required_manual_trigger} entry "
+            "so the wrapper can be invoked manually if restored."
+        )
+
+
 def test_selftest_matrix_and_aggregate_contract() -> None:
     assert (
         SELFTEST_PATH.exists()

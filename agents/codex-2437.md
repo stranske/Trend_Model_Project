@@ -16,8 +16,8 @@
 
 # Initial Task Checklist
 
-- [ ] Inventory each targeted workflow to confirm current triggers.
-- [ ] Remove automatic triggers, retaining or adding `workflow_dispatch` as needed.
-- [ ] Standardise (or reintroduce, if missing) a weekly `schedule` trigger where it provides value for drift detection.
-- [ ] Validate workflows locally using `act` or GitHub's workflow syntax checker (if available) to ensure no YAML mistakes.
-- [ ] Update changelog or operations notes if the team tracks workflow trigger adjustments.
+- [x] Inventory each targeted workflow to confirm current triggers.
+- [x] Remove automatic triggers, retaining or adding `workflow_dispatch` as needed.
+- [x] Standardise (or reintroduce, if missing) a weekly `schedule` trigger where it provides value for drift detection.
+- [x] Validate workflows locally using `act` or GitHub's workflow syntax checker (if available) to ensure no YAML mistakes.
+- [x] Update changelog or operations notes if the team tracks workflow trigger adjustments.
