@@ -37,3 +37,8 @@
 - Artifact handling is unified so both failure and success paths emit a single `ci-failures-snapshot` payload sourced from the consolidated workflow run.
 - Historical duplicate PRs (#10 and #12) are explicitly marked for failure-tracker skip so Gate replays against them do not emit new issues or labels.
 - Tests and docs were updated to reflect the delegated architecture and to ensure future changes keep the Gate-only trigger contract intact.
+
+## Validation Evidence
+- Automated regression suite exercises the consolidated failure-tracker path (`pytest tests/test_failure_tracker_workflow_scope.py tests/test_workflow_naming.py`).
+- The Gate follower exposes `failure_tracker_skip` for PRs #10/#12 and the Maint Post CI failure-tracker job requires the skip flag to be false before updating issues/labels.
+- Maint Post CI publishes a single `ci-failures-snapshot` artifact in both failure and success runs and is the exclusive writer of the maint-post-ci status comment, preventing duplicate bot posts.
