@@ -36,6 +36,19 @@ def test_tracker_workflow_is_now_thin_shell() -> None:
     assert "maint-post-ci.yml" in summary_body
 
 
+def test_tracker_workflow_triggers_from_gate_run() -> None:
+    workflow = _load_workflow(TRACKER_PATH)
+
+    trigger = workflow.get("on") or workflow.get(True)
+    assert trigger is not None, "Expected workflow_run trigger to be defined"
+
+    workflow_run = trigger.get("workflow_run")
+    assert workflow_run is not None, "Failure tracker should listen to workflow_run events"
+
+    assert workflow_run.get("types") == ["completed"]
+    assert workflow_run.get("workflows") == ["Gate"]
+
+
 def test_context_exposes_failure_tracker_skip_for_legacy_prs() -> None:
     workflow = _load_workflow(POST_CI_PATH)
     context_job = workflow["jobs"]["context"]
@@ -64,6 +77,8 @@ def test_post_ci_failure_tracker_handles_failure_path() -> None:
 
     label_step = _get_step(job, "Label pull request as ci-failure")
     assert label_step["uses"].startswith("actions/github-script@")
+    label_script = label_step.get("with", {}).get("script", "")
+    assert "'ci-failure'" in label_script
 
     artifact_steps = [
         step
@@ -88,3 +103,5 @@ def test_post_ci_failure_tracker_handles_success_path() -> None:
 
     remove_label_step = _get_step(job, "Remove ci-failure label from pull request")
     assert remove_label_step["uses"].startswith("actions/github-script@")
+    remove_script = remove_label_step.get("with", {}).get("script", "")
+    assert "ci-failure" in remove_script
