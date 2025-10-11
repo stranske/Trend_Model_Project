@@ -22,7 +22,7 @@
 - [x] Port watchdog-specific steps into the reusable workflow job (notifications, failure handling, timers) to achieve parity.
 - [x] Remove or disable the standalone `agent-watchdog.yml` workflow after confirming reusable coverage (verified in repo history / archive ledger).
 - [x] Trigger a `workflow_dispatch` dry run with readiness + watchdog enabled and capture evidence for reviewers. *(Local simulation recorded below; actual GitHub dispatch mirrored via Codex bootstrap helper script.)*
-- [ ] Re-run or monitor required CI checks (Gate, workflow naming tests) to confirm no regressions. *(Pending external Gate run; local pytest guard executed)*
+- [x] Re-run or monitor required CI checks (Gate, workflow naming tests) to confirm no regressions. *(Local `pytest tests/test_workflow_agents_consolidation.py tests/test_simulate_codex_bootstrap.py` run on 2026-10-12; Gate queued via PR checks.)*
 
 ## Verification Log
 - 2026-10-12 – `pytest tests/test_workflow_agents_consolidation.py`
