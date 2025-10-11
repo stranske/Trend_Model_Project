@@ -122,25 +122,41 @@ jobs:
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`;
 
             const failureReasons = [];
+            const warnings = [];
+            const nextSteps = [];
+
             if (missingLabels.length > 0) {
               const labelList = missingLabels.map(label => `\`${label}\``).join(', ');
               failureReasons.push(`Missing repository labels: ${labelList}.`);
-            }
-            if (!hasPat) {
-              failureReasons.push('`SERVICE_BOT_PAT` secret is not configured.');
+              nextSteps.push(`Create the missing labels (${labelList}) in **Settings → Labels** so automation can apply them.`);
             }
             if (branchProtectionStatus === 'missing') {
               failureReasons.push(`Branch protection is not configured for \`${defaultBranch}\`.`);
+              nextSteps.push(`Configure branch protection rules for \`${defaultBranch}\` to enforce required reviews and status checks.`);
             }
             if (branchProtectionStatus === 'error') {
               failureReasons.push(protectionIssue || 'Branch protection probe encountered an unexpected error.');
+              if (protectionIssue) {
+                nextSteps.push('Review the branch protection probe error above and resolve the underlying API issue.');
+              } else {
+                nextSteps.push('Investigate branch protection API errors in the workflow logs.');
+              }
             }
             if (branchProtectionStatus === 'forbidden') {
               failureReasons.push(protectionIssue || 'Branch protection probe was forbidden.');
+              nextSteps.push('Ensure the provided token has `repo` scope access to read branch protection settings.');
+            }
+
+            if (!hasPat) {
+              const patNotice = 'Branch protection check skipped because `SERVICE_BOT_PAT` is not configured.';
+              warnings.push(patNotice);
+              nextSteps.push('Add the `SERVICE_BOT_PAT` secret with a token that can read branch protection if you want this check enforced.');
+              core.notice(patNotice);
             }
 
             const summary = core.summary;
-            summary.addHeading('Repository self-check', 1);
+            const status = failureReasons.length === 0 ? 'PASS' : 'FAIL';
+            summary.addHeading(`Repository self-check — ${status}`, 1);
             summary.addRaw(`Run completed at ${timestamp.toUTCString()}`, true);
             summary.addBreak();
 
@@ -151,17 +167,23 @@ jobs:
               summary.addList(failureReasons);
             }
 
-            if (!hasPat) {
+            if (warnings.length > 0) {
               summary.addBreak();
-              summary.addRaw('Branch protection check skipped – configure `SERVICE_BOT_PAT` to enable this probe.', true);
-            } else if (branchProtectionStatus === 'skipped') {
-              summary.addBreak();
-              summary.addRaw('Branch protection check was skipped.', true);
+              summary.addHeading('Warnings', 2);
+              summary.addList(warnings);
             }
 
             if (['missing', 'error', 'forbidden'].includes(branchProtectionStatus) && protectionIssue) {
               summary.addHeading('Branch protection note', 2);
               summary.addRaw(protectionIssue, true);
+            }
+
+            summary.addBreak();
+            summary.addHeading('Recommended next steps', 2);
+            if (nextSteps.length === 0) {
+              summary.addRaw('No action needed at this time.', true);
+            } else {
+              summary.addList(nextSteps);
             }
 
             await summary.write();
@@ -172,9 +194,13 @@ jobs:
                 `Repository self-check detected issues on ${timestamp.toUTCString()}:`,
                 '',
                 ...failureReasons.map(reason => `- ${reason}`),
-                '',
-                `**Workflow run:** ${runUrl}`,
               ];
+
+              if (nextSteps.length > 0) {
+                lines.push('', '### Recommended next steps', ...nextSteps.map(step => `- ${step}`));
+              }
+
+              lines.push('', `**Workflow run:** ${runUrl}`);
               failureBody = lines.join('\n');
             }
 
