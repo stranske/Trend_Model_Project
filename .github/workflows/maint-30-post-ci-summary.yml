@@ -2,7 +2,7 @@ name: Maint 30 Post CI Summary
 
 on:
   workflow_run:
-    workflows: ["PR 10 CI Python", "PR 12 Docker Smoke"]
+    workflows: ["Gate"]
     types: [completed]
 
 concurrency:
@@ -59,8 +59,7 @@ jobs:
             };
 
             const defaultWorkflowTargets = [
-              { key: 'ci', display_name: 'CI', workflow_path: '.github/workflows/pr-10-ci-python.yml' },
-              { key: 'docker', display_name: 'Docker', workflow_path: '.github/workflows/pr-12-docker-smoke.yml' },
+              { key: 'gate', display_name: 'Gate', workflow_path: '.github/workflows/pr-gate.yml' },
             ];
 
             const workflowTargetsRaw = process.env.WORKFLOW_TARGETS_JSON;

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Lightweight local Docker build + smoke health check mirroring CI pr-12-docker-smoke.yml job.
+# Lightweight local Docker build + smoke health check mirroring the Gate workflow's reusable Docker job.
 # Usage: ./scripts/docker_smoke.sh
 set -euo pipefail
 

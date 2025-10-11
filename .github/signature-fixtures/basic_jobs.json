@@ -1,47 +1,22 @@
 [
   {
-    "name": "ci / python",
-    "step": "Enforce coverage minimum",
-    "stack": "StackToken:ci-python"
+    "name": "core tests (3.11)",
+    "step": "Reusable CI (3.11)",
+    "stack": "StackToken:ci-311"
   },
   {
-    "name": "Lint Dockerfile",
-    "step": "Run hadolint",
-    "stack": "StackToken:docker-lint"
+    "name": "core tests (3.12)",
+    "step": "Reusable CI (3.12)",
+    "stack": "StackToken:ci-312"
   },
   {
-    "name": "orchestrator / actionlint",
-    "step": "Run actionlint (gate)",
-    "stack": "StackToken:actionlint"
-  },
-  {
-    "name": "orchestrator / ci-suite",
-    "step": "no-step",
-    "stack": "StackToken:ci-suite"
-  },
-  {
-    "name": "orchestrator / docker-smoke",
-    "step": "no-step",
+    "name": "docker smoke",
+    "step": "Reusable Docker smoke",
     "stack": "StackToken:docker-smoke"
   },
   {
-    "name": "orchestrator / quarantine-ttl",
-    "step": "Validate quarantine TTLs (gate)",
-    "stack": "StackToken:quarantine-ttl"
-  },
-  {
-    "name": "smoke",
-    "step": "Smoke test health endpoint",
-    "stack": "StackToken:smoke"
-  },
-  {
-    "name": "verify-signature",
-    "step": "Run signature verification",
-    "stack": "StackToken:signature-guard"
-  },
-  {
-    "name": "workflow / automation-tests",
-    "step": "Run workflow automation tests",
-    "stack": "StackToken:workflow-automation"
+    "name": "gate",
+    "step": "Summarize results",
+    "stack": "StackToken:gate-aggregator"
   }
 ]

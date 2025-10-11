@@ -2,7 +2,7 @@ name: Maint 33 Check Failure Tracker
 
 on:
   workflow_run:
-    workflows: ["PR 10 CI Python", "PR 12 Docker Smoke", "Maint 90 Selftest"]
+    workflows: ["Gate"]
     types: [completed]
 
 permissions:

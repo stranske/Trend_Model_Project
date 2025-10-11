@@ -1,4 +1,6 @@
-# PR Gate & CI Workflow Enhancement Plan# PR Gate & CI Workflow Enhancement Plan
+# PR Gate & CI Workflow Enhancement Plan
+
+> **2026 Update (Issue #2439):** Gate is now the sole required check. The legacy notes below describe the historical `pr-10` and `pr-12` wrappers kept for archival reference.
 
 
 

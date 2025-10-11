@@ -13,19 +13,17 @@ Only the workflows listed below remain visible in the Actions tab. Reusable comp
 ### PR Checks
 | Workflow | Triggers | Notes |
 |----------|----------|-------|
-| `pr-10-ci-python.yml` | pull_request, push, workflow_call, workflow_dispatch | Delegates to `reusable-96-ci-lite.yml` for style/type/test coverage plus manual dispatch support.
-| `pr-12-docker-smoke.yml` | workflow_call, workflow_dispatch | Deterministic Docker build + smoke test harness.
+| `pr-gate.yml` | pull_request, workflow_dispatch | Aggregates reusable CI/Docker composites into a single required gate for PRs.
 | `pr-14-docs-only.yml` | pull_request (doc paths) | Detects documentation-only diffs and posts a skip notice via comment instead of launching heavier CI.
-| `pr-gate.yml` | workflow_call | Aggregates reusable CI/Docker composites into a single gate used by downstream repositories.
 | `autofix.yml` | pull_request | Direct PR autofix runner that delegates to `reusable-92-autofix.yml` and pushes formatting/type hygiene commits when safe.
 
 ### Maintenance & Governance
 | Workflow | Triggers | Notes |
 |----------|----------|-------|
 | `maint-02-repo-health.yml` | schedule, workflow_dispatch | Weekly repository health sweep that records a single run-summary report.
-| `maint-30-post-ci-summary.yml` | workflow_run | Posts consolidated CI/Docker run summaries to the workflow step summary.
-| `maint-32-autofix.yml` | workflow_run | Follower that applies low-risk autofix commits after CI succeeds.
-| `maint-33-check-failure-tracker.yml` | workflow_run | Opens and resolves CI failure tracker issues based on run outcomes.
+| `maint-30-post-ci-summary.yml` | workflow_run | Posts consolidated Gate run summaries to the workflow step summary.
+| `maint-32-autofix.yml` | workflow_run | Follower that applies low-risk autofix commits after Gate succeeds.
+| `maint-33-check-failure-tracker.yml` | workflow_run | Opens and resolves CI failure tracker issues based on Gate outcomes.
 | `maint-35-repo-health-self-check.yml` | schedule, workflow_dispatch | Governance audit that validates labels/PAT/branch protection and maintains a single failure issue.
 | `maint-36-actionlint.yml` | pull_request, push, schedule, workflow_dispatch | Sole workflow lint gate (actionlint via reviewdog).
 | `maint-40-ci-signature-guard.yml` | pull_request, push | Verifies signed CI manifests to guard against tampering.
