@@ -156,6 +156,24 @@ jobs:
 
             const summary = core.summary;
             const status = failureReasons.length === 0 ? 'PASS' : 'FAIL';
+            const branchStatusLabel = (() => {
+              switch (branchProtectionStatus) {
+                case 'ok':
+                  return 'Pass';
+                case 'missing':
+                  return 'Missing configuration';
+                case 'error':
+                  return 'Error while checking';
+                case 'forbidden':
+                  return 'Forbidden (insufficient token scopes)';
+                case 'skipped':
+                  return hasPat
+                    ? 'Skipped'
+                    : 'Skipped (SERVICE_BOT_PAT not configured)';
+                default:
+                  return branchProtectionStatus;
+              }
+            })();
             summary.addHeading(`Repository self-check — ${status}`, 1);
             summary.addRaw(`Run completed at ${timestamp.toUTCString()}`, true);
             summary.addBreak();
@@ -186,6 +204,16 @@ jobs:
               summary.addList(nextSteps);
             }
 
+            summary.addBreak();
+            summary.addHeading('Branch protection check', 2);
+            summary.addRaw(`Status: ${branchStatusLabel}`, true);
+            if (branchProtectionStatus === 'skipped' && !hasPat) {
+              summary.addRaw(
+                'Provide the `SERVICE_BOT_PAT` secret to enable branch protection validation.',
+                true,
+              );
+            }
+
             await summary.write();
 
             let failureBody = '';
@@ -207,6 +235,7 @@ jobs:
             core.setOutput('has_failures', failureReasons.length > 0 ? 'true' : 'false');
             core.setOutput('failure_body', failureBody);
             core.setOutput('status_label', status);
+            core.setOutput('branch_status_label', branchStatusLabel);
             core.setOutput('next_steps_json', JSON.stringify(nextSteps));
             core.setOutput('warnings_json', JSON.stringify(warnings));
 
@@ -226,6 +255,7 @@ jobs:
           STATUS_LABEL: ${{ steps.aggregate.outputs.status_label }}
           NEXT_STEPS_JSON: ${{ steps.aggregate.outputs.next_steps_json }}
           WARNINGS_JSON: ${{ steps.aggregate.outputs.warnings_json }}
+          BRANCH_STATUS_LABEL: ${{ steps.aggregate.outputs.branch_status_label }}
         run: |
           python - <<'PY'
           import json
@@ -234,9 +264,13 @@ jobs:
           status = os.environ.get('STATUS_LABEL', '').strip().upper() or 'PASS'
           next_steps = json.loads(os.environ.get('NEXT_STEPS_JSON') or '[]')
           warnings = json.loads(os.environ.get('WARNINGS_JSON') or '[]')
+          branch_status = os.environ.get('BRANCH_STATUS_LABEL', '').strip()
 
           header = "Repository self-check PASS ✅" if status == 'PASS' else "Repository self-check FAIL ❌"
           print(header)
+
+          if branch_status:
+              print(f"\nBranch protection check: {branch_status}")
 
           if warnings:
               print("\nWarnings:")
