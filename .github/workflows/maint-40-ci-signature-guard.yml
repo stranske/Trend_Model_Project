@@ -4,13 +4,13 @@ on:
   push:
     branches: [ phase-2-dev ]
     paths:
-      - .github/workflows/pr-10-ci-python.yml
+      - .github/workflows/pr-gate.yml
       - .github/signature-fixtures/**
       - .github/actions/signature-verify/**
   pull_request:
     branches: [ phase-2-dev ]
     paths:
-      - .github/workflows/pr-10-ci-python.yml
+      - .github/workflows/pr-gate.yml
       - .github/signature-fixtures/**
       - .github/actions/signature-verify/**
 

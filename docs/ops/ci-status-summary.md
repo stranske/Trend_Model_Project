@@ -66,8 +66,8 @@ bundles have not been published yet.
   in `maint-30-post-ci-summary.yml` and updating the Markdown rendering helpers
   inside `tools/post_ci_summary.py`.
 * To force Docker to run on documentation-only changes, tweak the `paths-ignore`
-  list in `.github/workflows/pr-12-docker-smoke.yml` (the skip rules are
-  unchanged by this consolidation).
+  list in `.github/workflows/pr-gate.yml` (the skip rules are unchanged by this
+  consolidation).
 
 ### Disabling the Summary
 

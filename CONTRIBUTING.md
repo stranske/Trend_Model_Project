@@ -112,10 +112,14 @@ To prevent CI‑only failures (workflow lint, container smoke, type drift), the 
 
 | Purpose | CI Job | Local Script |
 |---------|--------|--------------|
-| Black/Ruff/Mypy pinned | `pr-10-ci-python.yml` job `style` | `scripts/style_gate_local.sh` |
+| Black/Ruff/Mypy pinned | `pr-gate.yml` jobs `core tests (3.11/3.12)` | `scripts/style_gate_local.sh` |
 | Full quality (style + type + adaptive tests) | aggregate | `scripts/quality_gate.sh` |
 | Workflow syntax/semantic lint | `workflow lint (actionlint)` / `actionlint` | `scripts/workflow_lint.sh` |
 | Docker build + health smoke | `Docker` (smoke) | `scripts/docker_smoke.sh` |
+
+### Required GitHub check
+
+Branch protection requires the `Gate / gate` workflow to succeed on every pull request. The gate reuses Python 3.11, Python 3.12, and Docker smoke jobs, so investigate any failure in those legs before asking for review.
 
 ### Pinned Mypy
 The CI now pins mypy via `MYPY_VERSION` in `.github/workflows/autofix-versions.env`. Local scripts consume this env to avoid version drift. If you see differing results, ensure the env file includes the same version and re-run:

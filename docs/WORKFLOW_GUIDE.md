@@ -7,7 +7,7 @@ This guide describes the slimmed-down GitHub Actions footprint after Issue #2190
 
 | Prefix | Purpose | Active Examples |
 | ------ | ------- | ---------------- |
-| `pr-` | Pull-request CI wrappers | `pr-10-ci-python.yml`, `pr-12-docker-smoke.yml` |
+| `pr-` | Pull-request CI wrappers | `pr-gate.yml`, `pr-14-docs-only.yml` |
 | `maint-` | Maintenance, governance, and self-tests | `maint-02-repo-health.yml`, `maint-30-post-ci-summary.yml`, `maint-32-autofix.yml`, `maint-33-check-failure-tracker.yml`, `maint-36-actionlint.yml`, `maint-40-ci-signature-guard.yml`, `maint-90-selftest.yml` |
 | `agents-` | Agent orchestration entry points | `agents-70-orchestrator.yml` |
 | `reusable-` | Reusable composites invoked by other workflows | `reusable-90-ci-python.yml`, `reusable-94-legacy-ci-python.yml`, `reusable-92-autofix.yml`, `reusable-70-agents.yml`, `reusable-99-selftest.yml` |
@@ -24,14 +24,15 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 ## Final Workflow Set
 
 ### PR Checks
-- **`pr-10-ci-python.yml`** — Single `ci / python` job that runs Black, Ruff, mypy, pytest with coverage, uploads diagnostics, and enforces a coverage minimum while writing a job summary.
-- **`pr-12-docker-smoke.yml`** — Docker build and smoke test pipeline. Keeps deterministic caching and publishes summary logs.
+- **`pr-gate.yml`** — Required orchestrator that calls the reusable Python (3.11/3.12) and Docker smoke workflows, then fails fast if any leg does not succeed.
+- **`pr-14-docs-only.yml`** — Docs-only detector that posts a skip notice instead of running heavier CI.
+- **`autofix.yml`** — PR autofix runner delegating to the reusable autofix composite.
 
 ### Maintenance & Governance
 - **`maint-02-repo-health.yml`** — Weekly repository health sweep that writes a single run-summary report, with optional `workflow_dispatch` reruns.
-- **`maint-30-post-ci-summary.yml`** — Subscribes to `workflow_run` events from the PR and Docker workflows, publishing a consolidated status block to the run summary for each head SHA.
-- **`maint-32-autofix.yml`** — Follower that applies autofix commits or uploads patches after CI completes successfully or fails for lint-only reasons.
-- **`maint-33-check-failure-tracker.yml`** — Opens and resolves CI failure tracker issues using signatures derived from the two PR workflows and the self-test caller.
+- **`maint-30-post-ci-summary.yml`** — Subscribes to the Gate `workflow_run` event, publishing a consolidated status block to the run summary for each head SHA.
+- **`maint-32-autofix.yml`** — Follower that applies autofix commits or uploads patches after Gate completes successfully or fails for lint-only reasons.
+- **`maint-33-check-failure-tracker.yml`** — Opens and resolves Gate failure tracker issues using signatures derived from Gate runs and the self-test caller.
 - **`maint-36-actionlint.yml`** — Sole workflow-lint gate. Runs actionlint via reviewdog on PR edits, pushes, weekly cron, and manual dispatch.
 - **`maint-40-ci-signature-guard.yml`** — Guards the CI manifest with signed fixture checks.
 - **`maint-90-selftest.yml`** — Manual/weekly caller that delegates to `reusable-99-selftest.yml`.
@@ -58,7 +59,7 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 - The orchestrator maintains PAT priority (`OWNER_PR_PAT` → `SERVICE_BOT_PAT` → `GITHUB_TOKEN`) via the reusable composite.
 
 ## Maintenance Playbook
-1. PRs rely on the two CI workflows listed above. Keep them green; the post-CI summary will report their status automatically.
+1. PRs rely on the Gate workflow listed above. Keep it green; the post-CI summary will report its status automatically.
 2. Monitor `Maint 33 Check Failure Tracker` issues for recurring failures. Closing the issue or re-running the failing workflow clears the tracker.
 3. Run `Maint 90 Selftest` manually when tweaking reusable CI inputs to confirm the matrix still passes.
 4. Use `Maint 36 Actionlint` workflow_dispatch for ad-hoc validation of complex workflow edits before pushing.
