@@ -3,7 +3,7 @@
 This document summarises the behaviour and configuration of the enhanced failure tracking workflow.
 
 ## Overview
-`maint-33-check-failure-tracker.yml` listens to completed runs of the Gate workflow (plus the manual `Maint 90 Selftest`). On failure it:
+`maint-post-ci.yml` now owns the failure-tracker logic and listens to completed runs of the Gate workflow via a `workflow_run` trigger. The legacy `maint-33-check-failure-tracker.yml` workflow remains only as a thin delegation shell for backwards compatibility. Within the consolidated Maint Post CI follower, a dedicated `failure-tracker` job executes on qualifying failures and:
 
 1. Enumerates failed jobs and the first failing step.
 2. Optionally extracts a stack token (first exception or error line) per failed job.
@@ -41,6 +41,9 @@ A run comment is additionally suppressed if:
 - The run URL already appears in an existing comment, OR
 - The last comment is younger than `RATE_LIMIT_MINUTES`.
 
+## Legacy PR Exclusions
+Gate runs that originate from historical pull requests #10 and #12 are explicitly marked by the Maint Post CI context job with `failure_tracker_skip = true`. When that flag is set the failure-tracker job, success auto-heal, and consolidated PR comment jobs all short-circuit. This prevents the legacy threads from accumulating duplicate bot comments while allowing all modern PRs to benefit from the unified tracker flow.
+
 ## Auto-Heal (Success Path)
 On any successful monitored workflow run, open `ci-failure` issues are scanned. If `Last seen` is older than `AUTO_HEAL_INACTIVITY_HOURS`, the issue is commented on and closed.
 
@@ -51,7 +54,7 @@ Once an issue records its third occurrence (`OCCURRENCE_ESCALATE_THRESHOLD`), th
 The repository currently exposes the following triage labels that ship with the workflow: `ci-failure`, `ci`, `devops`, and `priority: medium`. The escalation label (`priority: high` by default) is created automatically on demand. If any label gets renamed in the future, update the defaults in the workflow to match the new taxonomy so issues continue to aggregate correctly.
 
 ## JSON Snapshot Artifact
-Each successful run uploads `ci_failures_snapshot.json` containing an array of current open failure issues (number, occurrences, last_seen, timestamps). Use this for dashboards or external monitoring.
+Both the failure and success paths upload the `ci_failures_snapshot.json` artifact so downstream automation has a single canonical payload to consume regardless of Gate outcome. The artifact contains an array of current open failure issues (number, occurrences, last_seen, timestamps). Use this for dashboards or external monitoring.
 
 ## Occurrence History
 Each failure issue maintains an internal, capped (10 rows) occurrence history table between HTML comment markers:
