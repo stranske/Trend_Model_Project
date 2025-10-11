@@ -41,8 +41,11 @@ def _guarded_follow_up_steps(
     return missing
 
 
+WORKFLOW_FILE = "maint-post-ci.yml"
+
+
 def test_autofix_workflow_uses_repo_commit_prefix() -> None:
-    data = _load_yaml("maint-32-autofix.yml")
+    data = _load_yaml(WORKFLOW_FILE)
     prefix_expr = data.get("env", {}).get("COMMIT_PREFIX", "")
     assert "AUTOFIX_COMMIT_PREFIX" in prefix_expr
     assert "chore(autofix):" in prefix_expr
@@ -65,7 +68,7 @@ def _extract_trivial_keywords(script: str) -> set[str]:
 
 
 def test_autofix_trivial_keywords_cover_lint_type_and_tests() -> None:
-    data = _load_yaml("maint-32-autofix.yml")
+    data = _load_yaml(WORKFLOW_FILE)
     failure_step = next(
         step for step in data["jobs"]["context"]["steps"] if step.get("id") == "failure"
     )

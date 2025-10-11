@@ -8,7 +8,7 @@ This guide describes the slimmed-down GitHub Actions footprint after Issue #2190
 | Prefix | Purpose | Active Examples |
 | ------ | ------- | ---------------- |
 | `pr-` | Pull-request CI wrappers | `pr-gate.yml`, `pr-14-docs-only.yml` |
-| `maint-` | Maintenance, governance, and self-tests | `maint-02-repo-health.yml`, `maint-30-post-ci-summary.yml`, `maint-32-autofix.yml`, `maint-33-check-failure-tracker.yml`, `maint-36-actionlint.yml`, `maint-40-ci-signature-guard.yml`, `maint-90-selftest.yml` |
+| `maint-` | Maintenance, governance, and self-tests | `maint-02-repo-health.yml`, `maint-post-ci.yml`, `maint-33-check-failure-tracker.yml`, `maint-36-actionlint.yml`, `maint-40-ci-signature-guard.yml`, `maint-90-selftest.yml` |
 | `agents-` | Agent orchestration entry points | `agents-70-orchestrator.yml` |
 | `reusable-` | Reusable composites invoked by other workflows | `reusable-ci.yml`, `reusable-docker.yml`, `reusable-92-autofix.yml`, `reusable-70-agents.yml`, `reusable-99-selftest.yml` |
 | `autofix-` assets | Shared configuration for autofix tooling | `autofix-versions.env` |
@@ -16,7 +16,7 @@ This guide describes the slimmed-down GitHub Actions footprint after Issue #2190
 **Naming checklist**
 1. Choose the correct prefix for the workflow's scope.
 2. Select a two-digit block that leaves room for future additions (e.g. use another `maint-3x` slot for maintenance jobs).
-3. Title-case the workflow name so it matches the filename (`maint-32-autofix.yml` → `Maint 32 Autofix`).
+3. Title-case the workflow name so it matches the filename (`maint-post-ci.yml` → `Maint Post CI`).
 4. Update this guide and `WORKFLOW_AUDIT_TEMP.md` whenever workflows are added, renamed, or removed.
 
 Tests under `tests/test_workflow_naming.py` enforce the naming policy and inventory parity.
@@ -30,8 +30,7 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 
 ### Maintenance & Governance
 - **`maint-02-repo-health.yml`** — Weekly repository health sweep that writes a single run-summary report, with optional `workflow_dispatch` reruns.
-- **`maint-30-post-ci-summary.yml`** — Subscribes to the Gate `workflow_run` event, publishing a consolidated status block to the run summary for each head SHA.
-- **`maint-32-autofix.yml`** — Follower that applies autofix commits or uploads patches after Gate completes successfully or fails for lint-only reasons.
+- **`maint-post-ci.yml`** — Follower triggered by the Gate `workflow_run` event that posts consolidated status updates and applies autofix commits or uploads patches after Gate completes successfully or fails for lint-only reasons.
 - **`maint-33-check-failure-tracker.yml`** — Opens and resolves Gate failure tracker issues using signatures derived from Gate runs and the self-test caller.
 - **`maint-36-actionlint.yml`** — Sole workflow-lint gate. Runs actionlint via reviewdog on PR edits, pushes, weekly cron, and manual dispatch.
 - **`maint-40-ci-signature-guard.yml`** — Guards the CI manifest with signed fixture checks.

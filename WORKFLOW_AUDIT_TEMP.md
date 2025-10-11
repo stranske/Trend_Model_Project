@@ -21,8 +21,7 @@ Only the workflows listed below remain visible in the Actions tab. Reusable comp
 | Workflow | Triggers | Notes |
 |----------|----------|-------|
 | `maint-02-repo-health.yml` | schedule, workflow_dispatch | Weekly repository health sweep that records a single run-summary report.
-| `maint-30-post-ci-summary.yml` | workflow_run | Posts consolidated Gate run summaries to the workflow step summary.
-| `maint-32-autofix.yml` | workflow_run | Follower that applies low-risk autofix commits after Gate succeeds.
+| `maint-post-ci.yml` | workflow_run | Consolidated post-CI follower that posts Gate summaries and applies low-risk autofix commits when eligible.
 | `maint-33-check-failure-tracker.yml` | workflow_run | Opens and resolves CI failure tracker issues based on Gate outcomes.
 | `maint-35-repo-health-self-check.yml` | schedule, workflow_dispatch | Governance audit that validates labels/PAT/branch protection and maintains a single failure issue.
 | `maint-36-actionlint.yml` | pull_request, push, schedule, workflow_dispatch | Sole workflow lint gate (actionlint via reviewdog).
@@ -45,7 +44,7 @@ Only the workflows listed below remain visible in the Actions tab. Reusable comp
 | `reusable-70-agents.yml` | workflow_call | Reusable agents stack used by `agents-70-orchestrator.yml` and `reuse-agents.yml`.
 | `reusable-ci.yml` | workflow_call | General-purpose CI composite (lint, type-check, pytest) for downstream repositories and Gate.
 | `reusable-99-selftest.yml` | workflow_call | Matrix smoke-test for the reusable CI executor.
-| `reusable-92-autofix.yml` | workflow_call | Autofix composite consumed by `maint-32-autofix.yml` and the direct `autofix.yml` PR runner.
+| `reusable-92-autofix.yml` | workflow_call | Autofix composite consumed by `maint-post-ci.yml` and the direct `autofix.yml` PR runner.
 | `reusable-94-legacy-ci-python.yml` | workflow_call | Legacy CI contract retained for downstream consumers.
 | `reusable-96-ci-lite.yml` | workflow_call | Single-job Ruff/mypy/pytest runner retained for legacy PR 10 experiments and prototype gate research.
 | `reusable-97-docker-smoke.yml` | workflow_call | Wrapper that exposes the Docker smoke workflow to orchestration jobs.
