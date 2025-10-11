@@ -35,4 +35,5 @@
 - Failure tracker issue/label management now lives in the new `failure-tracker` job within `maint-post-ci.yml`, preserving the signature hashing, cooldown, and escalation semantics from the legacy workflow.
 - `maint-33-check-failure-tracker.yml` remains as a lightweight shell that documents the delegation and keeps legacy triggers satisfied without posting duplicate comments.
 - Artifact handling is unified so both failure and success paths emit a single `ci-failures-snapshot` payload sourced from the consolidated workflow run.
+- Historical duplicate PRs (#10 and #12) are explicitly marked for failure-tracker skip so Gate replays against them do not emit new issues or labels.
 - Tests and docs were updated to reflect the delegated architecture and to ensure future changes keep the Gate-only trigger contract intact.

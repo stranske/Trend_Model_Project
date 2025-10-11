@@ -36,11 +36,24 @@ def test_tracker_workflow_is_now_thin_shell() -> None:
     assert "maint-post-ci.yml" in summary_body
 
 
+def test_context_exposes_failure_tracker_skip_for_legacy_prs() -> None:
+    workflow = _load_workflow(POST_CI_PATH)
+    context_job = workflow["jobs"]["context"]
+
+    outputs = context_job.get("outputs", {})
+    assert outputs.get("failure_tracker_skip") == "${{ steps.info.outputs.failure_tracker_skip }}"
+
+    info_step = _get_step(context_job, "Resolve workflow context")
+    script = info_step.get("with", {}).get("script", "")
+    assert "new Set([10, 12])" in script
+
+
 def test_post_ci_failure_tracker_handles_failure_path() -> None:
     workflow = _load_workflow(POST_CI_PATH)
     job = workflow["jobs"]["failure-tracker"]
     condition = " ".join(job.get("if", "").split())
     assert "needs.context.outputs.found == 'true'" in condition
+    assert "needs.context.outputs.failure_tracker_skip != 'true'" in condition
     assert "workflow_run.event == 'pull_request'" in condition
 
     tracker_step = _get_step(job, "Derive failure signature & update tracking issue")

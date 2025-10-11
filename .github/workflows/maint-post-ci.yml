@@ -481,6 +481,7 @@ jobs:
       run_conclusion: ${{ steps.info.outputs.run_conclusion }}
       actor: ${{ steps.info.outputs.actor }}
       head_subject: ${{ steps.info.outputs.head_subject }}
+      failure_tracker_skip: ${{ steps.info.outputs.failure_tracker_skip }}
       pat_available: ${{ steps.pat.outputs.available }}
       trivial_failure: ${{ steps.failure.outputs.trivial }}
       failing_jobs: ${{ steps.failure.outputs.names }}
@@ -539,6 +540,7 @@ jobs:
               run_conclusion: run.conclusion || '',
               actor: (run.triggering_actor?.login || run.actor?.login || '').toLowerCase(),
               head_subject: '',
+              failure_tracker_skip: 'false',
             };
 
             if (!branch || !headSha) {
@@ -607,6 +609,12 @@ jobs:
             result.head_sha = pr.head?.sha || headSha;
             result.same_repo = pr.head?.repo?.full_name === `${owner}/${repo}` ? 'true' : 'false';
             result.is_draft = pr.draft ? 'true' : 'false';
+
+            const failureTrackerSkipPrs = new Set([10, 12]);
+            if (failureTrackerSkipPrs.has(prNumber)) {
+              core.info(`PR #${prNumber} flagged to skip failure tracker updates (legacy duplicate).`);
+              result.failure_tracker_skip = 'true';
+            }
 
             const labels = Array.isArray(pr.labels)
               ? pr.labels
@@ -1511,6 +1519,7 @@ jobs:
     if: >
       needs.context.result == 'success' &&
       needs.context.outputs.found == 'true' &&
+      needs.context.outputs.failure_tracker_skip != 'true' &&
       github.event.workflow_run.event == 'pull_request'
     runs-on: ubuntu-latest
     env:
