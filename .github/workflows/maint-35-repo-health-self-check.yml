@@ -14,13 +14,14 @@ jobs:
   self-check:
     name: Repository self-check
     runs-on: ubuntu-latest
+    env:
+      SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
     steps:
       - name: Probe repository signals
         id: probe
         uses: actions/github-script@v7
         env:
           REQUIRED_LABELS: agent:codex,agent:copilot,automerge,risk:low,codex-ready
-          SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
         with:
           script: |
             const core = require('@actions/core');
@@ -44,27 +45,49 @@ jobs:
               }
             }
 
-            const hasPat = Boolean(process.env.SERVICE_BOT_PAT);
-
             const repoInfo = await github.rest.repos.get({ owner, repo });
             const defaultBranch = repoInfo.data.default_branch;
 
+            const timestamp = new Date().toISOString();
+
+            const hasPat = Boolean(process.env.SERVICE_BOT_PAT);
+
+            core.setOutput('default_branch', defaultBranch);
+            core.setOutput('missing_labels', JSON.stringify(missingLabels));
+            core.setOutput('has_pat', hasPat ? 'true' : 'false');
+            core.setOutput('timestamp', timestamp);
+
+      - name: Check branch protection (requires PAT)
+        id: branch_protection
+        if: env.SERVICE_BOT_PAT != ''
+        uses: actions/github-script@v7
+        env:
+          DEFAULT_BRANCH: ${{ steps.probe.outputs.default_branch }}
+        with:
+          github-token: ${{ env.SERVICE_BOT_PAT }}
+          script: |
+            const core = require('@actions/core');
+
+            const { owner, repo } = context.repo;
+            const branch = process.env.DEFAULT_BRANCH;
+
             let branchProtectionStatus = 'ok';
             let protectionIssue = '';
+
             try {
               await github.rest.repos.getBranchProtection({
                 owner,
                 repo,
-                branch: defaultBranch,
+                branch,
               });
             } catch (error) {
               if (error.status === 403) {
                 branchProtectionStatus = 'forbidden';
-                protectionIssue = `Unable to verify branch protection for ${defaultBranch} – insufficient permissions (${error.message}).`;
+                protectionIssue = `Unable to verify branch protection for ${branch} – insufficient permissions (${error.message}).`;
                 core.warning(protectionIssue);
               } else if (error.status === 404) {
                 branchProtectionStatus = 'missing';
-                protectionIssue = `Branch protection is not configured for ${defaultBranch}.`;
+                protectionIssue = `Branch protection is not configured for ${branch}.`;
               } else {
                 branchProtectionStatus = 'error';
                 protectionIssue = `Branch protection check failed: ${error.message}`;
@@ -72,14 +95,8 @@ jobs:
               }
             }
 
-            const timestamp = new Date().toISOString();
-
-            core.setOutput('default_branch', defaultBranch);
-            core.setOutput('missing_labels', JSON.stringify(missingLabels));
-            core.setOutput('has_pat', hasPat ? 'true' : 'false');
             core.setOutput('branch_protection_status', branchProtectionStatus);
             core.setOutput('protection_issue', protectionIssue);
-            core.setOutput('timestamp', timestamp);
 
       - name: Aggregate findings
         id: aggregate
@@ -88,8 +105,8 @@ jobs:
           MISSING_LABELS: ${{ steps.probe.outputs.missing_labels }}
           HAS_PAT: ${{ steps.probe.outputs.has_pat }}
           DEFAULT_BRANCH: ${{ steps.probe.outputs.default_branch }}
-          BRANCH_PROTECTION_STATUS: ${{ steps.probe.outputs.branch_protection_status }}
-          PROTECTION_ISSUE: ${{ steps.probe.outputs.protection_issue }}
+          BRANCH_PROTECTION_STATUS: ${{ steps.branch_protection.outputs.branch_protection_status }}
+          PROTECTION_ISSUE: ${{ steps.branch_protection.outputs.protection_issue }}
           TIMESTAMP: ${{ steps.probe.outputs.timestamp }}
         with:
           script: |
@@ -98,7 +115,7 @@ jobs:
             const missingLabels = JSON.parse(process.env.MISSING_LABELS || '[]');
             const hasPat = process.env.HAS_PAT === 'true';
             const defaultBranch = process.env.DEFAULT_BRANCH || '(unknown)';
-            const branchProtectionStatus = process.env.BRANCH_PROTECTION_STATUS || 'unknown';
+            const branchProtectionStatus = process.env.BRANCH_PROTECTION_STATUS || 'skipped';
             const protectionIssue = process.env.PROTECTION_ISSUE || '';
             const timestampIso = process.env.TIMESTAMP || new Date().toISOString();
             const timestamp = new Date(timestampIso);
@@ -118,6 +135,9 @@ jobs:
             if (branchProtectionStatus === 'error') {
               failureReasons.push(protectionIssue || 'Branch protection probe encountered an unexpected error.');
             }
+            if (branchProtectionStatus === 'forbidden') {
+              failureReasons.push(protectionIssue || 'Branch protection probe was forbidden.');
+            }
 
             const summary = core.summary;
             summary.addHeading('Repository self-check', 1);
@@ -131,7 +151,15 @@ jobs:
               summary.addList(failureReasons);
             }
 
-            if (branchProtectionStatus === 'forbidden' && protectionIssue) {
+            if (!hasPat) {
+              summary.addBreak();
+              summary.addRaw('Branch protection check skipped – configure `SERVICE_BOT_PAT` to enable this probe.', true);
+            } else if (branchProtectionStatus === 'skipped') {
+              summary.addBreak();
+              summary.addRaw('Branch protection check was skipped.', true);
+            }
+
+            if (['missing', 'error', 'forbidden'].includes(branchProtectionStatus) && protectionIssue) {
               summary.addHeading('Branch protection note', 2);
               summary.addRaw(protectionIssue, true);
             }
