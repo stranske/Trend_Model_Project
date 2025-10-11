@@ -60,6 +60,8 @@ part of Issue #2190; the dedicated Codex issue bridge was reinstated to restore 
   Codex command phrase, or Codex bootstrap toggles (set `enable_bootstrap: true`
   and optionally `bootstrap_issues_label`).
 - The orchestrator still honours `SERVICE_BOT_PAT` when creating PRs; provide the secret to avoid `github-actions[bot]` authorship.
+- A local dry-run helper (`python tools/simulate_codex_bootstrap.py …`) reproduces the `Find Ready Issues` outputs to confirm the
+  JSON payload parsed by `fromJson(...)` remains well-formed when labels resolve to multiple issues.
 
 ## Failure Modes
 | Failure | Mitigation |
