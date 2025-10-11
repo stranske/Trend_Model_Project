@@ -108,6 +108,12 @@ def test_post_ci_failure_tracker_handles_failure_path() -> None:
         == "github.event.workflow_run.conclusion == 'failure'"
     )
 
+    summary_step = _get_step(job, "Emit failure summary")
+    assert (
+        summary_step["if"].strip()
+        == "github.event.workflow_run.conclusion == 'failure'"
+    ), "Failure summary should only emit on failing runs"
+
     label_step = _get_step(job, "Label pull request as ci-failure")
     assert label_step["uses"].startswith("actions/github-script@")
     label_script = label_step.get("with", {}).get("script", "")
@@ -124,10 +130,23 @@ def test_post_ci_failure_tracker_handles_failure_path() -> None:
         if step.get("uses", "").startswith("actions/upload-artifact@")
     ]
     assert len(artifact_steps) == 2, "Failure and success paths should each upload once"
+
+    seen_conditions: set[str] = set()
     for step in artifact_steps:
         with_section = step.get("with", {})
         assert with_section.get("name") == "ci-failures-snapshot"
         assert with_section.get("path") == "artifacts/ci_failures_snapshot.json"
+
+        condition = " ".join(step.get("if", "").split())
+        if condition:
+            seen_conditions.add(condition)
+
+    assert (
+        "github.event.workflow_run.conclusion == 'failure'" in seen_conditions
+    ), "Failure artifact upload should be gated on failing runs"
+    assert (
+        "github.event.workflow_run.conclusion == 'success'" in seen_conditions
+    ), "Success artifact upload should mirror failure artifact payload"
 
 
 def test_post_ci_failure_tracker_handles_success_path() -> None:
