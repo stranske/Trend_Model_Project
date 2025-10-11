@@ -3,10 +3,6 @@ name: Gate
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
-      - 'assets/**'
   workflow_dispatch:
 
 concurrency:
