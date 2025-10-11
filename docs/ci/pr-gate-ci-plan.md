@@ -1,68 +1,34 @@
-# PR Gate & CI Workflow Enhancement Plan
+# Plan: Consolidate Pull-Request Checks into Gate
 
-> **2026 Update (Issue #2439):** Gate is now the sole required check. The legacy notes below describe the historical `pr-10` and `pr-12` wrappers kept for archival reference.
+Issue #2439 migrates the repository from the historical `pr-10-ci-python` / `pr-12-docker-smoke` pair to a single Gate workflow
+that fans out to reusable Python and Docker composites. This document captures the scope, constraints, and verification checklist
+for the consolidation.
 
+## Scope and Key Constraints
 
+- **Workflows affected**: `.github/workflows/pr-gate.yml`, `.github/workflows/reusable-ci.yml`,
+  `.github/workflows/reusable-docker.yml`, and the maintenance listeners that react to CI completion
+  (`maint-30-post-ci-summary.yml`, `maint-32-autofix.yml`, `maint-33-check-failure-tracker.yml`).
+- **Functional focus**: keep the combined Gate run fast and deterministic while preserving the docs-only short circuit.
+- **Tooling**: continue using reusable workflows for the Python (3.11/3.12) and Docker jobs; the Gate file is a thin orchestrator.
+- **Concurrency rules**: Gate must cancel superseded runs for the same PR branch.
+- **Out of scope**: changing pytest marker expressions, altering Docker smoke internals, or redefining coverage targets.
 
-## Scope and Key Constraints## Scope and Key Constraints
+## Acceptance Criteria / Definition of Done
 
-- **Workflows affected**: `.github/workflows/pr-10-ci-python.yml`, `.github/workflows/pr-12-docker-smoke.yml`, `.github/workflows/reusable-90-ci-python.yml`, and supporting maintenance listeners (`maint-30-post-ci-summary.yml`, `maint-32-autofix.yml`).- **Workflows affected**: `.github/workflows/pr-10-ci-python.yml`, `.github/workflows/pr-12-docker-smoke.yml`, `.github/workflows/reusable-90-ci-python.yml`, and supporting maintenance listeners (`maint-30-post-ci-summary.yml`, `maint-32-autofix.yml`).
+1. Branch protection requires the `Gate / gate` check name (legacy `ci / python` and `ci / docker smoke` checks are removed).
+2. `.github/workflows/pr-10-ci-python.yml` and `.github/workflows/pr-12-docker-smoke.yml` are deleted once Gate parity is verified.
+3. Maintenance followers (`maint-30-post-ci-summary.yml`, `maint-32-autofix.yml`, `maint-33-check-failure-tracker.yml`) subscribe to
+   Gate via `workflow_run` triggers and operate on the Gate job manifest.
+4. Gate fans out to Python 3.11, Python 3.12, and Docker smoke by delegating to `reusable-ci.yml` and `reusable-docker.yml`.
+5. CI signature fixtures (`.github/signature-fixtures/*`) represent the Gate topology.
+6. Documentation (CONTRIBUTING, workflow catalog, automation references) calls out Gate as the sole required PR check.
 
-- **Functional focus**: ensure the PR CI gate pairs (`ci / python`, `ci / docker smoke`) remain fast, deterministic, and self-contained while continuing to skip heavy jobs on docs-only changes.- **Functional focus**: ensure the PR CI gate pairs (`ci / python`, `ci / docker smoke`) remain fast, deterministic, and self-contained while continuing to skip heavy jobs on docs-only changes.
+## Completion Checklist
 
-- **Tooling**: GitHub Actions only; lean on reusable composites (`reusable-90-ci-python.yml`, `reusable-92-autofix.yml`) instead of duplicating job steps.- **Tooling**: GitHub Actions only; lean on reusable composites (`reusable-90-ci-python.yml`, `reusable-92-autofix.yml`) instead of duplicating job steps.
-
-- **Concurrency rules**: PR jobs must cancel when superseded by newer pushes on the same branch/PR.- **Concurrency rules**: PR jobs must cancel when superseded by newer pushes on the same branch/PR.
-
-- **Test selection**: retain the existing pytest marker expression semantics (`not quarantine and not slow`) without YAML anchors inside reusable workflows.- **Test selection**: retain the existing pytest marker expression semantics (`not quarantine and not slow`) without YAML anchors inside reusable workflows.
-
-- **Caching requirements**: keep Python setup, pip dependency caches, and pytest cache restores so reruns stay under budget.- **Caching requirements**: keep Python setup, pip dependency caches, and pytest cache restores so reruns stay under budget.
-
-- **Out of scope**: changing core test coverage targets, altering docker workflow internals, or redefining branch protection policies beyond the two required checks.- **Out of scope**: changing core test coverage targets, altering docker workflow internals, or redefining branch protection policies beyond the two required checks.
-
-
-
-## Acceptance Criteria / Definition of Done## Acceptance Criteria / Definition of Done
-
-1. **Required Checks**: PRs surface exactly two required statuses—`ci / python` (from `pr-10-ci-python.yml`) and `ci / docker smoke` (from `pr-12-docker-smoke.yml`)—both green before merge.1. **Required Checks**: PRs surface exactly two required statuses—`ci / python` (from `pr-10-ci-python.yml`) and `ci / docker smoke` (from `pr-12-docker-smoke.yml`)—both green before merge.
-
-2. **PR 10 orchestration**: `pr-10-ci-python.yml` pins formatter/type tooling, runs Ruff→Black→mypy→pytest in sequence, uploads coverage artefacts, and honours docs-only short-circuit paths.2. **PR 10 orchestration**: `pr-10-ci-python.yml` pins formatter/type tooling, runs Ruff→Black→mypy→pytest in sequence, uploads coverage artefacts, and honours docs-only short-circuit paths.
-
-3. **PR 12 docker smoke**: `pr-12-docker-smoke.yml` builds the PR image with Buildx, runs the health probe loop, and exposes a `debug-build` toggle without leaking credentials.3. **PR 12 docker smoke**: `pr-12-docker-smoke.yml` builds the PR image with Buildx, runs the health probe loop, and exposes a `debug-build` toggle without leaking credentials.
-
-4. **Reusable CI hygiene**: `reusable-90-ci-python.yml` remains the single source for matrix/self-test execution and is kept in sync with PR 10 tooling pins.4. **Reusable CI hygiene**: `reusable-90-ci-python.yml` remains the single source for matrix/self-test execution and is kept in sync with PR 10 tooling pins.
-
-5. **Coverage Artefacts**: `pr-10-ci-python.yml` publishes coverage assets consumed by downstream maintenance workflows (post-CI summary, autofix, failure tracker).5. **Coverage Artefacts**: `pr-10-ci-python.yml` publishes coverage assets consumed by downstream maintenance workflows (post-CI summary, autofix, failure tracker).
-
-6. **Docs-only Short Circuit**: Both PR workflows keep `paths-ignore` exclusions so documentation or asset-only diffs report success quickly.6. **Docs-only Short Circuit**: Both PR workflows keep `paths-ignore` exclusions so documentation or asset-only diffs report success quickly.
-
-7. **Branch Protection**: Repository settings (tracked out-of-band) continue to require only the `ci / python` and `ci / docker smoke` checks.7. **Branch Protection**: Repository settings (tracked out-of-band) continue to require only the `ci / python` and `ci / docker smoke` checks.
-
-
-
-## Initial Task Checklist## Initial Task Checklist
-
-- [ ] Validate `.github/workflows/pr-10-ci-python.yml` still mirrors reusable pins, caches dependencies, and enforces coverage minimums.<<<<<<< HEAD
-
-- [ ] Confirm `.github/workflows/pr-12-docker-smoke.yml` honours Buildx caching and exits cleanly on health check failures.- [x] Update `.github/workflows/gate.yml`:
-
-- [ ] Keep `.github/workflows/reusable-90-ci-python.yml` aligned with PR 10 so maintenance callers inherit identical behaviour.  - [x] Replace YAML anchor usage with inline marker strings.
-
-- [ ] Ensure maintenance listeners (`maint-30-post-ci-summary.yml`, `maint-32-autofix.yml`, `maint-33-check-failure-tracker.yml`) reference the updated workflow names.  - [x] Add `concurrency` configuration and `paths-ignore` filters.
-
-- [ ] Document any additional follow-up tasks or gaps discovered during implementation.  - [x] Ensure jobs invoke reusable workflows and add a final `gate` aggregation job.
-
-- [x] Modify `.github/workflows/ci.yml`:
-  - [x] Add Python setup with caching (actions/setup-python@v5).
-  - [x] Insert sequential steps for Ruff, MyPy, then Pytest with fail-fast behaviour.
-  - [x] Publish coverage artifact named `coverage-<python-version>`.
-- [x] Verify `.github/workflows/docker.yml` compatibility with gate reuse (no changes expected).
-- [x] Coordinate with repository settings to require only the new `gate` status.
-- [x] Document any additional follow-up tasks or gaps discovered during implementation.
-=======
-- [ ] Validate `.github/workflows/pr-10-ci-python.yml` still mirrors reusable pins, caches dependencies, and enforces coverage minimums.
-- [ ] Confirm `.github/workflows/pr-12-docker-smoke.yml` honours Buildx caching and exits cleanly on health check failures.
-- [ ] Keep `.github/workflows/reusable-90-ci-python.yml` aligned with PR 10 so maintenance callers inherit identical behaviour.
-- [ ] Ensure maintenance listeners (`maint-30-post-ci-summary.yml`, `maint-32-autofix.yml`, `maint-33-check-failure-tracker.yml`) reference the updated workflow names.
-- [ ] Document any additional follow-up tasks or gaps discovered during implementation.
->>>>>>> 48177ac5 (chore: remove legacy gate workflows)
+- [x] Update branch protection to require `Gate / gate`.
+- [x] Delete `.github/workflows/pr-10-ci-python.yml` and `.github/workflows/pr-12-docker-smoke.yml`.
+- [x] Point `maint-30-post-ci-summary.yml`, `maint-32-autofix.yml`, and `maint-33-check-failure-tracker.yml` at Gate.
+- [x] Regenerate `.github/signature-fixtures/basic_jobs.json` and the corresponding hash for the Gate manifest.
+- [x] Verify Gate reuses `reusable-ci.yml` for Python 3.11/3.12 and `reusable-docker.yml` for Docker smoke.
+- [x] Refresh documentation to describe Gate as the sole required check and record the archival of the legacy wrappers.

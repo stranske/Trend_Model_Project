@@ -11,38 +11,37 @@ from tools.post_ci_summary import build_summary_comment
 def sample_runs() -> list[dict[str, object]]:
     return [
         {
-            "key": "ci",
-            "displayName": "CI",
+            "key": "gate",
+            "displayName": "Gate",
             "present": True,
             "id": 101,
             "run_attempt": 1,
-            "conclusion": "success",
-            "html_url": "https://example.test/ci/101",
-            "jobs": [
-                {
-                    "name": "ci / python",
-                    "conclusion": "success",
-                    "html_url": "https://example.test/ci/101/python",
-                }
-            ],
-        },
-        {
-            "key": "docker",
-            "displayName": "Docker",
-            "present": True,
-            "id": 202,
-            "run_attempt": 2,
             "conclusion": "failure",
             "status": "completed",
-            "html_url": "https://example.test/docker/202",
+            "html_url": "https://example.test/gate/101",
             "jobs": [
                 {
-                    "name": "docker build",
+                    "name": "core tests (3.11)",
+                    "conclusion": "success",
+                    "html_url": "https://example.test/gate/101/py311",
+                },
+                {
+                    "name": "core tests (3.12)",
+                    "conclusion": "success",
+                    "html_url": "https://example.test/gate/101/py312",
+                },
+                {
+                    "name": "docker smoke",
                     "conclusion": "failure",
-                    "html_url": "https://example.test/docker/202/build",
-                }
+                    "html_url": "https://example.test/gate/101/docker",
+                },
+                {
+                    "name": "gate",
+                    "conclusion": "failure",
+                    "html_url": "https://example.test/gate/101/gate",
+                },
             ],
-        },
+        }
     ]
 
 
@@ -65,8 +64,10 @@ def test_build_summary_comment_renders_expected_sections(
         coverage_section=coverage_section,
         required_groups_env=json.dumps(
             [
-                {"label": "CI python", "patterns": [r"^ci / python"]},
-                {"label": "Docker", "patterns": [r"^docker "]},
+                {"label": "Core tests (3.11)", "patterns": [r"^core tests \(3\.11\)$"]},
+                {"label": "Core tests (3.12)", "patterns": [r"^core tests \(3\.12\)$"]},
+                {"label": "Docker smoke", "patterns": [r"^docker smoke$"]},
+                {"label": "Gate aggregator", "patterns": [r"^gate$"]},
             ]
         ),
     )
@@ -74,16 +75,17 @@ def test_build_summary_comment_renders_expected_sections(
     assert body.startswith("## Automated Status Summary")
     assert "**Head SHA:** abc123" in body
     assert (
-        "**Latest Runs:** ✅ success — [CI (#101)](https://example.test/ci/101)" in body
-    )
-    assert (
-        "· ❌ failure — [Docker (#202 (attempt 2))](https://example.test/docker/202)"
+        "**Latest Runs:** ❌ failure — [Gate (#101)](https://example.test/gate/101)"
         in body
     )
-    assert "CI python: ✅ success" in body
-    assert "Docker: ❌ failure" in body
-    assert "| CI / ci / python | ✅ success |" in body
-    assert "| **Docker / docker build** | ❌ failure |" in body
+    assert "Core tests (3.11): ✅ success" in body
+    assert "Core tests (3.12): ✅ success" in body
+    assert "Docker smoke: ❌ failure" in body
+    assert "Gate aggregator: ❌ failure" in body
+    assert "| Gate / core tests (3.11) | ✅ success |" in body
+    assert "| Gate / core tests (3.12) | ✅ success |" in body
+    assert "| **Gate / docker smoke** | ❌ failure |" in body
+    assert "| **Gate / gate** | ❌ failure |" in body
     # Coverage lines should render with percentages and deltas
     assert "Coverage (jobs): 91.23%" in body
     assert "Coverage (worst job): 83.11%" in body
@@ -94,16 +96,18 @@ def test_build_summary_comment_renders_expected_sections(
 
 def test_build_summary_comment_handles_missing_runs_and_defaults() -> None:
     body = build_summary_comment(
-        runs=[{"key": "ci", "displayName": "CI", "present": False}],
+        runs=[{"key": "gate", "displayName": "Gate", "present": False}],
         head_sha=None,
         coverage_stats=None,
         coverage_section=None,
         required_groups_env=None,
     )
 
-    assert "CI: ⏳ pending" in body
-    assert "**Latest Runs:** ⏳ pending — CI" in body
-    assert "Docker: ⏳ pending" in body
+    assert "Core tests (3.11): ⏳ pending" in body
+    assert "Core tests (3.12): ⏳ pending" in body
+    assert "Docker smoke: ⏳ pending" in body
+    assert "Gate aggregator: ⏳ pending" in body
+    assert "**Latest Runs:** ⏳ pending — Gate" in body
     assert "_Updated automatically; will refresh" in body
     # When no jobs exist the fallback table entry is rendered
     assert "_(no jobs reported)_" in body
@@ -146,7 +150,7 @@ def test_job_table_prioritises_failing_and_pending_jobs(sample_runs):
     ]
 
     docker_index = next(
-        (i for i, line in enumerate(table_lines) if "docker build" in line), None
+        (i for i, line in enumerate(table_lines) if "docker smoke" in line), None
     )
     flaky_index = next(
         (i for i, line in enumerate(table_lines) if "flaky-suite" in line), None
@@ -158,7 +162,7 @@ def test_job_table_prioritises_failing_and_pending_jobs(sample_runs):
         (i for i, line in enumerate(table_lines) if "main / optional" in line), None
     )
 
-    assert docker_index is not None, "'docker build' job not found in table_lines"
+    assert docker_index is not None, "'docker smoke' job not found in table_lines"
     assert flaky_index is not None, "'flaky-suite' job not found in table_lines"
     assert docs_index is not None, "'main / docs' job not found in table_lines"
     assert optional_index is not None, "'main / optional' job not found in table_lines"
@@ -191,21 +195,14 @@ def test_build_summary_comment_handles_irregular_run_data() -> None:
     body = build_summary_comment(
         runs=[
             {
-                "key": "ci",
-                "displayName": "CI",
+                "key": "gate",
+                "displayName": "Gate",
                 "present": True,
                 "jobs": [
                     None,
                     {"name": "", "conclusion": None, "html_url": None},
-                    {"name": "ci / python", "status": "queued"},
+                    {"name": "core tests (3.11)", "status": "queued"},
                 ],
-            },
-            {
-                "key": "docker",
-                "displayName": "Docker",
-                "present": True,
-                "status": "waiting",
-                "jobs": [],
             },
             "not-a-mapping",
         ],  # type: ignore[arg-type]
@@ -214,16 +211,15 @@ def test_build_summary_comment_handles_irregular_run_data() -> None:
         coverage_section=None,
         required_groups_env=json.dumps(
             [
-                {"label": "CI python", "patterns": [r"^ci / python"]},
+                {"label": "Core tests (3.11)", "patterns": [r"^core tests \(3\.11\)$"]},
             ]
         ),
     )
 
     assert "**Head SHA:** def456" in body
-    assert "**Latest Runs:** ⏳ pending — CI · ⏳ waiting — Docker" in body
-    assert "CI python: ⏳ queued" in body
-    assert "Docker: ⏳ waiting" in body
-    assert "| CI / ci / python | ⏳ queued | — |" in body
+    assert "**Latest Runs:** ⏳ pending — Gate" in body
+    assert "Core tests (3.11): ⏳ queued" in body
+    assert "| Gate / core tests (3.11) | ⏳ queued | — |" in body
     assert "### Coverage Overview" not in body
 
 
@@ -238,6 +234,7 @@ def test_build_summary_comment_defaults_on_invalid_required_groups(
         required_groups_env="{not-json}",
     )
 
-    assert "CI python: ✅ success" in body
-    # Docker status should still be present even though the custom required groups failed.
-    assert "Docker: ❌ failure" in body
+    assert "Core tests (3.11): ✅ success" in body
+    assert "Core tests (3.12): ✅ success" in body
+    assert "Docker smoke: ❌ failure" in body
+    assert "Gate aggregator: ❌ failure" in body

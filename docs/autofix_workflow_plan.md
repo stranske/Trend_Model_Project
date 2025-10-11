@@ -17,7 +17,7 @@
 - Executes `ruff format .` followed by `ruff check --fix --unsafe-fixes` scoped to the safe rule list.
 - If diffs remain, commits them back to same-repo branches or opens a labelled follow-up PR for forks.
 - Always adds the `autofix` label and toggles `autofix:applied`, `autofix:clean`, `autofix:debt` based on whether fixes landed and if diagnostics remain.
-- Main CI continues to run non-fixing `ruff check` and fails when violations persist (no changes required in this repo because the `pr-10-ci-python` workflow already enforces it).
+- Main CI continues to run non-fixing `ruff check` and fails when violations persist (no changes required in this repo because the Gate workflow already enforces it through the reusable CI jobs).
 
 ## Initial Task Checklist
 - [x] Draft workflow skeleton with permissions, metadata detection, and guard logic.

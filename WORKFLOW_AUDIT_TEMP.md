@@ -48,7 +48,7 @@ Only the workflows listed below remain visible in the Actions tab. Reusable comp
 | `reusable-90-ci-python.yml` | workflow_call | Primary reusable CI implementation.
 | `reusable-92-autofix.yml` | workflow_call | Autofix composite consumed by `maint-32-autofix.yml` and the direct `autofix.yml` PR runner.
 | `reusable-94-legacy-ci-python.yml` | workflow_call | Legacy CI contract retained for downstream consumers.
-| `reusable-96-ci-lite.yml` | workflow_call | Single-job Ruff/mypy/pytest runner used by `pr-10-ci-python.yml` and future gate orchestrators.
+| `reusable-96-ci-lite.yml` | workflow_call | Single-job Ruff/mypy/pytest runner retained for legacy PR 10 experiments and prototype gate research.
 | `reusable-97-docker-smoke.yml` | workflow_call | Wrapper that exposes the Docker smoke workflow to orchestration jobs.
 | `reusable-docker.yml` | workflow_call | Standalone Docker smoke composite (build + health check) for external consumers.
 

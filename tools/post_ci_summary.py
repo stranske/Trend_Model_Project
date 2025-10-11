@@ -38,7 +38,10 @@ class RequiredJobGroup(TypedDict):
 
 
 DEFAULT_REQUIRED_JOB_GROUPS: List[RequiredJobGroup] = [
-    {"label": "CI python", "patterns": [r"^ci / python(?: /|$)"]},
+    {"label": "Core tests (3.11)", "patterns": [r"^core tests \(3\.11\)$"]},
+    {"label": "Core tests (3.12)", "patterns": [r"^core tests \(3\.12\)$"]},
+    {"label": "Docker smoke", "patterns": [r"^docker smoke$"]},
+    {"label": "Gate aggregator", "patterns": [r"^gate$"]},
 ]
 
 
@@ -249,44 +252,54 @@ def _collect_required_segments(
     import re
 
     segments: List[str] = []
-    run_lookup = {run.get("key"): run for run in runs if isinstance(run, Mapping)}
-    ci_run = run_lookup.get("ci")
-    if isinstance(ci_run, Mapping) and ci_run.get("present"):
-        jobs = ci_run.get("jobs")
-        job_list = jobs if isinstance(jobs, Sequence) else []
-        for group in groups:
-            label = group["label"].strip()
-            patterns = group["patterns"]
-            regexes = []
-            for pattern in patterns:
-                try:
-                    regexes.append(re.compile(pattern))
-                except re.error:
-                    continue
-            if not label or not regexes:
+    job_sources: List[Mapping[str, object]] = []
+    for run in runs:
+        if not isinstance(run, Mapping) or not run.get("present"):
+            continue
+        jobs = run.get("jobs")
+        if isinstance(jobs, Sequence):
+            job_sources.append(run)
+
+    for group in groups:
+        label = group.get("label", "").strip()
+        patterns = group.get("patterns", [])
+        if not label or not isinstance(patterns, Sequence):
+            continue
+
+        regexes = []
+        for pattern in patterns:
+            if not isinstance(pattern, str):
                 continue
-            matched_states: List[str | None] = []
-            for job in job_list:
+            try:
+                regexes.append(re.compile(pattern))
+            except re.error:
+                continue
+        if not regexes:
+            continue
+
+        matched_states: List[str | None] = []
+        for run in job_sources:
+            jobs = run.get("jobs")
+            if not isinstance(jobs, Sequence):
+                continue
+            for job in jobs:
                 if not isinstance(job, Mapping):
                     continue
                 name = str(job.get("name") or "")
+                if not name:
+                    continue
                 if any(regex.search(name) for regex in regexes):
                     state_value = job.get("conclusion") or job.get("status")
                     matched_states.append(
                         str(state_value) if state_value is not None else None
                     )
-            state = _combine_states(matched_states)
-            segments.append(f"{label}: {_badge(state)} {_display_state(state)}")
-    else:
-        segments.append("CI: ⏳ pending")
 
-    docker_run = run_lookup.get("docker")
-    if isinstance(docker_run, Mapping) and docker_run.get("present"):
-        state_value = docker_run.get("conclusion") or docker_run.get("status")
-        state_str = str(state_value) if state_value is not None else None
-        segments.append(f"Docker: {_badge(state_str)} {_display_state(state_str)}")
-    else:
-        segments.append("Docker: ⏳ pending")
+        if matched_states:
+            state = _combine_states(matched_states)
+        else:
+            state = None
+        segments.append(f"{label}: {_badge(state)} {_display_state(state)}")
+
     return segments
 
 

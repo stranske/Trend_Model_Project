@@ -199,14 +199,14 @@ jobs:
               }
             }
 
-            const ciRun = collected.find(entry => entry.key === 'ci' && entry.present);
-            const dockerRun = collected.find(entry => entry.key === 'docker' && entry.present);
+            const gateRun = collected.find(entry => entry.key === 'gate' && entry.present);
+            const gateRunId = gateRun ? String(gateRun.id) : '';
 
             core.setOutput('runs', JSON.stringify(collected));
-            core.setOutput('ci_run_id', ciRun ? String(ciRun.id) : '');
-            core.setOutput('docker_run_id', dockerRun ? String(dockerRun.id) : '');
+            core.setOutput('ci_run_id', gateRunId);
+            core.setOutput('gate_run_id', gateRunId);
             core.setOutput('head_sha', headSha || '');
-            core.notice(`Collected ${collected.filter(entry => entry.present).length} workflow runs for head ${headSha}`);
+            core.notice(`Collected ${collected.filter(entry => entry.present).length} Gate workflow runs for head ${headSha}`);
       - name: Download coverage summary
         if: ${{ steps.gather.outputs.ci_run_id }}
         uses: actions/download-artifact@v4
@@ -222,17 +222,6 @@ jobs:
         continue-on-error: true
         with:
           run-id: ${{ steps.gather.outputs.ci_run_id }}
-          pattern: '*'
-          merge-multiple: true
-          path: summary_artifacts
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Download Docker artifacts
-        if: ${{ steps.gather.outputs.docker_run_id && steps.gather.outputs.docker_run_id != steps.gather.outputs.ci_run_id }}
-        uses: actions/download-artifact@v4
-        continue-on-error: true
-        with:
-          run-id: ${{ steps.gather.outputs.docker_run_id }}
           pattern: '*'
           merge-multiple: true
           path: summary_artifacts

@@ -6,8 +6,8 @@ This document outlines the acceptance criteria and implementation details for au
 > **Update (2026-10-12):** Issue #2190 removed `.github/workflows/maint-45-merge-manager.yml` and the associated labeler workflow. The checklist below is retained for historical context; the repository no longer ships an automerge workflow by default.
 
 ## Preconditions for Automerge
-- **CI status is green** (all required checks in `.github/workflows/pr-10-ci-python.yml` have passed)
-- **Docker build status is green** (the `.github/workflows/pr-12-docker-smoke.yml` run for the head SHA has succeeded)
+- **CI status is green** (the Gate workflow's Python jobs have passed)
+- **Docker build status is green** (the Gate workflow's Docker smoke job has succeeded)
 - **PR has the `automerge` label** (explicit opt-in for minor-change auto-merges)
 - **PR does _not_ have any label containing `breaking`** (guards against high-risk changes)
 
@@ -28,8 +28,7 @@ This document outlines the acceptance criteria and implementation details for au
 
 ## Implementation Notes
 - **Relevant workflow files:**
-  - `.github/workflows/pr-10-ci-python.yml` (primary CI jobs)
-  - `.github/workflows/pr-12-docker-smoke.yml` (Docker build/test checks)
+  - `.github/workflows/pr-gate.yml` (primary CI/Docker orchestration)
   - `.github/workflows/maint-45-merge-manager.yml` (automerge orchestration; removed in Issue #2190)
 - **Labels involved:**
   - `automerge` (required for merge automation)
