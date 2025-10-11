@@ -44,7 +44,10 @@ def test_post_ci_failure_tracker_handles_failure_path() -> None:
     assert "workflow_run.event == 'pull_request'" in condition
 
     tracker_step = _get_step(job, "Derive failure signature & update tracking issue")
-    assert tracker_step["if"].strip() == "github.event.workflow_run.conclusion == 'failure'"
+    assert (
+        tracker_step["if"].strip()
+        == "github.event.workflow_run.conclusion == 'failure'"
+    )
 
     label_step = _get_step(job, "Label pull request as ci-failure")
     assert label_step["uses"].startswith("actions/github-script@")
@@ -66,7 +69,9 @@ def test_post_ci_failure_tracker_handles_success_path() -> None:
     job = workflow["jobs"]["failure-tracker"]
 
     heal_step = _get_step(job, "Auto-heal stale failure issues & note success")
-    assert heal_step["if"].strip() == "github.event.workflow_run.conclusion == 'success'"
+    assert (
+        heal_step["if"].strip() == "github.event.workflow_run.conclusion == 'success'"
+    )
 
     remove_label_step = _get_step(job, "Remove ci-failure label from pull request")
     assert remove_label_step["uses"].startswith("actions/github-script@")
