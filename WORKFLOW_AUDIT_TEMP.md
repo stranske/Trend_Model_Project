@@ -43,9 +43,8 @@ Only the workflows listed below remain visible in the Actions tab. Reusable comp
 |----------|----------|-------|
 | `reuse-agents.yml` | workflow_call | Bridges consumer JSON payloads to the reusable stack.
 | `reusable-70-agents.yml` | workflow_call | Reusable agents stack used by `agents-70-orchestrator.yml` and `reuse-agents.yml`.
-| `reusable-ci.yml` | workflow_call | General-purpose CI composite (lint, type-check, pytest) for downstream repositories.
+| `reusable-ci.yml` | workflow_call | General-purpose CI composite (lint, type-check, pytest) for downstream repositories and Gate.
 | `reusable-99-selftest.yml` | workflow_call | Matrix smoke-test for the reusable CI executor.
-| `reusable-90-ci-python.yml` | workflow_call | Primary reusable CI implementation.
 | `reusable-92-autofix.yml` | workflow_call | Autofix composite consumed by `maint-32-autofix.yml` and the direct `autofix.yml` PR runner.
 | `reusable-94-legacy-ci-python.yml` | workflow_call | Legacy CI contract retained for downstream consumers.
 | `reusable-96-ci-lite.yml` | workflow_call | Single-job Ruff/mypy/pytest runner retained for legacy PR 10 experiments and prototype gate research.

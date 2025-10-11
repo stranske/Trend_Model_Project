@@ -90,14 +90,10 @@ listen to their `workflow_run` events.
 |----------|-------------|-------|
 | `reuse-agents.yml` (`Reuse Agents`) | `agents-consumer.yml` | Bridges `params_json` inputs to the reusable toolkit while preserving defaults.
 | `reusable-70-agents.yml` (`Reusable 70 Agents`) | `agents-70-orchestrator.yml`, `reuse-agents.yml` | Implements readiness, bootstrap, diagnostics, and watchdog jobs.
-| `reusable-90-ci-python.yml` (`Reusable 90 CI Python`) | Legacy downstreams | Matrix executor retained for repositories that still rely on the older layout.
 | `reusable-92-autofix.yml` (`Reusable 92 Autofix`) | `maint-32-autofix.yml`, `autofix.yml` | Autofix harness used both by the PR-time autofix workflow and the post-CI maintenance listener.
-| `reusable-94-legacy-ci-python.yml` (`Reusable 94 Legacy CI Python`) | Downstream consumers | Compatibility shim for repositories that still need the old matrix layout.
-| `reusable-96-ci-lite.yml` (`Reusable 96 CI Lite`) | Legacy `pr-10` wrapper (now removed) and experimental gate prototypes | Single-job Ruff → mypy → pytest runner with coverage enforcement and artifact uploads.
-| `reusable-97-docker-smoke.yml` (`Reusable 97 Docker Smoke`) | Gate workflows | Exposes the Docker smoke test pipeline via `workflow_call` inputs.
 | `reusable-99-selftest.yml` (`Reusable 99 Selftest`) | `maint-` self-test orchestration | Scenario matrix that validates the reusable CI executor and artifact inventory.
-| `reusable-ci.yml` (`Reusable CI`) | External repositories | General-purpose CI composite (lint, type-check, pytest, coverage) with minimal configuration.
-| `reusable-docker.yml` (`Reusable Docker Smoke`) | External repositories | Standalone Docker SMOKE composite combining build + health check.
+| `reusable-ci.yml` (`Reusable CI`) | Gate, downstream repositories | Single source for Python lint/type/test coverage runs.
+| `reusable-docker.yml` (`Reusable Docker Smoke`) | Gate, downstream repositories | Docker build + smoke reusable consumed by Gate and external callers.
 
 **Operational details**
 - **Reuse Agents** – Permissions: `contents: write`, `pull-requests: write`, `issues: write`. Secrets: optional `service_bot_pat` (forwarded to `reusable-70-agents`) plus `GITHUB_TOKEN`. Outputs: single `call` job exposes reusable outputs such as `triggered` keepalive list and watchdog diagnostics for upstream orchestrators.
@@ -159,7 +155,7 @@ Follow this sequence before pushing workflow changes or large code edits:
 
 - `.github/workflows/autofix-versions.env` is the single source of truth for
   formatter/type tooling versions (Ruff, Black, isort, docformatter, mypy).
-- `reusable-ci.yml`, `reusable-90-ci-python.yml`, and the autofix composite
+- `reusable-ci.yml`, `reusable-docker.yml`, and the autofix composite
   action all load and validate this env file before installing tools; they fail
   fast if the file is missing or incomplete.
 - Local mirrors (`scripts/style_gate_local.sh`, `scripts/dev_check.sh`,

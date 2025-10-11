@@ -78,9 +78,9 @@ All others use default `GITHUB_TOKEN`.
 | `agents-43-codex-issue-bridge.yml` | issues, workflow_dispatch | Prepares Codex-ready branches/PRs when an `agent:codex` label is applied.
 | `agents-70-orchestrator.yml` | schedule (*/20), workflow_dispatch | Unified agents toolkit entry point delegating to `reusable-70-agents.yml`.
 | `reusable-70-agents.yml` | workflow_call | Composite implementing readiness, bootstrap, diagnostics, and watchdog jobs.
-| `reusable-90-ci-python.yml` | workflow_call | Unified CI executor for the Python stack.
+| `reusable-ci.yml` | workflow_call | Unified CI executor for the Python stack.
+| `reusable-docker.yml` | workflow_call | Docker smoke reusable consumed by `pr-gate.yml`.
 | `reusable-92-autofix.yml` | workflow_call | Autofix composite consumed by `maint-32-autofix.yml`.
-| `reusable-94-legacy-ci-python.yml` | workflow_call | Compatibility shim for repositories that still need the legacy matrix layout.
 
 ---
 ## 5. Adopt Reusable Workflows
@@ -235,7 +235,7 @@ Purpose: Provide early visibility of coverage / hotspot data without failing PRs
 
 Low Coverage Spotlight (follow-up Issue #1386):
 - A secondary table "Low Coverage (<X%)" appears when any parsed file has coverage below the configured threshold (default 50%).
-- Customize the threshold with the `low-coverage-threshold` workflow input when calling `reusable-90-ci-python.yml`.
+- Customize the threshold with the `low-coverage-threshold` workflow input when calling `reusable-ci.yml`.
 - Table is separately truncated to the hotspot limit (15) with a truncation notice if more remain.
 Implemented follow-ups (Issue #1352):
 - Normalized artifact naming: `coverage-<python-version>` (e.g. `coverage-3.11`).
@@ -247,7 +247,7 @@ Implemented follow-ups (Issue #1352):
 - Run Summary includes a single "Soft Coverage Gate" section (job log table de-duplicated into universal logs job).
 - Trend artifacts shipped: `coverage-trend.json` (single run) and cumulative `coverage-trend-history.ndjson` (history) for longitudinal analysis.
 
-Activation (consumer of `reusable-90-ci-python.yml`):
+Activation (consumer of `reusable-ci.yml`):
 ```yaml
 with:
   enable-soft-gate: 'true'
@@ -267,7 +267,7 @@ Retention Guidance: Use 7–14 days. Shorter (<7 days) risks losing comparison c
 
 - **Trigger scope:** Manual dispatch plus a nightly cron (`02:30 UTC`). This keeps reusable pipeline coverage fresh without
   consuming PR minutes. Dispatch from the Actions tab under **Self-Test Reusable CI** or via CLI when validating changes to
-  `.github/workflows/reusable-90-ci-python.yml` or its helper scripts. The legacy PR-comment notifier was removed because the
+  `.github/workflows/reusable-ci.yml` or its helper scripts. The legacy PR-comment notifier was removed because the
   workflow no longer runs on pull_request events. After shipping a change, monitor the next two nightly runs and confirm
   their success in the self-test health issue before considering the work complete.
 - **Latest remediation:** The October 2025 failure stemmed from `typing-inspection` drifting from `0.4.1` to `0.4.2`, causing
@@ -300,7 +300,7 @@ Retention Guidance: Use 7–14 days. Shorter (<7 days) risks losing comparison c
   Use the `gh run list` output to confirm two consecutive nightly runs have concluded with `success` before closing out
   Issue #1660 follow-up tasks.
 ## 7.5 Universal Logs Summary (Issue #1351)
-Source: `logs_summary` job inside `reusable-90-ci-python.yml` enumerates all jobs via the Actions API and writes a Markdown table to the run summary. Columns include Job, Status (emoji), Duration, and Log link.
+Source: `logs_summary` job inside `reusable-ci.yml` enumerates all jobs via the Actions API and writes a Markdown table to the run summary. Columns include Job, Status (emoji), Duration, and Log link.
 
 How to access logs:
 1. Open the PR → Checks tab → select the CI run.
@@ -318,7 +318,7 @@ Branch protection now requires the `Gate / gate` job directly. The historical wr
 ## 7.7 Quick Reference – Coverage & Logs
 | Concern | Job / File | How to Enable | Artifact / Output | Fails Build? |
 |---------|------------|---------------|-------------------|--------------|
-| Coverage soft gate | Job: `coverage_soft_gate` in `reusable-90-ci-python.yml` | `enable-soft-gate: 'true'` | Run summary section, coverage artifacts | No |
+| Coverage soft gate | Job: `coverage_soft_gate` in `reusable-ci.yml` | `enable-soft-gate: 'true'` | Run summary section, coverage artifacts | No |
 | Universal logs table | Job: `logs_summary` | Always on | Run summary Markdown table | No |
 | Gate aggregation | Job: `gate` in `pr-gate.yml` | Always on | Single pass/fail gate | Yes (required) |
 
