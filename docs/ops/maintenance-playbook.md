@@ -2,7 +2,7 @@
 
 This playbook explains how on-call responders should handle failures in the
 maintenance workflows that remain after Issue 2190. The roster now consists of
-`maint-02`, `maint-30`, `maint-32`, `maint-33`, `maint-36`, `maint-40`, and
+`maint-02`, `maint-post-ci`, `maint-33`, `maint-36`, `maint-40`, and
 `maint-90`.
 
 ## maint-02-repo-health.yml
@@ -22,27 +22,20 @@ maintenance workflows that remain after Issue 2190. The roster now consists of
    `REPO_HEALTH_STALE_BRANCH_DAYS` when the stale-branch window should change.
    Re-run the workflow via `workflow_dispatch` to validate the new threshold.
 
-## maint-30-post-ci-summary.yml
+## maint-post-ci.yml
 
 1. **Check the run summary** — each execution appends a consolidated status
-   block under `## Automated Status Summary`. Read it to understand which jobs
-   failed.
-2. **Re-run after fixes** — once the underlying CI run passes, manually re-run
-   the workflow (or re-run the source CI) to refresh the run summary entry.
-3. **Keep paths aligned** — if this workflow starts failing to locate artifacts
-   ensure `pr-gate.yml` still exposes the expected coverage and smoke artifacts
-   via its reusable jobs.
-
-## maint-32-autofix.yml
-
-1. **Inspect the uploaded patch** — on failure the workflow attaches the patch
-   bundle to the run. Download it and review the diff locally.
-2. **Mind the exit conditions** — the job fails only when the autofix could not
-   be pushed automatically. Apply the patch locally, re-run formatting, and push
-   manually.
-3. **Update labels if needed** — the workflow relies on PR labels to decide
-   whether autofix should attempt a commit. Confirm the labels are present when
-   debugging skipped runs.
+   block under `## Automated Status Summary`. Review it to understand which jobs
+   failed and whether autofix attempted a patch.
+2. **Inspect the uploaded patch** — when autofix cannot push directly the
+   workflow uploads a patch artifact. Download it, apply locally, re-run
+   formatting, and push manually if appropriate.
+3. **Re-run after fixes** — once underlying CI passes (or the patch is applied)
+   manually re-run the workflow to refresh the summary and confirm autofix
+   reports success.
+4. **Keep inputs aligned** — if artifact lookups fail, ensure `pr-gate.yml`
+   still exposes the expected coverage/smoke outputs and that required labels
+   remain in place for autofix eligibility.
 
 ## maint-33-check-failure-tracker.yml
 

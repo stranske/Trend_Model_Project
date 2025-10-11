@@ -8,6 +8,7 @@ import pytest
 import yaml
 
 WORKFLOWS = pathlib.Path(".github/workflows")
+WORKFLOW_FILE = "maint-post-ci.yml"
 
 
 def _load_workflow(name: str) -> Dict[str, Any]:
@@ -22,6 +23,10 @@ def _step_by_name(steps: Iterable[Dict[str, Any]], name: str) -> Dict[str, Any]:
     raise AssertionError(f"Expected workflow step '{name}' not found")
 
 
+def _job_steps(data: Dict[str, Any], job: str) -> Iterable[Dict[str, Any]]:
+    return data["jobs"][job]["steps"]
+
+
 @pytest.mark.parametrize(
     ("job", "changed_step"),
     (
@@ -32,20 +37,40 @@ def _step_by_name(steps: Iterable[Dict[str, Any]], name: str) -> Dict[str, Any]:
 def test_autofix_remote_repo_path_posts_patch_instructions(
     job: str, changed_step: str
 ) -> None:
-    data = _load_workflow("maint-32-autofix.yml")
-    steps = data["jobs"][job]["steps"]
+    data = _load_workflow(WORKFLOW_FILE)
+    steps = _job_steps(data, job)
 
-    comment_step = _step_by_name(steps, "Comment with patch instructions (fork)")
-    condition = comment_step.get("if", "")
-    assert "same_repo != 'true'" in condition
-    assert f"steps.{changed_step}.outputs.changed == 'true'" in condition
-    assert comment_step.get("uses", "").startswith(
-        "actions/github-script@"
-    ), "Fork comment step should use github-script to leave instructions"
+    if job == "small-fixes":
+        label_step = _step_by_name(steps, "Label PR (autofix patch available)")
+        condition = label_step.get("if", "")
+        assert "same_repo != 'true'" in condition
+        assert f"steps.{changed_step}.outputs.changed == 'true'" in condition
+        assert label_step.get("uses", "").startswith(
+            "actions/github-script@"
+        ), "Fork patch label step should use github-script to interact with the PR"
+    else:
+        assert not any(
+            step.get("name") == "Label PR (autofix patch available)" for step in steps
+        ), "Patch label step should not exist in fix-failing-checks job"
 
     summary_step = _step_by_name(steps, "Summary")
     run_script = summary_step.get("run", "")
-    expected_line = "Patch artifact: autofix-patch-pr-${{ needs.context.outputs.pr }}"
-    assert expected_line in run_script
-    assert "${{ needs.context.outputs.same_repo }}" in run_script
-    assert "${{ steps." in run_script
+    if job == "small-fixes":
+        expected_line = (
+            "Patch artifact: autofix-patch-pr-${{ needs.context.outputs.pr }}"
+        )
+        assert expected_line in run_script
+        assert "${{ needs.context.outputs.same_repo }}" in run_script
+        assert "${{ steps." in run_script
+    else:
+        assert "Fix failing checks" in run_script
+        assert "${{ steps." in run_script
+
+
+def test_consolidated_comment_includes_patch_instructions() -> None:
+    data = _load_workflow(WORKFLOW_FILE)
+    steps = _job_steps(data, "post-comment")
+    prepare_step = _step_by_name(steps, "Prepare consolidated comment")
+    script = prepare_step.get("run", "")
+    assert "git am < autofix.patch" in script
+    assert "Patch artifact:" in script
