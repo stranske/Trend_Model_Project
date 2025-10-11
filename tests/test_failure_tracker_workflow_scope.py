@@ -98,6 +98,7 @@ def test_post_ci_failure_tracker_handles_failure_path() -> None:
     job = workflow["jobs"]["failure-tracker"]
     condition = " ".join(job.get("if", "").split())
     assert "needs.context.outputs.found == 'true'" in condition
+    assert "needs.context.outputs.failure_incomplete != 'true'" in condition
     assert "needs.context.outputs.failure_tracker_skip != 'true'" in condition
     assert "workflow_run.event == 'pull_request'" in condition
 

@@ -1519,6 +1519,7 @@ jobs:
     if: >
       needs.context.result == 'success' &&
       needs.context.outputs.found == 'true' &&
+      needs.context.outputs.failure_incomplete != 'true' &&
       needs.context.outputs.failure_tracker_skip != 'true' &&
       github.event.workflow_run.event == 'pull_request'
     runs-on: ubuntu-latest
