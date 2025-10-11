@@ -17,12 +17,14 @@
 - Gate and related required checks continue to pass in CI for representative branches after consolidation, and no duplicate or missing comments occur in PRs.
 
 ## Initial Task Checklist
-- [ ] Audit the current Maint 30 and Maint 32 workflows to catalog all steps, conditionals, secrets, and artifacts that must be preserved.
-- [ ] Draft `.github/workflows/maint-post-ci.yml`, wiring `workflow_run` triggers, job dependencies, and shared environment variables/secrets.
-- [ ] Port the post-CI summary logic into a `summarize` job, ensuring coverage extraction, artifact handling, and comment composition are idempotent.
-- [ ] Integrate autofix logic into an `autofix` job that reuses existing guards (fork detection, safe path lists, patch caps) and emits diagnostics under the agreed artifact name.
-- [ ] Implement the unified PR comment writer (single comment keyed by identifier) that merges status, coverage, and autofix sections.
-- [ ] Upload coverage and autofix artifacts once using the standardized filenames and confirm downstream automation recognizes them.
+- [x] Audit the current Maint 30 and Maint 32 workflows to catalog all steps, conditionals, secrets, and artifacts that must be preserved.
+- [x] Draft `.github/workflows/maint-post-ci.yml`, wiring `workflow_run` triggers, job dependencies, and shared environment variables/secrets.
+- [x] Port the post-CI summary logic into a `summarize` job, ensuring coverage extraction, artifact handling, and comment composition are idempotent.
+- [x] Integrate autofix logic into an `autofix` job that reuses existing guards (fork detection, safe path lists, patch caps) and emits diagnostics under the agreed artifact name.
+- [x] Implement the unified PR comment writer (single comment keyed by identifier) that merges status, coverage, and autofix sections.
+- [x] Upload coverage and autofix artifacts once using the standardized filenames and confirm downstream automation recognizes them.
 - [ ] Test the consolidated workflow via dry-run or targeted branch runs to verify parity (including fork scenarios and failing Gate cases).
-- [ ] Remove or disable the legacy Maint 30/32 workflows and update documentation or references pointing to the old files.
+- [x] Remove or disable the legacy Maint 30/32 workflows and update documentation or references pointing to the old files.
 - [ ] Confirm final CI runs show the new workflow passing and generating the expected single PR comment before merging.
+
+> ✅ Implementation note: Maint 32’s behaviors now live in two jobs (`small-fixes` for hygiene updates and `fix-failing-checks` for lint-only failures) whose outputs roll into the unified comment. Pending items track validation of the consolidated workflow in CI.
