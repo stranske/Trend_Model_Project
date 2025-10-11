@@ -3,7 +3,7 @@
 This document summarises the behaviour and configuration of the enhanced failure tracking workflow.
 
 ## Overview
-`maint-33-check-failure-tracker.yml` listens to completed runs of the primary CI workflows (`PR 10 CI Python`, `PR 12 Docker Smoke`, and the manual `Maint 90 Selftest`). On failure it:
+`maint-33-check-failure-tracker.yml` listens to completed runs of the Gate workflow (plus the manual `Maint 90 Selftest`). On failure it:
 
 1. Enumerates failed jobs and the first failing step.
 2. Optionally extracts a stack token (first exception or error line) per failed job.

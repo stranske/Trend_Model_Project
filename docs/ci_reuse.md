@@ -5,37 +5,33 @@ building blocks that thin wrappers (or downstream repositories) can consume.
 
 | Reusable Workflow | File | Purpose |
 | ------------------ | ---- | ------- |
-| Python CI | `.github/workflows/reusable-ci.yml` | Tests + coverage gate + optional feature flags.
-| Docker Smoke | `.github/workflows/reusable-docker.yml` | Build + smoke test entry point used by Gate and downstream repos.
+| Reusable CI | `.github/workflows/reusable-ci.yml` | Primary Python quality gate (lint, types, pytest, coverage). Used by Gate for Python 3.11/3.12.
+| Python CI (legacy matrix) | `.github/workflows/reusable-90-ci-python.yml` | Matrix executor with optional coverage/metrics toggles retained for downstream callers.
+| Legacy Python CI | `.github/workflows/reusable-94-legacy-ci-python.yml` | Compatibility contract for consumers still on the pre-WFv1 interface.
 | Autofix | `.github/workflows/reusable-92-autofix.yml` | Formatting / lint autofix harness used by `maint-32-autofix.yml`.
 | Agents Toolkit | `.github/workflows/reusable-70-agents.yml` | Readiness, Codex bootstrap, verification, and watchdog routines.
 | Self-Test Matrix | `.github/workflows/reusable-99-selftest.yml` | Exercises the reusable CI executor across feature combinations.
 
-## 1. Python CI (`reusable-ci.yml`)
-Consumer example:
+## 1. Reusable CI (`reusable-ci.yml`)
+Consumer example (excerpt from `pr-gate.yml`):
 
 ```yaml
-name: PR 10 CI Python
-on:
-  pull_request:
-  push:
-    branches: [ phase-2-dev ]
-
 jobs:
-  core:
+  core-tests-311:
+    name: core tests (3.11)
     uses: ./.github/workflows/reusable-ci.yml
     with:
-      python-versions: '["3.11"]'
-      enable-metrics: 'true'
-      enable-history: 'true'
+      python-version: '3.11'
+      marker: "not quarantine and not slow"
 ```
 
-Key inputs include optional coverage gates, history/metrics toggles, and the Python version matrix. The workflow emits gate,
-coverage, and summary jobs that downstream consumers can depend upon.
+Key inputs include the Python version and optional pytest marker expression. The reusable job installs dependencies, runs Ruff,
+Mypy, and pytest with coverage, then uploads artifacts under the `coverage-<python>` naming convention.
 
-## 2. Docker Smoke (`reusable-docker.yml`)
-Provides a thin build + smoke harness for repositories that need to validate container images. Consumers typically depend on the
-`docker-smoke` job from Gate or call the reusable directly to run a single image health check with inherited credentials.
+## 2. Python CI (Legacy Matrix) (`reusable-90-ci-python.yml`)
+Retained for downstream repositories that still depend on the Issue #2190 interface. Inputs expose matrix execution,
+coverage/metrics toggles, and optional history tracking. Gate no longer calls this workflow directly but downstream consumers may
+continue to do so until they migrate to `reusable-ci.yml`.
 
 ## 3. Autofix (`reusable-92-autofix.yml`)
 Used by `maint-32-autofix.yml` to apply hygiene fixes once CI succeeds. Inputs gate behaviour behind opt-in labels and allow
