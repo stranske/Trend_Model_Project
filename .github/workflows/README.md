@@ -268,10 +268,10 @@ Retention Guidance: Use 7–14 days. Shorter (<7 days) risks losing comparison c
 ---
 ## 7.4 Self-Test Reusable CI (Issue #1660)
 
-- **Trigger scope:** Manual dispatch plus a nightly cron (`02:30 UTC`). This keeps reusable pipeline coverage fresh without
-  consuming PR minutes. Dispatch from the Actions tab under **Self-Test Reusable CI** or via CLI when validating changes to
-  `.github/workflows/reusable-ci.yml` or its helper scripts. The legacy PR-comment notifier was removed because the
-  workflow no longer runs on pull_request events. After shipping a change, monitor the next two nightly runs and confirm
+- **Trigger scope:** Manual dispatch plus a weekly cron (`Mondays @ 06:00 UTC`). This keeps reusable pipeline coverage fresh
+  without consuming PR minutes. Dispatch from the Actions tab under **Self-Test Reusable CI** or via CLI when validating
+  changes to `.github/workflows/reusable-ci.yml` or its helper scripts. The legacy PR-comment notifier was removed because the
+  workflow no longer runs on pull_request events. After shipping a change, monitor the next two scheduled runs and confirm
   their success in the self-test health issue before considering the work complete.
 - **Latest remediation:** The October 2025 failure stemmed from `typing-inspection` drifting from `0.4.1` to `0.4.2`, causing
   `tests/test_lockfile_consistency.py` to fail during the reusable matrix runs. Refresh `requirements.lock` with

@@ -60,7 +60,7 @@ The caller may also pass `options_json` (in the orchestration workflow) to layer
 input limit.
 
 ## 5. Self-Test Matrix (`reusable-99-selftest.yml`)
-Exposes the matrix that validates the reusable CI executor across feature combinations (coverage delta, soft gate, metrics, history, classification). The workflow no longer declares its own cron or manual triggers; `maint-90-selftest.yml` is the thin caller for ad-hoc dispatches or weekly checks.
+Exposes the matrix that validates the reusable CI executor across feature combinations (coverage delta, soft gate, metrics, history, classification). It now declares only manual (`workflow_dispatch`) and low-frequency schedule triggers (weekly Mondays at 06:00 UTC) so maintainers can run ad-hoc verification without PR noise. `maint-90-selftest.yml` remains the lightweight wrapper preserved in `Old/workflows/` for historical reference.
 
 ## Adoption Notes
 1. Reference the files directly via `uses: stranske/Trend_Model_Project/.github/workflows/<file>@phase-2-dev` in external repos.
