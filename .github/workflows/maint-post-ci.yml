@@ -1,6 +1,6 @@
 name: Maint Post CI
 
-on:
+'on':
   workflow_run:
     workflows: ["Gate"]
     types: [completed]

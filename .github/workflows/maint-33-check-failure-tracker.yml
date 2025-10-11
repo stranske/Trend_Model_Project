@@ -1,6 +1,6 @@
 name: Maint 33 Check Failure Tracker
 
-on:
+'on':
   workflow_run:
     workflows: ["Gate"]
     types: [completed]
