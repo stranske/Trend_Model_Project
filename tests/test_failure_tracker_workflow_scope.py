@@ -96,6 +96,7 @@ def test_post_ci_failure_tracker_handles_failure_path() -> None:
     assert label_step["uses"].startswith("actions/github-script@")
     label_script = label_step.get("with", {}).get("script", "")
     assert "'ci-failure'" in label_script
+    assert "github.rest.issues.addLabels" in label_script
 
     tracker_script = tracker_step.get("with", {}).get("script", "")
     assert "github.rest.issues.update({" in tracker_script
@@ -126,3 +127,16 @@ def test_post_ci_failure_tracker_handles_success_path() -> None:
     assert remove_label_step["uses"].startswith("actions/github-script@")
     remove_script = remove_label_step.get("with", {}).get("script", "")
     assert "ci-failure" in remove_script
+    assert "github.rest.issues.removeLabel" in remove_script
+
+
+def test_post_comment_job_upserts_single_pr_comment() -> None:
+    workflow = _load_workflow(POST_CI_PATH)
+    job = workflow["jobs"]["post-comment"]
+
+    comment_step = _get_step(job, "Upsert consolidated PR comment")
+    script = comment_step.get("with", {}).get("script", "")
+
+    assert "<!-- maint-post-ci: DO NOT EDIT -->" in script
+    assert "github.rest.issues.updateComment" in script
+    assert "github.rest.issues.createComment" in script
