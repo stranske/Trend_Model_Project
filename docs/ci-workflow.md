@@ -105,14 +105,14 @@ Output schema example:
 
 ### Example Invocation (Reusable Workflow)
 
-In a caller repository `.github/workflows/pr-10-ci-python.yml` (or `ci.yml` for consumers that
-haven't adopted the WFv1 naming yet):
+In a caller repository `.github/workflows/ci.yml` (legacy consumers previously used
+`pr-10-ci-python.yml` before the Gate consolidation):
 ```yaml
 name: Project CI
 on: [push, pull_request]
 jobs:
   ci:
-    uses: owner-or-fork/Trend_Model_Project/.github/workflows/reusable-90-ci-python.yml@phase-2-dev
+    uses: owner-or-fork/Trend_Model_Project/.github/workflows/reusable-ci.yml@phase-2-dev
     with:
       python-versions: '["3.11", "3.12"]'
       coverage-min: '72'

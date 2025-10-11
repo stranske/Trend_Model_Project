@@ -10,7 +10,7 @@ This guide describes the slimmed-down GitHub Actions footprint after Issue #2190
 | `pr-` | Pull-request CI wrappers | `pr-gate.yml`, `pr-14-docs-only.yml` |
 | `maint-` | Maintenance, governance, and self-tests | `maint-02-repo-health.yml`, `maint-30-post-ci-summary.yml`, `maint-32-autofix.yml`, `maint-33-check-failure-tracker.yml`, `maint-36-actionlint.yml`, `maint-40-ci-signature-guard.yml`, `maint-90-selftest.yml` |
 | `agents-` | Agent orchestration entry points | `agents-70-orchestrator.yml` |
-| `reusable-` | Reusable composites invoked by other workflows | `reusable-90-ci-python.yml`, `reusable-94-legacy-ci-python.yml`, `reusable-92-autofix.yml`, `reusable-70-agents.yml`, `reusable-99-selftest.yml` |
+| `reusable-` | Reusable composites invoked by other workflows | `reusable-ci.yml`, `reusable-docker.yml`, `reusable-92-autofix.yml`, `reusable-70-agents.yml`, `reusable-99-selftest.yml` |
 | `autofix-` assets | Shared configuration for autofix tooling | `autofix-versions.env` |
 
 **Naming checklist**
@@ -42,9 +42,9 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 - **`agents-70-orchestrator.yml`** — Hourly + manual dispatch entry point for readiness, Codex bootstrap, issue verification, and watchdog sweeps. Delegates to `reusable-70-agents.yml` and accepts extended options via `options_json`.
 
 ### Reusable Composites
-- **`reusable-90-ci-python.yml`** — Legacy reusable CI matrix retained for self-test coverage while downstream consumers migrate to the single-job workflow.
-- **`reusable-94-legacy-ci-python.yml`** — Compatibility shim retained for downstream repositories yet to migrate.
-- **`reusable-92-autofix.yml`** — Autofix harness used by `maint-32-autofix.yml`.
+- **`reusable-ci.yml`** — Python lint/type/test reusable invoked by Gate and any downstream repositories.
+- **`reusable-docker.yml`** — Docker smoke reusable invoked by Gate and external consumers.
+- **`reusable-92-autofix.yml`** — Autofix harness used by `maint-32-autofix.yml` and `autofix.yml`.
 - **`reusable-70-agents.yml`** — Reusable agent automation stack.
 - **`reusable-99-selftest.yml`** — Matrix self-test covering reusable CI feature flags.
 
