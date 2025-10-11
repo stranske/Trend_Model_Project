@@ -60,8 +60,8 @@ listen to their `workflow_run` events.
 | Workflow | Trigger(s) | Purpose |
 |----------|------------|---------|
 | `maint-02-repo-health.yml` (`Maint 02 Repo Health`) | Weekly cron, manual | Reports stale branches & unassigned issues.
-| `maint-post-ci.yml` (`Maint Post CI`) | `workflow_run` (Gate) | Consolidated follower that posts Gate summaries and applies low-risk autofix commits when eligible.
-| `maint-33-check-failure-tracker.yml` (`Maint 33 Check Failure Tracker`) | `workflow_run` (Gate) | Manages Gate failure-tracker issues.
+| `maint-post-ci.yml` (`Maint Post CI`) | `workflow_run` (Gate) | Consolidated follower that posts Gate summaries, applies low-risk autofix commits, and owns CI failure-tracker updates.
+| `maint-33-check-failure-tracker.yml` (`Maint 33 Check Failure Tracker`) | `workflow_run` (Gate) | Lightweight compatibility shell that documents the delegation to `maint-post-ci.yml`.
 | `maint-35-repo-health-self-check.yml` (`Maint 35 Repo Health Self Check`) | Daily + weekly cron, manual | Verifies label inventory, PAT availability, and branch protection; files/updates a tracking issue on failure.
 | `maint-36-actionlint.yml` (`Maint 36 Actionlint`) | `pull_request`, weekly cron, manual | Sole workflow-lint gate (actionlint via reviewdog).
 | `maint-40-ci-signature-guard.yml` (`Maint 40 CI Signature Guard`) | `push`/`pull_request` targeting `phase-2-dev` | Validates the signed job manifest for `pr-gate.yml`.

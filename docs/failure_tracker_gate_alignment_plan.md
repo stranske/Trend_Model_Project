@@ -18,14 +18,21 @@
 4. Legacy failure-tracker workflow (if retained temporarily) delegates cleanly or is safely disabled without breaking detection.
 5. Telemetry/artifacts confirm the workflow path taken (Gate → Maint Post-CI → tracker update) for auditability.
 6. Documentation/config references updated to reflect the new event source and workflow responsibilities.
+7. Consolidated workflow publishes the same `ci-failures-snapshot` artifact for failure and success reconciliation paths.
 
 ## Initial Task Checklist
-- [ ] Audit current `.github/workflows/maint-33-check-failure-tracker.yml` (or successor) to catalog tracker update logic, shared environment variables, and comment/issue handling.
-- [ ] Update the failure-tracker workflow trigger to `on: workflow_run` for `workflows: ["Gate"]` with `types: [completed]`; ensure proper filtering for branch/PR scope.
-- [ ] Refactor tracker update steps into `maint-post-ci.yml`, preserving inputs, secrets, and retry/backoff behavior; leave a thin shell in the original workflow if needed for compatibility.
-- [ ] Wire `maint-post-ci.yml` to invoke the tracker update job conditionally based on Gate outcomes (failed, cancelled, neutral).
-- [ ] Implement `ci-failure` label management in `maint-post-ci.yml` (apply on failure, remove when passing) with existing helper scripts or GitHub CLI usage.
-- [ ] Verify that duplicate comment suppression still functions when updates originate from the consolidated workflow (reuse existing markers/timestamps).
-- [ ] Exercise dry-run or sandbox runs referencing PRs 10 and 12 to confirm no new events fire from those historical workflows.
-- [ ] Update documentation (tracker env reference, runbook) and link the new Gate-focused behaviour; note any operational toggles or rollback steps.
-- [ ] Capture validation evidence (workflow run logs, issue updates, label changes) for review before merging implementation PRs.
+- [x] Audit current `.github/workflows/maint-33-check-failure-tracker.yml` (or successor) to catalog tracker update logic, shared environment variables, and comment/issue handling.
+- [x] Update the failure-tracker workflow trigger to `on: workflow_run` for `workflows: ["Gate"]` with `types: [completed]`; ensure proper filtering for branch/PR scope.
+- [x] Refactor tracker update steps into `maint-post-ci.yml`, preserving inputs, secrets, and retry/backoff behavior; leave a thin shell in the original workflow if needed for compatibility.
+- [x] Wire `maint-post-ci.yml` to invoke the tracker update job conditionally based on Gate outcomes (failed, cancelled, neutral).
+- [x] Implement `ci-failure` label management in `maint-post-ci.yml` (apply on failure, remove when passing) with existing helper scripts or GitHub CLI usage.
+- [x] Verify that duplicate comment suppression still functions when updates originate from the consolidated workflow (reuse existing markers/timestamps).
+- [x] Exercise dry-run or sandbox runs referencing PRs 10 and 12 to confirm no new events fire from those historical workflows.
+- [x] Update documentation (tracker env reference, runbook) and link the new Gate-focused behaviour; note any operational toggles or rollback steps.
+- [x] Capture validation evidence (workflow run logs, issue updates, label changes) for review before merging implementation PRs.
+
+## Implementation Summary
+- Failure tracker issue/label management now lives in the new `failure-tracker` job within `maint-post-ci.yml`, preserving the signature hashing, cooldown, and escalation semantics from the legacy workflow.
+- `maint-33-check-failure-tracker.yml` remains as a lightweight shell that documents the delegation and keeps legacy triggers satisfied without posting duplicate comments.
+- Artifact handling is unified so both failure and success paths emit a single `ci-failures-snapshot` payload sourced from the consolidated workflow run.
+- Tests and docs were updated to reflect the delegated architecture and to ensure future changes keep the Gate-only trigger contract intact.
