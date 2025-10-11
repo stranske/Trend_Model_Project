@@ -2,6 +2,35 @@
 
 Thank you for contributing to the Trend Model Project.
 
+## CI & Automation
+
+Pull requests flow through a single required check and a consolidated
+post-processing workflow:
+
+- **Required check** – `Gate / gate` (defined in
+  [`.github/workflows/pr-gate.yml`](.github/workflows/pr-gate.yml)) must
+  pass before merges. It fans out to the Python 3.11/3.12 test lanes and
+  the Docker smoke job.
+- **Autofix lane** – The
+  [Autofix workflow](.github/workflows/autofix.yml) runs on every
+  non-draft PR event. Drafts are ignored unless you opt in by adding the
+  `autofix` label; convert the PR back to draft (and drop the label) to
+  pause automation, then mark it ready when you want autofix to resume.
+- **Maint Post-CI follower** – When Gate finishes, the
+  [`maint-post-ci.yml`](.github/workflows/maint-post-ci.yml) workflow
+  posts a single PR summary comment (Gate status + coverage), attempts
+  the same autofix sweep using the composite action, and files tracker
+  issues when hygiene regressions persist. Treat that consolidated
+  comment as the canonical health dashboard; rerun Gate or Maint
+  Post-CI if you need the summary refreshed.
+- **Agent automation** – Scheduled (cron) and on-demand dispatchers
+  ([`agents-70-orchestrator.yml`](.github/workflows/agents-70-orchestrator.yml)
+  and [`agents-consumer.yml`](.github/workflows/agents-consumer.yml))
+  invoke [`reuse-agents.yml`](.github/workflows/reuse-agents.yml) to run
+  readiness checks, watchdogs, and Codex bootstrapping. Applying the
+  `agent:codex` label flags an issue for bootstrap handling in the next
+  run; remove the label to opt out before the dispatcher cycles.
+
 ## Quick Checklist (Before Every Push)
 
 1. Fast dev validation (changed files only):
