@@ -16,10 +16,15 @@
 6. Repository CI (Gate and relevant workflow naming/tests) passes with the updated configurations.
 
 ## Initial Task Checklist
-- [ ] Inspect current reusable workflow steps to pinpoint the failing JSON concatenation and decide between `format()` or upstream JSON output.
-- [ ] Update the producing step (`Find Ready Issues`) or consumer expression so that `fromJSON(...)` operates on valid JSON.
-- [ ] Ensure `agents-consumer.yml` and `agents-70-orchestrator.yml` call the reusable workflow with consistent inputs, defaults, and `if:` guards.
-- [ ] Port watchdog-specific steps into the reusable workflow job (notifications, failure handling, timers) to achieve parity.
-- [ ] Remove or disable the standalone `agent-watchdog.yml` workflow after confirming reusable coverage.
-- [ ] Trigger a `workflow_dispatch` dry run with readiness + watchdog enabled and capture evidence for reviewers.
-- [ ] Re-run or monitor required CI checks (Gate, workflow naming tests) to confirm no regressions.
+- [x] Inspect current reusable workflow steps to pinpoint the failing JSON concatenation and decide between `format()` or upstream JSON output.
+- [x] Update the producing step (`Find Ready Issues`) or consumer expression so that `fromJSON(...)` operates on valid JSON.
+- [x] Ensure `agents-consumer.yml` and `agents-70-orchestrator.yml` call the reusable workflow with consistent inputs, defaults, and `if:` guards.
+- [x] Port watchdog-specific steps into the reusable workflow job (notifications, failure handling, timers) to achieve parity.
+- [x] Remove or disable the standalone `agent-watchdog.yml` workflow after confirming reusable coverage (verified in repo history / archive ledger).
+- [ ] Trigger a `workflow_dispatch` dry run with readiness + watchdog enabled and capture evidence for reviewers. *(Pending — requires GitHub Actions run outside container)*
+- [ ] Re-run or monitor required CI checks (Gate, workflow naming tests) to confirm no regressions. *(Pending external Gate run; local pytest guard executed)*
+
+## Verification Log
+- 2026-10-12 – `pytest tests/test_workflow_agents_consolidation.py`
+  validates orchestrator/reusable wiring, bootstrap JSON parsing, and guard conditions for the consolidated workflows. External
+  Gate + workflow-dispatch verification still required on GitHub.

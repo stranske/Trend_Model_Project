@@ -83,6 +83,7 @@ listen to their `workflow_run` events.
 
 **Operational details**
 - **Agents Consumer** – Permissions: `contents: write`, `pull-requests: write`, `issues: write`. Secrets: inherits `GITHUB_TOKEN` and forwards `secrets.SERVICE_BOT_PAT` when available so downstream automation may push branches/comments. Output: emits `Resolve Parameters` summary and a `Dispatch Agents Toolkit` reusable call that surfaces Codex readiness/watchdog diagnostics.
+- **Agents 70 Orchestrator** – Uses `options_json` to layer advanced toggles without adding dispatch inputs; set `enable_bootstrap: true` (and optionally `bootstrap_issues_label`) to fan bootstrap jobs through the reusable workflow during manual runs.
 
 ### Reusable composites
 

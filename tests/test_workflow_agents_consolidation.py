@@ -38,6 +38,10 @@ def test_agents_orchestrator_inputs_and_uses():
     assert (
         "fromJson(inputs.options_json || '{}')" in text
     ), "options_json must be parsed via fromJson()"
+    assert "enable_bootstrap:" in text, "Orchestrator must forward enable_bootstrap flag"
+    assert (
+        "bootstrap_issues_label:" in text
+    ), "Orchestrator must forward bootstrap label configuration"
     assert (
         "./.github/workflows/reusable-70-agents.yml" in text
     ), "Orchestrator must call the reusable agents workflow"

@@ -80,6 +80,8 @@ While the agent wrappers were removed, maintenance automation still supports the
      "readiness_custom_logins": "my-bot,backup-bot",
      "diagnostic_mode": "full",
      "codex_command_phrase": "@codex start",
+     "enable_bootstrap": true,
+     "bootstrap_issues_label": "agent:codex",
      "keepalive_idle_minutes": 10,
      "keepalive_repeat_minutes": 30
    }

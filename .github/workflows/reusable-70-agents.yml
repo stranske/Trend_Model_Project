@@ -299,7 +299,7 @@ jobs:
         if: steps.ready.outputs.first_issue != ''
         uses: ./.github/actions/codex-bootstrap-lite
         with:
-          issue: ${{ steps.ready.outputs.first_issue }}
+          issue: ${{ fromJson(steps.ready.outputs.issue_numbers_json)[0] }}
           service_bot_pat: ${{ secrets.service_bot_pat || '' }}
           draft: ${{ inputs.draft_pr }}
 
