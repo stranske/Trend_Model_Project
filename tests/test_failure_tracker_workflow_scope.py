@@ -41,7 +41,10 @@ def test_context_exposes_failure_tracker_skip_for_legacy_prs() -> None:
     context_job = workflow["jobs"]["context"]
 
     outputs = context_job.get("outputs", {})
-    assert outputs.get("failure_tracker_skip") == "${{ steps.info.outputs.failure_tracker_skip }}"
+    assert (
+        outputs.get("failure_tracker_skip")
+        == "${{ steps.info.outputs.failure_tracker_skip }}"
+    )
 
     info_step = _get_step(context_job, "Resolve workflow context")
     script = info_step.get("with", {}).get("script", "")
