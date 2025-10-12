@@ -1,7 +1,9 @@
 # Workflow Topology & Agent Routing Guide (WFv1)
 
-This guide describes the slimmed-down GitHub Actions footprint after Issue #2190. Every workflow now follows the
-`<area>-<NN>-<slug>.yml` naming convention with 10-point number gaps so future additions slot in cleanly.
+This guide describes the slimmed-down GitHub Actions footprint after Issues #2190 and #2466. Every workflow now follows the
+`<area>-<NN>-<slug>.yml` naming convention with 10-point number gaps so future additions slot in cleanly. The Gate workflow
+remains the required merge check, and **Agents 70 Orchestrator is the sole automation entry point** for Codex readiness and
+bootstrap runs.
 
 ## WFv1 Naming Scheme
 
@@ -38,7 +40,7 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 - **`cosmetic-repair.yml`** — Manual dispatch utility that runs `pytest -q`, applies guard-gated cosmetic fixes via `scripts/ci_cosmetic_repair.py`, and opens a labelled PR when changes exist.
 
 ### Agents
-- **`agents-70-orchestrator.yml`** — Hourly + manual dispatch entry point for readiness, Codex bootstrap, issue verification, and watchdog sweeps. Delegates to `reusable-70-agents.yml` and accepts extended options via `options_json`.
+- **`agents-70-orchestrator.yml`** — Hourly + manual dispatch entry point for readiness, Codex bootstrap, diagnostics, and keepalive sweeps. Delegates to `reusable-70-agents.yml` and accepts extended options via `options_json`. Legacy wrappers such as `agents-consumer.yml`, `agents-watchdog.yml`, and unconstrained consumer flows have been removed.
 
 ### Reusable Composites
 - **`reusable-ci.yml`** — Python lint/type/test reusable invoked by Gate and any downstream repositories.
@@ -48,14 +50,24 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 - **`reusable-99-selftest.yml`** — Matrix self-test covering reusable CI feature flags.
 
 ## Trigger Wiring Tips
-1. When renaming a workflow, update any `workflow_run` consumers. In this roster that includes `maint-30-post-ci-summary.yml`, `maint-32-autofix.yml`, and `maint-33-check-failure-tracker.yml`.
+1. When renaming a workflow, update any `workflow_run` consumers. In this roster that includes `maint-post-ci.yml`, `maint-32-autofix.yml`, and `maint-33-check-failure-tracker.yml`.
 2. The orchestrator relies on the workflow names, not just filenames. Keep `name:` fields synchronized with filenames to avoid missing triggers.
 3. Reusable workflows stay invisible in the Actions tab; top-level consumers should include summary steps for observability.
 
 ## Agent Operations
-- All historical wrappers were removed. Use **Agents 70 Orchestrator** directly for readiness checks, Codex bootstrap, or watchdog sweeps.
-- Optional flags beyond the standard inputs belong in the `options_json` payload; the orchestrator parses it with `fromJson()`.
-- The orchestrator maintains PAT priority (`OWNER_PR_PAT` → `SERVICE_BOT_PAT` → `GITHUB_TOKEN`) via the reusable composite.
+- Use **Agents 70 Orchestrator** for every automation task (readiness checks, Codex bootstrap, diagnostics, keepalive). No other entry points remain.
+- Optional flags beyond the standard inputs belong in the `options_json` payload; the orchestrator parses it with `fromJson()` and forwards toggles to `reusable-70-agents.yml`.
+- Provide a PAT when bootstrap needs to push branches. The orchestrator honours PAT priority (`OWNER_PR_PAT` → `SERVICE_BOT_PAT` → `GITHUB_TOKEN`) via the reusable composite.
+
+### Manual dispatch quick steps
+1. Open **Actions → Agents 70 Orchestrator → Run workflow**.
+2. Supply inputs such as `enable_bootstrap: true` and `bootstrap_issues_label: agent:codex` either via dedicated fields or inside `options_json`.
+3. Review the `orchestrate` job summary for readiness tables, bootstrap planner output, and links to spawned PRs. Failures provide direct links for triage.
+
+### Troubleshooting signals
+- **Immediate readiness failure** — missing PAT or scope. Inspect the `Authentication` step and rerun with `SERVICE_BOT_PAT`.
+- **Bootstrap skipped** — no labelled issues matched `bootstrap_issues_label`. Add the label and rerun.
+- **Branch push blocked** — repository protections blocking automation. Grant the PAT required scopes or adjust branch rules.
 
 ## Maintenance Playbook
 1. PRs rely on the Gate workflow listed above. Keep it green; the post-CI summary will report its status automatically.
