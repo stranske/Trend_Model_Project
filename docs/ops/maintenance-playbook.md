@@ -2,7 +2,7 @@
 
 This playbook explains how on-call responders should handle failures in the
 maintenance workflows that remain after Issue 2190. The roster now consists of
-`maint-02`, `maint-post-ci`, `maint-33`, `maint-36`, `maint-40`, and
+`maint-02`, `maint-30-post-ci`, `maint-33`, `maint-36`, `maint-40`, and
 `maint-90`.
 
 ## maint-02-repo-health.yml
@@ -22,7 +22,7 @@ maintenance workflows that remain after Issue 2190. The roster now consists of
    `REPO_HEALTH_STALE_BRANCH_DAYS` when the stale-branch window should change.
    Re-run the workflow via `workflow_dispatch` to validate the new threshold.
 
-## maint-post-ci.yml
+## maint-30-post-ci.yml
 
 1. **Check the run summary** — each execution appends a consolidated status
    block under `## Automated Status Summary`. Review it to understand which jobs
@@ -33,7 +33,7 @@ maintenance workflows that remain after Issue 2190. The roster now consists of
 3. **Re-run after fixes** — once underlying CI passes (or the patch is applied)
    manually re-run the workflow to refresh the summary and confirm autofix
    reports success.
-4. **Keep inputs aligned** — if artifact lookups fail, ensure `pr-gate.yml`
+4. **Keep inputs aligned** — if artifact lookups fail, ensure `pr-00-gate.yml`
    still exposes the expected coverage/smoke outputs and that required labels
    remain in place for autofix eligibility.
 

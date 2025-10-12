@@ -3,7 +3,7 @@
 This document summarises the behaviour and configuration of the enhanced failure tracking workflow.
 
 ## Overview
-`maint-post-ci.yml` now owns the failure-tracker logic and listens to completed runs of the Gate workflow via a `workflow_run` trigger. The legacy `maint-33-check-failure-tracker.yml` workflow remains only as a thin delegation shell for backwards compatibility. Within the consolidated Maint Post CI follower, a dedicated `failure-tracker` job executes on qualifying failures and:
+`maint-30-post-ci.yml` now owns the failure-tracker logic and listens to completed runs of the Gate workflow via a `workflow_run` trigger. The legacy `maint-33-check-failure-tracker.yml` workflow remains only as a thin delegation shell for backwards compatibility. Within the consolidated Maint Post CI follower, a dedicated `failure-tracker` job executes on qualifying failures and:
 
 1. Enumerates failed jobs and the first failing step.
 2. Optionally extracts a stack token (first exception or error line) per failed job.

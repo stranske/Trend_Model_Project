@@ -5,21 +5,21 @@ building blocks that thin wrappers (or downstream repositories) can consume.
 
 | Reusable Workflow | File | Purpose |
 | ------------------ | ---- | ------- |
-| Reusable CI | `.github/workflows/reusable-ci.yml` | Primary Python quality gate (lint, types, pytest, coverage). Used by Gate for Python 3.11/3.12.
+| Reusable CI | `.github/workflows/reusable-10-ci-python.yml` | Primary Python quality gate (lint, types, pytest, coverage). Used by Gate for Python 3.11/3.12.
 | Python CI (legacy matrix) | `.github/workflows/reusable-90-ci-python.yml` | Matrix executor with optional coverage/metrics toggles retained for downstream callers.
 | Legacy Python CI | `.github/workflows/reusable-94-legacy-ci-python.yml` | Compatibility contract for consumers still on the pre-WFv1 interface.
 | Autofix | `.github/workflows/reusable-92-autofix.yml` | Formatting / lint autofix harness used by `maint-32-autofix.yml`.
 | Agents Toolkit | `.github/workflows/reusable-70-agents.yml` | Readiness, Codex bootstrap, verification, and watchdog routines.
 | Self-Test Matrix | `.github/workflows/reusable-99-selftest.yml` | Exercises the reusable CI executor across feature combinations.
 
-## 1. Reusable CI (`reusable-ci.yml`)
-Consumer example (excerpt from `pr-gate.yml`):
+## 1. Reusable CI (`reusable-10-ci-python.yml`)
+Consumer example (excerpt from `pr-00-gate.yml`):
 
 ```yaml
 jobs:
   core-tests-311:
     name: core tests (3.11)
-    uses: ./.github/workflows/reusable-ci.yml
+    uses: ./.github/workflows/reusable-10-ci-python.yml
     with:
       python-version: '3.11'
       marker: "not quarantine and not slow"
@@ -31,7 +31,7 @@ Mypy, and pytest with coverage, then uploads artifacts under the `coverage-<pyth
 ## 2. Python CI (Legacy Matrix) (`reusable-90-ci-python.yml`)
 Retained for downstream repositories that still depend on the Issue #2190 interface. Inputs expose matrix execution,
 coverage/metrics toggles, and optional history tracking. Gate no longer calls this workflow directly but downstream consumers may
-continue to do so until they migrate to `reusable-ci.yml`.
+continue to do so until they migrate to `reusable-10-ci-python.yml`.
 
 ## 3. Autofix (`reusable-92-autofix.yml`)
 Used by `maint-32-autofix.yml` to apply hygiene fixes once CI succeeds. Inputs gate behaviour behind opt-in labels and allow

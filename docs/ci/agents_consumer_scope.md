@@ -1,14 +1,14 @@
 # Agents Consumer Workflow – Planning Notes (Issue #2464 Refresh)
 
 ## Scope and Key Constraints
-- Keep `.github/workflows/agents-consumer.yml` available for **manual**
+- Keep `.github/workflows/agents-62-consumer.yml` available for **manual**
   dispatch only. All automated triggers stay removed (no cron, push, or
   issue-driven runs).
 - Preserve feature parity with `reuse-agents.yml` so the consumer continues to
   proxy readiness, watchdog, diagnostics, bootstrap, keepalive, and verification
   toggles via the `params_json` payload.
 - Maintain the workflow-level concurrency guard scoped to
-  `agents-consumer-${{ github.ref }}` with `cancel-in-progress: true` to prevent
+  `agents-62-consumer-${{ github.ref }}` with `cancel-in-progress: true` to prevent
   back-to-back manual dispatch collisions.
 - Timeout enforcement for the reusable agents fan-out lives inside
   `reuse-agents.yml` → `reusable-70-agents.yml`; the consumer should not attempt
@@ -18,7 +18,7 @@
   window (tagging the source issue with `ci-failure`).
 
 ## Acceptance Criteria / Definition of Done
-- `agents-consumer.yml` exposes only the `workflow_dispatch` trigger and keeps
+- `agents-62-consumer.yml` exposes only the `workflow_dispatch` trigger and keeps
   the concurrency guard at the workflow root.
 - Manual runs continue to default to readiness + watchdog while treating
   bootstrap, preflight, keepalive, and verification features as explicit opt-ins

@@ -8,7 +8,7 @@ Pull requests flow through a single required check and a consolidated
 post-processing workflow:
 
 - **Required check** – `Gate / gate` (defined in
-  [`.github/workflows/pr-gate.yml`](.github/workflows/pr-gate.yml)) must
+  [`.github/workflows/pr-00-gate.yml`](.github/workflows/pr-00-gate.yml)) must
   pass before merges. Branch protection blocks the default branch until
   this check succeeds; treat the gate status as the final merge blocker.
   It fans out to the Python 3.11/3.12 test lanes and the Docker smoke
@@ -19,7 +19,7 @@ post-processing workflow:
   `autofix` label; convert the PR back to draft (and drop the label) to
   pause automation, then mark it ready when you want autofix to resume.
 - **Maint Post-CI follower** – When Gate finishes, the
-  [`maint-post-ci.yml`](.github/workflows/maint-post-ci.yml) workflow
+  [`maint-30-post-ci.yml`](.github/workflows/maint-30-post-ci.yml) workflow
   posts a single PR summary comment (Gate status + coverage), attempts
   the same autofix sweep using the composite action, and files tracker
   issues when hygiene regressions persist. Treat that consolidated
@@ -33,7 +33,7 @@ post-processing workflow:
   readiness checks, watchdogs, and Codex bootstrapping. Applying the
   `agent:codex` label flags an issue for bootstrap handling in the next
   run; remove the label to opt out before the dispatcher cycles. A manual-only
-  legacy surface, [`agents-consumer.yml`](.github/workflows/agents-consumer.yml),
+  legacy surface, [`agents-62-consumer.yml`](.github/workflows/agents-62-consumer.yml),
   remains available when the JSON `params_json` interface is required, but it is
   not scheduled automatically and shares the same reusable backend.
 
@@ -147,7 +147,7 @@ To prevent CI‑only failures (workflow lint, container smoke, type drift), the 
 
 | Purpose | CI Job | Local Script |
 |---------|--------|--------------|
-| Black/Ruff/Mypy pinned | `pr-gate.yml` jobs `core tests (3.11/3.12)` | `scripts/style_gate_local.sh` |
+| Black/Ruff/Mypy pinned | `pr-00-gate.yml` jobs `core tests (3.11/3.12)` | `scripts/style_gate_local.sh` |
 | Full quality (style + type + adaptive tests) | aggregate | `scripts/quality_gate.sh` |
 | Workflow syntax/semantic lint | `workflow lint (actionlint)` / `actionlint` | `scripts/workflow_lint.sh` |
 | Docker build + health smoke | `Docker` (smoke) | `scripts/docker_smoke.sh` |

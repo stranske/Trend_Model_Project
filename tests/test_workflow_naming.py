@@ -1,6 +1,14 @@
 import pathlib
 
-ALLOWED_PREFIXES = ("pr-", "maint-", "agents-", "reusable-", "reuse-", "autofix")
+ALLOWED_PREFIXES = (
+    "pr-",
+    "maint-",
+    "agents-",
+    "reusable-",
+    "reuse-",
+    "autofix",
+    "enforce-",
+)
 WORKFLOW_DIR = pathlib.Path(".github/workflows")
 
 
@@ -88,13 +96,13 @@ def test_chatgpt_issue_sync_workflow_present_and_intact():
 
 
 EXPECTED_NAMES = {
-    "agents-consumer.yml": "Agents Consumer",
+    "agents-62-consumer.yml": "Agents Consumer",
     "agents-43-codex-issue-bridge.yml": "Agents 43 Codex Issue Bridge",
     "agents-44-verify-agent-assignment.yml": "Agents 44 Verify Agent Assignment",
     "agents-70-orchestrator.yml": "Agents 70 Orchestrator",
     "reuse-agents.yml": "Reuse Agents",
     "maint-02-repo-health.yml": "Maint 02 Repo Health",
-    "maint-post-ci.yml": "Maint Post CI",
+    "maint-30-post-ci.yml": "Maint Post CI",
     "maint-33-check-failure-tracker.yml": "Maint 33 Check Failure Tracker",
     "maint-35-repo-health-self-check.yml": "Maint 35 Repo Health Self Check",
     "maint-36-actionlint.yml": "Maint 36 Actionlint",
@@ -102,11 +110,12 @@ EXPECTED_NAMES = {
     "maint-41-chatgpt-issue-sync.yml": "Maint 41 ChatGPT Issue Sync",
     "maint-45-cosmetic-repair.yml": "Maint 45 Cosmetic Repair",
     "pr-14-docs-only.yml": "PR 14 Docs Only",
-    "pr-gate.yml": "Gate",
+    "pr-00-gate.yml": "Gate",
     "reusable-70-agents.yml": "Reusable 70 Agents",
     "reusable-92-autofix.yml": "Reusable 92 Autofix",
     "reusable-99-selftest.yml": "Reusable 99 Selftest",
-    "reusable-ci.yml": "Reusable CI",
-    "reusable-docker.yml": "Reusable Docker Smoke",
+    "reusable-10-ci-python.yml": "Reusable CI",
+    "reusable-12-ci-docker.yml": "Reusable Docker Smoke",
     "autofix.yml": "Autofix",
+    "enforce-gate-branch-protection.yml": "Enforce Gate Branch Protection",
 }

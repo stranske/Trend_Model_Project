@@ -7,16 +7,16 @@ This guide describes the slimmed-down GitHub Actions footprint after Issue #2190
 
 | Prefix | Purpose | Active Examples |
 | ------ | ------- | ---------------- |
-| `pr-` | Pull-request CI wrappers | `pr-gate.yml`, `pr-14-docs-only.yml` |
-| `maint-` | Maintenance, governance, and self-tests | `maint-02-repo-health.yml`, `maint-post-ci.yml`, `maint-33-check-failure-tracker.yml`, `maint-36-actionlint.yml`, `maint-40-ci-signature-guard.yml`, `maint-90-selftest.yml` |
+| `pr-` | Pull-request CI wrappers | `pr-00-gate.yml`, `pr-14-docs-only.yml` |
+| `maint-` | Maintenance, governance, and self-tests | `maint-02-repo-health.yml`, `maint-30-post-ci.yml`, `maint-33-check-failure-tracker.yml`, `maint-36-actionlint.yml`, `maint-40-ci-signature-guard.yml`, `maint-90-selftest.yml` |
 | `agents-` | Agent orchestration entry points | `agents-70-orchestrator.yml` |
-| `reusable-` | Reusable composites invoked by other workflows | `reusable-ci.yml`, `reusable-docker.yml`, `reusable-92-autofix.yml`, `reusable-70-agents.yml`, `reusable-99-selftest.yml` |
+| `reusable-` | Reusable composites invoked by other workflows | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-92-autofix.yml`, `reusable-70-agents.yml`, `reusable-99-selftest.yml` |
 | `autofix-` assets | Shared configuration for autofix tooling | `autofix-versions.env` |
 
 **Naming checklist**
 1. Choose the correct prefix for the workflow's scope.
 2. Select a two-digit block that leaves room for future additions (e.g. use another `maint-3x` slot for maintenance jobs).
-3. Title-case the workflow name so it matches the filename (`maint-post-ci.yml` → `Maint Post CI`).
+3. Title-case the workflow name so it matches the filename (`maint-30-post-ci.yml` → `Maint Post CI`).
 4. Update this guide and `WORKFLOW_AUDIT_TEMP.md` whenever workflows are added, renamed, or removed.
 
 Tests under `tests/test_workflow_naming.py` enforce the naming policy and inventory parity.
@@ -24,14 +24,14 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 ## Final Workflow Set
 
 ### PR Checks
-- **`pr-gate.yml`** — Required orchestrator that calls the reusable Python (3.11/3.12) and Docker smoke workflows, then fails fast if any leg does not succeed.
+- **`pr-00-gate.yml`** — Required orchestrator that calls the reusable Python (3.11/3.12) and Docker smoke workflows, then fails fast if any leg does not succeed.
 - **`pr-14-docs-only.yml`** — Docs-only detector that posts a skip notice instead of running heavier CI.
 - **`autofix.yml`** — PR autofix runner delegating to the reusable autofix composite.
 
 ### Maintenance & Governance
 - **`maint-02-repo-health.yml`** — Weekly repository health sweep that writes a single run-summary report, with optional `workflow_dispatch` reruns.
-- **`maint-post-ci.yml`** — Follower triggered by the Gate `workflow_run` event that posts consolidated status updates, applies autofix commits or uploads patches, and now owns the CI failure-tracker issue/label lifecycle.
-- **`maint-33-check-failure-tracker.yml`** — Lightweight compatibility shell that documents the delegation to `maint-post-ci.yml` while legacy listeners migrate.
+- **`maint-30-post-ci.yml`** — Follower triggered by the Gate `workflow_run` event that posts consolidated status updates, applies autofix commits or uploads patches, and now owns the CI failure-tracker issue/label lifecycle.
+- **`maint-33-check-failure-tracker.yml`** — Lightweight compatibility shell that documents the delegation to `maint-30-post-ci.yml` while legacy listeners migrate.
 - **`maint-36-actionlint.yml`** — Sole workflow-lint gate. Runs actionlint via reviewdog on PR edits, pushes, weekly cron, and manual dispatch.
 - **`maint-40-ci-signature-guard.yml`** — Guards the CI manifest with signed fixture checks.
 - **`maint-90-selftest.yml`** — Manual/weekly caller that delegates to `reusable-99-selftest.yml`.
@@ -41,8 +41,8 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 - **`agents-70-orchestrator.yml`** — Hourly + manual dispatch entry point for readiness, Codex bootstrap, issue verification, and watchdog sweeps. Delegates to `reusable-70-agents.yml` and accepts extended options via `options_json`.
 
 ### Reusable Composites
-- **`reusable-ci.yml`** — Python lint/type/test reusable invoked by Gate and any downstream repositories.
-- **`reusable-docker.yml`** — Docker smoke reusable invoked by Gate and external consumers.
+- **`reusable-10-ci-python.yml`** — Python lint/type/test reusable invoked by Gate and any downstream repositories.
+- **`reusable-12-ci-docker.yml`** — Docker smoke reusable invoked by Gate and external consumers.
 - **`reusable-92-autofix.yml`** — Autofix harness used by `maint-32-autofix.yml` and `autofix.yml`.
 - **`reusable-70-agents.yml`** — Reusable agent automation stack.
 - **`reusable-99-selftest.yml`** — Matrix self-test covering reusable CI feature flags.

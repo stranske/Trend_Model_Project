@@ -3,7 +3,7 @@
 ## Task checklist
 
 ### Discovery
-- [x] Review consolidated CI/self-test workflows to capture the current required job manifest (`.github/workflows/pr-gate.yml`, `.github/workflows/maint-90-selftest.yml`).
+- [x] Review consolidated CI/self-test workflows to capture the current required job manifest (`.github/workflows/pr-00-gate.yml`, `.github/workflows/maint-90-selftest.yml`).
 - [x] Confirm hashed fields and guard flow by inspecting `.github/workflows/maint-40-ci-signature-guard.yml` and `tools/test_failure_signature.py`.
 
 ### Fixture refresh

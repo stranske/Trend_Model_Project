@@ -3,8 +3,8 @@
 ## Scope & Key Constraints
 - `.github/workflows/agents-70-orchestrator.yml` is the **only** scheduled
   automation surface. Manual dispatch remains available in both the
-  orchestrator and the legacy `agents-consumer.yml` wrapper.
-- `agents-consumer.yml` exists solely for curated manual runs that need the
+  orchestrator and the legacy `agents-62-consumer.yml` wrapper.
+- `agents-62-consumer.yml` exists solely for curated manual runs that need the
   JSON `params_json` input surface. All automated triggers (cron, issue
   events) stay disabled.
 - Both dispatchers must converge on `reuse-agents.yml` /
@@ -21,7 +21,7 @@
 2. Both orchestrator and consumer workflows declare per-ref concurrency guards
    with `cancel-in-progress: true` and delegate timeout coverage to the
    reusable workflow.
-3. `agents-consumer.yml` remains manual-only and retains the
+3. `agents-62-consumer.yml` remains manual-only and retains the
    `params_json`-driven defaults for readiness + watchdog, with bootstrap,
    preflight, verification, and keepalive staying opt-in.
 4. Documentation (CONTRIBUTING, `docs/ci/WORKFLOWS.md`, and these notes)
@@ -36,8 +36,8 @@
 - [x] Inventory orchestration features to confirm the orchestrator covers
   readiness, watchdog, diagnostics, bootstrap, verification, and keepalive
   paths without the consumer.
-- [x] Keep `agents-consumer.yml` manual-only with
-  `concurrency: agents-consumer-${{ github.ref }}` and surface parity with the
+- [x] Keep `agents-62-consumer.yml` manual-only with
+  `concurrency: agents-62-consumer-${{ github.ref }}` and surface parity with the
   reusable toolkit via `reuse-agents.yml`.
 - [x] Document manual dispatch expectations and the post-change monitoring
   window in `docs/ci/WORKFLOWS.md`.

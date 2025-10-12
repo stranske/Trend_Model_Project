@@ -27,14 +27,14 @@ Pattern: reusable-<block>-<name>.yml (reuse across any band; still numbered wher
 Proposed file rename map
 
 Current file	New file
-.github/workflows/pr-gate.yml	.github/workflows/pr-00-gate.yml
+.github/workflows/pr-gate.yml		.github/workflows/pr-00-gate.yml
 .github/workflows/maint-post-ci.yml	.github/workflows/maint-30-post-ci.yml
-.github/workflows/repo-health-self-check.yml	.github/workflows/health-40-repo-selfcheck.yml
-.github/workflows/agents-consumer.yml	.github/workflows/agents-62-consumer.yml (or delete/disable per Issue 3)
+.github/workflows/repo-health-self-check.yml		.github/workflows/health-40-repo-selfcheck.yml
+.github/workflows/agents-consumer.yml		.github/workflows/agents-62-consumer.yml (or delete/disable per Issue 3)
 .github/workflows/agent-watchdog.yml	Delete (superseded; see Issue 4)
-.github/workflows/reusable-ci.yml	.github/workflows/reusable-10-ci-python.yml
-.github/workflows/reusable-docker.yml	.github/workflows/reusable-12-ci-docker.yml
-.github/workflows/agents-43-codex-issue-bridge.yml	keep as‑is (already numbered)
+.github/workflows/reusable-ci.yml		.github/workflows/reusable-10-ci-python.yml
+.github/workflows/reusable-docker.yml		.github/workflows/reusable-12-ci-docker.yml
+.github/workflows/agents-43-codex-issue-bridge.yml	      keep as‑is (already numbered)
 .github/workflows/selftest-pr-comment.yml	.github/workflows/selftest-80-pr-comment.yml
 .github/workflows/selftest-reusable-ci.yml	.github/workflows/selftest-81-reusable-ci.yml
 .github/workflows/pr-20-selftest-pr-comment.yml	.github/workflows/selftest-82-pr-comment.yml
@@ -65,7 +65,7 @@ Task list
 
  Update callers:
 
-In Gate, change uses: ./.github/workflows/reusable-ci.yml to uses: ./.github/workflows/reusable-10-ci-python.yml and reusable-docker.yml to reusable-12-ci-docker.yml. Your Gate currently calls the older names. 
+In Gate, change uses: ./.github/workflows/reusable-10-ci-python.yml to uses: ./.github/workflows/reusable-10-ci-python.yml and reusable-12-ci-docker.yml to reusable-12-ci-docker.yml. Your Gate currently calls the older names. 
 GitHub
 
  Update docs to reflect the new names and bands.
@@ -74,7 +74,7 @@ GitHub
 
 Implementation notes
 
-Use git grep -n "reusable-ci.yml\|reusable-docker.yml" to catch all references.
+Use git grep -n "reusable-10-ci-python.yml\|reusable-12-ci-docker.yml" to catch all references.
 
 Keep the display names the same (e.g., name: Gate, name: Maint Post CI) so humans don’t lose continuity while names on disk change.
 
@@ -126,7 +126,7 @@ Implementation notes
 The run page shows the exact parser error with line numbers; fix that first to get signal back. 
 GitHub
 
-2) Repair agents-consumer.yml or disable it
+2) Repair agents-62-consumer.yml or disable it
 
 Labels: agents, ci, devops, ci-failure
 
@@ -199,7 +199,7 @@ Labels: ci, devops, config, docs
 
 Title: Require the Gate check for merges into the default branch
 
-Why: The Gate is your single bouncer and it’s working: it runs 3.11, 3.12, and a Docker smoke and then enforces pass/fail in a final job. Make it required in branch protection so no one side‑steps it. Gate’s file is confirmed as .github/workflows/pr-gate.yml. 
+Why: The Gate is your single bouncer and it’s working: it runs 3.11, 3.12, and a Docker smoke and then enforces pass/fail in a final job. Make it required in branch protection so no one side‑steps it. Gate’s file is confirmed as .github/workflows/pr-00-gate.yml. 
 GitHub
 
 Acceptance criteria

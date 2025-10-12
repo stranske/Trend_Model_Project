@@ -16,21 +16,21 @@ concurrency:
 jobs:
   core-tests-311:
     name: core tests (3.11)
-    uses: ./.github/workflows/reusable-ci.yml
+    uses: ./.github/workflows/reusable-10-ci-python.yml
     with:
       python-version: '3.11'
       marker: "not quarantine and not slow"
 
   core-tests-312:
     name: core tests (3.12)
-    uses: ./.github/workflows/reusable-ci.yml
+    uses: ./.github/workflows/reusable-10-ci-python.yml
     with:
       python-version: '3.12'
       marker: "not quarantine and not slow"
 
   docker-smoke:
     name: docker smoke
-    uses: ./.github/workflows/reusable-docker.yml
+    uses: ./.github/workflows/reusable-12-ci-docker.yml
 
   gate:
     name: gate

@@ -2,7 +2,7 @@
 
 This repository provides a reusable GitHub Actions workflow that layers three progressive phases on top of a minimal test + coverage gate. All advanced features are opt‑in so existing callers remain unaffected until they enable them.
 
-> **Note (Issue #2439):** The in-repo Gate workflow now calls `reusable-ci.yml` for Python 3.11/3.12 alongside the Docker smoke reusable. The matrix-based `reusable-90-ci-python.yml` interface described here remains available for downstream consumers and nightly self-tests.
+> **Note (Issue #2439):** The in-repo Gate workflow now calls `reusable-10-ci-python.yml` for Python 3.11/3.12 alongside the Docker smoke reusable. The matrix-based `reusable-90-ci-python.yml` interface described here remains available for downstream consumers and nightly self-tests.
 
 ### Overview
 
@@ -112,7 +112,7 @@ name: Project CI
 on: [push, pull_request]
 jobs:
   ci:
-    uses: owner-or-fork/Trend_Model_Project/.github/workflows/reusable-ci.yml@phase-2-dev
+    uses: owner-or-fork/Trend_Model_Project/.github/workflows/reusable-10-ci-python.yml@phase-2-dev
     with:
       python-versions: '["3.11", "3.12"]'
       coverage-min: '72'
