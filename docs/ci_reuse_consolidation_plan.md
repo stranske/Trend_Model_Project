@@ -6,8 +6,8 @@ Issue #2190 completed the consolidation roadmap that began in #1166/#1259. The r
 workflows required by the trimmed automation surface.
 
 ## Current State
-- Only five reusable workflows remain (`reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-92-autofix.yml`,
-  `reusable-70-agents.yml`, `reusable-99-selftest.yml`).
+- Four reusable workflows remain (`reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-92-autofix.yml`,
+  `reusable-70-agents.yml`). The self-test matrix now lives in the manual-only `selftest-81-reusable-ci.yml` workflow.
 - Visible workflows in the Actions tab were reduced to the final set documented in `WORKFLOW_AUDIT_TEMP.md` and `docs/ci/WORKFLOWS.md`.
 - All auxiliary wrappers (gate orchestrators, labelers, watchdog forwards, etc.) were deleted, with `agents-43-codex-issue-bridge.yml` later reinstated to restore label-driven Codex automation.
 
@@ -24,7 +24,8 @@ workflows required by the trimmed automation surface.
 - `docs/ci/WORKFLOWS.md` is the authoritative description of the remaining automation footprint.
 
 ## Future Considerations
-1. Keep `maint-90-selftest.yml` schedule under review—switch to manual-only if weekly coverage is unnecessary.
+1. The legacy `maint-90-selftest.yml` schedule is retired; dispatch `selftest-81-reusable-ci.yml` manually when reusable CI
+   verification is needed.
 2. Revisit CodeQL or dependency review if security tooling is reintroduced in a dedicated follow-up issue.
 3. Validate external consumers when adjusting inputs on `reusable-10-ci-python.yml` or `reusable-12-ci-docker.yml`.
 
