@@ -9,8 +9,10 @@ post-processing workflow:
 
 - **Required check** – `Gate / gate` (defined in
   [`.github/workflows/pr-gate.yml`](.github/workflows/pr-gate.yml)) must
-  pass before merges. It fans out to the Python 3.11/3.12 test lanes and
-  the Docker smoke job.
+  pass before merges. Branch protection blocks the default branch until
+  this check succeeds; treat the gate status as the final merge blocker.
+  It fans out to the Python 3.11/3.12 test lanes and the Docker smoke
+  job.
 - **Autofix lane** – The
   [Autofix workflow](.github/workflows/autofix.yml) runs on every
   non-draft PR event. Drafts are ignored unless you opt in by adding the
