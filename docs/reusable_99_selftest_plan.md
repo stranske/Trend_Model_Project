@@ -1,8 +1,8 @@
-# Selftest-80 Reusable CI Workflow Plan (Historical)
+# Self-Test Matrix (`selftest-80-reusable-ci.yml`) Refresh Plan
 
 ## Scope and Key Constraints
 - Replace step-level `uses` invocations in `.github/workflows/selftest-80-reusable-ci.yml` with job-level `jobs.<id>.uses` calls targeting `.github/workflows/reusable-10-ci-python.yml`.
-- Preserve the workflow's opt-in nature (manual `workflow_dispatch` and/or label trigger) while keeping existing inputs or labels functional.
+- Preserve the workflow's opt-in nature (manual `workflow_dispatch`) while keeping existing inputs functional.
 - Model the scenario execution as a matrix-driven reusable workflow job (`jobs.scenario`) that forwards scenario-specific inputs via `strategy.matrix.include` entries.
 - Maintain or improve aggregation logic that collates scenario results, handles required artifacts, and exposes outputs to downstream jobs without breaking current consumers.
 - Avoid introducing dependencies on unavailable GitHub-hosted runners or secrets; stay compatible with the repository's supported runner pool.

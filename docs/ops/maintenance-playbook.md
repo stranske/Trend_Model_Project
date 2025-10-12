@@ -3,7 +3,7 @@
 This playbook explains how on-call responders should handle failures in the
 maintenance workflows that remain after Issue 2190. The roster now consists of
 `health-41`, `maint-30-post-ci`, `maint-33`, `health-42`, `health-43`,
-`health-44`, `maint-34`, and the manual `selftest-80-reusable-ci` matrix.
+`health-44`, `maint-34`, and `selftest-80`.
 
 ## health-41-repo-health.yml
 
@@ -95,16 +95,15 @@ maintenance workflows that remain after Issue 2190. The roster now consists of
 3. **Dry-run mode** — use the `dry-run` input for rehearsal runs that capture
    diagnostics without creating commits or PRs.
 
-## selftest-81-maint-wrapper.yml (archived)
+## selftest-80-reusable-ci.yml
 
-1. **Treat it as a smoke harness** — the workflow delegates to the manual
-   `selftest-80-reusable-ci.yml` matrix when restored for archaeology or
-   one-off sweeps.
-2. **Verify inputs** — ensure the forwarded `python-versions` input matches the
+1. **Manual-only entry point** — dispatch the workflow via **Run workflow** in
+   the Actions tab to exercise the reusable CI matrix on demand.
+2. **Verify inputs** — ensure the optional `python-versions` input matches the
    expected matrix before debugging downstream failures.
-3. **Secrets passthrough** — the workflow forwards secrets to the manual matrix.
+3. **Secrets passthrough** — secrets flow through `reusable-10-ci-python.yml`.
    When adding new secrets to the reusable workflow remember to surface them
-   here as well.
+   on the manual entry point as inputs or environment variables as needed.
 
 ## Common tooling
 

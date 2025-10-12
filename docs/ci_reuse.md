@@ -74,9 +74,8 @@ the bounded job runs described above.
 
 ## 5. Self-Test Matrix (`selftest-80-reusable-ci.yml`)
 Exposes the matrix that validates the reusable CI executor across feature combinations (coverage delta, soft gate, metrics,
-history, classification). The workflow is **manual-only** (`workflow_dispatch`) so self-tests never run automatically; use
-**Actions → Selftest 80 Reusable CI Matrix → Run workflow** when auditing reusable coverage. The retired maint wrapper now lives
-in `Old/workflows/selftest-81-maint-wrapper.yml` for historical reference.
+history, classification). It now runs exclusively on manual dispatch so maintainers can invoke it on demand without PR noise.
+Legacy wrappers live under `Old/workflows/` for historical reference.
 
 ## Adoption Notes
 1. Reference the files directly via `uses: stranske/Trend_Model_Project/.github/workflows/<file>@phase-2-dev` in external repos.

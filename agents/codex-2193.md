@@ -3,25 +3,25 @@
 # Issue #2193 – Self-Test Workflow Consolidation
 
 ## Scope
-- Remove legacy self-test callers (`selftest-82-pr-comment.yml`, `maint-43-*.yml`, `maint-44-*.yml`, `maint-48-*.yml`, `selftest-80-pr-comment.yml`).
-- Retain a single human-facing caller (`selftest-80-reusable-ci.yml`) that triggers only on manual dispatch.
-- Keep the `selftest-8X-*` series manual-only; do not reintroduce cron triggers.
+- Remove legacy self-test callers (old maint/selftest wrappers that triggered PR or scheduled runs).
+- Retain a single human-facing caller that triggers only on manual dispatch.
+- Keep the reusable composite powering the caller consistent with the manual self-test matrix.
 - Update docs/tests to reflect the new roster so regressions are caught automatically.
 
 ## Acceptance Criteria
-- ✅ Only `selftest-80-reusable-ci.yml` appears in the Actions tab for self-tests.
-- ✅ The manual workflow invokes `./.github/workflows/reusable-10-ci-python.yml` via the scenario matrix job.
+- ✅ Only the designated manual self-test workflow appears in the Actions tab.
+- ✅ The manual self-test workflow delegates to the reusable matrix via `uses: ./.github/workflows/reusable-10-ci-python.yml`.
 - ✅ No other workflow names containing “selftest” remain.
 - ✅ CI guardrails assert the above invariants.
 
 ## Task Checklist
 - [ ] Delete the redundant self-test workflow callers.
 - [ ] Ensure the manual caller exposes only `workflow_dispatch` (no cron).
-- [ ] Confirm delegation to the reusable CI composite via the scenario matrix job.
+- [ ] Confirm delegation to the reusable CI matrix via `./.github/workflows/reusable-10-ci-python.yml` with inherited secrets.
 - [ ] Update documentation references (`docs/ci/WORKFLOWS.md`, audit sheets) if required.
 - [ ] Add/extend automated tests so the roster cannot regress.
 - [ ] Run workflow guardrail tests (`pytest tests/test_workflow_*.py`).
 
 ## Notes
-- Post-CI summary and failure tracker workflows now rely solely on manual dispatch; keep the workflow title `Selftest 80 Reusable CI Matrix` aligned with filename-driven tests.
-- Do not reintroduce cron triggers or extra inputs—the matrix scenarios live inside the reusable job.
+- Keep the workflow title `Selftest 80 Reusable CI Matrix` aligned with the filename-driven guard tests.
+- Avoid adding extra inputs or triggers—the matrix scenarios live inside the reusable job.
