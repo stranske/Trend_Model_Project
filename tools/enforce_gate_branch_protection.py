@@ -46,9 +46,7 @@ class _ResponseProtocol(Protocol):
 
 
 class _SessionProtocol(Protocol):
-    def get(
-        self, url: str, *, timeout: float | None = None
-    ) -> _ResponseProtocol: ...
+    def get(self, url: str, *, timeout: float | None = None) -> _ResponseProtocol: ...
 
     def patch(
         self, url: str, *, json: dict[str, object], timeout: float | None = None
