@@ -66,6 +66,13 @@ Desired 'require up to date': True
 No changes required.
 ```
 
+To automate auditing without applying fixes, add `--check`. The command exits with
+status code `1` when drift is detected, making it suitable for CI monitors:
+
+```bash
+GITHUB_TOKEN=ghp_xxx python tools/enforce_gate_branch_protection.py --repo stranske/Trend_Model_Project --branch main --check
+```
+
 Apply corrections (if the dry run indicates drift or the rule is missing):
 
 ```bash

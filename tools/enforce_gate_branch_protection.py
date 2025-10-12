@@ -314,6 +314,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="Apply the changes instead of performing a dry run.",
     )
     parser.add_argument(
+        "--check",
+        action="store_true",
+        help=(
+            "Exit with status 1 when the branch protection rule drifts from the desired"
+            " configuration. Implies a dry run."
+        ),
+    )
+    parser.add_argument(
         "--no-clean",
         action="store_true",
         help=(
@@ -326,6 +334,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if not args.repo:
         parser.error("--repo is required when GITHUB_REPOSITORY is not set.")
+    if args.apply and args.check:
+        parser.error("--check cannot be combined with --apply.")
 
     desired_contexts = normalise_contexts(parse_contexts(args.contexts))
 
@@ -360,7 +370,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     print("Desired 'require up to date': True")
 
     if not args.apply:
-        if not to_add and (args.no_clean or not to_remove) and not strict_change:
+        drift_detected = bool(
+            to_add
+            or (not args.no_clean and to_remove)
+            or strict_change
+            or missing_protection
+        )
+        if not drift_detected:
             print("No changes required.")
         else:
             if to_add:
@@ -372,7 +388,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             if missing_protection:
                 print("Would create branch protection with the desired settings.")
             print("Re-run with --apply to enforce the configuration.")
-        return 0
+        return 1 if args.check and drift_detected else 0
 
     try:
         if missing_protection:

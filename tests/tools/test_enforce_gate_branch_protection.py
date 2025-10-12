@@ -357,6 +357,60 @@ def test_main_reports_missing_rule_in_dry_run(
     assert "Would create branch protection" in captured.out
 
 
+def test_main_check_mode_detects_drift(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("GITHUB_TOKEN", "token")
+    monkeypatch.setattr(
+        "tools.enforce_gate_branch_protection._build_session",
+        lambda _token: object(),
+    )
+    monkeypatch.setattr(
+        "tools.enforce_gate_branch_protection.fetch_status_checks",
+        lambda *_args, **_kwargs: StatusCheckState(strict=False, contexts=["Legacy"]),
+    )
+
+    exit_code = main([
+        "--repo",
+        "owner/repo",
+        "--branch",
+        "main",
+        "--check",
+    ])
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "Would add contexts" in captured.out
+
+
+def test_main_check_mode_succeeds_when_clean(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("GITHUB_TOKEN", "token")
+    monkeypatch.setattr(
+        "tools.enforce_gate_branch_protection._build_session",
+        lambda _token: object(),
+    )
+    monkeypatch.setattr(
+        "tools.enforce_gate_branch_protection.fetch_status_checks",
+        lambda *_args, **_kwargs: StatusCheckState(
+            strict=True, contexts=["Gate / gate"]
+        ),
+    )
+
+    exit_code = main([
+        "--repo",
+        "owner/repo",
+        "--branch",
+        "main",
+        "--check",
+    ])
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "No changes required." in captured.out
+
+
 def test_main_bootstraps_when_apply(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
