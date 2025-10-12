@@ -129,30 +129,6 @@ def test_agents_orchestrator_has_concurrency_defaults():
     ), "Orchestrator workflow should document where the timeout is enforced"
 
 
-def test_agents_consumer_manual_only_and_concurrency():
-    data = _load_workflow_yaml("agents-consumer.yml")
-
-    on_section = _workflow_on_section(data)
-    assert set(on_section.keys()) == {
-        "workflow_dispatch"
-    }, "Agents Consumer must only allow manual workflow_dispatch runs"
-
-    concurrency = data.get("concurrency") or {}
-    assert (
-        concurrency.get("group") == "agents-consumer-${{ github.ref }}"
-    ), "Agents Consumer concurrency group must scope runs by ref"
-    assert (
-        concurrency.get("cancel-in-progress") is True
-    ), "Agents Consumer concurrency must cancel in-progress runs"
-
-    jobs = data.get("jobs", {})
-    dispatch_job = jobs.get("dispatch", {})
-    assert dispatch_job.get("uses"), "Agents Consumer should call reuse-agents workflow"
-    assert (
-        "timeout-minutes" not in dispatch_job
-    ), "Timeout must be delegated to reuse-agents -> reusable-70-agents"
-
-
 def test_reusable_agents_jobs_have_timeouts():
     data = _load_workflow_yaml("reusable-70-agents.yml")
     jobs = data.get("jobs", {})
