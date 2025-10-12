@@ -1,22 +1,47 @@
-# Agents Consumer Workflow – Planning Notes
+# Agents Consumer Workflow – Planning Notes (Issue #2464 Refresh)
 
 ## Scope and Key Constraints
-- Update the `agents-consumer.yml` workflow to support safe scheduled execution by preventing overlapping runs, enforcing job-level timeouts, and limiting default actions to essential probes.
-- Changes must preserve compatibility with the existing `reuse-agents.yml` reusable workflow that the consumer invokes.
-- Opt-in behaviours (preflight checks and bootstrap routines) must remain disabled unless explicitly requested via `params_json` payloads to avoid unexpected automation.
-- Documentation updates should be limited to explaining the new opt-in behaviour in the README without altering unrelated sections of the project documentation.
+- Keep `.github/workflows/agents-consumer.yml` available for **manual**
+  dispatch only. All automated triggers stay removed (no cron, push, or
+  issue-driven runs).
+- Preserve feature parity with `reuse-agents.yml` so the consumer continues to
+  proxy readiness, watchdog, diagnostics, bootstrap, keepalive, and verification
+  toggles via the `params_json` payload.
+- Maintain the workflow-level concurrency guard scoped to
+  `agents-consumer-${{ github.ref }}` with `cancel-in-progress: true` to prevent
+  back-to-back manual dispatch collisions.
+- Timeout enforcement for the reusable agents fan-out lives inside
+  `reuse-agents.yml` → `reusable-70-agents.yml`; the consumer should not attempt
+  to set `timeout-minutes` on the reusable-call job.
+- Documentation must highlight that the orchestrator is the only scheduled
+  automation surface and that post-change monitoring requires a 48-hour quiet
+  window (tagging the source issue with `ci-failure`).
 
 ## Acceptance Criteria / Definition of Done
-- The `agents-consumer.yml` workflow declares `concurrency: { group: agents-consumer, cancel-in-progress: true }` at the workflow root so only a single run is active at a time.
-- Every job defined within `agents-consumer.yml` sets a `timeout-minutes` value to bound runtime and terminate stalled tasks automatically.
-- The default execution path only runs watchdog and readiness probes; preflight and bootstrap steps trigger solely when the `params_json` input explicitly enables them.
-- `README.md` (or the relevant workflow documentation) states that bootstrap and preflight activities are opt-in via `params_json` so operators understand the new defaults.
+- `agents-consumer.yml` exposes only the `workflow_dispatch` trigger and keeps
+  the concurrency guard at the workflow root.
+- Manual runs continue to default to readiness + watchdog while treating
+  bootstrap, preflight, keepalive, and verification features as explicit opt-ins
+  via `params_json`.
+- The dispatch job calls `reuse-agents.yml` without declaring an unsupported
+  `timeout-minutes` value; explanatory comments document that timeouts are
+  enforced downstream.
+- `docs/ci/WORKFLOWS.md`, `docs/agents/agents-workflow-bootstrap-plan.md`, and
+  these notes reflect the manual-only status, describe the orchestrator as the
+  scheduled automation entry point, and outline the 48-hour monitoring
+  expectation.
+- Guard tests `tests/test_workflow_agents_consolidation.py` and
+  `tests/test_workflow_naming.py` are re-run to validate structure and naming.
 
 ## Initial Task Checklist
-1. Review the current `agents-consumer.yml` and the referenced `reuse-agents.yml` workflow to catalogue existing jobs, inputs, and defaults.
-2. Add workflow-level concurrency control and verify it does not conflict with downstream reusable workflow behaviour.
-3. Audit each job in `agents-consumer.yml`, adding or updating `timeout-minutes` values to meet reliability targets (e.g., under one hour per job).
-4. Confirm the workflow inputs keep watchdog and readiness enabled by default while requiring explicit `params_json` flags for preflight and bootstrap.
-5. Update the README (or workflow documentation) to note the opt-in nature of bootstrap runs and provide guidance on configuring `params_json`.
-6. Run linting or workflow validation tools (such as `act` or `yamllint`, if available) to ensure the modified YAML is syntactically correct.
-7. Open a pull request summarizing the concurrency, timeout, and documentation updates once local verification passes.
+1. Inventory the consumer vs orchestrator inputs to confirm no unique
+   functionality is lost by consolidating into the reusable toolkit.
+2. Ensure the workflow `on:` section remains limited to `workflow_dispatch` and
+   that concurrency is scoped by ref with `cancel-in-progress: true`.
+3. Verify the dispatch job delegates to `reuse-agents.yml` with the same output
+   mapping and without `timeout-minutes` overrides.
+4. Update documentation to explain the manual-only status, how to use
+   `params_json`, and the post-change monitoring plan.
+5. Execute `pytest tests/test_workflow_agents_consolidation.py
+   tests/test_workflow_naming.py` to confirm guardrails stay green before
+   shipping changes.

@@ -32,6 +32,7 @@ Only the workflows listed below remain visible in the Actions tab. Reusable comp
 ### Agents
 | Workflow | Triggers | Notes |
 |----------|----------|-------|
+| `agents-consumer.yml` | workflow_dispatch | Manual-only JSON bridge that calls `reuse-agents.yml`; concurrency guard `agents-consumer-${{ github.ref }}` prevents back-to-back dispatch collisions. |
 | `agents-43-codex-issue-bridge.yml` | issues, workflow_dispatch | Restored Codex bootstrap automation for label-driven issue handling. |
 | `agents-44-verify-agent-assignment.yml` | workflow_call, workflow_dispatch | Validates that `agent:codex` issues remain assigned to an approved agent account before automation runs. |
 | `agents-70-orchestrator.yml` | schedule (*/20), workflow_dispatch | Unified agents toolkit entry point (readiness, diagnostics, Codex keepalive). |
@@ -55,7 +56,7 @@ Only the workflows listed below remain visible in the Actions tab. Reusable comp
 | `agents-40-consumer.yml`, `agents-41-assign*.yml`, `agents-42-watchdog.yml`, `agents-44-copilot-readiness.yml`, `agents-45-verify-codex-bootstrap-matrix.yml` | Deleted; functionality consolidated into `agents-70-orchestrator.yml` + `reusable-70-agents.yml`.
 | `maint-31-autofix-residual-cleanup.yml`, `maint-34-quarantine-ttl.yml`, `maint-37-ci-selftest.yml`, `maint-38-cleanup-codex-bootstrap.yml`, `maint-43-verify-service-bot-pat.yml`, `maint-44-verify-ci-stack.yml`, `maint-45-merge-manager.yml`, `maint-48-selftest-reusable-ci.yml`, `maint-49-stale-prs.yml`, `maint-52-perf-benchmark.yml`, `maint-60-release.yml` | Deleted; maintenance roster trimmed to the Issue #2190 final set.
 | `pr-01-gate-orchestrator.yml`, `pr-02-label-agent-prs.yml`, `pr-18-workflow-lint.yml`, `pr-20-selftest-pr-comment.yml`, `pr-30-codeql.yml`, `pr-31-dependency-review.yml`, `pr-path-labeler.yml` | Deleted; PR checks narrowed to the two required pipelines.
-| `reuse-agents.yml` (renamed), `agents-consumer.yml` (retired), `repo-health-self-check.yml` (renamed) | Superseded by the new naming scheme. **2026-10 follow-up:** orchestrator remains the dispatch surface; consumer JSON bridge no longer required.
+| `reuse-agents.yml` (renamed), `repo-health-self-check.yml` (renamed) | Superseded by the new naming scheme. **2026-10 follow-up:** orchestrator remains the scheduled dispatch surface; consumer workflow constrained to manual-only usage.
 
 ## Archived in Issue #2378
 

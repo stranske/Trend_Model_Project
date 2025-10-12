@@ -25,12 +25,15 @@ post-processing workflow:
   Post-CI if you need the summary refreshed.
 - **Agent automation** – The
   [`agents-70-orchestrator.yml`](.github/workflows/agents-70-orchestrator.yml)
-  workflow is the single dispatch point for scheduled and manual Codex
-  automation. It invokes
+  workflow is the single dispatch point for scheduled Codex automation and the
+  preferred manual entry path. It invokes
   [`reuse-agents.yml`](.github/workflows/reuse-agents.yml) to run
   readiness checks, watchdogs, and Codex bootstrapping. Applying the
   `agent:codex` label flags an issue for bootstrap handling in the next
-  run; remove the label to opt out before the dispatcher cycles.
+  run; remove the label to opt out before the dispatcher cycles. A manual-only
+  legacy surface, [`agents-consumer.yml`](.github/workflows/agents-consumer.yml),
+  remains available when the JSON `params_json` interface is required, but it is
+  not scheduled automatically and shares the same reusable backend.
 
 ## Quick Checklist (Before Every Push)
 
