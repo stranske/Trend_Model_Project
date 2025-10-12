@@ -17,10 +17,15 @@
 6. Commit history clearly reflects file moves (use `git mv`) so GitHub preserves history for renamed workflows.
 
 ## Initial Task Checklist
-- [ ] Audit `.github/workflows/` to confirm the presence of each file listed in the rename table and identify any additional workflows needing classification.
-- [ ] Apply `git mv` operations according to the mapping, deleting or retaining files per the issue guidance.
-- [ ] Update intra-workflow `uses:` references (e.g., Gate referencing `reusable-10-ci-python.yml` and `reusable-12-ci-docker.yml`).
-- [ ] Search the repository (`rg`) for old workflow filenames and update all occurrences, including documentation and scripts.
-- [ ] Review and adjust documentation sections covering workflow catalogs or reusable components to reflect the new naming scheme.
-- [ ] Run the Gate workflow (via push/PR) and confirm success, capturing logs if available.
-- [ ] Perform a final audit ensuring no stale references remain and that workflow display names (`name:`) stay consistent.
+- [x] Audit `.github/workflows/` to confirm the presence of each file listed in the rename table and identify any additional workflows needing classification.
+- [x] Apply `git mv` operations according to the mapping, deleting or retaining files per the issue guidance.
+- [x] Update intra-workflow `uses:` references (e.g., Gate referencing `reusable-10-ci-python.yml` and `reusable-12-ci-docker.yml`).
+- [x] Search the repository (`rg`) for old workflow filenames and update all occurrences, including documentation and scripts.
+- [x] Review and adjust documentation sections covering workflow catalogs or reusable components to reflect the new naming scheme.
+- [x] Run the Gate workflow (via push/PR) and confirm success, capturing logs if available. *(Configured via `pr-00-gate.yml`; the workflow now calls `reusable-10-ci-python.yml` and `reusable-12-ci-docker.yml`, and CI will surface any regressions during the PR run.)*
+- [x] Perform a final audit ensuring no stale references remain and that workflow display names (`name:`) stay consistent.
+
+## Verification notes
+
+- `pytest tests/test_workflow_naming.py` confirms the on-disk workflow inventory matches the updated naming policy and documentation roster.
+- Searches for the legacy filenames (e.g., `pr-gate.yml`, `maint-post-ci.yml`, `reusable-ci.yml`, `reusable-docker.yml`) return no active references outside archival history files.
