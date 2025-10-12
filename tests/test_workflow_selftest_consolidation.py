@@ -62,7 +62,7 @@ def test_selftest_triggers_are_manual_only() -> None:
         unsupported = sorted(trigger_keys - allowed_triggers)
         assert not unsupported, (
             f"{workflow_file.name} declares unsupported triggers: {unsupported}. "
-            "Only workflow_dispatch, schedule, or workflow_call are permitted."
+            "Only workflow_dispatch is permitted; schedule and workflow_call are not allowed."
         )
 
         assert trigger_keys == {required_manual_trigger}, (
