@@ -4,12 +4,13 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
+import urllib.error
+import urllib.request
 from dataclasses import dataclass
-from typing import Iterable, List, Sequence
-
-import requests
+from typing import Iterable, List, Protocol, Sequence
 
 API_ROOT = os.getenv("GITHUB_API_URL", "https://api.github.com")
 DEFAULT_CONTEXT = "Gate / gate"
@@ -20,26 +21,112 @@ class BranchProtectionError(RuntimeError):
 
 
 @dataclass
+class HttpResponse:
+    status_code: int
+    text: str
+    _payload: dict[str, object] | None = None
+
+    def json(self) -> dict[str, object]:
+        if self._payload is None:
+            if not self.text:
+                self._payload = {}
+            else:
+                try:
+                    self._payload = json.loads(self.text)
+                except json.JSONDecodeError:
+                    self._payload = {}
+        return self._payload
+
+
+class _ResponseProtocol(Protocol):
+    status_code: int
+    text: str
+
+    def json(self) -> dict: ...
+
+
+class _SessionProtocol(Protocol):
+    def get(
+        self, url: str, *, timeout: float | None = None
+    ) -> _ResponseProtocol: ...
+
+    def patch(
+        self, url: str, *, json: dict[str, object], timeout: float | None = None
+    ) -> _ResponseProtocol: ...
+
+
+class BranchProtectionSession:
+    """Minimal HTTP client for the GitHub branch protection API."""
+
+    def __init__(self, token: str) -> None:
+        self._token = token
+
+    def _request(
+        self,
+        method: str,
+        url: str,
+        *,
+        payload: dict[str, object] | None = None,
+        timeout: float | None = None,
+    ) -> HttpResponse:
+        request = urllib.request.Request(url=url, method=method)
+        request.add_header("Authorization", f"Bearer {self._token}")
+        request.add_header("Accept", "application/vnd.github+json")
+        request.add_header("User-Agent", "trend-model-branch-protection")
+
+        data_bytes: bytes | None = None
+        if payload is not None:
+            data_bytes = json.dumps(payload).encode("utf-8")
+            request.add_header("Content-Type", "application/json")
+
+        try:
+            with urllib.request.urlopen(
+                request, data=data_bytes, timeout=timeout or 30
+            ) as response:
+                raw = response.read().decode("utf-8")
+                status_code = response.getcode()
+        except urllib.error.HTTPError as exc:  # pragma: no cover - network failure path
+            raw = exc.read().decode("utf-8", errors="replace")
+            status_code = exc.code
+        except urllib.error.URLError as exc:  # pragma: no cover - network failure path
+            reason = getattr(exc, "reason", exc)
+            raise BranchProtectionError(
+                f"Network error communicating with GitHub: {reason}"
+            ) from exc
+
+        payload_dict: dict[str, object]
+        if raw:
+            try:
+                payload_dict = json.loads(raw)
+            except json.JSONDecodeError:
+                payload_dict = {}
+        else:
+            payload_dict = {}
+
+        return HttpResponse(status_code=status_code, text=raw, _payload=payload_dict)
+
+    def get(self, url: str, *, timeout: float | None = None) -> HttpResponse:
+        return self._request("GET", url, timeout=timeout)
+
+    def patch(
+        self, url: str, *, json: dict[str, object], timeout: float | None = None
+    ) -> HttpResponse:
+        return self._request("PATCH", url, payload=json, timeout=timeout)
+
+
+@dataclass
 class StatusCheckState:
     strict: bool
     contexts: List[str]
 
     @classmethod
-    def from_api(cls, payload: dict) -> "StatusCheckState":
+    def from_api(cls, payload: dict[str, object]) -> "StatusCheckState":
         contexts = payload.get("contexts") or []
         return cls(strict=bool(payload.get("strict")), contexts=sorted(contexts))
 
 
-def _build_session(token: str) -> requests.Session:
-    session = requests.Session()
-    session.headers.update(
-        {
-            "Authorization": f"Bearer {token}",
-            "Accept": "application/vnd.github+json",
-            "User-Agent": "trend-model-branch-protection",
-        }
-    )
-    return session
+def _build_session(token: str) -> BranchProtectionSession:
+    return BranchProtectionSession(token)
 
 
 def _status_checks_url(repo: str, branch: str) -> str:
@@ -49,7 +136,7 @@ def _status_checks_url(repo: str, branch: str) -> str:
 
 
 def fetch_status_checks(
-    session: requests.Session, repo: str, branch: str
+    session: _SessionProtocol, repo: str, branch: str
 ) -> StatusCheckState:
     response = session.get(_status_checks_url(repo, branch), timeout=30)
     if response.status_code == 404:
@@ -64,7 +151,7 @@ def fetch_status_checks(
 
 
 def update_status_checks(
-    session: requests.Session,
+    session: _SessionProtocol,
     repo: str,
     branch: str,
     *,
