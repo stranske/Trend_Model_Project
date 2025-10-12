@@ -23,13 +23,20 @@ post-processing workflow:
   issues when hygiene regressions persist. Treat that consolidated
   comment as the canonical health dashboard; rerun Gate or Maint
   Post-CI if you need the summary refreshed.
-- **Agent automation** – Scheduled (cron) and on-demand dispatchers
-  ([`agents-70-orchestrator.yml`](.github/workflows/agents-70-orchestrator.yml)
-  and [`agents-consumer.yml`](.github/workflows/agents-consumer.yml))
-  invoke [`reuse-agents.yml`](.github/workflows/reuse-agents.yml) to run
-  readiness checks, watchdogs, and Codex bootstrapping. Applying the
-  `agent:codex` label flags an issue for bootstrap handling in the next
-  run; remove the label to opt out before the dispatcher cycles.
+- **Recommended local mirrors** – Run
+  [`./scripts/style_gate_local.sh`](scripts/style_gate_local.sh) for the
+  exact formatter/type checks used by Gate, and
+  [`./scripts/quality_gate.sh --full`](scripts/quality_gate.sh) to
+  mirror the full gate (style + fast validate + branch checks) before
+  requesting review.
+- **Agent automation** – Scheduled (cron) and on-demand runs of
+  [`agents-70-orchestrator.yml`](.github/workflows/agents-70-orchestrator.yml)
+  invoke the reusable agents toolkit for readiness checks, diagnostics, and
+  Codex bootstrapping. Applying the `agent:codex` label flags an issue for
+  bootstrap handling in the next run; remove the label to opt out before the
+  dispatcher cycles. Manual dispatch lives under **Actions → Agents 70
+  Orchestrator → Run workflow** – supply `enable_bootstrap: true` and an
+  optional `bootstrap_issues_label` in the inputs when seeding Codex PRs.
 
 ## Quick Checklist (Before Every Push)
 
