@@ -1,8 +1,6 @@
 name: Agents Consumer
 
 on:
-  schedule:
-    - cron: '15 * * * *'
   workflow_dispatch:
     inputs:
       params_json:
@@ -18,7 +16,7 @@ permissions:
   issues: write
 
 concurrency:
-  group: agents-consumer
+  group: agents-consumer-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
