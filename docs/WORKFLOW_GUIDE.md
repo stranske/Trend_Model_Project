@@ -32,7 +32,7 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 
 ### Maintenance & Governance
 - **`maint-02-repo-health.yml`** — Weekly repository health sweep that writes a single run-summary report, with optional `workflow_dispatch` reruns.
-- **`maint-post-ci.yml`** — Follower triggered by the Gate `workflow_run` event that posts consolidated status updates, applies autofix commits or uploads patches, and now owns the CI failure-tracker issue/label lifecycle.
+- **`maint-post-ci.yml`** — Follower triggered by the Gate `workflow_run` event that posts consolidated status updates, applies autofix commits or uploads patches, and now owns the CI failure-tracker issue/label lifecycle (single rolling issue labelled `ci-failure`).
 - **`maint-33-check-failure-tracker.yml`** — Lightweight compatibility shell that documents the delegation to `maint-post-ci.yml` while legacy listeners migrate.
 - **`maint-36-actionlint.yml`** — Sole workflow-lint gate. Runs actionlint via reviewdog on PR edits, pushes, weekly cron, and manual dispatch.
 - **`maint-40-ci-signature-guard.yml`** — Guards the CI manifest with signed fixture checks.
@@ -53,6 +53,11 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 1. When renaming a workflow, update any `workflow_run` consumers. In this roster that includes `maint-post-ci.yml`, `maint-32-autofix.yml`, and `maint-33-check-failure-tracker.yml`.
 2. The orchestrator relies on the workflow names, not just filenames. Keep `name:` fields synchronized with filenames to avoid missing triggers.
 3. Reusable workflows stay invisible in the Actions tab; top-level consumers should include summary steps for observability.
+
+### Failure rollup quick reference
+- `Maint Post CI` updates the "CI failures in last 24 h" issue labelled `ci-failure`, aggregating failure signatures with links back to the offending Gate runs.
+- Auto-heal closes the issue after a full day without repeats while preserving an occurrence history in the body.
+- Escalations apply the `priority: high` label once the same signature fires three times.
 
 ## Agent Operations
 - Use **Agents 70 Orchestrator** for every automation task (readiness checks, Codex bootstrap, diagnostics, keepalive). No other entry points remain.

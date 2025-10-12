@@ -20,9 +20,11 @@ post-processing workflow:
   [`maint-post-ci.yml`](.github/workflows/maint-post-ci.yml) workflow
   posts a single PR summary comment (Gate status + coverage), attempts
   the same autofix sweep using the composite action, and files tracker
-  issues when hygiene regressions persist. Treat that consolidated
-  comment as the canonical health dashboard; rerun Gate or Maint
-  Post-CI if you need the summary refreshed.
+  issues when hygiene regressions persist. It also updates the rolling
+  "CI failures in last 24 h" issue labelled `ci-failure` so the current
+  breakages stay easy to find. Treat that consolidated comment and
+  issue as the canonical health dashboards; rerun Gate or Maint Post-CI
+  if you need either refreshed.
 - **Agent automation** – The
   [`agents-70-orchestrator.yml`](.github/workflows/agents-70-orchestrator.yml)
   workflow is the single dispatch point for scheduled Codex automation and the
