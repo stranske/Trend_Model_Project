@@ -36,9 +36,10 @@
   `--api-url` overrides for GitHub Enterprise Server usage. Unit tests in `tests/tools/test_enforce_gate_branch_protection.py`
   cover the primary scenarios (initial bootstrap, drift detection, and clean enforcement). The CLI now supports `--snapshot` so
   enforcement runs can emit JSON evidence of the before/after branch protection state for audit logs.
-- ✅ **Scheduled enforcement** – `.github/workflows/health-44-gate-branch-protection.yml` runs nightly and on demand. It applies the
-  enforcement automatically whenever the optional `BRANCH_PROTECTION_TOKEN` secret is present, otherwise it exits early with a
-  clear reminder to configure the token.
+- ✅ **Scheduled enforcement and verification** – `.github/workflows/health-44-gate-branch-protection.yml` now installs the helper,
+  applies the rule when the optional `BRANCH_PROTECTION_TOKEN` secret is present, and then **always** runs `--check` with the
+  default GitHub token. Drift immediately fails the workflow so repository owners are alerted even when the enforcement token is
+  absent. Snapshot artifacts from each run are published for the evidence archive.
 - 🔄 **Validation draft PR** – Pending repository-owner action. Follow the runbook in
   `docs/runbooks/gate-branch-protection-validation.md` to capture evidence of the Gate check blocking merges when failing and
   allowing merges when passing.
