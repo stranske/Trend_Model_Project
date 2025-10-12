@@ -54,6 +54,7 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 
 ## Agent Operations
 - All historical wrappers were removed. Use **Agents 70 Orchestrator** directly for readiness checks, Codex bootstrap, or watchdog sweeps.
+- The deprecated **`agent-watchdog.yml`** workflow has been retired; toggle watchdog diagnostics via the orchestrator's `enable_watchdog` input instead of dispatching a standalone job.
 - Optional flags beyond the standard inputs belong in the `options_json` payload; the orchestrator parses it with `fromJson()`.
 - The orchestrator maintains PAT priority (`OWNER_PR_PAT` → `SERVICE_BOT_PAT` → `GITHUB_TOKEN`) via the reusable composite.
 
