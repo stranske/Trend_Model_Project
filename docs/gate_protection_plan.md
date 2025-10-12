@@ -33,6 +33,8 @@
   respect `GITHUB_TOKEN`, `GH_TOKEN`, and `GITHUB_API_URL` when flags are omitted.
 - The helper defaults to `GITHUB_REPOSITORY`/`DEFAULT_BRANCH` and can run in dry-run mode to audit the current contexts before
   applying changes.
+- Maintainers can add `--snapshot <path>` to the helper to emit a JSON evidence bundle that records the current, desired, and
+  post-enforcement status checks for audit trails.
 - Contributors without direct settings access can now request an owner to run the script with a fine-grained `GITHUB_TOKEN`
   instead of navigating the UI, ensuring infrastructure as code parity for the protection rule.
 - Scheduled automation (`.github/workflows/health-44-gate-branch-protection.yml`) executes the helper nightly and on-demand,
@@ -56,7 +58,8 @@ Run a dry check to review the current branch protection rule (either export
 python tools/enforce_gate_branch_protection.py \
   --repo stranske/Trend_Model_Project \
   --branch main \
-  --token ghp_xxx
+  --token ghp_xxx \
+  --snapshot docs/evidence/gate-branch-protection/status.json
 ```
 
 Expected dry-run output when the rule is correct:
@@ -77,7 +80,8 @@ Apply corrections (if the dry run indicates drift):
 python tools/enforce_gate_branch_protection.py \
   --repo stranske/Trend_Model_Project \
   --branch main \
-  --token ghp_xxx --apply
+  --token ghp_xxx --apply \
+  --snapshot docs/evidence/gate-branch-protection/post-apply.json
 ```
 
 The script patches `required_status_checks` in-place and leaves other branch protection toggles untouched. Use `--context` to

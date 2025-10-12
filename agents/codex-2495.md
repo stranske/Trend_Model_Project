@@ -7,6 +7,6 @@
 - [ ] Validation draft PR evidence captured (see runbook).
 
 ## Next Actions
-1. Repository owner runs `tools/enforce_gate_branch_protection.py --check` with an admin token to confirm the live settings.
-2. Follow `docs/runbooks/gate-branch-protection-validation.md` to produce validation PR evidence and attach it to issue #2495.
+1. Repository owner runs `tools/enforce_gate_branch_protection.py --check --snapshot docs/evidence/gate-branch-protection/pre.json` with an admin token to confirm the live settings.
+2. Follow `docs/runbooks/gate-branch-protection-validation.md` to produce validation PR evidence (including snapshot files) and attach it to issue #2495.
 3. Mark the final checkbox above once validation artifacts are archived.
