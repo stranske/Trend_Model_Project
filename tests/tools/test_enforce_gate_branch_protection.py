@@ -440,9 +440,7 @@ def test_main_writes_snapshot_when_drift_detected(
     )
     monkeypatch.setattr(
         "tools.enforce_gate_branch_protection.fetch_status_checks",
-        lambda *_args, **_kwargs: StatusCheckState(
-            strict=False, contexts=["Legacy"]
-        ),
+        lambda *_args, **_kwargs: StatusCheckState(strict=False, contexts=["Legacy"]),
     )
 
     snapshot_file = tmp_path / "snapshots" / "state.json"
@@ -479,9 +477,7 @@ def test_main_snapshot_updates_after_apply(
     )
     monkeypatch.setattr(
         "tools.enforce_gate_branch_protection.fetch_status_checks",
-        lambda *_args, **_kwargs: StatusCheckState(
-            strict=False, contexts=["Legacy"]
-        ),
+        lambda *_args, **_kwargs: StatusCheckState(strict=False, contexts=["Legacy"]),
     )
 
     def fake_update(
