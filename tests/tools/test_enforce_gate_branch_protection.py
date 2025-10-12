@@ -4,10 +4,11 @@ from tools.enforce_gate_branch_protection import (
     BranchProtectionError,
     StatusCheckState,
     diff_contexts,
+    fetch_status_checks,
     format_contexts,
+    main,
     normalise_contexts,
     parse_contexts,
-    fetch_status_checks,
     update_status_checks,
 )
 
@@ -96,3 +97,86 @@ def test_update_status_checks_raises_on_failure() -> None:
     session = DummySession(DummyResponse(500, text="error"))
     with pytest.raises(BranchProtectionError):
         update_status_checks(session, "owner/repo", "main", contexts=["Gate / gate"], strict=True)
+
+
+def test_main_reports_no_changes_in_dry_run(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    monkeypatch.setenv("GITHUB_TOKEN", "token")
+    monkeypatch.setattr(
+        "tools.enforce_gate_branch_protection._build_session",
+        lambda _token: object(),
+    )
+    monkeypatch.setattr(
+        "tools.enforce_gate_branch_protection.fetch_status_checks",
+        lambda *_args, **_kwargs: StatusCheckState(strict=True, contexts=["Gate / gate"]),
+    )
+
+    exit_code = main(["--repo", "owner/repo", "--branch", "main"])
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "No changes required." in captured.out
+
+
+def test_main_applies_changes_when_requested(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    monkeypatch.setenv("GITHUB_TOKEN", "token")
+    monkeypatch.setattr(
+        "tools.enforce_gate_branch_protection._build_session",
+        lambda _token: object(),
+    )
+    monkeypatch.setattr(
+        "tools.enforce_gate_branch_protection.fetch_status_checks",
+        lambda *_args, **_kwargs: StatusCheckState(strict=False, contexts=["Legacy"]),
+    )
+
+    captured_payload: dict[str, object] = {}
+
+    def fake_update(
+        _session: object,
+        repo: str,
+        branch: str,
+        *,
+        contexts: list[str],
+        strict: bool,
+    ) -> StatusCheckState:
+        captured_payload.update(
+            {
+                "repo": repo,
+                "branch": branch,
+                "contexts": contexts,
+                "strict": strict,
+            }
+        )
+        return StatusCheckState(strict=True, contexts=contexts)
+
+    monkeypatch.setattr("tools.enforce_gate_branch_protection.update_status_checks", fake_update)
+
+    exit_code = main(["--repo", "owner/repo", "--branch", "main", "--apply"])
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert captured_payload == {
+        "repo": "owner/repo",
+        "branch": "main",
+        "contexts": ["Gate / gate"],
+        "strict": True,
+    }
+    assert "Update successful." in captured.out
+
+
+def test_main_surfaces_branch_protection_errors(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    monkeypatch.setenv("GITHUB_TOKEN", "token")
+    monkeypatch.setattr(
+        "tools.enforce_gate_branch_protection._build_session",
+        lambda _token: object(),
+    )
+
+    def raise_error(*_args: object, **_kwargs: object) -> StatusCheckState:
+        raise BranchProtectionError("boom")
+
+    monkeypatch.setattr("tools.enforce_gate_branch_protection.fetch_status_checks", raise_error)
+
+    exit_code = main(["--repo", "owner/repo", "--branch", "main"])
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "error: boom" in captured.err
