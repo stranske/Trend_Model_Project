@@ -1,291 +1,211 @@
-Make Gate the single required PR check; retire legacy PR workflows
+1) Fix invalid permissions in repo-health-self-check.yml
 
-Labels: workflows, ci, devops, refactor, enhancement, priority: high, status: ready
+Labels: ci, devops, docs
+Rationale: The workflow is currently invalid due to unsupported permissions keys (metadata, administration) and never runs. You can’t get health signals from a dead canary. Evidence: the Actions UI shows “Invalid workflow file” with unknown permission keys for this file. 
+GitHub
 
-Summary
-Adopt the Gate workflow as the sole enforcement point for PRs. It already fans out to Python 3.11, 3.12, and Docker smoke via reusables. Retire PR 10 CI Python and PR 12 Docker Smoke once Gate is wired into branch protection and downstream maintenance is listening to Gate’s completion. 
-GitHub
-+4
-GitHub
-+4
-GitHub
-+4
+Title: Fix invalid permissions and make repo-health-self-check.yml runnable
 
 Acceptance criteria
 
-Branch protection for the default branch requires the job gate from the Gate workflow.
+The workflow .github/workflows/repo-health-self-check.yml validates and appears in the Actions list without the “Invalid workflow file” banner.
 
-PR 10 CI Python and PR 12 Docker Smoke are disabled or removed.
+A manual workflow_dispatch run completes on the default branch and publishes a concise summary in the job’s step summary.
 
-All downstream maintenance automations listen for workflow_run of Gate (not the legacy workflows).
+(Optional) A weekly schedule trigger runs successfully and produces the same summary.
 
-Reusable CI (reusable-ci.yml) and reusable Docker (reusable-docker.yml) are the only build/test entry points. 
-GitHub
-+1
+The workflow requests only the minimum required permissions (no unsupported keys).
 
 Task list
 
- Update branch protection to require the check name: Gate / gate. 
-GitHub
+ Edit .github/workflows/repo-health-self-check.yml:
 
- Update any workflow_run.workflows lists to ["Gate"].
+Replace invalid permission keys with supported ones. Start with:
 
- Disable or delete .github/workflows/pr-10-ci-python.yml and .github/workflows/pr-12-docker-smoke.yml after confirming Gate is green on a few PRs. 
-GitHub
-+1
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+  actions: read
 
- Ensure Gate includes both Python versions and Docker smoke using ./.github/workflows/reusable-ci.yml and ./.github/workflows/reusable-docker.yml. 
-GitHub
-+2
-GitHub
-+2
 
- Document the new required check in CONTRIBUTING.md (short section).
+Keep triggers to workflow_dispatch and, if useful, a light weekly cron.
+
+ Add a “Repo health summary” step that writes a short table to $GITHUB_STEP_SUMMARY.
+
+ Commit to default branch. Manually run once to verify success.
+
+ Add a one-liner in docs/ci/WORKFLOWS.md describing purpose, triggers, and minimum permissions.
 
 Implementation notes
 
-The current Gate file is .github/workflows/pr-gate.yml and already wires 3.11, 3.12, and Docker and produces a final gate job. Leverage this as the single protected check. 
+This job should stay read‑only. If it ever needs to open/label issues, grant issues: write narrowly to that job only.
+
+Keep run time under a minute so it remains cheap, and don’t fail the job for soft signals (log them in the summary instead).
+
+2) Repair reuse-agents.yml invalid syntax (timeout on a uses: job)
+
+Labels: agents, ci, devops
+Rationale: timeout-minutes is set on a job that uses another workflow, which is not allowed. Evidence: the workflow run shows “Unexpected value 'timeout-minutes'” on the call job. 
 GitHub
 
-References: pr-gate.yml, reusable-ci.yml, reusable-docker.yml, pr-10-ci-python.yml, pr-12-docker-smoke.yml. 
-GitHub
-+4
-GitHub
-+4
-GitHub
-+4
-
-2) Consolidate post‑CI maintenance into a single “Maint Post‑CI” workflow and one PR comment
-
-Labels: workflows, devops, ci, enhancement, autofix, priority: high, status: ready
-
-Summary
-Merge the current “Post CI Summary” and “Autofix” flows into one workflow that triggers once per PR on Gate completion. Emit one idempotent PR comment that contains status, coverage, and autofix results. Existing YAML already does most of this; the consolidation is primarily wiring and de‑duplication. 
-GitHub
-+1
+Title: Fix reuse-agents.yml by removing invalid timeout-minutes and pushing timeouts into the reusable workflow
 
 Acceptance criteria
 
-A single workflow (e.g., maint-post-ci.yml) triggers on workflow_run of Gate when the event is a PR.
+.github/workflows/reuse-agents.yml validates; no “Invalid workflow file” annotation in Actions.
 
-Exactly one PR comment is created/updated per run with:
+Timeouts are enforced inside .github/workflows/reusable-70-agents.yml per job instead of at the caller job level.
 
-overall status of required jobs
-
-coverage snippet (and trend if present)
-
-autofix summary if changes applied
-
-Maint 30 Post CI Summary and Maint 32 Autofix are disabled/removed after parity.
-
-Coverage and JSON diagnostics are uploaded once under stable names, e.g. coverage-summary.md, autofix_report.json. 
-GitHub
-+1
+A manual workflow_dispatch of Agents 70 Orchestrator that delegates through reuse-agents completes the orchestration path without YAML errors.
 
 Task list
 
- Create .github/workflows/maint-post-ci.yml with:
+ Remove timeout-minutes from .github/workflows/reuse-agents.yml where the job uses ./.github/workflows/reusable-70-agents.yml.
 
-on: workflow_run: workflows: ["Gate"] types: [completed]
+ Add timeout-minutes: to the long‑running jobs in .github/workflows/reusable-70-agents.yml (e.g., readiness probe, bootstrap, keepalive, watchdog) with sensible bounds (15–30 min).
 
-jobs: summarize, autofix (conditional), failure-tracker (optional)
+ Trigger a workflow_dispatch of Agents 70 Orchestrator to exercise the path and confirm the absence of the prior annotation.
 
- Move logic from maint-30-post-ci-summary.yml into summarize. 
-GitHub
-
- Move logic from maint-32-autofix.yml into autofix. Retain loop guards, safe path caps, and fork patch flow. 
-GitHub
-
- Ensure a single idempotent PR comment is written/updated rather than multiple comments.
-
- Upload artifacts under unified names the rest of the stack expects.
-
- Disable/remove maint-30-post-ci-summary.yml and maint-32-autofix.yml after successful test runs. 
-GitHub
-+1
+ Document the timeout location in docs/ci_reuse.md.
 
 Implementation notes
 
-Maint 30 already collects coverage artifacts, and Maint 32 handles JSON reporting and patch etiquette. Keep those behaviors, just consolidate. 
-GitHub
-+1
+Timeouts on called jobs are the portable way to bound reusable workflows. Keep per‑job timeouts near actual worst‑case plus ~25%.
 
-References: maint-30-post-ci-summary.yml, maint-32-autofix.yml. 
-GitHub
-+1
+3) Retire legacy agent-watchdog.yml in favor of Orchestrator’s watchdog
 
-3) Fix reuse-agents.yml expression bug and fully integrate bootstrap/watchdog; retire separate “Agent watchdog”
+Labels: agents, devops, ci
+Rationale: The agent-watchdog workflow is explicitly marked deprecated in its own YAML and its responsibilities are covered by the orchestrator’s enable_watchdog path. Keeping both invites duplication. Evidence: deprecation note inside the workflow file. 
+GitHub
 
-Labels: agents, workflows, devops, bug, enhancement, priority: medium, status: ready
-
-Summary
-reuse-agents.yml fails when building a JSON array using + inside a GitHub expression. Replace with a format() or emit proper JSON from the producer. Confirm agents-consumer.yml and agents-70-orchestrator.yml flow through the reusable correctly, then retire the standalone “Agent watchdog” workflow once parity is proven. 
-GitHub
-+3
-GitHub
-+3
-GitHub
-+3
+Title: Remove agent-watchdog.yml (redundant with orchestrator enable_watchdog)
 
 Acceptance criteria
 
-reuse-agents.yml successfully bootstraps a PR from a labeled Issue (agent:codex) without expression errors.
+.github/workflows/agent-watchdog.yml is deleted from the repo.
 
-Bootstrap Codex PRs step resolves the first issue via a valid JSON expression.
+Orchestrator job path with enable_watchdog: true continues to function.
 
-Orchestrator and consumer both run clean against the reusable.
-
-“Agent watchdog” functionality lives inside the reusable job; the separate workflow is removed/disabled. 
-GitHub
-+1
+Docs point contributors to use the Orchestrator and do not reference the legacy watchdog.
 
 Task list
 
- Replace fromJSON('[' + steps.ready.outputs.issue_numbers + ']')[0] with either:
+ Delete .github/workflows/agent-watchdog.yml.
 
-fromJSON(format('[{0}]', steps.ready.outputs.issue_numbers))[0], or
+ Confirm Agents 70 Orchestrator still exposes a watchdog path and succeeds.
 
-change “Find Ready Issues” to output a JSON array string and use fromJSON(steps.ready.outputs.issue_numbers)[0]. 
-GitHub
+ Update references in docs/WORKFLOW_GUIDE.md and docs/ci/WORKFLOWS.md to remove mentions of the legacy watchdog.
 
- Run workflow_dispatch with enable_readiness, enable_watchdog, and bootstrap_issues_label=agent:codex to verify end to end. 
-GitHub
-
- Confirm agents-consumer.yml and agents-70-orchestrator.yml call paths and inputs are aligned. 
-GitHub
-+1
-
- Disable or delete the separate “Agent watchdog” workflow after verification. 
-GitHub
+ Close any open Issues that refer to agent-watchdog, or retarget them to the Orchestrator where appropriate.
 
 Implementation notes
 
-Keep all if: comparisons string‑based (== 'true'), because inputs are passed as strings in workflow_call. 
+If you want a watchdog on issue label changes, route those events through the Orchestrator’s workflow_dispatch with inputs rather than maintaining a separate workflow.
+
+4) Decide the fate of agents-consumer.yml and stop the failure churn
+
+Labels: agents, ci-failure, devops
+Rationale: agents-consumer.yml has a long history of failing runs and duplicates responsibilities now covered by the Agents 70 Orchestrator. If it isn’t providing unique value, shut it down or constrain it to manual runs. Evidence: page shows a very high count of failed runs over time. 
 GitHub
 
-References: reuse-agents.yml, agents-consumer.yml, agents-70-orchestrator.yml. 
-GitHub
-+2
-GitHub
-+2
-
-4) Repair repo-health-self-check.yml permissions and make it actionable
-
-Labels: workflows, devops, bug, enhancement, priority: medium, status: ready
-
-Summary
-The repo health workflow is invalid due to unsupported permissions (metadata, administration). Remove those and, if needed, use a PAT for branch‑protection queries. Ensure it posts a concise summary and fails only on true health regressions. 
-GitHub
-+1
+Title: Consolidate or disable agents-consumer.yml to eliminate duplicate, failing automation
 
 Acceptance criteria
 
-repo-health-self-check.yml validates and runs on schedule and workflow_dispatch.
+Either:
 
-No use of unsupported permissions scopes. Error message about “Unexpected value 'metadata'/'administration'” is gone. 
-GitHub
+The consumer workflow is disabled except for workflow_dispatch, or
 
-If a privileged endpoint is required, the step uses secrets.SERVICE_BOT_PAT and clearly logs when PAT isn’t present.
+Its unique functionality is folded into reusable-70-agents.yml and the file is removed.
 
-The workflow produces a brief run summary in the step summary with actionable next steps.
+After the change, there are no scheduled or issue‑event‑triggered agents-consumer runs in the next 48 hours.
+
+Docs reflect the single source of automation truth: the Orchestrator.
 
 Task list
 
- Remove metadata and administration from permissions:. 
-GitHub
+ Inventory what agents-consumer.yml does that Agents 70 Orchestrator does not.
 
- Gate privileged API calls behind if: env.SERVICE_BOT_PAT != '' and use the PAT only in that step.
+ Choose one:
 
- Add a final summary step indicating pass/fail and what to fix.
+ If unique value is negligible: remove schedule/issue triggers so it only runs by workflow_dispatch, or delete the workflow.
+
+ If unique value exists: migrate that logic into .github/workflows/reusable-70-agents.yml, then remove the consumer file.
+
+ Add a concurrency: group for any remaining manual path to avoid re‑trigger storms.
+
+ Update docs/ci/WORKFLOWS.md to describe the final, simplified agent automation path.
+
+ Tag this Issue with ci-failure and close it only after 48 hours of clean Action history.
 
 Implementation notes
 
-Keep the schedule reasonable (daily or weekly). Current runs show repeated failures due to invalid YAML rather than true health checks. 
+If you keep any consumer functionality, give it a clear concurrency: group: agents-consumer-${{ github.ref }} with cancel-in-progress: true.
+
+5) Enforce PR branch protection on the required gate check
+
+Labels: ci, devops, config, docs
+Rationale: The gate workflow is now the canonical PR bouncer, running Python 3.11/3.12 tests plus a Docker smoke. Make it required so merges can’t end‑run quality. The gate is valid and shows the expected jobs in recent runs. 
 GitHub
 
-References: Workflow runs and the invalid permissions annotation. 
-GitHub
-+1
-
-5) Rewire the failure tracker to listen to Gate and avoid duplicate noise
-
-Labels: workflows, devops, ci, enhancement, priority: medium, status: ready
-
-Summary
-Point the failure tracker at workflow_run of Gate and unify its update path with the new consolidated maintenance workflow so PRs don’t get multiple bot comments. 
-GitHub
+Title: Require the gate workflow for merges into the default branch
 
 Acceptance criteria
 
-The failure tracker no longer triggers from PR 10 or PR 12.
+The default branch’s protection rule requires the gate check to pass before merging.
 
-On failures, the single “Maint Post‑CI” workflow updates the tracker Issue and the one PR comment; no other bot comments appear.
+Any legacy “CI” required checks are removed or replaced with gate.
 
-Label ci-failure is applied to the PR when appropriate. 
-GitHub
+A fresh PR shows the gate check as required and blocks merge until passing.
 
 Task list
 
- Update the tracker’s on: workflow_run: workflows: ["Gate"] types: [completed].
+ In repository settings, add or edit the protection rule for the default branch:
 
- Move tracker update logic into the consolidated maint-post-ci.yml pipeline (see Issue #2), leaving only a thin job in the tracker workflow if needed.
+Require status checks to pass: select gate.
 
- Add ci-failure labeling in the consolidated workflow. 
+Enable “Require branches to be up to date” to avoid stale merges.
+
+ Remove any old required check names that no longer exist.
+
+ Update CONTRIBUTING.md to state “Passing the gate check is required to merge.”
+
+Implementation notes
+
+The current gate.yml jobs are named “core tests (3.11)”, “core tests (3.12)”, “docker smoke” and a final “gate” job that summarizes and enforces. Keep those exact names stable so humans know what failed. 
 GitHub
 
-References: Actions list showing “Maint 33 Check Failure Tracker.” 
+6) Update docs to reflect the simplified CI/automation topology
+
+Labels: docs, ci, devops
+Rationale: You’ve converged on a clear topology: PRs go through gate; maintenance runs are consolidated; agent automation is orchestrated. The docs still mention legacy and self‑test variants that confuse contributors. The README already points to several doc files that should be the canonical source. 
 GitHub
 
-6) Disable or restrict self‑test workflows to manual runs only
-
-Labels: workflows, devops, refactor, priority: low, status: ready
-
-Summary
-The repo contains multiple self‑test workflows used to exercise reusable components. Keep them, but limit them to workflow_dispatch (and optional schedules) so they don’t clutter PRs. Examples:
-maint-43-selftest-pr-comment.yml, maint-44-selftest-reusable-ci.yml, maint-48-selftest-reusable-ci.yml, pr-20-selftest-pr-comment.yml, selftest-pr-comment.yml, selftest-reusable-ci.yml. 
-GitHub
+Title: Refresh CI/automation docs to match the final workflow set
 
 Acceptance criteria
 
-None of the listed self‑tests run on pull_request or general push.
+docs/ci/WORKFLOWS.md lists only the active workflows, their triggers, permissions, and required vs optional.
 
-Self‑tests can still be run manually via workflow_dispatch and, if desired, on a low‑frequency schedule.
+docs/WORKFLOW_GUIDE.md and docs/ci_reuse.md show the Orchestrator as the sole entry point for agent automation and do not reference agent-watchdog or unconstrained agents-consumer.
 
-Task list
-
- Remove pull_request triggers from the self‑test YAMLs.
-
- Optionally keep a weekly schedule trigger for drift detection.
-
-References: Actions page listing these workflows. 
-GitHub
-
-7) Document the streamlined workflow topology
-
-Labels: docs, documentation, workflows, priority: low, status: ready
-
-Summary
-Update CONTRIBUTING.md with a short section that shows the new topology:
-PRs run Gate → consolidated Maint Post‑CI handles summary/autofix/tracker; agents orchestrated via agents-70-orchestrator.yml and agents-consumer.yml calling reuse-agents.yml. 
-GitHub
-+2
-GitHub
-+2
-
-Acceptance criteria
-
-CONTRIBUTING.md contains a “CI & Automation” section that:
-
-names the required check (Gate / gate)
-
-explains when the autofix runs and how to opt in/out
-
-explains when agents automations run and which labels trigger bootstrapping
-
-All file paths and workflow names match current repo.
+CONTRIBUTING.md calls out the gate as the required merge check and links to recommended local scripts (style gate, full gate).
 
 Task list
 
- Add/refresh the “CI & Automation” section with links to the YAML files.
+ Remove references to agent-watchdog and deprecated consumer flows.
 
- Note that coverage and status are summarized in a single PR comment.
+ Add a small diagram or table for the gate pipeline and summarize failure reporting (step summary, links).
+
+ Document how to manually trigger the Orchestrator via workflow_dispatch with typical inputs.
+
+ Add a “troubleshooting” slice for agent bootstrap and readiness signals.
+
+Implementation notes
+
+Keep doc examples stable with current job names and inputs so newcomers recognize what they see in the Actions UI.
+
+Optional low‑effort, high‑value polish (skip if you’re done with this topic)
+
+Lightweight failure rollup: a single “CI failures in last 24h” issue that’s updated in place by the repo-health job instead of emitting many comments. Label it ci-failure so it’s easy to find.
