@@ -20,6 +20,10 @@ class BranchProtectionError(RuntimeError):
     """Raised when the GitHub API reports an unrecoverable error."""
 
 
+class BranchProtectionMissingError(BranchProtectionError):
+    """Raised when no branch protection rule is configured."""
+
+
 @dataclass
 class HttpResponse:
     status_code: int
@@ -51,6 +55,10 @@ class _SessionProtocol(Protocol):
     ) -> _ResponseProtocol: ...
 
     def patch(
+        self, url: str, *, json: dict[str, object], timeout: float | None = None
+    ) -> _ResponseProtocol: ...
+
+    def put(
         self, url: str, *, json: dict[str, object], timeout: float | None = None
     ) -> _ResponseProtocol: ...
 
@@ -113,6 +121,11 @@ class BranchProtectionSession:
     ) -> HttpResponse:
         return self._request("PATCH", url, payload=json, timeout=timeout)
 
+    def put(
+        self, url: str, *, json: dict[str, object], timeout: float | None = None
+    ) -> HttpResponse:
+        return self._request("PUT", url, payload=json, timeout=timeout)
+
 
 @dataclass
 class StatusCheckState:
@@ -135,13 +148,17 @@ def _status_checks_url(repo: str, branch: str) -> str:
     )
 
 
+def _protection_url(repo: str, branch: str) -> str:
+    return f"{API_ROOT}/repos/{repo}/branches/{branch}/protection"
+
+
 def fetch_status_checks(
     session: _SessionProtocol, repo: str, branch: str
 ) -> StatusCheckState:
     response = session.get(_status_checks_url(repo, branch), timeout=30)
     if response.status_code == 404:
-        raise BranchProtectionError(
-            "Required status checks are not enabled for this branch. Configure the base protection rule first."
+        raise BranchProtectionMissingError(
+            "Required status checks are not enabled for this branch."
         )
     if response.status_code >= 400:
         raise BranchProtectionError(
@@ -165,6 +182,48 @@ def update_status_checks(
             f"Failed to update status checks for {branch}: {response.status_code} {response.text}"
         )
     return StatusCheckState.from_api(response.json())
+
+
+def bootstrap_branch_protection(
+    session: _SessionProtocol,
+    repo: str,
+    branch: str,
+    *,
+    contexts: Sequence[str],
+    strict: bool,
+) -> StatusCheckState:
+    payload = {
+        "required_status_checks": {
+            "strict": strict,
+            "contexts": sorted(contexts),
+        },
+        "enforce_admins": False,
+        "required_pull_request_reviews": None,
+        "restrictions": None,
+    }
+    response = session.put(_protection_url(repo, branch), json=payload, timeout=30)
+    if response.status_code >= 400:
+        raise BranchProtectionError(
+            f"Failed to bootstrap branch protection for {branch}: {response.status_code} {response.text}"
+        )
+
+    data = response.json()
+    checks = data.get("required_status_checks") if isinstance(data, dict) else {}
+    contexts_payload: Sequence[str] = []
+    if isinstance(checks, dict):
+        contexts_payload = checks.get("contexts") or []
+        if not contexts_payload and checks.get("checks"):
+            contexts_payload = [
+                check.get("context")
+                for check in checks["checks"]
+                if isinstance(check, dict) and check.get("context")
+            ]
+        strict_value = checks.get("strict", strict)
+    else:
+        strict_value = strict
+
+    parsed_contexts = normalise_contexts(contexts_payload or list(contexts))
+    return StatusCheckState(strict=bool(strict_value), contexts=parsed_contexts)
 
 
 def parse_contexts(values: Iterable[str] | None) -> List[str]:
@@ -256,7 +315,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         token = require_token()
         session = _build_session(token)
-        current_state = fetch_status_checks(session, args.repo, args.branch)
+        missing_protection = False
+        try:
+            current_state = fetch_status_checks(session, args.repo, args.branch)
+        except BranchProtectionMissingError:
+            missing_protection = True
+            current_state = StatusCheckState(strict=False, contexts=[])
     except BranchProtectionError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -288,22 +352,36 @@ def main(argv: Sequence[str] | None = None) -> int:
                 print(f"Would remove contexts: {format_contexts(to_remove)}")
             if strict_change:
                 print("Would enable 'require branches to be up to date'.")
+            if missing_protection:
+                print("Would create branch protection with the desired settings.")
             print("Re-run with --apply to enforce the configuration.")
         return 0
 
     try:
-        updated_state = update_status_checks(
-            session,
-            args.repo,
-            args.branch,
-            contexts=target_contexts,
-            strict=True,
-        )
+        if missing_protection:
+            updated_state = bootstrap_branch_protection(
+                session,
+                args.repo,
+                args.branch,
+                contexts=target_contexts,
+                strict=True,
+            )
+        else:
+            updated_state = update_status_checks(
+                session,
+                args.repo,
+                args.branch,
+                contexts=target_contexts,
+                strict=True,
+            )
     except BranchProtectionError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
-    print("Update successful.")
+    if missing_protection:
+        print("Created branch protection rule.")
+    else:
+        print("Update successful.")
     print(f"New contexts: {format_contexts(updated_state.contexts)}")
     print(f"'Require up to date' enabled: {updated_state.strict}")
     return 0
