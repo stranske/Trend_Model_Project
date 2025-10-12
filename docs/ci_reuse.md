@@ -59,6 +59,11 @@ jobs:
 The caller may also pass `options_json` (in the orchestration workflow) to layer additional toggles without exceeding GitHub's
 input limit.
 
+Timeouts live inside the reusable workflow so the wrapper job (`reuse-agents.yml`) avoids invalid syntax. Each automation path
+has a bound sized to its typical runtime plus roughly 25 percent headroom: readiness (15 min), preflight (15 min), diagnostic
+bootstrap (20 min), Codex bootstrap orchestration (30 min), keepalive sweeps (25 min), and the lightweight watchdog sanity check
+(20 min).
+
 ## 5. Self-Test Matrix (`reusable-99-selftest.yml`)
 Exposes the matrix that validates the reusable CI executor across feature combinations (coverage delta, soft gate, metrics, history, classification). It now declares only manual (`workflow_dispatch`) and low-frequency schedule triggers (weekly Mondays at 06:00 UTC) so maintainers can run ad-hoc verification without PR noise. `maint-90-selftest.yml` remains the lightweight wrapper preserved in `Old/workflows/` for historical reference.
 
