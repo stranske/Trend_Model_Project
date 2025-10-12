@@ -89,6 +89,8 @@ permissions:
 
 jobs:
   call:
+    # Timeouts must live inside the reusable workflow; GitHub rejects timeout-minutes
+    # on jobs that use other workflows. See docs/ci_reuse.md for the per-job limits.
     uses: ./.github/workflows/reusable-70-agents.yml
     secrets: inherit
     with:
