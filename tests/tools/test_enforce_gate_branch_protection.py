@@ -144,6 +144,38 @@ def test_bootstrap_branch_protection_creates_rule() -> None:
     assert state == StatusCheckState(strict=True, contexts=["Gate / gate"])
 
 
+def test_bootstrap_branch_protection_parses_checks_payload() -> None:
+    response = DummyResponse(
+        200,
+        {
+            "required_status_checks": {
+                "strict": True,
+                "checks": [
+                    {"context": "Extra"},
+                    {"context": "Gate / gate"},
+                ],
+            }
+        },
+    )
+    session = DummySession(response)
+
+    state = bootstrap_branch_protection(
+        session,
+        "owner/repo",
+        "main",
+        contexts=["Gate / gate"],
+        strict=True,
+    )
+
+    assert session.last_put_payload == {
+        "required_status_checks": {"strict": True, "contexts": ["Gate / gate"]},
+        "enforce_admins": False,
+        "required_pull_request_reviews": None,
+        "restrictions": None,
+    }
+    assert state == StatusCheckState(strict=True, contexts=["Extra", "Gate / gate"])
+
+
 def test_main_reports_no_changes_in_dry_run(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
