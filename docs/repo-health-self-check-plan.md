@@ -1,28 +1,22 @@
 # Repo Health Workflow Remediation Plan
 
 ## Scope and Key Constraints
-- Update `.github/workflows/repo-health-self-check.yml` so it validates under GitHub Actions, supports both `workflow_dispatch` and scheduled runs, and focuses strictly on repository health checks.
-- Remove unsupported permission scopes (`metadata`, `administration`) and avoid introducing any other disallowed scopes; rely on default minimal permissions unless elevated access is essential for a specific API call.
-- When privileged endpoints are required, use `secrets.SERVICE_BOT_PAT` without persisting it beyond the needed step, and ensure the workflow remains functional when the PAT is absent (read-only mode).
-- Maintain the existing workflow cadence (at least daily or weekly) and keep runtime lightweight so it can run within standard GitHub-hosted runner limits.
-- Provide actionable outputs via the job summary while avoiding noisy failures; the job should fail only on genuine health regressions rather than configuration issues.
+- Repair `.github/workflows/repo-health-self-check.yml` so the workflow validates, appears in the Actions list, and can be executed on demand.
+- Keep the job read-only: rely on the built-in `contents`, `issues`, `pull-requests`, and `actions` read scopes and avoid introducing broader permissions or repository secrets.
+- Preserve the existing triggers (`workflow_dispatch` plus an optional low-frequency schedule) while keeping total runtime under a minute on a GitHub-hosted runner.
+- Produce a concise summary table in the step summary instead of failing the workflow for soft signals; only hard configuration or execution errors should mark the run as failed.
 
 ## Acceptance Criteria / Definition of Done
-- The workflow passes `act`/`workflow` validation and executes successfully via both the scheduled trigger and `workflow_dispatch`.
-- Permissions configuration excludes unsupported scopes and aligns with GitHub Actions defaults; validation warnings about `metadata` or `administration` no longer appear.
-- Steps that call privileged endpoints are wrapped in a condition that checks for the presence of `secrets.SERVICE_BOT_PAT`; those steps log a clear message when the secret is missing and gracefully skip privileged checks.
-- The workflow emits a concise summary using the GitHub Actions step summary API, highlighting pass/fail status and pointing to any required remediation tasks.
-- Automated health checks surface actionable failure reasons, and successful runs confirm repository health without raising false alarms.
+- The workflow definition passes GitHub validation, is no longer flagged as “Invalid workflow file,” and is visible in the Actions UI.
+- A manual `workflow_dispatch` run completes on the default branch without permission errors and emits the repo health summary to `$GITHUB_STEP_SUMMARY`.
+- (Optional) The scheduled trigger executes successfully and generates the same summary output.
+- The permissions block requests only the minimum supported scopes required for read-only inspections.
+- Supporting documentation in `docs/ci/WORKFLOWS.md` covers the workflow’s purpose, triggers, and permissions at a glance.
 
 ## Initial Task Checklist
-- [x] Audit the existing `repo-health-self-check.yml` to document current jobs, steps, and failing permissions.
-- [x] Remove unsupported permission scopes and confirm remaining permissions satisfy required API calls.
-- [x] Isolate any step that needs elevated permissions; gate it behind an `if: env.SERVICE_BOT_PAT != ''` (or equivalent) check and wire the PAT through environment variables only within that step.
-- [x] Add logging that distinguishes between “PAT missing, skipped privileged checks” and actual errors to aid diagnostics.
-- [x] Implement or update a final step that writes an actionable summary to `$GITHUB_STEP_SUMMARY`, covering overall status and follow-up actions.
-- [ ] Run the workflow via `workflow_dispatch` (and optionally `act`) to ensure it completes without permission errors and fails correctly on simulated regressions.
-- [x] Document any remaining follow-up work or open questions needed for full rollout.
-
-## Follow-up Notes
-- `SERVICE_BOT_PAT` remains optional; when unset the workflow records a skipped branch-protection probe and guides maintainers to add the secret for full coverage.
-- Hands-on validation via `workflow_dispatch`/`act` is still outstanding because the automation environment does not have GitHub token access; perform a dry-run in the repository once credentials are available.
+- [ ] Review the current workflow to catalog unsupported permission keys, disabled triggers, and health checks that should be preserved.
+- [ ] Replace invalid permission entries with supported read-only scopes and confirm every step runs without elevated access.
+- [ ] Reconfirm the trigger configuration (`workflow_dispatch` and optional weekly cron) and ensure the job name/description make the workflow easy to discover.
+- [ ] Add or refine steps that gather repository health signals and write a markdown table to `$GITHUB_STEP_SUMMARY` summarising the findings.
+- [ ] Smoke-test the workflow via `workflow_dispatch` on a branch copy, then on the default branch after merging, capturing screenshots or logs for validation notes.
+- [ ] Update `docs/ci/WORKFLOWS.md` with a one-line entry describing the workflow’s goal, triggers, and minimal permission set.
