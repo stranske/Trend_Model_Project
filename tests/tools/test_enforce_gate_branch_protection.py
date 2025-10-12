@@ -370,13 +370,15 @@ def test_main_check_mode_detects_drift(
         lambda *_args, **_kwargs: StatusCheckState(strict=False, contexts=["Legacy"]),
     )
 
-    exit_code = main([
-        "--repo",
-        "owner/repo",
-        "--branch",
-        "main",
-        "--check",
-    ])
+    exit_code = main(
+        [
+            "--repo",
+            "owner/repo",
+            "--branch",
+            "main",
+            "--check",
+        ]
+    )
 
     captured = capsys.readouterr()
     assert exit_code == 1
@@ -398,13 +400,15 @@ def test_main_check_mode_succeeds_when_clean(
         ),
     )
 
-    exit_code = main([
-        "--repo",
-        "owner/repo",
-        "--branch",
-        "main",
-        "--check",
-    ])
+    exit_code = main(
+        [
+            "--repo",
+            "owner/repo",
+            "--branch",
+            "main",
+            "--check",
+        ]
+    )
 
     captured = capsys.readouterr()
     assert exit_code == 0
