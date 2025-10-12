@@ -40,7 +40,7 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 - **`cosmetic-repair.yml`** — Manual dispatch utility that runs `pytest -q`, applies guard-gated cosmetic fixes via `scripts/ci_cosmetic_repair.py`, and opens a labelled PR when changes exist.
 
 ### Agents
-- **`agents-70-orchestrator.yml`** — Hourly + manual dispatch entry point for readiness, Codex bootstrap, diagnostics, and keepalive sweeps. Delegates to `reusable-70-agents.yml` and accepts extended options via `options_json`. Legacy wrappers such as `agents-consumer.yml`, `agents-watchdog.yml`, and unconstrained consumer flows have been removed.
+- **`agents-70-orchestrator.yml`** — Hourly + manual dispatch entry point for readiness, Codex bootstrap, diagnostics, and keepalive sweeps. Delegates to `reusable-70-agents.yml` and accepts extended options via `options_json`. All prior consumer-style wrappers have been retired.
 
 ### Reusable Composites
 - **`reusable-ci.yml`** — Python lint/type/test reusable invoked by Gate and any downstream repositories.

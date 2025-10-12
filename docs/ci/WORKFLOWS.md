@@ -14,9 +14,8 @@ agent automation (readiness sweeps, Codex bootstrap, diagnostics).
 | **Autofix** | `.github/workflows/autofix.yml` | Lightweight formatting/type hygiene runner that auto-commits fixes for same-repo PRs or uploads a patch for forks. | `pull_request` (including label changes). | `contents: write`, `pull-requests: write`; inherits repository secrets but does not require extra PATs. | <ul><li>**Status checks:** top-level `apply` job delegating to the `autofix` composite.</li><li>**Labels:** `autofix`, `autofix:applied`/`autofix:patch`, mutually exclusive `autofix:clean` vs `autofix:debt`.</li></ul> |
 | **Repo Health (Maint 02)** | `.github/workflows/maint-02-repo-health.yml` | Weekly sweep that summarises stale branches and unassigned issues in the run summary. | Monday cron (`15 7 * * 1`) plus `workflow_dispatch`. | `contents: read`, `issues: read`; no secrets required. | <ul><li>**Status checks:** `Weekly repository health sweep`.</li><li>**Labels:** _none_.</li></ul> |
 | **Maint 35 Repo Health Self Check** | `.github/workflows/maint-35-repo-health-self-check.yml` | Read-only repository health probe that reports label coverage and branch-protection visibility via the step summary. | Weekly cron (`20 6 * * 1`) and `workflow_dispatch`. | `contents: read`, `issues: read`, `pull-requests: read`, `actions: read`. | <ul><li>**Status checks:** none – informational summary only.</li><li>**Labels:** _none_.</li></ul> |
-| **Agents Consumer** | `.github/workflows/agents-consumer.yml` | Legacy dispatcher that runs readiness/watchdog sweeps directly, optionally layering Codex preflight and bootstrap jobs. | Manual (`workflow_dispatch`) only; hourly cron retired. | `contents`, `pull-requests`, `issues`: `write`; optional `service_bot_pat` forwarded to downstream jobs. | <ul><li>**Status checks:** `Resolve Parameters`, `Dispatch Agents Toolkit` plus any delegated runs (e.g., readiness, watchdog, preflight, bootstrap).</li><li>**Labels:** Bootstrap runs add `agent:codex` to spawned PRs.</li></ul> |
-| **Agents 70 Orchestrator** | `.github/workflows/agents-70-orchestrator.yml` | Scheduled/manual dispatcher that forwards agent automation requests (readiness, bootstrap, watchdog, keepalive) to the reusable toolkit. | 20-minute cron (`*/20 * * * *`) and `workflow_dispatch`. | `contents`, `pull-requests`, `issues`: `write`; optional `service_bot_pat` forwarded to downstream jobs. | <ul><li>**Status checks:** `Dispatch Agents Toolkit` plus any delegated runs (e.g., `Agent Readiness Probe`, `Codex Preflight`, `Bootstrap Codex PRs`, `Codex Keepalive Sweep`, `Agent Watchdog`).</li><li>**Labels:** Bootstrap runs add `agent:codex` to spawned PRs.</li></ul> |
-| **Reuse Agents** | `.github/workflows/reuse-agents.yml` | Workflow-call wrapper so other repositories or orchestrators can invoke the agents toolkit with consistent inputs. | `workflow_call` only. | Same as Agents Consumer (`contents`, `pull-requests`, `issues`: `write`) and can accept a `service_bot_pat` secret for Codex bootstrap. | <ul><li>**Status checks:** Top-level `call` job plus the same delegated checks from `Reusable 70 Agents` (readiness, preflight, bootstrap, watchdog, keepalive) when requested.</li><li>**Labels:** Mirrors `codex-bootstrap-lite` (e.g., `agent:codex` for created PRs).</li></ul> |
+| **Agents 70 Orchestrator** | `.github/workflows/agents-70-orchestrator.yml` | Scheduled/manual dispatcher that forwards agent automation requests (readiness, bootstrap, diagnostics, keepalive) to the reusable toolkit. | 20-minute cron (`*/20 * * * *`) and `workflow_dispatch`. | `contents`, `pull-requests`, `issues`: `write`; optional `service_bot_pat` forwarded to downstream jobs. | <ul><li>**Status checks:** `Dispatch Agents Toolkit` plus any delegated runs (e.g., `Agent Readiness Probe`, `Codex Preflight`, `Bootstrap Codex PRs`, `Codex Keepalive Sweep`).</li><li>**Labels:** Bootstrap runs add `agent:codex` to spawned PRs.</li></ul> |
+| **Reuse Agents** | `.github/workflows/reuse-agents.yml` | Workflow-call wrapper so other repositories or orchestrators can invoke the agents toolkit with consistent inputs. | `workflow_call` only. | `contents`, `pull-requests`, `issues`: `write`; can accept a `service_bot_pat` secret for Codex bootstrap. | <ul><li>**Status checks:** Top-level `call` job plus the same delegated checks from `Reusable 70 Agents` (readiness, preflight, bootstrap, keepalive) when requested.</li><li>**Labels:** Mirrors `codex-bootstrap-lite` (e.g., `agent:codex` for created PRs).</li></ul> |
 
 ## Naming Policy & Number Ranges
 
@@ -65,7 +64,7 @@ These jobs must stay green for PRs to merge. The post-CI maintenance jobs below 
 
 ### Agent automation entry points
 
-`agents-70-orchestrator.yml` (`Agents 70 Orchestrator`) is the **sole** entry point for automation. Hourly cron and manual dispatch both call the reusable agents toolkit to perform readiness probes, Codex bootstrap, diagnostics, and keepalive sweeps. Legacy wrappers (e.g., `agents-consumer.yml`, agent watchdog flows, unconstrained consumers) have been removed.
+`agents-70-orchestrator.yml` (`Agents 70 Orchestrator`) is the **sole** entry point for automation. Hourly cron and manual dispatch both call the reusable agents toolkit to perform readiness probes, Codex bootstrap, diagnostics, and keepalive sweeps. Legacy wrappers have been removed.
 
 **Operational details**
 - Provide required write scopes via the default `GITHUB_TOKEN`. Supply `service_bot_pat` when bootstrap jobs must push branches or leave comments.
@@ -113,7 +112,7 @@ Escalate persistent failures by linking the failing run URL in the CI failure-tr
 **Post-change monitoring.** When agent workflows change:
 
 - Tag the source issue with `ci-failure` so it stays visible during the observation window.
-- Coordinate a 48-hour watch to confirm no scheduled or issue-triggered `agents-consumer` runs fire (manual dispatch is the only allowed path).
+- Coordinate a 48-hour watch to confirm no scheduled or issue-triggered legacy consumer runs fire (manual dispatch is the only allowed path).
 - Capture a brief note or screenshot of the clean Actions history before removing the tag and closing the issue.
 
 Manual-only status means maintainers should review the Actions list during that window to ensure the retired cron trigger stays inactive.
@@ -123,14 +122,14 @@ Manual-only status means maintainers should review the Actions list during that 
 | Workflow | Consumed by | Notes |
 |----------|-------------|-------|
 | `reuse-agents.yml` (`Reuse Agents`) | `agents-70-orchestrator.yml`, downstream repositories | Bridges dispatch inputs to the reusable toolkit while preserving defaults.
-| `reusable-70-agents.yml` (`Reusable 70 Agents`) | `agents-70-orchestrator.yml`, `reuse-agents.yml` | Implements readiness, bootstrap, diagnostics, and watchdog jobs.
+| `reusable-70-agents.yml` (`Reusable 70 Agents`) | `agents-70-orchestrator.yml`, `reuse-agents.yml` | Implements readiness, bootstrap, diagnostics, and keepalive jobs.
 | `reusable-92-autofix.yml` (`Reusable 92 Autofix`) | `maint-post-ci.yml`, `autofix.yml` | Autofix harness used both by the PR-time autofix workflow and the post-CI maintenance listener.
 | `reusable-99-selftest.yml` (`Reusable 99 Selftest`) | `maint-` self-test orchestration | Scenario matrix that validates the reusable CI executor and artifact inventory.
 | `reusable-ci.yml` (`Reusable CI`) | Gate, downstream repositories | Single source for Python lint/type/test coverage runs.
 | `reusable-docker.yml` (`Reusable Docker Smoke`) | Gate, downstream repositories | Docker build + smoke reusable consumed by Gate and external callers.
 
 **Operational details**
-- **Reuse Agents** – Permissions: `contents: write`, `pull-requests: write`, `issues: write`. Secrets: optional `service_bot_pat` (forwarded to `reusable-70-agents`) plus `GITHUB_TOKEN`. Outputs: single `call` job exposes reusable outputs such as `triggered` keepalive list and watchdog diagnostics for upstream orchestrators.
+- **Reuse Agents** – Permissions: `contents: write`, `pull-requests: write`, `issues: write`. Secrets: optional `service_bot_pat` (forwarded to `reusable-70-agents`) plus `GITHUB_TOKEN`. Outputs: single `call` job exposes reusable outputs such as `triggered` keepalive lists and orchestrator diagnostics for upstream callers.
 
 ### Archived self-test workflows
 
