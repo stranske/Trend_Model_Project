@@ -23,8 +23,6 @@ jobs:
           REQUIRED_LABELS: agent:codex,agent:copilot,automerge,risk:low,codex-ready
         with:
           script: |
-            const core = require('@actions/core');
-
             const { owner, repo } = context.repo;
             const requiredLabels = (process.env.REQUIRED_LABELS || '')
               .split(',')
