@@ -36,7 +36,7 @@ Use the matrix below as the authoritative roster of active workflows. Each row c
 | **Reusable 92 Autofix** | `.github/workflows/reusable-92-autofix.yml` | `workflow_call` | `contents: write`, `pull-requests: write` | No | Autofix harness shared by `autofix.yml` and `maint-post-ci.yml`. |
 | **Reusable 70 Agents** | `.github/workflows/reusable-70-agents.yml` | `workflow_call` | `contents: write`, `pull-requests: write`, `issues: write`; optional `service_bot_pat` | No | Implements readiness, bootstrap, diagnostics, and keepalive jobs for orchestrator callers. |
 | **Reusable 71 Agents Dispatch** | `.github/workflows/reusable-71-agents-dispatch.yml` | `workflow_call` | `contents: write`, `pull-requests: write`, `issues: write`; optional `service_bot_pat` | No | Fan-out dispatcher that selects the appropriate toolkit run list for numbered orchestrators and manual consumers. |
-| **Reusable 99 Selftest** | `.github/workflows/reusable-99-selftest.yml` | `workflow_call` | `contents: read` | No | Scenario matrix validating the reusable CI executor. |
+| **Selftest 81 Reusable CI** | `.github/workflows/selftest-81-reusable-ci.yml` | `workflow_dispatch` | `contents: read`, `actions: read` | No | Manual self-test that exercises the reusable CI matrix and must be dispatched explicitly. |
 
 ## Naming Policy & Number Ranges
 
@@ -191,12 +191,19 @@ Manual-only status means maintainers should review the Actions list during that 
 | `reusable-71-agents-dispatch.yml` (`Reuse Agents`) | `agents-70-orchestrator.yml`, downstream repositories | Bridges dispatch inputs to the reusable toolkit while preserving defaults.
 | `reusable-70-agents.yml` (`Reusable 70 Agents`) | `agents-70-orchestrator.yml`, `reusable-71-agents-dispatch.yml` | Implements readiness, bootstrap, diagnostics, and watchdog jobs.
 | `reusable-92-autofix.yml` (`Reusable 92 Autofix`) | `maint-30-post-ci.yml`, `autofix.yml` | Autofix harness used both by the PR-time autofix workflow and the post-CI maintenance listener.
-| `reusable-99-selftest.yml` (`Reusable 99 Selftest`) | `maint-` self-test orchestration | Scenario matrix that validates the reusable CI executor and artifact inventory.
 | `reusable-10-ci-python.yml` (`Reusable CI`) | Gate, downstream repositories | Single source for Python lint/type/test coverage runs.
 | `reusable-12-ci-docker.yml` (`Reusable Docker Smoke`) | Gate, downstream repositories | Docker build + smoke reusable consumed by Gate and external callers.
 
 **Operational details**
 - **Reuse Agents** – Permissions: `contents: write`, `pull-requests: write`, `issues: write`. Secrets: optional `service_bot_pat` (forwarded to `reusable-70-agents`) plus `GITHUB_TOKEN`. Outputs: single `call` job exposes reusable outputs such as `triggered` keepalive lists and orchestrator diagnostics for upstream callers.
+
+### Manual self-test examples
+
+| Workflow | Notes |
+|----------|-------|
+| `selftest-81-reusable-ci.yml` (`Selftest 81 Reusable CI`) | Manual-only dispatch that runs the reusable CI matrix across the documented feature toggles and uploads verification summaries/artifacts for humans to inspect. |
+
+> Self-test workflows are intended as reference exercises for maintainers. They are quiet by default—run them via `workflow_dispatch` when you need a fresh artifact inventory check or to validate reusable CI changes, and expect no automated runs in Actions history.
 
 ### Archived self-test workflows
 
