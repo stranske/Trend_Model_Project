@@ -22,16 +22,18 @@ post-processing workflow:
   [`maint-post-ci.yml`](.github/workflows/maint-post-ci.yml) workflow
   posts a single PR summary comment (Gate status + coverage), attempts
   the same autofix sweep using the composite action, and files tracker
-  issues when hygiene regressions persist. Treat that consolidated
-  comment as the canonical health dashboard; rerun Gate or Maint
-  Post-CI if you need the summary refreshed.
-- **Agent automation** – Scheduled (cron) and on-demand dispatchers
-  ([`agents-70-orchestrator.yml`](.github/workflows/agents-70-orchestrator.yml)
-  and [`agents-consumer.yml`](.github/workflows/agents-consumer.yml))
-  invoke [`reuse-agents.yml`](.github/workflows/reuse-agents.yml) to run
-  readiness checks, watchdogs, and Codex bootstrapping. Applying the
-  `agent:codex` label flags an issue for bootstrap handling in the next
-  run; remove the label to opt out before the dispatcher cycles.
+  issues when hygiene regressions persist. It also updates the rolling
+  "CI failures in last 24 h" issue labelled `ci-failure` so the current
+  breakages stay easy to find. Treat that consolidated comment and
+  issue as the canonical health dashboards; rerun Gate or Maint Post-CI
+  if you need either refreshed.
+- **Agent automation** – The
+  [`agents-70-orchestrator.yml`](.github/workflows/agents-70-orchestrator.yml)
+  workflow is the single dispatch point for scheduled Codex automation and the
+  preferred manual entry path. It invokes the reusable agents toolkit to run
+  readiness checks, diagnostics, keepalive sweeps, and Codex bootstrapping.
+  Applying the `agent:codex` label flags an issue for bootstrap handling in the
+  next run; remove the label to opt out before the dispatcher cycles.
 
 ## Quick Checklist (Before Every Push)
 
@@ -43,11 +45,15 @@ post-processing workflow:
    ```bash
    ./scripts/style_gate_local.sh
    ```
+   See [`scripts/style_gate_local.sh`](scripts/style_gate_local.sh) for the
+   full sequence that mirrors the Gate style lane.
 3. Optional combined quality gate:
    ```bash
    ./scripts/quality_gate.sh          # style + fast validate
    ./scripts/quality_gate.sh --full   # adds comprehensive branch checks
    ```
+   The [`--full` quality gate](scripts/quality_gate.sh) matches the Gate
+   workflow fan-out.
 4. (First time) Install pre-push hook:
    ```bash
    ./scripts/install_pre_push_style_gate.sh

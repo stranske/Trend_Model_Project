@@ -1,16 +1,15 @@
 # Reusable CI & Automation Workflows
 
-Issue #2190 leaves five reusable GitHub Actions workflows in this repository. They provide CI, autofix, and agent automation
-building blocks that thin wrappers (or downstream repositories) can consume.
+Issues #2190 and #2466 leave five reusable GitHub Actions workflows in this repository. They provide CI, autofix, and agent
+automation building blocks that thin wrappers (or downstream repositories) can consume.
 
 | Reusable Workflow | File | Purpose |
 | ------------------ | ---- | ------- |
-| Reusable CI | `.github/workflows/reusable-ci.yml` | Primary Python quality gate (lint, types, pytest, coverage). Used by Gate for Python 3.11/3.12.
-| Python CI (legacy matrix) | `.github/workflows/reusable-90-ci-python.yml` | Matrix executor with optional coverage/metrics toggles retained for downstream callers.
-| Legacy Python CI | `.github/workflows/reusable-94-legacy-ci-python.yml` | Compatibility contract for consumers still on the pre-WFv1 interface.
-| Autofix | `.github/workflows/reusable-92-autofix.yml` | Formatting / lint autofix harness used by `maint-32-autofix.yml`.
-| Agents Toolkit | `.github/workflows/reusable-70-agents.yml` | Readiness, Codex bootstrap, verification, and watchdog routines.
-| Self-Test Matrix | `.github/workflows/reusable-99-selftest.yml` | Exercises the reusable CI executor across feature combinations.
+| Reusable CI | `.github/workflows/reusable-ci.yml` | Primary Python quality gate (lint, types, pytest, coverage). Used by Gate for Python 3.11/3.12. |
+| Reusable Docker Smoke | `.github/workflows/reusable-docker.yml` | Docker build + smoke reusable consumed by Gate and external callers. |
+| Autofix | `.github/workflows/reusable-92-autofix.yml` | Formatting / lint autofix harness used by `autofix.yml` and `maint-post-ci.yml`. |
+| Agents Toolkit | `.github/workflows/reusable-70-agents.yml` | Readiness, Codex bootstrap, diagnostics, and keepalive routines orchestrated exclusively by `agents-70-orchestrator.yml`. |
+| Self-Test Matrix | `.github/workflows/reusable-99-selftest.yml` | Exercises the reusable CI executor across feature combinations. |
 
 ## 1. Reusable CI (`reusable-ci.yml`)
 Consumer example (excerpt from `pr-gate.yml`):
@@ -28,20 +27,19 @@ jobs:
 Key inputs include the Python version and optional pytest marker expression. The reusable job installs dependencies, runs Ruff,
 Mypy, and pytest with coverage, then uploads artifacts under the `coverage-<python>` naming convention.
 
-## 2. Python CI (Legacy Matrix) (`reusable-90-ci-python.yml`)
-Retained for downstream repositories that still depend on the Issue #2190 interface. Inputs expose matrix execution,
-coverage/metrics toggles, and optional history tracking. Gate no longer calls this workflow directly but downstream consumers may
-continue to do so until they migrate to `reusable-ci.yml`.
+## 2. Reusable Docker Smoke (`reusable-docker.yml`)
+Provides a consistent Docker build + smoke test routine. Gate chains this job after Python CI; downstream repositories can reuse
+it to validate Dockerfiles with the same cache settings and timeout thresholds.
 
 ## 3. Autofix (`reusable-92-autofix.yml`)
-Used by `maint-32-autofix.yml` to apply hygiene fixes once CI succeeds. Inputs gate behaviour behind opt-in labels and allow
-custom commit prefixes. The composite enforces size/path heuristics before pushing changes with `SERVICE_BOT_PAT`.
+Used by `autofix.yml` and `maint-post-ci.yml` to apply hygiene fixes once CI succeeds. Inputs gate behaviour behind opt-in labels
+and allow custom commit prefixes. The composite enforces size/path heuristics before pushing changes with `SERVICE_BOT_PAT`.
 
 ## 4. Agents Toolkit (`reusable-70-agents.yml`)
-Exposes the agent automation stack as a reusable component. Inputs include readiness toggles, optional Codex preflight, issue
-verification, watchdog control, and convenience flags such as `readiness_custom_logins`.
+Exposes the agent automation stack as a reusable component. Inputs include readiness toggles, optional Codex preflight,
+bootstrap settings, diagnostics, and convenience flags such as `readiness_custom_logins`.
 
-Example consumer snippet:
+Example consumer snippet (`agents-70-orchestrator.yml`):
 
 ```yaml
 jobs:
@@ -52,15 +50,15 @@ jobs:
       readiness_agents: 'copilot,codex'
       require_all: 'true'
       enable_preflight: 'true'
-      enable_watchdog: 'true'
-      draft_pr: 'false'
+      enable_bootstrap: 'true'
+      bootstrap_issues_label: 'agent:codex'
 ```
 
-The caller may also pass `options_json` (in the orchestration workflow) to layer additional toggles without exceeding GitHub's
-input limit.
+The caller may also pass `options_json` to layer additional toggles without exceeding GitHub's input limit. `agents-70-orchestrator.yml`
+is the only supported wrapper inside this repository; downstream consumers should call the reusable workflow directly.
 
-Timeouts live inside the reusable workflow so the wrapper job (`reuse-agents.yml`) avoids invalid syntax. Each automation path
-has a bound sized to its typical runtime plus roughly 25 percent headroom.
+Timeouts live inside the reusable workflow so the orchestrator avoids invalid syntax. Each automation path has a bound sized to
+its typical runtime plus roughly 25 percent headroom.
 
 | Job | Timeout |
 | --- | ------- |
@@ -69,14 +67,16 @@ has a bound sized to its typical runtime plus roughly 25 percent headroom.
 | Diagnostic bootstrap | 20 minutes |
 | Codex bootstrap orchestration | 30 minutes |
 | Keepalive sweeps | 25 minutes |
-| Watchdog sanity check | 20 minutes |
 
 To manually verify the orchestration chain after making changes, use **Actions → Agents 70 Orchestrator → Run workflow** in the
-GitHub UI. This dispatches `reuse-agents.yml`, which in turn calls the reusable workflow and surfaces any YAML validation errors
-alongside the bounded job runs described above.
+GitHub UI. This dispatches the orchestrator, which calls the reusable workflow and surfaces any YAML validation errors alongside
+the bounded job runs described above.
 
 ## 5. Self-Test Matrix (`reusable-99-selftest.yml`)
-Exposes the matrix that validates the reusable CI executor across feature combinations (coverage delta, soft gate, metrics, history, classification). It now declares only manual (`workflow_dispatch`) and low-frequency schedule triggers (weekly Mondays at 06:00 UTC) so maintainers can run ad-hoc verification without PR noise. `maint-90-selftest.yml` remains the lightweight wrapper preserved in `Old/workflows/` for historical reference.
+Exposes the matrix that validates the reusable CI executor across feature combinations (coverage delta, soft gate, metrics,
+history, classification). It declares manual (`workflow_dispatch`) and weekly schedule triggers so maintainers can run ad-hoc
+verification without PR noise. `maint-90-selftest.yml` remains the lightweight wrapper preserved in `Old/workflows/` for
+historical reference.
 
 ## Adoption Notes
 1. Reference the files directly via `uses: stranske/Trend_Model_Project/.github/workflows/<file>@phase-2-dev` in external repos.
@@ -88,7 +88,7 @@ Exposes the matrix that validates the reusable CI executor across feature combin
 | Area | How to Extend | Notes |
 | ---- | ------------- | ----- |
 | Coverage reporting | Chain an additional job that depends on the reusable CI job to upload coverage artifacts. | Keep job IDs stable when referencing outputs. |
-| Autofix heuristics | Update `maint-32-autofix.yml` to widen size limits or adjust glob filters. | Avoid editing the reusable composite unless behaviour must change globally. |
+| Autofix heuristics | Update `autofix.yml` or `maint-post-ci.yml` to widen size limits or adjust glob filters. | Avoid editing the reusable composite unless behaviour must change globally. |
 | Agents options | Provide extra keys inside `options_json` and update the reusable workflow to honour them. | Remember GitHub only supports 10 dispatch inputs; keep new flags in JSON. |
 
 ## Security & Permissions

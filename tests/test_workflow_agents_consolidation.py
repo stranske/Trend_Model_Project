@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 
 import yaml
@@ -47,32 +46,6 @@ def test_agents_orchestrator_inputs_and_uses():
     assert (
         "./.github/workflows/reusable-70-agents.yml" in text
     ), "Orchestrator must call the reusable agents workflow"
-
-
-def test_agents_consumer_uses_params_json():
-    wf = WORKFLOWS_DIR / "agents-consumer.yml"
-    assert wf.exists(), "agents-consumer.yml must exist"
-    text = wf.read_text(encoding="utf-8")
-    assert "workflow_dispatch:" in text, "Consumer must allow manual dispatch"
-    assert "params_json:" in text, "Consumer must consolidate inputs into params_json"
-    # Ensure legacy discrete inputs are not reintroduced at the dispatch boundary
-    forbidden = [
-        "enable_readiness:",
-        "readiness_agents:",
-        "require_all:",
-        "enable_preflight:",
-        "enable_verify_issue:",
-        "enable_watchdog:",
-        "draft_pr:",
-    ]
-    header_section = text.split("jobs:", 1)[0]
-    for key in forbidden:
-        assert (
-            key not in header_section
-        ), f"Consumer dispatch header should not expose discrete input {key}"
-    assert (
-        "./.github/workflows/reuse-agents.yml" in text
-    ), "Consumer must call reuse-agents.yml"
 
 
 def test_reusable_agents_workflow_structure():
@@ -132,53 +105,28 @@ def test_keepalive_job_present():
     assert "first_issue" in text, "Ready issues step must emit first_issue output"
 
 
-def test_agents_consumer_concurrency_and_defaults():
-    data = _load_workflow_yaml("agents-consumer.yml")
+def test_agents_orchestrator_has_concurrency_defaults():
+    data = _load_workflow_yaml("agents-70-orchestrator.yml")
 
     concurrency = data.get("concurrency") or {}
     assert (
-        concurrency.get("group") == "agents-consumer"
-    ), "Consumer must lock to agents-consumer group"
+        concurrency.get("group") == "agents-orchestrator-${{ github.ref }}"
+    ), "Orchestrator must serialize runs per ref"
     assert (
         concurrency.get("cancel-in-progress") is True
-    ), "Consumer concurrency must cancel in-progress runs"
+    ), "Orchestrator concurrency must cancel in-progress runs"
 
     jobs = data.get("jobs", {})
-    resolve_params = jobs.get("resolve-params", {})
+    orchestrate = jobs.get("orchestrate", {})
+    assert orchestrate.get("uses"), "Orchestrator job should call the reusable workflow"
     assert (
-        resolve_params.get("timeout-minutes") == 15
-    ), "Resolve Parameters job should enforce a 15 minute timeout"
+        "timeout-minutes" not in orchestrate
+    ), "Timeout must live in reusable workflow because workflow-call jobs reject timeout-minutes"
 
-    dispatch = jobs.get("dispatch", {})
-    assert dispatch.get("uses"), "Dispatch job should call the reusable workflow"
+    text = (WORKFLOWS_DIR / "agents-70-orchestrator.yml").read_text(encoding="utf-8")
     assert (
-        dispatch.get("timeout-minutes") == 30
-    ), "Dispatch job should enforce a 30 minute timeout"
-
-    dispatch_config = _workflow_on_section(data).get("workflow_dispatch", {})
-    params_default = (
-        dispatch_config.get("inputs", {}).get("params_json", {}).get("default")
-    )
-    assert params_default, "params_json default payload must be defined"
-
-    payload = json.loads(params_default)
-    assert (
-        payload.get("enable_readiness") is True
-    ), "Readiness should remain enabled by default"
-    assert (
-        payload.get("enable_watchdog") is True
-    ), "Watchdog should remain enabled by default"
-    assert payload.get("enable_preflight") is False, "Preflight must stay opt-in"
-    assert payload.get("enable_bootstrap") is False, "Bootstrap must stay opt-in"
-
-    options = json.loads(payload.get("options_json", "{}"))
-    assert (
-        options.get("enable_keepalive") is False
-    ), "Keepalive must be disabled by default"
-    nested_keepalive = options.get("keepalive", {})
-    assert (
-        nested_keepalive.get("enabled") is False
-    ), "Nested keepalive.enabled should default to false"
+        "Job timeouts live inside reusable-70-agents.yml" in text
+    ), "Orchestrator workflow should document where the timeout is enforced"
 
 
 def test_reusable_agents_jobs_have_timeouts():
