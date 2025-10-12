@@ -43,10 +43,14 @@ def _build_session(token: str) -> requests.Session:
 
 
 def _status_checks_url(repo: str, branch: str) -> str:
-    return f"{API_ROOT}/repos/{repo}/branches/{branch}/protection/required_status_checks"
+    return (
+        f"{API_ROOT}/repos/{repo}/branches/{branch}/protection/required_status_checks"
+    )
 
 
-def fetch_status_checks(session: requests.Session, repo: str, branch: str) -> StatusCheckState:
+def fetch_status_checks(
+    session: requests.Session, repo: str, branch: str
+) -> StatusCheckState:
     response = session.get(_status_checks_url(repo, branch), timeout=30)
     if response.status_code == 404:
         raise BranchProtectionError(
@@ -111,7 +115,9 @@ def require_token() -> str:
     return token
 
 
-def diff_contexts(current: Sequence[str], desired: Sequence[str]) -> tuple[list[str], list[str]]:
+def diff_contexts(
+    current: Sequence[str], desired: Sequence[str]
+) -> tuple[list[str], list[str]]:
     current_set = set(current)
     desired_set = set(desired)
     to_add = sorted(desired_set - current_set)
@@ -183,7 +189,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     label = "Target contexts" if args.no_clean else "Desired contexts"
     print(f"{label}: {format_contexts(target_contexts)}")
     print(f"Current 'require up to date': {current_state.strict}")
-    print(f"Desired 'require up to date': True")
+    print("Desired 'require up to date': True")
 
     if not args.apply:
         if not to_add and (args.no_clean or not to_remove) and not strict_change:
