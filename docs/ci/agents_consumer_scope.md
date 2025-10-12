@@ -9,11 +9,11 @@ workflow directly with bespoke settings.
 
 1. Navigate to **Actions → Agents Consumer → Run workflow**.
 2. Toggle the high-level switches exposed in the UI (readiness, preflight,
-   diagnostics, verify issue, watchdog, keepalive, bootstrap, draft PR).
-   Extended settings—custom readiness lists, Codex command phrases, bootstrap
-   labels, diagnostic dry-run flags—should be provided via the `options_json`
-   input as a JSON object. Strings such as `'true'` / `'false'` are forwarded
-   verbatim to the reusable workflow.
+   diagnostics, verify issue, watchdog, keepalive, bootstrap, draft PR). For
+   bespoke overrides—custom readiness lists, Codex command phrases, bootstrap
+   labels, diagnostic dry-run flags—use the dedicated string inputs (values
+   such as `'true'` / `'false'` forward verbatim) or provide an `options_json`
+   payload.
 3. Review the dispatched job named **Dispatch reusable agents toolkit** to
    confirm downstream behaviour and capture outputs.
 
