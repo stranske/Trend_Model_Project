@@ -1,5 +1,5 @@
 from pathlib import Path
-import json
+
 import yaml
 
 WORKFLOWS_DIR = Path(".github/workflows")
