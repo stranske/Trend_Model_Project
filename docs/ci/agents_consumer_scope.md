@@ -1,29 +1,24 @@
-# Agents Consumer Workflow (Retired)
+# Agents Consumer Workflow (Manual Dispatch)
 
-The legacy `.github/workflows/agents-consumer.yml` wrapper has been removed as
-part of the Issue #2466 consolidation. Contributors should route every agent
-automation task through [`agents-70-orchestrator.yml`](../../.github/workflows/agents-70-orchestrator.yml),
-which fans into the reusable agents toolkit for readiness probes, diagnostics,
-Codex bootstrap, keepalive, and watchdog sweeps.
+`.github/workflows/agents-consumer.yml` provides a manual dispatch wrapper around
+[`reusable-70-agents.yml`](../../.github/workflows/reusable-70-agents.yml). Use it
+when you want to bypass the orchestrator schedule and invoke the reusable
+workflow directly with bespoke settings.
 
-## Replacement Flow
+## Dispatch guidance
 
-1. Navigate to **Actions → Agents 70 Orchestrator → Run workflow**.
-2. Provide the desired inputs (branch, readiness toggles, bootstrap settings,
-   and any overrides in the `options_json` payload).
-3. Review the `orchestrate` job summary for readiness tables, bootstrap status,
-   and keepalive signals.
+1. Navigate to **Actions → Agents Consumer → Run workflow**.
+2. Supply any overrides for readiness, diagnostics, bootstrap, or keepalive.
+   Inputs mirror the reusable workflow so strings such as `'true'` / `'false'`
+   are forwarded verbatim.
+3. Review the dispatched job named **Dispatch reusable agents toolkit** to
+   confirm downstream behaviour and capture outputs.
 
-The JSON examples that previously lived in this file can now be found in the
-orchestrator documentation:
+The workflow enforces a concurrency group of `agents-consumer-${ref}`. Triggering
+another run on the same branch cancels any in-flight execution and prevents
+manual re-trigger storms.
 
-- [`docs/ci/WORKFLOWS.md`](WORKFLOWS.md) – canonical workflow roster and manual
-  dispatch payloads.
-- [`docs/WORKFLOW_GUIDE.md`](../WORKFLOW_GUIDE.md) – topology guide describing
-  the orchestrator-only automation model.
-- [`docs/agent-automation.md`](../agent-automation.md) – deep dive into
-  orchestrator inputs, troubleshooting, and telemetry.
-
-If you discover a reference to `agents-consumer.yml` elsewhere in the
-repository, update it to point to the orchestrator so the documentation remains
-consistent with the simplified topology.
+For scheduled or automated routing prefer the
+[`agents-70-orchestrator.yml`](../../.github/workflows/agents-70-orchestrator.yml)
+entry point. It fans out to the same reusable toolkit while handling the
+recurring keepalive cadence.

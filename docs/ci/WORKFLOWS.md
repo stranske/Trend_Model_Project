@@ -3,8 +3,9 @@
 Use this page as the canonical reference for CI workflow naming, inventory, and
 local guardrails. It consolidates the requirements from Issues #2190, #2202, and
 #2466. The Gate workflow remains the required merge check for every pull
-request, and **Agents 70 Orchestrator** is now the **only** entry point for
-agent automation (readiness sweeps, Codex bootstrap, diagnostics).
+request. Agents automation now exposes two entry points: the scheduled
+**Agents 70 Orchestrator** and the manual-only **Agents Consumer** wrapper that
+directly dispatches the reusable toolkit.
 
 ## CI & agents quick catalog
 
@@ -23,8 +24,10 @@ Use the matrix below as the authoritative roster of active workflows. Each row c
 | **Maint 40 CI Signature Guard** | `.github/workflows/maint-40-ci-signature-guard.yml` | `push`/`pull_request` targeting `phase-2-dev` | `contents: read` | No | Validates the signed job manifest for Gate. |
 | **Maint 41 ChatGPT Issue Sync** | `.github/workflows/maint-41-chatgpt-issue-sync.yml` | `workflow_dispatch` | `contents: write`, `issues: write` | No | Manual sync that turns curated lists into labelled GitHub issues. |
 | **Maint 45 Cosmetic Repair** | `.github/workflows/maint-45-cosmetic-repair.yml` | `workflow_dispatch` | `contents: write`, `pull-requests: write` | No | Manual pytest + guardrail fixer that opens a labelled PR when drift is detected. |
+| **Enforce Gate Branch Protection** | `.github/workflows/enforce-gate-branch-protection.yml` | Cron (`0 6 * * *`), `workflow_dispatch` | `contents: read`, `pull-requests: read`; optional `BRANCH_PROTECTION_TOKEN` | No | Validates branch protection settings via helper script; no-ops if PAT absent. |
 | **Agents 43 Codex Issue Bridge** | `.github/workflows/agents-43-codex-issue-bridge.yml` | `issues`, `workflow_dispatch` | `contents: write`, `pull-requests: write`, `issues: write`; optional `service_bot_pat` | No | Label-driven helper that prepares Codex bootstrap issues/PRs and optionally comments `@codex start`. |
-| **Agents 70 Orchestrator** | `.github/workflows/agents-70-orchestrator.yml` | Cron (`*/20 * * * *`), `workflow_dispatch` | `contents: write`, `pull-requests: write`, `issues: write`; optional `service_bot_pat` | No | Sole automation entry point dispatching readiness, bootstrap, diagnostics, and keepalive routines. |
+| **Agents 70 Orchestrator** | `.github/workflows/agents-70-orchestrator.yml` | Cron (`*/20 * * * *`), `workflow_dispatch` | `contents: write`, `pull-requests: write`, `issues: write`; optional `service_bot_pat` | No | Primary automation entry point dispatching readiness, bootstrap, diagnostics, and keepalive routines. |
+| **Agents Consumer** | `.github/workflows/agents-consumer.yml` | `workflow_dispatch` | `contents: write`, `pull-requests: write`, `issues: write`; optional `service_bot_pat` | No | Manual dispatcher that proxies inputs to `reusable-70-agents.yml` with concurrency guard (`agents-consumer-${ref}`). |
 | **Agents 44 Verify Agent Assignment** | `.github/workflows/agents-44-verify-agent-assignment.yml` | `workflow_call`, `workflow_dispatch` | `issues: read` | No | Reusable issue-verification helper used by the orchestrator and available for ad-hoc checks. |
 | **Reuse Agents** | `.github/workflows/reuse-agents.yml` | `workflow_call` | `contents: write`, `pull-requests: write`, `issues: write`; optional `service_bot_pat` | No | Workflow-call wrapper so external callers reuse the agents toolkit with consistent inputs. |
 | **Reusable CI** | `.github/workflows/reusable-ci.yml` | `workflow_call` | Inherits caller permissions | No | Python lint/type/test reusable consumed by Gate and downstream repositories. |
@@ -43,7 +46,7 @@ Use the matrix below as the authoritative roster of active workflows. Each row c
   |--------|--------------|-------|-------|
   | `pr-` | `10–19` | Pull-request gates | `pr-gate.yml` is the primary orchestrator; keep space for specialized PR jobs (docs, optional helpers).
   | `maint-` | `00–49` and `90s` | Scheduled/background maintenance | Low numbers for repo hygiene, 30s/40s for post-CI and guards, 90 for self-tests calling reusable matrices.
-  | `agents-` | `70s` | Agent bootstrap/orchestration | `agents-70-orchestrator.yml` is the sole automation entry point post-Issue #2466.
+  | `agents-` | `70s` | Agent bootstrap/orchestration | `agents-70-orchestrator.yml` handles automation cadences; `agents-consumer.yml` is manual-only dispatch.
   | `reusable-` | `70s` & `90s` | Composite workflows invoked by others | Keep 90s for CI executors, 70s for agent composites.
 
 - Match the `name:` field to the filename rendered in Title Case (`pr-gate.yml` → `Gate`).
@@ -84,7 +87,7 @@ These jobs must stay green for PRs to merge. The post-CI maintenance jobs below 
 
 ### Agent automation entry points
 
-`agents-70-orchestrator.yml` (`Agents 70 Orchestrator`) is the **sole** entry point for automation. Hourly cron and manual dispatch both call the reusable agents toolkit to perform readiness probes, Codex bootstrap, diagnostics, and keepalive sweeps. The Codex Issue Bridge remains only as a label-driven helper for seeding bootstrap PRs, and `agents-44-verify-agent-assignment.yml` exposes the verification logic as a reusable workflow-call entry point.
+`agents-70-orchestrator.yml` (`Agents 70 Orchestrator`) remains the scheduled automation entry point. Hourly cron and manual dispatch both call the reusable agents toolkit to perform readiness probes, Codex bootstrap, diagnostics, and keepalive sweeps. `.github/workflows/agents-consumer.yml` surfaces the same toolkit for manual-only dispatch with a concurrency guard. The Codex Issue Bridge remains only as a label-driven helper for seeding bootstrap PRs, and `agents-44-verify-agent-assignment.yml` exposes the verification logic as a reusable workflow-call entry point.
 
 **Operational details**
 - Provide required write scopes via the default `GITHUB_TOKEN`. Supply `service_bot_pat` when bootstrap jobs must push branches or leave comments.
@@ -108,6 +111,14 @@ These jobs must stay green for PRs to merge. The post-CI maintenance jobs below 
      }
      ```
 3. Click **Run workflow**. The orchestrator calls `reusable-70-agents.yml`; job summaries include readiness tables, bootstrap status, and links to spawned PRs.
+
+### Manual Consumer Dispatch
+
+Use the **Agents Consumer** workflow when you need a lightweight manual trigger without the orchestrator cron context.
+
+1. Navigate to **Actions → Agents Consumer → Run workflow**.
+2. Provide string inputs (e.g., `'true'`, `'false'`, comma-delimited lists) that map directly to the reusable workflow.
+3. The single **Dispatch reusable agents toolkit** job fans into `reusable-70-agents.yml`. A concurrency group (`agents-consumer-${ref}`) cancels any previous run on the same branch before starting.
 
 ### Agent troubleshooting: bootstrap & readiness signals
 
