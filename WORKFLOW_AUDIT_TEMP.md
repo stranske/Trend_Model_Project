@@ -23,7 +23,7 @@ Only the workflows listed below remain visible in the Actions tab. Reusable comp
 | `maint-02-repo-health.yml` | schedule, workflow_dispatch | Weekly repository health sweep that records a single run-summary report.
 | `maint-post-ci.yml` | workflow_run | Consolidated post-CI follower that posts Gate summaries, applies low-risk autofix commits, and now owns CI failure-tracker updates.
 | `maint-33-check-failure-tracker.yml` | workflow_run | Lightweight compatibility shell delegating all tracker duties to `maint-post-ci.yml`.
-| `maint-35-repo-health-self-check.yml` | schedule, workflow_dispatch | Governance audit that validates labels/PAT/branch protection and maintains a single failure issue.
+| `maint-35-repo-health-self-check.yml` | weekly cron, workflow_dispatch | Read-only repo health summary that reports label coverage and branch-protection visibility in the job summary.
 | `maint-36-actionlint.yml` | pull_request, push, schedule, workflow_dispatch | Sole workflow lint gate (actionlint via reviewdog).
 | `maint-40-ci-signature-guard.yml` | pull_request, push | Verifies signed CI manifests to guard against tampering.
 | `maint-41-chatgpt-issue-sync.yml` | workflow_dispatch | Fans out curated topic lists (e.g. `Issues.txt`) into GitHub issues with automatic labeling. |
