@@ -95,7 +95,9 @@ These jobs must stay green for PRs to merge. The post-CI maintenance jobs below 
 
 ### Agent automation entry points
 
-`agents-70-orchestrator.yml` (`Agents 70 Orchestrator`) remains the scheduled automation entry point. Hourly cron and manual dispatch both call the reusable agents toolkit to perform readiness probes, Codex bootstrap, diagnostics, and keepalive sweeps. `.github/workflows/agents-62-consumer.yml` exposes the numbered manual bridge that proxies JSON overrides to `reusable-71-agents-dispatch.yml`, while the restored `.github/workflows/agents-consumer.yml` accepts direct string inputs and forwards them to `reusable-70-agents.yml` with its own concurrency guard. The Codex Issue Bridge remains only as a label-driven helper for seeding bootstrap PRs, and `agents-64-verify-agent-assignment.yml` exposes the verification logic as a reusable workflow-call entry point.
+`agents-70-orchestrator.yml` (`Agents 70 Orchestrator`) is the scheduled automation entry point. It runs on an hourly cron and can also be dispatched manually. Both methods call the reusable agents toolkit to perform readiness probes, Codex bootstrap, diagnostics, and keepalive sweeps.
+`.github/workflows/agents-62-consumer.yml` exposes a numbered manual bridge that proxies JSON overrides to `reusable-71-agents-dispatch.yml`. The restored `.github/workflows/agents-consumer.yml` accepts direct string inputs and forwards them to `reusable-70-agents.yml`, using its own concurrency guard.
+The Codex Issue Bridge is only a label-driven helper for seeding bootstrap PRs. `agents-64-verify-agent-assignment.yml` exposes the verification logic as a reusable workflow-call entry point.
 
 **Operational details**
 - Provide required write scopes via the default `GITHUB_TOKEN`. Supply `service_bot_pat` when bootstrap jobs must push branches or leave comments.
