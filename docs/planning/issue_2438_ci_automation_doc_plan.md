@@ -13,7 +13,7 @@
   - The required Gate check ("Gate" / `gate`).
   - When the autofix workflow executes, what it does, and how contributors opt in or out.
   - How agent automations (bootstrap, readiness, watchdog) are triggered via the orchestrator, including the relevant labels and their effects.
-  - Links to the workflow YAML files: `agents/agents-70-orchestrator.yml` and `reuse-agents.yml`.
+  - Links to the workflow YAML files: `agents/agents-70-orchestrator.yml` and `reusable-71-agents-dispatch.yml`.
   - Note that PR coverage/status are summarized in a single consolidated Maint Post-CI comment.
 - Language is consistent with repository documentation standards and free of stale references.
 - Markdown renders correctly (proper headings, lists, and links).

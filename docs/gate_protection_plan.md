@@ -33,7 +33,7 @@
   applying changes.
 - Contributors without direct settings access can now request an owner to run the script with a fine-grained `GITHUB_TOKEN`
   instead of navigating the UI, ensuring infrastructure as code parity for the protection rule.
-- Scheduled automation (`.github/workflows/enforce-gate-branch-protection.yml`) executes the helper nightly and on-demand,
+- Scheduled automation (`.github/workflows/health-44-gate-branch-protection.yml`) executes the helper nightly and on-demand,
   applying fixes whenever the optional `BRANCH_PROTECTION_TOKEN` secret is configured.
 
 ## Automation Requirements

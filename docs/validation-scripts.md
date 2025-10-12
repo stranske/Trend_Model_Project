@@ -89,10 +89,10 @@ The Gate workflow can be manually triggered from the GitHub interface or via the
 **Via GitHub CLI:**
 ```bash
 # Trigger on default branch (main)
-gh workflow run pr-gate.yml
+gh workflow run pr-00-gate.yml
 
 # Trigger on specific branch
-gh workflow run pr-gate.yml --ref branch-name
+gh workflow run pr-00-gate.yml --ref branch-name
 ```
 
 **Via GitHub API:**
@@ -100,7 +100,7 @@ gh workflow run pr-gate.yml --ref branch-name
 curl -X POST \
   -H "Accept: application/vnd.github.v3+json" \
   -H "Authorization: token YOUR_TOKEN" \
-  https://api.github.com/repos/stranske/Trend_Model_Project/actions/workflows/pr-gate.yml/dispatches \
+  https://api.github.com/repos/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml/dispatches \
   -d '{"ref":"main"}'
 ```
 

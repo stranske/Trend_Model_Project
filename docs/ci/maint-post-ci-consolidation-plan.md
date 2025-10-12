@@ -1,7 +1,7 @@
 # Maint Post-CI Consolidation Plan (Issue #2433)
 
 ## Scope / Key Constraints
-- Replace the existing Maint 30 Post CI Summary and Maint 32 Autofix workflows with a single `.github/workflows/maint-post-ci.yml` triggered by `workflow_run` on the Gate workflow when targeting pull requests.
+- Replace the existing Maint 30 Post CI Summary and Maint 32 Autofix workflows with a single `.github/workflows/maint-30-post-ci.yml` triggered by `workflow_run` on the Gate workflow when targeting pull requests.
 - Preserve current behavior for coverage artifact collection, autofix execution, JSON diagnostics, and fork safeguards; any logic moved must remain functionally equivalent.
 - Emit exactly one persistent PR comment per run that consolidates Gate job status, coverage deltas/snippets, and autofix results, using stable comment identifiers to support updates.
 - Upload coverage and autofix artifacts once per run using consistent names (e.g., `coverage-summary.md`, `autofix_report.json`) so downstream consumers remain compatible.
@@ -9,7 +9,7 @@
 - Disable or remove the legacy Maint 30 and Maint 32 workflows only after the new workflow demonstrates parity in test runs and required stakeholders sign off.
 
 ## Acceptance Criteria / Definition of Done
-- A new workflow file `.github/workflows/maint-post-ci.yml` exists, triggered via `workflow_run` from the Gate workflow’s `completed` event and scoped to PR runs.
+- A new workflow file `.github/workflows/maint-30-post-ci.yml` exists, triggered via `workflow_run` from the Gate workflow’s `completed` event and scoped to PR runs.
 - The workflow produces both a summary job (always) and an autofix job (conditional on autofix eligibility) with any optional failure-tracking behavior preserved.
 - Each run writes or updates a single PR comment containing: overall required-job status, coverage summary (and trend when available), and an autofix summary when changes were attempted/applied.
 - Coverage summaries and autofix diagnostics are uploaded once with predictable artifact names that align with existing tooling expectations.
@@ -18,7 +18,7 @@
 
 ## Initial Task Checklist
 - [x] Audit the current Maint 30 and Maint 32 workflows to catalog all steps, conditionals, secrets, and artifacts that must be preserved.
-- [x] Draft `.github/workflows/maint-post-ci.yml`, wiring `workflow_run` triggers, job dependencies, and shared environment variables/secrets.
+- [x] Draft `.github/workflows/maint-30-post-ci.yml`, wiring `workflow_run` triggers, job dependencies, and shared environment variables/secrets.
 - [x] Port the post-CI summary logic into a `summarize` job, ensuring coverage extraction, artifact handling, and comment composition are idempotent.
 - [x] Integrate autofix logic into an `autofix` job that reuses existing guards (fork detection, safe path lists, patch caps) and emits diagnostics under the agreed artifact name.
 - [x] Implement the unified PR comment writer (single comment keyed by identifier) that merges status, coverage, and autofix sections.

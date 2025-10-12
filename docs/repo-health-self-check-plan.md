@@ -1,7 +1,7 @@
 # Repo Health Workflow Remediation Plan
 
 ## Scope and Key Constraints
-- Repair `.github/workflows/repo-health-self-check.yml` so the workflow validates, appears in the Actions list, and can be executed on demand.
+- Repair `.github/workflows/health-40-repo-selfcheck.yml` so the workflow validates, appears in the Actions list, and can be executed on demand.
 - Keep the job read-only: rely on the built-in `contents`, `issues`, `pull-requests`, and `actions` read scopes and avoid introducing broader permissions or repository secrets.
 - Preserve the existing triggers (`workflow_dispatch` plus an optional low-frequency schedule) while keeping total runtime under a minute on a GitHub-hosted runner.
 - Produce a concise summary table in the step summary instead of failing the workflow for soft signals; only hard configuration or execution errors should mark the run as failed.
@@ -14,7 +14,7 @@
 - Supporting documentation in `docs/ci/WORKFLOWS.md` covers the workflow’s purpose, triggers, and permissions at a glance.
 
 ## Initial Task Checklist
-- [x] Review the current workflow to catalog unsupported permission keys, disabled triggers, and health checks that should be preserved. (See updated `maint-35-repo-health-self-check.yml` for the refined probes and summary step.)
+- [x] Review the current workflow to catalog unsupported permission keys, disabled triggers, and health checks that should be preserved. (See updated `health-40-repo-selfcheck.yml` for the refined probes and summary step.)
 - [x] Replace invalid permission entries with supported read-only scopes and confirm every step runs without elevated access. (Workflow now requests `contents`, `issues`, `pull-requests`, and `actions` read scopes only.)
 - [x] Reconfirm the trigger configuration (`workflow_dispatch` and optional weekly cron) and ensure the job name/description make the workflow easy to discover. (Keeps the weekly cron at `20 6 * * 1` alongside manual dispatch.)
 - [x] Add or refine steps that gather repository health signals and write a markdown table to `$GITHUB_STEP_SUMMARY` summarising the findings. (New Python summary step publishes the collected checks.)

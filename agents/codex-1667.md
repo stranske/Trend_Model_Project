@@ -28,7 +28,7 @@ This document outlines the acceptance criteria and implementation details for au
 
 ## Implementation Notes
 - **Relevant workflow files:**
-  - `.github/workflows/pr-gate.yml` (primary CI/Docker orchestration)
+  - `.github/workflows/pr-00-gate.yml` (primary CI/Docker orchestration)
   - `.github/workflows/maint-45-merge-manager.yml` (automerge orchestration; removed in Issue #2190)
 - **Labels involved:**
   - `automerge` (required for merge automation)

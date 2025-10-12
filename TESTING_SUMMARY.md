@@ -63,7 +63,7 @@ All acceptance criteria from issue #412 have been met and validated.
 To reduce noise from intermittent test failures, CI now enables a single automatic rerun for failing tests:
 
 - Implemented via `pytest-rerunfailures` (added to `dev` extras in `pyproject.toml`).
-- Gate workflow (`pr-gate.yml`) adds the flags `--reruns 1 --reruns-delay 1` for the reusable Python test jobs.
+- Gate workflow (`pr-00-gate.yml`) adds the flags `--reruns 1 --reruns-delay 1` for the reusable Python test jobs.
 - A GitHub Actions notice (`FlakeQuarantine`) is emitted at job start to document the policy.
 - Persistent failures (fail twice) still fail the job immediately; intermittent one-off failures are quarantined by the rerun.
 

@@ -135,7 +135,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
                 )
 
     def test_gate_workflow_orchestrates_reusable_jobs(self) -> None:
-        workflow = self._read_workflow("pr-gate.yml")
+        workflow = self._read_workflow("pr-00-gate.yml")
 
         triggers = workflow.get("on") or workflow.get(True) or {}
         pull_request = triggers.get("pull_request", {})
@@ -158,20 +158,24 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         )
 
         job_311 = jobs["core-tests-311"]
-        self.assertEqual(job_311.get("uses"), "./.github/workflows/reusable-ci.yml")
+        self.assertEqual(
+            job_311.get("uses"), "./.github/workflows/reusable-10-ci-python.yml"
+        )
         with_block_311 = job_311.get("with", {})
         self.assertEqual(with_block_311.get("python-version"), "3.11")
         self.assertEqual(with_block_311.get("marker"), "not quarantine and not slow")
 
         job_312 = jobs["core-tests-312"]
-        self.assertEqual(job_312.get("uses"), "./.github/workflows/reusable-ci.yml")
+        self.assertEqual(
+            job_312.get("uses"), "./.github/workflows/reusable-10-ci-python.yml"
+        )
         with_block_312 = job_312.get("with", {})
         self.assertEqual(with_block_312.get("python-version"), "3.12")
         self.assertEqual(with_block_312.get("marker"), "not quarantine and not slow")
 
         job_smoke = jobs["docker-smoke"]
         self.assertEqual(
-            job_smoke.get("uses"), "./.github/workflows/reusable-docker.yml"
+            job_smoke.get("uses"), "./.github/workflows/reusable-12-ci-docker.yml"
         )
 
         job_gate = jobs["gate"]
@@ -200,7 +204,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
                     continue
                 for scalar in self._iter_scalars(loaded):
                     if scalar.strip() == invalid_expr:
-                        if workflow_path.name == "pr-gate.yml":
+                        if workflow_path.name == "pr-00-gate.yml":
                             found_in_gate = True
                             continue
                         self.fail(
@@ -211,7 +215,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
 
         self.assertTrue(
             found_in_gate,
-            "pr-gate.yml should pass the marker literal to the reusable CI workflow",
+            "pr-00-gate.yml should pass the marker literal to the reusable CI workflow",
         )
 
     def test_workflows_do_not_define_marker_filter_anchors(self) -> None:
@@ -254,7 +258,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
                         )
 
     def test_reusable_ci_uploads_coverage_artifacts(self) -> None:
-        reusable = self._read_workflow("reusable-ci.yml")
+        reusable = self._read_workflow("reusable-10-ci-python.yml")
         jobs = reusable.get("jobs", {})
         tests_job = jobs.get("tests", {})
         steps = tests_job.get("steps", [])

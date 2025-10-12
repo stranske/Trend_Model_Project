@@ -2,7 +2,7 @@
 
 ## Scope and Key Constraints
 - Maintain Post CI Summary workflow focus on summarizing workflow runs triggered by pull requests only.
-- Preserve support exclusively for the `pr-gate.yml` workflow target in the summary payload.
+- Preserve support exclusively for the `pr-00-gate.yml` workflow target in the summary payload.
 - Handle missing, cancelled, or in-progress workflow runs defensively without causing runtime failures.
 - Ensure the workflow emits information through the GitHub Actions step summary only (no PR comments, status checks, or external notifications).
 - Operate within existing repository automation policies—no additional secrets, services, or workflow permissions beyond current configuration.
@@ -18,7 +18,7 @@
 ## Initial Task Checklist
 1. ✅ Review current Post CI Summary workflow implementation to confirm existing triggers, target workflows, and output behavior.
 2. ✅ Update workflow triggers to enforce PR-only execution via `workflow_run` filtering, adding safeguards for manual/other events.
-3. ✅ Implement defensive data retrieval for `pr-gate.yml`, handling missing runs or unexpected statuses.
+3. ✅ Implement defensive data retrieval for `pr-00-gate.yml`, handling missing runs or unexpected statuses.
 4. ✅ Refine summary formatting to present partial data cleanly and ensure it always posts exactly one step summary.
 5. ✅ Add tests, validation scripts, or documented manual verification steps that cover missing-run scenarios and duplicate-prevention logic.
 6. ✅ Update workflow documentation (e.g., README or inline comments) with the new constraints and usage notes.

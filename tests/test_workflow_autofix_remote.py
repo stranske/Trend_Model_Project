@@ -8,7 +8,7 @@ import pytest
 import yaml
 
 WORKFLOWS = pathlib.Path(".github/workflows")
-WORKFLOW_FILE = "maint-post-ci.yml"
+WORKFLOW_FILE = "maint-30-post-ci.yml"
 
 
 def _load_workflow(name: str) -> Dict[str, Any]:

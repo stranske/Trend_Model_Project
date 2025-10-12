@@ -22,7 +22,7 @@ jobs:
         run: |
           cat <<'MARKDOWN' >> "$GITHUB_STEP_SUMMARY"
           ### Failure tracker delegated to Maint Post CI
-          Failure tracker issue updates, labeling, and artifacts now execute inside `maint-post-ci.yml`.
+          Failure tracker issue updates, labeling, and artifacts now execute inside `maint-30-post-ci.yml`.
           This workflow remains as a thin compatibility shell while downstream listeners migrate.
           MARKDOWN
       - name: Log delegation

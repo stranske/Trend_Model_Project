@@ -7,13 +7,13 @@
 - [x] Inventory the legacy summarizer workflows under `.github/workflows/` and
   capture their responsibilities. → Documented below in the workflow inventory
   table (legacy `maint-31` / `maint-32` versus consolidated `maint-30`).
-- [x] Design the unified workflow (`maint-30-post-ci-summary.yml`) so it
+- [x] Design the unified workflow (`maint-30-post-ci.yml`) so it
   triggers on `workflow_run` events for the "CI" and "Docker" pipelines and
   scopes to pull-request runs. → Implemented in the workflow with concurrency
   guard and head-SHA discovery.
 - [x] Implement shared steps that download artifacts, render the consolidated
   Markdown, and upsert the PR comment. → See
-  `.github/workflows/maint-30-post-ci-summary.yml` plus
+  `.github/workflows/maint-30-post-ci.yml` plus
   `tools/post_ci_summary.py` helpers.
 - [x] Fetch the required artifacts (coverage trend + summary, failure
   snapshot) so the comment includes coverage deltas and failure listings. →
@@ -36,8 +36,8 @@
 
 | Workflow | Replaced by | Notes |
 |----------|-------------|-------|
-| `maint-31-pr-status-summary.yml` | `maint-30-post-ci-summary.yml` | Formerly posted required vs optional job summary. Responsibilities folded into the consolidated script. |
-| `maint-32-ci-matrix-summary.yml` | `maint-30-post-ci-summary.yml` | Previously generated Markdown/JSON artifacts for coverage + failure snapshots. Superseded by the single PR comment. |
+| `maint-31-pr-status-summary.yml` | `maint-30-post-ci.yml` | Formerly posted required vs optional job summary. Responsibilities folded into the consolidated script. |
+| `maint-32-ci-matrix-summary.yml` | `maint-30-post-ci.yml` | Previously generated Markdown/JSON artifacts for coverage + failure snapshots. Superseded by the single PR comment. |
 
 ## Unified Workflow Highlights
 

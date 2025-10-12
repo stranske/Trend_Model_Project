@@ -1,15 +1,15 @@
 # Plan: Repository Health Self-Check Workflow Remediation
 
 ## Scope and Key Constraints
-- **Workflow coverage:** Update `.github/workflows/repo-health-self-check.yml` (and any referenced reusable jobs) so cron and manual dispatch succeed without requiring unsupported permission scopes.
+- **Workflow coverage:** Update `.github/workflows/health-40-repo-selfcheck.yml` (and any referenced reusable jobs) so cron and manual dispatch succeed without requiring unsupported permission scopes.
 - **Permissions model:** Limit `permissions` to GitHub-supported scopes (`contents: read`, `issues: write`) and treat branch-protection inspection as best-effort when permissions are insufficient.
 - **Issue lifecycle:** Ensure only a single tracker issue titled `[health] repository self-check failed` is open at any time; prefer updating an existing issue rather than creating duplicates.
-- **Archival requirement:** Retire experimental self-test workflows (`maint-43-…`, `maint-44-…`, `maint-48-…`, `maint-90-…`, `pr-20-…`) by moving them under `Old/` (or removing them) and document their archival location in `ARCHIVE_WORKFLOWS.md` plus `docs/ci/WORKFLOWS.md`.
+- **Archival requirement:** Retire experimental self-test workflows (`selftest-83-…`, `selftest-84-…`, `selftest-88-…`, `maint-90-…`, `selftest-82-…`) by moving them under `Old/` (or removing them) and document their archival location in `ARCHIVE_WORKFLOWS.md` plus `docs/ci/WORKFLOWS.md`.
 - **Documentation alignment:** Capture the new workflow intent, permission rationale, and archival notes in `docs/ci/WORKFLOWS.md` (and any linked CI documentation) without deviating from repository doc style.
 - **Backward compatibility:** Preserve existing probes for labels and `SERVICE_BOT_PAT`, and keep automation that updates/creates failure issues intact.
 
 ## Acceptance Criteria / Definition of Done
-1. `repo-health-self-check.yml` validates successfully (no schema errors) and executes on both scheduled (`cron`) and `workflow_dispatch` triggers.
+1. `health-40-repo-selfcheck.yml` validates successfully (no schema errors) and executes on both scheduled (`cron`) and `workflow_dispatch` triggers.
 2. Branch protection checks handle 403 responses gracefully by emitting a warning (e.g., job output `protection_issue="Unable to verify…"`) without failing the workflow.
 3. When the workflow detects any failure condition, it updates or creates a single GitHub issue named `[health] repository self-check failed` with aggregated diagnostics and multi-line details.
 4. Deprecated self-test workflows are removed from active CI runs, relocated/archived as required, and their new status is reflected in both `ARCHIVE_WORKFLOWS.md` and `docs/ci/WORKFLOWS.md`.
@@ -17,7 +17,7 @@
 6. Repository automation remains compliant with GitHub permission policies (no unsupported scopes) and produces passing CI runs post-change.
 
 ## Initial Task Checklist
-- [x] Audit the current `repo-health-self-check` workflow to catalogue permissions, branch-protection calls, and failure aggregation logic.
+- [x] Audit the current `health-40-repo-selfcheck` workflow to catalogue permissions, branch-protection calls, and failure aggregation logic.
 - [x] Replace unsupported `permissions.administration` usage with supported granular scopes; ensure the workflow compiles locally via `workflow_dispatch` dry runs.
 - [x] Update branch-protection probe to catch 403 responses, emit a warning output, and propagate the degraded state to the aggregation step without failing the job.
 - [x] Confirm the aggregation step assembles failure reasons into a single multi-line output and feeds the issue management logic.
