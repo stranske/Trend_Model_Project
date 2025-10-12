@@ -1,5 +1,6 @@
 import json
 from collections.abc import Sequence
+from pathlib import Path
 
 import pytest
 import requests
@@ -14,6 +15,8 @@ from tools.enforce_gate_branch_protection import (
     main,
     normalise_contexts,
     parse_contexts,
+    require_token,
+    resolve_api_root,
     update_status_checks,
 )
 
@@ -39,6 +42,11 @@ class DummySession(requests.Session):
         return self._response
 
     def patch(self, *_args: object, **_kwargs: object) -> requests.Response:
+        json_payload = _kwargs.get("json")
+        self.last_payload = json_payload if isinstance(json_payload, dict) else None
+        return self._response
+
+    def put(self, *_args: object, **_kwargs: object) -> requests.Response:
         json_payload = _kwargs.get("json")
         self.last_payload = json_payload if isinstance(json_payload, dict) else None
         return self._response
@@ -160,6 +168,7 @@ def test_main_applies_changes_when_requested(
         *,
         contexts: list[str],
         strict: bool,
+        api_root: str = "",
     ) -> StatusCheckState:
         captured_payload.update(
             {
@@ -167,6 +176,7 @@ def test_main_applies_changes_when_requested(
                 "branch": branch,
                 "contexts": contexts,
                 "strict": strict,
+                "api_root": api_root,
             }
         )
         return StatusCheckState(strict=True, contexts=contexts)
@@ -185,6 +195,7 @@ def test_main_applies_changes_when_requested(
         "branch": "main",
         "contexts": ["Gate / gate"],
         "strict": True,
+        "api_root": "https://api.github.com",
     }
     assert "Update successful." in captured.out
 
@@ -214,6 +225,7 @@ def test_main_apply_with_no_clean_keeps_existing_contexts(
         *,
         contexts: list[str],
         strict: bool,
+        api_root: str = "",
     ) -> StatusCheckState:
         captured_payload.update(
             {
@@ -221,6 +233,7 @@ def test_main_apply_with_no_clean_keeps_existing_contexts(
                 "branch": branch,
                 "contexts": contexts,
                 "strict": strict,
+                "api_root": api_root,
             }
         )
         return StatusCheckState(strict=True, contexts=contexts)
@@ -248,6 +261,7 @@ def test_main_apply_with_no_clean_keeps_existing_contexts(
         "branch": "main",
         "contexts": ["Gate / gate", "Legacy"],
         "strict": True,
+        "api_root": "https://api.github.com",
     }
     assert "Update successful." in captured.out
 
@@ -261,7 +275,7 @@ def test_main_reports_missing_rule_in_dry_run(
         lambda _token: object(),
     )
 
-    def _raise_missing(*_args, **_kwargs):
+    def _raise_missing(*_args: object, **_kwargs: object) -> None:
         raise BranchProtectionMissingError("missing")
 
     monkeypatch.setattr(
@@ -343,7 +357,7 @@ def test_main_bootstraps_when_apply(
         lambda _token: object(),
     )
 
-    def _raise_missing(*_args, **_kwargs):
+    def _raise_missing(*_args: object, **_kwargs: object) -> None:
         raise BranchProtectionMissingError("missing")
 
     monkeypatch.setattr(
@@ -360,6 +374,7 @@ def test_main_bootstraps_when_apply(
         *,
         contexts: Sequence[str],
         strict: bool,
+        api_root: str = "",
     ) -> StatusCheckState:
         captured_payload.update(
             {
@@ -367,6 +382,7 @@ def test_main_bootstraps_when_apply(
                 "branch": branch,
                 "contexts": list(contexts),
                 "strict": strict,
+                "api_root": api_root,
             }
         )
         return StatusCheckState(strict=True, contexts=list(contexts))
@@ -385,6 +401,7 @@ def test_main_bootstraps_when_apply(
         "branch": "main",
         "contexts": ["Gate / gate"],
         "strict": True,
+        "api_root": "https://api.github.com",
     }
     assert "Created branch protection rule." in captured.out
 
@@ -411,3 +428,127 @@ def test_main_surfaces_branch_protection_errors(
     captured = capsys.readouterr()
     assert exit_code == 1
     assert "error: boom" in captured.err
+
+
+def test_main_writes_snapshot_when_drift_detected(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("GITHUB_TOKEN", "token")
+    monkeypatch.setattr(
+        "tools.enforce_gate_branch_protection._build_session",
+        lambda _token: object(),
+    )
+    monkeypatch.setattr(
+        "tools.enforce_gate_branch_protection.fetch_status_checks",
+        lambda *_args, **_kwargs: StatusCheckState(strict=False, contexts=["Legacy"]),
+    )
+
+    snapshot_file = tmp_path / "snapshots" / "state.json"
+    exit_code = main(
+        [
+            "--repo",
+            "owner/repo",
+            "--branch",
+            "main",
+            "--snapshot",
+            str(snapshot_file),
+        ]
+    )
+
+    assert exit_code == 0
+    data = json.loads(snapshot_file.read_text())
+    assert data["repository"] == "owner/repo"
+    assert data["branch"] == "main"
+    assert data["mode"] == "inspect"
+    assert data["current"] == {"strict": False, "contexts": ["Legacy"]}
+    assert data["desired"] == {"strict": True, "contexts": ["Gate / gate"]}
+    assert data["changes_required"] is True
+    assert data["changes_applied"] is False
+    assert "after" not in data
+
+
+def test_main_snapshot_updates_after_apply(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("GITHUB_TOKEN", "token")
+    monkeypatch.setattr(
+        "tools.enforce_gate_branch_protection._build_session",
+        lambda _token: object(),
+    )
+    monkeypatch.setattr(
+        "tools.enforce_gate_branch_protection.fetch_status_checks",
+        lambda *_args, **_kwargs: StatusCheckState(strict=False, contexts=["Legacy"]),
+    )
+
+    def fake_update(
+        _session: object,
+        repo: str,
+        branch: str,
+        *,
+        contexts: list[str],
+        strict: bool,
+        api_root: str = "",
+    ) -> StatusCheckState:
+        assert repo == "owner/repo"
+        assert branch == "main"
+        assert contexts == ["Gate / gate"]
+        assert strict is True
+        assert api_root == "https://api.github.com"
+        return StatusCheckState(strict=True, contexts=contexts)
+
+    monkeypatch.setattr(
+        "tools.enforce_gate_branch_protection.update_status_checks",
+        fake_update,
+    )
+
+    snapshot_file = tmp_path / "state.json"
+    exit_code = main(
+        [
+            "--repo",
+            "owner/repo",
+            "--branch",
+            "main",
+            "--apply",
+            "--snapshot",
+            str(snapshot_file),
+        ]
+    )
+
+    assert exit_code == 0
+    data = json.loads(snapshot_file.read_text())
+    assert data["mode"] == "apply"
+    assert data["changes_required"] is True
+    assert data["changes_applied"] is True
+    assert data["after"] == {"strict": True, "contexts": ["Gate / gate"]}
+
+
+def test_require_token_prefers_explicit_value(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    monkeypatch.delenv("GH_TOKEN", raising=False)
+    assert require_token(" explicit ") == "explicit"
+
+
+def test_require_token_env_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    monkeypatch.setenv("GH_TOKEN", "env-token")
+    assert require_token() == "env-token"
+
+
+def test_require_token_raises_when_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    monkeypatch.delenv("GH_TOKEN", raising=False)
+    with pytest.raises(BranchProtectionError):
+        require_token()
+
+
+def test_resolve_api_root_prefers_explicit(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GITHUB_API_URL", "https://enterprise/api/v3")
+    assert (
+        resolve_api_root("https://custom.example/api/v3/")
+        == "https://custom.example/api/v3"
+    )
+
+
+def test_resolve_api_root_env_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GITHUB_API_URL", "https://enterprise/api/v3/")
+    assert resolve_api_root() == "https://enterprise/api/v3"
