@@ -1,6 +1,11 @@
+from collections.abc import Sequence
+import json
+
 import pytest
+import requests
 
 from tools.enforce_gate_branch_protection import (
+    BranchProtectionMissingError,
     BranchProtectionError,
     StatusCheckState,
     diff_contexts,
@@ -13,28 +18,29 @@ from tools.enforce_gate_branch_protection import (
 )
 
 
-class DummyResponse:
+class DummyResponse(requests.Response):
     def __init__(
         self, status_code: int, payload: dict | None = None, text: str = ""
     ) -> None:
+        super().__init__()
         self.status_code = status_code
-        self._payload = payload or {}
-        self.text = text
-
-    def json(self) -> dict:
-        return self._payload
+        content = json.dumps(payload or {}) if payload is not None else text
+        self._content = content.encode("utf-8")
+        self.encoding = "utf-8"
 
 
-class DummySession:
+class DummySession(requests.Session):
     def __init__(self, response: DummyResponse) -> None:
+        super().__init__()
         self._response = response
         self.last_payload: dict | None = None
 
-    def get(self, *_args, **_kwargs) -> DummyResponse:
+    def get(self, *_args: object, **_kwargs: object) -> requests.Response:
         return self._response
 
-    def patch(self, *_args, json: dict, **_kwargs) -> DummyResponse:
-        self.last_payload = json
+    def patch(self, *_args: object, **_kwargs: object) -> requests.Response:
+        json_payload = _kwargs.get("json")
+        self.last_payload = json_payload if isinstance(json_payload, dict) else None
         return self._response
 
 
