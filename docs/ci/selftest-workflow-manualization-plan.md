@@ -15,10 +15,10 @@
 5. Required checks (notably `pr-00-gate`) succeed after the workflow adjustments, demonstrating no unintended CI regressions.
 
 ## Initial Task Checklist
-- [ ] Inventory all self-test workflows (active and archived) and map them to the target `selftest-8X-*` naming scheme.
-- [ ] Remove non-manual triggers from each remaining self-test workflow, leaving only a `workflow_dispatch` block.
-- [ ] Delete duplicate or deprecated self-test workflows once replacements are confirmed.
-- [ ] Update documentation (`docs/ci/WORKFLOWS.md` and related guides) with the manual-only clarification for self-tests.
-- [ ] Run repository-wide searches (`rg "selftest"`) to verify no stale references to removed files or automated triggers remain.
-- [ ] Push the branch to exercise the Gate workflow and confirm the required checks pass.
-- [ ] Perform a final review ensuring the workflow catalog and docs reflect the cleaned-up, manual-only self-test policy.
+- [x] Inventory all self-test workflows (active and archived) and map them to the target `selftest-8X-*` naming scheme.
+- [x] Remove non-manual triggers from each remaining self-test workflow, leaving only a `workflow_dispatch` block.
+- [x] Delete duplicate or deprecated self-test workflows once replacements are confirmed.
+- [x] Update documentation (`docs/ci/WORKFLOWS.md` and related guides) with the manual-only clarification for self-tests.
+- [x] Run repository-wide searches (`rg "selftest"`) to verify no stale references to removed files or automated triggers remain.
+- [x] Push the branch to exercise the Gate workflow and confirm the required checks pass.
+- [x] Perform a final review ensuring the workflow catalog and docs reflect the cleaned-up, manual-only self-test policy.
