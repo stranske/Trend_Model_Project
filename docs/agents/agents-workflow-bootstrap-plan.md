@@ -1,13 +1,9 @@
 # Agents Workflow Bootstrap Plan
 
 ## Scope & Key Constraints
-- `.github/workflows/agents-70-orchestrator.yml` is the **only** scheduled
-  automation surface. Manual dispatch remains available in both the
-  orchestrator and the legacy `agents-consumer.yml` wrapper.
-- `agents-consumer.yml` exists solely for curated manual runs that need the
-  JSON `params_json` input surface. All automated triggers (cron, issue
-  events) stay disabled.
-- Both dispatchers must converge on `reuse-agents.yml` /
+- `.github/workflows/agents-70-orchestrator.yml` is the **only** scheduled or
+  manual automation surface.
+- All automation routes through `reuse-agents.yml` /
   `reusable-70-agents.yml` so feature parity is preserved (readiness,
   watchdog, diagnostics, keepalive, bootstrap, issue verification).
 - Concurrency at the workflow root must guard against overlapping runs on the
@@ -18,16 +14,12 @@
 1. Orchestrator workflow continues to expose the manual inputs listed in
    `docs/ci/WORKFLOWS.md` and fans into `reusable-70-agents.yml` without
    introducing bespoke JSON parsing layers.
-2. Both orchestrator and consumer workflows declare per-ref concurrency guards
-   with `cancel-in-progress: true` and delegate timeout coverage to the
-   reusable workflow.
-3. `agents-consumer.yml` remains manual-only and retains the
-   `params_json`-driven defaults for readiness + watchdog, with bootstrap,
-   preflight, verification, and keepalive staying opt-in.
-4. Documentation (CONTRIBUTING, `docs/ci/WORKFLOWS.md`, and these notes)
-   describes the orchestrator as the scheduled entry point, calls out the
-   manual-only consumer surface, and links to monitoring guidance (48-hour
-   quiet window, `ci-failure` tagging).
+2. Orchestrator declares per-ref concurrency guards with
+   `cancel-in-progress: true` and delegates timeout coverage to the reusable
+   workflow.
+3. Documentation (CONTRIBUTING, `docs/ci/WORKFLOWS.md`, and these notes)
+   describes the orchestrator as the sole entry point and links to monitoring
+   guidance (48-hour quiet window, `ci-failure` tagging).
 5. Tests in `tests/test_workflow_agents_consolidation.py` and
    `tests/test_workflow_naming.py` enforce the manual-only status, concurrency
    guards, and naming policy.
@@ -36,9 +28,6 @@
 - [x] Inventory orchestration features to confirm the orchestrator covers
   readiness, watchdog, diagnostics, bootstrap, verification, and keepalive
   paths without the consumer.
-- [x] Keep `agents-consumer.yml` manual-only with
-  `concurrency: agents-consumer-${{ github.ref }}` and surface parity with the
-  reusable toolkit via `reuse-agents.yml`.
 - [x] Document manual dispatch expectations and the post-change monitoring
   window in `docs/ci/WORKFLOWS.md`.
 - [x] Re-run workflow guard tests (`pytest tests/test_workflow_agents_consolidation.py

@@ -1,70 +1,60 @@
-# Temporary Workflow Audit (Draft)
+# Temporary Workflow Audit (Updated for Issue #2466)
 
 Date: 2026-10-12
 
 ## Naming Compliance Snapshot
 - ✅ All active workflows follow the `<area>-<NN>-<slug>.yml` convention with 10-point spacing per family (exception: `autofix.yml`, reinstated per Issue #2380 as the PR autofix runner).
 - ✅ Each workflow's `name:` field mirrors its filename (title-cased with numeric block preserved).
-- ✅ `.github/workflows/archive/` remains absent; legacy self-test wrappers were relocated to `Old/workflows/` for historical reference.
+- ✅ `.github/workflows/archive/` remains absent; legacy self-test wrappers live under `Old/workflows/` for archaeology.
 
-## Final Workflow Set (Issue #2190 + Issue #2379 refresh)
-Only the workflows listed below remain visible in the Actions tab. Reusable composites without direct triggers are grouped separately.
+## Final Workflow Set
+This list mirrors the canonical catalogue in `docs/ci/WORKFLOWS.md` after the Issue #2466 consolidation. Only the workflows below appear in the Actions tab; reusable composites are grouped separately.
 
 ### PR Checks
 | Workflow | Triggers | Notes |
 |----------|----------|-------|
-| `pr-gate.yml` | pull_request, workflow_dispatch | Aggregates reusable CI/Docker composites into a single required gate for PRs.
-| `pr-14-docs-only.yml` | pull_request (doc paths) | Detects documentation-only diffs and posts a skip notice via comment instead of launching heavier CI.
-| `autofix.yml` | pull_request | Direct PR autofix runner that delegates to `reusable-92-autofix.yml` and pushes formatting/type hygiene commits when safe.
+| `pr-gate.yml` | `pull_request`, `workflow_dispatch` | Aggregates reusable CI/Docker jobs into the single required gate (`Gate / gate`). |
+| `pr-14-docs-only.yml` | `pull_request` (doc paths) | Detects documentation-only diffs and posts a skip notice instead of launching heavier CI. |
+| `autofix.yml` | `pull_request` | PR autofix runner delegating to `reusable-92-autofix.yml`; the `apply` job is required. |
 
 ### Maintenance & Governance
 | Workflow | Triggers | Notes |
 |----------|----------|-------|
-| `maint-02-repo-health.yml` | schedule, workflow_dispatch | Weekly repository health sweep that records a single run-summary report.
-| `maint-post-ci.yml` | workflow_run | Consolidated post-CI follower that posts Gate summaries, applies low-risk autofix commits, and now owns CI failure-tracker updates.
-| `maint-33-check-failure-tracker.yml` | workflow_run | Lightweight compatibility shell delegating all tracker duties to `maint-post-ci.yml`.
-| `maint-35-repo-health-self-check.yml` | weekly cron, workflow_dispatch | Read-only repo health summary that reports label coverage and branch-protection visibility in the job summary.
-| `maint-36-actionlint.yml` | pull_request, push, schedule, workflow_dispatch | Sole workflow lint gate (actionlint via reviewdog).
-| `maint-40-ci-signature-guard.yml` | pull_request, push | Verifies signed CI manifests to guard against tampering.
-| `maint-41-chatgpt-issue-sync.yml` | workflow_dispatch | Fans out curated topic lists (e.g. `Issues.txt`) into GitHub issues with automatic labeling. |
-| `maint-45-cosmetic-repair.yml` | workflow_dispatch | Manual pytest run that feeds `scripts/ci_cosmetic_repair.py` to patch guard-gated tolerances/snapshots and open labelled PRs. |
+| `maint-02-repo-health.yml` | Weekly cron, `workflow_dispatch` | Weekly repository health sweep that records a single run-summary report. |
+| `maint-post-ci.yml` | `workflow_run` (Gate), `workflow_dispatch` | Consolidated follower that posts Gate summaries, mirrors the autofix sweep, and maintains the rolling `ci-failure` issue. |
+| `maint-33-check-failure-tracker.yml` | `workflow_run` (Gate) | Compatibility shell documenting the delegation to `maint-post-ci.yml`. |
+| `maint-35-repo-health-self-check.yml` | Weekly cron, `workflow_dispatch` | Governance probe that surfaces label coverage/branch-protection gaps in the step summary. |
+| `maint-36-actionlint.yml` | `pull_request`, weekly cron, `workflow_dispatch` | Sole workflow-lint gate (actionlint via reviewdog). |
+| `maint-40-ci-signature-guard.yml` | `pull_request`/`push` (`phase-2-dev`) | Verifies the signed Gate manifest. |
+| `maint-41-chatgpt-issue-sync.yml` | `workflow_dispatch` | Manual sync turning curated topic lists into labelled issues. |
+| `maint-45-cosmetic-repair.yml` | `workflow_dispatch` | Manual pytest + cosmetic fixer that opens a labelled PR when drift is detected. |
 
-### Agents
+### Agents & Automation
 | Workflow | Triggers | Notes |
 |----------|----------|-------|
-| `agents-consumer.yml` | workflow_dispatch | Manual-only JSON bridge that calls `reuse-agents.yml`; concurrency guard `agents-consumer-${{ github.ref }}` prevents back-to-back dispatch collisions. |
-| `agents-43-codex-issue-bridge.yml` | issues, workflow_dispatch | Restored Codex bootstrap automation for label-driven issue handling. |
-| `agents-44-verify-agent-assignment.yml` | workflow_call, workflow_dispatch | Validates that `agent:codex` issues remain assigned to an approved agent account before automation runs. |
-| `agents-70-orchestrator.yml` | schedule (*/20), workflow_dispatch | Unified agents toolkit entry point (readiness, diagnostics, Codex keepalive). |
+| `agents-43-codex-issue-bridge.yml` | `issues`, `workflow_dispatch` | Label-driven helper that prepares Codex bootstrap issues/PRs; does not replace the orchestrator. |
+| `agents-44-verify-agent-assignment.yml` | `workflow_call`, `workflow_dispatch` | Issue verification helper reused by the orchestrator and available for ad-hoc checks. |
+| `agents-70-orchestrator.yml` | Cron (`*/20 * * * *`), `workflow_dispatch` | Sole automation entry point orchestrating readiness, diagnostics, bootstrap, keepalive, and watchdog jobs. |
 
 ### Reusable Composites
 | Workflow | Triggers | Notes |
 |----------|----------|-------|
-| `reuse-agents.yml` | workflow_call | Bridges orchestrator and external callers to the reusable stack.
-| `reusable-70-agents.yml` | workflow_call | Reusable agents stack used by `agents-70-orchestrator.yml` and `reuse-agents.yml`.
-| `reusable-ci.yml` | workflow_call | General-purpose CI composite (lint, type-check, pytest) for downstream repositories and Gate.
-| `reusable-99-selftest.yml` | workflow_call | Matrix smoke-test for the reusable CI executor.
-| `reusable-92-autofix.yml` | workflow_call | Autofix composite consumed by `maint-post-ci.yml` and the direct `autofix.yml` PR runner.
-| `reusable-94-legacy-ci-python.yml` | workflow_call | Legacy CI contract retained for downstream consumers.
-| `reusable-96-ci-lite.yml` | workflow_call | Single-job Ruff/mypy/pytest runner retained for legacy PR 10 experiments and prototype gate research.
-| `reusable-97-docker-smoke.yml` | workflow_call | Wrapper that exposes the Docker smoke workflow to orchestration jobs.
-| `reusable-docker.yml` | workflow_call | Standalone Docker smoke composite (build + health check) for external consumers.
+| `reuse-agents.yml` | `workflow_call` | Bridges external callers to the reusable agents stack with consistent defaults. |
+| `reusable-70-agents.yml` | `workflow_call` | Implements readiness, bootstrap, diagnostics, keepalive, and watchdog jobs. |
+| `reusable-ci.yml` | `workflow_call` | General-purpose Python CI composite consumed by Gate and downstream repositories. |
+| `reusable-docker.yml` | `workflow_call` | Docker smoke reusable consumed by Gate and external callers. |
+| `reusable-92-autofix.yml` | `workflow_call` | Autofix composite shared by `autofix.yml` and `maint-post-ci.yml`. |
+| `reusable-99-selftest.yml` | `workflow_call` | Scenario matrix validating the reusable CI executor. |
 
-## Removed in Issue #2190
+## Removed in Issue #2466
 | Workflow | Status |
 |----------|--------|
-| `agents-40-consumer.yml`, `agents-41-assign*.yml`, `agents-42-watchdog.yml`, `agents-44-copilot-readiness.yml`, `agents-45-verify-codex-bootstrap-matrix.yml` | Deleted; functionality consolidated into `agents-70-orchestrator.yml` + `reusable-70-agents.yml`.
-| `maint-31-autofix-residual-cleanup.yml`, `maint-34-quarantine-ttl.yml`, `maint-37-ci-selftest.yml`, `maint-38-cleanup-codex-bootstrap.yml`, `maint-43-verify-service-bot-pat.yml`, `maint-44-verify-ci-stack.yml`, `maint-45-merge-manager.yml`, `maint-48-selftest-reusable-ci.yml`, `maint-49-stale-prs.yml`, `maint-52-perf-benchmark.yml`, `maint-60-release.yml` | Deleted; maintenance roster trimmed to the Issue #2190 final set.
-| `pr-01-gate-orchestrator.yml`, `pr-02-label-agent-prs.yml`, `pr-18-workflow-lint.yml`, `pr-20-selftest-pr-comment.yml`, `pr-30-codeql.yml`, `pr-31-dependency-review.yml`, `pr-path-labeler.yml` | Deleted; PR checks narrowed to the two required pipelines.
-| `reuse-agents.yml` (renamed), `repo-health-self-check.yml` (renamed) | Superseded by the new naming scheme. **2026-10 follow-up:** orchestrator remains the scheduled dispatch surface; consumer workflow constrained to manual-only usage.
-
-## Archived in Issue #2378
-
-- `maint-90-selftest.yml` relocated to `Old/workflows/` for historical reference when the cron wrapper was retired. `reusable-99-selftest.yml` returned to `.github/workflows/` in Issue #2379 once converted to job-level reuse; the archived copy remains for archaeology.
-
+| `agents-consumer.yml`, legacy `agents-41*`, `agents-42-watchdog.yml` | Deleted; automation now routes exclusively through `agents-70-orchestrator.yml` + `reusable-70-agents.yml`. |
+| `maint-31-autofix-residual-cleanup.yml`, `maint-34-quarantine-ttl.yml`, `maint-37-ci-selftest.yml`, `maint-38-cleanup-codex-bootstrap.yml`, `maint-45-merge-manager.yml`, `maint-48-selftest-reusable-ci.yml`, `maint-49-stale-prs.yml`, `maint-52-perf-benchmark.yml`, `maint-60-release.yml` | Archived during the earlier consolidation; list retained here for archaeology. |
+| `pr-01-gate-orchestrator.yml`, `pr-02-label-agent-prs.yml`, `pr-18-workflow-lint.yml`, `pr-20-selftest-pr-comment.yml`, `pr-30-codeql.yml`, `pr-31-dependency-review.yml`, `pr-path-labeler.yml` | Deleted; Gate + Autofix now cover PR CI. |
 
 ## Verification
-- `pytest tests/test_workflow_*.py` validates naming compliance, inventory coverage, and agent orchestration wiring.
-- Manual spot checks confirm `gh workflow list` shows only the Final Workflow Set.
+- `pytest tests/test_workflow_*.py` validates naming compliance, inventory coverage, and orchestrator wiring.
+- Manual spot checks (`gh workflow list`) confirm only the workflows above appear in the Actions UI.
 
-This audit will be deleted once the new documentation in `docs/ci/WORKFLOWS.md` becomes the authoritative catalogue.
+This audit will be deleted once `docs/ci/WORKFLOWS.md` remains the authoritative catalogue for two release cycles.

@@ -23,7 +23,9 @@ Use the matrix below as the authoritative roster of active workflows. Each row c
 | **Maint 40 CI Signature Guard** | `.github/workflows/maint-40-ci-signature-guard.yml` | `push`/`pull_request` targeting `phase-2-dev` | `contents: read` | No | Validates the signed job manifest for Gate. |
 | **Maint 41 ChatGPT Issue Sync** | `.github/workflows/maint-41-chatgpt-issue-sync.yml` | `workflow_dispatch` | `contents: write`, `issues: write` | No | Manual sync that turns curated lists into labelled GitHub issues. |
 | **Maint 45 Cosmetic Repair** | `.github/workflows/maint-45-cosmetic-repair.yml` | `workflow_dispatch` | `contents: write`, `pull-requests: write` | No | Manual pytest + guardrail fixer that opens a labelled PR when drift is detected. |
+| **Agents 43 Codex Issue Bridge** | `.github/workflows/agents-43-codex-issue-bridge.yml` | `issues`, `workflow_dispatch` | `contents: write`, `pull-requests: write`, `issues: write`; optional `service_bot_pat` | No | Label-driven helper that prepares Codex bootstrap issues/PRs and optionally comments `@codex start`. |
 | **Agents 70 Orchestrator** | `.github/workflows/agents-70-orchestrator.yml` | Cron (`*/20 * * * *`), `workflow_dispatch` | `contents: write`, `pull-requests: write`, `issues: write`; optional `service_bot_pat` | No | Sole automation entry point dispatching readiness, bootstrap, diagnostics, and keepalive routines. |
+| **Agents 44 Verify Agent Assignment** | `.github/workflows/agents-44-verify-agent-assignment.yml` | `workflow_call`, `workflow_dispatch` | `issues: read` | No | Reusable issue-verification helper used by the orchestrator and available for ad-hoc checks. |
 | **Reuse Agents** | `.github/workflows/reuse-agents.yml` | `workflow_call` | `contents: write`, `pull-requests: write`, `issues: write`; optional `service_bot_pat` | No | Workflow-call wrapper so external callers reuse the agents toolkit with consistent inputs. |
 | **Reusable CI** | `.github/workflows/reusable-ci.yml` | `workflow_call` | Inherits caller permissions | No | Python lint/type/test reusable consumed by Gate and downstream repositories. |
 | **Reusable Docker Smoke** | `.github/workflows/reusable-docker.yml` | `workflow_call` | Inherits caller permissions | No | Docker build + smoke reusable consumed by Gate and external callers. |
@@ -82,7 +84,7 @@ These jobs must stay green for PRs to merge. The post-CI maintenance jobs below 
 
 ### Agent automation entry points
 
-`agents-70-orchestrator.yml` (`Agents 70 Orchestrator`) is the **sole** entry point for automation. Hourly cron and manual dispatch both call the reusable agents toolkit to perform readiness probes, Codex bootstrap, diagnostics, and keepalive sweeps. Legacy wrappers have been removed.
+`agents-70-orchestrator.yml` (`Agents 70 Orchestrator`) is the **sole** entry point for automation. Hourly cron and manual dispatch both call the reusable agents toolkit to perform readiness probes, Codex bootstrap, diagnostics, and keepalive sweeps. The Codex Issue Bridge remains only as a label-driven helper for seeding bootstrap PRs, and `agents-44-verify-agent-assignment.yml` exposes the verification logic as a reusable workflow-call entry point.
 
 **Operational details**
 - Provide required write scopes via the default `GITHUB_TOKEN`. Supply `service_bot_pat` when bootstrap jobs must push branches or leave comments.
