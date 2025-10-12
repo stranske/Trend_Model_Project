@@ -86,7 +86,13 @@ listen to their `workflow_run` events.
 - **Agents Consumer** – Permissions: `contents: write`, `pull-requests: write`, `issues: write`. Secrets: inherits `GITHUB_TOKEN` and forwards `secrets.SERVICE_BOT_PAT` when available so downstream automation may push branches/comments. Output: emits `Resolve Parameters` summary and a `Dispatch Agents Toolkit` reusable call that surfaces Codex readiness/watchdog diagnostics. Concurrency guard: `agents-consumer-${{ github.ref }}` with cancel-in-progress to prevent back-to-back manual dispatch collisions.
 - **Agents 70 Orchestrator** – Uses `options_json` to layer advanced toggles without adding dispatch inputs; set `enable_bootstrap: true` (and optionally `bootstrap_issues_label`) to fan bootstrap jobs through the reusable workflow during manual runs.
 
-**Post-change monitoring.** When agent workflows change, flag the tracking issue with `ci-failure`, coordinate a 48-hour watch to confirm no unintended `agents-consumer` runs fire, and document the clean Actions history before closing the issue. Manual-only status means maintainers should review the Actions list during that window to ensure the retired cron trigger stays inactive.
+**Post-change monitoring.** When agent workflows change:
+
+- Tag the source issue with `ci-failure` so it stays visible during the observation window.
+- Coordinate a 48-hour watch to confirm no scheduled or issue-triggered `agents-consumer` runs fire (manual dispatch is the only allowed path).
+- Capture a brief note or screenshot of the clean Actions history before removing the tag and closing the issue.
+
+Manual-only status means maintainers should review the Actions list during that window to ensure the retired cron trigger stays inactive.
 
 ### Reusable composites
 
