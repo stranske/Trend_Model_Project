@@ -65,7 +65,9 @@ def test_selftest_triggers_are_manual_only() -> None:
             "Only workflow_dispatch, schedule, or workflow_call are permitted."
         )
 
-        assert trigger_keys == allowed_triggers and required_manual_trigger in trigger_keys, (
+        assert (
+            trigger_keys == allowed_triggers and required_manual_trigger in trigger_keys
+        ), (
             f"{workflow_file.name} must provide only a {required_manual_trigger} "
             "trigger so self-tests remain strictly manual."
         )
