@@ -33,6 +33,23 @@
 - Guard tests `tests/test_workflow_agents_consolidation.py` and
   `tests/test_workflow_naming.py` are re-run to validate structure and naming.
 
+## Behaviour inventory (2026-10-12 audit)
+
+| Capability | Consumer implementation | Orchestrator parity | Notes |
+| --- | --- | --- | --- |
+| Readiness probe | Defaults to enabled via `params_json` | Enabled via `enable_readiness` input | Both paths call `reuse-agents.yml` → `reusable-70-agents.yml`; no divergence.
+| Watchdog sweep | Defaults to enabled | Enabled through `enable_watchdog` input | Reusable workflow enforces identical keepalive/watchdog steps and timeout coverage.
+| Codex preflight | Opt-in flag in JSON payload | `enable_preflight` manual input | Toggle forwards unchanged; reusable workflow owns diagnostics.
+| Bootstrap PR fan-out | Opt-in (`enable_bootstrap`) with optional label override | `options_json.enable_bootstrap` + label input | Shared bootstrap job fans out PRs and applies labels identically.
+| Issue verification | Opt-in (`enable_verify_issue`/`verify_issue_number`) | Manual input pair | Uses same verification job inside reusable stack.
+| Keepalive dispatch | Opt-in JSON toggle | `options_json.enable_keepalive` | Converges on shared keepalive job; defaults match.
+| Diagnostics / dry run | `options_json.diagnostic_mode` (manual payload) | Same JSON payload forwarded | Diagnostic knobs centralised; consumer adds no unique handling.
+
+**Conclusion:** every capability surfaced by the consumer exists in the
+orchestrator + reusable toolkit stack. The consumer remains solely as a manual
+JSON entry point; removing it would not drop functionality beyond that input
+surface.
+
 ## Initial Task Checklist
 1. Inventory the consumer vs orchestrator inputs to confirm no unique
    functionality is lost by consolidating into the reusable toolkit.
