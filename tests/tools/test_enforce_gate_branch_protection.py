@@ -1,12 +1,12 @@
-from collections.abc import Sequence
 import json
+from collections.abc import Sequence
 
 import pytest
 import requests
 
 from tools.enforce_gate_branch_protection import (
-    BranchProtectionMissingError,
     BranchProtectionError,
+    BranchProtectionMissingError,
     StatusCheckState,
     diff_contexts,
     fetch_status_checks,
