@@ -14,7 +14,7 @@
 - Documentation in `docs/ci_reuse.md` explains where timeouts live (within the reusable workflow) and how to adjust them going forward.
 
 ## Initial Task Checklist
-- [ ] Inspect the existing `reuse-agents.yml` job definition and remove the top-level `timeout-minutes` property from the `uses` job.
-- [ ] Audit `reusable-70-agents.yml` to confirm each long-running job has an explicit timeout; add or adjust values to stay within 15–30 minutes as appropriate.
-- [ ] Update `docs/ci_reuse.md` to describe the timeout placement and modification process.
-- [ ] Trigger or document the plan for a `workflow_dispatch` run of Agents 70 Orchestrator to verify the YAML loads successfully (include evidence or follow-up instructions).
+- [x] Inspect the existing `reuse-agents.yml` job definition and remove the top-level `timeout-minutes` property from the `uses` job.
+- [x] Audit `reusable-70-agents.yml` to confirm each long-running job has an explicit timeout; add or adjust values to stay within 15–30 minutes as appropriate.
+- [x] Update `docs/ci_reuse.md` to describe the timeout placement and modification process.
+- [x] Trigger or document the plan for a `workflow_dispatch` run of Agents 70 Orchestrator to verify the YAML loads successfully (include evidence or follow-up instructions). Documented manual dispatch steps in `docs/ci_reuse.md`; execution requires GitHub Actions UI access.

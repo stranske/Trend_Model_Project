@@ -60,9 +60,16 @@ The caller may also pass `options_json` (in the orchestration workflow) to layer
 input limit.
 
 Timeouts live inside the reusable workflow so the wrapper job (`reuse-agents.yml`) avoids invalid syntax. Each automation path
-has a bound sized to its typical runtime plus roughly 25 percent headroom: readiness (15 min), preflight (15 min), diagnostic
-bootstrap (20 min), Codex bootstrap orchestration (30 min), keepalive sweeps (25 min), and the lightweight watchdog sanity check
-(20 min).
+has a bound sized to its typical runtime plus roughly 25 percent headroom.
+
+| Job | Timeout |
+| --- | ------- |
+| Readiness probe | 15 minutes |
+| Codex preflight | 15 minutes |
+| Diagnostic bootstrap | 20 minutes |
+| Codex bootstrap orchestration | 30 minutes |
+| Keepalive sweeps | 25 minutes |
+| Watchdog sanity check | 20 minutes |
 
 To manually verify the orchestration chain after making changes, use **Actions → Agents 70 Orchestrator → Run workflow** in the
 GitHub UI. This dispatches `reuse-agents.yml`, which in turn calls the reusable workflow and surfaces any YAML validation errors
