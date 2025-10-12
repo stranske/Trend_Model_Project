@@ -97,6 +97,7 @@ def test_chatgpt_issue_sync_workflow_present_and_intact():
 
 
 EXPECTED_NAMES = {
+    "enforce-gate-branch-protection.yml": "Enforce Gate Branch Protection",
     "agents-43-codex-issue-bridge.yml": "Agents 43 Codex Issue Bridge",
     "agents-62-consumer.yml": "Agents Consumer",
     "agents-63-chatgpt-issue-sync.yml": "Maint 41 ChatGPT Issue Sync",
