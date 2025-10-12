@@ -28,7 +28,7 @@ Use the matrix below as the authoritative roster of active workflows. Each row c
 | **Agents 43 Codex Issue Bridge** | `.github/workflows/agents-43-codex-issue-bridge.yml` | `issues`, `workflow_dispatch` | `contents: write`, `pull-requests: write`, `issues: write`; optional `service_bot_pat` | No | Label-driven helper that prepares Codex bootstrap issues/PRs and optionally comments `@codex start`. |
 | **Agents 70 Orchestrator** | `.github/workflows/agents-70-orchestrator.yml` | Cron (`*/20 * * * *`), `workflow_dispatch` | `contents: write`, `pull-requests: write`, `issues: write`; optional `service_bot_pat` | No | Primary automation entry point dispatching readiness, bootstrap, diagnostics, and keepalive routines. |
 | **Agents 62 Consumer** | `.github/workflows/agents-62-consumer.yml` | `workflow_dispatch` | `contents: write`, `pull-requests: write`, `issues: write`; optional `service_bot_pat` | No | Manual dispatcher that proxies inputs to `reusable-71-agents-dispatch.yml`, supports advanced overrides via `options_json`, and enforces concurrency guard (`agents-62-consumer-${ref_name}`). |
-| **Agents Consumer** | `.github/workflows/agents-consumer.yml` | `workflow_dispatch` | `contents: write`, `pull-requests: write`, `issues: write`; optional `service_bot_pat` | No | Manual dispatcher that forwards string inputs directly to `reusable-70-agents.yml` with concurrency guard (`agents-consumer-${ref}`). |
+| **Agents Consumer** | `.github/workflows/agents-consumer.yml` | `workflow_dispatch` | `contents: write`, `pull-requests: write`, `issues: write`; optional `service_bot_pat` | No | Manual dispatcher that forwards string inputs directly to `reusable-70-agents.yml`, supports advanced overrides via `options_json`, and enforces concurrency guard (`agents-consumer-${ref}`). |
 | **Agents 44 Verify Agent Assignment** | `.github/workflows/agents-64-verify-agent-assignment.yml` | `workflow_call`, `workflow_dispatch` | `issues: read` | No | Reusable issue-verification helper used by the orchestrator and available for ad-hoc checks. |
 | **Reuse Agents** | `.github/workflows/reuse-agents.yml` | `workflow_call` | `contents: write`, `pull-requests: write`, `issues: write`; optional `service_bot_pat` | No | Workflow-call wrapper so external callers reuse the agents toolkit with consistent inputs. |
 | **Reusable CI** | `.github/workflows/reusable-10-ci-python.yml` | `workflow_call` | Inherits caller permissions | No | Python lint/type/test reusable consumed by Gate and downstream repositories. |
@@ -142,8 +142,17 @@ Use the **Agents 62 Consumer** workflow when you need a lightweight manual trigg
 Use the **Agents Consumer** workflow when you need a lightweight manual trigger without the orchestrator cron context.
 
 1. Navigate to **Actions → Agents Consumer → Run workflow**.
-2. Provide string inputs (e.g., `'true'`, `'false'`, comma-delimited lists) that map directly to the reusable workflow.
-3. The single **Dispatch reusable agents toolkit** job fans into `reusable-70-agents.yml`. A concurrency group (`agents-consumer-${ref}`) cancels any previous run on the same branch before starting.
+2. Flip the high-level toggles (`enable_readiness`, `enable_preflight`, diagnostics, watchdog, bootstrap) as needed. Advanced overrides—custom readiness lists, Codex command phrase, diagnostic dry-run mode, bootstrap label, etc.—go inside `options_json` as a JSON object.
+3. Example payload:
+   ```json
+   {
+     "readiness_agents": "copilot,codex",
+     "require_all": "true",
+     "codex_user": "chatgpt-codex-connector",
+     "bootstrap_issues_label": "agent:codex"
+   }
+   ```
+4. The single **Dispatch reusable agents toolkit** job fans into `reusable-70-agents.yml`. A concurrency group (`agents-consumer-${ref}`) cancels any previous run on the same branch before starting.
 
 ### Agent troubleshooting: bootstrap & readiness signals
 
