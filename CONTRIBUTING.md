@@ -23,10 +23,11 @@ post-processing workflow:
   issues when hygiene regressions persist. Treat that consolidated
   comment as the canonical health dashboard; rerun Gate or Maint
   Post-CI if you need the summary refreshed.
-- **Agent automation** – Scheduled (cron) and on-demand dispatchers
-  ([`agents-70-orchestrator.yml`](.github/workflows/agents-70-orchestrator.yml)
-  and [`agents-consumer.yml`](.github/workflows/agents-consumer.yml))
-  invoke [`reuse-agents.yml`](.github/workflows/reuse-agents.yml) to run
+- **Agent automation** – The
+  [`agents-70-orchestrator.yml`](.github/workflows/agents-70-orchestrator.yml)
+  workflow is the single dispatch point for scheduled and manual Codex
+  automation. It invokes
+  [`reuse-agents.yml`](.github/workflows/reuse-agents.yml) to run
   readiness checks, watchdogs, and Codex bootstrapping. Applying the
   `agent:codex` label flags an issue for bootstrap handling in the next
   run; remove the label to opt out before the dispatcher cycles.

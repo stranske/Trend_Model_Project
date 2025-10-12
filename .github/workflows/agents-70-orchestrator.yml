@@ -51,9 +51,14 @@ permissions:
   pull-requests: write
   issues: write
 
+concurrency:
+  group: agents-orchestrator-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   orchestrate:
     name: Dispatch Agents Toolkit
+    timeout-minutes: 30
     uses: ./.github/workflows/reusable-70-agents.yml
     # options_json schema (strings, defaults shown):
     # {
