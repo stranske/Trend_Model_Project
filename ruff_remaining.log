@@ -1,1 +1,31 @@
-All checks passed!
+tests/tools/test_enforce_gate_branch_protection.py:124:17: F821 Undefined name `main`
+    |
+122 |     )
+123 | 
+124 |     exit_code = main(["--repo", "owner/repo", "--branch", "main"])
+    |                 ^^^^ F821
+125 | 
+126 |     captured = capsys.readouterr()
+    |
+
+tests/tools/test_enforce_gate_branch_protection.py:172:17: F821 Undefined name `main`
+    |
+170 |     )
+171 | 
+172 |     exit_code = main(["--repo", "owner/repo", "--branch", "main", "--apply"])
+    |                 ^^^^ F821
+173 | 
+174 |     captured = capsys.readouterr()
+    |
+
+tests/tools/test_enforce_gate_branch_protection.py:202:17: F821 Undefined name `main`
+    |
+200 |     )
+201 | 
+202 |     exit_code = main(["--repo", "owner/repo", "--branch", "main"])
+    |                 ^^^^ F821
+203 | 
+204 |     captured = capsys.readouterr()
+    |
+
+Found 3 errors.
