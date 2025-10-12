@@ -7,7 +7,7 @@ This guide enables a new maintainer to operate the CI + agent automation stack i
 Core layers:
 - Gate orchestrator (`pr-gate.yml`): single required check that fans out to Python 3.11/3.12 CI and the Docker smoke test using the reusable workflows, then enforces that every leg succeeds.
 - Autofix lane (`maint-post-ci.yml`): workflow_run follower that batches small hygiene fixes, posts Gate summaries, and manages trivial failure remediation using the composite autofix action.
-- Agent routing & watchdog (`agents-41-assign.yml` + `agents-42-watchdog.yml`): label-driven assignment, Codex bootstrap, diagnostics.
+- Agents orchestration & watchdog (`agents-70-orchestrator.yml` + `reusable-70-agents.yml`): label-driven assignment, Codex bootstrap, diagnostics, and watchdog toggles via `enable_watchdog` (default `true`).
 - Merge automation (`maint-45-merge-manager.yml`): unified auto-approval and auto-merge decisions for safe agent PRs.
 - Governance & Health: `maint-34-quarantine-ttl.yml`, `maint-35-repo-health-self-check.yml`, `maint-36-actionlint.yml`, labelers, dependency review, CodeQL.
 - Path Labeling: `pr-path-labeler.yml` auto-categorizes PRs.
@@ -113,10 +113,11 @@ on:
   workflow_dispatch:
 jobs:
   call:
-    uses: stranske/Trend_Model_Project/.github/workflows/reusable-90-agents.yml@phase-2-dev
+    uses: stranske/Trend_Model_Project/.github/workflows/reusable-70-agents.yml@phase-2-dev
     with:
       enable_readiness: true
       enable_preflight: true
+      enable_watchdog: true
       enable_diagnostic: false
 ```
 Use a tagged ref when versioned.
@@ -142,7 +143,8 @@ Two entry points now exist:
 `reuse-agents.yml` bridges the consumer JSON payload into the reusable toolkit
 without re-exposing more than 10 dispatch inputs. Both entry points ultimately
 invoke `reusable-70-agents.yml`, which emits Markdown readiness summaries,
-`issue_numbers_json`, and `first_issue` outputs for Codex bootstraps.
+`issue_numbers_json`, and `first_issue` outputs for Codex bootstraps and keeps
+the watchdog probe enabled whenever `enable_watchdog` resolves to `true`.
 
 Manual dispatch for the consumer now uses a single JSON textarea. A ready to
 paste payload:

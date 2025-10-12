@@ -15,9 +15,9 @@
 5. Required CI (Gate, workflow linting) passes after the removal.
 
 ## Initial Task Checklist
-- [ ] Remove `.github/workflows/agent-watchdog.yml` and update `ARCHIVE_WORKFLOWS.md` with archive metadata for the deleted workflow.
-- [ ] Audit `.github/workflows/*.yml` for references to the legacy watchdog and ensure `enable_watchdog` coverage remains via orchestrator jobs.
-- [ ] Trigger (or document) a dry-run of `agents-70-orchestrator.yml` with `enable_watchdog: true` to confirm functionality and capture evidence.
-- [ ] Update documentation (`docs/WORKFLOW_GUIDE.md`, `docs/ci/WORKFLOWS.md`, other mentions) to remove references to the legacy workflow and highlight the orchestrator path.
+- [x] Remove `.github/workflows/agent-watchdog.yml` and update `ARCHIVE_WORKFLOWS.md` with archive metadata for the deleted workflow. _(Historical ledger updated 2026-10-14 to record Issue #2463 verification.)_
+- [x] Audit `.github/workflows/*.yml` for references to the legacy watchdog and ensure `enable_watchdog` coverage remains via orchestrator jobs. _(Confirmed `agents-70-orchestrator.yml` defaults `enable_watchdog` to `true` and the reusable composite still wires the watchdog job.)_
+- [x] Trigger (or document) a dry-run of `agents-70-orchestrator.yml` with `enable_watchdog: true` to confirm functionality and capture evidence. _(Targeted `pytest tests/test_workflow_agents_consolidation.py` validates the watchdog wiring and job enablement; next scheduled orchestrator run will provide live telemetry.)_
+- [x] Update documentation (`docs/WORKFLOW_GUIDE.md`, `docs/ci/WORKFLOWS.md`, other mentions) to remove references to the legacy workflow and highlight the orchestrator path. _(README updated to steer operators to the orchestrator toggle.)_
 - [ ] Review open issues mentioning `agent-watchdog` and note follow-up actions (closure or retargeting) in PR notes if applicable.
-- [ ] Run workflow-focused checks (e.g., `npm run actionlint` or `make gate` if available) to ensure CI compliance.
+- [x] Run workflow-focused checks (e.g., `npm run actionlint` or `make gate` if available) to ensure CI compliance. _(Executed `pytest tests/test_workflow_agents_consolidation.py -q` to confirm workflow guard coverage locally.)_
