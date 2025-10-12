@@ -7,6 +7,7 @@ Thank you for contributing to the Trend Model Project.
 Pull requests flow through a single required check and a consolidated
 post-processing workflow:
 
+- Passing the Gate check is required to merge.
 - **Required check** – `Gate / gate` (defined in
   [`.github/workflows/pr-00-gate.yml`](.github/workflows/pr-00-gate.yml)) must
   pass before merges. Branch protection blocks the default branch until
