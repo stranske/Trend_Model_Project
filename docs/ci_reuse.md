@@ -64,6 +64,10 @@ has a bound sized to its typical runtime plus roughly 25 percent headroom: read
 bootstrap (20 min), Codex bootstrap orchestration (30 min), keepalive sweeps (25 min), and the lightweight watchdog sanity check
 (20 min).
 
+To manually verify the orchestration chain after making changes, use **Actions → Agents 70 Orchestrator → Run workflow** in the
+GitHub UI. This dispatches `reuse-agents.yml`, which in turn calls the reusable workflow and surfaces any YAML validation errors
+alongside the bounded job runs described above.
+
 ## 5. Self-Test Matrix (`reusable-99-selftest.yml`)
 Exposes the matrix that validates the reusable CI executor across feature combinations (coverage delta, soft gate, metrics, history, classification). It now declares only manual (`workflow_dispatch`) and low-frequency schedule triggers (weekly Mondays at 06:00 UTC) so maintainers can run ad-hoc verification without PR noise. `maint-90-selftest.yml` remains the lightweight wrapper preserved in `Old/workflows/` for historical reference.
 
