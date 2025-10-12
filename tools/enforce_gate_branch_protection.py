@@ -21,6 +21,8 @@ def resolve_api_root(explicit: str | None = None) -> str:
     if not candidate:
         return DEFAULT_API_ROOT
     return candidate.rstrip("/")
+
+
 DEFAULT_CONTEXT = "Gate / gate"
 
 
