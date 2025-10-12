@@ -78,6 +78,8 @@ temporarily allow additional contexts or `--no-clean` to preserve existing extra
 
 - After enforcing the rule, run `gh api repos/stranske/Trend_Model_Project/branches/main/protection/required_status_checks` to
   confirm the payload lists only `Gate / gate` and has `"strict": true`.
+- Trigger the "Enforce Gate Branch Protection" workflow via `workflow_dispatch` (with `BRANCH_PROTECTION_TOKEN` configured) and
+  verify the run logs either report "No changes required." or "Update successful." along with the enforced contexts.
 - Open a throwaway pull request from an outdated branch to confirm the merge box displays `Required — Gate / gate` and blocks
   merges until the workflow finishes successfully.
 - Capture screenshots or console transcripts for the repository automation log (attach to the issue or link in meeting notes).
