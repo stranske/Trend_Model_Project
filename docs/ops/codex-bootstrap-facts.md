@@ -33,6 +33,11 @@ remain true after the cleanup.
   - Hourly schedule + manual dispatch.
   - Inputs: readiness toggles, Codex preflight, watchdog controls, issue verification, `options_json` for extended flags.
   - Calls `.github/workflows/reusable-70-agents.yml` for the actual implementation.
+- **Manual consumer:** `.github/workflows/agents-consumer.yml`
+  - Manual dispatch only.
+  - Exposes the same high-level toggles as the orchestrator UI; advanced overrides (custom readiness agents, Codex command phrase,
+    diagnostic knobs, bootstrap label) flow through `options_json`.
+  - Delegates to `.github/workflows/reusable-70-agents.yml` with inherited secrets and a per-ref concurrency guard.
 - **Reusable composite:** `.github/workflows/reusable-70-agents.yml`
   - Provides readiness probes, Codex bootstrap, verification, and watchdog jobs.
   - Exposes Markdown + JSON summaries for downstream tooling.

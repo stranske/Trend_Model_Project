@@ -1,54 +1,27 @@
-# Agents Consumer Workflow (Retired)
+# Agents Consumer Workflow (Manual Dispatch)
 
-## Scope and Key Constraints
-- Keep `.github/workflows/agents-62-consumer.yml` available for **manual**
-  dispatch only. All automated triggers stay removed (no cron, push, or
-  issue-driven runs).
-- Preserve feature parity with `reusable-71-agents-dispatch.yml` so the consumer continues to
-  proxy readiness, watchdog, diagnostics, bootstrap, keepalive, and verification
-  toggles via the `params_json` payload.
-- Maintain the workflow-level concurrency guard scoped to
-  `agents-62-consumer-${{ github.ref }}` with `cancel-in-progress: true` to prevent
-  back-to-back manual dispatch collisions.
-- Timeout enforcement for the reusable agents fan-out lives inside
-  `reusable-71-agents-dispatch.yml` → `reusable-70-agents.yml`; the consumer should not attempt
-  to set `timeout-minutes` on the reusable-call job.
-- Documentation must highlight that the orchestrator is the only scheduled
-  automation surface and that post-change monitoring requires a 48-hour quiet
-  window (tagging the source issue with `ci-failure`).
+`.github/workflows/agents-consumer.yml` provides a manual dispatch wrapper around
+[`reusable-70-agents.yml`](../../.github/workflows/reusable-70-agents.yml). Use it
+when you want to bypass the orchestrator schedule and invoke the reusable
+workflow directly with bespoke settings.
 
-## Acceptance Criteria / Definition of Done
-- `agents-62-consumer.yml` exposes only the `workflow_dispatch` trigger and keeps
-  the concurrency guard at the workflow root.
-- Manual runs continue to default to readiness + watchdog while treating
-  bootstrap, preflight, keepalive, and verification features as explicit opt-ins
-  via `params_json`.
-- The dispatch job calls `reusable-71-agents-dispatch.yml` without declaring an unsupported
-  `timeout-minutes` value; explanatory comments document that timeouts are
-  enforced downstream.
-- `docs/ci/WORKFLOWS.md`, `docs/agents/agents-workflow-bootstrap-plan.md`, and
-  these notes reflect the manual-only status, describe the orchestrator as the
-  scheduled automation entry point, and outline the 48-hour monitoring
-  expectation.
-- Guard tests `tests/test_workflow_agents_consolidation.py` and
-  `tests/test_workflow_naming.py` are re-run to validate structure and naming.
+## Dispatch guidance
 
-1. Navigate to **Actions → Agents 70 Orchestrator → Run workflow**.
-2. Provide the desired inputs (branch, readiness toggles, bootstrap settings,
-   and any overrides in the `options_json` payload).
-3. Review the `orchestrate` job summary for readiness tables, bootstrap status,
-   and keepalive signals.
+1. Navigate to **Actions → Agents Consumer → Run workflow**.
+2. Toggle the high-level switches exposed in the UI (readiness, preflight,
+   diagnostics, verify issue, watchdog, keepalive, bootstrap, draft PR).
+   Extended settings—custom readiness lists, Codex command phrases, bootstrap
+   labels, diagnostic dry-run flags—should be provided via the `options_json`
+   input as a JSON object. Strings such as `'true'` / `'false'` are forwarded
+   verbatim to the reusable workflow.
+3. Review the dispatched job named **Dispatch reusable agents toolkit** to
+   confirm downstream behaviour and capture outputs.
 
-The JSON examples that previously lived in this file can now be found in the
-orchestrator documentation:
+The workflow enforces a concurrency group of `agents-consumer-${ref_name}`. Triggering
+another run on the same branch cancels any in-flight execution and prevents
+manual re-trigger storms.
 
-- [`docs/ci/WORKFLOWS.md`](WORKFLOWS.md) – canonical workflow roster and manual
-  dispatch payloads.
-- [`docs/WORKFLOW_GUIDE.md`](../WORKFLOW_GUIDE.md) – topology guide describing
-  the orchestrator-only automation model.
-- [`docs/agent-automation.md`](../agent-automation.md) – deep dive into
-  orchestrator inputs, troubleshooting, and telemetry.
-
-If you discover a reference to `agents-62-consumer.yml` elsewhere in the
-repository, update it to point to the orchestrator so the documentation remains
-consistent with the simplified topology.
+For scheduled or automated routing prefer the
+[`agents-70-orchestrator.yml`](../../.github/workflows/agents-70-orchestrator.yml)
+entry point. It fans out to the same reusable toolkit while handling the
+recurring keepalive cadence.
