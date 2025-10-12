@@ -1,1 +1,29 @@
-All checks passed!
+tests/tools/test_enforce_gate_branch_protection.py:259:15: F821 Undefined name `BranchProtectionMissingError`
+    |
+258 |     def _raise_missing(*_args, **_kwargs):
+259 |         raise BranchProtectionMissingError("missing")
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ F821
+260 | 
+261 |     monkeypatch.setattr(
+    |
+
+tests/tools/test_enforce_gate_branch_protection.py:341:15: F821 Undefined name `BranchProtectionMissingError`
+    |
+340 |     def _raise_missing(*_args, **_kwargs):
+341 |         raise BranchProtectionMissingError("missing")
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ F821
+342 | 
+343 |     monkeypatch.setattr(
+    |
+
+tests/tools/test_enforce_gate_branch_protection.py:355:19: F821 Undefined name `Sequence`
+    |
+353 |         branch: str,
+354 |         *,
+355 |         contexts: Sequence[str],
+    |                   ^^^^^^^^ F821
+356 |         strict: bool,
+357 |     ) -> StatusCheckState:
+    |
+
+Found 3 errors.

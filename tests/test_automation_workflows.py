@@ -158,13 +158,17 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         )
 
         job_311 = jobs["core-tests-311"]
-        self.assertEqual(job_311.get("uses"), "./.github/workflows/reusable-10-ci-python.yml")
+        self.assertEqual(
+            job_311.get("uses"), "./.github/workflows/reusable-10-ci-python.yml"
+        )
         with_block_311 = job_311.get("with", {})
         self.assertEqual(with_block_311.get("python-version"), "3.11")
         self.assertEqual(with_block_311.get("marker"), "not quarantine and not slow")
 
         job_312 = jobs["core-tests-312"]
-        self.assertEqual(job_312.get("uses"), "./.github/workflows/reusable-10-ci-python.yml")
+        self.assertEqual(
+            job_312.get("uses"), "./.github/workflows/reusable-10-ci-python.yml"
+        )
         with_block_312 = job_312.get("with", {})
         self.assertEqual(with_block_312.get("python-version"), "3.12")
         self.assertEqual(with_block_312.get("marker"), "not quarantine and not slow")
