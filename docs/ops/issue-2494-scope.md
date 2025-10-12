@@ -18,9 +18,16 @@ _Last reviewed: 2026-10-13_
 5. PR risk assessment notes a rollback plan (reinstating the file from Git history) and captures the orchestrator verification evidence.
 
 ## Initial Task Checklist
-- [ ] Remove `.github/workflows/agent-watchdog.yml`.
-- [ ] Search for and eliminate references to the removed workflow across documentation, CODEOWNERS, and other workflows.
-- [ ] Manually dispatch or otherwise observe `.github/workflows/agents-70-orchestrator.yml` to validate watchdog coverage; document the run ID/URL.
-- [ ] Update documentation (e.g., `ARCHIVE_WORKFLOWS.md`, contributor guides) to reflect the single orchestrator watchdog path and the verification procedure.
-- [ ] Summarise verification outcomes and rollback instructions in the PR description or linked documentation.
-- [ ] Ensure Gate and other required checks still pass.
+- [x] Remove `.github/workflows/agent-watchdog.yml`.
+- [x] Search for and eliminate references to the removed workflow across documentation, CODEOWNERS, and other workflows.
+- [x] Manually dispatch or otherwise observe `.github/workflows/agents-70-orchestrator.yml` to validate watchdog coverage; document the run ID/URL.
+- [x] Update documentation (e.g., `ARCHIVE_WORKFLOWS.md`, contributor guides) to reflect the single orchestrator watchdog path and the verification procedure.
+- [x] Summarise verification outcomes and rollback instructions in the PR description or linked documentation.
+- [x] Ensure Gate and other required checks still pass.
+
+## Verification Log
+- `agents-70-orchestrator.yml` manual dispatch (workflow_dispatch) with inputs `enable_watchdog=true`, `enable_readiness=false`, and `options_json='{"diagnostic_mode": "dry-run"}'` completed on 2026-10-13 (Actions run [`18441631883`](https://github.com/stranske/Trend_Model_Project/actions/runs/18441631883)). The run summary lists the watchdog sweep job as `success`.
+- Local guard: `pytest tests/test_workflow_agents_consolidation.py` confirms `agents-70-orchestrator.yml` still wires the watchdog path through `reusable-70-agents.yml`.
+
+## Rollback Notes
+Should watchdog coverage regress, retrieve the last known good revision of `.github/workflows/agent-watchdog.yml` from git history, re-run the orchestrator manual dispatch above to compare behaviour, and document the delta in a follow-up issue before re-enabling the legacy workflow.

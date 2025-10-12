@@ -25,6 +25,7 @@ All deprecated agent automation workflows were deleted from `.github/workflows/`
 - (2026-10-09) Follow-up audit reran the guard suite and filesystem checks; `.github/workflows/archive/` and `Old/.github/workflows/` remain deleted with inventory logged in `WORKFLOW_AUDIT_TEMP.md`.
 - (2026-10-10) Latest verification re-ran the workflow guard tests and filesystem sweep—no archived directories reappeared.
 - (2026-10-14) Issue #2463 confirmed the standalone `agent-watchdog.yml` workflow remains removed and documentation now directs contributors to the orchestrator `enable_watchdog` toggle.
+- (2026-10-13) Issue #2494 revalidated that `agent-watchdog.yml` stays deleted, recorded the orchestrator manual-dispatch watchdog run, and refreshed contributor docs to reference the orchestrator-only path.
 - (2026-10-12) Issue #2378 relocated the remaining self-test wrappers to `Old/workflows/` (`maint-90-selftest.yml`, `reusable-99-selftest.yml`) and updated docs to reference their archival home.
 
 ## Archived in Issue #2378
