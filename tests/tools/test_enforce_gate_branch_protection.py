@@ -6,7 +6,6 @@ from tools.enforce_gate_branch_protection import (
     diff_contexts,
     fetch_status_checks,
     format_contexts,
-    main,
     normalise_contexts,
     parse_contexts,
     update_status_checks,
