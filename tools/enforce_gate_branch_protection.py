@@ -7,8 +7,11 @@ import argparse
 import os
 import sys
 from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any, Iterable, List, Mapping, Sequence
 
+import json
 import requests
 
 DEFAULT_API_ROOT = "https://api.github.com"
@@ -201,6 +204,14 @@ def require_token(explicit: str | None = None) -> str:
     return token
 
 
+def _write_snapshot(path: str, payload: Mapping[str, Any]) -> None:
+    destination = Path(path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with destination.open("w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2, sort_keys=True)
+        handle.write("\n")
+
+
 def diff_contexts(
     current: Sequence[str], desired: Sequence[str]
 ) -> tuple[list[str], list[str]]:
@@ -245,6 +256,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         ),
     )
     parser.add_argument(
+        "--snapshot",
+        help="Write a JSON snapshot of the current and desired branch protection state to this file.",
+    )
+    parser.add_argument(
         "--apply",
         action="store_true",
         help="Apply the changes instead of performing a dry run.",
@@ -273,6 +288,17 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     desired_contexts = normalise_contexts(parse_contexts(args.contexts))
 
+    snapshot: dict[str, Any] | None = None
+    if args.snapshot:
+        now = datetime.now(UTC).replace(microsecond=0)
+        snapshot = {
+            "repository": args.repo,
+            "branch": args.branch,
+            "mode": "apply" if args.apply else "check" if args.check else "inspect",
+            "generated_at": now.isoformat().replace("+00:00", "Z"),
+            "changes_applied": False,
+        }
+
     api_root = resolve_api_root(args.api_url)
     token = require_token(args.token)
     session = _build_session(token)
@@ -281,6 +307,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         current_state = fetch_status_checks(
             session, args.repo, args.branch, api_root=api_root
         )
+        if snapshot is not None:
+            snapshot["current"] = {
+                "strict": current_state.strict,
+                "contexts": list(current_state.contexts),
+            }
     except BranchProtectionMissingError:
         print(f"Repository: {args.repo}")
         print(f"Branch:     {args.branch}")
@@ -289,6 +320,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"{label}: {format_contexts(desired_contexts)}")
         print("Current 'require up to date': False")
         print("Desired 'require up to date': True")
+
+        if snapshot is not None:
+            snapshot.update(
+                {
+                    "current": None,
+                    "desired": {"strict": True, "contexts": list(desired_contexts)},
+                    "changes_required": True,
+                }
+            )
 
         if args.apply:
             try:
@@ -302,19 +342,37 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
             except BranchProtectionError as exc:
                 print(f"error: {exc}", file=sys.stderr)
+                if snapshot is not None:
+                    snapshot["error"] = str(exc)
+                    _write_snapshot(args.snapshot, snapshot)
                 return 1
 
             print("Created branch protection rule.")
             print(f"New contexts: {format_contexts(created_state.contexts)}")
             print(f"'Require up to date' enabled: {created_state.strict}")
+            if snapshot is not None:
+                snapshot["changes_applied"] = True
+                snapshot["after"] = {
+                    "strict": created_state.strict,
+                    "contexts": list(created_state.contexts),
+                }
+                _write_snapshot(args.snapshot, snapshot)
             return 0
 
         print("Would create branch protection.")
+        if snapshot is not None:
+            _write_snapshot(args.snapshot, snapshot)
         if args.check:
             return 1
         return 0
     except BranchProtectionError as exc:
         print(f"error: {exc}", file=sys.stderr)
+        if snapshot is not None:
+            snapshot["error"] = str(exc)
+            snapshot.setdefault(
+                "desired", {"strict": True, "contexts": list(desired_contexts)}
+            )
+            _write_snapshot(args.snapshot, snapshot)
         return 1
 
     target_contexts = (
@@ -325,6 +383,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     to_add, to_remove = diff_contexts(current_state.contexts, target_contexts)
     strict_change = not current_state.strict
+
+    if snapshot is not None:
+        snapshot["desired"] = {"strict": True, "contexts": list(target_contexts)}
 
     print(f"Repository: {args.repo}")
     print(f"Branch:     {args.branch}")
@@ -337,10 +398,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     no_changes_required = (
         not to_add and (args.no_clean or not to_remove) and not strict_change
     )
+    changes_required = not no_changes_required
+
+    if snapshot is not None:
+        snapshot["changes_required"] = changes_required
 
     if args.check or not args.apply:
         if no_changes_required:
             print("No changes required.")
+            if snapshot is not None:
+                _write_snapshot(args.snapshot, snapshot)
             return 0
 
         if to_add:
@@ -349,6 +416,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"Would remove contexts: {format_contexts(to_remove)}")
         if strict_change:
             print("Would enable 'require branches to be up to date'.")
+
+        if snapshot is not None:
+            _write_snapshot(args.snapshot, snapshot)
 
         if args.check:
             return 1
@@ -367,11 +437,23 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
     except BranchProtectionError as exc:
         print(f"error: {exc}", file=sys.stderr)
+        if snapshot is not None:
+            snapshot["error"] = str(exc)
+            snapshot["changes_required"] = True
+            _write_snapshot(args.snapshot, snapshot)
         return 1
 
     print("Update successful.")
     print(f"New contexts: {format_contexts(updated_state.contexts)}")
     print(f"'Require up to date' enabled: {updated_state.strict}")
+    if snapshot is not None:
+        snapshot["changes_required"] = changes_required
+        snapshot["changes_applied"] = bool(args.apply and changes_required)
+        snapshot["after"] = {
+            "strict": updated_state.strict,
+            "contexts": list(updated_state.contexts),
+        }
+        _write_snapshot(args.snapshot, snapshot)
     return 0
 
 

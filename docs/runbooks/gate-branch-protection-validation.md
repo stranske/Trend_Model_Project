@@ -11,7 +11,7 @@ updated or during periodic audits.
 - A scratch branch to use for the validation pull request.
 
 ## 1. Audit Current Protection Rule
-1. Export the status check configuration:
+1. Export the status check configuration and capture a JSON snapshot for the audit log:
    ```bash
    gh api repos/stranske/Trend_Model_Project/branches/main/protection/required_status_checks \
      --jq '{strict: .strict, contexts: .contexts}'
@@ -19,12 +19,14 @@ updated or during periodic audits.
    - Confirm the output shows `{"strict":true,"contexts":["Gate / gate"]}`.
    - If `gh` is unavailable, run the helper in dry-run mode. Provide a
      personal access token either by exporting `GITHUB_TOKEN`/`GH_TOKEN` or
-     by passing `--token` explicitly:
+     by passing `--token` explicitly and include `--snapshot` to write the
+     evidence file (for example, under `docs/evidence/`):
      ```bash
      python tools/enforce_gate_branch_protection.py \
        --repo stranske/Trend_Model_Project \
        --branch main \
-       --token ghp_xxx
+       --token ghp_xxx \
+       --snapshot docs/evidence/gate-branch-protection/pre-enforcement.json
      ```
      Ensure it prints `No changes required.`
 
@@ -32,9 +34,10 @@ updated or during periodic audits.
    ```bash
    python tools/enforce_gate_branch_protection.py \
      --repo stranske/Trend_Model_Project --branch main \
-     --token ghp_xxx --apply
-   ```
-   Record the console output in the issue log.
+     --token ghp_xxx --apply \
+     --snapshot docs/evidence/gate-branch-protection/enforcement.json
+  ```
+  Record the console output in the issue log.
 
 ## 2. Create Validation Pull Request
 1. Check out a new branch and make a trivial change (e.g., update a comment) so a pull request can be opened.
@@ -48,8 +51,9 @@ updated or during periodic audits.
 ## 3. Resolve the Failure
 1. Push a fix that allows the Gate workflow to pass (e.g., revert the failing test or re-run the cancelled job).
 2. Wait for the workflow to finish successfully.
-3. Verify the status area now shows **Required — Gate / gate** with a green check and the merge button becomes available.
-4. Update the issue or documentation with the pass/fail timestamps and the URL of the validation PR for traceability.
+3. Run the helper again with `--snapshot` to capture the post-fix configuration for the evidence bundle.
+4. Verify the status area now shows **Required — Gate / gate** with a green check and the merge button becomes available.
+5. Update the issue or documentation with the pass/fail timestamps, the URL of the validation PR, and paths to the snapshot files for traceability.
 
 ## 4. Close Out
 - Merge or close the draft PR without merging into `main` (if using a deliberately failing change, force-push to remove it).

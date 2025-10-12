@@ -34,7 +34,8 @@
 - ✅ **Automation helper** – `tools/enforce_gate_branch_protection.py` provides dry-run, check, and apply modes for owners with the
   appropriate token to configure branch protection without leaving the command line. The helper accepts explicit `--token` and
   `--api-url` overrides for GitHub Enterprise Server usage. Unit tests in `tests/tools/test_enforce_gate_branch_protection.py`
-  cover the primary scenarios (initial bootstrap, drift detection, and clean enforcement).
+  cover the primary scenarios (initial bootstrap, drift detection, and clean enforcement). The CLI now supports `--snapshot` so
+  enforcement runs can emit JSON evidence of the before/after branch protection state for audit logs.
 - ✅ **Scheduled enforcement** – `.github/workflows/health-44-gate-branch-protection.yml` runs nightly and on demand. It applies the
   enforcement automatically whenever the optional `BRANCH_PROTECTION_TOKEN` secret is present, otherwise it exits early with a
   clear reminder to configure the token.
