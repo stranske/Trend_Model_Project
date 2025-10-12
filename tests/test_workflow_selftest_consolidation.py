@@ -130,7 +130,7 @@ def test_archived_selftests_retain_manual_triggers() -> None:
         unsupported = sorted(trigger_keys - allowed_triggers)
         assert not unsupported, (
             f"{workflow_file.name} declares unsupported triggers: {unsupported}. "
-            "Only workflow_dispatch, schedule, or workflow_call are permitted."
+            "Only workflow_dispatch is permitted for archived self-tests."
         )
 
         assert trigger_keys == {required_manual_trigger}, (
