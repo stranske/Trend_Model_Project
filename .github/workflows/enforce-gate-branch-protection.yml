@@ -1,0 +1,45 @@
+name: Enforce Gate Branch Protection
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * *'
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  ENFORCE_TOKEN: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+
+jobs:
+  enforce:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Skip when enforcement token is not configured
+        if: env.ENFORCE_TOKEN == ''
+        run: |
+          echo "BRANCH_PROTECTION_TOKEN is not configured; skipping enforcement run."
+          echo "Configure a fine-grained PAT with branch protection admin scope to enable this workflow."
+          exit 0
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        if: env.ENFORCE_TOKEN != ''
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Enforce gate branch protection
+        if: env.ENFORCE_TOKEN != ''
+        env:
+          GITHUB_TOKEN: ${{ env.ENFORCE_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          python tools/enforce_gate_branch_protection.py --apply

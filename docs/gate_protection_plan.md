@@ -33,6 +33,17 @@
   applying changes.
 - Contributors without direct settings access can now request an owner to run the script with a fine-grained `GITHUB_TOKEN`
   instead of navigating the UI, ensuring infrastructure as code parity for the protection rule.
+- Scheduled automation (`.github/workflows/enforce-gate-branch-protection.yml`) executes the helper nightly and on-demand,
+  applying fixes whenever the optional `BRANCH_PROTECTION_TOKEN` secret is configured.
+
+## Automation Requirements
+
+- Create a fine-grained PAT with the **Administration: Branches** scope (repo → settings → developer settings → fine-grained
+  personal access tokens). Attach it to the repository as the `BRANCH_PROTECTION_TOKEN` secret so the enforcement workflow can
+  manage branch protection.
+- The workflow runs on a nightly cron and via the `workflow_dispatch` trigger. When the secret is absent the job exits early
+  with an informational log, allowing maintainers to opt in when they are ready to enforce gate automatically.
+- Manual runs surface the audit diff in the workflow logs, mirroring the script's dry-run output before applying updates.
 
 ## Usage Notes
 
