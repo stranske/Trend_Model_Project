@@ -58,8 +58,10 @@ concurrency:
 jobs:
   orchestrate:
     name: Dispatch Agents Toolkit
-    timeout-minutes: 30
     uses: ./.github/workflows/reusable-70-agents.yml
+    # Job timeouts live inside reusable-70-agents.yml because workflow-call
+    # dispatchers cannot set timeout-minutes directly. See reusable workflow for
+    # the 30 minute ceiling that guards the downstream fan-out.
     # options_json schema (strings, defaults shown):
     # {
     #   "diagnostic_mode": "off" | "dry-run" | "full",
