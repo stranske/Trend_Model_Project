@@ -98,7 +98,7 @@ maintenance workflows that remain after Issue 2190. The roster now consists of
 ## maint-90-selftest.yml
 
 1. **Treat it as a smoke harness** — the workflow invokes
-   `reusable-99-selftest.yml` to exercise the reusable CI matrix.
+   `selftest-81-reusable-ci.yml` to exercise the reusable CI matrix.
 2. **Verify inputs** — ensure the forwarded `python-version` input matches the
    expected matrix before debugging downstream failures.
 3. **Secrets passthrough** — the workflow forwards secrets to the reusable call.

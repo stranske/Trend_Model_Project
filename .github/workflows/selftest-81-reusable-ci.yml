@@ -1,25 +1,12 @@
-name: Reusable 99 Selftest
+name: Selftest 81 Reusable CI
 
 on:
-  workflow_call:
-    inputs:
-      python-versions:
-        description: >-
-          JSON array of Python versions forwarded to `reusable-10-ci-python.yml`.
-          Leave empty to exercise the default 3.11 matrix used by Maint 90 Selftest.
-        required: false
-        type: string
-        default: '["3.11"]'
-  schedule:
-    - cron: '0 6 * * 1'
-      # Weekly low-traffic window (Mondays at 06:00 UTC) to detect reusable stack drift
-      # without consuming PR minutes or blocking contributor workflows.
   workflow_dispatch:
     inputs:
       python-versions:
         description: >-
           JSON array of Python versions forwarded to `reusable-10-ci-python.yml`.
-          Leave empty to exercise the default 3.11 matrix used by Maint 90 Selftest.
+          Leave empty to exercise the default 3.11 matrix used by Selftest 81 Reusable CI.
         required: false
         default: '["3.11"]'
 
