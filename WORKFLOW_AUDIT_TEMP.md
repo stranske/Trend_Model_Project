@@ -13,28 +13,30 @@ This list mirrors the canonical catalogue in `docs/ci/WORKFLOWS.md` after the Is
 ### PR Checks
 | Workflow | Triggers | Notes |
 |----------|----------|-------|
-| `pr-gate.yml` | `pull_request`, `workflow_dispatch` | Aggregates reusable CI/Docker jobs into the single required gate (`Gate / gate`). |
-| `pr-14-docs-only.yml` | `pull_request` (doc paths) | Detects documentation-only diffs and posts a skip notice instead of launching heavier CI. |
-| `autofix.yml` | `pull_request` | PR autofix runner delegating to `reusable-92-autofix.yml`; the `apply` job is required. |
+| `pr-00-gate.yml` | pull_request, workflow_dispatch | Aggregates reusable CI/Docker composites into a single required gate for PRs.
+| `pr-14-docs-only.yml` | pull_request (doc paths) | Detects documentation-only diffs and posts a skip notice via comment instead of launching heavier CI.
+| `autofix.yml` | pull_request | Direct PR autofix runner that delegates to `reusable-92-autofix.yml` and pushes formatting/type hygiene commits when safe.
 
 ### Maintenance & Governance
 | Workflow | Triggers | Notes |
 |----------|----------|-------|
-| `maint-02-repo-health.yml` | Weekly cron, `workflow_dispatch` | Weekly repository health sweep that records a single run-summary report. |
-| `maint-post-ci.yml` | `workflow_run` (Gate), `workflow_dispatch` | Consolidated follower that posts Gate summaries, mirrors the autofix sweep, and maintains the rolling `ci-failure` issue. |
-| `maint-33-check-failure-tracker.yml` | `workflow_run` (Gate) | Compatibility shell documenting the delegation to `maint-post-ci.yml`. |
-| `maint-35-repo-health-self-check.yml` | Weekly cron, `workflow_dispatch` | Governance probe that surfaces label coverage/branch-protection gaps in the step summary. |
-| `maint-36-actionlint.yml` | `pull_request`, weekly cron, `workflow_dispatch` | Sole workflow-lint gate (actionlint via reviewdog). |
-| `maint-40-ci-signature-guard.yml` | `pull_request`/`push` (`phase-2-dev`) | Verifies the signed Gate manifest. |
-| `maint-41-chatgpt-issue-sync.yml` | `workflow_dispatch` | Manual sync turning curated topic lists into labelled issues. |
-| `maint-45-cosmetic-repair.yml` | `workflow_dispatch` | Manual pytest + cosmetic fixer that opens a labelled PR when drift is detected. |
+| `health-41-repo-health.yml` | schedule, workflow_dispatch | Weekly repository health sweep that records a single run-summary report.
+| `maint-30-post-ci.yml` | workflow_run | Consolidated post-CI follower that posts Gate summaries, applies low-risk autofix commits, and now owns CI failure-tracker updates.
+| `maint-33-check-failure-tracker.yml` | workflow_run | Lightweight compatibility shell delegating all tracker duties to `maint-30-post-ci.yml`.
+| `health-40-repo-selfcheck.yml` | weekly cron, workflow_dispatch | Read-only repo health summary that reports label coverage and branch-protection visibility in the job summary.
+| `health-44-gate-branch-protection.yml` | hourly cron, workflow_dispatch | Ensures branch-protection rules stay aligned with the Gate helper (`tools/enforce_gate_branch_protection.py`); exits early when the enforcement PAT is absent.
+| `health-42-actionlint.yml` | pull_request, push, schedule, workflow_dispatch | Sole workflow lint gate (actionlint via reviewdog).
+| `health-43-ci-signature-guard.yml` | pull_request, push | Verifies signed CI manifests to guard against tampering.
+| `agents-63-chatgpt-issue-sync.yml` | workflow_dispatch | Fans out curated topic lists (e.g. `Issues.txt`) into GitHub issues with automatic labeling. |
+| `maint-34-cosmetic-repair.yml` | workflow_dispatch | Manual pytest run that feeds `scripts/ci_cosmetic_repair.py` to patch guard-gated tolerances/snapshots and open labelled PRs. |
 
-### Agents & Automation
+### Agents
 | Workflow | Triggers | Notes |
 |----------|----------|-------|
-| `agents-43-codex-issue-bridge.yml` | `issues`, `workflow_dispatch` | Label-driven helper that prepares Codex bootstrap issues/PRs; does not replace the orchestrator. |
-| `agents-44-verify-agent-assignment.yml` | `workflow_call`, `workflow_dispatch` | Issue verification helper reused by the orchestrator and available for ad-hoc checks. |
-| `agents-70-orchestrator.yml` | Cron (`*/20 * * * *`), `workflow_dispatch` | Sole automation entry point orchestrating readiness, diagnostics, bootstrap, keepalive, and watchdog jobs. |
+| `agents-62-consumer.yml` | workflow_dispatch | Manual-only JSON bridge that calls `reusable-71-agents-dispatch.yml`; concurrency guard `agents-62-consumer-${{ github.ref }}` prevents back-to-back dispatch collisions. |
+| `agents-43-codex-issue-bridge.yml` | issues, workflow_dispatch | Restored Codex bootstrap automation for label-driven issue handling. |
+| `agents-64-verify-agent-assignment.yml` | workflow_call, workflow_dispatch | Validates that `agent:codex` issues remain assigned to an approved agent account before automation runs. |
+| `agents-70-orchestrator.yml` | schedule (*/20), workflow_dispatch | Unified agents toolkit entry point (readiness, diagnostics, Codex keepalive). |
 
 ### Reusable Composites
 | Workflow | Triggers | Notes |

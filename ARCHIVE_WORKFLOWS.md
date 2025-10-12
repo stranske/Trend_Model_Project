@@ -31,13 +31,13 @@ All deprecated agent automation workflows were deleted from `.github/workflows/`
 
 - `maint-90-selftest.yml` – moved to `Old/workflows/maint-90-selftest.yml`.
 - `reusable-99-selftest.yml` – moved to `Old/workflows/reusable-99-selftest.yml`; reinstated in `.github/workflows/` by Issue #2379 after being rewritten to use `jobs.<id>.uses`.
-- `maint-43-selftest-pr-comment.yml` – removed from the tree; consult git history for the final experiment snapshot.
-- `maint-44-selftest-reusable-ci.yml` – removed; coverage folded into the reusable CI pipeline consumed by production workflows.
-- `maint-48-selftest-reusable-ci.yml` – removed after the reusable matrix stabilised.
-- `pr-20-selftest-pr-comment.yml` – removed; PR-triggered comment bot superseded by the repository health self-check issue updates.
+- `selftest-83-pr-comment.yml` – removed from the tree; consult git history for the final experiment snapshot.
+- `selftest-84-reusable-ci.yml` – removed; coverage folded into the reusable CI pipeline consumed by production workflows.
+- `selftest-88-reusable-ci.yml` – removed after the reusable matrix stabilised.
+- `selftest-82-pr-comment.yml` – removed; PR-triggered comment bot superseded by the repository health self-check issue updates.
 
 ## Retired Autofix Wrapper
-- Legacy `autofix.yml` (pre-2025) was deleted during the earlier cleanup. As of 2026-02-15 the consolidated `maint-32-autofix.yml` began handling small fixes and trivial failure remediation. In 2026-10 the streamlined PR-facing `autofix.yml` workflow was reinstated (Issue #2380) and now delegates to the same reusable composite used by `maint-32-autofix.yml`.
+- Legacy `autofix.yml` (pre-2025) was deleted during the earlier cleanup. As of 2026-02-15 the consolidated `maint-30-post-ci.yml` (previously `maint-32-autofix.yml`) began handling small fixes and trivial failure remediation. In 2026-10 the streamlined PR-facing `autofix.yml` workflow was reinstated (Issue #2380) and now delegates to the same reusable composite used by `maint-30-post-ci.yml`.
 
 ## Rationale
 The 2025 cleanup centralized agent probe, diagnostic, and verification logic into `reuse-agents.yml`. In 2026 this was further simplified: `agents-41-assign-and-watch.yml` and its wrappers gave way to the single `agents-70-orchestrator.yml` entry point that calls `reusable-70-agents.yml`.

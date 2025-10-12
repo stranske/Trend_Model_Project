@@ -1,6 +1,6 @@
-# Repository Health Workflow (maint-02)
+# Repository Health Workflow (health-41)
 
-The `maint-02-repo-health.yml` workflow runs a light-touch sweep of repository
+The `health-41-repo-health.yml` workflow runs a light-touch sweep of repository
 hygiene each Monday at 07:15 UTC. It records a single Markdown report in the job
 summary highlighting stale branches and open issues without an assignee so the
 on-call maintainer can triage them quickly. The report is generated directly

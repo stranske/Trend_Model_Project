@@ -6,7 +6,7 @@ _Last updated: 2025-10-07_
 > deleted without providing an equivalent replacement that preserves the same
 > functionality (repository policy).
 
-This document explains how to use and operate the `maint-41-chatgpt-issue-sync.yml` GitHub Actions workflow that ingests ChatGPT topic lists and synchronizes them to GitHub Issues with strong normalization, diagnostics, and fallback behavior.
+This document explains how to use and operate the `agents-63-chatgpt-issue-sync.yml` GitHub Actions workflow that ingests ChatGPT topic lists and synchronizes them to GitHub Issues with strong normalization, diagnostics, and fallback behavior.
 
 ## Purpose
 Convert a (potentially long) enumerated list of topic ideas generated in ChatGPT into individual, consistently labeled GitHub issues. The workflow hardens ingestion against UI truncation, collapsed newlines, odd whitespace characters, and partial formatting. It also supports sourcing the content directly from a tracked repository file (preferred) or a remote URL as fallbacks.

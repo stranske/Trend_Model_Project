@@ -44,13 +44,18 @@ Use the matrix below as the authoritative roster of active workflows. Each row c
 
   | Prefix | Number slots | Usage | Notes |
   |--------|--------------|-------|-------|
-  | `pr-` | `10–19` | Pull-request gates | `pr-gate.yml` is the primary orchestrator; keep space for specialized PR jobs (docs, optional helpers).
+  | `pr-` | `10–19` | Pull-request gates | `pr-00-gate.yml` is the primary orchestrator; keep space for specialized PR jobs (docs, optional helpers).
   | `maint-` | `00–49` and `90s` | Scheduled/background maintenance | Low numbers for repo hygiene, 30s/40s for post-CI and guards, 90 for self-tests calling reusable matrices.
   | `agents-` | `70s` | Agent bootstrap/orchestration | `agents-70-orchestrator.yml` handles automation cadences; `agents-consumer.yml` is manual-only dispatch.
   | `reusable-` | `70s` & `90s` | Composite workflows invoked by others | Keep 90s for CI executors, 70s for agent composites.
 
-- Match the `name:` field to the filename rendered in Title Case (`pr-gate.yml` → `Gate`).
-- `tests/test_workflow_naming.py` enforces this policy—rerun it after modifying or adding workflows.
+- Match the `name:` field to the filename rendered in Title Case
+  (`pr-00-gate.yml` → `Gate`).
+- `tests/test_workflow_naming.py` enforces this policy—rerun it after modifying
+  or adding workflows.
+- When introducing a new workflow choose the lowest unused slot inside the
+  appropriate band, update this document, and add the workflow to the relevant
+  section below.
 
 ## Workflow Inventory
 
@@ -58,9 +63,9 @@ Use the matrix below as the authoritative roster of active workflows. Each row c
 
 | Workflow | Trigger(s) | Why it matters |
 |----------|------------|----------------|
-| `pr-gate.yml` (`Gate`) | `pull_request`, `workflow_dispatch` | Composite orchestrator that chains the reusable CI and Docker smoke jobs and enforces that every leg succeeds. |
-| `pr-14-docs-only.yml` (`PR 14 Docs Only`) | `pull_request` (doc paths) | Detects documentation-only diffs and posts a friendly skip notice instead of running heavier gates. |
-| `autofix.yml` (`Autofix`) | `pull_request` | Lightweight formatting/type-hygiene runner that auto-commits safe fixes or publishes a patch artifact for forked PRs. |
+| `pr-00-gate.yml` (`Gate`) | `pull_request`, `workflow_dispatch` | Composite orchestrator that chains the reusable CI and Docker smoke jobs and enforces that every leg succeeds.
+| `pr-14-docs-only.yml` (`PR 14 Docs Only`) | `pull_request` (doc paths) | Detects documentation-only diffs and posts a friendly skip notice instead of running heavier gates.
+| `autofix.yml` (`Autofix`) | `pull_request` | Lightweight formatting/type-hygiene runner that auto-commits safe fixes or publishes a patch artifact for forked PRs.
 
 **Operational details**
 - **Gate** – Permissions: defaults (read scope). Secrets: relies on `GITHUB_TOKEN` only. Status outputs: `core tests (3.11)`, `core tests (3.12)`, `docker smoke`, and the aggregator job `gate`, which fails if any dependency fails.
@@ -72,14 +77,15 @@ These jobs must stay green for PRs to merge. The post-CI maintenance jobs below 
 
 | Workflow | Trigger(s) | Purpose |
 |----------|------------|---------|
-| `maint-02-repo-health.yml` (`Maint 02 Repo Health`) | Weekly cron, manual | Reports stale branches & unassigned issues in a run-summary table. |
-| `maint-post-ci.yml` (`Maint Post CI`) | `workflow_run` (Gate) | Consolidated follower that posts Gate summaries, applies low-risk autofix commits, and owns CI failure-tracker updates (single rolling `ci-failure` issue). |
-| `maint-33-check-failure-tracker.yml` (`Maint 33 Check Failure Tracker`) | `workflow_run` (Gate) | Lightweight compatibility shell that documents the delegation to `maint-post-ci.yml`. |
-| `maint-35-repo-health-self-check.yml` (`Maint 35 Repo Health Self Check`) | Weekly cron, manual | Read-only repo health pulse that surfaces missing labels or branch-protection visibility gaps in the step summary. |
-| `maint-36-actionlint.yml` (`Maint 36 Actionlint`) | `pull_request`, weekly cron, manual | Sole workflow-lint gate (actionlint via reviewdog). |
-| `maint-40-ci-signature-guard.yml` (`Maint 40 CI Signature Guard`) | `push`/`pull_request` targeting `phase-2-dev` | Validates the signed job manifest for `pr-gate.yml`. |
-| `maint-41-chatgpt-issue-sync.yml` (`Maint 41 ChatGPT Issue Sync`) | `workflow_dispatch` | Manual sync that turns curated lists into labelled GitHub issues. |
-| `maint-45-cosmetic-repair.yml` (`Maint 45 Cosmetic Repair`) | `workflow_dispatch` | Manual pytest + guardrail fixer that opens a labelled PR when drift is detected. |
+| `health-41-repo-health.yml` (`Maint 02 Repo Health`) | Weekly cron, manual | Reports stale branches & unassigned issues.
+| `maint-30-post-ci.yml` (`Maint Post CI`) | `workflow_run` (Gate) | Consolidated follower that posts Gate summaries, applies low-risk autofix commits, and owns CI failure-tracker updates.
+| `maint-33-check-failure-tracker.yml` (`Maint 33 Check Failure Tracker`) | `workflow_run` (Gate) | Lightweight compatibility shell that documents the delegation to `maint-30-post-ci.yml`.
+| `health-40-repo-selfcheck.yml` (`Maint 35 Repo Health Self Check`) | Weekly cron, manual | Read-only repo health pulse that surfaces missing labels or branch-protection visibility gaps in the step summary.
+| `health-44-gate-branch-protection.yml` (`Enforce Gate Branch Protection`) | Hourly cron, manual | Applies branch-protection policy checks using `tools/enforce_gate_branch_protection.py`; skips gracefully when the PAT is not configured.
+| `health-42-actionlint.yml` (`Maint 36 Actionlint`) | `pull_request`, weekly cron, manual | Sole workflow-lint gate (actionlint via reviewdog).
+| `health-43-ci-signature-guard.yml` (`Maint 40 CI Signature Guard`) | `push`/`pull_request` targeting `phase-2-dev` | Validates the signed job manifest for `pr-00-gate.yml`.
+| `agents-63-chatgpt-issue-sync.yml` (`Maint 41 ChatGPT Issue Sync`) | `workflow_dispatch` (manual) | Fans out curated topic lists (e.g. `Issues.txt`) into labeled GitHub issues. ⚠️ Repository policy: do not remove without a functionally equivalent replacement. |
+| `maint-34-cosmetic-repair.yml` (`Maint 45 Cosmetic Repair`) | `workflow_dispatch` | Manual pytest + guardrail fixer that applies tolerance/snapshot updates and opens a labelled PR when drift is detected. |
 
 ### CI failure rollup issue
 
@@ -152,7 +158,7 @@ Escalate persistent failures by linking the failing run URL in the CI failure-tr
 **Post-change monitoring.** When agent workflows change:
 
 - Tag the source issue with `ci-failure` so it stays visible during the observation window.
-- Coordinate a 48-hour watch to confirm no scheduled or issue-triggered legacy consumer runs fire (manual dispatch is the only allowed path).
+- Coordinate a 48-hour watch to confirm no scheduled or issue-triggered `agents-62-consumer` runs fire (manual dispatch is the only allowed path).
 - Capture a brief note or screenshot of the clean Actions history before removing the tag and closing the issue.
 
 Manual-only status means maintainers should review the Actions list during that window to ensure the retired cron trigger stays inactive.
@@ -161,12 +167,12 @@ Manual-only status means maintainers should review the Actions list during that 
 
 | Workflow | Consumed by | Notes |
 |----------|-------------|-------|
-| `reuse-agents.yml` (`Reuse Agents`) | `agents-70-orchestrator.yml`, downstream repositories | Bridges dispatch inputs to the reusable toolkit while preserving defaults.
-| `reusable-70-agents.yml` (`Reusable 70 Agents`) | `agents-70-orchestrator.yml`, `reuse-agents.yml` | Implements readiness, bootstrap, diagnostics, and keepalive jobs.
-| `reusable-92-autofix.yml` (`Reusable 92 Autofix`) | `maint-post-ci.yml`, `autofix.yml` | Autofix harness used both by the PR-time autofix workflow and the post-CI maintenance listener.
+| `reusable-71-agents-dispatch.yml` (`Reuse Agents`) | `agents-70-orchestrator.yml`, downstream repositories | Bridges dispatch inputs to the reusable toolkit while preserving defaults.
+| `reusable-70-agents.yml` (`Reusable 70 Agents`) | `agents-70-orchestrator.yml`, `reusable-71-agents-dispatch.yml` | Implements readiness, bootstrap, diagnostics, and watchdog jobs.
+| `reusable-92-autofix.yml` (`Reusable 92 Autofix`) | `maint-30-post-ci.yml`, `autofix.yml` | Autofix harness used both by the PR-time autofix workflow and the post-CI maintenance listener.
 | `reusable-99-selftest.yml` (`Reusable 99 Selftest`) | `maint-` self-test orchestration | Scenario matrix that validates the reusable CI executor and artifact inventory.
-| `reusable-ci.yml` (`Reusable CI`) | Gate, downstream repositories | Single source for Python lint/type/test coverage runs.
-| `reusable-docker.yml` (`Reusable Docker Smoke`) | Gate, downstream repositories | Docker build + smoke reusable consumed by Gate and external callers.
+| `reusable-10-ci-python.yml` (`Reusable CI`) | Gate, downstream repositories | Single source for Python lint/type/test coverage runs.
+| `reusable-12-ci-docker.yml` (`Reusable Docker Smoke`) | Gate, downstream repositories | Docker build + smoke reusable consumed by Gate and external callers.
 
 **Operational details**
 - **Reuse Agents** – Permissions: `contents: write`, `pull-requests: write`, `issues: write`. Secrets: optional `service_bot_pat` (forwarded to `reusable-70-agents`) plus `GITHUB_TOKEN`. Outputs: single `call` job exposes reusable outputs such as `triggered` keepalive lists and orchestrator diagnostics for upstream callers.
@@ -175,10 +181,12 @@ Manual-only status means maintainers should review the Actions list during that 
 
 `Old/workflows/maint-90-selftest.yml` remains available as the historical wrapper that previously scheduled the self-test cron. The retired PR comment and maintenance wrappers listed below stay removed; consult git history if you need their YAML for archaeology:
 
-- `maint-43-selftest-pr-comment.yml` – deleted; previously posted PR comments summarising self-test matrices.
-- `maint-44-selftest-reusable-ci.yml` – deleted reusable-integration cron (matrix coverage moved to the main CI jobs).
-- `maint-48-selftest-reusable-ci.yml` – deleted; short-lived variant of the reusable matrix exerciser.
-- `pr-20-selftest-pr-comment.yml` – deleted; PR-triggered comment bot that duplicated the maintenance wrapper.
+- `selftest-83-pr-comment.yml` – deleted; previously posted PR comments summarising self-test matrices.
+- `selftest-84-reusable-ci.yml` – deleted reusable-integration cron (matrix coverage moved to the
+  main CI jobs).
+- `selftest-88-reusable-ci.yml` – deleted; short-lived variant of the reusable matrix exerciser.
+- `selftest-82-pr-comment.yml` – deleted; PR-triggered comment bot that duplicated the maintenance
+  wrapper.
 
 See [ARCHIVE_WORKFLOWS.md](../../ARCHIVE_WORKFLOWS.md) for the full ledger of retired workflows and rationale, including notes on the removed files.
 
@@ -208,17 +216,26 @@ Follow this sequence before pushing workflow changes or large code edits:
 
 ## Formatter & Type Checker Pins
 
-- `.github/workflows/autofix-versions.env` is the single source of truth for formatter/type tooling versions (Ruff, Black, isort, docformatter, mypy).
-- `reusable-ci.yml`, `reusable-docker.yml`, and the autofix composite action all load and validate this env file before installing tools; they fail fast if the file is missing or incomplete.
-- Local mirrors (`scripts/style_gate_local.sh`, `scripts/dev_check.sh`, `scripts/validate_fast.sh`) source the same env file so contributors run the identical versions before pushing.
-- When bumping any formatter, update the env file first, rerun `./scripts/style_gate_local.sh`, and let CI confirm the new version to keep automation and local flows aligned.
+- `.github/workflows/autofix-versions.env` is the single source of truth for
+  formatter/type tooling versions (Ruff, Black, isort, docformatter, mypy).
+- `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, and the autofix composite
+  action all load and validate this env file before installing tools; they fail
+  fast if the file is missing or incomplete.
+- Local mirrors (`scripts/style_gate_local.sh`, `scripts/dev_check.sh`,
+  `scripts/validate_fast.sh`) source the same env file so contributors run the
+  identical versions before pushing.
+- When bumping any formatter, update the env file first, rerun
+  `./scripts/style_gate_local.sh`, and let CI confirm the new version to keep
+  automation and local flows aligned.
 
 ## CI Signature Guard Fixtures
 
-`maint-40-ci-signature-guard.yml` enforces a manifest signature for the Gate workflow by comparing two fixture files stored in `.github/signature-fixtures/`:
+`health-43-ci-signature-guard.yml` enforces a manifest signature for the Gate workflow by comparing two fixture files stored in `.github/signature-fixtures/`:
 
-- `basic_jobs.json` – canonical list of jobs (name, concurrency label, metadata) that must exist in `pr-gate.yml`.
-- `basic_hash.txt` – precomputed hash of the JSON payload used by `.github/actions/signature-verify` to detect unauthorized job changes.
+- `basic_jobs.json` – canonical list of jobs (name, concurrency label, metadata)
+  that must exist in `pr-00-gate.yml`.
+- `basic_hash.txt` – precomputed hash of the JSON payload used by
+  `.github/actions/signature-verify` to detect unauthorized job changes.
 
 When intentionally editing CI jobs, regenerate `basic_jobs.json`, compute the new hash, and update both files in the same commit. Use `tools/test_failure_signature.py` locally to recompute and verify the hash before pushing. The guard only runs on pushes/PRs targeting `phase-2-dev` and publishes a step summary linking back here.
 

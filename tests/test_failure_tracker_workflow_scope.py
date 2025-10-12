@@ -10,7 +10,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 TRACKER_PATH = (
     REPO_ROOT / ".github" / "workflows" / "maint-33-check-failure-tracker.yml"
 )
-POST_CI_PATH = REPO_ROOT / ".github" / "workflows" / "maint-post-ci.yml"
+POST_CI_PATH = REPO_ROOT / ".github" / "workflows" / "maint-30-post-ci.yml"
 
 
 def _load_workflow(path: Path) -> dict:
@@ -33,7 +33,7 @@ def test_tracker_workflow_is_now_thin_shell() -> None:
     assert "workflow_run.event == 'pull_request'" in condition
     summary_step = _get_step(redirect_job, "Emit delegation summary")
     summary_body = summary_step.get("run", "")
-    assert "maint-post-ci.yml" in summary_body
+    assert "maint-30-post-ci.yml" in summary_body
 
 
 def test_tracker_shell_performs_no_issue_writes() -> None:
@@ -190,6 +190,6 @@ def test_post_comment_job_upserts_single_pr_comment() -> None:
     comment_step = _get_step(job, "Upsert consolidated PR comment")
     script = comment_step.get("with", {}).get("script", "")
 
-    assert "<!-- maint-post-ci: DO NOT EDIT -->" in script
+    assert "<!-- maint-30-post-ci: DO NOT EDIT -->" in script
     assert "github.rest.issues.updateComment" in script
     assert "github.rest.issues.createComment" in script

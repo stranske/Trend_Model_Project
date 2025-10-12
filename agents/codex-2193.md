@@ -3,7 +3,7 @@
 # Issue #2193 – Self-Test Workflow Consolidation
 
 ## Scope
-- Remove legacy self-test callers (`pr-20-selftest-pr-comment.yml`, `maint-43-*.yml`, `maint-44-*.yml`, `maint-48-*.yml`, `selftest-pr-comment.yml`).
+- Remove legacy self-test callers (`selftest-82-pr-comment.yml`, `maint-43-*.yml`, `maint-44-*.yml`, `maint-48-*.yml`, `selftest-80-pr-comment.yml`).
 - Retain a single human-facing caller (`maint-90-selftest.yml`) that triggers only on manual dispatch and the scheduled sweep.
 - Keep `reusable-99-selftest.yml` as the sole reusable composite powering the caller.
 - Update docs/tests to reflect the new roster so regressions are caught automatically.

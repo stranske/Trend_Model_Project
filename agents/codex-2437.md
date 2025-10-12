@@ -2,7 +2,7 @@
 
 # Scope & Constraints
 
-- Limit updates to the self-test workflows documented in issue #2437: `maint-43-selftest-pr-comment.yml`, `maint-44-selftest-reusable-ci.yml`, `maint-48-selftest-reusable-ci.yml`, `pr-20-selftest-pr-comment.yml`, `selftest-pr-comment.yml`, and `selftest-reusable-ci.yml`.
+- Limit updates to the self-test workflows documented in issue #2437: `selftest-83-pr-comment.yml`, `selftest-84-reusable-ci.yml`, `selftest-88-reusable-ci.yml`, `selftest-82-pr-comment.yml`, `selftest-80-pr-comment.yml`, and `selftest-81-reusable-ci.yml`.
 - Preserve each workflow's ability to run via `workflow_dispatch` and, where already present, optional scheduled triggers (weekly cadence preferred for drift detection).
 - Avoid touching unrelated workflows or altering job logic beyond the trigger configuration; no behavioural regression in reusable components.
 - Ensure repository automation policies (branch protections, required checks) remain satisfied—self-tests must not start automatically on `pull_request` or generic `push` events.

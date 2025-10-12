@@ -66,7 +66,7 @@ same checks are available for ad-hoc dispatches from the Actions tab.
 
 While the agent wrappers were removed, maintenance automation still supports the broader workflow stack:
 
-- `maint-post-ci.yml` writes consolidated run summaries, applies low-risk fixes, and uploads patches when automation cannot push directly after `pr-gate.yml` finishes.
+- `maint-30-post-ci.yml` writes consolidated run summaries, applies low-risk fixes, and uploads patches when automation cannot push directly after `pr-00-gate.yml` finishes.
 - `maint-33-check-failure-tracker.yml` opens or resolves CI failure issues based on Gate runs.
 
 1. Use the **Agents 70 Orchestrator** workflow to run readiness checks, Codex bootstrap diagnostics, keepalive sweeps, or

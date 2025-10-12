@@ -1,6 +1,6 @@
 # Trend Model Project
 
-[![Gate](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-gate.yml/badge.svg?branch=phase-2-dev)](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-gate.yml) [![Codex Verification Guide](https://img.shields.io/badge/codex--verification-docs-blueviolet)](docs/codex-simulation.md)
+[![Gate](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml/badge.svg?branch=phase-2-dev)](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml) [![Codex Verification Guide](https://img.shields.io/badge/codex--verification-docs-blueviolet)](docs/codex-simulation.md)
 
 > **🚀 New User?** → **[Quick Start Guide](docs/quickstart.md)** — Get your first analysis running in under 10 minutes!
 
@@ -16,7 +16,7 @@ strategy behaves similarly across regimes). Tweak lookback, smoothing,
 thresholds, and the annualisation flag under the new `regime` section in
 `config/defaults.yml` to align the analysis with your preferred market proxy.
 
-📦 **Reusable CI & Automation**: Standardise tests, autofix, and agent automation across repositories using the new reusable workflows documented in [docs/ci_reuse.md](docs/ci_reuse.md). Consumers call `reusable-ci-python.yml`, `reusable-autofix.yml`, and the consolidated `agents-70-orchestrator.yml` entry point (which delegates to `reusable-70-agents.yml`).
+📦 **Reusable CI & Automation**: Standardise tests, autofix, and agent automation across repositories using the new reusable workflows documented in [docs/ci_reuse.md](docs/ci_reuse.md). Consumers call `reusable-10-ci-python.yml`, `reusable-autofix.yml`, and the consolidated `agents-70-orchestrator.yml` entry point (which delegates to `reusable-70-agents.yml`).
 
 🧭 **Workflow topology & agent routing**: Learn how workflow buckets, naming, post-CI summaries, and agent labels fit together in [docs/WORKFLOW_GUIDE.md](docs/WORKFLOW_GUIDE.md).
 🛠️ **Workflow catalog, automation inventory, contributor quick-start & naming policy**: See [docs/ci/WORKFLOWS.md](docs/ci/WORKFLOWS.md) for the canonical workflow list, quick status/permission catalog (purpose, triggers, secrets, and labels), naming ranges, required vs optional gates, local style-gate instructions, naming conventions, contributor quick start, and agents JSON schema.
@@ -37,7 +37,7 @@ Pull requests trigger an automated formatting + light type hygiene pass:
 
 If the workflow makes changes it auto-commits a `chore(autofix): ...` patch onto the PR branch. See `docs/autofix_type_hygiene.md` for details, extension steps, and troubleshooting.
 
-The PR runner lives in `.github/workflows/autofix.yml` while post-CI follow-up continues to run via `maint-post-ci.yml`, both delegating to the shared reusable autofix composite.
+The PR runner lives in `.github/workflows/autofix.yml` while post-CI follow-up continues to run via `maint-30-post-ci.yml`, both delegating to the shared reusable autofix composite.
 
 
 

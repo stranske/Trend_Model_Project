@@ -1,7 +1,7 @@
 # Issue 2201 Execution Notes
 
 ## Scope & Constraints
-- **Workflow**: `.github/workflows/maint-40-ci-signature-guard.yml` must remain the only automation that validates CI signatures.
+- **Workflow**: `.github/workflows/health-43-ci-signature-guard.yml` must remain the only automation that validates CI signatures.
 - **Branch coverage**: Limit executions to active maintenance branches (`phase-2-dev` push + PR targeting) and avoid redundant runs on unrelated files.
 - **Documentation**: Update `docs/ci/WORKFLOWS.md` only within the CI signature guard section.
 - **Security**: Preserve the composite action usage so signature verification logic stays centralized.

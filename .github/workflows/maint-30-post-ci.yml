@@ -7,7 +7,7 @@ name: Maint Post CI
 
 concurrency:
   group: >-
-    maint-post-ci-${{
+    maint-30-post-ci-${{
       (
         github.event.workflow_run.pull_requests &&
         github.event.workflow_run.pull_requests[0] &&
@@ -70,7 +70,7 @@ jobs:
             };
 
             const defaultWorkflowTargets = [
-              { key: 'gate', display_name: 'Gate', workflow_path: '.github/workflows/pr-gate.yml' },
+              { key: 'gate', display_name: 'Gate', workflow_path: '.github/workflows/pr-00-gate.yml' },
             ];
 
             const workflowTargetsRaw = process.env.WORKFLOW_TARGETS_JSON;
@@ -1465,7 +1465,7 @@ jobs:
                   ]
               )
 
-          sections: List[str] = ["<!-- maint-post-ci: DO NOT EDIT -->"]
+          sections: List[str] = ["<!-- maint-30-post-ci: DO NOT EDIT -->"]
           if prefix:
               sections.append(prefix.strip())
           sections.append("")
@@ -1484,7 +1484,7 @@ jobs:
           github-token: ${{ secrets.SERVICE_BOT_PAT || github.token }}
           script: |
             const fs = require('fs');
-            const marker = '<!-- maint-post-ci: DO NOT EDIT -->';
+            const marker = '<!-- maint-30-post-ci: DO NOT EDIT -->';
             const body = fs.readFileSync('maint_post_ci_comment.md', 'utf8');
             const pr = Number('${{ needs.context.outputs.pr }}');
             if (!pr) {
