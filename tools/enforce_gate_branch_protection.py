@@ -132,7 +132,26 @@ class StatusCheckState:
 
     @classmethod
     def from_api(cls, payload: dict[str, object]) -> "StatusCheckState":
-        contexts = payload.get("contexts") or []
+        raw_contexts = payload.get("contexts")
+        contexts: list[str]
+        if isinstance(raw_contexts, list):
+            contexts = [
+                context
+                for context in raw_contexts
+                if isinstance(context, str) and context
+            ]
+        else:
+            contexts = []
+
+        if not contexts and isinstance(payload.get("checks"), list):
+            contexts = [
+                check.get("context")
+                for check in payload["checks"]
+                if isinstance(check, dict)
+                and isinstance(check.get("context"), str)
+                and check.get("context")
+            ]
+
         return cls(strict=bool(payload.get("strict")), contexts=sorted(contexts))
 
 

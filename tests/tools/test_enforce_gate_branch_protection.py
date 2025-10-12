@@ -91,6 +91,23 @@ def test_fetch_status_checks_returns_state() -> None:
     assert state == StatusCheckState(strict=True, contexts=["Gate / gate"])
 
 
+def test_fetch_status_checks_handles_checks_payload() -> None:
+    response = DummyResponse(
+        200,
+        {
+            "strict": True,
+            "checks": [
+                {"context": "Gate / gate"},
+                {"context": "Extra"},
+                {"context": None},
+            ],
+        },
+    )
+    session = DummySession(response)
+    state = fetch_status_checks(session, "owner/repo", "main")
+    assert state == StatusCheckState(strict=True, contexts=["Extra", "Gate / gate"])
+
+
 def test_update_status_checks_submits_payload_and_returns_state() -> None:
     response = DummyResponse(200, {"strict": True, "contexts": ["Gate / gate"]})
     session = DummySession(response)
