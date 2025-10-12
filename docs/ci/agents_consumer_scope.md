@@ -17,7 +17,7 @@ workflow directly with bespoke settings.
 3. Review the dispatched job named **Dispatch reusable agents toolkit** to
    confirm downstream behaviour and capture outputs.
 
-The workflow enforces a concurrency group of `agents-consumer-${ref}`. Triggering
+The workflow enforces a concurrency group of `agents-consumer-${ref_name}`. Triggering
 another run on the same branch cancels any in-flight execution and prevents
 manual re-trigger storms.
 

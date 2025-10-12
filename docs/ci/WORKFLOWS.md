@@ -27,7 +27,7 @@ Use the matrix below as the authoritative roster of active workflows. Each row c
 | **Enforce Gate Branch Protection** | `.github/workflows/enforce-gate-branch-protection.yml` | Cron (`0 6 * * *`), `workflow_dispatch` | `contents: read`, `pull-requests: read`; optional `BRANCH_PROTECTION_TOKEN` | No | Validates branch protection settings via helper script; no-ops if PAT absent. |
 | **Agents 43 Codex Issue Bridge** | `.github/workflows/agents-43-codex-issue-bridge.yml` | `issues`, `workflow_dispatch` | `contents: write`, `pull-requests: write`, `issues: write`; optional `service_bot_pat` | No | Label-driven helper that prepares Codex bootstrap issues/PRs and optionally comments `@codex start`. |
 | **Agents 70 Orchestrator** | `.github/workflows/agents-70-orchestrator.yml` | Cron (`*/20 * * * *`), `workflow_dispatch` | `contents: write`, `pull-requests: write`, `issues: write`; optional `service_bot_pat` | No | Primary automation entry point dispatching readiness, bootstrap, diagnostics, and keepalive routines. |
-| **Agents Consumer** | `.github/workflows/agents-consumer.yml` | `workflow_dispatch` | `contents: write`, `pull-requests: write`, `issues: write`; optional `service_bot_pat` | No | Manual dispatcher that proxies inputs to `reusable-70-agents.yml`, supports advanced overrides via `options_json`, and enforces concurrency guard (`agents-consumer-${ref}`). |
+| **Agents Consumer** | `.github/workflows/agents-consumer.yml` | `workflow_dispatch` | `contents: write`, `pull-requests: write`, `issues: write`; optional `service_bot_pat` | No | Manual dispatcher that proxies inputs to `reusable-70-agents.yml`, supports advanced overrides via `options_json`, and enforces concurrency guard (`agents-consumer-${ref_name}`). |
 | **Agents 44 Verify Agent Assignment** | `.github/workflows/agents-44-verify-agent-assignment.yml` | `workflow_call`, `workflow_dispatch` | `issues: read` | No | Reusable issue-verification helper used by the orchestrator and available for ad-hoc checks. |
 | **Reuse Agents** | `.github/workflows/reuse-agents.yml` | `workflow_call` | `contents: write`, `pull-requests: write`, `issues: write`; optional `service_bot_pat` | No | Workflow-call wrapper so external callers reuse the agents toolkit with consistent inputs. |
 | **Reusable CI** | `.github/workflows/reusable-ci.yml` | `workflow_call` | Inherits caller permissions | No | Python lint/type/test reusable consumed by Gate and downstream repositories. |
@@ -127,7 +127,7 @@ Use the **Agents Consumer** workflow when you need a lightweight manual trigger 
      "bootstrap_issues_label": "agent:codex"
    }
    ```
-4. The single **Dispatch reusable agents toolkit** job fans into `reusable-70-agents.yml`. A concurrency group (`agents-consumer-${ref}`) cancels any previous run on the same branch before starting.
+4. The single **Dispatch reusable agents toolkit** job fans into `reusable-70-agents.yml`. A concurrency group (`agents-consumer-${ref_name}`) cancels any previous run on the same branch before starting.
 
 ### Agent troubleshooting: bootstrap & readiness signals
 
