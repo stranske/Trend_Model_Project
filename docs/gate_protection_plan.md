@@ -29,6 +29,8 @@
 
 - Added `tools/enforce_gate_branch_protection.py` to interrogate and update the default branch protection rule via the GitHub
   REST API so the `Gate / gate` context remains the sole required check while "Require branches to be up to date" stays enabled.
+  The helper accepts explicit `--token` and `--api-url` overrides for GitHub Enterprise Server environments while continuing to
+  respect `GITHUB_TOKEN`, `GH_TOKEN`, and `GITHUB_API_URL` when flags are omitted.
 - The helper defaults to `GITHUB_REPOSITORY`/`DEFAULT_BRANCH` and can run in dry-run mode to audit the current contexts before
   applying changes.
 - Contributors without direct settings access can now request an owner to run the script with a fine-grained `GITHUB_TOKEN`
@@ -47,10 +49,14 @@
 
 ## Usage Notes
 
-Run a dry check to review the current branch protection rule:
+Run a dry check to review the current branch protection rule (either export
+`GITHUB_TOKEN`/`GH_TOKEN` or pass `--token` explicitly):
 
 ```bash
-GITHUB_TOKEN=ghp_xxx python tools/enforce_gate_branch_protection.py --repo stranske/Trend_Model_Project --branch main
+python tools/enforce_gate_branch_protection.py \
+  --repo stranske/Trend_Model_Project \
+  --branch main \
+  --token ghp_xxx
 ```
 
 Expected dry-run output when the rule is correct:
@@ -68,11 +74,16 @@ No changes required.
 Apply corrections (if the dry run indicates drift):
 
 ```bash
-GITHUB_TOKEN=ghp_xxx python tools/enforce_gate_branch_protection.py --repo stranske/Trend_Model_Project --branch main --apply
+python tools/enforce_gate_branch_protection.py \
+  --repo stranske/Trend_Model_Project \
+  --branch main \
+  --token ghp_xxx --apply
 ```
 
 The script patches `required_status_checks` in-place and leaves other branch protection toggles untouched. Use `--context` to
 temporarily allow additional contexts or `--no-clean` to preserve existing extras while asserting Gate.
+
+For GitHub Enterprise Server instances, add `--api-url https://hostname/api/v3` to point the helper at the correct API root.
 
 ## Validation Checklist
 

@@ -11,7 +11,16 @@ from typing import Any, Iterable, List, Mapping, Sequence
 
 import requests
 
-API_ROOT = os.getenv("GITHUB_API_URL", "https://api.github.com")
+DEFAULT_API_ROOT = "https://api.github.com"
+
+
+def resolve_api_root(explicit: str | None = None) -> str:
+    """Return the GitHub API root, normalising trailing slashes."""
+
+    candidate = (explicit or os.getenv("GITHUB_API_URL") or DEFAULT_API_ROOT).strip()
+    if not candidate:
+        return DEFAULT_API_ROOT
+    return candidate.rstrip("/")
 DEFAULT_CONTEXT = "Gate / gate"
 
 
@@ -52,16 +61,22 @@ def _build_session(token: str) -> requests.Session:
     return session
 
 
-def _status_checks_url(repo: str, branch: str) -> str:
+def _status_checks_url(repo: str, branch: str, *, api_root: str) -> str:
     return (
-        f"{API_ROOT}/repos/{repo}/branches/{branch}/protection/required_status_checks"
+        f"{api_root}/repos/{repo}/branches/{branch}/protection/required_status_checks"
     )
 
 
 def fetch_status_checks(
-    session: requests.Session, repo: str, branch: str
+    session: requests.Session,
+    repo: str,
+    branch: str,
+    *,
+    api_root: str = DEFAULT_API_ROOT,
 ) -> StatusCheckState:
-    response = session.get(_status_checks_url(repo, branch), timeout=30)
+    response = session.get(
+        _status_checks_url(repo, branch, api_root=api_root), timeout=30
+    )
     if response.status_code == 404:
         raise BranchProtectionMissingError(
             "Required status checks are not enabled for this branch. Configure the base protection rule first."
@@ -80,9 +95,14 @@ def update_status_checks(
     *,
     contexts: Sequence[str],
     strict: bool,
+    api_root: str = DEFAULT_API_ROOT,
 ) -> StatusCheckState:
     payload: dict[str, Any] = {"contexts": sorted(contexts), "strict": strict}
-    response = session.patch(_status_checks_url(repo, branch), json=payload, timeout=30)
+    response = session.patch(
+        _status_checks_url(repo, branch, api_root=api_root),
+        json=payload,
+        timeout=30,
+    )
     if response.status_code >= 400:
         raise BranchProtectionError(
             f"Failed to update status checks for {branch}: {response.status_code} {response.text}"
@@ -97,6 +117,7 @@ def bootstrap_branch_protection(
     *,
     contexts: Sequence[str],
     strict: bool,
+    api_root: str = DEFAULT_API_ROOT,
 ) -> StatusCheckState:
     payload: dict[str, Any] = {
         "required_status_checks": {
@@ -116,7 +137,7 @@ def bootstrap_branch_protection(
     }
 
     response = session.put(
-        f"{API_ROOT}/repos/{repo}/branches/{branch}/protection",
+        f"{api_root}/repos/{repo}/branches/{branch}/protection",
         json=payload,
         timeout=30,
     )
@@ -164,7 +185,12 @@ def format_contexts(contexts: Sequence[str]) -> str:
     return ", ".join(contexts)
 
 
-def require_token() -> str:
+def require_token(explicit: str | None = None) -> str:
+    if explicit:
+        candidate = explicit.strip()
+        if candidate:
+            return candidate
+
     token = os.getenv("GITHUB_TOKEN") or os.getenv("GH_TOKEN")
     if not token:
         raise BranchProtectionError(
@@ -204,6 +230,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="Status check context to require. May be passed multiple times. Defaults to 'Gate / gate'.",
     )
     parser.add_argument(
+        "--token",
+        help=(
+            "Personal access token to use when calling the GitHub API. Defaults to the GITHUB_TOKEN or GH_TOKEN environment "
+            "variables."
+        ),
+    )
+    parser.add_argument(
+        "--api-url",
+        help=(
+            "GitHub API base URL. Defaults to the GITHUB_API_URL environment variable or https://api.github.com when unset."
+        ),
+    )
+    parser.add_argument(
         "--apply",
         action="store_true",
         help="Apply the changes instead of performing a dry run.",
@@ -232,11 +271,14 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     desired_contexts = normalise_contexts(parse_contexts(args.contexts))
 
-    token = require_token()
+    api_root = resolve_api_root(args.api_url)
+    token = require_token(args.token)
     session = _build_session(token)
 
     try:
-        current_state = fetch_status_checks(session, args.repo, args.branch)
+        current_state = fetch_status_checks(
+            session, args.repo, args.branch, api_root=api_root
+        )
     except BranchProtectionMissingError:
         print(f"Repository: {args.repo}")
         print(f"Branch:     {args.branch}")
@@ -254,6 +296,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     args.branch,
                     contexts=desired_contexts,
                     strict=True,
+                    api_root=api_root,
                 )
             except BranchProtectionError as exc:
                 print(f"error: {exc}", file=sys.stderr)
@@ -318,6 +361,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.branch,
             contexts=target_contexts,
             strict=True,
+            api_root=api_root,
         )
     except BranchProtectionError as exc:
         print(f"error: {exc}", file=sys.stderr)

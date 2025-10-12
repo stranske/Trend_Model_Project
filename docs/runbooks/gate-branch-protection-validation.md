@@ -17,16 +17,22 @@ updated or during periodic audits.
      --jq '{strict: .strict, contexts: .contexts}'
    ```
    - Confirm the output shows `{"strict":true,"contexts":["Gate / gate"]}`.
-   - If `gh` is unavailable, run the helper in dry-run mode:
+   - If `gh` is unavailable, run the helper in dry-run mode. Provide a
+     personal access token either by exporting `GITHUB_TOKEN`/`GH_TOKEN` or
+     by passing `--token` explicitly:
      ```bash
-     GITHUB_TOKEN=ghp_xxx python tools/enforce_gate_branch_protection.py --repo stranske/Trend_Model_Project --branch main
+     python tools/enforce_gate_branch_protection.py \
+       --repo stranske/Trend_Model_Project \
+       --branch main \
+       --token ghp_xxx
      ```
      Ensure it prints `No changes required.`
 
 2. If the audit reveals legacy contexts, enforce the rule with the helper:
    ```bash
-   GITHUB_TOKEN=ghp_xxx python tools/enforce_gate_branch_protection.py \
-     --repo stranske/Trend_Model_Project --branch main --apply
+   python tools/enforce_gate_branch_protection.py \
+     --repo stranske/Trend_Model_Project --branch main \
+     --token ghp_xxx --apply
    ```
    Record the console output in the issue log.
 
@@ -48,7 +54,10 @@ updated or during periodic audits.
 ## 4. Close Out
 - Merge or close the draft PR without merging into `main` (if using a deliberately failing change, force-push to remove it).
 - Attach artifacts (logs, screenshots) to the issue tracker entry for future audits.
-- If automation tokens were rotated during the process, re-run the helper with `--check` to ensure the rule remains intact.
+- If automation tokens were rotated during the process, re-run the helper with
+  `--check` to ensure the rule remains intact.
+- For GitHub Enterprise Server instances, append `--api-url https://hostname/api/v3`
+  so the helper targets the correct API endpoint.
 
 ## Expected Evidence
 - JSON payload or helper output confirming `strict: true` and `contexts: ["Gate / gate"]`.
