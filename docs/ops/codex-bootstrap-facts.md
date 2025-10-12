@@ -51,7 +51,7 @@ part of Issue #2190; the dedicated Codex issue bridge was reinstated to restore 
 | Reusable agent stack | [`reusable-70-agents.yml`](../../.github/workflows/reusable-70-agents.yml) |
 | Codex bootstrap composite action | [`.github/actions/codex-bootstrap-lite`](../../.github/actions/codex-bootstrap-lite/action.yml) |
 | Gate workflow | [`pr-00-gate.yml`](../../.github/workflows/pr-00-gate.yml) |
-| Autofix follower | [`maint-32-autofix.yml`](../../.github/workflows/maint-32-autofix.yml) |
+| Autofix follower | [`maint-30-post-ci.yml`](../../.github/workflows/maint-30-post-ci.yml) |
 | Failure tracker | [`maint-33-check-failure-tracker.yml`](../../.github/workflows/maint-33-check-failure-tracker.yml) |
 
 ## Operational Notes

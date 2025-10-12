@@ -1,7 +1,7 @@
 # Repo Health Workflow Remediation Plan
 
 ## Scope and Key Constraints
-- Repair `.github/workflows/repo-health-self-check.yml` so the workflow validates, appears in the Actions list, and can be executed on demand.
+- Repair `.github/workflows/health-40-repo-selfcheck.yml` so the workflow validates, appears in the Actions list, and can be executed on demand.
 - Keep the job read-only: rely on the built-in `contents`, `issues`, `pull-requests`, and `actions` read scopes and avoid introducing broader permissions or repository secrets.
 - Preserve the existing triggers (`workflow_dispatch` plus an optional low-frequency schedule) while keeping total runtime under a minute on a GitHub-hosted runner.
 - Produce a concise summary table in the step summary instead of failing the workflow for soft signals; only hard configuration or execution errors should mark the run as failed.

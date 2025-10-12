@@ -78,7 +78,7 @@ Use git grep -n "reusable-10-ci-python.yml\|reusable-12-ci-docker.yml" to catch 
 
 Keep the display names the same (e.g., name: Gate, name: Maint Post CI) so humans don’t lose continuity while names on disk change.
 
-1) Fix invalid permissions in repo-health-self-check.yml
+ 1) Fix invalid permissions in health-40-repo-selfcheck.yml
 
 Labels: ci, devops, docs, bug
 

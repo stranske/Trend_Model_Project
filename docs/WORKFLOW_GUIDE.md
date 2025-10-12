@@ -50,12 +50,12 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 ### Reusable Composites
 - **`reusable-10-ci-python.yml`** — Python lint/type/test reusable invoked by Gate and any downstream repositories.
 - **`reusable-12-ci-docker.yml`** — Docker smoke reusable invoked by Gate and external consumers.
-- **`reusable-92-autofix.yml`** — Autofix harness used by `maint-32-autofix.yml` and `autofix.yml`.
+- **`reusable-92-autofix.yml`** — Autofix harness used by `maint-30-post-ci.yml` and `autofix.yml`.
 - **`reusable-70-agents.yml`** — Reusable agent automation stack.
 - **`reusable-99-selftest.yml`** — Matrix self-test covering reusable CI feature flags.
 
 ## Trigger Wiring Tips
-1. When renaming a workflow, update any `workflow_run` consumers. In this roster that includes `maint-post-ci.yml`, `autofix.yml`, and `maint-33-check-failure-tracker.yml`.
+1. When renaming a workflow, update any `workflow_run` consumers. In this roster that includes `maint-30-post-ci.yml`, `autofix.yml`, and `maint-33-check-failure-tracker.yml`.
 2. The orchestrator relies on the workflow names, not just filenames. Keep `name:` fields synchronized with filenames to avoid missing triggers.
 3. Reusable workflows stay invisible in the Actions tab; top-level consumers should include summary steps for observability.
 

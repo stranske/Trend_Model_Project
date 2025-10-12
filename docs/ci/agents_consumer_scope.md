@@ -49,6 +49,6 @@ orchestrator documentation:
 - [`docs/agent-automation.md`](../agent-automation.md) – deep dive into
   orchestrator inputs, troubleshooting, and telemetry.
 
-If you discover a reference to `agents-consumer.yml` elsewhere in the
+If you discover a reference to `agents-62-consumer.yml` elsewhere in the
 repository, update it to point to the orchestrator so the documentation remains
 consistent with the simplified topology.

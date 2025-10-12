@@ -8,7 +8,7 @@ automation building blocks that thin wrappers (or downstream repositories) can c
 | Reusable CI | `.github/workflows/reusable-10-ci-python.yml` | Primary Python quality gate (lint, types, pytest, coverage). Used by Gate for Python 3.11/3.12.
 | Python CI (legacy matrix) | `.github/workflows/reusable-90-ci-python.yml` | Matrix executor with optional coverage/metrics toggles retained for downstream callers.
 | Legacy Python CI | `.github/workflows/reusable-94-legacy-ci-python.yml` | Compatibility contract for consumers still on the pre-WFv1 interface.
-| Autofix | `.github/workflows/reusable-92-autofix.yml` | Formatting / lint autofix harness used by `maint-32-autofix.yml`.
+| Autofix | `.github/workflows/reusable-92-autofix.yml` | Formatting / lint autofix harness used by `maint-30-post-ci.yml`.
 | Agents Toolkit | `.github/workflows/reusable-70-agents.yml` | Readiness, Codex bootstrap, verification, and watchdog routines.
 | Self-Test Matrix | `.github/workflows/reusable-99-selftest.yml` | Exercises the reusable CI executor across feature combinations.
 
@@ -34,8 +34,7 @@ coverage/metrics toggles, and optional history tracking. Gate no longer calls th
 continue to do so until they migrate to `reusable-10-ci-python.yml`.
 
 ## 3. Autofix (`reusable-92-autofix.yml`)
-Used by `autofix.yml` and `maint-post-ci.yml` to apply hygiene fixes once CI succeeds. Inputs gate behaviour behind opt-in labels
-and allow custom commit prefixes. The composite enforces size/path heuristics before pushing changes with `SERVICE_BOT_PAT`.
+Used by `autofix.yml` and `maint-30-post-ci.yml` to apply hygiene fixes once CI succeeds. Inputs gate behaviour behind opt-in labels and allow custom commit prefixes. The composite enforces size/path heuristics before pushing changes with `SERVICE_BOT_PAT`.
 
 ## 4. Agents Toolkit (`reusable-70-agents.yml`)
 Exposes the agent automation stack as a reusable component. Inputs include readiness toggles, optional Codex preflight,
@@ -90,7 +89,7 @@ historical reference.
 | Area | How to Extend | Notes |
 | ---- | ------------- | ----- |
 | Coverage reporting | Chain an additional job that depends on the reusable CI job to upload coverage artifacts. | Keep job IDs stable when referencing outputs. |
-| Autofix heuristics | Update `autofix.yml` or `maint-post-ci.yml` to widen size limits or adjust glob filters. | Avoid editing the reusable composite unless behaviour must change globally. |
+| Autofix heuristics | Update `autofix.yml` or `maint-30-post-ci.yml` to widen size limits or adjust glob filters. | Avoid editing the reusable composite unless behaviour must change globally. |
 | Agents options | Provide extra keys inside `options_json` and update the reusable workflow to honour them. | Remember GitHub only supports 10 dispatch inputs; keep new flags in JSON. |
 
 ## Security & Permissions

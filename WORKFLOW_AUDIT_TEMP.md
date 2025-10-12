@@ -57,7 +57,7 @@ This list mirrors the canonical catalogue in `docs/ci/WORKFLOWS.md` after the Is
 | `agents-40-consumer.yml`, `agents-41-assign*.yml`, `agents-42-watchdog.yml`, `agents-44-copilot-readiness.yml`, `agents-45-verify-codex-bootstrap-matrix.yml` | Deleted; functionality consolidated into `agents-70-orchestrator.yml` + `reusable-70-agents.yml`.
 | `maint-31-autofix-residual-cleanup.yml`, `maint-34-quarantine-ttl.yml`, `maint-37-ci-selftest.yml`, `maint-38-cleanup-codex-bootstrap.yml`, `maint-43-verify-service-bot-pat.yml`, `maint-44-verify-ci-stack.yml`, `maint-45-merge-manager.yml`, `selftest-88-reusable-ci.yml`, `maint-49-stale-prs.yml`, `maint-52-perf-benchmark.yml`, `maint-60-release.yml` | Deleted; maintenance roster trimmed to the Issue #2190 final set.
 | `pr-01-gate-orchestrator.yml`, `pr-02-label-agent-prs.yml`, `pr-18-workflow-lint.yml`, `selftest-82-pr-comment.yml`, `pr-30-codeql.yml`, `pr-31-dependency-review.yml`, `pr-path-labeler.yml` | Deleted; PR checks narrowed to the two required pipelines.
-| `reusable-71-agents-dispatch.yml` (renamed), `repo-health-self-check.yml` (renamed) | Superseded by the new naming scheme. **2026-10 follow-up:** orchestrator remains the scheduled dispatch surface; consumer workflow constrained to manual-only usage.
+| `reusable-71-agents-dispatch.yml` (renamed), `health-40-repo-selfcheck.yml` (renamed) | Superseded by the new naming scheme. **2026-10 follow-up:** orchestrator remains the scheduled dispatch surface; consumer workflow constrained to manual-only usage.
 
 ## Archived in Issue #2378
 
