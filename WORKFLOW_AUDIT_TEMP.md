@@ -1,14 +1,14 @@
-# Temporary Workflow Audit (Draft)
+# Temporary Workflow Audit (Updated for Issue #2466)
 
 Date: 2026-10-12
 
 ## Naming Compliance Snapshot
 - ✅ All active workflows follow the `<area>-<NN>-<slug>.yml` convention with 10-point spacing per family (exception: `autofix.yml`, reinstated per Issue #2380 as the PR autofix runner).
 - ✅ Each workflow's `name:` field mirrors its filename (title-cased with numeric block preserved).
-- ✅ `.github/workflows/archive/` remains absent; legacy self-test wrappers were relocated to `Old/workflows/` for historical reference.
+- ✅ `.github/workflows/archive/` remains absent; legacy self-test wrappers live under `Old/workflows/` for archaeology.
 
-## Final Workflow Set (Issue #2190 + Issue #2379 refresh)
-Only the workflows listed below remain visible in the Actions tab. Reusable composites without direct triggers are grouped separately.
+## Final Workflow Set
+This list mirrors the canonical catalogue in `docs/ci/WORKFLOWS.md` after the Issue #2466 consolidation. Only the workflows below appear in the Actions tab; reusable composites are grouped separately.
 
 ### PR Checks
 | Workflow | Triggers | Notes |
@@ -65,7 +65,7 @@ Only the workflows listed below remain visible in the Actions tab. Reusable comp
 
 
 ## Verification
-- `pytest tests/test_workflow_*.py` validates naming compliance, inventory coverage, and agent orchestration wiring.
-- Manual spot checks confirm `gh workflow list` shows only the Final Workflow Set.
+- `pytest tests/test_workflow_*.py` validates naming compliance, inventory coverage, and orchestrator wiring.
+- Manual spot checks (`gh workflow list`) confirm only the workflows above appear in the Actions UI.
 
-This audit will be deleted once the new documentation in `docs/ci/WORKFLOWS.md` becomes the authoritative catalogue.
+This audit will be deleted once `docs/ci/WORKFLOWS.md` remains the authoritative catalogue for two release cycles.

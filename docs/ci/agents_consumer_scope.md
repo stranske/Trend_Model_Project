@@ -1,4 +1,4 @@
-# Agents Consumer Workflow – Planning Notes (Issue #2464 Refresh)
+# Agents Consumer Workflow (Retired)
 
 ## Scope and Key Constraints
 - Keep `.github/workflows/agents-62-consumer.yml` available for **manual**
@@ -33,32 +33,22 @@
 - Guard tests `tests/test_workflow_agents_consolidation.py` and
   `tests/test_workflow_naming.py` are re-run to validate structure and naming.
 
-## Behaviour inventory (2026-10-12 audit)
+1. Navigate to **Actions → Agents 70 Orchestrator → Run workflow**.
+2. Provide the desired inputs (branch, readiness toggles, bootstrap settings,
+   and any overrides in the `options_json` payload).
+3. Review the `orchestrate` job summary for readiness tables, bootstrap status,
+   and keepalive signals.
 
-| Capability | Consumer implementation | Orchestrator parity | Notes |
-| --- | --- | --- | --- |
-| Readiness probe | Defaults to enabled via `params_json` | Enabled via `enable_readiness` input | Both paths call `reuse-agents.yml` → `reusable-70-agents.yml`; no divergence.
-| Watchdog sweep | Defaults to enabled | Enabled through `enable_watchdog` input | Reusable workflow enforces identical keepalive/watchdog steps and timeout coverage.
-| Codex preflight | Opt-in flag in JSON payload | `enable_preflight` manual input | Toggle forwards unchanged; reusable workflow owns diagnostics.
-| Bootstrap PR fan-out | Opt-in (`enable_bootstrap`) with optional label override | `options_json.enable_bootstrap` + label input | Shared bootstrap job fans out PRs and applies labels identically.
-| Issue verification | Opt-in (`enable_verify_issue`/`verify_issue_number`) | Manual input pair | Uses same verification job inside reusable stack.
-| Keepalive dispatch | Opt-in JSON toggle | `options_json.enable_keepalive` | Converges on shared keepalive job; defaults match.
-| Diagnostics / dry run | `options_json.diagnostic_mode` (manual payload) | Same JSON payload forwarded | Diagnostic knobs centralised; consumer adds no unique handling.
+The JSON examples that previously lived in this file can now be found in the
+orchestrator documentation:
 
-**Conclusion:** every capability surfaced by the consumer exists in the
-orchestrator + reusable toolkit stack. The consumer remains solely as a manual
-JSON entry point; removing it would not drop functionality beyond that input
-surface.
+- [`docs/ci/WORKFLOWS.md`](WORKFLOWS.md) – canonical workflow roster and manual
+  dispatch payloads.
+- [`docs/WORKFLOW_GUIDE.md`](../WORKFLOW_GUIDE.md) – topology guide describing
+  the orchestrator-only automation model.
+- [`docs/agent-automation.md`](../agent-automation.md) – deep dive into
+  orchestrator inputs, troubleshooting, and telemetry.
 
-## Initial Task Checklist
-1. Inventory the consumer vs orchestrator inputs to confirm no unique
-   functionality is lost by consolidating into the reusable toolkit.
-2. Ensure the workflow `on:` section remains limited to `workflow_dispatch` and
-   that concurrency is scoped by ref with `cancel-in-progress: true`.
-3. Verify the dispatch job delegates to `reuse-agents.yml` with the same output
-   mapping and without `timeout-minutes` overrides.
-4. Update documentation to explain the manual-only status, how to use
-   `params_json`, and the post-change monitoring plan.
-5. Execute `pytest tests/test_workflow_agents_consolidation.py
-   tests/test_workflow_naming.py` to confirm guardrails stay green before
-   shipping changes.
+If you discover a reference to `agents-consumer.yml` elsewhere in the
+repository, update it to point to the orchestrator so the documentation remains
+consistent with the simplified topology.

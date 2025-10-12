@@ -1,6 +1,9 @@
-# Workflow & Agent Automation Quick Start (Issue #1204)
+# Workflow & Agent Automation Quick Start (Issue #2466)
 
-This guide enables a new maintainer to operate the CI + agent automation stack in under 10 minutes. For a reference catalogue of naming rules, workflow buckets, and agent label guidance see [docs/WORKFLOW_GUIDE.md](../../docs/WORKFLOW_GUIDE.md).
+This guide gives maintainers a fast reference for the streamlined CI and agent
+automation stack. Pair it with
+[docs/WORKFLOW_GUIDE.md](../../docs/WORKFLOW_GUIDE.md) for the canonical
+inventory and naming rules.
 
 ---
 ## 1. Architecture Snapshot
@@ -37,32 +40,30 @@ Flow:
 
 ---
 ## 2. Label Cheat Sheet
+
 | Label | Purpose | Source |
 |-------|---------|--------|
-| `agent:codex` / `agent:copilot` | Automation origin PRs | Agent labeler |
-| `from:codex` / `from:copilot` | Origin marker | Agent labeler |
-| `risk:low` | Low-friction auto-merge | Issue form / labeler |
-| `automerge` | Eligible for merge automation | Issue form / maintainer |
-| `codex-ready` | Allows bootstrap run | Issue template |
-| `type:bug` / `type:feature` | Taxonomy | Templates |
-| Area labels | Scope classification | Path labeler |
+| `agent:codex` / `agent:copilot` | Marks automation-owned issues and PRs | Agent labeler |
+| `from:codex` / `from:copilot` | Origin marker for automation PRs | Agent labeler |
+| `autofix` / `autofix:applied` | Track PR autofix results | Autofix workflow |
+| `ci-failure` | Pins the rolling CI dashboard issue | Maint Post CI |
+| Area labels | Scope classification for review routing | Path labeler |
 
 ---
 ## 3. Required Secrets & Variables
+
 | Name | Type | Req | Purpose | Notes |
 |------|------|-----|---------|-------|
-| `SERVICE_BOT_PAT` | Secret | Rec | Cross-fork ops identity | `repo` scope |
-| `CODEX_ALLOW_FALLBACK` | Var | Opt | Allow fallback token use | Temporary only |
-| `AUTOMERGE_LABEL` | Var | Opt | Customize `automerge` label | Must exist |
-| `RISK_LABEL` | Var | Opt | Customize risk label | Default `risk:low` |
-| `AGENT_LABEL` / `AGENT_LABEL_ALT` | Var | Opt | Agent classification synonyms | Cosmetic |
-| `AUTOFIX_OPT_IN_LABEL` | Var | Opt | Gate autofix | Falls back internally |
-| `OPS_HEALTH_ISSUE` | Var | Req | Issue number for nightly health updates | Validate the value exists in every environment; repo-health skips issue updates when unset. |
+| `SERVICE_BOT_PAT` | Secret | Rec | Allows automation to push branches and leave comments | `repo` scope |
+| `AUTOFIX_OPT_IN_LABEL` | Var | Opt | Overrides the default autofix opt-in label | Defaults internal |
+| `OPS_HEALTH_ISSUE` | Var | Req | Issue number for repo-health updates | Repo health jobs skip updates when unset |
 
-All others use default `GITHUB_TOKEN`.
+All other jobs rely on the default `GITHUB_TOKEN` permissions noted in the
+workflow files.
 
 ---
 ## 4. Trigger Matrix
+
 | Workflow | Trigger(s) | Notes |
 |----------|-----------|-------|
 | `pr-00-gate.yml` | pull_request, workflow_dispatch | Orchestrates reusable Python 3.11/3.12 CI and Docker smoke tests, then enforces all-success before reporting `gate`.
@@ -83,7 +84,9 @@ All others use default `GITHUB_TOKEN`.
 
 ---
 ## 5. Adopt Reusable Workflows
-CI consumer:
+
+CI consumer example:
+
 ```yaml
 name: CI
 on:
@@ -263,9 +266,7 @@ Outputs:
 - Aggregated artifacts: `coverage-trend` (JSON for this run), `coverage-trend-history` (NDJSON accumulating all runs).
 - Canonical coverage Issue comment (create-or-update) containing run link, summary, hotspots, and job log links (deduped from summary table).
 
-Behavior: Non‑blocking (always succeeds). Parsing failures degrade gracefully (warning + skip) to avoid blocking unrelated PR progress.
-Hotspots: Sorted ascending by percent covered (lowest coverage first) limited to 15 entries for scannability.
-Retention Guidance: Use 7–14 days. Shorter (<7 days) risks losing comparison context for slower review cycles; longer (>14 days) increases storage without materially improving triage.
+### Agents Orchestration (Issue #2466)
 
 ---
 ## 7.4 Self-Test Reusable CI (Issue #1660)
@@ -336,84 +337,41 @@ Note: The gate job will become the only required status after successful observa
 - Tune dependency severity gating.
 - Tag releases for stable reuse.
 
----
-## 9. Deep-Dive Docs
-| Topic | Doc |
-|-------|-----|
-| Reusable design | `docs/ci_reuse.md` |
-| Consolidation | `docs/ci_reuse_consolidation_plan.md` |
-| Agent modes | `docs/agent-automation.md` |
-| Bootstrap verify | `docs/codex_bootstrap_verification.md` |
-| Troubleshooting | `docs/agent_codex_troubleshooting.md` |
-| Bot facts | `docs/ops/codex-bootstrap-facts.md` |
+1. Navigate to **Actions → Agents 70 Orchestrator → Run workflow**.
+2. Provide the desired inputs (e.g. `enable_bootstrap: true`,
+   `bootstrap_issues_label: agent:codex`, `options_json` overrides).
+3. Review the `orchestrate` job summary for readiness tables, bootstrap
+   planners, watchdog status, and keepalive signals.
+4. Rerun as needed; Maint Post CI will echo failing runs in the `ci-failure`
+   rollup when Gate is affected.
+
+`reusable-70-agents.yml` remains the single implementation surface for readiness
+probes, diagnostics, bootstrap, keepalive, and watchdog jobs. `reuse-agents.yml`
+exists for workflow-call reuse so downstream repositories can adopt the same
+inputs without duplicating JSON parsing.
 
 ---
-## 10. Change Process
-Update this README + workflows in PR; note semantic changes inline as design notes.
+## 6. Onboarding Checklist (~7 min)
+
+1. Confirm labels `agent:codex`, `agent:copilot`, `autofix`, and `ci-failure`
+   exist.
+2. Verify repository variables (`OPS_HEALTH_ISSUE`, optional
+   `AUTOFIX_OPT_IN_LABEL`) are set.
+3. Review Gate and Maint Post CI runs on a recent PR to familiarise yourself
+   with the consolidated reporting.
+4. Trigger a manual Agents 70 Orchestrator run in dry-run mode (`enable_bootstrap`
+   false) to observe readiness output and ensure secrets resolve.
+5. Consult `docs/ci/WORKFLOWS.md` for the authoritative workflow roster before
+   adding or renaming jobs.
 
 ---
-## 11. Stale PR TTL (Issue #1205)
-`stale-prs.yml` (daily 02:23 UTC + manual)
+## 7. Retired Wrappers
 
-Defaults:
-- Warn after 14d inactivity (`stale` label).
-- Close after 21d inactivity.
-- Exempt: `pinned`, `work-in-progress`, `security`, `blocked`.
-Activity clears `stale`.
+- `agents-consumer.yml`, `agents-41*`, and `agents-42-watchdog.yml` were removed
+  during the consolidation. Historical payload examples now live in
+  `Old/workflows/` and the repository archive docs.
+- `pr-10-ci-python.yml`, `pr-12-docker-smoke.yml`, and the merge-manager flows
+  remain archived in `ARCHIVE_WORKFLOWS.md`.
 
-Tips: long draft → add `work-in-progress`; external wait → `blocked`.
-Tune via `days-before-pr-stale` / `days-before-pr-close`.
-
-Future (planned): telemetry summary, org-level TTL var.
-
-_Last updated: 2025-09-19 (Issue #1205)_
-
----
-## 13. Future Enhancements (Advisory)
-Planned / optional improvements under consideration:
-| Enhancement | Status | Notes |
-|-------------|--------|-------|
-| Coverage trend artifact (JSON) | Implemented | `coverage-trend` provides run-level stats (Issue #1352) |
-| Coverage trend history (NDJSON) | Implemented | `coverage-trend-history` accumulates per-run records |
-| CI style job (ruff+black+mypy) | Implemented | Replaces legacy lint-verification (flake8/black) |
-| Centralized autofix commit prefix | Implemented | Configurable (default `chore(autofix):`) |
-| Failing test count in logs summary | Implemented | Universal logs job appends count inline |
-
-TODO (wrapper removal): After branch protection flips to require the gate job, remove `pr-10-ci-python.yml` (see 7.6) and delete this TODO line.
-
-Adopt individually; update sections 7.3 / 7.5 when shipped.
-
----
-_Addendum (Issues #1351, #1352): CI topology, kickoff flow, soft gate, logs summary, coverage artifact normalization, trend history, and migration plan documented. Wrapper removal pending future protection flip._
-
----
-## 12. Agent Readiness Enhancements (Issue #1220)
-Richer readiness probing.
-
-New Inputs:
-- `readiness_custom_logins`: comma-separated bot usernames.
-- `require_all`: fail if any requested builtin or custom login missing when true.
-
-Existing:
-- `readiness_agents`: builtin keys (`copilot,codex`).
-
-Outputs:
-- Markdown table + JSON block (summary).
-- Columns: Agent | Kind | Requested | Assignable | Resolved Login.
-
-Failure Semantics:
-- `require_all=false` → always succeed (missing show ❌).
-- `require_all=true` → fail on any missing.
-
-Example:
-```yaml
-with:
-  enable_readiness: 'true'
-  readiness_agents: 'copilot,codex'
-  readiness_custom_logins: 'my-internal-bot'
-  require_all: 'true'
-```
-
-Rationale: Portability across repos + deterministic artifacts.
-
-_Last updated: 2025-09-19 (Issue #1220)_
+Refer to the archive if you need to resurrect behaviour for forensic analysis;
+otherwise, prefer the consolidated orchestrator and reusable workflows.

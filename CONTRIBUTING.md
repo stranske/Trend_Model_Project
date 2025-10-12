@@ -22,9 +22,11 @@ post-processing workflow:
   [`maint-30-post-ci.yml`](.github/workflows/maint-30-post-ci.yml) workflow
   posts a single PR summary comment (Gate status + coverage), attempts
   the same autofix sweep using the composite action, and files tracker
-  issues when hygiene regressions persist. Treat that consolidated
-  comment as the canonical health dashboard; rerun Gate or Maint
-  Post-CI if you need the summary refreshed.
+  issues when hygiene regressions persist. It also updates the rolling
+  "CI failures in last 24 h" issue labelled `ci-failure` so the current
+  breakages stay easy to find. Treat that consolidated comment and
+  issue as the canonical health dashboards; rerun Gate or Maint Post-CI
+  if you need either refreshed.
 - **Agent automation** – The
   [`agents-70-orchestrator.yml`](.github/workflows/agents-70-orchestrator.yml)
   workflow is the single dispatch point for scheduled Codex automation and the
@@ -47,11 +49,15 @@ post-processing workflow:
    ```bash
    ./scripts/style_gate_local.sh
    ```
+   See [`scripts/style_gate_local.sh`](scripts/style_gate_local.sh) for the
+   full sequence that mirrors the Gate style lane.
 3. Optional combined quality gate:
    ```bash
    ./scripts/quality_gate.sh          # style + fast validate
    ./scripts/quality_gate.sh --full   # adds comprehensive branch checks
    ```
+   The [`--full` quality gate](scripts/quality_gate.sh) matches the Gate
+   workflow fan-out.
 4. (First time) Install pre-push hook:
    ```bash
    ./scripts/install_pre_push_style_gate.sh

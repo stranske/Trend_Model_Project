@@ -1,15 +1,16 @@
 # Workflow Catalog & Contributor Quick Start
 
 Use this page as the canonical reference for CI workflow naming, inventory, and
-local guardrails. It consolidates the requirements from Issues #2190 and #2202
-and adds guidance for contributors who need to stage new workflows or dispatch
-the agents toolkit. The quick catalog below spells out **purpose, triggers,
-required permissions, and status/label effects** for every merge gate and agent
-automation entry point currently in service.
+local guardrails. It consolidates the requirements from Issues #2190, #2202, and
+#2466. The Gate workflow remains the required merge check for every pull
+request, and **Agents 70 Orchestrator** is now the **only** entry point for
+agent automation (readiness sweeps, Codex bootstrap, diagnostics).
 
 ## CI & agents quick catalog
 
-| Workflow | File | What it does | When it runs | Required secrets / permissions | Status outputs & labels |
+Use the matrix below as the authoritative roster of active workflows. Each row captures the canonical triggers, permission scopes, and whether the workflow blocks merges (`Required?`). Reusable composites appear at the end because they expose only `workflow_call` entry points.
+
+| Workflow | File | Trigger(s) | Permissions | Required? | Purpose |
 | --- | --- | --- | --- | --- | --- |
 | **Gate** | `.github/workflows/pr-00-gate.yml` | Fan-out orchestrator that reuses the Python CI matrix and Docker smoke reusable workflows, then enforces all downstream results. | `pull_request` (non-doc paths) and `workflow_dispatch`. | Default `GITHUB_TOKEN` (`contents: read`) for all jobs; delegated reusable workflows do not request additional scopes when called from Gate. | <ul><li>**Status checks:** `core tests (3.11)`, `core tests (3.12)`, `docker smoke`, aggregate `gate`.</li><li>**Labels:** _none_.</li></ul> |
 | **Autofix** | `.github/workflows/autofix.yml` | Lightweight formatting/type hygiene runner that auto-commits fixes for same-repo PRs or uploads a patch for forks. | `pull_request` (including label changes). | `contents: write`, `pull-requests: write`; inherits repository secrets but does not require extra PATs. | <ul><li>**Status checks:** top-level `apply` job delegating to the `autofix` composite.</li><li>**Labels:** `autofix`, `autofix:applied`/`autofix:patch`, mutually exclusive `autofix:clean` vs `autofix:debt`.</li></ul> |
@@ -30,7 +31,7 @@ automation entry point currently in service.
   |--------|--------------|-------|-------|
   | `pr-` | `10–19` | Pull-request gates | `pr-00-gate.yml` is the primary orchestrator; keep space for specialized PR jobs (docs, optional helpers).
   | `maint-` | `00–49` and `90s` | Scheduled/background maintenance | Low numbers for repo hygiene, 30s/40s for post-CI and guards, 90 for self-tests calling reusable matrices.
-  | `agents-` | `40s` & `70s` | Agent bootstrap/orchestration | `43` bridges issues to Codex; `70` is the manual/scheduled orchestrator.
+  | `agents-` | `70s` | Agent bootstrap/orchestration | `agents-70-orchestrator.yml` is the sole automation entry point post-Issue #2466.
   | `reusable-` | `70s` & `90s` | Composite workflows invoked by others | Keep 90s for CI executors, 70s for agent composites.
 
 - Match the `name:` field to the filename rendered in Title Case
@@ -53,10 +54,9 @@ automation entry point currently in service.
 
 **Operational details**
 - **Gate** – Permissions: defaults (read scope). Secrets: relies on `GITHUB_TOKEN` only. Status outputs: `core tests (3.11)`, `core tests (3.12)`, `docker smoke`, and the aggregator job `gate`, which fails if any dependency fails.
-- **Autofix** – Permissions: `contents: write`, `pull-requests: write`. Secrets: inherits `GITHUB_TOKEN` (sufficient for label + comment updates). Status outputs: `autofix` job; labels applied include `autofix`, `autofix:applied`/`autofix:patch`, and cleanliness toggles (`autofix:clean`/`autofix:debt`).
+- **Autofix** – Permissions: `contents: write`, `pull-requests: write`. Secrets: inherits `GITHUB_TOKEN` (sufficient for label + comment updates). Status outputs: `apply` job; labels applied include `autofix`, `autofix:applied`/`autofix:patch`, and cleanliness toggles (`autofix:clean`/`autofix:debt`).
 
-These jobs must stay green for PRs to merge. The post-CI maintenance jobs below
-listen to their `workflow_run` events.
+These jobs must stay green for PRs to merge. The post-CI maintenance jobs below listen to their `workflow_run` events and post summaries whenever the Gate aggregator fails.
 
 ### Maintenance & observability (scheduled/optional reruns)
 
@@ -72,8 +72,9 @@ listen to their `workflow_run` events.
 | `maint-41-chatgpt-issue-sync.yml` (`Maint 41 ChatGPT Issue Sync`) | `workflow_dispatch` (manual) | Fans out curated topic lists (e.g. `Issues.txt`) into labeled GitHub issues. ⚠️ Repository policy: do not remove without a functionally equivalent replacement. |
 | `maint-45-cosmetic-repair.yml` (`Maint 45 Cosmetic Repair`) | `workflow_dispatch` | Manual pytest + guardrail fixer that applies tolerance/snapshot updates and opens a labelled PR when drift is detected. |
 
-**Operational details**
-- **Maint 02 Repo Health** – Permissions: `contents: read`, `issues: read`. Secrets: uses `GITHUB_TOKEN` only. Output: publishes a step summary (“Repository health weekly sweep”) with stale branches and unassigned-issue tables.
+### CI failure rollup issue
+
+`Maint Post CI` maintains **one** open issue labelled `ci-failure` that aggregates "CI failures in the last 24 h". The failure-tracker job updates the table in place with each Gate failure, links the offending workflow run, and closes the issue automatically once the inactivity threshold elapses. The issue carries labels `ci`, `devops`, and `priority: medium`; escalations add `priority: high` when the same signature trips three times. Use this issue for a quick dashboard of outstanding CI problems instead of scanning individual PR timelines.
 
 ### Agent automation entry points
 
@@ -109,13 +110,11 @@ Manual-only status means maintainers should review the Actions list during that 
 | `reusable-12-ci-docker.yml` (`Reusable Docker Smoke`) | Gate, downstream repositories | Docker build + smoke reusable consumed by Gate and external callers.
 
 **Operational details**
-- **Reuse Agents** – Permissions: `contents: write`, `pull-requests: write`, `issues: write`. Secrets: optional `service_bot_pat` (forwarded to `reusable-70-agents`) plus `GITHUB_TOKEN`. Outputs: single `call` job exposes reusable outputs such as `triggered` keepalive list and watchdog diagnostics for upstream orchestrators.
+- **Reuse Agents** – Permissions: `contents: write`, `pull-requests: write`, `issues: write`. Secrets: optional `service_bot_pat` (forwarded to `reusable-70-agents`) plus `GITHUB_TOKEN`. Outputs: single `call` job exposes reusable outputs such as `triggered` keepalive lists and orchestrator diagnostics for upstream callers.
 
 ### Archived self-test workflows
 
-`Old/workflows/maint-90-selftest.yml` remains available as the historical wrapper that previously
-scheduled the self-test cron. The retired PR comment and maintenance wrappers listed below stay
-removed; consult git history if you need their YAML for archaeology:
+`Old/workflows/maint-90-selftest.yml` remains available as the historical wrapper that previously scheduled the self-test cron. The retired PR comment and maintenance wrappers listed below stay removed; consult git history if you need their YAML for archaeology:
 
 - `selftest-83-pr-comment.yml` – deleted; previously posted PR comments summarising self-test matrices.
 - `selftest-84-reusable-ci.yml` – deleted reusable-integration cron (matrix coverage moved to the
@@ -124,44 +123,30 @@ removed; consult git history if you need their YAML for archaeology:
 - `selftest-82-pr-comment.yml` – deleted; PR-triggered comment bot that duplicated the maintenance
   wrapper.
 
-See [ARCHIVE_WORKFLOWS.md](../../ARCHIVE_WORKFLOWS.md) for the full ledger of retired workflows and
-rationale, including notes on the removed files.
+See [ARCHIVE_WORKFLOWS.md](../../ARCHIVE_WORKFLOWS.md) for the full ledger of retired workflows and rationale, including notes on the removed files.
 
 ## Contributor Quick Start
 
 Follow this sequence before pushing workflow changes or large code edits:
 
-1. **Install tooling** – run `./scripts/setup_env.sh` once to create a virtual
-   environment with repository requirements.
+1. **Install tooling** – run `./scripts/setup_env.sh` once to create a virtual environment with repository requirements.
 2. **Mirror the CI style gate locally** – execute:
 
    ```bash
    ./scripts/style_gate_local.sh
    ```
 
-   The script sources `.github/workflows/autofix-versions.env`, installs the
-   pinned formatter/type versions, runs Ruff/Black, and finishes with a mypy pass
-   over `src/trend_analysis` and `src/trend_portfolio_app`. Fix any reported
-   issues to keep the Gate workflow green.
-3. **Targeted tests** – add `pytest tests/test_workflow_naming.py` after editing
-   workflow files to ensure naming conventions hold. For agents changes, also run
-   `pytest tests/test_automation_workflows.py -k agents`.
-4. **Optional smoke** – `gh workflow list --limit 20` validates that only the
-   documented workflows surface in the Actions tab.
+   The script sources `.github/workflows/autofix-versions.env`, installs the pinned formatter/type versions, runs Ruff/Black, and finishes with a mypy pass over `src/trend_analysis` and `src/trend_portfolio_app`. Fix any reported issues to keep the Gate workflow green.
+3. **Targeted tests** – add `pytest tests/test_workflow_naming.py` after editing workflow files to ensure naming conventions hold. For agents changes, also run `pytest tests/test_automation_workflows.py -k agents`.
+4. **Optional smoke** – `gh workflow list --limit 20` validates that only the documented workflows surface in the Actions tab.
 
 ## Adding or Renumbering Workflows
 
-1. Pick the correct prefix/number band (see Naming Policy) and choose the lowest
-   unused slot.
-   - Treat the `NN` portion as a zero-padded two-digit identifier within the
-     band (`pr-10`, `maint-36`, etc.). Check the tables above before reusing a
-     number so future contributors can infer gaps at a glance.
-2. Place the workflow in `.github/workflows/` with the matching Title Case
-   `name:`.
-3. Update any trigger dependencies (`workflow_run` consumers) so maintenance jobs
-   continue to listen to the correct producers.
-4. Document the change in this file (inventory tables + bands) and in
-   `docs/WORKFLOW_GUIDE.md` if the topology shifts.
+1. Pick the correct prefix/number band (see Naming Policy) and choose the lowest unused slot.
+   - Treat the `NN` portion as a zero-padded two-digit identifier within the band (`pr-10`, `maint-36`, etc.). Check the tables above before reusing a number so future contributors can infer gaps at a glance.
+2. Place the workflow in `.github/workflows/` with the matching Title Case `name:`.
+3. Update any trigger dependencies (`workflow_run` consumers) so maintenance jobs continue to listen to the correct producers.
+4. Document the change in this file (inventory tables + bands) and in `docs/WORKFLOW_GUIDE.md` if the topology shifts.
 5. Run the validation commands listed above before opening a PR.
 
 ## Formatter & Type Checker Pins
@@ -180,25 +165,18 @@ Follow this sequence before pushing workflow changes or large code edits:
 
 ## CI Signature Guard Fixtures
 
-`maint-40-ci-signature-guard.yml` enforces a manifest signature for the Gate
-workflow by comparing two fixture files stored in `.github/signature-fixtures/`:
+`maint-40-ci-signature-guard.yml` enforces a manifest signature for the Gate workflow by comparing two fixture files stored in `.github/signature-fixtures/`:
 
 - `basic_jobs.json` – canonical list of jobs (name, concurrency label, metadata)
   that must exist in `pr-00-gate.yml`.
 - `basic_hash.txt` – precomputed hash of the JSON payload used by
   `.github/actions/signature-verify` to detect unauthorized job changes.
 
-When intentionally editing CI jobs, regenerate `basic_jobs.json`, compute the new
-hash, and update both files in the same commit. Use
-`tools/test_failure_signature.py` locally to recompute and verify the hash before
-pushing. The guard only runs on pushes/PRs targeting `phase-2-dev` and publishes
-a step summary linking back here.
+When intentionally editing CI jobs, regenerate `basic_jobs.json`, compute the new hash, and update both files in the same commit. Use `tools/test_failure_signature.py` locally to recompute and verify the hash before pushing. The guard only runs on pushes/PRs targeting `phase-2-dev` and publishes a step summary linking back here.
 
 ## Agents `options_json` Schema
 
-`agents-70-orchestrator.yml` accepts the standard dispatch inputs shown in the
-workflow plus an extensible JSON payload routed through `options_json`. The JSON
-is parsed with `fromJson()` and handed to the reusable agents workflow.
+`agents-70-orchestrator.yml` accepts the standard dispatch inputs shown in the workflow plus an extensible JSON payload routed through `options_json`. The JSON is parsed with `fromJson()` and handed to the reusable agents workflow.
 
 ```jsonc
 {
@@ -208,25 +186,8 @@ is parsed with `fromJson()` and handed to the reusable agents workflow.
 }
 ```
 
-- **`diagnostic_mode`** — `off` (default) disables diagnostics, `dry-run` keeps
-  bootstrap logic read-only, `full` allows branch creation and sets
-  `diagnostic_attempt_branch=true` in the reusable workflow.
-- **`readiness_custom_logins`** — optional comma-separated list of extra agent
-  logins to probe during readiness checks.
-- **`codex_command_phrase`** — overrides the PR comment phrase the orchestrator
-  looks for when confirming Codex bootstrap completion.
+- **`diagnostic_mode`** — `off` (default) disables diagnostics, `dry-run` keeps bootstrap logic read-only, `full` allows branch creation and sets `draft_pr: false` when Codex is seeded.
+- **`readiness_custom_logins`** — comma-separated list for additional readiness probes.
+- **`codex_command_phrase`** — phrase used when the orchestrator comments on issues or PRs to summon Codex.
 
-Extend the schema by adding new keys to the JSON object and updating both the
-orchestrator workflow and this documentation. Keep additional toggles in the
-JSON payload to avoid exceeding GitHub's 10 input limit on `workflow_dispatch`
-forms.
-
-## Quick Validation Commands
-
-- `pytest tests/test_workflow_naming.py` — guard the naming convention.
-- `pytest tests/test_automation_workflows.py -k agents` — ensure agents inputs
-  (including `options_json`) parse correctly.
-- `gh workflow list --limit 20` — verify only the inventoried workflows are
-  visible in the Actions UI.
-
-Run the naming test after any workflow change to keep CI guardrails intact.
+Keep this schema backward compatible; add new keys sparingly and document them in the table above when introduced.
