@@ -147,10 +147,14 @@ def test_agents_consumer_manual_only_and_concurrency():
 
     jobs = data.get("jobs", {})
     dispatch_job = jobs.get("dispatch", {})
-    assert dispatch_job.get("uses"), "Agents Consumer should call reuse-agents workflow"
+    uses = dispatch_job.get("uses")
+    assert uses, "Agents Consumer should call reusable-71-agents-dispatch workflow"
+    assert uses.endswith(
+        ".github/workflows/reusable-71-agents-dispatch.yml"
+    ), "Agents Consumer must call reusable-71-agents-dispatch workflow"
     assert (
         "timeout-minutes" not in dispatch_job
-    ), "Timeout must be delegated to reuse-agents -> reusable-70-agents"
+    ), "Timeout must be delegated to reusable-71-agents-dispatch -> reusable-70-agents"
 
 
 def test_reusable_agents_jobs_have_timeouts():

@@ -31,7 +31,7 @@ post-processing workflow:
   [`agents-70-orchestrator.yml`](.github/workflows/agents-70-orchestrator.yml)
   workflow is the single dispatch point for scheduled Codex automation and the
   preferred manual entry path. It invokes
-  [`reuse-agents.yml`](.github/workflows/reuse-agents.yml) to run
+  [`reusable-71-agents-dispatch.yml`](.github/workflows/reusable-71-agents-dispatch.yml) to run
   readiness checks, watchdogs, and Codex bootstrapping. Applying the
   `agent:codex` label flags an issue for bootstrap handling in the next
   run; remove the label to opt out before the dispatcher cycles. A manual-only

@@ -3,11 +3,10 @@ import pathlib
 ALLOWED_PREFIXES = (
     "pr-",
     "maint-",
+    "health-",
     "agents-",
     "reusable-",
-    "reuse-",
     "autofix",
-    "enforce-",
 )
 WORKFLOW_DIR = pathlib.Path(".github/workflows")
 
@@ -79,10 +78,10 @@ def test_workflow_names_match_filename_convention():
 
 
 def test_chatgpt_issue_sync_workflow_present_and_intact():
-    path = WORKFLOW_DIR / "maint-41-chatgpt-issue-sync.yml"
+    path = WORKFLOW_DIR / "agents-63-chatgpt-issue-sync.yml"
     assert (
         path.exists()
-    ), "maint-41-chatgpt-issue-sync.yml must remain in the workflow inventory"
+    ), "agents-63-chatgpt-issue-sync.yml must remain in the workflow inventory"
     text = path.read_text(encoding="utf-8")
     assert (
         ".github/scripts/decode_raw_input.py" in text
@@ -98,17 +97,17 @@ def test_chatgpt_issue_sync_workflow_present_and_intact():
 EXPECTED_NAMES = {
     "agents-62-consumer.yml": "Agents Consumer",
     "agents-43-codex-issue-bridge.yml": "Agents 43 Codex Issue Bridge",
-    "agents-44-verify-agent-assignment.yml": "Agents 44 Verify Agent Assignment",
+    "agents-64-verify-agent-assignment.yml": "Agents 44 Verify Agent Assignment",
+    "agents-63-chatgpt-issue-sync.yml": "Maint 41 ChatGPT Issue Sync",
     "agents-70-orchestrator.yml": "Agents 70 Orchestrator",
-    "reuse-agents.yml": "Reuse Agents",
-    "maint-02-repo-health.yml": "Maint 02 Repo Health",
+    "reusable-71-agents-dispatch.yml": "Reuse Agents",
+    "health-41-repo-health.yml": "Maint 02 Repo Health",
     "maint-30-post-ci.yml": "Maint Post CI",
     "maint-33-check-failure-tracker.yml": "Maint 33 Check Failure Tracker",
-    "maint-35-repo-health-self-check.yml": "Maint 35 Repo Health Self Check",
-    "maint-36-actionlint.yml": "Maint 36 Actionlint",
-    "maint-40-ci-signature-guard.yml": "Maint 40 CI Signature Guard",
-    "maint-41-chatgpt-issue-sync.yml": "Maint 41 ChatGPT Issue Sync",
-    "maint-45-cosmetic-repair.yml": "Maint 45 Cosmetic Repair",
+    "health-40-repo-selfcheck.yml": "Maint 35 Repo Health Self Check",
+    "health-42-actionlint.yml": "Maint 36 Actionlint",
+    "health-43-ci-signature-guard.yml": "Maint 40 CI Signature Guard",
+    "maint-34-cosmetic-repair.yml": "Maint 45 Cosmetic Repair",
     "pr-14-docs-only.yml": "PR 14 Docs Only",
     "pr-00-gate.yml": "Gate",
     "reusable-70-agents.yml": "Reusable 70 Agents",
@@ -117,5 +116,5 @@ EXPECTED_NAMES = {
     "reusable-10-ci-python.yml": "Reusable CI",
     "reusable-12-ci-docker.yml": "Reusable Docker Smoke",
     "autofix.yml": "Autofix",
-    "enforce-gate-branch-protection.yml": "Enforce Gate Branch Protection",
+    "health-44-gate-branch-protection.yml": "Enforce Gate Branch Protection",
 }
