@@ -3,7 +3,8 @@
 ## Status Snapshot
 - [x] Documented scope, acceptance criteria, and checklist (`docs/planning/gate-branch-protection-plan.md`).
 - [x] CONTRIBUTING guide updated with Gate enforcement requirement.
-- [x] Automation script and nightly workflow available to audit/enforce branch protection.
+- [x] Automation script and nightly workflow available to audit/enforce branch protection; workflow now fails if Gate is not
+  required and publishes snapshot artifacts for audits.
 - [ ] Validation draft PR evidence captured (see runbook).
 
 ## Next Actions

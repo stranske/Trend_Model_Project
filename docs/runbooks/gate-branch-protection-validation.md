@@ -2,7 +2,10 @@
 
 This runbook documents how to demonstrate that the Gate workflow is enforced as a required
 status check on the default branch. Follow these steps whenever branch protection settings are
-updated or during periodic audits.
+updated or during periodic audits. The scheduled automation at
+`.github/workflows/health-44-gate-branch-protection.yml` now fails whenever the Gate status check
+is not required, so the focus here is on collecting evidence for audits rather than manual
+spot-checking the protection rule.
 
 ## Prerequisites
 - Repository administrator access (or a fine-grained personal access token with **Administration → Branches** scope).
@@ -54,6 +57,8 @@ updated or during periodic audits.
 3. Run the helper again with `--snapshot` to capture the post-fix configuration for the evidence bundle.
 4. Verify the status area now shows **Required — Gate / gate** with a green check and the merge button becomes available.
 5. Update the issue or documentation with the pass/fail timestamps, the URL of the validation PR, and paths to the snapshot files for traceability.
+   Include the artifact from the latest `health-44` workflow run (it contains the automation snapshots recorded during
+   enforcement and verification).
 
 ## 4. Close Out
 - Merge or close the draft PR without merging into `main` (if using a deliberately failing change, force-push to remove it).
@@ -68,3 +73,5 @@ updated or during periodic audits.
 - Screenshot or textual proof of the PR blocked on a failing Gate run.
 - Follow-up proof showing the Gate run passed and merging was permitted.
 - Links to the validation PR and workflow runs recorded in issue #2495.
+- Archived artifact (`gate-branch-protection-<run id>`) from `.github/workflows/health-44-gate-branch-protection.yml` containing
+  the automation snapshots.

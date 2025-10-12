@@ -11,4 +11,6 @@ gate-branch-protection/
 
 Include the JSON snapshots referenced in the runbook alongside any screenshots from
 the validation pull request so auditors can confirm the Gate check blocks merges
-when failing and allows merges when passing.
+when failing and allows merges when passing. The scheduled
+`health-44-gate-branch-protection` workflow uploads an artifact with the latest
+automation snapshots—download it and store the JSON files here for permanence.
