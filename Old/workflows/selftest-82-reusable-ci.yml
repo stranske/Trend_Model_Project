@@ -1,24 +1,12 @@
-name: Reusable 99 Selftest
+name: Selftest 82 Reusable CI (Archived)
 
 on:
-  workflow_call:
-    inputs:
-      python-versions:
-        description: >-
-          JSON array of Python versions forwarded to `reusable-90-ci-python.yml`. Leave empty to
-          exercise the default 3.11 matrix used by Maint 90 Selftest.
-        required: false
-        type: string
-        default: '["3.11"]'
-  schedule:
-    - cron: '0 6 * * 1'
-      # Archived wrapper retains weekly coverage sweep to mirror the active workflow cadence.
   workflow_dispatch:
     inputs:
       python-versions:
         description: >-
-          JSON array of Python versions forwarded to `reusable-90-ci-python.yml`. Leave empty to
-          exercise the default 3.11 matrix used by Maint 90 Selftest.
+          JSON array of Python versions forwarded to the reusable CI workflow. Leave empty to
+          exercise the default 3.11 matrix preserved by this archival snapshot.
         required: false
         default: '["3.11"]'
 

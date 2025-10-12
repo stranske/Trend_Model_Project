@@ -48,7 +48,7 @@ This list mirrors the canonical catalogue in `docs/ci/WORKFLOWS.md` after the Is
 | `reusable-10-ci-python.yml` | `workflow_call` | General-purpose Python CI composite consumed by Gate and downstream repositories. |
 | `reusable-12-ci-docker.yml` | `workflow_call` | Docker smoke reusable consumed by Gate and external callers. |
 | `reusable-92-autofix.yml` | `workflow_call` | Autofix composite shared by `autofix.yml` and `maint-30-post-ci.yml`. |
-| `reusable-99-selftest.yml` | `workflow_call` | Scenario matrix validating the reusable CI executor. |
+| `selftest-80-reusable-ci.yml` | `workflow_dispatch` | Manual scenario matrix validating the reusable CI executor. |
 
 ## Removed in Issue #2466
 | Workflow | Status |

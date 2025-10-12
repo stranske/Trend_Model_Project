@@ -6,7 +6,7 @@ import yaml
 
 WORKFLOW_DIR = Path(".github/workflows")
 ARCHIVE_DIR = Path("Old/workflows")
-SELFTEST_PATH = WORKFLOW_DIR / "reusable-99-selftest.yml"
+SELFTEST_PATH = WORKFLOW_DIR / "selftest-80-reusable-ci.yml"
 
 
 def test_selftest_workflow_inventory() -> None:
@@ -16,8 +16,8 @@ def test_selftest_workflow_inventory() -> None:
         path.name for path in WORKFLOW_DIR.glob("*selftest*.yml")
     )
     assert selftest_workflows == [
-        "reusable-99-selftest.yml"
-    ], "Active self-test inventory drifted; expected only reusable-99-selftest.yml."
+        "selftest-80-reusable-ci.yml"
+    ], "Active self-test inventory drifted; expected only selftest-80-reusable-ci.yml."
 
 
 def test_selftest_triggers_are_manual_only() -> None:
@@ -28,8 +28,7 @@ def test_selftest_triggers_are_manual_only() -> None:
 
     disallowed_triggers = {"pull_request", "pull_request_target", "push"}
     required_manual_trigger = "workflow_dispatch"
-    optional_triggers = {"schedule", "workflow_call"}
-    allowed_triggers = {required_manual_trigger} | optional_triggers
+    allowed_triggers = {required_manual_trigger}
 
     for workflow_file in selftest_files:
         data = yaml.safe_load(workflow_file.read_text()) or {}
@@ -66,9 +65,9 @@ def test_selftest_triggers_are_manual_only() -> None:
             "Only workflow_dispatch, schedule, or workflow_call are permitted."
         )
 
-        assert required_manual_trigger in trigger_keys, (
-            f"{workflow_file.name} must provide a {required_manual_trigger} entry "
-            "so self-tests remain manually invokable."
+        assert trigger_keys == {required_manual_trigger}, (
+            f"{workflow_file.name} must expose only workflow_dispatch so self-tests "
+            "remain manual-only."
         )
 
 
@@ -79,11 +78,11 @@ def test_archived_selftest_inventory() -> None:
         path.name for path in ARCHIVE_DIR.glob("*selftest*.yml")
     )
     assert archived_workflows == [
-        "maint-90-selftest.yml",
-        "reusable-99-selftest.yml",
+        "selftest-81-maint-wrapper.yml",
+        "selftest-82-reusable-ci.yml",
     ], (
         "Archived self-test workflows are missing or unexpected files are present. "
-        "Expected maint-90-selftest.yml and reusable-99-selftest.yml."
+        "Expected selftest-81-maint-wrapper.yml and selftest-82-reusable-ci.yml."
     )
 
 
@@ -98,8 +97,7 @@ def test_archived_selftests_retain_manual_triggers() -> None:
 
     disallowed_triggers = {"pull_request", "pull_request_target", "push"}
     required_manual_trigger = "workflow_dispatch"
-    optional_triggers = {"schedule", "workflow_call"}
-    allowed_triggers = {required_manual_trigger} | optional_triggers
+    allowed_triggers = {required_manual_trigger}
 
     for workflow_file in archived_files:
         data = yaml.safe_load(workflow_file.read_text()) or {}
@@ -135,16 +133,16 @@ def test_archived_selftests_retain_manual_triggers() -> None:
             "Only workflow_dispatch, schedule, or workflow_call are permitted."
         )
 
-        assert required_manual_trigger in trigger_keys, (
-            f"{workflow_file.name} must retain a {required_manual_trigger} entry "
-            "so the wrapper can be invoked manually if restored."
+        assert trigger_keys == {required_manual_trigger}, (
+            f"{workflow_file.name} must retain only workflow_dispatch so archived "
+            "self-tests remain manual snapshots."
         )
 
 
 def test_selftest_matrix_and_aggregate_contract() -> None:
     assert (
         SELFTEST_PATH.exists()
-    ), "reusable-99-selftest.yml is missing from .github/workflows/"
+    ), "selftest-80-reusable-ci.yml is missing from .github/workflows/"
 
     data = yaml.safe_load(SELFTEST_PATH.read_text())
     jobs = data.get("jobs", {})
@@ -152,7 +150,7 @@ def test_selftest_matrix_and_aggregate_contract() -> None:
     scenario_job = jobs.get("scenario")
     assert (
         scenario_job is not None
-    ), "Scenario job missing from reusable-99-selftest.yml"
+    ), "Scenario job missing from selftest-80-reusable-ci.yml"
     assert (
         scenario_job.get("uses") == "./.github/workflows/reusable-10-ci-python.yml"
     ), "Scenario job must invoke reusable-10-ci-python.yml via jobs.<id>.uses"

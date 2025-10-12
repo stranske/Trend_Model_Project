@@ -1,0 +1,9 @@
+name: Selftest 81 Maint Wrapper (Archived)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  selftest:
+    uses: ./.github/workflows/selftest-80-reusable-ci.yml
+    secrets: inherit

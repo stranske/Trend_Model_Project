@@ -26,12 +26,12 @@ All deprecated agent automation workflows were deleted from `.github/workflows/`
 - (2026-10-10) Latest verification re-ran the workflow guard tests and filesystem sweep—no archived directories reappeared.
 - (2026-10-14) Issue #2463 confirmed the standalone `agent-watchdog.yml` workflow remains removed and documentation now directs contributors to the orchestrator `enable_watchdog` toggle.
 - (2026-10-13) Issue #2494 revalidated that `agent-watchdog.yml` stays deleted, recorded the orchestrator manual-dispatch watchdog run, and refreshed contributor docs to reference the orchestrator-only path.
-- (2026-10-12) Issue #2378 relocated the remaining self-test wrappers to `Old/workflows/` (`maint-90-selftest.yml`, `reusable-99-selftest.yml`) and updated docs to reference their archival home.
+- (2026-10-12) Issue #2378 relocated the remaining self-test wrappers to `Old/workflows/` (`selftest-81-maint-wrapper.yml`, `selftest-82-reusable-ci.yml`) and updated docs to reference their archival home.
 
 ## Archived in Issue #2378
 
-- `maint-90-selftest.yml` – moved to `Old/workflows/maint-90-selftest.yml`.
-- `reusable-99-selftest.yml` – moved to `Old/workflows/reusable-99-selftest.yml`; reinstated in `.github/workflows/` by Issue #2379 after being rewritten to use `jobs.<id>.uses`.
+- `selftest-81-maint-wrapper.yml` – moved to `Old/workflows/selftest-81-maint-wrapper.yml`.
+- `selftest-82-reusable-ci.yml` – moved to `Old/workflows/selftest-82-reusable-ci.yml`; the active manual matrix lives in `.github/workflows/selftest-80-reusable-ci.yml`.
 - `selftest-83-pr-comment.yml` – removed from the tree; consult git history for the final experiment snapshot.
 - `selftest-84-reusable-ci.yml` – removed; coverage folded into the reusable CI pipeline consumed by production workflows.
 - `selftest-88-reusable-ci.yml` – removed after the reusable matrix stabilised.

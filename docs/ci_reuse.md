@@ -1,7 +1,6 @@
 # Reusable CI & Automation Workflows
 
-Issues #2190 and #2466 leave five reusable GitHub Actions workflows in this repository. They provide CI, autofix, and agent
-automation building blocks that thin wrappers (or downstream repositories) can consume.
+Issues #2190 and #2466 leave four reusable GitHub Actions workflows in this repository plus a manual self-test matrix. They provide CI, autofix, and agent automation building blocks that thin wrappers (or downstream repositories) can consume.
 
 | Reusable Workflow | File | Purpose |
 | ------------------ | ---- | ------- |
@@ -10,7 +9,7 @@ automation building blocks that thin wrappers (or downstream repositories) can c
 | Legacy Python CI | `.github/workflows/reusable-94-legacy-ci-python.yml` | Compatibility contract for consumers still on the pre-WFv1 interface.
 | Autofix | `.github/workflows/reusable-92-autofix.yml` | Formatting / lint autofix harness used by `maint-30-post-ci.yml`.
 | Agents Toolkit | `.github/workflows/reusable-70-agents.yml` | Readiness, Codex bootstrap, verification, and watchdog routines.
-| Self-Test Matrix | `.github/workflows/reusable-99-selftest.yml` | Exercises the reusable CI executor across feature combinations.
+| Self-Test Matrix (manual) | `.github/workflows/selftest-80-reusable-ci.yml` | Exercises the reusable CI executor across feature combinations on demand.
 
 ## 1. Reusable CI (`reusable-10-ci-python.yml`)
 Consumer example (excerpt from `pr-00-gate.yml`):
@@ -73,11 +72,11 @@ To manually verify the orchestration chain after making changes, use **Actions �
 GitHub UI. This dispatches the orchestrator, which calls the reusable workflow and surfaces any YAML validation errors alongside
 the bounded job runs described above.
 
-## 5. Self-Test Matrix (`reusable-99-selftest.yml`)
+## 5. Self-Test Matrix (`selftest-80-reusable-ci.yml`)
 Exposes the matrix that validates the reusable CI executor across feature combinations (coverage delta, soft gate, metrics,
-history, classification). It declares manual (`workflow_dispatch`) and weekly schedule triggers so maintainers can run ad-hoc
-verification without PR noise. `maint-90-selftest.yml` remains the lightweight wrapper preserved in `Old/workflows/` for
-historical reference.
+history, classification). The workflow is **manual-only** (`workflow_dispatch`) so self-tests never run automatically; use
+**Actions → Selftest 80 Reusable CI Matrix → Run workflow** when auditing reusable coverage. The retired maint wrapper now lives
+in `Old/workflows/selftest-81-maint-wrapper.yml` for historical reference.
 
 ## Adoption Notes
 1. Reference the files directly via `uses: stranske/Trend_Model_Project/.github/workflows/<file>@phase-2-dev` in external repos.
