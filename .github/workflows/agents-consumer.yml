@@ -1,8 +1,6 @@
 name: Agents Consumer
 
 on:
-  schedule:
-    - cron: '15 * * * *'
   workflow_dispatch:
     inputs:
       params_json:
@@ -18,7 +16,7 @@ permissions:
   issues: write
 
 concurrency:
-  group: agents-consumer
+  group: agents-consumer-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -174,9 +172,10 @@ jobs:
   dispatch:
     name: Dispatch Agents Toolkit
     needs: resolve-params
-    timeout-minutes: 30
     uses: ./.github/workflows/reuse-agents.yml
     secrets: inherit
+    # Timeout is enforced inside reuse-agents.yml -> reusable-70-agents.yml.
+    # GitHub rejects timeout-minutes on jobs that call reusable workflows.
     with:
       enable_readiness: ${{ needs.resolve-params.outputs.enable_readiness }}
       readiness_agents: ${{ needs.resolve-params.outputs.readiness_agents }}

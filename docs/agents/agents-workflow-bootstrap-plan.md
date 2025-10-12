@@ -1,35 +1,55 @@
 # Agents Workflow Bootstrap Plan
 
 ## Scope & Key Constraints
-- Reduce `workflow_dispatch` inputs in `.github/workflows/agents-consumer.yml` to stay within GitHub's 10 input limit by consolidating toggles into a single JSON payload (`params_json`).
-- Preserve existing scheduling, concurrency, and downstream job wiring so that the reusable workflow `reuse-agents.yml` continues to receive all required flags.
-- Ensure the consumer workflow parses the JSON payload safely (handle defaults for optional flags) without introducing dependencies on repository secrets for no-op or dry-run scenarios.
-- Emit updated outputs (`issue_numbers_json`, `first_issue`) from the readiness step without breaking the Markdown summary table that downstream visibility relies on.
-- Repair JSON handling in `.github/workflows/reuse-agents.yml` so expressions avoid unsupported concatenation operators and remain compatible with `fromJSON` usage.
+- `.github/workflows/agents-70-orchestrator.yml` is the **only** scheduled
+  automation surface. Manual dispatch remains available in both the
+  orchestrator and the legacy `agents-consumer.yml` wrapper.
+- `agents-consumer.yml` exists solely for curated manual runs that need the
+  JSON `params_json` input surface. All automated triggers (cron, issue
+  events) stay disabled.
+- Both dispatchers must converge on `reuse-agents.yml` /
+  `reusable-70-agents.yml` so feature parity is preserved (readiness,
+  watchdog, diagnostics, keepalive, bootstrap, issue verification).
+- Concurrency at the workflow root must guard against overlapping runs on the
+  same ref. Timeout enforcement continues to live inside the reusable stack,
+  which caps downstream execution at 30 minutes.
 
 ## Acceptance Criteria / Definition of Done
-1. `agents-consumer.yml` validates on GitHub (no workflow schema errors) and is manually dispatchable with ≤ 10 inputs.
-2. Dispatch UI exposes a single `params_json` field, with documentation for a canonical payload example checked into the repository.
-3. Consumer workflow parses `params_json` and passes all expected values to `reuse-agents.yml`, preserving default behaviours when keys are omitted.
-4. Readiness step publishes both `issue_numbers_json` (JSON array string) and `first_issue` (stringified issue number) outputs while keeping the Markdown readiness report intact.
-5. Bootstrap job pulls the first ready issue using either `first_issue` or `fromJSON(issue_numbers_json)[0]` without expression syntax errors.
-6. `reuse-agents.yml` loads successfully, avoiding the previous `Unexpected symbol '+'` failure, and keeps watchdog/verification jobs callable when toggled on.
-7. Optional: Workflow concurrency remains configured to prevent overlapping consumer runs.
+1. Orchestrator workflow continues to expose the manual inputs listed in
+   `docs/ci/WORKFLOWS.md` and fans into `reusable-70-agents.yml` without
+   introducing bespoke JSON parsing layers.
+2. Both orchestrator and consumer workflows declare per-ref concurrency guards
+   with `cancel-in-progress: true` and delegate timeout coverage to the
+   reusable workflow.
+3. `agents-consumer.yml` remains manual-only and retains the
+   `params_json`-driven defaults for readiness + watchdog, with bootstrap,
+   preflight, verification, and keepalive staying opt-in.
+4. Documentation (CONTRIBUTING, `docs/ci/WORKFLOWS.md`, and these notes)
+   describes the orchestrator as the scheduled entry point, calls out the
+   manual-only consumer surface, and links to monitoring guidance (48-hour
+   quiet window, `ci-failure` tagging).
+5. Tests in `tests/test_workflow_agents_consolidation.py` and
+   `tests/test_workflow_naming.py` enforce the manual-only status, concurrency
+   guards, and naming policy.
 
 ## Initial Task Checklist
-- [x] Audit `.github/workflows/agents-consumer.yml` inputs and map each existing flag into the planned `params_json` structure with default values.
-- [x] Update the workflow to accept a single `params_json` input, parse it (e.g., via `fromJSON`) within the consumer job, and expose individual values for the reusable workflow call.
-- [x] Adjust the readiness step to emit both JSON array and first-issue outputs while retaining the Markdown summary output.
-- [x] Modify the bootstrap step to consume the new outputs when selecting the issue to pass into `reuse-agents.yml`.
-- [x] Patch `.github/workflows/reuse-agents.yml` to remove invalid string concatenation in expressions, ensuring JSON parsing works with the new outputs.
-- [x] Document an example `params_json` payload (see `.github/workflows/README.md`) so operators can easily trigger the workflow.
-- [x] Smoke-test workflow syntax locally (pytest guard suite) and verify no secrets are required for dry-run paths.
+- [x] Inventory orchestration features to confirm the orchestrator covers
+  readiness, watchdog, diagnostics, bootstrap, verification, and keepalive
+  paths without the consumer.
+- [x] Keep `agents-consumer.yml` manual-only with
+  `concurrency: agents-consumer-${{ github.ref }}` and surface parity with the
+  reusable toolkit via `reuse-agents.yml`.
+- [x] Document manual dispatch expectations and the post-change monitoring
+  window in `docs/ci/WORKFLOWS.md`.
+- [x] Re-run workflow guard tests (`pytest tests/test_workflow_agents_consolidation.py
+  tests/test_workflow_naming.py`) to ensure the naming and structure stay in
+  sync.
 
 ## Verification Log
 
-- 2025-03-04 – `pytest tests/test_workflow_agents_consolidation.py tests/test_workflow_naming.py`
-  confirms the consumer/orchestrator/bridge workflows parse and document the
-  consolidated `params_json` contract without re-introducing legacy dispatch
-  inputs.
-- README references for the JSON payload and operators' checklist are current
-  as of this verification run.
+- 2024-06-15 – Consolidation updates verified with the agent workflow guard
+  tests listed above; documentation now highlights the orchestrator as the
+  primary scheduled automation entry point.
+- 2026-10-12 – Issue #2464 audit: consumer cron/issue triggers removed,
+  concurrency guards validated, docs updated with monitoring guidance, and
+  workflow guard tests re-run.

@@ -10,18 +10,13 @@ agent automation (readiness sweeps, Codex bootstrap, diagnostics).
 
 | Workflow | File | What it does | When it runs | Permissions | Required status checks |
 | --- | --- | --- | --- | --- | --- |
-| **Gate** | `.github/workflows/pr-gate.yml` | Fan-out orchestrator that reuses the Python CI matrix and Docker smoke reusable workflows, then enforces all downstream results. | `pull_request` (non-doc paths) and `workflow_dispatch`. | Defaults (`contents: read`). Delegated jobs inherit the same token scopes. | `core tests (3.11)`, `core tests (3.12)`, `docker smoke`, aggregate `gate`. |
-| **PR Docs Only** | `.github/workflows/pr-14-docs-only.yml` | Short-circuits the Gate for documentation-only diffs and posts a skip notice. | `pull_request` (docs paths). | `contents: read`. | `docs-only` (optional informational). |
-| **Autofix** | `.github/workflows/autofix.yml` | Formatting/type hygiene runner that auto-commits fixes for same-repo PRs or uploads a patch for forks. | `pull_request` (including label changes). | `contents: write`, `pull-requests: write`; inherits repository secrets, no PAT required. | `apply` job (optional — informative only). |
-| **Maint 02 Repo Health** | `.github/workflows/maint-02-repo-health.yml` | Weekly sweep that summarises stale branches and unassigned issues. | Monday cron (`15 7 * * 1`) plus `workflow_dispatch`. | `contents: read`, `issues: read`. | None (step summary only). |
-| **Maint Post CI** | `.github/workflows/maint-post-ci.yml` | Consolidated follower that reacts to Gate `workflow_run` events to publish summaries, apply safe autofix commits, and maintain the CI failure tracker. | `workflow_run` (Gate) and `workflow_dispatch`. | `contents: write`, `issues: write`, `pull-requests: write`. | None (reports via summary/comment). |
-| **Maint 33 Check Failure Tracker** | `.github/workflows/maint-33-check-failure-tracker.yml` | Compatibility shell that documents the delegation to `maint-post-ci.yml`. | `workflow_run` (Gate). | `contents: read`. | None. |
-| **Maint 35 Repo Health Self Check** | `.github/workflows/maint-35-repo-health-self-check.yml` | Read-only repository health probe surfacing label coverage and branch-protection visibility. | Weekly cron (`20 6 * * 1`) and `workflow_dispatch`. | `contents: read`, `issues: read`, `pull-requests: read`, `actions: read`. | None. |
-| **Maint 36 Actionlint** | `.github/workflows/maint-36-actionlint.yml` | Workflow lint gate (actionlint via reviewdog). | `pull_request`, weekly cron, `workflow_dispatch`. | `contents: read`, `pull-requests: write` (for reviewdog annotations). | `actionlint` (optional but recommended). |
-| **Maint 40 CI Signature Guard** | `.github/workflows/maint-40-ci-signature-guard.yml` | Validates the signed job manifest for `pr-gate.yml`. | `push`/`pull_request` targeting `phase-2-dev`. | `contents: read`. | `ci-signature-guard` (optional). |
-| **Maint 41 ChatGPT Issue Sync** | `.github/workflows/maint-41-chatgpt-issue-sync.yml` | Fans out curated topic lists (e.g., `Issues.txt`) into labelled GitHub issues. | `workflow_dispatch`. | `contents: write`, `issues: write`. | None. |
-| **Maint 45 Cosmetic Repair** | `.github/workflows/maint-45-cosmetic-repair.yml` | Manual pytest + guardrail fixer that opens a labelled PR when drift is detected. | `workflow_dispatch`. | `contents: write`, `pull-requests: write`. | None. |
-| **Agents 70 Orchestrator** | `.github/workflows/agents-70-orchestrator.yml` | Unified agents toolkit for readiness probes, Codex bootstrap, diagnostics, and keepalive sweeps. No other agent entry points remain. | 20-minute cron and `workflow_dispatch`. | `contents: write`, `issues: write`, `pull-requests: write`; optional `service_bot_pat` forwarded to reusable jobs. | `orchestrate` job (optional; failures block automation, not PR merges). |
+| **Gate** | `.github/workflows/pr-gate.yml` | Fan-out orchestrator that reuses the Python CI matrix and Docker smoke reusable workflows, then enforces all downstream results. | `pull_request` (non-doc paths) and `workflow_dispatch`. | Default `GITHUB_TOKEN` (`contents: read`) for all jobs; delegated reusable workflows do not request additional scopes when called from Gate. | <ul><li>**Status checks:** `core tests (3.11)`, `core tests (3.12)`, `docker smoke`, aggregate `gate`.</li><li>**Labels:** _none_.</li></ul> |
+| **Autofix** | `.github/workflows/autofix.yml` | Lightweight formatting/type hygiene runner that auto-commits fixes for same-repo PRs or uploads a patch for forks. | `pull_request` (including label changes). | `contents: write`, `pull-requests: write`; inherits repository secrets but does not require extra PATs. | <ul><li>**Status checks:** top-level `apply` job delegating to the `autofix` composite.</li><li>**Labels:** `autofix`, `autofix:applied`/`autofix:patch`, mutually exclusive `autofix:clean` vs `autofix:debt`.</li></ul> |
+| **Repo Health (Maint 02)** | `.github/workflows/maint-02-repo-health.yml` | Weekly sweep that summarises stale branches and unassigned issues in the run summary. | Monday cron (`15 7 * * 1`) plus `workflow_dispatch`. | `contents: read`, `issues: read`; no secrets required. | <ul><li>**Status checks:** `Weekly repository health sweep`.</li><li>**Labels:** _none_.</li></ul> |
+| **Maint 35 Repo Health Self Check** | `.github/workflows/maint-35-repo-health-self-check.yml` | Read-only repository health probe that reports label coverage and branch-protection visibility via the step summary. | Weekly cron (`20 6 * * 1`) and `workflow_dispatch`. | `contents: read`, `issues: read`, `pull-requests: read`, `actions: read`. | <ul><li>**Status checks:** none – informational summary only.</li><li>**Labels:** _none_.</li></ul> |
+| **Agents Consumer** | `.github/workflows/agents-consumer.yml` | Legacy dispatcher that runs readiness/watchdog sweeps directly, optionally layering Codex preflight and bootstrap jobs. | Manual (`workflow_dispatch`) only; hourly cron retired. | `contents`, `pull-requests`, `issues`: `write`; optional `service_bot_pat` forwarded to downstream jobs. | <ul><li>**Status checks:** `Resolve Parameters`, `Dispatch Agents Toolkit` plus any delegated runs (e.g., readiness, watchdog, preflight, bootstrap).</li><li>**Labels:** Bootstrap runs add `agent:codex` to spawned PRs.</li></ul> |
+| **Agents 70 Orchestrator** | `.github/workflows/agents-70-orchestrator.yml` | Scheduled/manual dispatcher that forwards agent automation requests (readiness, bootstrap, watchdog, keepalive) to the reusable toolkit. | 20-minute cron (`*/20 * * * *`) and `workflow_dispatch`. | `contents`, `pull-requests`, `issues`: `write`; optional `service_bot_pat` forwarded to downstream jobs. | <ul><li>**Status checks:** `Dispatch Agents Toolkit` plus any delegated runs (e.g., `Agent Readiness Probe`, `Codex Preflight`, `Bootstrap Codex PRs`, `Codex Keepalive Sweep`, `Agent Watchdog`).</li><li>**Labels:** Bootstrap runs add `agent:codex` to spawned PRs.</li></ul> |
+| **Reuse Agents** | `.github/workflows/reuse-agents.yml` | Workflow-call wrapper so other repositories or orchestrators can invoke the agents toolkit with consistent inputs. | `workflow_call` only. | Same as Agents Consumer (`contents`, `pull-requests`, `issues`: `write`) and can accept a `service_bot_pat` secret for Codex bootstrap. | <ul><li>**Status checks:** Top-level `call` job plus the same delegated checks from `Reusable 70 Agents` (readiness, preflight, bootstrap, watchdog, keepalive) when requested.</li><li>**Labels:** Mirrors `codex-bootstrap-lite` (e.g., `agent:codex` for created PRs).</li></ul> |
 
 ## Naming Policy & Number Ranges
 
@@ -115,15 +110,27 @@ Escalate persistent failures by linking the failing run URL in the CI failure-tr
 | Docker smoke | `docker smoke` | Logs Docker build output and runtime smoke tests; summary links point to failing commands. |
 | Aggregator | `gate` | Fails if any upstream job fails and posts a consolidated summary link. Maint Post CI consumes this status to update the CI failure-tracker issue. |
 
+**Post-change monitoring.** When agent workflows change:
+
+- Tag the source issue with `ci-failure` so it stays visible during the observation window.
+- Coordinate a 48-hour watch to confirm no scheduled or issue-triggered `agents-consumer` runs fire (manual dispatch is the only allowed path).
+- Capture a brief note or screenshot of the clean Actions history before removing the tag and closing the issue.
+
+Manual-only status means maintainers should review the Actions list during that window to ensure the retired cron trigger stays inactive.
+
 ### Reusable composites
 
 | Workflow | Consumed by | Notes |
 |----------|-------------|-------|
-| `reusable-70-agents.yml` (`Reusable 70 Agents`) | `agents-70-orchestrator.yml` | Implements readiness, bootstrap, diagnostics, and keepalive jobs. |
-| `reusable-92-autofix.yml` (`Reusable 92 Autofix`) | `maint-post-ci.yml`, `autofix.yml` | Autofix harness used by the PR-time autofix workflow and the post-CI maintenance follower. |
-| `reusable-99-selftest.yml` (`Reusable 99 Selftest`) | `maint-90-selftest.yml` | Scenario matrix that validates the reusable CI executor and artifact inventory. |
-| `reusable-ci.yml` (`Reusable CI`) | Gate, downstream repositories | Single source for Python lint/type/test coverage runs. |
-| `reusable-docker.yml` (`Reusable Docker Smoke`) | Gate, downstream repositories | Docker build + smoke reusable consumed by Gate and external callers. |
+| `reuse-agents.yml` (`Reuse Agents`) | `agents-70-orchestrator.yml`, downstream repositories | Bridges dispatch inputs to the reusable toolkit while preserving defaults.
+| `reusable-70-agents.yml` (`Reusable 70 Agents`) | `agents-70-orchestrator.yml`, `reuse-agents.yml` | Implements readiness, bootstrap, diagnostics, and watchdog jobs.
+| `reusable-92-autofix.yml` (`Reusable 92 Autofix`) | `maint-post-ci.yml`, `autofix.yml` | Autofix harness used both by the PR-time autofix workflow and the post-CI maintenance listener.
+| `reusable-99-selftest.yml` (`Reusable 99 Selftest`) | `maint-` self-test orchestration | Scenario matrix that validates the reusable CI executor and artifact inventory.
+| `reusable-ci.yml` (`Reusable CI`) | Gate, downstream repositories | Single source for Python lint/type/test coverage runs.
+| `reusable-docker.yml` (`Reusable Docker Smoke`) | Gate, downstream repositories | Docker build + smoke reusable consumed by Gate and external callers.
+
+**Operational details**
+- **Reuse Agents** – Permissions: `contents: write`, `pull-requests: write`, `issues: write`. Secrets: optional `service_bot_pat` (forwarded to `reusable-70-agents`) plus `GITHUB_TOKEN`. Outputs: single `call` job exposes reusable outputs such as `triggered` keepalive list and watchdog diagnostics for upstream orchestrators.
 
 ### Archived self-test workflows
 
