@@ -24,3 +24,49 @@
 4. Create or update documentation (CONTRIBUTING.md) to mention the required `gate` check.
 5. Open a validation pull request to confirm the `gate` check appears as required and blocks merge until passing.
 6. Record findings and screenshots/logs (if applicable) demonstrating the protection rule and validation PR behavior.
+
+## Implementation Summary
+
+- Added `tools/enforce_gate_branch_protection.py` to interrogate and update the default branch protection rule via the GitHub
+  REST API so the `Gate / gate` context remains the sole required check while "Require branches to be up to date" stays enabled.
+- The helper defaults to `GITHUB_REPOSITORY`/`DEFAULT_BRANCH` and can run in dry-run mode to audit the current contexts before
+  applying changes.
+- Contributors without direct settings access can now request an owner to run the script with a fine-grained `GITHUB_TOKEN`
+  instead of navigating the UI, ensuring infrastructure as code parity for the protection rule.
+
+## Usage Notes
+
+Run a dry check to review the current branch protection rule:
+
+```bash
+GITHUB_TOKEN=ghp_xxx python tools/enforce_gate_branch_protection.py --repo stranske/Trend_Model_Project --branch main
+```
+
+Expected dry-run output when the rule is correct:
+
+```
+Repository: stranske/Trend_Model_Project
+Branch:     main
+Current contexts: Gate / gate
+Desired contexts: Gate / gate
+Current 'require up to date': True
+Desired 'require up to date': True
+No changes required.
+```
+
+Apply corrections (if the dry run indicates drift):
+
+```bash
+GITHUB_TOKEN=ghp_xxx python tools/enforce_gate_branch_protection.py --repo stranske/Trend_Model_Project --branch main --apply
+```
+
+The script patches `required_status_checks` in-place and leaves other branch protection toggles untouched. Use `--context` to
+temporarily allow additional contexts or `--no-clean` to preserve existing extras while asserting Gate.
+
+## Validation Checklist
+
+- After enforcing the rule, run `gh api repos/stranske/Trend_Model_Project/branches/main/protection/required_status_checks` to
+  confirm the payload lists only `Gate / gate` and has `"strict": true`.
+- Open a throwaway pull request from an outdated branch to confirm the merge box displays `Required — Gate / gate` and blocks
+  merges until the workflow finishes successfully.
+- Capture screenshots or console transcripts for the repository automation log (attach to the issue or link in meeting notes).
