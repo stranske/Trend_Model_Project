@@ -12,7 +12,7 @@ Core layers:
 - Autofix lane (`maint-30-post-ci.yml`): workflow_run follower that batches small hygiene fixes, posts Gate summaries, and manages trivial failure remediation using the composite autofix action.
 - Agents orchestration & watchdog (`agents-70-orchestrator.yml` + `reusable-70-agents.yml`): label-driven assignment, Codex bootstrap, diagnostics, and watchdog toggles via `enable_watchdog` (default `true`).
 - Merge automation (`maint-45-merge-manager.yml`): unified auto-approval and auto-merge decisions for safe agent PRs.
-- Governance & Health: `maint-34-quarantine-ttl.yml`, `maint-35-repo-health-self-check.yml`, `maint-36-actionlint.yml`, labelers, dependency review, CodeQL.
+- Governance & Health: `health-40-repo-selfcheck.yml`, `health-41-repo-health.yml`, `health-42-actionlint.yml`, `health-43-ci-signature-guard.yml`, `health-44-gate-branch-protection.yml`, labelers, dependency review, CodeQL.
 - Path Labeling: `pr-path-labeler.yml` auto-categorizes PRs.
 
 ### 1.1 Current CI Topology (Issue #2439)
@@ -67,14 +67,14 @@ workflow files.
 | Workflow | Trigger(s) | Notes |
 |----------|-----------|-------|
 | `pr-00-gate.yml` | pull_request, workflow_dispatch | Orchestrates reusable Python 3.11/3.12 CI and Docker smoke tests, then enforces all-success before reporting `gate`.
-| `maint-02-repo-health.yml` | schedule (weekly), workflow_dispatch | Monday hygiene summary of stale branches and unassigned issues.
+| `health-41-repo-health.yml` | schedule (weekly), workflow_dispatch | Monday hygiene summary of stale branches and unassigned issues.
 | `maint-30-post-ci.yml` | workflow_run (`Gate`) | Consolidated Gate follower for summaries, hygiene autofix, and trivial failure remediation once CI passes.
 | `maint-33-check-failure-tracker.yml` | workflow_run (`Gate`) | Opens/resolves CI failure-tracker issues based on run outcomes.
-| `maint-35-repo-health-self-check.yml` | schedule (daily + weekly), workflow_dispatch | Governance audit that validates labels, PAT availability, and branch protection; maintains a single failure issue when checks fail.
-| `maint-36-actionlint.yml` | pull_request (workflows), push (`phase-2-dev`), schedule, workflow_dispatch | Workflow schema lint with reviewdog annotations.
-| `maint-40-ci-signature-guard.yml` | pull_request/push (`phase-2-dev`) | Validates the signed job manifest for `pr-00-gate.yml`.
-| `maint-41-chatgpt-issue-sync.yml` | workflow_dispatch | Curated topic lists (e.g. `Issues.txt`) → labeled GitHub issues.
-| `maint-45-cosmetic-repair.yml` | workflow_dispatch | Manual pytest + cosmetic fixer that raises guard-gated PRs for tolerated drift.
+| `health-40-repo-selfcheck.yml` | schedule (daily + weekly), workflow_dispatch | Governance audit that validates labels, PAT availability, and branch protection; maintains a single failure issue when checks fail.
+| `health-42-actionlint.yml` | pull_request (workflows), push (`phase-2-dev`), schedule, workflow_dispatch | Workflow schema lint with reviewdog annotations.
+| `health-43-ci-signature-guard.yml` | pull_request/push (`phase-2-dev`) | Validates the signed job manifest for `pr-00-gate.yml`.
+| `agents-63-chatgpt-issue-sync.yml` | workflow_dispatch | Curated topic lists (e.g. `Issues.txt`) → labeled GitHub issues.
+| `maint-34-cosmetic-repair.yml` | workflow_dispatch | Manual pytest + cosmetic fixer that raises guard-gated PRs for tolerated drift.
 | `agents-43-codex-issue-bridge.yml` | issues, workflow_dispatch | Prepares Codex-ready branches/PRs when an `agent:codex` label is applied.
 | `agents-70-orchestrator.yml` | schedule (*/20), workflow_dispatch | Unified agents toolkit entry point delegating to `reusable-70-agents.yml`.
 | `reusable-70-agents.yml` | workflow_call | Composite implementing readiness, bootstrap, diagnostics, and watchdog jobs.
@@ -130,20 +130,21 @@ Issue #2377 rebuilt the agents automation stack to stay under the GitHub
 `workflow_dispatch` input cap while restoring legacy consumer behaviour.
 Two entry points now exist:
 
-- `agents-62-consumer.yml` – Hourly cron + manual dispatch wrapper that accepts a
-  single `params_json` string, parses it, and forwards normalized values to
-  `reuse-agents.yml`. The workflow declares `concurrency: agents-62-consumer` and
-  introduces job-level `timeout-minutes` so overlapping runs are cancelled and
-  stalled executions end automatically. Scheduled runs only execute readiness +
-  watchdog probes; set `enable_bootstrap` to `true` in the JSON payload to opt
-  into Codex bootstraps (preflight stays disabled unless explicitly enabled).
+- `agents-62-consumer.yml` – Manual dispatch wrapper that accepts a single
+  `params_json` string, parses it, and forwards normalized values to
+  `reusable-71-agents-dispatch.yml`. The workflow declares
+  `concurrency: agents-62-consumer` and introduces job-level
+  `timeout-minutes` so overlapping runs are cancelled and stalled executions
+  end automatically. Set `enable_bootstrap` to `true` in the JSON payload to
+  opt into Codex bootstraps (preflight stays disabled unless explicitly
+  enabled).
 - `agents-70-orchestrator.yml` – Unified scheduled/dispatch orchestrator for
   readiness probes, diagnostics, bootstrap, watchdog, and keepalive flows. It
   passes discrete inputs directly to `reusable-70-agents.yml` and derives
   Codex bootstrap toggles/labels from the `options_json` payload so the
   dispatch form stays under the 10-input limit.
 
-`reuse-agents.yml` bridges the consumer JSON payload into the reusable toolkit
+`reusable-71-agents-dispatch.yml` bridges the consumer JSON payload into the reusable toolkit
 without re-exposing more than 10 dispatch inputs. Both entry points ultimately
 invoke `reusable-70-agents.yml`, which emits Markdown readiness summaries,
 `issue_numbers_json`, and `first_issue` outputs for Codex bootstraps and keeps

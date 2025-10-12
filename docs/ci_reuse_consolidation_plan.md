@@ -15,7 +15,7 @@ workflows required by the trimmed automation surface.
 | Area | Action |
 |------|--------|
 | Agent automation | Removed `agents-41*`, `agents-42-watchdog.yml`, `agents-44-copilot-readiness.yml`, and `agents-45-verify-codex-bootstrap-matrix.yml`; consolidated around `agents-70-orchestrator.yml` + `reusable-70-agents.yml`, then reinstated `agents-43-codex-issue-bridge.yml` to preserve label-driven Codex bootstraps.
-| Maintenance | Deleted legacy hygiene/self-test workflows (`maint-31`, `maint-34`, `maint-37`, `maint-38`, `maint-43`, `maint-44`, `maint-45`, `maint-48`, `maint-49`, `maint-52`, `maint-60`) and introduced `maint-90-selftest.yml` as the single self-test caller. `maint-41-chatgpt-issue-sync.yml` was later reinstated (2025-10-07) to preserve issue fan-out from curated topic lists and is now guarded by tests. |
+| Maintenance | Deleted legacy hygiene/self-test workflows (`maint-31`, `maint-34`, `maint-37`, `maint-38`, `maint-43`, `maint-44`, `maint-45`, `maint-48`, `maint-49`, `maint-52`, `maint-60`) and introduced `maint-90-selftest.yml` as the single self-test caller. `agents-63-chatgpt-issue-sync.yml` was later reinstated (2025-10-07) to preserve issue fan-out from curated topic lists and is now guarded by tests. |
 | PR checks | Removed auxiliary PR workflows (gate orchestrator, labeler, workflow lint, CodeQL, dependency review, path labeler) to align with the two final checks.
 
 ## Follow-Up Guardrails

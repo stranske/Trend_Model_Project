@@ -172,9 +172,9 @@ jobs:
   dispatch:
     name: Dispatch Agents Toolkit
     needs: resolve-params
-    uses: ./.github/workflows/reuse-agents.yml
+    uses: ./.github/workflows/reusable-71-agents-dispatch.yml
     secrets: inherit
-    # Timeout is enforced inside reuse-agents.yml -> reusable-70-agents.yml.
+    # Timeout is enforced inside reusable-71-agents-dispatch.yml -> reusable-70-agents.yml.
     # GitHub rejects timeout-minutes on jobs that call reusable workflows.
     with:
       enable_readiness: ${{ needs.resolve-params.outputs.enable_readiness }}

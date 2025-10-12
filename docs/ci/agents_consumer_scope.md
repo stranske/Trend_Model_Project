@@ -4,14 +4,14 @@
 - Keep `.github/workflows/agents-62-consumer.yml` available for **manual**
   dispatch only. All automated triggers stay removed (no cron, push, or
   issue-driven runs).
-- Preserve feature parity with `reuse-agents.yml` so the consumer continues to
+- Preserve feature parity with `reusable-71-agents-dispatch.yml` so the consumer continues to
   proxy readiness, watchdog, diagnostics, bootstrap, keepalive, and verification
   toggles via the `params_json` payload.
 - Maintain the workflow-level concurrency guard scoped to
   `agents-62-consumer-${{ github.ref }}` with `cancel-in-progress: true` to prevent
   back-to-back manual dispatch collisions.
 - Timeout enforcement for the reusable agents fan-out lives inside
-  `reuse-agents.yml` → `reusable-70-agents.yml`; the consumer should not attempt
+  `reusable-71-agents-dispatch.yml` → `reusable-70-agents.yml`; the consumer should not attempt
   to set `timeout-minutes` on the reusable-call job.
 - Documentation must highlight that the orchestrator is the only scheduled
   automation surface and that post-change monitoring requires a 48-hour quiet
@@ -23,7 +23,7 @@
 - Manual runs continue to default to readiness + watchdog while treating
   bootstrap, preflight, keepalive, and verification features as explicit opt-ins
   via `params_json`.
-- The dispatch job calls `reuse-agents.yml` without declaring an unsupported
+- The dispatch job calls `reusable-71-agents-dispatch.yml` without declaring an unsupported
   `timeout-minutes` value; explanatory comments document that timeouts are
   enforced downstream.
 - `docs/ci/WORKFLOWS.md`, `docs/agents/agents-workflow-bootstrap-plan.md`, and

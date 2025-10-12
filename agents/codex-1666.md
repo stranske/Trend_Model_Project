@@ -4,7 +4,7 @@
 
 ### Discovery
 - [x] Review consolidated CI/self-test workflows to capture the current required job manifest (`.github/workflows/pr-00-gate.yml`, `.github/workflows/maint-90-selftest.yml`).
-- [x] Confirm hashed fields and guard flow by inspecting `.github/workflows/maint-40-ci-signature-guard.yml` and `tools/test_failure_signature.py`.
+- [x] Confirm hashed fields and guard flow by inspecting `.github/workflows/health-43-ci-signature-guard.yml` and `tools/test_failure_signature.py`.
 
 ### Fixture refresh
 - [x] Ensure `.github/signature-fixtures/basic_jobs.json` enumerates every guarded job with updated step placeholders and stack tokens.

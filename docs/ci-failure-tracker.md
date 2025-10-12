@@ -79,7 +79,7 @@ python tools/test_failure_signature.py \
 Integrate into local pre-flight checks to ensure signature algorithm adjustments are deliberate.
 
 ## Signature Guard Workflow
-Workflow: `maint-40-ci-signature-guard.yml` runs on pushes / PRs and validates that a canonical fixture (`.github/signature-fixtures/basic_jobs.json`) hashes to the expected value stored in `basic_hash.txt`. Any intentional algorithm change should update both fixture and expected hash in the same commit.
+Workflow: `health-43-ci-signature-guard.yml` runs on pushes / PRs and validates that a canonical fixture (`.github/signature-fixtures/basic_jobs.json`) hashes to the expected value stored in `basic_hash.txt`. Any intentional algorithm change should update both fixture and expected hash in the same commit.
 
 ## Manual Self-Test
 You can manually validate behaviour:

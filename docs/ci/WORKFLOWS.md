@@ -14,12 +14,12 @@ Use the matrix below as the authoritative roster of active workflows. Each row c
 | --- | --- | --- | --- | --- | --- |
 | **Gate** | `.github/workflows/pr-00-gate.yml` | Fan-out orchestrator that reuses the Python CI matrix and Docker smoke reusable workflows, then enforces all downstream results. | `pull_request` (non-doc paths) and `workflow_dispatch`. | Default `GITHUB_TOKEN` (`contents: read`) for all jobs; delegated reusable workflows do not request additional scopes when called from Gate. | <ul><li>**Status checks:** `core tests (3.11)`, `core tests (3.12)`, `docker smoke`, aggregate `gate`.</li><li>**Labels:** _none_.</li></ul> |
 | **Autofix** | `.github/workflows/autofix.yml` | Lightweight formatting/type hygiene runner that auto-commits fixes for same-repo PRs or uploads a patch for forks. | `pull_request` (including label changes). | `contents: write`, `pull-requests: write`; inherits repository secrets but does not require extra PATs. | <ul><li>**Status checks:** top-level `apply` job delegating to the `autofix` composite.</li><li>**Labels:** `autofix`, `autofix:applied`/`autofix:patch`, mutually exclusive `autofix:clean` vs `autofix:debt`.</li></ul> |
-| **Repo Health (Maint 02)** | `.github/workflows/maint-02-repo-health.yml` | Weekly sweep that summarises stale branches and unassigned issues in the run summary. | Monday cron (`15 7 * * 1`) plus `workflow_dispatch`. | `contents: read`, `issues: read`; no secrets required. | <ul><li>**Status checks:** `Weekly repository health sweep`.</li><li>**Labels:** _none_.</li></ul> |
-| **Maint 35 Repo Health Self Check** | `.github/workflows/maint-35-repo-health-self-check.yml` | Read-only repository health probe that reports label coverage and branch-protection visibility via the step summary. | Weekly cron (`20 6 * * 1`) and `workflow_dispatch`. | `contents: read`, `issues: read`, `pull-requests: read`, `actions: read`. | <ul><li>**Status checks:** none – informational summary only.</li><li>**Labels:** _none_.</li></ul> |
-| **Gate Branch Protection Enforcement** | `.github/workflows/enforce-gate-branch-protection.yml` | Ensures the default branch retains required protection rules using `tools/enforce_gate_branch_protection.py`; exits early when the enforcement PAT is absent. | Hourly cron (`0 * * * *`) and `workflow_dispatch`. | Requires `BRANCH_PROTECTION_TOKEN` (fine-grained PAT with branch-protection admin scope). | <ul><li>**Status checks:** `Enforce Gate Branch Protection`.</li><li>**Labels:** _none_.</li></ul> |
+| **Repo Health (Maint 02)** | `.github/workflows/health-41-repo-health.yml` | Weekly sweep that summarises stale branches and unassigned issues in the run summary. | Monday cron (`15 7 * * 1`) plus `workflow_dispatch`. | `contents: read`, `issues: read`; no secrets required. | <ul><li>**Status checks:** `Weekly repository health sweep`.</li><li>**Labels:** _none_.</li></ul> |
+| **Maint 35 Repo Health Self Check** | `.github/workflows/health-40-repo-selfcheck.yml` | Read-only repository health probe that reports label coverage and branch-protection visibility via the step summary. | Weekly cron (`20 6 * * 1`) and `workflow_dispatch`. | `contents: read`, `issues: read`, `pull-requests: read`, `actions: read`. | <ul><li>**Status checks:** none – informational summary only.</li><li>**Labels:** _none_.</li></ul> |
+| **Gate Branch Protection Enforcement** | `.github/workflows/health-44-gate-branch-protection.yml` | Ensures the default branch retains required protection rules using `tools/enforce_gate_branch_protection.py`; exits early when the enforcement PAT is absent. | Hourly cron (`0 * * * *`) and `workflow_dispatch`. | Requires `BRANCH_PROTECTION_TOKEN` (fine-grained PAT with branch-protection admin scope). | <ul><li>**Status checks:** `Enforce Gate Branch Protection`.</li><li>**Labels:** _none_.</li></ul> |
 | **Agents Consumer** | `.github/workflows/agents-62-consumer.yml` | Legacy dispatcher that runs readiness/watchdog sweeps directly, optionally layering Codex preflight and bootstrap jobs. | Manual (`workflow_dispatch`) only; hourly cron retired. | `contents`, `pull-requests`, `issues`: `write`; optional `service_bot_pat` forwarded to downstream jobs. | <ul><li>**Status checks:** `Resolve Parameters`, `Dispatch Agents Toolkit` plus any delegated runs (e.g., readiness, watchdog, preflight, bootstrap).</li><li>**Labels:** Bootstrap runs add `agent:codex` to spawned PRs.</li></ul> |
 | **Agents 70 Orchestrator** | `.github/workflows/agents-70-orchestrator.yml` | Scheduled/manual dispatcher that forwards agent automation requests (readiness, bootstrap, watchdog, keepalive) to the reusable toolkit. | 20-minute cron (`*/20 * * * *`) and `workflow_dispatch`. | `contents`, `pull-requests`, `issues`: `write`; optional `service_bot_pat` forwarded to downstream jobs. | <ul><li>**Status checks:** `Dispatch Agents Toolkit` plus any delegated runs (e.g., `Agent Readiness Probe`, `Codex Preflight`, `Bootstrap Codex PRs`, `Codex Keepalive Sweep`, `Agent Watchdog`).</li><li>**Labels:** Bootstrap runs add `agent:codex` to spawned PRs.</li></ul> |
-| **Reuse Agents** | `.github/workflows/reuse-agents.yml` | Workflow-call wrapper so other repositories or orchestrators can invoke the agents toolkit with consistent inputs. | `workflow_call` only. | Same as Agents Consumer (`contents`, `pull-requests`, `issues`: `write`) and can accept a `service_bot_pat` secret for Codex bootstrap. | <ul><li>**Status checks:** Top-level `call` job plus the same delegated checks from `Reusable 70 Agents` (readiness, preflight, bootstrap, watchdog, keepalive) when requested.</li><li>**Labels:** Mirrors `codex-bootstrap-lite` (e.g., `agent:codex` for created PRs).</li></ul> |
+| **Reuse Agents** | `.github/workflows/reusable-71-agents-dispatch.yml` | Workflow-call wrapper so other repositories or orchestrators can invoke the agents toolkit with consistent inputs. | `workflow_call` only. | Same as Agents Consumer (`contents`, `pull-requests`, `issues`: `write`) and can accept a `service_bot_pat` secret for Codex bootstrap. | <ul><li>**Status checks:** Top-level `call` job plus the same delegated checks from `Reusable 70 Agents` (readiness, preflight, bootstrap, watchdog, keepalive) when requested.</li><li>**Labels:** Mirrors `codex-bootstrap-lite` (e.g., `agent:codex` for created PRs).</li></ul> |
 
 ## Naming Policy & Number Ranges
 
@@ -62,15 +62,15 @@ These jobs must stay green for PRs to merge. The post-CI maintenance jobs below 
 
 | Workflow | Trigger(s) | Purpose |
 |----------|------------|---------|
-| `maint-02-repo-health.yml` (`Maint 02 Repo Health`) | Weekly cron, manual | Reports stale branches & unassigned issues.
+| `health-41-repo-health.yml` (`Maint 02 Repo Health`) | Weekly cron, manual | Reports stale branches & unassigned issues.
 | `maint-30-post-ci.yml` (`Maint Post CI`) | `workflow_run` (Gate) | Consolidated follower that posts Gate summaries, applies low-risk autofix commits, and owns CI failure-tracker updates.
 | `maint-33-check-failure-tracker.yml` (`Maint 33 Check Failure Tracker`) | `workflow_run` (Gate) | Lightweight compatibility shell that documents the delegation to `maint-30-post-ci.yml`.
-| `maint-35-repo-health-self-check.yml` (`Maint 35 Repo Health Self Check`) | Weekly cron, manual | Read-only repo health pulse that surfaces missing labels or branch-protection visibility gaps in the step summary.
-| `enforce-gate-branch-protection.yml` (`Enforce Gate Branch Protection`) | Hourly cron, manual | Applies branch-protection policy checks using `tools/enforce_gate_branch_protection.py`; skips gracefully when the PAT is not configured.
-| `maint-36-actionlint.yml` (`Maint 36 Actionlint`) | `pull_request`, weekly cron, manual | Sole workflow-lint gate (actionlint via reviewdog).
-| `maint-40-ci-signature-guard.yml` (`Maint 40 CI Signature Guard`) | `push`/`pull_request` targeting `phase-2-dev` | Validates the signed job manifest for `pr-00-gate.yml`.
-| `maint-41-chatgpt-issue-sync.yml` (`Maint 41 ChatGPT Issue Sync`) | `workflow_dispatch` (manual) | Fans out curated topic lists (e.g. `Issues.txt`) into labeled GitHub issues. ⚠️ Repository policy: do not remove without a functionally equivalent replacement. |
-| `maint-45-cosmetic-repair.yml` (`Maint 45 Cosmetic Repair`) | `workflow_dispatch` | Manual pytest + guardrail fixer that applies tolerance/snapshot updates and opens a labelled PR when drift is detected. |
+| `health-40-repo-selfcheck.yml` (`Maint 35 Repo Health Self Check`) | Weekly cron, manual | Read-only repo health pulse that surfaces missing labels or branch-protection visibility gaps in the step summary.
+| `health-44-gate-branch-protection.yml` (`Enforce Gate Branch Protection`) | Hourly cron, manual | Applies branch-protection policy checks using `tools/enforce_gate_branch_protection.py`; skips gracefully when the PAT is not configured.
+| `health-42-actionlint.yml` (`Maint 36 Actionlint`) | `pull_request`, weekly cron, manual | Sole workflow-lint gate (actionlint via reviewdog).
+| `health-43-ci-signature-guard.yml` (`Maint 40 CI Signature Guard`) | `push`/`pull_request` targeting `phase-2-dev` | Validates the signed job manifest for `pr-00-gate.yml`.
+| `agents-63-chatgpt-issue-sync.yml` (`Maint 41 ChatGPT Issue Sync`) | `workflow_dispatch` (manual) | Fans out curated topic lists (e.g. `Issues.txt`) into labeled GitHub issues. ⚠️ Repository policy: do not remove without a functionally equivalent replacement. |
+| `maint-34-cosmetic-repair.yml` (`Maint 45 Cosmetic Repair`) | `workflow_dispatch` | Manual pytest + guardrail fixer that applies tolerance/snapshot updates and opens a labelled PR when drift is detected. |
 
 ### CI failure rollup issue
 
@@ -83,7 +83,7 @@ These jobs must stay green for PRs to merge. The post-CI maintenance jobs below 
 | `agents-62-consumer.yml` (`Agents Consumer`) | Manual only | Legacy dispatcher that runs readiness and watchdog sweeps directly while optionally invoking preflight/bootstrap helpers.
 | `agents-70-orchestrator.yml` (`Agents 70 Orchestrator`) | 20-minute cron, manual | Unified agents toolkit (readiness probes, Codex bootstrap, watchdogs) delegating to `reusable-70-agents.yml`.
 | `agents-43-codex-issue-bridge.yml` (`Agents 43 Codex Issue Bridge`) | `issues`, manual | Prepares Codex-ready branches/PRs when an `agent:codex` label is applied.
-| `agents-44-verify-agent-assignment.yml` (`Agents 44 Verify Agent Assignment`) | `workflow_call`, manual | Checks that `agent:codex` issues remain assigned to an approved automation account before downstream workflows act.
+| `agents-64-verify-agent-assignment.yml` (`Agents 44 Verify Agent Assignment`) | `workflow_call`, manual | Checks that `agent:codex` issues remain assigned to an approved automation account before downstream workflows act.
 
 **Operational details**
 - **Agents Consumer** – Permissions: `contents: write`, `pull-requests: write`, `issues: write`. Secrets: inherits `GITHUB_TOKEN` and forwards `secrets.SERVICE_BOT_PAT` when available so downstream automation may push branches/comments. Output: emits `Resolve Parameters` summary and a `Dispatch Agents Toolkit` reusable call that surfaces Codex readiness/watchdog diagnostics. Concurrency guard: `agents-62-consumer-${{ github.ref }}` with cancel-in-progress to prevent back-to-back manual dispatch collisions.
@@ -102,8 +102,8 @@ Manual-only status means maintainers should review the Actions list during that 
 
 | Workflow | Consumed by | Notes |
 |----------|-------------|-------|
-| `reuse-agents.yml` (`Reuse Agents`) | `agents-70-orchestrator.yml`, downstream repositories | Bridges dispatch inputs to the reusable toolkit while preserving defaults.
-| `reusable-70-agents.yml` (`Reusable 70 Agents`) | `agents-70-orchestrator.yml`, `reuse-agents.yml` | Implements readiness, bootstrap, diagnostics, and watchdog jobs.
+| `reusable-71-agents-dispatch.yml` (`Reuse Agents`) | `agents-70-orchestrator.yml`, downstream repositories | Bridges dispatch inputs to the reusable toolkit while preserving defaults.
+| `reusable-70-agents.yml` (`Reusable 70 Agents`) | `agents-70-orchestrator.yml`, `reusable-71-agents-dispatch.yml` | Implements readiness, bootstrap, diagnostics, and watchdog jobs.
 | `reusable-92-autofix.yml` (`Reusable 92 Autofix`) | `maint-30-post-ci.yml`, `autofix.yml` | Autofix harness used both by the PR-time autofix workflow and the post-CI maintenance listener.
 | `reusable-99-selftest.yml` (`Reusable 99 Selftest`) | `maint-` self-test orchestration | Scenario matrix that validates the reusable CI executor and artifact inventory.
 | `reusable-10-ci-python.yml` (`Reusable CI`) | Gate, downstream repositories | Single source for Python lint/type/test coverage runs.
@@ -165,7 +165,7 @@ Follow this sequence before pushing workflow changes or large code edits:
 
 ## CI Signature Guard Fixtures
 
-`maint-40-ci-signature-guard.yml` enforces a manifest signature for the Gate workflow by comparing two fixture files stored in `.github/signature-fixtures/`:
+`health-43-ci-signature-guard.yml` enforces a manifest signature for the Gate workflow by comparing two fixture files stored in `.github/signature-fixtures/`:
 
 - `basic_jobs.json` – canonical list of jobs (name, concurrency label, metadata)
   that must exist in `pr-00-gate.yml`.
