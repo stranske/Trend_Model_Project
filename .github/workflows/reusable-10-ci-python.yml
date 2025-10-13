@@ -270,7 +270,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Append metrics history
-        if: ${{ inputs.enable-history }}
+        if: ${{ inputs.enable-history || inputs.enable-classification }}
         run: |
           python scripts/ci_history.py
         env:

@@ -44,6 +44,7 @@ results/
 !data/raw/managers/*.csv
 !data/raw/indices/*.csv
 *.json
+!docs/evidence/gate-branch-protection/*.json
 !config/coverage-baseline.json
 !/.github/signature-fixtures/basic_jobs.json
 !perf/perf_baseline.json

@@ -25,6 +25,15 @@ def _get_step(job: dict, name: str) -> dict:
     raise AssertionError(f"Step {name!r} not found in workflow")
 
 
+def _get_tracker_script() -> str:
+    workflow = _load_workflow(POST_CI_PATH)
+    job = workflow["jobs"]["failure-tracker"]
+    tracker_step = _get_step(job, "Derive failure signature & update tracking issue")
+    script = tracker_step.get("with", {}).get("script")
+    assert isinstance(script, str), "Expected inline tracker script to be defined"
+    return script
+
+
 def test_tracker_workflow_is_now_thin_shell() -> None:
     workflow = _load_workflow(TRACKER_PATH)
     assert set(workflow["jobs"].keys()) == {"redirect"}
@@ -193,3 +202,26 @@ def test_post_comment_job_upserts_single_pr_comment() -> None:
     assert "<!-- maint-46-post-ci: DO NOT EDIT -->" in script
     assert "github.rest.issues.updateComment" in script
     assert "github.rest.issues.createComment" in script
+
+
+def test_failure_tracker_signature_uses_slugified_workflow_path() -> None:
+    script = _get_tracker_script()
+
+    assert "const slugify = (value) =>" in script
+    assert "const workflowPath = (run.path || '').trim();" in script
+    assert (
+        "const workflowStem = workflowFile.replace(/\\.ya?ml$/i, '') || workflowFile;"
+        in script
+    )
+    assert (
+        "const workflowIdRaw = workflowStem || workflowPath || rawWorkflowName || '';"
+        in script
+    )
+    assert "const workflowId = slugify(workflowIdRaw);" in script
+    assert (
+        "const fallbackId = run.workflow_id ? `workflow-${run.workflow_id}` : (run.id ? `run-${run.id}` : 'workflow');"
+        in script
+    )
+    assert "const workflowKey = workflowId || fallbackId;" in script
+    assert "const signature = `${workflowKey}|${sigHash}`;" in script
+    assert "Workflow slug: \\`${workflowId}\\`" in script
