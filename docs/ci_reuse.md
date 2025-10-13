@@ -51,10 +51,13 @@ jobs:
       enable_preflight: 'true'
       enable_bootstrap: 'true'
       bootstrap_issues_label: 'agent:codex'
+      options_json: '{"enable_keepalive":false}'
 ```
 
-The caller may also pass `options_json` to layer additional toggles without exceeding GitHub's input limit. `agents-70-orchestrator.yml`
-is the only supported wrapper inside this repository; downstream consumers should call the reusable workflow directly.
+The caller may also pass a `params_json` payload to layer additional toggles without exceeding GitHub's input limit. Include an `options_json`
+string inside the payload for nested keepalive or cleanup controls. `agents-70-orchestrator.yml`
+is the only supported wrapper inside this repository; downstream consumers should call the reusable workflow directly. Deprecated manual wrappers
+(`agents-62-consumer.yml`, `agents-consumer.yml`) persist solely for migration and are not part of the supported surface.
 
 Timeouts live inside the reusable workflow so the orchestrator avoids invalid syntax. Each automation path has a bound sized to
 its typical runtime plus roughly 25 percent headroom.
@@ -87,7 +90,7 @@ requests a run. `maint-90-selftest.yml` remains archived under `Old/workflows/` 
 | ---- | ------------- | ----- |
 | Coverage reporting | Chain an additional job that depends on the reusable CI job to upload coverage artifacts. | Keep job IDs stable when referencing outputs. |
 | Autofix heuristics | Update `autofix.yml` or `maint-30-post-ci.yml` to widen size limits or adjust glob filters. | Avoid editing the reusable composite unless behaviour must change globally. |
-| Agents options | Provide extra keys inside `options_json` and update the reusable workflow to honour them. | Remember GitHub only supports 10 dispatch inputs; keep new flags in JSON. |
+| Agents options | Provide extra keys inside `params_json` (and embed `options_json` when structured overrides are required) and update the reusable workflow to honour them. | Remember GitHub only supports 10 dispatch inputs; keep new flags in JSON. |
 
 ## Security & Permissions
 - CI workflows default to `permissions: contents: read`; escalate only when artifacts require elevated scopes.
