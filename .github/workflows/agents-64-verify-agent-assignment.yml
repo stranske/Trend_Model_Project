@@ -83,9 +83,9 @@ jobs:
 
               const summary = core.summary;
               summary.addHeading('Agent Assignment Verification', 2);
-              summary.addRaw(table, true);
-              summary.addParagraph(message);
-              summary.addLink('Inspect issue', issueUrl);
+              summary.addRaw(table, true).addEOL();
+              summary.addRaw(message).addEOL();
+              summary.addLink('Inspect issue', issueUrl).addEOL();
               await summary.write();
 
               setOutputs({
@@ -162,9 +162,9 @@ jobs:
 
             const summary = core.summary;
             summary.addHeading('Agent Assignment Verification', 2);
-            summary.addRaw(table, true);
-            summary.addParagraph(message || 'No additional notes.');
-            summary.addLink('Inspect issue', issueUrl);
+            summary.addRaw(table, true).addEOL();
+            summary.addRaw(message || 'No additional notes.').addEOL();
+            summary.addLink('Inspect issue', issueUrl).addEOL();
             await summary.write();
 
             const hasLabelOutput = status === 'error' && !fetched ? 'unknown' : (hasLabel ? 'true' : 'false');
