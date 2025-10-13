@@ -81,12 +81,12 @@ jobs:
                 `| #${escapeCell(rawInput)} | — | unknown | — | error |`
               ].join('\n');
 
-              await core.summary
-                .addHeading('Agent Assignment Verification', 2)
-                .addRaw(table, true)
-                .addParagraph(message)
-                .addLink('Inspect issue', issueUrl)
-                .write();
+              const summary = core.summary;
+              summary.addHeading('Agent Assignment Verification', 2);
+              summary.addRaw(table, true);
+              summary.addParagraph(message);
+              summary.addLink('Inspect issue', issueUrl);
+              await summary.write();
 
               setOutputs({
                 status: 'error',
@@ -157,15 +157,15 @@ jobs:
             const table = [
               '| Issue | Title | Has agent:codex? | Valid Agent Assignee | Status |',
               '|-------|-------|-----------------|----------------------|--------|',
-              `| [#${issueNumber}](${issueUrl}) | ${escapeCell(issueTitle)} | ${labelText} | ${matched ? '\`${matched}\`' : '_none_'} | ${statusLabel} |`
+              `| [#${issueNumber}](${issueUrl}) | ${escapeCell(issueTitle)} | ${labelText} | ${matched ? `\`${matched}\`` : '_none_'} | ${statusLabel} |`
             ].join('\n');
 
-            await core.summary
-              .addHeading('Agent Assignment Verification', 2)
-              .addRaw(table, true)
-              .addParagraph(message || 'No additional notes.')
-              .addLink('Inspect issue', issueUrl)
-              .write();
+            const summary = core.summary;
+            summary.addHeading('Agent Assignment Verification', 2);
+            summary.addRaw(table, true);
+            summary.addParagraph(message || 'No additional notes.');
+            summary.addLink('Inspect issue', issueUrl);
+            await summary.write();
 
             const hasLabelOutput = status === 'error' && !fetched ? 'unknown' : (hasLabel ? 'true' : 'false');
 
