@@ -272,19 +272,17 @@ Outputs:
 ---
 ## 7.4 Self-Test Reusable CI (Issue #1660)
 
-- **Trigger scope:** Manual dispatch plus a weekly cron (`Mondays @ 06:00 UTC`). This keeps reusable pipeline coverage fresh
-  without consuming PR minutes. Dispatch from the Actions tab under **Self-Test Reusable CI** or via CLI when validating
-  changes to `.github/workflows/reusable-10-ci-python.yml` or its helper scripts. The legacy PR-comment notifier was removed because the
-  workflow no longer runs on pull_request events. After shipping a change, monitor the next two scheduled runs and confirm
-  their success in the self-test health issue before considering the work complete.
+- **Trigger scope:** Manual dispatch only. Launch the workflow from the Actions tab under **Selftest 81 Reusable CI** or via the
+  CLI when validating changes to `.github/workflows/reusable-10-ci-python.yml` or its helper scripts. Provide a short
+  justification in the required `reason` input so future readers know why the self-test was executed. No pull_request, push,
+  or scheduled hooks run this matrix automatically.
 - **Latest remediation:** The October 2025 failure stemmed from `typing-inspection` drifting from `0.4.1` to `0.4.2`, causing
   `tests/test_lockfile_consistency.py` to fail during the reusable matrix runs. Refresh `requirements.lock` with
   `uv pip compile --upgrade pyproject.toml -o requirements.lock` before re-running the workflow. The matrix now completes when
-  invoked manually or on schedule.
+  invoked manually.
 - **Diagnostics:** Each run uploads a `selftest-report` artifact summarising scenario coverage and any unexpected or missing
   artifacts. Use it alongside the job logs to validate new reusable features before promoting changes.
-- **Failure triage workflow:** When a nightly run fails, open the run in the Actions tab and download diagnostics with the
-  GitHub CLI:
+- **Failure triage workflow:** When a manual run fails, open it in the Actions tab and download diagnostics with the GitHub CLI:
 
   ```bash
   gh run download <run-id> --dir selftest-artifacts
@@ -300,12 +298,12 @@ Outputs:
   # Manual dispatch (requires `gh auth login` with workflow scope)
   gh workflow run "Self-Test Reusable CI"
 
-  # Monitor most recent nightly outcomes
+  # Monitor most recent manual outcomes
   gh run list --workflow "Self-Test Reusable CI" --limit 2 --json conclusion,headBranch,runNumber,startedAt
   ```
 
-  Use the `gh run list` output to confirm two consecutive nightly runs have concluded with `success` before closing out
-  Issue #1660 follow-up tasks.
+  Use the `gh run list` output to confirm two consecutive manual runs (e.g., verification passes after a reusable CI change)
+  have concluded with `success` before closing out Issue #1660 follow-up tasks.
 ## 7.5 Universal Logs Summary (Issue #1351)
 Source: `logs_summary` job inside `reusable-10-ci-python.yml` enumerates all jobs via the Actions API and writes a Markdown table to the run summary. Columns include Job, Status (emoji), Duration, and Log link.
 
