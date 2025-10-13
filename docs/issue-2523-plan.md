@@ -23,4 +23,4 @@
 - [x] Confirm Gate workflow (and other required checks) pass post-update (CI signal tracked via the pull request Gate run).
 
 ## Manual verification run log
-- _Placeholder:_ Record the URL of the orchestrator run that exercised the verify path and attach summary evidence once executed.
+- _Pending:_ Trigger a manual **Agents 70 Orchestrator** dispatch with `enable_verify_issue=true` (supply a real issue id) once CI is green, then record the run URL and attach the summary evidence here.
