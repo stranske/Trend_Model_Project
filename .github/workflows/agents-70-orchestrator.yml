@@ -96,8 +96,6 @@ jobs:
           BASE_DRAFT_PR: ${{ inputs.draft_pr || 'false' }}
         with:
           script: |
-            const core = require('@actions/core');
-
             const defaults = {
               enable_readiness: process.env.BASE_ENABLE_READINESS || 'false',
               readiness_agents: process.env.BASE_READINESS_AGENTS || 'copilot,codex',
