@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, List, Mapping, MutableSequence, Sequence, TypedDict
@@ -38,10 +39,10 @@ class RequiredJobGroup(TypedDict):
 
 
 DEFAULT_REQUIRED_JOB_GROUPS: List[RequiredJobGroup] = [
-    {"label": "Core tests (3.11)", "patterns": [r"^core tests \(3\.11\)$"]},
-    {"label": "Core tests (3.12)", "patterns": [r"^core tests \(3\.12\)$"]},
-    {"label": "Docker smoke", "patterns": [r"^docker smoke$"]},
-    {"label": "Gate aggregator", "patterns": [r"^gate$"]},
+    {"label": "Core Tests (3.11)", "patterns": [r"core\s*(tests?)?.*(3\.11|py\.?311)"]},
+    {"label": "Core Tests (3.12)", "patterns": [r"core\s*(tests?)?.*(3\.12|py\.?312)"]},
+    {"label": "Docker Smoke", "patterns": [r"docker.*smoke|smoke.*docker"]},
+    {"label": "Gate Aggregator", "patterns": [r"gate"]},
 ]
 
 
@@ -108,14 +109,119 @@ def _combine_states(states: Iterable[str | None]) -> str:
     return lowered[0]
 
 
-def _load_required_groups(env_value: str | None) -> List[RequiredJobGroup]:
+def _slugify(value: str) -> str:
+    collapsed = re.sub(r"[^a-z0-9]+", "-", value.casefold())
+    return re.sub(r"-+", "-", collapsed).strip("-")
+
+
+class RequiredJobRule(TypedDict):
+    label: str
+    slug_variants: List[List[str]]
+    fallback_patterns: List[str]
+
+
+REQUIRED_JOB_RULES: List[RequiredJobRule] = [
+    {
+        "label": "Core Tests (3.11)",
+        "slug_variants": [
+            ["core", "3-11"],
+            ["core", "311"],
+            ["py311"],
+            ["3-11", "tests"],
+        ],
+        "fallback_patterns": [r"core\s*(tests?)?.*(3\.11|py\.?311)"],
+    },
+    {
+        "label": "Core Tests (3.12)",
+        "slug_variants": [
+            ["core", "3-12"],
+            ["core", "312"],
+            ["py312"],
+            ["3-12", "tests"],
+        ],
+        "fallback_patterns": [r"core\s*(tests?)?.*(3\.12|py\.?312)"],
+    },
+    {
+        "label": "Docker Smoke",
+        "slug_variants": [["docker", "smoke"], ["smoke", "docker"]],
+        "fallback_patterns": [r"docker.*smoke|smoke.*docker"],
+    },
+    {
+        "label": "Gate Aggregator",
+        "slug_variants": [["gate"], ["aggregator", "gate"]],
+        "fallback_patterns": [r"gate"],
+    },
+]
+
+
+def _matches_slug(slug: str, variants: Sequence[Sequence[str]]) -> bool:
+    return any(all(token in slug for token in option) for option in variants)
+
+
+def _derive_required_groups_from_runs(
+    runs: Sequence[Mapping[str, object]],
+) -> List[RequiredJobGroup]:
+    job_names: list[tuple[str, str]] = []
+    for run in runs:
+        if not isinstance(run, Mapping):
+            continue
+        jobs = run.get("jobs")
+        if not isinstance(jobs, Sequence):
+            continue
+        for job in jobs:
+            if not isinstance(job, Mapping):
+                continue
+            name_value = job.get("name")
+            if not isinstance(name_value, str):
+                continue
+            name = name_value.strip()
+            if not name:
+                continue
+            job_names.append((name, _slugify(name)))
+
+    groups: List[RequiredJobGroup] = []
+    used: set[str] = set()
+    for rule in REQUIRED_JOB_RULES:
+        matches: List[str] = []
+        for original, slug in job_names:
+            if _matches_slug(slug, rule["slug_variants"]):
+                lowered = original.casefold()
+                if lowered in used:
+                    continue
+                used.add(lowered)
+                matches.append(original)
+        if matches:
+            patterns = [rf"^{re.escape(match)}$" for match in matches]
+            groups.append({"label": matches[0], "patterns": patterns})
+        else:
+            groups.append(
+                {
+                    "label": rule["label"],
+                    "patterns": list(rule["fallback_patterns"]),
+                }
+            )
+    return groups
+
+
+def _load_required_groups(
+    env_value: str | None, runs: Sequence[Mapping[str, object]]
+) -> List[RequiredJobGroup]:
     if not env_value:
+        derived = _derive_required_groups_from_runs(runs)
+        if derived:
+            return derived
         return _copy_required_groups(DEFAULT_REQUIRED_JOB_GROUPS)
     try:
         parsed = json.loads(env_value)
     except json.JSONDecodeError:
+        derived = _derive_required_groups_from_runs(runs)
+        if derived:
+            return derived
         return _copy_required_groups(DEFAULT_REQUIRED_JOB_GROUPS)
     if not isinstance(parsed, list):
+        derived = _derive_required_groups_from_runs(runs)
+        if derived:
+            return derived
         return _copy_required_groups(DEFAULT_REQUIRED_JOB_GROUPS)
     result: List[RequiredJobGroup] = []
     for item in parsed:
@@ -133,7 +239,12 @@ def _load_required_groups(env_value: str | None) -> List[RequiredJobGroup]:
         if not cleaned:
             continue
         result.append({"label": label, "patterns": cleaned})
-    return result or _copy_required_groups(DEFAULT_REQUIRED_JOB_GROUPS)
+    if result:
+        return result
+    derived = _derive_required_groups_from_runs(runs)
+    if derived:
+        return derived
+    return _copy_required_groups(DEFAULT_REQUIRED_JOB_GROUPS)
 
 
 def _dedupe_runs(runs: Sequence[Mapping[str, object]]) -> List[Mapping[str, object]]:
@@ -271,13 +382,14 @@ def _collect_required_segments(
             if not isinstance(pattern, str):
                 continue
             try:
-                regexes.append(re.compile(pattern))
+                regexes.append(re.compile(pattern, re.IGNORECASE))
             except re.error:
                 continue
         if not regexes:
             continue
 
         matched_states: List[str | None] = []
+        matched_names: List[str] = []
         for run in job_sources:
             jobs = run.get("jobs")
             if not isinstance(jobs, Sequence):
@@ -289,6 +401,7 @@ def _collect_required_segments(
                 if not name:
                     continue
                 if any(regex.search(name) for regex in regexes):
+                    matched_names.append(name)
                     state_value = job.get("conclusion") or job.get("status")
                     matched_states.append(
                         str(state_value) if state_value is not None else None
@@ -298,7 +411,18 @@ def _collect_required_segments(
             state = _combine_states(matched_states)
         else:
             state = None
-        segments.append(f"{label}: {_badge(state)} {_display_state(state)}")
+        canonical_name: str | None = None
+        if matched_names:
+            seen: set[str] = set()
+            for candidate in matched_names:
+                lowered = candidate.casefold()
+                if lowered in seen:
+                    continue
+                seen.add(lowered)
+                canonical_name = candidate
+                break
+        display_label = canonical_name or label or "Job group"
+        segments.append(f"{display_label}: {_badge(state)} {_display_state(state)}")
 
     return segments
 
@@ -395,7 +519,7 @@ def build_summary_comment(
     deduped_runs = _dedupe_runs(runs)
     rows = _build_job_rows(deduped_runs)
     job_table_lines = _format_jobs_table(rows)
-    groups = _load_required_groups(required_groups_env)
+    groups = _load_required_groups(required_groups_env, deduped_runs)
     required_segments = _collect_required_segments(deduped_runs, groups)
     latest_runs_line = _format_latest_runs(deduped_runs)
     coverage_lines = _format_coverage_lines(coverage_stats)
