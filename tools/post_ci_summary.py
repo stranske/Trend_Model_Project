@@ -278,6 +278,7 @@ def _collect_required_segments(
             continue
 
         matched_states: List[str | None] = []
+        matched_names: List[str] = []
         for run in job_sources:
             jobs = run.get("jobs")
             if not isinstance(jobs, Sequence):
@@ -289,6 +290,7 @@ def _collect_required_segments(
                 if not name:
                     continue
                 if any(regex.search(name) for regex in regexes):
+                    matched_names.append(name)
                     state_value = job.get("conclusion") or job.get("status")
                     matched_states.append(
                         str(state_value) if state_value is not None else None
@@ -298,7 +300,18 @@ def _collect_required_segments(
             state = _combine_states(matched_states)
         else:
             state = None
-        segments.append(f"{label}: {_badge(state)} {_display_state(state)}")
+        canonical_name: str | None = None
+        if matched_names:
+            seen: set[str] = set()
+            for candidate in matched_names:
+                lowered = candidate.casefold()
+                if lowered in seen:
+                    continue
+                seen.add(lowered)
+                canonical_name = candidate
+                break
+        display_label = canonical_name or label or "Job group"
+        segments.append(f"{display_label}: {_badge(state)} {_display_state(state)}")
 
     return segments
 

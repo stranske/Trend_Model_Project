@@ -78,10 +78,10 @@ def test_build_summary_comment_renders_expected_sections(
         "**Latest Runs:** ❌ failure — [Gate (#101)](https://example.test/gate/101)"
         in body
     )
-    assert "Core tests (3.11): ✅ success" in body
-    assert "Core tests (3.12): ✅ success" in body
-    assert "Docker smoke: ❌ failure" in body
-    assert "Gate aggregator: ❌ failure" in body
+    assert "core tests (3.11): ✅ success" in body
+    assert "core tests (3.12): ✅ success" in body
+    assert "docker smoke: ❌ failure" in body
+    assert "gate: ❌ failure" in body
     assert "| Gate / core tests (3.11) | ✅ success |" in body
     assert "| Gate / core tests (3.12) | ✅ success |" in body
     assert "| **Gate / docker smoke** | ❌ failure |" in body
@@ -218,7 +218,7 @@ def test_build_summary_comment_handles_irregular_run_data() -> None:
 
     assert "**Head SHA:** def456" in body
     assert "**Latest Runs:** ⏳ pending — Gate" in body
-    assert "Core tests (3.11): ⏳ queued" in body
+    assert "core tests (3.11): ⏳ queued" in body
     assert "| Gate / core tests (3.11) | ⏳ queued | — |" in body
     assert "### Coverage Overview" not in body
 
@@ -234,7 +234,7 @@ def test_build_summary_comment_defaults_on_invalid_required_groups(
         required_groups_env="{not-json}",
     )
 
-    assert "Core tests (3.11): ✅ success" in body
-    assert "Core tests (3.12): ✅ success" in body
-    assert "Docker smoke: ❌ failure" in body
-    assert "Gate aggregator: ❌ failure" in body
+    assert "core tests (3.11): ✅ success" in body
+    assert "core tests (3.12): ✅ success" in body
+    assert "docker smoke: ❌ failure" in body
+    assert "gate: ❌ failure" in body
