@@ -263,7 +263,7 @@ jobs:
 
   verify_issue:
     if: inputs.enable_verify_issue == 'true' && inputs.verify_issue_number != ''
-    uses: ./.github/workflows/agents-44-verify-agent-assignment.yml
+    uses: ./.github/workflows/agents-64-verify-agent-assignment.yml
     secrets: inherit
     with:
       issue_number: ${{ inputs.verify_issue_number }}

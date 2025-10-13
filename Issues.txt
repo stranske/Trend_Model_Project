@@ -3,7 +3,7 @@
 Labels: agents, devops, ci, bug
 
 Background / Why
-The “Agents 70 Orchestrator” reusable workflow tries to call agents-44-verify-agent-assignment.yml, which doesn’t exist, so the orchestrator fails. The verify workflow on disk is agents-64-verify-agent-assignment.yml and currently has zero runs, which tracks with the mismatch. 
+The “Agents 70 Orchestrator” reusable workflow referenced a non-existent verify workflow, causing the orchestration to fail when that path was invoked. The verify workflow on disk is agents-64-verify-agent-assignment.yml and currently has zero runs, which tracks with the mismatch. 
 GitHub
 +1
 
@@ -17,13 +17,13 @@ A manual Orchestrator dispatch that sets enable_verify_issue: true with a real i
 
 Task list
 
-Update ./.github/workflows/reusable-70-agents.yml to reference ./.github/workflows/agents-64-verify-agent-assignment.yml instead of the non‑existent ...-44-....
+Update ./.github/workflows/reusable-70-agents.yml to reference ./.github/workflows/agents-64-verify-agent-assignment.yml so the verify step can execute.
 
 Ensure agents-64-verify-agent-assignment.yml exposes on: workflow_call with the inputs expected by the reusable.
 
 Run a manual Orchestrator dispatch using options_json to exercise the verify path; attach the run link in a comment.
 
-Delete any stale references to agents-44-verify-agent-assignment.yml in repo docs or comments.
+Delete any stale references to the mismatched verify workflow path in repo docs or comments.
 
 Implementation notes
 
