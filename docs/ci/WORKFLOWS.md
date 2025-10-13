@@ -160,7 +160,7 @@ The Codex Issue Bridge is a label-driven helper for seeding bootstrap PRs, while
 3. Click **Run workflow**. The orchestrator fan-outs through `reusable-70-agents.yml`; job summaries include readiness tables, bootstrap status, verification notes, and links to spawned PRs.
 
 **Programmatic dispatch (`params_json` example).** Tooling that still posts a single JSON blob can reuse the schema below. Encode it as the `params_json` string and either:
-- call the orchestrator via the REST API (`POST /repos/{owner}/{repo}/actions/workflows/agents-70-orchestrator.yml/dispatches`) after converting the object into the individual dispatch inputs, or
+- call the orchestrator directly via the REST API (`POST /repos/{owner}/{repo}/actions/workflows/agents-70-orchestrator.yml/dispatches`) by placing the JSON inside the `inputs` object, or
 - hand it to the deprecated consumer wrapper (`agents-62-consumer.yml`) while you migrate clients—the wrapper simply forwards the resolved keys to the orchestrator.
 
 ```json
@@ -197,6 +197,16 @@ JSON
 gh workflow run agents-70-orchestrator.yml \
   --ref phase-2-dev \
   --raw-field params_json="$(cat orchestrator.json)"
+
+# Using the REST API with curl (requires a PAT that can dispatch workflows)
+curl -X POST \
+  -H "Authorization: token ${GITHUB_TOKEN}" \
+  -H "Accept: application/vnd.github+json" \
+  https://api.github.com/repos/stranske/Trend_Model_Project/actions/workflows/agents-70-orchestrator.yml/dispatches \
+  -d @<(jq -nc \
+    --arg ref "phase-2-dev" \
+    --arg params "$(cat orchestrator.json)" \
+    '{ref: $ref, inputs: {params_json: $params}}')
 ```
 
 Mix and match the JSON payload with individual dispatch inputs when overrides are required (for example add `--raw-field enable_readiness=false` to override the JSON flag). The same `params_json` payload is safe to reuse with `agents-62-consumer.yml` while migrating automation; the wrapper normalises the object and passes it straight to the orchestrator.

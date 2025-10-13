@@ -57,7 +57,8 @@ automation calls flow through **Agents 70 Orchestrator**, which normalises the
 inputs and forwards them here. Dispatch the orchestrator either via the Actions
 UI or by posting the `params_json` payload shown in
 [docs/ci/WORKFLOWS.md](ci/WORKFLOWS.md#manual-orchestrator-dispatch)
-(`gh workflow run agents-70-orchestrator.yml --raw-field params_json="$(cat orchestrator.json)"`).
+(`gh workflow run agents-70-orchestrator.yml --raw-field params_json="$(cat orchestrator.json)"`
+or the equivalent REST call using `curl -X POST ... '{"ref":"phase-2-dev","inputs":{"params_json":"..."}}'`).
 
 Example orchestrator snippet:
 
