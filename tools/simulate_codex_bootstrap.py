@@ -2,7 +2,7 @@
 """Simulate the reusable agents bootstrap selection logic.
 
 This helper mirrors the logic in the "Find Ready Issues" step inside
-`.github/workflows/reusable-70-agents.yml`.  It demonstrates that the
+`.github/workflows/reusable-16-agents.yml`.  It demonstrates that the
 workflow emits valid JSON that `fromJson(...)` can safely parse when
 selecting the first issue for Codex bootstrapping.
 """

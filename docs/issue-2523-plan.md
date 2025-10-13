@@ -16,7 +16,7 @@
 
 ## Initial Task Checklist
 - [x] Audit `.github/workflows` for legacy verify-workflow references and confirm the expected input contract of `agents-64-verify-agent-assignment.yml`.
-- [x] Update `reusable-70-agents.yml` to call the correct verify assignment workflow file and adjust input wiring as needed.
+- [x] Update `reusable-16-agents.yml` to call the correct verify assignment workflow file and adjust input wiring as needed.
 - [x] Verify `agents-64-verify-agent-assignment.yml` exposes `workflow_call` with the orchestrator’s expected inputs/outputs, adding or updating the section if required.
 - [x] Search repository documentation and comments for stale verify-workflow references and update them so that `agents-64-verify-agent-assignment.yml` is the sole identifier.
 - [ ] Execute a manual `agents-70-orchestrator` dispatch with `enable_verify_issue: true` to exercise the verify path; capture the run URL and confirmation artifact for inclusion in the PR. _(Pending — requires repository permissions to dispatch the workflow.)_

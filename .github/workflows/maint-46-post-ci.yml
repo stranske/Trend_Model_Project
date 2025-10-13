@@ -1,4 +1,4 @@
-name: Maint Post CI
+name: Maint 46 Post CI
 
 'on':
   workflow_run:
@@ -7,7 +7,7 @@ name: Maint Post CI
 
 concurrency:
   group: >-
-    maint-30-post-ci-${{
+    maint-46-post-ci-${{
       (
         github.event.workflow_run.pull_requests &&
         github.event.workflow_run.pull_requests[0] &&
@@ -1465,7 +1465,7 @@ jobs:
                   ]
               )
 
-          sections: List[str] = ["<!-- maint-30-post-ci: DO NOT EDIT -->"]
+          sections: List[str] = ["<!-- maint-46-post-ci: DO NOT EDIT -->"]
           if prefix:
               sections.append(prefix.strip())
           sections.append("")
@@ -1484,7 +1484,7 @@ jobs:
           github-token: ${{ secrets.SERVICE_BOT_PAT || github.token }}
           script: |
             const fs = require('fs');
-            const marker = '<!-- maint-30-post-ci: DO NOT EDIT -->';
+            const marker = '<!-- maint-46-post-ci: DO NOT EDIT -->';
             const body = fs.readFileSync('maint_post_ci_comment.md', 'utf8');
             const pr = Number('${{ needs.context.outputs.pr }}');
             if (!pr) {

@@ -1,4 +1,4 @@
-name: Maint 36 Actionlint
+name: Health 42 Actionlint
 
 on:
   pull_request:
