@@ -81,10 +81,10 @@ def test_legacy_agent_workflows_removed():
 
 
 def test_codex_issue_bridge_present():
-    bridge = WORKFLOWS_DIR / "agents-43-codex-issue-bridge.yml"
+    bridge = WORKFLOWS_DIR / "agents-63-codex-issue-bridge.yml"
     assert (
         bridge.exists()
-    ), "agents-43-codex-issue-bridge.yml must exist after Codex bridge restoration"
+    ), "agents-63-codex-issue-bridge.yml must exist after Codex bridge restoration"
 
 
 def test_keepalive_job_present():

@@ -26,7 +26,7 @@ remain true after the cleanup.
   variables to the reusable composite.
 
 ## Active Workflows & Actions
-- **Codex issue bridge:** `.github/workflows/agents-43-codex-issue-bridge.yml`
+- **Codex issue bridge:** `.github/workflows/agents-63-codex-issue-bridge.yml`
   - Reacts to `agent:codex` (and `agents:codex`) labels plus manual dispatch.
   - Creates or reuses Codex bootstrap branches/PRs and posts copyable issue snippets + `@codex start` instructions.
 - **Orchestrator:** `.github/workflows/agents-70-orchestrator.yml`
