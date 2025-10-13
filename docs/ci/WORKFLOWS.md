@@ -23,6 +23,19 @@ topology.
 | **PR 14 Docs Only** | `.github/workflows/pr-14-docs-only.yml` | `pull_request` (docs/assets only) | Defaults (`contents: read`) for detection, `pull-requests: write` for the notice. | No – optional skip helper (Gate remains required). | Detects doc-only PRs and short-circuits heavier CI while leaving Gate in place. |
 | **Autofix** | `.github/workflows/autofix.yml` | `pull_request` (including label updates) | `contents: write`, `pull-requests: write` | **Yes** – `apply` job must succeed. | Runs the reusable autofix composite to apply/offer safe formatting fixes. |
 
+#### Gate job map
+
+Use the table below when triaging Gate failures. It illustrates the jobs that
+run on every pull request, which artifacts each produces, and how the final
+`gate` enforcement step evaluates their results.
+
+| Job ID | Display name | Purpose | Artifacts / outputs | Notes |
+| --- | --- | --- | --- | --- |
+| `core-tests-311` | core tests (3.11) | Runs Ruff, Mypy, and pytest against Python 3.11 via `reusable-10-ci-python.yml`. | `coverage-3.11` (coverage data and pytest junit XML). | Fails fast on lint/type/test issues; publishes coverage for Maint Post CI rollups. |
+| `core-tests-312` | core tests (3.12) | Reuses the Python composite for the 3.12 matrix leg. | `coverage-3.12` (coverage data and pytest junit XML). | Keeps the repo aligned with the future default Python runtime. |
+| `docker-smoke` | docker smoke | Builds the project image and executes the smoke command through `reusable-12-ci-docker.yml`. | None (logs only). | Ensures packaging basics work before merge. |
+| `gate` | gate | Downloads successful coverage artifacts and renders the pull-request summary table. | Job summary with pass/fail table. | Hard-fails if any upstream job did not succeed; this status is the required merge check. |
+
 ### Maintenance & observability
 
 | Workflow | File | Trigger(s) | Permissions | Required? | Purpose |
@@ -100,15 +113,6 @@ existing automation to **Agents 70 Orchestrator** instead.
 **Operational details**
 - **Gate** – Permissions: defaults (read scope). Secrets: relies on `GITHUB_TOKEN` only. Status outputs: `core tests (3.11)`, `core tests (3.12)`, `docker smoke`, and the aggregator job `gate`, which fails if any dependency fails.
 - **Autofix** – Permissions: `contents: write`, `pull-requests: write`. Secrets: inherits `GITHUB_TOKEN` (sufficient for label + comment updates). Status outputs: `apply` job; labels applied include `autofix`, `autofix:applied`/`autofix:patch`, and cleanliness toggles (`autofix:clean`/`autofix:debt`).
-
-**Gate job map**
-
-| Job | Role | Artifacts / Outputs |
-| --- | ---- | ------------------- |
-| `core-tests-311` | Python 3.11 lint/type/test run via `reusable-10-ci-python.yml`. | Uploads `coverage-3.11` artifact (coverage XML + HTML summary). |
-| `core-tests-312` | Python 3.12 lint/type/test run via `reusable-10-ci-python.yml`. | Uploads `coverage-3.12` artifact mirroring 3.11 contents. |
-| `docker-smoke` | Container build + smoke test via `reusable-12-ci-docker.yml`. | No artifacts; emits build + smoke logs in job summary. |
-| `gate` | Final enforcement job that downloads coverage artifacts, posts the summary table, and fails if any upstream job failed. | Adds `Gate status` table to the workflow summary and surfaces missing artifacts in the log. |
 
 These jobs must stay green for PRs to merge. The post-CI maintenance jobs below listen to their `workflow_run` events and post summaries whenever the Gate aggregator fails.
 
