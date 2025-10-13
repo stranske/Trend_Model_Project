@@ -42,15 +42,9 @@ post-processing workflow:
 
 ## Manual Self-Test Workflows
 
-Self-tests provide an opt-in regression net that mirrors production CI behaviour without polluting regular pull request status
-checks. Trigger them from the **Actions** tab by running `Selftest 81 Reusable CI` via **Run workflow** and supply a short reason
-for the dispatch (for example, "Verifying coverage delta after config tweak"). The workflow defaults to the pinned Python
-matrix used by CI, but you can override the JSON `python-versions` input to exercise additional interpreters when debugging.
+Self-tests provide an opt-in regression safety net that mirrors production CI behaviour without polluting regular pull-request status checks. Trigger them from the **Actions** tab by selecting **Selftest 81 Reusable CI** and choosing **Run workflow**. Supply a short reason for the dispatch (for example, "Verifying coverage delta after config tweak"); the workflow records the text in the run summary so future readers know why the matrix was executed. The optional `python-versions` JSON input defaults to the pinned CI interpreter but can include additional versions when you need to chase cross-version issues.
 
-Each run posts a concise summary in the workflow run log describing the matrix outcome, dispatch reason, and scenarios executed.
-Download the `selftest-report` artifact to inspect the scenario-by-scenario inventory that the aggregate verification job
-validates. Missing artifacts or unexpected uploads indicate a drift between reusable job expectations and scenario outputs; fix
-the offending scenario before re-running the self-test.
+Each self-test publishes a succinct run summary outlining the matrix result, dispatch reason, and scenarios executed. Download the `selftest-report` artifact to review the scenario-by-scenario inventory validated by the aggregate verification job. Missing artifacts or unexpected uploads indicate a drift between reusable job expectations and scenario outputs—fix the offending scenario and re-run the workflow to confirm the regression is resolved.
 
 ## Quick Checklist (Before Every Push)
 
