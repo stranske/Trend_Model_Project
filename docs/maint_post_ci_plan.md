@@ -31,8 +31,8 @@
 - Capture screenshots or markdown copies of the Maint Post CI summary and failure tracker issue update for archival alongside the run URLs.
 
 ## Evidence Tracking
-- Maint Post CI run link: _TBD_
-- Failure Tracker issue update link: _TBD_
+- Maint Post CI run link: https://github.com/stranske/Trend_Model_Project/actions/runs/18480830490
+- Failure Tracker issue update link: https://github.com/stranske/Trend_Model_Project/issues/2552
 
 ## Detailed Manual Validation Procedure
 
