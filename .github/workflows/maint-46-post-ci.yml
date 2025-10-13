@@ -1635,7 +1635,8 @@ jobs:
             const sigHash = crypto.createHash('sha256').update(sigParts.join('|')).digest('hex').slice(0, 12);
             const workflowName = run.name || run.display_title || 'Workflow';
             // Each fallback in this chain yields a defined string, so no nullish values reach the slug source.
-            const workflowSignatureSource = run.path || run.workflow_path || run.name || run.id || workflowName;
+            const workflowPath = (run.path || '').trim();
+            const workflowSignatureSource = workflowPath || run.workflow_path || run.name || run.id || workflowName;
             const workflowSlug = slugify(workflowSignatureSource);
             const signature = `${workflowSlug}|${sigHash}`;
             const title = `Workflow Failure (${signature})`;
