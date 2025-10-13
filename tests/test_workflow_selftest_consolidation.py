@@ -26,7 +26,12 @@ def test_selftest_triggers_are_manual_only() -> None:
     selftest_files = sorted(WORKFLOW_DIR.glob("*selftest*.yml"))
     assert selftest_files, "Expected at least one self-test workflow definition."
 
-    disallowed_triggers = {"pull_request", "pull_request_target", "push"}
+    disallowed_triggers = {
+        "pull_request",
+        "pull_request_target",
+        "push",
+        "schedule",
+    }
     required_manual_trigger = "workflow_dispatch"
     allowed_triggers = {required_manual_trigger}
 
@@ -56,7 +61,7 @@ def test_selftest_triggers_are_manual_only() -> None:
         unexpected = sorted(trigger_keys & disallowed_triggers)
         assert not unexpected, (
             f"{workflow_file.name} exposes disallowed triggers: {unexpected}. "
-            "Self-tests should not run automatically on PRs or pushes."
+            "Self-tests should not run automatically on PRs, pushes, or schedules."
         )
 
         unsupported = sorted(trigger_keys - allowed_triggers)
@@ -127,7 +132,12 @@ def test_archived_selftests_retain_manual_triggers() -> None:
         archived_files
     ), "Expected archived self-test workflows to remain in Old/workflows/."
 
-    disallowed_triggers = {"pull_request", "pull_request_target", "push"}
+    disallowed_triggers = {
+        "pull_request",
+        "pull_request_target",
+        "push",
+        "schedule",
+    }
     required_manual_trigger = "workflow_dispatch"
     optional_triggers = {"workflow_call"}
     allowed_triggers = {required_manual_trigger} | optional_triggers
@@ -157,7 +167,7 @@ def test_archived_selftests_retain_manual_triggers() -> None:
         unexpected = sorted(trigger_keys & disallowed_triggers)
         assert not unexpected, (
             f"{workflow_file.name} exposes disallowed triggers: {unexpected}. "
-            "Archived self-tests should remain manual-only entry points."
+            "Archived self-tests should remain manual-only entry points (no PR, push, or scheduled automation)."
         )
 
         unsupported = sorted(trigger_keys - allowed_triggers)
