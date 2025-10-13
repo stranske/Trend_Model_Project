@@ -27,7 +27,7 @@ jobs:
     outputs:
       enable_readiness: ${{ steps.parse.outputs.enable_readiness }}
       readiness_agents: ${{ steps.parse.outputs.readiness_agents }}
-      custom_logins: ${{ steps.parse.outputs.custom_logins }}
+      readiness_custom_logins: ${{ steps.parse.outputs.readiness_custom_logins }}
       require_all: ${{ steps.parse.outputs.require_all }}
       enable_preflight: ${{ steps.parse.outputs.enable_preflight }}
       codex_user: ${{ steps.parse.outputs.codex_user }}
@@ -140,7 +140,7 @@ jobs:
             const outputs = {
               enable_readiness: asBoolString(get('enable_readiness'), defaults.enable_readiness),
               readiness_agents: readinessAgents,
-              custom_logins: customLogins,
+              readiness_custom_logins: customLogins,
               require_all: asBoolString(get('require_all'), defaults.require_all),
               enable_preflight: asBoolString(get('enable_preflight'), defaults.enable_preflight),
               codex_user: codexUser,
@@ -172,14 +172,14 @@ jobs:
   dispatch:
     name: Dispatch Agents Toolkit
     needs: resolve-params
-    uses: ./.github/workflows/reusable-71-agents-dispatch.yml
+    uses: ./.github/workflows/reusable-70-agents.yml
     secrets: inherit
-    # Timeout is enforced inside reusable-71-agents-dispatch.yml -> reusable-70-agents.yml.
+    # Timeout is enforced per job inside reusable-70-agents.yml.
     # GitHub rejects timeout-minutes on jobs that call reusable workflows.
     with:
       enable_readiness: ${{ needs.resolve-params.outputs.enable_readiness }}
       readiness_agents: ${{ needs.resolve-params.outputs.readiness_agents }}
-      custom_logins: ${{ needs.resolve-params.outputs.custom_logins }}
+      readiness_custom_logins: ${{ needs.resolve-params.outputs.readiness_custom_logins }}
       require_all: ${{ needs.resolve-params.outputs.require_all }}
       enable_preflight: ${{ needs.resolve-params.outputs.enable_preflight }}
       codex_user: ${{ needs.resolve-params.outputs.codex_user }}

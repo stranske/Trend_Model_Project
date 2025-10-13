@@ -117,7 +117,6 @@ EXPECTED_NAMES = {
     "reusable-10-ci-python.yml": "Reusable CI",
     "reusable-12-ci-docker.yml": "Reusable Docker Smoke",
     "reusable-70-agents.yml": "Reusable 70 Agents",
-    "reusable-71-agents-dispatch.yml": "Reuse Agents",
     "reusable-92-autofix.yml": "Reusable 92 Autofix",
     "reusable-99-selftest.yml": "Reusable 99 Selftest",
     "reuse-agents.yml": "Reuse Agents",
