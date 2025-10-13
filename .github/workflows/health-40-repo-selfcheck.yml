@@ -23,6 +23,7 @@ jobs:
           SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
         with:
           script: |
+            const core = require('@actions/core');
             const { owner, repo } = context.repo;
             const requiredLabels = (process.env.REQUIRED_LABELS || '')
               .split(',')
@@ -86,7 +87,7 @@ jobs:
               privilegedChecksSkipped = true;
               branchStatus = 'skipped';
               branchNote = 'SERVICE_BOT_PAT not configured; skipped branch protection check.';
-              core.notice('Skipped privileged checks because SERVICE_BOT_PAT is not configured.');
+              core.warning('Skipped privileged checks because SERVICE_BOT_PAT is not configured.');
             }
 
             const checks = [
@@ -180,7 +181,7 @@ jobs:
 
           if privileged_skipped:
               lines.append('')
-              lines.append('> ℹ️ Privileged checks were skipped because `SERVICE_BOT_PAT` is not configured.')
+              lines.append('> ⚠️ Privileged checks were skipped because `SERVICE_BOT_PAT` is not configured.')
 
           output = '\n'.join(lines) + '\n'
           print(output)

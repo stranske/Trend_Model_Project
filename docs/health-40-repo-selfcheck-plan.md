@@ -16,9 +16,9 @@
 6. A manual `workflow_dispatch` run is triggered, and the run URL is documented in the pull request discussion.
 
 ## Initial Task Checklist
-- [ ] Rename the workflow file to `.github/workflows/health-40-repo-selfcheck.yml` and adjust references.
-- [ ] Update the workflow `permissions` block to request only the supported scopes.
-- [ ] Review the self-check script to identify privileged API calls; guard them behind a `SERVICE_BOT_PAT` presence check.
-- [ ] Implement summary reporting that appends the outcome of each check to `$GITHUB_STEP_SUMMARY`.
+- [x] Rename the workflow file to `.github/workflows/health-40-repo-selfcheck.yml` and adjust references.
+- [x] Update the workflow `permissions` block to request only the supported scopes.
+- [x] Review the self-check script to identify privileged API calls; guard them behind a `SERVICE_BOT_PAT` presence check.
+- [x] Implement summary reporting that appends the outcome of each check to `$GITHUB_STEP_SUMMARY`.
 - [ ] Validate workflow locally or via `act` (if feasible) to ensure logic paths succeed with and without `SERVICE_BOT_PAT`.
 - [ ] Trigger a manual `workflow_dispatch` run in GitHub and comment the execution URL on the PR.
