@@ -154,7 +154,16 @@ jobs:
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const sha = context.payload.pull_request?.head?.sha ?? context.sha;
+            const shas = new Set([context.sha]);
+
+            const pr = context.payload.pull_request;
+            if (pr?.head?.sha) {
+              shas.add(pr.head.sha);
+            }
+            if (pr?.merge_commit_sha) {
+              shas.add(pr.merge_commit_sha);
+            }
+
             const rawState = process.env.STATE || 'pending';
             const allowed = new Set(['error', 'failure', 'pending', 'success']);
             const state = allowed.has(rawState) ? rawState : 'pending';
@@ -162,15 +171,18 @@ jobs:
             const description = rawDescription.length > 140 ? `${rawDescription.slice(0, 137)}...` : rawDescription;
             const targetUrl = process.env.TARGET_URL;
 
-            await github.rest.repos.createCommitStatus({
-              owner,
-              repo,
-              sha,
-              state,
-              context: 'Gate / gate',
-              description,
-              target_url: targetUrl,
-            });
+            for (const sha of shas) {
+              await github.rest.repos.createCommitStatus({
+                owner,
+                repo,
+                sha,
+                state,
+                context: 'Gate / gate',
+                description,
+                target_url: targetUrl,
+              });
+              core.info(`Posted Gate status (${state}) to ${sha}`);
+            }
 
       - name: Enforce Gate success
         if: ${{ steps.summarize.outputs.state == 'failure' }}
