@@ -1,6 +1,6 @@
 # Gate Branch Protection Evidence Archive
 
-Store validation artifacts for issue #2495 in this folder. Suggested layout:
+Store validation artifacts for issues #2495 and #2527 in this folder. Suggested layout:
 
 ```
 gate-branch-protection/
