@@ -73,6 +73,35 @@ def test_selftest_triggers_are_manual_only() -> None:
         )
 
 
+def test_selftest_dispatch_reason_is_required() -> None:
+    """Require callers to document why the matrix was launched."""
+
+    raw_data = yaml.safe_load(SELFTEST_PATH.read_text()) or {}
+
+    triggers_raw = raw_data.get("on")
+    if triggers_raw is None and True in raw_data:
+        triggers_raw = raw_data[True]
+    if triggers_raw is None:
+        triggers_raw = {}
+
+    if isinstance(triggers_raw, dict):
+        workflow_dispatch = triggers_raw.get("workflow_dispatch", {})
+    else:
+        raise AssertionError(
+            "Selftest workflow must declare workflow_dispatch as a mapping"
+        )
+
+    inputs = workflow_dispatch.get("inputs", {})
+    assert "reason" in inputs, "Selftest workflow dispatch is missing a reason input."
+
+    reason_input = inputs["reason"] or {}
+    assert reason_input.get(
+        "required"
+    ), "Selftest workflow dispatch reason should be required so audit trail is preserved."
+
+    description = reason_input.get("description", "").strip()
+    assert description, "Reason input should document why it is collected."
+
 def test_archived_selftest_inventory() -> None:
     assert ARCHIVE_DIR.exists(), "Old/workflows directory is missing"
 

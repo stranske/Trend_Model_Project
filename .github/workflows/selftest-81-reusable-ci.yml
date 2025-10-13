@@ -7,7 +7,7 @@ on:
         description: >-
           Short note describing why the self-test is running. Appears in the
           run summary for future reference.
-        required: false
+        required: true
         default: Manual verification
       python-versions:
         description: >-
