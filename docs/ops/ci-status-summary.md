@@ -1,7 +1,7 @@
 ## Automated Post-CI Status Summary
 
 The repository publishes a consolidated status block to the run summary whenever
-the `maint-30-post-ci.yml` follower completes. The workflow subscribes
+the `maint-46-post-ci.yml` follower completes. The workflow subscribes
 to `workflow_run` events for the Gate workflow, downloads shared artifacts, and
 renders Markdown headed by `## Automated Status Summary` before appending it to
 `$GITHUB_STEP_SUMMARY`.
@@ -64,7 +64,7 @@ bundles have not been published yet.
   `DEFAULT_REQUIRED_JOB_GROUPS` declaration inside `tools/post_ci_summary.py`,
   or by supplying a `REQUIRED_JOB_GROUPS_JSON` workflow environment override.
 * Additional artifacts can be surfaced by extending the artifact download steps
-  in `maint-30-post-ci.yml` and updating the Markdown rendering helpers
+  in `maint-46-post-ci.yml` and updating the Markdown rendering helpers
   inside `tools/post_ci_summary.py`.
 * To force Docker to run on documentation-only changes, tweak the `paths-ignore`
   list in `.github/workflows/pr-00-gate.yml` (the skip rules are unchanged by this
@@ -72,6 +72,6 @@ bundles have not been published yet.
 
 ### Disabling the Summary
 
-Delete or rename `.github/workflows/maint-30-post-ci.yml` to disable the
+Delete or rename `.github/workflows/maint-46-post-ci.yml` to disable the
 follower. The consolidated helper is only invoked from that workflow, so no
 other automation will recreate the run-summary entry once the file is removed.

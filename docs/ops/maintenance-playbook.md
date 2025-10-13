@@ -2,8 +2,8 @@
 
 This playbook explains how on-call responders should handle failures in the
 maintenance workflows that remain after Issue 2190. The roster now consists of
-`health-41`, `maint-30-post-ci`, `maint-33`, `health-42`, `health-43`,
-`health-44`, `maint-34`, and `maint-90`.
+`health-41`, `maint-46-post-ci`, `maint-47-check-failure-tracker`, `health-42`, `health-43`,
+`health-44`, `maint-45-cosmetic-repair`, and `maint-90`.
 
 ## health-41-repo-health.yml
 
@@ -22,7 +22,7 @@ maintenance workflows that remain after Issue 2190. The roster now consists of
    `REPO_HEALTH_STALE_BRANCH_DAYS` when the stale-branch window should change.
    Re-run the workflow via `workflow_dispatch` to validate the new threshold.
 
-## maint-30-post-ci.yml
+## maint-46-post-ci.yml
 
 1. **Check the run summary** — each execution appends a consolidated status
    block under `## Automated Status Summary`. Review it to understand which jobs
@@ -37,7 +37,7 @@ maintenance workflows that remain after Issue 2190. The roster now consists of
    still exposes the expected coverage/smoke outputs and that required labels
    remain in place for autofix eligibility.
 
-## maint-33-check-failure-tracker.yml
+## maint-47-check-failure-tracker.yml
 
 1. **Review the issue comment** — failures create or update the CI failure
    tracker issue with signature details. Follow the links to the failing jobs.
@@ -84,7 +84,7 @@ maintenance workflows that remain after Issue 2190. The roster now consists of
 3. **Manual reruns** — after updating the rules, rerun the workflow to confirm
    the summary reports a clean state.
 
-## maint-34-cosmetic-repair.yml
+## maint-45-cosmetic-repair.yml
 
 1. **Inspect pytest results** — the workflow records the pytest exit code in
    the job summary even though the step allows failures. Investigate test
@@ -95,15 +95,20 @@ maintenance workflows that remain after Issue 2190. The roster now consists of
 3. **Dry-run mode** — use the `dry-run` input for rehearsal runs that capture
    diagnostics without creating commits or PRs.
 
-## maint-90-selftest.yml
+## Manual self-test wrappers
 
-1. **Treat it as a smoke harness** — the workflow invokes
-   `selftest-81-reusable-ci.yml` to exercise the reusable CI matrix.
-2. **Verify inputs** — ensure the forwarded `python-version` input matches the
-   expected matrix before debugging downstream failures.
-3. **Secrets passthrough** — the workflow forwards secrets to the reusable call.
-   When adding new secrets to the reusable workflow remember to surface them
-   here as well.
+1. **Pick the right wrapper** — dispatch `selftest-80-pr-comment.yml`,
+   `selftest-82-pr-comment.yml`, or `selftest-83-pr-comment.yml` when you need a
+   PR comment summarising the reusable CI matrix. Use `selftest-84-reusable-ci.yml`
+   for a summary-only run and `selftest-88-reusable-ci.yml` when you want to feed
+   multiple Python versions.
+2. **Provide required inputs** — the PR comment wrappers require the target
+   `pull_request_number`; all wrappers accept an optional `python-versions`
+   override that is forwarded to `selftest-81-reusable-ci.yml`.
+3. **Remember the delegation** — every wrapper calls
+   `selftest-81-reusable-ci.yml`, which now exposes both `workflow_dispatch` and
+   `workflow_call`. Any verification mismatch will fail the wrapper job even if
+   the summary step continues to run.
 
 ## Common tooling
 

@@ -26,19 +26,19 @@ remain true after the cleanup.
   variables to the reusable composite.
 
 ## Active Workflows & Actions
-- **Codex issue bridge:** `.github/workflows/agents-43-codex-issue-bridge.yml`
+- **Codex issue bridge:** `.github/workflows/agents-63-codex-issue-bridge.yml`
   - Reacts to `agent:codex` (and `agents:codex`) labels plus manual dispatch.
   - Creates or reuses Codex bootstrap branches/PRs and posts copyable issue snippets + `@codex start` instructions.
 - **Orchestrator:** `.github/workflows/agents-70-orchestrator.yml`
   - 20-minute cron plus manual dispatch.
   - Inputs: readiness toggles, Codex preflight, watchdog controls, issue verification, `options_json` for extended flags.
-  - Calls `.github/workflows/reusable-70-agents.yml` for the actual implementation.
-- **Manual consumer (deprecated compatibility shim):** `.github/workflows/agents-consumer.yml`
+  - Calls `.github/workflows/reusable-16-agents.yml` for the actual implementation.
+- **Manual consumer (deprecated compatibility shim):** `.github/workflows/agents-61-consumer-compat.yml` (formerly `agents-consumer.yml`)
   - Manual dispatch only.
   - Exposes the same high-level toggles as the orchestrator UI; advanced overrides (custom readiness agents, Codex command phrase,
     diagnostic knobs, bootstrap label) flow through `options_json`.
-  - Delegates to `.github/workflows/reusable-70-agents.yml` with inherited secrets and a per-ref concurrency guard.
-- **Reusable composite:** `.github/workflows/reusable-70-agents.yml`
+  - Delegates to `.github/workflows/reusable-16-agents.yml` with inherited secrets and a per-ref concurrency guard.
+- **Reusable composite:** `.github/workflows/reusable-16-agents.yml`
   - Provides readiness probes, Codex bootstrap, verification, and watchdog jobs.
   - Exposes Markdown + JSON summaries for downstream tooling.
 - **Composite action:** `.github/actions/codex-bootstrap-lite/action.yml`
@@ -53,11 +53,11 @@ part of Issue #2190; the dedicated Codex issue bridge was reinstated to restore 
 | Concern | File |
 |---------|------|
 | Agent orchestrator | [`agents-70-orchestrator.yml`](../../.github/workflows/agents-70-orchestrator.yml) |
-| Reusable agent stack | [`reusable-70-agents.yml`](../../.github/workflows/reusable-70-agents.yml) |
+| Reusable agent stack | [`reusable-16-agents.yml`](../../.github/workflows/reusable-16-agents.yml) |
 | Codex bootstrap composite action | [`.github/actions/codex-bootstrap-lite`](../../.github/actions/codex-bootstrap-lite/action.yml) |
 | Gate workflow | [`pr-00-gate.yml`](../../.github/workflows/pr-00-gate.yml) |
-| Autofix follower | [`maint-30-post-ci.yml`](../../.github/workflows/maint-30-post-ci.yml) |
-| Failure tracker | [`maint-33-check-failure-tracker.yml`](../../.github/workflows/maint-33-check-failure-tracker.yml) |
+| Autofix follower | [`maint-46-post-ci.yml`](../../.github/workflows/maint-46-post-ci.yml) |
+| Failure tracker | [`maint-47-check-failure-tracker.yml`](../../.github/workflows/maint-47-check-failure-tracker.yml) |
 
 ## Operational Notes
 - Run the orchestrator manually to re-bootstrap an issue, perform readiness checks, or trigger watchdog sweeps.

@@ -8,7 +8,7 @@ for the consolidation.
 
 - **Workflows affected**: `.github/workflows/pr-00-gate.yml`, `.github/workflows/reusable-10-ci-python.yml`,
   `.github/workflows/reusable-12-ci-docker.yml`, and the maintenance listeners that react to CI completion
-   (`maint-30-post-ci.yml`, `maint-33-check-failure-tracker.yml`).
+   (`maint-46-post-ci.yml`, `maint-47-check-failure-tracker.yml`).
 - **Functional focus**: keep the combined Gate run fast and deterministic while preserving the docs-only short circuit.
 - **Tooling**: continue using reusable workflows for the Python (3.11/3.12) and Docker jobs; the Gate file is a thin orchestrator.
 - **Concurrency rules**: Gate must cancel superseded runs for the same PR branch.
@@ -18,7 +18,7 @@ for the consolidation.
 
 1. Branch protection requires the `Gate / gate` check name (legacy `ci / python` and `ci / docker smoke` checks are removed).
 2. `.github/workflows/pr-10-ci-python.yml` and `.github/workflows/pr-12-docker-smoke.yml` are deleted once Gate parity is verified.
-3. Maintenance followers (`maint-30-post-ci.yml`, `maint-33-check-failure-tracker.yml`) subscribe to
+3. Maintenance followers (`maint-46-post-ci.yml`, `maint-47-check-failure-tracker.yml`) subscribe to
    Gate via `workflow_run` triggers and operate on the Gate job manifest.
 4. Gate fans out to Python 3.11, Python 3.12, and Docker smoke by delegating to `reusable-10-ci-python.yml` and `reusable-12-ci-docker.yml`.
 5. CI signature fixtures (`.github/signature-fixtures/*`) represent the Gate topology.
@@ -28,7 +28,7 @@ for the consolidation.
 
 - [x] Update branch protection to require `Gate / gate`.
 - [x] Delete `.github/workflows/pr-10-ci-python.yml` and `.github/workflows/pr-12-docker-smoke.yml`.
-- [x] Point `maint-30-post-ci.yml` and `maint-33-check-failure-tracker.yml` at Gate.
+- [x] Point `maint-46-post-ci.yml` and `maint-47-check-failure-tracker.yml` at Gate.
 - [x] Regenerate `.github/signature-fixtures/basic_jobs.json` and the corresponding hash for the Gate manifest.
 - [x] Verify Gate reuses `reusable-10-ci-python.yml` for Python 3.11/3.12 and `reusable-12-ci-docker.yml` for Docker smoke.
 - [x] Refresh documentation to describe Gate as the sole required check and record the archival of the legacy wrappers.

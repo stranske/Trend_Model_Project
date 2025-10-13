@@ -256,17 +256,17 @@ How to run workflow_dispatch for maintenance and agents.
 
 Where to find the health self‑check output in run summaries.
 
-8) Post‑merge hygiene: keep the “Maint Post CI” aggregator and failure tracker tidy
+8) Post‑merge hygiene: keep the “Maint 46 Post CI” aggregator and failure tracker tidy
 
 Labels: ci, devops, enhancement
 
 Background / Why
-“Maint Post CI” and the “Check Failure Tracker” are both running and provide useful aggregation. Keep them, but confirm they’re deduplicated and reference the new names so your PR summaries and failure triage stay readable. 
+“Maint 46 Post CI” and the “Check Failure Tracker” are both running and provide useful aggregation. Keep them, but confirm they’re deduplicated and reference the new names so your PR summaries and failure triage stay readable. 
 GitHub
 
 Acceptance criteria
 
-Maint Post CI emits a single, deduplicated PR summary comment with correct job names and links.
+Maint 46 Post CI emits a single, deduplicated PR summary comment with correct job names and links.
 
 Failure Tracker opens/updates one issue per failing category instead of spamming duplicates after the rename.
 
@@ -278,4 +278,4 @@ Review post‑CI comment template to ensure it lists the renamed jobs.
 
 Validate the failure tracker queries by opening a test PR that intentionally fails one job; confirm update vs duplicate.
 
-Attach links to one successful Maint Post CI run and one Failure Tracker update.
+Attach links to one successful Maint 46 Post CI run and one Failure Tracker update.

@@ -1,4 +1,4 @@
-name: Maint 35 Repo Health Self Check
+name: Health 40 Repo Selfcheck
 
 on:
   schedule:

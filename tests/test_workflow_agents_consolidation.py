@@ -44,13 +44,13 @@ def test_agents_orchestrator_inputs_and_uses():
         "bootstrap_issues_label:" in text
     ), "Orchestrator must forward bootstrap label configuration"
     assert (
-        "./.github/workflows/reusable-70-agents.yml" in text
+        "./.github/workflows/reusable-16-agents.yml" in text
     ), "Orchestrator must call the reusable agents workflow"
 
 
 def test_reusable_agents_workflow_structure():
-    reusable = WORKFLOWS_DIR / "reusable-70-agents.yml"
-    assert reusable.exists(), "reusable-70-agents.yml must exist"
+    reusable = WORKFLOWS_DIR / "reusable-16-agents.yml"
+    assert reusable.exists(), "reusable-16-agents.yml must exist"
     text = reusable.read_text(encoding="utf-8")
     assert "workflow_call:" in text, "Reusable agents workflow must be callable"
     for key in [
@@ -81,14 +81,14 @@ def test_legacy_agent_workflows_removed():
 
 
 def test_codex_issue_bridge_present():
-    bridge = WORKFLOWS_DIR / "agents-43-codex-issue-bridge.yml"
+    bridge = WORKFLOWS_DIR / "agents-63-codex-issue-bridge.yml"
     assert (
         bridge.exists()
-    ), "agents-43-codex-issue-bridge.yml must exist after Codex bridge restoration"
+    ), "agents-63-codex-issue-bridge.yml must exist after Codex bridge restoration"
 
 
 def test_keepalive_job_present():
-    reusable = WORKFLOWS_DIR / "reusable-70-agents.yml"
+    reusable = WORKFLOWS_DIR / "reusable-16-agents.yml"
     text = reusable.read_text(encoding="utf-8")
     assert (
         "Codex Keepalive Sweep" in text
@@ -125,7 +125,7 @@ def test_agents_orchestrator_has_concurrency_defaults():
 
     text = (WORKFLOWS_DIR / "agents-70-orchestrator.yml").read_text(encoding="utf-8")
     assert (
-        "Job timeouts live inside reusable-70-agents.yml" in text
+        "Job timeouts live inside reusable-16-agents.yml" in text
     ), "Orchestrator workflow should document where the timeout is enforced"
 
 
@@ -148,13 +148,13 @@ def test_agents_consumer_manual_only_and_concurrency():
     jobs = data.get("jobs", {})
     dispatch_job = jobs.get("dispatch", {})
     uses = dispatch_job.get("uses")
-    assert uses, "Agents Consumer should call reusable-70-agents workflow"
+    assert uses, "Agents Consumer should call reusable-16-agents workflow"
     assert uses.endswith(
-        ".github/workflows/reusable-70-agents.yml"
-    ), "Agents Consumer must call reusable-70-agents workflow"
+        ".github/workflows/reusable-16-agents.yml"
+    ), "Agents Consumer must call reusable-16-agents workflow"
     assert (
         "timeout-minutes" not in dispatch_job
-    ), "Timeout must be delegated to reusable-70-agents.yml jobs"
+    ), "Timeout must be delegated to reusable-16-agents.yml jobs"
 
     with_inputs = dispatch_job.get("with") or {}
     assert (
@@ -163,7 +163,7 @@ def test_agents_consumer_manual_only_and_concurrency():
 
 
 def test_reusable_agents_jobs_have_timeouts():
-    data = _load_workflow_yaml("reusable-70-agents.yml")
+    data = _load_workflow_yaml("reusable-16-agents.yml")
     jobs = data.get("jobs", {})
     missing_timeouts = [
         name

@@ -7,7 +7,7 @@
 - `agents-62-consumer.yml` exists solely for curated manual runs that need the
   JSON `params_json` input surface. All automated triggers (cron, issue
   events) stay disabled.
-- Both dispatchers must converge on `reusable-70-agents.yml` so feature parity is preserved (readiness,
+- Both dispatchers must converge on `reusable-16-agents.yml` so feature parity is preserved (readiness,
   watchdog, diagnostics, keepalive, bootstrap, issue verification).
 - Concurrency at the workflow root must guard against overlapping runs on the
   same ref. Timeout enforcement continues to live inside the reusable stack,
@@ -15,7 +15,7 @@
 
 ## Acceptance Criteria / Definition of Done
 1. Orchestrator workflow continues to expose the manual inputs listed in
-   `docs/ci/WORKFLOWS.md` and fans into `reusable-70-agents.yml` without
+   `docs/ci/WORKFLOWS.md` and fans into `reusable-16-agents.yml` without
    introducing bespoke JSON parsing layers.
 2. Both orchestrator and consumer workflows declare per-ref concurrency guards
    with `cancel-in-progress: true` and delegate timeout coverage to the
@@ -37,7 +37,7 @@
   paths without the consumer.
 - [x] Keep `agents-62-consumer.yml` manual-only with
   `concurrency: agents-62-consumer-${{ github.ref }}` and surface parity with the
-  reusable toolkit via `reusable-70-agents.yml`.
+  reusable toolkit via `reusable-16-agents.yml`.
 - [x] Document manual dispatch expectations and the post-change monitoring
   window in `docs/ci/WORKFLOWS.md`.
 - [x] Re-run workflow guard tests (`pytest tests/test_workflow_agents_consolidation.py
