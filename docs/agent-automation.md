@@ -56,7 +56,7 @@ Manual dispatch / 20-minute schedule ──▶ agents-70-orchestrator.yml
 
 ### Verify Agent Assignment Workflow
 
-`verify-agent-assignment.yml` exposes the issue verification logic as a standalone reusable workflow with a parallel
+`agents-64-verify-agent-assignment.yml` exposes the issue verification logic as a standalone reusable workflow with a parallel
 `workflow_dispatch` entry point. Supply an `issue_number` and the workflow fetches the issue, ensures the `agent:codex`
 label is present, validates that either `copilot` or `chatgpt-codex-connector` is assigned, and publishes a step summary
 table documenting the outcome. `reusable-70-agents.yml` now delegates its issue verification job to this workflow so the

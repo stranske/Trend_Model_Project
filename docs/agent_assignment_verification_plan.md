@@ -12,7 +12,7 @@
 
 ## 2. Acceptance Criteria / Definition of Done
 
-- Reusable workflow file exists (e.g., `.github/workflows/verify-agent-assignment.yml`) exposing a `workflow_call` interface with a required `issue_number` input.
+- Reusable workflow file exists (e.g., `.github/workflows/agents-64-verify-agent-assignment.yml`) exposing a `workflow_call` interface with a required `issue_number` input.
 - Manual `workflow_dispatch` entry point remains available either directly in the same file or via a thin wrapper job.
 - Workflow fetches issue metadata using the GitHub REST API with only read permissions and logs the resolved title, URL, labels, and assignees.
 - Run terminates early with a success summary when the target issue lacks the `agent:codex` label.
@@ -46,7 +46,7 @@ These steps establish a structured path for implementing the assignment verifica
 
 ## 4. Implementation Summary
 
-- Added `.github/workflows/verify-agent-assignment.yml`, a reusable and dispatchable workflow that consumes an `issue_number`,
+- Added `.github/workflows/agents-64-verify-agent-assignment.yml`, a reusable and dispatchable workflow that consumes an `issue_number`,
   fetches the target issue with `issues: read` permissions, and publishes a markdown table summarising validation results.
 - Updated `reusable-70-agents.yml` to delegate its verification job to the new workflow so orchestrator runs and manual
   dispatches share the same validation surface.
