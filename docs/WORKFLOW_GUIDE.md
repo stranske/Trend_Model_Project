@@ -42,8 +42,7 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 - **`maint-34-cosmetic-repair.yml`** — Manual dispatch utility that runs `pytest -q`, applies guard-gated cosmetic fixes via `scripts/ci_cosmetic_repair.py`, and opens a labelled PR when changes exist.
 
 ### Agents
-- **`agents-70-orchestrator.yml`** — Hourly + manual dispatch entry point for readiness, Codex bootstrap, diagnostics, and keepalive sweeps. Delegates to `reusable-70-agents.yml` and accepts extended options via `options_json`. All prior consumer-style wrappers have been retired.
-- **`agents-62-consumer.yml`** — Manual-only JSON bridge that normalises inputs before calling `reusable-70-agents.yml`.
+- **`agents-70-orchestrator.yml`** — Hourly + manual dispatch entry point for readiness, Codex bootstrap, diagnostics, and keepalive sweeps. Delegates to `reusable-70-agents.yml` and accepts extended options via the `params_json` payload. All prior consumer-style wrappers have been retired.
 - **`agents-63-chatgpt-issue-sync.yml`** — Manual issue fan-out that mirrors curated topic lists into GitHub issues.
 - **`agents-64-verify-agent-assignment.yml`** — Workflow-call validator ensuring `agent:codex` issues remain assigned to approved automation accounts.
 
@@ -65,13 +64,15 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 - Escalations apply the `priority: high` label once the same signature fires three times.
 
 ## Agent Operations
-- Use **Agents 70 Orchestrator** for every automation task (readiness checks, Codex bootstrap, diagnostics, keepalive). No other entry points remain.
-- Optional flags beyond the standard inputs belong in the `options_json` payload; the orchestrator parses it with `fromJson()` and forwards toggles to `reusable-70-agents.yml`.
+- Use **Agents 70 Orchestrator** for every automation task (readiness checks, Codex bootstrap, diagnostics, keepalive). No other entry points remain beyond deprecated compatibility shims.
+- Optional flags beyond the standard inputs belong in the `params_json` payload; the orchestrator parses it with `fromJson()` and forwards toggles to `reusable-70-agents.yml`. Include an `options_json` string inside the payload for nested keepalive or cleanup settings when required.
 - Provide a PAT when bootstrap needs to push branches. The orchestrator honours PAT priority (`OWNER_PR_PAT` → `SERVICE_BOT_PAT` → `GITHUB_TOKEN`) via the reusable composite.
+
+> **Deprecated compatibility wrappers:** `agents-62-consumer.yml` and `agents-consumer.yml` persist only for callers migrating from the historical JSON schema. They remain manual-only and should be phased out in favour of the orchestrator.
 
 ### Manual dispatch quick steps
 1. Open **Actions → Agents 70 Orchestrator → Run workflow**.
-2. Supply inputs such as `enable_bootstrap: true` and `bootstrap_issues_label: agent:codex` either via dedicated fields or inside `options_json`.
+2. Supply inputs such as `enable_bootstrap: true` and `bootstrap_issues_label: agent:codex` either via dedicated fields or inside `params_json`.
 3. Review the `orchestrate` job summary for readiness tables, bootstrap planner output, and links to spawned PRs. Failures provide direct links for triage.
 
 ### Troubleshooting signals
