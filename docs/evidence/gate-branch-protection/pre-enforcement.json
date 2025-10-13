@@ -1,0 +1,18 @@
+{
+  "branch": "phase-2-dev",
+  "protected": true,
+  "retrieved_at": "2025-10-13T17:30:53Z",
+  "source": "https://api.github.com/repos/stranske/Trend_Model_Project/branches/phase-2-dev",
+  "required_status_checks": {
+    "enforcement_level": "non_admins",
+    "contexts": [
+      "Gate / gate"
+    ],
+    "checks": [
+      {
+        "context": "Gate / gate",
+        "app_id": null
+      }
+    ]
+  }
+}
