@@ -29,7 +29,8 @@ def test_selftest_workflow_inventory() -> None:
 
 
 def test_selftest_triggers_are_manual_only() -> None:
-    """Self-test workflows must expose manual triggers (with optional workflow_call reuse)."""
+    """Self-test workflows must expose manual triggers (with optional
+    workflow_call reuse)."""
 
     selftest_files = sorted(WORKFLOW_DIR.glob("*selftest*.yml"))
     assert selftest_files, "Expected at least one self-test workflow definition."
