@@ -50,12 +50,13 @@ Security posture: The `pull_request_target` workflows in this template do not ch
   ```
 - Composite action runs `ruff`, `black`, `isort`, `docformatter`, and optionally `scripts/auto_type_hygiene.py` when present.
 
-## 5. Merge Manager (Auto-approve + Auto-merge)
+## 5. Manual Review + Cosmetic Repair
 
-- The merge-manager workflow evaluates labels, file-change constraints, and quiet-period rules before approving and enabling auto-merge.
-- Customize labels via variables above. Adjust approvable file patterns and size cap via `APPROVE_PATTERNS` and `MAX_LINES_CHANGED`.
-- The workflow now toggles the `ci:green` label automatically to mirror real check status; no manual relabeling is needed after CI reruns.
-- Auto-merge uses squash by default; change the merge method in the workflow if desired.
+- Automated merge-manager flows were retired with Issue #2190. Approvals and merges are now handled manually once Gate succeeds.
+- `maint-45-cosmetic-repair.yml` provides an optional manual helper to re-run pytest, apply formatting fixes via
+  `scripts/ci_cosmetic_repair.py`, and open a labelled repair PR when hygiene updates are required.
+- Keep the `ci:green` label in sync with the latest Gate status manually; Maint 46 Post CI surfaces aggregated results and will
+  highlight mismatches in its summary comment.
 
 ## 6. Docker Workflow
 

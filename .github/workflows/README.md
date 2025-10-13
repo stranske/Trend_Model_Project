@@ -11,7 +11,7 @@ Core layers:
 - Gate orchestrator (`pr-00-gate.yml`): single required check that fans out to Python 3.11/3.12 CI and the Docker smoke test using the reusable workflows, then enforces that every leg succeeds.
 - Autofix lane (`maint-46-post-ci.yml`): workflow_run follower that batches small hygiene fixes, posts Gate summaries, and manages trivial failure remediation using the composite autofix action.
 - Agents orchestration & watchdog (`agents-70-orchestrator.yml` + `reusable-16-agents.yml`): label-driven assignment, Codex bootstrap, diagnostics, and watchdog toggles via `enable_watchdog` (default `true`).
-- Merge automation (`maint-45-merge-manager.yml`): unified auto-approval and auto-merge decisions for safe agent PRs.
+- Cosmetic repair (`maint-45-cosmetic-repair.yml`): manual pytest run plus guardrail fixer that opens labelled repair PRs when drift is detected.
 - Governance & Health: `health-40-repo-selfcheck.yml`, `health-41-repo-health.yml`, `health-42-actionlint.yml`, `health-43-ci-signature-guard.yml`, `health-44-gate-branch-protection.yml`, labelers, dependency review, CodeQL.
 - Path Labeling: `pr-path-labeler.yml` auto-categorizes PRs.
 
@@ -185,18 +185,17 @@ reduced input surface and ensures the consumer continues to call the bridge
 workflow. Update the README whenever adding new JSON keys so operators have an
 accurate dispatch reference.
 
-### Merge Manager (Issue #1415)
-Unified approval + auto-merge policy lives in `maint-45-merge-manager.yml`, replacing the legacy pair `autoapprove.yml` and
-`enable-automerge.yml` (retired; historical details tracked in `ARCHIVE_WORKFLOWS.md`). Guard test: `tests/test_workflow_merge_manager.py`.
+### Cosmetic Repair (Maint 45)
+`maint-45-cosmetic-repair.yml` is the manual guardrail fixer that partners with Post CI. It exists for maintainers to re-run the pytest suite, apply formatting or low-risk hygiene patches via `scripts/ci_cosmetic_repair.py`, and open a labelled follow-up PR when drift is detected.
 
-Design invariants:
-1. Single rationale comment per PR identified by marker `<!-- merge-manager-rationale -->`.
-2. Combined safety evaluation (allowlist patterns, size cap, quiet period, active workflow absence) before any approval.
-3. Conditional approval (GitHub Review API) + optional auto-merge enablement via `peter-evans/enable-pull-request-automerge@v3`.
-4. Loop guard: declines if last commit already bears the autofix prefix (`COMMIT_PREFIX`, default `chore(autofix):`).
-5. Idempotent: re-runs update / replace the existing rationale comment instead of spamming.
+Key traits:
+1. Triggered manually through `workflow_dispatch` and inherits repository write permissions so it can push repair branches.
+2. Accepts inputs for base branch, Python version, dry-run toggles, and branch suffix to coordinate parallel repair attempts.
+3. Runs pytest in allow-fail mode to surface current failures before executing the cosmetic fixer.
+4. Uses the same cosmetic repair helper consumed by the autofix follower, ensuring identical formatting rules across automated and manual flows.
+5. Captures repair summaries and emits outputs that downstream tooling (like Maint 46 Post CI) can render in job summaries.
 
-Acceptance Criteria (Issue #1415) satisfied by: archival of legacy workflows, presence of guard test, README documentation, and operational unified workflow.
+Guardrails: `tests/test_workflow_naming.py` asserts the workflow remains in the inventory, and the repair helper’s behaviour is covered by tests for `scripts/ci_cosmetic_repair.py`.
 
 ---
 ## 6. Onboarding Checklist (~7m)
