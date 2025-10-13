@@ -77,7 +77,7 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 1. Open **Actions → Agents 70 Orchestrator → Run workflow**.
 2. Supply inputs such as `enable_bootstrap: true` and `bootstrap_issues_label: agent:codex` either via dedicated fields or inside `options_json`.
 3. Review the `orchestrate` job summary for readiness tables, bootstrap planner output, verification notes, and links to spawned PRs. Failures provide direct links for triage.
-4. For CLI/API usage, reuse the `params_json` example in [docs/ci/WORKFLOWS.md](ci/WORKFLOWS.md#manual-orchestrator-dispatch) and map the keys to the orchestrator inputs (or pass it through the deprecated consumer shim while migrating clients).
+4. For CLI/API usage, reuse the `params_json` example in [docs/ci/WORKFLOWS.md](ci/WORKFLOWS.md#manual-orchestrator-dispatch) and post it directly (for example `gh workflow run agents-70-orchestrator.yml --raw-field params_json="$(cat orchestrator.json)"`). Mix in individual overrides only when a flag must diverge from the JSON payload, or pass the payload through the deprecated consumer shim while migrating clients.
 
 ### Troubleshooting signals
 - **Immediate readiness failure** — missing PAT or scope. Inspect the `Authentication` step and rerun with `SERVICE_BOT_PAT`.

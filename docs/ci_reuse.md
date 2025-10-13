@@ -55,9 +55,9 @@ with `SERVICE_BOT_PAT`.
 Exposes the agent automation stack as a reusable component. All top-level
 automation calls flow through **Agents 70 Orchestrator**, which normalises the
 inputs and forwards them here. Dispatch the orchestrator either via the Actions
-UI or programmatically using the `params_json` example in
-[docs/ci/WORKFLOWS.md](ci/WORKFLOWS.md#manual-orchestrator-dispatch) to map JSON
-keys onto the orchestrator inputs.
+UI or by posting the `params_json` payload shown in
+[docs/ci/WORKFLOWS.md](ci/WORKFLOWS.md#manual-orchestrator-dispatch)
+(`gh workflow run agents-70-orchestrator.yml --raw-field params_json="$(cat orchestrator.json)"`).
 
 Example orchestrator snippet:
 

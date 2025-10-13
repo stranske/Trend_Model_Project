@@ -169,19 +169,26 @@ The Codex Issue Bridge is a label-driven helper for seeding bootstrap PRs, while
 Example CLI flow:
 
 ```bash
-# params_json is stored in orchestrator.json (contents match the JSON above)
+cat <<'JSON' > orchestrator.json
+{
+  "enable_readiness": true,
+  "readiness_agents": "copilot,codex",
+  "require_all": false,
+  "enable_preflight": true,
+  "codex_user": "",
+  "enable_bootstrap": true,
+  "bootstrap_issues_label": "agent:codex",
+  "draft_pr": false,
+  "options_json": "{\"diagnostic_mode\":\"dry-run\",\"bootstrap\":{\"label\":\"agent:codex\"}}"
+}
+JSON
+
 gh workflow run agents-70-orchestrator.yml \
   --ref phase-2-dev \
-  --raw-field enable_readiness=true \
-  --raw-field readiness_agents=copilot,codex \
-  --raw-field require_all=false \
-  --raw-field enable_preflight=true \
-  --raw-field enable_bootstrap=true \
-  --raw-field bootstrap_issues_label=agent:codex \
-  --raw-field options_json='{"diagnostic_mode":"dry-run","bootstrap":{"label":"agent:codex"}}'
+  --raw-field params_json="$(cat orchestrator.json)"
 ```
 
-The same `params_json` payload is safe to reuse with `agents-62-consumer.yml` while migrating automation; the wrapper normalises the object and passes it straight to the orchestrator.
+Mix and match the JSON payload with individual dispatch inputs when overrides are required (for example add `--raw-field enable_readiness=false` to override the JSON flag). The same `params_json` payload is safe to reuse with `agents-62-consumer.yml` while migrating automation; the wrapper normalises the object and passes it straight to the orchestrator.
 
 ### Agent troubleshooting: bootstrap & readiness signals
 
