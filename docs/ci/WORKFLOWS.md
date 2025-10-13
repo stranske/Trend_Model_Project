@@ -49,9 +49,6 @@ flowchart TD
 
 ### Maintenance & observability
 
-| Workflow | File | Trigger(s) | Permissions | Required? | Purpose |
-| --- | --- | --- | --- | --- | --- |
-| **Maint Post CI** | `.github/workflows/maint-30-post-ci.yml` | `workflow_run` (`Gate`), `workflow_dispatch` | `contents: write`, `pull-requests: write`, `issues: write`, `checks: read`, `actions: read` | No | Consolidated follower that posts Gate summaries, reapplies autofix, and maintains the `ci-failure` rollup issue. |
 | **Maint 33 Check Failure Tracker** | `.github/workflows/maint-33-check-failure-tracker.yml` | `workflow_run` (`Gate`) | `contents: read` | No | Compatibility shell documenting delegation to Maint Post CI. |
 | **Maint 45 Cosmetic Repair** | `.github/workflows/maint-34-cosmetic-repair.yml` | `workflow_dispatch` | `contents: write`, `pull-requests: write` | No | Manual pytest + guardrail fixer that opens a labelled PR when drift is detected. |
 | **Maint 02 Repo Health** | `.github/workflows/health-41-repo-health.yml` | Monday cron (`15 7 * * 1`), `workflow_dispatch` | `contents: read`, `issues: read` | No | Weekly stale-branch and unassigned-issue sweep. |
@@ -125,9 +122,6 @@ existing automation to **Agents 70 Orchestrator** instead.
 - **Gate** – Permissions: defaults (read scope). Secrets: relies on `GITHUB_TOKEN` only. Status outputs: `core tests (3.11)`, `core tests (3.12)`, `docker smoke`, and the aggregator job `gate`, which fails if any dependency fails.
 - **Autofix** – Permissions: `contents: write`, `pull-requests: write`. Secrets: inherits `GITHUB_TOKEN` (sufficient for label + comment updates). Status outputs: `apply` job; labels applied include `autofix`, `autofix:applied`/`autofix:patch`, and cleanliness toggles (`autofix:clean`/`autofix:debt`).
 
-These jobs must stay green for PRs to merge. The post-CI maintenance jobs below listen to their `workflow_run` events and post summaries whenever the Gate aggregator fails.
-
-### Maintenance & observability (scheduled/optional reruns)
 
 | Workflow | File | Trigger(s) | Permissions | Required? | Purpose |
 |----------|------|------------|-------------|-----------|---------|
@@ -141,7 +135,6 @@ These jobs must stay green for PRs to merge. The post-CI maintenance jobs below 
 | `agents-63-chatgpt-issue-sync.yml` (`Maint 41 ChatGPT Issue Sync`) | `.github/workflows/agents-63-chatgpt-issue-sync.yml` | `workflow_dispatch` (manual) | `contents: read`, `issues: write` | No | Fans out curated topic lists (e.g. `Issues.txt`) into labeled GitHub issues. ⚠️ Repository policy: do not remove without a functionally equivalent replacement. |
 | `maint-34-cosmetic-repair.yml` (`Maint 45 Cosmetic Repair`) | `.github/workflows/maint-34-cosmetic-repair.yml` | `workflow_dispatch` | `contents: write`, `pull-requests: write` | No | Manual pytest + guardrail fixer that applies tolerance/snapshot updates and opens a labelled PR when drift is detected. |
 
-### Repo health troubleshooting
 
 - **Symptom:** `Maint 02 Repo Health` or `Maint 35 Repo Health Self Check` stops with `Resource not accessible by integration` or warns that branch protection visibility is missing.
 - **Remedies:**
@@ -155,7 +148,7 @@ These jobs must stay green for PRs to merge. The post-CI maintenance jobs below 
 
 ### Agent automation entry points
 
-`agents-70-orchestrator.yml` (`Agents 70 Orchestrator`) is the scheduled automation entry point. It runs on a 20-minute cron and can also be dispatched manually. Both methods call the reusable agents toolkit to perform readiness probes, Codex bootstrap, diagnostics, verification, and keepalive sweeps. The numbered (`agents-62-consumer.yml`) and legacy (`agents-consumer.yml`) wrappers remain in the tree only as **deprecated** compatibility shims for external automation that still emits a `params_json` payload. New automation must invoke the orchestrator directly.
+`agents-70-orchestrator.yml` (`Agents 70 Orchestrator`) is the scheduled automation entry point. It runs on a 20-minute cron and can also be dispatched manually. Both methods call the reusable agents toolkit to perform readiness probes, Codex bootstrap, diagnostics, verification, and keepalive sweeps. The numbered (`agents-62-consumer.yml`) and legacy (`agents-consumer.yml`) wrappers remain in the tree only as **deprecated** compatibility shims for external automation that still emits a `params_json` payload; each wrapper converts the blob into the orchestrator’s `options_json` format. New automation should call the orchestrator directly.
 
 The Codex Issue Bridge is a label-driven helper for seeding bootstrap PRs, while `agents-64-verify-agent-assignment.yml` exposes the verification logic as a reusable workflow-call entry point that the orchestrator consumes.
 
@@ -174,9 +167,7 @@ The Codex Issue Bridge is a label-driven helper for seeding bootstrap PRs, while
    - **Options JSON**: supply nested overrides (for example `{ "bootstrap": { "label": "agent:codex" }, "diagnostic_mode": "dry-run" }`).
 3. Click **Run workflow**. The orchestrator fan-outs through `reusable-70-agents.yml`; job summaries include readiness tables, bootstrap status, verification notes, and links to spawned PRs.
 
-**Programmatic dispatch (`params_json` example).** Tooling that still posts a single JSON blob can reuse the schema below. Encode it as the `params_json` string and either:
-- call the orchestrator directly via the REST API (`POST /repos/{owner}/{repo}/actions/workflows/agents-70-orchestrator.yml/dispatches`) by placing the JSON inside the `inputs` object, or
-- hand it to the deprecated consumer wrapper (`agents-62-consumer.yml`) while you migrate clients—the wrapper simply forwards the resolved keys to the orchestrator.
+**Programmatic dispatch (`options_json` example).** Tooling can post the JSON payload directly through the orchestrator’s `options_json` input or hand it to the deprecated consumer wrapper while you migrate clients—the wrapper parses `params_json`, normalises the keys, and forwards the derived `options_json` payload to the orchestrator.
 
 ```json
 {
@@ -211,7 +202,7 @@ JSON
 
 gh workflow run agents-70-orchestrator.yml \
   --ref phase-2-dev \
-  --raw-field params_json="$(cat orchestrator.json)"
+  --raw-field options_json="$(cat orchestrator.json)"
 
 # Using the REST API with curl (requires a PAT that can dispatch workflows)
 curl -X POST \
@@ -221,11 +212,11 @@ curl -X POST \
   https://api.github.com/repos/stranske/Trend_Model_Project/actions/workflows/agents-70-orchestrator.yml/dispatches \
   -d @<(jq -nc \
     --arg ref "phase-2-dev" \
-    --arg params "$(cat orchestrator.json)" \
-    '{ref: $ref, inputs: {params_json: $params}}')
+  --arg options "$(cat orchestrator.json)" \
+  '{ref: $ref, inputs: {options_json: $options}}')
 ```
 
-Export `GITHUB_TOKEN` to a PAT or workflow token that can dispatch workflows before running the command above. Mix and match the JSON payload with individual dispatch inputs when overrides are required (for example add `--raw-field enable_readiness=false` to override the JSON flag). The same `params_json` payload is safe to reuse with `agents-62-consumer.yml` while migrating automation; the wrapper normalises the object and passes it straight to the orchestrator.
+Export `GITHUB_TOKEN` to a PAT or workflow token that can dispatch workflows before running the command above. Mix and match the JSON payload with individual dispatch inputs when overrides are required (for example add `--raw-field enable_readiness=false` to override the JSON flag). If upstream automation still emits `params_json`, route it through `agents-62-consumer.yml`; the wrapper converts the blob to `options_json` and forwards it to the orchestrator.
 
 > **Prerequisites:** The CLI example assumes the GitHub CLI is installed and authenticated. The REST variant relies on `jq` and Bash process substitution (`@<()`); on macOS install `jq` via Homebrew and run the command inside a shell that supports process substitution (e.g. `bash`, `zsh`). Windows users can adapt the payload generation by writing the JSON to a temporary file and referencing it with `--data @file.json` instead.
 
@@ -235,7 +226,7 @@ Export `GITHUB_TOKEN` to a PAT or workflow token that can dispatch workflows bef
 | ------- | ------------ | ------------- | ------ |
 | Readiness probe fails immediately | Missing PAT or permissions | `orchestrate` job summary → “Authentication” step | Provide `SERVICE_BOT_PAT` secret or rerun with reduced scope. |
 | Bootstrap skipped despite `enable_bootstrap` | No matching labelled issues | Job summary → “Bootstrap Planner” table | Add `agent:codex` label (or configured label) to target issues, rerun. |
-| Bootstrap run exits with “Repository dirty” | Prior automation left branches open | Job log → `cleanup` step | Manually close stale branches or enable cleanup via the `params_json` payload (set `{"options_json":"{\\"cleanup\\":{\\"force\\":true}}"}`). |
+| Bootstrap run exits with “Repository dirty” | Prior automation left branches open | Job log → `cleanup` step | Manually close stale branches or enable cleanup via the `options_json` payload (set `{ "cleanup": { "force": true } }`). For compatibility wrappers that still accept `params_json`, wrap the payload inside the `options_json` key before dispatch. |
 | Readiness succeeds but Codex PR creation fails | Repository protections blocking pushes | Job log → `Create bootstrap branch` step | Ensure branch protection rules allow the automation account or supply a PAT with required scopes. |
 
 Escalate persistent failures by linking the failing run URL in the CI failure-tracker issue managed by Maint Post CI.
