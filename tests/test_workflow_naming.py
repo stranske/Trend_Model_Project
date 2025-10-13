@@ -101,7 +101,7 @@ EXPECTED_NAMES = {
     "agents-43-codex-issue-bridge.yml": "Agents 43 Codex Issue Bridge",
     "agents-62-consumer.yml": "Agents Consumer",
     "agents-63-chatgpt-issue-sync.yml": "Maint 41 ChatGPT Issue Sync",
-    "agents-64-verify-agent-assignment.yml": "Agents 44 Verify Agent Assignment",
+    "agents-64-verify-agent-assignment.yml": "Agents 64 Verify Agent Assignment",
     "agents-70-orchestrator.yml": "Agents 70 Orchestrator",
     "agents-consumer.yml": "Agents Consumer",
     "autofix.yml": "Autofix",
