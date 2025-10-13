@@ -211,7 +211,10 @@ def test_build_summary_comment_handles_irregular_run_data() -> None:
         coverage_section=None,
         required_groups_env=json.dumps(
             [
-                {"label": "Core Tests (3.11)", "patterns": [r"core\s*(tests?)?.*(3\.11|py\.?311)"]},
+                {
+                    "label": "Core Tests (3.11)",
+                    "patterns": [r"core\s*(tests?)?.*(3\.11|py\.?311)"],
+                },
             ]
         ),
     )
