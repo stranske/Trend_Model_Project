@@ -42,7 +42,7 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 - **`maint-34-cosmetic-repair.yml`** — Manual dispatch utility that runs `pytest -q`, applies guard-gated cosmetic fixes via `scripts/ci_cosmetic_repair.py`, and opens a labelled PR when changes exist.
 
 ### Agents
-- **`agents-70-orchestrator.yml`** — Hourly + manual dispatch entry point for readiness, Codex bootstrap, diagnostics, verification, and keepalive sweeps. Delegates to `reusable-70-agents.yml` and accepts extended options via `options_json`.
+- **`agents-70-orchestrator.yml`** — 20-minute cron plus manual dispatch entry point for readiness, Codex bootstrap, diagnostics, verification, and keepalive sweeps. Delegates to `reusable-70-agents.yml` and accepts extended options via `options_json`.
 - **`agents-43-codex-issue-bridge.yml`** — Label-driven helper that seeds Codex bootstrap PRs and can optionally auto-comment `@codex start`.
 - **`agents-63-chatgpt-issue-sync.yml`** — Manual issue fan-out that mirrors curated topic lists into GitHub issues.
 - **`agents-64-verify-agent-assignment.yml`** — Workflow-call validator ensuring `agent:codex` issues remain assigned to approved automation accounts.
