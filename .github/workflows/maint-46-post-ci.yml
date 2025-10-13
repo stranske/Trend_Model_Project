@@ -915,7 +915,7 @@ jobs:
               exit 1
             fi
           done
-          cat "$pin_file" >> "$GITHUB_ENV"
+          grep -E '^[[:space:]]*[A-Za-z0-9_]+=' "$pin_file" >> "$GITHUB_ENV"
       - name: Apply autofix and deliver changes
         id: apply
         if: steps.rerun.outputs.skip != 'true'
@@ -1143,7 +1143,7 @@ jobs:
               exit 1
             fi
           done
-          cat "$pin_file" >> "$GITHUB_ENV"
+          grep -E '^[[:space:]]*[A-Za-z0-9_]+=' "$pin_file" >> "$GITHUB_ENV"
       - name: Autofix, commit, and push (composite)
         id: autofix
         uses: ./.github/actions/autofix-commit-push
