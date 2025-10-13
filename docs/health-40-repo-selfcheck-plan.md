@@ -22,3 +22,8 @@
 - [x] Implement summary reporting that appends the outcome of each check to `$GITHUB_STEP_SUMMARY`.
 - [ ] Validate workflow locally or via `act` (if feasible) to ensure logic paths succeed with and without `SERVICE_BOT_PAT`.
 - [ ] Trigger a manual `workflow_dispatch` run in GitHub and comment the execution URL on the PR.
+
+### Validation Notes
+
+- 2025-10-13: Attempted to execute the workflow locally using `act`, but the container runtime is unavailable in the current environment (`Cannot connect to the Docker daemon`). Re-run the validation from an environment with Docker access to complete this checklist item.
+- Manual `workflow_dispatch` remains outstanding; once a GitHub runner triggers the job, capture the run URL in the PR discussion to close the final acceptance criterion.

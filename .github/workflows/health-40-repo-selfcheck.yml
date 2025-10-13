@@ -31,8 +31,17 @@ jobs:
               .filter(Boolean);
 
             const timestamp = new Date().toISOString();
-            const repoInfo = await github.rest.repos.get({ owner, repo });
-            const defaultBranch = repoInfo.data.default_branch;
+            let defaultBranch = context.payload?.repository?.default_branch || '';
+            try {
+              const repoInfo = await github.rest.repos.get({ owner, repo });
+              defaultBranch = repoInfo.data.default_branch || defaultBranch;
+            } catch (error) {
+              const message = `Failed to resolve default branch via GitHub API: ${error?.message || error}`;
+              core.warning(message);
+              if (!defaultBranch) {
+                defaultBranch = 'main';
+              }
+            }
 
             const missingLabels = [];
             for (const label of requiredLabels) {
