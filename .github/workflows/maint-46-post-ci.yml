@@ -1658,7 +1658,7 @@ jobs:
 
             const bodyBlock = [
               `Workflow: **${workflowName}**`,
-              `Slug: \\`${workflowSlug}\\``,
+              `Slug: \`${workflowSlug}\``,
               `Run: ${runUrl}`,
               '',
               `**Failure signature:** \`${signature}\` (hash over failed job + first failing step names + first stack line token)`,
