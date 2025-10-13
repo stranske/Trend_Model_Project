@@ -1620,13 +1620,21 @@ jobs:
             }).sort();
             const crypto = require('crypto');
             const sigHash = crypto.createHash('sha256').update(sigParts.join('|')).digest('hex').slice(0, 12);
+            const slugify = (value) => {
+              if (!value) return '';
+              return String(value)
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '')
+                .replace(/-{2,}/g, '-');
+            };
             const rawWorkflowName = (run.name || '').trim();
             const workflowName = rawWorkflowName || 'Workflow';
             const workflowPath = (run.path || '').trim();
             const workflowFile = workflowPath.split('/').pop() || '';
             const workflowStem = workflowFile.replace(/\.ya?ml$/i, '') || workflowFile;
-            const workflowIdRaw = workflowStem || workflowPath || '';
-            const workflowId = workflowIdRaw ? workflowIdRaw.toLowerCase() : '';
+            const workflowIdRaw = workflowStem || workflowPath || rawWorkflowName || '';
+            const workflowId = slugify(workflowIdRaw);
             const fallbackId = run.workflow_id ? `workflow-${run.workflow_id}` : (run.id ? `run-${run.id}` : 'workflow');
             const workflowKey = workflowId || fallbackId;
             const signature = `${workflowKey}|${sigHash}`;
@@ -1656,6 +1664,7 @@ jobs:
             const bodyBlock = [
               `Workflow: **${workflowName}**`,
               workflowPath ? `Workflow file: \`${workflowPath}\`` : null,
+              workflowId ? `Workflow slug: \`${workflowId}\`` : null,
               `Run: ${runUrl}`,
               '',
               `**Failure signature:** \`${signature}\` (hash over failed job + first failing step names + first stack line token)`,

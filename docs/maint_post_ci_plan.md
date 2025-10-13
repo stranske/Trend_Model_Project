@@ -17,10 +17,18 @@
 6. Rollout notes outline back-out steps in case regressions are discovered post-merge.
 
 ## Initial Task Checklist
-- [ ] Inventory current Maint Post CI and Failure Tracker workflow files, identifying all hard-coded job or workflow names.
-- [ ] Map the new workflow names to their corresponding jobs; define a normalization strategy for identifiers used in summaries and failure categories.
-- [ ] Update Maint Post CI summary generation logic to consume dynamic job metadata and enforce single-comment deduplication.
-- [ ] Adjust Failure Tracker categorization keys to rely on normalized workflow identifiers; ensure updates target existing issues when names change.
+- [x] Inventory current Maint Post CI and Failure Tracker workflow files, identifying all hard-coded job or workflow names.
+- [x] Map the new workflow names to their corresponding jobs; define a normalization strategy for identifiers used in summaries and failure categories.
+- [x] Update Maint Post CI summary generation logic to consume dynamic job metadata and enforce single-comment deduplication.
+- [x] Adjust Failure Tracker categorization keys to rely on normalized workflow identifiers; ensure updates target existing issues when names change.
 - [ ] Extend or add automated tests covering renamed-workflow scenarios for both systems.
 - [ ] Prepare manual validation steps, including creating an intentional failure PR to confirm tracker behavior.
 - [ ] Document evidence collection process and rollback steps in project notes.
+
+## Manual Validation Plan
+- Exercise Maint Post CI on a sandbox PR after a workflow rename by rerunning Gate and confirming the consolidated comment updates the existing post instead of creating a duplicate.
+- Trigger a controlled Gate job failure (e.g., force a lint failure) to validate the Failure Tracker reuses the existing issue signature after the rename and records the new occurrence count.
+
+## Evidence Tracking
+- Maint Post CI run link: _TBD_
+- Failure Tracker issue update link: _TBD_

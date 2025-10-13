@@ -21,22 +21,22 @@ def sample_runs() -> list[dict[str, object]]:
             "html_url": "https://example.test/gate/101",
             "jobs": [
                 {
-                    "name": "core tests (3.11)",
+                    "name": "Core Tests • py311",
                     "conclusion": "success",
                     "html_url": "https://example.test/gate/101/py311",
                 },
                 {
-                    "name": "core tests (3.12)",
+                    "name": "Core Tests • py312",
                     "conclusion": "success",
                     "html_url": "https://example.test/gate/101/py312",
                 },
                 {
-                    "name": "docker smoke",
+                    "name": "Docker Smoke Check",
                     "conclusion": "failure",
                     "html_url": "https://example.test/gate/101/docker",
                 },
                 {
-                    "name": "gate",
+                    "name": "Maint Gate Aggregator",
                     "conclusion": "failure",
                     "html_url": "https://example.test/gate/101/gate",
                 },
@@ -64,10 +64,10 @@ def test_build_summary_comment_renders_expected_sections(
         coverage_section=coverage_section,
         required_groups_env=json.dumps(
             [
-                {"label": "Core tests (3.11)", "patterns": [r"^core tests \(3\.11\)$"]},
-                {"label": "Core tests (3.12)", "patterns": [r"^core tests \(3\.12\)$"]},
-                {"label": "Docker smoke", "patterns": [r"^docker smoke$"]},
-                {"label": "Gate aggregator", "patterns": [r"^gate$"]},
+                {"label": "Core Tests (3.11)", "patterns": [r"^Core Tests • py311$"]},
+                {"label": "Core Tests (3.12)", "patterns": [r"^Core Tests • py312$"]},
+                {"label": "Docker Smoke", "patterns": [r"^Docker Smoke Check$"]},
+                {"label": "Gate Aggregator", "patterns": [r"^Maint Gate Aggregator$"]},
             ]
         ),
     )
@@ -78,14 +78,14 @@ def test_build_summary_comment_renders_expected_sections(
         "**Latest Runs:** ❌ failure — [Gate (#101)](https://example.test/gate/101)"
         in body
     )
-    assert "core tests (3.11): ✅ success" in body
-    assert "core tests (3.12): ✅ success" in body
-    assert "docker smoke: ❌ failure" in body
-    assert "gate: ❌ failure" in body
-    assert "| Gate / core tests (3.11) | ✅ success |" in body
-    assert "| Gate / core tests (3.12) | ✅ success |" in body
-    assert "| **Gate / docker smoke** | ❌ failure |" in body
-    assert "| **Gate / gate** | ❌ failure |" in body
+    assert "Core Tests • py311: ✅ success" in body
+    assert "Core Tests • py312: ✅ success" in body
+    assert "Docker Smoke Check: ❌ failure" in body
+    assert "Maint Gate Aggregator: ❌ failure" in body
+    assert "| Gate / Core Tests • py311 | ✅ success |" in body
+    assert "| Gate / Core Tests • py312 | ✅ success |" in body
+    assert "| **Gate / Docker Smoke Check** | ❌ failure |" in body
+    assert "| **Gate / Maint Gate Aggregator** | ❌ failure |" in body
     # Coverage lines should render with percentages and deltas
     assert "Coverage (jobs): 91.23%" in body
     assert "Coverage (worst job): 83.11%" in body
@@ -103,10 +103,10 @@ def test_build_summary_comment_handles_missing_runs_and_defaults() -> None:
         required_groups_env=None,
     )
 
-    assert "Core tests (3.11): ⏳ pending" in body
-    assert "Core tests (3.12): ⏳ pending" in body
-    assert "Docker smoke: ⏳ pending" in body
-    assert "Gate aggregator: ⏳ pending" in body
+    assert "Core Tests (3.11): ⏳ pending" in body
+    assert "Core Tests (3.12): ⏳ pending" in body
+    assert "Docker Smoke: ⏳ pending" in body
+    assert "Gate Aggregator: ⏳ pending" in body
     assert "**Latest Runs:** ⏳ pending — Gate" in body
     assert "_Updated automatically; will refresh" in body
     # When no jobs exist the fallback table entry is rendered
@@ -150,7 +150,7 @@ def test_job_table_prioritises_failing_and_pending_jobs(sample_runs):
     ]
 
     docker_index = next(
-        (i for i, line in enumerate(table_lines) if "docker smoke" in line), None
+        (i for i, line in enumerate(table_lines) if "Docker Smoke Check" in line), None
     )
     flaky_index = next(
         (i for i, line in enumerate(table_lines) if "flaky-suite" in line), None
@@ -211,7 +211,7 @@ def test_build_summary_comment_handles_irregular_run_data() -> None:
         coverage_section=None,
         required_groups_env=json.dumps(
             [
-                {"label": "Core tests (3.11)", "patterns": [r"^core tests \(3\.11\)$"]},
+                {"label": "Core Tests (3.11)", "patterns": [r"core\s*(tests?)?.*(3\.11|py\.?311)"]},
             ]
         ),
     )
@@ -234,7 +234,7 @@ def test_build_summary_comment_defaults_on_invalid_required_groups(
         required_groups_env="{not-json}",
     )
 
-    assert "core tests (3.11): ✅ success" in body
-    assert "core tests (3.12): ✅ success" in body
-    assert "docker smoke: ❌ failure" in body
-    assert "gate: ❌ failure" in body
+    assert "Core Tests • py311: ✅ success" in body
+    assert "Core Tests • py312: ✅ success" in body
+    assert "Docker Smoke Check: ❌ failure" in body
+    assert "Maint Gate Aggregator: ❌ failure" in body
