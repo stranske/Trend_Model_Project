@@ -3,6 +3,12 @@ name: Selftest 81 Reusable CI
 on:
   workflow_dispatch:
     inputs:
+      reason:
+        description: >-
+          Short note describing why the self-test is running. Appears in the
+          run summary for future reference.
+        required: false
+        default: Manual verification
       python-versions:
         description: >-
           JSON array of Python versions forwarded to `reusable-10-ci-python.yml`.
@@ -98,6 +104,7 @@ jobs:
           {
             echo "## Self-Test Matrix Summary"
             echo "Scenario job result: ${{ needs.scenario.result }}"
+            echo "Dispatch reason: ${{ inputs.reason }}"
             echo "Scenarios executed: ${SCENARIO_LIST}"
             echo "Workflow dispatch input (python-versions): ${{ inputs.python-versions }}"
             echo "Each reusable run uploads artifacts prefixed with \`sf-<scenario>-\`."

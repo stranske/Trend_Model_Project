@@ -40,6 +40,18 @@ post-processing workflow:
   remains available when the JSON `params_json` interface is required and now
   forwards inputs to the same reusable workflow.
 
+## Manual Self-Test Workflows
+
+Self-tests provide an opt-in regression net that mirrors production CI behaviour without polluting regular pull request status
+checks. Trigger them from the **Actions** tab by running `Selftest 81 Reusable CI` via **Run workflow** and supply a short reason
+for the dispatch (for example, "Verifying coverage delta after config tweak"). The workflow defaults to the pinned Python
+matrix used by CI, but you can override the JSON `python-versions` input to exercise additional interpreters when debugging.
+
+Each run posts a concise summary in the workflow run log describing the matrix outcome, dispatch reason, and scenarios executed.
+Download the `selftest-report` artifact to inspect the scenario-by-scenario inventory that the aggregate verification job
+validates. Missing artifacts or unexpected uploads indicate a drift between reusable job expectations and scenario outputs; fix
+the offending scenario before re-running the self-test.
+
 ## Quick Checklist (Before Every Push)
 
 1. Fast dev validation (changed files only):
