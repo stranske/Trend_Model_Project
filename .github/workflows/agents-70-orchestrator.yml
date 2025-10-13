@@ -42,7 +42,7 @@ on:
         required: false
         default: 'false'
       options_json:
-        description: 'Additional toggles as JSON (diagnostic_mode, readiness_custom_logins, codex_command_phrase, ... )'
+        description: 'JSON payload for advanced toggles (diagnostic_mode, readiness_custom_logins, bootstrap overrides, keepalive)'
         required: false
         default: '{}'
 
@@ -56,34 +56,206 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  resolve-params:
+    name: Resolve Parameters
+    runs-on: ubuntu-latest
+    outputs:
+      enable_readiness: ${{ steps.merge.outputs.enable_readiness }}
+      readiness_agents: ${{ steps.merge.outputs.readiness_agents }}
+      readiness_custom_logins: ${{ steps.merge.outputs.readiness_custom_logins }}
+      require_all: ${{ steps.merge.outputs.require_all }}
+      enable_preflight: ${{ steps.merge.outputs.enable_preflight }}
+      codex_user: ${{ steps.merge.outputs.codex_user }}
+      codex_command_phrase: ${{ steps.merge.outputs.codex_command_phrase }}
+      enable_diagnostic: ${{ steps.merge.outputs.enable_diagnostic }}
+      diagnostic_attempt_branch: ${{ steps.merge.outputs.diagnostic_attempt_branch }}
+      diagnostic_dry_run: ${{ steps.merge.outputs.diagnostic_dry_run }}
+      enable_verify_issue: ${{ steps.merge.outputs.enable_verify_issue }}
+      verify_issue_number: ${{ steps.merge.outputs.verify_issue_number }}
+      enable_watchdog: ${{ steps.merge.outputs.enable_watchdog }}
+      enable_keepalive: ${{ steps.merge.outputs.enable_keepalive }}
+      enable_bootstrap: ${{ steps.merge.outputs.enable_bootstrap }}
+      bootstrap_issues_label: ${{ steps.merge.outputs.bootstrap_issues_label }}
+      draft_pr: ${{ steps.merge.outputs.draft_pr }}
+      options_json: ${{ steps.merge.outputs.options_json }}
+    steps:
+      - name: Merge dispatch inputs
+        id: merge
+        uses: actions/github-script@v7
+        env:
+          OPTIONS_JSON_RAW: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.options_json || inputs.options_json || '{}' }}
+          OPTIONS_JSON_SANITISED: ${{ toJson(fromJson(inputs.options_json || '{}')) }}
+          BASE_ENABLE_READINESS: ${{ inputs.enable_readiness || 'false' }}
+          BASE_READINESS_AGENTS: ${{ inputs.readiness_agents || 'copilot,codex' }}
+          BASE_REQUIRE_ALL: ${{ inputs.require_all || 'false' }}
+          BASE_ENABLE_PREFLIGHT: ${{ inputs.enable_preflight || 'false' }}
+          BASE_CODEX_USER: ${{ inputs.codex_user || '' }}
+          BASE_ENABLE_VERIFY_ISSUE: ${{ inputs.enable_verify_issue || 'false' }}
+          BASE_VERIFY_ISSUE_NUMBER: ${{ inputs.verify_issue_number || '' }}
+          BASE_ENABLE_WATCHDOG: ${{ inputs.enable_watchdog || 'true' }}
+          BASE_DRAFT_PR: ${{ inputs.draft_pr || 'false' }}
+        with:
+          script: |
+            const core = require('@actions/core');
+
+            const defaults = {
+              enable_readiness: process.env.BASE_ENABLE_READINESS || 'false',
+              readiness_agents: process.env.BASE_READINESS_AGENTS || 'copilot,codex',
+              readiness_custom_logins: '',
+              require_all: process.env.BASE_REQUIRE_ALL || 'false',
+              enable_preflight: process.env.BASE_ENABLE_PREFLIGHT || 'false',
+              codex_user: process.env.BASE_CODEX_USER || '',
+              codex_command_phrase: '',
+              enable_verify_issue: process.env.BASE_ENABLE_VERIFY_ISSUE || 'false',
+              verify_issue_number: process.env.BASE_VERIFY_ISSUE_NUMBER || '',
+              enable_watchdog: process.env.BASE_ENABLE_WATCHDOG || 'true',
+              enable_keepalive: 'true',
+              enable_bootstrap: 'false',
+              bootstrap_issues_label: 'agent:codex',
+              draft_pr: process.env.BASE_DRAFT_PR || 'false',
+              options_json: '{}',
+              diagnostic_mode: 'off',
+            };
+
+            const asString = (value, fallback = '') => {
+              if (value === undefined || value === null) {
+                return fallback;
+              }
+              if (Array.isArray(value)) {
+                return value.map((item) => String(item).trim()).filter(Boolean).join(',');
+              }
+              return String(value);
+            };
+
+            const asBoolString = (value, fallback) => {
+              const candidate = value === undefined ? fallback : value;
+              if (typeof candidate === 'boolean') {
+                return candidate ? 'true' : 'false';
+              }
+              if (typeof candidate === 'number') {
+                return candidate !== 0 ? 'true' : 'false';
+              }
+              if (typeof candidate === 'string') {
+                const norm = candidate.trim().toLowerCase();
+                if (['true', '1', 'yes', 'y', 'on'].includes(norm)) {
+                  return 'true';
+                }
+                if (['false', '0', 'no', 'n', 'off', ''].includes(norm)) {
+                  return 'false';
+                }
+              }
+              return fallback === 'true' || fallback === true ? 'true' : 'false';
+            };
+
+            const rawInput = process.env.OPTIONS_JSON_RAW || '';
+            const fallbackJson = process.env.OPTIONS_JSON_SANITISED || '{}';
+
+            let parsed = {};
+            let optionsJson = fallbackJson || '{}';
+
+            if (rawInput.trim()) {
+              try {
+                parsed = JSON.parse(rawInput);
+                optionsJson = JSON.stringify(parsed);
+              } catch (error) {
+                core.warning(`Invalid options_json payload (${error.message}). Falling back to defaults.`);
+                try {
+                  parsed = JSON.parse(fallbackJson || '{}');
+                  optionsJson = fallbackJson || '{}';
+                } catch (fallbackError) {
+                  core.warning(`Fallback options_json payload could not be parsed (${fallbackError.message}). Using empty defaults.`);
+                  parsed = {};
+                  optionsJson = '{}';
+                }
+              }
+            } else {
+              try {
+                parsed = JSON.parse(fallbackJson || '{}');
+                optionsJson = fallbackJson || '{}';
+              } catch (error) {
+                core.warning(`Sanitised options_json payload could not be parsed (${error.message}). Using empty defaults.`);
+                parsed = {};
+                optionsJson = '{}';
+              }
+            }
+
+            const nested = (value) => (value && typeof value === 'object' ? value : {});
+
+            const bootstrap = nested(parsed.bootstrap);
+            const keepalive = nested(parsed.keepalive);
+
+            const readinessAgents = asString(parsed.readiness_agents, defaults.readiness_agents);
+            const readinessCustom = asString(parsed.readiness_custom_logins ?? parsed.custom_logins, defaults.readiness_custom_logins);
+            const codexUser = asString(parsed.codex_user, defaults.codex_user);
+            const codexCommand = asString(parsed.codex_command_phrase, defaults.codex_command_phrase);
+            const verifyIssueNumber = asString(parsed.verify_issue_number, defaults.verify_issue_number).trim();
+            const diagnosticModeRaw = asString(parsed.diagnostic_mode, defaults.diagnostic_mode).trim().toLowerCase();
+            const diagnosticMode = ['full', 'dry-run'].includes(diagnosticModeRaw) ? diagnosticModeRaw : 'off';
+
+            const enableBootstrap = asBoolString(parsed.enable_bootstrap ?? bootstrap.enable, defaults.enable_bootstrap);
+            const bootstrapLabel = asString(parsed.bootstrap_issues_label ?? bootstrap.label, defaults.bootstrap_issues_label);
+
+            const enableKeepalive = asBoolString(parsed.enable_keepalive ?? keepalive.enabled, defaults.enable_keepalive);
+
+            const enableVerifyIssue = asBoolString(
+              parsed.enable_verify_issue,
+              defaults.enable_verify_issue === 'true' || verifyIssueNumber !== '' ? 'true' : 'false'
+            );
+
+            const outputs = {
+              enable_readiness: asBoolString(parsed.enable_readiness, defaults.enable_readiness),
+              readiness_agents: readinessAgents || defaults.readiness_agents,
+              readiness_custom_logins: readinessCustom,
+              require_all: asBoolString(parsed.require_all, defaults.require_all),
+              enable_preflight: asBoolString(parsed.enable_preflight, defaults.enable_preflight),
+              codex_user: codexUser,
+              codex_command_phrase: codexCommand,
+              enable_diagnostic: diagnosticMode === 'off' ? 'false' : 'true',
+              diagnostic_attempt_branch: diagnosticMode === 'full' ? 'true' : 'false',
+              diagnostic_dry_run: diagnosticMode === 'full' ? 'false' : 'true',
+              enable_verify_issue,
+              verify_issue_number: verifyIssueNumber,
+              enable_watchdog: asBoolString(parsed.enable_watchdog, defaults.enable_watchdog),
+              enable_keepalive: enableKeepalive,
+              enable_bootstrap: enableBootstrap,
+              bootstrap_issues_label: bootstrapLabel,
+              draft_pr: asBoolString(parsed.draft_pr, defaults.draft_pr),
+              options_json: optionsJson,
+            };
+
+            for (const [key, value] of Object.entries(outputs)) {
+              core.setOutput(key, value);
+            }
+
+            const summary = core.summary;
+            summary.addHeading('Agents orchestrator parameters');
+            summary.addTable([
+              [{ data: 'Key', header: true }, { data: 'Value', header: true }],
+              ...Object.entries(outputs).map(([key, value]) => [key, String(value ?? '')])
+            ]);
+            await summary.write();
+
   orchestrate:
     name: Dispatch Agents Toolkit
+    needs: resolve-params
     uses: ./.github/workflows/reusable-70-agents.yml
-    # Job timeouts live inside reusable-70-agents.yml because workflow-call
-    # dispatchers cannot set timeout-minutes directly. See reusable workflow for
-    # the 30 minute ceiling that guards the downstream fan-out.
-    # options_json schema (strings, defaults shown):
-    # {
-    #   "diagnostic_mode": "off" | "dry-run" | "full",
-    #   "readiness_custom_logins": "login-a,login-b",
-    #   "codex_command_phrase": "@codex start"
-    # }
+    # Job timeouts live inside reusable-70-agents.yml to satisfy workflow_call constraints.
     with:
-      enable_readiness: ${{ inputs.enable_readiness || 'false' }}
-      readiness_agents: ${{ inputs.readiness_agents || 'copilot,codex' }}
-      readiness_custom_logins: ${{ fromJson(inputs.options_json || '{}').readiness_custom_logins || '' }}
-      require_all: ${{ inputs.require_all || 'false' }}
-      enable_preflight: ${{ inputs.enable_preflight || 'false' }}
-      codex_user: ${{ inputs.codex_user || '' }}
-      codex_command_phrase: ${{ fromJson(inputs.options_json || '{}').codex_command_phrase || '' }}
-      enable_diagnostic: ${{ (fromJson(inputs.options_json || '{}').diagnostic_mode || 'off') != 'off' && 'true' || 'false' }}
-      diagnostic_attempt_branch: ${{ (fromJson(inputs.options_json || '{}').diagnostic_mode || 'off') == 'full' && 'true' || 'false' }}
-      diagnostic_dry_run: ${{ (fromJson(inputs.options_json || '{}').diagnostic_mode || 'off') == 'full' && 'false' || 'true' }}
-      enable_verify_issue: ${{ inputs.enable_verify_issue || ((inputs.verify_issue_number || '') != '' && 'true' || 'false') }}
-      verify_issue_number: ${{ inputs.verify_issue_number || '' }}
-      enable_watchdog: ${{ inputs.enable_watchdog || 'true' }}
-      enable_keepalive: ${{ (fromJson(inputs.options_json || '{}').enable_keepalive == false || fromJson(inputs.options_json || '{}').enable_keepalive == 'false' || (fromJson(inputs.options_json || '{}').keepalive && (fromJson(inputs.options_json || '{}').keepalive.enabled == false || fromJson(inputs.options_json || '{}').keepalive.enabled == 'false'))) && 'false' || 'true' }}
-      enable_bootstrap: ${{ (fromJson(inputs.options_json || '{}').enable_bootstrap == true || fromJson(inputs.options_json || '{}').enable_bootstrap == 'true' || (fromJson(inputs.options_json || '{}').bootstrap && (fromJson(inputs.options_json || '{}').bootstrap.enable == true || fromJson(inputs.options_json || '{}').bootstrap.enable == 'true'))) && 'true' || 'false' }}
-      bootstrap_issues_label: ${{ fromJson(inputs.options_json || '{}').bootstrap_issues_label || (fromJson(inputs.options_json || '{}').bootstrap && fromJson(inputs.options_json || '{}').bootstrap.label) || 'agent:codex' }}
-      draft_pr: ${{ inputs.draft_pr || 'false' }}
-      options_json: ${{ inputs.options_json || '{}' }}
+      enable_readiness: ${{ needs.resolve-params.outputs.enable_readiness }}
+      readiness_agents: ${{ needs.resolve-params.outputs.readiness_agents }}
+      readiness_custom_logins: ${{ needs.resolve-params.outputs.readiness_custom_logins }}
+      require_all: ${{ needs.resolve-params.outputs.require_all }}
+      enable_preflight: ${{ needs.resolve-params.outputs.enable_preflight }}
+      codex_user: ${{ needs.resolve-params.outputs.codex_user }}
+      codex_command_phrase: ${{ needs.resolve-params.outputs.codex_command_phrase }}
+      enable_diagnostic: ${{ needs.resolve-params.outputs.enable_diagnostic }}
+      diagnostic_attempt_branch: ${{ needs.resolve-params.outputs.diagnostic_attempt_branch }}
+      diagnostic_dry_run: ${{ needs.resolve-params.outputs.diagnostic_dry_run }}
+      enable_verify_issue: ${{ needs.resolve-params.outputs.enable_verify_issue }}
+      verify_issue_number: ${{ needs.resolve-params.outputs.verify_issue_number }}
+      enable_watchdog: ${{ needs.resolve-params.outputs.enable_watchdog }}
+      enable_keepalive: ${{ needs.resolve-params.outputs.enable_keepalive }}
+      enable_bootstrap: ${{ needs.resolve-params.outputs.enable_bootstrap }}
+      bootstrap_issues_label: ${{ needs.resolve-params.outputs.bootstrap_issues_label }}
+      draft_pr: ${{ needs.resolve-params.outputs.draft_pr }}
+      options_json: ${{ needs.resolve-params.outputs.options_json }}
