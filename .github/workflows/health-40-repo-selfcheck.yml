@@ -62,30 +62,38 @@ jobs:
             let privilegedChecksSkipped = false;
 
             const runPrivilegedCheck = async () => {
-              const { Octokit } = require('@octokit/rest');
-              const elevatedGithub = new Octokit({ auth: serviceBotPat });
-              try {
-                await elevatedGithub.repos.getBranchProtection({
-                  owner,
-                  repo,
-                  branch: defaultBranch,
-                });
+              const endpoint = `https://api.github.com/repos/${owner}/${repo}/branches/${defaultBranch}/protection`;
+              const headers = {
+                'Accept': 'application/vnd.github+json',
+                'User-Agent': 'repo-health-selfcheck',
+                'Authorization': `token ${serviceBotPat}`,
+              };
+
+              const response = await fetch(endpoint, { headers });
+
+              if (response.status === 200) {
                 branchStatus = 'enabled';
                 branchNote = `Branch protection is configured for ${defaultBranch}.`;
-              } catch (error) {
-                if (error.status === 404) {
-                  branchStatus = 'missing';
-                  branchNote = `Branch protection is not configured for ${defaultBranch}.`;
-                } else if (error.status === 403) {
-                  branchStatus = 'forbidden';
-                  branchNote = 'The supplied token lacks permission to read branch protection settings.';
-                  core.warning(branchNote);
-                } else {
-                  branchStatus = 'error';
-                  branchNote = `Branch protection check failed: ${error.message}`;
-                  core.warning(branchNote);
-                }
+                return;
               }
+
+              if (response.status === 404) {
+                branchStatus = 'missing';
+                branchNote = `Branch protection is not configured for ${defaultBranch}.`;
+                return;
+              }
+
+              if (response.status === 403) {
+                branchStatus = 'forbidden';
+                branchNote = 'The supplied token lacks permission to read branch protection settings.';
+                core.warning(branchNote);
+                return;
+              }
+
+              branchStatus = 'error';
+              const detail = await response.text();
+              branchNote = `Branch protection check failed with status ${response.status}: ${detail}`;
+              core.warning(branchNote);
             };
 
             if (serviceBotPat) {
