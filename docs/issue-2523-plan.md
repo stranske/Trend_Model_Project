@@ -11,7 +11,7 @@
 1. `agents-70-orchestrator.yml` successfully invokes `agents-64-verify-agent-assignment.yml` without “workflow was not found” errors for both `schedule` and `workflow_dispatch` triggers.
 2. The verify assignment reusable workflow exposes `on.workflow_call` inputs matching orchestrator expectations, executes within orchestrator runs, and the job graph reflects the verify step.
 3. A manual orchestrator dispatch with `enable_verify_issue: true` and a real issue number completes successfully, with run summary evidence attached (e.g., screenshot or log link).
-4. All references to the obsolete verify-workflow identifier are removed from the repository (workflows, docs, comments), leaving `agents-64-verify-agent-assignment.yml` as the canonical target.
+4. All references to the obsolete `agents-44-verify-agent-assignment.yml` identifier are removed from the repository (workflows, docs, comments), leaving `agents-64-verify-agent-assignment.yml` as the canonical target.
 5. CI “Gate” workflow continues to pass with no new failing checks introduced by the updates.
 
 ## Initial Task Checklist
@@ -23,4 +23,4 @@
 - [x] Confirm Gate workflow (and other required checks) pass post-update (CI signal tracked via the pull request Gate run).
 
 ## Manual verification run log
-- _Placeholder:_ Record the URL of the orchestrator run that exercised the verify path and attach summary evidence once executed.
+- _Pending:_ Trigger a manual **Agents 70 Orchestrator** dispatch with `enable_verify_issue=true` (supply a real issue id) once CI is green, then record the run URL and attach the summary evidence here.

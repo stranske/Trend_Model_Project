@@ -195,7 +195,7 @@ jobs:
 
             const enableKeepalive = asBoolString(parsed.enable_keepalive ?? keepalive.enabled, defaults.enable_keepalive);
 
-            const enableVerifyIssue = asBoolString(
+            const enableVerifyIssueValue = asBoolString(
               parsed.enable_verify_issue,
               defaults.enable_verify_issue === 'true' || verifyIssueNumber !== '' ? 'true' : 'false'
             );
@@ -211,7 +211,7 @@ jobs:
               enable_diagnostic: diagnosticMode === 'off' ? 'false' : 'true',
               diagnostic_attempt_branch: diagnosticMode === 'full' ? 'true' : 'false',
               diagnostic_dry_run: diagnosticMode === 'full' ? 'false' : 'true',
-              enable_verify_issue,
+              'enable_verify_issue': enableVerifyIssueValue,
               verify_issue_number: verifyIssueNumber,
               enable_watchdog: asBoolString(parsed.enable_watchdog, defaults.enable_watchdog),
               enable_keepalive: enableKeepalive,
