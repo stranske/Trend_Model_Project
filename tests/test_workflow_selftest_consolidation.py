@@ -21,7 +21,7 @@ def test_selftest_workflow_inventory() -> None:
 
 
 def test_selftest_triggers_are_manual_only() -> None:
-    """Self-test workflows must only expose manual or scheduled triggers."""
+    """Self-test workflows must only expose manual dispatch triggers."""
 
     selftest_files = sorted(WORKFLOW_DIR.glob("*selftest*.yml"))
     assert selftest_files, "Expected at least one self-test workflow definition."
@@ -62,7 +62,7 @@ def test_selftest_triggers_are_manual_only() -> None:
         unsupported = sorted(trigger_keys - allowed_triggers)
         assert not unsupported, (
             f"{workflow_file.name} declares unsupported triggers: {unsupported}. "
-            "Only workflow_dispatch, schedule, or workflow_call are permitted."
+            "Only workflow_dispatch is permitted for active self-tests."
         )
 
         assert (
@@ -128,7 +128,7 @@ def test_archived_selftests_retain_manual_triggers() -> None:
 
     disallowed_triggers = {"pull_request", "pull_request_target", "push"}
     required_manual_trigger = "workflow_dispatch"
-    optional_triggers = {"schedule", "workflow_call"}
+    optional_triggers = {"workflow_call"}
     allowed_triggers = {required_manual_trigger} | optional_triggers
 
     for workflow_file in archived_files:
@@ -156,13 +156,13 @@ def test_archived_selftests_retain_manual_triggers() -> None:
         unexpected = sorted(trigger_keys & disallowed_triggers)
         assert not unexpected, (
             f"{workflow_file.name} exposes disallowed triggers: {unexpected}. "
-            "Archived self-tests should remain manual/cron only."
+            "Archived self-tests should remain manual-only entry points."
         )
 
         unsupported = sorted(trigger_keys - allowed_triggers)
         assert not unsupported, (
             f"{workflow_file.name} declares unsupported triggers: {unsupported}. "
-            "Only workflow_dispatch, schedule, or workflow_call are permitted."
+            "Only workflow_dispatch or workflow_call are permitted."
         )
 
         assert required_manual_trigger in trigger_keys, (
