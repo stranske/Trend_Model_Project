@@ -1550,6 +1550,19 @@ jobs:
             const { owner, repo } = context.repo;
             const runId = run.id;
 
+            const slugify = (value) => {
+              if (!value) {
+                return 'unknown-workflow';
+              }
+              const slug = String(value)
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '')
+                .replace(/--+/g, '-')
+                .trim();
+              return slug ? slug.slice(0, 80) : 'unknown-workflow';
+            };
+
             const RATE_LIMIT_MINUTES = parseInt(process.env.RATE_LIMIT_MINUTES || '15', 10);
             const STACK_TOKENS_ENABLED = /^true$/i.test(process.env.STACK_TOKENS_ENABLED || 'true');
             const STACK_TOKEN_MAX_LEN = parseInt(process.env.STACK_TOKEN_MAX_LEN || '160', 10);
@@ -1620,29 +1633,18 @@ jobs:
             }).sort();
             const crypto = require('crypto');
             const sigHash = crypto.createHash('sha256').update(sigParts.join('|')).digest('hex').slice(0, 12);
-            const slugify = (value) => {
-              if (!value) return '';
-              return String(value)
-                .toLowerCase()
-                .replace(/[^a-z0-9]+/g, '-')
-                .replace(/^-+|-+$/g, '')
-                .replace(/-{2,}/g, '-');
-            };
-            const rawWorkflowName = (run.name || '').trim();
-            const workflowName = rawWorkflowName || 'Workflow';
+            const rawWorkflowName = run.name || run.display_title || 'Workflow';
+            const workflowName = rawWorkflowName;
+            // Each fallback in this chain yields a defined string, so no nullish values reach the slug source.
             const workflowPath = (run.path || '').trim();
-            const workflowFile = workflowPath.split('/').pop() || '';
+            const workflowFile = (workflowPath.split('/').pop() || '').trim();
             const workflowStem = workflowFile.replace(/\.ya?ml$/i, '') || workflowFile;
             const workflowIdRaw = workflowStem || workflowPath || rawWorkflowName || '';
             const workflowId = slugify(workflowIdRaw);
             const fallbackId = run.workflow_id ? `workflow-${run.workflow_id}` : (run.id ? `run-${run.id}` : 'workflow');
             const workflowKey = workflowId || fallbackId;
             const signature = `${workflowKey}|${sigHash}`;
-            const titleSignatureBase = workflowName;
-            const titleSignature = titleSignatureBase && !titleSignatureBase.toLowerCase().includes(workflowKey)
-              ? `${titleSignatureBase}|${signature}`
-              : `${titleSignatureBase || workflowKey}|${sigHash}`;
-            const title = `Workflow Failure (${titleSignature})`;
+            const title = `Workflow Failure (${signature})`;
             const labels = ['ci-failure', 'ci', 'devops', 'priority: medium'];
             const COOLDOWN_SCOPE = (process.env.COOLDOWN_SCOPE || 'global').toLowerCase();
             const ESC_THRESHOLD = parseInt(process.env.OCCURRENCE_ESCALATE_THRESHOLD || '0', 10);
@@ -1663,8 +1665,7 @@ jobs:
 
             const bodyBlock = [
               `Workflow: **${workflowName}**`,
-              workflowPath ? `Workflow file: \`${workflowPath}\`` : null,
-              workflowId ? `Workflow slug: \`${workflowId}\`` : null,
+              `Workflow slug: \`${workflowId}\`,`
               `Run: ${runUrl}`,
               '',
               `**Failure signature:** \`${signature}\` (hash over failed job + first failing step names + first stack line token)`,
@@ -1676,7 +1677,7 @@ jobs:
               stackTable,
               '',
               `> NOTE: ${stackTokenNote}`
-            ].filter(Boolean).join('\n');
+            ].join('\n');
 
             if (/^true$/i.test(process.env.DISABLE_FAILURE_ISSUES || 'false')) {
               core.info('Failure issue tracking disabled via DISABLE_FAILURE_ISSUES.');
