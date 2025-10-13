@@ -151,6 +151,8 @@ jobs:
           DESCRIPTION: ${{ steps.summarize.outputs.description || 'Gate status pending' }}
           TARGET_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
+          # Post the result back to every relevant commit so GitHub's checks UI
+          # shows the Gate status for both merge commits and branch heads.
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
