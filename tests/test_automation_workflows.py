@@ -139,10 +139,11 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
 
         triggers = workflow.get("on") or workflow.get(True) or {}
         pull_request = triggers.get("pull_request", {})
-        ignores = pull_request.get("paths-ignore", [])
-        self.assertIn("docs/**", ignores)
-        self.assertIn("**/*.md", ignores)
-        self.assertIn("assets/**", ignores)
+        self.assertNotIn(
+            "paths-ignore",
+            pull_request,
+            "Gate workflow should rely on the changes detector instead of paths-ignore filters.",
+        )
 
         concurrency = workflow.get("concurrency", {})
         self.assertEqual(
@@ -154,7 +155,18 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         jobs = workflow.get("jobs", {})
         self.assertEqual(
             set(jobs.keys()),
-            {"core-tests-311", "core-tests-312", "docker-smoke", "gate"},
+            {"changes", "core-tests-311", "core-tests-312", "docker-smoke", "gate"},
+        )
+
+        job_changes = jobs["changes"]
+        changes_steps = job_changes.get("steps", [])
+        detect_step = next(
+            (step for step in changes_steps if step.get("id") == "diff"),
+            {},
+        )
+        self.assertTrue(
+            detect_step,
+            "changes job must expose the diff detection step with id 'diff'",
         )
 
         job_311 = jobs["core-tests-311"]
@@ -181,7 +193,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         job_gate = jobs["gate"]
         self.assertEqual(
             job_gate.get("needs"),
-            ["core-tests-311", "core-tests-312", "docker-smoke"],
+            ["changes", "core-tests-311", "core-tests-312", "docker-smoke"],
         )
         steps = job_gate.get("steps", [])
         summary_step = next(
