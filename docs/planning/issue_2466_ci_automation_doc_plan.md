@@ -3,7 +3,7 @@
 ## Scope and Key Constraints
 - Refresh the CI and automation documentation set to match the simplified workflow topology that is currently in production.
 - Confine updates to documentation artifacts; no workflow YAML or implementation changes are expected.
-- Treat the Orchestrator workflow as the canonical automation entry point and eliminate references to deprecated flows (agent-watchdog, unconstrained agents-consumer, legacy self-test variants).
+- Treat the Orchestrator workflow as the canonical automation entry point and eliminate references to deprecated flows (agent-watchdog, unconstrained agents-61-consumer-compat, legacy self-test variants).
 - Preserve alignment with the job names, triggers, and inputs that appear in the Actions UI today so new contributors can map docs to what they see live.
 - Provide concise visuals (diagram or table) without introducing heavy diagram tooling requirements; prefer Markdown-native tables or lightweight Mermaid.
 - Keep guidance consistent with existing README pointers and ensure cross-links (e.g., CONTRIBUTING.md, docs/ci/WORKFLOWS.md) are accurate after edits.

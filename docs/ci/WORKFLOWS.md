@@ -85,7 +85,7 @@ existing automation to **Agents 70 Orchestrator** instead.
 | Workflow | File | Trigger(s) | Permissions | Required? | Purpose |
 | --- | --- | --- | --- | --- | --- |
 | **Agents 62 Consumer** | `.github/workflows/agents-62-consumer.yml` | `workflow_dispatch` | `contents: write`, `pull-requests: write`, `issues: write` | No – **Deprecated compatibility shim.** Forwards normalised `params_json` payloads to the orchestrator for callers that cannot yet split dispatch inputs. |
-| **Agents Consumer (compat)** | `.github/workflows/agents-consumer.yml` | `workflow_dispatch` | `contents: write`, `pull-requests: write`, `issues: write` | No – **Deprecated legacy wrapper.** Retained temporarily for automation pinned to the historical slug; migrate to the orchestrator as soon as feasible. |
+| **Agents 61 Consumer Compat** | `.github/workflows/agents-61-consumer-compat.yml` | `workflow_dispatch` | `contents: write`, `pull-requests: write`, `issues: write` | No – **Deprecated legacy wrapper.** Formerly `agents-consumer.yml`; migrate to the orchestrator as soon as feasible. |
 
 ### Reusable composites
 
@@ -157,7 +157,7 @@ existing automation to **Agents 70 Orchestrator** instead.
 
 ### Agent automation entry points
 
-`agents-70-orchestrator.yml` (`Agents 70 Orchestrator`) is the scheduled automation entry point. It runs on a 20-minute cron and can also be dispatched manually. Both methods call the reusable agents toolkit to perform readiness probes, Codex bootstrap, diagnostics, verification, and keepalive sweeps. The numbered (`agents-62-consumer.yml`) and legacy (`agents-consumer.yml`) wrappers remain in the tree only as **deprecated** compatibility shims for external automation that still emits a `params_json` payload; each wrapper converts the blob into the orchestrator’s `options_json` format. New automation should call the orchestrator directly.
+`agents-70-orchestrator.yml` (`Agents 70 Orchestrator`) is the scheduled automation entry point. It runs on a 20-minute cron and can also be dispatched manually. Both methods call the reusable agents toolkit to perform readiness probes, Codex bootstrap, diagnostics, verification, and keepalive sweeps. The numbered compatibility wrappers (`agents-61-consumer-compat.yml` and `agents-62-consumer.yml`) remain in the tree only as **deprecated** shims for external automation that still emits a `params_json` payload; each wrapper converts the blob into the orchestrator’s `options_json` format. New automation should call the orchestrator directly.
 
 The Codex Issue Bridge is a label-driven helper for seeding bootstrap PRs, while `agents-64-verify-agent-assignment.yml` exposes the verification logic as a reusable workflow-call entry point that the orchestrator consumes.
 

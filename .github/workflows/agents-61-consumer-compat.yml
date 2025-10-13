@@ -1,4 +1,4 @@
-name: Agents Consumer
+name: Agents 61 Consumer Compat
 
 on:
   workflow_dispatch:
@@ -50,7 +50,7 @@ permissions:
   issues: write
 
 concurrency:
-  group: agents-consumer-${{ github.ref_name }}
+  group: agents-61-consumer-compat-${{ github.ref_name }}
   cancel-in-progress: true
 
 jobs:

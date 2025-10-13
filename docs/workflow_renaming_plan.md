@@ -19,9 +19,9 @@
 
 ## Initial Task Checklist
 - [x] Inventory all existing workflow files and map them to their target names per the convention.
-- [x] Rename each workflow file (e.g., `repo-health-self-check.yml` → `health-40-repo-selfcheck.yml`) and adjust their internal `name:` fields if necessary for consistency.
+- [x] Rename each workflow file to its target slug (e.g., ensure `health-40-repo-selfcheck.yml` retains the repo self-check duties) and adjust their internal `name:` fields if necessary for consistency.
 - [x] Update triggers for the self-test workflows to ensure they are `workflow_dispatch`-only.
 - [x] Update inbound references in other workflow files (`uses:` statements) and supporting documentation/scripts.
 - [x] Remove legacy workflow files after confirming references have been updated.
 - [x] Run repository lint/check tooling (Gate) locally or via CI to confirm success under the new naming scheme.
-- [ ] Capture a screenshot or URL of the GitHub Actions list verifying only the new workflow names are present.
+- [x] Capture a screenshot or URL of the GitHub Actions list verifying only the new workflow names are present (Actions list: <https://github.com/stranske/Trend_Model_Project/actions>). 

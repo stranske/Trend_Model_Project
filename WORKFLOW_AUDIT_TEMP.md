@@ -41,7 +41,7 @@ This list mirrors the canonical catalogue in `docs/ci/WORKFLOWS.md` after the Is
 ### Reusable Composites
 | Workflow | Triggers | Notes |
 |----------|----------|-------|
-| `agents-consumer.yml` | `workflow_dispatch` | Manual dispatcher that forwards inputs to `reusable-70-agents.yml` with a lightweight compatibility shim and a concurrency guard (`agents-consumer-${{ github.ref_name }}`). |
+| `agents-61-consumer-compat.yml` | `workflow_dispatch` | Manual dispatcher that forwards inputs to `reusable-70-agents.yml` with a lightweight compatibility shim and a concurrency guard (`agents-61-consumer-compat-${{ github.ref_name }}`); formerly `agents-consumer.yml`. |
 | `reusable-70-agents.yml` | `workflow_call` | Single agents composite implementing readiness, bootstrap, diagnostics, keepalive, and watchdog jobs for every caller (orchestrator, consumer, external). Legacy `reuse-agents.yml` was retired during the consolidation. |
 | `reusable-10-ci-python.yml` | `workflow_call` | General-purpose Python CI composite consumed by Gate and downstream repositories. |
 | `reusable-12-ci-docker.yml` | `workflow_call` | Docker smoke reusable consumed by Gate and external callers. |
@@ -61,8 +61,8 @@ This list mirrors the canonical catalogue in `docs/ci/WORKFLOWS.md` after the Is
 | Workflow | Status |
 |----------|--------|
 | Legacy `agents-41*`, `agents-42-watchdog.yml` | Deleted; automation now routes exclusively through `agents-70-orchestrator.yml` + `reusable-70-agents.yml`. |
-| `maint-31-autofix-residual-cleanup.yml`, `maint-34-quarantine-ttl.yml`, `maint-37-ci-selftest.yml`, `maint-38-cleanup-codex-bootstrap.yml`, `maint-45-merge-manager.yml`, `maint-48-selftest-reusable-ci.yml`, `maint-49-stale-prs.yml`, `maint-52-perf-benchmark.yml`, `maint-60-release.yml` | Archived during the earlier consolidation; list retained here for archaeology. |
-| `pr-01-gate-orchestrator.yml`, `pr-02-label-agent-prs.yml`, `pr-18-workflow-lint.yml`, `pr-20-selftest-pr-comment.yml`, `pr-30-codeql.yml`, `pr-31-dependency-review.yml`, `pr-path-labeler.yml` | Deleted; Gate + Autofix now cover PR CI. |
+| `maint-31-autofix-residual-cleanup.yml`, `maint-34-quarantine-ttl.yml`, `maint-37-ci-selftest.yml`, `maint-38-cleanup-codex-bootstrap.yml`, `maint-45-merge-manager.yml`, `maint-48-selftest-reusable-ci.yml` → `selftest-88-reusable-ci.yml`, `maint-49-stale-prs.yml`, `maint-52-perf-benchmark.yml`, `maint-60-release.yml` | Archived during the earlier consolidation; list retained here for archaeology. |
+| `pr-01-gate-orchestrator.yml`, `pr-02-label-agent-prs.yml`, `pr-18-workflow-lint.yml`, `pr-20-selftest-pr-comment.yml` → `selftest-82-pr-comment.yml`, `pr-30-codeql.yml`, `pr-31-dependency-review.yml`, `pr-path-labeler.yml` | Deleted; Gate + Autofix now cover PR CI. |
 
 ## Verification
 - `pytest tests/test_workflow_*.py` validates naming compliance, inventory coverage, and orchestrator wiring.
