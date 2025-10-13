@@ -36,6 +36,17 @@ run on every pull request, which artifacts each produces, and how the final
 | `docker-smoke` | docker smoke | Builds the project image and executes the smoke command through `reusable-12-ci-docker.yml`. | None (logs only). | Ensures packaging basics work before merge. |
 | `gate` | gate | Downloads successful coverage artifacts and renders the pull-request summary table. | Job summary with pass/fail table. | Hard-fails if any upstream job did not succeed; this status is the required merge check. |
 
+```mermaid
+flowchart TD
+    pr00["pr-00-gate.yml"] --> core311["core tests (3.11)\ncoverage-3.11 artifact"]
+    pr00 --> core312["core tests (3.12)\ncoverage-3.12 artifact"]
+    pr00 --> dockerSmoke["docker smoke\nimage build logs"]
+    core311 --> gate["gate aggregator\nreviews artifacts"]
+    core312 --> gate
+    dockerSmoke --> gate
+    gate --> status["Required Gate status\nblocks/permits merge"]
+```
+
 ### Maintenance & observability
 
 | Workflow | File | Trigger(s) | Permissions | Required? | Purpose |

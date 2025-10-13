@@ -27,7 +27,7 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 ## Final Workflow Set
 
 ### PR Checks
-- **`pr-00-gate.yml`** — Required orchestrator that calls the reusable Python (3.11/3.12) and Docker smoke workflows, then fails fast if any leg does not succeed.
+- **`pr-00-gate.yml`** — Required orchestrator that calls the reusable Python (3.11/3.12) and Docker smoke workflows, then fails fast if any leg does not succeed. See the Gate job map and flow diagram in [docs/ci/WORKFLOWS.md](ci/WORKFLOWS.md#gate-job-map) for a visual of the fan-out and aggregator enforcement.
 - **`pr-14-docs-only.yml`** — Docs-only detector that posts a skip notice instead of running heavier CI.
 - **`autofix.yml`** — PR autofix runner delegating to the reusable autofix composite.
 
