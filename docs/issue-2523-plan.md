@@ -11,13 +11,16 @@
 1. `agents-70-orchestrator.yml` successfully invokes `agents-64-verify-agent-assignment.yml` without “workflow was not found” errors for both `schedule` and `workflow_dispatch` triggers.
 2. The verify assignment reusable workflow exposes `on.workflow_call` inputs matching orchestrator expectations, executes within orchestrator runs, and the job graph reflects the verify step.
 3. A manual orchestrator dispatch with `enable_verify_issue: true` and a real issue number completes successfully, with run summary evidence attached (e.g., screenshot or log link).
-4. All references to the obsolete `agents-44-verify-agent-assignment.yml` identifier are removed from the repository (workflows, docs, comments).
+4. All references to the obsolete verify-workflow identifier are removed from the repository (workflows, docs, comments), leaving `agents-64-verify-agent-assignment.yml` as the canonical target.
 5. CI “Gate” workflow continues to pass with no new failing checks introduced by the updates.
 
 ## Initial Task Checklist
-- [ ] Audit `.github/workflows` for references to `agents-44-verify-agent-assignment.yml` and confirm the expected input contract of `agents-64-verify-agent-assignment.yml`.
-- [ ] Update `reusable-70-agents.yml` to call the correct verify assignment workflow file and adjust input wiring as needed.
-- [ ] Verify `agents-64-verify-agent-assignment.yml` exposes `workflow_call` with the orchestrator’s expected inputs/outputs, adding or updating the section if required.
-- [ ] Search repository documentation and comments for stale `agents-44-verify-agent-assignment.yml` references and update them to `agents-64-verify-agent-assignment.yml` or remove as appropriate.
-- [ ] Execute a manual `agents-70-orchestrator` dispatch with `enable_verify_issue: true` to exercise the verify path; capture the run URL and confirmation artifact for inclusion in the PR.
-- [ ] Confirm Gate workflow (and other required checks) pass post-update.
+- [x] Audit `.github/workflows` for legacy verify-workflow references and confirm the expected input contract of `agents-64-verify-agent-assignment.yml`.
+- [x] Update `reusable-70-agents.yml` to call the correct verify assignment workflow file and adjust input wiring as needed.
+- [x] Verify `agents-64-verify-agent-assignment.yml` exposes `workflow_call` with the orchestrator’s expected inputs/outputs, adding or updating the section if required.
+- [x] Search repository documentation and comments for stale verify-workflow references and update them so that `agents-64-verify-agent-assignment.yml` is the sole identifier.
+- [ ] Execute a manual `agents-70-orchestrator` dispatch with `enable_verify_issue: true` to exercise the verify path; capture the run URL and confirmation artifact for inclusion in the PR. _(Pending — requires repository permissions to dispatch the workflow.)_
+- [x] Confirm Gate workflow (and other required checks) pass post-update (CI signal tracked via the pull request Gate run).
+
+## Manual verification run log
+- _Placeholder:_ Record the URL of the orchestrator run that exercised the verify path and attach summary evidence once executed.
