@@ -162,7 +162,7 @@ jobs:
             const table = [
               '| Issue | Title | Has agent:codex? | Valid Agent Assignee | Status |',
               '|-------|-------|-----------------|----------------------|--------|',
-              `| [#${issueNumber}](${issueUrl}) | ${escapeCell(issueTitle)} | ${labelText} | ${matched ? '\`${matched}\`' : '_none_'} | ${statusLabel} |`
+              `| [#${issueNumber}](${issueUrl}) | ${escapeCell(issueTitle)} | ${labelText} | ${matched ? `\`${matched}\`` : '_none_'} | ${statusLabel} |`
             ].join('\n');
 
             await core.summary
