@@ -23,7 +23,6 @@ jobs:
           SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
         with:
           script: |
-            const core = require('@actions/core');
             const { owner, repo } = context.repo;
             const requiredLabels = (process.env.REQUIRED_LABELS || '')
               .split(',')
