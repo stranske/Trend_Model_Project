@@ -4,6 +4,7 @@ Store validation artifacts for issues #2495 and #2527 in this folder. Suggested 
 
 ```
 gate-branch-protection/
+  README.md                # Status summary and links to validation evidence
   pre-enforcement.json     # Snapshot captured before running --apply
   enforcement.json         # Snapshot captured during enforcement run
   post-enforcement.json    # Snapshot captured after the Gate check passes

@@ -25,6 +25,13 @@
 - Ensure snapshots redact secrets and include timestamps produced by the helper (`generated_at` field).
 - Archive workflow artifacts locally and commit the JSON summaries to the evidence folder for auditability.
 
+## Status Update — 2025-10-13
+- Planning artifacts and runbook references are in place.
+- Awaiting administrator-provided token with **Administration → Branches** scope to run
+  `tools/enforce_gate_branch_protection.py` and capture the evidence snapshots described
+  above.
+- Evidence bundle and validation PR are pending until the token is available.
+
 ## Resources
 - Helper script: [`tools/enforce_gate_branch_protection.py`](../../tools/enforce_gate_branch_protection.py)
 - Automation workflow: [`.github/workflows/health-44-gate-branch-protection.yml`](../../.github/workflows/health-44-gate-branch-protection.yml)
