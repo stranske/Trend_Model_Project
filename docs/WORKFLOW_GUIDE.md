@@ -43,7 +43,7 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 
 ### Agents
 - **`agents-70-orchestrator.yml`** — Hourly + manual dispatch entry point for readiness, Codex bootstrap, diagnostics, and keepalive sweeps. Delegates to `reusable-70-agents.yml` and accepts extended options via `options_json`. All prior consumer-style wrappers have been retired.
-- **`agents-62-consumer.yml`** — Manual-only JSON bridge that normalises inputs before calling `reusable-71-agents-dispatch.yml`.
+- **`agents-62-consumer.yml`** — Manual-only JSON bridge that normalises inputs before calling `reusable-70-agents.yml`.
 - **`agents-63-chatgpt-issue-sync.yml`** — Manual issue fan-out that mirrors curated topic lists into GitHub issues.
 - **`agents-64-verify-agent-assignment.yml`** — Workflow-call validator ensuring `agent:codex` issues remain assigned to approved automation accounts.
 

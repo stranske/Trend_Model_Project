@@ -33,7 +33,7 @@ This list mirrors the canonical catalogue in `docs/ci/WORKFLOWS.md` after the Is
 ### Agents
 | Workflow | Triggers | Notes |
 |----------|----------|-------|
-| `agents-62-consumer.yml` | workflow_dispatch | Manual-only JSON bridge that calls `reusable-71-agents-dispatch.yml`; concurrency guard `agents-62-consumer-${{ github.ref_name }}` prevents back-to-back dispatch collisions. |
+| `agents-62-consumer.yml` | workflow_dispatch | Manual-only JSON bridge that calls `reusable-70-agents.yml`; concurrency guard `agents-62-consumer-${{ github.ref_name }}` prevents back-to-back dispatch collisions. |
 | `agents-43-codex-issue-bridge.yml` | issues, workflow_dispatch | Restored Codex bootstrap automation for label-driven issue handling. |
 | `agents-64-verify-agent-assignment.yml` | workflow_call, workflow_dispatch | Validates that `agent:codex` issues remain assigned to an approved agent account before automation runs. |
 | `agents-70-orchestrator.yml` | schedule (*/20), workflow_dispatch | Unified agents toolkit entry point (readiness, diagnostics, Codex keepalive). |
@@ -42,9 +42,7 @@ This list mirrors the canonical catalogue in `docs/ci/WORKFLOWS.md` after the Is
 | Workflow | Triggers | Notes |
 |----------|----------|-------|
 | `agents-consumer.yml` | `workflow_dispatch` | Manual dispatcher that forwards inputs to `reusable-70-agents.yml` with a lightweight compatibility shim and a concurrency guard (`agents-consumer-${{ github.ref_name }}`). |
-| `reuse-agents.yml` | `workflow_call` | Bridges external callers to the reusable agents stack with consistent defaults. |
-| `reusable-70-agents.yml` | `workflow_call` | Implements readiness, bootstrap, diagnostics, keepalive, and watchdog jobs. |
-| `reusable-71-agents-dispatch.yml` | `workflow_call` | Adapter that maps dispatch inputs from numbered agent workflows to the reusable toolkit. |
+| `reusable-70-agents.yml` | `workflow_call` | Single agents composite implementing readiness, bootstrap, diagnostics, keepalive, and watchdog jobs for every caller (orchestrator, consumer, external). Legacy `reuse-agents.yml` was retired during the consolidation. |
 | `reusable-10-ci-python.yml` | `workflow_call` | General-purpose Python CI composite consumed by Gate and downstream repositories. |
 | `reusable-12-ci-docker.yml` | `workflow_call` | Docker smoke reusable consumed by Gate and external callers. |
 | `reusable-92-autofix.yml` | `workflow_call` | Autofix composite shared by `autofix.yml` and `maint-30-post-ci.yml`. |

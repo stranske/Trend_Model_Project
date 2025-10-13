@@ -1,14 +1,14 @@
 # Issue #2434 — Reuse Agents Workflow Parity Plan
 
 ## Scope & Key Constraints
-- Focus exclusively on the reusable workflow chain: `.github/workflows/reusable-71-agents-dispatch.yml` and `agents-70-orchestrator.yml`; avoid unrelated workflow edits.
+- Focus exclusively on the reusable workflow chain: `.github/workflows/reusable-70-agents.yml` and `agents-70-orchestrator.yml`; avoid unrelated workflow edits.
 - Preserve string-based condition checks (`if: inputs.flag == 'true'`) across all touched jobs to respect `workflow_call` input semantics.
-- Replace the broken JSON array concatenation in `reusable-71-agents-dispatch.yml` using `format()` or by emitting well-formed JSON from the producing step—no new third-party actions.
+- Replace the broken JSON array concatenation in `reusable-70-agents.yml` using `format()` or by emitting well-formed JSON from the producing step—no new third-party actions.
 - Validate parity before retiring `agent-watchdog.yml`; remove or disable it only after the reusable path covers watchdog responsibilities end-to-end.
 - Use workflow-dispatch tests with `enable_readiness`, `enable_watchdog`, and `bootstrap_issues_label=agent:codex`; document evidence without checking secrets into the repo.
 
 ## Acceptance Criteria / Definition of Done
-1. `reusable-71-agents-dispatch.yml` bootstraps issues labeled `agent:codex` without expression errors when run via `workflow_dispatch`.
+1. `reusable-70-agents.yml` bootstraps issues labeled `agent:codex` without expression errors when run via `workflow_dispatch`.
 2. The “Bootstrap Codex PRs” logic resolves the target issue number using a valid JSON expression or preformatted JSON output.
 3. `agents-70-orchestrator.yml` invokes the reusable workflow with aligned inputs and successfully completes its dependent jobs (the consumer wrapper has been retired).
 4. Agent watchdog functionality exists only within the reusable workflow path; the standalone `agent-watchdog.yml` workflow is removed or disabled with justification in commit history.
