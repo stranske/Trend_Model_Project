@@ -19,7 +19,7 @@ Manual dispatch / 20-minute schedule ──▶ agents-70-orchestrator.yml
 ```
 
 - No automatic label forwarding remains. Maintainers trigger the orchestrator directly from the Actions tab (manual
-  `workflow_dispatch`) or allow the hourly schedule to run readiness + watchdog checks.
+  `workflow_dispatch`) or allow the 20-minute schedule to run readiness + watchdog checks.
 - Codex keepalive now runs as part of the orchestrator invocation. Configure thresholds or disable it entirely via the
   `params_json` payload (e.g. `{ "enable_keepalive": false }`).
 - Bootstrap PR creation, diagnostics, and stale issue escalation now live entirely inside `agents-70-orchestrator.yml` and the
@@ -84,7 +84,7 @@ While the agent wrappers were removed, maintenance automation still supports the
    }
    ```
 3. Review the run summary for readiness tables, watchdog escalation indicators, and Codex bootstrap status.
-4. Repeat manual dispatches as needed; scheduled runs provide hourly coverage for stale bootstrap detection.
+4. Repeat manual dispatches as needed; scheduled runs provide 20-minute coverage for stale bootstrap detection.
 
 ## Security Considerations
 
@@ -97,6 +97,6 @@ While the agent wrappers were removed, maintenance automation still supports the
 
 - Extend `params_json` to cover any additional toggles without growing the dispatch form (embed an `options_json` string when nested structures are required).
 - Consider adding a lightweight CLI wrapper that posts curated `params_json` payloads for common scenarios.
-- Monitor usage; if the hourly schedule proves redundant, convert it to manual-only to further reduce background noise.
+- Monitor usage; if the 20-minute schedule proves redundant, convert it to manual-only to further reduce background noise.
 
 For questions or updates, open an issue labeled `agent:codex` describing the desired change.

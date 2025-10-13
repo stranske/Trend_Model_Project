@@ -121,7 +121,7 @@ Failures after preflight indicate persistent issues (permissions, logic) rather 
 
 ## Future Hardening Ideas
 
-- Use `agents-70-orchestrator.yml` (manual `workflow_dispatch` or wait for the hourly schedule) to replay bootstrap or run targeted diagnostics against branch + marker invariants.
+- Use `agents-70-orchestrator.yml` (manual `workflow_dispatch` or wait for the 20-minute schedule) to replay bootstrap or run targeted diagnostics against branch + marker invariants.
 - Emit a machine-readable JSON summary comment (reaction toggles rerun).
 - Add metrics export (counts of reused vs new bootstraps) to an org dashboard.
 
