@@ -1634,6 +1634,7 @@ jobs:
             const crypto = require('crypto');
             const sigHash = crypto.createHash('sha256').update(sigParts.join('|')).digest('hex').slice(0, 12);
             const workflowName = run.name || run.display_title || 'Workflow';
+            // Each fallback in this chain yields a defined string, so no nullish values reach the slug source.
             const workflowSignatureSource = run.path || run.workflow_path || run.name || run.id || workflowName;
             const workflowSlug = slugify(workflowSignatureSource);
             const signature = `${workflowSlug}|${sigHash}`;
@@ -1658,7 +1659,7 @@ jobs:
 
             const bodyBlock = [
               `Workflow: **${workflowName}**`,
-              `Slug: \`${workflowSlug}\``,
+              `Slug: ${'`'}${workflowSlug}${'`'}`,
               `Run: ${runUrl}`,
               '',
               `**Failure signature:** \`${signature}\` (hash over failed job + first failing step names + first stack line token)`,
