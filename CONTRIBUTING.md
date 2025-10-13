@@ -19,14 +19,14 @@ post-processing workflow:
   non-draft PR event. Drafts are ignored unless you opt in by adding the
   `autofix` label; convert the PR back to draft (and drop the label) to
   pause automation, then mark it ready when you want autofix to resume.
-- **Maint Post-CI follower** – When Gate finishes, the
-  [`maint-30-post-ci.yml`](.github/workflows/maint-30-post-ci.yml) workflow
+- **Maint 46 Post-CI follower** – When Gate finishes, the
+  [`maint-46-post-ci.yml`](.github/workflows/maint-46-post-ci.yml) workflow
   posts a single PR summary comment (Gate status + coverage), attempts
   the same autofix sweep using the composite action, and files tracker
   issues when hygiene regressions persist. It also updates the rolling
   "CI failures in last 24 h" issue labelled `ci-failure` so the current
   breakages stay easy to find. Treat that consolidated comment and
-  issue as the canonical health dashboards; rerun Gate or Maint Post-CI
+  issue as the canonical health dashboards; rerun Gate or Maint 46 Post-CI
   if you need either refreshed.
 - **Agent automation** – The
   [`agents-70-orchestrator.yml`](.github/workflows/agents-70-orchestrator.yml)

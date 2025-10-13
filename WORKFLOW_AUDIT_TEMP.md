@@ -21,14 +21,14 @@ This list mirrors the canonical catalogue in `docs/ci/WORKFLOWS.md` after the Is
 | Workflow | Triggers | Notes |
 |----------|----------|-------|
 | `health-41-repo-health.yml` | schedule, workflow_dispatch | Weekly repository health sweep that records a single run-summary report.
-| `maint-30-post-ci.yml` | workflow_run | Consolidated post-CI follower that posts Gate summaries, applies low-risk autofix commits, and now owns CI failure-tracker updates.
-| `maint-33-check-failure-tracker.yml` | workflow_run | Lightweight compatibility shell delegating all tracker duties to `maint-30-post-ci.yml`.
+| `maint-46-post-ci.yml` | workflow_run | Consolidated post-CI follower that posts Gate summaries, applies low-risk autofix commits, and now owns CI failure-tracker updates.
+| `maint-47-check-failure-tracker.yml` | workflow_run | Lightweight compatibility shell delegating all tracker duties to `maint-46-post-ci.yml`.
 | `health-40-repo-selfcheck.yml` | weekly cron, workflow_dispatch | Read-only repo health summary that reports label coverage and branch-protection visibility in the job summary.
 | `health-44-gate-branch-protection.yml` | hourly cron, workflow_dispatch | Ensures branch-protection rules stay aligned with the Gate helper (`tools/enforce_gate_branch_protection.py`); exits early when the enforcement PAT is absent.
 | `health-42-actionlint.yml` | pull_request, push, schedule, workflow_dispatch | Sole workflow lint gate (actionlint via reviewdog).
 | `health-43-ci-signature-guard.yml` | pull_request, push | Verifies signed CI manifests to guard against tampering.
 | `agents-63-chatgpt-issue-sync.yml` | workflow_dispatch | Fans out curated topic lists (e.g. `Issues.txt`) into GitHub issues with automatic labeling. |
-| `maint-34-cosmetic-repair.yml` | workflow_dispatch | Manual pytest run that feeds `scripts/ci_cosmetic_repair.py` to patch guard-gated tolerances/snapshots and open labelled PRs. |
+| `maint-45-cosmetic-repair.yml` | workflow_dispatch | Manual pytest run that feeds `scripts/ci_cosmetic_repair.py` to patch guard-gated tolerances/snapshots and open labelled PRs. |
 
 ### Agents
 | Workflow | Triggers | Notes |
@@ -45,7 +45,7 @@ This list mirrors the canonical catalogue in `docs/ci/WORKFLOWS.md` after the Is
 | `reusable-70-agents.yml` | `workflow_call` | Single agents composite implementing readiness, bootstrap, diagnostics, keepalive, and watchdog jobs for every caller (orchestrator, consumer, external). Legacy `reuse-agents.yml` was retired during the consolidation. |
 | `reusable-10-ci-python.yml` | `workflow_call` | General-purpose Python CI composite consumed by Gate and downstream repositories. |
 | `reusable-12-ci-docker.yml` | `workflow_call` | Docker smoke reusable consumed by Gate and external callers. |
-| `reusable-92-autofix.yml` | `workflow_call` | Autofix composite shared by `autofix.yml` and `maint-30-post-ci.yml`. |
+| `reusable-92-autofix.yml` | `workflow_call` | Autofix composite shared by `autofix.yml` and `maint-46-post-ci.yml`. |
 
 ### Manual Self-Tests
 | Workflow | Triggers | Notes |

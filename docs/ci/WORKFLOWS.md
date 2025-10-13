@@ -31,7 +31,7 @@ run on every pull request, which artifacts each produces, and how the final
 
 | Job ID | Display name | Purpose | Artifacts / outputs | Notes |
 | --- | --- | --- | --- | --- |
-| `core-tests-311` | core tests (3.11) | Runs Ruff, Mypy, and pytest against Python 3.11 via `reusable-10-ci-python.yml`. | `coverage-3.11` (coverage data and pytest junit XML). | Fails fast on lint/type/test issues; publishes coverage for Maint Post CI rollups. |
+| `core-tests-311` | core tests (3.11) | Runs Ruff, Mypy, and pytest against Python 3.11 via `reusable-10-ci-python.yml`. | `coverage-3.11` (coverage data and pytest junit XML). | Fails fast on lint/type/test issues; publishes coverage for Maint 46 Post CI rollups. |
 | `core-tests-312` | core tests (3.12) | Reuses the Python composite for the 3.12 matrix leg. | `coverage-3.12` (coverage data and pytest junit XML). | Keeps the repo aligned with the future default Python runtime. |
 | `docker-smoke` | docker smoke | Builds the project image and executes the smoke command through `reusable-12-ci-docker.yml`. | None (logs only). | Ensures packaging basics work before merge. |
 | `gate` | gate | Downloads successful coverage artifacts and renders the pull-request summary table. | Job summary with pass/fail table. | Hard-fails if any upstream job did not succeed; this status is the required merge check. |
@@ -49,13 +49,13 @@ flowchart TD
 
 ### Maintenance & observability
 
-| **Maint 33 Check Failure Tracker** | `.github/workflows/maint-33-check-failure-tracker.yml` | `workflow_run` (`Gate`) | `contents: read` | No | Compatibility shell documenting delegation to Maint Post CI. |
-| **Maint 45 Cosmetic Repair** | `.github/workflows/maint-34-cosmetic-repair.yml` | `workflow_dispatch` | `contents: write`, `pull-requests: write` | No | Manual pytest + guardrail fixer that opens a labelled PR when drift is detected. |
-| **Maint 02 Repo Health** | `.github/workflows/health-41-repo-health.yml` | Monday cron (`15 7 * * 1`), `workflow_dispatch` | `contents: read`, `issues: read` | No | Weekly stale-branch and unassigned-issue sweep. |
-| **Maint 35 Repo Health Self Check** | `.github/workflows/health-40-repo-selfcheck.yml` | Weekly cron (`20 6 * * 1`), `workflow_dispatch` | `contents: read`, `issues: read`, `pull-requests: read`, `actions: read` | No | Read-only probe summarising label coverage and branch-protection visibility. |
-| **Maint 36 Actionlint** | `.github/workflows/health-42-actionlint.yml` | `pull_request`, `push` to `phase-2-dev` (workflow edits), weekly cron, `workflow_dispatch` | `contents: read`, `pull-requests: write`, `checks: write` | No | Workflow-lint gate using `actionlint` via reviewdog. |
-| **Maint 40 CI Signature Guard** | `.github/workflows/health-43-ci-signature-guard.yml` | `push`/`pull_request` targeting `phase-2-dev` | Defaults (`contents: read`) | No | Validates the signed job manifest for Gate. |
-| **Enforce Gate Branch Protection** | `.github/workflows/health-44-gate-branch-protection.yml` | Cron (`0 6 * * *`), `workflow_dispatch` | `contents: read`, `pull-requests: read`; optional `BRANCH_PROTECTION_TOKEN` | No | Verifies Gate remains required on the default branch; optionally enforces policy when a PAT is configured. |
+| **Maint 47 Check Failure Tracker** | `.github/workflows/maint-47-check-failure-tracker.yml` | `workflow_run` (`Gate`) | `contents: read` | No | Compatibility shell documenting delegation to Maint 46 Post CI. |
+| **Maint 45 Cosmetic Repair** | `.github/workflows/maint-45-cosmetic-repair.yml` | `workflow_dispatch` | `contents: write`, `pull-requests: write` | No | Manual pytest + guardrail fixer that opens a labelled PR when drift is detected. |
+| **Health 41 Repo Health** | `.github/workflows/health-41-repo-health.yml` | Monday cron (`15 7 * * 1`), `workflow_dispatch` | `contents: read`, `issues: read` | No | Weekly stale-branch and unassigned-issue sweep. |
+| **Health 40 Repo Selfcheck** | `.github/workflows/health-40-repo-selfcheck.yml` | Weekly cron (`20 6 * * 1`), `workflow_dispatch` | `contents: read`, `issues: read`, `pull-requests: read`, `actions: read` | No | Read-only probe summarising label coverage and branch-protection visibility. |
+| **Health 42 Actionlint** | `.github/workflows/health-42-actionlint.yml` | `pull_request`, `push` to `phase-2-dev` (workflow edits), weekly cron, `workflow_dispatch` | `contents: read`, `pull-requests: write`, `checks: write` | No | Workflow-lint gate using `actionlint` via reviewdog. |
+| **Health 43 CI Signature Guard** | `.github/workflows/health-43-ci-signature-guard.yml` | `push`/`pull_request` targeting `phase-2-dev` | Defaults (`contents: read`) | No | Validates the signed job manifest for Gate. |
+| **Health 44 Gate Branch Protection** | `.github/workflows/health-44-gate-branch-protection.yml` | Cron (`0 6 * * *`), `workflow_dispatch` | `contents: read`, `pull-requests: read`; optional `BRANCH_PROTECTION_TOKEN` | No | Verifies Gate remains required on the default branch; optionally enforces policy when a PAT is configured. |
 ### Self-tests & experiments
 
 | Workflow | File | Trigger(s) | Permissions | Required? | Purpose |
@@ -93,7 +93,7 @@ existing automation to **Agents 70 Orchestrator** instead.
 | --- | --- | --- | --- | --- | --- |
 | **Reusable CI** | `.github/workflows/reusable-10-ci-python.yml` | `workflow_call` | Inherits caller permissions | No | Python lint/type/test reusable consumed by Gate and downstream repositories. |
 | **Reusable Docker Smoke** | `.github/workflows/reusable-12-ci-docker.yml` | `workflow_call` | Inherits caller permissions | No | Docker build + smoke reusable consumed by Gate and external callers. |
-| **Reusable 92 Autofix** | `.github/workflows/reusable-92-autofix.yml` | `workflow_call` | `contents: write`, `pull-requests: write` | No | Autofix harness shared by `autofix.yml` and `maint-30-post-ci.yml`. |
+| **Reusable 92 Autofix** | `.github/workflows/reusable-92-autofix.yml` | `workflow_call` | `contents: write`, `pull-requests: write` | No | Autofix harness shared by `autofix.yml` and `maint-46-post-ci.yml`. |
 | **Reusable 70 Agents** | `.github/workflows/reusable-70-agents.yml` | `workflow_call` | `contents: write`, `pull-requests: write`, `issues: write`; optional `service_bot_pat` | No | Sole agents composite implementing readiness, bootstrap, diagnostics, keepalive, and watchdog jobs for all callers. |
 
 ## Naming Policy & Number Ranges
@@ -134,26 +134,26 @@ existing automation to **Agents 70 Orchestrator** instead.
 
 | Workflow | File | Trigger(s) | Permissions | Required? | Purpose |
 |----------|------|------------|-------------|-----------|---------|
-| `health-41-repo-health.yml` (`Maint 02 Repo Health`) | `.github/workflows/health-41-repo-health.yml` | Weekly cron, manual | `contents: read`, `issues: read` | No | Reports stale branches & unassigned issues. |
-| `maint-30-post-ci.yml` (`Maint Post CI`) | `.github/workflows/maint-30-post-ci.yml` | `workflow_run` (Gate) | `contents: write`, `pull-requests: write`, `issues: write`, `checks: read`, `actions: read` | No | Consolidated follower that posts Gate summaries, applies low-risk autofix commits, and owns CI failure-tracker updates. |
-| `maint-33-check-failure-tracker.yml` (`Maint 33 Check Failure Tracker`) | `.github/workflows/maint-33-check-failure-tracker.yml` | `workflow_run` (Gate) | Defaults (`contents: read`) | No | Lightweight compatibility shell that documents the delegation to `maint-30-post-ci.yml`. |
-| `health-40-repo-selfcheck.yml` (`Maint 35 Repo Health Self Check`) | `.github/workflows/health-40-repo-selfcheck.yml` | Weekly cron, manual | `contents: read`, `issues: read`, `pull-requests: read`, `actions: read` | No | Read-only repo health pulse that surfaces missing labels or branch-protection visibility gaps in the step summary. |
-| `health-44-gate-branch-protection.yml` (`Enforce Gate Branch Protection`) | `.github/workflows/health-44-gate-branch-protection.yml` | Hourly cron, manual | `contents: read`, `pull-requests: read`; optional PAT via `BRANCH_PROTECTION_TOKEN` | No | Applies branch-protection policy checks using `tools/enforce_gate_branch_protection.py`; skips gracefully when the PAT is not configured. |
-| `health-42-actionlint.yml` (`Maint 36 Actionlint`) | `.github/workflows/health-42-actionlint.yml` | `pull_request`, weekly cron, manual | `contents: read`, `pull-requests: write`, `checks: write` | No | Sole workflow-lint gate (actionlint via reviewdog). |
-| `health-43-ci-signature-guard.yml` (`Maint 40 CI Signature Guard`) | `.github/workflows/health-43-ci-signature-guard.yml` | `push`/`pull_request` targeting `phase-2-dev` | Defaults (`contents: read`) | No | Validates the signed job manifest for `pr-00-gate.yml`. |
-| `agents-63-chatgpt-issue-sync.yml` (`Maint 41 ChatGPT Issue Sync`) | `.github/workflows/agents-63-chatgpt-issue-sync.yml` | `workflow_dispatch` (manual) | `contents: read`, `issues: write` | No | Fans out curated topic lists (e.g. `Issues.txt`) into labeled GitHub issues. ⚠️ Repository policy: do not remove without a functionally equivalent replacement. |
-| `maint-34-cosmetic-repair.yml` (`Maint 45 Cosmetic Repair`) | `.github/workflows/maint-34-cosmetic-repair.yml` | `workflow_dispatch` | `contents: write`, `pull-requests: write` | No | Manual pytest + guardrail fixer that applies tolerance/snapshot updates and opens a labelled PR when drift is detected. |
+| `health-41-repo-health.yml` (`Health 41 Repo Health`) | `.github/workflows/health-41-repo-health.yml` | Weekly cron, manual | `contents: read`, `issues: read` | No | Reports stale branches & unassigned issues. |
+| `maint-46-post-ci.yml` (`Maint 46 Post CI`) | `.github/workflows/maint-46-post-ci.yml` | `workflow_run` (Gate) | `contents: write`, `pull-requests: write`, `issues: write`, `checks: read`, `actions: read` | No | Consolidated follower that posts Gate summaries, applies low-risk autofix commits, and owns CI failure-tracker updates. |
+| `maint-47-check-failure-tracker.yml` (`Maint 47 Check Failure Tracker`) | `.github/workflows/maint-47-check-failure-tracker.yml` | `workflow_run` (Gate) | Defaults (`contents: read`) | No | Lightweight compatibility shell that documents the delegation to `maint-46-post-ci.yml`. |
+| `health-40-repo-selfcheck.yml` (`Health 40 Repo Selfcheck`) | `.github/workflows/health-40-repo-selfcheck.yml` | Weekly cron, manual | `contents: read`, `issues: read`, `pull-requests: read`, `actions: read` | No | Read-only repo health pulse that surfaces missing labels or branch-protection visibility gaps in the step summary. |
+| `health-44-gate-branch-protection.yml` (`Health 44 Gate Branch Protection`) | `.github/workflows/health-44-gate-branch-protection.yml` | Hourly cron, manual | `contents: read`, `pull-requests: read`; optional PAT via `BRANCH_PROTECTION_TOKEN` | No | Applies branch-protection policy checks using `tools/enforce_gate_branch_protection.py`; skips gracefully when the PAT is not configured. |
+| `health-42-actionlint.yml` (`Health 42 Actionlint`) | `.github/workflows/health-42-actionlint.yml` | `pull_request`, weekly cron, manual | `contents: read`, `pull-requests: write`, `checks: write` | No | Sole workflow-lint gate (actionlint via reviewdog). |
+| `health-43-ci-signature-guard.yml` (`Health 43 CI Signature Guard`) | `.github/workflows/health-43-ci-signature-guard.yml` | `push`/`pull_request` targeting `phase-2-dev` | Defaults (`contents: read`) | No | Validates the signed job manifest for `pr-00-gate.yml`. |
+| `agents-63-chatgpt-issue-sync.yml` (`Agents 63 ChatGPT Issue Sync`) | `.github/workflows/agents-63-chatgpt-issue-sync.yml` | `workflow_dispatch` (manual) | `contents: read`, `issues: write` | No | Fans out curated topic lists (e.g. `Issues.txt`) into labeled GitHub issues. ⚠️ Repository policy: do not remove without a functionally equivalent replacement. |
+| `maint-45-cosmetic-repair.yml` (`Maint 45 Cosmetic Repair`) | `.github/workflows/maint-45-cosmetic-repair.yml` | `workflow_dispatch` | `contents: write`, `pull-requests: write` | No | Manual pytest + guardrail fixer that applies tolerance/snapshot updates and opens a labelled PR when drift is detected. |
 
 
-- **Symptom:** `Maint 02 Repo Health` or `Maint 35 Repo Health Self Check` stops with `Resource not accessible by integration` or warns that branch protection visibility is missing.
+- **Symptom:** `Health 41 Repo Health` or `Health 40 Repo Selfcheck` stops with `Resource not accessible by integration` or warns that branch protection visibility is missing.
 - **Remedies:**
   1. Confirm the repository setting **Settings → Actions → General → Workflow permissions** grants the default token _Read access to contents and metadata_. The repo-health jobs use only read scopes.
-  2. If the default token still cannot read branch protection, rerun **Enforce Gate Branch Protection** with a `BRANCH_PROTECTION_TOKEN` that has `repo` scope. The verification step will surface the current policy and unblock Maint 35 on the next scheduled run.
+   2. If the default token still cannot read branch protection, rerun **Health 44 Gate Branch Protection** with a `BRANCH_PROTECTION_TOKEN` that has `repo` scope. The verification step will surface the current policy and unblock Health 40 on the next scheduled run.
   3. Escalate to a repository admin if neither step restores access—the repo-health jobs cannot self-grant elevated scopes.
 
 ### CI failure rollup issue
 
-`Maint Post CI` maintains **one** open issue labelled `ci-failure` that aggregates "CI failures in the last 24 h". The failure-tracker job updates the table in place with each Gate failure, links the offending workflow run, and closes the issue automatically once the inactivity threshold elapses. The issue carries labels `ci`, `devops`, and `priority: medium`; escalations add `priority: high` when the same signature trips three times. Use this issue for a quick dashboard of outstanding CI problems instead of scanning individual PR timelines.
+`Maint 46 Post CI` maintains **one** open issue labelled `ci-failure` that aggregates "CI failures in the last 24 h". The failure-tracker job updates the table in place with each Gate failure, links the offending workflow run, and closes the issue automatically once the inactivity threshold elapses. The issue carries labels `ci`, `devops`, and `priority: medium`; escalations add `priority: high` when the same signature trips three times. Use this issue for a quick dashboard of outstanding CI problems instead of scanning individual PR timelines.
 
 ### Agent automation entry points
 
@@ -164,7 +164,7 @@ The Codex Issue Bridge is a label-driven helper for seeding bootstrap PRs, while
 **Operational details**
 - Provide required write scopes via the default `GITHUB_TOKEN`. Supply `service_bot_pat` when bootstrap jobs must push branches or leave comments.
 - Use the `options_json` input to enable bootstrap (for example `{ "enable_bootstrap": true, "bootstrap": { "label": "agent:codex" } }`) or pass additional toggles such as keepalive overrides. The orchestrator parses the JSON via `fromJson()` and forwards the resolved values to `reusable-70-agents.yml`.
-- Readiness, preflight, bootstrap, verification, and keepalive diagnostics appear in the job summary. Failures bubble up through the single `orchestrate` job; Maint Post CI will echo the failing run link in the CI failure-tracker issue when the Gate is affected.
+- Readiness, preflight, bootstrap, verification, and keepalive diagnostics appear in the job summary. Failures bubble up through the single `orchestrate` job; Maint 46 Post CI will echo the failing run link in the CI failure-tracker issue when the Gate is affected.
 
 ### Manual Orchestrator Dispatch
 
@@ -238,16 +238,16 @@ Export `GITHUB_TOKEN` to a PAT or workflow token that can dispatch workflows bef
 | Bootstrap run exits with “Repository dirty” | Prior automation left branches open | Job log → `cleanup` step | Manually close stale branches or enable cleanup via the `options_json` payload (set `{ "cleanup": { "force": true } }`). For compatibility wrappers that still accept `params_json`, wrap the payload inside the `options_json` key before dispatch. |
 | Readiness succeeds but Codex PR creation fails | Repository protections blocking pushes | Job log → `Create bootstrap branch` step | Ensure branch protection rules allow the automation account or supply a PAT with required scopes. |
 
-Escalate persistent failures by linking the failing run URL in the CI failure-tracker issue managed by Maint Post CI.
+Escalate persistent failures by linking the failing run URL in the CI failure-tracker issue managed by Maint 46 Post CI.
 
 ### Gate pipeline overview
 
 | Stage | Job ID (Gate) | Artifacts / Outputs | Enforcement & Notes |
 |-------|---------------|---------------------|---------------------|
-| Python quality (3.11) | `core tests (3.11)` | Uploads `coverage-3.11` artifact (coverage XML + pytest reports). Step summary links to Ruff, mypy, and pytest failures. | Required leg. Failing tests block the Gate aggregator and surface immediately in Maint Post CI summaries. |
-| Python quality (3.12) | `core tests (3.12)` | Uploads `coverage-3.12` artifact mirroring the 3.11 layout for comparison. | Required leg. Treat regressions here as parity alerts; Maint Post CI highlights mismatched coverage deltas. |
+| Python quality (3.11) | `core tests (3.11)` | Uploads `coverage-3.11` artifact (coverage XML + pytest reports). Step summary links to Ruff, mypy, and pytest failures. | Required leg. Failing tests block the Gate aggregator and surface immediately in Maint 46 Post CI summaries. |
+| Python quality (3.12) | `core tests (3.12)` | Uploads `coverage-3.12` artifact mirroring the 3.11 layout for comparison. | Required leg. Treat regressions here as parity alerts; Maint 46 Post CI highlights mismatched coverage deltas. |
 | Docker smoke | `docker smoke` | Emits Docker build logs and smoke-test output inside the job summary. No persistent artifact. | Required leg. Validates the container build and basic runtime; failures block the Gate aggregator. |
-| Aggregator | `gate` | Writes Markdown status table summarising upstream results. Downloads coverage artifacts when available. | Enforces final merge requirement by exiting non-zero if any dependency failed. Maint Post CI reads this status to update the CI failure-tracker issue. |
+| Aggregator | `gate` | Writes Markdown status table summarising upstream results. Downloads coverage artifacts when available. | Enforces final merge requirement by exiting non-zero if any dependency failed. Maint 46 Post CI reads this status to update the CI failure-tracker issue. |
 
 **Post-change monitoring.** When agent workflows change:
 
@@ -262,7 +262,7 @@ Manual-only status means maintainers should review the Actions list during that 
 | Workflow | Consumed by | Notes |
 |----------|-------------|-------|
 | `reusable-70-agents.yml` (`Reusable 70 Agents`) | `agents-70-orchestrator.yml`, `agents-62-consumer.yml`, downstream repositories | Implements readiness, bootstrap, diagnostics, keepalive, and watchdog jobs.
-| `reusable-92-autofix.yml` (`Reusable 92 Autofix`) | `maint-30-post-ci.yml`, `autofix.yml` | Autofix harness used both by the PR-time autofix workflow and the post-CI maintenance listener.
+| `reusable-92-autofix.yml` (`Reusable 92 Autofix`) | `maint-46-post-ci.yml`, `autofix.yml` | Autofix harness used both by the PR-time autofix workflow and the post-CI maintenance listener.
 | `reusable-10-ci-python.yml` (`Reusable CI`) | Gate, downstream repositories | Single source for Python lint/type/test coverage runs.
 | `reusable-12-ci-docker.yml` (`Reusable Docker Smoke`) | Gate, downstream repositories | Docker build + smoke reusable consumed by Gate and external callers.
 

@@ -41,7 +41,7 @@ def _guarded_follow_up_steps(
     return missing
 
 
-WORKFLOW_FILE = "maint-30-post-ci.yml"
+WORKFLOW_FILE = "maint-46-post-ci.yml"
 
 
 def test_autofix_workflow_uses_repo_commit_prefix() -> None:

@@ -12,7 +12,7 @@ bootstrap runs.
 | Prefix | Purpose | Active Examples |
 | ------ | ------- | ---------------- |
 | `pr-` | Pull-request CI wrappers | `pr-00-gate.yml`, `pr-14-docs-only.yml` |
-| `maint-` | Post-CI maintenance and self-tests | `maint-30-post-ci.yml`, `maint-33-check-failure-tracker.yml`, `maint-34-cosmetic-repair.yml` |
+| `maint-` | Post-CI maintenance and self-tests | `maint-46-post-ci.yml`, `maint-47-check-failure-tracker.yml`, `maint-45-cosmetic-repair.yml` |
 | `health-` | Repository health & policy checks | `health-40-repo-selfcheck.yml`, `health-41-repo-health.yml`, `health-42-actionlint.yml`, `health-43-ci-signature-guard.yml`, `health-44-gate-branch-protection.yml` |
 | `agents-` | Agent orchestration entry points | `agents-70-orchestrator.yml` (primary); deprecated shims: `agents-61-consumer-compat.yml`, `agents-62-consumer.yml` |
 | `reusable-` | Reusable composites invoked by other workflows | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-92-autofix.yml`, `reusable-70-agents.yml` |
@@ -22,7 +22,7 @@ bootstrap runs.
 **Naming checklist**
 1. Choose the correct prefix for the workflow's scope.
 2. Select a two-digit block that leaves room for future additions (e.g. use another `maint-3x` slot for maintenance jobs).
-3. Title-case the workflow name so it matches the filename (`maint-30-post-ci.yml` → `Maint Post CI`).
+3. Title-case the workflow name so it matches the filename (`maint-46-post-ci.yml` → `Maint 46 Post CI`).
 4. Update this guide and `WORKFLOW_AUDIT_TEMP.md` whenever workflows are added, renamed, or removed.
 
 Tests under `tests/test_workflow_naming.py` enforce the naming policy and inventory parity.
@@ -36,13 +36,13 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 
 ### Maintenance & Governance
 - **`health-41-repo-health.yml`** — Weekly repository health sweep that writes a single run-summary report, with optional `workflow_dispatch` reruns.
-- **`maint-30-post-ci.yml`** — Follower triggered by the Gate `workflow_run` event that posts consolidated status updates, applies autofix commits or uploads patches, and now owns the CI failure-tracker issue/label lifecycle.
-- **`maint-33-check-failure-tracker.yml`** — Lightweight compatibility shell that documents the delegation to `maint-30-post-ci.yml` while legacy listeners migrate.
+- **`maint-46-post-ci.yml`** — Follower triggered by the Gate `workflow_run` event that posts consolidated status updates, applies autofix commits or uploads patches, and now owns the CI failure-tracker issue/label lifecycle.
+- **`maint-47-check-failure-tracker.yml`** — Lightweight compatibility shell that documents the delegation to `maint-46-post-ci.yml` while legacy listeners migrate.
 - **`health-42-actionlint.yml`** — Sole workflow-lint gate. Runs actionlint via reviewdog on PR edits, pushes, weekly cron, and manual dispatch.
 - **`health-43-ci-signature-guard.yml`** — Guards the CI manifest with signed fixture checks.
 - **`health-40-repo-selfcheck.yml`** — Read-only governance probe that surfaces label coverage and branch-protection visibility gaps in the run summary.
 - **`health-44-gate-branch-protection.yml`** — Enforces branch-protection policy via `tools/enforce_gate_branch_protection.py` when the PAT is configured.
-- **`maint-34-cosmetic-repair.yml`** — Manual dispatch utility that runs `pytest -q`, applies guard-gated cosmetic fixes via `scripts/ci_cosmetic_repair.py`, and opens a labelled PR when changes exist.
+- **`maint-45-cosmetic-repair.yml`** — Manual dispatch utility that runs `pytest -q`, applies guard-gated cosmetic fixes via `scripts/ci_cosmetic_repair.py`, and opens a labelled PR when changes exist.
 
 ### Agents
 - **`agents-70-orchestrator.yml`** — 20-minute cron plus manual dispatch entry point for readiness, Codex bootstrap, diagnostics, verification, and keepalive sweeps. Delegates to `reusable-70-agents.yml` and accepts extended options via `options_json`.
@@ -55,7 +55,7 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 ### Reusable Composites
 - **`reusable-10-ci-python.yml`** — Python lint/type/test reusable invoked by Gate and any downstream repositories.
 - **`reusable-12-ci-docker.yml`** — Docker smoke reusable invoked by Gate and external consumers.
-- **`reusable-92-autofix.yml`** — Autofix harness used by `maint-30-post-ci.yml` and `autofix.yml`.
+- **`reusable-92-autofix.yml`** — Autofix harness used by `maint-46-post-ci.yml` and `autofix.yml`.
 - **`reusable-70-agents.yml`** — Reusable agent automation stack.
 - **`selftest-81-reusable-ci.yml`** — Reusable CI matrix exerciser exposed via both `workflow_dispatch` and `workflow_call`. The manual `selftest-8X-*` wrappers delegate to this workflow and inherit its verification outputs.
 
@@ -67,12 +67,12 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 - **`selftest-88-reusable-ci.yml`** — Dual-runtime summary runner that exercises the reusable matrix across multiple Python versions and records the table in the summary.
 
 ## Trigger Wiring Tips
-1. When renaming a workflow, update any `workflow_run` consumers. In this roster that includes `maint-30-post-ci.yml`, `autofix.yml`, and `maint-33-check-failure-tracker.yml`.
+1. When renaming a workflow, update any `workflow_run` consumers. In this roster that includes `maint-46-post-ci.yml`, `autofix.yml`, and `maint-47-check-failure-tracker.yml`.
 2. The orchestrator relies on the workflow names, not just filenames. Keep `name:` fields synchronized with filenames to avoid missing triggers.
 3. Reusable workflows stay invisible in the Actions tab; top-level consumers should include summary steps for observability.
 
 ### Failure rollup quick reference
-- `Maint Post CI` updates the "CI failures in last 24 h" issue labelled `ci-failure`, aggregating failure signatures with links back to the offending Gate runs.
+- `Maint 46 Post CI` updates the "CI failures in last 24 h" issue labelled `ci-failure`, aggregating failure signatures with links back to the offending Gate runs.
 - Auto-heal closes the issue after a full day without repeats while preserving an occurrence history in the body.
 - Escalations apply the `priority: high` label once the same signature fires three times.
 
@@ -96,8 +96,8 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 
 ## Maintenance Playbook
 1. PRs rely on the Gate workflow listed above. Keep it green; the post-CI summary will report its status automatically.
-2. Monitor failure tracker issues surfaced by `Maint Post CI`; the legacy `Maint 33` shell simply records the delegation notice.
-3. Use `Maint 36 Actionlint` (`workflow_dispatch`) for ad-hoc validation of complex workflow edits before pushing.
+2. Monitor failure tracker issues surfaced by `Maint 46 Post CI`; the companion `Maint 47 Check Failure Tracker` shell simply records the delegation notice.
+3. Use `Health 42 Actionlint` (`workflow_dispatch`) for ad-hoc validation of complex workflow edits before pushing.
 4. Dispatch `Maint 45 Cosmetic Repair` when you need a curated pytest + hygiene sweep that opens a helper PR with fixes.
 
 ## Additional References

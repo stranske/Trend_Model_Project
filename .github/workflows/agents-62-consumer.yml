@@ -1,4 +1,4 @@
-name: Agents Consumer
+name: Agents 62 Consumer
 
 on:
   workflow_dispatch:

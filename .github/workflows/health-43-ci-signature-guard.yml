@@ -1,4 +1,4 @@
-name: Maint 40 CI Signature Guard
+name: Health 43 CI Signature Guard
 
 on:
   push:
