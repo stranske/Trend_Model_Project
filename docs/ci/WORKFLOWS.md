@@ -227,6 +227,8 @@ curl -X POST \
 
 Export `GITHUB_TOKEN` to a PAT or workflow token that can dispatch workflows before running the command above. Mix and match the JSON payload with individual dispatch inputs when overrides are required (for example add `--raw-field enable_readiness=false` to override the JSON flag). The same `params_json` payload is safe to reuse with `agents-62-consumer.yml` while migrating automation; the wrapper normalises the object and passes it straight to the orchestrator.
 
+> **Prerequisites:** The CLI example assumes the GitHub CLI is installed and authenticated. The REST variant relies on `jq` and Bash process substitution (`@<()`); on macOS install `jq` via Homebrew and run the command inside a shell that supports process substitution (e.g. `bash`, `zsh`). Windows users can adapt the payload generation by writing the JSON to a temporary file and referencing it with `--data @file.json` instead.
+
 ### Agent troubleshooting: bootstrap & readiness signals
 
 | Symptom | Likely cause | Where to look | Remedy |

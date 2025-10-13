@@ -77,7 +77,7 @@ gh workflow run agents-70-orchestrator.yml \
   --raw-field params_json="$(cat orchestrator.json)"
 ```
 
-The same payload can be passed to the REST endpoint with `curl` if preferred.
+The same payload can be passed to the REST endpoint with `curl` if preferred. Ensure the GitHub CLI (for the example above) or `jq` + a shell that supports process substitution (for the REST command in [docs/ci/WORKFLOWS.md](ci/WORKFLOWS.md#manual-orchestrator-dispatch)) are available before running the snippets.
 
 Example orchestrator snippet:
 
