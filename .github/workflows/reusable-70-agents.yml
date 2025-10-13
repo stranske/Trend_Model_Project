@@ -263,10 +263,90 @@ jobs:
 
   verify_issue:
     if: inputs.enable_verify_issue == 'true' && inputs.verify_issue_number != ''
-    uses: ./.github/workflows/agents-44-verify-agent-assignment.yml
+    uses: ./.github/workflows/agents-64-verify-agent-assignment.yml
     secrets: inherit
     with:
       issue_number: ${{ inputs.verify_issue_number }}
+
+  verify_issue_summary:
+    name: Publish Verify Issue Summary
+    needs:
+      - verify_issue
+    if: ${{ always() && needs.verify_issue.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Append verify assignment results
+        uses: actions/github-script@v7
+        env:
+          STATUS: ${{ needs.verify_issue.outputs.status || '' }}
+          MESSAGE: ${{ needs.verify_issue.outputs.message || '' }}
+          SUMMARY_TABLE: ${{ needs.verify_issue.outputs.summary_table || '' }}
+          MATCHED: ${{ needs.verify_issue.outputs.matched_assignee || '' }}
+          HAS_LABEL: ${{ needs.verify_issue.outputs.has_label || '' }}
+          ISSUE_URL: ${{ needs.verify_issue.outputs.issue_url || '' }}
+        with:
+          script: |
+            const rawStatus = (process.env.STATUS || 'unknown').trim();
+            const status = rawStatus.toLowerCase();
+            const message = process.env.MESSAGE || '';
+            const table = process.env.SUMMARY_TABLE || '';
+            const matched = process.env.MATCHED || '';
+            const hasLabel = (process.env.HAS_LABEL || '').trim() || 'unknown';
+            const issueUrl = process.env.ISSUE_URL || '';
+
+            const issueNumber = (() => {
+              const match = issueUrl.match(/\/issues\/(\d+)(?:$|\D)/);
+              return match ? `#${match[1]}` : (issueUrl || '—');
+            })();
+
+            const matchedCell = matched ? `\`${matched}\`` : '_none_';
+
+            core.info(`Verify issue status: ${status || 'unknown'}`);
+            core.info(`Issue reference: ${issueNumber}`);
+            core.info(`Has agent:codex label: ${hasLabel}`);
+            if (matched) {
+              core.info(`Matched assignee: ${matched}`);
+            }
+
+            const summary = core.summary;
+            summary.addHeading('Agent Assignment Verification', 2);
+
+            if (table.trim()) {
+              summary.addRaw(table, true).addEOL();
+            } else {
+              const linkCell = issueUrl ? `[${issueNumber}](${issueUrl})` : '—';
+              summary.addTable([
+                [{ data: 'Issue', header: true }, { data: 'Has agent:codex', header: true }, { data: 'Matched assignee', header: true }, { data: 'Status', header: true }],
+                [linkCell, hasLabel, matchedCell, rawStatus || 'unknown']
+              ]);
+            }
+
+            if (issueUrl) {
+              summary.addLink('Inspect issue', issueUrl).addEOL();
+            }
+
+            if (message) {
+              summary.addParagraph(message);
+            }
+
+            summary.addList([
+              `Status: **${rawStatus || 'unknown'}**`,
+              `Has agent:codex label: ${hasLabel}`,
+              `Matched assignee: ${matchedCell}`
+            ]);
+
+            await summary.write();
+
+            if (status === 'pass') {
+              core.notice(message || 'Agent assignment verification passed.');
+            } else if (status === 'skipped') {
+              core.notice(message || 'Agent assignment verification skipped.');
+            } else if (status === 'fail') {
+              core.warning(message || 'Agent assignment verification reported a failure.');
+            } else {
+              core.info(message || 'Agent assignment verification completed with status unavailable.');
+            }
 
   bootstrap-codex:
     if: inputs.enable_bootstrap == 'true'

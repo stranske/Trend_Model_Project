@@ -5,6 +5,8 @@ This guide describes the slimmed-down GitHub Actions footprint after Issues #219
 remains the required merge check, and **Agents 70 Orchestrator is the sole automation entry point** for Codex readiness and
 bootstrap runs.
 
+> _Gate rerun trigger:_ this paragraph was touched on 2025-10-13 to force a fresh Gate workflow execution.
+
 ## WFv1 Naming Scheme
 
 | Prefix | Purpose | Active Examples |
