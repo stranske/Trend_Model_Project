@@ -1,7 +1,7 @@
 # Health-40 Repo Self-Check Remediation Plan
 
 ## Scope and Key Constraints
-- **Workflow rename**: Migrate `.github/workflows/repo-health-self-check.yml` to `.github/workflows/health-40-repo-selfcheck.yml` without breaking triggers or references.
+- **Workflow slug**: Ensure `.github/workflows/health-40-repo-selfcheck.yml` remains the active repo self-check (formerly `repo-health-self-check.yml`) without breaking triggers or references.
 - **Permissions compliance**: Limit workflow `permissions` to `contents: read`, `issues: write`, and `pull-requests: read`; all other scopes are out of scope.
 - **Graceful privilege handling**: Constrain privileged GitHub API calls so they execute only when `SERVICE_BOT_PAT` is supplied. Without the PAT, the workflow must skip those checks without failing the job.
 - **Reporting**: Ensure each check reports status in both the log output and `$GITHUB_STEP_SUMMARY` for observability during manual or scheduled runs.
