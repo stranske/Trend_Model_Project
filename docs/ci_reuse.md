@@ -96,7 +96,7 @@ until a maintainer requests a run.
 | ---- | ------------- | ----- |
 | Coverage reporting | Chain an additional job that depends on the reusable CI job to upload coverage artifacts. | Keep job IDs stable when referencing outputs. |
 | Autofix heuristics | Update `autofix.yml` or `maint-30-post-ci.yml` to widen size limits or adjust glob filters. | Avoid editing the reusable composite unless behaviour must change globally. |
-| Agents options | Provide extra keys inside `options_json` and update the reusable workflow to honour them. | Remember GitHub only supports 10 dispatch inputs; keep new flags in JSON. |
+| Agents options | Provide extra keys inside `params_json` (and embed `options_json` when structured overrides are required) and update the reusable workflow to honour them. | Remember GitHub only supports 10 dispatch inputs; keep new flags in JSON. |
 
 ## Security & Permissions
 - CI workflows default to `permissions: contents: read`; escalate only when artifacts require elevated scopes.

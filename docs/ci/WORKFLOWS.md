@@ -90,6 +90,15 @@ annotations so contributors know to prefer the orchestrator.
 - **Gate** – Permissions: defaults (read scope). Secrets: relies on `GITHUB_TOKEN` only. Status outputs: `core tests (3.11)`, `core tests (3.12)`, `docker smoke`, and the aggregator job `gate`, which fails if any dependency fails.
 - **Autofix** – Permissions: `contents: write`, `pull-requests: write`. Secrets: inherits `GITHUB_TOKEN` (sufficient for label + comment updates). Status outputs: `apply` job; labels applied include `autofix`, `autofix:applied`/`autofix:patch`, and cleanliness toggles (`autofix:clean`/`autofix:debt`).
 
+**Gate job map**
+
+| Job | Role | Artifacts / Outputs |
+| --- | ---- | ------------------- |
+| `core-tests-311` | Python 3.11 lint/type/test run via `reusable-10-ci-python.yml`. | Uploads `coverage-3.11` artifact (coverage XML + HTML summary). |
+| `core-tests-312` | Python 3.12 lint/type/test run via `reusable-10-ci-python.yml`. | Uploads `coverage-3.12` artifact mirroring 3.11 contents. |
+| `docker-smoke` | Container build + smoke test via `reusable-12-ci-docker.yml`. | No artifacts; emits build + smoke logs in job summary. |
+| `gate` | Final enforcement job that downloads coverage artifacts, posts the summary table, and fails if any upstream job failed. | Adds `Gate status` table to the workflow summary and surfaces missing artifacts in the log. |
+
 These jobs must stay green for PRs to merge. The post-CI maintenance jobs below listen to their `workflow_run` events and post summaries whenever the Gate aggregator fails.
 
 ### Maintenance & observability (scheduled/optional reruns)
@@ -180,7 +189,7 @@ The same `params_json` payload is safe to reuse with `agents-62-consumer.yml` wh
 | ------- | ------------ | ------------- | ------ |
 | Readiness probe fails immediately | Missing PAT or permissions | `orchestrate` job summary → “Authentication” step | Provide `SERVICE_BOT_PAT` secret or rerun with reduced scope. |
 | Bootstrap skipped despite `enable_bootstrap` | No matching labelled issues | Job summary → “Bootstrap Planner” table | Add `agent:codex` label (or configured label) to target issues, rerun. |
-| Bootstrap run exits with “Repository dirty” | Prior automation left branches open | Job log → `cleanup` step | Manually close stale branches or enable cleanup via `options_json` toggle before rerun. |
+| Bootstrap run exits with “Repository dirty” | Prior automation left branches open | Job log → `cleanup` step | Manually close stale branches or enable cleanup via the `params_json` payload (set `{"options_json":"{\\"cleanup\\":{\\"force\\":true}}"}`). |
 | Readiness succeeds but Codex PR creation fails | Repository protections blocking pushes | Job log → `Create bootstrap branch` step | Ensure branch protection rules allow the automation account or supply a PAT with required scopes. |
 
 Escalate persistent failures by linking the failing run URL in the CI failure-tracker issue managed by Maint Post CI.
@@ -284,20 +293,25 @@ Follow this sequence before pushing workflow changes or large code edits:
 
 When intentionally editing CI jobs, regenerate `basic_jobs.json`, compute the new hash, and update both files in the same commit. Use `tools/test_failure_signature.py` locally to recompute and verify the hash before pushing. The guard only runs on pushes/PRs targeting `phase-2-dev` and publishes a step summary linking back here.
 
-## Agents `options_json` Schema
+## Agents `params_json` Schema
 
-`agents-70-orchestrator.yml` accepts the standard dispatch inputs shown in the workflow plus an extensible JSON payload routed through `options_json`. The JSON is parsed with `fromJson()` and handed to the reusable agents workflow.
+`agents-70-orchestrator.yml` accepts the standard dispatch inputs shown in the workflow plus an extensible JSON payload routed through `params_json`. The JSON is parsed with `fromJson()` and handed to the reusable agents workflow. Nested automation knobs can be forwarded via the optional `options_json` string when the reusable composite expects more structured data.
 
 ```jsonc
 {
-  "diagnostic_mode": "off" | "dry-run" | "full",
+  "enable_bootstrap": true,
+  "bootstrap_issues_label": "agent:codex",
+  "diagnostic_mode": "dry-run",
   "readiness_custom_logins": "login-a,login-b",
-  "codex_command_phrase": "@codex start"
+  "codex_command_phrase": "@codex start",
+  "options_json": "{\"enable_keepalive\":false}"
 }
 ```
 
+- **`enable_bootstrap` / `bootstrap_issues_label`** — toggle Codex bootstrap and override the label scanned for candidate issues.
 - **`diagnostic_mode`** — `off` (default) disables diagnostics, `dry-run` keeps bootstrap logic read-only, `full` allows branch creation and sets `draft_pr: false` when Codex is seeded.
 - **`readiness_custom_logins`** — comma-separated list for additional readiness probes.
 - **`codex_command_phrase`** — phrase used when the orchestrator comments on issues or PRs to summon Codex.
+- **`options_json`** — pass-through blob for nested settings such as keepalive thresholds or cleanup toggles (see Gate troubleshooting table above).
 
-Keep this schema backward compatible; add new keys sparingly and document them in the table above when introduced.
+Keep this schema backward compatible; add new keys sparingly and document them here when introduced.

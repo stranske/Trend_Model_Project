@@ -67,9 +67,11 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 - Escalations apply the `priority: high` label once the same signature fires three times.
 
 ## Agent Operations
-- Use **Agents 70 Orchestrator** for every automation task (readiness checks, Codex bootstrap, diagnostics, verification, keepalive). The numbered/legacy consumer wrappers exist only as deprecated compatibility paths for tooling that still emits a `params_json` blob—migrate them to the orchestrator as soon as possible.
-- Optional flags beyond the standard inputs belong in the `options_json` payload; the orchestrator parses it with `fromJson()` and forwards toggles to `reusable-70-agents.yml`.
+- Use **Agents 70 Orchestrator** for every automation task (readiness checks, Codex bootstrap, diagnostics, keepalive). No other entry points remain beyond deprecated compatibility shims.
+- Optional flags beyond the standard inputs belong in the `params_json` payload; the orchestrator parses it with `fromJson()` and forwards toggles to `reusable-70-agents.yml`. Include an `options_json` string inside the payload for nested keepalive or cleanup settings when required.
 - Provide a PAT when bootstrap needs to push branches. The orchestrator honours PAT priority (`OWNER_PR_PAT` → `SERVICE_BOT_PAT` → `GITHUB_TOKEN`) via the reusable composite.
+
+> **Deprecated compatibility wrappers:** `agents-62-consumer.yml` and `agents-consumer.yml` persist only for callers migrating from the historical JSON schema. They remain manual-only and should be phased out in favour of the orchestrator.
 
 ### Manual dispatch quick steps
 1. Open **Actions → Agents 70 Orchestrator → Run workflow**.
