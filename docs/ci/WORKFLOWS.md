@@ -9,10 +9,11 @@ external callers still migrating.
 
 ## CI & agents quick catalog
 
-Use the tables below as the authoritative roster of active workflows. Each row
-captures the canonical triggers, permission scopes, and whether the workflow
-blocks merges (`Required?`). Deprecated wrappers appear with explicit
-annotations so contributors know to prefer the orchestrator.
+Use the tables below as the authoritative roster of **active** workflows. Each
+row captures the canonical triggers, permission scopes, and whether the
+workflow blocks merges (`Required?`). Deprecated compatibility wrappers now
+live in a dedicated call-out so the primary catalog stays focused on the live
+topology.
 
 ### Required merge gates
 
@@ -42,9 +43,19 @@ annotations so contributors know to prefer the orchestrator.
 | **Agents 70 Orchestrator** | `.github/workflows/agents-70-orchestrator.yml` | Cron (`*/20 * * * *`), `workflow_dispatch` | `contents: write`, `pull-requests: write`, `issues: write`; optional `service_bot_pat` | No | Single supported entry point dispatching readiness, bootstrap, diagnostics, verification, and keepalive routines. |
 | **Agents 43 Codex Issue Bridge** | `.github/workflows/agents-43-codex-issue-bridge.yml` | `issues`, `workflow_dispatch` | `contents: write`, `pull-requests: write`, `issues: write` | No | Label-driven helper that seeds Codex bootstrap PRs and can auto-comment `@codex start`. |
 | **Agents 64 Verify Agent Assignment** | `.github/workflows/agents-64-verify-agent-assignment.yml` | `workflow_call`, `workflow_dispatch` | `issues: read` | No | Reusable issue-verification helper consumed by the orchestrator and available for ad-hoc checks. |
-| **Agents 63 ChatGPT Issue Sync** | `.github/workflows/agents-63-chatgpt-issue-sync.yml` | `workflow_dispatch` | `contents: write`, `issues: write` | No | Manual sync that turns curated topic lists (e.g. `Issues.txt`) into labelled GitHub issues. |
-| **Agents 62 Consumer** | `.github/workflows/agents-62-consumer.yml` | `workflow_dispatch` | `contents: write`, `pull-requests: write`, `issues: write` | No – **Deprecated compatibility shim.** Use only when external automation still emits a `params_json` payload and cannot call the orchestrator directly. |
-| **Agents Consumer (compat)** | `.github/workflows/agents-consumer.yml` | `workflow_dispatch` | `contents: write`, `pull-requests: write`, `issues: write` | No – **Deprecated legacy wrapper.** Retained temporarily for callers pinned to the historical slug; migrate to the orchestrator. |
+| **Agents 63 ChatGPT Issue Sync** | `.github/workflows/agents-63-chatgpt-issue-sync.yml` | `workflow_dispatch` | `contents: read`, `issues: write` | No | Manual sync that turns curated topic lists (e.g. `Issues.txt`) into labelled GitHub issues. |
+
+### Deprecated compatibility wrappers
+
+The historical consumer wrappers remain in the tree only to ease final
+migrations. They should not receive new integrations and exist solely to bridge
+tooling that still posts monolithic `params_json` payloads. Route new and
+existing automation to **Agents 70 Orchestrator** instead.
+
+| Workflow | File | Trigger(s) | Permissions | Required? | Purpose |
+| --- | --- | --- | --- | --- | --- |
+| **Agents 62 Consumer** | `.github/workflows/agents-62-consumer.yml` | `workflow_dispatch` | `contents: write`, `pull-requests: write`, `issues: write` | No – **Deprecated compatibility shim.** Forwards normalised `params_json` payloads to the orchestrator for callers that cannot yet split dispatch inputs. |
+| **Agents Consumer (compat)** | `.github/workflows/agents-consumer.yml` | `workflow_dispatch` | `contents: write`, `pull-requests: write`, `issues: write` | No – **Deprecated legacy wrapper.** Retained temporarily for automation pinned to the historical slug; migrate to the orchestrator as soon as feasible. |
 
 ### Reusable composites
 
