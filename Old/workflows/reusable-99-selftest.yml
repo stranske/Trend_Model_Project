@@ -10,9 +10,6 @@ on:
         required: false
         type: string
         default: '["3.11"]'
-  schedule:
-    - cron: '0 6 * * 1'
-      # Archived wrapper retains weekly coverage sweep to mirror the active workflow cadence.
   workflow_dispatch:
     inputs:
       python-versions:
