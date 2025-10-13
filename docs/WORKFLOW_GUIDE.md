@@ -10,10 +10,10 @@ bootstrap runs.
 | Prefix | Purpose | Active Examples |
 | ------ | ------- | ---------------- |
 | `pr-` | Pull-request CI wrappers | `pr-00-gate.yml`, `pr-14-docs-only.yml` |
-| `maint-` | Post-CI maintenance and self-tests | `maint-30-post-ci.yml`, `maint-33-check-failure-tracker.yml`, `maint-34-cosmetic-repair.yml`, `maint-90-selftest.yml` |
+| `maint-` | Post-CI maintenance and self-tests | `maint-30-post-ci.yml`, `maint-33-check-failure-tracker.yml`, `maint-34-cosmetic-repair.yml` |
 | `health-` | Repository health & policy checks | `health-40-repo-selfcheck.yml`, `health-41-repo-health.yml`, `health-42-actionlint.yml`, `health-43-ci-signature-guard.yml`, `health-44-gate-branch-protection.yml` |
-| `agents-` | Agent orchestration entry points | `agents-70-orchestrator.yml` |
-| `reusable-` | Reusable composites invoked by other workflows | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-92-autofix.yml`, `reusable-70-agents.yml` |
+| `agents-` | Agent orchestration entry points | `agents-70-orchestrator.yml` (primary); deprecated shims: `agents-62-consumer.yml`, `agents-consumer.yml` |
+| `reusable-` | Reusable composites invoked by other workflows | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-92-autofix.yml`, `reusable-70-agents.yml`, `selftest-81-reusable-ci.yml` |
 | `autofix-` assets | Shared configuration for autofix tooling | `autofix-versions.env` |
 
 **Naming checklist**
@@ -42,9 +42,12 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 - **`maint-34-cosmetic-repair.yml`** — Manual dispatch utility that runs `pytest -q`, applies guard-gated cosmetic fixes via `scripts/ci_cosmetic_repair.py`, and opens a labelled PR when changes exist.
 
 ### Agents
-- **`agents-70-orchestrator.yml`** — Hourly + manual dispatch entry point for readiness, Codex bootstrap, diagnostics, and keepalive sweeps. Delegates to `reusable-70-agents.yml` and accepts extended options via the `params_json` payload. All prior consumer-style wrappers have been retired.
+- **`agents-70-orchestrator.yml`** — Hourly + manual dispatch entry point for readiness, Codex bootstrap, diagnostics, verification, and keepalive sweeps. Delegates to `reusable-70-agents.yml` and accepts extended options via `options_json`.
+- **`agents-43-codex-issue-bridge.yml`** — Label-driven helper that seeds Codex bootstrap PRs and can optionally auto-comment `@codex start`.
 - **`agents-63-chatgpt-issue-sync.yml`** — Manual issue fan-out that mirrors curated topic lists into GitHub issues.
 - **`agents-64-verify-agent-assignment.yml`** — Workflow-call validator ensuring `agent:codex` issues remain assigned to approved automation accounts.
+- **`agents-62-consumer.yml`** — *Deprecated compatibility shim.* Accepts a `params_json` blob and forwards the resolved inputs to the orchestrator for callers that have not yet migrated.
+- **`agents-consumer.yml`** — *Deprecated legacy wrapper.* Retained temporarily for automation pinned to the historical slug; prefer the orchestrator.
 
 ### Reusable Composites
 - **`reusable-10-ci-python.yml`** — Python lint/type/test reusable invoked by Gate and any downstream repositories.
@@ -72,8 +75,9 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 
 ### Manual dispatch quick steps
 1. Open **Actions → Agents 70 Orchestrator → Run workflow**.
-2. Supply inputs such as `enable_bootstrap: true` and `bootstrap_issues_label: agent:codex` either via dedicated fields or inside `params_json`.
-3. Review the `orchestrate` job summary for readiness tables, bootstrap planner output, and links to spawned PRs. Failures provide direct links for triage.
+2. Supply inputs such as `enable_bootstrap: true` and `bootstrap_issues_label: agent:codex` either via dedicated fields or inside `options_json`.
+3. Review the `orchestrate` job summary for readiness tables, bootstrap planner output, verification notes, and links to spawned PRs. Failures provide direct links for triage.
+4. For CLI/API usage, reuse the `params_json` example in [docs/ci/WORKFLOWS.md](ci/WORKFLOWS.md#manual-orchestrator-dispatch) and map the keys to the orchestrator inputs (or pass it through the deprecated consumer shim while migrating clients).
 
 ### Troubleshooting signals
 - **Immediate readiness failure** — missing PAT or scope. Inspect the `Authentication` step and rerun with `SERVICE_BOT_PAT`.
