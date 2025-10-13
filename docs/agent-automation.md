@@ -19,9 +19,9 @@ Manual dispatch / 20-minute schedule ──▶ agents-70-orchestrator.yml
 ```
 
 - No automatic label forwarding remains. Maintainers trigger the orchestrator directly from the Actions tab (manual
-  `workflow_dispatch`) or allow the hourly schedule to run readiness + watchdog checks.
+  `workflow_dispatch`) or allow the 20-minute schedule to run readiness + watchdog checks.
 - Codex keepalive now runs as part of the orchestrator invocation. Configure thresholds or disable it entirely via the
-  `options_json` payload (e.g. `{ "enable_keepalive": false }`).
+  `params_json` payload (e.g. `{ "enable_keepalive": false }`).
 - Bootstrap PR creation, diagnostics, and stale issue escalation now live entirely inside `agents-70-orchestrator.yml` and the
   `reusable-70-agents.yml` composite it calls. Historical wrappers (`agents-41-assign*.yml`, `agents-42-watchdog.yml`, etc.) were
   deleted.
@@ -32,7 +32,7 @@ Manual dispatch / 20-minute schedule ──▶ agents-70-orchestrator.yml
 
 - **Triggers:** `schedule` (every 20 minutes) and manual `workflow_dispatch` with curated inputs.
 - **Inputs:** `enable_readiness`, `readiness_agents`, `require_all`, `enable_preflight`, `codex_user`,
-  `enable_verify_issue`, `verify_issue_number`, `enable_watchdog`, `draft_pr`, plus an extensible `options_json` string for long
+  `enable_verify_issue`, `verify_issue_number`, `enable_watchdog`, `draft_pr`, plus an extensible `params_json` string for long
   tail toggles (currently `diagnostic_mode`, `readiness_custom_logins`, `codex_command_phrase`, `enable_keepalive`,
   `keepalive_idle_minutes`, `keepalive_repeat_minutes`, `keepalive_labels`, `keepalive_command`).
 - **Behaviour:** delegates directly to `reusable-70-agents.yml`, which orchestrates readiness probes, Codex bootstrap, issue
@@ -48,7 +48,7 @@ Manual dispatch / 20-minute schedule ──▶ agents-70-orchestrator.yml
 
 - exposes a `workflow_call` interface so the orchestrator can exercise readiness, preflight, verification, and watchdog routines.
 - keeps compatibility inputs such as `readiness_custom_logins`, `require_all`, `enable_preflight`, `enable_verify_issue`,
-  `enable_watchdog`, `draft_pr`, and the pass-through `options_json` for additional toggles.
+  `enable_watchdog`, `draft_pr`, and the pass-through `options_json` (embedded via `params_json`) for additional toggles.
 - emits a Codex keepalive sweep that looks for stalled checklists on `agent:codex` PRs and republishes the
   `@codex plan-and-execute` command when the agent has been idle longer than the configured threshold (defaults: 10 minute
   idle threshold, 30 minute cooldown between nudges).
@@ -71,7 +71,7 @@ While the agent wrappers were removed, maintenance automation still supports the
 
 1. Use the **Agents 70 Orchestrator** workflow to run readiness checks, Codex bootstrap diagnostics, keepalive sweeps, or
   watchdog checks on demand.
-2. Supply additional toggles via `options_json`, for example:
+2. Supply additional toggles via `params_json`, for example:
    ```json
    {
      "readiness_custom_logins": "my-bot,backup-bot",
@@ -84,7 +84,7 @@ While the agent wrappers were removed, maintenance automation still supports the
    }
    ```
 3. Review the run summary for readiness tables, watchdog escalation indicators, and Codex bootstrap status.
-4. Repeat manual dispatches as needed; scheduled runs provide hourly coverage for stale bootstrap detection.
+4. Repeat manual dispatches as needed; scheduled runs provide 20-minute coverage for stale bootstrap detection.
 
 ## Security Considerations
 
@@ -95,8 +95,8 @@ While the agent wrappers were removed, maintenance automation still supports the
 
 ## Future Enhancements
 
-- Extend `options_json` to cover any additional toggles without growing the dispatch form.
-- Consider adding a lightweight CLI wrapper that posts curated `options_json` payloads for common scenarios.
-- Monitor usage; if the hourly schedule proves redundant, convert it to manual-only to further reduce background noise.
+- Extend `params_json` to cover any additional toggles without growing the dispatch form (embed an `options_json` string when nested structures are required).
+- Consider adding a lightweight CLI wrapper that posts curated `params_json` payloads for common scenarios.
+- Monitor usage; if the 20-minute schedule proves redundant, convert it to manual-only to further reduce background noise.
 
 For questions or updates, open an issue labeled `agent:codex` describing the desired change.

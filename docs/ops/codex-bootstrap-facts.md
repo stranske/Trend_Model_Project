@@ -30,10 +30,10 @@ remain true after the cleanup.
   - Reacts to `agent:codex` (and `agents:codex`) labels plus manual dispatch.
   - Creates or reuses Codex bootstrap branches/PRs and posts copyable issue snippets + `@codex start` instructions.
 - **Orchestrator:** `.github/workflows/agents-70-orchestrator.yml`
-  - Hourly schedule + manual dispatch.
+  - 20-minute cron plus manual dispatch.
   - Inputs: readiness toggles, Codex preflight, watchdog controls, issue verification, `options_json` for extended flags.
   - Calls `.github/workflows/reusable-70-agents.yml` for the actual implementation.
-- **Manual consumer:** `.github/workflows/agents-consumer.yml`
+- **Manual consumer (deprecated compatibility shim):** `.github/workflows/agents-consumer.yml`
   - Manual dispatch only.
   - Exposes the same high-level toggles as the orchestrator UI; advanced overrides (custom readiness agents, Codex command phrase,
     diagnostic knobs, bootstrap label) flow through `options_json`.
