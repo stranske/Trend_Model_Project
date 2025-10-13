@@ -1,4 +1,4 @@
-name: Agents 64 Verify Agent Assignment
+name: Agents 44 Verify Agent Assignment
 
 on:
   workflow_call:
