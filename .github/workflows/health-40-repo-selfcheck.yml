@@ -7,9 +7,8 @@ on:
 
 permissions:
   contents: read
-  issues: read
+  issues: write
   pull-requests: read
-  actions: read
 
 jobs:
   repo-health:
@@ -21,6 +20,7 @@ jobs:
         uses: actions/github-script@v7
         env:
           REQUIRED_LABELS: agent:codex,agent:copilot,automerge,risk:low,codex-ready
+          SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
         with:
           script: |
             const { owner, repo } = context.repo;
@@ -48,27 +48,45 @@ jobs:
 
             let branchStatus = 'unknown';
             let branchNote = 'Branch protection not checked.';
-            try {
-              await github.rest.repos.getBranchProtection({
-                owner,
-                repo,
-                branch: defaultBranch,
-              });
-              branchStatus = 'enabled';
-              branchNote = `Branch protection is configured for ${defaultBranch}.`;
-            } catch (error) {
-              if (error.status === 404) {
-                branchStatus = 'missing';
-                branchNote = `Branch protection is not configured for ${defaultBranch}.`;
-              } else if (error.status === 403) {
-                branchStatus = 'forbidden';
-                branchNote = 'The workflow token lacks permission to read branch protection settings.';
-                core.warning(branchNote);
-              } else {
-                branchStatus = 'error';
-                branchNote = `Branch protection check failed: ${error.message}`;
-                core.warning(branchNote);
+            const serviceBotPat = process.env.SERVICE_BOT_PAT || '';
+            let privilegedChecksUsed = false;
+            let privilegedChecksSkipped = false;
+
+            const runPrivilegedCheck = async () => {
+              const { Octokit } = require('@octokit/rest');
+              const elevatedGithub = new Octokit({ auth: serviceBotPat });
+              try {
+                await elevatedGithub.repos.getBranchProtection({
+                  owner,
+                  repo,
+                  branch: defaultBranch,
+                });
+                branchStatus = 'enabled';
+                branchNote = `Branch protection is configured for ${defaultBranch}.`;
+              } catch (error) {
+                if (error.status === 404) {
+                  branchStatus = 'missing';
+                  branchNote = `Branch protection is not configured for ${defaultBranch}.`;
+                } else if (error.status === 403) {
+                  branchStatus = 'forbidden';
+                  branchNote = 'The supplied token lacks permission to read branch protection settings.';
+                  core.warning(branchNote);
+                } else {
+                  branchStatus = 'error';
+                  branchNote = `Branch protection check failed: ${error.message}`;
+                  core.warning(branchNote);
+                }
               }
+            };
+
+            if (serviceBotPat) {
+              privilegedChecksUsed = true;
+              await runPrivilegedCheck();
+            } else {
+              privilegedChecksSkipped = true;
+              branchStatus = 'skipped';
+              branchNote = 'SERVICE_BOT_PAT not configured; skipped branch protection check.';
+              core.notice('Skipped privileged checks because SERVICE_BOT_PAT is not configured.');
             }
 
             const checks = [
@@ -89,6 +107,8 @@ jobs:
                     ? 'pass'
                     : branchStatus === 'missing'
                     ? 'attention'
+                    : branchStatus === 'skipped'
+                    ? 'skipped'
                     : 'warn',
                 detail: branchNote,
               },
@@ -105,18 +125,23 @@ jobs:
                 `Repo health summary @ ${timestamp}`,
                 `• Required labels present: ${missingLabels.length === 0 ? 'yes' : 'no'}`,
                 `• Branch protection status: ${branchStatus}`,
+                privilegedChecksUsed
+                  ? '• Privileged checks: executed with SERVICE_BOT_PAT'
+                  : '• Privileged checks: skipped (SERVICE_BOT_PAT not configured)',
               ].join('\n')
             );
 
             core.setOutput('checks', JSON.stringify(checks));
             core.setOutput('timestamp', timestamp);
             core.setOutput('default_branch', defaultBranch);
+            core.setOutput('privileged_checks_skipped', privilegedChecksSkipped ? 'true' : 'false');
 
       - name: Repo health summary
         env:
           CHECKS_JSON: ${{ steps.collect.outputs.checks }}
           TIMESTAMP: ${{ steps.collect.outputs.timestamp }}
           DEFAULT_BRANCH: ${{ steps.collect.outputs.default_branch }}
+          PRIVILEGED_SKIPPED: ${{ steps.collect.outputs.privileged_checks_skipped }}
         run: |
           python - <<'PY'
           import json
@@ -125,12 +150,14 @@ jobs:
           checks = json.loads(os.environ.get('CHECKS_JSON') or '[]')
           timestamp = os.environ.get('TIMESTAMP') or ''
           default_branch = os.environ.get('DEFAULT_BRANCH') or ''
+          privileged_skipped = (os.environ.get('PRIVILEGED_SKIPPED') or '').lower() == 'true'
 
           status_labels = {
               'pass': '✅ Pass',
               'attention': '⚠️ Needs attention',
               'warn': '⚠️ Warning',
               'info': 'ℹ️ Info',
+              'skipped': '⚠️ Skipped',
           }
 
           lines = ['# Repo health summary']
@@ -150,6 +177,10 @@ jobs:
                   status = status_labels.get(check.get('status', 'info'), check.get('status', 'info'))
                   detail = (check.get('detail') or '').replace('\n', '<br>')
                   lines.append(f'| {title} | {status} | {detail} |')
+
+          if privileged_skipped:
+              lines.append('')
+              lines.append('> ℹ️ Privileged checks were skipped because `SERVICE_BOT_PAT` is not configured.')
 
           output = '\n'.join(lines) + '\n'
           print(output)
