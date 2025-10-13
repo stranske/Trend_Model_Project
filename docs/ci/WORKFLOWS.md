@@ -115,11 +115,11 @@ existing automation to **Agents 70 Orchestrator** instead.
 
 ### Required PR gates (block merges by default)
 
-| Workflow | Trigger(s) | Why it matters |
-|----------|------------|----------------|
-| `pr-00-gate.yml` (`Gate`) | `pull_request`, `workflow_dispatch` | Composite orchestrator that chains the reusable CI and Docker smoke jobs and enforces that every leg succeeds.
-| `pr-14-docs-only.yml` (`PR 14 Docs Only`) | `pull_request` (doc paths) | Detects documentation-only diffs and posts a friendly skip notice instead of running heavier gates.
-| `autofix.yml` (`Autofix`) | `pull_request` | Lightweight formatting/type-hygiene runner that auto-commits safe fixes or publishes a patch artifact for forked PRs.
+| Workflow | File | Trigger(s) | Permissions | Required? | Why it matters |
+|----------|------|------------|-------------|-----------|----------------|
+| `pr-00-gate.yml` (`Gate`) | `.github/workflows/pr-00-gate.yml` | `pull_request`, `workflow_dispatch` | Defaults (`contents: read`) | **Yes** | Composite orchestrator that chains the reusable CI and Docker smoke jobs and enforces that every leg succeeds. |
+| `pr-14-docs-only.yml` (`PR 14 Docs Only`) | `.github/workflows/pr-14-docs-only.yml` | `pull_request` (doc paths) | Defaults (`contents: read`); `pull-requests: write` for notices | No | Detects documentation-only diffs and posts a friendly skip notice instead of running heavier gates. |
+| `autofix.yml` (`Autofix`) | `.github/workflows/autofix.yml` | `pull_request` | `contents: write`, `pull-requests: write` | **Yes** (`apply` job) | Lightweight formatting/type-hygiene runner that auto-commits safe fixes or publishes a patch artifact for forked PRs. |
 
 **Operational details**
 - **Gate** – Permissions: defaults (read scope). Secrets: relies on `GITHUB_TOKEN` only. Status outputs: `core tests (3.11)`, `core tests (3.12)`, `docker smoke`, and the aggregator job `gate`, which fails if any dependency fails.
@@ -129,17 +129,17 @@ These jobs must stay green for PRs to merge. The post-CI maintenance jobs below 
 
 ### Maintenance & observability (scheduled/optional reruns)
 
-| Workflow | Trigger(s) | Purpose |
-|----------|------------|---------|
-| `health-41-repo-health.yml` (`Maint 02 Repo Health`) | Weekly cron, manual | Reports stale branches & unassigned issues.
-| `maint-30-post-ci.yml` (`Maint Post CI`) | `workflow_run` (Gate) | Consolidated follower that posts Gate summaries, applies low-risk autofix commits, and owns CI failure-tracker updates.
-| `maint-33-check-failure-tracker.yml` (`Maint 33 Check Failure Tracker`) | `workflow_run` (Gate) | Lightweight compatibility shell that documents the delegation to `maint-30-post-ci.yml`.
-| `health-40-repo-selfcheck.yml` (`Maint 35 Repo Health Self Check`) | Weekly cron, manual | Read-only repo health pulse that surfaces missing labels or branch-protection visibility gaps in the step summary.
-| `health-44-gate-branch-protection.yml` (`Enforce Gate Branch Protection`) | Hourly cron, manual | Applies branch-protection policy checks using `tools/enforce_gate_branch_protection.py`; skips gracefully when the PAT is not configured.
-| `health-42-actionlint.yml` (`Maint 36 Actionlint`) | `pull_request`, weekly cron, manual | Sole workflow-lint gate (actionlint via reviewdog).
-| `health-43-ci-signature-guard.yml` (`Maint 40 CI Signature Guard`) | `push`/`pull_request` targeting `phase-2-dev` | Validates the signed job manifest for `pr-00-gate.yml`.
-| `agents-63-chatgpt-issue-sync.yml` (`Maint 41 ChatGPT Issue Sync`) | `workflow_dispatch` (manual) | Fans out curated topic lists (e.g. `Issues.txt`) into labeled GitHub issues. ⚠️ Repository policy: do not remove without a functionally equivalent replacement. |
-| `maint-34-cosmetic-repair.yml` (`Maint 45 Cosmetic Repair`) | `workflow_dispatch` | Manual pytest + guardrail fixer that applies tolerance/snapshot updates and opens a labelled PR when drift is detected. |
+| Workflow | File | Trigger(s) | Permissions | Required? | Purpose |
+|----------|------|------------|-------------|-----------|---------|
+| `health-41-repo-health.yml` (`Maint 02 Repo Health`) | `.github/workflows/health-41-repo-health.yml` | Weekly cron, manual | `contents: read`, `issues: read` | No | Reports stale branches & unassigned issues. |
+| `maint-30-post-ci.yml` (`Maint Post CI`) | `.github/workflows/maint-30-post-ci.yml` | `workflow_run` (Gate) | `contents: write`, `pull-requests: write`, `issues: write`, `checks: read`, `actions: read` | No | Consolidated follower that posts Gate summaries, applies low-risk autofix commits, and owns CI failure-tracker updates. |
+| `maint-33-check-failure-tracker.yml` (`Maint 33 Check Failure Tracker`) | `.github/workflows/maint-33-check-failure-tracker.yml` | `workflow_run` (Gate) | Defaults (`contents: read`) | No | Lightweight compatibility shell that documents the delegation to `maint-30-post-ci.yml`. |
+| `health-40-repo-selfcheck.yml` (`Maint 35 Repo Health Self Check`) | `.github/workflows/health-40-repo-selfcheck.yml` | Weekly cron, manual | `contents: read`, `issues: read`, `pull-requests: read`, `actions: read` | No | Read-only repo health pulse that surfaces missing labels or branch-protection visibility gaps in the step summary. |
+| `health-44-gate-branch-protection.yml` (`Enforce Gate Branch Protection`) | `.github/workflows/health-44-gate-branch-protection.yml` | Hourly cron, manual | `contents: read`, `pull-requests: read`; optional PAT via `BRANCH_PROTECTION_TOKEN` | No | Applies branch-protection policy checks using `tools/enforce_gate_branch_protection.py`; skips gracefully when the PAT is not configured. |
+| `health-42-actionlint.yml` (`Maint 36 Actionlint`) | `.github/workflows/health-42-actionlint.yml` | `pull_request`, weekly cron, manual | `contents: read`, `pull-requests: write`, `checks: write` | No | Sole workflow-lint gate (actionlint via reviewdog). |
+| `health-43-ci-signature-guard.yml` (`Maint 40 CI Signature Guard`) | `.github/workflows/health-43-ci-signature-guard.yml` | `push`/`pull_request` targeting `phase-2-dev` | Defaults (`contents: read`) | No | Validates the signed job manifest for `pr-00-gate.yml`. |
+| `agents-63-chatgpt-issue-sync.yml` (`Maint 41 ChatGPT Issue Sync`) | `.github/workflows/agents-63-chatgpt-issue-sync.yml` | `workflow_dispatch` (manual) | `contents: read`, `issues: write` | No | Fans out curated topic lists (e.g. `Issues.txt`) into labeled GitHub issues. ⚠️ Repository policy: do not remove without a functionally equivalent replacement. |
+| `maint-34-cosmetic-repair.yml` (`Maint 45 Cosmetic Repair`) | `.github/workflows/maint-34-cosmetic-repair.yml` | `workflow_dispatch` | `contents: write`, `pull-requests: write` | No | Manual pytest + guardrail fixer that applies tolerance/snapshot updates and opens a labelled PR when drift is detected. |
 
 ### Repo health troubleshooting
 
