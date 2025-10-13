@@ -23,7 +23,7 @@ Manual dispatch / 20-minute schedule ──▶ agents-70-orchestrator.yml
 - Codex keepalive now runs as part of the orchestrator invocation. Configure thresholds or disable it entirely via the
   `params_json` payload (e.g. `{ "enable_keepalive": false }`).
 - Bootstrap PR creation, diagnostics, and stale issue escalation now live entirely inside `agents-70-orchestrator.yml` and the
-  `reusable-70-agents.yml` composite it calls. Historical wrappers (`agents-41-assign*.yml`, `agents-42-watchdog.yml`, etc.) were
+  `reusable-16-agents.yml` composite it calls. Historical wrappers (`agents-41-assign*.yml`, `agents-42-watchdog.yml`, etc.) were
   deleted.
 
 ## Key Workflow
@@ -35,7 +35,7 @@ Manual dispatch / 20-minute schedule ──▶ agents-70-orchestrator.yml
   `enable_verify_issue`, `verify_issue_number`, `enable_watchdog`, `draft_pr`, plus an extensible `params_json` string for long
   tail toggles (currently `diagnostic_mode`, `readiness_custom_logins`, `codex_command_phrase`, `enable_keepalive`,
   `keepalive_idle_minutes`, `keepalive_repeat_minutes`, `keepalive_labels`, `keepalive_command`).
-- **Behaviour:** delegates directly to `reusable-70-agents.yml`, which orchestrates readiness probes, Codex bootstrap, issue
+- **Behaviour:** delegates directly to `reusable-16-agents.yml`, which orchestrates readiness probes, Codex bootstrap, issue
   verification, and watchdog sweeps. The JSON options map is parsed via `fromJson()` so new flags can be layered without
   exploding the dispatch form beyond GitHub's 10-input limit.
 - **Permissions:** retains `contents`, `pull-requests`, and `issues` write scopes to continue authoring Codex PRs or posting
@@ -44,7 +44,7 @@ Manual dispatch / 20-minute schedule ──▶ agents-70-orchestrator.yml
 
 ### Reusable Composite
 
-`reusable-70-agents.yml` remains the single source of truth for agent automation logic:
+`reusable-16-agents.yml` remains the single source of truth for agent automation logic:
 
 - exposes a `workflow_call` interface so the orchestrator can exercise readiness, preflight, verification, and watchdog routines.
 - keeps compatibility inputs such as `readiness_custom_logins`, `require_all`, `enable_preflight`, `enable_verify_issue`,
@@ -59,7 +59,7 @@ Manual dispatch / 20-minute schedule ──▶ agents-70-orchestrator.yml
 `agents-64-verify-agent-assignment.yml` exposes the issue verification logic as a standalone reusable workflow with a parallel
 `workflow_dispatch` entry point. Supply an `issue_number` and the workflow fetches the issue, ensures the `agent:codex`
 label is present, validates that either `copilot` or `chatgpt-codex-connector` is assigned, and publishes a step summary
-table documenting the outcome. `reusable-70-agents.yml` now delegates its issue verification job to this workflow so the
+table documenting the outcome. `reusable-16-agents.yml` now delegates its issue verification job to this workflow so the
 same checks are available for ad-hoc dispatches from the Actions tab.
 
 ## Related Automation

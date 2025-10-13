@@ -15,7 +15,7 @@ bootstrap runs.
 | `maint-` | Post-CI maintenance and self-tests | `maint-46-post-ci.yml`, `maint-47-check-failure-tracker.yml`, `maint-45-cosmetic-repair.yml` |
 | `health-` | Repository health & policy checks | `health-40-repo-selfcheck.yml`, `health-41-repo-health.yml`, `health-42-actionlint.yml`, `health-43-ci-signature-guard.yml`, `health-44-gate-branch-protection.yml` |
 | `agents-` | Agent orchestration entry points | `agents-70-orchestrator.yml` (primary); deprecated shims: `agents-61-consumer-compat.yml`, `agents-62-consumer.yml` |
-| `reusable-` | Reusable composites invoked by other workflows | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-92-autofix.yml`, `reusable-70-agents.yml` |
+| `reusable-` | Reusable composites invoked by other workflows | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-18-autofix.yml`, `reusable-16-agents.yml` |
 | `selftest-` | Manual self-tests & experiments | `selftest-80-pr-comment.yml`, `selftest-81-reusable-ci.yml`, `selftest-82-pr-comment.yml`, `selftest-83-pr-comment.yml`, `selftest-84-reusable-ci.yml`, `selftest-88-reusable-ci.yml` |
 | `autofix-` assets | Shared configuration for autofix tooling | `autofix-versions.env` |
 
@@ -32,7 +32,7 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 ### PR Checks
 - **`pr-00-gate.yml`** — Required orchestrator that calls the reusable Python (3.11/3.12) and Docker smoke workflows, then fails fast if any leg does not succeed. See the Gate job map and flow diagram in [docs/ci/WORKFLOWS.md](ci/WORKFLOWS.md#gate-job-map) for a visual of the fan-out and aggregator enforcement.
 - **`pr-14-docs-only.yml`** — Docs-only detector that posts a skip notice instead of running heavier CI.
-- **`autofix.yml`** — PR autofix runner delegating to the reusable autofix composite.
+- **`pr-02-autofix.yml`** — PR autofix runner delegating to the reusable autofix composite.
 
 ### Maintenance & Governance
 - **`health-41-repo-health.yml`** — Weekly repository health sweep that writes a single run-summary report, with optional `workflow_dispatch` reruns.
@@ -45,7 +45,7 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 - **`maint-45-cosmetic-repair.yml`** — Manual dispatch utility that runs `pytest -q`, applies guard-gated cosmetic fixes via `scripts/ci_cosmetic_repair.py`, and opens a labelled PR when changes exist.
 
 ### Agents
-- **`agents-70-orchestrator.yml`** — 20-minute cron plus manual dispatch entry point for readiness, Codex bootstrap, diagnostics, verification, and keepalive sweeps. Delegates to `reusable-70-agents.yml` and accepts extended options via `options_json`.
+- **`agents-70-orchestrator.yml`** — 20-minute cron plus manual dispatch entry point for readiness, Codex bootstrap, diagnostics, verification, and keepalive sweeps. Delegates to `reusable-16-agents.yml` and accepts extended options via `options_json`.
 - **`agents-63-codex-issue-bridge.yml`** — Label-driven helper that seeds Codex bootstrap PRs and can optionally auto-comment `@codex start`.
 - **`agents-63-chatgpt-issue-sync.yml`** — Manual issue fan-out that mirrors curated topic lists into GitHub issues.
 - **`agents-64-verify-agent-assignment.yml`** — Workflow-call validator ensuring `agent:codex` issues remain assigned to approved automation accounts.
@@ -55,8 +55,8 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 ### Reusable Composites
 - **`reusable-10-ci-python.yml`** — Python lint/type/test reusable invoked by Gate and any downstream repositories.
 - **`reusable-12-ci-docker.yml`** — Docker smoke reusable invoked by Gate and external consumers.
-- **`reusable-92-autofix.yml`** — Autofix harness used by `maint-46-post-ci.yml` and `autofix.yml`.
-- **`reusable-70-agents.yml`** — Reusable agent automation stack.
+- **`reusable-18-autofix.yml`** — Autofix harness used by `maint-46-post-ci.yml` and `pr-02-autofix.yml`.
+- **`reusable-16-agents.yml`** — Reusable agent automation stack.
 - **`selftest-81-reusable-ci.yml`** — Reusable CI matrix exerciser exposed via both `workflow_dispatch` and `workflow_call`. The manual `selftest-8X-*` wrappers delegate to this workflow and inherit its verification outputs.
 
 ### Manual Self-tests
@@ -67,7 +67,7 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 - **`selftest-88-reusable-ci.yml`** — Dual-runtime summary runner that exercises the reusable matrix across multiple Python versions and records the table in the summary.
 
 ## Trigger Wiring Tips
-1. When renaming a workflow, update any `workflow_run` consumers. In this roster that includes `maint-46-post-ci.yml`, `autofix.yml`, and `maint-47-check-failure-tracker.yml`.
+1. When renaming a workflow, update any `workflow_run` consumers. In this roster that includes `maint-46-post-ci.yml`, `pr-02-autofix.yml`, and `maint-47-check-failure-tracker.yml`.
 2. The orchestrator relies on the workflow names, not just filenames. Keep `name:` fields synchronized with filenames to avoid missing triggers.
 3. Reusable workflows stay invisible in the Actions tab; top-level consumers should include summary steps for observability.
 
@@ -78,7 +78,7 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 
 ## Agent Operations
 - Use **Agents 70 Orchestrator** for every automation task (readiness checks, Codex bootstrap, diagnostics, keepalive). No other entry points remain beyond deprecated compatibility shims.
-- Optional flags beyond the standard inputs belong in the `params_json` payload; the orchestrator parses it with `fromJson()` and forwards toggles to `reusable-70-agents.yml`. Include an `options_json` string inside the payload for nested keepalive or cleanup settings when required.
+- Optional flags beyond the standard inputs belong in the `params_json` payload; the orchestrator parses it with `fromJson()` and forwards toggles to `reusable-16-agents.yml`. Include an `options_json` string inside the payload for nested keepalive or cleanup settings when required.
 - Provide a PAT when bootstrap needs to push branches. The orchestrator honours PAT priority (`OWNER_PR_PAT` → `SERVICE_BOT_PAT` → `GITHUB_TOKEN`) via the reusable composite.
 
 > **Deprecated compatibility wrappers:** `agents-61-consumer-compat.yml` (formerly `agents-consumer.yml`) and `agents-62-consumer.yml` persist only for callers migrating from the historical JSON schema. They remain manual-only and should be phased out in favour of the orchestrator.

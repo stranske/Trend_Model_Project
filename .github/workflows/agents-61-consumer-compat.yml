@@ -56,7 +56,7 @@ concurrency:
 jobs:
   dispatch:
     name: Dispatch reusable agents toolkit
-    uses: ./.github/workflows/reusable-70-agents.yml
+    uses: ./.github/workflows/reusable-16-agents.yml
     secrets: inherit
     with:
       enable_readiness: ${{ inputs.enable_readiness }}

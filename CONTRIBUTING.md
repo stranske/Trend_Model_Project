@@ -15,7 +15,7 @@ post-processing workflow:
   It fans out to the Python 3.11/3.12 test lanes and the Docker smoke
   job.
 - **Autofix lane** – The
-  [Autofix workflow](.github/workflows/autofix.yml) runs on every
+  [Autofix workflow](.github/workflows/pr-02-autofix.yml) runs on every
   non-draft PR event. Drafts are ignored unless you opt in by adding the
   `autofix` label; convert the PR back to draft (and drop the label) to
   pause automation, then mark it ready when you want autofix to resume.
@@ -32,7 +32,7 @@ post-processing workflow:
   [`agents-70-orchestrator.yml`](.github/workflows/agents-70-orchestrator.yml)
   workflow is the single dispatch point for scheduled Codex automation and the
   preferred manual entry path. It invokes
-  [`reusable-70-agents.yml`](.github/workflows/reusable-70-agents.yml) directly
+  [`reusable-16-agents.yml`](.github/workflows/reusable-16-agents.yml) directly
   to run readiness checks, watchdogs, and Codex bootstrapping. Applying the
   `agent:codex` label flags an issue for bootstrap handling in the next
   run; remove the label to opt out before the dispatcher cycles. A manual-only

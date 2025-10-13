@@ -48,7 +48,7 @@ These steps establish a structured path for implementing the assignment verifica
 
 - Added `.github/workflows/agents-64-verify-agent-assignment.yml`, a reusable and dispatchable workflow that consumes an `issue_number`,
   fetches the target issue with `issues: read` permissions, and publishes a markdown table summarising validation results.
-- Updated `reusable-70-agents.yml` to delegate its verification job to the new workflow so orchestrator runs and manual
+- Updated `reusable-16-agents.yml` to delegate its verification job to the new workflow so orchestrator runs and manual
   dispatches share the same validation surface.
 - Documented the new workflow entry point in `docs/agent-automation.md`, including usage guidance for maintainers triggering
   ad-hoc checks from the Actions tab.

@@ -10,7 +10,7 @@ inventory and naming rules.
 Core layers:
 - Gate orchestrator (`pr-00-gate.yml`): single required check that fans out to Python 3.11/3.12 CI and the Docker smoke test using the reusable workflows, then enforces that every leg succeeds.
 - Autofix lane (`maint-46-post-ci.yml`): workflow_run follower that batches small hygiene fixes, posts Gate summaries, and manages trivial failure remediation using the composite autofix action.
-- Agents orchestration & watchdog (`agents-70-orchestrator.yml` + `reusable-70-agents.yml`): label-driven assignment, Codex bootstrap, diagnostics, and watchdog toggles via `enable_watchdog` (default `true`).
+- Agents orchestration & watchdog (`agents-70-orchestrator.yml` + `reusable-16-agents.yml`): label-driven assignment, Codex bootstrap, diagnostics, and watchdog toggles via `enable_watchdog` (default `true`).
 - Merge automation (`maint-45-merge-manager.yml`): unified auto-approval and auto-merge decisions for safe agent PRs.
 - Governance & Health: `health-40-repo-selfcheck.yml`, `health-41-repo-health.yml`, `health-42-actionlint.yml`, `health-43-ci-signature-guard.yml`, `health-44-gate-branch-protection.yml`, labelers, dependency review, CodeQL.
 - Path Labeling: `pr-path-labeler.yml` auto-categorizes PRs.
@@ -76,11 +76,11 @@ workflow files.
 | `agents-63-chatgpt-issue-sync.yml` | workflow_dispatch | Curated topic lists (e.g. `Issues.txt`) → labeled GitHub issues.
 | `maint-45-cosmetic-repair.yml` | workflow_dispatch | Manual pytest + cosmetic fixer that raises guard-gated PRs for tolerated drift.
 | `agents-63-codex-issue-bridge.yml` | issues, workflow_dispatch | Prepares Codex-ready branches/PRs when an `agent:codex` label is applied.
-| `agents-70-orchestrator.yml` | schedule (*/20), workflow_dispatch | Unified agents toolkit entry point delegating to `reusable-70-agents.yml`.
-| `reusable-70-agents.yml` | workflow_call | Composite implementing readiness, bootstrap, diagnostics, and watchdog jobs.
+| `agents-70-orchestrator.yml` | schedule (*/20), workflow_dispatch | Unified agents toolkit entry point delegating to `reusable-16-agents.yml`.
+| `reusable-16-agents.yml` | workflow_call | Composite implementing readiness, bootstrap, diagnostics, and watchdog jobs.
 | `reusable-10-ci-python.yml` | workflow_call | Unified CI executor for the Python stack.
 | `reusable-12-ci-docker.yml` | workflow_call | Docker smoke reusable consumed by `pr-00-gate.yml`.
-| `reusable-92-autofix.yml` | workflow_call | Autofix composite consumed by `maint-46-post-ci.yml`.
+| `reusable-18-autofix.yml` | workflow_call | Autofix composite consumed by `maint-46-post-ci.yml` and `pr-02-autofix.yml`.
 
 ---
 ## 5. Adopt Reusable Workflows
@@ -116,7 +116,7 @@ on:
   workflow_dispatch:
 jobs:
   call:
-    uses: stranske/Trend_Model_Project/.github/workflows/reusable-70-agents.yml@phase-2-dev
+    uses: stranske/Trend_Model_Project/.github/workflows/reusable-16-agents.yml@phase-2-dev
     with:
       enable_readiness: true
       enable_preflight: true
@@ -131,8 +131,8 @@ Issue #2377 rebuilt the agents automation stack to stay under the GitHub
 Two entry points now exist:
 
 - `agents-62-consumer.yml` – Manual dispatch wrapper that accepts a single
-  `params_json` string, parses it, and forwards normalized values to
-  `reusable-71-agents-dispatch.yml`. The workflow declares
+  `params_json` string, parses it, and forwards normalized values directly to
+  `reusable-16-agents.yml`. The workflow declares
   `concurrency: agents-62-consumer` and introduces job-level
   `timeout-minutes` so overlapping runs are cancelled and stalled executions
   end automatically. Set `enable_bootstrap` to `true` in the JSON payload to
@@ -140,15 +140,14 @@ Two entry points now exist:
   enabled).
 - `agents-70-orchestrator.yml` – Unified scheduled/dispatch orchestrator for
   readiness probes, diagnostics, bootstrap, watchdog, and keepalive flows. It
-  passes discrete inputs directly to `reusable-70-agents.yml` and derives
+  passes discrete inputs directly to `reusable-16-agents.yml` and derives
   Codex bootstrap toggles/labels from the `options_json` payload so the
   dispatch form stays under the 10-input limit.
 
-`reusable-71-agents-dispatch.yml` bridges the consumer JSON payload into the reusable toolkit
-without re-exposing more than 10 dispatch inputs. Both entry points ultimately
-invoke `reusable-70-agents.yml`, which emits Markdown readiness summaries,
-`issue_numbers_json`, and `first_issue` outputs for Codex bootstraps and keeps
-the watchdog probe enabled whenever `enable_watchdog` resolves to `true`.
+Both entry points ultimately invoke `reusable-16-agents.yml`, which emits
+Markdown readiness summaries, `issue_numbers_json`, and `first_issue` outputs
+for Codex bootstraps and keeps the watchdog probe enabled whenever
+`enable_watchdog` resolves to `true`.
 
 Manual dispatch for the consumer now uses a single JSON textarea. A ready to
 paste payload:
@@ -346,7 +345,7 @@ Note: The gate job will become the only required status after successful observa
 4. Rerun as needed; Maint 46 Post CI will echo failing runs in the `ci-failure`
    rollup when Gate is affected.
 
-`reusable-70-agents.yml` remains the single implementation surface for readiness
+`reusable-16-agents.yml` remains the single implementation surface for readiness
 probes, diagnostics, bootstrap, keepalive, and watchdog jobs. `reuse-agents.yml`
 exists for workflow-call reuse so downstream repositories can adopt the same
 inputs without duplicating JSON parsing.

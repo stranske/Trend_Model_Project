@@ -1,7 +1,7 @@
 # Agents Consumer Workflow (Manual Dispatch)
 
 `.github/workflows/agents-61-consumer-compat.yml` provides a manual dispatch wrapper around
-[`reusable-70-agents.yml`](../../.github/workflows/reusable-70-agents.yml). Use it
+[`reusable-16-agents.yml`](../../.github/workflows/reusable-16-agents.yml). Use it
 when you want to bypass the orchestrator schedule and invoke the reusable
 workflow directly with bespoke settings.
 

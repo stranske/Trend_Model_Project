@@ -14,7 +14,7 @@ All deprecated agent automation workflows were deleted from `.github/workflows/`
 | `verify-agent-task.yml` | `archive/verify-agent-task.yml` (deleted 2026-10-07) | `reuse-agents.yml` (legacy) | `enable_verify_issue=true` |
 
 ## Additional Archived Workflows
-- (2026-02-07) `codex-issue-bridge.yml`, `reuse-agents.yml`, and the legacy `agents-consumer.yml` moved to the archive before the assigner/watchdog consolidation. The WFv1 renumbering landed in 2026-09 (`agents-40-consumer.yml`, `agents-41-assign-and-watch.yml`, wrappers, plus `reusable-90-agents.yml`) and was superseded by Issue #2190 (`agents-70-orchestrator.yml`, `reusable-70-agents.yml`). Issue #2493 reintroduced the consumer shim (now `agents-61-consumer-compat.yml`) as a manual-only dispatcher that proxies directly to the reusable toolkit.
+- (2026-02-07) `codex-issue-bridge.yml`, `reuse-agents.yml`, and the legacy `agents-consumer.yml` moved to the archive before the assigner/watchdog consolidation. The WFv1 renumbering landed in 2026-09 (`agents-40-consumer.yml`, `agents-41-assign-and-watch.yml`, wrappers, plus `reusable-90-agents.yml`) and was superseded by Issue #2190 (`agents-70-orchestrator.yml`, `reusable-16-agents.yml`). Issue #2493 reintroduced the consumer shim (now `agents-61-consumer-compat.yml`) as a manual-only dispatcher that proxies directly to the reusable toolkit.
 - (2026-10-12) Issue #2466 removed the last on-disk copy of the historical slug; Issue #2493 restored the workflow with the corrected `jobs.<id>.uses` contract and a concurrency guard to prevent repeated manual triggers from piling up.
 - (2026-09-30) Standalone `gate.yml` wrapper deleted (Issue #1657). The subsequent consolidation (Issue #2195) folded the aggregator logic into the single `ci / python` job inside `pr-10-ci-python.yml`; no archived copy retained because the YAML was invalid.
 - (2026-10-05) `autoapprove.yml` and `enable-automerge.yml` permanently retired once `maint-45-merge-manager.yml` proved stable (guard test asserts documentation coverage).
@@ -40,10 +40,10 @@ All deprecated agent automation workflows were deleted from `.github/workflows/`
 - `selftest-82-pr-comment.yml` – previously deleted PR comment bot; revived in Issue #2525 with workflow_dispatch-only semantics.
 
 ## Retired Autofix Wrapper
-- Legacy `autofix.yml` (pre-2025) was deleted during the earlier cleanup. As of 2026-02-15 the consolidated `maint-46-post-ci.yml` (previously `maint-32-autofix.yml`) began handling small fixes and trivial failure remediation. In 2026-10 the streamlined PR-facing `autofix.yml` workflow was reinstated (Issue #2380) and now delegates to the same reusable composite used by `maint-46-post-ci.yml`.
+- Legacy `pr-02-autofix.yml` (pre-2025) was deleted during the earlier cleanup. As of 2026-02-15 the consolidated `maint-46-post-ci.yml` (previously `maint-32-autofix.yml`) began handling small fixes and trivial failure remediation. In 2026-10 the streamlined PR-facing `pr-02-autofix.yml` workflow was reinstated (Issue #2380) and now delegates to the same reusable composite used by `maint-46-post-ci.yml`.
 
 ## Rationale
-The 2025 cleanup centralized agent probe, diagnostic, and verification logic into `reuse-agents.yml`. In 2026 this was further simplified: `agents-41-assign-and-watch.yml` and its wrappers gave way to the single `agents-70-orchestrator.yml` entry point that calls `reusable-70-agents.yml`.
+The 2025 cleanup centralized agent probe, diagnostic, and verification logic into `reuse-agents.yml`. In 2026 this was further simplified: `agents-41-assign-and-watch.yml` and its wrappers gave way to the single `agents-70-orchestrator.yml` entry point that calls `reusable-16-agents.yml`.
 
 ## Rollback Procedure
 If a regression is traced to consolidation:

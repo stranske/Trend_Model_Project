@@ -21,7 +21,7 @@ topology.
 | --- | --- | --- | --- | --- | --- |
 | **Gate** | `.github/workflows/pr-00-gate.yml` | `pull_request` (non-doc paths), `workflow_dispatch` | Defaults (`contents: read`) via `GITHUB_TOKEN`; delegated jobs reuse the caller token. | **Yes** – aggregate `gate` status must pass. | Fan-out orchestrator chaining the reusable Python CI and Docker smoke jobs; enforces downstream results. |
 | **PR 14 Docs Only** | `.github/workflows/pr-14-docs-only.yml` | `pull_request` (docs/assets only) | Defaults (`contents: read`) for detection, `pull-requests: write` for the notice. | No – optional skip helper (Gate remains required). | Detects doc-only PRs and short-circuits heavier CI while leaving Gate in place. |
-| **Autofix** | `.github/workflows/autofix.yml` | `pull_request` (including label updates) | `contents: write`, `pull-requests: write` | **Yes** – `apply` job must succeed. | Runs the reusable autofix composite to apply/offer safe formatting fixes. |
+| **PR 02 Autofix** | `.github/workflows/pr-02-autofix.yml` | `pull_request` (including label updates) | `contents: write`, `pull-requests: write` | **Yes** – `apply` job must succeed. | Runs the reusable autofix composite to apply/offer safe formatting fixes. |
 
 #### Gate job map
 
@@ -93,8 +93,8 @@ existing automation to **Agents 70 Orchestrator** instead.
 | --- | --- | --- | --- | --- | --- |
 | **Reusable CI** | `.github/workflows/reusable-10-ci-python.yml` | `workflow_call` | Inherits caller permissions | No | Python lint/type/test reusable consumed by Gate and downstream repositories. |
 | **Reusable Docker Smoke** | `.github/workflows/reusable-12-ci-docker.yml` | `workflow_call` | Inherits caller permissions | No | Docker build + smoke reusable consumed by Gate and external callers. |
-| **Reusable 92 Autofix** | `.github/workflows/reusable-92-autofix.yml` | `workflow_call` | `contents: write`, `pull-requests: write` | No | Autofix harness shared by `autofix.yml` and `maint-46-post-ci.yml`. |
-| **Reusable 70 Agents** | `.github/workflows/reusable-70-agents.yml` | `workflow_call` | `contents: write`, `pull-requests: write`, `issues: write`; optional `service_bot_pat` | No | Sole agents composite implementing readiness, bootstrap, diagnostics, keepalive, and watchdog jobs for all callers. |
+| **Reusable 18 Autofix** | `.github/workflows/reusable-18-autofix.yml` | `workflow_call` | `contents: write`, `pull-requests: write` | No | Autofix harness shared by `pr-02-autofix.yml` and `maint-46-post-ci.yml`. |
+| **Reusable 16 Agents** | `.github/workflows/reusable-16-agents.yml` | `workflow_call` | `contents: write`, `pull-requests: write`, `issues: write`; optional `service_bot_pat` | No | Sole agents composite implementing readiness, bootstrap, diagnostics, keepalive, and watchdog jobs for all callers. |
 
 ## Naming Policy & Number Ranges
 
@@ -107,7 +107,7 @@ existing automation to **Agents 70 Orchestrator** instead.
   | `pr-` | `10–19` | Pull-request gates | `pr-00-gate.yml` is the primary orchestrator; keep space for specialized PR jobs (docs, optional helpers).
   | `maint-` | `00–49` and `90s` | Scheduled/background maintenance | Low numbers for repo hygiene, 30s/40s for post-CI and guards, 90 for self-tests calling reusable matrices.
   | `agents-` | `70s` | Agent bootstrap/orchestration | `agents-70-orchestrator.yml` handles automation cadences. The numbered/legacy consumers remain only as deprecated compatibility shims.
-  | `reusable-` | `70s` & `90s` | Composite workflows invoked by others | Keep 90s for CI executors, 70s for agent composites.
+  | `reusable-` | `10–29` | Composite workflows invoked by others | Lower slots (10s/20s) host shared CI, autofix, and agents toolkit workflows.
 
 - Match the `name:` field to the filename rendered in Title Case
   (`pr-00-gate.yml` → `Gate`).
@@ -125,7 +125,7 @@ existing automation to **Agents 70 Orchestrator** instead.
 |----------|------|------------|-------------|-----------|----------------|
 | `pr-00-gate.yml` (`Gate`) | `.github/workflows/pr-00-gate.yml` | `pull_request`, `workflow_dispatch` | Defaults (`contents: read`) | **Yes** | Composite orchestrator that chains the reusable CI and Docker smoke jobs and enforces that every leg succeeds. |
 | `pr-14-docs-only.yml` (`PR 14 Docs Only`) | `.github/workflows/pr-14-docs-only.yml` | `pull_request` (doc paths) | Defaults (`contents: read`); `pull-requests: write` for notices | No | Detects documentation-only diffs and posts a friendly skip notice instead of running heavier gates. |
-| `autofix.yml` (`Autofix`) | `.github/workflows/autofix.yml` | `pull_request` | `contents: write`, `pull-requests: write` | **Yes** (`apply` job) | Lightweight formatting/type-hygiene runner that auto-commits safe fixes or publishes a patch artifact for forked PRs. |
+| `pr-02-autofix.yml` (`PR 02 Autofix`) | `.github/workflows/pr-02-autofix.yml` | `pull_request` | `contents: write`, `pull-requests: write` | **Yes** (`apply` job) | Lightweight formatting/type-hygiene runner that auto-commits safe fixes or publishes a patch artifact for forked PRs. |
 
 **Operational details**
 - **Gate** – Permissions: defaults (read scope). Secrets: relies on `GITHUB_TOKEN` only. Status outputs: `core tests (3.11)`, `core tests (3.12)`, `docker smoke`, and the aggregator job `gate`, which fails if any dependency fails.
@@ -163,7 +163,7 @@ The Codex Issue Bridge is a label-driven helper for seeding bootstrap PRs, while
 
 **Operational details**
 - Provide required write scopes via the default `GITHUB_TOKEN`. Supply `service_bot_pat` when bootstrap jobs must push branches or leave comments.
-- Use the `options_json` input to enable bootstrap (for example `{ "enable_bootstrap": true, "bootstrap": { "label": "agent:codex" } }`) or pass additional toggles such as keepalive overrides. The orchestrator parses the JSON via `fromJson()` and forwards the resolved values to `reusable-70-agents.yml`.
+- Use the `options_json` input to enable bootstrap (for example `{ "enable_bootstrap": true, "bootstrap": { "label": "agent:codex" } }`) or pass additional toggles such as keepalive overrides. The orchestrator parses the JSON via `fromJson()` and forwards the resolved values to `reusable-16-agents.yml`.
 - Readiness, preflight, bootstrap, verification, and keepalive diagnostics appear in the job summary. Failures bubble up through the single `orchestrate` job; Maint 46 Post CI will echo the failing run link in the CI failure-tracker issue when the Gate is affected.
 
 ### Manual Orchestrator Dispatch
@@ -174,7 +174,7 @@ The Codex Issue Bridge is a label-driven helper for seeding bootstrap PRs, while
    - **Enable readiness / preflight / watchdog**: toggle as needed for the run.
    - **Enable bootstrap**: set to `true` when seeding Codex PRs; leave `false` for readiness-only sweeps.
    - **Options JSON**: supply nested overrides (for example `{ "bootstrap": { "label": "agent:codex" }, "diagnostic_mode": "dry-run" }`).
-3. Click **Run workflow**. The orchestrator fan-outs through `reusable-70-agents.yml`; job summaries include readiness tables, bootstrap status, verification notes, and links to spawned PRs.
+3. Click **Run workflow**. The orchestrator fan-outs through `reusable-16-agents.yml`; job summaries include readiness tables, bootstrap status, verification notes, and links to spawned PRs.
 
 **Programmatic dispatch (`options_json` example).** Tooling can post the JSON payload directly through the orchestrator’s `options_json` input or hand it to the deprecated consumer wrapper while you migrate clients—the wrapper parses `params_json`, normalises the keys, and forwards the derived `options_json` payload to the orchestrator.
 
@@ -261,13 +261,13 @@ Manual-only status means maintainers should review the Actions list during that 
 
 | Workflow | Consumed by | Notes |
 |----------|-------------|-------|
-| `reusable-70-agents.yml` (`Reusable 70 Agents`) | `agents-70-orchestrator.yml`, `agents-62-consumer.yml`, downstream repositories | Implements readiness, bootstrap, diagnostics, keepalive, and watchdog jobs.
-| `reusable-92-autofix.yml` (`Reusable 92 Autofix`) | `maint-46-post-ci.yml`, `autofix.yml` | Autofix harness used both by the PR-time autofix workflow and the post-CI maintenance listener.
+| `reusable-16-agents.yml` (`Reusable 16 Agents`) | `agents-70-orchestrator.yml`, `agents-62-consumer.yml`, downstream repositories | Implements readiness, bootstrap, diagnostics, keepalive, and watchdog jobs.
+| `reusable-18-autofix.yml` (`Reusable 18 Autofix`) | `maint-46-post-ci.yml`, `pr-02-autofix.yml` | Autofix harness used both by the PR-time autofix workflow and the post-CI maintenance listener.
 | `reusable-10-ci-python.yml` (`Reusable CI`) | Gate, downstream repositories | Single source for Python lint/type/test coverage runs.
 | `reusable-12-ci-docker.yml` (`Reusable Docker Smoke`) | Gate, downstream repositories | Docker build + smoke reusable consumed by Gate and external callers.
 
 **Operational details**
-- **Reusable 70 Agents** – Permissions: `contents: write`, `pull-requests: write`, `issues: write`. Secrets: optional `service_bot_pat` (forwarded to downstream jobs) plus `GITHUB_TOKEN`. Outputs: per-job readiness tables, bootstrap activity summaries, keepalive sweep details, and watchdog notes surfaced via job summaries and declared workflow outputs.
+- **Reusable 16 Agents** – Permissions: `contents: write`, `pull-requests: write`, `issues: write`. Secrets: optional `service_bot_pat` (forwarded to downstream jobs) plus `GITHUB_TOKEN`. Outputs: per-job readiness tables, bootstrap activity summaries, keepalive sweep details, and watchdog notes surfaced via job summaries and declared workflow outputs.
 
 ### Manual self-test examples
 

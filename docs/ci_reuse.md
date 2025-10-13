@@ -11,8 +11,8 @@ blob.
 | ------------------ | ---- | ------- |
 | Reusable CI | `.github/workflows/reusable-10-ci-python.yml` | Primary Python quality gate (lint, types, pytest, coverage). Used by Gate for Python 3.11/3.12. |
 | Reusable Docker Smoke | `.github/workflows/reusable-12-ci-docker.yml` | Docker build + smoke test harness consumed by Gate and downstream callers. |
-| Autofix | `.github/workflows/reusable-92-autofix.yml` | Formatting / lint autofix composite invoked by `autofix.yml` and `maint-46-post-ci.yml`. |
-| Agents Toolkit | `.github/workflows/reusable-70-agents.yml` | Readiness, Codex bootstrap, diagnostics, verification, keepalive, and watchdog routines dispatched exclusively through the orchestrator. |
+| Autofix | `.github/workflows/reusable-18-autofix.yml` | Formatting / lint autofix composite invoked by `pr-02-autofix.yml` and `maint-46-post-ci.yml`. |
+| Agents Toolkit | `.github/workflows/reusable-16-agents.yml` | Readiness, Codex bootstrap, diagnostics, verification, keepalive, and watchdog routines dispatched exclusively through the orchestrator. |
 | Selftest 81 Reusable CI | `.github/workflows/selftest-81-reusable-ci.yml` | Manual/`workflow_call` matrix that exercises the reusable CI executor across documented feature toggles and powers the `selftest-8X-*` wrappers. |
 
 ## 1. Reusable CI (`reusable-10-ci-python.yml`)
@@ -45,13 +45,13 @@ jobs:
 No inputs are required; extend by forking the workflow and layering additional
 steps if your project needs extra smoke assertions.
 
-## 3. Autofix (`reusable-92-autofix.yml`)
-Used by `autofix.yml` and `maint-46-post-ci.yml` to apply hygiene fixes once CI
+## 3. Autofix (`reusable-18-autofix.yml`)
+Used by `pr-02-autofix.yml` and `maint-46-post-ci.yml` to apply hygiene fixes once CI
 succeeds. Inputs gate behaviour behind opt-in labels and allow custom commit
 prefixes. The composite enforces size/path heuristics before pushing changes
 with `SERVICE_BOT_PAT`.
 
-## 4. Agents Toolkit (`reusable-70-agents.yml`)
+## 4. Agents Toolkit (`reusable-16-agents.yml`)
 Exposes the agent automation stack as a reusable component. All top-level
 automation calls flow through **Agents 70 Orchestrator**, which normalises the
 inputs and forwards them here. Dispatch the orchestrator either via the Actions
@@ -84,7 +84,7 @@ Example orchestrator snippet:
 ```yaml
 jobs:
   orchestrate:
-    uses: ./.github/workflows/reusable-70-agents.yml
+    uses: ./.github/workflows/reusable-16-agents.yml
     with:
       enable_readiness: ${{ inputs.enable_readiness || 'false' }}
       readiness_agents: ${{ inputs.readiness_agents || 'copilot,codex' }}
@@ -118,7 +118,7 @@ comments or workflow summaries without duplicating the matrix definition.
 | Area | How to Extend | Notes |
 | ---- | ------------- | ----- |
 | Coverage reporting | Chain an additional job that depends on the reusable CI job to upload coverage artifacts. | Keep job IDs stable when referencing outputs. |
-| Autofix heuristics | Update `autofix.yml` or `maint-46-post-ci.yml` to widen size limits or adjust glob filters. | Avoid editing the reusable composite unless behaviour must change globally. |
+| Autofix heuristics | Update `pr-02-autofix.yml` or `maint-46-post-ci.yml` to widen size limits or adjust glob filters. | Avoid editing the reusable composite unless behaviour must change globally. |
 | Agents options | Provide extra keys inside `params_json` (and embed `options_json` when structured overrides are required) and update the reusable workflow to honour them. | Remember GitHub only supports 10 dispatch inputs; keep new flags in JSON. |
 
 ## Security & Permissions
