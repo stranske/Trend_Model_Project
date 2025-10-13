@@ -189,12 +189,19 @@ Manual-only status means maintainers should review the Actions list during that 
 |----------|-------------|-------|
 | `reusable-70-agents.yml` (`Reusable 70 Agents`) | `agents-70-orchestrator.yml`, `agents-62-consumer.yml`, downstream repositories | Implements readiness, bootstrap, diagnostics, keepalive, and watchdog jobs.
 | `reusable-92-autofix.yml` (`Reusable 92 Autofix`) | `maint-30-post-ci.yml`, `autofix.yml` | Autofix harness used both by the PR-time autofix workflow and the post-CI maintenance listener.
-| `reusable-99-selftest.yml` (`Reusable 99 Selftest`) | `maint-` self-test orchestration | Scenario matrix that validates the reusable CI executor and artifact inventory.
 | `reusable-10-ci-python.yml` (`Reusable CI`) | Gate, downstream repositories | Single source for Python lint/type/test coverage runs.
 | `reusable-12-ci-docker.yml` (`Reusable Docker Smoke`) | Gate, downstream repositories | Docker build + smoke reusable consumed by Gate and external callers.
 
 **Operational details**
 - **Reusable 70 Agents** – Permissions: `contents: write`, `pull-requests: write`, `issues: write`. Secrets: optional `service_bot_pat` (forwarded to downstream jobs) plus `GITHUB_TOKEN`. Outputs: per-job readiness tables, bootstrap activity summaries, keepalive sweep details, and watchdog notes surfaced via job summaries and declared workflow outputs.
+
+### Manual self-test examples
+
+| Workflow | Notes |
+|----------|-------|
+| `selftest-81-reusable-ci.yml` (`Selftest 81 Reusable CI`) | Manual-only dispatch that runs the reusable CI matrix across the documented feature toggles and uploads verification summaries/artifacts for humans to inspect. |
+
+> Self-test workflows are intended as reference exercises for maintainers. They are quiet by default—run them via `workflow_dispatch` when you need a fresh artifact inventory check or to validate reusable CI changes, and expect no automated runs in Actions history.
 
 ### Archived self-test workflows
 
