@@ -102,6 +102,7 @@ def test_selftest_dispatch_reason_is_required() -> None:
     description = reason_input.get("description", "").strip()
     assert description, "Reason input should document why it is collected."
 
+
 def test_archived_selftest_inventory() -> None:
     assert ARCHIVE_DIR.exists(), "Old/workflows directory is missing"
 
