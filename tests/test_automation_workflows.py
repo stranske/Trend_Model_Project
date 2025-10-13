@@ -201,6 +201,14 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
             {},
         )
         self.assertTrue(summary_step, "gate job must summarize downstream results")
+        status_step = next(
+            (step for step in steps if step.get("name") == "Report Gate commit status"),
+            {},
+        )
+        self.assertTrue(
+            status_step,
+            "gate job must publish a legacy commit status so branch protection resolves",
+        )
 
     def test_workflows_do_not_define_invalid_marker_filters(self) -> None:
         """Ensure pytest marker filters stay inside shell commands."""
