@@ -34,7 +34,7 @@ This list mirrors the canonical catalogue in `docs/ci/WORKFLOWS.md` after the Is
 | Workflow | Triggers | Notes |
 |----------|----------|-------|
 | `agents-62-consumer.yml` | workflow_dispatch | Manual-only JSON bridge that calls `reusable-70-agents.yml`; concurrency guard `agents-62-consumer-${{ github.ref_name }}` prevents back-to-back dispatch collisions. |
-| `agents-43-codex-issue-bridge.yml` | issues, workflow_dispatch | Restored Codex bootstrap automation for label-driven issue handling. |
+| `agents-63-codex-issue-bridge.yml` | issues, workflow_dispatch | Restored Codex bootstrap automation for label-driven issue handling. |
 | `agents-64-verify-agent-assignment.yml` | workflow_call, workflow_dispatch | Validates that `agent:codex` issues remain assigned to an approved agent account before automation runs. |
 | `agents-70-orchestrator.yml` | schedule (*/20), workflow_dispatch | Unified agents toolkit entry point (readiness, diagnostics, Codex keepalive). |
 
