@@ -213,7 +213,10 @@ def test_failure_tracker_signature_uses_slugified_workflow_path() -> None:
         "const workflowStem = workflowFile.replace(/\\.ya?ml$/i, '') || workflowFile;"
         in script
     )
-    assert "const workflowIdRaw = workflowStem || workflowPath || rawWorkflowName || '';" in script
+    assert (
+        "const workflowIdRaw = workflowStem || workflowPath || rawWorkflowName || '';"
+        in script
+    )
     assert "const workflowId = slugify(workflowIdRaw);" in script
     assert (
         "const fallbackId = run.workflow_id ? `workflow-${run.workflow_id}` : (run.id ? `run-${run.id}` : 'workflow');"
