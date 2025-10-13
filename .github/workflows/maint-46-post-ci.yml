@@ -1550,6 +1550,19 @@ jobs:
             const { owner, repo } = context.repo;
             const runId = run.id;
 
+            const slugify = (value) => {
+              if (!value) {
+                return 'unknown-workflow';
+              }
+              const slug = String(value)
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '')
+                .replace(/--+/g, '-')
+                .trim();
+              return slug ? slug.slice(0, 80) : 'unknown-workflow';
+            };
+
             const RATE_LIMIT_MINUTES = parseInt(process.env.RATE_LIMIT_MINUTES || '15', 10);
             const STACK_TOKENS_ENABLED = /^true$/i.test(process.env.STACK_TOKENS_ENABLED || 'true');
             const STACK_TOKEN_MAX_LEN = parseInt(process.env.STACK_TOKEN_MAX_LEN || '160', 10);
