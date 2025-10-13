@@ -3,10 +3,6 @@ name: Gate
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
-      - 'assets/**'
   workflow_dispatch:
 
 concurrency:
@@ -14,8 +10,54 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: detect changed files
+    runs-on: ubuntu-latest
+    outputs:
+      run_core: ${{ steps.diff.outputs.run_core }}
+      reason: ${{ steps.diff.outputs.reason }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect non-doc changes
+        id: diff
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "run_core=true" >> "$GITHUB_OUTPUT"
+            echo "reason=non_pr_event" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+
+          if [ -z "$BASE_SHA" ] || [ -z "$HEAD_SHA" ]; then
+            echo "run_core=true" >> "$GITHUB_OUTPUT"
+            echo "reason=missing_diff_context" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          CHANGED_FILES=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          NON_DOC=$(echo "$CHANGED_FILES" | grep -Ev '(^docs/|^assets/|\.md$)' || true)
+
+          if [ -z "$CHANGED_FILES" ]; then
+            echo "run_core=false" >> "$GITHUB_OUTPUT"
+            echo "reason=no_changes" >> "$GITHUB_OUTPUT"
+          elif [ -z "$NON_DOC" ]; then
+            echo "run_core=false" >> "$GITHUB_OUTPUT"
+            echo "reason=docs_only" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_core=true" >> "$GITHUB_OUTPUT"
+            echo "reason=code_changes" >> "$GITHUB_OUTPUT"
+          fi
+
   core-tests-311:
     name: core tests (3.11)
+    needs: changes
+    if: needs.changes.outputs.run_core == 'true'
     uses: ./.github/workflows/reusable-10-ci-python.yml
     with:
       python-version: '3.11'
@@ -23,6 +65,8 @@ jobs:
 
   core-tests-312:
     name: core tests (3.12)
+    needs: changes
+    if: needs.changes.outputs.run_core == 'true'
     uses: ./.github/workflows/reusable-10-ci-python.yml
     with:
       python-version: '3.12'
@@ -30,11 +74,14 @@ jobs:
 
   docker-smoke:
     name: docker smoke
+    needs: changes
+    if: needs.changes.outputs.run_core == 'true'
     uses: ./.github/workflows/reusable-12-ci-docker.yml
 
   gate:
     name: gate
     needs:
+      - changes
       - core-tests-311
       - core-tests-312
       - docker-smoke
@@ -42,14 +89,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download coverage (3.11)
-        if: ${{ needs.core-tests-311.result == 'success' }}
+        if: ${{ needs.changes.outputs.run_core == 'true' && needs.core-tests-311.result == 'success' }}
         uses: actions/download-artifact@v4
         with:
           name: coverage-3.11
           path: coverage/core-tests-311
 
       - name: Download coverage (3.12)
-        if: ${{ needs.core-tests-312.result == 'success' }}
+        if: ${{ needs.changes.outputs.run_core == 'true' && needs.core-tests-312.result == 'success' }}
         uses: actions/download-artifact@v4
         with:
           name: coverage-3.12
@@ -65,6 +112,18 @@ jobs:
           | core-tests-312 | ${{ needs.core-tests-312.result }} |
           | docker-smoke | ${{ needs.docker-smoke.result }} |
           EOF
+
+          if [ "${{ needs.changes.outputs.run_core }}" != "true" ]; then
+            REASON="${{ needs.changes.outputs.reason }}"
+            if [ -z "$REASON" ]; then
+              REASON="docs_only"
+            fi
+            {
+              echo
+              echo "Docs-only change detected; heavy checks skipped ($REASON)."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
 
           if [ "${{ needs.core-tests-311.result }}" != "success" ]; then
             echo "core-tests-311 did not succeed" >&2
