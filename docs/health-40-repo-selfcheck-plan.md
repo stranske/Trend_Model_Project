@@ -27,3 +27,14 @@
 
 - 2025-10-13: Attempted to execute the workflow locally using `act`, but the container runtime is unavailable in the current environment (`Cannot connect to the Docker daemon`). Re-run the validation from an environment with Docker access to complete this checklist item.
 - Manual `workflow_dispatch` remains outstanding; once a GitHub runner triggers the job, capture the run URL in the PR discussion to close the final acceptance criterion.
+- 2025-10-13: Verified that unauthenticated calls to `POST /actions/workflows/health-40-repo-selfcheck.yml/dispatches` return `401` (requires authentication). Prepare a PAT-backed invocation, for example:
+
+  ```bash
+  curl -X POST \
+       -H "Authorization: Bearer ${SERVICE_BOT_PAT}" \
+       -H "Accept: application/vnd.github+json" \
+       https://api.github.com/repos/stranske/Trend_Model_Project/actions/workflows/health-40-repo-selfcheck.yml/dispatches \
+       -d '{"ref": "work"}'
+  ```
+
+  Replace `SERVICE_BOT_PAT` with an appropriately scoped token before rerunning so the manual dispatch succeeds and the resulting run URL can be recorded in this PR.
