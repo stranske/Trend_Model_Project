@@ -217,6 +217,7 @@ gh workflow run agents-70-orchestrator.yml \
 curl -X POST \
   -H "Authorization: token ${GITHUB_TOKEN}" \
   -H "Accept: application/vnd.github+json" \
+  -H "Content-Type: application/json" \
   https://api.github.com/repos/stranske/Trend_Model_Project/actions/workflows/agents-70-orchestrator.yml/dispatches \
   -d @<(jq -nc \
     --arg ref "phase-2-dev" \
@@ -224,7 +225,7 @@ curl -X POST \
     '{ref: $ref, inputs: {params_json: $params}}')
 ```
 
-Mix and match the JSON payload with individual dispatch inputs when overrides are required (for example add `--raw-field enable_readiness=false` to override the JSON flag). The same `params_json` payload is safe to reuse with `agents-62-consumer.yml` while migrating automation; the wrapper normalises the object and passes it straight to the orchestrator.
+Export `GITHUB_TOKEN` to a PAT or workflow token that can dispatch workflows before running the command above. Mix and match the JSON payload with individual dispatch inputs when overrides are required (for example add `--raw-field enable_readiness=false` to override the JSON flag). The same `params_json` payload is safe to reuse with `agents-62-consumer.yml` while migrating automation; the wrapper normalises the object and passes it straight to the orchestrator.
 
 ### Agent troubleshooting: bootstrap & readiness signals
 

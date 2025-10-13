@@ -60,6 +60,8 @@ UI or by posting the `params_json` payload shown in
 (`gh workflow run agents-70-orchestrator.yml --raw-field params_json="$(cat orchestrator.json)"`
 or the equivalent REST call using `curl -X POST ... '{"ref":"phase-2-dev","inputs":{"params_json":"..."}}'`).
 
+Export `GITHUB_TOKEN` to a PAT or workflow token with `workflow` scope before dispatching via CLI or REST.
+
 Example orchestrator snippet:
 
 ```yaml
