@@ -643,3 +643,4 @@ Install the optional pre-push hook:
 ```
 This prevents accidental pushes that fail the CI style checks.
 
+# Gate trigger
