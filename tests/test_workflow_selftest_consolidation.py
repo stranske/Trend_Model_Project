@@ -21,12 +21,17 @@ def test_selftest_workflow_inventory() -> None:
 
 
 def test_selftest_triggers_are_manual_only() -> None:
-    """Self-test workflows must only expose manual or scheduled triggers."""
+    """Self-test workflows must only expose manual dispatch triggers."""
 
     selftest_files = sorted(WORKFLOW_DIR.glob("*selftest*.yml"))
     assert selftest_files, "Expected at least one self-test workflow definition."
 
-    disallowed_triggers = {"pull_request", "pull_request_target", "push"}
+    disallowed_triggers = {
+        "pull_request",
+        "pull_request_target",
+        "push",
+        "schedule",
+    }
     required_manual_trigger = "workflow_dispatch"
     allowed_triggers = {required_manual_trigger}
 
@@ -56,13 +61,13 @@ def test_selftest_triggers_are_manual_only() -> None:
         unexpected = sorted(trigger_keys & disallowed_triggers)
         assert not unexpected, (
             f"{workflow_file.name} exposes disallowed triggers: {unexpected}. "
-            "Self-tests should not run automatically on PRs or pushes."
+            "Self-tests should not run automatically on PRs, pushes, or schedules."
         )
 
         unsupported = sorted(trigger_keys - allowed_triggers)
         assert not unsupported, (
             f"{workflow_file.name} declares unsupported triggers: {unsupported}. "
-            "Only workflow_dispatch, schedule, or workflow_call are permitted."
+            "Only workflow_dispatch is permitted for active self-tests."
         )
 
         assert (
@@ -71,6 +76,36 @@ def test_selftest_triggers_are_manual_only() -> None:
             f"{workflow_file.name} must provide only a {required_manual_trigger} "
             "trigger so self-tests remain strictly manual."
         )
+
+
+def test_selftest_dispatch_reason_is_required() -> None:
+    """Require callers to document why the matrix was launched."""
+
+    raw_data = yaml.safe_load(SELFTEST_PATH.read_text()) or {}
+
+    triggers_raw = raw_data.get("on")
+    if triggers_raw is None and True in raw_data:
+        triggers_raw = raw_data[True]
+    if triggers_raw is None:
+        triggers_raw = {}
+
+    if isinstance(triggers_raw, dict):
+        workflow_dispatch = triggers_raw.get("workflow_dispatch", {})
+    else:
+        raise AssertionError(
+            "Selftest workflow must declare workflow_dispatch as a mapping"
+        )
+
+    inputs = workflow_dispatch.get("inputs", {})
+    assert "reason" in inputs, "Selftest workflow dispatch is missing a reason input."
+
+    reason_input = inputs["reason"] or {}
+    assert reason_input.get(
+        "required"
+    ), "Selftest workflow dispatch reason should be required so audit trail is preserved."
+
+    description = reason_input.get("description", "").strip()
+    assert description, "Reason input should document why it is collected."
 
 
 def test_archived_selftest_inventory() -> None:
@@ -97,9 +132,14 @@ def test_archived_selftests_retain_manual_triggers() -> None:
         archived_files
     ), "Expected archived self-test workflows to remain in Old/workflows/."
 
-    disallowed_triggers = {"pull_request", "pull_request_target", "push"}
+    disallowed_triggers = {
+        "pull_request",
+        "pull_request_target",
+        "push",
+        "schedule",
+    }
     required_manual_trigger = "workflow_dispatch"
-    optional_triggers = {"schedule", "workflow_call"}
+    optional_triggers = {"workflow_call"}
     allowed_triggers = {required_manual_trigger} | optional_triggers
 
     for workflow_file in archived_files:
@@ -127,13 +167,13 @@ def test_archived_selftests_retain_manual_triggers() -> None:
         unexpected = sorted(trigger_keys & disallowed_triggers)
         assert not unexpected, (
             f"{workflow_file.name} exposes disallowed triggers: {unexpected}. "
-            "Archived self-tests should remain manual/cron only."
+            "Archived self-tests should remain manual-only entry points (no PR, push, or scheduled automation)."
         )
 
         unsupported = sorted(trigger_keys - allowed_triggers)
         assert not unsupported, (
             f"{workflow_file.name} declares unsupported triggers: {unsupported}. "
-            "Only workflow_dispatch, schedule, or workflow_call are permitted."
+            "Only workflow_dispatch or workflow_call are permitted."
         )
 
         assert required_manual_trigger in trigger_keys, (
