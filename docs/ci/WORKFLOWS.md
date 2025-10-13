@@ -20,7 +20,7 @@ topology.
 | Workflow | File | Trigger(s) | Permissions | Required? | Purpose |
 | --- | --- | --- | --- | --- | --- |
 | **Gate** | `.github/workflows/pr-00-gate.yml` | `pull_request` (non-doc paths), `workflow_dispatch` | Defaults (`contents: read`) via `GITHUB_TOKEN`; delegated jobs reuse the caller token. | **Yes** – aggregate `gate` status must pass. | Fan-out orchestrator chaining the reusable Python CI and Docker smoke jobs; enforces downstream results. |
-| **PR 14 Docs Only** | `.github/workflows/pr-14-docs-only.yml` | `pull_request` (docs/assets only) | Defaults (`contents: read`) for detection, `pull-requests: write` for the notice. | Conditional – posts skip notice when no code paths change. | Detects doc-only PRs and short-circuits heavier CI while leaving Gate in place. |
+| **PR 14 Docs Only** | `.github/workflows/pr-14-docs-only.yml` | `pull_request` (docs/assets only) | Defaults (`contents: read`) for detection, `pull-requests: write` for the notice. | No – optional skip helper (Gate remains required). | Detects doc-only PRs and short-circuits heavier CI while leaving Gate in place. |
 | **Autofix** | `.github/workflows/autofix.yml` | `pull_request` (including label updates) | `contents: write`, `pull-requests: write` | **Yes** – `apply` job must succeed. | Runs the reusable autofix composite to apply/offer safe formatting fixes. |
 
 ### Maintenance & observability
