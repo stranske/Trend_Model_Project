@@ -15,9 +15,9 @@
 5. Documentation (workflow README or inline comments) reflects the single-entrypoint design and timeout responsibilities.
 
 ## Initial Task Checklist
-- [ ] Audit current reusable workflow files and identify callers, documenting required inputs/secrets.
-- [ ] Update `.github/workflows/reusable-70-agents.yml` to use `on: workflow_call` and declare validated inputs with defaults.
-- [ ] Add `timeout-minutes` to each long-running job within the reusable workflow.
-- [ ] Adjust all calling workflows to reference the updated reusable entrypoint and remove references to deprecated files.
-- [ ] Run workflow linter/CI checks (e.g., `act`, `yaml-lint`, or GitHub Actions dry-run) to ensure configuration correctness.
-- [ ] Update documentation to explain the centralized entrypoint and timeout management strategy.
+- [x] Audit current reusable workflow files and identify callers, documenting required inputs/secrets.
+- [x] Update `.github/workflows/reusable-70-agents.yml` to use `on: workflow_call` and declare validated inputs with defaults.
+- [x] Add `timeout-minutes` to each long-running job within the reusable workflow.
+- [x] Adjust all calling workflows to reference the updated reusable entrypoint and remove references to deprecated files.
+- [x] Run workflow linter/CI checks (e.g., `act`, `yaml-lint`, or GitHub Actions dry-run) to ensure configuration correctness.
+- [x] Update documentation to explain the centralized entrypoint and timeout management strategy.

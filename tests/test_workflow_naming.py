@@ -120,5 +120,4 @@ EXPECTED_NAMES = {
     "reusable-70-agents.yml": "Reusable 70 Agents",
     "reusable-92-autofix.yml": "Reusable 92 Autofix",
     "selftest-81-reusable-ci.yml": "Selftest 81 Reusable CI",
-    "reuse-agents.yml": "Reuse Agents",
 }
