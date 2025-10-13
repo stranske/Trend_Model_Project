@@ -8,14 +8,14 @@
 - Document updates must fit the existing CONTRIBUTING.md tone and structure while keeping instructions concise (two paragraphs).
 
 ## Acceptance Criteria / Definition of Done
-1. Every `selftest-8X-*` workflow defines **only** a `workflow_dispatch` trigger, optionally with a `reason` input, and has no other automatic triggers (`push`, `pull_request`, `schedule`, etc.).
-2. No other workflows trigger self-tests implicitly; repository automation reflects the manual-only expectation.
-3. `CONTRIBUTING.md` contains a new two-paragraph section that explains the purpose of self-tests, when to run them, and how to interpret their output at a high level.
-4. A self-test workflow has been manually triggered after the changes land, and the run link is recorded in PR communications.
+1. Every `selftest-8X-*` workflow defines **only** a `workflow_dispatch` trigger, optionally with a `reason` input, and has no other automatic triggers (`push`, `pull_request`, `schedule`, etc.). ✅ Verified for `selftest-81-reusable-ci.yml`.
+2. No other workflows trigger self-tests implicitly; repository automation reflects the manual-only expectation. ✅ Guarded by `tests/test_workflow_selftest_consolidation.py`.
+3. `CONTRIBUTING.md` contains a new two-paragraph section that explains the purpose of self-tests, when to run them, and how to interpret their output at a high level. ✅ Added in this iteration.
+4. A self-test workflow has been manually triggered after the changes land, and the run link is recorded in PR communications. ⏳ Requires GitHub Actions UI access post-merge.
 
 ## Initial Task Checklist
-- [ ] Inventory all `selftest-8X-*` workflow files under `.github/workflows/` and confirm current triggers.
-- [ ] Update each targeted workflow to remove automatic triggers and keep (or add) a `workflow_dispatch` block with a `reason` input.
-- [ ] Validate workflow syntax locally (e.g., `act` dry run) or via GitHub's workflow editor to ensure no YAML errors.
-- [ ] Draft and insert the new self-test guidance section into `CONTRIBUTING.md`, matching existing formatting conventions.
+- [x] Inventory all `selftest-8X-*` workflow files under `.github/workflows/` and confirm current triggers.
+- [x] Update each targeted workflow to remove automatic triggers and keep (or add) a `workflow_dispatch` block with a `reason` input.
+- [x] Validate workflow syntax locally with `./scripts/workflow_lint.sh` to ensure no YAML errors.
+- [x] Draft and insert the new self-test guidance section into `CONTRIBUTING.md`, matching existing formatting conventions.
 - [ ] Open a follow-up reminder to execute one manual self-test run once the workflows merge (or perform immediately if feasible) and share the link in the PR conversation.
