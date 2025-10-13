@@ -10,25 +10,33 @@ SELFTEST_PATH = WORKFLOW_DIR / "selftest-81-reusable-ci.yml"
 
 
 def test_selftest_workflow_inventory() -> None:
-    """Exactly one active self-test workflow should be present."""
+    """Self-test workflows should match the expected manual roster."""
 
     selftest_workflows = sorted(
         path.name for path in WORKFLOW_DIR.glob("*selftest*.yml")
     )
-    assert selftest_workflows == [
-        "selftest-81-reusable-ci.yml"
-    ], "Active self-test inventory drifted; expected only selftest-81-reusable-ci.yml."
+    expected = [
+        "selftest-80-pr-comment.yml",
+        "selftest-81-reusable-ci.yml",
+        "selftest-82-pr-comment.yml",
+        "selftest-83-pr-comment.yml",
+        "selftest-84-reusable-ci.yml",
+        "selftest-88-reusable-ci.yml",
+    ]
+    assert (
+        selftest_workflows == expected
+    ), f"Active self-test inventory drifted; expected {expected} but saw {selftest_workflows}."
 
 
 def test_selftest_triggers_are_manual_only() -> None:
-    """Self-test workflows must only expose manual or scheduled triggers."""
+    """Self-test workflows must expose manual triggers (with optional workflow_call reuse)."""
 
     selftest_files = sorted(WORKFLOW_DIR.glob("*selftest*.yml"))
     assert selftest_files, "Expected at least one self-test workflow definition."
 
     disallowed_triggers = {"pull_request", "pull_request_target", "push"}
     required_manual_trigger = "workflow_dispatch"
-    allowed_triggers = {required_manual_trigger}
+    allowed_triggers = {required_manual_trigger, "workflow_call"}
 
     for workflow_file in selftest_files:
         data = yaml.safe_load(workflow_file.read_text()) or {}
@@ -62,15 +70,19 @@ def test_selftest_triggers_are_manual_only() -> None:
         unsupported = sorted(trigger_keys - allowed_triggers)
         assert not unsupported, (
             f"{workflow_file.name} declares unsupported triggers: {unsupported}. "
-            "Only workflow_dispatch, schedule, or workflow_call are permitted."
+            "Only workflow_dispatch (and workflow_call for reusable entry points) are permitted."
         )
 
-        assert (
-            trigger_keys == allowed_triggers and required_manual_trigger in trigger_keys
-        ), (
-            f"{workflow_file.name} must provide only a {required_manual_trigger} "
-            "trigger so self-tests remain strictly manual."
+        assert required_manual_trigger in trigger_keys, (
+            f"{workflow_file.name} must provide a {required_manual_trigger} "
+            "trigger so self-tests remain manually invoked."
         )
+
+        if workflow_file.name != "selftest-81-reusable-ci.yml":
+            assert trigger_keys == {required_manual_trigger}, (
+                f"{workflow_file.name} should only expose {required_manual_trigger}. "
+                "Workflow-call support is reserved for selftest-81-reusable-ci.yml."
+            )
 
 
 def test_archived_selftest_inventory() -> None:
@@ -197,7 +209,7 @@ def test_selftest_matrix_and_aggregate_contract() -> None:
     ), "Aggregate SCENARIO_LIST must stay aligned with the scenario matrix to keep summaries accurate."
 
     outputs = aggregate_job.get("outputs", {})
-    assert {"verification_table", "failures"}.issubset(
+    assert {"verification_table", "failures", "run_id"}.issubset(
         outputs
     ), "Aggregate job should surface verification outputs for downstream consumers."
 
@@ -210,3 +222,11 @@ def test_selftest_matrix_and_aggregate_contract() -> None:
     assert (
         verify_env.get("PYTHON_VERSIONS") == "${{ inputs.python-versions }}"
     ), "Verification step should read python-versions input via PYTHON_VERSIONS env var for dynamic artifact expectations."
+
+
+def test_selftest_reusable_exposes_workflow_call() -> None:
+    data = yaml.safe_load(SELFTEST_PATH.read_text())
+    triggers = data.get("on") or data.get(True) or {}
+    assert (
+        "workflow_call" in triggers
+    ), "selftest-81-reusable-ci.yml must expose workflow_call for downstream wrappers."

@@ -95,15 +95,20 @@ maintenance workflows that remain after Issue 2190. The roster now consists of
 3. **Dry-run mode** — use the `dry-run` input for rehearsal runs that capture
    diagnostics without creating commits or PRs.
 
-## maint-90-selftest.yml
+## Manual self-test wrappers
 
-1. **Treat it as a smoke harness** — the workflow invokes
-   `selftest-81-reusable-ci.yml` to exercise the reusable CI matrix.
-2. **Verify inputs** — ensure the forwarded `python-version` input matches the
-   expected matrix before debugging downstream failures.
-3. **Secrets passthrough** — the workflow forwards secrets to the reusable call.
-   When adding new secrets to the reusable workflow remember to surface them
-   here as well.
+1. **Pick the right wrapper** — dispatch `selftest-80-pr-comment.yml`,
+   `selftest-82-pr-comment.yml`, or `selftest-83-pr-comment.yml` when you need a
+   PR comment summarising the reusable CI matrix. Use `selftest-84-reusable-ci.yml`
+   for a summary-only run and `selftest-88-reusable-ci.yml` when you want to feed
+   multiple Python versions.
+2. **Provide required inputs** — the PR comment wrappers require the target
+   `pull_request_number`; all wrappers accept an optional `python-versions`
+   override that is forwarded to `selftest-81-reusable-ci.yml`.
+3. **Remember the delegation** — every wrapper calls
+   `selftest-81-reusable-ci.yml`, which now exposes both `workflow_dispatch` and
+   `workflow_call`. Any verification mismatch will fail the wrapper job even if
+   the summary step continues to run.
 
 ## Common tooling
 

@@ -1,7 +1,7 @@
 # Reusable CI & Automation Workflows
 
 Issues #2190 and #2466 consolidated the GitHub Actions surface into four
-reusable composites plus a manual self-test. These building blocks underpin the
+reusable composites plus a set of manual self-tests. These building blocks underpin the
 Gate workflow, maintenance jobs, and Codex automation. Treat the orchestrator as
 the single entry point for agents; the numbered and legacy consumers exist only
 as deprecated compatibility shims for callers that still emit a `params_json`
@@ -13,7 +13,7 @@ blob.
 | Reusable Docker Smoke | `.github/workflows/reusable-12-ci-docker.yml` | Docker build + smoke test harness consumed by Gate and downstream callers. |
 | Autofix | `.github/workflows/reusable-92-autofix.yml` | Formatting / lint autofix composite invoked by `autofix.yml` and `maint-30-post-ci.yml`. |
 | Agents Toolkit | `.github/workflows/reusable-70-agents.yml` | Readiness, Codex bootstrap, diagnostics, verification, keepalive, and watchdog routines dispatched exclusively through the orchestrator. |
-| Selftest 81 Reusable CI | `.github/workflows/selftest-81-reusable-ci.yml` | Manual matrix that exercises the reusable CI executor across documented feature toggles. |
+| Selftest 81 Reusable CI | `.github/workflows/selftest-81-reusable-ci.yml` | Manual/`workflow_call` matrix that exercises the reusable CI executor across documented feature toggles and powers the `selftest-8X-*` wrappers. |
 
 ## 1. Reusable CI (`reusable-10-ci-python.yml`)
 Consumer example (excerpt from `pr-00-gate.yml`):
@@ -101,9 +101,12 @@ headroom (readiness/preflight: 15 minutes, diagnostics: 20 minutes, bootstrap:
 
 ## 5. Selftest 81 Reusable CI (`selftest-81-reusable-ci.yml`)
 Runs the matrix that validates the reusable CI executor across feature
-combinations (coverage delta, soft gate, metrics, history, classification). The
-workflow triggers only on `workflow_dispatch`, keeping Actions history quiet
-until a maintainer requests a run.
+combinations (coverage delta, soft gate, metrics, history, classification).
+`selftest-81` supports both `workflow_dispatch` and `workflow_call`: trigger it
+directly for ad-hoc verification or let the manual wrappers (`selftest-80/82/83`
+for PR comments, `selftest-84/88` for summary runs) call it as a reusable job.
+The wrapper workflows inherit all verification outputs and surface them in PR
+comments or workflow summaries without duplicating the matrix definition.
 
 ## Adoption Notes
 1. Reference the files directly via `uses: stranske/Trend_Model_Project/.github/workflows/<file>@phase-2-dev` in external repos.

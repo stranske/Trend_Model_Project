@@ -50,7 +50,12 @@ This list mirrors the canonical catalogue in `docs/ci/WORKFLOWS.md` after the Is
 ### Manual Self-Tests
 | Workflow | Triggers | Notes |
 |----------|----------|-------|
-| `selftest-81-reusable-ci.yml` | `workflow_dispatch` | Manual example that exercises the reusable CI matrix across feature toggles. |
+| `selftest-80-pr-comment.yml` | `workflow_dispatch` | PR comment helper that runs `selftest-81-reusable-ci.yml` and updates the specified issue/PR using the `<!-- selftest-80-pr-comment -->` marker. |
+| `selftest-81-reusable-ci.yml` | `workflow_dispatch`, `workflow_call` | Core reusable CI self-test matrix exposed for manual runs and downstream wrappers. |
+| `selftest-82-pr-comment.yml` | `workflow_dispatch` | Alternate PR comment wrapper with reusable CI messaging tuned for verification runs. |
+| `selftest-83-pr-comment.yml` | `workflow_dispatch` | Maintenance-oriented PR comment helper for reusable CI spot checks. |
+| `selftest-84-reusable-ci.yml` | `workflow_dispatch` | Summary-focused wrapper that surfaces the verification table in `$GITHUB_STEP_SUMMARY` while delegating to `selftest-81`. |
+| `selftest-88-reusable-ci.yml` | `workflow_dispatch` | Dual-runtime summary wrapper feeding multiple Python versions into the reusable matrix before writing a summary. |
 
 ## Removed in Issue #2466
 | Workflow | Status |

@@ -9,6 +9,25 @@ on:
           Leave empty to exercise the default 3.11 matrix used by Selftest 81 Reusable CI.
         required: false
         default: '["3.11"]'
+  workflow_call:
+    inputs:
+      python-versions:
+        description: >-
+          JSON array of Python versions forwarded to `reusable-10-ci-python.yml`.
+          Leave empty to exercise the default 3.11 matrix used by Selftest 81 Reusable CI.
+        required: false
+        type: string
+        default: '["3.11"]'
+    outputs:
+      verification_table:
+        description: Markdown table describing expected vs. observed artifacts
+        value: ${{ jobs.aggregate.outputs.verification_table }}
+      failures:
+        description: Count of scenarios with artifact mismatches
+        value: ${{ jobs.aggregate.outputs.failures }}
+      run_id:
+        description: Workflow run identifier (used for artifact downloads)
+        value: ${{ jobs.aggregate.outputs.run_id }}
 
 jobs:
   scenario:
@@ -87,6 +106,7 @@ jobs:
     outputs:
       verification_table: ${{ steps.verify.outputs.table }}
       failures: ${{ steps.verify.outputs.failures }}
+      run_id: ${{ steps.run_metadata.outputs.run_id }}
     env:
       SCENARIO_LIST: minimal, metrics_only, metrics_history, classification_only, coverage_delta, full_soft_gate
     steps:
@@ -214,6 +234,10 @@ jobs:
             core.setOutput('failures', String(failures));
             const summary = { run_id, artifact_count: artifacts.length, failures, scenarios: report };
             require('fs').writeFileSync('selftest-report.json', JSON.stringify(summary, null, 2));
+      - name: Capture run metadata
+        id: run_metadata
+        run: |
+          echo "run_id=${GITHUB_RUN_ID}" >> "$GITHUB_OUTPUT"
       - name: Append verification table
         run: |
           {

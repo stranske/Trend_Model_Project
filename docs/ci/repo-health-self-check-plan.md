@@ -4,7 +4,7 @@
 - **Workflow coverage:** Update `.github/workflows/health-40-repo-selfcheck.yml` (and any referenced reusable jobs) so cron and manual dispatch succeed without requiring unsupported permission scopes.
 - **Permissions model:** Limit `permissions` to GitHub-supported scopes (`contents: read`, `issues: write`) and treat branch-protection inspection as best-effort when permissions are insufficient.
 - **Issue lifecycle:** Ensure only a single tracker issue titled `[health] repository self-check failed` is open at any time; prefer updating an existing issue rather than creating duplicates.
-- **Archival requirement:** Retire experimental self-test workflows (`selftest-83-…`, `selftest-84-…`, `selftest-88-…`, `maint-90-…`, `selftest-82-…`) by moving them under `Old/` (or removing them) and document their archival location in `ARCHIVE_WORKFLOWS.md` plus `docs/ci/WORKFLOWS.md`.
+- **Archival requirement:** Earlier remediation retired experimental self-test workflows (`selftest-83-…`, `selftest-84-…`, `selftest-88-…`, `maint-90-…`, `selftest-82-…`). Issue #2525 subsequently reinstated these scenarios under the numbered `selftest-8X-*` manual wrappers while keeping archival notes in `ARCHIVE_WORKFLOWS.md` and `docs/ci/WORKFLOWS.md`.
 - **Documentation alignment:** Capture the new workflow intent, permission rationale, and archival notes in `docs/ci/WORKFLOWS.md` (and any linked CI documentation) without deviating from repository doc style.
 - **Backward compatibility:** Preserve existing probes for labels and `SERVICE_BOT_PAT`, and keep automation that updates/creates failure issues intact.
 
