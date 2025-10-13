@@ -241,3 +241,62 @@ def test_build_summary_comment_defaults_on_invalid_required_groups(
     assert "Core Tests • py312: ✅ success" in body
     assert "Docker Smoke Check: ❌ failure" in body
     assert "Maint Gate Aggregator: ❌ failure" in body
+
+
+def test_required_groups_follow_renamed_jobs() -> None:
+    runs = [
+        {
+            "key": "gate",
+            "displayName": "Gate",
+            "present": True,
+            "id": 202,
+            "run_attempt": 2,
+            "conclusion": "success",
+            "status": "completed",
+            "html_url": "https://example.test/gate/202",
+            "jobs": [
+                {
+                    "name": "Gate Suite :: Py311 core",
+                    "conclusion": "success",
+                    "html_url": "https://example.test/gate/202/py311",
+                },
+                {
+                    "name": "Gate Suite :: Py312 core",
+                    "conclusion": "success",
+                    "html_url": "https://example.test/gate/202/py312",
+                },
+                {
+                    "name": "Dockerized smoke run",
+                    "conclusion": "success",
+                    "html_url": "https://example.test/gate/202/docker",
+                },
+                {
+                    "name": "Maint meta gate aggregator",
+                    "conclusion": "success",
+                    "html_url": "https://example.test/gate/202/gate",
+                },
+            ],
+        }
+    ]
+
+    body = build_summary_comment(
+        runs=runs,
+        head_sha="ff00aa",
+        coverage_stats=None,
+        coverage_section=None,
+        required_groups_env=None,
+    )
+
+    assert "Gate Suite :: Py311 core: ✅ success" in body
+    assert "Gate Suite :: Py312 core: ✅ success" in body
+    assert "Dockerized smoke run: ✅ success" in body
+    assert "Maint meta gate aggregator: ✅ success" in body
+    assert "Core Tests (3.11):" not in body
+    assert "Core Tests (3.12):" not in body
+    assert "Docker Smoke:" not in body
+    assert "Gate Aggregator:" not in body
+
+    assert "| Gate / Gate Suite :: Py311 core | ✅ success |" in body
+    assert "| Gate / Gate Suite :: Py312 core | ✅ success |" in body
+    assert "| Gate / Dockerized smoke run | ✅ success |" in body
+    assert "| Gate / Maint meta gate aggregator | ✅ success |" in body
