@@ -19,4 +19,4 @@
 - [x] Reconfirm the trigger configuration (`workflow_dispatch` and optional weekly cron) and ensure the job name/description make the workflow easy to discover. (Keeps the weekly cron at `20 6 * * 1` alongside manual dispatch.)
 - [x] Add or refine steps that gather repository health signals and write a markdown table to `$GITHUB_STEP_SUMMARY` summarising the findings. (New Python summary step publishes the collected checks.)
 - [ ] Smoke-test the workflow via `workflow_dispatch` on a branch copy, then on the default branch after merging, capturing screenshots or logs for validation notes. (Pending manual run once merged to default branch.)
-- [x] Update `docs/ci/WORKFLOWS.md` with a one-line entry describing the workflow’s goal, triggers, and minimal permission set. (Catalog entry updated for Maint 35 self-check.)
+- [x] Update `docs/ci/WORKFLOWS.md` with a one-line entry describing the workflow’s goal, triggers, and minimal permission set. (Catalog entry updated for Health 40 self-check.)

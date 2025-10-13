@@ -7,10 +7,10 @@
 - [x] Draft unified architecture for `agents-41-assign-and-watch.yml`, covering triggers, reusable calls, and permissions. (Superseded by `agents-70-orchestrator.yml`.)
 
 ## Implementation
-- [x] Implement label-driven handler that routes assignments through `reusable-90-agents.yml` readiness checks before assigning. (Historical; now handled by `reusable-70-agents.yml`.)
+- [x] Implement label-driven handler that routes assignments through `reusable-90-agents.yml` readiness checks before assigning. (Historical; now handled by `reusable-16-agents.yml`.)
 - [x] Add logic to clear assignments when agent labels are removed.
 - [x] Implement scheduled watchdog sweep that pings stale owners and escalates when unavailable.
-- [x] Share readiness utilities via `reusable-90-agents.yml` for both assignment and sweep paths. (Historical; now handled by `reusable-70-agents.yml`.)
+- [x] Share readiness utilities via `reusable-90-agents.yml` for both assignment and sweep paths. (Historical; now handled by `reusable-16-agents.yml`.)
 
 ## Migration & documentation
 - [x] Convert legacy `agents-41-assign.yml` and `agents-42-watchdog.yml` into thin wrappers around the unified workflow.

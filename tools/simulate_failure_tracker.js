@@ -6,7 +6,7 @@ const path = require('path');
 const vm = require('vm');
 
 function extractTrackerScript() {
-  const workflowPath = path.join(__dirname, '..', '.github', 'workflows', 'maint-33-check-failure-tracker.yml');
+  const workflowPath = path.join(__dirname, '..', '.github', 'workflows', 'maint-47-check-failure-tracker.yml');
   const content = fs.readFileSync(workflowPath, 'utf8');
   const lines = content.split(/\r?\n/);
   const start = lines.findIndex((line) => line.trim() === 'script: |');

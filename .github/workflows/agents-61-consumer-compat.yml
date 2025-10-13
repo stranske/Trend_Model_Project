@@ -1,4 +1,4 @@
-name: Agents Consumer
+name: Agents 61 Consumer Compat
 
 on:
   workflow_dispatch:
@@ -50,13 +50,13 @@ permissions:
   issues: write
 
 concurrency:
-  group: agents-consumer-${{ github.ref_name }}
+  group: agents-61-consumer-compat-${{ github.ref_name }}
   cancel-in-progress: true
 
 jobs:
   dispatch:
     name: Dispatch reusable agents toolkit
-    uses: ./.github/workflows/reusable-70-agents.yml
+    uses: ./.github/workflows/reusable-16-agents.yml
     secrets: inherit
     with:
       enable_readiness: ${{ inputs.enable_readiness }}

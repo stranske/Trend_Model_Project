@@ -1,6 +1,6 @@
 """Helpers for building the consolidated post-CI run summary.
 
-This module feeds the maint-30-post-ci workflow and is unit tested so regressions
+This module feeds the maint-46-post-ci workflow and is unit tested so regressions
 can be caught without executing the workflow on GitHub.
 """
 

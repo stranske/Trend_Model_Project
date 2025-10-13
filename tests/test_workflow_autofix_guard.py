@@ -41,7 +41,7 @@ def _guarded_follow_up_steps(
     return missing
 
 
-WORKFLOW_FILE = "maint-30-post-ci.yml"
+WORKFLOW_FILE = "maint-46-post-ci.yml"
 
 
 def test_autofix_workflow_uses_repo_commit_prefix() -> None:
@@ -52,7 +52,7 @@ def test_autofix_workflow_uses_repo_commit_prefix() -> None:
 
 
 def test_reusable_autofix_guard_applies_to_all_steps() -> None:
-    data = _load_yaml("reusable-92-autofix.yml")
+    data = _load_yaml("reusable-18-autofix.yml")
     steps = data["jobs"]["autofix"]["steps"]
     missing = _guarded_follow_up_steps(steps)
     assert not missing, f"Reusable autofix steps missing guard condition: {missing}"

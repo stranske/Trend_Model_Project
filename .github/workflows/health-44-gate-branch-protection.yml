@@ -1,4 +1,4 @@
-name: Enforce Gate Branch Protection
+name: Health 44 Gate Branch Protection
 
 on:
   workflow_dispatch:

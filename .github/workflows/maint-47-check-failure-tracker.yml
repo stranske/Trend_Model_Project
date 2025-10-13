@@ -1,4 +1,4 @@
-name: Maint 33 Check Failure Tracker
+name: Maint 47 Check Failure Tracker
 
 'on':
   workflow_run:
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   redirect:
-    name: Delegated to Maint Post CI
+    name: Delegated to Maint 46 Post CI
     if: >
       github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.pull_requests &&
@@ -21,9 +21,9 @@ jobs:
       - name: Emit delegation summary
         run: |
           cat <<'MARKDOWN' >> "$GITHUB_STEP_SUMMARY"
-          ### Failure tracker delegated to Maint Post CI
-          Failure tracker issue updates, labeling, and artifacts now execute inside `maint-30-post-ci.yml`.
+          ### Failure tracker delegated to Maint 46 Post CI
+          Failure tracker issue updates, labeling, and artifacts now execute inside `maint-46-post-ci.yml`.
           This workflow remains as a thin compatibility shell while downstream listeners migrate.
           MARKDOWN
       - name: Log delegation
-        run: echo "Failure tracker logic handled by Maint Post CI."
+        run: echo "Failure tracker logic handled by Maint 46 Post CI."
