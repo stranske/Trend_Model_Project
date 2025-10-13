@@ -53,9 +53,11 @@ jobs:
       - name: Inspect issue
         id: check
         uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
         with:
           script: |
-            const rawInput = core.getInput('issue_number');
+            const rawInput = (process.env.ISSUE_NUMBER || '').trim();
             const issueNumber = Number(rawInput);
             const { owner, repo } = context.repo;
             const issueUrl = `https://github.com/${owner}/${repo}/issues/${issueNumber}`;
@@ -84,8 +86,11 @@ jobs:
               await core.summary
                 .addHeading('Agent Assignment Verification', 2)
                 .addRaw(table, true)
-                .addParagraph(message)
+                .addEOL()
+                .addRaw(message)
+                .addEOL()
                 .addLink('Inspect issue', issueUrl)
+                .addEOL()
                 .write();
 
               setOutputs({
@@ -163,8 +168,11 @@ jobs:
             await core.summary
               .addHeading('Agent Assignment Verification', 2)
               .addRaw(table, true)
-              .addParagraph(message || 'No additional notes.')
+              .addEOL()
+              .addRaw(message || 'No additional notes.')
+              .addEOL()
               .addLink('Inspect issue', issueUrl)
+              .addEOL()
               .write();
 
             const hasLabelOutput = status === 'error' && !fetched ? 'unknown' : (hasLabel ? 'true' : 'false');

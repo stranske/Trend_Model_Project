@@ -1550,6 +1550,19 @@ jobs:
             const { owner, repo } = context.repo;
             const runId = run.id;
 
+            const slugify = (value) => {
+              if (!value) {
+                return 'unknown-workflow';
+              }
+              const slug = String(value)
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '')
+                .replace(/--+/g, '-')
+                .trim();
+              return slug ? slug.slice(0, 80) : 'unknown-workflow';
+            };
+
             const RATE_LIMIT_MINUTES = parseInt(process.env.RATE_LIMIT_MINUTES || '15', 10);
             const STACK_TOKENS_ENABLED = /^true$/i.test(process.env.STACK_TOKENS_ENABLED || 'true');
             const STACK_TOKEN_MAX_LEN = parseInt(process.env.STACK_TOKEN_MAX_LEN || '160', 10);
@@ -1620,8 +1633,10 @@ jobs:
             }).sort();
             const crypto = require('crypto');
             const sigHash = crypto.createHash('sha256').update(sigParts.join('|')).digest('hex').slice(0, 12);
-            const workflowName = run.name;
-            const signature = `${workflowName}|${sigHash}`;
+            const workflowName = run.name || run.display_title || 'Workflow';
+            const workflowSignatureSource = run.path || run.workflow_path || run.name || run.id || workflowName;
+            const workflowSlug = slugify(workflowSignatureSource);
+            const signature = `${workflowSlug}|${sigHash}`;
             const title = `Workflow Failure (${signature})`;
             const labels = ['ci-failure', 'ci', 'devops', 'priority: medium'];
             const COOLDOWN_SCOPE = (process.env.COOLDOWN_SCOPE || 'global').toLowerCase();
@@ -1643,6 +1658,7 @@ jobs:
 
             const bodyBlock = [
               `Workflow: **${workflowName}**`,
+              `Slug: \\`${workflowSlug}\\``,
               `Run: ${runUrl}`,
               '',
               `**Failure signature:** \`${signature}\` (hash over failed job + first failing step names + first stack line token)`,
