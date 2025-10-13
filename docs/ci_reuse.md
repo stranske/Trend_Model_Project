@@ -55,12 +55,29 @@ with `SERVICE_BOT_PAT`.
 Exposes the agent automation stack as a reusable component. All top-level
 automation calls flow through **Agents 70 Orchestrator**, which normalises the
 inputs and forwards them here. Dispatch the orchestrator either via the Actions
-UI or by posting the `params_json` payload shown in
-[docs/ci/WORKFLOWS.md](ci/WORKFLOWS.md#manual-orchestrator-dispatch)
-(`gh workflow run agents-70-orchestrator.yml --raw-field params_json="$(cat orchestrator.json)"`
-or the equivalent REST call using `curl -X POST ... '{"ref":"phase-2-dev","inputs":{"params_json":"..."}}'`).
+UI or by posting a JSON payload through the `params_json` input. The
+[catalog page](ci/WORKFLOWS.md#manual-orchestrator-dispatch) carries the full
+walkthrough; the condensed CLI flow is repeated below for quick reference:
 
-Export `GITHUB_TOKEN` to a PAT or workflow token with `workflow` scope before dispatching via CLI or REST.
+```bash
+cat <<'JSON' > orchestrator.json
+{
+  "enable_readiness": true,
+  "enable_preflight": true,
+  "enable_bootstrap": true,
+  "bootstrap_issues_label": "agent:codex",
+  "options_json": "{\"diagnostic_mode\":\"dry-run\"}"
+}
+JSON
+
+export GITHUB_TOKEN="$(gh auth token)"  # Token must allow workflow dispatch
+
+gh workflow run agents-70-orchestrator.yml \
+  --ref phase-2-dev \
+  --raw-field params_json="$(cat orchestrator.json)"
+```
+
+The same payload can be passed to the REST endpoint with `curl` if preferred.
 
 Example orchestrator snippet:
 
