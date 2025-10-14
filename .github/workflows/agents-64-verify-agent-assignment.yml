@@ -10,7 +10,6 @@ on:
       valid_assignees:
         description: 'Comma-separated list of acceptable agent logins'
         required: false
-        default: &default_valid_assignees 'copilot,chatgpt-codex-connector,stranske-automation-bot'
         type: string
     outputs:
       status:
@@ -40,7 +39,6 @@ on:
       valid_assignees:
         description: 'Comma-separated list of acceptable agent logins'
         required: false
-        default: *default_valid_assignees
         type: string
 
 permissions:
@@ -66,6 +64,7 @@ jobs:
         env:
           ISSUE_NUMBER: ${{ inputs.issue_number }}
           VALID_ASSIGNEES: ${{ inputs.valid_assignees }}
+          DEFAULT_VALID_ASSIGNEES: ${{ vars.AGENT_VERIFY_DEFAULT_ASSIGNEES || 'copilot,chatgpt-codex-connector,stranske-automation-bot' }}
         with:
           script: |
             const rawInput = (process.env.ISSUE_NUMBER || '').trim();
@@ -124,8 +123,8 @@ jobs:
                 .filter(Boolean);
 
             const providedLogins = parseAssignees(process.env.VALID_ASSIGNEES);
-            const defaultLogins = parseAssignees(core.getInput('valid_assignees', { required: false }));
-            const REQUIRED_LOGINS = (providedLogins.length ? providedLogins : defaultLogins)
+            const fallbackLogins = parseAssignees(process.env.DEFAULT_VALID_ASSIGNEES);
+            const REQUIRED_LOGINS = (providedLogins.length ? providedLogins : fallbackLogins)
               .map((login) => login.toLowerCase());
             let issueTitle = '—';
             let hasLabel = false;
