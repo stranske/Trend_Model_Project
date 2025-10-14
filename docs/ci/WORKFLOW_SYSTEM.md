@@ -14,9 +14,9 @@
 - **Health checks**: actionlint (`health-42-actionlint.yml`), CI signature guard (`health-43-ci-signature-guard.yml`), and branch‑protection verifier (`health-44-gate-branch-protection.yml`).
 
 ### Agents & Issues
-- **Single entry point**: `agents-70-orchestrator.yml`.  
-- **Issue bridge**: `agents-63-codex-issue-bridge.yml` opens branches/PRs from `agent:codex` issues.  
-- **Deprecated shims**: `agents-61-consumer-compat.yml`, `agents-62-consumer.yml` slated for removal.
+- **Single entry point**: `agents-70-orchestrator.yml`.
+- **Issue bridge**: `agents-63-codex-issue-bridge.yml` opens branches/PRs from `agent:codex` issues.
+- **Consumer note**: manual shims were removed; all automation now dispatches the orchestrator directly.
 
 ### Reusable composites
 - Python CI: `reusable-10-ci-python.yml` (ruff + mypy + pytest).
@@ -40,7 +40,7 @@
 ## Final topology (keep vs retire)
 
 - **Keep**: `pr-00-gate.yml`, `maint-46-post-ci.yml`, health 42/43/44, agents 70/63, reusable 10/12/16/18, `selftest-81-reusable-ci.yml`.
-- **Retire**: `pr-14-docs-only.yml`, `maint-47-check-failure-tracker.yml`, agents 61/62, and all `selftest-*` wrappers except 81.
+- **Retired**: `pr-14-docs-only.yml` and legacy self-test wrappers (see `ARCHIVE_WORKFLOWS.md` for historical topology).
 
 ## Verification checklist
 - Gate runs and passes on a docs‑only PR and is visible as the required check.

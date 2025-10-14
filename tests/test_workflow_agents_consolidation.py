@@ -128,37 +128,9 @@ def test_agents_orchestrator_has_concurrency_defaults():
     ), "Orchestrator workflow should document where the timeout is enforced"
 
 
-def test_agents_consumer_manual_only_and_concurrency():
-    data = _load_workflow_yaml("agents-62-consumer.yml")
-
-    on_section = _workflow_on_section(data)
-    assert set(on_section.keys()) == {
-        "workflow_dispatch"
-    }, "Agents Consumer must only allow manual workflow_dispatch runs"
-
-    concurrency = data.get("concurrency") or {}
-    assert (
-        concurrency.get("group") == "agents-consumer-${{ github.ref }}"
-    ), "Agents Consumer concurrency group must use the shared agents-consumer lock"
-    assert (
-        concurrency.get("cancel-in-progress") is True
-    ), "Agents Consumer concurrency must cancel in-progress runs"
-
-    jobs = data.get("jobs", {})
-    dispatch_job = jobs.get("dispatch", {})
-    uses = dispatch_job.get("uses")
-    assert uses, "Agents Consumer should call reusable-16-agents workflow"
-    assert uses.endswith(
-        ".github/workflows/reusable-16-agents.yml"
-    ), "Agents Consumer must call reusable-16-agents workflow"
-    assert (
-        "timeout-minutes" not in dispatch_job
-    ), "Timeout must be delegated to reusable-16-agents.yml jobs"
-
-    with_inputs = dispatch_job.get("with") or {}
-    assert (
-        "readiness_custom_logins" in with_inputs
-    ), "Agents Consumer must forward readiness_custom_logins input"
+def test_agents_consumer_workflow_removed():
+    path = WORKFLOWS_DIR / "agents-62-consumer.yml"
+    assert not path.exists(), "Legacy Agents 62 consumer wrapper should be removed"
 
 
 def test_reusable_agents_jobs_have_timeouts():

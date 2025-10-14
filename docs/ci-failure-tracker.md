@@ -3,7 +3,7 @@
 This document summarises the behaviour and configuration of the enhanced failure tracking workflow.
 
 ## Overview
-`maint-46-post-ci.yml` now owns the failure-tracker logic and listens to completed runs of the Gate workflow via a `workflow_run` trigger. The legacy `maint-47-check-failure-tracker.yml` workflow remains only as a thin delegation shell for backwards compatibility. Within the consolidated Maint 46 Post CI follower, a dedicated `failure-tracker` job executes on qualifying failures and:
+`maint-46-post-ci.yml` now owns the failure-tracker logic and listens to completed runs of the Gate workflow via a `workflow_run` trigger. The legacy `maint-47-check-failure-tracker.yml` workflow has been retired after delegation proved stable. Within the consolidated Maint 46 Post CI follower, a dedicated `failure-tracker` job executes on qualifying failures and:
 
 1. Enumerates failed jobs and the first failing step.
 2. Optionally extracts a stack token (first exception or error line) per failed job.
@@ -87,7 +87,7 @@ You can manually validate behaviour:
 2. Rerun it but edit the `maint-90-selftest.yml` workflow to succeed (or manually re-run jobs) to test auto-heal logic after adjusting `INACTIVITY_HOURS`.
 
 ## Local Simulation Harness
-For a fast feedback loop without touching GitHub, run `node tools/simulate_failure_tracker.js`. The harness lifts the tracker script straight out of the workflow file and replays three sequential failures against an in-memory stub of the GitHub API. It asserts that:
+For a fast feedback loop without touching GitHub, run `node tools/simulate_failure_tracker.js`. The harness lifts the tracker script from the Maint 46 Post CI workflow and replays three sequential failures against an in-memory stub of the GitHub API. It asserts that:
 
 - The tuned defaults (12-hour cooldown, three-occurrence escalation) are honoured.
 - Issues aggregate signatures instead of spawning duplicates across the cooldown window.

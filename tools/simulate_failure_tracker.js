@@ -6,17 +6,28 @@ const path = require('path');
 const vm = require('vm');
 
 function extractTrackerScript() {
-  const workflowPath = path.join(__dirname, '..', '.github', 'workflows', 'maint-47-check-failure-tracker.yml');
+  const workflowPath = path.join(
+    __dirname,
+    '..',
+    '.github',
+    'workflows',
+    'maint-46-post-ci.yml',
+  );
   const content = fs.readFileSync(workflowPath, 'utf8');
   const lines = content.split(/\r?\n/);
-  const start = lines.findIndex((line) => line.trim() === 'script: |');
-  if (start === -1) {
+  const stepIndex = lines.findIndex((line) =>
+    line.includes('Derive failure signature & update tracking issue'),
+  );
+  if (stepIndex === -1) {
+    throw new Error('Unable to locate failure-tracker step.');
+  }
+  const start = lines.findIndex(
+    (line, idx) => idx > stepIndex && line.trim() === 'script: |',
+  );
+  if (start === -1 || start + 1 >= lines.length) {
     throw new Error('Unable to locate tracker script block.');
   }
   const scriptLines = [];
-  if (start + 1 >= lines.length) {
-    throw new Error('Tracker script block is empty or malformed.');
-  }
   const firstLine = lines[start + 1];
   const indentMatch = firstLine.match(/^(\s*)/);
   const indent = indentMatch ? indentMatch[1].length : 0;
