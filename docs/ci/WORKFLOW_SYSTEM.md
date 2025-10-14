@@ -16,6 +16,8 @@
 ### Agents & Issues
 - **Single entry point**: `agents-70-orchestrator.yml`.
 - **Issue bridge**: `agents-63-codex-issue-bridge.yml` opens branches/PRs from `agent:codex` issues.
+- **Issue template**: [Agent task](https://github.com/stranske/Trend_Model_Project/issues/new?template=agent_task.yml) pre-labels
+  issues with `agents` and `agent:codex` so the bridge triggers immediately.
 - **Consumer note**: manual shims were removed; all automation now dispatches the orchestrator directly.
 
 ### Reusable composites
