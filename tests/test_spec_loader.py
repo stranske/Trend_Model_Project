@@ -16,6 +16,13 @@ from trend_model.spec import (
 )
 
 
+@dataclass(frozen=True)
+class _FrozenConfig:
+    signals: dict[str, Any]
+    sample_split: dict[str, str]
+    portfolio: dict[str, Any]
+
+
 def test_load_run_spec_from_file() -> None:
     cfg_path = Path("config") / "trend.toml"
     spec = load_run_spec_from_file(cfg_path)
