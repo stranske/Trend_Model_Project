@@ -32,3 +32,9 @@
 - [ ] Verify that a subsequent passing run resolves or updates the failure issue appropriately.
 - [ ] Refresh documentation/runbooks with new job names and verification procedures.
 - [ ] Run targeted test suite (e.g., `pytest` for post-ci and failure tracker modules) and review results.
+
+## Verification Notes
+- Failure tracker issues now carry an explicit `Tracked PR` line and hidden `<!-- tracked-pr: ... -->` marker so the success
+  path can deterministically find and heal the corresponding record after a recovery run.
+- The Maint 46 Post CI workflow posts a resolution comment and closes the tagged issue when Gate succeeds, keeping the rolling
+  failure tracker single-issue guarantee intact without manual cleanup.
