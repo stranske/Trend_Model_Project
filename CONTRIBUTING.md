@@ -44,10 +44,11 @@ post-processing workflow:
 
 - **Maintenance helper (Maint 45 Cosmetic Repair)** – Actions → **Maint 45 Cosmetic Repair** → **Run workflow**. Choose the base branch, interpreter, and whether to run in dry-run mode using the provided inputs before the workflow hydrates the cosmetic repair script.
 - **Agent automation (Agents 70 Orchestrator)** – Actions → **Agents 70 Orchestrator** → **Run workflow**. Supply booleans as strings (`true`/`false`) for readiness, watchdog, bootstrap, verification, and keepalive toggles or pass an advanced payload through `options_json` when you need to flip several paths at once.
+- **Verify agent assignment (Agents 64)** – Actions → **Agents 64 Verify Agent Assignment** → **Run workflow**. Provide the `issue_number` you want to audit and optional comma-separated `valid_assignees`; the workflow writes its status table to the Actions run summary and returns JSON outputs for downstream automation.
 
 ### Health self-check run summaries
 
-The `Health 40 Repo Selfcheck` job writes its status table into the GitHub Actions run summary so you can review label coverage, branch protection, and token usage without downloading artifacts. Open the workflow run and read the generated Markdown table in the **Summary** tab.
+The `Health 40 Repo Selfcheck` job writes its status table into the GitHub Actions run summary so you can review label coverage, branch protection, and token usage without downloading artifacts. Open the workflow run and read the generated Markdown table in the **Summary** tab; the latest status always lives there—no artifact download required.
 
 ## Manual Self-Test Workflows
 

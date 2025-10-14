@@ -6,11 +6,11 @@ This document records the archival and eventual deletion of legacy agent-related
 
 ### Legacy agent watchdog
 - **Removed file**: `agent-watchdog.yml` (retired with the Issue #1419 consolidation sweep).
-- **Replacement**: watchdog logic now lives behind the `enable_watchdog` toggle inside `Agents 70 Orchestrator` so scheduled runs and manual dispatches both exercise the same path.
+- **Replacement**: watchdog coverage now ships as the `enable_watchdog` switch inside `Agents 70 Orchestrator`, so both the 20-minute schedule and ad-hoc manual runs execute the same reusable watchdog path.
 
 ### Retired self-tests
-- **Archived files**: `Old/workflows/maint-90-selftest.yml` and `Old/workflows/reusable-99-selftest.yml` remain in git history only; they were removed from active automation when the reusable matrix stabilised.
-- **Replacement**: manual verification flows route through the consolidated self-test entry points (`selftest-81` and related wrappers listed below) or reuse the Gate matrix when full coverage is required.
+- **Archived files**: `Old/workflows/maint-90-selftest.yml` and `Old/workflows/reusable-99-selftest.yml` remain in git history only after the reusable matrix stabilised.
+- **Replacement**: manual verification flows now live behind the self-test wrappers that remain in `.github/workflows/` (`selftest-81`, `selftest-82`, `selftest-83`, `selftest-84`, `selftest-88`), all of which expose `workflow_dispatch` inputs and publish their health tables directly in the Actions run summary.
 
 ## Removed Legacy Files (Cleanup PR for Issue #1259)
 All deprecated agent automation workflows were deleted from `.github/workflows/` on 2025-09-21 once the stabilization window for the reusable equivalents closed. Historical copies formerly lived under `.github/workflows/archive/` but that directory was removed on 2026-10-07 as part of the Issue #1669 cleanup. Retrieve any prior YAML from git history when needed.
