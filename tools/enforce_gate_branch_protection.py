@@ -72,6 +72,37 @@ def _status_checks_url(repo: str, branch: str, *, api_root: str) -> str:
     )
 
 
+def _branch_url(repo: str, branch: str, *, api_root: str) -> str:
+    return f"{api_root}/repos/{repo}/branches/{branch}"
+
+
+def _state_from_branch_payload(payload: Mapping[str, Any]) -> StatusCheckState:
+    protection = payload.get("protection")
+    if not isinstance(protection, Mapping) or not protection.get("enabled"):
+        raise BranchProtectionMissingError(
+            "Branch protection is disabled for this branch."
+        )
+
+    status_checks = protection.get("required_status_checks")
+    if not isinstance(status_checks, Mapping):
+        raise BranchProtectionMissingError(
+            "Branch protection does not require any status checks yet."
+        )
+
+    raw_contexts = status_checks.get("contexts") or []
+    if isinstance(raw_contexts, Iterable) and not isinstance(
+        raw_contexts, (str, bytes)
+    ):
+        contexts = [str(context) for context in raw_contexts]
+    else:
+        contexts = []
+
+    enforcement_level = status_checks.get("enforcement_level")
+    strict = enforcement_level in {"non_admins", "everyone"}
+
+    return StatusCheckState(strict=strict, contexts=sorted(contexts))
+
+
 def fetch_status_checks(
     session: requests.Session,
     repo: str,
@@ -86,6 +117,20 @@ def fetch_status_checks(
         raise BranchProtectionMissingError(
             "Required status checks are not enabled for this branch. Configure the base protection rule first."
         )
+    if response.status_code == 403:
+        branch_response = session.get(
+            _branch_url(repo, branch, api_root=api_root), timeout=30
+        )
+        if branch_response.status_code == 404:
+            raise BranchProtectionMissingError(
+                "Branch does not exist; cannot inspect protection status."
+            )
+        if branch_response.status_code >= 400:
+            raise BranchProtectionError(
+                "Failed to inspect branch protection via branch endpoint: "
+                f"{branch_response.status_code} {branch_response.text}"
+            )
+        return _state_from_branch_payload(branch_response.json())
     if response.status_code >= 400:
         raise BranchProtectionError(
             f"Failed to fetch status checks for {branch}: {response.status_code} {response.text}"
