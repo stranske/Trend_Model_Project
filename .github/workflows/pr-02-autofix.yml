@@ -14,10 +14,13 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: pr-02-autofix-${{ github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: false
+  group: pr-autofix-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   apply:
+    if: >-
+      contains(github.event.pull_request.labels.*.name, 'autofix') ||
+      (github.event.action == 'labeled' && github.event.label.name == 'autofix')
     uses: ./.github/workflows/reusable-18-autofix.yml
     secrets: inherit
