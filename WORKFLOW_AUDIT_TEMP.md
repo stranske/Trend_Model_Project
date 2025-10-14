@@ -13,8 +13,7 @@ This list mirrors the canonical catalogue in `docs/ci/WORKFLOWS.md` after the Is
 ### PR Checks
 | Workflow | Triggers | Notes |
 |----------|----------|-------|
-| `pr-00-gate.yml` | pull_request, workflow_dispatch | Aggregates reusable CI/Docker composites into a single required gate for PRs.
-| `pr-14-docs-only.yml` | pull_request (doc paths) | Detects documentation-only diffs and posts a skip notice via comment instead of launching heavier CI.
+| `pr-00-gate.yml` | pull_request, workflow_dispatch | Aggregates reusable CI/Docker composites into a single required gate for PRs; now includes built-in doc-only detection that fast-passes lightweight changes.
 | `pr-02-autofix.yml` | pull_request | Direct PR autofix runner that delegates to `reusable-18-autofix.yml` and pushes formatting/type hygiene commits when safe.
 
 ### Maintenance & Governance

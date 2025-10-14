@@ -114,7 +114,6 @@ EXPECTED_NAMES = {
     "maint-46-post-ci.yml": "Maint 46 Post CI",
     "maint-47-check-failure-tracker.yml": "Maint 47 Check Failure Tracker",
     "pr-00-gate.yml": "Gate",
-    "pr-14-docs-only.yml": "PR 14 Docs Only",
     "reusable-10-ci-python.yml": "Reusable CI",
     "reusable-12-ci-docker.yml": "Reusable Docker Smoke",
     "reusable-16-agents.yml": "Reusable 16 Agents",

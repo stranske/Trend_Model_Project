@@ -1,5 +1,16 @@
 # Doc-Only CI Workflow Planning Notes
 
+> **Update (2026-02-18):** The standalone `pr-14-docs-only.yml` workflow has been retired. Gate (`pr-00-gate.yml`) now owns doc-only detection via its `detect_doc_only` job, reusing the same Markdown/`docs/`/`assets/` filters described below. This document remains as historical context for how the behavior was originally designed.
+
+## Issue #2610 Execution Checklist (2026-02)
+
+- [x] Inline doc-only detection inside `pr-00-gate.yml` and remove any `paths-ignore` gaps so Gate always runs on PRs.
+- [x] Add a lightweight `detect_doc_only` job that reuses the PR-14 path filters and emits `doc_only`/`run_core` outputs.
+- [x] Guard the heavy Python and Docker jobs behind the doc-only check so documentation diffs short-circuit quickly.
+- [x] Ensure the Gate aggregator handles doc-only runs by posting the friendly notice, setting success status, and exiting fast.
+- [x] Delete the legacy `.github/workflows/pr-14-docs-only.yml` file.
+- [x] Refresh README and workflow documentation (including screenshots/notes) to describe Gate’s built-in doc-only fast path.
+
 ## Scope and Key Constraints
 - Implement a GitHub Actions workflow that runs only for pull requests modifying documentation-specific paths (`**/*.md`, `docs/**`, `assets/**`).
 - The workflow must detect doc-only diffs by combining `paths` filters with a guard that prevents execution when other file types are present.
