@@ -24,6 +24,9 @@ status check. Each audit run should populate the following artifacts:
   capture pull request #2545 (this Codex engagement) reporting the required Gate
   status against commit `585cb69`, demonstrating that newly opened PRs surface the
   required check.
+- ✅ [`health-run-18473448710.md`](./health-run-18473448710.md) summarizes the
+  scheduled `health-44-gate-branch-protection` run that verified the rule on
+  2025-10-13.
 - ⚠️ `enforcement.json` intentionally omitted because no drift was detected during
   the audit.
 
