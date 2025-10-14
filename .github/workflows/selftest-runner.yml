@@ -103,14 +103,14 @@ jobs:
           TABLE: ${{ env.VERIFICATION_TABLE }}
           FAILURES: ${{ env.FAILURE_COUNT }}
         run: |
-          table="${TABLE}"
-          if [ -z "${table}" ]; then
-            table='*Verification table not available.*'
+          TABLE="${TABLE:-}"
+          if [ -z "${TABLE}" ]; then
+            TABLE='*Verification table not available.*'
           fi
 
-          failures="${FAILURES}"
-          if [ -z "${failures}" ]; then
-            failures='unknown'
+          FAILURES="${FAILURES:-}"
+          if [ -z "${FAILURES}" ]; then
+            FAILURES='unknown'
           fi
 
           {
@@ -122,9 +122,9 @@ jobs:
             fi
             echo "Requested python-versions: ${REQUESTED_VERSIONS}"
             echo ""
-            printf '%s\n' "${table}"
+            printf '%s\n' "${TABLE}"
             echo ""
-            echo "Failures reported: ${failures}"
+            echo "Failures reported: ${FAILURES}"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Surface failures in logs
@@ -137,7 +137,7 @@ jobs:
         if: ${{ env.MODE == 'comment' && env.POST_TO == 'pr-number' }}
         uses: actions/github-script@v7
         env:
-          MARKER: '<!-- selftest-runner -->'
+          MARKER: '<!-- selftest-runner-comment -->'
           TABLE: ${{ env.VERIFICATION_TABLE }}
           FAILURES: ${{ env.FAILURE_COUNT }}
           RESULT: ${{ env.WORKFLOW_RESULT }}
@@ -148,7 +148,7 @@ jobs:
           PR_NUMBER: ${{ env.PR_NUMBER }}
         with:
           script: |
-            const marker = process.env.MARKER || '<!-- selftest-runner -->';
+            const marker = process.env.MARKER || '<!-- selftest-runner-comment -->';
             const prRaw = (process.env.PR_NUMBER || '').trim();
             const prNumber = Number.parseInt(prRaw, 10);
             if (!Number.isInteger(prNumber)) {
