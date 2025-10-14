@@ -25,7 +25,7 @@ on:
           - none
         default: none
       enable_history:
-        description: 'Download the self-test report artifact for reference.'
+        description: 'Download the self-test report artifact for local reference.'
         required: true
         type: choice
         options:
