@@ -113,11 +113,14 @@ def test_selftest_dispatch_reason_input() -> None:
     assert "reason" in inputs, "Selftest workflow dispatch is missing a reason input."
 
     reason_input = inputs["reason"] or {}
-    assert reason_input.get("required") in (
-        False,
-        "false",
-        None,
-    ), "Selftest workflow dispatch reason should be optional for manual launches."
+    # Normalize the "required" field to a boolean for consistency.
+    required_raw = reason_input.get("required")
+    required_bool = (
+        False
+        if required_raw in (False, "false", None)
+        else True
+    )
+    assert not required_bool, "Selftest workflow dispatch reason should be optional for manual launches."
 
     description = reason_input.get("description", "").strip()
     assert description, "Reason input should document why it is collected."
