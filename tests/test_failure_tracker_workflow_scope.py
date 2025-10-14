@@ -2,8 +2,15 @@
 
 from __future__ import annotations
 
+import json
+import os
+import re
+import shutil
+import subprocess
+import textwrap
 from pathlib import Path
 
+import pytest
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -241,3 +248,217 @@ def test_failure_tracker_signature_uses_slugified_workflow_path() -> None:
     assert "const workflowKey = workflowId || fallbackId;" in script
     assert "const signature = `${workflowKey}|${sigHash}`;" in script
     assert "Workflow slug: \\`${workflowId}\\`" in script
+
+
+def test_failure_tracker_script_updates_existing_issue(tmp_path: Path) -> None:
+    node_path = shutil.which("node")
+    if node_path is None:
+        pytest.skip("node runtime not available")
+
+    script = _get_tracker_script()
+    slugify_match = re.search(
+        r"const slugify = \(value\) => \{(?:.|\n)*?\};",
+        script,
+    )
+    assert slugify_match, "Expected slugify helper to be present in tracker script"
+    slugify_code = slugify_match.group(0)
+
+    scenario = {
+        "owner": "stranske",
+        "repo": "Trend_Model_Project",
+        "run": {
+            "id": 314,
+            "workflow_id": 271,
+            "name": "Gate",
+            "display_title": "Gate",
+            "path": ".github/workflows/pr-00-gate.yml",
+            "html_url": "https://example.test/run/314",
+        },
+        "jobs": [
+            {
+                "id": 42,
+                "name": "Gate / core tests (3.11)",
+                "conclusion": "failure",
+                "status": "completed",
+                "html_url": "https://example.test/job/42",
+                "steps": [
+                    {"name": "Checkout", "conclusion": "success"},
+                    {"name": "pytest", "conclusion": "failure"},
+                ],
+            }
+        ],
+        "issue": {
+            "body": (
+                "Occurrences: 2\n"
+                "Last seen: 2025-01-14T12:00:00Z\n"
+                "<!-- occurrence-history-start -->\n"
+                "| Timestamp | Run | Sig Hash | Failed Jobs |\n"
+                "|---|---|---|---|\n"
+                "| 2025-01-13T11:00:00Z | [run](https://example.test/run/21) | deadbeef | 1 |\n"
+                "<!-- occurrence-history-end -->\n"
+            ),
+            "labels": [{"name": "ci-failure"}, {"name": "ci"}],
+        },
+        "openIssues": [{"number": 99}],
+        "closedIssues": [],
+        "comments": [],
+    }
+
+    harness = textwrap.dedent(
+        rf"""
+        const actionsLog = [];
+        function log(type, payload) {{
+          actionsLog.push({{ type, ...(payload ? {{ payload }} : {{}}) }});
+        }}
+
+        (async () => {{
+        const scenario = {json.dumps(scenario)};
+        const newline = '\\n';
+        const github = {{
+          rest: {{
+            search: {{
+              async issuesAndPullRequests(args) {{
+                log('searchIssues', args);
+                if (args.q.includes('is:open')) {{
+                  return {{ data: {{ items: scenario.openIssues }} }};
+                }}
+                if (args.q.includes('is:closed')) {{
+                  return {{ data: {{ items: scenario.closedIssues }} }};
+                }}
+                return {{ data: {{ items: [] }} }};
+              }},
+            }},
+            issues: {{
+              async getLabel(args) {{ log('getLabel', args); return {{ data: {{}} }}; }},
+              async createLabel(args) {{ log('createLabel', args); return {{ data: {{}} }}; }},
+              async get(args) {{ log('getIssue', args); return {{ data: Object.assign({{ number: args.issue_number }}, scenario.issue) }}; }},
+              async update(args) {{ log('updateIssue', args); return {{ data: {{}} }}; }},
+              async listComments(args) {{ log('listComments', args); return {{ data: scenario.comments }}; }},
+              async createComment(args) {{ log('createComment', args); return {{ data: {{}} }}; }},
+              async addLabels(args) {{ log('addLabels', args); return {{ data: {{}} }}; }},
+              async listForRepo(args) {{ log('listForRepo', args); return {{ data: [] }}; }},
+              async create(args) {{ log('createIssue', args); return {{ data: {{ number: 777 }} }}; }},
+            }},
+          }},
+          paginate: async () => scenario.jobs,
+          request: async () => {{ throw new Error('Unexpected request invocation'); }},
+        }};
+
+        const owner = scenario.owner;
+        const repo = scenario.repo;
+        const run = scenario.run;
+        const failedJobs = scenario.jobs.map(job => Object.assign({{}}, job, {{ __stackToken: 'stacks-off' }}));
+
+        {slugify_code}
+
+        const RATE_LIMIT_MINUTES = 15;
+        const HEAL_THRESHOLD_DESC = 'Auto-heal after 24h stability (success path)';
+        const workflowName = run.name || run.display_title || 'Workflow';
+        const workflowPath = (run.path || '').trim();
+        const workflowFile = (workflowPath.split('/').pop() || '').trim();
+        const workflowStem = workflowFile.replace(/\\.ya?ml$/i, '') || workflowFile;
+        const workflowIdRaw = workflowStem || workflowPath || workflowName || '';
+        const workflowId = slugify(workflowIdRaw);
+        const fallbackId = run.workflow_id ? `workflow-${{run.workflow_id}}` : (run.id ? `run-${{run.id}}` : 'workflow');
+        const workflowKey = workflowId || fallbackId;
+
+        const crypto = require('crypto');
+        const sigParts = failedJobs.map(j => {{
+          const failingStep = (j.steps || []).find(s => (s.conclusion || '').toLowerCase() !== 'success');
+          return `${{j.name}}::${{failingStep ? failingStep.name : 'no-step'}}::${{j.__stackToken}}`;
+        }}).sort();
+        const sigHash = crypto.createHash('sha256').update(sigParts.join('|')).digest('hex').slice(0, 12);
+        const signature = `${{workflowKey}}|${{sigHash}}`;
+        const title = `Workflow Failure (${{signature}})`;
+        const labels = ['ci-failure', 'ci', 'devops', 'priority: medium'];
+
+        for (const lb of labels) {{
+          try {{ await github.rest.issues.getLabel({{ owner, repo, name: lb }}); }}
+          catch {{ try {{ await github.rest.issues.createLabel({{ owner, repo, name: lb, color: 'BFDADC' }}); }} catch {{}} }}
+        }}
+
+        const bodyBlock = 'body';
+        let issue_number = null;
+        let reopened = false;
+
+        const qOpen = `repo:${{owner}}/${{repo}} is:issue is:open in:title "${{signature}}" label:ci-failure`;
+        const searchOpen = await github.rest.search.issuesAndPullRequests({{ q: qOpen, per_page: 1 }});
+        if (searchOpen.data.items.length) {{
+          issue_number = searchOpen.data.items[0].number;
+        }} else {{
+          const qClosed = `repo:${{owner}}/${{repo}} is:issue is:closed in:title "${{signature}}" label:ci-failure`;
+          const searchClosed = await github.rest.search.issuesAndPullRequests({{ q: qClosed, per_page: 1 }});
+          if (searchClosed.data.items.length) {{
+            issue_number = searchClosed.data.items[0].number;
+            try {{
+              await github.rest.issues.update({{ owner, repo, issue_number, state: 'open' }});
+              reopened = true;
+            }} catch (e) {{
+              issue_number = null;
+            }}
+          }}
+        }}
+
+        if (issue_number) {{
+          const existing = await github.rest.issues.get({{ owner, repo, issue_number }});
+          const nowIso = new Date().toISOString();
+          const baseBody = existing.data.body || '';
+          const occMatch = baseBody.match(/Occurrences:\\s*(\d+)/i);
+          const occ = (occMatch ? parseInt(occMatch[1], 10) : 0) + 1;
+          const summaryLines = [
+            `Occurrences: ${{occ}}`,
+            `Last seen: ${{nowIso}}`,
+            '',
+            baseBody.trim(),
+          ].filter(Boolean);
+          const body = summaryLines.join(newline);
+          await github.rest.issues.update({{ owner, repo, issue_number, title, body }});
+          const comments = await github.rest.issues.listComments({{ owner, repo, issue_number, per_page: 50 }});
+          const alreadyCommented = comments.data.some(c => c.body && c.body.includes(run.html_url));
+          let postComment = !alreadyCommented;
+          if (postComment && comments.data.length) {{
+            const last = comments.data[comments.data.length - 1];
+            const lastTs = Date.parse(last.created_at);
+            if (!isNaN(lastTs)) {{
+              const minutesAgo = (Date.now() - lastTs) / 60000;
+              if (minutesAgo < RATE_LIMIT_MINUTES) {{
+                postComment = false;
+              }}
+            }}
+          }}
+          const commentPayload = reopened ? `Failure reoccurred after auto-heal; issue reopened.\\n\\n${{bodyBlock}}` : bodyBlock;
+          if (postComment) {{
+            await github.rest.issues.createComment({{ owner, repo, issue_number, body: commentPayload }});
+          }}
+        }} else {{
+          await github.rest.issues.create({{ owner, repo, title, body: bodyBlock, labels }});
+        }}
+
+        console.log(JSON.stringify(actionsLog));
+        }})().catch((error) => {{
+          console.error(error.stack || String(error));
+          process.exit(1);
+        }});
+        """
+    )
+
+    script_path = tmp_path / "tracker_harness.js"
+    script_path.write_text(harness, encoding="utf-8")
+
+    result = subprocess.run(
+        [node_path, str(script_path)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    output = result.stdout.strip()
+    assert output, "Expected harness output to contain action log JSON"
+    actions = json.loads(output)
+    action_types = [entry.get("type") for entry in actions]
+
+    assert "createIssue" not in action_types, "Tracker should update existing issue instead of creating new"
+    assert action_types.count("updateIssue") == 1, "Existing issue should be updated exactly once"
+    assert action_types.count("createComment") == 1, "Existing issue should receive a new occurrence comment"
+
