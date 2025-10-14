@@ -1,0 +1,202 @@
+name: Selftest Runner
+
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Why are you running this selftest?'
+        required: false
+        default: 'manual test'
+      mode:
+        description: 'How should the self-test results be surfaced?'
+        required: true
+        type: choice
+        options:
+          - summary
+          - comment
+          - dual-runtime
+        default: summary
+      post_to:
+        description: 'Where should comment output be posted?'
+        required: true
+        type: choice
+        options:
+          - pr-number
+          - none
+        default: none
+      enable_history:
+        description: 'Download the self-test report artifact for local reference.'
+        required: true
+        type: choice
+        options:
+          - true
+          - false
+        default: false
+      pull_request_number:
+        description: 'Pull request number when posting a comment.'
+        required: false
+      summary_title:
+        description: 'Heading used in the workflow summary block.'
+        required: false
+        default: 'Selftest Runner Summary'
+      comment_title:
+        description: 'Heading rendered at the top of the posted comment.'
+        required: false
+        default: 'Selftest Runner Comment'
+
+jobs:
+  run-matrix:
+    name: Run Self-Test Matrix
+    uses: ./.github/workflows/selftest-81-reusable-ci.yml
+    with:
+      python-versions: ${{ inputs.mode == 'dual-runtime' && '["3.11","3.12"]' || '["3.11"]' }}
+    secrets: inherit
+
+  publish-results:
+    name: Publish Results
+    needs: run-matrix
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+    env:
+      MODE: ${{ inputs.mode }}
+      POST_TO: ${{ inputs.post_to }}
+      ENABLE_HISTORY: ${{ inputs.enable_history }}
+      PR_NUMBER: ${{ inputs.pull_request_number }}
+      SUMMARY_TITLE: ${{ inputs.summary_title }}
+      COMMENT_TITLE: ${{ inputs.comment_title }}
+      REASON: ${{ inputs.reason }}
+      WORKFLOW_RESULT: ${{ needs.run-matrix.result }}
+      VERIFICATION_TABLE: ${{ needs.run-matrix.outputs.verification_table }}
+      FAILURE_COUNT: ${{ needs.run-matrix.outputs.failures }}
+      RUN_ID: ${{ needs.run-matrix.outputs.run_id }}
+      REQUESTED_VERSIONS: ${{ inputs.mode == 'dual-runtime' && '["3.11","3.12"]' || '["3.11"]' }}
+    steps:
+      - name: Validate pull request target
+        if: ${{ env.MODE == 'comment' && env.POST_TO == 'pr-number' }}
+        run: |
+          if [ -z "${PR_NUMBER}" ]; then
+            echo '::error::pull_request_number is required when posting to a pull request.'
+            exit 1
+          fi
+          case "${PR_NUMBER}" in
+            (*[!0-9]*)
+              echo '::error::pull_request_number must be an integer.'
+              exit 1
+              ;;
+          esac
+
+      - name: Download self-test report
+        if: ${{ env.ENABLE_HISTORY == 'true' && env.RUN_ID != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ env.RUN_ID }}
+          name: selftest-report
+          path: selftest-report
+        continue-on-error: true
+
+      - name: Append workflow summary
+        env:
+          TABLE: ${{ env.VERIFICATION_TABLE }}
+          FAILURES: ${{ env.FAILURE_COUNT }}
+        run: |
+          TABLE="${TABLE:-}"
+          if [ -z "${TABLE}" ]; then
+            TABLE='*Verification table not available.*'
+          fi
+
+          FAILURES="${FAILURES:-}"
+          if [ -z "${FAILURES}" ]; then
+            FAILURES='unknown'
+          fi
+
+          {
+            echo "## ${SUMMARY_TITLE}"
+            echo "Workflow status: ${WORKFLOW_RESULT}"
+            echo "Mode: ${MODE}"
+            if [ -n "${REASON}" ]; then
+              echo "Dispatch reason: ${REASON}"
+            fi
+            echo "Requested python-versions: ${REQUESTED_VERSIONS}"
+            echo ""
+            printf '%s\n' "${TABLE}"
+            echo ""
+            echo "Failures reported: ${FAILURES}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Surface failures in logs
+        if: ${{ env.MODE != 'comment' && env.FAILURE_COUNT != '' && env.FAILURE_COUNT != '0' }}
+        run: |
+          echo "Selftest runner reported ${FAILURE_COUNT} mismatch(es)." >&2
+          exit 1
+
+      - name: Publish PR comment
+        if: ${{ env.MODE == 'comment' && env.POST_TO == 'pr-number' }}
+        uses: actions/github-script@v7
+        env:
+          MARKER: '<!-- selftest-runner-comment -->'
+          TABLE: ${{ env.VERIFICATION_TABLE }}
+          FAILURES: ${{ env.FAILURE_COUNT }}
+          RESULT: ${{ env.WORKFLOW_RESULT }}
+          COMMENT_TITLE: ${{ env.COMMENT_TITLE }}
+          REASON: ${{ env.REASON }}
+          REQUESTED_VERSIONS: ${{ env.REQUESTED_VERSIONS }}
+          MODE: ${{ env.MODE }}
+          PR_NUMBER: ${{ env.PR_NUMBER }}
+        with:
+          script: |
+            const marker = process.env.MARKER || '<!-- selftest-runner-comment -->';
+            const prRaw = (process.env.PR_NUMBER || '').trim();
+            const prNumber = Number.parseInt(prRaw, 10);
+            if (!Number.isInteger(prNumber)) {
+              core.setFailed(`Invalid pull_request_number input: ${prRaw}`);
+              return;
+            }
+
+            const mode = (process.env.MODE || 'comment').trim();
+            const title = (process.env.COMMENT_TITLE || 'Selftest Runner Comment').trim() || 'Selftest Runner Comment';
+            const reason = (process.env.REASON || '').trim();
+            const table = process.env.TABLE && process.env.TABLE.trim() ? process.env.TABLE : '*No verification table available.*';
+            const failures = process.env.FAILURES || '0';
+            const runResult = process.env.RESULT || 'unknown';
+            const requestedVersions = (process.env.REQUESTED_VERSIONS || '').trim();
+
+            const statusLine = failures === '0'
+              ? '✅ **Self-test scenarios succeeded.**'
+              : `❌ **Self-test reported ${failures} mismatch(es).**`;
+
+            const runBadge = runResult === 'success'
+              ? '✅'
+              : runResult === 'failure'
+                ? '❌'
+                : 'ℹ️';
+
+            const lines = [
+              marker,
+              `### ${title}`,
+              `${runBadge} Workflow status: **${runResult}**`,
+              `Mode: \`${mode}\``,
+              requestedVersions ? `Requested python-versions: ${requestedVersions}` : undefined,
+              reason ? `Dispatch reason: ${reason}` : undefined,
+              '',
+              table,
+              '',
+              `_Workflow run: ${context.runId}_`,
+            ].filter(Boolean);
+
+            const body = lines.join('\n');
+
+            const { owner, repo } = context.repo;
+            const comments = await github.rest.issues.listComments({ owner, repo, issue_number: prNumber, per_page: 100 });
+            const existing = comments.data.find((comment) => comment.body && comment.body.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+              core.info(`Updated existing self-test comment (${existing.id}).`);
+            } else {
+              const created = await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
+              core.info(`Created new self-test comment (${created.data.id}).`);
+            }
