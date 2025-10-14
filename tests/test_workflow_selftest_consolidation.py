@@ -265,7 +265,7 @@ def test_selftest_matrix_and_aggregate_contract() -> None:
     ), "Aggregate job must include the github-script verification step"
     verify_env = verify_step.get("env", {})
     assert (
-        verify_env.get("PYTHON_VERSIONS") == "${{ inputs.python-versions }}"
+        verify_env.get("PYTHON_VERSIONS") == "${{ inputs['python-versions'] }}"
     ), "Verification step should read python-versions input via PYTHON_VERSIONS env var for dynamic artifact expectations."
 
 
