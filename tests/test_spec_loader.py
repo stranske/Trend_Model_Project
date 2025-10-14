@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -83,11 +82,22 @@ def test_ensure_run_spec_handles_failures() -> None:
 
 
 def test_ensure_run_spec_uses_object_setattr(monkeypatch: pytest.MonkeyPatch) -> None:
-    @dataclass(frozen=True)
     class FrozenConfig:
-        signals: dict[str, Any]
-        sample_split: dict[str, str]
-        portfolio: dict[str, Any]
+        def __init__(
+            self,
+            *,
+            signals: dict[str, Any],
+            sample_split: dict[str, str],
+            portfolio: dict[str, Any],
+        ) -> None:
+            object.__setattr__(self, "signals", signals)
+            object.__setattr__(self, "sample_split", sample_split)
+            object.__setattr__(self, "portfolio", portfolio)
+
+        def __setattr__(
+            self, name: str, value: Any
+        ) -> None:  # pragma: no cover - guard rail
+            raise AttributeError("frozen config")
 
     cfg = FrozenConfig(
         signals={"window": 10, "lag": 1, "vol_adjust": True, "vol_target": 0.2},
