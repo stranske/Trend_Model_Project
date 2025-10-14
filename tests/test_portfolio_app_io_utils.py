@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import json
 import os
 import runpy
@@ -53,10 +54,11 @@ def test_export_bundle_creates_zip_and_registers_cleanup(tmp_path):
     portfolio = _SimpleCSV(["0.1", "0.2"])
     event_log = _SimpleCSV(["event", "rebalance"])
     summary = {"alpha": 1.23}
+    config = {"mode": "demo", "as_of": datetime.date(2024, 1, 31)}
 
     results = _DummyResults(portfolio, event_log, summary)
 
-    bundle_path = io_utils.export_bundle(results, {"mode": "demo"})
+    bundle_path = io_utils.export_bundle(results, config)
 
     try:
         assert os.path.exists(bundle_path)
@@ -75,7 +77,7 @@ def test_export_bundle_creates_zip_and_registers_cleanup(tmp_path):
             assert summary_payload == summary
 
             config_payload = json.loads(zf.read("config.json").decode("utf-8"))
-            assert config_payload == {"mode": "demo"}
+            assert config_payload == {"mode": "demo", "as_of": "2024-01-31"}
     finally:
         io_utils.cleanup_bundle_file(bundle_path)
 
@@ -348,3 +350,56 @@ def test_portfolio_app_main_preserves_existing_src_path(monkeypatch):
     module.main()
 
     assert sys.path.count(src_path) == 1
+
+
+def test_export_bundle_handles_missing_zip_cleanup(tmp_path, monkeypatch):
+    io_utils._TEMP_FILES_TO_CLEANUP.clear()
+
+    portfolio = _SimpleCSV(["0.3"])
+    event_log = _SimpleCSV(["ok"])
+    results = _DummyResults(portfolio, event_log, {"delta": 2})
+
+    missing_zip = tmp_path / "missing_bundle.zip"
+
+    def fake_mkstemp(*args, **kwargs):  # noqa: ANN001, ARG002
+        fd = os.open(missing_zip, os.O_CREAT | os.O_RDWR)
+        os.close(fd)
+        missing_zip.unlink()
+        return os.open(__file__, os.O_RDONLY), str(missing_zip)
+
+    class RaisingZip:
+        def __init__(self, *args, **kwargs):  # noqa: ANN001, ARG002
+            self.path = args[0]
+
+        def __enter__(self):
+            raise RuntimeError("zip failure")
+
+        def __exit__(self, exc_type, exc, tb):  # noqa: ANN001
+            return None
+
+    monkeypatch.setattr(io_utils.tempfile, "mkstemp", fake_mkstemp)
+    monkeypatch.setattr(io_utils.zipfile, "ZipFile", RaisingZip)
+
+    with pytest.raises(RuntimeError, match="zip failure"):
+        io_utils.export_bundle(results, {"mode": "missing"})
+
+    assert io_utils._TEMP_FILES_TO_CLEANUP == []
+
+
+def test_cleanup_bundle_file_removes_missing_registered_path(tmp_path):
+    io_utils._TEMP_FILES_TO_CLEANUP.clear()
+    ghost = tmp_path / "ghost_bundle.zip"
+    # Simulate a stale registry entry without a backing file.
+    io_utils._TEMP_FILES_TO_CLEANUP.append(str(ghost))
+
+    io_utils.cleanup_bundle_file(str(ghost))
+
+    assert str(ghost) not in io_utils._TEMP_FILES_TO_CLEANUP
+
+
+def test_cleanup_bundle_file_ignores_untracked_path():
+    io_utils._TEMP_FILES_TO_CLEANUP.clear()
+
+    io_utils.cleanup_bundle_file("/tmp/nonexistent_bundle.zip")
+
+    assert io_utils._TEMP_FILES_TO_CLEANUP == []
