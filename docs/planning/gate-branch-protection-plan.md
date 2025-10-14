@@ -40,6 +40,7 @@
   applies the rule when the optional `BRANCH_PROTECTION_TOKEN` secret is present, and then **always** runs `--check` with the
   default GitHub token. Drift immediately fails the workflow so repository owners are alerted even when the enforcement token is
   absent. Snapshot artifacts from each run are published for the evidence archive.
-- 🔄 **Validation draft PR** – Pending repository-owner action. Follow the runbook in
-  `docs/runbooks/gate-branch-protection-validation.md` to capture evidence of the Gate check blocking merges when failing and
-  allowing merges when passing.
+- ✅ **Validation draft PR** – Completed via draft PR [#2583](https://github.com/stranske/Trend_Model_Project/pull/2583).
+   Failing commit `3e21785b17b570495e77601ad1422ee1bbfe0927` produced Gate run [18486687859](https://github.com/stranske/Trend_Model_Project/actions/runs/18486687859)
+   with `state: failure`; follow-up commit `6b9cbb9f32a53409a3ddf0e7493e678f5cbd404e` triggered run
+   [18486884063](https://github.com/stranske/Trend_Model_Project/actions/runs/18486884063) which passed and cleared the merge block.
