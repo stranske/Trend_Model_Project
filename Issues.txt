@@ -1,281 +1,286 @@
-1) Agents: fix Orchestrator call graph and verify‑assignment mismatch
+1) Agents: fix Orchestrator (agents-70-orchestrator.yml) inputs limit and consolidate to params_json
 
-Labels: agents, devops, ci, bug
+Labels: agents, ci, devops, bug
 
-Background / Why
-The “Agents 70 Orchestrator” reusable workflow referenced a non-existent verify workflow, causing the orchestration to fail when that path was invoked. The verify workflow on disk is agents-64-verify-agent-assignment.yml and currently has zero runs, which tracks with the mismatch. 
+Why
+The Orchestrator fails to load because it defines more than 10 inputs for workflow_dispatch (“you may only define up to 10 inputs”). Replace the long input list with a single JSON input, parse it in a resolve step, and keep at most a couple of top-level toggles if absolutely needed. 
 GitHub
-+1
 
 Acceptance criteria
 
-agents-70-orchestrator.yml successfully runs on schedule and workflow_dispatch without “workflow was not found” errors.
+.github/workflows/agents-70-orchestrator.yml validates; “Invalid workflow file” error is gone.
 
-The verify‑assignment step runs via workflow_call and passes, visible in the Orchestrator job graph.
+A manual run with a single JSON input (params_json) completes green.
 
-A manual Orchestrator dispatch that sets enable_verify_issue: true with a real issue number completes green and posts proof in the run summary.
+The Verify Assignment leg invokes agents-64-verify-agent-assignment.yml via workflow_call and runs at least once.
 
-Task list
-
-Update ./.github/workflows/reusable-70-agents.yml to reference ./.github/workflows/agents-64-verify-agent-assignment.yml so the verify step can execute.
-
-Ensure agents-64-verify-agent-assignment.yml exposes on: workflow_call with the inputs expected by the reusable.
-
-Run a manual Orchestrator dispatch using options_json to exercise the verify path; attach the run link in a comment.
-
-Delete any stale references to the mismatched verify workflow path in repo docs or comments.
-
-Implementation notes
-
-The orchestrator run that fails shows the precise missing path and is a quick confirm after the change. 
-GitHub
-
-2) Retire legacy agent-watchdog.yml in favor of Orchestrator’s watchdog
-
-Labels: agents, devops, enhancement, ci
-
-Background / Why
-The legacy “Agent watchdog” workflow is still actively firing, and the Orchestrator already exposes a watchdog path (enable_watchdog defaults to true). Keeping both increases noise and makes diagnosis harder. 
-GitHub
-+1
-
-Acceptance criteria
-
-agent-watchdog.yml is disabled (commented on: or archived) and no longer triggers.
-
-Orchestrator watchdog path is the single source of truth; a scheduled Orchestrator run shows watchdog checks executing.
-
-ARCHIVE_WORKFLOWS.md updated to note deprecation and replacement.
+The run summary includes a compact table of effective parameters.
 
 Task list
 
-Disable triggers in agent-watchdog.yml or move it to Old/ and mark archived.
+ In on.workflow_dispatch, remove the long list of inputs. Leave only:
 
-Confirm agents-70-orchestrator.yml passes enable_watchdog: true into the reusable and logs watchdog steps.
+on:
+  schedule:
+    - cron: '*/20 * * * *'
+  workflow_dispatch:
+    inputs:
+      params_json:
+        description: 'JSON payload of orchestrator params'
+        required: false
+        default: '{}'
 
-Update ARCHIVE_WORKFLOWS.md with the retirement note and new entry point.
 
-Post one link to a scheduled Orchestrator run that shows watchdog steps.
+ In the “Resolve Parameters” step, replace references to inputs.<old> with a single parse of inputs.params_json, merging sensible defaults:
+
+env:
+  PARAMS_JSON: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.params_json || '{}' }}
+with:
+  script: |
+    // Define magic strings and lists as constants for maintainability
+    const DEFAULT_READINESS_AGENTS = 'copilot,codex';
+    const DEFAULT_VERIFY_ISSUE_ASSIGNEES = 'copilot,chatgpt-codex-connector,stranske-automation-bot';
+    const DEFAULT_OPTIONS_JSON = '{}';
+    // Structured defaults object, one key per line
+    const DEFAULTS = {
+        enable_readiness: 'false',
+        readiness_agents: DEFAULT_READINESS_AGENTS,
+        require_all: 'false',
+        enable_preflight: 'false',
+        codex_user: '',
+        enable_verify_issue: 'false',
+        verify_issue_number: '',
+        verify_issue_valid_assignees: DEFAULT_VERIFY_ISSUE_ASSIGNEES,
+        enable_watchdog: 'true',
+        draft_pr: 'false',
+        options_json: DEFAULT_OPTIONS_JSON
+    };
+    let user = {};
+    try { user = JSON.parse(process.env.PARAMS_JSON || '{}'); } catch(e) { core.warning(`Bad params_json; using defaults. Parse error: ${e}`); }
+    const merged = { ...DEFAULTS, ...user };
+    core.setOutput('enable_readiness', String(merged.enable_readiness));
+    // set all other outputs...
+
+
+ Ensure all downstream jobs read outputs from resolve-params only (no direct inputs.*).
+
+ Confirm agents-64-verify-agent-assignment.yml is referenced correctly by the Orchestrator job that performs verification and that agents-64-verify-agent-assignment.yml has on: workflow_call.
+
+ Manually run Orchestrator with:
+
+{ "enable_verify_issue":"true", "verify_issue_number":"1234" }
+
+
+and attach the run link to this Issue.
 
 Implementation notes
 
-Orchestrator input enable_watchdog and defaults are visible in the workflow file. 
-GitHub
+Keep per-job timeout-minutes inside the reusable workflow instead of the caller; GitHub ignores timeouts on uses: jobs.
 
-3) Repair repository health self‑check and rename to health-40-repo-selfcheck.yml
+2) Repo Health: fix invalid permission and degrade gracefully on branch‑protection probe
 
 Labels: ci, devops, bug, config, docs
 
-Background / Why
-The current repo-health-self-check.yml fails because it requests unsupported permissions (metadata, administration). Fix the permissions, add graceful fallbacks for API calls that truly need elevated scopes, and align the file name with the naming scheme below. 
+Why
+repo-health-self-check.yml is rejected by Actions due to an unsupported permission key: permissions.administration: read. The entire check never runs. Use only supported permissions and gate privileged calls behind an optional PAT. 
 GitHub
-+1
 
 Acceptance criteria
 
-File renamed to .github/workflows/health-40-repo-selfcheck.yml.
+The workflow validates and runs on workflow_dispatch and schedule.
 
-Workflow passes on workflow_dispatch and scheduled runs without permission errors.
+If SERVICE_BOT_PAT is present, branch‑protection is checked via API; if not, the step logs a notice and continues, not a red X.
 
-If privileged endpoints are needed, the job uses SERVICE_BOT_PAT when present; if missing, the step no‑ops with a clear note in the step summary, not a red X.
-
-Step summary lists the checks performed and their result.
+The job writes a short summary table to $GITHUB_STEP_SUMMARY listing each check and outcome.
 
 Task list
 
-Replace permissions: with a supported minimal set:
+ Edit .github/workflows/repo-health-self-check.yml:
 
 permissions:
   contents: read
   issues: write
   pull-requests: read
+  actions: read
 
 
-and remove metadata and administration.
+Remove administration. 
+GitHub
 
-Rename the file to health-40-repo-selfcheck.yml; update any references.
+ For the branch-protection script step, add with: github-token: ${{ secrets.SERVICE_BOT_PAT }} and handle the missing‑token case by core.notice(...) and a neutral output value.
 
-In the self‑check script, gate privileged calls on env.SERVICE_BOT_PAT != ''. If absent, log a yellow “skipped privileged checks” line, keep the run green.
+ Add a final “Aggregate & Summarize” step writing a Markdown table to $GITHUB_STEP_SUMMARY.
 
-Add a short markdown summary ($GITHUB_STEP_SUMMARY) listing each check and outcome.
-
-Trigger a manual run and attach the link in a comment.
+ Trigger a manual run and link it here.
 
 Implementation notes
 
-The invalid keys are explicitly called out in the run diagnostics. 
+Keep the check read‑only unless it needs to open/update one rolling “health failed” issue. If writing, scope issues: write only for that job.
+
+3) Retire legacy agent-watchdog.yml and route all checks through Orchestrator
+
+Labels: agents, devops, enhancement, ci
+
+Why
+The legacy watchdog is still running frequently, overlapping with the Orchestrator’s enable_watchdog path and adding noise. 233 lifetime runs says it’s not shy. 
 GitHub
-
-4) Adopt workflow numbering/naming/filing convention and rename the stragglers
-
-Labels: devops, ci, config, docs, enhancement
-
-Background / Why
-Current workflow names are mixed: agents-43-..., agents-64-..., repo-health-self-check.yml, multiple selftest- and maint- variants. A consistent scheme improves scanability and cross‑references. The Actions list shows the outliers. 
-GitHub
-
-Convention
-
-00–19: PR gate and essential checks
-
-Example: pr-00-gate.yml (present and active). 
-GitHub
-
-10–29: Reusable CI building blocks
-
-Example: reusable-10-ci-python.yml, reusable-12-ci-docker.yml. 
-GitHub
-
-40–49: Repo maintenance and health
-
-Use health-4X-* or maint-4X-*.
-
-60–79: Agents and issue automation
-
-agents-6X-* for agent bridge, assignment verification, orchestrator.
-
-80–89: Self‑tests and experiments
-
-selftest-8X-*, on: workflow_dispatch only.
 
 Acceptance criteria
 
-All workflows and reusables in .github/workflows/ conform to the scheme above.
+.github/workflows/agent-watchdog.yml is removed or has no active triggers.
 
-All inbound references (uses: ./.github/workflows/...) updated.
+Orchestrator’s watchdog path is the only watchdog mechanism.
 
-Actions list shows only the new names; old files removed or archived.
+ARCHIVE_WORKFLOWS.md updated with when/why it was retired.
 
 Task list
 
-Rename:
+ Delete agent-watchdog.yml or comment out all triggers, leaving only a header noting its deprecation.
 
-repo-health-self-check.yml → health-40-repo-selfcheck.yml (also in Issue 3).
+ Confirm the Orchestrator still runs its watchdog checks when params_json.enable_watchdog resolves to true.
 
-agents-43-codex-issue-bridge.yml → agents-63-codex-issue-bridge.yml.
+ Add a note to ARCHIVE_WORKFLOWS.md describing the replacement path.
 
-Keep agents-64-verify-agent-assignment.yml as‑is and update Orchestrator to call it (Issue 1).
-
-maint-43-selftest-pr-comment.yml → selftest-83-pr-comment.yml with manual trigger only.
-
-maint-44-selftest-reusable-ci.yml → selftest-84-reusable-ci.yml manual only.
-
-maint-48-selftest-reusable-ci.yml → selftest-88-reusable-ci.yml manual only.
-
-pr-20-selftest-pr-comment.yml → selftest-82-pr-comment.yml manual only.
-
-selftest-pr-comment.yml → selftest-80-pr-comment.yml manual only.
-
-selftest-reusable-ci.yml → selftest-81-reusable-ci.yml manual only.
-
-Update all uses: references and any docs that cite old names.
-
-Post one screenshot or link to the Actions list showing only the new names.
-
-Implementation notes
-
-The Gate file name and structure are already aligned and serve as a good example. 
-GitHub
-
-5) Restrict or remove self‑test workflows to “manual only”
+4) Self‑tests: make every selftest-* workflow manual‑only
 
 Labels: ci, devops, docs
 
-Background / Why
-Several self‑test workflows are registered and visible in Actions. These should be opt‑in only to avoid noise and false signals during normal development. 
+Why
+Self-tests (maint-43-selftest-pr-comment.yml, maint-44-*, maint-48-*, pr-20-selftest-pr-comment.yml, selftest-*) still appear under Actions. They should be examples invoked explicitly, not ambient noise. 
 GitHub
 
 Acceptance criteria
 
-All selftest-8X-* workflows have only on: workflow_dispatch.
+All self-test workflows trigger only on workflow_dispatch.
 
-No self‑test runs are triggered by push, pull_request, or schedules.
+No scheduled or PR triggers remain for these files.
 
-CONTRIBUTING.md includes a short section on how and when to run self‑tests.
+CONTRIBUTING.md has a 3–5 sentence section on how to run them and what they prove.
 
 Task list
 
-For each selftest-8X-* file, remove non‑manual triggers and keep workflow_dispatch with a small input, e.g., reason.
+ For each self-test file, replace on: with:
 
-Add a two‑paragraph section to CONTRIBUTING.md describing self‑tests and how to interpret their output.
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Why are you running this example?'
+        required: false
+        default: 'manual test'
 
-Manually trigger one self‑test and paste the run link in a comment.
 
-6) Enforce PR branch protection using the Gate check
+ Update CONTRIBUTING.md with a short “Self-test workflows are examples; run manually” section.
 
-Labels: devops, ci, config
+ Manually trigger one self-test to confirm it’s alive and add the run link here.
 
-Background / Why
-Gate is running and aggregates job results into a single required decision point for PRs. Enforcing it as a required check keeps the signal unambiguous for reviewers. The Gate workflow exists and is healthy. 
+5) Agents “Consumers” (61/62): either archive or restrict to manual
+
+Labels: agents, devops, enhancement, docs
+
+Why
+The “Agents 61 Consumer Compat” and “Agents 62 Consumer” workflows still exist but are effectively idle. Decide deliberately: keep them as manual/compat wrappers or archive them to reduce surface area. 
+GitHub
+
+Acceptance criteria
+
+Either both consumer workflows are archived, or they trigger only via workflow_dispatch and are clearly marked as compatibility shims.
+
+Agents.md notes the canonical entrypoint is the Orchestrator.
+
+Task list
+
+ If keeping: strip all event/schedule triggers; leave workflow_dispatch only and add a concurrency guard:
+
+concurrency:
+  group: agents-consumer-${{ github.ref }}
+  cancel-in-progress: true
+
+
+ If archiving: move files to Old/ or remove and document in ARCHIVE_WORKFLOWS.md.
+
+ Update Agents.md with the final stance.
+
+6) Make Gate a required status in branch protection
+
+Labels: ci, devops, config, docs
+
+Why
+Gate is healthy and central to PR quality. Lock it in branch protection so merges can’t slip around it. 
+GitHub
+
+Acceptance criteria
+
+Default branch protection requires the Gate check to pass.
+
+A test PR shows “Gate” as a required status and blocks merge until green.
+
+CONTRIBUTING.md states “Passing Gate is required to merge to the default branch.”
+
+Task list
+
+ Settings → Branches → Default branch rule → Require status checks to pass → select Gate and enable “Require branches to be up to date.”
+
+ Open a draft PR that intentionally fails a Gate job, verify the block, then push a fix.
+
+ Update CONTRIBUTING.md.
+
+Implementation notes
+
+The repo‑health job (Issue 2) can verify this post‑fix without failing the whole run if the API token is missing.
+
+7) Agents Verify Assignment: guarantee at least one successful run and accept the automation bot
+
+Labels: agents, devops, ci, enhancement, documentation
+
+Why
+The verification workflow exists but has no runs, and the Orchestrator has been failing before it can exercise it. Once the Orchestrator inputs are fixed, we still need the verify path to succeed at least once and to treat your automation bot as a valid assignee. 
 GitHub
 +1
 
 Acceptance criteria
 
-Default branch has a protection rule that requires the “Gate” check to pass before merge.
+agents-64-verify-agent-assignment.yml declares on: workflow_call with the inputs the Orchestrator provides.
 
-Optional: keep a single legacy “CI” alias if you prefer continuity, but Gate remains required.
+A manual Orchestrator run with params_json including:
 
-A newly opened PR shows the required “Gate” status in the Checks UI.
+{ "enable_verify_issue":"true", "verify_issue_number":"<an issue you control>" }
+
+
+completes green and logs which assignee satisfied verification.
+
+The verify step treats stranske-automation-bot as valid when label rules indicate an agent action.
 
 Task list
 
-In repository settings, add or update the branch protection rule for the default branch to require the Gate check.
+ Confirm verify workflow uses workflow_call and the expected inputs.
 
-If you keep a “CI” alias, configure a status check mapping or preserve an informational check name in your post‑CI workflow.
+ Ensure the Orchestrator passes verify_issue_valid_assignees (e.g., copilot,chatgpt-codex-connector,stranske-automation-bot) via resolved params.
 
-Open a test PR from a non‑default branch and verify Gate is required.
+ Run the Orchestrator manually against a known issue and attach the run link here.
 
-7) Align docs with the final CI/automation topology
+ Add a 2–3 line section in Agents.md describing when verification passes.
 
-Labels: docs, devops
+8) Post‑CI hygiene: keep the summary comment and failure tracker deduplicated
 
-Background / Why
-Docs like ARCHIVE_WORKFLOWS.md, CONTRIBUTING.md, and Agents.md exist and should reflect the final naming and the Orchestrator‑centric model. This reduces confusion for future readers and Issue automation. 
+Labels: ci, devops, enhancement, documentation
+
+Why
+“Maint 46 Post CI” and “Maint 47 Check Failure Tracker” are working. Make sure renames and gating didn’t re‑introduce duplicate comments or duplicate failure issues. 
 GitHub
 
 Acceptance criteria
 
-Agents.md shows the current agent entry points, including the Orchestrator and verify‑assignment, with the correct file names and triggers.
+Post‑CI produces one consolidated comment per PR with stable job names and log links.
 
-ARCHIVE_WORKFLOWS.md lists retired workflows (e.g., legacy watchdog) and their replacements.
+Failure Tracker maintains one open rolling failure issue per category, updating instead of spamming new issues.
 
-CONTRIBUTING.md references Gate and the PR flow correctly.
-
-Task list
-
-Update Agents.md sections for “Orchestrator,” “Codex Issue Bridge,” and “Verify Agent Assignment” with new names and triggers.
-
-Add an “Archived” section to ARCHIVE_WORKFLOWS.md for legacy watchdog and any removed self‑tests.
-
-Make sure CONTRIBUTING.md mentions:
-
-Gate as the required PR check.
-
-How to run workflow_dispatch for maintenance and agents.
-
-Where to find the health self‑check output in run summaries.
-
-8) Post‑merge hygiene: keep the “Maint 46 Post CI” aggregator and failure tracker tidy
-
-Labels: ci, devops, enhancement
-
-Background / Why
-“Maint 46 Post CI” and the “Check Failure Tracker” are both running and provide useful aggregation. Keep them, but confirm they’re deduplicated and reference the new names so your PR summaries and failure triage stay readable. 
-GitHub
-
-Acceptance criteria
-
-Maint 46 Post CI emits a single, deduplicated PR summary comment with correct job names and links.
-
-Failure Tracker opens/updates one issue per failing category instead of spamming duplicates after the rename.
-
-Names in summaries reflect the new workflow names.
+A failing PR shows the correct behavior, then resolves cleanly when fixed.
 
 Task list
 
-Review post‑CI comment template to ensure it lists the renamed jobs.
+ Verify the Post‑CI template uses current job names (“core tests (3.11)”, “core tests (3.12)”, “docker smoke”, “gate”).
 
-Validate the failure tracker queries by opening a test PR that intentionally fails one job; confirm update vs duplicate.
+ Ensure concurrency groups and comment‑upsert logic prevent duplicates.
 
-Attach links to one successful Maint 46 Post CI run and one Failure Tracker update.
+ Trigger a synthetic failure to confirm the tracker updates one issue, not many; attach links.
