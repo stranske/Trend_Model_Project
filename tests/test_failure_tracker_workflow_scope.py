@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import re
 import shutil
@@ -38,6 +39,15 @@ def _get_tracker_script() -> str:
     tracker_step = _get_step(job, "Derive failure signature & update tracking issue")
     script = tracker_step.get("with", {}).get("script")
     assert isinstance(script, str), "Expected inline tracker script to be defined"
+    return script
+
+
+def _get_success_resolution_script() -> str:
+    workflow = _load_workflow(POST_CI_PATH)
+    job = workflow["jobs"]["failure-tracker"]
+    resolve_step = _get_step(job, "Resolve failure issue for recovered PR")
+    script = resolve_step.get("with", {}).get("script")
+    assert isinstance(script, str), "Expected success-path resolution script to be defined"
     return script
 
 
@@ -504,4 +514,125 @@ def test_failure_tracker_script_updates_existing_issue(tmp_path: Path) -> None:
     update_body = update_payloads[0].get("body") or ""
     assert "Tracked PR: #123" in update_body
     assert "<!-- tracked-pr: 123 -->" in update_body
+
+
+def test_success_path_closes_tracked_issue(tmp_path: Path) -> None:
+    node_path = shutil.which("node")
+    if node_path is None:
+        pytest.skip("node runtime not available")
+
+    script = _get_success_resolution_script()
+    script_b64 = base64.b64encode(script.encode("utf-8")).decode("ascii")
+    scenario = {
+        "owner": "stranske",
+        "repo": "Trend_Model_Project",
+        "pr": 456,
+        "runUrl": "https://example.test/run/success",
+        "issueNumber": 314,
+        "issueBody": (
+            "Tracked PR: #456\n"
+            "<!-- tracked-pr: 456 -->\n"
+            "Occurrences: 3\n"
+            "Last seen: 2025-01-14T12:00:00Z\n"
+            "Healing threshold: Auto-heal after 24h stability (success path)\n"
+        ),
+    }
+
+    harness = textwrap.dedent(
+        rf"""
+        const actionsLog = [];
+        function log(type, payload) {{
+          actionsLog.push({{ type, ...(payload ? {{ payload }} : {{}}) }});
+        }}
+
+        const scenario = {json.dumps(scenario)};
+        process.env.PR_NUMBER = String(scenario.pr);
+        process.env.RUN_URL = scenario.runUrl;
+
+        const github = {{
+          rest: {{
+            search: {{
+              async issuesAndPullRequests(args) {{
+                log('searchIssues', args);
+                return {{ data: {{ items: [{{ number: scenario.issueNumber }}] }} }};
+              }},
+            }},
+            issues: {{
+              async get(args) {{
+                log('getIssue', args);
+                return {{ data: {{ body: scenario.issueBody }} }};
+              }},
+              async createComment(args) {{
+                log('createComment', args);
+                return {{ data: {{}} }};
+              }},
+              async update(args) {{
+                log('updateIssue', args);
+                return {{ data: {{}} }};
+              }},
+            }},
+          }},
+        }};
+
+        const context = {{
+          repo: {{ owner: scenario.owner, repo: scenario.repo }},
+          payload: {{ workflow_run: {{ html_url: scenario.runUrl }} }},
+        }};
+
+        const core = {{
+          info(message) {{ log('coreInfo', {{ message }}); }},
+        }};
+
+        (async () => {{
+          const scriptSource = Buffer.from('{script_b64}', 'base64').toString('utf8');
+          const vm = require('vm');
+          const sandbox = {{
+            github,
+            context,
+            core,
+            process,
+            console,
+            require,
+            Buffer,
+            setTimeout,
+            setInterval,
+            clearTimeout,
+            clearInterval,
+          }};
+          const runner = new vm.Script('(async () => {{' + scriptSource + '\n}})();');
+          await runner.runInNewContext(sandbox);
+          console.log(JSON.stringify(actionsLog));
+        }})().catch((error) => {{
+          console.error(error.stack || String(error));
+          process.exit(1);
+        }});
+        """
+    )
+
+    script_path = tmp_path / "success_resolution_harness.js"
+    script_path.write_text(harness, encoding="utf-8")
+
+    result = subprocess.run(
+        [node_path, str(script_path)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    output = result.stdout.strip()
+    assert output, "Expected harness output to contain action log JSON"
+
+    actions = json.loads(output)
+    action_types = [entry.get("type") for entry in actions]
+
+    assert action_types.count("createComment") == 1, "Success path should leave a resolution comment"
+    assert action_types.count("updateIssue") == 1, "Success path should update existing issue once"
+
+    update_payloads = [entry.get("payload", {}) for entry in actions if entry.get("type") == "updateIssue"]
+    assert update_payloads, "Expected updateIssue payload"
+    update_payload = update_payloads[0]
+    assert update_payload.get("state") == "closed", "Success path should close the issue"
+    assert "Resolved:" in (update_payload.get("body") or ""), "Issue body should record resolution timestamp"
+    assert "<!-- tracked-pr: 456 -->" in (update_payload.get("body") or ""), "Tracked PR tag should be preserved"
 
