@@ -70,7 +70,15 @@ jobs:
                 'Authorization': `token ${serviceBotPat}`,
               };
 
-              const response = await fetch(endpoint, { headers });
+              let response;
+              try {
+                response = await fetch(endpoint, { headers });
+              } catch (error) {
+                branchStatus = 'error';
+                branchNote = `Branch protection check encountered a network error: ${error?.message || error}`;
+                core.warning(branchNote);
+                return;
+              }
 
               if (response.status === 200) {
                 branchStatus = 'enabled';
@@ -127,6 +135,8 @@ jobs:
                     ? 'attention'
                     : branchStatus === 'skipped'
                     ? 'skipped'
+                    : branchStatus === 'error'
+                    ? 'error'
                     : 'warn',
                 detail: branchNote,
               },
@@ -153,6 +163,9 @@ jobs:
             core.setOutput('timestamp', timestamp);
             core.setOutput('default_branch', defaultBranch);
             core.setOutput('privileged_checks_skipped', privilegedChecksSkipped ? 'true' : 'false');
+            core.setOutput('privileged_checks_used', privilegedChecksUsed ? 'true' : 'false');
+            core.setOutput('branch_protection_status', branchStatus);
+            core.setOutput('branch_protection_note', branchNote);
 
       - name: Aggregate & Summarize
         env:
@@ -176,6 +189,7 @@ jobs:
               'warn': '⚠️ Warning',
               'info': 'ℹ️ Info',
               'skipped': '⚠️ Skipped',
+              'error': '❌ Error',
           }
 
           lines = ['# Repo health summary']
@@ -199,6 +213,9 @@ jobs:
           if privileged_skipped:
               lines.append('')
               lines.append('> ⚠️ Privileged checks were skipped because `SERVICE_BOT_PAT` is not configured.')
+          else:
+              lines.append('')
+              lines.append('> ✅ Privileged checks executed with the configured credentials.')
 
           output = '\n'.join(lines) + '\n'
           print(output)
