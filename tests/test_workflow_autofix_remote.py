@@ -56,10 +56,9 @@ def test_autofix_remote_repo_path_posts_patch_instructions(
     summary_step = _step_by_name(steps, "Summary")
     run_script = summary_step.get("run", "")
     if job == "small-fixes":
-        expected_line = (
-            "Patch artifact: autofix-patch-pr-${{ needs.context.outputs.pr }}"
-        )
-        assert expected_line in run_script
+        assert "Patch artifact:" in run_script
+        assert "${GITHUB_RUN_ID}" in run_script
+        assert "#artifacts" in run_script
         assert "${{ needs.context.outputs.same_repo }}" in run_script
         assert "${{ steps." in run_script
     else:

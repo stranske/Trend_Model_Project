@@ -31,7 +31,7 @@
 
 - **Required check**: Gate is the only required PR check. It must always produce a status, including docs‑only PRs (fast no‑op).
 - **Doc‑only rule**: Doc‑only detection lives inside Gate. No separate docs‑only workflow.
-- **Autofix**: Centralized under `maint-46-post-ci.yml`. For forks, upload patch artifacts and post links instead of pushing.
+- **Autofix**: Centralized under `maint-46-post-ci.yml`. For forks, upload patch artifacts and post links instead of pushing. Any pre‑CI autofix (`pr-02-autofix.yml`) must be label-gated and cancel duplicate runs in flight.
 - **Branch protection**: Default branch must require Gate. Health job enforces and/or verifies.
 - **Types**: Run mypy where the config is pinned. If types are pinned to a specific version, run mypy in that leg only (to avoid stdlib stub drift across Python versions).
 - **Labels used by automation**:  
