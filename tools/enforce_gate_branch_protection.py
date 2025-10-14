@@ -62,7 +62,7 @@ def _state_from_status_payload(
 
     if "strict" in payload:
         strict_value = payload.get("strict")
-        strict = bool(strict_value) if strict_value is not None else None
+        strict = None if strict_value is None else bool(strict_value)
     else:
         strict = default_strict
 
