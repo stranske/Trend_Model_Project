@@ -23,7 +23,6 @@ jobs:
           REQUIRED_LABELS: agent:codex,agent:copilot,automerge,risk:low,codex-ready
           SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
         with:
-          github-token: ${{ secrets.SERVICE_BOT_PAT }}
           script: |
             const { owner, repo } = context.repo;
             const requiredLabels = (process.env.REQUIRED_LABELS || '')
