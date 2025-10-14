@@ -5,27 +5,31 @@ local guardrails. It consolidates the requirements from Issues #2190, #2202,
 and #2466. Gate remains the required merge check for every pull request, and
 **Agents 70 Orchestrator is the sole supported automation entry point**. The
 historical consumer wrappers have been retired now that all automation flows
-through the orchestrator.
+through the orchestrator. For a narrative overview of how the pieces fit
+together, start with [docs/ci/WORKFLOW_SYSTEM.md](WORKFLOW_SYSTEM.md).
+
+For the bucket-level overview, keep/retire roster, and policy checklist, start
+with [docs/ci/WORKFLOW_SYSTEM.md](WORKFLOW_SYSTEM.md). This catalog then expands
+each kept workflow with trigger, permission, and operational details.
 
 ## CI & agents quick catalog
 
-Use the tables below as the authoritative roster of **active** workflows. Each
-row captures the canonical triggers, permission scopes, and whether the
-workflow blocks merges (`Required?`). The catalog now reflects only the live
-topology so contributors see the supported entry points at a glance.
+The tables below capture the **active** workflows, their triggers, required
+scopes, and whether they block merges. Retired entries move to the
+[archived roster](#archived-workflows) once deleted so contributors can locate
+history without confusing it with the live inventory.
 
-### Required merge gates
+### Required merge gate
 
 | Workflow | File | Trigger(s) | Permissions | Required? | Purpose |
 | --- | --- | --- | --- | --- | --- |
 | **Gate** | `.github/workflows/pr-00-gate.yml` | `pull_request`, `workflow_dispatch` | Explicit `contents: read`, `pull-requests: write`, `statuses: write` (doc-only comment + commit status). | **Yes** – aggregate `gate` status must pass. | Fan-out orchestrator chaining the reusable Python CI and Docker smoke jobs. Docs-only or empty diffs skip the heavy legs while Gate posts the friendly notice and reports success. |
-| **PR 02 Autofix** | `.github/workflows/pr-02-autofix.yml` | `pull_request` (including label updates) | `contents: write`, `pull-requests: write` | **Yes** – `apply` job must succeed. | Runs the reusable autofix composite to apply/offer safe formatting fixes. |
 
 #### Gate job map
 
-Use the table below when triaging Gate failures. It illustrates the jobs that
-run on every pull request, which artifacts each produces, and how the final
-`gate` enforcement step evaluates their results.
+Use this map when triaging Gate failures. It illustrates the jobs that run on
+every pull request, which artifacts each produces, and how the final `gate`
+enforcement step evaluates their results.
 
 | Job ID | Display name | Purpose | Artifacts / outputs | Notes |
 | --- | --- | --- | --- | --- |
@@ -45,20 +49,31 @@ flowchart TD
     gate --> status["Required Gate status\nblocks/permits merge"]
 ```
 
+### Label-gated PR automation
+
+| Workflow | File | Trigger(s) | Permissions | Required? | Purpose |
+| --- | --- | --- | --- | --- | --- |
+| **PR 02 Autofix** | `.github/workflows/pr-02-autofix.yml` | `pull_request` (including label updates) | `contents: write`, `pull-requests: write` | **No** – runs only when the `autofix` label (or override) is present. | Delegates to `reusable-18-autofix.yml` to apply or upload safe formatting fixes. |
+
 ### Maintenance & observability
 
+| Workflow | File | Trigger(s) | Permissions | Required? | Purpose |
+| --- | --- | --- | --- | --- | --- |
+| **Maint 46 Post CI** | `.github/workflows/maint-46-post-ci.yml` | `workflow_run` (Gate) | `contents: write`, `pull-requests: write`, `issues: write`, `checks: read`, `actions: read` | No | Consolidated follower that posts Gate summaries, applies low-risk autofix commits or uploads patches, and maintains the CI failure-tracker issue. |
 | **Maint 45 Cosmetic Repair** | `.github/workflows/maint-45-cosmetic-repair.yml` | `workflow_dispatch` | `contents: write`, `pull-requests: write` | No | Manual pytest + guardrail fixer that opens a labelled PR when drift is detected. |
 | **Health 41 Repo Health** | `.github/workflows/health-41-repo-health.yml` | Monday cron (`15 7 * * 1`), `workflow_dispatch` | `contents: read`, `issues: read` | No | Weekly stale-branch and unassigned-issue sweep. |
 | **Health 40 Repo Selfcheck** | `.github/workflows/health-40-repo-selfcheck.yml` | Weekly cron (`20 6 * * 1`), `workflow_dispatch` | `contents: read`, `issues: read`, `pull-requests: read`, `actions: read` | No | Read-only probe summarising label coverage and branch-protection visibility. |
 | **Health 42 Actionlint** | `.github/workflows/health-42-actionlint.yml` | `pull_request`, `push` to `phase-2-dev` (workflow edits), weekly cron, `workflow_dispatch` | `contents: read`, `pull-requests: write`, `checks: write` | No | Workflow-lint gate using `actionlint` via reviewdog. |
 | **Health 43 CI Signature Guard** | `.github/workflows/health-43-ci-signature-guard.yml` | `push`/`pull_request` targeting `phase-2-dev` | Defaults (`contents: read`) | No | Validates the signed job manifest for Gate. |
 | **Health 44 Gate Branch Protection** | `.github/workflows/health-44-gate-branch-protection.yml` | Cron (`0 6 * * *`), `workflow_dispatch` | `contents: read`, `pull-requests: read`; optional `BRANCH_PROTECTION_TOKEN` | No | Verifies Gate remains required on the default branch; optionally enforces policy when a PAT is configured. |
+
 ### Self-tests & experiments
 
 | Workflow | File | Trigger(s) | Permissions | Required? | Purpose |
 | --- | --- | --- | --- | --- | --- |
 | **Selftest 81 Reusable CI** | `.github/workflows/selftest-81-reusable-ci.yml` | `workflow_dispatch`, `workflow_call` | `contents: read`, `actions: read` | No | Reusable CI matrix exerciser that exposes verification outputs for downstream consumers and manual runs. |
 | **Selftest Runner** | `.github/workflows/selftest-runner.yml` | `workflow_dispatch` | `contents: read`, `actions: read`, `pull-requests: write` | No | Parameterised manual entry point for the reusable matrix (modes: summary, comment, dual-runtime) with optional PR comment output and artifact downloads. |
+
 ### Agents & automation
 
 | Workflow | File | Trigger(s) | Permissions | Required? | Purpose |
@@ -68,6 +83,15 @@ flowchart TD
 | **Agents 64 Verify Agent Assignment** | `.github/workflows/agents-64-verify-agent-assignment.yml` | `workflow_call`, `workflow_dispatch` | `issues: read` | No | Reusable issue-verification helper consumed by the orchestrator and available for ad-hoc checks. |
 | **Agents 63 ChatGPT Issue Sync** | `.github/workflows/agents-63-chatgpt-issue-sync.yml` | `workflow_dispatch` | `contents: read`, `issues: write` | No | Manual sync that turns curated topic lists (e.g. `Issues.txt`) into labelled GitHub issues. |
 
+### Archived & legacy
+
+The workflows below were retired during the consolidation. Keep them documented for historical context only:
+
+- **`pr-14-docs-only.yml`** — Superseded by Gate’s built-in docs-only detection.
+- **`maint-47-check-failure-tracker.yml`** — Replaced by the post-CI summary job inside `maint-46-post-ci.yml`.
+- **`agents-61-consumer-compat.yml`** and **`agents-62-consumer.yml`** — Legacy consumer shims replaced by the orchestrator.
+- **Legacy selftest wrappers** (`selftest-80-pr-comment.yml`, `selftest-82-pr-comment.yml`, `selftest-83-pr-comment.yml`, `selftest-84-reusable-ci.yml`, `selftest-88-reusable-ci.yml`) — Consolidated into `selftest-runner.yml` + `selftest-81-reusable-ci.yml`.
+
 ### Reusable composites
 
 | Workflow | File | Trigger(s) | Permissions | Required? | Purpose |
@@ -76,6 +100,18 @@ flowchart TD
 | **Reusable Docker Smoke** | `.github/workflows/reusable-12-ci-docker.yml` | `workflow_call` | Inherits caller permissions | No | Docker build + smoke reusable consumed by Gate and external callers. |
 | **Reusable 18 Autofix** | `.github/workflows/reusable-18-autofix.yml` | `workflow_call` | `contents: write`, `pull-requests: write` | No | Autofix harness shared by `pr-02-autofix.yml` and `maint-46-post-ci.yml`. |
 | **Reusable 16 Agents** | `.github/workflows/reusable-16-agents.yml` | `workflow_call` | `contents: write`, `pull-requests: write`, `issues: write`; optional `service_bot_pat` | No | Sole agents composite implementing readiness, bootstrap, diagnostics, keepalive, and watchdog jobs for all callers. |
+
+## Archived workflows
+
+Workflows removed during the consolidation now live only in git history. Refer to
+[ARCHIVE_WORKFLOWS.md](../../ARCHIVE_WORKFLOWS.md) for the full ledger. The key
+retirements recorded for WFv1 are:
+
+- `pr-14-docs-only.yml` – superseded by the docs-only detection step embedded in Gate.
+- `maint-47-check-failure-tracker.yml` – obsoleted once Maint 46 Post CI absorbed the failure tracker.
+- `agents-61-consumer.yml` / `agents-62-consumer.yml` – legacy manual shims removed in favour of the orchestrator entry point.
+- `agents-41*` wrappers and `reusable-90-agents.yml` – replaced by `reusable-16-agents.yml` and the WFv1 numbering scheme.
+- Legacy self-test wrappers (`selftest-80`/`82`/`83`/`84`/`88` variants predating Issue #2525) – restored only where explicitly listed above; all others remain archived.
 
 ## Naming Policy & Number Ranges
 

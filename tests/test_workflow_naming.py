@@ -41,9 +41,9 @@ def test_archive_directories_removed():
 
 def test_inventory_docs_list_all_workflows():
     docs = {
-        "WORKFLOW_AUDIT_TEMP.md": pathlib.Path("WORKFLOW_AUDIT_TEMP.md").read_text(
-            encoding="utf-8"
-        ),
+        "docs/ci/WORKFLOW_SYSTEM.md": pathlib.Path(
+            "docs/ci/WORKFLOW_SYSTEM.md"
+        ).read_text(encoding="utf-8"),
         "docs/ci/WORKFLOWS.md": pathlib.Path("docs/ci/WORKFLOWS.md").read_text(
             encoding="utf-8"
         ),

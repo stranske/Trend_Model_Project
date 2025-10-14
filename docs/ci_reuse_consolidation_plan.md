@@ -9,7 +9,7 @@ workflows required by the trimmed automation surface.
 - Four reusable workflows remain (`reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-18-autofix.yml`,
   `reusable-16-agents.yml`). The reusable CI matrix is exposed through `selftest-81-reusable-ci.yml`, which now supports
   `workflow_call` so the manual wrappers (`selftest-80/82/83/84/88`) can reuse it without duplicating logic.
-- Visible workflows in the Actions tab were reduced to the final set documented in `WORKFLOW_AUDIT_TEMP.md` and `docs/ci/WORKFLOWS.md`.
+- Visible workflows in the Actions tab were reduced to the final set documented in `docs/ci/WORKFLOW_SYSTEM.md` and `docs/ci/WORKFLOWS.md`.
 - All auxiliary wrappers (gate orchestrators, labelers, watchdog forwards, etc.) were deleted, with `agents-63-codex-issue-bridge.yml` later reinstated to restore label-driven Codex automation.
 
 ## Completed Consolidation Actions
