@@ -3,7 +3,8 @@
 This guide describes the slimmed-down GitHub Actions footprint after Issues #2190 and #2466. Every workflow now follows the
 `<area>-<NN>-<slug>.yml` naming convention with 10-point number gaps so future additions slot in cleanly. The Gate workflow
 remains the required merge check, and **Agents 70 Orchestrator is the sole automation entry point** for Codex readiness and
-bootstrap runs.
+bootstrap runs. For the executive summary of buckets, required checks, and automation roles, begin with
+[docs/ci/WORKFLOW_SYSTEM.md](ci/WORKFLOW_SYSTEM.md) before diving into the topology details below.
 
 If you need the quick roster of which workflows stay active, which ones retired, and the policy guardrails that bind them,
 start with the high-level [Workflow System Overview](ci/WORKFLOW_SYSTEM.md). This guide then dives into naming, routing, and

@@ -10,7 +10,7 @@ inventory and naming rules.
 Core layers:
 - Gate orchestrator (`pr-00-gate.yml`): single required check that fans out to Python 3.11/3.12 CI and the Docker smoke test using the reusable workflows, then enforces that every leg succeeds.
 - Autofix lane (`maint-46-post-ci.yml`): workflow_run follower that batches small hygiene fixes, posts Gate summaries, and manages trivial failure remediation using the composite autofix action.
-- Agents orchestration & watchdog (`agents-70-orchestrator.yml` + `reusable-16-agents.yml`): label-driven assignment, Codex bootstrap, diagnostics, and watchdog toggles via `enable_watchdog` (default `true`).
+- Agents orchestration (`agents-70-orchestrator.yml` + `reusable-16-agents.yml`): single entry point for Codex readiness, bootstrap, diagnostics, and watchdog sweeps. Use the [Agent task issue template][agent-task-template] to raise work for Codex; the issue bridge picks it up automatically once the labels land.
 - Cosmetic repair (`maint-45-cosmetic-repair.yml`): manual pytest run plus guardrail fixer that opens labelled repair PRs when drift is detected.
 - Governance & Health: `health-40-repo-selfcheck.yml`, `health-41-repo-health.yml`, `health-42-actionlint.yml`, `health-43-ci-signature-guard.yml`, `health-44-gate-branch-protection.yml`, labelers, dependency review, CodeQL.
 - Path Labeling: `pr-path-labeler.yml` auto-categorizes PRs.
@@ -125,65 +125,43 @@ jobs:
 ```
 Use a tagged ref when versioned.
 
-### Agents Orchestration (Issue #2377)
-Issue #2377 rebuilt the agents automation stack to stay under the GitHub
-`workflow_dispatch` input cap while restoring legacy consumer behaviour.
-Two entry points now exist:
+### Agents Orchestration (Issue #2615)
+Issue #2615 finishes the topology cleanup: **Agents 70 Orchestrator is now the
+only automation entry point.** All Codex work should begin with an [Agent task
+issue][agent-task-template]. The template pre-applies the `agents` and
+`agent:codex` labels so the bridge workflow can prepare a branch/PR as soon as
+the issue is ready.
 
-- `agents-62-consumer.yml` – Manual dispatch wrapper that accepts a single
-  `params_json` string, parses it, and forwards normalized values directly to
-  `reusable-16-agents.yml`. The workflow declares
-  `concurrency: agents-62-consumer` and introduces job-level
-  `timeout-minutes` so overlapping runs are cancelled and stalled executions
-  end automatically. Set `enable_bootstrap` to `true` in the JSON payload to
-  opt into Codex bootstraps (preflight stays disabled unless explicitly
-  enabled).
-- `agents-70-orchestrator.yml` – Unified scheduled/dispatch orchestrator for
-  readiness probes, diagnostics, bootstrap, watchdog, and keepalive flows. It
-  passes discrete inputs directly to `reusable-16-agents.yml` and derives
-  Codex bootstrap toggles/labels from the `options_json` payload so the
-  dispatch form stays under the 10-input limit.
+The lifecycle is:
 
-Both entry points ultimately invoke `reusable-16-agents.yml`, which emits
-Markdown readiness summaries, `issue_numbers_json`, and `first_issue` outputs
-for Codex bootstraps and keeps the watchdog probe enabled whenever
-`enable_watchdog` resolves to `true`.
+1. Create an issue via the Agent task template and capture background, goals,
+   and guardrails.
+2. Once the issue is labelled `agent:codex`, `agents-63-codex-issue-bridge.yml`
+   opens or refreshes the automation branch/PR and posts the boilerplate
+   `@codex start` comment when configured.
+3. `agents-70-orchestrator.yml` (cron or manual dispatch) runs the readiness /
+   bootstrap pipeline through `reusable-16-agents.yml`, honouring the PR and
+   verification settings returned by the bridge.
 
-Manual dispatch for the consumer now uses a single JSON textarea. A ready to
-paste payload:
+Manual dispatches pass their toggles directly to the orchestrator. Use the
+`options_json` field for advanced overrides:
 
 ```json
 {
-  "enable_readiness": true,
-  "readiness_agents": "copilot,codex",
-  "custom_logins": "",
-  "require_all": false,
-  "enable_preflight": false,
-  "codex_user": "",
-  "codex_command_phrase": "",
-  "enable_verify_issue": false,
-  "verify_issue_number": "",
-  "enable_watchdog": true,
-  "enable_bootstrap": false,
-  "bootstrap_issues_label": "agent:codex",
-  "draft_pr": false,
-  "options_json": "{\"enable_keepalive\":false,\"keepalive\":{\"enabled\":false}}"
+  "enable_bootstrap": true,
+  "bootstrap": { "label": "agent:codex" },
+  "diagnostic_mode": "dry-run",
+  "require_all": true
 }
 ```
 
-Omit any keys to fall back to defaults. `enable_bootstrap: true` unlocks Codex
-PR bootstraps; leave it `false` for the minimal readiness + watchdog run.
-`options_json` remains available for advanced keepalive tuning (dry run,
-alternate labels, idle thresholds, etc.). Set `enable_bootstrap: true`
-alongside an optional `bootstrap_issues_label` (or `bootstrap: { "label":
-"..." }`) in `options_json` to turn on Codex bootstraps for orchestrator
-dispatches. Leave `enable_keepalive` (or `keepalive.enabled`) set to `false`
-to keep the sweep disabled for scheduled consumer runs.
+Omit keys to accept defaults. `enable_bootstrap` controls Codex branch/PR
+creation, and the nested `bootstrap.label` lets you target alternate label
+queues if needed. Keep `enable_keepalive` disabled unless a sweep is required.
 
 The guard test `tests/test_workflow_agents_consolidation.py` enforces the
-reduced input surface and ensures the consumer continues to call the bridge
-workflow. Update the README whenever adding new JSON keys so operators have an
-accurate dispatch reference.
+single-entry topology and ensures documentation references remain in sync with
+the orchestrator inputs.
 
 ### Cosmetic Repair (Maint 45)
 `maint-45-cosmetic-repair.yml` is the manual guardrail fixer that partners with Post CI. It exists for maintainers to re-run the pytest suite, apply formatting or low-risk hygiene patches via `scripts/ci_cosmetic_repair.py`, and open a labelled follow-up PR when drift is detected.
@@ -372,3 +350,5 @@ inputs without duplicating JSON parsing.
 
 Refer to the archive if you need to resurrect behaviour for forensic analysis;
 otherwise, prefer the consolidated orchestrator and reusable workflows.
+
+[agent-task-template]: https://github.com/stranske/Trend_Model_Project/issues/new?template=agent_task.yml

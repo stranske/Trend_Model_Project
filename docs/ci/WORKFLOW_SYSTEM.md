@@ -11,12 +11,16 @@
 
 ### Maintenance & repo health
 - **Post‑CI summary & hygiene**: `.github/workflows/maint-46-post-ci.yml` consolidates results, applies “small self‑contained” fixes safely, and updates the failure tracker.
-- **Health checks**: actionlint (`health-42-actionlint.yml`), CI signature guard (`health-43-ci-signature-guard.yml`), and branch‑protection verifier (`health-44-gate-branch-protection.yml`).
+- **Cosmetic repair helper**: `.github/workflows/maint-45-cosmetic-repair.yml` runs pytest + guardrail fixers on demand and opens a labelled PR if adjustments are needed.
+- **Health checks**: repo pulse (`health-40-repo-selfcheck.yml`), weekly health sweep (`health-41-repo-health.yml`), actionlint (`health-42-actionlint.yml`), CI signature guard (`health-43-ci-signature-guard.yml`), and branch‑protection verifier (`health-44-gate-branch-protection.yml`).
 
-### Agents & Issues
 - **Single entry point**: `agents-70-orchestrator.yml`.
 - **Issue bridge**: `agents-63-codex-issue-bridge.yml` opens branches/PRs from `agent:codex` issues.
-- **Legacy consumers**: `agents-61-consumer-compat.yml` and `agents-62-consumer.yml` have been retired; update any remaining callers to dispatch the orchestrator directly.
+- **Assignment verifier**: `agents-64-verify-agent-assignment.yml` exposes the assignment audit path and feeds the orchestrator.
+- **ChatGPT topic sync**: `agents-63-chatgpt-issue-sync.yml` turns curated topic files (e.g. `Issues.txt`) into labelled GitHub issues on demand.
+- **Issue template**: [Agent task](https://github.com/stranske/Trend_Model_Project/issues/new?template=agent_task.yml) pre-labels
+  issues with `agents` and `agent:codex` so the bridge triggers immediately.
+- **Consumer note**: manual shims were removed; all automation now dispatches the orchestrator directly.
 
 ### Reusable composites
 - Python CI: `reusable-10-ci-python.yml` (ruff + mypy + pytest).

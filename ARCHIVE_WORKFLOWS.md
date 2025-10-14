@@ -33,7 +33,7 @@ All deprecated agent automation workflows were deleted from `.github/workflows/`
 - (2026-10-05) Remaining stub archives under `Old/.github/workflows/` were deleted; historical copies are available via git history and the references below.
 - (2026-10-07) `.github/workflows/archive/` removed entirely; Issue #1669 ledger (this file) is now the canonical index for prior workflow names.
 - (2026-10-08) Issue #1669 verification sweep confirmed both archive directories remain absent and no additional workflows required archival.
-- (2026-10-09) Follow-up audit reran the guard suite and filesystem checks; `.github/workflows/archive/` and `Old/.github/workflows/` remain deleted with inventory logged in `docs/ci/WORKFLOW_SYSTEM.md`.
+- (2026-10-09) Follow-up audit reran the guard suite and filesystem checks; `.github/workflows/archive/` and `Old/.github/workflows/` remain deleted with inventory logged in [`docs/ci/WORKFLOW_SYSTEM.md`](docs/ci/WORKFLOW_SYSTEM.md).
 - (2026-10-10) Latest verification re-ran the workflow guard tests and filesystem sweep—no archived directories reappeared.
 - (2026-10-14) Issue #2463 confirmed the standalone `agent-watchdog.yml` workflow remains removed and documentation now directs contributors to the orchestrator `enable_watchdog` toggle.
 - (2026-10-13) Issue #2494 revalidated that `agent-watchdog.yml` stays deleted, recorded the orchestrator manual-dispatch watchdog run, and refreshed contributor docs to reference the orchestrator-only path.
@@ -71,7 +71,7 @@ If a regression is traced to consolidation:
 - [x] Archive index maintained: `ARCHIVE_WORKFLOWS.md`
 - [x] Stub headers inserted in original workflows marking ARCHIVED status
 - [x] Replacements confirmed operational (`agents-70-orchestrator.yml` present; legacy wrappers retired)
-- [x] 2026-10-08 audit logged (see "Verification log" in `docs/ci/WORKFLOW_SYSTEM.md`)
+- [x] 2026-10-08 audit logged (see "Verification log" in [`docs/ci/WORKFLOW_SYSTEM.md`](docs/ci/WORKFLOW_SYSTEM.md))
 
 ---
 Generated as part of workflow hygiene initiative.
