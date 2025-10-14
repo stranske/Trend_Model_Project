@@ -26,7 +26,7 @@ def test_main_adds_src_path_and_invokes_cli(monkeypatch: pytest.MonkeyPatch) -> 
     _prepare_streamlit_cli()
     module = importlib.import_module("trend_portfolio_app.__main__")
 
-    captured = {}
+    captured: dict[str, bool] = {}
 
     def fake_main() -> None:
         captured["called"] = True
