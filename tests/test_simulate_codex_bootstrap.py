@@ -31,7 +31,7 @@ def test_main_emits_outputs_for_numbers(capsys: pytest.CaptureFixture[str]) -> N
     assert exit_code == 0
     assert "Ready issues: [2434, 2560]" in captured.out
     assert "issue_numbers output: 2434,2560" in captured.out
-    assert 'fromJson(steps.ready.outputs.issue_numbers_json)[0] => 2434' in captured.out
+    assert "fromJson(steps.ready.outputs.issue_numbers_json)[0] => 2434" in captured.out
 
 
 def test_main_handles_empty_queue(capsys: pytest.CaptureFixture[str]) -> None:
