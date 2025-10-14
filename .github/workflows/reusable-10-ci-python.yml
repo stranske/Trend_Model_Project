@@ -182,42 +182,51 @@ jobs:
 
       - name: Verify mypy interpreter pin
         if: ${{ inputs.run-mypy && matrix.python-version == env.MYPY_PYTHON_VERSION }}
+        shell: python
+        env:
+          MYPY_PYTHON_VERSION: ${{ env.MYPY_PYTHON_VERSION }}
         run: |
-          set -euo pipefail
-          if [ ! -f pyproject.toml ]; then
-            echo "::error file=pyproject.toml::pyproject.toml is required to verify the mypy python_version pin"
-            exit 1
-          fi
-          pinned_version="$(
-            python - <<'EOF'
-from pathlib import Path
-import sys
-import tomllib
+          from __future__ import annotations
 
-pyproject = Path("pyproject.toml")
-try:
-    data = tomllib.loads(pyproject.read_text())
-except tomllib.TOMLDecodeError as exc:  # pragma: no cover - workflow guard
-    print(f"::error file=pyproject.toml::Failed to parse pyproject.toml: {exc}")
-    sys.exit(1)
+          import os
+          from pathlib import Path
 
-pin = data.get("tool", {}).get("mypy", {}).get("python_version")
-if pin is None:
-    print("::error file=pyproject.toml::[tool.mypy].python_version is not configured; cannot gate mypy execution")
-    sys.exit(1)
+          import tomllib
 
-print(pin)
-EOF
-          )"
-          if [ -z "${pinned_version}" ]; then
-            echo "::error::Unable to determine mypy python_version pin from pyproject.toml"
-            exit 1
-          fi
-          if [ "${pinned_version}" != "${MYPY_PYTHON_VERSION}" ]; then
-            echo "::error::pyproject.toml pins mypy to Python ${pinned_version} but workflow is configured for ${MYPY_PYTHON_VERSION}"
-            exit 1
-          fi
-          echo "Verified mypy python_version pin ${pinned_version}"
+          pyproject = Path("pyproject.toml")
+          if not pyproject.is_file():
+              print("::error file=pyproject.toml::pyproject.toml is required to verify the mypy python_version pin")
+              raise SystemExit(1)
+
+          try:
+              data = tomllib.loads(pyproject.read_text())
+          except tomllib.TOMLDecodeError as exc:  # pragma: no cover - workflow guard
+              print(f"::error file=pyproject.toml::Failed to parse pyproject.toml: {exc}")
+              raise SystemExit(1)
+
+          pin = data.get("tool", {}).get("mypy", {}).get("python_version")
+          if pin is None:
+              print("::error file=pyproject.toml::[tool.mypy].python_version is not configured; cannot gate mypy execution")
+              raise SystemExit(1)
+
+          if not pin:
+              print("::error::Unable to determine mypy python_version pin from pyproject.toml")
+              raise SystemExit(1)
+
+          expected = os.environ.get("MYPY_PYTHON_VERSION")
+          if not expected:
+              print("::error::MYPY_PYTHON_VERSION is not configured in the workflow environment")
+              raise SystemExit(1)
+
+          print(pin)
+
+          if pin != expected:
+              print(
+                  f"::error::pyproject.toml pins mypy to Python {pin} but workflow is configured for {expected}"
+              )
+              raise SystemExit(1)
+
+          print(f"Verified mypy python_version pin {pin}")
 
       - name: Mypy (type check)
         if: ${{ inputs.run-mypy && matrix.python-version == env.MYPY_PYTHON_VERSION }}
