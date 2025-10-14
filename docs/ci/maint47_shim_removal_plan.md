@@ -18,9 +18,11 @@
 5. PR includes confirmation of search for residual references to the removed workflows.
 
 ## Initial Task Checklist
-- [ ] Delete the three legacy workflow YAML files under `.github/workflows`.
-- [ ] Run a repository-wide search for `maint-47`, `agents-61-consumer-compat`, and `agents-62-consumer` to identify documentation or script references.
-- [ ] Update `docs/ci/WORKFLOWS.md` to remove the obsolete entries and, if necessary, note the Maint-46/orchestrator replacements.
-- [ ] Update `docs/ci/WORKFLOW_SYSTEM.md` to align the system overview with the current workflow set.
-- [ ] Verify no other docs (e.g., `ARCHIVE_WORKFLOWS.md`, README snippets) need adjustment based on the search results.
-- [ ] Run the Gate workflow (or rely on CI automation) to confirm the pipeline remains green.
+- [x] Delete the three legacy workflow YAML files under `.github/workflows`.
+- [x] Run a repository-wide search for `maint-47`, `agents-61-consumer-compat`, and `agents-62-consumer` to identify documentation or script references.
+- [x] Update `docs/ci/WORKFLOWS.md` to remove the obsolete entries and, if necessary, note the Maint-46/orchestrator replacements.
+- [x] Update `docs/ci/WORKFLOW_SYSTEM.md` to align the system overview with the current workflow set.
+- [x] Verify no other docs (e.g., `ARCHIVE_WORKFLOWS.md`, README snippets) need adjustment based on the search results.
+- [x] Run the Gate workflow (or rely on CI automation) to confirm the pipeline remains green.
+
+Gate run 18506446666 completed successfully after the removals, and the search above confirmed only archival references remain.
