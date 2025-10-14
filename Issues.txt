@@ -37,13 +37,27 @@ env:
   PARAMS_JSON: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.params_json || '{}' }}
 with:
   script: |
-    const defaults = { enable_readiness: 'false', readiness_agents: 'copilot,codex', require_all: 'false',
-                       enable_preflight: 'false', codex_user: '', enable_verify_issue: 'false',
-                       verify_issue_number: '', verify_issue_valid_assignees: 'copilot,chatgpt-codex-connector,stranske-automation-bot',
-                       enable_watchdog: 'true', draft_pr: 'false', options_json: '{}' };
+    // Define magic strings and lists as constants for maintainability
+    const DEFAULT_READINESS_AGENTS = 'copilot,codex';
+    const DEFAULT_VERIFY_ISSUE_ASSIGNEES = 'copilot,chatgpt-codex-connector,stranske-automation-bot';
+    const DEFAULT_OPTIONS_JSON = '{}';
+    // Structured defaults object, one key per line
+    const DEFAULTS = {
+        enable_readiness: 'false',
+        readiness_agents: DEFAULT_READINESS_AGENTS,
+        require_all: 'false',
+        enable_preflight: 'false',
+        codex_user: '',
+        enable_verify_issue: 'false',
+        verify_issue_number: '',
+        verify_issue_valid_assignees: DEFAULT_VERIFY_ISSUE_ASSIGNEES,
+        enable_watchdog: 'true',
+        draft_pr: 'false',
+        options_json: DEFAULT_OPTIONS_JSON
+    };
     let user = {};
     try { user = JSON.parse(process.env.PARAMS_JSON || '{}'); } catch(e) { core.warning('Bad params_json; using defaults'); }
-    const merged = { ...defaults, ...user };
+    const merged = { ...DEFAULTS, ...user };
     core.setOutput('enable_readiness', String(merged.enable_readiness));
     // set all other outputs...
 
