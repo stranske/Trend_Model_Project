@@ -487,6 +487,7 @@ def test_main_writes_snapshot_when_drift_detected(
     assert data["desired"] == {"strict": True, "contexts": ["Gate / gate"]}
     assert data["changes_required"] is True
     assert data["changes_applied"] is False
+    assert data["strict_unknown"] is False
     assert "after" not in data
 
 
@@ -542,7 +543,40 @@ def test_main_snapshot_updates_after_apply(
     assert data["mode"] == "apply"
     assert data["changes_required"] is True
     assert data["changes_applied"] is True
+    assert data["strict_unknown"] is False
     assert data["after"] == {"strict": True, "contexts": ["Gate / gate"]}
+
+
+def test_main_check_mode_allows_unknown_strict(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("GITHUB_TOKEN", "token")
+    monkeypatch.setattr(
+        "tools.enforce_gate_branch_protection._build_session",
+        lambda _token: object(),
+    )
+    monkeypatch.setattr(
+        "tools.enforce_gate_branch_protection.fetch_status_checks",
+        lambda *_args, **_kwargs: StatusCheckState(
+            strict=None,
+            contexts=["Gate / gate"],
+        ),
+    )
+
+    exit_code = main(
+        [
+            "--repo",
+            "owner/repo",
+            "--branch",
+            "main",
+            "--check",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "unknown - supply BRANCH_PROTECTION_TOKEN" in captured.out
+    assert "Strict enforcement could not be confirmed" in captured.out
 
 
 def test_require_token_prefers_explicit_value(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -39,7 +39,7 @@ class BranchProtectionMissingError(BranchProtectionError):
 
 @dataclass
 class StatusCheckState:
-    strict: bool
+    strict: bool | None
     contexts: List[str]
 
     @classmethod
@@ -48,7 +48,7 @@ class StatusCheckState:
 
 
 def _state_from_status_payload(
-    payload: Mapping[str, Any], *, default_strict: bool = False
+    payload: Mapping[str, Any], *, default_strict: bool | None = False
 ) -> StatusCheckState:
     """Normalise a required status checks payload into a ``StatusCheckState``."""
 
@@ -61,7 +61,8 @@ def _state_from_status_payload(
         contexts = []
 
     if "strict" in payload:
-        strict = bool(payload.get("strict"))
+        strict_value = payload.get("strict")
+        strict = None if strict_value is None else bool(strict_value)
     else:
         strict = default_strict
 
@@ -105,7 +106,7 @@ def _state_from_branch_payload(payload: Mapping[str, Any]) -> StatusCheckState:
 
     # The branch metadata API omits the ``strict`` flag. Treat it as disabled so
     # missing configuration is still surfaced to the caller.
-    return _state_from_status_payload(status_checks, default_strict=False)
+    return _state_from_status_payload(status_checks, default_strict=None)
 
 
 def fetch_status_checks(
@@ -432,18 +433,31 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
 
     to_add, to_remove = diff_contexts(current_state.contexts, target_contexts)
-    strict_change = not current_state.strict
+    strict_is_unknown = current_state.strict is None
+    strict_change = current_state.strict is False
 
     if snapshot is not None:
         snapshot["desired"] = {"strict": True, "contexts": list(target_contexts)}
+        snapshot["strict_unknown"] = strict_is_unknown
 
     print(f"Repository: {args.repo}")
     print(f"Branch:     {args.branch}")
     print(f"Current contexts: {format_contexts(current_state.contexts)}")
     label = "Target contexts" if args.no_clean else "Desired contexts"
     print(f"{label}: {format_contexts(target_contexts)}")
-    print(f"Current 'require up to date': {current_state.strict}")
+    if strict_is_unknown:
+        print(
+            "Current 'require up to date': (unknown - supply BRANCH_PROTECTION_TOKEN to verify)"
+        )
+    else:
+        print(f"Current 'require up to date': {current_state.strict}")
     print("Desired 'require up to date': True")
+
+    if strict_is_unknown:
+        print(
+            "Strict enforcement could not be confirmed with the default token. "
+            "The check will pass, but rerun with BRANCH_PROTECTION_TOKEN to audit."
+        )
 
     no_changes_required = (
         not to_add and (args.no_clean or not to_remove) and not strict_change
