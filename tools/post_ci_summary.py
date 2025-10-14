@@ -39,10 +39,10 @@ class RequiredJobGroup(TypedDict):
 
 
 DEFAULT_REQUIRED_JOB_GROUPS: List[RequiredJobGroup] = [
-    {"label": "Core Tests (3.11)", "patterns": [r"core\s*(tests?)?.*(3\.11|py\.?311)"]},
-    {"label": "Core Tests (3.12)", "patterns": [r"core\s*(tests?)?.*(3\.12|py\.?312)"]},
-    {"label": "Docker Smoke", "patterns": [r"docker.*smoke|smoke.*docker"]},
-    {"label": "Gate Aggregator", "patterns": [r"gate"]},
+    {"label": "core tests (3.11)", "patterns": [r"core\s*(tests?)?.*(3\.11|py\.?311)"]},
+    {"label": "core tests (3.12)", "patterns": [r"core\s*(tests?)?.*(3\.12|py\.?312)"]},
+    {"label": "docker smoke", "patterns": [r"docker.*smoke|smoke.*docker"]},
+    {"label": "gate", "patterns": [r"gate"]},
 ]
 
 
@@ -122,7 +122,7 @@ class RequiredJobRule(TypedDict):
 
 REQUIRED_JOB_RULES: List[RequiredJobRule] = [
     {
-        "label": "Core Tests (3.11)",
+        "label": "core tests (3.11)",
         "slug_variants": [
             ["core", "3-11"],
             ["core", "311"],
@@ -132,7 +132,7 @@ REQUIRED_JOB_RULES: List[RequiredJobRule] = [
         "fallback_patterns": [r"core\s*(tests?)?.*(3\.11|py\.?311)"],
     },
     {
-        "label": "Core Tests (3.12)",
+        "label": "core tests (3.12)",
         "slug_variants": [
             ["core", "3-12"],
             ["core", "312"],
@@ -142,12 +142,12 @@ REQUIRED_JOB_RULES: List[RequiredJobRule] = [
         "fallback_patterns": [r"core\s*(tests?)?.*(3\.12|py\.?312)"],
     },
     {
-        "label": "Docker Smoke",
+        "label": "docker smoke",
         "slug_variants": [["docker", "smoke"], ["smoke", "docker"]],
         "fallback_patterns": [r"docker.*smoke|smoke.*docker"],
     },
     {
-        "label": "Gate Aggregator",
+        "label": "gate",
         "slug_variants": [["gate"], ["aggregator", "gate"]],
         "fallback_patterns": [r"gate"],
     },

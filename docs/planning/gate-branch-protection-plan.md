@@ -1,33 +1,34 @@
 # Gate Branch Protection Implementation Plan
 
 ## Scope and Key Constraints
-- **Target**: Update repository settings so the Gate GitHub Actions workflow (`.github/workflows/pr-gate.yml`) is enforced as a required status check on the default branch.
-- **Repository Controls**: All changes to branch protection happen via GitHub UI/API outside this repo; capture procedural steps and validation approach within documentation only.
-- **Compatibility**: Ensure no legacy status checks (e.g., "CI") remain required once Gate is enforced to avoid merge blocks on removed jobs.
-- **Documentation Update**: CONTRIBUTING guidelines must mention the new requirement without disrupting existing onboarding content.
-- **Validation**: Plan for a temporary draft PR to exercise the protection rule without merging extraneous commits to main.
+- **Target**: Default-branch protection must enforce the Gate GitHub Actions workflow (`.github/workflows/pr-gate.yml`) so every merge requires a passing Gate run.
+- **Change Surface**: Branch-protection edits happen through GitHub UI/API by maintainers with admin permissions; in-repo work focuses on runbooks, validation evidence, and guardrail tooling rather than direct configuration.
+- **Status-Check Hygiene**: Remove or archive any legacy required contexts (e.g., historical "CI" jobs) to prevent stale blockers once Gate is locked in.
+- **Up-to-Date Requirement**: Enforce GitHub's "Require branches to be up to date before merging" toggle to guarantee Gate runs on the current tip of the default branch.
+- **Documentation Impact**: Update contributor onboarding docs (notably `CONTRIBUTING.md`) without disrupting existing workflow guidance.
+- **Validation Strategy**: Use a controlled draft PR (no unintended merges) to exercise both failing and passing Gate scenarios, capturing evidence for the issue record and repo-health automation.
 
 ## Acceptance Criteria / Definition of Done
-1. Default branch protection rule requires the Gate workflow status, with "Require branches to be up to date" enabled.
-2. Obsolete required status checks are removed so only Gate remains enforced.
-3. CONTRIBUTING.md includes a note that passing the Gate check is mandatory before merging.
-4. A test PR demonstrates that Gate is listed as required and blocks merge while failing, then allows merge after passing.
-5. Documentation of the above steps is stored in-repo for future reference.
+1. The default branch rule lists Gate as a required status check **and** has "Require branches to be up to date" enabled.
+2. No superseded required checks remain; the rule set only references workflows that still exist (Gate today).
+3. `CONTRIBUTING.md` explicitly states that Gate must pass before merging to the default branch and references the up-to-date requirement.
+4. A validation PR demonstrates the enforcement path: Gate blocks merge while red, then permits merge (or would permit, for draft) after the fix.
+5. Runbook or planning docs (this file + validation notes) record the configuration steps and evidence so future audits can confirm compliance.
 
 ## Initial Task Checklist
-1. **Audit Current Branch Protection**
-   - Review existing required status checks and note any legacy entries.
-2. **Update Branch Protection Rule**
-   - Enable "Require status checks to pass".
-   - Select the Gate workflow and enable "Require branches to be up to date".
-   - Remove any deprecated contexts such as "CI".
-3. **Update Documentation**
-   - Add a succinct line to `CONTRIBUTING.md` stating that the Gate check must pass before merging.
-4. **Validate via Draft PR**
-   - Open a draft PR with a deliberately failing Gate run to verify the merge block.
-   - Re-run or fix the failure to confirm the Gate check controls merging.
-5. **Record Validation Outcome**
-   - Note results of the draft PR test for future audits (e.g., in the issue tracker or repo health checklist).
+1. **Inventory Current Protection Settings**
+   - Capture the existing required-status list, the "up to date" toggle state, and any conditional rules.
+   - Note whether automation helpers (e.g., `tools/enforce_gate_branch_protection.py`) already mirror the desired configuration.
+2. **Apply Updated Rule**
+   - In GitHub settings (or via the enforcement tool), enable required status checks, select Gate, and toggle "Require branches to be up to date".
+   - Remove deprecated contexts so only live workflows remain.
+3. **Refresh Documentation**
+   - Update `CONTRIBUTING.md` (and linked onboarding snippets if needed) with the Gate requirement and the expectation to refresh stale branches.
+4. **Validate with Draft PR Workflow**
+   - Open a draft PR engineered to fail Gate, capture the merge-block UI, then push a fix to show Gate passing and the block clearing.
+   - Store screenshots or run logs with the issue or repo-health evidence folder.
+5. **Archive Findings and Tooling State**
+   - Record the validation outcome, confirm scheduled enforcement (e.g., `health-44-gate-branch-protection.yml`) observes the new rule, and flag any follow-up automation gaps.
 
 ## Current Status
 - ✅ **Documentation updated** – `CONTRIBUTING.md` now explains that the Gate check must pass before merging.

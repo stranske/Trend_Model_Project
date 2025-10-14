@@ -2,7 +2,15 @@
 
 from __future__ import annotations
 
+import base64
+import json
+import re
+import shutil
+import subprocess
+import textwrap
 from pathlib import Path
+
+import pytest
 
 import yaml
 
@@ -32,6 +40,119 @@ def _get_tracker_script() -> str:
     script = tracker_step.get("with", {}).get("script")
     assert isinstance(script, str), "Expected inline tracker script to be defined"
     return script
+
+
+def _get_success_resolution_script() -> str:
+    workflow = _load_workflow(POST_CI_PATH)
+    job = workflow["jobs"]["failure-tracker"]
+    resolve_step = _get_step(job, "Resolve failure issue for recovered PR")
+    script = resolve_step.get("with", {}).get("script")
+    assert isinstance(
+        script, str
+    ), "Expected success-path resolution script to be defined"
+    return script
+
+
+def _get_post_comment_script() -> str:
+    workflow = _load_workflow(POST_CI_PATH)
+    job = workflow["jobs"]["post-comment"]
+    comment_step = _get_step(job, "Upsert consolidated PR comment")
+    script = comment_step.get("with", {}).get("script")
+    assert isinstance(script, str), "Expected comment upsert script to be defined"
+    return script
+
+
+def _run_post_comment_harness(
+    tmp_path: Path, node_path: str, scenario: dict[str, object]
+) -> list[dict[str, object]]:
+    script = _get_post_comment_script()
+    pr_value = scenario.get("pr")
+    assert isinstance(pr_value, int), "Scenario must provide integer PR number"
+    script = script.replace("'${{ needs.context.outputs.pr }}'", f"'{pr_value}'")
+    script_b64 = base64.b64encode(script.encode("utf-8")).decode("ascii")
+    scenario_json = json.dumps(scenario)
+    harness = textwrap.dedent(
+        f"""
+        const actionsLog = [];
+        function log(type, payload) {{
+          actionsLog.push({{ type, ...(payload ? {{ payload }} : {{}}) }});
+        }}
+
+        const scenario = {scenario_json};
+        const fs = require('fs');
+        fs.writeFileSync('maint_post_ci_comment.md', scenario.body, 'utf8');
+
+        const github = {{
+          rest: {{
+            issues: {{
+              async listComments(args) {{
+                log('listComments', args);
+                return {{ data: scenario.comments }};
+              }},
+              async updateComment(args) {{
+                log('updateComment', args);
+                return {{ data: {{}} }};
+              }},
+              async createComment(args) {{
+                log('createComment', args);
+                return {{ data: {{}} }};
+              }},
+            }},
+          }},
+          paginate: async (fn, args) => {{
+            log('paginate', args);
+            const response = await fn(args);
+            return response.data;
+          }},
+        }};
+
+        const context = {{ repo: {{ owner: scenario.owner, repo: scenario.repo }} }};
+        const core = {{
+          info(message) {{ log('coreInfo', {{ message }}); }},
+          warning(message) {{ log('coreWarning', {{ message }}); }},
+        }};
+
+        (async () => {{
+          const scriptSource = Buffer.from('{script_b64}', 'base64').toString('utf8');
+          const vm = require('vm');
+          const sandbox = {{
+            github,
+            context,
+            core,
+            require,
+            console,
+            process,
+            Buffer,
+            setTimeout,
+            setInterval,
+            clearTimeout,
+            clearInterval,
+          }};
+          const runner = new vm.Script('(async () => {{' + scriptSource + '\\n}})();');
+          await runner.runInNewContext(sandbox);
+          console.log(JSON.stringify(actionsLog));
+        }})().catch((error) => {{
+          console.error(error.stack || String(error));
+          process.exit(1);
+        }});
+        """
+    )
+
+    script_path = tmp_path / "post_comment_harness.js"
+    script_path.write_text(harness, encoding="utf-8")
+
+    result = subprocess.run(
+        [node_path, str(script_path)],
+        check=False,
+        capture_output=True,
+        text=True,
+        cwd=tmp_path,
+    )
+
+    assert result.returncode == 0, result.stderr
+    output = result.stdout.strip()
+    assert output, "Expected harness output to contain action log JSON"
+    return json.loads(output)
 
 
 def test_tracker_workflow_is_now_thin_shell() -> None:
@@ -85,6 +206,22 @@ def test_maint_post_ci_listens_to_gate_run() -> None:
 
     assert workflow_run.get("types") == ["completed"]
     assert workflow_run.get("workflows") == ["Gate"]
+
+
+def test_post_ci_concurrency_uses_pr_number_lock() -> None:
+    workflow = _load_workflow(POST_CI_PATH)
+
+    concurrency = workflow.get("concurrency") or {}
+    group = str(concurrency.get("group") or "")
+    group_flat = " ".join(group.split())
+
+    assert "maint-46-post-ci-" in group_flat, "Concurrency group should be namespaced"
+    assert (
+        "pull_requests[0].number" in group_flat
+    ), "Concurrency must prioritise the PR number key"
+    assert (
+        concurrency.get("cancel-in-progress") is True
+    ), "Post CI runs should cancel in-progress duplicates"
 
 
 def test_context_exposes_failure_tracker_skip_for_legacy_prs() -> None:
@@ -178,6 +315,22 @@ def test_post_ci_failure_tracker_handles_success_path() -> None:
     assert "github.rest.issues.removeLabel" in remove_script
 
 
+def test_success_path_resolves_tracked_pr_issue() -> None:
+    workflow = _load_workflow(POST_CI_PATH)
+    job = workflow["jobs"]["failure-tracker"]
+
+    resolve_step = _get_step(job, "Resolve failure issue for recovered PR")
+    condition = " ".join(resolve_step.get("if", "").split())
+    assert "needs.context.outputs.pr" in condition
+    assert "workflow_run.conclusion == 'success'" in condition
+    assert resolve_step.get("uses", "").startswith("actions/github-script@")
+
+    script = resolve_step.get("with", {}).get("script", "")
+    assert "<!-- tracked-pr:" in script
+    assert "Resolution: Gate run succeeded" in script
+    assert "Closed failure issue" in script
+
+
 def test_post_ci_requires_issue_permissions() -> None:
     workflow = _load_workflow(POST_CI_PATH)
     permissions = workflow.get("permissions", {})
@@ -204,6 +357,75 @@ def test_post_comment_job_upserts_single_pr_comment() -> None:
     assert "github.rest.issues.createComment" in script
 
 
+def test_post_comment_script_updates_existing_comment(tmp_path: Path) -> None:
+    node_path = shutil.which("node")
+    if node_path is None:
+        pytest.skip("node runtime not available")
+
+    scenario = {
+        "owner": "stranske",
+        "repo": "Trend_Model_Project",
+        "pr": 321,
+        "body": "## Automated Status Summary\nUpdated body\n",
+        "comments": [
+            {"id": 7001, "body": "Unrelated comment"},
+            {
+                "id": 7002,
+                "body": "<!-- maint-46-post-ci: DO NOT EDIT -->\nPrevious summary\n",
+            },
+        ],
+    }
+
+    actions = _run_post_comment_harness(tmp_path, node_path, scenario)
+    action_types = [entry.get("type") for entry in actions]
+
+    assert action_types.count("updateComment") == 1
+    assert "createComment" not in action_types
+
+    update_payloads = [
+        entry.get("payload", {})
+        for entry in actions
+        if entry.get("type") == "updateComment"
+    ]
+    assert update_payloads, "Expected updateComment payload to be recorded"
+    update_payload = update_payloads[0]
+    assert update_payload.get("comment_id") == 7002
+    assert update_payload.get("body") == scenario["body"]
+
+
+def test_post_comment_script_creates_comment_when_missing(tmp_path: Path) -> None:
+    node_path = shutil.which("node")
+    if node_path is None:
+        pytest.skip("node runtime not available")
+
+    scenario = {
+        "owner": "stranske",
+        "repo": "Trend_Model_Project",
+        "pr": 654,
+        "body": "## Automated Status Summary\nFresh body\n",
+        "comments": [
+            {"id": 8101, "body": "General discussion"},
+            {"id": 8102, "body": "Status marker missing"},
+        ],
+    }
+
+    actions = _run_post_comment_harness(tmp_path, node_path, scenario)
+    action_types = [entry.get("type") for entry in actions]
+
+    assert action_types.count("createComment") == 1
+    assert "updateComment" not in action_types
+
+    create_payloads = [
+        entry.get("payload", {})
+        for entry in actions
+        if entry.get("type") == "createComment"
+    ]
+    assert create_payloads, "Expected createComment payload to be recorded"
+    create_payload = create_payloads[0]
+    assert create_payload.get("issue_number") == scenario["pr"]
+    assert create_payload.get("body") == scenario["body"]
+
+
 def test_failure_tracker_signature_uses_slugified_workflow_path() -> None:
     script = _get_tracker_script()
 
@@ -225,3 +447,418 @@ def test_failure_tracker_signature_uses_slugified_workflow_path() -> None:
     assert "const workflowKey = workflowId || fallbackId;" in script
     assert "const signature = `${workflowKey}|${sigHash}`;" in script
     assert "Workflow slug: \\`${workflowId}\\`" in script
+
+
+def test_failure_tracker_script_tags_pr_numbers() -> None:
+    script = _get_tracker_script()
+
+    assert "Tracked PR:" in script
+    assert "<!-- tracked-pr:" in script
+
+
+def test_failure_tracker_script_updates_existing_issue(tmp_path: Path) -> None:
+    node_path = shutil.which("node")
+    if node_path is None:
+        pytest.skip("node runtime not available")
+
+    script = _get_tracker_script()
+    slugify_match = re.search(
+        r"const slugify = \(value\) => \{(?:.|\n)*?\};",
+        script,
+    )
+    assert slugify_match, "Expected slugify helper to be present in tracker script"
+    slugify_code = slugify_match.group(0)
+
+    pr_logic_match = re.search(
+        r"const prNumberParsed =(?:.|\n)*?const HEAL_THRESHOLD_DESC = `Auto-heal after(?:.|\n)*?`;",
+        script,
+    )
+    assert (
+        pr_logic_match
+    ), "Expected PR tagging and heal threshold logic block to be present in tracker script"
+    pr_logic_code = pr_logic_match.group(0)
+    pr_logic_b64 = base64.b64encode(pr_logic_code.encode("utf-8")).decode("ascii")
+
+    scenario = {
+        "owner": "stranske",
+        "repo": "Trend_Model_Project",
+        "prNumber": 123,
+        "run": {
+            "id": 314,
+            "workflow_id": 271,
+            "name": "Gate",
+            "display_title": "Gate",
+            "path": ".github/workflows/pr-00-gate.yml",
+            "html_url": "https://example.test/run/314",
+        },
+        "jobs": [
+            {
+                "id": 42,
+                "name": "Gate / core tests (3.11)",
+                "conclusion": "failure",
+                "status": "completed",
+                "html_url": "https://example.test/job/42",
+                "steps": [
+                    {"name": "Checkout", "conclusion": "success"},
+                    {"name": "pytest", "conclusion": "failure"},
+                ],
+            }
+        ],
+        "issue": {
+            "body": (
+                "Occurrences: 2\n"
+                "Last seen: 2025-01-14T12:00:00Z\n"
+                "<!-- occurrence-history-start -->\n"
+                "| Timestamp | Run | Sig Hash | Failed Jobs |\n"
+                "|---|---|---|---|\n"
+                "| 2025-01-13T11:00:00Z | [run](https://example.test/run/21) | deadbeef | 1 |\n"
+                "<!-- occurrence-history-end -->\n"
+            ),
+            "labels": [{"name": "ci-failure"}, {"name": "ci"}],
+        },
+        "openIssues": [{"number": 99}],
+        "closedIssues": [],
+        "comments": [],
+    }
+
+    harness = textwrap.dedent(
+        rf"""
+        const actionsLog = [];
+        function log(type, payload) {{
+          actionsLog.push({{ type, ...(payload ? {{ payload }} : {{}}) }});
+        }}
+
+        (async () => {{
+        const scenario = {json.dumps(scenario)};
+        const newline = '\\n';
+        const vm = require('vm');
+        const prInitSource = Buffer.from('{pr_logic_b64}', 'base64').toString('utf8');
+        const initEnv = {{
+          PR_NUMBER: scenario.prNumber ? String(scenario.prNumber) : '',
+          AUTO_HEAL_INACTIVITY_HOURS: String(scenario.autoHealHours || 24),
+          RATE_LIMIT_MINUTES: '15',
+          STACK_TOKENS_ENABLED: 'true',
+          STACK_TOKEN_MAX_LEN: '160',
+          FAILURE_INACTIVITY_HEAL_HOURS: '0',
+        }};
+        const initResult = new vm.Script(`(() => {{ ${{prInitSource}} return {{ prNumber, prTag, prLine, HEAL_THRESHOLD_DESC, RATE_LIMIT_MINUTES, STACK_TOKENS_ENABLED, STACK_TOKEN_MAX_LEN, FAILURE_INACTIVITY_HEAL_HOURS }}; }})()`)
+          .runInNewContext({{
+            context: {{ payload: {{ workflow_run: scenario.run }}, repo: {{ owner: scenario.owner, repo: scenario.repo }} }},
+            process: {{ env: initEnv }},
+            require,
+            console,
+          }});
+        const prNumber = initResult.prNumber;
+        const prLine = initResult.prLine;
+        const prTag = initResult.prTag;
+        const HEAL_THRESHOLD_DESC = initResult.HEAL_THRESHOLD_DESC;
+        const RATE_LIMIT_MINUTES = initResult.RATE_LIMIT_MINUTES;
+        const STACK_TOKENS_ENABLED = initResult.STACK_TOKENS_ENABLED;
+        const STACK_TOKEN_MAX_LEN = initResult.STACK_TOKEN_MAX_LEN;
+        const FAILURE_INACTIVITY_HEAL_HOURS = initResult.FAILURE_INACTIVITY_HEAL_HOURS;
+        const github = {{
+          rest: {{
+            search: {{
+              async issuesAndPullRequests(args) {{
+                log('searchIssues', args);
+                if (args.q.includes('is:open')) {{
+                  return {{ data: {{ items: scenario.openIssues }} }};
+                }}
+                if (args.q.includes('is:closed')) {{
+                  return {{ data: {{ items: scenario.closedIssues }} }};
+                }}
+                return {{ data: {{ items: [] }} }};
+              }},
+            }},
+            issues: {{
+              async getLabel(args) {{ log('getLabel', args); return {{ data: {{}} }}; }},
+              async createLabel(args) {{ log('createLabel', args); return {{ data: {{}} }}; }},
+              async get(args) {{ log('getIssue', args); return {{ data: Object.assign({{ number: args.issue_number }}, scenario.issue) }}; }},
+              async update(args) {{ log('updateIssue', args); return {{ data: {{}} }}; }},
+              async listComments(args) {{ log('listComments', args); return {{ data: scenario.comments }}; }},
+              async createComment(args) {{ log('createComment', args); return {{ data: {{}} }}; }},
+              async addLabels(args) {{ log('addLabels', args); return {{ data: {{}} }}; }},
+              async listForRepo(args) {{ log('listForRepo', args); return {{ data: [] }}; }},
+              async create(args) {{ log('createIssue', args); return {{ data: {{ number: 777 }} }}; }},
+            }},
+          }},
+          paginate: async () => scenario.jobs,
+          request: async () => {{ throw new Error('Unexpected request invocation'); }},
+        }};
+
+        const owner = scenario.owner;
+        const repo = scenario.repo;
+        const run = scenario.run;
+        const failedJobs = scenario.jobs.map(job => Object.assign({{}}, job, {{ __stackToken: 'stacks-off' }}));
+
+        {slugify_code}
+
+        const workflowName = run.name || run.display_title || 'Workflow';
+        const workflowPath = (run.path || '').trim();
+        const workflowFile = (workflowPath.split('/').pop() || '').trim();
+        const workflowStem = workflowFile.replace(/\\.ya?ml$/i, '') || workflowFile;
+        const workflowIdRaw = workflowStem || workflowPath || workflowName || '';
+        const workflowId = slugify(workflowIdRaw);
+        const fallbackId = run.workflow_id ? `workflow-${{run.workflow_id}}` : (run.id ? `run-${{run.id}}` : 'workflow');
+        const workflowKey = workflowId || fallbackId;
+
+        const crypto = require('crypto');
+        const sigParts = failedJobs.map(j => {{
+          const failingStep = (j.steps || []).find(s => (s.conclusion || '').toLowerCase() !== 'success');
+          return `${{j.name}}::${{failingStep ? failingStep.name : 'no-step'}}::${{j.__stackToken}}`;
+        }}).sort();
+        const sigHash = crypto.createHash('sha256').update(sigParts.join('|')).digest('hex').slice(0, 12);
+        const signature = `${{workflowKey}}|${{sigHash}}`;
+        const title = `Workflow Failure (${{signature}})`;
+        const labels = ['ci-failure', 'ci', 'devops', 'priority: medium'];
+
+        for (const lb of labels) {{
+          try {{ await github.rest.issues.getLabel({{ owner, repo, name: lb }}); }}
+          catch {{ try {{ await github.rest.issues.createLabel({{ owner, repo, name: lb, color: 'BFDADC' }}); }} catch {{}} }}
+        }}
+
+        const bodyParts = ['Workflow: Gate'];
+        if (prLine) bodyParts.push(prLine);
+        if (prTag) bodyParts.push(prTag);
+        bodyParts.push('### Failed Jobs', 'Job table here');
+        const bodyBlock = bodyParts.join(newline);
+        let issue_number = null;
+        let reopened = false;
+
+        const qOpen = `repo:${{owner}}/${{repo}} is:issue is:open in:title "${{signature}}" label:ci-failure`;
+        const searchOpen = await github.rest.search.issuesAndPullRequests({{ q: qOpen, per_page: 1 }});
+        if (searchOpen.data.items.length) {{
+          issue_number = searchOpen.data.items[0].number;
+        }} else {{
+          const qClosed = `repo:${{owner}}/${{repo}} is:issue is:closed in:title "${{signature}}" label:ci-failure`;
+          const searchClosed = await github.rest.search.issuesAndPullRequests({{ q: qClosed, per_page: 1 }});
+          if (searchClosed.data.items.length) {{
+            issue_number = searchClosed.data.items[0].number;
+            try {{
+              await github.rest.issues.update({{ owner, repo, issue_number, state: 'open' }});
+              reopened = true;
+            }} catch (e) {{
+              issue_number = null;
+            }}
+          }}
+        }}
+
+        if (issue_number) {{
+          const existing = await github.rest.issues.get({{ owner, repo, issue_number }});
+          const nowIso = new Date().toISOString();
+          const baseBody = existing.data.body || '';
+          const occMatch = baseBody.match(/Occurrences:\\s*(\d+)/i);
+          const occ = (occMatch ? parseInt(occMatch[1], 10) : 0) + 1;
+          const summaryLines = [
+            `Occurrences: ${{occ}}`,
+            `Last seen: ${{nowIso}}`,
+            'Healing threshold: ' + HEAL_THRESHOLD_DESC,
+            baseBody.trim(),
+          ].filter(Boolean);
+          let body = summaryLines.join(newline);
+          if (prLine && !body.includes(prLine)) {{
+            body = body.replace('Healing threshold: ' + HEAL_THRESHOLD_DESC, 'Healing threshold: ' + HEAL_THRESHOLD_DESC + newline + prLine);
+          }}
+          if (prTag && !body.includes(prTag)) {{
+            body = prTag + newline + body;
+          }}
+          await github.rest.issues.update({{ owner, repo, issue_number, title, body }});
+          const comments = await github.rest.issues.listComments({{ owner, repo, issue_number, per_page: 50 }});
+          const alreadyCommented = comments.data.some(c => c.body && c.body.includes(run.html_url));
+          let postComment = !alreadyCommented;
+          if (postComment && comments.data.length) {{
+            const last = comments.data[comments.data.length - 1];
+            const lastTs = Date.parse(last.created_at);
+            if (!isNaN(lastTs)) {{
+              const minutesAgo = (Date.now() - lastTs) / 60000;
+              if (minutesAgo < RATE_LIMIT_MINUTES) {{
+                postComment = false;
+              }}
+            }}
+          }}
+          const commentPayload = reopened ? `Failure reoccurred after auto-heal; issue reopened.\\n\\n${{bodyBlock}}` : bodyBlock;
+          if (postComment) {{
+            await github.rest.issues.createComment({{ owner, repo, issue_number, body: commentPayload }});
+          }}
+        }} else {{
+          await github.rest.issues.create({{ owner, repo, title, body: bodyBlock, labels }});
+        }}
+
+        console.log(JSON.stringify(actionsLog));
+        }})().catch((error) => {{
+          console.error(error.stack || String(error));
+          process.exit(1);
+        }});
+        """
+    )
+
+    script_path = tmp_path / "tracker_harness.js"
+    script_path.write_text(harness, encoding="utf-8")
+
+    result = subprocess.run(
+        [node_path, str(script_path)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    output = result.stdout.strip()
+    assert output, "Expected harness output to contain action log JSON"
+    actions = json.loads(output)
+    action_types = [entry.get("type") for entry in actions]
+
+    assert (
+        "createIssue" not in action_types
+    ), "Tracker should update existing issue instead of creating new"
+    assert (
+        action_types.count("updateIssue") == 1
+    ), "Existing issue should be updated exactly once"
+    assert (
+        action_types.count("createComment") == 1
+    ), "Existing issue should receive a new occurrence comment"
+
+    update_payloads = [
+        entry.get("payload", {})
+        for entry in actions
+        if entry.get("type") == "updateIssue"
+    ]
+    assert update_payloads, "Expected an updateIssue payload to inspect"
+    update_body = update_payloads[0].get("body") or ""
+    assert "Tracked PR: #123" in update_body
+    assert "<!-- tracked-pr: 123 -->" in update_body
+
+
+def test_success_path_closes_tracked_issue(tmp_path: Path) -> None:
+    node_path = shutil.which("node")
+    if node_path is None:
+        pytest.skip("node runtime not available")
+
+    script = _get_success_resolution_script()
+    script_b64 = base64.b64encode(script.encode("utf-8")).decode("ascii")
+    scenario = {
+        "owner": "stranske",
+        "repo": "Trend_Model_Project",
+        "pr": 456,
+        "runUrl": "https://example.test/run/success",
+        "issueNumber": 314,
+        "issueBody": (
+            "Tracked PR: #456\n"
+            "<!-- tracked-pr: 456 -->\n"
+            "Occurrences: 3\n"
+            "Last seen: 2025-01-14T12:00:00Z\n"
+            "Healing threshold: Auto-heal after 24h stability (success path)\n"
+        ),
+    }
+
+    harness = textwrap.dedent(
+        rf"""
+        const actionsLog = [];
+        function log(type, payload) {{
+          actionsLog.push({{ type, ...(payload ? {{ payload }} : {{}}) }});
+        }}
+
+        const scenario = {json.dumps(scenario)};
+        process.env.PR_NUMBER = String(scenario.pr);
+        process.env.RUN_URL = scenario.runUrl;
+
+        const github = {{
+          rest: {{
+            search: {{
+              async issuesAndPullRequests(args) {{
+                log('searchIssues', args);
+                return {{ data: {{ items: [{{ number: scenario.issueNumber }}] }} }};
+              }},
+            }},
+            issues: {{
+              async get(args) {{
+                log('getIssue', args);
+                return {{ data: {{ body: scenario.issueBody }} }};
+              }},
+              async createComment(args) {{
+                log('createComment', args);
+                return {{ data: {{}} }};
+              }},
+              async update(args) {{
+                log('updateIssue', args);
+                return {{ data: {{}} }};
+              }},
+            }},
+          }},
+        }};
+
+        const context = {{
+          repo: {{ owner: scenario.owner, repo: scenario.repo }},
+          payload: {{ workflow_run: {{ html_url: scenario.runUrl }} }},
+        }};
+
+        const core = {{
+          info(message) {{ log('coreInfo', {{ message }}); }},
+        }};
+
+        (async () => {{
+          const scriptSource = Buffer.from('{script_b64}', 'base64').toString('utf8');
+          const vm = require('vm');
+          const sandbox = {{
+            github,
+            context,
+            core,
+            process,
+            console,
+            require,
+            Buffer,
+            setTimeout,
+            setInterval,
+            clearTimeout,
+            clearInterval,
+          }};
+          const runner = new vm.Script('(async () => {{' + scriptSource + '\n}})();');
+          await runner.runInNewContext(sandbox);
+          console.log(JSON.stringify(actionsLog));
+        }})().catch((error) => {{
+          console.error(error.stack || String(error));
+          process.exit(1);
+        }});
+        """
+    )
+
+    script_path = tmp_path / "success_resolution_harness.js"
+    script_path.write_text(harness, encoding="utf-8")
+
+    result = subprocess.run(
+        [node_path, str(script_path)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    output = result.stdout.strip()
+    assert output, "Expected harness output to contain action log JSON"
+
+    actions = json.loads(output)
+    action_types = [entry.get("type") for entry in actions]
+
+    assert (
+        action_types.count("createComment") == 1
+    ), "Success path should leave a resolution comment"
+    assert (
+        action_types.count("updateIssue") == 1
+    ), "Success path should update existing issue once"
+
+    update_payloads = [
+        entry.get("payload", {})
+        for entry in actions
+        if entry.get("type") == "updateIssue"
+    ]
+    assert update_payloads, "Expected updateIssue payload"
+    update_payload = update_payloads[0]
+    assert (
+        update_payload.get("state") == "closed"
+    ), "Success path should close the issue"
+    assert "Resolved:" in (
+        update_payload.get("body") or ""
+    ), "Issue body should record resolution timestamp"
+    assert "<!-- tracked-pr: 456 -->" in (
+        update_payload.get("body") or ""
+    ), "Tracked PR tag should be preserved"
