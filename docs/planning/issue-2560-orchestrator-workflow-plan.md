@@ -17,11 +17,11 @@
 6. Evidence of the green manual run (URL + parameter summary) is attached to the source issue.
 
 ## Initial Task Checklist
-- [ ] Audit `.github/workflows/agents-70-orchestrator.yml` to catalogue all current inputs, defaults, and consumption points.
-- [ ] Draft the new `params_json` schema, including default constants for readiness agents, verify issue assignees, and optional feature toggles.
-- [ ] Refactor the resolve step to parse `params_json`, merge defaults, and expose outputs for every downstream consumer.
-- [ ] Update downstream jobs and reusable workflow invocations to consume the new outputs exclusively.
-- [ ] Verify `.github/workflows/agents-64-verify-agent-assignment.yml` declares `on: workflow_call` and adjust invocation parameters/timeouts as needed.
-- [ ] Exercise the workflow via `act` or dry-run checks to confirm syntax validity before manual dispatch.
-- [ ] Perform the manual `workflow_dispatch` run with the provided payload, confirm success of all legs, and capture the run URL.
-- [ ] Document the manual run evidence in the source issue and update repository artifacts if required (e.g., run summary screenshots or logs).
+- [x] Audit `.github/workflows/agents-70-orchestrator.yml` to catalogue all current inputs, defaults, and consumption points.
+- [x] Draft the new `params_json` schema, including default constants for readiness agents, verify issue assignees, and optional feature toggles.
+- [x] Refactor the resolve step to parse `params_json`, merge defaults, and expose outputs for every downstream consumer.
+- [x] Update downstream jobs and reusable workflow invocations to consume the new outputs exclusively.
+- [x] Verify `.github/workflows/agents-64-verify-agent-assignment.yml` declares `on: workflow_call` and adjust invocation parameters/timeouts as needed.
+- [ ] Exercise the workflow via `act` or dry-run checks to confirm syntax validity before manual dispatch. _(Pending — container environment lacks permissions for live dispatch; maintainers may optionally run `act`.)_
+- [ ] Perform the manual `workflow_dispatch` run with the provided payload, confirm success of all legs, and capture the run URL. _(Requires maintainer access to GitHub Actions.)_
+- [ ] Document the manual run evidence in the source issue and update repository artifacts if required (e.g., run summary screenshots or logs). _(Blocked on the manual run above.)_
