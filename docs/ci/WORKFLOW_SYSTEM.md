@@ -40,7 +40,7 @@
 - **Doc‑only rule**: Doc‑only detection lives inside Gate. No separate docs‑only workflow.
 - **Autofix**: Centralized under `maint-46-post-ci.yml`. For forks, upload patch artifacts and post links instead of pushing. Any pre‑CI autofix (`pr-02-autofix.yml`) must be label-gated and cancel duplicate runs in flight.
 - **Branch protection**: Default branch must require Gate. Health job first resolves the repository's current default branch via the REST API, then enforces and/or verifies that **Gate / gate** is the sole required status check. Provide a `BRANCH_PROTECTION_TOKEN` secret with admin scope when you want the job to apply the setting automatically; otherwise it will fail fast when the check is missing.
-- **Types**: Run mypy where the config is pinned. If types are pinned to a specific version, run mypy in that leg only (to avoid stdlib stub drift across Python versions). Our `pyproject.toml` sets `python_version = "3.11"`, so `reusable-10-ci-python.yml` only executes mypy on the Python 3.11 matrix entry.
+- **Types**: Run mypy where the config is pinned. If types are pinned to a specific version, run mypy in that leg only (to avoid stdlib stub drift across Python versions). Our `pyproject.toml` sets `python_version = "3.11"`, so `reusable-10-ci-python.yml` exports `MYPY_PYTHON_VERSION=3.11` and guards the mypy step with `matrix.python-version == env.MYPY_PYTHON_VERSION`. Ruff and pytest still execute on every configured interpreter.
 - **Labels used by automation**:  
   `workflows`, `ci`, `devops`, `docs`, `refactor`, `enhancement`, `autofix`, `priority: high|medium|low`, `risk:low`, `status: ready|in-progress`, `agents`, `agent:codex`.
 
