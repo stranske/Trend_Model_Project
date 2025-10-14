@@ -1,7 +1,4 @@
-
----
-
-## 1) Tracking issue (paste this one first)
+1) Tracking issue (paste this one first)
 
 **Title:** CI/Automation consolidation: finalize workflow topology and doc
 
@@ -29,7 +26,7 @@ _Refs: existing labels and docs confirmed in repo UI._ :contentReference[oaicite
 
 ---
 
-## 2) Authoritative Gate: self‑skip doc‑only and delete PR‑14
+2) Authoritative Gate: self‑skip doc‑only and delete PR‑14
 
 **Title:** Gate should always run; move doc‑only detection into Gate and retire PR‑14
 
@@ -57,7 +54,7 @@ _Refs: existing files `pr-00-gate.yml`, `pr-14-docs-only.yml` observed in repo._
 
 ---
 
-## 3) Autofix consolidation: single policy in Maint‑46, PR‑02 opt‑in (or removed)
+3) Autofix consolidation: single policy in Maint‑46, PR‑02 opt‑in (or removed)
 
 **Title:** Centralize autofix in Maint‑46; make PR‑02 opt‑in via `autofix` label or remove
 
@@ -85,7 +82,7 @@ _Refs: `pr-02-autofix.yml`, `maint-46-post-ci.yml` exist today._ :contentReferen
 
 ---
 
-## 4) Retire compatibility shells
+4) Retire compatibility shells
 
 **Title:** Remove Maint‑47 and agent consumer shims; update docs
 
@@ -110,7 +107,7 @@ _Refs: files present today._ :contentReference[oaicite:6]{index=6}
 
 ---
 
-## 5) Self‑tests: one parameterized runner, remove wrappers
+5) Self‑tests: one parameterized runner, remove wrappers
 
 **Title:** Replace multiple self‑test wrappers with `selftest-runner.yml`; keep `selftest-81-reusable-ci.yml`
 
@@ -136,7 +133,7 @@ _Refs: `selftest-81-reusable-ci.yml` exists._ :contentReference[oaicite:7]{index
 
 ---
 
-## 6) Agents: orchestrator is the only entry point; wire the issue bridge
+6) Agents: orchestrator is the only entry point; wire the issue bridge
 
 **Title:** Agents topology: enforce `agents-70-orchestrator` + `agents-63` and add an agent task issue template
 
@@ -161,7 +158,7 @@ _Refs: agents workflows exist as noted._ :contentReference[oaicite:8]{index=8}
 
 ---
 
-## 7) Branch protection guardrails
+7) Branch protection guardrails
 
 **Title:** Enforce Gate as required on the default branch; verify with Health‑44
 
@@ -184,7 +181,7 @@ _Refs: health job exists._ :contentReference[oaicite:10]{index=10}
 
 ---
 
-## 8) Docs: publish the overview and align the rest
+8) Docs: publish the overview and align the rest
 
 **Title:** Publish `docs/ci/WORKFLOW_SYSTEM.md`; align `docs/WORKFLOW_GUIDE.md`, `docs/ci/WORKFLOWS.md`, remove `WORKFLOW_AUDIT_TEMP.md`
 
@@ -208,7 +205,7 @@ _Refs: related docs exist in repo._ :contentReference[oaicite:11]{index=11}
 
 ---
 
-## 9) Types: align mypy execution with pinned Python version
+9) Types: align mypy execution with pinned Python version
 
 **Title:** Scope mypy to the pinned Python version; condition in reusable CI
 
