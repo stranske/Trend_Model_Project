@@ -9,6 +9,7 @@ permissions:
   contents: read
   issues: write
   pull-requests: read
+  actions: read
 
 jobs:
   repo-health:
@@ -22,6 +23,7 @@ jobs:
           REQUIRED_LABELS: agent:codex,agent:copilot,automerge,risk:low,codex-ready
           SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
         with:
+          github-token: ${{ secrets.SERVICE_BOT_PAT }}
           script: |
             const { owner, repo } = context.repo;
             const requiredLabels = (process.env.REQUIRED_LABELS || '')
@@ -103,7 +105,7 @@ jobs:
               privilegedChecksSkipped = true;
               branchStatus = 'skipped';
               branchNote = 'SERVICE_BOT_PAT not configured; skipped branch protection check.';
-              core.warning('Skipped privileged checks because SERVICE_BOT_PAT is not configured.');
+              core.notice('Skipped privileged checks because SERVICE_BOT_PAT is not configured.');
             }
 
             const checks = [
@@ -153,7 +155,7 @@ jobs:
             core.setOutput('default_branch', defaultBranch);
             core.setOutput('privileged_checks_skipped', privilegedChecksSkipped ? 'true' : 'false');
 
-      - name: Repo health summary
+      - name: Aggregate & Summarize
         env:
           CHECKS_JSON: ${{ steps.collect.outputs.checks }}
           TIMESTAMP: ${{ steps.collect.outputs.timestamp }}
