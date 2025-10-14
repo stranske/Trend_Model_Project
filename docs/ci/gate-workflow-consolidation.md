@@ -1,7 +1,7 @@
 # Gate Workflow Consolidation Plan
 
 ## Scope and Key Constraints
-- **Workflows in scope**: `.github/workflows/pr-00-gate.yml`, `.github/workflows/reusable-10-ci-python.yml`, `.github/workflows/reusable-12-ci-docker.yml`, and any workflow listeners that consume CI results (for example `maint-46-post-ci.yml`, `maint-47-check-failure-tracker.yml`). Legacy wrappers (`pr-10-ci-python.yml`, `pr-12-docker-smoke.yml`) were removed after the migration window closed.
+- **Workflows in scope**: `.github/workflows/pr-00-gate.yml`, `.github/workflows/reusable-10-ci-python.yml`, `.github/workflows/reusable-12-ci-docker.yml`, and any workflow listeners that consume CI results (for example `maint-46-post-ci.yml`). Legacy wrappers (`pr-10-ci-python.yml`, `pr-12-docker-smoke.yml`) were removed after the migration window closed.
 - **Branch protection**: Default branch must require the `Gate / gate` check name only; removal of the legacy `ci / python` and `ci / docker smoke` status checks happens in coordination with GitHub settings owners.
 - **Downstream automation**: All automation that reacts to PR CI results must listen to the Gate workflow's `workflow_run` events and not depend on the deleted jobs.
 - **Reusable entry points**: `reusable-10-ci-python.yml` (Python matrix) and `reusable-12-ci-docker.yml` (Docker smoke) remain the canonical job definitions; Gate orchestrates them without duplicating logic.
@@ -11,7 +11,7 @@
 ## Acceptance Criteria / Definition of Done
 1. Branch protection on the default branch requires only the `Gate / gate` status.
 2. Legacy workflows (`pr-10-ci-python.yml`, `pr-12-docker-smoke.yml`) are removed from the repository once Gate parity is confirmed.
-3. Maintenance workflows that trigger on `workflow_run` events (`maint-46-post-ci.yml`, `maint-47-check-failure-tracker.yml`, and similar listeners) monitor `Gate` exclusively.
+3. Maintenance workflows that trigger on `workflow_run` events (`maint-46-post-ci.yml` and similar listeners) monitor `Gate` exclusively.
 4. The Gate workflow fans out to `reusable-10-ci-python.yml` for Python 3.11 and 3.12 plus `reusable-12-ci-docker.yml` for the Docker smoke test, and aggregates results into a final `gate` job.
 5. Documentation (`CONTRIBUTING.md`, workflow catalogs, automation guides) describes `Gate / gate` as the single required PR check and outlines the expected signals for contributors.
 6. Successful Gate runs continue to publish the artefacts relied upon by downstream maintenance automation.

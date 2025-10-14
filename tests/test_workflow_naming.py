@@ -99,8 +99,6 @@ def test_chatgpt_issue_sync_workflow_present_and_intact():
 
 EXPECTED_NAMES = {
     "agents-63-codex-issue-bridge.yml": "Agents 63 Codex Issue Bridge",
-    "agents-61-consumer-compat.yml": "Agents 61 Consumer Compat",
-    "agents-62-consumer.yml": "Agents 62 Consumer",
     "agents-63-chatgpt-issue-sync.yml": "Agents 63 ChatGPT Issue Sync",
     "agents-64-verify-agent-assignment.yml": "Agents 64 Verify Agent Assignment",
     "agents-70-orchestrator.yml": "Agents 70 Orchestrator",
@@ -112,7 +110,6 @@ EXPECTED_NAMES = {
     "health-44-gate-branch-protection.yml": "Health 44 Gate Branch Protection",
     "maint-45-cosmetic-repair.yml": "Maint 45 Cosmetic Repair",
     "maint-46-post-ci.yml": "Maint 46 Post CI",
-    "maint-47-check-failure-tracker.yml": "Maint 47 Check Failure Tracker",
     "pr-00-gate.yml": "Gate",
     "reusable-10-ci-python.yml": "Reusable CI",
     "reusable-12-ci-docker.yml": "Reusable Docker Smoke",

@@ -14,9 +14,9 @@
 - **Health checks**: actionlint (`health-42-actionlint.yml`), CI signature guard (`health-43-ci-signature-guard.yml`), and branch‑protection verifier (`health-44-gate-branch-protection.yml`).
 
 ### Agents & Issues
-- **Single entry point**: `agents-70-orchestrator.yml`.  
-- **Issue bridge**: `agents-63-codex-issue-bridge.yml` opens branches/PRs from `agent:codex` issues.  
-- **Deprecated shims**: `agents-61-consumer-compat.yml`, `agents-62-consumer.yml` slated for removal.
+- **Single entry point**: `agents-70-orchestrator.yml`.
+- **Issue bridge**: `agents-63-codex-issue-bridge.yml` opens branches/PRs from `agent:codex` issues.
+- **Consumer note**: manual shims were removed; all automation now dispatches the orchestrator directly.
 
 ### Reusable composites
 - Python CI: `reusable-10-ci-python.yml` (ruff + mypy + pytest).

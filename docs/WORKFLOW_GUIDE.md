@@ -12,9 +12,9 @@ bootstrap runs.
 | Prefix | Purpose | Active Examples |
 | ------ | ------- | ---------------- |
 | `pr-` | Pull-request CI wrappers | `pr-00-gate.yml`, `pr-02-autofix.yml` |
-| `maint-` | Post-CI maintenance and self-tests | `maint-46-post-ci.yml`, `maint-47-check-failure-tracker.yml`, `maint-45-cosmetic-repair.yml` |
+| `maint-` | Post-CI maintenance and self-tests | `maint-46-post-ci.yml`, `maint-45-cosmetic-repair.yml` |
 | `health-` | Repository health & policy checks | `health-40-repo-selfcheck.yml`, `health-41-repo-health.yml`, `health-42-actionlint.yml`, `health-43-ci-signature-guard.yml`, `health-44-gate-branch-protection.yml` |
-| `agents-` | Agent orchestration entry points | `agents-70-orchestrator.yml` (primary); deprecated shims: `agents-61-consumer-compat.yml`, `agents-62-consumer.yml` |
+| `agents-` | Agent orchestration entry points | `agents-70-orchestrator.yml` |
 | `reusable-` | Reusable composites invoked by other workflows | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-18-autofix.yml`, `reusable-16-agents.yml` |
 | `selftest-` | Manual self-tests & experiments | `selftest-80-pr-comment.yml`, `selftest-81-reusable-ci.yml`, `selftest-82-pr-comment.yml`, `selftest-83-pr-comment.yml`, `selftest-84-reusable-ci.yml`, `selftest-88-reusable-ci.yml` |
 | `autofix-` assets | Shared configuration for autofix tooling | `autofix-versions.env` |
@@ -36,7 +36,6 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 ### Maintenance & Governance
 - **`health-41-repo-health.yml`** — Weekly repository health sweep that writes a single run-summary report, with optional `workflow_dispatch` reruns.
 - **`maint-46-post-ci.yml`** — Follower triggered by the Gate `workflow_run` event that posts consolidated status updates, applies autofix commits or uploads patches, and now owns the CI failure-tracker issue/label lifecycle.
-- **`maint-47-check-failure-tracker.yml`** — Lightweight compatibility shell that documents the delegation to `maint-46-post-ci.yml` while legacy listeners migrate.
 - **`health-42-actionlint.yml`** — Sole workflow-lint gate. Runs actionlint via reviewdog on PR edits, pushes, weekly cron, and manual dispatch.
 - **`health-43-ci-signature-guard.yml`** — Guards the CI manifest with signed fixture checks.
 - **`health-40-repo-selfcheck.yml`** — Read-only governance probe that surfaces label coverage and branch-protection visibility gaps in the run summary.
@@ -48,8 +47,6 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 - **`agents-63-codex-issue-bridge.yml`** — Label-driven helper that seeds Codex bootstrap PRs and can optionally auto-comment `@codex start`.
 - **`agents-63-chatgpt-issue-sync.yml`** — Manual issue fan-out that mirrors curated topic lists into GitHub issues.
 - **`agents-64-verify-agent-assignment.yml`** — Workflow-call validator ensuring `agent:codex` issues remain assigned to approved automation accounts.
-- **`agents-62-consumer.yml`** — *Deprecated compatibility shim.* Accepts a `params_json` blob and forwards the resolved inputs to the orchestrator for callers that have not yet migrated.
-- **`agents-61-consumer-compat.yml`** — *Deprecated legacy wrapper (formerly `agents-consumer.yml`).* Retained temporarily for automation pinned to the historical slug; prefer the orchestrator.
 
 ### Reusable Composites
 - **`reusable-10-ci-python.yml`** — Python lint/type/test reusable invoked by Gate and any downstream repositories.
@@ -66,7 +63,7 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 - **`selftest-88-reusable-ci.yml`** — Dual-runtime summary runner that exercises the reusable matrix across multiple Python versions and records the table in the summary.
 
 ## Trigger Wiring Tips
-1. When renaming a workflow, update any `workflow_run` consumers. In this roster that includes `maint-46-post-ci.yml`, `pr-02-autofix.yml`, and `maint-47-check-failure-tracker.yml`.
+1. When renaming a workflow, update any `workflow_run` consumers. In this roster that includes `maint-46-post-ci.yml` and `pr-02-autofix.yml`.
 2. The orchestrator relies on the workflow names, not just filenames. Keep `name:` fields synchronized with filenames to avoid missing triggers.
 3. Reusable workflows stay invisible in the Actions tab; top-level consumers should include summary steps for observability.
 
@@ -80,13 +77,12 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 - Optional flags beyond the standard inputs belong in the `params_json` payload; the orchestrator parses it with `fromJson()` and forwards toggles to `reusable-16-agents.yml`. Include an `options_json` string inside the payload for nested keepalive or cleanup settings when required.
 - Provide a PAT when bootstrap needs to push branches. The orchestrator honours PAT priority (`OWNER_PR_PAT` → `SERVICE_BOT_PAT` → `GITHUB_TOKEN`) via the reusable composite.
 
-> **Deprecated compatibility wrappers:** `agents-61-consumer-compat.yml` (formerly `agents-consumer.yml`) and `agents-62-consumer.yml` persist only for callers migrating from the historical JSON schema. They remain manual-only and should be phased out in favour of the orchestrator.
 
 ### Manual dispatch quick steps
 1. Open **Actions → Agents 70 Orchestrator → Run workflow**.
 2. Supply inputs such as `enable_bootstrap: true` and `bootstrap_issues_label: agent:codex` either via dedicated fields or inside `options_json`.
 3. Review the `orchestrate` job summary for readiness tables, bootstrap planner output, verification notes, and links to spawned PRs. Failures provide direct links for triage.
-4. For CLI/API usage, reuse the `params_json` example in [docs/ci/WORKFLOWS.md](ci/WORKFLOWS.md#manual-orchestrator-dispatch) and post it directly—either with `gh workflow run agents-70-orchestrator.yml --raw-field params_json="$(cat orchestrator.json)"` or with a REST call such as `curl -X POST ... '{"ref":"phase-2-dev","inputs":{"params_json":"$(cat orchestrator.json)"}}'`. Export `GITHUB_TOKEN` to a PAT or workflow token that can dispatch workflows before invoking the CLI/API call. Mix in individual overrides only when a flag must diverge from the JSON payload, or pass the payload through the deprecated consumer shim while migrating clients.
+4. For CLI/API usage, reuse the `params_json` example in [docs/ci/WORKFLOWS.md](ci/WORKFLOWS.md#manual-orchestrator-dispatch) and post it directly—either with `gh workflow run agents-70-orchestrator.yml --raw-field params_json="$(cat orchestrator.json)"` or with a REST call such as `curl -X POST ... '{"ref":"phase-2-dev","inputs":{"params_json":"$(cat orchestrator.json)"}}'`. Export `GITHUB_TOKEN` to a PAT or workflow token that can dispatch workflows before invoking the CLI/API call. Mix in individual overrides only when a flag must diverge from the JSON payload.
 
 ### Troubleshooting signals
 - **Immediate readiness failure** — missing PAT or scope. Inspect the `Authentication` step and rerun with `SERVICE_BOT_PAT`.
@@ -95,7 +91,7 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 
 ## Maintenance Playbook
 1. PRs rely on the Gate workflow listed above. Keep it green; the post-CI summary will report its status automatically.
-2. Monitor failure tracker issues surfaced by `Maint 46 Post CI`; the companion `Maint 47 Check Failure Tracker` shell simply records the delegation notice.
+2. Monitor failure tracker issues surfaced by `Maint 46 Post CI`; it owns the delegation and auto-heal path end to end.
 3. Use `Health 42 Actionlint` (`workflow_dispatch`) for ad-hoc validation of complex workflow edits before pushing.
 4. Dispatch `Maint 45 Cosmetic Repair` when you need a curated pytest + hygiene sweep that opens a helper PR with fixes.
 

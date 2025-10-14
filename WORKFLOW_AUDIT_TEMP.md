@@ -21,7 +21,6 @@ This list mirrors the canonical catalogue in `docs/ci/WORKFLOWS.md` after the Is
 |----------|----------|-------|
 | `health-41-repo-health.yml` | schedule, workflow_dispatch | Weekly repository health sweep that records a single run-summary report.
 | `maint-46-post-ci.yml` | workflow_run | Consolidated post-CI follower that posts Gate summaries, applies low-risk autofix commits, and now owns CI failure-tracker updates.
-| `maint-47-check-failure-tracker.yml` | workflow_run | Lightweight compatibility shell delegating all tracker duties to `maint-46-post-ci.yml`.
 | `health-40-repo-selfcheck.yml` | weekly cron, workflow_dispatch | Read-only repo health summary that reports label coverage and branch-protection visibility in the job summary.
 | `health-44-gate-branch-protection.yml` | hourly cron, workflow_dispatch | Ensures branch-protection rules stay aligned with the Gate helper (`tools/enforce_gate_branch_protection.py`); exits early when the enforcement PAT is absent.
 | `health-42-actionlint.yml` | pull_request, push, schedule, workflow_dispatch | Sole workflow lint gate (actionlint via reviewdog).
@@ -32,7 +31,6 @@ This list mirrors the canonical catalogue in `docs/ci/WORKFLOWS.md` after the Is
 ### Agents
 | Workflow | Triggers | Notes |
 |----------|----------|-------|
-| `agents-62-consumer.yml` | workflow_dispatch | Manual-only JSON bridge that calls `reusable-16-agents.yml`; concurrency guard `agents-62-consumer-${{ github.ref_name }}` prevents back-to-back dispatch collisions. |
 | `agents-63-codex-issue-bridge.yml` | issues, workflow_dispatch | Restored Codex bootstrap automation for label-driven issue handling. |
 | `agents-64-verify-agent-assignment.yml` | workflow_call, workflow_dispatch | Validates that `agent:codex` issues remain assigned to an approved agent account before automation runs. |
 | `agents-70-orchestrator.yml` | schedule (*/20), workflow_dispatch | Unified agents toolkit entry point (readiness, diagnostics, Codex keepalive). |
@@ -40,7 +38,6 @@ This list mirrors the canonical catalogue in `docs/ci/WORKFLOWS.md` after the Is
 ### Reusable Composites
 | Workflow | Triggers | Notes |
 |----------|----------|-------|
-| `agents-61-consumer-compat.yml` | `workflow_dispatch` | Manual dispatcher that forwards inputs to `reusable-16-agents.yml` with a lightweight compatibility shim and a concurrency guard (`agents-61-consumer-compat-${{ github.ref_name }}`); formerly `agents-consumer.yml`. |
 | `reusable-16-agents.yml` | `workflow_call` | Single agents composite implementing readiness, bootstrap, diagnostics, keepalive, and watchdog jobs for every caller (orchestrator, consumer, external). Legacy `reuse-agents.yml` was retired during the consolidation. |
 | `reusable-10-ci-python.yml` | `workflow_call` | General-purpose Python CI composite consumed by Gate and downstream repositories. |
 | `reusable-12-ci-docker.yml` | `workflow_call` | Docker smoke reusable consumed by Gate and external callers. |

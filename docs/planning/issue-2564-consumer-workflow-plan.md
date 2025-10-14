@@ -20,6 +20,11 @@
 - **Documentation**: `Agents.md` highlights the manual-only stance and directs automated usage back to the Orchestrator workflow. No ARCHIVE entry is required because the workflows remain active.
 - **CI**: Gate passed on commit `b42fdc5f68eb3d7fa2fdbeab85adaef88197797c`, validating the doc-only change set.
 
+## Status Update (2026-02-08)
+- **Decision revision**: Manual consumer shims were retired in favour of the orchestrator-only topology. Both `.github/workflows/agents-61-consumer-compat.yml` and `.github/workflows/agents-62-consumer.yml` have been removed.
+- **Documentation**: Workflow catalogs and operator guides now reflect the orchestrator as the sole entry point; legacy consumer docs were deleted or updated accordingly.
+- **Follow-up**: Monitor downstream automation for any residual references to the removed slugs and redirect them to `agents-70-orchestrator.yml` if discovered.
+
 ## Initial Task Checklist
 1. ✅ Inventory current triggers, concurrency settings, and documentation for the Agents 61/62 consumer workflows.
 2. ✅ Consult stakeholders or historical context to choose between “manual shim” vs “archive,” noting dependencies.
