@@ -28,8 +28,8 @@ jobs:
   repair:
     runs-on: ubuntu-latest
     env:
-      PYTHON_VERSION: ${{ inputs.python-version }}
-      BASE_BRANCH: ${{ inputs.base-branch }}
+      PYTHON_VERSION: ${{ inputs['python-version'] }}
+      BASE_BRANCH: ${{ inputs['base-branch'] }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
