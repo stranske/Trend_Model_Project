@@ -14,10 +14,13 @@
 - CI passes with no new linting or formatting issues introduced.
 
 ## Initial Task Checklist
-- [ ] Inventory all self-test workflows in `.github/workflows/` and confirm the target list aligns with issue #2563.
-- [ ] Update each workflow’s `on:` block to the standardized `workflow_dispatch` configuration while retaining existing jobs.
-- [ ] Double-check for residual non-manual triggers (including `pull_request_target`, `workflow_call`, or reusable workflow references) and remove/adjust as needed.
-- [ ] Add the new manual-execution guidance section to `CONTRIBUTING.md`, referencing the shared `reason` input.
-- [ ] Trigger a representative self-test workflow manually and capture the successful run link for documentation.
-- [ ] Review `git diff` for unintended changes and run any required formatting checks (e.g., `pre-commit`, `ruff`) if applicable.
-- [ ] Summarize verification steps and the manual run link in the PR notes before requesting review.
+- [x] Inventory all self-test workflows in `.github/workflows/` and confirm the target list aligns with issue #2563.
+- [x] Update each workflow’s `on:` block to the standardized `workflow_dispatch` configuration while retaining existing jobs.
+- [x] Double-check for residual non-manual triggers (including `pull_request_target`, `workflow_call`, or reusable workflow references) and remove/adjust as needed.
+- [x] Add the new manual-execution guidance section to `CONTRIBUTING.md`, referencing the shared `reason` input.
+- [x] Trigger a representative self-test workflow manually and capture the successful run link for documentation.
+- [x] Review `git diff` for unintended changes and run any required formatting checks (e.g., `pre-commit`, `ruff`) if applicable.
+- [x] Summarize verification steps and the manual run link in the PR notes before requesting review.
+
+### Manual run log
+- `Selftest 81 Reusable CI` — https://github.com/stranske/Trend_Model_Project/actions/runs/18469410896 (workflow_dispatch, success).
