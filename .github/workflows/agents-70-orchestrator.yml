@@ -285,3 +285,33 @@ jobs:
     with:
       issue_number: ${{ needs.resolve-params.outputs.verify_issue_number }}
       valid_assignees: ${{ needs.resolve-params.outputs.verify_issue_valid_assignees }}
+
+  verify-assignment-summary:
+    name: Record Verification Outcome
+    needs:
+      - resolve-params
+      - verify-assignment
+    if: |
+      needs.resolve-params.outputs.enable_verify_issue == 'true' &&
+      needs.resolve-params.outputs.verify_issue_number != '' &&
+      needs.verify-assignment.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Append verification summary
+        env:
+          ISSUE_NUMBER: ${{ needs.resolve-params.outputs.verify_issue_number }}
+          STATUS: ${{ needs.verify-assignment.outputs.status }}
+          MESSAGE: ${{ needs.verify-assignment.outputs.message }}
+          MATCHED: ${{ needs.verify-assignment.outputs.matched_assignee }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          cat <<EOF >> "$GITHUB_STEP_SUMMARY"
+          ## Agent issue verification
+          * Issue: [#${ISSUE_NUMBER}](https://github.com/${REPOSITORY}/issues/${ISSUE_NUMBER})
+          * Status: ${STATUS}
+          * Matched assignee: ${MATCHED:-_none_}
+          EOF
+
+          if [ -n "${MESSAGE}" ]; then
+            echo "${MESSAGE}"
+          fi
