@@ -1,113 +1,4 @@
-1) Tracking issue (paste this one first)
-
-**Title:** CI/Automation consolidation: finalize workflow topology and doc
-
-**Labels:** `workflows`, `ci`, `devops`, `docs`, `priority: high`, `status: ready`
-
-**Body:**
-> Master tracker for the CI/automation cleanup and consolidation. Each child issue links back here.  
-> Overview: see **[Workflow System Overview](docs/ci/WORKFLOW_SYSTEM.md)**.
-
-### Checklist
-- [ ] 1. Authoritative Gate with docs‑only fast path; remove PR‑14.
-- [ ] 2. Centralize autofix in Maint‑46; make PR‑02 opt‑in or remove.
-- [ ] 3. Retire compatibility shells (Maint‑47, Agents‑61/62).
-- [ ] 4. Collapse self‑tests into one parameterized runner; remove wrappers.
-- [ ] 5. Lock agents onto Orchestrator + bridge; add agent issue template.
-- [ ] 6. Branch protection: enforce Gate is required on default branch.
-- [ ] 7. Publish **Workflow System Overview** and align existing docs.
-- [ ] 8. Align mypy execution with pinned Python version.
-
-**Out of scope:** changing test logic, widening coverage thresholds, adding new languages/toolchains.
-
-**Done means:** all child issues closed and Health‑44 reports branch protection aligned.
-
-_Refs: existing labels and docs confirmed in repo UI._ :contentReference[oaicite:3]{index=3}
-
----
-
-2) Authoritative Gate: self‑skip doc‑only and delete PR‑14
-
-**Title:** Gate should always run; move doc‑only detection into Gate and retire PR‑14
-
-**Labels:** `workflows`, `ci`, `devops`, `refactor`, `enhancement`, `docs`, `priority: high`, `risk:low`, `status: ready`
-
-**Body:**
-**Why**  
-Gate is a required check, so it must always produce a status. Today `pr-14-docs-only.yml` handles docs‑only PRs, which risks a missing required status if Gate is path‑filtered.
-
-**Plan**  
-1. In `.github/workflows/pr-00-gate.yml`:
-   - Remove any `paths-ignore` that prevents Gate from running on docs‑only PRs.
-   - Add an early step `detect_doc_only` that sets an output `doc_only=true/false` using the same path filters used by PR‑14.
-   - Guard heavy jobs with `if: needs.detect_doc_only.outputs.doc_only != 'true'`.
-   - For docs‑only, run a 1‑step `gate` job that exits successfully and posts the friendly summary comment.
-2. Delete `.github/workflows/pr-14-docs-only.yml`.
-3. Update docs and screenshots in **[Workflow System Overview](docs/ci/WORKFLOW_SYSTEM.md)**.
-
-**Acceptance criteria**
-- Opening a docs‑only PR shows Gate as the required check and it passes within seconds.
-- `pr-14-docs-only.yml` removed from the repo.
-- README and `docs/ci/WORKFLOWS.md` reference the updated behavior.
-
-_Refs: existing files `pr-00-gate.yml`, `pr-14-docs-only.yml` observed in repo._ :contentReference[oaicite:4]{index=4}
-
----
-
-3) Autofix consolidation: single policy in Maint‑46, PR‑02 opt‑in (or removed)
-
-**Title:** Centralize autofix in Maint‑46; make PR‑02 opt‑in via `autofix` label or remove
-
-**Labels:** `workflows`, `ci`, `devops`, `autofix`, `refactor`, `docs`, `priority: high`, `risk:low`, `status: ready`
-
-**Body:**
-**Why**  
-Two places modifying PRs is how you get race conditions and “who touched my branch” drama. `maint-46-post-ci.yml` already handles safe hygiene; keep it as the single authority.
-
-**Plan**  
-1. In `maint-46-post-ci.yml`, ensure:
-   - Loop guards remain in place.
-   - For forks: attach a `.patch` artifact and post a link instead of pushing.
-2. In `pr-02-autofix.yml`:
-   - Add `concurrency: { group: pr-autofix-${{ github.event.pull_request.number }}, cancel-in-progress: true }`.
-   - Gate execution behind an `autofix` label. If you prefer, delete the file entirely.
-3. Document the policy in **[Workflow System Overview](docs/ci/WORKFLOW_SYSTEM.md)**.
-
-**Acceptance criteria**
-- Only one workflow writes by default: Maint‑46.
-- For forks, a patch artifact is uploaded and linked in the PR comment.
-- If PR‑02 remains, it runs only when `autofix` label is present and cancels in‑flight duplicates.
-
-_Refs: `pr-02-autofix.yml`, `maint-46-post-ci.yml` exist today._ :contentReference[oaicite:5]{index=5}
-
----
-
-4) Retire compatibility shells
-
-**Title:** Remove Maint‑47 and agent consumer shims; update docs
-
-**Labels:** `workflows`, `devops`, `refactor`, `docs`, `priority: medium`, `risk:low`, `status: ready`
-
-**Body:**
-**Why**  
-Compatibility wrappers (`maint-47-check-failure-tracker.yml`, `agents-61-consumer-compat.yml`, `agents-62-consumer.yml`) add confusion without value now that orchestrator and Maint‑46 are canonical.
-
-**Plan**
-1. Delete:
-   - `.github/workflows/maint-47-check-failure-tracker.yml`
-   - `.github/workflows/agents-61-consumer-compat.yml`
-   - `.github/workflows/agents-62-consumer.yml`
-2. Update `docs/ci/WORKFLOWS.md` and **[Workflow System Overview](docs/ci/WORKFLOW_SYSTEM.md)** to remove references.
-
-**Acceptance criteria**
-- Those three files are removed.
-- CI still goes green on a test PR.
-
-_Refs: files present today._ :contentReference[oaicite:6]{index=6}
-
----
-
-5) Self‑tests: one parameterized runner, remove wrappers
+1) Self‑tests: one parameterized runner, remove wrappers
 
 **Title:** Replace multiple self‑test wrappers with `selftest-runner.yml`; keep `selftest-81-reusable-ci.yml`
 
@@ -118,12 +9,12 @@ _Refs: files present today._ :contentReference[oaicite:6]{index=6}
 Five wrappers around the same matrix is maintenance tax.
 
 **Plan**
-1. Add `.github/workflows/selftest-runner.yml` with inputs:
+A. Add `.github/workflows/selftest-runner.yml` with inputs:
    - `mode`: `summary | comment | dual-runtime`
    - `post_to`: `pr-number | none`
    - `enable_history`: `true | false`
-2. Remove any `selftest-*` wrappers other than `selftest-81-reusable-ci.yml`.
-3. Update **[Workflow System Overview](docs/ci/WORKFLOW_SYSTEM.md)**.
+B. Remove any `selftest-*` wrappers other than `selftest-81-reusable-ci.yml`.
+C. Update **[Workflow System Overview](docs/ci/WORKFLOW_SYSTEM.md)**.
 
 **Acceptance criteria**
 - A single manual trigger or dispatch covers all self‑test modes via inputs.
@@ -133,7 +24,7 @@ _Refs: `selftest-81-reusable-ci.yml` exists._ :contentReference[oaicite:7]{index
 
 ---
 
-6) Agents: orchestrator is the only entry point; wire the issue bridge
+2) Agents: orchestrator is the only entry point; wire the issue bridge
 
 **Title:** Agents topology: enforce `agents-70-orchestrator` + `agents-63` and add an agent task issue template
 
@@ -158,7 +49,7 @@ _Refs: agents workflows exist as noted._ :contentReference[oaicite:8]{index=8}
 
 ---
 
-7) Branch protection guardrails
+3) Branch protection guardrails
 
 **Title:** Enforce Gate as required on the default branch; verify with Health‑44
 
@@ -169,9 +60,9 @@ _Refs: agents workflows exist as noted._ :contentReference[oaicite:8]{index=8}
 A single required check prevents PR confusion. The default branch currently appears as `phase-2-dev`; verify and enforce. :contentReference[oaicite:9]{index=9}
 
 **Plan**
-1. Confirm default branch and set branch protection to **require Gate**.
-2. Ensure `health-44-gate-branch-protection.yml` verifies and, if PAT is present, can enforce the setting.
-3. Document the procedure in **[Workflow System Overview](docs/ci/WORKFLOW_SYSTEM.md)**.
+A. Confirm default branch and set branch protection to **require Gate**.
+B. Ensure `health-44-gate-branch-protection.yml` verifies and, if PAT is present, can enforce the setting.
+C. Document the procedure in **[Workflow System Overview](docs/ci/WORKFLOW_SYSTEM.md)**.
 
 **Acceptance criteria**
 - Health‑44 reports branch protection “OK.”
@@ -181,7 +72,7 @@ _Refs: health job exists._ :contentReference[oaicite:10]{index=10}
 
 ---
 
-8) Docs: publish the overview and align the rest
+4) Docs: publish the overview and align the rest
 
 **Title:** Publish `docs/ci/WORKFLOW_SYSTEM.md`; align `docs/WORKFLOW_GUIDE.md`, `docs/ci/WORKFLOWS.md`, remove `WORKFLOW_AUDIT_TEMP.md`
 
@@ -205,7 +96,7 @@ _Refs: related docs exist in repo._ :contentReference[oaicite:11]{index=11}
 
 ---
 
-9) Types: align mypy execution with pinned Python version
+5) Types: align mypy execution with pinned Python version
 
 **Title:** Scope mypy to the pinned Python version; condition in reusable CI
 
@@ -216,9 +107,9 @@ _Refs: related docs exist in repo._ :contentReference[oaicite:11]{index=11}
 Stdlib typing stubs can drift across minor versions. If the mypy config pins a version, run mypy in that leg only. The rest of the matrix still runs tests and lint.
 
 **Plan**
-1. In `reusable-10-ci-python.yml`, wrap mypy under a condition like:
+A. In `reusable-10-ci-python.yml`, wrap mypy under a condition like:
    - `if: matrix.python-version == '3.11'` (or whatever your `pyproject.toml` pins).
-2. Document rationale and the pinned version in **[Workflow System Overview](docs/ci/WORKFLOW_SYSTEM.md)**.
+B. Document rationale and the pinned version in **[Workflow System Overview](docs/ci/WORKFLOW_SYSTEM.md)**.
 
 **Acceptance criteria**
 - Mypy executes only on the pinned version leg; other legs still run ruff and pytest.
@@ -226,14 +117,3 @@ Stdlib typing stubs can drift across minor versions. If the mypy config pins a v
 
 _Refs: `reusable-10-ci-python.yml` exists; `pyproject.toml` exists to pin config._ :contentReference[oaicite:12]{index=12}
 
----
-
-# Notes you don’t need to paste into Issues
-
-- Labels used above exist in your repo; I avoided inventing new ones so we don’t spend a morning bikeshedding color hex codes. :contentReference[oaicite:13]{index=13}  
-- The overview doc points to the exact workflows you already have, so the “where is that file” scavenger hunt ends here. :contentReference[oaicite:14]{index=14}
-
-If you want these filed automatically by an agent, use the `agents-63` issue bridge with a minimal template that sets `agents` and `agent:codex` labels. Or post them manually like a hero. Your call.
-
-Now, mercifully, go delete the compatibility wrappers before they multiply again.
-::contentReference[oaicite:15]{index=15}
