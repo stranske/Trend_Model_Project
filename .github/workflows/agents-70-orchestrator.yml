@@ -13,10 +13,6 @@ on:
         description: 'Agents to probe (copilot,codex)'
         required: false
         default: 'copilot,codex'
-      require_all:
-        description: 'Fail readiness if any requested agent missing (true/false)'
-        required: false
-        default: 'false'
       enable_preflight:
         description: 'Run Codex preflight diagnostics (true/false)'
         required: false
@@ -92,7 +88,7 @@ jobs:
           OPTIONS_JSON_SANITISED: ${{ toJson(fromJson(inputs.options_json || '{}')) }}
           BASE_ENABLE_READINESS: ${{ inputs.enable_readiness || 'false' }}
           BASE_READINESS_AGENTS: ${{ inputs.readiness_agents || 'copilot,codex' }}
-          BASE_REQUIRE_ALL: ${{ inputs.require_all || 'false' }}
+          BASE_REQUIRE_ALL: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.require_all || inputs.require_all || 'false' }}
           BASE_ENABLE_PREFLIGHT: ${{ inputs.enable_preflight || 'false' }}
           BASE_CODEX_USER: ${{ inputs.codex_user || '' }}
           BASE_ENABLE_VERIFY_ISSUE: ${{ inputs.enable_verify_issue || 'false' }}
@@ -223,7 +219,7 @@ jobs:
               enable_diagnostic: diagnosticMode === 'off' ? 'false' : 'true',
               diagnostic_attempt_branch: diagnosticMode === 'full' ? 'true' : 'false',
               diagnostic_dry_run: diagnosticMode === 'full' ? 'false' : 'true',
-              enable_verify_issue: enableVerifyIssueValue,
+              'enable_verify_issue': enableVerifyIssueValue,
               verify_issue_number: verifyIssueNumber,
               verify_issue_valid_assignees: verifyIssueValidAssignees,
               enable_watchdog: asBoolString(parsed.enable_watchdog, defaults.enable_watchdog),

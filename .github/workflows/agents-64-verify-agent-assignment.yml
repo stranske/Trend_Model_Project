@@ -117,8 +117,15 @@ jobs:
               return;
             }
 
-            const rawLogins = (process.env.VALID_ASSIGNEES || '').split(',').map((entry) => entry.trim()).filter(Boolean);
-            const REQUIRED_LOGINS = (rawLogins.length ? rawLogins : ['copilot', 'chatgpt-codex-connector', 'stranske-automation-bot'])
+            const parseAssignees = (value) =>
+              (value || '')
+                .split(',')
+                .map((entry) => entry.trim())
+                .filter(Boolean);
+
+            const providedLogins = parseAssignees(process.env.VALID_ASSIGNEES);
+            const defaultLogins = parseAssignees(core.getInput('valid_assignees', { required: false }));
+            const REQUIRED_LOGINS = (providedLogins.length ? providedLogins : defaultLogins)
               .map((login) => login.toLowerCase());
             let issueTitle = '—';
             let hasLabel = false;
