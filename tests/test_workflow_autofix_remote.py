@@ -73,3 +73,22 @@ def test_consolidated_comment_includes_patch_instructions() -> None:
     script = prepare_step.get("run", "")
     assert "git am < autofix.patch" in script
     assert "Patch artifact:" in script
+
+
+def test_pr02_autofix_is_label_gated_and_cancels_duplicates() -> None:
+    data = _load_workflow("pr-02-autofix.yml")
+    concurrency = data.get("concurrency", {})
+
+    assert (
+        concurrency.get("group")
+        == "pr-autofix-${{ github.event.pull_request.number || github.run_id }}"
+    )
+    assert concurrency.get("cancel-in-progress") is True
+
+    job = data["jobs"]["apply"]
+    condition = job.get("if", "")
+
+    assert "github.event.pull_request" in condition
+    assert "contains(" in condition
+    assert "vars.AUTOFIX_OPT_IN_LABEL" in condition
+    assert "github.event.action == 'labeled'" in condition
