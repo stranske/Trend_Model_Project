@@ -18,8 +18,8 @@
 
 # Initial Task Checklist
 
-- [ ] Audit the existing workflow to confirm current triggers, permissions, and branch protection logic.
-- [ ] Update the permissions block to remove `administration` and add any required supported scopes (e.g., `actions: read`).
-- [ ] Ensure the branch-protection step consumes `SERVICE_BOT_PAT` when available (via `github-token` or environment) while degrading gracefully when the secret is absent.
-- [ ] Implement or refine the summary-writing step to output a Markdown table to `$GITHUB_STEP_SUMMARY`, including skipped privileged-check messaging.
-- [ ] Manually trigger the workflow (or plan for maintainers to do so) and capture run metadata/link for validation.
+- [x] Audit the existing workflow to confirm current triggers, permissions, and branch protection logic.
+- [x] Update the permissions block to remove `administration` and add any required supported scopes (e.g., `actions: read`).
+- [x] Ensure the branch-protection step consumes `SERVICE_BOT_PAT` when available (via `github-token` or environment) while degrading gracefully when the secret is absent.
+- [x] Implement or refine the summary-writing step to output a Markdown table to `$GITHUB_STEP_SUMMARY`, including skipped privileged-check messaging.
+- [ ] Manually trigger the workflow (or plan for maintainers to do so) and capture run metadata/link for validation. _(Pending maintainer-run; workflow dispatch is available but cannot be triggered from this environment.)_
