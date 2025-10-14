@@ -13,13 +13,15 @@ status check. Each audit run should populate the following artifacts:
   request showing Gate blocking merge while failing/pending and allowing merge once the
   run succeeds. Follow the [validation runbook](../../runbooks/gate-branch-protection-validation.md)
   for the capture sequence.
+- `acceptance-review.md` – Quick reference linking each acceptance criterion to the
+  supporting artifacts in this directory.
 
 ## Current Status (2025-10-13)
 
 - ✅ `pre-enforcement.json` documents the existing protection rule on
-  `phase-2-dev`, showing the branch is protected and requires the **Gate / gate**
-  context for non-admin merges. No remediation was necessary, so the same rule
-  also serves as the `post-enforcement.json` snapshot.
+  `phase-2-dev`, showing the branch is protected, `"strict": true`, and requires the
+  **Gate / gate** context for non-admin merges. No remediation was necessary, so the
+  same rule also serves as the `post-enforcement.json` snapshot.
 - ✅ `validation-pr-status.json` and [`validation-pr.md`](./validation-pr.md)
   capture pull request #2545 (this Codex engagement) reporting the required Gate
   status against commit `585cb69`, demonstrating that newly opened PRs surface the

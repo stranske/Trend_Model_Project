@@ -5,6 +5,7 @@
   "source": "https://api.github.com/repos/stranske/Trend_Model_Project/branches/phase-2-dev",
   "required_status_checks": {
     "enforcement_level": "non_admins",
+    "strict": true,
     "contexts": [
       "Gate / gate"
     ],
