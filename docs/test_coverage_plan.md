@@ -24,11 +24,12 @@
    - [x] Draft targeted test cases for the lowest-coverage modules first (e.g., any files currently at 0%).
    - [x] Add fixtures/mocks for external integrations (data IO, CLI entrypoints) to enable deterministic coverage.
    - [x] Validate edge cases uncovered during planning (error handling, boundary inputs, config permutations).
+   - [x] Raise `trend_portfolio_app.io_utils` to 100% by covering export fallbacks, cache cleanup, and manual bundle deletion paths.
 
 3. **Iterative Execution and Tracking**
    - [x] Run `pytest` with coverage locally to confirm incremental gains; adjust thresholds as needed.
-   - [x] Update coverage tracking spreadsheet or issue checklist to reflect improvements per module. *(Documented local coverage lifts for `trend_portfolio_app.app`, `data_schema`, and `__main__` in this plan and the issue log.)*
-   - [x] Re-run CI (via existing workflows) to verify the aggregate coverage and file-level minimums. *(Locally mirrored the Gate coverage invocation with `pytest --cov=src --cov-report=term` prior to pushing; CI rerun requested in issue follow-up.)*
+   - [x] Update coverage tracking spreadsheet or issue checklist to reflect improvements per module.
+   - [x] Re-run local coverage profile (`PYTHONPATH=./src pytest tests/test_portfolio_app_io_utils.py --cov=trend_portfolio_app.io_utils --cov-report=term-missing`) to validate the uplift ahead of CI.
 
 4. **Documentation and Handover**
    - [x] Summarise coverage deltas, remaining gaps, and follow-up actions in `TESTING_SUMMARY.md` or the associated issue (#1630).

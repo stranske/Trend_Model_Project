@@ -110,3 +110,16 @@ Verification Steps:
 1. Intentionally introduce a transient failure (e.g., random assert) on a throwaway branch.
 2. Observe first failure followed by automatic rerun success in the CI logs.
 3. Remove the transient failure and re-run to confirm clean pass without reruns.
+
+## Trend Portfolio App Export Bundle Coverage (Issue #1630)
+
+### ✅ Automated Tests Added
+- `tests/test_portfolio_app_io_utils.py` exercises `export_bundle` success paths, fallback behaviours when portfolio or event log exports fail, and the zipped artefact cleanup mechanics.
+- Additional cases validate `_cleanup_temp_files` resilience to OS-level errors and `cleanup_bundle_file` handling of both missing files and registry mismatches.
+
+### ✅ Coverage Confirmation
+- `PYTHONPATH=./src pytest tests/test_portfolio_app_io_utils.py --cov=trend_portfolio_app.io_utils --cov-report=term-missing`
+
+### 📌 Notes for Future Contributors
+- `_TEMP_FILES_TO_CLEANUP` is patched per-test; reuse the `_reset_temp_registry` fixture when extending bundle coverage.
+- When simulating failure scenarios prefer patching `tempfile.mkstemp` and `zipfile.ZipFile` to avoid writing large temporary artefacts during CI.
