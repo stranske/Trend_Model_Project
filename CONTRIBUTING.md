@@ -38,10 +38,9 @@ post-processing workflow:
   [`reusable-16-agents.yml`](.github/workflows/reusable-16-agents.yml) directly
   to run readiness checks, watchdogs, and Codex bootstrapping. Applying the
   `agent:codex` label flags an issue for bootstrap handling in the next
-  run; remove the label to opt out before the dispatcher cycles. A manual-only
-  legacy surface, [`agents-62-consumer.yml`](.github/workflows/agents-62-consumer.yml),
-  remains available when the JSON `params_json` interface is required and now
-  forwards inputs to the same reusable workflow.
+  run; remove the label to opt out before the dispatcher cycles. Legacy
+  consumer wrappers have been retired—update any downstream automation to call
+  the orchestrator directly.
 
 ### Manual workflow_dispatch quickstart
 

@@ -15,13 +15,13 @@
    - `maint-46-post-ci.yml` orchestrates the tracker update sequence and produces exactly one updated issue entry and one persistent PR comment.
    - No additional bot comments appear on the PR from other workflows.
 3. Successful application (and removal on recovery) of the `ci-failure` label via the consolidated workflow.
-4. Legacy failure-tracker workflow (if retained temporarily) delegates cleanly or is safely disabled without breaking detection.
+4. Legacy failure-tracker workflow is removed once delegation stability is confirmed, leaving Maint 46 Post CI as the sole listener.
 5. Telemetry/artifacts confirm the workflow path taken (Gate → Maint Post-CI → tracker update) for auditability.
 6. Documentation/config references updated to reflect the new event source and workflow responsibilities.
 7. Consolidated workflow publishes the same `ci-failures-snapshot` artifact for failure and success reconciliation paths.
 
 ## Initial Task Checklist
-- [x] Audit current `.github/workflows/maint-47-check-failure-tracker.yml` (or successor) to catalog tracker update logic, shared environment variables, and comment/issue handling.
+- [x] Audit the historical `.github/workflows/maint-47-check-failure-tracker.yml` shell to catalog tracker update logic, shared environment variables, and comment/issue handling prior to removal.
 - [x] Update the failure-tracker workflow trigger to `on: workflow_run` for `workflows: ["Gate"]` with `types: [completed]`; ensure proper filtering for branch/PR scope.
 - [x] Refactor tracker update steps into `maint-46-post-ci.yml`, preserving inputs, secrets, and retry/backoff behavior; leave a thin shell in the original workflow if needed for compatibility.
 - [x] Wire `maint-46-post-ci.yml` to invoke the tracker update job conditionally based on Gate outcomes (failed, cancelled, neutral).
@@ -33,7 +33,7 @@
 
 ## Implementation Summary
 - Failure tracker issue/label management now lives in the new `failure-tracker` job within `maint-46-post-ci.yml`, preserving the signature hashing, cooldown, and escalation semantics from the legacy workflow.
-- `maint-47-check-failure-tracker.yml` remains as a lightweight shell that documents the delegation and keeps legacy triggers satisfied without posting duplicate comments.
+- `maint-47-check-failure-tracker.yml` was retired after delegation proved stable; Maint 46 Post CI now stands alone.
 - Artifact handling is unified so both failure and success paths emit a single `ci-failures-snapshot` payload sourced from the consolidated workflow run.
 - Historical duplicate PRs (#10 and #12) are explicitly marked for failure-tracker skip so Gate replays against them do not emit new issues or labels.
 - Tests and docs were updated to reflect the delegated architecture and to ensure future changes keep the Gate-only trigger contract intact.
