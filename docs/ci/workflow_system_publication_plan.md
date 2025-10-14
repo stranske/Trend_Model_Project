@@ -15,8 +15,8 @@
 - All modified docs render without lint errors (Markdown lint, link check) under the repository’s standard documentation tooling.
 
 ## Initial Task Checklist
-- [x] Import the canonical `WORKFLOW_SYSTEM.md` content from the tracking issue and verify terminology against current workflow files (`.github/workflows/`).
-- [x] Insert/adjust links in `README.md` and `docs/WORKFLOW_GUIDE.md`, maintaining table of contents or navigation consistency.
-- [x] Edit `docs/ci/WORKFLOWS.md` to align active vs. archived workflow listings and include a pointer to the new overview.
-- [x] Audit `WORKFLOW_AUDIT_TEMP.md` for any remaining unique information and migrate or confirm redundancy before removal.
-- [x] Run documentation formatting/lint checks (e.g., `make docs-lint` or equivalent) to ensure all updated files meet style requirements. *(Verified with `pytest tests/test_workflow_naming.py` to confirm documentation coverage guard passes.)*
+- [x] Import the canonical `WORKFLOW_SYSTEM.md` content from the tracking issue and verify terminology against current workflow files (`.github/workflows/`). *(See `docs/ci/WORKFLOW_SYSTEM.md` for the finalized overview.)*
+- [x] Insert/adjust links in `README.md` and `docs/WORKFLOW_GUIDE.md`, maintaining table of contents or navigation consistency. *(Top-level navigation now points to the overview from both documents.)*
+- [x] Edit `docs/ci/WORKFLOWS.md` to align active vs. archived workflow listings and include a pointer to the new overview. *(Live catalog now references the overview and segregates archived entries.)*
+- [x] Audit `WORKFLOW_AUDIT_TEMP.md` for any remaining unique information and migrate or confirm redundancy before removal. *(Temporary audit file removed after confirming coverage within the new docs.)*
+- [x] Run documentation formatting/lint checks (e.g., `make docs-lint` or equivalent) to ensure all updated files meet style requirements. *(Verified with `pytest tests/test_workflow_naming.py` to confirm documentation coverage guard passes on the updated roster.)*
