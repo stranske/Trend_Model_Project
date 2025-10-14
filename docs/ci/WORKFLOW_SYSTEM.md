@@ -39,7 +39,7 @@
 - **Required check**: Gate is the only required PR check. It must always produce a status, including docs‑only PRs (fast no‑op).
 - **Doc‑only rule**: Doc‑only detection lives inside Gate. No separate docs‑only workflow.
 - **Autofix**: Centralized under `maint-46-post-ci.yml`. For forks, upload patch artifacts and post links instead of pushing. Any pre‑CI autofix (`pr-02-autofix.yml`) must be label-gated and cancel duplicate runs in flight.
-- **Branch protection**: Default branch must require Gate. Health job enforces and/or verifies.
+- **Branch protection**: Default branch must require Gate. Health job first resolves the repository's current default branch via the REST API, then enforces and/or verifies that **Gate / gate** is the sole required status check. Provide a `BRANCH_PROTECTION_TOKEN` secret with admin scope when you want the job to apply the setting automatically; otherwise it will fail fast when the check is missing.
 - **Types**: Run mypy where the config is pinned. If types are pinned to a specific version, run mypy in that leg only (to avoid stdlib stub drift across Python versions).
 - **Labels used by automation**:  
   `workflows`, `ci`, `devops`, `docs`, `refactor`, `enhancement`, `autofix`, `priority: high|medium|low`, `risk:low`, `status: ready|in-progress`, `agents`, `agent:codex`.
@@ -53,3 +53,18 @@
 - Gate runs and passes on a docs‑only PR and is visible as the required check.
 - Health‑44 confirms branch protection requires Gate on the default branch.
 - Maint‑46 posts a single consolidated summary; autofix artifacts or commits are attached where allowed.
+
+## Branch protection playbook
+
+1. **Confirm the default branch.**
+   - Health‑44 now emits a `Determine default branch` step that resolves the branch name through `repos.get`. No manual input is required for scheduled runs.
+   - For ad-hoc verification, run `gh api repos/<owner>/<repo> --jq .default_branch` or browse the repository settings to confirm the value (currently `phase-2-dev`).
+2. **Verify enforcement credentials.**
+   - Create a fine-grained personal access token with `Administration: Read and write` on the repository.
+   - Store it as the `BRANCH_PROTECTION_TOKEN` Actions secret. When present, Health‑44 applies the branch protection before verifying. Without it the workflow performs a read-only check and fails if Gate is not yet required.
+3. **Run the enforcement script locally when needed.**
+   - `python tools/enforce_gate_branch_protection.py --repo <owner>/<repo> --branch <default-branch> --check` reports the current status.
+   - Add `--apply` to enforce the rule locally (requires admin token in `GITHUB_TOKEN`/`GH_TOKEN`). Use `--snapshot path.json` to capture before/after state for change control.
+4. **Audit the result.**
+   - Health‑44 uploads JSON snapshots (`enforcement.json`, `verification.json`) that mirror the script output.
+   - In GitHub settings, confirm that **Gate** is listed under required status checks and that “Require branches to be up to date before merging” is enabled.
