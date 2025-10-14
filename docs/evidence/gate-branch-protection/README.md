@@ -1,38 +1,28 @@
-# Gate Branch Protection Evidence Checklist
+# Gate Branch Protection Evidence Bundle
 
-Use this directory to capture proof that the default branch enforces the **Gate / gate**
-status check. Each audit run should populate the following artifacts:
+Use this directory to store JSON snapshots, screenshots, and supporting notes that
+prove the Gate status check is enforced as a required context on the default branch.
+All artifacts should map directly to the validation runbook so auditors can replay
+the configuration history.
 
-- `pre-enforcement.json` – Snapshot of the default branch protection rule before any
-  remedial action.
-- `enforcement.json` – Snapshot written by `tools/enforce_gate_branch_protection.py`
-  when the helper needs to apply changes. Omit this file when no update is necessary.
-- `post-enforcement.json` – Verification snapshot taken after confirming the Gate
-  workflow succeeds under the required rule.
-- `validation-pr.md` (or screenshot files) – Evidence from the draft validation pull
-  request showing Gate blocking merge while failing/pending and allowing merge once the
-  run succeeds. Follow the [validation runbook](../../runbooks/gate-branch-protection-validation.md)
-  for the capture sequence.
-- `acceptance-review.md` – Quick reference linking each acceptance criterion to the
-  supporting artifacts in this directory.
+## Required Artifacts
+- `pre-enforcement.json` – output from `tools/enforce_gate_branch_protection.py --snapshot`
+  (or `gh api`) showing the state before enforcement.
+- `enforcement.json` – snapshot captured immediately after running the helper with
+  `--apply`, if changes were necessary.
+- `verification.json` – snapshot from the post-enforcement `--check` run (this is
+  also emitted by the scheduled `health-44` workflow).
+- `validation-pr.md` – short log linking to the draft PR that demonstrated Gate
+  blocking merges while failing and unblocking once green. Include timestamps and
+  direct URLs to the workflow runs.
+- `screenshots/` – optional folder containing images of the GitHub UI while the
+  Gate check was red (merge blocked) and green (merge permitted).
 
-## Current Status (2025-10-13)
-
-- ✅ `pre-enforcement.json` documents the existing protection rule on
-  `phase-2-dev`, showing the branch is protected, `"strict": true`, and requires the
-  **Gate / gate** context for non-admin merges. No remediation was necessary, so the
-  same rule also serves as the `post-enforcement.json` snapshot.
-- ✅ `validation-pr-status.json` and [`validation-pr.md`](./validation-pr.md)
-  capture pull request #2545 (this Codex engagement) reporting the required Gate
-  status against commit `585cb69`, demonstrating that newly opened PRs surface the
-  required check.
-- ✅ [`health-run-18473448710.md`](./health-run-18473448710.md) summarizes the
-  scheduled `health-44-gate-branch-protection` run that verified the rule on
-  2025-10-13.
-- ⚠️ `enforcement.json` intentionally omitted because no drift was detected during
-  the audit.
-
-Update this file as artifacts are added so auditors can quickly determine whether the
-acceptance criteria for issue #2527 have been satisfied. When new validation runs are
-performed, replace the snapshots and refresh the narrative above with the latest
-commit and pull request references.
+## Maintenance Tips
+- Keep only the latest confirmed evidence; archive older bundles under a dated
+  subdirectory if historical records must be preserved.
+- Redact or omit any sensitive information (access tokens, branch names for
+  private work) before committing evidence files.
+- After updating this bundle, cross-reference the records in
+  `docs/runbooks/gate-branch-protection-validation.md` to ensure the runbook reflects
+  the latest validation steps.

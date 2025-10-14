@@ -7,6 +7,10 @@ updated or during periodic audits. The scheduled automation at
 is not required, so the focus here is on collecting evidence for audits rather than manual
 spot-checking the protection rule.
 
+All evidence gathered throughout the procedure should be stored under
+`docs/evidence/gate-branch-protection/` so auditors have a single location to review snapshots,
+validation notes, and UI captures.
+
 ## Prerequisites
 - Repository administrator access (or a fine-grained personal access token with **Administration → Branches** scope).
 - [GitHub CLI](https://cli.github.com/) `gh` tool or a shell session where the `tools/enforce_gate_branch_protection.py` helper
@@ -23,7 +27,7 @@ spot-checking the protection rule.
    - If `gh` is unavailable, run the helper in dry-run mode. Provide a
      personal access token either by exporting `GITHUB_TOKEN`/`GH_TOKEN` or
      by passing `--token` explicitly and include `--snapshot` to write the
-     evidence file (for example, under `docs/evidence/`):
+     evidence file (for example, under `docs/evidence/gate-branch-protection/`):
      ```bash
      python tools/enforce_gate_branch_protection.py \
        --repo stranske/Trend_Model_Project \
