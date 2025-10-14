@@ -15,9 +15,9 @@
 5. CI passes (workflow syntax validation via `act` dry-run or GitHub Actions) on the updated workflows.
 
 ## Initial Task Checklist
-- [ ] Audit `maint-46-post-ci.yml` to confirm existing loop guards and identify fork-handling sections that need patch artifact uploads or messaging adjustments.
-- [ ] Implement or verify patch artifact creation for fork-based runs and update the consolidated PR comment to link those artifacts.
-- [ ] Modify `pr-02-autofix.yml` to add the `autofix` label gate and configure `concurrency: { group: pr-autofix-${{ github.event.pull_request.number }}, cancel-in-progress: true }`.
-- [ ] Run linting or workflow validation (e.g., `act -n`) to ensure both workflows remain syntactically correct.
-- [ ] Update `docs/ci/WORKFLOW_SYSTEM.md` with the new autofix policy and fork patch expectations.
-- [ ] Capture before/after notes or screenshots of workflow summaries if needed for verification.
+- [x] Audit `maint-46-post-ci.yml` to confirm existing loop guards and identify fork-handling sections that need patch artifact uploads or messaging adjustments.
+- [x] Implement or verify patch artifact creation for fork-based runs and update the consolidated PR comment to link those artifacts.
+- [x] Modify `pr-02-autofix.yml` to add the `autofix` label gate and configure `concurrency: { group: pr-autofix-${{ github.event.pull_request.number }}, cancel-in-progress: true }`.
+- [x] Run linting or workflow validation (e.g., `act -n`) to ensure both workflows remain syntactically correct.
+- [x] Update `docs/ci/WORKFLOW_SYSTEM.md` with the new autofix policy and fork patch expectations.
+- [x] Capture before/after notes or screenshots of workflow summaries if needed for verification.
