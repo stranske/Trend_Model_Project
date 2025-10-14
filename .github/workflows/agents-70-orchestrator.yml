@@ -13,10 +13,6 @@ on:
         description: 'Agents to probe (copilot,codex)'
         required: false
         default: 'copilot,codex'
-      require_all:
-        description: 'Fail readiness if any requested agent missing (true/false)'
-        required: false
-        default: 'false'
       enable_preflight:
         description: 'Run Codex preflight diagnostics (true/false)'
         required: false
@@ -92,7 +88,6 @@ jobs:
           OPTIONS_JSON_SANITISED: ${{ toJson(fromJson(inputs.options_json || '{}')) }}
           BASE_ENABLE_READINESS: ${{ inputs.enable_readiness || 'false' }}
           BASE_READINESS_AGENTS: ${{ inputs.readiness_agents || 'copilot,codex' }}
-          BASE_REQUIRE_ALL: ${{ inputs.require_all || 'false' }}
           BASE_ENABLE_PREFLIGHT: ${{ inputs.enable_preflight || 'false' }}
           BASE_CODEX_USER: ${{ inputs.codex_user || '' }}
           BASE_ENABLE_VERIFY_ISSUE: ${{ inputs.enable_verify_issue || 'false' }}
@@ -106,13 +101,13 @@ jobs:
               enable_readiness: process.env.BASE_ENABLE_READINESS || 'false',
               readiness_agents: process.env.BASE_READINESS_AGENTS || 'copilot,codex',
               readiness_custom_logins: '',
-              require_all: process.env.BASE_REQUIRE_ALL || 'false',
+              require_all: 'false',
               enable_preflight: process.env.BASE_ENABLE_PREFLIGHT || 'false',
               codex_user: process.env.BASE_CODEX_USER || '',
               codex_command_phrase: '',
               enable_verify_issue: process.env.BASE_ENABLE_VERIFY_ISSUE || 'false',
               verify_issue_number: process.env.BASE_VERIFY_ISSUE_NUMBER || '',
-              verify_issue_valid_assignees: process.env.BASE_VERIFY_VALID_ASSIGNEES || 'copilot,chatgpt-codex-connector,stranske-automation-bot',
+              verify_issue_valid_assignees: 'copilot,chatgpt-codex-connector,stranske-automation-bot',
               enable_watchdog: process.env.BASE_ENABLE_WATCHDOG || 'true',
               enable_keepalive: 'true',
               enable_bootstrap: 'false',
@@ -213,25 +208,25 @@ jobs:
             );
 
             const outputs = {
-              enable_readiness: asBoolString(parsed.enable_readiness, defaults.enable_readiness),
-              readiness_agents: readinessAgents || defaults.readiness_agents,
-              readiness_custom_logins: readinessCustom,
-              require_all: asBoolString(parsed.require_all, defaults.require_all),
-              enable_preflight: asBoolString(parsed.enable_preflight, defaults.enable_preflight),
-              codex_user: codexUser,
-              codex_command_phrase: codexCommand,
-              enable_diagnostic: diagnosticMode === 'off' ? 'false' : 'true',
-              diagnostic_attempt_branch: diagnosticMode === 'full' ? 'true' : 'false',
-              diagnostic_dry_run: diagnosticMode === 'full' ? 'false' : 'true',
-              enable_verify_issue: enableVerifyIssueValue,
-              verify_issue_number: verifyIssueNumber,
-              verify_issue_valid_assignees: verifyIssueValidAssignees,
-              enable_watchdog: asBoolString(parsed.enable_watchdog, defaults.enable_watchdog),
-              enable_keepalive: enableKeepalive,
-              enable_bootstrap: enableBootstrap,
-              bootstrap_issues_label: bootstrapLabel,
-              draft_pr: asBoolString(parsed.draft_pr, defaults.draft_pr),
-              options_json: optionsJson,
+              'enable_readiness': asBoolString(parsed.enable_readiness, defaults.enable_readiness),
+              'readiness_agents': readinessAgents || defaults.readiness_agents,
+              'readiness_custom_logins': readinessCustom,
+              'require_all': asBoolString(parsed.require_all, defaults.require_all),
+              'enable_preflight': asBoolString(parsed.enable_preflight, defaults.enable_preflight),
+              'codex_user': codexUser,
+              'codex_command_phrase': codexCommand,
+              'enable_diagnostic': diagnosticMode === 'off' ? 'false' : 'true',
+              'diagnostic_attempt_branch': diagnosticMode === 'full' ? 'true' : 'false',
+              'diagnostic_dry_run': diagnosticMode === 'full' ? 'false' : 'true',
+              'enable_verify_issue': enableVerifyIssueValue,
+              'verify_issue_number': verifyIssueNumber,
+              'verify_issue_valid_assignees': verifyIssueValidAssignees,
+              'enable_watchdog': asBoolString(parsed.enable_watchdog, defaults.enable_watchdog),
+              'enable_keepalive': enableKeepalive,
+              'enable_bootstrap': enableBootstrap,
+              'bootstrap_issues_label': bootstrapLabel,
+              'draft_pr': asBoolString(parsed.draft_pr, defaults.draft_pr),
+              'options_json': optionsJson,
             };
 
             for (const [key, value] of Object.entries(outputs)) {

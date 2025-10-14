@@ -31,10 +31,11 @@ Manual dispatch / 20-minute schedule ──▶ agents-70-orchestrator.yml
 ### `agents-70-orchestrator.yml`
 
 - **Triggers:** `schedule` (every 20 minutes) and manual `workflow_dispatch` with curated inputs.
-- **Inputs:** `enable_readiness`, `readiness_agents`, `require_all`, `enable_preflight`, `codex_user`,
-  `enable_verify_issue`, `verify_issue_number`, `enable_watchdog`, `draft_pr`, plus an extensible `params_json` string for long
-  tail toggles (currently `diagnostic_mode`, `readiness_custom_logins`, `codex_command_phrase`, `enable_keepalive`,
-  `keepalive_idle_minutes`, `keepalive_repeat_minutes`, `keepalive_labels`, `keepalive_command`).
+- **Inputs:** `enable_readiness`, `readiness_agents`, `enable_preflight`, `codex_user`,
+  `enable_verify_issue`, `verify_issue_number`, `verify_issue_valid_assignees`, `enable_watchdog`, `draft_pr`, plus an extensible
+  `params_json` string for long tail toggles (currently `diagnostic_mode`, `readiness_custom_logins`, `codex_command_phrase`,
+  `require_all`, `enable_keepalive`, `keepalive_idle_minutes`, `keepalive_repeat_minutes`, `keepalive_labels`,
+  `keepalive_command`).
 - **Behaviour:** delegates directly to `reusable-16-agents.yml`, which orchestrates readiness probes, Codex bootstrap, issue
   verification, and watchdog sweeps. The JSON options map is parsed via `fromJson()` so new flags can be layered without
   exploding the dispatch form beyond GitHub's 10-input limit.
@@ -58,9 +59,9 @@ Manual dispatch / 20-minute schedule ──▶ agents-70-orchestrator.yml
 
 `agents-64-verify-agent-assignment.yml` exposes the issue verification logic as a standalone reusable workflow with a parallel
 `workflow_dispatch` entry point. Supply an `issue_number` and the workflow fetches the issue, ensures the `agent:codex`
-label is present, validates that either `copilot` or `chatgpt-codex-connector` is assigned, and publishes a step summary
-table documenting the outcome. `reusable-16-agents.yml` now delegates its issue verification job to this workflow so the
-same checks are available for ad-hoc dispatches from the Actions tab.
+label is present, validates that one of the configured valid assignees is assigned, and publishes a step summary table
+documenting the outcome. `reusable-16-agents.yml` now delegates its issue verification job to this workflow so the same checks
+are available for ad-hoc dispatches from the Actions tab.
 
 ## Related Automation
 
