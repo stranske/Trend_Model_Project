@@ -434,9 +434,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     to_add, to_remove = diff_contexts(current_state.contexts, target_contexts)
     strict_is_unknown = current_state.strict is None
-    strict_change = (current_state.strict is not None) and (
-        current_state.strict is not True
-    )
+    strict_change = current_state.strict is False
 
     if snapshot is not None:
         snapshot["desired"] = {"strict": True, "contexts": list(target_contexts)}
