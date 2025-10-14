@@ -201,6 +201,8 @@ jobs:
           DEFAULT_BRANCH: ${{ steps.collect.outputs.default_branch }}
           PRIVILEGED_SKIPPED: ${{ steps.collect.outputs.privileged_checks_skipped }}
           PRIVILEGED_USED: ${{ steps.collect.outputs.privileged_checks_used }}
+          BRANCH_STATUS: ${{ steps.collect.outputs.branch_protection_status }}
+          BRANCH_NOTE: ${{ steps.collect.outputs.branch_protection_note }}
         run: |
           python - <<'PY'
           import json
@@ -211,6 +213,8 @@ jobs:
           default_branch = os.environ.get('DEFAULT_BRANCH') or ''
           privileged_skipped = (os.environ.get('PRIVILEGED_SKIPPED') or '').lower() == 'true'
           privileged_used = (os.environ.get('PRIVILEGED_USED') or '').lower() == 'true'
+          branch_status = (os.environ.get('BRANCH_STATUS') or '').strip()
+          branch_note = os.environ.get('BRANCH_NOTE') or ''
 
           status_labels = {
               'pass': '✅ Pass',
@@ -236,15 +240,22 @@ jobs:
               for check in checks:
                   title = check.get('title', 'Unknown')
                   status = status_labels.get(check.get('status', 'info'), check.get('status', 'info'))
-                  detail = (check.get('detail') or '').replace('\n', '<br>')
+                  detail = (check.get('detail') or '').replace('\n', '<br>').replace('|', '\\|')
                   lines.append(f'| {title} | {status} | {detail} |')
 
           if privileged_skipped:
               lines.append('')
               lines.append('> ⚠️ Privileged checks were skipped because `SERVICE_BOT_PAT` is not configured.')
-          elif privileged_used:
+          elif privileged_used and branch_status in {'enabled', 'missing'}:
               lines.append('')
               lines.append('> ✅ Privileged checks executed with the configured credentials.')
+          elif privileged_used:
+              lines.append('')
+              detail = branch_note.replace('\n', ' ').strip()
+              if detail:
+                  lines.append('> ⚠️ Privileged checks ran but reported access issues: ' + detail)
+              else:
+                  lines.append('> ⚠️ Privileged checks ran but reported access issues. Review the branch protection result above for details.')
           else:
               lines.append('')
               lines.append('> ℹ️ No privileged checks were requested in this run.')
