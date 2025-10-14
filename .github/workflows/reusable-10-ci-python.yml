@@ -188,25 +188,26 @@ jobs:
             echo "::error file=pyproject.toml::pyproject.toml is required to verify the mypy python_version pin"
             exit 1
           fi
-          pinned_version="$(python - <<'PY'
-            import sys
-            import tomllib
-            from pathlib import Path
+          pinned_version="$(
+            python - <<'PY'
+import sys
+import tomllib
+from pathlib import Path
 
-            pyproject = Path("pyproject.toml")
-            try:
-                data = tomllib.loads(pyproject.read_text())
-            except tomllib.TOMLDecodeError as exc:  # pragma: no cover - workflow guard
-                print(f"::error file=pyproject.toml::Failed to parse pyproject.toml: {exc}")
-                sys.exit(1)
+pyproject = Path("pyproject.toml")
+try:
+    data = tomllib.loads(pyproject.read_text())
+except tomllib.TOMLDecodeError as exc:  # pragma: no cover - workflow guard
+    print(f"::error file=pyproject.toml::Failed to parse pyproject.toml: {exc}")
+    sys.exit(1)
 
-            pin = data.get("tool", {}).get("mypy", {}).get("python_version")
-            if pin is None:
-                print("::error file=pyproject.toml::[tool.mypy].python_version is not configured; cannot gate mypy execution")
-                sys.exit(1)
+pin = data.get("tool", {}).get("mypy", {}).get("python_version")
+if pin is None:
+    print("::error file=pyproject.toml::[tool.mypy].python_version is not configured; cannot gate mypy execution")
+    sys.exit(1)
 
-            print(pin)
-            PY
+print(pin)
+PY
           )"
           if [ -z "${pinned_version}" ]; then
             echo "::error::Unable to determine mypy python_version pin from pyproject.toml"
