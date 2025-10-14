@@ -26,10 +26,13 @@ jobs:
 
           token = (os.environ.get('SERVICE_BOT_PAT') or '').strip()
 
+          if token:
+              print(f"::add-mask::{token}")
+
           output_path = os.environ['GITHUB_OUTPUT']
           with open(output_path, 'a', encoding='utf-8') as handle:
-            handle.write(f"token={token}\n")
-            handle.write(f"has_token={'true' if token else 'false'}\n")
+              handle.write(f"token={token}\n")
+              handle.write(f"has_token={'true' if token else 'false'}\n")
           PY
 
       - name: Collect repository signals
