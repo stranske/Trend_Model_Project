@@ -16,7 +16,7 @@
 ### Agents & Issues
 - **Single entry point**: `agents-70-orchestrator.yml`.
 - **Issue bridge**: `agents-63-codex-issue-bridge.yml` opens branches/PRs from `agent:codex` issues.
-- **Consumer note**: manual shims were removed; all automation now dispatches the orchestrator directly.
+- **Legacy consumers**: `agents-61-consumer-compat.yml` and `agents-62-consumer.yml` have been retired; update any remaining callers to dispatch the orchestrator directly.
 
 ### Reusable composites
 - Python CI: `reusable-10-ci-python.yml` (ruff + mypy + pytest).
