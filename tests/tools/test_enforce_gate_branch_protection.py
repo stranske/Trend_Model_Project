@@ -430,6 +430,31 @@ def test_main_surfaces_branch_protection_errors(
     assert "error: boom" in captured.err
 
 
+def test_main_flags_missing_require_up_to_date(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("GITHUB_TOKEN", "token")
+    monkeypatch.setattr(
+        "tools.enforce_gate_branch_protection._build_session",
+        lambda _token: object(),
+    )
+    monkeypatch.setattr(
+        "tools.enforce_gate_branch_protection.fetch_status_checks",
+        lambda *_args, **_kwargs: StatusCheckState(
+            strict=False,
+            contexts=["Gate / gate"],
+        ),
+    )
+
+    exit_code = main(
+        ["--repo", "owner/repo", "--branch", "main", "--check"]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "Would enable 'require branches to be up to date'." in captured.out
+
+
 def test_main_writes_snapshot_when_drift_detected(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
