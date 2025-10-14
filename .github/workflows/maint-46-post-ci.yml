@@ -1739,7 +1739,8 @@ jobs:
                 body = `Healing threshold: ${HEAL_THRESHOLD_DESC}\n${body}`;
               }
 
-              if (prLine && !new RegExp(`Tracked PR:\\s*#${prNumber}`, 'i').test(body)) {
+              const escapedPr = String(prNumber).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              if (prLine && !new RegExp(`Tracked PR:\\s*#${escapedPr}`, 'i').test(body)) {
                 if (/Healing threshold:/i.test(body)) {
                   body = body.replace(/Healing threshold:.*?(?:\n|$)/i, (match) => {
                     const trimmed = match.replace(/\s+$/, '');
@@ -1962,16 +1963,12 @@ jobs:
               const issue_number = item.number;
               const issue = await github.rest.issues.get({ owner, repo, issue_number });
               let body = issue.data.body || '';
-              body = body.replace(/^Resolved:.*$/gim, '').replace(/\n{3,}/g, '\n\n');
-              if (/Last seen:/i.test(body)) {
-                body = body.replace(/Last seen:.*?(?:\n|$)/i, (match) => {
-                  const trimmed = match.replace(/\s+$/, '');
-                  return `${trimmed}\nResolved: ${nowIso}\n`;
-                });
-              } else {
-                body = `Resolved: ${nowIso}\n${body}`;
-              }
-              body = body.replace(/\n{3,}/g, '\n\n').replace(/^\n+/, '').replace(/\s+$/, '');
+              body = body
+                .replace(/^Resolved:.*$/gim, '')
+                .replace(/\n{3,}/g, '\n\n')
+                .replace(/^\n+/, '')
+                .replace(/\s+$/, '');
+              body = `Resolved: ${nowIso}\n${body}`.replace(/\n{3,}/g, '\n\n').replace(/\s+$/, '');
               if (body) {
                 body = `${body}\n`;
               }
