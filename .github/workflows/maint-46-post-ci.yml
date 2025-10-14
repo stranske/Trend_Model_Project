@@ -1347,7 +1347,7 @@ jobs:
             );
             const match = artifacts.find(artifact => artifact && artifact.name === targetName);
             if (!match) {
-              core.info(`No patch artifact found for ${targetName}.`);
+              core.info(`No patch artifact found for ${targetName}. This is expected if no patch was generated for this PR/run. If a patch was expected, this may indicate an error or misconfiguration.`);
               return '';
             }
             return `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}/artifacts/${match.id}`;
