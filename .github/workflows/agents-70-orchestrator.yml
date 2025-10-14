@@ -33,6 +33,10 @@ on:
         description: 'Issue number for verification (blank to skip)'
         required: false
         default: ''
+      verify_issue_valid_assignees:
+        description: 'Comma-separated list of acceptable agent logins for verification'
+        required: false
+        default: 'copilot,chatgpt-codex-connector,stranske-automation-bot'
       enable_watchdog:
         description: 'Run watchdog sanity checks (true/false)'
         required: false
@@ -77,6 +81,7 @@ jobs:
       enable_bootstrap: ${{ steps.merge.outputs.enable_bootstrap }}
       bootstrap_issues_label: ${{ steps.merge.outputs.bootstrap_issues_label }}
       draft_pr: ${{ steps.merge.outputs.draft_pr }}
+      verify_issue_valid_assignees: ${{ steps.merge.outputs.verify_issue_valid_assignees }}
       options_json: ${{ steps.merge.outputs.options_json }}
     steps:
       - name: Merge dispatch inputs
@@ -92,6 +97,7 @@ jobs:
           BASE_CODEX_USER: ${{ inputs.codex_user || '' }}
           BASE_ENABLE_VERIFY_ISSUE: ${{ inputs.enable_verify_issue || 'false' }}
           BASE_VERIFY_ISSUE_NUMBER: ${{ inputs.verify_issue_number || '' }}
+          BASE_VERIFY_VALID_ASSIGNEES: ${{ inputs.verify_issue_valid_assignees || 'copilot,chatgpt-codex-connector,stranske-automation-bot' }}
           BASE_ENABLE_WATCHDOG: ${{ inputs.enable_watchdog || 'true' }}
           BASE_DRAFT_PR: ${{ inputs.draft_pr || 'false' }}
         with:
@@ -106,6 +112,7 @@ jobs:
               codex_command_phrase: '',
               enable_verify_issue: process.env.BASE_ENABLE_VERIFY_ISSUE || 'false',
               verify_issue_number: process.env.BASE_VERIFY_ISSUE_NUMBER || '',
+              verify_issue_valid_assignees: process.env.BASE_VERIFY_VALID_ASSIGNEES || 'copilot,chatgpt-codex-connector,stranske-automation-bot',
               enable_watchdog: process.env.BASE_ENABLE_WATCHDOG || 'true',
               enable_keepalive: 'true',
               enable_bootstrap: 'false',
@@ -187,6 +194,11 @@ jobs:
             const codexUser = asString(parsed.codex_user, defaults.codex_user);
             const codexCommand = asString(parsed.codex_command_phrase, defaults.codex_command_phrase);
             const verifyIssueNumber = asString(parsed.verify_issue_number, defaults.verify_issue_number).trim();
+            const verifyIssueValidAssigneesRaw = asString(
+              parsed.verify_issue_valid_assignees,
+              defaults.verify_issue_valid_assignees
+            ).trim();
+            const verifyIssueValidAssignees = verifyIssueValidAssigneesRaw || defaults.verify_issue_valid_assignees;
             const diagnosticModeRaw = asString(parsed.diagnostic_mode, defaults.diagnostic_mode).trim().toLowerCase();
             const diagnosticMode = ['full', 'dry-run'].includes(diagnosticModeRaw) ? diagnosticModeRaw : 'off';
 
@@ -211,8 +223,9 @@ jobs:
               enable_diagnostic: diagnosticMode === 'off' ? 'false' : 'true',
               diagnostic_attempt_branch: diagnosticMode === 'full' ? 'true' : 'false',
               diagnostic_dry_run: diagnosticMode === 'full' ? 'false' : 'true',
-              'enable_verify_issue': enableVerifyIssueValue,
+              enable_verify_issue: enableVerifyIssueValue,
               verify_issue_number: verifyIssueNumber,
+              verify_issue_valid_assignees: verifyIssueValidAssignees,
               enable_watchdog: asBoolString(parsed.enable_watchdog, defaults.enable_watchdog),
               enable_keepalive: enableKeepalive,
               enable_bootstrap: enableBootstrap,
@@ -256,4 +269,5 @@ jobs:
       enable_bootstrap: ${{ needs.resolve-params.outputs.enable_bootstrap }}
       bootstrap_issues_label: ${{ needs.resolve-params.outputs.bootstrap_issues_label }}
       draft_pr: ${{ needs.resolve-params.outputs.draft_pr }}
+      verify_issue_valid_assignees: ${{ needs.resolve-params.outputs.verify_issue_valid_assignees }}
       options_json: ${{ needs.resolve-params.outputs.options_json }}

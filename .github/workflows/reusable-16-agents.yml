@@ -63,6 +63,11 @@ on:
         required: false
         default: ''
         type: string
+      verify_issue_valid_assignees:
+        description: 'Comma-separated list of acceptable agent logins for verification'
+        required: false
+        default: 'copilot,chatgpt-codex-connector,stranske-automation-bot'
+        type: string
       enable_watchdog:
         description: 'Run watchdog checks (true/false)'
         required: false
@@ -267,6 +272,7 @@ jobs:
     secrets: inherit
     with:
       issue_number: ${{ inputs.verify_issue_number }}
+      valid_assignees: ${{ inputs.verify_issue_valid_assignees }}
 
   verify_issue_summary:
     name: Publish Verify Issue Summary
