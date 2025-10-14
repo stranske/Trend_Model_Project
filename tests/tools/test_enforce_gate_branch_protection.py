@@ -446,9 +446,7 @@ def test_main_flags_missing_require_up_to_date(
         ),
     )
 
-    exit_code = main(
-        ["--repo", "owner/repo", "--branch", "main", "--check"]
-    )
+    exit_code = main(["--repo", "owner/repo", "--branch", "main", "--check"])
 
     captured = capsys.readouterr()
     assert exit_code == 1
