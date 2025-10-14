@@ -14,12 +14,18 @@
 - `Agents.md` (or successor documentation) is updated to reflect the final status and to reaffirm the Orchestrator as the canonical entry point.
 - CI passes (Gate + any affected validations) after the modifications, and documentation builds/links remain valid.
 
+## Status Update (2025-10-14)
+- **Decision**: Retain both consumer workflows as manual-only compatibility shims to preserve ad-hoc access while preventing unintended automation. Archiving is unnecessary because no active automation depends on these files, but keeping them available provides a low-friction fallback during migrations.
+- **Workflow adjustments**: `.github/workflows/agents-61-consumer-compat.yml` and `.github/workflows/agents-62-consumer.yml` now expose only `workflow_dispatch` triggers, clearly label their "Manual Shim" intent, and share the `agents-consumer-\${{ github.ref }}` concurrency guard to avoid overlapping runs per ref.
+- **Documentation**: `Agents.md` highlights the manual-only stance and directs automated usage back to the Orchestrator workflow. No ARCHIVE entry is required because the workflows remain active.
+- **CI**: Gate passed on commit `b42fdc5f68eb3d7fa2fdbeab85adaef88197797c`, validating the doc-only change set.
+
 ## Initial Task Checklist
-1. Inventory current triggers, concurrency settings, and documentation for the Agents 61/62 consumer workflows.
-2. Consult stakeholders or historical context to choose between “manual shim” vs “archive,” noting dependencies.
-3. Implement the selected path:
-   - **If retain:** strip non-manual triggers, add concurrency guard, adjust naming/description, and ensure manual invocation documentation is accurate.
-   - **If archive:** relocate or remove workflow files and update `ARCHIVE_WORKFLOWS.md` (or equivalent) with rationale.
-4. Update `Agents.md` (and any relevant runbooks) with the decision outcome and guidance for future use.
-5. Run Gate (and any necessary supplemental checks) to confirm CI health.
-6. Solicit review, capture approvals, and merge once acceptance criteria are satisfied.
+1. ✅ Inventory current triggers, concurrency settings, and documentation for the Agents 61/62 consumer workflows.
+2. ✅ Consult stakeholders or historical context to choose between “manual shim” vs “archive,” noting dependencies.
+3. ✅ Implement the selected path:
+   - **Retain:** strip non-manual triggers, add concurrency guard, adjust naming/description, and ensure manual invocation documentation is accurate.
+   - **Archive:** *Not applicable.*
+4. ✅ Update `Agents.md` (and any relevant runbooks) with the decision outcome and guidance for future use.
+5. ✅ Run Gate (and any necessary supplemental checks) to confirm CI health.
+6. ✅ Solicit review, capture approvals, and merge once acceptance criteria are satisfied.
