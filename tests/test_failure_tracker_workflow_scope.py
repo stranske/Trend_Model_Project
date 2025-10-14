@@ -47,7 +47,9 @@ def _get_success_resolution_script() -> str:
     job = workflow["jobs"]["failure-tracker"]
     resolve_step = _get_step(job, "Resolve failure issue for recovered PR")
     script = resolve_step.get("with", {}).get("script")
-    assert isinstance(script, str), "Expected success-path resolution script to be defined"
+    assert isinstance(
+        script, str
+    ), "Expected success-path resolution script to be defined"
     return script
 
 
@@ -636,13 +638,26 @@ def test_success_path_closes_tracked_issue(tmp_path: Path) -> None:
     actions = json.loads(output)
     action_types = [entry.get("type") for entry in actions]
 
-    assert action_types.count("createComment") == 1, "Success path should leave a resolution comment"
-    assert action_types.count("updateIssue") == 1, "Success path should update existing issue once"
+    assert (
+        action_types.count("createComment") == 1
+    ), "Success path should leave a resolution comment"
+    assert (
+        action_types.count("updateIssue") == 1
+    ), "Success path should update existing issue once"
 
-    update_payloads = [entry.get("payload", {}) for entry in actions if entry.get("type") == "updateIssue"]
+    update_payloads = [
+        entry.get("payload", {})
+        for entry in actions
+        if entry.get("type") == "updateIssue"
+    ]
     assert update_payloads, "Expected updateIssue payload"
     update_payload = update_payloads[0]
-    assert update_payload.get("state") == "closed", "Success path should close the issue"
-    assert "Resolved:" in (update_payload.get("body") or ""), "Issue body should record resolution timestamp"
-    assert "<!-- tracked-pr: 456 -->" in (update_payload.get("body") or ""), "Tracked PR tag should be preserved"
-
+    assert (
+        update_payload.get("state") == "closed"
+    ), "Success path should close the issue"
+    assert "Resolved:" in (
+        update_payload.get("body") or ""
+    ), "Issue body should record resolution timestamp"
+    assert "<!-- tracked-pr: 456 -->" in (
+        update_payload.get("body") or ""
+    ), "Tracked PR tag should be preserved"
