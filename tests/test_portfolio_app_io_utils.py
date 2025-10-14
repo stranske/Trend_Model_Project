@@ -374,7 +374,7 @@ def test_export_bundle_handles_missing_zip_cleanup(tmp_path, monkeypatch):
         def __enter__(self):
             raise RuntimeError("zip failure")
 
-        def __exit__(self, exc_type, exc, tb):  # noqa: D401, ANN001
+        def __exit__(self, exc_type, exc, tb):  # noqa: ANN001
             return None
 
     monkeypatch.setattr(io_utils.tempfile, "mkstemp", fake_mkstemp)
