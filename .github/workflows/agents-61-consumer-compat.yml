@@ -50,7 +50,7 @@ permissions:
   issues: write
 
 concurrency:
-  group: agents-61-consumer-compat-${{ github.ref_name }}
+  group: agents-consumer-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
