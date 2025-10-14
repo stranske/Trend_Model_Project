@@ -15,7 +15,7 @@
 ## Task Checklist
 - [x] Confirm the current default branch (`phase-2-dev`) via the public repository metadata.
 - [x] Capture `docs/evidence/gate-branch-protection/pre-enforcement.json` using the branch protection API to document the required contexts.
-- [ ] If the helper reports drift, rerun with `--apply` and capture `enforcement.json`.
+- [x] If the helper reports drift, rerun with `--apply` and capture `enforcement.json` (not required; helper confirmed configuration was already correct).
 - [x] Store `post-enforcement.json` after verifying no remediation is necessary.
 - [x] Record validation evidence from a non-default branch pull request showing the Gate requirement before and after a run.
 - [x] Update `agents/codex-2527.md` once evidence is archived and the workflow is healthy.
