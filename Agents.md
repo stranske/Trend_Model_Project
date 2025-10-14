@@ -155,6 +155,7 @@ Never touch notebooks living under any directory whose name ends in old/.
 - **Triggers**: Exposes a reusable `workflow_call` contract (required `issue_number`, optional `valid_assignees`) alongside a manual `workflow_dispatch` for ad-hoc audits.
 - **Role**: Validates that an issue retains the `agent:codex` label and one of the accepted agent assignees, then publishes Markdown + JSON outputs consumed by the orchestrator. Manual runs mirror the same inputs—supply the issue number (and custom assignee list if needed) and review the generated run summary for status.
 - **Pass condition**: Returns `pass` when the target keeps `agent:codex` *and* at least one approved login (`copilot`, `chatgpt-codex-connector`, or `stranske-automation-bot`) is assigned. `valid_assignees` lets you override that list for edge cases.
+- **Pass signal**: The verify job writes `status: pass`, surfaces the matched login in both the step summary and the `matched_assignee` output, and the orchestrator emits a notice naming who satisfied the check. Scheduled runs show the same pass table; skipped runs only appear when the label is missing.
 - **Outputs**: The step summary and `matched_assignee` output both name the login that satisfied verification so orchestration logs highlight the successful actor during green runs.
 
 ### 2025-06-27 UPDATE — RISK-METRICS EXPORT (SERIOUSLY, LEAVE THIS IN)
