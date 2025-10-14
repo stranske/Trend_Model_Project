@@ -97,8 +97,12 @@ def _state_from_branch_payload(payload: Mapping[str, Any]) -> StatusCheckState:
     else:
         contexts = []
 
-    enforcement_level = status_checks.get("enforcement_level")
-    strict = enforcement_level in {"non_admins", "everyone"}
+    # Prefer the 'strict' field if present, for consistency with StatusCheckState.from_api
+    if "strict" in status_checks:
+        strict = bool(status_checks.get("strict"))
+    else:
+        enforcement_level = status_checks.get("enforcement_level")
+        strict = enforcement_level in {"non_admins", "everyone"}
 
     return StatusCheckState(strict=strict, contexts=sorted(contexts))
 
