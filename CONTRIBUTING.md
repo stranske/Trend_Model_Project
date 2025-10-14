@@ -7,7 +7,10 @@ Thank you for contributing to the Trend Model Project.
 Pull requests flow through a single required check and a consolidated
 post-processing workflow:
 
-- Passing the Gate check is required to merge.
+- Passing the Gate check is required to merge to the default branch. Branch
+  protection also enables GitHub's "Require branches to be up to date"
+  toggle, so refresh your branch with the latest default-branch commits before
+  merging if Gate reports staleness.
 - **Required check** – `Gate / gate` (defined in
   [`.github/workflows/pr-00-gate.yml`](.github/workflows/pr-00-gate.yml)) must
   pass before merges. Branch protection blocks the default branch until
@@ -175,7 +178,7 @@ To prevent CI‑only failures (workflow lint, container smoke, type drift), the 
 
 ### Required GitHub check
 
-Branch protection requires the `Gate / gate` workflow to succeed on every pull request. The gate reuses Python 3.11, Python 3.12, and Docker smoke jobs, so investigate any failure in those legs before asking for review.
+Branch protection requires the `Gate / gate` workflow to succeed on every pull request and enforces GitHub's "Require branches to be up to date" option. The gate reuses Python 3.11, Python 3.12, and Docker smoke jobs, so investigate any failure in those legs before asking for review.
 
 ### Pinned Mypy
 The CI now pins mypy via `MYPY_VERSION` in `.github/workflows/autofix-versions.env`. Local scripts consume this env to avoid version drift. If you see differing results, ensure the env file includes the same version and re-run:
