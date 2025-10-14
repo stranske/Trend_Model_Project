@@ -9,19 +9,40 @@ permissions:
   contents: read
   issues: write
   pull-requests: read
+  actions: read
 
 jobs:
   repo-health:
     name: Repository health summary
     runs-on: ubuntu-latest
     steps:
+      - name: Prepare privileged token
+        id: privileged-token
+        env:
+          SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
+        run: |
+          python - <<'PY'
+          import os
+
+          token = (os.environ.get('SERVICE_BOT_PAT') or '').strip()
+
+          if token:
+              print(f"::add-mask::{token}")
+
+          output_path = os.environ['GITHUB_OUTPUT']
+          with open(output_path, 'a', encoding='utf-8') as handle:
+              handle.write(f"token={token}\n")
+              handle.write(f"has_token={'true' if token else 'false'}\n")
+          PY
+
       - name: Collect repository signals
         id: collect
         uses: actions/github-script@v7
         env:
           REQUIRED_LABELS: agent:codex,agent:copilot,automerge,risk:low,codex-ready
-          SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
+          SERVICE_BOT_PAT: ${{ steps.privileged-token.outputs.token }}
         with:
+          github-token: ${{ steps.privileged-token.outputs.token || github.token }}
           script: |
             const { owner, repo } = context.repo;
             const requiredLabels = (process.env.REQUIRED_LABELS || '')
@@ -57,7 +78,7 @@ jobs:
 
             let branchStatus = 'unknown';
             let branchNote = 'Branch protection not checked.';
-            const serviceBotPat = process.env.SERVICE_BOT_PAT || '';
+            const serviceBotPat = (process.env.SERVICE_BOT_PAT || '').trim();
             let privilegedChecksUsed = false;
             let privilegedChecksSkipped = false;
 
@@ -69,7 +90,15 @@ jobs:
                 'Authorization': `token ${serviceBotPat}`,
               };
 
-              const response = await fetch(endpoint, { headers });
+              let response;
+              try {
+                response = await fetch(endpoint, { headers });
+              } catch (error) {
+                branchStatus = 'error';
+                branchNote = `Branch protection check encountered a network error: ${error?.message || error}`;
+                core.warning(branchNote);
+                return;
+              }
 
               if (response.status === 200) {
                 branchStatus = 'enabled';
@@ -80,6 +109,13 @@ jobs:
               if (response.status === 404) {
                 branchStatus = 'missing';
                 branchNote = `Branch protection is not configured for ${defaultBranch}.`;
+                return;
+              }
+
+              if (response.status === 401) {
+                branchStatus = 'forbidden';
+                branchNote = 'The supplied token was rejected (401 Unauthorized) when reading branch protection settings.';
+                core.warning(branchNote);
                 return;
               }
 
@@ -103,7 +139,7 @@ jobs:
               privilegedChecksSkipped = true;
               branchStatus = 'skipped';
               branchNote = 'SERVICE_BOT_PAT not configured; skipped branch protection check.';
-              core.warning('Skipped privileged checks because SERVICE_BOT_PAT is not configured.');
+              core.notice('Skipped privileged checks because SERVICE_BOT_PAT is not configured.');
             }
 
             const checks = [
@@ -126,6 +162,8 @@ jobs:
                     ? 'attention'
                     : branchStatus === 'skipped'
                     ? 'skipped'
+                    : branchStatus === 'error'
+                    ? 'error'
                     : 'warn',
                 detail: branchNote,
               },
@@ -152,13 +190,19 @@ jobs:
             core.setOutput('timestamp', timestamp);
             core.setOutput('default_branch', defaultBranch);
             core.setOutput('privileged_checks_skipped', privilegedChecksSkipped ? 'true' : 'false');
+            core.setOutput('privileged_checks_used', privilegedChecksUsed ? 'true' : 'false');
+            core.setOutput('branch_protection_status', branchStatus);
+            core.setOutput('branch_protection_note', branchNote);
 
-      - name: Repo health summary
+      - name: Aggregate & Summarize
         env:
           CHECKS_JSON: ${{ steps.collect.outputs.checks }}
           TIMESTAMP: ${{ steps.collect.outputs.timestamp }}
           DEFAULT_BRANCH: ${{ steps.collect.outputs.default_branch }}
           PRIVILEGED_SKIPPED: ${{ steps.collect.outputs.privileged_checks_skipped }}
+          PRIVILEGED_USED: ${{ steps.collect.outputs.privileged_checks_used }}
+          BRANCH_STATUS: ${{ steps.collect.outputs.branch_protection_status }}
+          BRANCH_NOTE: ${{ steps.collect.outputs.branch_protection_note }}
         run: |
           python - <<'PY'
           import json
@@ -168,13 +212,17 @@ jobs:
           timestamp = os.environ.get('TIMESTAMP') or ''
           default_branch = os.environ.get('DEFAULT_BRANCH') or ''
           privileged_skipped = (os.environ.get('PRIVILEGED_SKIPPED') or '').lower() == 'true'
+          privileged_used = (os.environ.get('PRIVILEGED_USED') or '').lower() == 'true'
+          branch_status = (os.environ.get('BRANCH_STATUS') or '').strip()
+          branch_note = os.environ.get('BRANCH_NOTE') or ''
 
           status_labels = {
               'pass': '✅ Pass',
               'attention': '⚠️ Needs attention',
               'warn': '⚠️ Warning',
               'info': 'ℹ️ Info',
-              'skipped': '⚠️ Skipped',
+              'skipped': '⏭️ Skipped',
+              'error': '❌ Error',
           }
 
           lines = ['# Repo health summary']
@@ -192,12 +240,25 @@ jobs:
               for check in checks:
                   title = check.get('title', 'Unknown')
                   status = status_labels.get(check.get('status', 'info'), check.get('status', 'info'))
-                  detail = (check.get('detail') or '').replace('\n', '<br>')
+                  detail = (check.get('detail') or '').replace('\n', '<br>').replace('|', '\\|')
                   lines.append(f'| {title} | {status} | {detail} |')
 
           if privileged_skipped:
               lines.append('')
               lines.append('> ⚠️ Privileged checks were skipped because `SERVICE_BOT_PAT` is not configured.')
+          elif privileged_used and branch_status in {'enabled', 'missing'}:
+              lines.append('')
+              lines.append('> ✅ Privileged checks executed with the configured credentials.')
+          elif privileged_used:
+              lines.append('')
+              detail = branch_note.replace('\n', ' ').strip()
+              if detail:
+                  lines.append('> ⚠️ Privileged checks ran but reported access issues: ' + detail)
+              else:
+                  lines.append('> ⚠️ Privileged checks ran but reported access issues. Review the branch protection result above for details.')
+          else:
+              lines.append('')
+              lines.append('> ℹ️ No privileged checks were requested in this run.')
 
           output = '\n'.join(lines) + '\n'
           print(output)
