@@ -177,6 +177,7 @@ The Codex Issue Bridge is a label-driven helper for seeding bootstrap PRs, while
    - **Enable bootstrap**: set to `true` when seeding Codex PRs; leave `false` for readiness-only sweeps.
    - **Options JSON**: supply nested overrides (for example `{ "bootstrap": { "label": "agent:codex" }, "diagnostic_mode": "dry-run", "require_all": true }`).
 3. Click **Run workflow**. The orchestrator fan-outs through `reusable-16-agents.yml`; job summaries include readiness tables, bootstrap status, verification notes, and links to spawned PRs.
+4. When verification is enabled and succeeds, the `verify-assignment-summary` step appends the matched assignee and status to the run summary so operators can confirm which automation satisfied the check.
 
 **Programmatic dispatch (`options_json` example).** Tooling can post the JSON payload directly through the orchestrator’s `options_json` input or hand it to the deprecated consumer wrapper while you migrate clients—the wrapper parses `params_json`, normalises the keys, and forwards the derived `options_json` payload to the orchestrator.
 

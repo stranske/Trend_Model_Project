@@ -63,6 +63,8 @@ label is present, validates that one of the configured valid assignees is assign
 documenting the outcome. `reusable-16-agents.yml` now delegates its issue verification job to this workflow so the same checks
 are available for ad-hoc dispatches from the Actions tab.
 
+The default valid assignee roster includes `copilot`, `chatgpt-codex-connector`, and `stranske-automation-bot`; provide a comma-separated override when onboarding additional automation accounts or running spot checks against bespoke actors.
+
 ## Related Automation
 
 While the agent wrappers were removed, maintenance automation still supports the broader workflow stack:
