@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 import shutil
 import subprocess
@@ -11,6 +10,7 @@ import textwrap
 from pathlib import Path
 
 import pytest
+
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
