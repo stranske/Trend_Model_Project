@@ -16,12 +16,8 @@ def test_selftest_workflow_inventory() -> None:
         path.name for path in WORKFLOW_DIR.glob("*selftest*.yml")
     )
     expected = [
-        "selftest-80-pr-comment.yml",
         "selftest-81-reusable-ci.yml",
-        "selftest-82-pr-comment.yml",
-        "selftest-83-pr-comment.yml",
-        "selftest-84-reusable-ci.yml",
-        "selftest-88-reusable-ci.yml",
+        "selftest-runner.yml",
     ]
     assert (
         selftest_workflows == expected

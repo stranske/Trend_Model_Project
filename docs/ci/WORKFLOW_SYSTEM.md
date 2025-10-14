@@ -25,7 +25,12 @@
 - Autofix: `reusable-18-autofix.yml`.
 
 ### Self‑tests
-- Keep `selftest-81-reusable-ci.yml` as the only matrix. Replace the multiple wrappers with **one** parameterized `selftest-runner.yml` (inputs for posting behavior and runtime selection).
+- `selftest-81-reusable-ci.yml` remains the reusable matrix.
+- `selftest-runner.yml` is the single manual entry point. Inputs:
+  - `mode`: `summary`, `comment`, or `dual-runtime` (controls reporting surface and Python matrix).
+  - `post_to`: `pr-number` or `none` (comment target when `mode == comment`).
+  - `enable_history`: `true` or `false` (download the verification artifact for local inspection).
+  - Optional niceties for comment/summary titles plus the dispatch reason.
 
 ## Policy
 
@@ -39,8 +44,8 @@
 
 ## Final topology (keep vs retire)
 
-- **Keep**: `pr-00-gate.yml`, `maint-46-post-ci.yml`, health 42/43/44, agents 70/63, reusable 10/12/16/18, `selftest-81-reusable-ci.yml`.
-- **Retired**: `pr-14-docs-only.yml`, `maint-47-check-failure-tracker.yml`, agents 61/62, and all `selftest-*` wrappers except 81.
+- **Keep**: `pr-00-gate.yml`, `maint-46-post-ci.yml`, health 42/43/44, agents 70/63, reusable 10/12/16/18, `selftest-81-reusable-ci.yml`, `selftest-runner.yml`.
+- **Retire**: `pr-14-docs-only.yml`, `maint-47-check-failure-tracker.yml`, agents 61/62, and the legacy `selftest-*` wrappers replaced by `selftest-runner.yml`.
 
 ## Verification checklist
 - Gate runs and passes on a docs‑only PR and is visible as the required check.
