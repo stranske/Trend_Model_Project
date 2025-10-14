@@ -19,10 +19,10 @@ runs:
       shell: bash
       run: |
         python tools/test_failure_signature.py \
-          --jobs "${{ inputs['jobs-json'] }}" \
-          --expected "${{ inputs['expected-hash'] }}"
+          --jobs '${{ inputs["jobs-json"] }}' \
+          --expected '${{ inputs["expected-hash"] }}'
     - name: Add summary
       shell: bash
       run: |
         echo "### Signature Verification" >> $GITHUB_STEP_SUMMARY
-        echo "Hash matched expected '${{ inputs['expected-hash'] }}'" >> $GITHUB_STEP_SUMMARY
+        echo "Hash matched expected '${{ inputs["expected-hash"] }}'" >> $GITHUB_STEP_SUMMARY
