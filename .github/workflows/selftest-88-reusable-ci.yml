@@ -3,6 +3,10 @@ name: Selftest 88 Reusable CI
 on:
   workflow_dispatch:
     inputs:
+      reason:
+        description: 'Why are you running this example?'
+        required: false
+        default: 'manual test'
       python-versions:
         description: >-
           JSON array of Python versions forwarded to the reusable CI self-test matrix.

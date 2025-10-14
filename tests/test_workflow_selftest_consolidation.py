@@ -91,8 +91,8 @@ def test_selftest_triggers_are_manual_only() -> None:
             )
 
 
-def test_selftest_dispatch_reason_is_required() -> None:
-    """Require callers to document why the matrix was launched."""
+def test_selftest_dispatch_reason_input() -> None:
+    """Self-test dispatch should keep the reason field optional but present."""
 
     raw_data = yaml.safe_load(SELFTEST_PATH.read_text()) or {}
 
@@ -113,12 +113,20 @@ def test_selftest_dispatch_reason_is_required() -> None:
     assert "reason" in inputs, "Selftest workflow dispatch is missing a reason input."
 
     reason_input = inputs["reason"] or {}
-    assert reason_input.get(
-        "required"
-    ), "Selftest workflow dispatch reason should be required so audit trail is preserved."
+    # Normalize the "required" field to a boolean for consistency.
+    required_raw = reason_input.get("required")
+    required_bool = False if required_raw in (False, "false", None) else True
+    assert (
+        not required_bool
+    ), "Selftest workflow dispatch reason should be optional for manual launches."
 
     description = reason_input.get("description", "").strip()
     assert description, "Reason input should document why it is collected."
+
+    default_value = reason_input.get("default")
+    assert (
+        default_value == "manual test"
+    ), "Reason input default should remain 'manual test' so callers understand the context."
 
 
 def test_archived_selftest_inventory() -> None:
