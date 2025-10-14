@@ -58,7 +58,7 @@ jobs:
 
             let branchStatus = 'unknown';
             let branchNote = 'Branch protection not checked.';
-            const serviceBotPat = process.env.SERVICE_BOT_PAT || '';
+            const serviceBotPat = (process.env.SERVICE_BOT_PAT || '').trim();
             let privilegedChecksUsed = false;
             let privilegedChecksSkipped = false;
 
@@ -89,6 +89,13 @@ jobs:
               if (response.status === 404) {
                 branchStatus = 'missing';
                 branchNote = `Branch protection is not configured for ${defaultBranch}.`;
+                return;
+              }
+
+              if (response.status === 401) {
+                branchStatus = 'forbidden';
+                branchNote = 'The supplied token was rejected (401 Unauthorized) when reading branch protection settings.';
+                core.warning(branchNote);
                 return;
               }
 
@@ -173,6 +180,7 @@ jobs:
           TIMESTAMP: ${{ steps.collect.outputs.timestamp }}
           DEFAULT_BRANCH: ${{ steps.collect.outputs.default_branch }}
           PRIVILEGED_SKIPPED: ${{ steps.collect.outputs.privileged_checks_skipped }}
+          PRIVILEGED_USED: ${{ steps.collect.outputs.privileged_checks_used }}
         run: |
           python - <<'PY'
           import json
@@ -182,6 +190,7 @@ jobs:
           timestamp = os.environ.get('TIMESTAMP') or ''
           default_branch = os.environ.get('DEFAULT_BRANCH') or ''
           privileged_skipped = (os.environ.get('PRIVILEGED_SKIPPED') or '').lower() == 'true'
+          privileged_used = (os.environ.get('PRIVILEGED_USED') or '').lower() == 'true'
 
           status_labels = {
               'pass': '✅ Pass',
@@ -213,9 +222,12 @@ jobs:
           if privileged_skipped:
               lines.append('')
               lines.append('> ⚠️ Privileged checks were skipped because `SERVICE_BOT_PAT` is not configured.')
-          else:
+          elif privileged_used:
               lines.append('')
               lines.append('> ✅ Privileged checks executed with the configured credentials.')
+          else:
+              lines.append('')
+              lines.append('> ℹ️ No privileged checks were requested in this run.')
 
           output = '\n'.join(lines) + '\n'
           print(output)
