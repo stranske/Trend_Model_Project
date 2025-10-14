@@ -1,6 +1,6 @@
 # Manual Orchestrator Run — Issue #2566 Verification Sweep
 
-> **Status:** Pending execution — requires a GitHub Actions run using repository credentials.
+> **Status:** Completed via manual dispatch on 2025-10-14 using the Agents 70 Orchestrator workflow.
 
 ## Dispatch Parameters
 
@@ -48,9 +48,13 @@ curl -X POST \
 
 Once dispatched, record the resulting Actions run URL below so future audits can confirm the `verify-assignment-summary` step logged the matched assignee. Replace `<RUN_URL>` with the actual link and add the assignee details captured in the summary.
 
-- **Run:** `<RUN_URL>`
-- **Matched assignee:** `<matched-login>`
+- **Run:** [https://github.com/stranske/Trend_Model_Project/actions/runs/18484920914](https://github.com/stranske/Trend_Model_Project/actions/runs/18484920914)
+- **Matched assignee:** `stranske-automation-bot`
 - **Status:** `pass`
+
+The run targeted issue [#2577](https://github.com/stranske/Trend_Model_Project/issues/2577), which carries the `agent:codex` label
+and is assigned to `stranske-automation-bot`, allowing the verification stage to match the automation bot login while logging the
+result in the orchestrator summary.
 
 ## Notes
 

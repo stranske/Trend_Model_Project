@@ -13,8 +13,8 @@
 - Agents playbook clearly states the pass criteria and surfaced outputs so operators know when verification succeeds. 【F:Agents.md†L140-L157】
 
 ## Initial Task Checklist
-- [ ] Audit `.github/workflows/agents-64-verify-agent-assignment.yml` for `workflow_call` input names/types and confirm they match orchestrator expectations. 【F:.github/workflows/agents-64-verify-agent-assignment.yml†L4-L74】
-- [ ] Trace `.github/workflows/agents-70-orchestrator.yml` parameter resolution to ensure `verify_issue_valid_assignees` always includes the automation bot and can be overridden via `params_json`. 【F:.github/workflows/agents-70-orchestrator.yml†L28-L119】
-- [ ] Validate that the orchestrator job graph invokes the verify workflow and appends the run summary when verification succeeds. 【F:.github/workflows/agents-70-orchestrator.yml†L240-L317】
-- [ ] Prepare or identify a controlled issue for manual verification, then document the successful run link and resulting summary output. 【F:.github/workflows/agents-70-orchestrator.yml†L252-L317】
-- [ ] Update `Agents.md` if additional operator guidance emerges during implementation. 【F:Agents.md†L140-L157】
+- [x] Audit `.github/workflows/agents-64-verify-agent-assignment.yml` for `workflow_call` input names/types and confirm they match orchestrator expectations. 【F:.github/workflows/agents-64-verify-agent-assignment.yml†L4-L74】
+- [x] Trace `.github/workflows/agents-70-orchestrator.yml` parameter resolution to ensure `verify_issue_valid_assignees` always includes the automation bot and can be overridden via `params_json`. 【F:.github/workflows/agents-70-orchestrator.yml†L28-L119】
+- [x] Validate that the orchestrator job graph invokes the verify workflow and appends the run summary when verification succeeds. 【F:.github/workflows/agents-70-orchestrator.yml†L240-L317】
+- [x] Prepare or identify a controlled issue for manual verification, then document the successful run link and resulting summary output. 【F:docs/evidence/agents-orchestrator/manual-run-issue-2566.md†L1-L38】
+- [x] Update `Agents.md` if additional operator guidance emerges during implementation. 【F:Agents.md†L140-L157】
