@@ -155,42 +155,8 @@ def _run_post_comment_harness(
     return json.loads(output)
 
 
-def test_tracker_workflow_is_now_thin_shell() -> None:
-    workflow = _load_workflow(TRACKER_PATH)
-    assert set(workflow["jobs"].keys()) == {"redirect"}
-    redirect_job = workflow["jobs"]["redirect"]
-    condition = " ".join(redirect_job.get("if", "").split())
-    assert "workflow_run.event == 'pull_request'" in condition
-    summary_step = _get_step(redirect_job, "Emit delegation summary")
-    summary_body = summary_step.get("run", "")
-    assert "maint-46-post-ci.yml" in summary_body
-
-
-def test_tracker_shell_performs_no_issue_writes() -> None:
-    workflow = _load_workflow(TRACKER_PATH)
-    redirect_job = workflow["jobs"]["redirect"]
-
-    for step in redirect_job.get("steps", []):
-        assert (
-            step.get("uses") is None
-        ), "Delegation shell should not invoke external actions"
-        script = step.get("run", "")
-        assert "github.rest.issues" not in script
-
-
-def test_tracker_workflow_triggers_from_gate_run() -> None:
-    workflow = _load_workflow(TRACKER_PATH)
-
-    trigger = workflow.get("on")
-    assert trigger is not None, "Expected workflow_run trigger to be defined"
-
-    workflow_run = trigger.get("workflow_run")
-    assert (
-        workflow_run is not None
-    ), "Failure tracker should listen to workflow_run events"
-
-    assert workflow_run.get("types") == ["completed"]
-    assert workflow_run.get("workflows") == ["Gate"]
+def test_legacy_tracker_workflow_removed() -> None:
+    assert not TRACKER_PATH.exists(), "Legacy Maint 47 shell should be removed"
 
 
 def test_maint_post_ci_listens_to_gate_run() -> None:
