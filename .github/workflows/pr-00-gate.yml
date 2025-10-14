@@ -98,6 +98,10 @@ jobs:
       - docker-smoke
     if: ${{ always() }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      statuses: write
     steps:
       - name: Handle docs-only change
         if: needs.detect_doc_only.outputs.doc_only == 'true'

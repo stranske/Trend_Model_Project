@@ -19,7 +19,7 @@ topology.
 
 | Workflow | File | Trigger(s) | Permissions | Required? | Purpose |
 | --- | --- | --- | --- | --- | --- |
-| **Gate** | `.github/workflows/pr-00-gate.yml` | `pull_request`, `workflow_dispatch` | Defaults (`contents: read`) via `GITHUB_TOKEN`; delegated jobs reuse the caller token. | **Yes** – aggregate `gate` status must pass. | Fan-out orchestrator chaining the reusable Python CI and Docker smoke jobs. Docs-only or empty diffs skip the heavy legs while Gate posts the friendly notice and reports success. |
+| **Gate** | `.github/workflows/pr-00-gate.yml` | `pull_request`, `workflow_dispatch` | Explicit `contents: read`, `pull-requests: write`, `statuses: write` (doc-only comment + commit status). | **Yes** – aggregate `gate` status must pass. | Fan-out orchestrator chaining the reusable Python CI and Docker smoke jobs. Docs-only or empty diffs skip the heavy legs while Gate posts the friendly notice and reports success. |
 | **PR 02 Autofix** | `.github/workflows/pr-02-autofix.yml` | `pull_request` (including label updates) | `contents: write`, `pull-requests: write` | **Yes** – `apply` job must succeed. | Runs the reusable autofix composite to apply/offer safe formatting fixes. |
 
 #### Gate job map
@@ -122,11 +122,11 @@ existing automation to **Agents 70 Orchestrator** instead.
 
 | Workflow | File | Trigger(s) | Permissions | Required? | Why it matters |
 |----------|------|------------|-------------|-----------|----------------|
-| `pr-00-gate.yml` (`Gate`) | `.github/workflows/pr-00-gate.yml` | `pull_request`, `workflow_dispatch` | Defaults (`contents: read`) | **Yes** | Composite orchestrator that chains the reusable CI and Docker smoke jobs and enforces that every leg succeeds. |
+| `pr-00-gate.yml` (`Gate`) | `.github/workflows/pr-00-gate.yml` | `pull_request`, `workflow_dispatch` | `contents: read`, `pull-requests: write`, `statuses: write` | **Yes** | Composite orchestrator that chains the reusable CI and Docker smoke jobs and enforces that every leg succeeds. |
 | `pr-02-autofix.yml` (`PR 02 Autofix`) | `.github/workflows/pr-02-autofix.yml` | `pull_request` | `contents: write`, `pull-requests: write` | **Yes** (`apply` job) | Lightweight formatting/type-hygiene runner that auto-commits safe fixes or publishes a patch artifact for forked PRs. |
 
 **Operational details**
-- **Gate** – Permissions: defaults (read scope). Secrets: relies on `GITHUB_TOKEN` only. The `detect_doc_only` job classifies Markdown/`docs/`/`assets/` changes, skips the heavy CI legs when appropriate, posts the docs-only notice, and otherwise surfaces `core tests (3.11)`, `core tests (3.12)`, `docker smoke`, and the aggregator `gate` job.
+- **Gate** – Permissions: `contents: read`, `pull-requests: write`, `statuses: write` (via the default `GITHUB_TOKEN`). Secrets: relies on the provided token only. The `detect_doc_only` job classifies Markdown/`docs/`/`assets/` changes, skips the heavy CI legs when appropriate, posts the docs-only notice, and otherwise surfaces `core tests (3.11)`, `core tests (3.12)`, `docker smoke`, and the aggregator `gate` job.
 - **Autofix** – Permissions: `contents: write`, `pull-requests: write`. Secrets: inherits `GITHUB_TOKEN` (sufficient for label + comment updates). Status outputs: `apply` job; labels applied include `autofix`, `autofix:applied`/`autofix:patch`, and cleanliness toggles (`autofix:clean`/`autofix:debt`).
 
 
