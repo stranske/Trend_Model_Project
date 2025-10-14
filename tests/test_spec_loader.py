@@ -89,14 +89,8 @@ def test_ensure_run_spec_handles_failures() -> None:
     assert ensure_run_spec(Explosive()) is None
 
 
-def test_ensure_run_spec_uses_object_setattr(monkeypatch: pytest.MonkeyPatch) -> None:
-    @dataclass(frozen=True)
-    class FrozenConfig:
-        signals: dict[str, Any]
-        sample_split: dict[str, str]
-        portfolio: dict[str, Any]
-
-    cfg = FrozenConfig(
+def test_ensure_run_spec_uses_object_setattr() -> None:
+    cfg = _FrozenConfig(
         signals={"window": 10, "lag": 1, "vol_adjust": True, "vol_target": 0.2},
         sample_split={"in_start": "2020-01", "out_start": "2021-01"},
         portfolio={},
