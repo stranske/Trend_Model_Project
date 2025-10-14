@@ -52,9 +52,7 @@ The `Health 40 Repo Selfcheck` job writes its status table into the GitHub Actio
 
 ## Manual Self-Test Workflows
 
-Self-tests are strictly manual to avoid noisy or misleading status checks on day-to-day development branches. Trigger them from the **Actions** tab by selecting **Selftest 81 Reusable CI**, choosing **Run workflow**, and writing a brief reason for the dispatch (for example, "Verifying coverage delta after config tweak"). Providing a reason is required—the workflow will not start without it—and the text is echoed in the run summary so future readers can understand why the matrix was executed. The optional `python-versions` JSON input defaults to the pinned CI interpreter but can include additional versions when you need to chase cross-version issues.
-
-Each run publishes a succinct summary outlining the matrix result, dispatch reason, and scenarios executed; no push, pull-request, or scheduled events will launch the job automatically. Download the `selftest-report` artifact to review the scenario-by-scenario inventory validated by the aggregate verification job. Missing artifacts or unexpected uploads indicate a drift between reusable job expectations and scenario outputs; resolve the underlying scenario change and re-run the workflow to confirm the regression is fixed.
+Self-test workflows exist as manual examples so they do not clutter everyday CI noise. Launch them from the **Actions** tab by selecting the desired self-test, choosing **Run workflow**, and optionally editing the default "manual test" reason so future readers know why the run exists. Leave the remaining inputs at their defaults or adjust `python-versions` when chasing interpreter-specific drift. Each run writes a summary and uploads a `selftest-report` artifact that confirms the reusable CI scenarios still emit the expected inventory, so any mismatch points to a scenario or artifact contract regression.
 
 ## Quick Checklist (Before Every Push)
 

@@ -3,6 +3,10 @@ name: Selftest 82 PR Comment
 on:
   workflow_dispatch:
     inputs:
+      reason:
+        description: 'Why are you running this example?'
+        required: false
+        default: 'manual test'
       pull_request_number:
         description: 'Pull request number that should receive the self-test summary.'
         required: true

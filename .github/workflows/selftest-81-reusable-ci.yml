@@ -4,11 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       reason:
-        description: >-
-          Short note describing why the self-test is running. Appears in the
-          run summary for future reference.
+        description: 'Why are you running this example?'
         required: true
-        default: Manual verification
+        default: 'manual test'
       python-versions:
         description: >-
           JSON array of Python versions forwarded to `reusable-10-ci-python.yml`.
