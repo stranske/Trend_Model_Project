@@ -1050,7 +1050,8 @@ jobs:
             echo "Changes applied: ${{ steps.apply.outputs.changed }}"
             echo "Remaining ruff issues: ${{ steps.apply.outputs.remaining_issues }}"
             if [ "${{ steps.apply.outputs.changed }}" = "true" ] && [ "${{ needs.context.outputs.same_repo }}" != "true" ]; then
-              echo "Patch artifact: autofix-patch-pr-${{ needs.context.outputs.pr }}"
+              patch_url="${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}?check_suite_focus=true#artifacts"
+              echo "Patch artifact: ${patch_url}"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -1423,7 +1424,12 @@ jobs:
               }
               return mapping.get(value.lower(), re.sub(r"[-_]+", " ", value))
 
-          patch_url = (os.environ.get("PATCH_URL") or "").strip()
+          server = os.environ.get("GITHUB_SERVER_URL", "https://github.com").rstrip("/")
+          repository = os.environ.get("GITHUB_REPOSITORY", "").strip("/")
+          run_id = os.environ.get("GITHUB_RUN_ID", "").strip()
+          artifact_url = ""
+          if repository and run_id:
+              artifact_url = f"{server}/{repository}/actions/runs/{run_id}?check_suite_focus=true#artifacts"
 
           def build_entry(prefix_key: str, title: str, result: str | None) -> Dict[str, Any]:
               env = os.environ
@@ -1451,8 +1457,10 @@ jobs:
               notes: List[str] = []
               pr_number = os.environ.get("PR_NUMBER", "").strip()
               if patch and pr_number:
-                  if patch_url:
-                      notes.append(f"Patch artifact: [`autofix-patch-pr-{pr_number}`]({patch_url})")
+                  if artifact_url:
+                      notes.append(
+                          f"Patch artifact: [autofix-patch-pr-{pr_number}]({artifact_url})"
+                      )
                   else:
                       notes.append(f"Patch artifact: `autofix-patch-pr-{pr_number}`")
               if trigger_conclusion:

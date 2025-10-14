@@ -7,7 +7,7 @@
 ### PR checks
 - **Gate**: `.github/workflows/pr-00-gate.yml`  
   Always runs on PRs. Detects doc-only changes and fast‑passes. Fans out to Python CI (`reusable-10-ci-python.yml`) and Docker smoke (`reusable-12-ci-docker.yml`), aggregates results, and returns a single required status.
-- **Autofix (optional)**: _Deprecated as a default runner_. `maint-46-post-ci.yml` handles small hygiene fixes post‑CI. `pr-02-autofix.yml` may be kept as **opt‑in** via the `autofix` label only.
+- **Autofix (optional)**: _Deprecated as a default runner_. `maint-46-post-ci.yml` handles small hygiene fixes post‑CI. `pr-02-autofix.yml` remains but is **opt‑in** via the `autofix` label and shares the `pr-autofix-${pull_number}` concurrency guard to avoid duplicate runs.
 
 ### Maintenance & repo health
 - **Post‑CI summary & hygiene**: `.github/workflows/maint-46-post-ci.yml` consolidates results, applies “small self‑contained” fixes safely, and updates the failure tracker.
@@ -31,9 +31,7 @@
 
 - **Required check**: Gate is the only required PR check. It must always produce a status, including docs‑only PRs (fast no‑op).
 - **Doc‑only rule**: Doc‑only detection lives inside Gate. No separate docs‑only workflow.
-- **Autofix**: Centralized under `maint-46-post-ci.yml`. For forks, the workflow uploads a `.patch` artifact and links it in the
-  status comment instead of attempting to push. `pr-02-autofix.yml` survives only as an opt-in runner behind the `autofix` label
-  with its own concurrency guard.
+- **Autofix**: Centralized under `maint-46-post-ci.yml`. For forks, upload patch artifacts and post links instead of pushing. Any pre‑CI autofix (`pr-02-autofix.yml`) must be label-gated and cancel duplicate runs in flight.
 - **Branch protection**: Default branch must require Gate. Health job enforces and/or verifies.
 - **Types**: Run mypy where the config is pinned. If types are pinned to a specific version, run mypy in that leg only (to avoid stdlib stub drift across Python versions).
 - **Labels used by automation**:  
