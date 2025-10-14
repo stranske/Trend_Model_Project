@@ -154,7 +154,7 @@ Labels: ci, testing, workflows, refactor, priority: medium, risk:low, status: re
 
 Body:
 Design reference: Workflow System Overview
-. Source of truth for the pinned version: pyproject.toml. 
+Source of truth for the pinned version: pyproject.toml. 
 
 Tasks
 
