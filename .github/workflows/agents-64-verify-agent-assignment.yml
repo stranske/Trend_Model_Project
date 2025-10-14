@@ -7,6 +7,11 @@ on:
         description: 'Numeric issue identifier to inspect'
         required: true
         type: string
+      valid_assignees:
+        description: 'Comma-separated list of acceptable agent logins'
+        required: false
+        default: 'copilot,chatgpt-codex-connector,stranske-automation-bot'
+        type: string
     outputs:
       status:
         description: 'Validation outcome (pass, fail, skipped, error)'
@@ -32,6 +37,11 @@ on:
         description: 'Numeric issue identifier to inspect'
         required: true
         type: string
+      valid_assignees:
+        description: 'Comma-separated list of acceptable agent logins'
+        required: false
+        default: 'copilot,chatgpt-codex-connector,stranske-automation-bot'
+        type: string
 
 permissions:
   issues: read
@@ -55,6 +65,7 @@ jobs:
         uses: actions/github-script@v7
         env:
           ISSUE_NUMBER: ${{ inputs.issue_number }}
+          VALID_ASSIGNEES: ${{ inputs.valid_assignees }}
         with:
           script: |
             const rawInput = (process.env.ISSUE_NUMBER || '').trim();
@@ -106,7 +117,9 @@ jobs:
               return;
             }
 
-            const REQUIRED_LOGINS = ['copilot', 'chatgpt-codex-connector'];
+            const rawLogins = (process.env.VALID_ASSIGNEES || '').split(',').map((entry) => entry.trim()).filter(Boolean);
+            const REQUIRED_LOGINS = (rawLogins.length ? rawLogins : ['copilot', 'chatgpt-codex-connector', 'stranske-automation-bot'])
+              .map((login) => login.toLowerCase());
             let issueTitle = '—';
             let hasLabel = false;
             let matched = '';
@@ -140,7 +153,8 @@ jobs:
                 core.notice(message);
               } else if (!matched) {
                 status = 'fail';
-                message = `Issue #${issueNumber} is labelled agent:codex but missing a valid agent assignee (expected copilot or chatgpt-codex-connector).`;
+                const expectedList = REQUIRED_LOGINS.join(', ');
+                message = `Issue #${issueNumber} is labelled agent:codex but missing a valid agent assignee (expected one of: ${expectedList}).`;
                 core.error(message);
               } else {
                 status = 'pass';
