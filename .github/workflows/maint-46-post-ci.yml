@@ -1313,12 +1313,52 @@ jobs:
           ${{ needs.summarize.outputs.summary_body }}
           EOF
 
+      - name: Locate patch artifact
+        id: patch_artifact
+        if: >-
+          needs.small-fixes.outputs.patch_available == 'true' ||
+          needs.fix-failing-checks.outputs.patch_available == 'true'
+        uses: actions/github-script@v7
+        env:
+          RUN_ID: ${{ github.run_id }}
+          PR_NUMBER: ${{ needs.context.outputs.pr }}
+        with:
+          github-token: ${{ secrets.SERVICE_BOT_PAT || github.token }}
+          result-encoding: string
+          script: |
+            const runId = process.env.RUN_ID;
+            const prNumber = process.env.PR_NUMBER;
+            if (!runId || !prNumber) {
+              let missing = [];
+              if (!runId) missing.push('run ID');
+              if (!prNumber) missing.push('PR number');
+              core.info(`Missing ${missing.join(' and ')} for patch lookup.`);
+              return '';
+            }
+            const targetName = `autofix-patch-pr-${prNumber}`;
+            const artifacts = await github.paginate(
+              github.rest.actions.listWorkflowRunArtifacts,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: Number(runId),
+                per_page: 100,
+              },
+            );
+            const match = artifacts.find(artifact => artifact && artifact.name === targetName);
+            if (!match) {
+              core.info(`No patch artifact found for ${targetName}. This is expected if no patch was generated for this PR/run. If a patch was expected, this may indicate an error or misconfiguration.`);
+              return '';
+            }
+            return `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}/artifacts/${match.id}`;
+
       - name: Prepare consolidated comment
         id: prepare
         env:
           SUMMARY_PATH: summary_body.md
           HEAD_SHA: ${{ needs.summarize.outputs.head_sha }}
           PR_NUMBER: ${{ needs.context.outputs.pr }}
+          PATCH_URL: ${{ steps.patch_artifact.outputs.result }}
           SMALL_RESULT: ${{ needs.small-fixes.result }}
           SMALL_RAN: ${{ needs.small-fixes.outputs.ran }}
           SMALL_CHANGED: ${{ needs.small-fixes.outputs.changed }}
