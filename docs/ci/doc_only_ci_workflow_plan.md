@@ -1,5 +1,7 @@
 # Doc-Only CI Workflow Planning Notes
 
+> **Update (2026-02-18):** The standalone `pr-14-docs-only.yml` workflow has been retired. Gate (`pr-00-gate.yml`) now owns doc-only detection via its `detect_doc_only` job, reusing the same Markdown/`docs/`/`assets/` filters described below. This document remains as historical context for how the behavior was originally designed.
+
 ## Scope and Key Constraints
 - Implement a GitHub Actions workflow that runs only for pull requests modifying documentation-specific paths (`**/*.md`, `docs/**`, `assets/**`).
 - The workflow must detect doc-only diffs by combining `paths` filters with a guard that prevents execution when other file types are present.
