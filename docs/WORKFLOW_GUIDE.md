@@ -11,7 +11,7 @@ bootstrap runs.
 
 | Prefix | Purpose | Active Examples |
 | ------ | ------- | ---------------- |
-| `pr-` | Pull-request CI wrappers | `pr-00-gate.yml`, `pr-14-docs-only.yml` |
+| `pr-` | Pull-request CI wrappers | `pr-00-gate.yml`, `pr-02-autofix.yml` |
 | `maint-` | Post-CI maintenance and self-tests | `maint-46-post-ci.yml`, `maint-47-check-failure-tracker.yml`, `maint-45-cosmetic-repair.yml` |
 | `health-` | Repository health & policy checks | `health-40-repo-selfcheck.yml`, `health-41-repo-health.yml`, `health-42-actionlint.yml`, `health-43-ci-signature-guard.yml`, `health-44-gate-branch-protection.yml` |
 | `agents-` | Agent orchestration entry points | `agents-70-orchestrator.yml` (primary); deprecated shims: `agents-61-consumer-compat.yml`, `agents-62-consumer.yml` |
@@ -30,8 +30,7 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 ## Final Workflow Set
 
 ### PR Checks
-- **`pr-00-gate.yml`** — Required orchestrator that calls the reusable Python (3.11/3.12) and Docker smoke workflows, then fails fast if any leg does not succeed. See the Gate job map and flow diagram in [docs/ci/WORKFLOWS.md](ci/WORKFLOWS.md#gate-job-map) for a visual of the fan-out and aggregator enforcement.
-- **`pr-14-docs-only.yml`** — Docs-only detector that posts a skip notice instead of running heavier CI.
+- **`pr-00-gate.yml`** — Required orchestrator that calls the reusable Python (3.11/3.12) and Docker smoke workflows, then fails fast if any leg does not succeed. A lightweight `detect_doc_only` job now mirrors the former PR‑14 filters (Markdown, `docs/`, `assets/`) to skip heavy legs and post the friendly notice when a PR is documentation-only.
 - **`pr-02-autofix.yml`** — PR autofix runner delegating to the reusable autofix composite.
 
 ### Maintenance & Governance
