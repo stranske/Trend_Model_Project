@@ -8,7 +8,11 @@ historical consumer wrappers have been retired now that all automation flows
 through the orchestrator. For a narrative overview of how the pieces fit
 together, start with [docs/ci/WORKFLOW_SYSTEM.md](WORKFLOW_SYSTEM.md).
 
-## Active workflow catalog
+For the bucket-level overview, keep/retire roster, and policy checklist, start
+with [docs/ci/WORKFLOW_SYSTEM.md](WORKFLOW_SYSTEM.md). This catalog then expands
+each kept workflow with trigger, permission, and operational details.
+
+## CI & agents quick catalog
 
 The tables below capture the **active** workflows, their triggers, required
 scopes, and whether they block merges. Retired entries move to the
@@ -78,6 +82,15 @@ flowchart TD
 | **Agents 63 Codex Issue Bridge** | `.github/workflows/agents-63-codex-issue-bridge.yml` | `issues`, `workflow_dispatch` | `contents: write`, `pull-requests: write`, `issues: write` | No | Label-driven helper that seeds Codex bootstrap PRs and can auto-comment `@codex start`. |
 | **Agents 64 Verify Agent Assignment** | `.github/workflows/agents-64-verify-agent-assignment.yml` | `workflow_call`, `workflow_dispatch` | `issues: read` | No | Reusable issue-verification helper consumed by the orchestrator and available for ad-hoc checks. |
 | **Agents 63 ChatGPT Issue Sync** | `.github/workflows/agents-63-chatgpt-issue-sync.yml` | `workflow_dispatch` | `contents: read`, `issues: write` | No | Manual sync that turns curated topic lists (e.g. `Issues.txt`) into labelled GitHub issues. |
+
+### Archived & legacy
+
+The workflows below were retired during the consolidation. Keep them documented for historical context only:
+
+- **`pr-14-docs-only.yml`** — Superseded by Gate’s built-in docs-only detection.
+- **`maint-47-check-failure-tracker.yml`** — Replaced by the post-CI summary job inside `maint-46-post-ci.yml`.
+- **`agents-61-consumer-compat.yml`** and **`agents-62-consumer.yml`** — Legacy consumer shims replaced by the orchestrator.
+- **Legacy selftest wrappers** (`selftest-80-pr-comment.yml`, `selftest-82-pr-comment.yml`, `selftest-83-pr-comment.yml`, `selftest-84-reusable-ci.yml`, `selftest-88-reusable-ci.yml`) — Consolidated into `selftest-runner.yml` + `selftest-81-reusable-ci.yml`.
 
 ### Reusable composites
 
