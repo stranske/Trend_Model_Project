@@ -1329,7 +1329,10 @@ jobs:
             const runId = process.env.RUN_ID;
             const prNumber = process.env.PR_NUMBER;
             if (!runId || !prNumber) {
-              core.info('Missing run or PR context for patch lookup.');
+              let missing = [];
+              if (!runId) missing.push('run ID');
+              if (!prNumber) missing.push('PR number');
+              core.info(`Missing ${missing.join(' and ')} for patch lookup.`);
               return '';
             }
             const targetName = `autofix-patch-pr-${prNumber}`;
