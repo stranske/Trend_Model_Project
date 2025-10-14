@@ -201,6 +201,22 @@ def test_post_ci_failure_tracker_handles_success_path() -> None:
     assert "github.rest.issues.removeLabel" in remove_script
 
 
+def test_success_path_resolves_tracked_pr_issue() -> None:
+    workflow = _load_workflow(POST_CI_PATH)
+    job = workflow["jobs"]["failure-tracker"]
+
+    resolve_step = _get_step(job, "Resolve failure issue for recovered PR")
+    condition = " ".join(resolve_step.get("if", "").split())
+    assert "needs.context.outputs.pr" in condition
+    assert "workflow_run.conclusion == 'success'" in condition
+    assert resolve_step.get("uses", "").startswith("actions/github-script@")
+
+    script = resolve_step.get("with", {}).get("script", "")
+    assert "<!-- tracked-pr:" in script
+    assert "Resolution: Gate run succeeded" in script
+    assert "Closed failure issue" in script
+
+
 def test_post_ci_requires_issue_permissions() -> None:
     workflow = _load_workflow(POST_CI_PATH)
     permissions = workflow.get("permissions", {})
@@ -250,6 +266,13 @@ def test_failure_tracker_signature_uses_slugified_workflow_path() -> None:
     assert "Workflow slug: \\`${workflowId}\\`" in script
 
 
+def test_failure_tracker_script_tags_pr_numbers() -> None:
+    script = _get_tracker_script()
+
+    assert "Tracked PR:" in script
+    assert "<!-- tracked-pr:" in script
+
+
 def test_failure_tracker_script_updates_existing_issue(tmp_path: Path) -> None:
     node_path = shutil.which("node")
     if node_path is None:
@@ -266,6 +289,7 @@ def test_failure_tracker_script_updates_existing_issue(tmp_path: Path) -> None:
     scenario = {
         "owner": "stranske",
         "repo": "Trend_Model_Project",
+        "prNumber": 123,
         "run": {
             "id": 314,
             "workflow_id": 271,
@@ -314,6 +338,9 @@ def test_failure_tracker_script_updates_existing_issue(tmp_path: Path) -> None:
         (async () => {{
         const scenario = {json.dumps(scenario)};
         const newline = '\\n';
+        const prNumber = scenario.prNumber;
+        const prLine = prNumber ? 'Tracked PR: #' + prNumber : null;
+        const prTag = prNumber ? '<!-- tracked-pr: ' + prNumber + ' -->' : null;
         const github = {{
           rest: {{
             search: {{
@@ -377,7 +404,11 @@ def test_failure_tracker_script_updates_existing_issue(tmp_path: Path) -> None:
           catch {{ try {{ await github.rest.issues.createLabel({{ owner, repo, name: lb, color: 'BFDADC' }}); }} catch {{}} }}
         }}
 
-        const bodyBlock = 'body';
+        const bodyParts = ['Workflow: Gate'];
+        if (prLine) bodyParts.push(prLine);
+        if (prTag) bodyParts.push(prTag);
+        bodyParts.push('### Failed Jobs', 'Job table here');
+        const bodyBlock = bodyParts.join(newline);
         let issue_number = null;
         let reopened = false;
 
@@ -408,10 +439,16 @@ def test_failure_tracker_script_updates_existing_issue(tmp_path: Path) -> None:
           const summaryLines = [
             `Occurrences: ${{occ}}`,
             `Last seen: ${{nowIso}}`,
-            '',
+            'Healing threshold: ' + HEAL_THRESHOLD_DESC,
             baseBody.trim(),
           ].filter(Boolean);
-          const body = summaryLines.join(newline);
+          let body = summaryLines.join(newline);
+          if (prLine && !body.includes(prLine)) {{
+            body = body.replace('Healing threshold: ' + HEAL_THRESHOLD_DESC, 'Healing threshold: ' + HEAL_THRESHOLD_DESC + newline + prLine);
+          }}
+          if (prTag && !body.includes(prTag)) {{
+            body = prTag + newline + body;
+          }}
           await github.rest.issues.update({{ owner, repo, issue_number, title, body }});
           const comments = await github.rest.issues.listComments({{ owner, repo, issue_number, per_page: 50 }});
           const alreadyCommented = comments.data.some(c => c.body && c.body.includes(run.html_url));
@@ -461,4 +498,10 @@ def test_failure_tracker_script_updates_existing_issue(tmp_path: Path) -> None:
     assert "createIssue" not in action_types, "Tracker should update existing issue instead of creating new"
     assert action_types.count("updateIssue") == 1, "Existing issue should be updated exactly once"
     assert action_types.count("createComment") == 1, "Existing issue should receive a new occurrence comment"
+
+    update_payloads = [entry.get("payload", {}) for entry in actions if entry.get("type") == "updateIssue"]
+    assert update_payloads, "Expected an updateIssue payload to inspect"
+    update_body = update_payloads[0].get("body") or ""
+    assert "Tracked PR: #123" in update_body
+    assert "<!-- tracked-pr: 123 -->" in update_body
 
