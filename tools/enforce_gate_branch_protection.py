@@ -44,14 +44,28 @@ class StatusCheckState:
 
     @classmethod
     def from_api(cls, payload: Mapping[str, Any]) -> "StatusCheckState":
-        raw_contexts = payload.get("contexts")
-        if isinstance(raw_contexts, Iterable) and not isinstance(
-            raw_contexts, (str, bytes)
-        ):
-            contexts = [str(context) for context in raw_contexts]
-        else:
-            contexts = []
-        return cls(strict=bool(payload.get("strict")), contexts=sorted(contexts))
+        return _state_from_status_payload(payload)
+
+
+def _state_from_status_payload(
+    payload: Mapping[str, Any], *, default_strict: bool = False
+) -> StatusCheckState:
+    """Normalise a required status checks payload into a ``StatusCheckState``."""
+
+    raw_contexts = payload.get("contexts")
+    if isinstance(raw_contexts, Iterable) and not isinstance(
+        raw_contexts, (str, bytes)
+    ):
+        contexts = [str(context) for context in raw_contexts]
+    else:
+        contexts = []
+
+    if "strict" in payload:
+        strict = bool(payload.get("strict"))
+    else:
+        strict = default_strict
+
+    return StatusCheckState(strict=strict, contexts=sorted(contexts))
 
 
 def _build_session(token: str) -> requests.Session:
@@ -89,22 +103,9 @@ def _state_from_branch_payload(payload: Mapping[str, Any]) -> StatusCheckState:
             "Branch protection does not require any status checks yet."
         )
 
-    raw_contexts = status_checks.get("contexts") or []
-    if isinstance(raw_contexts, Iterable) and not isinstance(
-        raw_contexts, (str, bytes)
-    ):
-        contexts = [str(context) for context in raw_contexts]
-    else:
-        contexts = []
-
-    # Prefer the 'strict' field if present, for consistency with StatusCheckState.from_api
-    if "strict" in status_checks:
-        strict = bool(status_checks.get("strict"))
-    else:
-        enforcement_level = status_checks.get("enforcement_level")
-        strict = enforcement_level in {"non_admins", "everyone"}
-
-    return StatusCheckState(strict=strict, contexts=sorted(contexts))
+    # The branch metadata API omits the ``strict`` flag. Treat it as disabled so
+    # missing configuration is still surfaced to the caller.
+    return _state_from_status_payload(status_checks, default_strict=False)
 
 
 def fetch_status_checks(
