@@ -51,6 +51,108 @@ def _get_success_resolution_script() -> str:
     return script
 
 
+def _get_post_comment_script() -> str:
+    workflow = _load_workflow(POST_CI_PATH)
+    job = workflow["jobs"]["post-comment"]
+    comment_step = _get_step(job, "Upsert consolidated PR comment")
+    script = comment_step.get("with", {}).get("script")
+    assert isinstance(script, str), "Expected comment upsert script to be defined"
+    return script
+
+
+def _run_post_comment_harness(
+    tmp_path: Path, node_path: str, scenario: dict[str, object]
+) -> list[dict[str, object]]:
+    script = _get_post_comment_script()
+    pr_value = scenario.get("pr")
+    assert isinstance(pr_value, int), "Scenario must provide integer PR number"
+    script = script.replace("'${{ needs.context.outputs.pr }}'", f"'{pr_value}'")
+    script_b64 = base64.b64encode(script.encode("utf-8")).decode("ascii")
+    scenario_json = json.dumps(scenario)
+    harness = textwrap.dedent(
+        f"""
+        const actionsLog = [];
+        function log(type, payload) {{
+          actionsLog.push({{ type, ...(payload ? {{ payload }} : {{}}) }});
+        }}
+
+        const scenario = {scenario_json};
+        const fs = require('fs');
+        fs.writeFileSync('maint_post_ci_comment.md', scenario.body, 'utf8');
+
+        const github = {{
+          rest: {{
+            issues: {{
+              async listComments(args) {{
+                log('listComments', args);
+                return {{ data: scenario.comments }};
+              }},
+              async updateComment(args) {{
+                log('updateComment', args);
+                return {{ data: {{}} }};
+              }},
+              async createComment(args) {{
+                log('createComment', args);
+                return {{ data: {{}} }};
+              }},
+            }},
+          }},
+          paginate: async (fn, args) => {{
+            log('paginate', args);
+            const response = await fn(args);
+            return response.data;
+          }},
+        }};
+
+        const context = {{ repo: {{ owner: scenario.owner, repo: scenario.repo }} }};
+        const core = {{
+          info(message) {{ log('coreInfo', {{ message }}); }},
+          warning(message) {{ log('coreWarning', {{ message }}); }},
+        }};
+
+        (async () => {{
+          const scriptSource = Buffer.from('{script_b64}', 'base64').toString('utf8');
+          const vm = require('vm');
+          const sandbox = {{
+            github,
+            context,
+            core,
+            require,
+            console,
+            process,
+            Buffer,
+            setTimeout,
+            setInterval,
+            clearTimeout,
+            clearInterval,
+          }};
+          const runner = new vm.Script('(async () => {{' + scriptSource + '\\n}})();');
+          await runner.runInNewContext(sandbox);
+          console.log(JSON.stringify(actionsLog));
+        }})().catch((error) => {{
+          console.error(error.stack || String(error));
+          process.exit(1);
+        }});
+        """
+    )
+
+    script_path = tmp_path / "post_comment_harness.js"
+    script_path.write_text(harness, encoding="utf-8")
+
+    result = subprocess.run(
+        [node_path, str(script_path)],
+        check=False,
+        capture_output=True,
+        text=True,
+        cwd=tmp_path,
+    )
+
+    assert result.returncode == 0, result.stderr
+    output = result.stdout.strip()
+    assert output, "Expected harness output to contain action log JSON"
+    return json.loads(output)
+
+
 def test_tracker_workflow_is_now_thin_shell() -> None:
     workflow = _load_workflow(TRACKER_PATH)
     assert set(workflow["jobs"].keys()) == {"redirect"}
@@ -251,6 +353,75 @@ def test_post_comment_job_upserts_single_pr_comment() -> None:
     assert "<!-- maint-46-post-ci: DO NOT EDIT -->" in script
     assert "github.rest.issues.updateComment" in script
     assert "github.rest.issues.createComment" in script
+
+
+def test_post_comment_script_updates_existing_comment(tmp_path: Path) -> None:
+    node_path = shutil.which("node")
+    if node_path is None:
+        pytest.skip("node runtime not available")
+
+    scenario = {
+        "owner": "stranske",
+        "repo": "Trend_Model_Project",
+        "pr": 321,
+        "body": "## Automated Status Summary\nUpdated body\n",
+        "comments": [
+            {"id": 7001, "body": "Unrelated comment"},
+            {
+                "id": 7002,
+                "body": "<!-- maint-46-post-ci: DO NOT EDIT -->\nPrevious summary\n",
+            },
+        ],
+    }
+
+    actions = _run_post_comment_harness(tmp_path, node_path, scenario)
+    action_types = [entry.get("type") for entry in actions]
+
+    assert action_types.count("updateComment") == 1
+    assert "createComment" not in action_types
+
+    update_payloads = [
+        entry.get("payload", {})
+        for entry in actions
+        if entry.get("type") == "updateComment"
+    ]
+    assert update_payloads, "Expected updateComment payload to be recorded"
+    update_payload = update_payloads[0]
+    assert update_payload.get("comment_id") == 7002
+    assert update_payload.get("body") == scenario["body"]
+
+
+def test_post_comment_script_creates_comment_when_missing(tmp_path: Path) -> None:
+    node_path = shutil.which("node")
+    if node_path is None:
+        pytest.skip("node runtime not available")
+
+    scenario = {
+        "owner": "stranske",
+        "repo": "Trend_Model_Project",
+        "pr": 654,
+        "body": "## Automated Status Summary\nFresh body\n",
+        "comments": [
+            {"id": 8101, "body": "General discussion"},
+            {"id": 8102, "body": "Status marker missing"},
+        ],
+    }
+
+    actions = _run_post_comment_harness(tmp_path, node_path, scenario)
+    action_types = [entry.get("type") for entry in actions]
+
+    assert action_types.count("createComment") == 1
+    assert "updateComment" not in action_types
+
+    create_payloads = [
+        entry.get("payload", {})
+        for entry in actions
+        if entry.get("type") == "createComment"
+    ]
+    assert create_payloads, "Expected createComment payload to be recorded"
+    create_payload = create_payloads[0]
+    assert create_payload.get("issue_number") == scenario["pr"]
+    assert create_payload.get("body") == scenario["body"]
 
 
 def test_failure_tracker_signature_uses_slugified_workflow_path() -> None:
