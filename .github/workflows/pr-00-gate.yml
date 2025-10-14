@@ -10,16 +10,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  detect_doc_only:
-    name: detect doc-only changes
+  changes:
+    name: detect changed files
     runs-on: ubuntu-latest
     outputs:
-      doc_only: ${{ steps.classify.outputs.doc_only }}
-      run_core: ${{ steps.classify.outputs.run_core }}
-      reason: ${{ steps.classify.outputs.reason }}
+      doc_only: ${{ steps.diff.outputs.doc_only }}
+      run_core: ${{ steps.diff.outputs.run_core }}
+      reason: ${{ steps.diff.outputs.reason }}
     steps:
-      - name: Classify changed files
-        id: classify
+      - name: Detect changes via API
+        id: diff
         uses: actions/github-script@v7
         with:
           script: |
@@ -67,8 +67,8 @@ jobs:
 
   core-tests-311:
     name: core tests (3.11)
-    needs: detect_doc_only
-    if: needs.detect_doc_only.outputs.doc_only != 'true' && needs.detect_doc_only.outputs.run_core == 'true'
+    needs: changes
+    if: needs.changes.outputs.doc_only != 'true' && needs.changes.outputs.run_core == 'true'
     uses: ./.github/workflows/reusable-10-ci-python.yml
     with:
       python-version: '3.11'
@@ -76,8 +76,8 @@ jobs:
 
   core-tests-312:
     name: core tests (3.12)
-    needs: detect_doc_only
-    if: needs.detect_doc_only.outputs.doc_only != 'true' && needs.detect_doc_only.outputs.run_core == 'true'
+    needs: changes
+    if: needs.changes.outputs.doc_only != 'true' && needs.changes.outputs.run_core == 'true'
     uses: ./.github/workflows/reusable-10-ci-python.yml
     with:
       python-version: '3.12'
@@ -85,14 +85,14 @@ jobs:
 
   docker-smoke:
     name: docker smoke
-    needs: detect_doc_only
-    if: needs.detect_doc_only.outputs.doc_only != 'true' && needs.detect_doc_only.outputs.run_core == 'true'
+    needs: changes
+    if: needs.changes.outputs.doc_only != 'true' && needs.changes.outputs.run_core == 'true'
     uses: ./.github/workflows/reusable-12-ci-docker.yml
 
   gate:
     name: gate
     needs:
-      - detect_doc_only
+      - changes
       - core-tests-311
       - core-tests-312
       - docker-smoke
@@ -104,11 +104,11 @@ jobs:
       statuses: write
     steps:
       - name: Handle docs-only change
-        if: needs.detect_doc_only.outputs.doc_only == 'true'
+        if: needs.changes.outputs.doc_only == 'true'
         id: docs_only
         uses: actions/github-script@v7
         env:
-          REASON: ${{ needs.detect_doc_only.outputs.reason || 'docs_only' }}
+          REASON: ${{ needs.changes.outputs.reason || 'docs_only' }}
         with:
           script: |
             const reason = process.env.REASON || 'docs_only';
@@ -142,21 +142,21 @@ jobs:
             core.setOutput('description', `Docs-only change; heavy checks skipped (${reason}).`);
 
       - name: Download coverage (3.11)
-        if: ${{ needs.detect_doc_only.outputs.doc_only != 'true' && needs.core-tests-311.result == 'success' }}
+        if: ${{ needs.changes.outputs.doc_only != 'true' && needs.core-tests-311.result == 'success' }}
         uses: actions/download-artifact@v4
         with:
           name: coverage-3.11
           path: coverage/core-tests-311
 
       - name: Download coverage (3.12)
-        if: ${{ needs.detect_doc_only.outputs.doc_only != 'true' && needs.core-tests-312.result == 'success' }}
+        if: ${{ needs.changes.outputs.doc_only != 'true' && needs.core-tests-312.result == 'success' }}
         uses: actions/download-artifact@v4
         with:
           name: coverage-3.12
           path: coverage/core-tests-312
 
       - name: Summarize results
-        if: needs.detect_doc_only.outputs.doc_only != 'true'
+        if: needs.changes.outputs.doc_only != 'true'
         id: summarize
         run: |
           cat <<'EOF' >> "$GITHUB_STEP_SUMMARY"
@@ -171,8 +171,8 @@ jobs:
           STATE="success"
           DESCRIPTION="All Gate checks succeeded."
 
-          if [ "${{ needs.detect_doc_only.outputs.run_core }}" != "true" ]; then
-            REASON="${{ needs.detect_doc_only.outputs.reason }}"
+          if [ "${{ needs.changes.outputs.run_core }}" != "true" ]; then
+            REASON="${{ needs.changes.outputs.reason }}"
             if [ -z "$REASON" ]; then
               REASON="docs_only"
             fi
