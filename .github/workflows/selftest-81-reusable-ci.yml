@@ -5,7 +5,7 @@ on:
     inputs:
       reason:
         description: 'Why are you running this example?'
-        required: true
+        required: false
         default: 'manual test'
       python-versions:
         description: >-
