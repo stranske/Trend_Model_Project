@@ -13,10 +13,6 @@ on:
         description: 'Agents to probe (copilot,codex)'
         required: false
         default: 'copilot,codex'
-      require_all:
-        description: 'Fail readiness if any requested agent missing (true/false)'
-        required: false
-        default: 'false'
       enable_preflight:
         description: 'Run Codex preflight diagnostics (true/false)'
         required: false
@@ -33,6 +29,10 @@ on:
         description: 'Issue number for verification (blank to skip)'
         required: false
         default: ''
+      verify_issue_valid_assignees:
+        description: 'Comma-separated list of acceptable agent logins for verification'
+        required: false
+        default: 'copilot,chatgpt-codex-connector,stranske-automation-bot'
       enable_watchdog:
         description: 'Run watchdog sanity checks (true/false)'
         required: false
@@ -77,6 +77,7 @@ jobs:
       enable_bootstrap: ${{ steps.merge.outputs.enable_bootstrap }}
       bootstrap_issues_label: ${{ steps.merge.outputs.bootstrap_issues_label }}
       draft_pr: ${{ steps.merge.outputs.draft_pr }}
+      verify_issue_valid_assignees: ${{ steps.merge.outputs.verify_issue_valid_assignees }}
       options_json: ${{ steps.merge.outputs.options_json }}
     steps:
       - name: Merge dispatch inputs
@@ -87,11 +88,11 @@ jobs:
           OPTIONS_JSON_SANITISED: ${{ toJson(fromJson(inputs.options_json || '{}')) }}
           BASE_ENABLE_READINESS: ${{ inputs.enable_readiness || 'false' }}
           BASE_READINESS_AGENTS: ${{ inputs.readiness_agents || 'copilot,codex' }}
-          BASE_REQUIRE_ALL: ${{ inputs.require_all || 'false' }}
           BASE_ENABLE_PREFLIGHT: ${{ inputs.enable_preflight || 'false' }}
           BASE_CODEX_USER: ${{ inputs.codex_user || '' }}
           BASE_ENABLE_VERIFY_ISSUE: ${{ inputs.enable_verify_issue || 'false' }}
           BASE_VERIFY_ISSUE_NUMBER: ${{ inputs.verify_issue_number || '' }}
+          BASE_VERIFY_VALID_ASSIGNEES: ${{ inputs.verify_issue_valid_assignees || 'copilot,chatgpt-codex-connector,stranske-automation-bot' }}
           BASE_ENABLE_WATCHDOG: ${{ inputs.enable_watchdog || 'true' }}
           BASE_DRAFT_PR: ${{ inputs.draft_pr || 'false' }}
         with:
@@ -100,12 +101,13 @@ jobs:
               enable_readiness: process.env.BASE_ENABLE_READINESS || 'false',
               readiness_agents: process.env.BASE_READINESS_AGENTS || 'copilot,codex',
               readiness_custom_logins: '',
-              require_all: process.env.BASE_REQUIRE_ALL || 'false',
+              require_all: 'false',
               enable_preflight: process.env.BASE_ENABLE_PREFLIGHT || 'false',
               codex_user: process.env.BASE_CODEX_USER || '',
               codex_command_phrase: '',
               enable_verify_issue: process.env.BASE_ENABLE_VERIFY_ISSUE || 'false',
               verify_issue_number: process.env.BASE_VERIFY_ISSUE_NUMBER || '',
+              verify_issue_valid_assignees: 'copilot,chatgpt-codex-connector,stranske-automation-bot',
               enable_watchdog: process.env.BASE_ENABLE_WATCHDOG || 'true',
               enable_keepalive: 'true',
               enable_bootstrap: 'false',
@@ -187,6 +189,11 @@ jobs:
             const codexUser = asString(parsed.codex_user, defaults.codex_user);
             const codexCommand = asString(parsed.codex_command_phrase, defaults.codex_command_phrase);
             const verifyIssueNumber = asString(parsed.verify_issue_number, defaults.verify_issue_number).trim();
+            const verifyIssueValidAssigneesRaw = asString(
+              parsed.verify_issue_valid_assignees,
+              defaults.verify_issue_valid_assignees
+            ).trim();
+            const verifyIssueValidAssignees = verifyIssueValidAssigneesRaw || defaults.verify_issue_valid_assignees;
             const diagnosticModeRaw = asString(parsed.diagnostic_mode, defaults.diagnostic_mode).trim().toLowerCase();
             const diagnosticMode = ['full', 'dry-run'].includes(diagnosticModeRaw) ? diagnosticModeRaw : 'off';
 
@@ -201,24 +208,25 @@ jobs:
             );
 
             const outputs = {
-              enable_readiness: asBoolString(parsed.enable_readiness, defaults.enable_readiness),
-              readiness_agents: readinessAgents || defaults.readiness_agents,
-              readiness_custom_logins: readinessCustom,
-              require_all: asBoolString(parsed.require_all, defaults.require_all),
-              enable_preflight: asBoolString(parsed.enable_preflight, defaults.enable_preflight),
-              codex_user: codexUser,
-              codex_command_phrase: codexCommand,
-              enable_diagnostic: diagnosticMode === 'off' ? 'false' : 'true',
-              diagnostic_attempt_branch: diagnosticMode === 'full' ? 'true' : 'false',
-              diagnostic_dry_run: diagnosticMode === 'full' ? 'false' : 'true',
+              'enable_readiness': asBoolString(parsed.enable_readiness, defaults.enable_readiness),
+              'readiness_agents': readinessAgents || defaults.readiness_agents,
+              'readiness_custom_logins': readinessCustom,
+              'require_all': asBoolString(parsed.require_all, defaults.require_all),
+              'enable_preflight': asBoolString(parsed.enable_preflight, defaults.enable_preflight),
+              'codex_user': codexUser,
+              'codex_command_phrase': codexCommand,
+              'enable_diagnostic': diagnosticMode === 'off' ? 'false' : 'true',
+              'diagnostic_attempt_branch': diagnosticMode === 'full' ? 'true' : 'false',
+              'diagnostic_dry_run': diagnosticMode === 'full' ? 'false' : 'true',
               'enable_verify_issue': enableVerifyIssueValue,
-              verify_issue_number: verifyIssueNumber,
-              enable_watchdog: asBoolString(parsed.enable_watchdog, defaults.enable_watchdog),
-              enable_keepalive: enableKeepalive,
-              enable_bootstrap: enableBootstrap,
-              bootstrap_issues_label: bootstrapLabel,
-              draft_pr: asBoolString(parsed.draft_pr, defaults.draft_pr),
-              options_json: optionsJson,
+              'verify_issue_number': verifyIssueNumber,
+              'verify_issue_valid_assignees': verifyIssueValidAssignees,
+              'enable_watchdog': asBoolString(parsed.enable_watchdog, defaults.enable_watchdog),
+              'enable_keepalive': enableKeepalive,
+              'enable_bootstrap': enableBootstrap,
+              'bootstrap_issues_label': bootstrapLabel,
+              'draft_pr': asBoolString(parsed.draft_pr, defaults.draft_pr),
+              'options_json': optionsJson,
             };
 
             for (const [key, value] of Object.entries(outputs)) {
@@ -256,4 +264,5 @@ jobs:
       enable_bootstrap: ${{ needs.resolve-params.outputs.enable_bootstrap }}
       bootstrap_issues_label: ${{ needs.resolve-params.outputs.bootstrap_issues_label }}
       draft_pr: ${{ needs.resolve-params.outputs.draft_pr }}
+      verify_issue_valid_assignees: ${{ needs.resolve-params.outputs.verify_issue_valid_assignees }}
       options_json: ${{ needs.resolve-params.outputs.options_json }}

@@ -23,11 +23,11 @@ def test_agents_orchestrator_inputs_and_uses():
     expected_inputs = {
         "enable_readiness",
         "readiness_agents",
-        "require_all",
         "enable_preflight",
         "codex_user",
         "enable_verify_issue",
         "verify_issue_number",
+        "verify_issue_valid_assignees",
         "enable_watchdog",
         "draft_pr",
         "options_json",

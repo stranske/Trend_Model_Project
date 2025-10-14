@@ -172,8 +172,10 @@ The Codex Issue Bridge is a label-driven helper for seeding bootstrap PRs, while
 2. Fill the dispatch form:
    - **Branch**: keep `phase-2-dev` unless testing a feature branch.
    - **Enable readiness / preflight / watchdog**: toggle as needed for the run.
+   - **Verify issue fields**: provide `enable_verify_issue`, `verify_issue_number`, and `verify_issue_valid_assignees` when
+     running the assignment audit path.
    - **Enable bootstrap**: set to `true` when seeding Codex PRs; leave `false` for readiness-only sweeps.
-   - **Options JSON**: supply nested overrides (for example `{ "bootstrap": { "label": "agent:codex" }, "diagnostic_mode": "dry-run" }`).
+   - **Options JSON**: supply nested overrides (for example `{ "bootstrap": { "label": "agent:codex" }, "diagnostic_mode": "dry-run", "require_all": true }`).
 3. Click **Run workflow**. The orchestrator fan-outs through `reusable-16-agents.yml`; job summaries include readiness tables, bootstrap status, verification notes, and links to spawned PRs.
 
 **Programmatic dispatch (`options_json` example).** Tooling can post the JSON payload directly through the orchestrator’s `options_json` input or hand it to the deprecated consumer wrapper while you migrate clients—the wrapper parses `params_json`, normalises the keys, and forwards the derived `options_json` payload to the orchestrator.
@@ -182,13 +184,15 @@ The Codex Issue Bridge is a label-driven helper for seeding bootstrap PRs, while
 {
   "enable_readiness": true,
   "readiness_agents": "copilot,codex",
-  "require_all": false,
   "enable_preflight": true,
   "codex_user": "",
+  "enable_verify_issue": true,
+  "verify_issue_number": "123456",
+  "verify_issue_valid_assignees": "copilot,chatgpt-codex-connector,stranske-automation-bot",
   "enable_bootstrap": true,
   "bootstrap_issues_label": "agent:codex",
   "draft_pr": false,
-  "options_json": "{\"diagnostic_mode\":\"dry-run\",\"bootstrap\":{\"label\":\"agent:codex\"}}"
+  "options_json": "{\"require_all\":true,\"diagnostic_mode\":\"dry-run\",\"bootstrap\":{\"label\":\"agent:codex\"}}"
 }
 ```
 
@@ -199,13 +203,15 @@ cat <<'JSON' > orchestrator.json
 {
   "enable_readiness": true,
   "readiness_agents": "copilot,codex",
-  "require_all": false,
   "enable_preflight": true,
   "codex_user": "",
+  "enable_verify_issue": true,
+  "verify_issue_number": "123456",
+  "verify_issue_valid_assignees": "copilot,chatgpt-codex-connector,stranske-automation-bot",
   "enable_bootstrap": true,
   "bootstrap_issues_label": "agent:codex",
   "draft_pr": false,
-  "options_json": "{\"diagnostic_mode\":\"dry-run\",\"bootstrap\":{\"label\":\"agent:codex\"}}"
+  "options_json": "{\"require_all\":true,\"diagnostic_mode\":\"dry-run\",\"bootstrap\":{\"label\":\"agent:codex\"}}"
 }
 JSON
 
