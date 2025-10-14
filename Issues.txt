@@ -56,7 +56,7 @@ with:
         options_json: DEFAULT_OPTIONS_JSON
     };
     let user = {};
-    try { user = JSON.parse(process.env.PARAMS_JSON || '{}'); } catch(e) { core.warning('Bad params_json; using defaults'); }
+    try { user = JSON.parse(process.env.PARAMS_JSON || '{}'); } catch(e) { core.warning(`Bad params_json; using defaults. Parse error: ${e}`); }
     const merged = { ...DEFAULTS, ...user };
     core.setOutput('enable_readiness', String(merged.enable_readiness));
     // set all other outputs...
