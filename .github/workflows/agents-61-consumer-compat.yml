@@ -1,4 +1,4 @@
-name: Agents 61 Consumer Compat (Manual Shim)
+name: Agents 61 Consumer Compat
 
 on:
   workflow_dispatch:
