@@ -14,6 +14,8 @@ remain true after the cleanup.
 - Primary issue label: `agent:codex` (case-sensitive). Use it to document that an issue expects Codex handling even though the
   workflow is manually dispatched.
 - Aliases such as `agents:codex` are no longer acted upon automatically but can remain for historical context.
+- Preferred entry point: open the [Agent task issue template](https://github.com/stranske/Trend_Model_Project/issues/new?template=agent_task.yml)
+  so the required `agents` and `agent:codex` labels are applied up front.
 
 ## PR Hygiene
 - Codex PRs remain non-draft by default.
