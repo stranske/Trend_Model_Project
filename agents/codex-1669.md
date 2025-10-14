@@ -10,5 +10,5 @@
 ### Acceptance criteria
 1. Actions tab lists only `pr-*`, `maint-*`, `agents-*`, and `reusable-*` workflows.
 2. Historical archive directories are gone; `ARCHIVE_WORKFLOWS.md` documents where to find replacements in git history.
-3. `WORKFLOW_AUDIT_TEMP.md`, `.github/workflows/README.md`, and `docs/WORKFLOW_GUIDE.md` reflect the cleaned inventory and reference the new guard test coverage.
+3. `docs/ci/WORKFLOW_SYSTEM.md`, `.github/workflows/README.md`, and `docs/WORKFLOW_GUIDE.md` reflect the cleaned inventory and reference the new guard test coverage.
 4. Guard tests under `tests/test_workflow_*.py` enforce the naming rules and pass locally (`pytest tests/test_workflow_*.py`).
