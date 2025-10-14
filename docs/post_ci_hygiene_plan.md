@@ -40,3 +40,6 @@
   failure tracker single-issue guarantee intact without manual cleanup.
 - Synthetic Node harnesses cover both sides of the lifecycle: failure updates increment the occurrence counter without spawning
   duplicates, and the success-path script reuses the tracked PR tag to post a resolution comment and close the existing issue.
+- A dedicated harness exercises the consolidated-status comment script to prove it updates the existing marker-tagged comment
+  when present and creates exactly one comment when the marker is absent, confirming the concurrency lock plus upsert path keep
+  a single summary per PR.
