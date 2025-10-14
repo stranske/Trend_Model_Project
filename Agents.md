@@ -129,6 +129,24 @@ Never touch notebooks living under any directory whose name ends in old/.
 
 ---
 
+## Automation entry points (Orchestrator → bridge → verification)
+
+### Agents 70 Orchestrator
+- **File**: `.github/workflows/agents-70-orchestrator.yml`.
+- **Triggers**: 20-minute cron plus on-demand `workflow_dispatch` inputs for readiness, bootstrap, verification, watchdog, and keepalive paths.
+- **Role**: single automation front door. Every scheduled sweep and manual run invokes `reusable-16-agents.yml`, passing the merged toggles (watchdog enabled by default, verification toggled via `enable_verify_issue`).
+- **Manual run**: Actions → **Agents 70 Orchestrator** → **Run workflow**. Supply booleans as strings (for example `true`) and optional JSON overrides in `options_json` when you need to bundle advanced switches in one payload.
+
+### Agents 63 Codex Issue Bridge
+- **File**: `.github/workflows/agents-63-codex-issue-bridge.yml`.
+- **Triggers**: reacts to issue events (opened, labeled, reopened) when the issue carries the `agent:codex`/`agents:codex` label set, and exposes `workflow_dispatch` inputs for manual testing, PR mode overrides, and forcing draft PRs.
+- **Role**: hydrates bootstrap PRs or invite flows for labeled issues, optionally posting the `@codex start` command. Manual dispatch requires `test_issue` so the bridge knows which issue to service.
+
+### Agents 64 Verify Agent Assignment
+- **File**: `.github/workflows/agents-64-verify-agent-assignment.yml`.
+- **Triggers**: reusable `workflow_call` with a required `issue_number` plus manual `workflow_dispatch` for spot checks.
+- **Role**: confirms that labeled issues still carry an agent assignee and emits a Markdown table + status outputs consumed by the orchestrator. Manual runs follow the same inputs—enter the issue number and review the generated run summary.
+
 ### 2025-06-27 UPDATE — RISK-METRICS EXPORT (SERIOUSLY, LEAVE THIS IN)
 
 Codex removed the pretty reporting layer once; it shall not happen again.

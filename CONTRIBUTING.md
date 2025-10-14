@@ -40,6 +40,15 @@ post-processing workflow:
   remains available when the JSON `params_json` interface is required and now
   forwards inputs to the same reusable workflow.
 
+### Manual workflow_dispatch quickstart
+
+- **Maintenance helper (Maint 45 Cosmetic Repair)** – Actions → **Maint 45 Cosmetic Repair** → **Run workflow**. Choose the base branch, interpreter, and whether to run in dry-run mode using the provided inputs before the workflow hydrates the cosmetic repair script.
+- **Agent automation (Agents 70 Orchestrator)** – Actions → **Agents 70 Orchestrator** → **Run workflow**. Supply booleans as strings (`true`/`false`) for readiness, watchdog, bootstrap, verification, and keepalive toggles or pass an advanced payload through `options_json` when you need to flip several paths at once.
+
+### Health self-check run summaries
+
+The `Health 40 Repo Selfcheck` job writes its status table into the GitHub Actions run summary so you can review label coverage, branch protection, and token usage without downloading artifacts. Open the workflow run and read the generated Markdown table in the **Summary** tab.
+
 ## Manual Self-Test Workflows
 
 Self-tests are strictly manual to avoid noisy or misleading status checks on day-to-day development branches. Trigger them from the **Actions** tab by selecting **Selftest 81 Reusable CI**, choosing **Run workflow**, and writing a brief reason for the dispatch (for example, "Verifying coverage delta after config tweak"). Providing a reason is required—the workflow will not start without it—and the text is echoed in the run summary so future readers can understand why the matrix was executed. The optional `python-versions` JSON input defaults to the pinned CI interpreter but can include additional versions when you need to chase cross-version issues.
