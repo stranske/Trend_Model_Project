@@ -7,7 +7,7 @@ This document records the archival and eventual deletion of legacy agent-related
 ### Legacy agent watchdog
 - **Removed file**: `agent-watchdog.yml` (retired with the Issue #1419 consolidation sweep).
 - **Replacement**: watchdog coverage now ships as the `enable_watchdog` switch inside `Agents 70 Orchestrator`, so both the 20-minute schedule and ad-hoc manual runs execute the same reusable watchdog path.
-- **Verification (2026-10-18, Issue #2562)**: Confirmed the standalone workflow remains absent and the orchestrator continues to drive watchdog runs by resolving `params_json.enable_watchdog` and forwarding the flag through `.github/workflows/agents-70-orchestrator.yml` to `reusable-16-agents.yml`.
+- **Verification (2026-10-18, Issue #2562)**: Confirmed the standalone workflow remains absent, the orchestrator forwards `enable_watchdog` exclusively to the reusable job, and the reusable `watchdog` job stays gated behind `inputs.enable_watchdog == 'true'` with its repository sanity check intact. No dedicated secrets or environment variables remained unique to the retired workflow.
 
 ### Retired self-tests
 - **Archived files**: `Old/workflows/maint-90-selftest.yml` and `Old/workflows/reusable-99-selftest.yml` remain in git history only after the reusable matrix stabilised.

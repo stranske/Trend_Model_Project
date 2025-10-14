@@ -72,6 +72,13 @@ def test_legacy_agent_workflows_removed():
     ), f"Legacy agent workflows still present: {present & forbidden}"
 
 
+def test_agent_watchdog_workflow_absent():
+    legacy_watchdog = WORKFLOWS_DIR / "agent-watchdog.yml"
+    assert (
+        not legacy_watchdog.exists()
+    ), "Standalone agent-watchdog workflow must remain deleted"
+
+
 def test_codex_issue_bridge_present():
     bridge = WORKFLOWS_DIR / "agents-63-codex-issue-bridge.yml"
     assert (
@@ -163,3 +170,33 @@ def test_reusable_agents_jobs_have_timeouts():
         if isinstance(job, dict) and job.get("runs-on") and "timeout-minutes" not in job
     ]
     assert not missing_timeouts, f"Jobs missing timeout-minutes: {missing_timeouts}"
+
+
+def test_reusable_watchdog_job_gated_by_flag():
+    data = _load_workflow_yaml("reusable-16-agents.yml")
+    jobs = data.get("jobs", {})
+    watchdog = jobs.get("watchdog")
+    assert watchdog, "Reusable workflow must expose watchdog job"
+    assert (
+        watchdog.get("if") == "inputs.enable_watchdog == 'true'"
+    ), "Watchdog job must respect enable_watchdog flag"
+    assert (
+        watchdog.get("timeout-minutes") == 20
+    ), "Watchdog job should retain the expected timeout"
+    steps = watchdog.get("steps") or []
+    assert any(
+        isinstance(step, dict) and step.get("uses") == "actions/checkout@v4"
+        for step in steps
+    ), "Watchdog job must continue performing basic repo checks"
+
+
+def test_orchestrator_forwards_enable_watchdog_flag():
+    data = _load_workflow_yaml("agents-70-orchestrator.yml")
+    jobs = data.get("jobs", {})
+    orchestrate = jobs.get("orchestrate")
+    assert orchestrate, "Orchestrator workflow must dispatch reusable agents job"
+    with_section = orchestrate.get("with") or {}
+    assert (
+        with_section.get("enable_watchdog")
+        == "${{ needs.resolve-params.outputs.enable_watchdog }}"
+    ), "Orchestrator must forward enable_watchdog to the reusable workflow"

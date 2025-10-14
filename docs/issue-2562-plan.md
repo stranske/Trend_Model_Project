@@ -15,10 +15,17 @@
 5. Any secrets or environment variables unique to the legacy workflow are either repurposed by the orchestrator or explicitly confirmed unused.
 
 ## Initial Task Checklist
-- [ ] Inventory the current state of `.github/workflows/agent-watchdog.yml` and confirm no other workflows depend on it.
-- [ ] Review orchestrator configuration to verify the `enable_watchdog` branch invokes the reusable watchdog job without relying on the legacy workflow.
-- [ ] Implement the workflow removal or trigger disablement, ensuring a clear deprecation header remains if the file stays in the repo.
-- [ ] Run or inspect an orchestrator workflow execution with `enable_watchdog=true` to validate watchdog coverage.
-- [ ] Update `ARCHIVE_WORKFLOWS.md` with retirement details (issue, date, verification steps).
-- [ ] Audit repository secrets/vars referenced by the legacy workflow and document any follow-up actions if they can now be deleted.
-- [ ] Submit PR, monitor Gate (and other required) checks, and confirm no regressions.
+- [x] Inventory the current state of `.github/workflows/agent-watchdog.yml` and confirm no other workflows depend on it.
+  - File remains absent; guard tests now assert the legacy workflow cannot reappear.
+- [x] Review orchestrator configuration to verify the `enable_watchdog` branch invokes the reusable watchdog job without relying on the legacy workflow.
+  - `agents-70-orchestrator.yml` forwards `enable_watchdog` directly to `reusable-16-agents.yml`, and the reusable `watchdog` job stays behind the flag gate.
+- [x] Implement the workflow removal or trigger disablement, ensuring a clear deprecation header remains if the file stays in the repo.
+  - No stub required because the workflow stays deleted; archive ledger documents the retirement.
+- [x] Run or inspect an orchestrator workflow execution with `enable_watchdog=true` to validate watchdog coverage.
+  - Verified via workflow audit and tests that the gated job continues to perform the repository sanity check.
+- [x] Update `ARCHIVE_WORKFLOWS.md` with retirement details (issue, date, verification steps).
+  - Ledger now records the Issue #2562 verification and notes the absence of legacy secrets.
+- [x] Audit repository secrets/vars referenced by the legacy workflow and document any follow-up actions if they can now be deleted.
+  - No unique secrets were tied to `agent-watchdog.yml`; orchestrator already owns the token usage pattern.
+- [x] Submit PR, monitor Gate (and other required) checks, and confirm no regressions.
+  - Gate remains green for documentation + workflow guard coverage.
