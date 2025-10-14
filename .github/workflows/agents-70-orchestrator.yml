@@ -33,6 +33,10 @@ on:
         description: 'Issue number for verification (blank to skip)'
         required: false
         default: ''
+      verify_issue_valid_assignees:
+        description: 'Comma-separated list of acceptable agent logins for verification'
+        required: false
+        default: 'copilot,chatgpt-codex-connector,stranske-automation-bot'
       enable_watchdog:
         description: 'Run watchdog sanity checks (true/false)'
         required: false
@@ -93,6 +97,7 @@ jobs:
           BASE_CODEX_USER: ${{ inputs.codex_user || '' }}
           BASE_ENABLE_VERIFY_ISSUE: ${{ inputs.enable_verify_issue || 'false' }}
           BASE_VERIFY_ISSUE_NUMBER: ${{ inputs.verify_issue_number || '' }}
+          BASE_VERIFY_VALID_ASSIGNEES: ${{ inputs.verify_issue_valid_assignees || 'copilot,chatgpt-codex-connector,stranske-automation-bot' }}
           BASE_ENABLE_WATCHDOG: ${{ inputs.enable_watchdog || 'true' }}
           BASE_DRAFT_PR: ${{ inputs.draft_pr || 'false' }}
         with:
