@@ -214,7 +214,7 @@ jobs:
               'attention': '⚠️ Needs attention',
               'warn': '⚠️ Warning',
               'info': 'ℹ️ Info',
-              'skipped': '⚠️ Skipped',
+              'skipped': '⏭️ Skipped',
               'error': '❌ Error',
           }
 
