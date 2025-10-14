@@ -2,6 +2,16 @@
 
 This document records the archival and eventual deletion of legacy agent-related workflows now replaced by consolidated reusable pipelines. The most recent sweep (Issue #1419) retired the reusable agent matrix in favour of the focused assigner/watchdog pair. The follow-up sweep for Issue #1669 removed the on-disk archive directory so the history now lives exclusively in git along with this ledger.
 
+## Archived
+
+### Legacy agent watchdog
+- **Removed file**: `agent-watchdog.yml` (retired with the Issue #1419 consolidation sweep).
+- **Replacement**: watchdog logic now lives behind the `enable_watchdog` toggle inside `Agents 70 Orchestrator` so scheduled runs and manual dispatches both exercise the same path.
+
+### Retired self-tests
+- **Archived files**: `Old/workflows/maint-90-selftest.yml` and `Old/workflows/reusable-99-selftest.yml` remain in git history only; they were removed from active automation when the reusable matrix stabilised.
+- **Replacement**: manual verification flows route through the consolidated self-test entry points (`selftest-81` and related wrappers listed below) or reuse the Gate matrix when full coverage is required.
+
 ## Removed Legacy Files (Cleanup PR for Issue #1259)
 All deprecated agent automation workflows were deleted from `.github/workflows/` on 2025-09-21 once the stabilization window for the reusable equivalents closed. Historical copies formerly lived under `.github/workflows/archive/` but that directory was removed on 2026-10-07 as part of the Issue #1669 cleanup. Retrieve any prior YAML from git history when needed.
 
