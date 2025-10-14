@@ -51,7 +51,9 @@ def test_build_validation_report_flags_warnings(schema_module: Any) -> None:
     assert any("Missing-data policy" in warning for warning in report["warnings"])
 
 
-def test_build_meta_and_validate_df(monkeypatch: pytest.MonkeyPatch, schema_module: Any) -> None:
+def test_build_meta_and_validate_df(
+    monkeypatch: pytest.MonkeyPatch, schema_module: Any
+) -> None:
     frame = pd.DataFrame({"A": [1.0], "B": [2.0]})
     validated = _dummy_validated(frame)
     monkeypatch.setattr(schema_module, "validate_market_data", lambda df: validated)
@@ -62,7 +64,9 @@ def test_build_meta_and_validate_df(monkeypatch: pytest.MonkeyPatch, schema_modu
     assert meta["frequency"] == "Monthly"
 
 
-def test_load_and_validate_csv(monkeypatch: pytest.MonkeyPatch, schema_module: Any) -> None:
+def test_load_and_validate_csv(
+    monkeypatch: pytest.MonkeyPatch, schema_module: Any
+) -> None:
     csv_buffer = io.StringIO("Date,A,B\n2020-01-31,1.0,2.0\n")
     validated = _dummy_validated(pd.DataFrame({"A": [1.0], "B": [2.0]}))
     monkeypatch.setattr(schema_module, "validate_market_data", lambda df: validated)
@@ -71,7 +75,9 @@ def test_load_and_validate_csv(monkeypatch: pytest.MonkeyPatch, schema_module: A
     assert not frame.empty and meta["symbols"] == ["A", "B"]
 
 
-def test_load_and_validate_excel(monkeypatch: pytest.MonkeyPatch, schema_module: Any) -> None:
+def test_load_and_validate_excel(
+    monkeypatch: pytest.MonkeyPatch, schema_module: Any
+) -> None:
     excel_buffer = io.BytesIO()
     excel_buffer.name = "data.xlsx"  # type: ignore[attr-defined]
 
@@ -89,7 +95,9 @@ def test_load_and_validate_excel(monkeypatch: pytest.MonkeyPatch, schema_module:
     assert meta["missing_policy"] == "drop"
 
 
-def test_load_and_validate_unknown_extension(monkeypatch: pytest.MonkeyPatch, schema_module: Any) -> None:
+def test_load_and_validate_unknown_extension(
+    monkeypatch: pytest.MonkeyPatch, schema_module: Any
+) -> None:
     csv_buffer = io.StringIO("Date,A\n2020-01-31,1.0\n")
     csv_buffer.name = "data.unknown"  # type: ignore[attr-defined]
 

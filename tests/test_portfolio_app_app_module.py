@@ -160,7 +160,9 @@ def test_app_import_skips_render_with_magicmock(load_app: ModuleType) -> None:
     assert module.titles == []
 
 
-def test_render_app_single_period_success(monkeypatch: pytest.MonkeyPatch, load_app: ModuleType) -> None:
+def test_render_app_single_period_success(
+    monkeypatch: pytest.MonkeyPatch, load_app: ModuleType
+) -> None:
     """Running the Streamlit app renders the single-period success path."""
 
     module = load_app
@@ -221,7 +223,9 @@ def test_render_app_single_period_success(monkeypatch: pytest.MonkeyPatch, load_
     assert fake_st.line_charts or fake_st.bar_charts
 
 
-def test_render_run_section_multi_period(monkeypatch: pytest.MonkeyPatch, load_app: ModuleType) -> None:
+def test_render_run_section_multi_period(
+    monkeypatch: pytest.MonkeyPatch, load_app: ModuleType
+) -> None:
     """Multi-period execution renders summary downloads and success state."""
 
     module = load_app
@@ -243,7 +247,11 @@ def test_render_run_section_multi_period(monkeypatch: pytest.MonkeyPatch, load_a
         pass
 
     monkeypatch.setattr(module, "Config", DummyConfig)
-    monkeypatch.setattr(module, "pipeline", SimpleNamespace(run=lambda cfg: None, run_full=lambda cfg: {}))
+    monkeypatch.setattr(
+        module,
+        "pipeline",
+        SimpleNamespace(run=lambda cfg: None, run_full=lambda cfg: {}),
+    )
 
     run_multi_result = [
         {
@@ -275,7 +283,9 @@ def test_render_run_section_multi_period(monkeypatch: pytest.MonkeyPatch, load_a
     assert "ew_sharpe" in fake_st.dataframes[-1]
 
 
-def test_app_helper_utilities(monkeypatch: pytest.MonkeyPatch, load_app: ModuleType) -> None:
+def test_app_helper_utilities(
+    monkeypatch: pytest.MonkeyPatch, load_app: ModuleType
+) -> None:
     """Exercise lower-level helper functions for additional coverage."""
 
     module = load_app
@@ -350,7 +360,9 @@ def test_read_defaults_includes_demo_path(load_app: ModuleType) -> None:
     assert defaults["portfolio"]["policy"] == ""
 
 
-def test_render_sidebar_reset_restores_defaults(monkeypatch: pytest.MonkeyPatch, load_app: ModuleType) -> None:
+def test_render_sidebar_reset_restores_defaults(
+    monkeypatch: pytest.MonkeyPatch, load_app: ModuleType
+) -> None:
     module = load_app
     fake_st = FakeStreamlit()
     fake_st.button_responses = {"Reset to defaults": [True]}
@@ -366,16 +378,25 @@ def test_render_sidebar_reset_restores_defaults(monkeypatch: pytest.MonkeyPatch,
     assert ("Download YAML", "config.yml") in fake_st.downloads
 
 
-def test_render_run_section_warns_when_no_results(monkeypatch: pytest.MonkeyPatch, load_app: ModuleType) -> None:
+def test_render_run_section_warns_when_no_results(
+    monkeypatch: pytest.MonkeyPatch, load_app: ModuleType
+) -> None:
     module = load_app
     fake_st = FakeStreamlit()
-    fake_st.button_responses = {"Run Single Period": [True], "Run Multi-Period": [False]}
+    fake_st.button_responses = {
+        "Run Single Period": [True],
+        "Run Multi-Period": [False],
+    }
     fake_st.session_state["config_dict"] = {"data": {}, "portfolio": {}}
     module.st = fake_st
 
     monkeypatch.setattr(module, "validate_trend_config", lambda cfg, base_path: None)
     monkeypatch.setattr(module, "Config", dict)
-    monkeypatch.setattr(module, "pipeline", SimpleNamespace(run=lambda cfg: "not_df", run_full=lambda cfg: {}))
+    monkeypatch.setattr(
+        module,
+        "pipeline",
+        SimpleNamespace(run=lambda cfg: "not_df", run_full=lambda cfg: {}),
+    )
     monkeypatch.setattr(module, "_summarise_run_df", lambda value: [])
 
     module._render_run_section(fake_st.session_state["config_dict"])
@@ -383,10 +404,15 @@ def test_render_run_section_warns_when_no_results(monkeypatch: pytest.MonkeyPatc
     assert any("Analysis failed" in msg for msg in fake_st.warning_messages)
 
 
-def test_render_run_section_reports_partial_results(monkeypatch: pytest.MonkeyPatch, load_app: ModuleType) -> None:
+def test_render_run_section_reports_partial_results(
+    monkeypatch: pytest.MonkeyPatch, load_app: ModuleType
+) -> None:
     module = load_app
     fake_st = FakeStreamlit()
-    fake_st.button_responses = {"Run Single Period": [True], "Run Multi-Period": [False]}
+    fake_st.button_responses = {
+        "Run Single Period": [True],
+        "Run Multi-Period": [False],
+    }
     fake_st.session_state["config_dict"] = {"data": {}, "portfolio": {}}
     module.st = fake_st
 
@@ -398,7 +424,11 @@ def test_render_run_section_reports_partial_results(monkeypatch: pytest.MonkeyPa
     def raising_run_full(cfg: dict[str, Any]) -> dict[str, Any]:
         raise FileNotFoundError("missing diagnostics")
 
-    monkeypatch.setattr(module, "pipeline", SimpleNamespace(run=lambda cfg: summary_df, run_full=raising_run_full))
+    monkeypatch.setattr(
+        module,
+        "pipeline",
+        SimpleNamespace(run=lambda cfg: summary_df, run_full=raising_run_full),
+    )
 
     module._render_run_section(fake_st.session_state["config_dict"])
 
@@ -406,10 +436,15 @@ def test_render_run_section_reports_partial_results(monkeypatch: pytest.MonkeyPa
     assert any("Partial results" in msg for msg in fake_st.info_messages)
 
 
-def test_render_run_section_builds_summary_from_full_result(monkeypatch: pytest.MonkeyPatch, load_app: ModuleType) -> None:
+def test_render_run_section_builds_summary_from_full_result(
+    monkeypatch: pytest.MonkeyPatch, load_app: ModuleType
+) -> None:
     module = load_app
     fake_st = FakeStreamlit()
-    fake_st.button_responses = {"Run Single Period": [True], "Run Multi-Period": [False]}
+    fake_st.button_responses = {
+        "Run Single Period": [True],
+        "Run Multi-Period": [False],
+    }
     fake_st.session_state["config_dict"] = {"data": {}, "portfolio": {}}
     module.st = fake_st
 
@@ -423,14 +458,20 @@ def test_render_run_section_builds_summary_from_full_result(monkeypatch: pytest.
         "risk_diagnostics": {},
     }
 
-    monkeypatch.setattr(module, "pipeline", SimpleNamespace(run=lambda cfg: empty_df, run_full=lambda cfg: full_result))
+    monkeypatch.setattr(
+        module,
+        "pipeline",
+        SimpleNamespace(run=lambda cfg: empty_df, run_full=lambda cfg: full_result),
+    )
 
     module._render_run_section(fake_st.session_state["config_dict"])
 
     assert any(frame.equals(frame.copy()) for frame in fake_st.dataframes)
 
 
-def test_module_auto_renders_with_realistic_streamlit(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_module_auto_renders_with_realistic_streamlit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     module_name = "trend_portfolio_app.app"
     if module_name in sys.modules:
         del sys.modules[module_name]
