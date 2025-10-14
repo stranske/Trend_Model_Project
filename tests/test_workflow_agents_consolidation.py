@@ -138,8 +138,8 @@ def test_agents_consumer_manual_only_and_concurrency():
 
     concurrency = data.get("concurrency") or {}
     assert (
-        concurrency.get("group") == "agents-62-consumer-${{ github.ref }}"
-    ), "Agents Consumer concurrency group must scope runs by ref"
+        concurrency.get("group") == "agents-consumer-${{ github.ref }}"
+    ), "Agents Consumer concurrency group must use the shared agents-consumer lock"
     assert (
         concurrency.get("cancel-in-progress") is True
     ), "Agents Consumer concurrency must cancel in-progress runs"
