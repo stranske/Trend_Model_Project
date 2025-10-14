@@ -59,12 +59,8 @@ flowchart TD
 
 | Workflow | File | Trigger(s) | Permissions | Required? | Purpose |
 | --- | --- | --- | --- | --- | --- |
-| **Selftest 80 PR Comment** | `.github/workflows/selftest-80-pr-comment.yml` | `workflow_dispatch` | `contents: read`, `pull-requests: write`, `actions: read` | No | Manual helper that runs the reusable CI matrix and posts a structured summary to a chosen PR. |
-| **Selftest 81 Reusable CI** | `.github/workflows/selftest-81-reusable-ci.yml` | `workflow_dispatch`, `workflow_call` | `contents: read`, `actions: read` | No | Reusable CI matrix exerciser that exposes verification outputs for downstream wrappers and manual runs. |
-| **Selftest 82 PR Comment** | `.github/workflows/selftest-82-pr-comment.yml` | `workflow_dispatch` | `contents: read`, `pull-requests: write`, `actions: read` | No | Alternate PR comment wrapper that records reusable CI expectations against the current matrix. |
-| **Selftest 83 PR Comment** | `.github/workflows/selftest-83-pr-comment.yml` | `workflow_dispatch` | `contents: read`, `pull-requests: write`, `actions: read` | No | Maintenance-oriented comment helper for manual self-test spot checks. |
-| **Selftest 84 Reusable CI** | `.github/workflows/selftest-84-reusable-ci.yml` | `workflow_dispatch` | `contents: read`, `actions: read` | No | Summary-focused manual runner that surfaces verification tables in the workflow summary. |
-| **Selftest 88 Reusable CI** | `.github/workflows/selftest-88-reusable-ci.yml` | `workflow_dispatch` | `contents: read`, `actions: read` | No | Dual-runtime variant exercising the reusable matrix across multiple Python versions. |
+| **Selftest 81 Reusable CI** | `.github/workflows/selftest-81-reusable-ci.yml` | `workflow_dispatch`, `workflow_call` | `contents: read`, `actions: read` | No | Reusable CI matrix exerciser that exposes verification outputs for downstream consumers and manual runs. |
+| **Selftest Runner** | `.github/workflows/selftest-runner.yml` | `workflow_dispatch` | `contents: read`, `actions: read`, `pull-requests: write` | No | Parameterised manual entry point for the reusable matrix (modes: summary, comment, dual-runtime) with optional PR comment output and artifact downloads. |
 ### Agents & automation
 
 | Workflow | File | Trigger(s) | Permissions | Required? | Purpose |
@@ -278,18 +274,14 @@ Manual-only status means maintainers should review the Actions list during that 
 
 | Workflow | Notes |
 |----------|-------|
-| `selftest-80-pr-comment.yml` (`Selftest 80 PR Comment`) | Runs the reusable CI matrix via `selftest-81-reusable-ci.yml` and posts a labelled PR comment. Requires the target PR number as input. |
-| `selftest-81-reusable-ci.yml` (`Selftest 81 Reusable CI`) | Core reusable self-test matrix. Available both for manual dispatch and as a `workflow_call` target for the other wrappers. |
-| `selftest-82-pr-comment.yml` (`Selftest 82 PR Comment`) | Alternate PR comment helper that refreshes the reusable CI summary on demand. |
-| `selftest-83-pr-comment.yml` (`Selftest 83 PR Comment`) | Maintenance-focused variant of the PR comment helper with wording tuned for ops reviews. |
-| `selftest-84-reusable-ci.yml` (`Selftest 84 Reusable CI`) | Manual runner that forwards to `selftest-81` and surfaces the verification table directly in the workflow summary. |
-| `selftest-88-reusable-ci.yml` (`Selftest 88 Reusable CI`) | Dual-runtime self-test wrapper that feeds multiple Python versions into the reusable matrix and records the results in the summary. |
+| `selftest-81-reusable-ci.yml` (`Selftest 81 Reusable CI`) | Core reusable self-test matrix. Available both for manual dispatch and as a `workflow_call` target for the consolidated runner. |
+| `selftest-runner.yml` (`Selftest Runner`) | Single manual wrapper that toggles summary vs PR comment output and the Python version matrix via `mode` inputs. |
 
 > Self-test workflows are reference exercises for maintainers. They are quiet by design—trigger them via `workflow_dispatch` (or, for wrappers, specify the PR number/inputs) whenever you need a fresh artifact inventory check or to validate reusable CI changes. Expect no automated executions in the Actions history.
 
 ### Archived self-test workflows
 
-`Old/workflows/maint-90-selftest.yml` remains available as the historical wrapper that previously scheduled the self-test cron. The experiment wrappers retired in Issue #2378 have since been reinstated under the numbered `selftest-8X-*` slugs above; consult git history only if you need to inspect their pre-2525 incarnations. See [ARCHIVE_WORKFLOWS.md](../../ARCHIVE_WORKFLOWS.md) for the full ledger of retired workflows and historical notes.
+`Old/workflows/maint-90-selftest.yml` remains available as the historical wrapper that previously scheduled the self-test cron. Earlier experiment wrappers have since collapsed into `selftest-runner.yml`; consult git history only if you need to inspect their pre-consolidation incarnations. See [ARCHIVE_WORKFLOWS.md](../../ARCHIVE_WORKFLOWS.md) for the full ledger of retired workflows and historical notes.
 
 ## Contributor Quick Start
 
