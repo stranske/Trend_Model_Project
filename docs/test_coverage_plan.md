@@ -17,8 +17,8 @@
 
 ## Initial Task Checklist
 1. **Baseline Audit**
-   - [ ] Pull the latest coverage artifacts (HTML/JSON) from CI run 18016554334 to pinpoint modules <90%.
-   - [ ] Inventory existing tests by package to map gaps (CLI paths, data pipelines, config validation, etc.).
+   - [x] Pull the latest coverage artifacts (HTML/JSON) from CI run 18016554334 to pinpoint modules <90%.
+   - [x] Inventory existing tests by package to map gaps (CLI paths, data pipelines, config validation, etc.).
 
 2. **Prioritised Test Development**
    - [x] Draft targeted test cases for the lowest-coverage modules first (e.g., any files currently at 0%).
@@ -26,7 +26,7 @@
    - [x] Validate edge cases uncovered during planning (error handling, boundary inputs, config permutations).
 
 3. **Iterative Execution and Tracking**
-   - [ ] Run `pytest` with coverage locally to confirm incremental gains; adjust thresholds as needed.
+   - [x] Run `pytest` with coverage locally to confirm incremental gains; adjust thresholds as needed.
    - [ ] Update coverage tracking spreadsheet or issue checklist to reflect improvements per module.
    - [ ] Re-run CI (via existing workflows) to verify the aggregate coverage and file-level minimums.
 
