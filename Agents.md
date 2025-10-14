@@ -3,6 +3,14 @@
 YOU ARE CODEX.  EXTEND THE VOL_ADJ_TREND_ANALYSIS PROJECT AS FOLLOWS
 --------------------------------------------------------------------
 
+## Agents consumer workflows (61/62)
+
+The legacy consumer workflows remain available strictly as manual compatibility
+shims. They trigger only via `workflow_dispatch` and share a
+`agents-consumer-${{ github.ref }}` concurrency group so a given ref runs at
+most one consumer job at a time. For automated entrypoints continue to use the
+Orchestrator workflow.
+
 ## Demo pipeline (maintenance / CI)
 
 1. **Bootstrap environment**
