@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import os
-import sys
 from dataclasses import dataclass
 from pathlib import Path
-from types import ModuleType
-from typing import Any, cast
+from typing import Any
 
 import pytest
 
@@ -16,15 +14,6 @@ from trend_model.spec import (
     load_run_spec_from_file,
     load_run_spec_from_mapping,
 )
-
-_THIS_MODULE: ModuleType = cast(ModuleType, sys.modules[__name__])
-
-
-@dataclass(frozen=True)
-class _FrozenConfig:
-    signals: dict[str, Any]
-    sample_split: dict[str, str]
-    portfolio: dict[str, Any]
 
 
 def test_load_run_spec_from_file() -> None:
@@ -94,11 +83,6 @@ def test_ensure_run_spec_handles_failures() -> None:
 
 
 def test_ensure_run_spec_uses_object_setattr(monkeypatch: pytest.MonkeyPatch) -> None:
-    # Some integration tests temporarily remove the ``tests`` package from
-    # ``sys.modules``; dataclasses subsequently need the module entry to resolve
-    # postponed annotations, so patch it back in here.
-    sys.modules[__name__] = _THIS_MODULE
-
     @dataclass(frozen=True)
     class FrozenConfig:
         signals: dict[str, Any]
