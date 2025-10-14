@@ -7,6 +7,10 @@ and #2466. Gate remains the required merge check for every pull request, and
 historical consumer wrappers have been retired now that all automation flows
 through the orchestrator.
 
+For the bucket-level overview, keep/retire roster, and policy checklist, start
+with [docs/ci/WORKFLOW_SYSTEM.md](WORKFLOW_SYSTEM.md). This catalog then expands
+each kept workflow with trigger, permission, and operational details.
+
 ## CI & agents quick catalog
 
 Use the tables below as the authoritative roster of **active** workflows. Each
@@ -19,7 +23,12 @@ topology so contributors see the supported entry points at a glance.
 | Workflow | File | Trigger(s) | Permissions | Required? | Purpose |
 | --- | --- | --- | --- | --- | --- |
 | **Gate** | `.github/workflows/pr-00-gate.yml` | `pull_request`, `workflow_dispatch` | Explicit `contents: read`, `pull-requests: write`, `statuses: write` (doc-only comment + commit status). | **Yes** – aggregate `gate` status must pass. | Fan-out orchestrator chaining the reusable Python CI and Docker smoke jobs. Docs-only or empty diffs skip the heavy legs while Gate posts the friendly notice and reports success. |
-| **PR 02 Autofix** | `.github/workflows/pr-02-autofix.yml` | `pull_request` (including label updates) | `contents: write`, `pull-requests: write` | **Yes** – `apply` job must succeed. | Runs the reusable autofix composite to apply/offer safe formatting fixes. |
+
+_Label-gated helper_
+
+| Workflow | File | Trigger(s) | Permissions | Required? | Purpose |
+| --- | --- | --- | --- | --- | --- |
+| **PR 02 Autofix** | `.github/workflows/pr-02-autofix.yml` | `pull_request` (including label updates) | `contents: write`, `pull-requests: write` | No – runs only when the `autofix` label is present. | Delegates to the reusable autofix composite to apply/offer safe formatting fixes. |
 
 #### Gate job map
 
@@ -47,12 +56,17 @@ flowchart TD
 
 ### Maintenance & observability
 
-| **Maint 45 Cosmetic Repair** | `.github/workflows/maint-45-cosmetic-repair.yml` | `workflow_dispatch` | `contents: write`, `pull-requests: write` | No | Manual pytest + guardrail fixer that opens a labelled PR when drift is detected. |
-| **Health 41 Repo Health** | `.github/workflows/health-41-repo-health.yml` | Monday cron (`15 7 * * 1`), `workflow_dispatch` | `contents: read`, `issues: read` | No | Weekly stale-branch and unassigned-issue sweep. |
-| **Health 40 Repo Selfcheck** | `.github/workflows/health-40-repo-selfcheck.yml` | Weekly cron (`20 6 * * 1`), `workflow_dispatch` | `contents: read`, `issues: read`, `pull-requests: read`, `actions: read` | No | Read-only probe summarising label coverage and branch-protection visibility. |
 | **Health 42 Actionlint** | `.github/workflows/health-42-actionlint.yml` | `pull_request`, `push` to `phase-2-dev` (workflow edits), weekly cron, `workflow_dispatch` | `contents: read`, `pull-requests: write`, `checks: write` | No | Workflow-lint gate using `actionlint` via reviewdog. |
 | **Health 43 CI Signature Guard** | `.github/workflows/health-43-ci-signature-guard.yml` | `push`/`pull_request` targeting `phase-2-dev` | Defaults (`contents: read`) | No | Validates the signed job manifest for Gate. |
 | **Health 44 Gate Branch Protection** | `.github/workflows/health-44-gate-branch-protection.yml` | Cron (`0 6 * * *`), `workflow_dispatch` | `contents: read`, `pull-requests: read`; optional `BRANCH_PROTECTION_TOKEN` | No | Verifies Gate remains required on the default branch; optionally enforces policy when a PAT is configured. |
+
+_Additional opt-in utilities_
+
+| Workflow | File | Trigger(s) | Permissions | Required? | Purpose |
+| --- | --- | --- | --- | --- | --- |
+| **Maint 45 Cosmetic Repair** | `.github/workflows/maint-45-cosmetic-repair.yml` | `workflow_dispatch` | `contents: write`, `pull-requests: write` | No | Manual pytest + guardrail fixer that opens a labelled PR when drift is detected. |
+| **Health 41 Repo Health** | `.github/workflows/health-41-repo-health.yml` | Monday cron (`15 7 * * 1`), `workflow_dispatch` | `contents: read`, `issues: read` | No | Weekly stale-branch and unassigned-issue sweep. |
+| **Health 40 Repo Selfcheck** | `.github/workflows/health-40-repo-selfcheck.yml` | Weekly cron (`20 6 * * 1`), `workflow_dispatch` | `contents: read`, `issues: read`, `pull-requests: read`, `actions: read` | No | Read-only probe summarising label coverage and branch-protection visibility. |
 ### Self-tests & experiments
 
 | Workflow | File | Trigger(s) | Permissions | Required? | Purpose |
@@ -67,6 +81,15 @@ flowchart TD
 | **Agents 63 Codex Issue Bridge** | `.github/workflows/agents-63-codex-issue-bridge.yml` | `issues`, `workflow_dispatch` | `contents: write`, `pull-requests: write`, `issues: write` | No | Label-driven helper that seeds Codex bootstrap PRs and can auto-comment `@codex start`. |
 | **Agents 64 Verify Agent Assignment** | `.github/workflows/agents-64-verify-agent-assignment.yml` | `workflow_call`, `workflow_dispatch` | `issues: read` | No | Reusable issue-verification helper consumed by the orchestrator and available for ad-hoc checks. |
 | **Agents 63 ChatGPT Issue Sync** | `.github/workflows/agents-63-chatgpt-issue-sync.yml` | `workflow_dispatch` | `contents: read`, `issues: write` | No | Manual sync that turns curated topic lists (e.g. `Issues.txt`) into labelled GitHub issues. |
+
+### Archived & legacy
+
+The workflows below were retired during the consolidation. Keep them documented for historical context only:
+
+- **`pr-14-docs-only.yml`** — Superseded by Gate’s built-in docs-only detection.
+- **`maint-47-check-failure-tracker.yml`** — Replaced by the post-CI summary job inside `maint-46-post-ci.yml`.
+- **`agents-61-consumer-compat.yml`** and **`agents-62-consumer.yml`** — Legacy consumer shims replaced by the orchestrator.
+- **Legacy selftest wrappers** (`selftest-80-pr-comment.yml`, `selftest-82-pr-comment.yml`, `selftest-83-pr-comment.yml`, `selftest-84-reusable-ci.yml`, `selftest-88-reusable-ci.yml`) — Consolidated into `selftest-runner.yml` + `selftest-81-reusable-ci.yml`.
 
 ### Reusable composites
 

@@ -5,6 +5,10 @@ This guide describes the slimmed-down GitHub Actions footprint after Issues #219
 remains the required merge check, and **Agents 70 Orchestrator is the sole automation entry point** for Codex readiness and
 bootstrap runs.
 
+If you need the quick roster of which workflows stay active, which ones retired, and the policy guardrails that bind them,
+start with the high-level [Workflow System Overview](ci/WORKFLOW_SYSTEM.md). This guide then dives into naming, routing, and
+operational detail for the kept set.
+
 > _Gate rerun trigger:_ this paragraph was touched on 2025-10-13 to force a fresh Gate workflow execution.
 
 ## WFv1 Naming Scheme
@@ -23,44 +27,56 @@ bootstrap runs.
 1. Choose the correct prefix for the workflow's scope.
 2. Select a two-digit block that leaves room for future additions (e.g. use another `maint-3x` slot for maintenance jobs).
 3. Title-case the workflow name so it matches the filename (`maint-46-post-ci.yml` → `Maint 46 Post CI`).
-4. Update this guide and `WORKFLOW_AUDIT_TEMP.md` whenever workflows are added, renamed, or removed.
+4. Update this guide, `docs/ci/WORKFLOWS.md`, and the overview in `docs/ci/WORKFLOW_SYSTEM.md` whenever workflows are added,
+   renamed, or removed.
 
 Tests under `tests/test_workflow_naming.py` enforce the naming policy and inventory parity.
 
 ## Final Workflow Set
 
-### PR Checks
-- **`pr-00-gate.yml`** — Required orchestrator that calls the reusable Python (3.11/3.12) and Docker smoke workflows, then fails fast if any leg does not succeed. A lightweight `detect_doc_only` job now mirrors the former PR‑14 filters (Markdown, `docs/`, `assets/`) to skip heavy legs and post the friendly notice when a PR is documentation-only.
-- **`pr-02-autofix.yml`** — PR autofix runner delegating to the reusable autofix composite.
+The active roster below mirrors the **Keep** list in the [Workflow System Overview](ci/WORKFLOW_SYSTEM.md). Each entry links back to the filenames under `.github/workflows/` and should be reflected in `docs/ci/WORKFLOWS.md` and the unit tests whenever the inventory changes.
 
-### Maintenance & Governance
-- **`health-41-repo-health.yml`** — Weekly repository health sweep that writes a single run-summary report, with optional `workflow_dispatch` reruns.
-- **`maint-46-post-ci.yml`** — Follower triggered by the Gate `workflow_run` event that posts consolidated status updates, applies autofix commits or uploads patches, and now owns the CI failure-tracker issue/label lifecycle.
+### PR Checks
+- **`pr-00-gate.yml`** — Required orchestrator that calls the reusable Python (3.11/3.12) and Docker smoke workflows, then fails fast if any leg does not succeed. A lightweight `detect_doc_only` job mirrors the former PR‑14 filters (Markdown, `docs/`, `assets/`) to skip heavy legs and post the friendly notice when a PR is documentation-only.
+
+_Optional label-gated helper_
+- **`pr-02-autofix.yml`** — Opt-in autofix runner (apply only when the `autofix` label is present) delegating to the reusable autofix composite. Leave disabled for standard PRs.
+
+### Maintenance & Repo Health
+- **`maint-46-post-ci.yml`** — Follower triggered by the Gate `workflow_run` event that posts consolidated status updates, applies autofix commits or uploads patches, and owns the CI failure-tracker issue/label lifecycle.
 - **`health-42-actionlint.yml`** — Sole workflow-lint gate. Runs actionlint via reviewdog on PR edits, pushes, weekly cron, and manual dispatch.
 - **`health-43-ci-signature-guard.yml`** — Guards the CI manifest with signed fixture checks.
-- **`health-40-repo-selfcheck.yml`** — Read-only governance probe that surfaces label coverage and branch-protection visibility gaps in the run summary.
 - **`health-44-gate-branch-protection.yml`** — Enforces branch-protection policy via `tools/enforce_gate_branch_protection.py` when the PAT is configured.
+
+_Additional opt-in utilities_
+- **`health-41-repo-health.yml`** — Weekly repository health sweep that writes a single run-summary report, with optional `workflow_dispatch` reruns.
+- **`health-40-repo-selfcheck.yml`** — Read-only governance probe that surfaces label coverage and branch-protection visibility gaps in the run summary.
 - **`maint-45-cosmetic-repair.yml`** — Manual dispatch utility that runs `pytest -q`, applies guard-gated cosmetic fixes via `scripts/ci_cosmetic_repair.py`, and opens a labelled PR when changes exist.
 
-### Agents
+### Agents & Issues
 - **`agents-70-orchestrator.yml`** — 20-minute cron plus manual dispatch entry point for readiness, Codex bootstrap, diagnostics, verification, and keepalive sweeps. Delegates to `reusable-16-agents.yml` and accepts extended options via `options_json`.
-- **`agents-63-codex-issue-bridge.yml`** — Label-driven helper that seeds Codex bootstrap PRs and can optionally auto-comment `@codex start`.
+- **`agents-63-codex-issue-bridge.yml`** — Label-driven helper that seeds Codex bootstrap PRs and can automatically comment `@codex start`.
 - **`agents-63-chatgpt-issue-sync.yml`** — Manual issue fan-out that mirrors curated topic lists into GitHub issues.
 - **`agents-64-verify-agent-assignment.yml`** — Workflow-call validator ensuring `agent:codex` issues remain assigned to approved automation accounts.
 
 ### Reusable Composites
-- **`reusable-10-ci-python.yml`** — Python lint/type/test reusable invoked by Gate and any downstream repositories.
+- **`reusable-10-ci-python.yml`** — Python lint/type/test reusable invoked by Gate and downstream repositories.
 - **`reusable-12-ci-docker.yml`** — Docker smoke reusable invoked by Gate and external consumers.
-- **`reusable-18-autofix.yml`** — Autofix harness used by `maint-46-post-ci.yml` and `pr-02-autofix.yml`.
 - **`reusable-16-agents.yml`** — Reusable agent automation stack.
-- **`selftest-81-reusable-ci.yml`** — Reusable CI matrix exerciser exposed via both `workflow_dispatch` and `workflow_call`. The manual `selftest-8X-*` wrappers delegate to this workflow and inherit its verification outputs.
+- **`reusable-18-autofix.yml`** — Autofix harness used by `maint-46-post-ci.yml` and `pr-02-autofix.yml`.
 
-### Manual Self-tests
-- **`selftest-80-pr-comment.yml`** — Manual PR comment helper that runs the reusable CI matrix and posts results to a specified pull request (marker: `<!-- selftest-80-pr-comment -->`).
-- **`selftest-82-pr-comment.yml`** — Alternate PR comment wrapper with reusable CI messaging tuned for ad-hoc verification.
-- **`selftest-83-pr-comment.yml`** — Maintenance-focused comment variant for ops reviews of reusable CI behaviour.
-- **`selftest-84-reusable-ci.yml`** — Summary-only manual runner that forwards to `selftest-81` and captures the verification table in the workflow summary.
-- **`selftest-88-reusable-ci.yml`** — Dual-runtime summary runner that exercises the reusable matrix across multiple Python versions and records the table in the summary.
+### Self-tests
+- **`selftest-81-reusable-ci.yml`** — Reusable CI matrix exerciser exposed via both `workflow_dispatch` and `workflow_call`.
+- **`selftest-runner.yml`** — Manual entry point that forwards to `selftest-81` for comment/summary/dual-runtime verification.
+
+## Archived & Legacy Workflows
+
+The following workflows were decommissioned during the CI consolidation effort. Keep these references around for historical context only; do not resurrect them without a fresh review:
+
+- **`pr-14-docs-only.yml`** — Former docs-only fast path superseded by Gate’s internal detection.
+- **`maint-47-check-failure-tracker.yml`** — Replaced by the consolidated post-CI summary in `maint-46-post-ci.yml`.
+- **`agents-61-consumer-compat.yml`** and **`agents-62-consumer.yml`** — Legacy consumer shims fully replaced by the orchestrator.
+- **Legacy selftest wrappers** (`selftest-80-pr-comment.yml`, `selftest-82-pr-comment.yml`, `selftest-83-pr-comment.yml`, `selftest-84-reusable-ci.yml`, `selftest-88-reusable-ci.yml`) — Superseded by `selftest-runner.yml` + `selftest-81-reusable-ci.yml`.
 
 ## Trigger Wiring Tips
 1. When renaming a workflow, update any `workflow_run` consumers. In this roster that includes `maint-46-post-ci.yml` and `pr-02-autofix.yml`.
