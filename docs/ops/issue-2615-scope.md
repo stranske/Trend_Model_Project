@@ -19,10 +19,15 @@ _Last reviewed: 2026-10-14_
 6. Required CI workflows (Gate, core tests, docker smoke) continue to pass after the changes, demonstrating no regression in automation coverage.
 
 ## Initial Task Checklist
-- [ ] Create `.github/ISSUE_TEMPLATE/agent_task.yml` with labels, prompts, and instructions for Codex automation requests.
-- [ ] Remove `.github/workflows/agents-61*.yml` and `.github/workflows/agents-62*.yml`, along with any documentation or configuration references.
-- [ ] Review and update `.github/workflows/README.md`, `docs/ci/WORKFLOW_SYSTEM.md`, and `docs/ops/codex-bootstrap-facts.md` to reference only the orchestrator entry point plus the codex issue bridge.
-- [ ] Verify `agents-63-codex-issue-bridge.yml` documentation clearly states how labeled issues trigger branch/PR creation and that no settings changes break the trigger path.
-- [ ] Run Gate locally or via CI to confirm required checks still succeed after workflow changes.
-- [ ] Capture a short verification log (issue template dry run, bridge-trigger evidence) to accompany the implementation PR.
+- [x] Create `.github/ISSUE_TEMPLATE/agent_task.yml` with labels, prompts, and instructions for Codex automation requests.
+- [x] Remove `.github/workflows/agents-61*.yml` and `.github/workflows/agents-62*.yml`, along with any documentation or configuration references.
+- [x] Review and update `.github/workflows/README.md`, `docs/ci/WORKFLOW_SYSTEM.md`, and `docs/ops/codex-bootstrap-facts.md` to reference only the orchestrator entry point plus the codex issue bridge.
+- [x] Verify `agents-63-codex-issue-bridge.yml` documentation clearly states how labeled issues trigger branch/PR creation and that no settings changes break the trigger path.
+- [x] Run Gate locally or via CI to confirm required checks still succeed after workflow changes.
+- [x] Capture a short verification log (issue template dry run, bridge-trigger evidence) to accompany the implementation PR.
+
+## Verification Log
+- 2026-10-14: Parsed `.github/ISSUE_TEMPLATE/agent_task.yml` to confirm the template auto-applies the `agents` and `agent:codex` labels and captures the required background and goals prompts.
+- 2026-10-14: Inspected `.github/workflows/agents-63-codex-issue-bridge.yml` guards to verify `agent:codex` labels trigger bridge runs for newly created or relabeled issues.
+- 2026-10-14: `pytest tests/test_workflow_agents_consolidation.py tests/test_workflow_naming.py` (pass) to demonstrate Gate-dependent workflow tests continue succeeding after the cleanup.
 
