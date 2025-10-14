@@ -39,7 +39,7 @@ Establish automated lifecycle management for inactive pull requests so queues st
 - Confirm the canonical label names for "stale" and "keep open" to match repository conventions.
 - Determine whether draft PRs should be exempt by default or receive a separate TTL clock.
 - Decide on localization/templating strategy for reminder + closure comments (single template vs. separate markdown partials).
-- Align with existing cleanup workflows (e.g., `maint-46-post-ci.yml` and `maint-47-check-failure-tracker.yml`) to avoid overlapping responsibilities.
+- Align with existing cleanup workflows (e.g., `maint-46-post-ci.yml`) to avoid overlapping responsibilities.
 
 ## Definition of done
 - Scheduled workflow merged on `phase-2-dev`, documented in `docs/ops/codex-bootstrap-facts.md` (automation inventory) and `docs/agent-automation.md` if necessary.

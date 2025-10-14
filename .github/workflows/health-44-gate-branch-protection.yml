@@ -6,19 +6,36 @@ on:
     - cron: '0 6 * * *'
 
 permissions:
+  administration: read
   contents: read
   pull-requests: read
 
 env:
   ENFORCE_TOKEN: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
   SNAPSHOT_DIR: gate-branch-protection
-  DEFAULT_BRANCH_NAME: ${{ github.event.repository.default_branch || 'main' }}
 
 jobs:
   enforce:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Determine default branch
+        id: default-branch
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data } = await github.rest.repos.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+            core.setOutput('name', data.default_branch);
+
+      - name: Export default branch variable
+        run: |
+          echo "DEFAULT_BRANCH_NAME=${DEFAULT_BRANCH}" >> "$GITHUB_ENV"
+        env:
+          DEFAULT_BRANCH: ${{ steps.default-branch.outputs.name || github.event.repository.default_branch || 'main' }}
 
       - uses: actions/setup-python@v5
         with:

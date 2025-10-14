@@ -39,7 +39,8 @@
   instead of navigating the UI, ensuring infrastructure as code parity for the protection rule.
 - Scheduled automation (`.github/workflows/health-44-gate-branch-protection.yml`) executes the helper nightly and on-demand,
   applying fixes whenever the optional `BRANCH_PROTECTION_TOKEN` secret is configured and always re-validating with `--check`
-  using the workflow's default token so misconfigurations fail fast.
+  using the workflow's default token so misconfigurations fail fast. The workflow explicitly requests
+  `administration: read` permission so the default token can query branch protection APIs during the verification step.
 
 ## Automation Requirements
 

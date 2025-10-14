@@ -1,0 +1,14 @@
+{
+  "sha": "3e21785b17b570495e77601ad1422ee1bbfe0927",
+  "state": "failure",
+  "retrieved_at": "2025-10-14T05:44:57Z",
+  "source": "https://api.github.com/repos/stranske/Trend_Model_Project/commits/3e21785b17b570495e77601ad1422ee1bbfe0927/status",
+  "contexts": [
+    {
+      "context": "Gate / gate",
+      "state": "failure",
+      "target_url": "https://github.com/stranske/Trend_Model_Project/actions/runs/18486687859",
+      "description": "core-tests-311 result: failure."
+    }
+  ]
+}

@@ -3,7 +3,7 @@
 > **Note (2026-10-12):** Issue #2190 replaced the `agents-41-*` family with `agents-70-orchestrator.yml`. The historical checklist below remains for context but is no longer the live architecture.
 
 ## Workflow consolidation
-- [x] Audit existing agent workflows in `.github/workflows/` and record triggers/shared steps. (See `WORKFLOW_AUDIT_TEMP.md` inventory.)
+- [x] Audit existing agent workflows in `.github/workflows/` and record triggers/shared steps. (See [`docs/ci/WORKFLOW_SYSTEM.md`](../docs/ci/WORKFLOW_SYSTEM.md) inventory.)
 - [x] Draft unified architecture for `agents-41-assign-and-watch.yml`, covering triggers, reusable calls, and permissions. (Superseded by `agents-70-orchestrator.yml`.)
 
 ## Implementation

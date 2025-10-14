@@ -14,6 +14,8 @@ remain true after the cleanup.
 - Primary issue label: `agent:codex` (case-sensitive). Use it to document that an issue expects Codex handling even though the
   workflow is manually dispatched.
 - Aliases such as `agents:codex` are no longer acted upon automatically but can remain for historical context.
+- Preferred entry point: open the [Agent task issue template](https://github.com/stranske/Trend_Model_Project/issues/new?template=agent_task.yml)
+  so the required `agents` and `agent:codex` labels are applied up front.
 
 ## PR Hygiene
 - Codex PRs remain non-draft by default.
@@ -33,11 +35,7 @@ remain true after the cleanup.
   - 20-minute cron plus manual dispatch.
   - Inputs: readiness toggles, Codex preflight, watchdog controls, issue verification, `options_json` for extended flags.
   - Calls `.github/workflows/reusable-16-agents.yml` for the actual implementation.
-- **Manual consumer (deprecated compatibility shim):** `.github/workflows/agents-61-consumer-compat.yml` (formerly `agents-consumer.yml`)
-  - Manual dispatch only.
-  - Exposes the same high-level toggles as the orchestrator UI; advanced overrides (custom readiness agents, Codex command phrase,
-    diagnostic knobs, bootstrap label) flow through `options_json`.
-  - Delegates to `.github/workflows/reusable-16-agents.yml` with inherited secrets and a per-ref concurrency guard.
+- **Legacy consumer wrappers:** Former manual shims (`agents-61-consumer-compat.yml`, `agents-62-consumer.yml`) have been retired now that all automation flows through the orchestrator.
 - **Reusable composite:** `.github/workflows/reusable-16-agents.yml`
   - Provides readiness probes, Codex bootstrap, verification, and watchdog jobs.
   - Exposes Markdown + JSON summaries for downstream tooling.
@@ -57,7 +55,7 @@ part of Issue #2190; the dedicated Codex issue bridge was reinstated to restore 
 | Codex bootstrap composite action | [`.github/actions/codex-bootstrap-lite`](../../.github/actions/codex-bootstrap-lite/action.yml) |
 | Gate workflow | [`pr-00-gate.yml`](../../.github/workflows/pr-00-gate.yml) |
 | Autofix follower | [`maint-46-post-ci.yml`](../../.github/workflows/maint-46-post-ci.yml) |
-| Failure tracker | [`maint-47-check-failure-tracker.yml`](../../.github/workflows/maint-47-check-failure-tracker.yml) |
+| Failure tracker | [`maint-46-post-ci.yml`](../../.github/workflows/maint-46-post-ci.yml) |
 
 ## Operational Notes
 - Run the orchestrator manually to re-bootstrap an issue, perform readiness checks, or trigger watchdog sweeps.

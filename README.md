@@ -18,8 +18,9 @@ thresholds, and the annualisation flag under the new `regime` section in
 
 📦 **Reusable CI & Automation**: Standardise tests, autofix, and agent automation across repositories using the new reusable workflows documented in [docs/ci_reuse.md](docs/ci_reuse.md). Consumers call `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-18-autofix.yml`, and the consolidated `agents-70-orchestrator.yml` entry point (which delegates to `reusable-16-agents.yml`).
 
+🗺️ **Workflow system overview**: Start with [docs/ci/WORKFLOW_SYSTEM.md](docs/ci/WORKFLOW_SYSTEM.md) for the high-level buckets, required merge policy, and automation roles.
 🧭 **Workflow topology & agent routing**: Learn how workflow buckets, naming, post-CI summaries, and agent labels fit together in [docs/WORKFLOW_GUIDE.md](docs/WORKFLOW_GUIDE.md).
-🛠️ **Workflow catalog, automation inventory, contributor quick-start & naming policy**: See [docs/ci/WORKFLOWS.md](docs/ci/WORKFLOWS.md) for the canonical workflow list, quick status/permission catalog (purpose, triggers, secrets, and labels), naming ranges, required vs optional gates, local style-gate instructions, naming conventions, contributor quick start, and agents JSON schema.
+🛠️ **Workflow catalog, automation inventory, contributor quick-start & naming policy**: See [docs/ci/WORKFLOWS.md](docs/ci/WORKFLOWS.md) for the canonical workflow list, quick status/permission catalog (purpose, triggers, secrets, and labels), naming ranges, label-gated helpers, local style-gate instructions, naming conventions, contributor quick start, and agents JSON schema.
 🔁 **Layered Test Workflow (Phases 1–3)**: The staged metrics → history/classification → coverage delta reusable workflow implemented in this repository is documented in [docs/ci-workflow.md](docs/ci-workflow.md). All advanced phases are disabled by default for back‑compat.
 
 ➡️ **Codex Bootstrap Simulation & Verification Guide:** See [docs/codex-simulation.md](docs/codex-simulation.md) for the hardened workflow design, simulation labels, forced-failure controls, and scenario matrix (T01–T15).
@@ -642,4 +643,6 @@ Install the optional pre-push hook:
 ./scripts/install_pre_push_style_gate.sh
 ```
 This prevents accidental pushes that fail the CI style checks.
+
+Gate (our required PR workflow) now detects documentation-only diffs internally. When a pull request only touches Markdown, `docs/`, or `assets/` paths, the heavy Python and Docker jobs are skipped while Gate posts the standard "docs-only" notice and reports success within seconds. The standalone `pr-14-docs-only.yml` workflow was retired—Gate owns the fast path so the required status remains visible on every PR. All other changes continue to fan out to the full test matrix.
 

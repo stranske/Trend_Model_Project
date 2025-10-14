@@ -155,42 +155,8 @@ def _run_post_comment_harness(
     return json.loads(output)
 
 
-def test_tracker_workflow_is_now_thin_shell() -> None:
-    workflow = _load_workflow(TRACKER_PATH)
-    assert set(workflow["jobs"].keys()) == {"redirect"}
-    redirect_job = workflow["jobs"]["redirect"]
-    condition = " ".join(redirect_job.get("if", "").split())
-    assert "workflow_run.event == 'pull_request'" in condition
-    summary_step = _get_step(redirect_job, "Emit delegation summary")
-    summary_body = summary_step.get("run", "")
-    assert "maint-46-post-ci.yml" in summary_body
-
-
-def test_tracker_shell_performs_no_issue_writes() -> None:
-    workflow = _load_workflow(TRACKER_PATH)
-    redirect_job = workflow["jobs"]["redirect"]
-
-    for step in redirect_job.get("steps", []):
-        assert (
-            step.get("uses") is None
-        ), "Delegation shell should not invoke external actions"
-        script = step.get("run", "")
-        assert "github.rest.issues" not in script
-
-
-def test_tracker_workflow_triggers_from_gate_run() -> None:
-    workflow = _load_workflow(TRACKER_PATH)
-
-    trigger = workflow.get("on")
-    assert trigger is not None, "Expected workflow_run trigger to be defined"
-
-    workflow_run = trigger.get("workflow_run")
-    assert (
-        workflow_run is not None
-    ), "Failure tracker should listen to workflow_run events"
-
-    assert workflow_run.get("types") == ["completed"]
-    assert workflow_run.get("workflows") == ["Gate"]
+def test_legacy_tracker_workflow_removed() -> None:
+    assert not TRACKER_PATH.exists(), "Legacy Maint 47 shell should be removed"
 
 
 def test_maint_post_ci_listens_to_gate_run() -> None:
@@ -469,6 +435,16 @@ def test_failure_tracker_script_updates_existing_issue(tmp_path: Path) -> None:
     assert slugify_match, "Expected slugify helper to be present in tracker script"
     slugify_code = slugify_match.group(0)
 
+    pr_logic_match = re.search(
+        r"const prNumberParsed =(?:.|\n)*?const HEAL_THRESHOLD_DESC = `Auto-heal after(?:.|\n)*?`;",
+        script,
+    )
+    assert (
+        pr_logic_match
+    ), "Expected PR tagging and heal threshold logic block to be present in tracker script"
+    pr_logic_code = pr_logic_match.group(0)
+    pr_logic_b64 = base64.b64encode(pr_logic_code.encode("utf-8")).decode("ascii")
+
     scenario = {
         "owner": "stranske",
         "repo": "Trend_Model_Project",
@@ -521,9 +497,31 @@ def test_failure_tracker_script_updates_existing_issue(tmp_path: Path) -> None:
         (async () => {{
         const scenario = {json.dumps(scenario)};
         const newline = '\\n';
-        const prNumber = scenario.prNumber;
-        const prLine = prNumber ? 'Tracked PR: #' + prNumber : null;
-        const prTag = prNumber ? '<!-- tracked-pr: ' + prNumber + ' -->' : null;
+        const vm = require('vm');
+        const prInitSource = Buffer.from('{pr_logic_b64}', 'base64').toString('utf8');
+        const initEnv = {{
+          PR_NUMBER: scenario.prNumber ? String(scenario.prNumber) : '',
+          AUTO_HEAL_INACTIVITY_HOURS: String(scenario.autoHealHours || 24),
+          RATE_LIMIT_MINUTES: '15',
+          STACK_TOKENS_ENABLED: 'true',
+          STACK_TOKEN_MAX_LEN: '160',
+          FAILURE_INACTIVITY_HEAL_HOURS: '0',
+        }};
+        const initResult = new vm.Script(`(() => {{ ${{prInitSource}} return {{ prNumber, prTag, prLine, HEAL_THRESHOLD_DESC, RATE_LIMIT_MINUTES, STACK_TOKENS_ENABLED, STACK_TOKEN_MAX_LEN, FAILURE_INACTIVITY_HEAL_HOURS }}; }})()`)
+          .runInNewContext({{
+            context: {{ payload: {{ workflow_run: scenario.run }}, repo: {{ owner: scenario.owner, repo: scenario.repo }} }},
+            process: {{ env: initEnv }},
+            require,
+            console,
+          }});
+        const prNumber = initResult.prNumber;
+        const prLine = initResult.prLine;
+        const prTag = initResult.prTag;
+        const HEAL_THRESHOLD_DESC = initResult.HEAL_THRESHOLD_DESC;
+        const RATE_LIMIT_MINUTES = initResult.RATE_LIMIT_MINUTES;
+        const STACK_TOKENS_ENABLED = initResult.STACK_TOKENS_ENABLED;
+        const STACK_TOKEN_MAX_LEN = initResult.STACK_TOKEN_MAX_LEN;
+        const FAILURE_INACTIVITY_HEAL_HOURS = initResult.FAILURE_INACTIVITY_HEAL_HOURS;
         const github = {{
           rest: {{
             search: {{
@@ -561,8 +559,6 @@ def test_failure_tracker_script_updates_existing_issue(tmp_path: Path) -> None:
 
         {slugify_code}
 
-        const RATE_LIMIT_MINUTES = 15;
-        const HEAL_THRESHOLD_DESC = 'Auto-heal after 24h stability (success path)';
         const workflowName = run.name || run.display_title || 'Workflow';
         const workflowPath = (run.path || '').trim();
         const workflowFile = (workflowPath.split('/').pop() || '').trim();
