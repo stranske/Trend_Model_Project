@@ -1,4 +1,4 @@
-) Agents: fix Orchestrator (agents-70-orchestrator.yml) inputs limit and consolidate to params_json
+1) Agents: fix Orchestrator (agents-70-orchestrator.yml) inputs limit and consolidate to params_json
 
 Labels: agents, ci, devops, bug
 
