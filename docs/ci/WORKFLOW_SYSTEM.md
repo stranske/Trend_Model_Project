@@ -5,8 +5,8 @@
 ## Buckets and Canonical Workflows
 
 ### PR checks
-- **Gate**: `.github/workflows/pr-00-gate.yml`  
-  Always runs on PRs. Detects doc-only changes and fast‑passes. Fans out to Python CI (`reusable-10-ci-python.yml`) and Docker smoke (`reusable-12-ci-docker.yml`), aggregates results, and returns a single required status.
+- **Gate**: `.github/workflows/pr-00-gate.yml`
+  Always runs on PRs. A lightweight `detect_doc_only` job classifies changes (Markdown anywhere, `docs/`, and `assets/` mirror the former PR‑14 filters). Docs-only or empty diffs short-circuit the heavy Python CI (`reusable-10-ci-python.yml`) and Docker smoke (`reusable-12-ci-docker.yml`) jobs; Gate posts the friendly skip notice and reports success immediately. Code changes continue to fan out to the full matrix, aggregate results, and return a single required status. The job explicitly requests `pull-requests: write` and `statuses: write` scopes so it can publish the comment and commit status with the correct fast-path message.
 - **Autofix (optional)**: _Deprecated as a default runner_. `maint-46-post-ci.yml` handles small hygiene fixes post‑CI. `pr-02-autofix.yml` may be kept as **opt‑in** via the `autofix` label only.
 
 ### Maintenance & repo health
