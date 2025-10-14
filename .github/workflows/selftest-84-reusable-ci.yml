@@ -3,6 +3,10 @@ name: Selftest 84 Reusable CI
 on:
   workflow_dispatch:
     inputs:
+      reason:
+        description: 'Why are you running this example?'
+        required: false
+        default: 'manual test'
       python-versions:
         description: >-
           JSON array of Python versions forwarded to `selftest-81-reusable-ci.yml` when
