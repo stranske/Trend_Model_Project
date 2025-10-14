@@ -92,7 +92,7 @@ def test_ensure_run_spec_uses_object_setattr(monkeypatch: pytest.MonkeyPatch) ->
     cfg = FrozenConfig(
         signals={"window": 10, "lag": 1, "vol_adjust": True, "vol_target": 0.2},
         sample_split={"in_start": "2020-01", "out_start": "2021-01"},
-        portfolio={}
+        portfolio={},
     )
 
     ensured = ensure_run_spec(cfg)
@@ -146,7 +146,13 @@ def test_build_trend_and_backtest_specs(tmp_path: Path) -> None:
             "date_column": "Date",
             "frequency": "ME",
         },
-        "signals": {"window": 5, "lag": 2, "vol_adjust": False, "vol_target": 0.1, "min_periods": -5},
+        "signals": {
+            "window": 5,
+            "lag": 2,
+            "vol_adjust": False,
+            "vol_target": 0.1,
+            "min_periods": -5,
+        },
         "vol_adjust": {"target_vol": 0.15, "floor_vol": 0.05, "warmup_periods": 0},
         "sample_split": {
             "in_start": "2020-01",
@@ -199,5 +205,3 @@ def test_temporary_cwd_creates_directory(tmp_path: Path) -> None:
             assert Path.cwd() == target
     finally:
         assert Path.cwd() == original
-
-
