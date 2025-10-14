@@ -21,9 +21,9 @@
    - [ ] Inventory existing tests by package to map gaps (CLI paths, data pipelines, config validation, etc.).
 
 2. **Prioritised Test Development**
-   - [ ] Draft targeted test cases for the lowest-coverage modules first (e.g., any files currently at 0%).
-   - [ ] Add fixtures/mocks for external integrations (data IO, CLI entrypoints) to enable deterministic coverage.
-   - [ ] Validate edge cases uncovered during planning (error handling, boundary inputs, config permutations).
+   - [x] Draft targeted test cases for the lowest-coverage modules first (e.g., any files currently at 0%).
+   - [x] Add fixtures/mocks for external integrations (data IO, CLI entrypoints) to enable deterministic coverage.
+   - [x] Validate edge cases uncovered during planning (error handling, boundary inputs, config permutations).
 
 3. **Iterative Execution and Tracking**
    - [ ] Run `pytest` with coverage locally to confirm incremental gains; adjust thresholds as needed.
