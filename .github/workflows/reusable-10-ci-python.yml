@@ -130,10 +130,13 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    env:
+      # Keep mypy execution aligned with the interpreter pinned in pyproject.toml
+      MYPY_PYTHON_VERSION: '3.11'
     strategy:
       fail-fast: false
       matrix:
-        python-version: ${{ fromJson((inputs.python-versions != '' && inputs.python-versions != '[]') && inputs.python-versions || format('["{0}"]', inputs.python-version)) }}
+        python-version: ${{ fromJson((inputs['python-versions'] != '' && inputs['python-versions'] != '[]') && inputs['python-versions'] || format('["{0}"]', inputs['python-version'])) }}
     defaults:
       run:
         shell: bash
@@ -177,8 +180,56 @@ jobs:
           set -euo pipefail
           ruff check --output-format github .
 
+      - name: Verify mypy interpreter pin
+        if: ${{ inputs.run-mypy && matrix.python-version == env.MYPY_PYTHON_VERSION }}
+        shell: python
+        env:
+          MYPY_PYTHON_VERSION: ${{ env.MYPY_PYTHON_VERSION }}
+        run: |
+          from __future__ import annotations
+
+          import os
+          from pathlib import Path
+
+          import tomllib
+
+          pyproject = Path("pyproject.toml")
+          if not pyproject.is_file():
+              print("::error file=pyproject.toml::pyproject.toml is required to verify the mypy python_version pin")
+              raise SystemExit(1)
+
+          try:
+              data = tomllib.loads(pyproject.read_text())
+          except tomllib.TOMLDecodeError as exc:  # pragma: no cover - workflow guard
+              print(f"::error file=pyproject.toml::Failed to parse pyproject.toml: {exc}")
+              raise SystemExit(1)
+
+          pin = data.get("tool", {}).get("mypy", {}).get("python_version")
+          if pin is None:
+              print("::error file=pyproject.toml::[tool.mypy].python_version is not configured; cannot gate mypy execution")
+              raise SystemExit(1)
+
+          if not pin:
+              print("::error::Unable to determine mypy python_version pin from pyproject.toml")
+              raise SystemExit(1)
+
+          expected = os.environ.get("MYPY_PYTHON_VERSION")
+          if not expected:
+              print("::error::MYPY_PYTHON_VERSION is not configured in the workflow environment")
+              raise SystemExit(1)
+
+          print(pin)
+
+          if pin != expected:
+              print(
+                  f"::error::pyproject.toml pins mypy to Python {pin} but workflow is configured for {expected}"
+              )
+              raise SystemExit(1)
+
+          print(f"Verified mypy python_version pin {pin}")
+
       - name: Mypy (type check)
-        if: ${{ inputs.run-mypy }}
+        if: ${{ inputs.run-mypy && matrix.python-version == env.MYPY_PYTHON_VERSION }}
         run: |
           set -euo pipefail
           args=()
@@ -216,14 +267,14 @@ jobs:
           pytest "${args[@]}"
 
       - name: Enforce coverage minimum
-        if: ${{ inputs.coverage-min != '' }}
+        if: ${{ inputs['coverage-min'] != '' }}
         run: |
           python - <<'PY'
           import sys
           import xml.etree.ElementTree as ET
           from pathlib import Path
 
-          target = float("${{ inputs.coverage-min }}")
+          target = float("${{ inputs['coverage-min'] }}")
           path = Path("coverage.xml")
           if not path.is_file():
             print("coverage.xml not found", file=sys.stderr)
@@ -243,7 +294,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.artifact-prefix }}coverage-${{ matrix.python-version }}
+          name: ${{ inputs['artifact-prefix'] }}coverage-${{ matrix.python-version }}
           path: |
             coverage.xml
             coverage.json
@@ -252,71 +303,71 @@ jobs:
           retention-days: 7
 
       - name: Build CI metrics payload
-        if: ${{ inputs.enable-metrics || inputs.enable-history || inputs.enable-classification }}
+        if: ${{ inputs['enable-metrics'] || inputs['enable-history'] || inputs['enable-classification'] }}
         run: |
           python scripts/ci_metrics.py
         env:
           JUNIT_PATH: pytest-junit.xml
           OUTPUT_PATH: ci-metrics.json
-          TOP_N: ${{ inputs.slow-test-top }}
-          MIN_SECONDS: ${{ inputs.slow-test-min-seconds }}
+          TOP_N: ${{ inputs['slow-test-top'] }}
+          MIN_SECONDS: ${{ inputs['slow-test-min-seconds'] }}
 
       - name: Upload metrics artifact
-        if: ${{ inputs.enable-metrics }}
+        if: ${{ inputs['enable-metrics'] }}
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.artifact-prefix }}ci-metrics
+          name: ${{ inputs['artifact-prefix'] }}ci-metrics
           path: ci-metrics.json
           if-no-files-found: warn
 
       - name: Append metrics history
-        if: ${{ inputs.enable-history || inputs.enable-classification }}
+        if: ${{ inputs['enable-history'] || inputs['enable-classification'] }}
         run: |
           python scripts/ci_history.py
         env:
           JUNIT_PATH: pytest-junit.xml
           METRICS_PATH: ci-metrics.json
-          HISTORY_PATH: ${{ inputs.history-artifact-name }}
-          ENABLE_CLASSIFICATION: ${{ inputs.enable-classification }}
+          HISTORY_PATH: ${{ inputs['history-artifact-name'] }}
+          ENABLE_CLASSIFICATION: ${{ inputs['enable-classification'] }}
           CLASSIFICATION_OUT: classification.json
 
       - name: Upload metrics history artifact
-        if: ${{ inputs.enable-history }}
+        if: ${{ inputs['enable-history'] }}
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.artifact-prefix }}metrics-history
-          path: ${{ inputs.history-artifact-name }}
+          name: ${{ inputs['artifact-prefix'] }}metrics-history
+          path: ${{ inputs['history-artifact-name'] }}
           if-no-files-found: warn
 
       - name: Upload classification artifact
-        if: ${{ inputs.enable-classification }}
+        if: ${{ inputs['enable-classification'] }}
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.artifact-prefix }}classification
+          name: ${{ inputs['artifact-prefix'] }}classification
           path: classification.json
           if-no-files-found: warn
 
       - name: Compute coverage delta
-        if: ${{ inputs.enable-coverage-delta }}
+        if: ${{ inputs['enable-coverage-delta'] }}
         run: |
           python scripts/ci_coverage_delta.py
         env:
           COVERAGE_XML_PATH: coverage.xml
           OUTPUT_PATH: coverage-delta.json
-          BASELINE_COVERAGE: ${{ inputs.baseline-coverage }}
-          ALERT_DROP: ${{ inputs.coverage-alert-drop }}
-          FAIL_ON_DROP: ${{ inputs.fail-on-coverage-drop }}
+          BASELINE_COVERAGE: ${{ inputs['baseline-coverage'] }}
+          ALERT_DROP: ${{ inputs['coverage-alert-drop'] }}
+          FAIL_ON_DROP: ${{ inputs['fail-on-coverage-drop'] }}
 
       - name: Upload coverage delta artifact
-        if: ${{ inputs.enable-coverage-delta }}
+        if: ${{ inputs['enable-coverage-delta'] }}
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.artifact-prefix }}coverage-delta
+          name: ${{ inputs['artifact-prefix'] }}coverage-delta
           path: coverage-delta.json
           if-no-files-found: warn
 
       - name: Generate coverage trend summary
-        if: ${{ inputs.enable-soft-gate }}
+        if: ${{ inputs['enable-soft-gate'] }}
         run: |
           python tools/coverage_trend.py \
             --coverage-xml coverage.xml \
@@ -326,10 +377,10 @@ jobs:
             --job-summary "$GITHUB_STEP_SUMMARY" \
             --artifact-path coverage-trend.json \
             --github-output coverage-trend.env \
-            --minimum ${{ inputs.coverage-min }}
+            --minimum ${{ inputs['coverage-min'] }}
 
       - name: Annotate coverage trend record
-        if: ${{ inputs.enable-soft-gate }}
+        if: ${{ inputs['enable-soft-gate'] }}
         run: |
           python - <<'PY'
           import json
@@ -346,7 +397,7 @@ jobs:
           PY
 
       - name: Append coverage trend history
-        if: ${{ inputs.enable-soft-gate }}
+        if: ${{ inputs['enable-soft-gate'] }}
         run: |
           python scripts/coverage_history_append.py
         env:
@@ -354,26 +405,26 @@ jobs:
           RECORD_PATH: coverage-trend.json
 
       - name: Upload coverage summary artifact
-        if: ${{ inputs.enable-soft-gate }}
+        if: ${{ inputs['enable-soft-gate'] }}
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.artifact-prefix }}coverage-summary
+          name: ${{ inputs['artifact-prefix'] }}coverage-summary
           path: coverage-summary.md
           if-no-files-found: warn
 
       - name: Upload coverage trend artifact
-        if: ${{ inputs.enable-soft-gate }}
+        if: ${{ inputs['enable-soft-gate'] }}
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.artifact-prefix }}coverage-trend
+          name: ${{ inputs['artifact-prefix'] }}coverage-trend
           path: coverage-trend.json
           if-no-files-found: warn
 
       - name: Upload coverage trend history artifact
-        if: ${{ inputs.enable-soft-gate }}
+        if: ${{ inputs['enable-soft-gate'] }}
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.artifact-prefix }}coverage-trend-history
+          name: ${{ inputs['artifact-prefix'] }}coverage-trend-history
           path: coverage-trend-history.ndjson
           if-no-files-found: warn
 

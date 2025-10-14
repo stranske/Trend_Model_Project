@@ -2,7 +2,7 @@
 
 This playbook explains how on-call responders should handle failures in the
 maintenance workflows that remain after Issue 2190. The roster now consists of
-`health-41`, `maint-46-post-ci`, `maint-47-check-failure-tracker`, `health-42`, `health-43`,
+`health-41`, `maint-46-post-ci`, `health-42`, `health-43`,
 `health-44`, `maint-45-cosmetic-repair`, and `maint-90`.
 
 ## health-41-repo-health.yml
@@ -36,17 +36,10 @@ maintenance workflows that remain after Issue 2190. The roster now consists of
 4. **Keep inputs aligned** — if artifact lookups fail, ensure `pr-00-gate.yml`
    still exposes the expected coverage/smoke outputs and that required labels
    remain in place for autofix eligibility.
-
-## maint-47-check-failure-tracker.yml
-
-1. **Review the issue comment** — failures create or update the CI failure
-   tracker issue with signature details. Follow the links to the failing jobs.
-2. **Respect cooldowns** — the workflow enforces rate limits to prevent spam.
-   When testing fixes, wait for the cooldown or adjust the environment variables
-   in a fork.
-3. **Confirm auto-heal** — after the offending workflow run passes, trigger the
-   tracker again to ensure the issue closes (or the comment updates to show the
-   heal state).
+5. **Monitor the CI failure tracker** — the `failure-tracker` job creates or
+   updates the consolidated CI failure issue when Gate reports failures and
+   automatically resolves it once the offending run passes. Follow the links in
+   the run summary to triage recurring signatures.
 
 ## health-42-actionlint.yml
 

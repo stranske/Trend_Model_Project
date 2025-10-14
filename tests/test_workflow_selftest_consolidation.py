@@ -16,12 +16,8 @@ def test_selftest_workflow_inventory() -> None:
         path.name for path in WORKFLOW_DIR.glob("*selftest*.yml")
     )
     expected = [
-        "selftest-80-pr-comment.yml",
         "selftest-81-reusable-ci.yml",
-        "selftest-82-pr-comment.yml",
-        "selftest-83-pr-comment.yml",
-        "selftest-84-reusable-ci.yml",
-        "selftest-88-reusable-ci.yml",
+        "selftest-runner.yml",
     ]
     assert (
         selftest_workflows == expected
@@ -269,7 +265,7 @@ def test_selftest_matrix_and_aggregate_contract() -> None:
     ), "Aggregate job must include the github-script verification step"
     verify_env = verify_step.get("env", {})
     assert (
-        verify_env.get("PYTHON_VERSIONS") == "${{ inputs.python-versions }}"
+        verify_env.get("PYTHON_VERSIONS") == "${{ inputs['python-versions'] }}"
     ), "Verification step should read python-versions input via PYTHON_VERSIONS env var for dynamic artifact expectations."
 
 

@@ -39,19 +39,34 @@ class BranchProtectionMissingError(BranchProtectionError):
 
 @dataclass
 class StatusCheckState:
-    strict: bool
+    strict: bool | None
     contexts: List[str]
 
     @classmethod
     def from_api(cls, payload: Mapping[str, Any]) -> "StatusCheckState":
-        raw_contexts = payload.get("contexts")
-        if isinstance(raw_contexts, Iterable) and not isinstance(
-            raw_contexts, (str, bytes)
-        ):
-            contexts = [str(context) for context in raw_contexts]
-        else:
-            contexts = []
-        return cls(strict=bool(payload.get("strict")), contexts=sorted(contexts))
+        return _state_from_status_payload(payload)
+
+
+def _state_from_status_payload(
+    payload: Mapping[str, Any], *, default_strict: bool | None = False
+) -> StatusCheckState:
+    """Normalise a required status checks payload into a ``StatusCheckState``."""
+
+    raw_contexts = payload.get("contexts")
+    if isinstance(raw_contexts, Iterable) and not isinstance(
+        raw_contexts, (str, bytes)
+    ):
+        contexts = [str(context) for context in raw_contexts]
+    else:
+        contexts = []
+
+    if "strict" in payload:
+        strict_value = payload.get("strict")
+        strict = None if strict_value is None else bool(strict_value)
+    else:
+        strict = default_strict
+
+    return StatusCheckState(strict=strict, contexts=sorted(contexts))
 
 
 def _build_session(token: str) -> requests.Session:
@@ -72,6 +87,28 @@ def _status_checks_url(repo: str, branch: str, *, api_root: str) -> str:
     )
 
 
+def _branch_url(repo: str, branch: str, *, api_root: str) -> str:
+    return f"{api_root}/repos/{repo}/branches/{branch}"
+
+
+def _state_from_branch_payload(payload: Mapping[str, Any]) -> StatusCheckState:
+    protection = payload.get("protection")
+    if not isinstance(protection, Mapping) or not protection.get("enabled"):
+        raise BranchProtectionMissingError(
+            "Branch protection is disabled for this branch."
+        )
+
+    status_checks = protection.get("required_status_checks")
+    if not isinstance(status_checks, Mapping):
+        raise BranchProtectionMissingError(
+            "Branch protection does not require any status checks yet."
+        )
+
+    # The branch metadata API omits the ``strict`` flag. Treat it as disabled so
+    # missing configuration is still surfaced to the caller.
+    return _state_from_status_payload(status_checks, default_strict=None)
+
+
 def fetch_status_checks(
     session: requests.Session,
     repo: str,
@@ -86,6 +123,20 @@ def fetch_status_checks(
         raise BranchProtectionMissingError(
             "Required status checks are not enabled for this branch. Configure the base protection rule first."
         )
+    if response.status_code == 403:
+        branch_response = session.get(
+            _branch_url(repo, branch, api_root=api_root), timeout=30
+        )
+        if branch_response.status_code == 404:
+            raise BranchProtectionMissingError(
+                "Branch does not exist; cannot inspect protection status."
+            )
+        if branch_response.status_code >= 400:
+            raise BranchProtectionError(
+                "Failed to inspect branch protection via branch endpoint: "
+                f"{branch_response.status_code} {branch_response.text}"
+            )
+        return _state_from_branch_payload(branch_response.json())
     if response.status_code >= 400:
         raise BranchProtectionError(
             f"Failed to fetch status checks for {branch}: {response.status_code} {response.text}"
@@ -382,18 +433,31 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
 
     to_add, to_remove = diff_contexts(current_state.contexts, target_contexts)
-    strict_change = not current_state.strict
+    strict_is_unknown = current_state.strict is None
+    strict_change = current_state.strict is False
 
     if snapshot is not None:
         snapshot["desired"] = {"strict": True, "contexts": list(target_contexts)}
+        snapshot["strict_unknown"] = strict_is_unknown
 
     print(f"Repository: {args.repo}")
     print(f"Branch:     {args.branch}")
     print(f"Current contexts: {format_contexts(current_state.contexts)}")
     label = "Target contexts" if args.no_clean else "Desired contexts"
     print(f"{label}: {format_contexts(target_contexts)}")
-    print(f"Current 'require up to date': {current_state.strict}")
+    if strict_is_unknown:
+        print(
+            "Current 'require up to date': (unknown - supply BRANCH_PROTECTION_TOKEN to verify)"
+        )
+    else:
+        print(f"Current 'require up to date': {current_state.strict}")
     print("Desired 'require up to date': True")
+
+    if strict_is_unknown:
+        print(
+            "Strict enforcement could not be confirmed with the default token. "
+            "The check will pass, but rerun with BRANCH_PROTECTION_TOKEN to audit."
+        )
 
     no_changes_required = (
         not to_add and (args.no_clean or not to_remove) and not strict_change

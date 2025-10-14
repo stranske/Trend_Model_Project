@@ -89,7 +89,7 @@ jobs:
             baseline-coverage: '65'
             coverage-alert-drop: '2'
     with:
-      python-versions: ${{ inputs.python-versions }}
+      python-versions: ${{ inputs['python-versions'] }}
       artifact-prefix: 'sf-${{ matrix.name }}-'
       enable-metrics: ${{ matrix.enable-metrics }}
       enable-history: ${{ matrix.enable-history }}
@@ -124,7 +124,7 @@ jobs:
             echo "Scenario job result: ${{ needs.scenario.result }}"
             echo "Dispatch reason: ${{ inputs.reason }}"
             echo "Scenarios executed: ${SCENARIO_LIST}"
-            echo "Workflow dispatch input (python-versions): ${{ inputs.python-versions }}"
+            echo "Workflow dispatch input (python-versions): ${{ inputs['python-versions'] }}"
             echo "Each reusable run uploads artifacts prefixed with \`sf-<scenario>-\`."
             echo "The verification step checks that every expected artifact exists and that no stray uploads are present."
           } >> "$GITHUB_STEP_SUMMARY"
@@ -132,7 +132,7 @@ jobs:
         id: verify
         uses: actions/github-script@v7
         env:
-          PYTHON_VERSIONS: ${{ inputs.python-versions }}
+          PYTHON_VERSIONS: ${{ inputs['python-versions'] }}
         with:
           # The script cross-checks every artifact uploaded by the matrix
           # scenarios against the expected inventory for each feature toggle.

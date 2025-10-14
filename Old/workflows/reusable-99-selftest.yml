@@ -72,7 +72,7 @@ jobs:
       - name: Invoke reusable CI (matrix scenario)
         uses: stranske/Trend_Model_Project/.github/workflows/reusable-90-ci-python.yml@phase-2-dev
         with:
-          python-versions: ${{ inputs.python-versions }}
+          python-versions: ${{ inputs['python-versions'] }}
           artifact-prefix: "sf-${{ matrix.name }}-"
           enable-metrics: ${{ matrix.enable-metrics }}
           enable-history: ${{ matrix.enable-history }}

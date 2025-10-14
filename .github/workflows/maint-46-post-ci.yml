@@ -1050,7 +1050,8 @@ jobs:
             echo "Changes applied: ${{ steps.apply.outputs.changed }}"
             echo "Remaining ruff issues: ${{ steps.apply.outputs.remaining_issues }}"
             if [ "${{ steps.apply.outputs.changed }}" = "true" ] && [ "${{ needs.context.outputs.same_repo }}" != "true" ]; then
-              echo "Patch artifact: autofix-patch-pr-${{ needs.context.outputs.pr }}"
+              patch_url="${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}?check_suite_focus=true#artifacts"
+              echo "Patch artifact: ${patch_url}"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -1312,12 +1313,52 @@ jobs:
           ${{ needs.summarize.outputs.summary_body }}
           EOF
 
+      - name: Locate patch artifact
+        id: patch_artifact
+        if: >-
+          needs.small-fixes.outputs.patch_available == 'true' ||
+          needs.fix-failing-checks.outputs.patch_available == 'true'
+        uses: actions/github-script@v7
+        env:
+          RUN_ID: ${{ github.run_id }}
+          PR_NUMBER: ${{ needs.context.outputs.pr }}
+        with:
+          github-token: ${{ secrets.SERVICE_BOT_PAT || github.token }}
+          result-encoding: string
+          script: |
+            const runId = process.env.RUN_ID;
+            const prNumber = process.env.PR_NUMBER;
+            if (!runId || !prNumber) {
+              let missing = [];
+              if (!runId) missing.push('run ID');
+              if (!prNumber) missing.push('PR number');
+              core.info(`Missing ${missing.join(' and ')} for patch lookup.`);
+              return '';
+            }
+            const targetName = `autofix-patch-pr-${prNumber}`;
+            const artifacts = await github.paginate(
+              github.rest.actions.listWorkflowRunArtifacts,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: Number(runId),
+                per_page: 100,
+              },
+            );
+            const match = artifacts.find(artifact => artifact && artifact.name === targetName);
+            if (!match) {
+              core.info(`No patch artifact found for ${targetName}. This is expected if no patch was generated for this PR/run. If a patch was expected, this may indicate an error or misconfiguration.`);
+              return '';
+            }
+            return `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}/artifacts/${match.id}`;
+
       - name: Prepare consolidated comment
         id: prepare
         env:
           SUMMARY_PATH: summary_body.md
           HEAD_SHA: ${{ needs.summarize.outputs.head_sha }}
           PR_NUMBER: ${{ needs.context.outputs.pr }}
+          PATCH_URL: ${{ steps.patch_artifact.outputs.result }}
           SMALL_RESULT: ${{ needs.small-fixes.result }}
           SMALL_RAN: ${{ needs.small-fixes.outputs.ran }}
           SMALL_CHANGED: ${{ needs.small-fixes.outputs.changed }}
@@ -1386,6 +1427,13 @@ jobs:
               }
               return mapping.get(value.lower(), re.sub(r"[-_]+", " ", value))
 
+          server = os.environ.get("GITHUB_SERVER_URL", "https://github.com").rstrip("/")
+          repository = os.environ.get("GITHUB_REPOSITORY", "").strip("/")
+          run_id = os.environ.get("GITHUB_RUN_ID", "").strip()
+          artifact_url = ""
+          if repository and run_id:
+              artifact_url = f"{server}/{repository}/actions/runs/{run_id}?check_suite_focus=true#artifacts"
+
           def build_entry(prefix_key: str, title: str, result: str | None) -> Dict[str, Any]:
               env = os.environ
               ran = parse_bool(env.get(f"{prefix_key}_RAN"))
@@ -1412,7 +1460,12 @@ jobs:
               notes: List[str] = []
               pr_number = os.environ.get("PR_NUMBER", "").strip()
               if patch and pr_number:
-                  notes.append(f"Patch artifact: `autofix-patch-pr-{pr_number}`")
+                  if artifact_url:
+                      notes.append(
+                          f"Patch artifact: [autofix-patch-pr-{pr_number}]({artifact_url})"
+                      )
+                  else:
+                      notes.append(f"Patch artifact: `autofix-patch-pr-{pr_number}`")
               if trigger_conclusion:
                   trigger_label = trigger_conclusion
                   if trigger_class and trigger_class != trigger_conclusion:

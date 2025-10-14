@@ -41,9 +41,9 @@ def test_archive_directories_removed():
 
 def test_inventory_docs_list_all_workflows():
     docs = {
-        "WORKFLOW_AUDIT_TEMP.md": pathlib.Path("WORKFLOW_AUDIT_TEMP.md").read_text(
-            encoding="utf-8"
-        ),
+        "docs/ci/WORKFLOW_SYSTEM.md": pathlib.Path(
+            "docs/ci/WORKFLOW_SYSTEM.md"
+        ).read_text(encoding="utf-8"),
         "docs/ci/WORKFLOWS.md": pathlib.Path("docs/ci/WORKFLOWS.md").read_text(
             encoding="utf-8"
         ),
@@ -99,8 +99,6 @@ def test_chatgpt_issue_sync_workflow_present_and_intact():
 
 EXPECTED_NAMES = {
     "agents-63-codex-issue-bridge.yml": "Agents 63 Codex Issue Bridge",
-    "agents-61-consumer-compat.yml": "Agents 61 Consumer Compat",
-    "agents-62-consumer.yml": "Agents 62 Consumer",
     "agents-63-chatgpt-issue-sync.yml": "Agents 63 ChatGPT Issue Sync",
     "agents-64-verify-agent-assignment.yml": "Agents 64 Verify Agent Assignment",
     "agents-70-orchestrator.yml": "Agents 70 Orchestrator",
@@ -112,17 +110,11 @@ EXPECTED_NAMES = {
     "health-44-gate-branch-protection.yml": "Health 44 Gate Branch Protection",
     "maint-45-cosmetic-repair.yml": "Maint 45 Cosmetic Repair",
     "maint-46-post-ci.yml": "Maint 46 Post CI",
-    "maint-47-check-failure-tracker.yml": "Maint 47 Check Failure Tracker",
     "pr-00-gate.yml": "Gate",
-    "pr-14-docs-only.yml": "PR 14 Docs Only",
     "reusable-10-ci-python.yml": "Reusable CI",
     "reusable-12-ci-docker.yml": "Reusable Docker Smoke",
     "reusable-16-agents.yml": "Reusable 16 Agents",
     "reusable-18-autofix.yml": "Reusable 18 Autofix",
-    "selftest-80-pr-comment.yml": "Selftest 80 PR Comment",
     "selftest-81-reusable-ci.yml": "Selftest 81 Reusable CI",
-    "selftest-82-pr-comment.yml": "Selftest 82 PR Comment",
-    "selftest-83-pr-comment.yml": "Selftest 83 PR Comment",
-    "selftest-84-reusable-ci.yml": "Selftest 84 Reusable CI",
-    "selftest-88-reusable-ci.yml": "Selftest 88 Reusable CI",
+    "selftest-runner.yml": "Selftest Runner",
 }

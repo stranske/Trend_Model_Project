@@ -58,6 +58,41 @@ COVERAGE_PROFILE=full ./scripts/run_tests.sh
 
 All acceptance criteria from issue #412 have been met and validated.
 
+## Portfolio App Coverage Improvements (Issue #1630)
+
+New targeted tests exercise the Streamlit portfolio app, data schema helpers, and
+module entrypoint to push the `trend_portfolio_app` package above the 95% soft
+gate:
+
+- `tests/test_portfolio_app_app_module.py` drives the UI helpers with a fake
+  Streamlit shim to cover single-period and multi-period execution paths as
+  well as edge-case utilities.
+- `tests/test_portfolio_app_data_schema.py` validates the CSV/Excel loaders and
+  schema metadata reporting, ensuring warning paths are covered.
+- `tests/test_portfolio_app_main_entrypoint.py` verifies the `python -m
+  trend_portfolio_app` workflow adds `src/` to `sys.path` and delegates to the
+  Streamlit CLI.
+
+### Commands
+
+```bash
+# Focused coverage for the portfolio app
+pytest \
+  --cov=src/trend_portfolio_app \
+  --cov-report=term-missing \
+  tests/app \
+  tests/test_sim_runner_cov.py \
+  tests/test_policy_engine_cov.py \
+  tests/test_portfolio_app_io_utils.py \
+  tests/test_health_wrapper.py \
+  tests/test_portfolio_app_app_module.py \
+  tests/test_portfolio_app_data_schema.py \
+  tests/test_portfolio_app_main_entrypoint.py
+
+# Full-project coverage prior to pushing changes
+pytest --cov=src --cov-report=term
+```
+
 ## Flake Quarantine Mechanism (Issue #1147)
 
 To reduce noise from intermittent test failures, CI now enables a single automatic rerun for failing tests:
@@ -75,3 +110,16 @@ Verification Steps:
 1. Intentionally introduce a transient failure (e.g., random assert) on a throwaway branch.
 2. Observe first failure followed by automatic rerun success in the CI logs.
 3. Remove the transient failure and re-run to confirm clean pass without reruns.
+
+## Trend Portfolio App Export Bundle Coverage (Issue #1630)
+
+### ✅ Automated Tests Added
+- `tests/test_portfolio_app_io_utils.py` exercises `export_bundle` success paths, fallback behaviours when portfolio or event log exports fail, and the zipped artefact cleanup mechanics.
+- Additional cases validate `_cleanup_temp_files` resilience to OS-level errors and `cleanup_bundle_file` handling of both missing files and registry mismatches.
+
+### ✅ Coverage Confirmation
+- `PYTHONPATH=./src pytest tests/test_portfolio_app_io_utils.py --cov=trend_portfolio_app.io_utils --cov-report=term-missing`
+
+### 📌 Notes for Future Contributors
+- `_TEMP_FILES_TO_CLEANUP` is patched per-test; reuse the `_reset_temp_registry` fixture when extending bundle coverage.
+- When simulating failure scenarios prefer patching `tempfile.mkstemp` and `zipfile.ZipFile` to avoid writing large temporary artefacts during CI.

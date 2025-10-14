@@ -56,10 +56,9 @@ def test_autofix_remote_repo_path_posts_patch_instructions(
     summary_step = _step_by_name(steps, "Summary")
     run_script = summary_step.get("run", "")
     if job == "small-fixes":
-        expected_line = (
-            "Patch artifact: autofix-patch-pr-${{ needs.context.outputs.pr }}"
-        )
-        assert expected_line in run_script
+        assert "Patch artifact:" in run_script
+        assert "${GITHUB_RUN_ID}" in run_script
+        assert "#artifacts" in run_script
         assert "${{ needs.context.outputs.same_repo }}" in run_script
         assert "${{ steps." in run_script
     else:
@@ -74,3 +73,22 @@ def test_consolidated_comment_includes_patch_instructions() -> None:
     script = prepare_step.get("run", "")
     assert "git am < autofix.patch" in script
     assert "Patch artifact:" in script
+
+
+def test_pr02_autofix_is_label_gated_and_cancels_duplicates() -> None:
+    data = _load_workflow("pr-02-autofix.yml")
+    concurrency = data.get("concurrency", {})
+
+    assert (
+        concurrency.get("group")
+        == "pr-autofix-${{ github.event.pull_request.number || github.run_id }}"
+    )
+    assert concurrency.get("cancel-in-progress") is True
+
+    job = data["jobs"]["apply"]
+    condition = job.get("if", "")
+
+    assert "github.event.pull_request" in condition
+    assert "contains(" in condition
+    assert "vars.AUTOFIX_OPT_IN_LABEL" in condition
+    assert "github.event.action == 'labeled'" in condition
