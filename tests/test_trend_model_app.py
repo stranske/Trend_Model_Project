@@ -17,7 +17,8 @@ from trend_model import app
     ],
 )
 def test_main_invokes_streamlit(monkeypatch: pytest.MonkeyPatch, argv, expected_args):
-    """``main`` should call ``streamlit run`` with the app path and arguments."""
+    """``main`` should call ``streamlit run`` with the app path and
+    arguments."""
 
     captured = {}
 
@@ -31,12 +32,18 @@ def test_main_invokes_streamlit(monkeypatch: pytest.MonkeyPatch, argv, expected_
     exit_code = app.main(argv)
 
     assert exit_code == 42
-    assert captured["command"] == ["streamlit", "run", str(app.APP_PATH), *expected_args]
+    assert captured["command"] == [
+        "streamlit",
+        "run",
+        str(app.APP_PATH),
+        *expected_args,
+    ]
     assert captured["check"] is False
 
 
 def test_main_uses_sys_argv_when_none(monkeypatch: pytest.MonkeyPatch):
-    """When ``argv`` is ``None`` the function should forward ``sys.argv[1:]``."""
+    """When ``argv`` is ``None`` the function should forward
+    ``sys.argv[1:]``."""
 
     fake_args = ["trend-model", "--server.headless=false", "--theme=dark"]
     monkeypatch.setattr(app.sys, "argv", fake_args)
@@ -52,11 +59,20 @@ def test_main_uses_sys_argv_when_none(monkeypatch: pytest.MonkeyPatch):
     exit_code = app.main(None)
 
     assert exit_code == 0
-    assert observed["command"] == ["streamlit", "run", str(app.APP_PATH), "--server.headless=false", "--theme=dark"]
+    assert observed["command"] == [
+        "streamlit",
+        "run",
+        str(app.APP_PATH),
+        "--server.headless=false",
+        "--theme=dark",
+    ]
 
 
-def test_main_returns_127_when_streamlit_missing(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]):
-    """A missing ``streamlit`` executable should emit an error and return 127."""
+def test_main_returns_127_when_streamlit_missing(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+):
+    """A missing ``streamlit`` executable should emit an error and return
+    127."""
 
     def raise_file_not_found(command, check):
         raise FileNotFoundError
@@ -70,4 +86,3 @@ def test_main_returns_127_when_streamlit_missing(monkeypatch: pytest.MonkeyPatch
     assert exit_code == 127
     assert "streamlit" in captured.err
     assert "app" in captured.err
-
