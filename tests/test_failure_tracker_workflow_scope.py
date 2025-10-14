@@ -87,6 +87,22 @@ def test_maint_post_ci_listens_to_gate_run() -> None:
     assert workflow_run.get("workflows") == ["Gate"]
 
 
+def test_post_ci_concurrency_uses_pr_number_lock() -> None:
+    workflow = _load_workflow(POST_CI_PATH)
+
+    concurrency = workflow.get("concurrency") or {}
+    group = str(concurrency.get("group") or "")
+    group_flat = " ".join(group.split())
+
+    assert "maint-46-post-ci-" in group_flat, "Concurrency group should be namespaced"
+    assert (
+        "pull_requests[0].number" in group_flat
+    ), "Concurrency must prioritise the PR number key"
+    assert (
+        concurrency.get("cancel-in-progress") is True
+    ), "Post CI runs should cancel in-progress duplicates"
+
+
 def test_context_exposes_failure_tracker_skip_for_legacy_prs() -> None:
     workflow = _load_workflow(POST_CI_PATH)
     context_job = workflow["jobs"]["context"]
