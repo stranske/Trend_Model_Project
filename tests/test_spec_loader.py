@@ -17,7 +17,6 @@ from trend_model.spec import (
     load_run_spec_from_mapping,
 )
 
-
 _THIS_MODULE: ModuleType = cast(ModuleType, sys.modules[__name__])
 
 
