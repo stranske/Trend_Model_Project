@@ -44,14 +44,28 @@ class StatusCheckState:
 
     @classmethod
     def from_api(cls, payload: Mapping[str, Any]) -> "StatusCheckState":
-        raw_contexts = payload.get("contexts")
-        if isinstance(raw_contexts, Iterable) and not isinstance(
-            raw_contexts, (str, bytes)
-        ):
-            contexts = [str(context) for context in raw_contexts]
-        else:
-            contexts = []
-        return cls(strict=bool(payload.get("strict")), contexts=sorted(contexts))
+        return _state_from_status_payload(payload)
+
+
+def _state_from_status_payload(
+    payload: Mapping[str, Any], *, default_strict: bool = False
+) -> StatusCheckState:
+    """Normalise a required status checks payload into a ``StatusCheckState``."""
+
+    raw_contexts = payload.get("contexts")
+    if isinstance(raw_contexts, Iterable) and not isinstance(
+        raw_contexts, (str, bytes)
+    ):
+        contexts = [str(context) for context in raw_contexts]
+    else:
+        contexts = []
+
+    if "strict" in payload:
+        strict = bool(payload.get("strict"))
+    else:
+        strict = default_strict
+
+    return StatusCheckState(strict=strict, contexts=sorted(contexts))
 
 
 def _build_session(token: str) -> requests.Session:
@@ -72,6 +86,28 @@ def _status_checks_url(repo: str, branch: str, *, api_root: str) -> str:
     )
 
 
+def _branch_url(repo: str, branch: str, *, api_root: str) -> str:
+    return f"{api_root}/repos/{repo}/branches/{branch}"
+
+
+def _state_from_branch_payload(payload: Mapping[str, Any]) -> StatusCheckState:
+    protection = payload.get("protection")
+    if not isinstance(protection, Mapping) or not protection.get("enabled"):
+        raise BranchProtectionMissingError(
+            "Branch protection is disabled for this branch."
+        )
+
+    status_checks = protection.get("required_status_checks")
+    if not isinstance(status_checks, Mapping):
+        raise BranchProtectionMissingError(
+            "Branch protection does not require any status checks yet."
+        )
+
+    # The branch metadata API omits the ``strict`` flag. Treat it as disabled so
+    # missing configuration is still surfaced to the caller.
+    return _state_from_status_payload(status_checks, default_strict=False)
+
+
 def fetch_status_checks(
     session: requests.Session,
     repo: str,
@@ -86,6 +122,20 @@ def fetch_status_checks(
         raise BranchProtectionMissingError(
             "Required status checks are not enabled for this branch. Configure the base protection rule first."
         )
+    if response.status_code == 403:
+        branch_response = session.get(
+            _branch_url(repo, branch, api_root=api_root), timeout=30
+        )
+        if branch_response.status_code == 404:
+            raise BranchProtectionMissingError(
+                "Branch does not exist; cannot inspect protection status."
+            )
+        if branch_response.status_code >= 400:
+            raise BranchProtectionError(
+                "Failed to inspect branch protection via branch endpoint: "
+                f"{branch_response.status_code} {branch_response.text}"
+            )
+        return _state_from_branch_payload(branch_response.json())
     if response.status_code >= 400:
         raise BranchProtectionError(
             f"Failed to fetch status checks for {branch}: {response.status_code} {response.text}"
