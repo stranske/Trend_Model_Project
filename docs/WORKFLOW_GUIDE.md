@@ -3,7 +3,8 @@
 This guide describes the slimmed-down GitHub Actions footprint after Issues #2190 and #2466. Every workflow now follows the
 `<area>-<NN>-<slug>.yml` naming convention with 10-point number gaps so future additions slot in cleanly. The Gate workflow
 remains the required merge check, and **Agents 70 Orchestrator is the sole automation entry point** for Codex readiness and
-bootstrap runs.
+bootstrap runs. For the executive summary of buckets, required checks, and automation roles, begin with
+[docs/ci/WORKFLOW_SYSTEM.md](ci/WORKFLOW_SYSTEM.md) before diving into the topology details below.
 
 > _Gate rerun trigger:_ this paragraph was touched on 2025-10-13 to force a fresh Gate workflow execution.
 
@@ -23,7 +24,7 @@ bootstrap runs.
 1. Choose the correct prefix for the workflow's scope.
 2. Select a two-digit block that leaves room for future additions (e.g. use another `maint-3x` slot for maintenance jobs).
 3. Title-case the workflow name so it matches the filename (`maint-46-post-ci.yml` → `Maint 46 Post CI`).
-4. Update this guide and `WORKFLOW_AUDIT_TEMP.md` whenever workflows are added, renamed, or removed.
+4. Update this guide and [`docs/ci/WORKFLOWS.md`](ci/WORKFLOWS.md) whenever workflows are added, renamed, or removed.
 
 Tests under `tests/test_workflow_naming.py` enforce the naming policy and inventory parity.
 
