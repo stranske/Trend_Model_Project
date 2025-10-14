@@ -495,13 +495,22 @@ def test_failure_tracker_script_updates_existing_issue(tmp_path: Path) -> None:
     actions = json.loads(output)
     action_types = [entry.get("type") for entry in actions]
 
-    assert "createIssue" not in action_types, "Tracker should update existing issue instead of creating new"
-    assert action_types.count("updateIssue") == 1, "Existing issue should be updated exactly once"
-    assert action_types.count("createComment") == 1, "Existing issue should receive a new occurrence comment"
+    assert (
+        "createIssue" not in action_types
+    ), "Tracker should update existing issue instead of creating new"
+    assert (
+        action_types.count("updateIssue") == 1
+    ), "Existing issue should be updated exactly once"
+    assert (
+        action_types.count("createComment") == 1
+    ), "Existing issue should receive a new occurrence comment"
 
-    update_payloads = [entry.get("payload", {}) for entry in actions if entry.get("type") == "updateIssue"]
+    update_payloads = [
+        entry.get("payload", {})
+        for entry in actions
+        if entry.get("type") == "updateIssue"
+    ]
     assert update_payloads, "Expected an updateIssue payload to inspect"
     update_body = update_payloads[0].get("body") or ""
     assert "Tracked PR: #123" in update_body
     assert "<!-- tracked-pr: 123 -->" in update_body
-
