@@ -361,7 +361,7 @@ def test_export_bundle_handles_missing_zip_cleanup(tmp_path, monkeypatch):
 
     missing_zip = tmp_path / "missing_bundle.zip"
 
-    def fake_mkstemp(*args, **kwargs):  # noqa: D401, ANN001, ARG002
+    def fake_mkstemp(*args, **kwargs):  # noqa: ANN001, ARG002
         fd = os.open(missing_zip, os.O_CREAT | os.O_RDWR)
         os.close(fd)
         missing_zip.unlink()
