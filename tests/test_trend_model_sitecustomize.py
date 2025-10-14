@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import importlib.util
 from pathlib import Path
 from types import SimpleNamespace
 
-import importlib.util
 import pytest
 
 from trend_model import _sitecustomize as site
@@ -31,7 +31,9 @@ def test_bootstrap_and_apply(monkeypatch: pytest.MonkeyPatch) -> None:
 
     called = []
     monkeypatch.setattr(site, "_ensure_src_on_sys_path", lambda: called.append("src"))
-    monkeypatch.setattr(site, "_ensure_joblib_external", lambda: called.append("joblib"))
+    monkeypatch.setattr(
+        site, "_ensure_joblib_external", lambda: called.append("joblib")
+    )
 
     site.apply()
     assert called == ["src", "joblib"]
@@ -78,4 +80,3 @@ def test_ensure_joblib_external_behaviour(monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setattr(importlib.util, "find_spec", lambda name: elsewhere)
     with pytest.raises(ImportError, match="should resolve"):
         site._ensure_joblib_external()
-
