@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 import shutil
 import subprocess
@@ -11,6 +10,7 @@ import textwrap
 from pathlib import Path
 
 import pytest
+
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -458,7 +458,12 @@ def test_failure_tracker_script_updates_existing_issue(tmp_path: Path) -> None:
     actions = json.loads(output)
     action_types = [entry.get("type") for entry in actions]
 
-    assert "createIssue" not in action_types, "Tracker should update existing issue instead of creating new"
-    assert action_types.count("updateIssue") == 1, "Existing issue should be updated exactly once"
-    assert action_types.count("createComment") == 1, "Existing issue should receive a new occurrence comment"
-
+    assert (
+        "createIssue" not in action_types
+    ), "Tracker should update existing issue instead of creating new"
+    assert (
+        action_types.count("updateIssue") == 1
+    ), "Existing issue should be updated exactly once"
+    assert (
+        action_types.count("createComment") == 1
+    ), "Existing issue should receive a new occurrence comment"
