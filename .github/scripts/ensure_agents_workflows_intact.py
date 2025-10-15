@@ -34,7 +34,9 @@ def parse_diff(diff_lines: Iterable[str]) -> list[str]:
             old_path, new_path = parts[1], parts[2]
             if old_path in CRITICAL_FILES or new_path in CRITICAL_FILES:
                 violations.append(
-                    f"Renaming protected workflow '{old_path}' → '{new_path}' requires maintainer override."
+                    "Renaming protected workflow '{old}' → '{new}' requires maintainer "
+                    "override."
+                    .format(old=old_path, new=new_path)
                 )
             continue
 
