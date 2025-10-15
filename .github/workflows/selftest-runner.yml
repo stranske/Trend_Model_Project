@@ -130,7 +130,17 @@ jobs:
       - name: Surface failures in logs
         if: ${{ env.MODE != 'comment' }}
         run: |
-          if [ -n "${FAILURE_COUNT}" ] && [ "${FAILURE_COUNT}" != "0" ]; then
+          if [ -z "${VERIFICATION_TABLE}" ]; then
+            echo "::error::Verification table output missing from selftest-81 aggregate job." >&2
+            exit 1
+          fi
+
+          if [ -z "${FAILURE_COUNT}" ]; then
+            echo "::error::Failure count output missing from selftest-81 aggregate job." >&2
+            exit 1
+          fi
+
+          if [ "${FAILURE_COUNT}" != "0" ]; then
             echo "Selftest runner reported ${FAILURE_COUNT} mismatch(es)." >&2
             exit 1
           fi
@@ -213,3 +223,26 @@ jobs:
               const created = await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
               core.info(`Created new self-test comment (${created.data.id}).`);
             }
+
+      - name: Finalize status for comment mode
+        if: ${{ env.MODE == 'comment' }}
+        run: |
+          if [ -z "${VERIFICATION_TABLE}" ]; then
+            echo "::error::Verification table output missing from selftest-81 aggregate job." >&2
+            exit 1
+          fi
+
+          if [ -z "${FAILURE_COUNT}" ]; then
+            echo "::error::Failure count output missing from selftest-81 aggregate job." >&2
+            exit 1
+          fi
+
+          if [ "${FAILURE_COUNT}" != "0" ]; then
+            echo "Selftest runner reported ${FAILURE_COUNT} mismatch(es)." >&2
+            exit 1
+          fi
+
+          if [ "${WORKFLOW_RESULT}" != "success" ]; then
+            echo "Selftest matrix completed with status: ${WORKFLOW_RESULT}." >&2
+            exit 1
+          fi

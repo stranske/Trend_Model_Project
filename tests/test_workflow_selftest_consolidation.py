@@ -7,6 +7,28 @@ import yaml
 WORKFLOW_DIR = Path(".github/workflows")
 ARCHIVE_DIR = Path("Old/workflows")
 SELFTEST_PATH = WORKFLOW_DIR / "selftest-81-reusable-ci.yml"
+RUNNER_PATH = WORKFLOW_DIR / "selftest-runner.yml"
+
+
+def _resolve_triggers(data: dict) -> dict:
+    """Normalize workflow `on` definitions to a mapping."""
+
+    triggers_raw = data.get("on")
+    if triggers_raw is None and True in data:
+        triggers_raw = data[True]
+    if triggers_raw is None:
+        return {}
+
+    if isinstance(triggers_raw, list):
+        return {str(event): {} for event in triggers_raw}
+    if isinstance(triggers_raw, str):
+        return {triggers_raw: {}}
+    if isinstance(triggers_raw, dict):
+        return triggers_raw
+
+    raise AssertionError(
+        f"Unexpected trigger configuration: {type(triggers_raw)!r}"
+    )
 
 
 def test_selftest_workflow_inventory() -> None:
@@ -22,6 +44,61 @@ def test_selftest_workflow_inventory() -> None:
     assert (
         selftest_workflows == expected
     ), f"Active self-test inventory drifted; expected {expected} but saw {selftest_workflows}."
+
+
+def test_selftest_runner_inputs_cover_variants() -> None:
+    """The consolidated runner should expose the requested input variants."""
+
+    data = yaml.safe_load(RUNNER_PATH.read_text()) or {}
+    triggers = _resolve_triggers(data)
+
+    assert triggers, "selftest-runner.yml is missing trigger definitions."
+    assert set(triggers) == {
+        "workflow_dispatch"
+    }, "Runner must remain a manual workflow_dispatch entry point."
+
+    workflow_dispatch = triggers["workflow_dispatch"] or {}
+    inputs = workflow_dispatch.get("inputs", {})
+
+    def _assert_choice(
+        field_name: str, expected_options: list[str], *, default: str | None
+    ) -> None:
+        field = inputs.get(field_name)
+        assert field is not None, f"Missing `{field_name}` input on selftest-runner.yml."
+        assert field.get("type", "choice") == "choice", (
+            f"`{field_name}` should remain a choice input."
+        )
+        options_raw = field.get("options", [])
+        options_normalized = [str(option).lower() for option in options_raw]
+        expected_normalized = [option.lower() for option in expected_options]
+        assert options_normalized == expected_normalized, (
+            f"Unexpected option set for `{field_name}`: {options_raw!r}."
+        )
+        if default is not None:
+            actual_default = field.get("default")
+            if isinstance(actual_default, bool):
+                actual_default_normalized = str(actual_default).lower()
+            else:
+                actual_default_normalized = str(actual_default)
+            assert actual_default_normalized == default, (
+                f"`{field_name}` default drifted from {default!r}."
+            )
+
+    _assert_choice("mode", ["summary", "comment", "dual-runtime"], default="summary")
+    _assert_choice("post_to", ["pr-number", "none"], default="none")
+    _assert_choice("enable_history", ["true", "false"], default="false")
+
+    pr_number = inputs.get("pull_request_number", {})
+    required_raw = pr_number.get("required")
+    assert required_raw in (None, False, "false"), (
+        "pull_request_number must remain optional to reuse comment mode outside PRs."
+    )
+
+    jobs = data.get("jobs", {})
+    run_matrix = jobs.get("run-matrix") or {}
+    assert run_matrix.get("uses") == "./.github/workflows/selftest-81-reusable-ci.yml", (
+        "Runner should delegate execution to selftest-81-reusable-ci.yml."
+    )
 
 
 def test_selftest_triggers_are_manual_only() -> None:
