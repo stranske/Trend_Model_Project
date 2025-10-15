@@ -215,6 +215,13 @@ def build_comment(
     if not artifacts:
         artifacts.append("- No additional artifacts published for this run.")
 
+    result_block = os.environ.get("AUTOFIX_RESULT_BLOCK")
+    result_section: list[str] = []
+    if result_block:
+        result_lines = result_block.splitlines()
+        if result_lines:
+            result_section = ["## Autofix result", "", *result_lines, ""]
+
     meta_segments: list[str] = []
     if trigger_conclusion:
         meta_segments.append(f"conclusion={trigger_conclusion}")
@@ -234,6 +241,7 @@ def build_comment(
         "",
         *metrics_rows,
         "",
+        *result_section,
         "## Trend (last 40 runs)",
         "",
         *trend_lines,
