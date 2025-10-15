@@ -106,9 +106,13 @@ when you need to download the `selftest-report` artifact emitted by the reusable
 
 ## Archived workflows
 
-Workflows removed during the consolidation now live only in git history. Refer to
-[ARCHIVE_WORKFLOWS.md](../../ARCHIVE_WORKFLOWS.md) for the authoritative ledger
-of retired entries, the keep vs retire roster, and verification notes.
+Workflows removed during the consolidation now live only in git history. Refer
+to [ARCHIVE_WORKFLOWS.md](../../ARCHIVE_WORKFLOWS.md) for the authoritative
+ledger of retired entries, the keep vs retire roster, and verification notes.
+When a workflow is decommissioned, strip it from the tables above and append a
+dated note to the archive so contributors can trace why it moved and which
+replacement covers the scenario. The overview document and archive stay in
+lockstep and remain the single sources of truth for keep vs retire decisions.
 
 ## Naming Policy & Number Ranges
 
