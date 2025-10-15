@@ -109,6 +109,7 @@ EXPECTED_NAMES = {
     "health-42-actionlint.yml": "Health 42 Actionlint",
     "health-43-ci-signature-guard.yml": "Health 43 CI Signature Guard",
     "health-44-gate-branch-protection.yml": "Health 44 Gate Branch Protection",
+    "health-45-agents-guard.yml": "Health 45 Agents Guard",
     "maint-45-cosmetic-repair.yml": "Maint 45 Cosmetic Repair",
     "maint-46-post-ci.yml": "Maint 46 Post CI",
     "pr-00-gate.yml": "Gate",
