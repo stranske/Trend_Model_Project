@@ -119,7 +119,10 @@ jobs:
                 ? `${baseMessage} Reason: ${reason}.`
                 : baseMessage;
 
-            await core.summary.addHeading('Gate status', 3).addRaw(message).write();
+            await core.summary
+              .addHeading('Gate status', 3)
+              .addRaw(`${message}\n`)
+              .write();
 
             if (context.eventName === 'pull_request' && reason === 'docs_only') {
               const existingComments = await github.paginate(github.rest.issues.listComments, {
