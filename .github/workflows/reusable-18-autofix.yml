@@ -19,7 +19,7 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: pr-02-autofix-${{ github.event.pull_request.number || github.run_id }}
+  group: pr-02-autofix-${{ github.event.pull_request.head.ref || github.head_ref || github.ref_name || github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -423,8 +423,8 @@ jobs:
             ].join('\n');
             await github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title: issueTitle, body, labels:['autofix:regression'] });
 
-      - name: Emit JSON report
-        if: steps.guard.outputs.skip != 'true'
+      - name: Emit JSON report (same-repo)
+        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -444,7 +444,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
 
       - name: Upload JSON report
-        if: steps.guard.outputs.skip != 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: autofix-report-pr-${{ github.event.pull_request.number }}
