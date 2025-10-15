@@ -18,6 +18,8 @@
 - **Issue bridge**: `agents-63-codex-issue-bridge.yml` opens branches/PRs from `agent:codex` issues.
 - **Assignment verifier**: `agents-64-verify-agent-assignment.yml` exposes the assignment audit path and feeds the orchestrator.
 - **ChatGPT topic sync**: `agents-63-chatgpt-issue-sync.yml` turns curated topic files (e.g. `Issues.txt`) into labelled GitHub issues on demand.
+- **Critical guard**: `agents-critical-guard.yml` blocks deletions or renames of protected agents workflows by diffing against the base branch and enforcing `.github/scripts/ensure_agents_workflows_intact.py`.
+- **Immutable guardrail**: the orchestrator and both `agents-63-*` workflows are protected by CODEOWNERS, branch protection, the `agents-critical-guard.yml` CI check, and a repository ruleset. See the [Agents Workflow Protection Policy](../AGENTS_POLICY.md) for enforcement and override steps.
 - **Issue template**: [Agent task](https://github.com/stranske/Trend_Model_Project/issues/new?template=agent_task.yml) pre-labels
   issues with `agents` and `agent:codex` so the bridge triggers immediately.
 - **Consumer note**: manual shims were removed; all automation now dispatches the orchestrator directly.
@@ -42,13 +44,14 @@
 - **Doc‑only rule**: Doc‑only detection lives inside Gate. No separate docs‑only workflow.
 - **Autofix**: Centralized under `maint-46-post-ci.yml`. For forks, upload patch artifacts and post links instead of pushing. Any pre‑CI autofix (`pr-02-autofix.yml`) must be label-gated and cancel duplicate runs in flight.
 - **Branch protection**: Default branch must require Gate. Health job first resolves the repository's current default branch via the REST API, then enforces and/or verifies that **Gate / gate** is the sole required status check. Provide a `BRANCH_PROTECTION_TOKEN` secret with admin scope when you want the job to apply the setting automatically; otherwise it will fail fast when the check is missing.
+- **Code Owner reviews**: Enable **Require review from Code Owners** on the default branch. This keeps the `agents-63-chatgpt-issue-sync.yml`, `agents-63-codex-issue-bridge.yml`, and `agents-70-orchestrator.yml` workflows gated on maintainer approval in addition to the deletion/rename rules described in the protection policy.
 - **Types**: Run mypy where the config is pinned. If types are pinned to a specific version, run mypy in that leg only (to avoid stdlib stub drift across Python versions). Our `pyproject.toml` sets `python_version = "3.11"`, so `reusable-10-ci-python.yml` resolves the value directly from the file, publishes it as a step output, and guards the mypy step with `matrix.python-version == steps.mypy-pin.outputs.python-version`. Ruff and pytest still execute on every configured interpreter.
 - **Labels used by automation**:  
   `workflows`, `ci`, `devops`, `docs`, `refactor`, `enhancement`, `autofix`, `priority: high|medium|low`, `risk:low`, `status: ready|in-progress`, `agents`, `agent:codex`.
 
 ## Final topology (keep vs retire)
 
-- **Keep**: `pr-00-gate.yml`, `maint-46-post-ci.yml`, health 42/43/44, agents 70/63, reusable 10/12/16/18, `selftest-81-reusable-ci.yml`, `selftest-runner.yml`.
+- **Keep**: `pr-00-gate.yml`, `maint-46-post-ci.yml`, health 42/43/44, agents 70/63, `agents-critical-guard.yml`, reusable 10/12/16/18, `selftest-81-reusable-ci.yml`, `selftest-runner.yml`.
 - **Retire**: `pr-14-docs-only.yml`, `maint-47-check-failure-tracker.yml`, agents 61/62, and the legacy `selftest-*` wrappers replaced by `selftest-runner.yml`.
 
 ## Verification checklist
