@@ -1,4 +1,5 @@
 name: Agents 63 Codex Issue Bridge
+# Policy reference: docs/ci/AGENTS_POLICY.md
 
 on:
   issues:
