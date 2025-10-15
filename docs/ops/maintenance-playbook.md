@@ -88,20 +88,19 @@ maintenance workflows that remain after Issue 2190. The roster now consists of
 3. **Dry-run mode** — use the `dry-run` input for rehearsal runs that capture
    diagnostics without creating commits or PRs.
 
-## Manual self-test wrappers
+## Manual self-test runner
 
-1. **Pick the right wrapper** — dispatch `selftest-80-pr-comment.yml`,
-   `selftest-82-pr-comment.yml`, or `selftest-83-pr-comment.yml` when you need a
-   PR comment summarising the reusable CI matrix. Use `selftest-84-reusable-ci.yml`
-   for a summary-only run and `selftest-88-reusable-ci.yml` when you want to feed
-   multiple Python versions.
-2. **Provide required inputs** — the PR comment wrappers require the target
-   `pull_request_number`; all wrappers accept an optional `python-versions`
-   override that is forwarded to `selftest-81-reusable-ci.yml`.
-3. **Remember the delegation** — every wrapper calls
-   `selftest-81-reusable-ci.yml`, which now exposes both `workflow_dispatch` and
-   `workflow_call`. Any verification mismatch will fail the wrapper job even if
-   the summary step continues to run.
+1. **Pick the right mode** — dispatch `selftest-runner.yml` and choose `summary`,
+   `comment`, or `dual-runtime` depending on whether you want a workflow
+   summary-only run, a PR comment, or a dual Python matrix. The runner handles
+   forwarding the correct `python-versions` list to `selftest-81-reusable-ci.yml`.
+2. **Provide required inputs** — comment mode requires a `pull_request_number`
+   when `post_to` is `pr-number`. Optional overrides let you change comment and
+   summary titles without editing the workflow.
+3. **Remember the delegation** — the runner calls
+   `selftest-81-reusable-ci.yml`, which exposes both `workflow_dispatch` and
+   `workflow_call`. Verification mismatches cause the runner job to fail (unless
+   the run is comment-only) after surfacing the Markdown summary/comment.
 
 ## Common tooling
 

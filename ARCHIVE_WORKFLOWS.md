@@ -11,7 +11,7 @@ This document records the archival and eventual deletion of legacy agent-related
 
 ### Retired self-tests
 - **Archived files**: `Old/workflows/maint-90-selftest.yml` and `Old/workflows/reusable-99-selftest.yml` remain in git history only after the reusable matrix stabilised.
-- **Replacement**: manual verification flows now live behind the self-test wrappers that remain in `.github/workflows/` (`selftest-81`, `selftest-82`, `selftest-83`, `selftest-84`, `selftest-88`), all of which expose `workflow_dispatch` inputs and publish their health tables directly in the Actions run summary.
+- **Replacement**: manual verification now routes through the consolidated runner (`selftest-runner.yml`) which calls `selftest-81-reusable-ci.yml`. The earlier `selftest-8X-*` wrappers have been removed from `.github/workflows/` and persist solely in history.
 
 ## Removed Legacy Files (Cleanup PR for Issue #1259)
 All deprecated agent automation workflows were deleted from `.github/workflows/` on 2025-09-21 once the stabilization window for the reusable equivalents closed. Historical copies formerly lived under `.github/workflows/archive/` but that directory was removed on 2026-10-07 as part of the Issue #1669 cleanup. Retrieve any prior YAML from git history when needed.
@@ -50,6 +50,8 @@ All deprecated agent automation workflows were deleted from `.github/workflows/`
 - `selftest-88-reusable-ci.yml` – short-lived experimental matrix retired in 2025, reinstated by Issue #2525 to exercise dual
   runtime scenarios on demand.
 - `selftest-82-pr-comment.yml` – previously deleted PR comment bot; revived in Issue #2525 with workflow_dispatch-only semantics.
+
+_(2026-11-04 update) The Issue #2651 consolidation removed the reinstated wrappers above and replaced them with the single `selftest-runner.yml` entry point. The notes remain for historical tracking only._
 
 ## Retired Autofix Wrapper
 - Legacy `pr-02-autofix.yml` (pre-2025) was deleted during the earlier cleanup. As of 2026-02-15 the consolidated `maint-46-post-ci.yml` (previously `maint-32-autofix.yml`) began handling small fixes and trivial failure remediation. In 2026-10 the streamlined PR-facing `pr-02-autofix.yml` workflow was reinstated (Issue #2380) and now delegates to the same reusable composite used by `maint-46-post-ci.yml`.

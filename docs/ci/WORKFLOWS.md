@@ -74,6 +74,11 @@ flowchart TD
 | **Selftest 81 Reusable CI** | `.github/workflows/selftest-81-reusable-ci.yml` | `workflow_dispatch`, `workflow_call` | `contents: read`, `actions: read` | No | Reusable CI matrix exerciser that exposes verification outputs for downstream consumers and manual runs. |
 | **Selftest Runner** | `.github/workflows/selftest-runner.yml` | `workflow_dispatch` | `contents: read`, `actions: read`, `pull-requests: write` | No | Parameterised manual entry point for the reusable matrix (modes: summary, comment, dual-runtime) with optional PR comment output and artifact downloads. |
 
+When running the consolidated runner choose a `mode` (`summary`, `comment`, or `dual-runtime`) and pair it with the desired
+`post_to` target. Comment mode requires setting `post_to: pr-number` and providing `pull_request_number`; the workflow validates
+the value and updates a single deduplicated comment marked `<!-- selftest-runner-comment -->`. Toggle `enable_history: true`
+when you need to download the `selftest-report` artifact emitted by the reusable matrix for local inspection.
+
 ### Agents & automation
 
 | Workflow | File | Trigger(s) | Permissions | Required? | Purpose |

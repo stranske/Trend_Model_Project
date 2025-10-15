@@ -2,6 +2,8 @@
 
 # Issue #2193 – Self-Test Workflow Consolidation
 
+> _Update 2026-11-04:_ Subsequent consolidation (Issue #2651) replaced the `maint-90`/`reusable-99` pair with `selftest-81-reusable-ci.yml` plus the `selftest-runner.yml` entry point. The notes below remain for historical tracking of the earlier migration.
+
 ## Scope
 - Remove legacy self-test callers (`selftest-82-pr-comment.yml`, `maint-43-*.yml`, `maint-44-*.yml`, `maint-48-*.yml`, `selftest-80-pr-comment.yml`).
 - Retain a single human-facing caller (`maint-90-selftest.yml`) that triggers only on manual dispatch and the scheduled sweep.
