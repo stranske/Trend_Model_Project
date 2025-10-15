@@ -260,7 +260,10 @@ jobs:
             const blocked = failureReasons.length > 0;
             let summary;
             if (blocked) {
-              summary = `Health 45 Agents Guard blocked this PR: ${failureReasons[0]}`;
+              const plainFirstReason = failureReasons[0].replace(/^[\s•*-]+/, '').trim();
+              summary = plainFirstReason
+                ? `Health 45 Agents Guard blocked this PR: ${plainFirstReason}`
+                : 'Health 45 Agents Guard blocked this PR.';
             } else {
               summary = 'Health 45 Agents Guard passed.';
             }

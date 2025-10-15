@@ -26,3 +26,9 @@
 - [x] Add idempotent PR commenting to explain failures without duplication.
 - [ ] Test the workflow behavior using workflow dry-runs or mock PR scenarios (e.g., `act` or manual triggering) to validate each acceptance criterion.
 - [ ] Coordinate with repository settings to add the new status check to required checks after verification.
+
+## Validation Notes
+- Deleting or renaming any of the guarded workflows produces an immediate failure with actionable guidance.
+- Modifying a guarded workflow without the `agents:allow-change` label fails and explains how to request the label.
+- Modifying a guarded workflow with the label but without a CODEOWNER approval fails and reminds reviewers to approve.
+- A guarded workflow passes once both the label and at least one CODEOWNER approval are present.
