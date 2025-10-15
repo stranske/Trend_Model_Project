@@ -224,7 +224,7 @@ jobs:
               )
               raise SystemExit(1)
 
-          print(f"Verified mypy python_version pin {pin}")
+          # The absence of errors verifies the configured pin matches expectations.
 
       - name: Mypy (type check)
         if: ${{ inputs.run-mypy && matrix.python-version == env.MYPY_PYTHON_VERSION }}
