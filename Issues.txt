@@ -102,7 +102,7 @@ Labels: workflows, ci, enhancement, docs, priority: medium, risk:low, status: re
 
 Body:
 Design reference: Workflow System Overview
-. Gate file: .github/workflows/pr-00-gate.yml. 
+Gate file: .github/workflows/pr-00-gate.yml. 
 
 Tasks
 
