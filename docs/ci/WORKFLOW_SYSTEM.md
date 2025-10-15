@@ -50,7 +50,7 @@
 
 ## Final topology (keep vs retire)
 
-- **Keep**: `pr-00-gate.yml`, `maint-46-post-ci.yml`, health 42/43/44, agents 70/63, reusable 10/12/16/18, `selftest-81-reusable-ci.yml`, `selftest-runner.yml`.
+- **Keep**: `pr-00-gate.yml`, `maint-46-post-ci.yml`, health 42/43/44, agents 70/63, `agents-critical-guard.yml`, reusable 10/12/16/18, `selftest-81-reusable-ci.yml`, `selftest-runner.yml`.
 - **Retire**: `pr-14-docs-only.yml`, `maint-47-check-failure-tracker.yml`, agents 61/62, and the legacy `selftest-*` wrappers replaced by `selftest-runner.yml`.
 
 ## Verification checklist
