@@ -210,6 +210,25 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
             "gate job must publish a legacy commit status so branch protection resolves",
         )
 
+    def test_gate_docs_only_handler_uses_marker(self) -> None:
+        workflow = self._read_workflow("pr-00-gate.yml")
+        gate_job = workflow.get("jobs", {}).get("gate", {})
+        self.assertTrue(gate_job, "Gate workflow must define gate job")
+
+        steps = gate_job.get("steps", [])
+        docs_step = next((step for step in steps if step.get("id") == "docs_only"), {})
+        self.assertTrue(docs_step, "Gate workflow should expose docs-only handler step")
+
+        script = docs_step.get("with", {}).get("script", "")
+        self.assertTrue(script, "Docs-only handler should include inline script")
+
+        self.assertIn("const marker = '<!-- gate-docs-only -->';", script)
+        self.assertIn("comment.body.includes(marker)", script)
+        self.assertIn("body: `${marker}\\n${message}`", script)
+        self.assertIn(".addRaw(`${message}\\n`)", script)
+        self.assertIn("await core.summary", script)
+        self.assertIn("core.setOutput('description', message);", script)
+
     def test_workflows_do_not_define_invalid_marker_filters(self) -> None:
         """Ensure pytest marker filters stay inside shell commands."""
 
