@@ -79,6 +79,24 @@ Open a focused PR (or issue) for:
 | Missing ignore for known untyped lib | Not in allowlist | Add to `ALLOWLIST` in script, run autofix locally. |
 | CI autofix skipped | No diff produced | Confirm local environment replicates tool versions. |
 
+## Verification scenarios
+
+Run these quick checks whenever the PR-02 autofix lane changes to confirm Issue #2649’s safeguards remain in place:
+
+### Same-repo opt-in
+1. Open a branch in the main repository with a deliberate lint issue (for example, reorder an import) and add the `autofix` label.
+2. Verify the **PR 02 Autofix** workflow triggers exactly one `apply` job and cancels any superseded runs when you push extra commits or re-run the workflow from the UI.
+3. Confirm the comment updated in place under the `<!-- autofix-status: DO NOT EDIT -->` marker shows the applied commit link and an "Autofix result" section.
+
+### Fork opt-in
+1. From a fork, open a PR with the `autofix` label and a trivially fixable lint issue.
+2. Ensure the workflow uploads an `autofix-patch-pr-<number>` artifact, applies the `autofix:patch` label, and the status comment explains how to apply the patch locally.
+3. Download and apply the patch with `git am` to confirm it replays cleanly, then push manually to complete the fix.
+
+### Label gating sanity check
+1. Remove the `autofix` label (or open a fresh PR without it) and trigger the workflow via the **Re-run** button.
+2. Confirm the `apply` job is skipped and no new comments are posted, demonstrating the label gate is working as expected.
+
 ## Future Enhancements (Optional Backlog)
 - Add metrics: record autofix delta lines per run.
 - Dry-run mode for PR comments instead of commits (toggle by label).

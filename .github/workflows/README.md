@@ -10,7 +10,7 @@ inventory and naming rules.
 Core layers:
 - Gate orchestrator (`pr-00-gate.yml`): single required check that fans out to Python 3.11/3.12 CI and the Docker smoke test using the reusable workflows, then enforces that every leg succeeds.
 - Autofix lane (`maint-46-post-ci.yml`): workflow_run follower that batches small hygiene fixes, posts Gate summaries, and manages trivial failure remediation using the composite autofix action.
-- Agents orchestration (`agents-70-orchestrator.yml` + `reusable-16-agents.yml`): single entry point for Codex readiness, bootstrap, diagnostics, and watchdog sweeps. Use the [Agent task issue template][agent-task-template] to raise work for Codex; the issue bridge picks it up automatically once the labels land.
+- Agents orchestration (`agents-70-orchestrator.yml` + `reusable-16-agents.yml`): single entry point for Codex readiness, bootstrap, diagnostics, and watchdog sweeps. Use the [Agent task issue template][agent-task-template] (auto-labels `agents` + `agent:codex`) to raise work for Codex; the issue bridge listens for `agent:codex` and hands issues to the orchestrator. Legacy consumer shims remain removed following Issue #2650.
 - Cosmetic repair (`maint-45-cosmetic-repair.yml`): manual pytest run plus guardrail fixer that opens labelled repair PRs when drift is detected.
 - Governance & Health: `health-40-repo-selfcheck.yml`, `health-41-repo-health.yml`, `health-42-actionlint.yml`, `health-43-ci-signature-guard.yml`, `health-44-gate-branch-protection.yml`, labelers, dependency review, CodeQL.
 - Path Labeling: `pr-path-labeler.yml` auto-categorizes PRs.
@@ -246,12 +246,47 @@ Outputs:
 ### Agents Orchestration (Issue #2466)
 
 ---
-## 7.4 Self-Test Reusable CI (Issue #1660)
+## 7.4 Self-Test Runner & Reusable CI
 
-- **Trigger scope:** Manual dispatch only. Launch the workflow from the Actions tab under **Selftest 81 Reusable CI** or via the
-  CLI when validating changes to `.github/workflows/reusable-10-ci-python.yml` or its helper scripts. Provide a short
-  justification in the required `reason` input so future readers know why the self-test was executed. No pull_request, push,
-  or scheduled hooks run this matrix automatically.
+### Consolidated runner (Issue #2651)
+
+- **Entry point:** Dispatch **Selftest Runner** (`.github/workflows/selftest-runner.yml`) from the Actions tab when you need a
+  comment, workflow summary, or dual-runtime verification. The workflow accepts only manual `workflow_dispatch` events; no
+  scheduled or PR triggers remain after consolidation.
+- **Inputs:**
+  - `mode` — `summary`, `comment`, or `dual-runtime`. Summary posts only to the workflow run, comment publishes to a PR, and
+    dual-runtime fans out to both Python 3.11 and 3.12 before surfacing a summary.
+  - `post_to` — `none` or `pr-number`. When paired with `mode: comment`, supply `pull_request_number` so the runner knows where
+    to post. The workflow validates the number and fails fast on bad input rather than silently skipping the comment.
+  - `enable_history` — toggle to download the `selftest-report` artifact emitted by the reusable matrix. Leave disabled for a
+    lightweight run; enable it when you need the JSON report locally.
+  - Optional niceties: `reason`, `summary_title`, and `comment_title`. The `reason` field is optional but recommended for audit
+    breadcrumbs. Defaults keep the previous wrappers’ headings for familiarity.
+- **Behavioural guardrails:** Both the log-surface step and the PR-comment finaliser fail the job when verification outputs are
+  missing or mismatched. This keeps “unknown” outcomes from sneaking through when the reusable matrix changes. The workflow also
+  respects the matrix result—any upstream failure bubbles up as an error after the report is posted.
+- **Comment lifecycle:** When `mode: comment` and `post_to: pr-number`, the workflow updates an existing comment marked with
+  `<!-- selftest-runner-comment -->` or creates a new one. Manual reruns therefore refresh the same comment instead of spamming
+  reviewers.
+- **CLI snippet:**
+
+  ```bash
+  gh workflow run "Selftest Runner" \
+    --raw-field mode=comment \
+    --raw-field post_to=pr-number \
+    --raw-field pull_request_number=1234 \
+    --raw-field enable_history=true
+  ```
+
+  The CLI automatically prompts for the branch/ref; omit `pull_request_number` (or set `post_to=none`) when you only need the
+  workflow summary.
+
+### Reusable matrix (Issue #1660)
+
+- **Trigger scope:** Manual dispatch or `workflow_call`. Launch the workflow from the Actions tab under **Selftest 81 Reusable
+  CI** or via the CLI when validating changes to `.github/workflows/reusable-10-ci-python.yml` or its helper scripts. Provide a
+  short justification in the optional `reason` input so future readers know why the self-test was executed. No pull_request,
+  push, or scheduled hooks run this matrix automatically.
 - **Latest remediation:** The October 2025 failure stemmed from `typing-inspection` drifting from `0.4.1` to `0.4.2`, causing
   `tests/test_lockfile_consistency.py` to fail during the reusable matrix runs. Refresh `requirements.lock` with
   `uv pip compile --upgrade pyproject.toml -o requirements.lock` before re-running the workflow. The matrix now completes when

@@ -155,18 +155,18 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         jobs = workflow.get("jobs", {})
         self.assertEqual(
             set(jobs.keys()),
-            {"changes", "core-tests-311", "core-tests-312", "docker-smoke", "gate"},
+            {"detect", "core-tests-311", "core-tests-312", "docker-smoke", "gate"},
         )
 
-        job_changes = jobs["changes"]
-        changes_steps = job_changes.get("steps", [])
+        job_detect = jobs["detect"]
+        detect_steps = job_detect.get("steps", [])
         detect_step = next(
-            (step for step in changes_steps if step.get("id") == "diff"),
+            (step for step in detect_steps if step.get("id") == "diff"),
             {},
         )
         self.assertTrue(
             detect_step,
-            "changes job must expose the diff detection step with id 'diff'",
+            "detect job must expose the diff detection step with id 'diff'",
         )
 
         job_311 = jobs["core-tests-311"]
@@ -193,7 +193,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         job_gate = jobs["gate"]
         self.assertEqual(
             job_gate.get("needs"),
-            ["changes", "core-tests-311", "core-tests-312", "docker-smoke"],
+            ["detect", "core-tests-311", "core-tests-312", "docker-smoke"],
         )
         steps = job_gate.get("steps", [])
         summary_step = next(

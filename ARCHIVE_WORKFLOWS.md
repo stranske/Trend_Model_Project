@@ -27,6 +27,7 @@ All deprecated agent automation workflows were deleted from `.github/workflows/`
 ## Additional Archived Workflows
 - (2026-02-07) `codex-issue-bridge.yml`, `reuse-agents.yml`, and the legacy `agents-consumer.yml` moved to the archive before the assigner/watchdog consolidation. The WFv1 renumbering landed in 2026-09 (`agents-40-consumer.yml`, `agents-41-assign-and-watch.yml`, wrappers, plus `reusable-90-agents.yml`) and was superseded by Issue #2190 (`agents-70-orchestrator.yml`, `reusable-16-agents.yml`). Issue #2493 temporarily reintroduced the consumer shim (as `agents-61-consumer-compat.yml`) for manual dispatch, but it has now been retired alongside `agents-62-consumer.yml` in favour of the orchestrator-only surface.
 - (2026-10-12) Issue #2466 removed the last on-disk copy of the historical slug; Issue #2493 restored the workflow with the corrected `jobs.<id>.uses` contract and a concurrency guard to prevent repeated manual triggers from piling up.
+- (2026-10-20) Issue #2650 confirmed `.github/workflows/agents-62-consumer.yml` remains deleted and refreshed docs/tests so the Codex issue bridge feeds only the orchestrator entry point.
 - (2026-09-30) Standalone `gate.yml` wrapper deleted (Issue #1657). The subsequent consolidation (Issue #2195) folded the aggregator logic into the single `ci / python` job inside `pr-10-ci-python.yml`; no archived copy retained because the YAML was invalid.
 - (2026-10-05) `autoapprove.yml` and `enable-automerge.yml` permanently retired once `maint-45-merge-manager.yml` proved stable (guard test asserts documentation coverage).
 - (2026-10-05) `guard-no-reuse-pr-branches.yml` and `lint-verification.yml` removed after governance documentation and branch protection policies caught up with the consolidated CI stack.
@@ -49,6 +50,8 @@ All deprecated agent automation workflows were deleted from `.github/workflows/`
 - `selftest-88-reusable-ci.yml` – short-lived experimental matrix retired in 2025, reinstated by Issue #2525 to exercise dual
   runtime scenarios on demand.
 - `selftest-82-pr-comment.yml` – previously deleted PR comment bot; revived in Issue #2525 with workflow_dispatch-only semantics.
+
+_(2026-11-04 update) The Issue #2651 consolidation removed the reinstated wrappers above and replaced them with the single `selftest-runner.yml` entry point. The notes remain for historical tracking only._
 
 ## Retired Autofix Wrapper
 - Legacy `pr-02-autofix.yml` (pre-2025) was deleted during the earlier cleanup. As of 2026-02-15 the consolidated `maint-46-post-ci.yml` (previously `maint-32-autofix.yml`) began handling small fixes and trivial failure remediation. In 2026-10 the streamlined PR-facing `pr-02-autofix.yml` workflow was reinstated (Issue #2380) and now delegates to the same reusable composite used by `maint-46-post-ci.yml`.

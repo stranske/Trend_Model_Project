@@ -30,4 +30,4 @@ runs:
           --report "${{ inputs.report }}" \
           --history "${{ inputs.history }}" \
           --trend "${{ inputs.trend }}" \
-          --pr-number "${{ inputs.pr-number }}"
+            --pr-number "${{ inputs['pr-number'] }}"

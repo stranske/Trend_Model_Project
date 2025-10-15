@@ -7,6 +7,28 @@ import yaml
 WORKFLOW_DIR = Path(".github/workflows")
 ARCHIVE_DIR = Path("Old/workflows")
 SELFTEST_PATH = WORKFLOW_DIR / "selftest-81-reusable-ci.yml"
+RUNNER_PATH = WORKFLOW_DIR / "selftest-runner.yml"
+
+
+def _resolve_triggers(data: dict) -> dict:
+    """Normalize workflow `on` definitions to a mapping."""
+
+    triggers_raw = data.get("on")
+    if triggers_raw is None and True in data:
+        triggers_raw = data[True]
+    if triggers_raw is None:
+        return {}
+
+    if isinstance(triggers_raw, list):
+        return {str(event): {} for event in triggers_raw}
+    if isinstance(triggers_raw, str):
+        return {triggers_raw: {}}
+    if isinstance(triggers_raw, dict):
+        return triggers_raw
+
+    raise AssertionError(
+        f"Unexpected trigger configuration: {type(triggers_raw)!r}"
+    )
 
 
 def test_selftest_workflow_inventory() -> None:
@@ -22,6 +44,171 @@ def test_selftest_workflow_inventory() -> None:
     assert (
         selftest_workflows == expected
     ), f"Active self-test inventory drifted; expected {expected} but saw {selftest_workflows}."
+
+
+def test_selftest_runner_inputs_cover_variants() -> None:
+    """The consolidated runner should expose the requested input variants."""
+
+    data = yaml.safe_load(RUNNER_PATH.read_text()) or {}
+    triggers = _resolve_triggers(data)
+
+    assert triggers, "selftest-runner.yml is missing trigger definitions."
+    assert set(triggers) == {
+        "workflow_dispatch"
+    }, "Runner must remain a manual workflow_dispatch entry point."
+
+    workflow_dispatch = triggers["workflow_dispatch"] or {}
+    inputs = workflow_dispatch.get("inputs", {})
+
+    def _assert_choice(
+        field_name: str, expected_options: list[str], *, default: str | None
+    ) -> None:
+        field = inputs.get(field_name)
+        assert field is not None, f"Missing `{field_name}` input on selftest-runner.yml."
+        assert field.get("type", "choice") == "choice", (
+            f"`{field_name}` should remain a choice input."
+        )
+        options_raw = field.get("options", [])
+        options_normalized = [str(option).lower() for option in options_raw]
+        expected_normalized = [option.lower() for option in expected_options]
+        assert options_normalized == expected_normalized, (
+            f"Unexpected option set for `{field_name}`: {options_raw!r}."
+        )
+        if default is not None:
+            actual_default = field.get("default")
+            if isinstance(actual_default, bool):
+                actual_default_normalized = str(actual_default).lower()
+            else:
+                actual_default_normalized = str(actual_default)
+            assert actual_default_normalized == default, (
+                f"`{field_name}` default drifted from {default!r}."
+            )
+
+    _assert_choice("mode", ["summary", "comment", "dual-runtime"], default="summary")
+    _assert_choice("post_to", ["pr-number", "none"], default="none")
+    _assert_choice("enable_history", ["true", "false"], default="false")
+
+    pr_number = inputs.get("pull_request_number", {})
+    required_raw = pr_number.get("required")
+    assert required_raw in (None, False, "false"), (
+        "pull_request_number must remain optional to reuse comment mode outside PRs."
+    )
+
+    jobs = data.get("jobs", {})
+    run_matrix = jobs.get("run-matrix") or {}
+    assert run_matrix.get("uses") == "./.github/workflows/selftest-81-reusable-ci.yml", (
+        "Runner should delegate execution to selftest-81-reusable-ci.yml."
+    )
+
+
+def test_selftest_runner_publish_job_contract() -> None:
+    """Publish-results job must enforce verification guardrails consistently."""
+
+    data = yaml.safe_load(RUNNER_PATH.read_text()) or {}
+    jobs = data.get("jobs", {})
+    publish = jobs.get("publish-results") or {}
+
+    assert publish, "selftest-runner.yml should retain the publish-results job."
+    assert (
+        publish.get("needs") == "run-matrix"
+    ), "publish-results must depend on the reusable self-test matrix."
+    assert (
+        publish.get("if") == "${{ always() }}"
+    ), "publish-results should always execute to surface matrix status."
+
+    permissions = publish.get("permissions", {})
+    assert permissions, "publish-results must declare minimal permissions."
+    assert permissions.get("contents") == "read", (
+        "publish-results should only require read access to contents."
+    )
+    assert permissions.get("actions") == "read", (
+        "publish-results should only require read access to actions metadata."
+    )
+    assert permissions.get("pull-requests") == "write", (
+        "publish-results needs pull request write access for comment mode."
+    )
+
+    unexpected_permissions = sorted(
+        key for key in permissions if key not in {"contents", "actions", "pull-requests"}
+    )
+    assert not unexpected_permissions, (
+        "publish-results should not request extra permissions: "
+        f"{unexpected_permissions}."
+    )
+
+    required_env = {
+        "MODE",
+        "POST_TO",
+        "ENABLE_HISTORY",
+        "PR_NUMBER",
+        "SUMMARY_TITLE",
+        "COMMENT_TITLE",
+        "REASON",
+        "WORKFLOW_RESULT",
+        "VERIFICATION_TABLE",
+        "FAILURE_COUNT",
+        "RUN_ID",
+        "REQUESTED_VERSIONS",
+    }
+    env = publish.get("env", {})
+    missing_env = sorted(required_env - set(env))
+    assert not missing_env, (
+        "publish-results env block drifted; missing keys: "
+        f"{missing_env}."
+    )
+
+    steps = publish.get("steps", [])
+
+    def _find_step(name: str) -> dict:
+        return next((step for step in steps if step.get("name") == name), {})
+
+    download_step = _find_step("Download self-test report")
+    assert download_step, "Download step missing from publish-results."
+    assert (
+        download_step.get("uses") == "actions/download-artifact@v4"
+    ), "Download step should use actions/download-artifact@v4."
+    assert (
+        download_step.get("if")
+        == "${{ env.ENABLE_HISTORY == 'true' && env.RUN_ID != '' }}"
+    ), (
+        "Download step must guard on enable_history input and aggregate run id."
+    )
+    download_with = download_step.get("with", {})
+    assert (
+        download_with.get("run-id") == "${{ env.RUN_ID }}"
+    ), "Download step should forward the aggregate run id."
+    assert (
+        download_with.get("name") == "selftest-report"
+    ), "Download step must keep artifact name stable for docs/tests."
+
+    surface_failures = _find_step("Surface failures in logs")
+    assert surface_failures, "Missing surface failures guard for summary mode."
+    surface_script = surface_failures.get("run", "")
+    for expected_snippet in (
+        "Verification table output missing",
+        "Failure count output missing",
+        "Selftest runner reported",
+        "Selftest matrix completed with status",
+    ):
+        assert (
+            expected_snippet in surface_script
+        ), f"Surface failures step should mention '{expected_snippet}'."
+
+    comment_finalize = _find_step("Finalize status for comment mode")
+    assert comment_finalize, "Comment mode finalizer missing."
+    assert (
+        comment_finalize.get("if") == "${{ env.MODE == 'comment' }}"
+    ), "Comment finalizer should only run during comment mode."
+    comment_script = comment_finalize.get("run", "")
+    for snippet in (
+        "Verification table output missing",
+        "Failure count output missing",
+        "Selftest runner reported",
+        "Selftest matrix completed with status",
+    ):
+        assert (
+            snippet in comment_script
+        ), f"Comment finalizer guard should mention '{snippet}'."
 
 
 def test_selftest_triggers_are_manual_only() -> None:
@@ -265,7 +452,7 @@ def test_selftest_matrix_and_aggregate_contract() -> None:
     ), "Aggregate job must include the github-script verification step"
     verify_env = verify_step.get("env", {})
     assert (
-        verify_env.get("PYTHON_VERSIONS") == "${{ inputs.python-versions }}"
+        verify_env.get("PYTHON_VERSIONS") == "${{ inputs['python-versions'] }}"
     ), "Verification step should read python-versions input via PYTHON_VERSIONS env var for dynamic artifact expectations."
 
 

@@ -77,7 +77,7 @@ The following workflows were decommissioned during the CI consolidation effort. 
 - **`pr-14-docs-only.yml`** — Former docs-only fast path superseded by Gate’s internal detection.
 - **`maint-47-check-failure-tracker.yml`** — Replaced by the consolidated post-CI summary in `maint-46-post-ci.yml`.
 - **`agents-61-consumer-compat.yml`** and **`agents-62-consumer.yml`** — Legacy consumer shims fully replaced by the orchestrator.
-- **Legacy selftest wrappers** (`selftest-80-pr-comment.yml`, `selftest-82-pr-comment.yml`, `selftest-83-pr-comment.yml`, `selftest-84-reusable-ci.yml`, `selftest-88-reusable-ci.yml`) — Superseded by `selftest-runner.yml` + `selftest-81-reusable-ci.yml`.
+- **Legacy selftest wrappers** (`selftest-80-pr-comment.yml`, `selftest-82-pr-comment.yml`, `selftest-83-pr-comment.yml`, `selftest-84-reusable-ci.yml`, `selftest-88-reusable-ci.yml`) — Superseded by `selftest-runner.yml` + `selftest-81-reusable-ci.yml`; these wrappers are now removed from `.github/workflows/` and live only in history.
 
 ## Trigger Wiring Tips
 1. When renaming a workflow, update any `workflow_run` consumers. In this roster that includes `maint-46-post-ci.yml` and `pr-02-autofix.yml`.
@@ -90,7 +90,7 @@ The following workflows were decommissioned during the CI consolidation effort. 
 - Escalations apply the `priority: high` label once the same signature fires three times.
 
 ## Agent Operations
-- Use **Agents 70 Orchestrator** for every automation task (readiness checks, Codex bootstrap, diagnostics, keepalive). No other entry points remain beyond deprecated compatibility shims.
+- Use **Agents 70 Orchestrator** for every automation task (readiness checks, Codex bootstrap, diagnostics, keepalive). No other entry points remain beyond deprecated compatibility shims, and the Agent task issue template now auto-labels issues (`agents`, `agent:codex`) so the issue bridge can open the branch/PR before the orchestrator run kicks in.
 - Optional flags beyond the standard inputs belong in the `params_json` payload; the orchestrator parses it with `fromJson()` and forwards toggles to `reusable-16-agents.yml`. Include an `options_json` string inside the payload for nested keepalive or cleanup settings when required.
 - Provide a PAT when bootstrap needs to push branches. The orchestrator honours PAT priority (`OWNER_PR_PAT` → `SERVICE_BOT_PAT` → `GITHUB_TOKEN`) via the reusable composite.
 
