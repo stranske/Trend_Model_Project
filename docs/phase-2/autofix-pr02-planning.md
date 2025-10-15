@@ -17,10 +17,17 @@
 - All updated workflows lint/validate successfully (e.g., `act --list` or `yamllint` as applicable) and pass required CI checks.
 
 ## Initial Task Checklist
-- [ ] Audit existing Autofix workflows to identify where concurrency, permissions, and labeling logic should live.
-- [ ] Implement or update the `concurrency` block to scope runs by head ref and enable `cancel-in-progress`.
-- [ ] Add label detection step that short-circuits execution (with informative log) when the label is missing.
-- [ ] Tighten workflow `permissions` to the minimum required; add conditional guards around artifact or comment steps for forked repositories.
-- [ ] Refactor bot commenting logic to reuse a single comment, updating it on reruns.
-- [ ] Update documentation (e.g., README or workflow docs) to describe the new operational expectations.
-- [ ] Run or simulate workflows to confirm no regressions and that forked PRs behave safely.
+- [x] Audit existing Autofix workflows to identify where concurrency, permissions, and labeling logic should live.
+- [x] Implement or update the `concurrency` block to scope runs by head ref and enable `cancel-in-progress`.
+- [x] Add label detection step that short-circuits execution (with informative log) when the label is missing.
+- [x] Tighten workflow `permissions` to the minimum required; add conditional guards around artifact or comment steps for forked repositories.
+- [x] Refactor bot commenting logic to reuse a single comment, updating it on reruns.
+- [x] Update documentation (e.g., README or workflow docs) to describe the new operational expectations.
+- [x] Run or simulate workflows to confirm no regressions and that forked PRs behave safely.
+
+## Implementation Summary
+- **Concurrency & gating**: Both the entry (`pr-02-autofix`) and reusable workflows now share a PR-number keyed concurrency group so multiple pushes to the same pull request cancel in-flight runs instead of overlapping. Each run begins with a label gate that logs when the opt-in label is absent, preventing unnecessary executions.
+- **Label awareness**: The gate passes the resolved opt-in label (defaulting to `autofix` or the repository variable override) to the reusable workflow, ensuring consistent label checks across jobs.
+- **Fork safety**: Permissions default to read-only at the workflow level and escalate to write-only within the Autofix job. Label application and artifact-producing steps are conditioned on same-repository PRs, avoiding privileged operations for forks while still providing patch artifacts when changes are produced.
+- **Comment hygiene**: The reusable workflow continues to upsert a single status comment per run, so retries edit the existing message instead of posting duplicates.
+- **Observability**: Skipped runs emit an explicit log line explaining the missing label, which helps triage unexpected no-op executions without trawling step conditions.
