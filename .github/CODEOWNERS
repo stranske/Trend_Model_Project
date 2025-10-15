@@ -34,5 +34,10 @@
 
 # CI/CD and container files
 /.github/workflows/**               @stranske
+
+# Critical agent workflows require owner approval
+/.github/workflows/agents-63-chatgpt-issue-sync.yml @stranske
+/.github/workflows/agents-63-codex-issue-bridge.yml @stranske
+/.github/workflows/agents-70-orchestrator.yml        @stranske
 /Dockerfile                         @stranske
 /docker-compose.yml                 @stranske
