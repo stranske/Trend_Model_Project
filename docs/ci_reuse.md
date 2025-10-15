@@ -13,7 +13,7 @@ blob.
 | Reusable Docker Smoke | `.github/workflows/reusable-12-ci-docker.yml` | Docker build + smoke test harness consumed by Gate and downstream callers. |
 | Autofix | `.github/workflows/reusable-18-autofix.yml` | Formatting / lint autofix composite invoked by `pr-02-autofix.yml` and `maint-46-post-ci.yml`. |
 | Agents Toolkit | `.github/workflows/reusable-16-agents.yml` | Readiness, Codex bootstrap, diagnostics, verification, keepalive, and watchdog routines dispatched exclusively through the orchestrator. |
-| Selftest 81 Reusable CI | `.github/workflows/selftest-81-reusable-ci.yml` | Manual/`workflow_call` matrix that exercises the reusable CI executor across documented feature toggles and powers the `selftest-8X-*` wrappers. |
+| Selftest 81 Reusable CI | `.github/workflows/selftest-81-reusable-ci.yml` | Manual/`workflow_call` matrix that exercises the reusable CI executor across documented feature toggles and powers the consolidated self-test runner. |
 
 ## 1. Reusable CI (`reusable-10-ci-python.yml`)
 Consumer example (excerpt from `pr-00-gate.yml`):
@@ -103,10 +103,10 @@ headroom (readiness/preflight: 15 minutes, diagnostics: 20 minutes, bootstrap:
 Runs the matrix that validates the reusable CI executor across feature
 combinations (coverage delta, soft gate, metrics, history, classification).
 `selftest-81` supports both `workflow_dispatch` and `workflow_call`: trigger it
-directly for ad-hoc verification or let the manual wrappers (`selftest-80/82/83`
-for PR comments, `selftest-84/88` for summary runs) call it as a reusable job.
-The wrapper workflows inherit all verification outputs and surface them in PR
-comments or workflow summaries without duplicating the matrix definition.
+directly for ad-hoc verification or let the consolidated runner
+(`selftest-runner.yml`) call it as a reusable job. The runner exposes inputs for
+summary, PR comment, and dual-runtime scenarios while inheriting all
+verification outputs without duplicating the matrix definition.
 
 ## Adoption Notes
 1. Reference the files directly via `uses: stranske/Trend_Model_Project/.github/workflows/<file>@phase-2-dev` in external repos.

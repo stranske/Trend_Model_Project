@@ -21,7 +21,7 @@ operational detail for the kept set.
 | `health-` | Repository health & policy checks | `health-40-repo-selfcheck.yml`, `health-41-repo-health.yml`, `health-42-actionlint.yml`, `health-43-ci-signature-guard.yml`, `health-44-gate-branch-protection.yml` |
 | `agents-` | Agent orchestration entry points | `agents-70-orchestrator.yml` |
 | `reusable-` | Reusable composites invoked by other workflows | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-18-autofix.yml`, `reusable-16-agents.yml` |
-| `selftest-` | Manual self-tests & experiments | `selftest-80-pr-comment.yml`, `selftest-81-reusable-ci.yml`, `selftest-82-pr-comment.yml`, `selftest-83-pr-comment.yml`, `selftest-84-reusable-ci.yml`, `selftest-88-reusable-ci.yml` |
+| `selftest-` | Manual self-tests & experiments | `selftest-81-reusable-ci.yml`, `selftest-runner.yml` |
 | `autofix-` assets | Shared configuration for autofix tooling | `autofix-versions.env` |
 
 **Naming checklist**
@@ -77,7 +77,7 @@ The following workflows were decommissioned during the CI consolidation effort. 
 - **`pr-14-docs-only.yml`** — Former docs-only fast path superseded by Gate’s internal detection.
 - **`maint-47-check-failure-tracker.yml`** — Replaced by the consolidated post-CI summary in `maint-46-post-ci.yml`.
 - **`agents-61-consumer-compat.yml`** and **`agents-62-consumer.yml`** — Legacy consumer shims fully replaced by the orchestrator.
-- **Legacy selftest wrappers** (`selftest-80-pr-comment.yml`, `selftest-82-pr-comment.yml`, `selftest-83-pr-comment.yml`, `selftest-84-reusable-ci.yml`, `selftest-88-reusable-ci.yml`) — Superseded by `selftest-runner.yml` + `selftest-81-reusable-ci.yml`.
+- **Legacy selftest wrappers** (`selftest-80-pr-comment.yml`, `selftest-82-pr-comment.yml`, `selftest-83-pr-comment.yml`, `selftest-84-reusable-ci.yml`, `selftest-88-reusable-ci.yml`) — Superseded by `selftest-runner.yml` + `selftest-81-reusable-ci.yml`; these wrappers are now removed from `.github/workflows/` and live only in history.
 
 ## Trigger Wiring Tips
 1. When renaming a workflow, update any `workflow_run` consumers. In this roster that includes `maint-46-post-ci.yml` and `pr-02-autofix.yml`.
