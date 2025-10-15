@@ -63,12 +63,13 @@
    - For ad-hoc verification, run `gh api repos/<owner>/<repo> --jq .default_branch` or browse the repository settings to confirm the value (currently `phase-2-dev`).
 2. **Verify enforcement credentials.**
    - Create a fine-grained personal access token with `Administration: Read and write` on the repository.
-   - Store it as the `BRANCH_PROTECTION_TOKEN` Actions secret. When present, Health‑44 applies the branch protection before verifying. Without it the workflow performs a read-only check and fails if Gate is not yet required.
+   - Store it as the `BRANCH_PROTECTION_TOKEN` Actions secret. When present, Health‑44 applies the branch protection before verifying. Without it the workflow performs a read-only check, surfaces an observer-mode summary, and still fails if Gate is not yet required.
 3. **Run the enforcement script locally when needed.**
    - `python tools/enforce_gate_branch_protection.py --repo <owner>/<repo> --branch <default-branch> --check` reports the current status.
+   - Add `--require-strict` when you want the command to fail if the workflow token cannot confirm “Require branches to be up to date” (requires admin scope).
    - Add `--apply` to enforce the rule locally (requires admin token in `GITHUB_TOKEN`/`GH_TOKEN`). Use `--snapshot path.json` to capture before/after state for change control.
 4. **Audit the result.**
-   - Health‑44 uploads JSON snapshots (`enforcement.json`, `verification.json`) that mirror the script output.
+   - Health‑44 uploads JSON snapshots (`enforcement.json`, `verification.json`) that mirror the script output and writes a step summary when it must fall back to observer mode.
    - In GitHub settings, confirm that **Gate** is listed under required status checks and that “Require branches to be up to date before merging” is enabled.
 5. **Trigger Health‑44 on demand.**
    - Kick a manual run with `gh workflow run "Health 44 Gate Branch Protection" --ref <default-branch>` whenever you change branch-protection settings.
