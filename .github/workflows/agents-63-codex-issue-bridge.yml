@@ -1,5 +1,5 @@
 name: Agents 63 Codex Issue Bridge
-# Policy reference: docs/ci/AGENTS_POLICY.md
+# Policy reference: docs/ci/AGENTS_POLICY.md (guardrails, allowlisted changes, overrides)
 
 on:
   issues:

@@ -17,7 +17,7 @@
 - No functional workflow behavior changes are introduced; CI should continue to treat this as a docs-only update.
 
 ## Initial Task Checklist
-- [ ] Draft `docs/ci/AGENTS_POLICY.md` with sections for purpose/scope, protections, allowed change reasons & label process, and troubleshooting tips.
-- [ ] Cross-link the new policy from `docs/ci/WORKFLOW_SYSTEM.md` in the policy/enforcement area.
-- [ ] Add a top-of-file comment in each Agents 63 workflow file pointing to the policy URL.
-- [ ] Self-review for consistency with CI documentation voice and verify Markdown formatting/lint expectations.
+- [x] Draft `docs/ci/AGENTS_POLICY.md` with sections for purpose/scope, protections, allowed change reasons & label process, and troubleshooting tips.
+- [x] Cross-link the new policy from `docs/ci/WORKFLOW_SYSTEM.md` in the policy/enforcement area.
+- [x] Add a top-of-file comment in each Agents 63 workflow file pointing to the policy URL.
+- [x] Self-review for consistency with CI documentation voice and verify Markdown formatting/lint expectations.
