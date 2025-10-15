@@ -1,4 +1,4 @@
-Issue 1 — Lock down Agents 63: protect the files from deletion or unsafe edits
+1 — Lock down Agents 63: protect the files from deletion or unsafe edits
 
 Labels: agents, agent:codex, workflows, devops, config, priority: high, risk:low, status: ready
 Design doc: docs/ci/WORKFLOW_SYSTEM.md + new docs/ci/AGENTS_POLICY.md (created in Issue 5)
@@ -47,7 +47,7 @@ CODEOWNERS review is enforced on PRs that modify these files.
 
 Policy is documented and linked from the main workflow doc.
 
-Issue 2 — Add “Health 45 Agents Guard” PR gate (block deletions, unapproved edits)
+2 — Add “Health 45 Agents Guard” PR gate (block deletions, unapproved edits)
 
 Labels: workflows, ci, devops, agents, priority: high, risk:low, status: ready
 Design doc: docs/ci/WORKFLOW_SYSTEM.md + docs/ci/AGENTS_POLICY.md
@@ -85,7 +85,7 @@ A PR that modifies the files without agents:allow-change fails.
 
 A PR that modifies them with the label still requires CODEOWNER approval.
 
-Issue 3 — Retire legacy Agents 61/62 Consumers and scrub references
+3 — Retire legacy Agents 61/62 Consumers and scrub references
 
 Labels: agents, workflows, devops, docs, documentation, priority: high, risk:low, status: ready
 Design doc: docs/ci/WORKFLOW_SYSTEM.md + docs/ci/AGENTS_POLICY.md
@@ -112,7 +112,7 @@ No docs or comments refer to 61/62
 
 Actions tab shows only 63 workflows and the Orchestrator in the agents family
 
-Issue 4 — Branch protection: require Gate + Agents Guard
+4 — Branch protection: require Gate + Agents Guard
 
 Labels: workflows, ci, devops, config, priority: high, risk:low, status: ready
 Design doc: docs/ci/WORKFLOW_SYSTEM.md
@@ -137,7 +137,7 @@ Branch protection shows Gate + Agents Guard required
 
 Health 44 verification passes and fails intentionally if a required check is removed
 
-Issue 5 — Add docs/ci/AGENTS_POLICY.md and link it everywhere that matters
+5 — Add docs/ci/AGENTS_POLICY.md and link it everywhere that matters
 
 Labels: docs, documentation, agents, workflows, priority: medium, risk:low, status: ready
 Design doc: docs/ci/WORKFLOW_SYSTEM.md (hub)
@@ -166,7 +166,7 @@ New doc exists, is linked from the hub and workflow headers
 
 Contributors have a single place to understand the invariants
 
-Issue 6 — PR 02 Autofix: finalize gating, concurrency, and fork safety
+6 — PR 02 Autofix: finalize gating, concurrency, and fork safety
 
 Labels: workflows, ci, autofix, devops, priority: medium, risk:low, status: ready
 Design doc: docs/ci/WORKFLOW_SYSTEM.md
@@ -193,7 +193,7 @@ Autofix only runs with label present
 
 No duplicate bot comments
 
-Issue 7 — Consolidate self-tests into a single parameterized runner; remove wrappers
+7 — Consolidate self-tests into a single parameterized runner; remove wrappers
 
 Labels: workflows, ci, testing, workflows, refactor, priority: medium, risk:low, status: ready
 Design doc: docs/ci/WORKFLOW_SYSTEM.md
@@ -218,7 +218,7 @@ All previous use cases are covered by matrix
 
 Actions list no longer shows duplicate selftest workflows
 
-Issue 8 — Gate owns docs-only fast path; remove PR 14 Docs Only
+8 — Gate owns docs-only fast path; remove PR 14 Docs Only
 
 Labels: workflows, ci, docs, documentation, priority: medium, risk:low, status: ready
 Design doc: docs/ci/WORKFLOW_SYSTEM.md
@@ -241,7 +241,7 @@ No PR 14 workflow file in the repo
 
 Gate visibly fast‑passes docs‑only PRs and leaves the required check green
 
-Issue 9 — Repo health self-check: fix permissions and make results actionable
+9 — Repo health self-check: fix permissions and make results actionable
 
 Labels: workflows, ci, devops, docs, priority: medium, risk:low, status: ready
 Design doc: docs/ci/WORKFLOW_SYSTEM.md
@@ -266,7 +266,7 @@ Health check passes when the repo is healthy and fails only on real problems
 
 The failure comment includes a clear fix list
 
-Issue 10 — Document the final topology clearly in one place
+10 — Document the final topology clearly in one place
 
 Labels: docs, documentation, workflows, priority: low, risk:low, status: ready
 Design doc: docs/ci/WORKFLOW_SYSTEM.md
