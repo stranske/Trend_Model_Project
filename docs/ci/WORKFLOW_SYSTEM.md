@@ -18,7 +18,7 @@
 - **Issue bridge**: `agents-63-codex-issue-bridge.yml` opens branches/PRs from `agent:codex` issues.
 - **Assignment verifier**: `agents-64-verify-agent-assignment.yml` exposes the assignment audit path and feeds the orchestrator.
 - **ChatGPT topic sync**: `agents-63-chatgpt-issue-sync.yml` turns curated topic files (e.g. `Issues.txt`) into labelled GitHub issues on demand.
-- **Immutable guardrail**: the orchestrator and both `agents-63-*` workflows are protected by CODEOWNERS, branch protection, and a repository ruleset. See the [Agents Workflow Protection Policy](../AGENTS_POLICY.md) for enforcement and override steps.
+- **Immutable guardrail**: the orchestrator and both `agents-63-*` workflows are protected by CODEOWNERS, branch protection, the `Guard critical agents workflows` CI check, and a repository ruleset. See the [Agents Workflow Protection Policy](../AGENTS_POLICY.md) for enforcement and override steps.
 - **Issue template**: [Agent task](https://github.com/stranske/Trend_Model_Project/issues/new?template=agent_task.yml) pre-labels
   issues with `agents` and `agent:codex` so the bridge triggers immediately.
 - **Consumer note**: manual shims were removed; all automation now dispatches the orchestrator directly.

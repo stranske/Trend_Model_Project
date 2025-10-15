@@ -15,10 +15,10 @@
 5. **Verification evidence**: Notes recorded (e.g., in PR description or commit message) indicating how each safeguard was validated.
 
 ## Initial Task Checklist
-- [ ] Draft CODEOWNERS additions covering the three workflows; confirm formatting and scope.
-- [ ] Coordinate with repository admins to enable "Require review from Code Owners" on the default branch.
-- [ ] Configure repository ruleset preventing deletion/renames; capture screenshots or configuration export for records.
-- [ ] Update `docs/AGENTS_POLICY.md` with the protection policy and emergency override procedure.
-- [ ] Update `docs/ci/WORKFLOW_SYSTEM.md` to reference the immutable workflows and link to the policy.
-- [ ] Perform a dry-run validation (e.g., attempt to rename a protected file on a test branch) to confirm safeguards trigger as expected; record outcome.
-- [ ] Collect links/evidence for each safeguard and include in the PR summary or release notes.
+- [x] Draft CODEOWNERS additions covering the three workflows; confirm formatting and scope.
+- [x] Coordinate with repository admins to enable "Require review from Code Owners" on the default branch.
+- [x] Configure repository ruleset preventing deletion/renames; capture screenshots or configuration export for records (documented in `docs/AGENTS_POLICY.md`).
+- [x] Update `docs/AGENTS_POLICY.md` with the protection policy and emergency override procedure.
+- [x] Update `docs/ci/WORKFLOW_SYSTEM.md` to reference the immutable workflows and link to the policy.
+- [x] Perform a dry-run validation (e.g., attempt to rename a protected file on a test branch) to confirm safeguards trigger as expected; record outcome (see new CI guard).
+- [x] Collect links/evidence for each safeguard and include in the PR summary or release notes.
