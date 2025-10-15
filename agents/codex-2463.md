@@ -2,7 +2,7 @@
 
 ## Scope & Key Constraints
 - Limit workflow edits to the watchdog retirement path: delete `.github/workflows/agent-watchdog.yml`, adjust archive metadata, and update documentation. Avoid touching unrelated orchestrator jobs unless required for watchdog parity.
-- Preserve existing orchestrator watchdog behaviour by validating the `enable_watchdog: true` path within `agents-70-orchestrator.yml` and its reusable dependencies (`reusable-16-agents.yml`, `agents-62-consumer.yml`).
+- Preserve existing orchestrator watchdog behaviour by validating the `enable_watchdog: true` path within `agents-70-orchestrator.yml` and its reusable dependencies (primarily `reusable-16-agents.yml`).
 - Use only first-party GitHub Actions and existing local scripts; do not introduce new marketplace actions to replace the watchdog.
 - Maintain Gate and actionlint compliance by running the usual workflow lint/test commands when workflow files change.
 - Capture validation evidence (run URLs or logs) in the PR description or linked docs without exposing secrets.

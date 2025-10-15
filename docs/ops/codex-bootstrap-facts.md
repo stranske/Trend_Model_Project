@@ -2,7 +2,8 @@
 
 _Last updated: 2026-10-12_
 
-Issue #2190 collapsed the Codex automation surface to a single orchestrator. This page captures the authoritative facts that
+Issue #2190 collapsed the Codex automation surface to a single orchestrator. Issue #2650 reaffirmed that stance by removing the
+last consumer shim and codifying the issue-bridge → orchestrator hand-off. This page captures the authoritative facts that
 remain true after the cleanup.
 
 ## Branches and Events
@@ -16,6 +17,8 @@ remain true after the cleanup.
 - Aliases such as `agents:codex` are no longer acted upon automatically but can remain for historical context.
 - Preferred entry point: open the [Agent task issue template](https://github.com/stranske/Trend_Model_Project/issues/new?template=agent_task.yml)
   so the required `agents` and `agent:codex` labels are applied up front.
+- The template change from Issue #2650 guarantees both labels are present, ensuring the Codex issue bridge triggers and then
+  defers work to `agents-70-orchestrator.yml`.
 
 ## PR Hygiene
 - Codex PRs remain non-draft by default.
