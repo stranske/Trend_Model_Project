@@ -2,7 +2,7 @@
 
 This repository provides a reusable GitHub Actions workflow that layers three progressive phases on top of a minimal test + coverage gate. All advanced features are opt‑in so existing callers remain unaffected until they enable them.
 
-> **Note (Issue #2439):** The in-repo Gate workflow now calls `reusable-10-ci-python.yml` for Python 3.11/3.12 alongside the Docker smoke reusable. The matrix-based `reusable-90-ci-python.yml` interface described here remains available for downstream consumers and nightly self-tests.
+> **Note (Issue #2656):** The in-repo Gate workflow now calls `reusable-10-ci-python.yml` for Python 3.11/3.12 alongside the Docker smoke reusable. The former matrix wrapper (`reusable-90-ci-python.yml`) was retired during the CI consolidation; downstream consumers should invoke `reusable-10-ci-python.yml` directly or dispatch the `selftest-81-reusable-ci.yml` runner when they need a matrix verification sweep. Historical notes about the removed wrapper live in [ARCHIVE_WORKFLOWS.md](../ARCHIVE_WORKFLOWS.md).
 
 ### Overview
 
@@ -105,8 +105,9 @@ Output schema example:
 
 ### Example Invocation (Reusable Workflow)
 
-In a caller repository `.github/workflows/ci.yml` (legacy consumers previously used
-`pr-10-ci-python.yml` before the Gate consolidation):
+In a caller repository `.github/workflows/ci.yml` (older wrappers used `pr-10-ci-python.yml`
+before the Gate consolidation—see [ARCHIVE_WORKFLOWS.md](../ARCHIVE_WORKFLOWS.md) for the
+retirement log):
 ```yaml
 name: Project CI
 on: [push, pull_request]
@@ -188,4 +189,4 @@ chmod +x .git/hooks/pre-push
 
 Add this to your personal workflow; we do not version-control the hook file itself to avoid surprising contributors. For team-wide enforcement, a wrapper installer can be added to `scripts/git_hooks.sh` (future enhancement).
 
-Last updated: YYYY-MM-DD (update when modifying workflow inputs or scripts).
+Last updated: 2026-11-11 (update when modifying workflow inputs or scripts).

@@ -2,6 +2,12 @@
 
 Thank you for contributing to the Trend Model Project.
 
+Before diving into automation specifics, read the [Workflow System Overview](docs/ci/WORKFLOW_SYSTEM.md). It captures the
+required merge policy and the [keep vs retire roster](docs/ci/WORKFLOW_SYSTEM.md#final-topology-keep-vs-retire). It also explains how
+Gate, Maint 46, and the agents orchestrator collaborate. Refer back to the [workflow catalog](docs/ci/WORKFLOWS.md) when you need
+per-workflow triggers, permissions, or naming guidance, and check [ARCHIVE_WORKFLOWS.md](ARCHIVE_WORKFLOWS.md) if you need the historical
+ledger of retired workflows.
+
 ## CI & Automation
 
 Pull requests flow through a single required check and a consolidated
@@ -38,9 +44,9 @@ post-processing workflow:
   [`reusable-16-agents.yml`](.github/workflows/reusable-16-agents.yml) directly
   to run readiness checks, watchdogs, and Codex bootstrapping. Applying the
   `agent:codex` label flags an issue for bootstrap handling in the next
-  run; remove the label to opt out before the dispatcher cycles. Legacy
-  consumer wrappers have been retired—update any downstream automation to call
-  the orchestrator directly.
+  run; remove the label to opt out before the dispatcher cycles. Keep
+  downstream automation pointed at the orchestrator so every entry route shares
+  the same guardrails and permissions surface.
 
 ### Manual workflow_dispatch quickstart
 

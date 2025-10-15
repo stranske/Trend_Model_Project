@@ -2,6 +2,8 @@
 
 [![Gate](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml/badge.svg?branch=phase-2-dev)](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml) [![Codex Verification Guide](https://img.shields.io/badge/codex--verification-docs-blueviolet)](docs/codex-simulation.md)
 
+📚 **CI automation orientation**: Begin with the [Workflow System Overview](docs/ci/WORKFLOW_SYSTEM.md)—it is the canonical first stop for contributors and documents the keep vs retire roster, policy guardrails, and how Gate, Maint 46, and the agents orchestrator interact. The [Final topology (keep vs retire) table](docs/ci/WORKFLOW_SYSTEM.md#final-topology-keep-vs-retire) enumerates the authoritative roster. Hop from there to the [workflow catalog](docs/ci/WORKFLOWS.md) when you need trigger, permission, or naming specifics for an individual workflow. Historical notes about retired flows live exclusively in [ARCHIVE_WORKFLOWS.md](ARCHIVE_WORKFLOWS.md).
+
 > **🚀 New User?** → **[Quick Start Guide](docs/quickstart.md)** — Get your first analysis running in under 10 minutes!
 
 This repository contains experiments and utilities for analyzing volatility-adjusted trend portfolios. The Jupyter notebooks demonstrate how to load hedge fund data, apply trend-following rules, and export the results.
@@ -18,9 +20,7 @@ thresholds, and the annualisation flag under the new `regime` section in
 
 📦 **Reusable CI & Automation**: Standardise tests, autofix, and agent automation across repositories using the new reusable workflows documented in [docs/ci_reuse.md](docs/ci_reuse.md). Consumers call `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-18-autofix.yml`, and the consolidated `agents-70-orchestrator.yml` entry point (which delegates to `reusable-16-agents.yml`).
 
-🗺️ **Workflow system overview**: Start with [docs/ci/WORKFLOW_SYSTEM.md](docs/ci/WORKFLOW_SYSTEM.md) for the high-level buckets, required merge policy, and automation roles.
 🧭 **Workflow topology & agent routing**: Learn how workflow buckets, naming, post-CI summaries, and agent labels fit together in [docs/WORKFLOW_GUIDE.md](docs/WORKFLOW_GUIDE.md).
-🛠️ **Workflow catalog, automation inventory, contributor quick-start & naming policy**: See [docs/ci/WORKFLOWS.md](docs/ci/WORKFLOWS.md) for the canonical workflow list, quick status/permission catalog (purpose, triggers, secrets, and labels), naming ranges, label-gated helpers, local style-gate instructions, naming conventions, contributor quick start, and agents JSON schema.
 🔁 **Layered Test Workflow (Phases 1–3)**: The staged metrics → history/classification → coverage delta reusable workflow implemented in this repository is documented in [docs/ci-workflow.md](docs/ci-workflow.md). All advanced phases are disabled by default for back‑compat.
 
 ➡️ **Codex Bootstrap Simulation & Verification Guide:** See [docs/codex-simulation.md](docs/codex-simulation.md) for the hardened workflow design, simulation labels, forced-failure controls, and scenario matrix (T01–T15).
