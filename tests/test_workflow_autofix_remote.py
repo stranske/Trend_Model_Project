@@ -81,7 +81,7 @@ def test_pr02_autofix_is_label_gated_and_cancels_duplicates() -> None:
 
     assert (
         concurrency.get("group")
-        == "pr-autofix-${{ github.event.pull_request.number || github.run_id }}"
+        == "pr-02-autofix-${{ github.event.pull_request.number || github.run_id }}"
     )
     assert concurrency.get("cancel-in-progress") is True
 
