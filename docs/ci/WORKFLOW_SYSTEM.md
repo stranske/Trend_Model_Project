@@ -12,7 +12,7 @@
 ### Maintenance & repo health
 - **Post‑CI summary & hygiene**: `.github/workflows/maint-46-post-ci.yml` consolidates results, applies “small self‑contained” fixes safely, and updates the failure tracker.
 - **Cosmetic repair helper**: `.github/workflows/maint-45-cosmetic-repair.yml` runs pytest + guardrail fixers on demand and opens a labelled PR if adjustments are needed.
-- **Health checks**: repo pulse (`health-40-repo-selfcheck.yml`), weekly health sweep (`health-41-repo-health.yml`), actionlint (`health-42-actionlint.yml`), CI signature guard (`health-43-ci-signature-guard.yml`), and branch‑protection verifier (`health-44-gate-branch-protection.yml`).
+- **Health checks**: repo pulse (`health-40-repo-selfcheck.yml`), weekly health sweep (`health-41-repo-health.yml`), actionlint (`health-42-actionlint.yml`), CI signature guard (`health-43-ci-signature-guard.yml`), branch‑protection verifier (`health-44-gate-branch-protection.yml`), and agents workflow guard (`health-45-agents-guard.yml`).
 
 - **Single entry point**: `agents-70-orchestrator.yml`.
 - **Issue bridge**: `agents-63-codex-issue-bridge.yml` opens branches/PRs from `agent:codex` issues.
@@ -51,7 +51,7 @@
 
 ## Final topology (keep vs retire)
 
-- **Keep**: `pr-00-gate.yml`, `maint-46-post-ci.yml`, health 42/43/44, agents 70/63, `agents-critical-guard.yml`, reusable 10/12/16/18, `selftest-81-reusable-ci.yml`, `selftest-runner.yml`.
+- **Keep**: `pr-00-gate.yml`, `maint-46-post-ci.yml`, health 42/43/44/45, agents 70/63, `agents-critical-guard.yml`, reusable 10/12/16/18, `selftest-81-reusable-ci.yml`, `selftest-runner.yml`.
 - **Retire**: `pr-14-docs-only.yml`, `maint-47-check-failure-tracker.yml`, agents 61/62, and the legacy `selftest-*` wrappers replaced by `selftest-runner.yml`.
 
 ## Verification checklist
