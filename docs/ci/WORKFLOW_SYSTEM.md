@@ -70,3 +70,20 @@
 4. **Audit the result.**
    - Health‑44 uploads JSON snapshots (`enforcement.json`, `verification.json`) that mirror the script output.
    - In GitHub settings, confirm that **Gate** is listed under required status checks and that “Require branches to be up to date before merging” is enabled.
+5. **Trigger Health‑44 on demand.**
+   - Kick a manual run with `gh workflow run "Health 44 Gate Branch Protection" --ref <default-branch>` whenever you change branch-protection settings.
+   - Scheduled executions run daily at 06:00 UTC; a manual dispatch lets you confirm the fix immediately after applying it.
+6. **Verify with a test PR.**
+   - Open a throwaway PR against the default branch and ensure that the Checks tab shows **Gate / gate** under “Required checks”.
+   - Close the PR after verification to avoid polluting history.
+
+### Recovery scenarios
+
+- **Health‑44 fails because the required check is missing.**
+  1. Confirm you have access to an admin-scoped token (see step 2 above) and re-run the workflow with the token configured.
+  2. If the failure persists, run `python tools/enforce_gate_branch_protection.py --check` locally to inspect the status and `--apply` to restore the rule.
+  3. Re-dispatch Health‑44 to record the remediation snapshots and attach them to the incident report.
+- **Gate accidentally removed during testing.**
+  1. Restore the branch-protection snapshot from the most recent successful Health‑44 run (download from the workflow artifact, then feed into `--apply --snapshot` to replay).
+  2. Notify the on-call in `#trend-ci` so they can watch the next scheduled job for regressions.
+  3. Open a short-lived PR targeting the default branch to confirm that Gate is again listed as required before declaring recovery complete.
