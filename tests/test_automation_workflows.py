@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import re
 import unittest
 from pathlib import Path
+from typing import cast
 
 import yaml
 
@@ -217,10 +217,18 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         self.assertTrue(gate_job, "Gate workflow must define gate job")
 
         steps = gate_job.get("steps", [])
-        docs_step = next((step for step in steps if step.get("id") == "docs_only"), None)
-        self.assertIsNotNone(docs_step, "Gate workflow should expose docs-only handler step")
+        docs_step = next(
+            (step for step in steps if step.get("id") == "docs_only"), None
+        )
+        self.assertIsNotNone(
+            docs_step, "Gate workflow should expose docs-only handler step"
+        )
+        self.assertIsInstance(
+            docs_step, dict, "docs_only step definition should be a mapping"
+        )
+        docs_step_mapping = cast(dict[str, object], docs_step)
 
-        script = docs_step.get("with", {}).get("script", "")
+        script = docs_step_mapping.get("with", {}).get("script", "")
         self.assertTrue(script, "Docs-only handler should include inline script")
 
         expected_patterns = {
