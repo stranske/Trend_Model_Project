@@ -30,6 +30,7 @@ jobs:
             const prNumber = context.payload.pull_request.number;
             const { owner, repo } = context.repo;
             const labelName = 'agents:allow-change';
+            const normalizedLabelName = labelName.toLowerCase();
             const protectedPaths = new Set([
               '.github/workflows/agents-63-chatgpt-issue-sync.yml',
               '.github/workflows/agents-63-codex-issue-bridge.yml',
@@ -55,11 +56,19 @@ jobs:
 
             const fatalViolations = [];
             const modifiedProtectedPaths = new Set();
+            const touchedProtectedPaths = new Set();
             for (const file of relevantFiles) {
               const current = file.filename;
               const previous = file.previous_filename;
 
-              if (protectedPaths.has(current) || (previous && protectedPaths.has(previous))) {
+              const relevantProtectedPath = protectedPaths.has(current)
+                ? current
+                : (previous && protectedPaths.has(previous))
+                  ? previous
+                  : null;
+
+              if (relevantProtectedPath) {
+                touchedProtectedPaths.add(relevantProtectedPath);
                 if (file.status === 'removed') {
                   fatalViolations.push(`• ${current} was deleted.`);
                   continue;
@@ -82,7 +91,9 @@ jobs:
               issue_number: prNumber,
               per_page: 100,
             });
-            const hasAllowLabel = labels.some((label) => label.name.toLowerCase() === labelName);
+            const hasAllowLabel = labels.some((label) =>
+              (label.name || '').toLowerCase() === normalizedLabelName
+            );
 
             const reviews = await github.paginate(github.rest.pulls.listReviews, {
               owner,
@@ -201,7 +212,10 @@ jobs:
             const codeownersContent = await loadCodeowners(baseRef);
             const codeownerEntries = parseCodeowners(codeownersContent);
             const codeownerLogins = new Set();
-            for (const path of protectedPaths) {
+            const relevantCodeownerPaths = touchedProtectedPaths.size > 0
+              ? [...touchedProtectedPaths]
+              : [...protectedPaths];
+            for (const path of relevantCodeownerPaths) {
               const owners = findCodeowners(codeownerEntries, path);
               for (const ownerSlug of owners) {
                 if (!ownerSlug.startsWith('@')) {

@@ -19,10 +19,10 @@
 7. Repository owners can add the workflow’s status check to required checks without additional configuration.
 
 ## Initial Task Checklist
-- [ ] Inventory the exact filenames for the "Agents 63" workflows and the orchestrator to ensure the guard targets the correct paths.
-- [ ] Design the GitHub Actions workflow structure (trigger, permissions, job layout) and choose the tooling (e.g., `actions/github-script` vs. custom action).
-- [ ] Implement logic to fetch changed files via the GitHub API and detect deletions/renames affecting guarded files.
-- [ ] Implement guard logic that evaluates label presence and CODEOWNER approvals.
-- [ ] Add idempotent PR commenting to explain failures without duplication.
+- [x] Inventory the exact filenames for the "Agents 63" workflows and the orchestrator to ensure the guard targets the correct paths.
+- [x] Design the GitHub Actions workflow structure (trigger, permissions, job layout) and choose the tooling (e.g., `actions/github-script` vs. custom action).
+- [x] Implement logic to fetch changed files via the GitHub API and detect deletions/renames affecting guarded files.
+- [x] Implement guard logic that evaluates label presence and CODEOWNER approvals.
+- [x] Add idempotent PR commenting to explain failures without duplication.
 - [ ] Test the workflow behavior using workflow dry-runs or mock PR scenarios (e.g., `act` or manual triggering) to validate each acceptance criterion.
 - [ ] Coordinate with repository settings to add the new status check to required checks after verification.
