@@ -1,37 +1,27 @@
-# Issue #2527 Acceptance Review — Gate Branch Protection
-
-This checklist maps each acceptance criterion for issue #2527 to the
+This checklist maps each acceptance criterion for issue #2653 to the
 supporting evidence captured in this repository. Reviewers can follow the
 links to confirm the artifacts remain current.
 
 ## Acceptance Criteria
 
-1. **Required status checks include Gate / gate with `strict: true`.**
-   - `pre-enforcement.json` records the default branch rule prior to any
-     remediation, showing the **Gate / gate** context and `"strict": true` for
-     the "Require branches to be up to date" setting.
-   - `post-enforcement.json` mirrors the same state after the audit, confirming
-     no drift was introduced during the validation window.
+1. **Health‑44 reports OK after a manual or scheduled run.**
+   - `health-run-18511694775.md` summarizes the most recent manual dispatch.
+     The workflow finished successfully, skipped enforcement due to the
+     missing PAT, and still verified that Gate remains the required check.
 
-2. **Optional aliases are informational; Gate remains the blocking check.**
-   - `validation-pr-status.json` captures the commit-status payload from the
-     validation pull request. Only the **Gate / gate** context is required,
-     with no auxiliary blocking contexts present.
+2. **A test PR targeting `phase-2-dev` shows Gate as a required check.**
+   - `validation-pr.md` documents PR #2665 and links to the Gate workflow run.
+   - `validation-pr-status-2665.json` captures the commit-status payload where
+     Gate is the only required context.
 
-3. **Evidence bundle contains helper snapshots and validation proof.**
-   - Snapshot JSON (`pre-enforcement.json`, `post-enforcement.json`) and the
-     validation write-up (`validation-pr.md`) live under the evidence folder for
-     long-term auditability. The helper did not need to apply changes, so
-     `enforcement.json` is intentionally absent.
+3. **Branch-protection evidence confirms the required context configuration.**
+   - `branch-protection-2025-10-15.json` records the branch metadata showing
+     Gate as the enforced required status check for non-admins.
 
-4. **Scheduled health workflow succeeds.**
-   - `health-run-18473448710.md` summarizes the scheduled
-     `health-44-gate-branch-protection` run, including the job that revalidates
-     `strict: true` and the required Gate context.
+4. **Helper tooling and documentation describe remediation and verification.**
+   - `docs/ci/WORKFLOW_SYSTEM.md` and `docs/ci/PHASE2_GATE_ENFORCEMENT_PLAN.md`
+     outline the enforcement procedure, observer-mode behaviour, and recovery
+     steps that accompany the Health‑44 workflow.
 
-## Next Steps
-
-- Re-run the helper and refresh these artifacts if the Gate workflow name or the
-  default branch protection configuration changes.
-- Add an updated health-run summary whenever the scheduler produces a newer
-  validation run, keeping the most recent successful execution on record.
+Reviewers should regenerate these artifacts whenever the default branch or the
+Gate workflow name changes.

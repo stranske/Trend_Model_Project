@@ -321,6 +321,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="Exit with a non-zero status if changes would be required without applying them.",
     )
     parser.add_argument(
+        "--require-strict",
+        action="store_true",
+        help=(
+            "Treat an unknown 'require branches to be up to date' setting as drift."
+            " Combine with --check to fail when the workflow token cannot confirm"
+            " strict enforcement."
+        ),
+    )
+    parser.add_argument(
         "--no-clean",
         action="store_true",
         help=(
@@ -348,6 +357,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "mode": "apply" if args.apply else "check" if args.check else "inspect",
             "generated_at": now.isoformat().replace("+00:00", "Z"),
             "changes_applied": False,
+            "require_strict": bool(args.require_strict),
         }
 
     api_root = resolve_api_root(args.api_url)
@@ -363,6 +373,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "strict": current_state.strict,
                 "contexts": list(current_state.contexts),
             }
+            snapshot["require_strict"] = bool(args.require_strict)
     except BranchProtectionMissingError:
         print(f"Repository: {args.repo}")
         print(f"Branch:     {args.branch}")
@@ -378,6 +389,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "current": None,
                     "desired": {"strict": True, "contexts": list(desired_contexts)},
                     "changes_required": True,
+                    "require_strict": bool(args.require_strict),
+                    "strict_unknown": False,
                 }
             )
 
@@ -439,6 +452,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if snapshot is not None:
         snapshot["desired"] = {"strict": True, "contexts": list(target_contexts)}
         snapshot["strict_unknown"] = strict_is_unknown
+        snapshot["require_strict"] = bool(args.require_strict)
 
     print(f"Repository: {args.repo}")
     print(f"Branch:     {args.branch}")
@@ -454,10 +468,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     print("Desired 'require up to date': True")
 
     if strict_is_unknown:
-        print(
-            "Strict enforcement could not be confirmed with the default token. "
-            "The check will pass, but rerun with BRANCH_PROTECTION_TOKEN to audit."
-        )
+        if args.require_strict:
+            print(
+                "Strict enforcement could not be confirmed and --require-strict was "
+                "requested; treating this as drift. Supply BRANCH_PROTECTION_TOKEN "
+                "to verify with admin scope."
+            )
+        else:
+            print(
+                "Strict enforcement could not be confirmed with the default token. "
+                "The check will pass, but rerun with BRANCH_PROTECTION_TOKEN to audit."
+            )
+
+    if args.require_strict and strict_is_unknown:
+        strict_change = True
 
     no_changes_required = (
         not to_add and (args.no_clean or not to_remove) and not strict_change
