@@ -141,6 +141,7 @@ Blocks pushes if style gate fails.
 ## Filing Issues / PRs
 - Reference relevant design doc updates (Phase‑1 / Phase‑2 Agents files) when adding capabilities (e.g., new ranking mode, weighting class).
 - Keep PRs scope-focused; large refactors should coordinate via an issue first.
+- Use the [agent task issue template](.github/ISSUE_TEMPLATE/agent-task.md) when queuing Codex automation so goals, constraints, outputs, and success criteria are captured up front; the template auto-applies the `agents` and `agent:codex` labels that the orchestrator workflow expects.
 
 ## Security & Dependency Hygiene
 - Avoid introducing new dependencies without discussion—prefer the existing stack (pandas, numpy, scipy, pydantic, streamlit).
