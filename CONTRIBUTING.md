@@ -3,9 +3,10 @@
 Thank you for contributing to the Trend Model Project.
 
 Before diving into automation specifics, read the [Workflow System Overview](docs/ci/WORKFLOW_SYSTEM.md). It captures the
-required merge policy, keep vs retire roster, and how Gate, Maint 46, and the agents orchestrator collaborate. Refer back to the
-[workflow catalog](docs/ci/WORKFLOWS.md) when you need per-workflow triggers, permissions, or naming guidance, and check
-[ARCHIVE_WORKFLOWS.md](ARCHIVE_WORKFLOWS.md) if you need the historical ledger of retired workflows.
+required merge policy and the [keep vs retire roster](docs/ci/WORKFLOW_SYSTEM.md#final-topology-keep-vs-retire). It also explains how
+Gate, Maint 46, and the agents orchestrator collaborate. Refer back to the [workflow catalog](docs/ci/WORKFLOWS.md) when you need
+per-workflow triggers, permissions, or naming guidance, and check [ARCHIVE_WORKFLOWS.md](ARCHIVE_WORKFLOWS.md) if you need the historical
+ledger of retired workflows.
 
 ## CI & Automation
 

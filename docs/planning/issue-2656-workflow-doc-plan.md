@@ -20,3 +20,9 @@
 3. Walk through `docs/ci/WORKFLOWS.md`, trimming or revising entries so only active flows remain, and ensure notes about label-gated or optional jobs align with current behaviour.
 4. Inspect `ARCHIVE_WORKFLOWS.md`; append or adjust entries to confirm retired workflows are still deprecated and that readers are redirected to the overview for the active list.
 5. Run or verify docs-only CI checks (gate fast-pass) and prepare the PR summary referencing the documentation updates.
+
+## Status
+
+- ✅ Acceptance criteria satisfied. README.md and CONTRIBUTING.md now link directly to the Workflow System Overview and its [keep vs retire roster anchor](../ci/WORKFLOW_SYSTEM.md#final-topology-keep-vs-retire).
+- ✅ `docs/ci/WORKFLOWS.md` highlights the same anchor and reiterates that the archive is the sole source for retired entries.
+- ✅ `ARCHIVE_WORKFLOWS.md` records the verification note confirming that references to removed workflows remain confined to the ledger.

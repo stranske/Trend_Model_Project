@@ -11,8 +11,8 @@ the archival ledger for historical reference.
 > verification notes live in [ARCHIVE_WORKFLOWS.md](../../ARCHIVE_WORKFLOWS.md).
 
 Start with the [Workflow System Overview](WORKFLOW_SYSTEM.md) for the
-bucket-level summary, keep vs retire roster, and policy checklist. Return here
-for the detailed trigger, permission, and operational notes per workflow.
+bucket-level summary, the [keep vs retire roster](WORKFLOW_SYSTEM.md#final-topology-keep-vs-retire), and policy checklist. Return
+here for the detailed trigger, permission, and operational notes per workflow.
 
 ## CI & agents quick catalog
 
