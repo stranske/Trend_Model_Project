@@ -113,11 +113,15 @@ jobs:
           script: |
             const reason = process.env.REASON || 'docs_only';
             const marker = '<!-- gate-docs-only -->';
-            const baseMessage = 'Gate fast-pass: docs-only change detected; heavy checks skipped.';
-            const message =
-              reason && reason !== 'docs_only'
-                ? `${baseMessage} Reason: ${reason}.`
-                : baseMessage;
+
+            let message;
+            if (!reason || reason === 'docs_only') {
+              message = 'Gate fast-pass: docs-only change detected; heavy checks skipped.';
+            } else if (reason === 'no_changes') {
+              message = 'Gate fast-pass: no changes detected; heavy checks skipped.';
+            } else {
+              message = `Gate fast-pass: docs-only change detected; heavy checks skipped. Reason: ${reason}.`;
+            }
 
             await core.summary
               .addHeading('Gate status', 3)
