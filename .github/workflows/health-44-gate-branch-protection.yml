@@ -65,7 +65,20 @@ jobs:
             --apply \
             --snapshot "${SNAPSHOT_DIR}/enforcement.json"
 
-      - name: Verify gate branch protection is required
+      - name: Verify gate branch protection is required (admin scope)
+        if: env.ENFORCE_TOKEN != ''
+        env:
+          GITHUB_TOKEN: ${{ env.ENFORCE_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          DEFAULT_BRANCH: ${{ env.DEFAULT_BRANCH_NAME }}
+        run: |
+          python tools/enforce_gate_branch_protection.py \
+            --check \
+            --require-strict \
+            --snapshot "${SNAPSHOT_DIR}/verification.json"
+
+      - name: Verify gate branch protection is required (read-only)
+        if: env.ENFORCE_TOKEN == ''
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
@@ -74,6 +87,16 @@ jobs:
           python tools/enforce_gate_branch_protection.py \
             --check \
             --snapshot "${SNAPSHOT_DIR}/verification.json"
+
+      - name: Record observer-mode summary
+        if: env.ENFORCE_TOKEN == ''
+        run: |
+          cat <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          ### Gate branch protection (observer mode)
+          - `BRANCH_PROTECTION_TOKEN` is not configured; Health-44 cannot enforce the rule automatically.
+          - Configure `BRANCH_PROTECTION_TOKEN` with an admin-scoped token, then re-run this workflow to enable `--require-strict` verification.
+          - Manual fallback: `python tools/enforce_gate_branch_protection.py --repo $GITHUB_REPOSITORY --branch $DEFAULT_BRANCH_NAME --require-strict --check`.
+          EOF
 
       - name: Upload branch protection snapshots
         if: always()
