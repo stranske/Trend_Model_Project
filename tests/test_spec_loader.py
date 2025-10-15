@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Any
 
@@ -42,7 +41,9 @@ def test_load_run_spec_from_file_errors(
         load_run_spec_from_file(invalid_path)
 
 
-def test_ensure_run_spec_attaches_attributes() -> None:
+def test_ensure_run_spec_attaches_attributes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     cfg_path = Path("config") / "trend.toml"
     spec = load_run_spec_from_file(cfg_path)
     cfg = spec.config
@@ -57,12 +58,8 @@ def test_ensure_run_spec_attaches_attributes() -> None:
             )
     else:
         clone = cfg
-    original_cwd = Path.cwd()
-    try:
-        os.chdir(cfg_path.parent)
-        ensured = ensure_run_spec(clone, base_path=cfg_path.parent)
-    finally:
-        os.chdir(original_cwd)
+    monkeypatch.chdir(cfg_path.parent)
+    ensured = ensure_run_spec(clone, base_path=cfg_path.parent)
 
     assert ensured is not None
     attached = getattr(clone, "_trend_run_spec", None)

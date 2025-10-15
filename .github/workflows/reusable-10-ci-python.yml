@@ -218,8 +218,6 @@ jobs:
               print("::error::MYPY_PYTHON_VERSION is not configured in the workflow environment")
               raise SystemExit(1)
 
-          print(pin)
-
           if pin != expected:
               print(
                   f"::error::pyproject.toml pins mypy to Python {pin} but workflow is configured for {expected}"
