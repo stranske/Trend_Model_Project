@@ -105,8 +105,9 @@ Output schema example:
 
 ### Example Invocation (Reusable Workflow)
 
-In a caller repository `.github/workflows/ci.yml` (legacy consumers previously used
-`pr-10-ci-python.yml` before the Gate consolidation):
+In a caller repository `.github/workflows/ci.yml` (older wrappers used `pr-10-ci-python.yml`
+before the Gate consolidation—see [ARCHIVE_WORKFLOWS.md](../ARCHIVE_WORKFLOWS.md) for the
+retirement log):
 ```yaml
 name: Project CI
 on: [push, pull_request]

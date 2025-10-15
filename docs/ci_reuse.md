@@ -111,8 +111,8 @@ verification outputs without duplicating the matrix definition.
 ## Adoption Notes
 1. Reference the files directly via `uses: stranske/Trend_Model_Project/.github/workflows/<file>@phase-2-dev` in external repos.
 2. Pin versions or branch references explicitly; do not rely on floating defaults.
-3. When adopting the agents toolkit, point automation at `agents-70-orchestrator.yml`. The numbered/legacy consumers exist only
-   as deprecated shims for `params_json` payloads.
+3. When adopting the agents toolkit, point automation at `agents-70-orchestrator.yml`. Historical consumer wrappers were removed;
+   consult [ARCHIVE_WORKFLOWS.md](../ARCHIVE_WORKFLOWS.md) only if you need the retirement log.
 
 ## Customisation Points
 | Area | How to Extend | Notes |

@@ -76,7 +76,7 @@ The following workflows were decommissioned during the CI consolidation effort. 
 
 - **`pr-14-docs-only.yml`** — Former docs-only fast path superseded by Gate’s internal detection.
 - **`maint-47-check-failure-tracker.yml`** — Replaced by the consolidated post-CI summary in `maint-46-post-ci.yml`.
-- **Legacy consumer shims** — Fully replaced by the orchestrator. Their retirement history now lives in [ARCHIVE_WORKFLOWS.md](../ARCHIVE_WORKFLOWS.md).
+- **Historical consumer wrappers** — Fully replaced by the orchestrator. Their retirement history now lives in [ARCHIVE_WORKFLOWS.md](../ARCHIVE_WORKFLOWS.md).
 - **Legacy selftest wrappers** (`selftest-80-pr-comment.yml`, `selftest-82-pr-comment.yml`, `selftest-83-pr-comment.yml`, `selftest-84-reusable-ci.yml`, `selftest-88-reusable-ci.yml`) — Superseded by `selftest-runner.yml` + `selftest-81-reusable-ci.yml`; these wrappers are now removed from `.github/workflows/` and live only in history.
 
 ## Trigger Wiring Tips

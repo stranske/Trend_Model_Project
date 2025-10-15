@@ -5,11 +5,9 @@ YOU ARE CODEX.  EXTEND THE VOL_ADJ_TREND_ANALYSIS PROJECT AS FOLLOWS
 
 ## Agents consumer workflows (historical)
 
-Manual consumer wrappers (`agents-61-consumer-compat.yml`,
-`agents-62-consumer.yml`, and earlier variants) are fully retired. They were
-kept briefly as compatibility shims but no longer exist on disk—the orchestrator
-is the only supported automation entry point. Refer to
-[ARCHIVE_WORKFLOWS.md](ARCHIVE_WORKFLOWS.md) for the verification log covering
+Manual consumer wrappers were fully retired once the orchestrator became the
+sole automation entry point. They linger only in git history alongside the
+ledger notes in [ARCHIVE_WORKFLOWS.md](ARCHIVE_WORKFLOWS.md), which documents
 their removal and the consolidated keep vs retire roster.
 
 ## Demo pipeline (maintenance / CI)
