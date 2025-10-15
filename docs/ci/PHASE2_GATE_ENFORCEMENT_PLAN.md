@@ -21,6 +21,6 @@
 - [ ] Trigger Health‑44 (`gh workflow run "Health 44 Gate Branch Protection" --ref phase-2-dev`) to capture the current status and artifacts.
 - [ ] Review branch protection settings via the GitHub UI or `python tools/enforce_gate_branch_protection.py --repo <owner>/<repo> --branch phase-2-dev --check`.
 - [ ] If Gate is not required, enforce it using the script (`--apply`) or by configuring the PAT for Health‑44 and re-running the workflow.
-- [ ] Re-run Health‑44 to validate enforcement and archive the verification snapshot.
+- [ ] Re-run Health-44 to validate enforcement and archive the verification snapshot.
 - [ ] Open a throwaway PR against `phase-2-dev` to confirm Gate appears as a required check; close it after verification.
 - [ ] Record remediation steps and any tokens or permissions used in the workflow overview documentation.
