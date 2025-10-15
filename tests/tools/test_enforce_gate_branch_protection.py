@@ -8,6 +8,7 @@ import requests
 from tools.enforce_gate_branch_protection import (
     BranchProtectionError,
     BranchProtectionMissingError,
+    DEFAULT_CONTEXTS,
     StatusCheckState,
     diff_contexts,
     fetch_status_checks,
@@ -19,6 +20,9 @@ from tools.enforce_gate_branch_protection import (
     resolve_api_root,
     update_status_checks,
 )
+
+
+REQUIRED_CONTEXTS = list(DEFAULT_CONTEXTS)
 
 
 class DummyResponse(requests.Response):
@@ -52,9 +56,9 @@ class DummySession(requests.Session):
         return self._response
 
 
-def test_parse_contexts_defaults_to_gate_when_missing() -> None:
-    assert parse_contexts(None) == ["Gate / gate"]
-    assert parse_contexts([""]) == ["Gate / gate"]
+def test_parse_contexts_defaults_to_required_contexts() -> None:
+    assert parse_contexts(None) == REQUIRED_CONTEXTS
+    assert parse_contexts([""]) == REQUIRED_CONTEXTS
 
 
 def test_parse_contexts_preserves_non_empty_values() -> None:
@@ -132,7 +136,7 @@ def test_main_reports_no_changes_in_dry_run(
         "tools.enforce_gate_branch_protection.fetch_status_checks",
         lambda *_args, **_kwargs: StatusCheckState(
             strict=True,
-            contexts=["Gate / gate"],
+            contexts=list(REQUIRED_CONTEXTS),
         ),
     )
 
@@ -193,7 +197,7 @@ def test_main_applies_changes_when_requested(
     assert captured_payload == {
         "repo": "owner/repo",
         "branch": "main",
-        "contexts": ["Gate / gate"],
+        "contexts": REQUIRED_CONTEXTS,
         "strict": True,
         "api_root": "https://api.github.com",
     }
@@ -259,7 +263,11 @@ def test_main_apply_with_no_clean_keeps_existing_contexts(
     assert captured_payload == {
         "repo": "owner/repo",
         "branch": "main",
-        "contexts": ["Gate / gate", "Legacy"],
+        "contexts": [
+            "Gate / gate",
+            "Health 45 Agents Guard / Enforce agents workflow protections",
+            "Legacy",
+        ],
         "strict": True,
         "api_root": "https://api.github.com",
     }
@@ -329,7 +337,8 @@ def test_main_check_mode_succeeds_when_clean(
     monkeypatch.setattr(
         "tools.enforce_gate_branch_protection.fetch_status_checks",
         lambda *_args, **_kwargs: StatusCheckState(
-            strict=True, contexts=["Gate / gate"]
+            strict=True,
+            contexts=list(REQUIRED_CONTEXTS),
         ),
     )
 
@@ -399,7 +408,7 @@ def test_main_bootstraps_when_apply(
     assert captured_payload == {
         "repo": "owner/repo",
         "branch": "main",
-        "contexts": ["Gate / gate"],
+        "contexts": REQUIRED_CONTEXTS,
         "strict": True,
         "api_root": "https://api.github.com",
     }
@@ -442,7 +451,7 @@ def test_main_flags_missing_require_up_to_date(
         "tools.enforce_gate_branch_protection.fetch_status_checks",
         lambda *_args, **_kwargs: StatusCheckState(
             strict=False,
-            contexts=["Gate / gate"],
+            contexts=list(REQUIRED_CONTEXTS),
         ),
     )
 
@@ -484,7 +493,7 @@ def test_main_writes_snapshot_when_drift_detected(
     assert data["branch"] == "main"
     assert data["mode"] == "inspect"
     assert data["current"] == {"strict": False, "contexts": ["Legacy"]}
-    assert data["desired"] == {"strict": True, "contexts": ["Gate / gate"]}
+    assert data["desired"] == {"strict": True, "contexts": REQUIRED_CONTEXTS}
     assert data["changes_required"] is True
     assert data["changes_applied"] is False
     assert data["strict_unknown"] is False
@@ -516,7 +525,7 @@ def test_main_snapshot_updates_after_apply(
     ) -> StatusCheckState:
         assert repo == "owner/repo"
         assert branch == "main"
-        assert contexts == ["Gate / gate"]
+        assert contexts == REQUIRED_CONTEXTS
         assert strict is True
         assert api_root == "https://api.github.com"
         return StatusCheckState(strict=True, contexts=contexts)
@@ -546,7 +555,7 @@ def test_main_snapshot_updates_after_apply(
     assert data["changes_applied"] is True
     assert data["strict_unknown"] is False
     assert data["require_strict"] is False
-    assert data["after"] == {"strict": True, "contexts": ["Gate / gate"]}
+    assert data["after"] == {"strict": True, "contexts": REQUIRED_CONTEXTS}
 
 
 def test_main_check_mode_allows_unknown_strict(
@@ -561,7 +570,7 @@ def test_main_check_mode_allows_unknown_strict(
         "tools.enforce_gate_branch_protection.fetch_status_checks",
         lambda *_args, **_kwargs: StatusCheckState(
             strict=None,
-            contexts=["Gate / gate"],
+            contexts=list(REQUIRED_CONTEXTS),
         ),
     )
 
@@ -593,7 +602,7 @@ def test_main_check_mode_requires_unknown_strict_when_requested(
         "tools.enforce_gate_branch_protection.fetch_status_checks",
         lambda *_args, **_kwargs: StatusCheckState(
             strict=None,
-            contexts=["Gate / gate"],
+            contexts=list(REQUIRED_CONTEXTS),
         ),
     )
 
