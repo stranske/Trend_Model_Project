@@ -7,6 +7,8 @@ Thank you for contributing to the Trend Model Project.
 Pull requests flow through a single required check and a consolidated
 post-processing workflow:
 
+Start every automation change by reviewing the [Workflow System Overview](docs/ci/WORKFLOW_SYSTEM.md) and the canonical [Workflow Catalog](docs/ci/WORKFLOWS.md). The overview explains the buckets and merge policy, while the catalog lists the active vs. retired workflows, triggers, permissions, and contributor guardrails.
+
 - Passing the Gate check is required to merge to the default branch. Branch
   protection also enables GitHub's "Require branches to be up to date"
   toggle, so refresh your branch with the latest default-branch commits before
