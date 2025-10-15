@@ -2,12 +2,9 @@
 
 [![Gate](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml/badge.svg?branch=phase-2-dev)](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml) [![Codex Verification Guide](https://img.shields.io/badge/codex--verification-docs-blueviolet)](docs/codex-simulation.md)
 
-> **🚀 New User?** → **[Quick Start Guide](docs/quickstart.md)** — Get your first analysis running in under 10 minutes!
+📚 **CI automation orientation**: Begin with the [Workflow System Overview](docs/ci/WORKFLOW_SYSTEM.md)—it is the canonical first stop for contributors and documents the keep vs retire roster, policy guardrails, and how Gate, Maint 46, and the agents orchestrator interact. Hop from there to the [workflow catalog](docs/ci/WORKFLOWS.md) when you need trigger, permission, or naming specifics for an individual workflow.
 
-📚 **CI automation primer**: Start with the [Workflow System Overview](docs/ci/WORKFLOW_SYSTEM.md) for the keep vs retire roster,
-policy guardrails, and how Gate, Maint 46, and the agents orchestrator fit together. Jump from there to the
-[canonical workflow catalog](docs/ci/WORKFLOWS.md) when you need trigger, permission, or naming specifics for an individual
-workflow.
+> **🚀 New User?** → **[Quick Start Guide](docs/quickstart.md)** — Get your first analysis running in under 10 minutes!
 
 This repository contains experiments and utilities for analyzing volatility-adjusted trend portfolios. The Jupyter notebooks demonstrate how to load hedge fund data, apply trend-following rules, and export the results.
 
