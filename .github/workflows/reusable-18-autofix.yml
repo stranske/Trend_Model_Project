@@ -260,6 +260,15 @@ jobs:
             echo "EOF"
           } >> "$GITHUB_ENV"
 
+      - name: Prepare no-change summary
+        if: steps.guard.outputs.skip != 'true' && steps.autofix.outputs.changed != 'true'
+        run: |
+          {
+            echo "AUTOFIX_RESULT_BLOCK<<'EOF'"
+            echo "No changes required."
+            echo "EOF"
+          } >> "$GITHUB_ENV"
+
 
       - name: Manage clean/debt labels (same-repo)
         if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
