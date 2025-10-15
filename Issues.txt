@@ -1,220 +1,293 @@
-1) PR‑02 Autofix: label‑gate, enable cancel‑in‑progress, and fork‑safe artifacts
+Issue 1 — Lock down Agents 63: protect the files from deletion or unsafe edits
 
-Labels: workflows, ci, devops, autofix, refactor, priority: high, risk:low, status: ready
-
-Body:
-Design reference: Workflow System Overview
-Current file: .github/workflows/pr-02-autofix.yml. 
+Labels: agents, agent:codex, workflows, devops, config, priority: high, risk:low, status: ready
+Design doc: docs/ci/WORKFLOW_SYSTEM.md + new docs/ci/AGENTS_POLICY.md (created in Issue 5)
 
 Why
+Agents 63 ChatGPT Issue Sync and Agents 63 Codex Issue Bridge are core automation. They must not vanish or get “optimized” into oblivion during casual refactors. These two are now the contract for agent workflows. 
+GitHub
++1
 
-Two writers touching PRs causes races and noise. Autofix should be deliberate, not ambient.
-
-Plan
-
-- Label‑gate: run only when the PR has label autofix.
-
-jobs:
-  apply:
-    if: contains(github.event.pull_request.labels.*.name, 'autofix')
-
-
-- Concurrency: add a PR‑scoped concurrency group with cancel-in-progress: true.
-
-  concurrency:
-    group: pr-02-autofix-${{ github.event.pull_request.number || github.run_id }}
-    cancel-in-progress: true
-
-
-- Fork‑safe path: when write perms are missing, upload a .patch artifact and post a link instead of pushing.
-
-- Single source of truth: call reusable-18-autofix.yml only; do not duplicate logic.
-
-- Report: post a single summary comment with a link to the artifact or the commit.
-
-Acceptance criteria
-
-- On a PR without autofix, PR‑02 does not run.
-
-- With autofix, exactly one run is active at a time; repeated events cancel the prior run.
-
-- On forks, a .patch is attached and linked in a PR comment.
-
-2) Remove agents-62-consumer.yml; enforce orchestrator + issue bridge only
-
-Labels: agents, workflows, devops, refactor, priority: medium, risk:low, status: ready
-
-Body:
-Design reference: Workflow System Overview
-Files involved:
-
-Keep: .github/workflows/agents-70-orchestrator.yml, .github/workflows/agents-63-codex-issue-bridge.yml. 
-
-Remove: .github/workflows/agents-62-consumer.yml if present. 
+Scope
+Add multi-layer protections that make removal practically impossible without intent:
 
 Tasks
 
-- Delete .github/workflows/agents-62-consumer.yml.
+ Add CODEOWNERS rules:
 
-- Confirm the orchestrator is the only documented entry point; ensure the issue bridge triggers on agent:codex issues.
+# Critical agent workflows require owner approval
+.github/workflows/agents-63-chatgpt-issue-sync.yml  @stranske
+.github/workflows/agents-63-codex-issue-bridge.yml   @stranske
+.github/workflows/agents-70-orchestrator.yml         @stranske
 
-- Add or update the “Agent task” issue template to auto‑apply agents and agent:codex labels.
+
+And enable “Require review from Code Owners” in branch protection for the default branch. Reference these workflow names and the orchestrator. 
+GitHub
++2
+GitHub
++2
+
+ Configure a Repository ruleset to prevent deletions/renames of:
+
+.github/workflows/agents-63-chatgpt-issue-sync.yml
+
+.github/workflows/agents-63-codex-issue-bridge.yml
+
+.github/workflows/agents-70-orchestrator.yml
+Require maintainers to override in emergencies. Document steps in AGENTS_POLICY.md.
+
+ Update docs/ci/WORKFLOW_SYSTEM.md to call out these immutable files explicitly and link to AGENTS_POLICY.md. 
+GitHub
 
 Acceptance criteria
 
-- Creating an issue with the template triggers the bridge and a working branch/PR.
+Attempts to delete or rename any of the three files cannot be merged without explicit maintainer override.
 
-- No legacy consumer flows remain in the repo.
+CODEOWNERS review is enforced on PRs that modify these files.
 
-3) Add selftest-runner.yml and remove redundant selftest wrappers
+Policy is documented and linked from the main workflow doc.
 
-Labels: workflows, testing, refactor, docs, priority: medium, risk:low, status: ready
+Issue 2 — Add “Health 45 Agents Guard” PR gate (block deletions, unapproved edits)
 
-Body:
-Design reference: Workflow System Overview
-Keep selftest-81-reusable-ci.yml as the matrix executor. 
+Labels: workflows, ci, devops, agents, priority: high, risk:low, status: ready
+Design doc: docs/ci/WORKFLOW_SYSTEM.md + docs/ci/AGENTS_POLICY.md
+
+Why
+You need a check the attacker can’t dodge. A pull_request_target guard runs from the base branch, so even if a fork tries to delete the files, the guard still executes and fails the PR. No secrets used.
 
 Tasks
 
-- Add .github/workflows/selftest-runner.yml with inputs:
+ Create .github/workflows/health-45-agents-guard.yml:
 
-  - mode: summary | comment | dual-runtime
+Trigger: pull_request_target on any change under .github/workflows/agents-*.yml
 
-  - post_to: pr-number | none
+Permissions: contents: read, pull-requests: write only
 
-  - enable_history: true | false
+Step 1: list changed files via the GitHub API
 
-- Migrate any existing selftest wrappers to call the runner.
+Step 2: hard fail if:
 
-- Remove all other selftest-* wrappers, keeping selftest-81-reusable-ci.yml only.
+Either of the Agents 63 files are deleted/renamed
 
-- Update the overview doc’s Self‑tests section.
+The Orchestrator is deleted/renamed
+
+Step 3: allow edits only if the PR has label agents:allow-change and at least one CODEOWNER approval (see Issue 1)
+
+Post a friendly but firm PR comment explaining the failure and how to proceed
+
+ Add this status check to your default branch’s required checks alongside Gate/other required signals
 
 Acceptance criteria
 
-- A single manual or workflow_dispatch trigger covers all variants via inputs.
+A PR attempting to delete or rename the protected files immediately fails with a clear comment.
 
-- No other selftest wrappers remain besides selftest-81-reusable-ci.yml.
+A PR that modifies the files without agents:allow-change fails.
 
-4) Gate: post at‑most‑once comment for docs‑only PRs and fast‑pass heavy jobs
+A PR that modifies them with the label still requires CODEOWNER approval.
 
-Labels: workflows, ci, enhancement, docs, priority: medium, risk:low, status: ready
+Issue 3 — Retire legacy Agents 61/62 Consumers and scrub references
 
-Body:
-Design reference: Workflow System Overview
-Gate file: .github/workflows/pr-00-gate.yml. 
+Labels: agents, workflows, devops, docs, documentation, priority: high, risk:low, status: ready
+Design doc: docs/ci/WORKFLOW_SYSTEM.md + docs/ci/AGENTS_POLICY.md
+
+Why
+The 61/62 consumer variants are obsolete and confusing now that Agents 63 and the Orchestrator handle issue workflows. They are still visible in the Actions catalogue. Remove them and their mentions. 
+GitHub
 
 Tasks
 
-- In Gate’s early detection step, set an output doc_only=true|false.
+ Remove .github/workflows/agents-61-consumer-compat.yml and .github/workflows/agents-62-consumer.yml
 
-- Guard heavy jobs with if: needs.detect.outputs.doc_only != 'true'.
+ Grep the repo for “Agents 61” and “Agents 62” and delete/update references
 
-- Add a github-script step that:
-
-  - searches existing PR comments for a known marker (e.g., <!-- gate-docs-only -->);
-
-  - posts a short “docs‑only, fast‑pass” comment only if the marker is missing;
-
-  - writes the same message to the job summary.
-
-- Ensure the gate job still emits the single required status.
+ Update WORKFLOW_SYSTEM.md and AGENTS_POLICY.md to state that 61/62 are retired, and that 63 + Orchestrator is the supported topology. 
+GitHub
++1
 
 Acceptance criteria
 
-- Docs‑only PRs show Gate as required and passing quickly.
+No 61/62 workflows in the tree
 
-- Exactly one visible comment per PR for docs‑only cases.
+No docs or comments refer to 61/62
 
-5) Enforce Gate as required on phase-2-dev; verify with Health‑44
+Actions tab shows only 63 workflows and the Orchestrator in the agents family
 
-Labels: devops, ci, workflows, config, docs, priority: high, risk:low, status: ready
+Issue 4 — Branch protection: require Gate + Agents Guard
 
-Body:
-Design reference: Workflow System Overview
-- Health workflow: .github/workflows/health-44-gate-branch-protection.yml (default branch: phase-2-dev).
+Labels: workflows, ci, devops, config, priority: high, risk:low, status: ready
+Design doc: docs/ci/WORKFLOW_SYSTEM.md
+
+Why
+Gate should remain the one required PR workflow, and the new Health 45 Agents Guard should be required to enforce immutability. You already have a “Health 44 Gate Branch Protection” helper; align the policy and automate periodic verification. 
+GitHub
 
 Tasks
 
-- In repository settings, require the Gate check on the default branch.
+ Default branch: mark “Gate” and “Health 45 Agents Guard” as required status checks
 
-- If a PAT is configured, allow Health‑44 to enforce; otherwise, keep it as a verifier and alert.
+ Update the “Health 44 Gate Branch Protection” workflow (or doc) to verify these required checks are present and correct; fail if drift occurs. 
+GitHub
 
-- Document the procedure and recovery steps in the overview doc.
+ Document the required checks in WORKFLOW_SYSTEM.md so contributors know what must be green. 
+GitHub
 
 Acceptance criteria
 
-- Health‑44 reports “OK” after a scheduled run or manual dispatch.
+Branch protection shows Gate + Agents Guard required
 
-- A test PR targeting the default branch shows Gate as a required check.
+Health 44 verification passes and fails intentionally if a required check is removed
 
-6) Align mypy execution with pyproject.toml pinned python_version
+Issue 5 — Add docs/ci/AGENTS_POLICY.md and link it everywhere that matters
 
-Labels: ci, testing, workflows, refactor, priority: medium, risk:low, status: ready
+Labels: docs, documentation, agents, workflows, priority: medium, risk:low, status: ready
+Design doc: docs/ci/WORKFLOW_SYSTEM.md (hub)
 
-Body:
-Design reference: Workflow System Overview
-Source of truth for the pinned version: pyproject.toml. 
+Why
+One short policy page beats a thousand scattered comments.
 
 Tasks
 
-- In reusable-10-ci-python.yml, condition mypy on the pinned version, for example:
+ Create docs/ci/AGENTS_POLICY.md with:
 
-if: matrix.python-version == '3.11'
+Scope and purpose of Agents 63 pair and the Orchestrator
 
+“Unremovable” policy and the layers that enforce it (CODEOWNERS, Ruleset, Agents Guard)
 
-- Keep ruff and pytest on all matrix legs.
+Allowlisted reasons to change these files and the agents:allow-change label process
 
-- Document the pinned version and rationale in the overview doc.
+A short troubleshooting section
+
+ Link it from docs/ci/WORKFLOW_SYSTEM.md and from the two Agents 63 workflow headers as a comment. 
+GitHub
 
 Acceptance criteria
 
-- Mypy runs only on the pinned leg and passes.
+New doc exists, is linked from the hub and workflow headers
 
-- Other legs still lint and test successfully.
+Contributors have a single place to understand the invariants
 
-7) Add ISSUE_TEMPLATE/agent-task.md with pre‑applied labels
+Issue 6 — PR 02 Autofix: finalize gating, concurrency, and fork safety
 
-Labels: agents, agent:codex, docs, documentation, workflows, priority: medium, risk:low, status: ready
+Labels: workflows, ci, autofix, devops, priority: medium, risk:low, status: ready
+Design doc: docs/ci/WORKFLOW_SYSTEM.md
 
-Body:
-Design reference: Workflow System Overview
+Why
+Autofix is useful, until it tries to act on every PR at once or clobbers artifacts from forks. Tighten it so it behaves like a well-trained dog. PR 02 exists and is active. 
+GitHub
 
 Tasks
 
-- Add .github/ISSUE_TEMPLATE/agent-task.md:
+ Add concurrency: to PR 02 so only one Autofix job runs per PR head ref
 
-- YAML front‑matter applies agents and agent:codex.
+ Respect autofix label: run only when present; otherwise no‑op
 
-- Body prompts for goal, constraints, outputs, and success criteria.
+ Ensure fork-safe behavior: avoid uploading artifacts that expose secrets, scope token perms to the minimum
 
-- Link the template from CONTRIBUTING.md.
+ Post a single PR comment per run; update it on retries instead of spamming
 
 Acceptance criteria
 
-- Creating an issue via this template sets the labels and satisfies the bridge trigger.
+Multiple pushes to the same PR do not produce overlapping Autofix runs
 
-- The orchestrator workflow processes assigned tasks without manual relabeling.
+Autofix only runs with label present
 
-8) Confirm overview doc links and remove stale references
+No duplicate bot comments
 
-Labels: docs, documentation, workflows, priority: high, risk:low, status: ready
+Issue 7 — Consolidate self-tests into a single parameterized runner; remove wrappers
 
-Body:
-Design reference: Workflow System Overview
+Labels: workflows, ci, testing, workflows, refactor, priority: medium, risk:low, status: ready
+Design doc: docs/ci/WORKFLOW_SYSTEM.md
+
+Why
+You still have multiple selftest wrappers on Actions. Combine them to cut maintenance and matrix time. 
+GitHub
 
 Tasks
 
-- In README.md and docs/ci/WORKFLOWS.md, link to the overview doc and the canonical workflow list (keep vs retire).
+ Add one selftest-runner.yml with an input matrix (comment-only PRs, reusable CI checks, etc.)
 
-- Remove any references to retired flows.
+ Delete maint-43-selftest-pr-comment.yml, maint-44-selftest-reusable-ci.yml, maint-48-selftest-reusable-ci.yml, selftest-pr-comment.yml, selftest-reusable-ci.yml after parity is proven
 
-- If you maintain ARCHIVE_WORKFLOWS.md, ensure it lists retired items for posterity.
+ Update WORKFLOW_SYSTEM.md to point to the consolidated runner
 
 Acceptance criteria
 
-- Overview doc is the first stop from README and CONTRIBUTING.
+Only one selftest workflow remains in .github/workflows
 
-- No references to removed workflows remain.
+All previous use cases are covered by matrix
 
-- Optional archive page is up to date.
+Actions list no longer shows duplicate selftest workflows
+
+Issue 8 — Gate owns docs-only fast path; remove PR 14 Docs Only
+
+Labels: workflows, ci, docs, documentation, priority: medium, risk:low, status: ready
+Design doc: docs/ci/WORKFLOW_SYSTEM.md
+
+Why
+Keep the required status consistent. Gate should detect docs‑only diffs and bail fast; the standalone PR 14 is redundant and can confuse contributors. Historical runs show PR 14 existed; align the tree with current policy. 
+GitHub
+
+Tasks
+
+ Delete .github/workflows/pr-14-docs-only.yml if still present
+
+ Ensure Gate posts a single docs‑only notice and skips heavy jobs
+
+ Document the behavior in WORKFLOW_SYSTEM.md
+
+Acceptance criteria
+
+No PR 14 workflow file in the repo
+
+Gate visibly fast‑passes docs‑only PRs and leaves the required check green
+
+Issue 9 — Repo health self-check: fix permissions and make results actionable
+
+Labels: workflows, ci, devops, docs, priority: medium, risk:low, status: ready
+Design doc: docs/ci/WORKFLOW_SYSTEM.md
+
+Why
+The health check is there; make it reliable and useful instead of a “red box once a week.” Recent runs show failures; this often comes down to permissions or brittle assertions. 
+GitHub
+
+Tasks
+
+ Use minimal permissions: likely contents: read, issues: write only if it comments, remove unsupported scopes
+
+ Downgrade brittle checks to warnings with a JSON summary artifact
+
+ Add a “How to fix” checklist in the workflow’s PR comment
+
+ Document what “green” means in WORKFLOW_SYSTEM.md
+
+Acceptance criteria
+
+Health check passes when the repo is healthy and fails only on real problems
+
+The failure comment includes a clear fix list
+
+Issue 10 — Document the final topology clearly in one place
+
+Labels: docs, documentation, workflows, priority: low, risk:low, status: ready
+Design doc: docs/ci/WORKFLOW_SYSTEM.md
+
+Why
+This is the page contributors will actually read before breaking things. Keep it tight and visual.
+
+Tasks
+
+ Update docs/ci/WORKFLOW_SYSTEM.md with:
+
+The four buckets: PR checks (Gate, PR 02 Autofix), maintenance (Maint 46 Post CI, Health checks), issue/agents (Agents 63 pair + Orchestrator), and error checking/linting/testing topology
+
+One table: workflow → trigger → purpose → required? → links to artifacts/logs
+
+A “How to change a workflow safely” section pointing to AGENTS_POLICY.md
+
+ Cross-link from README.md and CONTRIBUTING.md to this doc
+
+Acceptance criteria
+
+The doc shows exactly what runs where and why
+
+New contributors can find and follow the rules without asking on a call
