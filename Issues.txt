@@ -72,7 +72,7 @@ Labels: workflows, testing, refactor, docs, priority: medium, risk:low, status: 
 
 Body:
 Design reference: Workflow System Overview
-. Keep selftest-81-reusable-ci.yml as the matrix executor. 
+Keep selftest-81-reusable-ci.yml as the matrix executor. 
 
 Tasks
 
