@@ -4,7 +4,7 @@ Labels: workflows, ci, devops, autofix, refactor, priority: high, risk:low, stat
 
 Body:
 Design reference: Workflow System Overview
-. Current file: .github/workflows/pr-02-autofix.yml. 
+Current file: .github/workflows/pr-02-autofix.yml. 
 
 Why
 
