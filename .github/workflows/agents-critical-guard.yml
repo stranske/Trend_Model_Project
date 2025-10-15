@@ -1,4 +1,4 @@
-name: Guard critical agents workflows
+name: Agents Critical Guard
 
 on:
   pull_request:
@@ -15,7 +15,7 @@ jobs:
           fetch-depth: 0
 
       - name: Fetch base branch
-        run: git fetch origin ${{ github.event.pull_request.base.ref }} --depth=0
+        run: git fetch origin ${{ github.event.pull_request.base.ref }}
 
       - name: Detect protected workflow changes
         run: |
