@@ -9,13 +9,13 @@ assignees: ''
 ---
 
 ## Goal
-Describe the primary objective Codex should accomplish. Include links to relevant issues, documents, or workflows.
+<!-- Describe the primary objective Codex should accomplish. Include links to relevant issues, documents, or workflows. -->
 
 ## Constraints
-List guardrails Codex must respect (files to avoid, technologies to use, time limits, dependencies, etc.).
+<!-- List guardrails Codex must respect (files to avoid, technologies to use, time limits, dependencies, etc.). -->
 
 ## Expected outputs
-Enumerate the artifacts Codex should produce (code changes, tests, docs, dashboards, reports, etc.).
+<!-- Enumerate the artifacts Codex should produce (code changes, tests, docs, dashboards, reports, etc.). -->
 
 ## Success criteria
-State how you will evaluate success. Reference acceptance tests, validation commands, or qualitative outcomes that must be met.
+<!-- State how you will evaluate success. Reference acceptance tests, validation commands, or qualitative outcomes that must be met. -->
