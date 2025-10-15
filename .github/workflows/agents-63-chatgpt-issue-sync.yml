@@ -1,4 +1,5 @@
 name: Agents 63 ChatGPT Issue Sync
+# Policy reference: docs/ci/AGENTS_POLICY.md
 
 on:
   workflow_dispatch:
