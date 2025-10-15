@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 from pathlib import Path
+from typing import cast
 
 import yaml
 
@@ -209,6 +210,43 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
             status_step,
             "gate job must publish a legacy commit status so branch protection resolves",
         )
+
+    def test_gate_docs_only_handler_uses_marker(self) -> None:
+        workflow = self._read_workflow("pr-00-gate.yml")
+        gate_job = workflow.get("jobs", {}).get("gate", {})
+        self.assertTrue(gate_job, "Gate workflow must define gate job")
+
+        steps = gate_job.get("steps", [])
+        docs_step = next(
+            (step for step in steps if step.get("id") == "docs_only"), None
+        )
+        self.assertIsNotNone(
+            docs_step, "Gate workflow should expose docs-only handler step"
+        )
+        self.assertIsInstance(
+            docs_step, dict, "docs_only step definition should be a mapping"
+        )
+        docs_step_mapping = cast(dict[str, object], docs_step)
+
+        script = docs_step_mapping.get("with", {}).get("script", "")
+        self.assertTrue(script, "Docs-only handler should include inline script")
+
+        expected_patterns = {
+            "declares docs-only marker": r"const marker\s*=\s*'<!-- gate-docs-only -->';",
+            "checks existing comment marker": r"comment\.body\.includes\(\s*marker\s*\)",
+            "posts marker-prefixed comment": r"body:\s*`\$\{marker}\\n\$\{message}`",
+            "appends message to job summary": r"\.addRaw\(`\$\{message}\\n`\)",
+            "awaits summary API": r"await\s+core\.summary",
+            "sets description output": r"core\.setOutput\(\s*'description',\s*message\s*\);",
+        }
+
+        for label, pattern in expected_patterns.items():
+            with self.subTest(pattern=label):
+                self.assertRegex(
+                    script,
+                    pattern,
+                    msg=f"Docs-only handler script should {label}",
+                )
 
     def test_workflows_do_not_define_invalid_marker_filters(self) -> None:
         """Ensure pytest marker filters stay inside shell commands."""
