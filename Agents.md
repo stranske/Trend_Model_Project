@@ -3,13 +3,12 @@
 YOU ARE CODEX.  EXTEND THE VOL_ADJ_TREND_ANALYSIS PROJECT AS FOLLOWS
 --------------------------------------------------------------------
 
-## Agents consumer workflows (61/62)
+## Agents consumer workflows (historical)
 
-The legacy consumer workflows remain available strictly as manual compatibility
-shims. They trigger only via `workflow_dispatch` and share a
-`agents-consumer-${{ github.ref }}` concurrency group so a given ref runs at
-most one consumer job at a time. For automated entrypoints continue to use the
-Orchestrator workflow.
+Manual consumer wrappers were fully retired once the orchestrator became the
+sole automation entry point. They linger only in git history alongside the
+ledger notes in [ARCHIVE_WORKFLOWS.md](ARCHIVE_WORKFLOWS.md), which documents
+their removal and the consolidated keep vs retire roster.
 
 ## Demo pipeline (maintenance / CI)
 
