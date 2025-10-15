@@ -101,6 +101,96 @@ def test_selftest_runner_inputs_cover_variants() -> None:
     )
 
 
+def test_selftest_runner_publish_job_contract() -> None:
+    """Publish-results job must enforce verification guardrails consistently."""
+
+    data = yaml.safe_load(RUNNER_PATH.read_text()) or {}
+    jobs = data.get("jobs", {})
+    publish = jobs.get("publish-results") or {}
+
+    assert publish, "selftest-runner.yml should retain the publish-results job."
+    assert (
+        publish.get("needs") == "run-matrix"
+    ), "publish-results must depend on the reusable self-test matrix."
+    assert (
+        publish.get("if") == "${{ always() }}"
+    ), "publish-results should always execute to surface matrix status."
+
+    required_env = {
+        "MODE",
+        "POST_TO",
+        "ENABLE_HISTORY",
+        "PR_NUMBER",
+        "SUMMARY_TITLE",
+        "COMMENT_TITLE",
+        "REASON",
+        "WORKFLOW_RESULT",
+        "VERIFICATION_TABLE",
+        "FAILURE_COUNT",
+        "RUN_ID",
+        "REQUESTED_VERSIONS",
+    }
+    env = publish.get("env", {})
+    missing_env = sorted(required_env - set(env))
+    assert not missing_env, (
+        "publish-results env block drifted; missing keys: "
+        f"{missing_env}."
+    )
+
+    steps = publish.get("steps", [])
+
+    def _find_step(name: str) -> dict:
+        return next((step for step in steps if step.get("name") == name), {})
+
+    download_step = _find_step("Download self-test report")
+    assert download_step, "Download step missing from publish-results."
+    assert (
+        download_step.get("uses") == "actions/download-artifact@v4"
+    ), "Download step should use actions/download-artifact@v4."
+    assert (
+        download_step.get("if")
+        == "${{ env.ENABLE_HISTORY == 'true' && env.RUN_ID != '' }}"
+    ), (
+        "Download step must guard on enable_history input and aggregate run id."
+    )
+    download_with = download_step.get("with", {})
+    assert (
+        download_with.get("run-id") == "${{ env.RUN_ID }}"
+    ), "Download step should forward the aggregate run id."
+    assert (
+        download_with.get("name") == "selftest-report"
+    ), "Download step must keep artifact name stable for docs/tests."
+
+    surface_failures = _find_step("Surface failures in logs")
+    assert surface_failures, "Missing surface failures guard for summary mode."
+    surface_script = surface_failures.get("run", "")
+    for expected_snippet in (
+        "Verification table output missing",
+        "Failure count output missing",
+        "Selftest runner reported",
+        "Selftest matrix completed with status",
+    ):
+        assert (
+            expected_snippet in surface_script
+        ), f"Surface failures step should mention '{expected_snippet}'."
+
+    comment_finalize = _find_step("Finalize status for comment mode")
+    assert comment_finalize, "Comment mode finalizer missing."
+    assert (
+        comment_finalize.get("if") == "${{ env.MODE == 'comment' }}"
+    ), "Comment finalizer should only run during comment mode."
+    comment_script = comment_finalize.get("run", "")
+    for snippet in (
+        "Verification table output missing",
+        "Failure count output missing",
+        "Selftest runner reported",
+        "Selftest matrix completed with status",
+    ):
+        assert (
+            snippet in comment_script
+        ), f"Comment finalizer guard should mention '{snippet}'."
+
+
 def test_selftest_triggers_are_manual_only() -> None:
     """Self-test workflows must expose manual triggers (with optional
     workflow_call reuse)."""
