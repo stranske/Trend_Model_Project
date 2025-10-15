@@ -132,7 +132,7 @@ Labels: devops, ci, workflows, config, docs, priority: high, risk:low, status: r
 
 Body:
 Design reference: Workflow System Overview
-- Health workflow: .github/workflows/health-44-gate-branch-protection.yml. Default branch shows as phase-2-dev. 
+- Health workflow: .github/workflows/health-44-gate-branch-protection.yml (default branch: phase-2-dev).
 
 Tasks
 
