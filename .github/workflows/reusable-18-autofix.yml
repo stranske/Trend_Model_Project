@@ -19,8 +19,8 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: autofix-${{ github.run_id }}
-  cancel-in-progress: false
+  group: pr-02-autofix-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
   autofix:
@@ -128,6 +128,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -m "${AUTOFIX_COMMIT_PREFIX} formatting/lint"
+          echo "AUTOFIX_COMMIT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - name: Push changes (same-repo with rebase+retry)
         if: steps.guard.outputs.skip != 'true' && steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same == 'true'
@@ -175,6 +176,24 @@ jobs:
               core.warning(`Failed to add autofix applied label: ${error.message}`);
             }
 
+      - name: Prepare commit summary (same-repo)
+        if: steps.guard.outputs.skip != 'true' && steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same == 'true'
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          COMMIT_SHA: ${{ env.AUTOFIX_COMMIT_SHA }}
+        shell: bash
+        run: |
+          if [ -n "$COMMIT_SHA" ]; then
+            url="$SERVER_URL/$REPOSITORY/commit/$COMMIT_SHA"
+            short_sha=$(printf '%.12s' "$COMMIT_SHA")
+            {
+              echo "AUTOFIX_RESULT_BLOCK<<'EOF'"
+              echo "Autofix commit: [${short_sha}]($url)"
+              echo "EOF"
+            } >> "$GITHUB_ENV"
+          fi
+
       - name: Create patch artifact (fork PR)
         if: steps.guard.outputs.skip != 'true' && steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same != 'true'
         shell: bash
@@ -214,6 +233,32 @@ jobs:
             } catch (error) {
               core.warning(`Failed to add autofix patch label: ${error.message}`);
             }
+
+
+      - name: Prepare patch summary (fork PR)
+        if: steps.guard.outputs.skip != 'true' && steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same != 'true'
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        shell: bash
+        run: |
+          url="$SERVER_URL/$REPOSITORY/actions/runs/$RUN_ID#artifacts"
+          name="autofix-patch-pr-$PR_NUMBER"
+          {
+            echo "AUTOFIX_RESULT_BLOCK<<'EOF'"
+            echo "Patch ready: [${name}](${url})"
+            echo ""
+            echo "Apply locally:"
+            echo "1. Download the artifact from the Actions run."
+            echo "2. In your repository root, run:"
+            echo "   git am < autofix.patch"
+            echo "3. Push to your PR branch:"
+            echo "   git push origin HEAD:${HEAD_REF}"
+            echo "EOF"
+          } >> "$GITHUB_ENV"
 
 
       - name: Manage clean/debt labels (same-repo)
@@ -310,15 +355,15 @@ jobs:
           if [ -f scripts/generate_residual_trend.py ]; then python scripts/generate_residual_trend.py || true; fi
           if [ -f ci/autofix/trend.json ]; then echo "Trend:"; cat ci/autofix/trend.json; fi
 
-      - name: Build consolidated PR comment (same-repo)
-        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
+      - name: Build consolidated PR comment
+        if: steps.guard.outputs.skip != 'true'
         uses: ./.github/actions/build-pr-comment
         with:
           output: autofix_pr_comment.md
           pr-number: ${{ github.event.pull_request.number }}
 
-      - name: Upsert consolidated PR comment (same-repo)
-        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
+      - name: Upsert consolidated PR comment
+        if: steps.guard.outputs.skip != 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -395,29 +440,6 @@ jobs:
         with:
           name: autofix-report-pr-${{ github.event.pull_request.number }}
           path: autofix_report.json
-
-      - name: Comment with patch instructions
-        if: steps.guard.outputs.skip != 'true' && steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same != 'true'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const pr = context.payload.pull_request;
-            const body = [
-              'I generated an autofix patch for this fork PR.',
-              '',
-              'How to apply locally:',
-              '1. Download the artifact "autofix-patch-pr-' + pr.number + '" from the Actions run.',
-              '2. In your repo root, run:',
-              '   git am < autofix.patch',
-              '3. Push the changes to your PR branch:',
-              '   git push origin HEAD:' + pr.head.ref,
-            ].join('\n');
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: pr.number,
-              body
-            });
 
       - name: Summary
         if: always()
