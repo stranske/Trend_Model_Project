@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  changes:
+  detect:
     name: detect changed files
     runs-on: ubuntu-latest
     outputs:
@@ -67,8 +67,8 @@ jobs:
 
   core-tests-311:
     name: core tests (3.11)
-    needs: changes
-    if: needs.changes.outputs.doc_only != 'true' && needs.changes.outputs.run_core == 'true'
+    needs: detect
+    if: needs.detect.outputs.doc_only != 'true' && needs.detect.outputs.run_core == 'true'
     uses: ./.github/workflows/reusable-10-ci-python.yml
     with:
       python-version: '3.11'
@@ -76,8 +76,8 @@ jobs:
 
   core-tests-312:
     name: core tests (3.12)
-    needs: changes
-    if: needs.changes.outputs.doc_only != 'true' && needs.changes.outputs.run_core == 'true'
+    needs: detect
+    if: needs.detect.outputs.doc_only != 'true' && needs.detect.outputs.run_core == 'true'
     uses: ./.github/workflows/reusable-10-ci-python.yml
     with:
       python-version: '3.12'
@@ -85,14 +85,14 @@ jobs:
 
   docker-smoke:
     name: docker smoke
-    needs: changes
-    if: needs.changes.outputs.doc_only != 'true' && needs.changes.outputs.run_core == 'true'
+    needs: detect
+    if: needs.detect.outputs.doc_only != 'true' && needs.detect.outputs.run_core == 'true'
     uses: ./.github/workflows/reusable-12-ci-docker.yml
 
   gate:
     name: gate
     needs:
-      - changes
+      - detect
       - core-tests-311
       - core-tests-312
       - docker-smoke
@@ -104,19 +104,28 @@ jobs:
       statuses: write
     steps:
       - name: Handle docs-only change
-        if: needs.changes.outputs.doc_only == 'true'
+        if: needs.detect.outputs.doc_only == 'true'
         id: docs_only
         uses: actions/github-script@v7
         env:
-          REASON: ${{ needs.changes.outputs.reason || 'docs_only' }}
+          REASON: ${{ needs.detect.outputs.reason || 'docs_only' }}
         with:
           script: |
             const reason = process.env.REASON || 'docs_only';
-            const body = 'Doc-only change detected; Gate will still run as the required check.';
+            const marker = '<!-- gate-docs-only -->';
+
+            let message;
+            if (!reason || reason === 'docs_only') {
+              message = 'Gate fast-pass: docs-only change detected; heavy checks skipped.';
+            } else if (reason === 'no_changes') {
+              message = 'Gate fast-pass: no changes detected; heavy checks skipped.';
+            } else {
+              message = `Gate fast-pass: docs-only change detected; heavy checks skipped. Reason: ${reason}.`;
+            }
 
             await core.summary
               .addHeading('Gate status', 3)
-              .addRaw(`Docs-only change detected; heavy checks skipped (${reason}).`)
+              .addRaw(`${message}\n`)
               .write();
 
             if (context.eventName === 'pull_request' && reason === 'docs_only') {
@@ -127,36 +136,39 @@ jobs:
                 per_page: 100,
               });
 
-              const alreadyCommented = existingComments.some(comment => comment.body === body);
+              const alreadyCommented = existingComments.some(comment =>
+                typeof comment.body === 'string' && comment.body.includes(marker)
+              );
+
               if (!alreadyCommented) {
                 await github.rest.issues.createComment({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: context.payload.pull_request.number,
-                  body,
+                  body: `${marker}\n${message}`,
                 });
               }
             }
 
             core.setOutput('state', 'success');
-            core.setOutput('description', `Docs-only change; heavy checks skipped (${reason}).`);
+            core.setOutput('description', message);
 
       - name: Download coverage (3.11)
-        if: ${{ needs.changes.outputs.doc_only != 'true' && needs.core-tests-311.result == 'success' }}
+        if: ${{ needs.detect.outputs.doc_only != 'true' && needs.core-tests-311.result == 'success' }}
         uses: actions/download-artifact@v4
         with:
           name: coverage-3.11
           path: coverage/core-tests-311
 
       - name: Download coverage (3.12)
-        if: ${{ needs.changes.outputs.doc_only != 'true' && needs.core-tests-312.result == 'success' }}
+        if: ${{ needs.detect.outputs.doc_only != 'true' && needs.core-tests-312.result == 'success' }}
         uses: actions/download-artifact@v4
         with:
           name: coverage-3.12
           path: coverage/core-tests-312
 
       - name: Summarize results
-        if: needs.changes.outputs.doc_only != 'true'
+        if: needs.detect.outputs.doc_only != 'true'
         id: summarize
         run: |
           cat <<'EOF' >> "$GITHUB_STEP_SUMMARY"
@@ -171,8 +183,8 @@ jobs:
           STATE="success"
           DESCRIPTION="All Gate checks succeeded."
 
-          if [ "${{ needs.changes.outputs.run_core }}" != "true" ]; then
-            REASON="${{ needs.changes.outputs.reason }}"
+          if [ "${{ needs.detect.outputs.run_core }}" != "true" ]; then
+            REASON="${{ needs.detect.outputs.reason }}"
             if [ -z "$REASON" ]; then
               REASON="docs_only"
             fi
