@@ -5,12 +5,11 @@ local guardrails. It consolidates the requirements from Issues #2190, #2202,
 and #2466. Gate remains the required merge check for every pull request, and
 **Agents 70 Orchestrator is the sole supported automation entry point**. The
 historical consumer wrappers have been retired now that all automation flows
-through the orchestrator. For a narrative overview of how the pieces fit
-together, start with [docs/ci/WORKFLOW_SYSTEM.md](WORKFLOW_SYSTEM.md).
+through the orchestrator.
 
-For the bucket-level overview, keep/retire roster, and policy checklist, start
-with [docs/ci/WORKFLOW_SYSTEM.md](WORKFLOW_SYSTEM.md). This catalog then expands
-each kept workflow with trigger, permission, and operational details.
+Start with the [Workflow System Overview](WORKFLOW_SYSTEM.md) for the
+bucket-level summary, keep vs retire roster, and policy checklist. Return here
+for the detailed trigger, permission, and operational notes per workflow.
 
 ## CI & agents quick catalog
 
@@ -54,6 +53,11 @@ flowchart TD
 | Workflow | File | Trigger(s) | Permissions | Required? | Purpose |
 | --- | --- | --- | --- | --- | --- |
 | **PR 02 Autofix** | `.github/workflows/pr-02-autofix.yml` | `pull_request` (including label updates) | `contents: write`, `pull-requests: write` | **No** – runs only when the `autofix` label (or override) is present. | Delegates to `reusable-18-autofix.yml` to apply or upload safe formatting fixes. |
+
+**Operational details**
+- **Autofix** – Permissions: `contents: write`, `pull-requests: write`. Secrets: inherits `GITHUB_TOKEN` (sufficient for label
+  and comment updates). When the label is present it pushes low-risk fixes for same-repo branches or uploads a patch artifact for
+  forks, then updates cleanliness labels (`autofix:clean` / `autofix:debt`).
 
 ### Maintenance & observability
 
@@ -146,11 +150,9 @@ retirements recorded for WFv1 are:
 | Workflow | File | Trigger(s) | Permissions | Required? | Why it matters |
 |----------|------|------------|-------------|-----------|----------------|
 | `pr-00-gate.yml` (`Gate`) | `.github/workflows/pr-00-gate.yml` | `pull_request`, `workflow_dispatch` | `contents: read`, `pull-requests: write`, `statuses: write` | **Yes** | Composite orchestrator that chains the reusable CI and Docker smoke jobs and enforces that every leg succeeds. |
-| `pr-02-autofix.yml` (`PR 02 Autofix`) | `.github/workflows/pr-02-autofix.yml` | `pull_request` | `contents: write`, `pull-requests: write` | **Yes** (`apply` job) | Lightweight formatting/type-hygiene runner that auto-commits safe fixes or publishes a patch artifact for forked PRs. |
 
 **Operational details**
 - **Gate** – Permissions: `contents: read`, `pull-requests: write`, `statuses: write` (via the default `GITHUB_TOKEN`). Secrets: relies on the provided token only. The `detect_doc_only` job classifies Markdown/`docs/`/`assets/` changes, skips the heavy CI legs when appropriate, posts the docs-only notice, and otherwise surfaces `core tests (3.11)`, `core tests (3.12)`, `docker smoke`, and the aggregator `gate` job.
-- **Autofix** – Permissions: `contents: write`, `pull-requests: write`. Secrets: inherits `GITHUB_TOKEN` (sufficient for label + comment updates). Status outputs: `apply` job; labels applied include `autofix`, `autofix:applied`/`autofix:patch`, and cleanliness toggles (`autofix:clean`/`autofix:debt`).
 
 
 | Workflow | File | Trigger(s) | Permissions | Required? | Purpose |

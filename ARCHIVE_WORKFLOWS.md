@@ -1,4 +1,4 @@
-# Archived GitHub Workflows (updated 2026-10-10)
+# Archived GitHub Workflows (updated 2026-11-05)
 
 This document records the archival and eventual deletion of legacy agent-related workflows now replaced by consolidated reusable pipelines. The most recent sweep (Issue #1419) retired the reusable agent matrix in favour of the focused assigner/watchdog pair. The follow-up sweep for Issue #1669 removed the on-disk archive directory so the history now lives exclusively in git along with this ledger.
 
@@ -28,6 +28,7 @@ All deprecated agent automation workflows were deleted from `.github/workflows/`
 - (2026-02-07) `codex-issue-bridge.yml`, `reuse-agents.yml`, and the legacy `agents-consumer.yml` moved to the archive before the assigner/watchdog consolidation. The WFv1 renumbering landed in 2026-09 (`agents-40-consumer.yml`, `agents-41-assign-and-watch.yml`, wrappers, plus `reusable-90-agents.yml`) and was superseded by Issue #2190 (`agents-70-orchestrator.yml`, `reusable-16-agents.yml`). Issue #2493 temporarily reintroduced the consumer shim (as `agents-61-consumer-compat.yml`) for manual dispatch, but it has now been retired alongside `agents-62-consumer.yml` in favour of the orchestrator-only surface.
 - (2026-10-12) Issue #2466 removed the last on-disk copy of the historical slug; Issue #2493 restored the workflow with the corrected `jobs.<id>.uses` contract and a concurrency guard to prevent repeated manual triggers from piling up.
 - (2026-10-20) Issue #2650 confirmed `.github/workflows/agents-62-consumer.yml` remains deleted and refreshed docs/tests so the Codex issue bridge feeds only the orchestrator entry point.
+- (2026-11-05) Issue #2656 revalidated that no documentation references remain to the consumer shims and that README/CONTRIBUTING now route contributors through the Workflow System Overview before diving into the catalog.
 - (2026-09-30) Standalone `gate.yml` wrapper deleted (Issue #1657). The subsequent consolidation (Issue #2195) folded the aggregator logic into the single `ci / python` job inside `pr-10-ci-python.yml`; no archived copy retained because the YAML was invalid.
 - (2026-10-05) `autoapprove.yml` and `enable-automerge.yml` permanently retired once `maint-45-merge-manager.yml` proved stable (guard test asserts documentation coverage).
 - (2026-10-05) `guard-no-reuse-pr-branches.yml` and `lint-verification.yml` removed after governance documentation and branch protection policies caught up with the consolidated CI stack.
