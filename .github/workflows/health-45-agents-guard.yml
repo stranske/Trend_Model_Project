@@ -229,7 +229,7 @@ jobs:
               failureReasons.push(...fatalViolations);
             }
 
-            if (modifiedProtectedPaths.size > 0) {
+            if (modifiedProtectedPaths.size > 0 && (needsLabel || needsApproval)) {
               const modifiedList = [...modifiedProtectedPaths].map((path) => `• ${path}`).join('\n');
               failureReasons.push(`Protected workflows modified:\n${modifiedList}`);
               if (needsLabel) {
