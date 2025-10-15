@@ -35,8 +35,7 @@ def parse_diff(diff_lines: Iterable[str]) -> list[str]:
             if old_path in CRITICAL_FILES or new_path in CRITICAL_FILES:
                 violations.append(
                     "Renaming protected workflow '{old}' → '{new}' requires maintainer "
-                    "override."
-                    .format(old=old_path, new=new_path)
+                    "override.".format(old=old_path, new=new_path)
                 )
             continue
 
@@ -49,9 +48,7 @@ def parse_diff(diff_lines: Iterable[str]) -> list[str]:
             continue
 
         if status == "D":
-            violations.append(
-                f"Deletion of protected workflow '{path}' is blocked."
-            )
+            violations.append(f"Deletion of protected workflow '{path}' is blocked.")
 
     return violations
 
