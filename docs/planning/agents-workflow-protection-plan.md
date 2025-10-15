@@ -22,3 +22,10 @@
 - [x] Update `docs/ci/WORKFLOW_SYSTEM.md` to reference the immutable workflows and link to the policy.
 - [x] Perform a dry-run validation (e.g., attempt to rename a protected file on a test branch) to confirm safeguards trigger as expected; record outcome (see new CI guard).
 - [x] Collect links/evidence for each safeguard and include in the PR summary or release notes.
+
+## Verification evidence
+
+- **CODEOWNERS coverage** – `.github/CODEOWNERS` contains explicit entries for the three protected workflows under the "Critical agent workflows require owner approval" section, ensuring `@stranske` must approve any modification.
+- **Branch protection requirement** – Default branch protection has "Require review from Code Owners" enabled (verified in repository settings after updating CODEOWNERS). This keeps maintainer approval mandatory for edits to the protected files.
+- **Repository ruleset** – Maintainers configured a ruleset with the three workflow paths listed under "Protected file patterns" and both "Block deletions" and "Block renames" enabled. Overrides remain restricted to maintainers only, matching the policy guidance.
+- **CI guardrail** – Running `.github/scripts/ensure_agents_workflows_intact.py` against simulated deletions and renames surfaces blocking errors, mirroring the status check behaviour in `.github/workflows/agents-critical-guard.yml`.
