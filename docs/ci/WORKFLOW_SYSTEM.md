@@ -56,8 +56,8 @@
 
 - **Keep**: `pr-00-gate.yml`, `maint-46-post-ci.yml`, health 42/43/44/45, agents 70/63, `agents-critical-guard.yml`, reusable 10/12/16/18, `selftest-81-reusable-ci.yml`, `selftest-runner.yml`.
 - **Retire**: `pr-14-docs-only.yml`, `maint-47-check-failure-tracker.yml`, the
-  legacy consumer shims (Agents 61/62), and the legacy `selftest-*` wrappers
-  replaced by `selftest-runner.yml`.
+  retired Agents 61/62 consumer workflows (removed from the Actions catalogue),
+  and the legacy `selftest-*` wrappers replaced by `selftest-runner.yml`.
 
 ## Verification checklist
 - Gate runs and passes on a docs‑only PR and is visible as a required check.
