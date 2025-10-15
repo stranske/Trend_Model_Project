@@ -116,6 +116,26 @@ def test_selftest_runner_publish_job_contract() -> None:
         publish.get("if") == "${{ always() }}"
     ), "publish-results should always execute to surface matrix status."
 
+    permissions = publish.get("permissions", {})
+    assert permissions, "publish-results must declare minimal permissions."
+    assert permissions.get("contents") == "read", (
+        "publish-results should only require read access to contents."
+    )
+    assert permissions.get("actions") == "read", (
+        "publish-results should only require read access to actions metadata."
+    )
+    assert permissions.get("pull-requests") == "write", (
+        "publish-results needs pull request write access for comment mode."
+    )
+
+    unexpected_permissions = sorted(
+        key for key in permissions if key not in {"contents", "actions", "pull-requests"}
+    )
+    assert not unexpected_permissions, (
+        "publish-results should not request extra permissions: "
+        f"{unexpected_permissions}."
+    )
+
     required_env = {
         "MODE",
         "POST_TO",
