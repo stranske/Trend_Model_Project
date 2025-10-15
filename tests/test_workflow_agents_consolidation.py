@@ -133,6 +133,31 @@ def test_agents_consumer_workflow_removed():
     assert not path.exists(), "Legacy Agents 62 consumer wrapper should be removed"
 
 
+def test_agent_task_template_auto_labels_codex():
+    template = Path(".github/ISSUE_TEMPLATE/agent_task.yml")
+    assert template.exists(), "Agent task issue template must exist"
+    data = yaml.safe_load(template.read_text(encoding="utf-8"))
+    labels = set(data.get("labels") or [])
+    assert {"agents", "agent:codex"}.issubset(
+        labels
+    ), "Agent task template must auto-apply agents + agent:codex labels"
+
+
+def test_codex_issue_bridge_triggers_on_agent_label():
+    data = _load_workflow_yaml("agents-63-codex-issue-bridge.yml")
+    triggers = _workflow_on_section(data)
+    assert "issues" in triggers, "Codex issue bridge must listen for issue events"
+    issue_trigger = triggers["issues"] or {}
+    types = set(issue_trigger.get("types") or [])
+    assert {"opened", "labeled", "reopened"}.issubset(
+        types
+    ), "Issue bridge must react to issue label lifecycle events"
+    text = (WORKFLOWS_DIR / "agents-63-codex-issue-bridge.yml").read_text(encoding="utf-8")
+    assert (
+        "agent:codex" in text
+    ), "Issue bridge must guard on the agent:codex label to trigger hand-off"
+
+
 def test_reusable_agents_jobs_have_timeouts():
     data = _load_workflow_yaml("reusable-16-agents.yml")
     jobs = data.get("jobs", {})

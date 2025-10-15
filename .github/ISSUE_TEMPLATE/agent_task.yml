@@ -10,7 +10,10 @@ body:
       value: |
         Use this template when Codex should pick up a task. The issue bridge
         watches for the `agent:codex` label and will prepare a branch/PR once
-        the issue is ready.
+        the issue is ready. This template automatically applies the `agents`
+        and `agent:codex` labels so the Codex issue bridge can hand the work
+        directly to `agents-70-orchestrator.yml`; no legacy consumer shims
+        remain in the repo.
   - type: textarea
     id: context
     attributes:
