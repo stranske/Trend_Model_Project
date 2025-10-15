@@ -24,7 +24,7 @@
 - [x] Implement logic to fetch changed files via the GitHub API and detect deletions/renames affecting guarded files.
 - [x] Implement guard logic that evaluates label presence and CODEOWNER approvals.
 - [x] Add idempotent PR commenting to explain failures without duplication.
-- [ ] Test the workflow behavior using workflow dry-runs or mock PR scenarios (e.g., `act` or manual triggering) to validate each acceptance criterion.
+- [x] Test the workflow behavior using workflow dry-runs or mock PR scenarios (e.g., `act` or manual triggering) to validate each acceptance criterion.
 - [ ] Coordinate with repository settings to add the new status check to required checks after verification.
 
 ## Validation Notes
