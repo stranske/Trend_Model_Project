@@ -130,9 +130,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    env:
-      # Keep mypy execution aligned with the interpreter pinned in pyproject.toml
-      MYPY_PYTHON_VERSION: '3.11'
     strategy:
       fail-fast: false
       matrix:
@@ -175,16 +172,10 @@ jobs:
           fi
           pip install ruff mypy pytest pytest-cov
 
-      - name: Ruff (lint)
-        run: |
-          set -euo pipefail
-          ruff check --output-format github .
-
-      - name: Verify mypy interpreter pin
-        if: ${{ inputs.run-mypy && matrix.python-version == env.MYPY_PYTHON_VERSION }}
+      - name: Resolve mypy python pin
+        if: ${{ inputs.run-mypy }}
+        id: mypy-pin
         shell: python
-        env:
-          MYPY_PYTHON_VERSION: ${{ env.MYPY_PYTHON_VERSION }}
         run: |
           from __future__ import annotations
 
@@ -195,7 +186,7 @@ jobs:
 
           pyproject = Path("pyproject.toml")
           if not pyproject.is_file():
-              print("::error file=pyproject.toml::pyproject.toml is required to verify the mypy python_version pin")
+              print("::error file=pyproject.toml::pyproject.toml is required to resolve the mypy python_version pin")
               raise SystemExit(1)
 
           try:
@@ -205,29 +196,21 @@ jobs:
               raise SystemExit(1)
 
           pin = data.get("tool", {}).get("mypy", {}).get("python_version")
-          if pin is None:
-              print("::error file=pyproject.toml::[tool.mypy].python_version is not configured; cannot gate mypy execution")
-              raise SystemExit(1)
-
           if not pin:
               print("::error::Unable to determine mypy python_version pin from pyproject.toml")
               raise SystemExit(1)
 
-          expected = os.environ.get("MYPY_PYTHON_VERSION")
-          if not expected:
-              print("::error::MYPY_PYTHON_VERSION is not configured in the workflow environment")
-              raise SystemExit(1)
+          print(f"Resolved mypy python_version pin: {pin}")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+              print(f"python-version={pin}", file=fh)
 
-          if pin != expected:
-              print(
-                  f"::error::pyproject.toml pins mypy to Python {pin} but workflow is configured for {expected}"
-              )
-              raise SystemExit(1)
-
-          # The absence of errors verifies the configured pin matches expectations.
+      - name: Ruff (lint)
+        run: |
+          set -euo pipefail
+          ruff check --output-format github .
 
       - name: Mypy (type check)
-        if: ${{ inputs.run-mypy && matrix.python-version == env.MYPY_PYTHON_VERSION }}
+        if: ${{ inputs.run-mypy && matrix.python-version == steps.mypy-pin.outputs.python-version }}
         run: |
           set -euo pipefail
           args=()
