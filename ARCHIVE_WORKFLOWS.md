@@ -1,4 +1,4 @@
-# Archived GitHub Workflows (updated 2026-11-10)
+# Archived GitHub Workflows (updated 2026-11-11)
 
 This document records the archival and eventual deletion of legacy agent-related workflows now replaced by consolidated reusable pipelines. The most recent sweep (Issue #1419) retired the reusable agent matrix in favour of the focused assigner/watchdog pair. The follow-up sweep for Issue #1669 removed the on-disk archive directory so the history now lives exclusively in git along with this ledger.
 
@@ -32,6 +32,7 @@ All deprecated agent automation workflows were deleted from `.github/workflows/`
 - (2026-11-08) Issue #2656 documentation alignment refresh ensured README.md, CONTRIBUTING.md, `docs/ci/WORKFLOWS.md`, `docs/WORKFLOW_GUIDE.md`, and `docs/ops/codex-bootstrap-facts.md` point historical lookups back to this archive.
 - (2026-11-09) Issue #2656 verification confirmed Agents.md now defers to the archive and reiterates that the orchestrator is the sole automation entry point.
 - (2026-11-10) Issue #2656 documentation sweep scrubbed remaining references to retired consumer wrappers so they are mentioned exclusively in this ledger.
+- (2026-11-11) Issue #2656 follow-up removed the stale `reusable-90-ci-python.yml` reference from `docs/ci-workflow.md` and reiterated that matrix verification now runs through `reusable-10-ci-python.yml` or `selftest-81-reusable-ci.yml`.
 - (2026-09-30) Standalone `gate.yml` wrapper deleted (Issue #1657). The subsequent consolidation (Issue #2195) folded the aggregator logic into the single `ci / python` job inside `pr-10-ci-python.yml`; no archived copy retained because the YAML was invalid.
 - (2026-10-05) `autoapprove.yml` and `enable-automerge.yml` permanently retired once `maint-45-merge-manager.yml` proved stable (guard test asserts documentation coverage).
 - (2026-10-05) `guard-no-reuse-pr-branches.yml` and `lint-verification.yml` removed after governance documentation and branch protection policies caught up with the consolidated CI stack.
