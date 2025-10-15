@@ -20,6 +20,9 @@ thresholds, and the annualisation flag under the new `regime` section in
 
 📦 **Reusable CI & Automation**: Standardise tests, autofix, and agent automation across repositories using the new reusable workflows documented in [docs/ci_reuse.md](docs/ci_reuse.md). Consumers call `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-18-autofix.yml`, and the consolidated `agents-70-orchestrator.yml` entry point (which delegates to `reusable-16-agents.yml`).
 
+🧭 **Start here for CI topology**: Read the [Workflow System Overview](docs/ci/WORKFLOW_SYSTEM.md) first, then consult the [Workflow Catalog](docs/ci/WORKFLOWS.md) for the full keep/retire roster, triggers, and permissions.
+
+🗺️ **Workflow system overview**: Start with [docs/ci/WORKFLOW_SYSTEM.md](docs/ci/WORKFLOW_SYSTEM.md) for the high-level buckets, required merge policy, and automation roles.
 🧭 **Workflow topology & agent routing**: Learn how workflow buckets, naming, post-CI summaries, and agent labels fit together in [docs/WORKFLOW_GUIDE.md](docs/WORKFLOW_GUIDE.md).
 🔁 **Layered Test Workflow (Phases 1–3)**: The staged metrics → history/classification → coverage delta reusable workflow implemented in this repository is documented in [docs/ci-workflow.md](docs/ci-workflow.md). All advanced phases are disabled by default for back‑compat.
 
@@ -644,5 +647,5 @@ Install the optional pre-push hook:
 ```
 This prevents accidental pushes that fail the CI style checks.
 
-Gate (our required PR workflow) now detects documentation-only diffs internally. When a pull request only touches Markdown, `docs/`, or `assets/` paths, the heavy Python and Docker jobs are skipped while Gate posts the standard "docs-only" notice and reports success within seconds. The standalone `pr-14-docs-only.yml` workflow was retired—Gate owns the fast path so the required status remains visible on every PR. All other changes continue to fan out to the full test matrix.
+Gate (our required PR workflow) now detects documentation-only diffs internally. When a pull request only touches Markdown, `docs/`, or `assets/` paths, the heavy Python and Docker jobs are skipped while Gate posts the standard "docs-only" notice and reports success within seconds. All other changes continue to fan out to the full test matrix.
 
