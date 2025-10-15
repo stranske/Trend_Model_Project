@@ -3,9 +3,9 @@
 Use this page as the canonical reference for CI workflow naming, inventory, and
 local guardrails. It consolidates the requirements from Issues #2190, #2202,
 and #2466. Gate remains the required merge check for every pull request, and
-**Agents 70 Orchestrator is the sole supported automation entry point**. The
-historical consumer wrappers have been retired now that all automation flows
-through the orchestrator.
+**Agents 70 Orchestrator is the sole supported automation entry point**. All
+automation routes through that workflow; retired shims are preserved solely in
+the archival ledger for historical reference.
 
 Start with the [Workflow System Overview](WORKFLOW_SYSTEM.md) for the
 bucket-level summary, keep vs retire roster, and policy checklist. Return here
@@ -92,15 +92,6 @@ when you need to download the `selftest-report` artifact emitted by the reusable
 | **Agents 64 Verify Agent Assignment** | `.github/workflows/agents-64-verify-agent-assignment.yml` | `workflow_call`, `workflow_dispatch` | `issues: read` | No | Reusable issue-verification helper consumed by the orchestrator and available for ad-hoc checks. |
 | **Agents 63 ChatGPT Issue Sync** | `.github/workflows/agents-63-chatgpt-issue-sync.yml` | `workflow_dispatch` | `contents: read`, `issues: write` | No | Manual sync that turns curated topic lists (e.g. `Issues.txt`) into labelled GitHub issues. |
 
-### Archived & legacy
-
-The workflows below were retired during the consolidation. Keep them documented for historical context only:
-
-- **`pr-14-docs-only.yml`** — Superseded by Gate’s built-in docs-only detection.
-- **`maint-47-check-failure-tracker.yml`** — Replaced by the post-CI summary job inside `maint-46-post-ci.yml`.
-- **`agents-61-consumer-compat.yml`** and **`agents-62-consumer.yml`** — Legacy consumer shims replaced by the orchestrator.
-- **Legacy selftest wrappers** (`selftest-80-pr-comment.yml`, `selftest-82-pr-comment.yml`, `selftest-83-pr-comment.yml`, `selftest-84-reusable-ci.yml`, `selftest-88-reusable-ci.yml`) — Consolidated into `selftest-runner.yml` + `selftest-81-reusable-ci.yml`.
-
 ### Reusable composites
 
 | Workflow | File | Trigger(s) | Permissions | Required? | Purpose |
@@ -113,14 +104,8 @@ The workflows below were retired during the consolidation. Keep them documented 
 ## Archived workflows
 
 Workflows removed during the consolidation now live only in git history. Refer to
-[ARCHIVE_WORKFLOWS.md](../../ARCHIVE_WORKFLOWS.md) for the full ledger. The key
-retirements recorded for WFv1 are:
-
-- `pr-14-docs-only.yml` – superseded by the docs-only detection step embedded in Gate.
-- `maint-47-check-failure-tracker.yml` – obsoleted once Maint 46 Post CI absorbed the failure tracker.
-- `agents-61-consumer.yml` / `agents-62-consumer.yml` – legacy manual shims removed in favour of the orchestrator entry point.
-- `agents-41*` wrappers and `reusable-90-agents.yml` – replaced by `reusable-16-agents.yml` and the WFv1 numbering scheme.
-- Legacy self-test wrappers (`selftest-80`/`82`/`83`/`84`/`88` variants predating Issue #2525) – restored only where explicitly listed above; all others remain archived.
+[ARCHIVE_WORKFLOWS.md](../../ARCHIVE_WORKFLOWS.md) for the authoritative ledger
+of retired entries, the keep vs retire roster, and verification notes.
 
 ## Naming Policy & Number Ranges
 
@@ -281,10 +266,10 @@ Escalate persistent failures by linking the failing run URL in the CI failure-tr
 **Post-change monitoring.** When agent workflows change:
 
 - Tag the source issue with `ci-failure` so it stays visible during the observation window.
-- Coordinate a 48-hour watch to confirm only `agents-70-orchestrator.yml` runs (manual dispatch or cron). Investigate any automation attempting to dispatch the removed consumer workflows and redirect it to the orchestrator.
+- Coordinate a 48-hour watch to confirm only `agents-70-orchestrator.yml` runs (manual dispatch or cron). Investigate any automation attempting to dispatch undocumented workflows and redirect it to the orchestrator.
 - Capture a brief note or screenshot of the clean Actions history before removing the tag and closing the issue.
 
-Manual-only status means maintainers should review the Actions list during that window to ensure the retired cron trigger stays inactive.
+Manual-only status means maintainers should review the Actions list during that window to ensure no unexpected cron trigger resumes.
 
 ### Reusable composites
 
@@ -306,10 +291,6 @@ Manual-only status means maintainers should review the Actions list during that 
 | `selftest-runner.yml` (`Selftest Runner`) | Single manual wrapper that toggles summary vs PR comment output and the Python version matrix via `mode` inputs. |
 
 > Self-test workflows are reference exercises for maintainers. They are quiet by design—trigger them via `workflow_dispatch` (or, for wrappers, specify the PR number/inputs) whenever you need a fresh artifact inventory check or to validate reusable CI changes. Expect no automated executions in the Actions history.
-
-### Archived self-test workflows
-
-`Old/workflows/maint-90-selftest.yml` remains available as the historical wrapper that previously scheduled the self-test cron. Earlier experiment wrappers have since collapsed into `selftest-runner.yml`; consult git history only if you need to inspect their pre-consolidation incarnations. See [ARCHIVE_WORKFLOWS.md](../../ARCHIVE_WORKFLOWS.md) for the full ledger of retired workflows and historical notes.
 
 ## Contributor Quick Start
 
