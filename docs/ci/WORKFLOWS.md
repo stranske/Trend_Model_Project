@@ -7,6 +7,9 @@ and #2466. Gate remains the required merge check for every pull request, and
 automation routes through that workflow; retired shims are preserved solely in
 the archival ledger for historical reference.
 
+> ℹ️ **Scope.** This catalog lists active workflows only. Historical entries and
+> verification notes live in [ARCHIVE_WORKFLOWS.md](../../ARCHIVE_WORKFLOWS.md).
+
 Start with the [Workflow System Overview](WORKFLOW_SYSTEM.md) for the
 bucket-level summary, keep vs retire roster, and policy checklist. Return here
 for the detailed trigger, permission, and operational notes per workflow.
