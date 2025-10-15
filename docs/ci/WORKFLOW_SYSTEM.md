@@ -39,10 +39,10 @@
 
 ## Policy
 
-- **Required check**: Gate is the only required PR check. It must always produce a status, including docs‑only PRs (fast no‑op).
+- **Required checks**: Gate remains mandatory on every PR, and Health 45 Agents Guard becomes required whenever agent workflows change. Gate must always produce a status, including docs‑only PRs (fast no‑op); Health 45 is path-gated to the `agents-*.yml` surface and enforces CODEOWNERS, label, and review policy before merges.
 - **Doc‑only rule**: Doc‑only detection lives inside Gate. No separate docs‑only workflow.
 - **Autofix**: Centralized under `maint-46-post-ci.yml`. For forks, upload patch artifacts and post links instead of pushing. Any pre‑CI autofix (`pr-02-autofix.yml`) must be label-gated and cancel duplicate runs in flight.
-- **Branch protection**: Default branch must require Gate. Health job first resolves the repository's current default branch via the REST API, then enforces and/or verifies that **Gate / gate** is the sole required status check. Provide a `BRANCH_PROTECTION_TOKEN` secret with admin scope when you want the job to apply the setting automatically; otherwise it will fail fast when the check is missing.
+- **Branch protection**: Default branch must require Gate and Agents Guard. Health-44 first resolves the repository's current default branch via the REST API, then enforces and/or verifies that **Gate / gate** and **Health 45 Agents Guard / Enforce agents workflow protections** are the required status checks. Provide a `BRANCH_PROTECTION_TOKEN` secret with admin scope when you want the job to apply the setting automatically; otherwise it will fail fast when either check is missing.
 - **Code Owner reviews**: Enable **Require review from Code Owners** on the default branch. This keeps the `agents-63-chatgpt-issue-sync.yml`, `agents-63-codex-issue-bridge.yml`, and `agents-70-orchestrator.yml` workflows gated on maintainer approval in addition to the deletion/rename rules described in the protection policy.
 - **Types**: Run mypy where the config is pinned. If types are pinned to a specific version, run mypy in that leg only (to avoid stdlib stub drift across Python versions). Our `pyproject.toml` sets `python_version = "3.11"`, so `reusable-10-ci-python.yml` resolves the value directly from the file, publishes it as a step output, and guards the mypy step with `matrix.python-version == steps.mypy-pin.outputs.python-version`. Ruff and pytest still execute on every configured interpreter.
 - **Labels used by automation**:  
@@ -54,8 +54,9 @@
 - **Retire**: `pr-14-docs-only.yml`, `maint-47-check-failure-tracker.yml`, agents 61/62, and the legacy `selftest-*` wrappers replaced by `selftest-runner.yml`.
 
 ## Verification checklist
-- Gate runs and passes on a docs‑only PR and is visible as the required check.
-- Health‑44 confirms branch protection requires Gate on the default branch.
+- Gate runs and passes on a docs‑only PR and is visible as a required check.
+- Health‑45 blocks unauthorized agent workflow edits and reports as the required check whenever `agents-*.yml` files change.
+- Health‑44 confirms branch protection requires Gate and Agents Guard on the default branch.
 - Maint‑46 posts a single consolidated summary; autofix artifacts or commits are attached where allowed.
 
 ## Branch protection playbook
@@ -72,21 +73,21 @@
    - Add `--apply` to enforce the rule locally (requires admin token in `GITHUB_TOKEN`/`GH_TOKEN`). Use `--snapshot path.json` to capture before/after state for change control.
 4. **Audit the result.**
    - Health‑44 uploads JSON snapshots (`enforcement.json`, `verification.json`) that mirror the script output and writes a step summary when it must fall back to observer mode.
-   - In GitHub settings, confirm that **Gate** is listed under required status checks and that “Require branches to be up to date before merging” is enabled.
+   - In GitHub settings, confirm that **Gate** and **Health 45 Agents Guard** are listed under required status checks and that “Require branches to be up to date before merging” is enabled.
 5. **Trigger Health‑44 on demand.**
    - Kick a manual run with `gh workflow run "Health 44 Gate Branch Protection" --ref <default-branch>` whenever you change branch-protection settings.
    - Scheduled executions run daily at 06:00 UTC; a manual dispatch lets you confirm the fix immediately after applying it.
 6. **Verify with a test PR.**
-   - Open a throwaway PR against the default branch and ensure that the Checks tab shows **Gate / gate** under “Required checks”.
+   - Open a throwaway PR against the default branch and ensure that the Checks tab shows **Gate / gate** under “Required checks”. When you modify `agents-*.yml`, confirm that the UI also lists **Health 45 Agents Guard / Enforce agents workflow protections** as required.
    - Close the PR after verification to avoid polluting history.
 
 ### Recovery scenarios
 
-- **Health‑44 fails because the required check is missing.**
+- **Health‑44 fails because a required check is missing.**
   1. Confirm you have access to an admin-scoped token (see step 2 above) and re-run the workflow with the token configured.
-  2. If the failure persists, run `python tools/enforce_gate_branch_protection.py --check` locally to inspect the status and `--apply` to restore the rule.
+  2. If the failure persists, run `python tools/enforce_gate_branch_protection.py --check` locally to inspect the status and `--apply` to restore both required contexts.
   3. Re-dispatch Health‑44 to record the remediation snapshots and attach them to the incident report.
-- **Gate accidentally removed during testing.**
+- **Required check accidentally removed during testing.**
   1. Restore the branch-protection snapshot from the most recent successful Health‑44 run (download from the workflow artifact, then feed into `--apply --snapshot` to replay).
   2. Notify the on-call in `#trend-ci` so they can watch the next scheduled job for regressions.
-  3. Open a short-lived PR targeting the default branch to confirm that Gate is again listed as required before declaring recovery complete.
+  3. Open a short-lived PR targeting the default branch to confirm that Gate and Agents Guard are again listed as required before declaring recovery complete.
