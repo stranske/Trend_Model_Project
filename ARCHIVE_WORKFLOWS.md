@@ -11,7 +11,7 @@ This document records the archival and eventual deletion of legacy agent-related
 
 ### Retired self-tests
 - **Archived files**: `Old/workflows/maint-90-selftest.yml` and `Old/workflows/reusable-99-selftest.yml` remain in git history only after the reusable matrix stabilised.
-- **Replacement**: manual verification flows now live behind the self-test wrappers that remain in `.github/workflows/` (`selftest-81`, `selftest-82`, `selftest-83`, `selftest-84`, `selftest-88`), all of which expose `workflow_dispatch` inputs and publish their health tables directly in the Actions run summary.
+- **Replacement**: manual verification now runs through `selftest-runner.yml`, which delegates to `selftest-81-reusable-ci.yml` inside `.github/workflows/`. Earlier wrappers (`selftest-80-pr-comment.yml`, `selftest-82-pr-comment.yml`, `selftest-83-pr-comment.yml`, `selftest-84-reusable-ci.yml`, `selftest-88-reusable-ci.yml`) persist only in history for reference.
 
 ## Removed Legacy Files (Cleanup PR for Issue #1259)
 All deprecated agent automation workflows were deleted from `.github/workflows/` on 2025-09-21 once the stabilization window for the reusable equivalents closed. Historical copies formerly lived under `.github/workflows/archive/` but that directory was removed on 2026-10-07 as part of the Issue #1669 cleanup. Retrieve any prior YAML from git history when needed.
