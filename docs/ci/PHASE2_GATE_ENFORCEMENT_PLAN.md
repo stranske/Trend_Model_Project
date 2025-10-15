@@ -17,10 +17,10 @@
    - The workflow system overview documents the enforcement and recovery procedure so future maintainers can replicate the setup.
 
 ## Initial Task Checklist
-- [ ] Confirm whether an admin PAT (`BRANCH_PROTECTION_TOKEN`) is available; if not, plan for manual enforcement while leaving Health-44 in observe-only mode.
-- [ ] Trigger Health-44 (`gh workflow run "Health 44 Gate Branch Protection" --ref phase-2-dev`) to capture the current status and artifacts.
-- [ ] Review branch protection settings via the GitHub UI or `python tools/enforce_gate_branch_protection.py --repo <owner>/<repo> --branch phase-2-dev --check`.
-- [ ] If Gate is not required, enforce it using the script (`--apply`) or by configuring the PAT for Health-44 and re-running the workflow.
-- [ ] Re-run Health-44 to validate enforcement and archive the verification snapshot.
-- [ ] Open a throwaway PR against `phase-2-dev` to confirm Gate appears as a required check; close it after verification.
-- [ ] Record remediation steps and any tokens or permissions used in the workflow overview documentation.
+- [x] Confirmed that no admin PAT is configured; Health-44 currently operates in observer mode and surfaces the reminder summary.
+- [x] Manually dispatched Health-44 to refresh the verification artifacts (see `health-run-18511694775.md`).
+- [x] Queried the branch protection settings via the public API to confirm **Gate / gate** remains the required context.
+- [x] Verified that no enforcement changes were necessary; Health-44 continues to fail if Gate drifts.
+- [x] Re-ran Health-44 in observer mode to archive the latest verification snapshot and job summary.
+- [x] Inspected PR #2665 to confirm Gate appears under “Required checks” and blocks merge until green.
+- [x] Folded remediation guidance and observer-mode behaviour into the workflow overview documentation.
