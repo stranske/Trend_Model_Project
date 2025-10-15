@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import unittest
 from pathlib import Path
 
@@ -222,12 +223,22 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         script = docs_step.get("with", {}).get("script", "")
         self.assertTrue(script, "Docs-only handler should include inline script")
 
-        self.assertIn("const marker = '<!-- gate-docs-only -->';", script)
-        self.assertIn("comment.body.includes(marker)", script)
-        self.assertIn(r"body: `${marker}\n${message}`", script)
-        self.assertIn(r".addRaw(`${message}\n`)", script)
-        self.assertIn("await core.summary", script)
-        self.assertIn("core.setOutput('description', message);", script)
+        expected_patterns = {
+            "declares docs-only marker": r"const marker\s*=\s*'<!-- gate-docs-only -->';",
+            "checks existing comment marker": r"comment\.body\.includes\(\s*marker\s*\)",
+            "posts marker-prefixed comment": r"body:\s*`\$\{marker}\\n\$\{message}`",
+            "appends message to job summary": r"\.addRaw\(`\$\{message}\\n`\)",
+            "awaits summary API": r"await\s+core\.summary",
+            "sets description output": r"core\.setOutput\(\s*'description',\s*message\s*\);",
+        }
+
+        for label, pattern in expected_patterns.items():
+            with self.subTest(pattern=label):
+                self.assertRegex(
+                    script,
+                    pattern,
+                    msg=f"Docs-only handler script should {label}",
+                )
 
     def test_workflows_do_not_define_invalid_marker_filters(self) -> None:
         """Ensure pytest marker filters stay inside shell commands."""
