@@ -216,8 +216,8 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         self.assertTrue(gate_job, "Gate workflow must define gate job")
 
         steps = gate_job.get("steps", [])
-        docs_step = next((step for step in steps if step.get("id") == "docs_only"), {})
-        self.assertTrue(docs_step, "Gate workflow should expose docs-only handler step")
+        docs_step = next((step for step in steps if step.get("id") == "docs_only"), None)
+        self.assertIsNotNone(docs_step, "Gate workflow should expose docs-only handler step")
 
         script = docs_step.get("with", {}).get("script", "")
         self.assertTrue(script, "Docs-only handler should include inline script")
