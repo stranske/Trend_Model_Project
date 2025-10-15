@@ -130,7 +130,7 @@ def test_agents_orchestrator_has_concurrency_defaults():
 
 def test_agents_consumer_workflow_removed():
     path = WORKFLOWS_DIR / "agents-62-consumer.yml"
-    assert not path.exists(), "Legacy Agents 62 consumer wrapper should be removed"
+    assert not path.exists(), "Retired Agents 62 consumer wrapper must remain absent"
 
 
 def test_agent_task_template_auto_labels_codex():

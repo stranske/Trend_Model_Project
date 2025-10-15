@@ -2,13 +2,19 @@
 
 The agents orchestrator and bridge workflows are contract-critical automation.
 They must remain available unless a maintainer deliberately overrides the
-protections described below.
+protections described below. Legacy consumer shims (Agents 61/62) were fully
+retired; all supported automation now flows through Agents 63 (bridge +
+ChatGPT sync) and Agents 70 (orchestrator).
 
 ## Covered files
 
 - `.github/workflows/agents-63-chatgpt-issue-sync.yml`
 - `.github/workflows/agents-63-codex-issue-bridge.yml`
 - `.github/workflows/agents-70-orchestrator.yml`
+
+These are the only active Agents entry points. Former consumer wrappers
+(`agents-61-consumer-compat.yml`, `agents-62-consumer.yml`) must not be
+reintroduced; the orchestrator surface replaced them entirely.
 
 ## Protection layers
 

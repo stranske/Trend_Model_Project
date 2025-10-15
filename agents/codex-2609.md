@@ -7,7 +7,8 @@ Focus: consolidate CI/automation workflows, align docs, and enforce branch prote
 Key checkpoints:
 - Gate: add docs-only fast path and retire PR-14.
 - Autofix consolidation: centralize Maint-46 and deprecate PR-02 path.
-- Compatibility cleanup: retire Maint-47 and Agents-61/62 shims.
+- Compatibility cleanup: retire Maint-47 and ensure the legacy consumer shims
+  (former Agents-61/62) stay removed.
 - Collapse self-tests into one parameterized runner; remove wrappers.
 - Lock agents workflow to orchestrator + bridge; publish agent issue template.
 - Update branch protection to require Gate on default branch.
