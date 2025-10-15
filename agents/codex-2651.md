@@ -20,3 +20,9 @@
 4. Migrate or delete legacy wrapper workflows, ensuring any reusable-callers now invoke the runner.
 5. Update relevant documentation (`ARCHIVE_WORKFLOWS.md`, `docs/WORKFLOW_GUIDE.md`, `docs/ci_reuse*.md`, etc.) to describe the consolidated runner.
 6. Run workflow linting or dry-run validations as available, then open a PR with the consolidated changes and ensure Gate succeeds.
+
+## Completion Status (2026-11-04)
+- [x] Consolidated the manual runner into `.github/workflows/selftest-runner.yml` with summary, comment, and dual-runtime inputs.
+- [x] Deleted the legacy `selftest-8X-*` wrappers so only `selftest-81-reusable-ci.yml` remains alongside the new runner.
+- [x] Updated overview, reuse, and maintenance docs to reflect the single entry point and archived the historical wrappers.
+- [x] Added guardrail tests in `tests/test_workflow_selftest_consolidation.py` to lock the workflow inventory, inputs, permissions, and publish job behaviour.
