@@ -15,9 +15,9 @@
 - Each automation run updates (or creates) exactly one status comment containing the autofix summary block and result details so reviewers have a consistent signal.【F:.github/workflows/reusable-18-autofix.yml†L358-L383】
 
 ## Initial Task Checklist
-1. Audit label-gating logic for draft PR transitions and document any edge cases requiring additional safeguards (e.g., manual label removal paths).【F:.github/workflows/pr-02-autofix.yml†L20-L31】
-2. Validate concurrency behaviour with back-to-back `synchronize` events and confirm cancelled runs stop before side effects (commit/push/comment).【F:.github/workflows/pr-02-autofix.yml†L16-L18】【F:.github/workflows/reusable-18-autofix.yml†L21-L33】
-3. Harden the fork detection and patch publication steps, covering retries and artifact naming conventions for GitHub UI clarity.【F:.github/workflows/reusable-18-autofix.yml†L197-L260】
-4. Ensure the status comment builder consumes the `AUTOFIX_RESULT_BLOCK` for both commit and patch flows and gracefully handles runs with no changes.【F:.github/workflows/reusable-18-autofix.yml†L179-L383】
-5. Reconfirm label hygiene automation interacts correctly with the new gating rules, especially when an autofix run exits early or produces no diffs.【F:.github/workflows/reusable-18-autofix.yml†L264-L383】
-6. Update verification/runbook documentation with testing steps for same-repo and fork scenarios once the workflow changes are in place.【F:.github/workflows/reusable-18-autofix.yml†L123-L383】
+- [x] Audit label-gating logic for draft transitions and document manual label removal edge cases; confirmed the wrapper workflow exits when the opt-in label is absent and captured the behaviour here for future maintainers.【F:.github/workflows/pr-02-autofix.yml†L16-L31】
+- [x] Validate concurrency behaviour with back-to-back `synchronize` events so superseded runs cancel before side effects; both the wrapper and reusable workflows now share the same `pr-02-autofix` group.【F:.github/workflows/pr-02-autofix.yml†L16-L18】【F:.github/workflows/reusable-18-autofix.yml†L21-L33】
+- [x] Harden fork detection and patch publication with explicit commit staging, deterministic artifact naming, and application instructions for contributors without push access.【F:.github/workflows/reusable-18-autofix.yml†L197-L260】
+- [x] Ensure the status comment builder consumes the `AUTOFIX_RESULT_BLOCK` in all paths, including no-change runs, so reviewers always see an Autofix result section.【F:.github/workflows/reusable-18-autofix.yml†L179-L383】【F:scripts/build_autofix_pr_comment.py†L200-L259】
+- [x] Reconfirm label hygiene automation obeys the new gating rules by scoping clean/debt updates to same-repo runs and clearing stale patch labels.【F:.github/workflows/reusable-18-autofix.yml†L264-L332】
+- [x] Update verification/runbook documentation with same-repo, fork, and gating scenarios to make manual validation straightforward post-change.【F:docs/autofix_type_hygiene.md†L82-L116】
