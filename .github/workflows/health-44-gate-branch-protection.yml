@@ -49,7 +49,7 @@ jobs:
         run: |
           if [ -z "${ENFORCE_TOKEN}" ]; then
             echo "BRANCH_PROTECTION_TOKEN is not configured; enforcement step will be skipped."
-            echo "The verification step will still fail if Gate is not required on the default branch."
+            echo "The verification step will still fail if Gate or Agents Guard is not required on the default branch."
           else
             echo "BRANCH_PROTECTION_TOKEN detected; enforcement step will run before verification."
           fi
@@ -92,7 +92,7 @@ jobs:
         if: env.ENFORCE_TOKEN == ''
         run: |
           cat <<'EOF' >> "$GITHUB_STEP_SUMMARY"
-          ### Gate branch protection (observer mode)
+          ### Gate & Agents Guard branch protection (observer mode)
           - `BRANCH_PROTECTION_TOKEN` is not configured; Health-44 cannot enforce the rule automatically.
           - Configure `BRANCH_PROTECTION_TOKEN` with an admin-scoped token, then re-run this workflow to enable `--require-strict` verification.
           - Manual fallback: `python tools/enforce_gate_branch_protection.py --repo $GITHUB_REPOSITORY --branch $DEFAULT_BRANCH_NAME --require-strict --check`.

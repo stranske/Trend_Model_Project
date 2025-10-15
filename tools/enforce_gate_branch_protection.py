@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Ensure the default branch requires the Gate workflow."""
+"""Ensure the default branch requires the Gate and Agents Guard workflows."""
 
 from __future__ import annotations
 
@@ -26,7 +26,10 @@ def resolve_api_root(explicit: str | None = None) -> str:
     return candidate.rstrip("/")
 
 
-DEFAULT_CONTEXT = "Gate / gate"
+DEFAULT_CONTEXTS = (
+    "Gate / gate",
+    "Health 45 Agents Guard / Enforce agents workflow protections",
+)
 
 
 class BranchProtectionError(RuntimeError):
@@ -217,7 +220,7 @@ def bootstrap_branch_protection(
 
 def parse_contexts(values: Iterable[str] | None) -> List[str]:
     if not values:
-        return [DEFAULT_CONTEXT]
+        return list(DEFAULT_CONTEXTS)
     cleaned: List[str] = []
     for value in values:
         candidate = value.strip()
@@ -225,7 +228,7 @@ def parse_contexts(values: Iterable[str] | None) -> List[str]:
             continue
         cleaned.append(candidate)
     if not cleaned:
-        return [DEFAULT_CONTEXT]
+        return list(DEFAULT_CONTEXTS)
     # Preserve duplicates to highlight mistakes during diffing; dedupe later.
     return cleaned
 
@@ -275,7 +278,10 @@ def diff_contexts(
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Ensure the default branch requires the Gate workflow status check.",
+        description=(
+            "Ensure the default branch requires the Gate and Agents Guard workflow"
+            " status checks."
+        ),
     )
     parser.add_argument(
         "--repo",
@@ -291,7 +297,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--context",
         dest="contexts",
         action="append",
-        help="Status check context to require. May be passed multiple times. Defaults to 'Gate / gate'.",
+        help=(
+            "Status check context to require. May be passed multiple times. Defaults to"
+            " 'Gate / gate' and 'Health 45 Agents Guard / Enforce agents workflow"
+            " protections'."
+        ),
     )
     parser.add_argument(
         "--token",
