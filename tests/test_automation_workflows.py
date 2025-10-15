@@ -224,8 +224,8 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
 
         self.assertIn("const marker = '<!-- gate-docs-only -->';", script)
         self.assertIn("comment.body.includes(marker)", script)
-        self.assertIn("body: `${marker}\\n${message}`", script)
-        self.assertIn(".addRaw(`${message}\\n`)", script)
+        self.assertIn(r"body: `${marker}\n${message}`", script)
+        self.assertIn(r".addRaw(`${message}\n`)", script)
         self.assertIn("await core.summary", script)
         self.assertIn("core.setOutput('description', message);", script)
 
