@@ -97,7 +97,12 @@ jobs:
               // This avoids requiring external modules (e.g. @octokit/rest) which may not be
               // available in the action runtime and would cause an unhandled exception.
               try {
-                const resp = await github.rest.repos.getBranchProtection({ owner, repo, branch: defaultBranch });
+                const resp = await github.rest.repos.getBranchProtection({
+                  owner,
+                  repo,
+                  branch: defaultBranch,
+                  ...(serviceBotPat ? { headers: { authorization: `token ${serviceBotPat}` } } : {})
+                });
                 // resp.status is not always present on the returned object; treat success as configured
                 branchStatus = 'enabled';
                 branchNote = `Branch protection is configured for ${defaultBranch}.`;
