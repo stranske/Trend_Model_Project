@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Ensure the default branch requires the Gate and agents guard workflows."""
+"""Ensure the default branch requires the Gate and Agents Guard workflows."""
 
 from __future__ import annotations
 
