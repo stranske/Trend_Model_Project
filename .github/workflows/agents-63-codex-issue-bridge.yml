@@ -1,3 +1,4 @@
+# See docs/ci/AGENTS_POLICY.md for guardrails and override process.
 name: Agents 63 Codex Issue Bridge
 
 on:
