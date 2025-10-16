@@ -59,6 +59,29 @@ When you first land on the project:
    specifics (inputs, permissions, job layout) once you know which surface you
    are touching.
 
+### Onboarding checklist (save for future you)
+
+Run through this sequence when you are new to the automation surface or when you
+return after a break:
+
+1. **Bookmark the [Agents Workflow Protection Policy](./AGENTS_POLICY.md)** so
+   you can confirm label and review requirements before touching protected
+   workflows. The checklist below assumes you have read that policy once.
+2. **Open the latest [Gate run](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml)** and skim the
+   Summary tab. It shows which reusable jobs fire for typical PRs and highlights
+   the docs-only path so you know what to expect for lightweight changes.
+3. **Review the most recent [Maint 46 Post CI run](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-46-post-ci.yml)**
+   to see how post-merge hygiene is reported. Treat that summary comment as the
+   canonical “state of CI” dashboard after every merge.
+4. **Practice finding the agents guardrails** by visiting the
+   [Agents Critical Guard history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-critical-guard.yml)
+   and reading a recent run summary. It confirms how the label and review gates
+   manifest in CI when protected files change.
+5. **Walk through a dry-run change**: open this document, the Workflow Catalog,
+   and the policy side by side. Trace how you would update a workflow safely and
+   which checks would block an unsafe edit. Doing this once keeps the guardrails
+   fresh when you work on the real issue queue.
+
 ### Scenario cheat sheet
 
 The table below is the canonical source of truth, but these quick scenarios
