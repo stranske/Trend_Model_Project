@@ -33,6 +33,7 @@ jobs:
           script: |
             const path = require('path');
             const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
+            console.log('debug-guard: workspace', workspace);
             const { evaluateGuard } = require(path.resolve(workspace, '.github/scripts/health-45-guard.js'));
 
             const marker = '<!-- health-45-agents-guard -->';
