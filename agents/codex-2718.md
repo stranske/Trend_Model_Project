@@ -1,1 +1,1 @@
-<!-- bootstrap for codex on issue #2718 -->
+<!-- bootstrap for Codex on issue #2718 -->
