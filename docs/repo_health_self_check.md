@@ -40,6 +40,16 @@ Each section expands into a table with the specific branches or issues. When
 more than 20 entries exist, the summary notes how many were omitted so you know
 whether further cleanup is required.
 
+## Outputs
+
+- **Workflow summary** — The run log records the Markdown summary shown above.
+- **JSON artifact** — `repo-health-summary.json` captures the raw check payload
+  (timestamps, branch status, label findings) for scripting or audit trails.
+- **Optional PR checklist** — When the workflow is dispatched with
+  `pull_request_number`, it posts or updates a comment containing the summary
+  and a “How to fix” checklist. The checklist automatically marks the run green
+  when only warnings remain.
+
 ## Tuning the sweep
 
 The workflow reads the optional repository variable `REPO_HEALTH_STALE_BRANCH_DAYS`
