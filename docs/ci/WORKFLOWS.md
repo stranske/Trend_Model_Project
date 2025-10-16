@@ -80,7 +80,7 @@ flowchart TD
 | Workflow | File | Trigger(s) | Permissions | Required? | Purpose |
 | --- | --- | --- | --- | --- | --- |
 | **Selftest 81 Reusable CI** | `.github/workflows/selftest-81-reusable-ci.yml` | `workflow_dispatch`, `workflow_call` | `contents: read`, `actions: read` | No | Reusable CI matrix exerciser that exposes verification outputs for downstream consumers and manual runs. |
-| **Selftest Runner** | `.github/workflows/selftest-runner.yml` | `workflow_dispatch` | `contents: read`, `actions: read`, `pull-requests: write` | No | Parameterised manual entry point for the reusable matrix (modes: summary, comment, dual-runtime) with optional PR comment output and artifact downloads. |
+| **Selftest Runner** | `.github/workflows/selftest-runner.yml` | `workflow_dispatch` | `contents: read`, `actions: read`, `pull-requests: write` | No | Parameterised manual entry point for the reusable matrix (modes: summary, comment, dual-runtime) with optional PR comment output, artifact downloads, and overrides for comment/summary titles. |
 
 When running the consolidated runner choose a `mode` (`summary`, `comment`, or `dual-runtime`) and pair it with the desired
 `post_to` target. Comment mode requires setting `post_to: pr-number` and providing `pull_request_number`; the workflow validates
@@ -298,7 +298,7 @@ Manual-only status means maintainers should review the Actions list during that 
 | Workflow | Notes |
 |----------|-------|
 | `selftest-81-reusable-ci.yml` (`Selftest 81 Reusable CI`) | Core reusable self-test matrix. Available both for manual dispatch and as a `workflow_call` target for the consolidated runner. |
-| `selftest-runner.yml` (`Selftest Runner`) | Single manual wrapper that toggles summary vs PR comment output and the Python version matrix via `mode` inputs. |
+| `selftest-runner.yml` (`Selftest Runner`) | Single manual wrapper that toggles summary vs PR comment output and the Python version matrix via `mode` inputs. Optional fields (`pull_request_number`, `summary_title`, `comment_title`, `reason`) fine-tune comment delivery and run summaries. |
 
 > Self-test workflows are reference exercises for maintainers. They are quiet by design—trigger them via `workflow_dispatch` (or, for wrappers, specify the PR number/inputs) whenever you need a fresh artifact inventory check or to validate reusable CI changes. Expect no automated executions in the Actions history.
 

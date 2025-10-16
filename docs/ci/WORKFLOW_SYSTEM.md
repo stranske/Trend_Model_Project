@@ -39,7 +39,10 @@
   - `mode`: `summary`, `comment`, or `dual-runtime` (controls reporting surface and Python matrix).
   - `post_to`: `pr-number` or `none` (comment target when `mode == comment`).
   - `enable_history`: `true` or `false` (download the verification artifact for local inspection).
-  - Optional niceties for comment/summary titles plus the dispatch reason.
+  - Optional niceties:
+    - `pull_request_number`: required only when `mode == comment` and `post_to == pr-number`.
+    - `summary_title` / `comment_title`: override headings for the workflow summary and PR comment.
+    - `reason`: free-form dispatch rationale recorded in the run summary and comment output.
 
 ## Policy
 
