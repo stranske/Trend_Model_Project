@@ -278,7 +278,7 @@ def diff_contexts(
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Ensure the default branch requires the Gate workflow status check.",
+        description="Ensure the default branch requires the Gate and Health 45 Agents Guard status checks.",
     )
     parser.add_argument(
         "--repo",
