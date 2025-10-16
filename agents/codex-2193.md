@@ -2,7 +2,7 @@
 
 # Issue #2193 – Self-Test Workflow Consolidation
 
-> _Update 2026-11-04:_ Subsequent consolidation (Issue #2651) replaced the `maint-90`/`reusable-99` pair with `selftest-81-reusable-ci.yml` plus the `selftest-runner.yml` entry point. The notes below remain for historical tracking of the earlier migration.
+> _Update 2026-11-04:_ Subsequent consolidation (Issue #2651) replaced the `maint-90`/`reusable-99` pair with `selftest-81-reusable-ci.yml` plus the `selftest-runner.yml` entry point. _Update 2027-02:_ The reusable matrix now lives directly in `selftest-runner.yml`; references to `selftest-81-reusable-ci.yml` are historical.
 
 ## Scope
 - Remove legacy self-test callers (`selftest-82-pr-comment.yml`, `maint-43-*.yml`, `maint-44-*.yml`, `maint-48-*.yml`, `selftest-80-pr-comment.yml`).

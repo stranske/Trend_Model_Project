@@ -7,8 +7,8 @@ workflows required by the trimmed automation surface.
 
 ## Current State
 - Four reusable workflows remain (`reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-18-autofix.yml`,
-  `reusable-16-agents.yml`). The reusable CI matrix is exposed through `selftest-81-reusable-ci.yml`, which now supports
-  `workflow_call` so the consolidated runner (`selftest-runner.yml`) can reuse it without duplicating logic.
+  `reusable-16-agents.yml`). The reusable CI matrix is now hosted directly inside `selftest-runner.yml`, eliminating
+  the extra wrapper layer while preserving manual dispatch controls.
 - Visible workflows in the Actions tab were reduced to the final set documented in `docs/ci/WORKFLOW_SYSTEM.md` and `docs/ci/WORKFLOWS.md`.
 - All auxiliary wrappers (gate orchestrators, labelers, watchdog forwards, etc.) were deleted, with `agents-63-codex-issue-bridge.yml` later reinstated to restore label-driven Codex automation.
 
@@ -16,7 +16,7 @@ workflows required by the trimmed automation surface.
 | Area | Action |
 |------|--------|
 | Agent automation | Removed `agents-41*`, `agents-42-watchdog.yml`, `agents-44-copilot-readiness.yml`, and `agents-45-verify-codex-bootstrap-matrix.yml`; consolidated around `agents-70-orchestrator.yml` + `reusable-16-agents.yml`, then reinstated `agents-63-codex-issue-bridge.yml` to preserve label-driven Codex bootstraps.
-| Maintenance | Deleted legacy hygiene/self-test workflows (`maint-31`, `maint-34`, `maint-37`, `maint-38`, `maint-43`, `maint-44`, `maint-45`, `maint-48`, `maint-49`, `maint-52`, `maint-60`) and, after consolidation, replaced the manual `selftest-8X-*` wrappers with the single `selftest-runner.yml` entry point delegating to `selftest-81-reusable-ci.yml`. `agents-63-chatgpt-issue-sync.yml` was later reinstated (2025-10-07) to preserve issue fan-out from curated topic lists and is now guarded by tests. |
+| Maintenance | Deleted legacy hygiene/self-test workflows (`maint-31`, `maint-34`, `maint-37`, `maint-38`, `maint-43`, `maint-44`, `maint-45`, `maint-48`, `maint-49`, `maint-52`, `maint-60`) and, after consolidation, replaced the manual `selftest-8X-*` wrappers with the single `selftest-runner.yml` entry point that now embeds the verification matrix. `agents-63-chatgpt-issue-sync.yml` was later reinstated (2025-10-07) to preserve issue fan-out from curated topic lists and is now guarded by tests. |
 | PR checks | Removed auxiliary PR workflows (gate orchestrator, labeler, workflow lint, CodeQL, dependency review, path labeler) to align with the two final checks.
 
 ## Follow-Up Guardrails
@@ -25,8 +25,8 @@ workflows required by the trimmed automation surface.
 - `docs/ci/WORKFLOWS.md` is the authoritative description of the remaining automation footprint.
 
 ## Future Considerations
-1. The legacy `maint-90-selftest.yml` schedule is retired; dispatch `selftest-runner.yml` (or `selftest-81-reusable-ci.yml`
-   directly) when reusable CI verification is needed.
+1. The legacy `maint-90-selftest.yml` schedule is retired; dispatch `selftest-runner.yml`
+   when reusable CI verification is needed.
 2. Revisit CodeQL or dependency review if security tooling is reintroduced in a dedicated follow-up issue.
 3. Validate external consumers when adjusting inputs on `reusable-10-ci-python.yml` or `reusable-12-ci-docker.yml`.
 

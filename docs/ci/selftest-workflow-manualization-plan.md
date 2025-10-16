@@ -9,7 +9,7 @@
 
 ## Acceptance Criteria / Definition of Done
 1. All self-test workflow files trigger exclusively via `workflow_dispatch` and contain no other event triggers or schedules.
-2. Duplicate or obsolete self-test workflows are removed, with the authoritative set now reduced to `selftest-81-reusable-ci.yml` plus the consolidated `selftest-runner.yml` entry point (superseding the earlier `selftest-8X-*` wrappers from Issue #2496).
+2. Duplicate or obsolete self-test workflows are removed, with the authoritative set now reduced to the consolidated `selftest-runner.yml` entry point (superseding the earlier `selftest-8X-*` wrappers from Issue #2496).
 3. Documentation describing CI workflows (at minimum `docs/ci/WORKFLOWS.md`) includes a note clarifying self-tests are manual examples and not part of automated CI.
 4. Repository search confirms no lingering references to deleted self-test workflows or to automated triggers for self-tests.
 5. Required checks (notably `pr-00-gate`) succeed after the workflow adjustments, demonstrating no unintended CI regressions.

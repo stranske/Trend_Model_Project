@@ -1,5 +1,10 @@
 # Selftest 81 Reusable CI Workflow Plan
 
+> **2027-02 Update:** The standalone `selftest-81-reusable-ci.yml` workflow has
+> been retired. The scenario matrix and aggregation logic now live directly in
+> `selftest-runner.yml`. This document is preserved for historical reference in
+> case earlier implementation notes are required when reviewing prior commits.
+
 ## Scope and Key Constraints
 - Replace step-level `uses` invocations in `.github/workflows/selftest-81-reusable-ci.yml` with job-level `jobs.<id>.uses` calls targeting `.github/workflows/reusable-10-ci-python.yml`.
 - Preserve the workflow's opt-in nature (manual `workflow_dispatch` and/or label trigger) while keeping existing inputs or labels functional.
