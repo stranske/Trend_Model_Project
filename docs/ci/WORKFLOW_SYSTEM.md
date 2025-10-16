@@ -27,6 +27,53 @@ Maintenance & repo health ──► Issue / agents automation
 Gate opens the door, reusable CI fans out the heavy lifting, maintenance keeps
 the surface polished, and the agents stack orchestrates follow-up work.
 
+> 📌 **Where this document fits.** The `README.md` “CI automation orientation”
+> call-out and the opening section of `CONTRIBUTING.md` both point here as the
+> canonical map of what runs where. Keep this guide side by side with
+> [AGENTS_POLICY.md](./AGENTS_POLICY.md) whenever you are evaluating workflow
+> edits—the policy spells out the guardrails, while this page traces the
+> topology those guardrails protect.
+
+> 🧾 **One-minute orientation.**
+> - Glance at [Topology at a glance](#topology-at-a-glance) to map the four
+>   automation buckets to their YAML entry points and understand why each
+>   surface exists.
+> - Use the [Bucket quick reference](#bucket-quick-reference) or
+>   [Workflow summary table](#workflow-summary-table) when you need the
+>   trigger/purpose/required matrix for a review or incident response.
+> - Keep [How to change a workflow safely](#how-to-change-a-workflow-safely)
+>   open next to [AGENTS_POLICY.md](./AGENTS_POLICY.md) before editing any
+>   workflow so you never bypass the guardrails.
+
+> 🧭 **Use this map to stay oriented.**
+> - Start with the [quick orientation](#quick-orientation-for-new-contributors)
+>   checklist when you are new or returning so you know which buckets will
+>   react to your work.
+> - Reference the [workflow summary table](#workflow-summary-table) for
+>   triggers, required signals, and log links before you brief a reviewer or
+>   rerun a check manually.
+> - Follow [How to change a workflow safely](#how-to-change-a-workflow-safely)
+>   alongside [AGENTS_POLICY.md](./AGENTS_POLICY.md) whenever you update
+>   `.github/workflows/` so you never bypass the guardrails.
+
+### Contents
+
+- [Quick orientation for new contributors](#quick-orientation-for-new-contributors)
+- [Onboarding checklist (save for future you)](#onboarding-checklist-save-for-future-you)
+- [Scenario cheat sheet](#scenario-cheat-sheet)
+- [Bucket quick reference](#bucket-quick-reference)
+- [Bucket guardrails at a glance](#bucket-guardrails-at-a-glance)
+- [Observability surfaces by bucket](#observability-surfaces-by-bucket)
+- [Topology at a glance](#topology-at-a-glance)
+- [Buckets and canonical workflows](#buckets-and-canonical-workflows)
+- [Lifecycle example: from pull request to follow-up automation](#lifecycle-example-from-pull-request-to-follow-up-automation)
+- [Workflow summary table](#workflow-summary-table)
+- [Policy](#policy)
+- [Final topology (keep vs retire)](#final-topology-keep-vs-retire)
+- [How to change a workflow safely](#how-to-change-a-workflow-safely)
+- [Verification checklist](#verification-checklist)
+- [Branch protection playbook](#branch-protection-playbook)
+
 ### How the buckets interact in practice
 
 - **Gate and PR 02 Autofix** are the first responders on every pull request.
@@ -51,7 +98,13 @@ When you first land on the project:
    request or scheduled automation.
 2. **Use the workflow summary table** as the canonical source for triggers,
    required status, and log links when you need to confirm behaviour or share a
-   run with reviewers.
+   run with reviewers. Pair it with the
+   [observability surfaces](#observability-surfaces-by-bucket) section to grab
+   the exact permalink or artifact bundle you need for status updates. If you
+   need to know which rules you must follow before editing a YAML file, jump
+   straight to [Bucket guardrails at a glance](#bucket-guardrails-at-a-glance)
+   for the enforcement summary, then finish the deep dive in
+   [How to change a workflow safely](#how-to-change-a-workflow-safely).
 3. **Review [How to change a workflow safely](#how-to-change-a-workflow-safely)**
    before editing any YAML. It enumerates the guardrails, labels, and approval
    steps you must follow.
@@ -90,15 +143,57 @@ highlight the most common entry points:
 - **Opening or updating a feature PR?** Expect the [PR checks bucket](#pr-checks-gate--autofix)
   (Gate + optional Autofix) to run automatically and to fan out into the
   reusable CI topology.
+- **Gate is red on your PR?** Expand the Gate summary comment to spot the
+  failing lane, then open the linked workflow run. The reusable jobs expose a
+  dedicated "Reusable CI" job section; download the attached artifact when
+  Gate mentions one so you can compare the logs locally before re-running the
+  check.
 - **Investigating a nightly or weekend regression?** Start with the
   [Maintenance & repo health](#maintenance--repo-health) workflows—they collect
   the scheduled hygiene runs and post-merge follow-ups.
+- **Maint 46 Post CI flagged drift?** Follow the summary comment back to the
+  workflow run, review the uploaded artifact bundle, and check the linked
+  follow-up issue before you retry. Maint 46 only exits green when both the
+  reusable CI fan-out and the hygiene sweep succeed.
 - **Working on labelled agent issues or Codex escalations?** Review the
   [Issue / agents automation](#issue--agents-automation) guardrails so you know
   which workflows dispatch work and which checks must stay green.
 - **Editing YAML under `.github/workflows/`?** Read [How to change a workflow
   safely](#how-to-change-a-workflow-safely) before committing; it lists the
   approvals, labels, and verification steps Gate will enforce.
+- **Need to run lint, type checking, or container tests by hand?** Use the
+  [Error checking, linting, and testing topology](#error-checking-linting-and-testing-topology)
+  section to find the reusable entry points and confirm which callers already
+  exercise the matrix.
+
+### Lifecycle example: from pull request to follow-up automation
+
+This happy-path walk-through shows how the four buckets hand work to one another
+and where to watch the result:
+
+1. **Developer opens or updates a pull request.** Gate (`pr-00-gate.yml`) runs
+   immediately, detects whether the diff is docs-only, and—when code changed—
+   calls the reusable lint/test topology. You can watch progress in the
+   [Gate workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml)
+   and follow the linked reusable job logs from the Checks tab.
+2. **Autofix (optional).** If reviewers add the `autofix` label, the PR 02
+   Autofix workflow runs fixers via the reusable autofix entry point. Its logs
+   show up under the same pull request for easy comparison with Gate.
+3. **Merge lands on the default branch.** Maint 46 Post CI triggers from the
+   Gate success signal, aggregates artifacts, and applies any low-risk cleanup.
+   Scheduled maintenance jobs (Maint 45 and Health 40–45) continue to run on
+   their cadence even when no one is watching, keeping the repo healthy.
+4. **Issue and agents automation picks up queued work.** Labelled issues flow
+   through the Agents 63 bridges into the Agents 70 orchestrator, which may in
+   turn call the reusable agents topology or kick additional verification jobs
+   such as the Agents Critical Guard.
+5. **Manual investigations reuse the topology.** When contributors need to
+   rerun linting, typing, or container checks locally, they can dispatch the
+   `selftest-runner.yml` workflow or call the reusable CI entries directly,
+   guaranteeing they exercise the same matrix Gate and Maint 46 rely on.
+
+Revisit this sequence whenever you need to explain the automation lifecycle to
+new contributors or track down where a particular check originated.
 
 ### Bucket quick reference
 
@@ -152,6 +247,59 @@ fires where” without diving into the full tables:
     [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/reusable-12-ci-docker.yml).
     Self-test runner:
     [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/selftest-runner.yml).
+
+### Bucket guardrails at a glance
+
+Use this table when you need a snapshot of the non-negotiable rules that govern
+each automation surface. Every line links back to the policy or workflow that
+enforces the guardrail so you know where to confirm compliance:
+
+| Bucket | Guardrails you must respect | Where it is enforced |
+| --- | --- | --- |
+| PR checks | Gate is required on every PR; docs-only detection happens inside Gate; Autofix is label-gated and cancels duplicates so it never races Maint 46. | Gate workflow protection + [branch protection](#branch-protection-playbook) keep the check mandatory. |
+| Maintenance & repo health | Maint 46 only runs after Gate succeeds; Health 40–45 must stay enabled so the default branch keeps its heartbeat; Maint 45 is manual and should only be dispatched by maintainers. | Maint 46 summary comment, Health dashboard history, and Maint 45 run permissions. |
+| Issue / agents automation | `agents:allow-change` label, Code Owner review, and Agents Critical Guard are mandatory before protected YAML merges; orchestrator dispatch only accepts labelled issues. | [Agents Workflow Protection Policy](./AGENTS_POLICY.md), Agents Critical Guard, and repository label configuration. |
+| Error checking, linting, and testing topology | Reusable workflows run with signed references; callers must not fork or bypass them; self-test runner is manual and should mirror Gate’s matrix. | Health 42 Actionlint, Health 43 signature guard, and the reusable workflow permissions matrix. |
+
+### Observability surfaces by bucket
+
+Think of these run histories, dashboards, and artifacts as the canonical places
+to verify that automation worked—or to capture a permalink for post-mortems and
+status updates:
+
+- **PR checks**
+  - *Gate summary comment.* Appears automatically on every pull request and is
+    the first line of evidence when a contributor wants to share status.
+  - *Gate workflow run.* The Checks tab links to
+    [pr-00-gate.yml history](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml),
+    which exposes reusable job logs and uploaded artifacts for failing runs.
+  - *Autofix artifacts.* When the `autofix` label is applied, the workflow
+    uploads the formatted patch or commit diff for reviewers to inspect before
+    merging.
+- **Maintenance & repo health**
+  - *Maint 46 comment and artifact bundle.* Each run posts a consolidated
+    summary with links to artifacts, making it easy to confirm that post-merge
+    hygiene completed.
+  - *Health 40–45 dashboards.* The Actions list filtered by `workflow:Health`
+    serves as the heartbeat for scheduled enforcement jobs. Failures here are a
+    red flag that branch protection or guardrails drifted.
+- **Issue / agents automation**
+  - *Agents 70 orchestrator timeline.* The orchestrator’s
+    [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-70-orchestrator.yml)
+    reveals downstream dispatch history and the inputs supplied by labelled
+    issues.
+  - *Agents Critical Guard status.* Inspect
+    [agents-critical-guard.yml](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-critical-guard.yml)
+    whenever a protected YAML edit lands; it should be green before merge.
+  - *Agents 63 bridge logs.* These runs attach trace logs showing which issues
+    were synced or bootstrapped, invaluable when debugging missed escalations.
+- **Error checking, linting, and testing topology**
+  - *Reusable job logs.* Because the reusable workflows emit job-level logs for
+    each caller, you can open the workflow run from Gate or Maint 46 and expand
+    the “Reusable CI” job to see the full lint/test output.
+  - *Self-test runner summary artifact.* Manual dispatch uploads an artifact
+    containing the combined test report so local reproductions can be compared
+    against CI output.
 
 ## Topology at a glance
 
@@ -232,6 +380,8 @@ Keep this table handy when you are triaging automation: it confirms which workfl
     to override the default matrix).
 
 ## Workflow summary table
+
+**Legend.** `✅` means the workflow must succeed before the associated change can merge; `⚪` covers opt-in, scheduled, or manual automation that supplements the required guardrails.
 
 | Workflow | Trigger | Purpose | Required? | Artifacts / logs |
 | --- | --- | --- | --- | --- |
