@@ -123,7 +123,8 @@ jobs:
                   core.warning(branchNote);
                 } else {
                   branchStatus = 'error';
-                  branchNote = `Branch protection check failed: ${error && (error.message || String(error))}`;
+                  const msg = error?.response?.data?.message || error?.message || String(error);
+                  branchNote = `Branch protection check failed${status ? ` (status ${status})` : ''}: ${msg}`;
                   core.warning(branchNote);
                 }
                 // Preserve a textual fetch/error note for downstream reporting
