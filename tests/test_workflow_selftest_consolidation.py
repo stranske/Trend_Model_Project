@@ -94,10 +94,11 @@ def test_selftest_runner_inputs_cover_variants() -> None:
     ), "pull_request_number must remain optional to reuse comment mode outside PRs."
 
     jobs = data.get("jobs", {})
-    run_matrix = jobs.get("run-matrix") or {}
+    scenario_job = jobs.get("scenario") or {}
+    assert scenario_job, "selftest-runner.yml must declare the scenario job."
     assert (
-        run_matrix.get("uses") == "./.github/workflows/selftest-81-reusable-ci.yml"
-    ), "Runner should delegate execution to selftest-81-reusable-ci.yml."
+        scenario_job.get("uses") == "./.github/workflows/reusable-10-ci-python.yml"
+    ), "Runner should delegate execution to reusable-10-ci-python.yml."
 
 
 def test_selftest_runner_publish_job_contract() -> None:
