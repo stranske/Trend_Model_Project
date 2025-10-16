@@ -35,6 +35,7 @@ the surface polished, and the agents stack orchestrates follow-up work.
 - [Bucket quick reference](#bucket-quick-reference)
 - [Topology at a glance](#topology-at-a-glance)
 - [Buckets and canonical workflows](#buckets-and-canonical-workflows)
+- [Lifecycle example: from pull request to follow-up automation](#lifecycle-example-from-pull-request-to-follow-up-automation)
 - [Workflow summary table](#workflow-summary-table)
 - [Policy](#policy)
 - [Final topology (keep vs retire)](#final-topology-keep-vs-retire)
@@ -118,6 +119,35 @@ highlight the most common entry points:
   [Error checking, linting, and testing topology](#error-checking-linting-and-testing-topology)
   section to find the reusable entry points and confirm which callers already
   exercise the matrix.
+
+### Lifecycle example: from pull request to follow-up automation
+
+This happy-path walk-through shows how the four buckets hand work to one another
+and where to watch the result:
+
+1. **Developer opens or updates a pull request.** Gate (`pr-00-gate.yml`) runs
+   immediately, detects whether the diff is docs-only, and—when code changed—
+   calls the reusable lint/test topology. You can watch progress in the
+   [Gate workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml)
+   and follow the linked reusable job logs from the Checks tab.
+2. **Autofix (optional).** If reviewers add the `autofix` label, the PR 02
+   Autofix workflow runs fixers via the reusable autofix entry point. Its logs
+   show up under the same pull request for easy comparison with Gate.
+3. **Merge lands on the default branch.** Maint 46 Post CI triggers from the
+   Gate success signal, aggregates artifacts, and applies any low-risk cleanup.
+   Scheduled maintenance jobs (Maint 45 and Health 40–45) continue to run on
+   their cadence even when no one is watching, keeping the repo healthy.
+4. **Issue and agents automation picks up queued work.** Labelled issues flow
+   through the Agents 63 bridges into the Agents 70 orchestrator, which may in
+   turn call the reusable agents topology or kick additional verification jobs
+   such as the Agents Critical Guard.
+5. **Manual investigations reuse the topology.** When contributors need to
+   rerun linting, typing, or container checks locally, they can dispatch the
+   `selftest-runner.yml` workflow or call the reusable CI entries directly,
+   guaranteeing they exercise the same matrix Gate and Maint 46 rely on.
+
+Revisit this sequence whenever you need to explain the automation lifecycle to
+new contributors or track down where a particular check originated.
 
 ### Bucket quick reference
 
