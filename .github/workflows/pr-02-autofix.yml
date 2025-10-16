@@ -1,3 +1,4 @@
+---
 name: PR 02 Autofix
 
 on:
@@ -10,22 +11,59 @@ on:
       - labeled
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
+  pull-requests: read
+
+env:
+  AUTOFIX_OPT_IN_LABEL: ${{ vars.AUTOFIX_OPT_IN_LABEL != '' && vars.AUTOFIX_OPT_IN_LABEL || 'autofix' }}
 
 concurrency:
   group: pr-02-autofix-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 jobs:
+  label_gate:
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.evaluate.outputs.enabled }}
+      label: ${{ steps.evaluate.outputs.label }}
+    steps:
+      - name: Evaluate label gate
+        id: evaluate
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const label = process.env.AUTOFIX_OPT_IN_LABEL || 'autofix';
+            const payload = context.payload || {};
+            const pr = payload.pull_request;
+            const labels = pr?.labels || [];
+            const hasLabel = labels.some(labelObj => (labelObj?.name || '') === label);
+            const triggeredByLabel = payload.action === 'labeled' && (payload.label?.name || '') === label;
+            const enabled = Boolean(hasLabel || triggeredByLabel);
+            core.setOutput('enabled', String(enabled));
+            core.setOutput('label', label);
+            if (!enabled) {
+              core.info(`Autofix label "${label}" not present; skipping run.`);
+            }
+        env:
+          AUTOFIX_OPT_IN_LABEL: ${{ env.AUTOFIX_OPT_IN_LABEL }}
+
   apply:
+    needs: label_gate
     if: >
-      contains(
-        github.event.pull_request.labels.*.name,
-        vars.AUTOFIX_OPT_IN_LABEL != '' && vars.AUTOFIX_OPT_IN_LABEL || 'autofix'
-      ) || (
-        github.event.action == 'labeled' &&
-        (github.event.label.name || '') == (vars.AUTOFIX_OPT_IN_LABEL != '' && vars.AUTOFIX_OPT_IN_LABEL || 'autofix')
-      )
+      github.event.pull_request != null && (
+        contains(
+          github.event.pull_request.labels.*.name,
+          vars.AUTOFIX_OPT_IN_LABEL != '' && vars.AUTOFIX_OPT_IN_LABEL || 'autofix'
+        ) || (
+          github.event.action == 'labeled' &&
+          (github.event.label.name || '') == (vars.AUTOFIX_OPT_IN_LABEL != '' && vars.AUTOFIX_OPT_IN_LABEL || 'autofix')
+        )
+      ) && needs.label_gate.outputs.enabled == 'true'
+    permissions:
+      contents: write
+      pull-requests: write
     uses: ./.github/workflows/reusable-18-autofix.yml
     secrets: inherit
+    with:
+      opt_in_label: ${{ needs.label_gate.outputs.label }}
