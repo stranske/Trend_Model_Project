@@ -4,12 +4,15 @@ on:
   schedule:
     - cron: '20 6 * * 1'
   workflow_dispatch:
+    inputs:
+      pull_request_number:
+        description: 'Optional PR to receive the repo health checklist comment'
+        required: false
+        type: string
 
 permissions:
   contents: read
   issues: write
-  pull-requests: read
-  actions: read
 
 jobs:
   repo-health:
@@ -44,6 +47,8 @@ jobs:
         with:
           github-token: ${{ steps.privileged-token.outputs.token || github.token }}
           script: |
+            const core = require('@actions/core');
+
             const { owner, repo } = context.repo;
             const requiredLabels = (process.env.REQUIRED_LABELS || '')
               .split(',')
@@ -64,6 +69,7 @@ jobs:
             }
 
             const missingLabels = [];
+            const labelErrors = [];
             for (const label of requiredLabels) {
               try {
                 await github.rest.issues.getLabel({ owner, repo, name: label });
@@ -71,7 +77,10 @@ jobs:
                 if (error.status === 404) {
                   missingLabels.push(label);
                 } else {
-                  throw error;
+                  const detail = error?.message || String(error);
+                  const message = `Label lookup failed for ${label}: ${detail}`;
+                  core.warning(message);
+                  labelErrors.push({ label, detail: message });
                 }
               }
             }
@@ -81,6 +90,7 @@ jobs:
             const serviceBotPat = (process.env.SERVICE_BOT_PAT || '').trim();
             let privilegedChecksUsed = false;
             let privilegedChecksSkipped = false;
+            let branchFetchError = null;
 
             const runPrivilegedCheck = async () => {
               const endpoint = `https://api.github.com/repos/${owner}/${repo}/branches/${defaultBranch}/protection`;
@@ -97,6 +107,7 @@ jobs:
                 branchStatus = 'error';
                 branchNote = `Branch protection check encountered a network error: ${error?.message || error}`;
                 core.warning(branchNote);
+                branchFetchError = branchNote;
                 return;
               }
 
@@ -130,6 +141,7 @@ jobs:
               const detail = await response.text();
               branchNote = `Branch protection check failed with status ${response.status}: ${detail}`;
               core.warning(branchNote);
+              branchFetchError = branchNote;
             };
 
             if (serviceBotPat) {
@@ -146,11 +158,20 @@ jobs:
               {
                 key: 'labels',
                 title: 'Label inventory',
-                status: missingLabels.length === 0 ? 'pass' : 'attention',
+                status: missingLabels.length === 0 && labelErrors.length === 0 ? 'pass' : 'warn',
                 detail:
-                  missingLabels.length === 0
+                  missingLabels.length === 0 && labelErrors.length === 0
                     ? 'All required labels are present.'
-                    : `Missing labels: ${missingLabels.join(', ')}`,
+                    : [
+                        missingLabels.length ? `Missing labels: ${missingLabels.join(', ')}` : null,
+                        labelErrors.length
+                          ? `Additional lookup warnings: ${labelErrors.map((entry) => `${entry.label}`).join(', ')}`
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' | '),
+                missingLabels,
+                labelErrors,
               },
               {
                 key: 'branch',
@@ -159,13 +180,15 @@ jobs:
                   branchStatus === 'enabled'
                     ? 'pass'
                     : branchStatus === 'missing'
-                    ? 'attention'
-                    : branchStatus === 'skipped'
-                    ? 'skipped'
-                    : branchStatus === 'error'
                     ? 'error'
-                    : 'warn',
+                    : branchStatus === 'skipped'
+                    ? 'warn'
+                    : branchStatus === 'error' || branchStatus === 'forbidden'
+                    ? 'warn'
+                    : 'info',
                 detail: branchNote,
+                branchStatus,
+                branchFetchError,
               },
               {
                 key: 'default-branch',
@@ -193,8 +216,12 @@ jobs:
             core.setOutput('privileged_checks_used', privilegedChecksUsed ? 'true' : 'false');
             core.setOutput('branch_protection_status', branchStatus);
             core.setOutput('branch_protection_note', branchNote);
+            core.setOutput('missing_labels', JSON.stringify(missingLabels));
+            core.setOutput('label_errors', JSON.stringify(labelErrors));
+            core.setOutput('branch_fetch_error', branchFetchError || '');
 
       - name: Aggregate & Summarize
+        id: aggregate
         env:
           CHECKS_JSON: ${{ steps.collect.outputs.checks }}
           TIMESTAMP: ${{ steps.collect.outputs.timestamp }}
@@ -203,6 +230,9 @@ jobs:
           PRIVILEGED_USED: ${{ steps.collect.outputs.privileged_checks_used }}
           BRANCH_STATUS: ${{ steps.collect.outputs.branch_protection_status }}
           BRANCH_NOTE: ${{ steps.collect.outputs.branch_protection_note }}
+          MISSING_LABELS: ${{ steps.collect.outputs.missing_labels }}
+          LABEL_ERRORS: ${{ steps.collect.outputs.label_errors }}
+          BRANCH_FETCH_ERROR: ${{ steps.collect.outputs.branch_fetch_error }}
         run: |
           python - <<'PY'
           import json
@@ -215,10 +245,12 @@ jobs:
           privileged_used = (os.environ.get('PRIVILEGED_USED') or '').lower() == 'true'
           branch_status = (os.environ.get('BRANCH_STATUS') or '').strip()
           branch_note = os.environ.get('BRANCH_NOTE') or ''
+          missing_labels = json.loads(os.environ.get('MISSING_LABELS') or '[]')
+          label_errors = json.loads(os.environ.get('LABEL_ERRORS') or '[]')
+          branch_fetch_error = os.environ.get('BRANCH_FETCH_ERROR') or ''
 
           status_labels = {
               'pass': '✅ Pass',
-              'attention': '⚠️ Needs attention',
               'warn': '⚠️ Warning',
               'info': 'ℹ️ Info',
               'skipped': '⏭️ Skipped',
@@ -266,4 +298,135 @@ jobs:
           summary_path = os.environ['GITHUB_STEP_SUMMARY']
           with open(summary_path, 'a', encoding='utf-8') as handle:
               handle.write(output)
+
+          report = {
+              'timestamp': timestamp,
+              'default_branch': default_branch,
+              'checks': checks,
+              'privileged_checks': {
+                  'skipped': privileged_skipped,
+                  'used': privileged_used,
+                  'status': branch_status,
+                  'note': branch_note,
+                  'fetch_error': branch_fetch_error,
+              },
+          }
+
+          with open('repo-health-summary.json', 'w', encoding='utf-8') as handle:
+              json.dump(report, handle, indent=2)
+
+          warning_statuses = {'warn'}
+          error_statuses = {'error'}
+          findings = [check for check in checks if check.get('status') in warning_statuses | error_statuses]
+          error_findings = [check for check in checks if check.get('status') in error_statuses]
+
+          fix_items = []
+          if any(check.get('key') == 'labels' for check in findings):
+              if missing_labels:
+                  fix_items.append(f"- [ ] Create the missing labels: {', '.join(sorted(missing_labels))}.")
+              if label_errors:
+                  fix_items.append('- [ ] Re-run after resolving label API warnings (check token permissions).')
+          if any(check.get('key') == 'branch' for check in findings):
+              if branch_status == 'missing':
+                  fix_items.append(f"- [ ] Enable branch protection on `{default_branch}`.")
+              elif branch_status in {'error', 'forbidden', 'skipped'}:
+                  fix_items.append('- [ ] Restore branch protection visibility (configure SERVICE_BOT_PAT or retry later).')
+
+          if not fix_items:
+              fix_items.append('- [x] No action required — repo health checks are green.')
+
+          comment_sections = [
+              '## Repo health self-check',
+              f'*Run timestamp:* `{timestamp}`' if timestamp else None,
+              f'*Default branch:* `{default_branch}`' if default_branch else None,
+              '',
+              '### Checks',
+              '| Check | Status | Details |',
+              '| --- | --- | --- |',
+          ]
+
+          for check in checks:
+              title = check.get('title', 'Unknown')
+              status = status_labels.get(check.get('status', 'info'), check.get('status', 'info'))
+              detail = (
+                  check.get('detail', '')
+                  .replace('|', '\\|')
+                  .replace('\n', '<br>')
+              )
+              comment_sections.append(f'| {title} | {status} | {detail or ""} |')
+
+          comment_sections.extend([
+              '',
+              '### How to fix',
+              *fix_items,
+          ])
+
+          comment_body = '\n'.join(filter(lambda block: block is not None, comment_sections))
+
+          output_path = os.environ['GITHUB_OUTPUT']
+          with open(output_path, 'a', encoding='utf-8') as handle:
+              handle.write('comment_body<<COMMENT\n')
+              handle.write(comment_body)
+              handle.write('\nCOMMENT\n')
+              handle.write(f"has_errors={'true' if error_findings else 'false'}\n")
+              handle.write(f"has_warnings={'true' if findings and not error_findings else 'false'}\n")
+
           PY
+
+      - name: Upload JSON summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: repo-health-selfcheck-${{ github.run_id }}
+          path: repo-health-summary.json
+          if-no-files-found: warn
+
+      - name: Publish PR checklist comment
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pull_request_number != '' && steps.aggregate.outputs.comment_body != '' }}
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ github.event.inputs.pull_request_number }}
+          COMMENT_BODY: ${{ steps.aggregate.outputs.comment_body }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const marker = '<!-- repo-health-selfcheck -->';
+            const prNumber = parseInt(process.env.PR_NUMBER || '', 10);
+            if (!prNumber) {
+              core.info('No PR number supplied; skipping comment.');
+              return;
+            }
+            const body = `${marker}\n${process.env.COMMENT_BODY.trim()}\n`;
+
+            const { data: existingComments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              per_page: 100,
+            });
+
+            const match = existingComments.find((comment) => comment.body && comment.body.includes(marker));
+
+            if (match) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: match.id,
+                body,
+              });
+              core.info(`Updated existing repo health comment (${match.id}).`);
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body,
+              });
+              core.info(`Posted new repo health comment on PR #${prNumber}.`);
+            }
+
+      - name: Fail on blocking issues
+        if: ${{ steps.aggregate.outputs.has_errors == 'true' }}
+        run: |
+          echo "Blocking repo health findings detected; marking the run as failed."
+          exit 1

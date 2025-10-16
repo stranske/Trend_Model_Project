@@ -14,6 +14,8 @@
 - **Cosmetic repair helper**: `.github/workflows/maint-45-cosmetic-repair.yml` runs pytest + guardrail fixers on demand and opens a labelled PR if adjustments are needed.
 - **Health checks**: repo pulse (`health-40-repo-selfcheck.yml`), weekly health sweep (`health-41-repo-health.yml`), actionlint (`health-42-actionlint.yml`), CI signature guard (`health-43-ci-signature-guard.yml`), branch‑protection verifier (`health-44-gate-branch-protection.yml`), and agents workflow guard (`health-45-agents-guard.yml`).
 
+  - *Green definition*: The repo pulse self-check now treats warning-only runs as green. Missing labels or permission gaps produce workflow warnings, a JSON artifact, and (on demand) a PR checklist, but the job only fails on error-level findings such as missing default-branch protection. When everything passes, the checklist reports “No action required.”
+
 - **Single entry point**: `agents-70-orchestrator.yml`. All consumer
   dispatches route through the orchestrator; the Agents 61/62 shims remain
   retired and must not return.
