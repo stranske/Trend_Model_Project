@@ -27,6 +27,22 @@ Maintenance & repo health ──► Issue / agents automation
 Gate opens the door, reusable CI fans out the heavy lifting, maintenance keeps
 the surface polished, and the agents stack orchestrates follow-up work.
 
+### Quick orientation for new contributors
+
+When you first land on the project:
+
+1. **Skim the bucket summaries below** to understand which workflows will react
+   to your pull request or scheduled automation.
+2. **Use the workflow summary table** as the canonical source for triggers,
+   required status, and log links when you need to confirm behaviour or share a
+   run with reviewers.
+3. **Review [How to change a workflow safely](#how-to-change-a-workflow-safely)**
+   before editing any YAML. It enumerates the guardrails, labels, and approval
+   steps you must follow.
+4. **Cross-reference the [Workflow Catalog](WORKFLOWS.md)** for deeper YAML
+   specifics (inputs, permissions, job layout) once you know which surface you
+   are touching.
+
 ## Buckets and canonical workflows
 
 ### PR checks (Gate + Autofix)
@@ -112,6 +128,7 @@ the surface polished, and the agents stack orchestrates follow-up work.
 | Issue / agents automation | Agents 63 Codex Issue Bridge (`agents-63-codex-issue-bridge.yml`) | `issues`, `workflow_dispatch` | Bootstrap branches and PRs from labelled issues. | ✅ Critical surface | [Agents 63 bridge logs](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-63-codex-issue-bridge.yml) |
 | Issue / agents automation | Agents 63 ChatGPT Issue Sync (`agents-63-chatgpt-issue-sync.yml`) | `workflow_dispatch` | Keep curated topic files in sync with issues. | ✅ Critical surface | [Agents 63 sync runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-63-chatgpt-issue-sync.yml) |
 | Issue / agents automation | Agents 64 Verify Agent Assignment (`agents-64-verify-agent-assignment.yml`) | `schedule`, `workflow_dispatch` | Audit orchestrated assignments and alert on drift. | ⚪ Scheduled | [Agents 64 audit history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-64-verify-agent-assignment.yml) |
+| Issue / agents automation | Agents Critical Guard (`agents-critical-guard.yml`) | `pull_request` | Block deletion or renaming of protected agents workflows before maintainer review. | ✅ Required when PR touches protected files | [Agents Critical Guard runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-critical-guard.yml) |
 | Error checking, linting, and testing topology | Reusable Python CI (`reusable-10-ci-python.yml`) | `workflow_call` | Provide shared lint/type/test matrix for Gate and manual callers. | ✅ When invoked | [Reusable Python CI runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/reusable-10-ci-python.yml) |
 | Error checking, linting, and testing topology | Reusable Docker CI (`reusable-12-ci-docker.yml`) | `workflow_call` | Build and smoke-test container images. | ✅ When invoked | [Reusable Docker runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/reusable-12-ci-docker.yml) |
 | Error checking, linting, and testing topology | Reusable Agents (`reusable-16-agents.yml`) | `workflow_call` | Power orchestrated dispatch. | ✅ When invoked | [Reusable Agents history](https://github.com/stranske/Trend_Model_Project/actions/workflows/reusable-16-agents.yml) |
@@ -160,12 +177,15 @@ the surface polished, and the agents stack orchestrates follow-up work.
 1. Start with the [Agents Workflow Protection Policy](./AGENTS_POLICY.md) to
    confirm the change fits the allowlist and review the guardrails.
 2. File or link the incident/maintenance issue describing the need for the
-   change.
+   change. Capture the risk assessment and expected blast radius in that issue.
 3. Secure the required `agents:allow-change` label (maintainers only) before
-   pushing edits to protected workflows.
+   pushing edits to protected workflows. Gate or the orchestrator will block the
+   PR without it.
 4. Keep Code Owner review enabled so the protected files land only with explicit
-   maintainer approval.
-5. After merge, remove the label and verify the guard workflows report green.
+   maintainer approval. At least one owning maintainer must approve before
+   merging.
+5. After merge, remove the label, confirm Maint 46 processed the follow-up
+   hygiene, and verify both Agents Critical Guard and Health 45 report green.
 
 ## Verification checklist
 
