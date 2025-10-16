@@ -31,8 +31,9 @@ the surface polished, and the agents stack orchestrates follow-up work.
 
 When you first land on the project:
 
-1. **Skim the bucket summaries below** to understand which workflows will react
-   to your pull request or scheduled automation.
+1. **Skim the [Topology at a glance](#topology-at-a-glance) table and the bucket
+   summaries below** to understand which workflows will react to your pull
+   request or scheduled automation.
 2. **Use the workflow summary table** as the canonical source for triggers,
    required status, and log links when you need to confirm behaviour or share a
    run with reviewers.
@@ -42,6 +43,17 @@ When you first land on the project:
 4. **Cross-reference the [Workflow Catalog](WORKFLOWS.md)** for deeper YAML
    specifics (inputs, permissions, job layout) once you know which surface you
    are touching.
+
+## Topology at a glance
+
+| Bucket | Where it runs | YAML entry points | Why it exists |
+| --- | --- | --- | --- |
+| PR checks | Every pull request event (including `pull_request_target` for fork visibility) | `pr-00-gate.yml`, `pr-02-autofix.yml` | Keep the default branch green by running the gating matrix, autofix sweep, and docs-only short circuit before reviewers waste time. |
+| Maintenance & repo health | Daily/weekly schedules plus manual dispatch | `maint-46-post-ci.yml`, `maint-45-cosmetic-repair.yml`, `health-4x-*.yml` | Scrub lingering CI debt, enforce branch protection, and surface drift before it breaks contributor workflows. |
+| Issue / agents automation | Orchestrator dispatch (`workflow_dispatch`, `workflow_call`, `issues`) | `agents-70-orchestrator.yml`, `agents-63-*.yml`, `agents-64-verify-agent-assignment.yml`, `agents-critical-guard.yml` | Translate labelled issues into automated work while keeping the protected agents surface locked behind guardrails. |
+| Error checking, linting, and testing topology | Reusable fan-out invoked by Gate, Maint 46, and manual triggers | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `selftest-runner.yml` | Provide a single source of truth for lint/type/test/container jobs so every caller runs the same matrix with consistent tooling. |
+
+Keep this table handy when you are triaging automation: it confirms which workflows wake up on which events, the YAML files to inspect, and the safety purpose each bucket serves.
 
 ## Buckets and canonical workflows
 
