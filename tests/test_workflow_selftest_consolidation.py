@@ -6,8 +6,12 @@ import yaml
 
 WORKFLOW_DIR = pathlib.Path(".github/workflows")
 ARCHIVE_DIR = pathlib.Path("Old/workflows")
-SELFTEST_PATH = WORKFLOW_DIR / "selftest-81-reusable-ci.yml"
 RUNNER_PATH = WORKFLOW_DIR / "selftest-runner.yml"
+REUSABLE_PATH = WORKFLOW_DIR / "selftest-reusable-ci.yml"
+
+
+def _read_workflow(path: pathlib.Path) -> dict:
+    return yaml.safe_load(path.read_text()) or {}
 
 
 def _resolve_triggers(data: dict) -> dict:
@@ -30,21 +34,82 @@ def _resolve_triggers(data: dict) -> dict:
 
 
 def test_selftest_workflow_inventory() -> None:
-    """Only the consolidated self-test runner should remain active."""
+    """Nightly reusable CI and manual runner should be the only active workflows."""
 
     selftest_workflows = sorted(
         path.name for path in WORKFLOW_DIR.glob("*selftest*.yml")
     )
-    expected = ["selftest-runner.yml"]
+    expected = ["selftest-reusable-ci.yml", "selftest-runner.yml"]
     assert (
         selftest_workflows == expected
     ), f"Active self-test inventory drifted; expected {expected} but saw {selftest_workflows}."
 
 
+def test_selftest_reusable_ci_dispatch_contract() -> None:
+    data = _read_workflow(REUSABLE_PATH)
+    triggers = _resolve_triggers(data)
+
+    assert (
+        set(triggers) == {"schedule", "workflow_dispatch"}
+    ), "Reusable CI workflow should expose schedule and workflow_dispatch triggers."
+
+    schedule_entries = triggers.get("schedule", [])
+    assert isinstance(schedule_entries, list) and schedule_entries, (
+        "Reusable CI workflow should declare at least one cron schedule entry."
+    )
+    primary_schedule = schedule_entries[0]
+    assert (
+        primary_schedule.get("cron") == "30 6 * * *"
+    ), "Reusable CI nightly cron drifted; update docs/tests alongside schedule changes."
+
+    workflow_dispatch = triggers.get("workflow_dispatch") or {}
+    inputs = workflow_dispatch.get("inputs", {})
+
+    reason = inputs.get("reason") or {}
+    assert reason, "Reusable CI dispatch must expose a reason input."
+    assert (
+        reason.get("default") == "nightly verification"
+    ), "Reason input default should explain the nightly verification."
+    reason_required = reason.get("required")
+    assert reason_required in (
+        None,
+        False,
+        "false",
+    ), "Reason input should remain optional for manual runs."
+
+    python_versions = inputs.get("python_versions") or {}
+    assert python_versions, "Reusable CI dispatch must expose python_versions input."
+    assert (
+        python_versions.get("default") == ""
+    ), "python_versions should default to an empty override for nightly runs."
+    pv_required = python_versions.get("required")
+    assert pv_required in (
+        None,
+        False,
+        "false",
+    ), "python_versions input should remain optional."
+
+    permissions = data.get("permissions", {})
+    assert permissions, "Reusable CI workflow should declare minimal permissions."
+    assert (
+        permissions.get("contents") == "read"
+    ), "Reusable CI should only request read access to contents."
+    assert (
+        permissions.get("actions") == "read"
+    ), "Reusable CI should only request read access to actions metadata."
+    unexpected_permissions = sorted(
+        key for key in permissions if key not in {"contents", "actions"}
+    )
+    assert not unexpected_permissions, (
+        "Reusable CI workflow requested unexpected permissions: "
+        f"{unexpected_permissions}."
+    )
+
+
 def test_selftest_runner_inputs_cover_variants() -> None:
     """The consolidated runner should expose the requested input variants."""
 
-    data = yaml.safe_load(RUNNER_PATH.read_text()) or {}
+    data = _read_workflow(RUNNER_PATH)
     triggers = _resolve_triggers(data)
 
     assert triggers, "selftest-runner.yml is missing trigger definitions."
@@ -101,10 +166,157 @@ def test_selftest_runner_inputs_cover_variants() -> None:
     ), "Runner should delegate execution to reusable-10-ci-python.yml."
 
 
+def test_selftest_reusable_ci_jobs_contract() -> None:
+    data = _read_workflow(REUSABLE_PATH)
+    jobs = data.get("jobs", {})
+
+    scenario = jobs.get("scenario") or {}
+    assert scenario, "Reusable CI workflow must define the scenario job."
+    assert (
+        scenario.get("uses") == "./.github/workflows/reusable-10-ci-python.yml"
+    ), "Scenario job must fan out to reusable-10-ci-python.yml via jobs.<id>.uses."
+    assert (
+        scenario.get("secrets") == "inherit"
+    ), "Scenario job should inherit caller secrets for repo access."
+
+    scenario_with = scenario.get("with", {})
+    required_with = {
+        "python-versions",
+        "artifact-prefix",
+        "enable-metrics",
+        "enable-history",
+        "enable-classification",
+        "enable-coverage-delta",
+        "enable-soft-gate",
+        "baseline-coverage",
+        "coverage-alert-drop",
+    }
+    assert required_with.issubset(
+        scenario_with
+    ), f"Scenario job is missing inputs: {sorted(required_with - set(scenario_with))}."
+    assert (
+        scenario_with["artifact-prefix"] == "sf-${{ matrix.name }}-"
+    ), "Scenario job should namespace artifacts with the matrix name prefix."
+    assert (
+        scenario_with["python-versions"]
+        == "${{ inputs.python_versions && inputs.python_versions != '' && inputs.python_versions || '[\"3.11\"]' }}"
+    ), "Scenario job python-versions forwarder drifted; keep fallback logic intact."
+
+    strategy = scenario.get("strategy", {})
+    assert (
+        strategy.get("fail-fast") is False
+    ), "Scenario matrix must disable fail-fast to exercise every combination."
+    matrix_include = strategy.get("matrix", {}).get("include", [])
+    names = [entry.get("name") for entry in matrix_include]
+    expected_names = [
+        "minimal",
+        "metrics_only",
+        "metrics_history",
+        "classification_only",
+        "coverage_delta",
+        "full_soft_gate",
+    ]
+    assert (
+        names == expected_names
+    ), "Reusable CI scenario matrix drifted; update tests if intentional."
+
+    def _entry(name: str) -> dict:
+        return next((item for item in matrix_include if item.get("name") == name), {})
+
+    coverage_delta = _entry("coverage_delta")
+    assert (
+        coverage_delta.get("baseline-coverage") == "65"
+    ), "coverage_delta scenario baseline-coverage should remain '65'."
+    assert (
+        coverage_delta.get("coverage-alert-drop") == "2"
+    ), "coverage_delta scenario coverage-alert-drop should remain '2'."
+
+    full_soft_gate = _entry("full_soft_gate")
+    assert (
+        full_soft_gate.get("baseline-coverage") == "65"
+    ), "full_soft_gate scenario baseline-coverage should remain '65'."
+    assert (
+        full_soft_gate.get("coverage-alert-drop") == "2"
+    ), "full_soft_gate scenario coverage-alert-drop should remain '2'."
+
+    aggregate = jobs.get("aggregate") or {}
+    assert aggregate, "Reusable CI workflow must include the aggregate job."
+    assert (
+        aggregate.get("needs") == "scenario"
+    ), "Aggregate job should depend on the matrix execution."
+    assert (
+        aggregate.get("if") == "${{ always() }}"
+    ), "Aggregate job must always run to collect results."
+    assert (
+        aggregate.get("runs-on") == "ubuntu-latest"
+    ), "Aggregate job should execute on ubuntu-latest."
+
+    permissions = aggregate.get("permissions", {})
+    assert (
+        permissions.get("contents") == "read"
+    ), "Aggregate job should only require read access to contents."
+    assert (
+        permissions.get("actions") == "read"
+    ), "Aggregate job should only require read access to actions metadata."
+
+    outputs = aggregate.get("outputs", {})
+    assert {"verification_table", "failures", "run_id"}.issubset(
+        outputs
+    ), "Aggregate job outputs drifted; downstream jobs require table, failures, and run_id."
+
+    env = aggregate.get("env", {})
+    assert (
+        env.get("SCENARIO_LIST")
+        == "minimal, metrics_only, metrics_history, classification_only, coverage_delta, full_soft_gate"
+    ), "Aggregate SCENARIO_LIST should enumerate the scenario matrix."
+    assert (
+        env.get("PYTHON_VERSIONS")
+        == "${{ inputs.python_versions && inputs.python_versions != '' && inputs.python_versions || '[\"3.11\"]' }}"
+    ), "Aggregate PYTHON_VERSIONS fallback logic drifted; keep nightly default intact."
+    assert (
+        env.get("TRIGGER_EVENT") == "${{ github.event_name }}"
+    ), "Aggregate job should capture the trigger event name."
+
+    steps = aggregate.get("steps", [])
+
+    def _find_step(predicate) -> dict:
+        return next((step for step in steps if predicate(step)), {})
+
+    verify_step = _find_step(lambda step: step.get("id") == "verify")
+    assert verify_step, "Aggregate job must include the verification step."
+    assert (
+        verify_step.get("uses") == "actions/github-script@v7"
+    ), "Verification step should leverage actions/github-script@v7."
+    verify_env = verify_step.get("env", {})
+    assert (
+        verify_env.get("PYTHON_VERSIONS") == "${{ env.PYTHON_VERSIONS }}"
+    ), "Verification step should read python versions from aggregate env."
+    assert (
+        verify_env.get("SCENARIO_LIST") == "${{ env.SCENARIO_LIST }}"
+    ), "Verification step should read scenario list from aggregate env."
+
+    upload_step = _find_step(lambda step: step.get("name") == "Upload self-test report")
+    assert upload_step, "Aggregate job must upload the self-test report artifact."
+    assert (
+        upload_step.get("uses") == "actions/upload-artifact@v4"
+    ), "Self-test report upload should use actions/upload-artifact@v4."
+    upload_with = upload_step.get("with", {})
+    assert (
+        upload_with.get("name") == "selftest-report"
+    ), "Self-test report artifact name should remain stable for documentation/tests."
+    assert (
+        upload_with.get("path") == "selftest-report.json"
+    ), "Self-test report upload path drifted; keep JSON summary name stable."
+
+    fail_step = _find_step(lambda step: step.get("name") == "Fail on verification errors")
+    assert fail_step, "Aggregate job must fail when verification mismatches occur."
+    assert (
+        fail_step.get("if") == "${{ steps.verify.outputs.failures != '0' }}"
+    ), "Failure guard should inspect verification failure count."
 def test_selftest_runner_publish_job_contract() -> None:
     """Publish-results job must enforce verification guardrails consistently."""
 
-    data = yaml.safe_load(RUNNER_PATH.read_text()) or {}
+    data = _read_workflow(RUNNER_PATH)
     jobs = data.get("jobs", {})
     publish = jobs.get("publish-results") or {}
 
@@ -222,13 +434,12 @@ def test_selftest_triggers_are_manual_only() -> None:
         "pull_request",
         "pull_request_target",
         "push",
-        "schedule",
     }
     required_manual_trigger = "workflow_dispatch"
     allowed_triggers = {required_manual_trigger, "workflow_call"}
 
     for workflow_file in selftest_files:
-        data = yaml.safe_load(workflow_file.read_text()) or {}
+        data = _read_workflow(workflow_file)
 
         triggers_raw = data.get("on")
         if triggers_raw is None and True in data:
@@ -253,10 +464,10 @@ def test_selftest_triggers_are_manual_only() -> None:
         unexpected = sorted(trigger_keys & disallowed_triggers)
         assert not unexpected, (
             f"{workflow_file.name} exposes disallowed triggers: {unexpected}. "
-            "Self-tests should not run automatically on PRs, pushes, or schedules."
+            "Self-tests should not run automatically on PRs or pushes."
         )
 
-        unsupported = sorted(trigger_keys - allowed_triggers)
+        unsupported = sorted(trigger_keys - allowed_triggers - {"schedule"})
         assert not unsupported, (
             f"{workflow_file.name} declares unsupported triggers: {unsupported}. "
             "Only workflow_dispatch (and workflow_call for reusable entry points) are permitted."
@@ -267,15 +478,24 @@ def test_selftest_triggers_are_manual_only() -> None:
             "trigger so self-tests remain manually invoked."
         )
 
-        assert trigger_keys == {
-            required_manual_trigger
-        }, f"{workflow_file.name} should only expose {required_manual_trigger}."
+        if workflow_file.name == REUSABLE_PATH.name:
+            assert trigger_keys == {
+                required_manual_trigger,
+                "schedule",
+            }, (
+                "selftest-reusable-ci.yml should expose a nightly schedule in addition "
+                "to workflow_dispatch."
+            )
+        else:
+            assert trigger_keys == {
+                required_manual_trigger
+            }, f"{workflow_file.name} should only expose {required_manual_trigger}."
 
 
 def test_selftest_dispatch_reason_input() -> None:
     """Self-test dispatch should keep the reason field optional but present."""
 
-    raw_data = yaml.safe_load(RUNNER_PATH.read_text()) or {}
+    raw_data = _read_workflow(RUNNER_PATH)
 
     triggers_raw = raw_data.get("on")
     if triggers_raw is None and True in raw_data:
@@ -345,7 +565,7 @@ def test_archived_selftests_retain_manual_triggers() -> None:
     allowed_triggers = {required_manual_trigger} | optional_triggers
 
     for workflow_file in archived_files:
-        data = yaml.safe_load(workflow_file.read_text()) or {}
+        data = _read_workflow(workflow_file)
 
         triggers_raw = data.get("on")
         if triggers_raw is None and True in data:
@@ -389,7 +609,7 @@ def test_selftest_matrix_and_aggregate_contract() -> None:
         RUNNER_PATH.exists()
     ), "selftest-runner.yml is missing from .github/workflows/"
 
-    data = yaml.safe_load(RUNNER_PATH.read_text()) or {}
+    data = _read_workflow(RUNNER_PATH)
     jobs = data.get("jobs", {})
 
     scenario_job = jobs.get("scenario") or {}
