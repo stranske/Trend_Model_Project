@@ -62,6 +62,7 @@ the surface polished, and the agents stack orchestrates follow-up work.
 - [Onboarding checklist (save for future you)](#onboarding-checklist-save-for-future-you)
 - [Scenario cheat sheet](#scenario-cheat-sheet)
 - [Bucket quick reference](#bucket-quick-reference)
+- [Bucket guardrails at a glance](#bucket-guardrails-at-a-glance)
 - [Observability surfaces by bucket](#observability-surfaces-by-bucket)
 - [Topology at a glance](#topology-at-a-glance)
 - [Buckets and canonical workflows](#buckets-and-canonical-workflows)
@@ -99,7 +100,11 @@ When you first land on the project:
    required status, and log links when you need to confirm behaviour or share a
    run with reviewers. Pair it with the
    [observability surfaces](#observability-surfaces-by-bucket) section to grab
-   the exact permalink or artifact bundle you need for status updates.
+   the exact permalink or artifact bundle you need for status updates. If you
+   need to know which rules you must follow before editing a YAML file, jump
+   straight to [Bucket guardrails at a glance](#bucket-guardrails-at-a-glance)
+   for the enforcement summary, then finish the deep dive in
+   [How to change a workflow safely](#how-to-change-a-workflow-safely).
 3. **Review [How to change a workflow safely](#how-to-change-a-workflow-safely)**
    before editing any YAML. It enumerates the guardrails, labels, and approval
    steps you must follow.
@@ -242,6 +247,19 @@ fires where” without diving into the full tables:
     [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/reusable-12-ci-docker.yml).
     Self-test runner:
     [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/selftest-runner.yml).
+
+### Bucket guardrails at a glance
+
+Use this table when you need a snapshot of the non-negotiable rules that govern
+each automation surface. Every line links back to the policy or workflow that
+enforces the guardrail so you know where to confirm compliance:
+
+| Bucket | Guardrails you must respect | Where it is enforced |
+| --- | --- | --- |
+| PR checks | Gate is required on every PR; docs-only detection happens inside Gate; Autofix is label-gated and cancels duplicates so it never races Maint 46. | Gate workflow protection + [branch protection](#branch-protection-playbook) keep the check mandatory. |
+| Maintenance & repo health | Maint 46 only runs after Gate succeeds; Health 40–45 must stay enabled so the default branch keeps its heartbeat; Maint 45 is manual and should only be dispatched by maintainers. | Maint 46 summary comment, Health dashboard history, and Maint 45 run permissions. |
+| Issue / agents automation | `agents:allow-change` label, Code Owner review, and Agents Critical Guard are mandatory before protected YAML merges; orchestrator dispatch only accepts labelled issues. | [Agents Workflow Protection Policy](./AGENTS_POLICY.md), Agents Critical Guard, and repository label configuration. |
+| Error checking, linting, and testing topology | Reusable workflows run with signed references; callers must not fork or bypass them; self-test runner is manual and should mirror Gate’s matrix. | Health 42 Actionlint, Health 43 signature guard, and the reusable workflow permissions matrix. |
 
 ### Observability surfaces by bucket
 
