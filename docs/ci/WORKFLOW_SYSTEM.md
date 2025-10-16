@@ -14,7 +14,18 @@ contributor experiences on a pull request or on the maintenance calendar:
    fan out lint, type, test, and container verification across the matrix.
 
 Each bucket below calls out the canonical workflows, the YAML entry point, and
-the policy guardrails that keep the surface safe.
+the policy guardrails that keep the surface safe. Keep this mental map handy:
+
+```
+PR checks ──► Reusable CI matrix
+    │              │
+    │              └──► Error checking, linting, testing topology
+    ▼
+Maintenance & repo health ──► Issue / agents automation
+```
+
+Gate opens the door, reusable CI fans out the heavy lifting, maintenance keeps
+the surface polished, and the agents stack orchestrates follow-up work.
 
 ## Buckets and canonical workflows
 
@@ -85,27 +96,27 @@ the policy guardrails that keep the surface safe.
 
 ## Workflow summary table
 
-| Workflow | Trigger | Purpose | Required? | Artifacts / logs |
-| --- | --- | --- | --- | --- |
-| Gate (`pr-00-gate.yml`) | `pull_request`, `pull_request_target` | Detect docs-only diffs, orchestrate CI fan-out, and publish the combined status. | ✅ Always | [Gate workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml) |
-| PR 02 Autofix (`pr-02-autofix.yml`) | `pull_request` (label gated) | Run optional fixers when the `autofix` label is present. | ⚪ Optional | [Autofix runs & artifacts](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-02-autofix.yml) |
-| Maint 46 Post CI (`maint-46-post-ci.yml`) | `workflow_run` (Gate success) | Consolidate CI output, apply small hygiene fixes, and update failure-tracker state. | ⚪ Optional (auto) | [Maint 46 run log](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-46-post-ci.yml) |
-| Maint 45 Cosmetic Repair (`maint-45-cosmetic-repair.yml`) | `workflow_dispatch` | Run pytest + fixers manually and open a labelled PR when changes are required. | ⚪ Manual | [Maint 45 manual entry](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-45-cosmetic-repair.yml) |
-| Health 40 Repo Selfcheck (`health-40-repo-selfcheck.yml`) | `schedule` (daily) | Capture repository pulse metrics. | ⚪ Scheduled | [Health 40 summary](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-40-repo-selfcheck.yml) |
-| Health 41 Repo Health (`health-41-repo-health.yml`) | `schedule` (weekly) | Perform weekly dependency and repo hygiene sweep. | ⚪ Scheduled | [Health 41 dashboard](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-41-repo-health.yml) |
-| Health 42 Actionlint (`health-42-actionlint.yml`) | `schedule` (daily) | Enforce actionlint across workflows. | ⚪ Scheduled | [Health 42 logs](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-42-actionlint.yml) |
-| Health 43 CI Signature Guard (`health-43-ci-signature-guard.yml`) | `schedule` (daily) | Verify reusable workflow signature pins. | ⚪ Scheduled | [Health 43 verification](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-43-ci-signature-guard.yml) |
-| Health 44 Gate Branch Protection (`health-44-gate-branch-protection.yml`) | `schedule`, `workflow_dispatch` | Ensure Gate and Agents Guard stay required on the default branch. | ⚪ Scheduled (fails if misconfigured) | [Health 44 enforcement logs](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-44-gate-branch-protection.yml) |
-| Health 45 Agents Guard (`health-45-agents-guard.yml`) | `pull_request`, `workflow_dispatch`, `schedule` | Block unauthorized changes to protected agents workflows. | ✅ Required when `agents-*.yml` changes | [Agents Guard run history](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-45-agents-guard.yml) |
-| Agents 70 Orchestrator (`agents-70-orchestrator.yml`) | `workflow_call`, `workflow_dispatch` | Fan out consumer automation and dispatch work. | ✅ Critical surface | [Orchestrator runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-70-orchestrator.yml) |
-| Agents 63 Codex Issue Bridge (`agents-63-codex-issue-bridge.yml`) | `issues`, `workflow_dispatch` | Bootstrap branches and PRs from labelled issues. | ✅ Critical surface | [Agents 63 bridge logs](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-63-codex-issue-bridge.yml) |
-| Agents 63 ChatGPT Issue Sync (`agents-63-chatgpt-issue-sync.yml`) | `workflow_dispatch` | Keep curated topic files in sync with issues. | ✅ Critical surface | [Agents 63 sync runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-63-chatgpt-issue-sync.yml) |
-| Agents 64 Verify Agent Assignment (`agents-64-verify-agent-assignment.yml`) | `schedule`, `workflow_dispatch` | Audit orchestrated assignments and alert on drift. | ⚪ Scheduled | [Agents 64 audit history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-64-verify-agent-assignment.yml) |
-| Reusable Python CI (`reusable-10-ci-python.yml`) | `workflow_call` | Provide shared lint/type/test matrix for Gate and manual callers. | ✅ When invoked | [Reusable Python CI runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/reusable-10-ci-python.yml) |
-| Reusable Docker CI (`reusable-12-ci-docker.yml`) | `workflow_call` | Build and smoke-test container images. | ✅ When invoked | [Reusable Docker runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/reusable-12-ci-docker.yml) |
-| Reusable Agents (`reusable-16-agents.yml`) | `workflow_call` | Power orchestrated dispatch. | ✅ When invoked | [Reusable Agents history](https://github.com/stranske/Trend_Model_Project/actions/workflows/reusable-16-agents.yml) |
-| Reusable Autofix (`reusable-18-autofix.yml`) | `workflow_call` | Centralise formatter + fixer execution. | ✅ When invoked | [Reusable Autofix runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/reusable-18-autofix.yml) |
-| Self-test Runner (`selftest-runner.yml`) | `workflow_dispatch` | Run manual verification matrix across interpreters. | ⚪ Manual | [Self-test runner history](https://github.com/stranske/Trend_Model_Project/actions/workflows/selftest-runner.yml) |
+| Bucket | Workflow | Trigger | Purpose | Required? | Artifacts / logs |
+| --- | --- | --- | --- | --- | --- |
+| PR checks | Gate (`pr-00-gate.yml`) | `pull_request`, `pull_request_target` | Detect docs-only diffs, orchestrate CI fan-out, and publish the combined status. | ✅ Always | [Gate workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml) |
+| PR checks | PR 02 Autofix (`pr-02-autofix.yml`) | `pull_request` (label gated) | Run optional fixers when the `autofix` label is present. | ⚪ Optional | [Autofix runs & artifacts](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-02-autofix.yml) |
+| Maintenance & repo health | Maint 46 Post CI (`maint-46-post-ci.yml`) | `workflow_run` (Gate success) | Consolidate CI output, apply small hygiene fixes, and update failure-tracker state. | ⚪ Optional (auto) | [Maint 46 run log](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-46-post-ci.yml) |
+| Maintenance & repo health | Maint 45 Cosmetic Repair (`maint-45-cosmetic-repair.yml`) | `workflow_dispatch` | Run pytest + fixers manually and open a labelled PR when changes are required. | ⚪ Manual | [Maint 45 manual entry](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-45-cosmetic-repair.yml) |
+| Maintenance & repo health | Health 40 Repo Selfcheck (`health-40-repo-selfcheck.yml`) | `schedule` (daily) | Capture repository pulse metrics. | ⚪ Scheduled | [Health 40 summary](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-40-repo-selfcheck.yml) |
+| Maintenance & repo health | Health 41 Repo Health (`health-41-repo-health.yml`) | `schedule` (weekly) | Perform weekly dependency and repo hygiene sweep. | ⚪ Scheduled | [Health 41 dashboard](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-41-repo-health.yml) |
+| Maintenance & repo health | Health 42 Actionlint (`health-42-actionlint.yml`) | `schedule` (daily) | Enforce actionlint across workflows. | ⚪ Scheduled | [Health 42 logs](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-42-actionlint.yml) |
+| Maintenance & repo health | Health 43 CI Signature Guard (`health-43-ci-signature-guard.yml`) | `schedule` (daily) | Verify reusable workflow signature pins. | ⚪ Scheduled | [Health 43 verification](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-43-ci-signature-guard.yml) |
+| Maintenance & repo health | Health 44 Gate Branch Protection (`health-44-gate-branch-protection.yml`) | `schedule`, `workflow_dispatch` | Ensure Gate and Agents Guard stay required on the default branch. | ⚪ Scheduled (fails if misconfigured) | [Health 44 enforcement logs](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-44-gate-branch-protection.yml) |
+| Maintenance & repo health | Health 45 Agents Guard (`health-45-agents-guard.yml`) | `pull_request`, `workflow_dispatch`, `schedule` | Block unauthorized changes to protected agents workflows. | ✅ Required when `agents-*.yml` changes | [Agents Guard run history](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-45-agents-guard.yml) |
+| Issue / agents automation | Agents 70 Orchestrator (`agents-70-orchestrator.yml`) | `workflow_call`, `workflow_dispatch` | Fan out consumer automation and dispatch work. | ✅ Critical surface | [Orchestrator runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-70-orchestrator.yml) |
+| Issue / agents automation | Agents 63 Codex Issue Bridge (`agents-63-codex-issue-bridge.yml`) | `issues`, `workflow_dispatch` | Bootstrap branches and PRs from labelled issues. | ✅ Critical surface | [Agents 63 bridge logs](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-63-codex-issue-bridge.yml) |
+| Issue / agents automation | Agents 63 ChatGPT Issue Sync (`agents-63-chatgpt-issue-sync.yml`) | `workflow_dispatch` | Keep curated topic files in sync with issues. | ✅ Critical surface | [Agents 63 sync runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-63-chatgpt-issue-sync.yml) |
+| Issue / agents automation | Agents 64 Verify Agent Assignment (`agents-64-verify-agent-assignment.yml`) | `schedule`, `workflow_dispatch` | Audit orchestrated assignments and alert on drift. | ⚪ Scheduled | [Agents 64 audit history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-64-verify-agent-assignment.yml) |
+| Error checking, linting, and testing topology | Reusable Python CI (`reusable-10-ci-python.yml`) | `workflow_call` | Provide shared lint/type/test matrix for Gate and manual callers. | ✅ When invoked | [Reusable Python CI runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/reusable-10-ci-python.yml) |
+| Error checking, linting, and testing topology | Reusable Docker CI (`reusable-12-ci-docker.yml`) | `workflow_call` | Build and smoke-test container images. | ✅ When invoked | [Reusable Docker runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/reusable-12-ci-docker.yml) |
+| Error checking, linting, and testing topology | Reusable Agents (`reusable-16-agents.yml`) | `workflow_call` | Power orchestrated dispatch. | ✅ When invoked | [Reusable Agents history](https://github.com/stranske/Trend_Model_Project/actions/workflows/reusable-16-agents.yml) |
+| Error checking, linting, and testing topology | Reusable Autofix (`reusable-18-autofix.yml`) | `workflow_call` | Centralise formatter + fixer execution. | ✅ When invoked | [Reusable Autofix runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/reusable-18-autofix.yml) |
+| Error checking, linting, and testing topology | Self-test Runner (`selftest-runner.yml`) | `workflow_dispatch` | Run manual verification matrix across interpreters. | ⚪ Manual | [Self-test runner history](https://github.com/stranske/Trend_Model_Project/actions/workflows/selftest-runner.yml) |
 
 ## Policy
 
@@ -161,14 +172,10 @@ the policy guardrails that keep the surface safe.
 - Gate badge in `README.md` and branch protection both show as required for the default branch.
 - Health 45 Agents Guard appears as a required check whenever protected workflows change and reports ✅ in the latest run.
 - Maintainers can point to the most recent [Workflow System Overview](../ci/WORKFLOW_SYSTEM.md) update in pull-request history, demonstrating that contributors can discover the guardrails without escalation.
-
 - Gate runs and passes on docs-only PRs and appears as a required check.
-- Health 45 blocks unauthorized agents workflow edits and reports as the
-  required check whenever `agents-*.yml` files change.
-- Health 44 confirms branch protection requires Gate and Agents Guard on the
-  default branch.
-- Maint 46 posts a single consolidated summary; autofix artifacts or commits are
-  attached where allowed.
+- Health 45 blocks unauthorized agents workflow edits and reports as the required check whenever `agents-*.yml` files change.
+- Health 44 confirms branch protection requires Gate and Agents Guard on the default branch.
+- Maint 46 posts a single consolidated summary; autofix artifacts or commits are attached where allowed.
 
 ## Branch protection playbook
 
