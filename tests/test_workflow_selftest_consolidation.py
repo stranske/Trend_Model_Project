@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from pathlib import Path
+import pathlib
 
 from pathlib import Path
 
 import yaml
 
-WORKFLOW_DIR = Path(".github/workflows")
-ARCHIVE_DIR = Path("Old/workflows")
+WORKFLOW_DIR = pathlib.Path(".github/workflows")
+ARCHIVE_DIR = pathlib.Path("Old/workflows")
+SELFTEST_PATH = WORKFLOW_DIR / "selftest-81-reusable-ci.yml"
 RUNNER_PATH = WORKFLOW_DIR / "selftest-runner.yml"
 
 
@@ -27,9 +28,7 @@ def _resolve_triggers(data: dict) -> dict:
     if isinstance(triggers_raw, dict):
         return triggers_raw
 
-    raise AssertionError(
-        f"Unexpected trigger configuration: {type(triggers_raw)!r}"
-    )
+    raise AssertionError(f"Unexpected trigger configuration: {type(triggers_raw)!r}")
 
 
 def test_selftest_workflow_inventory() -> None:
@@ -62,25 +61,27 @@ def test_selftest_runner_inputs_cover_variants() -> None:
         field_name: str, expected_options: list[str], *, default: str | None
     ) -> None:
         field = inputs.get(field_name)
-        assert field is not None, f"Missing `{field_name}` input on selftest-runner.yml."
-        assert field.get("type", "choice") == "choice", (
-            f"`{field_name}` should remain a choice input."
-        )
+        assert (
+            field is not None
+        ), f"Missing `{field_name}` input on selftest-runner.yml."
+        assert (
+            field.get("type", "choice") == "choice"
+        ), f"`{field_name}` should remain a choice input."
         options_raw = field.get("options", [])
         options_normalized = [str(option).lower() for option in options_raw]
         expected_normalized = [option.lower() for option in expected_options]
-        assert options_normalized == expected_normalized, (
-            f"Unexpected option set for `{field_name}`: {options_raw!r}."
-        )
+        assert (
+            options_normalized == expected_normalized
+        ), f"Unexpected option set for `{field_name}`: {options_raw!r}."
         if default is not None:
             actual_default = field.get("default")
             if isinstance(actual_default, bool):
                 actual_default_normalized = str(actual_default).lower()
             else:
                 actual_default_normalized = str(actual_default)
-            assert actual_default_normalized == default, (
-                f"`{field_name}` default drifted from {default!r}."
-            )
+            assert (
+                actual_default_normalized == default
+            ), f"`{field_name}` default drifted from {default!r}."
 
     _assert_choice("mode", ["summary", "comment", "dual-runtime"], default="summary")
     _assert_choice("post_to", ["pr-number", "none"], default="none")
@@ -88,17 +89,17 @@ def test_selftest_runner_inputs_cover_variants() -> None:
 
     pr_number = inputs.get("pull_request_number", {})
     required_raw = pr_number.get("required")
-    assert required_raw in (None, False, "false"), (
-        "pull_request_number must remain optional to reuse comment mode outside PRs."
-    )
+    assert required_raw in (
+        None,
+        False,
+        "false",
+    ), "pull_request_number must remain optional to reuse comment mode outside PRs."
 
-    python_versions = inputs.get("python_versions", {})
-    assert python_versions is not None, (
-        "Runner should expose an optional python_versions input to override the matrix."
-    )
-    assert python_versions.get("required") in (None, False, "false"), (
-        "python_versions input must remain optional so the default matrix works."
-    )
+    jobs = data.get("jobs", {})
+    run_matrix = jobs.get("run-matrix") or {}
+    assert (
+        run_matrix.get("uses") == "./.github/workflows/selftest-81-reusable-ci.yml"
+    ), "Runner should delegate execution to selftest-81-reusable-ci.yml."
 
 
 def test_selftest_runner_publish_job_contract() -> None:
@@ -118,18 +119,20 @@ def test_selftest_runner_publish_job_contract() -> None:
 
     permissions = publish.get("permissions", {})
     assert permissions, "publish-results must declare minimal permissions."
-    assert permissions.get("contents") == "read", (
-        "publish-results should only require read access to contents."
-    )
-    assert permissions.get("actions") == "read", (
-        "publish-results should only require read access to actions metadata."
-    )
-    assert permissions.get("pull-requests") == "write", (
-        "publish-results needs pull request write access for comment mode."
-    )
+    assert (
+        permissions.get("contents") == "read"
+    ), "publish-results should only require read access to contents."
+    assert (
+        permissions.get("actions") == "read"
+    ), "publish-results should only require read access to actions metadata."
+    assert (
+        permissions.get("pull-requests") == "write"
+    ), "publish-results needs pull request write access for comment mode."
 
     unexpected_permissions = sorted(
-        key for key in permissions if key not in {"contents", "actions", "pull-requests"}
+        key
+        for key in permissions
+        if key not in {"contents", "actions", "pull-requests"}
     )
     assert not unexpected_permissions, (
         "publish-results should not request extra permissions: "
@@ -153,8 +156,7 @@ def test_selftest_runner_publish_job_contract() -> None:
     env = publish.get("env", {})
     missing_env = sorted(required_env - set(env))
     assert not missing_env, (
-        "publish-results env block drifted; missing keys: "
-        f"{missing_env}."
+        f"publish-results env block drifted; missing keys: {missing_env}."
     )
 
     steps = publish.get("steps", [])
@@ -170,9 +172,7 @@ def test_selftest_runner_publish_job_contract() -> None:
     assert (
         download_step.get("if")
         == "${{ env.ENABLE_HISTORY == 'true' && env.RUN_ID != '' }}"
-    ), (
-        "Download step must guard on enable_history input and aggregate run id."
-    )
+    ), "Download step must guard on enable_history input and aggregate run id."
     download_with = download_step.get("with", {})
     assert (
         download_with.get("run-id") == "${{ env.RUN_ID }}"
