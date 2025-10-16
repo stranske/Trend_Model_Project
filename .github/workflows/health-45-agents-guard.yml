@@ -11,6 +11,8 @@ on:
       - ready_for_review
     paths:
       - '.github/workflows/agents-*.yml'
+      - '.github/workflows/health-45-agents-guard.yml'
+      - '.github/scripts/health-45-guard.js'
 
 permissions:
   contents: read
