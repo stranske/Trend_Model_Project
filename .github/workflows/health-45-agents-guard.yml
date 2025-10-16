@@ -9,9 +9,6 @@ on:
       - labeled
       - unlabeled
       - ready_for_review
-    paths:
-      - '.github/workflows/**'
-      - '.github/scripts/**'
   workflow_dispatch: {}
 
 permissions:
