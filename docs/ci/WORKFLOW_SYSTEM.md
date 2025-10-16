@@ -198,6 +198,9 @@ Keep this table handy when you are triaging automation: it confirms which workfl
    merging.
 5. After merge, remove the label, confirm Maint 46 processed the follow-up
    hygiene, and verify both Agents Critical Guard and Health 45 report green.
+6. Reflect the new state in this document and the [Workflow Catalog](WORKFLOWS.md)
+   so future contributors inherit an accurate topology and guardrail map. Update
+   cross-links in `README.md` / `CONTRIBUTING.md` if the landing surfaces move.
 
 ## Verification checklist
 
