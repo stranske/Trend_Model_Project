@@ -63,8 +63,6 @@
 - Gate runs and passes on a docs‑only PR and is visible as a required check.
 - Health‑45 runs on the same PR (fast path) and passes when no agent workflows are touched.
 - Health‑44 confirms branch protection requires both Gate and the agents guard on the default branch.
-- Health‑45 runs on the same PR (fast path) and passes when no agent workflows are touched.
-- Health‑44 confirms branch protection requires both Gate and the agents guard on the default branch.
 - Maint‑46 posts a single consolidated summary; autofix artifacts or commits are attached where allowed.
 
 ## Branch protection playbook

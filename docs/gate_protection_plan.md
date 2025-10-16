@@ -1,7 +1,7 @@
 # Gate Workflow Branch Protection Plan
 
 ## Scope and Key Constraints
-- Enforce the `gate` GitHub Actions workflow (plus the companion Health-45 Agents Guard check) as required status checks on the default branch (currently `main`).
+- Enforce the `gate` GitHub Actions workflow (plus the companion Health 45 Agents Guard check) as required status checks on the default branch (currently `main`).
 - Remove any legacy required status checks that overlap or conflict with `gate` (e.g., older `CI` workflows).
 - Enable the "Require branches to be up to date" option so merges must include the latest default-branch commits.
 - Preserve existing job names inside `gate.yml` (`core tests (3.11)`, `core tests (3.12)`, `docker smoke`, `gate`) to avoid downstream automation regressions.

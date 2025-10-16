@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Ensure the default branch requires the Gate and agents guard workflows."""
+"""Ensure the default branch requires the Gate and Agents Guard workflows."""
 
 from __future__ import annotations
 
@@ -278,7 +278,7 @@ def diff_contexts(
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Ensure the default branch requires the Gate workflow status check.",
+        description="Ensure the default branch requires the Gate and Health 45 Agents Guard status checks.",
     )
     parser.add_argument(
         "--repo",
@@ -294,7 +294,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--context",
         dest="contexts",
         action="append",
-        help="Status check context to require. May be passed multiple times. Defaults to 'Gate / gate'.",
+        help="Status check context to require. May be passed multiple times. Defaults to the configured required contexts (Gate / gate and Health 45 Agents Guard / Enforce agents workflow protections).",
     )
     parser.add_argument(
         "--token",
