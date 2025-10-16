@@ -121,7 +121,7 @@ Tasks
 
 - Matrix verified on 3.11 and 3.12
 
- - Ruff, mypy, pytest-cov steps produce expected artifacts
+- Ruff, mypy, pytest-cov steps produce expected artifacts
 
 - A sample run of reusable-10 succeeds from workflow_dispatch
 
